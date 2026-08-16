@@ -2,15 +2,21 @@
 
 ระบบ POS ร้านยา — เดิมเก็บข้อมูลทั้งหมดใน `localStorage` ของเบราว์เซอร์ (ไฟล์เดียว `legacy/POS_original.html`)
 กำลัง migrate ไปใช้ **Supabase** เป็นฐานข้อมูลกลาง เพื่อให้เข้าถึงข้อมูลได้จากหลายเครื่อง/หลายผู้ใช้พร้อมกัน
-และ deploy ผ่าน **Vercel** ที่โดเมน `pepos.vercel.app`
+และ deploy ผ่าน **Vercel** ที่ https://pepo-pharmacy.vercel.app
+(`pepos.vercel.app` ถูกจองไปแล้วโดยบัญชีอื่นในระบบ Vercel เลยใช้ `pepo-pharmacy.vercel.app` แทน)
 
 ## สถานะปัจจุบัน
 
-- [x] สร้าง GitHub repo (private)
-- [ ] เชื่อม Supabase project
-- [ ] สร้าง schema ตามรายการโมดูลด้านล่าง
-- [ ] import GitHub repo เข้า Vercel (ตั้งชื่อโปรเจกต์ `pepos`)
-- [ ] ทยอยแปลงแต่ละโมดูลจาก localStorage → Supabase (ดูรายการด้านล่าง)
+- [x] สร้าง GitHub repo (private): `regener00-creator/noosol-pos`
+- [x] Deploy ขึ้น Vercel — ใช้งานได้จริงที่ https://pepo-pharmacy.vercel.app (ยังเป็นแอปเดิม localStorage)
+- [x] สร้าง Supabase project ใหม่ `noosol-pos` (แยกจาก project เว็บไซต์เดิม, Region Singapore)
+- [x] รัน schema ครบ 21 ตาราง + เปิด RLS ทุกตาราง (`supabase/migrations/0001_init.sql`)
+- [x] เพิ่ม `supabase-config.js` (URL + publishable key สำหรับฝั่ง frontend)
+- [ ] ตั้งค่า Supabase Auth แทนระบบล็อกอิน password-plaintext เดิม (`systemUsers`)
+- [ ] แก้โค้ดแอปให้เรียก Supabase แทน localStorage ทีละโมดูล (ดูลำดับที่แนะนำด้านล่าง)
+- [ ] Seed ข้อมูล master data เดิม (categories/units/brands/products ตัวอย่าง) เข้าตารางจริง
+
+**Supabase project:** `noosol-pos` (org: JOAH) — ref `tgwqmpvdjyxwivjxceoq`, URL `https://tgwqmpvdjyxwivjxceoq.supabase.co`
 
 ## โครงสร้างข้อมูล (จากการอ่านโค้ดต้นฉบับ)
 
@@ -49,9 +55,15 @@
 
 ## แผนการทำงาน (ทำทีละส่วน)
 
-**Milestone 0 (วันนี้):** deploy แอปเดิมขึ้น Vercel ตรงๆ ก่อน (ยังใช้ localStorage) เพื่อให้มี URL ใช้งานได้จริงระหว่างที่ทยอยรื้อ
-**Milestone 1:** สร้าง schema Supabase ครบทุกตาราง + ตั้งค่า Auth
-**Milestone 2+:** ย้ายทีละโมดูลตามลำดับความสำคัญ (แนะนำ: products/warehouses → sales/checkout → เอกสารอื่นๆ → users/auth)
+**Milestone 0 (เสร็จแล้ว):** deploy แอปเดิมขึ้น Vercel ตรงๆ (ยังใช้ localStorage) → https://pepo-pharmacy.vercel.app
+**Milestone 1 (เสร็จแล้ว):** สร้าง Supabase project + schema ครบ 21 ตาราง + RLS
+**Milestone 2 (ถัดไป):** ตั้งค่า Supabase Auth (สร้างบัญชีเจ้าของ/พนักงานจริงแทน systemUsers เดิม)
+**Milestone 3+:** ย้ายทีละโมดูลตามลำดับความสำคัญ:
+  1. master data (categories/units/brands) + products + warehouses
+  2. contacts (ลูกค้า/ผู้จำหน่าย)
+  3. sales/checkout (หน้าขายหน้าร้าน — สำคัญสุด)
+  4. เอกสารอื่นๆ (quotations, PO, GR, transfers, tax invoices)
+  5. ลบ localStorage/workspaceSnapshot ออกทั้งหมดเมื่อทุกโมดูลย้ายครบ
 
 ## Dev
 
