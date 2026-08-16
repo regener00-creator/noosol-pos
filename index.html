@@ -992,7 +992,7 @@ function mapProfileRow(row){
 function productToRow(p){
   return { id:p.id, sku:p.sku||null, name:p.name||'', category:p.category||null, brand:p.brand||null, product_type:p.type||null, warehouse_id:p.wh||null, stock:Number(p.stock)||0, cost:Number(p.cost)||0, price:Number(p.price)||0, unit:p.unit||null, data:p };
 }
-function rowToProduct(row){ return { ...(row.data||{}), id:row.id }; }
+function rowToProduct(row){ return { ...(row.data||{}), id:row.id, stock:Number(row.stock)||0 }; } // trust the flat `stock` column, not the (possibly stale) copy inside data jsonb -- see the sync-bypass note near adjustProductStockOnSupabase
 function warehouseToRow(w){ return { id:w.id, name:w.name||'', data:w }; }
 function rowToWarehouse(row){ return { ...(row.data||{}), id:row.id, name:row.name }; }
 function contactToRow(c){
@@ -1044,6 +1044,31 @@ async function syncCoreDataToSupabase(){
     }catch(e){ console.warn('sync core data failed',e); }
   }while(coreSyncPending);
   coreSyncInFlight=false;
+}
+
+// ----- Stock changes bypass the debounced full-array sync above -----
+// syncCoreDataToSupabase() re-uploads this device's ENTIRE local `products`
+// snapshot (including `stock`) after a 2.5s pause. If a second device/tab is
+// open at the same time (e.g. a cashier mid-checkout while the owner fixes
+// stock elsewhere), that other tab's next sync -- firing from any unrelated
+// change, on its own timer -- would re-upload ITS stale copy of `stock` and
+// silently undo the fix. Stock changes are therefore written to Supabase
+// immediately, touching only the `stock` column of the one affected row, so
+// a slow/stale sync from another tab can never clobber them.
+// adjustProductStockOnSupabase: relative change (checkout, goods receipt) --
+//   uses an atomic SQL increment (adjust_product_stock RPC) so two
+//   simultaneous sales of the same product can't race each other.
+// setProductStockOnSupabase: absolute value (stock-adjust page) -- a direct
+//   "set to X", matching the admin's explicit intent.
+async function adjustProductStockOnSupabase(productId,delta){
+  if(!currentProfile||!delta) return;
+  try{ const {error}=await sb.rpc('adjust_product_stock',{p_id:productId,p_delta:delta}); if(error) console.warn('adjust product stock',productId,error); }
+  catch(e){ console.warn('adjust product stock failed',productId,e); }
+}
+async function setProductStockOnSupabase(productId,newStock){
+  if(!currentProfile) return;
+  try{ const {error}=await sb.from('products').update({stock:Number(newStock)||0}).eq('id',productId); if(error) console.warn('set product stock',productId,error); }
+  catch(e){ console.warn('set product stock failed',productId,e); }
 }
 async function loadCoreDataFromSupabase(){
   try{
@@ -2700,7 +2725,9 @@ function adjustGoodsReceiptStock(items,direction){
     const product=products.find(p=>p.id===Number(item.productId))||products.find(p=>p.name===item.name);
     if(!product) return;
     const baseQty=(Number(item.qty)||0)*(Number(item.stockFactor)||1);
-    product.stock=(Number(product.stock)||0)+(direction*baseQty);
+    const delta=direction*baseQty;
+    product.stock=(Number(product.stock)||0)+delta;
+    adjustProductStockOnSupabase(product.id,delta);
   });
 }
 
@@ -3173,14 +3200,14 @@ function renderStockAdjust(){
 function fixOneNegativeStock(id){
   const p=products.find(x=>x.id===id); if(!p||Number(p.stock)>=0) return;
   if(!confirm(`ยืนยันแก้ไขสต็อก "${p.name}" จาก ${p.stock} เป็น 0 ?`)) return;
-  p.stock=0; showToast(`แก้ไขสต็อก "${p.name}" เป็น 0 แล้ว`); render();
+  p.stock=0; setProductStockOnSupabase(p.id,0); showToast(`แก้ไขสต็อก "${p.name}" เป็น 0 แล้ว`); render();
 }
 
 function fixAllNegativeStock(){
   const negativeProducts = products.filter(p=>Number(p.stock)<0);
   if(!negativeProducts.length) return;
   if(!confirm(`ยืนยันแก้ไขสต็อกสินค้าที่ติดลบทั้งหมด ${negativeProducts.length} รายการ ให้เป็น 0 ?`)) return;
-  negativeProducts.forEach(p=>{ p.stock=0; });
+  negativeProducts.forEach(p=>{ p.stock=0; setProductStockOnSupabase(p.id,0); });
   showToast(`แก้ไขสต็อกสินค้าติดลบทั้งหมด ${negativeProducts.length} รายการเป็น 0 แล้ว`);
   render();
 }
@@ -6804,7 +6831,7 @@ function doCheckout(payMethod,options={}){
   const items=[]; let subtotal=0;
   cart.forEach(l=>{
     const p=products.find(x=>x.id===l.pid);
-    if(p) p.stock-=l.qty*(l.factor||1);
+    if(p){ const delta=-(l.qty*(l.factor||1)); p.stock+=delta; adjustProductStockOnSupabase(p.id,delta); }
     const unitCost=l.custom?(Number(l.price)||0):(l.cost!==undefined&&l.cost!==''?Number(l.cost)||0:productUnitCost(p,l.unit,l.factor));
     items.push({productId:l.pid||null,warehouseId:p?.wh??null,name:l.name,qty:l.qty,price:Number(l.price)||0,cost:unitCost,costTotal:unitCost*Number(l.qty||0),unit:l.unit,factor:l.factor||0,custom:!!l.custom});
     subtotal+=l.price*l.qty;
