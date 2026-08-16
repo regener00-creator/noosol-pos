@@ -1657,11 +1657,28 @@ function loadWorkspaceData(){
 function persistWorkspaceData(){
   try{ localStorage.setItem(WORKSPACE_STORAGE_KEY,JSON.stringify(workspaceSnapshot())); }
   catch(error){ console.warn('ไม่สามารถบันทึกข้อมูลระบบได้',error); }
-  syncCoreDataToSupabase();
+  scheduleSupabaseCoreSync();
 }
 function schedulePersistWorkspaceData(){
   clearTimeout(workspacePersistTimer);
   workspacePersistTimer=setTimeout(persistWorkspaceData,80);
+}
+// Supabase sync runs on its own, much longer debounce -- separate from the
+// 80ms localStorage save above. render() fires on nearly every click/keystroke
+// in this app (e.g. every character typed in the product search box), and
+// each Supabase sync re-uploads the ENTIRE products/contacts/etc. arrays
+// (thousands of rows). Syncing on the same 80ms timer as localStorage meant
+// a normal search session could trigger dozens of full-catalog uploads
+// within seconds, burning through Supabase's free-tier bandwidth quota far
+// faster than actual usage warrants. This timer waits for 2.5s of no further
+// changes before syncing, so a burst of typing/clicking collapses into one
+// sync instead of one per keystroke. (localStorage itself is unaffected and
+// still saves promptly, so no data is at risk of being lost while this timer
+// is pending -- it only delays when the *Supabase copy* catches up.)
+let supabaseCoreSyncTimer=null;
+function scheduleSupabaseCoreSync(){
+  clearTimeout(supabaseCoreSyncTimer);
+  supabaseCoreSyncTimer=setTimeout(syncCoreDataToSupabase,2500);
 }
 loadWorkspaceData();
 
