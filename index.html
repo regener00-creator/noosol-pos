@@ -1060,7 +1060,7 @@ async function loadCoreDataFromSupabase(){
     const allEmpty=(whRows||[]).length===0&&(prodRows||[]).length===0&&(contactRows||[]).length===0&&(repRows||[]).length===0&&docResults.every(r=>(r.data||[]).length===0);
     if(allEmpty){ await syncCoreDataToSupabase(); return; } // first time ever: seed Supabase with the current local data
     if((whRows||[]).length) warehouses=whRows.map(rowToWarehouse);
-    if((prodRows||[]).length) products=prodRows.map(rowToProduct);
+    if((prodRows||[]).length){ products=prodRows.map(rowToProduct); refreshCategoryBrandUnitLists(); }
     if((contactRows||[]).length) contacts=contactRows.map(rowToContact);
     if((repRows||[]).length) salesRepresentatives=repRows.map(rowToSalesRep);
     DOC_TABLES.forEach(([table,_getArr,setArr],i)=>{
@@ -1318,6 +1318,12 @@ let units = [ 'แผง', 'ซอง', 'ขวด', 'กระปุก', 'ก�
 function addUnitIfNew(u){ u=(u||'').trim(); if(u && !units.includes(u)) units.push(u); return u; }
 function addCategoryIfNew(c){ c=(c||'').trim(); if(c && !categories.includes(c)) categories.push(c); return c; }
 let brands = [ 'ทั่วไป', '3M', 'ไมล่านต้า', 'วิตะมิน', 'เสือ', 'เสือดาว', 'ดัลคอแล็กซ์', 'ตราเป็ด' ];
+function addBrandIfNew(b){ b=(b||'').trim(); if(b && !brands.includes(b)) brands.push(b); return b; }
+// เติม categories/units/brands ให้ครบตามข้อมูลสินค้าจริงที่มีอยู่ (จำเป็นหลังโหลดสินค้าจำนวนมากจาก Supabase
+// ซึ่งไม่ได้ผ่านฟอร์ม "เพิ่มสินค้า" ทีละรายการที่จะเรียก addCategoryIfNew/addUnitIfNew/addBrandIfNew ให้เองตามปกติ)
+function refreshCategoryBrandUnitLists(){
+  products.forEach(p=>{ addCategoryIfNew(p.category); addBrandIfNew(p.brand); addUnitIfNew(p.unit); });
+}
 let productTypes = [ ['stock','สินค้านับสต็อก'], ['nostock','สินค้าไม่นับสต็อก'] ];
 let editingProductId = null; // null = ยังไม่ได้เปิดฟอร์ม, 'new' = เพิ่มใหม่, ตัวเลข = แก้ไข
 let nextProductId = 113;
