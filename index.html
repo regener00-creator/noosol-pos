@@ -1049,6 +1049,43 @@ async function loadCoreDataFromSupabase(){
     nextSalesRepresentativeId=Math.max(1,...salesRepresentatives.map(r=>(Number(r.id)||0)+1));
   }catch(e){ console.warn('load core data failed',e); }
 }
+
+// ----- Sales history sync (Milestone 4) -----
+// Whole record kept in `data` jsonb (item shape differs slightly between the
+// mock generator / held sales / completed checkouts, so no separate line-item
+// table is used); a few fields are pulled into real columns for reporting.
+// Known tradeoff: this upserts the *entire* salesHistory array on every save,
+// same as products/contacts -- fine at hundreds/low-thousands of sales, but
+// worth revisiting (incremental sync) if the sales log grows much larger.
+function saleToRow(s){
+  let saleTime=null;
+  if(s.time){ const d=new Date(String(s.time).replace(' ','T')); if(!isNaN(d.getTime())) saleTime=d.toISOString(); }
+  const memberName=s.member?(typeof s.member==='object'?(s.member.name||''):String(s.member)):null;
+  return { id:s.id, ref:s.ref||null, sale_date:s.date||null, sale_time:saleTime, cashier:s.cashier||null, member:memberName, status:s.status||'done', pay_method:s.payMethod||null, discount:Number(s.discount)||0, vat:Number(s.vat)||0, fee:Number(s.fee)||0, cost_total:Number(s.costTotal)||0, gross_profit:Number(s.grossProfit)||0, cash_received:Number(s.cashReceived)||0, cash_change:Number(s.cashChange)||0, total:Number(s.total)||0, data:s };
+}
+function rowToSale(row){ return { ...(row.data||{}), id:row.id }; }
+
+let salesSyncInFlight=false, salesSyncPending=false;
+async function syncSalesHistoryToSupabase(){
+  if(!currentProfile) return;
+  if(salesSyncInFlight){ salesSyncPending=true; return; }
+  salesSyncInFlight=true;
+  do{
+    salesSyncPending=false;
+    try{ await upsertAndPrune('sales',salesHistory,saleToRow); }
+    catch(e){ console.warn('sync sales failed',e); }
+  }while(salesSyncPending);
+  salesSyncInFlight=false;
+}
+async function loadSalesHistoryFromSupabase(){
+  try{
+    const { data:rows, error } = await sb.from('sales').select('*').order('sale_date',{ascending:false});
+    if(error){ console.warn('load sales',error); return; }
+    if((rows||[]).length===0){ await syncSalesHistoryToSupabase(); return; } // first time ever: seed Supabase with the current local (mock/demo) data
+    salesHistory=rows.map(rowToSale);
+    invoiceCounter=Math.max(1000,...salesHistory.map(s=>(Number(String(s.id||'').replace(/\D/g,''))||0)+1));
+  }catch(e){ console.warn('load sales failed',e); }
+}
 // ===== end Supabase Auth wiring =====
 
 const today = new Date('2026-08-03');
@@ -1378,6 +1415,7 @@ try{
 function persistSalesHistory(){
   try{ localStorage.setItem(SALES_STORAGE_KEY,JSON.stringify(salesHistory)); }
   catch(error){ console.warn('ไม่สามารถบันทึกประวัติการขายได้',error); }
+  syncSalesHistoryToSupabase();
 }
 const weekSales = [ {d:'28 ก.ค.',v:420}, {d:'29 ก.ค.',v:580}, {d:'30 ก.ค.',v:310}, {d:'31 ก.ค.',v:490}, {d:'1 ส.ค.',v:670}, {d:'2 ส.ค.',v:174}, {d:'3 ส.ค.',v:96} ];
 const TODAY_STR = (()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
@@ -1696,6 +1734,7 @@ async function loginSystem(event){
   }
   if(error) error.textContent='';
   await loadCoreDataFromSupabase();
+  await loadSalesHistoryFromSupabase();
   render();
 }
 async function logoutSystem(){
@@ -6735,7 +6774,7 @@ sb.auth.onAuthStateChange((event)=>{
     systemHasOwner = ownerErr ? true : !!ownerCheck; // default to "true" (login screen) if the check itself fails
   }catch(e){ systemHasOwner = true; }
   try{ await loadCurrentProfile(); }catch(e){ currentProfile=null; }
-  if(currentProfile){ try{ await loadCoreDataFromSupabase(); }catch(e){ console.warn('load products/warehouses on boot failed',e); } }
+  if(currentProfile){ try{ await loadCoreDataFromSupabase(); await loadSalesHistoryFromSupabase(); }catch(e){ console.warn('load core data on boot failed',e); } }
   render();
 })();
 </script>
