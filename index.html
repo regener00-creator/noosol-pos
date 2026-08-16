@@ -1313,11 +1313,11 @@ let editingSalesRepresentativeId = null;
 function customersList(){ return contacts.filter(c=>c.types.includes('customer')); }
 function suppliersList(){ return contacts.filter(c=>c.types.includes('supplier')); }
 let employees = [ 'เภสัชกรหญิงมานี', 'พนักงานขายสมชาย' ];
-let categories = [ 'ยาสามัญประจำบ้าน', 'ยาปฏิชีวนะ', 'วิตามิน/อาหารเสริม', 'เวชภัณฑ์/อุปกรณ์', 'ยาเฉพาะทาง', 'ไม่ทราบหมวดหมู่' ];
+let categories = [ 'ไม่ทราบหมวดหมู่' ]; // 'ไม่ทราบหมวดหมู่' is a real fallback the app relies on (products with no category); the rest fill in from actual product data via refreshCategoryBrandUnitLists()
 let units = [ 'แผง', 'ซอง', 'ขวด', 'กระปุก', 'กล่อง', 'ห่อ', 'ชิ้น', 'โหล', 'แพ็ค', 'ลัง', 'หลอด', 'ม้วน', 'กระป๋อง', 'ถุง' ];
 function addUnitIfNew(u){ u=(u||'').trim(); if(u && !units.includes(u)) units.push(u); return u; }
 function addCategoryIfNew(c){ c=(c||'').trim(); if(c && !categories.includes(c)) categories.push(c); return c; }
-let brands = [ 'ทั่วไป', '3M', 'ไมล่านต้า', 'วิตะมิน', 'เสือ', 'เสือดาว', 'ดัลคอแล็กซ์', 'ตราเป็ด' ];
+let brands = [ 'ทั่วไป' ]; // 'ทั่วไป' is a real fallback the app relies on (products with no brand); the rest fill in from actual product data via refreshCategoryBrandUnitLists()
 function addBrandIfNew(b){ b=(b||'').trim(); if(b && !brands.includes(b)) brands.push(b); return b; }
 // เติม categories/units/brands ให้ครบตามข้อมูลสินค้าจริงที่มีอยู่ (จำเป็นหลังโหลดสินค้าจำนวนมากจาก Supabase
 // ซึ่งไม่ได้ผ่านฟอร์ม "เพิ่มสินค้า" ทีละรายการที่จะเรียก addCategoryIfNew/addUnitIfNew/addBrandIfNew ให้เองตามปกติ)
