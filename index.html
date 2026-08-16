@@ -1684,7 +1684,7 @@ loadWorkspaceData();
 
 function loggedInUser(){ return currentProfile; }
 function isLevel2User(user=loggedInUser()){ return Number(user?.level)===2; }
-const LEVEL2_HIDDEN_TABS=new Set(['settingssystem','settingsbusiness','rprofit','warehouse','transfer']);
+const LEVEL2_HIDDEN_TABS=new Set(['settingssystem','settingsbusiness','rprofit','warehouse','transfer','stockadjust']);
 function canAccessTab(tab,user=loggedInUser()){
   if(!user) return false;
   if(tab==='settingsusers'&&user.owner!==true) return false;
@@ -1960,6 +1960,7 @@ const NAV = [
     ['products','รายการสินค้า','<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/>'],
     ['warehouse','คลังสินค้า / สาขา','<path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/>'],
     ['transfer','โอนสินค้าระหว่างคลัง','<path d="M7 16l-4-4 4-4"/><path d="M3 12h13"/><path d="M17 8l4 4-4 4"/><path d="M21 12H8"/>'],
+    ['stockadjust','ปรับสต๊อก','<path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/>'],
   ]},
   {section:'สมุดรายชื่อ', items:[
     ['contacts','ลูกค้า / ผู้จำหน่าย','<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>'],
@@ -3162,6 +3163,28 @@ function renderTransfer(){
   <tbody>${transfers.map(t=>{ const cancelled=t.status==='ยกเลิก'; return `<tr><td class="mono">${escapeHtml(t.id)}</td><td>${fmtDate(t.date)}</td><td>${escapeHtml(t.from)}</td><td>${escapeHtml(t.to)}</td><td>${salesHistoryItemsPreview(t.items)}</td><td><span class="badge ${cancelled?'danger':'ok'}">${cancelled?'ยกเลิก':'บันทึกแล้ว'}</span></td><td class="num"><div class="transfer-list-actions"><button class="history-icon-btn" data-edit-transfer="${escapeHtml(t.id)}" title="เปิดรายการ" aria-label="เปิดรายการ ${escapeHtml(t.id)}" ${cancelled?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button>${cancelled?`<button class="history-icon-btn danger" data-delete-transfer="${escapeHtml(t.id)}" title="ลบออกจากระบบถาวร" aria-label="ลบรายการโอน ${escapeHtml(t.id)} ออกจากระบบถาวร"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`:`<button class="history-icon-btn danger" data-cancel-transfer="${escapeHtml(t.id)}" title="ยกเลิกรายการ" aria-label="ยกเลิกรายการ ${escapeHtml(t.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`}</div></td></tr>`; }).join('')||'<tr><td colspan="7" style="padding:30px;text-align:center;color:var(--text-muted);">ยังไม่มีรายการโอนสินค้า</td></tr>'}</tbody></table></div></div>`;
 }
 
+function renderStockAdjust(){
+  const negativeProducts = products.filter(p=>Number(p.stock)<0).sort((a,b)=>Number(a.stock)-Number(b.stock));
+  return `<div class="rpt"><div class="pagehead"><div><h1>ปรับสต๊อก</h1><div class="sub">ค้นหาสินค้าที่มีจำนวนคงเหลือติดลบ แล้วแก้ไขให้เป็น 0</div></div>${negativeProducts.length?`<button class="btn primary" id="fixAllNegativeStockBtn">แก้ไขเป็น 0 ทั้งหมด (${negativeProducts.length} รายการ)</button>`:''}</div>
+  <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue"><thead><tr><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>คลังสินค้า</th><th class="mono">คงเหลือ</th><th></th></tr></thead>
+  <tbody>${negativeProducts.map(p=>`<tr><td class="mono">${escapeHtml(p.sku||'-')}</td><td>${escapeHtml(p.name)}</td><td>${escapeHtml(whName(p.wh))}</td><td class="mono num stock-negative">${p.stock} ${escapeHtml(p.unit||'')}</td><td class="num"><button class="btn ghost small" data-fix-stock="${p.id}">แก้เป็น 0</button></td></tr>`).join('')||'<tr><td colspan="5" style="padding:30px;text-align:center;color:var(--text-muted);">ไม่พบสินค้าที่มีจำนวนคงเหลือติดลบ</td></tr>'}</tbody></table></div></div>`;
+}
+
+function fixOneNegativeStock(id){
+  const p=products.find(x=>x.id===id); if(!p||Number(p.stock)>=0) return;
+  if(!confirm(`ยืนยันแก้ไขสต็อก "${p.name}" จาก ${p.stock} เป็น 0 ?`)) return;
+  p.stock=0; showToast(`แก้ไขสต็อก "${p.name}" เป็น 0 แล้ว`); render();
+}
+
+function fixAllNegativeStock(){
+  const negativeProducts = products.filter(p=>Number(p.stock)<0);
+  if(!negativeProducts.length) return;
+  if(!confirm(`ยืนยันแก้ไขสต็อกสินค้าที่ติดลบทั้งหมด ${negativeProducts.length} รายการ ให้เป็น 0 ?`)) return;
+  negativeProducts.forEach(p=>{ p.stock=0; });
+  showToast(`แก้ไขสต็อกสินค้าติดลบทั้งหมด ${negativeProducts.length} รายการเป็น 0 แล้ว`);
+  render();
+}
+
 function renderTransferForm(){
   const draft=activeTransferDraft();
   const totalQty=(draft.items||[]).reduce((sum,item)=>sum+(Number(item.qty)||0),0);
@@ -4140,7 +4163,7 @@ function renderAddSystemUser(){
 const RENDERERS = {
   dashboard: renderDashboard, checkout: renderCheckout, taxinvoice: renderTaxInvoices, quotation: renderQuotation, invoice: renderInvoice,
   creditnote: renderCreditNote, history: renderHistory, purchaseorder: renderPurchaseOrder, purchaseorder2: renderPurchaseOrder2, productreturn: renderProductReturn, goodsreceipt: renderGoodsReceipt,
-  products: renderProducts, warehouse: renderWarehouse, transfer: renderTransfer, lowstock: renderLowStock, expiry: renderExpiry,
+  products: renderProducts, warehouse: renderWarehouse, transfer: renderTransfer, stockadjust: renderStockAdjust, lowstock: renderLowStock, expiry: renderExpiry,
   contacts: renderContacts, salesreps: renderSalesRepresentatives, rsales: renderRSales, rproduct: renderRProduct, rbill: renderRBill, rprofit: renderRProfit, remployee: renderREmployee,
   rinventory: renderRInventory, rreceivable: renderRReceivable, settingsbusiness: renderBusinessSettings, settingsuser: renderUserSettings, settingsusers: renderSystemUsers, settingssystem: renderSystemSettings,
 };
@@ -4892,6 +4915,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   document.querySelectorAll('[data-cancel-transfer]').forEach(btn=>{ btn.addEventListener('click',()=>cancelTransfer(btn.dataset.cancelTransfer)); });
   document.querySelectorAll('[data-delete-transfer]').forEach(btn=>{ btn.addEventListener('click',()=>deleteCancelledTransfer(btn.dataset.deleteTransfer)); });
   ['cancelTransferBtn','cancelTransferBottomBtn'].forEach(id=>{ const btn=document.getElementById(id); if(btn) btn.addEventListener('click',()=>{ editingTransferId=null; transferDraft=null; render(); }); });
+
+  const fixAllNegativeStockBtn = document.getElementById('fixAllNegativeStockBtn');
+  if(fixAllNegativeStockBtn) fixAllNegativeStockBtn.addEventListener('click', fixAllNegativeStock);
+  document.querySelectorAll('[data-fix-stock]').forEach(btn=>{ btn.addEventListener('click',()=>fixOneNegativeStock(Number(btn.dataset.fixStock))); });
   ['saveTransferBtn','saveTransferBottomBtn'].forEach(id=>{ const btn=document.getElementById(id); if(btn) btn.addEventListener('click',()=>saveTransfer(false)); });
   const addTransferItemBtn=document.getElementById('addTransferItemBtn');
   if(addTransferItemBtn) addTransferItemBtn.addEventListener('click',()=>{ syncTransferFromDOM(); activeTransferDraft().items.push(blankTransferItem()); render(); });
