@@ -1004,13 +1004,26 @@ function rowToContact(row){ return { ...(row.data||{}), id:row.id, name:row.name
 function salesRepToRow(r){ return { id:r.id, name:r.name||'', data:r }; }
 function rowToSalesRep(row){ return { ...(row.data||{}), id:row.id, name:row.name }; }
 
+// Content-hash guard: render() (and therefore the sync schedulers below) fires
+// on nearly every click/keystroke, including plenty that touch zero core data
+// (typing a search term, switching report tabs, sorting a table). Without this
+// check, EVERY one of those still re-uploads the full table -- e.g. all 2,800+
+// products -- once the debounce below elapses, even though nothing changed.
+// Comparing against a cached JSON snapshot of the last successful upload skips
+// the network call entirely when a table is unchanged, which is the common
+// case for most renders. Only cached on success, so a failed sync retries
+// next time instead of being skipped.
+let lastSyncedSnapshot={};
 async function upsertAndPrune(table,localArray,toRow){
+  const snapshot=JSON.stringify(localArray);
+  if(lastSyncedSnapshot[table]===snapshot) return; // nothing changed since the last successful sync
   const rows=localArray.map(toRow);
-  if(rows.length){ const {error}=await sb.from(table).upsert(rows); if(error) console.warn('sync '+table,error); }
+  if(rows.length){ const {error}=await sb.from(table).upsert(rows); if(error){ console.warn('sync '+table,error); return; } }
   const {data:existing}=await sb.from(table).select('id');
   const localIds=new Set(localArray.map(x=>x.id));
   const del=(existing||[]).filter(r=>!localIds.has(r.id)).map(r=>r.id);
   if(del.length) await sb.from(table).delete().in('id',del);
+  lastSyncedSnapshot[table]=snapshot;
 }
 
 let coreSyncInFlight=false, coreSyncPending=false;
@@ -1092,6 +1105,14 @@ async function loadCoreDataFromSupabase(){
       const rows=docResults[i].data||[];
       if(rows.length) setArr(rows.map(rowToDoc));
     });
+    // Seed the change-detection cache to match what we just loaded, so the
+    // next debounced sync doesn't immediately re-upload everything again
+    // merely because it hasn't "seen" this exact snapshot before.
+    lastSyncedSnapshot.warehouses=JSON.stringify(warehouses);
+    lastSyncedSnapshot.products=JSON.stringify(products);
+    lastSyncedSnapshot.contacts=JSON.stringify(contacts);
+    lastSyncedSnapshot.sales_representatives=JSON.stringify(salesRepresentatives);
+    DOC_TABLES.forEach(([table,getArr])=>{ lastSyncedSnapshot[table]=JSON.stringify(getArr()); });
     nextWarehouseId=Math.max(1,...warehouses.map(w=>(Number(w.id)||0)+1));
     nextContactId=Math.max(1,...contacts.map(c=>(Number(c.id)||0)+1));
     nextSalesRepresentativeId=Math.max(1,...salesRepresentatives.map(r=>(Number(r.id)||0)+1));
@@ -1103,9 +1124,13 @@ async function loadCoreDataFromSupabase(){
 // Whole record kept in `data` jsonb (item shape differs slightly between the
 // mock generator / held sales / completed checkouts, so no separate line-item
 // table is used); a few fields are pulled into real columns for reporting.
-// Known tradeoff: this upserts the *entire* salesHistory array on every save,
-// same as products/contacts -- fine at hundreds/low-thousands of sales, but
-// worth revisiting (incremental sync) if the sales log grows much larger.
+// Still uploads the *entire* salesHistory array whenever it upserts (via
+// upsertAndPrune -- see its own comment), but the unchanged-content check
+// there means that only actually happens right after a real sales-history
+// change, not on unrelated renders. Worth revisiting for real incremental
+// sync if the sales log grows into the tens of thousands of rows, since the
+// per-sync payload size itself is still O(all sales), just no longer O(all
+// renders) x O(all sales).
 function saleToRow(s){
   let saleTime=null;
   if(s.time){ const d=new Date(String(s.time).replace(' ','T')); if(!isNaN(d.getTime())) saleTime=d.toISOString(); }
@@ -1132,6 +1157,7 @@ async function loadSalesHistoryFromSupabase(){
     if(error){ console.warn('load sales',error); return; }
     if((rows||[]).length===0){ await syncSalesHistoryToSupabase(); return; } // first time ever: seed Supabase with the current local (mock/demo) data
     salesHistory=rows.map(rowToSale);
+    lastSyncedSnapshot.sales=JSON.stringify(salesHistory); // see the matching note in loadCoreDataFromSupabase
     invoiceCounter=Math.max(1000,...salesHistory.map(s=>(Number(String(s.id||'').replace(/\D/g,''))||0)+1));
   }catch(e){ console.warn('load sales failed',e); }
 }
