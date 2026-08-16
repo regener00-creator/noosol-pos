@@ -982,11 +982,11 @@ function mapProfileRow(row){
   return { id:row.id, username:row.username, firstName:row.first_name||'', lastName:row.last_name||'', phone:row.phone||'', note:row.note||'', owner:!!row.owner, level:Number(row.level)||2 };
 }
 
-// ----- Products / warehouses sync (Milestone 3) -----
+// ----- Core data sync (Milestone 3): warehouses, products, contacts, sales reps -----
 // Data model: full local object kept in `data` jsonb; a few fields are also
-// pulled into real columns for filtering/reporting. `products`/`warehouses`
-// stay ordinary local arrays -- the rest of the app reads/writes them exactly
-// as before. persistWorkspaceData() (called after every meaningful change)
+// pulled into real columns for filtering/reporting. Local arrays stay ordinary
+// arrays -- the rest of the app reads/writes them exactly as before.
+// persistWorkspaceData() (called after every meaningful change, via render())
 // is the single hook point that also pushes the current arrays to Supabase,
 // so no other call site in the app needs to change.
 function productToRow(p){
@@ -995,44 +995,59 @@ function productToRow(p){
 function rowToProduct(row){ return { ...(row.data||{}), id:row.id }; }
 function warehouseToRow(w){ return { id:w.id, name:w.name||'', data:w }; }
 function rowToWarehouse(row){ return { ...(row.data||{}), id:row.id, name:row.name }; }
-
-let productsSyncInFlight=false, productsSyncPending=false;
-async function syncProductsAndWarehousesToSupabase(){
-  if(!currentProfile) return;
-  if(productsSyncInFlight){ productsSyncPending=true; return; }
-  productsSyncInFlight=true;
-  do{
-    productsSyncPending=false;
-    try{
-      const whRows=warehouses.map(warehouseToRow), prodRows=products.map(productToRow);
-      if(whRows.length){ const {error}=await sb.from('warehouses').upsert(whRows); if(error) console.warn('sync warehouses',error); }
-      if(prodRows.length){ const {error}=await sb.from('products').upsert(prodRows); if(error) console.warn('sync products',error); }
-      const [{data:existingWh},{data:existingProd}]=await Promise.all([sb.from('warehouses').select('id'),sb.from('products').select('id')]);
-      const localWhIds=new Set(warehouses.map(w=>w.id));
-      const delWh=(existingWh||[]).filter(r=>!localWhIds.has(r.id)).map(r=>r.id);
-      if(delWh.length) await sb.from('warehouses').delete().in('id',delWh);
-      const localProdIds=new Set(products.map(p=>p.id));
-      const delProd=(existingProd||[]).filter(r=>!localProdIds.has(r.id)).map(r=>r.id);
-      if(delProd.length) await sb.from('products').delete().in('id',delProd);
-    }catch(e){ console.warn('sync products/warehouses failed',e); }
-  }while(productsSyncPending);
-  productsSyncInFlight=false;
+function contactToRow(c){
+  const types=Array.isArray(c.types)?c.types:[];
+  const type=types.includes('customer')&&types.includes('supplier')?'both':(types.includes('supplier')?'supplier':'customer');
+  return { id:c.id, type, name:c.name||'', phone:c.phone||null, data:c };
 }
-async function loadProductsAndWarehousesFromSupabase(){
+function rowToContact(row){ return { ...(row.data||{}), id:row.id, name:row.name }; }
+function salesRepToRow(r){ return { id:r.id, name:r.name||'', data:r }; }
+function rowToSalesRep(row){ return { ...(row.data||{}), id:row.id, name:row.name }; }
+
+async function upsertAndPrune(table,localArray,toRow){
+  const rows=localArray.map(toRow);
+  if(rows.length){ const {error}=await sb.from(table).upsert(rows); if(error) console.warn('sync '+table,error); }
+  const {data:existing}=await sb.from(table).select('id');
+  const localIds=new Set(localArray.map(x=>x.id));
+  const del=(existing||[]).filter(r=>!localIds.has(r.id)).map(r=>r.id);
+  if(del.length) await sb.from(table).delete().in('id',del);
+}
+
+let coreSyncInFlight=false, coreSyncPending=false;
+async function syncCoreDataToSupabase(){
+  if(!currentProfile) return;
+  if(coreSyncInFlight){ coreSyncPending=true; return; }
+  coreSyncInFlight=true;
+  do{
+    coreSyncPending=false;
+    try{
+      await upsertAndPrune('warehouses',warehouses,warehouseToRow);
+      await upsertAndPrune('products',products,productToRow);
+      await upsertAndPrune('contacts',contacts,contactToRow);
+      await upsertAndPrune('sales_representatives',salesRepresentatives,salesRepToRow);
+    }catch(e){ console.warn('sync core data failed',e); }
+  }while(coreSyncPending);
+  coreSyncInFlight=false;
+}
+async function loadCoreDataFromSupabase(){
   try{
-    const [{data:whRows,error:whErr},{data:prodRows,error:prodErr}]=await Promise.all([
+    const [{data:whRows,error:whErr},{data:prodRows,error:prodErr},{data:contactRows,error:contactErr},{data:repRows,error:repErr}]=await Promise.all([
       sb.from('warehouses').select('*').order('id'),
       sb.from('products').select('*').order('id'),
+      sb.from('contacts').select('*').order('id'),
+      sb.from('sales_representatives').select('*').order('id'),
     ]);
-    if(whErr||prodErr){ console.warn('load products/warehouses',whErr||prodErr); return; }
-    if((whRows||[]).length===0&&(prodRows||[]).length===0){
-      await syncProductsAndWarehousesToSupabase(); // first time ever: seed Supabase with the built-in demo data
-      return;
-    }
+    if(whErr||prodErr||contactErr||repErr){ console.warn('load core data',whErr||prodErr||contactErr||repErr); return; }
+    const allEmpty=(whRows||[]).length===0&&(prodRows||[]).length===0&&(contactRows||[]).length===0&&(repRows||[]).length===0;
+    if(allEmpty){ await syncCoreDataToSupabase(); return; } // first time ever: seed Supabase with the current local data
     if((whRows||[]).length) warehouses=whRows.map(rowToWarehouse);
     if((prodRows||[]).length) products=prodRows.map(rowToProduct);
+    if((contactRows||[]).length) contacts=contactRows.map(rowToContact);
+    if((repRows||[]).length) salesRepresentatives=repRows.map(rowToSalesRep);
     nextWarehouseId=Math.max(1,...warehouses.map(w=>(Number(w.id)||0)+1));
-  }catch(e){ console.warn('load products/warehouses failed',e); }
+    nextContactId=Math.max(1,...contacts.map(c=>(Number(c.id)||0)+1));
+    nextSalesRepresentativeId=Math.max(1,...salesRepresentatives.map(r=>(Number(r.id)||0)+1));
+  }catch(e){ console.warn('load core data failed',e); }
 }
 // ===== end Supabase Auth wiring =====
 
@@ -1574,7 +1589,7 @@ function loadWorkspaceData(){
 function persistWorkspaceData(){
   try{ localStorage.setItem(WORKSPACE_STORAGE_KEY,JSON.stringify(workspaceSnapshot())); }
   catch(error){ console.warn('ไม่สามารถบันทึกข้อมูลระบบได้',error); }
-  syncProductsAndWarehousesToSupabase();
+  syncCoreDataToSupabase();
 }
 function schedulePersistWorkspaceData(){
   clearTimeout(workspacePersistTimer);
@@ -1680,7 +1695,7 @@ async function loginSystem(event){
     return;
   }
   if(error) error.textContent='';
-  await loadProductsAndWarehousesFromSupabase();
+  await loadCoreDataFromSupabase();
   render();
 }
 async function logoutSystem(){
@@ -6720,7 +6735,7 @@ sb.auth.onAuthStateChange((event)=>{
     systemHasOwner = ownerErr ? true : !!ownerCheck; // default to "true" (login screen) if the check itself fails
   }catch(e){ systemHasOwner = true; }
   try{ await loadCurrentProfile(); }catch(e){ currentProfile=null; }
-  if(currentProfile){ try{ await loadProductsAndWarehousesFromSupabase(); }catch(e){ console.warn('load products/warehouses on boot failed',e); } }
+  if(currentProfile){ try{ await loadCoreDataFromSupabase(); }catch(e){ console.warn('load products/warehouses on boot failed',e); } }
   render();
 })();
 </script>
