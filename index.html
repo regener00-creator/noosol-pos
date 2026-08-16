@@ -981,6 +981,59 @@ function mapProfileRow(row){
   if(!row) return null;
   return { id:row.id, username:row.username, firstName:row.first_name||'', lastName:row.last_name||'', phone:row.phone||'', note:row.note||'', owner:!!row.owner, level:Number(row.level)||2 };
 }
+
+// ----- Products / warehouses sync (Milestone 3) -----
+// Data model: full local object kept in `data` jsonb; a few fields are also
+// pulled into real columns for filtering/reporting. `products`/`warehouses`
+// stay ordinary local arrays -- the rest of the app reads/writes them exactly
+// as before. persistWorkspaceData() (called after every meaningful change)
+// is the single hook point that also pushes the current arrays to Supabase,
+// so no other call site in the app needs to change.
+function productToRow(p){
+  return { id:p.id, sku:p.sku||null, name:p.name||'', category:p.category||null, brand:p.brand||null, product_type:p.type||null, warehouse_id:p.wh||null, stock:Number(p.stock)||0, cost:Number(p.cost)||0, price:Number(p.price)||0, unit:p.unit||null, data:p };
+}
+function rowToProduct(row){ return { ...(row.data||{}), id:row.id }; }
+function warehouseToRow(w){ return { id:w.id, name:w.name||'', data:w }; }
+function rowToWarehouse(row){ return { ...(row.data||{}), id:row.id, name:row.name }; }
+
+let productsSyncInFlight=false, productsSyncPending=false;
+async function syncProductsAndWarehousesToSupabase(){
+  if(!currentProfile) return;
+  if(productsSyncInFlight){ productsSyncPending=true; return; }
+  productsSyncInFlight=true;
+  do{
+    productsSyncPending=false;
+    try{
+      const whRows=warehouses.map(warehouseToRow), prodRows=products.map(productToRow);
+      if(whRows.length){ const {error}=await sb.from('warehouses').upsert(whRows); if(error) console.warn('sync warehouses',error); }
+      if(prodRows.length){ const {error}=await sb.from('products').upsert(prodRows); if(error) console.warn('sync products',error); }
+      const [{data:existingWh},{data:existingProd}]=await Promise.all([sb.from('warehouses').select('id'),sb.from('products').select('id')]);
+      const localWhIds=new Set(warehouses.map(w=>w.id));
+      const delWh=(existingWh||[]).filter(r=>!localWhIds.has(r.id)).map(r=>r.id);
+      if(delWh.length) await sb.from('warehouses').delete().in('id',delWh);
+      const localProdIds=new Set(products.map(p=>p.id));
+      const delProd=(existingProd||[]).filter(r=>!localProdIds.has(r.id)).map(r=>r.id);
+      if(delProd.length) await sb.from('products').delete().in('id',delProd);
+    }catch(e){ console.warn('sync products/warehouses failed',e); }
+  }while(productsSyncPending);
+  productsSyncInFlight=false;
+}
+async function loadProductsAndWarehousesFromSupabase(){
+  try{
+    const [{data:whRows,error:whErr},{data:prodRows,error:prodErr}]=await Promise.all([
+      sb.from('warehouses').select('*').order('id'),
+      sb.from('products').select('*').order('id'),
+    ]);
+    if(whErr||prodErr){ console.warn('load products/warehouses',whErr||prodErr); return; }
+    if((whRows||[]).length===0&&(prodRows||[]).length===0){
+      await syncProductsAndWarehousesToSupabase(); // first time ever: seed Supabase with the built-in demo data
+      return;
+    }
+    if((whRows||[]).length) warehouses=whRows.map(rowToWarehouse);
+    if((prodRows||[]).length) products=prodRows.map(rowToProduct);
+    nextWarehouseId=Math.max(1,...warehouses.map(w=>(Number(w.id)||0)+1));
+  }catch(e){ console.warn('load products/warehouses failed',e); }
+}
 // ===== end Supabase Auth wiring =====
 
 const today = new Date('2026-08-03');
@@ -1521,6 +1574,7 @@ function loadWorkspaceData(){
 function persistWorkspaceData(){
   try{ localStorage.setItem(WORKSPACE_STORAGE_KEY,JSON.stringify(workspaceSnapshot())); }
   catch(error){ console.warn('ไม่สามารถบันทึกข้อมูลระบบได้',error); }
+  syncProductsAndWarehousesToSupabase();
 }
 function schedulePersistWorkspaceData(){
   clearTimeout(workspacePersistTimer);
@@ -1626,6 +1680,7 @@ async function loginSystem(event){
     return;
   }
   if(error) error.textContent='';
+  await loadProductsAndWarehousesFromSupabase();
   render();
 }
 async function logoutSystem(){
@@ -6665,6 +6720,7 @@ sb.auth.onAuthStateChange((event)=>{
     systemHasOwner = ownerErr ? true : !!ownerCheck; // default to "true" (login screen) if the check itself fails
   }catch(e){ systemHasOwner = true; }
   try{ await loadCurrentProfile(); }catch(e){ currentProfile=null; }
+  if(currentProfile){ try{ await loadProductsAndWarehousesFromSupabase(); }catch(e){ console.warn('load products/warehouses on boot failed',e); } }
   render();
 })();
 </script>
