@@ -3165,8 +3165,8 @@ function unitRowHtml(u, mainUnit, siblingNames){
       <input class="u_per" type="number" value="${u.per||u.factor||''}" placeholder="จำนวน" title="จำนวนต่อ 1 หน่วยนี้" style="width:80px;">
       <select class="u_base">${baseOpts.map(b=>`<option ${curBase===b?'selected':''}>${b}</option>`).join('')}</select>
     </div>
-    <input class="u_price" type="number" value="${u.price||''}" placeholder="ราคาขาย">
-    ${isLevel2User()?`<input class="u_cost" type="hidden" value="${u.cost||''}">`:`<input class="u_cost" type="number" value="${u.cost||''}" placeholder="ราคาซื้อ">`}
+    <input class="u_price" type="number" value="${u.price||''}" placeholder="ขาย">
+    ${isLevel2User()?`<input class="u_cost" type="hidden" value="${u.cost||''}">`:`<input class="u_cost" type="number" value="${u.cost||''}" placeholder="ทุน">`}
     <input class="u_barcode" value="${u.barcode||''}" placeholder="เลขบาร์โค้ด">
     <button class="u_del" title="ลบ">×</button>
   </div>`;
