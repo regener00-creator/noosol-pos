@@ -796,6 +796,7 @@
   .pc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;}
   .pc-grid > div{display:flex;justify-content:space-between;font-size:12.5px;border-bottom:1px dashed var(--border);padding-bottom:4px;}
   .pc-grid span{color:var(--text-muted);}
+  .pc-unit-select{font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text);border:1px solid var(--border);border-radius:5px;background:var(--surface);padding:2px 5px;cursor:pointer;}
   .pos-results{background:var(--surface);border:1px solid var(--primary);border-radius:var(--radius);margin-bottom:14px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08);}
   .pos-result{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;}
   .pos-result:last-child{border-bottom:none;}
@@ -3121,7 +3122,6 @@ function openManageModal(kind){
   document.body.appendChild(overlay);
   const close = ()=> overlay.remove();
   overlay.querySelector('.modal-close').onclick = close;
-  overlay.onclick = e=>{ if(e.target===overlay) close(); };
   overlay.querySelectorAll('.manage-del').forEach(b=>{
     b.onclick = ()=>{
       const name = b.dataset.name;
@@ -5369,7 +5369,7 @@ function openGoodsReceiptPayment(id){
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('#cancelPaymentBtn').onclick=close;
-  overlay.onclick=e=>{ if(e.target===overlay) close(); };
+  
   const amount=overlay.querySelector('#pay_amount'), diff=overlay.querySelector('#pay_diff');
   const updateDiff=()=>{ diff.textContent=fmtMoney((parseFloat(amount.value)||0)-(Number(doc.total)||0)); };
   amount.addEventListener('input',updateDiff); updateDiff();
@@ -6659,7 +6659,7 @@ function openSaleHistoryDetail(id){
   const deleteDetailBtn=overlay.querySelector('#deleteSaleDetailBtn'); if(deleteDetailBtn) deleteDetailBtn.onclick=()=>deleteSaleHistory(id,close);
   overlay.querySelector('#historyShortReceiptBtn').onclick=()=>{ if(canIssue){ close(); openHistoricalReceiptActions(id); } };
   overlay.querySelector('#historyTaxInvoiceBtn').onclick=()=>{ if(canIssue){ close(); openHistoricalTaxInvoiceForm(); } };
-  overlay.onclick=e=>{ if(e.target===overlay) close(); };
+  
 }
 
 function auditNow(){ return new Date().toISOString(); }
@@ -6695,7 +6695,7 @@ function openHistoricalReceiptActions(saleId){
   overlay.querySelector('#closeHistoricalReceiptBtn').onclick=close;
   overlay.querySelector('#pdfHistoricalReceiptBtn').onclick=()=>printShortReceipt(saleId,true,true);
   overlay.querySelector('#printHistoricalReceiptBtn').onclick=()=>printShortReceipt(saleId,false,true);
-  overlay.onclick=e=>{ if(e.target===overlay) close(); };
+  
 }
 
 function openFullTaxInvoiceModal(saleId){
@@ -6742,7 +6742,7 @@ function openFullTaxInvoiceModal(saleId){
       paint();
     };
   };
-  overlay.onclick=e=>{ if(e.target===overlay) close(); };
+  
   paint();
 }
 
@@ -6830,7 +6830,7 @@ function openPaymentModal(){
   const stopCashKeyboard=()=>{ if(cashKeyHandler){ document.removeEventListener('keydown',cashKeyHandler); cashKeyHandler=null; } };
   const close=()=>{ stopCashKeyboard(); overlay.remove(); };
   overlay.querySelector('.modal-close').onclick=close;
-  overlay.onclick=e=>{ if(e.target===overlay) close(); };
+  
 
   const renderChoice=()=>{
     stopCashKeyboard();
@@ -6894,7 +6894,7 @@ function openCustomItemModal(){
   overlay.innerHTML=`<div class="modal" style="width:500px;"><div class="modal-head"><h3>เพิ่มรายการกรอกเอง</h3><button class="modal-close">×</button></div><div class="modal-sub">รายการนี้จะนำไปคิดเงิน แต่จะไม่ตัดจำนวนสินค้าในสต็อก</div><form id="customItemForm"><div class="custom-item-form"><div class="wide"><label>ชื่อรายการ *</label><input id="custom_item_name" placeholder="เช่น ค่าบริการ หรือสินค้านอกระบบ" autocomplete="off"></div><div><label>ราคา/หน่วย *</label><input id="custom_item_price" type="number" min="0" step="0.01" placeholder="0.00"></div><div><label>หน่วย *</label><input id="custom_item_unit" value="ชิ้น" list="customUnitList" placeholder="ชิ้น"><datalist id="customUnitList">${units.map(unit=>`<option value="${unit}">`).join('')}</datalist></div><div><label>จำนวน *</label><input id="custom_item_qty" type="number" min="0.001" step="any" value="1"></div><div class="custom-item-note">ⓘ รายการกรอกเองจะปรากฏในบิล ประวัติการขาย และใบเสร็จตามปกติ</div></div><div class="payment-actions"><button class="btn ghost" type="button" id="cancelCustomItemBtn">ยกเลิก</button><button class="btn primary" type="submit">เพิ่มลงรายการ</button></div></form></div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
-  overlay.querySelector('.modal-close').onclick=close; overlay.querySelector('#cancelCustomItemBtn').onclick=close; overlay.onclick=e=>{ if(e.target===overlay) close(); };
+  overlay.querySelector('.modal-close').onclick=close; overlay.querySelector('#cancelCustomItemBtn').onclick=close; 
   overlay.querySelector('#customItemForm').onsubmit=e=>{
     e.preventDefault();
     const name=overlay.querySelector('#custom_item_name').value.trim(),price=parseFloat(overlay.querySelector('#custom_item_price').value),unit=overlay.querySelector('#custom_item_unit').value.trim(),qty=parseFloat(overlay.querySelector('#custom_item_qty').value);
@@ -6943,7 +6943,7 @@ function openStockReportCategoryPicker(catf, onDone){
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('#srPickCancelBtn').onclick=close;
-  overlay.onclick=e=>{ if(e.target===overlay) close(); };
+  
   const checkboxes=()=>Array.from(overlay.querySelectorAll('#srPickList input[type=checkbox]:not(:disabled)'));
   overlay.querySelector('#srPickAllBtn').onclick=()=>{ checkboxes().forEach(cb=>cb.checked=true); };
   overlay.querySelector('#srPickNoneBtn').onclick=()=>{ checkboxes().forEach(cb=>cb.checked=false); };
@@ -6977,7 +6977,7 @@ function openManageFavModal(){
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
-  overlay.onclick=e=>{ if(e.target===overlay) close(); };
+  
   overlay.querySelector('#favSaveBtn').onclick=()=>{ close(); render(); };
 
   const listEl=overlay.querySelector('#favManageList');
@@ -7058,7 +7058,7 @@ function openStockCheckModal(pid){
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('.stock-check-cancel').onclick=close;
-  overlay.onclick=e=>{ if(e.target===overlay) close(); };
+  
   const inputs=[...overlay.querySelectorAll('.stock-check-input')];
   const subEl=overlay.querySelector('#stockCheckSub');
   inputs.forEach(input=>{
@@ -7089,6 +7089,7 @@ function openStockCheckModal(pid){
 
 function openPriceCheckModal(){
   const canViewCost=loggedInUser()?.owner===true;
+  const pcUnitSel={}; // per-product manually-chosen unit override, scoped to this modal session
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:480px;max-height:82vh;">
@@ -7100,7 +7101,7 @@ function openPriceCheckModal(){
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
-  overlay.onclick=e=>{ if(e.target===overlay) close(); };
+
   const input=overlay.querySelector('#pcInput');
   const result=overlay.querySelector('#pcResult');
   const doSearch=()=>{
@@ -7110,17 +7111,21 @@ function openPriceCheckModal(){
     const matches=products.filter(p=>p.name.toLowerCase().includes(ql)||matchesBarcode(p,q)||(p.sku||'').toLowerCase().includes(ql)).slice(0,10);
     if(matches.length===0){ result.innerHTML=`<div class="fav-empty" style="padding:16px;">ไม่พบสินค้า "${q}"</div>`; return; }
     result.innerHTML=matches.map(p=>{
-      // ถ้าคำค้นตรงกับบาร์โค้ดของหน่วยเสริม (เช่น กล่อง/ลัง) ให้โชว์หน่วย/ราคาขาย/ราคาทุนของหน่วยนั้นแทนหน่วยหลัก
+      const unitOpts=[{sub:p.unit, price:p.price, cost:p.cost||0, barcode:p.barcode||''}, ...((p.units||[]).map(u=>({sub:u.sub, price:u.price||0, cost:u.cost||0, barcode:u.barcode||''})))];
+      // ถ้าคำค้นตรงกับบาร์โค้ดของหน่วยเสริม (เช่น กล่อง/ลัง) ให้เลือกหน่วยนั้นเป็นค่าเริ่มต้น เว้นแต่ผู้ใช้เคยเลือกหน่วยเองไว้แล้วในการ์ดนี้
       const subUnit=(p.units||[]).find(u=>(u.barcode||'').includes(q));
-      const unitInfo=subUnit
-        ? {sub:subUnit.sub, price:subUnit.price||0, cost:subUnit.cost||0, barcode:subUnit.barcode||''}
-        : {sub:p.unit, price:p.price, cost:p.cost||0, barcode:p.barcode||''};
+      const defaultUnit=subUnit?subUnit.sub:p.unit;
+      const selUnit=pcUnitSel[p.id]||defaultUnit;
+      const unitInfo=unitOpts.find(u=>u.sub===selUnit)||unitOpts[0];
+      const unitFieldHtml=unitOpts.length>1
+        ? `<select class="pc-unit-select" data-pid="${p.id}">${unitOpts.map(u=>`<option value="${escapeHtml(u.sub)}" ${u.sub===unitInfo.sub?'selected':''}>${escapeHtml(u.sub)}</option>`).join('')}</select>`
+        : `<b class="mono">${escapeHtml(unitInfo.sub)}</b>`;
       return `<div class="pc-item">
         <div class="pc-name">${p.name}</div>
         <div class="pc-grid">
           <div><span>รหัส</span><b class="mono">${p.sku||'-'}</b></div>
           <div><span>บาร์โค้ด</span><b class="mono">${unitInfo.barcode||'-'}</b></div>
-          <div><span>หน่วย</span><b class="mono">${escapeHtml(unitInfo.sub)}</b></div>
+          <div><span>หน่วย</span>${unitFieldHtml}</div>
           <div><span>ขาย</span><b class="mono">${fmtMoney(unitInfo.price)}</b></div>
           <div><span>คงเหลือ</span><b class="mono">${stockInLargestUnit(p)}</b></div>
           ${canViewCost?`<div><span>ทุน</span><b class="mono">${fmtMoney(unitInfo.cost)}</b></div>`:''}
@@ -7128,6 +7133,12 @@ function openPriceCheckModal(){
         </div>
       </div>`;
     }).join('');
+    result.querySelectorAll('.pc-unit-select').forEach(sel=>{
+      sel.addEventListener('change', ()=>{
+        pcUnitSel[Number(sel.dataset.pid)]=sel.value;
+        doSearch();
+      });
+    });
   };
   input.addEventListener('input', doSearch);
   input.addEventListener('keydown', e=>{ if(e.key==='Enter') doSearch(); });
@@ -7237,7 +7248,7 @@ function openPostPaymentModal(saleId){
   document.body.appendChild(overlay);
   const content=overlay.querySelector('#afterPayContent');
   const close=()=>{ overlay.remove(); setTimeout(()=>document.getElementById('search')?.focus(),0); };
-  overlay.querySelector('.modal-close').onclick=close; overlay.onclick=e=>{ if(e.target===overlay) close(); };
+  overlay.querySelector('.modal-close').onclick=close; 
   const renderStart=()=>{
     content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">✓</div><div class="after-pay-heading">รับชำระ ${fmtMoney(sale.total)} บาทแล้ว</div><div class="after-pay-sub">${sale.payMethod||'เงินสด'} · ${sale.ref||sale.id}</div></div><div class="after-pay-options"><button class="after-pay-choice" id="wantShortReceiptBtn"><span>🧾</span> ต้องการใบเสร็จอย่างย่อ</button><button class="after-pay-choice new-order" id="startNewOrderBtn"><span>＋</span> เสร็จสิ้น</button></div>`;
     content.querySelector('#wantShortReceiptBtn').onclick=renderReceiptActions;
