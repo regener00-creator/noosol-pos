@@ -1558,7 +1558,7 @@ function stockInLargestUnit(p){
 function stockAllUnits(p){
   const rows = [{name:p.unit, factor:1}, ...(p.units||[]).filter(u=>u.sub&&u.factor>0).map(u=>({name:u.sub, factor:u.factor}))];
   rows.sort((a,b)=>b.factor-a.factor);
-  return rows.map(r=>({ name:r.name, amount: p.stock/r.factor }));
+  return rows.map(r=>({ name:r.name, factor:r.factor, amount: p.stock/r.factor }));
 }
 function generateMockSalesHistory(){
   const today = new Date();
@@ -7050,13 +7050,41 @@ function openStockCheckModal(pid){
   overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:380px;">
     <div class="modal-head"><h3>คงเหลือ: ${p.name}</h3><button class="modal-close">×</button></div>
-    <div class="modal-sub">คงเหลือทั้งหมด ${p.stock} ${p.unit} — คิดเป็นหน่วยต่างๆ:</div>
-    <div class="manage-list">${rows.map(r=>`<div class="manage-item"><span>${r.name}</span><b class="mono">${(Math.round(r.amount*100)/100).toLocaleString('th-TH')}</b></div>`).join('')}</div>
+    <div class="modal-sub" id="stockCheckSub">คงเหลือทั้งหมด ${p.stock} ${p.unit} — แก้จำนวนหน่วยไหนก็ได้ หน่วยอื่นจะคำนวณตามให้อัตโนมัติ:</div>
+    <div class="manage-list">${rows.map(r=>`<div class="manage-item"><span>${escapeHtml(r.name)}</span><input type="number" step="any" class="stock-check-input mono" data-factor="${r.factor}" value="${Math.round(r.amount*100)/100}" style="width:120px;text-align:right;padding:7px 9px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:14px;"></div>`).join('')}</div>
+    <div class="modal-actions" style="display:flex;justify-content:flex-end;gap:10px;padding:12px 16px 16px;"><button class="btn ghost stock-check-cancel">ยกเลิก</button><button class="btn primary" id="stockCheckSaveBtn">บันทึกจำนวนคงเหลือ</button></div>
   </div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
+  overlay.querySelector('.stock-check-cancel').onclick=close;
   overlay.onclick=e=>{ if(e.target===overlay) close(); };
+  const inputs=[...overlay.querySelectorAll('.stock-check-input')];
+  const subEl=overlay.querySelector('#stockCheckSub');
+  inputs.forEach(input=>{
+    input.addEventListener('input', ()=>{
+      const factor=Number(input.dataset.factor)||1;
+      const newBaseStock=(Number(input.value)||0)*factor;
+      inputs.forEach(other=>{
+        if(other===input) return;
+        const otherFactor=Number(other.dataset.factor)||1;
+        other.value=Math.round((newBaseStock/otherFactor)*100)/100;
+      });
+      subEl.textContent=`คงเหลือทั้งหมด ${Math.round(newBaseStock*100)/100} ${p.unit} — แก้จำนวนหน่วยไหนก็ได้ หน่วยอื่นจะคำนวณตามให้อัตโนมัติ:`;
+    });
+    input.addEventListener('focus', ()=>input.select());
+  });
+  overlay.querySelector('#stockCheckSaveBtn').addEventListener('click', ()=>{
+    const baseInput=inputs.find(i=>Number(i.dataset.factor)===1);
+    const newStock=Number(baseInput.value)||0;
+    if(newStock===p.stock){ close(); return; }
+    p.stock=newStock;
+    setProductStockOnSupabase(p.id,newStock);
+    persistWorkspaceData();
+    showToast(`ปรับจำนวนคงเหลือ "${p.name}" เป็น ${newStock} ${p.unit} แล้ว`);
+    close();
+    render();
+  });
 }
 
 function openPriceCheckModal(){
