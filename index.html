@@ -4177,7 +4177,9 @@ function renderSystemSettings(){
       <div class="settings-actions"><button class="btn primary" id="saveDocumentPrefixesBtn">บันทึกรหัสนำหน้าเอกสาร</button></div>
     </div>
     ${renderStoreBackupSection()}
-    <div class="settings-section" style="border-color:#F2C0BC;"><h2 style="color:var(--danger);">รีเซ็ตข้อมูลทั้งหมด</h2><div class="hint">ลบสินค้า คลังสินค้า สมุดรายชื่อ ผู้แทน เอกสาร ประวัติการขาย และบัญชีผู้ใช้ทั้งหมด โดยระบบจะสำรองข้อมูลก่อนรีเซ็ตไว้หนึ่งชุด และให้สร้างบัญชีเจ้าของร้านใหม่ก่อน Login</div>
+    <div class="settings-section" style="border-color:#F2C0BC;"><h2 style="color:var(--danger);">รีเซ็ตข้อมูล</h2>
+      <div style="margin-bottom:14px;"><b>รีเซ็ตเฉพาะเอกสาร</b><div class="hint">ลบเอกสารทุกประเภท (ใบเสนอราคา ใบสั่งซื้อสินค้า ใบรับสินค้า ใบคืนสินค้า ใบกำกับภาษี ใบลดหนี้ โอนสินค้าระหว่างคลัง) และประวัติการขายทั้งหมด — รายการสินค้า คลังสินค้า สมุดรายชื่อ ผู้แทน ตั้งค่าธุรกิจ และผู้ใช้งาน จะไม่ถูกลบ โดยระบบจะสำรองข้อมูลก่อนรีเซ็ตไว้หนึ่งชุด</div></div>
+      <div><b>รีเซ็ตทั้งหมด</b><div class="hint">ลบสินค้า คลังสินค้า สมุดรายชื่อ ผู้แทน เอกสาร และประวัติการขายทั้งหมด (บัญชีผู้ใช้งานจะไม่ถูกลบ) โดยระบบจะสำรองข้อมูลก่อนรีเซ็ตไว้หนึ่งชุด</div></div>
       <div class="settings-actions" style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;"><button class="btn reset-keep-products" id="resetKeepProductsBtn">รีเซ็ตเฉพาะเอกสาร</button><button class="btn reset-danger" id="resetAllDataBtn">รีเซ็ตทั้งหมด</button></div>
     </div></div>`;
 }
