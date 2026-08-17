@@ -1140,6 +1140,61 @@ async function loadBusinessSettingsFromSupabase(){
   }catch(e){ console.warn('load business settings failed',e); }
 }
 
+// ----- Document number prefixes sync -----
+// Another single object, same settings(key,value) table as business settings.
+async function syncDocumentPrefixesToSupabase(){
+  if(!currentProfile) return;
+  const snapshot=JSON.stringify(documentPrefixes);
+  if(lastSyncedSnapshot.document_prefixes===snapshot) return;
+  try{
+    const {error}=await sb.from('settings').upsert({key:'document_prefixes',value:documentPrefixes});
+    if(error){ console.warn('sync document prefixes',error); return; }
+    lastSyncedSnapshot.document_prefixes=snapshot;
+  }catch(e){ console.warn('sync document prefixes failed',e); }
+}
+async function loadDocumentPrefixesFromSupabase(){
+  try{
+    const {data,error}=await sb.from('settings').select('value').eq('key','document_prefixes').maybeSingle();
+    if(error){ console.warn('load document prefixes',error); return; }
+    if(data&&data.value&&typeof data.value==='object'){
+      Object.keys(DEFAULT_DOCUMENT_PREFIXES).forEach(key=>{
+        documentPrefixes[key]=normalizeDocumentPrefix(data.value[key],DEFAULT_DOCUMENT_PREFIXES[key]);
+      });
+      lastSyncedSnapshot.document_prefixes=JSON.stringify(documentPrefixes);
+    }else{
+      await syncDocumentPrefixesToSupabase(); // first time ever: seed Supabase from whatever's local right now
+    }
+  }catch(e){ console.warn('load document prefixes failed',e); }
+}
+
+// ----- Favorites sync (per-user: table PK is user_id+product_id, not id) -----
+// Different shape from upsertAndPrune()'s tables -- no single `id` column to
+// key off of, and rows must stay scoped to the CURRENT user only (never
+// touch another signed-in staff member's favorites).
+async function syncFavoritesToSupabase(){
+  if(!currentProfile) return;
+  const snapshot=JSON.stringify(favorites);
+  if(lastSyncedSnapshot.favorites===snapshot) return;
+  try{
+    const rows=favorites.map(pid=>({user_id:currentProfile.id,product_id:pid}));
+    if(rows.length){ const {error}=await sb.from('favorites').upsert(rows); if(error){ console.warn('sync favorites',error); return; } }
+    const {data:existing}=await fetchAllRows(()=>sb.from('favorites').select('product_id').eq('user_id',currentProfile.id));
+    const localIds=new Set(favorites);
+    const del=(existing||[]).filter(r=>!localIds.has(r.product_id)).map(r=>r.product_id);
+    if(del.length) await sb.from('favorites').delete().eq('user_id',currentProfile.id).in('product_id',del);
+    lastSyncedSnapshot.favorites=snapshot;
+  }catch(e){ console.warn('sync favorites failed',e); }
+}
+async function loadFavoritesFromSupabase(){
+  if(!currentProfile) return;
+  try{
+    const {data,error}=await fetchAllRows(()=>sb.from('favorites').select('product_id').eq('user_id',currentProfile.id));
+    if(error){ console.warn('load favorites',error); return; }
+    favorites=(data||[]).map(r=>r.product_id);
+    lastSyncedSnapshot.favorites=JSON.stringify(favorites);
+  }catch(e){ console.warn('load favorites failed',e); }
+}
+
 async function loadCoreDataFromSupabase(){
   try{
     const [{data:whRows,error:whErr},{data:prodRows,error:prodErr},{data:contactRows,error:contactErr},{data:repRows,error:repErr}]=await Promise.all([
@@ -1683,10 +1738,10 @@ const STORE_INFO = {
   website: 'www.noosol.com',
 };
 let businessSettings={type:'บริษัท',vat:'จดภาษีมูลค่าเพิ่มแล้ว',name:'MADE MY',address:STORE_INFO.address,taxId:STORE_INFO.taxId,branch:'head',officePhone:'',mobile:STORE_INFO.phone,fax:'',website:STORE_INFO.website,english:false};
-let lowStockSettings={enabled:true,defaultThreshold:5};
-const LOWSTOCK_STORAGE_KEY='pharmacy_pos_lowstock_v1';
-try{ const saved=JSON.parse(localStorage.getItem(LOWSTOCK_STORAGE_KEY)||'null'); if(saved&&typeof saved==='object'){ lowStockSettings={...lowStockSettings,...saved}; } }catch(error){ console.warn('ไม่สามารถโหลดการตั้งค่าสินค้าใกล้หมดได้',error); }
-function persistLowStockSettings(){ try{ localStorage.setItem(LOWSTOCK_STORAGE_KEY,JSON.stringify(lowStockSettings)); }catch(error){ console.warn('ไม่สามารถบันทึกการตั้งค่าสินค้าใกล้หมดได้',error); } }
+// เดิมมีการตั้งค่าสินค้าใกล้หมดระดับร้าน (เปิด/ปิด + ค่าเริ่มต้น) แต่ไม่เคยมีหน้าจอให้แก้ไขค่านี้จริง
+// (ฟังก์ชันบันทึกไม่เคยถูกเรียกใช้เลย) จึงเอาออกตามที่ขอ เหลือแค่ค่าคงที่ไว้ใช้เป็นค่าเริ่มต้น
+// ให้สินค้าใหม่ + fallback ของการแจ้งเตือนต่อสินค้า (ซึ่งยังตั้งค่าแยกรายตัวได้ในหน้าแก้ไขสินค้าเหมือนเดิม)
+const DEFAULT_LOW_STOCK_THRESHOLD=5;
 let currentUserProfile={firstName:'',lastName:'',phone:'',email:'',position:'เจ้าของกิจการ',signatureName:''};
 let systemUsers=[]; // populated on-demand from the admin-users edge function (owner only)
 let systemUsersLoaded=false;
@@ -1895,6 +1950,8 @@ async function loginSystem(event){
   await loadCoreDataFromSupabase();
   await loadSalesHistoryFromSupabase();
   await loadBusinessSettingsFromSupabase();
+  await loadDocumentPrefixesFromSupabase();
+  await loadFavoritesFromSupabase();
   render();
 }
 async function logoutSystem(){
@@ -3347,8 +3404,8 @@ function renderTransferForm(){
   </div>`;
 }
 
-function effectiveThreshold(p){ return (p.threshold ?? lowStockSettings.defaultThreshold); }
-function isLowStock(p){ if(lowStockSettings.enabled===false) return false; if(p.lowAlert===false) return false; return p.stock <= effectiveThreshold(p); }
+function effectiveThreshold(p){ return (p.threshold ?? DEFAULT_LOW_STOCK_THRESHOLD); }
+function isLowStock(p){ if(p.lowAlert===false) return false; return p.stock <= effectiveThreshold(p); }
 function lowSortedList(list, sortState, keyFn){
   const dir=sortState.dir;
   return [...list].sort((a,b)=>{
@@ -5776,6 +5833,7 @@ function saveDocumentPrefixes(){
   documentPrefixes={...next};
   saleRef=nextSaleRef();
   persistWorkspaceData();
+  syncDocumentPrefixesToSupabase();
   showToast('บันทึกรหัสนำหน้าเอกสารแล้ว เอกสารใหม่จะใช้รหัสที่ตั้งไว้');
   render();
 }
@@ -5892,6 +5950,7 @@ function resetAllSystemData(){
   refreshDataCounters();
   saleRef=nextSaleRef();
   persistWarehouses(); persistContacts(); persistSalesHistory(); persistQuotations(); persistTransfers(); persistStandaloneTaxInvoices(); persistWorkspaceData();
+  syncFavoritesToSupabase();
   currentTab='settingssystem';
   render();
   showToast('รีเซ็ตข้อมูลทั้งหมดแล้ว');
@@ -5909,6 +5968,7 @@ function resetDocumentsOnly(){
   refreshDataCounters();
   saleRef=nextSaleRef();
   persistSalesHistory(); persistQuotations(); persistTransfers(); persistStandaloneTaxInvoices(); persistWorkspaceData();
+  syncFavoritesToSupabase();
   currentTab='settingssystem';
   render();
   showToast('รีเซ็ตเฉพาะเอกสารแล้ว');
@@ -6372,7 +6432,7 @@ async function importProductsFromExcel(file){
       const product={
         id,...data,
         type:'stock',vat:'incl',hasOpening:false,openingDate:'',openingQty:0,openingCost:0,
-        lowAlert:lowStockSettings.enabled!==false,lowMode:'default',threshold:lowStockSettings.defaultThreshold,
+        lowAlert:true,lowMode:'default',threshold:DEFAULT_LOW_STOCK_THRESHOLD,
       };
       toCreate.push(product);
       skuOwner.set(finalSku.toLowerCase(),id);
@@ -6496,10 +6556,10 @@ function saveProduct(){
   }));
   const existing = (editingProductId!=='new') ? products.find(x=>x.id===editingProductId) : null;
   const hasOpening = g('f_openingtoggle') && g('f_openingtoggle').checked;
-  // ค่าแจ้งเตือนสินค้าใกล้หมด: แก้ไขได้ที่หน้า "ตั้งค่า › ตั้งค่าสินค้าใกล้หมด" — คงค่าเดิมของสินค้าไว้ (สินค้าใหม่ใช้ค่าเริ่มต้นรวม)
-  const lowAlert = existing ? (existing.lowAlert!==false) : (lowStockSettings.enabled!==false);
+  // ค่าแจ้งเตือนสินค้าใกล้หมด: ตั้งได้ต่อสินค้าในฟอร์มนี้ — คงค่าเดิมของสินค้าไว้ (สินค้าใหม่ใช้ค่าเริ่มต้นรวม)
+  const lowAlert = existing ? (existing.lowAlert!==false) : true;
   const lowMode = existing ? (existing.lowMode||'default') : 'default';
-  const threshold = existing ? (existing.threshold ?? lowStockSettings.defaultThreshold) : lowStockSettings.defaultThreshold;
+  const threshold = existing ? (existing.threshold ?? DEFAULT_LOW_STOCK_THRESHOLD) : DEFAULT_LOW_STOCK_THRESHOLD;
   const data = {
     name, unit, price,
     cost: parseFloat(gv('f_cost'))||0,
@@ -6941,6 +7001,7 @@ function openManageFavModal(){
       btn.addEventListener('click', ()=>{
         const id=Number(btn.dataset.favRemove);
         favorites=favorites.filter(x=>x!==id);
+        syncFavoritesToSupabase();
         refreshList();
       });
     });
@@ -6963,6 +7024,7 @@ function openManageFavModal(){
       btn.addEventListener('click', ()=>{
         const pid=Number(btn.dataset.pid);
         if(!favorites.includes(pid)) favorites.push(pid);
+        syncFavoritesToSupabase();
         searchEl.value=''; resultsEl.hidden=true; resultsEl.innerHTML='';
         refreshList();
         searchEl.focus();
@@ -7231,7 +7293,7 @@ sb.auth.onAuthStateChange((event)=>{
     systemHasOwner = ownerErr ? true : !!ownerCheck; // default to "true" (login screen) if the check itself fails
   }catch(e){ systemHasOwner = true; }
   try{ await loadCurrentProfile(); }catch(e){ currentProfile=null; }
-  if(currentProfile){ try{ await loadCoreDataFromSupabase(); await loadSalesHistoryFromSupabase(); await loadBusinessSettingsFromSupabase(); }catch(e){ console.warn('load core data on boot failed',e); } }
+  if(currentProfile){ try{ await loadCoreDataFromSupabase(); await loadSalesHistoryFromSupabase(); await loadBusinessSettingsFromSupabase(); await loadDocumentPrefixesFromSupabase(); await loadFavoritesFromSupabase(); }catch(e){ console.warn('load core data on boot failed',e); } }
   render();
 })();
 </script>
