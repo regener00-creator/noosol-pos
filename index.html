@@ -2135,7 +2135,22 @@ function matchesBarcode(p, q){
   if((p.barcode||'').includes(q)) return true;
   if((p.extraBarcodes||[]).some(bc=>bc.includes(q))) return true;
   if((p.vendorBarcodes||[]).some(vb=>(vb.code||'').includes(q))) return true;
+  if((p.units||[]).some(u=>(u.barcode||'').includes(q))) return true;
   return false;
+}
+// Exact-code lookup for barcode-scan flows (scanner + Enter key). Unlike
+// matchesBarcode() (substring match, for live search-as-you-type), this
+// requires an exact match and also reports WHICH unit the code belongs to
+// -- e.g. scanning a box's own barcode should add one box (its own price/
+// factor), not silently fall back to the product's base unit.
+function findProductByExactCode(q){
+  if(!q) return null;
+  for(const p of products){
+    if(p.barcode===q||p.sku===q||(p.extraBarcodes||[]).includes(q)||(p.vendorBarcodes||[]).some(v=>v.code===q)) return {product:p,unitName:p.unit};
+    const u=(p.units||[]).find(x=>x.barcode===q);
+    if(u) return {product:p,unitName:u.sub};
+  }
+  return null;
 }
 
 function renderCheckout(){
@@ -4356,9 +4371,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
         // พิมพ์ *N เพื่อล็อกจำนวนล่วงหน้า เช่น *10
         const qtyMatch = q.match(/^\*\s*(\d+)$/);
         if(qtyMatch){ pendingQty = Math.max(1, parseInt(qtyMatch[1])||1); searchQuery=''; render(); const s=document.getElementById('search'); if(s){ s.focus(); s.placeholder=`× ${pendingQty} — ยิงบาร์โค้ด/พิมพ์รหัสสินค้าถัดไป`; } showToast(`ล็อกจำนวน × ${pendingQty} ไว้แล้ว`); return; }
-        // ค้นหาสินค้า: บาร์โค้ดตรงเป๊ะก่อน แล้วค่อยชื่อ/รหัส
-        const exact = products.filter(p=>p.barcode===q || (p.extraBarcodes||[]).includes(q) || (p.vendorBarcodes||[]).some(v=>v.code===q) || p.sku===q);
-        const list = exact.length?exact:products.filter(p=>p.name.includes(q)||matchesBarcode(p,q)||(p.sku||'').includes(q));
+        // ค้นหาสินค้า: บาร์โค้ดตรงเป๊ะก่อน (รวมบาร์โค้ดของหน่วยย่อยเช่นกล่อง/ลัง) แล้วค่อยชื่อ/รหัส
+        const exactHit=findProductByExactCode(q);
+        if(exactHit){ addToCart(exactHit.product.id, exactHit.unitName, pendingQty); checkNegativeStockToast(exactHit.product.id); pendingQty=1; searchQuery=''; render(); const s=document.getElementById('search'); if(s) s.focus(); return; }
+        const list = products.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())||matchesBarcode(p,q)||(p.sku||'').toLowerCase().includes(q.toLowerCase()));
         if(list.length>=1){ const p=list[0]; addToCart(p.id, null, pendingQty); checkNegativeStockToast(p.id); pendingQty=1; searchQuery=''; render(); const s=document.getElementById('search'); if(s) s.focus(); }
       }
     });
@@ -4425,7 +4441,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       q=(q||'').trim();
       if(!q){ srResults.hidden=true; srResults.innerHTML=''; return; }
       const ql=q.toLowerCase();
-      const matches=products.filter(p=> p.name.toLowerCase().includes(ql) || (p.sku||'').toLowerCase().includes(ql) || p.barcode===q || (p.extraBarcodes||[]).includes(q) || (p.vendorBarcodes||[]).some(v=>v.code===q) ).slice(0,15);
+      const matches=products.filter(p=> p.name.toLowerCase().includes(ql) || (p.sku||'').toLowerCase().includes(ql) || p.barcode===q || (p.extraBarcodes||[]).includes(q) || (p.vendorBarcodes||[]).some(v=>v.code===q) || (p.units||[]).some(u=>u.barcode===q) ).slice(0,15);
       if(!matches.length){ srResults.innerHTML='<div class="fav-add-noresult">ไม่พบสินค้า</div>'; srResults.hidden=false; return; }
       srResults.innerHTML=matches.map(p=>`<div class="fav-add-result" data-pid="${p.id}"><b>${p.name}</b><span>${p.sku||'-'} · คงเหลือ ${p.stock} ${p.unit}</span></div>`).join('');
       srResults.hidden=false;
@@ -4438,7 +4454,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       });
     };
     const trySrExact=(q)=>{
-      const exact=products.find(p=>p.barcode===q||(p.extraBarcodes||[]).includes(q)||(p.vendorBarcodes||[]).some(v=>v.code===q)||p.sku===q);
+      const exact=products.find(p=>p.barcode===q||(p.extraBarcodes||[]).includes(q)||(p.vendorBarcodes||[]).some(v=>v.code===q)||p.sku===q||(p.units||[]).some(u=>u.barcode===q));
       if(exact){ addSrProduct(exact); srInput.value=''; srResults.hidden=true; return true; }
       return false;
     };
@@ -4612,12 +4628,12 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       if(!q){ rpProdResults.classList.remove('show'); rpProdResults.innerHTML=''; return; }
       const ql=q.toLowerCase();
       const chosen=rproductFilter.products||[];
-      const matches=products.filter(p=> !chosen.includes(p.name) && ( p.name.toLowerCase().includes(ql) || (p.sku||'').toLowerCase().includes(ql) || p.barcode===q || (p.extraBarcodes||[]).includes(q) || (p.vendorBarcodes||[]).some(v=>v.code===q) )).slice(0,20);
+      const matches=products.filter(p=> !chosen.includes(p.name) && ( p.name.toLowerCase().includes(ql) || (p.sku||'').toLowerCase().includes(ql) || p.barcode===q || (p.extraBarcodes||[]).includes(q) || (p.vendorBarcodes||[]).some(v=>v.code===q) || (p.units||[]).some(u=>u.barcode===q) )).slice(0,20);
       if(!matches.length){ rpProdResults.innerHTML='<div class="rpf-result-empty">ไม่พบสินค้า</div>'; rpProdResults.classList.add('show'); return; }
       rpProdResults.innerHTML=matches.map(p=>`<div class="rpf-result" data-name="${p.name.replace(/"/g,'&quot;')}"><b>${p.name}</b><span>${p.sku||'-'} · ${p.barcode||'ไม่มีบาร์โค้ด'} · คงเหลือ ${p.stock} ${p.unit}</span></div>`).join('');
       rpProdResults.classList.add('show');
     };
-    const tryExact=(q)=>{ const exact=products.find(p=>p.barcode===q||(p.extraBarcodes||[]).includes(q)||(p.vendorBarcodes||[]).some(v=>v.code===q)||p.sku===q); if(exact){ addProduct(exact.name); return true; } return false; };
+    const tryExact=(q)=>{ const exact=products.find(p=>p.barcode===q||(p.extraBarcodes||[]).includes(q)||(p.vendorBarcodes||[]).some(v=>v.code===q)||p.sku===q||(p.units||[]).some(u=>u.barcode===q)); if(exact){ addProduct(exact.name); return true; } return false; };
     rpProdSearch.addEventListener('input',()=>{ renderResults(rpProdSearch.value); });
     rpProdSearch.addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); const q=rpProdSearch.value.trim(); if(!q) return; if(tryExact(q)) return; const first=rpProdResults.querySelector('.rpf-result'); if(first){ addProduct(first.dataset.name); } } });
     rpProdResults.addEventListener('click',e=>{ const row=e.target.closest('.rpf-result'); if(!row) return; addProduct(row.dataset.name); });
@@ -6913,7 +6929,7 @@ function openManageFavModal(){
     q=(q||'').trim();
     if(!q){ resultsEl.hidden=true; resultsEl.innerHTML=''; return; }
     const ql=q.toLowerCase();
-    const matches=products.filter(p=> !favorites.includes(p.id) && ( p.name.toLowerCase().includes(ql) || (p.sku||'').toLowerCase().includes(ql) || p.barcode===q || (p.extraBarcodes||[]).includes(q) )).slice(0,20);
+    const matches=products.filter(p=> !favorites.includes(p.id) && ( p.name.toLowerCase().includes(ql) || (p.sku||'').toLowerCase().includes(ql) || p.barcode===q || (p.extraBarcodes||[]).includes(q) || (p.units||[]).some(u=>u.barcode===q) )).slice(0,20);
     if(!matches.length){ resultsEl.innerHTML='<div class="fav-add-noresult">ไม่พบสินค้า หรือเพิ่มไว้ครบแล้ว</div>'; resultsEl.hidden=false; return; }
     resultsEl.innerHTML=matches.map(p=>`<button type="button" class="fav-add-result" data-pid="${p.id}"><b>${p.name}</b><span class="mono">${fmtMoney(p.price)}</span></button>`).join('');
     resultsEl.hidden=false;
