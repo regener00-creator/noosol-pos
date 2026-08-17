@@ -6900,14 +6900,15 @@ function openPaymentModal(){
   overlay.innerHTML=`<div class="modal checkout-pay-modal"><div class="modal-head"><h3 id="checkoutPayTitle">เลือกวิธีชำระเงิน</h3><button class="modal-close">×</button></div><div id="checkoutPayContent"></div></div>`;
   document.body.appendChild(overlay);
   const content=overlay.querySelector('#checkoutPayContent'),title=overlay.querySelector('#checkoutPayTitle');
-  let cashKeyHandler=null;
-  const stopCashKeyboard=()=>{ if(cashKeyHandler){ document.removeEventListener('keydown',cashKeyHandler); cashKeyHandler=null; } };
-  const close=()=>{ stopCashKeyboard(); overlay.remove(); };
+  // ตัวจับคีย์บอร์ดของหน้าจอชำระเงินปัจจุบัน (เปลี่ยนหน้าจอทีก็เปลี่ยนตัวจับ) — ใช้ร่วมกันทั้งเงินสด/โอน/บัตร/ออนไลน์
+  // เพื่อให้กด Enter = คลิกปุ่ม "เสร็จสิ้น" ที่กำลังโชว์อยู่ ได้ทุกหน้าจอเหมือนกันหมด
+  let activeKeyHandler=null;
+  const stopKeyHandler=()=>{ if(activeKeyHandler){ document.removeEventListener('keydown',activeKeyHandler); activeKeyHandler=null; } };
+  const close=()=>{ stopKeyHandler(); overlay.remove(); };
   overlay.querySelector('.modal-close').onclick=close;
-  
 
   const renderChoice=()=>{
-    stopCashKeyboard();
+    stopKeyHandler();
     title.hidden=true;
     content.innerHTML=`<div class="payment-choice-total"><span>ยอดชำระ</span><b>${fmtMoney(grand)}</b><span>บาท</span></div><div style="padding:8px 16px 18px;display:flex;flex-direction:column;gap:10px;"><button class="paymethod" data-method="cash"><span style="font-size:20px;">💵</span> เงินสด</button><button class="paymethod" data-method="bank"><span style="font-size:20px;">🏦</span> โอนธนาคาร</button><button class="paymethod" data-method="card"><span style="font-size:20px;">💳</span> บัตรเครดิต</button><button class="paymethod" data-method="online"><span style="font-size:20px;">🌐</span> ออนไลน์</button></div>`;
     content.querySelector('[data-method="cash"]').onclick=renderCash;
@@ -6917,13 +6918,14 @@ function openPaymentModal(){
   };
 
   const renderCash=()=>{
+    stopKeyHandler();
     title.hidden=false; title.textContent='รับชำระเงินสด'; let cashValue='';
     content.innerHTML=`<div class="checkout-pay-body"><div class="checkout-pay-total">ยอดที่ต้องชำระ<b>${fmtMoney(grand)} บาท</b></div><input class="cash-display" id="cashDisplay" value="0" readonly aria-label="จำนวนเงินที่รับ"><div class="cash-keypad">${['7','8','9','4','5','6','1','2','3','00','0','.'].map(k=>`<button class="cash-key" data-cash-key="${k}">${k}</button>`).join('')}<button class="cash-key action" data-cash-key="back">⌫ ลบ</button><button class="cash-key action" data-cash-key="exact">รับพอดี</button><button class="cash-key action" data-cash-key="clear">ล้าง</button></div><div class="cash-balance short" id="cashBalance">เงินขาดอีก ${fmtMoney(grand)} บาท</div><div class="checkout-payment-nav"><button class="btn ghost" id="paymentBackBtn">← ย้อนกลับ</button><button class="btn finish" id="cashFinishBtn" disabled>เสร็จสิ้น</button></div></div>`;
     const display=content.querySelector('#cashDisplay'),balance=content.querySelector('#cashBalance'),finish=content.querySelector('#cashFinishBtn');
     const update=()=>{ const received=parseFloat(cashValue)||0,diff=received-grand; display.value=cashValue||'0'; if(diff<0){ balance.className='cash-balance short'; balance.textContent=`เงินขาดอีก ${fmtMoney(Math.abs(diff))} บาท`; finish.disabled=true; }else{ balance.className='cash-balance change'; balance.textContent=`เงินทอน ${fmtMoney(diff)} บาท`; finish.disabled=false; } };
     const applyCashKey=key=>{ if(key==='clear') cashValue=''; else if(key==='back') cashValue=cashValue.slice(0,-1); else if(key==='exact') cashValue=grand.toFixed(2); else if(key==='.'&&!cashValue.includes('.')) cashValue=(cashValue||'0')+'.'; else if(/^\d+$/.test(key)&&cashValue.replace('.','').length<10) cashValue+=key; update(); };
     content.querySelectorAll('[data-cash-key]').forEach(btn=>btn.onclick=()=>applyCashKey(btn.dataset.cashKey));
-    cashKeyHandler=e=>{
+    activeKeyHandler=e=>{
       let key=null;
       if(/^\d$/.test(e.key)) key=e.key;
       else if(e.key==='.'||e.code==='NumpadDecimal'||e.key==='Decimal') key='.';
@@ -6933,31 +6935,52 @@ function openPaymentModal(){
       else if(e.key==='Escape'){ e.preventDefault(); renderChoice(); return; }
       if(key!==null){ e.preventDefault(); applyCashKey(key); }
     };
-    document.addEventListener('keydown',cashKeyHandler);
+    document.addEventListener('keydown',activeKeyHandler);
     content.querySelector('#paymentBackBtn').onclick=renderChoice;
     finish.onclick=()=>{ const received=parseFloat(cashValue)||0; if(received<grand) return; close(); doCheckout('เงินสด',{cashReceived:received,cashChange:received-grand}); };
   };
 
   const renderBank=()=>{
+    stopKeyHandler();
     title.hidden=false; title.textContent='ชำระด้วยการโอนธนาคาร';
     content.innerHTML=`<div class="checkout-pay-body qr-payment"><div class="checkout-pay-total">ยอดโอน<b>${fmtMoney(grand)} บาท</b></div><div class="qr-box">${paymentQrMarkup(`${saleRef}|${grand.toFixed(2)}`)}</div><b>สแกน QR Code เพื่อชำระเงิน</b><div style="color:var(--text-muted);font-size:12px;margin-top:5px;">ตรวจสอบยอดเงินก่อนกดเสร็จสิ้น</div><div class="checkout-payment-nav"><button class="btn ghost" id="paymentBackBtn">← ย้อนกลับ</button><button class="btn finish" id="bankFinishBtn">เสร็จสิ้น</button></div></div>`;
+    const finish=content.querySelector('#bankFinishBtn');
     content.querySelector('#paymentBackBtn').onclick=renderChoice;
-    content.querySelector('#bankFinishBtn').onclick=()=>{ close(); doCheckout('โอนธนาคาร'); };
+    finish.onclick=()=>{ close(); doCheckout('โอนธนาคาร'); };
+    activeKeyHandler=e=>{
+      if(e.key==='Enter'){ e.preventDefault(); finish.click(); }
+      else if(e.key==='Escape'){ e.preventDefault(); renderChoice(); }
+    };
+    document.addEventListener('keydown',activeKeyHandler);
   };
 
   const renderCard=()=>{
+    stopKeyHandler();
     title.hidden=false; title.textContent='ชำระด้วยบัตรเครดิต';
     const fee=Math.round(grand*.03*100)/100,total=Math.round((grand+fee)*100)/100;
     content.innerHTML=`<div class="checkout-pay-body"><div class="card-charge"><div><span>ยอดสินค้า</span><b>${fmtMoney(grand)} บาท</b></div><div><span>ค่าธรรมเนียมบัตรเครดิต 3%</span><b>${fmtMoney(fee)} บาท</b></div><div><span>ยอดชำระทั้งหมด</span><b>${fmtMoney(total)} บาท</b></div></div><div class="checkout-payment-nav"><button class="btn ghost" id="paymentBackBtn">← ย้อนกลับ</button><button class="btn finish" id="cardFinishBtn">เสร็จสิ้น</button></div></div>`;
+    const finish=content.querySelector('#cardFinishBtn');
     content.querySelector('#paymentBackBtn').onclick=renderChoice;
-    content.querySelector('#cardFinishBtn').onclick=()=>{ close(); doCheckout('บัตรเครดิต',{fee}); };
+    finish.onclick=()=>{ close(); doCheckout('บัตรเครดิต',{fee}); };
+    activeKeyHandler=e=>{
+      if(e.key==='Enter'){ e.preventDefault(); finish.click(); }
+      else if(e.key==='Escape'){ e.preventDefault(); renderChoice(); }
+    };
+    document.addEventListener('keydown',activeKeyHandler);
   };
 
   const renderOnline=()=>{
+    stopKeyHandler();
     title.hidden=false; title.textContent='ชำระออนไลน์';
     content.innerHTML=`<div class="checkout-pay-body"><div class="payment-choice-total" style="padding:26px 8px 34px;"><span>ยืนยันยอดชำระ</span><b>${fmtMoney(grand)}</b><span>บาท</span></div><div class="checkout-payment-nav"><button class="btn ghost" id="paymentBackBtn">← ย้อนกลับ</button><button class="btn finish" id="onlineFinishBtn">เสร็จสิ้น</button></div></div>`;
+    const finish=content.querySelector('#onlineFinishBtn');
     content.querySelector('#paymentBackBtn').onclick=renderChoice;
-    content.querySelector('#onlineFinishBtn').onclick=()=>{ close(); doCheckout('ออนไลน์'); };
+    finish.onclick=()=>{ close(); doCheckout('ออนไลน์'); };
+    activeKeyHandler=e=>{
+      if(e.key==='Enter'){ e.preventDefault(); finish.click(); }
+      else if(e.key==='Escape'){ e.preventDefault(); renderChoice(); }
+    };
+    document.addEventListener('keydown',activeKeyHandler);
   };
 
   renderChoice();
@@ -7321,19 +7344,27 @@ function openPostPaymentModal(saleId){
   overlay.innerHTML=`<div class="modal" style="width:430px;"><div class="modal-head"><h3>ชำระเงินสำเร็จ</h3><button class="modal-close">×</button></div><div id="afterPayContent"></div></div>`;
   document.body.appendChild(overlay);
   const content=overlay.querySelector('#afterPayContent');
-  const close=()=>{ overlay.remove(); setTimeout(()=>document.getElementById('search')?.focus(),0); };
-  overlay.querySelector('.modal-close').onclick=close; 
+  let activeKeyHandler=null;
+  const stopKeyHandler=()=>{ if(activeKeyHandler){ document.removeEventListener('keydown',activeKeyHandler); activeKeyHandler=null; } };
+  const close=()=>{ stopKeyHandler(); overlay.remove(); setTimeout(()=>document.getElementById('search')?.focus(),0); };
+  overlay.querySelector('.modal-close').onclick=close;
   const renderStart=()=>{
+    stopKeyHandler();
     content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">✓</div><div class="after-pay-heading">รับชำระ ${fmtMoney(sale.total)} บาทแล้ว</div><div class="after-pay-sub">${sale.payMethod||'เงินสด'} · ${sale.ref||sale.id}</div></div><div class="after-pay-options"><button class="after-pay-choice" id="wantShortReceiptBtn"><span>🧾</span> ต้องการใบเสร็จอย่างย่อ</button><button class="after-pay-choice new-order" id="startNewOrderBtn"><span>＋</span> เสร็จสิ้น</button></div>`;
     content.querySelector('#wantShortReceiptBtn').onclick=renderReceiptActions;
     content.querySelector('#startNewOrderBtn').onclick=close;
+    activeKeyHandler=e=>{ if(e.key==='Enter'){ e.preventDefault(); close(); } };
+    document.addEventListener('keydown',activeKeyHandler);
   };
   const renderReceiptActions=()=>{
+    stopKeyHandler();
     content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">🧾</div><div class="after-pay-heading">ใบเสร็จรับเงินอย่างย่อ</div><div class="after-pay-sub">เลือกวิธีนำใบเสร็จไปใช้งาน</div></div><div class="after-pay-options"><button class="after-pay-choice" id="printShortReceiptBtn"><span>🖨</span> พิมพ์ใบเสร็จรับเงิน</button><button class="after-pay-choice" id="shareShortReceiptBtn"><span>↗</span> แชร์ใบเสร็จรับเงิน (PDF)</button><div class="checkout-payment-nav" style="margin-top:2px;"><button class="btn ghost" id="afterPayBackBtn">← ย้อนกลับ</button><button class="btn primary" id="afterReceiptNewOrderBtn">เสร็จสิ้น</button></div></div>`;
     content.querySelector('#printShortReceiptBtn').onclick=()=>printShortReceipt(saleId,false);
     content.querySelector('#shareShortReceiptBtn').onclick=()=>printShortReceipt(saleId,true);
     content.querySelector('#afterPayBackBtn').onclick=renderStart;
     content.querySelector('#afterReceiptNewOrderBtn').onclick=close;
+    activeKeyHandler=e=>{ if(e.key==='Enter'){ e.preventDefault(); close(); } };
+    document.addEventListener('keydown',activeKeyHandler);
   };
   renderStart();
 }
@@ -7392,6 +7423,14 @@ document.addEventListener('mouseup', e=>{
 });
 document.addEventListener('click', ()=>{
   if(openDocMenu){ openDocMenu=null; render(); }
+});
+// F9 = เก็บเงิน (ลัดขั้นตอนแทนการเอื้อมมือไปคลิกปุ่ม) เฉพาะตอนอยู่หน้า POS และมีสินค้าในบิลแล้วเท่านั้น
+document.addEventListener('keydown', e=>{
+  if(e.key==='F9' && currentTab==='checkout'){
+    e.preventDefault();
+    const btn=document.getElementById('checkoutBtn');
+    if(btn && !btn.disabled) btn.click();
+  }
 });
 document.getElementById('loginForm')?.addEventListener('submit',loginSystem);
 document.getElementById('ownerSetupForm')?.addEventListener('submit',createInitialOwner);
