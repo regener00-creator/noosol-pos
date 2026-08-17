@@ -257,6 +257,7 @@
   /* หน้ารายการสินค้า: กำหนดความกว้างคอลัมน์ให้พอดี ชื่อสินค้ายาวสุด */
   .prodtable{table-layout:fixed;width:100%;}
   .prodtable .col-sku{width:100px;}
+  .prodtable .col-barcode{width:140px;}
   .prodtable .col-name{width:420px;}
   .prodtable .col-price{width:100px;}
   .prodtable .col-cost{width:100px;}
@@ -2912,7 +2913,7 @@ function renderProducts(){
   const level2=isLevel2User();
   const canViewCost=!level2;
   const canOpenProductEditor=!level2;
-  const productColumnCount=6+(canViewCost?1:0)+(canOpenProductEditor?1:0);
+  const productColumnCount=7+(canViewCost?1:0)+(canOpenProductEditor?1:0);
 
   // ตารางขวา: กรองตามกลุ่มที่เลือก + คำค้น
   let filtered = (selectedGroup||q) ? products.filter(p=>{
@@ -2985,15 +2986,15 @@ function renderProducts(){
       </div>
       <div class="table-pane">
         <div class="table-scroll product-table-scroll">
-        <table class="grid-table doc-head-blue prodtable"><colgroup><col class="col-sku"><col class="col-name"><col class="col-price">${canViewCost?'<col class="col-cost">':''}<col class="col-unit"><col class="col-stock"><col class="col-expiry">${canOpenProductEditor?'<col class="col-edit">':''}</colgroup><thead><tr>${th('sku','รหัสสินค้า')}${th('name','สินค้า')}${th('price','ขาย','mono num')}${canViewCost?th('cost','ทุน','mono num'):''}<th>หน่วย</th>${th('stock','คงเหลือ','mono num')}${th('expiry','วันหมดอายุ','num')}${canOpenProductEditor?'<th></th>':''}</tr></thead>
+        <table class="grid-table doc-head-blue prodtable"><colgroup><col class="col-sku"><col class="col-barcode"><col class="col-name"><col class="col-price">${canViewCost?'<col class="col-cost">':''}<col class="col-unit"><col class="col-stock"><col class="col-expiry">${canOpenProductEditor?'<col class="col-edit">':''}</colgroup><thead><tr>${th('sku','รหัสสินค้า')}<th>บาร์โค้ด</th>${th('name','สินค้า')}${th('price','ขาย','mono num')}${canViewCost?th('cost','ทุน','mono num'):''}<th>หน่วย</th>${th('stock','คงเหลือ','mono num')}${th('expiry','วันหมดอายุ','num')}${canOpenProductEditor?'<th></th>':''}</tr></thead>
         <tbody>${pageRows.map(p=>{
-          const unitOpts=[{sub:p.unit, price:p.price, cost:p.cost||p.openingCost||0}, ...((p.units||[]).map(u=>({sub:u.sub, price:u.price, cost:u.cost||0})))];
+          const unitOpts=[{sub:p.unit, price:p.price, cost:p.cost||p.openingCost||0, barcode:p.barcode||''}, ...((p.units||[]).map(u=>({sub:u.sub, price:u.price, cost:u.cost||0, barcode:u.barcode||''})))];
           const selUnit=prodRowUnitSel[p.id]||p.unit;
           const selOpt=unitOpts.find(u=>u.sub===selUnit)||unitOpts[0];
           const unitSelectHtml = unitOpts.length>1
             ? `<select class="prod-unit-select" data-pid="${p.id}">${unitOpts.map(u=>`<option value="${escapeHtml(u.sub)}" ${u.sub===selOpt.sub?'selected':''}>${escapeHtml(u.sub)}</option>`).join('')}</select>`
             : `<span class="prod-unit-fixed">${escapeHtml(p.unit)}</span>`;
-          return `<tr><td class="mono" style="text-align:center;"><input class="prod-inline-edit" data-pid="${p.id}" data-field="sku" value="${escapeHtml(p.sku||'')}" placeholder="-"></td><td><input class="prod-inline-edit prod-inline-name" data-pid="${p.id}" data-field="name" value="${escapeHtml(p.name)}"></td><td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="price" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.price}"></td>${canViewCost?`<td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="cost" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.cost}"></td>`:''}<td style="text-align:center;">${unitSelectHtml}</td><td class="num stock-cell ${p.stock<0?'stock-negative':''}" style="text-align:center;" data-act="stockcheck" data-id="${p.id}" title="กดเพื่อดูทุกหน่วย">${stockInLargestUnit(p)} <span class="stock-caret">▾</span></td><td class="mono num ${daysUntil(p.expiry)<0?'expiry-past':''}" style="text-align:center;">${fmtDateShort(p.expiry)}</td>${canOpenProductEditor?`<td class="num"><button class="icon-btn" data-act="editproduct" data-id="${p.id}" title="แก้ไข" aria-label="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></td>`:''}</tr>`;
+          return `<tr><td class="mono" style="text-align:center;"><input class="prod-inline-edit" data-pid="${p.id}" data-field="sku" value="${escapeHtml(p.sku||'')}" placeholder="-"></td><td class="mono" style="text-align:center;">${escapeHtml(selOpt.barcode||'-')}</td><td><input class="prod-inline-edit prod-inline-name" data-pid="${p.id}" data-field="name" value="${escapeHtml(p.name)}"></td><td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="price" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.price}"></td>${canViewCost?`<td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="cost" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.cost}"></td>`:''}<td style="text-align:center;">${unitSelectHtml}</td><td class="num stock-cell ${p.stock<0?'stock-negative':''}" style="text-align:center;" data-act="stockcheck" data-id="${p.id}" title="กดเพื่อดูทุกหน่วย">${stockInLargestUnit(p)} <span class="stock-caret">▾</span></td><td class="mono num ${daysUntil(p.expiry)<0?'expiry-past':''}" style="text-align:center;">${fmtDateShort(p.expiry)}</td>${canOpenProductEditor?`<td class="num"><button class="icon-btn" data-act="editproduct" data-id="${p.id}" title="แก้ไข" aria-label="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></td>`:''}</tr>`;
         }).join('')||`<tr><td colspan="${productColumnCount}" style="text-align:center;color:var(--text-muted);padding:30px;">${q?'ไม่พบสินค้าที่ค้นหา':selectedGroup?'ไม่มีสินค้าในกลุ่มนี้':'กรุณาเลือกกลุ่มสินค้าจากด้านซ้าย หรือค้นหาสินค้าได้ทันที'}</td></tr>`}</tbody></table>
         </div>
         ${pager}
