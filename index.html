@@ -7018,14 +7018,20 @@ function openPriceCheckModal(){
     const matches=products.filter(p=>p.name.includes(q)||matchesBarcode(p,q)||(p.sku||'').includes(q)).slice(0,10);
     if(matches.length===0){ result.innerHTML=`<div class="fav-empty" style="padding:16px;">ไม่พบสินค้า "${q}"</div>`; return; }
     result.innerHTML=matches.map(p=>{
+      // ถ้าคำค้นตรงกับบาร์โค้ดของหน่วยเสริม (เช่น กล่อง/ลัง) ให้โชว์หน่วย/ราคาขาย/ราคาทุนของหน่วยนั้นแทนหน่วยหลัก
+      const subUnit=(p.units||[]).find(u=>(u.barcode||'').includes(q));
+      const unitInfo=subUnit
+        ? {sub:subUnit.sub, price:subUnit.price||0, cost:subUnit.cost||0, barcode:subUnit.barcode||''}
+        : {sub:p.unit, price:p.price, cost:p.cost||0, barcode:p.barcode||''};
       return `<div class="pc-item">
         <div class="pc-name">${p.name}</div>
         <div class="pc-grid">
           <div><span>รหัส</span><b class="mono">${p.sku||'-'}</b></div>
-          <div><span>บาร์โค้ด</span><b class="mono">${p.barcode||'-'}</b></div>
-          <div><span>ขาย</span><b class="mono">${fmtMoney(p.price)}</b></div>
+          <div><span>บาร์โค้ด</span><b class="mono">${unitInfo.barcode||'-'}</b></div>
+          <div><span>หน่วย</span><b class="mono">${escapeHtml(unitInfo.sub)}</b></div>
+          <div><span>ขาย</span><b class="mono">${fmtMoney(unitInfo.price)}</b></div>
           <div><span>คงเหลือ</span><b class="mono">${stockInLargestUnit(p)}</b></div>
-          ${canViewCost?`<div><span>ทุน</span><b class="mono">${fmtMoney(p.cost||0)}</b></div>`:''}
+          ${canViewCost?`<div><span>ทุน</span><b class="mono">${fmtMoney(unitInfo.cost)}</b></div>`:''}
           <div><span>วันหมดอายุ</span><b class="mono">${fmtDateShort(p.expiry)}</b></div>
         </div>
       </div>`;
