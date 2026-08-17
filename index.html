@@ -2407,9 +2407,9 @@ function saveStandaloneTaxInvoice(){
   const subtotal=items.reduce((sum,item)=>sum+Number(item.qty)*Number(item.price||0),0),total=Math.max(0,subtotal-(Number(d.discount)||0));
   const doc={number:d.number,date:d.date,saleDate:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),issuedAt:auditNow(),customer:{name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items,discount:Number(d.discount)||0,total,note:d.note||'',printLog:[]};
   standaloneTaxInvoices.unshift(doc); persistStandaloneTaxInvoices();
-  editingTaxInvoiceSaleId='manual:'+doc.number;
-  startStandaloneTaxInvoiceForm(doc.number);
+  editingTaxInvoiceSaleId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false;
   showToast(`บันทึกใบกำกับภาษี ${doc.number} แล้ว`);
+  render();
 }
 
 function startTaxInvoiceForm(saleId){
@@ -2509,6 +2509,7 @@ function saveTaxInvoiceForm(){
   if(d.branch==='branch'&&!d.branchNo){ showToast('กรุณากรอกเลขที่สาขา'); document.getElementById('tax_form_customer_branch_no')?.focus(); return; }
   sale.fullTaxInvoice={number:fullTaxInvoiceNumber(sale),saleDate:sale.date,issuedAt:auditNow(),customer:{name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},note:d.note||'',printLog:[]};
   persistSalesHistory();
+  editingTaxInvoiceSaleId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false;
   showToast(`บันทึกใบกำกับภาษี ${sale.fullTaxInvoice.number} แล้ว`);
   render();
 }
