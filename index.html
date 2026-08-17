@@ -163,7 +163,7 @@
   .switch input:checked + .slider{background:var(--primary);}
   .switch input:checked + .slider:before{transform:translateX(19px);}
   .radio-row{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13.5px;}
-  .unitrow{display:grid;grid-template-columns:2.4fr 1fr 1fr 1.2fr auto;gap:8px;align-items:center;margin-bottom:8px;}
+  .unitrow{display:grid;grid-template-columns:2.4fr 1fr 1fr 1fr 1.2fr auto;gap:8px;align-items:center;margin-bottom:8px;}
   .unitrow-eq{display:flex;align-items:center;gap:6px;font-weight:600;color:var(--text-muted);}
   .unitrow-eq .u_sub{flex:1;min-width:90px;}
   .unitrow-eq .u_base{min-width:80px;}
@@ -3167,6 +3167,7 @@ function unitRowHtml(u, mainUnit, siblingNames){
     </div>
     <input class="u_price" type="number" value="${u.price||''}" placeholder="ขาย">
     ${isLevel2User()?`<input class="u_cost" type="hidden" value="${u.cost||''}">`:`<input class="u_cost" type="number" value="${u.cost||''}" placeholder="ทุน">`}
+    <input class="u_stock" type="number" step="any" value="${u.stock===''||u.stock===undefined||u.stock===null?'':(Math.round(u.stock*100)/100)}" placeholder="จำนวนคงเหลือ">
     <input class="u_barcode" value="${u.barcode||''}" placeholder="เลขบาร์โค้ด">
     <button class="u_del" title="ลบ">×</button>
   </div>`;
@@ -3180,6 +3181,7 @@ function collectUnitRowsFromDOM(){
     base: r.querySelector('.u_base').value,
     price: parseFloat(r.querySelector('.u_price').value)||0,
     cost: parseFloat(r.querySelector('.u_cost').value)||0,
+    stock: parseFloat(r.querySelector('.u_stock')?.value)||0,
     barcode: r.querySelector('.u_barcode').value.trim(),
   }));
 }
@@ -3188,7 +3190,9 @@ function collectUnitRowsFromDOM(){
 function refreshUnitRows(){
   const rowsEl = document.getElementById('unitRows'); if(!rowsEl) return;
   const mainUnit = (document.getElementById('f_unit')||{}).value || 'หน่วยหลัก';
-  const data = collectUnitRowsFromDOM();
+  const mainStock = Number(document.getElementById('f_stock')?.value)||0;
+  const rawData = collectUnitRowsFromDOM();
+  const data = computeUnitRowsWithStock(rawData, mainUnit, mainStock);
   const names = data.map(d=>d.sub);
   rowsEl.innerHTML = data.map(u=>unitRowHtml(u, mainUnit, names)).join('');
   bindUnitRowEvents();
@@ -3203,6 +3207,18 @@ function resolveNetFactor(unitName, rows, mainUnit, seen){
   const r = rows.find(x=>x.sub===unitName);
   if(!r || !r.per) return 0;
   return r.per * resolveNetFactor(r.base||mainUnit, rows, mainUnit, seen);
+}
+// จำนวนคงเหลือของหน่วยหนึ่ง คำนวณจากจำนวนคงเหลือหน่วยหลัก (mainStock) หาร factor สุทธิของหน่วยนั้น
+function stockForUnitRow(unitName, rows, mainUnit, mainStock){
+  if(unitName===mainUnit) return mainStock;
+  const nf = resolveNetFactor(unitName, rows, mainUnit);
+  return nf>0 ? mainStock/nf : '';
+}
+// คัดลอกแถวหน่วย (กันการแก้ข้อมูลจริงของสินค้าโดยไม่ตั้งใจ) แล้วเติมจำนวนคงเหลือต่อหน่วยให้แต่ละแถว
+function computeUnitRowsWithStock(rows, mainUnit, mainStock){
+  const copies = rows.map(r=>({...r}));
+  copies.forEach(r=>{ r.stock = stockForUnitRow(r.sub, copies, mainUnit, mainStock); });
+  return copies;
 }
 
 
@@ -3257,7 +3273,7 @@ function renderProductForm(){
       <label class="switch"><input type="checkbox" id="f_multiunit" ${(isNew?true:p.multiunit)?'checked':''}><span class="slider"></span></label></div>
       <div id="multiunitBody" style="${(isNew?true:p.multiunit)?'':'display:none;'}margin-top:14px;">
         <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:10px;">หน่วยสินค้าหลัก: <b style="color:var(--text);">${p.unit||'(ยังไม่ระบุ)'}</b> — ตัวอย่าง: 1 กล่อง = 10 แผง, 1 ลัง = 10 กล่อง</div>
-        <div id="unitRows">${(()=>{ const rows=(p.units&&p.units.length?p.units:[{sub:'',per:'',base:'',price:'',cost:'',barcode:''}]); const names=rows.map(r=>r.sub); return rows.map(u=>unitRowHtml(u, p.unit, names)).join(''); })()}</div>
+        <div id="unitRows">${(()=>{ const rawRows=(p.units&&p.units.length?p.units:[{sub:'',per:'',base:'',price:'',cost:'',barcode:''}]); const rows=computeUnitRowsWithStock(rawRows, p.unit, Number(p.stock)||0); const names=rows.map(r=>r.sub); return rows.map(u=>unitRowHtml(u, p.unit, names)).join(''); })()}</div>
         <button class="btn ghost small" id="addUnitBtn" style="margin-top:8px;">+ เพิ่มหน่วยสินค้า</button>
       </div>
     </div>
@@ -4946,12 +4962,27 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     const t=document.getElementById(tog);
     if(t) t.addEventListener('change', ()=>{ const b=document.getElementById(body); if(b) b.style.display = t.checked?'':'none'; });
   });
+  // แก้จำนวนคงเหลือหน่วยหลักโดยตรง → คำนวณจำนวนคงเหลือของหน่วยเสริมทุกแถวให้ตรงกันทันที (สมมาตรกับการแก้จากหน่วยเสริม)
+  const mainStockInput=document.getElementById('f_stock');
+  if(mainStockInput) mainStockInput.addEventListener('input', ()=>{
+    const mainUnit=(document.getElementById('f_unit')||{}).value||'หน่วยหลัก';
+    const rawData=collectUnitRowsFromDOM();
+    const newMainStock=Number(mainStockInput.value)||0;
+    document.querySelectorAll('#unitRows .unitrow').forEach(row=>{
+      const stockEl=row.querySelector('.u_stock'); if(!stockEl) return;
+      const sub=row.querySelector('.u_sub').value;
+      const rowFactor=resolveNetFactor(sub, rawData, mainUnit);
+      stockEl.value = rowFactor>0 ? (Math.round((newMainStock/rowFactor)*100)/100) : '';
+    });
+  });
   // add/remove unit rows
   const addUnitBtn = document.getElementById('addUnitBtn');
   if(addUnitBtn) addUnitBtn.addEventListener('click', ()=>{
     const mainUnit=(document.getElementById('f_unit')||{}).value||'หน่วยหลัก';
-    const data=collectUnitRowsFromDOM();
-    data.push({sub:'',per:'',base:mainUnit,price:'',cost:'',barcode:''});
+    const mainStock=Number(document.getElementById('f_stock')?.value)||0;
+    const rawData=collectUnitRowsFromDOM();
+    rawData.push({sub:'',per:'',base:mainUnit,price:'',cost:'',barcode:''});
+    const data=computeUnitRowsWithStock(rawData,mainUnit,mainStock);
     const names=data.map(d=>d.sub);
     document.getElementById('unitRows').innerHTML=data.map(u=>unitRowHtml(u,mainUnit,names)).join('');
     bindUnitRowEvents();
@@ -5263,10 +5294,12 @@ function bindUnitRowEvents(){
   document.querySelectorAll('#unitRows .u_del').forEach(b=>{
     b.onclick = ()=>{
       const mainUnit=(document.getElementById('f_unit')||{}).value||'หน่วยหลัก';
-      let data=collectUnitRowsFromDOM();
+      const mainStock=Number(document.getElementById('f_stock')?.value)||0;
+      let rawData=collectUnitRowsFromDOM();
       const idx=[...document.querySelectorAll('#unitRows .unitrow')].indexOf(b.closest('.unitrow'));
-      data.splice(idx,1);
-      if(data.length===0) data=[{sub:'',per:'',base:mainUnit,price:'',cost:'',barcode:''}];
+      rawData.splice(idx,1);
+      if(rawData.length===0) rawData=[{sub:'',per:'',base:mainUnit,price:'',cost:'',barcode:''}];
+      const data=computeUnitRowsWithStock(rawData,mainUnit,mainStock);
       const names=data.map(d=>d.sub);
       document.getElementById('unitRows').innerHTML=data.map(u=>unitRowHtml(u,mainUnit,names)).join('');
       bindUnitRowEvents();
@@ -5275,6 +5308,27 @@ function bindUnitRowEvents(){
   // เปลี่ยนชื่อหน่วย → รีเฟรช base dropdown ของแถวอื่น (แต่ปล่อยให้ combo-select "เพิ่มใหม่/จัดการ" ทำงานก่อน)
   document.querySelectorAll('#unitRows .u_sub').forEach(sel=>{
     sel.addEventListener('change', ()=>{ setTimeout(refreshUnitRows, 0); });
+  });
+  // แก้จำนวนคงเหลือของหน่วยไหนก็ได้ → คำนวณหน่วยหลักและหน่วยอื่นๆ ให้ตรงกันทันที
+  document.querySelectorAll('#unitRows .u_stock').forEach(input=>{
+    input.addEventListener('focus', ()=>input.select());
+    input.addEventListener('input', ()=>{
+      const mainUnit=(document.getElementById('f_unit')||{}).value||'หน่วยหลัก';
+      const rawData=collectUnitRowsFromDOM(); // per/base ปัจจุบัน สำหรับคำนวณ factor (ไม่เกี่ยวกับค่าที่เพิ่งพิมพ์)
+      const thisSub=input.closest('.unitrow').querySelector('.u_sub').value;
+      const nf=resolveNetFactor(thisSub, rawData, mainUnit);
+      if(nf<=0) return; // ยังระบุหน่วย/อ้างอิงหน่วยไม่ครบ คำนวณไม่ได้
+      const newMainStock=(Number(input.value)||0)*nf;
+      const stockInput=document.getElementById('f_stock');
+      if(stockInput) stockInput.value=Math.round(newMainStock*100)/100;
+      document.querySelectorAll('#unitRows .unitrow').forEach(row=>{
+        const stockEl=row.querySelector('.u_stock');
+        if(!stockEl||stockEl===input) return;
+        const sub=row.querySelector('.u_sub').value;
+        const rowFactor=resolveNetFactor(sub, rawData, mainUnit);
+        stockEl.value = rowFactor>0 ? (Math.round((newMainStock/rowFactor)*100)/100) : '';
+      });
+    });
   });
 }
 function bindUnitDelete(){ bindUnitRowEvents(); }
