@@ -2261,7 +2261,8 @@ function recalcPOSCartDOM(){
 function renderSearchResults(){
   const q = searchQuery.trim();
   if(!q) return '';
-  const matches = products.filter(p=>p.name.includes(q)||matchesBarcode(p,q)||(p.sku||'').includes(q)).slice(0,8);
+  const ql = q.toLowerCase();
+  const matches = products.filter(p=>p.name.toLowerCase().includes(ql)||matchesBarcode(p,q)||(p.sku||'').toLowerCase().includes(ql)).slice(0,8);
   if(matches.length===0) return `<div class="pos-results"><div class="pos-noresult">ไม่พบสินค้า "${q}"</div></div>`;
   return `<div class="pos-results">${matches.map(p=>{
     const outLabel=p.stock<0?' · สต็อกติดลบ':(p.stock===0?' · หมดสต็อก':'');
@@ -3428,7 +3429,7 @@ function renderContacts(){
     if(contactFilter==='customer' && !c.types.includes('customer')) return false;
     if(contactFilter==='supplier' && !c.types.includes('supplier')) return false;
     if(contactFilter==='both' && !(c.types.includes('customer')&&c.types.includes('supplier'))) return false;
-    if(q) return c.name.includes(q) || (c.contactName||'').includes(q) || (c.phone||'').includes(q);
+    if(q){ const ql=q.toLowerCase(); return c.name.toLowerCase().includes(ql) || (c.contactName||'').toLowerCase().includes(ql) || (c.phone||'').includes(q); }
     return true;
   });
   const typeBadge = c => {
@@ -7015,7 +7016,8 @@ function openPriceCheckModal(){
   const doSearch=()=>{
     const q=input.value.trim();
     if(!q){ result.innerHTML=`<div class="fav-empty" style="padding:16px;">เริ่มพิมพ์เพื่อค้นหา...</div>`; return; }
-    const matches=products.filter(p=>p.name.includes(q)||matchesBarcode(p,q)||(p.sku||'').includes(q)).slice(0,10);
+    const ql=q.toLowerCase();
+    const matches=products.filter(p=>p.name.toLowerCase().includes(ql)||matchesBarcode(p,q)||(p.sku||'').toLowerCase().includes(ql)).slice(0,10);
     if(matches.length===0){ result.innerHTML=`<div class="fav-empty" style="padding:16px;">ไม่พบสินค้า "${q}"</div>`; return; }
     result.innerHTML=matches.map(p=>{
       // ถ้าคำค้นตรงกับบาร์โค้ดของหน่วยเสริม (เช่น กล่อง/ลัง) ให้โชว์หน่วย/ราคาขาย/ราคาทุนของหน่วยนั้นแทนหน่วยหลัก
