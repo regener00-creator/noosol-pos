@@ -2962,7 +2962,7 @@ function renderProducts(){
   let pager = pagerHtml(productPage, totalPages, 'page');
 
   return `
-    <div class="pagehead product-pagehead"><div class="searchbar product-head-search"><input id="search" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" value="${searchQuery}"></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="downloadProductTemplateBtn">ดาวน์โหลดไฟล์ตัวอย่าง</button><button class="btn ghost" id="importProductsBtn">นำเข้า Excel</button><input id="productImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newProductBtn">+ เพิ่มสินค้า</button></div></div>
+    <div class="pagehead product-pagehead"><div class="searchbar product-head-search"><input id="search" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" value="${searchQuery}"></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportProductsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadProductTemplateBtn">ดาวน์โหลดไฟล์ตัวอย่าง</button><button class="btn ghost" id="importProductsBtn">นำเข้า Excel</button><input id="productImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newProductBtn">+ เพิ่มสินค้า</button></div></div>
     <div class="prodsplit">
       <div class="tree-pane">
         <div class="tree-head">กลุ่มสินค้า</div>
@@ -3400,7 +3400,7 @@ function renderContacts(){
   };
   const tab=(key,label,dot)=>`<button class="ct-tab ${contactFilter===key?'active':''}" data-cfilter="${key}">${dot?`<span class="ct-dot ${dot}"></span>`:''}${label}</button>`;
   return `<div class="rpt">
-    <div class="pagehead"><div><h1>สมุดรายชื่อ</h1><div class="sub">สมุดรายชื่อ › แสดงทั้งหมด · ${list.length} รายชื่อ</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="downloadContactTemplateBtn">ดาวน์โหลดไฟล์ตัวอย่าง</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
+    <div class="pagehead"><div><h1>สมุดรายชื่อ</h1><div class="sub">สมุดรายชื่อ › แสดงทั้งหมด · ${list.length} รายชื่อ</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadContactTemplateBtn">ดาวน์โหลดไฟล์ตัวอย่าง</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
     <div class="ct-tabs">
       ${tab('all','แสดงทั้งหมด','')}
       ${tab('customer','ลูกค้า','cust')}
@@ -4520,6 +4520,8 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   const downloadProductTemplateBtn = document.getElementById('downloadProductTemplateBtn');
   if(downloadProductTemplateBtn) downloadProductTemplateBtn.addEventListener('click',downloadProductImportTemplate);
+  const exportProductsBtn = document.getElementById('exportProductsBtn');
+  if(exportProductsBtn) exportProductsBtn.addEventListener('click',exportProductsToExcel);
   document.querySelectorAll('[data-act="editproduct"]').forEach(el=>{
     el.addEventListener('click', ()=>{ if(isLevel2User()) return; editingProductId=Number(el.dataset.id); render(); });
   });
@@ -4542,6 +4544,8 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   const downloadContactTemplateBtn = document.getElementById('downloadContactTemplateBtn');
   if(downloadContactTemplateBtn) downloadContactTemplateBtn.addEventListener('click',downloadContactImportTemplate);
+  const exportContactsBtn = document.getElementById('exportContactsBtn');
+  if(exportContactsBtn) exportContactsBtn.addEventListener('click',exportContactsToExcel);
   document.querySelectorAll('[data-act="editcontact"]').forEach(el=>{
     el.addEventListener('click', ()=>{ editingContactId=Number(el.dataset.id); render(); });
   });
@@ -6057,7 +6061,9 @@ async function importContactsFromExcel(file){
       note:String(productImportValue(row,['โน๊ต','หมายเหตุ','note'])).trim(),
     };
     let existing=null;
-    if(code) existing=contacts.find(c=>String(c.code||'').trim().toLowerCase()===code.toLowerCase());
+    const systemId=productImportNumber(productImportValue(row,['รหัสอ้างอิงระบบ','systemid']),NaN);
+    if(Number.isFinite(systemId)) existing=contacts.find(c=>c.id===systemId);
+    if(!existing&&code) existing=contacts.find(c=>String(c.code||'').trim().toLowerCase()===code.toLowerCase());
     if(!existing) existing=contacts.find(c=>String(c.name||'').trim().toLowerCase()===name.toLowerCase());
     if(existing){
       if(seenInFile.has(existing.id)){ skipped.push(`แถว ${line}: ซ้ำกับแถวก่อนหน้าในไฟล์เดียวกัน (${name})`); return; }
@@ -6080,6 +6086,37 @@ async function importContactsFromExcel(file){
   persistContacts();
   showToast(`นำเข้าสมุดรายชื่อสำเร็จ · เพิ่มใหม่ ${toCreate.length} · อัปเดต ${toUpdate.length}${skipped.length?` · ข้าม ${skipped.length}`:''}`);
   render();
+}
+
+function exportContactsToExcel(){
+  if(!window.XLSX){ showToast('ไม่สามารถโหลดระบบส่งออก Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
+  if(!contacts.length){ showToast('ยังไม่มีข้อมูลให้ส่งออก'); return; }
+  const typeLabel=c=>{ const isCust=c.types?.includes('customer'),isSupp=c.types?.includes('supplier'); if(isCust&&isSupp) return 'ทั้งคู่'; if(isSupp) return 'ผู้จำหน่าย'; return 'ลูกค้า'; };
+  const rows=contacts.map(c=>({
+    'รหัสอ้างอิงระบบ':c.id,
+    'รหัสผู้ติดต่อ':c.code||'',
+    'ประเภทผู้ติดต่อ':c.entity==='individual'?'บุคคลธรรมดา':'นิติบุคคล',
+    'ประเภท':typeLabel(c),
+    'ชื่อธุรกิจ / ชื่อ':c.name||'',
+    'เลขผู้เสียภาษี':c.taxId||'',
+    'เครดิต (วัน)':c.creditDays||'',
+    'ที่อยู่':c.address||'',
+    'รหัสไปรษณีย์':c.postcode||'',
+    'ชื่อผู้ติดต่อ':c.contactName||'',
+    'อีเมล':c.email||'',
+    'เบอร์มือถือ':c.phone||'',
+    'ธนาคาร':c.bank||'',
+    'ชื่อบัญชี':c.bankName||'',
+    'เลขที่บัญชี':c.bankAcc||'',
+    'ประเภทบัญชี':c.accType==='current'?'กระแสรายวัน':(c.accType==='saving'?'ออมทรัพย์':''),
+    'โน๊ต':c.note||'',
+  }));
+  const sheet=XLSX.utils.json_to_sheet(rows);
+  sheet['!cols']=Object.keys(rows[0]).map(header=>({wch:Math.max(14,Math.min(28,header.length+5))}));
+  const workbook=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook,sheet,'สมุดรายชื่อ');
+  XLSX.writeFile(workbook,`PEPOS-สมุดรายชื่อ-${TODAY_STR}.xlsx`);
+  showToast(`ส่งออกสมุดรายชื่อ ${rows.length} รายการแล้ว`);
 }
 
 function saveContact(){
@@ -6198,15 +6235,23 @@ async function importProductsFromExcel(file){
   const sourceRows=XLSX.utils.sheet_to_json(firstSheet,{defval:'',raw:true});
   if(!sourceRows.length){ showToast('ไม่พบข้อมูลสินค้าในไฟล์'); return; }
 
-  const usedSkus=new Set(products.map(product=>String(product.sku||'').trim().toLowerCase()).filter(Boolean));
-  const usedBarcodes=new Set(products.flatMap(product=>[
-    product.barcode,
-    ...(product.extraBarcodes||[]),
-    ...(product.vendorBarcodes||[]).map(item=>item.code),
-    ...(product.units||[]).map(item=>item.barcode),
-  ]).map(code=>String(code||'').trim().toLowerCase()).filter(Boolean));
-  const imported=[];
+  // Track which product id currently "owns" each sku/barcode, so a row that
+  // edits an EXISTING product (matched via รหัสอ้างอิงระบบ or a matching sku)
+  // doesn't get flagged as conflicting with itself -- only a genuine clash
+  // with a DIFFERENT product blocks the row.
+  const skuOwner=new Map();
+  products.forEach(p=>{ const s=String(p.sku||'').trim().toLowerCase(); if(s) skuOwner.set(s,p.id); });
+  const barcodeOwner=new Map();
+  products.forEach(p=>{
+    [p.barcode,...(p.extraBarcodes||[]),...(p.vendorBarcodes||[]).map(v=>v.code),...(p.units||[]).map(u=>u.barcode)]
+      .map(c=>String(c||'').trim().toLowerCase()).filter(Boolean)
+      .forEach(c=>barcodeOwner.set(c,p.id));
+  });
+
+  const toCreate=[];
+  const toUpdate=[]; // {existing,data}
   const skipped=[];
+  const seenInFile=new Set();
   let stagedNextProductId=nextProductId;
   sourceRows.forEach((row,index)=>{
     const line=index+2;
@@ -6245,44 +6290,67 @@ async function importProductsFromExcel(file){
       }
     }
     if(!name||!unit||!Number.isFinite(price)){ skipped.push(`แถว ${line}: ชื่อสินค้า หน่วย หรือราคาขายไม่ครบ`); return; }
-    if(sku&&usedSkus.has(sku.toLowerCase())){ skipped.push(`แถว ${line}: รหัสสินค้า ${sku} ซ้ำ`); return; }
+
+    let existing=null;
+    const systemId=productImportNumber(productImportValue(row,['รหัสอ้างอิงระบบ','systemid']),NaN);
+    if(Number.isFinite(systemId)) existing=products.find(p=>p.id===systemId)||null;
+    if(!existing&&sku) existing=products.find(p=>String(p.sku||'').trim().toLowerCase()===sku.toLowerCase())||null;
+    if(existing&&seenInFile.has(existing.id)){ skipped.push(`แถว ${line}: ซ้ำกับแถวก่อนหน้าในไฟล์เดียวกัน (${name})`); return; }
+
+    if(sku){
+      const owner=skuOwner.get(sku.toLowerCase());
+      if(owner!==undefined&&owner!==existing?.id){ skipped.push(`แถว ${line}: รหัสสินค้า ${sku} ซ้ำกับสินค้าอื่นที่มีอยู่แล้ว`); return; }
+    }
     const rowBarcodes=[barcode,...extraBarcodes,...vendorBarcodes.map(item=>item.code),...rawUnitRows.map(item=>item.barcode)].filter(Boolean);
     const normalizedRowBarcodes=rowBarcodes.map(code=>code.toLowerCase());
     const repeatedInRow=normalizedRowBarcodes.find((code,position)=>normalizedRowBarcodes.indexOf(code)!==position);
-    const repeatedInSystem=normalizedRowBarcodes.find(code=>usedBarcodes.has(code));
-    if(repeatedInRow||repeatedInSystem){ skipped.push(`แถว ${line}: บาร์โค้ด ${repeatedInRow||repeatedInSystem} ซ้ำ`); return; }
+    if(repeatedInRow){ skipped.push(`แถว ${line}: บาร์โค้ด ${repeatedInRow} ซ้ำกันเองในแถวเดียวกัน`); return; }
+    const conflictBarcode=normalizedRowBarcodes.find(code=>{ const owner=barcodeOwner.get(code); return owner!==undefined&&owner!==existing?.id; });
+    if(conflictBarcode){ skipped.push(`แถว ${line}: บาร์โค้ด ${conflictBarcode} ซ้ำกับสินค้าอื่นที่มีอยู่แล้ว`); return; }
 
     const category=String(productImportValue(row,['หมวดสินค้า','หมวดหลัก','category'])).trim()||'ไม่ทราบหมวดหมู่';
     const brand=String(productImportValue(row,['หมวดย่อย','ยี่ห้อ','brand'])).trim()||'ทั่วไป';
     const warehouseValue=String(productImportValue(row,['คลังสินค้า','คลัง','warehouse'])).trim();
     const warehouse=warehouses.find(item=>String(item.id)===warehouseValue||String(item.name||'').trim().toLowerCase()===warehouseValue.toLowerCase()||String(item.code||'').trim().toLowerCase()===warehouseValue.toLowerCase())||warehouses[0];
-    const id=stagedNextProductId++;
-    const finalSku=sku||('P'+String(id).padStart(4,'0'));
     const productUnits=rawUnitRows.map(item=>({...item,factor:resolveNetFactor(item.sub,rawUnitRows,unit)}));
-    const product={
-      id,name,sku:finalSku,barcode,category,brand,unit,price,
-      cost:productImportNumber(productImportValue(row,['ราคาทุน','ทุน','cost']),0),
-      stock:productImportNumber(productImportValue(row,['จำนวนคงเหลือ','คงเหลือ','stock']),0),
-      expiry:productImportDate(productImportValue(row,['วันหมดอายุ','expiry','expiredate'])),
+    const finalSku=sku||existing?.sku||('P'+String(stagedNextProductId).padStart(4,'0'));
+    const data={
+      name,sku:finalSku,barcode,category,brand,unit,price,
+      cost:productImportNumber(productImportValue(row,['ราคาทุน','ทุน','cost']),existing?.cost||0),
+      stock:productImportNumber(productImportValue(row,['จำนวนคงเหลือ','คงเหลือ','stock']),existing?.stock||0),
+      expiry:productImportDate(productImportValue(row,['วันหมดอายุ','expiry','expiredate']))||existing?.expiry||'',
       wh:warehouse?.id||1,
       desc:String(productImportValue(row,['รายละเอียด','ข้อมูลเพิ่มเติม','description','desc'])).trim(),
-      type:'stock',vat:'incl',extraBarcodes,vendorBarcodes,multiunit:productUnits.length>0,units:productUnits,hasOpening:false,openingDate:'',openingQty:0,openingCost:0,
-      lowAlert:lowStockSettings.enabled!==false,lowMode:'default',threshold:lowStockSettings.defaultThreshold,
+      extraBarcodes,vendorBarcodes,multiunit:productUnits.length>0,units:productUnits,
     };
-    imported.push(product);
-    usedSkus.add(finalSku.toLowerCase());
-    normalizedRowBarcodes.forEach(code=>usedBarcodes.add(code));
+
+    if(existing){
+      seenInFile.add(existing.id);
+      skuOwner.set(finalSku.toLowerCase(),existing.id);
+      normalizedRowBarcodes.forEach(code=>barcodeOwner.set(code,existing.id));
+      toUpdate.push({existing,data});
+    }else{
+      const id=stagedNextProductId++;
+      const product={
+        id,...data,
+        type:'stock',vat:'incl',hasOpening:false,openingDate:'',openingQty:0,openingCost:0,
+        lowAlert:lowStockSettings.enabled!==false,lowMode:'default',threshold:lowStockSettings.defaultThreshold,
+      };
+      toCreate.push(product);
+      skuOwner.set(finalSku.toLowerCase(),id);
+      normalizedRowBarcodes.forEach(code=>barcodeOwner.set(code,id));
+    }
   });
 
-  if(!imported.length){
+  if(!toCreate.length&&!toUpdate.length){
     alert(`ไม่สามารถนำเข้าสินค้าได้\n\n${skipped.slice(0,8).join('\n')}${skipped.length>8?`\nและอีก ${skipped.length-8} รายการ`:''}`);
     return;
   }
-  const confirmation=`พบข้อมูล ${sourceRows.length} แถว\nพร้อมนำเข้า ${imported.length} รายการ${skipped.length?`\nข้าม ${skipped.length} รายการที่ข้อมูลไม่ครบหรือซ้ำ`:''}\n\nยืนยันนำเข้าสินค้าหรือไม่?`;
+  const confirmation=`พบข้อมูล ${sourceRows.length} แถว\nจะเพิ่มสินค้าใหม่ ${toCreate.length} รายการ\nจะอัปเดตสินค้าเดิม ${toUpdate.length} รายการ${skipped.length?`\nข้าม ${skipped.length} รายการที่ข้อมูลไม่ครบหรือซ้ำ`:''}\n\nยืนยันนำเข้าหรือไม่?`;
   if(!confirm(confirmation)) return;
   nextProductId=stagedNextProductId;
   let contactsChanged=false;
-  imported.forEach(product=>{
+  [...toCreate,...toUpdate.map(u=>u.data)].forEach(product=>{
     if(!categories.includes(product.category)) categories.push(product.category);
     if(!brands.includes(product.brand)) brands.push(product.brand);
     if(!units.includes(product.unit)) units.push(product.unit);
@@ -6292,11 +6360,11 @@ async function importProductsFromExcel(file){
     (product.vendorBarcodes||[]).forEach(item=>{
       const vendorName=String(item.vendor||'').trim();
       if(!vendorName||vendorName==='ไม่ระบุ') return;
-      const existing=contacts.find(contact=>String(contact.name||'').trim().toLowerCase()===vendorName.toLowerCase());
-      if(existing){
-        if(!Array.isArray(existing.types)) existing.types=[];
-        if(!existing.types.includes('supplier')){
-          existing.types.push('supplier');
+      const existingContact=contacts.find(contact=>String(contact.name||'').trim().toLowerCase()===vendorName.toLowerCase());
+      if(existingContact){
+        if(!Array.isArray(existingContact.types)) existingContact.types=[];
+        if(!existingContact.types.includes('supplier')){
+          existingContact.types.push('supplier');
           contactsChanged=true;
         }
         return;
@@ -6308,11 +6376,61 @@ async function importProductsFromExcel(file){
     });
   });
   if(contactsChanged) persistContacts();
-  products.push(...imported);
+  toUpdate.forEach(({existing,data})=>Object.assign(existing,data));
+  products.push(...toCreate);
   productPage=1;
   persistWorkspaceData();
-  showToast(`นำเข้าสินค้าสำเร็จ ${imported.length} รายการ${skipped.length?` · ข้าม ${skipped.length} รายการ`:''}`);
+  showToast(`นำเข้าสินค้าสำเร็จ · เพิ่มใหม่ ${toCreate.length} · อัปเดต ${toUpdate.length}${skipped.length?` · ข้าม ${skipped.length}`:''}`);
   render();
+}
+
+function exportProductsToExcel(){
+  if(!window.XLSX){ showToast('ไม่สามารถโหลดระบบส่งออก Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
+  if(!products.length){ showToast('ยังไม่มีข้อมูลให้ส่งออก'); return; }
+  const maxExtraBarcodes=Math.max(0,...products.map(p=>(p.extraBarcodes||[]).length));
+  const maxVendors=Math.max(0,...products.map(p=>(p.vendorBarcodes||[]).length));
+  const maxUnits=Math.max(0,...products.map(p=>(p.units||[]).length));
+  const rows=products.map(p=>{
+    const row={
+      'รหัสอ้างอิงระบบ':p.id,
+      'รหัสสินค้า':p.sku||'',
+      'ชื่อสินค้า':p.name||'',
+      'บาร์โค้ด':p.barcode||'',
+    };
+    for(let n=1;n<=maxExtraBarcodes;n++) row[`บาร์โค้ดเพิ่มเติม ${n}`]=(p.extraBarcodes||[])[n-1]||'';
+    for(let n=1;n<=maxVendors;n++){
+      const v=(p.vendorBarcodes||[])[n-1];
+      row[`ชื่อผู้จำหน่าย ${n}`]=v?.vendor&&v.vendor!=='ไม่ระบุ'?v.vendor:'';
+      row[`บาร์โค้ด Vendor ${n}`]=v?.code||'';
+    }
+    Object.assign(row,{
+      'หมวดสินค้า':p.category||'',
+      'หมวดย่อย':p.brand||'',
+      'หน่วย':p.unit||'',
+      'ราคาขาย':p.price||0,
+      'ราคาทุน':p.cost||0,
+      'จำนวนคงเหลือ':p.stock||0,
+      'วันหมดอายุ':p.expiry?fmtDateShort(p.expiry):'',
+      'คลังสินค้า':warehouses.find(w=>w.id===p.wh)?.name||'',
+      'รายละเอียด':p.desc||'',
+    });
+    for(let n=1;n<=maxUnits;n++){
+      const u=(p.units||[])[n-1];
+      row[`หน่วยเพิ่มเติม ${n}`]=u?.sub||'';
+      row[`จำนวนต่อหน่วย ${n}`]=u?.per||'';
+      row[`อ้างอิงหน่วย ${n}`]=u?.base||'';
+      row[`ราคาขายหน่วย ${n}`]=u?.price||'';
+      row[`ราคาทุนหน่วย ${n}`]=u?.cost||'';
+      row[`บาร์โค้ดหน่วย ${n}`]=u?.barcode||'';
+    }
+    return row;
+  });
+  const sheet=XLSX.utils.json_to_sheet(rows);
+  sheet['!cols']=Object.keys(rows[0]).map(header=>({wch:Math.max(12,Math.min(26,header.length+4))}));
+  const workbook=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook,sheet,'สินค้า');
+  XLSX.writeFile(workbook,`PEPOS-รายการสินค้า-${TODAY_STR}.xlsx`);
+  showToast(`ส่งออกรายการสินค้า ${rows.length} รายการแล้ว`);
 }
 
 function saveProduct(){
