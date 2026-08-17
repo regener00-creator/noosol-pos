@@ -2978,19 +2978,24 @@ function renderGoodsReceipt(){
 
 function buildGroupTree(){
   const tree = {}; // cat -> Set(brand)
+  const catCounts = {}; // cat -> count
+  const brCounts = {}; // "cat|||brand" -> count
   products.forEach(p=>{
     const cat = String(p.category||'').trim() || 'ไม่ทราบหมวดหมู่';
     const brand = p.brand || 'ทั่วไป';
     if(!tree[cat]) tree[cat] = new Set();
     tree[cat].add(brand);
+    catCounts[cat] = (catCounts[cat]||0)+1;
+    const brKey = cat+'|||'+brand;
+    brCounts[brKey] = (brCounts[brKey]||0)+1;
   });
   if(!tree['ไม่ทราบหมวดหมู่']) tree['ไม่ทราบหมวดหมู่'] = new Set(['ทั่วไป']);
-  return tree;
+  return {tree, catCounts, brCounts};
 }
 
 function renderProducts(){
   if(editingProductId!==null) return renderProductForm();
-  const tree = buildGroupTree();
+  const {tree, catCounts, brCounts} = buildGroupTree();
   const q = searchQuery.trim();
   const level2=isLevel2User();
   const canViewCost=!level2;
@@ -3016,7 +3021,7 @@ function renderProducts(){
     return a.localeCompare(b,'th');
   }).forEach(cat=>{
     const brands = [...tree[cat]].sort();
-    const catCount = products.filter(p=>(String(p.category||'').trim()||'ไม่ทราบหมวดหมู่')===cat).length;
+    const catCount = catCounts[cat]||0;
     const hasSubgroups = brands.length>1||brands[0]!=='ทั่วไป';
     const isExp = expandedCats[cat] && hasSubgroups;
     const catSel = selectedGroup && selectedGroup.cat===cat && !selectedGroup.brand;
@@ -3026,7 +3031,7 @@ function renderProducts(){
     if(isExp){
       brands.forEach(brand=>{
         if(brand==='ทั่วไป' && brands.length===1) return;
-        const brCount = products.filter(p=>(String(p.category||'').trim()||'ไม่ทราบหมวดหมู่')===cat && (p.brand||'ทั่วไป')===brand).length;
+        const brCount = brCounts[cat+'|||'+brand]||0;
         const brSel = selectedGroup && selectedGroup.cat===cat && selectedGroup.brand===brand;
         treeHtml += `<div class="tree-item brand ${brSel?'sel':''}" data-cat="${cat}" data-brand="${brand}"><span class="tree-name">${brand}</span> <span class="tree-count">${brCount}</span></div>`;
       });
@@ -6313,9 +6318,24 @@ function saveContact(){
 function productImportHeader(value){
   return String(value||'').trim().toLowerCase().replace(/[\s_\-()（）]/g,'');
 }
+// productImportValue() gets called MANY times per row (up to 80-100+ for a
+// product row with several extra units/barcodes), and used to rebuild the
+// whole normalized-header map from `row` on every single call. For a
+// large import (e.g. importing thousands of products) that meant hundreds
+// of thousands of redundant object rebuilds, blocking the tab for several
+// seconds. `row` is a stable object reference for the whole time one row
+// is being processed, so a WeakMap keyed on it lets every call for the
+// SAME row reuse one cached normalization instead of rebuilding it --
+// no changes needed at any call site, since they all already pass the
+// same row object through for every field they read off it.
+const _importRowNormalizeCache=new WeakMap();
 function productImportValue(row,aliases){
-  const normalized={};
-  Object.entries(row||{}).forEach(([key,value])=>{ normalized[productImportHeader(key)]=value; });
+  let normalized=_importRowNormalizeCache.get(row);
+  if(!normalized){
+    normalized={};
+    Object.entries(row||{}).forEach(([key,value])=>{ normalized[productImportHeader(key)]=value; });
+    _importRowNormalizeCache.set(row,normalized);
+  }
   for(const alias of aliases){
     const key=productImportHeader(alias);
     if(Object.prototype.hasOwnProperty.call(normalized,key)) return normalized[key];
