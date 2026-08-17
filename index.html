@@ -3400,7 +3400,7 @@ function renderContacts(){
   };
   const tab=(key,label,dot)=>`<button class="ct-tab ${contactFilter===key?'active':''}" data-cfilter="${key}">${dot?`<span class="ct-dot ${dot}"></span>`:''}${label}</button>`;
   return `<div class="rpt">
-    <div class="pagehead"><div><h1>สมุดรายชื่อ</h1><div class="sub">สมุดรายชื่อ › แสดงทั้งหมด · ${list.length} รายชื่อ</div></div><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div>
+    <div class="pagehead"><div><h1>สมุดรายชื่อ</h1><div class="sub">สมุดรายชื่อ › แสดงทั้งหมด · ${list.length} รายชื่อ</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="downloadContactTemplateBtn">ดาวน์โหลดไฟล์ตัวอย่าง</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
     <div class="ct-tabs">
       ${tab('all','แสดงทั้งหมด','')}
       ${tab('customer','ลูกค้า','cust')}
@@ -4532,6 +4532,16 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   const newContactBtn = document.getElementById('newContactBtn');
   if(newContactBtn) newContactBtn.addEventListener('click', ()=>{ editingContactId='new'; searchQuery=''; render(); });
+  const importContactsBtn = document.getElementById('importContactsBtn');
+  const contactImportFile = document.getElementById('contactImportFile');
+  if(importContactsBtn&&contactImportFile) importContactsBtn.addEventListener('click',()=>contactImportFile.click());
+  if(contactImportFile) contactImportFile.addEventListener('change',async()=>{
+    const file=contactImportFile.files?.[0];
+    contactImportFile.value='';
+    if(file) await importContactsFromExcel(file);
+  });
+  const downloadContactTemplateBtn = document.getElementById('downloadContactTemplateBtn');
+  if(downloadContactTemplateBtn) downloadContactTemplateBtn.addEventListener('click',downloadContactImportTemplate);
   document.querySelectorAll('[data-act="editcontact"]').forEach(el=>{
     el.addEventListener('click', ()=>{ editingContactId=Number(el.dataset.id); render(); });
   });
@@ -5952,6 +5962,123 @@ function saveSalesRepresentative(){
     showToast(`บันทึกรายชื่อผู้แทน “${name}” แล้ว`);
   }
   editingSalesRepresentativeId=null;
+  render();
+}
+
+function downloadContactImportTemplate(){
+  const example=[{
+    'รหัสผู้ติดต่อ':'C0001','ประเภทผู้ติดต่อ':'นิติบุคคล','ประเภท':'ลูกค้า','ชื่อธุรกิจ / ชื่อ':'บริษัท ตัวอย่าง จำกัด',
+    'เลขผู้เสียภาษี':'0105551234567','เครดิต (วัน)':30,'ที่อยู่':'','รหัสไปรษณีย์':'',
+    'ชื่อผู้ติดต่อ':'คุณตัวอย่าง','อีเมล':'','เบอร์มือถือ':'081-234-5678',
+    'ธนาคาร':'','ชื่อบัญชี':'','เลขที่บัญชี':'','ประเภทบัญชี':'','โน๊ต':''
+  }];
+  if(window.XLSX){
+    const sheet=XLSX.utils.json_to_sheet(example);
+    sheet['!cols']=Object.keys(example[0]).map(header=>({wch:Math.max(14,Math.min(28,header.length+5))}));
+    const workbook=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook,sheet,'สมุดรายชื่อ');
+    const instructions=[
+      ['หัวข้อ','วิธีกรอก'],
+      ['รหัสผู้ติดต่อ','ถ้ากรอกและตรงกับรายชื่อเดิมในระบบ จะอัปเดตรายชื่อนั้นแทนการสร้างใหม่ (เว้นว่างได้)'],
+      ['ชื่อธุรกิจ / ชื่อ','จำเป็นต้องกรอก ถ้าไม่กรอกรหัสผู้ติดต่อ ระบบจะจับคู่จากชื่อที่ตรงกันเป๊ะแทน'],
+      ['ประเภทผู้ติดต่อ','กรอก นิติบุคคล หรือ บุคคลธรรมดา (ไม่บังคับ ค่าเริ่มต้น นิติบุคคล)'],
+      ['ประเภท','กรอก ลูกค้า, ผู้จำหน่าย หรือ ทั้งคู่ (ไม่บังคับ ค่าเริ่มต้น ลูกค้า)'],
+      ['ประเภทบัญชี','กรอก ออมทรัพย์ หรือ กระแสรายวัน (ไม่บังคับ)'],
+      ['ข้อสำคัญ','อย่าเปลี่ยนชื่อหัวคอลัมน์ในแถวแรก'],
+    ];
+    const instructionSheet=XLSX.utils.aoa_to_sheet(instructions);
+    instructionSheet['!cols']=[{wch:20},{wch:80}];
+    XLSX.utils.book_append_sheet(workbook,instructionSheet,'วิธีกรอก');
+    XLSX.writeFile(workbook,'PEPOS-ตัวอย่างนำเข้าสมุดรายชื่อ.xlsx');
+    return;
+  }
+  const headers=Object.keys(example[0]);
+  const csv='\uFEFF'+headers.join(',')+'\n'+headers.map(key=>`"${String(example[0][key]).replace(/"/g,'""')}"`).join(',');
+  const link=document.createElement('a');
+  link.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  link.download='PEPOS-ตัวอย่างนำเข้าสมุดรายชื่อ.csv';
+  link.click();
+  setTimeout(()=>URL.revokeObjectURL(link.href),1000);
+}
+function contactImportTypes(value){
+  const text=String(value||'').trim().toLowerCase();
+  const types=[];
+  if(text.includes('ลูกค้า')||text.includes('customer')) types.push('customer');
+  if(text.includes('จำหน่าย')||text.includes('supplier')||text.includes('vendor')) types.push('supplier');
+  if(text.includes('ทั้งคู่')||text.includes('both')){ if(!types.includes('customer')) types.push('customer'); if(!types.includes('supplier')) types.push('supplier'); }
+  return types.length?types:['customer'];
+}
+function contactImportEntity(value){
+  const text=String(value||'').trim().toLowerCase();
+  if(text.includes('บุคคลธรรมดา')||text.includes('individual')) return 'individual';
+  return 'juristic';
+}
+function contactImportAccType(value){
+  const text=String(value||'').trim().toLowerCase();
+  if(text.includes('กระแส')||text.includes('current')) return 'current';
+  if(text.includes('ออม')||text.includes('saving')) return 'saving';
+  return '';
+}
+async function importContactsFromExcel(file){
+  if(!window.XLSX){ showToast('ไม่สามารถโหลดระบบอ่าน Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
+  let workbook;
+  try{ workbook=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:false}); }
+  catch(error){ showToast('ไม่สามารถอ่านไฟล์ Excel นี้ได้'); return; }
+  const firstSheet=workbook.Sheets[workbook.SheetNames[0]];
+  const sourceRows=XLSX.utils.sheet_to_json(firstSheet,{defval:'',raw:true});
+  if(!sourceRows.length){ showToast('ไม่พบข้อมูลในไฟล์'); return; }
+
+  const toCreate=[];
+  const toUpdate=[];
+  const skipped=[];
+  const seenInFile=new Set(); // guard against two rows in the same file matching the same existing contact
+
+  sourceRows.forEach((row,index)=>{
+    const line=index+2;
+    const name=String(productImportValue(row,['ชื่อธุรกิจ / ชื่อ','ชื่อธุรกิจ','ชื่อ','รายชื่อ','name'])).trim();
+    if(!name){ skipped.push(`แถว ${line}: ไม่มีชื่อธุรกิจ / ชื่อ`); return; }
+    const code=String(productImportValue(row,['รหัสผู้ติดต่อ','รหัส','code'])).trim();
+    const data={
+      name,
+      types:contactImportTypes(productImportValue(row,['ประเภท','type'])),
+      entity:contactImportEntity(productImportValue(row,['ประเภทผู้ติดต่อ','entity'])),
+      code,
+      taxId:String(productImportValue(row,['เลขผู้เสียภาษี','taxid'])).trim(),
+      creditDays:productImportNumber(productImportValue(row,['เครดิต (วัน)','เครดิต','creditdays']),'')||'',
+      address:String(productImportValue(row,['ที่อยู่','address'])).trim(),
+      postcode:String(productImportValue(row,['รหัสไปรษณีย์','postcode'])).trim(),
+      contactName:String(productImportValue(row,['ชื่อผู้ติดต่อ','contactname'])).trim(),
+      email:String(productImportValue(row,['อีเมล','email'])).trim(),
+      phone:String(productImportValue(row,['เบอร์มือถือ','เบอร์โทร','phone'])).trim(),
+      bank:String(productImportValue(row,['ธนาคาร','bank'])).trim(),
+      bankName:String(productImportValue(row,['ชื่อบัญชี','bankname'])).trim(),
+      bankAcc:String(productImportValue(row,['เลขที่บัญชี','bankacc'])).trim(),
+      accType:contactImportAccType(productImportValue(row,['ประเภทบัญชี','acctype'])),
+      note:String(productImportValue(row,['โน๊ต','หมายเหตุ','note'])).trim(),
+    };
+    let existing=null;
+    if(code) existing=contacts.find(c=>String(c.code||'').trim().toLowerCase()===code.toLowerCase());
+    if(!existing) existing=contacts.find(c=>String(c.name||'').trim().toLowerCase()===name.toLowerCase());
+    if(existing){
+      if(seenInFile.has(existing.id)){ skipped.push(`แถว ${line}: ซ้ำกับแถวก่อนหน้าในไฟล์เดียวกัน (${name})`); return; }
+      seenInFile.add(existing.id);
+      toUpdate.push({existing,data});
+    }else{
+      toCreate.push(data);
+    }
+  });
+
+  if(!toCreate.length&&!toUpdate.length){
+    alert(`ไม่สามารถนำเข้าข้อมูลได้\n\n${skipped.slice(0,8).join('\n')}${skipped.length>8?`\nและอีก ${skipped.length-8} รายการ`:''}`);
+    return;
+  }
+  const confirmation=`พบข้อมูล ${sourceRows.length} แถว\nจะเพิ่มรายชื่อใหม่ ${toCreate.length} รายการ\nจะอัปเดตรายชื่อเดิม ${toUpdate.length} รายการ${skipped.length?`\nข้าม ${skipped.length} แถวที่ข้อมูลไม่ครบ`:''}\n\nยืนยันนำเข้าหรือไม่?`;
+  if(!confirm(confirmation)) return;
+
+  toUpdate.forEach(({existing,data})=>Object.assign(existing,data));
+  toCreate.forEach(data=>contacts.push({id:nextContactId++,...data}));
+  persistContacts();
+  showToast(`นำเข้าสมุดรายชื่อสำเร็จ · เพิ่มใหม่ ${toCreate.length} · อัปเดต ${toUpdate.length}${skipped.length?` · ข้าม ${skipped.length}`:''}`);
   render();
 }
 
