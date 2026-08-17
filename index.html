@@ -1083,6 +1083,39 @@ async function setProductStockOnSupabase(productId,newStock){
   try{ const {error}=await sb.from('products').update({stock:Number(newStock)||0}).eq('id',productId); if(error) console.warn('set product stock',productId,error); }
   catch(e){ console.warn('set product stock failed',productId,e); }
 }
+// ----- Business settings sync -----
+// Single object (not a list), stored as one row in the generic key/value
+// `settings` table (key='business') that was already part of the original
+// schema but never actually used until now. Uses the same lastSyncedSnapshot
+// content-hash guard as upsertAndPrune() so an unrelated render doesn't
+// re-upload it needlessly.
+async function syncBusinessSettingsToSupabase(){
+  if(!currentProfile) return;
+  const snapshot=JSON.stringify(businessSettings);
+  if(lastSyncedSnapshot.business_settings===snapshot) return;
+  try{
+    const {error}=await sb.from('settings').upsert({key:'business',value:businessSettings});
+    if(error){ console.warn('sync business settings',error); return; }
+    lastSyncedSnapshot.business_settings=snapshot;
+  }catch(e){ console.warn('sync business settings failed',e); }
+}
+function applyBusinessSettings(value){
+  businessSettings={...businessSettings,...value};
+  STORE_INFO.name=businessSettings.name||STORE_INFO.name; STORE_INFO.address=businessSettings.address||STORE_INFO.address; STORE_INFO.taxId=businessSettings.taxId||STORE_INFO.taxId; STORE_INFO.phone=businessSettings.mobile||STORE_INFO.phone; STORE_INFO.website=businessSettings.website||STORE_INFO.website; STORE_INFO.branch=businessSettings.branch==='head'?'สำนักงานใหญ่':'สาขา';
+}
+async function loadBusinessSettingsFromSupabase(){
+  try{
+    const {data,error}=await sb.from('settings').select('value').eq('key','business').maybeSingle();
+    if(error){ console.warn('load business settings',error); return; }
+    if(data&&data.value&&typeof data.value==='object'){
+      applyBusinessSettings(data.value);
+      lastSyncedSnapshot.business_settings=JSON.stringify(businessSettings);
+    }else{
+      await syncBusinessSettingsToSupabase(); // first time ever: seed Supabase from whatever's local right now
+    }
+  }catch(e){ console.warn('load business settings failed',e); }
+}
+
 async function loadCoreDataFromSupabase(){
   try{
     const [{data:whRows,error:whErr},{data:prodRows,error:prodErr},{data:contactRows,error:contactErr},{data:repRows,error:repErr}]=await Promise.all([
@@ -1658,7 +1691,7 @@ function cloudClean(value){
   }));
 }
 function workspaceSnapshot(){
-  return {warehouses,products,contacts,salesRepresentatives,salesHistory,quotations,invoicesAR,creditNotes,purchaseOrders,goodsReceipts,purchaseOrdersFull,productReturns,transfers,standaloneTaxInvoices,favorites,currentUserProfile,documentPrefixes};
+  return {warehouses,products,contacts,salesRepresentatives,salesHistory,quotations,invoicesAR,creditNotes,purchaseOrders,goodsReceipts,purchaseOrdersFull,productReturns,transfers,standaloneTaxInvoices,favorites,currentUserProfile,documentPrefixes,businessSettings};
 }
 function refreshDataCounters(){
   nextWarehouseId=Math.max(1,...warehouses.map(w=>(Number(w.id)||0)+1));
@@ -1692,6 +1725,10 @@ function applyWorkspaceData(saved){
   if(Array.isArray(saved.standaloneTaxInvoices)) standaloneTaxInvoices=saved.standaloneTaxInvoices;
   if(Array.isArray(saved.favorites)) favorites=saved.favorites;
   if(saved.currentUserProfile&&typeof saved.currentUserProfile==='object') currentUserProfile={...currentUserProfile,...saved.currentUserProfile};
+  if(saved.businessSettings&&typeof saved.businessSettings==='object'){
+    businessSettings={...businessSettings,...saved.businessSettings};
+    STORE_INFO.name=businessSettings.name||STORE_INFO.name; STORE_INFO.address=businessSettings.address||STORE_INFO.address; STORE_INFO.taxId=businessSettings.taxId||STORE_INFO.taxId; STORE_INFO.phone=businessSettings.mobile||STORE_INFO.phone; STORE_INFO.website=businessSettings.website||STORE_INFO.website; STORE_INFO.branch=businessSettings.branch==='head'?'สำนักงานใหญ่':'สาขา';
+  }
   if(saved.documentPrefixes&&typeof saved.documentPrefixes==='object'){
     Object.keys(DEFAULT_DOCUMENT_PREFIXES).forEach(key=>{
       documentPrefixes[key]=normalizeDocumentPrefix(saved.documentPrefixes[key],DEFAULT_DOCUMENT_PREFIXES[key]);
@@ -1833,6 +1870,7 @@ async function loginSystem(event){
   if(error) error.textContent='';
   await loadCoreDataFromSupabase();
   await loadSalesHistoryFromSupabase();
+  await loadBusinessSettingsFromSupabase();
   render();
 }
 async function logoutSystem(){
@@ -5598,13 +5636,13 @@ function printPO(poId,kind='po',pdfMode=false){
     const rows=po.items.map((it,i)=>styled?`<tr><td class="c">${i+1}</td><td>${it.name}</td><td class="r">${it.qty}</td><td>${it.unit||''}</td><td class="r">${fmtMoney(it.price)}</td><td class="r">${fmtMoney(it.qty*it.price)}</td></tr>`:`<tr><td class="c">${i+1}</td><td>${it.name}</td><td class="r">${it.qty}</td><td>${it.unit||''}</td></tr>`).join('');
     return `<section class="a4-page">
       <section class="header">
-        <div class="business"><b style="font-size:13px;">${STORE_INFO.name}</b> (${STORE_INFO.branch})<br>${STORE_INFO.address}<br>เลขประจำตัวผู้เสียภาษี ${STORE_INFO.taxId}<br>เบอร์มือถือ ${STORE_INFO.phone}<br>${STORE_INFO.website}</div>
-        <div class="title-block"><div class="title">${titleText}</div><div class="docmeta"><span>เลขที่</span><span>${po.id}</span><span>${styled?'วันที่':'วันที่สั่ง'}</span><span>${fmtDateShort(po.date)}</span>${styled?`<span>ครบกำหนด</span><span>${fmtDateShort(documentDueDate(po))}</span>`:''}<span>ผู้สั่งซื้อ</span><span>${employees[0]}</span></div></div>
+        <div class="business"><b style="font-size:13px;">${escapeHtml(businessSettings.name||STORE_INFO.name)}</b> (${STORE_INFO.branch})<br>${escapeHtml(businessSettings.address||STORE_INFO.address)}<br>เลขประจำตัวผู้เสียภาษี ${escapeHtml(businessSettings.taxId||STORE_INFO.taxId)}<br>เบอร์มือถือ ${escapeHtml(businessSettings.mobile||STORE_INFO.phone)}<br>${escapeHtml(businessSettings.website||STORE_INFO.website)}</div>
+        <div class="title-block"><div class="title">${titleText}</div><div class="docmeta"><span>เลขที่</span><span>${po.id}</span><span>${styled?'วันที่':'วันที่สั่ง'}</span><span>${fmtDateShort(po.date)}</span>${styled?`<span>ครบกำหนด</span><span>${fmtDateShort(documentDueDate(po))}</span>`:''}<span>ผู้สั่งซื้อ</span><span>${escapeHtml(loggedInUser()?.firstName||employees[0])}</span></div></div>
       </section>
       <section class="customer"><div class="lbl">${styled?'ผู้จำหน่าย':'ผู้แทน'}</div><div><b>${po.supplier}</b></div><div>${styled?`${supplier?.address||'-'}${supplier?.taxId?`<br>เลขประจำตัวผู้เสียภาษี ${supplier.taxId}`:''}`:`เบอร์โทร ${supplier?.phone||'-'}<br>ไลน์ ${supplier?.line||'-'}${supplier?.note?`<br>${supplier.note}`:''}`}</div></section>
       <table class="items"><thead><tr><th class="c">#</th><th>รายละเอียด</th><th class="r">จำนวน</th><th>หน่วย</th>${styled?'<th class="r">ราคาต่อหน่วย</th><th class="r">ยอดรวม</th>':''}</tr></thead><tbody>${rows}</tbody></table>
       ${styled?`<section class="totals"><div><span class="lbl">รวมเป็นเงิน</span><b>${fmtMoney(subtotal)} บาท</b></div>${po.discount?`<div><span class="lbl">ส่วนลด</span><b>${fmtMoney(po.discount)} บาท</b></div>`:''}<div><span class="lbl">ภาษีมูลค่าเพิ่ม 7%</span><b>${fmtMoney(vat)} บาท</b></div><div class="last-sub"><span class="lbl">ราคาไม่รวมภาษีมูลค่าเพิ่ม</span><b>${fmtMoney(beforeVat)} บาท</b></div><div class="grand"><span>จำนวนเงินรวมทั้งสิ้น</span><b>${fmtMoney(afterDisc)} บาท</b></div></section><div class="words">(${bahtText(afterDisc)})</div>`:`<div style="margin-top:8mm;font-size:12px;"><b>หมายเหตุ:</b> ${po.note||'-'}</div>`}
-      <div class="signheads"><span>ในนาม ${po.supplier}</span><span>ในนาม ${STORE_INFO.name}</span></div>
+      <div class="signheads"><span>ในนาม ${po.supplier}</span><span>ในนาม ${escapeHtml(businessSettings.name||STORE_INFO.name)}</span></div>
       <div class="signlines"><div>${styled?'ผู้ขาย':'ผู้แทน'} · วันที่</div><div>${styled?'ผู้รับสินค้า':'ผู้อนุมัติ'} · วันที่</div></div>
     </section>`;
   }).join('');
@@ -5652,8 +5690,9 @@ function bahtText(num){
 
 function saveBusinessSettings(){
   const get=id=>(document.getElementById(id)?.value||'').trim();
-  businessSettings={type:get('set_business_type'),vat:get('set_business_vat'),name:get('set_business_name'),address:get('set_business_address'),taxId:get('set_business_tax'),branch:document.querySelector('input[name="set_branch"]:checked')?.value||'head',officePhone:get('set_business_office'),mobile:get('set_business_mobile'),fax:get('set_business_fax'),website:get('set_business_website'),english:businessSettings.english||false};
-  STORE_INFO.name=businessSettings.name||STORE_INFO.name; STORE_INFO.address=businessSettings.address; STORE_INFO.taxId=businessSettings.taxId; STORE_INFO.phone=businessSettings.mobile; STORE_INFO.website=businessSettings.website; STORE_INFO.branch=businessSettings.branch==='head'?'สำนักงานใหญ่':'สาขา';
+  applyBusinessSettings({type:get('set_business_type'),vat:get('set_business_vat'),name:get('set_business_name'),address:get('set_business_address'),taxId:get('set_business_tax'),branch:document.querySelector('input[name="set_branch"]:checked')?.value||'head',officePhone:get('set_business_office'),mobile:get('set_business_mobile'),fax:get('set_business_fax'),website:get('set_business_website'),english:businessSettings.english||false});
+  persistWorkspaceData(); // localStorage now, Supabase after the usual debounce
+  syncBusinessSettingsToSupabase(); // also fire immediately -- this is an explicit "Save" click, not a keystroke, so no reason to wait
   showToast('บันทึกข้อมูลธุรกิจแล้ว'); render();
 }
 
@@ -6901,7 +6940,7 @@ sb.auth.onAuthStateChange((event)=>{
     systemHasOwner = ownerErr ? true : !!ownerCheck; // default to "true" (login screen) if the check itself fails
   }catch(e){ systemHasOwner = true; }
   try{ await loadCurrentProfile(); }catch(e){ currentProfile=null; }
-  if(currentProfile){ try{ await loadCoreDataFromSupabase(); await loadSalesHistoryFromSupabase(); }catch(e){ console.warn('load core data on boot failed',e); } }
+  if(currentProfile){ try{ await loadCoreDataFromSupabase(); await loadSalesHistoryFromSupabase(); await loadBusinessSettingsFromSupabase(); }catch(e){ console.warn('load core data on boot failed',e); } }
   render();
 })();
 </script>
