@@ -1005,6 +1005,29 @@ function rowToContact(row){ return { ...(row.data||{}), id:row.id, name:row.name
 function salesRepToRow(r){ return { id:r.id, name:r.name||'', data:r }; }
 function rowToSalesRep(row){ return { ...(row.data||{}), id:row.id, name:row.name }; }
 
+// Supabase/PostgREST caps SELECT results at a fixed row count per request
+// (1,000 by default) unless the query is explicitly paginated with
+// .range(). Every "fetch every row" query in this app was a plain
+// select('*') with no range -- silently invisible until a table actually
+// grew past that cap. Confirmed the hard way: products (2,800+ real rows)
+// loaded into the app as only its first 1,000. This helper pages through
+// in fixed-size chunks and concatenates the results, so callers always get
+// every row regardless of table size. Pass a function that builds a FRESH
+// query each call (not a query object itself), since .range() is chained
+// onto a new builder per page.
+async function fetchAllRows(buildQuery){
+  const pageSize=1000;
+  let from=0,allRows=[];
+  while(true){
+    const {data,error}=await buildQuery().range(from,from+pageSize-1);
+    if(error) return {data:null,error};
+    allRows=allRows.concat(data||[]);
+    if(!data||data.length<pageSize) break;
+    from+=pageSize;
+  }
+  return {data:allRows,error:null};
+}
+
 // Content-hash guard: render() (and therefore the sync schedulers below) fires
 // on nearly every click/keystroke, including plenty that touch zero core data
 // (typing a search term, switching report tabs, sorting a table). Without this
@@ -1020,7 +1043,7 @@ async function upsertAndPrune(table,localArray,toRow){
   if(lastSyncedSnapshot[table]===snapshot) return; // nothing changed since the last successful sync
   const rows=localArray.map(toRow);
   if(rows.length){ const {error}=await sb.from(table).upsert(rows); if(error){ console.warn('sync '+table,error); return; } }
-  const {data:existing}=await sb.from(table).select('id');
+  const {data:existing}=await fetchAllRows(()=>sb.from(table).select('id'));
   const localIds=new Set(localArray.map(x=>x.id));
   const del=(existing||[]).filter(r=>!localIds.has(r.id)).map(r=>r.id);
   if(del.length) await sb.from(table).delete().in('id',del);
@@ -1120,13 +1143,13 @@ async function loadBusinessSettingsFromSupabase(){
 async function loadCoreDataFromSupabase(){
   try{
     const [{data:whRows,error:whErr},{data:prodRows,error:prodErr},{data:contactRows,error:contactErr},{data:repRows,error:repErr}]=await Promise.all([
-      sb.from('warehouses').select('*').order('id'),
-      sb.from('products').select('*').order('id'),
-      sb.from('contacts').select('*').order('id'),
-      sb.from('sales_representatives').select('*').order('id'),
+      fetchAllRows(()=>sb.from('warehouses').select('*').order('id')),
+      fetchAllRows(()=>sb.from('products').select('*').order('id')),
+      fetchAllRows(()=>sb.from('contacts').select('*').order('id')),
+      fetchAllRows(()=>sb.from('sales_representatives').select('*').order('id')),
     ]);
     if(whErr||prodErr||contactErr||repErr){ console.warn('load core data',whErr||prodErr||contactErr||repErr); return; }
-    const docResults=await Promise.all(DOC_TABLES.map(([table])=>sb.from(table).select('*').order('id',{ascending:false})));
+    const docResults=await Promise.all(DOC_TABLES.map(([table])=>fetchAllRows(()=>sb.from(table).select('*').order('id',{ascending:false}))));
     const docErr=docResults.find(r=>r.error);
     if(docErr){ console.warn('load core data (docs)',docErr.error); return; }
     const allEmpty=(whRows||[]).length===0&&(prodRows||[]).length===0&&(contactRows||[]).length===0&&(repRows||[]).length===0&&docResults.every(r=>(r.data||[]).length===0);
@@ -1187,7 +1210,7 @@ async function syncSalesHistoryToSupabase(){
 }
 async function loadSalesHistoryFromSupabase(){
   try{
-    const { data:rows, error } = await sb.from('sales').select('*').order('sale_date',{ascending:false});
+    const { data:rows, error } = await fetchAllRows(()=>sb.from('sales').select('*').order('sale_date',{ascending:false}));
     if(error){ console.warn('load sales',error); return; }
     if((rows||[]).length===0){ await syncSalesHistoryToSupabase(); return; } // first time ever: seed Supabase with the current local (mock/demo) data
     salesHistory=rows.map(rowToSale);
