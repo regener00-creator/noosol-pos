@@ -4178,7 +4178,7 @@ function renderSystemSettings(){
     </div>
     ${renderStoreBackupSection()}
     <div class="settings-section" style="border-color:#F2C0BC;"><h2 style="color:var(--danger);">รีเซ็ตข้อมูลทั้งหมด</h2><div class="hint">ลบสินค้า คลังสินค้า สมุดรายชื่อ ผู้แทน เอกสาร ประวัติการขาย และบัญชีผู้ใช้ทั้งหมด โดยระบบจะสำรองข้อมูลก่อนรีเซ็ตไว้หนึ่งชุด และให้สร้างบัญชีเจ้าของร้านใหม่ก่อน Login</div>
-      <div class="settings-actions" style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;"><button class="btn reset-keep-products" id="resetKeepProductsBtn">รีเซ็ตทั้งหมด แต่เก็บรายการสินค้า</button><button class="btn reset-danger" id="resetAllDataBtn">รีเซ็ตทั้งหมด</button></div>
+      <div class="settings-actions" style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;"><button class="btn reset-keep-products" id="resetKeepProductsBtn">รีเซ็ตเฉพาะเอกสาร</button><button class="btn reset-danger" id="resetAllDataBtn">รีเซ็ตทั้งหมด</button></div>
     </div></div>`;
 }
 
@@ -4569,7 +4569,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const resetAllDataBtn=document.getElementById('resetAllDataBtn');
   if(resetAllDataBtn) resetAllDataBtn.addEventListener('click',resetAllSystemData);
   const resetKeepProductsBtn=document.getElementById('resetKeepProductsBtn');
-  if(resetKeepProductsBtn) resetKeepProductsBtn.addEventListener('click',resetAllExceptProducts);
+  if(resetKeepProductsBtn) resetKeepProductsBtn.addEventListener('click',resetDocumentsOnly);
   const downloadStoreBackupBtn=document.getElementById('downloadStoreBackupBtn');
   if(downloadStoreBackupBtn) downloadStoreBackupBtn.addEventListener('click',downloadStoreBackup);
   const restoreStoreBackupBtn=document.getElementById('restoreStoreBackupBtn');
@@ -5854,26 +5854,21 @@ function resetAllSystemData(){
   showToast('รีเซ็ตข้อมูลทั้งหมดแล้ว');
 }
 
-function resetAllExceptProducts(){
-  const warning='ยืนยันการรีเซ็ตข้อมูลทั้งหมด แต่เก็บรายการสินค้าไว้หรือไม่?\n\nระบบจะคงชื่อสินค้า ราคา ทุน สต็อก หน่วย และบาร์โค้ดไว้ ส่วนเอกสาร ประวัติการขาย สมุดรายชื่อ และผู้แทนทั้งหมดจะถูกลบ (บัญชีผู้ใช้งานจะไม่ถูกลบ)';
+function resetDocumentsOnly(){
+  const warning='ยืนยันการรีเซ็ตเฉพาะเอกสารหรือไม่?\n\nเอกสารทุกประเภท (ใบเสนอราคา ใบสั่งซื้อ ใบรับสินค้า ใบคืนสินค้า ใบกำกับภาษี โอนสินค้า) และประวัติการขายทั้งหมดจะถูกลบ\n\nรายชื่อผู้แทน, ลูกค้า/ผู้จำหน่าย, รายการสินค้า, ตั้งค่าธุรกิจ และผู้ใช้งาน จะไม่ถูกลบ ระบบจะสำรองข้อมูลก่อนรีเซ็ตไว้หนึ่งชุด';
   if(!confirm(warning)) return;
   clearTimeout(workspacePersistTimer);
   try{ localStorage.setItem(RESET_BACKUP_KEY,JSON.stringify(workspaceSnapshot())); }catch(error){ console.warn('ไม่สามารถสำรองข้อมูลก่อนรีเซ็ตได้',error); }
-  products=JSON.parse(JSON.stringify(products)).map(product=>({...product,wh:1}));
-  warehouses=[{id:1,name:'คลังหลัก',code:`${documentPrefixes.warehouse}-001`,address:'',postcode:'',purpose:'ขายสินค้า',contactName:'',email:'',phone:''}];
-  contacts=[]; salesRepresentatives=[]; salesHistory=[]; quotations=[]; invoicesAR=[]; creditNotes=[];
+  salesHistory=[]; quotations=[]; invoicesAR=[]; creditNotes=[];
   purchaseOrders=[]; goodsReceipts=[]; purchaseOrdersFull=[]; productReturns=[]; transfers=[]; standaloneTaxInvoices=[]; favorites=[]; stockReportItems=[];
-  systemUsers=[]; systemUsersLoaded=false;
-  currentUserProfile={firstName:'',lastName:'',phone:'',email:'',position:'เจ้าของกิจการ',signatureName:''};
-  // (owner account in Supabase Auth is left untouched by a data reset)
   cart=[]; saleDiscount=0; saleMember=null; pendingQty=1; selectedGroup=null; searchQuery='';
   editingProductId=null; editingPOId=null; editingGRId=null; editingPO2Id=null; editingReturnId=null; editingTaxInvoiceSaleId=null; editingQuotationId=null;
   refreshDataCounters();
   saleRef=nextSaleRef();
-  persistWarehouses(); persistContacts(); persistSalesHistory(); persistQuotations(); persistTransfers(); persistStandaloneTaxInvoices(); persistWorkspaceData();
+  persistSalesHistory(); persistQuotations(); persistTransfers(); persistStandaloneTaxInvoices(); persistWorkspaceData();
   currentTab='settingssystem';
   render();
-  showToast('รีเซ็ตข้อมูลแล้ว เก็บรายการสินค้าไว้');
+  showToast('รีเซ็ตเฉพาะเอกสารแล้ว');
 }
 
 async function saveUserSettings(){
