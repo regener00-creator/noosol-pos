@@ -737,6 +737,12 @@
   .pos-fbtn.pay{background:var(--primary);color:#fff;border-color:var(--primary);}
   .pos-fbtn.pay:hover{background:var(--primary-dark);}
   .pos-fbtn.pay:disabled{background:var(--border);color:var(--text-muted);border-color:var(--border);cursor:not-allowed;}
+  .pos-promo-hints{margin-top:10px;display:flex;flex-direction:column;gap:8px;}
+  .pos-promo-hint{background:var(--accent-soft);border:1px solid var(--accent);border-radius:10px;padding:10px 12px;font-size:12.5px;}
+  .pos-promo-hint-head{font-weight:700;color:#8a5a10;margin-bottom:4px;}
+  .pos-promo-hint-body div{margin-top:2px;color:#6b5326;}
+  .pos-promo-hint-body span{font-weight:600;}
+  .pos-promo-hint-nudge{margin-top:6px !important;font-weight:700;color:var(--primary-dark);}
   .st-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.5px;}
   .st-badge.done{background:#E8F6EB;color:#2D7D3D;}
   .st-badge.hold{background:var(--accent-soft);color:#8a5a10;}
@@ -2259,6 +2265,7 @@ function findProductByExactCode(q){
 function renderCheckout(){
   let rowsHtml=''; let subtotal=0;
   const promoResult=applyPromotions(cart);
+  const promoHints=getPromotionUpsellHints(cart);
   if(cart.length===0){
     rowsHtml = `<tr><td colspan="7" class="pos-empty">ไม่พบรายการสินค้า — ค้นหาหรือสแกนบาร์โค้ดเพื่อเพิ่ม</td></tr>`;
   } else {
@@ -2344,6 +2351,7 @@ function renderCheckout(){
           <button class="pos-fbtn hold" id="holdBtn">พักออเดอร์</button>
           <button class="pos-fbtn pay" id="checkoutBtn" ${cart.length===0?'disabled':''}>[F9] เก็บเงิน</button>
         </div>
+        ${promoHints.length?`<div class="pos-promo-hints">${promoHints.map(h=>`<div class="pos-promo-hint"><div class="pos-promo-hint-head">💡 ${escapeHtml(h.name)} - ${escapeHtml(h.unit)}</div><div class="pos-promo-hint-body"><div><span>ชื่อโปร:</span> ${escapeHtml(h.promoName)}</div><div><span>ผลลัพธ์:</span> ${escapeHtml(h.note)}</div><div class="pos-promo-hint-nudge">ซื้อเพิ่มอีก ${h.needMore} ${escapeHtml(h.unit)} เพื่อรับสิทธิ์โปรโมชั่นนี้</div></div></div>`).join('')}</div>`:''}
       </div>
     </div>`;
 }
@@ -3798,6 +3806,37 @@ function applyPromotions(lines){
     totalSaved:Math.max(0,originalTotal-discountedTotal),
     usedPromotions,
   };
+}
+
+// หาโปรฯ ที่ "เกือบเข้าเงื่อนไข" ต่อบรรทัดในตะกร้า (ยังไม่ครบจำนวนขั้นต่ำ) เพื่อเตือนพนักงานให้ชวนลูกค้าซื้อเพิ่ม
+// ใช้ได้เฉพาะโปรฯ ที่มีขั้นต่ำจำนวนจริง (bundle, buyxgety) — ลด%/เงินสด ไม่มีขั้นต่ำจึงไม่ต้องเตือน
+function getPromotionUpsellHints(lines){
+  const hints=[];
+  (lines||[]).forEach(line=>{
+    if(!line.pid || Number(line.qty)<=0) return;
+    const promo=findMatchingPromotion(line);
+    if(!promo) return;
+    if(promo.type==='bundle'){
+      const bundleQty=Number(promo.bundleQty)||0;
+      if(bundleQty<=0) return;
+      const qty=Number(line.qty)||0;
+      const remainder=qty%bundleQty;
+      if(remainder===0) return; // ครบเงื่อนไขพอดีอยู่แล้ว ไม่ต้องเตือน
+      const needMore=bundleQty-remainder;
+      hints.push({lineId:line.lineId,name:line.name,unit:line.unit,promoName:promo.name,needMore,note:promotionValueLabel(promo)});
+    } else if(promo.type==='buyxgety'){
+      const buyQty=Number(promo.buyQty)||0, getQty=Number(promo.getQty)||0;
+      if(buyQty<=0||getQty<=0) return;
+      const setSize=buyQty+getQty;
+      const qty=Number(line.qty)||0;
+      const remainder=qty%setSize;
+      if(remainder===0) return; // ครบเซ็ตพอดี ไม่ต้องเตือน
+      if(remainder>=buyQty) return; // ซื้อครบส่วนที่ต้องจ่ายแล้ว รอรับแถมอัตโนมัติ ไม่ต้องเตือนเพิ่ม
+      const needMore=buyQty-remainder;
+      hints.push({lineId:line.lineId,name:line.name,unit:line.unit,promoName:promo.name,needMore,note:promotionValueLabel(promo)});
+    }
+  });
+  return hints;
 }
 
 function renderPromotions(){
