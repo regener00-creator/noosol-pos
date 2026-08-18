@@ -81,6 +81,7 @@
   .trend.up{background:var(--primary-soft);color:var(--primary);}
   .trend.down{background:var(--danger-soft);color:var(--danger);}
   .grid2col{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-bottom:14px;align-items:stretch;}
+  .grid2col.align-top{align-items:start;}
   .dashboard-grid2col{grid-template-columns:repeat(2,minmax(0,1fr));}
   .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;}
   .panel h3{margin:0 0 3px 0;font-size:14px;font-weight:600;}
@@ -3812,7 +3813,7 @@ function renderPromotionForm(){
   };
   return `<div class="pagehead"><div><div class="breadcrumb">โปรโมชั่น › ${isNew?'สร้างโปรโมชั่น':'แก้ไขโปรโมชั่น'}</div><h1>${isNew?'สร้างโปรโมชั่น':'แก้ไขโปรโมชั่น'}</h1></div>
     <div style="display:flex;gap:8px;"><button class="btn ghost" id="cancelPromotionBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePromotionBtn">บันทึกแล้วปิด</button></div></div>
-    <div class="grid2col">
+    <div class="grid2col align-top">
       <div class="panel">
         <h3>ข้อมูลทั่วไป</h3>
         <div class="cform">
