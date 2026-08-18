@@ -183,6 +183,16 @@
   .manage-item{display:flex;justify-content:space-between;align-items:center;padding:9px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:13.5px;}
   .manage-del{width:30px;height:30px;border:1px solid var(--border);background:var(--danger-soft);color:var(--danger);border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
   .manage-del:hover{background:var(--danger);color:#fff;}
+  .promo-item-picker-modal{width:600px;max-height:88vh;}
+  .promo-picker-sub{font-size:12px;color:var(--text-muted);padding:0 18px 10px;}
+  .promo-picker-toolbar{display:flex;gap:8px;padding:0 18px 10px;}
+  .promo-picker-toolbar .btn.small{padding:6px 12px;font-size:12.5px;}
+  .promo-picker-list{overflow-y:auto;padding:0 18px 14px;flex:1;display:flex;flex-direction:column;gap:6px;}
+  .promo-picker-row{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:13.5px;cursor:pointer;}
+  .promo-picker-row:hover{background:var(--bg);}
+  .promo-picker-row input{width:16px;height:16px;flex-shrink:0;cursor:pointer;}
+  .promo-picker-empty{padding:20px;text-align:center;color:var(--text-muted);font-size:13px;}
+  .promo-picker-actions{display:flex;justify-content:flex-end;gap:10px;padding:14px 18px;border-top:1px solid var(--border);}
   .manage-empty{text-align:center;color:var(--text-muted);padding:20px;font-size:13px;}
   .bcrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:8px;}
   .bcrow.vendor{grid-template-columns:1.1fr 1.4fr auto;}
@@ -3950,24 +3960,12 @@ function renderPromotionForm(){
             <select id="promo_category" class="promo-select"><option value="">-- เลือกหมวดหมู่ --</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${promo.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select>
             <label style="margin-top:10px;">แบรนด์ (ไม่บังคับ)</label>
             <select id="promo_brand" class="promo-select"><option value="">-- ทุกแบรนด์ในหมวดนี้ --</option>${brands.map(b=>`<option value="${escapeHtml(b)}" ${promo.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select>
-            <label style="margin-top:10px;">สินค้าในหมวด/แบรนด์นี้</label><div class="cradio">
-              <label><input type="radio" name="promo_category_mode" value="all" ${(promo.categoryMode||'all')==='all'?'checked':''}> เอาทุกสินค้า</label>
-              <label><input type="radio" name="promo_category_mode" value="select" ${promo.categoryMode==='select'?'checked':''}> เจาะจงเลือกสินค้า</label>
-            </div>
-            <div id="promo_category_items_wrap" style="display:${promo.categoryMode==='select'?'block':'none'};margin-top:10px;">
-              <div class="doc-scanner-wrap" style="margin:0;">
-                <div class="doc-scanner"><span class="doc-scanner-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><input id="promo_category_item_search" placeholder="ค้นหาสินค้าในหมวด/แบรนด์ที่เลือกไว้ด้านบน" autocomplete="off"></div>
-                <div class="doc-scan-results" id="promoCategoryItemResults" hidden></div>
-              </div>
-              <div id="promoCategoryItemsList" class="promo-item-list">${renderPromoCategoryItemsList(currentPromoDraftItems||[])}</div>
-            </div>
+            <label style="margin-top:10px;">สินค้าในหมวด/แบรนด์นี้ <span class="req">*</span></label>
+            <button type="button" class="btn ghost" id="openPromoItemPickerBtn" style="width:100%;justify-content:center;">📦 เลือกสินค้า</button>
+            <div id="promoCategoryItemsList" class="promo-item-list">${renderPromoCategoryItemsList(currentPromoDraftItems||[])}</div>
           </div>
           <div id="promo_scope_product_unit" class="crow" style="display:${promo.scope==='product'?'block':'none'};"><label>หน่วยที่ร่วมโปรโมชั่น <span class="req">*</span></label>
             <select id="promo_unit" class="promo-select">${selectedProduct?unitOptionsForProduct(selectedProduct):'<option value="">เลือกสินค้าก่อน</option>'}</select>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">โปรโมชั่นจะมีผลเฉพาะตอนขายด้วยหน่วยนี้เท่านั้น</div>
-          </div>
-          <div id="promo_scope_category_unit" class="crow" style="display:${(promo.scope==='category'&&(promo.categoryMode||'all')==='all')?'block':'none'};"><label>หน่วยที่ร่วมโปรโมชั่น <span class="req">*</span></label>
-            <select id="promo_category_unit" class="promo-select">${units.map(u=>`<option value="${escapeHtml(u)}" ${promo.unit===u?'selected':''}>${escapeHtml(u)}</option>`).join('')}</select>
             <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">โปรโมชั่นจะมีผลเฉพาะตอนขายด้วยหน่วยนี้เท่านั้น</div>
           </div>
         </div>
@@ -5097,15 +5095,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     });
   });
   bindPromoProductSearch();
-  // สลับโหมด "เอาทุกสินค้า" <-> "เจาะจงเลือกสินค้า" ในหมวดหมู่/แบรนด์
-  document.querySelectorAll('input[name="promo_category_mode"]').forEach(el=>{
-    el.addEventListener('change', ()=>{
-      const itemsWrap=document.getElementById('promo_category_items_wrap');
-      if(itemsWrap) itemsWrap.style.display=el.value==='select'?'block':'none';
-      updatePromoUnitFieldVisibility();
-    });
-  });
-  bindPromoCategoryItemSearch();
+  // ปุ่มเปิด modal เลือกสินค้าในหมวดหมู่/แบรนด์
+  const openPromoItemPickerBtn=document.getElementById('openPromoItemPickerBtn');
+  if(openPromoItemPickerBtn) openPromoItemPickerBtn.addEventListener('click', openPromoItemPicker);
   bindPromoCategoryItemListEvents();
   // เปลี่ยนหมวดหมู่/แบรนด์ → ล้างรายการสินค้าที่เจาะจงเลือกไว้เดิม (อาจไม่อยู่ในหมวด/แบรนด์ใหม่แล้ว)
   ['promo_category','promo_brand'].forEach(id=>{
@@ -6658,19 +6650,15 @@ function updatePromoUnitOptions(){
   const opts=[p.unit,...(p.units||[]).map(u=>u.sub)];
   unitSelect.innerHTML=opts.map(u=>`<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('');
 }
-// สลับว่าจะโชว์ช่องหน่วยแบบไหน: สินค้ารายตัว (unit เดียว) / หมวดหมู่ทั้งหมด (unit เดียว) / เจาะจงสินค้า (หน่วยแยกต่อรายการ ไม่โชว์ช่องนี้)
+// สลับว่าจะโชว์ช่องหน่วยแบบไหน: สินค้ารายตัว (unit เดียว) / เจาะจงสินค้า (หน่วยแยกต่อรายการ ไม่โชว์ช่องนี้)
 function updatePromoUnitFieldVisibility(){
   const scopeEl=document.querySelector('input[name="promo_scope"]:checked');
   const scope=scopeEl?scopeEl.value:'product';
-  const modeEl=document.querySelector('input[name="promo_category_mode"]:checked');
-  const categoryMode=modeEl?modeEl.value:'all';
   const productUnitWrap=document.getElementById('promo_scope_product_unit');
-  const categoryUnitWrap=document.getElementById('promo_scope_category_unit');
   if(productUnitWrap) productUnitWrap.style.display=(scope==='product')?'block':'none';
-  if(categoryUnitWrap) categoryUnitWrap.style.display=(scope==='category'&&categoryMode==='all')?'block':'none';
   if(scope==='product') updatePromoUnitOptions();
 }
-// ค้นหาสินค้าที่จำกัดเฉพาะหมวดหมู่/แบรนด์ที่เลือกไว้ สำหรับโหมด "เจาะจงเลือกสินค้า"
+// ดึงสินค้าตามหมวดหมู่/แบรนด์ที่เลือกไว้ สำหรับ modal เลือกสินค้า
 function promoCategoryItemPool(){
   const category=document.getElementById('promo_category')?.value||'';
   const brand=document.getElementById('promo_brand')?.value||'';
@@ -6681,43 +6669,44 @@ function promoCategoryItemPool(){
     return true;
   });
 }
-function renderPromoCategoryItemResults(query){
-  const box=document.getElementById('promoCategoryItemResults');
-  if(!box) return;
-  const q=String(query||'').trim();
-  if(!q){ box.innerHTML=''; box.hidden=true; return; }
+// เปิด modal เลือกสินค้าแบบติ๊กหลายตัว (checkbox) จากหมวดหมู่/แบรนด์ที่เลือกไว้
+function openPromoItemPicker(){
   const category=document.getElementById('promo_category')?.value||'';
-  if(!category){ box.innerHTML='<div class="doc-scan-empty">กรุณาเลือกหมวดหมู่ก่อน</div>'; box.hidden=false; return; }
+  if(!category){ showToast('กรุณาเลือกหมวดหมู่ก่อน'); return; }
+  const brand=document.getElementById('promo_brand')?.value||'';
   const pool=promoCategoryItemPool();
-  const needle=q.toLowerCase();
   const alreadySelected=new Set((currentPromoDraftItems||[]).map(it=>it.productId));
-  const matches=pool.filter(p=>!alreadySelected.has(p.id) && ((p.name||'').toLowerCase().includes(needle)||(p.sku||'').toLowerCase().includes(needle)||(p.barcode||'').toLowerCase().includes(needle))).slice(0,8);
-  box.innerHTML=matches.length?matches.map(p=>`<button type="button" class="doc-scan-result" data-pid="${p.id}"><span><b>${escapeHtml(p.name)}</b><small>${escapeHtml(p.sku||'-')}</small></span></button>`).join(''):`<div class="doc-scan-empty">ไม่พบสินค้าในหมวด/แบรนด์นี้</div>`;
-  box.hidden=false;
-  box.querySelectorAll('.doc-scan-result').forEach(btn=>{
-    btn.addEventListener('mousedown',e=>e.preventDefault());
-    btn.addEventListener('click',()=>addPromoCategoryItem(Number(btn.dataset.pid)));
-  });
-}
-function addPromoCategoryItem(productId){
-  const p=products.find(x=>x.id===productId); if(!p) return;
-  if(!currentPromoDraftItems) currentPromoDraftItems=[];
-  if(currentPromoDraftItems.some(it=>it.productId===productId)) return;
-  currentPromoDraftItems.push({productId,unit:p.unit});
-  const searchInput=document.getElementById('promo_category_item_search');
-  if(searchInput) searchInput.value='';
-  const box=document.getElementById('promoCategoryItemResults');
-  if(box){ box.innerHTML=''; box.hidden=true; }
-  const listWrap=document.getElementById('promoCategoryItemsList');
-  if(listWrap){ listWrap.innerHTML=renderPromoCategoryItemsList(currentPromoDraftItems); bindPromoCategoryItemListEvents(); }
-}
-function bindPromoCategoryItemSearch(){
-  const input=document.getElementById('promo_category_item_search');
-  const box=document.getElementById('promoCategoryItemResults');
-  if(!input||!box) return;
-  input.addEventListener('input',()=>renderPromoCategoryItemResults(input.value));
-  input.addEventListener('focus',()=>{ if(input.value.trim()) renderPromoCategoryItemResults(input.value); });
-  input.addEventListener('blur',()=>setTimeout(()=>{ box.hidden=true; },140));
+  const checkedIds=new Set(alreadySelected);
+  const overlay=document.createElement('div'); overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal promo-item-picker-modal">
+    <div class="modal-head"><h3>เลือกสินค้าในหมวดนี้</h3><button class="modal-close" aria-label="ปิด">×</button></div>
+    <div class="promo-picker-sub">${escapeHtml(category)}${brand?` › ${escapeHtml(brand)}`:''} · พบ ${pool.length} รายการ</div>
+    <div class="promo-picker-toolbar"><button type="button" class="btn ghost small" id="promoPickAllBtn">เลือกทั้งหมด</button><button type="button" class="btn ghost small" id="promoPickNoneBtn">ไม่เลือกเลย</button></div>
+    <div class="promo-picker-list" id="promoPickerList">${pool.map(p=>`<label class="promo-picker-row"><input type="checkbox" data-pid="${p.id}" ${checkedIds.has(p.id)?'checked':''}><span>${escapeHtml(p.name)}</span></label>`).join('')||'<div class="promo-picker-empty">ไม่พบสินค้าในหมวด/แบรนด์นี้</div>'}</div>
+    <div class="promo-picker-actions"><button type="button" class="btn ghost" id="promoPickerCancelBtn">ยกเลิก</button><button type="button" class="btn primary" id="promoPickerAddBtn">เพิ่มที่เลือก</button></div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  overlay.querySelector('.modal-close').onclick=close;
+  overlay.querySelector('#promoPickerCancelBtn').onclick=close;
+  overlay.querySelector('#promoPickAllBtn').onclick=()=>overlay.querySelectorAll('.promo-picker-row input[type="checkbox"]').forEach(cb=>cb.checked=true);
+  overlay.querySelector('#promoPickNoneBtn').onclick=()=>overlay.querySelectorAll('.promo-picker-row input[type="checkbox"]').forEach(cb=>cb.checked=false);
+  overlay.querySelector('#promoPickerAddBtn').onclick=()=>{
+    const checked=Array.from(overlay.querySelectorAll('.promo-picker-row input[type="checkbox"]:checked')).map(cb=>Number(cb.dataset.pid));
+    if(!currentPromoDraftItems) currentPromoDraftItems=[];
+    checked.forEach(pid=>{
+      if(currentPromoDraftItems.some(it=>it.productId===pid)) return;
+      const p=products.find(x=>x.id===pid); if(!p) return;
+      currentPromoDraftItems.push({productId:pid,unit:p.unit});
+    });
+    // เอาตัวที่ถูกยกเลิกติ๊กออกจากรายการที่เลือกไว้เดิมด้วย (เฉพาะที่อยู่ในหมวด/แบรนด์นี้)
+    const poolIds=new Set(pool.map(p=>p.id));
+    const stillChecked=new Set(checked);
+    currentPromoDraftItems=currentPromoDraftItems.filter(it=>!poolIds.has(it.productId)||stillChecked.has(it.productId));
+    const listWrap=document.getElementById('promoCategoryItemsList');
+    if(listWrap){ listWrap.innerHTML=renderPromoCategoryItemsList(currentPromoDraftItems); bindPromoCategoryItemListEvents(); }
+    close();
+  };
 }
 function bindPromoCategoryItemListEvents(){
   document.querySelectorAll('.promo-item-unit').forEach(sel=>{
@@ -6755,14 +6744,9 @@ function savePromotion(){
     category=(g('promo_category')?.value||'').trim();
     if(!category){ showToast('กรุณาเลือกหมวดหมู่'); return; }
     brand=(g('promo_brand')?.value||'').trim();
-    categoryMode=document.querySelector('input[name="promo_category_mode"]:checked')?.value||'all';
-    if(categoryMode==='select'){
-      items=(currentPromoDraftItems||[]).map(it=>({productId:it.productId,unit:it.unit}));
-      if(items.length===0){ showToast('กรุณาเลือกสินค้าอย่างน้อย 1 รายการ'); return; }
-    } else {
-      unit=(g('promo_category_unit')?.value||'').trim();
-      if(!unit){ showToast('กรุณาเลือกหน่วยที่ร่วมโปรโมชั่น'); return; }
-    }
+    categoryMode='select';
+    items=(currentPromoDraftItems||[]).map(it=>({productId:it.productId,unit:it.unit}));
+    if(items.length===0){ showToast('กรุณาเลือกสินค้าอย่างน้อย 1 รายการ'); return; }
   }
   const type=document.querySelector('input[name="promo_type"]:checked')?.value||'discount';
   const data={name,active,startDate,endDate,scope,productId,category,brand,categoryMode,items,unit,type,
