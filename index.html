@@ -388,6 +388,12 @@
   .crow label{font-size:13px;color:var(--text-muted);padding-top:8px;}
   .crow input,.crow textarea{padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13.5px;background:var(--surface);width:100%;}
   .promo-select{padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13.5px;background:var(--surface);width:100%;-webkit-appearance:none;appearance:none;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%231D2129' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;background-size:14px 14px;cursor:pointer;}
+  .promo-item-list{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+  .promo-item-row{display:grid;grid-template-columns:1fr 130px 30px;gap:8px;align-items:center;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);}
+  .promo-item-row-name{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .promo-item-unit{padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;background:var(--surface);}
+  .promo-item-remove{width:28px;height:28px;border-radius:6px;border:1px solid var(--danger-soft);background:var(--danger-soft);color:var(--danger);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .promo-item-remove:hover{background:var(--danger);color:#fff;}
   .crow textarea{resize:vertical;}
   .crow .req{color:var(--danger);}
   .cradio{display:flex;gap:18px;align-items:center;padding-top:6px;font-size:13.5px;flex-wrap:wrap;row-gap:8px;}
@@ -1501,6 +1507,8 @@ try{ const savedPromotions=JSON.parse(localStorage.getItem(PROMOTIONS_STORAGE_KE
 function persistPromotions(){ try{ localStorage.setItem(PROMOTIONS_STORAGE_KEY,JSON.stringify(promotions)); }catch(error){ console.warn('ไม่สามารถบันทึกโปรโมชั่นได้',error); } }
 let nextPromotionId = Math.max(1,...promotions.map(p=>(Number(p.id)||0)+1));
 let editingPromotionId = null; // null=list, 'new', หรือ id
+let currentPromoDraftItems = null; // รายการสินค้าที่เจาะจงเลือกในฟอร์มโปรโมชั่น (โหมด scope=category, categoryMode=select) — sync จาก promo.items ทุกครั้งที่เปิดฟอร์ม
+let promoDraftItemsSyncedFor = undefined; // ติดตามว่า currentPromoDraftItems sync จาก editingPromotionId ตัวไหนไปแล้ว กัน overwrite ระหว่างแก้ไขที่ยังไม่ได้บันทึก
 function customersList(){ return contacts.filter(c=>c.types.includes('customer')); }
 function suppliersList(){ return contacts.filter(c=>c.types.includes('supplier')); }
 let employees = [ 'เภสัชกรหญิงมานี', 'พนักงานขายสมชาย' ];
@@ -3707,6 +3715,10 @@ function promotionTargetLabel(promo){
     return p?`${p.name} (${promo.unit||p.unit})`:'สินค้าถูกลบไปแล้ว';
   }
   const cat=promo.category||'ทุกหมวดหมู่', br=promo.brand?` › ${promo.brand}`:'';
+  if(promo.categoryMode==='select'){
+    const count=(promo.items||[]).length;
+    return `${cat}${br} — เจาะจง ${count} รายการ`;
+  }
   return `${cat}${br} (หน่วย: ${promo.unit||'ทุกหน่วย'})`;
 }
 function promotionValueLabel(promo){
@@ -3728,7 +3740,7 @@ function isPromotionLiveToday(promo){
   return true;
 }
 
-// หาโปรโมชั่นที่ตรงกับบรรทัดสินค้าหนึ่งบรรทัด (ตาม pid+unit หรือ category/brand+unit)
+// หาโปรโมชั่นที่ตรงกับบรรทัดสินค้าหนึ่งบรรทัด (ตาม pid+unit หรือ category/brand+unit หรือ category/brand+เจาะจงรายการ)
 // line ต้องมี: {pid, unit} เป็นอย่างน้อย (unit คือหน่วยที่ขายจริงในบรรทัดนั้น)
 function findMatchingPromotion(line){
   if(!line || !line.pid) return null;
@@ -3740,11 +3752,15 @@ function findMatchingPromotion(line){
   if(productMatch) return productMatch;
   const categoryMatch=live.find(promo=>{
     if(promo.scope!=='category') return false;
-    if(promo.unit!==line.unit) return false;
     const productCategory=String(product.category||'').trim()||'ไม่ทราบหมวดหมู่';
     if(promo.category && promo.category!==productCategory) return false;
     if(promo.brand && promo.brand!==(product.brand||'ทั่วไป')) return false;
-    return true;
+    if(promo.categoryMode==='select'){
+      // โหมดเจาะจงเลือกสินค้า: เช็คว่า pid+unit นี้อยู่ในรายการที่เลือกไว้ไหม (แต่ละสินค้ามีหน่วยของตัวเอง)
+      return (promo.items||[]).some(it=>it.productId===line.pid && it.unit===line.unit);
+    }
+    // โหมดเอาทุกสินค้า (ค่าเริ่มต้น รวมถึงโปรฯ เก่าก่อนมี categoryMode): ใช้ unit เดียวทั้งหมวด
+    return promo.unit===line.unit;
   });
   return categoryMatch||null;
 }
@@ -3867,10 +3883,28 @@ function renderPromotions(){
     </div></div>`;
 }
 
+// แสดงรายการสินค้าที่เจาะจงเลือกไว้ในโหมด "หมวดหมู่/แบรนด์ - เจาะจงเลือกสินค้า" พร้อม dropdown หน่วยแยกต่อตัว
+function renderPromoCategoryItemsList(items){
+  if(!items.length) return '<div style="font-size:12.5px;color:var(--text-muted);padding:8px 0;">ยังไม่ได้เลือกสินค้า — ค้นหาแล้วเลือกจากผลลัพธ์ด้านบน</div>';
+  return items.map((it,idx)=>{
+    const p=products.find(x=>x.id===it.productId);
+    if(!p) return '';
+    const unitOpts=[p.unit,...(p.units||[]).map(u=>u.sub)];
+    return `<div class="promo-item-row" data-idx="${idx}">
+      <div class="promo-item-row-name">${escapeHtml(p.name)} <span style="color:var(--text-muted);">(${escapeHtml(p.sku||'-')})</span></div>
+      <select class="promo-item-unit" data-idx="${idx}">${unitOpts.map(u=>`<option value="${escapeHtml(u)}" ${it.unit===u?'selected':''}>${escapeHtml(u)}</option>`).join('')}</select>
+      <button type="button" class="promo-item-remove" data-idx="${idx}" title="เอาออก"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>`;
+  }).join('');
+}
 function renderPromotionForm(){
   const isNew=editingPromotionId==='new';
-  const promo=isNew?{name:'',active:true,startDate:'',endDate:'',scope:'product',productId:null,category:'',brand:'',unit:'',type:'discount',discountMode:'percent',discountValue:'',bundleQty:'',bundlePrice:'',buyQty:'',getQty:''}:promotions.find(x=>x.id===editingPromotionId);
+  const promo=isNew?{name:'',active:true,startDate:'',endDate:'',scope:'product',productId:null,category:'',brand:'',categoryMode:'all',items:[],unit:'',type:'discount',discountMode:'percent',discountValue:'',bundleQty:'',bundlePrice:'',buyQty:'',getQty:''}:promotions.find(x=>x.id===editingPromotionId);
   if(!promo) return '<div class="panel">ไม่พบโปรโมชั่น</div>';
+  if(promoDraftItemsSyncedFor!==editingPromotionId){
+    currentPromoDraftItems=(promo.items||[]).map(it=>({...it}));
+    promoDraftItemsSyncedFor=editingPromotionId;
+  }
   const selectedProduct=promo.productId?products.find(p=>p.id===promo.productId):null;
   const unitOptionsForProduct=p=>{
     if(!p) return '';
@@ -3916,9 +3950,24 @@ function renderPromotionForm(){
             <select id="promo_category" class="promo-select"><option value="">-- เลือกหมวดหมู่ --</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${promo.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select>
             <label style="margin-top:10px;">แบรนด์ (ไม่บังคับ)</label>
             <select id="promo_brand" class="promo-select"><option value="">-- ทุกแบรนด์ในหมวดนี้ --</option>${brands.map(b=>`<option value="${escapeHtml(b)}" ${promo.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select>
+            <label style="margin-top:10px;">สินค้าในหมวด/แบรนด์นี้</label><div class="cradio">
+              <label><input type="radio" name="promo_category_mode" value="all" ${(promo.categoryMode||'all')==='all'?'checked':''}> เอาทุกสินค้า</label>
+              <label><input type="radio" name="promo_category_mode" value="select" ${promo.categoryMode==='select'?'checked':''}> เจาะจงเลือกสินค้า</label>
+            </div>
+            <div id="promo_category_items_wrap" style="display:${promo.categoryMode==='select'?'block':'none'};margin-top:10px;">
+              <div class="doc-scanner-wrap" style="margin:0;">
+                <div class="doc-scanner"><span class="doc-scanner-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><input id="promo_category_item_search" placeholder="ค้นหาสินค้าในหมวด/แบรนด์ที่เลือกไว้ด้านบน" autocomplete="off"></div>
+                <div class="doc-scan-results" id="promoCategoryItemResults" hidden></div>
+              </div>
+              <div id="promoCategoryItemsList" class="promo-item-list">${renderPromoCategoryItemsList(currentPromoDraftItems||[])}</div>
+            </div>
           </div>
-          <div class="crow"><label>หน่วยที่ร่วมโปรโมชั่น <span class="req">*</span></label>
-            <select id="promo_unit" class="promo-select">${promo.scope==='product'?(selectedProduct?unitOptionsForProduct(selectedProduct):'<option value="">เลือกสินค้าก่อน</option>'):units.map(u=>`<option value="${escapeHtml(u)}" ${promo.unit===u?'selected':''}>${escapeHtml(u)}</option>`).join('')}</select>
+          <div id="promo_scope_product_unit" class="crow" style="display:${promo.scope==='product'?'block':'none'};"><label>หน่วยที่ร่วมโปรโมชั่น <span class="req">*</span></label>
+            <select id="promo_unit" class="promo-select">${selectedProduct?unitOptionsForProduct(selectedProduct):'<option value="">เลือกสินค้าก่อน</option>'}</select>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">โปรโมชั่นจะมีผลเฉพาะตอนขายด้วยหน่วยนี้เท่านั้น</div>
+          </div>
+          <div id="promo_scope_category_unit" class="crow" style="display:${(promo.scope==='category'&&(promo.categoryMode||'all')==='all')?'block':'none'};"><label>หน่วยที่ร่วมโปรโมชั่น <span class="req">*</span></label>
+            <select id="promo_category_unit" class="promo-select">${units.map(u=>`<option value="${escapeHtml(u)}" ${promo.unit===u?'selected':''}>${escapeHtml(u)}</option>`).join('')}</select>
             <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">โปรโมชั่นจะมีผลเฉพาะตอนขายด้วยหน่วยนี้เท่านั้น</div>
           </div>
         </div>
@@ -5033,7 +5082,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     el.addEventListener('click', ()=>deletePromotion(Number(el.dataset.id)));
   });
   const cancelPromotionBtn=document.getElementById('cancelPromotionBtn');
-  if(cancelPromotionBtn) cancelPromotionBtn.addEventListener('click', ()=>{ editingPromotionId=null; render(); });
+  if(cancelPromotionBtn) cancelPromotionBtn.addEventListener('click', ()=>{ editingPromotionId=null; promoDraftItemsSyncedFor=undefined; render(); });
   const savePromotionBtn=document.getElementById('savePromotionBtn');
   if(savePromotionBtn) savePromotionBtn.addEventListener('click', savePromotion);
   // สลับมุมมอง สินค้ารายตัว <-> หมวดหมู่/แบรนด์
@@ -5044,10 +5093,33 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       const isProduct=el.value==='product';
       if(scopeProduct) scopeProduct.style.display=isProduct?'block':'none';
       if(scopeCategory) scopeCategory.style.display=isProduct?'none':'block';
-      updatePromotionUnitOptions();
+      updatePromoUnitFieldVisibility();
     });
   });
   bindPromoProductSearch();
+  // สลับโหมด "เอาทุกสินค้า" <-> "เจาะจงเลือกสินค้า" ในหมวดหมู่/แบรนด์
+  document.querySelectorAll('input[name="promo_category_mode"]').forEach(el=>{
+    el.addEventListener('change', ()=>{
+      const itemsWrap=document.getElementById('promo_category_items_wrap');
+      if(itemsWrap) itemsWrap.style.display=el.value==='select'?'block':'none';
+      updatePromoUnitFieldVisibility();
+    });
+  });
+  bindPromoCategoryItemSearch();
+  bindPromoCategoryItemListEvents();
+  // เปลี่ยนหมวดหมู่/แบรนด์ → ล้างรายการสินค้าที่เจาะจงเลือกไว้เดิม (อาจไม่อยู่ในหมวด/แบรนด์ใหม่แล้ว)
+  ['promo_category','promo_brand'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    el.addEventListener('change', ()=>{
+      if(currentPromoDraftItems && currentPromoDraftItems.length){
+        currentPromoDraftItems=[];
+        const listWrap=document.getElementById('promoCategoryItemsList');
+        if(listWrap){ listWrap.innerHTML=renderPromoCategoryItemsList(currentPromoDraftItems); bindPromoCategoryItemListEvents(); }
+        showToast('เปลี่ยนหมวดหมู่/แบรนด์แล้ว — กรุณาเลือกสินค้าใหม่');
+      }
+    });
+  });
   // สลับฟิลด์ตามประเภทโปรโมชั่น
   document.querySelectorAll('input[name="promo_type"]').forEach(el=>{
     el.addEventListener('change', ()=>{
@@ -6577,19 +6649,92 @@ function bindPromoProductSearch(){
   });
   input.addEventListener('blur',()=>setTimeout(()=>{ box.hidden=true; },140));
 }
-function updatePromotionUnitOptions(){
+// อัปเดตตัวเลือกหน่วยในช่อง "สินค้ารายตัว" ตามสินค้าที่เลือกไว้
+function updatePromoUnitOptions(){
   const unitSelect=document.getElementById('promo_unit'); if(!unitSelect) return;
+  const productId=Number(document.getElementById('promo_product_id')?.value);
+  const p=products.find(x=>x.id===productId);
+  if(!p){ unitSelect.innerHTML='<option value="">เลือกสินค้าก่อน</option>'; return; }
+  const opts=[p.unit,...(p.units||[]).map(u=>u.sub)];
+  unitSelect.innerHTML=opts.map(u=>`<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('');
+}
+// สลับว่าจะโชว์ช่องหน่วยแบบไหน: สินค้ารายตัว (unit เดียว) / หมวดหมู่ทั้งหมด (unit เดียว) / เจาะจงสินค้า (หน่วยแยกต่อรายการ ไม่โชว์ช่องนี้)
+function updatePromoUnitFieldVisibility(){
   const scopeEl=document.querySelector('input[name="promo_scope"]:checked');
   const scope=scopeEl?scopeEl.value:'product';
-  if(scope==='product'){
-    const productId=Number(document.getElementById('promo_product_id')?.value);
-    const p=products.find(x=>x.id===productId);
-    if(!p){ unitSelect.innerHTML='<option value="">เลือกสินค้าก่อน</option>'; return; }
-    const opts=[p.unit,...(p.units||[]).map(u=>u.sub)];
-    unitSelect.innerHTML=opts.map(u=>`<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('');
-  } else {
-    unitSelect.innerHTML=units.map(u=>`<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('');
-  }
+  const modeEl=document.querySelector('input[name="promo_category_mode"]:checked');
+  const categoryMode=modeEl?modeEl.value:'all';
+  const productUnitWrap=document.getElementById('promo_scope_product_unit');
+  const categoryUnitWrap=document.getElementById('promo_scope_category_unit');
+  if(productUnitWrap) productUnitWrap.style.display=(scope==='product')?'block':'none';
+  if(categoryUnitWrap) categoryUnitWrap.style.display=(scope==='category'&&categoryMode==='all')?'block':'none';
+  if(scope==='product') updatePromoUnitOptions();
+}
+// ค้นหาสินค้าที่จำกัดเฉพาะหมวดหมู่/แบรนด์ที่เลือกไว้ สำหรับโหมด "เจาะจงเลือกสินค้า"
+function promoCategoryItemPool(){
+  const category=document.getElementById('promo_category')?.value||'';
+  const brand=document.getElementById('promo_brand')?.value||'';
+  return products.filter(p=>{
+    const productCategory=String(p.category||'').trim()||'ไม่ทราบหมวดหมู่';
+    if(category && productCategory!==category) return false;
+    if(brand && (p.brand||'ทั่วไป')!==brand) return false;
+    return true;
+  });
+}
+function renderPromoCategoryItemResults(query){
+  const box=document.getElementById('promoCategoryItemResults');
+  if(!box) return;
+  const q=String(query||'').trim();
+  if(!q){ box.innerHTML=''; box.hidden=true; return; }
+  const category=document.getElementById('promo_category')?.value||'';
+  if(!category){ box.innerHTML='<div class="doc-scan-empty">กรุณาเลือกหมวดหมู่ก่อน</div>'; box.hidden=false; return; }
+  const pool=promoCategoryItemPool();
+  const needle=q.toLowerCase();
+  const alreadySelected=new Set((currentPromoDraftItems||[]).map(it=>it.productId));
+  const matches=pool.filter(p=>!alreadySelected.has(p.id) && ((p.name||'').toLowerCase().includes(needle)||(p.sku||'').toLowerCase().includes(needle)||(p.barcode||'').toLowerCase().includes(needle))).slice(0,8);
+  box.innerHTML=matches.length?matches.map(p=>`<button type="button" class="doc-scan-result" data-pid="${p.id}"><span><b>${escapeHtml(p.name)}</b><small>${escapeHtml(p.sku||'-')}</small></span></button>`).join(''):`<div class="doc-scan-empty">ไม่พบสินค้าในหมวด/แบรนด์นี้</div>`;
+  box.hidden=false;
+  box.querySelectorAll('.doc-scan-result').forEach(btn=>{
+    btn.addEventListener('mousedown',e=>e.preventDefault());
+    btn.addEventListener('click',()=>addPromoCategoryItem(Number(btn.dataset.pid)));
+  });
+}
+function addPromoCategoryItem(productId){
+  const p=products.find(x=>x.id===productId); if(!p) return;
+  if(!currentPromoDraftItems) currentPromoDraftItems=[];
+  if(currentPromoDraftItems.some(it=>it.productId===productId)) return;
+  currentPromoDraftItems.push({productId,unit:p.unit});
+  const searchInput=document.getElementById('promo_category_item_search');
+  if(searchInput) searchInput.value='';
+  const box=document.getElementById('promoCategoryItemResults');
+  if(box){ box.innerHTML=''; box.hidden=true; }
+  const listWrap=document.getElementById('promoCategoryItemsList');
+  if(listWrap){ listWrap.innerHTML=renderPromoCategoryItemsList(currentPromoDraftItems); bindPromoCategoryItemListEvents(); }
+}
+function bindPromoCategoryItemSearch(){
+  const input=document.getElementById('promo_category_item_search');
+  const box=document.getElementById('promoCategoryItemResults');
+  if(!input||!box) return;
+  input.addEventListener('input',()=>renderPromoCategoryItemResults(input.value));
+  input.addEventListener('focus',()=>{ if(input.value.trim()) renderPromoCategoryItemResults(input.value); });
+  input.addEventListener('blur',()=>setTimeout(()=>{ box.hidden=true; },140));
+}
+function bindPromoCategoryItemListEvents(){
+  document.querySelectorAll('.promo-item-unit').forEach(sel=>{
+    sel.addEventListener('change',()=>{
+      const idx=Number(sel.dataset.idx);
+      if(currentPromoDraftItems&&currentPromoDraftItems[idx]) currentPromoDraftItems[idx].unit=sel.value;
+    });
+  });
+  document.querySelectorAll('.promo-item-remove').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      const idx=Number(btn.dataset.idx);
+      if(!currentPromoDraftItems) return;
+      currentPromoDraftItems.splice(idx,1);
+      const listWrap=document.getElementById('promoCategoryItemsList');
+      if(listWrap){ listWrap.innerHTML=renderPromoCategoryItemsList(currentPromoDraftItems); bindPromoCategoryItemListEvents(); }
+    });
+  });
 }
 function savePromotion(){
   const g=id=>document.getElementById(id);
@@ -6600,19 +6745,27 @@ function savePromotion(){
   const endDate=dmyToISO(g('promo_end')?.value)||'';
   if(startDate && endDate && startDate>endDate){ showToast('วันเริ่มต้องมาก่อนวันสิ้นสุด'); return; }
   const scope=document.querySelector('input[name="promo_scope"]:checked')?.value||'product';
-  const unit=(g('promo_unit')?.value||'').trim();
-  if(!unit){ showToast('กรุณาเลือกหน่วยที่ร่วมโปรโมชั่น'); return; }
-  let productId=null, category='', brand='';
+  let productId=null, category='', brand='', categoryMode='all', unit='', items=[];
   if(scope==='product'){
     productId=Number(g('promo_product_id')?.value)||null;
     if(!productId){ showToast('กรุณาเลือกสินค้าจากผลการค้นหา'); g('promo_product_search')?.focus(); return; }
+    unit=(g('promo_unit')?.value||'').trim();
+    if(!unit){ showToast('กรุณาเลือกหน่วยที่ร่วมโปรโมชั่น'); return; }
   } else {
     category=(g('promo_category')?.value||'').trim();
     if(!category){ showToast('กรุณาเลือกหมวดหมู่'); return; }
     brand=(g('promo_brand')?.value||'').trim();
+    categoryMode=document.querySelector('input[name="promo_category_mode"]:checked')?.value||'all';
+    if(categoryMode==='select'){
+      items=(currentPromoDraftItems||[]).map(it=>({productId:it.productId,unit:it.unit}));
+      if(items.length===0){ showToast('กรุณาเลือกสินค้าอย่างน้อย 1 รายการ'); return; }
+    } else {
+      unit=(g('promo_category_unit')?.value||'').trim();
+      if(!unit){ showToast('กรุณาเลือกหน่วยที่ร่วมโปรโมชั่น'); return; }
+    }
   }
   const type=document.querySelector('input[name="promo_type"]:checked')?.value||'discount';
-  const data={name,active,startDate,endDate,scope,productId,category,brand,unit,type,
+  const data={name,active,startDate,endDate,scope,productId,category,brand,categoryMode,items,unit,type,
     discountMode:'percent',discountValue:'',bundleQty:'',bundlePrice:'',buyQty:'',getQty:''};
   if(type==='discount'){
     data.discountMode=document.querySelector('input[name="promo_discount_mode"]:checked')?.value||'percent';
@@ -6638,6 +6791,8 @@ function savePromotion(){
   }
   persistPromotions();
   editingPromotionId=null;
+  promoDraftItemsSyncedFor=undefined;
+  currentPromoDraftItems=null;
   render();
 }
 function deletePromotion(id){
