@@ -2636,7 +2636,7 @@ function openNewQuotationForm(){
   editingQuotationId='new'; taxInvoiceAddingCustomer=false;
   const prefix=documentPrefixes.quotation;
   const number=buildDocNumber(prefix, nextDailySeq(prefix, quotations.map(q=>q.id)));
-  taxInvoiceDraft={id:number,number,date:TODAY_STR,credit:0,dueDate:TODAY_STR,customerId:'',name:'',taxId:'',address:'',branch:'head',branchNo:'',phone:'',email:'',items:Array.from({length:3},()=>({name:'',qty:1,unit:'',price:''})),discount:0,note:''};
+  taxInvoiceDraft={id:number,number,date:TODAY_STR,credit:0,dueDate:TODAY_STR,customerId:'',name:'',taxId:'',address:'',branch:'สำนักงานใหญ่',branchNo:'',phone:'',email:'',items:Array.from({length:3},()=>({name:'',qty:1,unit:'',price:''})),discount:0,note:''};
   currentTab='quotation'; render();
 }
 
@@ -2644,7 +2644,9 @@ function openQuotationForm(id){
   const doc=quotations.find(item=>item.id===id); if(!doc) return;
   const customer=doc.customerInfo||{};
   editingQuotationId=id; taxInvoiceAddingCustomer=false;
-  taxInvoiceDraft={id:doc.id,number:doc.id,date:doc.date||TODAY_STR,credit:doc.credit||0,dueDate:doc.dueDate||addDaysToDate(doc.date||TODAY_STR,doc.credit||0),customerId:customer.id||'',name:customer.name||doc.customer||'',taxId:customer.taxId||'',address:customer.address||'',branch:customer.branch||'head',branchNo:customer.branchNo||'',phone:customer.phone||'',email:customer.email||'',items:JSON.parse(JSON.stringify(doc.items||[])),discount:doc.discount||0,note:doc.note||''};
+  const rawBranch=customer.branch;
+  const branchText=rawBranch==='head'?'สำนักงานใหญ่':rawBranch==='branch'?'สาขา':(rawBranch||'สำนักงานใหญ่');
+  taxInvoiceDraft={id:doc.id,number:doc.id,date:doc.date||TODAY_STR,credit:doc.credit||0,dueDate:doc.dueDate||addDaysToDate(doc.date||TODAY_STR,doc.credit||0),customerId:customer.id||'',name:customer.name||doc.customer||'',taxId:customer.taxId||'',address:customer.address||'',branch:branchText,branchNo:customer.branchNo||'',phone:customer.phone||'',email:customer.email||'',items:JSON.parse(JSON.stringify(doc.items||[])),discount:doc.discount||0,note:doc.note||''};
   currentTab='quotation'; render();
 }
 
@@ -2658,8 +2660,8 @@ function renderQuotationForm(){
       <div class="crow tax-customer-picker-row"><div class="po-supplier-pick"><select id="tax_customer_select"><option value="">เลือกข้อมูลลูกค้าสำหรับออกเอกสาร</option>${customersList().map(c=>`<option value="${c.id}" ${String(draft.customerId)===String(c.id)||draft.name===c.name?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select><button class="btn ghost small" id="addTaxCustomerBtn" type="button">+ เพิ่มลูกค้า</button></div></div>
       <div class="po-supplier-edit tax-customer-details" style="margin-top:10px;">${taxInvoiceAddingCustomer?'<div class="po-supplier-edit-title"><span>เพิ่มลูกค้าใหม่</span><span style="font-size:11px;color:var(--text-muted);font-weight:400;">บันทึกแล้วจะเพิ่มในสมุดรายชื่อทันที</span></div>':''}<div class="po-supplier-edit-grid">
         <div><label>ชื่อลูกค้า/บริษัท *</label><input id="tax_form_customer_name" value="${escapeHtml(draft.name||'')}"></div><div><label>เลขผู้เสียภาษี *</label><input id="tax_form_customer_taxid" value="${escapeHtml(draft.taxId||'')}" maxlength="13"></div>
-        <div><label>สถานประกอบการ</label><select id="tax_form_customer_branch"><option value="head" ${draft.branch!=='branch'?'selected':''}>สำนักงานใหญ่</option><option value="branch" ${draft.branch==='branch'?'selected':''}>สาขา</option></select></div><div><label>เลขที่สาขา</label><input id="tax_form_customer_branch_no" value="${escapeHtml(draft.branchNo||'')}" maxlength="5"></div>
-        <div><label>เบอร์โทรศัพท์</label><input id="tax_form_customer_phone" class="phone-input" value="${escapeHtml(draft.phone||'')}"></div><div><label>อีเมล</label><input id="tax_form_customer_email" type="email" value="${escapeHtml(draft.email||'')}"></div><div class="wide"><label>ที่อยู่ *</label><textarea id="tax_form_customer_address" rows="2">${escapeHtml(draft.address||'')}</textarea></div>
+        <div><label>สถานประกอบการ</label><input id="tax_form_customer_branch" value="${escapeHtml(draft.branch||'')}" placeholder="เช่น สำนักงานใหญ่ หรือ สาขา..."></div><div><label>เลขที่สาขา</label><input id="tax_form_customer_branch_no" value="${escapeHtml(draft.branchNo||'')}" maxlength="5"></div>
+        <div class="wide"><label>ที่อยู่ *</label><textarea id="tax_form_customer_address" rows="2">${escapeHtml(draft.address||'')}</textarea></div><div><label>เบอร์โทรศัพท์</label><input id="tax_form_customer_phone" class="phone-input" value="${escapeHtml(draft.phone||'')}"></div><div><label>อีเมล</label><input id="tax_form_customer_email" type="email" value="${escapeHtml(draft.email||'')}"></div>
       </div>${taxInvoiceAddingCustomer?'<div class="po-supplier-edit-actions"><button class="btn ghost small" id="cancelTaxCustomerBtn" type="button">ยกเลิก</button><button class="btn primary small" id="saveTaxCustomerBtn" type="button">บันทึกเข้ารายชื่อลูกค้า</button></div>':''}</div></div>
       <div class="po-head-right"><div class="po-total-label">จำนวนเงินรวมทั้งสิ้น</div><div class="po-total-amt mono">${fmtMoney(total)}</div><div class="crow"><label>วันที่</label>${dmyDateFieldHtml('po_date',draft.date||TODAY_STR)}</div><div class="crow"><label>เครดิต (วัน)</label><input id="po_credit" type="number" min="0" value="${draft.credit||0}"></div><div class="crow"><label>ครบกำหนด</label>${dmyDateFieldHtml('po_due',addDaysToDate(draft.date||TODAY_STR,draft.credit||0),{readonly:true,extraClass:'due-readonly'})}</div></div>
     </div>
@@ -2675,7 +2677,6 @@ function saveQuotation(){
   if(!d.name){ showToast('กรุณากรอกชื่อลูกค้า'); return; }
   if(!d.taxId){ showToast('กรุณากรอกเลขผู้เสียภาษี'); return; }
   if(!d.address){ showToast('กรุณากรอกที่อยู่ลูกค้า'); return; }
-  if(d.branch==='branch'&&!d.branchNo){ showToast('กรุณากรอกเลขที่สาขา'); return; }
   if(!items.length){ showToast('กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ'); return; }
   if(items.some(item=>!products.some(product=>product.name===item.name))){ showToast('กรุณาเลือกสินค้าจากผลการค้นหา'); return; }
   const subtotal=items.reduce((sum,item)=>sum+Number(item.qty)*Number(item.price||0),0),discount=Number(d.discount)||0,total=Math.max(0,subtotal-discount);
