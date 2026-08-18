@@ -3507,7 +3507,7 @@ function renderContacts(){
     if(contactFilter==='customer' && !c.types.includes('customer')) return false;
     if(contactFilter==='supplier' && !c.types.includes('supplier')) return false;
     if(contactFilter==='both' && !(c.types.includes('customer')&&c.types.includes('supplier'))) return false;
-    if(q){ const ql=q.toLowerCase(); return c.name.toLowerCase().includes(ql) || (c.contactName||'').toLowerCase().includes(ql) || (c.phone||'').includes(q); }
+    if(q){ const ql=q.toLowerCase(); return c.name.toLowerCase().includes(ql) || (c.contactName||'').toLowerCase().includes(ql) || (c.phone||'').includes(q) || (c.code||'').toLowerCase().includes(ql); }
     return true;
   });
   const typeBadge = c => {
@@ -3524,12 +3524,12 @@ function renderContacts(){
       ${tab('customer','ลูกค้า','cust')}
       ${tab('supplier','ผู้จำหน่าย','supp')}
       ${tab('both','ผู้จำหน่าย/ลูกค้า','both')}
-      <div class="toolbar"><div class="searchbar"><input id="search" placeholder="ค้นหาจากชื่อ / ผู้ติดต่อ / เบอร์" value="${searchQuery}"></div></div>
+      <div class="toolbar"><div class="searchbar"><input id="search" placeholder="ค้นหาจากรหัสผู้ติดต่อ / ชื่อ / ผู้ติดต่อ / เบอร์" value="${searchQuery}"></div></div>
     </div>
     <div class="doc-list-wrap seamless-table-wrap">
-    <table class="grid-table doc-head-blue contact-summary-table"><thead><tr><th>รหัส</th><th>รายชื่อ</th><th>ชื่อผู้ติดต่อ</th><th>เบอร์ติดต่อ</th><th>อีเมล</th><th>ประเภท</th><th></th></tr></thead>
+    <table class="grid-table doc-head-blue contact-summary-table"><thead><tr><th>รหัสผู้ติดต่อ</th><th>รายชื่อ</th><th>ชื่อผู้ติดต่อ</th><th>เบอร์ติดต่อ</th><th>อีเมล</th><th>ประเภท</th><th></th></tr></thead>
     <tbody>${list.map(c=>`<tr>
-      <td class="mono">${c.id}</td>
+      <td class="mono">${c.code||'-'}</td>
       <td style="text-align:left;">${c.name}</td>
       <td>${c.contactName||'-'}</td>
       <td class="mono">${c.phone||'-'}</td>
