@@ -3557,15 +3557,15 @@ function renderContactForm(){
             <label><input type="checkbox" id="c_type_supplier" ${chk('supplier')}> ผู้จำหน่าย</label>
           </div></div>
           <div class="crow"><label>ประเภทผู้ติดต่อ</label><div class="cradio">
-            <label><input type="radio" name="c_entity" value="juristic" ${c.entity==='juristic'?'checked':''}> นิติบุคคล</label>
-            <label><input type="radio" name="c_entity" value="individual" ${c.entity==='individual'?'checked':''}> บุคคลธรรมดา</label>
+            <label><input type="radio" name="c_entity" value="juristic" ${c.entity==='juristic'?'checked':''} onchange="updateContactEntityLabels()"> นิติบุคคล</label>
+            <label><input type="radio" name="c_entity" value="individual" ${c.entity==='individual'?'checked':''} onchange="updateContactEntityLabels()"> บุคคลธรรมดา</label>
           </div></div>
+          <div class="crow"><label>เครดิต (วัน)</label><input id="c_credit" type="number" value="${c.creditDays||''}" placeholder="0"></div>
           <div class="crow"><label>รหัสผู้ติดต่อ</label><input id="c_code" value="${c.code||''}" placeholder="เช่น C001 (ไม่บังคับ)"></div>
-          <div class="crow"><label>ชื่อธุรกิจ / ชื่อ <span class="req">*</span></label><input id="c_name" value="${c.name||''}" placeholder="เช่น บริษัท ... จำกัด หรือ ชื่อลูกค้า"></div>
-          <div class="crow"><label>เลขผู้เสียภาษี</label><input id="c_taxid" value="${c.taxId||''}" placeholder="เลข 10-13 หลัก (ไม่บังคับ)"></div>
+          <div class="crow"><label id="c_name_label">${c.entity==='individual'?'ชื่อ-นามสกุล':'ชื่อธุรกิจ'} <span class="req">*</span></label><input id="c_name" value="${c.name||''}" placeholder="เช่น บริษัท ... จำกัด หรือ ชื่อลูกค้า"></div>
+          <div class="crow"><label id="c_taxid_label">${c.entity==='individual'?'เลขบัตรประชาชน':'เลขผู้เสียภาษี'}</label><input id="c_taxid" value="${c.taxId||''}" placeholder="เลข 10-13 หลัก (ไม่บังคับ)"></div>
           <div class="crow"><label>ที่อยู่</label><textarea id="c_address" rows="3">${c.address||''}</textarea></div>
           <div class="crow"><label>รหัสไปรษณีย์</label><input id="c_postcode" value="${c.postcode||''}"></div>
-          <div class="crow"><label>เครดิต (วัน)</label><input id="c_credit" type="number" value="${c.creditDays||''}" placeholder="0"></div>
         </div>
       </div>
       <div class="panel">
@@ -6274,6 +6274,15 @@ function exportContactsToExcel(){
   XLSX.utils.book_append_sheet(workbook,sheet,'สมุดรายชื่อ');
   XLSX.writeFile(workbook,`PEPOS-สมุดรายชื่อ-${TODAY_STR}.xlsx`);
   showToast(`ส่งออกสมุดรายชื่อ ${rows.length} รายการแล้ว`);
+}
+
+function updateContactEntityLabels(){
+  const entityEl = document.querySelector('input[name="c_entity"]:checked');
+  const isIndividual = entityEl && entityEl.value==='individual';
+  const nameLabel = document.getElementById('c_name_label');
+  const taxidLabel = document.getElementById('c_taxid_label');
+  if(nameLabel) nameLabel.innerHTML = (isIndividual?'ชื่อ-นามสกุล':'ชื่อธุรกิจ') + ' <span class="req">*</span>';
+  if(taxidLabel) taxidLabel.textContent = isIndividual?'เลขบัตรประชาชน':'เลขผู้เสียภาษี';
 }
 
 function saveContact(){
