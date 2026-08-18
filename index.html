@@ -3679,6 +3679,104 @@ function promotionValueLabel(promo){
   if(promo.type==='buyxgety') return `ซื้อ ${promo.buyQty||0} แถม ${promo.getQty||0}`;
   return '-';
 }
+
+// ===== เฟส 2: ฟังก์ชันคำนวณโปรโมชั่นกลาง =====
+// ใช้ร่วมกันได้ทุกจุดที่ต้องคิดราคาสินค้า (POS, ใบเสนอราคา, ใบกำกับภาษี)
+// ไม่แก้ cart/items เดิมโดยตรง แต่รับ "บรรทัดสินค้า" เข้ามาแล้วคืนผลคำนวณแยกออกมาต่างหาก
+
+// เช็คว่าโปรโมชั่นนี้ใช้งานได้ ณ วันนี้หรือไม่ (เปิดอยู่ + อยู่ในช่วงเวลาที่กำหนด)
+function isPromotionLiveToday(promo){
+  if(!promo.active) return false;
+  if(promo.startDate && TODAY_STR<promo.startDate) return false;
+  if(promo.endDate && TODAY_STR>promo.endDate) return false;
+  return true;
+}
+
+// หาโปรโมชั่นที่ตรงกับบรรทัดสินค้าหนึ่งบรรทัด (ตาม pid+unit หรือ category/brand+unit)
+// line ต้องมี: {pid, unit} เป็นอย่างน้อย (unit คือหน่วยที่ขายจริงในบรรทัดนั้น)
+function findMatchingPromotion(line){
+  if(!line || !line.pid) return null;
+  const product=products.find(p=>p.id===line.pid);
+  if(!product) return null;
+  const live=promotions.filter(isPromotionLiveToday);
+  // ให้ความสำคัญกับโปรฯ ที่ผูกสินค้ารายตัวก่อน (เจาะจงกว่าหมวดหมู่)
+  const productMatch=live.find(promo=>promo.scope==='product' && promo.productId===line.pid && promo.unit===line.unit);
+  if(productMatch) return productMatch;
+  const categoryMatch=live.find(promo=>{
+    if(promo.scope!=='category') return false;
+    if(promo.unit!==line.unit) return false;
+    const productCategory=String(product.category||'').trim()||'ไม่ทราบหมวดหมู่';
+    if(promo.category && promo.category!==productCategory) return false;
+    if(promo.brand && promo.brand!==(product.brand||'ทั่วไป')) return false;
+    return true;
+  });
+  return categoryMatch||null;
+}
+
+// คำนวณผลของโปรโมชั่นหนึ่งบรรทัด คืนค่า {unitPrice, lineTotal, freeQty, promoId, promoName, note}
+// unitPrice/lineTotal คือราคาสุทธิหลังหักโปรฯ แล้ว (ยังไม่รวมส่วนลดท้ายบิลแยกต่างหาก)
+// freeQty คือจำนวนที่แถมฟรี (ต้องตัดสต็อกเพิ่มแต่ไม่คิดเงิน) เฉพาะโปรฯ แบบ buyxgety
+function calcPromotionForLine(line){
+  const originalUnitPrice=Number(line.price)||0;
+  const qty=Number(line.qty)||0;
+  const base={unitPrice:originalUnitPrice,lineTotal:originalUnitPrice*qty,freeQty:0,promoId:null,promoName:'',note:''};
+  if(qty<=0) return base;
+  const promo=findMatchingPromotion(line);
+  if(!promo) return base;
+
+  if(promo.type==='discount'){
+    let discountedUnitPrice=originalUnitPrice;
+    if(promo.discountMode==='percent'){
+      discountedUnitPrice=originalUnitPrice*(1-(Number(promo.discountValue)||0)/100);
+    } else {
+      discountedUnitPrice=originalUnitPrice-(Number(promo.discountValue)||0);
+    }
+    discountedUnitPrice=Math.max(0,discountedUnitPrice);
+    return {unitPrice:discountedUnitPrice,lineTotal:discountedUnitPrice*qty,freeQty:0,promoId:promo.id,promoName:promo.name,note:promotionValueLabel(promo)};
+  }
+
+  if(promo.type==='bundle'){
+    const bundleQty=Number(promo.bundleQty)||0, bundlePrice=Number(promo.bundlePrice)||0;
+    if(bundleQty<=0) return base;
+    const bundleSets=Math.floor(qty/bundleQty);
+    const remainder=qty-(bundleSets*bundleQty);
+    if(bundleSets<=0) return base; // ยังซื้อไม่ครบเงื่อนไข ใช้ราคาปกติ
+    const total=(bundleSets*bundlePrice)+(remainder*originalUnitPrice);
+    return {unitPrice:total/qty,lineTotal:total,freeQty:0,promoId:promo.id,promoName:promo.name,note:promotionValueLabel(promo)};
+  }
+
+  if(promo.type==='buyxgety'){
+    const buyQty=Number(promo.buyQty)||0, getQty=Number(promo.getQty)||0;
+    if(buyQty<=0||getQty<=0) return base;
+    const setSize=buyQty+getQty;
+    const fullSets=Math.floor(qty/setSize);
+    const remainder=qty-(fullSets*setSize);
+    // จำนวนที่ต้องจ่ายจริง = ซื้อครบเซ็ต (buyQty ต่อเซ็ต) + เศษที่เหลือทั้งหมด (เศษยังไม่ครบเงื่อนไขแถม จึงจ่ายเต็ม)
+    const actualPayableQty=fullSets*buyQty+remainder;
+    const freeQty=fullSets*getQty;
+    const total=actualPayableQty*originalUnitPrice;
+    return {unitPrice:qty>0?total/qty:originalUnitPrice,lineTotal:total,freeQty,promoId:promo.id,promoName:promo.name,note:promotionValueLabel(promo)};
+  }
+
+  return base;
+}
+
+// รับ array ของบรรทัดสินค้า [{pid,unit,price,qty,...}] คืน array ผลลัพธ์คู่ขนาน (ไม่แก้ไขต้นฉบับ)
+// พร้อมสรุปยอดรวมก่อน/หลังโปรฯ และรายชื่อโปรฯ ที่ถูกใช้ในบิลนี้
+function applyPromotions(lines){
+  const results=(lines||[]).map(line=>({line,calc:calcPromotionForLine(line)}));
+  const originalTotal=results.reduce((sum,r)=>sum+(Number(r.line.price)||0)*(Number(r.line.qty)||0),0);
+  const discountedTotal=results.reduce((sum,r)=>sum+r.calc.lineTotal,0);
+  const usedPromotions=[...new Map(results.filter(r=>r.calc.promoId).map(r=>[r.calc.promoId,{id:r.calc.promoId,name:r.calc.promoName}])).values()];
+  return {
+    lines:results.map(r=>({...r.line,promoUnitPrice:r.calc.unitPrice,promoLineTotal:r.calc.lineTotal,promoFreeQty:r.calc.freeQty,promoId:r.calc.promoId,promoName:r.calc.promoName,promoNote:r.calc.note})),
+    originalTotal,
+    discountedTotal,
+    totalSaved:Math.max(0,originalTotal-discountedTotal),
+    usedPromotions,
+  };
+}
+
 function renderPromotions(){
   if(editingPromotionId!==null) return renderPromotionForm();
   const q=searchQuery.trim().toLowerCase();
@@ -5839,7 +5937,11 @@ function syncPOFromDOM(){
     const discount=document.getElementById('po_discount'); if(discount) draft.discount=parseFloat(discount.value)||0;
     const note=document.getElementById('po_note'); if(note) draft.note=note.value;
     const rows=document.querySelectorAll('#poItemRows .po-item-row');
-    if(rows.length) draft.items=Array.from(rows).map(row=>({name:row.querySelector('.poi_name').value,qty:parseFloat(row.querySelector('.poi_qty').value)||0,unit:row.querySelector('.poi_unit').value.trim(),price:row.querySelector('.poi_price').value===''?'':(parseFloat(row.querySelector('.poi_price').value)||0)}));
+    if(rows.length) draft.items=Array.from(rows).map(row=>{
+      const name=row.querySelector('.poi_name').value;
+      const matched=products.find(p=>p.name===name);
+      return {name,qty:parseFloat(row.querySelector('.poi_qty').value)||0,unit:row.querySelector('.poi_unit').value.trim(),price:row.querySelector('.poi_price').value===''?'':(parseFloat(row.querySelector('.poi_price').value)||0),pid:matched?matched.id:null};
+    });
     return;
   }
   const sup=document.getElementById('po_supplier'); if(sup) draft.supplier=sup.value;
