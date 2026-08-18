@@ -3552,20 +3552,20 @@ function renderContactForm(){
       <div class="panel">
         <h3>ข้อมูลผู้ติดต่อ</h3>
         <div class="cform">
-          <div class="crow"><label>ประเภทผู้ติดต่อ</label><div class="cradio">
-            <label><input type="radio" name="c_entity" value="juristic" ${c.entity==='juristic'?'checked':''}> นิติบุคคล</label>
-            <label><input type="radio" name="c_entity" value="individual" ${c.entity==='individual'?'checked':''}> บุคคลธรรมดา</label>
-          </div></div>
           <div class="crow"><label>ประเภท</label><div class="cradio">
             <label><input type="checkbox" id="c_type_customer" ${chk('customer')}> ลูกค้า</label>
             <label><input type="checkbox" id="c_type_supplier" ${chk('supplier')}> ผู้จำหน่าย</label>
           </div></div>
-          <div class="crow"><label>ชื่อธุรกิจ / ชื่อ <span class="req">*</span></label><input id="c_name" value="${c.name||''}" placeholder="เช่น บริษัท ... จำกัด หรือ ชื่อลูกค้า"></div>
+          <div class="crow"><label>ประเภทผู้ติดต่อ</label><div class="cradio">
+            <label><input type="radio" name="c_entity" value="juristic" ${c.entity==='juristic'?'checked':''}> นิติบุคคล</label>
+            <label><input type="radio" name="c_entity" value="individual" ${c.entity==='individual'?'checked':''}> บุคคลธรรมดา</label>
+          </div></div>
           <div class="crow"><label>รหัสผู้ติดต่อ</label><input id="c_code" value="${c.code||''}" placeholder="เช่น C001 (ไม่บังคับ)"></div>
+          <div class="crow"><label>ชื่อธุรกิจ / ชื่อ <span class="req">*</span></label><input id="c_name" value="${c.name||''}" placeholder="เช่น บริษัท ... จำกัด หรือ ชื่อลูกค้า"></div>
           <div class="crow"><label>เลขผู้เสียภาษี</label><input id="c_taxid" value="${c.taxId||''}" placeholder="เลข 10-13 หลัก (ไม่บังคับ)"></div>
-          <div class="crow"><label>เครดิต (วัน)</label><input id="c_credit" type="number" value="${c.creditDays||''}" placeholder="0"></div>
           <div class="crow"><label>ที่อยู่</label><textarea id="c_address" rows="3">${c.address||''}</textarea></div>
           <div class="crow"><label>รหัสไปรษณีย์</label><input id="c_postcode" value="${c.postcode||''}"></div>
+          <div class="crow"><label>เครดิต (วัน)</label><input id="c_credit" type="number" value="${c.creditDays||''}" placeholder="0"></div>
         </div>
       </div>
       <div class="panel">
