@@ -382,6 +382,7 @@
   .crow{display:grid;grid-template-columns:130px 1fr;gap:12px;align-items:start;}
   .crow label{font-size:13px;color:var(--text-muted);padding-top:8px;}
   .crow input,.crow textarea{padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13.5px;background:var(--surface);width:100%;}
+  .promo-select{padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13.5px;background:var(--surface);width:100%;-webkit-appearance:none;appearance:none;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%231D2129' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;background-size:14px 14px;cursor:pointer;}
   .crow textarea{resize:vertical;}
   .crow .req{color:var(--danger);}
   .cradio{display:flex;gap:18px;align-items:center;padding-top:6px;font-size:13.5px;flex-wrap:wrap;row-gap:8px;}
@@ -3836,16 +3837,16 @@ function renderPromotionForm(){
           </div></div>
           <div id="promo_scope_product" class="crow" style="display:${promo.scope==='product'?'block':'none'};">
             <label>เลือกสินค้า <span class="req">*</span></label>
-            <select id="promo_product_id"><option value="">-- เลือกสินค้า --</option>${products.map(p=>`<option value="${p.id}" ${promo.productId===p.id?'selected':''}>${escapeHtml(p.name)} (${escapeHtml(p.sku||'-')})</option>`).join('')}</select>
+            <select id="promo_product_id" class="promo-select"><option value="">-- เลือกสินค้า --</option>${products.map(p=>`<option value="${p.id}" ${promo.productId===p.id?'selected':''}>${escapeHtml(p.name)} (${escapeHtml(p.sku||'-')})</option>`).join('')}</select>
           </div>
           <div id="promo_scope_category" class="crow" style="display:${promo.scope==='category'?'block':'none'};">
             <label>หมวดหมู่ <span class="req">*</span></label>
-            <select id="promo_category"><option value="">-- เลือกหมวดหมู่ --</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${promo.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select>
+            <select id="promo_category" class="promo-select"><option value="">-- เลือกหมวดหมู่ --</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${promo.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select>
             <label style="margin-top:10px;">แบรนด์ (ไม่บังคับ)</label>
-            <select id="promo_brand"><option value="">-- ทุกแบรนด์ในหมวดนี้ --</option>${brands.map(b=>`<option value="${escapeHtml(b)}" ${promo.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select>
+            <select id="promo_brand" class="promo-select"><option value="">-- ทุกแบรนด์ในหมวดนี้ --</option>${brands.map(b=>`<option value="${escapeHtml(b)}" ${promo.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select>
           </div>
           <div class="crow"><label>หน่วยที่ร่วมโปรโมชั่น <span class="req">*</span></label>
-            <select id="promo_unit">${promo.scope==='product'?(selectedProduct?unitOptionsForProduct(selectedProduct):'<option value="">เลือกสินค้าก่อน</option>'):units.map(u=>`<option value="${escapeHtml(u)}" ${promo.unit===u?'selected':''}>${escapeHtml(u)}</option>`).join('')}</select>
+            <select id="promo_unit" class="promo-select">${promo.scope==='product'?(selectedProduct?unitOptionsForProduct(selectedProduct):'<option value="">เลือกสินค้าก่อน</option>'):units.map(u=>`<option value="${escapeHtml(u)}" ${promo.unit===u?'selected':''}>${escapeHtml(u)}</option>`).join('')}</select>
             <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">โปรโมชั่นจะมีผลเฉพาะตอนขายด้วยหน่วยนี้เท่านั้น</div>
           </div>
         </div>
