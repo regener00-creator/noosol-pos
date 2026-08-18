@@ -3856,7 +3856,7 @@ function renderPromotions(){
       const status=promotionStatusInfo(promo);
       const period=(promo.startDate||promo.endDate)?`${promo.startDate?isoToDMY(promo.startDate):'ไม่จำกัด'} - ${promo.endDate?isoToDMY(promo.endDate):'ไม่จำกัด'}`:'ไม่จำกัดเวลา';
       return `<tr>
-      <td style="text-align:left;">${escapeHtml(promo.name||'-')}</td>
+      <td>${escapeHtml(promo.name||'-')}</td>
       <td>${promotionTypeLabel(promo.type)}</td>
       <td style="text-align:left;">${escapeHtml(promotionTargetLabel(promo))}</td>
       <td>${escapeHtml(promotionValueLabel(promo))}</td>
