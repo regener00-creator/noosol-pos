@@ -2435,7 +2435,7 @@ function openNewTaxInvoiceForm(){
   editingTaxInvoiceSaleId='manual-new';
   taxInvoiceAddingCustomer=false;
   const number=nextFullTaxInvoiceNumber();
-  taxInvoiceDraft={id:number,number,date:TODAY_STR,credit:0,dueDate:TODAY_STR,customerId:'',name:'',taxId:'',address:'',branch:'head',branchNo:'',phone:'',email:'',items:Array.from({length:3},()=>({name:'',qty:1,unit:'',price:''})),discount:0,note:''};
+  taxInvoiceDraft={id:number,number,date:TODAY_STR,credit:0,dueDate:TODAY_STR,customerId:'',name:'',taxId:'',address:'',branch:'สำนักงานใหญ่',branchNo:'',phone:'',email:'',items:Array.from({length:3},()=>({name:'',qty:1,unit:'',price:''})),discount:0,note:''};
   currentTab='taxinvoice';
   render();
 }
@@ -2464,7 +2464,9 @@ function startStandaloneTaxInvoiceForm(number){
   const doc=standaloneTaxInvoices.find(item=>item.number===number); if(!doc) return;
   editingTaxInvoiceSaleId='manual:'+number;
   taxInvoiceAddingCustomer=false;
-  taxInvoiceDraft={id:doc.number,number:doc.number,date:doc.saleDate||doc.date,credit:doc.credit||0,dueDate:doc.dueDate||addDaysToDate(doc.saleDate||doc.date,doc.credit||0),customerId:'',name:doc.customer?.name||'',taxId:doc.customer?.taxId||'',address:doc.customer?.address||'',branch:doc.customer?.branch||'head',branchNo:doc.customer?.branchNo||'',phone:doc.customer?.phone||'',email:doc.customer?.email||'',items:JSON.parse(JSON.stringify(doc.items||[])),discount:doc.discount||0,note:doc.note||''};
+  const rawBranch=doc.customer?.branch;
+  const branchText=rawBranch==='head'?'สำนักงานใหญ่':rawBranch==='branch'?'สาขา':(rawBranch||'สำนักงานใหญ่');
+  taxInvoiceDraft={id:doc.number,number:doc.number,date:doc.saleDate||doc.date,credit:doc.credit||0,dueDate:doc.dueDate||addDaysToDate(doc.saleDate||doc.date,doc.credit||0),customerId:'',name:doc.customer?.name||'',taxId:doc.customer?.taxId||'',address:doc.customer?.address||'',branch:branchText,branchNo:doc.customer?.branchNo||'',phone:doc.customer?.phone||'',email:doc.customer?.email||'',items:JSON.parse(JSON.stringify(doc.items||[])),discount:doc.discount||0,note:doc.note||''};
   currentTab='taxinvoice';
   render();
 }
@@ -2483,8 +2485,8 @@ function renderStandaloneTaxInvoiceForm(){
       <div class="crow tax-customer-picker-row"><div class="po-supplier-pick"><select id="tax_customer_select" ${locked?'disabled':''}><option value="">เลือกข้อมูลลูกค้าสำหรับออกเอกสาร</option>${customersList().map(c=>`<option value="${c.id}" ${String(draft.customerId)===String(c.id)||draft.name===c.name?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select>${locked?'':'<button class="btn ghost small" id="addTaxCustomerBtn" type="button">+ เพิ่มลูกค้า</button>'}</div></div>
       <div class="po-supplier-edit tax-customer-details" style="margin-top:10px;">${taxInvoiceAddingCustomer?'<div class="po-supplier-edit-title"><span>เพิ่มลูกค้าใหม่</span><span style="font-size:11px;color:var(--text-muted);font-weight:400;">บันทึกแล้วจะเพิ่มในสมุดรายชื่อทันที</span></div>':''}<div class="po-supplier-edit-grid">
         <div><label>ชื่อลูกค้า/บริษัท *</label><input id="tax_form_customer_name" value="${escapeHtml(draft.name||'')}" ${lockAttr}></div><div><label>เลขผู้เสียภาษี *</label><input id="tax_form_customer_taxid" value="${escapeHtml(draft.taxId||'')}" maxlength="13" ${lockAttr}></div>
-        <div><label>สถานประกอบการ</label><select id="tax_form_customer_branch" ${locked?'disabled':''}><option value="head" ${draft.branch!=='branch'?'selected':''}>สำนักงานใหญ่</option><option value="branch" ${draft.branch==='branch'?'selected':''}>สาขา</option></select></div><div><label>เลขที่สาขา</label><input id="tax_form_customer_branch_no" value="${escapeHtml(draft.branchNo||'')}" maxlength="5" ${lockAttr}></div>
-        <div><label>เบอร์โทรศัพท์</label><input id="tax_form_customer_phone" class="phone-input" value="${escapeHtml(draft.phone||'')}" ${lockAttr}></div><div><label>อีเมล</label><input id="tax_form_customer_email" type="email" value="${escapeHtml(draft.email||'')}" ${lockAttr}></div><div class="wide"><label>ที่อยู่ *</label><textarea id="tax_form_customer_address" rows="2" ${lockAttr}>${escapeHtml(draft.address||'')}</textarea></div>
+        <div><label>สถานประกอบการ</label><input id="tax_form_customer_branch" value="${escapeHtml(draft.branch||'')}" placeholder="เช่น สำนักงานใหญ่ หรือ สาขา..." ${lockAttr}></div><div><label>เลขที่สาขา</label><input id="tax_form_customer_branch_no" value="${escapeHtml(draft.branchNo||'')}" maxlength="5" ${lockAttr}></div>
+        <div class="wide"><label>ที่อยู่ *</label><textarea id="tax_form_customer_address" rows="2" ${lockAttr}>${escapeHtml(draft.address||'')}</textarea></div><div><label>เบอร์โทรศัพท์</label><input id="tax_form_customer_phone" class="phone-input" value="${escapeHtml(draft.phone||'')}" ${lockAttr}></div><div><label>อีเมล</label><input id="tax_form_customer_email" type="email" value="${escapeHtml(draft.email||'')}" ${lockAttr}></div>
       </div>${!locked&&taxInvoiceAddingCustomer?'<div class="po-supplier-edit-actions"><button class="btn ghost small" id="cancelTaxCustomerBtn" type="button">ยกเลิก</button><button class="btn primary small" id="saveTaxCustomerBtn" type="button">บันทึกเข้ารายชื่อลูกค้า</button></div>':''}</div></div>
       <div class="po-head-right"><div class="po-total-label">จำนวนเงินรวมทั้งสิ้น</div><div class="po-total-amt mono">${fmtMoney(total)}</div><div class="crow"><label>วันที่</label>${dmyDateFieldHtml('po_date',draft.date,locked?{readonly:true,extraClass:'due-readonly'}:{})}</div><div class="crow"><label>เครดิต (วัน)</label><input id="po_credit" type="number" min="0" value="${draft.credit||0}" ${locked?'readonly class="due-readonly"':''}></div><div class="crow"><label>ครบกำหนด</label>${dmyDateFieldHtml('po_due',addDaysToDate(draft.date,draft.credit||0),{readonly:true,extraClass:'due-readonly'})}</div></div>
     </div>
@@ -2501,7 +2503,6 @@ function saveStandaloneTaxInvoice(){
   if(!d.name){ showToast('กรุณากรอกชื่อลูกค้า'); return; }
   if(!d.taxId){ showToast('กรุณากรอกเลขผู้เสียภาษี'); return; }
   if(!d.address){ showToast('กรุณากรอกที่อยู่ลูกค้า'); return; }
-  if(d.branch==='branch'&&!d.branchNo){ showToast('กรุณากรอกเลขที่สาขา'); return; }
   if(!items.length){ showToast('กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ'); return; }
   const subtotal=items.reduce((sum,item)=>sum+Number(item.qty)*Number(item.price||0),0),total=Math.max(0,subtotal-(Number(d.discount)||0));
   const doc={number:d.number,date:d.date,saleDate:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),issuedAt:auditNow(),customer:{name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items,discount:Number(d.discount)||0,total,note:d.note||'',printLog:[]};
@@ -2517,7 +2518,9 @@ function startTaxInvoiceForm(saleId){
   const source=invoice?.customer||matched||{};
   editingTaxInvoiceSaleId=saleId;
   taxInvoiceAddingCustomer=false;
-  taxInvoiceDraft={customerId:matched?.id||'',name:source.name||sale.member||sale.name||'',taxId:source.taxId||'',address:source.address||'',branch:source.branch||'head',branchNo:source.branchNo||'',phone:source.phone||'',email:source.email||'',note:invoice?.note||''};
+  const rawBranch=source.branch;
+  const branchText=rawBranch==='head'?'สำนักงานใหญ่':rawBranch==='branch'?'สาขา':(rawBranch||'สำนักงานใหญ่');
+  taxInvoiceDraft={customerId:matched?.id||'',name:source.name||sale.member||sale.name||'',taxId:source.taxId||'',address:source.address||'',branch:branchText,branchNo:source.branchNo||'',phone:source.phone||'',email:source.email||'',note:invoice?.note||''};
   currentTab='taxinvoice';
   render();
 }
@@ -2529,7 +2532,7 @@ function syncTaxInvoiceDraftFromDOM(){
   taxInvoiceDraft.name=get('tax_form_customer_name').trim();
   taxInvoiceDraft.taxId=get('tax_form_customer_taxid').trim();
   taxInvoiceDraft.address=get('tax_form_customer_address').trim();
-  taxInvoiceDraft.branch=get('tax_form_customer_branch')||'head';
+  taxInvoiceDraft.branch=get('tax_form_customer_branch').trim()||'สำนักงานใหญ่';
   taxInvoiceDraft.branchNo=get('tax_form_customer_branch_no').trim();
   taxInvoiceDraft.phone=get('tax_form_customer_phone').trim();
   taxInvoiceDraft.email=get('tax_form_customer_email').trim();
@@ -2539,7 +2542,7 @@ function syncTaxInvoiceDraftFromDOM(){
 function beginAddTaxInvoiceCustomer(){
   if(editingTaxInvoiceSaleId==='manual-new'||(currentTab==='quotation'&&editingQuotationId!==null)) syncPOFromDOM();
   syncTaxInvoiceDraftFromDOM();
-  Object.assign(taxInvoiceDraft,{customerId:'',name:'',taxId:'',address:'',branch:'head',branchNo:'',phone:'',email:''});
+  Object.assign(taxInvoiceDraft,{customerId:'',name:'',taxId:'',address:'',branch:'สำนักงานใหญ่',branchNo:'',phone:'',email:''});
   taxInvoiceAddingCustomer=true;
   render();
   setTimeout(()=>document.getElementById('tax_form_customer_name')?.focus(),0);
@@ -2581,9 +2584,9 @@ function renderTaxInvoiceForm(){
         <div class="crow tax-customer-picker-row"><div class="po-supplier-pick"><select id="tax_customer_select" ${locked?'disabled':''}><option value="">เลือกข้อมูลลูกค้าสำหรับออกเอกสาร</option>${customersList().map(c=>`<option value="${c.id}" ${String(draft.customerId)===String(c.id)?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select>${locked?'':'<button class="btn ghost small" id="addTaxCustomerBtn" type="button">+ เพิ่มลูกค้า</button>'}</div></div>
         <div class="po-supplier-edit tax-customer-details" style="margin-top:10px;">${taxInvoiceAddingCustomer?'<div class="po-supplier-edit-title"><span>เพิ่มลูกค้าใหม่</span><span style="font-size:11px;color:var(--text-muted);font-weight:400;">บันทึกแล้วจะเพิ่มในสมุดรายชื่อทันที</span></div>':''}<div class="po-supplier-edit-grid">
           <div><label>ชื่อลูกค้า/บริษัท *</label><input id="tax_form_customer_name" value="${escapeHtml(draft.name||'')}" ${lockAttr}></div><div><label>เลขผู้เสียภาษี *</label><input id="tax_form_customer_taxid" value="${escapeHtml(draft.taxId||'')}" maxlength="13" ${lockAttr}></div>
-          <div><label>สถานประกอบการ</label><select id="tax_form_customer_branch" ${locked?'disabled':''}><option value="head" ${draft.branch!=='branch'?'selected':''}>สำนักงานใหญ่</option><option value="branch" ${draft.branch==='branch'?'selected':''}>สาขา</option></select></div><div><label>เลขที่สาขา</label><input id="tax_form_customer_branch_no" value="${escapeHtml(draft.branchNo||'')}" maxlength="5" ${lockAttr}></div>
-          <div><label>เบอร์โทรศัพท์</label><input id="tax_form_customer_phone" class="phone-input" value="${escapeHtml(draft.phone||'')}" ${lockAttr}></div><div><label>อีเมล</label><input id="tax_form_customer_email" type="email" value="${escapeHtml(draft.email||'')}" ${lockAttr}></div>
+          <div><label>สถานประกอบการ</label><input id="tax_form_customer_branch" value="${escapeHtml(draft.branch||'')}" placeholder="เช่น สำนักงานใหญ่ หรือ สาขา..." ${lockAttr}></div><div><label>เลขที่สาขา</label><input id="tax_form_customer_branch_no" value="${escapeHtml(draft.branchNo||'')}" maxlength="5" ${lockAttr}></div>
           <div class="wide"><label>ที่อยู่ *</label><textarea id="tax_form_customer_address" rows="2" ${lockAttr}>${escapeHtml(draft.address||'')}</textarea></div>
+          <div><label>เบอร์โทรศัพท์</label><input id="tax_form_customer_phone" class="phone-input" value="${escapeHtml(draft.phone||'')}" ${lockAttr}></div><div><label>อีเมล</label><input id="tax_form_customer_email" type="email" value="${escapeHtml(draft.email||'')}" ${lockAttr}></div>
         </div>${!locked&&taxInvoiceAddingCustomer?'<div class="po-supplier-edit-actions"><button class="btn ghost small" id="cancelTaxCustomerBtn" type="button">ยกเลิก</button><button class="btn primary small" id="saveTaxCustomerBtn" type="button">บันทึกเข้ารายชื่อลูกค้า</button></div>':''}</div>
       </div>
       <div class="po-head-right"><div class="po-total-label">จำนวนเงินรวมทั้งสิ้น</div><div class="po-total-amt mono">${fmtMoney(total)}</div>
@@ -2605,7 +2608,6 @@ function saveTaxInvoiceForm(){
   if(!d.name){ showToast('กรุณากรอกชื่อลูกค้า'); document.getElementById('tax_form_customer_name')?.focus(); return; }
   if(!d.taxId){ showToast('กรุณากรอกเลขผู้เสียภาษี'); document.getElementById('tax_form_customer_taxid')?.focus(); return; }
   if(!d.address){ showToast('กรุณากรอกที่อยู่ลูกค้า'); document.getElementById('tax_form_customer_address')?.focus(); return; }
-  if(d.branch==='branch'&&!d.branchNo){ showToast('กรุณากรอกเลขที่สาขา'); document.getElementById('tax_form_customer_branch_no')?.focus(); return; }
   sale.fullTaxInvoice={number:fullTaxInvoiceNumber(sale),saleDate:sale.date,issuedAt:auditNow(),customer:{name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},note:d.note||'',printLog:[]};
   persistSalesHistory();
   editingTaxInvoiceSaleId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false;
@@ -4641,8 +4643,8 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     if(editingTaxInvoiceSaleId==='manual-new'||(currentTab==='quotation'&&editingQuotationId!==null)) syncPOFromDOM();
     syncTaxInvoiceDraftFromDOM();
     const customer=customersList().find(c=>String(c.id)===String(taxCustomerSelect.value));
-    if(customer) Object.assign(taxInvoiceDraft,{customerId:customer.id,name:customer.name||'',taxId:customer.taxId||'',address:customer.address||'',phone:customer.phone||'',email:customer.email||'',branch:'head',branchNo:''});
-    else Object.assign(taxInvoiceDraft,{customerId:'',name:'',taxId:'',address:'',phone:'',email:'',branch:'head',branchNo:''});
+    if(customer) Object.assign(taxInvoiceDraft,{customerId:customer.id,name:customer.name||'',taxId:customer.taxId||'',address:customer.address||'',phone:customer.phone||'',email:customer.email||'',branch:'สำนักงานใหญ่',branchNo:''});
+    else Object.assign(taxInvoiceDraft,{customerId:'',name:'',taxId:'',address:'',phone:'',email:'',branch:'สำนักงานใหญ่',branchNo:''});
     taxInvoiceAddingCustomer=false;
     render();
   });
