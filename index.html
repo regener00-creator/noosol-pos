@@ -3837,7 +3837,14 @@ function renderPromotionForm(){
           </div></div>
           <div id="promo_scope_product" class="crow" style="display:${promo.scope==='product'?'block':'none'};">
             <label>เลือกสินค้า <span class="req">*</span></label>
-            <select id="promo_product_id" class="promo-select"><option value="">-- เลือกสินค้า --</option>${products.map(p=>`<option value="${p.id}" ${promo.productId===p.id?'selected':''}>${escapeHtml(p.name)} (${escapeHtml(p.sku||'-')})</option>`).join('')}</select>
+            <div id="promo_product_field_wrap">
+              <input type="hidden" id="promo_product_id" value="${promo.productId||''}">
+              <div class="doc-scanner-wrap" style="margin:0;">
+                <div class="doc-scanner"><span class="doc-scanner-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><input id="promo_product_search" placeholder="ค้นหาชื่อสินค้า / รหัส / บาร์โค้ด" autocomplete="off" value="${selectedProduct?escapeHtml(selectedProduct.name):''}"></div>
+                <div class="doc-scan-results" id="promoProductResults" hidden></div>
+              </div>
+              ${selectedProduct?`<div class="promo-selected-hint" style="font-size:12px;color:var(--text-muted);margin-top:6px;">เลือกแล้ว: <b style="color:var(--text);">${escapeHtml(selectedProduct.name)}</b> (${escapeHtml(selectedProduct.sku||'-')})</div>`:''}
+            </div>
           </div>
           <div id="promo_scope_category" class="crow" style="display:${promo.scope==='category'?'block':'none'};">
             <label>หมวดหมู่ <span class="req">*</span></label>
@@ -4975,8 +4982,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       updatePromotionUnitOptions();
     });
   });
-  const promoProductSelect=document.getElementById('promo_product_id');
-  if(promoProductSelect) promoProductSelect.addEventListener('change', updatePromotionUnitOptions);
+  bindPromoProductSearch();
   // สลับฟิลด์ตามประเภทโปรโมชั่น
   document.querySelectorAll('input[name="promo_type"]').forEach(el=>{
     el.addEventListener('change', ()=>{
@@ -6444,6 +6450,68 @@ function deleteSalesRepresentative(id){
 }
 
 // ===== ระบบโปรโมชั่น: ฟังก์ชันจัดการฟอร์ม =====
+// ค้นหาสินค้าแบบพิมพ์ค้นหา (เหมือนช่องสแกน/ค้นหาสินค้าในเอกสารอื่น) สำหรับเลือกสินค้าเข้าโปรโมชั่น
+function renderPromoProductResults(query){
+  const box=document.getElementById('promoProductResults');
+  if(!box) return;
+  const q=String(query||'').trim();
+  if(!q){ box.innerHTML=''; box.hidden=true; return; }
+  const needle=q.toLowerCase();
+  const matches=products.filter(p=>
+    (p.name||'').toLowerCase().includes(needle) ||
+    (p.sku||'').toLowerCase().includes(needle) ||
+    (p.barcode||'').toLowerCase().includes(needle)
+  ).slice(0,8);
+  box.innerHTML=matches.length?matches.map(p=>
+    `<button type="button" class="doc-scan-result" data-pid="${p.id}"><span><b>${escapeHtml(p.name)}</b><small>${escapeHtml(p.sku||'-')} · บาร์โค้ด ${escapeHtml(p.barcode||'-')}</small></span></button>`
+  ).join(''):`<div class="doc-scan-empty">ไม่พบสินค้า "${escapeHtml(q)}"</div>`;
+  box.hidden=false;
+  box.querySelectorAll('.doc-scan-result').forEach(btn=>{
+    btn.addEventListener('mousedown',e=>e.preventDefault());
+    btn.addEventListener('click',()=>selectPromoProduct(Number(btn.dataset.pid)));
+  });
+}
+function selectPromoProduct(productId){
+  const p=products.find(x=>x.id===productId); if(!p) return;
+  const hidden=document.getElementById('promo_product_id');
+  const searchInput=document.getElementById('promo_product_search');
+  const box=document.getElementById('promoProductResults');
+  if(hidden) hidden.value=p.id;
+  if(searchInput) searchInput.value=p.name;
+  if(box){ box.innerHTML=''; box.hidden=true; }
+  updatePromotionUnitOptions();
+  // อัปเดตข้อความ "เลือกแล้ว: ..." โดยไม่ต้อง render ทั้งฟอร์มใหม่ (กันเสีย focus)
+  const fieldWrap=document.getElementById('promo_product_field_wrap');
+  if(fieldWrap){
+    let hint=fieldWrap.querySelector('.promo-selected-hint');
+    if(!hint){ hint=document.createElement('div'); hint.className='promo-selected-hint'; hint.style.cssText='font-size:12px;color:var(--text-muted);margin-top:6px;'; fieldWrap.appendChild(hint); }
+    hint.innerHTML=`เลือกแล้ว: <b style="color:var(--text);">${escapeHtml(p.name)}</b> (${escapeHtml(p.sku||'-')})`;
+  }
+}
+function bindPromoProductSearch(){
+  const input=document.getElementById('promo_product_search');
+  const box=document.getElementById('promoProductResults');
+  if(!input||!box) return;
+  input.addEventListener('input',()=>{
+    // ถ้าผู้ใช้แก้ข้อความ ให้ล้างค่าที่เลือกไว้เดิม (ป้องกันเก็บ pid เก่ากับชื่อใหม่ไม่ตรงกัน)
+    const hidden=document.getElementById('promo_product_id');
+    if(hidden) hidden.value='';
+    renderPromoProductResults(input.value);
+  });
+  input.addEventListener('focus',()=>{ if(input.value.trim()) renderPromoProductResults(input.value); });
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){ box.hidden=true; return; }
+    if(e.key!=='Enter') return;
+    e.preventDefault();
+    const query=input.value.trim(); if(!query) return;
+    const exact=products.find(p=>(p.barcode||'').toLowerCase()===query.toLowerCase()||(p.sku||'').toLowerCase()===query.toLowerCase());
+    if(exact){ selectPromoProduct(exact.id); return; }
+    const needle=query.toLowerCase();
+    const first=products.find(p=>(p.name||'').toLowerCase().includes(needle));
+    if(first) selectPromoProduct(first.id);
+  });
+  input.addEventListener('blur',()=>setTimeout(()=>{ box.hidden=true; },140));
+}
 function updatePromotionUnitOptions(){
   const unitSelect=document.getElementById('promo_unit'); if(!unitSelect) return;
   const scopeEl=document.querySelector('input[name="promo_scope"]:checked');
@@ -6472,7 +6540,7 @@ function savePromotion(){
   let productId=null, category='', brand='';
   if(scope==='product'){
     productId=Number(g('promo_product_id')?.value)||null;
-    if(!productId){ showToast('กรุณาเลือกสินค้า'); return; }
+    if(!productId){ showToast('กรุณาเลือกสินค้าจากผลการค้นหา'); g('promo_product_search')?.focus(); return; }
   } else {
     category=(g('promo_category')?.value||'').trim();
     if(!category){ showToast('กรุณาเลือกหมวดหมู่'); return; }
