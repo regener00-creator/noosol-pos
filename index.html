@@ -1493,6 +1493,7 @@ let editingProductId = null; // null = ยังไม่ได้เปิด�
 let nextProductId = 113;
 let selectedGroup = null; // {cat} หรือ {cat, brand}; null = ยังไม่เลือกกลุ่มสินค้า
 let productSort = {key:'sku', dir:1}; // dir: 1 = น้อยไปมาก, -1 = มากไปน้อย
+let contactSort = {key:'code', dir:1}; // เรียงลำดับตารางสมุดรายชื่อ
 let productPage = 1;
 // จำหน่วยที่เลือกไว้ต่อสินค้าแต่ละตัว ในหน้ารายการสินค้า (สำหรับสลับดูราคา/ทุนตามหน่วย)
 let prodRowUnitSel = {};
@@ -3516,6 +3517,23 @@ function renderContacts(){
     if(isSupp) return '<span class="ct-dot supp"></span>ผู้จำหน่าย';
     return '<span class="ct-dot cust"></span>ลูกค้า';
   };
+  const typeSortLabel = c => {
+    const isCust=c.types.includes('customer'), isSupp=c.types.includes('supplier');
+    if(isCust&&isSupp) return 'ผู้จำหน่าย/ลูกค้า';
+    if(isSupp) return 'ผู้จำหน่าย';
+    return 'ลูกค้า';
+  };
+  // เรียงข้อมูลตามคอลัมน์ที่เลือก
+  const csk = contactSort.key, csdir = contactSort.dir;
+  list = list.slice().sort((a,b)=>{
+    let va, vb;
+    if(csk==='code'){ va=a.code||''; vb=b.code||''; }
+    else if(csk==='type'){ va=typeSortLabel(a); vb=typeSortLabel(b); }
+    else { va=a.name||''; vb=b.name||''; }
+    return va.localeCompare(vb,'th')*csdir;
+  });
+  const sortArrow = key => contactSort.key===key ? (contactSort.dir===1?' ▲':' ▼') : '';
+  const th = (key,label) => `<th class="sortable" data-sort="${key}">${label}<span class="sortarrow">${sortArrow(key)}</span></th>`;
   const tab=(key,label,dot)=>`<button class="ct-tab ${contactFilter===key?'active':''}" data-cfilter="${key}">${dot?`<span class="ct-dot ${dot}"></span>`:''}${label}</button>`;
   return `<div class="rpt">
     <div class="pagehead"><div><h1>สมุดรายชื่อ</h1><div class="sub">สมุดรายชื่อ › แสดงทั้งหมด · ${list.length} รายชื่อ</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadContactTemplateBtn">ดาวน์โหลดไฟล์ตัวอย่าง</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
@@ -3527,7 +3545,7 @@ function renderContacts(){
       <div class="toolbar"><div class="searchbar"><input id="search" placeholder="ค้นหาจากรหัสผู้ติดต่อ / ชื่อ / ผู้ติดต่อ / เบอร์" value="${searchQuery}"></div></div>
     </div>
     <div class="doc-list-wrap seamless-table-wrap">
-    <table class="grid-table doc-head-blue contact-summary-table"><thead><tr><th>รหัสผู้ติดต่อ</th><th>รายชื่อ</th><th>ชื่อผู้ติดต่อ</th><th>เบอร์ติดต่อ</th><th>อีเมล</th><th>ประเภท</th><th></th></tr></thead>
+    <table class="grid-table doc-head-blue contact-summary-table"><thead><tr>${th('code','รหัสผู้ติดต่อ')}${th('name','รายชื่อ')}<th>ชื่อผู้ติดต่อ</th><th>เบอร์ติดต่อ</th><th>อีเมล</th>${th('type','ประเภท')}<th></th></tr></thead>
     <tbody>${list.map(c=>`<tr>
       <td class="mono">${c.code||'-'}</td>
       <td style="text-align:left;">${c.name}</td>
@@ -4795,8 +4813,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   document.querySelectorAll('.grid-table th.sortable').forEach(el=>{
     el.addEventListener('click', ()=>{
       const key = el.dataset.sort;
-      if(productSort.key===key) productSort.dir *= -1;
-      else { productSort.key = key; productSort.dir = 1; }
+      const sortState = currentTab==='contacts' ? contactSort : productSort;
+      if(sortState.key===key) sortState.dir *= -1;
+      else { sortState.key = key; sortState.dir = 1; }
       render();
     });
   });
