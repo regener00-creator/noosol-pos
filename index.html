@@ -3553,7 +3553,7 @@ function renderContacts(){
       <td class="mono">${c.phone||'-'}</td>
       <td>${c.email||'-'}</td>
       <td style="white-space:nowrap;">${typeBadge(c)}</td>
-      <td style="text-align:center;"><button class="history-icon-btn" data-act="editcontact" data-id="${c.id}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button></td>
+      <td style="text-align:center;"><div class="history-actions"><button class="history-icon-btn" data-act="editcontact" data-id="${c.id}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn danger" data-act="deletecontact" data-id="${c.id}" title="ลบ" aria-label="ลบ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td>
     </tr>`).join('')||`<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายชื่อในกลุ่มนี้</td></tr>`}</tbody></table>
     </div></div>`;
 }
@@ -3618,8 +3618,8 @@ function renderSalesRepresentatives(){
   return `<div class="rpt"><div class="pagehead"><div><h1>รายชื่อผู้แทน</h1><div class="sub">สมุดรายชื่อ › รายชื่อผู้แทน · ${list.length} รายชื่อ</div></div><button class="btn primary" id="newSalesRepBtn">+ เพิ่มรายชื่อผู้แทน</button></div>
     <div class="toolbar"><div></div><div class="searchbar"><input id="search" placeholder="ค้นหาจากชื่อ / เบอร์โทร / ไลน์ / บริษัท" value="${searchQuery}"></div></div>
     <div class="doc-list-wrap seamless-table-wrap">
-    <table class="grid-table doc-head-blue contact-summary-table"><thead><tr><th>ชื่อ</th><th>เบอร์โทร</th><th>ไลน์</th><th>บริษัท</th><th>ข้อมูลเพิ่มเติม</th><th style="width:90px;"></th></tr></thead>
-    <tbody>${list.map(rep=>`<tr><td>${rep.name}</td><td class="mono">${rep.phone||'-'}</td><td>${rep.line||'-'}</td><td>${rep.company||'-'}</td><td>${rep.note||'-'}</td><td style="text-align:center;"><button class="history-icon-btn" data-act="editsalesrep" data-id="${rep.id}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(rep.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">ยังไม่มีรายชื่อผู้แทน</td></tr>'}</tbody></table>
+    <table class="grid-table doc-head-blue contact-summary-table"><thead><tr><th>ชื่อ</th><th>เบอร์โทร</th><th>ไลน์</th><th>บริษัท</th><th>ข้อมูลเพิ่มเติม</th><th style="width:120px;"></th></tr></thead>
+    <tbody>${list.map(rep=>`<tr><td>${rep.name}</td><td class="mono">${rep.phone||'-'}</td><td>${rep.line||'-'}</td><td>${rep.company||'-'}</td><td>${rep.note||'-'}</td><td style="text-align:center;"><div class="history-actions"><button class="history-icon-btn" data-act="editsalesrep" data-id="${rep.id}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(rep.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn danger" data-act="deletesalesrep" data-id="${rep.id}" title="ลบ" aria-label="ลบ ${escapeHtml(rep.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">ยังไม่มีรายชื่อผู้แทน</td></tr>'}</tbody></table>
     </div></div>`;
 }
 
@@ -4688,6 +4688,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   document.querySelectorAll('[data-act="editcontact"]').forEach(el=>{
     el.addEventListener('click', ()=>{ editingContactId=Number(el.dataset.id); render(); });
   });
+  document.querySelectorAll('[data-act="deletecontact"]').forEach(el=>{
+    el.addEventListener('click', ()=>deleteContact(Number(el.dataset.id)));
+  });
   const cancelContactBtn = document.getElementById('cancelContactBtn');
   if(cancelContactBtn) cancelContactBtn.addEventListener('click', ()=>{ editingContactId=null; render(); });
   const saveContactBtn = document.getElementById('saveContactBtn');
@@ -4696,6 +4699,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(newSalesRepBtn) newSalesRepBtn.addEventListener('click', ()=>{ editingSalesRepresentativeId='new'; searchQuery=''; render(); });
   document.querySelectorAll('[data-act="editsalesrep"]').forEach(el=>{
     el.addEventListener('click', ()=>{ editingSalesRepresentativeId=Number(el.dataset.id); render(); });
+  });
+  document.querySelectorAll('[data-act="deletesalesrep"]').forEach(el=>{
+    el.addEventListener('click', ()=>deleteSalesRepresentative(Number(el.dataset.id)));
   });
   const cancelSalesRepBtn = document.getElementById('cancelSalesRepBtn');
   if(cancelSalesRepBtn) cancelSalesRepBtn.addEventListener('click', ()=>{ editingSalesRepresentativeId=null; render(); });
@@ -6145,6 +6151,14 @@ function saveSalesRepresentative(){
   render();
 }
 
+function deleteSalesRepresentative(id){
+  const rep=salesRepresentatives.find(x=>x.id===id); if(!rep) return;
+  if(!confirm(`ยืนยันลบรายชื่อผู้แทน "${rep.name}" ?`)) return;
+  salesRepresentatives=salesRepresentatives.filter(x=>x.id!==id);
+  showToast(`ลบรายชื่อผู้แทน "${rep.name}" แล้ว`);
+  render();
+}
+
 function downloadContactImportTemplate(){
   const example=[{
     'รหัสผู้ติดต่อ':'C0001','ประเภทผู้ติดต่อ':'นิติบุคคล','ประเภท':'ลูกค้า','ชื่อธุรกิจ / ชื่อ':'บริษัท ตัวอย่าง จำกัด',
@@ -6312,12 +6326,17 @@ function saveContact(){
   if(g('c_type_customer').checked) types.push('customer');
   if(g('c_type_supplier').checked) types.push('supplier');
   if(types.length===0){ showToast('กรุณาเลือกประเภท (ลูกค้า หรือ ผู้จำหน่าย)'); return; }
+  const code = g('c_code').value.trim();
+  if(code){
+    const dup = contacts.find(x=>x.id!==editingContactId && String(x.code||'').trim().toLowerCase()===code.toLowerCase());
+    if(dup){ showToast(`รหัสผู้ติดต่อ "${code}" ถูกใช้แล้วโดย "${dup.name}"`); g('c_code').focus(); return; }
+  }
   const entityEl = document.querySelector('input[name="c_entity"]:checked');
   const accEl = document.querySelector('input[name="c_acctype"]:checked');
   const data = {
     name, types,
     entity: entityEl?entityEl.value:'juristic',
-    code: g('c_code').value.trim(),
+    code,
     taxId: g('c_taxid').value.trim(),
     creditDays: parseInt(g('c_credit').value)||'',
     address: g('c_address').value.trim(),
@@ -6340,6 +6359,15 @@ function saveContact(){
   }
   persistContacts();
   editingContactId = null;
+  render();
+}
+
+function deleteContact(id){
+  const contact=contacts.find(x=>x.id===id); if(!contact) return;
+  if(!confirm(`ยืนยันลบรายชื่อ "${contact.name}" ?`)) return;
+  contacts=contacts.filter(x=>x.id!==id);
+  persistContacts();
+  showToast(`ลบรายชื่อ "${contact.name}" แล้ว`);
   render();
 }
 
