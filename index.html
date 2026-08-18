@@ -333,7 +333,9 @@
   .pos-table th:nth-child(5){text-align:center;}
   .pos-table th{border:none;border-bottom:2px solid var(--primary);background:transparent;text-align:center;padding:10px 8px;}
   .pos-table td{border:none;border-bottom:1px solid var(--border);text-align:center;}
-  .pos-promo-tag{color:var(--primary);font-size:10.5px;font-weight:600;}
+  .pos-promo-tag{font-size:10.5px;font-weight:600;}
+  .pos-promo-tag.promo-active{color:#2E8B3D;}
+  .pos-promo-tag.promo-pending{color:var(--danger);}
   .pos-free-row td{background:#F0F9EE;color:#2E8B3D;font-size:12.5px;padding:6px 8px;border-bottom:1px solid var(--border);}
   .pos-free-row td:nth-child(2){text-align:left;font-weight:600;}
   .pos-table td.num, .pos-table td.mono.num{text-align:left;}
@@ -742,7 +744,7 @@
   .pos-promo-hint-head{font-weight:700;color:#8a5a10;margin-bottom:4px;}
   .pos-promo-hint-body div{margin-top:2px;color:#6b5326;}
   .pos-promo-hint-body span{font-weight:600;}
-  .pos-promo-hint-nudge{margin-top:6px !important;font-weight:700;color:var(--primary-dark);}
+  .pos-promo-hint-nudge{margin-top:6px !important;font-weight:700;color:var(--danger);}
   .st-badge{font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;letter-spacing:.5px;}
   .st-badge.done{background:#E8F6EB;color:#2D7D3D;}
   .st-badge.hold{background:var(--accent-soft);color:#8a5a10;}
@@ -2280,10 +2282,13 @@ function renderCheckout(){
         : opts.length>1
         ? `<select class="line-unit" data-line="${line.lineId}">${opts.map(o=>`<option value="${o.name}" ${o.name===line.unit?'selected':''}>${o.label}</option>`).join('')}</select>`
         : line.unit;
+      const linkedPromo=(!line.custom && line.pid)?findMatchingPromotion(line):null;
       const priceCell = line.custom
         ? `<input class="custom-line-input custom-line-price" data-custom-price data-line="${line.lineId}" type="number" min="0" step="0.01" value="${line.price}" placeholder="0.00">`
         : promoLine.promoId
-        ? `<span title="${escapeHtml(promoLine.promoNote)}">${fmtMoney(line.price)}<br><small class="pos-promo-tag">🏷 ${escapeHtml(promoLine.promoName)}</small></span>`
+        ? `<span title="${escapeHtml(promoLine.promoNote)}">${fmtMoney(line.price)}<br><small class="pos-promo-tag promo-active">🏷 ${escapeHtml(promoLine.promoName)}</small></span>`
+        : linkedPromo
+        ? `<span title="${escapeHtml(promotionValueLabel(linkedPromo))}">${fmtMoney(line.price)}<br><small class="pos-promo-tag promo-pending">🏷 ${escapeHtml(linkedPromo.name)}</small></span>`
         : fmtMoney(line.price);
       rowsHtml += `<tr>
         <td class="mono">${String(idx+1).padStart(3,'0')}</td>
