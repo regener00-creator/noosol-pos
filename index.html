@@ -372,6 +372,11 @@
   .ct-dot.cust{background:#5C7FBF;}
   .ct-dot.supp{background:var(--accent);}
   .ct-dot.both{background:#5Cb85c;}
+  .promo-status{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12.5px;font-weight:600;white-space:nowrap;}
+  .promo-status.promo-live{background:#E3F5E5;color:#2E8B3D;}
+  .promo-status.promo-off{background:#EEF0F3;color:var(--text-muted);}
+  .promo-status.promo-pending{background:var(--info-soft);color:var(--info);}
+  .promo-status.promo-expired{background:var(--danger-soft);color:var(--danger);}
   .cform{display:flex;flex-direction:column;gap:11px;margin-top:12px;}
   .crow{display:grid;grid-template-columns:130px 1fr;gap:12px;align-items:start;}
   .crow label{font-size:13px;color:var(--text-muted);padding-top:8px;}
@@ -1474,6 +1479,15 @@ let salesRepresentatives = [
 ];
 let nextSalesRepresentativeId = 4;
 let editingSalesRepresentativeId = null;
+// ===== ระบบโปรโมชั่น =====
+// scope: 'product' (ผูกสินค้าเดี่ยว) | 'category' (ผูกหมวด/แบรนด์)
+// type: 'discount' (ลด%/ลดเงินสด) | 'bundle' (ราคาพิเศษเมื่อซื้อครบจำนวน) | 'buyxgety' (ซื้อ X แถม Y)
+let promotions = [];
+const PROMOTIONS_STORAGE_KEY='pharmacy_pos_promotions_v1';
+try{ const savedPromotions=JSON.parse(localStorage.getItem(PROMOTIONS_STORAGE_KEY)||'null'); if(Array.isArray(savedPromotions)) promotions=savedPromotions; }catch(error){ console.warn('ไม่สามารถโหลดโปรโมชั่นได้',error); }
+function persistPromotions(){ try{ localStorage.setItem(PROMOTIONS_STORAGE_KEY,JSON.stringify(promotions)); }catch(error){ console.warn('ไม่สามารถบันทึกโปรโมชั่นได้',error); } }
+let nextPromotionId = Math.max(1,...promotions.map(p=>(Number(p.id)||0)+1));
+let editingPromotionId = null; // null=list, 'new', หรือ id
 function customersList(){ return contacts.filter(c=>c.types.includes('customer')); }
 function suppliersList(){ return contacts.filter(c=>c.types.includes('supplier')); }
 let employees = [ 'เภสัชกรหญิงมานี', 'พนักงานขายสมชาย' ];
@@ -1853,7 +1867,7 @@ loadWorkspaceData();
 
 function loggedInUser(){ return currentProfile; }
 function isLevel2User(user=loggedInUser()){ return Number(user?.level)===2; }
-const LEVEL2_HIDDEN_TABS=new Set(['settingssystem','settingsbusiness','rprofit','warehouse','transfer','stockadjust']);
+const LEVEL2_HIDDEN_TABS=new Set(['settingssystem','settingsbusiness','rprofit','warehouse','transfer','stockadjust','promotions']);
 function canAccessTab(tab,user=loggedInUser()){
   if(!user) return false;
   if(tab==='settingsusers'&&user.owner!==true) return false;
@@ -2133,6 +2147,7 @@ const NAV = [
     ['warehouse','คลังสินค้า / สาขา','<path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/>'],
     ['transfer','โอนสินค้าระหว่างคลัง','<path d="M7 16l-4-4 4-4"/><path d="M3 12h13"/><path d="M17 8l4 4-4 4"/><path d="M21 12H8"/>'],
     ['stockadjust','ปรับสต๊อก','<path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/>'],
+    ['promotions','โปรโมชั่น','<path d="M20.59 13.41 11 22H2v-9L11.41 3.59a2 2 0 0 1 2.83 0l6.35 6.35a2 2 0 0 1 0 2.83zM7 8h.01"/><circle cx="7.5" cy="7.5" r="1.5"/>'],
   ]},
   {section:'สมุดรายชื่อ', items:[
     ['contacts','ลูกค้า / ผู้จำหน่าย','<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>'],
@@ -2170,7 +2185,7 @@ function renderSidebar(){
     });
   });
   document.getElementById('sidebar').innerHTML = html;
-  document.querySelectorAll('.navbtn').forEach(btn=>{ btn.addEventListener('click', ()=>{ currentTab = btn.dataset.tab; searchQuery=''; editingPOId=null; poDraft=null; editingGRId=null; grDraft=null; editingPO2Id=null; po2Draft=null; editingReturnId=null; returnDraft=null; editingTaxInvoiceSaleId=null; editingQuotationId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; openDocMenu=null; poSupplierEditorOpen=false; poRepresentativeEditorId=null; editingContactId=null; editingSalesRepresentativeId=null; editingProductId=null; addingSystemUser=false; editingSystemUserId=null; addingWarehouse=false; editingWarehouseId=null; editingTransferId=null; transferDraft=null; rproductFilter.applied=false; rbillFilter.applied=false; rprofitFilter.applied=false; render(); }); });
+  document.querySelectorAll('.navbtn').forEach(btn=>{ btn.addEventListener('click', ()=>{ currentTab = btn.dataset.tab; searchQuery=''; editingPOId=null; poDraft=null; editingGRId=null; grDraft=null; editingPO2Id=null; po2Draft=null; editingReturnId=null; returnDraft=null; editingTaxInvoiceSaleId=null; editingQuotationId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; openDocMenu=null; poSupplierEditorOpen=false; poRepresentativeEditorId=null; editingContactId=null; editingSalesRepresentativeId=null; editingPromotionId=null; editingProductId=null; addingSystemUser=false; editingSystemUserId=null; addingWarehouse=false; editingWarehouseId=null; editingTransferId=null; transferDraft=null; rproductFilter.applied=false; rbillFilter.applied=false; rprofitFilter.applied=false; render(); }); });
 }
 
 // ---------- Page renderers ----------
@@ -3639,6 +3654,132 @@ function renderSalesRepresentativeForm(){
     </div></div></div>`;
 }
 
+// ===== ระบบโปรโมชั่น =====
+function promotionStatusInfo(promo){
+  const today=TODAY_STR;
+  if(!promo.active) return {label:'ปิดใช้งาน',cls:'promo-off'};
+  if(promo.startDate && today<promo.startDate) return {label:'ยังไม่เริ่ม',cls:'promo-pending'};
+  if(promo.endDate && today>promo.endDate) return {label:'หมดอายุ',cls:'promo-expired'};
+  return {label:'ใช้งานอยู่',cls:'promo-live'};
+}
+function promotionTypeLabel(type){
+  return type==='bundle'?'ราคาพิเศษเมื่อซื้อครบจำนวน':type==='buyxgety'?'ซื้อ X แถม Y':'ลดราคา';
+}
+function promotionTargetLabel(promo){
+  if(promo.scope==='product'){
+    const p=products.find(x=>x.id===promo.productId);
+    return p?`${p.name} (${promo.unit||p.unit})`:'สินค้าถูกลบไปแล้ว';
+  }
+  const cat=promo.category||'ทุกหมวดหมู่', br=promo.brand?` › ${promo.brand}`:'';
+  return `${cat}${br} (หน่วย: ${promo.unit||'ทุกหน่วย'})`;
+}
+function promotionValueLabel(promo){
+  if(promo.type==='discount') return promo.discountMode==='percent'?`ลด ${promo.discountValue||0}%`:`ลด ${fmtMoney(promo.discountValue||0)} บาท`;
+  if(promo.type==='bundle') return `ซื้อครบ ${promo.bundleQty||0} ชิ้น ราคา ${fmtMoney(promo.bundlePrice||0)}`;
+  if(promo.type==='buyxgety') return `ซื้อ ${promo.buyQty||0} แถม ${promo.getQty||0}`;
+  return '-';
+}
+function renderPromotions(){
+  if(editingPromotionId!==null) return renderPromotionForm();
+  const q=searchQuery.trim().toLowerCase();
+  const list=promotions.filter(promo=>!q || (promo.name||'').toLowerCase().includes(q));
+  return `<div class="rpt"><div class="pagehead"><div><h1>โปรโมชั่น</h1><div class="sub">จัดการส่วนลด แถม และราคาพิเศษ · ${list.length} รายการ</div></div><button class="btn primary" id="newPromotionBtn">+ สร้างโปรโมชั่น</button></div>
+    <div class="toolbar"><div></div><div class="searchbar"><input id="search" placeholder="ค้นหาจากชื่อโปรโมชั่น" value="${searchQuery}"></div></div>
+    <div class="doc-list-wrap seamless-table-wrap">
+    <table class="grid-table doc-head-blue contact-summary-table"><thead><tr><th>ชื่อโปรโมชั่น</th><th>ประเภท</th><th>เงื่อนไข</th><th>ผลลัพธ์</th><th>ช่วงเวลา</th><th>สถานะ</th><th style="width:120px;"></th></tr></thead>
+    <tbody>${list.map(promo=>{
+      const status=promotionStatusInfo(promo);
+      const period=(promo.startDate||promo.endDate)?`${promo.startDate?isoToDMY(promo.startDate):'ไม่จำกัด'} - ${promo.endDate?isoToDMY(promo.endDate):'ไม่จำกัด'}`:'ไม่จำกัดเวลา';
+      return `<tr>
+      <td style="text-align:left;">${escapeHtml(promo.name||'-')}</td>
+      <td>${promotionTypeLabel(promo.type)}</td>
+      <td style="text-align:left;">${escapeHtml(promotionTargetLabel(promo))}</td>
+      <td>${escapeHtml(promotionValueLabel(promo))}</td>
+      <td class="mono">${period}</td>
+      <td><span class="promo-status ${status.cls}">${status.label}</span></td>
+      <td style="text-align:center;"><div class="history-actions"><button class="history-icon-btn" data-act="editpromotion" data-id="${promo.id}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(promo.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn danger" data-act="deletepromotion" data-id="${promo.id}" title="ลบ" aria-label="ลบ ${escapeHtml(promo.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td>
+    </tr>`;}).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">ยังไม่มีโปรโมชั่น</td></tr>'}</tbody></table>
+    </div></div>`;
+}
+
+function renderPromotionForm(){
+  const isNew=editingPromotionId==='new';
+  const promo=isNew?{name:'',active:true,startDate:'',endDate:'',scope:'product',productId:null,category:'',brand:'',unit:'',type:'discount',discountMode:'percent',discountValue:'',bundleQty:'',bundlePrice:'',buyQty:'',getQty:''}:promotions.find(x=>x.id===editingPromotionId);
+  if(!promo) return '<div class="panel">ไม่พบโปรโมชั่น</div>';
+  const selectedProduct=promo.productId?products.find(p=>p.id===promo.productId):null;
+  const unitOptionsForProduct=p=>{
+    if(!p) return '';
+    const opts=[p.unit,...(p.units||[]).map(u=>u.sub)];
+    return opts.map(u=>`<option value="${escapeHtml(u)}" ${promo.unit===u?'selected':''}>${escapeHtml(u)}</option>`).join('');
+  };
+  return `<div class="pagehead"><div><div class="breadcrumb">โปรโมชั่น › ${isNew?'สร้างโปรโมชั่น':'แก้ไขโปรโมชั่น'}</div><h1>${isNew?'สร้างโปรโมชั่น':'แก้ไขโปรโมชั่น'}</h1></div>
+    <div style="display:flex;gap:8px;"><button class="btn ghost" id="cancelPromotionBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePromotionBtn">บันทึกแล้วปิด</button></div></div>
+    <div class="grid2col">
+      <div class="panel">
+        <h3>ข้อมูลทั่วไป</h3>
+        <div class="cform">
+          <div class="crow"><label>ชื่อโปรโมชั่น <span class="req">*</span></label><input id="promo_name" value="${escapeHtml(promo.name||'')}" placeholder="เช่น ลดราคาวิตามินซี 10%"></div>
+          <div class="crow"><label>สถานะ</label><div class="cradio">
+            <label><input type="radio" name="promo_active" value="1" ${promo.active?'checked':''}> เปิดใช้งาน</label>
+            <label><input type="radio" name="promo_active" value="0" ${!promo.active?'checked':''}> ปิดใช้งาน</label>
+          </div></div>
+          <div class="crow"><label>วันเริ่มโปรโมชั่น</label>${dmyDateFieldHtml('promo_start',promo.startDate)}</div>
+          <div class="crow"><label>วันสิ้นสุดโปรโมชั่น</label>${dmyDateFieldHtml('promo_end',promo.endDate)}</div>
+          <div class="crow"><label style="font-weight:400;color:var(--text-muted);font-size:12px;">เว้นว่างช่องใดช่องหนึ่งหรือทั้งคู่ได้ = ไม่จำกัดช่วงเวลานั้น</label></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>สินค้าที่เข้าร่วมโปรโมชั่น</h3>
+        <div class="cform">
+          <div class="crow"><label>ผูกกับ</label><div class="cradio">
+            <label><input type="radio" name="promo_scope" value="product" ${promo.scope==='product'?'checked':''}> สินค้ารายตัว</label>
+            <label><input type="radio" name="promo_scope" value="category" ${promo.scope==='category'?'checked':''}> หมวดหมู่ / แบรนด์</label>
+          </div></div>
+          <div id="promo_scope_product" class="crow" style="display:${promo.scope==='product'?'block':'none'};">
+            <label>เลือกสินค้า <span class="req">*</span></label>
+            <select id="promo_product_id"><option value="">-- เลือกสินค้า --</option>${products.map(p=>`<option value="${p.id}" ${promo.productId===p.id?'selected':''}>${escapeHtml(p.name)} (${escapeHtml(p.sku||'-')})</option>`).join('')}</select>
+          </div>
+          <div id="promo_scope_category" class="crow" style="display:${promo.scope==='category'?'block':'none'};">
+            <label>หมวดหมู่ <span class="req">*</span></label>
+            <select id="promo_category"><option value="">-- เลือกหมวดหมู่ --</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${promo.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select>
+            <label style="margin-top:10px;">แบรนด์ (ไม่บังคับ)</label>
+            <select id="promo_brand"><option value="">-- ทุกแบรนด์ในหมวดนี้ --</option>${brands.map(b=>`<option value="${escapeHtml(b)}" ${promo.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select>
+          </div>
+          <div class="crow"><label>หน่วยที่ร่วมโปรโมชั่น <span class="req">*</span></label>
+            <select id="promo_unit">${promo.scope==='product'?(selectedProduct?unitOptionsForProduct(selectedProduct):'<option value="">เลือกสินค้าก่อน</option>'):units.map(u=>`<option value="${escapeHtml(u)}" ${promo.unit===u?'selected':''}>${escapeHtml(u)}</option>`).join('')}</select>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">โปรโมชั่นจะมีผลเฉพาะตอนขายด้วยหน่วยนี้เท่านั้น</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:16px;">
+      <h3>ประเภทโปรโมชั่น</h3>
+      <div class="cform">
+        <div class="crow"><label>ประเภท</label><div class="cradio">
+          <label><input type="radio" name="promo_type" value="discount" ${promo.type==='discount'?'checked':''}> ลดราคา (%/บาท)</label>
+          <label><input type="radio" name="promo_type" value="bundle" ${promo.type==='bundle'?'checked':''}> ราคาพิเศษเมื่อซื้อครบจำนวน</label>
+          <label><input type="radio" name="promo_type" value="buyxgety" ${promo.type==='buyxgety'?'checked':''}> ซื้อ X แถม Y</label>
+        </div></div>
+        <div id="promo_fields_discount" style="display:${promo.type==='discount'?'block':'none'};">
+          <div class="crow"><label>รูปแบบส่วนลด</label><div class="cradio">
+            <label><input type="radio" name="promo_discount_mode" value="percent" ${promo.discountMode!=='amount'?'checked':''}> ลดเป็น %</label>
+            <label><input type="radio" name="promo_discount_mode" value="amount" ${promo.discountMode==='amount'?'checked':''}> ลดเป็นจำนวนเงิน (บาท/หน่วย)</label>
+          </div></div>
+          <div class="crow"><label>มูลค่าส่วนลด <span class="req">*</span></label><input id="promo_discount_value" type="number" min="0" step="0.01" value="${promo.discountValue||''}" placeholder="เช่น 10"></div>
+        </div>
+        <div id="promo_fields_bundle" style="display:${promo.type==='bundle'?'block':'none'};">
+          <div class="crow"><label>ซื้อครบจำนวน (ชิ้น) <span class="req">*</span></label><input id="promo_bundle_qty" type="number" min="1" step="1" value="${promo.bundleQty||''}" placeholder="เช่น 3"></div>
+          <div class="crow"><label>ราคาพิเศษรวม (บาท) <span class="req">*</span></label><input id="promo_bundle_price" type="number" min="0" step="0.01" value="${promo.bundlePrice||''}" placeholder="เช่น 299"></div>
+        </div>
+        <div id="promo_fields_buyxgety" style="display:${promo.type==='buyxgety'?'block':'none'};">
+          <div class="crow"><label>ซื้อ (ชิ้น) <span class="req">*</span></label><input id="promo_buy_qty" type="number" min="1" step="1" value="${promo.buyQty||''}" placeholder="เช่น 2"></div>
+          <div class="crow"><label>แถม (ชิ้น) <span class="req">*</span></label><input id="promo_get_qty" type="number" min="1" step="1" value="${promo.getQty||''}" placeholder="เช่น 1"></div>
+          <div style="font-size:12px;color:var(--text-muted);">ตัวอย่าง: ซื้อ 2 แถม 1 หมายถึงซื้อครบทุก 2 ชิ้น จะได้รับแถมเพิ่ม 1 ชิ้นโดยไม่คิดเงิน</div>
+        </div>
+      </div>
+    </div>`;
+}
+
 function renderRSales(){
   const monthTotal = salesHistory.reduce((a,s)=>a+s.total,0);
   return `<div class="pagehead"><div><h1>สรุปยอดขาย</h1><div class="sub">ยอดขายรวมตามช่วงเวลา</div></div></div>
@@ -4397,7 +4538,7 @@ function renderAddSystemUser(){
 const RENDERERS = {
   dashboard: renderDashboard, checkout: renderCheckout, taxinvoice: renderTaxInvoices, quotation: renderQuotation, invoice: renderInvoice,
   creditnote: renderCreditNote, history: renderHistory, purchaseorder: renderPurchaseOrder, purchaseorder2: renderPurchaseOrder2, productreturn: renderProductReturn, goodsreceipt: renderGoodsReceipt,
-  products: renderProducts, warehouse: renderWarehouse, transfer: renderTransfer, stockadjust: renderStockAdjust, lowstock: renderLowStock, expiry: renderExpiry,
+  products: renderProducts, warehouse: renderWarehouse, transfer: renderTransfer, stockadjust: renderStockAdjust, lowstock: renderLowStock, expiry: renderExpiry, promotions: renderPromotions,
   contacts: renderContacts, salesreps: renderSalesRepresentatives, rsales: renderRSales, rproduct: renderRProduct, rbill: renderRBill, rprofit: renderRProfit, remployee: renderREmployee,
   rinventory: renderRInventory, rreceivable: renderRReceivable, settingsbusiness: renderBusinessSettings, settingsuser: renderUserSettings, settingsusers: renderSystemUsers, settingssystem: renderSystemSettings,
 };
@@ -4710,6 +4851,42 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(cancelSalesRepBtn) cancelSalesRepBtn.addEventListener('click', ()=>{ editingSalesRepresentativeId=null; render(); });
   const saveSalesRepBtn = document.getElementById('saveSalesRepBtn');
   if(saveSalesRepBtn) saveSalesRepBtn.addEventListener('click', saveSalesRepresentative);
+  // --- promotions ---
+  const newPromotionBtn=document.getElementById('newPromotionBtn');
+  if(newPromotionBtn) newPromotionBtn.addEventListener('click', ()=>{ editingPromotionId='new'; searchQuery=''; render(); });
+  document.querySelectorAll('[data-act="editpromotion"]').forEach(el=>{
+    el.addEventListener('click', ()=>{ editingPromotionId=Number(el.dataset.id); render(); });
+  });
+  document.querySelectorAll('[data-act="deletepromotion"]').forEach(el=>{
+    el.addEventListener('click', ()=>deletePromotion(Number(el.dataset.id)));
+  });
+  const cancelPromotionBtn=document.getElementById('cancelPromotionBtn');
+  if(cancelPromotionBtn) cancelPromotionBtn.addEventListener('click', ()=>{ editingPromotionId=null; render(); });
+  const savePromotionBtn=document.getElementById('savePromotionBtn');
+  if(savePromotionBtn) savePromotionBtn.addEventListener('click', savePromotion);
+  // สลับมุมมอง สินค้ารายตัว <-> หมวดหมู่/แบรนด์
+  document.querySelectorAll('input[name="promo_scope"]').forEach(el=>{
+    el.addEventListener('change', ()=>{
+      const scopeProduct=document.getElementById('promo_scope_product');
+      const scopeCategory=document.getElementById('promo_scope_category');
+      const isProduct=el.value==='product';
+      if(scopeProduct) scopeProduct.style.display=isProduct?'block':'none';
+      if(scopeCategory) scopeCategory.style.display=isProduct?'none':'block';
+      updatePromotionUnitOptions();
+    });
+  });
+  const promoProductSelect=document.getElementById('promo_product_id');
+  if(promoProductSelect) promoProductSelect.addEventListener('change', updatePromotionUnitOptions);
+  // สลับฟิลด์ตามประเภทโปรโมชั่น
+  document.querySelectorAll('input[name="promo_type"]').forEach(el=>{
+    el.addEventListener('change', ()=>{
+      const map={discount:'promo_fields_discount',bundle:'promo_fields_bundle',buyxgety:'promo_fields_buyxgety'};
+      Object.entries(map).forEach(([type,id])=>{
+        const field=document.getElementById(id);
+        if(field) field.style.display=(type===el.value)?'block':'none';
+      });
+    });
+  });
   const saveBusinessSettingsBtn=document.getElementById('saveBusinessSettingsBtn');
   if(saveBusinessSettingsBtn) saveBusinessSettingsBtn.addEventListener('click',saveBusinessSettings);
   const saveDocumentPrefixesBtn=document.getElementById('saveDocumentPrefixesBtn');
@@ -6159,6 +6336,79 @@ function deleteSalesRepresentative(id){
   if(!confirm(`ยืนยันลบรายชื่อผู้แทน "${rep.name}" ?`)) return;
   salesRepresentatives=salesRepresentatives.filter(x=>x.id!==id);
   showToast(`ลบรายชื่อผู้แทน "${rep.name}" แล้ว`);
+  render();
+}
+
+// ===== ระบบโปรโมชั่น: ฟังก์ชันจัดการฟอร์ม =====
+function updatePromotionUnitOptions(){
+  const unitSelect=document.getElementById('promo_unit'); if(!unitSelect) return;
+  const scopeEl=document.querySelector('input[name="promo_scope"]:checked');
+  const scope=scopeEl?scopeEl.value:'product';
+  if(scope==='product'){
+    const productId=Number(document.getElementById('promo_product_id')?.value);
+    const p=products.find(x=>x.id===productId);
+    if(!p){ unitSelect.innerHTML='<option value="">เลือกสินค้าก่อน</option>'; return; }
+    const opts=[p.unit,...(p.units||[]).map(u=>u.sub)];
+    unitSelect.innerHTML=opts.map(u=>`<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('');
+  } else {
+    unitSelect.innerHTML=units.map(u=>`<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('');
+  }
+}
+function savePromotion(){
+  const g=id=>document.getElementById(id);
+  const name=(g('promo_name')?.value||'').trim();
+  if(!name){ showToast('กรุณากรอกชื่อโปรโมชั่น'); g('promo_name')?.focus(); return; }
+  const active=document.querySelector('input[name="promo_active"]:checked')?.value==='1';
+  const startDate=dmyToISO(g('promo_start')?.value)||'';
+  const endDate=dmyToISO(g('promo_end')?.value)||'';
+  if(startDate && endDate && startDate>endDate){ showToast('วันเริ่มต้องมาก่อนวันสิ้นสุด'); return; }
+  const scope=document.querySelector('input[name="promo_scope"]:checked')?.value||'product';
+  const unit=(g('promo_unit')?.value||'').trim();
+  if(!unit){ showToast('กรุณาเลือกหน่วยที่ร่วมโปรโมชั่น'); return; }
+  let productId=null, category='', brand='';
+  if(scope==='product'){
+    productId=Number(g('promo_product_id')?.value)||null;
+    if(!productId){ showToast('กรุณาเลือกสินค้า'); return; }
+  } else {
+    category=(g('promo_category')?.value||'').trim();
+    if(!category){ showToast('กรุณาเลือกหมวดหมู่'); return; }
+    brand=(g('promo_brand')?.value||'').trim();
+  }
+  const type=document.querySelector('input[name="promo_type"]:checked')?.value||'discount';
+  const data={name,active,startDate,endDate,scope,productId,category,brand,unit,type,
+    discountMode:'percent',discountValue:'',bundleQty:'',bundlePrice:'',buyQty:'',getQty:''};
+  if(type==='discount'){
+    data.discountMode=document.querySelector('input[name="promo_discount_mode"]:checked')?.value||'percent';
+    data.discountValue=parseFloat(g('promo_discount_value')?.value)||0;
+    if(data.discountValue<=0){ showToast('กรุณากรอกมูลค่าส่วนลดให้ถูกต้อง'); return; }
+    if(data.discountMode==='percent' && data.discountValue>100){ showToast('ส่วนลดเป็น % ต้องไม่เกิน 100'); return; }
+  } else if(type==='bundle'){
+    data.bundleQty=parseInt(g('promo_bundle_qty')?.value)||0;
+    data.bundlePrice=parseFloat(g('promo_bundle_price')?.value)||0;
+    if(data.bundleQty<=1){ showToast('จำนวนที่ซื้อครบต้องมากกว่า 1 ชิ้น'); return; }
+    if(data.bundlePrice<=0){ showToast('กรุณากรอกราคาพิเศษให้ถูกต้อง'); return; }
+  } else if(type==='buyxgety'){
+    data.buyQty=parseInt(g('promo_buy_qty')?.value)||0;
+    data.getQty=parseInt(g('promo_get_qty')?.value)||0;
+    if(data.buyQty<=0||data.getQty<=0){ showToast('กรุณากรอกจำนวนซื้อและจำนวนแถมให้ถูกต้อง'); return; }
+  }
+  if(editingPromotionId==='new'){
+    promotions.push({id:nextPromotionId++,...data});
+    showToast(`สร้างโปรโมชั่น "${name}" แล้ว`);
+  } else {
+    Object.assign(promotions.find(x=>x.id===editingPromotionId),data);
+    showToast(`บันทึกโปรโมชั่น "${name}" แล้ว`);
+  }
+  persistPromotions();
+  editingPromotionId=null;
+  render();
+}
+function deletePromotion(id){
+  const promo=promotions.find(x=>x.id===id); if(!promo) return;
+  if(!confirm(`ยืนยันลบโปรโมชั่น "${promo.name}" ?`)) return;
+  promotions=promotions.filter(x=>x.id!==id);
+  persistPromotions();
+  showToast(`ลบโปรโมชั่น "${promo.name}" แล้ว`);
   render();
 }
 
