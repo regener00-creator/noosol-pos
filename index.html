@@ -4037,39 +4037,6 @@ function renderPromotionForm(){
   return `<div class="pagehead"><div><div class="breadcrumb">โปรโมชั่น › ${isNew?'สร้างโปรโมชั่น':'แก้ไขโปรโมชั่น'}</div><h1>${isNew?'สร้างโปรโมชั่น':'แก้ไขโปรโมชั่น'}</h1></div>
     <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelPromotionBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePromotionBtn">บันทึกแล้วปิด</button></div></div>
     <div class="grid2col grid2col-even align-top">
-      <div class="panel" id="promo_left_panel" style="display:${promo.type==='buygetdiff'?'none':'block'};">
-        <h3>สินค้าที่เข้าร่วมโปรโมชั่น</h3>
-        <div class="cform">
-          <div class="crow"><label>ผูกกับ</label><div class="cradio">
-            <label><input type="radio" name="promo_scope" value="product" ${promo.scope==='product'?'checked':''}> สินค้ารายตัว</label>
-            <label><input type="radio" name="promo_scope" value="category" ${promo.scope==='category'?'checked':''}> หมวดหมู่ / แบรนด์</label>
-          </div></div>
-          <div id="promo_scope_product" class="crow" style="display:${promo.scope==='product'?'block':'none'};">
-            <label>เลือกสินค้า <span class="req">*</span></label>
-            <div id="promo_product_field_wrap">
-              <input type="hidden" id="promo_product_id" value="${promo.productId||''}">
-              <div class="doc-scanner-wrap" style="margin:0;">
-                <div class="doc-scanner"><span class="doc-scanner-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><input id="promo_product_search" placeholder="ค้นหาชื่อสินค้า / รหัส / บาร์โค้ด" autocomplete="off" value="${selectedProduct?escapeHtml(selectedProduct.name):''}"></div>
-                <div class="doc-scan-results" id="promoProductResults" hidden></div>
-              </div>
-              ${selectedProduct?`<div class="promo-selected-hint" style="font-size:12px;color:var(--text-muted);margin-top:6px;">เลือกแล้ว: <b style="color:var(--text);">${escapeHtml(selectedProduct.name)}</b> (${escapeHtml(selectedProduct.sku||'-')})</div>`:''}
-            </div>
-          </div>
-          <div id="promo_scope_category" class="crow" style="display:${promo.scope==='category'?'block':'none'};">
-            <label>หมวดหมู่ <span class="req">*</span></label>
-            <select id="promo_category" class="promo-select"><option value="">-- เลือกหมวดหมู่ --</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${promo.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select>
-            <label style="margin-top:10px;">แบรนด์ (ไม่บังคับ)</label>
-            <select id="promo_brand" class="promo-select"><option value="">-- ทุกแบรนด์ในหมวดนี้ --</option>${brands.map(b=>`<option value="${escapeHtml(b)}" ${promo.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select>
-            <label style="margin-top:10px;">สินค้าในหมวด/แบรนด์นี้ <span class="req">*</span></label>
-            <button type="button" class="btn ghost" id="openPromoItemPickerBtn" style="width:100%;justify-content:center;">📦 เลือกสินค้า</button>
-            <div id="promoCategoryItemsList" class="promo-item-list">${renderPromoCategoryItemsList(currentPromoDraftItems||[])}</div>
-          </div>
-          <div id="promo_scope_product_unit" class="crow" style="display:${promo.scope==='product'?'block':'none'};"><label>หน่วยที่ร่วมโปรโมชั่น <span class="req">*</span></label>
-            <select id="promo_unit" class="promo-select">${selectedProduct?unitOptionsForProduct(selectedProduct):'<option value="">เลือกสินค้าก่อน</option>'}</select>
-            <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">โปรโมชั่นจะมีผลเฉพาะตอนขายด้วยหน่วยนี้เท่านั้น</div>
-          </div>
-        </div>
-      </div>
       <div>
         <div class="panel">
           <h3>ข้อมูลทั่วไป</h3>
@@ -4135,6 +4102,39 @@ function renderPromotionForm(){
               <div class="crow"><label>จำนวนที่แถมต่อชุด <span class="req">*</span></label><input id="promo_bgd_get_qty" type="number" min="1" step="1" value="${promo.bgdGetQty||''}" placeholder="เช่น 2"></div>
               <div style="font-size:12px;color:var(--text-muted);">ตัวอย่าง: ซื้อ Restiv ครบ 1 กล่อง แถม Fish Oil 2 ขวด — ซื้อ Restiv ทุก 1 กล่อง จะได้ Fish Oil เพิ่ม 2 ขวดโดยไม่คิดเงิน (แถมเข้าตะกร้าอัตโนมัติ ลบเองไม่ได้ ต้องลดจำนวน Restiv จึงจะหายไป)</div>
             </div>
+          </div>
+        </div>
+      </div>
+      <div class="panel" id="promo_left_panel" style="display:${promo.type==='buygetdiff'?'none':'block'};">
+        <h3>สินค้าที่เข้าร่วมโปรโมชั่น</h3>
+        <div class="cform">
+          <div class="crow"><label>ผูกกับ</label><div class="cradio">
+            <label><input type="radio" name="promo_scope" value="product" ${promo.scope==='product'?'checked':''}> สินค้ารายตัว</label>
+            <label><input type="radio" name="promo_scope" value="category" ${promo.scope==='category'?'checked':''}> หมวดหมู่ / แบรนด์</label>
+          </div></div>
+          <div id="promo_scope_product" class="crow" style="display:${promo.scope==='product'?'block':'none'};">
+            <label>เลือกสินค้า <span class="req">*</span></label>
+            <div id="promo_product_field_wrap">
+              <input type="hidden" id="promo_product_id" value="${promo.productId||''}">
+              <div class="doc-scanner-wrap" style="margin:0;">
+                <div class="doc-scanner"><span class="doc-scanner-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><input id="promo_product_search" placeholder="ค้นหาชื่อสินค้า / รหัส / บาร์โค้ด" autocomplete="off" value="${selectedProduct?escapeHtml(selectedProduct.name):''}"></div>
+                <div class="doc-scan-results" id="promoProductResults" hidden></div>
+              </div>
+              ${selectedProduct?`<div class="promo-selected-hint" style="font-size:12px;color:var(--text-muted);margin-top:6px;">เลือกแล้ว: <b style="color:var(--text);">${escapeHtml(selectedProduct.name)}</b> (${escapeHtml(selectedProduct.sku||'-')})</div>`:''}
+            </div>
+          </div>
+          <div id="promo_scope_category" class="crow" style="display:${promo.scope==='category'?'block':'none'};">
+            <label>หมวดหมู่ <span class="req">*</span></label>
+            <select id="promo_category" class="promo-select"><option value="">-- เลือกหมวดหมู่ --</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${promo.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select>
+            <label style="margin-top:10px;">แบรนด์ (ไม่บังคับ)</label>
+            <select id="promo_brand" class="promo-select"><option value="">-- ทุกแบรนด์ในหมวดนี้ --</option>${brands.map(b=>`<option value="${escapeHtml(b)}" ${promo.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select>
+            <label style="margin-top:10px;">สินค้าในหมวด/แบรนด์นี้ <span class="req">*</span></label>
+            <button type="button" class="btn ghost" id="openPromoItemPickerBtn" style="width:100%;justify-content:center;">📦 เลือกสินค้า</button>
+            <div id="promoCategoryItemsList" class="promo-item-list">${renderPromoCategoryItemsList(currentPromoDraftItems||[])}</div>
+          </div>
+          <div id="promo_scope_product_unit" class="crow" style="display:${promo.scope==='product'?'block':'none'};"><label>หน่วยที่ร่วมโปรโมชั่น <span class="req">*</span></label>
+            <select id="promo_unit" class="promo-select">${selectedProduct?unitOptionsForProduct(selectedProduct):'<option value="">เลือกสินค้าก่อน</option>'}</select>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">โปรโมชั่นจะมีผลเฉพาะตอนขายด้วยหน่วยนี้เท่านั้น</div>
           </div>
         </div>
       </div>
