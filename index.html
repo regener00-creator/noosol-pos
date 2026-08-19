@@ -1527,7 +1527,7 @@ let nextSalesRepresentativeId = 4;
 let editingSalesRepresentativeId = null;
 // ===== ระบบโปรโมชั่น =====
 // scope: 'product' (ผูกสินค้าเดี่ยว) | 'category' (ผูกหมวด/แบรนด์)
-// type: 'discount' (ลด%/ลดเงินสด) | 'bundle' (ราคาพิเศษเมื่อซื้อครบจำนวน) | 'buyxgety' (ซื้อ X แถม Y)
+// type: 'discount' (ลด%/ลดเงินสด) | 'bundle' (ราคาพิเศษเมื่อซื้อครบจำนวน) | 'buygetdiff' (ซื้อสินค้าหนึ่ง แถมอีกสินค้าหนึ่ง)
 let promotions = [];
 const PROMOTIONS_STORAGE_KEY='pharmacy_pos_promotions_v1';
 try{ const savedPromotions=JSON.parse(localStorage.getItem(PROMOTIONS_STORAGE_KEY)||'null'); if(Array.isArray(savedPromotions)) promotions=savedPromotions; }catch(error){ console.warn('ไม่สามารถโหลดโปรโมชั่นได้',error); }
@@ -3742,7 +3742,7 @@ function promotionStatusInfo(promo){
   return {label:'ใช้งานอยู่',cls:'promo-live'};
 }
 function promotionTypeLabel(type){
-  return type==='bundle'?'ราคาพิเศษเมื่อซื้อครบจำนวน':type==='buyxgety'?'ซื้อ X แถม Y':type==='buygetdiff'?'ซื้อสินค้าหนึ่ง แถมอีกสินค้าหนึ่ง':'ลดราคา';
+  return type==='bundle'?'ราคาพิเศษเมื่อซื้อครบจำนวน':type==='buygetdiff'?'ซื้อสินค้าหนึ่ง แถมอีกสินค้าหนึ่ง':'ลดราคา';
 }
 function promotionTargetLabel(promo){
   if(promo.scope==='buygetdiff'){
@@ -3764,7 +3764,6 @@ function promotionTargetLabel(promo){
 function promotionValueLabel(promo){
   if(promo.type==='discount') return promo.discountMode==='percent'?`ลด ${promo.discountValue||0}%`:`ลด ${fmtMoney(promo.discountValue||0)} บาท`;
   if(promo.type==='bundle') return `ซื้อครบ ${promo.bundleQty||0} ชิ้น ราคา ${fmtMoney(promo.bundlePrice||0)}`;
-  if(promo.type==='buyxgety') return `ซื้อ ${promo.buyQty||0} แถม ${promo.getQty||0}`;
   if(promo.type==='buygetdiff') return `ซื้อ ${promo.bgdBuyQty||0} หน่วย แถม ${promo.bgdGetQty||0} หน่วย`;
   return '-';
 }
@@ -3843,7 +3842,7 @@ function findMatchingPromotion(line){
 
 // คำนวณผลของโปรโมชั่นหนึ่งบรรทัด คืนค่า {unitPrice, lineTotal, freeQty, promoId, promoName, note}
 // unitPrice/lineTotal คือราคาสุทธิหลังหักโปรฯ แล้ว (ยังไม่รวมส่วนลดท้ายบิลแยกต่างหาก)
-// freeQty คือจำนวนที่แถมฟรี (ต้องตัดสต็อกเพิ่มแต่ไม่คิดเงิน) เฉพาะโปรฯ แบบ buyxgety
+// freeQty เก็บไว้ในโครงสร้างสำหรับอนาคต ปัจจุบันไม่มีประเภทโปรฯ ใดกำหนดค่านี้ (buygetdiff จัดการของแถมผ่าน reconcileAutoFreeLines แทน)
 function calcPromotionForLine(line){
   const originalUnitPrice=Number(line.price)||0;
   const qty=Number(line.qty)||0;
@@ -3875,19 +3874,6 @@ function calcPromotionForLine(line){
     if(bundleSets<=0) return base; // ยังซื้อไม่ครบเงื่อนไข ใช้ราคาปกติ
     const total=(bundleSets*bundlePrice)+(remainder*originalUnitPrice);
     return {unitPrice:total/qty,lineTotal:total,freeQty:0,promoId:promo.id,promoName:promo.name,note:promotionValueLabel(promo)};
-  }
-
-  if(promo.type==='buyxgety'){
-    const buyQty=Number(promo.buyQty)||0, getQty=Number(promo.getQty)||0;
-    if(buyQty<=0||getQty<=0) return base;
-    const setSize=buyQty+getQty;
-    const fullSets=Math.floor(qty/setSize);
-    const remainder=qty-(fullSets*setSize);
-    // จำนวนที่ต้องจ่ายจริง = ซื้อครบเซ็ต (buyQty ต่อเซ็ต) + เศษที่เหลือทั้งหมด (เศษยังไม่ครบเงื่อนไขแถม จึงจ่ายเต็ม)
-    const actualPayableQty=fullSets*buyQty+remainder;
-    const freeQty=fullSets*getQty;
-    const total=actualPayableQty*originalUnitPrice;
-    return {unitPrice:qty>0?total/qty:originalUnitPrice,lineTotal:total,freeQty,promoId:promo.id,promoName:promo.name,note:promotionValueLabel(promo)};
   }
 
   return base;
@@ -3938,7 +3924,7 @@ function reconcileAutoFreeLines(){
 }
 
 // หาโปรฯ ที่ "เกือบเข้าเงื่อนไข" ต่อบรรทัดในตะกร้า (ยังไม่ครบจำนวนขั้นต่ำ) เพื่อเตือนพนักงานให้ชวนลูกค้าซื้อเพิ่ม
-// ใช้ได้เฉพาะโปรฯ ที่มีขั้นต่ำจำนวนจริง (bundle, buyxgety) — ลด%/เงินสด ไม่มีขั้นต่ำจึงไม่ต้องเตือน
+// ใช้ได้เฉพาะโปรฯ ที่มีขั้นต่ำจำนวนจริง (bundle) — ลด%/เงินสด ไม่มีขั้นต่ำจึงไม่ต้องเตือน
 function getPromotionUpsellHints(lines){
   const hints=[];
   (lines||[]).forEach(line=>{
@@ -3952,16 +3938,6 @@ function getPromotionUpsellHints(lines){
       const remainder=qty%bundleQty;
       if(remainder===0) return; // ครบเงื่อนไขพอดีอยู่แล้ว ไม่ต้องเตือน
       const needMore=bundleQty-remainder;
-      hints.push({lineId:line.lineId,name:line.name,unit:line.unit,promoName:promo.name,needMore,note:promotionValueLabel(promo)});
-    } else if(promo.type==='buyxgety'){
-      const buyQty=Number(promo.buyQty)||0, getQty=Number(promo.getQty)||0;
-      if(buyQty<=0||getQty<=0) return;
-      const setSize=buyQty+getQty;
-      const qty=Number(line.qty)||0;
-      const remainder=qty%setSize;
-      if(remainder===0) return; // ครบเซ็ตพอดี ไม่ต้องเตือน
-      if(remainder>=buyQty) return; // ซื้อครบส่วนที่ต้องจ่ายแล้ว รอรับแถมอัตโนมัติ ไม่ต้องเตือนเพิ่ม
-      const needMore=buyQty-remainder;
       hints.push({lineId:line.lineId,name:line.name,unit:line.unit,promoName:promo.name,needMore,note:promotionValueLabel(promo)});
     }
   });
@@ -4013,7 +3989,7 @@ function renderPromoCategoryItemsList(items){
 }
 function renderPromotionForm(){
   const isNew=editingPromotionId==='new';
-  const promo=isNew?{name:'',active:true,startDate:'',endDate:'',scope:'product',productId:null,category:'',brand:'',categoryMode:'all',items:[],unit:'',type:'discount',discountMode:'percent',discountValue:'',bundleQty:'',bundlePrice:'',buyQty:'',getQty:'',bgdBuyProductId:null,bgdBuyUnit:'',bgdBuyQty:'',bgdGetProductId:null,bgdGetUnit:'',bgdGetQty:''}:promotions.find(x=>x.id===editingPromotionId);
+  const promo=isNew?{name:'',active:true,startDate:'',endDate:'',scope:'product',productId:null,category:'',brand:'',categoryMode:'all',items:[],unit:'',type:'discount',discountMode:'percent',discountValue:'',bundleQty:'',bundlePrice:'',bgdBuyProductId:null,bgdBuyUnit:'',bgdBuyQty:'',bgdGetProductId:null,bgdGetUnit:'',bgdGetQty:''}:promotions.find(x=>x.id===editingPromotionId);
   if(!promo) return '<div class="panel">ไม่พบโปรโมชั่น</div>';
   if(promoDraftItemsSyncedFor!==editingPromotionId){
     currentPromoDraftItems=(promo.items||[]).map(it=>({...it}));
@@ -4098,7 +4074,6 @@ function renderPromotionForm(){
             <div class="crow"><label>ประเภท</label><div class="cradio">
               <label><input type="radio" name="promo_type" value="discount" ${promo.type==='discount'?'checked':''}> ลดราคา (%/บาท)</label>
               <label><input type="radio" name="promo_type" value="bundle" ${promo.type==='bundle'?'checked':''}> ราคาพิเศษเมื่อซื้อครบจำนวน</label>
-              <label><input type="radio" name="promo_type" value="buyxgety" ${promo.type==='buyxgety'?'checked':''}> ซื้อ X แถม Y</label>
               <label><input type="radio" name="promo_type" value="buygetdiff" ${promo.type==='buygetdiff'?'checked':''}> ซื้อสินค้าหนึ่ง แถมอีกสินค้าหนึ่ง</label>
             </div></div>
             <div id="promo_fields_discount" class="promo-fields-group" style="display:${promo.type==='discount'?'flex':'none'};">
@@ -4111,11 +4086,6 @@ function renderPromotionForm(){
             <div id="promo_fields_bundle" class="promo-fields-group" style="display:${promo.type==='bundle'?'flex':'none'};">
               <div class="crow"><label>ซื้อครบจำนวน (ชิ้น) <span class="req">*</span></label><input id="promo_bundle_qty" type="number" min="1" step="1" value="${promo.bundleQty||''}" placeholder="เช่น 3"></div>
               <div class="crow"><label>ราคาพิเศษรวม (บาท) <span class="req">*</span></label><input id="promo_bundle_price" type="number" min="0" step="0.01" value="${promo.bundlePrice||''}" placeholder="เช่น 299"></div>
-            </div>
-            <div id="promo_fields_buyxgety" class="promo-fields-group" style="display:${promo.type==='buyxgety'?'flex':'none'};">
-              <div class="crow"><label>ซื้อ (ชิ้น) <span class="req">*</span></label><input id="promo_buy_qty" type="number" min="1" step="1" value="${promo.buyQty||''}" placeholder="เช่น 2"></div>
-              <div class="crow"><label>แถม (ชิ้น) <span class="req">*</span></label><input id="promo_get_qty" type="number" min="1" step="1" value="${promo.getQty||''}" placeholder="เช่น 1"></div>
-              <div style="font-size:12px;color:var(--text-muted);">ตัวอย่าง: ซื้อ 2 แถม 1 หมายถึงซื้อครบทุก 2 ชิ้น จะได้รับแถมเพิ่ม 1 ชิ้นโดยไม่คิดเงิน</div>
             </div>
             <div id="promo_fields_buygetdiff" class="promo-fields-group" style="display:${promo.type==='buygetdiff'?'flex':'none'};">
               <div class="crow"><label>สินค้าที่ต้องซื้อ (A) <span class="req">*</span></label>
@@ -5282,7 +5252,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   // สลับฟิลด์ตามประเภทโปรโมชั่น
   document.querySelectorAll('input[name="promo_type"]').forEach(el=>{
     el.addEventListener('change', ()=>{
-      const map={discount:'promo_fields_discount',bundle:'promo_fields_bundle',buyxgety:'promo_fields_buyxgety',buygetdiff:'promo_fields_buygetdiff'};
+      const map={discount:'promo_fields_discount',bundle:'promo_fields_bundle',buygetdiff:'promo_fields_buygetdiff'};
       Object.entries(map).forEach(([type,id])=>{
         const field=document.getElementById(id);
         if(field) field.style.display=(type===el.value)?'flex':'none';
@@ -7045,7 +7015,7 @@ function savePromotion(){
     }
   }
   const data={name,active,startDate,endDate,scope,productId,category,brand,categoryMode,items,unit,type,
-    discountMode:'percent',discountValue:'',bundleQty:'',bundlePrice:'',buyQty:'',getQty:'',
+    discountMode:'percent',discountValue:'',bundleQty:'',bundlePrice:'',
     bgdBuyProductId,bgdBuyUnit,bgdBuyQty,bgdGetProductId,bgdGetUnit,bgdGetQty};
   if(type==='discount'){
     data.discountMode=document.querySelector('input[name="promo_discount_mode"]:checked')?.value||'percent';
@@ -7057,10 +7027,6 @@ function savePromotion(){
     data.bundlePrice=parseFloat(g('promo_bundle_price')?.value)||0;
     if(data.bundleQty<=1){ showToast('จำนวนที่ซื้อครบต้องมากกว่า 1 ชิ้น'); return; }
     if(data.bundlePrice<=0){ showToast('กรุณากรอกราคาพิเศษให้ถูกต้อง'); return; }
-  } else if(type==='buyxgety'){
-    data.buyQty=parseInt(g('promo_buy_qty')?.value)||0;
-    data.getQty=parseInt(g('promo_get_qty')?.value)||0;
-    if(data.buyQty<=0||data.getQty<=0){ showToast('กรุณากรอกจำนวนซื้อและจำนวนแถมให้ถูกต้อง'); return; }
   }
   if(editingPromotionId==='new'){
     promotions.push({id:nextPromotionId++,...data});
