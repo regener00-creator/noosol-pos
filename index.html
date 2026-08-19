@@ -4916,6 +4916,11 @@ function render(){
   reconcileAutoFreeLines();
   schedulePersistWorkspaceData();
   renderSidebar();
+  // เคลียร์ปุ่มเก่าที่ topbar ก่อนสร้าง HTML ใหม่และผูก event listener เสมอ
+  // ป้องกัน duplicate id ระหว่างปุ่มเก่าที่ topbar กับปุ่มใหม่ใน .main ตอน attachEvents() ค้นหาด้วย getElementById
+  // (ถ้าไม่เคลียร์ก่อน document.getElementById จะเจอปุ่มเก่าที่ topbar ก่อนเสมอเพราะอยู่หน้ากว่าใน DOM แล้วผูก listener ผิดตัว)
+  const topbarFormActionsSlot=document.getElementById('topbarFormActions');
+  if(topbarFormActionsSlot) topbarFormActionsSlot.innerHTML='';
   document.getElementById('main').innerHTML = (RENDERERS[currentTab]||renderDashboard)();
   attachEvents();
   syncTopbarFormActions();
@@ -4926,8 +4931,8 @@ function render(){
 function syncTopbarFormActions(){
   const slot=document.getElementById('topbarFormActions');
   if(!slot) return;
-  slot.innerHTML='';
-  const actions=document.querySelector('.form-final-actions');
+  const main=document.getElementById('main');
+  const actions=main?main.querySelector('.form-final-actions'):null;
   if(actions) slot.appendChild(actions);
 }
 
