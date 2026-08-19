@@ -398,8 +398,11 @@
   .crow{display:grid;grid-template-columns:130px 1fr;gap:12px;align-items:start;}
   .crow label{font-size:13px;color:var(--text-muted);padding-top:8px;}
   .crow input,.crow textarea{padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13.5px;background:var(--surface);width:100%;}
+  .crow>.dmy-field{display:flex;width:100%;min-width:0;}
+  .crow>.dmy-field .dmy-input{width:100%;min-width:0;padding-right:38px;}
   .promo-select{padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13.5px;background:var(--surface);width:100%;-webkit-appearance:none;appearance:none;padding-right:34px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%231D2129' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 11px center;background-size:14px 14px;cursor:pointer;}
   .promo-item-list{display:flex;flex-direction:column;gap:6px;margin-top:8px;}
+  .promo-fields-group{flex-direction:column;gap:11px;}
   .promo-item-row{display:grid;grid-template-columns:1fr 130px 30px;gap:8px;align-items:center;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);}
   .promo-item-row-name{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .promo-item-unit{padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;background:var(--surface);}
@@ -4011,7 +4014,7 @@ function renderPromotionForm(){
             </div></div>
             <div class="crow"><label>วันเริ่มโปรโมชั่น</label>${dmyDateFieldHtml('promo_start',promo.startDate)}</div>
             <div class="crow"><label>วันสิ้นสุดโปรโมชั่น</label>${dmyDateFieldHtml('promo_end',promo.endDate)}</div>
-            <div class="crow"><label style="font-weight:400;color:var(--text-muted);font-size:12px;">เว้นว่างช่องใดช่องหนึ่งหรือทั้งคู่ได้ = ไม่จำกัดช่วงเวลานั้น</label></div>
+            <div style="font-weight:400;color:var(--text-muted);font-size:12px;margin-top:2px;">เว้นว่างช่องใดช่องหนึ่งหรือทั้งคู่ได้ = ไม่จำกัดช่วงเวลานั้น</div>
           </div>
         </div>
         <div class="panel" style="margin-top:16px;">
@@ -4022,18 +4025,18 @@ function renderPromotionForm(){
               <label><input type="radio" name="promo_type" value="bundle" ${promo.type==='bundle'?'checked':''}> ราคาพิเศษเมื่อซื้อครบจำนวน</label>
               <label><input type="radio" name="promo_type" value="buyxgety" ${promo.type==='buyxgety'?'checked':''}> ซื้อ X แถม Y</label>
             </div></div>
-            <div id="promo_fields_discount" style="display:${promo.type==='discount'?'block':'none'};">
+            <div id="promo_fields_discount" class="promo-fields-group" style="display:${promo.type==='discount'?'flex':'none'};">
               <div class="crow"><label>รูปแบบส่วนลด</label><div class="cradio">
                 <label><input type="radio" name="promo_discount_mode" value="percent" ${promo.discountMode!=='amount'?'checked':''}> ลดเป็น %</label>
                 <label><input type="radio" name="promo_discount_mode" value="amount" ${promo.discountMode==='amount'?'checked':''}> ลดเป็นจำนวนเงิน (บาท/หน่วย)</label>
               </div></div>
               <div class="crow"><label>มูลค่าส่วนลด <span class="req">*</span></label><input id="promo_discount_value" type="number" min="0" step="0.01" value="${promo.discountValue||''}" placeholder="เช่น 10"></div>
             </div>
-            <div id="promo_fields_bundle" style="display:${promo.type==='bundle'?'block':'none'};">
+            <div id="promo_fields_bundle" class="promo-fields-group" style="display:${promo.type==='bundle'?'flex':'none'};">
               <div class="crow"><label>ซื้อครบจำนวน (ชิ้น) <span class="req">*</span></label><input id="promo_bundle_qty" type="number" min="1" step="1" value="${promo.bundleQty||''}" placeholder="เช่น 3"></div>
               <div class="crow"><label>ราคาพิเศษรวม (บาท) <span class="req">*</span></label><input id="promo_bundle_price" type="number" min="0" step="0.01" value="${promo.bundlePrice||''}" placeholder="เช่น 299"></div>
             </div>
-            <div id="promo_fields_buyxgety" style="display:${promo.type==='buyxgety'?'block':'none'};">
+            <div id="promo_fields_buyxgety" class="promo-fields-group" style="display:${promo.type==='buyxgety'?'flex':'none'};">
               <div class="crow"><label>ซื้อ (ชิ้น) <span class="req">*</span></label><input id="promo_buy_qty" type="number" min="1" step="1" value="${promo.buyQty||''}" placeholder="เช่น 2"></div>
               <div class="crow"><label>แถม (ชิ้น) <span class="req">*</span></label><input id="promo_get_qty" type="number" min="1" step="1" value="${promo.getQty||''}" placeholder="เช่น 1"></div>
               <div style="font-size:12px;color:var(--text-muted);">ตัวอย่าง: ซื้อ 2 แถม 1 หมายถึงซื้อครบทุก 2 ชิ้น จะได้รับแถมเพิ่ม 1 ชิ้นโดยไม่คิดเงิน</div>
@@ -5163,7 +5166,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       const map={discount:'promo_fields_discount',bundle:'promo_fields_bundle',buyxgety:'promo_fields_buyxgety'};
       Object.entries(map).forEach(([type,id])=>{
         const field=document.getElementById(id);
-        if(field) field.style.display=(type===el.value)?'block':'none';
+        if(field) field.style.display=(type===el.value)?'flex':'none';
       });
     });
   });
