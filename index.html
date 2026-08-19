@@ -6985,7 +6985,6 @@ function savePromotion(){
     if(!bgdGetUnit){ showToast('กรุณาเลือกหน่วยสินค้าที่จะแถม'); return; }
     bgdGetQty=parseInt(g('promo_bgd_get_qty')?.value)||0;
     if(bgdGetQty<=0){ showToast('กรุณากรอกจำนวนที่จะแถมให้ถูกต้อง'); return; }
-    if(bgdBuyProductId===bgdGetProductId && bgdBuyUnit===bgdGetUnit){ showToast('สินค้าที่ต้องซื้อและสินค้าที่จะแถมต้องไม่ใช่ตัวเดียวกัน'); return; }
   } else {
     scope=document.querySelector('input[name="promo_scope"]:checked')?.value||'product';
     if(scope==='product'){
