@@ -6608,7 +6608,7 @@ function selectPromoProduct(productId){
   if(hidden) hidden.value=p.id;
   if(searchInput) searchInput.value=p.name;
   if(box){ box.innerHTML=''; box.hidden=true; }
-  updatePromotionUnitOptions();
+  updatePromoUnitOptions();
   // อัปเดตข้อความ "เลือกแล้ว: ..." โดยไม่ต้อง render ทั้งฟอร์มใหม่ (กันเสีย focus)
   const fieldWrap=document.getElementById('promo_product_field_wrap');
   if(fieldWrap){
