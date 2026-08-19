@@ -360,6 +360,8 @@
   .pos-promo-tag.promo-pending{color:var(--danger);}
   .pos-free-row td{background:#F0F9EE;color:#2E8B3D;font-size:12.5px;padding:6px 8px;border-bottom:1px solid var(--border);}
   .pos-free-row td:nth-child(2){text-align:left;font-weight:600;}
+  .pos-autofree-row td{background:#F0F9EE;border-bottom:1px solid var(--border);}
+  .pos-autofree-row td:nth-child(2){text-align:left;font-weight:600;}
   .pos-table td.num, .pos-table td.mono.num{text-align:left;}
   .line-unit{padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:12.5px;background:var(--surface);cursor:pointer;}
   .line-unit-cell{text-align:left;}
@@ -2304,6 +2306,19 @@ function renderCheckout(){
       const promoLine=promoResult.lines[idx];
       const lt=promoLine.promoId?promoLine.promoLineTotal:line.price*line.qty;
       subtotal+=lt;
+      if(line.autoFreeFromPromo){
+        // บรรทัดของแถมอัตโนมัติจากโปรฯ "ซื้อสินค้า A แถมสินค้า B" - ลบ/แก้ไขเองไม่ได้ ต้องลดจำนวนสินค้าหลัก (A) ก่อนถึงจะหายไปเอง
+        rowsHtml += `<tr class="pos-autofree-row">
+          <td class="mono">${String(idx+1).padStart(3,'0')}</td>
+          <td>🎁 ${escapeHtml(line.name)}<br><small class="pos-promo-tag promo-active">ของแถม — ${escapeHtml(line.autoFreePromoName||'')}</small></td>
+          <td class="mono num">0.00</td>
+          <td>${escapeHtml(line.unit)}</td>
+          <td class="pos-qty mono">${line.qty}</td>
+          <td class="mono num">0.00</td>
+          <td class="pos-del-cell"><button class="pos-del" disabled title="เป็นของแถม — ลดจำนวนสินค้าหลักเพื่อเอาออก" style="opacity:.35;cursor:not-allowed;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></button></td>
+        </tr>`;
+        return;
+      }
       const opts = p?productUnitOptions(p):[];
       const unitCell = line.custom
         ? `<input class="custom-line-input custom-line-unit" data-custom-unit data-line="${line.lineId}" value="${escapeHtml(line.unit)}" list="inlineCustomUnits" placeholder="หน่วย">`
@@ -3727,9 +3742,14 @@ function promotionStatusInfo(promo){
   return {label:'ใช้งานอยู่',cls:'promo-live'};
 }
 function promotionTypeLabel(type){
-  return type==='bundle'?'ราคาพิเศษเมื่อซื้อครบจำนวน':type==='buyxgety'?'ซื้อ X แถม Y':'ลดราคา';
+  return type==='bundle'?'ราคาพิเศษเมื่อซื้อครบจำนวน':type==='buyxgety'?'ซื้อ X แถม Y':type==='buygetdiff'?'ซื้อสินค้าหนึ่ง แถมอีกสินค้าหนึ่ง':'ลดราคา';
 }
 function promotionTargetLabel(promo){
+  if(promo.scope==='buygetdiff'){
+    const buyP=products.find(x=>x.id===promo.bgdBuyProductId);
+    const getP=products.find(x=>x.id===promo.bgdGetProductId);
+    return `ซื้อ: ${buyP?buyP.name:'สินค้าถูกลบไปแล้ว'} (${promo.bgdBuyUnit}) › แถม: ${getP?getP.name:'สินค้าถูกลบไปแล้ว'} (${promo.bgdGetUnit})`;
+  }
   if(promo.scope==='product'){
     const p=products.find(x=>x.id===promo.productId);
     return p?`${p.name} (${promo.unit||p.unit})`:'สินค้าถูกลบไปแล้ว';
@@ -3745,6 +3765,7 @@ function promotionValueLabel(promo){
   if(promo.type==='discount') return promo.discountMode==='percent'?`ลด ${promo.discountValue||0}%`:`ลด ${fmtMoney(promo.discountValue||0)} บาท`;
   if(promo.type==='bundle') return `ซื้อครบ ${promo.bundleQty||0} ชิ้น ราคา ${fmtMoney(promo.bundlePrice||0)}`;
   if(promo.type==='buyxgety') return `ซื้อ ${promo.buyQty||0} แถม ${promo.getQty||0}`;
+  if(promo.type==='buygetdiff') return `ซื้อ ${promo.bgdBuyQty||0} หน่วย แถม ${promo.bgdGetQty||0} หน่วย`;
   return '-';
 }
 
@@ -3772,6 +3793,9 @@ function getUsedPromotionSlots(excludePromotionId){
       if(promo.productId && promo.unit) slots.add(`${promo.productId}::${promo.unit}`);
     } else if(promo.scope==='category'){
       (promo.items||[]).forEach(it=>{ if(it.productId && it.unit) slots.add(`${it.productId}::${it.unit}`); });
+    } else if(promo.scope==='buygetdiff'){
+      if(promo.bgdBuyProductId && promo.bgdBuyUnit) slots.add(`${promo.bgdBuyProductId}::${promo.bgdBuyUnit}`);
+      if(promo.bgdGetProductId && promo.bgdGetUnit) slots.add(`${promo.bgdGetProductId}::${promo.bgdGetUnit}`);
     }
   });
   return slots;
@@ -3787,6 +3811,7 @@ function findPromotionUsingSlot(productId,unit,excludePromotionId){
     if(promo.id===excludePromotionId) continue;
     if(promo.scope==='product' && promo.productId===productId && promo.unit===unit) return promo;
     if(promo.scope==='category' && (promo.items||[]).some(it=>it.productId===productId && it.unit===unit)) return promo;
+    if(promo.scope==='buygetdiff' && ((promo.bgdBuyProductId===productId && promo.bgdBuyUnit===unit) || (promo.bgdGetProductId===productId && promo.bgdGetUnit===unit))) return promo;
   }
   return null;
 }
@@ -3823,6 +3848,10 @@ function calcPromotionForLine(line){
   const originalUnitPrice=Number(line.price)||0;
   const qty=Number(line.qty)||0;
   const base={unitPrice:originalUnitPrice,lineTotal:originalUnitPrice*qty,freeQty:0,promoId:null,promoName:'',note:''};
+  // บรรทัดของแถมอัตโนมัติจาก "ซื้อ A แถม B" ต้องราคา 0 คงที่เสมอ ไม่คำนวณโปรฯ อื่นซ้อนทับ (แม้สินค้า B จะมีโปรฯ อื่นผูกอยู่ก็ตาม)
+  if(line.autoFreeFromPromo){
+    return {unitPrice:0,lineTotal:0,freeQty:0,promoId:line.autoFreeFromPromo,promoName:line.autoFreePromoName||'',note:'ของแถม'};
+  }
   if(qty<=0) return base;
   const promo=findMatchingPromotion(line);
   if(!promo) return base;
@@ -3878,6 +3907,34 @@ function applyPromotions(lines){
     totalSaved:Math.max(0,originalTotal-discountedTotal),
     usedPromotions,
   };
+}
+
+// ซิงค์บรรทัด "ของแถมอัตโนมัติ" ในตะกร้าให้ตรงกับโปรโมชั่นแบบ "ซื้อสินค้า A แถมสินค้า B" (scope='buygetdiff') ที่เปิดใช้งานอยู่
+// ทำงานทุกครั้งก่อน render: ลบของแถมเดิมออกก่อนเสมอ แล้วคำนวณใหม่ทั้งหมดตามสินค้า A ที่มีอยู่จริงในตะกร้าขณะนั้น (กันข้อมูลเก่าค้าง)
+function reconcileAutoFreeLines(){
+  cart = cart.filter(l=>!l.autoFreeFromPromo);
+  const promos = promotions.filter(p=>p.scope==='buygetdiff' && isPromotionLiveToday(p));
+  promos.forEach(promo=>{
+    const buyLine = cart.find(l=>l.pid===promo.bgdBuyProductId && l.unit===promo.bgdBuyUnit && !l.custom);
+    if(!buyLine) return;
+    const buyQty = Number(promo.bgdBuyQty)||0;
+    if(buyQty<=0) return;
+    const qty = Number(buyLine.qty)||0;
+    const fullSets = Math.floor(qty/buyQty);
+    if(fullSets<=0) return;
+    const freeQty = fullSets*(Number(promo.bgdGetQty)||0);
+    if(freeQty<=0) return;
+    const p = products.find(x=>x.id===promo.bgdGetProductId);
+    if(!p) return;
+    const unit = promo.bgdGetUnit||p.unit;
+    let factor=1, cost=productUnitCost(p,p.unit,1);
+    if(unit!==p.unit){
+      const u=(p.units||[]).find(x=>x.sub===unit);
+      factor=u?.factor||1;
+      cost=productUnitCost(p,unit,factor);
+    }
+    cart.push({lineId:lineCounter++,pid:promo.bgdGetProductId,name:p.name,unit,unitName:unit,price:0,cost,factor,qty:freeQty,autoFreeFromPromo:promo.id,autoFreePromoName:promo.name});
+  });
 }
 
 // หาโปรฯ ที่ "เกือบเข้าเงื่อนไข" ต่อบรรทัดในตะกร้า (ยังไม่ครบจำนวนขั้นต่ำ) เพื่อเตือนพนักงานให้ชวนลูกค้าซื้อเพิ่ม
@@ -3956,7 +4013,7 @@ function renderPromoCategoryItemsList(items){
 }
 function renderPromotionForm(){
   const isNew=editingPromotionId==='new';
-  const promo=isNew?{name:'',active:true,startDate:'',endDate:'',scope:'product',productId:null,category:'',brand:'',categoryMode:'all',items:[],unit:'',type:'discount',discountMode:'percent',discountValue:'',bundleQty:'',bundlePrice:'',buyQty:'',getQty:''}:promotions.find(x=>x.id===editingPromotionId);
+  const promo=isNew?{name:'',active:true,startDate:'',endDate:'',scope:'product',productId:null,category:'',brand:'',categoryMode:'all',items:[],unit:'',type:'discount',discountMode:'percent',discountValue:'',bundleQty:'',bundlePrice:'',buyQty:'',getQty:'',bgdBuyProductId:null,bgdBuyUnit:'',bgdBuyQty:'',bgdGetProductId:null,bgdGetUnit:'',bgdGetQty:''}:promotions.find(x=>x.id===editingPromotionId);
   if(!promo) return '<div class="panel">ไม่พบโปรโมชั่น</div>';
   if(promoDraftItemsSyncedFor!==editingPromotionId){
     currentPromoDraftItems=(promo.items||[]).map(it=>({...it}));
@@ -3973,10 +4030,22 @@ function renderPromotionForm(){
       return `<option value="${escapeHtml(u)}" ${isCurrent?'selected':''}>${escapeHtml(u)}</option>`;
     }).join('');
   };
+  const selectedBgdBuyProduct=promo.bgdBuyProductId?products.find(p=>p.id===promo.bgdBuyProductId):null;
+  const selectedBgdGetProduct=promo.bgdGetProductId?products.find(p=>p.id===promo.bgdGetProductId):null;
+  const bgdUnitOptions=(p,currentUnit)=>{
+    if(!p) return '';
+    const opts=[p.unit,...(p.units||[]).map(u=>u.sub)];
+    return opts.map(u=>{
+      const isCurrent=currentUnit===u;
+      const usedBy=!isCurrent?findPromotionUsingSlot(p.id,u,editingPromotionId):null;
+      if(usedBy) return `<option value="${escapeHtml(u)}" disabled>${escapeHtml(u)} (ใช้ในโปรฯ "${escapeHtml(usedBy.name)}" แล้ว)</option>`;
+      return `<option value="${escapeHtml(u)}" ${isCurrent?'selected':''}>${escapeHtml(u)}</option>`;
+    }).join('');
+  };
   return `<div class="pagehead"><div><div class="breadcrumb">โปรโมชั่น › ${isNew?'สร้างโปรโมชั่น':'แก้ไขโปรโมชั่น'}</div><h1>${isNew?'สร้างโปรโมชั่น':'แก้ไขโปรโมชั่น'}</h1></div>
     <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelPromotionBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePromotionBtn">บันทึกแล้วปิด</button></div></div>
     <div class="grid2col grid2col-even align-top">
-      <div class="panel">
+      <div class="panel" id="promo_left_panel" style="display:${promo.type==='buygetdiff'?'none':'block'};">
         <h3>สินค้าที่เข้าร่วมโปรโมชั่น</h3>
         <div class="cform">
           <div class="crow"><label>ผูกกับ</label><div class="cradio">
@@ -4030,6 +4099,7 @@ function renderPromotionForm(){
               <label><input type="radio" name="promo_type" value="discount" ${promo.type==='discount'?'checked':''}> ลดราคา (%/บาท)</label>
               <label><input type="radio" name="promo_type" value="bundle" ${promo.type==='bundle'?'checked':''}> ราคาพิเศษเมื่อซื้อครบจำนวน</label>
               <label><input type="radio" name="promo_type" value="buyxgety" ${promo.type==='buyxgety'?'checked':''}> ซื้อ X แถม Y</label>
+              <label><input type="radio" name="promo_type" value="buygetdiff" ${promo.type==='buygetdiff'?'checked':''}> ซื้อสินค้าหนึ่ง แถมอีกสินค้าหนึ่ง</label>
             </div></div>
             <div id="promo_fields_discount" class="promo-fields-group" style="display:${promo.type==='discount'?'flex':'none'};">
               <div class="crow"><label>รูปแบบส่วนลด</label><div class="cradio">
@@ -4046,6 +4116,38 @@ function renderPromotionForm(){
               <div class="crow"><label>ซื้อ (ชิ้น) <span class="req">*</span></label><input id="promo_buy_qty" type="number" min="1" step="1" value="${promo.buyQty||''}" placeholder="เช่น 2"></div>
               <div class="crow"><label>แถม (ชิ้น) <span class="req">*</span></label><input id="promo_get_qty" type="number" min="1" step="1" value="${promo.getQty||''}" placeholder="เช่น 1"></div>
               <div style="font-size:12px;color:var(--text-muted);">ตัวอย่าง: ซื้อ 2 แถม 1 หมายถึงซื้อครบทุก 2 ชิ้น จะได้รับแถมเพิ่ม 1 ชิ้นโดยไม่คิดเงิน</div>
+            </div>
+            <div id="promo_fields_buygetdiff" class="promo-fields-group" style="display:${promo.type==='buygetdiff'?'flex':'none'};">
+              <div class="crow"><label>สินค้าที่ต้องซื้อ (A) <span class="req">*</span></label>
+                <div id="promo_bgd_buy_field_wrap">
+                  <input type="hidden" id="promo_bgd_buy_product_id" value="${promo.bgdBuyProductId||''}">
+                  <div class="doc-scanner-wrap" style="margin:0;">
+                    <div class="doc-scanner"><span class="doc-scanner-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><input id="promo_bgd_buy_product_search" placeholder="ค้นหาสินค้าที่ต้องซื้อ" autocomplete="off" value="${selectedBgdBuyProduct?escapeHtml(selectedBgdBuyProduct.name):''}"></div>
+                    <div class="doc-scan-results" id="promoBgdBuyProductResults" hidden></div>
+                  </div>
+                  ${selectedBgdBuyProduct?`<div class="promo-selected-hint" style="font-size:12px;color:var(--text-muted);margin-top:6px;">เลือกแล้ว: <b style="color:var(--text);">${escapeHtml(selectedBgdBuyProduct.name)}</b> (${escapeHtml(selectedBgdBuyProduct.sku||'-')})</div>`:''}
+                </div>
+              </div>
+              <div class="crow"><label>หน่วยที่ต้องซื้อ <span class="req">*</span></label>
+                <select id="promo_bgd_buy_unit" class="promo-select">${selectedBgdBuyProduct?bgdUnitOptions(selectedBgdBuyProduct,promo.bgdBuyUnit):'<option value="">เลือกสินค้าก่อน</option>'}</select>
+              </div>
+              <div class="crow"><label>จำนวนที่ต้องซื้อต่อชุด <span class="req">*</span></label><input id="promo_bgd_buy_qty" type="number" min="1" step="1" value="${promo.bgdBuyQty||''}" placeholder="เช่น 1"></div>
+              <div style="border-top:1px dashed var(--border);margin:6px 0 10px;"></div>
+              <div class="crow"><label>สินค้าที่จะแถม (B) <span class="req">*</span></label>
+                <div id="promo_bgd_get_field_wrap">
+                  <input type="hidden" id="promo_bgd_get_product_id" value="${promo.bgdGetProductId||''}">
+                  <div class="doc-scanner-wrap" style="margin:0;">
+                    <div class="doc-scanner"><span class="doc-scanner-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><input id="promo_bgd_get_product_search" placeholder="ค้นหาสินค้าที่จะแถม" autocomplete="off" value="${selectedBgdGetProduct?escapeHtml(selectedBgdGetProduct.name):''}"></div>
+                    <div class="doc-scan-results" id="promoBgdGetProductResults" hidden></div>
+                  </div>
+                  ${selectedBgdGetProduct?`<div class="promo-selected-hint" style="font-size:12px;color:var(--text-muted);margin-top:6px;">เลือกแล้ว: <b style="color:var(--text);">${escapeHtml(selectedBgdGetProduct.name)}</b> (${escapeHtml(selectedBgdGetProduct.sku||'-')})</div>`:''}
+                </div>
+              </div>
+              <div class="crow"><label>หน่วยที่จะแถม <span class="req">*</span></label>
+                <select id="promo_bgd_get_unit" class="promo-select">${selectedBgdGetProduct?bgdUnitOptions(selectedBgdGetProduct,promo.bgdGetUnit):'<option value="">เลือกสินค้าก่อน</option>'}</select>
+              </div>
+              <div class="crow"><label>จำนวนที่แถมต่อชุด <span class="req">*</span></label><input id="promo_bgd_get_qty" type="number" min="1" step="1" value="${promo.bgdGetQty||''}" placeholder="เช่น 2"></div>
+              <div style="font-size:12px;color:var(--text-muted);">ตัวอย่าง: ซื้อ Restiv ครบ 1 กล่อง แถม Fish Oil 2 ขวด — ซื้อ Restiv ทุก 1 กล่อง จะได้ Fish Oil เพิ่ม 2 ขวดโดยไม่คิดเงิน (แถมเข้าตะกร้าอัตโนมัติ ลบเองไม่ได้ ต้องลดจำนวน Restiv จึงจะหายไป)</div>
             </div>
           </div>
         </div>
@@ -4825,6 +4927,7 @@ function render(){
     editingTransferId=null; transferDraft=null;
   }
   if(isLevel2User()&&currentTab==='products'&&editingProductId!==null&&editingProductId!=='new') editingProductId=null;
+  reconcileAutoFreeLines();
   schedulePersistWorkspaceData();
   renderSidebar();
   document.getElementById('main').innerHTML = (RENDERERS[currentTab]||renderDashboard)();
@@ -4901,7 +5004,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   el.addEventListener('change', commit);
   el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); commit(); const s=document.getElementById('search'); if(s) s.focus(); } });
 });
-  document.querySelectorAll('[data-act="removeline"]').forEach(el=>{ el.addEventListener('click', ()=>{ cart=cart.filter(x=>x.lineId!=el.dataset.line); render(); }); });
+  document.querySelectorAll('[data-act="removeline"]').forEach(el=>{ el.addEventListener('click', ()=>{ const target=cart.find(x=>x.lineId==el.dataset.line); if(target?.autoFreeFromPromo){ showToast('เป็นของแถม — ลดจำนวนสินค้าหลักเพื่อเอาออก'); return; } cart=cart.filter(x=>x.lineId!=el.dataset.line); render(); }); });
   // เปลี่ยนหน่วยของบรรทัดในบิล
   document.querySelectorAll('.line-unit').forEach(el=>{
     el.addEventListener('change', ()=>{
@@ -5179,13 +5282,18 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   // สลับฟิลด์ตามประเภทโปรโมชั่น
   document.querySelectorAll('input[name="promo_type"]').forEach(el=>{
     el.addEventListener('change', ()=>{
-      const map={discount:'promo_fields_discount',bundle:'promo_fields_bundle',buyxgety:'promo_fields_buyxgety'};
+      const map={discount:'promo_fields_discount',bundle:'promo_fields_bundle',buyxgety:'promo_fields_buyxgety',buygetdiff:'promo_fields_buygetdiff'};
       Object.entries(map).forEach(([type,id])=>{
         const field=document.getElementById(id);
         if(field) field.style.display=(type===el.value)?'flex':'none';
       });
+      // ประเภท "ซื้อสินค้าหนึ่ง แถมอีกสินค้าหนึ่ง" ไม่ใช้ panel 'สินค้าที่เข้าร่วมโปรโมชั่น' ฝั่งซ้าย (ระบุสินค้าในฟิลด์ประเภทโปรฯ แทน)
+      const leftPanel=document.getElementById('promo_left_panel');
+      if(leftPanel) leftPanel.style.display=(el.value==='buygetdiff')?'none':'block';
     });
   });
+  bindPromoBgdProductSearch('buy');
+  bindPromoBgdProductSearch('get');
   const saveBusinessSettingsBtn=document.getElementById('saveBusinessSettingsBtn');
   if(saveBusinessSettingsBtn) saveBusinessSettingsBtn.addEventListener('click',saveBusinessSettings);
   const saveDocumentPrefixesBtn=document.getElementById('saveDocumentPrefixesBtn');
@@ -6705,6 +6813,89 @@ function bindPromoProductSearch(){
   });
   input.addEventListener('blur',()=>setTimeout(()=>{ box.hidden=true; },140));
 }
+// ===== ค้นหาสินค้าคู่ (buy/get) สำหรับโปรฯ "ซื้อสินค้าหนึ่ง แถมอีกสินค้าหนึ่ง" (scope='buygetdiff') แยกจากช่องค้นหาสินค้ารายตัวเดิมทั้งหมด =====
+const PROMO_BGD_FIELD_CONFIG={
+  buy:{searchId:'promo_bgd_buy_product_search',hiddenId:'promo_bgd_buy_product_id',resultsId:'promoBgdBuyProductResults',wrapId:'promo_bgd_buy_field_wrap',unitSelectId:'promo_bgd_buy_unit'},
+  get:{searchId:'promo_bgd_get_product_search',hiddenId:'promo_bgd_get_product_id',resultsId:'promoBgdGetProductResults',wrapId:'promo_bgd_get_field_wrap',unitSelectId:'promo_bgd_get_unit'},
+};
+function renderPromoBgdProductResults(which,query){
+  const cfg=PROMO_BGD_FIELD_CONFIG[which]; if(!cfg) return;
+  const box=document.getElementById(cfg.resultsId);
+  if(!box) return;
+  const q=String(query||'').trim();
+  if(!q){ box.innerHTML=''; box.hidden=true; return; }
+  const needle=q.toLowerCase();
+  const matches=products.filter(p=>
+    (p.name||'').toLowerCase().includes(needle) ||
+    (p.sku||'').toLowerCase().includes(needle) ||
+    (p.barcode||'').toLowerCase().includes(needle)
+  ).slice(0,8);
+  box.innerHTML=matches.length?matches.map(p=>
+    `<button type="button" class="doc-scan-result" data-pid="${p.id}"><span><b>${escapeHtml(p.name)}</b><small>${escapeHtml(p.sku||'-')} · บาร์โค้ด ${escapeHtml(p.barcode||'-')}</small></span></button>`
+  ).join(''):`<div class="doc-scan-empty">ไม่พบสินค้า "${escapeHtml(q)}"</div>`;
+  box.hidden=false;
+  box.querySelectorAll('.doc-scan-result').forEach(btn=>{
+    btn.addEventListener('mousedown',e=>e.preventDefault());
+    btn.addEventListener('click',()=>selectPromoBgdProduct(which,Number(btn.dataset.pid)));
+  });
+}
+function selectPromoBgdProduct(which,productId){
+  const cfg=PROMO_BGD_FIELD_CONFIG[which]; if(!cfg) return;
+  const p=products.find(x=>x.id===productId); if(!p) return;
+  const hidden=document.getElementById(cfg.hiddenId);
+  const searchInput=document.getElementById(cfg.searchId);
+  const box=document.getElementById(cfg.resultsId);
+  if(hidden) hidden.value=p.id;
+  if(searchInput) searchInput.value=p.name;
+  if(box){ box.innerHTML=''; box.hidden=true; }
+  updatePromoBgdUnitOptions(which);
+  const fieldWrap=document.getElementById(cfg.wrapId);
+  if(fieldWrap){
+    let hint=fieldWrap.querySelector('.promo-selected-hint');
+    if(!hint){ hint=document.createElement('div'); hint.className='promo-selected-hint'; hint.style.cssText='font-size:12px;color:var(--text-muted);margin-top:6px;'; fieldWrap.appendChild(hint); }
+    hint.innerHTML=`เลือกแล้ว: <b style="color:var(--text);">${escapeHtml(p.name)}</b> (${escapeHtml(p.sku||'-')})`;
+  }
+}
+function bindPromoBgdProductSearch(which){
+  const cfg=PROMO_BGD_FIELD_CONFIG[which]; if(!cfg) return;
+  const input=document.getElementById(cfg.searchId);
+  const box=document.getElementById(cfg.resultsId);
+  if(!input||!box) return;
+  input.addEventListener('input',()=>{
+    const hidden=document.getElementById(cfg.hiddenId);
+    if(hidden) hidden.value='';
+    renderPromoBgdProductResults(which,input.value);
+  });
+  input.addEventListener('focus',()=>{ if(input.value.trim()) renderPromoBgdProductResults(which,input.value); });
+  input.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){ box.hidden=true; return; }
+    if(e.key!=='Enter') return;
+    e.preventDefault();
+    const query=input.value.trim(); if(!query) return;
+    const exact=products.find(p=>(p.barcode||'').toLowerCase()===query.toLowerCase()||(p.sku||'').toLowerCase()===query.toLowerCase());
+    if(exact){ selectPromoBgdProduct(which,exact.id); return; }
+    const needle=query.toLowerCase();
+    const first=products.find(p=>(p.name||'').toLowerCase().includes(needle));
+    if(first) selectPromoBgdProduct(which,first.id);
+  });
+  input.addEventListener('blur',()=>setTimeout(()=>{ box.hidden=true; },140));
+}
+function updatePromoBgdUnitOptions(which){
+  const cfg=PROMO_BGD_FIELD_CONFIG[which]; if(!cfg) return;
+  const unitSelect=document.getElementById(cfg.unitSelectId); if(!unitSelect) return;
+  const productId=Number(document.getElementById(cfg.hiddenId)?.value);
+  const p=products.find(x=>x.id===productId);
+  if(!p){ unitSelect.innerHTML='<option value="">เลือกสินค้าก่อน</option>'; return; }
+  const opts=[p.unit,...(p.units||[]).map(u=>u.sub)];
+  unitSelect.innerHTML=opts.map(u=>{
+    const usedBy=findPromotionUsingSlot(productId,u,editingPromotionId);
+    return usedBy?`<option value="${escapeHtml(u)}" disabled>${escapeHtml(u)} (ใช้ในโปรฯ "${escapeHtml(usedBy.name)}" แล้ว)</option>`:`<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`;
+  }).join('');
+  if(unitSelect.options.length && unitSelect.options[unitSelect.selectedIndex]?.disabled){
+    const firstEnabled=Array.from(unitSelect.options).find(o=>!o.disabled);
+    if(firstEnabled) unitSelect.value=firstEnabled.value;
+  }
+}
 // อัปเดตตัวเลือกหน่วยในช่อง "สินค้ารายตัว" ตามสินค้าที่เลือกไว้ - หน่วยที่ถูกใช้ในโปรฯ อื่นแล้วจะถูก disable
 function updatePromoUnitOptions(){
   const unitSelect=document.getElementById('promo_unit'); if(!unitSelect) return;
@@ -6807,24 +6998,43 @@ function savePromotion(){
   const startDate=dmyToISO(g('promo_start')?.value)||'';
   const endDate=dmyToISO(g('promo_end')?.value)||'';
   if(startDate && endDate && startDate>endDate){ showToast('วันเริ่มต้องมาก่อนวันสิ้นสุด'); return; }
-  const scope=document.querySelector('input[name="promo_scope"]:checked')?.value||'product';
-  let productId=null, category='', brand='', categoryMode='all', unit='', items=[];
-  if(scope==='product'){
-    productId=Number(g('promo_product_id')?.value)||null;
-    if(!productId){ showToast('กรุณาเลือกสินค้าจากผลการค้นหา'); g('promo_product_search')?.focus(); return; }
-    unit=(g('promo_unit')?.value||'').trim();
-    if(!unit){ showToast('กรุณาเลือกหน่วยที่ร่วมโปรโมชั่น'); return; }
+  const type=document.querySelector('input[name="promo_type"]:checked')?.value||'discount';
+  let scope='product', productId=null, category='', brand='', categoryMode='all', unit='', items=[];
+  let bgdBuyProductId=null, bgdBuyUnit='', bgdBuyQty=0, bgdGetProductId=null, bgdGetUnit='', bgdGetQty=0;
+  if(type==='buygetdiff'){
+    scope='buygetdiff';
+    bgdBuyProductId=Number(g('promo_bgd_buy_product_id')?.value)||null;
+    if(!bgdBuyProductId){ showToast('กรุณาเลือกสินค้าที่ต้องซื้อ'); g('promo_bgd_buy_product_search')?.focus(); return; }
+    bgdBuyUnit=(g('promo_bgd_buy_unit')?.value||'').trim();
+    if(!bgdBuyUnit){ showToast('กรุณาเลือกหน่วยสินค้าที่ต้องซื้อ'); return; }
+    bgdBuyQty=parseInt(g('promo_bgd_buy_qty')?.value)||0;
+    if(bgdBuyQty<=0){ showToast('กรุณากรอกจำนวนที่ต้องซื้อให้ถูกต้อง'); return; }
+    bgdGetProductId=Number(g('promo_bgd_get_product_id')?.value)||null;
+    if(!bgdGetProductId){ showToast('กรุณาเลือกสินค้าที่จะแถม'); g('promo_bgd_get_product_search')?.focus(); return; }
+    bgdGetUnit=(g('promo_bgd_get_unit')?.value||'').trim();
+    if(!bgdGetUnit){ showToast('กรุณาเลือกหน่วยสินค้าที่จะแถม'); return; }
+    bgdGetQty=parseInt(g('promo_bgd_get_qty')?.value)||0;
+    if(bgdGetQty<=0){ showToast('กรุณากรอกจำนวนที่จะแถมให้ถูกต้อง'); return; }
+    if(bgdBuyProductId===bgdGetProductId && bgdBuyUnit===bgdGetUnit){ showToast('สินค้าที่ต้องซื้อและสินค้าที่จะแถมต้องไม่ใช่ตัวเดียวกัน'); return; }
   } else {
-    category=(g('promo_category')?.value||'').trim();
-    if(!category){ showToast('กรุณาเลือกหมวดหมู่'); return; }
-    brand=(g('promo_brand')?.value||'').trim();
-    categoryMode='select';
-    items=(currentPromoDraftItems||[]).map(it=>({productId:it.productId,unit:it.unit}));
-    if(items.length===0){ showToast('กรุณาเลือกสินค้าอย่างน้อย 1 รายการ'); return; }
+    scope=document.querySelector('input[name="promo_scope"]:checked')?.value||'product';
+    if(scope==='product'){
+      productId=Number(g('promo_product_id')?.value)||null;
+      if(!productId){ showToast('กรุณาเลือกสินค้าจากผลการค้นหา'); g('promo_product_search')?.focus(); return; }
+      unit=(g('promo_unit')?.value||'').trim();
+      if(!unit){ showToast('กรุณาเลือกหน่วยที่ร่วมโปรโมชั่น'); return; }
+    } else {
+      category=(g('promo_category')?.value||'').trim();
+      if(!category){ showToast('กรุณาเลือกหมวดหมู่'); return; }
+      brand=(g('promo_brand')?.value||'').trim();
+      categoryMode='select';
+      items=(currentPromoDraftItems||[]).map(it=>({productId:it.productId,unit:it.unit}));
+      if(items.length===0){ showToast('กรุณาเลือกสินค้าอย่างน้อย 1 รายการ'); return; }
+    }
   }
   // ป้องกันสินค้า+หน่วยซ้ำกับโปรฯ อื่นที่เปิดใช้งานอยู่ (เช็คเฉพาะตอนโปรฯ นี้เปิดใช้งานด้วย เพราะโปรฯ ที่ปิดอยู่ไม่มีผลจริง)
   if(active){
-    const slotsToCheck=scope==='product'?[{productId,unit}]:items;
+    const slotsToCheck=type==='buygetdiff'?[{productId:bgdBuyProductId,unit:bgdBuyUnit},{productId:bgdGetProductId,unit:bgdGetUnit}]:(scope==='product'?[{productId,unit}]:items);
     for(const slot of slotsToCheck){
       const usedBy=findPromotionUsingSlot(slot.productId,slot.unit,editingPromotionId);
       if(usedBy){
@@ -6834,9 +7044,9 @@ function savePromotion(){
       }
     }
   }
-  const type=document.querySelector('input[name="promo_type"]:checked')?.value||'discount';
   const data={name,active,startDate,endDate,scope,productId,category,brand,categoryMode,items,unit,type,
-    discountMode:'percent',discountValue:'',bundleQty:'',bundlePrice:'',buyQty:'',getQty:''};
+    discountMode:'percent',discountValue:'',bundleQty:'',bundlePrice:'',buyQty:'',getQty:'',
+    bgdBuyProductId,bgdBuyUnit,bgdBuyQty,bgdGetProductId,bgdGetUnit,bgdGetQty};
   if(type==='discount'){
     data.discountMode=document.querySelector('input[name="promo_discount_mode"]:checked')?.value||'percent';
     data.discountValue=parseFloat(g('promo_discount_value')?.value)||0;
