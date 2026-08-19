@@ -3750,6 +3750,37 @@ function isPromotionLiveToday(promo){
   return true;
 }
 
+// รวบรวมคู่ "สินค้า+หน่วย" ทั้งหมดที่ถูกใช้ไปแล้วในโปรโมชั่นที่เปิดใช้งานอยู่ (active=true) ไม่สนวันที่เริ่ม/สิ้นสุด
+// ใช้เช็คกันเลือกสินค้า+หน่วยซ้ำข้าม scope (สินค้ารายตัว และ หมวดหมู่/แบรนด์เจาะจง)
+// excludePromotionId: ไม่นับโปรฯ ตัวที่กำลังแก้ไขอยู่เอง (กันชนกับตัวเอง)
+function getUsedPromotionSlots(excludePromotionId){
+  const slots=new Set(); // key: `${productId}::${unit}`
+  promotions.forEach(promo=>{
+    if(!promo.active) return;
+    if(promo.id===excludePromotionId) return;
+    if(promo.scope==='product'){
+      if(promo.productId && promo.unit) slots.add(`${promo.productId}::${promo.unit}`);
+    } else if(promo.scope==='category'){
+      (promo.items||[]).forEach(it=>{ if(it.productId && it.unit) slots.add(`${it.productId}::${it.unit}`); });
+    }
+  });
+  return slots;
+}
+function isPromotionSlotUsed(productId,unit,excludePromotionId){
+  if(!productId||!unit) return false;
+  return getUsedPromotionSlots(excludePromotionId).has(`${productId}::${unit}`);
+}
+// หาว่าคู่ (productId,unit) นี้ถูกใช้ในโปรฯ ตัวไหน (เพื่อโชว์ชื่อโปรฯ ที่ชนกันในข้อความแจ้งเตือน)
+function findPromotionUsingSlot(productId,unit,excludePromotionId){
+  for(const promo of promotions){
+    if(!promo.active) continue;
+    if(promo.id===excludePromotionId) continue;
+    if(promo.scope==='product' && promo.productId===productId && promo.unit===unit) return promo;
+    if(promo.scope==='category' && (promo.items||[]).some(it=>it.productId===productId && it.unit===unit)) return promo;
+  }
+  return null;
+}
+
 // หาโปรโมชั่นที่ตรงกับบรรทัดสินค้าหนึ่งบรรทัด (ตาม pid+unit หรือ category/brand+unit หรือ category/brand+เจาะจงรายการ)
 // line ต้องมี: {pid, unit} เป็นอย่างน้อย (unit คือหน่วยที่ขายจริงในบรรทัดนั้น)
 function findMatchingPromotion(line){
@@ -3895,14 +3926,20 @@ function renderPromotions(){
 
 // แสดงรายการสินค้าที่เจาะจงเลือกไว้ในโหมด "หมวดหมู่/แบรนด์ - เจาะจงเลือกสินค้า" พร้อม dropdown หน่วยแยกต่อตัว
 function renderPromoCategoryItemsList(items){
-  if(!items.length) return '<div style="font-size:12.5px;color:var(--text-muted);padding:8px 0;">ยังไม่ได้เลือกสินค้า — ค้นหาแล้วเลือกจากผลลัพธ์ด้านบน</div>';
+  if(!items.length) return '<div style="font-size:12.5px;color:var(--text-muted);padding:8px 0;">ยังไม่ได้เลือกสินค้า — กดปุ่ม "เลือกสินค้า" ด้านบน</div>';
   return items.map((it,idx)=>{
     const p=products.find(x=>x.id===it.productId);
     if(!p) return '';
     const unitOpts=[p.unit,...(p.units||[]).map(u=>u.sub)];
+    const optionsHtml=unitOpts.map(u=>{
+      const isCurrent=it.unit===u;
+      const usedBy=!isCurrent?findPromotionUsingSlot(p.id,u,editingPromotionId):null;
+      if(usedBy) return `<option value="${escapeHtml(u)}" disabled>${escapeHtml(u)} (ใช้ในโปรฯ "${escapeHtml(usedBy.name)}" แล้ว)</option>`;
+      return `<option value="${escapeHtml(u)}" ${isCurrent?'selected':''}>${escapeHtml(u)}</option>`;
+    }).join('');
     return `<div class="promo-item-row" data-idx="${idx}">
       <div class="promo-item-row-name">${escapeHtml(p.name)} <span style="color:var(--text-muted);">(${escapeHtml(p.sku||'-')})</span></div>
-      <select class="promo-item-unit" data-idx="${idx}">${unitOpts.map(u=>`<option value="${escapeHtml(u)}" ${it.unit===u?'selected':''}>${escapeHtml(u)}</option>`).join('')}</select>
+      <select class="promo-item-unit" data-idx="${idx}">${optionsHtml}</select>
       <button type="button" class="promo-item-remove" data-idx="${idx}" title="เอาออก"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
     </div>`;
   }).join('');
@@ -3919,7 +3956,12 @@ function renderPromotionForm(){
   const unitOptionsForProduct=p=>{
     if(!p) return '';
     const opts=[p.unit,...(p.units||[]).map(u=>u.sub)];
-    return opts.map(u=>`<option value="${escapeHtml(u)}" ${promo.unit===u?'selected':''}>${escapeHtml(u)}</option>`).join('');
+    return opts.map(u=>{
+      const isCurrent=promo.unit===u; // หน่วยที่ตัวเองใช้อยู่แล้ว (ตอนแก้ไข) ไม่ถือว่าชนกับตัวเอง
+      const usedBy=!isCurrent?findPromotionUsingSlot(p.id,u,editingPromotionId):null;
+      if(usedBy) return `<option value="${escapeHtml(u)}" disabled>${escapeHtml(u)} (ใช้ในโปรฯ "${escapeHtml(usedBy.name)}" แล้ว)</option>`;
+      return `<option value="${escapeHtml(u)}" ${isCurrent?'selected':''}>${escapeHtml(u)}</option>`;
+    }).join('');
   };
   return `<div class="pagehead"><div><div class="breadcrumb">โปรโมชั่น › ${isNew?'สร้างโปรโมชั่น':'แก้ไขโปรโมชั่น'}</div><h1>${isNew?'สร้างโปรโมชั่น':'แก้ไขโปรโมชั่น'}</h1></div>
     <div style="display:flex;gap:8px;"><button class="btn ghost" id="cancelPromotionBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePromotionBtn">บันทึกแล้วปิด</button></div></div>
@@ -6641,14 +6683,22 @@ function bindPromoProductSearch(){
   });
   input.addEventListener('blur',()=>setTimeout(()=>{ box.hidden=true; },140));
 }
-// อัปเดตตัวเลือกหน่วยในช่อง "สินค้ารายตัว" ตามสินค้าที่เลือกไว้
+// อัปเดตตัวเลือกหน่วยในช่อง "สินค้ารายตัว" ตามสินค้าที่เลือกไว้ - หน่วยที่ถูกใช้ในโปรฯ อื่นแล้วจะถูก disable
 function updatePromoUnitOptions(){
   const unitSelect=document.getElementById('promo_unit'); if(!unitSelect) return;
   const productId=Number(document.getElementById('promo_product_id')?.value);
   const p=products.find(x=>x.id===productId);
   if(!p){ unitSelect.innerHTML='<option value="">เลือกสินค้าก่อน</option>'; return; }
   const opts=[p.unit,...(p.units||[]).map(u=>u.sub)];
-  unitSelect.innerHTML=opts.map(u=>`<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`).join('');
+  unitSelect.innerHTML=opts.map(u=>{
+    const usedBy=findPromotionUsingSlot(productId,u,editingPromotionId);
+    return usedBy?`<option value="${escapeHtml(u)}" disabled>${escapeHtml(u)} (ใช้ในโปรฯ "${escapeHtml(usedBy.name)}" แล้ว)</option>`:`<option value="${escapeHtml(u)}">${escapeHtml(u)}</option>`;
+  }).join('');
+  // ถ้าตัวเลือกแรกโดน disable ให้เลื่อนไปเลือกตัวแรกที่ยังว่างอยู่แทน (กันเลือก option disabled โดยไม่ตั้งใจ)
+  if(unitSelect.options.length && unitSelect.options[unitSelect.selectedIndex]?.disabled){
+    const firstEnabled=Array.from(unitSelect.options).find(o=>!o.disabled);
+    if(firstEnabled) unitSelect.value=firstEnabled.value;
+  }
 }
 // สลับว่าจะโชว์ช่องหน่วยแบบไหน: สินค้ารายตัว (unit เดียว) / เจาะจงสินค้า (หน่วยแยกต่อรายการ ไม่โชว์ช่องนี้)
 function updatePromoUnitFieldVisibility(){
@@ -6697,7 +6747,9 @@ function openPromoItemPicker(){
     checked.forEach(pid=>{
       if(currentPromoDraftItems.some(it=>it.productId===pid)) return;
       const p=products.find(x=>x.id===pid); if(!p) return;
-      currentPromoDraftItems.push({productId:pid,unit:p.unit});
+      const unitOpts=[p.unit,...(p.units||[]).map(u=>u.sub)];
+      const freeUnit=unitOpts.find(u=>!findPromotionUsingSlot(pid,u,editingPromotionId));
+      currentPromoDraftItems.push({productId:pid,unit:freeUnit||p.unit});
     });
     // เอาตัวที่ถูกยกเลิกติ๊กออกจากรายการที่เลือกไว้เดิมด้วย (เฉพาะที่อยู่ในหมวด/แบรนด์นี้)
     const poolIds=new Set(pool.map(p=>p.id));
@@ -6747,6 +6799,18 @@ function savePromotion(){
     categoryMode='select';
     items=(currentPromoDraftItems||[]).map(it=>({productId:it.productId,unit:it.unit}));
     if(items.length===0){ showToast('กรุณาเลือกสินค้าอย่างน้อย 1 รายการ'); return; }
+  }
+  // ป้องกันสินค้า+หน่วยซ้ำกับโปรฯ อื่นที่เปิดใช้งานอยู่ (เช็คเฉพาะตอนโปรฯ นี้เปิดใช้งานด้วย เพราะโปรฯ ที่ปิดอยู่ไม่มีผลจริง)
+  if(active){
+    const slotsToCheck=scope==='product'?[{productId,unit}]:items;
+    for(const slot of slotsToCheck){
+      const usedBy=findPromotionUsingSlot(slot.productId,slot.unit,editingPromotionId);
+      if(usedBy){
+        const p=products.find(x=>x.id===slot.productId);
+        showToast(`${p?p.name:'สินค้า'} หน่วย ${slot.unit} ถูกใช้ในโปรโมชั่น "${usedBy.name}" อยู่แล้ว`);
+        return;
+      }
+    }
   }
   const type=document.querySelector('input[name="promo_type"]:checked')?.value||'discount';
   const data={name,active,startDate,endDate,scope,productId,category,brand,categoryMode,items,unit,type,
