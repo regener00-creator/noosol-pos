@@ -3764,7 +3764,10 @@ function promotionTargetLabel(promo){
 function promotionValueLabel(promo){
   if(promo.type==='discount') return promo.discountMode==='percent'?`ลด ${promo.discountValue||0}%`:`ลด ${fmtMoney(promo.discountValue||0)} บาท`;
   if(promo.type==='bundle') return `ซื้อครบ ${promo.bundleQty||0} ชิ้น ราคา ${fmtMoney(promo.bundlePrice||0)}`;
-  if(promo.type==='buygetdiff') return `ซื้อ ${promo.bgdBuyQty||0} หน่วย แถม ${promo.bgdGetQty||0} หน่วย`;
+  if(promo.type==='buygetdiff'){
+    const getP=products.find(x=>x.id===promo.bgdGetProductId);
+    return `ซื้อครบ ${promo.bgdBuyQty||0} ${promo.bgdBuyUnit||'หน่วย'} แถม ${getP?getP.name:'สินค้า'} ${promo.bgdGetQty||0} ${promo.bgdGetUnit||'หน่วย'}`;
+  }
   return '-';
 }
 
@@ -3924,21 +3927,34 @@ function reconcileAutoFreeLines(){
 }
 
 // หาโปรฯ ที่ "เกือบเข้าเงื่อนไข" ต่อบรรทัดในตะกร้า (ยังไม่ครบจำนวนขั้นต่ำ) เพื่อเตือนพนักงานให้ชวนลูกค้าซื้อเพิ่ม
-// ใช้ได้เฉพาะโปรฯ ที่มีขั้นต่ำจำนวนจริง (bundle) — ลด%/เงินสด ไม่มีขั้นต่ำจึงไม่ต้องเตือน
+// ใช้ได้เฉพาะโปรฯ ที่มีขั้นต่ำจำนวนจริง (bundle, buygetdiff) — ลด%/เงินสด ไม่มีขั้นต่ำจึงไม่ต้องเตือน
 function getPromotionUpsellHints(lines){
   const hints=[];
   (lines||[]).forEach(line=>{
     if(!line.pid || Number(line.qty)<=0) return;
+    if(line.autoFreeFromPromo) return; // บรรทัดของแถมเองไม่ต้องเตือนซ้ำ (ไม่ใช่ "ใกล้เข้าเงื่อนไข" แต่เป็นผลลัพธ์ที่ได้แล้ว)
+    const qty=Number(line.qty)||0;
     const promo=findMatchingPromotion(line);
-    if(!promo) return;
-    if(promo.type==='bundle'){
+    if(promo && promo.type==='bundle'){
       const bundleQty=Number(promo.bundleQty)||0;
-      if(bundleQty<=0) return;
-      const qty=Number(line.qty)||0;
-      const remainder=qty%bundleQty;
-      if(remainder===0) return; // ครบเงื่อนไขพอดีอยู่แล้ว ไม่ต้องเตือน
-      const needMore=bundleQty-remainder;
-      hints.push({lineId:line.lineId,name:line.name,unit:line.unit,promoName:promo.name,needMore,note:promotionValueLabel(promo)});
+      if(bundleQty>0){
+        const remainder=qty%bundleQty;
+        if(remainder>0){
+          hints.push({lineId:line.lineId,name:line.name,unit:line.unit,promoName:promo.name,needMore:bundleQty-remainder,note:promotionValueLabel(promo)});
+        }
+      }
+      return;
+    }
+    // เช็คโปรฯ "ซื้อสินค้าหนึ่ง แถมอีกสินค้าหนึ่ง" (buygetdiff) แยกต่างหาก เพราะ findMatchingPromotion ไม่ครอบคลุม scope นี้
+    const bgdPromo=promotions.find(p=>p.scope==='buygetdiff' && isPromotionLiveToday(p) && p.bgdBuyProductId===line.pid && p.bgdBuyUnit===line.unit);
+    if(bgdPromo){
+      const buyQty=Number(bgdPromo.bgdBuyQty)||0;
+      if(buyQty>0){
+        const remainder=qty%buyQty;
+        if(remainder>0){
+          hints.push({lineId:line.lineId,name:line.name,unit:line.unit,promoName:bgdPromo.name,needMore:buyQty-remainder,note:promotionValueLabel(bgdPromo)});
+        }
+      }
     }
   });
   return hints;
