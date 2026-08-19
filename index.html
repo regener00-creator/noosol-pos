@@ -27,6 +27,13 @@
   .sidebar::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.48);}
   .brand{font-weight:700;font-size:22px;padding:8px 10px 20px 10px;display:flex;align-items:center;gap:9px;color:#fff;position:sticky;top:0;background:var(--sidebar);}
   .brand .rx{width:28px;height:28px;border-radius:8px;background:#fff;color:var(--primary);display:flex;align-items:center;justify-content:center;font-family:inherit;font-weight:700;font-size:13px;flex-shrink:0;}
+  .sidebar-user{padding:8px 10px 16px;}
+  .sidebar-user-text{line-height:1.35;}
+  .sidebar-user-text b{display:block;font-size:14px;color:#fff;}
+  .sidebar-user-text span{display:block;font-size:11.5px;color:#BFD0FF;margin-top:2px;}
+  .sidebar-logout-wrap{margin-top:10px;padding-top:14px;border-top:1px solid rgba(255,255,255,.14);}
+  .sidebar-logout-btn{width:100%;border:1px solid rgba(255,255,255,.22);background:transparent;color:#EAF0FF;border-radius:8px;padding:9px 10px;font:600 13px 'Sarabun',sans-serif;cursor:pointer;text-align:center;}
+  .sidebar-logout-btn:hover{border-color:var(--danger);color:#fff;background:var(--danger);}
   .navsection{font-size:10.5px;color:#BFD0FF;text-transform:uppercase;letter-spacing:.06em;padding:12px 10px 4px;}
   .navbtn{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;background:transparent;border:none;color:#EAF0FF;font-family:inherit;font-size:13.5px;cursor:pointer;text-align:right;width:100%;transition:background .15s;}
   .navbtn:hover{background:var(--sidebar-hover);}
@@ -988,7 +995,7 @@
 <div class="app" id="appRoot" hidden>
   <div class="sidebar" id="sidebar"></div>
   <div class="shell">
-    <div class="topbar"><div class="topbar-date" id="topbarContext"></div><div class="topbar-right" id="topbarUser"></div></div>
+    <div class="topbar"></div>
     <div class="main" id="main"></div>
   </div>
 </div>
@@ -1920,14 +1927,6 @@ function renderLoginState(){
   if(appRoot) appRoot.hidden=!user;
   if(!hasUsers){ setTimeout(()=>document.getElementById('setupOwnerId')?.focus(),0); return false; }
   if(!user){ setTimeout(()=>document.getElementById('loginUserId')?.focus(),0); return false; }
-  const topbarContext=document.getElementById('topbarContext');
-  if(topbarContext) topbarContext.textContent=fmtDashboardDate(TODAY_STR);
-  const topbar=document.getElementById('topbarUser');
-  if(topbar){
-    const initial=(user.firstName||user.username||'U').trim().charAt(0).toUpperCase();
-    topbar.innerHTML=`<div class="topbar-user"><div class="topbar-user-text"><b>${escapeHtml(user.firstName||user.username)}</b><span>${escapeHtml(systemUserLevelLabel(user.level))}</span></div><div class="avatar">${escapeHtml(initial)}</div></div><button class="logout-btn" id="logoutBtn">ออกจากระบบ</button>`;
-    document.getElementById('logoutBtn')?.addEventListener('click',logoutSystem);
-  }
   return true;
 }
 async function createInitialOwner(event){
@@ -2210,7 +2209,8 @@ const NAV = [
 ];
 
 function renderSidebar(){
-  let html = '<div class="brand"><span>PEPOS</span></div>';
+  const user=loggedInUser();
+  let html = `<div class="brand sidebar-user"><div class="sidebar-user-text"><b>${escapeHtml(user?.firstName||user?.username||'')}</b><span>${escapeHtml(systemUserLevelLabel(user?.level))}</span></div></div>`;
   NAV.forEach(g=>{
     const visibleItems=g.items.filter(([tab])=>canAccessTab(tab));
     if(!visibleItems.length) return;
@@ -2219,7 +2219,9 @@ function renderSidebar(){
       html += `<button class="navbtn ${currentTab===tab?'active':''}" data-tab="${tab}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${svg}</svg>${label}</button>`;
     });
   });
+  html += `<div class="sidebar-logout-wrap"><button class="logout-btn sidebar-logout-btn" id="logoutBtn">ออกจากระบบ</button></div>`;
   document.getElementById('sidebar').innerHTML = html;
+  document.getElementById('logoutBtn')?.addEventListener('click',logoutSystem);
   document.querySelectorAll('.navbtn').forEach(btn=>{ btn.addEventListener('click', ()=>{ currentTab = btn.dataset.tab; searchQuery=''; editingPOId=null; poDraft=null; editingGRId=null; grDraft=null; editingPO2Id=null; po2Draft=null; editingReturnId=null; returnDraft=null; editingTaxInvoiceSaleId=null; editingQuotationId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; openDocMenu=null; poSupplierEditorOpen=false; poRepresentativeEditorId=null; editingContactId=null; editingSalesRepresentativeId=null; editingPromotionId=null; editingProductId=null; addingSystemUser=false; editingSystemUserId=null; addingWarehouse=false; editingWarehouseId=null; editingTransferId=null; transferDraft=null; rproductFilter.applied=false; rbillFilter.applied=false; rprofitFilter.applied=false; render(); }); });
 }
 
