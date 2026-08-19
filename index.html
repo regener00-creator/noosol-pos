@@ -81,6 +81,7 @@
   .trend.up{background:var(--primary-soft);color:var(--primary);}
   .trend.down{background:var(--danger-soft);color:var(--danger);}
   .grid2col{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-bottom:14px;align-items:stretch;}
+  .grid2col.grid2col-even{grid-template-columns:1fr 1fr;}
   .grid2col.align-top{align-items:start;}
   .dashboard-grid2col{grid-template-columns:repeat(2,minmax(0,1fr));}
   .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;}
@@ -3965,20 +3966,7 @@ function renderPromotionForm(){
   };
   return `<div class="pagehead"><div><div class="breadcrumb">โปรโมชั่น › ${isNew?'สร้างโปรโมชั่น':'แก้ไขโปรโมชั่น'}</div><h1>${isNew?'สร้างโปรโมชั่น':'แก้ไขโปรโมชั่น'}</h1></div>
     <div style="display:flex;gap:8px;"><button class="btn ghost" id="cancelPromotionBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePromotionBtn">บันทึกแล้วปิด</button></div></div>
-    <div class="grid2col align-top">
-      <div class="panel">
-        <h3>ข้อมูลทั่วไป</h3>
-        <div class="cform">
-          <div class="crow"><label>ชื่อโปรโมชั่น <span class="req">*</span></label><input id="promo_name" value="${escapeHtml(promo.name||'')}" placeholder="เช่น ลดราคาวิตามินซี 10%"></div>
-          <div class="crow"><label>สถานะ</label><div class="cradio">
-            <label><input type="radio" name="promo_active" value="1" ${promo.active?'checked':''}> เปิดใช้งาน</label>
-            <label><input type="radio" name="promo_active" value="0" ${!promo.active?'checked':''}> ปิดใช้งาน</label>
-          </div></div>
-          <div class="crow"><label>วันเริ่มโปรโมชั่น</label>${dmyDateFieldHtml('promo_start',promo.startDate)}</div>
-          <div class="crow"><label>วันสิ้นสุดโปรโมชั่น</label>${dmyDateFieldHtml('promo_end',promo.endDate)}</div>
-          <div class="crow"><label style="font-weight:400;color:var(--text-muted);font-size:12px;">เว้นว่างช่องใดช่องหนึ่งหรือทั้งคู่ได้ = ไม่จำกัดช่วงเวลานั้น</label></div>
-        </div>
-      </div>
+    <div class="grid2col grid2col-even align-top">
       <div class="panel">
         <h3>สินค้าที่เข้าร่วมโปรโมชั่น</h3>
         <div class="cform">
@@ -4012,30 +4000,45 @@ function renderPromotionForm(){
           </div>
         </div>
       </div>
-    </div>
-    <div class="panel" style="margin-top:16px;">
-      <h3>ประเภทโปรโมชั่น</h3>
-      <div class="cform">
-        <div class="crow"><label>ประเภท</label><div class="cradio">
-          <label><input type="radio" name="promo_type" value="discount" ${promo.type==='discount'?'checked':''}> ลดราคา (%/บาท)</label>
-          <label><input type="radio" name="promo_type" value="bundle" ${promo.type==='bundle'?'checked':''}> ราคาพิเศษเมื่อซื้อครบจำนวน</label>
-          <label><input type="radio" name="promo_type" value="buyxgety" ${promo.type==='buyxgety'?'checked':''}> ซื้อ X แถม Y</label>
-        </div></div>
-        <div id="promo_fields_discount" style="display:${promo.type==='discount'?'block':'none'};">
-          <div class="crow"><label>รูปแบบส่วนลด</label><div class="cradio">
-            <label><input type="radio" name="promo_discount_mode" value="percent" ${promo.discountMode!=='amount'?'checked':''}> ลดเป็น %</label>
-            <label><input type="radio" name="promo_discount_mode" value="amount" ${promo.discountMode==='amount'?'checked':''}> ลดเป็นจำนวนเงิน (บาท/หน่วย)</label>
-          </div></div>
-          <div class="crow"><label>มูลค่าส่วนลด <span class="req">*</span></label><input id="promo_discount_value" type="number" min="0" step="0.01" value="${promo.discountValue||''}" placeholder="เช่น 10"></div>
+      <div>
+        <div class="panel">
+          <h3>ข้อมูลทั่วไป</h3>
+          <div class="cform">
+            <div class="crow"><label>ชื่อโปรโมชั่น <span class="req">*</span></label><input id="promo_name" value="${escapeHtml(promo.name||'')}" placeholder="เช่น ลดราคาวิตามินซี 10%"></div>
+            <div class="crow"><label>สถานะ</label><div class="cradio">
+              <label><input type="radio" name="promo_active" value="1" ${promo.active?'checked':''}> เปิดใช้งาน</label>
+              <label><input type="radio" name="promo_active" value="0" ${!promo.active?'checked':''}> ปิดใช้งาน</label>
+            </div></div>
+            <div class="crow"><label>วันเริ่มโปรโมชั่น</label>${dmyDateFieldHtml('promo_start',promo.startDate)}</div>
+            <div class="crow"><label>วันสิ้นสุดโปรโมชั่น</label>${dmyDateFieldHtml('promo_end',promo.endDate)}</div>
+            <div class="crow"><label style="font-weight:400;color:var(--text-muted);font-size:12px;">เว้นว่างช่องใดช่องหนึ่งหรือทั้งคู่ได้ = ไม่จำกัดช่วงเวลานั้น</label></div>
+          </div>
         </div>
-        <div id="promo_fields_bundle" style="display:${promo.type==='bundle'?'block':'none'};">
-          <div class="crow"><label>ซื้อครบจำนวน (ชิ้น) <span class="req">*</span></label><input id="promo_bundle_qty" type="number" min="1" step="1" value="${promo.bundleQty||''}" placeholder="เช่น 3"></div>
-          <div class="crow"><label>ราคาพิเศษรวม (บาท) <span class="req">*</span></label><input id="promo_bundle_price" type="number" min="0" step="0.01" value="${promo.bundlePrice||''}" placeholder="เช่น 299"></div>
-        </div>
-        <div id="promo_fields_buyxgety" style="display:${promo.type==='buyxgety'?'block':'none'};">
-          <div class="crow"><label>ซื้อ (ชิ้น) <span class="req">*</span></label><input id="promo_buy_qty" type="number" min="1" step="1" value="${promo.buyQty||''}" placeholder="เช่น 2"></div>
-          <div class="crow"><label>แถม (ชิ้น) <span class="req">*</span></label><input id="promo_get_qty" type="number" min="1" step="1" value="${promo.getQty||''}" placeholder="เช่น 1"></div>
-          <div style="font-size:12px;color:var(--text-muted);">ตัวอย่าง: ซื้อ 2 แถม 1 หมายถึงซื้อครบทุก 2 ชิ้น จะได้รับแถมเพิ่ม 1 ชิ้นโดยไม่คิดเงิน</div>
+        <div class="panel" style="margin-top:16px;">
+          <h3>ประเภทโปรโมชั่น</h3>
+          <div class="cform">
+            <div class="crow"><label>ประเภท</label><div class="cradio">
+              <label><input type="radio" name="promo_type" value="discount" ${promo.type==='discount'?'checked':''}> ลดราคา (%/บาท)</label>
+              <label><input type="radio" name="promo_type" value="bundle" ${promo.type==='bundle'?'checked':''}> ราคาพิเศษเมื่อซื้อครบจำนวน</label>
+              <label><input type="radio" name="promo_type" value="buyxgety" ${promo.type==='buyxgety'?'checked':''}> ซื้อ X แถม Y</label>
+            </div></div>
+            <div id="promo_fields_discount" style="display:${promo.type==='discount'?'block':'none'};">
+              <div class="crow"><label>รูปแบบส่วนลด</label><div class="cradio">
+                <label><input type="radio" name="promo_discount_mode" value="percent" ${promo.discountMode!=='amount'?'checked':''}> ลดเป็น %</label>
+                <label><input type="radio" name="promo_discount_mode" value="amount" ${promo.discountMode==='amount'?'checked':''}> ลดเป็นจำนวนเงิน (บาท/หน่วย)</label>
+              </div></div>
+              <div class="crow"><label>มูลค่าส่วนลด <span class="req">*</span></label><input id="promo_discount_value" type="number" min="0" step="0.01" value="${promo.discountValue||''}" placeholder="เช่น 10"></div>
+            </div>
+            <div id="promo_fields_bundle" style="display:${promo.type==='bundle'?'block':'none'};">
+              <div class="crow"><label>ซื้อครบจำนวน (ชิ้น) <span class="req">*</span></label><input id="promo_bundle_qty" type="number" min="1" step="1" value="${promo.bundleQty||''}" placeholder="เช่น 3"></div>
+              <div class="crow"><label>ราคาพิเศษรวม (บาท) <span class="req">*</span></label><input id="promo_bundle_price" type="number" min="0" step="0.01" value="${promo.bundlePrice||''}" placeholder="เช่น 299"></div>
+            </div>
+            <div id="promo_fields_buyxgety" style="display:${promo.type==='buyxgety'?'block':'none'};">
+              <div class="crow"><label>ซื้อ (ชิ้น) <span class="req">*</span></label><input id="promo_buy_qty" type="number" min="1" step="1" value="${promo.buyQty||''}" placeholder="เช่น 2"></div>
+              <div class="crow"><label>แถม (ชิ้น) <span class="req">*</span></label><input id="promo_get_qty" type="number" min="1" step="1" value="${promo.getQty||''}" placeholder="เช่น 1"></div>
+              <div style="font-size:12px;color:var(--text-muted);">ตัวอย่าง: ซื้อ 2 แถม 1 หมายถึงซื้อครบทุก 2 ชิ้น จะได้รับแถมเพิ่ม 1 ชิ้นโดยไม่คิดเงิน</div>
+            </div>
+          </div>
         </div>
       </div>
     </div>`;
