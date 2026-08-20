@@ -1,0 +1,77 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const start = html.indexOf('const CODE128_PATTERNS=');
+const end = html.indexOf('function stockEditMatchesQuery(', start);
+assert.ok(start >= 0 && end > start, 'ไม่พบชุดฟังก์ชันพิมพ์บาร์โค้ด');
+
+const products = [
+  {id:1,sku:'P-001',name:'สินค้าทดสอบหนึ่ง',category:'ยา',brand:'ทั่วไป',unit:'กล่อง',barcode:'',price:120,units:[{sub:'ลัง',barcode:'CASE-001',price:1100,factor:10}],extraBarcodes:[],vendorBarcodes:[]},
+  {id:2,sku:'P-002',name:'สินค้าทดสอบสอง',category:'ยา',brand:'ทั่วไป',unit:'ขวด',barcode:'OLD-002',price:80,units:[],extraBarcodes:['EXTRA-002'],vendorBarcodes:[]},
+];
+let persistCount = 0;
+let renderCount = 0;
+const context = {
+  products,
+  barcodePrintItems: [],
+  barcodePrintCatFilter: {category:'',brand:''},
+  barcodePrintSearchQuery: '',
+  barcodePrintLabelSize: '50x30',
+  categories: ['ยา'],
+  brands: ['ทั่วไป'],
+  escapeHtml: value => String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'),
+  fmtMoney: value => Number(value).toFixed(2),
+  matchesBarcode: (product, query) => product.barcode === query || (product.units || []).some(unit => unit.barcode === query),
+  persistWorkspaceData: () => { persistCount++; },
+  showToast: () => {},
+  render: () => { renderCount++; },
+  alert: () => {},
+  setTimeout: callback => callback(),
+  document: {querySelectorAll: () => [], querySelector: () => null},
+};
+vm.createContext(context);
+vm.runInContext(html.slice(start, end), context);
+
+assert.deepEqual(Array.from(context.code128BValues('123456')), [104,17,18,19,20,21,22,16,106]);
+assert.throws(() => context.code128BValues(''), /กรุณากรอกบาร์โค้ด/);
+assert.throws(() => context.code128BValues('ยา'), /ตัวเลขและตัวอักษรอังกฤษ/);
+const svg = context.code128BSvg('ABC-123');
+assert.match(svg, /^<svg/);
+assert.match(svg, /<rect/);
+assert.match(svg, /aria-label="บาร์โค้ด ABC-123"/);
+
+const firstItem = context.createBarcodePrintItem(products[0]);
+assert.equal(firstItem.unit, 'กล่อง');
+assert.equal(firstItem.barcode, 'PEPOS000000100');
+assert.equal(firstItem.qty, 1);
+context.barcodePrintItems.push(firstItem);
+assert.equal(context.barcodePrintAddProduct(products[0]), false);
+assert.equal(context.barcodePrintAddProduct(products[1]), true);
+assert.equal(context.barcodePrintItems[1].barcode, 'OLD-002');
+
+assert.equal(context.barcodePrintValidation().length, 0);
+context.barcodePrintItems[0].barcode = 'EXTRA-002';
+assert.match(context.barcodePrintValidation()[0].message, /ถูกใช้กับ/);
+context.barcodePrintItems[0].barcode = 'รหัสไทย';
+assert.match(context.barcodePrintValidation()[0].message, /Code 128/);
+context.barcodePrintItems[0].barcode = 'NEW-001';
+context.barcodePrintItems[0].qty = 0;
+assert.match(context.barcodePrintValidation()[0].message, /จำนวนฉลาก/);
+
+context.barcodePrintItems[0].qty = 2;
+context.barcodePrintItems.splice(1, 1);
+assert.equal(context.saveBarcodePrintItems(null), true);
+assert.equal(products[0].barcode, 'NEW-001');
+assert.equal(persistCount, 1);
+assert.equal(renderCount, 1);
+
+assert.match(html, /barcodeprint:\s*renderBarcodePrint/);
+assert.match(html, /LEVEL2_HIDDEN_TABS[^\n]+barcodeprint/);
+assert.match(html, /id="savePrintBarcodeBtn"/);
+assert.match(html, /id="barcodePrintAddMissingBtn"/);
+assert.match(html, /@page\{size:\$\{width\}mm \$\{height\}mm;margin:0\}/);
+
+console.log('barcode print tests passed');
