@@ -26,6 +26,7 @@ const context = {
   inspectionListCatFilter: {category:'',brand:''},
   inspectionListSearchQuery: '',
   inspectionListPage: 1,
+  inspectionListSort: {key:'sku',dir:1},
   inspectionListCounter: 1,
   INSPECTION_LIST_PAGE_SIZE: 7,
   categories: [],
@@ -82,6 +83,16 @@ assert.equal(page.currentPage, 2);
 assert.equal(page.totalPages, 3);
 assert.deepEqual(Array.from(page.rows, entry => entry.index), [7,8,9,10,11,12,13]);
 
+context.inspectionListDraft.items = [{pid:2,unit:'ขวด'},{pid:1,unit:'ลัง'}];
+context.inspectionListSort = {key:'sku',dir:1};
+assert.deepEqual(Array.from(context.inspectionListSortedEntries(), entry => entry.item.pid), [1,2]);
+context.inspectionListSort = {key:'barcode',dir:-1};
+assert.deepEqual(Array.from(context.inspectionListSortedEntries(), entry => entry.item.pid), [2,1]);
+context.inspectionListSort = {key:'name',dir:1};
+assert.deepEqual(Array.from(context.inspectionListSortedEntries(), entry => entry.item.pid), [1,2]);
+context.inspectionListSort = {key:'stock',dir:-1};
+assert.deepEqual(Array.from(context.inspectionListSortedEntries(), entry => entry.item.pid), [2,1]);
+
 context.inspectionListDraft = {id:null,name:'',items:[{pid:1,unit:'ลัง'}],createdAt:'2026-08-20T00:00:00.000Z',createdBy:'เจ้าของร้าน'};
 context.editingInspectionListId = 'new';
 assert.equal(context.saveInspectionListDraft(), true);
@@ -99,12 +110,17 @@ assert.match(overviewHtml, /data-open-inspection-list="CHECK-0001"/);
 context.editingInspectionListId = 'CHECK-0001';
 context.inspectionListDraft = JSON.parse(JSON.stringify(context.inspectionLists[0]));
 const ownerEditorHtml = context.renderInspectionListEditor();
-assert.match(ownerEditorHtml, /<th>ทุน<\/th>/);
-assert.match(ownerEditorHtml, /1100\.00/);
+assert.doesNotMatch(ownerEditorHtml, />ราคาขาย</);
+assert.doesNotMatch(ownerEditorHtml, />ทุน</);
+assert.doesNotMatch(ownerEditorHtml, />หน่วย</);
+assert.match(ownerEditorHtml, /data-inspection-sort="sku"/);
+assert.match(ownerEditorHtml, /data-inspection-sort="barcode"/);
+assert.match(ownerEditorHtml, /data-inspection-sort="name"/);
+assert.match(ownerEditorHtml, /data-inspection-sort="stock"/);
 assert.match(ownerEditorHtml, /2\.5 ลัง/);
 context.loggedInUser = () => ({owner:false});
 const staffEditorHtml = context.renderInspectionListEditor();
-assert.doesNotMatch(staffEditorHtml, /<th>ทุน<\/th>/);
+assert.doesNotMatch(staffEditorHtml, />ทุน</);
 
 assert.match(html, /\['inspectionlists','รายการตรวจสินค้า'/);
 assert.match(html, /inspectionlists:\s*renderInspectionLists/);

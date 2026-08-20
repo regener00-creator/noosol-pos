@@ -444,18 +444,17 @@
   .inspection-list-search{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit;font-size:14px;}
   .inspection-list-search:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,153,209,.12);}
   .inspection-list-table-wrap{max-height:calc(100vh - 385px);min-height:260px;overflow:auto;border-radius:var(--radius);}
-  .inspection-list-table{table-layout:fixed;min-width:1080px;width:100%;}
+  .inspection-list-table{table-layout:fixed;min-width:760px;width:100%;}
   .inspection-list-table thead th{position:sticky;top:0;z-index:3;}
   .inspection-list-table .inspection-col-sku{width:110px;}
   .inspection-list-table .inspection-col-barcode{width:170px;}
   .inspection-list-table .inspection-col-name{width:auto;}
-  .inspection-list-table .inspection-col-unit{width:130px;}
-  .inspection-list-table .inspection-col-price,.inspection-list-table .inspection-col-cost{width:110px;}
   .inspection-list-table .inspection-col-stock{width:170px;}
   .inspection-list-table .inspection-col-action{width:58px;}
   .inspection-list-table td{vertical-align:middle;}
-  .inspection-list-unit-select{width:100%;max-width:112px;padding:7px 9px;border:1px solid var(--border);border-radius:7px;background:var(--surface);font-family:inherit;font-size:13px;text-align:center;}
-  .inspection-list-unit-select:focus{outline:none;border-color:var(--primary);}
+  .inspection-list-sort-btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;width:100%;padding:0;border:0;background:transparent;color:inherit;font:inherit;font-weight:inherit;cursor:pointer;}
+  .inspection-list-sort-btn .sort-indicator{min-width:12px;font-size:11px;opacity:.65;}
+  .inspection-list-sort-btn:not(.active) .sort-indicator{opacity:.35;}
   .inspection-list-stock{display:block;text-align:center;font-weight:600;color:var(--primary-dark);}
   .inspection-list-stock-sub{display:block;margin-top:2px;text-align:center;color:var(--text-muted);font-size:11px;}
   .inspection-list-remove{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--danger);cursor:pointer;}
@@ -1916,6 +1915,7 @@ let inspectionListDraft = null;
 let inspectionListCatFilter = { category:'', brand:'' };
 let inspectionListSearchQuery = '';
 let inspectionListPage = 1;
+let inspectionListSort = { key:'sku', dir:1 };
 let inspectionListCounter = 1;
 const INSPECTION_LIST_PAGE_SIZE = 7;
 // รายการและตัวกรองของหน้าแก้ไขสต๊อก (แยกจากรายงานสินค้าคงเหลือโดยเด็ดขาด)
@@ -3711,33 +3711,55 @@ function inspectionListAmount(value){
   const number=Number(value)||0;
   return number.toLocaleString('th-TH',{minimumFractionDigits:Number.isInteger(number)?0:0,maximumFractionDigits:2});
 }
+function inspectionListSortValue(item,key){
+  const product=products.find(entry=>entry.id===Number(item?.pid));
+  if(!product) return null;
+  const selected=inspectionListSelectedOption(item,product);
+  if(key==='barcode') return selected.barcode||'';
+  if(key==='name') return product.name||'';
+  if(key==='stock') return stockUnitAmountFromBase(product.stock,selected.factor);
+  return product.sku||'';
+}
+function inspectionListSortedEntries(itemList=inspectionListDraft?.items||[]){
+  const key=['sku','barcode','name','stock'].includes(inspectionListSort?.key)?inspectionListSort.key:'sku';
+  const dir=Number(inspectionListSort?.dir)===-1?-1:1;
+  return itemList.map((item,index)=>({item,index})).sort((a,b)=>{
+    const left=inspectionListSortValue(a.item,key);
+    const right=inspectionListSortValue(b.item,key);
+    if(left===null&&right===null) return a.index-b.index;
+    if(left===null) return 1;
+    if(right===null) return -1;
+    const compared=key==='stock'
+      ? (Number(left)-Number(right))
+      : String(left).localeCompare(String(right),'th',{numeric:true,sensitivity:'base'});
+    return compared===0?a.index-b.index:compared*dir;
+  });
+}
 function inspectionListPagination(itemList=inspectionListDraft?.items||[],page=inspectionListPage,pageSize=INSPECTION_LIST_PAGE_SIZE){
   const totalPages=Math.max(1,Math.ceil(itemList.length/pageSize));
   const currentPage=Math.min(totalPages,Math.max(1,Number(page)||1));
   const start=(currentPage-1)*pageSize;
-  return {rows:itemList.slice(start,start+pageSize).map((item,offset)=>({item,index:start+offset})),currentPage,totalPages};
+  return {rows:inspectionListSortedEntries(itemList).slice(start,start+pageSize),currentPage,totalPages};
 }
-function inspectionListRowsHtml(entries,canViewCost){
+function inspectionListSortHeader(key,label){
+  const active=inspectionListSort?.key===key;
+  const arrow=active?(Number(inspectionListSort.dir)===-1?'▼':'▲'):'↕';
+  return `<button type="button" class="inspection-list-sort-btn ${active?'active':''}" data-inspection-sort="${key}" aria-label="เรียงตาม${label}">${label}<span class="sort-indicator" aria-hidden="true">${arrow}</span></button>`;
+}
+function inspectionListRowsHtml(entries){
   if(!inspectionListDraft?.items?.length){
-    return `<tr><td colspan="${canViewCost?8:7}" style="padding:30px;text-align:center;color:var(--text-muted);">ยังไม่มีสินค้า — ค้นหา/สแกนบาร์โค้ด หรือเลือกสินค้าจากหมวดด้านบน</td></tr>`;
+    return '<tr><td colspan="5" style="padding:30px;text-align:center;color:var(--text-muted);">ยังไม่มีสินค้า — ค้นหา/สแกนบาร์โค้ด หรือเลือกสินค้าจากหมวดด้านบน</td></tr>';
   }
   return entries.map(({item,index})=>{
     const product=products.find(entry=>entry.id===Number(item.pid));
     const removeButton=`<button class="inspection-list-remove" data-inspection-remove="${index}" title="ลบออกจากรายการ" aria-label="ลบสินค้าออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`;
-    if(!product) return `<tr><td class="mono" style="text-align:center;">-</td><td class="mono" style="text-align:center;">-</td><td>ไม่พบสินค้าในระบบ (รหัส ${escapeHtml(item.pid)})</td><td style="text-align:center;">-</td><td style="text-align:center;">-</td>${canViewCost?'<td style="text-align:center;">-</td>':''}<td style="text-align:center;">-</td><td style="text-align:center;">${removeButton}</td></tr>`;
-    const options=inspectionListUnitOptions(product);
+    if(!product) return `<tr><td class="mono" style="text-align:center;">-</td><td class="mono" style="text-align:center;">-</td><td>ไม่พบสินค้าในระบบ (รหัส ${escapeHtml(item.pid)})</td><td style="text-align:center;">-</td><td style="text-align:center;">${removeButton}</td></tr>`;
     const selected=inspectionListSelectedOption(item,product);
-    const unitSelect=options.length>1
-      ? `<select class="inspection-list-unit-select" data-inspection-unit="${index}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected.name?'selected':''}>${escapeHtml(option.name)}</option>`).join('')}</select>`
-      : `<span>${escapeHtml(selected.name)}</span>`;
     const selectedStock=stockUnitAmountFromBase(product.stock,selected.factor);
     return `<tr data-inspection-row="${index}">
       <td class="mono" style="text-align:center;">${escapeHtml(product.sku||'-')}</td>
       <td class="mono" style="text-align:center;">${escapeHtml(selected.barcode||'-')}</td>
       <td>${escapeHtml(product.name)}</td>
-      <td style="text-align:center;">${unitSelect}</td>
-      <td class="mono" style="text-align:center;">${fmtMoney(selected.price)}</td>
-      ${canViewCost?`<td class="mono" style="text-align:center;">${fmtMoney(selected.cost)}</td>`:''}
       <td><span class="inspection-list-stock ${Number(product.stock)<0?'stock-negative':''}">${inspectionListAmount(selectedStock)} ${escapeHtml(selected.name)}</span><span class="inspection-list-stock-sub">${escapeHtml(stockInLargestUnit(product))} · ${escapeHtml(whName(product.wh))}</span></td>
       <td style="text-align:center;">${removeButton}</td>
     </tr>`;
@@ -3755,7 +3777,7 @@ function inspectionListDateTime(value){
 function renderInspectionListOverview(){
   const lists=[...inspectionLists].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
   return `<div class="rpt inspection-list-page">
-    <div class="pagehead"><div><h1>รายการตรวจสินค้า</h1><div class="sub">บันทึกชุดสินค้าไว้เปิดดูราคาขาย ทุน และจำนวนคงเหลือล่าสุดได้ทุกครั้ง</div></div><button class="btn primary" id="newInspectionListBtn">+ สร้างรายการ</button></div>
+    <div class="pagehead"><div><h1>รายการตรวจสินค้า</h1><div class="sub">บันทึกชุดสินค้าไว้เปิดดูจำนวนคงเหลือล่าสุดได้ทุกครั้ง</div></div><button class="btn primary" id="newInspectionListBtn">+ สร้างรายการ</button></div>
     ${lists.length?`<div class="inspection-list-overview-grid">${lists.map(list=>`<article class="inspection-list-card">
       <div class="inspection-list-card-head"><h3>${escapeHtml(list.name)}</h3><span class="inspection-list-count">${(list.items||[]).length} สินค้า</span></div>
       <div class="inspection-list-preview">${inspectionListPreviewHtml(list)}</div>
@@ -3769,13 +3791,12 @@ function renderInspectionListEditor(){
   if(!inspectionListDraft) return renderInspectionListOverview();
   const draft=inspectionListDraft;
   const filter=inspectionListCatFilter;
-  const canViewCost=loggedInUser()?.owner===true;
   const brandOptions=filter.category?brands.filter(brand=>products.some(product=>product.category===filter.category&&product.brand===brand)):brands.slice();
   const matchCount=products.filter(product=>(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand)&&(filter.category||filter.brand)).length;
   const pagination=inspectionListPagination();
   inspectionListPage=pagination.currentPage;
   return `<div class="rpt inspection-list-page">
-    <div class="pagehead"><div><div class="breadcrumb">คลัง & สินค้า › รายการตรวจสินค้า › ${editingInspectionListId==='new'?'สร้างรายการ':'แก้ไขรายการ'}</div><h1>${editingInspectionListId==='new'?'สร้างรายการตรวจสินค้า':'แก้ไขรายการตรวจสินค้า'}</h1><div class="sub">ข้อมูลราคาและสต๊อกในตารางเป็นค่าล่าสุดจากรายการสินค้า</div></div><div class="inspection-list-actions form-final-actions"><button class="btn ghost" id="cancelInspectionListBtn">ยกเลิก</button><button class="btn primary" id="saveInspectionListBtn">บันทึกรายการ</button></div></div>
+    <div class="pagehead"><div><div class="breadcrumb">คลัง & สินค้า › รายการตรวจสินค้า › ${editingInspectionListId==='new'?'สร้างรายการ':'แก้ไขรายการ'}</div><h1>${editingInspectionListId==='new'?'สร้างรายการตรวจสินค้า':'แก้ไขรายการตรวจสินค้า'}</h1><div class="sub">จำนวนคงเหลือในตารางเป็นค่าล่าสุดจากรายการสินค้า</div></div><div class="inspection-list-actions form-final-actions"><button class="btn ghost" id="cancelInspectionListBtn">ยกเลิก</button><button class="btn primary" id="saveInspectionListBtn">บันทึกรายการ</button></div></div>
     <div class="inspection-list-editor-section">
       <div class="inspection-list-name-field"><label for="inspectionListName">ชื่อรายการ *</label><input id="inspectionListName" class="inspection-list-name-input" value="${escapeHtml(draft.name||'')}" placeholder="เช่น รายการตรวจสินค้าหน้าร้าน"></div>
       <div class="rpt-filters" style="margin-bottom:12px;">
@@ -3784,7 +3805,7 @@ function renderInspectionListEditor(){
         <button class="btn ghost" id="inspectionListAddCategoryBtn" ${(filter.category||filter.brand)?'':'disabled'}>เลือกสินค้าในหมวดนี้${(filter.category||filter.brand)?` (${matchCount})`:''}</button>
       </div>
       <div class="inspection-list-search-wrap"><input id="inspectionListSearch" class="inspection-list-search" value="${escapeHtml(inspectionListSearchQuery)}" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." autocomplete="off"><div id="inspectionListResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div></div>
-      <div class="inspection-list-table-wrap seamless-table-wrap"><table class="grid-table doc-head-blue inspection-list-table"><colgroup><col class="inspection-col-sku"><col class="inspection-col-barcode"><col class="inspection-col-name"><col class="inspection-col-unit"><col class="inspection-col-price">${canViewCost?'<col class="inspection-col-cost">':''}<col class="inspection-col-stock"><col class="inspection-col-action"></colgroup><thead><tr><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>สินค้า</th><th>หน่วย</th><th>ราคาขาย</th>${canViewCost?'<th>ทุน</th>':''}<th>คงเหลือ</th><th aria-label="จัดการ"></th></tr></thead><tbody>${inspectionListRowsHtml(pagination.rows,canViewCost)}</tbody></table></div>
+      <div class="inspection-list-table-wrap seamless-table-wrap"><table class="grid-table doc-head-blue inspection-list-table"><colgroup><col class="inspection-col-sku"><col class="inspection-col-barcode"><col class="inspection-col-name"><col class="inspection-col-stock"><col class="inspection-col-action"></colgroup><thead><tr><th>${inspectionListSortHeader('sku','รหัสสินค้า')}</th><th>${inspectionListSortHeader('barcode','บาร์โค้ด')}</th><th>${inspectionListSortHeader('name','สินค้า')}</th><th>${inspectionListSortHeader('stock','คงเหลือ')}</th><th aria-label="จัดการ"></th></tr></thead><tbody>${inspectionListRowsHtml(pagination.rows)}</tbody></table></div>
       ${pagerHtml(inspectionListPage,pagination.totalPages,'inspection-list-page')}
     </div>
   </div>`;
@@ -3792,7 +3813,7 @@ function renderInspectionListEditor(){
 function renderInspectionLists(){ return editingInspectionListId===null?renderInspectionListOverview():renderInspectionListEditor(); }
 function openInspectionListEditor(id='new',shouldRender=true){
   editingInspectionListId=id;
-  inspectionListCatFilter={category:'',brand:''}; inspectionListSearchQuery=''; inspectionListPage=1;
+  inspectionListCatFilter={category:'',brand:''}; inspectionListSearchQuery=''; inspectionListPage=1; inspectionListSort={key:'sku',dir:1};
   if(id==='new'){
     inspectionListDraft={id:null,name:`รายการตรวจสินค้า ${inspectionListCounter}`,items:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),createdBy:currentProfile?.firstName||currentProfile?.username||''};
   }else{
@@ -5715,7 +5736,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       const lower=value.toLowerCase();
       const matches=products.filter(product=>product.name.toLowerCase().includes(lower)||(product.sku||'').toLowerCase().includes(lower)||matchesBarcode(product,value)).slice(0,15);
       if(!matches.length){ inspectionListResults.innerHTML='<div class="fav-add-noresult">ไม่พบสินค้า</div>'; inspectionListResults.hidden=false; return; }
-      inspectionListResults.innerHTML=matches.map(product=>`<div class="fav-add-result" data-inspection-result="${product.id}"><b>${escapeHtml(product.name)}</b><span>${escapeHtml(product.sku||'-')} · ขาย ${fmtMoney(product.price)} · คงเหลือ ${escapeHtml(stockInLargestUnit(product))}${inspectionListDraft?.items.some(item=>Number(item.pid)===Number(product.id))?' · อยู่ในรายการแล้ว':''}</span></div>`).join('');
+      inspectionListResults.innerHTML=matches.map(product=>`<div class="fav-add-result" data-inspection-result="${product.id}"><b>${escapeHtml(product.name)}</b><span>${escapeHtml(product.sku||'-')} · คงเหลือ ${escapeHtml(stockInLargestUnit(product))}${inspectionListDraft?.items.some(item=>Number(item.pid)===Number(product.id))?' · อยู่ในรายการแล้ว':''}</span></div>`).join('');
       inspectionListResults.hidden=false;
       inspectionListResults.querySelectorAll('[data-inspection-result]').forEach(row=>{
         row.addEventListener('mousedown',event=>event.preventDefault());
@@ -5742,6 +5763,13 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   document.querySelectorAll('[data-inspection-remove]').forEach(button=>button.addEventListener('click',()=>{
     if(!inspectionListDraft) return;
     inspectionListDraft.items.splice(Number(button.dataset.inspectionRemove),1); render();
+  }));
+  document.querySelectorAll('[data-inspection-sort]').forEach(button=>button.addEventListener('click',()=>{
+    const key=button.dataset.inspectionSort;
+    if(!['sku','barcode','name','stock'].includes(key)) return;
+    inspectionListSort=inspectionListSort.key===key?{key,dir:inspectionListSort.dir===1?-1:1}:{key,dir:1};
+    inspectionListPage=1;
+    render();
   }));
   document.querySelectorAll('[data-inspection-list-page]').forEach(button=>button.addEventListener('click',()=>{
     const value=button.dataset.inspectionListPage;
