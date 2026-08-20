@@ -6058,13 +6058,46 @@ function profitItemsReportHtml(items,bill){
   return `<div class="profit-items"><div class="profit-item profit-item-head"><span class="mono">${escapeHtml(bill.billId)}</span><span>จำนวน</span><span>หน่วย</span><span>ขาย</span><span>ทุน</span><span>กำไร</span></div>${items.map(it=>`<div class="profit-item"><span>${escapeHtml(it.name)}</span><span>${it.qty}</span><span>${escapeHtml(it.unit)}</span><span class="mono">${fmtMoney(it.price)}</span><span class="mono">${fmtMoney(it.cost)}</span><span class="mono" style="color:#2D7D3D;font-weight:400;">${it.profit<0?'-':''}${fmtMoney(Math.abs(it.profit))}</span></div>`).join('')}<div class="profit-item profit-item-total"><span class="total-label"></span><span><b class="mono">${fmtMoney(bill.revenue)}</b></span><span><b class="mono">${fmtMoney(bill.cost)}</b></span><span style="color:${bill.profit>=0?'#2D7D3D':'var(--danger)'};"><b class="mono">${bill.profit<0?'-':''}${fmtMoney(Math.abs(bill.profit))}</b></span></div></div>`;
 }
 
+function printRProfit(){
+  const {range,bills,byDate,dateKeys,revenue,cost,profit,missingCount}=rprofitCollect();
+  const bizName=businessSettings.name||STORE_INFO.name;
+  const margin=revenue?profit/revenue*100:0;
+  const thDate=d=>{const dt=new Date(d);return dt.getDate()+' '+['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][dt.getMonth()]+' '+dt.getFullYear();};
+  const dayBlocksHtml=dateKeys.length?dateKeys.map(d=>{
+    const rows=byDate[d],dayProfit=rows.reduce((sum,row)=>sum+row.profit,0);
+    return `<section class="day-block">
+      <div class="day-head"><span>${thDate(d)}</span><span class="${dayProfit<0?'negative':'positive'}">${dayProfit>0?'+ ':dayProfit<0?'- ':''}${fmtMoney(Math.abs(dayProfit))}</span></div>
+      ${rows.map(bill=>`<div class="bill-block">
+        <div class="bill-head"><b>${escapeHtml(bill.billId)}</b><span>${escapeHtml(bill.payMethod)}</span></div>
+        <table><colgroup><col style="width:37%"><col style="width:9%"><col style="width:10%"><col style="width:14%"><col style="width:14%"><col style="width:16%"></colgroup><thead><tr><th>สินค้า</th><th class="r">จำนวน</th><th>หน่วย</th><th class="r">ยอดขาย</th><th class="r">ต้นทุน</th><th class="r">กำไร/ขาดทุน</th></tr></thead><tbody>
+          ${bill.items.map(item=>`<tr><td>${escapeHtml(item.name)}</td><td class="r">${item.qty}</td><td>${escapeHtml(item.unit)}</td><td class="r">${fmtMoney(item.net)}</td><td class="r">${fmtMoney(item.costTotal)}</td><td class="r ${item.profit<0?'negative':'positive'}">${item.profit<0?'-':''}${fmtMoney(Math.abs(item.profit))}</td></tr>`).join('')}
+          <tr class="bill-total"><td colspan="3">รวมบิล</td><td class="r">${fmtMoney(bill.revenue)}</td><td class="r">${fmtMoney(bill.cost)}</td><td class="r ${bill.profit<0?'negative':'positive'}">${bill.profit<0?'-':''}${fmtMoney(Math.abs(bill.profit))}</td></tr>
+        </tbody></table>
+      </div>`).join('')}
+    </section>`;
+  }).join(''):'<div class="empty">ไม่มีบิลที่มีข้อมูลต้นทุนในช่วงเวลาที่เลือก</div>';
+  const win=window.open('','_blank'); if(!win){showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร');return;}
+  win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>รายงานกำไร / ขาดทุน</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    @page{size:A4;margin:12mm}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+    body{margin:0;background:#f0f0f0;color:#2b2b2b;font-family:'Sarabun',sans-serif;font-size:12px}.toolbar{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:#fff;box-shadow:0 2px 8px #0002}.toolbar button{border:0;border-radius:7px;background:#2091D2;color:#fff;padding:9px 18px;font:600 14px Sarabun;cursor:pointer}.page{width:210mm;min-height:297mm;margin:12px auto;padding:14mm 12mm;background:#fff;box-shadow:0 4px 20px #0002}h1{text-align:center;color:#2091D2;font-size:20px;margin:0 0 18px}.biz{color:#2091D2;font-size:17px;font-weight:600;margin-bottom:10px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px;padding-bottom:12px;border-bottom:1px solid #d9dee3}.meta span:nth-child(odd){font-weight:600}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}.summary div{border:1px solid #dfe4e8;border-radius:8px;padding:9px}.summary span{display:block;color:#6B7280;font-size:10.5px}.summary b{display:block;margin-top:3px;font-size:14px}.positive{color:#2D7D3D!important}.negative{color:#C2483E!important}.warning{margin:10px 0;padding:8px 10px;border-radius:6px;background:#fff4df;color:#8a5a10}.day-block{margin-top:16px;break-inside:avoid}.day-head{display:flex;justify-content:space-between;background:#EAF1FF;color:#2091D2;font-weight:600;padding:7px 8px;border-radius:6px}.bill-block{margin-top:8px;break-inside:avoid}.bill-head{display:flex;justify-content:space-between;padding:5px 7px;background:#f6f7f9}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:6px 7px;border-bottom:1px solid #e1e5e9;text-align:left}th{font-size:10.5px;color:#5d6670}.r{text-align:right}.bill-total td{font-weight:600;border-top:1px solid #aeb7bf}.empty{text-align:center;color:#888;padding:28px}@media print{body{background:#fff}.toolbar{display:none}.page{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}.day-head{background:#EAF1FF!important}}
+  </style></head><body><div class="toolbar"><span>ตัวอย่างรายงาน A4</span><button onclick="window.print()">พิมพ์</button></div><main class="page">
+    <h1>รายงานกำไร / ขาดทุน</h1><div class="biz">${escapeHtml(bizName)}</div>
+    <div class="meta"><span>ณ วันที่</span><span>${thDate(TODAY_STR)}</span><span>ช่วงเวลา</span><span>${thDate(range.from)} - ${thDate(range.to)}</span><span>จำนวนทั้งหมด</span><span>${bills.length} เอกสาร</span></div>
+    <div class="summary"><div><span>ยอดขาย</span><b>${fmtMoney(revenue)}</b></div><div><span>ต้นทุน</span><b>${fmtMoney(cost)}</b></div><div><span>กำไร / ขาดทุน</span><b class="${profit<0?'negative':'positive'}">${profit<0?'-':''}${fmtMoney(Math.abs(profit))}</b></div><div><span>อัตรากำไร</span><b class="${margin<0?'negative':'positive'}">${margin.toFixed(2)}%</b></div></div>
+    ${missingCount?`<div class="warning">มี ${missingCount} บิลที่ไม่มีข้อมูลต้นทุนและไม่ถูกรวมในรายงาน</div>`:''}${dayBlocksHtml}
+  </main></body></html>`);
+  win.document.close();
+}
+
 function renderRProfit(){
   const {f,range,bills,byDate,dateKeys,revenue,cost,profit,missingCount}=rprofitCollect();
   const periodOpts=[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
   const thDate=d=>{const dt=new Date(d);return dt.getDate()+' '+['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][dt.getMonth()]+' '+dt.getFullYear();};
   const margin=revenue?profit/revenue*100:0;
   return `<div class="rpt">
-    <div class="rpt-head"><h1>รายงานกำไร / ขาดทุน</h1></div>
+    <div class="rpt-head"><h1>รายงานกำไร / ขาดทุน</h1><div class="rpt-head-actions"><button class="btn primary" id="rprofitPrintBtn">พิมพ์รายงาน</button></div></div>
     <div class="rpt-filters">
       <div class="rpf-item"><select id="rprofit_period" class="rpt-select">${periodOpts.map(([v,l])=>`<option value="${v}" ${f.period===v?'selected':''}>${l}</option>`).join('')}</select></div>
       ${f.period==='range'?`<div class="rpf-item rpf-range">${dmyDateFieldHtml('rprofit_from',range.from)}<span style="color:var(--text-muted);">ถึง</span>${dmyDateFieldHtml('rprofit_to',range.to)}</div>`:''}
@@ -7189,6 +7222,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const rprofitWh=document.getElementById('rprofit_wh'); if(rprofitWh) rprofitWh.addEventListener('change',()=>{rprofitFilter.wh=rprofitWh.value;});
   const rprofitPay=document.getElementById('rprofit_pay'); if(rprofitPay) rprofitPay.addEventListener('change',()=>{rprofitFilter.pay=rprofitPay.value;});
   const rprofitApply=document.getElementById('rprofitApplyBtn'); if(rprofitApply) rprofitApply.addEventListener('click',()=>{rprofitFilter.applied=true;render();});
+  const rprofitPrint=document.getElementById('rprofitPrintBtn'); if(rprofitPrint) rprofitPrint.addEventListener('click',printRProfit);
   const signatureFile=document.getElementById('set_signature_file');
   if(signatureFile) signatureFile.addEventListener('change',()=>{ currentUserProfile.signatureName=signatureFile.files?.[0]?.name||''; const label=document.getElementById('signatureFileName'); if(label) label.textContent=currentUserProfile.signatureName||'ยังไม่ได้เลือกไฟล์'; });
   const addSystemUserBtn=document.getElementById('addSystemUserBtn');
