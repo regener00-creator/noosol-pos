@@ -6388,8 +6388,18 @@ function attachEvents(){
     if(product) addProductToMobileStockEdit(product);
   }));
   document.querySelectorAll('[data-mobile-stock-unit]').forEach(select=>select.addEventListener('change',()=>{
-    stockEditRowUnitSel[Number(select.dataset.mobileStockUnit)]=select.value;
-    render();
+    const productId=Number(select.dataset.mobileStockUnit);
+    const product=products.find(entry=>Number(entry.id)===productId);
+    if(!product) return;
+    const selected=inspectionListUnitOptions(product).find(option=>option.name===select.value)||inspectionListUnitOptions(product)[0];
+    stockEditRowUnitSel[productId]=selected?.name||product.unit;
+    const amountInput=document.querySelector(`[data-mobile-stock-amount="${productId}"]`);
+    if(!amountInput) return;
+    const hasDraft=Object.prototype.hasOwnProperty.call(stockEditDraftStocks,productId);
+    const baseStock=hasDraft?stockEditDraftStocks[productId]:product.stock;
+    amountInput.dataset.factor=String(selected?.factor||1);
+    amountInput.value=stockUnitAmountFromBase(baseStock,selected?.factor||1);
+    amountInput.classList.toggle('pending',hasDraft);
   }));
   const refreshMobileStockConfirmButton=()=>{
     const button=document.getElementById('mobileConfirmStockEdit');
