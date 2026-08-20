@@ -143,7 +143,8 @@ assert.doesNotMatch(staffEditorHtml, />ทุน</);
 
 assert.match(html, /\['inspectionlists','รายการตรวจสินค้า'/);
 assert.match(html, /inspectionlists:\s*renderInspectionLists/);
-assert.match(html, /key:'inspection_lists',value:inspectionLists/);
+assert.match(html, /from\('inspection_lists'\)\.select\('\*'\)/);
+assert.match(html, /upsertAndPrune\('inspection_lists',inspectionLists,inspectionListToRow\)/);
 assert.match(html, /await loadInspectionListsFromSupabase\(\)/);
 assert.match(html, /data-inspection-list-page/);
 assert.match(html, /INSPECTION_LIST_PAGE_SIZE = 7/);

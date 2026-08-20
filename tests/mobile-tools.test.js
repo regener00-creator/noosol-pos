@@ -72,6 +72,28 @@ assert.match(html, /if\(currentTab==='mobiletools'&&mobileToolMode==='price'\)/)
 assert.doesNotMatch(html, /setTimeout\(\(\)=>document\.getElementById\('mobileInspectionInput'\)\?\.(?:focus|select)/);
 assert.doesNotMatch(html, /setTimeout\(\(\)=>document\.getElementById\('mobileStockInput'\)\?\.(?:focus|select)/);
 
+const mobilePriceResultStart = html.indexOf('function mobilePriceResultHtml(');
+const mobilePriceResultEnd = html.indexOf('function mobileInspectionCurrentList(', mobilePriceResultStart);
+assert.ok(mobilePriceResultStart >= 0 && mobilePriceResultEnd > mobilePriceResultStart);
+const mobilePriceResult = html.slice(mobilePriceResultStart, mobilePriceResultEnd);
+const mobilePriceNameIndex = mobilePriceResult.indexOf('mobile-result-name');
+const mobilePriceUnitIndex = mobilePriceResult.indexOf('mobile-unit-select');
+const mobilePriceStockIndex = mobilePriceResult.indexOf('<span>คงเหลือ</span>');
+const mobilePriceSaleIndex = mobilePriceResult.indexOf('<span>ราคาขาย</span>');
+const mobilePriceCostIndex = mobilePriceResult.indexOf('<span>ทุน</span>');
+const mobilePriceExpiryIndex = mobilePriceResult.indexOf('<span>วันหมดอายุ</span>');
+assert.ok(mobilePriceNameIndex >= 0 && mobilePriceUnitIndex > mobilePriceNameIndex && mobilePriceStockIndex > mobilePriceUnitIndex && mobilePriceSaleIndex > mobilePriceStockIndex && mobilePriceCostIndex > mobilePriceSaleIndex && mobilePriceExpiryIndex > mobilePriceCostIndex);
+assert.match(mobilePriceResult, /mobile-metric primary[^>]*><span>คงเหลือ<\/span>/);
+assert.doesNotMatch(mobilePriceResult, /mobile-result-codes/);
+const mobilePriceUnitHandlerStart = html.indexOf("document.getElementById('mobilePriceUnit')?.addEventListener('change'");
+const mobilePriceCameraHandlerStart = html.indexOf("document.getElementById('mobilePriceCamera')?.addEventListener", mobilePriceUnitHandlerStart);
+assert.ok(mobilePriceUnitHandlerStart >= 0 && mobilePriceCameraHandlerStart > mobilePriceUnitHandlerStart);
+const mobilePriceUnitHandler = html.slice(mobilePriceUnitHandlerStart, mobilePriceCameraHandlerStart);
+assert.doesNotMatch(mobilePriceUnitHandler, /render\(\)/);
+assert.match(mobilePriceUnitHandler, /mobilePriceStock/);
+assert.match(mobilePriceUnitHandler, /mobilePriceSale/);
+assert.match(mobilePriceUnitHandler, /mobilePriceCost/);
+
 assert.equal(manifest.display, 'standalone');
 assert.equal(manifest.start_url, '/');
 assert.ok(manifest.icons.some(icon => icon.src === '/pwa-icon.svg'));
@@ -80,7 +102,8 @@ assert.ok(manifest.icons.some(icon => icon.src === '/pwa-icon-512.png' && icon.s
 assert.match(serviceWorker, /request\.mode==='navigate'/);
 assert.match(serviceWorker, /fetch\(request\)/);
 assert.match(serviceWorker, /caches\.match\('\/index\.html'\)/);
-assert.match(serviceWorker, /pepos-mobile-v2/);
+assert.match(serviceWorker, /pepos-mobile-v3/);
+assert.match(serviceWorker, /cdn\.jsdelivr\.net/);
 assert.ok(fs.statSync(path.join(root, 'pwa-icon-192.png')).size > 1000);
 assert.ok(fs.statSync(path.join(root, 'pwa-icon-512.png')).size > 3000);
 

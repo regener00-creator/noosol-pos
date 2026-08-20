@@ -39,6 +39,7 @@ let toast = '';
 Object.assign(context, {
   goodsReceipts: [{id:'RI-TEST',status:'รอรับสินค้า',stockApplied:false,items:[{productId:1,qty:5}]}],
   adjustGoodsReceiptStock: (_items, direction) => { stockDirection += direction; },
+  persistWorkspaceData: () => {},
   render: () => { renderCount++; },
   showToast: message => { toast = message; },
 });
