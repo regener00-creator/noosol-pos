@@ -8213,7 +8213,13 @@ function openPriceCheckModal(){
     });
   };
   input.addEventListener('input', doSearch);
-  input.addEventListener('keydown', e=>{ if(e.key==='Enter') doSearch(); });
+  input.addEventListener('keydown', e=>{
+    if(e.key!=='Enter') return;
+    doSearch();
+    // เลือกข้อความทั้งหมดในช่องทันทีหลังค้นหา เพื่อให้ยิงบาร์โค้ด/พิมพ์ครั้งถัดไปเขียนทับอัตโนมัติ
+    // (เครื่องสแกนบาร์โค้ดส่วนใหญ่ส่ง Enter ต่อท้ายเสมอเป็นมาตรฐาน จึงใช้จังหวะนี้เตรียมช่องให้พร้อมรับค่าใหม่)
+    setTimeout(()=>input.select(),0);
+  });
   setTimeout(()=>input.focus(), 50);
 }
 
