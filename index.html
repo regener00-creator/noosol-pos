@@ -1365,6 +1365,104 @@ async function fetchAllRows(buildQuery){
   return {data:allRows,error:null};
 }
 
+// Product reads use a lightweight manifest (id + updated_at) after the first
+// successful load. A normal refresh therefore downloads full JSON only for
+// products that were added or changed, while ids missing from the manifest
+// remove products deleted by another device. The first load remains a safe
+// full download so an incomplete/stale local cache is never trusted blindly.
+const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v1';
+const PRODUCT_MANIFEST_VERSION=1;
+function productManifestVersions(rows){
+  const versions={};
+  (rows||[]).forEach(row=>{ versions[String(row.id)]=String(row.updated_at||''); });
+  return versions;
+}
+function readProductManifestCache(){
+  try{
+    const cached=JSON.parse(localStorage.getItem(PRODUCT_MANIFEST_STORAGE_KEY)||'null');
+    if(!cached||cached.version!==PRODUCT_MANIFEST_VERSION||!cached.versions||typeof cached.versions!=='object') return null;
+    return cached;
+  }catch(error){ console.warn('ไม่สามารถอ่านแคชรายการสินค้าได้',error); return null; }
+}
+function saveProductManifestCache(rows){
+  safeLocalStorageSet(PRODUCT_MANIFEST_STORAGE_KEY,JSON.stringify({
+    version:PRODUCT_MANIFEST_VERSION,
+    savedAt:new Date().toISOString(),
+    versions:productManifestVersions(rows),
+  }),'แคชรายการสินค้า');
+}
+function planProductManifestSync(localProducts,cachedManifest,manifestRows,hasWorkspaceCache){
+  const cacheUsable=!!hasWorkspaceCache&&!!cachedManifest&&cachedManifest.version===PRODUCT_MANIFEST_VERSION&&cachedManifest.versions&&typeof cachedManifest.versions==='object';
+  if(!cacheUsable) return {fullReload:true,changedIds:[],deletedIds:[]};
+  const remoteVersions=productManifestVersions(manifestRows);
+  const localIds=new Set((localProducts||[]).map(product=>String(product.id)));
+  const changedIds=(manifestRows||[]).filter(row=>!localIds.has(String(row.id))||cachedManifest.versions[String(row.id)]!==String(row.updated_at||'')).map(row=>row.id);
+  const remoteIds=new Set(Object.keys(remoteVersions));
+  const deletedIds=(localProducts||[]).map(product=>product.id).filter(id=>!remoteIds.has(String(id)));
+  return {fullReload:false,changedIds,deletedIds};
+}
+async function fetchProductManifestRows(){
+  const pageSize=1000;
+  let lastId=null,allRows=[];
+  while(true){
+    let query=sb.from('products').select('id,updated_at').order('id',{ascending:true}).limit(pageSize);
+    if(lastId!==null) query=query.gt('id',lastId);
+    const {data,error}=await query;
+    if(error) return {data:null,error};
+    const rows=data||[];
+    allRows=allRows.concat(rows);
+    if(rows.length<pageSize) break;
+    lastId=rows[rows.length-1].id;
+  }
+  return {data:allRows,error:null};
+}
+async function fetchAllProductRows(){
+  const pageSize=1000;
+  let lastId=null,allRows=[];
+  while(true){
+    let query=sb.from('products').select('*').order('id',{ascending:true}).limit(pageSize);
+    if(lastId!==null) query=query.gt('id',lastId);
+    const {data,error}=await query;
+    if(error) return {data:null,error};
+    const rows=data||[];
+    allRows=allRows.concat(rows);
+    if(rows.length<pageSize) break;
+    lastId=rows[rows.length-1].id;
+  }
+  return {data:allRows,error:null};
+}
+async function fetchProductRowsByIds(ids){
+  const allRows=[];
+  for(let i=0;i<ids.length;i+=200){
+    const {data,error}=await sb.from('products').select('*').in('id',ids.slice(i,i+200));
+    if(error) return {data:null,error};
+    allRows.push(...(data||[]));
+  }
+  return {data:allRows,error:null};
+}
+async function loadProductRowsFromSupabase(){
+  const {data:manifestRows,error:manifestError}=await fetchProductManifestRows();
+  if(manifestError) return {data:null,error:manifestError};
+  const cachedManifest=readProductManifestCache();
+  const plan=planProductManifestSync(products,cachedManifest,manifestRows,!!localStorage.getItem(WORKSPACE_STORAGE_KEY));
+  let loadedProducts;
+  if(plan.fullReload){
+    const {data,error}=await fetchAllProductRows();
+    if(error) return {data:null,error};
+    loadedProducts=(data||[]).map(rowToProduct);
+  }else{
+    const {data:changedRows,error}=await fetchProductRowsByIds(plan.changedIds);
+    if(error) return {data:null,error};
+    const changedIds=new Set(plan.changedIds.map(String));
+    const deletedIds=new Set(plan.deletedIds.map(String));
+    loadedProducts=(products||[]).filter(product=>!changedIds.has(String(product.id))&&!deletedIds.has(String(product.id)));
+    loadedProducts.push(...(changedRows||[]).map(rowToProduct));
+    loadedProducts.sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0));
+  }
+  saveProductManifestCache(manifestRows);
+  return {data:loadedProducts,error:null};
+}
+
 // Content-hash guard: render() (and therefore the sync schedulers below) fires
 // on nearly every click/keystroke, including plenty that touch zero core data
 // (typing a search term, switching report tabs, sorting a table). Without this
@@ -1625,7 +1723,7 @@ async function loadCoreDataFromSupabase(){
   try{
     const [{data:whRows,error:whErr},{data:prodRows,error:prodErr},{data:contactRows,error:contactErr},{data:repRows,error:repErr}]=await Promise.all([
       fetchAllRows(()=>sb.from('warehouses').select('*').order('id')),
-      fetchAllRows(()=>sb.from('products').select('*').order('id')),
+      loadProductRowsFromSupabase(),
       fetchAllRows(()=>sb.from('contacts').select('*').order('id')),
       fetchAllRows(()=>sb.from('sales_representatives').select('*').order('id')),
     ]);

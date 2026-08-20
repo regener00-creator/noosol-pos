@@ -102,7 +102,7 @@ assert.ok(manifest.icons.some(icon => icon.src === '/pwa-icon-512.png' && icon.s
 assert.match(serviceWorker, /request\.mode==='navigate'/);
 assert.match(serviceWorker, /fetch\(request\)/);
 assert.match(serviceWorker, /caches\.match\('\/index\.html'\)/);
-assert.match(serviceWorker, /pepos-mobile-v3/);
+assert.match(serviceWorker, /pepos-mobile-v4/);
 assert.match(serviceWorker, /cdn\.jsdelivr\.net/);
 assert.ok(fs.statSync(path.join(root, 'pwa-icon-192.png')).size > 1000);
 assert.ok(fs.statSync(path.join(root, 'pwa-icon-512.png')).size > 3000);

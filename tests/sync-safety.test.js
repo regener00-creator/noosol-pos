@@ -23,6 +23,30 @@ const productMetadataUpdate = html.slice(productSyncStart, productSyncEnd);
 assert.match(productMetadataUpdate, /from\('products'\)\.update\(changes\)\.eq\('id',id\)/);
 assert.doesNotMatch(productMetadataUpdate, /\.upsert\(/, 'existing product metadata must not upsert a missing stock column');
 
+const manifestLogicStart = html.indexOf('function productManifestVersions(');
+const manifestLogicEnd = html.indexOf('async function fetchProductManifestRows(', manifestLogicStart);
+const manifestLogic = html.slice(manifestLogicStart, manifestLogicEnd);
+assert.ok(manifestLogicStart >= 0 && manifestLogicEnd > manifestLogicStart);
+const manifestSandbox = { PRODUCT_MANIFEST_VERSION: 1 };
+vm.createContext(manifestSandbox);
+vm.runInContext(`${manifestLogic}; this.planProductManifestSync=planProductManifestSync;`, manifestSandbox);
+const plan = manifestSandbox.planProductManifestSync;
+assert.equal(plan([{id:1}], null, [{id:1,updated_at:'a'}], true).fullReload, true);
+assert.deepEqual(
+  JSON.parse(JSON.stringify(plan(
+    [{id:1},{id:2},{id:4}],
+    {version:1,versions:{'1':'a','2':'old','4':'d'}},
+    [{id:1,updated_at:'a'},{id:2,updated_at:'b'},{id:3,updated_at:'c'}],
+    true
+  ))),
+  {fullReload:false,changedIds:[2,3],deletedIds:[4]}
+);
+const coreLoadStart = html.indexOf('async function loadCoreDataFromSupabase(');
+const coreLoadEnd = html.indexOf('// ----- Sales history sync', coreLoadStart);
+const coreLoad = html.slice(coreLoadStart, coreLoadEnd);
+assert.match(coreLoad, /loadProductRowsFromSupabase\(\)/);
+assert.doesNotMatch(coreLoad, /from\('products'\)\.select\('\*'\)/, 'normal core load must use the product manifest cache');
+
 const contactImportStart = html.indexOf('async function importContactsFromExcel(');
 const productImportStart = html.indexOf('async function importProductsFromExcel(', contactImportStart);
 const productImportEnd = html.indexOf('function exportProductsToExcel(', productImportStart);
