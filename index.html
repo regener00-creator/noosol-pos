@@ -2166,7 +2166,7 @@ const STORE_INFO = {
   phone: '099-298-9693',
   website: 'www.noosol.com',
 };
-let businessSettings={type:'บริษัท',vat:'จดภาษีมูลค่าเพิ่มแล้ว',name:'MADE MY',address:STORE_INFO.address,taxId:STORE_INFO.taxId,branch:'head',officePhone:'',mobile:STORE_INFO.phone,fax:'',website:STORE_INFO.website,english:false};
+let businessSettings={type:'บริษัท',vat:'จดภาษีมูลค่าเพิ่มแล้ว',name:'MADE MY',address:STORE_INFO.address,taxId:STORE_INFO.taxId,branch:'head',branchCode:'',branchName:'',officePhone:'',mobile:STORE_INFO.phone,fax:'',website:STORE_INFO.website,english:false};
 // เดิมมีการตั้งค่าสินค้าใกล้หมดระดับร้าน (เปิด/ปิด + ค่าเริ่มต้น) แต่ไม่เคยมีหน้าจอให้แก้ไขค่านี้จริง
 // (ฟังก์ชันบันทึกไม่เคยถูกเรียกใช้เลย) จึงเอาออกตามที่ขอ เหลือแค่ค่าคงที่ไว้ใช้เป็นค่าเริ่มต้น
 // ให้สินค้าใหม่ + fallback ของการแจ้งเตือนต่อสินค้า (ซึ่งยังตั้งค่าแยกรายตัวได้ในหน้าแก้ไขสินค้าเหมือนเดิม)
@@ -6172,6 +6172,10 @@ function renderBusinessSettings(){
       <div class="settings-row"><label>ที่อยู่:</label><textarea id="set_business_address" rows="4">${b.address}</textarea></div>
       <div class="settings-row"><label>เลขประจำตัวผู้เสียภาษี:</label><input id="set_business_tax" value="${b.taxId}"></div>
       <div class="settings-row"><label>สำนักงาน/สาขา:</label><div class="settings-radio settings-radio-inline"><label><input type="radio" name="set_branch" value="head" ${b.branch==='head'?'checked':''}> สำนักงานใหญ่</label><label><input type="radio" name="set_branch" value="branch" ${b.branch==='branch'?'checked':''}> สาขา</label></div></div>
+      <div id="businessBranchFields" ${b.branch==='branch'?'':'hidden'}>
+        <div class="settings-row"><label>รหัสสาขา:</label><input id="set_business_branch_code" value="${escapeHtml(b.branchCode||'')}" placeholder="กรอกรหัสสาขา"></div>
+        <div class="settings-row"><label>ชื่อสาขา:</label><input id="set_business_branch_name" value="${escapeHtml(b.branchName||'')}" placeholder="กรอกชื่อสาขา"></div>
+      </div>
     </div>
     <div class="settings-section"><h2>ข้อมูลติดต่อ</h2><div class="hint">ข้อมูลใช้สำหรับการออกเอกสาร</div>
       <div class="settings-row"><label>เบอร์สำนักงาน:</label><input id="set_business_office" class="phone-input" value="${b.officePhone}"></div>
@@ -7102,6 +7106,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   bindPromoBgdProductSearch('get');
   const saveBusinessSettingsBtn=document.getElementById('saveBusinessSettingsBtn');
   if(saveBusinessSettingsBtn) saveBusinessSettingsBtn.addEventListener('click',saveBusinessSettings);
+  const businessBranchFields=document.getElementById('businessBranchFields');
+  document.querySelectorAll('input[name="set_branch"]').forEach(radio=>radio.addEventListener('change',()=>{
+    if(businessBranchFields) businessBranchFields.hidden=document.querySelector('input[name="set_branch"]:checked')?.value!=='branch';
+  }));
   const saveDocumentPrefixesBtn=document.getElementById('saveDocumentPrefixesBtn');
   if(saveDocumentPrefixesBtn) saveDocumentPrefixesBtn.addEventListener('click',saveDocumentPrefixes);
   const resetAllDataBtn=document.getElementById('resetAllDataBtn');
@@ -8284,7 +8292,7 @@ function bahtText(num){
 
 function saveBusinessSettings(){
   const get=id=>(document.getElementById(id)?.value||'').trim();
-  applyBusinessSettings({type:get('set_business_type'),vat:get('set_business_vat'),name:get('set_business_name'),address:get('set_business_address'),taxId:get('set_business_tax'),branch:document.querySelector('input[name="set_branch"]:checked')?.value||'head',officePhone:get('set_business_office'),mobile:get('set_business_mobile'),fax:get('set_business_fax'),website:get('set_business_website'),english:businessSettings.english||false});
+  applyBusinessSettings({type:get('set_business_type'),vat:get('set_business_vat'),name:get('set_business_name'),address:get('set_business_address'),taxId:get('set_business_tax'),branch:document.querySelector('input[name="set_branch"]:checked')?.value||'head',branchCode:get('set_business_branch_code'),branchName:get('set_business_branch_name'),officePhone:get('set_business_office'),mobile:get('set_business_mobile'),fax:get('set_business_fax'),website:get('set_business_website'),english:businessSettings.english||false});
   persistWorkspaceData(); // localStorage now, Supabase after the usual debounce
   syncBusinessSettingsToSupabase(); // also fire immediately -- this is an explicit "Save" click, not a keystroke, so no reason to wait
   showToast('บันทึกข้อมูลธุรกิจแล้ว'); render();
