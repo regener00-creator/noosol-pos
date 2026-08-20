@@ -405,6 +405,10 @@
   .stock-edit-unit-select:hover{color:var(--primary);border-color:var(--border);background:var(--surface);}
   .stock-edit-unit-select:focus{outline:none;border-color:var(--primary);background:var(--surface);}
   .stock-edit-unit-fixed{font-size:13px;color:var(--text-muted);}
+  .stock-edit-stock-input{width:120px;max-width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;text-align:right;}
+  .stock-edit-stock-input:hover{border-color:#AAB8C2;}
+  .stock-edit-stock-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,153,209,.12);}
+  .stock-edit-stock-input.stock-negative{color:var(--danger);border-color:#F1B8B3;}
   .stock-edit-empty{padding:30px!important;text-align:center!important;color:var(--text-muted);}
   .lowstock-section .lowstock-table-scroll{height:calc(100vh - 315px);min-height:320px;overflow-x:auto!important;overflow-y:scroll!important;border-radius:var(--radius);scrollbar-width:auto;scrollbar-color:#8B9298 #EEF1F4;scroll-behavior:auto;overscroll-behavior:contain;contain:layout paint;touch-action:pan-y;}
   .lowstock-table-scroll::-webkit-scrollbar{width:12px;height:12px;}
@@ -3545,9 +3549,10 @@ function stockEditRowsHtml(){
   const rows=stockEditCurrentProducts();
   if(!rows.length) return '<tr><td colspan="6" class="stock-edit-empty">ยังไม่มีรายการ — ค้นหา/สแกนบาร์โค้ด หรือเลือกสินค้าในหมวดด้านบนเพื่อเพิ่ม</td></tr>';
   return rows.map(p=>{
-    const unitOptions=[{name:p.unit,barcode:p.barcode||''},...(p.units||[]).filter(u=>u.sub).map(u=>({name:u.sub,barcode:u.barcode||''}))];
+    const unitOptions=[{name:p.unit,barcode:p.barcode||'',factor:1},...(p.units||[]).filter(u=>u.sub&&Number(u.factor)>0).map(u=>({name:u.sub,barcode:u.barcode||'',factor:Number(u.factor)}))];
     const selectedUnit=stockEditRowUnitSel[p.id]||p.unit;
     const selectedOption=unitOptions.find(u=>u.name===selectedUnit)||unitOptions[0];
+    const selectedAmount=stockUnitAmountFromBase(p.stock,selectedOption.factor);
     const unitHtml=unitOptions.length>1
       ? `<select class="stock-edit-unit-select" data-stock-edit-unit="${p.id}">${unitOptions.map(u=>`<option value="${escapeHtml(u.name)}" ${u.name===selectedOption.name?'selected':''}>${escapeHtml(u.name)}</option>`).join('')}</select>`
       : `<span class="stock-edit-unit-fixed">${escapeHtml(p.unit||'-')}</span>`;
@@ -3558,7 +3563,7 @@ function stockEditRowsHtml(){
       <td class="mono" style="text-align:center;">${escapeHtml(selectedOption.barcode||'-')}</td>
       <td>${escapeHtml(p.name)}</td>
       <td style="text-align:center;">${unitHtml}</td>
-      <td class="mono stock-cell ${Number(p.stock)<0?'stock-negative':''} stock-edit-stock-cell" style="text-align:center;" data-stock-edit-open="${p.id}" title="กดเพื่อแก้ไขจำนวนคงเหลือ">${stockInLargestUnit(p)} <span class="stock-caret">▾</span></td>
+      <td style="text-align:center;"><input type="number" step="any" class="stock-edit-stock-input ${Number(p.stock)<0?'stock-negative':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="คงเหลือ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="แก้จำนวนแล้วกด Enter หรือคลิกออกจากช่องเพื่อบันทึก"></td>
     </tr>`;
   }).join('');
 }
@@ -3572,7 +3577,7 @@ function renderStockEdit(){
   const rows=stockEditCurrentProducts();
   const allChecked=rows.length>0&&rows.every(p=>stockEditSelectedIds.has(p.id));
   return `<div class="rpt stock-edit-page">
-    <div class="pagehead"><div><h1>แก้ไขสต๊อก</h1><div class="sub">เลือกสินค้าจากหมวดหรือค้นหา แล้วกดจำนวนคงเหลือเพื่อแก้ไขทุกหน่วย</div></div>${rows.length?'<button class="btn ghost" id="clearStockEditBtn">ล้างรายการ</button>':''}</div>
+    <div class="pagehead"><div><h1>แก้ไขสต๊อก</h1><div class="sub">เลือกหน่วย แล้วกรอกจำนวนคงเหลือในตารางได้ทันที (กด Enter หรือคลิกออกจากช่องเพื่อบันทึก)</div></div>${rows.length?'<button class="btn ghost" id="clearStockEditBtn">ล้างรายการ</button>':''}</div>
     <div class="stock-edit-section">
       <div class="rpt-filters" style="margin-bottom:14px;">
         <div class="rpf-item"><select id="stockEditCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${filter.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></div>
@@ -5212,7 +5217,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     });
     srInput.addEventListener('blur', ()=>setTimeout(()=>{ srResults.hidden=true; },150));
   }
-  // --- หน้าแก้ไขสต๊อก: เลือก/ค้นหาสินค้า และเปิดหน้าต่างแก้จำนวนคงเหลือเดิม ---
+  // --- หน้าแก้ไขสต๊อก: เลือก/ค้นหาสินค้า และแก้จำนวนตามหน่วยในตารางโดยตรง ---
   const stockEditCategorySelect=document.getElementById('stockEditCategorySelect');
   const stockEditBrandSelect=document.getElementById('stockEditBrandSelect');
   const stockEditAddByCategoryBtn=document.getElementById('stockEditAddByCategoryBtn');
@@ -5287,7 +5292,31 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   }));
   refreshStockEditChecks();
   document.querySelectorAll('[data-stock-edit-unit]').forEach(select=>select.addEventListener('change',()=>{ stockEditRowUnitSel[Number(select.dataset.stockEditUnit)]=select.value; render(); }));
-  document.querySelectorAll('[data-stock-edit-open]').forEach(cell=>cell.addEventListener('click',()=>openStockCheckModal(Number(cell.dataset.stockEditOpen))));
+  document.querySelectorAll('[data-stock-edit-amount]').forEach(input=>{
+    input.addEventListener('focus',()=>input.select());
+    input.addEventListener('keydown',event=>{
+      if(event.key==='Enter'){ event.preventDefault(); input.blur(); }
+      if(event.key==='Escape'){ event.preventDefault(); render(); }
+    });
+    input.addEventListener('change',()=>{
+      const p=products.find(x=>x.id===Number(input.dataset.stockEditAmount));
+      if(!p) return;
+      const amountText=input.value.trim();
+      const amount=Number(amountText);
+      if(amountText===''||!Number.isFinite(amount)){
+        input.value=stockUnitAmountFromBase(p.stock,input.dataset.factor);
+        showToast('กรุณากรอกจำนวนคงเหลือเป็นตัวเลข');
+        return;
+      }
+      const newStock=stockBaseFromUnitAmount(amount,input.dataset.factor);
+      if(newStock===Number(p.stock)) return;
+      p.stock=newStock;
+      setProductStockOnSupabase(p.id,newStock);
+      persistWorkspaceData();
+      showToast(`ปรับจำนวนคงเหลือ "${p.name}" เป็น ${amount} ${input.dataset.unit} แล้ว`);
+      render();
+    });
+  });
   const histBtn = document.getElementById('histBtn');
   if(histBtn) histBtn.addEventListener('click', ()=>{ currentTab='history'; render(); });
   // --- footer buttons ---

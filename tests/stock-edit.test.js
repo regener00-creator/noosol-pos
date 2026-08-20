@@ -13,7 +13,9 @@ const promotionsNavIndex = html.indexOf("['promotions','โปรโมชั่
 assert.ok(stockAdjustNavIndex >= 0 && stockEditNavIndex > stockAdjustNavIndex && promotionsNavIndex > stockEditNavIndex, 'เมนูแก้ไขสต๊อกต้องอยู่ใต้ปรับเป็นศูนย์');
 assert.match(html, /LEVEL2_HIDDEN_TABS[^\n]+stockedit/);
 assert.match(html, /stockedit:\s*renderStockEdit/);
-assert.match(html, /data-stock-edit-open="\$\{p\.id\}"/);
+assert.match(html, /data-stock-edit-amount="\$\{p\.id\}"/);
+assert.match(html, /setProductStockOnSupabase\(p\.id,newStock\)/);
+assert.match(html, /persistWorkspaceData\(\)/);
 
 function loadOneLineFunction(name) {
   const match = html.match(new RegExp(`function ${name}\\([^\\r\\n]+`));
@@ -85,6 +87,10 @@ assert.match(rendered, /class="stock-edit-selected"/);
 assert.match(rendered, /P-001/);
 assert.match(rendered, /BOX-001/);
 assert.match(rendered, /ยาทดสอบ/);
-assert.match(rendered, /data-stock-edit-open="1"/);
+assert.match(rendered, /data-stock-edit-amount="1"/);
+assert.match(rendered, /data-factor="10"/);
+assert.match(rendered, /data-unit="กล่อง"/);
+assert.match(rendered, /value="12"/);
+assert.doesNotMatch(rendered, /data-stock-edit-open=/);
 
 console.log('stock-edit tests passed');
