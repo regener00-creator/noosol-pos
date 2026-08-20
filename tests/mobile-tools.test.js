@@ -14,7 +14,11 @@ assert.match(html, /body\.mobile-device-mode \.sidebar,body\.mobile-device-mode 
 assert.match(html, /data-mobile-tool="price"/);
 assert.match(html, /data-mobile-tool="inspection"/);
 assert.match(html, /openMobileCameraScanner\(mobileHandlePriceCode\)/);
-assert.match(html, /openMobileCameraScanner\(mobileHandleInspectionCode\)/);
+assert.match(html, /openMobileCameraScanner\(mobileHandleInspectionCode,\{continuous:true\}\)/);
+assert.match(html, /const continuous=options\.continuous===true/);
+assert.match(html, /if\(!continuous\)\{ close\(\); onCode\(value\); return; \}/);
+assert.match(html, /ยิงได้หลายสินค้า กด × เมื่อต้องการปิด/);
+assert.match(html, /value!==lastValue/);
 assert.match(html, /findProductByExactCode\(query\)/);
 assert.match(html, /mobileInspectionCheckedSet\(list\.id\)\.add/);
 assert.match(html, /id="mobileNewInspectionList"/);

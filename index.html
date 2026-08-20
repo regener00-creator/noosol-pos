@@ -4258,7 +4258,8 @@ function mobileHandleInspectionCode(code){
   setTimeout(()=>document.getElementById('mobileInspectionInput')?.focus(),0);
   return true;
 }
-async function openMobileCameraScanner(onCode){
+async function openMobileCameraScanner(onCode,options={}){
+  const continuous=options.continuous===true;
   if(!navigator.mediaDevices?.getUserMedia){ showToast('อุปกรณ์นี้ไม่รองรับการเปิดกล้อง กรุณาใช้เครื่องยิงหรือพิมพ์บาร์โค้ด','danger-top'); return; }
   if(!('BarcodeDetector' in window)){ showToast('เบราว์เซอร์นี้ยังสแกนด้วยกล้องไม่ได้ กรุณาเปิดใน Chrome','danger-top'); openMobileBrowserHelp({cameraBlocked:true}); return; }
   const overlay=document.createElement('div');
@@ -4267,7 +4268,7 @@ async function openMobileCameraScanner(onCode){
   document.body.appendChild(overlay);
   const video=overlay.querySelector('video');
   const message=overlay.querySelector('.mobile-camera-message');
-  let stream=null,closed=false,busy=false;
+  let stream=null,closed=false,busy=false,lastValue='',lastValueSeenAt=0,nextDetectionAt=0;
   const close=()=>{ closed=true; if(stream) stream.getTracks().forEach(track=>track.stop()); overlay.remove(); };
   overlay.querySelector('.mobile-camera-close').addEventListener('click',close);
   try{
@@ -4275,7 +4276,7 @@ async function openMobileCameraScanner(onCode){
     if(closed){ stream.getTracks().forEach(track=>track.stop()); return; }
     video.srcObject=stream;
     await video.play();
-    message.textContent='พร้อมสแกน — ถือกล้องให้นิ่ง';
+    message.textContent=continuous?'สแกนต่อเนื่อง — ยิงได้หลายสินค้า กด × เมื่อต้องการปิด':'พร้อมสแกน — ถือกล้องให้นิ่ง';
     const desiredFormats=['code_128','ean_13','ean_8','upc_a','upc_e','code_39','itf','codabar','qr_code'];
     const supportedFormats=typeof BarcodeDetector.getSupportedFormats==='function'?await BarcodeDetector.getSupportedFormats():desiredFormats;
     const formats=desiredFormats.filter(format=>supportedFormats.includes(format));
@@ -4287,7 +4288,20 @@ async function openMobileCameraScanner(onCode){
         try{
           const codes=await detector.detect(video);
           const value=String(codes?.[0]?.rawValue||'').trim();
-          if(value){ close(); onCode(value); return; }
+          const now=Date.now();
+          if(!value){
+            if(lastValue&&now-lastValueSeenAt>700) lastValue='';
+          }else{
+            lastValueSeenAt=now;
+            if(now>=nextDetectionAt&&value!==lastValue){
+              if(!continuous){ close(); onCode(value); return; }
+              lastValue=value;
+              nextDetectionAt=now+650;
+              const accepted=onCode(value)!==false;
+              if(navigator.vibrate) navigator.vibrate(accepted?80:[40,50,40]);
+              message.textContent=accepted?`สแกนแล้ว: ${value} — ยิงสินค้าชิ้นถัดไปได้เลย`:`ยังไม่เพิ่ม: ${value} — เลื่อนไปยิงสินค้าชิ้นอื่นได้เลย`;
+            }
+          }
         }catch(error){ console.warn('สแกนบาร์โค้ดจากกล้องไม่สำเร็จ',error); }
         busy=false;
       }
@@ -6147,7 +6161,7 @@ function attachEvents(){
     });
     mobileInspectionInput.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); mobileHandleInspectionCode(mobileInspectionInput.value); } });
   }
-  document.getElementById('mobileInspectionCamera')?.addEventListener('click',()=>openMobileCameraScanner(mobileHandleInspectionCode));
+  document.getElementById('mobileInspectionCamera')?.addEventListener('click',()=>openMobileCameraScanner(mobileHandleInspectionCode,{continuous:true}));
   document.getElementById('mobileNewInspectionList')?.addEventListener('click',startMobileInspectionDraft);
   document.getElementById('mobileCancelInspectionDraft')?.addEventListener('click',()=>{
     if((inspectionListDraft?.items||[]).length&&!confirm('ยกเลิกรายการนี้และทิ้งสินค้าที่เพิ่มไว้หรือไม่?')) return;
