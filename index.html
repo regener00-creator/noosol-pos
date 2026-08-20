@@ -456,7 +456,6 @@
   .inspection-list-sort-btn .sort-indicator{min-width:12px;font-size:11px;opacity:.65;}
   .inspection-list-sort-btn:not(.active) .sort-indicator{opacity:.35;}
   .inspection-list-stock{display:block;text-align:center;font-weight:600;color:var(--primary-dark);}
-  .inspection-list-stock-sub{display:block;margin-top:2px;text-align:center;color:var(--text-muted);font-size:11px;}
   .inspection-list-remove{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--danger);cursor:pointer;}
   .inspection-list-remove:hover{border-color:#F1B8B3;background:#FFF6F5;}
   .inspection-list-remove svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
@@ -1912,7 +1911,7 @@ let stockReportSort = { key:'name', dir:1 };
 let inspectionLists = [];
 let editingInspectionListId = null; // null=หน้ารวม, 'new'=สร้างใหม่, ค่าอื่น=แก้ไขรายการเดิม
 let inspectionListDraft = null;
-let inspectionListCatFilter = { category:'', brand:'' };
+let inspectionListCatFilter = { wh:'', category:'', brand:'' };
 let inspectionListSearchQuery = '';
 let inspectionListPage = 1;
 let inspectionListSort = { key:'sku', dir:1 };
@@ -2421,7 +2420,7 @@ function renderSidebar(){
   html += `<div class="sidebar-logout-wrap"><button class="logout-btn sidebar-logout-btn" id="logoutBtn">ออกจากระบบ</button></div>`;
   document.getElementById('sidebar').innerHTML = html;
   document.getElementById('logoutBtn')?.addEventListener('click',logoutSystem);
-  document.querySelectorAll('.navbtn').forEach(btn=>{ btn.addEventListener('click', ()=>{ currentTab = btn.dataset.tab; searchQuery=''; editingPOId=null; poDraft=null; editingGRId=null; grDraft=null; editingPO2Id=null; po2Draft=null; editingReturnId=null; returnDraft=null; editingTaxInvoiceSaleId=null; editingQuotationId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; openDocMenu=null; poSupplierEditorOpen=false; poRepresentativeEditorId=null; editingContactId=null; editingSalesRepresentativeId=null; editingPromotionId=null; editingProductId=null; editingInspectionListId=null; inspectionListDraft=null; inspectionListSearchQuery=''; inspectionListCatFilter={category:'',brand:''}; inspectionListPage=1; addingSystemUser=false; editingSystemUserId=null; addingWarehouse=false; editingWarehouseId=null; editingTransferId=null; transferDraft=null; rproductFilter.applied=false; rbillFilter.applied=false; rprofitFilter.applied=false; render(); }); });
+  document.querySelectorAll('.navbtn').forEach(btn=>{ btn.addEventListener('click', ()=>{ currentTab = btn.dataset.tab; searchQuery=''; editingPOId=null; poDraft=null; editingGRId=null; grDraft=null; editingPO2Id=null; po2Draft=null; editingReturnId=null; returnDraft=null; editingTaxInvoiceSaleId=null; editingQuotationId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; openDocMenu=null; poSupplierEditorOpen=false; poRepresentativeEditorId=null; editingContactId=null; editingSalesRepresentativeId=null; editingPromotionId=null; editingProductId=null; editingInspectionListId=null; inspectionListDraft=null; inspectionListSearchQuery=''; inspectionListCatFilter={wh:'',category:'',brand:''}; inspectionListPage=1; addingSystemUser=false; editingSystemUserId=null; addingWarehouse=false; editingWarehouseId=null; editingTransferId=null; transferDraft=null; rproductFilter.applied=false; rbillFilter.applied=false; rprofitFilter.applied=false; render(); }); });
 }
 
 // ---------- Page renderers ----------
@@ -3723,7 +3722,12 @@ function inspectionListSortValue(item,key){
 function inspectionListSortedEntries(itemList=inspectionListDraft?.items||[]){
   const key=['sku','barcode','name','stock'].includes(inspectionListSort?.key)?inspectionListSort.key:'sku';
   const dir=Number(inspectionListSort?.dir)===-1?-1:1;
-  return itemList.map((item,index)=>({item,index})).sort((a,b)=>{
+  const warehouseId=String(inspectionListCatFilter?.wh||'');
+  return itemList.map((item,index)=>({item,index})).filter(({item})=>{
+    if(!warehouseId) return true;
+    const product=products.find(entry=>entry.id===Number(item?.pid));
+    return product&&String(product.wh)===warehouseId;
+  }).sort((a,b)=>{
     const left=inspectionListSortValue(a.item,key);
     const right=inspectionListSortValue(b.item,key);
     if(left===null&&right===null) return a.index-b.index;
@@ -3736,10 +3740,11 @@ function inspectionListSortedEntries(itemList=inspectionListDraft?.items||[]){
   });
 }
 function inspectionListPagination(itemList=inspectionListDraft?.items||[],page=inspectionListPage,pageSize=INSPECTION_LIST_PAGE_SIZE){
-  const totalPages=Math.max(1,Math.ceil(itemList.length/pageSize));
+  const sortedEntries=inspectionListSortedEntries(itemList);
+  const totalPages=Math.max(1,Math.ceil(sortedEntries.length/pageSize));
   const currentPage=Math.min(totalPages,Math.max(1,Number(page)||1));
   const start=(currentPage-1)*pageSize;
-  return {rows:inspectionListSortedEntries(itemList).slice(start,start+pageSize),currentPage,totalPages};
+  return {rows:sortedEntries.slice(start,start+pageSize),currentPage,totalPages};
 }
 function inspectionListSortHeader(key,label){
   const active=inspectionListSort?.key===key;
@@ -3747,8 +3752,9 @@ function inspectionListSortHeader(key,label){
   return `<button type="button" class="inspection-list-sort-btn ${active?'active':''}" data-inspection-sort="${key}" aria-label="เรียงตาม${label}">${label}<span class="sort-indicator" aria-hidden="true">${arrow}</span></button>`;
 }
 function inspectionListRowsHtml(entries){
-  if(!inspectionListDraft?.items?.length){
-    return '<tr><td colspan="5" style="padding:30px;text-align:center;color:var(--text-muted);">ยังไม่มีสินค้า — ค้นหา/สแกนบาร์โค้ด หรือเลือกสินค้าจากหมวดด้านบน</td></tr>';
+  if(!entries.length){
+    const message=inspectionListDraft?.items?.length?'ไม่พบสินค้าในคลังที่เลือก':'ยังไม่มีสินค้า — ค้นหา/สแกนบาร์โค้ด หรือเลือกสินค้าจากหมวดด้านบน';
+    return `<tr><td colspan="5" style="padding:30px;text-align:center;color:var(--text-muted);">${message}</td></tr>`;
   }
   return entries.map(({item,index})=>{
     const product=products.find(entry=>entry.id===Number(item.pid));
@@ -3760,7 +3766,7 @@ function inspectionListRowsHtml(entries){
       <td class="mono" style="text-align:center;">${escapeHtml(product.sku||'-')}</td>
       <td class="mono" style="text-align:center;">${escapeHtml(selected.barcode||'-')}</td>
       <td>${escapeHtml(product.name)}</td>
-      <td><span class="inspection-list-stock ${Number(product.stock)<0?'stock-negative':''}">${inspectionListAmount(selectedStock)} ${escapeHtml(selected.name)}</span><span class="inspection-list-stock-sub">${escapeHtml(stockInLargestUnit(product))} · ${escapeHtml(whName(product.wh))}</span></td>
+      <td><span class="inspection-list-stock ${Number(product.stock)<0?'stock-negative':''}">${inspectionListAmount(selectedStock)} ${escapeHtml(selected.name)}</span></td>
       <td style="text-align:center;">${removeButton}</td>
     </tr>`;
   }).join('');
@@ -3791,8 +3797,9 @@ function renderInspectionListEditor(){
   if(!inspectionListDraft) return renderInspectionListOverview();
   const draft=inspectionListDraft;
   const filter=inspectionListCatFilter;
-  const brandOptions=filter.category?brands.filter(brand=>products.some(product=>product.category===filter.category&&product.brand===brand)):brands.slice();
-  const matchCount=products.filter(product=>(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand)&&(filter.category||filter.brand)).length;
+  const inWarehouse=product=>!filter.wh||String(product.wh)===String(filter.wh);
+  const brandOptions=filter.category?brands.filter(brand=>products.some(product=>inWarehouse(product)&&product.category===filter.category&&product.brand===brand)):brands.filter(brand=>products.some(product=>inWarehouse(product)&&product.brand===brand));
+  const matchCount=products.filter(product=>inWarehouse(product)&&(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand)&&(filter.wh||filter.category||filter.brand)).length;
   const pagination=inspectionListPagination();
   inspectionListPage=pagination.currentPage;
   return `<div class="rpt inspection-list-page">
@@ -3800,6 +3807,7 @@ function renderInspectionListEditor(){
     <div class="inspection-list-editor-section">
       <div class="inspection-list-name-field"><label for="inspectionListName">ชื่อรายการ *</label><input id="inspectionListName" class="inspection-list-name-input" value="${escapeHtml(draft.name||'')}" placeholder="เช่น รายการตรวจสินค้าหน้าร้าน"></div>
       <div class="rpt-filters" style="margin-bottom:12px;">
+        <div class="rpf-item"><select id="inspectionListWarehouse" class="rpt-select"><option value="">คลังสินค้า: ทั้งหมด</option>${warehouses.map(warehouse=>`<option value="${warehouse.id}" ${String(filter.wh)===String(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>
         <div class="rpf-item"><select id="inspectionListCategory" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(category=>`<option value="${escapeHtml(category)}" ${filter.category===category?'selected':''}>${escapeHtml(category)}</option>`).join('')}</select></div>
         <div class="rpf-item"><select id="inspectionListBrand" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(brand=>`<option value="${escapeHtml(brand)}" ${filter.brand===brand?'selected':''}>${escapeHtml(brand)}</option>`).join('')}</select></div>
         <button class="btn ghost" id="inspectionListAddCategoryBtn" ${(filter.category||filter.brand)?'':'disabled'}>เลือกสินค้าในหมวดนี้${(filter.category||filter.brand)?` (${matchCount})`:''}</button>
@@ -3813,7 +3821,7 @@ function renderInspectionListEditor(){
 function renderInspectionLists(){ return editingInspectionListId===null?renderInspectionListOverview():renderInspectionListEditor(); }
 function openInspectionListEditor(id='new',shouldRender=true){
   editingInspectionListId=id;
-  inspectionListCatFilter={category:'',brand:''}; inspectionListSearchQuery=''; inspectionListPage=1; inspectionListSort={key:'sku',dir:1};
+  inspectionListCatFilter={wh:'',category:'',brand:''}; inspectionListSearchQuery=''; inspectionListPage=1; inspectionListSort={key:'sku',dir:1};
   if(id==='new'){
     inspectionListDraft={id:null,name:`รายการตรวจสินค้า ${inspectionListCounter}`,items:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),createdBy:currentProfile?.firstName||currentProfile?.username||''};
   }else{
@@ -3849,7 +3857,7 @@ function saveInspectionListDraft(){
     inspectionLists[index]=saved;
   }
   persistWorkspaceData(); syncInspectionListsToSupabase();
-  editingInspectionListId=null; inspectionListDraft=null; inspectionListSearchQuery=''; inspectionListCatFilter={category:'',brand:''}; inspectionListPage=1;
+  editingInspectionListId=null; inspectionListDraft=null; inspectionListSearchQuery=''; inspectionListCatFilter={wh:'',category:'',brand:''}; inspectionListPage=1;
   showToast('บันทึกรายการตรวจสินค้าแล้ว'); render(); return true;
 }
 
@@ -5709,14 +5717,16 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     persistWorkspaceData(); syncInspectionListsToSupabase(); showToast('ลบรายการตรวจสินค้าแล้ว'); render();
   }));
   const cancelInspectionListBtn=document.getElementById('cancelInspectionListBtn');
-  if(cancelInspectionListBtn) cancelInspectionListBtn.addEventListener('click',()=>{ editingInspectionListId=null; inspectionListDraft=null; inspectionListSearchQuery=''; inspectionListCatFilter={category:'',brand:''}; inspectionListPage=1; render(); });
+  if(cancelInspectionListBtn) cancelInspectionListBtn.addEventListener('click',()=>{ editingInspectionListId=null; inspectionListDraft=null; inspectionListSearchQuery=''; inspectionListCatFilter={wh:'',category:'',brand:''}; inspectionListPage=1; render(); });
   const saveInspectionListBtn=document.getElementById('saveInspectionListBtn');
   if(saveInspectionListBtn) saveInspectionListBtn.addEventListener('click',saveInspectionListDraft);
   const inspectionListName=document.getElementById('inspectionListName');
   if(inspectionListName) inspectionListName.addEventListener('input',()=>{ if(inspectionListDraft) inspectionListDraft.name=inspectionListName.value; });
+  const inspectionListWarehouse=document.getElementById('inspectionListWarehouse');
   const inspectionListCategory=document.getElementById('inspectionListCategory');
   const inspectionListBrand=document.getElementById('inspectionListBrand');
   const inspectionListAddCategoryBtn=document.getElementById('inspectionListAddCategoryBtn');
+  if(inspectionListWarehouse) inspectionListWarehouse.addEventListener('change',()=>{ inspectionListCatFilter.wh=inspectionListWarehouse.value; inspectionListPage=1; render(); });
   if(inspectionListCategory) inspectionListCategory.addEventListener('change',()=>{ inspectionListCatFilter.category=inspectionListCategory.value; inspectionListCatFilter.brand=''; render(); });
   if(inspectionListBrand) inspectionListBrand.addEventListener('change',()=>{ inspectionListCatFilter.brand=inspectionListBrand.value; render(); });
   if(inspectionListAddCategoryBtn) inspectionListAddCategoryBtn.addEventListener('click',()=>openInspectionListCategoryPicker(inspectionListCatFilter));
@@ -5734,7 +5744,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       const value=String(query||'').trim();
       if(!value){ inspectionListResults.hidden=true; inspectionListResults.innerHTML=''; return; }
       const lower=value.toLowerCase();
-      const matches=products.filter(product=>product.name.toLowerCase().includes(lower)||(product.sku||'').toLowerCase().includes(lower)||matchesBarcode(product,value)).slice(0,15);
+      const matches=products.filter(product=>(!inspectionListCatFilter.wh||String(product.wh)===String(inspectionListCatFilter.wh))&&(product.name.toLowerCase().includes(lower)||(product.sku||'').toLowerCase().includes(lower)||matchesBarcode(product,value))).slice(0,15);
       if(!matches.length){ inspectionListResults.innerHTML='<div class="fav-add-noresult">ไม่พบสินค้า</div>'; inspectionListResults.hidden=false; return; }
       inspectionListResults.innerHTML=matches.map(product=>`<div class="fav-add-result" data-inspection-result="${product.id}"><b>${escapeHtml(product.name)}</b><span>${escapeHtml(product.sku||'-')} · คงเหลือ ${escapeHtml(stockInLargestUnit(product))}${inspectionListDraft?.items.some(item=>Number(item.pid)===Number(product.id))?' · อยู่ในรายการแล้ว':''}</span></div>`).join('');
       inspectionListResults.hidden=false;
@@ -5751,7 +5761,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       event.preventDefault();
       const value=inspectionListSearch.value.trim(); if(!value) return;
       const exact=findProductByExactCode(value);
-      if(exact){ addProduct(exact.product,exact.unitName); return; }
+      if(exact&&(!inspectionListCatFilter.wh||String(exact.product.wh)===String(inspectionListCatFilter.wh))){ addProduct(exact.product,exact.unitName); return; }
       const first=inspectionListResults.querySelector('[data-inspection-result]');
       if(first) addProduct(products.find(product=>product.id===Number(first.dataset.inspectionResult)));
     });
@@ -8941,14 +8951,14 @@ function favManageListHtml(){
 
 function openInspectionListCategoryPicker(filter){
   if(!inspectionListDraft) return;
-  const matches=products.filter(product=>(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand));
+  const matches=products.filter(product=>(!filter.wh||String(product.wh)===String(filter.wh))&&(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand));
   if(!matches.length){ showToast('ไม่พบสินค้าในหมวดที่เลือก'); return; }
   const alreadyIn=id=>inspectionListDraft.items.some(item=>Number(item.pid)===Number(id));
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:520px;max-height:82vh;display:flex;flex-direction:column;">
     <div class="modal-head"><h3>เลือกสินค้าเข้ารายการตรวจ</h3><button class="modal-close" aria-label="ปิด">×</button></div>
-    <div class="modal-sub">${escapeHtml(filter.category||'ทุกหมวดหลัก')}${filter.brand?` · ${escapeHtml(filter.brand)}`:''} · พบ ${matches.length} รายการ</div>
+    <div class="modal-sub">${filter.wh?`${escapeHtml(whName(Number(filter.wh)))} · `:''}${escapeHtml(filter.category||'ทุกหมวดหลัก')}${filter.brand?` · ${escapeHtml(filter.brand)}`:''} · พบ ${matches.length} รายการ</div>
     <div style="padding:0 16px 8px;display:flex;gap:14px;"><button class="btn ghost small" id="inspectionPickAllBtn">เลือกทั้งหมด</button><button class="btn ghost small" id="inspectionPickNoneBtn">ไม่เลือกเลย</button></div>
     <div class="manage-list" id="inspectionPickList" style="flex:1;">${matches.map(product=>`<label class="fav-check"><input type="checkbox" data-pid="${product.id}" ${alreadyIn(product.id)?'checked disabled':''}> <span>${escapeHtml(product.name)}</span> <span class="mono" style="margin-right:auto;color:var(--text-muted);font-size:12px;">${alreadyIn(product.id)?'อยู่ในรายการแล้ว':`ขาย ${fmtMoney(product.price)} · ${escapeHtml(stockInLargestUnit(product))}`}</span></label>`).join('')}</div>
     <div style="padding:12px 16px;border-top:1px solid var(--border);text-align:left;display:flex;gap:8px;"><button class="btn ghost" id="inspectionPickCancelBtn">ยกเลิก</button><button class="btn primary" id="inspectionPickAddBtn">เพิ่มที่เลือก</button></div>

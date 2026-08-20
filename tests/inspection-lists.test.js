@@ -13,7 +13,7 @@ assert.ok(featureStart >= 0 && featureEnd > featureStart, 'ไม่พบชุ
 
 const products = [
   {id:1,sku:'P-001',name:'สินค้าทดสอบ',unit:'กล่อง',barcode:'MAIN-001',price:120,cost:70,stock:25,wh:1,units:[{sub:'ลัง',barcode:'CASE-001',price:1100,cost:650,factor:10}]},
-  {id:2,sku:'P-002',name:'สินค้าอีกตัว',unit:'ขวด',barcode:'MAIN-002',price:80,cost:45,stock:6,wh:1,units:[]},
+  {id:2,sku:'P-002',name:'สินค้าอีกตัว',unit:'ขวด',barcode:'MAIN-002',price:80,cost:45,stock:6,wh:2,units:[]},
 ];
 let persistCount = 0;
 let syncCount = 0;
@@ -23,7 +23,7 @@ const context = {
   inspectionLists: [],
   editingInspectionListId: 'new',
   inspectionListDraft: null,
-  inspectionListCatFilter: {category:'',brand:''},
+  inspectionListCatFilter: {wh:'',category:'',brand:''},
   inspectionListSearchQuery: '',
   inspectionListPage: 1,
   inspectionListSort: {key:'sku',dir:1},
@@ -31,6 +31,7 @@ const context = {
   INSPECTION_LIST_PAGE_SIZE: 7,
   categories: [],
   brands: [],
+  warehouses: [{id:1,name:'คลังหนึ่ง'},{id:2,name:'คลังสอง'}],
   currentProfile: {firstName:'เจ้าของร้าน',username:'owner'},
   productUnitOptions: product => [
     {name:product.unit,label:product.unit,price:product.price,cost:product.cost,factor:1},
@@ -92,6 +93,10 @@ context.inspectionListSort = {key:'name',dir:1};
 assert.deepEqual(Array.from(context.inspectionListSortedEntries(), entry => entry.item.pid), [1,2]);
 context.inspectionListSort = {key:'stock',dir:-1};
 assert.deepEqual(Array.from(context.inspectionListSortedEntries(), entry => entry.item.pid), [2,1]);
+context.inspectionListCatFilter = {wh:'1',category:'',brand:''};
+const warehousePage = context.inspectionListPagination(context.inspectionListDraft.items, 1, 7);
+assert.deepEqual(Array.from(warehousePage.rows, entry => entry.item.pid), [1]);
+context.inspectionListCatFilter = {wh:'',category:'',brand:''};
 
 context.inspectionListDraft = {id:null,name:'',items:[{pid:1,unit:'ลัง'}],createdAt:'2026-08-20T00:00:00.000Z',createdBy:'เจ้าของร้าน'};
 context.editingInspectionListId = 'new';
@@ -117,6 +122,9 @@ assert.match(ownerEditorHtml, /data-inspection-sort="sku"/);
 assert.match(ownerEditorHtml, /data-inspection-sort="barcode"/);
 assert.match(ownerEditorHtml, /data-inspection-sort="name"/);
 assert.match(ownerEditorHtml, /data-inspection-sort="stock"/);
+assert.match(ownerEditorHtml, /id="inspectionListWarehouse"/);
+assert.ok(ownerEditorHtml.indexOf('id="inspectionListWarehouse"') < ownerEditorHtml.indexOf('id="inspectionListCategory"'));
+assert.doesNotMatch(ownerEditorHtml, /inspection-list-stock-sub/);
 assert.match(ownerEditorHtml, /2\.5 ลัง/);
 context.loggedInUser = () => ({owner:false});
 const staffEditorHtml = context.renderInspectionListEditor();
@@ -128,5 +136,6 @@ assert.match(html, /key:'inspection_lists',value:inspectionLists/);
 assert.match(html, /await loadInspectionListsFromSupabase\(\)/);
 assert.match(html, /data-inspection-list-page/);
 assert.match(html, /INSPECTION_LIST_PAGE_SIZE = 7/);
+assert.match(html, /!filter\.wh\|\|String\(product\.wh\)===String\(filter\.wh\)/);
 
 console.log('inspection list tests passed');
