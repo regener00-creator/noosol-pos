@@ -8,6 +8,7 @@ const end = html.indexOf('function comboSelectorFor(', start);
 assert.ok(start >= 0 && end > start, 'ไม่พบฟังก์ชัน renderProducts');
 
 const source = html.slice(start, end);
+const pageIndex = source.indexOf('<div class="product-list-page">');
 const actionsIndex = source.indexOf('<div class="product-list-actions form-final-actions">');
 const groupIndex = source.indexOf('<div class="tree-pane">');
 const searchIndex = source.indexOf('<div class="searchbar product-list-search"><input id="search"');
@@ -27,11 +28,19 @@ const renderStart = html.indexOf('function render(){');
 const renderEnd = html.indexOf('function syncTopbarFormActions()', renderStart);
 const renderSource = html.slice(renderStart, renderEnd);
 const clearTopbarIndex = renderSource.indexOf("topbarFormActionsSlot.innerHTML=''");
-const renderMainIndex = renderSource.indexOf("document.getElementById('main').innerHTML");
+const mainClassIndex = renderSource.indexOf("mainElement.classList.toggle('product-list-main'");
+const renderMainIndex = renderSource.indexOf('mainElement.innerHTML');
 const attachEventsIndex = renderSource.indexOf('attachEvents();');
 const syncTopbarIndex = renderSource.indexOf('syncTopbarFormActions();');
 assert.ok(clearTopbarIndex >= 0 && clearTopbarIndex < renderMainIndex, 'ต้องล้างปุ่มเก่าใน topbar ก่อนสร้าง DOM หน้าใหม่');
+assert.ok(mainClassIndex >= 0 && mainClassIndex < renderMainIndex, 'ต้องล็อกแถบเลื่อนด้านนอกเฉพาะหน้ารายการสินค้าก่อน render');
 assert.ok(renderMainIndex < attachEventsIndex && attachEventsIndex < syncTopbarIndex, 'ต้องผูก event ก่อนย้ายปุ่มจริงขึ้น topbar');
 assert.match(html, /main\?main\.querySelector\('\.form-final-actions'\):null/);
+assert.match(html, /\.main\.product-list-main\{overflow-y:hidden;\}/);
+assert.match(html, /\.product-list-page\{height:100%;min-height:0;\}/);
+assert.match(html, /\.product-list-page \.table-pane\{[^}]*flex:1;[^}]*min-height:0;[^}]*display:flex/);
+assert.match(html, /\.product-list-page \.product-table-scroll\{[^}]*height:auto;[^}]*min-height:0;[^}]*flex:1/);
+assert.match(html, /\.product-list-page \.pager\{[^}]*flex:0 0 auto/);
 
 console.log('product layout tests passed');
+assert.ok(pageIndex >= 0 && pageIndex < actionsIndex, 'หน้ารายการสินค้าต้องมีกรอบควบคุมความสูงเฉพาะหน้า');

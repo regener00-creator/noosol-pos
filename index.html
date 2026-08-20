@@ -71,6 +71,7 @@
   .logout-btn{border:1px solid var(--border);background:#fff;color:var(--text-muted);border-radius:8px;padding:6px 10px;font:600 12px 'Sarabun',sans-serif;cursor:pointer;}
   .logout-btn:hover{border-color:#F0B8B3;color:var(--danger);background:var(--danger-soft);}
   .main{flex:1;padding:22px 26px;overflow-y:auto;}
+  .main.product-list-main{overflow-y:hidden;}
   .pagehead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px;}
   .pagehead h1{font-size:20px;margin:0;font-weight:600;}
   .pagehead .sub{color:var(--text-muted);font-size:13px;margin-top:2px;}
@@ -216,6 +217,12 @@
   .prodsplit>.tree-pane{margin-top:0;border:none;box-shadow:none;}
   .tree-head{background:#2091D2;border-bottom:1px solid #2091D2;padding:11px 14px;font-size:13px;font-weight:600;color:#fff;text-align:center;}
   .product-list-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .product-list-page{height:100%;min-height:0;}
+  .product-list-page .prodsplit{height:100%;min-height:0;display:flex;flex-direction:column;align-items:stretch;}
+  .product-list-page .tree-pane{flex:0 0 auto;}
+  .product-list-page .table-pane{flex:1;min-height:0;display:flex;flex-direction:column;}
+  .product-list-page .product-table-scroll{height:auto;min-height:0;flex:1;}
+  .product-list-page .pager{flex:0 0 auto;margin-top:10px;}
   .product-list-search{max-width:none;width:100%;}
   .product-list-search input{width:100%;padding:11px 13px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:14px;background:var(--surface);}
   .tree-body{padding:8px;max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;}
@@ -317,7 +324,7 @@
   .pagebtn.active{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600;}
   .pagebtn:disabled{opacity:.35;cursor:default;}
   .pager .pageinfo{font-size:13px;color:var(--text-muted);font-family:inherit;}
-  @media (max-width:960px){ .prodsplit{grid-template-columns:1fr;} .prodsplit>.tree-pane{margin-top:0;} .tree-body{max-height:220px;} .product-table-scroll{height:calc(100vh - 390px);min-height:320px;} }
+  @media (max-width:960px){ .prodsplit{grid-template-columns:1fr;} .prodsplit>.tree-pane{margin-top:0;} .tree-body{max-height:220px;} .product-table-scroll{height:calc(100vh - 390px);min-height:320px;} .main.product-list-main{overflow-y:auto;} .product-list-page{height:auto;} .product-list-page .prodsplit{height:auto;display:grid;} .product-list-page .table-pane{display:block;} .product-list-page .product-table-scroll{height:calc(100vh - 390px);min-height:320px;} }
   @media (max-width:960px){ .unitrow{grid-template-columns:1fr;} .unitrow .u_eq{display:none;} }
   .empty-state{color:var(--text-muted);text-align:center;padding:40px 0;font-size:13.5px;}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--primary-dark);color:#fff;padding:11px 20px;border-radius:9px;font-size:13.5px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,0.18);opacity:0;pointer-events:none;transition:opacity .25s;}
@@ -3207,7 +3214,7 @@ function renderProducts(){
 
   let pager = pagerHtml(productPage, totalPages, 'page');
 
-  return `
+  return `<div class="product-list-page">
     <div class="product-list-actions form-final-actions"><button class="btn ghost" id="exportProductsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadProductTemplateBtn">ดาวน์โหลดไฟล์ตัวอย่าง</button><button class="btn ghost" id="importProductsBtn">นำเข้า Excel</button><input id="productImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newProductBtn">+ เพิ่มสินค้า</button></div>
     <div class="prodsplit">
       <div class="tree-pane">
@@ -3230,7 +3237,7 @@ function renderProducts(){
         </div>
         ${pager}
       </div>
-    </div>`;
+    </div></div>`;
 }
 
 function comboSelectorFor(kind){
@@ -5051,7 +5058,9 @@ function render(){
   // (ถ้าไม่เคลียร์ก่อน document.getElementById จะเจอปุ่มเก่าที่ topbar ก่อนเสมอเพราะอยู่หน้ากว่าใน DOM แล้วผูก listener ผิดตัว)
   const topbarFormActionsSlot=document.getElementById('topbarFormActions');
   if(topbarFormActionsSlot) topbarFormActionsSlot.innerHTML='';
-  document.getElementById('main').innerHTML = (RENDERERS[currentTab]||renderDashboard)();
+  const mainElement=document.getElementById('main');
+  mainElement.classList.toggle('product-list-main',currentTab==='products'&&editingProductId===null);
+  mainElement.innerHTML = (RENDERERS[currentTab]||renderDashboard)();
   attachEvents();
   syncTopbarFormActions();
   renderLoginState();
