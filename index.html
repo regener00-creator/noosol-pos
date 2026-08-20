@@ -4191,15 +4191,11 @@ function mobilePriceResultHtml(){
   const canViewCost=loggedInUser()?.owner===true;
   return `<article class="mobile-result-card">
     <div class="mobile-result-name">${escapeHtml(product.name)}</div>
-    <div class="mobile-result-codes">
-      <div class="mobile-result-code"><span>รหัสสินค้า</span><b>${escapeHtml(product.sku||'-')}</b></div>
-      <div class="mobile-result-code"><span>บาร์โค้ด</span><b>${escapeHtml(selected?.barcode||'-')}</b></div>
-    </div>
     ${options.length>1?`<select class="mobile-unit-select" id="mobilePriceUnit">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>หน่วย: ${escapeHtml(option.name)}</option>`).join('')}</select>`:`<div class="mobile-unit-select" style="display:flex;align-items:center;">หน่วย: ${escapeHtml(selected?.name||product.unit)}</div>`}
     <div class="mobile-metrics">
-      <div class="mobile-metric primary"><span>ราคาขาย</span><b>${fmtMoney(selected?.price||0)} บาท</b></div>
-      <div class="mobile-metric"><span>คงเหลือ</span><b>${inspectionListAmount(selectedStock)} ${escapeHtml(selected?.name||product.unit)}</b></div>
-      ${canViewCost?`<div class="mobile-metric"><span>ทุน</span><b>${fmtMoney(selected?.cost||0)} บาท</b></div>`:''}
+      <div class="mobile-metric primary"><span>คงเหลือ</span><b id="mobilePriceStock">${inspectionListAmount(selectedStock)} ${escapeHtml(selected?.name||product.unit)}</b></div>
+      <div class="mobile-metric"><span>ราคาขาย</span><b id="mobilePriceSale">${fmtMoney(selected?.price||0)} บาท</b></div>
+      ${canViewCost?`<div class="mobile-metric"><span>ทุน</span><b id="mobilePriceCost">${fmtMoney(selected?.cost||0)} บาท</b></div>`:''}
       <div class="mobile-metric"><span>วันหมดอายุ</span><b>${escapeHtml(fmtDateShort(product.expiry))}</b></div>
     </div>
   </article>`;
@@ -6391,7 +6387,20 @@ function attachEvents(){
     const product=products.find(entry=>Number(entry.id)===Number(button.dataset.mobilePriceProduct));
     if(product){ mobileSelectPriceProduct(product); render(); setTimeout(()=>document.getElementById('mobilePriceInput')?.select(),0); }
   }));
-  document.getElementById('mobilePriceUnit')?.addEventListener('change',event=>{ mobilePriceUnitName=event.target.value; render(); });
+  document.getElementById('mobilePriceUnit')?.addEventListener('change',event=>{
+    mobilePriceUnitName=event.target.value;
+    const product=products.find(entry=>Number(entry.id)===Number(mobilePriceProductId));
+    if(!product) return;
+    const selected=inspectionListUnitOptions(product).find(option=>option.name===mobilePriceUnitName);
+    if(!selected) return;
+    const selectedStock=stockUnitAmountFromBase(product.stock,selected.factor||1);
+    const stockElement=document.getElementById('mobilePriceStock');
+    const saleElement=document.getElementById('mobilePriceSale');
+    const costElement=document.getElementById('mobilePriceCost');
+    if(stockElement) stockElement.textContent=`${inspectionListAmount(selectedStock)} ${selected.name||product.unit}`;
+    if(saleElement) saleElement.textContent=`${fmtMoney(selected.price||0)} บาท`;
+    if(costElement) costElement.textContent=`${fmtMoney(selected.cost||0)} บาท`;
+  });
   document.getElementById('mobilePriceCamera')?.addEventListener('click',()=>openMobileCameraScanner(mobileHandlePriceCode));
   const mobileInspectionList=document.getElementById('mobileInspectionList');
   if(mobileInspectionList) mobileInspectionList.addEventListener('change',()=>{
