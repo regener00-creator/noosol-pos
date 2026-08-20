@@ -11,12 +11,14 @@ const historyNavIndex = html.indexOf("['history','ประวัติการ
 const promotionsNavIndex = html.indexOf("['promotions','โปรโมชั่น'");
 const purchaseSectionIndex = html.indexOf("{section:'ซื้อ'");
 const productsNavIndex = html.indexOf("['products','รายการสินค้า'");
+const inspectionListsNavIndex = html.indexOf("['inspectionlists','รายการตรวจสินค้า'");
 const barcodePrintNavIndex = html.indexOf("['barcodeprint','พิมพ์บาร์โค้ดเอง'");
 const stockEditNavIndex = html.indexOf("['stockedit','แก้ไขสต๊อก'");
 const stockAdjustNavIndex = html.indexOf("['stockadjust','สินค้าติดลบ'");
 const warehouseNavIndex = html.indexOf("['warehouse','คลังสินค้า / สาขา'");
+const transferNavIndex = html.indexOf("['transfer','โอนสินค้าระหว่างคลัง'");
 assert.ok(historyNavIndex >= 0 && promotionsNavIndex > historyNavIndex && purchaseSectionIndex > promotionsNavIndex, 'เมนูโปรโมชั่นต้องอยู่ใต้ประวัติการขายในหมวดขาย');
-assert.ok(productsNavIndex >= 0 && barcodePrintNavIndex > productsNavIndex && stockEditNavIndex > barcodePrintNavIndex && stockAdjustNavIndex > stockEditNavIndex && warehouseNavIndex > stockAdjustNavIndex, 'เมนูคลังต้องเรียง รายการสินค้า พิมพ์บาร์โค้ดเอง แก้ไขสต๊อก สินค้าติดลบ แล้วจึงคลังสินค้า');
+assert.ok(productsNavIndex >= 0 && inspectionListsNavIndex > productsNavIndex && stockEditNavIndex > inspectionListsNavIndex && stockAdjustNavIndex > stockEditNavIndex && warehouseNavIndex > stockAdjustNavIndex && transferNavIndex > warehouseNavIndex && barcodePrintNavIndex > transferNavIndex, 'เมนูพิมพ์บาร์โค้ดเองต้องอยู่ใต้โอนสินค้าระหว่างคลัง');
 assert.doesNotMatch(html, /\['stockadjust','ปรับเป็นศูนย์'/);
 assert.match(html, /LEVEL2_HIDDEN_TABS[^\n]+stockedit/);
 assert.match(html, /stockedit:\s*renderStockEdit/);
