@@ -1846,6 +1846,8 @@ let barcodePrintItems = [];
 let barcodePrintCatFilter = { category:'', brand:'' };
 let barcodePrintSearchQuery = '';
 let barcodePrintLabelSize = '50x30';
+let barcodePrintPage = 1;
+const BARCODE_PRINT_PAGE_SIZE = 7;
 // เลขหน้าสำหรับตารางเอกสารต่างๆ (แสดงหน้าละ 20 รายการ)
 let docListPage = { po:1, po2:1, ret:1, gr:1, taxinvoice:1, quotation:1 };
 const DOC_LIST_PAGE_SIZE = 20;
@@ -3664,6 +3666,7 @@ function barcodePrintAddProduct(product){
   if(!product) return false;
   if(barcodePrintFindProductItem(product.id)) return false;
   barcodePrintItems.push(createBarcodePrintItem(product));
+  barcodePrintPage=Math.max(1,Math.ceil(barcodePrintItems.length/BARCODE_PRINT_PAGE_SIZE));
   return true;
 }
 
@@ -3698,9 +3701,16 @@ function barcodePrintValidation(items=barcodePrintItems){
   return errors;
 }
 
-function barcodePrintRowsHtml(){
+function barcodePrintPagination(itemList=barcodePrintItems,page=barcodePrintPage,pageSize=BARCODE_PRINT_PAGE_SIZE){
+  const totalPages=Math.max(1,Math.ceil(itemList.length/pageSize));
+  const currentPage=Math.min(Math.max(1,Number(page)||1),totalPages);
+  const start=(currentPage-1)*pageSize;
+  return {rows:itemList.slice(start,start+pageSize).map((item,offset)=>({item,index:start+offset})),currentPage,totalPages};
+}
+
+function barcodePrintRowsHtml(entries=barcodePrintPagination().rows){
   if(!barcodePrintItems.length) return '<tr><td colspan="7" class="barcode-print-empty">ยังไม่มีรายการ — ค้นหาสินค้า หรือเลือกสินค้าที่ไม่มีบาร์โค้ดจากด้านบน</td></tr>';
-  return barcodePrintItems.map((item,index)=>{
+  return entries.map(({item,index})=>{
     const product=products.find(entry=>entry.id===item.pid);
     if(!product) return '';
     const options=barcodePrintUnitOptions(product);
@@ -3723,6 +3733,8 @@ function renderBarcodePrint(){
   const brandOptions=filter.category?brands.filter(brand=>products.some(product=>product.category===filter.category&&product.brand===brand)):brands.slice();
   const filteredCount=products.filter(product=>(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand)&&(filter.category||filter.brand)).length;
   const missingCount=products.filter(product=>barcodePrintUnitOptions(product).some(option=>!option.barcode)).length;
+  const pagination=barcodePrintPagination();
+  barcodePrintPage=pagination.currentPage;
   return `<div class="rpt barcode-print-page">
     <div class="pagehead"><div><h1>พิมพ์บาร์โค้ดเอง</h1><div class="sub">สร้างบาร์โค้ดสำหรับสินค้าที่ไม่มีรหัส แล้วพิมพ์เป็นฉลากพร้อมชื่อและราคา</div></div><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length?'':'disabled'}>ล้างรายการ</button><button class="btn primary" id="savePrintBarcodeBtn" ${barcodePrintItems.length?'':'disabled'}>บันทึกและพิมพ์ (${barcodePrintItems.length})</button></div></div>
     <p class="barcode-print-help">ระบบสร้างรหัสภายในแบบ Code 128 ให้อัตโนมัติ สามารถแก้รหัส หน่วย และจำนวนฉลากก่อนพิมพ์ได้ การบันทึกจะผูกบาร์โค้ดกับหน่วยสินค้าที่เลือก</p>
@@ -3740,9 +3752,10 @@ function renderBarcodePrint(){
     <div class="barcode-print-table-wrap seamless-table-wrap">
       <table class="grid-table doc-head-blue barcode-print-table"><colgroup><col class="barcode-print-col-sku"><col class="barcode-print-col-name"><col class="barcode-print-col-unit"><col class="barcode-print-col-code"><col class="barcode-print-col-price"><col class="barcode-print-col-qty"><col class="barcode-print-col-action"></colgroup>
         <thead><tr><th>รหัสสินค้า</th><th>สินค้า</th><th>หน่วย</th><th>บาร์โค้ด</th><th>ราคา</th><th>จำนวนฉลาก</th><th aria-label="จัดการ"></th></tr></thead>
-        <tbody>${barcodePrintRowsHtml()}</tbody>
+        <tbody>${barcodePrintRowsHtml(pagination.rows)}</tbody>
       </table>
     </div>
+    ${pagerHtml(barcodePrintPage,pagination.totalPages,'barcode-print-page')}
   </div>`;
 }
 
@@ -5511,7 +5524,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(barcodePrintLabelSizeSelect) barcodePrintLabelSizeSelect.addEventListener('change',()=>{ barcodePrintLabelSize=barcodePrintLabelSizeSelect.value; });
   if(clearBarcodePrintBtn) clearBarcodePrintBtn.addEventListener('click',()=>{
     if(!confirm('ต้องการล้างรายการพิมพ์บาร์โค้ดทั้งหมดใช่หรือไม่?')) return;
-    barcodePrintItems=[]; barcodePrintSearchQuery=''; barcodePrintCatFilter={category:'',brand:''}; render();
+    barcodePrintItems=[]; barcodePrintSearchQuery=''; barcodePrintCatFilter={category:'',brand:''}; barcodePrintPage=1; render();
   });
   if(barcodePrintSearch&&barcodePrintResults){
     const addProduct=product=>{
@@ -5568,6 +5581,14 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     input.addEventListener('input',()=>{ const item=barcodePrintItems[Number(input.dataset.barcodePrintQty)]; if(item) item.qty=input.value; });
   });
   document.querySelectorAll('[data-barcode-print-remove]').forEach(button=>button.addEventListener('click',()=>{ barcodePrintItems.splice(Number(button.dataset.barcodePrintRemove),1); render(); }));
+  document.querySelectorAll('[data-barcode-print-page]').forEach(button=>button.addEventListener('click',()=>{
+    const value=button.dataset.barcodePrintPage;
+    const totalPages=Math.max(1,Math.ceil(barcodePrintItems.length/BARCODE_PRINT_PAGE_SIZE));
+    if(value==='prev') barcodePrintPage=Math.max(1,barcodePrintPage-1);
+    else if(value==='next') barcodePrintPage=Math.min(totalPages,barcodePrintPage+1);
+    else barcodePrintPage=Math.min(totalPages,Math.max(1,Number(value)||1));
+    render();
+  }));
   if(savePrintBarcodeBtn) savePrintBarcodeBtn.addEventListener('click',()=>{
     const errors=barcodePrintValidation();
     document.querySelectorAll('.barcode-print-code-input').forEach(input=>input.classList.remove('invalid'));

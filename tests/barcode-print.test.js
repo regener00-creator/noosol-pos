@@ -20,6 +20,8 @@ const context = {
   barcodePrintCatFilter: {category:'',brand:''},
   barcodePrintSearchQuery: '',
   barcodePrintLabelSize: '50x30',
+  barcodePrintPage: 1,
+  BARCODE_PRINT_PAGE_SIZE: 7,
   categories: ['ยา'],
   brands: ['ทั่วไป'],
   escapeHtml: value => String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'),
@@ -52,6 +54,14 @@ assert.equal(context.barcodePrintAddProduct(products[0]), false);
 assert.equal(context.barcodePrintAddProduct(products[1]), true);
 assert.equal(context.barcodePrintItems[1].barcode, 'OLD-002');
 
+const paginationItems = Array.from({length: 15}, (_, index) => ({pid:index + 1}));
+const secondPage = context.barcodePrintPagination(paginationItems, 2, 7);
+assert.equal(secondPage.currentPage, 2);
+assert.equal(secondPage.totalPages, 3);
+assert.deepEqual(Array.from(secondPage.rows, entry => entry.index), [7,8,9,10,11,12,13]);
+assert.equal(context.barcodePrintPagination(paginationItems, 99, 7).currentPage, 3);
+assert.equal(context.barcodePrintPagination([], 2, 7).currentPage, 1);
+
 assert.equal(context.barcodePrintValidation().length, 0);
 context.barcodePrintItems[0].barcode = 'EXTRA-002';
 assert.match(context.barcodePrintValidation()[0].message, /ถูกใช้กับ/);
@@ -72,6 +82,8 @@ assert.match(html, /barcodeprint:\s*renderBarcodePrint/);
 assert.match(html, /LEVEL2_HIDDEN_TABS[^\n]+barcodeprint/);
 assert.match(html, /id="savePrintBarcodeBtn"/);
 assert.match(html, /id="barcodePrintAddMissingBtn"/);
+assert.match(html, /data-barcode-print-page/);
+assert.match(html, /BARCODE_PRINT_PAGE_SIZE = 7/);
 assert.match(html, /@page\{size:\$\{width\}mm \$\{height\}mm;margin:0\}/);
 
 console.log('barcode print tests passed');
