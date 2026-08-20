@@ -1576,6 +1576,9 @@ async function loadCoreDataFromSupabase(){
       const rows=docResults[i].data||[];
       if(rows.length) setArr(rows.map(rowToDoc));
     });
+    const goodsReceiptsBeforeNormalization=JSON.stringify(goodsReceipts);
+    goodsReceipts=normalizeGoodsReceiptDocuments(goodsReceipts);
+    const goodsReceiptsMigrated=goodsReceiptsBeforeNormalization!==JSON.stringify(goodsReceipts);
     // Seed the change-detection cache to match what we just loaded, so the
     // next debounced sync doesn't immediately re-upload everything again
     // merely because it hasn't "seen" this exact snapshot before.
@@ -1583,7 +1586,10 @@ async function loadCoreDataFromSupabase(){
     lastSyncedSnapshot.products=JSON.stringify(products);
     lastSyncedSnapshot.contacts=JSON.stringify(contacts);
     lastSyncedSnapshot.sales_representatives=JSON.stringify(salesRepresentatives);
-    DOC_TABLES.forEach(([table,getArr])=>{ lastSyncedSnapshot[table]=JSON.stringify(getArr()); });
+    DOC_TABLES.forEach(([table,getArr])=>{
+      if(table==='goods_receipts'&&goodsReceiptsMigrated) delete lastSyncedSnapshot[table];
+      else lastSyncedSnapshot[table]=JSON.stringify(getArr());
+    });
     nextWarehouseId=Math.max(1,...warehouses.map(w=>(Number(w.id)||0)+1));
     nextContactId=Math.max(1,...contacts.map(c=>(Number(c.id)||0)+1));
     nextSalesRepresentativeId=Math.max(1,...salesRepresentatives.map(r=>(Number(r.id)||0)+1));
@@ -2046,7 +2052,7 @@ let purchaseOrders = [
   {id:'PO-0030', supplier:'คุณณัฐวุฒิ แสงทอง', date:'2026-07-15', credit:0, items:[{name:'วิตามินซี 1000mg',qty:30,unit:'กระปุก',price:100}], total:0, status:'สั่งแล้ว', note:''},
 ];
 let goodsReceipts = [
-  {id:'GR-0030', po:'PO-0030', supplier:'บ. เซ็นทรัลฟาร์มา จำกัด', date:'2026-07-18', items:[{name:'วิตามินซี 1000mg',qty:30,price:100}], total:3000, status:'รอรับสินค้า'},
+  {id:'GR-0030', po:'PO-0030', supplier:'บ. เซ็นทรัลฟาร์มา จำกัด', date:'2026-07-18', items:[{name:'วิตามินซี 1000mg',qty:30,price:100}], total:3000, status:'รับสินค้าแล้ว', stockApplied:true, stockAppliedAt:'2026-07-18'},
 ];
 let purchaseOrdersFull = [];
 let productReturns = [];
@@ -2234,7 +2240,7 @@ function applyWorkspaceData(saved){
   if(Array.isArray(saved.invoicesAR)) invoicesAR=saved.invoicesAR;
   if(Array.isArray(saved.creditNotes)) creditNotes=saved.creditNotes;
   if(Array.isArray(saved.purchaseOrders)) purchaseOrders=saved.purchaseOrders;
-  if(Array.isArray(saved.goodsReceipts)) goodsReceipts=saved.goodsReceipts;
+  if(Array.isArray(saved.goodsReceipts)) goodsReceipts=normalizeGoodsReceiptDocuments(saved.goodsReceipts);
   if(Array.isArray(saved.purchaseOrdersFull)) purchaseOrdersFull=saved.purchaseOrdersFull;
   if(Array.isArray(saved.productReturns)) productReturns=saved.productReturns;
   if(Array.isArray(saved.transfers)) transfers=saved.transfers;
@@ -2462,6 +2468,27 @@ function docCounter(kind){ const list=docList(kind); return nextDailySeq(docPref
 function bumpDocCounter(kind){ /* ไม่ต้องทำอะไร: เลขคำนวณสดจากรายการเอกสารเสมอ (รีเซ็ตรายวันอัตโนมัติ) */ }
 function docLabelText(kind){ return kind==='gr'?'ใบรับสินค้า':kind==='po2'?'ใบสั่งซื้อสินค้า':kind==='ret'?'ใบคืนสินค้า':'สั่งของขาด'; }
 function docDefaultStatus(kind){ return kind==='gr'?'รอรับสินค้า':kind==='po2'?'รอสั่งซื้อ':kind==='ret'?'รอรับคืน':'รอสั่งของ'; }
+const GOODS_RECEIPT_STATUSES=['รอรับสินค้า','รับสินค้าแล้ว','ชำระเรียบร้อย'];
+function normalizeGoodsReceiptDocument(doc){
+  if(!doc||typeof doc!=='object') return doc;
+  // ใบรับสินค้าเดิมถูกบวกสต๊อกตั้งแต่ตอนสร้างและไม่มี stockApplied=false
+  // จึงถือว่าเคยนับสต๊อกแล้ว เพื่อไม่ให้ข้อมูลเก่าถูกบวกซ้ำหลังอัปเกรด
+  const stockApplied=doc.stockApplied!==false;
+  const status=stockApplied
+    ? (doc.status==='ชำระเรียบร้อย'?'ชำระเรียบร้อย':'รับสินค้าแล้ว')
+    : 'รอรับสินค้า';
+  return {...doc,status,stockApplied,stockAppliedAt:stockApplied?String(doc.stockAppliedAt||doc.date||''):''};
+}
+function normalizeGoodsReceiptDocuments(list){ return (Array.isArray(list)?list:[]).map(normalizeGoodsReceiptDocument); }
+function goodsReceiptStatusChangePlan(doc,nextStatus){
+  const status=GOODS_RECEIPT_STATUSES.includes(nextStatus)?nextStatus:'รอรับสินค้า';
+  const alreadyApplied=doc?.stockApplied===true;
+  if(status==='ชำระเรียบร้อย'&&!alreadyApplied){
+    return {allowed:false,status:doc?.status||'รอรับสินค้า',stockDirection:0,stockApplied:false};
+  }
+  const stockDirection=status==='รับสินค้าแล้ว'&&!alreadyApplied?1:status==='รอรับสินค้า'&&alreadyApplied?-1:0;
+  return {allowed:true,status,stockDirection,stockApplied:status!=='รอรับสินค้า'};
+}
 function currentDocKind(){ if(currentTab==='goodsreceipt') return 'gr'; if(currentTab==='purchaseorder2') return 'po2'; if(currentTab==='productreturn') return 'ret'; return 'po'; }
 function daysFromToday(dateStr){
   const parse=s=>{ const [y,m,d]=String(s).slice(0,10).split('-').map(Number); return new Date(y,m-1,d); };
@@ -2489,8 +2516,9 @@ function documentStatusControl(kind,doc){
     const cls=status==='คืนเรียบร้อย'?'po-complete':'po-pending';
     return `<select class="doc-status-select ${cls}" data-status-kind="ret" data-id="${doc.id}"><option value="รอรับคืน" ${status==='รอรับคืน'?'selected':''}>รอรับคืน</option><option value="คืนเรียบร้อย" ${status==='คืนเรียบร้อย'?'selected':''}>คืนเรียบร้อย</option></select>`;
   }
-  if(doc.status==='ชำระเรียบร้อย') return '<span class="badge ok">ชำระเรียบร้อย</span>';
-  return `<select class="doc-status-select gr-pending" data-status-kind="gr" data-id="${doc.id}"><option value="รอรับสินค้า" selected>รอรับสินค้า</option><option value="ชำระเงิน">ชำระเงิน</option></select>`;
+  const status=GOODS_RECEIPT_STATUSES.includes(doc.status)?doc.status:(doc.stockApplied===true?'รับสินค้าแล้ว':'รอรับสินค้า');
+  const cls=status==='ชำระเรียบร้อย'?'po-complete':status==='รับสินค้าแล้ว'?'po-done':'gr-pending';
+  return `<select class="doc-status-select ${cls}" data-status-kind="gr" data-id="${doc.id}"><option value="รอรับสินค้า" ${status==='รอรับสินค้า'?'selected':''}>รอรับสินค้า</option><option value="รับสินค้าแล้ว" ${status==='รับสินค้าแล้ว'?'selected':''}>รับสินค้าแล้ว</option><option value="ชำระเรียบร้อย" ${status==='ชำระเรียบร้อย'?'selected':''}>ชำระเรียบร้อย</option></select>`;
 }
 function documentSortHeader(kind,key,label){
   const sort=documentSort[kind], active=sort.key===key;
@@ -3368,6 +3396,27 @@ function adjustGoodsReceiptStock(items,direction){
     product.stock=(Number(product.stock)||0)+delta;
     adjustProductStockOnSupabase(product.id,delta);
   });
+}
+
+function changeGoodsReceiptStatus(id,status){
+  const doc=goodsReceipts.find(item=>item.id===id);
+  if(!doc) return;
+  const plan=goodsReceiptStatusChangePlan(doc,status);
+  if(!plan.allowed){
+    showToast('กรุณาเปลี่ยนสถานะเป็น “รับสินค้าแล้ว” ก่อนชำระเงิน');
+    render();
+    return;
+  }
+  if(plan.stockDirection) adjustGoodsReceiptStock(doc.items,plan.stockDirection);
+  doc.status=plan.status;
+  doc.stockApplied=plan.stockApplied;
+  doc.stockAppliedAt=plan.stockApplied?(doc.stockAppliedAt||new Date().toISOString()):'';
+  if(plan.status==='รอรับสินค้า'){
+    showToast(plan.stockDirection<0?'เปลี่ยนเป็นรอรับสินค้าและนำสต๊อกออกแล้ว':'เปลี่ยนสถานะเป็น “รอรับสินค้า” แล้ว');
+  }else if(plan.status==='รับสินค้าแล้ว'){
+    showToast(plan.stockDirection>0?'รับสินค้าแล้วและเพิ่มสต๊อกเรียบร้อย':'สถานะเป็น “รับสินค้าแล้ว”');
+  }
+  render();
 }
 
 function changeProductReturnStatus(id,status){
@@ -7409,7 +7458,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
         po.status='สั่งแล้ว';
         const receivedItems=normalizeGoodsReceiptItems(po.items);
         adjustGoodsReceiptStock(receivedItems,1);
-        goodsReceipts.unshift({id:'GR-'+String(++grCounter).padStart(4,'0'), po:po.id, supplier:po.supplier, date:TODAY_STR, items:receivedItems, total:po.total, status:'รอรับสินค้า',stockApplied:true});
+        goodsReceipts.unshift({id:'GR-'+String(++grCounter).padStart(4,'0'), po:po.id, supplier:po.supplier, date:TODAY_STR, items:receivedItems, total:po.total, status:'รับสินค้าแล้ว',stockApplied:true,stockAppliedAt:new Date().toISOString()});
         showToast(`รับสินค้าตาม ${po.id} เข้าคลังแล้ว`);
         render();
       }
@@ -7492,7 +7541,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   }
   document.querySelectorAll('[data-doc-action]').forEach(btn=>{ btn.addEventListener('click', e=>{ e.stopPropagation(); handleDocumentAction(btn.dataset.kind,btn.dataset.id,btn.dataset.docAction); }); });
   document.querySelectorAll('[data-doc-sort]').forEach(btn=>{ btn.addEventListener('click', ()=>{ const [kind,key]=btn.dataset.docSort.split(':'); const sort=documentSort[kind]; if(sort.key===key) sort.dir*=-1; else documentSort[kind]={key,dir:['date','due','total','elapsed'].includes(key)?-1:1}; render(); }); });
-  document.querySelectorAll('.doc-status-select').forEach(sel=>{ sel.addEventListener('change', ()=>{ const k=sel.dataset.statusKind; if(k==='po'){ const doc=purchaseOrders.find(x=>x.id===sel.dataset.id); if(doc){ doc.status=sel.value; showToast(`เปลี่ยนสถานะเป็น “${sel.value}” แล้ว`); render(); } }else if(k==='po2'){ const doc=purchaseOrdersFull.find(x=>x.id===sel.dataset.id); if(doc){ doc.status=sel.value; showToast(`เปลี่ยนสถานะเป็น “${sel.value}” แล้ว`); render(); } }else if(k==='ret'){ changeProductReturnStatus(sel.dataset.id,sel.value); }else if(sel.value==='ชำระเงิน'){ openGoodsReceiptPayment(sel.dataset.id); } }); });
+  document.querySelectorAll('.doc-status-select').forEach(sel=>{ sel.addEventListener('change', ()=>{ const k=sel.dataset.statusKind; if(k==='po'){ const doc=purchaseOrders.find(x=>x.id===sel.dataset.id); if(doc){ doc.status=sel.value; showToast(`เปลี่ยนสถานะเป็น “${sel.value}” แล้ว`); render(); } }else if(k==='po2'){ const doc=purchaseOrdersFull.find(x=>x.id===sel.dataset.id); if(doc){ doc.status=sel.value; showToast(`เปลี่ยนสถานะเป็น “${sel.value}” แล้ว`); render(); } }else if(k==='ret'){ changeProductReturnStatus(sel.dataset.id,sel.value); }else if(k==='gr'){ if(sel.value==='ชำระเรียบร้อย'){ const doc=goodsReceipts.find(x=>x.id===sel.dataset.id); if(doc?.stockApplied===true) openGoodsReceiptPayment(sel.dataset.id); else changeGoodsReceiptStatus(sel.dataset.id,sel.value); }else changeGoodsReceiptStatus(sel.dataset.id,sel.value); } }); });
   document.querySelectorAll('.doc-list thead .doc-check').forEach(box=>{ box.addEventListener('change', ()=>{ document.querySelectorAll('.doc-list tbody .doc-check').forEach(rowBox=>rowBox.checked=box.checked); updateDocumentSelectionUI(); }); });
   document.querySelectorAll('.doc-list tbody .doc-check').forEach(box=>{ box.addEventListener('change', updateDocumentSelectionUI); });
   const docSelectedClear=document.getElementById('docSelectedClear');
@@ -7742,20 +7791,21 @@ function deleteSelectedDocuments(kind,ids){
     return;
   }
 
-  if(kind==='po2'||kind==='ret'){
+  if(kind==='gr'||kind==='po2'||kind==='ret'){
     const list=docList(kind);
     const selected=list.filter(doc=>ids.includes(doc.id));
     if(!selected.length) return;
     const label=docLabelText(kind);
-    const stockAffected=kind==='ret'&&selected.some(doc=>doc.stockApplied===true);
-    const stockNotice=stockAffected?' สต๊อกที่เคยตัดจากรายการเหล่านี้จะถูกคืนกลับด้วย':'';
+    const stockAffected=(kind==='gr'||kind==='ret')&&selected.some(doc=>doc.stockApplied===true);
+    const stockNotice=kind==='gr'&&stockAffected?' สต๊อกที่รับเข้าจากรายการเหล่านี้จะถูกนำออกด้วย':kind==='ret'&&stockAffected?' สต๊อกที่เคยตัดจากรายการเหล่านี้จะถูกคืนกลับด้วย':'';
     const message=selected.length===1
       ?`ยืนยันลบ ${selected[0].id} ?${stockNotice}`
       :`ยืนยันลบ${label}ที่เลือกทั้งหมด ${selected.length} รายการหรือไม่?${stockNotice}`;
     if(!confirm(message)) return;
+    if(kind==='gr') selected.forEach(doc=>{ if(doc.stockApplied===true) adjustGoodsReceiptStock(doc.items,-1); });
     if(kind==='ret') selected.forEach(doc=>{ if(doc.stockApplied===true) adjustGoodsReceiptStock(doc.items,1); });
     for(let index=list.length-1;index>=0;index--){ if(ids.includes(list[index].id)) list.splice(index,1); }
-    showToast(`ลบ${label} ${selected.length} รายการแล้ว${stockAffected?' และคืนสต๊อกกลับแล้ว':''}`);
+    showToast(`ลบ${label} ${selected.length} รายการแล้ว${stockAffected?(kind==='gr'?' และนำสต๊อกออกแล้ว':' และคืนสต๊อกกลับแล้ว'):''}`);
     render();
   }
 }
@@ -7767,6 +7817,7 @@ function printSelectedDocuments(pdfMode){
 }
 function openGoodsReceiptPayment(id){
   const doc=goodsReceipts.find(x=>x.id===id); if(!doc) return;
+  if(doc.stockApplied!==true){ showToast('กรุณาเปลี่ยนสถานะเป็น “รับสินค้าแล้ว” ก่อนชำระเงิน'); render(); return; }
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal payment-modal">
     <div class="modal-head"><h3>บันทึกการชำระเงิน</h3><button class="modal-close" aria-label="ปิด">×</button></div>
@@ -7785,7 +7836,7 @@ function openGoodsReceiptPayment(id){
     <div class="payment-actions"><button class="btn ghost" id="cancelPaymentBtn">ยกเลิก</button><button class="btn save-payment" id="savePaymentBtn">บันทึก</button></div>
   </div>`;
   document.body.appendChild(overlay);
-  const close=()=>overlay.remove();
+  const close=()=>{ overlay.remove(); render(); };
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('#cancelPaymentBtn').onclick=close;
   
@@ -7795,7 +7846,7 @@ function openGoodsReceiptPayment(id){
   overlay.querySelector('#savePaymentBtn').onclick=()=>{
     const paid=parseFloat(amount.value); if(isNaN(paid)||paid<0){ showToast('กรุณากรอกยอดจ่ายสุทธิ'); amount.focus(); return; }
     doc.payment={date:overlay.querySelector('#pay_date').value,amount:paid,withholding:overlay.querySelector('#pay_withholding').checked,reasonType:overlay.querySelector('input[name="pay_reason_type"]:checked')?.value||'',reason:overlay.querySelector('#pay_reason').value,method:overlay.querySelector('#pay_method').value,note:overlay.querySelector('#pay_note').value};
-    doc.status='ชำระเรียบร้อย'; overlay.remove(); showToast(`บันทึกการชำระเงิน ${doc.id} แล้ว`); render();
+    doc.status='ชำระเรียบร้อย'; doc.stockApplied=true; overlay.remove(); showToast(`บันทึกการชำระเงิน ${doc.id} แล้ว`); render();
   };
   setTimeout(()=>amount.focus(),30);
 }
@@ -8031,18 +8082,20 @@ function savePO(silent=false){
   const total=styled?subtotal-(draft.discount||0):0;
   const old=editingId!=='new'?list.find(x=>x.id===editingId):null;
   const savedItems=(kind==='gr'||kind==='ret')?normalizeGoodsReceiptItems(items):items;
-  const rec={ id:draft.id, supplier:draft.supplier, date:draft.date, credit:kind==='ret'?0:(styled?(draft.credit||0):0), dueDate:kind==='ret'?'':(styled?addDaysToDate(draft.date,draft.credit||0):''), items:savedItems, discount:kind==='ret'?0:(styled?(draft.discount||0):0), total:kind==='ret'?0:total, note:draft.note||'', status:old?.status||docDefaultStatus(kind), ...(kind==='gr'?{stockApplied:true}:kind==='ret'?{stockApplied:old?.stockApplied===true}:{}) };
+  const rec={ id:draft.id, supplier:draft.supplier, date:draft.date, credit:kind==='ret'?0:(styled?(draft.credit||0):0), dueDate:kind==='ret'?'':(styled?addDaysToDate(draft.date,draft.credit||0):''), items:savedItems, discount:kind==='ret'?0:(styled?(draft.discount||0):0), total:kind==='ret'?0:total, note:draft.note||'', status:old?.status||docDefaultStatus(kind), ...(kind==='gr'?{stockApplied:old?.stockApplied===true,stockAppliedAt:old?.stockAppliedAt||''}:kind==='ret'?{stockApplied:old?.stockApplied===true}:{}) };
   if(editingId==='new'){
     list.unshift(rec);
-    if(kind==='gr'){ grCounter++; adjustGoodsReceiptStock(savedItems,1); }
+    if(kind==='gr'){ grCounter++; }
     else if(kind==='ret'){ returnCounter++; }
     else bumpDocCounter(kind);
   } else {
     const idx=list.findIndex(x=>x.id===editingId);
     if(idx>-1){
       if(kind==='gr'){
-        if(old?.stockApplied!==false) adjustGoodsReceiptStock(old.items,-1);
-        adjustGoodsReceiptStock(savedItems,1);
+        if(old?.stockApplied===true){
+          adjustGoodsReceiptStock(old.items,-1);
+          adjustGoodsReceiptStock(savedItems,1);
+        }
       }
       if(kind==='ret'&&old?.stockApplied===true){
         adjustGoodsReceiptStock(old.items,1);
@@ -8076,8 +8129,9 @@ function handleDocumentAction(kind,id,action){
     copy.id=docPrefix(kind)+TODAY_STR.replace(/-/g,'')+String(docCounter(kind)).padStart(4,'0'); bumpDocCounter(kind); copy.date=TODAY_STR; copy.dueDate=addDaysToDate(copy.date,copy.credit||0); copy.status=docDefaultStatus(kind);
     if(kind==='gr'){
       copy.items=normalizeGoodsReceiptItems(copy.items);
-      copy.stockApplied=true;
-      adjustGoodsReceiptStock(copy.items,1);
+      copy.status='รอรับสินค้า';
+      copy.stockApplied=false;
+      copy.stockAppliedAt='';
     }
     if(kind==='ret'){
       copy.items=normalizeGoodsReceiptItems(copy.items);
@@ -8087,12 +8141,12 @@ function handleDocumentAction(kind,id,action){
     list.unshift(copy); showToast(`สร้างซ้ำเป็น ${copy.id} แล้ว`); render(); return;
   }
   if(action==='delete'){
-    const stockNotice=kind==='gr'?' สต๊อกที่รับเข้าจากเอกสารนี้จะถูกนำออกด้วย':kind==='ret'&&doc.stockApplied===true?' สต๊อกที่เคยตัดจากใบคืนสินค้านี้จะถูกคืนกลับด้วย':'';
+    const stockNotice=kind==='gr'&&doc.stockApplied===true?' สต๊อกที่รับเข้าจากเอกสารนี้จะถูกนำออกด้วย':kind==='ret'&&doc.stockApplied===true?' สต๊อกที่เคยตัดจากใบคืนสินค้านี้จะถูกคืนกลับด้วย':'';
     if(confirm(`ยืนยันลบ ${doc.id} ?${stockNotice}`)){
-      if(kind==='gr'&&doc.stockApplied!==false) adjustGoodsReceiptStock(doc.items,-1);
+      if(kind==='gr'&&doc.stockApplied===true) adjustGoodsReceiptStock(doc.items,-1);
       if(kind==='ret'&&doc.stockApplied===true) adjustGoodsReceiptStock(doc.items,1);
       const idx=list.findIndex(x=>x.id===id); if(idx>-1) list.splice(idx,1);
-      showToast(`ลบ ${doc.id} แล้ว${kind==='gr'?' และปรับสต๊อกคืนเรียบร้อย':kind==='ret'&&doc.stockApplied===true?' และคืนสต๊อกกลับแล้ว':''}`);
+      showToast(`ลบ ${doc.id} แล้ว${kind==='gr'&&doc.stockApplied===true?' และนำสต๊อกออกแล้ว':kind==='ret'&&doc.stockApplied===true?' และคืนสต๊อกกลับแล้ว':''}`);
     }
     render();
   }
