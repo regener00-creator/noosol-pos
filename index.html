@@ -1106,6 +1106,12 @@
   .mobile-tools-logo{width:42px;height:42px;border-radius:13px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;}
   .mobile-tools-brand h1{font-size:20px;margin:0;line-height:1.2;}
   .mobile-tools-brand span{display:block;color:var(--text-muted);font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mobile-tools-actions{display:flex;align-items:center;gap:8px;flex-shrink:0;}
+  .mobile-tools-refresh{width:40px;height:40px;border:1px solid var(--border);background:#fff;color:var(--primary);border-radius:10px;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .mobile-tools-refresh svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .mobile-tools-refresh:disabled{opacity:.55;cursor:wait;}
+  .mobile-tools-refresh.loading svg{animation:mobile-refresh-spin .8s linear infinite;}
+  @keyframes mobile-refresh-spin{to{transform:rotate(360deg);}}
   .mobile-tools-logout{border:1px solid var(--border);background:#fff;color:var(--text-muted);border-radius:10px;padding:9px 12px;font:600 13px 'Sarabun',sans-serif;cursor:pointer;flex-shrink:0;}
   .mobile-install-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#FFF8E8;border:1px solid #F1D38C;border-radius:14px;padding:12px 13px;margin-bottom:14px;}
   .mobile-install-notice-text{min-width:0;}
@@ -1146,6 +1152,7 @@
   .mobile-inspection-action{height:46px;border-radius:11px;font:700 14px 'Sarabun',sans-serif;cursor:pointer;}
   .mobile-inspection-open{border:0;background:var(--primary);color:#fff;}
   .mobile-inspection-delete{border:1px solid #F0C7C3;background:#fff;color:var(--danger);}
+  .mobile-inspection-complete{display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid #9FD6AE;background:#F1FBF4;color:#277A3D;border-radius:10px;padding:9px 11px;margin-bottom:12px;font-size:13px;font-weight:700;}
   .mobile-inspection-create-btn{width:100%;height:50px;border:0;border-radius:12px;background:var(--primary);color:#fff;font:700 15px 'Sarabun',sans-serif;cursor:pointer;margin-bottom:14px;}
   .mobile-inspection-saved-label{font-size:12px;font-weight:600;color:var(--text-muted);margin:2px 0 7px;}
   .mobile-draft-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;}
@@ -3877,9 +3884,14 @@ function stockEditInspectionSourceList(){
   return inspectionLists.find(list=>String(list.id)===String(stockEditSourceInspectionListId))||null;
 }
 
+function inspectionListAvailableForStockEdit(list){
+  return Boolean(list)&&!String(list.stockAdjustedAt||'').trim();
+}
+
 function stockEditImportInspectionList(listId,askBeforeReplace=true){
   const list=inspectionLists.find(entry=>String(entry.id)===String(listId));
   if(!list){ showToast('ไม่พบรายการตรวจสินค้า','danger'); return false; }
+  if(!inspectionListAvailableForStockEdit(list)){ showToast('รายการนี้แก้ไขจำนวนเรียบร้อยแล้ว ไม่สามารถดึงซ้ำได้','danger'); return false; }
   const entries=(list.items||[]).map(item=>({item,product:products.find(product=>product.id===Number(item.pid))})).filter(entry=>entry.product);
   if(!entries.length){ showToast('รายการตรวจสินค้านี้ไม่มีสินค้าที่ใช้งานได้','danger'); return false; }
   if(askBeforeReplace&&(stockEditItems.length||Object.keys(stockEditDraftStocks).length)&&!confirm('ข้อมูลในหน้าแก้ไขสต๊อกปัจจุบันจะถูกแทนที่ด้วยรายการตรวจสินค้าที่เลือก ต้องการดำเนินการต่อหรือไม่?')) return false;
@@ -4233,7 +4245,7 @@ function renderMobileInspectionPanel(lists){
   if(mobileInspectionCreating) return mobileInspectionDraftHtml();
   const current=mobileInspectionCurrentList();
   const opened=current&&String(mobileInspectionOpenedListId)===String(current.id);
-  return `<section class="mobile-tool-panel"><h2 class="mobile-tool-title">รายการตรวจสินค้า</h2><div class="mobile-tool-sub">สร้างรายการใหม่ หรือเปิดรายการที่บันทึกไว้เพื่อสแกนตรวจสินค้า</div><button type="button" class="mobile-inspection-create-btn" id="mobileNewInspectionList">+ สร้างรายการตรวจสินค้า</button>${lists.length?`<div class="mobile-inspection-saved-label">รายการที่บันทึกไว้</div><select id="mobileInspectionList" class="mobile-inspection-select">${lists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(current?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})</option>`).join('')}</select><div class="mobile-inspection-actions"><button type="button" class="mobile-inspection-action mobile-inspection-open" id="mobileOpenInspectionList">เปิดรายการ</button><button type="button" class="mobile-inspection-action mobile-inspection-delete" id="mobileDeleteInspectionList">ลบบันทึกรายการ</button></div>${opened?`<div class="mobile-scan-row"><input id="mobileInspectionInput" class="mobile-scan-input" value="${escapeHtml(mobileInspectionQuery)}" placeholder="ยิงบาร์โค้ดเพื่อค้นหาในรายการ..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobileInspectionCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-search-hint">รายการที่ยิงพบจะมีเครื่องหมาย ✓ และเลื่อนขึ้นมาอยู่ด้านบน</div><div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div>`:'<div class="mobile-empty">เลือกรายการแล้วกด “เปิดรายการ” เพื่อเริ่มตรวจสินค้า</div>'}`:'<div class="mobile-empty">ยังไม่มีรายการที่บันทึกไว้ กด “สร้างรายการตรวจสินค้า” เพื่อเริ่มยิงสินค้า</div>'}</section>`;
+  return `<section class="mobile-tool-panel"><h2 class="mobile-tool-title">รายการตรวจสินค้า</h2><div class="mobile-tool-sub">สร้างรายการใหม่ หรือเปิดรายการที่บันทึกไว้เพื่อสแกนตรวจสินค้า</div><button type="button" class="mobile-inspection-create-btn" id="mobileNewInspectionList">+ สร้างรายการตรวจสินค้า</button>${lists.length?`<div class="mobile-inspection-saved-label">รายการที่บันทึกไว้</div><select id="mobileInspectionList" class="mobile-inspection-select">${lists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(current?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})${list.stockAdjustedAt?' · แก้ไขจำนวนเรียบร้อย':''}</option>`).join('')}</select><div class="mobile-inspection-actions"><button type="button" class="mobile-inspection-action mobile-inspection-open" id="mobileOpenInspectionList">เปิดรายการ</button><button type="button" class="mobile-inspection-action mobile-inspection-delete" id="mobileDeleteInspectionList">ลบบันทึกรายการ</button></div>${current?.stockAdjustedAt?'<div class="mobile-inspection-complete">✓ แก้ไขจำนวนเรียบร้อย</div>':''}${opened?`<div class="mobile-scan-row"><input id="mobileInspectionInput" class="mobile-scan-input" value="${escapeHtml(mobileInspectionQuery)}" placeholder="ยิงบาร์โค้ดเพื่อค้นหาในรายการ..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobileInspectionCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-search-hint">รายการที่ยิงพบจะมีเครื่องหมาย ✓ และเลื่อนขึ้นมาอยู่ด้านบน</div><div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div>`:'<div class="mobile-empty">เลือกรายการแล้วกด “เปิดรายการ” เพื่อเริ่มตรวจสินค้า</div>'}`:'<div class="mobile-empty">ยังไม่มีรายการที่บันทึกไว้ กด “สร้างรายการตรวจสินค้า” เพื่อเริ่มยิงสินค้า</div>'}</section>`;
 }
 function addProductToMobileInspectionDraft(product,unitName=''){
   if(!product||!inspectionListDraft) return false;
@@ -4296,19 +4308,51 @@ function mobileStockEditRowsHtml(){
   }).join('')}</div>`;
 }
 function renderMobileStockEditPanel(lists){
-  let selectedSource=lists.find(list=>String(list.id)===String(mobileStockSourceListId));
-  if(!selectedSource&&lists.length){ selectedSource=lists[0]; mobileStockSourceListId=selectedSource.id; }
+  const availableLists=lists.filter(inspectionListAvailableForStockEdit);
+  let selectedSource=availableLists.find(list=>String(list.id)===String(mobileStockSourceListId));
+  if(!selectedSource&&availableLists.length){ selectedSource=availableLists[0]; mobileStockSourceListId=selectedSource.id; }
+  if(!availableLists.length) mobileStockSourceListId='';
   const sourceList=stockEditInspectionSourceList();
   const query=String(mobileStockQuery||'').trim();
   const matches=query?mobilePriceMatches(query).slice(0,8):[];
   const canConfirm=stockEditPendingChanges().length>0||stockEditSourcePending;
-  return `<section class="mobile-tool-panel"><h2 class="mobile-tool-title">แก้ไขสต๊อก</h2><div class="mobile-tool-sub">ดึงรายการตรวจสินค้า หรือยิงบาร์โค้ด แล้วกรอกจำนวนใหม่ก่อนยืนยันพร้อมกัน</div><div class="mobile-stock-source"><select id="mobileStockSourceList" ${lists.length?'':'disabled'}>${lists.length?lists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(selectedSource?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})</option>`).join(''):'<option value="">ยังไม่มีรายการตรวจสินค้า</option>'}</select><button type="button" class="mobile-stock-import" id="mobileStockImport" ${lists.length?'':'disabled'}>ดึงข้อมูล</button></div>${sourceList?`<div class="mobile-stock-source-note"><b>${escapeHtml(sourceList.name)}</b><span>${stockEditSourcePending?'รอยืนยันการแก้ไข':'แก้จำนวนเรียบร้อย'}</span></div>`:''}<div class="mobile-scan-row"><input id="mobileStockInput" class="mobile-scan-input" value="${escapeHtml(mobileStockQuery)}" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobileStockCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-search-hint">แก้ตัวเลขแล้วสต๊อกจะยังไม่เปลี่ยน จนกด “ยืนยันแก้ไขรายการ”</div>${matches.length?`<div class="mobile-stock-results">${matches.map(product=>`<button type="button" class="mobile-stock-result" data-mobile-stock-result="${product.id}"><b>${escapeHtml(product.name)}</b><span>รหัส ${escapeHtml(product.sku||'-')} · ${stockEditItems.includes(product.id)?'อยู่ในรายการแล้ว':'แตะเพื่อเพิ่ม'}</span></button>`).join('')}</div>`:''}${mobileStockEditRowsHtml()}<div class="mobile-stock-confirm-wrap"><button type="button" class="mobile-stock-confirm" id="mobileConfirmStockEdit" ${canConfirm?'':'disabled'}>ยืนยันแก้ไขรายการ</button></div></section>`;
+  return `<section class="mobile-tool-panel"><h2 class="mobile-tool-title">แก้ไขสต๊อก</h2><div class="mobile-tool-sub">ดึงรายการตรวจสินค้า หรือยิงบาร์โค้ด แล้วกรอกจำนวนใหม่ก่อนยืนยันพร้อมกัน</div><div class="mobile-stock-source"><select id="mobileStockSourceList" ${availableLists.length?'':'disabled'}>${availableLists.length?availableLists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(selectedSource?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})</option>`).join(''):'<option value="">ไม่มีรายการที่รอแก้ไขสต๊อก</option>'}</select><button type="button" class="mobile-stock-import" id="mobileStockImport" ${availableLists.length?'':'disabled'}>ดึงข้อมูล</button></div>${sourceList?`<div class="mobile-stock-source-note"><b>${escapeHtml(sourceList.name)}</b><span>${stockEditSourcePending?'รอยืนยันการแก้ไข':'แก้ไขจำนวนเรียบร้อย'}</span></div>`:''}<div class="mobile-scan-row"><input id="mobileStockInput" class="mobile-scan-input" value="${escapeHtml(mobileStockQuery)}" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobileStockCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-search-hint">แก้ตัวเลขแล้วสต๊อกจะยังไม่เปลี่ยน จนกด “ยืนยันแก้ไขรายการ”</div>${matches.length?`<div class="mobile-stock-results">${matches.map(product=>`<button type="button" class="mobile-stock-result" data-mobile-stock-result="${product.id}"><b>${escapeHtml(product.name)}</b><span>รหัส ${escapeHtml(product.sku||'-')} · ${stockEditItems.includes(product.id)?'อยู่ในรายการแล้ว':'แตะเพื่อเพิ่ม'}</span></button>`).join('')}</div>`:''}${mobileStockEditRowsHtml()}<div class="mobile-stock-confirm-wrap"><button type="button" class="mobile-stock-confirm" id="mobileConfirmStockEdit" ${canConfirm?'':'disabled'}>ยืนยันแก้ไขรายการ</button></div></section>`;
+}
+function confirmMobileStockEditChanges(){
+  const completedSourceId=stockEditSourcePending?stockEditSourceInspectionListId:null;
+  const confirmed=confirmStockEditChanges();
+  if(!confirmed||!completedSourceId) return confirmed;
+  stockEditItems=[];
+  stockEditRowUnitSel={};
+  stockEditDraftStocks={};
+  stockEditSourceInspectionListId=null;
+  stockEditSourcePending=false;
+  mobileStockSourceListId='';
+  mobileStockQuery='';
+  mobileStockLastProductId=null;
+  render();
+  return true;
+}
+async function refreshMobileToolsData(button){
+  if(button){ button.disabled=true; button.classList.add('loading'); }
+  try{
+    await Promise.all([loadCoreDataFromSupabase(),loadInspectionListsFromSupabase()]);
+    persistWorkspaceData();
+    showToast('รีเฟรชข้อมูลล่าสุดแล้ว');
+    render();
+    return true;
+  }catch(error){
+    console.warn('รีเฟรชข้อมูลมือถือไม่สำเร็จ',error);
+    showToast('รีเฟรชข้อมูลไม่สำเร็จ กรุณาลองใหม่','danger-top');
+    if(button){ button.disabled=false; button.classList.remove('loading'); }
+    return false;
+  }
 }
 function renderMobileTools(){
   const user=loggedInUser();
   const lists=[...inspectionLists].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
   return `<main class="mobile-tools-page">
-    <header class="mobile-tools-head"><div class="mobile-tools-brand"><div class="mobile-tools-logo">Rx</div><div><h1>PEPOS Mobile</h1><span>${escapeHtml(user?.firstName||user?.username||'ผู้ใช้งาน')}</span></div></div><button type="button" class="mobile-tools-logout" id="mobileToolsLogout">ออกจากระบบ</button></header>
+    <header class="mobile-tools-head"><div class="mobile-tools-brand"><div class="mobile-tools-logo">Rx</div><div><h1>PEPOS Mobile</h1><span>${escapeHtml(user?.firstName||user?.username||'ผู้ใช้งาน')}</span></div></div><div class="mobile-tools-actions"><button type="button" class="mobile-tools-refresh" id="mobileToolsRefresh" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg></button><button type="button" class="mobile-tools-logout" id="mobileToolsLogout">ออกจากระบบ</button></div></header>
     ${mobileInstallNoticeHtml()}
     <nav class="mobile-tools-tabs" aria-label="เมนูมือถือ"><button type="button" class="mobile-tools-tab ${mobileToolMode==='price'?'active':''}" data-mobile-tool="price">เช็คราคา</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='inspection'?'active':''}" data-mobile-tool="inspection">รายการตรวจสินค้า</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='stock'?'active':''}" data-mobile-tool="stock">แก้ไขสต๊อก</button></nav>
     ${mobileToolMode==='price'?`<section class="mobile-tool-panel"><h2 class="mobile-tool-title">เช็คราคาสินค้า</h2><div class="mobile-tool-sub">ยิงบาร์โค้ด พิมพ์รหัส หรือใช้กล้องมือถือ โดยไม่เพิ่มสินค้าเข้าบิล</div><div class="mobile-scan-row"><input id="mobilePriceInput" class="mobile-scan-input" value="${escapeHtml(mobilePriceQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobilePriceCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-search-hint">เครื่องยิงบาร์โค้ดที่ส่ง Enter อัตโนมัติใช้งานได้ทันที</div><div id="mobilePriceResult">${mobilePriceResultHtml()}</div></section>`:mobileToolMode==='inspection'?renderMobileInspectionPanel(lists):renderMobileStockEditPanel(lists)}
@@ -6233,6 +6277,8 @@ function checkNegativeStockToast(pid){
 }
 function attachEvents(){
   document.getElementById('mobileToolsLogout')?.addEventListener('click',logoutSystem);
+  const mobileToolsRefresh=document.getElementById('mobileToolsRefresh');
+  if(mobileToolsRefresh) mobileToolsRefresh.addEventListener('click',()=>refreshMobileToolsData(mobileToolsRefresh));
   document.getElementById('mobileInstallApp')?.addEventListener('click',requestMobilePwaInstall);
   document.querySelectorAll('[data-mobile-tool]').forEach(button=>button.addEventListener('click',()=>{
     mobileToolMode=button.dataset.mobileTool;
@@ -6370,7 +6416,7 @@ function attachEvents(){
     });
     input.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); input.blur(); } });
   });
-  document.getElementById('mobileConfirmStockEdit')?.addEventListener('click',confirmStockEditChanges);
+  document.getElementById('mobileConfirmStockEdit')?.addEventListener('click',confirmMobileStockEditChanges);
   document.querySelectorAll('[data-toggle-password]').forEach(button=>{
     button.addEventListener('click',()=>{
       const input=document.getElementById(button.dataset.togglePassword);
@@ -9802,8 +9848,8 @@ function openBarcodePrintCategoryPicker(filter,missingOnly=false){
 }
 
 function openStockEditInspectionListPicker(){
-  const lists=[...inspectionLists].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
-  if(!lists.length){ showToast('ยังไม่มีรายการตรวจสินค้าที่บันทึกไว้'); return; }
+  const lists=inspectionLists.filter(inspectionListAvailableForStockEdit).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+  if(!lists.length){ showToast('ไม่มีรายการตรวจสินค้าที่รอแก้ไขสต๊อก'); return; }
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:620px;max-height:82vh;display:flex;flex-direction:column;">
@@ -9811,7 +9857,6 @@ function openStockEditInspectionListPicker(){
     <div class="modal-sub">เลือกรายการที่บันทึกไว้เพื่อนำสินค้าและหน่วยเข้าหน้าแก้ไขสต๊อก</div>
     <div class="stock-edit-import-list">${lists.map(list=>`<div class="stock-edit-import-row">
       <div class="stock-edit-import-info"><div class="stock-edit-import-name">${escapeHtml(list.name)}</div><div class="stock-edit-import-meta">${(list.items||[]).length} สินค้า · แก้ไขล่าสุด ${escapeHtml(inspectionListDateTime(list.updatedAt))}</div></div>
-      ${list.stockAdjustedAt?'<span class="inspection-list-status">แก้จำนวนเรียบร้อย</span>':''}
       <button class="btn primary small" data-import-inspection-list="${escapeHtml(list.id)}">ดึงรายการนี้</button>
     </div>`).join('')}</div>
     <div style="padding:12px 16px;border-top:1px solid var(--border);text-align:left;"><button class="btn ghost" id="stockEditImportCancelBtn">ยกเลิก</button></div>

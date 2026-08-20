@@ -148,6 +148,8 @@ assert.match(html, /await loadInspectionListsFromSupabase\(\)/);
 assert.match(html, /data-inspection-list-page/);
 assert.match(html, /INSPECTION_LIST_PAGE_SIZE = 7/);
 assert.match(html, /!filter\.wh\|\|String\(product\.wh\)===String\(filter\.wh\)/);
+assert.match(html, /mobile-inspection-complete/);
+assert.match(html, /แก้ไขจำนวนเรียบร้อย/);
 
 context.confirm = () => true;
 context.mobileInspectionListId = 'CHECK-0001';

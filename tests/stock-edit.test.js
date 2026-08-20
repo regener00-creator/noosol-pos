@@ -155,17 +155,21 @@ assert.match(secondPageRendered, /สินค้าทดสอบ 8/);
 assert.match(secondPageRendered, /class="pagebtn active" data-stock-edit-page="2"/);
 
 assert.equal(context.stockEditImportInspectionList('CHECK-0001', false), true);
+assert.equal(context.inspectionListAvailableForStockEdit(context.inspectionLists[0]), true);
 assert.deepEqual(Array.from(context.stockEditItems), [1,2]);
 assert.equal(context.stockEditRowUnitSel[1], 'กล่อง');
 assert.equal(context.stockEditSourceInspectionListId, 'CHECK-0001');
 assert.equal(context.stockEditSourcePending, true);
 assert.equal(context.stockEditMarkInspectionComplete(), true);
 assert.equal(context.stockEditSourcePending, false);
+assert.equal(context.inspectionListAvailableForStockEdit(context.inspectionLists[0]), false);
+assert.equal(context.stockEditImportInspectionList('CHECK-0001', false), false);
 assert.match(context.inspectionLists[0].stockAdjustedAt, /^\d{4}-\d{2}-\d{2}T/);
 assert.equal(context.inspectionLists[0].stockAdjustedBy, 'เจ้าของร้าน');
 const completedRendered = context.renderStockEdit();
 assert.match(completedRendered, /ตรวจหน้าร้าน/);
 assert.match(completedRendered, /แก้จำนวนเรียบร้อย/);
+assert.match(html, /inspectionLists\.filter\(inspectionListAvailableForStockEdit\)/);
 
 let stockSync = null;
 let persisted = 0;
