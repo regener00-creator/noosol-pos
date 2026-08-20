@@ -17,8 +17,11 @@ const stockEditNavIndex = html.indexOf("['stockedit','แก้ไขสต๊�
 const stockAdjustNavIndex = html.indexOf("['stockadjust','สินค้าติดลบ'");
 const warehouseNavIndex = html.indexOf("['warehouse','คลังสินค้า / สาขา'");
 const transferNavIndex = html.indexOf("['transfer','โอนสินค้าระหว่างคลัง'");
+const settingsBusinessNavIndex = html.indexOf("['settingsbusiness','ตั้งค่าธุรกิจ'");
+const settingsUsersNavIndex = html.indexOf("['settingsusers','เพิ่มผู้ใช้งาน'");
 assert.ok(historyNavIndex >= 0 && promotionsNavIndex > historyNavIndex && purchaseSectionIndex > promotionsNavIndex, 'เมนูโปรโมชั่นต้องอยู่ใต้ประวัติการขายในหมวดขาย');
-assert.ok(productsNavIndex >= 0 && inspectionListsNavIndex > productsNavIndex && stockEditNavIndex > inspectionListsNavIndex && stockAdjustNavIndex > stockEditNavIndex && warehouseNavIndex > stockAdjustNavIndex && transferNavIndex > warehouseNavIndex && barcodePrintNavIndex > transferNavIndex, 'เมนูพิมพ์บาร์โค้ดเองต้องอยู่ใต้โอนสินค้าระหว่างคลัง');
+assert.ok(productsNavIndex >= 0 && inspectionListsNavIndex > productsNavIndex && stockEditNavIndex > inspectionListsNavIndex && stockAdjustNavIndex > stockEditNavIndex && transferNavIndex > stockAdjustNavIndex && barcodePrintNavIndex > transferNavIndex, 'เมนูพิมพ์บาร์โค้ดเองต้องอยู่ใต้โอนสินค้าระหว่างคลัง');
+assert.ok(settingsBusinessNavIndex >= 0 && warehouseNavIndex > settingsBusinessNavIndex && settingsUsersNavIndex > warehouseNavIndex, 'เมนูคลังสินค้า / สาขาต้องอยู่ใต้ตั้งค่าธุรกิจ');
 assert.doesNotMatch(html, /\['stockadjust','ปรับเป็นศูนย์'/);
 assert.match(html, /LEVEL2_HIDDEN_TABS[^\n]+stockedit/);
 assert.match(html, /stockedit:\s*renderStockEdit/);
