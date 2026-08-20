@@ -392,23 +392,27 @@
   .stock-edit-table-wrap{max-height:calc(100vh - 340px);min-height:300px;overflow:auto;border-radius:var(--radius);}
   .stock-edit-table{table-layout:fixed;min-width:900px;width:100%;}
   .stock-edit-table thead th{position:sticky;top:0;z-index:3;}
-  .stock-edit-table .stock-edit-col-check{width:48px;}
   .stock-edit-table .stock-edit-col-sku{width:120px;}
   .stock-edit-table .stock-edit-col-barcode{width:180px;}
   .stock-edit-table .stock-edit-col-name{width:auto;}
   .stock-edit-table .stock-edit-col-unit{width:150px;}
-  .stock-edit-table .stock-edit-col-stock{width:210px;}
+  .stock-edit-table .stock-edit-col-stock{width:190px;}
+  .stock-edit-table .stock-edit-col-action{width:64px;}
   .stock-edit-table td{vertical-align:middle;}
-  .stock-edit-table tr.stock-edit-selected td{background:#F1F8FD;}
-  .stock-edit-check{width:17px;height:17px;accent-color:var(--primary);cursor:pointer;}
+  .stock-edit-page-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
   .stock-edit-unit-select{width:100%;max-width:120px;font-size:13px;color:var(--text-muted);border:1px solid transparent;background:transparent;text-align:center;padding:6px;cursor:pointer;border-radius:6px;}
   .stock-edit-unit-select:hover{color:var(--primary);border-color:var(--border);background:var(--surface);}
   .stock-edit-unit-select:focus{outline:none;border-color:var(--primary);background:var(--surface);}
   .stock-edit-unit-fixed{font-size:13px;color:var(--text-muted);}
-  .stock-edit-stock-input{width:120px;max-width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;text-align:right;}
+  .stock-edit-stock-input{width:120px;max-width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;text-align:center;}
   .stock-edit-stock-input:hover{border-color:#AAB8C2;}
   .stock-edit-stock-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,153,209,.12);}
   .stock-edit-stock-input.stock-negative{color:var(--danger);border-color:#F1B8B3;}
+  .stock-edit-stock-input.stock-edit-pending{border-color:var(--primary);background:#F1F8FD;color:var(--primary-dark);font-weight:600;}
+  .stock-edit-stock-input.stock-edit-invalid{border-color:var(--danger);background:#FFF6F5;}
+  .stock-edit-remove-btn{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--danger);cursor:pointer;}
+  .stock-edit-remove-btn:hover{border-color:#F1B8B3;background:#FFF6F5;}
+  .stock-edit-remove-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
   .stock-edit-empty{padding:30px!important;text-align:center!important;color:var(--text-muted);}
   .lowstock-section .lowstock-table-scroll{height:calc(100vh - 315px);min-height:320px;overflow-x:auto!important;overflow-y:scroll!important;border-radius:var(--radius);scrollbar-width:auto;scrollbar-color:#8B9298 #EEF1F4;scroll-behavior:auto;overscroll-behavior:contain;contain:layout paint;touch-action:pan-y;}
   .lowstock-table-scroll::-webkit-scrollbar{width:12px;height:12px;}
@@ -1796,8 +1800,8 @@ let stockReportSort = { key:'name', dir:1 };
 let stockEditItems = [];
 let stockEditCatFilter = { category:'', brand:'' };
 let stockEditSearchQuery = '';
-let stockEditSelectedIds = new Set();
 let stockEditRowUnitSel = {};
+let stockEditDraftStocks = {};
 // เลขหน้าสำหรับตารางเอกสารต่างๆ (แสดงหน้าละ 20 รายการ)
 let docListPage = { po:1, po2:1, ret:1, gr:1, taxinvoice:1, quotation:1 };
 const DOC_LIST_PAGE_SIZE = 20;
@@ -3545,6 +3549,14 @@ function stockEditMatchesQuery(p,query){
     || matchesBarcode(p,q);
 }
 
+function stockEditPendingChanges(productList=products,draftStocks=stockEditDraftStocks){
+  return Object.entries(draftStocks||{}).map(([id,newStock])=>{
+    const product=productList.find(p=>p.id===Number(id));
+    const stock=Number(newStock);
+    return product&&Number.isFinite(stock)&&stock!==Number(product.stock)?{product,newStock:stock}:null;
+  }).filter(Boolean);
+}
+
 function stockEditRowsHtml(){
   const rows=stockEditCurrentProducts();
   if(!rows.length) return '<tr><td colspan="6" class="stock-edit-empty">ยังไม่มีรายการ — ค้นหา/สแกนบาร์โค้ด หรือเลือกสินค้าในหมวดด้านบนเพื่อเพิ่ม</td></tr>';
@@ -3552,18 +3564,19 @@ function stockEditRowsHtml(){
     const unitOptions=[{name:p.unit,barcode:p.barcode||'',factor:1},...(p.units||[]).filter(u=>u.sub&&Number(u.factor)>0).map(u=>({name:u.sub,barcode:u.barcode||'',factor:Number(u.factor)}))];
     const selectedUnit=stockEditRowUnitSel[p.id]||p.unit;
     const selectedOption=unitOptions.find(u=>u.name===selectedUnit)||unitOptions[0];
-    const selectedAmount=stockUnitAmountFromBase(p.stock,selectedOption.factor);
+    const hasDraft=Object.prototype.hasOwnProperty.call(stockEditDraftStocks,p.id);
+    const selectedBaseStock=hasDraft?stockEditDraftStocks[p.id]:p.stock;
+    const selectedAmount=stockUnitAmountFromBase(selectedBaseStock,selectedOption.factor);
     const unitHtml=unitOptions.length>1
       ? `<select class="stock-edit-unit-select" data-stock-edit-unit="${p.id}">${unitOptions.map(u=>`<option value="${escapeHtml(u.name)}" ${u.name===selectedOption.name?'selected':''}>${escapeHtml(u.name)}</option>`).join('')}</select>`
       : `<span class="stock-edit-unit-fixed">${escapeHtml(p.unit||'-')}</span>`;
-    const checked=stockEditSelectedIds.has(p.id);
-    return `<tr class="${checked?'stock-edit-selected':''}" data-stock-edit-row="${p.id}">
-      <td style="text-align:center;"><input type="checkbox" class="stock-edit-check stock-edit-row-check" data-stock-edit-check="${p.id}" ${checked?'checked':''} aria-label="เลือก ${escapeHtml(p.name)}"></td>
+    return `<tr data-stock-edit-row="${p.id}">
       <td class="mono" style="text-align:center;">${escapeHtml(p.sku||'-')}</td>
       <td class="mono" style="text-align:center;">${escapeHtml(selectedOption.barcode||'-')}</td>
       <td>${escapeHtml(p.name)}</td>
       <td style="text-align:center;">${unitHtml}</td>
-      <td style="text-align:center;"><input type="number" step="any" class="stock-edit-stock-input ${Number(p.stock)<0?'stock-negative':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="คงเหลือ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="แก้จำนวนแล้วกด Enter หรือคลิกออกจากช่องเพื่อบันทึก"></td>
+      <td style="text-align:center;"><input type="number" step="any" class="stock-edit-stock-input ${Number(selectedBaseStock)<0?'stock-negative':''} ${hasDraft?'stock-edit-pending':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="คงเหลือ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="แก้จำนวนแล้วกดปุ่มยืนยันแก้ไขรายการเพื่อบันทึก"></td>
+      <td style="text-align:center;"><button class="stock-edit-remove-btn" data-stock-edit-remove="${p.id}" title="ลบ ${escapeHtml(p.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(p.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td>
     </tr>`;
   }).join('');
 }
@@ -3575,9 +3588,9 @@ function renderStockEdit(){
     : brands.slice();
   const matchCount=products.filter(p=>(!filter.category||p.category===filter.category)&&(!filter.brand||p.brand===filter.brand)&&(filter.category||filter.brand)).length;
   const rows=stockEditCurrentProducts();
-  const allChecked=rows.length>0&&rows.every(p=>stockEditSelectedIds.has(p.id));
+  const pendingChanges=stockEditPendingChanges();
   return `<div class="rpt stock-edit-page">
-    <div class="pagehead"><div><h1>แก้ไขสต๊อก</h1><div class="sub">เลือกหน่วย แล้วกรอกจำนวนคงเหลือในตารางได้ทันที (กด Enter หรือคลิกออกจากช่องเพื่อบันทึก)</div></div>${rows.length?'<button class="btn ghost" id="clearStockEditBtn">ล้างรายการ</button>':''}</div>
+    <div class="pagehead"><div><h1>แก้ไขสต๊อก</h1><div class="sub">เลือกหน่วยและกรอกจำนวนใหม่ จากนั้นกด “ยืนยันแก้ไขรายการ” เพื่อบันทึกสต๊อกพร้อมกัน</div></div>${rows.length?`<div class="stock-edit-page-actions"><button class="btn primary" id="confirmStockEditBtn" ${pendingChanges.length?'':'disabled'}>ยืนยันแก้ไขรายการ</button><button class="btn ghost" id="clearStockEditBtn">ล้างรายการ</button></div>`:''}</div>
     <div class="stock-edit-section">
       <div class="rpt-filters" style="margin-bottom:14px;">
         <div class="rpf-item"><select id="stockEditCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${filter.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></div>
@@ -3589,8 +3602,8 @@ function renderStockEdit(){
         <div id="stockEditResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div>
       </div>
       <div class="stock-edit-table-wrap seamless-table-wrap">
-        <table class="grid-table doc-head-blue stock-edit-table"><colgroup><col class="stock-edit-col-check"><col class="stock-edit-col-sku"><col class="stock-edit-col-barcode"><col class="stock-edit-col-name"><col class="stock-edit-col-unit"><col class="stock-edit-col-stock"></colgroup>
-          <thead><tr><th><input type="checkbox" id="stockEditSelectAll" class="stock-edit-check" ${allChecked?'checked':''} aria-label="เลือกทั้งหมด"></th><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>สินค้า</th><th>หน่วย</th><th>คงเหลือ</th></tr></thead>
+        <table class="grid-table doc-head-blue stock-edit-table"><colgroup><col class="stock-edit-col-sku"><col class="stock-edit-col-barcode"><col class="stock-edit-col-name"><col class="stock-edit-col-unit"><col class="stock-edit-col-stock"><col class="stock-edit-col-action"></colgroup>
+          <thead><tr><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>สินค้า</th><th>หน่วย</th><th>คงเหลือ</th><th aria-label="จัดการ"></th></tr></thead>
           <tbody id="stockEditTbody">${stockEditRowsHtml()}</tbody>
         </table>
       </div>
@@ -5223,13 +5236,14 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const stockEditAddByCategoryBtn=document.getElementById('stockEditAddByCategoryBtn');
   const stockEditInput=document.getElementById('stockEditInput');
   const stockEditResults=document.getElementById('stockEditResults');
+  const confirmStockEditBtn=document.getElementById('confirmStockEditBtn');
   const clearStockEditBtn=document.getElementById('clearStockEditBtn');
   if(stockEditCategorySelect) stockEditCategorySelect.addEventListener('change',()=>{ stockEditCatFilter.category=stockEditCategorySelect.value; stockEditCatFilter.brand=''; render(); });
   if(stockEditBrandSelect) stockEditBrandSelect.addEventListener('change',()=>{ stockEditCatFilter.brand=stockEditBrandSelect.value; render(); });
   if(stockEditAddByCategoryBtn) stockEditAddByCategoryBtn.addEventListener('click',()=>openStockEditCategoryPicker(stockEditCatFilter));
   if(clearStockEditBtn) clearStockEditBtn.addEventListener('click',()=>{
     if(!confirm('ต้องการล้างรายการสินค้าในหน้าแก้ไขสต๊อกใช่หรือไม่?')) return;
-    stockEditItems=[]; stockEditSelectedIds.clear(); stockEditRowUnitSel={}; stockEditSearchQuery=''; stockEditCatFilter={category:'',brand:''}; render();
+    stockEditItems=[]; stockEditRowUnitSel={}; stockEditDraftStocks={}; stockEditSearchQuery=''; stockEditCatFilter={category:'',brand:''}; render();
   });
   if(stockEditInput&&stockEditResults){
     const addProduct=p=>{
@@ -5270,53 +5284,58 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       if(first){ const p=products.find(x=>x.id===Number(first.dataset.stockEditResult)); if(p) addProduct(p); }
     });
   }
-  const stockEditRowChecks=[...document.querySelectorAll('.stock-edit-row-check')];
-  const stockEditSelectAll=document.getElementById('stockEditSelectAll');
-  const refreshStockEditChecks=()=>{
-    const checkedCount=stockEditRowChecks.filter(cb=>cb.checked).length;
-    if(stockEditSelectAll){ stockEditSelectAll.checked=stockEditRowChecks.length>0&&checkedCount===stockEditRowChecks.length; stockEditSelectAll.indeterminate=checkedCount>0&&checkedCount<stockEditRowChecks.length; }
-    stockEditRowChecks.forEach(cb=>cb.closest('tr')?.classList.toggle('stock-edit-selected',cb.checked));
-  };
-  if(stockEditSelectAll) stockEditSelectAll.addEventListener('change',()=>{
-    stockEditRowChecks.forEach(cb=>{
-      cb.checked=stockEditSelectAll.checked;
-      const id=Number(cb.dataset.stockEditCheck);
-      if(cb.checked) stockEditSelectedIds.add(id); else stockEditSelectedIds.delete(id);
-    });
-    refreshStockEditChecks();
-  });
-  stockEditRowChecks.forEach(cb=>cb.addEventListener('change',()=>{
-    const id=Number(cb.dataset.stockEditCheck);
-    if(cb.checked) stockEditSelectedIds.add(id); else stockEditSelectedIds.delete(id);
-    refreshStockEditChecks();
-  }));
-  refreshStockEditChecks();
   document.querySelectorAll('[data-stock-edit-unit]').forEach(select=>select.addEventListener('change',()=>{ stockEditRowUnitSel[Number(select.dataset.stockEditUnit)]=select.value; render(); }));
+  const refreshStockEditConfirmButton=()=>{ if(confirmStockEditBtn) confirmStockEditBtn.disabled=stockEditPendingChanges().length===0; };
   document.querySelectorAll('[data-stock-edit-amount]').forEach(input=>{
     input.addEventListener('focus',()=>input.select());
     input.addEventListener('keydown',event=>{
       if(event.key==='Enter'){ event.preventDefault(); input.blur(); }
-      if(event.key==='Escape'){ event.preventDefault(); render(); }
+      if(event.key==='Escape'){
+        event.preventDefault();
+        delete stockEditDraftStocks[Number(input.dataset.stockEditAmount)];
+        render();
+      }
     });
-    input.addEventListener('change',()=>{
+    input.addEventListener('input',()=>{
       const p=products.find(x=>x.id===Number(input.dataset.stockEditAmount));
       if(!p) return;
       const amountText=input.value.trim();
       const amount=Number(amountText);
       if(amountText===''||!Number.isFinite(amount)){
-        input.value=stockUnitAmountFromBase(p.stock,input.dataset.factor);
-        showToast('กรุณากรอกจำนวนคงเหลือเป็นตัวเลข');
+        delete stockEditDraftStocks[p.id];
+        input.classList.remove('stock-edit-pending');
+        input.classList.add('stock-edit-invalid');
+        refreshStockEditConfirmButton();
         return;
       }
       const newStock=stockBaseFromUnitAmount(amount,input.dataset.factor);
-      if(newStock===Number(p.stock)) return;
-      p.stock=newStock;
-      setProductStockOnSupabase(p.id,newStock);
-      persistWorkspaceData();
-      showToast(`ปรับจำนวนคงเหลือ "${p.name}" เป็น ${amount} ${input.dataset.unit} แล้ว`);
-      render();
+      if(newStock===Number(p.stock)) delete stockEditDraftStocks[p.id];
+      else stockEditDraftStocks[p.id]=newStock;
+      input.classList.remove('stock-edit-invalid');
+      input.classList.toggle('stock-edit-pending',newStock!==Number(p.stock));
+      input.classList.toggle('stock-negative',newStock<0);
+      refreshStockEditConfirmButton();
     });
   });
+  if(confirmStockEditBtn) confirmStockEditBtn.addEventListener('click',()=>{
+    const changes=stockEditPendingChanges();
+    if(!changes.length) return;
+    changes.forEach(({product,newStock})=>{
+      product.stock=newStock;
+      setProductStockOnSupabase(product.id,newStock);
+    });
+    stockEditDraftStocks={};
+    persistWorkspaceData();
+    showToast(`ยืนยันแก้ไขสต๊อกแล้ว ${changes.length} รายการ`);
+    render();
+  });
+  document.querySelectorAll('[data-stock-edit-remove]').forEach(button=>button.addEventListener('click',()=>{
+    const id=Number(button.dataset.stockEditRemove);
+    stockEditItems=stockEditItems.filter(itemId=>itemId!==id);
+    delete stockEditRowUnitSel[id];
+    delete stockEditDraftStocks[id];
+    render();
+  }));
   const histBtn = document.getElementById('histBtn');
   if(histBtn) histBtn.addEventListener('click', ()=>{ currentTab='history'; render(); });
   // --- footer buttons ---

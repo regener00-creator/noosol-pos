@@ -14,8 +14,18 @@ assert.ok(stockAdjustNavIndex >= 0 && stockEditNavIndex > stockAdjustNavIndex &&
 assert.match(html, /LEVEL2_HIDDEN_TABS[^\n]+stockedit/);
 assert.match(html, /stockedit:\s*renderStockEdit/);
 assert.match(html, /data-stock-edit-amount="\$\{p\.id\}"/);
-assert.match(html, /setProductStockOnSupabase\(p\.id,newStock\)/);
+assert.match(html, /data-stock-edit-remove="\$\{p\.id\}"/);
+assert.match(html, /setProductStockOnSupabase\(product\.id,newStock\)/);
 assert.match(html, /persistWorkspaceData\(\)/);
+assert.match(html, /\.stock-edit-stock-input\{[^}]*text-align:center/);
+
+const stockEditAmountHandlerStart = html.indexOf("document.querySelectorAll('[data-stock-edit-amount]')");
+const stockEditConfirmHandlerStart = html.indexOf('if(confirmStockEditBtn)', stockEditAmountHandlerStart);
+const stockEditRemoveHandlerStart = html.indexOf("document.querySelectorAll('[data-stock-edit-remove]')", stockEditConfirmHandlerStart);
+assert.ok(stockEditAmountHandlerStart >= 0 && stockEditConfirmHandlerStart > stockEditAmountHandlerStart && stockEditRemoveHandlerStart > stockEditConfirmHandlerStart);
+assert.doesNotMatch(html.slice(stockEditAmountHandlerStart, stockEditConfirmHandlerStart), /setProductStockOnSupabase/);
+assert.match(html.slice(stockEditConfirmHandlerStart, stockEditRemoveHandlerStart), /setProductStockOnSupabase\(product\.id,newStock\)/);
+assert.match(html.slice(stockEditConfirmHandlerStart, stockEditRemoveHandlerStart), /persistWorkspaceData\(\)/);
 
 function loadOneLineFunction(name) {
   const match = html.match(new RegExp(`function ${name}\\([^\\r\\n]+`));
@@ -59,15 +69,16 @@ Object.assign(context, {
   stockEditItems: [1],
   stockEditCatFilter: { category: 'ยา', brand: '' },
   stockEditSearchQuery: '',
-  stockEditSelectedIds: new Set([1]),
   stockEditRowUnitSel: { 1: 'กล่อง' },
+  stockEditDraftStocks: { 1: 60 },
   escapeHtml: value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
   matchesBarcode: (product, query) => product.barcode === query || (product.units || []).some(unit => unit.barcode === query),
   stockInLargestUnit: product => `${product.stock} ${product.unit}`,
 });
 
 loadFunctionBlock('stockEditCurrentProducts', 'stockEditMatchesQuery');
-loadFunctionBlock('stockEditMatchesQuery', 'stockEditRowsHtml');
+loadFunctionBlock('stockEditMatchesQuery', 'stockEditPendingChanges');
+loadFunctionBlock('stockEditPendingChanges', 'stockEditRowsHtml');
 loadFunctionBlock('stockEditRowsHtml', 'renderStockEdit');
 loadFunctionBlock('renderStockEdit', 'renderTransferForm');
 
@@ -75,6 +86,9 @@ assert.equal(context.stockEditMatchesQuery(context.products[0], 'P-001'), true);
 assert.equal(context.stockEditMatchesQuery(context.products[0], '8850001'), true);
 assert.equal(context.stockEditMatchesQuery(context.products[0], 'BOX-001'), true);
 assert.equal(context.stockEditMatchesQuery(context.products[0], 'ไม่พบ'), false);
+assert.equal(context.stockEditPendingChanges(context.products, { 1: 60 }).length, 1);
+assert.equal(context.stockEditPendingChanges(context.products, { 1: 120 }).length, 0);
+assert.equal(context.stockEditPendingChanges(context.products, { 999: 10 }).length, 0);
 
 const rendered = context.renderStockEdit();
 assert.match(rendered, /<h1>แก้ไขสต๊อก<\/h1>/);
@@ -82,15 +96,19 @@ assert.match(rendered, /id="stockEditCategorySelect"/);
 assert.match(rendered, /id="stockEditBrandSelect"/);
 assert.match(rendered, /id="stockEditAddByCategoryBtn"/);
 assert.match(rendered, /id="stockEditInput"/);
-assert.match(rendered, /<th>รหัสสินค้า<\/th><th>บาร์โค้ด<\/th><th>สินค้า<\/th><th>หน่วย<\/th><th>คงเหลือ<\/th>/);
-assert.match(rendered, /class="stock-edit-selected"/);
+assert.match(rendered, /<th>รหัสสินค้า<\/th><th>บาร์โค้ด<\/th><th>สินค้า<\/th><th>หน่วย<\/th><th>คงเหลือ<\/th><th aria-label="จัดการ"><\/th>/);
+assert.match(rendered, /id="confirmStockEditBtn"/);
+assert.doesNotMatch(rendered, /id="stockEditSelectAll"/);
+assert.doesNotMatch(rendered, /data-stock-edit-check=/);
 assert.match(rendered, /P-001/);
 assert.match(rendered, /BOX-001/);
 assert.match(rendered, /ยาทดสอบ/);
 assert.match(rendered, /data-stock-edit-amount="1"/);
 assert.match(rendered, /data-factor="10"/);
 assert.match(rendered, /data-unit="กล่อง"/);
-assert.match(rendered, /value="12"/);
+assert.match(rendered, /value="6"/);
+assert.match(rendered, /stock-edit-pending/);
+assert.match(rendered, /data-stock-edit-remove="1"/);
 assert.doesNotMatch(rendered, /data-stock-edit-open=/);
 
 console.log('stock-edit tests passed');
