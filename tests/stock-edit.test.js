@@ -31,9 +31,13 @@ const stockEditConfirmHandlerStart = html.indexOf('if(confirmStockEditBtn)', sto
 const stockEditRemoveHandlerStart = html.indexOf("document.querySelectorAll('[data-stock-edit-remove]')", stockEditConfirmHandlerStart);
 assert.ok(stockEditAmountHandlerStart >= 0 && stockEditConfirmHandlerStart > stockEditAmountHandlerStart && stockEditRemoveHandlerStart > stockEditConfirmHandlerStart);
 assert.doesNotMatch(html.slice(stockEditAmountHandlerStart, stockEditConfirmHandlerStart), /setProductStockOnSupabase/);
-assert.match(html.slice(stockEditConfirmHandlerStart, stockEditRemoveHandlerStart), /setProductStockOnSupabase\(product\.id,newStock\)/);
-assert.match(html.slice(stockEditConfirmHandlerStart, stockEditRemoveHandlerStart), /persistWorkspaceData\(\)/);
-assert.match(html.slice(stockEditConfirmHandlerStart, stockEditRemoveHandlerStart), /syncInspectionListsToSupabase\(\)/);
+assert.match(html.slice(stockEditConfirmHandlerStart, stockEditRemoveHandlerStart), /addEventListener\('click',confirmStockEditChanges\)/);
+const confirmFunctionStart = html.indexOf('function confirmStockEditChanges(');
+const confirmFunctionEnd = html.indexOf('function inspectionListUnitOptions(', confirmFunctionStart);
+assert.ok(confirmFunctionStart >= 0 && confirmFunctionEnd > confirmFunctionStart);
+assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /setProductStockOnSupabase\(product\.id,newStock\)/);
+assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /persistWorkspaceData\(\)/);
+assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /syncInspectionListsToSupabase\(\)/);
 assert.match(html, /function openStockEditInspectionListPicker\(/);
 assert.match(html, /data-import-inspection-list/);
 
@@ -102,6 +106,7 @@ loadFunctionBlock('stockEditCurrentProducts', 'stockEditMatchesQuery');
 loadFunctionBlock('stockEditMatchesQuery', 'stockEditPendingChanges');
 loadFunctionBlock('pagerHtml', 'isSupplierStyleDoc');
 loadFunctionBlock('stockEditPendingChanges', 'stockEditPagination');
+loadFunctionBlock('confirmStockEditChanges', 'inspectionListUnitOptions');
 loadFunctionBlock('stockEditPagination', 'stockEditRowsHtml');
 loadFunctionBlock('stockEditRowsHtml', 'renderStockEdit');
 loadFunctionBlock('renderStockEdit', 'renderTransferForm');
@@ -161,5 +166,25 @@ assert.equal(context.inspectionLists[0].stockAdjustedBy, 'เจ้าของ�
 const completedRendered = context.renderStockEdit();
 assert.match(completedRendered, /ตรวจหน้าร้าน/);
 assert.match(completedRendered, /แก้จำนวนเรียบร้อย/);
+
+let stockSync = null;
+let persisted = 0;
+let inspectionSync = 0;
+Object.assign(context, {
+  stockEditDraftStocks: {1: 250},
+  stockEditSourceInspectionListId: null,
+  stockEditSourcePending: false,
+  setProductStockOnSupabase: (id, stock) => { stockSync = {id, stock}; },
+  persistWorkspaceData: () => { persisted++; },
+  syncInspectionListsToSupabase: () => { inspectionSync++; },
+  showToast: () => {},
+  render: () => {},
+});
+assert.equal(context.confirmStockEditChanges(), true);
+assert.deepEqual(stockSync, {id:1, stock:250});
+assert.equal(context.products[0].stock, 250);
+assert.equal(persisted, 1);
+assert.equal(inspectionSync, 0);
+assert.deepEqual(Object.keys(context.stockEditDraftStocks), []);
 
 console.log('stock-edit tests passed');

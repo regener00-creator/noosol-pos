@@ -28,6 +28,12 @@ const context = {
   inspectionListPage: 1,
   inspectionListSort: {key:'sku',dir:1},
   inspectionListCounter: 1,
+  mobileInspectionListId: '',
+  mobileInspectionOpenedListId: '',
+  mobileStockSourceListId: '',
+  mobileInspectionCheckedByList: {},
+  stockEditSourceInspectionListId: null,
+  stockEditSourcePending: false,
   INSPECTION_LIST_PAGE_SIZE: 7,
   categories: [],
   brands: [],
@@ -142,5 +148,21 @@ assert.match(html, /await loadInspectionListsFromSupabase\(\)/);
 assert.match(html, /data-inspection-list-page/);
 assert.match(html, /INSPECTION_LIST_PAGE_SIZE = 7/);
 assert.match(html, /!filter\.wh\|\|String\(product\.wh\)===String\(filter\.wh\)/);
+
+context.confirm = () => true;
+context.mobileInspectionListId = 'CHECK-0001';
+context.mobileInspectionOpenedListId = 'CHECK-0001';
+context.mobileStockSourceListId = 'CHECK-0001';
+context.stockEditSourceInspectionListId = 'CHECK-0001';
+context.stockEditSourcePending = true;
+assert.equal(context.deleteInspectionListById('CHECK-0001'), true);
+assert.equal(context.inspectionLists.length, 0);
+assert.equal(context.mobileInspectionListId, '');
+assert.equal(context.mobileInspectionOpenedListId, '');
+assert.equal(context.mobileStockSourceListId, '');
+assert.equal(context.stockEditSourceInspectionListId, null);
+assert.equal(context.stockEditSourcePending, false);
+assert.equal(persistCount, 2);
+assert.equal(syncCount, 2);
 
 console.log('inspection list tests passed');
