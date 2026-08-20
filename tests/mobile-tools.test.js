@@ -68,6 +68,9 @@ assert.match(html, /beforeinstallprompt/);
 assert.match(html, /id="mobileInstallApp"/);
 assert.match(html, /intent:\/\/\$\{target\}#Intent;scheme=https;package=com\.android\.chrome/);
 assert.match(html, /openMobileBrowserHelp\(\{cameraBlocked:true/);
+assert.match(html, /if\(currentTab==='mobiletools'&&mobileToolMode==='price'\)/);
+assert.doesNotMatch(html, /setTimeout\(\(\)=>document\.getElementById\('mobileInspectionInput'\)\?\.(?:focus|select)/);
+assert.doesNotMatch(html, /setTimeout\(\(\)=>document\.getElementById\('mobileStockInput'\)\?\.(?:focus|select)/);
 
 assert.equal(manifest.display, 'standalone');
 assert.equal(manifest.start_url, '/');

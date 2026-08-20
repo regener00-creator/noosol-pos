@@ -4210,7 +4210,6 @@ function startMobileInspectionDraft(){
   mobileInspectionQuery='';
   mobileInspectionLastProductId=null;
   render();
-  setTimeout(()=>document.getElementById('mobileInspectionInput')?.focus(),0);
   return true;
 }
 function cancelMobileInspectionDraft(){
@@ -4254,7 +4253,6 @@ function addProductToMobileInspectionDraft(product,unitName=''){
   mobileInspectionLastProductId=product.id;
   if(!added) showToast('สินค้านี้อยู่ในรายการแล้ว');
   render();
-  setTimeout(()=>document.getElementById('mobileInspectionInput')?.focus(),0);
   return added;
 }
 function saveMobileInspectionDraft(){
@@ -4277,7 +4275,6 @@ function addProductToMobileStockEdit(product,unitName=''){
   mobileStockQuery='';
   mobileStockLastProductId=product.id;
   render();
-  setTimeout(()=>document.getElementById('mobileStockInput')?.focus(),0);
   return true;
 }
 function mobileHandleStockCode(code){
@@ -4290,7 +4287,6 @@ function mobileHandleStockCode(code){
     mobileStockLastProductId=null;
     render();
     showToast('ไม่พบสินค้าจากรหัสนี้','danger-top');
-    setTimeout(()=>document.getElementById('mobileStockInput')?.select(),0);
     return false;
   }
   return addProductToMobileStockEdit(product,exact?.unitName||'');
@@ -4376,7 +4372,7 @@ function mobileHandleInspectionCode(code){
   if(mobileInspectionCreating){
     const exact=findProductByExactCode(query);
     const product=exact?.product||mobilePriceMatches(query)[0];
-    if(!product){ mobileInspectionQuery=query; render(); showToast('ไม่พบสินค้าจากรหัสนี้','danger-top'); setTimeout(()=>document.getElementById('mobileInspectionInput')?.select(),0); return false; }
+    if(!product){ mobileInspectionQuery=query; render(); showToast('ไม่พบสินค้าจากรหัสนี้','danger-top'); return false; }
     return addProductToMobileInspectionDraft(product,exact?.unitName||'');
   }
   const list=mobileInspectionCurrentList();
@@ -4387,14 +4383,12 @@ function mobileHandleInspectionCode(code){
     mobileInspectionLastProductId=null;
     render();
     showToast(exact?'สินค้านี้ไม่ได้อยู่ในรายการตรวจที่เลือก':'ไม่พบสินค้าจากบาร์โค้ดนี้','danger-top');
-    setTimeout(()=>document.getElementById('mobileInspectionInput')?.select(),0);
     return false;
   }
   mobileInspectionCheckedSet(list.id).add(Number(entry.product.id));
   mobileInspectionLastProductId=entry.product.id;
   mobileInspectionQuery='';
   render();
-  setTimeout(()=>document.getElementById('mobileInspectionInput')?.focus(),0);
   return true;
 }
 async function openMobileCameraScanner(onCode,options={}){
@@ -6258,7 +6252,7 @@ function render(){
   attachEvents();
   syncTopbarFormActions();
   renderLoginState();
-  if(currentTab==='mobiletools') setTimeout(()=>document.getElementById(mobileToolMode==='price'?'mobilePriceInput':mobileToolMode==='inspection'?'mobileInspectionInput':'mobileStockInput')?.focus(),60);
+  if(currentTab==='mobiletools'&&mobileToolMode==='price') setTimeout(()=>document.getElementById('mobilePriceInput')?.focus(),60);
 }
 // ย้ายปุ่มคู่ท้ายฟอร์ม (บันทึก/ยกเลิก ฯลฯ) ที่มีอยู่ในหน้าปัจจุบัน ขึ้นไปแปะใน topbar ด้านขวา
 // ย้าย DOM element ตัวจริง (ไม่สร้างใหม่) เพื่อให้ event listener ที่ attachEvents() ผูกไว้แล้วยังทำงานถูกต้อง
@@ -6316,7 +6310,6 @@ function attachEvents(){
     mobileInspectionOpenedListId=list.id;
     mobileInspectionQuery=''; mobileInspectionLastProductId=null; mobileInspectionVisibleCount=25;
     render();
-    setTimeout(()=>document.getElementById('mobileInspectionInput')?.focus(),0);
   });
   document.getElementById('mobileDeleteInspectionList')?.addEventListener('click',()=>{
     const list=mobileInspectionCurrentList();
@@ -6350,7 +6343,6 @@ function attachEvents(){
     inspectionListDraft.items.splice(Number(button.dataset.mobileDraftRemove),1);
     mobileInspectionLastProductId=null;
     render();
-    setTimeout(()=>document.getElementById('mobileInspectionInput')?.focus(),0);
   }));
   document.querySelectorAll('[data-mobile-inspection-item]').forEach(item=>item.addEventListener('click',()=>{
     const list=mobileInspectionCurrentList(); if(!list) return;
