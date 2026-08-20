@@ -49,12 +49,12 @@
   .navbtn[data-tab="dashboard"],.navbtn[data-tab="checkout"]{background:#fff;color:var(--primary);font-weight:700;}
   .navbtn svg{width:15px;height:15px;flex-shrink:0;}
   .shell{flex:1;display:flex;flex-direction:column;min-width:0;}
-  .topbar{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:flex-end;padding:0 24px;}
+  .topbar{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:18px;padding:0 24px;}
   .topbar-form-actions{display:flex;align-items:center;gap:10px;}
   .topbar-form-actions:empty{display:none;}
   .topbar-form-actions .form-bottom-actions,.topbar-form-actions .form-actions-top,.topbar-form-actions .product-form-actions{border-top:none;margin-top:0;padding-top:0;padding-bottom:0;}
   .topbar-form-actions .btn{min-width:0;padding:9px 18px;}
-  .topbar-date{font-size:14px;font-weight:600;color:var(--text-muted);letter-spacing:.02em;}
+  .topbar-date{font-size:14px;font-weight:600;color:var(--text-muted);letter-spacing:.02em;white-space:nowrap;flex-shrink:0;}
   .topbar .bizname{font-weight:600;font-size:14.5px;}
   .topbar .bizsub{font-size:11.5px;color:var(--text-muted);}
   .topbar-right{display:flex;align-items:center;gap:14px;}
@@ -1279,7 +1279,7 @@
 <div class="app" id="appRoot" hidden>
   <div class="sidebar" id="sidebar"></div>
   <div class="shell">
-    <div class="topbar"><div class="topbar-form-actions" id="topbarFormActions"></div></div>
+    <div class="topbar"><div class="topbar-date" id="topbarDate"></div><div class="topbar-form-actions" id="topbarFormActions"></div></div>
     <div class="main" id="main"></div>
   </div>
 </div>
@@ -1651,6 +1651,13 @@ function fmtDashboardDate(d){
   const weekdays=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
   const months=['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
   return `วัน${weekdays[date.getDay()]} : ${day} ${months[month-1]} ${year}`;
+}
+function fmtTopbarDate(d){
+  const [year,month,day]=String(d||'').slice(0,10).split('-').map(Number);
+  if(!year||!month||!day) return '';
+  const date=new Date(year,month-1,day);
+  const weekdays=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
+  return `${weekdays[date.getDay()]} : ${day}-${month}-${year}`;
 }
 function fmtMoney(n){ return n.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function escapeHtml(value){ return String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
@@ -6294,6 +6301,8 @@ function render(){
   // (ถ้าไม่เคลียร์ก่อน document.getElementById จะเจอปุ่มเก่าที่ topbar ก่อนเสมอเพราะอยู่หน้ากว่าใน DOM แล้วผูก listener ผิดตัว)
   const topbarFormActionsSlot=document.getElementById('topbarFormActions');
   if(topbarFormActionsSlot) topbarFormActionsSlot.innerHTML='';
+  const topbarDate=document.getElementById('topbarDate');
+  if(topbarDate) topbarDate.textContent=fmtTopbarDate(TODAY_STR);
   const mainElement=document.getElementById('main');
   mainElement.classList.toggle('product-list-main',currentTab==='products'&&editingProductId===null);
   mainElement.classList.toggle('barcode-print-main',currentTab==='barcodeprint');
