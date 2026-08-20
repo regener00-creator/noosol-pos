@@ -2489,10 +2489,6 @@ function goodsReceiptStatusChangePlan(doc,nextStatus){
   const stockDirection=status==='รับสินค้าแล้ว'&&!alreadyApplied?1:status==='รอรับสินค้า'&&alreadyApplied?-1:0;
   return {allowed:true,status,stockDirection,stockApplied:status!=='รอรับสินค้า'};
 }
-function documentDeletionStockDirection(kind,doc){
-  // การลบใบรับสินค้าเป็นการลบเฉพาะเอกสาร สต๊อกที่รับเข้าแล้วต้องคงอยู่ตามเดิม
-  return kind==='ret'&&doc?.stockApplied===true?1:0;
-}
 function currentDocKind(){ if(currentTab==='goodsreceipt') return 'gr'; if(currentTab==='purchaseorder2') return 'po2'; if(currentTab==='productreturn') return 'ret'; return 'po'; }
 function daysFromToday(dateStr){
   const parse=s=>{ const [y,m,d]=String(s).slice(0,10).split('-').map(Number); return new Date(y,m-1,d); };
@@ -7800,15 +7796,12 @@ function deleteSelectedDocuments(kind,ids){
     const selected=list.filter(doc=>ids.includes(doc.id));
     if(!selected.length) return;
     const label=docLabelText(kind);
-    const stockAffected=selected.some(doc=>documentDeletionStockDirection(kind,doc)!==0);
-    const stockNotice=kind==='ret'&&stockAffected?' สต๊อกที่เคยตัดจากรายการเหล่านี้จะถูกคืนกลับด้วย':'';
     const message=selected.length===1
-      ?`ยืนยันลบ ${selected[0].id} ?${stockNotice}`
-      :`ยืนยันลบ${label}ที่เลือกทั้งหมด ${selected.length} รายการหรือไม่?${stockNotice}`;
+      ?`ยืนยันลบ ${selected[0].id} ?`
+      :`ยืนยันลบ${label}ที่เลือกทั้งหมด ${selected.length} รายการหรือไม่?`;
     if(!confirm(message)) return;
-    selected.forEach(doc=>{ const direction=documentDeletionStockDirection(kind,doc); if(direction) adjustGoodsReceiptStock(doc.items,direction); });
     for(let index=list.length-1;index>=0;index--){ if(ids.includes(list[index].id)) list.splice(index,1); }
-    showToast(`ลบ${label} ${selected.length} รายการแล้ว${stockAffected?' และคืนสต๊อกกลับแล้ว':''}`);
+    showToast(`ลบ${label} ${selected.length} รายการแล้ว`);
     render();
   }
 }
@@ -8144,12 +8137,9 @@ function handleDocumentAction(kind,id,action){
     list.unshift(copy); showToast(`สร้างซ้ำเป็น ${copy.id} แล้ว`); render(); return;
   }
   if(action==='delete'){
-    const stockDirection=documentDeletionStockDirection(kind,doc);
-    const stockNotice=stockDirection?' สต๊อกที่เคยตัดจากใบคืนสินค้านี้จะถูกคืนกลับด้วย':'';
-    if(confirm(`ยืนยันลบ ${doc.id} ?${stockNotice}`)){
-      if(stockDirection) adjustGoodsReceiptStock(doc.items,stockDirection);
+    if(confirm(`ยืนยันลบ ${doc.id} ?`)){
       const idx=list.findIndex(x=>x.id===id); if(idx>-1) list.splice(idx,1);
-      showToast(`ลบ ${doc.id} แล้ว${stockDirection?' และคืนสต๊อกกลับแล้ว':''}`);
+      showToast(`ลบ ${doc.id} แล้ว`);
     }
     render();
   }

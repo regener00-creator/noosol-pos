@@ -33,11 +33,6 @@ assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:true}, 'รั�
 assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:true}, 'รอรับสินค้า').stockDirection, -1);
 assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:true}, 'ชำระเรียบร้อย').stockDirection, 0);
 assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:false}, 'ชำระเรียบร้อย').allowed, false);
-assert.equal(context.documentDeletionStockDirection('gr', {stockApplied:false}), 0);
-assert.equal(context.documentDeletionStockDirection('gr', {stockApplied:true,status:'รับสินค้าแล้ว'}), 0);
-assert.equal(context.documentDeletionStockDirection('gr', {stockApplied:true,status:'ชำระเรียบร้อย'}), 0);
-assert.equal(context.documentDeletionStockDirection('ret', {stockApplied:true}), 1);
-
 let stockDirection = 0;
 let renderCount = 0;
 let toast = '';
@@ -81,9 +76,11 @@ const bulkDeleteStart = html.indexOf('function deleteSelectedDocuments(');
 const bulkDeleteEnd = html.indexOf('function printSelectedDocuments(', bulkDeleteStart);
 const singleDeleteStart = html.indexOf("if(action==='delete')", html.indexOf('function handleDocumentAction('));
 const singleDeleteEnd = html.indexOf('function setupA4DocumentPreview(', singleDeleteStart);
-assert.doesNotMatch(html.slice(bulkDeleteStart, bulkDeleteEnd), /kind==='gr'[\s\S]{0,100}adjustGoodsReceiptStock/);
-assert.doesNotMatch(html.slice(singleDeleteStart, singleDeleteEnd), /kind==='gr'[\s\S]{0,100}adjustGoodsReceiptStock/);
+assert.doesNotMatch(html.slice(bulkDeleteStart, bulkDeleteEnd), /adjustGoodsReceiptStock/);
+assert.doesNotMatch(html.slice(singleDeleteStart, singleDeleteEnd), /adjustGoodsReceiptStock/);
 assert.doesNotMatch(html.slice(bulkDeleteStart, bulkDeleteEnd), /สต๊อกที่รับเข้าจากรายการเหล่านี้จะถูกนำออกด้วย/);
 assert.doesNotMatch(html.slice(singleDeleteStart, singleDeleteEnd), /สต๊อกที่รับเข้าจากเอกสารนี้จะถูกนำออกด้วย/);
+assert.doesNotMatch(html.slice(bulkDeleteStart, bulkDeleteEnd), /สต๊อกที่เคยตัดจากรายการเหล่านี้จะถูกคืนกลับด้วย/);
+assert.doesNotMatch(html.slice(singleDeleteStart, singleDeleteEnd), /สต๊อกที่เคยตัดจากใบคืนสินค้านี้จะถูกคืนกลับด้วย/);
 
 console.log('goods receipt status tests passed');
