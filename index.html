@@ -1247,7 +1247,7 @@
     .mobile-install-btn{width:100%;}
   }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="window.__peposDependencyError='ไม่สามารถโหลดระบบ Excel'"></script>
 </head>
 <body>
 <div class="login-screen" id="ownerSetupScreen" style="display:none;">
@@ -1285,12 +1285,12 @@
 </div>
 <div class="toast" id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js" onerror="window.__peposDependencyError='ไม่สามารถโหลดระบบฐานข้อมูล'"></script>
 <script>
 // ===== Supabase Auth wiring (replaces plaintext systemUsers login) =====
 const SUPABASE_URL = 'https://tgwqmpvdjyxwivjxceoq.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Lo0ABFMvYp8IqceZ3DLIow_jrMv1V8j';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+const sb = window.supabase?.createClient ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
 const EDGE_FUNCTIONS_URL = SUPABASE_URL + '/functions/v1';
 function noosolAuthEmail(username){ return String(username||'').trim().toLowerCase()+'@noosol-pos.internal'; }
 async function callEdgeFunction(name, payload){
@@ -1322,6 +1322,13 @@ function mapProfileRow(row){
 // so no other call site in the app needs to change.
 function productToRow(p){
   return { id:p.id, sku:p.sku||null, name:p.name||'', category:p.category||null, brand:p.brand||null, product_type:p.type||null, warehouse_id:p.wh||null, stock:Number(p.stock)||0, cost:Number(p.cost)||0, price:Number(p.price)||0, unit:p.unit||null, data:p };
+}
+// Existing product metadata must never carry a possibly stale stock value from
+// another browser tab. Stock is changed only through the atomic stock RPCs.
+function productMetadataToRow(p){
+  const data={...p};
+  delete data.stock;
+  return { id:p.id, sku:p.sku||null, name:p.name||'', category:p.category||null, brand:p.brand||null, product_type:p.type||null, warehouse_id:p.wh||null, cost:Number(p.cost)||0, price:Number(p.price)||0, unit:p.unit||null, data };
 }
 function rowToProduct(row){ return { ...(row.data||{}), id:row.id, stock:Number(row.stock)||0 }; } // trust the flat `stock` column, not the (possibly stale) copy inside data jsonb -- see the sync-bypass note near adjustProductStockOnSupabase
 function warehouseToRow(w){ return { id:w.id, name:w.name||'', data:w }; }
@@ -1368,16 +1375,77 @@ async function fetchAllRows(buildQuery){
 // case for most renders. Only cached on success, so a failed sync retries
 // next time instead of being skipped.
 let lastSyncedSnapshot={};
+const syncedTableRows={};
+function tableSnapshot(localArray,toRow){
+  const snapshot=new Map();
+  (localArray||[]).forEach(item=>{
+    const row=toRow(item);
+    snapshot.set(String(row.id),JSON.stringify(row));
+  });
+  return snapshot;
+}
+function seedTableSnapshot(table,localArray,toRow){ syncedTableRows[table]=tableSnapshot(localArray,toRow); }
+async function upsertRowsInChunks(table,rows){
+  for(let i=0;i<rows.length;i+=200){
+    const {error}=await sb.from(table).upsert(rows.slice(i,i+200));
+    if(error) return error;
+  }
+  return null;
+}
+async function updateProductMetadataInChunks(rows){
+  for(let i=0;i<rows.length;i+=12){
+    const results=await Promise.all(rows.slice(i,i+12).map(row=>{
+      const {id,...changes}=row;
+      return sb.from('products').update(changes).eq('id',id);
+    }));
+    const failed=results.find(result=>result.error);
+    if(failed) return failed.error;
+  }
+  return null;
+}
+// Sync only rows changed since this device last loaded/saved them. Deletions
+// are derived from that same baseline, never by comparing against every remote
+// id, so a stale device cannot delete records created by another device.
 async function upsertAndPrune(table,localArray,toRow){
-  const snapshot=JSON.stringify(localArray);
-  if(lastSyncedSnapshot[table]===snapshot) return; // nothing changed since the last successful sync
-  const rows=localArray.map(toRow);
-  if(rows.length){ const {error}=await sb.from(table).upsert(rows); if(error){ console.warn('sync '+table,error); return; } }
-  const {data:existing}=await fetchAllRows(()=>sb.from(table).select('id'));
-  const localIds=new Set(localArray.map(x=>x.id));
-  const del=(existing||[]).filter(r=>!localIds.has(r.id)).map(r=>r.id);
-  if(del.length) await sb.from(table).delete().in('id',del);
-  lastSyncedSnapshot[table]=snapshot;
+  const previous=syncedTableRows[table]||new Map();
+  const current=tableSnapshot(localArray,toRow);
+  const changed=(localArray||[]).filter(item=>{
+    const row=toRow(item);
+    return previous.get(String(row.id))!==JSON.stringify(row);
+  });
+  const deleted=[...previous.keys()].filter(id=>!current.has(id));
+  if(!changed.length&&!deleted.length) return;
+  if(changed.length){
+    const error=await upsertRowsInChunks(table,changed.map(toRow));
+    if(error){ console.warn('sync '+table,error); return; }
+  }
+  if(deleted.length){
+    const {error}=await sb.from(table).delete().in('id',deleted);
+    if(error){ console.warn('sync delete '+table,error); return; }
+  }
+  syncedTableRows[table]=current;
+}
+async function syncProductsIncrementally(){
+  const table='products';
+  const previous=syncedTableRows[table]||new Map();
+  const current=tableSnapshot(products,productMetadataToRow);
+  const changed=products.filter(product=>previous.get(String(product.id))!==JSON.stringify(productMetadataToRow(product)));
+  const inserted=changed.filter(product=>!previous.has(String(product.id)));
+  const updated=changed.filter(product=>previous.has(String(product.id)));
+  const deleted=[...previous.keys()].filter(id=>!current.has(id));
+  if(updated.length){
+    const error=await updateProductMetadataInChunks(updated.map(productMetadataToRow));
+    if(error){ console.warn('sync products',error); return; }
+  }
+  if(inserted.length){
+    const error=await upsertRowsInChunks(table,inserted.map(productToRow));
+    if(error){ console.warn('sync new products',error); return; }
+  }
+  if(deleted.length){
+    const {error}=await sb.from(table).delete().in('id',deleted);
+    if(error){ console.warn('sync delete products',error); return; }
+  }
+  syncedTableRows[table]=current;
 }
 
 let coreSyncInFlight=false, coreSyncPending=false;
@@ -1404,7 +1472,7 @@ async function syncCoreDataToSupabase(){
     coreSyncPending=false;
     try{
       await upsertAndPrune('warehouses',warehouses,warehouseToRow);
-      await upsertAndPrune('products',products,productToRow);
+      await syncProductsIncrementally();
       await upsertAndPrune('contacts',contacts,contactToRow);
       await upsertAndPrune('sales_representatives',salesRepresentatives,salesRepToRow);
       for(const [table,getArr] of DOC_TABLES){ await upsertAndPrune(table,getArr(),docToRow); }
@@ -1435,7 +1503,7 @@ async function adjustProductStockOnSupabase(productId,delta){
 }
 async function setProductStockOnSupabase(productId,newStock){
   if(!currentProfile) return;
-  try{ const {error}=await sb.from('products').update({stock:Number(newStock)||0}).eq('id',productId); if(error) console.warn('set product stock',productId,error); }
+  try{ const {error}=await sb.rpc('set_product_stock',{p_id:productId,p_stock:Number(newStock)||0}); if(error) console.warn('set product stock',productId,error); }
   catch(e){ console.warn('set product stock failed',productId,e); }
 }
 // ----- Business settings sync -----
@@ -1499,30 +1567,29 @@ async function loadDocumentPrefixesFromSupabase(){
 }
 
 // ----- Saved product inspection lists sync -----
-// Reuse the existing settings key/value table so this feature does not need a
-// new exposed Data API table. Lists are shared at store level; prices and stock
-// are resolved from the current product data whenever a list is opened.
+// Each list is its own row so two devices can add/edit different lists without
+// replacing the entire shared array in settings.
+function inspectionListToRow(list){ return {id:list.id,data:list}; }
 async function syncInspectionListsToSupabase(){
   if(!currentProfile) return;
-  const snapshot=JSON.stringify(inspectionLists);
-  if(lastSyncedSnapshot.inspection_lists===snapshot) return;
-  try{
-    const {error}=await sb.from('settings').upsert({key:'inspection_lists',value:inspectionLists});
-    if(error){ console.warn('sync inspection lists',error); return; }
-    lastSyncedSnapshot.inspection_lists=snapshot;
-  }catch(e){ console.warn('sync inspection lists failed',e); }
+  try{ await upsertAndPrune('inspection_lists',inspectionLists,inspectionListToRow); }
+  catch(e){ console.warn('sync inspection lists failed',e); }
 }
 async function loadInspectionListsFromSupabase(){
   try{
-    const {data,error}=await sb.from('settings').select('value').eq('key','inspection_lists').maybeSingle();
+    const {data,error}=await fetchAllRows(()=>sb.from('inspection_lists').select('*').order('id'));
     if(error){ console.warn('load inspection lists',error); return; }
-    if(data&&Array.isArray(data.value)){
-      inspectionLists=normalizeInspectionLists(data.value);
-      lastSyncedSnapshot.inspection_lists=JSON.stringify(inspectionLists);
-      refreshDataCounters();
+    if((data||[]).length){
+      inspectionLists=normalizeInspectionLists(data.map(row=>({...(row.data||{}),id:row.id})));
+      seedTableSnapshot('inspection_lists',inspectionLists,inspectionListToRow);
     }else{
-      await syncInspectionListsToSupabase();
+      // One-time migration from the former settings-array storage.
+      const {data:legacy}=await sb.from('settings').select('value').eq('key','inspection_lists').maybeSingle();
+      if(legacy&&Array.isArray(legacy.value)&&legacy.value.length) inspectionLists=normalizeInspectionLists(legacy.value);
+      seedTableSnapshot('inspection_lists',[],inspectionListToRow);
+      if(inspectionLists.length) await syncInspectionListsToSupabase();
     }
+    refreshDataCounters();
   }catch(e){ console.warn('load inspection lists failed',e); }
 }
 
@@ -1567,14 +1634,21 @@ async function loadCoreDataFromSupabase(){
     const docErr=docResults.find(r=>r.error);
     if(docErr){ console.warn('load core data (docs)',docErr.error); return; }
     const allEmpty=(whRows||[]).length===0&&(prodRows||[]).length===0&&(contactRows||[]).length===0&&(repRows||[]).length===0&&docResults.every(r=>(r.data||[]).length===0);
-    if(allEmpty){ await syncCoreDataToSupabase(); return; } // first time ever: seed Supabase with the current local data
-    if((whRows||[]).length) warehouses=whRows.map(rowToWarehouse);
-    if((prodRows||[]).length){ products=prodRows.map(rowToProduct); refreshCategoryBrandUnitLists(); }
-    if((contactRows||[]).length) contacts=contactRows.map(rowToContact);
-    if((repRows||[]).length) salesRepresentatives=repRows.map(rowToSalesRep);
+    if(allEmpty){
+      // Import only a real saved workspace. Never push the built-in demo rows
+      // into an intentionally empty production database.
+      if(localStorage.getItem(WORKSPACE_STORAGE_KEY)){ await syncCoreDataToSupabase(); return; }
+      warehouses=[]; products=[]; contacts=[]; salesRepresentatives=[];
+      DOC_TABLES.forEach(([_table,_getArr,setArr])=>setArr([]));
+    }
+    warehouses=(whRows||[]).map(rowToWarehouse);
+    products=(prodRows||[]).map(rowToProduct);
+    contacts=(contactRows||[]).map(rowToContact);
+    salesRepresentatives=(repRows||[]).map(rowToSalesRep);
+    refreshCategoryBrandUnitLists();
     DOC_TABLES.forEach(([table,_getArr,setArr],i)=>{
       const rows=docResults[i].data||[];
-      if(rows.length) setArr(rows.map(rowToDoc));
+      setArr(rows.map(rowToDoc));
     });
     const goodsReceiptsBeforeNormalization=JSON.stringify(goodsReceipts);
     goodsReceipts=normalizeGoodsReceiptDocuments(goodsReceipts);
@@ -1582,13 +1656,13 @@ async function loadCoreDataFromSupabase(){
     // Seed the change-detection cache to match what we just loaded, so the
     // next debounced sync doesn't immediately re-upload everything again
     // merely because it hasn't "seen" this exact snapshot before.
-    lastSyncedSnapshot.warehouses=JSON.stringify(warehouses);
-    lastSyncedSnapshot.products=JSON.stringify(products);
-    lastSyncedSnapshot.contacts=JSON.stringify(contacts);
-    lastSyncedSnapshot.sales_representatives=JSON.stringify(salesRepresentatives);
+    seedTableSnapshot('warehouses',warehouses,warehouseToRow);
+    seedTableSnapshot('products',products,productMetadataToRow);
+    seedTableSnapshot('contacts',contacts,contactToRow);
+    seedTableSnapshot('sales_representatives',salesRepresentatives,salesRepToRow);
     DOC_TABLES.forEach(([table,getArr])=>{
-      if(table==='goods_receipts'&&goodsReceiptsMigrated) delete lastSyncedSnapshot[table];
-      else lastSyncedSnapshot[table]=JSON.stringify(getArr());
+      if(table==='goods_receipts'&&goodsReceiptsMigrated) delete syncedTableRows[table];
+      else seedTableSnapshot(table,getArr(),docToRow);
     });
     nextWarehouseId=Math.max(1,...warehouses.map(w=>(Number(w.id)||0)+1));
     nextContactId=Math.max(1,...contacts.map(c=>(Number(c.id)||0)+1));
@@ -1632,16 +1706,21 @@ async function loadSalesHistoryFromSupabase(){
   try{
     const { data:rows, error } = await fetchAllRows(()=>sb.from('sales').select('*').order('sale_date',{ascending:false}));
     if(error){ console.warn('load sales',error); return; }
-    if((rows||[]).length===0){ await syncSalesHistoryToSupabase(); return; } // first time ever: seed Supabase with the current local (mock/demo) data
+    if((rows||[]).length===0){ salesHistory=[]; seedTableSnapshot('sales',salesHistory,saleToRow); return; }
     salesHistory=rows.map(rowToSale);
-    lastSyncedSnapshot.sales=JSON.stringify(salesHistory); // see the matching note in loadCoreDataFromSupabase
+    seedTableSnapshot('sales',salesHistory,saleToRow);
     invoiceCounter=Math.max(1000,...salesHistory.map(s=>(Number(String(s.id||'').replace(/\D/g,''))||0)+1));
   }catch(e){ console.warn('load sales failed',e); }
 }
 // ===== end Supabase Auth wiring =====
 
-const today = new Date('2026-08-03');
-function daysUntil(d){ return Math.ceil((new Date(d) - today)/(1000*60*60*24)); }
+function currentLocalDate(){ const now=new Date(); return new Date(now.getFullYear(),now.getMonth(),now.getDate()); }
+function currentDateStr(){ const d=currentLocalDate(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+function daysUntil(d){
+  if(!d) return Number.POSITIVE_INFINITY;
+  const expiry=new Date(`${String(d).slice(0,10)}T00:00:00`);
+  return Math.ceil((expiry-currentLocalDate())/(1000*60*60*24));
+}
 function fmtDateShort(d){ if(!d) return '-'; const raw=String(d).slice(0,10); const parts=raw.split('-'); if(parts.length!==3) return raw; return `${parts[2]}-${parts[1]}-${parts[0]}`; }
 function fmtDate(d){ return fmtDateShort(d); }
 function fmtDashboardDate(d){
@@ -1689,6 +1768,18 @@ function showToast(msg, variant){
   clearTimeout(showToast._h);
   showToast._h = setTimeout(()=>{ t.classList.remove('show'); }, 1800);
 }
+let storageWarningShown=false;
+function safeLocalStorageSet(key,value,label){
+  try{ localStorage.setItem(key,value); return true; }
+  catch(error){
+    console.warn(`ไม่สามารถบันทึก${label||'ข้อมูล'}ได้`,error);
+    if(!storageWarningShown){
+      storageWarningShown=true;
+      setTimeout(()=>showToast('พื้นที่บันทึกข้อมูลในเครื่องไม่เพียงพอ กรุณารีเฟรชและตรวจการเชื่อมต่อ','error'),0);
+    }
+    return false;
+  }
+}
 
 // ---------- Data ----------
 // กู้ชุดข้อมูลเดิมหนึ่งครั้ง หลังการรีเซ็ตครั้งก่อนที่ยังไม่มีระบบสำรองข้อมูล
@@ -1703,7 +1794,7 @@ let warehouses = [
 ];
 const WAREHOUSE_STORAGE_KEY='pharmacy_pos_warehouses_v1';
 try{ const savedWarehouses=JSON.parse(localStorage.getItem(WAREHOUSE_STORAGE_KEY)||'null'); if(Array.isArray(savedWarehouses)&&savedWarehouses.length) warehouses=savedWarehouses; }catch(error){ console.warn('ไม่สามารถโหลดรายชื่อคลังสินค้าได้',error); }
-function persistWarehouses(){ try{ localStorage.setItem(WAREHOUSE_STORAGE_KEY,JSON.stringify(warehouses)); }catch(error){ console.warn('ไม่สามารถบันทึกรายชื่อคลังสินค้าได้',error); } }
+function persistWarehouses(){ persistWorkspaceData(); }
 let nextWarehouseId=Math.max(1,...warehouses.map(w=>(Number(w.id)||0)+1));
 let products = [
   {id:1, name:'พาราเซตามอล 500mg', unit:'แผง', price:15, stock:120, threshold:30, expiry:'2027-11-01', barcode:'8850000100019', wh:1, multiunit:true, units:[{sub:'กล่อง', per:10, base:'แผง', factor:10, price:140, cost:90, barcode:'8850000100026'},{sub:'ลัง', per:10, base:'กล่อง', factor:100, price:1350, cost:880, barcode:'8850000100033'}]},
@@ -1834,7 +1925,7 @@ let contacts = [
 ];
 const CONTACTS_STORAGE_KEY='pharmacy_pos_contacts_v1';
 try{ const savedContacts=JSON.parse(localStorage.getItem(CONTACTS_STORAGE_KEY)||'null'); if(Array.isArray(savedContacts)) contacts=savedContacts; }catch(error){ console.warn('ไม่สามารถโหลดสมุดรายชื่อได้',error); }
-function persistContacts(){ try{ localStorage.setItem(CONTACTS_STORAGE_KEY,JSON.stringify(contacts)); }catch(error){ console.warn('ไม่สามารถบันทึกสมุดรายชื่อได้',error); } }
+function persistContacts(){ persistWorkspaceData(); }
 let nextContactId = Math.max(7,...contacts.map(contact=>(Number(contact.id)||0)+1));
 let contactFilter = 'all'; // all | customer | supplier | both
 let editingContactId = null; // null=list, 'new', หรือ id
@@ -1851,7 +1942,32 @@ let editingSalesRepresentativeId = null;
 let promotions = [];
 const PROMOTIONS_STORAGE_KEY='pharmacy_pos_promotions_v1';
 try{ const savedPromotions=JSON.parse(localStorage.getItem(PROMOTIONS_STORAGE_KEY)||'null'); if(Array.isArray(savedPromotions)) promotions=savedPromotions; }catch(error){ console.warn('ไม่สามารถโหลดโปรโมชั่นได้',error); }
-function persistPromotions(){ try{ localStorage.setItem(PROMOTIONS_STORAGE_KEY,JSON.stringify(promotions)); }catch(error){ console.warn('ไม่สามารถบันทึกโปรโมชั่นได้',error); } }
+function promotionToRow(promotion){ return {id:promotion.id,data:promotion}; }
+async function syncPromotionsToSupabase(){
+  if(!currentProfile) return;
+  try{ await upsertAndPrune('promotions',promotions,promotionToRow); }
+  catch(error){ console.warn('sync promotions failed',error); }
+}
+async function loadPromotionsFromSupabase(){
+  if(!currentProfile) return;
+  try{
+    const {data,error}=await fetchAllRows(()=>sb.from('promotions').select('*').order('id'));
+    if(error){ console.warn('load promotions',error); return; }
+    if((data||[]).length){
+      promotions=data.map(row=>({...(row.data||{}),id:row.id}));
+      seedTableSnapshot('promotions',promotions,promotionToRow);
+    }else{
+      seedTableSnapshot('promotions',[],promotionToRow);
+      if(promotions.length) await syncPromotionsToSupabase();
+    }
+    nextPromotionId=Math.max(1,...promotions.map(p=>(Number(p.id)||0)+1));
+  }catch(error){ console.warn('load promotions failed',error); }
+}
+function persistPromotions(){
+  try{ localStorage.setItem(PROMOTIONS_STORAGE_KEY,JSON.stringify(promotions)); }
+  catch(error){ console.warn('ไม่สามารถบันทึกโปรโมชั่นได้',error); showToast('บันทึกโปรโมชั่นในเครื่องไม่สำเร็จ กรุณาตรวจพื้นที่จัดเก็บ','error'); }
+  syncPromotionsToSupabase();
+}
 let nextPromotionId = Math.max(1,...promotions.map(p=>(Number(p.id)||0)+1));
 let editingPromotionId = null; // null=list, 'new', หรือ id
 let currentPromoDraftItems = null; // รายการสินค้าที่เจาะจงเลือกในฟอร์มโปรโมชั่น (โหมด scope=category, categoryMode=select) — sync จาก promo.items ทุกครั้งที่เปิดฟอร์ม
@@ -1992,12 +2108,11 @@ try{
   if(Array.isArray(savedSales)) salesHistory=savedSales;
 }catch(error){ console.warn('ไม่สามารถโหลดประวัติการขายที่บันทึกไว้ได้',error); }
 function persistSalesHistory(){
-  try{ localStorage.setItem(SALES_STORAGE_KEY,JSON.stringify(salesHistory)); }
-  catch(error){ console.warn('ไม่สามารถบันทึกประวัติการขายได้',error); }
+  persistWorkspaceData();
   syncSalesHistoryToSupabase();
 }
 const weekSales = [ {d:'28 ก.ค.',v:420}, {d:'29 ก.ค.',v:580}, {d:'30 ก.ค.',v:310}, {d:'31 ก.ค.',v:490}, {d:'1 ส.ค.',v:670}, {d:'2 ส.ค.',v:174}, {d:'3 ส.ค.',v:96} ];
-const TODAY_STR = (()=>{ const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })();
+let TODAY_STR = currentDateStr();
 const DEFAULT_DOCUMENT_PREFIXES={sale:'RE',taxInvoice:'INV',quotation:'QT',shortage:'SH',purchaseOrder:'PO',productReturn:'RT',goodsReceipt:'RI',transfer:'TF',warehouse:'WH'};
 let documentPrefixes={...DEFAULT_DOCUMENT_PREFIXES};
 const DOCUMENT_PREFIX_FIELDS=[
@@ -2045,7 +2160,7 @@ let quotations = [
 ];
 const QUOTATION_STORAGE_KEY='pharmacy_pos_quotations_v1';
 try{ const savedQuotations=JSON.parse(localStorage.getItem(QUOTATION_STORAGE_KEY)||'null'); if(Array.isArray(savedQuotations)) quotations=savedQuotations; }catch(error){ console.warn('ไม่สามารถโหลดใบเสนอราคาได้',error); }
-function persistQuotations(){ try{ localStorage.setItem(QUOTATION_STORAGE_KEY,JSON.stringify(quotations)); }catch(error){ console.warn('ไม่สามารถบันทึกใบเสนอราคาได้',error); } }
+function persistQuotations(){ persistWorkspaceData(); }
 let quotationCounter=Math.max(1,...quotations.map(doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1));
 let invoicesAR = [ // เอกสารขายเชื่อ (ลูกหนี้)
   {id:'IV-0088', customer:'คลินิกหมอสมศักดิ์', date:'2026-07-20', dueDate:'2026-08-19', total:2400, paid:false},
@@ -2068,7 +2183,7 @@ let transfers = [
 ];
 const TRANSFER_STORAGE_KEY='pharmacy_pos_transfers_v1';
 try{ const savedTransfers=JSON.parse(localStorage.getItem(TRANSFER_STORAGE_KEY)||'null'); if(Array.isArray(savedTransfers)) transfers=savedTransfers; }catch(error){ console.warn('ไม่สามารถโหลดรายการโอนสินค้าได้',error); }
-function persistTransfers(){ try{ localStorage.setItem(TRANSFER_STORAGE_KEY,JSON.stringify(transfers)); }catch(error){ console.warn('ไม่สามารถบันทึกรายการโอนสินค้าได้',error); } }
+function persistTransfers(){ persistWorkspaceData(); }
 
 let currentTab = 'dashboard';
 let searchQuery = '';
@@ -2153,7 +2268,7 @@ let editingQuotationId=null;
 let standaloneTaxInvoices=[];
 const TAX_INVOICE_STORAGE_KEY='pharmacy_pos_standalone_tax_invoices_v1';
 try{ const savedTaxDocs=JSON.parse(localStorage.getItem(TAX_INVOICE_STORAGE_KEY)||'null'); if(Array.isArray(savedTaxDocs)) standaloneTaxInvoices=savedTaxDocs; }catch(error){ console.warn('ไม่สามารถโหลดใบกำกับภาษีที่สร้างใหม่ได้',error); }
-function persistStandaloneTaxInvoices(){ try{ localStorage.setItem(TAX_INVOICE_STORAGE_KEY,JSON.stringify(standaloneTaxInvoices)); }catch(error){ console.warn('ไม่สามารถบันทึกใบกำกับภาษีได้',error); } }
+function persistStandaloneTaxInvoices(){ persistWorkspaceData(); }
 let standaloneTaxInvoiceCounter=Math.max(1,...standaloneTaxInvoices.map(doc=>(Number(String(doc.number||'').slice(-4))||0)+1));
 let openDocMenu = null;
 let documentSort = {po:{key:'date',dir:-1},gr:{key:'date',dir:-1},po2:{key:'date',dir:-1},ret:{key:'date',dir:-1}};
@@ -2192,6 +2307,7 @@ const STORE_BACKUP_LAST_KEY='pepos_store_backup_last_v1';
 const STORE_BACKUP_FORMAT='pepos-pharmacy-store-backup';
 const STORE_BACKUP_VERSION=1;
 let workspacePersistTimer=null;
+let lastPersistedWorkspaceJson=localStorage.getItem(WORKSPACE_STORAGE_KEY)||'';
 function cloudClean(value){
   return JSON.parse(JSON.stringify(value,(key,item)=>{
     if(key==='password'||key==='updatedAt'||item===undefined) return undefined;
@@ -2273,26 +2389,21 @@ function loadWorkspaceData(){
   catch(error){ console.warn('ไม่สามารถโหลดข้อมูลระบบที่บันทึกไว้ได้',error); }
 }
 function persistWorkspaceData(){
-  try{ localStorage.setItem(WORKSPACE_STORAGE_KEY,JSON.stringify(workspaceSnapshot())); }
-  catch(error){ console.warn('ไม่สามารถบันทึกข้อมูลระบบได้',error); }
+  const serialized=JSON.stringify(workspaceSnapshot());
+  if(serialized===lastPersistedWorkspaceJson){ scheduleSupabaseCoreSync(); return; }
+  if(!safeLocalStorageSet(WORKSPACE_STORAGE_KEY,serialized,'ข้อมูลระบบ')){ scheduleSupabaseCoreSync(); return; }
+  lastPersistedWorkspaceJson=serialized;
+  // These keys were used before the unified workspace snapshot and otherwise
+  // duplicate the same data until the browser quota is exhausted.
+  [WAREHOUSE_STORAGE_KEY,CONTACTS_STORAGE_KEY,SALES_STORAGE_KEY,QUOTATION_STORAGE_KEY,TRANSFER_STORAGE_KEY,TAX_INVOICE_STORAGE_KEY].forEach(key=>localStorage.removeItem(key));
   scheduleSupabaseCoreSync();
 }
 function schedulePersistWorkspaceData(){
   clearTimeout(workspacePersistTimer);
-  workspacePersistTimer=setTimeout(persistWorkspaceData,80);
+  workspacePersistTimer=setTimeout(persistWorkspaceData,1000);
 }
-// Supabase sync runs on its own, much longer debounce -- separate from the
-// 80ms localStorage save above. render() fires on nearly every click/keystroke
-// in this app (e.g. every character typed in the product search box), and
-// each Supabase sync re-uploads the ENTIRE products/contacts/etc. arrays
-// (thousands of rows). Syncing on the same 80ms timer as localStorage meant
-// a normal search session could trigger dozens of full-catalog uploads
-// within seconds, burning through Supabase's free-tier bandwidth quota far
-// faster than actual usage warrants. This timer waits for 2.5s of no further
-// changes before syncing, so a burst of typing/clicking collapses into one
-// sync instead of one per keystroke. (localStorage itself is unaffected and
-// still saves promptly, so no data is at risk of being lost while this timer
-// is pending -- it only delays when the *Supabase copy* catches up.)
+// Supabase writes are debounced separately. The incremental synchronizer then
+// sends only changed rows instead of the complete catalog.
 let supabaseCoreSyncTimer=null;
 function scheduleSupabaseCoreSync(){
   clearTimeout(supabaseCoreSyncTimer);
@@ -2395,6 +2506,7 @@ async function loginSystem(event){
   await loadBusinessSettingsFromSupabase();
   await loadDocumentPrefixesFromSupabase();
   await loadInspectionListsFromSupabase();
+  await loadPromotionsFromSupabase();
   await loadFavoritesFromSupabase();
   render();
 }
@@ -3418,6 +3530,7 @@ function changeGoodsReceiptStatus(id,status){
   doc.status=plan.status;
   doc.stockApplied=plan.stockApplied;
   doc.stockAppliedAt=plan.stockApplied?(doc.stockAppliedAt||new Date().toISOString()):'';
+  persistWorkspaceData();
   if(plan.status==='รอรับสินค้า'){
     showToast(plan.stockDirection<0?'เปลี่ยนเป็นรอรับสินค้าและนำสต๊อกออกแล้ว':'เปลี่ยนสถานะเป็น “รอรับสินค้า” แล้ว');
   }else if(plan.status==='รับสินค้าแล้ว'){
@@ -6313,6 +6426,7 @@ const RENDERERS = {
 
 function render(){
   if(!renderLoginState()) return;
+  TODAY_STR=currentDateStr();
   const mobileMode=isMobileDeviceMode();
   document.body.classList.toggle('mobile-device-mode',mobileMode);
   document.title=mobileMode?'PEPOS Mobile':'ร้านยา POS v50';
@@ -6326,6 +6440,8 @@ function render(){
   }
   if(isLevel2User()&&currentTab==='products'&&editingProductId!==null&&editingProductId!=='new') editingProductId=null;
   reconcileAutoFreeLines();
+  // Fallback for legacy handlers that finish a real mutation by rendering.
+  // The 1s debounce and serialized-content guard prevent writes per keystroke.
   schedulePersistWorkspaceData();
   if(mobileMode) document.getElementById('sidebar').innerHTML='';
   else renderSidebar();
@@ -7829,6 +7945,7 @@ function deleteShortageOrders(ids){
   if(!confirm(message)) return;
   let deleted=0;
   for(let i=purchaseOrders.length-1;i>=0;i--){ if(ids.includes(purchaseOrders[i].id)){ purchaseOrders.splice(i,1); deleted++; } }
+  persistWorkspaceData();
   showToast(`ลบรายการสั่งของขาด ${deleted} รายการแล้ว`);
   render();
 }
@@ -7861,6 +7978,7 @@ function deleteSelectedDocuments(kind,ids){
       :`ยืนยันลบ${label}ที่เลือกทั้งหมด ${selected.length} รายการหรือไม่?`;
     if(!confirm(message)) return;
     for(let index=list.length-1;index>=0;index--){ if(ids.includes(list[index].id)) list.splice(index,1); }
+    persistWorkspaceData();
     showToast(`ลบ${label} ${selected.length} รายการแล้ว`);
     render();
   }
@@ -7902,7 +8020,7 @@ function openGoodsReceiptPayment(id){
   overlay.querySelector('#savePaymentBtn').onclick=()=>{
     const paid=parseFloat(amount.value); if(isNaN(paid)||paid<0){ showToast('กรุณากรอกยอดจ่ายสุทธิ'); amount.focus(); return; }
     doc.payment={date:overlay.querySelector('#pay_date').value,amount:paid,withholding:overlay.querySelector('#pay_withholding').checked,reasonType:overlay.querySelector('input[name="pay_reason_type"]:checked')?.value||'',reason:overlay.querySelector('#pay_reason').value,method:overlay.querySelector('#pay_method').value,note:overlay.querySelector('#pay_note').value};
-    doc.status='ชำระเรียบร้อย'; doc.stockApplied=true; overlay.remove(); showToast(`บันทึกการชำระเงิน ${doc.id} แล้ว`); render();
+    doc.status='ชำระเรียบร้อย'; doc.stockApplied=true; persistWorkspaceData(); overlay.remove(); showToast(`บันทึกการชำระเงิน ${doc.id} แล้ว`); render();
   };
   setTimeout(()=>amount.focus(),30);
 }
@@ -8161,6 +8279,7 @@ function savePO(silent=false){
     }
   }
   const savedId=rec.id;
+  persistWorkspaceData();
   if(!silent){ setDocEditingId(kind,null); setDocDraft(kind,null); if(kind==='po') poRepresentativeEditorId=null; showToast(`บันทึก${docLabelText(kind)}แล้ว`); render(); }
   else { setDocEditingId(kind,savedId); }
   return savedId;
@@ -8194,11 +8313,12 @@ function handleDocumentAction(kind,id,action){
       copy.status='รอรับคืน';
       copy.stockApplied=false;
     }
-    list.unshift(copy); showToast(`สร้างซ้ำเป็น ${copy.id} แล้ว`); render(); return;
+    list.unshift(copy); persistWorkspaceData(); showToast(`สร้างซ้ำเป็น ${copy.id} แล้ว`); render(); return;
   }
   if(action==='delete'){
     if(confirm(`ยืนยันลบ ${doc.id} ?`)){
       const idx=list.findIndex(x=>x.id===id); if(idx>-1) list.splice(idx,1);
+      persistWorkspaceData();
       showToast(`ลบ ${doc.id} แล้ว`);
     }
     render();
@@ -9379,7 +9499,11 @@ async function importProductsFromExcel(file){
     });
   });
   if(contactsChanged) persistContacts();
-  toUpdate.forEach(({existing,data})=>Object.assign(existing,data));
+  toUpdate.forEach(({existing,data})=>{
+    const oldStock=Number(existing.stock)||0;
+    Object.assign(existing,data);
+    if((Number(data.stock)||0)!==oldStock) setProductStockOnSupabase(existing.id,data.stock);
+  });
   products.push(...toCreate);
   productPage=1;
   persistWorkspaceData();
@@ -9490,9 +9614,12 @@ function saveProduct(){
     showToast(`เพิ่มสินค้า "${name}" แล้ว`);
   } else {
     const p = products.find(x=>x.id===editingProductId);
+    const oldStock=Number(p.stock)||0;
     Object.assign(p, data);
+    if((Number(data.stock)||0)!==oldStock) setProductStockOnSupabase(p.id,data.stock);
     showToast(`บันทึกการแก้ไข "${name}" แล้ว`);
   }
+  persistWorkspaceData();
   editingProductId = null;
   render();
 }
@@ -10424,13 +10551,29 @@ if('serviceWorker' in navigator){
   window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(error=>console.warn('ลงทะเบียนโหมดติดตั้งบนมือถือไม่สำเร็จ',error)));
 }
 
+let runtimeErrorNoticeShown=false;
+function notifyRuntimeError(message,error){
+  console.error(message,error||'');
+  if(runtimeErrorNoticeShown) return;
+  runtimeErrorNoticeShown=true;
+  setTimeout(()=>showToast(message,'error'),0);
+}
+window.addEventListener('unhandledrejection',event=>notifyRuntimeError('ระบบเชื่อมต่อขัดข้อง กรุณารีเฟรชแล้วลองอีกครั้ง',event.reason));
+window.addEventListener('error',event=>notifyRuntimeError('โปรแกรมทำงานผิดพลาด กรุณารีเฟรชแล้วลองอีกครั้ง',event.error||event.message));
+
 (async function bootstrapAuth(){
+  if(!sb){
+    const message=window.__peposDependencyError||'ไม่สามารถโหลดระบบฐานข้อมูล';
+    const error=document.getElementById('loginError');
+    if(error) error.textContent=message+' กรุณาตรวจอินเทอร์เน็ตแล้วรีเฟรชหน้าเว็บ';
+    return;
+  }
   try{
     const { data:ownerCheck, error:ownerErr } = await sb.rpc('has_any_owner');
     systemHasOwner = ownerErr ? true : !!ownerCheck; // default to "true" (login screen) if the check itself fails
   }catch(e){ systemHasOwner = true; }
   try{ await loadCurrentProfile(); }catch(e){ currentProfile=null; }
-  if(currentProfile){ try{ await loadCoreDataFromSupabase(); await loadSalesHistoryFromSupabase(); await loadBusinessSettingsFromSupabase(); await loadDocumentPrefixesFromSupabase(); await loadInspectionListsFromSupabase(); await loadFavoritesFromSupabase(); }catch(e){ console.warn('load core data on boot failed',e); } }
+  if(currentProfile){ try{ await loadCoreDataFromSupabase(); await loadSalesHistoryFromSupabase(); await loadBusinessSettingsFromSupabase(); await loadDocumentPrefixesFromSupabase(); await loadInspectionListsFromSupabase(); await loadPromotionsFromSupabase(); await loadFavoritesFromSupabase(); }catch(e){ console.warn('load core data on boot failed',e); } }
   render();
 })();
 </script>
