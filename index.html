@@ -3749,7 +3749,7 @@ function promotionStatusInfo(promo){
   return {label:'ใช้งานอยู่',cls:'promo-live'};
 }
 function promotionTypeLabel(type){
-  return type==='bundle'?'ราคาพิเศษเมื่อซื้อครบจำนวน':type==='buygetdiff'?'ซื้อสินค้าหนึ่ง แถมอีกสินค้าหนึ่ง':'ลดราคา';
+  return type==='bundle'?'ราคาพิเศษเมื่อซื้อครบจำนวน':type==='buygetdiff'?'ซื้อและแถม':'ลดราคา';
 }
 function promotionTargetLabel(promo){
   if(promo.scope==='buygetdiff'){
@@ -4046,7 +4046,7 @@ function renderPromotionForm(){
     <div class="grid2col grid2col-even align-top">
       <div>
         <div class="panel">
-          <h3>ข้อมูลทั่วไป</h3>
+          <h3>ข้อมูลโปรโมชั่น</h3>
           <div class="cform">
             <div class="crow"><label>ชื่อโปรโมชั่น <span class="req">*</span></label><input id="promo_name" value="${escapeHtml(promo.name||'')}" placeholder="เช่น ลดราคาวิตามินซี 10%"></div>
             <div class="crow"><label>สถานะ</label><div class="cradio">
@@ -4062,14 +4062,14 @@ function renderPromotionForm(){
           <h3>ประเภทโปรโมชั่น</h3>
           <div class="cform">
             <div class="crow"><label>ประเภท</label><div class="cradio">
-              <label><input type="radio" name="promo_type" value="discount" ${promo.type==='discount'?'checked':''}> ลดราคา (%/บาท)</label>
+              <label><input type="radio" name="promo_type" value="discount" ${promo.type==='discount'?'checked':''}> ลดราคา</label>
               <label><input type="radio" name="promo_type" value="bundle" ${promo.type==='bundle'?'checked':''}> ราคาพิเศษเมื่อซื้อครบจำนวน</label>
-              <label><input type="radio" name="promo_type" value="buygetdiff" ${promo.type==='buygetdiff'?'checked':''}> ซื้อสินค้าหนึ่ง แถมอีกสินค้าหนึ่ง</label>
+              <label><input type="radio" name="promo_type" value="buygetdiff" ${promo.type==='buygetdiff'?'checked':''}> ซื้อและแถม</label>
             </div></div>
             <div id="promo_fields_discount" class="promo-fields-group" style="display:${promo.type==='discount'?'flex':'none'};">
               <div class="crow"><label>รูปแบบส่วนลด</label><div class="cradio">
                 <label><input type="radio" name="promo_discount_mode" value="percent" ${promo.discountMode!=='amount'?'checked':''}> ลดเป็น %</label>
-                <label><input type="radio" name="promo_discount_mode" value="amount" ${promo.discountMode==='amount'?'checked':''}> ลดเป็นจำนวนเงิน (บาท/หน่วย)</label>
+                <label><input type="radio" name="promo_discount_mode" value="amount" ${promo.discountMode==='amount'?'checked':''}> ลดเป็นจำนวนเงิน</label>
               </div></div>
               <div class="crow"><label>มูลค่าส่วนลด <span class="req">*</span></label><input id="promo_discount_value" type="number" min="0" step="0.01" value="${promo.discountValue||''}" placeholder="เช่น 10"></div>
             </div>
