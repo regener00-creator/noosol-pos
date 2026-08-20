@@ -33,6 +33,9 @@ assert.ok(stockEditAmountHandlerStart >= 0 && stockEditConfirmHandlerStart > sto
 assert.doesNotMatch(html.slice(stockEditAmountHandlerStart, stockEditConfirmHandlerStart), /setProductStockOnSupabase/);
 assert.match(html.slice(stockEditConfirmHandlerStart, stockEditRemoveHandlerStart), /setProductStockOnSupabase\(product\.id,newStock\)/);
 assert.match(html.slice(stockEditConfirmHandlerStart, stockEditRemoveHandlerStart), /persistWorkspaceData\(\)/);
+assert.match(html.slice(stockEditConfirmHandlerStart, stockEditRemoveHandlerStart), /syncInspectionListsToSupabase\(\)/);
+assert.match(html, /function openStockEditInspectionListPicker\(/);
+assert.match(html, /data-import-inspection-list/);
 
 function loadOneLineFunction(name) {
   const match = html.match(new RegExp(`function ${name}\\([^\\r\\n]+`));
@@ -82,10 +85,17 @@ Object.assign(context, {
   stockEditRowUnitSel: { 1: 'กล่อง' },
   stockEditDraftStocks: { 1: 60 },
   stockEditPage: 1,
+  stockEditSourceInspectionListId: null,
+  stockEditSourcePending: false,
+  inspectionLists: [{id:'CHECK-0001',name:'ตรวจหน้าร้าน',items:[{pid:1,unit:'กล่อง'},{pid:2,unit:'ขวด'}],updatedAt:'2026-08-20T08:00:00.000Z',stockAdjustedAt:'',stockAdjustedBy:''}],
+  currentProfile: {firstName:'เจ้าของร้าน',username:'owner'},
   STOCK_EDIT_PAGE_SIZE: 7,
   escapeHtml: value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
   matchesBarcode: (product, query) => product.barcode === query || (product.units || []).some(unit => unit.barcode === query),
   stockInLargestUnit: product => `${product.stock} ${product.unit}`,
+  showToast: () => {},
+  render: () => {},
+  confirm: () => true,
 });
 
 loadFunctionBlock('stockEditCurrentProducts', 'stockEditMatchesQuery');
@@ -115,6 +125,7 @@ assert.match(rendered, /id="stockEditCategorySelect"/);
 assert.match(rendered, /id="stockEditBrandSelect"/);
 assert.match(rendered, /id="stockEditAddByCategoryBtn"/);
 assert.match(rendered, /id="stockEditInput"/);
+assert.match(rendered, /id="importInspectionListBtn"/);
 assert.match(rendered, /<th>รหัสสินค้า<\/th><th>บาร์โค้ด<\/th><th>สินค้า<\/th><th>หน่วย<\/th><th>คงเหลือ<\/th><th aria-label="จัดการ"><\/th>/);
 assert.match(rendered, /id="confirmStockEditBtn"/);
 assert.ok(rendered.indexOf('id="clearStockEditBtn"') < rendered.indexOf('id="confirmStockEditBtn"'), 'ปุ่มยืนยันต้องอยู่หลังปุ่มล้างรายการ');
@@ -137,5 +148,18 @@ context.stockEditPage = 2;
 const secondPageRendered = context.renderStockEdit();
 assert.match(secondPageRendered, /สินค้าทดสอบ 8/);
 assert.match(secondPageRendered, /class="pagebtn active" data-stock-edit-page="2"/);
+
+assert.equal(context.stockEditImportInspectionList('CHECK-0001', false), true);
+assert.deepEqual(Array.from(context.stockEditItems), [1,2]);
+assert.equal(context.stockEditRowUnitSel[1], 'กล่อง');
+assert.equal(context.stockEditSourceInspectionListId, 'CHECK-0001');
+assert.equal(context.stockEditSourcePending, true);
+assert.equal(context.stockEditMarkInspectionComplete(), true);
+assert.equal(context.stockEditSourcePending, false);
+assert.match(context.inspectionLists[0].stockAdjustedAt, /^\d{4}-\d{2}-\d{2}T/);
+assert.equal(context.inspectionLists[0].stockAdjustedBy, 'เจ้าของร้าน');
+const completedRendered = context.renderStockEdit();
+assert.match(completedRendered, /ตรวจหน้าร้าน/);
+assert.match(completedRendered, /แก้จำนวนเรียบร้อย/);
 
 console.log('stock-edit tests passed');

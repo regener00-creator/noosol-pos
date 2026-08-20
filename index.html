@@ -421,6 +421,16 @@
   .stock-edit-remove-btn:hover{border-color:#F1B8B3;background:#FFF6F5;}
   .stock-edit-remove-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
   .stock-edit-empty{padding:30px!important;text-align:center!important;color:var(--text-muted);}
+  .stock-edit-source-note{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 14px;padding:11px 14px;border:1px solid #B8DDF1;border-radius:8px;background:#F1F8FD;color:#285B75;font-size:13px;}
+  .stock-edit-source-note strong{color:var(--text);}
+  .stock-edit-source-status,.inspection-list-status{display:inline-flex;align-items:center;flex:0 0 auto;padding:4px 9px;border-radius:999px;font-size:11.5px;font-weight:600;}
+  .stock-edit-source-status.pending{background:#FFF1C9;color:#8A6515;}
+  .stock-edit-source-status.done,.inspection-list-status{background:#DFF4E7;color:#237341;}
+  .stock-edit-import-list{display:flex;flex-direction:column;gap:8px;padding:0 16px 14px;overflow:auto;}
+  .stock-edit-import-row{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);}
+  .stock-edit-import-info{min-width:0;flex:1;}
+  .stock-edit-import-name{font-weight:600;overflow-wrap:anywhere;}
+  .stock-edit-import-meta{margin-top:3px;color:var(--text-muted);font-size:11.5px;}
   /* รายการตรวจสินค้า: scoped เพื่อไม่กระทบหน้าเอกสารและรายงานเดิม */
   .inspection-list-page{min-width:0;}
   .inspection-list-actions{display:flex;align-items:center;gap:8px;}
@@ -429,6 +439,7 @@
   .inspection-list-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;}
   .inspection-list-card h3{margin:0;font-size:17px;font-weight:600;overflow-wrap:anywhere;}
   .inspection-list-count{flex:0 0 auto;padding:3px 9px;border-radius:999px;background:var(--primary-soft);color:var(--primary-dark);font-size:12px;font-weight:600;}
+  .inspection-list-card-badges{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap;}
   .inspection-list-preview{display:flex;flex-direction:column;gap:5px;margin:14px 0;color:var(--text-muted);font-size:12.5px;}
   .inspection-list-preview span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .inspection-list-meta{margin-top:auto;color:var(--text-muted);font-size:11.5px;}
@@ -1924,6 +1935,8 @@ let stockEditSearchQuery = '';
 let stockEditRowUnitSel = {};
 let stockEditDraftStocks = {};
 let stockEditPage = 1;
+let stockEditSourceInspectionListId = null;
+let stockEditSourcePending = false;
 const STOCK_EDIT_PAGE_SIZE = 7;
 // คิวหน้าพิมพ์บาร์โค้ดเอง แยกจากหน้ารายการสินค้าและหน้าแก้ไขสต๊อก
 let barcodePrintItems = [];
@@ -2016,6 +2029,8 @@ function normalizeInspectionLists(value){
       createdAt:String(list.createdAt||new Date().toISOString()),
       updatedAt:String(list.updatedAt||list.createdAt||new Date().toISOString()),
       createdBy:String(list.createdBy||''),
+      stockAdjustedAt:String(list.stockAdjustedAt||''),
+      stockAdjustedBy:String(list.stockAdjustedBy||''),
     };
   });
 }
@@ -3694,6 +3709,44 @@ function stockEditCurrentProducts(){
   return stockEditItems.map(id=>products.find(p=>p.id===id)).filter(Boolean);
 }
 
+function stockEditInspectionSourceList(){
+  return inspectionLists.find(list=>String(list.id)===String(stockEditSourceInspectionListId))||null;
+}
+
+function stockEditImportInspectionList(listId,askBeforeReplace=true){
+  const list=inspectionLists.find(entry=>String(entry.id)===String(listId));
+  if(!list){ showToast('ไม่พบรายการตรวจสินค้า','danger'); return false; }
+  const entries=(list.items||[]).map(item=>({item,product:products.find(product=>product.id===Number(item.pid))})).filter(entry=>entry.product);
+  if(!entries.length){ showToast('รายการตรวจสินค้านี้ไม่มีสินค้าที่ใช้งานได้','danger'); return false; }
+  if(askBeforeReplace&&(stockEditItems.length||Object.keys(stockEditDraftStocks).length)&&!confirm('ข้อมูลในหน้าแก้ไขสต๊อกปัจจุบันจะถูกแทนที่ด้วยรายการตรวจสินค้าที่เลือก ต้องการดำเนินการต่อหรือไม่?')) return false;
+  stockEditItems=entries.map(entry=>entry.product.id);
+  stockEditRowUnitSel={};
+  entries.forEach(({item,product})=>{
+    const unitNames=[product.unit,...(product.units||[]).map(unit=>unit.sub).filter(Boolean)];
+    stockEditRowUnitSel[product.id]=unitNames.includes(item.unit)?item.unit:product.unit;
+  });
+  stockEditDraftStocks={};
+  stockEditSearchQuery='';
+  stockEditCatFilter={category:'',brand:''};
+  stockEditPage=1;
+  stockEditSourceInspectionListId=list.id;
+  stockEditSourcePending=true;
+  showToast(`ดึงข้อมูลจาก “${list.name}” แล้ว ${entries.length} รายการ`);
+  render();
+  return true;
+}
+
+function stockEditMarkInspectionComplete(){
+  const list=stockEditInspectionSourceList();
+  if(!list||!stockEditSourcePending) return false;
+  const now=new Date().toISOString();
+  list.stockAdjustedAt=now;
+  list.stockAdjustedBy=currentProfile?.firstName||currentProfile?.username||'';
+  list.updatedAt=now;
+  stockEditSourcePending=false;
+  return true;
+}
+
 // ---------- รายการตรวจสินค้า ----------
 function inspectionListUnitOptions(product){
   if(!product) return [];
@@ -3785,7 +3838,7 @@ function renderInspectionListOverview(){
   return `<div class="rpt inspection-list-page">
     <div class="pagehead"><div><h1>รายการตรวจสินค้า</h1><div class="sub">บันทึกชุดสินค้าไว้เปิดดูจำนวนคงเหลือล่าสุดได้ทุกครั้ง</div></div><button class="btn primary" id="newInspectionListBtn">+ สร้างรายการ</button></div>
     ${lists.length?`<div class="inspection-list-overview-grid">${lists.map(list=>`<article class="inspection-list-card">
-      <div class="inspection-list-card-head"><h3>${escapeHtml(list.name)}</h3><span class="inspection-list-count">${(list.items||[]).length} สินค้า</span></div>
+      <div class="inspection-list-card-head"><h3>${escapeHtml(list.name)}</h3><div class="inspection-list-card-badges"><span class="inspection-list-count">${(list.items||[]).length} สินค้า</span>${list.stockAdjustedAt?'<span class="inspection-list-status">แก้จำนวนเรียบร้อย</span>':''}</div></div>
       <div class="inspection-list-preview">${inspectionListPreviewHtml(list)}</div>
       <div class="inspection-list-meta">แก้ไขล่าสุด ${escapeHtml(inspectionListDateTime(list.updatedAt))}${list.createdBy?` · ${escapeHtml(list.createdBy)}`:''}</div>
       <div class="inspection-list-card-actions"><button class="btn primary small" data-open-inspection-list="${escapeHtml(list.id)}">เปิดรายการ</button><button class="btn ghost small" data-delete-inspection-list="${escapeHtml(list.id)}">ลบ</button></div>
@@ -3823,7 +3876,7 @@ function openInspectionListEditor(id='new',shouldRender=true){
   editingInspectionListId=id;
   inspectionListCatFilter={wh:'',category:'',brand:''}; inspectionListSearchQuery=''; inspectionListPage=1; inspectionListSort={key:'sku',dir:1};
   if(id==='new'){
-    inspectionListDraft={id:null,name:`รายการตรวจสินค้า ${inspectionListCounter}`,items:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),createdBy:currentProfile?.firstName||currentProfile?.username||''};
+    inspectionListDraft={id:null,name:`รายการตรวจสินค้า ${inspectionListCounter}`,items:[],createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),createdBy:currentProfile?.firstName||currentProfile?.username||'',stockAdjustedAt:'',stockAdjustedBy:''};
   }else{
     const list=inspectionLists.find(entry=>String(entry.id)===String(id));
     inspectionListDraft=list?JSON.parse(JSON.stringify(list)):null;
@@ -3846,7 +3899,7 @@ function saveInspectionListDraft(){
   if(!name){ showToast('กรุณากรอกชื่อรายการตรวจสินค้า','danger'); document.getElementById('inspectionListName')?.focus(); return false; }
   if(!inspectionListDraft.items.length){ showToast('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ','danger'); document.getElementById('inspectionListSearch')?.focus(); return false; }
   const now=new Date().toISOString();
-  const saved={...inspectionListDraft,name,items:inspectionListDraft.items.map(item=>({pid:Number(item.pid),unit:String(item.unit||'')})),updatedAt:now};
+  const saved={...inspectionListDraft,name,items:inspectionListDraft.items.map(item=>({pid:Number(item.pid),unit:String(item.unit||'')})),updatedAt:now,stockAdjustedAt:'',stockAdjustedBy:''};
   if(editingInspectionListId==='new'){
     saved.id=`CHECK-${String(inspectionListCounter++).padStart(4,'0')}`;
     saved.createdAt=saved.createdAt||now;
@@ -4136,14 +4189,16 @@ function renderStockEdit(){
   const pagination=stockEditPagination(rows);
   stockEditPage=pagination.currentPage;
   const pendingChanges=stockEditPendingChanges();
+  const sourceList=stockEditInspectionSourceList();
   return `<div class="rpt stock-edit-page">
-    <div class="pagehead"><div><h1>แก้ไขสต๊อก</h1><div class="sub">เลือกหน่วยและกรอกจำนวนใหม่ จากนั้นกด “ยืนยันแก้ไขรายการ” เพื่อบันทึกสต๊อกพร้อมกัน</div></div>${rows.length?`<div class="stock-edit-page-actions"><button class="btn ghost" id="clearStockEditBtn">ล้างรายการ</button><button class="btn primary" id="confirmStockEditBtn" ${pendingChanges.length?'':'disabled'}>ยืนยันแก้ไขรายการ</button></div>`:''}</div>
+    <div class="pagehead"><div><h1>แก้ไขสต๊อก</h1><div class="sub">เลือกหน่วยและกรอกจำนวนใหม่ จากนั้นกด “ยืนยันแก้ไขรายการ” เพื่อบันทึกสต๊อกพร้อมกัน</div></div><div class="stock-edit-page-actions"><button class="btn ghost" id="importInspectionListBtn">ดึงข้อมูลจากรายการตรวจสินค้า</button>${rows.length?`<button class="btn ghost" id="clearStockEditBtn">ล้างรายการ</button><button class="btn primary" id="confirmStockEditBtn" ${(pendingChanges.length||stockEditSourcePending)?'':'disabled'}>ยืนยันแก้ไขรายการ</button>`:''}</div></div>
     <div class="stock-edit-section">
       <div class="rpt-filters" style="margin-bottom:14px;">
         <div class="rpf-item"><select id="stockEditCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${filter.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></div>
         <div class="rpf-item"><select id="stockEditBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(b=>`<option value="${escapeHtml(b)}" ${filter.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select></div>
         <button class="btn ghost" id="stockEditAddByCategoryBtn" ${(filter.category||filter.brand)?'':'disabled'}>เลือกสินค้าในหมวดนี้${(filter.category||filter.brand)?` (${matchCount})`:''}</button>
       </div>
+      ${sourceList?`<div class="stock-edit-source-note"><span>ดึงข้อมูลจาก <strong>${escapeHtml(sourceList.name)}</strong> · ${(sourceList.items||[]).length} สินค้า</span><span class="stock-edit-source-status ${stockEditSourcePending?'pending':'done'}">${stockEditSourcePending?'รอยืนยันการแก้ไข':'แก้จำนวนเรียบร้อย'}</span></div>`:''}
       <div style="position:relative;margin-bottom:14px;">
         <input id="stockEditInput" value="${escapeHtml(stockEditSearchQuery)}" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." style="width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;" autocomplete="off">
         <div id="stockEditResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div>
@@ -5967,12 +6022,14 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const stockEditResults=document.getElementById('stockEditResults');
   const confirmStockEditBtn=document.getElementById('confirmStockEditBtn');
   const clearStockEditBtn=document.getElementById('clearStockEditBtn');
+  const importInspectionListBtn=document.getElementById('importInspectionListBtn');
+  if(importInspectionListBtn) importInspectionListBtn.addEventListener('click',openStockEditInspectionListPicker);
   if(stockEditCategorySelect) stockEditCategorySelect.addEventListener('change',()=>{ stockEditCatFilter.category=stockEditCategorySelect.value; stockEditCatFilter.brand=''; render(); });
   if(stockEditBrandSelect) stockEditBrandSelect.addEventListener('change',()=>{ stockEditCatFilter.brand=stockEditBrandSelect.value; render(); });
   if(stockEditAddByCategoryBtn) stockEditAddByCategoryBtn.addEventListener('click',()=>openStockEditCategoryPicker(stockEditCatFilter));
   if(clearStockEditBtn) clearStockEditBtn.addEventListener('click',()=>{
     if(!confirm('ต้องการล้างรายการสินค้าในหน้าแก้ไขสต๊อกใช่หรือไม่?')) return;
-    stockEditItems=[]; stockEditRowUnitSel={}; stockEditDraftStocks={}; stockEditSearchQuery=''; stockEditCatFilter={category:'',brand:''}; stockEditPage=1; render();
+    stockEditItems=[]; stockEditRowUnitSel={}; stockEditDraftStocks={}; stockEditSearchQuery=''; stockEditCatFilter={category:'',brand:''}; stockEditPage=1; stockEditSourceInspectionListId=null; stockEditSourcePending=false; render();
   });
   if(stockEditInput&&stockEditResults){
     const addProduct=p=>{
@@ -6014,7 +6071,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     });
   }
   document.querySelectorAll('[data-stock-edit-unit]').forEach(select=>select.addEventListener('change',()=>{ stockEditRowUnitSel[Number(select.dataset.stockEditUnit)]=select.value; render(); }));
-  const refreshStockEditConfirmButton=()=>{ if(confirmStockEditBtn) confirmStockEditBtn.disabled=stockEditPendingChanges().length===0; };
+  const refreshStockEditConfirmButton=()=>{ if(confirmStockEditBtn) confirmStockEditBtn.disabled=stockEditPendingChanges().length===0&&!stockEditSourcePending; };
   document.querySelectorAll('[data-stock-edit-amount]').forEach(input=>{
     input.addEventListener('focus',()=>input.select());
     input.addEventListener('keydown',event=>{
@@ -6040,6 +6097,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       const newStock=stockBaseFromUnitAmount(amount,input.dataset.factor);
       if(newStock===Number(p.stock)) delete stockEditDraftStocks[p.id];
       else stockEditDraftStocks[p.id]=newStock;
+      if(stockEditSourceInspectionListId&&newStock!==Number(p.stock)) stockEditSourcePending=true;
       input.classList.remove('stock-edit-invalid');
       input.classList.toggle('stock-edit-pending',newStock!==Number(p.stock));
       input.classList.toggle('stock-negative',newStock<0);
@@ -6048,14 +6106,16 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   if(confirmStockEditBtn) confirmStockEditBtn.addEventListener('click',()=>{
     const changes=stockEditPendingChanges();
-    if(!changes.length) return;
+    const completedInspectionList=stockEditMarkInspectionComplete();
+    if(!changes.length&&!completedInspectionList) return;
     changes.forEach(({product,newStock})=>{
       product.stock=newStock;
       setProductStockOnSupabase(product.id,newStock);
     });
     stockEditDraftStocks={};
     persistWorkspaceData();
-    showToast(`ยืนยันแก้ไขสต๊อกแล้ว ${changes.length} รายการ`);
+    if(completedInspectionList) syncInspectionListsToSupabase();
+    showToast(changes.length?`ยืนยันแก้ไขสต๊อกแล้ว ${changes.length} รายการ${completedInspectionList?' · แก้จำนวนเรียบร้อย':''}`:'บันทึกรายการตรวจสินค้าเป็น “แก้จำนวนเรียบร้อย” แล้ว');
     render();
   });
   document.querySelectorAll('[data-stock-edit-remove]').forEach(button=>button.addEventListener('click',()=>{
@@ -9051,6 +9111,30 @@ function openBarcodePrintCategoryPicker(filter,missingOnly=false){
     showToast(added?`เพิ่มสินค้า ${added} รายการแล้ว`:'ไม่ได้เลือกสินค้าเพิ่ม');
     render();
   };
+}
+
+function openStockEditInspectionListPicker(){
+  const lists=[...inspectionLists].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+  if(!lists.length){ showToast('ยังไม่มีรายการตรวจสินค้าที่บันทึกไว้'); return; }
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal" style="width:620px;max-height:82vh;display:flex;flex-direction:column;">
+    <div class="modal-head"><h3>ดึงข้อมูลจากรายการตรวจสินค้า</h3><button class="modal-close" aria-label="ปิด">×</button></div>
+    <div class="modal-sub">เลือกรายการที่บันทึกไว้เพื่อนำสินค้าและหน่วยเข้าหน้าแก้ไขสต๊อก</div>
+    <div class="stock-edit-import-list">${lists.map(list=>`<div class="stock-edit-import-row">
+      <div class="stock-edit-import-info"><div class="stock-edit-import-name">${escapeHtml(list.name)}</div><div class="stock-edit-import-meta">${(list.items||[]).length} สินค้า · แก้ไขล่าสุด ${escapeHtml(inspectionListDateTime(list.updatedAt))}</div></div>
+      ${list.stockAdjustedAt?'<span class="inspection-list-status">แก้จำนวนเรียบร้อย</span>':''}
+      <button class="btn primary small" data-import-inspection-list="${escapeHtml(list.id)}">ดึงรายการนี้</button>
+    </div>`).join('')}</div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);text-align:left;"><button class="btn ghost" id="stockEditImportCancelBtn">ยกเลิก</button></div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  overlay.querySelector('.modal-close').onclick=close;
+  overlay.querySelector('#stockEditImportCancelBtn').onclick=close;
+  overlay.querySelectorAll('[data-import-inspection-list]').forEach(button=>button.addEventListener('click',()=>{
+    if(stockEditImportInspectionList(button.dataset.importInspectionList)) close();
+  }));
 }
 
 function openStockEditCategoryPicker(filter){

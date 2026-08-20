@@ -55,11 +55,13 @@ vm.runInContext(html.slice(normalizeStart, normalizeEnd), context);
 vm.runInContext(html.slice(featureStart, featureEnd), context);
 
 const normalized = context.normalizeInspectionLists([
-  {id:'CHECK-0002',name:' ชุดทดสอบ ',items:[{pid:1,unit:'กล่อง'},{pid:1,unit:'ลัง'},{pid:'bad'}]},
+  {id:'CHECK-0002',name:' ชุดทดสอบ ',items:[{pid:1,unit:'กล่อง'},{pid:1,unit:'ลัง'},{pid:'bad'}],stockAdjustedAt:'2026-08-20T08:00:00.000Z',stockAdjustedBy:'เจ้าของร้าน'},
 ]);
 assert.equal(normalized.length, 1);
 assert.equal(normalized[0].name, 'ชุดทดสอบ');
 assert.deepEqual(Array.from(normalized[0].items, item => ({pid:item.pid,unit:item.unit})), [{pid:1,unit:'กล่อง'}]);
+assert.equal(normalized[0].stockAdjustedAt, '2026-08-20T08:00:00.000Z');
+assert.equal(normalized[0].stockAdjustedBy, 'เจ้าของร้าน');
 
 const options = context.inspectionListUnitOptions(products[0]);
 assert.equal(options.length, 2);
@@ -108,10 +110,13 @@ assert.deepEqual(Array.from(context.inspectionLists[0].items, item => ({pid:item
 assert.equal(persistCount, 1);
 assert.equal(syncCount, 1);
 assert.equal(renderCount, 1);
+assert.equal(context.inspectionLists[0].stockAdjustedAt, '');
 
+context.inspectionLists[0].stockAdjustedAt = '2026-08-20T09:00:00.000Z';
 const overviewHtml = context.renderInspectionListOverview();
 assert.match(overviewHtml, /รายการตรวจหน้าร้าน/);
 assert.match(overviewHtml, /data-open-inspection-list="CHECK-0001"/);
+assert.match(overviewHtml, /แก้จำนวนเรียบร้อย/);
 context.editingInspectionListId = 'CHECK-0001';
 context.inspectionListDraft = JSON.parse(JSON.stringify(context.inspectionLists[0]));
 const ownerEditorHtml = context.renderInspectionListEditor();
