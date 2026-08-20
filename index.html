@@ -11,7 +11,7 @@
 <title>ร้านยา POS v50</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/pwa-icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="/pwa-icon.svg">
+<link rel="apple-touch-icon" href="/pwa-icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -1107,6 +1107,11 @@
   .mobile-tools-brand h1{font-size:20px;margin:0;line-height:1.2;}
   .mobile-tools-brand span{display:block;color:var(--text-muted);font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .mobile-tools-logout{border:1px solid var(--border);background:#fff;color:var(--text-muted);border-radius:10px;padding:9px 12px;font:600 13px 'Sarabun',sans-serif;cursor:pointer;flex-shrink:0;}
+  .mobile-install-notice{display:flex;align-items:center;justify-content:space-between;gap:12px;background:#FFF8E8;border:1px solid #F1D38C;border-radius:14px;padding:12px 13px;margin-bottom:14px;}
+  .mobile-install-notice-text{min-width:0;}
+  .mobile-install-notice-text b{display:block;font-size:13.5px;color:#7E5510;margin-bottom:2px;}
+  .mobile-install-notice-text span{display:block;font-size:11.5px;color:#8B6B32;line-height:1.35;}
+  .mobile-install-btn{border:0;border-radius:10px;background:var(--primary);color:#fff;padding:10px 12px;font:600 13px 'Sarabun',sans-serif;cursor:pointer;white-space:nowrap;flex-shrink:0;}
   .mobile-tools-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#E9EEF3;border-radius:14px;padding:5px;margin-bottom:16px;position:sticky;top:0;z-index:7;}
   .mobile-tools-tab{min-height:50px;border:0;border-radius:10px;background:transparent;color:var(--text-muted);font:600 15px 'Sarabun',sans-serif;cursor:pointer;}
   .mobile-tools-tab.active{background:#fff;color:var(--primary);box-shadow:0 2px 8px #1D212914;}
@@ -1161,6 +1166,15 @@
   .mobile-camera-video{width:100%;height:100%;object-fit:cover;}
   .mobile-camera-guide{position:absolute;left:9%;right:9%;top:38%;height:24%;border:3px solid #60C5FA;border-radius:15px;box-shadow:0 0 0 999px #0005;}
   .mobile-camera-message{text-align:center;margin-top:12px;font-size:13px;color:#D9ECF8;}
+  .mobile-browser-help{position:fixed;inset:0;z-index:12500;background:#07131E99;display:flex;align-items:flex-end;justify-content:center;padding:14px;}
+  .mobile-browser-help-card{width:min(520px,100%);background:#fff;border-radius:20px;padding:20px;box-shadow:0 24px 70px #0005;}
+  .mobile-browser-help-card h3{font-size:19px;margin:0 0 8px;}
+  .mobile-browser-help-card p{font-size:13.5px;color:var(--text-muted);line-height:1.55;margin:0 0 12px;}
+  .mobile-browser-help-steps{margin:0 0 16px;padding-left:22px;color:var(--text);font-size:13.5px;line-height:1.65;}
+  .mobile-browser-help-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .mobile-browser-help-actions button{height:46px;border-radius:11px;font:600 14px 'Sarabun',sans-serif;cursor:pointer;}
+  .mobile-browser-help-close{border:1px solid var(--border);background:#fff;color:var(--text-muted);}
+  .mobile-open-chrome{border:0;background:var(--primary);color:#fff;}
   @media (max-width:960px){
     body.mobile-device-mode{overflow:hidden;background:#F2F6F9;}
     body.mobile-device-mode .app{display:block;height:100dvh;min-height:0;}
@@ -1176,6 +1190,8 @@
     .mobile-tools-logo{width:38px;height:38px;border-radius:11px;}
     .mobile-tools-logout{padding:8px 10px;font-size:12px;}
     .mobile-result-codes,.mobile-metrics{grid-template-columns:1fr;}
+    .mobile-install-notice{align-items:flex-start;flex-direction:column;}
+    .mobile-install-btn{width:100%;}
   }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -2024,6 +2040,7 @@ let mobileInspectionQuery = '';
 let mobileInspectionVisibleCount = 25;
 let mobileInspectionLastProductId = null;
 const mobileInspectionCheckedByList = {};
+let deferredPwaInstallPrompt = null;
 // รายการและตัวกรองของหน้าแก้ไขสต๊อก (แยกจากรายงานสินค้าคงเหลือโดยเด็ดขาด)
 let stockEditItems = [];
 let stockEditCatFilter = { category:'', brand:'' };
@@ -3971,6 +3988,35 @@ function renderInspectionLists(){ return editingInspectionListId===null?renderIn
 
 // ---------- โหมดมือถือ / เครื่องยิงบาร์โค้ดแบบมีจอ ----------
 function isMobileDeviceMode(){ return window.matchMedia('(max-width: 960px)').matches; }
+function isStandalonePwa(){ return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true; }
+function mobileInstallNoticeHtml(){
+  if(isStandalonePwa()) return '';
+  return `<div class="mobile-install-notice"><div class="mobile-install-notice-text"><b>เปิดแบบแอป เพื่อตัดแถบเบราว์เซอร์สีดำ</b><span>ติดตั้งผ่าน Chrome แล้วกล้องและ PWA จะทำงานได้ครบ</span></div><button type="button" class="mobile-install-btn" id="mobileInstallApp">${deferredPwaInstallPrompt?'ติดตั้งแอป':'เปิดใน Chrome'}</button></div>`;
+}
+function openMobileBrowserHelp(options={}){
+  document.querySelector('.mobile-browser-help')?.remove();
+  const android=/Android/i.test(navigator.userAgent||'');
+  const overlay=document.createElement('div');
+  overlay.className='mobile-browser-help';
+  overlay.innerHTML=`<div class="mobile-browser-help-card"><h3>${options.cameraBlocked?'กล้องถูกบล็อกโดยเบราว์เซอร์นี้':'ติดตั้ง PEPOS Mobile'}</h3><p>${options.cameraBlocked?'จากภาพเป็นการเปิดผ่านเบราว์เซอร์ภายในแอป ซึ่งมักไม่ส่งสิทธิ์กล้องให้เว็บไซต์':'ต้องเปิดหน้านี้ด้วย Chrome ก่อน จึงจะติดตั้ง PWA และเอาแถบเบราว์เซอร์บน–ล่างออกได้'}</p><ol class="mobile-browser-help-steps"><li>กด “เปิดใน Chrome” ด้านล่าง</li><li>ถ้ากล้องเคยถูกปฏิเสธ ให้กดรูปกุญแจข้างที่อยู่ แล้วอนุญาต Camera</li><li>ใน Chrome กดเมนู ⋮ แล้วเลือก “ติดตั้งแอป” หรือ “เพิ่มไปยังหน้าจอหลัก”</li></ol><div class="mobile-browser-help-actions"><button type="button" class="mobile-browser-help-close">ปิด</button><button type="button" class="mobile-open-chrome">${android?'เปิดใน Chrome':'เปิดในเบราว์เซอร์หลัก'}</button></div></div>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('.mobile-browser-help-close').addEventListener('click',()=>overlay.remove());
+  overlay.querySelector('.mobile-open-chrome').addEventListener('click',()=>{
+    if(android){
+      const target=`${location.host}${location.pathname}${location.search}${location.hash}`;
+      location.href=`intent://${target}#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=${encodeURIComponent(location.href)};end`;
+    }else window.open(location.href,'_blank','noopener');
+  });
+}
+async function requestMobilePwaInstall(){
+  if(!deferredPwaInstallPrompt){ openMobileBrowserHelp(); return false; }
+  deferredPwaInstallPrompt.prompt();
+  const choice=await deferredPwaInstallPrompt.userChoice;
+  deferredPwaInstallPrompt=null;
+  if(choice?.outcome==='accepted') showToast('กำลังติดตั้ง PEPOS Mobile');
+  render();
+  return choice?.outcome==='accepted';
+}
 function mobileProductMatches(product,query){
   const q=String(query||'').trim().toLowerCase();
   if(!q) return false;
@@ -4079,6 +4125,7 @@ function renderMobileTools(){
   const lists=[...inspectionLists].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
   return `<main class="mobile-tools-page">
     <header class="mobile-tools-head"><div class="mobile-tools-brand"><div class="mobile-tools-logo">Rx</div><div><h1>PEPOS Mobile</h1><span>${escapeHtml(user?.firstName||user?.username||'ผู้ใช้งาน')}</span></div></div><button type="button" class="mobile-tools-logout" id="mobileToolsLogout">ออกจากระบบ</button></header>
+    ${mobileInstallNoticeHtml()}
     <nav class="mobile-tools-tabs" aria-label="เมนูมือถือ"><button type="button" class="mobile-tools-tab ${mobileToolMode==='price'?'active':''}" data-mobile-tool="price">เช็คราคา</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='inspection'?'active':''}" data-mobile-tool="inspection">รายการตรวจสินค้า</button></nav>
     ${mobileToolMode==='price'?`<section class="mobile-tool-panel"><h2 class="mobile-tool-title">เช็คราคาสินค้า</h2><div class="mobile-tool-sub">ยิงบาร์โค้ด พิมพ์รหัส หรือใช้กล้องมือถือ โดยไม่เพิ่มสินค้าเข้าบิล</div><div class="mobile-scan-row"><input id="mobilePriceInput" class="mobile-scan-input" value="${escapeHtml(mobilePriceQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobilePriceCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-search-hint">เครื่องยิงบาร์โค้ดที่ส่ง Enter อัตโนมัติใช้งานได้ทันที</div><div id="mobilePriceResult">${mobilePriceResultHtml()}</div></section>`:`<section class="mobile-tool-panel"><h2 class="mobile-tool-title">รายการตรวจสินค้า</h2><div class="mobile-tool-sub">เลือกรายการ แล้วยิงสินค้าทีละชิ้นเพื่อดูจำนวนคงเหลือล่าสุด</div>${lists.length?`<select id="mobileInspectionList" class="mobile-inspection-select">${lists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(mobileInspectionCurrentList()?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})</option>`).join('')}</select><div class="mobile-scan-row"><input id="mobileInspectionInput" class="mobile-scan-input" value="${escapeHtml(mobileInspectionQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาในรายการ..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobileInspectionCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-search-hint">รายการที่ยิงพบจะมีเครื่องหมาย ✓ และเลื่อนขึ้นมาอยู่ด้านบน</div><div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div>`:'<div class="mobile-empty">ยังไม่มีรายการตรวจสินค้า กรุณาสร้างรายการจากคอมพิวเตอร์ก่อน</div>'}</section>`}
   </main>`;
@@ -4118,7 +4165,7 @@ function mobileHandleInspectionCode(code){
 }
 async function openMobileCameraScanner(onCode){
   if(!navigator.mediaDevices?.getUserMedia){ showToast('อุปกรณ์นี้ไม่รองรับการเปิดกล้อง กรุณาใช้เครื่องยิงหรือพิมพ์บาร์โค้ด','danger-top'); return; }
-  if(!('BarcodeDetector' in window)){ showToast('เบราว์เซอร์นี้ยังสแกนด้วยกล้องไม่ได้ กรุณาใช้ Chrome หรือเครื่องยิงบาร์โค้ด','danger-top'); return; }
+  if(!('BarcodeDetector' in window)){ showToast('เบราว์เซอร์นี้ยังสแกนด้วยกล้องไม่ได้ กรุณาเปิดใน Chrome','danger-top'); openMobileBrowserHelp({cameraBlocked:true}); return; }
   const overlay=document.createElement('div');
   overlay.className='mobile-camera-overlay';
   overlay.innerHTML=`<div class="mobile-camera-box"><div class="mobile-camera-head"><span>ส่องบาร์โค้ดให้อยู่ในกรอบ</span><button type="button" class="mobile-camera-close" aria-label="ปิดกล้อง">×</button></div><div class="mobile-camera-video-wrap"><video class="mobile-camera-video" autoplay muted playsinline></video><div class="mobile-camera-guide"></div></div><div class="mobile-camera-message">กำลังเปิดกล้อง...</div></div>`;
@@ -4154,7 +4201,9 @@ async function openMobileCameraScanner(onCode){
     requestAnimationFrame(scan);
   }catch(error){
     close();
-    showToast('เปิดกล้องไม่สำเร็จ กรุณาอนุญาตใช้กล้องหรือใช้เครื่องยิงบาร์โค้ด','danger-top');
+    console.warn('เปิดกล้องมือถือไม่สำเร็จ',error?.name||error,error?.message||'');
+    showToast('กล้องถูกบล็อก กรุณาเปิดหน้านี้ใน Chrome และอนุญาต Camera','danger-top');
+    openMobileBrowserHelp({cameraBlocked:true,errorName:error?.name||''});
   }
 }
 function openInspectionListEditor(id='new',shouldRender=true){
@@ -5915,6 +5964,7 @@ function render(){
   if(!renderLoginState()) return;
   const mobileMode=isMobileDeviceMode();
   document.body.classList.toggle('mobile-device-mode',mobileMode);
+  document.title=mobileMode?'PEPOS Mobile':'ร้านยา POS v50';
   if(mobileMode) currentTab='mobiletools';
   else if(currentTab==='mobiletools') currentTab='dashboard';
   if(!canAccessTab(currentTab)){
@@ -5959,6 +6009,7 @@ function checkNegativeStockToast(pid){
 }
 function attachEvents(){
   document.getElementById('mobileToolsLogout')?.addEventListener('click',logoutSystem);
+  document.getElementById('mobileInstallApp')?.addEventListener('click',requestMobilePwaInstall);
   document.querySelectorAll('[data-mobile-tool]').forEach(button=>button.addEventListener('click',()=>{
     mobileToolMode=button.dataset.mobileTool;
     mobilePriceQuery=''; mobilePriceProductId=null;
@@ -9914,6 +9965,17 @@ window.addEventListener('resize',()=>{
     const mobileMode=isMobileDeviceMode();
     if(mobileMode!==document.body.classList.contains('mobile-device-mode')) render();
   },180);
+});
+
+window.addEventListener('beforeinstallprompt',event=>{
+  event.preventDefault();
+  deferredPwaInstallPrompt=event;
+  if(currentTab==='mobiletools'&&loggedInUser()) render();
+});
+window.addEventListener('appinstalled',()=>{
+  deferredPwaInstallPrompt=null;
+  showToast('ติดตั้ง PEPOS Mobile เรียบร้อยแล้ว');
+  if(currentTab==='mobiletools'&&loggedInUser()) render();
 });
 
 if('serviceWorker' in navigator){

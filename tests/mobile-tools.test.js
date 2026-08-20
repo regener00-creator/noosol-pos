@@ -19,13 +19,22 @@ assert.match(html, /findProductByExactCode\(query\)/);
 assert.match(html, /mobileInspectionCheckedSet\(list\.id\)\.add/);
 assert.match(html, /<link rel="manifest" href="\/manifest\.webmanifest">/);
 assert.match(html, /navigator\.serviceWorker\.register\('\/sw\.js'\)/);
+assert.match(html, /beforeinstallprompt/);
+assert.match(html, /id="mobileInstallApp"/);
+assert.match(html, /intent:\/\/\$\{target\}#Intent;scheme=https;package=com\.android\.chrome/);
+assert.match(html, /openMobileBrowserHelp\(\{cameraBlocked:true/);
 
 assert.equal(manifest.display, 'standalone');
 assert.equal(manifest.start_url, '/');
 assert.ok(manifest.icons.some(icon => icon.src === '/pwa-icon.svg'));
+assert.ok(manifest.icons.some(icon => icon.src === '/pwa-icon-192.png' && icon.sizes === '192x192'));
+assert.ok(manifest.icons.some(icon => icon.src === '/pwa-icon-512.png' && icon.sizes === '512x512'));
 assert.match(serviceWorker, /request\.mode==='navigate'/);
 assert.match(serviceWorker, /fetch\(request\)/);
 assert.match(serviceWorker, /caches\.match\('\/index\.html'\)/);
+assert.match(serviceWorker, /pepos-mobile-v2/);
+assert.ok(fs.statSync(path.join(root, 'pwa-icon-192.png')).size > 1000);
+assert.ok(fs.statSync(path.join(root, 'pwa-icon-512.png')).size > 3000);
 
 const functionStart = html.indexOf('function mobileProductMatches(');
 const functionEnd = html.indexOf('function mobilePriceMatches(', functionStart);
