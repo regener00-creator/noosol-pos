@@ -215,9 +215,9 @@
   .tree-pane{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
   .prodsplit>.tree-pane{margin-top:0;border:none;box-shadow:none;}
   .tree-head{background:#2091D2;border-bottom:1px solid #2091D2;padding:11px 14px;font-size:13px;font-weight:600;color:#fff;text-align:center;}
-  .product-pagehead{justify-content:space-between;align-items:center;gap:12px;}
-  .product-pagehead .product-head-search{flex:1;max-width:none;}
-  .product-pagehead .product-head-search input{width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13.5px;background:var(--surface);}
+  .product-pagehead{justify-content:flex-end;align-items:center;gap:12px;}
+  .product-list-search{max-width:none;width:100%;}
+  .product-list-search input{width:100%;padding:11px 13px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:14px;background:var(--surface);}
   .tree-body{padding:8px;max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;}
   .tree-cat-row{display:flex;align-items:flex-start;gap:6px;}
   .tree-cat-row>.tree-item.cat{width:230px;flex-shrink:0;}
@@ -3208,12 +3208,13 @@ function renderProducts(){
   let pager = pagerHtml(productPage, totalPages, 'page');
 
   return `
-    <div class="pagehead product-pagehead"><div class="searchbar product-head-search"><input id="search" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" value="${searchQuery}"></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportProductsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadProductTemplateBtn">ดาวน์โหลดไฟล์ตัวอย่าง</button><button class="btn ghost" id="importProductsBtn">นำเข้า Excel</button><input id="productImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newProductBtn">+ เพิ่มสินค้า</button></div></div>
+    <div class="pagehead product-pagehead"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportProductsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadProductTemplateBtn">ดาวน์โหลดไฟล์ตัวอย่าง</button><button class="btn ghost" id="importProductsBtn">นำเข้า Excel</button><input id="productImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newProductBtn">+ เพิ่มสินค้า</button></div></div>
     <div class="prodsplit">
       <div class="tree-pane">
         <div class="tree-head">กลุ่มสินค้า</div>
         <div class="tree-body">${treeHtml}</div>
       </div>
+      <div class="searchbar product-list-search"><input id="search" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" value="${searchQuery}"></div>
       <div class="table-pane">
         <div class="table-scroll product-table-scroll">
         <table class="grid-table doc-head-blue prodtable"><colgroup><col class="col-sku"><col class="col-barcode"><col class="col-name"><col class="col-price">${canViewCost?'<col class="col-cost">':''}<col class="col-unit"><col class="col-stock"><col class="col-expiry">${canOpenProductEditor?'<col class="col-edit">':''}</colgroup><thead><tr>${th('sku','รหัสสินค้า')}<th>บาร์โค้ด</th>${th('name','สินค้า')}${th('price','ขาย','mono num')}${canViewCost?th('cost','ทุน','mono num'):''}<th>หน่วย</th>${th('stock','คงเหลือ','mono num')}${th('expiry','วันหมดอายุ','num')}${canOpenProductEditor?'<th></th>':''}</tr></thead>
