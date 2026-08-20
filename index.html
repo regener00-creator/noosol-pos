@@ -1802,6 +1802,8 @@ let stockEditCatFilter = { category:'', brand:'' };
 let stockEditSearchQuery = '';
 let stockEditRowUnitSel = {};
 let stockEditDraftStocks = {};
+let stockEditPage = 1;
+const STOCK_EDIT_PAGE_SIZE = 7;
 // เลขหน้าสำหรับตารางเอกสารต่างๆ (แสดงหน้าละ 20 รายการ)
 let docListPage = { po:1, po2:1, ret:1, gr:1, taxinvoice:1, quotation:1 };
 const DOC_LIST_PAGE_SIZE = 20;
@@ -3557,8 +3559,14 @@ function stockEditPendingChanges(productList=products,draftStocks=stockEditDraft
   }).filter(Boolean);
 }
 
-function stockEditRowsHtml(){
-  const rows=stockEditCurrentProducts();
+function stockEditPagination(rowList=stockEditCurrentProducts(),page=stockEditPage,pageSize=STOCK_EDIT_PAGE_SIZE){
+  const totalPages=Math.max(1,Math.ceil(rowList.length/pageSize));
+  const currentPage=Math.min(Math.max(1,Number(page)||1),totalPages);
+  const start=(currentPage-1)*pageSize;
+  return {rows:rowList.slice(start,start+pageSize),currentPage,totalPages};
+}
+
+function stockEditRowsHtml(rows=stockEditCurrentProducts()){
   if(!rows.length) return '<tr><td colspan="6" class="stock-edit-empty">ยังไม่มีรายการ — ค้นหา/สแกนบาร์โค้ด หรือเลือกสินค้าในหมวดด้านบนเพื่อเพิ่ม</td></tr>';
   return rows.map(p=>{
     const unitOptions=[{name:p.unit,barcode:p.barcode||'',factor:1},...(p.units||[]).filter(u=>u.sub&&Number(u.factor)>0).map(u=>({name:u.sub,barcode:u.barcode||'',factor:Number(u.factor)}))];
@@ -3588,9 +3596,11 @@ function renderStockEdit(){
     : brands.slice();
   const matchCount=products.filter(p=>(!filter.category||p.category===filter.category)&&(!filter.brand||p.brand===filter.brand)&&(filter.category||filter.brand)).length;
   const rows=stockEditCurrentProducts();
+  const pagination=stockEditPagination(rows);
+  stockEditPage=pagination.currentPage;
   const pendingChanges=stockEditPendingChanges();
   return `<div class="rpt stock-edit-page">
-    <div class="pagehead"><div><h1>แก้ไขสต๊อก</h1><div class="sub">เลือกหน่วยและกรอกจำนวนใหม่ จากนั้นกด “ยืนยันแก้ไขรายการ” เพื่อบันทึกสต๊อกพร้อมกัน</div></div>${rows.length?`<div class="stock-edit-page-actions"><button class="btn primary" id="confirmStockEditBtn" ${pendingChanges.length?'':'disabled'}>ยืนยันแก้ไขรายการ</button><button class="btn ghost" id="clearStockEditBtn">ล้างรายการ</button></div>`:''}</div>
+    <div class="pagehead"><div><h1>แก้ไขสต๊อก</h1><div class="sub">เลือกหน่วยและกรอกจำนวนใหม่ จากนั้นกด “ยืนยันแก้ไขรายการ” เพื่อบันทึกสต๊อกพร้อมกัน</div></div>${rows.length?`<div class="stock-edit-page-actions"><button class="btn ghost" id="clearStockEditBtn">ล้างรายการ</button><button class="btn primary" id="confirmStockEditBtn" ${pendingChanges.length?'':'disabled'}>ยืนยันแก้ไขรายการ</button></div>`:''}</div>
     <div class="stock-edit-section">
       <div class="rpt-filters" style="margin-bottom:14px;">
         <div class="rpf-item"><select id="stockEditCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${filter.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></div>
@@ -3604,9 +3614,10 @@ function renderStockEdit(){
       <div class="stock-edit-table-wrap seamless-table-wrap">
         <table class="grid-table doc-head-blue stock-edit-table"><colgroup><col class="stock-edit-col-sku"><col class="stock-edit-col-barcode"><col class="stock-edit-col-name"><col class="stock-edit-col-unit"><col class="stock-edit-col-stock"><col class="stock-edit-col-action"></colgroup>
           <thead><tr><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>สินค้า</th><th>หน่วย</th><th>คงเหลือ</th><th aria-label="จัดการ"></th></tr></thead>
-          <tbody id="stockEditTbody">${stockEditRowsHtml()}</tbody>
+          <tbody id="stockEditTbody">${stockEditRowsHtml(pagination.rows)}</tbody>
         </table>
       </div>
+      ${pagerHtml(stockEditPage,pagination.totalPages,'stock-edit-page')}
     </div>
   </div>`;
 }
@@ -5243,12 +5254,12 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(stockEditAddByCategoryBtn) stockEditAddByCategoryBtn.addEventListener('click',()=>openStockEditCategoryPicker(stockEditCatFilter));
   if(clearStockEditBtn) clearStockEditBtn.addEventListener('click',()=>{
     if(!confirm('ต้องการล้างรายการสินค้าในหน้าแก้ไขสต๊อกใช่หรือไม่?')) return;
-    stockEditItems=[]; stockEditRowUnitSel={}; stockEditDraftStocks={}; stockEditSearchQuery=''; stockEditCatFilter={category:'',brand:''}; render();
+    stockEditItems=[]; stockEditRowUnitSel={}; stockEditDraftStocks={}; stockEditSearchQuery=''; stockEditCatFilter={category:'',brand:''}; stockEditPage=1; render();
   });
   if(stockEditInput&&stockEditResults){
     const addProduct=p=>{
       if(stockEditItems.includes(p.id)){ showToast('สินค้านี้อยู่ในรายการแล้ว'); }
-      else stockEditItems.unshift(p.id);
+      else { stockEditItems.unshift(p.id); stockEditPage=1; }
       stockEditSearchQuery='';
       render();
       setTimeout(()=>document.getElementById('stockEditInput')?.focus(),0);
@@ -5334,6 +5345,14 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     stockEditItems=stockEditItems.filter(itemId=>itemId!==id);
     delete stockEditRowUnitSel[id];
     delete stockEditDraftStocks[id];
+    render();
+  }));
+  document.querySelectorAll('[data-stock-edit-page]').forEach(button=>button.addEventListener('click',()=>{
+    const value=button.dataset.stockEditPage;
+    const totalPages=Math.max(1,Math.ceil(stockEditCurrentProducts().length/STOCK_EDIT_PAGE_SIZE));
+    if(value==='prev') stockEditPage=Math.max(1,stockEditPage-1);
+    else if(value==='next') stockEditPage=Math.min(totalPages,stockEditPage+1);
+    else stockEditPage=Math.min(totalPages,Math.max(1,Number(value)||1));
     render();
   }));
   const histBtn = document.getElementById('histBtn');
@@ -8274,6 +8293,7 @@ function openStockEditCategoryPicker(filter){
     const chosen=checkboxes().filter(cb=>cb.checked).map(cb=>Number(cb.dataset.pid));
     let added=0;
     chosen.forEach(id=>{ if(!stockEditItems.includes(id)){ stockEditItems.push(id); added++; } });
+    if(added) stockEditPage=1;
     close();
     showToast(added?`เพิ่มสินค้า ${added} รายการแล้ว`:'ไม่ได้เลือกสินค้าเพิ่ม');
     render();

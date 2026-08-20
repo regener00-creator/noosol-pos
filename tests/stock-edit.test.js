@@ -59,18 +59,23 @@ const baseStock = context.stockBaseFromUnitAmount(1.25, 48);
 assert.equal(baseStock, 60);
 assert.equal(context.stockUnitAmountFromBase(baseStock, 48), 1.25);
 
-Object.assign(context, {
-  products: [
+const testProducts = [
     { id: 1, sku: 'P-001', barcode: '8850001', name: 'ยาทดสอบ', category: 'ยา', brand: 'ทั่วไป', unit: 'แผง', stock: 120, units: [{ sub: 'กล่อง', barcode: 'BOX-001', factor: 10 }] },
     { id: 2, sku: 'V-002', barcode: '8850002', name: 'วิตามินซี', category: 'วิตามิน', brand: 'แบรนด์เอ', unit: 'ขวด', stock: 5, units: [] },
-  ],
+];
+for (let id = 3; id <= 8; id++) testProducts.push({ id, sku: `P-00${id}`, barcode: `885000${id}`, name: `สินค้าทดสอบ ${id}`, category: 'ยา', brand: 'ทั่วไป', unit: 'กล่อง', stock: id, units: [] });
+
+Object.assign(context, {
+  products: testProducts,
   categories: ['ยา', 'วิตามิน'],
   brands: ['ทั่วไป', 'แบรนด์เอ'],
-  stockEditItems: [1],
+  stockEditItems: testProducts.map(product => product.id),
   stockEditCatFilter: { category: 'ยา', brand: '' },
   stockEditSearchQuery: '',
   stockEditRowUnitSel: { 1: 'กล่อง' },
   stockEditDraftStocks: { 1: 60 },
+  stockEditPage: 1,
+  STOCK_EDIT_PAGE_SIZE: 7,
   escapeHtml: value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
   matchesBarcode: (product, query) => product.barcode === query || (product.units || []).some(unit => unit.barcode === query),
   stockInLargestUnit: product => `${product.stock} ${product.unit}`,
@@ -78,7 +83,9 @@ Object.assign(context, {
 
 loadFunctionBlock('stockEditCurrentProducts', 'stockEditMatchesQuery');
 loadFunctionBlock('stockEditMatchesQuery', 'stockEditPendingChanges');
-loadFunctionBlock('stockEditPendingChanges', 'stockEditRowsHtml');
+loadFunctionBlock('pagerHtml', 'isSupplierStyleDoc');
+loadFunctionBlock('stockEditPendingChanges', 'stockEditPagination');
+loadFunctionBlock('stockEditPagination', 'stockEditRowsHtml');
 loadFunctionBlock('stockEditRowsHtml', 'renderStockEdit');
 loadFunctionBlock('renderStockEdit', 'renderTransferForm');
 
@@ -89,6 +96,11 @@ assert.equal(context.stockEditMatchesQuery(context.products[0], 'ไม่พบ
 assert.equal(context.stockEditPendingChanges(context.products, { 1: 60 }).length, 1);
 assert.equal(context.stockEditPendingChanges(context.products, { 1: 120 }).length, 0);
 assert.equal(context.stockEditPendingChanges(context.products, { 999: 10 }).length, 0);
+const secondPage = context.stockEditPagination(context.products, 2, 7);
+assert.equal(secondPage.currentPage, 2);
+assert.equal(secondPage.totalPages, 2);
+assert.deepEqual(Array.from(secondPage.rows, product => product.id), [8]);
+assert.equal(context.stockEditPagination(context.products, 99, 7).currentPage, 2);
 
 const rendered = context.renderStockEdit();
 assert.match(rendered, /<h1>แก้ไขสต๊อก<\/h1>/);
@@ -98,6 +110,9 @@ assert.match(rendered, /id="stockEditAddByCategoryBtn"/);
 assert.match(rendered, /id="stockEditInput"/);
 assert.match(rendered, /<th>รหัสสินค้า<\/th><th>บาร์โค้ด<\/th><th>สินค้า<\/th><th>หน่วย<\/th><th>คงเหลือ<\/th><th aria-label="จัดการ"><\/th>/);
 assert.match(rendered, /id="confirmStockEditBtn"/);
+assert.ok(rendered.indexOf('id="clearStockEditBtn"') < rendered.indexOf('id="confirmStockEditBtn"'), 'ปุ่มยืนยันต้องอยู่หลังปุ่มล้างรายการ');
+assert.match(rendered, /data-stock-edit-page="2"/);
+assert.doesNotMatch(rendered, /สินค้าทดสอบ 8/);
 assert.doesNotMatch(rendered, /id="stockEditSelectAll"/);
 assert.doesNotMatch(rendered, /data-stock-edit-check=/);
 assert.match(rendered, /P-001/);
@@ -110,5 +125,10 @@ assert.match(rendered, /value="6"/);
 assert.match(rendered, /stock-edit-pending/);
 assert.match(rendered, /data-stock-edit-remove="1"/);
 assert.doesNotMatch(rendered, /data-stock-edit-open=/);
+
+context.stockEditPage = 2;
+const secondPageRendered = context.renderStockEdit();
+assert.match(secondPageRendered, /สินค้าทดสอบ 8/);
+assert.match(secondPageRendered, /class="pagebtn active" data-stock-edit-page="2"/);
 
 console.log('stock-edit tests passed');
