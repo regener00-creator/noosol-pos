@@ -33,6 +33,10 @@ assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:true}, 'รั�
 assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:true}, 'รอรับสินค้า').stockDirection, -1);
 assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:true}, 'ชำระเรียบร้อย').stockDirection, 0);
 assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:false}, 'ชำระเรียบร้อย').allowed, false);
+assert.equal(context.documentDeletionStockDirection('gr', {stockApplied:false}), 0);
+assert.equal(context.documentDeletionStockDirection('gr', {stockApplied:true,status:'รับสินค้าแล้ว'}), 0);
+assert.equal(context.documentDeletionStockDirection('gr', {stockApplied:true,status:'ชำระเรียบร้อย'}), 0);
+assert.equal(context.documentDeletionStockDirection('ret', {stockApplied:true}), 1);
 
 let stockDirection = 0;
 let renderCount = 0;
@@ -73,5 +77,13 @@ assert.match(html, /<option value="ชำระเรียบร้อย"/);
 assert.match(html, /kind==='gr'\?\{stockApplied:old\?\.stockApplied===true/);
 assert.doesNotMatch(html, /if\(kind==='gr'\)\{ grCounter\+\+; adjustGoodsReceiptStock\(savedItems,1\); \}/);
 assert.match(html, /copy\.status='รอรับสินค้า';[\s\S]{0,100}copy\.stockApplied=false/);
+const bulkDeleteStart = html.indexOf('function deleteSelectedDocuments(');
+const bulkDeleteEnd = html.indexOf('function printSelectedDocuments(', bulkDeleteStart);
+const singleDeleteStart = html.indexOf("if(action==='delete')", html.indexOf('function handleDocumentAction('));
+const singleDeleteEnd = html.indexOf('function setupA4DocumentPreview(', singleDeleteStart);
+assert.doesNotMatch(html.slice(bulkDeleteStart, bulkDeleteEnd), /kind==='gr'[\s\S]{0,100}adjustGoodsReceiptStock/);
+assert.doesNotMatch(html.slice(singleDeleteStart, singleDeleteEnd), /kind==='gr'[\s\S]{0,100}adjustGoodsReceiptStock/);
+assert.doesNotMatch(html.slice(bulkDeleteStart, bulkDeleteEnd), /สต๊อกที่รับเข้าจากรายการเหล่านี้จะถูกนำออกด้วย/);
+assert.doesNotMatch(html.slice(singleDeleteStart, singleDeleteEnd), /สต๊อกที่รับเข้าจากเอกสารนี้จะถูกนำออกด้วย/);
 
 console.log('goods receipt status tests passed');
