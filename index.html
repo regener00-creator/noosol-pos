@@ -422,13 +422,16 @@
   .stock-edit-remove-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
   .stock-edit-empty{padding:30px!important;text-align:center!important;color:var(--text-muted);}
   /* หน้าพิมพ์บาร์โค้ดเอง: scoped เพื่อไม่กระทบตารางและช่องกรอกหน้าอื่น */
-  .barcode-print-page{min-width:0;}
+  .main.barcode-print-main{overflow-y:hidden;}
+  .barcode-print-page{height:100%;min-height:0;min-width:0;display:flex;flex-direction:column;}
+  .barcode-print-page .pagehead{flex:0 0 auto;margin-bottom:10px;}
   .barcode-print-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-  .barcode-print-help{margin:0 0 14px;padding:11px 13px;border:1px solid #B9DDF0;border-radius:9px;background:#F1F8FD;color:#315D74;font-size:13px;}
-  .barcode-print-search-wrap{position:relative;margin-bottom:14px;}
+  .barcode-print-help{flex:0 0 auto;margin:0 0 10px;padding:8px 11px;border:1px solid #B9DDF0;border-radius:9px;background:#F1F8FD;color:#315D74;font-size:13px;}
+  .barcode-print-page .rpt-filters{flex:0 0 auto;margin-bottom:10px;}
+  .barcode-print-search-wrap{position:relative;flex:0 0 auto;margin-bottom:10px;}
   .barcode-print-search{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit;font-size:14px;}
   .barcode-print-search:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,153,209,.12);}
-  .barcode-print-table-wrap{max-height:calc(100vh - 330px);min-height:300px;overflow:auto;border-radius:var(--radius);}
+  .barcode-print-table-wrap{flex:1;min-height:0;max-height:none;overflow-x:auto;overflow-y:hidden;border-radius:var(--radius);}
   .barcode-print-table{table-layout:fixed;min-width:980px;width:100%;}
   .barcode-print-table thead th{position:sticky;top:0;z-index:3;}
   .barcode-print-table .barcode-print-col-sku{width:120px;}
@@ -438,7 +441,8 @@
   .barcode-print-table .barcode-print-col-price{width:130px;}
   .barcode-print-table .barcode-print-col-qty{width:120px;}
   .barcode-print-table .barcode-print-col-action{width:64px;}
-  .barcode-print-table td{vertical-align:middle;}
+  .barcode-print-table th{padding-top:8px;padding-bottom:8px;}
+  .barcode-print-table td{padding-top:6px;padding-bottom:6px;vertical-align:middle;}
   .barcode-print-unit-select,.barcode-print-code-input,.barcode-print-qty-input{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;}
   .barcode-print-unit-select{max-width:125px;text-align:center;cursor:pointer;}
   .barcode-print-code-input{font-family:monospace;text-align:center;letter-spacing:.3px;}
@@ -450,7 +454,8 @@
   .barcode-print-remove{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--danger);cursor:pointer;}
   .barcode-print-remove:hover{border-color:#F1B8B3;background:#FFF6F5;}
   .barcode-print-remove svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
-  @media (max-width:960px){.barcode-print-table-wrap{max-height:none;min-height:260px}.barcode-print-actions{width:100%}.barcode-print-actions .btn{flex:1}.barcode-print-page .rpt-filters{align-items:stretch}.barcode-print-page .rpf-item,.barcode-print-page .rpt-select{width:100%}}
+  .barcode-print-page .pager{flex:0 0 auto;margin-top:10px;}
+  @media (max-width:960px){.main.barcode-print-main{overflow-y:auto}.barcode-print-page{height:auto}.barcode-print-table-wrap{max-height:none;min-height:260px;overflow:auto}.barcode-print-actions{width:100%}.barcode-print-actions .btn{flex:1}.barcode-print-page .rpt-filters{align-items:stretch}.barcode-print-page .rpf-item,.barcode-print-page .rpt-select{width:100%}}
   .lowstock-section .lowstock-table-scroll{height:calc(100vh - 315px);min-height:320px;overflow-x:auto!important;overflow-y:scroll!important;border-radius:var(--radius);scrollbar-width:auto;scrollbar-color:#8B9298 #EEF1F4;scroll-behavior:auto;overscroll-behavior:contain;contain:layout paint;touch-action:pan-y;}
   .lowstock-table-scroll::-webkit-scrollbar{width:12px;height:12px;}
   .lowstock-table-scroll::-webkit-scrollbar-track{background:#EEF1F4;border-radius:8px;}
@@ -5316,6 +5321,7 @@ function render(){
   if(topbarFormActionsSlot) topbarFormActionsSlot.innerHTML='';
   const mainElement=document.getElementById('main');
   mainElement.classList.toggle('product-list-main',currentTab==='products'&&editingProductId===null);
+  mainElement.classList.toggle('barcode-print-main',currentTab==='barcodeprint');
   mainElement.innerHTML = (RENDERERS[currentTab]||renderDashboard)();
   attachEvents();
   syncTopbarFormActions();

@@ -84,6 +84,9 @@ assert.match(html, /id="savePrintBarcodeBtn"/);
 assert.match(html, /id="barcodePrintAddMissingBtn"/);
 assert.match(html, /data-barcode-print-page/);
 assert.match(html, /BARCODE_PRINT_PAGE_SIZE = 7/);
+assert.match(html, /\.main\.barcode-print-main\{overflow-y:hidden;\}/);
+assert.match(html, /\.barcode-print-table-wrap\{[^}]*flex:1;[^}]*overflow-y:hidden;/);
+assert.match(html, /classList\.toggle\('barcode-print-main',currentTab==='barcodeprint'\)/);
 assert.match(html, /@page\{size:\$\{width\}mm \$\{height\}mm;margin:0\}/);
 
 console.log('barcode print tests passed');
