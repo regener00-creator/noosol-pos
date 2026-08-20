@@ -218,7 +218,10 @@
   .product-pagehead{justify-content:space-between;align-items:center;gap:12px;}
   .product-pagehead .product-head-search{flex:1;max-width:none;}
   .product-pagehead .product-head-search input{width:100%;padding:9px 12px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:13.5px;background:var(--surface);}
-  .tree-body{padding:8px;max-height:320px;overflow-y:auto;display:flex;flex-direction:column;align-items:stretch;gap:2px;width:240px;}
+  .tree-body{padding:8px;max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;}
+  .tree-cat-row{display:flex;align-items:flex-start;gap:6px;}
+  .tree-cat-row>.tree-item.cat{width:230px;flex-shrink:0;}
+  .tree-brand-flyout{display:flex;flex-wrap:wrap;align-content:flex-start;gap:4px;flex:1;min-width:0;padding-top:2px;}
   .tree-item{display:flex;align-items:center;gap:7px;padding:8px 9px;border-radius:8px;cursor:pointer;font-size:13.5px;user-select:none;color:var(--text);transition:background .12s;}
   .tree-item.cat{font-weight:600;}
   .tree-item:hover{background:var(--bg);}
@@ -243,12 +246,6 @@
   .tree-caret.exp{transform:rotate(90deg);}
   .tree-caret.spacer{cursor:default;}
   .tree-caret.spacer:hover{background:none;}
-  .prod-cat-popup{position:fixed;background:var(--surface);border:1px solid var(--border);border-radius:10px;box-shadow:0 12px 32px rgba(0,0,0,0.16);padding:10px;z-index:200;max-width:min(760px,calc(100vw - 40px));max-height:min(420px,calc(100vh - 40px));overflow-y:auto;display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;}
-  .prod-cat-popup-empty{color:var(--text-muted);font-size:13px;padding:10px;}
-  .prod-cat-popup-item{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;cursor:pointer;background:var(--bg);min-width:150px;max-width:220px;transition:background .12s,border-color .12s;}
-  .prod-cat-popup-item:hover{background:var(--primary-soft);border-color:var(--primary);}
-  .prod-cat-popup-item-name{font-size:12.5px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .prod-cat-popup-item-meta{font-size:11px;color:var(--text-muted);display:flex;justify-content:space-between;gap:8px;}
   .table-pane{min-width:0;}
   .table-pane>.toolbar .searchbar{max-width:none;width:100%;}
   .table-scroll{overflow-x:auto;}
@@ -3097,56 +3094,7 @@ function buildGroupTree(){
   return {tree, catCounts, brCounts};
 }
 
-// ปิด popup สินค้าย่อยของหมวดหมู่ (ถ้ามีเปิดอยู่) พร้อมเลิกผูก event ปิดอัตโนมัติที่แขวนไว้
-function closeProductCategoryPopup(){
-  const existing = document.querySelector('.prod-cat-popup');
-  if(existing) existing.remove();
-  document.removeEventListener('click', handleProductCategoryPopupOutsideClick, true);
-  document.removeEventListener('keydown', handleProductCategoryPopupEscape);
-}
-function handleProductCategoryPopupOutsideClick(e){
-  const popup = document.querySelector('.prod-cat-popup');
-  if(!popup) return;
-  if(popup.contains(e.target)) return;
-  if(e.target.closest && e.target.closest('.tree-item.cat')) return; // ปล่อยให้ click handler ของแถวหมวดจัดการเอง (toggle เปิด/ปิด)
-  closeProductCategoryPopup();
-}
-function handleProductCategoryPopupEscape(e){
-  if(e.key==='Escape') closeProductCategoryPopup();
-}
-// เปิด popup แสดงรายชื่อสินค้าในหมวดหมู่ที่ระบุ ลอยออกทางขวาของแถวหมวดที่คลิก (anchorEl)
-// popup เป็นลูกของ document.body โดยตรง (ไม่ใช่ .tree-pane) เพื่อไม่ให้ถูก overflow:hidden ของกล่องกลุ่มสินค้าตัดขอบ
-function openProductCategoryPopup(cat, anchorEl){
-  closeProductCategoryPopup();
-  const items = products.filter(p=>(String(p.category||'').trim()||'ไม่ทราบหมวดหมู่')===cat);
-  const popup = document.createElement('div');
-  popup.className = 'prod-cat-popup';
-  popup.dataset.forCat = cat;
-  popup.innerHTML = items.length
-    ? items.map(p=>`<div class="prod-cat-popup-item" data-pid="${p.id}"><div class="prod-cat-popup-item-name">${escapeHtml(p.name)}</div><div class="prod-cat-popup-item-meta"><span>${escapeHtml(p.sku||'-')}</span><span>${fmtMoney(p.price)} บ.</span></div></div>`).join('')
-    : '<div class="prod-cat-popup-empty">ไม่มีสินค้าในหมวดนี้</div>';
-  document.body.appendChild(popup);
-  const rect = anchorEl.getBoundingClientRect();
-  const popupRect = popup.getBoundingClientRect();
-  let left = rect.right + 8;
-  let top = rect.top;
-  if(left + popupRect.width > window.innerWidth - 12) left = Math.max(12, window.innerWidth - popupRect.width - 12);
-  if(top + popupRect.height > window.innerHeight - 12) top = Math.max(12, window.innerHeight - popupRect.height - 12);
-  popup.style.left = left+'px';
-  popup.style.top = top+'px';
-  popup.querySelectorAll('.prod-cat-popup-item').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      const pid = Number(el.dataset.pid);
-      closeProductCategoryPopup();
-      editingProductId = pid;
-      render();
-    });
-  });
-  setTimeout(()=>{
-    document.addEventListener('click', handleProductCategoryPopupOutsideClick, true);
-    document.addEventListener('keydown', handleProductCategoryPopupEscape);
-  },0);
-}
+
 function renderProducts(){
   if(editingProductId!==null) return renderProductForm();
   const {tree, catCounts, brCounts} = buildGroupTree();
@@ -3179,17 +3127,20 @@ function renderProducts(){
     const hasSubgroups = brands.length>1||brands[0]!=='ทั่วไป';
     const isExp = expandedCats[cat] && hasSubgroups;
     const catSel = selectedGroup && selectedGroup.cat===cat && !selectedGroup.brand;
-    treeHtml += `<div class="tree-item cat ${catSel?'sel':''}" data-cat="${cat}">
+    treeHtml += `<div class="tree-cat-row"><div class="tree-item cat ${catSel?'sel':''}" data-cat="${cat}">
       <span class="tree-caret ${hasSubgroups?'':'spacer'} ${isExp?'exp':''}" data-toggle="${hasSubgroups?cat:''}">${hasSubgroups?'▸':''}</span>
       <span class="tree-ic">📁</span><span class="tree-name">${cat}</span> <span class="tree-count">${catCount}</span></div>`;
     if(isExp){
+      treeHtml += `<div class="tree-brand-flyout">`;
       brands.forEach(brand=>{
         if(brand==='ทั่วไป' && brands.length===1) return;
         const brCount = brCounts[cat+'|||'+brand]||0;
         const brSel = selectedGroup && selectedGroup.cat===cat && selectedGroup.brand===brand;
         treeHtml += `<div class="tree-item brand ${brSel?'sel':''}" data-cat="${cat}" data-brand="${brand}"><span class="tree-name">${brand}</span> <span class="tree-count">${brCount}</span></div>`;
       });
+      treeHtml += `</div>`;
     }
+    treeHtml += `</div>`;
   });
 
   const groupLabel = !selectedGroup ? 'กรุณาเลือกกลุ่มสินค้า' : (selectedGroup.brand ? `${selectedGroup.cat} › ${selectedGroup.brand}` : selectedGroup.cat);
@@ -4977,7 +4928,6 @@ function render(){
   // (ถ้าไม่เคลียร์ก่อน document.getElementById จะเจอปุ่มเก่าที่ topbar ก่อนเสมอเพราะอยู่หน้ากว่าใน DOM แล้วผูก listener ผิดตัว)
   const topbarFormActionsSlot=document.getElementById('topbarFormActions');
   if(topbarFormActionsSlot) topbarFormActionsSlot.innerHTML='';
-  closeProductCategoryPopup();
   document.getElementById('main').innerHTML = (RENDERERS[currentTab]||renderDashboard)();
   attachEvents();
   syncTopbarFormActions();
@@ -5443,21 +5393,11 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   document.querySelectorAll('.tree-item').forEach(el=>{
     el.addEventListener('click', ()=>{
-      let popupCatToOpen = null;
       if(el.dataset.grp==='all'){ selectedGroup=null; }
       else if(el.dataset.brand){ selectedGroup={cat:el.dataset.cat, brand:el.dataset.brand}; }
-      else if(el.dataset.cat){
-        selectedGroup={cat:el.dataset.cat}; expandedCats[el.dataset.cat]=true;
-        const existingPopup=document.querySelector('.prod-cat-popup');
-        const alreadyOpenForThis = existingPopup && existingPopup.dataset.forCat===el.dataset.cat;
-        if(!alreadyOpenForThis) popupCatToOpen=el.dataset.cat;
-      }
+      else if(el.dataset.cat){ selectedGroup={cat:el.dataset.cat}; expandedCats[el.dataset.cat]=true; }
       productPage = 1;
       render();
-      if(popupCatToOpen){
-        const newAnchor=document.querySelector(`.tree-item.cat[data-cat="${CSS.escape(popupCatToOpen)}"]`);
-        if(newAnchor) openProductCategoryPopup(popupCatToOpen,newAnchor);
-      }
     });
   });
   // --- sort headers ---
