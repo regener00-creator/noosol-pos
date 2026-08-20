@@ -1,0 +1,20 @@
+{
+  "name": "PEPOS Mobile - เช็คราคาและตรวจสินค้า",
+  "short_name": "PEPOS Mobile",
+  "description": "เช็คราคาและตรวจจำนวนสินค้าด้วยมือถือหรือเครื่องยิงบาร์โค้ดแบบมีจอ",
+  "lang": "th",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F2F6F9",
+  "theme_color": "#2091D2",
+  "icons": [
+    {
+      "src": "/pwa-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

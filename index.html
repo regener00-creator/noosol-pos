@@ -3,7 +3,15 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#2091D2">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="PEPOS Mobile">
 <title>ร้านยา POS v50</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/pwa-icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/pwa-icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -1091,6 +1099,84 @@
     .app{flex-direction:column;height:auto;min-height:100vh;} .sidebar{width:100%;height:auto;max-height:45vh;position:relative;} .grid2, .grid2col{grid-template-columns:1fr;} .statrow{grid-template-columns:repeat(2,1fr);}
     .warehouse-field-row,.transfer-meta{grid-template-columns:1fr}.warehouse-field-row>label{padding-top:0}.transfer-notes{grid-template-columns:1fr}.transfer-items-wrap{overflow:auto}.transfer-items{min-width:900px;}
   }
+  /* หน้ามือถือแยกจากหน้าเดสก์ท็อป: แสดงเฉพาะเช็คราคาและรายการตรวจสินค้า */
+  .mobile-tools-page{max-width:760px;margin:0 auto;padding:20px;min-height:100%;}
+  .mobile-tools-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;}
+  .mobile-tools-brand{display:flex;align-items:center;gap:10px;min-width:0;}
+  .mobile-tools-logo{width:42px;height:42px;border-radius:13px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;}
+  .mobile-tools-brand h1{font-size:20px;margin:0;line-height:1.2;}
+  .mobile-tools-brand span{display:block;color:var(--text-muted);font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mobile-tools-logout{border:1px solid var(--border);background:#fff;color:var(--text-muted);border-radius:10px;padding:9px 12px;font:600 13px 'Sarabun',sans-serif;cursor:pointer;flex-shrink:0;}
+  .mobile-tools-tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px;background:#E9EEF3;border-radius:14px;padding:5px;margin-bottom:16px;position:sticky;top:0;z-index:7;}
+  .mobile-tools-tab{min-height:50px;border:0;border-radius:10px;background:transparent;color:var(--text-muted);font:600 15px 'Sarabun',sans-serif;cursor:pointer;}
+  .mobile-tools-tab.active{background:#fff;color:var(--primary);box-shadow:0 2px 8px #1D212914;}
+  .mobile-tool-panel{background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px;}
+  .mobile-tool-title{font-size:18px;font-weight:700;margin:0 0 3px;}
+  .mobile-tool-sub{font-size:12.5px;color:var(--text-muted);margin-bottom:14px;}
+  .mobile-scan-row{display:grid;grid-template-columns:minmax(0,1fr) 52px;gap:8px;margin-bottom:12px;}
+  .mobile-scan-input{width:100%;height:52px;border:2px solid #D8E3EC;border-radius:12px;padding:0 14px;font:16px 'Sarabun',sans-serif;outline:none;background:#fff;}
+  .mobile-scan-input:focus{border-color:var(--primary);box-shadow:0 0 0 4px #2091D21A;}
+  .mobile-camera-btn{width:52px;height:52px;border:0;border-radius:12px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .mobile-camera-btn svg{width:24px;height:24px;}
+  .mobile-search-hint{font-size:11.5px;color:var(--text-muted);margin:-4px 0 14px;}
+  .mobile-result-card{border:1px solid #CEE4F2;background:#F8FCFE;border-radius:15px;padding:16px;}
+  .mobile-result-name{font-size:17px;font-weight:700;line-height:1.35;margin-bottom:12px;}
+  .mobile-result-codes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
+  .mobile-result-code{background:#fff;border:1px solid var(--border);border-radius:10px;padding:9px 10px;min-width:0;}
+  .mobile-result-code span,.mobile-metric span{display:block;font-size:11px;color:var(--text-muted);margin-bottom:2px;}
+  .mobile-result-code b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mobile-unit-select{width:100%;height:46px;border:1px solid var(--border);border-radius:10px;padding:0 12px;background:#fff;font:15px 'Sarabun',sans-serif;margin-bottom:10px;}
+  .mobile-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .mobile-metric{border-radius:12px;padding:12px;background:#fff;border:1px solid var(--border);}
+  .mobile-metric.primary{background:var(--primary);border-color:var(--primary);color:#fff;}
+  .mobile-metric.primary span{color:#DFF3FF;}
+  .mobile-metric b{font-size:18px;line-height:1.25;}
+  .mobile-search-results{display:grid;gap:8px;}
+  .mobile-search-result{width:100%;border:1px solid var(--border);border-radius:12px;background:#fff;padding:12px;text-align:left;font-family:'Sarabun',sans-serif;cursor:pointer;}
+  .mobile-search-result b{display:block;font-size:14px;margin-bottom:3px;}
+  .mobile-search-result span{font-size:11.5px;color:var(--text-muted);}
+  .mobile-empty{padding:28px 12px;text-align:center;color:var(--text-muted);font-size:13px;border:1px dashed #CCD5DE;border-radius:12px;}
+  .mobile-inspection-select{width:100%;height:50px;border:1px solid var(--border);border-radius:12px;padding:0 12px;background:#fff;font:15px 'Sarabun',sans-serif;margin-bottom:12px;}
+  .mobile-inspection-progress{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--primary-soft);color:var(--primary-dark);border-radius:11px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;}
+  .mobile-reset-checks{border:0;background:transparent;color:var(--primary-dark);font:600 12px 'Sarabun',sans-serif;text-decoration:underline;cursor:pointer;}
+  .mobile-inspection-list{display:grid;gap:9px;}
+  .mobile-inspection-item{border:1px solid var(--border);border-radius:13px;padding:12px;background:#fff;transition:.15s;}
+  .mobile-inspection-item.checked{border-color:#8CCDA0;background:#F2FBF4;}
+  .mobile-inspection-item.latest{box-shadow:0 0 0 3px #2091D226;border-color:var(--primary);}
+  .mobile-inspection-item-head{display:flex;align-items:flex-start;gap:9px;}
+  .mobile-inspection-check{width:24px;height:24px;border-radius:50%;background:#E9EEF3;color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;margin-top:1px;}
+  .mobile-inspection-item.checked .mobile-inspection-check{background:#3A9B56;color:#fff;}
+  .mobile-inspection-item-name{font-size:14px;font-weight:600;line-height:1.35;flex:1;}
+  .mobile-inspection-item-data{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:10px 0 0 33px;}
+  .mobile-inspection-item-data div{font-size:11.5px;color:var(--text-muted);min-width:0;}
+  .mobile-inspection-item-data b{display:block;color:var(--text);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
+  .mobile-inspection-stock{grid-column:1/-1;background:#F3F8FD;border-radius:8px;padding:8px 10px!important;}
+  .mobile-inspection-stock b{color:var(--primary);font-size:16px!important;}
+  .mobile-load-more{width:100%;height:46px;margin-top:12px;border:1px solid var(--primary);border-radius:11px;background:#fff;color:var(--primary);font:600 14px 'Sarabun',sans-serif;cursor:pointer;}
+  .mobile-camera-overlay{position:fixed;inset:0;z-index:12000;background:#07131EEB;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;color:#fff;}
+  .mobile-camera-box{width:min(560px,100%);}
+  .mobile-camera-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-weight:600;}
+  .mobile-camera-close{width:40px;height:40px;border:1px solid #FFFFFF55;background:#FFFFFF14;color:#fff;border-radius:50%;font-size:25px;cursor:pointer;}
+  .mobile-camera-video-wrap{position:relative;border-radius:18px;overflow:hidden;background:#000;aspect-ratio:3/4;max-height:68vh;}
+  .mobile-camera-video{width:100%;height:100%;object-fit:cover;}
+  .mobile-camera-guide{position:absolute;left:9%;right:9%;top:38%;height:24%;border:3px solid #60C5FA;border-radius:15px;box-shadow:0 0 0 999px #0005;}
+  .mobile-camera-message{text-align:center;margin-top:12px;font-size:13px;color:#D9ECF8;}
+  @media (max-width:960px){
+    body.mobile-device-mode{overflow:hidden;background:#F2F6F9;}
+    body.mobile-device-mode .app{display:block;height:100dvh;min-height:0;}
+    body.mobile-device-mode .sidebar,body.mobile-device-mode .topbar{display:none!important;}
+    body.mobile-device-mode .shell{height:100dvh;display:block;}
+    body.mobile-device-mode .main{height:100dvh;padding:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+    body.mobile-device-mode .mobile-tools-page{padding:max(14px,env(safe-area-inset-top)) 12px max(20px,env(safe-area-inset-bottom));}
+    body.mobile-device-mode .mobile-tool-panel{padding:14px;}
+  }
+  @media (max-width:420px){
+    .mobile-tools-page{padding-left:10px;padding-right:10px;}
+    .mobile-tools-brand h1{font-size:18px;}
+    .mobile-tools-logo{width:38px;height:38px;border-radius:11px;}
+    .mobile-tools-logout{padding:8px 10px;font-size:12px;}
+    .mobile-result-codes,.mobile-metrics{grid-template-columns:1fr;}
+  }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
@@ -1928,6 +2014,16 @@ let inspectionListPage = 1;
 let inspectionListSort = { key:'sku', dir:1 };
 let inspectionListCounter = 1;
 const INSPECTION_LIST_PAGE_SIZE = 7;
+// โหมดมือถือ/เครื่องยิงบาร์โค้ดแบบมีจอ แสดงเฉพาะเช็คราคาและรายการตรวจสินค้า
+let mobileToolMode = 'price';
+let mobilePriceQuery = '';
+let mobilePriceProductId = null;
+let mobilePriceUnitName = '';
+let mobileInspectionListId = '';
+let mobileInspectionQuery = '';
+let mobileInspectionVisibleCount = 25;
+let mobileInspectionLastProductId = null;
+const mobileInspectionCheckedByList = {};
 // รายการและตัวกรองของหน้าแก้ไขสต๊อก (แยกจากรายงานสินค้าคงเหลือโดยเด็ดขาด)
 let stockEditItems = [];
 let stockEditCatFilter = { category:'', brand:'' };
@@ -3872,6 +3968,195 @@ function renderInspectionListEditor(){
   </div>`;
 }
 function renderInspectionLists(){ return editingInspectionListId===null?renderInspectionListOverview():renderInspectionListEditor(); }
+
+// ---------- โหมดมือถือ / เครื่องยิงบาร์โค้ดแบบมีจอ ----------
+function isMobileDeviceMode(){ return window.matchMedia('(max-width: 960px)').matches; }
+function mobileProductMatches(product,query){
+  const q=String(query||'').trim().toLowerCase();
+  if(!q) return false;
+  return String(product?.name||'').toLowerCase().includes(q)||String(product?.sku||'').toLowerCase().includes(q)||matchesBarcode(product,String(query||'').trim());
+}
+function mobilePriceMatches(query){
+  const q=String(query||'').trim();
+  if(!q) return [];
+  const exact=findProductByExactCode(q);
+  const matches=products.filter(product=>mobileProductMatches(product,q));
+  if(exact){
+    const rest=matches.filter(product=>Number(product.id)!==Number(exact.product.id));
+    return [exact.product,...rest].slice(0,8);
+  }
+  return matches.slice(0,8);
+}
+function mobileSelectPriceProduct(product,unitName=''){
+  if(!product) return false;
+  const options=inspectionListUnitOptions(product);
+  const selected=options.find(option=>option.name===unitName)||options[0];
+  mobilePriceProductId=product.id;
+  mobilePriceUnitName=selected?.name||product.unit;
+  mobilePriceQuery=selected?.barcode||product.barcode||product.sku||product.name;
+  return true;
+}
+function mobilePriceResultHtml(){
+  const product=products.find(entry=>Number(entry.id)===Number(mobilePriceProductId));
+  if(!product){
+    const matches=mobilePriceMatches(mobilePriceQuery);
+    if(!String(mobilePriceQuery||'').trim()) return '<div class="mobile-empty">ยิงบาร์โค้ด หรือพิมพ์ชื่อ/รหัสสินค้าเพื่อเริ่มเช็คราคา</div>';
+    if(!matches.length) return `<div class="mobile-empty">ไม่พบสินค้า “${escapeHtml(mobilePriceQuery)}”</div>`;
+    return `<div class="mobile-search-results">${matches.map(entry=>`<button type="button" class="mobile-search-result" data-mobile-price-product="${entry.id}"><b>${escapeHtml(entry.name)}</b><span>รหัส ${escapeHtml(entry.sku||'-')} · บาร์โค้ด ${escapeHtml(entry.barcode||'-')}</span></button>`).join('')}</div>`;
+  }
+  const options=inspectionListUnitOptions(product);
+  const selected=options.find(option=>option.name===mobilePriceUnitName)||options[0];
+  const selectedStock=stockUnitAmountFromBase(product.stock,selected?.factor||1);
+  const canViewCost=loggedInUser()?.owner===true;
+  return `<article class="mobile-result-card">
+    <div class="mobile-result-name">${escapeHtml(product.name)}</div>
+    <div class="mobile-result-codes">
+      <div class="mobile-result-code"><span>รหัสสินค้า</span><b>${escapeHtml(product.sku||'-')}</b></div>
+      <div class="mobile-result-code"><span>บาร์โค้ด</span><b>${escapeHtml(selected?.barcode||'-')}</b></div>
+    </div>
+    ${options.length>1?`<select class="mobile-unit-select" id="mobilePriceUnit">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>หน่วย: ${escapeHtml(option.name)}</option>`).join('')}</select>`:`<div class="mobile-unit-select" style="display:flex;align-items:center;">หน่วย: ${escapeHtml(selected?.name||product.unit)}</div>`}
+    <div class="mobile-metrics">
+      <div class="mobile-metric primary"><span>ราคาขาย</span><b>${fmtMoney(selected?.price||0)} บาท</b></div>
+      <div class="mobile-metric"><span>คงเหลือ</span><b>${inspectionListAmount(selectedStock)} ${escapeHtml(selected?.name||product.unit)}</b></div>
+      ${canViewCost?`<div class="mobile-metric"><span>ทุน</span><b>${fmtMoney(selected?.cost||0)} บาท</b></div>`:''}
+      <div class="mobile-metric"><span>วันหมดอายุ</span><b>${escapeHtml(fmtDateShort(product.expiry))}</b></div>
+    </div>
+  </article>`;
+}
+function mobileInspectionCurrentList(){
+  if(!inspectionLists.length) return null;
+  let list=inspectionLists.find(entry=>String(entry.id)===String(mobileInspectionListId));
+  if(!list){
+    list=[...inspectionLists].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')))[0];
+    mobileInspectionListId=list?.id||'';
+  }
+  return list||null;
+}
+function mobileInspectionCheckedSet(listId){
+  const key=String(listId||'');
+  if(!mobileInspectionCheckedByList[key]) mobileInspectionCheckedByList[key]=new Set();
+  return mobileInspectionCheckedByList[key];
+}
+function mobileInspectionEntries(list=mobileInspectionCurrentList()){
+  if(!list) return [];
+  return (list.items||[]).map(item=>({item,product:products.find(product=>Number(product.id)===Number(item.pid))})).filter(entry=>entry.product);
+}
+function mobileInspectionProgress(list=mobileInspectionCurrentList()){
+  const entries=mobileInspectionEntries(list);
+  const checked=mobileInspectionCheckedSet(list?.id);
+  return {checked:entries.filter(entry=>checked.has(Number(entry.product.id))).length,total:entries.length};
+}
+function mobileInspectionItemHtml(entry,checked,latest){
+  const selected=inspectionListSelectedOption(entry.item,entry.product);
+  const stock=stockUnitAmountFromBase(entry.product.stock,selected.factor);
+  return `<article class="mobile-inspection-item ${checked?'checked':''} ${latest?'latest':''}" data-mobile-inspection-item="${entry.product.id}">
+    <div class="mobile-inspection-item-head"><span class="mobile-inspection-check">${checked?'✓':'·'}</span><div class="mobile-inspection-item-name">${escapeHtml(entry.product.name)}</div></div>
+    <div class="mobile-inspection-item-data">
+      <div><span>รหัสสินค้า</span><b>${escapeHtml(entry.product.sku||'-')}</b></div>
+      <div><span>บาร์โค้ด</span><b>${escapeHtml(selected.barcode||'-')}</b></div>
+      <div class="mobile-inspection-stock"><span>คงเหลือ</span><b>${inspectionListAmount(stock)} ${escapeHtml(selected.name)}</b></div>
+    </div>
+  </article>`;
+}
+function mobileInspectionContentHtml(){
+  const list=mobileInspectionCurrentList();
+  if(!list) return '<div class="mobile-empty">ยังไม่มีรายการตรวจสินค้า กรุณาสร้างรายการจากคอมพิวเตอร์ก่อน</div>';
+  const checked=mobileInspectionCheckedSet(list.id);
+  const query=String(mobileInspectionQuery||'').trim();
+  const allEntries=mobileInspectionEntries(list);
+  const entries=(query?allEntries.filter(entry=>mobileProductMatches(entry.product,query)):allEntries).sort((a,b)=>{
+    if(Number(a.product.id)===Number(mobileInspectionLastProductId)) return -1;
+    if(Number(b.product.id)===Number(mobileInspectionLastProductId)) return 1;
+    return String(a.product.sku||'').localeCompare(String(b.product.sku||''),'th',{numeric:true});
+  });
+  const progress=mobileInspectionProgress(list);
+  const visible=entries.slice(0,mobileInspectionVisibleCount);
+  return `<div class="mobile-inspection-progress"><span>ตรวจแล้ว ${progress.checked} / ${progress.total} รายการ</span>${progress.checked?'<button type="button" class="mobile-reset-checks" id="mobileResetChecks">เริ่มตรวจใหม่</button>':''}</div>
+    ${visible.length?`<div class="mobile-inspection-list">${visible.map(entry=>mobileInspectionItemHtml(entry,checked.has(Number(entry.product.id)),Number(entry.product.id)===Number(mobileInspectionLastProductId))).join('')}</div>${entries.length>visible.length?`<button type="button" class="mobile-load-more" id="mobileLoadMore">แสดงเพิ่ม (${entries.length-visible.length})</button>`:''}`:`<div class="mobile-empty">ไม่พบสินค้าในรายการนี้</div>`}`;
+}
+function renderMobileTools(){
+  const user=loggedInUser();
+  const lists=[...inspectionLists].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+  return `<main class="mobile-tools-page">
+    <header class="mobile-tools-head"><div class="mobile-tools-brand"><div class="mobile-tools-logo">Rx</div><div><h1>PEPOS Mobile</h1><span>${escapeHtml(user?.firstName||user?.username||'ผู้ใช้งาน')}</span></div></div><button type="button" class="mobile-tools-logout" id="mobileToolsLogout">ออกจากระบบ</button></header>
+    <nav class="mobile-tools-tabs" aria-label="เมนูมือถือ"><button type="button" class="mobile-tools-tab ${mobileToolMode==='price'?'active':''}" data-mobile-tool="price">เช็คราคา</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='inspection'?'active':''}" data-mobile-tool="inspection">รายการตรวจสินค้า</button></nav>
+    ${mobileToolMode==='price'?`<section class="mobile-tool-panel"><h2 class="mobile-tool-title">เช็คราคาสินค้า</h2><div class="mobile-tool-sub">ยิงบาร์โค้ด พิมพ์รหัส หรือใช้กล้องมือถือ โดยไม่เพิ่มสินค้าเข้าบิล</div><div class="mobile-scan-row"><input id="mobilePriceInput" class="mobile-scan-input" value="${escapeHtml(mobilePriceQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobilePriceCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-search-hint">เครื่องยิงบาร์โค้ดที่ส่ง Enter อัตโนมัติใช้งานได้ทันที</div><div id="mobilePriceResult">${mobilePriceResultHtml()}</div></section>`:`<section class="mobile-tool-panel"><h2 class="mobile-tool-title">รายการตรวจสินค้า</h2><div class="mobile-tool-sub">เลือกรายการ แล้วยิงสินค้าทีละชิ้นเพื่อดูจำนวนคงเหลือล่าสุด</div>${lists.length?`<select id="mobileInspectionList" class="mobile-inspection-select">${lists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(mobileInspectionCurrentList()?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})</option>`).join('')}</select><div class="mobile-scan-row"><input id="mobileInspectionInput" class="mobile-scan-input" value="${escapeHtml(mobileInspectionQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาในรายการ..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobileInspectionCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-search-hint">รายการที่ยิงพบจะมีเครื่องหมาย ✓ และเลื่อนขึ้นมาอยู่ด้านบน</div><div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div>`:'<div class="mobile-empty">ยังไม่มีรายการตรวจสินค้า กรุณาสร้างรายการจากคอมพิวเตอร์ก่อน</div>'}</section>`}
+  </main>`;
+}
+function mobileHandlePriceCode(code){
+  const query=String(code||'').trim();
+  if(!query) return false;
+  mobilePriceQuery=query;
+  const exact=findProductByExactCode(query);
+  const product=exact?.product||mobilePriceMatches(query)[0];
+  if(!product){ mobilePriceProductId=null; render(); return false; }
+  mobileSelectPriceProduct(product,exact?.unitName||'');
+  render();
+  setTimeout(()=>document.getElementById('mobilePriceInput')?.select(),0);
+  return true;
+}
+function mobileHandleInspectionCode(code){
+  const query=String(code||'').trim();
+  if(!query) return false;
+  const list=mobileInspectionCurrentList();
+  const exact=findProductByExactCode(query);
+  const entry=exact&&mobileInspectionEntries(list).find(item=>Number(item.product.id)===Number(exact.product.id));
+  if(!entry){
+    mobileInspectionQuery=query;
+    mobileInspectionLastProductId=null;
+    render();
+    showToast(exact?'สินค้านี้ไม่ได้อยู่ในรายการตรวจที่เลือก':'ไม่พบสินค้าจากบาร์โค้ดนี้','danger-top');
+    setTimeout(()=>document.getElementById('mobileInspectionInput')?.select(),0);
+    return false;
+  }
+  mobileInspectionCheckedSet(list.id).add(Number(entry.product.id));
+  mobileInspectionLastProductId=entry.product.id;
+  mobileInspectionQuery='';
+  render();
+  setTimeout(()=>document.getElementById('mobileInspectionInput')?.focus(),0);
+  return true;
+}
+async function openMobileCameraScanner(onCode){
+  if(!navigator.mediaDevices?.getUserMedia){ showToast('อุปกรณ์นี้ไม่รองรับการเปิดกล้อง กรุณาใช้เครื่องยิงหรือพิมพ์บาร์โค้ด','danger-top'); return; }
+  if(!('BarcodeDetector' in window)){ showToast('เบราว์เซอร์นี้ยังสแกนด้วยกล้องไม่ได้ กรุณาใช้ Chrome หรือเครื่องยิงบาร์โค้ด','danger-top'); return; }
+  const overlay=document.createElement('div');
+  overlay.className='mobile-camera-overlay';
+  overlay.innerHTML=`<div class="mobile-camera-box"><div class="mobile-camera-head"><span>ส่องบาร์โค้ดให้อยู่ในกรอบ</span><button type="button" class="mobile-camera-close" aria-label="ปิดกล้อง">×</button></div><div class="mobile-camera-video-wrap"><video class="mobile-camera-video" autoplay muted playsinline></video><div class="mobile-camera-guide"></div></div><div class="mobile-camera-message">กำลังเปิดกล้อง...</div></div>`;
+  document.body.appendChild(overlay);
+  const video=overlay.querySelector('video');
+  const message=overlay.querySelector('.mobile-camera-message');
+  let stream=null,closed=false,busy=false;
+  const close=()=>{ closed=true; if(stream) stream.getTracks().forEach(track=>track.stop()); overlay.remove(); };
+  overlay.querySelector('.mobile-camera-close').addEventListener('click',close);
+  try{
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
+    if(closed){ stream.getTracks().forEach(track=>track.stop()); return; }
+    video.srcObject=stream;
+    await video.play();
+    message.textContent='พร้อมสแกน — ถือกล้องให้นิ่ง';
+    const desiredFormats=['code_128','ean_13','ean_8','upc_a','upc_e','code_39','itf','codabar','qr_code'];
+    const supportedFormats=typeof BarcodeDetector.getSupportedFormats==='function'?await BarcodeDetector.getSupportedFormats():desiredFormats;
+    const formats=desiredFormats.filter(format=>supportedFormats.includes(format));
+    const detector=formats.length?new BarcodeDetector({formats}):new BarcodeDetector();
+    const scan=async()=>{
+      if(closed) return;
+      if(!busy&&video.readyState>=2){
+        busy=true;
+        try{
+          const codes=await detector.detect(video);
+          const value=String(codes?.[0]?.rawValue||'').trim();
+          if(value){ close(); onCode(value); return; }
+        }catch(error){ console.warn('สแกนบาร์โค้ดจากกล้องไม่สำเร็จ',error); }
+        busy=false;
+      }
+      requestAnimationFrame(scan);
+    };
+    requestAnimationFrame(scan);
+  }catch(error){
+    close();
+    showToast('เปิดกล้องไม่สำเร็จ กรุณาอนุญาตใช้กล้องหรือใช้เครื่องยิงบาร์โค้ด','danger-top');
+  }
+}
 function openInspectionListEditor(id='new',shouldRender=true){
   editingInspectionListId=id;
   inspectionListCatFilter={wh:'',category:'',brand:''}; inspectionListSearchQuery=''; inspectionListPage=1; inspectionListSort={key:'sku',dir:1};
@@ -5618,6 +5903,7 @@ function renderAddSystemUser(){
 }
 
 const RENDERERS = {
+  mobiletools: renderMobileTools,
   dashboard: renderDashboard, checkout: renderCheckout, taxinvoice: renderTaxInvoices, quotation: renderQuotation, invoice: renderInvoice,
   creditnote: renderCreditNote, history: renderHistory, purchaseorder: renderPurchaseOrder, purchaseorder2: renderPurchaseOrder2, productreturn: renderProductReturn, goodsreceipt: renderGoodsReceipt,
   products: renderProducts, inspectionlists: renderInspectionLists, barcodeprint: renderBarcodePrint, warehouse: renderWarehouse, transfer: renderTransfer, stockadjust: renderStockAdjust, stockedit: renderStockEdit, lowstock: renderLowStock, expiry: renderExpiry, promotions: renderPromotions,
@@ -5627,6 +5913,10 @@ const RENDERERS = {
 
 function render(){
   if(!renderLoginState()) return;
+  const mobileMode=isMobileDeviceMode();
+  document.body.classList.toggle('mobile-device-mode',mobileMode);
+  if(mobileMode) currentTab='mobiletools';
+  else if(currentTab==='mobiletools') currentTab='dashboard';
   if(!canAccessTab(currentTab)){
     currentTab='dashboard';
     addingSystemUser=false; editingSystemUserId=null;
@@ -5636,7 +5926,8 @@ function render(){
   if(isLevel2User()&&currentTab==='products'&&editingProductId!==null&&editingProductId!=='new') editingProductId=null;
   reconcileAutoFreeLines();
   schedulePersistWorkspaceData();
-  renderSidebar();
+  if(mobileMode) document.getElementById('sidebar').innerHTML='';
+  else renderSidebar();
   // เคลียร์ปุ่มเก่าที่ topbar ก่อนสร้าง HTML ใหม่และผูก event listener เสมอ
   // ป้องกัน duplicate id ระหว่างปุ่มเก่าที่ topbar กับปุ่มใหม่ใน .main ตอน attachEvents() ค้นหาด้วย getElementById
   // (ถ้าไม่เคลียร์ก่อน document.getElementById จะเจอปุ่มเก่าที่ topbar ก่อนเสมอเพราะอยู่หน้ากว่าใน DOM แล้วผูก listener ผิดตัว)
@@ -5649,6 +5940,7 @@ function render(){
   attachEvents();
   syncTopbarFormActions();
   renderLoginState();
+  if(currentTab==='mobiletools') setTimeout(()=>document.getElementById(mobileToolMode==='price'?'mobilePriceInput':'mobileInspectionInput')?.focus(),60);
 }
 // ย้ายปุ่มคู่ท้ายฟอร์ม (บันทึก/ยกเลิก ฯลฯ) ที่มีอยู่ในหน้าปัจจุบัน ขึ้นไปแปะใน topbar ด้านขวา
 // ย้าย DOM element ตัวจริง (ไม่สร้างใหม่) เพื่อให้ event listener ที่ attachEvents() ผูกไว้แล้วยังทำงานถูกต้อง
@@ -5666,6 +5958,63 @@ function checkNegativeStockToast(pid){
   if(totalInCart > p.stock) showToast('สินค้าติดลบ', 'danger-top');
 }
 function attachEvents(){
+  document.getElementById('mobileToolsLogout')?.addEventListener('click',logoutSystem);
+  document.querySelectorAll('[data-mobile-tool]').forEach(button=>button.addEventListener('click',()=>{
+    mobileToolMode=button.dataset.mobileTool;
+    mobilePriceQuery=''; mobilePriceProductId=null;
+    mobileInspectionQuery=''; mobileInspectionLastProductId=null; mobileInspectionVisibleCount=25;
+    render();
+  }));
+  const mobilePriceInput=document.getElementById('mobilePriceInput');
+  if(mobilePriceInput){
+    mobilePriceInput.addEventListener('input',()=>{
+      mobilePriceQuery=mobilePriceInput.value;
+      mobilePriceProductId=null;
+      render();
+      const input=document.getElementById('mobilePriceInput');
+      if(input){ input.focus(); input.selectionStart=input.selectionEnd=input.value.length; }
+    });
+    mobilePriceInput.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); mobileHandlePriceCode(mobilePriceInput.value); } });
+  }
+  document.querySelectorAll('[data-mobile-price-product]').forEach(button=>button.addEventListener('click',()=>{
+    const product=products.find(entry=>Number(entry.id)===Number(button.dataset.mobilePriceProduct));
+    if(product){ mobileSelectPriceProduct(product); render(); setTimeout(()=>document.getElementById('mobilePriceInput')?.select(),0); }
+  }));
+  document.getElementById('mobilePriceUnit')?.addEventListener('change',event=>{ mobilePriceUnitName=event.target.value; render(); });
+  document.getElementById('mobilePriceCamera')?.addEventListener('click',()=>openMobileCameraScanner(mobileHandlePriceCode));
+  const mobileInspectionList=document.getElementById('mobileInspectionList');
+  if(mobileInspectionList) mobileInspectionList.addEventListener('change',()=>{
+    mobileInspectionListId=mobileInspectionList.value;
+    mobileInspectionQuery=''; mobileInspectionLastProductId=null; mobileInspectionVisibleCount=25;
+    render();
+    setTimeout(()=>document.getElementById('mobileInspectionInput')?.focus(),0);
+  });
+  const mobileInspectionInput=document.getElementById('mobileInspectionInput');
+  if(mobileInspectionInput){
+    mobileInspectionInput.addEventListener('input',()=>{
+      mobileInspectionQuery=mobileInspectionInput.value;
+      mobileInspectionLastProductId=null;
+      mobileInspectionVisibleCount=25;
+      render();
+      const input=document.getElementById('mobileInspectionInput');
+      if(input){ input.focus(); input.selectionStart=input.selectionEnd=input.value.length; }
+    });
+    mobileInspectionInput.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); mobileHandleInspectionCode(mobileInspectionInput.value); } });
+  }
+  document.getElementById('mobileInspectionCamera')?.addEventListener('click',()=>openMobileCameraScanner(mobileHandleInspectionCode));
+  document.querySelectorAll('[data-mobile-inspection-item]').forEach(item=>item.addEventListener('click',()=>{
+    const list=mobileInspectionCurrentList(); if(!list) return;
+    const productId=Number(item.dataset.mobileInspectionItem),checked=mobileInspectionCheckedSet(list.id);
+    if(checked.has(productId)) checked.delete(productId); else checked.add(productId);
+    mobileInspectionLastProductId=productId;
+    render();
+  }));
+  document.getElementById('mobileResetChecks')?.addEventListener('click',()=>{
+    const list=mobileInspectionCurrentList();
+    if(list) mobileInspectionCheckedSet(list.id).clear();
+    mobileInspectionLastProductId=null; mobileInspectionQuery=''; render();
+  });
+  document.getElementById('mobileLoadMore')?.addEventListener('click',()=>{ mobileInspectionVisibleCount+=25; render(); });
   document.querySelectorAll('[data-toggle-password]').forEach(button=>{
     button.addEventListener('click',()=>{
       const input=document.getElementById(button.dataset.togglePassword);
@@ -9557,6 +9906,19 @@ document.getElementById('ownerSetupForm')?.addEventListener('submit',createIniti
 sb.auth.onAuthStateChange((event)=>{
   if(event==='SIGNED_OUT'){ currentProfile=null; renderLoginState(); }
 });
+
+let mobileViewportResizeTimer=null;
+window.addEventListener('resize',()=>{
+  clearTimeout(mobileViewportResizeTimer);
+  mobileViewportResizeTimer=setTimeout(()=>{
+    const mobileMode=isMobileDeviceMode();
+    if(mobileMode!==document.body.classList.contains('mobile-device-mode')) render();
+  },180);
+});
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(error=>console.warn('ลงทะเบียนโหมดติดตั้งบนมือถือไม่สำเร็จ',error)));
+}
 
 (async function bootstrapAuth(){
   try{
