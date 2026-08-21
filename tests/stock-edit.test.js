@@ -45,6 +45,7 @@ assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /persistWorks
 assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /syncInspectionListsToSupabase\(\)/);
 assert.match(html, /function openStockEditInspectionListPicker\(/);
 assert.match(html, /data-import-inspection-list/);
+assert.match(html, /<button class="btn primary" id="importInspectionListBtn">ดึงข้อมูลจากรายการตรวจสินค้า<\/button>/);
 
 function loadOneLineFunction(name) {
   const match = html.match(new RegExp(`function ${name}\\([^\\r\\n]+`));
