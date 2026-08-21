@@ -218,7 +218,7 @@ assert.equal(context.mobileInspectionCheckedSet(pendingList.id).has(1),false);
 assert.equal(context.mobileInspectionLastProductId,null);
 assert.match(context.inspectionLists[0].updatedAt,/^\d{4}-\d{2}-\d{2}T/);
 
-assert.match(html, /\['inspectionlists','รายการตรวจสินค้า'/);
+assert.match(html, /\['inspectionlists','ตรวจสินค้า'/);
 assert.match(html, /inspectionlists:\s*renderInspectionLists/);
 assert.match(html, /from\('inspection_lists'\)\.select\('\*'\)/);
 assert.match(html, /upsertAndPrune\('inspection_lists',inspectionLists,inspectionListToRow\)/);

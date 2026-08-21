@@ -16,6 +16,7 @@ assert.match(html, /data-mobile-tool="inspection"/);
 assert.match(html, /data-mobile-tool="stock"/);
 assert.match(html, /id="mobileOpenInspectionList"/);
 assert.match(html, /id="mobileDeleteInspectionList"/);
+assert.match(html, /id="mobileDeleteInspectionList">ลบบันทึก<\/button>/);
 assert.match(html, /deleteInspectionListById\(list\.id\)/);
 assert.match(html, /openMobileCameraScanner\(mobileHandlePriceCode\)/);
 assert.match(html, /openMobileCameraScanner\(mobileHandleInspectionCode,\{continuous:true\}\)/);
@@ -93,6 +94,10 @@ const mobilePriceExpiryIndex = mobilePriceResult.indexOf('<span>วันหม�
 assert.ok(mobilePriceNameIndex >= 0 && mobilePriceUnitIndex > mobilePriceNameIndex && mobilePriceStockIndex > mobilePriceUnitIndex && mobilePriceSaleIndex > mobilePriceStockIndex && mobilePriceCostIndex > mobilePriceSaleIndex && mobilePriceExpiryIndex > mobilePriceCostIndex);
 assert.match(mobilePriceResult, /mobile-metric primary[^>]*><span>คงเหลือ<\/span>/);
 assert.doesNotMatch(mobilePriceResult, /mobile-result-codes/);
+assert.match(html, /\.mobile-result-card\{[^}]*text-align:center;/);
+assert.match(html, /\.mobile-unit-select\{[^}]*text-align:center;[^}]*text-align-last:center;/);
+assert.match(html, /data-mobile-tool="inspection">ตรวจสินค้า<\/button>/);
+assert.match(html, /<h2 class="mobile-tool-title">ตรวจสินค้า<\/h2>/);
 const mobilePriceUnitHandlerStart = html.indexOf("document.getElementById('mobilePriceUnit')?.addEventListener('change'");
 const mobilePriceCameraHandlerStart = html.indexOf("document.getElementById('mobilePriceCamera')?.addEventListener", mobilePriceUnitHandlerStart);
 assert.ok(mobilePriceUnitHandlerStart >= 0 && mobilePriceCameraHandlerStart > mobilePriceUnitHandlerStart);
