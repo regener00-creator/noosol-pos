@@ -70,6 +70,7 @@ context.inspectionLists = [
 ];
 assert.equal(context.inspectionListDefaultName(firstDay), 'ตรวจสินค้า: 3');
 assert.equal(context.inspectionListDefaultName(nextDay), 'ตรวจสินค้า: 1', 'วันใหม่ต้องเริ่มลำดับชื่อที่ 1');
+assert.equal(context.inspectionListDateTime(new Date(2026,7,21,7,42,0).toISOString()), '21-08-2026 / 07:42');
 context.inspectionLists = [];
 
 const normalized = context.normalizeInspectionLists([
@@ -140,6 +141,10 @@ assert.match(overviewHtml, /id="inspectionListSelectAll"/);
 assert.match(overviewHtml, /data-inspection-overview-sort="createdAt"/);
 assert.match(overviewHtml, /data-inspection-overview-sort="updatedAt"/);
 assert.match(overviewHtml, /data-inspection-overview-sort="status"/);
+assert.match(overviewHtml, /class="inspection-list-overview-name"/);
+assert.match(overviewHtml, /class="inspection-list-overview-actions"/);
+assert.match(overviewHtml, /class="icon-btn"[^>]+data-open-inspection-list/);
+assert.match(overviewHtml, /class="icon-btn danger"[^>]+data-delete-inspection-list/);
 assert.ok(overviewHtml.indexOf('วันที่สร้าง') < overviewHtml.indexOf('แก้ไขล่าสุด'));
 assert.ok(overviewHtml.indexOf('แก้ไขล่าสุด') < overviewHtml.indexOf('ชื่อรายการ'));
 assert.ok(overviewHtml.indexOf('ชื่อรายการ') < overviewHtml.indexOf('>สินค้า<'));
@@ -149,8 +154,8 @@ products.push(
   {id:4,sku:'P-004',name:'สินค้าที่สี่',unit:'ชิ้น',stock:1,units:[]},
 );
 const productPreview = context.inspectionListPreviewHtml({items:[{pid:1},{pid:2},{pid:3},{pid:4}]});
-assert.equal((productPreview.match(/inspection-list-overview-product/g)||[]).length, 3);
-assert.match(productPreview, />\+1</);
+assert.equal((productPreview.match(/inspection-list-overview-product/g)||[]).length, 2);
+assert.match(productPreview, /สินค้าอีกตัว<span class="inspection-list-overview-more">\+2<\/span>/);
 products.splice(-2);
 context.editingInspectionListId = 'CHECK-0001';
 context.inspectionListDraft = JSON.parse(JSON.stringify(context.inspectionLists[0]));

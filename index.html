@@ -450,13 +450,17 @@
   .inspection-list-overview-table .inspection-overview-name-col{width:220px;}
   .inspection-list-overview-table .inspection-overview-products-col{width:auto;}
   .inspection-list-overview-table .inspection-overview-status-col{width:180px;}
-  .inspection-list-overview-table .inspection-overview-action-col{width:94px;}
+  .inspection-list-overview-table .inspection-overview-action-col{width:116px;}
   .inspection-list-overview-check{width:18px;height:18px;accent-color:var(--primary);cursor:pointer;}
   .inspection-list-overview-products{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;overflow:hidden;}
   .inspection-list-overview-product{display:block;max-width:100%;padding:3px 7px;border-radius:6px;background:#F1F5F8;color:var(--text);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .inspection-list-overview-more{flex:0 0 auto;color:var(--primary-dark);font-size:12px;font-weight:700;}
+  .inspection-list-overview-more{margin-left:4px;color:var(--primary-dark);font-size:12px;font-weight:700;}
+  .inspection-list-overview-name{text-align:center;font-weight:600;}
   .inspection-list-overview-status{text-align:center;color:var(--text-muted);}
   .inspection-list-overview-action{text-align:center;}
+  .inspection-list-overview-actions{display:flex;align-items:center;justify-content:center;gap:8px;}
+  .inspection-list-overview-actions .icon-btn{width:36px;height:36px;border-radius:9px;}
+  .inspection-list-overview-actions .icon-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
   .inspection-list-editor-section{min-width:0;}
   .inspection-list-name-field{margin-bottom:12px;}
   .inspection-list-name-field label{display:block;margin-bottom:6px;font-size:12px;font-weight:600;color:var(--text-muted);}
@@ -4329,12 +4333,19 @@ function inspectionListRowsHtml(entries){
 function inspectionListPreviewHtml(list){
   const names=(list.items||[]).map(item=>products.find(product=>product.id===Number(item.pid))?.name||`ไม่พบสินค้า (${item.pid})`);
   if(!names.length) return '<span class="inspection-list-overview-product">ยังไม่มีสินค้า</span>';
-  const remaining=Math.max(0,names.length-3);
-  return `${names.slice(0,3).map(name=>`<span class="inspection-list-overview-product" title="${escapeHtml(name)}">${escapeHtml(name)}</span>`).join('')}${remaining?`<span class="inspection-list-overview-more">+${remaining}</span>`:''}`;
+  const visible=names.slice(0,2);
+  const remaining=Math.max(0,names.length-visible.length);
+  return visible.map((name,index)=>`<span class="inspection-list-overview-product" title="${escapeHtml(name)}">${escapeHtml(name)}${remaining&&index===visible.length-1?`<span class="inspection-list-overview-more">+${remaining}</span>`:''}</span>`).join('');
 }
 function inspectionListDateTime(value){
   const date=new Date(value||'');
-  return Number.isNaN(date.getTime())?'-':date.toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});
+  if(Number.isNaN(date.getTime())) return '-';
+  const day=String(date.getDate()).padStart(2,'0');
+  const month=String(date.getMonth()+1).padStart(2,'0');
+  const year=date.getFullYear();
+  const hours=String(date.getHours()).padStart(2,'0');
+  const minutes=String(date.getMinutes()).padStart(2,'0');
+  return `${day}-${month}-${year} / ${hours}:${minutes}`;
 }
 function inspectionListOverviewSortValue(list,key){
   if(key==='status') return String(list?.stockAdjustedAt||'').trim()?1:0;
@@ -4360,7 +4371,7 @@ function renderInspectionListOverview(){
   const allSelected=lists.length>0&&lists.every(list=>inspectionListOverviewSelectedIds.has(String(list.id)));
   return `<div class="rpt inspection-list-page">
     <div class="pagehead"><div><h1>รายการตรวจสินค้า</h1><div class="sub">บันทึกชุดสินค้าไว้เปิดดูจำนวนคงเหลือล่าสุดได้ทุกครั้ง</div></div><button class="btn primary" id="newInspectionListBtn">+ สร้างรายการ</button></div>
-    <div class="inspection-list-overview-wrap seamless-table-wrap"><table class="grid-table doc-head-blue inspection-list-overview-table"><colgroup><col class="inspection-overview-check-col"><col class="inspection-overview-date-col"><col class="inspection-overview-date-col"><col class="inspection-overview-name-col"><col class="inspection-overview-products-col"><col class="inspection-overview-status-col"><col class="inspection-overview-action-col"><col class="inspection-overview-action-col"></colgroup><thead><tr><th class="inspection-overview-check-col"><input type="checkbox" class="inspection-list-overview-check" id="inspectionListSelectAll" aria-label="เลือกทุกรายการ" ${allSelected?'checked':''}></th><th>${inspectionListOverviewSortHeader('createdAt','วันที่สร้าง')}</th><th>${inspectionListOverviewSortHeader('updatedAt','แก้ไขล่าสุด')}</th><th>ชื่อรายการ</th><th>สินค้า</th><th>${inspectionListOverviewSortHeader('status','สถานะ')}</th><th>แก้ไข</th><th>ลบ</th></tr></thead><tbody>${lists.length?lists.map(list=>`<tr><td class="inspection-overview-check-col"><input type="checkbox" class="inspection-list-overview-check" data-inspection-list-select="${escapeHtml(list.id)}" aria-label="เลือก ${escapeHtml(list.name)}" ${inspectionListOverviewSelectedIds.has(String(list.id))?'checked':''}></td><td style="text-align:center;">${escapeHtml(inspectionListDateTime(list.createdAt))}</td><td style="text-align:center;">${escapeHtml(inspectionListDateTime(list.updatedAt))}</td><td>${escapeHtml(list.name)}</td><td><div class="inspection-list-overview-products">${inspectionListPreviewHtml(list)}</div></td><td class="inspection-list-overview-status">${list.stockAdjustedAt?'<span class="inspection-list-status">แก้ไขจำนวนเรียบร้อย</span>':'-'}</td><td class="inspection-list-overview-action"><button class="btn ghost small" data-open-inspection-list="${escapeHtml(list.id)}">แก้ไข</button></td><td class="inspection-list-overview-action"><button class="btn ghost small" data-delete-inspection-list="${escapeHtml(list.id)}">ลบ</button></td></tr>`).join(''):'<tr><td colspan="8" style="padding:38px;text-align:center;color:var(--text-muted);">ยังไม่มีรายการตรวจสินค้า — กด “สร้างรายการ” เพื่อเริ่มเพิ่มสินค้า</td></tr>'}</tbody></table></div>
+    <div class="inspection-list-overview-wrap seamless-table-wrap"><table class="grid-table doc-head-blue inspection-list-overview-table"><colgroup><col class="inspection-overview-check-col"><col class="inspection-overview-date-col"><col class="inspection-overview-date-col"><col class="inspection-overview-name-col"><col class="inspection-overview-products-col"><col class="inspection-overview-status-col"><col class="inspection-overview-action-col"></colgroup><thead><tr><th class="inspection-overview-check-col"><input type="checkbox" class="inspection-list-overview-check" id="inspectionListSelectAll" aria-label="เลือกทุกรายการ" ${allSelected?'checked':''}></th><th>${inspectionListOverviewSortHeader('createdAt','วันที่สร้าง')}</th><th>${inspectionListOverviewSortHeader('updatedAt','แก้ไขล่าสุด')}</th><th>ชื่อรายการ</th><th>สินค้า</th><th>${inspectionListOverviewSortHeader('status','สถานะ')}</th><th>จัดการ</th></tr></thead><tbody>${lists.length?lists.map(list=>`<tr><td class="inspection-overview-check-col"><input type="checkbox" class="inspection-list-overview-check" data-inspection-list-select="${escapeHtml(list.id)}" aria-label="เลือก ${escapeHtml(list.name)}" ${inspectionListOverviewSelectedIds.has(String(list.id))?'checked':''}></td><td style="text-align:center;">${escapeHtml(inspectionListDateTime(list.createdAt))}</td><td style="text-align:center;">${escapeHtml(inspectionListDateTime(list.updatedAt))}</td><td class="inspection-list-overview-name">${escapeHtml(list.name)}</td><td><div class="inspection-list-overview-products">${inspectionListPreviewHtml(list)}</div></td><td class="inspection-list-overview-status">${list.stockAdjustedAt?'<span class="inspection-list-status">แก้ไขจำนวนเรียบร้อย</span>':'-'}</td><td class="inspection-list-overview-action"><div class="inspection-list-overview-actions"><button class="icon-btn" type="button" data-open-inspection-list="${escapeHtml(list.id)}" title="แก้ไขรายการ" aria-label="แก้ไข ${escapeHtml(list.name)}"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="icon-btn danger" type="button" data-delete-inspection-list="${escapeHtml(list.id)}" title="ลบรายการ" aria-label="ลบ ${escapeHtml(list.name)}"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td></tr>`).join(''):'<tr><td colspan="7" style="padding:38px;text-align:center;color:var(--text-muted);">ยังไม่มีรายการตรวจสินค้า — กด “สร้างรายการ” เพื่อเริ่มเพิ่มสินค้า</td></tr>'}</tbody></table></div>
   </div>`;
 }
 function renderInspectionListEditor(){
