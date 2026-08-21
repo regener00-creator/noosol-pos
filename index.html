@@ -1214,13 +1214,18 @@
   .mobile-stock-result span{font-size:11.5px;color:var(--text-muted);}
   .mobile-stock-list{display:grid;gap:10px;padding-bottom:72px;}
   .mobile-stock-item{border:1px solid var(--border);border-radius:13px;background:#fff;padding:12px;}
-  .mobile-stock-field{margin-bottom:9px;}
-  .mobile-stock-field:last-child{margin-bottom:0;}
+  .mobile-stock-info-row{display:grid;grid-template-columns:minmax(90px,.42fr) minmax(0,1fr);gap:9px;margin-bottom:10px;}
+  .mobile-stock-edit-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) 42px;gap:8px;align-items:end;}
+  .mobile-stock-field{min-width:0;}
   .mobile-stock-field label{display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;}
   .mobile-stock-field b{display:block;font-size:14px;line-height:1.35;}
+  .mobile-stock-product-name{overflow-wrap:anywhere;}
   .mobile-stock-unit,.mobile-stock-amount{width:100%;height:46px;border:1px solid var(--border);border-radius:10px;background:#fff;padding:0 11px;font:15px 'Sarabun',sans-serif;}
+  .mobile-stock-unit-static{height:46px!important;border:1px solid var(--border);border-radius:10px;background:#F8FAFC;padding:0 11px;display:flex!important;align-items:center;}
   .mobile-stock-amount{text-align:center;font-weight:700;}
   .mobile-stock-amount.pending{border-color:var(--primary);background:#F4FBFF;}
+  .mobile-stock-remove{width:42px;height:46px;border:1px solid #F0C7C3;border-radius:10px;background:#fff;color:var(--danger);display:flex;align-items:center;justify-content:center;cursor:pointer;}
+  .mobile-stock-remove svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
   .mobile-stock-confirm-wrap{position:sticky;bottom:0;z-index:6;padding-top:10px;background:linear-gradient(180deg,#FFFFFF00,#fff 24%);}
   .mobile-stock-confirm{width:100%;height:52px;border:0;border-radius:12px;background:var(--primary);color:#fff;font:700 16px 'Sarabun',sans-serif;cursor:pointer;box-shadow:0 5px 18px #166D9F33;}
   .mobile-stock-confirm:disabled{background:#CAD2DA;color:#7E8790;box-shadow:none;cursor:not-allowed;}
@@ -1249,6 +1254,7 @@
     body.mobile-device-mode .main{height:100dvh;padding:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
     body.mobile-device-mode .mobile-tools-page{padding:max(14px,env(safe-area-inset-top)) 12px calc(86px + env(safe-area-inset-bottom));}
     body.mobile-device-mode .mobile-tools-head{position:fixed;left:0;right:0;bottom:0;z-index:20;margin:0;padding:10px 12px max(10px,env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--border);box-shadow:0 -6px 20px #1D212914;}
+    body.mobile-device-mode .mobile-draft-save-wrap,body.mobile-device-mode .mobile-stock-confirm-wrap{bottom:calc(62px + env(safe-area-inset-bottom));}
     body.mobile-device-mode .mobile-tool-panel{padding:14px;}
   }
   @media (max-width:420px){
@@ -4671,7 +4677,7 @@ function mobileStockEditRowsHtml(){
     const hasDraft=Object.prototype.hasOwnProperty.call(stockEditDraftStocks,product.id);
     const baseStock=hasDraft?stockEditDraftStocks[product.id]:product.stock;
     const amount=stockUnitAmountFromBase(baseStock,selected?.factor||1);
-    return `<article class="mobile-stock-item" data-mobile-stock-item="${product.id}"><div class="mobile-stock-field"><label>รหัสสินค้า</label><b>${escapeHtml(product.sku||'-')}</b></div><div class="mobile-stock-field"><label>สินค้า</label><b>${escapeHtml(product.name)}</b></div><div class="mobile-stock-field"><label>หน่วย</label>${options.length>1?`<select class="mobile-stock-unit" data-mobile-stock-unit="${product.id}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>${escapeHtml(option.name)}</option>`).join('')}</select>`:`<b>${escapeHtml(selected?.name||product.unit||'-')}</b>`}</div><div class="mobile-stock-field"><label>คงเหลือ</label><input type="number" step="any" class="mobile-stock-amount ${hasDraft?'pending':''}" data-mobile-stock-amount="${product.id}" data-factor="${selected?.factor||1}" value="${amount}" aria-label="คงเหลือ ${escapeHtml(product.name)}"></div></article>`;
+    return `<article class="mobile-stock-item" data-mobile-stock-item="${product.id}"><div class="mobile-stock-info-row"><div class="mobile-stock-field"><label>รหัสสินค้า</label><b>${escapeHtml(product.sku||'-')}</b></div><div class="mobile-stock-field"><label>สินค้า</label><b class="mobile-stock-product-name">${escapeHtml(product.name)}</b></div></div><div class="mobile-stock-edit-row"><div class="mobile-stock-field"><label>หน่วย</label>${options.length>1?`<select class="mobile-stock-unit" data-mobile-stock-unit="${product.id}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>${escapeHtml(option.name)}</option>`).join('')}</select>`:`<b class="mobile-stock-unit-static">${escapeHtml(selected?.name||product.unit||'-')}</b>`}</div><div class="mobile-stock-field"><label>คงเหลือ</label><input type="number" step="any" class="mobile-stock-amount ${hasDraft?'pending':''}" data-mobile-stock-amount="${product.id}" data-factor="${selected?.factor||1}" value="${amount}" aria-label="คงเหลือ ${escapeHtml(product.name)}"></div><button type="button" class="mobile-stock-remove" data-mobile-stock-remove="${product.id}" title="ลบ ${escapeHtml(product.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(product.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></article>`;
   }).join('')}</div>`;
 }
 function renderMobileStockEditPanel(lists){
@@ -6740,7 +6746,9 @@ function attachMobilePriceResultEvents(){
   });
 }
 function attachEvents(){
-  document.getElementById('mobileToolsLogout')?.addEventListener('click',logoutSystem);
+  document.getElementById('mobileToolsLogout')?.addEventListener('click',()=>{
+    if(confirm('ยืนยันการออกจากระบบใช่หรือไม่?')) logoutSystem();
+  });
   const mobileToolsRefresh=document.getElementById('mobileToolsRefresh');
   if(mobileToolsRefresh) mobileToolsRefresh.addEventListener('click',()=>refreshMobileToolsData(mobileToolsRefresh));
   document.getElementById('mobileInstallApp')?.addEventListener('click',requestMobilePwaInstall);
@@ -6851,6 +6859,14 @@ function attachEvents(){
   document.querySelectorAll('[data-mobile-stock-result]').forEach(button=>button.addEventListener('click',()=>{
     const product=products.find(entry=>Number(entry.id)===Number(button.dataset.mobileStockResult));
     if(product) addProductToMobileStockEdit(product);
+  }));
+  document.querySelectorAll('[data-mobile-stock-remove]').forEach(button=>button.addEventListener('click',()=>{
+    const productId=Number(button.dataset.mobileStockRemove);
+    stockEditItems=stockEditItems.filter(itemId=>Number(itemId)!==productId);
+    delete stockEditRowUnitSel[productId];
+    delete stockEditDraftStocks[productId];
+    if(Number(mobileStockLastProductId)===productId) mobileStockLastProductId=null;
+    render();
   }));
   document.querySelectorAll('[data-mobile-stock-unit]').forEach(select=>select.addEventListener('change',()=>{
     const productId=Number(select.dataset.mobileStockUnit);
