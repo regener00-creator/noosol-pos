@@ -988,6 +988,7 @@
   .pc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;}
   .pc-grid > div{display:flex;justify-content:space-between;font-size:12.5px;border-bottom:1px dashed var(--border);padding-bottom:4px;}
   .pc-grid span{color:var(--text-muted);}
+  .pc-grid .pc-grid-placeholder{visibility:hidden;}
   .pc-unit-select{font-family:inherit;font-size:12.5px;font-weight:700;color:var(--text);border:1px solid var(--border);border-radius:5px;background:var(--surface);padding:2px 5px;cursor:pointer;}
   .pos-results{background:var(--surface);border:1px solid var(--primary);border-radius:var(--radius);margin-bottom:14px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.08);}
   .pos-result{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;}
@@ -10734,12 +10735,11 @@ function openPriceCheckModal(){
         <div class="pc-name">${p.name}</div>
         <div class="pc-grid">
           <div><span>รหัส</span><b class="mono">${p.sku||'-'}</b></div>
-          <div><span>บาร์โค้ด</span><b class="mono">${unitInfo.barcode||'-'}</b></div>
           <div><span>หน่วย</span>${unitFieldHtml}</div>
           <div><span>ขาย</span><b class="mono">${fmtMoney(unitInfo.price)}</b></div>
-          <div><span>คงเหลือ</span><b class="mono">${stockInLargestUnit(p)}</b></div>
-          ${canViewCost?`<div><span>ทุน</span><b class="mono">${fmtMoney(unitInfo.cost)}</b></div>`:''}
+          ${canViewCost?`<div><span>ทุน</span><b class="mono">${fmtMoney(unitInfo.cost)}</b></div>`:'<div class="pc-grid-placeholder" aria-hidden="true"></div>'}
           <div><span>วันหมดอายุ</span><b class="mono">${fmtDateShort(p.expiry)}</b></div>
+          <div><span>คงเหลือ</span><b class="mono">${stockInLargestUnit(p)}</b></div>
         </div>
       </div>`;
     }).join('');
