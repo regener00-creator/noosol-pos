@@ -1415,11 +1415,11 @@ async function fetchAllRows(buildQuery){
 // products that were added or changed, while ids missing from the manifest
 // remove products deleted by another device. The first load remains a safe
 // full download so an incomplete/stale local cache is never trusted blindly.
-// v3 forces one safe full reload after barcode metadata was found intact in
-// Supabase but missing from an older local product cache. This only refreshes
-// the device cache; it does not rewrite or regenerate any barcode.
-const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v3';
-const PRODUCT_MANIFEST_VERSION=3;
+// v4 forces one safe full reload after fixing the product loader's accidental
+// second rowToProduct() pass, which discarded JSON-only metadata such as every
+// barcode collection, extra units and expiry dates from the device cache.
+const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v4';
+const PRODUCT_MANIFEST_VERSION=4;
 function productManifestVersions(rows){
   const versions={};
   (rows||[]).forEach(row=>{ versions[String(row.id)]=String(row.updated_at||''); });
@@ -1788,7 +1788,10 @@ async function loadCoreDataFromSupabase(){
       DOC_TABLES.forEach(([_table,_getArr,setArr])=>setArr([]));
     }
     warehouses=(whRows||[]).map(rowToWarehouse);
-    products=(prodRows||[]).map(rowToProduct);
+    // loadProductRowsFromSupabase() already returns normalized product objects.
+    // Mapping them as database rows a second time strips JSON-only fields such
+    // as barcode, extraBarcodes, vendorBarcodes, units and expiry.
+    products=prodRows||[];
     contacts=(contactRows||[]).map(rowToContact);
     salesRepresentatives=(repRows||[]).map(rowToSalesRep);
     refreshCategoryBrandUnitLists();

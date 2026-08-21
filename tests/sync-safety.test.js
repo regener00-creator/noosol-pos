@@ -27,9 +27,9 @@ const manifestLogicStart = html.indexOf('function productManifestVersions(');
 const manifestLogicEnd = html.indexOf('async function fetchProductManifestRows(', manifestLogicStart);
 const manifestLogic = html.slice(manifestLogicStart, manifestLogicEnd);
 assert.ok(manifestLogicStart >= 0 && manifestLogicEnd > manifestLogicStart);
-assert.match(html, /const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v3'/, 'recovery release must invalidate the barcode-less local product cache');
-assert.match(html, /const PRODUCT_MANIFEST_VERSION=3/);
-const manifestSandbox = { PRODUCT_MANIFEST_VERSION: 3 };
+assert.match(html, /const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v4'/, 'recovery release must invalidate the barcode-less local product cache');
+assert.match(html, /const PRODUCT_MANIFEST_VERSION=4/);
+const manifestSandbox = { PRODUCT_MANIFEST_VERSION: 4 };
 vm.createContext(manifestSandbox);
 vm.runInContext(`${manifestLogic}; this.planProductManifestSync=planProductManifestSync;`, manifestSandbox);
 const plan = manifestSandbox.planProductManifestSync;
@@ -37,7 +37,7 @@ assert.equal(plan([{id:1}], null, [{id:1,updated_at:'a'}], true).fullReload, tru
 assert.deepEqual(
   JSON.parse(JSON.stringify(plan(
     [{id:1},{id:2},{id:4}],
-    {version:3,versions:{'1':'a','2':'old','4':'d'}},
+    {version:4,versions:{'1':'a','2':'old','4':'d'}},
     [{id:1,updated_at:'a'},{id:2,updated_at:'b'},{id:3,updated_at:'c'}],
     true
   ))),
@@ -48,6 +48,8 @@ const coreLoadEnd = html.indexOf('// ----- Sales history sync', coreLoadStart);
 const coreLoad = html.slice(coreLoadStart, coreLoadEnd);
 assert.match(coreLoad, /loadProductRowsFromSupabase\(\)/);
 assert.doesNotMatch(coreLoad, /from\('products'\)\.select\('\*'\)/, 'normal core load must use the product manifest cache');
+assert.match(coreLoad, /products=prodRows\|\|\[\]/, 'normalized product objects must be assigned without a second mapping pass');
+assert.doesNotMatch(coreLoad, /products=\(prodRows\|\|\[\]\)\.map\(rowToProduct\)/, 'double mapping strips JSON-only barcode metadata');
 
 const contactImportStart = html.indexOf('async function importContactsFromExcel(');
 const productImportStart = html.indexOf('async function importProductsFromExcel(', contactImportStart);
