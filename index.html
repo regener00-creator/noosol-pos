@@ -1111,7 +1111,7 @@
   }
   /* หน้ามือถือแยกจากหน้าเดสก์ท็อป: แสดงเฉพาะเช็คราคาและรายการตรวจสินค้า */
   .mobile-tools-page{max-width:760px;margin:0 auto;padding:20px;min-height:100%;}
-  .mobile-tools-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px;}
+  .mobile-tools-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;}
   .mobile-tools-brand{display:flex;align-items:center;gap:10px;min-width:0;}
   .mobile-tools-logo{width:42px;height:42px;border-radius:13px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;}
   .mobile-tools-brand h1{font-size:20px;margin:0;line-height:1.2;}
@@ -1247,7 +1247,8 @@
     body.mobile-device-mode .sidebar,body.mobile-device-mode .topbar{display:none!important;}
     body.mobile-device-mode .shell{height:100dvh;display:block;}
     body.mobile-device-mode .main{height:100dvh;padding:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
-    body.mobile-device-mode .mobile-tools-page{padding:max(14px,env(safe-area-inset-top)) 12px max(20px,env(safe-area-inset-bottom));}
+    body.mobile-device-mode .mobile-tools-page{padding:max(14px,env(safe-area-inset-top)) 12px calc(86px + env(safe-area-inset-bottom));}
+    body.mobile-device-mode .mobile-tools-head{position:fixed;left:0;right:0;bottom:0;z-index:20;margin:0;padding:10px 12px max(10px,env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--border);box-shadow:0 -6px 20px #1D212914;}
     body.mobile-device-mode .mobile-tool-panel{padding:14px;}
   }
   @media (max-width:420px){
@@ -4720,10 +4721,10 @@ function renderMobileTools(){
   // records remain untouched in `inspectionLists`, so desktop history is kept.
   const lists=[...mobileInspectionVisibleLists()].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
   return `<main class="mobile-tools-page">
-    <header class="mobile-tools-head"><div class="mobile-tools-brand"><div class="mobile-tools-logo">Rx</div><div><h1>PEPOS Mobile</h1><span>${escapeHtml(user?.firstName||user?.username||'ผู้ใช้งาน')}</span></div></div><div class="mobile-tools-actions"><button type="button" class="mobile-tools-refresh" id="mobileToolsRefresh" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg></button><button type="button" class="mobile-tools-logout" id="mobileToolsLogout">ออกจากระบบ</button></div></header>
     ${mobileInstallNoticeHtml()}
     <nav class="mobile-tools-tabs" aria-label="เมนูมือถือ"><button type="button" class="mobile-tools-tab ${mobileToolMode==='price'?'active':''}" data-mobile-tool="price">เช็คราคา</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='inspection'?'active':''}" data-mobile-tool="inspection">ตรวจสินค้า</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='stock'?'active':''}" data-mobile-tool="stock">แก้ไขสต๊อก</button></nav>
     ${mobileToolMode==='price'?`<section class="mobile-tool-panel"><h2 class="mobile-tool-title">เช็คราคาสินค้า</h2><div class="mobile-tool-sub">ยิงบาร์โค้ด พิมพ์รหัส หรือใช้กล้องมือถือ โดยไม่เพิ่มสินค้าเข้าบิล</div><div class="mobile-scan-row"><input id="mobilePriceInput" class="mobile-scan-input" value="${escapeHtml(mobilePriceQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobilePriceCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-search-hint">เครื่องยิงบาร์โค้ดที่ส่ง Enter อัตโนมัติใช้งานได้ทันที</div><div id="mobilePriceResult">${mobilePriceResultHtml()}</div></section>`:mobileToolMode==='inspection'?renderMobileInspectionPanel(lists):renderMobileStockEditPanel(lists)}
+    <header class="mobile-tools-head"><div class="mobile-tools-brand"><div class="mobile-tools-logo">Rx</div><div><h1>PEPOS Mobile</h1><span>${escapeHtml(user?.firstName||user?.username||'ผู้ใช้งาน')}</span></div></div><div class="mobile-tools-actions"><button type="button" class="mobile-tools-refresh" id="mobileToolsRefresh" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg></button><button type="button" class="mobile-tools-logout" id="mobileToolsLogout">ออกจากระบบ</button></div></header>
   </main>`;
 }
 function mobileHandlePriceCode(code){
