@@ -1330,7 +1330,33 @@ function productMetadataToRow(p){
   delete data.stock;
   return { id:p.id, sku:p.sku||null, name:p.name||'', category:p.category||null, brand:p.brand||null, product_type:p.type||null, warehouse_id:p.wh||null, cost:Number(p.cost)||0, price:Number(p.price)||0, unit:p.unit||null, data };
 }
-function rowToProduct(row){ return { ...(row.data||{}), id:row.id, stock:Number(row.stock)||0 }; } // trust the flat `stock` column, not the (possibly stale) copy inside data jsonb -- see the sync-bypass note near adjustProductStockOnSupabase
+function rowToProduct(row){
+  row=row||{};
+  const data=row.data&&typeof row.data==='object'?row.data:{};
+  const flatNumber=(value,fallback)=>{
+    const number=Number(value);
+    if(value!==null&&value!==undefined&&value!==''&&Number.isFinite(number)) return number;
+    const fallbackNumber=Number(fallback);
+    return Number.isFinite(fallbackNumber)?fallbackNumber:0;
+  };
+  // The normal columns are authoritative. Older rows can have an incomplete
+  // `data` JSON object; relying on JSON alone made a favorite product with no
+  // `data.price` crash the POS even though the flat `price` column was valid.
+  return {
+    ...data,
+    id:row.id,
+    sku:row.sku??data.sku??'',
+    name:row.name??data.name??'',
+    category:row.category??data.category??'',
+    brand:row.brand??data.brand??'',
+    type:row.product_type??data.type??'stock',
+    wh:row.warehouse_id??data.wh??null,
+    stock:flatNumber(row.stock,data.stock),
+    cost:flatNumber(row.cost,data.cost),
+    price:flatNumber(row.price,data.price),
+    unit:row.unit??data.unit??'',
+  };
+} // trust the flat columns, especially `stock`, instead of possibly stale or incomplete copies inside data jsonb
 function warehouseToRow(w){ return { id:w.id, name:w.name||'', data:w }; }
 function rowToWarehouse(row){ return { ...(row.data||{}), id:row.id, name:row.name }; }
 function contactToRow(c){
@@ -1836,7 +1862,10 @@ function fmtTopbarDate(d){
   const weekdays=['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'];
   return `${weekdays[date.getDay()]} : ${day}-${month}-${year}`;
 }
-function fmtMoney(n){ return n.toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function fmtMoney(n){
+  const amount=Number(n);
+  return (Number.isFinite(amount)?amount:0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
 function escapeHtml(value){ return String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 // ---------- ช่องเลือกวันที่แบบ วัน/เดือน/ปี (dd/mm/yyyy) พร้อมปฏิทินช่วยเลือก ----------
 function isoToDMY(iso){ if(!iso) return ''; const parts=String(iso).split('-'); if(parts.length!==3) return ''; const [y,m,d]=parts; return `${d}/${m}/${y}`; }
