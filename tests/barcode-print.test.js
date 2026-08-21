@@ -20,12 +20,16 @@ const context = {
   barcodePrintCatFilter: {category:'',brand:''},
   barcodePrintSearchQuery: '',
   barcodePrintLabelSize: '60x40',
+  barcodePrintLabelType: 'price',
   barcodePrintPage: 1,
   BARCODE_PRINT_PAGE_SIZE: 7,
+  TODAY_STR: '2026-08-21',
+  promotions: [],
   categories: ['ยา'],
   brands: ['ทั่วไป'],
   escapeHtml: value => String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'),
   fmtMoney: value => Number(value).toFixed(2),
+  isoToDMY: value => String(value).split('-').reverse().join('/'),
   matchesBarcode: (product, query) => product.barcode === query || (product.units || []).some(unit => unit.barcode === query),
   persistWorkspaceData: () => { persistCount++; },
   showToast: () => {},
@@ -34,6 +38,8 @@ const context = {
   setTimeout: callback => callback(),
   document: {querySelectorAll: () => [], querySelector: () => null},
 };
+context.isPromotionLiveToday = promo => promo.active !== false && (!promo.startDate || context.TODAY_STR >= promo.startDate) && (!promo.endDate || context.TODAY_STR <= promo.endDate);
+context.findMatchingPromotion = line => context.promotions.find(promo => context.isPromotionLiveToday(promo) && promo.scope === 'product' && Number(promo.productId) === Number(line.pid) && promo.unit === line.unit) || null;
 vm.createContext(context);
 vm.runInContext(html.slice(start, end), context);
 
@@ -99,12 +105,41 @@ assert.match(printHtml, /NEW-001/);
 assert.equal((printHtml.match(/<section class="label">/g)||[]).length, 2);
 assert.equal(printCount, 1);
 
+context.promotions = [];
+const noPromotionErrors = context.barcodePrintValidation([{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:1}],'promotion');
+assert.equal(noPromotionErrors[0].field, 'promotion');
+assert.match(noPromotionErrors[0].message, /ไม่มีโปรโมชั่นที่ใช้งานอยู่/);
+
+context.promotions = [{id:10,name:'ลดทันที 25%',active:true,scope:'product',productId:1,unit:'กล่อง',type:'discount',discountMode:'percent',discountValue:25,startDate:'2026-08-01',endDate:'2026-08-31'}];
+const discountDetails = context.barcodePrintPromotionDetails({pid:1,unit:'กล่อง'},products[0],context.barcodePrintUnitOptions(products[0])[0]);
+assert.equal(discountDetails.price, 90);
+assert.equal(discountDetails.condition, 'ลด 25%');
+
+context.promotions = [{id:11,name:'ซื้อสองราคาพิเศษ',active:true,scope:'product',productId:1,unit:'กล่อง',type:'bundle',bundleQty:2,bundlePrice:200}];
+const bundleDetails = context.barcodePrintPromotionDetails({pid:1,unit:'กล่อง'},products[0],context.barcodePrintUnitOptions(products[0])[0]);
+assert.equal(bundleDetails.price, 200);
+assert.equal(bundleDetails.originalPrice, 240);
+assert.match(bundleDetails.condition, /ซื้อ 2 กล่อง ราคา 200\.00 บาท/);
+
+context.promotions = [{id:12,name:'ซื้อ 1 แถม 1 คละสินค้าได้',active:true,scope:'buygetdiff',type:'buygetdiff',bgdBuyProductId:1,bgdBuyUnit:'กล่อง',bgdBuyQty:1,bgdGetProductId:1,bgdGetUnit:'กล่อง',bgdGetQty:1,startDate:'2026-08-01',endDate:'2026-08-31'}];
+printHtml = '';
+assert.equal(context.writeBarcodePrintWindow(printWindow,[{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:1}],'60x40','promotion'), true);
+assert.match(printHtml, /class="label promotion"/);
+assert.match(printHtml, /<b>ซื้อ 1 แถม 1<\/b>/);
+assert.match(printHtml, /คละสินค้าได้/);
+assert.match(printHtml, /รับฟรี 1 กล่อง/);
+assert.match(printHtml, /class="promo-price">120<sup>\.00<\/sup>/);
+assert.match(printHtml, /ป้ายโปรโมชั่น 60 × 40 มม\. แนวนอน/);
+
 assert.match(html, /barcodeprint:\s*renderBarcodePrint/);
 assert.match(html, /LEVEL2_HIDDEN_TABS[^\n]+barcodeprint/);
 assert.match(html, /id="savePrintBarcodeBtn"/);
 assert.match(html, /id="barcodePrintAddMissingBtn"/);
 assert.match(html, /พิมพ์ป้ายราคา/);
 assert.match(html, /barcodePrintLabelSize = '60x40'/);
+assert.match(html, /barcodePrintLabelType = 'price'/);
+assert.match(html, /id="barcodePrintLabelType"/);
+assert.match(html, /รูปแบบ: ป้ายโปรโมชั่น/);
 assert.match(html, /value="60x40"[^>]*>ป้ายราคา 60 × 40 มม\. \(ค่าเริ่มต้น\)/);
 assert.match(html, /data-barcode-print-page/);
 assert.match(html, /BARCODE_PRINT_PAGE_SIZE = 7/);
