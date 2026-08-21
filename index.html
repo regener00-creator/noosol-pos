@@ -1189,6 +1189,8 @@
   .mobile-inspection-item.checked{border-color:#8CCDA0;background:#F2FBF4;}
   .mobile-inspection-item.latest{box-shadow:0 0 0 3px #2091D226;border-color:var(--primary);}
   .mobile-inspection-item-head{display:flex;align-items:flex-start;gap:9px;}
+  .mobile-inspection-remove{width:34px;height:34px;flex:0 0 34px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #F0C7C3;border-radius:9px;background:#fff;color:var(--danger);cursor:pointer;}
+  .mobile-inspection-remove svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
   .mobile-inspection-check{width:24px;height:24px;border-radius:50%;background:#E9EEF3;color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;margin-top:1px;}
   .mobile-inspection-item.checked .mobile-inspection-check{background:#3A9B56;color:#fff;}
   .mobile-inspection-item-name{font-size:14px;font-weight:600;line-height:1.35;flex:1;}
@@ -1413,10 +1415,11 @@ async function fetchAllRows(buildQuery){
 // products that were added or changed, while ids missing from the manifest
 // remove products deleted by another device. The first load remains a safe
 // full download so an incomplete/stale local cache is never trusted blindly.
-// v2 forces one safe full reload after the product-metadata recovery. This
-// replaces any blank product objects cached by the short-lived broken mapper.
-const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v2';
-const PRODUCT_MANIFEST_VERSION=2;
+// v3 forces one safe full reload after barcode metadata was found intact in
+// Supabase but missing from an older local product cache. This only refreshes
+// the device cache; it does not rewrite or regenerate any barcode.
+const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v3';
+const PRODUCT_MANIFEST_VERSION=3;
 function productManifestVersions(rows){
   const versions={};
   (rows||[]).forEach(row=>{ versions[String(row.id)]=String(row.updated_at||''); });
@@ -4520,7 +4523,7 @@ function mobileInspectionItemHtml(entry,checked,latest){
   const selected=inspectionListSelectedOption(entry.item,entry.product);
   const stock=stockUnitAmountFromBase(entry.product.stock,selected.factor);
   return `<article class="mobile-inspection-item ${checked?'checked':''} ${latest?'latest':''}" data-mobile-inspection-item="${entry.product.id}">
-    <div class="mobile-inspection-item-head"><span class="mobile-inspection-check">${checked?'✓':'·'}</span><div class="mobile-inspection-item-name">${escapeHtml(entry.product.name)}</div></div>
+    <div class="mobile-inspection-item-head"><span class="mobile-inspection-check">${checked?'✓':'·'}</span><div class="mobile-inspection-item-name">${escapeHtml(entry.product.name)}</div><button type="button" class="mobile-inspection-remove" data-mobile-inspection-remove="${entry.product.id}" aria-label="ลบ ${escapeHtml(entry.product.name)} ออกจากรายการ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button></div>
     <div class="mobile-inspection-item-data">
       <div><span>รหัสสินค้า</span><b>${escapeHtml(entry.product.sku||'-')}</b></div>
       <div><span>บาร์โค้ด</span><b>${escapeHtml(selected.barcode||'-')}</b></div>
@@ -4543,6 +4546,23 @@ function mobileInspectionContentHtml(){
   const visible=entries.slice(0,mobileInspectionVisibleCount);
   return `<div class="mobile-inspection-progress"><span>ตรวจแล้ว ${progress.checked} / ${progress.total} รายการ</span>${progress.checked?'<button type="button" class="mobile-reset-checks" id="mobileResetChecks">เริ่มตรวจใหม่</button>':''}</div>
     ${visible.length?`<div class="mobile-inspection-list">${visible.map(entry=>mobileInspectionItemHtml(entry,checked.has(Number(entry.product.id)),Number(entry.product.id)===Number(mobileInspectionLastProductId))).join('')}</div>${entries.length>visible.length?`<button type="button" class="mobile-load-more" id="mobileLoadMore">แสดงเพิ่ม (${entries.length-visible.length})</button>`:''}`:`<div class="mobile-empty">ไม่พบสินค้าในรายการนี้</div>`}`;
+}
+function removeProductFromMobileInspection(listId,productId){
+  const list=inspectionLists.find(entry=>String(entry.id)===String(listId));
+  if(!list) return false;
+  const itemIndex=(list.items||[]).findIndex(item=>Number(item.pid)===Number(productId));
+  if(itemIndex<0) return false;
+  const product=products.find(entry=>Number(entry.id)===Number(productId));
+  if(!confirm(`ลบ “${product?.name||'สินค้านี้'}” ออกจากรายการตรวจสินค้าใช่หรือไม่?`)) return false;
+  list.items.splice(itemIndex,1);
+  list.updatedAt=new Date().toISOString();
+  mobileInspectionCheckedSet(list.id).delete(Number(productId));
+  if(Number(mobileInspectionLastProductId)===Number(productId)) mobileInspectionLastProductId=null;
+  persistWorkspaceData();
+  syncInspectionListsToSupabase();
+  showToast('ลบสินค้าออกจากรายการตรวจสินค้าแล้ว');
+  render();
+  return true;
 }
 function startMobileInspectionDraft(){
   const defaultName=inspectionListDefaultName();
@@ -6780,6 +6800,11 @@ function attachEvents(){
     inspectionListDraft.items.splice(Number(button.dataset.mobileDraftRemove),1);
     mobileInspectionLastProductId=null;
     render();
+  }));
+  document.querySelectorAll('[data-mobile-inspection-remove]').forEach(button=>button.addEventListener('click',event=>{
+    event.stopPropagation();
+    const list=mobileInspectionCurrentList();
+    if(list) removeProductFromMobileInspection(list.id,Number(button.dataset.mobileInspectionRemove));
   }));
   document.querySelectorAll('[data-mobile-inspection-item]').forEach(item=>item.addEventListener('click',()=>{
     const list=mobileInspectionCurrentList(); if(!list) return;

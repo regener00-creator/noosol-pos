@@ -204,6 +204,20 @@ assert.equal(context.stockEditSourceInspectionListId, null);
 assert.equal(context.stockEditSourcePending, false);
 context.inspectionLists = [completedList];
 
+context.inspectionLists = [{...pendingList,items:[{pid:1,unit:'กล่อง'},{pid:2,unit:'ขวด'}]}];
+context.mobileInspectionListId = pendingList.id;
+context.mobileInspectionOpenedListId = pendingList.id;
+context.mobileInspectionQuery = '';
+context.mobileInspectionVisibleCount = 25;
+context.mobileInspectionCheckedSet(pendingList.id).add(1);
+context.mobileInspectionLastProductId = 1;
+assert.match(context.mobileInspectionContentHtml(), /data-mobile-inspection-remove="1"/);
+assert.equal(context.removeProductFromMobileInspection(pendingList.id,1), true);
+assert.deepEqual(Array.from(context.inspectionLists[0].items,item=>item.pid),[2]);
+assert.equal(context.mobileInspectionCheckedSet(pendingList.id).has(1),false);
+assert.equal(context.mobileInspectionLastProductId,null);
+assert.match(context.inspectionLists[0].updatedAt,/^\d{4}-\d{2}-\d{2}T/);
+
 assert.match(html, /\['inspectionlists','รายการตรวจสินค้า'/);
 assert.match(html, /inspectionlists:\s*renderInspectionLists/);
 assert.match(html, /from\('inspection_lists'\)\.select\('\*'\)/);
@@ -219,6 +233,7 @@ assert.match(html, /inspectionListOverviewSelectedIds/);
 assert.match(html, /function deleteSelectedInspectionLists\(/);
 assert.match(html, /deleteSelectedInspectionListsBtn/);
 
+context.inspectionLists = [completedList];
 context.mobileInspectionListId = 'CHECK-0001';
 context.mobileInspectionOpenedListId = 'CHECK-0001';
 context.mobileStockSourceListId = 'CHECK-0001';
@@ -231,7 +246,7 @@ assert.equal(context.mobileInspectionOpenedListId, '');
 assert.equal(context.mobileStockSourceListId, '');
 assert.equal(context.stockEditSourceInspectionListId, null);
 assert.equal(context.stockEditSourcePending, false);
-assert.equal(persistCount, 3);
-assert.equal(syncCount, 3);
+assert.equal(persistCount, 4);
+assert.equal(syncCount, 4);
 
 console.log('inspection list tests passed');
