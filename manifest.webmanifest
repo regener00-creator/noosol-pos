@@ -1,6 +1,6 @@
 {
-  "name": "PEPOS Mobile - เช็คราคาและตรวจสินค้า",
-  "short_name": "PEPOS Mobile",
+  "name": "PEPOS - เช็คราคาและตรวจสินค้า",
+  "short_name": "PEPOS",
   "description": "เช็คราคาและตรวจจำนวนสินค้าด้วยมือถือหรือเครื่องยิงบาร์โค้ดแบบมีจอ",
   "lang": "th",
   "start_url": "/",

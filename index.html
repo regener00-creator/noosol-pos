@@ -7,7 +7,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="PEPOS Mobile">
+<meta name="apple-mobile-web-app-title" content="PEPOS">
 <title>ร้านยา POS v50</title>
 <link rel="manifest" href="/manifest.webmanifest">
 <link rel="icon" href="/pwa-icon.svg" type="image/svg+xml">
@@ -4434,7 +4434,7 @@ function openMobileBrowserHelp(options={}){
   const android=/Android/i.test(navigator.userAgent||'');
   const overlay=document.createElement('div');
   overlay.className='mobile-browser-help';
-  overlay.innerHTML=`<div class="mobile-browser-help-card"><h3>${options.cameraBlocked?'กล้องถูกบล็อกโดยเบราว์เซอร์นี้':'ติดตั้ง PEPOS Mobile'}</h3><p>${options.cameraBlocked?'จากภาพเป็นการเปิดผ่านเบราว์เซอร์ภายในแอป ซึ่งมักไม่ส่งสิทธิ์กล้องให้เว็บไซต์':'ต้องเปิดหน้านี้ด้วย Chrome ก่อน จึงจะติดตั้ง PWA และเอาแถบเบราว์เซอร์บน–ล่างออกได้'}</p><ol class="mobile-browser-help-steps"><li>กด “เปิดใน Chrome” ด้านล่าง</li><li>ถ้ากล้องเคยถูกปฏิเสธ ให้กดรูปกุญแจข้างที่อยู่ แล้วอนุญาต Camera</li><li>ใน Chrome กดเมนู ⋮ แล้วเลือก “ติดตั้งแอป” หรือ “เพิ่มไปยังหน้าจอหลัก”</li></ol><div class="mobile-browser-help-actions"><button type="button" class="mobile-browser-help-close">ปิด</button><button type="button" class="mobile-open-chrome">${android?'เปิดใน Chrome':'เปิดในเบราว์เซอร์หลัก'}</button></div></div>`;
+  overlay.innerHTML=`<div class="mobile-browser-help-card"><h3>${options.cameraBlocked?'กล้องถูกบล็อกโดยเบราว์เซอร์นี้':'ติดตั้ง PEPOS'}</h3><p>${options.cameraBlocked?'จากภาพเป็นการเปิดผ่านเบราว์เซอร์ภายในแอป ซึ่งมักไม่ส่งสิทธิ์กล้องให้เว็บไซต์':'ต้องเปิดหน้านี้ด้วย Chrome ก่อน จึงจะติดตั้ง PWA และเอาแถบเบราว์เซอร์บน–ล่างออกได้'}</p><ol class="mobile-browser-help-steps"><li>กด “เปิดใน Chrome” ด้านล่าง</li><li>ถ้ากล้องเคยถูกปฏิเสธ ให้กดรูปกุญแจข้างที่อยู่ แล้วอนุญาต Camera</li><li>ใน Chrome กดเมนู ⋮ แล้วเลือก “ติดตั้งแอป” หรือ “เพิ่มไปยังหน้าจอหลัก”</li></ol><div class="mobile-browser-help-actions"><button type="button" class="mobile-browser-help-close">ปิด</button><button type="button" class="mobile-open-chrome">${android?'เปิดใน Chrome':'เปิดในเบราว์เซอร์หลัก'}</button></div></div>`;
   document.body.appendChild(overlay);
   overlay.querySelector('.mobile-browser-help-close').addEventListener('click',()=>overlay.remove());
   overlay.querySelector('.mobile-open-chrome').addEventListener('click',()=>{
@@ -4449,7 +4449,7 @@ async function requestMobilePwaInstall(){
   deferredPwaInstallPrompt.prompt();
   const choice=await deferredPwaInstallPrompt.userChoice;
   deferredPwaInstallPrompt=null;
-  if(choice?.outcome==='accepted') showToast('กำลังติดตั้ง PEPOS Mobile');
+  if(choice?.outcome==='accepted') showToast('กำลังติดตั้ง PEPOS');
   render();
   return choice?.outcome==='accepted';
 }
@@ -4731,7 +4731,7 @@ function renderMobileTools(){
     ${mobileInstallNoticeHtml()}
     <nav class="mobile-tools-tabs" aria-label="เมนูมือถือ"><button type="button" class="mobile-tools-tab ${mobileToolMode==='price'?'active':''}" data-mobile-tool="price">เช็คราคา</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='inspection'?'active':''}" data-mobile-tool="inspection">ตรวจสินค้า</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='stock'?'active':''}" data-mobile-tool="stock">แก้ไขสต๊อก</button></nav>
     ${mobileToolMode==='price'?`<section class="mobile-tool-panel"><h2 class="mobile-tool-title">เช็คราคาสินค้า</h2><div class="mobile-tool-sub">ยิงบาร์โค้ด พิมพ์รหัส หรือใช้กล้องมือถือ โดยไม่เพิ่มสินค้าเข้าบิล</div><div class="mobile-scan-row"><input id="mobilePriceInput" class="mobile-scan-input" value="${escapeHtml(mobilePriceQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobilePriceCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-search-hint">เครื่องยิงบาร์โค้ดที่ส่ง Enter อัตโนมัติใช้งานได้ทันที</div><div id="mobilePriceResult">${mobilePriceResultHtml()}</div></section>`:mobileToolMode==='inspection'?renderMobileInspectionPanel(lists):renderMobileStockEditPanel(lists)}
-    <header class="mobile-tools-head"><div class="mobile-tools-actions"><button type="button" class="mobile-tools-logout" id="mobileToolsLogout">ออกจากระบบ</button><button type="button" class="mobile-tools-refresh" id="mobileToolsRefresh" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg></button></div><div class="mobile-tools-brand"><div><h1>PEPOS Mobile</h1><span>${escapeHtml(user?.firstName||user?.username||'ผู้ใช้งาน')}</span></div><div class="mobile-tools-logo">Rx</div></div></header>
+    <header class="mobile-tools-head"><div class="mobile-tools-actions"><button type="button" class="mobile-tools-logout" id="mobileToolsLogout">ออกจากระบบ</button><button type="button" class="mobile-tools-refresh" id="mobileToolsRefresh" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg></button></div><div class="mobile-tools-brand"><div><h1>PEPOS</h1><span>${escapeHtml(user?.firstName||user?.username||'ผู้ใช้งาน')}</span></div><div class="mobile-tools-logo">Rx</div></div></header>
   </main>`;
 }
 function mobileHandlePriceCode(code){
@@ -6679,7 +6679,7 @@ function render(){
   TODAY_STR=currentDateStr();
   const mobileMode=isMobileDeviceMode();
   document.body.classList.toggle('mobile-device-mode',mobileMode);
-  document.title=mobileMode?'PEPOS Mobile':'ร้านยา POS v50';
+  document.title=mobileMode?'PEPOS':'ร้านยา POS v50';
   if(mobileMode) currentTab='mobiletools';
   else if(currentTab==='mobiletools') currentTab='dashboard';
   if(!canAccessTab(currentTab)){
@@ -10979,7 +10979,7 @@ window.addEventListener('beforeinstallprompt',event=>{
 });
 window.addEventListener('appinstalled',()=>{
   deferredPwaInstallPrompt=null;
-  showToast('ติดตั้ง PEPOS Mobile เรียบร้อยแล้ว');
+  showToast('ติดตั้ง PEPOS เรียบร้อยแล้ว');
   if(currentTab==='mobiletools'&&loggedInUser()) render();
 });
 

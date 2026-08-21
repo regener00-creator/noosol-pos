@@ -65,7 +65,7 @@ const mobileFooterEnd = mobileToolsRender.indexOf('</header>', mobileFooterStart
 const mobileFooter = mobileToolsRender.slice(mobileFooterStart, mobileFooterEnd);
 const mobileLogoutIndex = mobileFooter.indexOf('id="mobileToolsLogout"');
 const mobileRefreshIndex = mobileFooter.indexOf('id="mobileToolsRefresh"');
-const mobileTitleIndex = mobileFooter.indexOf('<h1>PEPOS Mobile</h1>');
+const mobileTitleIndex = mobileFooter.indexOf('<h1>PEPOS</h1>');
 const mobileLogoIndex = mobileFooter.indexOf('mobile-tools-logo">Rx');
 assert.ok(mobileLogoutIndex >= 0 && mobileRefreshIndex > mobileLogoutIndex && mobileTitleIndex > mobileRefreshIndex && mobileLogoIndex > mobileTitleIndex);
 assert.match(html, /await Promise\.all\(\[loadCoreDataFromSupabase\(\),loadInspectionListsFromSupabase\(\)\]\)/);
@@ -143,6 +143,7 @@ assert.match(mobilePriceInputHandler, /result\.innerHTML=mobilePriceResultHtml\(
 assert.match(mobilePriceInputHandler, /attachMobilePriceResultEvents\(\)/);
 
 assert.equal(manifest.display, 'standalone');
+assert.equal(manifest.short_name, 'PEPOS');
 assert.equal(manifest.start_url, '/');
 assert.ok(manifest.icons.some(icon => icon.src === '/pwa-icon.svg'));
 assert.ok(manifest.icons.some(icon => icon.src === '/pwa-icon-192.png' && icon.sizes === '192x192'));
