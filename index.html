@@ -1404,8 +1404,10 @@ async function fetchAllRows(buildQuery){
 // products that were added or changed, while ids missing from the manifest
 // remove products deleted by another device. The first load remains a safe
 // full download so an incomplete/stale local cache is never trusted blindly.
-const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v1';
-const PRODUCT_MANIFEST_VERSION=1;
+// v2 forces one safe full reload after the product-metadata recovery. This
+// replaces any blank product objects cached by the short-lived broken mapper.
+const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v2';
+const PRODUCT_MANIFEST_VERSION=2;
 function productManifestVersions(rows){
   const versions={};
   (rows||[]).forEach(row=>{ versions[String(row.id)]=String(row.updated_at||''); });

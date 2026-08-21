@@ -27,7 +27,9 @@ const manifestLogicStart = html.indexOf('function productManifestVersions(');
 const manifestLogicEnd = html.indexOf('async function fetchProductManifestRows(', manifestLogicStart);
 const manifestLogic = html.slice(manifestLogicStart, manifestLogicEnd);
 assert.ok(manifestLogicStart >= 0 && manifestLogicEnd > manifestLogicStart);
-const manifestSandbox = { PRODUCT_MANIFEST_VERSION: 1 };
+assert.match(html, /const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v2'/, 'recovery release must invalidate the broken local product cache');
+assert.match(html, /const PRODUCT_MANIFEST_VERSION=2/);
+const manifestSandbox = { PRODUCT_MANIFEST_VERSION: 2 };
 vm.createContext(manifestSandbox);
 vm.runInContext(`${manifestLogic}; this.planProductManifestSync=planProductManifestSync;`, manifestSandbox);
 const plan = manifestSandbox.planProductManifestSync;
@@ -35,7 +37,7 @@ assert.equal(plan([{id:1}], null, [{id:1,updated_at:'a'}], true).fullReload, tru
 assert.deepEqual(
   JSON.parse(JSON.stringify(plan(
     [{id:1},{id:2},{id:4}],
-    {version:1,versions:{'1':'a','2':'old','4':'d'}},
+    {version:2,versions:{'1':'a','2':'old','4':'d'}},
     [{id:1,updated_at:'a'},{id:2,updated_at:'b'},{id:3,updated_at:'c'}],
     true
   ))),
