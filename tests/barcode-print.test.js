@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const start = html.indexOf('const CODE128_PATTERNS=');
 const end = html.indexOf('function stockEditMatchesQuery(', start);
-assert.ok(start >= 0 && end > start, 'ไม่พบชุดฟังก์ชันพิมพ์บาร์โค้ด');
+assert.ok(start >= 0 && end > start, 'ไม่พบชุดฟังก์ชันพิมพ์ป้ายราคา');
 
 const products = [
   {id:1,sku:'P-001',name:'สินค้าทดสอบหนึ่ง',category:'ยา',brand:'ทั่วไป',unit:'กล่อง',barcode:'',price:120,units:[{sub:'ลัง',barcode:'CASE-001',price:1100,factor:10}],extraBarcodes:[],vendorBarcodes:[]},
@@ -19,7 +19,7 @@ const context = {
   barcodePrintItems: [],
   barcodePrintCatFilter: {category:'',brand:''},
   barcodePrintSearchQuery: '',
-  barcodePrintLabelSize: '50x30',
+  barcodePrintLabelSize: '60x40',
   barcodePrintPage: 1,
   BARCODE_PRINT_PAGE_SIZE: 7,
   categories: ['ยา'],
@@ -78,10 +78,34 @@ assert.equal(products[0].barcode, 'NEW-001');
 assert.equal(persistCount, 1);
 assert.equal(renderCount, 1);
 
+let printHtml = '';
+let printCount = 0;
+const printWindow = {
+  closed: false,
+  document: {
+    open: () => {},
+    write: value => { printHtml += value; },
+    close: () => {},
+  },
+  focus: () => {},
+  print: () => { printCount++; },
+};
+assert.equal(context.writeBarcodePrintWindow(printWindow,[{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:2}],'60x40'), true);
+assert.match(printHtml, /@page\{size:60mm 40mm;margin:0\}/);
+assert.match(printHtml, /ป้ายราคา 60 × 40 มม\. แนวนอน/);
+assert.match(printHtml, /สินค้าทดสอบหนึ่ง/);
+assert.match(printHtml, /฿<\/span>120\.00/);
+assert.match(printHtml, /NEW-001/);
+assert.equal((printHtml.match(/<section class="label">/g)||[]).length, 2);
+assert.equal(printCount, 1);
+
 assert.match(html, /barcodeprint:\s*renderBarcodePrint/);
 assert.match(html, /LEVEL2_HIDDEN_TABS[^\n]+barcodeprint/);
 assert.match(html, /id="savePrintBarcodeBtn"/);
 assert.match(html, /id="barcodePrintAddMissingBtn"/);
+assert.match(html, /พิมพ์ป้ายราคา/);
+assert.match(html, /barcodePrintLabelSize = '60x40'/);
+assert.match(html, /value="60x40"[^>]*>ป้ายราคา 60 × 40 มม\. \(ค่าเริ่มต้น\)/);
 assert.match(html, /data-barcode-print-page/);
 assert.match(html, /BARCODE_PRINT_PAGE_SIZE = 7/);
 assert.match(html, /\.main\.barcode-print-main\{overflow-y:hidden;\}/);

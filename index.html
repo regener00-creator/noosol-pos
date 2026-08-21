@@ -2402,11 +2402,11 @@ let stockEditPage = 1;
 let stockEditSourceInspectionListId = null;
 let stockEditSourcePending = false;
 const STOCK_EDIT_PAGE_SIZE = 7;
-// คิวหน้าพิมพ์บาร์โค้ดเอง แยกจากหน้ารายการสินค้าและหน้าแก้ไขสต๊อก
+// คิวหน้าพิมพ์ป้ายราคา แยกจากหน้ารายการสินค้าและหน้าแก้ไขสต๊อก
 let barcodePrintItems = [];
 let barcodePrintCatFilter = { category:'', brand:'' };
 let barcodePrintSearchQuery = '';
-let barcodePrintLabelSize = '50x30';
+let barcodePrintLabelSize = '60x40';
 let barcodePrintPage = 1;
 const BARCODE_PRINT_PAGE_SIZE = 7;
 // เลขหน้าสำหรับตารางเอกสารต่างๆ (แสดงหน้าละ 20 รายการ)
@@ -2876,7 +2876,7 @@ const NAV = [
     ['stockedit','แก้ไขสต๊อก','<path d="M4 19.5V15l10.5-10.5a2.12 2.12 0 0 1 3 3L7 18H4z"/><path d="M13.5 5.5l3 3"/><path d="M11 20h9"/>'],
     ['stockadjust','สินค้าติดลบ','<path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/>'],
     ['transfer','โอนสินค้าระหว่างคลัง','<path d="M7 16l-4-4 4-4"/><path d="M3 12h13"/><path d="M17 8l4 4-4 4"/><path d="M21 12H8"/>'],
-    ['barcodeprint','พิมพ์บาร์โค้ดเอง','<path d="M3 5h2v14H3zM7 5h1v14H7zM10 5h3v14h-3zM15 5h1v14h-1zM18 5h3v14h-3z"/>'],
+    ['barcodeprint','พิมพ์ป้ายราคา','<path d="M3 5h2v14H3zM7 5h1v14H7zM10 5h3v14h-3zM15 5h1v14h-1zM18 5h3v14h-3z"/>'],
   ]},
   {section:'สมุดรายชื่อ', items:[
     ['contacts','ลูกค้า / ผู้จำหน่าย','<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>'],
@@ -5074,14 +5074,14 @@ function renderBarcodePrint(){
   const pagination=barcodePrintPagination();
   barcodePrintPage=pagination.currentPage;
   return `<div class="rpt barcode-print-page">
-    <div class="pagehead"><div><h1>พิมพ์บาร์โค้ดเอง</h1><div class="sub">สร้างบาร์โค้ดสำหรับสินค้าที่ไม่มีรหัส แล้วพิมพ์เป็นฉลากพร้อมชื่อและราคา</div></div><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length?'':'disabled'}>ล้างรายการ</button><button class="btn primary" id="savePrintBarcodeBtn" ${barcodePrintItems.length?'':'disabled'}>บันทึกและพิมพ์ (${barcodePrintItems.length})</button></div></div>
-    <p class="barcode-print-help">ระบบสร้างรหัสภายในแบบ Code 128 ให้อัตโนมัติ สามารถแก้รหัส หน่วย และจำนวนฉลากก่อนพิมพ์ได้ การบันทึกจะผูกบาร์โค้ดกับหน่วยสินค้าที่เลือก</p>
+    <div class="pagehead"><div><h1>พิมพ์ป้ายราคา</h1><div class="sub">เลือกสินค้า หน่วย และจำนวนป้าย แล้วพิมพ์ป้ายหน้าชั้นพร้อมราคาและบาร์โค้ด</div></div><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length?'':'disabled'}>ล้างรายการ</button><button class="btn primary" id="savePrintBarcodeBtn" ${barcodePrintItems.length?'':'disabled'}>บันทึกและพิมพ์ป้ายราคา (${barcodePrintItems.length})</button></div></div>
+    <p class="barcode-print-help">ค่าเริ่มต้นเป็นป้ายแนวนอน 60 × 40 มม. หากสินค้ายังไม่มีบาร์โค้ด ระบบจะสร้าง Code 128 ภายในและบันทึกให้กับหน่วยที่เลือกเมื่อสั่งพิมพ์</p>
     <div class="rpt-filters" style="margin-bottom:14px;">
       <div class="rpf-item"><select id="barcodePrintCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(category=>`<option value="${escapeHtml(category)}" ${filter.category===category?'selected':''}>${escapeHtml(category)}</option>`).join('')}</select></div>
       <div class="rpf-item"><select id="barcodePrintBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(brand=>`<option value="${escapeHtml(brand)}" ${filter.brand===brand?'selected':''}>${escapeHtml(brand)}</option>`).join('')}</select></div>
       <button class="btn ghost" id="barcodePrintAddCategoryBtn" ${(filter.category||filter.brand)?'':'disabled'}>เลือกสินค้าในหมวดนี้${(filter.category||filter.brand)?` (${filteredCount})`:''}</button>
-      <button class="btn ghost" id="barcodePrintAddMissingBtn">สินค้าที่ไม่มีบาร์โค้ด (${missingCount})</button>
-      <div class="rpf-item"><select id="barcodePrintLabelSize" class="rpt-select" aria-label="ขนาดฉลาก"><option value="50x30" ${barcodePrintLabelSize==='50x30'?'selected':''}>ฉลาก 50 × 30 มม.</option><option value="40x30" ${barcodePrintLabelSize==='40x30'?'selected':''}>ฉลาก 40 × 30 มม.</option></select></div>
+      <button class="btn ghost" id="barcodePrintAddMissingBtn">สินค้าที่ต้องสร้างบาร์โค้ด (${missingCount})</button>
+      <div class="rpf-item"><select id="barcodePrintLabelSize" class="rpt-select" aria-label="ขนาดป้ายราคา"><option value="60x40" ${barcodePrintLabelSize==='60x40'?'selected':''}>ป้ายราคา 60 × 40 มม. (ค่าเริ่มต้น)</option><option value="50x30" ${barcodePrintLabelSize==='50x30'?'selected':''}>ป้ายราคา 50 × 30 มม.</option><option value="40x30" ${barcodePrintLabelSize==='40x30'?'selected':''}>ป้ายราคา 40 × 30 มม.</option></select></div>
     </div>
     <div class="barcode-print-search-wrap">
       <input id="barcodePrintSearch" class="barcode-print-search" value="${escapeHtml(barcodePrintSearchQuery)}" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด..." autocomplete="off">
@@ -5099,18 +5099,23 @@ function renderBarcodePrint(){
 
 function writeBarcodePrintWindow(printWindow,items=barcodePrintItems,labelSize=barcodePrintLabelSize){
   if(!printWindow) return false;
-  const [width,height]=labelSize==='40x30'?[40,30]:[50,30];
+  const dimensions={
+    '60x40':[60,40],
+    '50x30':[50,30],
+    '40x30':[40,30],
+  };
+  const [width,height]=dimensions[labelSize]||dimensions['60x40'];
   const labels=[];
   items.forEach(item=>{
     const product=products.find(entry=>entry.id===item.pid);
     const option=barcodePrintUnitOptions(product).find(entry=>entry.name===item.unit);
     if(!product||!option) return;
-    const label=`<section class="label"><div class="name">${escapeHtml(product.name)}</div><div class="meta"><span>${escapeHtml(item.unit)}</span><b>${fmtMoney(option.price)} บาท</b></div><div class="barcode">${code128BSvg(item.barcode,40)}</div><div class="code">${escapeHtml(item.barcode)}</div></section>`;
+    const label=`<section class="label"><div class="label-head"><div class="name">${escapeHtml(product.name)}</div><div class="sku">${escapeHtml(product.sku||'')}</div></div><div class="price-row"><span class="unit">${escapeHtml(item.unit)}</span><div class="price"><span>฿</span>${fmtMoney(option.price)}</div></div><div class="barcode">${code128BSvg(item.barcode,40)}</div><div class="code">${escapeHtml(item.barcode)}</div></section>`;
     for(let count=0;count<Number(item.qty);count++) labels.push(label);
   });
-  const compact=width===40;
+  const compact=height<=30;
   printWindow.document.open();
-  printWindow.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>พิมพ์บาร์โค้ด ${labels.length} ดวง</title><style>@page{size:${width}mm ${height}mm;margin:0}*{box-sizing:border-box}body{margin:0;background:#e9edf0;color:#111;font-family:Tahoma,'Sarabun',sans-serif}.toolbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#fff;box-shadow:0 2px 8px #0002;font-size:13px}.toolbar button{border:0;border-radius:7px;background:#2091D2;color:#fff;padding:8px 16px;font:600 13px Tahoma;cursor:pointer}.label{width:${width}mm;height:${height}mm;margin:10px auto;padding:${compact?'2.2':'2.5'}mm 2.5mm 1.8mm;background:#fff;display:flex;flex-direction:column;justify-content:flex-start;overflow:hidden;page-break-after:always;break-after:page}.label:last-child{page-break-after:auto;break-after:auto}.name{height:${compact?'7':'7.5'}mm;overflow:hidden;text-align:center;font-size:${compact?'8.5':'9.5'}pt;font-weight:700;line-height:1.15}.meta{display:flex;justify-content:space-between;align-items:center;gap:4px;height:4.5mm;font-size:${compact?'7.3':'8'}pt;white-space:nowrap}.meta b{font-size:${compact?'8':'9'}pt}.barcode{height:10mm;display:flex;align-items:center;justify-content:center;overflow:hidden}.barcode-label-svg{display:block;width:100%;height:100%}.code{text-align:center;font:7pt monospace;letter-spacing:.3px;line-height:1.1}@media print{body{background:#fff}.toolbar{display:none}.label{margin:0;box-shadow:none}}</style></head><body><div class="toolbar"><span>ฉลาก ${width} × ${height} มม. · ทั้งหมด ${labels.length} ดวง</span><button onclick="window.print()">พิมพ์</button></div>${labels.join('')}</body></html>`);
+  printWindow.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>พิมพ์ป้ายราคา ${labels.length} ดวง</title><style>@page{size:${width}mm ${height}mm;margin:0}*{box-sizing:border-box}body{margin:0;background:#e9edf0;color:#111;font-family:Tahoma,'Sarabun',sans-serif}.toolbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#fff;box-shadow:0 2px 8px #0002;font-size:13px}.toolbar button{border:0;border-radius:7px;background:#2091D2;color:#fff;padding:8px 16px;font:600 13px Tahoma;cursor:pointer}.label{width:${width}mm;height:${height}mm;margin:10px auto;padding:${compact?'1.6':'2'}mm ${compact?'2':'2.5'}mm ${compact?'1.3':'1.6'}mm;background:#fff;display:flex;flex-direction:column;justify-content:flex-start;overflow:hidden;page-break-after:always;break-after:page}.label:last-child{page-break-after:auto;break-after:auto}.label-head{height:${compact?'6.4':'8'}mm;display:flex;align-items:flex-start;gap:1.5mm;overflow:hidden}.name{flex:1;min-width:0;max-height:100%;overflow:hidden;font-size:${compact?'7.8':'9.5'}pt;font-weight:700;line-height:1.12}.sku{flex:0 0 auto;max-width:16mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;font:${compact?'6.2':'7'}pt monospace;color:#4b5563}.price-row{height:${compact?'8':'11'}mm;display:flex;align-items:center;justify-content:space-between;gap:2mm;white-space:nowrap}.unit{font-size:${compact?'7':'8.5'}pt;color:#374151;overflow:hidden;text-overflow:ellipsis}.price{font-size:${compact?'16':'23'}pt;font-weight:800;line-height:1;letter-spacing:-.6px}.price span{font-size:.5em;margin-right:.6mm;vertical-align:.35em}.barcode{height:${compact?'8':'12'}mm;display:flex;align-items:center;justify-content:center;overflow:hidden}.barcode-label-svg{display:block;width:100%;height:100%}.code{text-align:center;font:${compact?'5.8':'7'}pt monospace;letter-spacing:.25px;line-height:1.05}@media print{body{background:#fff}.toolbar{display:none}.label{margin:0;box-shadow:none}}</style></head><body><div class="toolbar"><span>ป้ายราคา ${width} × ${height} มม. แนวนอน · ทั้งหมด ${labels.length} ดวง</span><button onclick="window.print()">พิมพ์</button></div>${labels.join('')}</body></html>`);
   printWindow.document.close();
   setTimeout(()=>{ try{ printWindow.focus(); printWindow.print(); }catch(error){} },450);
   return true;
@@ -5139,7 +5144,7 @@ function saveBarcodePrintItems(printWindow){
   barcodePrintItems=snapshot.map(item=>({...item}));
   persistWorkspaceData();
   writeBarcodePrintWindow(printWindow,snapshot,barcodePrintLabelSize);
-  showToast(`บันทึกบาร์โค้ด ${snapshot.length} รายการ และเตรียมพิมพ์ฉลากแล้ว`);
+  showToast(`เตรียมพิมพ์ป้ายราคา ${snapshot.reduce((sum,item)=>sum+Number(item.qty),0)} ดวงแล้ว`);
   render();
   return true;
 }
@@ -7183,7 +7188,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     });
     srInput.addEventListener('blur', ()=>setTimeout(()=>{ srResults.hidden=true; },150));
   }
-  // --- หน้าพิมพ์บาร์โค้ดเอง: เลือกสินค้า กำหนดรหัส/หน่วย/จำนวนฉลาก แล้วบันทึกพร้อมพิมพ์ ---
+  // --- หน้าพิมพ์ป้ายราคา: เลือกสินค้า กำหนดรหัส/หน่วย/จำนวนป้าย แล้วบันทึกพร้อมพิมพ์ ---
   const barcodePrintCategorySelect=document.getElementById('barcodePrintCategorySelect');
   const barcodePrintBrandSelect=document.getElementById('barcodePrintBrandSelect');
   const barcodePrintAddCategoryBtn=document.getElementById('barcodePrintAddCategoryBtn');
@@ -7199,7 +7204,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(barcodePrintAddMissingBtn) barcodePrintAddMissingBtn.addEventListener('click',()=>openBarcodePrintCategoryPicker({category:'',brand:''},true));
   if(barcodePrintLabelSizeSelect) barcodePrintLabelSizeSelect.addEventListener('change',()=>{ barcodePrintLabelSize=barcodePrintLabelSizeSelect.value; });
   if(clearBarcodePrintBtn) clearBarcodePrintBtn.addEventListener('click',()=>{
-    if(!confirm('ต้องการล้างรายการพิมพ์บาร์โค้ดทั้งหมดใช่หรือไม่?')) return;
+    if(!confirm('ต้องการล้างรายการพิมพ์ป้ายราคาทั้งหมดใช่หรือไม่?')) return;
     barcodePrintItems=[]; barcodePrintSearchQuery=''; barcodePrintCatFilter={category:'',brand:''}; barcodePrintPage=1; render();
   });
   if(barcodePrintSearch&&barcodePrintResults){
