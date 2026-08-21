@@ -1333,30 +1333,38 @@ function productMetadataToRow(p){
 function rowToProduct(row){
   row=row||{};
   const data=row.data&&typeof row.data==='object'?row.data:{};
-  const flatNumber=(value,fallback)=>{
-    const number=Number(value);
-    if(value!==null&&value!==undefined&&value!==''&&Number.isFinite(number)) return number;
-    const fallbackNumber=Number(fallback);
-    return Number.isFinite(fallbackNumber)?fallbackNumber:0;
+  const hasValue=value=>value!==null&&value!==undefined&&value!=='';
+  const textFallback=(dataValue,flatValue,fallback='')=>{
+    if(hasValue(dataValue)) return dataValue;
+    if(hasValue(flatValue)) return flatValue;
+    return fallback;
   };
-  // The normal columns are authoritative. Older rows can have an incomplete
-  // `data` JSON object; relying on JSON alone made a favorite product with no
-  // `data.price` crash the POS even though the flat `price` column was valid.
+  const numberFallback=(dataValue,flatValue)=>{
+    if(hasValue(dataValue)){
+      const dataNumber=Number(dataValue);
+      if(Number.isFinite(dataNumber)) return dataNumber;
+    }
+    const flatNumber=Number(flatValue);
+    return Number.isFinite(flatNumber)?flatNumber:0;
+  };
+  // Existing products keep most metadata in `data`. Flat columns are fallbacks
+  // because legacy rows can contain blank/zero flat values. Stock is the one
+  // authoritative flat value so stale JSON stock never replaces the live total.
   return {
     ...data,
     id:row.id,
-    sku:row.sku??data.sku??'',
-    name:row.name??data.name??'',
-    category:row.category??data.category??'',
-    brand:row.brand??data.brand??'',
-    type:row.product_type??data.type??'stock',
-    wh:row.warehouse_id??data.wh??null,
-    stock:flatNumber(row.stock,data.stock),
-    cost:flatNumber(row.cost,data.cost),
-    price:flatNumber(row.price,data.price),
-    unit:row.unit??data.unit??'',
+    sku:textFallback(data.sku,row.sku),
+    name:textFallback(data.name,row.name),
+    category:textFallback(data.category,row.category),
+    brand:textFallback(data.brand,row.brand),
+    type:textFallback(data.type,row.product_type,'stock'),
+    wh:hasValue(data.wh)?data.wh:(row.warehouse_id??null),
+    stock:Number(row.stock)||0,
+    cost:numberFallback(data.cost,row.cost),
+    price:numberFallback(data.price,row.price),
+    unit:textFallback(data.unit,row.unit),
   };
-} // trust the flat columns, especially `stock`, instead of possibly stale or incomplete copies inside data jsonb
+}
 function warehouseToRow(w){ return { id:w.id, name:w.name||'', data:w }; }
 function rowToWarehouse(row){ return { ...(row.data||{}), id:row.id, name:row.name }; }
 function contactToRow(c){
