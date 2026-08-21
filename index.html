@@ -5355,7 +5355,7 @@ function renderContacts(){
   const th = (key,label) => `<th class="sortable" data-sort="${key}">${label}<span class="sortarrow">${sortArrow(key)}</span></th>`;
   const tab=(key,label,dot)=>`<button class="ct-tab ${contactFilter===key?'active':''}" data-cfilter="${key}">${dot?`<span class="ct-dot ${dot}"></span>`:''}${label}</button>`;
   return `<div class="rpt">
-    <div class="pagehead"><div><h1>สมุดรายชื่อ</h1><div class="sub">สมุดรายชื่อ › แสดงทั้งหมด · ${list.length} รายชื่อ</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadContactTemplateBtn">ดาวน์โหลดไฟล์ตัวอย่าง</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
+    <div class="pagehead"><div><h1>สมุดรายชื่อ</h1><div class="sub">สมุดรายชื่อ › แสดงทั้งหมด · ${list.length} รายชื่อ</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadContactTemplateBtn">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
     <div class="ct-tabs">
       ${tab('all','แสดงทั้งหมด','')}
       ${tab('customer','ลูกค้า','cust')}
@@ -5434,7 +5434,7 @@ function renderSalesRepresentatives(){
   if(editingSalesRepresentativeId!==null) return renderSalesRepresentativeForm();
   const q=searchQuery.trim().toLowerCase();
   const list=salesRepresentatives.filter(rep=>!q || (rep.name||'').toLowerCase().includes(q) || (rep.phone||'').toLowerCase().includes(q) || (rep.line||'').toLowerCase().includes(q) || (rep.company||'').toLowerCase().includes(q) || (rep.note||'').toLowerCase().includes(q));
-  return `<div class="rpt"><div class="pagehead"><div><h1>รายชื่อผู้แทน</h1><div class="sub">สมุดรายชื่อ › รายชื่อผู้แทน · ${list.length} รายชื่อ</div></div><button class="btn primary" id="newSalesRepBtn">+ เพิ่มรายชื่อผู้แทน</button></div>
+  return `<div class="rpt"><div class="pagehead"><div><h1>รายชื่อผู้แทน</h1><div class="sub">สมุดรายชื่อ › รายชื่อผู้แทน · ${list.length} รายชื่อ</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportSalesRepsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadSalesRepTemplateBtn">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importSalesRepsBtn">นำเข้า Excel</button><input id="salesRepImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newSalesRepBtn">+ เพิ่มรายชื่อผู้แทน</button></div></div>
     <div class="toolbar"><div></div><div class="searchbar"><input id="search" placeholder="ค้นหาจากชื่อ / เบอร์โทร / ไลน์ / บริษัท" value="${searchQuery}"></div></div>
     <div class="doc-list-wrap seamless-table-wrap">
     <table class="grid-table doc-head-blue contact-summary-table"><thead><tr><th>ชื่อ</th><th>เบอร์โทร</th><th>ไลน์</th><th>บริษัท</th><th>ข้อมูลเพิ่มเติม</th><th style="width:120px;"></th></tr></thead>
@@ -5445,7 +5445,7 @@ function renderSalesRepresentatives(){
 function renderSalesRepresentativeForm(){
   const isNew=editingSalesRepresentativeId==='new';
   const rep=isNew?{name:'',phone:'',line:'',company:'',note:''}:salesRepresentatives.find(x=>x.id===editingSalesRepresentativeId);
-  return `<div class="rpt"><div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › รายชื่อผู้แทน › ${isNew?'เพิ่มรายชื่อ':'แก้ไขรายชื่อ'}</div><h1>${isNew?'เพิ่มรายชื่อผู้แทน':'แก้ไขรายชื่อผู้แทน'}</h1></div><div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelSalesRepBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveSalesRepBtn">บันทึกแล้วปิด</button></div></div>
+  return `<div class="rpt"><div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › รายชื่อผู้แทน › ${isNew?'เพิ่มรายชื่อ':'แก้ไขรายชื่อ'}</div><h1>${isNew?'เพิ่มรายชื่อผู้แทน':'แก้ไขรายชื่อผู้แทน'}</h1></div><div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelSalesRepBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveSalesRepBtn">บันทึก</button></div></div>
     <div class="panel"><h3>ข้อมูลผู้แทน</h3><div class="cform">
       <div class="crow"><label>ชื่อ <span class="req">*</span></label><input id="sr_name" value="${rep.name||''}" placeholder="ชื่อผู้แทน"></div>
       <div class="crow"><label>เบอร์โทร</label><input id="sr_phone" class="phone-input" value="${rep.phone||''}" placeholder="เบอร์มือถือ / โทรศัพท์"></div>
@@ -7463,6 +7463,18 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(saveContactBtn) saveContactBtn.addEventListener('click', saveContact);
   const newSalesRepBtn = document.getElementById('newSalesRepBtn');
   if(newSalesRepBtn) newSalesRepBtn.addEventListener('click', ()=>{ editingSalesRepresentativeId='new'; searchQuery=''; render(); });
+  const importSalesRepsBtn = document.getElementById('importSalesRepsBtn');
+  const salesRepImportFile = document.getElementById('salesRepImportFile');
+  if(importSalesRepsBtn&&salesRepImportFile) importSalesRepsBtn.addEventListener('click',()=>salesRepImportFile.click());
+  if(salesRepImportFile) salesRepImportFile.addEventListener('change',async()=>{
+    const file=salesRepImportFile.files?.[0];
+    salesRepImportFile.value='';
+    if(file) await importSalesRepresentativesFromExcel(file);
+  });
+  const downloadSalesRepTemplateBtn = document.getElementById('downloadSalesRepTemplateBtn');
+  if(downloadSalesRepTemplateBtn) downloadSalesRepTemplateBtn.addEventListener('click',downloadSalesRepresentativeImportTemplate);
+  const exportSalesRepsBtn = document.getElementById('exportSalesRepsBtn');
+  if(exportSalesRepsBtn) exportSalesRepsBtn.addEventListener('click',exportSalesRepresentativesToExcel);
   document.querySelectorAll('[data-act="editsalesrep"]').forEach(el=>{
     el.addEventListener('click', ()=>{ editingSalesRepresentativeId=Number(el.dataset.id); render(); });
   });
@@ -9470,6 +9482,112 @@ function exportContactsToExcel(){
   XLSX.utils.book_append_sheet(workbook,sheet,'สมุดรายชื่อ');
   XLSX.writeFile(workbook,`PEPOS-สมุดรายชื่อ-${TODAY_STR}.xlsx`);
   showToast(`ส่งออกสมุดรายชื่อ ${rows.length} รายการแล้ว`);
+}
+
+const SALES_REP_EXCEL_HEADERS=['รหัสอ้างอิงระบบ','ชื่อผู้แทน','เบอร์โทร','ไลน์','บริษัท','ข้อมูลเพิ่มเติม'];
+function salesRepresentativeToExcelRow(representative){
+  const values={
+    'รหัสอ้างอิงระบบ':representative.id??'',
+    'ชื่อผู้แทน':representative.name||'',
+    'เบอร์โทร':representative.phone||'',
+    'ไลน์':representative.line||'',
+    'บริษัท':representative.company||'',
+    'ข้อมูลเพิ่มเติม':representative.note||'',
+  };
+  const row={};
+  SALES_REP_EXCEL_HEADERS.forEach(header=>{ row[header]=values[header]; });
+  return row;
+}
+function downloadSalesRepresentativeImportTemplate(){
+  const example=[salesRepresentativeToExcelRow({id:'',name:'คุณตัวอย่าง ใจดี',phone:'081-234-5678',line:'example.line',company:'บริษัท ตัวอย่าง จำกัด',note:'ผู้แทนเขตกรุงเทพฯ'})];
+  if(window.XLSX){
+    const sheet=XLSX.utils.json_to_sheet(example);
+    sheet['!cols']=[{wch:18},{wch:28},{wch:18},{wch:22},{wch:32},{wch:42}];
+    const workbook=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook,sheet,'รายชื่อผู้แทน');
+    const instructions=[
+      ['หัวข้อ','วิธีกรอก'],
+      ['รหัสอ้างอิงระบบ','รายชื่อใหม่ปล่อยว่างได้ หากเป็นไฟล์ที่ส่งออกจากระบบให้คงค่านี้ไว้เพื่ออัปเดตรายชื่อเดิม'],
+      ['ชื่อผู้แทน','จำเป็นต้องกรอก หากไม่มีรหัสอ้างอิงระบบ ระบบจะจับคู่จากชื่อที่ตรงกัน'],
+      ['เบอร์โทร / ไลน์ / บริษัท / ข้อมูลเพิ่มเติม','กรอกได้ตามต้องการ'],
+      ['ข้อสำคัญ','อย่าเปลี่ยนชื่อหัวคอลัมน์ในแถวแรก'],
+    ];
+    const instructionSheet=XLSX.utils.aoa_to_sheet(instructions);
+    instructionSheet['!cols']=[{wch:28},{wch:90}];
+    XLSX.utils.book_append_sheet(workbook,instructionSheet,'วิธีกรอก');
+    XLSX.writeFile(workbook,'PEPOS-คู่มือนำเข้ารายชื่อผู้แทน.xlsx');
+    return;
+  }
+  const csv='\uFEFF'+SALES_REP_EXCEL_HEADERS.join(',')+'\n'+SALES_REP_EXCEL_HEADERS.map(header=>`"${String(example[0][header]).replace(/"/g,'""')}"`).join(',');
+  const link=document.createElement('a');
+  link.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  link.download='PEPOS-คู่มือนำเข้ารายชื่อผู้แทน.csv';
+  link.click();
+  setTimeout(()=>URL.revokeObjectURL(link.href),1000);
+}
+async function importSalesRepresentativesFromExcel(file){
+  if(!window.XLSX){ showToast('ไม่สามารถโหลดระบบอ่าน Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
+  let workbook;
+  try{ workbook=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:false}); }
+  catch(error){ showToast('ไม่สามารถอ่านไฟล์ Excel นี้ได้'); return; }
+  const firstSheet=workbook.Sheets[workbook.SheetNames[0]];
+  const sourceRows=XLSX.utils.sheet_to_json(firstSheet,{defval:'',raw:true});
+  if(!sourceRows.length){ showToast('ไม่พบรายชื่อผู้แทนในไฟล์'); return; }
+
+  const toCreate=[];
+  const toUpdate=[];
+  const skipped=[];
+  const seenNames=new Set();
+  sourceRows.forEach((row,index)=>{
+    const line=index+2;
+    const name=String(productImportValue(row,['ชื่อผู้แทน','ชื่อ','name'])).trim();
+    if(!name){ skipped.push(`แถว ${line}: ไม่มีชื่อผู้แทน`); return; }
+    const normalizedName=name.toLowerCase();
+    if(seenNames.has(normalizedName)){ skipped.push(`แถว ${line}: ชื่อผู้แทน ${name} ซ้ำกับแถวก่อนหน้า`); return; }
+    seenNames.add(normalizedName);
+    const data={
+      name,
+      phone:String(productImportValue(row,['เบอร์โทร','เบอร์มือถือ','phone'])).trim(),
+      line:String(productImportValue(row,['ไลน์','line','lineid'])).trim(),
+      company:String(productImportValue(row,['บริษัท','company'])).trim(),
+      note:String(productImportValue(row,['ข้อมูลเพิ่มเติม','หมายเหตุ','โน๊ต','note'])).trim(),
+    };
+    let existing=null;
+    const systemId=productImportNumber(productImportValue(row,['รหัสอ้างอิงระบบ','systemid']),NaN);
+    if(Number.isFinite(systemId)) existing=salesRepresentatives.find(representative=>representative.id===systemId)||null;
+    if(!existing) existing=salesRepresentatives.find(representative=>String(representative.name||'').trim().toLowerCase()===normalizedName)||null;
+    if(existing) toUpdate.push({existing,data});
+    else toCreate.push(data);
+  });
+  if(!toCreate.length&&!toUpdate.length){
+    alert(`ไม่สามารถนำเข้ารายชื่อผู้แทนได้\n\n${skipped.slice(0,8).join('\n')}${skipped.length>8?`\nและอีก ${skipped.length-8} รายการ`:''}`);
+    return;
+  }
+  const confirmation=`พบข้อมูล ${sourceRows.length} แถว\nจะเพิ่มรายชื่อใหม่ ${toCreate.length} รายการ\nจะอัปเดตรายชื่อเดิม ${toUpdate.length} รายการ${skipped.length?`\nข้าม ${skipped.length} แถวที่ข้อมูลไม่ครบหรือซ้ำ`:''}\n\nยืนยันนำเข้าหรือไม่?`;
+  if(!confirm(confirmation)) return;
+  toUpdate.forEach(({existing,data})=>{
+    const oldName=existing.name;
+    Object.assign(existing,data);
+    if(oldName!==data.name){
+      purchaseOrders.forEach(document=>{ if(document.supplier===oldName) document.supplier=data.name; });
+      if(poDraft?.supplier===oldName) poDraft.supplier=data.name;
+    }
+  });
+  toCreate.forEach(data=>salesRepresentatives.push({id:nextSalesRepresentativeId++,...data}));
+  persistWorkspaceData();
+  showToast(`นำเข้ารายชื่อผู้แทนสำเร็จ · เพิ่มใหม่ ${toCreate.length} · อัปเดต ${toUpdate.length}${skipped.length?` · ข้าม ${skipped.length}`:''}`);
+  render();
+}
+function exportSalesRepresentativesToExcel(){
+  if(!window.XLSX){ showToast('ไม่สามารถโหลดระบบส่งออก Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
+  if(!salesRepresentatives.length){ showToast('ยังไม่มีรายชื่อผู้แทนให้ส่งออก'); return; }
+  const rows=salesRepresentatives.map(salesRepresentativeToExcelRow);
+  const sheet=XLSX.utils.json_to_sheet(rows);
+  sheet['!cols']=[{wch:18},{wch:28},{wch:18},{wch:22},{wch:32},{wch:42}];
+  const workbook=XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook,sheet,'รายชื่อผู้แทน');
+  XLSX.writeFile(workbook,`PEPOS-รายชื่อผู้แทน-${TODAY_STR}.xlsx`);
+  showToast(`ส่งออกรายชื่อผู้แทน ${rows.length} รายการแล้ว`);
 }
 
 function updateContactEntityLabels(){
