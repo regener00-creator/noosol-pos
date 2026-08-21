@@ -28,6 +28,8 @@ assert.match(html, /findProductByExactCode\(query\)/);
 assert.match(html, /mobileInspectionCheckedSet\(list\.id\)\.add/);
 assert.match(html, /id="mobileNewInspectionList"/);
 assert.match(html, /function startMobileInspectionDraft\(/);
+assert.match(html, /const defaultName=inspectionListDefaultName\(\)/);
+assert.match(html, /return `ตรวจสินค้า: \$\{highest\+1\}`/);
 assert.match(html, /function addProductToMobileInspectionDraft\(/);
 assert.match(html, /inspectionListAddProduct\(product,unitName\)/);
 assert.match(html, /id="mobileSaveInspectionDraft"/);

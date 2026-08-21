@@ -27,6 +27,8 @@ const context = {
   inspectionListSearchQuery: '',
   inspectionListPage: 1,
   inspectionListSort: {key:'sku',dir:1},
+  inspectionListOverviewSort: {key:'updatedAt',dir:-1},
+  inspectionListOverviewSelectedIds: new Set(),
   inspectionListCounter: 1,
   mobileInspectionListId: '',
   mobileInspectionOpenedListId: '',
@@ -59,6 +61,16 @@ const context = {
 vm.createContext(context);
 vm.runInContext(html.slice(normalizeStart, normalizeEnd), context);
 vm.runInContext(html.slice(featureStart, featureEnd), context);
+
+const firstDay = new Date(2026,7,20,10,0,0);
+const nextDay = new Date(2026,7,21,10,0,0);
+context.inspectionLists = [
+  {id:'CHECK-NAME-1',name:'ตรวจสินค้า: 1',items:[],createdAt:firstDay.toISOString()},
+  {id:'CHECK-NAME-2',name:'ตรวจสินค้า: 2',items:[],createdAt:firstDay.toISOString()},
+];
+assert.equal(context.inspectionListDefaultName(firstDay), 'ตรวจสินค้า: 3');
+assert.equal(context.inspectionListDefaultName(nextDay), 'ตรวจสินค้า: 1', 'วันใหม่ต้องเริ่มลำดับชื่อที่ 1');
+context.inspectionLists = [];
 
 const normalized = context.normalizeInspectionLists([
   {id:'CHECK-0002',name:' ชุดทดสอบ ',items:[{pid:1,unit:'กล่อง'},{pid:1,unit:'ลัง'},{pid:'bad'}],stockAdjustedAt:'2026-08-20T08:00:00.000Z',stockAdjustedBy:'เจ้าของร้าน'},
@@ -122,7 +134,24 @@ context.inspectionLists[0].stockAdjustedAt = '2026-08-20T09:00:00.000Z';
 const overviewHtml = context.renderInspectionListOverview();
 assert.match(overviewHtml, /รายการตรวจหน้าร้าน/);
 assert.match(overviewHtml, /data-open-inspection-list="CHECK-0001"/);
-assert.match(overviewHtml, /แก้จำนวนเรียบร้อย/);
+assert.match(overviewHtml, /แก้ไขจำนวนเรียบร้อย/);
+assert.match(overviewHtml, /inspection-list-overview-table/);
+assert.match(overviewHtml, /id="inspectionListSelectAll"/);
+assert.match(overviewHtml, /data-inspection-overview-sort="createdAt"/);
+assert.match(overviewHtml, /data-inspection-overview-sort="updatedAt"/);
+assert.match(overviewHtml, /data-inspection-overview-sort="status"/);
+assert.ok(overviewHtml.indexOf('วันที่สร้าง') < overviewHtml.indexOf('แก้ไขล่าสุด'));
+assert.ok(overviewHtml.indexOf('แก้ไขล่าสุด') < overviewHtml.indexOf('ชื่อรายการ'));
+assert.ok(overviewHtml.indexOf('ชื่อรายการ') < overviewHtml.indexOf('>สินค้า<'));
+
+products.push(
+  {id:3,sku:'P-003',name:'สินค้าที่สาม',unit:'ชิ้น',stock:1,units:[]},
+  {id:4,sku:'P-004',name:'สินค้าที่สี่',unit:'ชิ้น',stock:1,units:[]},
+);
+const productPreview = context.inspectionListPreviewHtml({items:[{pid:1},{pid:2},{pid:3},{pid:4}]});
+assert.equal((productPreview.match(/inspection-list-overview-product/g)||[]).length, 3);
+assert.match(productPreview, />\+1</);
+products.splice(-2);
 context.editingInspectionListId = 'CHECK-0001';
 context.inspectionListDraft = JSON.parse(JSON.stringify(context.inspectionLists[0]));
 const ownerEditorHtml = context.renderInspectionListEditor();
@@ -142,11 +171,15 @@ const staffEditorHtml = context.renderInspectionListEditor();
 assert.doesNotMatch(staffEditorHtml, />ทุน</);
 
 const completedList = context.inspectionLists[0];
-const pendingList = {id:'CHECK-0002',name:'รายการที่ยังไม่แก้สต๊อก',items:[],updatedAt:'2026-08-20T10:00:00.000Z',stockAdjustedAt:'',stockAdjustedBy:''};
+const pendingList = {id:'CHECK-0002',name:'รายการที่ยังไม่แก้สต๊อก',items:[],createdAt:'2026-08-21T03:00:00.000Z',updatedAt:'2026-08-21T03:00:00.000Z',stockAdjustedAt:'',stockAdjustedBy:''};
 context.inspectionLists = [completedList,pendingList];
 context.mobileInspectionListId = completedList.id;
 assert.deepEqual(Array.from(context.mobileInspectionVisibleLists(), list => list.id), ['CHECK-0002']);
 assert.equal(context.mobileInspectionCurrentList().id, 'CHECK-0002', 'มือถือควรข้ามรายการที่แก้ไขจำนวนเรียบร้อยแล้ว');
+context.inspectionListOverviewSort = {key:'createdAt',dir:-1};
+assert.deepEqual(Array.from(context.inspectionListOverviewSortedLists(), list => list.id), ['CHECK-0002','CHECK-0001']);
+context.inspectionListOverviewSort = {key:'status',dir:1};
+assert.deepEqual(Array.from(context.inspectionListOverviewSortedLists(), list => list.id), ['CHECK-0002','CHECK-0001']);
 context.inspectionLists = [completedList];
 
 assert.match(html, /\['inspectionlists','รายการตรวจสินค้า'/);
@@ -159,6 +192,8 @@ assert.match(html, /INSPECTION_LIST_PAGE_SIZE = 7/);
 assert.match(html, /!filter\.wh\|\|String\(product\.wh\)===String\(filter\.wh\)/);
 assert.match(html, /mobile-inspection-complete/);
 assert.match(html, /แก้ไขจำนวนเรียบร้อย/);
+assert.match(html, /data-inspection-list-select/);
+assert.match(html, /inspectionListOverviewSelectedIds/);
 
 context.confirm = () => true;
 context.mobileInspectionListId = 'CHECK-0001';
