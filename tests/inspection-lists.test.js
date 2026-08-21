@@ -141,6 +141,14 @@ context.loggedInUser = () => ({owner:false});
 const staffEditorHtml = context.renderInspectionListEditor();
 assert.doesNotMatch(staffEditorHtml, />ทุน</);
 
+const completedList = context.inspectionLists[0];
+const pendingList = {id:'CHECK-0002',name:'รายการที่ยังไม่แก้สต๊อก',items:[],updatedAt:'2026-08-20T10:00:00.000Z',stockAdjustedAt:'',stockAdjustedBy:''};
+context.inspectionLists = [completedList,pendingList];
+context.mobileInspectionListId = completedList.id;
+assert.deepEqual(Array.from(context.mobileInspectionVisibleLists(), list => list.id), ['CHECK-0002']);
+assert.equal(context.mobileInspectionCurrentList().id, 'CHECK-0002', 'มือถือควรข้ามรายการที่แก้ไขจำนวนเรียบร้อยแล้ว');
+context.inspectionLists = [completedList];
+
 assert.match(html, /\['inspectionlists','รายการตรวจสินค้า'/);
 assert.match(html, /inspectionlists:\s*renderInspectionLists/);
 assert.match(html, /from\('inspection_lists'\)\.select\('\*'\)/);

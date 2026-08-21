@@ -4450,11 +4450,19 @@ function mobilePriceResultHtml(){
     </div>
   </article>`;
 }
+function mobileInspectionVisibleLists(){
+  return inspectionLists.filter(list=>!String(list?.stockAdjustedAt||'').trim());
+}
 function mobileInspectionCurrentList(){
-  if(!inspectionLists.length) return null;
-  let list=inspectionLists.find(entry=>String(entry.id)===String(mobileInspectionListId));
+  const visibleLists=mobileInspectionVisibleLists();
+  if(!visibleLists.length){
+    mobileInspectionListId='';
+    mobileInspectionOpenedListId='';
+    return null;
+  }
+  let list=visibleLists.find(entry=>String(entry.id)===String(mobileInspectionListId));
   if(!list){
-    list=[...inspectionLists].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')))[0];
+    list=[...visibleLists].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')))[0];
     mobileInspectionListId=list?.id||'';
   }
   return list||null;
@@ -4648,7 +4656,9 @@ async function refreshMobileToolsData(button){
 }
 function renderMobileTools(){
   const user=loggedInUser();
-  const lists=[...inspectionLists].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+  // Mobile only shows lists still waiting for a stock adjustment. Completed
+  // records remain untouched in `inspectionLists`, so desktop history is kept.
+  const lists=[...mobileInspectionVisibleLists()].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
   return `<main class="mobile-tools-page">
     <header class="mobile-tools-head"><div class="mobile-tools-brand"><div class="mobile-tools-logo">Rx</div><div><h1>PEPOS Mobile</h1><span>${escapeHtml(user?.firstName||user?.username||'ผู้ใช้งาน')}</span></div></div><div class="mobile-tools-actions"><button type="button" class="mobile-tools-refresh" id="mobileToolsRefresh" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg></button><button type="button" class="mobile-tools-logout" id="mobileToolsLogout">ออกจากระบบ</button></div></header>
     ${mobileInstallNoticeHtml()}
