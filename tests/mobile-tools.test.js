@@ -55,6 +55,7 @@ assert.match(html, /if\(confirm\('ยืนยันการออกจาก�
 assert.match(html, /body\.mobile-device-mode \.mobile-tools-head\{position:fixed;left:0;right:0;bottom:0;/);
 assert.match(html, /body\.mobile-device-mode \.mobile-tools-page\{[^}]*padding:[^;]*calc\(86px \+ env\(safe-area-inset-bottom\)\)/);
 assert.match(html, /body\.mobile-device-mode \.mobile-draft-save-wrap,body\.mobile-device-mode \.mobile-stock-confirm-wrap\{bottom:calc\(62px \+ env\(safe-area-inset-bottom\)\)/);
+assert.match(html, /\.mobile-tools-brand>div:first-child\{[^}]*text-align:right;/);
 const mobileToolsRenderStart = html.indexOf('function renderMobileTools()');
 const mobileToolsRenderEnd = html.indexOf('function mobileHandlePriceCode(', mobileToolsRenderStart);
 const mobileToolsRender = html.slice(mobileToolsRenderStart, mobileToolsRenderEnd);
