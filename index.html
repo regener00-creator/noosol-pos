@@ -9579,14 +9579,74 @@ function productImportDate(value){
   if(match) return `${match[3]}-${match[2].padStart(2,'0')}-${match[1].padStart(2,'0')}`;
   return '';
 }
+const PRODUCT_EXCEL_MIN_REPEAT_COLUMNS=2;
+const PRODUCT_EXCEL_MAX_REPEAT_COLUMNS=10;
+function productExcelColumnCounts(productRows=[]){
+  const bounded=value=>Math.min(PRODUCT_EXCEL_MAX_REPEAT_COLUMNS,Math.max(PRODUCT_EXCEL_MIN_REPEAT_COLUMNS,value));
+  return {
+    extraBarcodes:bounded(Math.max(0,...productRows.map(product=>(product.extraBarcodes||[]).length))),
+    vendors:bounded(Math.max(0,...productRows.map(product=>(product.vendorBarcodes||[]).length))),
+    units:bounded(Math.max(0,...productRows.map(product=>(product.units||[]).length))),
+  };
+}
+function productExcelHeaders(counts){
+  const headers=['รหัสอ้างอิงระบบ','รหัสสินค้า','ชื่อสินค้า','บาร์โค้ด'];
+  for(let number=1;number<=counts.extraBarcodes;number++) headers.push(`บาร์โค้ดเพิ่มเติม ${number}`);
+  for(let number=1;number<=counts.vendors;number++) headers.push(`ชื่อผู้จำหน่าย ${number}`,`บาร์โค้ด Vendor ${number}`);
+  headers.push('หมวดสินค้า','หมวดย่อย','หน่วย','ราคาขาย','ราคาทุน','จำนวนคงเหลือ','วันหมดอายุ','คลังสินค้า','รายละเอียด');
+  for(let number=1;number<=counts.units;number++){
+    headers.push(`หน่วยเพิ่มเติม ${number}`,`จำนวนต่อหน่วย ${number}`,`อ้างอิงหน่วย ${number}`,`ราคาขายหน่วย ${number}`,`ราคาทุนหน่วย ${number}`,`บาร์โค้ดหน่วย ${number}`);
+  }
+  return headers;
+}
+function productToExcelRow(product,counts,warehouseRows=warehouses){
+  const values={
+    'รหัสอ้างอิงระบบ':product.id??'',
+    'รหัสสินค้า':product.sku||'',
+    'ชื่อสินค้า':product.name||'',
+    'บาร์โค้ด':product.barcode||'',
+  };
+  for(let number=1;number<=counts.extraBarcodes;number++) values[`บาร์โค้ดเพิ่มเติม ${number}`]=(product.extraBarcodes||[])[number-1]||'';
+  for(let number=1;number<=counts.vendors;number++){
+    const vendor=(product.vendorBarcodes||[])[number-1];
+    values[`ชื่อผู้จำหน่าย ${number}`]=vendor?.vendor&&vendor.vendor!=='ไม่ระบุ'?vendor.vendor:'';
+    values[`บาร์โค้ด Vendor ${number}`]=vendor?.code||'';
+  }
+  Object.assign(values,{
+    'หมวดสินค้า':product.category||'',
+    'หมวดย่อย':product.brand||'',
+    'หน่วย':product.unit||'',
+    'ราคาขาย':product.price||0,
+    'ราคาทุน':product.cost||0,
+    'จำนวนคงเหลือ':product.stock||0,
+    'วันหมดอายุ':product.expiry?fmtDateShort(product.expiry):'',
+    'คลังสินค้า':warehouseRows.find(warehouse=>warehouse.id===product.wh)?.name||'',
+    'รายละเอียด':product.desc||'',
+  });
+  for(let number=1;number<=counts.units;number++){
+    const unit=(product.units||[])[number-1];
+    values[`หน่วยเพิ่มเติม ${number}`]=unit?.sub||'';
+    values[`จำนวนต่อหน่วย ${number}`]=unit?.per||'';
+    values[`อ้างอิงหน่วย ${number}`]=unit?.base||'';
+    values[`ราคาขายหน่วย ${number}`]=unit?.price||'';
+    values[`ราคาทุนหน่วย ${number}`]=unit?.cost||'';
+    values[`บาร์โค้ดหน่วย ${number}`]=unit?.barcode||'';
+  }
+  const row={};
+  productExcelHeaders(counts).forEach(header=>{ row[header]=values[header]??''; });
+  return row;
+}
 function downloadProductImportTemplate(){
-  const example=[{
-    'รหัสสินค้า':'P0001','ชื่อสินค้า':'พาราเซตามอล 500mg','บาร์โค้ด':'8850000100019','บาร์โค้ดเพิ่มเติม 1':'8850000100018','บาร์โค้ดเพิ่มเติม 2':'',
-    'ชื่อผู้จำหน่าย 1':'บริษัท ตัวอย่าง จำกัด','บาร์โค้ด Vendor 1':'VENDOR-PARA-01','ชื่อผู้จำหน่าย 2':'','บาร์โค้ด Vendor 2':'',
-    'หมวดสินค้า':'ยาสามัญประจำบ้าน','หมวดย่อย':'ทั่วไป','หน่วย':'แผง','ราคาขาย':15,'ราคาทุน':9,'จำนวนคงเหลือ':120,'วันหมดอายุ':'31/12/2027','คลังสินค้า':warehouses[0]?.name||'คลังหลัก','รายละเอียด':'',
-    'หน่วยเพิ่มเติม 1':'กล่อง','จำนวนต่อหน่วย 1':10,'อ้างอิงหน่วย 1':'แผง','ราคาขายหน่วย 1':140,'ราคาทุนหน่วย 1':90,'บาร์โค้ดหน่วย 1':'8850000100026',
-    'หน่วยเพิ่มเติม 2':'ลัง','จำนวนต่อหน่วย 2':10,'อ้างอิงหน่วย 2':'กล่อง','ราคาขายหน่วย 2':1350,'ราคาทุนหน่วย 2':880,'บาร์โค้ดหน่วย 2':'8850000100033'
-  }];
+  const counts=productExcelColumnCounts(products);
+  const example=[productToExcelRow({
+    id:'',sku:'P0001',name:'พาราเซตามอล 500mg',barcode:'8850000100019',extraBarcodes:['8850000100018'],
+    vendorBarcodes:[{vendor:'บริษัท ตัวอย่าง จำกัด',code:'VENDOR-PARA-01'}],category:'ยาสามัญประจำบ้าน',brand:'ทั่วไป',unit:'แผง',
+    price:15,cost:9,stock:120,expiry:'2027-12-31',wh:warehouses[0]?.id,desc:'',
+    units:[
+      {sub:'กล่อง',per:10,base:'แผง',price:140,cost:90,barcode:'8850000100026'},
+      {sub:'ลัง',per:10,base:'กล่อง',price:1350,cost:880,barcode:'8850000100033'},
+    ],
+  },counts)];
   if(window.XLSX){
     const sheet=XLSX.utils.json_to_sheet(example);
     sheet['!cols']=Object.keys(example[0]).map(header=>({wch:Math.max(14,Math.min(28,header.length+5))}));
@@ -9594,6 +9654,7 @@ function downloadProductImportTemplate(){
     XLSX.utils.book_append_sheet(workbook,sheet,'สินค้า');
     const instructions=[
       ['หัวข้อ','วิธีกรอก'],
+      ['รหัสอ้างอิงระบบ','สินค้าใหม่ปล่อยว่างได้ หากเป็นไฟล์ที่ส่งออกจากระบบให้คงค่านี้ไว้เพื่ออัปเดตสินค้ารายการเดิม'],
       ['บาร์โค้ด','ตั้งรูปแบบเซลล์เป็นข้อความ (Text) เพื่อป้องกันเลข 0 ด้านหน้าหาย'],
       ['บาร์โค้ดเพิ่มเติม','กรอกแยกคอลัมน์ บาร์โค้ดเพิ่มเติม 1, 2 และเพิ่มเลขต่อท้ายได้ถึง 10'],
       ['บาร์โค้ด Vendor','กรอกชื่อผู้จำหน่ายและบาร์โค้ดในหมายเลขชุดเดียวกัน เช่น ชื่อผู้จำหน่าย 1 คู่กับ บาร์โค้ด Vendor 1'],
@@ -9782,44 +9843,8 @@ async function importProductsFromExcel(file){
 function exportProductsToExcel(){
   if(!window.XLSX){ showToast('ไม่สามารถโหลดระบบส่งออก Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
   if(!products.length){ showToast('ยังไม่มีข้อมูลให้ส่งออก'); return; }
-  const maxExtraBarcodes=Math.max(0,...products.map(p=>(p.extraBarcodes||[]).length));
-  const maxVendors=Math.max(0,...products.map(p=>(p.vendorBarcodes||[]).length));
-  const maxUnits=Math.max(0,...products.map(p=>(p.units||[]).length));
-  const rows=products.map(p=>{
-    const row={
-      'รหัสอ้างอิงระบบ':p.id,
-      'รหัสสินค้า':p.sku||'',
-      'ชื่อสินค้า':p.name||'',
-      'บาร์โค้ด':p.barcode||'',
-    };
-    for(let n=1;n<=maxExtraBarcodes;n++) row[`บาร์โค้ดเพิ่มเติม ${n}`]=(p.extraBarcodes||[])[n-1]||'';
-    for(let n=1;n<=maxVendors;n++){
-      const v=(p.vendorBarcodes||[])[n-1];
-      row[`ชื่อผู้จำหน่าย ${n}`]=v?.vendor&&v.vendor!=='ไม่ระบุ'?v.vendor:'';
-      row[`บาร์โค้ด Vendor ${n}`]=v?.code||'';
-    }
-    Object.assign(row,{
-      'หมวดสินค้า':p.category||'',
-      'หมวดย่อย':p.brand||'',
-      'หน่วย':p.unit||'',
-      'ราคาขาย':p.price||0,
-      'ราคาทุน':p.cost||0,
-      'จำนวนคงเหลือ':p.stock||0,
-      'วันหมดอายุ':p.expiry?fmtDateShort(p.expiry):'',
-      'คลังสินค้า':warehouses.find(w=>w.id===p.wh)?.name||'',
-      'รายละเอียด':p.desc||'',
-    });
-    for(let n=1;n<=maxUnits;n++){
-      const u=(p.units||[])[n-1];
-      row[`หน่วยเพิ่มเติม ${n}`]=u?.sub||'';
-      row[`จำนวนต่อหน่วย ${n}`]=u?.per||'';
-      row[`อ้างอิงหน่วย ${n}`]=u?.base||'';
-      row[`ราคาขายหน่วย ${n}`]=u?.price||'';
-      row[`ราคาทุนหน่วย ${n}`]=u?.cost||'';
-      row[`บาร์โค้ดหน่วย ${n}`]=u?.barcode||'';
-    }
-    return row;
-  });
+  const counts=productExcelColumnCounts(products);
+  const rows=products.map(product=>productToExcelRow(product,counts));
   const sheet=XLSX.utils.json_to_sheet(rows);
   sheet['!cols']=Object.keys(rows[0]).map(header=>({wch:Math.max(12,Math.min(26,header.length+4))}));
   const workbook=XLSX.utils.book_new();
