@@ -99,13 +99,20 @@ assert.match(html, /\.mobile-unit-select\{[^}]*text-align:center;[^}]*text-align
 assert.match(html, /data-mobile-tool="inspection">ตรวจสินค้า<\/button>/);
 assert.match(html, /<h2 class="mobile-tool-title">ตรวจสินค้า<\/h2>/);
 const mobilePriceUnitHandlerStart = html.indexOf("document.getElementById('mobilePriceUnit')?.addEventListener('change'");
-const mobilePriceCameraHandlerStart = html.indexOf("document.getElementById('mobilePriceCamera')?.addEventListener", mobilePriceUnitHandlerStart);
-assert.ok(mobilePriceUnitHandlerStart >= 0 && mobilePriceCameraHandlerStart > mobilePriceUnitHandlerStart);
-const mobilePriceUnitHandler = html.slice(mobilePriceUnitHandlerStart, mobilePriceCameraHandlerStart);
+const mobilePriceUnitHandlerEnd = html.indexOf("\n  });", mobilePriceUnitHandlerStart);
+assert.ok(mobilePriceUnitHandlerStart >= 0 && mobilePriceUnitHandlerEnd > mobilePriceUnitHandlerStart);
+const mobilePriceUnitHandler = html.slice(mobilePriceUnitHandlerStart, mobilePriceUnitHandlerEnd);
 assert.doesNotMatch(mobilePriceUnitHandler, /render\(\)/);
 assert.match(mobilePriceUnitHandler, /mobilePriceStock/);
 assert.match(mobilePriceUnitHandler, /mobilePriceSale/);
 assert.match(mobilePriceUnitHandler, /mobilePriceCost/);
+const mobilePriceInputHandlerStart = html.indexOf("mobilePriceInput.addEventListener('input'");
+const mobilePriceInputHandlerEnd = html.indexOf("mobilePriceInput.addEventListener('keydown'", mobilePriceInputHandlerStart);
+assert.ok(mobilePriceInputHandlerStart >= 0 && mobilePriceInputHandlerEnd > mobilePriceInputHandlerStart);
+const mobilePriceInputHandler = html.slice(mobilePriceInputHandlerStart, mobilePriceInputHandlerEnd);
+assert.doesNotMatch(mobilePriceInputHandler, /render\(\)/);
+assert.match(mobilePriceInputHandler, /result\.innerHTML=mobilePriceResultHtml\(\)/);
+assert.match(mobilePriceInputHandler, /attachMobilePriceResultEvents\(\)/);
 
 assert.equal(manifest.display, 'standalone');
 assert.equal(manifest.start_url, '/');

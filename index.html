@@ -6718,29 +6718,7 @@ function checkNegativeStockToast(pid){
   const totalInCart = cart.filter(l=>l.pid===pid).reduce((a,l)=>a+((l.qty||0)*(l.factor||1)),0);
   if(totalInCart > p.stock) showToast('สินค้าติดลบ', 'danger-top');
 }
-function attachEvents(){
-  document.getElementById('mobileToolsLogout')?.addEventListener('click',logoutSystem);
-  const mobileToolsRefresh=document.getElementById('mobileToolsRefresh');
-  if(mobileToolsRefresh) mobileToolsRefresh.addEventListener('click',()=>refreshMobileToolsData(mobileToolsRefresh));
-  document.getElementById('mobileInstallApp')?.addEventListener('click',requestMobilePwaInstall);
-  document.querySelectorAll('[data-mobile-tool]').forEach(button=>button.addEventListener('click',()=>{
-    mobileToolMode=button.dataset.mobileTool;
-    mobilePriceQuery=''; mobilePriceProductId=null;
-    mobileInspectionQuery=''; mobileInspectionLastProductId=null; mobileInspectionVisibleCount=25;
-    mobileStockQuery=''; mobileStockLastProductId=null;
-    render();
-  }));
-  const mobilePriceInput=document.getElementById('mobilePriceInput');
-  if(mobilePriceInput){
-    mobilePriceInput.addEventListener('input',()=>{
-      mobilePriceQuery=mobilePriceInput.value;
-      mobilePriceProductId=null;
-      render();
-      const input=document.getElementById('mobilePriceInput');
-      if(input){ input.focus(); input.selectionStart=input.selectionEnd=input.value.length; }
-    });
-    mobilePriceInput.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); mobileHandlePriceCode(mobilePriceInput.value); } });
-  }
+function attachMobilePriceResultEvents(){
   document.querySelectorAll('[data-mobile-price-product]').forEach(button=>button.addEventListener('click',()=>{
     const product=products.find(entry=>Number(entry.id)===Number(button.dataset.mobilePriceProduct));
     if(product){ mobileSelectPriceProduct(product); render(); setTimeout(()=>document.getElementById('mobilePriceInput')?.select(),0); }
@@ -6759,6 +6737,33 @@ function attachEvents(){
     if(saleElement) saleElement.textContent=`${fmtMoney(selected.price||0)} บาท`;
     if(costElement) costElement.textContent=`${fmtMoney(selected.cost||0)} บาท`;
   });
+}
+function attachEvents(){
+  document.getElementById('mobileToolsLogout')?.addEventListener('click',logoutSystem);
+  const mobileToolsRefresh=document.getElementById('mobileToolsRefresh');
+  if(mobileToolsRefresh) mobileToolsRefresh.addEventListener('click',()=>refreshMobileToolsData(mobileToolsRefresh));
+  document.getElementById('mobileInstallApp')?.addEventListener('click',requestMobilePwaInstall);
+  document.querySelectorAll('[data-mobile-tool]').forEach(button=>button.addEventListener('click',()=>{
+    mobileToolMode=button.dataset.mobileTool;
+    mobilePriceQuery=''; mobilePriceProductId=null;
+    mobileInspectionQuery=''; mobileInspectionLastProductId=null; mobileInspectionVisibleCount=25;
+    mobileStockQuery=''; mobileStockLastProductId=null;
+    render();
+  }));
+  const mobilePriceInput=document.getElementById('mobilePriceInput');
+  if(mobilePriceInput){
+    mobilePriceInput.addEventListener('input',()=>{
+      mobilePriceQuery=mobilePriceInput.value;
+      mobilePriceProductId=null;
+      const result=document.getElementById('mobilePriceResult');
+      if(result){
+        result.innerHTML=mobilePriceResultHtml();
+        attachMobilePriceResultEvents();
+      }
+    });
+    mobilePriceInput.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); mobileHandlePriceCode(mobilePriceInput.value); } });
+  }
+  attachMobilePriceResultEvents();
   document.getElementById('mobilePriceCamera')?.addEventListener('click',()=>openMobileCameraScanner(mobileHandlePriceCode));
   const mobileInspectionList=document.getElementById('mobileInspectionList');
   if(mobileInspectionList) mobileInspectionList.addEventListener('change',()=>{
