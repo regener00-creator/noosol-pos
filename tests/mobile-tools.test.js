@@ -21,6 +21,11 @@ assert.match(html, /deleteInspectionListById\(list\.id\)/);
 assert.match(html, /openMobileCameraScanner\(mobileHandlePriceCode\)/);
 assert.match(html, /openMobileCameraScanner\(mobileHandleInspectionCode,\{continuous:true\}\)/);
 assert.match(html, /openMobileCameraScanner\(mobileHandleStockCode,\{continuous:true\}\)/);
+assert.match(html, /const MOBILE_SCAN_SOUND_URL='\/mobile-scan-success\.mp3'/);
+assert.match(html, /mobileScanSound=new Audio\(MOBILE_SCAN_SOUND_URL\)/);
+assert.match(html, /sound\.currentTime=0/);
+assert.ok((html.match(/playMobileScanSound\(\)/g)||[]).length >= 5);
+assert.equal((html.match(/unlockMobileScanSound\(\); openMobileCameraScanner/g)||[]).length, 3);
 assert.match(html, /const continuous=options\.continuous===true/);
 assert.match(html, /if\(!continuous\)\{ close\(\); onCode\(value\); return; \}/);
 assert.match(html, /ยิงได้หลายสินค้า กด × เมื่อต้องการปิด/);
@@ -151,10 +156,44 @@ assert.ok(manifest.icons.some(icon => icon.src === '/pwa-icon-512.png' && icon.s
 assert.match(serviceWorker, /request\.mode==='navigate'/);
 assert.match(serviceWorker, /fetch\(request\)/);
 assert.match(serviceWorker, /caches\.match\('\/index\.html'\)/);
-assert.match(serviceWorker, /pepos-mobile-v4/);
+assert.match(serviceWorker, /pepos-mobile-v5/);
+assert.match(serviceWorker, /\/mobile-scan-success\.mp3/);
 assert.match(serviceWorker, /cdn\.jsdelivr\.net/);
 assert.ok(fs.statSync(path.join(root, 'pwa-icon-192.png')).size > 1000);
 assert.ok(fs.statSync(path.join(root, 'pwa-icon-512.png')).size > 3000);
+assert.ok(fs.statSync(path.join(root, 'mobile-scan-success.mp3')).size > 1000);
+
+const soundFunctionStart = html.indexOf('function prepareMobileScanSound(');
+const soundFunctionEnd = html.indexOf('function mobileHandleStockCode(', soundFunctionStart);
+assert.ok(soundFunctionStart >= 0 && soundFunctionEnd > soundFunctionStart, 'ไม่พบฟังก์ชันเสียงสแกนบาร์โค้ด');
+const sounds = [];
+class FakeAudio {
+  constructor(src) {
+    this.src = src;
+    this.preload = '';
+    this.muted = false;
+    this.currentTime = 4;
+    this.loadCount = 0;
+    this.pauseCount = 0;
+    this.playCount = 0;
+    sounds.push(this);
+  }
+  load() { this.loadCount += 1; }
+  pause() { this.pauseCount += 1; }
+  play() { this.playCount += 1; return Promise.resolve(); }
+}
+const soundContext = { Audio: FakeAudio, console };
+vm.createContext(soundContext);
+vm.runInContext(`const MOBILE_SCAN_SOUND_URL='/mobile-scan-success.mp3'; let mobileScanSound=null; ${html.slice(soundFunctionStart, soundFunctionEnd)}`, soundContext);
+assert.equal(soundContext.playMobileScanSound(), true);
+assert.equal(soundContext.playMobileScanSound(), true);
+assert.equal(sounds.length, 1);
+assert.equal(sounds[0].src, '/mobile-scan-success.mp3');
+assert.equal(sounds[0].preload, 'auto');
+assert.equal(sounds[0].loadCount, 1);
+assert.equal(sounds[0].pauseCount, 2);
+assert.equal(sounds[0].playCount, 2);
+assert.equal(sounds[0].currentTime, 0);
 
 const functionStart = html.indexOf('function mobileProductMatches(');
 const functionEnd = html.indexOf('function mobilePriceMatches(', functionStart);
