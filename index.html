@@ -641,6 +641,11 @@
   .product-exchange-summary{display:flex;justify-content:flex-end;gap:12px;flex-wrap:wrap;padding:0 2px;}
   .product-exchange-summary span{padding:8px 12px;border-radius:999px;background:var(--surface);border:1px solid var(--border);font-size:13px;}
   .product-exchange-status-note{padding:11px 14px;border-radius:10px;background:#eef7fd;border:1px solid #b7ddf3;color:#275e7e;}
+  .product-exchange-reconciliation{padding:12px 14px;border-radius:10px;background:#fff8e8;border:1px solid #edcf86;color:#6f5114;font-size:13px;line-height:1.5;}
+  .product-exchange-reconciliation.complete{background:#edf8f0;border-color:#abd8b5;color:#286739;}
+  .product-exchange-reconciliation b{display:block;margin-bottom:4px;}
+  .product-exchange-reconciliation ul{margin:4px 0 0;padding-left:22px;}
+  .product-exchange-reconciliation .replacement-note{margin-top:5px;color:#275e7e;}
   .product-exchange-locked{opacity:.82;}
   .product-exchange-list-items{display:grid;grid-template-columns:1fr 1fr;gap:4px 14px;font-size:12px;}
   .product-exchange-list-items b{color:var(--text-muted);}
@@ -2852,6 +2857,25 @@ function normalizeProductExchangeItem(item){
 function productExchangeItemsTotal(items){
   return Math.round((items||[]).reduce((total,item)=>total+productExchangeItemBaseQty(item),0)*1000000)/1000000;
 }
+function productExchangeReconciliation(doc){
+  const incomingByProduct=new Map();
+  (doc?.incomingItems||[]).forEach(item=>{
+    const pid=Number(item?.pid),baseQty=productExchangeItemBaseQty(item);
+    if(pid&&baseQty>0) incomingByProduct.set(pid,(incomingByProduct.get(pid)||0)+baseQty);
+  });
+  const outgoingProductIds=new Set((doc?.outgoingItems||[]).map(item=>Number(item?.pid)).filter(Boolean));
+  const unreturnedItems=[];
+  (doc?.outgoingItems||[]).forEach(item=>{
+    const pid=Number(item?.pid),sent=productExchangeItemBaseQty(item),received=incomingByProduct.get(pid)||0;
+    const matched=Math.min(sent,received),remaining=Math.round((sent-matched)*1000000)/1000000;
+    incomingByProduct.set(pid,Math.max(0,received-matched));
+    if(remaining<=0) return;
+    const factor=Number(item?.factor)>0?Number(item.factor):1;
+    unreturnedItems.push({...item,qty:Math.round((remaining/factor)*1000000)/1000000,baseQty:remaining});
+  });
+  const replacementItems=(doc?.incomingItems||[]).filter(item=>!outgoingProductIds.has(Number(item?.pid)));
+  return {unreturnedItems,replacementItems,fullyReturned:unreturnedItems.length===0};
+}
 function earlierExpiry(currentExpiry,newExpiry){
   const current=String(currentExpiry||''), next=String(newExpiry||'');
   if(!next) return current;
@@ -3915,7 +3939,9 @@ function productExchangeWarehouseName(doc){
 }
 function productExchangePreview(doc){
   const side=(items,label)=>`<div><b>${label}</b><br>${documentItemsPreview(items)}</div>`;
-  return `<div class="product-exchange-list-items">${side(doc.outgoingItems,'ส่งไป')}${side(doc.incomingItems,'รับกลับ')}</div>`;
+  const unreturned=productExchangeReconciliation(doc).unreturnedItems;
+  const unreturnedNote=doc.status==='รับสินค้ากลับแล้ว'&&unreturned.length?`<div style="grid-column:1/-1;color:var(--danger);"><b>ไม่ได้รับคืน</b> ${unreturned.length} รายการ (ตัดสต๊อกแล้ว)</div>`:'';
+  return `<div class="product-exchange-list-items">${side(doc.outgoingItems,'ส่งไป')}${side(doc.incomingItems,'รับกลับ')}${unreturnedNote}</div>`;
 }
 function renderProductExchange(){
   if(editingProductExchangeId!==null) return renderProductExchangeForm();
@@ -3943,6 +3969,15 @@ function productExchangeSectionHtml(side,title,subtitle,items,locked){
     ${locked?'':`<div class="product-exchange-scan-wrap"><div class="product-exchange-scan-row"><input id="productExchangeScan_${side}" data-product-exchange-scan="${side}" autocomplete="off" placeholder="ค้นหา / ยิงบาร์โค้ด / รหัสสินค้า"><button type="button" class="btn ghost" data-product-exchange-add-first="${side}">เพิ่มสินค้า</button></div><div class="product-exchange-results" id="productExchangeResults_${side}" hidden></div></div>`}
     <div class="product-exchange-table-wrap"><table class="grid-table product-exchange-table"><colgroup><col style="width:115px"><col style="width:165px"><col><col style="width:110px"><col style="width:140px"><col style="width:160px"><col style="width:145px"><col style="width:58px"></colgroup><thead><tr><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>สินค้า</th><th>จำนวน</th><th>หน่วย</th><th>วันหมดอายุ</th><th>เทียบหน่วยหลัก</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="8" class="product-exchange-empty">ยังไม่มีสินค้าในรายการ</td></tr>'}</tbody></table></div></section>`;
 }
+function productExchangeReconciliationHtml(doc){
+  const reconciliation=productExchangeReconciliation(doc);
+  if(reconciliation.fullyReturned){
+    return '<div class="product-exchange-reconciliation complete"><b>รับคืนครบตามสินค้าที่ส่งไป</b>เมื่อยืนยัน ระบบจะเพิ่มสต๊อกกลับเฉพาะจำนวนที่ระบุใน “สินค้าที่ได้รับกลับ”</div>';
+  }
+  const unreturned=reconciliation.unreturnedItems.map(item=>`<li>${escapeHtml(item.name||products.find(product=>Number(product.id)===Number(item.pid))?.name||'-')} — ${item.qty} ${escapeHtml(item.unit||'หน่วย')}</li>`).join('');
+  const replacement=reconciliation.replacementItems.length?`<div class="replacement-note">รับเป็นสินค้าคนละตัว ${reconciliation.replacementItems.length} รายการ — สินค้าเหล่านี้จะถูกเพิ่มเข้าสต๊อกตามจำนวนที่ระบุ</div>`:'';
+  return `<div class="product-exchange-reconciliation"><b>ไม่ได้รับคืน ${reconciliation.unreturnedItems.length} รายการ</b><ul>${unreturned}</ul><div>รายการด้านบนถูกตัดสต๊อกตอนยืนยันส่งไปแล้ว และจะไม่ถูกบวกกลับ</div>${replacement}</div>`;
+}
 function renderProductExchangeForm(){
   const draft=activeProductExchangeDraft();
   const outgoingLocked=draft.outgoingApplied===true;
@@ -3950,11 +3985,12 @@ function renderProductExchangeForm(){
   const received=incomingLocked||draft.status==='รับสินค้ากลับแล้ว';
   const suppliers=suppliersList();
   return `<div class="product-exchange-form"><div class="pagehead"><div><div class="breadcrumb">ซื้อ › เปลี่ยนสินค้า</div><h1>${escapeHtml(draft.id)}</h1></div><div class="form-final-actions"><button class="btn ghost" id="cancelProductExchangeBtn">ยกเลิก</button><button class="btn primary" id="saveProductExchangeBtn" ${received?'disabled':''}>บันทึกเอกสาร</button></div></div>
-    <div class="product-exchange-status-note">สถานะ: <b>${escapeHtml(draft.status||'ร่าง')}</b>${received?' · รายการนี้ลงสต๊อกครบแล้วและถูกล็อกเพื่อป้องกันการบันทึกซ้ำ':''}</div>
+    <div class="product-exchange-status-note">สถานะ: <b>${escapeHtml(draft.status||'ร่าง')}</b>${received?' · ปิดการรับกลับและลงสต๊อกแล้ว รายการถูกล็อกเพื่อป้องกันการบันทึกซ้ำ':''}</div>
     <div class="panel product-exchange-meta"><label>วันที่เอกสาร<input id="productExchangeDate" type="date" value="${escapeHtml(draft.date||TODAY_STR)}" ${received?'disabled':''}></label><label>ผู้จำหน่าย<select id="productExchangeSupplier" ${received?'disabled':''}><option value="">เลือกผู้จำหน่าย</option>${suppliers.map(item=>`<option value="${escapeHtml(item.name)}" ${item.name===draft.supplier?'selected':''}>${escapeHtml(item.name)}</option>`).join('')}</select></label><label>คลัง / สาขา<select id="productExchangeWarehouse" ${outgoingLocked?'disabled':''}>${warehouses.map(item=>`<option value="${item.id}" ${Number(item.id)===Number(draft.warehouseId)?'selected':''}>${escapeHtml(item.name)}</option>`).join('')}</select></label><label>เลขที่เอกสาร<input value="${escapeHtml(draft.id)}" readonly></label><label class="product-exchange-note">หมายเหตุ<textarea id="productExchangeNote" rows="2" ${received?'disabled':''} placeholder="รายละเอียดเพิ่มเติม">${escapeHtml(draft.note||'')}</textarea></label></div>
     ${productExchangeSectionHtml('outgoing','สินค้าที่ส่งไปเปลี่ยน','ตัดออกจากสต๊อกเมื่อยืนยัน “ส่งไปเปลี่ยนแล้ว”',draft.outgoingItems,outgoingLocked)}
-    ${productExchangeSectionHtml('incoming','สินค้าที่ได้รับกลับ','เพิ่มเข้าสต๊อกพร้อมวันหมดอายุใหม่เมื่อยืนยัน “รับสินค้ากลับแล้ว”',draft.incomingItems,incomingLocked)}
-    <div class="product-exchange-summary"><span>ส่งไป <b>${draft.outgoingItems.length}</b> รายการ</span><span>รับกลับ <b>${draft.incomingItems.length}</b> รายการ</span></div>
+    ${productExchangeSectionHtml('incoming','สินค้าที่ได้รับกลับ','รับคืนไม่ครบหรือรับเป็นสินค้าคนละตัวได้ · ระบบเพิ่มเฉพาะรายการและจำนวนที่ระบุ',draft.incomingItems,incomingLocked)}
+    ${outgoingLocked?productExchangeReconciliationHtml(draft):''}
+    <div class="product-exchange-summary"><span>ส่งไป <b>${draft.outgoingItems.length}</b> รายการ</span><span>รับกลับ <b>${draft.incomingItems.length}</b> รายการ</span>${outgoingLocked?`<span>ไม่ได้รับคืน <b>${productExchangeReconciliation(draft).unreturnedItems.length}</b> รายการ</span>`:''}</div>
     ${received?'':`<div class="form-bottom-actions" style="display:flex;justify-content:flex-end;gap:10px;">${outgoingLocked?'':'<button class="btn ghost" id="confirmExchangeSentBtn">ยืนยันส่งไปเปลี่ยนแล้ว</button>'}<button class="btn primary" id="confirmExchangeReceivedBtn">ยืนยันรับสินค้ากลับแล้ว</button></div>`}
   </div>`;
 }
@@ -7136,6 +7172,14 @@ async function changeProductExchangeStatus(status){
   const draft=activeProductExchangeDraft(),plan=productExchangeTransitionPlan(draft,status);
   if(!plan.allowed){ showToast('ไม่สามารถย้อนสถานะเอกสารที่ลงสต๊อกแล้ว'); render(); return; }
   if(!validateProductExchangeDraft(draft,status)) return;
+  if(status==='รับสินค้ากลับแล้ว'){
+    const reconciliation=productExchangeReconciliation(draft);
+    if(reconciliation.unreturnedItems.length){
+      const names=reconciliation.unreturnedItems.map(item=>`${item.name||products.find(product=>Number(product.id)===Number(item.pid))?.name||'-'} ${item.qty} ${item.unit||'หน่วย'}`).join('\n• ');
+      if(!confirm(`ได้รับสินค้ากลับไม่ครบตามที่ส่งไป\n\nไม่ได้รับคืน:\n• ${names}\n\nรายการเหล่านี้จะถือว่าถูกตัดออกจากสต๊อกถาวร ยืนยันรับสินค้ากลับหรือไม่?`)) return;
+    }
+    draft.unreturnedItems=reconciliation.unreturnedItems;
+  }
   const required=new Map();
   if(plan.applyOutgoing) (draft.outgoingItems||[]).forEach(item=>required.set(Number(item.pid),(required.get(Number(item.pid))||0)+productExchangeItemBaseQty(item)));
   for(const [pid,qty] of required){ const product=products.find(item=>Number(item.id)===pid); if(!product||Number(product.stock)<qty){ showToast(`สต๊อกไม่พอสำหรับ ${product?.name||'สินค้าที่เลือก'}`,'danger'); return; } }
