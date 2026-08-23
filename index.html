@@ -851,6 +851,23 @@
   .rpf-result b{font-weight:600;color:var(--text);}
   .rpf-result span{font-size:11.5px;color:var(--text-muted);}
   .rpf-result-empty{padding:12px;text-align:center;color:var(--text-muted);font-size:13px;}
+  /* หน้ารายการงานเคลื่อนไหว: scoped เพื่อไม่กระทบตารางรายงานอื่น */
+  .movement-report-search{position:relative;margin-bottom:12px;}
+  .movement-report-search input{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;background:var(--surface);}
+  .movement-selected-products{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);}
+  .movement-selected-label{font-size:12.5px;font-weight:600;color:var(--text-muted);white-space:nowrap;padding-top:5px;}
+  .movement-selected-list{display:flex;gap:6px;flex-wrap:wrap;flex:1;max-height:92px;overflow:auto;}
+  .movement-product-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #BFD9E8;border-radius:18px;background:var(--primary-soft);color:var(--primary-dark);padding:4px 8px 4px 10px;font:500 12px 'Sarabun',sans-serif;}
+  .movement-product-chip button{border:0;background:transparent;color:inherit;padding:0;cursor:pointer;font-size:16px;line-height:1;}
+  .movement-clear-products{border:0;background:transparent;color:var(--danger);font:600 12px 'Sarabun',sans-serif;cursor:pointer;white-space:nowrap;padding:5px 2px;}
+  .movement-report-table{min-width:1060px;table-layout:fixed;}
+  .movement-report-table th,.movement-report-table td{text-align:center;vertical-align:middle;}
+  .movement-report-table td.movement-product-cell{text-align:left;line-height:1.45;}
+  .movement-direction{display:inline-flex;align-items:center;justify-content:center;min-width:62px;border-radius:18px;padding:4px 9px;font-size:12px;font-weight:700;}
+  .movement-direction.in{background:#E8F6EB;color:#2D7D3D;}
+  .movement-direction.out{background:var(--danger-soft);color:var(--danger);}
+  .movement-direction.exchange{background:var(--primary-soft);color:var(--primary-dark);}
+  @media(max-width:760px){.movement-selected-products{flex-wrap:wrap}.movement-selected-label{width:100%}.movement-clear-products{margin-left:auto}}
   .settings-title{font-size:31px;font-weight:700;margin:0 0 30px;color:#2B2016;}
   .settings-section{padding:0 0 28px;margin-bottom:28px;border-bottom:1px solid var(--border);}
   .settings-section:last-child{border-bottom:none;}
@@ -2459,6 +2476,10 @@ const DOC_LIST_PAGE_SIZE = 20;
 let lowStockSort = { stock:{key:'name',dir:1}, expiry:{key:'expiry',dir:1} };
 // สถานะตัวกรองหน้าประวัติการขาย (ค่าเริ่มต้น = แสดงเฉพาะวันนี้)
 let historyFilter = { period:'range', from:'', to:'', month:'', year:'', page:1 };
+// ตัวกรองหน้ารายการงานเคลื่อนไหว (ไม่เลือกสินค้า = แสดงสินค้าทั้งหมด)
+let inventoryMovementFilter = { period:'range', from:'', to:'', month:'', year:'', category:'', brand:'', products:[], page:1 };
+let inventoryMovementSearchQuery = '';
+const INVENTORY_MOVEMENT_PAGE_SIZE = 20;
 let poCounter = 32, grCounter = 31, po2Counter = 1, returnCounter = 1, productExchangeCounter = 1;
 let editingPOId = null; // null=list, 'new', หรือ id ของ PO
 let poDraft = null; // ร่าง PO ที่กำลังแก้ (เก็บค่าไว้ระหว่าง re-render)
@@ -3016,6 +3037,7 @@ const NAV = [
     ['productreturn','ใบคืนสินค้า','<path d="M3 7h13a5 5 0 0 1 0 10H8"/><path d="M8 13l-4 4 4 4"/><path d="M4 17h12"/>'],
   ]},
   {section:'รายงาน', items:[
+    ['inventorymovement','รายการงานเคลื่อนไหว','<path d="M4 7h12"/><path d="M13 4l3 3-3 3"/><path d="M20 17H8"/><path d="M11 14l-3 3 3 3"/>'],
     ['rinventory','สินค้าคงเหลือ','<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'],
     ['lowstock','สินค้าใกล้หมด','<path d="M12 9v4"/><circle cx="12" cy="16.5" r="0.5" fill="currentColor"/><path d="M10.3 3.9L2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>'],
     ['expiry','สินค้าหมดอายุ','<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M8 3.9 6.5 2.5M16 3.9l1.5-1.4"/>'],
@@ -4002,6 +4024,148 @@ function renderProductExchangeForm(){
     ${outgoingLocked?productExchangeReconciliationHtml(draft):''}
     <div class="product-exchange-summary"><span>ส่งไป <b>${draft.outgoingItems.length}</b> รายการ</span><span>รับกลับ <b>${draft.incomingItems.length}</b> รายการ</span>${outgoingLocked?`<span>ไม่ได้รับคืน <b>${productExchangeReconciliation(draft).unreturnedItems.length}</b> รายการ</span>`:''}</div>
     ${received?'':`<div class="form-bottom-actions" style="display:flex;justify-content:flex-end;gap:10px;">${outgoingLocked?'':'<button class="btn ghost" id="confirmExchangeSentBtn">ยืนยันส่งไปเปลี่ยนแล้ว</button>'}<button class="btn primary" id="confirmExchangeReceivedBtn">ยืนยันรับสินค้ากลับแล้ว</button></div>`}
+  </div>`;
+}
+
+// ---------- รายงานรายการงานเคลื่อนไหว ----------
+function inventoryMovementRound(value){ return Math.round((Number(value)||0)*1000000)/1000000; }
+function inventoryMovementProduct(item,productList){
+  const list=productList||[];
+  const id=Number(item?.productId??item?.pid);
+  return (id?list.find(product=>Number(product.id)===id):null)||list.find(product=>String(product.name||'')===String(item?.name||''))||null;
+}
+function inventoryMovementWarehouseName(id,warehouseList,fallback){
+  return (warehouseList||[]).find(warehouse=>Number(warehouse.id)===Number(id))?.name||fallback||'-';
+}
+function productExchangeMovementLines(doc){
+  const outgoingApplied=doc?.outgoingApplied===true||['ส่งไปเปลี่ยนแล้ว','รับสินค้ากลับแล้ว'].includes(doc?.status);
+  const incomingApplied=doc?.incomingApplied===true||doc?.status==='รับสินค้ากลับแล้ว';
+  const identity=item=>Number(item?.pid)?`id:${Number(item.pid)}`:`name:${String(item?.name||'').trim().toLowerCase()}`;
+  const baseQty=item=>inventoryMovementRound((Number(item?.qty)||0)*(Number(item?.factor)>0?Number(item.factor):1));
+  const qtyFromBase=(base,item)=>inventoryMovementRound(base/(Number(item?.factor)>0?Number(item.factor):1));
+  const incoming=(doc?.incomingItems||[]).map(item=>({item,remaining:baseQty(item)}));
+  const changed=[],received=[],sent=[];
+  if(outgoingApplied){
+    (doc?.outgoingItems||[]).forEach(item=>{
+      let remaining=baseQty(item),matched=0;
+      if(incomingApplied){
+        incoming.forEach(entry=>{
+          if(remaining<=0||entry.remaining<=0||identity(entry.item)!==identity(item)) return;
+          const amount=Math.min(remaining,entry.remaining);
+          remaining=inventoryMovementRound(remaining-amount);
+          entry.remaining=inventoryMovementRound(entry.remaining-amount);
+          matched=inventoryMovementRound(matched+amount);
+        });
+      }
+      if(matched>0) changed.push({...item,qty:qtyFromBase(matched,item),direction:'เปลี่ยน'});
+      if(remaining>0) sent.push({...item,qty:qtyFromBase(remaining,item),direction:'ออก'});
+    });
+  }
+  if(incomingApplied){
+    incoming.forEach(entry=>{
+      if(entry.remaining>0) received.push({...entry.item,qty:qtyFromBase(entry.remaining,entry.item),direction:'เข้า'});
+    });
+  }
+  return [...changed,...received,...sent];
+}
+function collectInventoryMovements(source){
+  const sales=source?.sales||[],receipts=source?.receipts||[],exchanges=source?.exchanges||[],returns=source?.returns||[],transfersList=source?.transfers||[];
+  const productList=source?.products||[],warehouseList=source?.warehouses||[];
+  const rows=[];
+  let order=0;
+  const add=(meta,item)=>{
+    if(item?.custom) return;
+    const product=inventoryMovementProduct(item,productList);
+    if(!product) return;
+    const qty=inventoryMovementRound(item?.qty);
+    if(qty<=0) return;
+    const warehouseId=meta.warehouseId??item?.warehouseId??product.wh;
+    rows.push({
+      date:String(meta.date||'').slice(0,10),type:meta.type||'-',bill:meta.bill||'-',time:meta.time||'-',
+      productId:Number(product.id),productName:String(item?.name||product.name||'-'),qty,unit:String(item?.unit||product.unit||''),
+      direction:meta.direction||'-',warehouse:inventoryMovementWarehouseName(warehouseId,warehouseList,meta.warehouseName),order:order++
+    });
+  };
+  sales.filter(sale=>sale?.status==='done').forEach(sale=>{
+    const rawTime=String(sale.time||''),time=(rawTime.includes(' ')?rawTime.slice(11,16):rawTime.slice(0,5))||'-';
+    (sale.items||[]).forEach(item=>add({date:sale.date,type:'ขาย',bill:sale.ref||sale.id,time,direction:'ออก'},item));
+  });
+  receipts.filter(doc=>doc?.stockApplied===true).forEach(doc=>{
+    (doc.items||[]).forEach(item=>add({date:doc.date,type:'รับเข้าสินค้า',bill:doc.id,time:'-',direction:'เข้า',warehouseId:doc.warehouseId},item));
+  });
+  exchanges.forEach(doc=>{
+    productExchangeMovementLines(doc).forEach(item=>add({date:doc.date,type:'เปลี่ยนสินค้า',bill:doc.id,time:'-',direction:item.direction,warehouseId:doc.warehouseId},item));
+  });
+  returns.filter(doc=>doc?.stockApplied===true).forEach(doc=>{
+    (doc.items||[]).forEach(item=>add({date:doc.date,type:'คืนสินค้า',bill:doc.id,time:'-',direction:'ออก',warehouseId:doc.warehouseId},item));
+  });
+  transfersList.filter(doc=>doc?.status!=='ยกเลิก').forEach(doc=>{
+    (doc.items||[]).forEach(item=>{
+      add({date:doc.date,type:'โอนสินค้า',bill:doc.id,time:'-',direction:'ออก',warehouseId:doc.fromId,warehouseName:doc.from},item);
+      add({date:doc.date,type:'โอนสินค้า',bill:doc.id,time:'-',direction:'เข้า',warehouseId:doc.toId,warehouseName:doc.to},item);
+    });
+  });
+  return rows.sort((left,right)=>{
+    const leftStamp=`${left.date} ${left.time==='-'?'00:00':left.time}`,rightStamp=`${right.date} ${right.time==='-'?'00:00':right.time}`;
+    if(leftStamp!==rightStamp) return rightStamp.localeCompare(leftStamp);
+    const billOrder=String(right.bill).localeCompare(String(left.bill),'th',{numeric:true});
+    return billOrder||left.order-right.order;
+  });
+}
+function inventoryMovementDateRange(filter=inventoryMovementFilter){
+  if(filter.period==='month'){
+    const value=filter.month||TODAY_STR.slice(0,7),[year,month]=value.split('-').map(Number);
+    return {from:`${year}-${String(month).padStart(2,'0')}-01`,to:`${year}-${String(month).padStart(2,'0')}-${String(new Date(year,month,0).getDate()).padStart(2,'0')}`};
+  }
+  if(filter.period==='year'){
+    const year=filter.year||TODAY_STR.slice(0,4);
+    return {from:`${year}-01-01`,to:`${year}-12-31`};
+  }
+  return {from:filter.from||TODAY_STR,to:filter.to||TODAY_STR};
+}
+function inventoryMovementRows(){
+  return collectInventoryMovements({sales:salesHistory,receipts:goodsReceipts,exchanges:productExchanges,returns:productReturns,transfers,products,warehouses});
+}
+function inventoryMovementFilteredRows(){
+  const range=inventoryMovementDateRange(),selectedIds=new Set((inventoryMovementFilter.products||[]).map(Number));
+  return inventoryMovementRows().filter(row=>row.date>=range.from&&row.date<=range.to&&(!selectedIds.size||selectedIds.has(Number(row.productId))));
+}
+function inventoryMovementQtyText(row){
+  const qty=Number(row?.qty)||0;
+  const formatted=qty.toLocaleString('th-TH',{maximumFractionDigits:6});
+  return `${escapeHtml(row?.productName||'-')} ×${formatted}${row?.unit?` ${escapeHtml(row.unit)}`:''}`;
+}
+function inventoryMovementDirectionBadge(direction){
+  const cls=direction==='เข้า'?'in':direction==='ออก'?'out':'exchange';
+  return `<span class="movement-direction ${cls}">${escapeHtml(direction||'-')}</span>`;
+}
+function renderInventoryMovement(){
+  const filter=inventoryMovementFilter,range=inventoryMovementDateRange();
+  const brandOptions=filter.category?brands.filter(brand=>products.some(product=>product.category===filter.category&&product.brand===brand)):brands.slice();
+  const matchCount=products.filter(product=>(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand)&&(filter.category||filter.brand)).length;
+  const selectedProducts=(filter.products||[]).map(id=>products.find(product=>Number(product.id)===Number(id))).filter(Boolean);
+  const rows=inventoryMovementFilteredRows(),totalPages=Math.max(1,Math.ceil(rows.length/INVENTORY_MOVEMENT_PAGE_SIZE));
+  filter.page=Math.min(totalPages,Math.max(1,Number(filter.page)||1));
+  const start=(filter.page-1)*INVENTORY_MOVEMENT_PAGE_SIZE,pageRows=rows.slice(start,start+INVENTORY_MOVEMENT_PAGE_SIZE);
+  const periodOptions=[['range','วันที่'],['month','เดือน'],['year','ปี']];
+  return `<div class="rpt movement-report-page">
+    <div class="pagehead"><div><h1>รายการงานเคลื่อนไหว</h1><div class="sub">รายงานการเข้า-ออกของสินค้า · ${rows.length} รายการ${totalPages>1?` · หน้า ${filter.page}/${totalPages}`:''}</div></div></div>
+    <div class="rpt-filters">
+      <div class="rpf-item"><select id="movementPeriod" class="rpt-select">${periodOptions.map(([value,label])=>`<option value="${value}" ${filter.period===value?'selected':''}>${label}</option>`).join('')}</select></div>
+      ${filter.period==='range'?`<div class="rpf-item rpf-range">${dmyDateFieldHtml('movementFrom',range.from)}<span style="color:var(--text-muted);">ถึง</span>${dmyDateFieldHtml('movementTo',range.to)}</div>`:''}
+      ${filter.period==='month'?`<div class="rpf-item"><input type="month" id="movementMonth" value="${filter.month||TODAY_STR.slice(0,7)}" class="rpt-select"></div>`:''}
+      ${filter.period==='year'?`<div class="rpf-item"><select id="movementYear" class="rpt-select">${(()=>{const currentYear=Number(TODAY_STR.slice(0,4));let options='';for(let year=currentYear;year>=currentYear-6;year--) options+=`<option value="${year}" ${String(filter.year||currentYear)===String(year)?'selected':''}>${year}</option>`;return options;})()}</select></div>`:''}
+      <button class="btn ghost rpf-apply" id="movementApplyBtn">แสดงผล</button>
+    </div>
+    <div class="rpt-filters">
+      <div class="rpf-item"><select id="movementCategory" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(category=>`<option value="${escapeHtml(category)}" ${filter.category===category?'selected':''}>${escapeHtml(category)}</option>`).join('')}</select></div>
+      <div class="rpf-item"><select id="movementBrand" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(brand=>`<option value="${escapeHtml(brand)}" ${filter.brand===brand?'selected':''}>${escapeHtml(brand)}</option>`).join('')}</select></div>
+      <button class="btn ghost" id="movementAddCategoryBtn" ${(filter.category||filter.brand)?'':'disabled'}>เลือกสินค้าในหมวดนี้${(filter.category||filter.brand)?` (${matchCount})`:''}</button>
+    </div>
+    <div class="movement-report-search"><input id="movementSearch" value="${escapeHtml(inventoryMovementSearchQuery)}" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." autocomplete="off"><div id="movementSearchResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div></div>
+    ${selectedProducts.length?`<div class="movement-selected-products"><span class="movement-selected-label">สินค้าที่เลือก ${selectedProducts.length} รายการ</span><div class="movement-selected-list">${selectedProducts.map(product=>`<span class="movement-product-chip">${escapeHtml(product.name)}<button type="button" data-movement-remove="${product.id}" aria-label="ลบ ${escapeHtml(product.name)}">×</button></span>`).join('')}</div><button type="button" class="movement-clear-products" id="movementClearProducts">ล้างทั้งหมด</button></div>`:'<div class="movement-selected-products"><span class="movement-selected-label">สินค้า: ทั้งหมด</span></div>'}
+    <div class="doc-list-wrap"><table class="grid-table doc-head-blue movement-report-table"><colgroup><col style="width:120px"><col style="width:135px"><col style="width:180px"><col style="width:85px"><col><col style="width:105px"><col style="width:220px"></colgroup><thead><tr><th>วันที่</th><th>รายการ</th><th>บิล</th><th>เวลา</th><th>สินค้า</th><th>เข้า-ออก</th><th>คลังสินค้า</th></tr></thead><tbody>${pageRows.map(row=>`<tr><td>${fmtDate(row.date)}</td><td>${escapeHtml(row.type)}</td><td class="mono">${escapeHtml(row.bill)}</td><td>${escapeHtml(row.time)}</td><td class="movement-product-cell">${inventoryMovementQtyText(row)}</td><td>${inventoryMovementDirectionBadge(row.direction)}</td><td>${escapeHtml(row.warehouse)}</td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายการเคลื่อนไหวในช่วงเวลาหรือสินค้าที่เลือก</td></tr>'}</tbody></table></div>
+    ${pagerHtml(filter.page,totalPages,'movement-page')}
   </div>`;
 }
 
@@ -6979,7 +7143,7 @@ const RENDERERS = {
   creditnote: renderCreditNote, history: renderHistory, purchaseorder: renderPurchaseOrder, purchaseorder2: renderPurchaseOrder2, productreturn: renderProductReturn, goodsreceipt: renderGoodsReceipt, productexchange: renderProductExchange,
   products: renderProducts, inspectionlists: renderInspectionLists, barcodeprint: renderBarcodePrint, warehouse: renderWarehouse, transfer: renderTransfer, stockadjust: renderStockAdjust, stockedit: renderStockEdit, lowstock: renderLowStock, expiry: renderExpiry, promotions: renderPromotions,
   contacts: renderContacts, salesreps: renderSalesRepresentatives, rsales: renderRSales, rproduct: renderRProduct, rbill: renderRBill, rprofit: renderRProfit, remployee: renderREmployee,
-  rinventory: renderRInventory, rreceivable: renderRReceivable, settingsbusiness: renderBusinessSettings, settingsuser: renderUserSettings, settingsusers: renderSystemUsers, settingssystem: renderSystemSettings,
+  inventorymovement: renderInventoryMovement, rinventory: renderRInventory, rreceivable: renderRReceivable, settingsbusiness: renderBusinessSettings, settingsuser: renderUserSettings, settingsusers: renderSystemUsers, settingssystem: renderSystemSettings,
 };
 
 function render(){
@@ -8304,6 +8468,75 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       });
     });
   });
+  // --- ตัวกรองหน้ารายการงานเคลื่อนไหว ---
+  const movementPeriod=document.getElementById('movementPeriod');
+  if(movementPeriod) movementPeriod.addEventListener('change',()=>{ inventoryMovementFilter.period=movementPeriod.value; inventoryMovementFilter.page=1; render(); });
+  const movementFrom=document.getElementById('movementFrom');
+  if(movementFrom) movementFrom.addEventListener('change',()=>{ const iso=dmyToISO(movementFrom.value); if(iso) inventoryMovementFilter.from=iso; });
+  const movementTo=document.getElementById('movementTo');
+  if(movementTo) movementTo.addEventListener('change',()=>{ const iso=dmyToISO(movementTo.value); if(iso) inventoryMovementFilter.to=iso; });
+  const movementMonth=document.getElementById('movementMonth');
+  if(movementMonth) movementMonth.addEventListener('change',()=>{ inventoryMovementFilter.month=movementMonth.value; inventoryMovementFilter.page=1; render(); });
+  const movementYear=document.getElementById('movementYear');
+  if(movementYear) movementYear.addEventListener('change',()=>{ inventoryMovementFilter.year=movementYear.value; inventoryMovementFilter.page=1; render(); });
+  const movementApplyBtn=document.getElementById('movementApplyBtn');
+  if(movementApplyBtn) movementApplyBtn.addEventListener('click',()=>{ inventoryMovementFilter.page=1; render(); });
+  const movementCategory=document.getElementById('movementCategory');
+  if(movementCategory) movementCategory.addEventListener('change',()=>{ inventoryMovementFilter.category=movementCategory.value; inventoryMovementFilter.brand=''; inventoryMovementFilter.page=1; render(); });
+  const movementBrand=document.getElementById('movementBrand');
+  if(movementBrand) movementBrand.addEventListener('change',()=>{ inventoryMovementFilter.brand=movementBrand.value; inventoryMovementFilter.page=1; render(); });
+  const movementAddCategoryBtn=document.getElementById('movementAddCategoryBtn');
+  if(movementAddCategoryBtn) movementAddCategoryBtn.addEventListener('click',()=>openInventoryMovementCategoryPicker(inventoryMovementFilter));
+  document.querySelectorAll('[data-movement-remove]').forEach(button=>button.addEventListener('click',()=>{
+    const productId=Number(button.dataset.movementRemove);
+    inventoryMovementFilter.products=inventoryMovementFilter.products.filter(id=>Number(id)!==productId);
+    inventoryMovementFilter.page=1; render();
+  }));
+  const movementClearProducts=document.getElementById('movementClearProducts');
+  if(movementClearProducts) movementClearProducts.addEventListener('click',()=>{ inventoryMovementFilter.products=[]; inventoryMovementFilter.page=1; render(); });
+  const movementSearch=document.getElementById('movementSearch');
+  const movementSearchResults=document.getElementById('movementSearchResults');
+  if(movementSearch&&movementSearchResults){
+    const addProduct=product=>{
+      if(!product) return;
+      if(!inventoryMovementFilter.products.some(id=>Number(id)===Number(product.id))) inventoryMovementFilter.products.push(product.id);
+      inventoryMovementSearchQuery=''; inventoryMovementFilter.page=1; render();
+      setTimeout(()=>document.getElementById('movementSearch')?.focus(),0);
+    };
+    const showResults=query=>{
+      inventoryMovementSearchQuery=query;
+      const value=String(query||'').trim();
+      if(!value){ movementSearchResults.hidden=true; movementSearchResults.innerHTML=''; return; }
+      const lower=value.toLowerCase();
+      const matches=products.filter(product=>String(product.name||'').toLowerCase().includes(lower)||String(product.sku||'').toLowerCase().includes(lower)||matchesBarcode(product,value)).slice(0,15);
+      if(!matches.length){ movementSearchResults.innerHTML='<div class="fav-add-noresult">ไม่พบสินค้า</div>'; movementSearchResults.hidden=false; return; }
+      movementSearchResults.innerHTML=matches.map(product=>`<div class="fav-add-result" data-movement-result="${product.id}"><b>${escapeHtml(product.name)}</b><span>${escapeHtml(product.sku||'-')} · ${inventoryMovementFilter.products.some(id=>Number(id)===Number(product.id))?'เลือกไว้แล้ว':`คงเหลือ ${escapeHtml(stockInLargestUnit(product))}`}</span></div>`).join('');
+      movementSearchResults.hidden=false;
+      movementSearchResults.querySelectorAll('[data-movement-result]').forEach(row=>{
+        row.addEventListener('mousedown',event=>event.preventDefault());
+        row.addEventListener('click',()=>addProduct(products.find(product=>Number(product.id)===Number(row.dataset.movementResult))));
+      });
+    };
+    movementSearch.addEventListener('input',()=>showResults(movementSearch.value));
+    movementSearch.addEventListener('focus',()=>{ if(movementSearch.value.trim()) showResults(movementSearch.value); });
+    movementSearch.addEventListener('blur',()=>setTimeout(()=>{ movementSearchResults.hidden=true; },150));
+    movementSearch.addEventListener('keydown',event=>{
+      if(event.key!=='Enter') return;
+      event.preventDefault();
+      const value=movementSearch.value.trim(); if(!value) return;
+      const exact=findProductByExactCode(value);
+      if(exact){ addProduct(exact.product); return; }
+      const first=movementSearchResults.querySelector('[data-movement-result]');
+      if(first) addProduct(products.find(product=>Number(product.id)===Number(first.dataset.movementResult)));
+    });
+  }
+  document.querySelectorAll('[data-movement-page]').forEach(button=>button.addEventListener('click',()=>{
+    const value=button.dataset.movementPage,totalPages=Math.max(1,Math.ceil(inventoryMovementFilteredRows().length/INVENTORY_MOVEMENT_PAGE_SIZE));
+    if(value==='prev') inventoryMovementFilter.page=Math.max(1,inventoryMovementFilter.page-1);
+    else if(value==='next') inventoryMovementFilter.page=Math.min(totalPages,inventoryMovementFilter.page+1);
+    else inventoryMovementFilter.page=Math.min(totalPages,Math.max(1,Number(value)||1));
+    renderKeepScroll();
+  }));
   // --- ตัวกรองหน้าประวัติการขาย ---
   const hfPeriod=document.getElementById('hf_period');
   if(hfPeriod) hfPeriod.addEventListener('change',()=>{ historyFilter.period=hfPeriod.value; historyFilter.page=1; render(); });
@@ -10950,6 +11183,34 @@ function openInspectionListCategoryPicker(filter){
       if(inspectionListAddProduct(product,product?.unit)) added++;
     });
     close(); showToast(added?`เพิ่มสินค้า ${added} รายการแล้ว`:'ไม่ได้เลือกสินค้าเพิ่ม'); render();
+  };
+}
+
+function openInventoryMovementCategoryPicker(filter){
+  const matches=products.filter(product=>(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand));
+  if(!matches.length){ showToast('ไม่พบสินค้าในหมวดที่เลือก'); return; }
+  const alreadySelected=id=>(filter.products||[]).some(productId=>Number(productId)===Number(id));
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal" style="width:500px;max-height:82vh;display:flex;flex-direction:column;">
+    <div class="modal-head"><h3>เลือกสินค้าสำหรับรายงาน</h3><button class="modal-close" aria-label="ปิด">×</button></div>
+    <div class="modal-sub">${escapeHtml(filter.category||'ทุกหมวดหลัก')}${filter.brand?` · ${escapeHtml(filter.brand)}`:''} · พบ ${matches.length} รายการ</div>
+    <div style="padding:0 16px 8px;display:flex;gap:14px;"><button class="btn ghost small" id="movementPickAll">เลือกทั้งหมด</button><button class="btn ghost small" id="movementPickNone">ไม่เลือกเลย</button></div>
+    <div class="manage-list" id="movementPickList" style="flex:1;">${matches.map(product=>`<label class="fav-check"><input type="checkbox" data-movement-pid="${product.id}" ${alreadySelected(product.id)?'checked disabled':''}><span>${escapeHtml(product.name)}</span><span class="mono" style="margin-right:auto;color:var(--text-muted);font-size:12px;">${alreadySelected(product.id)?'เลือกไว้แล้ว':escapeHtml(product.sku||'-')}</span></label>`).join('')}</div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);text-align:left;display:flex;gap:8px;"><button class="btn ghost" id="movementPickCancel">ยกเลิก</button><button class="btn primary" id="movementPickAdd">เพิ่มที่เลือก</button></div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  const checkboxes=()=>Array.from(overlay.querySelectorAll('#movementPickList input[type="checkbox"]:not(:disabled)'));
+  overlay.querySelector('.modal-close').onclick=close;
+  overlay.querySelector('#movementPickCancel').onclick=close;
+  overlay.querySelector('#movementPickAll').onclick=()=>checkboxes().forEach(checkbox=>checkbox.checked=true);
+  overlay.querySelector('#movementPickNone').onclick=()=>checkboxes().forEach(checkbox=>checkbox.checked=false);
+  overlay.querySelector('#movementPickAdd').onclick=()=>{
+    const selected=checkboxes().filter(checkbox=>checkbox.checked).map(checkbox=>Number(checkbox.dataset.movementPid));
+    let added=0;
+    selected.forEach(id=>{ if(!alreadySelected(id)){ filter.products.push(id); added++; } });
+    filter.page=1; close(); showToast(added?`เพิ่มสินค้า ${added} รายการแล้ว`:'ไม่ได้เลือกสินค้าเพิ่ม'); render();
   };
 }
 
