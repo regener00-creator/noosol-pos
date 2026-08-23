@@ -52,8 +52,20 @@ assert.deepEqual(
 );
 assert.equal(rows.at(-1).time, '17:46');
 
+assert.deepEqual(
+  JSON.parse(JSON.stringify(context.filterInventoryMovements(rows,{type:'เปลี่ยนสินค้า',bill:'ex20260822',direction:'เข้า',products:[]},{from:'2026-08-18',to:'2026-08-23'}).map(row=>[row.bill,row.productId,row.direction]))),
+  [['EX202608220001',1,'เข้า']]
+);
+assert.deepEqual(
+  JSON.parse(JSON.stringify(context.filterInventoryMovements(rows,{type:'all',bill:'',direction:'ออก',products:[1]},{from:'2026-08-18',to:'2026-08-18'}).map(row=>[row.bill,row.productId,row.direction]))),
+  [['RE202608180002',1,'ออก']]
+);
+
 assert.match(html, /\['inventorymovement','รายการงานเคลื่อนไหว'/);
 assert.match(html, /id="movementPeriod"/);
+assert.match(html, /id="movementType"/);
+assert.match(html, /id="movementBill"/);
+assert.match(html, /id="movementDirection"/);
 assert.match(html, /id="movementCategory"/);
 assert.match(html, /id="movementBrand"/);
 assert.match(html, /id="movementSearch"/);
