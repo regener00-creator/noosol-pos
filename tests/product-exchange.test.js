@@ -13,6 +13,16 @@ const helpersEnd = html.indexOf('function currentDocKind(', helpersStart);
 assert.ok(helpersStart >= 0 && helpersEnd > helpersStart, 'ไม่พบ logic เอกสารเปลี่ยนสินค้า');
 vm.runInContext(html.slice(helpersStart, helpersEnd), context);
 
+const previewStart = html.indexOf('function productExchangeItemsPreview(');
+const previewEnd = html.indexOf('function productExchangePreview(', previewStart);
+assert.ok(previewStart >= 0 && previewEnd > previewStart, 'ไม่พบตัวแสดงรายการเปลี่ยนสินค้า');
+context.escapeHtml = value => String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+vm.runInContext(html.slice(previewStart, previewEnd), context);
+assert.match(
+  context.productExchangeItemsPreview([{name:'Decolgen prin (4 tablets)',qty:1,unit:'ซอง'}]),
+  /Decolgen prin \(4 tablets\) ×1 ซอง/
+);
+
 assert.equal(context.productExchangeItemBaseQty({qty:10,factor:1}), 10);
 assert.equal(context.productExchangeItemBaseQty({qty:2,factor:5}), 10);
 assert.equal(context.productExchangeItemBaseQty({qty:'1.5',factor:'12'}), 18);

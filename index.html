@@ -3937,8 +3937,18 @@ function productExchangeStatusBadge(status){
 function productExchangeWarehouseName(doc){
   return warehouses.find(warehouse=>Number(warehouse.id)===Number(doc?.warehouseId))?.name||'-';
 }
+function productExchangeItemsPreview(items){
+  const list=items||[];
+  const shown=list.slice(0,2).map(item=>{
+    const qty=item?.qty?` ×${escapeHtml(item.qty)}`:'';
+    const unit=item?.unit?` ${escapeHtml(item.unit)}`:'';
+    return `${escapeHtml(item?.name||'-')}${qty}${unit}`;
+  }).join('<br>');
+  const more=list.length>2?`<span class="doc-item-more">+${list.length-2} รายการ</span>`:'';
+  return `<div class="doc-item-preview">${shown||'-'} ${more}</div>`;
+}
 function productExchangePreview(doc){
-  const side=(items,label)=>`<div><b>${label}</b><br>${documentItemsPreview(items)}</div>`;
+  const side=(items,label)=>`<div><b>${label}</b><br>${productExchangeItemsPreview(items)}</div>`;
   const unreturned=productExchangeReconciliation(doc).unreturnedItems;
   const unreturnedNote=doc.status==='รับสินค้ากลับแล้ว'&&unreturned.length?`<div style="grid-column:1/-1;color:var(--danger);"><b>ไม่ได้รับคืน</b> ${unreturned.length} รายการ (ตัดสต๊อกแล้ว)</div>`:'';
   return `<div class="product-exchange-list-items">${side(doc.outgoingItems,'ส่งไป')}${side(doc.incomingItems,'รับกลับ')}${unreturnedNote}</div>`;
