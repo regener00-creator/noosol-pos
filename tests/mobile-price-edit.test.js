@@ -31,6 +31,10 @@ const context = {
   },
 };
 vm.createContext(context);
+const dateStart = html.indexOf('function dmyToISO(');
+const dateEnd = html.indexOf('function dmyDateFieldHtml(', dateStart);
+assert.ok(dateStart >= 0 && dateEnd > dateStart, 'ไม่พบฟังก์ชันแปลงวันที่ที่พิมพ์เอง');
+vm.runInContext(html.slice(dateStart, dateEnd), context);
 vm.runInContext(html.slice(payloadStart, payloadEnd), context);
 
 const product = {
@@ -43,7 +47,7 @@ const product = {
 };
 
 const main = context.mobilePriceEditPayload(product, 'กล่อง', {
-  stock: '5', price: '120', cost: '70', expiry: '2027-10-10',
+  stock: '5', price: '120', cost: '70', expiry: '10-10-2027',
 }, 2);
 assert.equal(main.error, undefined);
 assert.equal(main.stock, 5);
@@ -51,6 +55,7 @@ assert.equal(main.product.price, 120);
 assert.equal(main.product.cost, 70);
 assert.equal(main.product.units[0].price, 1100);
 assert.equal(main.warehouseId, 2);
+assert.equal(main.expiry, '2027-10-10');
 
 const caseUnit = context.mobilePriceEditPayload(product, 'ลัง', {
   stock: '2.5', price: '1250', cost: '700', expiry: '',
@@ -66,6 +71,7 @@ assert.equal(caseUnit.product.units[0].barcode, 'CASE-10');
 assert.match(context.mobilePriceEditPayload(product, 'กล่อง', { stock: '', price: 1, cost: 1, expiry: '' }, 1).error, /คงเหลือ/);
 assert.match(context.mobilePriceEditPayload(product, 'กล่อง', { stock: 1, price: -1, cost: 1, expiry: '' }, 1).error, /ราคาขาย/);
 assert.match(context.mobilePriceEditPayload(product, 'กล่อง', { stock: 1, price: 1, cost: -1, expiry: '' }, 1).error, /ทุน/);
-assert.match(context.mobilePriceEditPayload(product, 'กล่อง', { stock: 1, price: 1, cost: 1, expiry: '10-10-2027' }, 1).error, /วันหมดอายุ/);
+assert.match(context.mobilePriceEditPayload(product, 'กล่อง', { stock: 1, price: 1, cost: 1, expiry: '31-02-2027' }, 1).error, /วันหมดอายุ/);
+assert.equal(context.mobilePriceEditPayload(product, 'กล่อง', { stock: 1, price: 1, cost: 1, expiry: '5/7/2027' }, 1).expiry, '2027-07-05');
 
 console.log('mobile price edit tests passed');

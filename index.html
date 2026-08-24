@@ -322,6 +322,7 @@
   .prod-inline-edit{width:100%;border:1px solid transparent;background:transparent;font-family:inherit;font-size:13px;padding:5px 6px;border-radius:6px;text-align:center;color:var(--text);}
   .prod-inline-edit:hover{border-color:var(--border);background:var(--surface);}
   .prod-inline-edit:focus{border-color:var(--primary);background:var(--surface);outline:none;}
+  .prod-inline-expiry{min-width:104px;font-variant-numeric:tabular-nums;}
   .prod-inline-name{text-align:left;}
   .prod-inline-edit.no-spin::-webkit-outer-spin-button,.prod-inline-edit.no-spin::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
   .prod-unit-select{width:100%;max-width:100px;font-size:12.5px;color:var(--text-muted);border:1px solid transparent;background:transparent;text-align:center;padding:5px 6px;cursor:pointer;border-radius:6px;}
@@ -1898,15 +1899,16 @@ async function setProductStockOnSupabase(productId,newStock,warehouseId=activeWa
   catch(e){ console.warn('set product stock failed',productId,e); }
 }
 async function setProductExpiryOnSupabase(productId,newExpiry,warehouseId=activeWarehouseId){
-  if(!currentProfile) return;
+  if(!currentProfile) return false;
   const targetWarehouseId=Number(warehouseId)||Number(activeWarehouseId);
-  if(!targetWarehouseId){ console.warn('set product expiry: warehouse is required',productId); return; }
+  if(!targetWarehouseId){ console.warn('set product expiry: warehouse is required',productId); return false; }
   try{
     const normalizedExpiry=String(newExpiry||'').trim()||null;
     const {data,error}=await sb.rpc('set_inventory_expiry',{p_product_id:productId,p_warehouse_id:targetWarehouseId,p_expiry:normalizedExpiry});
-    if(error){ console.warn('set product expiry',productId,error); return; }
+    if(error){ console.warn('set product expiry',productId,error); return false; }
     updateInventoryBalanceLocal(productId,targetWarehouseId,warehouseStock(productId,targetWarehouseId),data||'');
-  }catch(error){ console.warn('set product expiry failed',productId,error); }
+    return true;
+  }catch(error){ console.warn('set product expiry failed',productId,error); return false; }
 }
 async function transferProductStockOnSupabase(productId,fromWarehouseId,toWarehouseId,quantity){
   if(!currentProfile||!quantity) return null;
@@ -2166,7 +2168,20 @@ function fmtMoney(n){
 function escapeHtml(value){ return String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 // ---------- ช่องเลือกวันที่แบบ วัน/เดือน/ปี (dd/mm/yyyy) พร้อมปฏิทินช่วยเลือก ----------
 function isoToDMY(iso){ if(!iso) return ''; const parts=String(iso).split('-'); if(parts.length!==3) return ''; const [y,m,d]=parts; return `${d}/${m}/${y}`; }
-function dmyToISO(dmy){ const m=String(dmy||'').trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); if(!m) return null; const d=m[1].padStart(2,'0'), mo=m[2].padStart(2,'0'), y=m[3]; return `${y}-${mo}-${d}`; }
+function dmyToISO(dmy){
+  const matched=String(dmy||'').trim().match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+  if(!matched) return null;
+  const day=Number(matched[1]), month=Number(matched[2]), year=Number(matched[3]);
+  const date=new Date(year,month-1,day);
+  if(date.getFullYear()!==year||date.getMonth()!==month-1||date.getDate()!==day) return null;
+  return `${String(year).padStart(4,'0')}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+}
+function formatDMYInput(value){
+  const digits=String(value||'').replace(/\D/g,'').slice(0,8);
+  if(digits.length>4) return `${digits.slice(0,2)}-${digits.slice(2,4)}-${digits.slice(4)}`;
+  if(digits.length>2) return `${digits.slice(0,2)}-${digits.slice(2)}`;
+  return digits;
+}
 function dmyDateFieldHtml(id, isoValue, opts){
   opts = opts || {};
   const readonly = opts.readonly ? 'readonly' : '';
@@ -4629,7 +4644,10 @@ function renderProducts(){
           const unitSelectHtml = unitOpts.length>1
             ? `<select class="prod-unit-select" data-pid="${p.id}">${unitOpts.map(u=>`<option value="${escapeHtml(u.sub)}" ${u.sub===selOpt.sub?'selected':''}>${escapeHtml(u.sub)}</option>`).join('')}</select>`
             : `<span class="prod-unit-fixed">${escapeHtml(p.unit)}</span>`;
-          return `<tr><td class="mono" style="text-align:center;"><input class="prod-inline-edit" data-pid="${p.id}" data-field="sku" value="${escapeHtml(p.sku||'')}" placeholder="-"></td><td class="mono" style="text-align:center;">${escapeHtml(selOpt.barcode||'-')}</td><td><input class="prod-inline-edit prod-inline-name" data-pid="${p.id}" data-field="name" value="${escapeHtml(p.name)}"></td><td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="price" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.price}"></td>${canViewCost?`<td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="cost" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.cost}"></td>`:''}<td style="text-align:center;">${unitSelectHtml}</td><td class="num stock-cell ${p.stock<0?'stock-negative':''}" style="text-align:center;" data-act="stockcheck" data-id="${p.id}" title="กดเพื่อดูทุกหน่วย">${stockInLargestUnit(p)} <span class="stock-caret">▾</span></td><td class="mono num ${daysUntil(p.expiry)<0?'expiry-past':''}" style="text-align:center;">${fmtDateShort(p.expiry)}</td>${canOpenProductEditor?`<td class="num"><button class="icon-btn" data-act="editproduct" data-id="${p.id}" title="แก้ไข" aria-label="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></td>`:''}</tr>`;
+          const expiryHtml=canOpenProductEditor
+            ? `<input class="prod-inline-edit prod-inline-expiry" data-pid="${p.id}" data-field="expiry" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว-ดด-ปปปป" value="${escapeHtml(p.expiry?fmtDateShort(p.expiry):'')}">`
+            : fmtDateShort(p.expiry);
+          return `<tr><td class="mono" style="text-align:center;"><input class="prod-inline-edit" data-pid="${p.id}" data-field="sku" value="${escapeHtml(p.sku||'')}" placeholder="-"></td><td class="mono" style="text-align:center;">${escapeHtml(selOpt.barcode||'-')}</td><td><input class="prod-inline-edit prod-inline-name" data-pid="${p.id}" data-field="name" value="${escapeHtml(p.name)}"></td><td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="price" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.price}"></td>${canViewCost?`<td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="cost" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.cost}"></td>`:''}<td style="text-align:center;">${unitSelectHtml}</td><td class="num stock-cell ${p.stock<0?'stock-negative':''}" style="text-align:center;" data-act="stockcheck" data-id="${p.id}" title="กดเพื่อดูทุกหน่วย">${stockInLargestUnit(p)} <span class="stock-caret">▾</span></td><td class="mono num ${daysUntil(p.expiry)<0?'expiry-past':''}" style="text-align:center;">${expiryHtml}</td>${canOpenProductEditor?`<td class="num"><button class="icon-btn" data-act="editproduct" data-id="${p.id}" title="แก้ไข" aria-label="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></td>`:''}</tr>`;
         }).join('')||`<tr><td colspan="${productColumnCount}" style="text-align:center;color:var(--text-muted);padding:30px;">${q?'ไม่พบสินค้าที่ค้นหา':selectedGroup?'ไม่มีสินค้าในกลุ่มนี้':'กรุณาเลือกกลุ่มสินค้าจากด้านซ้าย หรือค้นหาสินค้าได้ทันที'}</td></tr>`}</tbody></table>
         </div>
         ${pager}
@@ -5228,8 +5246,9 @@ function mobilePriceEditPayload(product,unitName,values,warehouseId){
   if(priceValue.error) return priceValue;
   const costValue=readNumber(values?.cost,'ทุน');
   if(costValue.error) return costValue;
-  const expiry=String(values?.expiry||'').trim();
-  if(expiry&&!/^\d{4}-\d{2}-\d{2}$/.test(expiry)) return {error:'วันหมดอายุไม่ถูกต้อง'};
+  const expiryText=String(values?.expiry||'').trim();
+  const expiry=expiryText?dmyToISO(expiryText):'';
+  if(expiryText&&!expiry) return {error:'กรุณากรอกวันหมดอายุเป็น วัน-เดือน-ปี เช่น 05-07-2027'};
   const nextProduct={...product,units:(product.units||[]).map(unit=>({...unit}))};
   if(selected.name===product.unit){
     nextProduct.price=priceValue.value;
@@ -5274,7 +5293,7 @@ function mobilePriceResultHtml(){
       <div class="mobile-price-edit-field stock"><label for="mobilePriceEditStock">คงเหลือ (${escapeHtml(selected?.name||product.unit)})</label><input id="mobilePriceEditStock" class="mobile-price-edit-input" type="number" step="any" inputmode="decimal" value="${selectedStock}"></div>
       <div class="mobile-price-edit-field"><label for="mobilePriceEditSale">ราคาขาย</label><input id="mobilePriceEditSale" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.price)||0}"></div>
       <div class="mobile-price-edit-field"><label for="mobilePriceEditCost">ทุน</label><input id="mobilePriceEditCost" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.cost)||0}"></div>
-      <div class="mobile-price-edit-field"><label for="mobilePriceEditExpiry">วันหมดอายุ</label><input id="mobilePriceEditExpiry" class="mobile-price-edit-input" type="date" value="${escapeHtml(expiry)}"></div>
+      <div class="mobile-price-edit-field"><label for="mobilePriceEditExpiry">วันหมดอายุ</label><input id="mobilePriceEditExpiry" class="mobile-price-edit-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="05-07-2027" value="${escapeHtml(expiry?fmtDateShort(expiry):'')}"></div>
     </div>
     <button type="button" class="mobile-price-edit-save" id="mobilePriceSaveChanges">บันทึกการแก้ไข</button><div class="mobile-price-edit-status" id="mobilePriceEditStatus"></div>`:`<div class="mobile-metrics">
       <div class="mobile-metric primary"><span>คงเหลือ</span><b id="mobilePriceStock">${inspectionListAmount(selectedStock)} ${escapeHtml(selected?.name||product.unit)}</b></div>
@@ -7706,6 +7725,8 @@ function attachMobilePriceResultEvents(){
     if(editSale) editSale.value=Number(selected.price)||0;
     if(editCost) editCost.value=Number(selected.cost)||0;
   });
+  const mobileExpiryInput=document.getElementById('mobilePriceEditExpiry');
+  if(mobileExpiryInput) mobileExpiryInput.addEventListener('input',()=>{ mobileExpiryInput.value=formatDMYInput(mobileExpiryInput.value); });
   document.getElementById('mobilePriceSaveChanges')?.addEventListener('click',saveMobilePriceChanges);
 }
 function syncProductExchangeFromDOM(){
@@ -8869,9 +8890,13 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       if(txt){ txt.value=isoToDMY(nat.value); txt.dispatchEvent(new Event('change')); }
     });
   });
-  // แก้ไขข้อมูลสินค้าแบบอินไลน์ในหน้ารายการสินค้า (รหัส/ชื่อ/ราคา/ทุนตามหน่วยที่เลือก)
+  // แก้ไขข้อมูลสินค้าแบบอินไลน์ในหน้ารายการสินค้า (รหัส/ชื่อ/ราคา/ทุน/วันหมดอายุของคลังที่ใช้งาน)
   document.querySelectorAll('.prod-inline-edit').forEach(el=>{
-    el.addEventListener('change', ()=>{
+    if(el.classList.contains('prod-inline-expiry')){
+      el.addEventListener('input',()=>{ el.value=formatDMYInput(el.value); });
+      el.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); el.blur(); } });
+    }
+    el.addEventListener('change', async ()=>{
       const pid=Number(el.dataset.pid);
       const field=el.dataset.field;
       const p=products.find(x=>x.id===pid); if(!p) return;
@@ -8892,6 +8917,23 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       } else if(field==='name'){
         const v=el.value.trim();
         if(v) p.name=v; else el.value=p.name;
+      } else if(field==='expiry'){
+        const expiryText=el.value.trim();
+        const expiry=expiryText?dmyToISO(expiryText):'';
+        if(expiryText&&!expiry){
+          showToast('กรุณากรอกวันหมดอายุเป็น วัน-เดือน-ปี เช่น 05-07-2027','danger-top');
+          el.value=p.expiry?fmtDateShort(p.expiry):'';
+          return;
+        }
+        el.disabled=true;
+        const saved=await setProductExpiryOnSupabase(pid,expiry,activeWarehouseId);
+        if(!saved){
+          el.disabled=false;
+          el.value=p.expiry?fmtDateShort(p.expiry):'';
+          showToast('บันทึกวันหมดอายุไม่สำเร็จ กรุณาลองใหม่','danger-top');
+          return;
+        }
+        el.value=expiry?fmtDateShort(expiry):'';
       }
       showToast('บันทึกการแก้ไขแล้ว');
       render();
