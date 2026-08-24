@@ -25,6 +25,14 @@ const legacyPaid = context.normalizeGoodsReceiptDocument({id:'RI-PAID',status:'�
 assert.equal(legacyPaid.status, 'ชำระเรียบร้อย');
 assert.equal(legacyPaid.stockApplied, true);
 
+const warehouseRows=[{id:1,name:'สำนักงานใหญ่'},{id:2,name:'สาขา 2'}];
+const productRows=[{id:10,name:'ยา A',wh:1},{id:20,name:'ยา B',wh:2}];
+assert.equal(context.goodsReceiptWarehouseId({warehouseId:2},warehouseRows,productRows),2);
+assert.equal(context.goodsReceiptWarehouseId({items:[{productId:10}]},warehouseRows,productRows),1);
+assert.equal(context.goodsReceiptWarehouseId({items:[{warehouseId:2}]},warehouseRows,productRows),2);
+assert.equal(context.goodsReceiptItemsMatchWarehouse({warehouseId:2,items:[{productId:20}]},warehouseRows,productRows),true);
+assert.equal(context.goodsReceiptItemsMatchWarehouse({warehouseId:2,items:[{productId:10}]},warehouseRows,productRows),false);
+
 assert.deepEqual(
   JSON.parse(JSON.stringify(context.goodsReceiptStatusChangePlan(newPending, 'รับสินค้าแล้ว'))),
   {allowed:true,status:'รับสินค้าแล้ว',stockDirection:1,stockApplied:true}
@@ -37,7 +45,9 @@ let stockDirection = 0;
 let renderCount = 0;
 let toast = '';
 Object.assign(context, {
-  goodsReceipts: [{id:'RI-TEST',status:'รอรับสินค้า',stockApplied:false,items:[{productId:1,qty:5}]}],
+  warehouses: warehouseRows,
+  products: productRows,
+  goodsReceipts: [{id:'RI-TEST',warehouseId:1,status:'รอรับสินค้า',stockApplied:false,items:[{productId:10,qty:5}]}],
   adjustGoodsReceiptStock: (_items, direction) => { stockDirection += direction; },
   persistWorkspaceData: () => {},
   render: () => { renderCount++; },
@@ -70,7 +80,12 @@ assert.equal(renderCount, 4);
 assert.match(html, /<option value="รอรับสินค้า"/);
 assert.match(html, /<option value="รับสินค้าแล้ว"/);
 assert.match(html, /<option value="ชำระเรียบร้อย"/);
-assert.match(html, /kind==='gr'\?\{stockApplied:old\?\.stockApplied===true/);
+assert.match(html, /id="po_warehouse"/);
+assert.match(html, /<th>รายการ<\/th><th>สาขา<\/th>/);
+assert.match(html, /kind==='gr'\?\{warehouseId:Number\(draft\.warehouseId\),stockApplied:old\?\.stockApplied===true/);
+assert.match(html, /currentTab==='goodsreceipt'[\s\S]{0,180}products\.filter\(product=>Number\(product\.wh\)===warehouseId\)/);
+assert.match(html, /data-product-id="\$\{product\?\.id\|\|it\.productId\|\|''\}"/);
+assert.match(html, /plan\.stockDirection>0&&!goodsReceiptItemsMatchWarehouse\(doc\)/);
 assert.doesNotMatch(html, /if\(kind==='gr'\)\{ grCounter\+\+; adjustGoodsReceiptStock\(savedItems,1\); \}/);
 assert.match(html, /copy\.status='รอรับสินค้า';[\s\S]{0,100}copy\.stockApplied=false/);
 const bulkDeleteStart = html.indexOf('function deleteSelectedDocuments(');
