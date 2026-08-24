@@ -20,8 +20,11 @@ assert.equal(context.stockReportProductMatchesFilter(product,{wh:'2',category:'�
 assert.equal(context.stockReportProductMatchesFilter(product,{wh:'2',category:'อาหารเสริม',brand:''}), false);
 
 assert.match(html, /id="srWarehouseSelect"/);
+assert.match(html, />ทุกคลัง<\/option>/);
 assert.match(html, /stockReportTh\('expiry','วันหมดอายุ',true\)}<th>คลังสินค้า<\/th>/);
 assert.match(html, /<th class="r">วันหมดอายุ<\/th><th class="c">คลังสินค้า<\/th>/);
-assert.match(html, /stockReportItems\.unshift\(\{pid:p\.id, name:p\.name, stock:warehouseStock\(p\.id,warehouseId\), unit:p\.unit, expiry:warehouseExpiry\(p\.id,warehouseId\), wh:warehouseId\}\)/);
+assert.match(html, /stockReportItems\.unshift\(\{pid:p\.id, name:p\.name, stock:reportStock\(p\.id,warehouseValue\), unit:p\.unit, expiry:reportExpiry\(p\.id,warehouseValue\), wh:warehouseValue\}\)/);
+assert.match(html, /stockReportWarehouseBreakdownHtml/);
+assert.match(html, /stockReportExpiryBreakdownHtml/);
 
 console.log('inventory report tests passed');

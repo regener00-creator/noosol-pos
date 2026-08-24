@@ -18,6 +18,9 @@ const sandbox = {
   stockReportItems:[{pid:10}], stockEditItems:[10], stockEditRowUnitSel:{10:'กล่อง'}, stockEditDraftStocks:{10:5},
   stockEditSourceInspectionListId:'CHECK-1', stockEditSourcePending:true, stockEditPage:3,
   inspectionListDraft:{id:'CHECK-1'}, editingInspectionListId:'CHECK-1',
+  stockReportCatFilter:{wh:'',category:'',brand:''}, inventoryMovementFilter:{warehouse:'',page:1},
+  rproductFilter:{wh:''}, rbillFilter:{wh:''}, rprofitFilter:{wh:''},
+  isMobileDeviceMode:()=>false,
   sessionStorage:{
     getItem:key=>session.get(key) ?? null,
     setItem:(key,value)=>session.set(key,String(value)),
@@ -26,15 +29,24 @@ const sandbox = {
 vm.createContext(sandbox);
 vm.runInContext(`${html.slice(start,end)}
 this.setWarehouseAccess=value=>warehouseAccessRows=value;
-this.getActiveWarehouseId=()=>activeWarehouseId;`, sandbox);
+this.getActiveWarehouseId=()=>activeWarehouseId;
+this.getAllWarehousesMode=()=>allWarehousesMode;`, sandbox);
 
 sandbox.updateInventoryBalanceLocal(10,1,12,'2027-01-01');
 sandbox.updateInventoryBalanceLocal(10,2,4,'2029-02-03');
 assert.equal(sandbox.warehouseStock(10,1),12);
 assert.equal(sandbox.warehouseStock(10,2),4);
 assert.equal(sandbox.warehouseExpiry(10,2),'2029-02-03');
+assert.equal(sandbox.allWarehouseStock(10),16,'ยอดทุกคลังต้องรวมจากแต่ละคลังโดยไม่เขียนทับกัน');
+assert.equal(sandbox.earliestWarehouseExpiry(10),'2027-01-01','วันหมดอายุรวมต้องใช้วันที่เร็วที่สุดสำหรับการเรียงและเตือน');
+
+assert.equal(sandbox.selectActiveWarehouse('all'),true);
+assert.equal(sandbox.getAllWarehousesMode(),true);
+assert.equal(sandbox.reportStock(10,'all'),16);
+assert.equal(sandbox.stockReportCatFilter.wh,'all');
 
 assert.equal(sandbox.selectActiveWarehouse(2),true);
+assert.equal(sandbox.getAllWarehousesMode(),false);
 assert.equal(sandbox.getActiveWarehouseId(),2);
 assert.equal(products[0].stock,4);
 assert.equal(products[0].expiry,'2029-02-03');
@@ -56,6 +68,7 @@ assert.match(html,/sb\.rpc\('adjust_inventory_stock'/);
 assert.match(html,/sb\.rpc\('set_inventory_stock'/);
 assert.match(html,/sb\.rpc\('set_inventory_expiry'/);
 assert.match(html,/warehouseId:Number\(activeWarehouseId\)\|\|null/,'บิลขายต้องบันทึกคลังที่ใช้งาน');
-assert.match(html,/คลัง: \$\{activeWarehouse\(\)\?\.name\|\|'-'\} \/ \$\{fmtTopbarDate\(TODAY_STR\)\}/);
+assert.match(html,/คลัง: \$\{isAllWarehousesMode\(\)\?'ทุกคลัง'/);
+assert.match(html,/const ALL_WAREHOUSES_TABS=new Set\(\['dashboard','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','rprofit'\]\)/);
 
 console.log('warehouse inventory tests passed');

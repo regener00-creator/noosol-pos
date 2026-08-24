@@ -51,6 +51,7 @@ assert.deepEqual(
   ]
 );
 assert.equal(rows.at(-1).time, '17:46');
+assert.ok(rows.every(row=>row.warehouseId===1),'รายการเคลื่อนไหวต้องเก็บรหัสคลังไว้สำหรับกรองทุกคลัง/รายคลัง');
 
 const groups = context.groupInventoryMovements(rows);
 assert.equal(groups.length, 3, 'หนึ่งบิลต้องถูกรวมเป็นหนึ่งกลุ่ม');
@@ -72,12 +73,20 @@ assert.deepEqual(
   [['EX202608220001',1,'เข้า']]
 );
 assert.deepEqual(
+  JSON.parse(JSON.stringify(context.filterInventoryMovements([
+    {date:'2026-08-24',warehouseId:1,type:'ขาย',bill:'A',direction:'ออก',productId:1},
+    {date:'2026-08-24',warehouseId:2,type:'ขาย',bill:'B',direction:'ออก',productId:1},
+  ],{warehouse:'2',type:'all',bill:'',direction:'all',products:[]},{from:'2026-08-24',to:'2026-08-24'}).map(row=>row.bill))),
+  ['B']
+);
+assert.deepEqual(
   JSON.parse(JSON.stringify(context.filterInventoryMovements(rows,{type:'all',bill:'',direction:'ออก',products:[1]},{from:'2026-08-18',to:'2026-08-18'}).map(row=>[row.bill,row.productId,row.direction]))),
   [['RE202608180002',1,'ออก']]
 );
 
 assert.match(html, /\['inventorymovement','รายการงานเคลื่อนไหว'/);
 assert.match(html, /id="movementPeriod"/);
+assert.match(html, /id="movementWarehouse"/);
 assert.match(html, /id="movementType"/);
 assert.match(html, /id="movementBill"/);
 assert.match(html, /id="movementDirection"/);
