@@ -57,6 +57,7 @@ assert.equal(groups.length, 3, 'หนึ่งบิลต้องถูกร
 const exchangeGroup = groups.find(group=>group.bill==='EX202608220001');
 assert.equal(exchangeGroup.rows.length, 3);
 assert.equal(context.inventoryMovementGroupItemCount(exchangeGroup), 3);
+assert.deepEqual(JSON.parse(JSON.stringify(context.inventoryMovementGroupUniqueItems(exchangeGroup).map(row=>row.productId))), [2,1,3]);
 assert.deepEqual(JSON.parse(JSON.stringify(context.inventoryMovementGroupDirections(exchangeGroup))), ['เปลี่ยน','เข้า','ออก']);
 assert.equal(context.inventoryMovementGroupWarehouseText(exchangeGroup), 'พระยาสุเรนทร์ (สำนักงานใหญ่)');
 const transferGroup = context.groupInventoryMovements([
@@ -85,6 +86,7 @@ assert.match(html, /id="movementBrand"/);
 assert.match(html, /id="movementSearch"/);
 assert.match(html, /<th>วันที่<\/th><th>รายการ<\/th><th>บิล<\/th><th>เวลา<\/th><th>สินค้า<\/th><th>เข้า-ออก<\/th><th>คลังสินค้า<\/th>/);
 assert.match(html, /data-movement-group=/);
-assert.match(html, /กดเพื่อดูรายละเอียด/);
+assert.match(html, /movement-product-preview-more/);
+assert.match(html, /\+\$\{remaining\} รายการ/);
 
 console.log('inventory movement tests passed');

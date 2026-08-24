@@ -869,8 +869,9 @@
   .movement-summary-bill{display:flex;align-items:center;justify-content:center;gap:8px;font-weight:600;}
   .movement-summary-toggle{display:inline-flex;width:18px;height:18px;align-items:center;justify-content:center;color:var(--primary);font-size:15px;transition:transform .15s;}
   .movement-summary-row.expanded .movement-summary-toggle{transform:rotate(90deg);}
-  .movement-group-count{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:var(--primary-dark);}
-  .movement-group-count small{font-weight:400;color:var(--text-muted);}
+  .movement-product-preview{display:flex;flex-direction:column;gap:3px;}
+  .movement-product-preview-line{display:block;color:var(--text);font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .movement-product-preview-more{display:block;color:var(--primary);font-weight:700;}
   .movement-direction-list{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:wrap;}
   .movement-detail-row>td{padding:0!important;background:#F7FAFC;border-top:0!important;}
   .movement-detail-list{padding:12px 20px 15px 50px;}
@@ -4203,8 +4204,17 @@ function groupInventoryMovements(rows){
   });
   return groups;
 }
+function inventoryMovementGroupUniqueItems(group){
+  const seen=new Set(),items=[];
+  (group?.rows||[]).forEach(row=>{
+    const key=`${Number(row.productId)||0}|${row.unit||''}`;
+    if(seen.has(key)) return;
+    seen.add(key); items.push(row);
+  });
+  return items;
+}
 function inventoryMovementGroupItemCount(group){
-  return new Set((group?.rows||[]).map(row=>`${Number(row.productId)||0}|${row.unit||''}`)).size;
+  return inventoryMovementGroupUniqueItems(group).length;
 }
 function inventoryMovementGroupDirections(group){
   return [...new Set((group?.rows||[]).map(row=>row.direction||'-'))];
@@ -4253,12 +4263,15 @@ function inventoryMovementGroupDetailHtml(group){
     ${(group.rows||[]).map(row=>`<div class="movement-detail-item"><span class="movement-detail-product">${escapeHtml(row.productName||'-')}</span><span class="movement-detail-qty">${(Number(row.qty)||0).toLocaleString('th-TH',{maximumFractionDigits:6})} ${escapeHtml(row.unit||'')}</span><span class="movement-direction-list">${inventoryMovementDirectionBadge(row.direction)}</span><span class="movement-detail-warehouse">${escapeHtml(row.warehouse||'-')}</span></div>`).join('')}
   </div></td></tr>`;
 }
+function inventoryMovementGroupPreviewHtml(group,limit=2){
+  const items=inventoryMovementGroupUniqueItems(group),preview=items.slice(0,limit),remaining=Math.max(0,items.length-preview.length);
+  return `<div class="movement-product-preview">${preview.map(row=>`<span class="movement-product-preview-line">${inventoryMovementQtyText(row)}</span>`).join('')}${remaining?`<span class="movement-product-preview-more">+${remaining} รายการ</span>`:''}</div>`;
+}
 function inventoryMovementGroupRowHtml(group){
   const expanded=inventoryMovementExpandedBills.has(group.key);
   const directions=inventoryMovementGroupDirections(group);
-  const itemCount=inventoryMovementGroupItemCount(group);
   const encodedKey=encodeURIComponent(group.key);
-  return `<tr class="movement-summary-row ${expanded?'expanded':''}" data-movement-group="${escapeHtml(encodedKey)}" tabindex="0" aria-expanded="${expanded?'true':'false'}"><td>${fmtDate(group.date)}</td><td>${escapeHtml(group.type)}</td><td class="mono"><span class="movement-summary-bill"><span class="movement-summary-toggle" aria-hidden="true">▶</span>${escapeHtml(group.bill)}</span></td><td>${escapeHtml(group.time)}</td><td class="movement-product-cell"><span class="movement-group-count">${itemCount} รายการ <small>กดเพื่อดูรายละเอียด</small></span></td><td><div class="movement-direction-list">${directions.map(inventoryMovementDirectionBadge).join('')}</div></td><td>${escapeHtml(inventoryMovementGroupWarehouseText(group))}</td></tr>${expanded?inventoryMovementGroupDetailHtml(group):''}`;
+  return `<tr class="movement-summary-row ${expanded?'expanded':''}" data-movement-group="${escapeHtml(encodedKey)}" tabindex="0" aria-expanded="${expanded?'true':'false'}"><td>${fmtDate(group.date)}</td><td>${escapeHtml(group.type)}</td><td class="mono"><span class="movement-summary-bill"><span class="movement-summary-toggle" aria-hidden="true">▶</span>${escapeHtml(group.bill)}</span></td><td>${escapeHtml(group.time)}</td><td class="movement-product-cell">${inventoryMovementGroupPreviewHtml(group)}</td><td><div class="movement-direction-list">${directions.map(inventoryMovementDirectionBadge).join('')}</div></td><td>${escapeHtml(inventoryMovementGroupWarehouseText(group))}</td></tr>${expanded?inventoryMovementGroupDetailHtml(group):''}`;
 }
 function renderInventoryMovement(){
   const filter=inventoryMovementFilter,range=inventoryMovementDateRange();
