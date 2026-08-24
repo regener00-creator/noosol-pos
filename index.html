@@ -1327,14 +1327,15 @@
   .mobile-stock-confirm-wrap{position:sticky;bottom:0;z-index:6;padding-top:10px;background:linear-gradient(180deg,#FFFFFF00,#fff 24%);}
   .mobile-stock-confirm{width:100%;height:52px;border:0;border-radius:12px;background:var(--primary);color:#fff;font:700 16px 'Sarabun',sans-serif;cursor:pointer;box-shadow:0 5px 18px #166D9F33;}
   .mobile-stock-confirm:disabled{background:#CAD2DA;color:#7E8790;box-shadow:none;cursor:not-allowed;}
-  .mobile-camera-overlay{position:fixed;inset:0;z-index:12000;background:#07131EEB;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;color:#fff;}
-  .mobile-camera-box{width:min(560px,100%);}
-  .mobile-camera-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;font-weight:600;}
-  .mobile-camera-close{width:40px;height:40px;border:1px solid #FFFFFF55;background:#FFFFFF14;color:#fff;border-radius:50%;font-size:25px;cursor:pointer;}
-  .mobile-camera-video-wrap{position:relative;border-radius:18px;overflow:hidden;background:#000;aspect-ratio:3/4;max-height:68vh;}
-  .mobile-camera-video{width:100%;height:100%;object-fit:cover;}
-  .mobile-camera-guide{position:absolute;left:9%;right:9%;top:38%;height:24%;border:3px solid #60C5FA;border-radius:15px;box-shadow:0 0 0 999px #0005;}
-  .mobile-camera-message{text-align:center;margin-top:12px;font-size:13px;color:#D9ECF8;}
+  .mobile-camera-slot:empty{display:none;}
+  .mobile-camera-inline{width:100%;margin:12px 0 6px;padding:12px;background:#07131E;color:#fff;border-radius:18px;box-shadow:0 8px 22px #0F355522;}
+  .mobile-camera-box{width:100%;}
+  .mobile-camera-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-weight:600;}
+  .mobile-camera-close{width:36px;height:36px;border:1px solid #FFFFFF55;background:#FFFFFF14;color:#fff;border-radius:50%;font-size:23px;line-height:1;cursor:pointer;}
+  .mobile-camera-video-wrap{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:16/9;}
+  .mobile-camera-video{width:100%;height:100%;object-fit:cover;display:block;}
+  .mobile-camera-guide{position:absolute;left:8%;right:8%;top:32%;height:36%;border:3px solid #60C5FA;border-radius:12px;box-shadow:0 0 0 999px #0005;pointer-events:none;}
+  .mobile-camera-message{text-align:center;margin-top:9px;font-size:12.5px;color:#D9ECF8;}
   .mobile-browser-help{position:fixed;inset:0;z-index:12500;background:#07131E99;display:flex;align-items:flex-end;justify-content:center;padding:14px;}
   .mobile-browser-help-card{width:min(520px,100%);background:#fff;border-radius:20px;padding:20px;box-shadow:0 24px 70px #0005;}
   .mobile-browser-help-card h3{font-size:19px;margin:0 0 8px;}
@@ -2671,6 +2672,7 @@ let mobileStockSourceListId = '';
 let mobileStockLastProductId = null;
 const MOBILE_SCAN_SOUND_URL='/mobile-scan-success.mp3';
 let mobileScanSound=null;
+let mobileCameraSession=null;
 let deferredPwaInstallPrompt = null;
 // รายการและตัวกรองของหน้าแก้ไขสต๊อก (แยกจากรายงานสินค้าคงเหลือโดยเด็ดขาด)
 let stockEditItems = [];
@@ -5463,13 +5465,13 @@ function mobileInspectionDraftHtml(){
   if(!inspectionListDraft) return '<div class="mobile-empty">ไม่พบร่างรายการ กรุณากดสร้างรายการใหม่</div>';
   const matches=String(mobileInspectionQuery||'').trim()?mobileInspectionDraftMatches(mobileInspectionQuery):[];
   const count=inspectionListDraft.items.length;
-  return `<section class="mobile-tool-panel"><div class="mobile-draft-head"><div><b>${escapeHtml(inspectionListDraft.name)}</b><span>ยิงสินค้าเพื่อเพิ่มเข้ารายการ</span></div><button type="button" class="mobile-draft-cancel" id="mobileCancelInspectionDraft">ยกเลิก</button></div><div class="mobile-scan-row"><input id="mobileInspectionInput" class="mobile-scan-input" value="${escapeHtml(mobileInspectionQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobileInspectionCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-search-hint">ยิงแล้วสินค้าจะเพิ่มเข้ารายการทันที หรือพิมพ์ชื่อแล้วแตะสินค้าที่ต้องการ</div>${matches.length?`<div class="mobile-draft-results">${matches.map(product=>`<button type="button" class="mobile-draft-result" data-mobile-draft-add="${product.id}"><b>${escapeHtml(product.name)}</b><span>รหัส ${escapeHtml(product.sku||'-')} · บาร์โค้ด ${escapeHtml(product.barcode||'-')}</span></button>`).join('')}</div>`:''}<div class="mobile-draft-count">เพิ่มแล้ว ${count} รายการ</div>${mobileInspectionDraftRowsHtml()}<div class="mobile-draft-save-wrap"><button type="button" class="mobile-draft-save" id="mobileSaveInspectionDraft" ${count?'':'disabled'}>บันทึกรายการ (${count})</button></div></section>`;
+  return `<section class="mobile-tool-panel"><div class="mobile-draft-head"><div><b>${escapeHtml(inspectionListDraft.name)}</b><span>ยิงสินค้าเพื่อเพิ่มเข้ารายการ</span></div><button type="button" class="mobile-draft-cancel" id="mobileCancelInspectionDraft">ยกเลิก</button></div><div class="mobile-scan-row"><input id="mobileInspectionInput" class="mobile-scan-input" value="${escapeHtml(mobileInspectionQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobileInspectionCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-camera-slot" id="mobileInspectionCameraSlot"></div><div class="mobile-search-hint">ยิงแล้วสินค้าจะเพิ่มเข้ารายการทันที หรือพิมพ์ชื่อแล้วแตะสินค้าที่ต้องการ</div>${matches.length?`<div class="mobile-draft-results">${matches.map(product=>`<button type="button" class="mobile-draft-result" data-mobile-draft-add="${product.id}"><b>${escapeHtml(product.name)}</b><span>รหัส ${escapeHtml(product.sku||'-')} · บาร์โค้ด ${escapeHtml(product.barcode||'-')}</span></button>`).join('')}</div>`:''}<div class="mobile-draft-count">เพิ่มแล้ว ${count} รายการ</div>${mobileInspectionDraftRowsHtml()}<div class="mobile-draft-save-wrap"><button type="button" class="mobile-draft-save" id="mobileSaveInspectionDraft" ${count?'':'disabled'}>บันทึกรายการ (${count})</button></div></section>`;
 }
 function renderMobileInspectionPanel(lists){
   if(mobileInspectionCreating) return mobileInspectionDraftHtml();
   const current=mobileInspectionCurrentList();
   const opened=current&&String(mobileInspectionOpenedListId)===String(current.id);
-  return `<section class="mobile-tool-panel"><h2 class="mobile-tool-title">ตรวจสินค้า</h2><div class="mobile-tool-sub">สร้างรายการใหม่ หรือเปิดรายการที่บันทึกไว้เพื่อสแกนตรวจสินค้า</div><button type="button" class="mobile-inspection-create-btn" id="mobileNewInspectionList">+ สร้างรายการตรวจสินค้า</button>${lists.length?`<div class="mobile-inspection-saved-label">รายการที่บันทึกไว้</div><select id="mobileInspectionList" class="mobile-inspection-select">${lists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(current?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})${list.stockAdjustedAt?' · แก้ไขจำนวนเรียบร้อย':''}</option>`).join('')}</select><div class="mobile-inspection-actions"><button type="button" class="mobile-inspection-action mobile-inspection-open" id="mobileOpenInspectionList">เปิดรายการ</button><button type="button" class="mobile-inspection-action mobile-inspection-delete" id="mobileDeleteInspectionList">ลบบันทึก</button></div>${current?.stockAdjustedAt?'<div class="mobile-inspection-complete">✓ แก้ไขจำนวนเรียบร้อย</div>':''}${opened?`<div class="mobile-scan-row"><input id="mobileInspectionInput" class="mobile-scan-input" value="${escapeHtml(mobileInspectionQuery)}" placeholder="ยิงบาร์โค้ดเพื่อค้นหาในรายการ..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobileInspectionCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-search-hint">รายการที่ยิงพบจะมีเครื่องหมาย ✓ และเลื่อนขึ้นมาอยู่ด้านบน</div><div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div>`:'<div class="mobile-empty">เลือกรายการแล้วกด “เปิดรายการ” เพื่อเริ่มตรวจสินค้า</div>'}`:'<div class="mobile-empty">ยังไม่มีรายการที่บันทึกไว้ กด “สร้างรายการตรวจสินค้า” เพื่อเริ่มยิงสินค้า</div>'}</section>`;
+  return `<section class="mobile-tool-panel"><h2 class="mobile-tool-title">ตรวจสินค้า</h2><div class="mobile-tool-sub">สร้างรายการใหม่ หรือเปิดรายการที่บันทึกไว้เพื่อสแกนตรวจสินค้า</div><button type="button" class="mobile-inspection-create-btn" id="mobileNewInspectionList">+ สร้างรายการตรวจสินค้า</button>${lists.length?`<div class="mobile-inspection-saved-label">รายการที่บันทึกไว้</div><select id="mobileInspectionList" class="mobile-inspection-select">${lists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(current?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})${list.stockAdjustedAt?' · แก้ไขจำนวนเรียบร้อย':''}</option>`).join('')}</select><div class="mobile-inspection-actions"><button type="button" class="mobile-inspection-action mobile-inspection-open" id="mobileOpenInspectionList">เปิดรายการ</button><button type="button" class="mobile-inspection-action mobile-inspection-delete" id="mobileDeleteInspectionList">ลบบันทึก</button></div>${current?.stockAdjustedAt?'<div class="mobile-inspection-complete">✓ แก้ไขจำนวนเรียบร้อย</div>':''}${opened?`<div class="mobile-scan-row"><input id="mobileInspectionInput" class="mobile-scan-input" value="${escapeHtml(mobileInspectionQuery)}" placeholder="ยิงบาร์โค้ดเพื่อค้นหาในรายการ..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobileInspectionCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-camera-slot" id="mobileInspectionCameraSlot"></div><div class="mobile-search-hint">รายการที่ยิงพบจะมีเครื่องหมาย ✓ และเลื่อนขึ้นมาอยู่ด้านบน</div><div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div>`:'<div class="mobile-empty">เลือกรายการแล้วกด “เปิดรายการ” เพื่อเริ่มตรวจสินค้า</div>'}`:'<div class="mobile-empty">ยังไม่มีรายการที่บันทึกไว้ กด “สร้างรายการตรวจสินค้า” เพื่อเริ่มยิงสินค้า</div>'}</section>`;
 }
 function addProductToMobileInspectionDraft(product,unitName=''){
   if(!product||!inspectionListDraft) return false;
@@ -5574,7 +5576,7 @@ function renderMobileStockEditPanel(lists){
   const query=String(mobileStockQuery||'').trim();
   const matches=query?mobilePriceMatches(query).slice(0,8):[];
   const canConfirm=stockEditPendingChanges().length>0||stockEditSourcePending;
-  return `<section class="mobile-tool-panel"><h2 class="mobile-tool-title">แก้ไขสต๊อก</h2><div class="mobile-tool-sub">ดึงรายการตรวจสินค้า หรือยิงบาร์โค้ด แล้วกรอกจำนวนใหม่ก่อนยืนยันพร้อมกัน</div><div class="mobile-stock-source"><select id="mobileStockSourceList" ${availableLists.length?'':'disabled'}>${availableLists.length?availableLists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(selectedSource?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})</option>`).join(''):'<option value="">ไม่มีรายการที่รอแก้ไขสต๊อก</option>'}</select><button type="button" class="mobile-stock-import" id="mobileStockImport" ${availableLists.length?'':'disabled'}>ดึงข้อมูล</button></div>${sourceList?`<div class="mobile-stock-source-note"><b>${escapeHtml(sourceList.name)}</b><span>${stockEditSourcePending?'รอยืนยันการแก้ไข':'แก้ไขจำนวนเรียบร้อย'}</span></div>`:''}<div class="mobile-scan-row"><input id="mobileStockInput" class="mobile-scan-input" value="${escapeHtml(mobileStockQuery)}" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobileStockCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-search-hint">แก้ตัวเลขแล้วสต๊อกจะยังไม่เปลี่ยน จนกด “ยืนยันแก้ไขรายการ”</div>${matches.length?`<div class="mobile-stock-results">${matches.map(product=>`<button type="button" class="mobile-stock-result" data-mobile-stock-result="${product.id}"><b>${escapeHtml(product.name)}</b><span>รหัส ${escapeHtml(product.sku||'-')} · ${stockEditItems.includes(product.id)?'อยู่ในรายการแล้ว':'แตะเพื่อเพิ่ม'}</span></button>`).join('')}</div>`:''}${mobileStockEditRowsHtml()}<div class="mobile-stock-confirm-wrap"><button type="button" class="mobile-stock-confirm" id="mobileConfirmStockEdit" ${canConfirm?'':'disabled'}>ยืนยันแก้ไขรายการ</button></div></section>`;
+  return `<section class="mobile-tool-panel"><h2 class="mobile-tool-title">แก้ไขสต๊อก</h2><div class="mobile-tool-sub">ดึงรายการตรวจสินค้า หรือยิงบาร์โค้ด แล้วกรอกจำนวนใหม่ก่อนยืนยันพร้อมกัน</div><div class="mobile-stock-source"><select id="mobileStockSourceList" ${availableLists.length?'':'disabled'}>${availableLists.length?availableLists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(selectedSource?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})</option>`).join(''):'<option value="">ไม่มีรายการที่รอแก้ไขสต๊อก</option>'}</select><button type="button" class="mobile-stock-import" id="mobileStockImport" ${availableLists.length?'':'disabled'}>ดึงข้อมูล</button></div>${sourceList?`<div class="mobile-stock-source-note"><b>${escapeHtml(sourceList.name)}</b><span>${stockEditSourcePending?'รอยืนยันการแก้ไข':'แก้ไขจำนวนเรียบร้อย'}</span></div>`:''}<div class="mobile-scan-row"><input id="mobileStockInput" class="mobile-scan-input" value="${escapeHtml(mobileStockQuery)}" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobileStockCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-camera-slot" id="mobileStockCameraSlot"></div><div class="mobile-search-hint">แก้ตัวเลขแล้วสต๊อกจะยังไม่เปลี่ยน จนกด “ยืนยันแก้ไขรายการ”</div>${matches.length?`<div class="mobile-stock-results">${matches.map(product=>`<button type="button" class="mobile-stock-result" data-mobile-stock-result="${product.id}"><b>${escapeHtml(product.name)}</b><span>รหัส ${escapeHtml(product.sku||'-')} · ${stockEditItems.includes(product.id)?'อยู่ในรายการแล้ว':'แตะเพื่อเพิ่ม'}</span></button>`).join('')}</div>`:''}${mobileStockEditRowsHtml()}<div class="mobile-stock-confirm-wrap"><button type="button" class="mobile-stock-confirm" id="mobileConfirmStockEdit" ${canConfirm?'':'disabled'}>ยืนยันแก้ไขรายการ</button></div></section>`;
 }
 function confirmMobileStockEditChanges(){
   const completedSourceId=stockEditSourcePending?stockEditSourceInspectionListId:null;
@@ -5614,7 +5616,7 @@ function renderMobileTools(){
   return `<main class="mobile-tools-page">
     ${mobileInstallNoticeHtml()}
     <nav class="mobile-tools-tabs" aria-label="เมนูมือถือ"><button type="button" class="mobile-tools-tab ${mobileToolMode==='price'?'active':''}" data-mobile-tool="price">เช็คราคา</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='inspection'?'active':''}" data-mobile-tool="inspection">ตรวจสินค้า</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='stock'?'active':''}" data-mobile-tool="stock">แก้ไขสต๊อก</button></nav>
-    ${mobileToolMode==='price'?`<section class="mobile-tool-panel"><h2 class="mobile-tool-title">เช็คราคาสินค้า</h2><div class="mobile-tool-sub">ยิงบาร์โค้ด พิมพ์รหัส หรือใช้กล้องมือถือ โดยไม่เพิ่มสินค้าเข้าบิล</div><div class="mobile-scan-row"><input id="mobilePriceInput" class="mobile-scan-input" value="${escapeHtml(mobilePriceQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobilePriceCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-search-hint">เครื่องยิงบาร์โค้ดที่ส่ง Enter อัตโนมัติใช้งานได้ทันที</div><div id="mobilePriceResult">${mobilePriceResultHtml()}</div></section>`:mobileToolMode==='inspection'?renderMobileInspectionPanel(lists):renderMobileStockEditPanel(lists)}
+    ${mobileToolMode==='price'?`<section class="mobile-tool-panel"><h2 class="mobile-tool-title">เช็คราคาสินค้า</h2><div class="mobile-tool-sub">ยิงบาร์โค้ด พิมพ์รหัส หรือใช้กล้องมือถือ โดยไม่เพิ่มสินค้าเข้าบิล</div><div class="mobile-scan-row"><input id="mobilePriceInput" class="mobile-scan-input" value="${escapeHtml(mobilePriceQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobilePriceCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-camera-slot" id="mobilePriceCameraSlot"></div><div class="mobile-search-hint">เครื่องยิงบาร์โค้ดที่ส่ง Enter อัตโนมัติใช้งานได้ทันที</div><div id="mobilePriceResult">${mobilePriceResultHtml()}</div></section>`:mobileToolMode==='inspection'?renderMobileInspectionPanel(lists):renderMobileStockEditPanel(lists)}
     <header class="mobile-tools-head"><div class="mobile-tools-actions"><button type="button" class="mobile-tools-logout" id="mobileToolsLogout">ออกจากระบบ</button><button type="button" class="mobile-tools-refresh" id="mobileToolsRefresh" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg></button></div><div class="mobile-tools-brand"><div><h1>PEPOS</h1><span>${escapeHtml(user?.firstName||user?.username||'ผู้ใช้งาน')}</span></div><div class="mobile-tools-logo">Rx</div></div></header>
   </main>`;
 }
@@ -5659,23 +5661,57 @@ function mobileHandleInspectionCode(code){
   playMobileScanSound();
   return true;
 }
+function closeMobileCameraScanner(){
+  const session=mobileCameraSession;
+  if(!session) return false;
+  mobileCameraSession=null;
+  session.closed=true;
+  if(session.stream) session.stream.getTracks().forEach(track=>track.stop());
+  session.element.remove();
+  const button=document.getElementById(session.buttonId);
+  if(button) button.setAttribute('aria-pressed','false');
+  return true;
+}
+function preserveMobileCameraScanner(){
+  const element=mobileCameraSession?.element;
+  if(element?.isConnected) element.remove();
+}
+function restoreMobileCameraScanner(){
+  const session=mobileCameraSession;
+  if(!session) return false;
+  const host=document.getElementById(session.hostId);
+  if(!host){ closeMobileCameraScanner(); return false; }
+  host.replaceChildren(session.element);
+  const button=document.getElementById(session.buttonId);
+  if(button) button.setAttribute('aria-pressed','true');
+  return true;
+}
 async function openMobileCameraScanner(onCode,options={}){
   const continuous=options.continuous===true;
-  if(!navigator.mediaDevices?.getUserMedia){ showToast('อุปกรณ์นี้ไม่รองรับการเปิดกล้อง กรุณาใช้เครื่องยิงหรือพิมพ์บาร์โค้ด','danger-top'); return; }
-  if(!('BarcodeDetector' in window)){ showToast('เบราว์เซอร์นี้ยังสแกนด้วยกล้องไม่ได้ กรุณาเปิดใน Chrome','danger-top'); openMobileBrowserHelp({cameraBlocked:true}); return; }
-  const overlay=document.createElement('div');
-  overlay.className='mobile-camera-overlay';
-  overlay.innerHTML=`<div class="mobile-camera-box"><div class="mobile-camera-head"><span>ส่องบาร์โค้ดให้อยู่ในกรอบ</span><button type="button" class="mobile-camera-close" aria-label="ปิดกล้อง">×</button></div><div class="mobile-camera-video-wrap"><video class="mobile-camera-video" autoplay muted playsinline></video><div class="mobile-camera-guide"></div></div><div class="mobile-camera-message">กำลังเปิดกล้อง...</div></div>`;
-  document.body.appendChild(overlay);
-  const video=overlay.querySelector('video');
-  const message=overlay.querySelector('.mobile-camera-message');
-  let stream=null,closed=false,busy=false,lastValue='',lastValueSeenAt=0,nextDetectionAt=0;
-  const close=()=>{ closed=true; if(stream) stream.getTracks().forEach(track=>track.stop()); overlay.remove(); };
-  overlay.querySelector('.mobile-camera-close').addEventListener('click',close);
+  const hostId=String(options.hostId||'');
+  const buttonId=String(options.buttonId||'');
+  if(!navigator.mediaDevices?.getUserMedia){ showToast('อุปกรณ์นี้ไม่รองรับการเปิดกล้อง กรุณาใช้เครื่องยิงหรือพิมพ์บาร์โค้ด','danger-top'); return false; }
+  if(!('BarcodeDetector' in window)){ showToast('เบราว์เซอร์นี้ยังสแกนด้วยกล้องไม่ได้ กรุณาเปิดใน Chrome','danger-top'); openMobileBrowserHelp({cameraBlocked:true}); return false; }
+  const host=document.getElementById(hostId);
+  if(!host){ showToast('ไม่พบกรอบสำหรับเปิดกล้อง กรุณารีเฟรชแล้วลองใหม่','danger-top'); return false; }
+  closeMobileCameraScanner();
+  const camera=document.createElement('div');
+  camera.className='mobile-camera-inline';
+  camera.innerHTML=`<div class="mobile-camera-box"><div class="mobile-camera-head"><span>ส่องบาร์โค้ดให้อยู่ในกรอบ</span><button type="button" class="mobile-camera-close" aria-label="ปิดกล้อง">×</button></div><div class="mobile-camera-video-wrap"><video class="mobile-camera-video" autoplay muted playsinline></video><div class="mobile-camera-guide"></div></div><div class="mobile-camera-message">กำลังเปิดกล้อง...</div></div>`;
+  host.replaceChildren(camera);
+  const video=camera.querySelector('video');
+  const message=camera.querySelector('.mobile-camera-message');
+  const session={element:camera,hostId,buttonId,video,message,stream:null,closed:false};
+  mobileCameraSession=session;
+  const button=document.getElementById(buttonId);
+  if(button) button.setAttribute('aria-pressed','true');
+  camera.querySelector('.mobile-camera-close').addEventListener('click',closeMobileCameraScanner);
+  camera.scrollIntoView({behavior:'smooth',block:'nearest'});
+  let busy=false,lastValue='',lastValueSeenAt=0,nextDetectionAt=0;
   try{
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
-    if(closed){ stream.getTracks().forEach(track=>track.stop()); return; }
-    video.srcObject=stream;
+    session.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
+    if(session.closed||mobileCameraSession!==session){ session.stream.getTracks().forEach(track=>track.stop()); return false; }
+    video.srcObject=session.stream;
     await video.play();
     message.textContent=continuous?'สแกนต่อเนื่อง — ยิงได้หลายสินค้า กด × เมื่อต้องการปิด':'พร้อมสแกน — ถือกล้องให้นิ่ง';
     const desiredFormats=['code_128','ean_13','ean_8','upc_a','upc_e','code_39','itf','codabar','qr_code'];
@@ -5683,7 +5719,7 @@ async function openMobileCameraScanner(onCode,options={}){
     const formats=desiredFormats.filter(format=>supportedFormats.includes(format));
     const detector=formats.length?new BarcodeDetector({formats}):new BarcodeDetector();
     const scan=async()=>{
-      if(closed) return;
+      if(session.closed||mobileCameraSession!==session) return;
       if(!busy&&video.readyState>=2){
         busy=true;
         try{
@@ -5695,7 +5731,7 @@ async function openMobileCameraScanner(onCode,options={}){
           }else{
             lastValueSeenAt=now;
             if(now>=nextDetectionAt&&value!==lastValue){
-              if(!continuous){ close(); onCode(value); return; }
+              if(!continuous){ closeMobileCameraScanner(); onCode(value); return; }
               lastValue=value;
               nextDetectionAt=now+650;
               const accepted=onCode(value)!==false;
@@ -5709,11 +5745,14 @@ async function openMobileCameraScanner(onCode,options={}){
       requestAnimationFrame(scan);
     };
     requestAnimationFrame(scan);
+    return true;
   }catch(error){
-    close();
+    if(mobileCameraSession===session) closeMobileCameraScanner();
+    else if(session.stream) session.stream.getTracks().forEach(track=>track.stop());
     console.warn('เปิดกล้องมือถือไม่สำเร็จ',error?.name||error,error?.message||'');
     showToast('กล้องถูกบล็อก กรุณาเปิดหน้านี้ใน Chrome และอนุญาต Camera','danger-top');
     openMobileBrowserHelp({cameraBlocked:true,errorName:error?.name||''});
+    return false;
   }
 }
 function inspectionListLocalDateKey(value=new Date()){
@@ -7644,7 +7683,7 @@ const RENDERERS = {
 };
 
 function render(){
-  if(!renderLoginState()) return;
+  if(!renderLoginState()){ closeMobileCameraScanner(); return; }
   TODAY_STR=currentDateStr();
   const mobileMode=isMobileDeviceMode();
   document.body.classList.toggle('mobile-device-mode',mobileMode);
@@ -7679,7 +7718,9 @@ function render(){
   const mainElement=document.getElementById('main');
   mainElement.classList.toggle('product-list-main',currentTab==='products'&&editingProductId===null);
   mainElement.classList.toggle('barcode-print-main',currentTab==='barcodeprint');
+  preserveMobileCameraScanner();
   mainElement.innerHTML = (RENDERERS[currentTab]||renderDashboard)();
+  restoreMobileCameraScanner();
   attachEvents();
   syncTopbarFormActions();
   renderLoginState();
@@ -7894,7 +7935,7 @@ async function changeProductExchangeStatus(status){
 function attachEvents(){
   if(currentTab==='mobiletools') prepareMobileScanSound();
   document.getElementById('mobileToolsLogout')?.addEventListener('click',()=>{
-    if(confirm('ยืนยันการออกจากระบบใช่หรือไม่?')) logoutSystem();
+    if(confirm('ยืนยันการออกจากระบบใช่หรือไม่?')){ closeMobileCameraScanner(); logoutSystem(); }
   });
   const mobileToolsRefresh=document.getElementById('mobileToolsRefresh');
   if(mobileToolsRefresh) mobileToolsRefresh.addEventListener('click',()=>refreshMobileToolsData(mobileToolsRefresh));
@@ -7920,7 +7961,7 @@ function attachEvents(){
     mobilePriceInput.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); mobileHandlePriceCode(mobilePriceInput.value); } });
   }
   attachMobilePriceResultEvents();
-  document.getElementById('mobilePriceCamera')?.addEventListener('click',()=>{ unlockMobileScanSound(); openMobileCameraScanner(mobileHandlePriceCode); });
+  document.getElementById('mobilePriceCamera')?.addEventListener('click',()=>{ unlockMobileScanSound(); openMobileCameraScanner(mobileHandlePriceCode,{hostId:'mobilePriceCameraSlot',buttonId:'mobilePriceCamera'}); });
   const mobileInspectionList=document.getElementById('mobileInspectionList');
   if(mobileInspectionList) mobileInspectionList.addEventListener('change',()=>{
     mobileInspectionListId=mobileInspectionList.value;
@@ -7950,7 +7991,7 @@ function attachEvents(){
     });
     mobileInspectionInput.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); mobileHandleInspectionCode(mobileInspectionInput.value); } });
   }
-  document.getElementById('mobileInspectionCamera')?.addEventListener('click',()=>{ unlockMobileScanSound(); openMobileCameraScanner(mobileHandleInspectionCode,{continuous:true}); });
+  document.getElementById('mobileInspectionCamera')?.addEventListener('click',()=>{ unlockMobileScanSound(); openMobileCameraScanner(mobileHandleInspectionCode,{continuous:true,hostId:'mobileInspectionCameraSlot',buttonId:'mobileInspectionCamera'}); });
   document.getElementById('mobileNewInspectionList')?.addEventListener('click',startMobileInspectionDraft);
   document.getElementById('mobileCancelInspectionDraft')?.addEventListener('click',()=>{
     if((inspectionListDraft?.items||[]).length&&!confirm('ยกเลิกรายการนี้และทิ้งสินค้าที่เพิ่มไว้หรือไม่?')) return;
@@ -8002,7 +8043,7 @@ function attachEvents(){
     });
     mobileStockInput.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); mobileHandleStockCode(mobileStockInput.value); } });
   }
-  document.getElementById('mobileStockCamera')?.addEventListener('click',()=>{ unlockMobileScanSound(); openMobileCameraScanner(mobileHandleStockCode,{continuous:true}); });
+  document.getElementById('mobileStockCamera')?.addEventListener('click',()=>{ unlockMobileScanSound(); openMobileCameraScanner(mobileHandleStockCode,{continuous:true,hostId:'mobileStockCameraSlot',buttonId:'mobileStockCamera'}); });
   document.querySelectorAll('[data-mobile-stock-result]').forEach(button=>button.addEventListener('click',()=>{
     const product=products.find(entry=>Number(entry.id)===Number(button.dataset.mobileStockResult));
     if(product) addProductToMobileStockEdit(product);
