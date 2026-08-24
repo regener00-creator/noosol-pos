@@ -18,7 +18,7 @@ assert.match(html, /id="mobileOpenInspectionList"/);
 assert.match(html, /id="mobileDeleteInspectionList"/);
 assert.match(html, /id="mobileDeleteInspectionList">ลบบันทึก<\/button>/);
 assert.match(html, /deleteInspectionListById\(list\.id\)/);
-assert.match(html, /openMobileCameraScanner\(mobileHandlePriceCode,\{hostId:'mobilePriceCameraSlot',buttonId:'mobilePriceCamera'\}\)/);
+assert.match(html, /openMobileCameraScanner\(mobileHandlePriceCode,\{continuous:true,hostId:'mobilePriceCameraSlot',buttonId:'mobilePriceCamera'\}\)/);
 assert.match(html, /openMobileCameraScanner\(mobileHandleInspectionCode,\{continuous:true,hostId:'mobileInspectionCameraSlot',buttonId:'mobileInspectionCamera'\}\)/);
 assert.match(html, /openMobileCameraScanner\(mobileHandleStockCode,\{continuous:true,hostId:'mobileStockCameraSlot',buttonId:'mobileStockCamera'\}\)/);
 assert.match(html, /const MOBILE_SCAN_SOUND_URL='\/mobile-scan-success\.mp3'/);
@@ -125,7 +125,8 @@ assert.match(html, /beforeinstallprompt/);
 assert.match(html, /id="mobileInstallApp"/);
 assert.match(html, /intent:\/\/\$\{target\}#Intent;scheme=https;package=com\.android\.chrome/);
 assert.match(html, /openMobileBrowserHelp\(\{cameraBlocked:true/);
-assert.match(html, /if\(currentTab==='mobiletools'&&mobileToolMode==='price'\)/);
+assert.match(html, /if\(currentTab==='mobiletools'&&mobileToolMode==='price'&&!mobileCameraSession\)/);
+assert.match(html, /if\(!mobileCameraSession\) setTimeout\(\(\)=>document\.getElementById\('mobilePriceInput'\)\?\.select\(\),0\)/);
 assert.doesNotMatch(html, /setTimeout\(\(\)=>document\.getElementById\('mobileInspectionInput'\)\?\.(?:focus|select)/);
 assert.doesNotMatch(html, /setTimeout\(\(\)=>document\.getElementById\('mobileStockInput'\)\?\.(?:focus|select)/);
 

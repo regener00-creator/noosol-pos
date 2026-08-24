@@ -5629,7 +5629,7 @@ function mobileHandlePriceCode(code){
   if(!product){ mobilePriceProductId=null; render(); return false; }
   mobileSelectPriceProduct(product,exact?.unitName||'');
   render();
-  setTimeout(()=>document.getElementById('mobilePriceInput')?.select(),0);
+  if(!mobileCameraSession) setTimeout(()=>document.getElementById('mobilePriceInput')?.select(),0);
   playMobileScanSound();
   return true;
 }
@@ -7724,7 +7724,7 @@ function render(){
   attachEvents();
   syncTopbarFormActions();
   renderLoginState();
-  if(currentTab==='mobiletools'&&mobileToolMode==='price') setTimeout(()=>document.getElementById('mobilePriceInput')?.focus(),60);
+  if(currentTab==='mobiletools'&&mobileToolMode==='price'&&!mobileCameraSession) setTimeout(()=>document.getElementById('mobilePriceInput')?.focus(),60);
 }
 // ย้ายปุ่มคู่ท้ายฟอร์ม (บันทึก/ยกเลิก ฯลฯ) ที่มีอยู่ในหน้าปัจจุบัน ขึ้นไปแปะใน topbar ด้านขวา
 // ย้าย DOM element ตัวจริง (ไม่สร้างใหม่) เพื่อให้ event listener ที่ attachEvents() ผูกไว้แล้วยังทำงานถูกต้อง
@@ -7744,7 +7744,7 @@ function checkNegativeStockToast(pid){
 function attachMobilePriceResultEvents(){
   document.querySelectorAll('[data-mobile-price-product]').forEach(button=>button.addEventListener('click',()=>{
     const product=products.find(entry=>Number(entry.id)===Number(button.dataset.mobilePriceProduct));
-    if(product){ mobileSelectPriceProduct(product); render(); setTimeout(()=>document.getElementById('mobilePriceInput')?.select(),0); }
+    if(product){ mobileSelectPriceProduct(product); render(); if(!mobileCameraSession) setTimeout(()=>document.getElementById('mobilePriceInput')?.select(),0); }
   }));
   document.getElementById('mobilePriceUnit')?.addEventListener('change',event=>{
     mobilePriceUnitName=event.target.value;
@@ -7961,7 +7961,7 @@ function attachEvents(){
     mobilePriceInput.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); mobileHandlePriceCode(mobilePriceInput.value); } });
   }
   attachMobilePriceResultEvents();
-  document.getElementById('mobilePriceCamera')?.addEventListener('click',()=>{ unlockMobileScanSound(); openMobileCameraScanner(mobileHandlePriceCode,{hostId:'mobilePriceCameraSlot',buttonId:'mobilePriceCamera'}); });
+  document.getElementById('mobilePriceCamera')?.addEventListener('click',()=>{ unlockMobileScanSound(); openMobileCameraScanner(mobileHandlePriceCode,{continuous:true,hostId:'mobilePriceCameraSlot',buttonId:'mobilePriceCamera'}); });
   const mobileInspectionList=document.getElementById('mobileInspectionList');
   if(mobileInspectionList) mobileInspectionList.addEventListener('change',()=>{
     mobileInspectionListId=mobileInspectionList.value;
