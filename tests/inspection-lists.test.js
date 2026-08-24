@@ -40,12 +40,15 @@ const context = {
   categories: [],
   brands: [],
   warehouses: [{id:1,name:'คลังหนึ่ง'},{id:2,name:'คลังสอง'}],
+  accessibleWarehouses: () => [{id:1,name:'คลังหนึ่ง'},{id:2,name:'คลังสอง'}],
   currentProfile: {firstName:'เจ้าของร้าน',username:'owner'},
   productUnitOptions: product => [
     {name:product.unit,label:product.unit,price:product.price,cost:product.cost,factor:1},
     ...(product.units || []).map(unit => ({name:unit.sub,label:unit.sub,price:unit.price,cost:unit.cost,factor:unit.factor})),
   ],
   stockUnitAmountFromBase: (stock, factor) => Math.round((Number(stock) / Number(factor || 1)) * 100) / 100,
+  warehouseStock: productId => products.find(product => product.id === Number(productId))?.stock || 0,
+  activeWarehouseId: 1,
   stockInLargestUnit: product => `${product.stock} ${product.unit}`,
   whName: () => 'คลังหลัก',
   loggedInUser: () => ({owner:true}),
@@ -116,7 +119,7 @@ context.inspectionListSort = {key:'stock',dir:-1};
 assert.deepEqual(Array.from(context.inspectionListSortedEntries(), entry => entry.item.pid), [2,1]);
 context.inspectionListCatFilter = {wh:'1',category:'',brand:''};
 const warehousePage = context.inspectionListPagination(context.inspectionListDraft.items, 1, 7);
-assert.deepEqual(Array.from(warehousePage.rows, entry => entry.item.pid), [1]);
+assert.deepEqual(Array.from(warehousePage.rows, entry => entry.item.pid), [2,1], 'เปลี่ยนคลังต้องยังเห็นสินค้าในแค็ตตาล็อกกลางครบและคงลำดับสต๊อกเดิม');
 context.inspectionListCatFilter = {wh:'',category:'',brand:''};
 
 context.inspectionListDraft = {id:null,name:'',items:[{pid:1,unit:'ลัง'}],createdAt:'2026-08-20T00:00:00.000Z',createdBy:'เจ้าของร้าน'};
@@ -225,7 +228,8 @@ assert.match(html, /upsertAndPrune\('inspection_lists',inspectionLists,inspectio
 assert.match(html, /await loadInspectionListsFromSupabase\(\)/);
 assert.match(html, /data-inspection-list-page/);
 assert.match(html, /INSPECTION_LIST_PAGE_SIZE = 7/);
-assert.match(html, /!filter\.wh\|\|String\(product\.wh\)===String\(filter\.wh\)/);
+assert.doesNotMatch(html, /!filter\.wh\|\|String\(product\.wh\)===String\(filter\.wh\)/);
+assert.match(html, /warehouseStock\(product\.id,inspectionListDraft\?\.warehouseId/);
 assert.match(html, /mobile-inspection-complete/);
 assert.match(html, /แก้ไขจำนวนเรียบร้อย/);
 assert.match(html, /data-inspection-list-select/);

@@ -31,7 +31,7 @@ assert.equal(context.goodsReceiptWarehouseId({warehouseId:2},warehouseRows,produ
 assert.equal(context.goodsReceiptWarehouseId({items:[{productId:10}]},warehouseRows,productRows),1);
 assert.equal(context.goodsReceiptWarehouseId({items:[{warehouseId:2}]},warehouseRows,productRows),2);
 assert.equal(context.goodsReceiptItemsMatchWarehouse({warehouseId:2,items:[{productId:20}]},warehouseRows,productRows),true);
-assert.equal(context.goodsReceiptItemsMatchWarehouse({warehouseId:2,items:[{productId:10}]},warehouseRows,productRows),false);
+assert.equal(context.goodsReceiptItemsMatchWarehouse({warehouseId:2,items:[{productId:10}]},warehouseRows,productRows),true, 'คลังต่างกันต้องยังค้นและรับสินค้าในแค็ตตาล็อกกลางได้');
 
 const normalizeItemsStart = html.indexOf('function poPurchaseUnitOptions(');
 const normalizeItemsEnd = html.indexOf('function adjustGoodsReceiptStock(', normalizeItemsStart);

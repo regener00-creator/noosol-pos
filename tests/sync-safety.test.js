@@ -55,7 +55,7 @@ const contactImportStart = html.indexOf('async function importContactsFromExcel(
 const productImportStart = html.indexOf('async function importProductsFromExcel(', contactImportStart);
 const productImportEnd = html.indexOf('function exportProductsToExcel(', productImportStart);
 assert.doesNotMatch(html.slice(contactImportStart, productImportStart), /setProductStockOnSupabase/);
-assert.match(html.slice(productImportStart, productImportEnd), /setProductStockOnSupabase\(existing\.id,data\.stock\)/);
+assert.match(html.slice(productImportStart, productImportEnd), /setProductStockOnSupabase\(existing\.id,data\.stock,inventoryWarehouseId\)/);
 
 const dateStart = html.indexOf('function currentLocalDate(');
 const dateEnd = html.indexOf('function fmtDateShort(', dateStart);

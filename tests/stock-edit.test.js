@@ -27,7 +27,7 @@ assert.match(html, /LEVEL2_HIDDEN_TABS[^\n]+stockedit/);
 assert.match(html, /stockedit:\s*renderStockEdit/);
 assert.match(html, /data-stock-edit-amount="\$\{p\.id\}"/);
 assert.match(html, /data-stock-edit-remove="\$\{p\.id\}"/);
-assert.match(html, /setProductStockOnSupabase\(product\.id,newStock\)/);
+assert.match(html, /setProductStockOnSupabase\(product\.id,newStock,activeWarehouseId\)/);
 assert.match(html, /persistWorkspaceData\(\)/);
 assert.match(html, /\.stock-edit-stock-input\{[^}]*text-align:center/);
 
@@ -40,7 +40,7 @@ assert.match(html.slice(stockEditConfirmHandlerStart, stockEditRemoveHandlerStar
 const confirmFunctionStart = html.indexOf('function confirmStockEditChanges(');
 const confirmFunctionEnd = html.indexOf('function inspectionListUnitOptions(', confirmFunctionStart);
 assert.ok(confirmFunctionStart >= 0 && confirmFunctionEnd > confirmFunctionStart);
-assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /setProductStockOnSupabase\(product\.id,newStock\)/);
+assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /setProductStockOnSupabase\(product\.id,newStock,activeWarehouseId\)/);
 assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /persistWorkspaceData\(\)/);
 assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /syncInspectionListsToSupabase\(\)/);
 assert.match(html, /function openStockEditInspectionListPicker\(/);
@@ -99,6 +99,7 @@ Object.assign(context, {
   stockEditSourcePending: false,
   inspectionLists: [{id:'CHECK-0001',name:'ตรวจหน้าร้าน',items:[{pid:1,unit:'กล่อง'},{pid:2,unit:'ขวด'}],updatedAt:'2026-08-20T08:00:00.000Z',stockAdjustedAt:'',stockAdjustedBy:''}],
   currentProfile: {firstName:'เจ้าของร้าน',username:'owner'},
+  activeWarehouseId: 1,
   STOCK_EDIT_PAGE_SIZE: 7,
   escapeHtml: value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
   matchesBarcode: (product, query) => product.barcode === query || (product.units || []).some(unit => unit.barcode === query),
@@ -184,14 +185,14 @@ Object.assign(context, {
   stockEditDraftStocks: {1: 250},
   stockEditSourceInspectionListId: null,
   stockEditSourcePending: false,
-  setProductStockOnSupabase: (id, stock) => { stockSync = {id, stock}; },
+  setProductStockOnSupabase: (id, stock, warehouseId) => { stockSync = {id, stock, warehouseId}; },
   persistWorkspaceData: () => { persisted++; },
   syncInspectionListsToSupabase: () => { inspectionSync++; },
   showToast: () => {},
   render: () => {},
 });
 assert.equal(context.confirmStockEditChanges(), true);
-assert.deepEqual(stockSync, {id:1, stock:250});
+assert.deepEqual(stockSync, {id:1, stock:250, warehouseId:1});
 assert.equal(context.products[0].stock, 250);
 assert.equal(persisted, 1);
 assert.equal(inspectionSync, 0);
