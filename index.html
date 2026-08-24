@@ -3852,11 +3852,12 @@ function poPurchaseUnitOptions(p){
   return result;
 }
 
-function normalizeGoodsReceiptItems(items){
+function normalizeGoodsReceiptItems(items,targetWarehouseId=0){
   return (items||[]).map(item=>{
     const product=products.find(p=>p.id===Number(item.productId))||products.find(p=>p.name===item.name);
     const unitInfo=poPurchaseUnitOptions(product).find(option=>option.name===item.unit);
-    return {...item,productId:product?.id||item.productId||'',warehouseId:Number(item.warehouseId)||Number(product?.wh)||0,stockFactor:Number(item.stockFactor)||(unitInfo?.factor||1)};
+    const warehouseId=Number(targetWarehouseId)||Number(item.warehouseId)||Number(product?.wh)||0;
+    return {...item,productId:product?.id||item.productId||'',warehouseId,stockFactor:Number(item.stockFactor)||(unitInfo?.factor||1)};
   });
 }
 
@@ -3880,12 +3881,8 @@ function changeGoodsReceiptStatus(id,status){
     render();
     return;
   }
-  if(plan.stockDirection>0&&!goodsReceiptItemsMatchWarehouse(doc)){
-    showToast('ไม่สามารถรับสินค้าได้ เพราะมีสินค้าไม่ตรงกับคลัง / สาขาของเอกสาร');
-    render();
-    return;
-  }
   doc.warehouseId=goodsReceiptWarehouseId(doc);
+  doc.items=normalizeGoodsReceiptItems(doc.items,doc.warehouseId);
   if(plan.stockDirection) adjustGoodsReceiptStock(doc.items,plan.stockDirection);
   doc.status=plan.status;
   doc.stockApplied=plan.stockApplied;
@@ -9168,10 +9165,6 @@ function documentProductPool(){
     const sourceId=Number(activeTransferDraft()?.fromId)||0;
     if(sourceId) return products.filter(product=>Number(product.wh)===sourceId);
   }
-  if(currentTab==='goodsreceipt'&&editingGRId!==null){
-    const warehouseId=Number(activePurchaseDraft()?.warehouseId)||0;
-    if(warehouseId) return products.filter(product=>Number(product.wh)===warehouseId);
-  }
   return products;
 }
 
@@ -9235,7 +9228,7 @@ function addDocumentScannedProduct(productId,unitName){
     existing.qty=(Number(existing.qty)||0)+1;
   }else{
     const saleUnit=productUnitOptions(product).find(option=>option.name===unit);
-    const item={productId:product.id,name:product.name,qty:1,unit,price:(currentTab==='goodsreceipt'||currentTab==='purchaseorder2'||currentTab==='productreturn')?'':(currentTab==='taxinvoice'||currentTab==='quotation')?(saleUnit?.price??product.price):0};
+    const item={productId:product.id,name:product.name,qty:1,unit,price:(currentTab==='goodsreceipt'||currentTab==='purchaseorder2'||currentTab==='productreturn')?'':(currentTab==='taxinvoice'||currentTab==='quotation')?(saleUnit?.price??product.price):0,...(currentTab==='goodsreceipt'?{warehouseId:Number(draft.warehouseId)||0}:{})};
     const blank=draft.items.find(row=>!row.name);
     if(blank) Object.assign(blank,item); else draft.items.push(item);
   }
@@ -9379,6 +9372,7 @@ function syncPOFromDOM(){
       qty:parseFloat(r.querySelector('.poi_qty').value)||0,
       unit:r.querySelector('.poi_unit').value.trim(),
       price:r.querySelector('.poi_price')?(r.querySelector('.poi_price').value===''?'':(parseFloat(r.querySelector('.poi_price').value)||0)):0,
+      ...(currentTab==='goodsreceipt'?{warehouseId:Number(draft.warehouseId)||0}:{}),
     };
   });
 }
@@ -9395,14 +9389,10 @@ function savePO(silent=false){
   const items=draft.items.filter(it=>it.name && it.qty>0);
   if(items.length===0){ showToast('กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ'); return false; }
   if(items.some(it=>!products.some(p=>p.name===it.name))){ showToast('กรุณาเลือกสินค้าจากผลการค้นหา'); return false; }
-  if(kind==='gr'&&items.some(item=>{
-    const product=products.find(row=>Number(row.id)===Number(item.productId))||products.find(row=>row.name===item.name);
-    return !product||Number(product.wh)!==Number(draft.warehouseId);
-  })){ showToast('มีสินค้าที่ไม่ได้อยู่ในคลัง / สาขาที่เลือก กรุณาเลือกสินค้าใหม่'); return false; }
   const subtotal=styled?items.reduce((a,it)=>a+it.qty*it.price,0):0;
   const total=styled?subtotal-(draft.discount||0):0;
   const old=editingId!=='new'?list.find(x=>x.id===editingId):null;
-  const savedItems=(kind==='gr'||kind==='ret')?normalizeGoodsReceiptItems(items):items;
+  const savedItems=(kind==='gr'||kind==='ret')?normalizeGoodsReceiptItems(items,kind==='gr'?draft.warehouseId:0):items;
   const rec={ id:draft.id, supplier:draft.supplier, date:draft.date, credit:kind==='ret'?0:(styled?(draft.credit||0):0), dueDate:kind==='ret'?'':(styled?addDaysToDate(draft.date,draft.credit||0):''), items:savedItems, discount:kind==='ret'?0:(styled?(draft.discount||0):0), total:kind==='ret'?0:total, note:draft.note||'', status:old?.status||docDefaultStatus(kind), ...(kind==='gr'?{warehouseId:Number(draft.warehouseId),stockApplied:old?.stockApplied===true,stockAppliedAt:old?.stockAppliedAt||''}:kind==='ret'?{stockApplied:old?.stockApplied===true}:{}) };
   if(editingId==='new'){
     list.unshift(rec);

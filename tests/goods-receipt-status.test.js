@@ -33,6 +33,15 @@ assert.equal(context.goodsReceiptWarehouseId({items:[{warehouseId:2}]},warehouse
 assert.equal(context.goodsReceiptItemsMatchWarehouse({warehouseId:2,items:[{productId:20}]},warehouseRows,productRows),true);
 assert.equal(context.goodsReceiptItemsMatchWarehouse({warehouseId:2,items:[{productId:10}]},warehouseRows,productRows),false);
 
+const normalizeItemsStart = html.indexOf('function poPurchaseUnitOptions(');
+const normalizeItemsEnd = html.indexOf('function adjustGoodsReceiptStock(', normalizeItemsStart);
+assert.ok(normalizeItemsStart >= 0 && normalizeItemsEnd > normalizeItemsStart, 'ไม่พบ logic ผูกสาขากับรายการรับสินค้า');
+Object.assign(context, {products:[{id:10,name:'ยา A',wh:1,unit:'กล่อง',cost:10,units:[]}]});
+vm.runInContext(html.slice(normalizeItemsStart, normalizeItemsEnd), context);
+const normalizedForBranch = context.normalizeGoodsReceiptItems([{productId:10,name:'ยา A',qty:1,unit:'กล่อง'}], 2)[0];
+assert.equal(normalizedForBranch.productId, 10);
+assert.equal(normalizedForBranch.warehouseId, 2, 'รายการรับสินค้าต้องผูกกับสาขาที่เลือก ไม่ใช่สาขาเดิมของสินค้า');
+
 assert.deepEqual(
   JSON.parse(JSON.stringify(context.goodsReceiptStatusChangePlan(newPending, 'รับสินค้าแล้ว'))),
   {allowed:true,status:'รับสินค้าแล้ว',stockDirection:1,stockApplied:true}
@@ -83,9 +92,10 @@ assert.match(html, /<option value="ชำระเรียบร้อย"/);
 assert.match(html, /id="po_warehouse"/);
 assert.match(html, /<th>รายการ<\/th><th>สาขา<\/th>/);
 assert.match(html, /kind==='gr'\?\{warehouseId:Number\(draft\.warehouseId\),stockApplied:old\?\.stockApplied===true/);
-assert.match(html, /currentTab==='goodsreceipt'[\s\S]{0,180}products\.filter\(product=>Number\(product\.wh\)===warehouseId\)/);
+assert.doesNotMatch(html, /currentTab==='goodsreceipt'[\s\S]{0,180}products\.filter\(product=>Number\(product\.wh\)===warehouseId\)/);
 assert.match(html, /data-product-id="\$\{product\?\.id\|\|it\.productId\|\|''\}"/);
-assert.match(html, /plan\.stockDirection>0&&!goodsReceiptItemsMatchWarehouse\(doc\)/);
+assert.doesNotMatch(html, /plan\.stockDirection>0&&!goodsReceiptItemsMatchWarehouse\(doc\)/);
+assert.match(html, /normalizeGoodsReceiptItems\(items,kind==='gr'\?draft\.warehouseId:0\)/);
 assert.doesNotMatch(html, /if\(kind==='gr'\)\{ grCounter\+\+; adjustGoodsReceiptStock\(savedItems,1\); \}/);
 assert.match(html, /copy\.status='รอรับสินค้า';[\s\S]{0,100}copy\.stockApplied=false/);
 const bulkDeleteStart = html.indexOf('function deleteSelectedDocuments(');
