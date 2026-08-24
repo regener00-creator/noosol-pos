@@ -2439,7 +2439,7 @@ let lowStockPageFilter = { stockThreshold:50, expiryDays:90, stockPage:1, expiry
 // รายการที่เพิ่มไว้ในหน้า "รายงานสินค้าคงเหลือ" (ค้นหา/สแกนแล้วสะสมเป็นรายการ)
 let stockReportItems = [];
 // ตัวกรองหมวดสินค้าหลัก/ย่อย สำหรับหน้ารายงานสินค้าคงเหลือ (ไว้เพิ่มทั้งหมวดในคราวเดียว)
-let stockReportCatFilter = { category:'', brand:'' };
+let stockReportCatFilter = { wh:'', category:'', brand:'' };
 // การเรียงลำดับตารางในหน้ารายงานสินค้าคงเหลือ
 let stockReportSort = { key:'name', dir:1 };
 // ชุดสินค้าที่บันทึกไว้สำหรับเปิดดูราคา/ทุน/คงเหลือล่าสุดซ้ำได้
@@ -7092,26 +7092,28 @@ function renderREmployee(){
   <tbody>${rows.map(([name,d])=>`<tr><td>${name}</td><td class="mono">${d.bills}</td><td class="mono">${fmtMoney(d.total)}</td><td class="mono">${fmtMoney(d.bills?d.total/d.bills:0)}</td></tr>`).join('')}</tbody></table>`;
 }
 
+function stockReportProductMatchesFilter(product,filter=stockReportCatFilter){
+  return (!filter.wh||String(product?.wh)===String(filter.wh))&&(!filter.category||product?.category===filter.category)&&(!filter.brand||product?.brand===filter.brand);
+}
 function renderRInventory(){
   const catf=stockReportCatFilter;
   // หมวดย่อยจะแสดงเฉพาะที่มีสินค้าจริงอยู่ในหมวดหลักที่เลือกไว้ (ถ้ายังไม่เลือกหมวดหลัก จะโชว์หมวดย่อยทั้งหมด)
-  const brandOptions = catf.category
-    ? brands.filter(b=>products.some(p=>p.category===catf.category && p.brand===b))
-    : brands.slice();
-  const matchCount = products.filter(p=> (!catf.category||p.category===catf.category) && (!catf.brand||p.brand===catf.brand) && (catf.category||catf.brand) ).length;
+  const brandOptions = brands.filter(brand=>products.some(product=>(!catf.wh||String(product.wh)===String(catf.wh))&&(!catf.category||product.category===catf.category)&&product.brand===brand));
+  const matchCount = products.filter(product=>stockReportProductMatchesFilter(product,catf)&&(catf.wh||catf.category||catf.brand)).length;
   return `<div class="rpt">
   <div class="pagehead"><div><h1>รายงานสินค้าคงเหลือ</h1><div class="sub">พิมพ์ชื่อ / รหัส / ยิงบาร์โค้ด หรือเลือกหมวดสินค้า เพื่อเพิ่มสินค้าลงรายงาน</div></div><div style="display:flex;gap:8px;"><button class="btn ghost" id="resetStockReportBtn">รีเซ็ตข้อมูล</button><button class="btn primary" id="printStockReportBtn">พิมพ์รายงาน</button></div></div>
   <div class="inventory-report-section">
     <div class="rpt-filters" style="margin-bottom:14px;">
+      <div class="rpf-item"><select id="srWarehouseSelect" class="rpt-select"><option value="">คลังสินค้า: ทั้งหมด</option>${warehouses.map(warehouse=>`<option value="${warehouse.id}" ${String(catf.wh)===String(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>
       <div class="rpf-item"><select id="srCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${catf.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></div>
       <div class="rpf-item"><select id="srBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(b=>`<option value="${escapeHtml(b)}" ${catf.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select></div>
-      <button class="btn ghost" id="srAddByCategoryBtn" ${(catf.category||catf.brand)?'':'disabled'}>เลือกสินค้าในหมวดนี้${(catf.category||catf.brand)?` (${matchCount})`:''}</button>
+      <button class="btn ghost" id="srAddByCategoryBtn" ${(catf.wh||catf.category||catf.brand)?'':'disabled'}>เลือกสินค้าในตัวกรองนี้${(catf.wh||catf.category||catf.brand)?` (${matchCount})`:''}</button>
     </div>
     <div style="position:relative;margin-bottom:14px;">
       <input id="srInput" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." style="width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;" autocomplete="off">
       <div id="srResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div>
     </div>
-    <table class="grid-table doc-head-blue"><thead><tr>${stockReportTh('name','สินค้า')}${stockReportTh('stock','คงเหลือ',true)}${stockReportTh('expiry','วันหมดอายุ',true)}<th style="width:40px;"></th></tr></thead>
+    <table class="grid-table doc-head-blue"><thead><tr>${stockReportTh('name','สินค้า')}${stockReportTh('stock','คงเหลือ',true)}${stockReportTh('expiry','วันหมดอายุ',true)}<th>คลังสินค้า</th><th style="width:40px;"></th></tr></thead>
     <tbody id="srTbody">${stockReportRowsHtml()}</tbody></table>
   </div>
   </div>`;
@@ -7146,9 +7148,11 @@ function stockReportRowsHtml(){
         const stockDisplay = p ? stockInLargestUnit(p) : `${row.stock} ${row.unit}`;
         const stockVal = p ? p.stock : row.stock;
         const expiry = p ? p.expiry : row.expiry;
-        return `<tr><td>${row.name}</td><td class="mono num ${stockVal<0?'stock-negative':''}" style="text-align:center;">${stockDisplay}</td><td class="mono num ${daysUntil(expiry)<0?'expiry-past':''}" style="text-align:center;">${fmtDateShort(expiry)}</td><td class="num"><button class="history-icon-btn danger" data-sr-remove="${row.pid}" title="ลบ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td></tr>`;
+        const warehouseId=p?.wh??row.wh;
+        const warehouseName=warehouses.find(warehouse=>Number(warehouse.id)===Number(warehouseId))?.name||'-';
+        return `<tr><td>${row.name}</td><td class="mono num ${stockVal<0?'stock-negative':''}" style="text-align:center;">${stockDisplay}</td><td class="mono num ${daysUntil(expiry)<0?'expiry-past':''}" style="text-align:center;">${fmtDateShort(expiry)}</td><td style="text-align:center;">${escapeHtml(warehouseName)}</td><td class="num"><button class="history-icon-btn danger" data-sr-remove="${row.pid}" title="ลบ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td></tr>`;
       }).join('')
-    : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีรายการ — ค้นหาหรือสแกนบาร์โค้ดด้านบนเพื่อเพิ่ม</td></tr>`;
+    : `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีรายการ — ค้นหาหรือสแกนบาร์โค้ดด้านบนเพื่อเพิ่ม</td></tr>`;
 }
 
 function renderRReceivable(){
@@ -7889,7 +7893,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(resetStockReportBtn) resetStockReportBtn.addEventListener('click', ()=>{
     if(!stockReportItems.length){ showToast('ยังไม่มีข้อมูลให้รีเซ็ต'); return; }
     if(!confirm('ต้องการล้างรายการทั้งหมดในรายงานนี้ใช่หรือไม่?')) return;
-    stockReportItems=[]; stockReportCatFilter={category:'', brand:''};
+    stockReportItems=[]; stockReportCatFilter={wh:'', category:'', brand:''};
     showToast('รีเซ็ตข้อมูลแล้ว'); render();
   });
   // ค้นหา/สแกนสินค้าเพื่อเพิ่มลงรายงานสินค้าคงเหลือ (หน้า inline ไม่ใช่ modal)
@@ -7910,13 +7914,15 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     refreshSrTable();
     const addSrProduct=(p)=>{
       if(stockReportItems.some(r=>r.pid===p.id)) return;
-      stockReportItems.unshift({pid:p.id, name:p.name, stock:p.stock, unit:p.unit, expiry:p.expiry});
+      stockReportItems.unshift({pid:p.id, name:p.name, stock:p.stock, unit:p.unit, expiry:p.expiry, wh:p.wh});
       refreshSrTable();
     };
     // เลือกหมวดสินค้าหลัก/ย่อย แล้วเพิ่มสินค้าทั้งหมวดในคราวเดียว
+    const srWarehouseSelect=document.getElementById('srWarehouseSelect');
     const srCategorySelect=document.getElementById('srCategorySelect');
     const srBrandSelect=document.getElementById('srBrandSelect');
     const srAddByCategoryBtn=document.getElementById('srAddByCategoryBtn');
+    if(srWarehouseSelect) srWarehouseSelect.addEventListener('change', ()=>{ stockReportCatFilter.wh=srWarehouseSelect.value; render(); });
     if(srCategorySelect) srCategorySelect.addEventListener('change', ()=>{ stockReportCatFilter.category=srCategorySelect.value; stockReportCatFilter.brand=''; render(); });
     if(srBrandSelect) srBrandSelect.addEventListener('change', ()=>{ stockReportCatFilter.brand=srBrandSelect.value; render(); });
     if(srAddByCategoryBtn) srAddByCategoryBtn.addEventListener('click', ()=>{
@@ -7926,7 +7932,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       q=(q||'').trim();
       if(!q){ srResults.hidden=true; srResults.innerHTML=''; return; }
       const ql=q.toLowerCase();
-      const matches=products.filter(p=> p.name.toLowerCase().includes(ql) || (p.sku||'').toLowerCase().includes(ql) || p.barcode===q || (p.extraBarcodes||[]).includes(q) || (p.vendorBarcodes||[]).some(v=>v.code===q) || (p.units||[]).some(u=>u.barcode===q) ).slice(0,15);
+      const matches=products.filter(p=>stockReportProductMatchesFilter(p,stockReportCatFilter)&&(p.name.toLowerCase().includes(ql) || (p.sku||'').toLowerCase().includes(ql) || p.barcode===q || (p.extraBarcodes||[]).includes(q) || (p.vendorBarcodes||[]).some(v=>v.code===q) || (p.units||[]).some(u=>u.barcode===q))).slice(0,15);
       if(!matches.length){ srResults.innerHTML='<div class="fav-add-noresult">ไม่พบสินค้า</div>'; srResults.hidden=false; return; }
       srResults.innerHTML=matches.map(p=>`<div class="fav-add-result" data-pid="${p.id}"><b>${p.name}</b><span>${p.sku||'-'} · คงเหลือ ${p.stock} ${p.unit}</span></div>`).join('');
       srResults.hidden=false;
@@ -7939,7 +7945,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       });
     };
     const trySrExact=(q)=>{
-      const exact=products.find(p=>p.barcode===q||(p.extraBarcodes||[]).includes(q)||(p.vendorBarcodes||[]).some(v=>v.code===q)||p.sku===q||(p.units||[]).some(u=>u.barcode===q));
+      const exact=products.find(p=>stockReportProductMatchesFilter(p,stockReportCatFilter)&&(p.barcode===q||(p.extraBarcodes||[]).includes(q)||(p.vendorBarcodes||[]).some(v=>v.code===q)||p.sku===q||(p.units||[]).some(u=>u.barcode===q)));
       if(exact){ addSrProduct(exact); srInput.value=''; srResults.hidden=true; return true; }
       return false;
     };
@@ -11398,14 +11404,14 @@ function openInventoryMovementCategoryPicker(filter){
 }
 
 function openStockReportCategoryPicker(catf, onDone){
-  const matches=products.filter(p=> (!catf.category||p.category===catf.category) && (!catf.brand||p.brand===catf.brand) );
+  const matches=products.filter(product=>stockReportProductMatchesFilter(product,catf));
   if(!matches.length){ showToast('ไม่พบสินค้าในหมวดที่เลือก'); return; }
   const alreadyIn = id => stockReportItems.some(r=>r.pid===id);
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:480px;max-height:82vh;display:flex;flex-direction:column;">
     <div class="modal-head"><h3>เลือกสินค้าในหมวดนี้</h3><button class="modal-close">×</button></div>
-    <div class="modal-sub">${escapeHtml(catf.category||'ทุกหมวดหลัก')}${catf.brand?` · ${escapeHtml(catf.brand)}`:''} · พบ ${matches.length} รายการ</div>
+    <div class="modal-sub">${catf.wh?`${escapeHtml(warehouses.find(warehouse=>String(warehouse.id)===String(catf.wh))?.name||'คลังที่เลือก')} · `:''}${escapeHtml(catf.category||'ทุกหมวดหลัก')}${catf.brand?` · ${escapeHtml(catf.brand)}`:''} · พบ ${matches.length} รายการ</div>
     <div style="padding:0 16px 8px;display:flex;gap:14px;">
       <button class="btn ghost small" id="srPickAllBtn">เลือกทั้งหมด</button>
       <button class="btn ghost small" id="srPickNoneBtn">ไม่เลือกเลย</button>
@@ -11426,7 +11432,7 @@ function openStockReportCategoryPicker(catf, onDone){
     let added=0;
     chosenIds.forEach(id=>{
       const p=products.find(x=>x.id===id);
-      if(p && !stockReportItems.some(r=>r.pid===id)){ stockReportItems.unshift({pid:p.id, name:p.name, stock:p.stock, unit:p.unit, expiry:p.expiry}); added++; }
+      if(p && !stockReportItems.some(r=>r.pid===id)){ stockReportItems.unshift({pid:p.id, name:p.name, stock:p.stock, unit:p.unit, expiry:p.expiry, wh:p.wh}); added++; }
     });
     close();
     showToast(added?`เพิ่มสินค้า ${added} รายการแล้ว`:'ไม่ได้เลือกสินค้าเพิ่ม');
@@ -11769,7 +11775,9 @@ function printStockReport(){
     const stockQty = p ? p.stock : row.stock;
     const stockUnit = p ? p.unit : row.unit;
     const expiry = p ? p.expiry : row.expiry;
-    return `<tr><td class="c">${index+1}</td><td class="pd-name">${escapeHtml(row.name)}</td><td class="c">${escapeHtml(stockQty)}</td><td class="c">${escapeHtml(stockUnit||'-')}</td><td class="r">${expiry?fmtDate(expiry):'-'}</td></tr>`;
+    const warehouseId=p?.wh??row.wh;
+    const warehouseName=warehouses.find(warehouse=>Number(warehouse.id)===Number(warehouseId))?.name||'-';
+    return `<tr><td class="c">${index+1}</td><td class="pd-name">${escapeHtml(row.name)}</td><td class="c">${escapeHtml(stockQty)}</td><td class="c">${escapeHtml(stockUnit||'-')}</td><td class="r">${expiry?fmtDate(expiry):'-'}</td><td class="c">${escapeHtml(warehouseName)}</td></tr>`;
   }).join('');
   const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร'); return; }
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>รายงานสินค้าคงเหลือ</title>
@@ -11801,7 +11809,7 @@ function printStockReport(){
   <div class="page">
     <h1>รายงานสินค้าคงเหลือ</h1>
     <div class="meta">ณ วันที่ ${thDate(today)}</div>
-    <table><thead><tr><th class="c" style="width:7%;">#</th><th style="width:43%;">สินค้า</th><th class="c">คงเหลือ</th><th class="c">หน่วย</th><th class="r">วันหมดอายุ</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+    <table><thead><tr><th class="c" style="width:7%;">#</th><th style="width:36%;">สินค้า</th><th class="c">คงเหลือ</th><th class="c">หน่วย</th><th class="r">วันหมดอายุ</th><th class="c">คลังสินค้า</th></tr></thead><tbody>${rowsHtml}</tbody></table>
   </div>
   </body></html>`);
   win.document.close();
