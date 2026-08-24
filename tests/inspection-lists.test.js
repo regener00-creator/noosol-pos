@@ -6,9 +6,12 @@ const vm = require('node:vm');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const normalizeStart = html.indexOf('function normalizeInspectionLists(');
 const normalizeEnd = html.indexOf('function workspaceSnapshot(', normalizeStart);
+const expandableStart = html.indexOf('function expandableDocumentItemRows(');
+const expandableEnd = html.indexOf('function documentItemsPreview(', expandableStart);
 const featureStart = html.indexOf('function inspectionListUnitOptions(');
 const featureEnd = html.indexOf('const CODE128_PATTERNS=', featureStart);
 assert.ok(normalizeStart >= 0 && normalizeEnd > normalizeStart, 'ไม่พบฟังก์ชันจัดรูปข้อมูลรายการตรวจสินค้า');
+assert.ok(expandableStart >= 0 && expandableEnd > expandableStart, 'ไม่พบฟังก์ชันแสดงรายการสินค้าแบบขยาย');
 assert.ok(featureStart >= 0 && featureEnd > featureStart, 'ไม่พบชุดฟังก์ชันรายการตรวจสินค้า');
 
 const products = [
@@ -29,6 +32,7 @@ const context = {
   inspectionListSort: {key:'sku',dir:1},
   inspectionListOverviewSort: {key:'updatedAt',dir:-1},
   inspectionListOverviewSelectedIds: new Set(),
+  expandedDocumentItemLists: new Set(),
   inspectionListCounter: 1,
   mobileInspectionListId: '',
   mobileInspectionOpenedListId: '',
@@ -63,6 +67,7 @@ const context = {
 };
 vm.createContext(context);
 vm.runInContext(html.slice(normalizeStart, normalizeEnd), context);
+vm.runInContext(html.slice(expandableStart, expandableEnd), context);
 vm.runInContext(html.slice(featureStart, featureEnd), context);
 
 const firstDay = new Date(2026,7,20,10,0,0);
@@ -157,8 +162,8 @@ products.push(
   {id:4,sku:'P-004',name:'สินค้าที่สี่',unit:'ชิ้น',stock:1,units:[]},
 );
 const productPreview = context.inspectionListPreviewHtml({items:[{pid:1},{pid:2},{pid:3},{pid:4}]});
-assert.equal((productPreview.match(/inspection-list-overview-product/g)||[]).length, 2);
-assert.match(productPreview, /สินค้าอีกตัว<span class="inspection-list-overview-more">\+2<\/span>/);
+assert.equal((productPreview.match(/doc-expandable-item-line/g)||[]).length, 3);
+assert.match(productPreview, /\+1 รายการ/);
 products.splice(-2);
 context.editingInspectionListId = 'CHECK-0001';
 context.inspectionListDraft = JSON.parse(JSON.stringify(context.inspectionLists[0]));
