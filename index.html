@@ -2475,7 +2475,7 @@ let docListPage = { po:1, po2:1, ret:1, gr:1, exchange:1, taxinvoice:1, quotatio
 const DOC_LIST_PAGE_SIZE = 20;
 let lowStockSort = { stock:{key:'name',dir:1}, expiry:{key:'expiry',dir:1} };
 // สถานะตัวกรองหน้าประวัติการขาย (ค่าเริ่มต้น = แสดงเฉพาะวันนี้)
-let historyFilter = { period:'range', from:'', to:'', month:'', year:'', page:1 };
+let historyFilter = { period:'range', from:'', to:'', month:'', year:'', bill:'', page:1 };
 // ตัวกรองหน้ารายการงานเคลื่อนไหว (ไม่เลือกสินค้า = แสดงสินค้าทั้งหมด)
 let inventoryMovementFilter = { period:'range', from:'', to:'', month:'', year:'', type:'all', bill:'', direction:'all', category:'', brand:'', products:[], page:1 };
 let inventoryMovementSearchQuery = '';
@@ -3292,11 +3292,19 @@ function historyDateRange(){
   }
   return {from:f.from||TODAY_STR, to:f.to||TODAY_STR};
 }
+function filterSalesHistory(rows,filter,range){
+  const bill=String(filter?.bill||'').trim().toLowerCase();
+  return (rows||[]).filter(sale=>{
+    const date=String(sale?.date||'').slice(0,10);
+    const billNumber=`${sale?.ref||''} ${sale?.id||''}`.toLowerCase();
+    return date>=range.from&&date<=range.to&&(!bill||billNumber.includes(bill));
+  });
+}
 function renderHistory(){
   const f=historyFilter;
   const canDeleteHistory=!isLevel2User();
   const range=historyDateRange();
-  const filtered=salesHistory.filter(s=>{ const d=(s.date||'').slice(0,10); return d>=range.from && d<=range.to; });
+  const filtered=filterSalesHistory(salesHistory,f,range);
   const statusBadge = st => st==='done' ? '<span class="st-badge done">DONE</span>' : st==='hold' ? '<span class="st-badge hold">HOLD</span>' : '<span class="st-badge cancel">CANCELED</span>';
   const totalPages=Math.max(1, Math.ceil(filtered.length/HISTORY_PAGE_SIZE));
   if(f.page>totalPages) f.page=totalPages;
@@ -3314,6 +3322,7 @@ function renderHistory(){
       ${f.period==='range'?`<div class="rpf-item rpf-range">${dmyDateFieldHtml('hf_from', range.from)}<span style="color:var(--text-muted);">ถึง</span>${dmyDateFieldHtml('hf_to', range.to)}</div>`:''}
       ${f.period==='month'?`<div class="rpf-item"><input type="month" id="hf_month" value="${f.month||TODAY_STR.slice(0,7)}" class="rpt-select"></div>`:''}
       ${f.period==='year'?`<div class="rpf-item"><select id="hf_year" class="rpt-select">${(()=>{const cy=Number(TODAY_STR.slice(0,4));let o='';for(let yy=cy;yy>=cy-6;yy--){o+=`<option value="${yy}" ${String(f.year||cy)===String(yy)?'selected':''}>${yy}</option>`;}return o;})()}</select></div>`:''}
+      <div class="rpf-item"><input id="hf_bill" class="rpt-select" value="${escapeHtml(f.bill||'')}" placeholder="ค้นหาเลขบิล" autocomplete="off" style="min-width:190px;"></div>
       <button class="btn ghost rpf-apply" id="hfApplyBtn">แสดงผล</button>
     </div>
     <table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-bill"><col class="ht-time"><col class="ht-items"><col class="ht-total"><col class="ht-pay"><col class="ht-status"><col class="ht-actions"></colgroup><thead><tr><th>วันที่</th><th>เลขที่บิล</th><th>เวลา</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th><th>สถานะ</th><th></th></tr></thead>
@@ -8567,7 +8576,12 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const hfTo=document.getElementById('hf_to'); if(hfTo) hfTo.addEventListener('change',()=>{ const iso=dmyToISO(hfTo.value); if(iso) historyFilter.to=iso; });
   const hfMonth=document.getElementById('hf_month'); if(hfMonth) hfMonth.addEventListener('change',()=>{ historyFilter.month=hfMonth.value; historyFilter.page=1; render(); });
   const hfYear=document.getElementById('hf_year'); if(hfYear) hfYear.addEventListener('change',()=>{ historyFilter.year=hfYear.value; historyFilter.page=1; render(); });
-  const hfApply=document.getElementById('hfApplyBtn'); if(hfApply) hfApply.addEventListener('click',()=>{ historyFilter.page=1; render(); });
+  const hfBill=document.getElementById('hf_bill');
+  if(hfBill){
+    hfBill.addEventListener('input',()=>{ historyFilter.bill=hfBill.value; });
+    hfBill.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); historyFilter.bill=hfBill.value; historyFilter.page=1; render(); } });
+  }
+  const hfApply=document.getElementById('hfApplyBtn'); if(hfApply) hfApply.addEventListener('click',()=>{ if(hfBill) historyFilter.bill=hfBill.value; historyFilter.page=1; render(); });
   document.querySelectorAll('[data-hpage]').forEach(el=>{
     el.addEventListener('click', ()=>{
       const v=el.dataset.hpage;
