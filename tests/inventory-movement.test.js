@@ -52,6 +52,20 @@ assert.deepEqual(
 );
 assert.equal(rows.at(-1).time, '17:46');
 
+const groups = context.groupInventoryMovements(rows);
+assert.equal(groups.length, 3, 'หนึ่งบิลต้องถูกรวมเป็นหนึ่งกลุ่ม');
+const exchangeGroup = groups.find(group=>group.bill==='EX202608220001');
+assert.equal(exchangeGroup.rows.length, 3);
+assert.equal(context.inventoryMovementGroupItemCount(exchangeGroup), 3);
+assert.deepEqual(JSON.parse(JSON.stringify(context.inventoryMovementGroupDirections(exchangeGroup))), ['เปลี่ยน','เข้า','ออก']);
+assert.equal(context.inventoryMovementGroupWarehouseText(exchangeGroup), 'พระยาสุเรนทร์ (สำนักงานใหญ่)');
+const transferGroup = context.groupInventoryMovements([
+  {date:'2026-08-24',type:'โอนสินค้า',bill:'TF1',time:'-',productId:1,unit:'ซอง',direction:'ออก',warehouse:'สำนักงานใหญ่'},
+  {date:'2026-08-24',type:'โอนสินค้า',bill:'TF1',time:'-',productId:1,unit:'ซอง',direction:'เข้า',warehouse:'พรชัย'},
+])[0];
+assert.equal(context.inventoryMovementGroupItemCount(transferGroup), 1, 'สินค้าเดียวที่ออกและเข้าในใบโอนต้องนับเป็นหนึ่งรายการ');
+assert.equal(context.inventoryMovementGroupWarehouseText(transferGroup), 'สำนักงานใหญ่ → พรชัย');
+
 assert.deepEqual(
   JSON.parse(JSON.stringify(context.filterInventoryMovements(rows,{type:'เปลี่ยนสินค้า',bill:'ex20260822',direction:'เข้า',products:[]},{from:'2026-08-18',to:'2026-08-23'}).map(row=>[row.bill,row.productId,row.direction]))),
   [['EX202608220001',1,'เข้า']]
@@ -70,5 +84,7 @@ assert.match(html, /id="movementCategory"/);
 assert.match(html, /id="movementBrand"/);
 assert.match(html, /id="movementSearch"/);
 assert.match(html, /<th>วันที่<\/th><th>รายการ<\/th><th>บิล<\/th><th>เวลา<\/th><th>สินค้า<\/th><th>เข้า-ออก<\/th><th>คลังสินค้า<\/th>/);
+assert.match(html, /data-movement-group=/);
+assert.match(html, /กดเพื่อดูรายละเอียด/);
 
 console.log('inventory movement tests passed');
