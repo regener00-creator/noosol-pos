@@ -25,6 +25,7 @@ assert.equal(context.canAccessTab('stockedit'), false, 'ทุกคลังต
 assert.equal(context.canAccessTab('transfer'), false, 'ทุกคลังต้องโอนสินค้าไม่ได้');
 
 assert.match(html, /ทุกคลัง — ดูรายงานภาพรวม/);
+assert.match(html, /select\.innerHTML=allowed\.length\?allOption\+allowed\.map/, 'ตัวเลือกทุกคลังต้องอยู่เป็นลำดับแรก');
 assert.match(html, /คลัง: \$\{isAllWarehousesMode\(\)\?'ทุกคลัง'/);
 
 console.log('all warehouses navigation tests passed');

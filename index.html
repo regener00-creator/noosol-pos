@@ -2917,7 +2917,7 @@ function renderLoginState(){
     const select=document.getElementById('warehouseChoiceSelect');
     if(select){
       const allOption=canUseAllWarehousesMode()?'<option value="all">ทุกคลัง — ดูรายงานภาพรวม</option>':'';
-      select.innerHTML=allowed.length?allowed.map(warehouse=>`<option value="${warehouse.id}">${escapeHtml(warehouse.name)}</option>`).join('')+allOption:'<option value="">ยังไม่มีคลังที่ได้รับสิทธิ์</option>';
+      select.innerHTML=allowed.length?allOption+allowed.map(warehouse=>`<option value="${warehouse.id}">${escapeHtml(warehouse.name)}</option>`).join(''):'<option value="">ยังไม่มีคลังที่ได้รับสิทธิ์</option>';
       select.disabled=!allowed.length;
     }
     return false;
