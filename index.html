@@ -1087,6 +1087,14 @@
   .fav-manage-actions .icon-btn{width:28px;height:28px;font-size:11px;}
   .fav-manage-empty{padding:24px;text-align:center;color:var(--text-muted);font-size:13px;}
   .fav-check input{width:16px;height:16px;}
+  #favAddResults .fav-unit-result{display:grid;grid-template-columns:minmax(0,1fr) 105px auto;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid var(--border);background:var(--surface);}
+  #favAddResults .fav-unit-result:last-child{border-bottom:none;}
+  #favAddResults .fav-unit-result-info{min-width:0;}
+  #favAddResults .fav-unit-result-info b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px;}
+  #favAddResults .fav-unit-result-info span{font-size:11.5px;color:var(--text-muted);}
+  #favAddResults .fav-unit-select,.fav-manage-unit{min-width:0;padding:7px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface);font-family:inherit;font-size:12.5px;color:var(--text);}
+  #favAddResults .fav-unit-add{padding:7px 10px;}
+  .fav-card .fav-unit-label{margin-bottom:3px;font-size:11.5px;color:var(--text-muted);}
   .pc-item{border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin-bottom:8px;}
   .pc-item .pc-name{font-weight:600;font-size:14.5px;margin-bottom:10px;}
   .pc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;}
@@ -2032,13 +2040,14 @@ async function loadInspectionListsFromSupabase(){
 // touch another signed-in staff member's favorites).
 async function syncFavoritesToSupabase(){
   if(!currentProfile) return;
+  favorites=normalizeFavorites(favorites);
   const snapshot=JSON.stringify(favorites);
   if(lastSyncedSnapshot.favorites===snapshot) return;
   try{
-    const rows=favorites.map(pid=>({user_id:currentProfile.id,product_id:pid}));
+    const rows=favorites.map((entry,position)=>({user_id:currentProfile.id,product_id:entry.pid,unit:entry.unit||'',position}));
     if(rows.length){ const {error}=await sb.from('favorites').upsert(rows); if(error){ console.warn('sync favorites',error); return; } }
     const {data:existing}=await fetchAllRows(()=>sb.from('favorites').select('product_id').eq('user_id',currentProfile.id));
-    const localIds=new Set(favorites);
+    const localIds=new Set(favorites.map(entry=>entry.pid));
     const del=(existing||[]).filter(r=>!localIds.has(r.product_id)).map(r=>r.product_id);
     if(del.length) await sb.from('favorites').delete().eq('user_id',currentProfile.id).in('product_id',del);
     lastSyncedSnapshot.favorites=snapshot;
@@ -2047,9 +2056,9 @@ async function syncFavoritesToSupabase(){
 async function loadFavoritesFromSupabase(){
   if(!currentProfile) return;
   try{
-    const {data,error}=await fetchAllRows(()=>sb.from('favorites').select('product_id').eq('user_id',currentProfile.id));
+    const {data,error}=await fetchAllRows(()=>sb.from('favorites').select('product_id,unit,position,created_at').eq('user_id',currentProfile.id).order('position').order('created_at'));
     if(error){ console.warn('load favorites',error); return; }
-    favorites=(data||[]).map(r=>r.product_id);
+    favorites=normalizeFavorites((data||[]).map(row=>({pid:row.product_id,unit:row.unit})));
     lastSyncedSnapshot.favorites=JSON.stringify(favorites);
   }catch(e){ console.warn('load favorites failed',e); }
 }
@@ -2503,6 +2512,41 @@ function productUnitOptions(p){
   (p.units||[]).forEach(u=>{ if(u.sub) opts.push({name:u.sub, label:u.sub, price:u.price||p.price*(u.factor||1), cost:productUnitCost(p,u.sub,u.factor||1), factor:u.factor||1, barcode:u.barcode||''}); });
   return opts;
 }
+function favoriteProductId(entry){
+  const value=entry&&typeof entry==='object'?(entry.pid??entry.productId):entry;
+  const id=Number(value);
+  return Number.isFinite(id)&&id>0?id:0;
+}
+function favoriteSelectedUnit(entry,product){
+  const requested=String(entry&&typeof entry==='object'?(entry.unit||''):'').trim();
+  if(!product) return requested;
+  const options=productUnitOptions(product);
+  return options.some(option=>option.name===requested)?requested:String(product.unit||options[0]?.name||'');
+}
+function favoriteEntryForProduct(product,unitName){
+  if(!product) return null;
+  return {pid:Number(product.id),unit:favoriteSelectedUnit({unit:unitName},product)};
+}
+function normalizeFavorites(value,productList=products){
+  if(!Array.isArray(value)) return [];
+  const seen=new Set(),result=[];
+  value.forEach(entry=>{
+    const pid=favoriteProductId(entry);
+    if(!pid||seen.has(pid)) return;
+    const product=(productList||[]).find(item=>Number(item.id)===pid);
+    result.push({pid,unit:favoriteSelectedUnit(entry,product)});
+    seen.add(pid);
+  });
+  return result;
+}
+function favoriteHasProduct(productId){
+  return favorites.some(entry=>favoriteProductId(entry)===Number(productId));
+}
+function saveFavorites(){
+  favorites=normalizeFavorites(favorites);
+  persistWorkspaceData();
+  syncFavoritesToSupabase();
+}
 // แปลงสต็อก (นับเป็นหน่วยหลัก) ให้แสดงเป็นหน่วยใหญ่สุด เช่น 120 แผง -> "1 ลัง 2 กล่อง" (เศษ)
 function stockInLargestUnit(p){
   const units = (p.units||[]).filter(u=>u.sub && u.factor>0).slice().sort((a,b)=>b.factor-a.factor);
@@ -2610,7 +2654,7 @@ let saleRef = nextSaleRef();
 let saleDiscount = 0; // บาท
 let saleMember = null; // ชื่อสมาชิก
 const VAT_RATE = 0.07;
-let favorites = []; // id สินค้าโปรด
+let favorites = []; // {pid,unit} — สินค้าโปรดหนึ่งหน่วยต่อหนึ่งสินค้า
 let showFavorites = true;  // แสดงแถบสินค้าโปรดใต้บิลหรือไม่
 
 let quotations = [
@@ -2844,7 +2888,7 @@ function applyWorkspaceData(saved){
   if(Array.isArray(saved.productReturns)) productReturns=saved.productReturns;
   if(Array.isArray(saved.transfers)) transfers=saved.transfers;
   if(Array.isArray(saved.standaloneTaxInvoices)) standaloneTaxInvoices=saved.standaloneTaxInvoices;
-  if(Array.isArray(saved.favorites)) favorites=saved.favorites;
+  if(Array.isArray(saved.favorites)) favorites=normalizeFavorites(saved.favorites,products);
   if(Array.isArray(saved.inspectionLists)) inspectionLists=normalizeInspectionLists(saved.inspectionLists);
   if(saved.currentUserProfile&&typeof saved.currentUserProfile==='object') currentUserProfile={...currentUserProfile,...saved.currentUserProfile};
   if(saved.businessSettings&&typeof saved.businessSettings==='object'){
@@ -3513,10 +3557,16 @@ function renderCheckout(){
   // แถบสินค้าโปรด
   let favHtml = '';
   if(showFavorites){
-    const favProds = favorites.map(id=>products.find(p=>p.id===id)).filter(Boolean);
+    const favProds = favorites.map(entry=>{
+      const product=products.find(item=>Number(item.id)===favoriteProductId(entry));
+      if(!product) return null;
+      const unit=favoriteSelectedUnit(entry,product);
+      const option=productUnitOptions(product).find(item=>item.name===unit)||productUnitOptions(product)[0];
+      return {product,unit,price:Number(option?.price)||0};
+    }).filter(Boolean);
     favHtml = `<div class="fav-strip">
       <div class="fav-head"><span>⭐ สินค้าโปรด</span><button class="btn ghost small" id="manageFavBtn">จัดการ</button></div>
-      <div class="fav-items">${favProds.length? favProds.map(p=>`<button class="fav-card" data-act="add" data-id="${p.id}"><div class="fav-name">${p.name}</div><div class="fav-price mono">${fmtMoney(p.price)}</div></button>`).join('') : '<div class="fav-empty">ยังไม่มีสินค้าโปรด — กดปุ่ม "จัดการ" เพื่อเพิ่ม</div>'}</div>
+      <div class="fav-items">${favProds.length? favProds.map(item=>`<button class="fav-card" data-act="add" data-id="${item.product.id}" data-unit="${escapeHtml(item.unit)}"><div class="fav-name">${escapeHtml(item.product.name)}</div><div class="fav-unit-label">หน่วย ${escapeHtml(item.unit)}</div><div class="fav-price mono">${fmtMoney(item.price)}</div></button>`).join('') : '<div class="fav-empty">ยังไม่มีสินค้าโปรด — กดปุ่ม "จัดการ" เพื่อเพิ่ม</div>'}</div>
     </div>`;
   }
 
@@ -8296,7 +8346,7 @@ function attachEvents(){
     });
   });
   document.querySelectorAll('[data-act="add"]').forEach(el=>{
-    el.addEventListener('click', ()=>{ const pid=Number(el.dataset.id); addToCart(pid, null, pendingQty); checkNegativeStockToast(pid); pendingQty=1; if(currentTab==='checkout') searchQuery=''; render(); const s=document.getElementById('search'); if(s) s.focus(); });
+    el.addEventListener('click', ()=>{ const pid=Number(el.dataset.id); addToCart(pid, el.dataset.unit||null, pendingQty); checkNegativeStockToast(pid); pendingQty=1; if(currentTab==='checkout') searchQuery=''; render(); const s=document.getElementById('search'); if(s) s.focus(); });
   });
   const addCustomItemBtn=document.getElementById('addCustomItemBtn');
   if(addCustomItemBtn) addCustomItemBtn.addEventListener('click',addBlankCustomCartLine);
@@ -12005,17 +12055,23 @@ function openCustomItemModal(){
   setTimeout(()=>overlay.querySelector('#custom_item_name').focus(),30);
 }
 
+function favoriteUnitOptionsHtml(product,selectedUnit){
+  return productUnitOptions(product).map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selectedUnit?'selected':''}>${escapeHtml(option.name)} · ${fmtMoney(option.price)}</option>`).join('');
+}
 function favManageListHtml(){
   if(!favorites.length) return `<div class="fav-manage-empty">ยังไม่มีสินค้าโปรด — ค้นหาด้านบนเพื่อเพิ่ม</div>`;
-  return favorites.map((id,i)=>{
-    const p=products.find(x=>x.id===id);
+  return favorites.map((entry,i)=>{
+    const id=favoriteProductId(entry);
+    const p=products.find(x=>Number(x.id)===id);
     if(!p) return '';
+    const selectedUnit=favoriteSelectedUnit(entry,p);
+    const selectedOption=productUnitOptions(p).find(option=>option.name===selectedUnit)||productUnitOptions(p)[0];
     return `<div class="fav-manage-row">
-      <div class="fav-manage-info"><span class="fav-manage-name">${p.name}</span><span class="fav-manage-price mono">${fmtMoney(p.price)}</span></div>
+      <div class="fav-manage-info"><span class="fav-manage-name">${escapeHtml(p.name)}</span><select class="fav-manage-unit" data-fav-unit-change="${i}" aria-label="หน่วยสินค้าโปรด ${escapeHtml(p.name)}">${favoriteUnitOptionsHtml(p,selectedUnit)}</select><span class="fav-manage-price mono">${fmtMoney(selectedOption?.price||0)}</span></div>
       <div class="fav-manage-actions">
-        <button class="icon-btn" data-fav-move="up" data-id="${id}" title="เลื่อนขึ้น" ${i===0?'disabled':''}>▲</button>
-        <button class="icon-btn" data-fav-move="down" data-id="${id}" title="เลื่อนลง" ${i===favorites.length-1?'disabled':''}>▼</button>
-        <button class="icon-btn danger" data-fav-remove="${id}" title="ลบออกจากสินค้าโปรด">×</button>
+        <button class="icon-btn" data-fav-move="up" data-fav-index="${i}" title="เลื่อนขึ้น" ${i===0?'disabled':''}>▲</button>
+        <button class="icon-btn" data-fav-move="down" data-fav-index="${i}" title="เลื่อนลง" ${i===favorites.length-1?'disabled':''}>▼</button>
+        <button class="icon-btn danger" data-fav-remove="${i}" title="ลบออกจากสินค้าโปรด">×</button>
       </div>
     </div>`;
   }).join('');
@@ -12211,9 +12267,9 @@ function openStockEditCategoryPicker(filter){
 function openManageFavModal(){
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
-  overlay.innerHTML=`<div class="modal" style="width:460px;max-height:82vh;display:flex;flex-direction:column;">
+  overlay.innerHTML=`<div class="modal" style="width:560px;max-height:82vh;display:flex;flex-direction:column;">
     <div class="modal-head"><h3>จัดการสินค้าโปรด</h3><button class="modal-close">×</button></div>
-    <div class="modal-sub">ค้นหาสินค้าเพื่อเพิ่มเป็นปุ่มลัด จัดลำดับหรือลบออกได้</div>
+    <div class="modal-sub">ค้นหาสินค้า เลือกหน่วยที่ต้องการ แล้วเพิ่มเป็นปุ่มลัด</div>
     <div class="fav-add-box">
       <input type="text" id="favAddSearch" placeholder="ค้นหาชื่อ / รหัส / บาร์โค้ด เพื่อเพิ่ม" autocomplete="off">
       <div id="favAddResults" class="fav-add-results" hidden></div>
@@ -12235,20 +12291,31 @@ function openManageFavModal(){
   function bindListButtons(){
     listEl.querySelectorAll('[data-fav-move]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        const id=Number(btn.dataset.id);
-        const idx=favorites.indexOf(id); if(idx<0) return;
+        const idx=Number(btn.dataset.favIndex); if(idx<0||idx>=favorites.length) return;
         const dir=btn.dataset.favMove==='up'?-1:1;
         const swapIdx=idx+dir;
         if(swapIdx<0||swapIdx>=favorites.length) return;
         [favorites[idx],favorites[swapIdx]]=[favorites[swapIdx],favorites[idx]];
+        saveFavorites();
         refreshList();
       });
     });
     listEl.querySelectorAll('[data-fav-remove]').forEach(btn=>{
       btn.addEventListener('click', ()=>{
-        const id=Number(btn.dataset.favRemove);
-        favorites=favorites.filter(x=>x!==id);
-        syncFavoritesToSupabase();
+        const index=Number(btn.dataset.favRemove);
+        if(index<0||index>=favorites.length) return;
+        favorites.splice(index,1);
+        saveFavorites();
+        refreshList();
+      });
+    });
+    listEl.querySelectorAll('[data-fav-unit-change]').forEach(select=>{
+      select.addEventListener('change',()=>{
+        const index=Number(select.dataset.favUnitChange);
+        const product=products.find(item=>Number(item.id)===favoriteProductId(favorites[index]));
+        if(!product) return;
+        favorites[index]=favoriteEntryForProduct(product,select.value);
+        saveFavorites();
         refreshList();
       });
     });
@@ -12262,16 +12329,21 @@ function openManageFavModal(){
     q=(q||'').trim();
     if(!q){ resultsEl.hidden=true; resultsEl.innerHTML=''; return; }
     const ql=q.toLowerCase();
-    const matches=products.filter(p=> !favorites.includes(p.id) && ( p.name.toLowerCase().includes(ql) || (p.sku||'').toLowerCase().includes(ql) || p.barcode===q || (p.extraBarcodes||[]).includes(q) || (p.units||[]).some(u=>u.barcode===q) )).slice(0,20);
+    const matches=products.filter(p=> !favoriteHasProduct(p.id) && ( p.name.toLowerCase().includes(ql) || (p.sku||'').toLowerCase().includes(ql) || matchesBarcode(p,q) )).slice(0,20);
     if(!matches.length){ resultsEl.innerHTML='<div class="fav-add-noresult">ไม่พบสินค้า หรือเพิ่มไว้ครบแล้ว</div>'; resultsEl.hidden=false; return; }
-    resultsEl.innerHTML=matches.map(p=>`<button type="button" class="fav-add-result" data-pid="${p.id}"><b>${p.name}</b><span class="mono">${fmtMoney(p.price)}</span></button>`).join('');
+    resultsEl.innerHTML=matches.map(p=>{
+      const exactUnit=productUnitOptions(p).find(option=>option.barcode&&option.barcode===q)?.name||p.unit;
+      return `<div class="fav-unit-result" data-fav-result="${p.id}"><div class="fav-unit-result-info"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.sku||'-')}</span></div><select class="fav-unit-select" data-fav-result-unit="${p.id}" aria-label="เลือกหน่วย ${escapeHtml(p.name)}">${favoriteUnitOptionsHtml(p,exactUnit)}</select><button type="button" class="btn primary small fav-unit-add" data-fav-add="${p.id}">เพิ่ม</button></div>`;
+    }).join('');
     resultsEl.hidden=false;
-    resultsEl.querySelectorAll('.fav-add-result').forEach(btn=>{
+    resultsEl.querySelectorAll('[data-fav-add]').forEach(btn=>{
       btn.addEventListener('mousedown', e=>e.preventDefault());
       btn.addEventListener('click', ()=>{
-        const pid=Number(btn.dataset.pid);
-        if(!favorites.includes(pid)) favorites.push(pid);
-        syncFavoritesToSupabase();
+        const pid=Number(btn.dataset.favAdd);
+        const product=products.find(item=>Number(item.id)===pid);
+        const unit=resultsEl.querySelector(`[data-fav-result-unit="${pid}"]`)?.value;
+        if(product&&!favoriteHasProduct(pid)) favorites.push(favoriteEntryForProduct(product,unit));
+        saveFavorites();
         searchEl.value=''; resultsEl.hidden=true; resultsEl.innerHTML='';
         refreshList();
         searchEl.focus();
@@ -12280,11 +12352,13 @@ function openManageFavModal(){
   };
   searchEl.addEventListener('input', ()=>renderResults(searchEl.value));
   searchEl.addEventListener('focus', ()=>renderResults(searchEl.value));
-  searchEl.addEventListener('blur', ()=>setTimeout(()=>{ resultsEl.hidden=true; },150));
+  searchEl.addEventListener('blur', ()=>setTimeout(()=>{
+    if(!resultsEl.contains(document.activeElement)) resultsEl.hidden=true;
+  },150));
   searchEl.addEventListener('keydown', e=>{
     if(e.key==='Enter'){
       e.preventDefault();
-      const first=resultsEl.querySelector('.fav-add-result');
+      const first=resultsEl.querySelector('[data-fav-add]');
       if(first) first.click();
     }
   });
