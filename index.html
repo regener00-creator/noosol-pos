@@ -205,6 +205,9 @@
   .unitrow-eq input,.unitrow-eq select{width:auto;}
   .unitrow .u_del{width:26px;height:26px;border:1px solid var(--border);background:var(--danger-soft);color:var(--danger);border-radius:7px;cursor:pointer;font-size:15px;line-height:1;}
   @media (max-width:960px){ .unitrow{grid-template-columns:1fr;} .unitrow-eq{flex-wrap:wrap;} }
+  .product-main-unit-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:14px;margin-top:14px;}
+  .product-extra-unit-toggle{margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
+  @media (max-width:960px){.product-main-unit-grid{grid-template-columns:1fr;}}
   .modal-overlay{position:fixed;inset:0;background:rgba(10,25,22,0.45);display:flex;align-items:center;justify-content:center;z-index:100;}
   .modal{background:var(--surface);border-radius:14px;width:380px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,0.3);overflow:hidden;}
   .modal-head{display:flex;justify-content:space-between;align-items:center;padding:16px 18px 10px;}
@@ -227,10 +230,11 @@
   .promo-picker-actions{display:flex;justify-content:flex-end;gap:10px;padding:14px 18px;border-top:1px solid var(--border);}
   .manage-empty{text-align:center;color:var(--text-muted);padding:20px;font-size:13px;}
   .bcrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin-bottom:8px;}
+  .bcrow.extra{grid-template-columns:minmax(110px,.7fr) minmax(180px,1.3fr) auto;}
   .bcrow.vendor{grid-template-columns:1.1fr 1.4fr auto;}
   .bcrow input,.bcrow select{padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13px;background:var(--surface);width:100%;}
   .bcrow .bc_del{width:26px;height:26px;border:1px solid var(--border);background:var(--danger-soft);color:var(--danger);border-radius:7px;cursor:pointer;font-size:15px;line-height:1;}
-  @media (max-width:960px){ .bcrow.vendor{grid-template-columns:1fr auto;} }
+  @media (max-width:960px){ .bcrow.extra,.bcrow.vendor{grid-template-columns:1fr auto;} .bcrow.extra .eb_code,.bcrow.vendor .vb_code{grid-column:1;} .bcrow.extra .bc_del,.bcrow.vendor .bc_del{grid-column:2;grid-row:1/3;} }
   .prodsplit{display:grid;grid-template-columns:1fr;gap:12px;align-items:start;}
   .tree-pane{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
   .prodsplit>.tree-pane{margin-top:0;border:none;box-shadow:none;}
@@ -3638,7 +3642,9 @@ function matchesBarcode(p, q){
 function findProductByExactCode(q){
   if(!q) return null;
   for(const p of products){
-    if(p.barcode===q||p.sku===q||(p.extraBarcodes||[]).includes(q)||(p.vendorBarcodes||[]).some(v=>v.code===q)) return {product:p,unitName:p.unit};
+    if(p.barcode===q||p.sku===q||(p.vendorBarcodes||[]).some(v=>v.code===q)) return {product:p,unitName:p.unit};
+    const extraUnit=extraBarcodeUnitForCode(p,q);
+    if(extraUnit) return {product:p,unitName:extraUnit};
     const u=(p.units||[]).find(x=>x.barcode===q);
     if(u) return {product:p,unitName:u.sub};
   }
@@ -5071,8 +5077,43 @@ function openManageModal(kind){
   });
 }
 
-function extraBarcodeRowHtml(bc){
-  return `<div class="bcrow"><input class="eb_code" value="${bc||''}"><button class="bc_del" title="ลบ">×</button></div>`;
+function extraBarcodeEntries(product){
+  if(!product) return [];
+  const fallback=String(product.unit||'');
+  return (product.extraBarcodes||[]).map((item,index)=>{
+    const code=typeof item==='object'?String(item?.code||''):String(item||'');
+    const linkedUnit=typeof item==='object'?item?.unit:(product.extraBarcodeUnits||[])[index];
+    return {code,unit:String(linkedUnit||fallback)};
+  }).filter(entry=>entry.code);
+}
+function extraBarcodeAvailableUnits(product){
+  return [...new Set([product?.unit,...(product?.units||[]).map(unit=>unit?.sub)].map(value=>String(value||'').trim()).filter(Boolean))];
+}
+function extraBarcodeUnitForCode(product,code){
+  if(!product||!code) return '';
+  const entry=extraBarcodeEntries(product).find(item=>item.code===String(code));
+  if(!entry) return '';
+  return extraBarcodeAvailableUnits(product).includes(entry.unit)?entry.unit:String(product.unit||'');
+}
+function extraBarcodeRowHtml(value,unitNames,mainUnit){
+  const entry=typeof value==='object'&&value!==null?value:{code:value||'',unit:mainUnit||''};
+  const names=[...new Set((unitNames||[]).map(unit=>String(unit||'').trim()).filter(Boolean))];
+  const selected=names.includes(String(entry.unit||''))?String(entry.unit):String(mainUnit||names[0]||'');
+  const options=names.length?names.map(unit=>`<option value="${escapeHtml(unit)}" ${unit===selected?'selected':''}>${escapeHtml(unit)}</option>`).join(''):'<option value="">เลือกหน่วย</option>';
+  return `<div class="bcrow extra"><select class="eb_unit" aria-label="หน่วยของบาร์โค้ดเพิ่มเติม">${options}</select><input class="eb_code" value="${escapeHtml(entry.code||'')}" placeholder="เลขบาร์โค้ดเพิ่มเติม"><button class="bc_del" title="ลบ">×</button></div>`;
+}
+function currentProductFormUnitNames(){
+  const main=String(document.getElementById('f_unit')?.value||'').trim();
+  const secondary=Array.from(document.querySelectorAll('#unitRows .u_sub')).map(select=>String(select.value||'').trim()).filter(Boolean);
+  return [...new Set([main,...secondary].filter(Boolean))];
+}
+function refreshExtraBarcodeUnitOptions(){
+  const names=currentProductFormUnitNames(),main=String(document.getElementById('f_unit')?.value||names[0]||'');
+  document.querySelectorAll('#extraBarcodeRows .eb_unit').forEach(select=>{
+    const previous=select.value;
+    select.innerHTML=names.length?names.map(unit=>`<option value="${escapeHtml(unit)}">${escapeHtml(unit)}</option>`).join(''):'<option value="">เลือกหน่วย</option>';
+    select.value=names.includes(previous)?previous:(names.includes(main)?main:(names[0]||''));
+  });
 }
 function vendorBarcodeRowHtml(vb){
   vb = vb || {vendor:'',code:''};
@@ -5131,6 +5172,7 @@ function refreshUnitRows(){
   const names = data.map(d=>d.sub);
   rowsEl.innerHTML = data.map(u=>unitRowHtml(u, mainUnit, names)).join('');
   bindUnitRowEvents();
+  refreshExtraBarcodeUnitOptions();
 }
 
 // คำนวณ factor สุทธิเทียบหน่วยหลัก จากโซ่ base (เช่น ลัง→กล่อง→แผง)
@@ -5187,9 +5229,10 @@ function buildProductBaseUnitChange(product,options={}){
   const history=[...(Array.isArray(product.unitChangeHistory)?product.unitChangeHistory:[]),{
     oldUnit,newUnit,conversion,changedAt,changedBy,
   }];
+  const linkedExtraUnits=extraBarcodeEntries(product).map(entry=>entry.unit||oldUnit);
   return {
     conversion,oldUnit,newUnit,
-    product:{...product,unit:newUnit,price:newPrice,cost:newCost,barcode:newBarcode,multiunit:true,units:convertedUnits,unitChangeHistory:history},
+    product:{...product,unit:newUnit,price:newPrice,cost:newCost,barcode:newBarcode,extraBarcodeUnits:linkedExtraUnits,multiunit:true,units:convertedUnits,unitChangeHistory:history},
   };
 }
 function baseUnitChangeStockPreview(productId,conversion,warehouseList=warehouses,balanceRows=inventoryBalanceRows){
@@ -5331,14 +5374,10 @@ function renderProductForm(){
           <div class="field"><label>รหัสสินค้า (SKU)</label><input id="f_sku" value="${p.sku||''}"></div>
           <div class="field"><label>เลขบาร์โค้ดหลัก</label><input id="f_barcode" value="${p.barcode}"></div>
         </div>
-        <div class="prodrow namerow">
+        <div class="prodrow r1">
           <div class="field"><label>ชื่อสินค้า <span class="req">*</span></label><input id="f_name" value="${p.name}"></div>
-          <div class="field"><label>หน่วยสินค้าหลัก <span class="req">*</span></label>${renderedMainUnitSelect}${isNew?'':`<button class="btn ghost small" type="button" id="changeBaseUnitBtn" style="margin-top:6px;">เปลี่ยนหน่วยหลัก</button>`}</div>
-          <div class="field"><label>ราคาขาย <span class="req">*</span></label><input id="f_price" class="no-spin" type="number" value="${p.price}" placeholder="0.00"></div>
-          ${canViewCost?`<div class="field"><label>ราคาทุน</label><input id="f_cost" class="no-spin" type="number" value="${p.cost!==undefined?p.cost:''}" placeholder="0.00"></div>`:`<input id="f_cost" type="hidden" value="${p.cost!==undefined?p.cost:''}">`}
         </div>
-        <div class="prodrow r3">
-          <div class="field"><label>จำนวนคงเหลือ</label><input id="f_stock" class="no-spin" type="number" value="${p.stock}" placeholder="0"></div>
+        <div class="prodrow r2">
           <div class="field"><label>วันหมดอายุ</label>${dmyDateFieldHtml('f_expiry',p.expiry)}</div>
           <div class="field"><label>ภาษีมูลค่าเพิ่ม (VAT)</label>${isBusinessVatRegistered()?`<select id="f_vat"><option value="incl" ${(p.vat||'incl')==='incl'?'selected':''}>VAT 7% — ราคาขายรวม VAT แล้ว</option><option value="excl" ${p.vat==='excl'?'selected':''}>VAT 7% — ราคาขายยังไม่รวม VAT</option><option value="none" ${p.vat==='none'?'selected':''}>ยกเว้น VAT</option></select>`:`<input id="f_vat" type="hidden" value="${normalizeProductVatMode(p.vat)}"><input value="ไม่คิด VAT — กิจการยังไม่จด VAT" readonly>`}</div>
         </div>
@@ -5348,7 +5387,14 @@ function renderProductForm(){
       </div>
     </div>
 
-    <div class="panel"><div class="paneltoggle"><div><h3>เพิ่มหน่วยสินค้า</h3><div class="psub" style="margin:0;">สินค้าที่ขายมากกว่า 1 หน่วยนับ เช่น ชิ้น โหล แพ็ค มีผลต่อการตัดสต็อกเมื่อเลือกหน่วยที่เอกสารขาย</div></div>
+    <div class="panel"><div><h3>เพิ่มหน่วยสินค้า</h3><div class="psub" style="margin:0;">กำหนดหน่วยหลัก ราคาขาย ทุน และจำนวนคงเหลือ รวมถึงหน่วยขายเพิ่มเติมของสินค้านี้</div></div>
+      <div class="product-main-unit-grid">
+        <div class="field"><label>หน่วยสินค้าหลัก <span class="req">*</span></label>${renderedMainUnitSelect}${isNew?'':`<button class="btn ghost small" type="button" id="changeBaseUnitBtn" style="margin-top:6px;">เปลี่ยนหน่วยหลัก</button>`}</div>
+        <div class="field"><label>ราคาขาย <span class="req">*</span></label><input id="f_price" class="no-spin" type="number" value="${p.price}" placeholder="0.00"></div>
+        ${canViewCost?`<div class="field"><label>ราคาทุน</label><input id="f_cost" class="no-spin" type="number" value="${p.cost!==undefined?p.cost:''}" placeholder="0.00"></div>`:`<input id="f_cost" type="hidden" value="${p.cost!==undefined?p.cost:''}">`}
+        <div class="field"><label>จำนวนคงเหลือ</label><input id="f_stock" class="no-spin" type="number" value="${p.stock}" placeholder="0"></div>
+      </div>
+      <div class="paneltoggle product-extra-unit-toggle"><div><h3 style="font-size:14px;">หน่วยสินค้าเพิ่มเติม</h3><div class="psub" style="margin:0;">เช่น 1 ซอง = 4 เม็ด หรือ 1 กล่อง = 25 ซอง มีผลต่อราคาและการตัดสต๊อกตามหน่วยที่ขาย</div></div>
       <label class="switch"><input type="checkbox" id="f_multiunit" ${(isNew?true:p.multiunit)?'checked':''}><span class="slider"></span></label></div>
       <div id="multiunitBody" style="${(isNew?true:p.multiunit)?'':'display:none;'}margin-top:14px;">
         <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:10px;">หน่วยสินค้าหลัก: <b style="color:var(--text);">${p.unit||'(ยังไม่ระบุ)'}</b> — ตัวอย่าง: 1 กล่อง = 10 แผง, 1 ลัง = 10 กล่อง</div>
@@ -5361,7 +5407,7 @@ function renderProductForm(){
     <div class="panel"><div class="paneltoggle"><div><h3>บาร์โค้ดเพิ่มเติม</h3><div class="psub" style="margin:0;">เผื่อสินค้าเปลี่ยนเลขบาร์โค้ดในล็อตใหม่ — ยิงเลขไหนก็เจอสินค้าตัวเดียวกัน</div></div>
       <label class="switch"><input type="checkbox" id="f_extrabc_toggle" ${(p.extraBarcodes&&p.extraBarcodes.length)?'checked':''}><span class="slider"></span></label></div>
       <div id="extraBcBody" style="${(p.extraBarcodes&&p.extraBarcodes.length)?'':'display:none;'}margin-top:14px;">
-        <div id="extraBarcodeRows">${(p.extraBarcodes&&p.extraBarcodes.length?p.extraBarcodes:['']).map(bc=>extraBarcodeRowHtml(bc)).join('')}</div>
+        <div id="extraBarcodeRows">${(p.extraBarcodes&&p.extraBarcodes.length?extraBarcodeEntries(p):[{code:'',unit:p.unit||''}]).map(entry=>extraBarcodeRowHtml(entry,extraBarcodeAvailableUnits(p),p.unit)).join('')}</div>
         <button class="btn ghost small" id="addExtraBarcodeBtn" style="margin-top:8px;">+ เพิ่มบาร์โค้ด</button>
       </div>
     </div>
@@ -6407,7 +6453,7 @@ function barcodePrintBarcodeOwners(){
   const owners=[];
   products.forEach(product=>{
     if(product.barcode) owners.push({code:String(product.barcode).trim(),pid:product.id,unit:product.unit,kind:'unit'});
-    (product.extraBarcodes||[]).forEach(code=>{ if(code) owners.push({code:String(code).trim(),pid:product.id,unit:'',kind:'extra'}); });
+    extraBarcodeEntries(product).forEach(item=>{ if(item.code) owners.push({code:String(item.code).trim(),pid:product.id,unit:item.unit,kind:'extra'}); });
     (product.vendorBarcodes||[]).forEach(item=>{ if(item?.code) owners.push({code:String(item.code).trim(),pid:product.id,unit:'',kind:'vendor'}); });
     (product.units||[]).forEach(unit=>{ if(unit?.barcode) owners.push({code:String(unit.barcode).trim(),pid:product.id,unit:unit.sub,kind:'unit'}); });
   });
@@ -8354,7 +8400,9 @@ function exactProductExchangeMatch(query){
       if(option.barcode&&String(option.barcode).toLowerCase()===q) return {product,unit:option.name};
     }
     if(String(product.sku||'').toLowerCase()===q) return {product,unit:product.unit};
-    if((product.extraBarcodes||[]).some(code=>String(code).toLowerCase()===q)||(product.vendorBarcodes||[]).some(item=>String(item?.code||'').toLowerCase()===q)) return {product,unit:product.unit};
+    const extra=extraBarcodeEntries(product).find(item=>String(item.code).toLowerCase()===q);
+    if(extra) return {product,unit:extraBarcodeAvailableUnits(product).includes(extra.unit)?extra.unit:product.unit};
+    if((product.vendorBarcodes||[]).some(item=>String(item?.code||'').toLowerCase()===q)) return {product,unit:product.unit};
   }
   return null;
 }
@@ -9755,13 +9803,16 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     const names=data.map(d=>d.sub);
     document.getElementById('unitRows').innerHTML=data.map(u=>unitRowHtml(u,mainUnit,names)).join('');
     bindUnitRowEvents();
+    refreshExtraBarcodeUnitOptions();
   });
   bindUnitRowEvents();
   // add/remove extra barcode rows
   const addExtraBarcodeBtn = document.getElementById('addExtraBarcodeBtn');
   if(addExtraBarcodeBtn) addExtraBarcodeBtn.addEventListener('click', ()=>{
     const rows=document.getElementById('extraBarcodeRows');
-    const div=document.createElement('div'); div.innerHTML=extraBarcodeRowHtml('');
+    const names=currentProductFormUnitNames();
+    const main=String(document.getElementById('f_unit')?.value||names[0]||'');
+    const div=document.createElement('div'); div.innerHTML=extraBarcodeRowHtml({code:'',unit:main},names,main);
     rows.appendChild(div.firstElementChild); bindBcDelete();
   });
   const addVendorBarcodeBtn = document.getElementById('addVendorBarcodeBtn');
@@ -9771,6 +9822,11 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     rows.appendChild(div.firstElementChild); bindBcDelete();
   });
   bindBcDelete();
+  const mainUnitControl=document.getElementById('f_unit');
+  if(mainUnitControl) mainUnitControl.addEventListener('change',()=>setTimeout(()=>{
+    refreshUnitRows();
+    refreshExtraBarcodeUnitOptions();
+  },0));
   const mainEl = document.getElementById('main');
   if(mainEl && !mainEl._comboBound){
     mainEl._comboBound = true;
@@ -10320,8 +10376,12 @@ function exactDocumentProduct(query){
   if(!q) return null;
   const productPool=documentProductPool();
   // ให้บาร์โค้ดหลักและรหัสสินค้ามีสิทธิ์ก่อนบาร์โค้ดของหน่วยย่อย
-  let product=productPool.find(p=>(p.barcode||'').toLowerCase()===q || (p.sku||'').toLowerCase()===q || (p.extraBarcodes||[]).some(code=>(code||'').toLowerCase()===q) || (p.vendorBarcodes||[]).some(v=>(v.code||'').toLowerCase()===q));
+  let product=productPool.find(p=>(p.barcode||'').toLowerCase()===q || (p.sku||'').toLowerCase()===q || (p.vendorBarcodes||[]).some(v=>(v.code||'').toLowerCase()===q));
   if(product) return {product,unit:product.unit};
+  for(const p of productPool){
+    const extra=extraBarcodeEntries(p).find(item=>String(item.code).toLowerCase()===q);
+    if(extra) return {product:p,unit:extraBarcodeAvailableUnits(p).includes(extra.unit)?extra.unit:p.unit};
+  }
   for(const p of productPool){
     const unit=(p.units||[]).find(u=>(u.barcode||'').toLowerCase()===q);
     if(unit) return {product:p,unit:unit.sub||p.unit};
@@ -10377,7 +10437,8 @@ function renderDocumentScanResults(query){
   const matches=documentProductMatches(q).slice(0,8);
   box.innerHTML=matches.length?matches.map(p=>{
     const exactUnit=(p.units||[]).find(u=>(u.barcode||'').toLowerCase()===q.toLowerCase());
-    const unit=exactUnit?.sub||p.unit;
+    const extraUnit=extraBarcodeEntries(p).find(item=>String(item.code).toLowerCase()===q.toLowerCase())?.unit;
+    const unit=exactUnit?.sub||(extraBarcodeAvailableUnits(p).includes(extraUnit)?extraUnit:p.unit);
     const unitNames=[p.unit,...(p.units||[]).map(u=>u.sub).filter(Boolean)].join(', ');
     return `<button type="button" class="doc-scan-result" data-pid="${p.id}" data-unit="${unit}"><span><b>${p.name}</b><small>${p.sku||'-'} · บาร์โค้ด ${p.barcode||'-'} · หน่วย ${unitNames}</small></span><span class="stock">คงเหลือ ${stockInLargestUnit(p)}</span></button>`;
   }).join(''):`<div class="doc-scan-empty">ไม่พบสินค้า “${q}”</div>`;
@@ -11736,7 +11797,7 @@ function productExcelColumnCounts(productRows=[]){
 }
 function productExcelHeaders(counts){
   const headers=['รหัสอ้างอิงระบบ','รหัสสินค้า','ชื่อสินค้า','บาร์โค้ด'];
-  for(let number=1;number<=counts.extraBarcodes;number++) headers.push(`บาร์โค้ดเพิ่มเติม ${number}`);
+  for(let number=1;number<=counts.extraBarcodes;number++) headers.push(`หน่วยบาร์โค้ดเพิ่มเติม ${number}`,`บาร์โค้ดเพิ่มเติม ${number}`);
   for(let number=1;number<=counts.vendors;number++) headers.push(`ชื่อผู้จำหน่าย ${number}`,`บาร์โค้ด Vendor ${number}`);
   headers.push('หมวดสินค้า','หมวดย่อย','หน่วย','ราคาขาย','ราคาทุน','ภาษีมูลค่าเพิ่ม','จำนวนคงเหลือ','วันหมดอายุ','คลังสินค้า','รายละเอียด');
   for(let number=1;number<=counts.units;number++){
@@ -11757,7 +11818,12 @@ function productToExcelRow(product,counts,warehouseRows=warehouses){
     'ชื่อสินค้า':product.name||'',
     'บาร์โค้ด':product.barcode||'',
   };
-  for(let number=1;number<=counts.extraBarcodes;number++) values[`บาร์โค้ดเพิ่มเติม ${number}`]=(product.extraBarcodes||[])[number-1]||'';
+  const extraEntries=extraBarcodeEntries(product);
+  for(let number=1;number<=counts.extraBarcodes;number++){
+    const entry=extraEntries[number-1];
+    values[`หน่วยบาร์โค้ดเพิ่มเติม ${number}`]=entry?.unit||product.unit||'';
+    values[`บาร์โค้ดเพิ่มเติม ${number}`]=entry?.code||'';
+  }
   for(let number=1;number<=counts.vendors;number++){
     const vendor=(product.vendorBarcodes||[])[number-1];
     values[`ชื่อผู้จำหน่าย ${number}`]=vendor?.vendor&&vendor.vendor!=='ไม่ระบุ'?vendor.vendor:'';
@@ -11791,7 +11857,7 @@ function productToExcelRow(product,counts,warehouseRows=warehouses){
 function downloadProductImportTemplate(){
   const counts=productExcelColumnCounts(products);
   const example=[productToExcelRow({
-    id:'',sku:'P0001',name:'พาราเซตามอล 500mg',barcode:'8850000100019',extraBarcodes:['8850000100018'],
+    id:'',sku:'P0001',name:'พาราเซตามอล 500mg',barcode:'8850000100019',extraBarcodes:['8850000100018'],extraBarcodeUnits:['แผง'],
     vendorBarcodes:[{vendor:'บริษัท ตัวอย่าง จำกัด',code:'VENDOR-PARA-01'}],category:'ยาสามัญประจำบ้าน',brand:'ทั่วไป',unit:'แผง',
     price:15,cost:9,vat:'incl',stock:120,expiry:'2027-12-31',wh:warehouses[0]?.id,desc:'',
     units:[
@@ -11808,7 +11874,7 @@ function downloadProductImportTemplate(){
       ['หัวข้อ','วิธีกรอก'],
       ['รหัสอ้างอิงระบบ','สินค้าใหม่ปล่อยว่างได้ หากเป็นไฟล์ที่ส่งออกจากระบบให้คงค่านี้ไว้เพื่ออัปเดตสินค้ารายการเดิม'],
       ['บาร์โค้ด','ตั้งรูปแบบเซลล์เป็นข้อความ (Text) เพื่อป้องกันเลข 0 ด้านหน้าหาย'],
-      ['บาร์โค้ดเพิ่มเติม','กรอกแยกคอลัมน์ บาร์โค้ดเพิ่มเติม 1, 2 และเพิ่มเลขต่อท้ายได้ถึง 10'],
+      ['บาร์โค้ดเพิ่มเติม','กรอกหน่วยและเลขบาร์โค้ดเป็นคู่หมายเลขเดียวกัน เช่น หน่วยบาร์โค้ดเพิ่มเติม 1 คู่กับ บาร์โค้ดเพิ่มเติม 1'],
       ['บาร์โค้ด Vendor','กรอกชื่อผู้จำหน่ายและบาร์โค้ดในหมายเลขชุดเดียวกัน เช่น ชื่อผู้จำหน่าย 1 คู่กับ บาร์โค้ด Vendor 1'],
       ['หน่วยเพิ่มเติม','กรอกเป็นชุดหมายเลขเดียวกัน เช่น หน่วยเพิ่มเติม 1 พร้อมจำนวนต่อหน่วย 1 อ้างอิงหน่วย 1 ราคา ทุน และบาร์โค้ด'],
       ['ตัวอย่างหน่วย','1 กล่อง = 10 แผง: หน่วยเพิ่มเติม=กล่อง, จำนวนต่อหน่วย=10, อ้างอิงหน่วย=แผง'],
@@ -11867,13 +11933,18 @@ async function importProductsFromExcel(file){
     const sku=String(productImportValue(row,['รหัสสินค้า','sku','code'])).trim();
     const barcode=String(productImportValue(row,['บาร์โค้ด','barcode'])).trim();
     const extraBarcodes=[];
+    const extraBarcodeUnits=[];
     const vendorBarcodes=[];
     const rawUnitRows=[];
     for(let number=1;number<=10;number++){
       const extraAliases=[`บาร์โค้ดเพิ่มเติม ${number}`,`บาร์โค้ดเพิ่มเติม${number}`,`extrabarcode${number}`];
       if(number===1) extraAliases.push('บาร์โค้ดเพิ่มเติม','extrabarcode');
       const extraCode=String(productImportValue(row,extraAliases)).trim();
-      if(extraCode) extraBarcodes.push(extraCode);
+      if(extraCode){
+        const extraUnit=String(productImportValue(row,[`หน่วยบาร์โค้ดเพิ่มเติม ${number}`,`หน่วยบาร์โค้ดเพิ่มเติม${number}`,`extrabarcodeunit${number}`])).trim()||unit;
+        extraBarcodes.push(extraCode);
+        extraBarcodeUnits.push(extraUnit);
+      }
 
       const vendorNameAliases=[`ชื่อผู้จำหน่าย ${number}`,`ชื่อผู้จำหน่าย${number}`,`vendor${number}`];
       const vendorCodeAliases=[`บาร์โค้ด vendor ${number}`,`บาร์โค้ดvendor${number}`,`vendorbarcode${number}`];
@@ -11927,7 +11998,7 @@ async function importProductsFromExcel(file){
       expiry:productImportDate(productImportValue(row,['วันหมดอายุ','expiry','expiredate']))||existing?.expiry||'',
       wh:existing?.wh||warehouse?.id||Number(activeWarehouseId)||1,
       desc:String(productImportValue(row,['รายละเอียด','ข้อมูลเพิ่มเติม','description','desc'])).trim(),
-      extraBarcodes,vendorBarcodes,multiunit:productUnits.length>0,units:productUnits,
+      extraBarcodes,extraBarcodeUnits,vendorBarcodes,multiunit:productUnits.length>0,units:productUnits,
     };
 
     if(existing){
@@ -12033,6 +12104,14 @@ function saveProduct(){
     cost: r.cost,
     barcode: r.barcode,
   }));
+  const validBarcodeUnits=new Set([mainUnitName,...units.map(item=>item.sub)].filter(Boolean));
+  const extraBarcodeRows=Array.from(document.querySelectorAll('#extraBarcodeRows .bcrow')).map(row=>{
+    const requestedUnit=String(row.querySelector('.eb_unit')?.value||'').trim();
+    return {
+      unit:validBarcodeUnits.has(requestedUnit)?requestedUnit:mainUnitName,
+      code:String(row.querySelector('.eb_code')?.value||'').trim(),
+    };
+  }).filter(item=>item.code);
   const existing = (editingProductId!=='new') ? products.find(x=>x.id===editingProductId) : null;
   if(existing&&unit!==String(existing.unit||'').trim()){
     showToast('กรุณาใช้ปุ่ม “เปลี่ยนหน่วยหลัก” เพื่อแปลงสต๊อกทุกคลังอย่างถูกต้อง','danger');
@@ -12050,7 +12129,8 @@ function saveProduct(){
     category: g('f_category').value,
     brand: (g('f_brand')&&g('f_brand').value) || 'ทั่วไป',
     barcode: g('f_barcode').value.trim(),
-    extraBarcodes: Array.from(document.querySelectorAll('#extraBarcodeRows .eb_code')).map(i=>i.value.trim()).filter(Boolean),
+    extraBarcodes: extraBarcodeRows.map(item=>item.code),
+    extraBarcodeUnits: extraBarcodeRows.map(item=>item.unit),
     vendorBarcodes: Array.from(document.querySelectorAll('#vendorBarcodeRows .bcrow')).map(r=>({vendor:r.querySelector('.vb_vendor').value, code:r.querySelector('.vb_code').value.trim()})).filter(v=>v.code),
     wh: existing?.wh||Number(activeWarehouseId),
     desc: g('f_desc').value.trim(),
@@ -12712,7 +12792,7 @@ function openManageFavModal(){
     const matches=products.filter(p=> !favoriteHasProduct(p.id) && ( p.name.toLowerCase().includes(ql) || (p.sku||'').toLowerCase().includes(ql) || matchesBarcode(p,q) )).slice(0,20);
     if(!matches.length){ resultsEl.innerHTML='<div class="fav-add-noresult">ไม่พบสินค้า หรือเพิ่มไว้ครบแล้ว</div>'; resultsEl.hidden=false; return; }
     resultsEl.innerHTML=matches.map(p=>{
-      const exactUnit=productUnitOptions(p).find(option=>option.barcode&&option.barcode===q)?.name||p.unit;
+      const exactUnit=productUnitOptions(p).find(option=>option.barcode&&option.barcode===q)?.name||extraBarcodeUnitForCode(p,q)||p.unit;
       return `<div class="fav-unit-result" data-fav-result="${p.id}"><div class="fav-unit-result-info"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.sku||'-')}</span></div><select class="fav-unit-select" data-fav-result-unit="${p.id}" aria-label="เลือกหน่วย ${escapeHtml(p.name)}">${favoriteUnitOptionsHtml(p,exactUnit)}</select><button type="button" class="btn primary small fav-unit-add" data-fav-add="${p.id}">เพิ่ม</button></div>`;
     }).join('');
     resultsEl.hidden=false;
@@ -12813,7 +12893,7 @@ function openPriceCheckModal(){
       const unitOpts=[{sub:p.unit, price:p.price, cost:p.cost||0, barcode:p.barcode||''}, ...((p.units||[]).map(u=>({sub:u.sub, price:u.price||0, cost:u.cost||0, barcode:u.barcode||''})))];
       // ถ้าคำค้นตรงกับบาร์โค้ดของหน่วยเสริม (เช่น กล่อง/ลัง) ให้เลือกหน่วยนั้นเป็นค่าเริ่มต้น เว้นแต่ผู้ใช้เคยเลือกหน่วยเองไว้แล้วในการ์ดนี้
       const subUnit=(p.units||[]).find(u=>(u.barcode||'').includes(q));
-      const defaultUnit=subUnit?subUnit.sub:p.unit;
+      const defaultUnit=subUnit?subUnit.sub:(extraBarcodeUnitForCode(p,q)||p.unit);
       const selUnit=pcUnitSel[p.id]||defaultUnit;
       const unitInfo=unitOpts.find(u=>u.sub===selUnit)||unitOpts[0];
       const unitFieldHtml=unitOpts.length>1

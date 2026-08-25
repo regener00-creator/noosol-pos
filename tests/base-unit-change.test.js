@@ -5,7 +5,9 @@ const vm = require('node:vm');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '0016_product_base_unit_changes.sql'), 'utf8');
-const context = {};
+const context = {
+  extraBarcodeEntries: product => (product.extraBarcodes || []).map((code, index) => ({code, unit:(product.extraBarcodeUnits || [])[index] || product.unit})),
+};
 vm.createContext(context);
 
 function loadFunctionBlock(name, nextName) {
@@ -30,6 +32,8 @@ const decolgen = {
   cost: 12,
   stock: 30,
   multiunit: true,
+  extraBarcodes: ['OLD-SACHET'],
+  extraBarcodeUnits: ['ซอง'],
   units: [
     { sub: 'กล่อง', per: 10, base: 'ซอง', factor: 10, price: 190, cost: 110, barcode: '885-BOX' },
     { sub: 'ลัง', per: 20, base: 'กล่อง', factor: 200, price: 3600, cost: 2100, barcode: '885-CASE' },
@@ -54,6 +58,7 @@ assert.equal(result.product.unit, 'เม็ด');
 assert.equal(result.product.price, 5);
 assert.equal(result.product.cost, 3);
 assert.equal(result.product.barcode, '');
+assert.deepEqual(Array.from(result.product.extraBarcodeUnits), ['ซอง']);
 assert.deepEqual(
   Array.from(result.product.units, unit => [unit.sub, unit.per, unit.base, unit.factor, unit.barcode]),
   [

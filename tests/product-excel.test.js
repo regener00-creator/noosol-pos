@@ -10,6 +10,7 @@ assert.ok(helperStart >= 0 && helperEnd > helperStart, 'product Excel helpers mu
 
 const sandbox = {
   warehouses: [{id: 1, name: 'คลังหลัก'}],
+  extraBarcodeEntries: product => (product.extraBarcodes || []).map((code, index) => ({code, unit:(product.extraBarcodeUnits || [])[index] || product.unit})),
   fmtDateShort: value => value === '2027-12-31' ? '31/12/2027' : value,
   productVatModeLabel: value => value === 'excl' ? 'ราคายังไม่รวม VAT' : value === 'none' ? 'ไม่มี VAT' : 'ราคารวม VAT แล้ว',
 };
@@ -22,6 +23,7 @@ const products = [{
   name: 'สินค้าทดสอบ',
   barcode: '0000123400012',
   extraBarcodes: ['EXTRA-1'],
+  extraBarcodeUnits: ['กล่อง'],
   vendorBarcodes: [{vendor: 'ผู้จำหน่าย ก', code: 'VENDOR-1'}],
   category: 'ยา',
   brand: 'ทั่วไป',
@@ -43,6 +45,7 @@ const row = sandbox.productToExcelRow(products[0], counts, sandbox.warehouses);
 assert.deepEqual(Object.keys(row), headers, 'export row must use the exact shared template column order');
 assert.equal(row['บาร์โค้ด'], '0000123400012');
 assert.equal(row['บาร์โค้ดเพิ่มเติม 1'], 'EXTRA-1');
+assert.equal(row['หน่วยบาร์โค้ดเพิ่มเติม 1'], 'กล่อง');
 assert.equal(row['บาร์โค้ด Vendor 1'], 'VENDOR-1');
 assert.equal(row['บาร์โค้ดหน่วย 1'], 'UNIT-1');
 assert.equal(row['บาร์โค้ดเพิ่มเติม 2'], '');

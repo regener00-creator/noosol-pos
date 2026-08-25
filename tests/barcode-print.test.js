@@ -31,6 +31,7 @@ const context = {
   fmtMoney: value => Number(value).toFixed(2),
   isoToDMY: value => String(value).split('-').reverse().join('/'),
   matchesBarcode: (product, query) => product.barcode === query || (product.units || []).some(unit => unit.barcode === query),
+  extraBarcodeEntries: product => (product.extraBarcodes || []).map((code, index) => ({code, unit:(product.extraBarcodeUnits || [])[index] || product.unit})),
   persistWorkspaceData: () => { persistCount++; },
   showToast: () => {},
   render: () => { renderCount++; },
