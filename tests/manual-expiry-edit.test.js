@@ -20,7 +20,9 @@ assert.equal(context.dmyToISO('31-04-2027'), null);
 assert.equal(context.dmyToISO('2027-07-05'), null);
 assert.equal(context.formatDMYInput('05072027'), '05-07-2027');
 
-assert.match(html, /class="prod-inline-edit prod-inline-expiry"[^>]*data-field="expiry"[^>]*type="text"/);
+assert.match(html, /class="lot-edit-expiry"[^>]*inputmode="numeric"/);
+assert.match(html, /update_inventory_lot_details/);
+assert.match(html, /หมดอายุใกล้สุด/);
 assert.match(html, /placeholder="วว-ดด-ปปปป"/);
 assert.match(html, /id="mobilePriceEditExpiry"[^>]*type="text"[^>]*inputmode="numeric"/);
 assert.doesNotMatch(html, /id="mobilePriceEditExpiry"[^>]*type="date"/);

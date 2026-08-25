@@ -41,50 +41,22 @@ vm.runInContext(html.slice(normalizeItemsStart, normalizeItemsEnd), context);
 const normalizedForBranch = context.normalizeGoodsReceiptItems([{productId:10,name:'ยา A',qty:1,unit:'กล่อง'}], 2)[0];
 assert.equal(normalizedForBranch.productId, 10);
 assert.equal(normalizedForBranch.warehouseId, 2, 'รายการรับสินค้าต้องผูกกับสาขาที่เลือก ไม่ใช่สาขาเดิมของสินค้า');
+const normalizedLot = context.normalizeGoodsReceiptItems([{productId:10,name:'ยา A',qty:1,unit:'กล่อง',lotNumber:'A001',expiry:'2027-07-05'}], 2)[0];
+assert.equal(normalizedLot.lotNumber, 'A001');
+assert.equal(normalizedLot.expiry, '2027-07-05');
+assert.ok(normalizedLot.lineId, 'รายการรับสินค้าต้องมี lineId เพื่อป้องกันการสร้าง Lot ซ้ำ');
 
 assert.deepEqual(
   JSON.parse(JSON.stringify(context.goodsReceiptStatusChangePlan(newPending, 'รับสินค้าแล้ว'))),
   {allowed:true,status:'รับสินค้าแล้ว',stockDirection:1,stockApplied:true}
 );
 assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:true}, 'รับสินค้าแล้ว').stockDirection, 0);
-assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:true}, 'รอรับสินค้า').stockDirection, -1);
+assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:true}, 'รอรับสินค้า').stockDirection, 0);
+assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:true}, 'รอรับสินค้า').allowed, false, 'รับเข้าสต๊อกแล้วต้องห้ามย้อนสถานะเพื่อไม่ให้ Lot เพี้ยน');
 assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:true}, 'ชำระเรียบร้อย').stockDirection, 0);
 assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:false}, 'ชำระเรียบร้อย').allowed, false);
-let stockDirection = 0;
-let renderCount = 0;
-let toast = '';
-Object.assign(context, {
-  warehouses: warehouseRows,
-  products: productRows,
-  goodsReceipts: [{id:'RI-TEST',warehouseId:1,status:'รอรับสินค้า',stockApplied:false,items:[{productId:10,qty:5}]}],
-  adjustGoodsReceiptStock: (_items, direction) => { stockDirection += direction; },
-  persistWorkspaceData: () => {},
-  render: () => { renderCount++; },
-  showToast: message => { toast = message; },
-});
-const changeStart = html.indexOf('function changeGoodsReceiptStatus(');
-const changeEnd = html.indexOf('function changeProductReturnStatus(', changeStart);
-assert.ok(changeStart >= 0 && changeEnd > changeStart, 'ไม่พบฟังก์ชันเปลี่ยนสถานะใบรับสินค้า');
-vm.runInContext(html.slice(changeStart, changeEnd), context);
-
-context.changeGoodsReceiptStatus('RI-TEST', 'รับสินค้าแล้ว');
-assert.equal(stockDirection, 1);
-assert.equal(context.goodsReceipts[0].status, 'รับสินค้าแล้ว');
-assert.equal(context.goodsReceipts[0].stockApplied, true);
-assert.match(context.goodsReceipts[0].stockAppliedAt, /^\d{4}-\d{2}-\d{2}T/);
-
-context.changeGoodsReceiptStatus('RI-TEST', 'รับสินค้าแล้ว');
-assert.equal(stockDirection, 1, 'เลือกสถานะรับสินค้าแล้วซ้ำต้องไม่บวกสต๊อกซ้ำ');
-
-context.changeGoodsReceiptStatus('RI-TEST', 'รอรับสินค้า');
-assert.equal(stockDirection, 0, 'ย้อนเป็นรอรับสินค้าต้องนำสต๊อกที่เคยรับออก');
-assert.equal(context.goodsReceipts[0].stockApplied, false);
-
-context.changeGoodsReceiptStatus('RI-TEST', 'ชำระเรียบร้อย');
-assert.equal(stockDirection, 0);
-assert.equal(context.goodsReceipts[0].status, 'รอรับสินค้า');
-assert.match(toast, /รับสินค้าแล้ว/);
-assert.equal(renderCount, 4);
+assert.match(html, /sb\.rpc\('apply_goods_receipt_lots'/);
+assert.match(html, /loadInventoryLotsFromSupabase\(\)/);
 
 assert.match(html, /<option value="รอรับสินค้า"/);
 assert.match(html, /<option value="รับสินค้าแล้ว"/);
@@ -95,7 +67,7 @@ assert.match(html, /kind==='gr'\?\{warehouseId:Number\(draft\.warehouseId\),stoc
 assert.doesNotMatch(html, /currentTab==='goodsreceipt'[\s\S]{0,180}products\.filter\(product=>Number\(product\.wh\)===warehouseId\)/);
 assert.match(html, /data-product-id="\$\{product\?\.id\|\|it\.productId\|\|''\}"/);
 assert.doesNotMatch(html, /plan\.stockDirection>0&&!goodsReceiptItemsMatchWarehouse\(doc\)/);
-assert.match(html, /normalizeGoodsReceiptItems\(items,kind==='gr'\?draft\.warehouseId:0\)/);
+assert.match(html, /normalizeGoodsReceiptItems\(items,draft\.warehouseId\)/);
 assert.doesNotMatch(html, /if\(kind==='gr'\)\{ grCounter\+\+; adjustGoodsReceiptStock\(savedItems,1\); \}/);
 assert.match(html, /copy\.status='รอรับสินค้า';[\s\S]{0,100}copy\.stockApplied=false/);
 const bulkDeleteStart = html.indexOf('function deleteSelectedDocuments(');

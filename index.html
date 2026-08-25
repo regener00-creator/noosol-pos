@@ -315,6 +315,7 @@
   .prodtable .col-cost{width:100px;}
   .prodtable .col-unit{width:110px;}
   .prodtable .col-stock{width:170px;}
+  .prodtable .col-lots{width:105px;}
   .prodtable .col-expiry{width:130px;}
   .prodtable .col-edit{width:56px;}
   .prodtable td{overflow:hidden;text-overflow:ellipsis;}
@@ -330,6 +331,19 @@
   .prod-unit-select:focus{outline:none;border-color:var(--primary);background:var(--surface);}
   .prod-unit-fixed{font-size:12.5px;color:var(--text-muted);}
   .prodtable td:last-child{text-align:center;overflow:visible;text-overflow:clip;}
+  .product-lot-link{border:1px solid #B9DCF1;background:#F3FAFE;color:var(--primary);border-radius:8px;padding:7px 10px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
+  .product-lot-link:hover{background:var(--primary-soft);border-color:var(--primary);}
+  .product-lot-link.empty{color:var(--text-muted);border-color:var(--border);background:var(--surface);}
+  .lot-detail-modal{width:min(1040px,96vw);max-height:90vh;display:flex;flex-direction:column;}
+  .lot-detail-body{padding:0 18px 18px;overflow:auto;}
+  .lot-detail-summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:13px;}
+  .lot-detail-summary span{padding:7px 11px;border-radius:8px;background:var(--primary-soft);color:var(--primary-dark);font-size:12.5px;font-weight:600;}
+  .lot-detail-table{min-width:900px;}
+  .lot-detail-table td{text-align:center;}
+  .lot-detail-table input{width:100%;min-width:112px;padding:7px 8px;border:1px solid var(--border);border-radius:7px;font-family:inherit;text-align:center;}
+  .lot-status{display:inline-flex;padding:4px 9px;border-radius:16px;font-size:11.5px;font-weight:700;}
+  .lot-status.active{background:#E8F6EB;color:#2D7D3D;}.lot-status.exhausted{background:var(--bg);color:var(--text-muted);}.lot-status.expired{background:var(--danger-soft);color:var(--danger);}.lot-status.near{background:#FFF4D8;color:#8A5A10;}
+  .goods-receipt-items .poi_lot{min-width:120px;}.goods-receipt-items .poi_expiry{min-width:118px;}
   .icon-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text-muted);cursor:pointer;transition:all .12s;}
   .icon-btn:hover{background:var(--primary-soft);color:var(--primary);border-color:var(--primary);}
   .icon-btn svg{width:16px;height:16px;pointer-events:none;}
@@ -1480,6 +1494,7 @@ let allWarehousesMode=false;
 let warehouseAccessRows=[];
 let inventoryBalanceRows=[];
 let inventoryBalanceMap=new Map();
+let inventoryLotRows=[];
 function inventoryBalanceKey(productId,warehouseId){ return `${Number(warehouseId)||0}:${Number(productId)||0}`; }
 function rebuildInventoryBalanceMap(){
   inventoryBalanceMap=new Map((inventoryBalanceRows||[]).map(row=>[inventoryBalanceKey(row.product_id,row.warehouse_id),row]));
@@ -1498,6 +1513,23 @@ function warehouseStock(productId,warehouseId=activeWarehouseId){
 }
 function warehouseExpiry(productId,warehouseId=activeWarehouseId){
   return inventoryBalanceMap.get(inventoryBalanceKey(productId,warehouseId))?.expiry||'';
+}
+function normalizeInventoryLotRow(row){
+  return {...row,id:Number(row.id),product_id:Number(row.product_id),warehouse_id:Number(row.warehouse_id),quantity_base:Number(row.quantity_base)||0,unit_cost_base:Number(row.unit_cost_base)||0};
+}
+function inventoryLotsForProduct(productId,warehouseId=activeWarehouseId,{includeEmpty=true}={}){
+  return (inventoryLotRows||[]).filter(row=>Number(row.product_id)===Number(productId)&&Number(row.warehouse_id)===Number(warehouseId)&&(includeEmpty||Number(row.quantity_base)>0));
+}
+function activeInventoryLotsForProduct(productId,warehouseId=activeWarehouseId){
+  return inventoryLotsForProduct(productId,warehouseId,{includeEmpty:false}).filter(row=>row.status!=='blocked');
+}
+function inventoryLotCount(productId,warehouseId=activeWarehouseId){ return activeInventoryLotsForProduct(productId,warehouseId).length; }
+function inventoryLotStatus(row){
+  if(Number(row?.quantity_base)<=0||row?.status==='exhausted') return {key:'exhausted',label:'หมดแล้ว'};
+  const left=daysUntil(row?.expiry_date);
+  if(row?.expiry_date&&left<0) return {key:'expired',label:'หมดอายุ'};
+  if(row?.expiry_date&&left<=90) return {key:'near',label:'ใกล้หมดอายุ'};
+  return {key:'active',label:'ปกติ'};
 }
 function allWarehouseStock(productId){
   return reportWarehouseIds().reduce((sum,warehouseId)=>sum+warehouseStock(productId,warehouseId),0);
@@ -1544,6 +1576,13 @@ async function loadInventoryBalancesFromSupabase(){
   if(error){ console.warn('load inventory balances',error); return false; }
   inventoryBalanceRows=(data||[]).map(row=>({...row,warehouse_id:Number(row.warehouse_id),product_id:Number(row.product_id),stock:Number(row.stock)||0}));
   rebuildInventoryBalanceMap(); applyActiveWarehouseInventory(); return true;
+}
+async function loadInventoryLotsFromSupabase(){
+  if(!currentProfile) return false;
+  const {data,error}=await fetchAllRows(()=>sb.from('inventory_lots').select('id,product_id,warehouse_id,internal_code,manufacturer_lot,expiry_date,quantity_base,unit_cost_base,received_at,source_type,source_id,status,updated_at').gt('quantity_base',0).order('warehouse_id').order('product_id').order('expiry_date',{ascending:true,nullsFirst:false}).order('received_at'));
+  if(error){ console.warn('load inventory lots',error); return false; }
+  inventoryLotRows=(data||[]).map(normalizeInventoryLotRow);
+  return true;
 }
 function restoreActiveWarehouseSelection(){
   let stored='';
@@ -1910,6 +1949,7 @@ async function adjustProductStockOnSupabase(productId,delta,warehouseId=activeWa
     const {data,error}=await sb.rpc('adjust_inventory_stock',{p_product_id:productId,p_warehouse_id:targetWarehouseId,p_delta:delta});
     if(error){ console.warn('adjust product stock',productId,error); return; }
     updateInventoryBalanceLocal(productId,targetWarehouseId,Number(data)||0);
+    await loadInventoryLotsFromSupabase();
   }
   catch(e){ console.warn('adjust product stock failed',productId,e); }
 }
@@ -1921,6 +1961,7 @@ async function setProductStockOnSupabase(productId,newStock,warehouseId=activeWa
     const {data,error}=await sb.rpc('set_inventory_stock',{p_product_id:productId,p_warehouse_id:targetWarehouseId,p_stock:Number(newStock)||0});
     if(error){ console.warn('set product stock',productId,error); return; }
     updateInventoryBalanceLocal(productId,targetWarehouseId,Number(data)||0);
+    await loadInventoryLotsFromSupabase();
   }
   catch(e){ console.warn('set product stock failed',productId,e); }
 }
@@ -1933,6 +1974,7 @@ async function setProductExpiryOnSupabase(productId,newExpiry,warehouseId=active
     const {data,error}=await sb.rpc('set_inventory_expiry',{p_product_id:productId,p_warehouse_id:targetWarehouseId,p_expiry:normalizedExpiry});
     if(error){ console.warn('set product expiry',productId,error); return false; }
     updateInventoryBalanceLocal(productId,targetWarehouseId,warehouseStock(productId,targetWarehouseId),data||'');
+    await loadInventoryLotsFromSupabase();
     return true;
   }catch(error){ console.warn('set product expiry failed',productId,error); return false; }
 }
@@ -1943,6 +1985,7 @@ async function transferProductStockOnSupabase(productId,fromWarehouseId,toWareho
     if(error){ console.warn('transfer product stock',productId,error); return null; }
     updateInventoryBalanceLocal(productId,fromWarehouseId,Number(data?.fromStock)||0);
     updateInventoryBalanceLocal(productId,toWarehouseId,Number(data?.toStock)||0);
+    await loadInventoryLotsFromSupabase();
     return data;
   }catch(error){ console.warn('transfer product stock failed',productId,error); return null; }
 }
@@ -2064,15 +2107,16 @@ async function loadFavoritesFromSupabase(){
 
 async function loadCoreDataFromSupabase(){
   try{
-    const [{data:whRows,error:whErr},{data:prodRows,error:prodErr},{data:contactRows,error:contactErr},{data:repRows,error:repErr},{data:accessRows,error:accessErr},{data:balanceRows,error:balanceErr}]=await Promise.all([
+    const [{data:whRows,error:whErr},{data:prodRows,error:prodErr},{data:contactRows,error:contactErr},{data:repRows,error:repErr},{data:accessRows,error:accessErr},{data:balanceRows,error:balanceErr},{data:lotRows,error:lotErr}]=await Promise.all([
       fetchAllRows(()=>sb.from('warehouses').select('*').order('id')),
       loadProductRowsFromSupabase(),
       fetchAllRows(()=>sb.from('contacts').select('*').order('id')),
       fetchAllRows(()=>sb.from('sales_representatives').select('*').order('id')),
       fetchAllRows(()=>sb.from('profile_warehouse_access').select('*').eq('user_id',currentProfile.id).order('warehouse_id')),
       fetchAllRows(()=>sb.from('inventory_balances').select('warehouse_id,product_id,stock,expiry,updated_at').order('warehouse_id').order('product_id')),
+      fetchAllRows(()=>sb.from('inventory_lots').select('id,product_id,warehouse_id,internal_code,manufacturer_lot,expiry_date,quantity_base,unit_cost_base,received_at,source_type,source_id,status,updated_at').gt('quantity_base',0).order('warehouse_id').order('product_id').order('expiry_date',{ascending:true,nullsFirst:false}).order('received_at')),
     ]);
-    if(whErr||prodErr||contactErr||repErr||accessErr||balanceErr){ console.warn('load core data',whErr||prodErr||contactErr||repErr||accessErr||balanceErr); return; }
+    if(whErr||prodErr||contactErr||repErr||accessErr||balanceErr||lotErr){ console.warn('load core data',whErr||prodErr||contactErr||repErr||accessErr||balanceErr||lotErr); return; }
     const docResults=await Promise.all(DOC_TABLES.map(([table])=>fetchAllRows(()=>sb.from(table).select('*').order('id',{ascending:false}))));
     const docErr=docResults.find(r=>r.error);
     if(docErr){ console.warn('load core data (docs)',docErr.error); return; }
@@ -2091,6 +2135,7 @@ async function loadCoreDataFromSupabase(){
     products=prodRows||[];
     warehouseAccessRows=accessRows||[];
     inventoryBalanceRows=(balanceRows||[]).map(row=>({...row,warehouse_id:Number(row.warehouse_id),product_id:Number(row.product_id),stock:Number(row.stock)||0}));
+    inventoryLotRows=(lotRows||[]).map(normalizeInventoryLotRow);
     rebuildInventoryBalanceMap();
     restoreActiveWarehouseSelection();
     contacts=(contactRows||[]).map(rowToContact);
@@ -3274,7 +3319,10 @@ function goodsReceiptStatusChangePlan(doc,nextStatus){
   if(status==='ชำระเรียบร้อย'&&!alreadyApplied){
     return {allowed:false,status:doc?.status||'รอรับสินค้า',stockDirection:0,stockApplied:false};
   }
-  const stockDirection=status==='รับสินค้าแล้ว'&&!alreadyApplied?1:status==='รอรับสินค้า'&&alreadyApplied?-1:0;
+  if(status==='รอรับสินค้า'&&alreadyApplied){
+    return {allowed:false,status:doc?.status||'รับสินค้าแล้ว',stockDirection:0,stockApplied:true,locked:true};
+  }
+  const stockDirection=status==='รับสินค้าแล้ว'&&!alreadyApplied?1:0;
   return {allowed:true,status,stockDirection,stockApplied:status!=='รอรับสินค้า'};
 }
 // ---------- ตรรกะเอกสารเปลี่ยนสินค้า (แยกจากใบรับ/ใบคืนเพื่อกันลงสต๊อกซ้ำ) ----------
@@ -3307,7 +3355,8 @@ function normalizeProductExchangeItem(item){
     lineId:Number(item?.lineId)||Date.now()+Math.floor(Math.random()*10000),
     pid:Number(product.id),sku:String(product.sku||''),barcode:String(selected?.barcode||product.barcode||''),name:String(product.name||''),
     qty,unit:selected?.name||product.unit,factor:Number(selected?.factor)||1,
-    baseQty:productExchangeItemBaseQty({qty,factor:selected?.factor||1}),expiry:String(item?.expiry||'')
+    baseQty:productExchangeItemBaseQty({qty,factor:selected?.factor||1}),
+    lotNumber:String(item?.lotNumber||''),expiry:String(item?.expiry||'')
   };
 }
 function productExchangeItemsTotal(items){
@@ -3402,7 +3451,7 @@ function expandableDocumentItemRows(items){
     name:String(item.name||'-'),
     qty:item.qty===undefined||item.qty===null||item.qty===''?'':item.qty,
     unit:String(item.unit||''),
-    kind:String(item.kind||item.detail||'')
+    kind:[item.kind||item.detail||'',item.lotNumber?`Lot ${item.lotNumber}`:'',item.expiry?`หมดอายุ ${fmtDateShort(item.expiry)}`:''].filter(Boolean).join(' · ')
   }));
 }
 function expandableDocumentItemKey(kind,id){ return `${String(kind||'document')}:${String(id||'')}`; }
@@ -4162,7 +4211,7 @@ function renderPOForm(kind='po'){
   if(!draft){
     const list=docList(kind);
     draft=isNew
-      ? {id:docPrefix(kind)+TODAY_STR.replace(/-/g,'')+String(docCounter(kind)).padStart(4,'0'), supplier:'', date:TODAY_STR, credit:0, dueDate:TODAY_STR, items:Array.from({length:3},()=>({name:'',qty:1,unit:'',price:''})), note:'', discount:0, taxMode:'incl', supplierTaxInvoiceNo:'', supplierTaxInvoiceDate:'', ...(kind==='gr'?{warehouseId:Number(activeWarehouseId)||0}:{})}
+      ? {id:docPrefix(kind)+TODAY_STR.replace(/-/g,'')+String(docCounter(kind)).padStart(4,'0'), supplier:'', date:TODAY_STR, credit:0, dueDate:TODAY_STR, items:Array.from({length:3},()=>({name:'',qty:1,unit:'',price:''})), note:'', discount:0, taxMode:'incl', supplierTaxInvoiceNo:'', supplierTaxInvoiceDate:'', ...((kind==='gr'||kind==='ret')?{warehouseId:Number(activeWarehouseId)||0}:{})}
       : JSON.parse(JSON.stringify(list.find(x=>x.id===editingId)));
     if(!draft.discount) draft.discount=0;
     if(draft.credit===undefined) draft.credit=0;
@@ -4204,7 +4253,7 @@ function renderPOForm(kind='po'){
     </div>
 
     ${documentProductScannerHtml()}
-    <table class="grid-table po-items ${kind==='gr'?'goods-receipt-items':kind==='po2'?'document-centered-items':''}"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคาต่อหน่วย</th><th class="mono">ราคารวม</th><th></th></tr></thead>
+    <table class="grid-table po-items ${kind==='gr'?'goods-receipt-items':kind==='po2'?'document-centered-items':''}"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคาต่อหน่วย</th>${kind==='gr'?'<th>เลข Lot</th><th>วันหมดอายุ</th>':''}<th class="mono">ราคารวม</th><th></th></tr></thead>
     <tbody id="poItemRows">${po.items.map((it,i)=>poItemRowHtml(it,i)).join('')}</tbody></table>
     <button class="btn ghost small" id="addPOItemBtn" style="margin-top:8px;">+ เพิ่มแถวรายการ</button>
 
@@ -4254,10 +4303,13 @@ function renderShortageOrderForm(po,isNew){
 
 function renderProductReturnForm(po,isNew){
   const supplierObj=suppliersList().find(s=>s.name===po.supplier);
+  if(!Number(po.warehouseId)) po.warehouseId=Number(activeWarehouseId)||0;
+  const locked=po.stockApplied===true;
   return `<div class="pagehead"><div><div class="breadcrumb">ใบคืนสินค้า › ${isNew?'สร้างใบคืนสินค้า':'แก้ไขใบคืนสินค้า'}</div><h1>${po.id}</h1></div></div>
     <div class="po-head">
       <div class="po-head-left">
         <div class="crow"><label>ชื่อผู้จำหน่าย <span class="req">*</span></label><div class="po-supplier-pick"><select id="po_supplier"><option value="">เลือกผู้จำหน่าย</option>${suppliersList().map(s=>`<option ${po.supplier===s.name?'selected':''}>${s.name}</option>`).join('')}</select><button class="btn ghost small" id="editPOSupplierBtn" type="button" ${supplierObj?'':'disabled'}>${poSupplierEditorOpen?'ปิด':'แก้ไขข้อมูล'}</button></div></div>
+        <div class="crow"><label>คืนจากคลัง / สาขา <span class="req">*</span></label><select id="po_warehouse" ${locked?'disabled':''}><option value="">เลือกคลัง / สาขา</option>${accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${Number(po.warehouseId)===Number(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>
         ${supplierObj&&poSupplierEditorOpen?poSupplierEditorHtml(supplierObj):''}
         <div class="crow"><label>ที่อยู่</label><div class="po-addr">${supplierObj?(supplierObj.address||'-'):'(เลือกผู้จำหน่ายเพื่อแสดงที่อยู่)'}</div></div>
         <div class="crow"><label>เลขผู้เสียภาษี</label><div class="po-addr mono">${supplierObj?(supplierObj.taxId||'-'):'-'}</div></div>
@@ -4265,8 +4317,8 @@ function renderProductReturnForm(po,isNew){
       <div class="po-head-right"><div class="crow"><label>วันที่</label>${dmyDateFieldHtml('po_date',po.date||TODAY_STR)}</div></div>
     </div>
     ${documentProductScannerHtml()}
-    <table class="grid-table po-items shortage-document-items document-centered-items"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th style="width:48px;"></th></tr></thead><tbody id="poItemRows">${po.items.map((it,i)=>shortageItemRowHtml(it,i)).join('')}</tbody></table>
-    <button class="btn ghost small" id="addPOItemBtn" style="margin-top:8px;">+ เพิ่มแถวรายการ</button>
+    <table class="grid-table po-items product-return-items document-centered-items"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th>Lot ที่คืน</th><th>วันหมดอายุ</th><th style="width:48px;"></th></tr></thead><tbody id="poItemRows">${po.items.map((it,i)=>productReturnItemRowHtml(it,i,po.warehouseId,locked)).join('')}</tbody></table>
+    <button class="btn ghost small" id="addPOItemBtn" style="margin-top:8px;" ${locked?'disabled':''}>+ เพิ่มแถวรายการ</button>
     <div class="po-foot" style="grid-template-columns:minmax(0,1fr);"><div class="po-foot-left"><div class="crow"><label>หมายเหตุ</label><textarea id="po_note" rows="3">${po.note||''}</textarea></div></div></div>
     <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePOBtn">บันทึกเอกสาร</button></div>`;
 }
@@ -4281,15 +4333,29 @@ function poItemRowHtml(it,i){
   const product = products.find(p=>Number(p.id)===Number(it.productId))||products.find(p=>p.name===it.name);
   const unitOptions = product ? poPurchaseUnitOptions(product) : [];
   const lineTotal = (it.qty||0)*(it.price||0);
+  const goodsReceipt=currentTab==='goodsreceipt';
+  const locked=goodsReceipt&&activePurchaseDraft()?.stockApplied===true;
   return `<tr class="po-item-row" data-i="${i}" data-product-id="${product?.id||it.productId||''}">
     <td class="mono">${i+1}</td>
-    <td><input class="poi_name" value="${it.name||''}" placeholder="สแกน/ค้นหาสินค้าจากช่องด้านบน หรือพิมพ์แก้ไขชื่อเอง" autocomplete="off"></td>
-    <td><input class="poi_qty mono no-spin" type="number" min="0" value="${it.qty||0}" style="width:70px;text-align:right;"></td>
-    <td><select class="poi_unit" style="min-width:90px;" ${product?'':'disabled'}>${product?unitOptions.map(u=>`<option value="${u.name}" ${it.unit===u.name?'selected':''}>${u.name}</option>`).join(''):'<option value="">เลือกสินค้า</option>'}</select></td>
-    <td><input class="poi_price mono" type="number" min="0" value="${it.price??''}" placeholder="กรอกราคา" style="width:90px;text-align:right;"></td>
+    <td><input class="poi_name" value="${it.name||''}" placeholder="สแกน/ค้นหาสินค้าจากช่องด้านบน หรือพิมพ์แก้ไขชื่อเอง" autocomplete="off" ${locked?'disabled':''}></td>
+    <td><input class="poi_qty mono no-spin" type="number" min="0" value="${it.qty||0}" style="width:70px;text-align:right;" ${locked?'disabled':''}></td>
+    <td><select class="poi_unit" style="min-width:90px;" ${product&&!locked?'':'disabled'}>${product?unitOptions.map(u=>`<option value="${u.name}" ${it.unit===u.name?'selected':''}>${u.name}</option>`).join(''):'<option value="">เลือกสินค้า</option>'}</select></td>
+    <td><input class="poi_price mono" type="number" min="0" value="${it.price??''}" placeholder="กรอกราคา" style="width:90px;text-align:right;" ${locked?'disabled':''}></td>
+    ${goodsReceipt?`<td><input class="poi_lot" value="${escapeHtml(it.lotNumber||'')}" placeholder="ไม่บังคับ" ${locked?'disabled':''}></td><td><input class="poi_expiry" inputmode="numeric" maxlength="10" value="${escapeHtml(it.expiry?fmtDateShort(it.expiry):'')}" placeholder="วว-ดด-ปปปป" ${locked?'disabled':''}></td>`:''}
     <td class="mono num poi_total">${fmtMoney(lineTotal)}</td>
-    <td class="num"><button class="poi_del" title="ลบ">×</button></td>
+    <td class="num"><button class="poi_del" title="ลบ" ${locked?'disabled':''}>×</button></td>
   </tr>`;
+}
+
+function productReturnItemRowHtml(it,i,warehouseId,locked=false){
+  const product=products.find(p=>Number(p.id)===Number(it.productId))||products.find(p=>p.name===it.name);
+  const options=product?poPurchaseUnitOptions(product):[];
+  const lots=product?activeInventoryLotsForProduct(product.id,warehouseId):[];
+  const selectedLot=lots.find(lot=>Number(lot.id)===Number(it.lotId));
+  const savedMissing=it.lotId&&!selectedLot?`<option value="${escapeHtml(it.lotId)}" data-lot-number="${escapeHtml(it.lotNumber||'')}" data-expiry="${escapeHtml(it.expiry||'')}" selected>${escapeHtml(it.lotNumber||'Lot เดิม')} · ${escapeHtml(it.expiry?fmtDateShort(it.expiry):'ไม่ระบุวันหมดอายุ')}</option>`:'';
+  const lotOptions=lots.map(lot=>`<option value="${lot.id}" data-lot-number="${escapeHtml(lot.manufacturer_lot||lot.internal_code||'')}" data-expiry="${escapeHtml(lot.expiry_date||'')}" ${Number(lot.id)===Number(it.lotId)?'selected':''}>${escapeHtml(lot.manufacturer_lot||lot.internal_code||'-')} · ${escapeHtml(lot.expiry_date?fmtDateShort(lot.expiry_date):'ไม่ระบุวันหมดอายุ')} · ${escapeHtml(lotQuantityText(product,lot))}</option>`).join('');
+  const expiry=selectedLot?.expiry_date||it.expiry||'';
+  return `<tr class="po-item-row" data-i="${i}" data-product-id="${product?.id||it.productId||''}"><td class="mono">${i+1}</td><td><input class="poi_name" value="${escapeHtml(it.name||'')}" placeholder="สแกนหรือค้นหาสินค้า" autocomplete="off" ${locked?'disabled':''}></td><td><input class="poi_qty mono" type="number" min="0.01" step="any" value="${it.qty||0}" style="width:90px;text-align:right;" ${locked?'disabled':''}></td><td><select class="poi_unit" style="min-width:100px;" ${product&&!locked?'':'disabled'}>${product?options.map(u=>`<option value="${escapeHtml(u.name)}" ${it.unit===u.name?'selected':''}>${escapeHtml(u.name)}</option>`).join(''):'<option value="">เลือกสินค้า</option>'}</select></td><td><select class="poi_return_lot" ${product&&!locked?'':'disabled'}><option value="">เลือก Lot</option>${savedMissing}${lotOptions}</select></td><td class="poi_return_expiry">${escapeHtml(expiry?fmtDateShort(expiry):'-')}</td><td class="num"><button class="poi_del" title="ลบ" ${locked?'disabled':''}>×</button></td></tr>`;
 }
 
 function poPurchaseUnitOptions(p){
@@ -4306,11 +4372,11 @@ function poPurchaseUnitOptions(p){
 }
 
 function normalizeGoodsReceiptItems(items,targetWarehouseId=0){
-  return (items||[]).map(item=>{
+  return (items||[]).map((item,index)=>{
     const product=products.find(p=>p.id===Number(item.productId))||products.find(p=>p.name===item.name);
     const unitInfo=poPurchaseUnitOptions(product).find(option=>option.name===item.unit);
     const warehouseId=Number(targetWarehouseId)||Number(item.warehouseId)||Number(product?.wh)||0;
-    return {...item,productId:product?.id||item.productId||'',warehouseId,stockFactor:Number(item.stockFactor)||(unitInfo?.factor||1)};
+    return {...item,lineId:String(item.lineId||index+1),productId:product?.id||item.productId||'',warehouseId,stockFactor:Number(item.stockFactor)||(unitInfo?.factor||1),lotNumber:String(item.lotNumber||'').trim(),expiry:String(item.expiry||'')};
   });
 }
 
@@ -4326,43 +4392,69 @@ function adjustGoodsReceiptStock(items,direction){
   });
 }
 
-function changeGoodsReceiptStatus(id,status){
+async function changeGoodsReceiptStatus(id,status){
   const doc=goodsReceipts.find(item=>item.id===id);
   if(!doc) return;
   const plan=goodsReceiptStatusChangePlan(doc,status);
   if(!plan.allowed){
-    showToast('กรุณาเปลี่ยนสถานะเป็น “รับสินค้าแล้ว” ก่อนชำระเงิน');
+    showToast(plan.locked?'รับสินค้าเข้าสต๊อกแล้ว ไม่สามารถย้อนกลับเป็น “รอรับสินค้า” ได้':'กรุณาเปลี่ยนสถานะเป็น “รับสินค้าแล้ว” ก่อนชำระเงิน');
     render();
     return;
   }
   doc.warehouseId=goodsReceiptWarehouseId(doc);
   doc.items=normalizeGoodsReceiptItems(doc.items,doc.warehouseId);
-  if(plan.stockDirection) adjustGoodsReceiptStock(doc.items,plan.stockDirection);
+  if(plan.stockDirection>0){
+    const missingExpiry=doc.items.filter(item=>!item.expiry);
+    if(missingExpiry.length&&!confirm(`มีสินค้า ${missingExpiry.length} รายการที่ไม่ได้ระบุวันหมดอายุ\nระบบจะสร้าง Lot โดยไม่มีวันหมดอายุ ต้องการรับสินค้าเข้าสต๊อกต่อหรือไม่?`)){ render(); return; }
+    try{
+      const {error:saveError}=await sb.from('goods_receipts').upsert({id:doc.id,data:doc});
+      if(saveError) throw saveError;
+      const {data,error}=await sb.rpc('apply_goods_receipt_lots',{p_receipt_id:doc.id});
+      if(error) throw error;
+      Object.assign(doc,data?.receipt||{},data?.receipt?{id:doc.id}:{});
+      await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
+    }catch(error){
+      console.warn('apply goods receipt lots',error);
+      showToast('รับสินค้าเข้าสต๊อกไม่สำเร็จ กรุณาตรวจจำนวน Lot และลองใหม่','danger-top');
+      render(); return;
+    }
+  }
   doc.status=plan.status;
-  doc.stockApplied=plan.stockApplied;
+  doc.stockApplied=plan.stockApplied||doc.stockApplied===true;
   doc.stockAppliedAt=plan.stockApplied?(doc.stockAppliedAt||new Date().toISOString()):'';
   persistWorkspaceData();
   if(plan.status==='รอรับสินค้า'){
-    showToast(plan.stockDirection<0?'เปลี่ยนเป็นรอรับสินค้าและนำสต๊อกออกแล้ว':'เปลี่ยนสถานะเป็น “รอรับสินค้า” แล้ว');
+    showToast('เปลี่ยนสถานะเป็น “รอรับสินค้า” แล้ว');
   }else if(plan.status==='รับสินค้าแล้ว'){
     showToast(plan.stockDirection>0?'รับสินค้าแล้วและเพิ่มสต๊อกเรียบร้อย':'สถานะเป็น “รับสินค้าแล้ว”');
   }
   render();
 }
 
-function changeProductReturnStatus(id,status){
+async function changeProductReturnStatus(id,status){
   const doc=productReturns.find(item=>item.id===id);
   if(!doc) return;
+  if(status==='รอรับคืน'&&doc.stockApplied===true){
+    showToast('คืนสินค้าและตัดสต๊อกแล้ว ไม่สามารถย้อนกลับเป็น “รอรับคืน” ได้');
+    render(); return;
+  }
   if(status==='คืนเรียบร้อย'&&doc.stockApplied!==true){
-    adjustGoodsReceiptStock(doc.items,-1);
-    doc.stockApplied=true;
-  }else if(status==='รอรับคืน'&&doc.stockApplied===true){
-    adjustGoodsReceiptStock(doc.items,1);
-    doc.stockApplied=false;
+    doc.warehouseId=Number(doc.warehouseId)||Number(activeWarehouseId)||0;
+    doc.items=normalizeGoodsReceiptItems(doc.items,doc.warehouseId);
+    if(!doc.warehouseId||doc.items.some(item=>!Number(item.lotId))){ showToast('กรุณาเลือกคลังและ Lot ที่คืนให้ครบทุกสินค้า','danger-top'); render(); return; }
+    try{
+      const {error:saveError}=await sb.from('product_returns').upsert({id:doc.id,data:doc});
+      if(saveError) throw saveError;
+      const {data,error}=await sb.rpc('apply_product_return_lots',{p_return_id:doc.id});
+      if(error) throw error;
+      Object.assign(doc,data?.return||{},data?.return?{id:doc.id}:{});
+      await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
+    }catch(error){ console.warn('apply product return lots',error); showToast('ตัดสต๊อกตาม Lot ไม่สำเร็จ กรุณาตรวจจำนวนสินค้าใน Lot','danger-top'); render(); return; }
   }
   doc.status=status==='คืนเรียบร้อย'?'คืนเรียบร้อย':'รอรับคืน';
+  doc.stockApplied=doc.status==='คืนเรียบร้อย'||doc.stockApplied===true;
   persistWorkspaceData();
-  showToast(doc.status==='คืนเรียบร้อย'?'คืนสินค้าเรียบร้อยและตัดสต๊อกแล้ว':'เปลี่ยนเป็นรอรับคืนและคืนสต๊อกกลับแล้ว');
+  showToast(doc.status==='คืนเรียบร้อย'?'คืนสินค้าเรียบร้อยและตัดสต๊อกตาม Lot แล้ว':'สถานะเป็นรอรับคืน');
   render();
 }
 
@@ -4496,11 +4588,11 @@ function productExchangeSectionHtml(side,title,subtitle,items,locked){
   const rows=(items||[]).map((raw,index)=>{
     const item=normalizeProductExchangeItem(raw); if(!item) return '';
     const product=products.find(entry=>Number(entry.id)===Number(item.pid));
-    return `<tr data-product-exchange-row="${side}" data-index="${index}"><td class="mono">${escapeHtml(product?.sku||'-')}</td><td class="mono">${escapeHtml(item.barcode||product?.barcode||'-')}</td><td class="product-exchange-name">${escapeHtml(product?.name||item.name||'-')}</td><td><input class="product-exchange-qty" type="number" min="0.01" step="any" value="${item.qty}" ${locked?'disabled':''}></td><td><select class="product-exchange-unit" ${locked?'disabled':''}>${productExchangeUnitOptionsHtml(product,item.unit,locked)}</select></td><td><input class="product-exchange-expiry" type="date" value="${escapeHtml(item.expiry||'')}" ${locked?'disabled':''}></td><td class="mono">${productExchangeItemBaseQty(item)} ${escapeHtml(product?.unit||'')}</td><td>${locked?'':`<button type="button" class="product-exchange-delete" data-product-exchange-remove="${side}:${index}" title="ลบ">⌫</button>`}</td></tr>`;
+    return `<tr data-product-exchange-row="${side}" data-index="${index}"><td class="mono">${escapeHtml(product?.sku||'-')}</td><td class="mono">${escapeHtml(item.barcode||product?.barcode||'-')}</td><td class="product-exchange-name">${escapeHtml(product?.name||item.name||'-')}</td><td><input class="product-exchange-qty" type="number" min="0.01" step="any" value="${item.qty}" ${locked?'disabled':''}></td><td><select class="product-exchange-unit" ${locked?'disabled':''}>${productExchangeUnitOptionsHtml(product,item.unit,locked)}</select></td><td>${side==='incoming'?`<input class="product-exchange-lot" value="${escapeHtml(item.lotNumber||'')}" placeholder="ไม่ระบุ" ${locked?'disabled':''}>`:'<span style="color:var(--text-muted);">ระบบตัด FEFO</span>'}</td><td><input class="product-exchange-expiry" type="text" inputmode="numeric" maxlength="10" placeholder="วว-ดด-ปปปป" value="${escapeHtml(item.expiry?fmtDateShort(item.expiry):'')}" ${locked?'disabled':''}></td><td class="mono">${productExchangeItemBaseQty(item)} ${escapeHtml(product?.unit||'')}</td><td>${locked?'':`<button type="button" class="product-exchange-delete" data-product-exchange-remove="${side}:${index}" title="ลบ">⌫</button>`}</td></tr>`;
   }).join('');
   return `<section class="product-exchange-section ${locked?'product-exchange-locked':''}" data-product-exchange-side="${side}"><div class="product-exchange-section-head"><div><h2>${title}</h2><span>${subtitle}</span></div>${side==='incoming'&&!locked?'<button type="button" class="btn ghost" id="copyExchangeOutgoingBtn">คัดลอกจากสินค้าที่ส่งไป</button>':''}</div>
     ${locked?'':`<div class="product-exchange-scan-wrap"><div class="product-exchange-scan-row"><input id="productExchangeScan_${side}" data-product-exchange-scan="${side}" autocomplete="off" placeholder="ค้นหา / ยิงบาร์โค้ด / รหัสสินค้า"><button type="button" class="btn ghost" data-product-exchange-add-first="${side}">เพิ่มสินค้า</button></div><div class="product-exchange-results" id="productExchangeResults_${side}" hidden></div></div>`}
-    <div class="product-exchange-table-wrap"><table class="grid-table product-exchange-table"><colgroup><col style="width:115px"><col style="width:165px"><col><col style="width:110px"><col style="width:140px"><col style="width:160px"><col style="width:145px"><col style="width:58px"></colgroup><thead><tr><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>สินค้า</th><th>จำนวน</th><th>หน่วย</th><th>วันหมดอายุ</th><th>เทียบหน่วยหลัก</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="8" class="product-exchange-empty">ยังไม่มีสินค้าในรายการ</td></tr>'}</tbody></table></div></section>`;
+    <div class="product-exchange-table-wrap"><table class="grid-table product-exchange-table"><colgroup><col style="width:115px"><col style="width:165px"><col><col style="width:110px"><col style="width:140px"><col style="width:150px"><col style="width:160px"><col style="width:145px"><col style="width:58px"></colgroup><thead><tr><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>สินค้า</th><th>จำนวน</th><th>หน่วย</th><th>เลข Lot</th><th>วันหมดอายุ</th><th>เทียบหน่วยหลัก</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="9" class="product-exchange-empty">ยังไม่มีสินค้าในรายการ</td></tr>'}</tbody></table></div></section>`;
 }
 function productExchangeReconciliationHtml(doc){
   const reconciliation=productExchangeReconciliation(doc);
@@ -4765,6 +4857,57 @@ function buildGroupTree(){
   return {tree, catCounts, brCounts};
 }
 
+function lotQuantityText(product,lot){
+  if(!product) return `${inventoryMovementRound(lot?.quantity_base)} หน่วย`;
+  return stockInLargestUnit({...product,stock:Number(lot?.quantity_base)||0});
+}
+async function openProductLotDetails(productId){
+  const product=products.find(item=>Number(item.id)===Number(productId));
+  if(!product) return;
+  let rows=inventoryLotsForProduct(product.id,activeWarehouseId);
+  try{
+    const {data,error}=await sb.from('inventory_lots').select('id,product_id,warehouse_id,internal_code,manufacturer_lot,expiry_date,quantity_base,unit_cost_base,received_at,source_type,source_id,status,updated_at').eq('product_id',product.id).eq('warehouse_id',Number(activeWarehouseId)).order('received_at',{ascending:false});
+    if(error) throw error;
+    rows=(data||[]).map(normalizeInventoryLotRow);
+  }catch(error){ console.warn('load product lot details',error); }
+  rows.sort((a,b)=>{
+    const activeDiff=(Number(b.quantity_base)>0?1:0)-(Number(a.quantity_base)>0?1:0);
+    if(activeDiff) return activeDiff;
+    return String(a.expiry_date||'9999-12-31').localeCompare(String(b.expiry_date||'9999-12-31'))||Number(a.id)-Number(b.id);
+  });
+  const activeRows=rows.filter(row=>Number(row.quantity_base)>0&&row.status!=='blocked');
+  const total=activeRows.reduce((sum,row)=>sum+Number(row.quantity_base||0),0);
+  const overlay=document.createElement('div'); overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal lot-detail-modal"><div class="modal-head"><div><h3>รายละเอียด Lot</h3><div class="sub">${escapeHtml(product.name)} · ${escapeHtml(activeWarehouse()?.name||'-')}</div></div><button class="modal-close" aria-label="ปิด">×</button></div><div class="lot-detail-body"><div class="lot-detail-summary"><span>คงเหลือรวม ${escapeHtml(stockInLargestUnit({...product,stock:total}))}</span><span>${activeRows.length} Lot ที่มีสินค้า</span><span>หมดอายุใกล้สุด ${escapeHtml(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]?fmtDateShort(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]):'-')}</span></div><div class="seamless-table-wrap"><table class="grid-table doc-head-blue lot-detail-table"><thead><tr><th>รหัส Lot ภายใน</th><th>เลข Lot ผู้ผลิต</th><th>คงเหลือ</th><th>วันหมดอายุ</th><th>ทุน/หน่วยหลัก</th><th>รับเข้าเมื่อ</th><th>สถานะ</th></tr></thead><tbody>${rows.map(row=>{ const status=inventoryLotStatus(row); return `<tr data-lot-row="${row.id}"><td class="mono">${escapeHtml(row.internal_code||'-')}</td><td>${currentProfile?.owner?`<input class="lot-edit-number" value="${escapeHtml(row.manufacturer_lot||'')}" placeholder="ไม่ระบุ">`:escapeHtml(row.manufacturer_lot||'-')}</td><td class="mono">${escapeHtml(lotQuantityText(product,row))}</td><td>${currentProfile?.owner?`<input class="lot-edit-expiry" inputmode="numeric" maxlength="10" value="${escapeHtml(row.expiry_date?fmtDateShort(row.expiry_date):'')}" placeholder="วว-ดด-ปปปป">`:escapeHtml(row.expiry_date?fmtDateShort(row.expiry_date):'-')}</td><td class="mono">${fmtMoney(row.unit_cost_base)}</td><td>${escapeHtml(row.received_at?fmtDateShort(String(row.received_at).slice(0,10)):'-')}</td><td><span class="lot-status ${status.key}">${status.label}</span></td></tr>`; }).join('')||'<tr><td colspan="7" style="padding:28px;color:var(--text-muted);">ยังไม่มี Lot สำหรับสินค้านี้</td></tr>'}</tbody></table></div>${currentProfile?.owner&&rows.length?'<div class="form-bottom-actions" style="justify-content:flex-end;"><button class="btn primary" id="saveLotDetailsBtn">บันทึกข้อมูล Lot</button></div>':''}</div></div>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  overlay.querySelector('.modal-close').onclick=close;
+  overlay.addEventListener('click',event=>{ if(event.target===overlay) close(); });
+  overlay.querySelectorAll('.lot-edit-expiry').forEach(input=>input.addEventListener('input',()=>{ input.value=formatDMYInput(input.value); }));
+  const saveButton=overlay.querySelector('#saveLotDetailsBtn');
+  if(saveButton) saveButton.onclick=async()=>{
+    const changes=[];
+    for(const rowElement of overlay.querySelectorAll('[data-lot-row]')){
+      const lot=rows.find(item=>Number(item.id)===Number(rowElement.dataset.lotRow)); if(!lot) continue;
+      const lotNumber=rowElement.querySelector('.lot-edit-number')?.value.trim()||'';
+      const expiryText=rowElement.querySelector('.lot-edit-expiry')?.value.trim()||'';
+      const expiry=expiryText?dmyToISO(expiryText):'';
+      if(expiryText&&!expiry){ showToast(`วันหมดอายุของ Lot ${lot.internal_code} ไม่ถูกต้อง`,'danger-top'); return; }
+      if(lotNumber!==String(lot.manufacturer_lot||'')||expiry!==String(lot.expiry_date||'')) changes.push({lot,lotNumber,expiry});
+    }
+    if(!changes.length){ close(); return; }
+    saveButton.disabled=true;
+    try{
+      for(const change of changes){
+        const {error}=await sb.rpc('update_inventory_lot_details',{p_lot_id:change.lot.id,p_manufacturer_lot:change.lotNumber||null,p_expiry:change.expiry||null});
+        if(error) throw error;
+      }
+      await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
+      close(); showToast(`บันทึกข้อมูล Lot แล้ว ${changes.length} รายการ`); render();
+    }catch(error){ console.warn('save lot details',error); saveButton.disabled=false; showToast('บันทึกข้อมูล Lot ไม่สำเร็จ','danger-top'); }
+  };
+}
+
 
 function renderProducts(){
   if(editingProductId!==null) return renderProductForm();
@@ -4773,7 +4916,7 @@ function renderProducts(){
   const level2=isLevel2User();
   const canViewCost=!level2;
   const canOpenProductEditor=!level2;
-  const productColumnCount=7+(canViewCost?1:0)+(canOpenProductEditor?1:0);
+  const productColumnCount=8+(canViewCost?1:0)+(canOpenProductEditor?1:0);
 
   // ตารางขวา: กรองตามกลุ่มที่เลือก + คำค้น
   let filtered = (selectedGroup||q) ? products.filter(p=>{
@@ -4850,7 +4993,7 @@ function renderProducts(){
       <div class="searchbar product-list-search"><input id="search" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" value="${searchQuery}"></div>
       <div class="table-pane">
         <div class="table-scroll product-table-scroll">
-        <table class="grid-table doc-head-blue prodtable"><colgroup><col class="col-sku"><col class="col-barcode"><col class="col-name"><col class="col-price">${canViewCost?'<col class="col-cost">':''}<col class="col-unit"><col class="col-stock"><col class="col-expiry">${canOpenProductEditor?'<col class="col-edit">':''}</colgroup><thead><tr>${th('sku','รหัสสินค้า')}<th>บาร์โค้ด</th>${th('name','สินค้า')}${th('price','ขาย','mono num')}${canViewCost?th('cost','ทุน','mono num'):''}<th>หน่วย</th>${th('stock','คงเหลือ','mono num')}${th('expiry','วันหมดอายุ','num')}${canOpenProductEditor?'<th></th>':''}</tr></thead>
+        <table class="grid-table doc-head-blue prodtable"><colgroup><col class="col-sku"><col class="col-barcode"><col class="col-name"><col class="col-price">${canViewCost?'<col class="col-cost">':''}<col class="col-unit"><col class="col-stock"><col class="col-lots"><col class="col-expiry">${canOpenProductEditor?'<col class="col-edit">':''}</colgroup><thead><tr>${th('sku','รหัสสินค้า')}<th>บาร์โค้ด</th>${th('name','สินค้า')}${th('price','ขาย','mono num')}${canViewCost?th('cost','ทุน','mono num'):''}<th>หน่วย</th>${th('stock','คงเหลือ','mono num')}<th>Lot</th>${th('expiry','หมดอายุใกล้สุด','num')}${canOpenProductEditor?'<th></th>':''}</tr></thead>
         <tbody>${pageRows.map(p=>{
           const unitOpts=[{sub:p.unit, price:p.price, cost:p.cost||p.openingCost||0, barcode:p.barcode||''}, ...((p.units||[]).map(u=>({sub:u.sub, price:u.price, cost:u.cost||0, barcode:u.barcode||''})))];
           const selUnit=prodRowUnitSel[p.id]||p.unit;
@@ -4858,10 +5001,9 @@ function renderProducts(){
           const unitSelectHtml = unitOpts.length>1
             ? `<select class="prod-unit-select" data-pid="${p.id}">${unitOpts.map(u=>`<option value="${escapeHtml(u.sub)}" ${u.sub===selOpt.sub?'selected':''}>${escapeHtml(u.sub)}</option>`).join('')}</select>`
             : `<span class="prod-unit-fixed">${escapeHtml(p.unit)}</span>`;
-          const expiryHtml=canOpenProductEditor
-            ? `<input class="prod-inline-edit prod-inline-expiry" data-pid="${p.id}" data-field="expiry" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว-ดด-ปปปป" value="${escapeHtml(p.expiry?fmtDateShort(p.expiry):'')}">`
-            : fmtDateShort(p.expiry);
-          return `<tr><td class="mono" style="text-align:center;"><input class="prod-inline-edit" data-pid="${p.id}" data-field="sku" value="${escapeHtml(p.sku||'')}" placeholder="-"></td><td class="mono" style="text-align:center;">${escapeHtml(selOpt.barcode||'-')}</td><td><input class="prod-inline-edit prod-inline-name" data-pid="${p.id}" data-field="name" value="${escapeHtml(p.name)}"></td><td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="price" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.price}"></td>${canViewCost?`<td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="cost" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.cost}"></td>`:''}<td style="text-align:center;">${unitSelectHtml}</td><td class="num stock-cell ${p.stock<0?'stock-negative':''}" style="text-align:center;" data-act="stockcheck" data-id="${p.id}" title="กดเพื่อดูทุกหน่วย">${stockInLargestUnit(p)} <span class="stock-caret">▾</span></td><td class="mono num ${daysUntil(p.expiry)<0?'expiry-past':''}" style="text-align:center;">${expiryHtml}</td>${canOpenProductEditor?`<td class="num"><button class="icon-btn" data-act="editproduct" data-id="${p.id}" title="แก้ไข" aria-label="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></td>`:''}</tr>`;
+          const lotCount=inventoryLotCount(p.id,activeWarehouseId);
+          const expiryHtml=p.expiry?fmtDateShort(p.expiry):'-';
+          return `<tr><td class="mono" style="text-align:center;"><input class="prod-inline-edit" data-pid="${p.id}" data-field="sku" value="${escapeHtml(p.sku||'')}" placeholder="-"></td><td class="mono" style="text-align:center;">${escapeHtml(selOpt.barcode||'-')}</td><td><input class="prod-inline-edit prod-inline-name" data-pid="${p.id}" data-field="name" value="${escapeHtml(p.name)}"></td><td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="price" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.price}"></td>${canViewCost?`<td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="cost" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.cost}"></td>`:''}<td style="text-align:center;">${unitSelectHtml}</td><td class="num stock-cell ${p.stock<0?'stock-negative':''}" style="text-align:center;" data-act="stockcheck" data-id="${p.id}" title="กดเพื่อดูทุกหน่วย">${stockInLargestUnit(p)} <span class="stock-caret">▾</span></td><td style="text-align:center;"><button class="product-lot-link ${lotCount?'':'empty'}" data-product-lots="${p.id}">${lotCount} Lot ▾</button></td><td class="mono num ${p.expiry&&daysUntil(p.expiry)<0?'expiry-past':''}" style="text-align:center;">${escapeHtml(expiryHtml)}</td>${canOpenProductEditor?`<td class="num"><button class="icon-btn" data-act="editproduct" data-id="${p.id}" title="แก้ไข" aria-label="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></td>`:''}</tr>`;
         }).join('')||`<tr><td colspan="${productColumnCount}" style="text-align:center;color:var(--text-muted);padding:30px;">${q?'ไม่พบสินค้าที่ค้นหา':selectedGroup?'ไม่มีสินค้าในกลุ่มนี้':'กรุณาเลือกกลุ่มสินค้าจากด้านซ้าย หรือค้นหาสินค้าได้ทันที'}</td></tr>`}</tbody></table>
         </div>
         ${pager}
@@ -8181,7 +8323,8 @@ function syncProductExchangeFromDOM(){
     const next=rows.map((row,index)=>normalizeProductExchangeItem({
       ...(source[index]||{}),qty:row.querySelector('.product-exchange-qty')?.value,
       unit:row.querySelector('.product-exchange-unit')?.value,
-      expiry:row.querySelector('.product-exchange-expiry')?.value
+      lotNumber:row.querySelector('.product-exchange-lot')?.value||'',
+      expiry:(()=>{ const text=row.querySelector('.product-exchange-expiry')?.value||''; return text?dmyToISO(text)||text:''; })()
     })).filter(Boolean);
     if(side==='outgoing') draft.outgoingItems=next; else draft.incomingItems=next;
   });
@@ -8254,6 +8397,7 @@ function bindProductExchangeScanners(){
     if(exact) addProductExchangeItem(side,exact.product.id,exact.unit);
     else{ const first=productExchangeSearchMatches(input?.value)[0]; if(first) addProductExchangeItem(side,first.id); else showToast('กรุณาค้นหาหรือยิงบาร์โค้ดสินค้า'); }
   }));
+  document.querySelectorAll('.product-exchange-expiry').forEach(input=>input.addEventListener('input',()=>{ input.value=formatDMYInput(input.value); }));
 }
 function validateProductExchangeDraft(draft,forStatus='ร่าง'){
   if(!draft.supplier){ showToast('กรุณาเลือกผู้จำหน่าย'); return false; }
@@ -8263,7 +8407,7 @@ function validateProductExchangeDraft(draft,forStatus='ร่าง'){
   if(forStatus==='รับสินค้ากลับแล้ว'){
     if(!draft.incomingItems.length){ showToast('กรุณาเพิ่มสินค้าที่ได้รับกลับอย่างน้อย 1 รายการ'); return false; }
     if(draft.incomingItems.some(item=>productExchangeItemBaseQty(item)<=0)){ showToast('จำนวนสินค้าที่รับกลับต้องมากกว่า 0'); return false; }
-    if(draft.incomingItems.some(item=>!item.expiry)){ showToast('กรุณาระบุวันหมดอายุของสินค้าที่ได้รับกลับให้ครบ'); return false; }
+    if(draft.incomingItems.some(item=>!/^\d{4}-\d{2}-\d{2}$/.test(String(item.expiry||'')))){ showToast('กรุณาระบุวันหมดอายุของสินค้าที่ได้รับกลับให้ครบในรูปแบบ วัน-เดือน-ปี'); return false; }
   }
   return true;
 }
@@ -8287,6 +8431,7 @@ async function refreshProductExchangeProducts(doc){
   if(error) throw error;
   (data||[]).map(rowToProduct).forEach(remote=>{ const index=products.findIndex(local=>Number(local.id)===Number(remote.id)); if(index>=0) products[index]=remote; });
   await loadInventoryBalancesFromSupabase();
+  await loadInventoryLotsFromSupabase();
   applyActiveWarehouseInventory();
   seedTableSnapshot('products',products,productMetadataToRow);
 }
@@ -9443,6 +9588,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       });
     });
   });
+  document.querySelectorAll('[data-product-lots]').forEach(button=>button.addEventListener('click',event=>{
+    event.stopPropagation();
+    openProductLotDetails(Number(button.dataset.productLots));
+  }));
   // --- ตัวกรองหน้ารายการงานเคลื่อนไหว ---
   const movementPeriod=document.getElementById('movementPeriod');
   if(movementPeriod) movementPeriod.addEventListener('change',()=>{ inventoryMovementFilter.period=movementPeriod.value; inventoryMovementFilter.page=1; render(); });
@@ -9650,16 +9799,17 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     el.addEventListener('click', ()=>{ const inv=invoicesAR.find(i=>i.id===el.dataset.id); if(inv){inv.paid=true; showToast(`รับชำระ ${inv.id} แล้ว`); render();} });
   });
   document.querySelectorAll('[data-act="receivepo"]').forEach(el=>{
-    el.addEventListener('click', ()=>{
+    el.addEventListener('click', async ()=>{
       const po = purchaseOrders.find(p=>p.id===el.dataset.id);
       if(po){
         po.status='สั่งแล้ว';
         const receivedItems=normalizeGoodsReceiptItems(po.items);
         const warehouseId=goodsReceiptWarehouseId({items:receivedItems});
-        adjustGoodsReceiptStock(receivedItems,1);
-        goodsReceipts.unshift({id:'GR-'+String(++grCounter).padStart(4,'0'), po:po.id, supplier:po.supplier, date:TODAY_STR, warehouseId, items:receivedItems, total:po.total, status:'รับสินค้าแล้ว',stockApplied:true,stockAppliedAt:new Date().toISOString()});
-        showToast(`รับสินค้าตาม ${po.id} เข้าคลังแล้ว`);
-        render();
+        const receipt={id:'GR-'+String(++grCounter).padStart(4,'0'),po:po.id,supplier:po.supplier,date:TODAY_STR,warehouseId,items:receivedItems,total:po.total,status:'รอรับสินค้า',stockApplied:false,stockAppliedAt:''};
+        goodsReceipts.unshift(receipt);
+        persistWorkspaceData();
+        await changeGoodsReceiptStatus(receipt.id,'รับสินค้าแล้ว');
+        if(receipt.stockApplied) showToast(`รับสินค้าตาม ${po.id} เข้าคลังแล้ว`);
       }
     });
   });
@@ -9722,7 +9872,11 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const addPOItemBtn = document.getElementById('addPOItemBtn');
   if(addPOItemBtn) addPOItemBtn.addEventListener('click', ()=>{
     const rows=document.getElementById('poItemRows');
-    const div=document.createElement('tbody'); div.innerHTML=((currentTab==='purchaseorder'||currentTab==='productreturn')?shortageItemRowHtml:poItemRowHtml)({name:'',qty:1,unit:'',price:''}, rows.children.length);
+    const draft=activePurchaseDraft();
+    const rowHtml=currentTab==='productreturn'
+      ? productReturnItemRowHtml({name:'',qty:1,unit:'',price:'',lineId:String(Date.now()),warehouseId:Number(draft?.warehouseId)||0,lotId:null},rows.children.length,draft?.warehouseId,draft?.stockApplied===true)
+      : (currentTab==='purchaseorder'?shortageItemRowHtml:poItemRowHtml)({name:'',qty:1,unit:'',price:''},rows.children.length);
+    const div=document.createElement('tbody'); div.innerHTML=rowHtml;
     rows.appendChild(div.firstElementChild); bindPOItemEvents();
   });
   const poSupplier = document.getElementById('po_supplier');
@@ -10194,12 +10348,12 @@ function addDocumentScannedProduct(productId,unitName){
   const product=products.find(p=>p.id===productId);
   if(!draft||!product) return;
   const unit=unitName||product.unit;
-  const existing=draft.items.find(item=>item.name===product.name && (item.unit||product.unit)===unit);
+  const existing=currentTab==='productreturn'?null:draft.items.find(item=>item.name===product.name && (item.unit||product.unit)===unit);
   if(existing){
     existing.qty=(Number(existing.qty)||0)+1;
   }else{
     const saleUnit=productUnitOptions(product).find(option=>option.name===unit);
-    const item={productId:product.id,name:product.name,qty:1,unit,price:(currentTab==='goodsreceipt'||currentTab==='purchaseorder2'||currentTab==='productreturn')?'':(currentTab==='taxinvoice'||currentTab==='quotation')?(saleUnit?.price??product.price):0,...(currentTab==='goodsreceipt'?{warehouseId:Number(draft.warehouseId)||0}:{})};
+    const item={productId:product.id,name:product.name,qty:1,unit,price:(currentTab==='goodsreceipt'||currentTab==='purchaseorder2'||currentTab==='productreturn')?'':(currentTab==='taxinvoice'||currentTab==='quotation')?(saleUnit?.price??product.price):0,...(currentTab==='goodsreceipt'?{lineId:String(Date.now()),warehouseId:Number(draft.warehouseId)||0}:currentTab==='productreturn'?{lineId:String(Date.now()),warehouseId:Number(draft.warehouseId)||0,lotId:null,lotNumber:'',expiry:''}:{})};
     const blank=draft.items.find(row=>!row.name);
     if(blank) Object.assign(blank,item); else draft.items.push(item);
   }
@@ -10247,8 +10401,10 @@ function bindDocumentProductScanner(){
 
 function bindPOItemEvents(){
   document.querySelectorAll('#poItemRows .po-item-row').forEach(row=>{
-    const unitSel=row.querySelector('.poi_unit'); if(unitSel) unitSel.addEventListener('change', ()=>recalcPORow(row));
+    const unitSel=row.querySelector('.poi_unit'); if(unitSel) unitSel.addEventListener('change', ()=>{ recalcPORow(row); if(currentTab==='productreturn'){ syncPOFromDOM(); render(); } });
     ['.poi_qty','.poi_price'].forEach(sel=>{ const el=row.querySelector(sel); if(el) el.addEventListener('input', ()=>recalcPORow(row)); });
+    const expiry=row.querySelector('.poi_expiry'); if(expiry) expiry.addEventListener('input',()=>{ expiry.value=formatDMYInput(expiry.value); });
+    const returnLot=row.querySelector('.poi_return_lot'); if(returnLot) returnLot.addEventListener('change',()=>{ syncPOFromDOM(); render(); });
     row.querySelector('.poi_del').addEventListener('click', ()=>{ syncPOFromDOM(); if((currentTab==='taxinvoice'||currentTab==='quotation')&&typeof syncTaxInvoiceDraftFromDOM==='function') syncTaxInvoiceDraftFromDOM(); const draft=activePurchaseDraft(); draft.items.splice([...document.querySelectorAll('#poItemRows .po-item-row')].indexOf(row),1); if(draft.items.length===0) draft.items=[{name:'',qty:1,unit:'',price:''}]; render(); });
   });
 }
@@ -10340,7 +10496,7 @@ function syncPOFromDOM(){
   }
   const note=document.getElementById('po_note'); if(note) draft.note=note.value;
   const rows=document.querySelectorAll('#poItemRows .po-item-row');
-  if(rows.length) draft.items=Array.from(rows).map(r=>{
+  if(rows.length) draft.items=Array.from(rows).map((r,index)=>{
     const name=r.querySelector('.poi_name').value;
     const rowProduct=products.find(product=>Number(product.id)===Number(r.dataset.productId));
     const matched=rowProduct?.name===name?rowProduct:documentProductPool().find(product=>product.name===name);
@@ -10349,7 +10505,22 @@ function syncPOFromDOM(){
       qty:parseFloat(r.querySelector('.poi_qty').value)||0,
       unit:r.querySelector('.poi_unit').value.trim(),
       price:r.querySelector('.poi_price')?(r.querySelector('.poi_price').value===''?'':(parseFloat(r.querySelector('.poi_price').value)||0)):0,
-      ...(currentTab==='goodsreceipt'?{warehouseId:Number(draft.warehouseId)||0}:{}),
+      ...(currentTab==='goodsreceipt'?{
+        lineId:String(draft.items?.[index]?.lineId||index+1),
+        warehouseId:Number(draft.warehouseId)||0,
+        lotNumber:r.querySelector('.poi_lot')?.value.trim()||'',
+        expiry:(()=>{ const raw=r.querySelector('.poi_expiry')?.value.trim()||''; return raw?(dmyToISO(raw)||raw):''; })()
+      }:currentTab==='productreturn'?(()=>{
+        const lotSelect=r.querySelector('.poi_return_lot');
+        const selected=lotSelect?.selectedOptions?.[0];
+        return {
+          lineId:String(draft.items?.[index]?.lineId||index+1),
+          warehouseId:Number(draft.warehouseId)||0,
+          lotId:Number(lotSelect?.value)||null,
+          lotNumber:selected?.dataset?.lotNumber||'',
+          expiry:selected?.dataset?.expiry||''
+        };
+      })():{}),
     };
   });
 }
@@ -10362,14 +10533,30 @@ function savePO(silent=false){
   const editingId=docEditingId(kind);
   const list=docList(kind);
   if(!draft.supplier){ showToast(styled?'กรุณาเลือกผู้จำหน่าย':'กรุณาเลือกผู้แทน'); return false; }
-  if(kind==='gr'&&!Number(draft.warehouseId)){ showToast('กรุณาเลือกคลัง / สาขาที่รับสินค้าเข้า'); return false; }
+  if((kind==='gr'||kind==='ret')&&!Number(draft.warehouseId)){ showToast(kind==='gr'?'กรุณาเลือกคลัง / สาขาที่รับสินค้าเข้า':'กรุณาเลือกคลัง / สาขาที่คืนสินค้าออก'); return false; }
   const items=draft.items.filter(it=>it.name && it.qty>0);
   if(items.length===0){ showToast('กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ'); return false; }
   if(items.some(it=>!products.some(p=>p.name===it.name))){ showToast('กรุณาเลือกสินค้าจากผลการค้นหา'); return false; }
+  if(kind==='gr'&&items.some(item=>item.expiry&&!/^\d{4}-\d{2}-\d{2}$/.test(item.expiry))){ showToast('กรุณากรอกวันหมดอายุเป็น วัน-เดือน-ปี เช่น 05-07-2027'); return false; }
+  if(kind==='ret'&&items.some(item=>!Number(item.lotId))){ showToast('กรุณาเลือก Lot ที่คืนให้ครบทุกสินค้า'); return false; }
   const tax=styled?calculatePurchaseTaxSummary(items,draft.discount||0,draft.taxMode||'incl'):calculatePurchaseTaxSummary([],0,'none');
   const old=editingId!=='new'?list.find(x=>x.id===editingId):null;
-  const savedItems=(kind==='gr'||kind==='ret')?normalizeGoodsReceiptItems(items,kind==='gr'?draft.warehouseId:0):items;
-  const rec={ id:draft.id, supplier:draft.supplier, date:draft.date, credit:kind==='ret'?0:(styled?(draft.credit||0):0), dueDate:kind==='ret'?'':(styled?addDaysToDate(draft.date,draft.credit||0):''), items:savedItems, discount:kind==='ret'?0:(styled?(draft.discount||0):0), total:kind==='ret'?0:tax.total, taxMode:kind==='ret'?'none':(styled?(draft.taxMode||'incl'):'none'), taxSummary:kind==='ret'?calculatePurchaseTaxSummary([],0,'none'):(styled?tax:null), supplierTaxInvoiceNo:styled?(draft.supplierTaxInvoiceNo||''):'', supplierTaxInvoiceDate:styled?(draft.supplierTaxInvoiceDate||''):'', businessSnapshot:old?.businessSnapshot||JSON.parse(JSON.stringify(businessSettings)), note:draft.note||'', status:old?.status||docDefaultStatus(kind), ...(kind==='gr'?{warehouseId:Number(draft.warehouseId),stockApplied:old?.stockApplied===true,stockAppliedAt:old?.stockAppliedAt||''}:kind==='ret'?{stockApplied:old?.stockApplied===true}:{}) };
+  const savedItems=(kind==='gr'||kind==='ret')?normalizeGoodsReceiptItems(items,draft.warehouseId):items;
+  if(kind==='gr'&&old?.stockApplied===true){
+    const stockShape=value=>(value||[]).map(item=>({productId:Number(item.productId)||0,qty:Number(item.qty)||0,unit:item.unit||'',stockFactor:Number(item.stockFactor)||1,lotNumber:item.lotNumber||'',expiry:item.expiry||''}));
+    if(Number(old.warehouseId)!==Number(draft.warehouseId)||JSON.stringify(stockShape(old.items))!==JSON.stringify(stockShape(savedItems))){
+      showToast('ใบรับสินค้านี้ลงสต๊อกแล้ว จึงแก้สินค้า จำนวน หน่วย หรือ Lot ไม่ได้');
+      return false;
+    }
+  }
+  if(kind==='ret'&&old?.stockApplied===true){
+    const stockShape=value=>(value||[]).map(item=>({productId:Number(item.productId)||0,qty:Number(item.qty)||0,unit:item.unit||'',stockFactor:Number(item.stockFactor)||1,lotId:Number(item.lotId)||0}));
+    if(Number(old.warehouseId)!==Number(draft.warehouseId)||JSON.stringify(stockShape(old.items))!==JSON.stringify(stockShape(savedItems))){
+      showToast('ใบคืนสินค้านี้ตัดสต๊อกแล้ว จึงแก้สินค้า จำนวน หน่วย หรือ Lot ไม่ได้');
+      return false;
+    }
+  }
+  const rec={ id:draft.id, supplier:draft.supplier, date:draft.date, credit:kind==='ret'?0:(styled?(draft.credit||0):0), dueDate:kind==='ret'?'':(styled?addDaysToDate(draft.date,draft.credit||0):''), items:savedItems, discount:kind==='ret'?0:(styled?(draft.discount||0):0), total:kind==='ret'?0:tax.total, taxMode:kind==='ret'?'none':(styled?(draft.taxMode||'incl'):'none'), taxSummary:kind==='ret'?calculatePurchaseTaxSummary([],0,'none'):(styled?tax:null), supplierTaxInvoiceNo:styled?(draft.supplierTaxInvoiceNo||''):'', supplierTaxInvoiceDate:styled?(draft.supplierTaxInvoiceDate||''):'', businessSnapshot:old?.businessSnapshot||JSON.parse(JSON.stringify(businessSettings)), note:draft.note||'', status:old?.status||docDefaultStatus(kind), ...(kind==='gr'?{warehouseId:Number(draft.warehouseId),stockApplied:old?.stockApplied===true,stockAppliedAt:old?.stockAppliedAt||''}:kind==='ret'?{warehouseId:Number(draft.warehouseId),stockApplied:old?.stockApplied===true,stockAppliedAt:old?.stockAppliedAt||''}:{}) };
   if(editingId==='new'){
     list.unshift(rec);
     if(kind==='gr'){ grCounter++; }
@@ -10378,16 +10565,6 @@ function savePO(silent=false){
   } else {
     const idx=list.findIndex(x=>x.id===editingId);
     if(idx>-1){
-      if(kind==='gr'){
-        if(old?.stockApplied===true){
-          adjustGoodsReceiptStock(old.items,-1);
-          adjustGoodsReceiptStock(savedItems,1);
-        }
-      }
-      if(kind==='ret'&&old?.stockApplied===true){
-        adjustGoodsReceiptStock(old.items,1);
-        adjustGoodsReceiptStock(savedItems,-1);
-      }
       list[idx]=rec;
     }
   }
@@ -10422,9 +10599,11 @@ function handleDocumentAction(kind,id,action){
       copy.stockAppliedAt='';
     }
     if(kind==='ret'){
-      copy.items=normalizeGoodsReceiptItems(copy.items);
+      copy.items=normalizeGoodsReceiptItems(copy.items,copy.warehouseId).map((item,index)=>({...item,lineId:String(index+1),lotId:null,lotNumber:'',expiry:''}));
       copy.status='รอรับคืน';
       copy.stockApplied=false;
+      copy.stockAppliedAt='';
+      copy.lotAppliedAt='';
     }
     list.unshift(copy); persistWorkspaceData(); showToast(`สร้างซ้ำเป็น ${copy.id} แล้ว`); render(); return;
   }
@@ -11953,7 +12132,7 @@ function openSaleHistoryDetail(id){
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:760px;max-height:92vh;"><div class="modal-head"><h3>รายละเอียดการขาย ${sale.ref||sale.id}</h3><button class="modal-close">×</button></div>
     <div class="sale-detail-meta"><div><small>วันที่ / เวลา</small><b>${fmtDate(sale.date)} · ${(sale.time||'').slice(11)||'-'}</b></div><div><small>พนักงานขาย</small><b>${sale.cashier||'-'}</b></div><div><small>ลูกค้า / สมาชิก</small><b>${sale.member||sale.name||'ลูกค้าทั่วไป'}</b></div><div><small>วิธีชำระ</small><b>${sale.payMethod||'-'}</b></div></div>
-    <div class="sale-detail-table"><table class="grid-table"><thead><tr><th>ลำดับ</th><th>สินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคา/หน่วย</th><th class="mono">รวม</th></tr></thead><tbody>${(sale.items||[]).map((item,index)=>`<tr><td>${index+1}</td><td>${item.name}</td><td class="mono num">${item.qty}</td><td>${item.unit||'-'}</td><td class="mono num">${fmtMoney(item.price)}</td><td class="mono num">${fmtMoney(item.lineTotalGross!==undefined?item.lineTotalGross:item.qty*item.price)}</td></tr>`).join('')}</tbody></table></div>
+    <div class="sale-detail-table"><table class="grid-table"><thead><tr><th>ลำดับ</th><th>สินค้า / Lot</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคา/หน่วย</th><th class="mono">รวม</th></tr></thead><tbody>${(sale.items||[]).map((item,index)=>{ const lots=(item.lotAllocations||[]).map(allocation=>`${escapeHtml(allocation.lotNumber||allocation.internalCode||'-')} · ${escapeHtml(allocation.expiry?fmtDateShort(allocation.expiry):'ไม่ระบุวันหมดอายุ')} · ${escapeHtml(inventoryMovementRound(allocation.baseQty))} หน่วยหลัก`).join('<br>'); return `<tr><td>${index+1}</td><td>${escapeHtml(item.name)}${lots?`<small style="display:block;color:var(--text-muted);margin-top:4px;">Lot: ${lots}</small>`:''}</td><td class="mono num">${item.qty}</td><td>${escapeHtml(item.unit||'-')}</td><td class="mono num">${fmtMoney(item.price)}</td><td class="mono num">${fmtMoney(item.lineTotalGross!==undefined?item.lineTotalGross:item.qty*item.price)}</td></tr>`; }).join('')}</tbody></table></div>
     <div class="sale-detail-summary"><div><span>รวมสินค้า</span><b>${fmtMoney(subtotal)} บาท</b></div>${sale.discount?`<div><span>ส่วนลด</span><b>- ${fmtMoney(sale.discount)} บาท</b></div>`:''}${sale.fee?`<div><span>ค่าธรรมเนียม</span><b>${fmtMoney(sale.fee)} บาท</b></div>`:''}<div class="grand"><span>ยอดสุทธิ</span><b>${fmtMoney(sale.total)} บาท</b></div>${sale.cashReceived?`<div><span>รับเงิน</span><b>${fmtMoney(sale.cashReceived)} บาท</b></div><div><span>เงินทอน</span><b>${fmtMoney(sale.cashChange||0)} บาท</b></div>`:''}</div>
     <div class="history-doc-panel"><h4>ออกเอกสารย้อนหลัง</h4><p>${canIssue?'ใช้ข้อมูลและวันที่ขายเดิม การพิมพ์เอกสารจะไม่ตัดสต็อกหรือเพิ่มยอดขายซ้ำ':'ออกเอกสารได้เฉพาะรายการที่ชำระเงินเรียบร้อยแล้ว'}</p><div class="history-doc-buttons"><button id="historyShortReceiptBtn" ${canIssue?'':'disabled'}>🧾 ใบเสร็จอย่างย่อ</button><button id="historyTaxInvoiceBtn" ${canIssueTax?'':'disabled'}>${sale.fullTaxInvoice?'📄 เปิดใบกำกับภาษี':'📄 ออกใบกำกับภาษีย้อนหลัง'}</button></div></div>
     <div class="payment-actions"><button class="btn ghost" id="closeSaleDetailBtn">ปิด</button>${isLevel2User()?'':`<button class="btn" id="deleteSaleDetailBtn" style="background:var(--danger);color:#fff;">ลบประวัตินี้</button>`}</div></div>`;
@@ -12819,22 +12998,41 @@ function printShortReceipt(saleId,pdfMode=false,historical=false){
   setTimeout(()=>win.print(),350);
 }
 
-function doCheckout(payMethod,options={}){
+async function doCheckout(payMethod,options={}){
   if(cart.length===0) return;
   const promoResult=applyPromotions(cart);
   const vatRegistered=isBusinessVatRegistered();
   const items=[];
   cart.forEach((l,idx)=>{
     const p=products.find(x=>x.id===l.pid);
-    if(p){ const delta=-(l.qty*(l.factor||1)); p.stock+=delta; adjustProductStockOnSupabase(p.id,delta,activeWarehouseId); }
     const unitCost=l.custom?(Number(l.price)||0):(l.cost!==undefined&&l.cost!==''?Number(l.cost)||0:productUnitCost(p,l.unit,l.factor));
     const promoLine=promoResult.lines[idx];
     const lineTotal=promoLine.promoId?promoLine.promoLineTotal:l.price*l.qty;
     const vatMode=l.custom?(vatRegistered?'incl':'none'):effectiveProductVatMode(p);
     const lineTotalGross=grossAmountForVatMode(lineTotal,vatMode,vatRegistered);
-    items.push({productId:l.pid||null,warehouseId:Number(activeWarehouseId)||null,name:l.name,qty:l.qty,price:Number(l.price)||0,cost:unitCost,costTotal:unitCost*Number(l.qty||0),unit:l.unit,factor:l.factor||0,custom:!!l.custom,
+    items.push({lineKey:String(idx+1),productId:l.pid||null,warehouseId:Number(activeWarehouseId)||null,name:l.name,qty:l.qty,baseQty:(Number(l.qty)||0)*(Number(l.factor)||1),price:Number(l.price)||0,cost:unitCost,costTotal:unitCost*Number(l.qty||0),unit:l.unit,factor:l.factor||0,custom:!!l.custom,
       promoId:promoLine.promoId||null,promoName:promoLine.promoName||'',lineTotal,lineTotalGross,vatMode,promoFreeQty:promoLine.promoFreeQty||0});
   });
+  const completedSaleId='INV-'+invoiceCounter;
+  try{
+    const {data,error}=await sb.rpc('post_sale_inventory_lots',{p_sale_id:completedSaleId,p_warehouse_id:Number(activeWarehouseId),p_items:items.map(item=>({lineKey:item.lineKey,productId:item.productId,qty:item.qty,factor:item.factor||1,baseQty:item.baseQty,custom:item.custom}))});
+    if(error) throw error;
+    const allocations=Array.isArray(data?.allocations)?data.allocations:[];
+    items.forEach(item=>{
+      if(item.custom) return;
+      item.lotAllocations=allocations.filter(allocation=>String(allocation.lineKey)===String(item.lineKey));
+      if(item.lotAllocations.length){
+        item.costTotal=item.lotAllocations.reduce((sum,allocation)=>sum+(Number(allocation.baseQty)||0)*(Number(allocation.unitCostBase)||0),0);
+        item.cost=Number(item.qty)>0?item.costTotal/Number(item.qty):0;
+      }
+    });
+    await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
+  }catch(error){
+    console.warn('post sale inventory lots',error);
+    const message=String(error?.message||'');
+    showToast(message.includes('non-expired')?'สต๊อก Lot ที่ยังไม่หมดอายุมีไม่เพียงพอ กรุณาตรวจ Lot สินค้า':'ตัดสต๊อกตาม Lot ไม่สำเร็จ กรุณาลองใหม่','danger-top');
+    return;
+  }
   const itemTaxSummary=calculateSaleTaxSummary(items.map(item=>({amount:item.lineTotal,vatMode:item.vatMode})),saleDiscount,vatRegistered);
   const fee = Math.max(0,Number(options.fee)||0);
   const feeTaxSummary=calculateSaleTaxSummary(fee?[{amount:fee,vatMode:vatRegistered?'incl':'none'}]:[],0,vatRegistered);
@@ -12843,7 +13041,16 @@ function doCheckout(payMethod,options={}){
   const discount=taxSummary.discount;
   const costTotal=items.reduce((sum,item)=>sum+(Number(item.costTotal)||0),0);
   const grand=taxSummary.total;
-  const completedSale={id:'INV-'+(invoiceCounter++),ref:saleRef,date:TODAY_STR,time:TODAY_STR+' '+nowTimeStr(),warehouseId:Number(activeWarehouseId)||null,warehouseName:activeWarehouse()?.name||'',cashier:loggedInUser()?.firstName||employees[0],member:saleMember,status:'done',payMethod:payMethod||'เงินสด',items,discount,vat:taxSummary.vat,vatRegistered,taxSummary,businessSnapshot:JSON.parse(JSON.stringify(businessSettings)),fee,costTotal,grossProfit:roundMoney(taxSummary.beforeVat-costTotal),cashReceived:options.cashReceived||0,cashChange:options.cashChange||0,total:grand};
+  const completedSale={id:completedSaleId,ref:saleRef,date:TODAY_STR,time:TODAY_STR+' '+nowTimeStr(),warehouseId:Number(activeWarehouseId)||null,warehouseName:activeWarehouse()?.name||'',cashier:loggedInUser()?.firstName||employees[0],member:saleMember,status:'done',payMethod:payMethod||'เงินสด',items,discount,vat:taxSummary.vat,vatRegistered,taxSummary,businessSnapshot:JSON.parse(JSON.stringify(businessSettings)),fee,costTotal,grossProfit:roundMoney(taxSummary.beforeVat-costTotal),cashReceived:options.cashReceived||0,cashChange:options.cashChange||0,total:grand};
+  try{
+    const {error}=await sb.from('sales').upsert(saleToRow(completedSale));
+    if(error) throw error;
+  }catch(error){
+    console.warn('save completed sale',error);
+    showToast('บันทึกบิลยังไม่สำเร็จ สต๊อก Lot ถูกพักไว้แล้ว กรุณากดชำระซ้ำเพื่อบันทึกบิลเดิมโดยไม่ตัดสต๊อกเพิ่ม','danger-top');
+    return;
+  }
+  invoiceCounter++;
   salesHistory.unshift(completedSale);
   persistSalesHistory();
   cart = []; saleDiscount = 0; saleMember = null; pendingQty = 1;
