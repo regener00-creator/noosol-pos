@@ -16,11 +16,38 @@ function getServiceKey(): string {
   return (dict.default || Object.values(dict)[0]) as string
 }
 
+function getPublicKey(): string {
+  return Deno.env.get('SUPABASE_ANON_KEY') || Deno.env.get('SUPABASE_PUBLISHABLE_KEY') || ''
+}
+
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
+}
+
+async function verifyCurrentPassword(url: string, email: string, password: string) {
+  const publicKey = getPublicKey()
+  if (!publicKey) return false
+  const verifier = createClient(url, publicKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  })
+  const { data, error } = await verifier.auth.signInWithPassword({ email, password })
+  if (!error) await verifier.auth.signOut({ scope: 'local' })
+  return !error && !!data.user
+}
+
+async function listAllAuthUsers(admin: ReturnType<typeof createClient>) {
+  const users: Array<{ id: string }> = []
+  for (let page = 1; page <= 1000; page += 1) {
+    const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 })
+    if (error) throw error
+    const batch = (data.users || []).map((user) => ({ id: user.id }))
+    users.push(...batch)
+    if (batch.length < 1000) break
+  }
+  return users
 }
 
 Deno.serve(async (req) => {
@@ -59,10 +86,61 @@ Deno.serve(async (req) => {
     // Everything below is owner-only.
     const { data: callerProfile } = await admin
       .from('profiles')
-      .select('owner')
+      .select('owner, level, username')
       .eq('id', caller.id)
       .single()
-    if (!callerProfile?.owner) return json({ error: 'forbidden: owner only' }, 403)
+    if (!callerProfile?.owner || Number(callerProfile.level) !== 1) return json({ error: 'forbidden: owner only' }, 403)
+
+    if (action === 'reset-store') {
+      const mode = String(body.mode || '').trim().toLowerCase()
+      const password = String(body.password || '')
+      const phrase = String(body.phrase || '').trim()
+      const expectedPhrase = mode === 'factory' ? 'คืนค่าโรงงาน' : 'ล้างเอกสารและสต๊อก'
+      if (!['documents', 'factory'].includes(mode)) return json({ error: 'รูปแบบการรีเซ็ตไม่ถูกต้อง' }, 400)
+      if (phrase !== expectedPhrase) return json({ error: `กรุณาพิมพ์ “${expectedPhrase}” ให้ถูกต้อง` }, 400)
+      if (!password || !caller.email || !(await verifyCurrentPassword(url, caller.email, password))) {
+        return json({ error: 'รหัสผ่านเจ้าของร้านไม่ถูกต้อง' }, 403)
+      }
+
+      let bootstrapToken = ''
+      if (mode === 'factory') {
+        bootstrapToken = `${crypto.randomUUID()}${crypto.randomUUID()}`
+        const { error: bootstrapError } = await admin.rpc('admin_prepare_owner_bootstrap_token', {
+          p_actor_id: caller.id,
+          p_token: bootstrapToken,
+        })
+        if (bootstrapError) return json({ error: bootstrapError.message }, 400)
+      }
+
+      const confirmation = mode === 'factory' ? 'CONFIRM_FACTORY_RESET' : 'CONFIRM_DOCUMENT_RESET'
+      const { data: resetResult, error: resetError } = await admin.rpc('admin_reset_store_data', {
+        p_mode: mode,
+        p_actor_id: caller.id,
+        p_confirmation: confirmation,
+      })
+      if (resetError) return json({ error: resetError.message }, 400)
+
+      if (mode === 'factory') {
+        const authUsers = await listAllAuthUsers(admin)
+        const ordered = [...authUsers.filter((user) => user.id !== caller.id), ...authUsers.filter((user) => user.id === caller.id)]
+        const failed: string[] = []
+        for (const user of ordered) {
+          let deleted = false
+          for (let attempt = 0; attempt < 2 && !deleted; attempt += 1) {
+            const { error } = await admin.auth.admin.deleteUser(user.id)
+            if (!error) deleted = true
+          }
+          if (!deleted) failed.push(user.id)
+        }
+        return json({
+          ok: true,
+          reset: { ...(resetResult || {}), bootstrapToken },
+          ...(failed.length ? { warning: 'ล้างข้อมูลแล้ว แต่ลบบัญชีผู้ใช้งานเดิมบางส่วนไม่สำเร็จ บัญชีเหล่านั้นไม่มีสิทธิ์เข้าถึงข้อมูลร้านแล้ว' } : {}),
+        })
+      }
+
+      return json({ ok: true, reset: resetResult })
+    }
 
     if (action === 'list') {
       const { data, error } = await admin

@@ -976,6 +976,22 @@
   .backup-summary-item span{font-size:12px;color:var(--text-muted);}
   .backup-note{margin-top:18px;padding:14px 16px;border-radius:10px;background:#EEF7FC;color:#416173;line-height:1.65;}
   .backup-warning{background:#FFF8EC;color:#7A5A24;}
+  .store-maintenance-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:16px;}
+  .store-maintenance-card{border:1px solid #E6D7D4;border-radius:14px;background:#FFFDFC;padding:18px;display:flex;flex-direction:column;gap:10px;}
+  .store-maintenance-card h3{margin:0;font-size:17px;color:#7C332D;}
+  .store-maintenance-card p{margin:0;color:var(--text-muted);line-height:1.6;}
+  .store-maintenance-card .btn{align-self:flex-start;margin-top:auto;}
+  .store-reset-overlay{position:fixed;inset:0;z-index:10020;display:flex;align-items:center;justify-content:center;padding:20px;background:#17212BCC;}
+  .store-reset-dialog{width:min(560px,100%);max-height:calc(100vh - 40px);overflow:auto;border-radius:18px;background:#fff;padding:24px;box-shadow:0 24px 80px #0006;}
+  .store-reset-dialog h2{margin:0 0 8px;color:#7C332D;font-size:22px;}
+  .store-reset-dialog>p{margin:0 0 16px;color:var(--text-muted);line-height:1.65;}
+  .store-reset-impact{margin:0 0 16px;padding:12px 14px;border-radius:10px;background:#FFF3F1;color:#7C332D;line-height:1.65;}
+  .store-reset-field{display:block;margin-top:14px;font-size:13px;font-weight:600;}
+  .store-reset-field input{display:block;width:100%;height:44px;margin-top:6px;border:1px solid #D8E0E8;border-radius:9px;padding:0 12px;font:14px 'Sarabun',sans-serif;}
+  .store-reset-confirm{display:flex;align-items:flex-start;gap:9px;margin-top:16px;color:#5F4A47;font-size:13px;line-height:1.5;}
+  .store-reset-confirm input{margin-top:3px;}
+  .store-reset-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:22px;}
+  @media(max-width:760px){.store-maintenance-grid{grid-template-columns:1fr}.store-reset-dialog{padding:20px}.store-reset-actions{flex-direction:column-reverse}.store-reset-actions .btn{width:100%;}}
   .settings-radio{display:flex;align-items:center;gap:24px;padding-top:8px;flex-wrap:wrap;}
   .settings-radio-inline label{white-space:nowrap;}
   .settings-radio label{display:flex;gap:7px;align-items:center;cursor:pointer;}
@@ -1932,6 +1948,10 @@ const DOC_TABLES = [
 ];
 async function syncCoreDataToSupabase(){
   if(!currentProfile) return;
+  if(await adoptRemoteMaintenanceEpoch()){
+    await loadCoreDataFromSupabase(); await loadSalesHistoryFromSupabase(); await loadInspectionListsFromSupabase(); await loadPromotionsFromSupabase(); await loadFavoritesFromSupabase();
+    render(); return;
+  }
   if(coreSyncInFlight){ coreSyncPending=true; return; }
   coreSyncInFlight=true;
   do{
@@ -2128,6 +2148,7 @@ async function loadFavoritesFromSupabase(){
 
 async function loadCoreDataFromSupabase(){
   try{
+    await adoptRemoteMaintenanceEpoch();
     const [{data:whRows,error:whErr},{data:prodRows,error:prodErr},{data:contactRows,error:contactErr},{data:repRows,error:repErr},{data:accessRows,error:accessErr},{data:balanceRows,error:balanceErr},{data:lotRows,error:lotErr}]=await Promise.all([
       fetchAllRows(()=>sb.from('warehouses').select('*').order('id')),
       loadProductRowsFromSupabase(),
@@ -2217,6 +2238,10 @@ function rowToSale(row){
 let salesSyncInFlight=false, salesSyncPending=false;
 async function syncSalesHistoryToSupabase(){
   if(!currentProfile) return;
+  if(await adoptRemoteMaintenanceEpoch()){
+    await loadCoreDataFromSupabase(); await loadSalesHistoryFromSupabase(); await loadInspectionListsFromSupabase(); await loadPromotionsFromSupabase(); await loadFavoritesFromSupabase();
+    render(); return;
+  }
   if(salesSyncInFlight){ salesSyncPending=true; return; }
   salesSyncInFlight=true;
   do{
@@ -2965,14 +2990,14 @@ let openDocMenu = null;
 let documentSort = {po:{key:'date',dir:-1},gr:{key:'date',dir:-1},po2:{key:'date',dir:-1},ret:{key:'date',dir:-1},exchange:{key:'date',dir:-1}};
 // ข้อมูลร้าน (หัวเอกสาร)
 const STORE_INFO = {
-  name: 'ร้านยาสุขภาพดี',
+  name: '',
   branch: 'สำนักงานใหญ่',
-  address: '6/185 หมู่บ้านกมลนิเวศน์ 7, ซอยพระยาสุเรนทร์ 33, แขวงบางชัน เขตคลองสามวา, กรุงเทพฯ 10510',
-  taxId: '1101401904235',
-  phone: '099-298-9693',
-  website: 'www.noosol.com',
+  address: '',
+  taxId: '',
+  phone: '',
+  website: '',
 };
-let businessSettings={type:'บริษัท',vat:'ยังไม่จดภาษีมูลค่าเพิ่ม',vatRegistrationDate:'',name:'MADE MY',address:STORE_INFO.address,taxId:STORE_INFO.taxId,branch:'head',branchCode:'',branchName:'',officePhone:'',mobile:STORE_INFO.phone,fax:'',website:STORE_INFO.website,english:false};
+let businessSettings={type:'บุคคลธรรมดา',vat:'ยังไม่จดภาษีมูลค่าเพิ่ม',vatRegistrationDate:'',name:'',address:'',taxId:'',branch:'head',branchCode:'',branchName:'',officePhone:'',mobile:'',fax:'',website:'',english:false};
 // เดิมมีการตั้งค่าสินค้าใกล้หมดระดับร้าน (เปิด/ปิด + ค่าเริ่มต้น) แต่ไม่เคยมีหน้าจอให้แก้ไขค่านี้จริง
 // (ฟังก์ชันบันทึกไม่เคยถูกเรียกใช้เลย) จึงเอาออกตามที่ขอ เหลือแค่ค่าคงที่ไว้ใช้เป็นค่าเริ่มต้น
 // ให้สินค้าใหม่ + fallback ของการแจ้งเตือนต่อสินค้า (ซึ่งยังตั้งค่าแยกรายตัวได้ในหน้าแก้ไขสินค้าเหมือนเดิม)
@@ -2985,6 +3010,7 @@ let addingSystemUser=false;
 let editingSystemUserId=null;
 let currentProfile=null; // Supabase Auth profile of the signed-in user, mapped by mapProfileRow()
 let systemHasOwner=null; // null=unknown yet, true/false once checked via has_any_owner()
+let storeResetMode=null;
 let addingWarehouse=false;
 let editingWarehouseId=null;
 let editingTransferId=null; // null=หน้ารายการ, 'new'=สร้างใหม่, ค่าอื่น=แก้ไขเอกสารเดิม
@@ -2998,6 +3024,9 @@ const STORE_BACKUP_LAST_KEY='pepos_store_backup_last_v1';
 const STORE_BACKUP_FORMAT='pepos-pharmacy-store-backup';
 const STORE_BACKUP_VERSION=2;
 const PENDING_CHECKOUT_REQUEST_KEY='pepos_pending_checkout_request_v1';
+const MAINTENANCE_EPOCH_STORAGE_KEY='pepos_maintenance_epoch_v1';
+const OWNER_BOOTSTRAP_TOKEN_STORAGE_KEY='pepos_owner_bootstrap_token_v1';
+let maintenanceEpoch=localStorage.getItem(MAINTENANCE_EPOCH_STORAGE_KEY)||'';
 let workspacePersistTimer=null;
 let lastPersistedWorkspaceJson=localStorage.getItem(WORKSPACE_STORAGE_KEY)||'';
 function cloudClean(value){
@@ -3017,6 +3046,36 @@ function checkoutRequestId(){
 }
 function clearCheckoutRequestId(){
   try{ sessionStorage.removeItem(PENDING_CHECKOUT_REQUEST_KEY); }catch(error){}
+}
+function clearLocalStoreCachesForReset(){
+  try{
+    Object.keys(localStorage).filter(key=>key.startsWith('pharmacy_pos_')||key.startsWith('pepos_')||key.startsWith('pos2_')).forEach(key=>localStorage.removeItem(key));
+    Object.keys(sessionStorage).filter(key=>key.startsWith('pepos_')||key.startsWith('pharmacy_pos_')).forEach(key=>sessionStorage.removeItem(key));
+  }catch(error){ console.warn('ล้างแคชหลังรีเซ็ตไม่สำเร็จ',error); }
+  lastPersistedWorkspaceJson='';
+}
+function clearRemoteResetSensitiveMemory(){
+  salesHistory=[]; quotations=[]; invoicesAR=[]; creditNotes=[]; purchaseOrders=[]; goodsReceipts=[]; productExchanges=[]; purchaseOrdersFull=[]; productReturns=[]; transfers=[]; standaloneTaxInvoices=[];
+  inspectionLists=[]; promotions=[]; favorites=[]; cart=[]; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); inventoryLotRows=[];
+  documentPrefixes={...DEFAULT_DOCUMENT_PREFIXES};
+  businessSettings={type:'บุคคลธรรมดา',vat:'ยังไม่จดภาษีมูลค่าเพิ่ม',vatRegistrationDate:'',name:'',address:'',taxId:'',branch:'head',branchCode:'',branchName:'',officePhone:'',mobile:'',fax:'',website:'',english:false};
+}
+async function adoptRemoteMaintenanceEpoch(){
+  if(!currentProfile) return false;
+  try{
+    const {data,error}=await sb.from('settings').select('value').eq('key','maintenance_epoch').maybeSingle();
+    if(error) throw error;
+    const remoteEpoch=String(data?.value?.epoch||'');
+    if(!remoteEpoch||remoteEpoch===maintenanceEpoch) return false;
+    clearLocalStoreCachesForReset();
+    clearRemoteResetSensitiveMemory();
+    maintenanceEpoch=remoteEpoch;
+    localStorage.setItem(MAINTENANCE_EPOCH_STORAGE_KEY,remoteEpoch);
+    return true;
+  }catch(error){
+    console.warn('ตรวจรุ่นข้อมูลหลังรีเซ็ตไม่สำเร็จ',error);
+    return false;
+  }
 }
 function normalizeInspectionLists(value){
   if(!Array.isArray(value)) return [];
@@ -3179,7 +3238,10 @@ async function createInitialOwner(event){
   const submitBtn=document.querySelector('#ownerSetupForm button[type="submit"]');
   if(submitBtn) submitBtn.disabled=true;
   try{
-    await callEdgeFunction('bootstrap-owner',{username,password,firstName,phone});
+    const setupToken=localStorage.getItem(OWNER_BOOTSTRAP_TOKEN_STORAGE_KEY)||'';
+    if(!setupToken) throw new Error('เครื่องนี้ไม่มีกุญแจตั้งค่าเจ้าของร้าน กรุณาคืนค่าโรงงานจากเครื่องเจ้าของร้านอีกครั้ง');
+    await callEdgeFunction('bootstrap-owner',{username,password,firstName,phone,setupToken});
+    localStorage.removeItem(OWNER_BOOTSTRAP_TOKEN_STORAGE_KEY);
   }catch(e){
     if(submitBtn) submitBtn.disabled=false;
     return fail(e.message||'สร้างบัญชีเจ้าของร้านไม่สำเร็จ','setupOwnerId');
@@ -8381,6 +8443,8 @@ function renderSystemSettings(){
       <div class="settings-actions"><button class="btn primary" id="saveDocumentPrefixesBtn">บันทึกรหัสนำหน้าเอกสาร</button></div>
     </div>
     ${renderStoreBackupSection()}
+    ${renderStoreMaintenanceSection()}
+    ${renderStoreResetDialog()}
     </div>`;
 }
 
@@ -8509,6 +8573,46 @@ function render(){
   syncTopbarFormActions();
   renderLoginState();
   if(currentTab==='mobiletools'&&mobileToolMode==='price'&&!mobileCameraSession) setTimeout(()=>document.getElementById('mobilePriceInput')?.focus(),60);
+}
+
+function storeResetConfig(mode=storeResetMode){
+  if(mode==='factory') return {
+    title:'คืนค่าโรงงาน',phrase:'คืนค่าโรงงาน',button:'ยืนยันคืนค่าโรงงาน',
+    description:'ล้างข้อมูลร้าน สินค้า เอกสาร สต๊อก LOT การตั้งค่า และบัญชีผู้ใช้งานทั้งหมด',
+    impact:'เมื่อเสร็จแล้วโปรแกรมจะออกจากระบบ และกลับไปหน้าสร้าง ID เจ้าของร้านคนแรกใหม่'
+  };
+  return {
+    title:'ล้างเอกสารและสต๊อก',phrase:'ล้างเอกสารและสต๊อก',button:'ยืนยันล้างเอกสารและสต๊อก',
+    description:'ล้างบิล เอกสาร ประวัติการเคลื่อนไหว LOT และยอดคงเหลือทั้งหมด',
+    impact:'รายการสินค้า ลูกค้า ผู้ใช้งาน คลัง โปรโมชั่น และการตั้งค่าร้านจะยังอยู่ โดยสต๊อกสินค้าทุกคลังจะเป็นศูนย์'
+  };
+}
+
+function renderStoreMaintenanceSection(){
+  if(loggedInUser()?.owner!==true) return '';
+  return `<div class="settings-section"><h2>บำรุงรักษาและรีเซ็ตข้อมูล</h2><div class="hint">ใช้เมื่อต้องการเริ่มเอกสารใหม่หรือเตรียมโปรแกรมสำหรับร้านใหม่ การทำรายการนี้ไม่สามารถย้อนกลับได้หากไม่มีไฟล์สำรอง</div>
+    <div class="store-maintenance-grid">
+      <div class="store-maintenance-card"><h3>ล้างเอกสารและสต๊อก</h3><p>เก็บข้อมูลสินค้า ลูกค้า คลัง ผู้ใช้งาน โปรโมชั่น และการตั้งค่าร้านไว้ แต่ล้างเอกสาร LOT และสต๊อกทั้งหมด</p><button class="btn reset-keep-products" id="openDocumentResetBtn" type="button">ล้างเอกสารและสต๊อก</button></div>
+      <div class="store-maintenance-card"><h3>คืนค่าโรงงาน</h3><p>ล้างข้อมูลและผู้ใช้งานทั้งหมด หลังจากนั้นโปรแกรมจะให้สร้าง ID เจ้าของร้านคนแรกใหม่</p><button class="btn reset-danger" id="openFactoryResetBtn" type="button">คืนค่าโรงงาน</button></div>
+    </div>
+    <div class="backup-note backup-warning"><strong>สำคัญ:</strong> ดาวน์โหลดไฟล์สำรองก่อนทุกครั้ง และปิดโปรแกรมในเครื่องอื่นก่อนเริ่มรีเซ็ต ระบบจะป้องกันเครื่องเก่านำข้อมูลก่อนรีเซ็ตกลับเข้ามาอัตโนมัติ</div>
+  </div>`;
+}
+
+function renderStoreResetDialog(){
+  if(!storeResetMode) return '';
+  const config=storeResetConfig();
+  return `<div class="store-reset-overlay" role="dialog" aria-modal="true" aria-labelledby="storeResetTitle">
+    <form class="store-reset-dialog" id="storeResetForm">
+      <h2 id="storeResetTitle">${escapeHtml(config.title)}</h2>
+      <p>${escapeHtml(config.description)}</p>
+      <div class="store-reset-impact"><strong>ผลที่จะเกิดขึ้น:</strong><br>${escapeHtml(config.impact)}</div>
+      <label class="store-reset-field">รหัสผ่านเจ้าของร้าน<input id="storeResetPassword" type="password" autocomplete="current-password" required></label>
+      <label class="store-reset-field">พิมพ์คำว่า “${escapeHtml(config.phrase)}” เพื่อยืนยัน<input id="storeResetPhrase" type="text" autocomplete="off" required></label>
+      <label class="store-reset-confirm"><input id="storeResetBackupConfirmed" type="checkbox" required><span>ฉันดาวน์โหลดไฟล์สำรองแล้ว และเข้าใจว่าข้อมูลที่ล้างจะกู้คืนไม่ได้หากไม่มีไฟล์สำรอง</span></label>
+      <div class="store-reset-actions"><button class="btn ghost" id="cancelStoreResetBtn" type="button">ยกเลิก</button><button class="btn reset-danger" id="confirmStoreResetBtn" type="submit">${escapeHtml(config.button)}</button></div>
+    </form>
+  </div>`;
 }
 // ย้ายปุ่มคู่ท้ายฟอร์ม (บันทึก/ยกเลิก ฯลฯ) ที่มีอยู่ในหน้าปัจจุบัน ขึ้นไปแปะใน topbar ด้านขวา
 // ย้าย DOM element ตัวจริง (ไม่สร้างใหม่) เพื่อให้ event listener ที่ attachEvents() ผูกไว้แล้วยังทำงานถูกต้อง
@@ -9568,6 +9672,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     restoreStoreBackupFile.value='';
     if(file) await restoreStoreBackup(file);
   });
+  document.getElementById('openDocumentResetBtn')?.addEventListener('click',()=>{ storeResetMode='documents'; render(); setTimeout(()=>document.getElementById('storeResetPassword')?.focus(),0); });
+  document.getElementById('openFactoryResetBtn')?.addEventListener('click',()=>{ storeResetMode='factory'; render(); setTimeout(()=>document.getElementById('storeResetPassword')?.focus(),0); });
+  document.getElementById('cancelStoreResetBtn')?.addEventListener('click',()=>{ storeResetMode=null; render(); });
+  document.getElementById('storeResetForm')?.addEventListener('submit',submitStoreReset);
   // จัดรูปแบบเบอร์โทรอัตโนมัติขณะพิมพ์ (xxx-xxx-xxxx)
   document.querySelectorAll('.phone-input').forEach(inp=>{
     inp.addEventListener('input',()=>{ inp.value=formatPhoneValue(inp.value); });
@@ -11112,6 +11220,39 @@ async function downloadStoreBackup(){
     console.error('สำรองข้อมูลร้านไม่สำเร็จ',error);
     showToast('สร้างไฟล์สำรองไม่สำเร็จ กรุณาลองอีกครั้ง','danger');
     if(button){ button.disabled=false; button.textContent=oldLabel; }
+  }
+}
+
+async function submitStoreReset(event){
+  event?.preventDefault();
+  if(loggedInUser()?.owner!==true||!storeResetMode){ showToast('เฉพาะเจ้าของร้านเท่านั้นที่สามารถรีเซ็ตข้อมูลได้','danger'); return; }
+  const mode=storeResetMode,config=storeResetConfig(mode);
+  const password=document.getElementById('storeResetPassword')?.value||'';
+  const phrase=(document.getElementById('storeResetPhrase')?.value||'').trim();
+  const backupConfirmed=document.getElementById('storeResetBackupConfirmed')?.checked===true;
+  if(!password){ showToast('กรุณากรอกรหัสผ่านเจ้าของร้าน','danger'); document.getElementById('storeResetPassword')?.focus(); return; }
+  if(phrase!==config.phrase){ showToast(`กรุณาพิมพ์ “${config.phrase}” ให้ถูกต้อง`,'danger'); document.getElementById('storeResetPhrase')?.focus(); return; }
+  if(!backupConfirmed){ showToast('กรุณายืนยันว่าได้ดาวน์โหลดไฟล์สำรองแล้ว','danger'); return; }
+  const button=document.getElementById('confirmStoreResetBtn');
+  if(button){ button.disabled=true; button.textContent='กำลังรีเซ็ตข้อมูล...'; }
+  try{
+    const response=await callEdgeFunction('admin-users',{action:'reset-store',mode,password,phrase});
+    const bootstrapToken=String(response?.reset?.bootstrapToken||'');
+    if(mode==='factory'&&!bootstrapToken) throw new Error('ระบบไม่ได้รับกุญแจตั้งค่าเจ้าของร้าน กรุณาติดต่อผู้ดูแลระบบก่อนปิดหน้านี้');
+    clearLocalStoreCachesForReset();
+    if(bootstrapToken) localStorage.setItem(OWNER_BOOTSTRAP_TOKEN_STORAGE_KEY,bootstrapToken);
+    storeResetMode=null;
+    if(mode==='factory'){
+      try{ await sb.auth.signOut({scope:'local'}); }catch(error){}
+      alert('คืนค่าโรงงานเรียบร้อยแล้ว โปรแกรมจะเปิดหน้าสร้าง ID เจ้าของร้านคนแรก');
+    }else{
+      alert('ล้างเอกสาร LOT และสต๊อกเรียบร้อยแล้ว รายการสินค้ายังคงอยู่และยอดคงเหลือเป็นศูนย์');
+    }
+    window.location.reload();
+  }catch(error){
+    console.error('รีเซ็ตข้อมูลร้านไม่สำเร็จ',error);
+    showToast(error.message||'รีเซ็ตข้อมูลไม่สำเร็จ กรุณาลองใหม่','danger');
+    if(button){ button.disabled=false; button.textContent=config.button; }
   }
 }
 
