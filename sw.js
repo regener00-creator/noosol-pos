@@ -1,5 +1,5 @@
-const CACHE_NAME='pepos-mobile-v5';
-const APP_SHELL=['/','/index.html','/manifest.webmanifest','/pwa-icon.svg','/pwa-icon-192.png','/pwa-icon-512.png','/mobile-scan-success.mp3'];
+const CACHE_NAME='pepos-mobile-v6';
+const APP_SHELL=['/','/index.html','/manifest.webmanifest','/pwa-icon.svg','/pwa-icon-192.png','/pwa-icon-512.png'];
 const TRUSTED_CDN_HOSTS=new Set(['cdn.jsdelivr.net']);
 
 self.addEventListener('install',event=>{
