@@ -88,10 +88,10 @@ assert.match(historyMigration, /create index if not exists idx_inventory_lots_hi
 assert.match(historyMigration, /where quantity_base<=0 or status='exhausted'/);
 
 assert.match(html, /<th>เลข Lot<\/th><th>วันหมดอายุ<\/th>/);
-assert.match(html, /sb\.rpc\('post_sale_inventory_lots'/);
-assert.match(html, /item\.lotAllocations=/);
-assert.match(html, /sb\.from\('sales'\)\.upsert\(saleToRow\(completedSale\)\)/);
-assert.match(html, /กรุณากดชำระซ้ำเพื่อบันทึกบิลเดิมโดยไม่ตัดสต๊อกเพิ่ม/);
+assert.match(html, /sb\.rpc\('complete_sale'/);
+assert.match(html, /const rpcItems=items\.map/);
+assert.match(html, /clearCheckoutRequestId\(\)/);
+assert.match(html, /ระบบไม่ได้สร้างบิลหรือตัดสต๊อก/);
 assert.match(html, /สินค้า \/ Lot/);
 assert.match(html, /data-product-lots/);
 assert.match(html, /update_inventory_lot_details/);

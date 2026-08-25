@@ -1,6 +1,6 @@
 # NOOSOL POS
 
-ระบบ POS ร้านยา — เดิมเก็บข้อมูลทั้งหมดใน `localStorage` ของเบราว์เซอร์ (ไฟล์เดียว `legacy/POS_original.html`)
+ระบบ POS ร้านยาแบบไฟล์เดียว โดยข้อมูลทำงานร่วมกับ Supabase และมี `localStorage` เป็นข้อมูลฝั่งอุปกรณ์
 กำลัง migrate ไปใช้ **Supabase** เป็นฐานข้อมูลกลาง เพื่อให้เข้าถึงข้อมูลได้จากหลายเครื่อง/หลายผู้ใช้พร้อมกัน
 และ deploy ผ่าน **Vercel** ที่ https://pepo-pharmacy.vercel.app
 (`pepos.vercel.app` ถูกจองไปแล้วโดยบัญชีอื่นในระบบ Vercel เลยใช้ `pepo-pharmacy.vercel.app` แทน)

@@ -2996,7 +2996,8 @@ const WORKSPACE_STORAGE_KEY='pharmacy_pos_workspace_v1';
 const RESET_BACKUP_KEY='pos2_reset_backup_v1';
 const STORE_BACKUP_LAST_KEY='pepos_store_backup_last_v1';
 const STORE_BACKUP_FORMAT='pepos-pharmacy-store-backup';
-const STORE_BACKUP_VERSION=1;
+const STORE_BACKUP_VERSION=2;
+const PENDING_CHECKOUT_REQUEST_KEY='pepos_pending_checkout_request_v1';
 let workspacePersistTimer=null;
 let lastPersistedWorkspaceJson=localStorage.getItem(WORKSPACE_STORAGE_KEY)||'';
 function cloudClean(value){
@@ -3004,6 +3005,18 @@ function cloudClean(value){
     if(key==='password'||key==='updatedAt'||item===undefined) return undefined;
     return item;
   }));
+}
+function checkoutRequestId(){
+  let value='';
+  try{ value=sessionStorage.getItem(PENDING_CHECKOUT_REQUEST_KEY)||''; }catch(error){}
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)){
+    value=crypto.randomUUID();
+    try{ sessionStorage.setItem(PENDING_CHECKOUT_REQUEST_KEY,value); }catch(error){}
+  }
+  return value;
+}
+function clearCheckoutRequestId(){
+  try{ sessionStorage.removeItem(PENDING_CHECKOUT_REQUEST_KEY); }catch(error){}
 }
 function normalizeInspectionLists(value){
   if(!Array.isArray(value)) return [];
@@ -3846,7 +3859,8 @@ function filterSalesHistory(rows,filter,range){
 }
 function renderHistory(){
   const f=historyFilter;
-  const canDeleteHistory=!isLevel2User();
+  const canDeleteHeld=!isLevel2User();
+  const canVoidCompleted=currentProfile?.owner===true;
   const range=historyDateRange();
   const filtered=filterSalesHistory(salesHistory,f,range);
   const statusBadge = st => st==='done' ? '<span class="st-badge done">DONE</span>' : st==='hold' ? '<span class="st-badge hold">HOLD</span>' : '<span class="st-badge cancel">CANCELED</span>';
@@ -3877,7 +3891,7 @@ function renderHistory(){
       <td class="mono num">${fmtMoney(s.total)}</td>
       <td>${s.payMethod||'-'}</td>
       <td>${statusBadge(s.status)}</td>
-      <td class="num"><div class="history-actions"><button class="history-icon-btn" data-sale-view="${s.id}" title="ดูรายละเอียด" aria-label="ดูรายละเอียด ${s.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>${s.status==='hold'?`<button class="btn primary small" data-act="resumehold" data-id="${s.id}">ทำต่อ</button>`:''}${canDeleteHistory?`<button class="history-icon-btn danger" data-delete-sale="${s.id}" title="ลบประวัติ" aria-label="ลบ ${s.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`:''}</div></td>
+      <td class="num"><div class="history-actions"><button class="history-icon-btn" data-sale-view="${s.id}" title="ดูรายละเอียด" aria-label="ดูรายละเอียด ${s.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>${s.status==='hold'?`<button class="btn primary small" data-act="resumehold" data-id="${s.id}">ทำต่อ</button>`:''}${s.status==='hold'&&canDeleteHeld?`<button class="history-icon-btn danger" data-delete-sale="${s.id}" title="ลบบิลพัก" aria-label="ลบบิลพัก ${s.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`:s.status==='done'&&canVoidCompleted?`<button class="history-icon-btn danger" data-void-sale="${s.id}" title="ยกเลิกบิลและคืนสต๊อก" aria-label="ยกเลิกบิล ${s.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l16 16M20 4L4 20"/></svg></button>`:''}</div></td>
     </tr>`).join('') : `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายการขายในช่วงเวลาที่เลือก</td></tr>`}</tbody></table>
     ${pager}
   </div>`;
@@ -4535,7 +4549,11 @@ function renderProductReturn(){
   ${documentBulkToolbar('ret')}
   <div class="doc-list-wrap">
   <table class="grid-table doc-list po2-doc-list"><colgroup><col style="width:42px"><col style="width:130px"><col style="width:180px"><col style="width:220px"><col style="width:360px"><col style="width:150px"><col style="width:110px"></colgroup><thead><tr><th style="width:42px;"><input class="doc-check" type="checkbox" aria-label="เลือกทั้งหมด"></th><th>${documentSortHeader('ret','date','วันที่')}</th><th>${documentSortHeader('ret','id','เลขที่เอกสาร')}</th><th>${documentSortHeader('ret','supplier','ชื่อผู้จำหน่าย')}</th><th>รายการ</th><th>${documentSortHeader('ret','status','สถานะ')}</th><th></th></tr></thead>
-  <tbody>${pageDocs.map(doc=>`<tr><td style="text-align:center;"><input class="doc-check" type="checkbox" value="${escapeHtml(doc.id)}" aria-label="เลือก ${escapeHtml(doc.id)}"></td><td style="text-align:center;">${fmtDate(doc.date)}</td><td class="mono" style="text-align:center;">${doc.id}</td><td style="text-align:center;">${escapeHtml(doc.supplier||'-')}</td><td>${documentItemsPreview(doc.items)}</td><td style="text-align:center;">${documentStatusControl('ret',doc)}</td><td style="text-align:center;"><div class="history-actions"><button class="history-icon-btn" data-doc-action="edit" data-kind="ret" data-id="${doc.id}" title="แก้ไข" aria-label="แก้ไข ${doc.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn danger" data-doc-action="delete" data-kind="ret" data-id="${doc.id}" title="ลบ" aria-label="ลบ ${doc.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px;">ยังไม่มีใบคืนสินค้า</td></tr>'}</tbody></table>
+  <tbody>${pageDocs.map(doc=>{
+    const posted=documentHasPostedStock('ret',doc);
+    const deleteButton=posted?'':`<button class="history-icon-btn danger" data-doc-action="delete" data-kind="ret" data-id="${doc.id}" title="ลบ" aria-label="ลบ ${doc.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`;
+    return `<tr><td style="text-align:center;"><input class="doc-check" type="checkbox" value="${escapeHtml(doc.id)}" aria-label="เลือก ${escapeHtml(doc.id)}" ${posted?'disabled':''}></td><td style="text-align:center;">${fmtDate(doc.date)}</td><td class="mono" style="text-align:center;">${doc.id}</td><td style="text-align:center;">${escapeHtml(doc.supplier||'-')}</td><td>${documentItemsPreview(doc.items)}</td><td style="text-align:center;">${documentStatusControl('ret',doc)}</td><td style="text-align:center;"><div class="history-actions"><button class="history-icon-btn" data-doc-action="edit" data-kind="ret" data-id="${doc.id}" title="แก้ไข" aria-label="แก้ไข ${doc.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button>${deleteButton}</div></td></tr>`;
+  }).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px;">ยังไม่มีใบคืนสินค้า</td></tr>'}</tbody></table>
   </div>${pagerHtml(docListPage.ret,totalPages,'docpage-ret')}`;
 }
 
@@ -4551,7 +4569,11 @@ function renderGoodsReceipt(){
   ${documentBulkToolbar('gr')}
   <div class="doc-list-wrap">
   <table class="grid-table doc-list po2-doc-list"><colgroup><col style="width:42px"><col style="width:120px"><col style="width:160px"><col style="width:180px"><col style="width:240px"><col style="width:180px"><col style="width:120px"><col style="width:110px"><col style="width:130px"><col style="width:126px"></colgroup><thead><tr><th style="width:42px;"><input class="doc-check" type="checkbox" aria-label="เลือกทั้งหมด"></th><th>${documentSortHeader('gr','date','วันที่')}</th><th>${documentSortHeader('gr','id','เลขที่เอกสาร')}</th><th>${documentSortHeader('gr','supplier','ชื่อผู้จำหน่าย')}</th><th>รายการ</th><th>สาขา</th><th>${documentSortHeader('gr','due','วันครบกำหนด')}</th><th class="mono">${documentSortHeader('gr','total','ยอดรวม')}</th><th>${documentSortHeader('gr','status','สถานะ')}</th><th style="width:126px;"></th></tr></thead>
-  <tbody>${pageDocs.map(g=>`<tr><td style="text-align:center;"><input class="doc-check" type="checkbox" value="${g.id}" aria-label="เลือก ${g.id}"></td><td style="text-align:center;">${fmtDate(g.date)}</td><td class="mono" style="text-align:center;">${g.id}</td><td style="text-align:center;">${g.supplier}</td><td>${expandableDocumentItemsPreview('goods-receipt',g.id,g.items)}</td><td style="text-align:center;">${escapeHtml(goodsReceiptWarehouseName(g))}</td><td style="text-align:center;">${documentDueBadge(g)}</td><td class="mono num" style="text-align:center;">${fmtMoney(g.total)}</td><td style="text-align:center;">${documentStatusControl('gr',g)}</td><td style="text-align:center;"><div class="history-actions"><button class="history-icon-btn gr-edit-btn" data-doc-action="edit" data-kind="gr" data-id="${g.id}" title="แก้ไข" aria-label="แก้ไข ${g.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn" data-doc-action="print" data-kind="gr" data-id="${g.id}" title="พิมพ์" aria-label="พิมพ์ ${g.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg></button><button class="history-icon-btn danger" data-doc-action="delete" data-kind="gr" data-id="${g.id}" title="ลบ" aria-label="ลบ ${g.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td></tr>${expandableDocumentItemsDetailRow('goods-receipt',g.id,g.items,10)}`).join('')||`<tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:24px;">ยังไม่มีการรับสินค้า</td></tr>`}</tbody></table>
+  <tbody>${pageDocs.map(g=>{
+    const posted=documentHasPostedStock('gr',g);
+    const deleteButton=posted?'':`<button class="history-icon-btn danger" data-doc-action="delete" data-kind="gr" data-id="${g.id}" title="ลบ" aria-label="ลบ ${g.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`;
+    return `<tr><td style="text-align:center;"><input class="doc-check" type="checkbox" value="${g.id}" aria-label="เลือก ${g.id}" ${posted?'disabled':''}></td><td style="text-align:center;">${fmtDate(g.date)}</td><td class="mono" style="text-align:center;">${g.id}</td><td style="text-align:center;">${g.supplier}</td><td>${expandableDocumentItemsPreview('goods-receipt',g.id,g.items)}</td><td style="text-align:center;">${escapeHtml(goodsReceiptWarehouseName(g))}</td><td style="text-align:center;">${documentDueBadge(g)}</td><td class="mono num" style="text-align:center;">${fmtMoney(g.total)}</td><td style="text-align:center;">${documentStatusControl('gr',g)}</td><td style="text-align:center;"><div class="history-actions"><button class="history-icon-btn gr-edit-btn" data-doc-action="edit" data-kind="gr" data-id="${g.id}" title="แก้ไข" aria-label="แก้ไข ${g.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn" data-doc-action="print" data-kind="gr" data-id="${g.id}" title="พิมพ์" aria-label="พิมพ์ ${g.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg></button>${deleteButton}</div></td></tr>${expandableDocumentItemsDetailRow('goods-receipt',g.id,g.items,10)}`;
+  }).join('')||`<tr><td colspan="10" style="text-align:center;color:var(--text-muted);padding:24px;">ยังไม่มีการรับสินค้า</td></tr>`}</tbody></table>
   </div>
   ${pagerHtml(docListPage.gr, totalPages, 'docpage-gr')}`;
 }
@@ -4610,7 +4632,10 @@ function renderProductExchange(){
   const pageDocs=allDocs.slice(start,start+DOC_LIST_PAGE_SIZE);
   return `<div class="pagehead"><div><h1>เปลี่ยนสินค้า</h1><div class="sub">ติดตามสินค้าที่ส่งไปเปลี่ยนและสินค้าที่ได้รับกลับ · ${allDocs.length} รายการ</div></div><button class="btn primary" id="newProductExchangeBtn">+ สร้างรายการเปลี่ยนสินค้า</button></div>
   <div class="doc-list-wrap"><table class="grid-table doc-list"><colgroup><col style="width:125px"><col style="width:175px"><col style="width:210px"><col style="width:190px"><col><col style="width:160px"><col style="width:110px"></colgroup><thead><tr><th>${documentSortHeader('exchange','date','วันที่')}</th><th>${documentSortHeader('exchange','id','เลขที่เอกสาร')}</th><th>${documentSortHeader('exchange','supplier','ผู้จำหน่าย')}</th><th>คลัง / สาขา</th><th>รายการสินค้า</th><th>${documentSortHeader('exchange','status','สถานะ')}</th><th></th></tr></thead><tbody>
-  ${pageDocs.map(doc=>`<tr><td style="text-align:center;">${fmtDate(doc.date)}</td><td class="mono" style="text-align:center;">${escapeHtml(doc.id)}</td><td style="text-align:center;">${escapeHtml(doc.supplier||'-')}</td><td style="text-align:center;">${escapeHtml(productExchangeWarehouseName(doc))}</td><td>${productExchangePreview(doc)}</td><td style="text-align:center;">${productExchangeStatusBadge(doc.status)}</td><td style="text-align:center;"><div class="history-actions"><button class="history-icon-btn" data-product-exchange-edit="${escapeHtml(doc.id)}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(doc.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn danger" data-product-exchange-delete="${escapeHtml(doc.id)}" title="ลบ" aria-label="ลบ ${escapeHtml(doc.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td></tr>${expandableDocumentItemsDetailRow('product-exchange',doc.id,productExchangeDisplayItems(doc),7)}`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:26px;">ยังไม่มีรายการเปลี่ยนสินค้า</td></tr>'}
+  ${pageDocs.map(doc=>{
+    const deleteButton=documentHasPostedStock('exchange',doc)?'':`<button class="history-icon-btn danger" data-product-exchange-delete="${escapeHtml(doc.id)}" title="ลบ" aria-label="ลบ ${escapeHtml(doc.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`;
+    return `<tr><td style="text-align:center;">${fmtDate(doc.date)}</td><td class="mono" style="text-align:center;">${escapeHtml(doc.id)}</td><td style="text-align:center;">${escapeHtml(doc.supplier||'-')}</td><td style="text-align:center;">${escapeHtml(productExchangeWarehouseName(doc))}</td><td>${productExchangePreview(doc)}</td><td style="text-align:center;">${productExchangeStatusBadge(doc.status)}</td><td style="text-align:center;"><div class="history-actions"><button class="history-icon-btn" data-product-exchange-edit="${escapeHtml(doc.id)}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(doc.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button>${deleteButton}</div></td></tr>${expandableDocumentItemsDetailRow('product-exchange',doc.id,productExchangeDisplayItems(doc),7)}`;
+  }).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:26px;">ยังไม่มีรายการเปลี่ยนสินค้า</td></tr>'}
   </tbody></table></div>${pagerHtml(docListPage.exchange,totalPages,'docpage-exchange')}`;
 }
 function productExchangeUnitOptionsHtml(product,selectedUnit,locked){
@@ -5653,7 +5678,11 @@ function renderTransfer(){
   if(editingTransferId!==null) return renderTransferForm();
   return `<div class="rpt"><div class="pagehead"><div><h1>โอนสินค้าระหว่างคลัง</h1><div class="sub">ประวัติการโอนย้ายสต็อกระหว่างสาขา</div></div><button class="btn primary" id="newTransferBtn">+ สร้างรายการโอน</button></div>
   <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue transfer-summary-table"><thead><tr><th>เลขที่</th><th>วันที่</th><th>จากคลัง</th><th>ไปคลัง</th><th>รายการ</th><th>สถานะ</th><th></th></tr></thead>
-  <tbody>${transfers.map(t=>{ const cancelled=t.status==='ยกเลิก'; return `<tr><td class="mono">${escapeHtml(t.id)}</td><td>${fmtDate(t.date)}</td><td>${escapeHtml(t.from)}</td><td>${escapeHtml(t.to)}</td><td>${expandableDocumentItemsPreview('transfer',t.id,t.items)}</td><td><span class="badge ${cancelled?'danger':'ok'}">${cancelled?'ยกเลิก':'บันทึกแล้ว'}</span></td><td class="num"><div class="transfer-list-actions"><button class="history-icon-btn" data-edit-transfer="${escapeHtml(t.id)}" title="เปิดรายการ" aria-label="เปิดรายการ ${escapeHtml(t.id)}" ${cancelled?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button>${cancelled?`<button class="history-icon-btn danger" data-delete-transfer="${escapeHtml(t.id)}" title="ลบออกจากระบบถาวร" aria-label="ลบรายการโอน ${escapeHtml(t.id)} ออกจากระบบถาวร"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`:`<button class="history-icon-btn danger" data-cancel-transfer="${escapeHtml(t.id)}" title="ยกเลิกรายการ" aria-label="ยกเลิกรายการ ${escapeHtml(t.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`}</div></td></tr>${expandableDocumentItemsDetailRow('transfer',t.id,t.items,7)}`; }).join('')||'<tr><td colspan="7" style="padding:30px;text-align:center;color:var(--text-muted);">ยังไม่มีรายการโอนสินค้า</td></tr>'}</tbody></table></div></div>`;
+  <tbody>${transfers.map(t=>{
+    const cancelled=t.status==='ยกเลิก';
+    const stockAction=documentHasPostedStock('transfer',t)?'':(cancelled?`<button class="history-icon-btn danger" data-delete-transfer="${escapeHtml(t.id)}" title="ลบออกจากระบบถาวร" aria-label="ลบรายการโอน ${escapeHtml(t.id)} ออกจากระบบถาวร"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`:`<button class="history-icon-btn danger" data-cancel-transfer="${escapeHtml(t.id)}" title="ยกเลิกรายการ" aria-label="ยกเลิกรายการ ${escapeHtml(t.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`);
+    return `<tr><td class="mono">${escapeHtml(t.id)}</td><td>${fmtDate(t.date)}</td><td>${escapeHtml(t.from)}</td><td>${escapeHtml(t.to)}</td><td>${expandableDocumentItemsPreview('transfer',t.id,t.items)}</td><td><span class="badge ${cancelled?'danger':'ok'}">${cancelled?'ยกเลิก':'บันทึกแล้ว'}</span></td><td class="num"><div class="transfer-list-actions"><button class="history-icon-btn" data-edit-transfer="${escapeHtml(t.id)}" title="เปิดรายการ" aria-label="เปิดรายการ ${escapeHtml(t.id)}" ${cancelled?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button>${stockAction}</div></td></tr>${expandableDocumentItemsDetailRow('transfer',t.id,t.items,7)}`;
+  }).join('')||'<tr><td colspan="7" style="padding:30px;text-align:center;color:var(--text-muted);">ยังไม่มีรายการโอนสินค้า</td></tr>'}</tbody></table></div></div>`;
 }
 
 function renderStockAdjust(){
@@ -8352,11 +8381,7 @@ function renderSystemSettings(){
       <div class="settings-actions"><button class="btn primary" id="saveDocumentPrefixesBtn">บันทึกรหัสนำหน้าเอกสาร</button></div>
     </div>
     ${renderStoreBackupSection()}
-    <div class="settings-section" style="border-color:#F2C0BC;"><h2 style="color:var(--danger);">รีเซ็ตข้อมูล</h2>
-      <div style="margin-bottom:14px;"><b>รีเซ็ตเฉพาะเอกสาร</b><div class="hint">ลบเอกสารทุกประเภท (ใบเสนอราคา ใบสั่งซื้อสินค้า ใบรับสินค้า เปลี่ยนสินค้า ใบคืนสินค้า ใบกำกับภาษี ใบลดหนี้ โอนสินค้าระหว่างคลัง) และประวัติการขายทั้งหมด — รายการสินค้า คลังสินค้า สมุดรายชื่อ ผู้แทน ตั้งค่าธุรกิจ และผู้ใช้งาน จะไม่ถูกลบ โดยระบบจะสำรองข้อมูลก่อนรีเซ็ตไว้หนึ่งชุด</div></div>
-      <div><b>รีเซ็ตทั้งหมด</b><div class="hint">ลบสินค้า คลังสินค้า สมุดรายชื่อ ผู้แทน เอกสาร และประวัติการขายทั้งหมด (บัญชีผู้ใช้งานจะไม่ถูกลบ) โดยระบบจะสำรองข้อมูลก่อนรีเซ็ตไว้หนึ่งชุด</div></div>
-      <div class="settings-actions" style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;"><button class="btn reset-keep-products" id="resetKeepProductsBtn">รีเซ็ตเฉพาะเอกสาร</button><button class="btn reset-danger" id="resetAllDataBtn">รีเซ็ตทั้งหมด</button></div>
-    </div></div>`;
+    </div>`;
 }
 
 function storeBackupSummary(data=workspaceSnapshot()){
@@ -8365,7 +8390,9 @@ function storeBackupSummary(data=workspaceSnapshot()){
   return {
     products:Array.isArray(data?.products)?data.products.length:0,
     contacts:(Array.isArray(data?.contacts)?data.contacts.length:0)+(Array.isArray(data?.salesRepresentatives)?data.salesRepresentatives.length:0),
-    documents
+    documents,
+    lots:Array.isArray(data?.inventoryBackup?.lots)?data.inventoryBackup.lots.length:0,
+    movements:Array.isArray(data?.inventoryBackup?.movements)?data.inventoryBackup.movements.length:0
   };
 }
 
@@ -8375,7 +8402,7 @@ function renderStoreBackupSection(){
   const lastRaw=localStorage.getItem(STORE_BACKUP_LAST_KEY)||'';
   const lastDate=lastRaw?new Date(lastRaw):null;
   const lastText=lastDate&&!Number.isNaN(lastDate.getTime())?lastDate.toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}):'ยังไม่เคยดาวน์โหลดไฟล์สำรองจากเครื่องนี้';
-  return `<div class="settings-section"><h2>สำรองข้อมูลร้าน</h2><div class="hint">ไฟล์สำรองครอบคลุมสินค้า สต็อก คลัง ลูกค้า ผู้จำหน่าย ผู้แทน เอกสาร ยอดขาย การตั้งค่าร้าน และรายชื่อผู้ใช้งาน</div>
+  return `<div class="settings-section"><h2>สำรองข้อมูลร้าน</h2><div class="hint">ไฟล์สำรองครอบคลุมสินค้า สต็อก คลัง ประวัติ LOT และการเคลื่อนไหวสต๊อก ลูกค้า ผู้จำหน่าย ผู้แทน เอกสาร ยอดขาย การตั้งค่าร้าน และรายชื่อผู้ใช้งาน</div>
       <div class="backup-summary"><div class="backup-summary-item"><b>${summary.products}</b><span>รายการสินค้า</span></div><div class="backup-summary-item"><b>${summary.contacts}</b><span>รายชื่อที่เกี่ยวข้อง</span></div><div class="backup-summary-item"><b>${summary.documents}</b><span>เอกสารและรายการขาย</span></div></div>
       <div class="backup-note">สำรองล่าสุดจากอุปกรณ์นี้: <strong>${escapeHtml(lastText)}</strong><br>รหัสผ่านผู้ใช้งานจะไม่ถูกบันทึกลงในไฟล์สำรอง</div>
       <div class="backup-grid">
@@ -9352,6 +9379,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   document.querySelectorAll('[data-sale-view]').forEach(btn=>{ btn.addEventListener('click',e=>{ e.stopPropagation(); openSaleHistoryDetail(btn.dataset.saleView); }); });
   document.querySelectorAll('[data-delete-sale]').forEach(btn=>{ btn.addEventListener('click',e=>{ e.stopPropagation(); deleteSaleHistory(btn.dataset.deleteSale); }); });
+  document.querySelectorAll('[data-void-sale]').forEach(btn=>{ btn.addEventListener('click',e=>{ e.stopPropagation(); voidSaleHistory(btn.dataset.voidSale); }); });
   document.querySelectorAll('[data-tax-sale]').forEach(btn=>{ btn.addEventListener('click',()=>startTaxInvoiceForm(btn.dataset.taxSale)); });
   document.querySelectorAll('[data-tax-doc]').forEach(btn=>{ btn.addEventListener('click',()=>startStandaloneTaxInvoiceForm(btn.dataset.taxDoc)); });
   const newTaxInvoiceBtn=document.getElementById('newTaxInvoiceBtn');
@@ -9530,10 +9558,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   }));
   const saveDocumentPrefixesBtn=document.getElementById('saveDocumentPrefixesBtn');
   if(saveDocumentPrefixesBtn) saveDocumentPrefixesBtn.addEventListener('click',saveDocumentPrefixes);
-  const resetAllDataBtn=document.getElementById('resetAllDataBtn');
-  if(resetAllDataBtn) resetAllDataBtn.addEventListener('click',resetAllSystemData);
-  const resetKeepProductsBtn=document.getElementById('resetKeepProductsBtn');
-  if(resetKeepProductsBtn) resetKeepProductsBtn.addEventListener('click',resetDocumentsOnly);
   const downloadStoreBackupBtn=document.getElementById('downloadStoreBackupBtn');
   if(downloadStoreBackupBtn) downloadStoreBackupBtn.addEventListener('click',downloadStoreBackup);
   const restoreStoreBackupBtn=document.getElementById('restoreStoreBackupBtn');
@@ -10061,8 +10085,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   document.querySelectorAll('[data-product-exchange-edit]').forEach(button=>button.addEventListener('click',()=>{ editingProductExchangeId=button.dataset.productExchangeEdit; productExchangeDraft=null; render(); }));
   document.querySelectorAll('[data-product-exchange-delete]').forEach(button=>button.addEventListener('click',()=>{
     const id=button.dataset.productExchangeDelete;
-    if(!confirm(`ยืนยันลบ ${id} ?\n\nการลบเอกสารจะไม่ย้อนหรือเปลี่ยนแปลงสต๊อกที่ลงไปแล้ว`)) return;
-    const index=productExchanges.findIndex(doc=>doc.id===id); if(index>=0) productExchanges.splice(index,1);
+    const index=productExchanges.findIndex(doc=>doc.id===id); if(index<0) return;
+    if(refusePostedDocumentDeletion('exchange',productExchanges[index])) return;
+    if(!confirm(`ยืนยันลบ ${id} ?`)) return;
+    productExchanges.splice(index,1);
     persistWorkspaceData(); showToast(`ลบ ${id} แล้ว`); render();
   }));
   document.getElementById('cancelProductExchangeBtn')?.addEventListener('click',()=>{ editingProductExchangeId=null; productExchangeDraft=null; render(); });
@@ -10246,12 +10272,14 @@ function deleteWarehouse(id){
 
 function cancelTransfer(id){
   const doc=transfers.find(t=>t.id===id); if(!doc||doc.status==='ยกเลิก') return;
+  if(refusePostedDocumentDeletion('transfer',doc)) return;
   if(!confirm(`ยืนยันยกเลิกรายการโอน ${doc.id} ?`)) return;
   doc.status='ยกเลิก'; doc.cancelledAt=new Date().toISOString(); persistTransfers(); showToast(`ยกเลิกรายการโอน ${doc.id} แล้ว`); render();
 }
 
 function deleteCancelledTransfer(id){
   const doc=transfers.find(t=>t.id===id); if(!doc||doc.status!=='ยกเลิก') return;
+  if(refusePostedDocumentDeletion('transfer',doc)) return;
   if(!confirm(`ยืนยันลบรายการโอน ${doc.id} ออกจากระบบถาวร ?`)) return;
   transfers=transfers.filter(t=>t.id!==id); persistTransfers(); showToast(`ลบรายการโอน ${doc.id} ออกจากระบบแล้ว`); render();
 }
@@ -10435,6 +10463,18 @@ function deleteShortageOrders(ids){
   showToast(`ลบรายการสั่งของขาด ${deleted} รายการแล้ว`);
   render();
 }
+function documentHasPostedStock(kind,doc){
+  if(!doc) return false;
+  if(kind==='gr'||kind==='ret') return doc.stockApplied===true;
+  if(kind==='exchange') return doc.outgoingApplied===true||doc.incomingApplied===true||['ส่งไปเปลี่ยนแล้ว','รับสินค้ากลับแล้ว'].includes(doc.status);
+  if(kind==='transfer') return doc.stockApplied!==false;
+  return false;
+}
+function refusePostedDocumentDeletion(kind,doc){
+  if(!documentHasPostedStock(kind,doc)) return false;
+  showToast(`ลบ ${doc.id||'เอกสารนี้'} ไม่ได้ เพราะเอกสารนี้เคยส่งผลต่อสต๊อกแล้ว กรุณาเก็บไว้เป็นประวัติ`,'danger');
+  return true;
+}
 function deleteSelectedDocuments(kind,ids){
   ids=[...new Set(ids||[])].filter(Boolean);
   if(!ids.length) return;
@@ -10458,6 +10498,8 @@ function deleteSelectedDocuments(kind,ids){
     const list=docList(kind);
     const selected=list.filter(doc=>ids.includes(doc.id));
     if(!selected.length) return;
+    const posted=selected.find(doc=>documentHasPostedStock(kind,doc));
+    if(posted){ refusePostedDocumentDeletion(kind,posted); return; }
     const label=docLabelText(kind);
     const message=selected.length===1
       ?`ยืนยันลบ ${selected[0].id} ?`
@@ -10840,6 +10882,7 @@ function handleDocumentAction(kind,id,action){
     list.unshift(copy); persistWorkspaceData(); showToast(`สร้างซ้ำเป็น ${copy.id} แล้ว`); render(); return;
   }
   if(action==='delete'){
+    if(refusePostedDocumentDeletion(kind,doc)){ render(); return; }
     if(confirm(`ยืนยันลบ ${doc.id} ?`)){
       const idx=list.findIndex(x=>x.id===id); if(idx>-1) list.splice(idx,1);
       persistWorkspaceData();
@@ -11018,13 +11061,17 @@ function saveDocumentPrefixes(){
   render();
 }
 
-function storeBackupDataSnapshot(){
+async function storeBackupDataSnapshot(){
   const data=cloudClean(workspaceSnapshot());
   delete data.cart;
   delete data.saleDiscount;
   delete data.saleMember;
   delete data.pendingQty;
   data.systemUsers=(data.systemUsers||[]).map(user=>cloudClean(user));
+  const {data:inventoryBackup,error}=await sb.rpc('export_store_inventory_backup');
+  if(error) throw error;
+  if(!inventoryBackup||!Array.isArray(inventoryBackup.lots)||!Array.isArray(inventoryBackup.movements)) throw new Error('ไม่สามารถอ่านประวัติ LOT และการเคลื่อนไหวสต๊อกได้ครบถ้วน');
+  data.inventoryBackup=inventoryBackup;
   return data;
 }
 
@@ -11040,7 +11087,7 @@ async function downloadStoreBackup(){
   if(button){ button.disabled=true; button.textContent='กำลังเตรียมไฟล์...'; }
   try{
     const createdAt=new Date().toISOString();
-    const data=storeBackupDataSnapshot();
+    const data=await storeBackupDataSnapshot();
     const payload={
       format:STORE_BACKUP_FORMAT,
       version:STORE_BACKUP_VERSION,
@@ -11076,6 +11123,7 @@ function validateStoreBackupPayload(payload){
   const requiredArrays=['warehouses','products','contacts','salesRepresentatives','salesHistory','quotations','invoicesAR','creditNotes','purchaseOrders','goodsReceipts','purchaseOrdersFull','productReturns','transfers','standaloneTaxInvoices','favorites','systemUsers'];
   if(requiredArrays.some(key=>!Array.isArray(data[key]))) throw new Error('ข้อมูลในไฟล์สำรองไม่ครบถ้วน');
   if(!Array.isArray(data.productExchanges)) data.productExchanges=[];
+  if(!data.inventoryBackup||!Array.isArray(data.inventoryBackup.lots)||!Array.isArray(data.inventoryBackup.movements)) throw new Error('ไฟล์สำรองนี้ไม่มีประวัติ LOT และการเคลื่อนไหวสต๊อก กรุณาใช้ไฟล์สำรองเวอร์ชันใหม่');
   return cloudClean(data);
 }
 
@@ -11094,7 +11142,7 @@ async function restoreStoreBackup(file){
   const summary=storeBackupSummary(data);
   const backupDate=new Date(payload.createdAt||'');
   const dateText=!Number.isNaN(backupDate.getTime())?backupDate.toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}):'ไม่ระบุเวลา';
-  const warning=`ยืนยันกู้คืนข้อมูลร้านจากไฟล์สำรองหรือไม่?\n\nวันที่สำรอง: ${dateText}\nสินค้า: ${summary.products} รายการ\nรายชื่อ: ${summary.contacts} รายการ\nเอกสารและรายการขาย: ${summary.documents} รายการ\n\nข้อมูลปัจจุบันในร้านจะถูกแทนที่ด้วยข้อมูลจากไฟล์นี้`;
+  const warning=`ยืนยันกู้คืนข้อมูลร้านจากไฟล์สำรองหรือไม่?\n\nวันที่สำรอง: ${dateText}\nสินค้า: ${summary.products} รายการ\nLOT: ${summary.lots} รายการ\nการเคลื่อนไหวสต๊อก: ${summary.movements} รายการ\nรายชื่อ: ${summary.contacts} รายการ\nเอกสารและรายการขาย: ${summary.documents} รายการ\n\nข้อมูลปัจจุบันในร้านจะถูกแทนที่ด้วยข้อมูลจากไฟล์นี้`;
   if(!confirm(warning)) return;
   try{ localStorage.setItem(RESET_BACKUP_KEY,JSON.stringify(workspaceSnapshot())); }catch(error){ console.warn('ไม่สามารถเก็บข้อมูลก่อนกู้คืนไว้ในอุปกรณ์ได้',error); }
   const button=document.getElementById('restoreStoreBackupBtn');
@@ -11103,6 +11151,12 @@ async function restoreStoreBackup(file){
     applyWorkspaceData(data);
     systemUsers=data.systemUsers;
     refreshDataCounters();
+    await syncCoreDataToSupabase();
+    await syncSalesHistoryToSupabase();
+    const {error:inventoryError}=await sb.rpc('restore_store_inventory_backup',{p_lots:data.inventoryBackup.lots,p_movements:data.inventoryBackup.movements});
+    if(inventoryError) throw inventoryError;
+    await loadInventoryBalancesFromSupabase();
+    await loadInventoryLotsFromSupabase();
     persistWorkspaceData();
     currentTab='settingssystem';
     showToast('กู้คืนข้อมูลร้านสำเร็จ');
@@ -11112,47 +11166,6 @@ async function restoreStoreBackup(file){
     showToast('กู้คืนข้อมูลไม่สำเร็จ กรุณาลองใหม่หรือติดต่อผู้ดูแล','danger');
     render();
   }
-}
-
-function resetAllSystemData(){
-  const warning='ยืนยันการรีเซ็ตข้อมูลทั้งหมดหรือไม่?\n\nสินค้า คลังสินค้า สมุดรายชื่อ ผู้แทน เอกสาร และประวัติการขายทั้งหมดจะถูกลบ (บัญชีผู้ใช้งานจะไม่ถูกลบ) ระบบจะสำรองข้อมูลก่อนรีเซ็ตไว้หนึ่งชุด';
-  if(!confirm(warning)) return;
-  clearTimeout(workspacePersistTimer);
-  try{ localStorage.setItem(RESET_BACKUP_KEY,JSON.stringify(workspaceSnapshot())); }catch(error){ console.warn('ไม่สามารถสำรองข้อมูลก่อนรีเซ็ตได้',error); }
-  products=[];
-  warehouses=[{id:1,name:'คลังหลัก',code:`${documentPrefixes.warehouse}-001`,address:'',postcode:'',purpose:'ขายสินค้า',contactName:'',email:'',phone:''}];
-  contacts=[]; salesRepresentatives=[]; salesHistory=[]; quotations=[]; invoicesAR=[]; creditNotes=[];
-  purchaseOrders=[]; goodsReceipts=[]; productExchanges=[]; purchaseOrdersFull=[]; productReturns=[]; transfers=[]; standaloneTaxInvoices=[]; favorites=[]; inspectionLists=[]; stockReportItems=[];
-  systemUsers=[]; systemUsersLoaded=false;
-  currentUserProfile={firstName:'',lastName:'',phone:'',email:'',position:'เจ้าของกิจการ',signatureName:''};
-  // (owner account in Supabase Auth is left untouched by a data reset)
-  cart=[]; saleDiscount=0; saleMember=null; pendingQty=1; selectedGroup=null; searchQuery='';
-  editingProductId=null; editingPOId=null; editingGRId=null; editingPO2Id=null; editingReturnId=null; editingProductExchangeId=null; productExchangeDraft=null; editingTaxInvoiceSaleId=null; editingQuotationId=null;
-  refreshDataCounters();
-  saleRef=nextSaleRef();
-  persistWarehouses(); persistContacts(); persistSalesHistory(); persistQuotations(); persistTransfers(); persistStandaloneTaxInvoices(); persistWorkspaceData();
-  syncFavoritesToSupabase(); syncInspectionListsToSupabase();
-  currentTab='settingssystem';
-  render();
-  showToast('รีเซ็ตข้อมูลทั้งหมดแล้ว');
-}
-
-function resetDocumentsOnly(){
-  const warning='ยืนยันการรีเซ็ตเฉพาะเอกสารหรือไม่?\n\nเอกสารทุกประเภท (ใบเสนอราคา ใบสั่งซื้อ ใบรับสินค้า เปลี่ยนสินค้า ใบคืนสินค้า ใบกำกับภาษี โอนสินค้า) และประวัติการขายทั้งหมดจะถูกลบ\n\nรายชื่อผู้แทน, ลูกค้า/ผู้จำหน่าย, รายการสินค้า, ตั้งค่าธุรกิจ และผู้ใช้งาน จะไม่ถูกลบ ระบบจะสำรองข้อมูลก่อนรีเซ็ตไว้หนึ่งชุด';
-  if(!confirm(warning)) return;
-  clearTimeout(workspacePersistTimer);
-  try{ localStorage.setItem(RESET_BACKUP_KEY,JSON.stringify(workspaceSnapshot())); }catch(error){ console.warn('ไม่สามารถสำรองข้อมูลก่อนรีเซ็ตได้',error); }
-  salesHistory=[]; quotations=[]; invoicesAR=[]; creditNotes=[];
-  purchaseOrders=[]; goodsReceipts=[]; productExchanges=[]; purchaseOrdersFull=[]; productReturns=[]; transfers=[]; standaloneTaxInvoices=[]; favorites=[]; stockReportItems=[];
-  cart=[]; saleDiscount=0; saleMember=null; pendingQty=1; selectedGroup=null; searchQuery='';
-  editingProductId=null; editingPOId=null; editingGRId=null; editingPO2Id=null; editingReturnId=null; editingProductExchangeId=null; productExchangeDraft=null; editingTaxInvoiceSaleId=null; editingQuotationId=null;
-  refreshDataCounters();
-  saleRef=nextSaleRef();
-  persistSalesHistory(); persistQuotations(); persistTransfers(); persistStandaloneTaxInvoices(); persistWorkspaceData();
-  syncFavoritesToSupabase();
-  currentTab='settingssystem';
-  render();
-  showToast('รีเซ็ตเฉพาะเอกสารแล้ว');
 }
 
 async function saveUserSettings(){
@@ -12366,13 +12379,39 @@ function resumeHold(billId){
 function deleteSaleHistory(id,onDeleted){
   if(isLevel2User()){ showToast('Level 2 ไม่สามารถลบข้อมูลประวัติการขายได้'); return; }
   const sale=salesHistory.find(item=>item.id===id); if(!sale) return;
-  if(sale.shortReceiptMeta||sale.fullTaxInvoice){ showToast('ลบไม่ได้ เพราะรายการนี้มีการออกเอกสารแล้ว'); return; }
-  if(!confirm(`ยืนยันลบประวัติการขาย ${sale.ref||sale.id} หรือไม่?`)) return;
+  if(sale.status!=='hold'){ showToast('บิลที่ชำระแล้วห้ามลบ กรุณาใช้ “ยกเลิกบิล” เพื่อคืนสต๊อก'); return; }
+  if(!confirm(`ยืนยันลบบิลพัก ${sale.ref||sale.id} หรือไม่?`)) return;
   const index=salesHistory.indexOf(sale); if(index>-1) salesHistory.splice(index,1);
   persistSalesHistory();
   if(onDeleted) onDeleted();
-  showToast(`ลบประวัติการขาย ${sale.ref||sale.id} แล้ว`);
+  showToast(`ลบบิลพัก ${sale.ref||sale.id} แล้ว`);
   render();
+}
+
+async function voidSaleHistory(id,onVoided){
+  if(currentProfile?.owner!==true){ showToast('เฉพาะเจ้าของร้านเท่านั้นที่ยกเลิกบิลได้','danger-top'); return; }
+  const sale=salesHistory.find(item=>item.id===id); if(!sale||sale.status!=='done') return;
+  if(sale.shortReceiptMeta||sale.fullTaxInvoice){ showToast('บิลนี้ออกเอกสารแล้ว กรุณาจัดการเอกสารก่อนยกเลิกบิล','danger-top'); return; }
+  const reason=prompt(`ระบุเหตุผลที่ยกเลิกบิล ${sale.ref||sale.id}`,'ขายผิดรายการ');
+  if(reason===null) return;
+  if(!reason.trim()){ showToast('กรุณาระบุเหตุผลที่ยกเลิกบิล','danger-top'); return; }
+  if(!confirm(`ยืนยันยกเลิกบิล ${sale.ref||sale.id} หรือไม่?\n\nระบบจะคืนสินค้าเข้า LOT เดิมและเก็บบิลนี้ไว้เป็นประวัติ`)) return;
+  try{
+    const {data,error}=await sb.rpc('void_sale',{p_sale_id:sale.id,p_reason:reason.trim()});
+    if(error) throw error;
+    const index=salesHistory.findIndex(item=>item.id===sale.id);
+    if(index>=0) salesHistory[index]={...salesHistory[index],...(data?.sale||{}),id:sale.id,status:'void'};
+    await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
+    persistSalesHistory();
+    if(onVoided) onVoided();
+    showToast(`ยกเลิกบิล ${sale.ref||sale.id} และคืนสต๊อกแล้ว`);
+    render();
+  }catch(error){
+    console.warn('void sale',error);
+    const message=String(error?.message||'');
+    const friendly=message.includes('no reversible Lot')||message.includes('no reversible')?'บิลเก่านี้ไม่มีข้อมูล LOT ที่เพียงพอสำหรับคืนอัตโนมัติ':message.includes('issued sales documents')?'บิลนี้มีเอกสารที่ออกแล้ว กรุณาจัดการเอกสารก่อน':'ยกเลิกบิลไม่สำเร็จ สต๊อกยังไม่ถูกเปลี่ยน กรุณาลองใหม่';
+    showToast(friendly,'danger-top');
+  }
 }
 
 function saleLotCorrectionAllocations(item){
@@ -12483,6 +12522,8 @@ function openSaleHistoryDetail(id){
   const tax=saleTaxSummary(sale),subtotal=tax.subtotal;
   const canIssue=sale.status==='done';
   const canIssueTax=canIssueTaxInvoiceForSale(sale)||!!sale.fullTaxInvoice;
+  const canDeleteHeld=sale.status==='hold'&&!isLevel2User();
+  const canVoidCompleted=sale.status==='done'&&currentProfile?.owner===true;
   const canCorrectLots=!!currentProfile?.owner&&canIssue&&(sale.items||[]).some(item=>Number(item?.productId)&&saleLotCorrectionAllocations(item).length);
   const correctionLog=Array.isArray(sale.lotCorrectionLog)?sale.lotCorrectionLog:[];
   const correctionLogHtml=correctionLog.length?`<div class="sale-lot-correction-log"><h4>ประวัติแก้ไข LOT (${correctionLog.length})</h4>${correctionLog.slice().reverse().map(log=>{ const qty=Number(log.quantity)>0?log.quantity:log.quantityBase,unit=log.unit||'หน่วยหลัก'; return `<div class="sale-lot-correction-log-item"><b>${escapeHtml(log.productName||'-')} ×${escapeHtml(inventoryMovementRound(qty))} ${escapeHtml(unit)}</b><br>${escapeHtml(log.fromLot?.lotNumber||'ไม่ระบุเลข LOT')} → ${escapeHtml(log.toLot?.lotNumber||'ไม่ระบุเลข LOT')} · ${escapeHtml(auditDisplay(log.at))}${log.reason?`<br>หมายเหตุ: ${escapeHtml(log.reason)}`:''}</div>`; }).join('')}</div>`:'';
@@ -12493,11 +12534,12 @@ function openSaleHistoryDetail(id){
     <div class="sale-detail-summary"><div><span>รวมสินค้า</span><b>${fmtMoney(subtotal)} บาท</b></div>${sale.discount?`<div><span>ส่วนลด</span><b>- ${fmtMoney(sale.discount)} บาท</b></div>`:''}${sale.fee?`<div><span>ค่าธรรมเนียม</span><b>${fmtMoney(sale.fee)} บาท</b></div>`:''}<div class="grand"><span>ยอดสุทธิ</span><b>${fmtMoney(sale.total)} บาท</b></div>${sale.cashReceived?`<div><span>รับเงิน</span><b>${fmtMoney(sale.cashReceived)} บาท</b></div><div><span>เงินทอน</span><b>${fmtMoney(sale.cashChange||0)} บาท</b></div>`:''}</div>
     ${canCorrectLots?`<div class="sale-lot-correction-panel"><div><h4>LOT ที่ขายไม่ตรงกับระบบ?</h4><p>ย้ายการตัดไปยัง LOT ที่ขายจริง โดยยอดขายและสต๊อกรวมไม่เปลี่ยน</p></div><button class="btn ghost" id="correctSaleLotBtn">แก้ไข LOT ที่ขาย</button></div>`:''}${correctionLogHtml}
     <div class="history-doc-panel"><h4>ออกเอกสารย้อนหลัง</h4><p>${canIssue?'ใช้ข้อมูลและวันที่ขายเดิม การพิมพ์เอกสารจะไม่ตัดสต็อกหรือเพิ่มยอดขายซ้ำ':'ออกเอกสารได้เฉพาะรายการที่ชำระเงินเรียบร้อยแล้ว'}</p><div class="history-doc-buttons"><button id="historyShortReceiptBtn" ${canIssue?'':'disabled'}>🧾 ใบเสร็จอย่างย่อ</button><button id="historyTaxInvoiceBtn" ${canIssueTax?'':'disabled'}>${sale.fullTaxInvoice?'📄 เปิดใบกำกับภาษี':'📄 ออกใบกำกับภาษีย้อนหลัง'}</button></div></div>
-    <div class="payment-actions"><button class="btn ghost" id="closeSaleDetailBtn">ปิด</button>${isLevel2User()?'':`<button class="btn" id="deleteSaleDetailBtn" style="background:var(--danger);color:#fff;">ลบประวัตินี้</button>`}</div></div>`;
+    <div class="payment-actions"><button class="btn ghost" id="closeSaleDetailBtn">ปิด</button>${canDeleteHeld?`<button class="btn" id="deleteSaleDetailBtn" style="background:var(--danger);color:#fff;">ลบบิลพัก</button>`:canVoidCompleted?`<button class="btn" id="voidSaleDetailBtn" style="background:var(--danger);color:#fff;">ยกเลิกบิลและคืนสต๊อก</button>`:''}</div></div>`;
   document.body.appendChild(overlay);
   const close=()=>{ overlay.remove(); render(); };
   overlay.querySelector('.modal-close').onclick=close; overlay.querySelector('#closeSaleDetailBtn').onclick=close;
   const deleteDetailBtn=overlay.querySelector('#deleteSaleDetailBtn'); if(deleteDetailBtn) deleteDetailBtn.onclick=()=>deleteSaleHistory(id,close);
+  const voidDetailBtn=overlay.querySelector('#voidSaleDetailBtn'); if(voidDetailBtn) voidDetailBtn.onclick=()=>voidSaleHistory(id,close);
   const correctLotBtn=overlay.querySelector('#correctSaleLotBtn'); if(correctLotBtn) correctLotBtn.onclick=()=>{ close(); openSaleLotCorrection(id); };
   overlay.querySelector('#historyShortReceiptBtn').onclick=()=>{ if(canIssue){ close(); openHistoricalReceiptActions(id); } };
   overlay.querySelector('#historyTaxInvoiceBtn').onclick=()=>{ if(!canIssueTax) return; close(); sale.fullTaxInvoice?openFullTaxInvoiceModal(id):startTaxInvoiceForm(id); };
@@ -13372,22 +13414,6 @@ async function doCheckout(payMethod,options={}){
     items.push({lineKey:String(idx+1),productId:l.pid||null,warehouseId:Number(activeWarehouseId)||null,name:l.name,qty:l.qty,baseQty:(Number(l.qty)||0)*(Number(l.factor)||1),price:Number(l.price)||0,cost:costSnapshot.cost,costTotal:costSnapshot.costTotal,costSource:costSnapshot.costSource,unit:l.unit,factor:l.factor||0,custom:!!l.custom,
       promoId:promoLine.promoId||null,promoName:promoLine.promoName||'',lineTotal,lineTotalGross,vatMode,promoFreeQty:promoLine.promoFreeQty||0});
   });
-  const completedSaleId='INV-'+invoiceCounter;
-  try{
-    const {data,error}=await sb.rpc('post_sale_inventory_lots',{p_sale_id:completedSaleId,p_warehouse_id:Number(activeWarehouseId),p_items:items.map(item=>({lineKey:item.lineKey,productId:item.productId,qty:item.qty,factor:item.factor||1,baseQty:item.baseQty,custom:item.custom}))});
-    if(error) throw error;
-    const allocations=Array.isArray(data?.allocations)?data.allocations:[];
-    items.forEach(item=>{
-      if(item.custom) return;
-      item.lotAllocations=allocations.filter(allocation=>String(allocation.lineKey)===String(item.lineKey));
-    });
-    await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
-  }catch(error){
-    console.warn('post sale inventory lots',error);
-    const message=String(error?.message||'');
-    showToast(message.includes('non-expired')?'สต๊อก Lot ที่ยังไม่หมดอายุมีไม่เพียงพอ กรุณาตรวจ Lot สินค้า':'ตัดสต๊อกตาม Lot ไม่สำเร็จ กรุณาลองใหม่','danger-top');
-    return;
-  }
   const itemTaxSummary=calculateSaleTaxSummary(items.map(item=>({amount:item.lineTotal,vatMode:item.vatMode})),saleDiscount,vatRegistered);
   const fee = Math.max(0,Number(options.fee)||0);
   const feeTaxSummary=calculateSaleTaxSummary(fee?[{amount:fee,vatMode:vatRegistered?'incl':'none'}]:[],0,vatRegistered);
@@ -13396,17 +13422,25 @@ async function doCheckout(payMethod,options={}){
   const discount=taxSummary.discount;
   const costTotal=items.reduce((sum,item)=>sum+(Number(item.costTotal)||0),0);
   const grand=taxSummary.total;
-  const completedSale={id:completedSaleId,ref:saleRef,date:TODAY_STR,time:TODAY_STR+' '+nowTimeStr(),warehouseId:Number(activeWarehouseId)||null,warehouseName:activeWarehouse()?.name||'',cashier:loggedInUser()?.firstName||employees[0],member:saleMember,status:'done',payMethod:payMethod||'เงินสด',items,discount,vat:taxSummary.vat,vatRegistered,taxSummary,businessSnapshot:JSON.parse(JSON.stringify(businessSettings)),fee,costTotal,grossProfit:roundMoney(taxSummary.beforeVat-costTotal),cashReceived:options.cashReceived||0,cashChange:options.cashChange||0,total:grand};
+  const saleDraft={warehouseId:Number(activeWarehouseId)||null,warehouseName:activeWarehouse()?.name||'',cashier:loggedInUser()?.firstName||employees[0],member:saleMember,status:'done',payMethod:payMethod||'เงินสด',items,discount,vat:taxSummary.vat,vatRegistered,taxSummary,businessSnapshot:JSON.parse(JSON.stringify(businessSettings)),fee,costTotal,grossProfit:roundMoney(taxSummary.beforeVat-costTotal),cashReceived:options.cashReceived||0,cashChange:options.cashChange||0,total:grand};
+  let completedSale;
   try{
-    const {error}=await sb.from('sales').upsert(saleToRow(completedSale));
+    const requestId=checkoutRequestId();
+    const rpcItems=items.map(item=>({lineKey:item.lineKey,productId:item.productId,warehouseId:item.warehouseId,qty:item.qty,factor:item.factor||1,baseQty:item.baseQty,custom:item.custom,name:item.name,price:item.price,cost:item.cost,costTotal:item.costTotal,costSource:item.costSource,unit:item.unit,promoId:item.promoId,promoName:item.promoName,lineTotal:item.lineTotal,lineTotalGross:item.lineTotalGross,vatMode:item.vatMode,promoFreeQty:item.promoFreeQty}));
+    const {data,error}=await sb.rpc('complete_sale',{p_request_id:requestId,p_ref_prefix:documentPrefixes.sale,p_warehouse_id:Number(activeWarehouseId),p_sale:saleDraft,p_items:rpcItems});
     if(error) throw error;
+    completedSale=data?.sale;
+    if(!completedSale?.id) throw new Error('completed sale was not returned');
+    clearCheckoutRequestId();
+    await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
   }catch(error){
-    console.warn('save completed sale',error);
-    showToast('บันทึกบิลยังไม่สำเร็จ สต๊อก Lot ถูกพักไว้แล้ว กรุณากดชำระซ้ำเพื่อบันทึกบิลเดิมโดยไม่ตัดสต๊อกเพิ่ม','danger-top');
+    console.warn('complete sale',error);
+    const message=String(error?.message||'');
+    showToast(message.includes('non-expired')?'สต๊อก Lot ที่ยังไม่หมดอายุมีไม่เพียงพอ กรุณาตรวจ Lot สินค้า':'ชำระเงินไม่สำเร็จ ระบบไม่ได้สร้างบิลหรือตัดสต๊อก กรุณาลองใหม่','danger-top');
     return;
   }
-  invoiceCounter++;
-  salesHistory.unshift(completedSale);
+  const existingSaleIndex=salesHistory.findIndex(sale=>sale.id===completedSale.id);
+  if(existingSaleIndex>=0) salesHistory[existingSaleIndex]=completedSale; else salesHistory.unshift(completedSale);
   persistSalesHistory();
   cart = []; saleDiscount = 0; saleMember = null; pendingQty = 1;
   saleRef = nextSaleRef();

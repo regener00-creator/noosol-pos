@@ -111,7 +111,8 @@ assert.match(html, /คัดลอกจากสินค้าที่ส่
 assert.match(html, /รับคืนไม่ครบหรือรับเป็นสินค้าคนละตัวได้/);
 assert.match(html, /รายการเหล่านี้จะถือว่าถูกตัดออกจากสต๊อกถาวร/);
 assert.match(html, /draft\.unreturnedItems=reconciliation\.unreturnedItems/);
-assert.match(html, /การลบเอกสารจะไม่ย้อนหรือเปลี่ยนแปลงสต๊อกที่ลงไปแล้ว/);
+assert.match(html, /refusePostedDocumentDeletion\('exchange'/);
+assert.match(html, /เคยส่งผลต่อสต๊อกแล้ว กรุณาเก็บไว้เป็นประวัติ/);
 
 assert.match(migration, /create table if not exists public\.product_exchanges/);
 assert.match(migration, /enable row level security/);
