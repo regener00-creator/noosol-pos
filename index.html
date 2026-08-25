@@ -342,9 +342,11 @@
   .lot-detail-summary{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:13px;}
   .lot-detail-summary span{padding:7px 11px;border-radius:8px;background:var(--primary-soft);color:var(--primary-dark);font-size:12.5px;font-weight:600;}
   .lot-detail-table{min-width:780px;}
+  .lot-detail-modal:not(.show-internal-lots) .lot-detail-table{min-width:650px;}
+  .lot-detail-modal:not(.show-internal-lots) .lot-internal-column{display:none;}
   .lot-detail-table td{text-align:center;}
   .lot-detail-table input{width:100%;min-width:112px;padding:7px 8px;border:1px solid var(--border);border-radius:7px;font-family:inherit;text-align:center;}
-  .lot-history-toggle-wrap{display:flex;justify-content:center;padding:12px 0 2px;}
+  .lot-history-toggle-wrap{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:12px 0 2px;}
   .lot-history-toggle{display:inline-flex;align-items:center;gap:8px;padding:8px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--primary);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
   .lot-history-toggle:hover{border-color:var(--primary);background:var(--primary-soft);}
   .lot-history-toggle-chevron{font-size:12px;line-height:1;}
@@ -4924,7 +4926,7 @@ function inventoryLotDetailRowHtml(product,row,{childGroupIndex=null,readOnly=fa
   const classes=[childGroupIndex===null?'':'lot-group-child',readOnly?'lot-history-row':''].filter(Boolean).join(' ');
   const attributes=`${classes?` class="${classes}"`:''}${childGroupIndex===null?'':` data-lot-group-child="${childGroupIndex}" hidden`}${readOnly?` data-lot-history-row="${row.id}"`:` data-lot-row="${row.id}"`}`;
   const canEdit=currentProfile?.owner&&!readOnly;
-  return `<tr${attributes}><td class="mono">${escapeHtml(row.internal_code||'-')}</td><td>${canEdit?`<input class="lot-edit-number" value="${escapeHtml(row.manufacturer_lot||'')}" placeholder="ไม่ระบุ">`:escapeHtml(row.manufacturer_lot||'-')}</td><td class="mono">${escapeHtml(lotQuantityText(product,row))}</td><td>${canEdit?`<input class="lot-edit-expiry" inputmode="numeric" maxlength="10" value="${escapeHtml(row.expiry_date?fmtDateShort(row.expiry_date):'')}" placeholder="วว-ดด-ปปปป">`:escapeHtml(row.expiry_date?fmtDateShort(row.expiry_date):'-')}</td><td>${escapeHtml(row.received_at?fmtDateShort(String(row.received_at).slice(0,10)):'-')}</td><td><span class="lot-status ${status.key}">${status.label}</span></td></tr>`;
+  return `<tr${attributes}><td class="mono lot-internal-column">${escapeHtml(row.internal_code||'-')}</td><td>${canEdit?`<input class="lot-edit-number" value="${escapeHtml(row.manufacturer_lot||'')}" placeholder="ไม่ระบุ">`:escapeHtml(row.manufacturer_lot||'-')}</td><td class="mono">${escapeHtml(lotQuantityText(product,row))}</td><td>${canEdit?`<input class="lot-edit-expiry" inputmode="numeric" maxlength="10" value="${escapeHtml(row.expiry_date?fmtDateShort(row.expiry_date):'')}" placeholder="วว-ดด-ปปปป">`:escapeHtml(row.expiry_date?fmtDateShort(row.expiry_date):'-')}</td><td>${escapeHtml(row.received_at?fmtDateShort(String(row.received_at).slice(0,10)):'-')}</td><td><span class="lot-status ${status.key}">${status.label}</span></td></tr>`;
 }
 function inventoryLotDetailGroupsHtml(product,rows,{groupPrefix='stocked',readOnly=false}={}){
   return groupInventoryLotDetailRows(rows).map((group,groupIndex)=>{
@@ -4932,7 +4934,7 @@ function inventoryLotDetailGroupsHtml(product,rows,{groupPrefix='stocked',readOn
     if(group.rows.length===1) return inventoryLotDetailRowHtml(product,group.rows[0],{readOnly});
     const status=inventoryLotStatus(group.rows[0]);
     const latestReceived=group.rows.map(row=>String(row.received_at||'').slice(0,10)).filter(Boolean).sort().at(-1)||'';
-    const summary=`<tr class="lot-group-summary ${readOnly?'lot-history-row':''}"><td><button type="button" class="lot-group-toggle" data-lot-group-toggle="${groupKey}" aria-expanded="false"><span class="lot-group-chevron">▸</span>${group.rows.length} รายการรับเข้า</button><small class="lot-group-note">กดเพื่อดูรหัส Lot ภายใน</small></td><td>${escapeHtml(group.manufacturerLot||'-')}</td><td class="mono">${escapeHtml(lotQuantityText(product,{quantity_base:group.quantityBase}))}</td><td>${escapeHtml(group.expiryDate?fmtDateShort(group.expiryDate):'-')}</td><td>${escapeHtml(latestReceived?`ล่าสุด ${fmtDateShort(latestReceived)}`:'-')}</td><td><span class="lot-status ${status.key}">${status.label}</span></td></tr>`;
+    const summary=`<tr class="lot-group-summary ${readOnly?'lot-history-row':''}"><td class="lot-internal-column"><button type="button" class="lot-group-toggle" data-lot-group-toggle="${groupKey}" aria-expanded="false"><span class="lot-group-chevron">▸</span>${group.rows.length} รายการรับเข้า</button><small class="lot-group-note">กดเพื่อดูรหัส LOT ภายใน</small></td><td>${escapeHtml(group.manufacturerLot||'-')}</td><td class="mono">${escapeHtml(lotQuantityText(product,{quantity_base:group.quantityBase}))}</td><td>${escapeHtml(group.expiryDate?fmtDateShort(group.expiryDate):'-')}</td><td>${escapeHtml(latestReceived?`ล่าสุด ${fmtDateShort(latestReceived)}`:'-')}</td><td><span class="lot-status ${status.key}">${status.label}</span></td></tr>`;
     return summary+group.rows.map(row=>inventoryLotDetailRowHtml(product,row,{childGroupIndex:groupKey,readOnly})).join('');
   }).join('');
 }
@@ -4958,12 +4960,32 @@ async function openProductLotDetails(productId){
   const stockedRowsHtml=inventoryLotDetailGroupsHtml(product,stockedRows,{groupPrefix:'stocked'});
   const exhaustedRowsHtml=inventoryLotDetailGroupsHtml(product,exhaustedRows,{groupPrefix:'exhausted',readOnly:true});
   const emptyStockedText=rows.length?'ไม่มี Lot ที่มีสินค้า':'ยังไม่มี Lot สำหรับสินค้านี้';
-  const historyToggle=exhaustedRows.length?`<div class="lot-history-toggle-wrap"><button type="button" class="lot-history-toggle" id="lotHistoryToggle" aria-expanded="false"><span class="lot-history-toggle-chevron">▸</span><span>แสดง LOT ที่หมดแล้ว (${exhaustedRows.length})</span></button></div>`:'';
-  overlay.innerHTML=`<div class="modal lot-detail-modal"><div class="modal-head"><div><h3>รายละเอียด Lot</h3><div class="sub">${escapeHtml(product.name)} · ${escapeHtml(activeWarehouse()?.name||'-')}</div></div><button class="modal-close" aria-label="ปิด">×</button></div><div class="lot-detail-body"><div class="lot-detail-summary"><span>คงเหลือรวม ${escapeHtml(stockInLargestUnit({...product,stock:total}))}</span><span>${activeDisplayGroupCount} Lot ที่มีสินค้า</span><span>หมดอายุใกล้สุด ${escapeHtml(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]?fmtDateShort(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]):'-')}</span></div><div class="seamless-table-wrap"><table class="grid-table doc-head-blue lot-detail-table"><thead><tr><th>รหัส Lot ภายใน</th><th>เลข Lot ผู้ผลิต</th><th>คงเหลือ</th><th>วันหมดอายุ</th><th>รับเข้าเมื่อ</th><th>สถานะ</th></tr></thead><tbody>${stockedRowsHtml||`<tr><td colspan="6" style="padding:28px;color:var(--text-muted);">${emptyStockedText}</td></tr>`}</tbody>${exhaustedRows.length?`<tbody id="lotHistoryBody" hidden>${exhaustedRowsHtml}</tbody>`:''}</table></div>${historyToggle}${currentProfile?.owner&&stockedRows.length?'<div class="form-bottom-actions" style="justify-content:flex-end;"><button class="btn primary" id="saveLotDetailsBtn">บันทึกข้อมูล Lot</button></div>':''}</div></div>`;
+  const systemToggle=currentProfile?.owner&&rows.length?`<button type="button" class="lot-history-toggle" id="lotSystemDetailsToggle" aria-expanded="false"><span class="lot-history-toggle-chevron">▸</span><span>ดูรายละเอียดทางระบบ</span></button>`:'';
+  const historyToggle=exhaustedRows.length?`<button type="button" class="lot-history-toggle" id="lotHistoryToggle" aria-expanded="false"><span class="lot-history-toggle-chevron">▸</span><span>แสดง LOT ที่หมดแล้ว (${exhaustedRows.length})</span></button>`:'';
+  const detailToggles=systemToggle||historyToggle?`<div class="lot-history-toggle-wrap">${systemToggle}${historyToggle}</div>`:'';
+  overlay.innerHTML=`<div class="modal lot-detail-modal"><div class="modal-head"><div><h3>รายละเอียด Lot</h3><div class="sub">${escapeHtml(product.name)} · ${escapeHtml(activeWarehouse()?.name||'-')}</div></div><button class="modal-close" aria-label="ปิด">×</button></div><div class="lot-detail-body"><div class="lot-detail-summary"><span>คงเหลือรวม ${escapeHtml(stockInLargestUnit({...product,stock:total}))}</span><span>${activeDisplayGroupCount} Lot ที่มีสินค้า</span><span>หมดอายุใกล้สุด ${escapeHtml(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]?fmtDateShort(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]):'-')}</span></div><div class="seamless-table-wrap"><table class="grid-table doc-head-blue lot-detail-table"><thead><tr><th class="lot-internal-column">รหัส LOT ภายใน</th><th>เลข LOT ผู้ผลิต</th><th>คงเหลือ</th><th>วันหมดอายุ</th><th>รับเข้าเมื่อ</th><th>สถานะ</th></tr></thead><tbody>${stockedRowsHtml||`<tr><td colspan="6" style="padding:28px;color:var(--text-muted);">${emptyStockedText}</td></tr>`}</tbody>${exhaustedRows.length?`<tbody id="lotHistoryBody" hidden>${exhaustedRowsHtml}</tbody>`:''}</table></div>${detailToggles}${currentProfile?.owner&&stockedRows.length?'<div class="form-bottom-actions" style="justify-content:flex-end;"><button class="btn primary" id="saveLotDetailsBtn">บันทึกข้อมูล Lot</button></div>':''}</div></div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
   overlay.addEventListener('click',event=>{ if(event.target===overlay) close(); });
+  const systemDetailsButton=overlay.querySelector('#lotSystemDetailsToggle');
+  if(systemDetailsButton) systemDetailsButton.addEventListener('click',()=>{
+    const modal=overlay.querySelector('.lot-detail-modal');
+    const showing=modal?.classList.toggle('show-internal-lots')||false;
+    systemDetailsButton.setAttribute('aria-expanded',String(showing));
+    const chevron=systemDetailsButton.querySelector('.lot-history-toggle-chevron');
+    const label=systemDetailsButton.querySelector('span:last-child');
+    if(chevron) chevron.textContent=showing?'▾':'▸';
+    if(label) label.textContent=showing?'ซ่อนรายละเอียดทางระบบ':'ดูรายละเอียดทางระบบ';
+    if(!showing){
+      overlay.querySelectorAll('[data-lot-group-toggle]').forEach(button=>{
+        button.setAttribute('aria-expanded','false');
+        const groupChevron=button.querySelector('.lot-group-chevron');
+        if(groupChevron) groupChevron.textContent='▸';
+      });
+      overlay.querySelectorAll('[data-lot-group-child]').forEach(row=>{ row.hidden=true; });
+    }
+  });
   const historyButton=overlay.querySelector('#lotHistoryToggle');
   if(historyButton) historyButton.addEventListener('click',()=>{
     const expanded=historyButton.getAttribute('aria-expanded')==='true';
