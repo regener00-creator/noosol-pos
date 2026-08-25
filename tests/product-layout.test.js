@@ -23,6 +23,9 @@ assert.match(html, /\.product-list-search\{[^}]*max-width:none;[^}]*width:100%/)
 assert.match(html, /\.product-list-actions\{[^}]*display:flex/);
 assert.doesNotMatch(source, /product-head-search/);
 assert.doesNotMatch(source, /pagehead product-pagehead/);
+assert.doesNotMatch(source, /<th>บาร์โค้ด<\/th>/, 'หน้ารายการสินค้าต้องไม่แสดงคอลัมน์บาร์โค้ด');
+assert.doesNotMatch(source, /col-barcode/, 'หน้ารายการสินค้าต้องไม่สร้างคอลัมน์บาร์โค้ด');
+assert.match(source, /placeholder="ค้นหาจาก ชื่อ \/ รหัส \/ บาร์โค้ด"/, 'ยังต้องค้นหาด้วยบาร์โค้ดได้');
 
 const renderStart = html.indexOf('function render(){');
 const renderEnd = html.indexOf('function syncTopbarFormActions()', renderStart);
