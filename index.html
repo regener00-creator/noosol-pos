@@ -2533,6 +2533,15 @@ function productUnitCost(p,unitName,fallbackFactor){
   }
   return mainCost;
 }
+function saleLineCostSnapshot(line,product){
+  const qty=Math.max(0,Number(line?.qty)||0);
+  const cost=line?.custom
+    ? Number(line.price)||0
+    : product
+      ? productUnitCost(product,line?.unit,line?.factor)
+      : Number(line?.cost)||0;
+  return {cost,costTotal:cost*qty,costSource:line?.custom?'custom_price':'product_manual'};
+}
 function addToCart(pid, unitName, qty){
   const p = products.find(x=>x.id===pid); if(!p) return;
   qty = qty || 1;
@@ -13004,12 +13013,12 @@ async function doCheckout(payMethod,options={}){
   const items=[];
   cart.forEach((l,idx)=>{
     const p=products.find(x=>x.id===l.pid);
-    const unitCost=l.custom?(Number(l.price)||0):(l.cost!==undefined&&l.cost!==''?Number(l.cost)||0:productUnitCost(p,l.unit,l.factor));
+    const costSnapshot=saleLineCostSnapshot(l,p);
     const promoLine=promoResult.lines[idx];
     const lineTotal=promoLine.promoId?promoLine.promoLineTotal:l.price*l.qty;
     const vatMode=l.custom?(vatRegistered?'incl':'none'):effectiveProductVatMode(p);
     const lineTotalGross=grossAmountForVatMode(lineTotal,vatMode,vatRegistered);
-    items.push({lineKey:String(idx+1),productId:l.pid||null,warehouseId:Number(activeWarehouseId)||null,name:l.name,qty:l.qty,baseQty:(Number(l.qty)||0)*(Number(l.factor)||1),price:Number(l.price)||0,cost:unitCost,costTotal:unitCost*Number(l.qty||0),unit:l.unit,factor:l.factor||0,custom:!!l.custom,
+    items.push({lineKey:String(idx+1),productId:l.pid||null,warehouseId:Number(activeWarehouseId)||null,name:l.name,qty:l.qty,baseQty:(Number(l.qty)||0)*(Number(l.factor)||1),price:Number(l.price)||0,cost:costSnapshot.cost,costTotal:costSnapshot.costTotal,costSource:costSnapshot.costSource,unit:l.unit,factor:l.factor||0,custom:!!l.custom,
       promoId:promoLine.promoId||null,promoName:promoLine.promoName||'',lineTotal,lineTotalGross,vatMode,promoFreeQty:promoLine.promoFreeQty||0});
   });
   const completedSaleId='INV-'+invoiceCounter;
@@ -13020,10 +13029,6 @@ async function doCheckout(payMethod,options={}){
     items.forEach(item=>{
       if(item.custom) return;
       item.lotAllocations=allocations.filter(allocation=>String(allocation.lineKey)===String(item.lineKey));
-      if(item.lotAllocations.length){
-        item.costTotal=item.lotAllocations.reduce((sum,allocation)=>sum+(Number(allocation.baseQty)||0)*(Number(allocation.unitCostBase)||0),0);
-        item.cost=Number(item.qty)>0?item.costTotal/Number(item.qty):0;
-      }
     });
     await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
   }catch(error){
