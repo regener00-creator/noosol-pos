@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const context = { businessSettings:{vat:'ยังไม่จดภาษีมูลค่าเพิ่ม'} };
+const context = { businessSettings:{vat:'ยังไม่จดภาษีมูลค่าเพิ่ม',vatRegistrationDate:''}, currentDateStr:()=> '2026-08-25', products:[] };
 vm.createContext(context);
 
 const helpersStart = html.indexOf('const VAT_RATE = 0.07;');
@@ -46,9 +46,34 @@ assert.equal(result.total,186.3);
 assert.equal(context.effectiveProductVatMode({vat:'incl'}),'none');
 context.businessSettings.vat='จดภาษีมูลค่าเพิ่มแล้ว';
 assert.equal(context.effectiveProductVatMode({vat:'excl'}),'excl');
+context.businessSettings.vatRegistrationDate='2026-09-01';
+assert.equal(context.effectiveProductVatMode({vat:'incl'}),'none', 'future VAT date must not activate VAT early');
+context.businessSettings.vatRegistrationDate='2026-08-01';
+assert.equal(context.effectiveProductVatMode({vat:'incl'}),'incl');
 
-assert.match(html, /ไม่คิด VAT — กิจการยังไม่จด VAT/);
+result = context.calculatePurchaseTaxSummary([{qty:2,price:100}],0,'excl');
+assert.equal(result.beforeVat,200);
+assert.equal(result.vat,14);
+assert.equal(result.total,214);
+
+result = context.calculatePurchaseTaxSummary([{qty:1,price:107}],0,'incl');
+assert.equal(result.beforeVat,100);
+assert.equal(result.vat,7);
+assert.equal(result.total,107);
+
+result = context.calculatePurchaseTaxSummary([{qty:1,price:107}],0,'none');
+assert.equal(result.beforeVat,107);
+assert.equal(result.vat,0);
+assert.equal(result.total,107);
+
+assert.equal(context.saleTaxSummary({total:107,vat:7}).registered,false, 'legacy sale without explicit flag must not be treated as VAT sale');
+assert.equal(context.saleTaxSummary({total:107,vat:7}).vat,0);
+
+assert.match(html, /ไม่คิด VAT \(กิจการยังไม่จด VAT\)/);
 assert.match(html, /vatRegistered,taxSummary,businessSnapshot/);
+assert.match(html, /supplierTaxInvoiceNo/);
+assert.match(html, /รายงานภาษี/);
+assert.match(html, /feeTaxSummary/);
 assert.match(html, /registered\?'ใบกำกับภาษีอย่างย่อ\/ใบเสร็จรับเงิน':'ใบเสร็จรับเงิน'/);
 assert.match(html, /กิจการยังไม่จด VAT จึงสร้างใบกำกับภาษีไม่ได้/);
 assert.match(html, /รายการขายนี้เกิดขึ้นขณะที่กิจการยังไม่จด VAT/);

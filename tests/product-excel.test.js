@@ -11,6 +11,7 @@ assert.ok(helperStart >= 0 && helperEnd > helperStart, 'product Excel helpers mu
 const sandbox = {
   warehouses: [{id: 1, name: 'คลังหลัก'}],
   fmtDateShort: value => value === '2027-12-31' ? '31/12/2027' : value,
+  productVatModeLabel: value => value === 'excl' ? 'ราคายังไม่รวม VAT' : value === 'none' ? 'ไม่มี VAT' : 'ราคารวม VAT แล้ว',
 };
 vm.createContext(sandbox);
 vm.runInContext(`${html.slice(helperStart, helperEnd)}; this.productExcelColumnCounts=productExcelColumnCounts; this.productExcelHeaders=productExcelHeaders; this.productToExcelRow=productToExcelRow;`, sandbox);
@@ -27,6 +28,7 @@ const products = [{
   unit: 'แผง',
   price: 15,
   cost: 9,
+  vat: 'excl',
   stock: 12,
   expiry: '2027-12-31',
   wh: 1,
@@ -47,6 +49,8 @@ assert.equal(row['บาร์โค้ดเพิ่มเติม 2'], '');
 assert.equal(row['ชื่อผู้จำหน่าย 2'], '');
 assert.equal(row['หน่วยเพิ่มเติม 2'], '');
 assert.equal(row['คลังสินค้า'], 'คลังหลัก');
+assert.equal(row['ภาษีมูลค่าเพิ่ม'], 'ราคายังไม่รวม VAT');
+assert.ok(headers.includes('ภาษีมูลค่าเพิ่ม'));
 
 const templateStart = html.indexOf('function downloadProductImportTemplate(');
 const importStart = html.indexOf('async function importProductsFromExcel(', templateStart);
@@ -54,5 +58,6 @@ const exportStart = html.indexOf('function exportProductsToExcel(', importStart)
 const exportEnd = html.indexOf('function saveProduct(', exportStart);
 assert.match(html.slice(templateStart, importStart), /productToExcelRow\(/, 'template must use the shared row schema');
 assert.match(html.slice(exportStart, exportEnd), /productToExcelRow\(/, 'export must use the shared row schema');
+assert.match(html.slice(importStart, exportStart), /parseProductVatMode\(/, 'import must preserve the product VAT mode');
 
 console.log('product Excel tests passed');
