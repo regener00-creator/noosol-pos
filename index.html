@@ -344,6 +344,11 @@
   .lot-detail-table{min-width:780px;}
   .lot-detail-table td{text-align:center;}
   .lot-detail-table input{width:100%;min-width:112px;padding:7px 8px;border:1px solid var(--border);border-radius:7px;font-family:inherit;text-align:center;}
+  .lot-history-toggle-wrap{display:flex;justify-content:center;padding:12px 0 2px;}
+  .lot-history-toggle{display:inline-flex;align-items:center;gap:8px;padding:8px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--primary);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
+  .lot-history-toggle:hover{border-color:var(--primary);background:var(--primary-soft);}
+  .lot-history-toggle-chevron{font-size:12px;line-height:1;}
+  .lot-history-row td{color:var(--text-muted);background:#FAFBFC;}
   .lot-group-summary td{background:#F7FBFE;font-weight:600;}
   .lot-group-toggle{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:0;background:transparent;color:var(--primary);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;padding:5px 7px;border-radius:7px;}
   .lot-group-toggle:hover{background:var(--primary-soft);}
@@ -4906,10 +4911,30 @@ function groupInventoryLotDetailRows(rows){
   });
   return groups;
 }
-function inventoryLotDetailRowHtml(product,row,{childGroupIndex=null}={}){
+function inventoryLotDetailRowSets(rows){
+  const stocked=[],exhausted=[];
+  (rows||[]).forEach(row=>{
+    if(Number(row?.quantity_base)>0&&row?.status!=='exhausted') stocked.push(row);
+    else exhausted.push(row);
+  });
+  return {stocked,exhausted};
+}
+function inventoryLotDetailRowHtml(product,row,{childGroupIndex=null,readOnly=false}={}){
   const status=inventoryLotStatus(row);
-  const childAttributes=childGroupIndex===null?'':` class="lot-group-child" data-lot-group-child="${childGroupIndex}" hidden`;
-  return `<tr data-lot-row="${row.id}"${childAttributes}><td class="mono">${escapeHtml(row.internal_code||'-')}</td><td>${currentProfile?.owner?`<input class="lot-edit-number" value="${escapeHtml(row.manufacturer_lot||'')}" placeholder="ไม่ระบุ">`:escapeHtml(row.manufacturer_lot||'-')}</td><td class="mono">${escapeHtml(lotQuantityText(product,row))}</td><td>${currentProfile?.owner?`<input class="lot-edit-expiry" inputmode="numeric" maxlength="10" value="${escapeHtml(row.expiry_date?fmtDateShort(row.expiry_date):'')}" placeholder="วว-ดด-ปปปป">`:escapeHtml(row.expiry_date?fmtDateShort(row.expiry_date):'-')}</td><td>${escapeHtml(row.received_at?fmtDateShort(String(row.received_at).slice(0,10)):'-')}</td><td><span class="lot-status ${status.key}">${status.label}</span></td></tr>`;
+  const classes=[childGroupIndex===null?'':'lot-group-child',readOnly?'lot-history-row':''].filter(Boolean).join(' ');
+  const attributes=`${classes?` class="${classes}"`:''}${childGroupIndex===null?'':` data-lot-group-child="${childGroupIndex}" hidden`}${readOnly?` data-lot-history-row="${row.id}"`:` data-lot-row="${row.id}"`}`;
+  const canEdit=currentProfile?.owner&&!readOnly;
+  return `<tr${attributes}><td class="mono">${escapeHtml(row.internal_code||'-')}</td><td>${canEdit?`<input class="lot-edit-number" value="${escapeHtml(row.manufacturer_lot||'')}" placeholder="ไม่ระบุ">`:escapeHtml(row.manufacturer_lot||'-')}</td><td class="mono">${escapeHtml(lotQuantityText(product,row))}</td><td>${canEdit?`<input class="lot-edit-expiry" inputmode="numeric" maxlength="10" value="${escapeHtml(row.expiry_date?fmtDateShort(row.expiry_date):'')}" placeholder="วว-ดด-ปปปป">`:escapeHtml(row.expiry_date?fmtDateShort(row.expiry_date):'-')}</td><td>${escapeHtml(row.received_at?fmtDateShort(String(row.received_at).slice(0,10)):'-')}</td><td><span class="lot-status ${status.key}">${status.label}</span></td></tr>`;
+}
+function inventoryLotDetailGroupsHtml(product,rows,{groupPrefix='stocked',readOnly=false}={}){
+  return groupInventoryLotDetailRows(rows).map((group,groupIndex)=>{
+    const groupKey=`${groupPrefix}-${groupIndex}`;
+    if(group.rows.length===1) return inventoryLotDetailRowHtml(product,group.rows[0],{readOnly});
+    const status=inventoryLotStatus(group.rows[0]);
+    const latestReceived=group.rows.map(row=>String(row.received_at||'').slice(0,10)).filter(Boolean).sort().at(-1)||'';
+    const summary=`<tr class="lot-group-summary ${readOnly?'lot-history-row':''}"><td><button type="button" class="lot-group-toggle" data-lot-group-toggle="${groupKey}" aria-expanded="false"><span class="lot-group-chevron">▸</span>${group.rows.length} รายการรับเข้า</button><small class="lot-group-note">กดเพื่อดูรหัส Lot ภายใน</small></td><td>${escapeHtml(group.manufacturerLot||'-')}</td><td class="mono">${escapeHtml(lotQuantityText(product,{quantity_base:group.quantityBase}))}</td><td>${escapeHtml(group.expiryDate?fmtDateShort(group.expiryDate):'-')}</td><td>${escapeHtml(latestReceived?`ล่าสุด ${fmtDateShort(latestReceived)}`:'-')}</td><td><span class="lot-status ${status.key}">${status.label}</span></td></tr>`;
+    return summary+group.rows.map(row=>inventoryLotDetailRowHtml(product,row,{childGroupIndex:groupKey,readOnly})).join('');
+  }).join('');
 }
 async function openProductLotDetails(productId){
   const product=products.find(item=>Number(item.id)===Number(productId));
@@ -4925,23 +4950,31 @@ async function openProductLotDetails(productId){
     if(activeDiff) return activeDiff;
     return String(a.expiry_date||'9999-12-31').localeCompare(String(b.expiry_date||'9999-12-31'))||Number(a.id)-Number(b.id);
   });
-  const activeRows=rows.filter(row=>Number(row.quantity_base)>0&&row.status!=='blocked');
-  const displayGroups=groupInventoryLotDetailRows(rows);
+  const {stocked:stockedRows,exhausted:exhaustedRows}=inventoryLotDetailRowSets(rows);
+  const activeRows=stockedRows.filter(row=>row.status!=='blocked');
   const activeDisplayGroupCount=groupInventoryLotDetailRows(activeRows).length;
   const total=activeRows.reduce((sum,row)=>sum+Number(row.quantity_base||0),0);
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
-  const lotRowsHtml=displayGroups.map((group,groupIndex)=>{
-    if(group.rows.length===1) return inventoryLotDetailRowHtml(product,group.rows[0]);
-    const status=inventoryLotStatus(group.rows[0]);
-    const latestReceived=group.rows.map(row=>String(row.received_at||'').slice(0,10)).filter(Boolean).sort().at(-1)||'';
-    const summary=`<tr class="lot-group-summary"><td><button type="button" class="lot-group-toggle" data-lot-group-toggle="${groupIndex}" aria-expanded="false"><span class="lot-group-chevron">▸</span>${group.rows.length} รายการรับเข้า</button><small class="lot-group-note">กดเพื่อดูรหัส Lot ภายใน</small></td><td>${escapeHtml(group.manufacturerLot||'-')}</td><td class="mono">${escapeHtml(lotQuantityText(product,{quantity_base:group.quantityBase}))}</td><td>${escapeHtml(group.expiryDate?fmtDateShort(group.expiryDate):'-')}</td><td>${escapeHtml(latestReceived?`ล่าสุด ${fmtDateShort(latestReceived)}`:'-')}</td><td><span class="lot-status ${status.key}">${status.label}</span></td></tr>`;
-    return summary+group.rows.map(row=>inventoryLotDetailRowHtml(product,row,{childGroupIndex:groupIndex})).join('');
-  }).join('');
-  overlay.innerHTML=`<div class="modal lot-detail-modal"><div class="modal-head"><div><h3>รายละเอียด Lot</h3><div class="sub">${escapeHtml(product.name)} · ${escapeHtml(activeWarehouse()?.name||'-')}</div></div><button class="modal-close" aria-label="ปิด">×</button></div><div class="lot-detail-body"><div class="lot-detail-summary"><span>คงเหลือรวม ${escapeHtml(stockInLargestUnit({...product,stock:total}))}</span><span>${activeDisplayGroupCount} Lot ที่มีสินค้า</span><span>หมดอายุใกล้สุด ${escapeHtml(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]?fmtDateShort(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]):'-')}</span></div><div class="seamless-table-wrap"><table class="grid-table doc-head-blue lot-detail-table"><thead><tr><th>รหัส Lot ภายใน</th><th>เลข Lot ผู้ผลิต</th><th>คงเหลือ</th><th>วันหมดอายุ</th><th>รับเข้าเมื่อ</th><th>สถานะ</th></tr></thead><tbody>${lotRowsHtml||'<tr><td colspan="6" style="padding:28px;color:var(--text-muted);">ยังไม่มี Lot สำหรับสินค้านี้</td></tr>'}</tbody></table></div>${currentProfile?.owner&&rows.length?'<div class="form-bottom-actions" style="justify-content:flex-end;"><button class="btn primary" id="saveLotDetailsBtn">บันทึกข้อมูล Lot</button></div>':''}</div></div>`;
+  const stockedRowsHtml=inventoryLotDetailGroupsHtml(product,stockedRows,{groupPrefix:'stocked'});
+  const exhaustedRowsHtml=inventoryLotDetailGroupsHtml(product,exhaustedRows,{groupPrefix:'exhausted',readOnly:true});
+  const emptyStockedText=rows.length?'ไม่มี Lot ที่มีสินค้า':'ยังไม่มี Lot สำหรับสินค้านี้';
+  const historyToggle=exhaustedRows.length?`<div class="lot-history-toggle-wrap"><button type="button" class="lot-history-toggle" id="lotHistoryToggle" aria-expanded="false"><span class="lot-history-toggle-chevron">▸</span><span>แสดง LOT ที่หมดแล้ว (${exhaustedRows.length})</span></button></div>`:'';
+  overlay.innerHTML=`<div class="modal lot-detail-modal"><div class="modal-head"><div><h3>รายละเอียด Lot</h3><div class="sub">${escapeHtml(product.name)} · ${escapeHtml(activeWarehouse()?.name||'-')}</div></div><button class="modal-close" aria-label="ปิด">×</button></div><div class="lot-detail-body"><div class="lot-detail-summary"><span>คงเหลือรวม ${escapeHtml(stockInLargestUnit({...product,stock:total}))}</span><span>${activeDisplayGroupCount} Lot ที่มีสินค้า</span><span>หมดอายุใกล้สุด ${escapeHtml(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]?fmtDateShort(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]):'-')}</span></div><div class="seamless-table-wrap"><table class="grid-table doc-head-blue lot-detail-table"><thead><tr><th>รหัส Lot ภายใน</th><th>เลข Lot ผู้ผลิต</th><th>คงเหลือ</th><th>วันหมดอายุ</th><th>รับเข้าเมื่อ</th><th>สถานะ</th></tr></thead><tbody>${stockedRowsHtml||`<tr><td colspan="6" style="padding:28px;color:var(--text-muted);">${emptyStockedText}</td></tr>`}</tbody>${exhaustedRows.length?`<tbody id="lotHistoryBody" hidden>${exhaustedRowsHtml}</tbody>`:''}</table></div>${historyToggle}${currentProfile?.owner&&stockedRows.length?'<div class="form-bottom-actions" style="justify-content:flex-end;"><button class="btn primary" id="saveLotDetailsBtn">บันทึกข้อมูล Lot</button></div>':''}</div></div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
   overlay.addEventListener('click',event=>{ if(event.target===overlay) close(); });
+  const historyButton=overlay.querySelector('#lotHistoryToggle');
+  if(historyButton) historyButton.addEventListener('click',()=>{
+    const expanded=historyButton.getAttribute('aria-expanded')==='true';
+    historyButton.setAttribute('aria-expanded',String(!expanded));
+    const historyBody=overlay.querySelector('#lotHistoryBody');
+    if(historyBody) historyBody.hidden=expanded;
+    const chevron=historyButton.querySelector('.lot-history-toggle-chevron');
+    const label=historyButton.querySelector('span:last-child');
+    if(chevron) chevron.textContent=expanded?'▸':'▾';
+    if(label) label.textContent=`${expanded?'แสดง':'ซ่อน'} LOT ที่หมดแล้ว (${exhaustedRows.length})`;
+  });
   overlay.querySelectorAll('[data-lot-group-toggle]').forEach(button=>button.addEventListener('click',()=>{
     const expanded=button.getAttribute('aria-expanded')==='true';
     button.setAttribute('aria-expanded',String(!expanded));

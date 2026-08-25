@@ -51,6 +51,15 @@ assert.equal(groupedLots[2].rows.length, 1, 'รายการที่ไม�
 assert.equal(groupedLots[3].rows.length, 1, 'รายการที่ไม่ระบุเลข Lot ต้องไม่ถูกยุบรวม');
 assert.equal(groupedLots[4].rows.length, 1, 'Lot ที่หมดแล้วต้องไม่รวมกับ Lot ที่ยังมีสินค้า');
 
+const rowSets = groupContext.inventoryLotDetailRowSets([
+  {id:1,quantity_base:5,status:'active'},
+  {id:2,quantity_base:0,status:'exhausted'},
+  {id:3,quantity_base:0,status:'active'},
+  {id:4,quantity_base:2,status:'exhausted'},
+]);
+assert.deepEqual(Array.from(rowSets.stocked,row=>row.id),[1], 'ค่าเริ่มต้นต้องแสดงเฉพาะ Lot ที่ยังมีสินค้า');
+assert.deepEqual(Array.from(rowSets.exhausted,row=>row.id),[2,3,4], 'Lot หมดแล้วต้องอยู่ในส่วนประวัติ');
+
 assert.match(lotMigration, /create table if not exists public\.inventory_lots/);
 assert.match(lotMigration, /create table if not exists public\.inventory_lot_movements/);
 assert.match(lotMigration, /alter table public\.inventory_lots enable row level security/);
@@ -85,6 +94,11 @@ assert.match(html, /data-product-lots/);
 assert.match(html, /update_inventory_lot_details/);
 assert.match(html, /data-lot-group-toggle/);
 assert.match(html, /data-lot-group-child/);
+assert.match(html, /id="lotHistoryToggle"/);
+assert.match(html, /id="lotHistoryBody" hidden/);
+assert.match(html, /data-lot-history-row/);
+assert.match(html, /แสดง LOT ที่หมดแล้ว/);
+assert.match(html, /readOnly:true/);
 assert.match(html, /class="product-exchange-lot"/);
 assert.match(html, /class="poi_return_lot"/);
 assert.match(html, /sb\.rpc\('apply_product_return_lots'/);
