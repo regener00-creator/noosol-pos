@@ -4836,11 +4836,155 @@ function computeUnitRowsWithStock(rows, mainUnit, mainStock){
   return copies;
 }
 
+function baseUnitChangeRound(value){ return Math.round((Number(value)||0)*1000000)/1000000; }
+function buildProductBaseUnitChange(product,options={}){
+  if(!product) return {error:'ไม่พบสินค้า'};
+  const oldUnit=String(product.unit||'').trim(),newUnit=String(options.newUnit||'').trim();
+  const conversion=Number(options.conversion);
+  const newPrice=Number(options.newPrice),newCost=Number(options.newCost);
+  const newBarcode=String(options.newBarcode||'').trim();
+  if(!oldUnit||!newUnit) return {error:'กรุณาระบุหน่วยเดิมและหน่วยใหม่'};
+  if(oldUnit===newUnit) return {error:'หน่วยใหม่ต้องไม่ซ้ำกับหน่วยเดิม'};
+  if((product.units||[]).some(unit=>String(unit.sub||'').trim()===newUnit)) return {error:'หน่วยใหม่นี้มีอยู่ในรายการหน่วยสินค้าแล้ว'};
+  if(!Number.isFinite(conversion)||conversion<=0||conversion>1000000) return {error:'อัตราแปลงต้องมากกว่า 0 และไม่เกิน 1,000,000'};
+  if(!Number.isFinite(newPrice)||newPrice<0) return {error:'กรุณาระบุราคาขายของหน่วยใหม่ให้ถูกต้อง'};
+  if(!Number.isFinite(newCost)||newCost<0) return {error:'กรุณาระบุทุนของหน่วยใหม่ให้ถูกต้อง'};
+  if(newBarcode&&newBarcode===String(product.barcode||'').trim()) return {error:`บาร์โค้ดเดิมจะย้ายไปอยู่กับหน่วย ${oldUnit} กรุณาใช้เลขอื่นสำหรับ ${newUnit}`};
+  const rawRows=[{
+    sub:oldUnit,per:conversion,base:newUnit,price:Number(product.price)||0,cost:Number(product.cost)||0,barcode:String(product.barcode||'').trim()
+  },...(product.units||[]).map(unit=>({
+    ...unit,
+    per:Number(unit.per)>0?Number(unit.per):(Number(unit.factor)>0?Number(unit.factor):0),
+    base:String(unit.base||oldUnit).trim()||oldUnit,
+  }))];
+  const convertedUnits=rawRows.map(unit=>({
+    ...unit,
+    factor:baseUnitChangeRound(resolveNetFactor(unit.sub,rawRows,newUnit)),
+  }));
+  if(convertedUnits.some(unit=>!unit.sub||!Number.isFinite(unit.factor)||unit.factor<=0)) return {error:'โครงสร้างหน่วยสินค้าเดิมไม่สมบูรณ์ กรุณาตรวจจำนวนและหน่วยอ้างอิงก่อนเปลี่ยน'};
+  const changedAt=String(options.changedAt||new Date().toISOString());
+  const changedBy=String(options.changedBy||'').trim();
+  const history=[...(Array.isArray(product.unitChangeHistory)?product.unitChangeHistory:[]),{
+    oldUnit,newUnit,conversion,changedAt,changedBy,
+  }];
+  return {
+    conversion,oldUnit,newUnit,
+    product:{...product,unit:newUnit,price:newPrice,cost:newCost,barcode:newBarcode,multiunit:true,units:convertedUnits,unitChangeHistory:history},
+  };
+}
+function baseUnitChangeStockPreview(productId,conversion,warehouseList=warehouses,balanceRows=inventoryBalanceRows){
+  const factor=Number(conversion)>0?Number(conversion):0;
+  return (warehouseList||[]).map(warehouse=>{
+    const balance=(balanceRows||[]).find(row=>Number(row.product_id)===Number(productId)&&Number(row.warehouse_id)===Number(warehouse.id));
+    const before=Number(balance?.stock)||0;
+    return {warehouseId:Number(warehouse.id),warehouseName:warehouse.name||'-',before,after:baseUnitChangeRound(before*factor)};
+  });
+}
+function productBaseUnitChangeBlockers(productId){
+  const id=Number(productId);
+  const hasItem=items=>(items||[]).some(item=>Number(item?.productId??item?.pid)===id);
+  const blockers=[];
+  if(hasItem(cart)) blockers.push('บิลขายที่กำลังเปิดอยู่');
+  const held=salesHistory.filter(sale=>sale?.status==='hold'&&hasItem(sale.items));
+  if(held.length) blockers.push(`บิลพักไว้ ${held.length} รายการ`);
+  const receipts=goodsReceipts.filter(doc=>doc?.stockApplied!==true&&hasItem(doc.items));
+  if(receipts.length) blockers.push(`ใบรับสินค้าที่ยังไม่ลงสต๊อก ${receipts.length} รายการ`);
+  const returns=productReturns.filter(doc=>doc?.stockApplied!==true&&doc?.status!=='คืนเรียบร้อย'&&hasItem(doc.items));
+  if(returns.length) blockers.push(`ใบคืนสินค้าที่ยังไม่ลงสต๊อก ${returns.length} รายการ`);
+  // เอกสารโอนรุ่นเก่าไม่มี stockApplied แต่สถานะ “บันทึกแล้ว” หมายถึงลงสต๊อกแล้ว
+  // ส่วนเอกสารรุ่นใหม่ที่ RPC ล้มเหลวจะบันทึก stockApplied=false ไว้อย่างชัดเจน
+  const pendingTransfers=transfers.filter(doc=>doc?.stockApplied===false&&hasItem(doc.items));
+  if(pendingTransfers.length) blockers.push(`ใบโอนสินค้าที่ยังไม่ลงสต๊อก ${pendingTransfers.length} รายการ`);
+  const exchanges=productExchanges.filter(doc=>doc?.incomingApplied!==true&&doc?.status!=='รับสินค้ากลับแล้ว'&&(hasItem(doc.outgoingItems)||hasItem(doc.incomingItems)));
+  if(exchanges.length) blockers.push(`ใบเปลี่ยนสินค้าที่ยังไม่เสร็จ ${exchanges.length} รายการ`);
+  return blockers;
+}
+function openProductBaseUnitChangeModal(){
+  if(editingProductId==='new'||editingProductId===null) return;
+  const product=products.find(item=>Number(item.id)===Number(editingProductId));
+  if(!product) return;
+  const blockers=productBaseUnitChangeBlockers(product.id);
+  if(blockers.length){
+    showToast(`ยังเปลี่ยนหน่วยหลักไม่ได้: ${blockers.join(', ')}`,'danger');
+    return;
+  }
+  const overlay=document.createElement('div'); overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal" style="width:720px;max-height:92vh;"><div class="modal-head"><h3>เปลี่ยนหน่วยหลัก</h3><button class="modal-close" type="button">×</button></div><div class="modal-sub">${escapeHtml(product.name)} · หน่วยเดิม <b>${escapeHtml(product.unit||'-')}</b></div><form id="baseUnitChangeForm" style="overflow-y:auto;"><div style="padding:0 18px 18px;"><div style="padding:11px 13px;border:1px solid #F0D39D;border-radius:9px;background:#FFF8E8;color:#7B5716;font-size:12.5px;margin-bottom:14px;">บิลและเอกสารที่ลงสต๊อกแล้วจะคงข้อมูลเดิม ระบบจะแปลงเฉพาะสต๊อกปัจจุบันของทุกคลัง</div><div class="formgrid3"><div class="field"><label>หน่วยเล็กสุดใหม่ <span class="req">*</span></label><input id="baseUnitNewName" list="baseUnitNameList" autocomplete="off" placeholder="เช่น เม็ด"><datalist id="baseUnitNameList">${units.filter(unit=>unit!==product.unit).map(unit=>`<option value="${escapeHtml(unit)}">`).join('')}</datalist></div><div class="field"><label>1 ${escapeHtml(product.unit)} เท่ากับกี่หน่วยใหม่ <span class="req">*</span></label><input id="baseUnitConversion" type="number" min="0.000001" max="1000000" step="any" value="1"></div><div class="field"><label>บาร์โค้ดหน่วยใหม่</label><input id="baseUnitNewBarcode" autocomplete="off" placeholder="เว้นว่างได้"></div><div class="field"><label>ราคาขายต่อหน่วยใหม่ <span class="req">*</span></label><input id="baseUnitNewPrice" type="number" min="0" step="0.01" value="${Number(product.price)||0}"></div><div class="field"><label>ทุนต่อหน่วยใหม่ <span class="req">*</span></label><input id="baseUnitNewCost" type="number" min="0" step="0.01" value="${Number(product.cost)||0}"></div><div class="field"><label>บาร์โค้ดเดิม</label><input value="${escapeHtml(product.barcode||'-')}" disabled><small style="color:var(--text-muted);">จะย้ายไปผูกกับหน่วย ${escapeHtml(product.unit)}</small></div></div><div style="font-size:13px;font-weight:700;margin:18px 0 8px;">ตัวอย่างสต๊อกหลังเปลี่ยน</div><div id="baseUnitStockPreview"></div></div><div class="payment-actions" style="padding:14px 18px;border-top:1px solid var(--border);"><button class="btn ghost" type="button" id="cancelBaseUnitChange">ยกเลิก</button><button class="btn primary" type="submit" id="confirmBaseUnitChange">ยืนยันเปลี่ยนหน่วยหลัก</button></div></form></div>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  overlay.querySelector('.modal-close').onclick=close;
+  overlay.querySelector('#cancelBaseUnitChange').onclick=close;
+  const conversionInput=overlay.querySelector('#baseUnitConversion');
+  const priceInput=overlay.querySelector('#baseUnitNewPrice');
+  const costInput=overlay.querySelector('#baseUnitNewCost');
+  let priceEdited=false,costEdited=false;
+  priceInput.addEventListener('input',()=>{ priceEdited=true; });
+  costInput.addEventListener('input',()=>{ costEdited=true; });
+  const updatePreview=()=>{
+    const conversion=Number(conversionInput.value);
+    if(!priceEdited&&conversion>0) priceInput.value=String(baseUnitChangeRound((Number(product.price)||0)/conversion));
+    if(!costEdited&&conversion>0) costInput.value=String(baseUnitChangeRound((Number(product.cost)||0)/conversion));
+    const newUnit=overlay.querySelector('#baseUnitNewName').value.trim()||'หน่วยใหม่';
+    const rows=baseUnitChangeStockPreview(product.id,conversion);
+    overlay.querySelector('#baseUnitStockPreview').innerHTML=`<table class="grid-table"><thead><tr><th>คลังสินค้า</th><th>ก่อนเปลี่ยน</th><th>หลังเปลี่ยน</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${escapeHtml(row.warehouseName)}</td><td class="mono num">${row.before} ${escapeHtml(product.unit)}</td><td class="mono num">${conversion>0?`${row.after} ${escapeHtml(newUnit)}`:'-'}</td></tr>`).join('')||'<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">ยังไม่มีคลังสินค้า</td></tr>'}</tbody></table>`;
+  };
+  conversionInput.addEventListener('input',updatePreview);
+  overlay.querySelector('#baseUnitNewName').addEventListener('input',updatePreview);
+  updatePreview();
+  overlay.querySelector('#baseUnitChangeForm').addEventListener('submit',async event=>{
+    event.preventDefault();
+    const button=overlay.querySelector('#confirmBaseUnitChange');
+    const requestedBarcode=overlay.querySelector('#baseUnitNewBarcode').value.trim();
+    const barcodeConflict=requestedBarcode&&barcodePrintBarcodeOwners().find(owner=>String(owner.code||'').toLowerCase()===requestedBarcode.toLowerCase());
+    if(barcodeConflict){
+      const conflictProduct=products.find(item=>Number(item.id)===Number(barcodeConflict.pid));
+      showToast(`บาร์โค้ด ${requestedBarcode} ถูกใช้กับ ${conflictProduct?.name||'สินค้าอื่น'} แล้ว`,'danger');
+      return;
+    }
+    const change=buildProductBaseUnitChange(product,{
+      newUnit:overlay.querySelector('#baseUnitNewName').value,
+      conversion:conversionInput.value,
+      newPrice:priceInput.value,
+      newCost:costInput.value,
+      newBarcode:requestedBarcode,
+      changedAt:new Date().toISOString(),
+      changedBy:[currentProfile?.firstName,currentProfile?.lastName].filter(Boolean).join(' ')||currentProfile?.username||'',
+    });
+    if(change.error){ showToast(change.error,'danger'); return; }
+    if(!confirm(`ยืนยันเปลี่ยนหน่วยหลักจาก ${change.oldUnit} เป็น ${change.newUnit}\n1 ${change.oldUnit} = ${change.conversion} ${change.newUnit}\nสต๊อกทุกคลังจะถูกแปลงพร้อมกันและย้อนกลับอัตโนมัติไม่ได้`)) return;
+    button.disabled=true; button.textContent='กำลังเปลี่ยนหน่วย...';
+    try{
+      const metadata=productMetadataToRow(change.product);
+      const {data,error}=await sb.rpc('change_product_base_unit',{
+        p_product_id:product.id,p_expected_old_unit:change.oldUnit,p_new_unit:change.newUnit,
+        p_conversion_factor:change.conversion,p_product_data:metadata.data,p_price:change.product.price,p_cost:change.product.cost,
+      });
+      if(error) throw error;
+      Object.assign(product,change.product);
+      (data?.balances||[]).forEach(balance=>updateInventoryBalanceLocal(product.id,balance.warehouseId,balance.stock,balance.expiry));
+      applyActiveWarehouseInventory();
+      addUnitIfNew(change.newUnit); addUnitIfNew(change.oldUnit);
+      refreshCategoryBrandUnitLists();
+      seedTableSnapshot('products',products,productMetadataToRow);
+      persistWorkspaceData();
+      close();
+      showToast(`เปลี่ยนหน่วยหลักเป็น ${change.newUnit} และแปลงสต๊อกทุกคลังแล้ว`);
+      render();
+    }catch(error){
+      console.error('change product base unit',error);
+      showToast(error?.message||'เปลี่ยนหน่วยหลักไม่สำเร็จ กรุณาลองอีกครั้ง','danger');
+      button.disabled=false; button.textContent='ยืนยันเปลี่ยนหน่วยหลัก';
+    }
+  });
+}
+
 
 function renderProductForm(){
   const isNew = editingProductId==='new';
   const canViewCost=!isLevel2User();
   const p = isNew ? {name:'',sku:'',category:'',unit:'',barcode:'',price:'',cost:'',stock:'',threshold:5,expiry:'',wh:1,type:'stock',desc:''} : products.find(x=>x.id===editingProductId);
+  const mainUnitSelect=comboSelect('f_unit', units, p.unit, 'ระบุหน่วยสินค้า');
+  const renderedMainUnitSelect=isNew?mainUnitSelect:mainUnitSelect.replace('<select ','<select disabled ');
   return `
     <div class="pagehead"><div><div class="breadcrumb">รายการสินค้า › ${isNew?'เพิ่มสินค้า':'แก้ไขสินค้า'}</div><h1>${isNew?'เพิ่มบริการหรือสินค้า':'แก้ไขบริการหรือสินค้า'}</h1></div></div>
 
@@ -4869,7 +5013,7 @@ function renderProductForm(){
         </div>
         <div class="prodrow namerow">
           <div class="field"><label>ชื่อสินค้า <span class="req">*</span></label><input id="f_name" value="${p.name}"></div>
-          <div class="field"><label>หน่วยสินค้าหลัก <span class="req">*</span></label>${comboSelect('f_unit', units, p.unit, 'ระบุหน่วยสินค้า')}</div>
+          <div class="field"><label>หน่วยสินค้าหลัก <span class="req">*</span></label>${renderedMainUnitSelect}${isNew?'':`<button class="btn ghost small" type="button" id="changeBaseUnitBtn" style="margin-top:6px;">เปลี่ยนหน่วยหลัก</button>`}</div>
           <div class="field"><label>ราคาขาย <span class="req">*</span></label><input id="f_price" class="no-spin" type="number" value="${p.price}" placeholder="0.00"></div>
           ${canViewCost?`<div class="field"><label>ราคาทุน</label><input id="f_cost" class="no-spin" type="number" value="${p.cost!==undefined?p.cost:''}" placeholder="0.00"></div>`:`<input id="f_cost" type="hidden" value="${p.cost!==undefined?p.cost:''}">`}
         </div>
@@ -9207,6 +9351,8 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   const cancelProductBtn = document.getElementById('cancelProductBtn');
   if(cancelProductBtn) cancelProductBtn.addEventListener('click', ()=>{ editingProductId=null; render(); });
+  const changeBaseUnitBtn=document.getElementById('changeBaseUnitBtn');
+  if(changeBaseUnitBtn) changeBaseUnitBtn.addEventListener('click',openProductBaseUnitChangeModal);
   document.querySelectorAll('.typecard').forEach(el=>{
     el.addEventListener('click', ()=>{ document.querySelectorAll('.typecard').forEach(c=>c.classList.remove('sel')); el.classList.add('sel'); el.querySelector('input').checked=true; });
   });
@@ -11472,6 +11618,10 @@ function saveProduct(){
     barcode: r.barcode,
   }));
   const existing = (editingProductId!=='new') ? products.find(x=>x.id===editingProductId) : null;
+  if(existing&&unit!==String(existing.unit||'').trim()){
+    showToast('กรุณาใช้ปุ่ม “เปลี่ยนหน่วยหลัก” เพื่อแปลงสต๊อกทุกคลังอย่างถูกต้อง','danger');
+    return;
+  }
   const hasOpening = g('f_openingtoggle') && g('f_openingtoggle').checked;
   // ค่าแจ้งเตือนสินค้าใกล้หมด: ตั้งได้ต่อสินค้าในฟอร์มนี้ — คงค่าเดิมของสินค้าไว้ (สินค้าใหม่ใช้ค่าเริ่มต้นรวม)
   const lowAlert = existing ? (existing.lowAlert!==false) : true;
