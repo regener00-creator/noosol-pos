@@ -2657,6 +2657,52 @@ let saleRef = nextSaleRef();
 let saleDiscount = 0; // บาท
 let saleMember = null; // ชื่อสมาชิก
 const VAT_RATE = 0.07;
+const VAT_REGISTERED_LABEL = 'จดภาษีมูลค่าเพิ่มแล้ว';
+function isBusinessVatRegistered(settings=businessSettings){
+  return settings?.vat===VAT_REGISTERED_LABEL;
+}
+function normalizeProductVatMode(value){
+  return ['incl','excl','none'].includes(value)?value:'incl';
+}
+function effectiveProductVatMode(product,settings=businessSettings){
+  return isBusinessVatRegistered(settings)?normalizeProductVatMode(product?.vat):'none';
+}
+function grossAmountForVatMode(amount,vatMode,registered=true){
+  const value=Math.max(0,Number(amount)||0);
+  return registered&&normalizeProductVatMode(vatMode)==='excl'?value*(1+VAT_RATE):value;
+}
+function calculateSaleTaxSummary(lines,requestedDiscount=0,registered=true){
+  const prepared=(lines||[]).map(line=>{
+    const amount=Math.max(0,Number(line?.amount)||0);
+    const mode=registered?normalizeProductVatMode(line?.vatMode):'none';
+    const gross=grossAmountForVatMode(amount,mode,registered);
+    const beforeVat=registered&&mode==='incl'?gross/(1+VAT_RATE):amount;
+    const vat=registered&&mode!=='none'?gross-beforeVat:0;
+    return {amount,vatMode:mode,gross,beforeVat,vat};
+  });
+  const subtotal=prepared.reduce((sum,line)=>sum+line.gross,0);
+  const discount=Math.min(Math.max(0,Number(requestedDiscount)||0),subtotal);
+  const ratio=subtotal>0?(subtotal-discount)/subtotal:0;
+  const beforeVat=prepared.reduce((sum,line)=>sum+line.beforeVat*ratio,0);
+  const vat=prepared.reduce((sum,line)=>sum+line.vat*ratio,0);
+  const total=subtotal-discount;
+  const round=value=>Math.round((Number(value)||0)*100)/100;
+  return {registered:!!registered,subtotal:round(subtotal),discount:round(discount),beforeVat:round(beforeVat),vat:round(vat),total:round(total)};
+}
+function cartTaxSummary(promoResult=applyPromotions(cart),discount=saleDiscount,settings=businessSettings){
+  const registered=isBusinessVatRegistered(settings);
+  const lines=promoResult.lines.map(line=>({amount:Number(line.promoLineTotal)||0,vatMode:line.custom?(registered?'incl':'none'):effectiveProductVatMode(products.find(product=>product.id===line.pid),settings)}));
+  return calculateSaleTaxSummary(lines,discount,registered);
+}
+function saleTaxSummary(sale){
+  if(sale?.taxSummary) return {...sale.taxSummary,registered:sale.vatRegistered!==false};
+  const total=Math.max(0,(Number(sale?.total)||0)-(Number(sale?.fee)||0));
+  const vat=Math.max(0,Number(sale?.vat)||0);
+  return {registered:sale?.vatRegistered!==false,subtotal:total+(Number(sale?.discount)||0),discount:Number(sale?.discount)||0,beforeVat:Math.max(0,total-vat),vat,total};
+}
+function canIssueTaxInvoiceForSale(sale){
+  return !!sale&&sale.status==='done'&&isBusinessVatRegistered()&&sale.vatRegistered!==false;
+}
 let favorites = []; // {pid,unit} — สินค้าโปรดหนึ่งหน่วยต่อหนึ่งสินค้า
 let showFavorites = true;  // แสดงแถบสินค้าโปรดใต้บิลหรือไม่
 
@@ -2802,7 +2848,7 @@ const STORE_INFO = {
   phone: '099-298-9693',
   website: 'www.noosol.com',
 };
-let businessSettings={type:'บริษัท',vat:'จดภาษีมูลค่าเพิ่มแล้ว',name:'MADE MY',address:STORE_INFO.address,taxId:STORE_INFO.taxId,branch:'head',branchCode:'',branchName:'',officePhone:'',mobile:STORE_INFO.phone,fax:'',website:STORE_INFO.website,english:false};
+let businessSettings={type:'บริษัท',vat:'ยังไม่จดภาษีมูลค่าเพิ่ม',name:'MADE MY',address:STORE_INFO.address,taxId:STORE_INFO.taxId,branch:'head',branchCode:'',branchName:'',officePhone:'',mobile:STORE_INFO.phone,fax:'',website:STORE_INFO.website,english:false};
 // เดิมมีการตั้งค่าสินค้าใกล้หมดระดับร้าน (เปิด/ปิด + ค่าเริ่มต้น) แต่ไม่เคยมีหน้าจอให้แก้ไขค่านี้จริง
 // (ฟังก์ชันบันทึกไม่เคยถูกเรียกใช้เลย) จึงเอาออกตามที่ขอ เหลือแค่ค่าคงที่ไว้ใช้เป็นค่าเริ่มต้น
 // ให้สินค้าใหม่ + fallback ของการแจ้งเตือนต่อสินค้า (ซึ่งยังตั้งค่าแยกรายตัวได้ในหน้าแก้ไขสินค้าเหมือนเดิม)
@@ -3493,8 +3539,9 @@ function findProductByExactCode(q){
 }
 
 function renderCheckout(){
-  let rowsHtml=''; let subtotal=0;
+  let rowsHtml='';
   const promoResult=applyPromotions(cart);
+  const taxSummary=cartTaxSummary(promoResult);
   const promoHints=getPromotionUpsellHints(cart);
   if(cart.length===0){
     rowsHtml = `<tr><td colspan="7" class="pos-empty">ไม่พบรายการสินค้า — ค้นหาหรือสแกนบาร์โค้ดเพื่อเพิ่ม</td></tr>`;
@@ -3503,7 +3550,8 @@ function renderCheckout(){
       const p=products.find(x=>x.id===line.pid);
       const promoLine=promoResult.lines[idx];
       const lt=promoLine.promoId?promoLine.promoLineTotal:line.price*line.qty;
-      subtotal+=lt;
+      const lineVatMode=line.custom?(taxSummary.registered?'incl':'none'):effectiveProductVatMode(p);
+      const displayLineTotal=grossAmountForVatMode(lt,lineVatMode,taxSummary.registered);
       if(line.autoFreeFromPromo){
         // บรรทัดของแถมอัตโนมัติจากโปรฯ "ซื้อสินค้า A แถมสินค้า B" - ลบ/แก้ไขเองไม่ได้ ต้องลดจำนวนสินค้าหลัก (A) ก่อนถึงจะหายไปเอง
         rowsHtml += `<tr class="pos-autofree-row">
@@ -3524,20 +3572,21 @@ function renderCheckout(){
         ? `<select class="line-unit" data-line="${line.lineId}">${opts.map(o=>`<option value="${o.name}" ${o.name===line.unit?'selected':''}>${o.label}</option>`).join('')}</select>`
         : line.unit;
       const linkedPromo=(!line.custom && line.pid)?findMatchingPromotion(line):null;
+      const displayUnitPrice=grossAmountForVatMode(line.price,lineVatMode,taxSummary.registered);
       const priceCell = line.custom
         ? `<input class="custom-line-input custom-line-price" data-custom-price data-line="${line.lineId}" type="number" min="0" step="0.01" value="${line.price}" placeholder="0.00">`
         : promoLine.promoId
-        ? `<span title="${escapeHtml(promoLine.promoNote)}">${fmtMoney(line.price)}<br><small class="pos-promo-tag promo-active">🏷 ${escapeHtml(promoLine.promoName)}</small></span>`
+        ? `<span title="${escapeHtml(promoLine.promoNote)}">${fmtMoney(displayUnitPrice)}<br><small class="pos-promo-tag promo-active">🏷 ${escapeHtml(promoLine.promoName)}</small></span>`
         : linkedPromo
-        ? `<span title="${escapeHtml(promotionValueLabel(linkedPromo))}">${fmtMoney(line.price)}<br><small class="pos-promo-tag promo-pending">🏷 ${escapeHtml(linkedPromo.name)}</small></span>`
-        : fmtMoney(line.price);
+        ? `<span title="${escapeHtml(promotionValueLabel(linkedPromo))}">${fmtMoney(displayUnitPrice)}<br><small class="pos-promo-tag promo-pending">🏷 ${escapeHtml(linkedPromo.name)}</small></span>`
+        : fmtMoney(displayUnitPrice);
       rowsHtml += `<tr>
         <td class="mono">${String(idx+1).padStart(3,'0')}</td>
         <td>${line.custom?`<div class="custom-line-wrap"><input class="custom-line-input custom-line-name" data-custom-name data-line="${line.lineId}" value="${escapeHtml(line.name)}" placeholder="กรอกชื่อรายการ"></div>`:line.name}</td>
         <td class="mono num">${priceCell}</td>
         <td class="line-unit-cell">${unitCell}</td>
         <td class="pos-qty"><input class="line-qty" type="number" min="1" step="1" value="${line.qty}" data-line="${line.lineId}"></td>
-        <td class="mono num"><span data-line-total="${line.lineId}">${fmtMoney(lt)}</span></td>
+        <td class="mono num"><span data-line-total="${line.lineId}">${fmtMoney(displayLineTotal)}</span></td>
         <td class="pos-del-cell"><button class="pos-del" data-act="removeline" data-line="${line.lineId}" title="ลบ"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></button></td>
       </tr>`;
       if(promoLine.promoFreeQty>0){
@@ -3552,10 +3601,7 @@ function renderCheckout(){
       }
     });
   }
-  const discount = Math.min(saleDiscount, subtotal);
-  const grand = subtotal - discount;                  // ราคารวม VAT แล้ว = ยอดที่ลูกค้าจ่าย
-  const vat = grand - (grand / (1 + VAT_RATE));        // VAT ที่แฝงอยู่ในราคา (ถอดออกมาแสดง)
-  const beforeVat = grand - vat;                        // มูลค่าก่อน VAT
+  const {subtotal,discount,total:grand,vat,beforeVat,registered}=taxSummary;
 
   // แถบสินค้าโปรด
   let favHtml = '';
@@ -3594,8 +3640,8 @@ function renderCheckout(){
         <div class="pos-summary">
           <div class="sumrow"><span>รวมทั้งหมด</span><span class="mono" id="posSubtotalValue">${fmtMoney(subtotal)}</span></div>
           <div class="sumrow"><span>ส่วนลด</span><span class="sumdiscount"><button class="btn ghost small" id="editDiscountBtn">✎ ส่วนลด</button> <span class="mono" id="posDiscountValue">${fmtMoney(discount)}</span></span></div>
-          <div class="sumrow"><span>มูลค่าก่อน VAT</span><span class="mono" id="posBeforeVatValue">${fmtMoney(beforeVat)}</span></div>
-          <div class="sumrow"><span>ภาษีมูลค่าเพิ่ม 7% (รวมในราคาแล้ว)</span><span class="mono" id="posVatValue">${fmtMoney(vat)}</span></div>
+          <div class="sumrow"><span id="posBeforeVatLabel">${registered?'มูลค่าก่อน VAT':'มูลค่าสินค้า'}</span><span class="mono" id="posBeforeVatValue">${fmtMoney(beforeVat)}</span></div>
+          <div class="sumrow"><span id="posVatLabel">${registered?'ภาษีมูลค่าเพิ่ม 7%':'ไม่คิด VAT (กิจการยังไม่จด VAT)'}</span><span class="mono" id="posVatValue">${fmtMoney(vat)}</span></div>
           <div class="sumrow grand"><span>ยอดชำระ</span><span class="mono" id="posGrandValue">${fmtMoney(grand)}</span></div>
         </div>
         <div class="pos-footer">
@@ -3609,10 +3655,12 @@ function renderCheckout(){
 }
 
 function recalcPOSCartDOM(){
-  const subtotal=applyPromotions(cart).discountedTotal;
-  const discount=Math.min(saleDiscount,subtotal),grand=subtotal-discount,vat=grand-(grand/(1+VAT_RATE)),beforeVat=grand-vat;
+  const {subtotal,discount,total:grand,vat,beforeVat,registered}=cartTaxSummary();
   const set=(id,value)=>{ const el=document.getElementById(id); if(el) el.textContent=fmtMoney(value); };
   set('posSubtotalValue',subtotal); set('posDiscountValue',discount); set('posBeforeVatValue',beforeVat); set('posVatValue',vat); set('posGrandValue',grand);
+  const beforeLabel=document.getElementById('posBeforeVatLabel'),vatLabel=document.getElementById('posVatLabel');
+  if(beforeLabel) beforeLabel.textContent=registered?'มูลค่าก่อน VAT':'มูลค่าสินค้า';
+  if(vatLabel) vatLabel.textContent=registered?'ภาษีมูลค่าเพิ่ม 7%':'ไม่คิด VAT (กิจการยังไม่จด VAT)';
 }
 
 function renderSearchResults(){
@@ -3706,6 +3754,7 @@ function renderHistory(){
 
 function renderTaxInvoices(){
   if(editingTaxInvoiceSaleId!==null) return renderTaxInvoiceForm();
+  const vatRegistered=isBusinessVatRegistered();
   const sales=salesHistory.filter(s=>s.status==='done'&&s.fullTaxInvoice);
   const allItems=[
     ...sales.map(s=>({date:s.date, number:s.fullTaxInvoice.number, buyer:s.fullTaxInvoice.customer?.name||'-', items:s.items, total:s.total, typeLabel:'ออกย้อนหลัง', delAct:`data-delete-tax-sale="${s.id}"`, openAct:`data-tax-sale="${s.id}"`, printAct:`data-print-tax="${s.id}"`, ariaNum:s.fullTaxInvoice.number})),
@@ -3717,7 +3766,8 @@ function renderTaxInvoices(){
   const start=(docListPage.taxinvoice-1)*DOC_LIST_PAGE_SIZE;
   const pageItems=allItems.slice(start,start+DOC_LIST_PAGE_SIZE);
   const rowsHtml=pageItems.map(it=>`<tr><td class="mono">${it.number}</td><td>${fmtDate(it.date)}</td><td class="doc-customer-cell">${it.buyer}</td><td class="doc-items-cell">${salesHistoryItemsPreview(it.items)}</td><td class="mono num">${fmtMoney(it.total)}</td><td><span class="badge ok">${it.typeLabel}</span></td><td class="num"><div class="history-actions"><button class="history-icon-btn" ${it.openAct} title="แก้ไขเอกสาร" aria-label="แก้ไขใบกำกับภาษี ${it.ariaNum}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn" ${it.printAct} title="พิมพ์เอกสาร" aria-label="พิมพ์ใบกำกับภาษี ${it.ariaNum}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg></button><button class="history-icon-btn danger" ${it.delAct} title="ลบเอกสาร" aria-label="ลบใบกำกับภาษี ${it.ariaNum}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td></tr>`).join('');
-  return `<div class="rpt"><div class="pagehead"><div><h1>ใบกำกับภาษีเต็มรูปแบบ</h1><div class="sub">สร้างเอกสารใหม่ หรือออกเอกสารจากออเดอร์ย้อนหลัง · ${allItems.length} รายการ</div></div><div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn ghost" id="historicalTaxInvoiceBtn">ออกใบกำกับภาษีย้อนหลัง</button><button class="btn primary" id="newTaxInvoiceBtn">+ สร้างใบกำกับภาษี</button></div></div>
+  return `<div class="rpt"><div class="pagehead"><div><h1>ใบกำกับภาษีเต็มรูปแบบ</h1><div class="sub">สร้างเอกสารใหม่ หรือออกเอกสารจากออเดอร์ย้อนหลัง · ${allItems.length} รายการ</div></div>${vatRegistered?`<div style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn ghost" id="historicalTaxInvoiceBtn">ออกใบกำกับภาษีย้อนหลัง</button><button class="btn primary" id="newTaxInvoiceBtn">+ สร้างใบกำกับภาษี</button></div>`:''}</div>
+    ${vatRegistered?'':'<div class="panel" style="border-color:#f0c36d;background:#fff8e8;color:#855d12;">กิจการยังไม่จดภาษีมูลค่าเพิ่ม จึงสร้างใบกำกับภาษีใหม่ไม่ได้ แต่ยังเปิดดูหรือพิมพ์เอกสารเดิมได้</div>'}
     <div class="doc-list-wrap seamless-table-wrap">
     <table class="grid-table doc-head-blue doc-summary-table customer-items-summary-table"><colgroup><col style="width:170px"><col style="width:120px"><col style="width:220px"><col><col style="width:110px"><col style="width:100px"><col style="width:124px"></colgroup><thead><tr><th>เลขที่เอกสาร</th><th>วันที่</th><th>ผู้ซื้อ</th><th>รายการ</th><th class="mono">ยอดรวม</th><th>ประเภท</th><th></th></tr></thead><tbody>${rowsHtml||`<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:28px;">ยังไม่มีใบกำกับภาษีเต็มรูปแบบ</td></tr>`}</tbody></table>
     </div>
@@ -3739,6 +3789,7 @@ function deleteStandaloneTaxInvoice(number){
 }
 
 function openNewTaxInvoiceForm(){
+  if(!isBusinessVatRegistered()){ showToast('กิจการยังไม่จด VAT จึงสร้างใบกำกับภาษีไม่ได้','danger'); return; }
   editingTaxInvoiceSaleId='manual-new';
   taxInvoiceAddingCustomer=false;
   const number=nextFullTaxInvoiceNumber();
@@ -3747,7 +3798,10 @@ function openNewTaxInvoiceForm(){
   render();
 }
 
-function openHistoricalTaxInvoiceForm(){ editingTaxInvoiceSaleId='lookup'; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; currentTab='taxinvoice'; render(); }
+function openHistoricalTaxInvoiceForm(){
+  if(!isBusinessVatRegistered()){ showToast('กิจการยังไม่จด VAT จึงออกใบกำกับภาษีย้อนหลังไม่ได้','danger'); return; }
+  editingTaxInvoiceSaleId='lookup'; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; currentTab='taxinvoice'; render();
+}
 
 function renderTaxInvoiceOrderLookup(){
   return `<div class="pagehead"><div><div class="breadcrumb">ใบกำกับภาษีเต็มรูปแบบ › สร้างใบกำกับภาษี</div><h1>สร้างใบกำกับภาษีเต็มรูปแบบ</h1></div><div class="form-final-actions"><button class="btn ghost" id="cancelTaxInvoiceFormBtn">ปิดหน้าต่าง</button></div></div>
@@ -3763,6 +3817,7 @@ function searchTaxInvoiceOrder(){
   if(!query){ showToast('กรุณากรอกเลขออเดอร์'); input?.focus(); return; }
   const sale=salesHistory.find(item=>item.status==='done'&&[item.id,item.ref,shortReceiptNumber(item)].some(value=>String(value||'').trim().toLowerCase()===query));
   if(!sale){ showToast('ไม่พบออเดอร์ที่ชำระเงินเรียบร้อยแล้ว'); input?.focus(); return; }
+  if(!canIssueTaxInvoiceForSale(sale)&&!sale.fullTaxInvoice){ showToast('รายการขายนี้เกิดขึ้นขณะที่กิจการยังไม่จด VAT จึงออกใบกำกับภาษีไม่ได้','danger'); return; }
   if(sale.fullTaxInvoice) showToast('ออเดอร์นี้เคยออกใบกำกับภาษีแล้ว กำลังเปิดเอกสารเดิม');
   startTaxInvoiceForm(sale.id);
 }
@@ -3804,6 +3859,7 @@ function renderStandaloneTaxInvoiceForm(){
 }
 
 function saveStandaloneTaxInvoice(){
+  if(!isBusinessVatRegistered()){ showToast('กิจการยังไม่จด VAT จึงบันทึกใบกำกับภาษีไม่ได้','danger'); return; }
   if(editingTaxInvoiceSaleId!=='manual-new') return;
   syncPOFromDOM(); syncTaxInvoiceDraftFromDOM();
   const d=taxInvoiceDraft,items=(d.items||[]).filter(item=>item.name&&Number(item.qty)>0);
@@ -3821,6 +3877,7 @@ function saveStandaloneTaxInvoice(){
 
 function startTaxInvoiceForm(saleId){
   const sale=salesHistory.find(item=>item.id===saleId); if(!sale||sale.status!=='done') return;
+  if(!sale.fullTaxInvoice&&!canIssueTaxInvoiceForSale(sale)){ showToast('รายการขายนี้ออกใบกำกับภาษีไม่ได้','danger'); return; }
   const invoice=sale.fullTaxInvoice,matched=customersList().find(c=>c.name===(sale.member||sale.name));
   const source=invoice?.customer||matched||{};
   editingTaxInvoiceSaleId=saleId;
@@ -3881,8 +3938,8 @@ function renderTaxInvoiceForm(){
   const invoice=sale.fullTaxInvoice,locked=!!invoice;
   if(!taxInvoiceDraft) startTaxInvoiceForm(sale.id);
   const draft=taxInvoiceDraft||{};
-  const subtotal=(sale.items||[]).reduce((sum,item)=>sum+(Number(item.qty)||0)*(Number(item.price)||0),0);
-  const discount=Number(sale.discount)||0,total=Number(sale.total)||0,beforeVat=total/(1+VAT_RATE),vat=total-beforeVat;
+  const tax=saleTaxSummary(sale);
+  const subtotal=tax.subtotal,discount=tax.discount,total=tax.total,beforeVat=tax.beforeVat,vat=tax.vat;
   const docNo=invoice?.number||fullTaxInvoiceNumber(sale);
   const lockAttr=locked?'readonly':'';
   return `<div class="pagehead"><div><div class="breadcrumb">ใบกำกับภาษีเต็มรูปแบบ › ${locked?'ดูเอกสาร':'สร้างใบกำกับภาษี'}</div><h1>${docNo}</h1></div>${locked?`<div class="form-final-actions" style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn ghost" id="cancelTaxInvoiceFormBtn">ปิดหน้าต่าง</button><button class="btn primary" id="printTaxInvoiceFormBtn">🖨 พิมพ์</button></div>`:''}</div>
@@ -3903,7 +3960,7 @@ function renderTaxInvoiceForm(){
       </div>
     </div>
     <div class="doc-scanner-wrap"><div class="doc-scanner-hint" style="font-size:13px;color:var(--primary-dark);">🔒 รายการสินค้าดึงจากบิลขายเดิมและไม่สามารถแก้ไขได้ เพื่อป้องกันยอดขายและสต็อกคลาดเคลื่อน</div></div>
-    <table class="grid-table po-items document-centered-items"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคาต่อหน่วย</th><th class="mono">ราคารวม</th></tr></thead><tbody>${(sale.items||[]).map((item,index)=>`<tr><td class="mono">${index+1}</td><td>${escapeHtml(item.name)}</td><td class="mono num">${item.qty}</td><td>${escapeHtml(item.unit||'-')}</td><td class="mono num">${fmtMoney(item.price)}</td><td class="mono num">${fmtMoney(item.qty*item.price)}</td></tr>`).join('')}</tbody></table>
+    <table class="grid-table po-items document-centered-items"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคาต่อหน่วย</th><th class="mono">ราคารวม</th></tr></thead><tbody>${(sale.items||[]).map((item,index)=>`<tr><td class="mono">${index+1}</td><td>${escapeHtml(item.name)}</td><td class="mono num">${item.qty}</td><td>${escapeHtml(item.unit||'-')}</td><td class="mono num">${fmtMoney(item.price)}</td><td class="mono num">${fmtMoney(item.lineTotalGross!==undefined?item.lineTotalGross:item.qty*item.price)}</td></tr>`).join('')}</tbody></table>
     <div class="po-foot"><div class="po-foot-left"><div class="crow"><label>หมายเหตุ</label><textarea id="tax_form_note" rows="3" ${lockAttr}>${escapeHtml(draft.note||'')}</textarea></div>${locked?`<div style="margin-top:10px;color:var(--text-muted);font-size:12px;">ออกเอกสารเมื่อ ${auditDisplay(invoice.issuedAt)} · พิมพ์แล้ว ${invoice.printLog?.length||0} ครั้ง</div>`:''}</div>
       <div class="po-foot-right"><div class="sumrow"><span>รวมเป็นเงิน</span><span class="mono">${fmtMoney(subtotal)}</span></div>${discount?`<div class="sumrow"><span>ส่วนลด</span><span class="mono">- ${fmtMoney(discount)}</span></div>`:''}<div class="sumrow"><span>ราคาหลังหักส่วนลด</span><span class="mono">${fmtMoney(total)}</span></div><div class="sumrow"><span>ภาษีมูลค่าเพิ่ม 7% (รวมในราคาแล้ว)</span><span class="mono">${fmtMoney(vat)}</span></div><div class="sumrow"><span>ราคาไม่รวมภาษีมูลค่าเพิ่ม</span><span class="mono">${fmtMoney(beforeVat)}</span></div><div class="sumrow grand"><span>จำนวนเงินรวมทั้งสิ้น</span><span class="mono">${fmtMoney(total)}</span></div></div></div>${locked?'':`<div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelTaxInvoiceFormBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveTaxInvoiceFormBtn">บันทึกเอกสาร</button></div>`}`;
 }
@@ -5073,7 +5130,7 @@ function renderProductForm(){
         <div class="prodrow r3">
           <div class="field"><label>จำนวนคงเหลือ</label><input id="f_stock" class="no-spin" type="number" value="${p.stock}" placeholder="0"></div>
           <div class="field"><label>วันหมดอายุ</label>${dmyDateFieldHtml('f_expiry',p.expiry)}</div>
-          <div class="field"><label>ภาษีมูลค่าเพิ่ม (VAT)</label><select id="f_vat"><option value="incl" ${(p.vat||'incl')==='incl'?'selected':''}>ราคารวม VAT แล้ว</option><option value="excl" ${p.vat==='excl'?'selected':''}>ราคายังไม่รวม VAT</option><option value="none" ${p.vat==='none'?'selected':''}>ไม่มี VAT</option></select></div>
+          <div class="field"><label>ภาษีมูลค่าเพิ่ม (VAT)</label>${isBusinessVatRegistered()?`<select id="f_vat"><option value="incl" ${(p.vat||'incl')==='incl'?'selected':''}>VAT 7% — ราคาขายรวม VAT แล้ว</option><option value="excl" ${p.vat==='excl'?'selected':''}>VAT 7% — ราคาขายยังไม่รวม VAT</option><option value="none" ${p.vat==='none'?'selected':''}>ยกเว้น VAT</option></select>`:`<input id="f_vat" type="hidden" value="${normalizeProductVatMode(p.vat)}"><input value="ไม่คิด VAT — กิจการยังไม่จด VAT" readonly>`}</div>
         </div>
         <div class="prodrow r1">
           <div class="field"><label>รายละเอียดเพิ่มเติม</label><textarea id="f_desc" rows="2">${p.desc||''}</textarea></div>
@@ -7805,6 +7862,7 @@ function renderBusinessSettings(){
     <div class="settings-section">
       <div class="settings-row"><label>ประเภทธุรกิจ:</label><select id="set_business_type"><option ${b.type==='บริษัท'?'selected':''}>บริษัท</option><option ${b.type==='บุคคลธรรมดา'?'selected':''}>บุคคลธรรมดา</option><option ${b.type==='ห้างหุ้นส่วน'?'selected':''}>ห้างหุ้นส่วน</option></select></div>
       <div class="settings-row"><label>จดภาษีมูลค่าเพิ่ม:</label><select id="set_business_vat"><option ${b.vat==='จดภาษีมูลค่าเพิ่มแล้ว'?'selected':''}>จดภาษีมูลค่าเพิ่มแล้ว</option><option ${b.vat==='ยังไม่จดภาษีมูลค่าเพิ่ม'?'selected':''}>ยังไม่จดภาษีมูลค่าเพิ่ม</option></select></div>
+      <div class="hint">หากเลือก “ยังไม่จดภาษีมูลค่าเพิ่ม” ระบบจะไม่คิด VAT และไม่ออกใบกำกับภาษีสำหรับรายการขายใหม่ โดยจะเก็บค่าภาษีของสินค้าเดิมไว้ใช้เมื่อจด VAT ในอนาคต</div>
     </div>
     <div class="settings-section"><h2>รายละเอียดธุรกิจ</h2><div class="hint">ข้อมูลใช้สำหรับการออกเอกสาร</div>
       <div class="settings-row"><label>ชื่อธุรกิจ:</label><input id="set_business_name" value="${b.name}"></div>
@@ -11771,21 +11829,22 @@ function deleteSaleHistory(id,onDeleted){
 
 function openSaleHistoryDetail(id){
   const sale=salesHistory.find(item=>item.id===id); if(!sale) return;
-  const subtotal=(sale.items||[]).reduce((sum,item)=>sum+(Number(item.qty)||0)*(Number(item.price)||0),0);
+  const tax=saleTaxSummary(sale),subtotal=tax.subtotal;
   const canIssue=sale.status==='done';
+  const canIssueTax=canIssueTaxInvoiceForSale(sale)||!!sale.fullTaxInvoice;
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:760px;max-height:92vh;"><div class="modal-head"><h3>รายละเอียดการขาย ${sale.ref||sale.id}</h3><button class="modal-close">×</button></div>
     <div class="sale-detail-meta"><div><small>วันที่ / เวลา</small><b>${fmtDate(sale.date)} · ${(sale.time||'').slice(11)||'-'}</b></div><div><small>พนักงานขาย</small><b>${sale.cashier||'-'}</b></div><div><small>ลูกค้า / สมาชิก</small><b>${sale.member||sale.name||'ลูกค้าทั่วไป'}</b></div><div><small>วิธีชำระ</small><b>${sale.payMethod||'-'}</b></div></div>
-    <div class="sale-detail-table"><table class="grid-table"><thead><tr><th>ลำดับ</th><th>สินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคา/หน่วย</th><th class="mono">รวม</th></tr></thead><tbody>${(sale.items||[]).map((item,index)=>`<tr><td>${index+1}</td><td>${item.name}</td><td class="mono num">${item.qty}</td><td>${item.unit||'-'}</td><td class="mono num">${fmtMoney(item.price)}</td><td class="mono num">${fmtMoney(item.qty*item.price)}</td></tr>`).join('')}</tbody></table></div>
+    <div class="sale-detail-table"><table class="grid-table"><thead><tr><th>ลำดับ</th><th>สินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคา/หน่วย</th><th class="mono">รวม</th></tr></thead><tbody>${(sale.items||[]).map((item,index)=>`<tr><td>${index+1}</td><td>${item.name}</td><td class="mono num">${item.qty}</td><td>${item.unit||'-'}</td><td class="mono num">${fmtMoney(item.price)}</td><td class="mono num">${fmtMoney(item.lineTotalGross!==undefined?item.lineTotalGross:item.qty*item.price)}</td></tr>`).join('')}</tbody></table></div>
     <div class="sale-detail-summary"><div><span>รวมสินค้า</span><b>${fmtMoney(subtotal)} บาท</b></div>${sale.discount?`<div><span>ส่วนลด</span><b>- ${fmtMoney(sale.discount)} บาท</b></div>`:''}${sale.fee?`<div><span>ค่าธรรมเนียม</span><b>${fmtMoney(sale.fee)} บาท</b></div>`:''}<div class="grand"><span>ยอดสุทธิ</span><b>${fmtMoney(sale.total)} บาท</b></div>${sale.cashReceived?`<div><span>รับเงิน</span><b>${fmtMoney(sale.cashReceived)} บาท</b></div><div><span>เงินทอน</span><b>${fmtMoney(sale.cashChange||0)} บาท</b></div>`:''}</div>
-    <div class="history-doc-panel"><h4>ออกเอกสารย้อนหลัง</h4><p>${canIssue?'ใช้ข้อมูลและวันที่ขายเดิม การพิมพ์เอกสารจะไม่ตัดสต็อกหรือเพิ่มยอดขายซ้ำ':'ออกเอกสารได้เฉพาะรายการที่ชำระเงินเรียบร้อยแล้ว'}</p><div class="history-doc-buttons"><button id="historyShortReceiptBtn" ${canIssue?'':'disabled'}>🧾 ใบเสร็จอย่างย่อ</button><button id="historyTaxInvoiceBtn" ${canIssue?'':'disabled'}>📄 ออกใบกำกับภาษีย้อนหลัง</button></div></div>
+    <div class="history-doc-panel"><h4>ออกเอกสารย้อนหลัง</h4><p>${canIssue?'ใช้ข้อมูลและวันที่ขายเดิม การพิมพ์เอกสารจะไม่ตัดสต็อกหรือเพิ่มยอดขายซ้ำ':'ออกเอกสารได้เฉพาะรายการที่ชำระเงินเรียบร้อยแล้ว'}</p><div class="history-doc-buttons"><button id="historyShortReceiptBtn" ${canIssue?'':'disabled'}>🧾 ใบเสร็จอย่างย่อ</button><button id="historyTaxInvoiceBtn" ${canIssueTax?'':'disabled'}>${sale.fullTaxInvoice?'📄 เปิดใบกำกับภาษี':'📄 ออกใบกำกับภาษีย้อนหลัง'}</button></div></div>
     <div class="payment-actions"><button class="btn ghost" id="closeSaleDetailBtn">ปิด</button>${isLevel2User()?'':`<button class="btn" id="deleteSaleDetailBtn" style="background:var(--danger);color:#fff;">ลบประวัตินี้</button>`}</div></div>`;
   document.body.appendChild(overlay);
   const close=()=>{ overlay.remove(); render(); };
   overlay.querySelector('.modal-close').onclick=close; overlay.querySelector('#closeSaleDetailBtn').onclick=close;
   const deleteDetailBtn=overlay.querySelector('#deleteSaleDetailBtn'); if(deleteDetailBtn) deleteDetailBtn.onclick=()=>deleteSaleHistory(id,close);
   overlay.querySelector('#historyShortReceiptBtn').onclick=()=>{ if(canIssue){ close(); openHistoricalReceiptActions(id); } };
-  overlay.querySelector('#historyTaxInvoiceBtn').onclick=()=>{ if(canIssue){ close(); openHistoricalTaxInvoiceForm(); } };
+  overlay.querySelector('#historyTaxInvoiceBtn').onclick=()=>{ if(!canIssueTax) return; close(); sale.fullTaxInvoice?openFullTaxInvoiceModal(id):startTaxInvoiceForm(id); };
   
 }
 
@@ -11827,6 +11886,7 @@ function openHistoricalReceiptActions(saleId){
 
 function openFullTaxInvoiceModal(saleId){
   const sale=salesHistory.find(item=>item.id===saleId); if(!sale||sale.status!=='done') return;
+  if(!sale.fullTaxInvoice&&!canIssueTaxInvoiceForSale(sale)){ showToast('รายการขายนี้ออกใบกำกับภาษีไม่ได้','danger'); return; }
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   const shell=document.createElement('div'); shell.className='modal'; shell.style.cssText='width:700px;max-height:92vh;'; overlay.appendChild(shell); document.body.appendChild(overlay);
   const close=()=>{ overlay.remove(); render(); };
@@ -11879,9 +11939,10 @@ function printFullTaxInvoice(saleId,pdfMode=false){
   const invoice=sale?.fullTaxInvoice; if(!sale||!invoice) return;
   invoice.printLog=invoice.printLog||[];
   const isCopy=invoice.printLog.length>0,customer=invoice.customer||{};
-  const total=Number(sale.total)||0,beforeVat=total/(1+VAT_RATE),vat=total-beforeVat;
-  const lineAmount=item=>item.lineTotal!==undefined?Number(item.lineTotal)||0:(Number(item.qty)||0)*(Number(item.price)||0);
-  const rows=(sale.items||[]).map((item,index)=>`<tr><td>${index+1}</td><td>${escapeHtml(item.name)}${item.promoName?`<br><small class="tax-promo-tag">🏷 ${escapeHtml(item.promoName)}</small>`:''}${item.promoFreeQty?`<br><small class="tax-promo-tag">🎁 แถมฟรี ${item.promoFreeQty} ${escapeHtml(item.unit||'')}</small>`:''}</td><td class="num">${item.qty}</td><td>${escapeHtml(item.unit||'-')}</td><td class="num">${fmtMoney(item.price)}</td><td class="num">${fmtMoney(lineAmount(item))}</td></tr>`).join('');
+  const tax=standaloneDoc?calculateSaleTaxSummary((sale.items||[]).map(item=>({amount:(Number(item.qty)||0)*(Number(item.price)||0),vatMode:'incl'})),sale.discount,true):saleTaxSummary(sale);
+  const total=tax.total,beforeVat=tax.beforeVat,vat=tax.vat,business=sale.businessSnapshot||businessSettings;
+  const lineAmount=item=>item.lineTotalGross!==undefined?Number(item.lineTotalGross)||0:item.lineTotal!==undefined?Number(item.lineTotal)||0:(Number(item.qty)||0)*(Number(item.price)||0);
+  const rows=(sale.items||[]).map((item,index)=>`<tr><td>${index+1}</td><td>${escapeHtml(item.name)}${item.promoName?`<br><small class="tax-promo-tag">🏷 ${escapeHtml(item.promoName)}</small>`:''}${item.promoFreeQty?`<br><small class="tax-promo-tag">🎁 แถมฟรี ${item.promoFreeQty} ${escapeHtml(item.unit||'')}</small>`:''}</td><td class="num">${item.qty}</td><td>${escapeHtml(item.unit||'-')}</td><td class="num">${fmtMoney(grossAmountForVatMode(item.price,item.vatMode,true))}</td><td class="num">${fmtMoney(lineAmount(item))}</td></tr>`).join('');
   const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร'); return; }
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${pdfMode?'PDF - ':'พิมพ์ - '}${escapeHtml(invoice.number)}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;background:#F0F0F0;color:#151515;font-family:'Sarabun',sans-serif}.toolbar{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:#fff;box-shadow:0 2px 8px #0002}.toolbar button{border:0;border-radius:7px;background:#2091D2;color:#fff;padding:9px 18px;font:600 14px Sarabun}.page{position:relative;width:210mm;min-height:297mm;margin:12px auto;padding:16mm 18mm;background:#fff;box-shadow:0 4px 20px #0002;overflow:hidden}.header{display:grid;grid-template-columns:1.15fr 1fr;gap:14mm;margin-top:2mm}.business{font-size:11.5px;line-height:1.6}.business-name,.customer-name{color:#2091D2;font-weight:700}.business-name{font-size:13px}.title-block{text-align:right}.title{color:#2091D2;font-size:22px;font-weight:700;margin-bottom:2px}.subtitle{color:#2091D2;font-size:12px;margin-bottom:8px}.docmeta{display:inline-grid;grid-template-columns:auto auto;gap:4px 14px;text-align:left;font-size:12px;margin-top:4px}.docmeta span:nth-child(odd){color:#2091D2;font-weight:600}.customer{margin:9mm 0 5mm}.customer div{font-size:12px;line-height:1.5}.items{width:100%;border-collapse:collapse;font-size:12px;margin-top:2mm}.items th{background:#2091D2;color:#fff;padding:7px 8px;text-align:left;font-weight:600}.items th.num,.items td.num{text-align:right}.items td{padding:7px 8px;border-bottom:1px solid #e4e8ec}.tax-promo-tag{color:#2091D2;font-weight:600;}.totals{width:82mm;margin:6mm 0 0 auto;font-size:12.5px}.totals div{display:flex;justify-content:space-between;padding:4px 0}.totals .lbl{color:#151515}.totals .grand{font-weight:700;border-top:1px solid #2091D2;margin-top:2px;padding-top:6px}.totals .grand span{color:#2091D2}.signheads{position:absolute;left:18mm;right:18mm;bottom:30mm;display:flex;justify-content:space-between;font-size:12px}.signheads span{width:60mm;text-align:center}.signheads span:last-child{text-align:center}.signlines{position:absolute;left:18mm;right:18mm;bottom:14mm;display:flex;justify-content:space-between;text-align:center;font-size:11px}.signlines div{width:60mm;border-top:1px solid #888;padding-top:4px}@media print{body{background:#fff}.toolbar{display:none}.page{margin:0;box-shadow:none}}</style></head><body><div class="toolbar"><span>${pdfMode?'เลือก “บันทึกเป็น PDF” เพื่อดาวน์โหลดไฟล์':'ตัวอย่างเอกสาร A4'}</span><button onclick="window.print()">${pdfMode?'บันทึก PDF':'พิมพ์'}</button></div><main class="page"><section class="header"><div class="business"><span class="business-name">${escapeHtml(businessSettings.name||STORE_INFO.name)} (${businessSettings.branch==='branch'?'สาขา':'สำนักงานใหญ่'})</span><br>${escapeHtml(businessSettings.address||STORE_INFO.address)}<br>เลขประจำตัวผู้เสียภาษี ${escapeHtml(businessSettings.taxId||STORE_INFO.taxId)}<br>เบอร์มือถือ ${escapeHtml(businessSettings.mobile||STORE_INFO.phone)}<br>${escapeHtml(businessSettings.website||STORE_INFO.website||'')}</div><div class="title-block"><div class="title">ใบกำกับภาษี</div><div class="subtitle">${isCopy?'สำเนา':'ต้นฉบับ'}</div><div class="docmeta"><span>เลขที่</span><span>${escapeHtml(invoice.number)}</span><span>วันที่</span><span>${fmtDateShort(invoice.saleDate)}</span><span>ครบกำหนด</span><span>${fmtDateShort(invoice.saleDate)}</span><span>ผู้ขาย</span><span>${escapeHtml((currentUserProfile.firstName+' '+currentUserProfile.lastName).trim()||sale.cashier||'-')}</span></div></div></section><section class="customer"><div class="customer-name">${escapeHtml(customer.name||'-')} (${customer.branch==='branch'?`สาขา ${escapeHtml(customer.branchNo||'-')}`:'สำนักงานใหญ่'})</div><div>${escapeHtml(customer.address||'-')}</div><div>เลขประจำตัวผู้เสียภาษี ${escapeHtml(customer.taxId||'-')}${customer.phone?` · โทร ${escapeHtml(customer.phone)}`:''}</div></section><table class="items"><thead><tr><th>#</th><th>รายละเอียด</th><th class="num">จำนวน</th><th>หน่วย</th><th class="num">ราคาต่อหน่วย</th><th class="num">ยอดรวม</th></tr></thead><tbody>${rows}</tbody></table><section class="totals"><div><span class="lbl">รวมเป็นเงิน</span><b>${fmtMoney(beforeVat+vat)} บาท</b></div><div><span class="lbl">ภาษีมูลค่าเพิ่ม 7%</span><b>${fmtMoney(vat)} บาท</b></div><div><span class="lbl">ราคาไม่รวมภาษีมูลค่าเพิ่ม</span><b>${fmtMoney(beforeVat)} บาท</b></div><div class="grand"><span>จำนวนเงินรวมทั้งสิ้น</span><b>${fmtMoney(total)} บาท</b></div></section><div class="signheads"><span>ในนาม ${escapeHtml(customer.name||'-')}</span><span>ในนาม ${escapeHtml(businessSettings.name||STORE_INFO.name)}</span></div><div class="signlines"><div>ผู้รับสินค้า / บริการ · วันที่</div><div>ผู้อนุมัติ · วันที่</div></div></main></body></html>`);
   win.document.close();
@@ -11948,8 +12009,7 @@ function openPaymentModal(){
     document.querySelector(`${field}[data-line="${invalid.lineId}"]`)?.focus();
     return;
   }
-  const subtotal=applyPromotions(cart).discountedTotal;
-  const grand=subtotal-Math.min(saleDiscount,subtotal);
+  const grand=cartTaxSummary().total;
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal checkout-pay-modal"><div class="modal-head"><h3 id="checkoutPayTitle">เลือกวิธีชำระเงิน</h3><button class="modal-close">×</button></div><div id="checkoutPayContent"></div></div>`;
   document.body.appendChild(overlay);
@@ -12608,14 +12668,15 @@ function openPostPaymentModal(saleId){
 
 function printShortReceipt(saleId,pdfMode=false,historical=false){
   const sale=salesHistory.find(item=>item.id===saleId); if(!sale) return;
-  const lineAmount=item=>item.lineTotal!==undefined?Number(item.lineTotal)||0:(Number(item.qty)||0)*(Number(item.price)||0);
-  const subtotal=(sale.items||[]).reduce((sum,item)=>sum+lineAmount(item),0);
-  const afterDiscount=subtotal-(Number(sale.discount)||0),beforeVat=afterDiscount/(1+VAT_RATE),vat=afterDiscount-beforeVat;
+  const tax=saleTaxSummary(sale),registered=tax.registered;
+  const lineAmount=item=>item.lineTotalGross!==undefined?Number(item.lineTotalGross)||0:item.lineTotal!==undefined?Number(item.lineTotal)||0:(Number(item.qty)||0)*(Number(item.price)||0);
+  const afterDiscount=tax.total,beforeVat=tax.beforeVat,vat=tax.vat;
+  const receiptBusiness=sale.businessSnapshot||businessSettings;
   const itemCount=(sale.items||[]).reduce((sum,item)=>sum+(Number(item.qty)||0),0);
   const receiptNo=shortReceiptNumber(sale);
-  const rows=(sale.items||[]).map((item,index)=>`<div class="item"><span>${index+1}</span><div><b>${item.name}</b><small>${item.qty} ${item.unit||''} × ${fmtMoney(item.price)}</small>${item.promoName?`<small class="receipt-promo-tag">🏷 ${escapeHtml(item.promoName)}</small>`:''}${item.promoFreeQty?`<small class="receipt-promo-tag">🎁 แถมฟรี ${item.promoFreeQty} ${item.unit||''}</small>`:''}</div><strong>${fmtMoney(lineAmount(item))}</strong></div>`).join('');
+  const rows=(sale.items||[]).map((item,index)=>`<div class="item"><span>${index+1}</span><div><b>${item.name}</b><small>${item.qty} ${item.unit||''} × ${fmtMoney(grossAmountForVatMode(item.price,item.vatMode,registered))}</small>${item.promoName?`<small class="receipt-promo-tag">🏷 ${escapeHtml(item.promoName)}</small>`:''}${item.promoFreeQty?`<small class="receipt-promo-tag">🎁 แถมฟรี ${item.promoFreeQty} ${item.unit||''}</small>`:''}</div><strong>${fmtMoney(lineAmount(item))}</strong></div>`).join('');
   const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างใบเสร็จ'); return; }
-  win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${pdfMode?'แชร์ PDF - ':'พิมพ์ - '}${receiptNo}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>@page{size:80mm auto;margin:0}*{box-sizing:border-box}body{margin:0;background:#F0F0F0;color:#111;font-family:'Sarabun',sans-serif}.bar{position:sticky;top:0;z-index:5;background:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px #0002}.bar button{border:0;border-radius:7px;background:#2091D2;color:#fff;padding:8px 15px;font-family:inherit;font-weight:600}.receipt{position:relative;width:80mm;min-height:250mm;margin:12px auto;background:#fff;padding:24mm 8mm 15mm;box-shadow:0 4px 20px #0002}.copy-label{text-align:center;color:#2091D2;font-weight:700;font-size:10pt;margin-bottom:2mm}.center{text-align:center}.store{font-size:11pt;line-height:1.35}.store h2{font-size:14pt;margin:0 0 2px}.rule{border-top:1px solid #111;margin:7mm 0 4mm}.dash{border-top:1px dashed #111;margin:4mm 0}.title{font-weight:700;font-size:12pt}.meta{display:grid;grid-template-columns:25mm 1fr;gap:1mm;font-size:10pt;margin-top:4mm}.meta b{font-weight:600}.item{display:grid;grid-template-columns:7mm 1fr 19mm;gap:2mm;align-items:start;padding:2mm 0;font-size:9.5pt}.item b{display:block;font-weight:500}.item small{display:block}.receipt-promo-tag{color:#2091D2;font-weight:600;}.item strong{text-align:right;font-weight:500}.summary{font-size:10pt}.summary>div{display:flex;justify-content:space-between;padding:1mm 0}.summary .total{font-size:12pt;font-weight:700;border-top:1px solid #111;border-bottom:3px double #111;padding:2mm 0}.vat{font-size:14pt;font-weight:700;margin:5mm 0}.footer{font-size:9pt}@media print{body{background:#fff}.bar{display:none}.receipt{margin:0;box-shadow:none;width:80mm;min-height:0}}</style></head><body><div class="bar"><span>${pdfMode?'เลือก “บันทึกเป็น PDF” แล้วแชร์ไฟล์':'ตัวอย่างใบเสร็จ 80 มม.'}</span><button onclick="window.print()">${pdfMode?'บันทึก PDF':'พิมพ์'}</button></div><div class="receipt"><div class="center store"><h2>${businessSettings.name||STORE_INFO.name}</h2><div>(${businessSettings.branch==='branch'?'สาขา':'สำนักงานใหญ่'})</div><div>${businessSettings.address||STORE_INFO.address}</div><br><div><b>เลขผู้เสียภาษี</b> ${businessSettings.taxId||STORE_INFO.taxId}</div><div><b>เว็บไซต์</b> ${businessSettings.website||STORE_INFO.website}</div></div><div class="rule"></div><div class="title">ใบกำกับภาษีอย่างย่อ/ใบเสร็จรับเงิน</div><div>${receiptNo}</div><div class="dash"></div><div class="meta"><b>พนักงานขาย</b><span>${sale.cashier||loggedInUser()?.firstName||''}</span><b>วันที่</b><span>${fmtDateShort(sale.date)} ${(sale.time||'').slice(11)}</span><b>ชำระโดย</b><span>${sale.payMethod||'-'}</span></div><div class="rule"></div>${rows}<div class="dash"></div><div class="summary"><div><b>จำนวนรวม</b><b>${itemCount}</b></div><div><span>จำนวนเงินหลังหักส่วนลด</span><b>${fmtMoney(afterDiscount)}</b></div><div><span>ราคาไม่รวมภาษีมูลค่าเพิ่ม</span><b>${fmtMoney(beforeVat)}</b></div><div><span>ภาษีมูลค่าเพิ่ม 7%</span><b>${fmtMoney(vat)}</b></div>${sale.fee?`<div><span>ค่าธรรมเนียมบัตร</span><b>${fmtMoney(sale.fee)}</b></div>`:''}<div class="total"><span>รวมทั้งสิ้น</span><b>${fmtMoney(sale.total)}</b></div></div><div class="center vat">VAT INCLUDED</div><div class="dash"></div><div class="center footer">ขอบคุณที่ใช้บริการ<br>${businessSettings.mobile||STORE_INFO.phone}</div></div></body></html>`);
+  win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${pdfMode?'แชร์ PDF - ':'พิมพ์ - '}${receiptNo}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>@page{size:80mm auto;margin:0}*{box-sizing:border-box}body{margin:0;background:#F0F0F0;color:#111;font-family:'Sarabun',sans-serif}.bar{position:sticky;top:0;z-index:5;background:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px #0002}.bar button{border:0;border-radius:7px;background:#2091D2;color:#fff;padding:8px 15px;font-family:inherit;font-weight:600}.receipt{position:relative;width:80mm;min-height:250mm;margin:12px auto;background:#fff;padding:24mm 8mm 15mm;box-shadow:0 4px 20px #0002}.copy-label{text-align:center;color:#2091D2;font-weight:700;font-size:10pt;margin-bottom:2mm}.center{text-align:center}.store{font-size:11pt;line-height:1.35}.store h2{font-size:14pt;margin:0 0 2px}.rule{border-top:1px solid #111;margin:7mm 0 4mm}.dash{border-top:1px dashed #111;margin:4mm 0}.title{font-weight:700;font-size:12pt}.meta{display:grid;grid-template-columns:25mm 1fr;gap:1mm;font-size:10pt;margin-top:4mm}.meta b{font-weight:600}.item{display:grid;grid-template-columns:7mm 1fr 19mm;gap:2mm;align-items:start;padding:2mm 0;font-size:9.5pt}.item b{display:block;font-weight:500}.item small{display:block}.receipt-promo-tag{color:#2091D2;font-weight:600;}.item strong{text-align:right;font-weight:500}.summary{font-size:10pt}.summary>div{display:flex;justify-content:space-between;padding:1mm 0}.summary .total{font-size:12pt;font-weight:700;border-top:1px solid #111;border-bottom:3px double #111;padding:2mm 0}.vat{font-size:14pt;font-weight:700;margin:5mm 0}.footer{font-size:9pt}@media print{body{background:#fff}.bar{display:none}.receipt{margin:0;box-shadow:none;width:80mm;min-height:0}}</style></head><body><div class="bar"><span>${pdfMode?'เลือก “บันทึกเป็น PDF” แล้วแชร์ไฟล์':'ตัวอย่างใบเสร็จ 80 มม.'}</span><button onclick="window.print()">${pdfMode?'บันทึก PDF':'พิมพ์'}</button></div><div class="receipt"><div class="center store"><h2>${receiptBusiness.name||STORE_INFO.name}</h2><div>(${receiptBusiness.branch==='branch'?'สาขา':'สำนักงานใหญ่'})</div><div>${receiptBusiness.address||STORE_INFO.address}</div><br><div><b>เลขผู้เสียภาษี</b> ${receiptBusiness.taxId||STORE_INFO.taxId}</div><div><b>เว็บไซต์</b> ${receiptBusiness.website||STORE_INFO.website}</div></div><div class="rule"></div><div class="title">${registered?'ใบกำกับภาษีอย่างย่อ/ใบเสร็จรับเงิน':'ใบเสร็จรับเงิน'}</div><div>${receiptNo}</div><div class="dash"></div><div class="meta"><b>พนักงานขาย</b><span>${sale.cashier||loggedInUser()?.firstName||''}</span><b>วันที่</b><span>${fmtDateShort(sale.date)} ${(sale.time||'').slice(11)}</span><b>ชำระโดย</b><span>${sale.payMethod||'-'}</span></div><div class="rule"></div>${rows}<div class="dash"></div><div class="summary"><div><b>จำนวนรวม</b><b>${itemCount}</b></div><div><span>จำนวนเงินหลังหักส่วนลด</span><b>${fmtMoney(afterDiscount)}</b></div>${registered?`<div><span>ราคาไม่รวมภาษีมูลค่าเพิ่ม</span><b>${fmtMoney(beforeVat)}</b></div><div><span>ภาษีมูลค่าเพิ่ม 7%</span><b>${fmtMoney(vat)}</b></div>`:''}${sale.fee?`<div><span>ค่าธรรมเนียมบัตร</span><b>${fmtMoney(sale.fee)}</b></div>`:''}<div class="total"><span>รวมทั้งสิ้น</span><b>${fmtMoney(sale.total)}</b></div></div>${registered?'<div class="center vat">VAT INCLUDED</div>':''}<div class="dash"></div><div class="center footer">ขอบคุณที่ใช้บริการ<br>${receiptBusiness.mobile||STORE_INFO.phone}</div></div></body></html>`);
   win.document.close();
   const receiptNumberEl=win.document.querySelector('.title + div');
   if(receiptNumberEl) receiptNumberEl.style.textAlign='center';
@@ -12629,24 +12690,26 @@ function printShortReceipt(saleId,pdfMode=false,historical=false){
 function doCheckout(payMethod,options={}){
   if(cart.length===0) return;
   const promoResult=applyPromotions(cart);
-  const items=[]; let subtotal=0;
+  const vatRegistered=isBusinessVatRegistered();
+  const items=[];
   cart.forEach((l,idx)=>{
     const p=products.find(x=>x.id===l.pid);
     if(p){ const delta=-(l.qty*(l.factor||1)); p.stock+=delta; adjustProductStockOnSupabase(p.id,delta,activeWarehouseId); }
     const unitCost=l.custom?(Number(l.price)||0):(l.cost!==undefined&&l.cost!==''?Number(l.cost)||0:productUnitCost(p,l.unit,l.factor));
     const promoLine=promoResult.lines[idx];
     const lineTotal=promoLine.promoId?promoLine.promoLineTotal:l.price*l.qty;
+    const vatMode=l.custom?(vatRegistered?'incl':'none'):effectiveProductVatMode(p);
+    const lineTotalGross=grossAmountForVatMode(lineTotal,vatMode,vatRegistered);
     items.push({productId:l.pid||null,warehouseId:Number(activeWarehouseId)||null,name:l.name,qty:l.qty,price:Number(l.price)||0,cost:unitCost,costTotal:unitCost*Number(l.qty||0),unit:l.unit,factor:l.factor||0,custom:!!l.custom,
-      promoId:promoLine.promoId||null,promoName:promoLine.promoName||'',lineTotal,promoFreeQty:promoLine.promoFreeQty||0});
-    subtotal+=lineTotal;
+      promoId:promoLine.promoId||null,promoName:promoLine.promoName||'',lineTotal,lineTotalGross,vatMode,promoFreeQty:promoLine.promoFreeQty||0});
   });
-  const discount = Math.min(saleDiscount, subtotal);
-  const baseGrand = subtotal - discount;
+  const taxSummary=calculateSaleTaxSummary(items.map(item=>({amount:item.lineTotal,vatMode:item.vatMode})),saleDiscount,vatRegistered);
+  const discount=taxSummary.discount;
+  const baseGrand=taxSummary.total;
   const costTotal=items.reduce((sum,item)=>sum+(Number(item.costTotal)||0),0);
   const fee = Number(options.fee)||0;
   const grand = Math.round((baseGrand+fee)*100)/100;
-  const vat = baseGrand - (baseGrand / (1 + VAT_RATE));
-  const completedSale={id:'INV-'+(invoiceCounter++),ref:saleRef,date:TODAY_STR,time:TODAY_STR+' '+nowTimeStr(),warehouseId:Number(activeWarehouseId)||null,warehouseName:activeWarehouse()?.name||'',cashier:loggedInUser()?.firstName||employees[0],member:saleMember,status:'done',payMethod:payMethod||'เงินสด',items,discount,vat,fee,costTotal,grossProfit:baseGrand-costTotal,cashReceived:options.cashReceived||0,cashChange:options.cashChange||0,total:grand};
+  const completedSale={id:'INV-'+(invoiceCounter++),ref:saleRef,date:TODAY_STR,time:TODAY_STR+' '+nowTimeStr(),warehouseId:Number(activeWarehouseId)||null,warehouseName:activeWarehouse()?.name||'',cashier:loggedInUser()?.firstName||employees[0],member:saleMember,status:'done',payMethod:payMethod||'เงินสด',items,discount,vat:taxSummary.vat,vatRegistered,taxSummary,businessSnapshot:JSON.parse(JSON.stringify(businessSettings)),fee,costTotal,grossProfit:baseGrand-costTotal,cashReceived:options.cashReceived||0,cashChange:options.cashChange||0,total:grand};
   salesHistory.unshift(completedSale);
   persistSalesHistory();
   cart = []; saleDiscount = 0; saleMember = null; pendingQty = 1;
