@@ -8,6 +8,7 @@ const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const lotMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0019_inventory_lots.sql'), 'utf8');
 const exchangeMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0020_inventory_lot_product_exchange.sql'), 'utf8');
 const returnMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0022_inventory_lot_product_returns.sql'), 'utf8');
+const historyMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0023_inventory_lot_history_pagination.sql'), 'utf8');
 
 const helperStart = html.indexOf('function normalizeInventoryLotRow(');
 const helperEnd = html.indexOf('function inventoryLotStatus(', helperStart);
@@ -83,6 +84,8 @@ assert.match(returnMigration, /lot\.warehouse_id=v_warehouse/);
 assert.match(returnMigration, /v_lot\.quantity_base<v_qty/);
 assert.match(returnMigration, /'return_out'/);
 assert.match(returnMigration, /grant execute on function public\.apply_product_return_lots\(text\) to authenticated/);
+assert.match(historyMigration, /create index if not exists idx_inventory_lots_history/);
+assert.match(historyMigration, /where quantity_base<=0 or status='exhausted'/);
 
 assert.match(html, /<th>เลข Lot<\/th><th>วันหมดอายุ<\/th>/);
 assert.match(html, /sb\.rpc\('post_sale_inventory_lots'/);
@@ -104,7 +107,14 @@ assert.match(html, /lot-detail-modal:not\(\.show-internal-lots\) \.lot-internal-
 assert.match(html, /class="lot-internal-column">รหัส LOT ภายใน/);
 assert.match(html, /ดูรายละเอียดทางระบบ/);
 assert.match(html, /ซ่อนรายละเอียดทางระบบ/);
-assert.match(html, /currentProfile\?\.owner&&rows\.length/);
+assert.match(html, /currentProfile\?\.owner&&\(stockedRows\.length\|\|historyCount\)/);
+assert.match(html, /INVENTORY_LOT_HISTORY_PAGE_SIZE=50/);
+assert.match(html, /select\('id',\{count:'exact',head:true\}\)/);
+assert.match(html, /id="lotHistoryBody" hidden><\/tbody>/);
+assert.match(html, /id="lotHistoryLoadMoreBtn"/);
+assert.match(html, /\.range\(historyLoaded,historyLoaded\+INVENTORY_LOT_HISTORY_PAGE_SIZE-1\)/);
+assert.match(html, /loadHistoryPage=async/);
+assert.doesNotMatch(html, /exhaustedRowsHtml=inventoryLotDetailGroupsHtml/);
 assert.match(html, /class="product-exchange-lot"/);
 assert.match(html, /class="poi_return_lot"/);
 assert.match(html, /sb\.rpc\('apply_product_return_lots'/);

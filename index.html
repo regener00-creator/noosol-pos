@@ -350,6 +350,8 @@
   .lot-history-toggle{display:inline-flex;align-items:center;gap:8px;padding:8px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--primary);font-family:inherit;font-size:13px;font-weight:700;cursor:pointer;}
   .lot-history-toggle:hover{border-color:var(--primary);background:var(--primary-soft);}
   .lot-history-toggle-chevron{font-size:12px;line-height:1;}
+  .lot-history-load-more{display:flex;align-items:center;justify-content:center;gap:10px;padding-top:10px;}
+  .lot-history-progress{font-size:12px;color:var(--text-muted);}
   .lot-history-row td{color:var(--text-muted);background:#FAFBFC;}
   .lot-group-summary td{background:#F7FBFE;font-weight:600;}
   .lot-group-toggle{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:0;background:transparent;color:var(--primary);font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;padding:5px 7px;border-radius:7px;}
@@ -4938,32 +4940,38 @@ function inventoryLotDetailGroupsHtml(product,rows,{groupPrefix='stocked',readOn
     return summary+group.rows.map(row=>inventoryLotDetailRowHtml(product,row,{childGroupIndex:groupKey,readOnly})).join('');
   }).join('');
 }
+const INVENTORY_LOT_HISTORY_PAGE_SIZE=50;
+const INVENTORY_LOT_DETAIL_COLUMNS='id,product_id,warehouse_id,internal_code,manufacturer_lot,expiry_date,quantity_base,unit_cost_base,received_at,source_type,source_id,status,updated_at';
 async function openProductLotDetails(productId){
   const product=products.find(item=>Number(item.id)===Number(productId));
   if(!product) return;
   let rows=inventoryLotsForProduct(product.id,activeWarehouseId);
+  let historyCount=inventoryLotDetailRowSets(rows).exhausted.length;
   try{
-    const {data,error}=await sb.from('inventory_lots').select('id,product_id,warehouse_id,internal_code,manufacturer_lot,expiry_date,quantity_base,unit_cost_base,received_at,source_type,source_id,status,updated_at').eq('product_id',product.id).eq('warehouse_id',Number(activeWarehouseId)).order('received_at',{ascending:false});
-    if(error) throw error;
-    rows=(data||[]).map(normalizeInventoryLotRow);
+    const [stockedResult,historyCountResult]=await Promise.all([
+      sb.from('inventory_lots').select(INVENTORY_LOT_DETAIL_COLUMNS).eq('product_id',product.id).eq('warehouse_id',Number(activeWarehouseId)).gt('quantity_base',0).neq('status','exhausted').order('expiry_date',{ascending:true,nullsFirst:false}).order('received_at',{ascending:true}).order('id',{ascending:true}),
+      sb.from('inventory_lots').select('id',{count:'exact',head:true}).eq('product_id',product.id).eq('warehouse_id',Number(activeWarehouseId)).or('quantity_base.lte.0,status.eq.exhausted')
+    ]);
+    if(stockedResult.error) throw stockedResult.error;
+    rows=(stockedResult.data||[]).map(normalizeInventoryLotRow);
+    if(historyCountResult.error) console.warn('count exhausted product lots',historyCountResult.error);
+    else historyCount=Number(historyCountResult.count)||0;
   }catch(error){ console.warn('load product lot details',error); }
   rows.sort((a,b)=>{
-    const activeDiff=(Number(b.quantity_base)>0?1:0)-(Number(a.quantity_base)>0?1:0);
-    if(activeDiff) return activeDiff;
     return String(a.expiry_date||'9999-12-31').localeCompare(String(b.expiry_date||'9999-12-31'))||Number(a.id)-Number(b.id);
   });
-  const {stocked:stockedRows,exhausted:exhaustedRows}=inventoryLotDetailRowSets(rows);
+  const {stocked:stockedRows}=inventoryLotDetailRowSets(rows);
   const activeRows=stockedRows.filter(row=>row.status!=='blocked');
   const activeDisplayGroupCount=groupInventoryLotDetailRows(activeRows).length;
   const total=activeRows.reduce((sum,row)=>sum+Number(row.quantity_base||0),0);
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   const stockedRowsHtml=inventoryLotDetailGroupsHtml(product,stockedRows,{groupPrefix:'stocked'});
-  const exhaustedRowsHtml=inventoryLotDetailGroupsHtml(product,exhaustedRows,{groupPrefix:'exhausted',readOnly:true});
-  const emptyStockedText=rows.length?'ไม่มี Lot ที่มีสินค้า':'ยังไม่มี Lot สำหรับสินค้านี้';
-  const systemToggle=currentProfile?.owner&&rows.length?`<button type="button" class="lot-history-toggle" id="lotSystemDetailsToggle" aria-expanded="false"><span class="lot-history-toggle-chevron">▸</span><span>ดูรายละเอียดทางระบบ</span></button>`:'';
-  const historyToggle=exhaustedRows.length?`<button type="button" class="lot-history-toggle" id="lotHistoryToggle" aria-expanded="false"><span class="lot-history-toggle-chevron">▸</span><span>แสดง LOT ที่หมดแล้ว (${exhaustedRows.length})</span></button>`:'';
+  const emptyStockedText=historyCount?'ไม่มี LOT ที่มีสินค้า':'ยังไม่มี LOT สำหรับสินค้านี้';
+  const systemToggle=currentProfile?.owner&&(stockedRows.length||historyCount)?`<button type="button" class="lot-history-toggle" id="lotSystemDetailsToggle" aria-expanded="false"><span class="lot-history-toggle-chevron">▸</span><span>ดูรายละเอียดทางระบบ</span></button>`:'';
+  const historyToggle=historyCount?`<button type="button" class="lot-history-toggle" id="lotHistoryToggle" aria-expanded="false"><span class="lot-history-toggle-chevron">▸</span><span>แสดง LOT ที่หมดแล้ว (${historyCount})</span></button>`:'';
   const detailToggles=systemToggle||historyToggle?`<div class="lot-history-toggle-wrap">${systemToggle}${historyToggle}</div>`:'';
-  overlay.innerHTML=`<div class="modal lot-detail-modal"><div class="modal-head"><div><h3>รายละเอียด Lot</h3><div class="sub">${escapeHtml(product.name)} · ${escapeHtml(activeWarehouse()?.name||'-')}</div></div><button class="modal-close" aria-label="ปิด">×</button></div><div class="lot-detail-body"><div class="lot-detail-summary"><span>คงเหลือรวม ${escapeHtml(stockInLargestUnit({...product,stock:total}))}</span><span>${activeDisplayGroupCount} Lot ที่มีสินค้า</span><span>หมดอายุใกล้สุด ${escapeHtml(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]?fmtDateShort(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]):'-')}</span></div><div class="seamless-table-wrap"><table class="grid-table doc-head-blue lot-detail-table"><thead><tr><th class="lot-internal-column">รหัส LOT ภายใน</th><th>เลข LOT ผู้ผลิต</th><th>คงเหลือ</th><th>วันหมดอายุ</th><th>รับเข้าเมื่อ</th><th>สถานะ</th></tr></thead><tbody>${stockedRowsHtml||`<tr><td colspan="6" style="padding:28px;color:var(--text-muted);">${emptyStockedText}</td></tr>`}</tbody>${exhaustedRows.length?`<tbody id="lotHistoryBody" hidden>${exhaustedRowsHtml}</tbody>`:''}</table></div>${detailToggles}${currentProfile?.owner&&stockedRows.length?'<div class="form-bottom-actions" style="justify-content:flex-end;"><button class="btn primary" id="saveLotDetailsBtn">บันทึกข้อมูล Lot</button></div>':''}</div></div>`;
+  const historyLoadMore=historyCount?`<div class="lot-history-load-more" id="lotHistoryLoadMoreWrap" hidden><button type="button" class="btn ghost small" id="lotHistoryLoadMoreBtn">โหลดเพิ่มเติม</button><span class="lot-history-progress" id="lotHistoryProgress"></span></div>`:'';
+  overlay.innerHTML=`<div class="modal lot-detail-modal"><div class="modal-head"><div><h3>รายละเอียด Lot</h3><div class="sub">${escapeHtml(product.name)} · ${escapeHtml(activeWarehouse()?.name||'-')}</div></div><button class="modal-close" aria-label="ปิด">×</button></div><div class="lot-detail-body"><div class="lot-detail-summary"><span>คงเหลือรวม ${escapeHtml(stockInLargestUnit({...product,stock:total}))}</span><span>${activeDisplayGroupCount} Lot ที่มีสินค้า</span><span>หมดอายุใกล้สุด ${escapeHtml(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]?fmtDateShort(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]):'-')}</span></div><div class="seamless-table-wrap"><table class="grid-table doc-head-blue lot-detail-table"><thead><tr><th class="lot-internal-column">รหัส LOT ภายใน</th><th>เลข LOT ผู้ผลิต</th><th>คงเหลือ</th><th>วันหมดอายุ</th><th>รับเข้าเมื่อ</th><th>สถานะ</th></tr></thead><tbody>${stockedRowsHtml||`<tr><td colspan="6" style="padding:28px;color:var(--text-muted);">${emptyStockedText}</td></tr>`}</tbody>${historyCount?'<tbody id="lotHistoryBody" hidden></tbody>':''}</table></div>${detailToggles}${historyLoadMore}${currentProfile?.owner&&stockedRows.length?'<div class="form-bottom-actions" style="justify-content:flex-end;"><button class="btn primary" id="saveLotDetailsBtn">บันทึกข้อมูล Lot</button></div>':''}</div></div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
@@ -4987,23 +4995,70 @@ async function openProductLotDetails(productId){
     }
   });
   const historyButton=overlay.querySelector('#lotHistoryToggle');
-  if(historyButton) historyButton.addEventListener('click',()=>{
+  const historyBody=overlay.querySelector('#lotHistoryBody');
+  const historyLoadMoreButton=overlay.querySelector('#lotHistoryLoadMoreBtn');
+  const historyLoadMoreWrap=overlay.querySelector('#lotHistoryLoadMoreWrap');
+  const historyProgress=overlay.querySelector('#lotHistoryProgress');
+  let historyLoaded=0,historyLoading=false;
+  const updateHistoryControls=()=>{
+    if(!historyButton) return;
     const expanded=historyButton.getAttribute('aria-expanded')==='true';
-    historyButton.setAttribute('aria-expanded',String(!expanded));
-    const historyBody=overlay.querySelector('#lotHistoryBody');
-    if(historyBody) historyBody.hidden=expanded;
     const chevron=historyButton.querySelector('.lot-history-toggle-chevron');
     const label=historyButton.querySelector('span:last-child');
-    if(chevron) chevron.textContent=expanded?'▸':'▾';
-    if(label) label.textContent=`${expanded?'แสดง':'ซ่อน'} LOT ที่หมดแล้ว (${exhaustedRows.length})`;
+    if(chevron) chevron.textContent=expanded?'▾':'▸';
+    if(label) label.textContent=`${expanded?'ซ่อน':'แสดง'} LOT ที่หมดแล้ว (${historyCount})`;
+    if(historyProgress) historyProgress.textContent=`แสดงแล้ว ${historyLoaded} จาก ${historyCount} รายการ`;
+    if(historyLoadMoreWrap) historyLoadMoreWrap.hidden=!expanded||historyLoaded>=historyCount;
+  };
+  const loadHistoryPage=async()=>{
+    if(historyLoading||historyLoaded>=historyCount) return true;
+    historyLoading=true;
+    if(historyButton) historyButton.disabled=true;
+    if(historyLoadMoreButton){ historyLoadMoreButton.disabled=true; historyLoadMoreButton.textContent='กำลังโหลด...'; }
+    const label=historyButton?.querySelector('span:last-child');
+    if(label&&historyLoaded===0) label.textContent='กำลังโหลด LOT ที่หมดแล้ว...';
+    try{
+      const {data,error}=await sb.from('inventory_lots').select(INVENTORY_LOT_DETAIL_COLUMNS).eq('product_id',product.id).eq('warehouse_id',Number(activeWarehouseId)).or('quantity_base.lte.0,status.eq.exhausted').order('received_at',{ascending:false}).order('id',{ascending:false}).range(historyLoaded,historyLoaded+INVENTORY_LOT_HISTORY_PAGE_SIZE-1);
+      if(error) throw error;
+      const pageRows=(data||[]).map(normalizeInventoryLotRow);
+      if(historyBody&&pageRows.length) historyBody.insertAdjacentHTML('beforeend',inventoryLotDetailGroupsHtml(product,pageRows,{groupPrefix:`exhausted-${historyLoaded}`,readOnly:true}));
+      historyLoaded+=pageRows.length;
+      if(pageRows.length<INVENTORY_LOT_HISTORY_PAGE_SIZE) historyCount=historyLoaded;
+      return true;
+    }catch(error){
+      console.warn('load exhausted product lots',error);
+      showToast('โหลดประวัติ LOT ไม่สำเร็จ กรุณาลองใหม่','danger-top');
+      return false;
+    }finally{
+      historyLoading=false;
+      if(historyButton) historyButton.disabled=false;
+      if(historyLoadMoreButton){ historyLoadMoreButton.disabled=false; historyLoadMoreButton.textContent='โหลดเพิ่มเติม'; }
+      updateHistoryControls();
+    }
+  };
+  if(historyButton) historyButton.addEventListener('click',async()=>{
+    const expanded=historyButton.getAttribute('aria-expanded')==='true';
+    if(expanded){
+      historyButton.setAttribute('aria-expanded','false');
+      if(historyBody) historyBody.hidden=true;
+      updateHistoryControls();
+      return;
+    }
+    if(historyLoaded===0&&!await loadHistoryPage()) return;
+    historyButton.setAttribute('aria-expanded','true');
+    if(historyBody) historyBody.hidden=false;
+    updateHistoryControls();
   });
-  overlay.querySelectorAll('[data-lot-group-toggle]').forEach(button=>button.addEventListener('click',()=>{
+  if(historyLoadMoreButton) historyLoadMoreButton.addEventListener('click',loadHistoryPage);
+  overlay.addEventListener('click',event=>{
+    const button=event.target.closest?.('[data-lot-group-toggle]');
+    if(!button||!overlay.contains(button)) return;
     const expanded=button.getAttribute('aria-expanded')==='true';
     button.setAttribute('aria-expanded',String(!expanded));
     const chevron=button.querySelector('.lot-group-chevron');
     if(chevron) chevron.textContent=expanded?'▸':'▾';
     overlay.querySelectorAll(`[data-lot-group-child="${button.dataset.lotGroupToggle}"]`).forEach(row=>{ row.hidden=expanded; });
-  }));
+  });
   overlay.querySelectorAll('.lot-edit-expiry').forEach(input=>input.addEventListener('input',()=>{ input.value=formatDMYInput(input.value); }));
   const saveButton=overlay.querySelector('#saveLotDetailsBtn');
   if(saveButton) saveButton.onclick=async()=>{
