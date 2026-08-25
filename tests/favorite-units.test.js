@@ -22,6 +22,7 @@ loadFunctionBlock('favoriteProductId', 'favoriteSelectedUnit');
 loadFunctionBlock('favoriteSelectedUnit', 'favoriteEntryForProduct');
 loadFunctionBlock('favoriteEntryForProduct', 'normalizeFavorites');
 loadFunctionBlock('normalizeFavorites', 'favoriteHasProduct');
+loadFunctionBlock('fmtFavoritePrice', 'escapeHtml');
 
 const product = {
   id: 101,
@@ -48,6 +49,8 @@ assert.deepEqual(
 );
 assert.equal(context.favoriteSelectedUnit({pid:101,unit:'หน่วยที่ถูกลบ'},product),'เม็ด');
 assert.deepEqual(JSON.parse(JSON.stringify(context.favoriteEntryForProduct(product,'ซอง'))),{pid:101,unit:'ซอง'});
+assert.equal(context.fmtFavoritePrice(180),'180');
+assert.equal(context.fmtFavoritePrice(180.5),'180.5');
 
 Object.assign(context,{products:[product],cart:[],lineCounter:1});
 context.addToCart(101,'กล่อง',2);
@@ -57,6 +60,7 @@ assert.deepEqual(JSON.parse(JSON.stringify(context.cart)),[{
 
 assert.match(html,/data-unit="\$\{escapeHtml\(item\.unit\)\}"/);
 assert.match(html,/addToCart\(pid, el\.dataset\.unit\|\|null, pendingQty\)/);
+assert.match(html,/\$\{escapeHtml\(item\.unit\)\} - \$\{fmtFavoritePrice\(item\.price\)\}/);
 assert.match(html,/data-fav-result-unit/);
 assert.match(migration,/add column if not exists unit text not null default ''/);
 assert.match(migration,/add column if not exists position integer not null default 0/);

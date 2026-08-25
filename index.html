@@ -1094,7 +1094,6 @@
   #favAddResults .fav-unit-result-info span{font-size:11.5px;color:var(--text-muted);}
   #favAddResults .fav-unit-select,.fav-manage-unit{min-width:0;padding:7px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface);font-family:inherit;font-size:12.5px;color:var(--text);}
   #favAddResults .fav-unit-add{padding:7px 10px;}
-  .fav-card .fav-unit-label{margin-bottom:3px;font-size:11.5px;color:var(--text-muted);}
   .pc-item{border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin-bottom:8px;}
   .pc-item .pc-name{font-weight:600;font-size:14.5px;margin-bottom:10px;}
   .pc-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;}
@@ -2192,6 +2191,10 @@ function fmtTopbarDate(d){
 function fmtMoney(n){
   const amount=Number(n);
   return (Number.isFinite(amount)?amount:0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+function fmtFavoritePrice(n){
+  const amount=Number(n);
+  return (Number.isFinite(amount)?amount:0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
 }
 function escapeHtml(value){ return String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 // ---------- ช่องเลือกวันที่แบบ วัน/เดือน/ปี (dd/mm/yyyy) พร้อมปฏิทินช่วยเลือก ----------
@@ -3566,7 +3569,7 @@ function renderCheckout(){
     }).filter(Boolean);
     favHtml = `<div class="fav-strip">
       <div class="fav-head"><span>⭐ สินค้าโปรด</span><button class="btn ghost small" id="manageFavBtn">จัดการ</button></div>
-      <div class="fav-items">${favProds.length? favProds.map(item=>`<button class="fav-card" data-act="add" data-id="${item.product.id}" data-unit="${escapeHtml(item.unit)}"><div class="fav-name">${escapeHtml(item.product.name)}</div><div class="fav-unit-label">หน่วย ${escapeHtml(item.unit)}</div><div class="fav-price mono">${fmtMoney(item.price)}</div></button>`).join('') : '<div class="fav-empty">ยังไม่มีสินค้าโปรด — กดปุ่ม "จัดการ" เพื่อเพิ่ม</div>'}</div>
+      <div class="fav-items">${favProds.length? favProds.map(item=>`<button class="fav-card" data-act="add" data-id="${item.product.id}" data-unit="${escapeHtml(item.unit)}"><div class="fav-name">${escapeHtml(item.product.name)}</div><div class="fav-price mono">${escapeHtml(item.unit)} - ${fmtFavoritePrice(item.price)}</div></button>`).join('') : '<div class="fav-empty">ยังไม่มีสินค้าโปรด — กดปุ่ม "จัดการ" เพื่อเพิ่ม</div>'}</div>
     </div>`;
   }
 
