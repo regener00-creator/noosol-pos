@@ -29,6 +29,28 @@ assert.equal(context.inventoryLotsForProduct(10, 1, {includeEmpty:false}).length
 assert.equal(context.activeInventoryLotsForProduct(10, 1).length, 1);
 assert.equal(context.inventoryLotCount(10, 1), 1);
 
+const groupHelperStart = html.indexOf('function inventoryLotDisplayGroupKey(');
+const groupHelperEnd = html.indexOf('function inventoryLotDetailRowHtml(', groupHelperStart);
+assert.ok(groupHelperStart >= 0 && groupHelperEnd > groupHelperStart, 'ไม่พบ helper สำหรับยุบรวม Lot');
+const groupContext = {};
+vm.createContext(groupContext);
+vm.runInContext(html.slice(groupHelperStart, groupHelperEnd), groupContext);
+const groupedLots = groupContext.groupInventoryLotDetailRows([
+  {id:1,manufacturer_lot:' DEF ',expiry_date:'2031-08-09',quantity_base:20,status:'active'},
+  {id:2,manufacturer_lot:'def',expiry_date:'2031-08-09',quantity_base:80,status:'active'},
+  {id:3,manufacturer_lot:'DEF',expiry_date:'2030-09-09',quantity_base:5,status:'active'},
+  {id:4,manufacturer_lot:'',expiry_date:'2031-08-09',quantity_base:3,status:'active'},
+  {id:5,manufacturer_lot:'',expiry_date:'2031-08-09',quantity_base:7,status:'active'},
+  {id:6,manufacturer_lot:'DEF',expiry_date:'2031-08-09',quantity_base:0,status:'exhausted'},
+]);
+assert.equal(groupedLots.length, 5, 'รวมเฉพาะเลข Lot ผู้ผลิต วันหมดอายุ และสถานะเดียวกัน');
+assert.equal(groupedLots[0].rows.length, 2, 'เลข Lot ผู้ผลิตที่ต่างเฉพาะตัวพิมพ์/ช่องว่างต้องรวมกัน');
+assert.equal(groupedLots[0].quantityBase, 100, 'ยอดคงเหลือของ Lot ที่รวมต้องถูกต้อง');
+assert.equal(groupedLots[1].rows.length, 1, 'วันหมดอายุต่างกันต้องไม่รวม');
+assert.equal(groupedLots[2].rows.length, 1, 'รายการที่ไม่ระบุเลข Lot ต้องคงแยกกัน');
+assert.equal(groupedLots[3].rows.length, 1, 'รายการที่ไม่ระบุเลข Lot ต้องไม่ถูกยุบรวม');
+assert.equal(groupedLots[4].rows.length, 1, 'Lot ที่หมดแล้วต้องไม่รวมกับ Lot ที่ยังมีสินค้า');
+
 assert.match(lotMigration, /create table if not exists public\.inventory_lots/);
 assert.match(lotMigration, /create table if not exists public\.inventory_lot_movements/);
 assert.match(lotMigration, /alter table public\.inventory_lots enable row level security/);
@@ -61,6 +83,8 @@ assert.match(html, /กรุณากดชำระซ้ำเพื่อบ
 assert.match(html, /สินค้า \/ Lot/);
 assert.match(html, /data-product-lots/);
 assert.match(html, /update_inventory_lot_details/);
+assert.match(html, /data-lot-group-toggle/);
+assert.match(html, /data-lot-group-child/);
 assert.match(html, /class="product-exchange-lot"/);
 assert.match(html, /class="poi_return_lot"/);
 assert.match(html, /sb\.rpc\('apply_product_return_lots'/);
