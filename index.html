@@ -12024,11 +12024,18 @@ function openPaymentModal(){
   const renderChoice=()=>{
     stopKeyHandler();
     title.hidden=true;
-    content.innerHTML=`<div class="payment-choice-total"><span>ยอดชำระ</span><b>${fmtMoney(grand)}</b><span>บาท</span></div><div style="padding:8px 16px 18px;display:flex;flex-direction:column;gap:10px;"><button class="paymethod" data-method="cash"><span style="font-size:20px;">💵</span> เงินสด</button><button class="paymethod" data-method="bank"><span style="font-size:20px;">🏦</span> โอนธนาคาร</button><button class="paymethod" data-method="card"><span style="font-size:20px;">💳</span> บัตรเครดิต</button><button class="paymethod" data-method="online"><span style="font-size:20px;">🌐</span> ออนไลน์</button></div>`;
+    content.innerHTML=`<div class="payment-choice-total"><span>ยอดชำระ</span><b>${fmtMoney(grand)}</b><span>บาท</span></div><div style="padding:8px 16px 18px;display:flex;flex-direction:column;gap:10px;"><button class="paymethod" data-method="cash"><span style="font-size:20px;">💵</span> [F2] เงินสด</button><button class="paymethod" data-method="bank"><span style="font-size:20px;">🏦</span> [F4] โอนธนาคาร</button><button class="paymethod" data-method="card"><span style="font-size:20px;">💳</span> บัตรเครดิต</button><button class="paymethod" data-method="online"><span style="font-size:20px;">🌐</span> ออนไลน์</button></div>`;
     content.querySelector('[data-method="cash"]').onclick=renderCash;
     content.querySelector('[data-method="bank"]').onclick=renderBank;
     content.querySelector('[data-method="card"]').onclick=renderCard;
     content.querySelector('[data-method="online"]').onclick=renderOnline;
+    activeKeyHandler=e=>{
+      const method=e.key==='F2'?'cash':e.key==='F4'?'bank':'';
+      if(!method) return;
+      e.preventDefault();
+      if(!e.repeat) content.querySelector(`[data-method="${method}"]`)?.click();
+    };
+    document.addEventListener('keydown',activeKeyHandler);
   };
 
   const renderCash=()=>{
