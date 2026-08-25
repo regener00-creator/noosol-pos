@@ -1075,6 +1075,7 @@
   .grid-table.contact-summary-table tbody td{text-align:center;}
   .sale-detail-meta{display:grid;grid-template-columns:1fr 1fr;gap:9px 18px;padding:0 18px 14px;}.sale-detail-meta div{background:var(--bg);border-radius:8px;padding:9px 11px;}.sale-detail-meta small{display:block;color:var(--text-muted);font-size:11px;margin-bottom:2px;}.sale-detail-table{padding:0 18px 14px;overflow:auto;}.sale-detail-summary{margin:0 18px 16px;margin-right:auto;width:290px;}.sale-detail-summary div{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);}.sale-detail-summary .grand{font-size:17px;font-weight:700;color:var(--primary-dark);border-bottom:none;}
   .history-doc-panel{margin:0 18px 18px;padding:14px;border:1px solid var(--border);border-radius:10px;background:#F8FCFE;}.history-doc-panel h4{margin:0 0 4px;color:var(--primary-dark);}.history-doc-panel p{margin:0 0 12px;color:var(--text-muted);font-size:12px;}.history-doc-buttons{display:grid;grid-template-columns:1fr 1fr;gap:10px;}.history-doc-buttons button{padding:11px 12px;border:1px solid var(--primary);border-radius:8px;background:#fff;color:var(--primary-dark);font-family:inherit;font-weight:600;cursor:pointer;}.history-doc-buttons button:hover{background:var(--primary-soft);}.history-doc-buttons button:disabled{opacity:.45;cursor:not-allowed;}
+  .sale-lot-correction-panel{margin:0 18px 16px;padding:13px 14px;border:1px solid #F0D39D;border-radius:10px;background:#FFF9EC;display:flex;align-items:center;justify-content:space-between;gap:14px;}.sale-lot-correction-panel h4{margin:0 0 3px;color:#7B5716;}.sale-lot-correction-panel p{margin:0;color:#806B45;font-size:12px;}.sale-lot-correction-log{margin:0 18px 16px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:#FAFBFC;}.sale-lot-correction-log h4{margin:0 0 8px;font-size:13px;}.sale-lot-correction-log-item{padding:7px 0;border-top:1px solid var(--border);font-size:12px;line-height:1.55;}.sale-lot-correction-log-item:first-of-type{border-top:0;}.sale-lot-correction-form{padding:0 18px 18px;overflow-y:auto;}.sale-lot-correction-warning{padding:11px 13px;border:1px solid #F0D39D;border-radius:9px;background:#FFF8E8;color:#7B5716;font-size:12.5px;margin-bottom:14px;}.sale-lot-correction-preview{padding:11px 13px;border-radius:9px;background:var(--primary-soft);color:var(--primary-dark);font-size:12.5px;line-height:1.6;margin-top:12px;}.sale-lot-correction-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;}.sale-lot-correction-grid .wide{grid-column:1/-1;}@media(max-width:700px){.sale-lot-correction-panel{align-items:stretch;flex-direction:column;}.sale-lot-correction-grid{grid-template-columns:1fr;}.sale-lot-correction-grid .wide{grid-column:auto;}}
   .tax-customer-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;padding:0 20px 18px;}.tax-customer-form .wide{grid-column:1/-1;}.tax-customer-form label{display:block;font-size:12px;font-weight:600;margin-bottom:5px;}.tax-customer-form input,.tax-customer-form select,.tax-customer-form textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit;font-size:13px;}.tax-customer-form input[readonly]{background:var(--bg);color:var(--text-muted);}.tax-lock-note{grid-column:1/-1;padding:9px 11px;border-radius:8px;background:#FFF4D8;color:#76520A;font-size:12px;}.issued-doc-card{margin:0 20px 18px;padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);}.issued-doc-card strong{display:block;font-size:17px;color:var(--primary-dark);margin-bottom:6px;}.issued-doc-card div{font-size:12.5px;line-height:1.7;}
   @media(max-width:700px){.history-doc-buttons,.tax-customer-form{grid-template-columns:1fr}.tax-customer-form .wide{grid-column:auto}}
   @media (max-width:960px){ .pos-grid{grid-template-columns:1fr;} .pos-right{position:static;} }
@@ -12374,22 +12375,130 @@ function deleteSaleHistory(id,onDeleted){
   render();
 }
 
+function saleLotCorrectionAllocations(item){
+  const grouped=[],byId=new Map();
+  (item?.lotAllocations||[]).forEach(allocation=>{
+    const lotId=Number(allocation?.lotId)||0,baseQty=Number(allocation?.baseQty)||0;
+    if(!lotId||baseQty<=0) return;
+    const existing=byId.get(lotId);
+    if(existing) existing.baseQty=Math.round((existing.baseQty+baseQty)*1000000)/1000000;
+    else{
+      const copy={...allocation,lotId,baseQty};
+      byId.set(lotId,copy); grouped.push(copy);
+    }
+  });
+  return grouped;
+}
+function saleLotCorrectionValidation(item,warehouseId,fromLotId,toLotId,quantity,lots){
+  const round=value=>Math.round((Number(value)||0)*1000000)/1000000;
+  const factor=Number(item?.factor)>0?Number(item.factor):1;
+  const allocations=saleLotCorrectionAllocations(item);
+  const sourceAllocation=allocations.find(allocation=>Number(allocation.lotId)===Number(fromLotId));
+  const targetLot=(lots||[]).find(lot=>Number(lot.id)===Number(toLotId));
+  const quantityUnit=Number(quantity)||0,quantityBase=round(quantityUnit*factor);
+  const sourceLimit=sourceAllocation?round(Number(sourceAllocation.baseQty)/factor):0;
+  const targetLimit=targetLot?round(Number(targetLot.quantity_base)/factor):0;
+  const maxQuantity=round(Math.min(sourceLimit,targetLimit));
+  let error='';
+  if(!sourceAllocation) error='กรุณาเลือก LOT ที่ระบบตัด';
+  else if(!targetLot) error='กรุณาเลือก LOT ที่ขายจริง';
+  else if(Number(fromLotId)===Number(toLotId)) error='LOT ที่ระบบตัดและ LOT ที่ขายจริงต้องเป็นคนละรายการ';
+  else if(Number(targetLot.product_id)!==Number(item?.productId)||Number(targetLot.warehouse_id)!==Number(warehouseId)) error='LOT ที่ขายจริงไม่ตรงกับสินค้าและคลังของบิล';
+  else if(targetLot.status==='blocked') error='LOT ที่ขายจริงถูกระงับการใช้งาน';
+  else if(quantityUnit<=0) error='กรุณาระบุจำนวนที่ต้องการแก้ไข';
+  else if(quantityBase>Number(sourceAllocation.baseQty)+0.000001) error='จำนวนเกินกว่าที่บิลนี้ตัดจาก LOT เดิม';
+  else if(quantityBase>Number(targetLot.quantity_base)+0.000001) error='LOT ที่ขายจริงมีจำนวนคงเหลือในระบบไม่เพียงพอ';
+  return {error,factor,quantityUnit,quantityBase,maxQuantity,sourceAllocation,targetLot};
+}
+function saleLotCorrectionLabel(lot){
+  const expiry=lot?.expiry_date||lot?.expiry;
+  return `${lot?.manufacturer_lot||lot?.lotNumber||'ไม่ระบุเลข LOT'} · หมดอายุ ${expiry?fmtDateShort(expiry):'ไม่ระบุ'}`;
+}
+async function openSaleLotCorrection(id){
+  if(!currentProfile?.owner){ showToast('เฉพาะเจ้าของร้านเท่านั้นที่แก้ไข LOT ที่ขายได้','danger-top'); return; }
+  const sale=salesHistory.find(item=>item.id===id); if(!sale||sale.status!=='done') return;
+  const eligible=(sale.items||[]).map((item,index)=>({item,index})).filter(entry=>Number(entry.item?.productId)&&saleLotCorrectionAllocations(entry.item).length);
+  if(!eligible.length){ showToast('บิลนี้ไม่มีข้อมูล LOT ที่สามารถแก้ไขได้','danger-top'); return; }
+  await loadInventoryLotsFromSupabase();
+  const overlay=document.createElement('div'); overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal" style="width:680px;max-height:92vh;"><div class="modal-head"><div><h3>แก้ไข LOT ที่ขาย</h3><div class="sub">${escapeHtml(sale.ref||sale.id)}</div></div><button class="modal-close" aria-label="ปิด">×</button></div><form id="saleLotCorrectionForm" class="sale-lot-correction-form"></form></div>`;
+  document.body.appendChild(overlay);
+  const form=overlay.querySelector('#saleLotCorrectionForm');
+  const state={itemIndex:eligible[0].index,fromLotId:0,toLotId:0,quantity:1,reason:''};
+  const close=()=>overlay.remove(); overlay.querySelector('.modal-close').onclick=close; overlay.addEventListener('click',event=>{ if(event.target===overlay) close(); });
+  const renderForm=()=>{
+    let item=sale.items[state.itemIndex];
+    if(!item||!saleLotCorrectionAllocations(item).length){ state.itemIndex=eligible[0].index; item=sale.items[state.itemIndex]; }
+    const allocations=saleLotCorrectionAllocations(item),warehouseId=Number(sale.warehouseId||item.warehouseId)||0;
+    if(!allocations.some(allocation=>Number(allocation.lotId)===Number(state.fromLotId))) state.fromLotId=Number(allocations[0]?.lotId)||0;
+    const targets=inventoryLotRows.filter(lot=>Number(lot.product_id)===Number(item.productId)&&Number(lot.warehouse_id)===warehouseId&&Number(lot.quantity_base)>0&&lot.status!=='blocked'&&Number(lot.id)!==Number(state.fromLotId));
+    if(!targets.some(lot=>Number(lot.id)===Number(state.toLotId))) state.toLotId=Number(targets[0]?.id)||0;
+    let validation=saleLotCorrectionValidation(item,warehouseId,state.fromLotId,state.toLotId,state.quantity,inventoryLotRows);
+    if(validation.maxQuantity>0&&Number(state.quantity)>validation.maxQuantity){ state.quantity=validation.maxQuantity; validation=saleLotCorrectionValidation(item,warehouseId,state.fromLotId,state.toLotId,state.quantity,inventoryLotRows); }
+    const unit=item.unit||'หน่วย',factor=validation.factor;
+    const sourceOptions=allocations.map(allocation=>`<option value="${allocation.lotId}" ${Number(allocation.lotId)===Number(state.fromLotId)?'selected':''}>${escapeHtml(saleLotCorrectionLabel(allocation))} · ตัดไว้ ${escapeHtml(inventoryMovementRound(allocation.baseQty/factor))} ${escapeHtml(unit)}</option>`).join('');
+    const targetOptions=targets.map(lot=>`<option value="${lot.id}" ${Number(lot.id)===Number(state.toLotId)?'selected':''}>${escapeHtml(saleLotCorrectionLabel(lot))} · คงเหลือ ${escapeHtml(inventoryMovementRound(lot.quantity_base/factor))} ${escapeHtml(unit)}</option>`).join('');
+    form.innerHTML=`<div class="sale-lot-correction-warning">การแก้ไขนี้จะคืนจำนวนให้ LOT ที่ระบบตัดผิด แล้วลดจาก LOT ที่ขายจริงพร้อมกัน ยอดสต๊อกรวมและยอดขายจะไม่เปลี่ยน</div><div class="sale-lot-correction-grid"><div class="field wide"><label>สินค้าในบิล</label><select id="saleLotCorrectionItem">${eligible.map(entry=>`<option value="${entry.index}" ${entry.index===state.itemIndex?'selected':''}>${escapeHtml(entry.item.name)} ×${escapeHtml(entry.item.qty)} ${escapeHtml(entry.item.unit||'')}</option>`).join('')}</select></div><div class="field wide"><label>LOT ที่ระบบตัดผิด</label><select id="saleLotCorrectionFrom">${sourceOptions}</select></div><div class="field wide"><label>LOT ที่ขายจริง</label><select id="saleLotCorrectionTo"><option value="">เลือก LOT ที่ขายจริง</option>${targetOptions}</select>${targets.length?'':'<small style="color:var(--danger);">ไม่พบ LOT อื่นที่ยังมีสินค้าในคลังของบิลนี้</small>'}</div><div class="field"><label>จำนวนที่ต้องการแก้ไข (${escapeHtml(unit)})</label><input id="saleLotCorrectionQty" type="number" min="0.000001" step="any" max="${validation.maxQuantity||''}" value="${escapeHtml(state.quantity)}"></div><div class="field"><label>จำนวนสูงสุด</label><input value="${escapeHtml(validation.maxQuantity)} ${escapeHtml(unit)}" disabled></div><div class="field wide"><label>เหตุผล / หมายเหตุ</label><textarea id="saleLotCorrectionReason" rows="2" maxlength="250" placeholder="เช่น หยิบ LOT ใหม่ให้ลูกค้า">${escapeHtml(state.reason)}</textarea></div></div><div class="sale-lot-correction-preview" id="saleLotCorrectionPreview"></div><div class="payment-actions" style="padding:14px 0 0;margin-top:14px;"><button class="btn ghost" type="button" id="cancelSaleLotCorrection">ยกเลิก</button><button class="btn primary" type="submit" id="confirmSaleLotCorrection">ยืนยันแก้ไข LOT</button></div>`;
+    const updatePreview=()=>{
+      state.quantity=Number(form.querySelector('#saleLotCorrectionQty')?.value)||0;
+      state.reason=form.querySelector('#saleLotCorrectionReason')?.value||'';
+      validation=saleLotCorrectionValidation(item,warehouseId,state.fromLotId,state.toLotId,state.quantity,inventoryLotRows);
+      const preview=form.querySelector('#saleLotCorrectionPreview'),submit=form.querySelector('#confirmSaleLotCorrection');
+      if(preview) preview.innerHTML=validation.error?`<span style="color:var(--danger);">${escapeHtml(validation.error)}</span>`:`คืน ${escapeHtml(state.quantity)} ${escapeHtml(unit)} ให้ <b>${escapeHtml(saleLotCorrectionLabel(validation.sourceAllocation))}</b><br>ตัด ${escapeHtml(state.quantity)} ${escapeHtml(unit)} จาก <b>${escapeHtml(saleLotCorrectionLabel(validation.targetLot))}</b>`;
+      if(submit) submit.disabled=!!validation.error;
+    };
+    form.querySelector('#saleLotCorrectionItem').onchange=event=>{ state.itemIndex=Number(event.target.value); state.fromLotId=0; state.toLotId=0; state.quantity=1; renderForm(); };
+    form.querySelector('#saleLotCorrectionFrom').onchange=event=>{ state.fromLotId=Number(event.target.value); state.toLotId=0; state.quantity=1; renderForm(); };
+    form.querySelector('#saleLotCorrectionTo').onchange=event=>{ state.toLotId=Number(event.target.value); updatePreview(); };
+    form.querySelector('#saleLotCorrectionQty').oninput=updatePreview;
+    form.querySelector('#saleLotCorrectionReason').oninput=updatePreview;
+    form.querySelector('#cancelSaleLotCorrection').onclick=close;
+    form.onsubmit=async event=>{
+      event.preventDefault(); updatePreview();
+      if(validation.error){ showToast(validation.error,'danger-top'); return; }
+      if(!confirm(`ยืนยันแก้ LOT ของ ${item.name} จำนวน ${state.quantity} ${unit} หรือไม่?\nยอดสต๊อกรวมและยอดขายจะไม่เปลี่ยน`)) return;
+      const submit=form.querySelector('#confirmSaleLotCorrection'); submit.disabled=true; submit.textContent='กำลังบันทึก...';
+      try{
+        const {data,error}=await sb.rpc('correct_sale_lot_allocation',{p_sale_id:sale.id,p_item_index:state.itemIndex,p_from_lot_id:state.fromLotId,p_to_lot_id:state.toLotId,p_quantity_base:validation.quantityBase,p_reason:state.reason.trim()||null});
+        if(error) throw error;
+        const saleIndex=salesHistory.findIndex(entry=>entry.id===sale.id);
+        if(saleIndex>=0) salesHistory[saleIndex]={...salesHistory[saleIndex],...(data?.sale||{}),id:sale.id};
+        persistSalesHistory();
+        await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
+        close(); showToast('แก้ไข LOT ที่ขายเรียบร้อยแล้ว'); openSaleHistoryDetail(sale.id);
+      }catch(error){
+        console.warn('correct sale lot allocation',error);
+        const message=String(error?.message||'');
+        const friendly=message.includes('insufficient')?'LOT ที่ขายจริงมีจำนวนคงเหลือไม่เพียงพอ':message.includes('exceeds')?'จำนวนเกินกว่าที่บิลตัดจาก LOT เดิม':'แก้ไข LOT ที่ขายไม่สำเร็จ กรุณาลองใหม่';
+        showToast(friendly,'danger-top'); submit.disabled=false; submit.textContent='ยืนยันแก้ไข LOT';
+      }
+    };
+    updatePreview();
+  };
+  renderForm();
+}
+
 function openSaleHistoryDetail(id){
   const sale=salesHistory.find(item=>item.id===id); if(!sale) return;
   const tax=saleTaxSummary(sale),subtotal=tax.subtotal;
   const canIssue=sale.status==='done';
   const canIssueTax=canIssueTaxInvoiceForSale(sale)||!!sale.fullTaxInvoice;
+  const canCorrectLots=!!currentProfile?.owner&&canIssue&&(sale.items||[]).some(item=>Number(item?.productId)&&saleLotCorrectionAllocations(item).length);
+  const correctionLog=Array.isArray(sale.lotCorrectionLog)?sale.lotCorrectionLog:[];
+  const correctionLogHtml=correctionLog.length?`<div class="sale-lot-correction-log"><h4>ประวัติแก้ไข LOT (${correctionLog.length})</h4>${correctionLog.slice().reverse().map(log=>{ const qty=Number(log.quantity)>0?log.quantity:log.quantityBase,unit=log.unit||'หน่วยหลัก'; return `<div class="sale-lot-correction-log-item"><b>${escapeHtml(log.productName||'-')} ×${escapeHtml(inventoryMovementRound(qty))} ${escapeHtml(unit)}</b><br>${escapeHtml(log.fromLot?.lotNumber||'ไม่ระบุเลข LOT')} → ${escapeHtml(log.toLot?.lotNumber||'ไม่ระบุเลข LOT')} · ${escapeHtml(auditDisplay(log.at))}${log.reason?`<br>หมายเหตุ: ${escapeHtml(log.reason)}`:''}</div>`; }).join('')}</div>`:'';
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:760px;max-height:92vh;"><div class="modal-head"><h3>รายละเอียดการขาย ${sale.ref||sale.id}</h3><button class="modal-close">×</button></div>
     <div class="sale-detail-meta"><div><small>วันที่ / เวลา</small><b>${fmtDate(sale.date)} · ${(sale.time||'').slice(11)||'-'}</b></div><div><small>พนักงานขาย</small><b>${sale.cashier||'-'}</b></div><div><small>ลูกค้า / สมาชิก</small><b>${sale.member||sale.name||'ลูกค้าทั่วไป'}</b></div><div><small>วิธีชำระ</small><b>${sale.payMethod||'-'}</b></div></div>
     <div class="sale-detail-table"><table class="grid-table"><thead><tr><th>ลำดับ</th><th>สินค้า / Lot</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคา/หน่วย</th><th class="mono">รวม</th></tr></thead><tbody>${(sale.items||[]).map((item,index)=>{ const lots=(item.lotAllocations||[]).map(allocation=>`${escapeHtml(allocation.lotNumber||allocation.internalCode||'-')} · ${escapeHtml(allocation.expiry?fmtDateShort(allocation.expiry):'ไม่ระบุวันหมดอายุ')} · ${escapeHtml(inventoryMovementRound(allocation.baseQty))} หน่วยหลัก`).join('<br>'); return `<tr><td>${index+1}</td><td>${escapeHtml(item.name)}${lots?`<small style="display:block;color:var(--text-muted);margin-top:4px;">Lot: ${lots}</small>`:''}</td><td class="mono num">${item.qty}</td><td>${escapeHtml(item.unit||'-')}</td><td class="mono num">${fmtMoney(item.price)}</td><td class="mono num">${fmtMoney(item.lineTotalGross!==undefined?item.lineTotalGross:item.qty*item.price)}</td></tr>`; }).join('')}</tbody></table></div>
     <div class="sale-detail-summary"><div><span>รวมสินค้า</span><b>${fmtMoney(subtotal)} บาท</b></div>${sale.discount?`<div><span>ส่วนลด</span><b>- ${fmtMoney(sale.discount)} บาท</b></div>`:''}${sale.fee?`<div><span>ค่าธรรมเนียม</span><b>${fmtMoney(sale.fee)} บาท</b></div>`:''}<div class="grand"><span>ยอดสุทธิ</span><b>${fmtMoney(sale.total)} บาท</b></div>${sale.cashReceived?`<div><span>รับเงิน</span><b>${fmtMoney(sale.cashReceived)} บาท</b></div><div><span>เงินทอน</span><b>${fmtMoney(sale.cashChange||0)} บาท</b></div>`:''}</div>
+    ${canCorrectLots?`<div class="sale-lot-correction-panel"><div><h4>LOT ที่ขายไม่ตรงกับระบบ?</h4><p>ย้ายการตัดไปยัง LOT ที่ขายจริง โดยยอดขายและสต๊อกรวมไม่เปลี่ยน</p></div><button class="btn ghost" id="correctSaleLotBtn">แก้ไข LOT ที่ขาย</button></div>`:''}${correctionLogHtml}
     <div class="history-doc-panel"><h4>ออกเอกสารย้อนหลัง</h4><p>${canIssue?'ใช้ข้อมูลและวันที่ขายเดิม การพิมพ์เอกสารจะไม่ตัดสต็อกหรือเพิ่มยอดขายซ้ำ':'ออกเอกสารได้เฉพาะรายการที่ชำระเงินเรียบร้อยแล้ว'}</p><div class="history-doc-buttons"><button id="historyShortReceiptBtn" ${canIssue?'':'disabled'}>🧾 ใบเสร็จอย่างย่อ</button><button id="historyTaxInvoiceBtn" ${canIssueTax?'':'disabled'}>${sale.fullTaxInvoice?'📄 เปิดใบกำกับภาษี':'📄 ออกใบกำกับภาษีย้อนหลัง'}</button></div></div>
     <div class="payment-actions"><button class="btn ghost" id="closeSaleDetailBtn">ปิด</button>${isLevel2User()?'':`<button class="btn" id="deleteSaleDetailBtn" style="background:var(--danger);color:#fff;">ลบประวัตินี้</button>`}</div></div>`;
   document.body.appendChild(overlay);
   const close=()=>{ overlay.remove(); render(); };
   overlay.querySelector('.modal-close').onclick=close; overlay.querySelector('#closeSaleDetailBtn').onclick=close;
   const deleteDetailBtn=overlay.querySelector('#deleteSaleDetailBtn'); if(deleteDetailBtn) deleteDetailBtn.onclick=()=>deleteSaleHistory(id,close);
+  const correctLotBtn=overlay.querySelector('#correctSaleLotBtn'); if(correctLotBtn) correctLotBtn.onclick=()=>{ close(); openSaleLotCorrection(id); };
   overlay.querySelector('#historyShortReceiptBtn').onclick=()=>{ if(canIssue){ close(); openHistoricalReceiptActions(id); } };
   overlay.querySelector('#historyTaxInvoiceBtn').onclick=()=>{ if(!canIssueTax) return; close(); sale.fullTaxInvoice?openFullTaxInvoiceModal(id):startTaxInvoiceForm(id); };
   
