@@ -10,9 +10,11 @@ assert.match(html, /user\?\.owner===true&&Number\(user\?\.level\)===1/);
 assert.match(html, /id="mobilePriceEditStock"/);
 assert.match(html, /id="mobilePriceEditSale"/);
 assert.match(html, /id="mobilePriceEditCost"/);
+assert.match(html, /id="mobilePriceLot"/);
 assert.match(html, /id="mobilePriceEditExpiry"/);
 assert.match(html, /id="mobilePriceSaveChanges"/);
-assert.match(html, /sb\.rpc\('owner_update_mobile_product'/);
+assert.match(html, /sb\.rpc\('owner_update_mobile_product_lot'/);
+assert.match(html, /p_lot_id:payload\.lotId/);
 assert.match(html, /document\.getElementById\('mobilePriceSaveChanges'\)\?\.addEventListener\('click',saveMobilePriceChanges\)/);
 
 const payloadStart = html.indexOf('function mobilePriceEditPayload(');
@@ -48,13 +50,14 @@ const product = {
 
 const main = context.mobilePriceEditPayload(product, 'กล่อง', {
   stock: '5', price: '120', cost: '70', expiry: '10-10-2027',
-}, 2);
+}, 2, 91);
 assert.equal(main.error, undefined);
 assert.equal(main.stock, 5);
 assert.equal(main.product.price, 120);
 assert.equal(main.product.cost, 70);
 assert.equal(main.product.units[0].price, 1100);
 assert.equal(main.warehouseId, 2);
+assert.equal(main.lotId, 91);
 assert.equal(main.expiry, '2027-10-10');
 
 const caseUnit = context.mobilePriceEditPayload(product, 'ลัง', {
@@ -71,7 +74,8 @@ assert.equal(caseUnit.product.units[0].barcode, 'CASE-10');
 assert.match(context.mobilePriceEditPayload(product, 'กล่อง', { stock: '', price: 1, cost: 1, expiry: '' }, 1).error, /คงเหลือ/);
 assert.match(context.mobilePriceEditPayload(product, 'กล่อง', { stock: 1, price: -1, cost: 1, expiry: '' }, 1).error, /ราคาขาย/);
 assert.match(context.mobilePriceEditPayload(product, 'กล่อง', { stock: 1, price: 1, cost: -1, expiry: '' }, 1).error, /ทุน/);
-assert.match(context.mobilePriceEditPayload(product, 'กล่อง', { stock: 1, price: 1, cost: 1, expiry: '31-02-2027' }, 1).error, /วันหมดอายุ/);
-assert.equal(context.mobilePriceEditPayload(product, 'กล่อง', { stock: 1, price: 1, cost: 1, expiry: '5/7/2027' }, 1).expiry, '2027-07-05');
+assert.match(context.mobilePriceEditPayload(product, 'กล่อง', { stock: 1, price: 1, cost: 1, expiry: '05-07-2027' }, 1).error, /เลือก Lot/);
+assert.match(context.mobilePriceEditPayload(product, 'กล่อง', { stock: 1, price: 1, cost: 1, expiry: '31-02-2027' }, 1, 91).error, /วันหมดอายุ/);
+assert.equal(context.mobilePriceEditPayload(product, 'กล่อง', { stock: 1, price: 1, cost: 1, expiry: '5/7/2027' }, 1, 91).expiry, '2027-07-05');
 
 console.log('mobile price edit tests passed');
