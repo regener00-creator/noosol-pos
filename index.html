@@ -1326,12 +1326,12 @@
   .mobile-metric.primary{background:var(--primary);border-color:var(--primary);color:#fff;}
   .mobile-metric.primary span{color:#DFF3FF;}
   .mobile-metric b{font-size:18px;line-height:1.25;}
-  .mobile-price-owner-note{margin:12px 0 8px;padding:9px 11px;border-radius:10px;background:#EEF8FE;color:var(--primary-dark);font-size:12px;font-weight:600;}
   .mobile-price-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
   .mobile-price-edit-field{min-width:0;text-align:left;}
   .mobile-price-edit-field label{display:block;font-size:11px;color:var(--text-muted);margin:0 0 4px 3px;}
   .mobile-price-edit-input{width:100%;height:46px;border:1px solid var(--border);border-radius:10px;background:#fff;padding:0 11px;font:700 15px 'Sarabun',sans-serif;text-align:center;outline:none;}
   .mobile-price-edit-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px #2091D21A;}
+  .mobile-price-edit-field.stock{grid-column:1/-1;}
   .mobile-price-edit-field.stock .mobile-price-edit-input{border-color:#79C5EE;background:#F2FAFE;color:var(--primary-dark);}
   .mobile-price-lot-field{grid-column:1/-1;text-align:left;}
   .mobile-price-lot-field label{display:block;font-size:11px;color:var(--text-muted);margin:0 0 4px 3px;}
@@ -1456,7 +1456,7 @@
     .mobile-tools-logo{width:38px;height:38px;border-radius:11px;}
     .mobile-tools-logout{padding:8px 10px;font-size:12px;}
     .mobile-result-codes,.mobile-metrics{grid-template-columns:1fr;}
-    .mobile-price-edit-grid{grid-template-columns:1fr;}
+    .mobile-price-edit-grid{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}
     .mobile-install-notice{align-items:flex-start;flex-direction:column;}
     .mobile-install-btn{width:100%;}
   }
@@ -6323,8 +6323,7 @@ function mobilePriceResultHtml(){
   return `<article class="mobile-result-card">
     <div class="mobile-result-name">${escapeHtml(product.name)}</div>
     ${options.length>1?`<select class="mobile-unit-select" id="mobilePriceUnit">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>หน่วย: ${escapeHtml(option.name)}</option>`).join('')}</select>`:`<div class="mobile-unit-select" style="display:flex;align-items:center;">หน่วย: ${escapeHtml(selected?.name||product.unit)}</div>`}
-    ${canEdit?`<div class="mobile-price-owner-note">แก้ไขเฉพาะคลัง: ${escapeHtml(activeWarehouse()?.name||'-')}</div>
-    <div class="mobile-price-edit-grid">
+    ${canEdit?`<div class="mobile-price-edit-grid">
       <div class="mobile-price-edit-field stock"><label for="mobilePriceEditStock">คงเหลือ (${escapeHtml(selected?.name||product.unit)})</label><input id="mobilePriceEditStock" class="mobile-price-edit-input" type="number" step="any" inputmode="decimal" value="${selectedStock}"></div>
       <div class="mobile-price-edit-field"><label for="mobilePriceEditSale">ราคาขาย</label><input id="mobilePriceEditSale" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.price)||0}"></div>
       <div class="mobile-price-edit-field"><label for="mobilePriceEditCost">ทุน</label><input id="mobilePriceEditCost" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.cost)||0}"></div>
