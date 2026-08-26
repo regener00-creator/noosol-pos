@@ -143,7 +143,7 @@ context.inspectionLists[0].stockAdjustedAt = '2026-08-20T09:00:00.000Z';
 const overviewHtml = context.renderInspectionListOverview();
 assert.match(overviewHtml, /รายการตรวจหน้าร้าน/);
 assert.match(overviewHtml, /data-open-inspection-list="CHECK-0001"/);
-assert.match(overviewHtml, /แก้ไขจำนวนเรียบร้อย/);
+assert.match(overviewHtml, /บันทึกผลแล้ว/);
 assert.match(overviewHtml, /inspection-list-overview-table/);
 assert.match(overviewHtml, /id="inspectionListSelectAll"/);
 assert.match(overviewHtml, /data-inspection-overview-sort="createdAt"/);
@@ -226,7 +226,7 @@ assert.equal(context.mobileInspectionCheckedSet(pendingList.id).has(1),false);
 assert.equal(context.mobileInspectionLastProductId,null);
 assert.match(context.inspectionLists[0].updatedAt,/^\d{4}-\d{2}-\d{2}T/);
 
-assert.match(html, /\['inspectionlists','ตรวจสินค้า'/);
+assert.match(html, /\['stockcontrol','ตรวจนับและปรับสต๊อก'/);
 assert.match(html, /inspectionlists:\s*renderInspectionLists/);
 assert.match(html, /from\('inspection_lists'\)\.select\('\*'\)/);
 assert.match(html, /upsertAndPrune\('inspection_lists',inspectionLists,inspectionListToRow\)/);
