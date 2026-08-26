@@ -36,6 +36,10 @@ const context = {
   inspectionListCounter: 1,
   mobileInspectionListId: '',
   mobileInspectionOpenedListId: '',
+  mobileInspectionAddingToSaved: false,
+  mobileInspectionSavedAddQuery: '',
+  mobileInspectionSavedAddItems: [],
+  mobileInspectionLastProductId: null,
   mobileStockSourceListId: '',
   mobileInspectionCheckedByList: {},
   stockEditSourceInspectionListId: null,
@@ -225,6 +229,13 @@ assert.deepEqual(Array.from(context.inspectionLists[0].items,item=>item.pid),[2]
 assert.equal(context.mobileInspectionCheckedSet(pendingList.id).has(1),false);
 assert.equal(context.mobileInspectionLastProductId,null);
 assert.match(context.inspectionLists[0].updatedAt,/^\d{4}-\d{2}-\d{2}T/);
+
+context.mobileInspectionAddingToSaved = true;
+context.mobileInspectionSavedAddItems = [];
+assert.equal(context.addProductToMobileInspectionSavedDraft(products[0],'ลัง'),true);
+assert.deepEqual(Array.from(context.mobileInspectionSavedAddItems,item=>({pid:item.pid,unit:item.unit})),[{pid:1,unit:'ลัง'}]);
+assert.equal(context.addProductToMobileInspectionSavedDraft(products[0],'กล่อง'),false,'สินค้าที่รอเพิ่มแล้วต้องไม่ซ้ำ');
+assert.equal(context.addProductToMobileInspectionSavedDraft(products[1],'ขวด'),false,'สินค้าที่อยู่ในรายการเดิมต้องไม่ซ้ำ');
 
 assert.match(html, /\['stockcontrol','ตรวจนับและปรับสต๊อก'/);
 assert.match(html, /inspectionlists:\s*renderInspectionLists/);
