@@ -1546,6 +1546,7 @@
     .stock-control-anomaly-summary{grid-template-columns:1fr;}
     .stock-lot-reallocation-summary{grid-template-columns:1fr;}
   }
+  .audit-log-page{display:flex;flex-direction:column;gap:14px}.audit-log-toolbar{display:grid;grid-template-columns:minmax(260px,1fr) 220px 220px auto;gap:10px}.audit-log-table-wrap{overflow:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}.audit-log-table{width:100%;border-collapse:collapse;min-width:1050px}.audit-log-table th{padding:12px;background:var(--primary);color:#fff;text-align:left;white-space:nowrap}.audit-log-table td{padding:12px;border-bottom:1px solid var(--border);vertical-align:top}.audit-log-table tr:last-child td{border-bottom:0}.audit-log-actor{display:flex;flex-direction:column;gap:2px}.audit-log-actor small{color:var(--muted)}.audit-log-chip{display:inline-flex;align-items:center;justify-content:center;padding:4px 9px;border-radius:999px;background:var(--primary-soft);color:var(--primary);font-weight:700;white-space:nowrap}.audit-log-chip.danger{background:var(--danger-soft);color:var(--danger)}.audit-log-chip.neutral{background:#eef1f4;color:var(--muted)}.audit-log-detail-row td{background:#f7fbfe}.audit-log-details{display:grid;grid-template-columns:1fr 1fr;gap:12px}.audit-log-data{padding:10px;border:1px solid var(--border);border-radius:10px;background:#fff;overflow-wrap:anywhere}.audit-log-data b{display:block;margin-bottom:6px;color:var(--muted)}.audit-log-pagination{display:flex;align-items:center;justify-content:center;gap:8px}.audit-log-empty{padding:36px;text-align:center;color:var(--muted)}@media(max-width:1100px){.audit-log-toolbar{grid-template-columns:1fr 1fr}.audit-log-toolbar input{grid-column:1/-1}}@media(max-width:720px){.audit-log-toolbar{grid-template-columns:1fr}.audit-log-toolbar input{grid-column:auto}.audit-log-details{grid-template-columns:1fr}}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="window.__peposDependencyError='ไม่สามารถโหลดระบบ Excel'"></script>
 </head>
@@ -1861,24 +1862,145 @@ async function fetchAllRows(buildQuery){
 // barcode collection, extra units and expiry dates from the device cache.
 const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v4';
 const PRODUCT_MANIFEST_VERSION=4;
+const PRODUCT_CACHE_DB_NAME='pepos-product-cache';
+const PRODUCT_CACHE_DB_VERSION=1;
+const PRODUCT_CACHE_PRODUCTS_STORE='products';
+const PRODUCT_CACHE_META_STORE='meta';
+const PRODUCT_CACHE_MANIFEST_KEY='product-manifest-v4';
+let productCacheDbPromise=null;
+let indexedProductCacheReady=false;
+let cachedProductManifest=null;
+let productCacheFingerprints=new Map();
+let productCacheWriteTimer=null;
+let legacyWorkspaceProducts=null;
 function productManifestVersions(rows){
   const versions={};
   (rows||[]).forEach(row=>{ versions[String(row.id)]=String(row.updated_at||''); });
   return versions;
 }
 function readProductManifestCache(){
+  const cached=cachedProductManifest;
+  if(!cached||cached.version!==PRODUCT_MANIFEST_VERSION||!cached.versions||typeof cached.versions!=='object') return null;
+  return cached;
+}
+function idbRequest(request){
+  return new Promise((resolve,reject)=>{
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>reject(request.error||new Error('IndexedDB request failed'));
+  });
+}
+function idbTransactionDone(transaction){
+  return new Promise((resolve,reject)=>{
+    transaction.oncomplete=()=>resolve();
+    transaction.onerror=()=>reject(transaction.error||new Error('IndexedDB transaction failed'));
+    transaction.onabort=()=>reject(transaction.error||new Error('IndexedDB transaction aborted'));
+  });
+}
+function openProductCacheDb(){
+  if(productCacheDbPromise) return productCacheDbPromise;
+  if(!window.indexedDB) return Promise.reject(new Error('IndexedDB unavailable'));
+  productCacheDbPromise=new Promise((resolve,reject)=>{
+    const request=indexedDB.open(PRODUCT_CACHE_DB_NAME,PRODUCT_CACHE_DB_VERSION);
+    request.onupgradeneeded=()=>{
+      const db=request.result;
+      if(!db.objectStoreNames.contains(PRODUCT_CACHE_PRODUCTS_STORE)) db.createObjectStore(PRODUCT_CACHE_PRODUCTS_STORE,{keyPath:'id'});
+      if(!db.objectStoreNames.contains(PRODUCT_CACHE_META_STORE)) db.createObjectStore(PRODUCT_CACHE_META_STORE,{keyPath:'key'});
+    };
+    request.onsuccess=()=>resolve(request.result);
+    request.onerror=()=>{ productCacheDbPromise=null; reject(request.error||new Error('เปิดแคชสินค้าไม่สำเร็จ')); };
+  });
+  return productCacheDbPromise;
+}
+function validLegacyProductManifest(){
   try{
     const cached=JSON.parse(localStorage.getItem(PRODUCT_MANIFEST_STORAGE_KEY)||'null');
-    if(!cached||cached.version!==PRODUCT_MANIFEST_VERSION||!cached.versions||typeof cached.versions!=='object') return null;
-    return cached;
-  }catch(error){ console.warn('ไม่สามารถอ่านแคชรายการสินค้าได้',error); return null; }
+    return cached&&cached.version===PRODUCT_MANIFEST_VERSION&&cached.versions&&typeof cached.versions==='object'?cached:null;
+  }catch(error){ return null; }
 }
-function saveProductManifestCache(rows){
-  safeLocalStorageSet(PRODUCT_MANIFEST_STORAGE_KEY,JSON.stringify({
+async function loadProductCacheFromIndexedDB(){
+  try{
+    const db=await openProductCacheDb();
+    const transaction=db.transaction([PRODUCT_CACHE_PRODUCTS_STORE,PRODUCT_CACHE_META_STORE],'readonly');
+    const transactionDone=idbTransactionDone(transaction);
+    const productRowsPromise=idbRequest(transaction.objectStore(PRODUCT_CACHE_PRODUCTS_STORE).getAll());
+    const manifestPromise=idbRequest(transaction.objectStore(PRODUCT_CACHE_META_STORE).get(PRODUCT_CACHE_MANIFEST_KEY));
+    const [productRows,manifestRow]=await Promise.all([productRowsPromise,manifestPromise]);
+    await transactionDone;
+    if(Array.isArray(productRows)&&productRows.length){
+      products=productRows;
+      productCacheFingerprints=new Map(productRows.map(product=>[String(product.id),JSON.stringify(product)]));
+    }else if(Array.isArray(legacyWorkspaceProducts)&&legacyWorkspaceProducts.length){
+      products=legacyWorkspaceProducts;
+    }
+    cachedProductManifest=manifestRow?.value||validLegacyProductManifest();
+    indexedProductCacheReady=Array.isArray(productRows)&&productRows.length>0;
+    if(!indexedProductCacheReady&&Array.isArray(legacyWorkspaceProducts)&&legacyWorkspaceProducts.length){
+      await persistProductsToIndexedDB(legacyWorkspaceProducts,true);
+      indexedProductCacheReady=true;
+    }
+    refreshDataCounters();
+    return indexedProductCacheReady;
+  }catch(error){
+    indexedProductCacheReady=false;
+    console.warn('ไม่สามารถโหลดแคชสินค้าจาก IndexedDB ได้ ระบบจะดึงข้อมูลจากเซิร์ฟเวอร์',error);
+    return false;
+  }
+}
+async function saveProductManifestCache(rows){
+  const manifest={
     version:PRODUCT_MANIFEST_VERSION,
     savedAt:new Date().toISOString(),
     versions:productManifestVersions(rows),
-  }),'แคชรายการสินค้า');
+  };
+  cachedProductManifest=manifest;
+  try{
+    const db=await openProductCacheDb();
+    const transaction=db.transaction(PRODUCT_CACHE_META_STORE,'readwrite');
+    const transactionDone=idbTransactionDone(transaction);
+    transaction.objectStore(PRODUCT_CACHE_META_STORE).put({key:PRODUCT_CACHE_MANIFEST_KEY,value:manifest});
+    await transactionDone;
+    localStorage.removeItem(PRODUCT_MANIFEST_STORAGE_KEY);
+  }catch(error){ console.warn('ไม่สามารถบันทึกสารบัญแคชสินค้าใน IndexedDB ได้',error); }
+}
+async function persistProductsToIndexedDB(productRows=products,removeMissing=true){
+  try{
+    const db=await openProductCacheDb();
+    const rows=Array.isArray(productRows)?productRows:[];
+    const nextFingerprints=new Map(rows.map(product=>[String(product.id),JSON.stringify(product)]));
+    const changed=rows.filter(product=>productCacheFingerprints.get(String(product.id))!==nextFingerprints.get(String(product.id)));
+    const deleted=removeMissing?[...productCacheFingerprints.keys()].filter(id=>!nextFingerprints.has(id)):[];
+    if(!changed.length&&!deleted.length){ indexedProductCacheReady=rows.length>0; return true; }
+    const transaction=db.transaction(PRODUCT_CACHE_PRODUCTS_STORE,'readwrite');
+    const transactionDone=idbTransactionDone(transaction);
+    const store=transaction.objectStore(PRODUCT_CACHE_PRODUCTS_STORE);
+    changed.forEach(product=>store.put(product));
+    deleted.forEach(id=>store.delete(Number.isFinite(Number(id))?Number(id):id));
+    await transactionDone;
+    productCacheFingerprints=nextFingerprints;
+    indexedProductCacheReady=rows.length>0;
+    return true;
+  }catch(error){
+    console.warn('ไม่สามารถบันทึกแคชสินค้าใน IndexedDB ได้',error);
+    return false;
+  }
+}
+function scheduleProductCachePersist(){
+  clearTimeout(productCacheWriteTimer);
+  productCacheWriteTimer=setTimeout(()=>persistProductsToIndexedDB(products,true),1200);
+}
+async function clearProductIndexedCache(){
+  clearTimeout(productCacheWriteTimer);
+  try{
+    const db=productCacheDbPromise?await productCacheDbPromise:null;
+    db?.close();
+  }catch(error){}
+  productCacheDbPromise=null;
+  indexedProductCacheReady=false;
+  cachedProductManifest=null;
+  productCacheFingerprints=new Map();
+  if(!window.indexedDB) return;
+  try{ await idbRequest(indexedDB.deleteDatabase(PRODUCT_CACHE_DB_NAME)); }
+  catch(error){ console.warn('ล้างแคชสินค้าใน IndexedDB ไม่สำเร็จ',error); }
 }
 function planProductManifestSync(localProducts,cachedManifest,manifestRows,hasWorkspaceCache){
   const cacheUsable=!!hasWorkspaceCache&&!!cachedManifest&&cachedManifest.version===PRODUCT_MANIFEST_VERSION&&cachedManifest.versions&&typeof cachedManifest.versions==='object';
@@ -1933,7 +2055,7 @@ async function loadProductRowsFromSupabase(){
   const {data:manifestRows,error:manifestError}=await fetchProductManifestRows();
   if(manifestError) return {data:null,error:manifestError};
   const cachedManifest=readProductManifestCache();
-  const plan=planProductManifestSync(products,cachedManifest,manifestRows,!!localStorage.getItem(WORKSPACE_STORAGE_KEY));
+  const plan=planProductManifestSync(products,cachedManifest,manifestRows,indexedProductCacheReady);
   let loadedProducts;
   if(plan.fullReload){
     const {data,error}=await fetchAllProductRows();
@@ -1948,7 +2070,8 @@ async function loadProductRowsFromSupabase(){
     loadedProducts.push(...(changedRows||[]).map(rowToProduct));
     loadedProducts.sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0));
   }
-  saveProductManifestCache(manifestRows);
+  await persistProductsToIndexedDB(loadedProducts,true);
+  await saveProductManifestCache(manifestRows);
   return {data:loadedProducts,error:null};
 }
 
@@ -2272,7 +2395,7 @@ async function loadCoreDataFromSupabase(){
     if(allEmpty){
       // Import only a real saved workspace. Never push the built-in demo rows
       // into an intentionally empty production database.
-      if(localStorage.getItem(WORKSPACE_STORAGE_KEY)){ await syncCoreDataToSupabase(); return; }
+      if(indexedProductCacheReady&&products.length){ await syncCoreDataToSupabase(); return; }
       warehouses=[]; products=[]; contacts=[]; salesRepresentatives=[];
       DOC_TABLES.forEach(([_table,_getArr,setArr])=>setArr([]));
     }
@@ -3133,6 +3256,14 @@ let systemUsersLoaded=false;
 let systemUsersLoading=false;
 let addingSystemUser=false;
 let editingSystemUserId=null;
+let auditLogRows=[];
+let auditLogLoaded=false;
+let auditLogLoading=false;
+let auditLogError='';
+let auditLogPage=1;
+const AUDIT_LOG_PAGE_SIZE=50;
+let auditLogFilter={search:'',entity:'all',action:'all'};
+let expandedAuditLogRows=new Set();
 let currentProfile=null; // Supabase Auth profile of the signed-in user, mapped by mapProfileRow()
 let systemHasOwner=null; // null=unknown yet, true/false once checked via has_any_owner()
 let storeResetMode=null;
@@ -3172,11 +3303,12 @@ function checkoutRequestId(){
 function clearCheckoutRequestId(){
   try{ sessionStorage.removeItem(PENDING_CHECKOUT_REQUEST_KEY); }catch(error){}
 }
-function clearLocalStoreCachesForReset(){
+async function clearLocalStoreCachesForReset(){
   try{
     Object.keys(localStorage).filter(key=>key.startsWith('pharmacy_pos_')||key.startsWith('pepos_')||key.startsWith('pos2_')).forEach(key=>localStorage.removeItem(key));
     Object.keys(sessionStorage).filter(key=>key.startsWith('pepos_')||key.startsWith('pharmacy_pos_')).forEach(key=>sessionStorage.removeItem(key));
   }catch(error){ console.warn('ล้างแคชหลังรีเซ็ตไม่สำเร็จ',error); }
+  await clearProductIndexedCache();
   lastPersistedWorkspaceJson='';
 }
 function clearRemoteResetSensitiveMemory(){
@@ -3192,7 +3324,7 @@ async function adoptRemoteMaintenanceEpoch(){
     if(error) throw error;
     const remoteEpoch=String(data?.value?.epoch||'');
     if(!remoteEpoch||remoteEpoch===maintenanceEpoch) return false;
-    clearLocalStoreCachesForReset();
+    await clearLocalStoreCachesForReset();
     clearRemoteResetSensitiveMemory();
     maintenanceEpoch=remoteEpoch;
     localStorage.setItem(MAINTENANCE_EPOCH_STORAGE_KEY,remoteEpoch);
@@ -3224,6 +3356,11 @@ function normalizeInspectionLists(value){
 }
 function workspaceSnapshot(){
   return {warehouses,products,contacts,salesRepresentatives,salesHistory,quotations,invoicesAR,creditNotes,purchaseOrders,goodsReceipts,productExchanges,purchaseOrdersFull,productReturns,transfers,standaloneTaxInvoices,favorites,inspectionLists,currentUserProfile,documentPrefixes,businessSettings};
+}
+function localWorkspaceSnapshot(){
+  const snapshot=workspaceSnapshot();
+  delete snapshot.products;
+  return snapshot;
 }
 function refreshDataCounters(){
   nextWarehouseId=Math.max(1,...warehouses.map(w=>(Number(w.id)||0)+1));
@@ -3275,11 +3412,16 @@ function applyWorkspaceData(saved){
   return true;
 }
 function loadWorkspaceData(){
-  try{ applyWorkspaceData(JSON.parse(localStorage.getItem(WORKSPACE_STORAGE_KEY)||'null')); }
+  try{
+    const saved=JSON.parse(localStorage.getItem(WORKSPACE_STORAGE_KEY)||'null');
+    if(Array.isArray(saved?.products)) legacyWorkspaceProducts=saved.products;
+    applyWorkspaceData(saved);
+  }
   catch(error){ console.warn('ไม่สามารถโหลดข้อมูลระบบที่บันทึกไว้ได้',error); }
 }
 function persistWorkspaceData(){
-  const serialized=JSON.stringify(workspaceSnapshot());
+  const serialized=JSON.stringify(localWorkspaceSnapshot());
+  scheduleProductCachePersist();
   if(serialized===lastPersistedWorkspaceJson){ scheduleSupabaseCoreSync(); return; }
   if(!safeLocalStorageSet(WORKSPACE_STORAGE_KEY,serialized,'ข้อมูลระบบ')){ scheduleSupabaseCoreSync(); return; }
   lastPersistedWorkspaceJson=serialized;
@@ -3304,11 +3446,11 @@ loadWorkspaceData();
 function loggedInUser(){ return currentProfile; }
 function isLevel2User(user=loggedInUser()){ return Number(user?.level)===2; }
 const LEVEL2_HIDDEN_TABS=new Set(['settingssystem','settingsbusiness','rprofit','rtax','warehouse','transfer','stockcontrol','stockadjust','stockedit','barcodeprint','promotions']);
-const ALL_WAREHOUSES_TABS=new Set(['dashboard','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','rprofit','rtax']);
+const ALL_WAREHOUSES_TABS=new Set(['dashboard','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','rprofit','rtax','auditlog']);
 function canAccessTab(tab,user=loggedInUser()){
   if(!user) return false;
   if(isAllWarehousesMode()&&!ALL_WAREHOUSES_TABS.has(tab)) return false;
-  if(tab==='settingsusers'&&user.owner!==true) return false;
+  if((tab==='settingsusers'||tab==='auditlog')&&user.owner!==true) return false;
   if(Number(user.level)===2&&LEVEL2_HIDDEN_TABS.has(tab)) return false;
   return true;
 }
@@ -3781,6 +3923,7 @@ const NAV = [
     ['settingsbusiness','ตั้งค่าธุรกิจ','<path d="M4 21v-9l8-5 8 5v9"/><path d="M9 21v-6h6v6"/>'],
     ['warehouse','คลังสินค้า / สาขา','<path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/>'],
     ['settingsusers','เพิ่มผู้ใช้งาน','<path d="M15 19a6 6 0 0 0-12 0"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M16 11h6"/>'],
+    ['auditlog','Audit Log','<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/><path d="M8 4V2M16 4V2"/>'],
     ['settingssystem','ตั้งค่าระบบ','<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'],
   ]},
 ];
@@ -9195,6 +9338,86 @@ function systemUserLevelLabel(level){
   return ({1:'Level 1 - เจ้าของร้าน',2:'Level 2 - บุคคลทั่วไป',3:'Level 3 - ยังไม่กำหนด',4:'Level 4 - ยังไม่กำหนด'})[Number(level)]||'Level 2 - บุคคลทั่วไป';
 }
 
+async function loadAuditLogsFromSupabase(force=false){
+  if(loggedInUser()?.owner!==true||auditLogLoading||(!force&&auditLogLoaded)) return;
+  auditLogLoading=true;
+  auditLogError='';
+  try{
+    const {data,error}=await sb.rpc('get_central_audit_logs',{p_limit:500,p_offset:0});
+    if(error) throw error;
+    auditLogRows=Array.isArray(data)?data:[];
+    auditLogLoaded=true;
+  }catch(error){
+    console.error('โหลด Audit Log ไม่สำเร็จ',error);
+    auditLogError=error?.message||'โหลดประวัติการทำงานไม่สำเร็จ';
+  }finally{
+    auditLogLoading=false;
+    if(currentTab==='auditlog') render();
+  }
+}
+function auditLogDateTime(value){
+  const date=new Date(value);
+  if(Number.isNaN(date.getTime())) return '-';
+  const pad=number=>String(number).padStart(2,'0');
+  return `${pad(date.getDate())}-${pad(date.getMonth()+1)}-${date.getFullYear()} / ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+function auditEntityLabel(type){
+  return ({products:'สินค้า',product:'สินค้า',warehouses:'คลังสินค้า',settings:'การตั้งค่า',contacts:'สมุดรายชื่อ',sales_representatives:'ผู้แทนขาย',promotions:'โปรโมชั่น',sales:'บิลขาย',quotations:'ใบเสนอราคา',invoices_ar:'ใบแจ้งหนี้',credit_notes:'ใบลดหนี้',purchase_orders:'สั่งของขาด',goods_receipts:'ใบรับสินค้า',product_exchanges:'เปลี่ยนสินค้า',purchase_orders_full:'ใบสั่งซื้อสินค้า',product_returns:'ใบคืนสินค้า',transfers:'โอนสินค้าระหว่างคลัง',standalone_tax_invoices:'ใบกำกับภาษี',inspection_lists:'รายการตรวจสินค้า',profiles:'ผู้ใช้งาน',profile_warehouse_access:'สิทธิ์คลังสินค้า',inventory_count:'ปรับสต๊อก',inventory_lot:'Lot สินค้า',store_reset:'ล้างข้อมูลระบบ'})[type]||type||'-';
+}
+function auditActionLabel(action){
+  return ({insert:'สร้าง',update:'แก้ไข',delete:'ลบ',stock_adjusted:'ปรับสต๊อก',unit_changed:'เปลี่ยนหน่วยหลัก',lot_expiry_changed:'แก้วันหมดอายุ Lot',lot_reallocated:'ปรับจำนวนแยก Lot',store_reset:'ล้างข้อมูล'})[action]||action||'-';
+}
+function auditFieldLabel(field){
+  return ({record:'ข้อมูล',name:'ชื่อ',sku:'รหัสสินค้า',price:'ราคาขาย',cost:'ทุน',stock:'คงเหลือ',unit:'หน่วย',data:'รายละเอียด',status:'สถานะ',expiry:'วันหมดอายุ',lot_quantity:'จำนวน Lot',value:'ค่า',warehouse_id:'คลังสินค้า',owner:'เจ้าของร้าน',level:'ระดับสิทธิ์'})[field]||field;
+}
+function auditValueText(value){
+  if(value===null||value===undefined||value==='') return '-';
+  if(typeof value==='object'){
+    const text=JSON.stringify(value);
+    return text.length>500?text.slice(0,500)+'…':text;
+  }
+  return String(value);
+}
+function auditRowSummary(row){
+  const productId=Number(row.entity_id);
+  const product=(row.entity_type==='products'||row.entity_type==='product'||row.entity_type==='inventory_lot')?products.find(item=>Number(item.id)===productId):null;
+  const target=product?.name||row.entity_id||'-';
+  const fields=(row.changed_fields||[]).filter(field=>field!=='record').map(auditFieldLabel).slice(0,3);
+  return `${auditActionLabel(row.action)} ${auditEntityLabel(row.entity_type)} · ${target}${fields.length?` · ${fields.join(', ')}`:''}`;
+}
+function auditDataHtml(data){
+  if(!data||typeof data!=='object'||!Object.keys(data).length) return '<span>-</span>';
+  return Object.entries(data).slice(0,12).map(([key,value])=>`<div><b>${escapeHtml(auditFieldLabel(key))}</b> ${escapeHtml(auditValueText(value))}</div>`).join('');
+}
+function renderAuditLog(){
+  if(loggedInUser()?.owner!==true) return `<div class="empty"><h2>ไม่มีสิทธิ์เข้าถึง</h2><p>เฉพาะเจ้าของร้านเท่านั้นที่ดู Audit Log ได้</p></div>`;
+  if(!auditLogLoaded&&!auditLogLoading) setTimeout(()=>loadAuditLogsFromSupabase(),0);
+  const search=String(auditLogFilter.search||'').trim().toLowerCase();
+  const filtered=auditLogRows.filter(row=>{
+    if(auditLogFilter.entity!=='all'&&row.entity_type!==auditLogFilter.entity) return false;
+    if(auditLogFilter.action!=='all'&&row.action!==auditLogFilter.action) return false;
+    if(!search) return true;
+    return [row.actor_name,row.entity_id,row.summary,auditEntityLabel(row.entity_type),auditActionLabel(row.action),auditRowSummary(row)].some(value=>String(value||'').toLowerCase().includes(search));
+  });
+  const pageCount=Math.max(1,Math.ceil(filtered.length/AUDIT_LOG_PAGE_SIZE));
+  auditLogPage=Math.min(Math.max(1,auditLogPage),pageCount);
+  const pageRows=filtered.slice((auditLogPage-1)*AUDIT_LOG_PAGE_SIZE,auditLogPage*AUDIT_LOG_PAGE_SIZE);
+  const entityOptions=[...new Set(auditLogRows.map(row=>row.entity_type).filter(Boolean))].sort().map(value=>`<option value="${escapeHtml(value)}" ${auditLogFilter.entity===value?'selected':''}>${escapeHtml(auditEntityLabel(value))}</option>`).join('');
+  const actionOptions=[...new Set(auditLogRows.map(row=>row.action).filter(Boolean))].sort().map(value=>`<option value="${escapeHtml(value)}" ${auditLogFilter.action===value?'selected':''}>${escapeHtml(auditActionLabel(value))}</option>`).join('');
+  const rows=pageRows.map(row=>{
+    const key=String(row.event_key||'');
+    const expanded=expandedAuditLogRows.has(key);
+    const warehouse=row.warehouse_id?whName(Number(row.warehouse_id)):'ทุกคลัง';
+    const dangerous=row.action==='delete'||row.action==='store_reset';
+    return `<tr><td>${escapeHtml(auditLogDateTime(row.occurred_at))}</td><td><div class="audit-log-actor"><strong>${escapeHtml(row.actor_name||'ระบบ')}</strong><small>${row.actor_level?`Level ${escapeHtml(row.actor_level)}`:'ระบบ'}</small></div></td><td><strong>${escapeHtml(auditEntityLabel(row.entity_type))}</strong><br><small>${escapeHtml(row.entity_id||'-')}</small></td><td><span class="audit-log-chip ${dangerous?'danger':row.action==='insert'?'':'neutral'}">${escapeHtml(auditActionLabel(row.action))}</span></td><td>${escapeHtml(warehouse)}</td><td>${escapeHtml(auditRowSummary(row))}</td><td><button class="history-icon-btn" data-audit-log-toggle="${escapeHtml(key)}" title="${expanded?'ซ่อน':'ดู'}รายละเอียด" aria-label="${expanded?'ซ่อน':'ดู'}รายละเอียด">${expanded?'−':'+'}</button></td></tr>${expanded?`<tr class="audit-log-detail-row"><td colspan="7"><div class="audit-log-details"><div class="audit-log-data"><b>ข้อมูลเดิม</b>${auditDataHtml(row.before_data)}</div><div class="audit-log-data"><b>ข้อมูลใหม่</b>${auditDataHtml(row.after_data)}</div></div></td></tr>`:''}`;
+  }).join('');
+  return `<div class="audit-log-page"><div class="pagehead"><div><h1>Audit Log</h1><p>ประวัติการสร้าง แก้ไข ลบเอกสาร และการเปลี่ยนแปลงสต๊อก รวมไว้ในหน้าเดียว</p></div><button class="btn primary" id="auditLogRefresh">รีเฟรชข้อมูล</button></div>
+    <div class="audit-log-toolbar"><input id="auditLogSearch" value="${escapeHtml(auditLogFilter.search)}" placeholder="ค้นหาผู้ใช้งาน รายการ หรือเลขเอกสาร"><select id="auditLogEntity"><option value="all">ทุกรายการ</option>${entityOptions}</select><select id="auditLogAction"><option value="all">ทุกการทำงาน</option>${actionOptions}</select><div class="audit-log-chip neutral">${filtered.length} รายการ</div></div>
+    ${auditLogError?`<div class="notice danger">${escapeHtml(auditLogError)}</div>`:''}
+    ${auditLogLoading&&!auditLogLoaded?'<div class="audit-log-empty">กำลังโหลดประวัติการทำงาน...</div>':`<div class="audit-log-table-wrap"><table class="audit-log-table"><thead><tr><th>วันและเวลา</th><th>ผู้ใช้งาน</th><th>รายการ</th><th>การทำงาน</th><th>คลังสินค้า</th><th>รายละเอียด</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="7" class="audit-log-empty">ไม่พบประวัติการทำงาน</td></tr>'}</tbody></table></div>`}
+    <div class="audit-log-pagination"><button class="btn ghost" data-audit-log-page="prev" ${auditLogPage<=1?'disabled':''}>ก่อนหน้า</button><span>หน้า ${auditLogPage} / ${pageCount}</span><button class="btn ghost" data-audit-log-page="next" ${auditLogPage>=pageCount?'disabled':''}>ถัดไป</button></div></div>`;
+}
+
 function renderAddSystemUser(){
   if(loggedInUser()?.owner!==true) return `<div class="empty"><h2>ไม่มีสิทธิ์เข้าถึง</h2><p>เฉพาะเจ้าของร้านเท่านั้นที่สามารถสร้างหรือแก้ไขผู้ใช้งานได้</p></div>`;
   const user=editingSystemUserId!==null?systemUsers.find(item=>String(item.id)===String(editingSystemUserId)):null;
@@ -9217,7 +9440,7 @@ const RENDERERS = {
   creditnote: renderCreditNote, history: renderHistory, purchaseorder: renderPurchaseOrder, purchaseorder2: renderPurchaseOrder2, productreturn: renderProductReturn, goodsreceipt: renderGoodsReceipt, productexchange: renderProductExchange,
   products: renderProducts, stockcontrol: renderStockControl, inspectionlists: renderInspectionLists, barcodeprint: renderBarcodePrint, warehouse: renderWarehouse, transfer: renderTransfer, stockadjust: renderStockAdjust, stockedit: renderStockEdit, lowstock: renderLowStock, expiry: renderExpiry, promotions: renderPromotions,
   contacts: renderContacts, salesreps: renderSalesRepresentatives, rsales: renderRSales, rproduct: renderRProduct, rbill: renderRBill, rprofit: renderRProfit, rtax: renderRTax, remployee: renderREmployee,
-  inventorymovement: renderInventoryMovement, rinventory: renderRInventory, rreceivable: renderRReceivable, settingsbusiness: renderBusinessSettings, settingsuser: renderUserSettings, settingsusers: renderSystemUsers, settingssystem: renderSystemSettings,
+  inventorymovement: renderInventoryMovement, rinventory: renderRInventory, rreceivable: renderRReceivable, settingsbusiness: renderBusinessSettings, settingsuser: renderUserSettings, settingsusers: renderSystemUsers, auditlog: renderAuditLog, settingssystem: renderSystemSettings,
 };
 
 function render(){
@@ -9529,6 +9752,28 @@ async function changeProductExchangeStatus(status){
 }
 function attachEvents(){
   if(currentTab==='mobiletools') prepareMobileScanSound();
+  const auditLogSearch=document.getElementById('auditLogSearch');
+  if(auditLogSearch) auditLogSearch.addEventListener('input',()=>{
+    auditLogFilter.search=auditLogSearch.value;
+    auditLogPage=1;
+    render();
+    const next=document.getElementById('auditLogSearch');
+    if(next){ next.focus(); next.setSelectionRange(next.value.length,next.value.length); }
+  });
+  const auditLogEntity=document.getElementById('auditLogEntity');
+  if(auditLogEntity) auditLogEntity.addEventListener('change',()=>{ auditLogFilter.entity=auditLogEntity.value; auditLogPage=1; render(); });
+  const auditLogAction=document.getElementById('auditLogAction');
+  if(auditLogAction) auditLogAction.addEventListener('change',()=>{ auditLogFilter.action=auditLogAction.value; auditLogPage=1; render(); });
+  document.getElementById('auditLogRefresh')?.addEventListener('click',()=>{ auditLogLoaded=false; loadAuditLogsFromSupabase(true); render(); });
+  document.querySelectorAll('[data-audit-log-toggle]').forEach(button=>button.addEventListener('click',()=>{
+    const key=button.dataset.auditLogToggle;
+    if(expandedAuditLogRows.has(key)) expandedAuditLogRows.delete(key); else expandedAuditLogRows.add(key);
+    render();
+  }));
+  document.querySelectorAll('[data-audit-log-page]').forEach(button=>button.addEventListener('click',()=>{
+    auditLogPage+=button.dataset.auditLogPage==='prev'?-1:1;
+    render();
+  }));
   document.querySelectorAll('[data-stock-control-mode]').forEach(button=>button.addEventListener('click',()=>{
     stockControlMode=button.dataset.stockControlMode;
     render();
@@ -12062,7 +12307,7 @@ async function submitStoreReset(event){
     const response=await callEdgeFunction('admin-users',{action:'reset-store',mode,password,phrase});
     const bootstrapToken=String(response?.reset?.bootstrapToken||'');
     if(mode==='factory'&&!bootstrapToken) throw new Error('ระบบไม่ได้รับกุญแจตั้งค่าเจ้าของร้าน กรุณาติดต่อผู้ดูแลระบบก่อนปิดหน้านี้');
-    clearLocalStoreCachesForReset();
+    await clearLocalStoreCachesForReset();
     if(bootstrapToken) localStorage.setItem(OWNER_BOOTSTRAP_TOKEN_STORAGE_KEY,bootstrapToken);
     storeResetMode=null;
     if(mode==='factory'){
@@ -14506,6 +14751,7 @@ window.addEventListener('error',event=>notifyRuntimeError('โปรแกรม
     if(error) error.textContent=message+' กรุณาตรวจอินเทอร์เน็ตแล้วรีเฟรชหน้าเว็บ';
     return;
   }
+  await loadProductCacheFromIndexedDB();
   try{
     const { data:ownerCheck, error:ownerErr } = await sb.rpc('has_any_owner');
     systemHasOwner = ownerErr ? true : !!ownerCheck; // default to "true" (login screen) if the check itself fails
