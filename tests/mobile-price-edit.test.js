@@ -14,6 +14,8 @@ assert.match(html, /id="mobilePriceLot"/);
 assert.match(html, /id="mobilePriceEditExpiry"/);
 assert.match(html, /id="mobilePriceSaveChanges"/);
 assert.doesNotMatch(html, /แก้ไขเฉพาะคลัง:/);
+assert.doesNotMatch(html, /ยิงบาร์โค้ด พิมพ์รหัส หรือใช้กล้องมือถือ โดยไม่เพิ่มสินค้าเข้าบิล/);
+assert.doesNotMatch(html, /เครื่องยิงบาร์โค้ดที่ส่ง Enter อัตโนมัติใช้งานได้ทันที/);
 assert.match(html, /\.mobile-price-edit-field\.stock\{grid-column:1\/-1;\}/);
 assert.match(html, /@media \(max-width:420px\)[\s\S]*\.mobile-price-edit-grid\{grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\);\}/);
 assert.match(html, /sb\.rpc\('owner_update_mobile_product_lot'/);
