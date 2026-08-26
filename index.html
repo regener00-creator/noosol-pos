@@ -1418,6 +1418,18 @@
   .mobile-stock-amount.pending{border-color:var(--primary);background:#F4FBFF;}
   .mobile-stock-remove{width:42px;height:46px;border:1px solid #F0C7C3;border-radius:10px;background:#fff;color:var(--danger);display:flex;align-items:center;justify-content:center;cursor:pointer;}
   .mobile-stock-remove svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .mobile-stock-lot{margin-top:11px;padding:11px;border:1px solid #CDE3F1;border-radius:11px;background:#F7FBFE;}
+  .mobile-stock-lot-title{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:7px;}
+  .mobile-stock-lot-title label{font-size:12px;font-weight:700;color:var(--primary-dark);}
+  .mobile-stock-lot-difference{font-size:11.5px;font-weight:700;color:var(--primary);}
+  .mobile-stock-lot-difference.out{color:var(--danger);}
+  .mobile-stock-lot-select{width:100%;height:46px;border:1px solid #B8D7E9;border-radius:10px;background:#fff;padding:0 10px;font:14px 'Sarabun',sans-serif;}
+  .mobile-stock-lot-hint{display:block;margin-top:6px;font-size:11.5px;line-height:1.4;color:var(--text-muted);}
+  .mobile-stock-lot-neutral{font-size:12px;color:var(--text-muted);text-align:center;}
+  .mobile-stock-new-lot-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px;margin-top:8px;}
+  .mobile-stock-new-lot-fields label{display:block;font-size:11px;color:var(--text-muted);margin-bottom:3px;}
+  .mobile-stock-new-lot-fields input{width:100%;height:44px;border:1px solid #B8D7E9;border-radius:9px;background:#fff;padding:0 9px;font:14px 'Sarabun',sans-serif;}
+  .mobile-stock-new-lot-fields input.invalid{border-color:var(--danger);background:#FFF8F7;}
   .mobile-stock-confirm-wrap{position:sticky;bottom:0;z-index:6;padding-top:10px;background:linear-gradient(180deg,#FFFFFF00,#fff 24%);}
   .mobile-stock-confirm{width:100%;height:52px;border:0;border-radius:12px;background:var(--primary);color:#fff;font:700 16px 'Sarabun',sans-serif;cursor:pointer;box-shadow:0 5px 18px #166D9F33;}
   .mobile-stock-confirm:disabled{background:#CAD2DA;color:#7E8790;box-shadow:none;cursor:not-allowed;}
@@ -6602,6 +6614,58 @@ function mobileHandleStockCode(code){
   if(accepted) playMobileScanSound();
   return accepted;
 }
+function stockEditMobileLotSelectionsReady(changes=stockEditPendingChanges()){
+  return changes.every(({product,newStock})=>{
+    const lotDifference=Number(newStock)-stockEditLotTotal(product.id);
+    if(lotDifference<=0.000001) return true;
+    const selection=stockEditLotSelections[product.id]||'';
+    if(selection==='new') return true;
+    if(!selection.startsWith('lot:')) return false;
+    const selectedLotId=Number(selection.slice(4));
+    return stockEditAvailableLots(product.id).some(lot=>Number(lot.id)===selectedLotId);
+  });
+}
+function mobileStockEditLotHtml(product){
+  const hasDraft=Object.prototype.hasOwnProperty.call(stockEditDraftStocks,product.id);
+  const targetStock=hasDraft?Number(stockEditDraftStocks[product.id]):Number(product.stock);
+  const lotDifference=targetStock-stockEditLotTotal(product.id);
+  if(!hasDraft&&Math.abs(lotDifference)<0.000001){
+    return '<div class="mobile-stock-lot-neutral">แก้จำนวนคงเหลือ แล้วเลือกว่าให้ปรับ LOT ใด</div>';
+  }
+  if(Math.abs(lotDifference)<0.000001){
+    return '<div class="mobile-stock-lot-neutral">ยอดรวม LOT ตรงกับจำนวนที่กรอกแล้ว</div>';
+  }
+  const lots=stockEditAvailableLots(product.id);
+  const validLotSelections=new Set(lots.map(lot=>`lot:${lot.id}`));
+  let selection=stockEditLotSelections[product.id]||'';
+  if(lotDifference<0){
+    if(selection!=='auto'&&!validLotSelections.has(selection)) selection='auto';
+  }else if(selection!=='new'&&!validLotSelections.has(selection)){
+    selection='choose';
+  }
+  stockEditLotSelections[product.id]=selection;
+  const lotOptions=lots.map(lot=>{
+    const lotName=lot.manufacturer_lot||lot.internal_code||'ไม่ระบุเลข LOT';
+    const expiry=lot.expiry_date?fmtDate(lot.expiry_date):'ไม่ระบุวันหมดอายุ';
+    const balance=stockInLargestUnit({...product,stock:Number(lot.quantity_base)||0});
+    const label=`${lotName} · หมดอายุ ${expiry} · เหลือ ${balance}`;
+    return `<option value="lot:${lot.id}" ${selection===`lot:${lot.id}`?'selected':''}>${escapeHtml(label)}</option>`;
+  }).join('');
+  const differenceLabel=`${lotDifference>0?'+':'-'}${stockInLargestUnit({...product,stock:Math.abs(lotDifference)})}`;
+  if(lotDifference<0){
+    const firstLot=lots[0];
+    const autoLabel=firstLot?`อัตโนมัติ FEFO — เริ่ม ${firstLot.manufacturer_lot||firstLot.internal_code||'LOT ไม่ระบุเลข'}`:'อัตโนมัติตาม FEFO';
+    return `<div class="mobile-stock-lot-title"><label>LOT ที่ลดจำนวน</label><span class="mobile-stock-lot-difference out">${escapeHtml(differenceLabel)}</span></div><select class="mobile-stock-lot-select" data-mobile-stock-lot="${product.id}"><option value="auto" ${selection==='auto'?'selected':''}>${escapeHtml(autoLabel)}</option>${lotOptions}</select><span class="mobile-stock-lot-hint">ระบบจะตัด LOT ที่เลือกก่อน หากไม่พอจะตัด LOT ใกล้หมดอายุลำดับถัดไป</span>`;
+  }
+  const storedExpiry=Object.prototype.hasOwnProperty.call(stockEditNewLotExpiries,product.id)?stockEditNewLotExpiries[product.id]:(product.expiry||'');
+  const newLotFields=selection==='new'?`<div class="mobile-stock-new-lot-fields"><label>เลข LOT ผู้ผลิต<input data-mobile-stock-new-lot="${product.id}" value="${escapeHtml(stockEditNewLotNumbers[product.id]||'')}" placeholder="เช่น ABC123" autocomplete="off"></label><label>วันหมดอายุ<input data-mobile-stock-new-expiry="${product.id}" value="${escapeHtml(isoToDMY(storedExpiry).replaceAll('/','-'))}" placeholder="05-07-2027" inputmode="numeric" maxlength="10" autocomplete="off"></label></div>`:'';
+  return `<div class="mobile-stock-lot-title"><label>LOT ที่เพิ่มจำนวน</label><span class="mobile-stock-lot-difference">${escapeHtml(differenceLabel)}</span></div><select class="mobile-stock-lot-select" data-mobile-stock-lot="${product.id}"><option value="choose" ${selection==='choose'?'selected':''}>เลือก LOT ที่จะเพิ่ม</option>${lotOptions}<option value="new" ${selection==='new'?'selected':''}>+ สร้าง LOT ใหม่</option></select>${newLotFields}<span class="mobile-stock-lot-hint">เลือก LOT เดิมให้ตรงกับสินค้าที่พบ หรือสร้าง LOT ใหม่พร้อมกรอกเลขและวันหมดอายุ</span>`;
+}
+function refreshMobileStockLotControl(productId){
+  const product=products.find(entry=>Number(entry.id)===Number(productId));
+  const host=document.querySelector(`[data-mobile-stock-lot-host="${Number(productId)}"]`);
+  if(product&&host) host.innerHTML=mobileStockEditLotHtml(product);
+}
 function mobileStockEditRowsHtml(){
   const rows=stockEditCurrentProducts();
   if(!rows.length) return '<div class="mobile-empty">ดึงข้อมูลจากรายการตรวจสินค้า หรือยิงบาร์โค้ดเพื่อเพิ่มสินค้า</div>';
@@ -6611,7 +6675,7 @@ function mobileStockEditRowsHtml(){
     const hasDraft=Object.prototype.hasOwnProperty.call(stockEditDraftStocks,product.id);
     const baseStock=hasDraft?stockEditDraftStocks[product.id]:product.stock;
     const amount=stockUnitAmountFromBase(baseStock,selected?.factor||1);
-    return `<article class="mobile-stock-item" data-mobile-stock-item="${product.id}"><div class="mobile-stock-info-row"><div class="mobile-stock-field"><label>รหัสสินค้า</label><b>${escapeHtml(product.sku||'-')}</b></div><div class="mobile-stock-field"><label>สินค้า</label><b class="mobile-stock-product-name">${escapeHtml(product.name)}</b></div></div><div class="mobile-stock-edit-row"><div class="mobile-stock-field"><label>หน่วย</label>${options.length>1?`<select class="mobile-stock-unit" data-mobile-stock-unit="${product.id}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>${escapeHtml(option.name)}</option>`).join('')}</select>`:`<b class="mobile-stock-unit-static">${escapeHtml(selected?.name||product.unit||'-')}</b>`}</div><div class="mobile-stock-field"><label>คงเหลือ</label><input type="number" step="any" class="mobile-stock-amount ${hasDraft?'pending':''}" data-mobile-stock-amount="${product.id}" data-factor="${selected?.factor||1}" value="${amount}" aria-label="คงเหลือ ${escapeHtml(product.name)}"></div><button type="button" class="mobile-stock-remove" data-mobile-stock-remove="${product.id}" title="ลบ ${escapeHtml(product.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(product.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></article>`;
+    return `<article class="mobile-stock-item" data-mobile-stock-item="${product.id}"><div class="mobile-stock-info-row"><div class="mobile-stock-field"><label>รหัสสินค้า</label><b>${escapeHtml(product.sku||'-')}</b></div><div class="mobile-stock-field"><label>สินค้า</label><b class="mobile-stock-product-name">${escapeHtml(product.name)}</b></div></div><div class="mobile-stock-edit-row"><div class="mobile-stock-field"><label>หน่วย</label>${options.length>1?`<select class="mobile-stock-unit" data-mobile-stock-unit="${product.id}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>${escapeHtml(option.name)}</option>`).join('')}</select>`:`<b class="mobile-stock-unit-static">${escapeHtml(selected?.name||product.unit||'-')}</b>`}</div><div class="mobile-stock-field"><label>คงเหลือ</label><input type="number" min="0" step="any" class="mobile-stock-amount ${hasDraft?'pending':''}" data-mobile-stock-amount="${product.id}" data-factor="${selected?.factor||1}" value="${amount}" aria-label="คงเหลือ ${escapeHtml(product.name)}"></div><button type="button" class="mobile-stock-remove" data-mobile-stock-remove="${product.id}" title="ลบ ${escapeHtml(product.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(product.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div><div class="mobile-stock-lot" data-mobile-stock-lot-host="${product.id}">${mobileStockEditLotHtml(product)}</div></article>`;
   }).join('')}</div>`;
 }
 function renderMobileStockEditPanel(lists){
@@ -6622,12 +6686,21 @@ function renderMobileStockEditPanel(lists){
   const sourceList=stockEditInspectionSourceList();
   const query=String(mobileStockQuery||'').trim();
   const matches=query?mobilePriceMatches(query).slice(0,8):[];
-  const canConfirm=(stockEditPendingChanges().length>0||stockEditSourcePending)&&String(stockEditReason||'').trim().length>=3&&!stockEditPosting&&mobileIsOnline();
+  const pendingChanges=stockEditPendingChanges();
+  const canConfirm=(pendingChanges.length>0||stockEditSourcePending)&&stockEditMobileLotSelectionsReady(pendingChanges)&&String(stockEditReason||'').trim().length>=3&&!stockEditPosting&&mobileIsOnline();
   const reasonOptions=['ตรวจนับสินค้าจริง','พบสินค้าชำรุด','พบสินค้าสูญหาย','พบสินค้ารับเกิน','แก้ไขยอดยกมา','อื่นๆ'];
   return `<section class="mobile-tool-panel"><h2 class="mobile-tool-title">แก้ไขสต๊อก</h2><div class="mobile-tool-sub">ดึงรายการตรวจสินค้า หรือยิงบาร์โค้ด แล้วกรอกจำนวนใหม่ก่อนยืนยันพร้อมกัน</div><div class="mobile-stock-source"><select id="mobileStockSourceList" ${availableLists.length?'':'disabled'}>${availableLists.length?availableLists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(selectedSource?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})</option>`).join(''):'<option value="">ไม่มีรายการที่รอแก้ไขสต๊อก</option>'}</select><button type="button" class="mobile-stock-import" id="mobileStockImport" ${availableLists.length?'':'disabled'}>ดึงข้อมูล</button></div>${sourceList?`<div class="mobile-stock-source-note"><b>${escapeHtml(sourceList.name)}</b><span>${stockEditSourcePending?'รอยืนยันการแก้ไข':'แก้ไขจำนวนเรียบร้อย'}</span></div>`:''}<div class="mobile-stock-reason"><label for="stockEditReason">เหตุผลการปรับสต๊อก *</label><select id="stockEditReason"><option value="">เลือกเหตุผล</option>${reasonOptions.map(reason=>`<option value="${reason}" ${stockEditReason===reason?'selected':''}>${reason}</option>`).join('')}</select><input id="stockEditNote" value="${escapeHtml(stockEditNote)}" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></div><div class="mobile-scan-row"><input id="mobileStockInput" class="mobile-scan-input" value="${escapeHtml(mobileStockQuery)}" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobileStockCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-camera-slot" id="mobileStockCameraSlot"></div><div class="mobile-search-hint">แก้ตัวเลขแล้วสต๊อกจะยังไม่เปลี่ยน จนกด “ยืนยันแก้ไขรายการ”</div>${matches.length?`<div class="mobile-stock-results">${matches.map(product=>`<button type="button" class="mobile-stock-result" data-mobile-stock-result="${product.id}"><b>${escapeHtml(product.name)}</b><span>รหัส ${escapeHtml(product.sku||'-')} · ${stockEditItems.includes(product.id)?'อยู่ในรายการแล้ว':'แตะเพื่อเพิ่ม'}</span></button>`).join('')}</div>`:''}${mobileStockEditRowsHtml()}<div class="mobile-stock-confirm-wrap"><button type="button" class="mobile-stock-confirm" id="mobileConfirmStockEdit" ${canConfirm?'':'disabled'}>${!mobileIsOnline()?'ออฟไลน์ — ยังบันทึกไม่ได้':stockEditPosting?'กำลังบันทึก...':'ยืนยันผลตรวจนับ'}</button></div></section>`;
 }
 async function confirmMobileStockEditChanges(){
   if(!mobileRequireOnline('ยืนยันแก้ไขสต๊อก')) return false;
+  if(!stockEditMobileLotSelectionsReady()){
+    showToast('กรุณาเลือก LOT ที่จะเพิ่มให้ครบทุกรายการ','danger-top');
+    return false;
+  }
+  if(document.querySelector('[data-mobile-stock-new-expiry].invalid')){
+    showToast('กรุณากรอกวันหมดอายุรูปแบบ 05-07-2027 หรือเว้นว่าง','danger-top');
+    return false;
+  }
   const completedSourceId=stockEditSourcePending?stockEditSourceInspectionListId:null;
   setMobileDataStatus('saving');
   const confirmed=await confirmStockEditChanges();
@@ -9259,6 +9332,9 @@ function attachEvents(){
     stockEditItems=stockEditItems.filter(itemId=>Number(itemId)!==productId);
     delete stockEditRowUnitSel[productId];
     delete stockEditDraftStocks[productId];
+    delete stockEditLotSelections[productId];
+    delete stockEditNewLotNumbers[productId];
+    delete stockEditNewLotExpiries[productId];
     if(Number(mobileStockLastProductId)===productId) mobileStockLastProductId=null;
     render();
   }));
@@ -9278,8 +9354,35 @@ function attachEvents(){
   }));
   const refreshMobileStockConfirmButton=()=>{
     const button=document.getElementById('mobileConfirmStockEdit');
-    if(button) button.disabled=(stockEditPendingChanges().length===0&&!stockEditSourcePending)||String(stockEditReason||'').trim().length<3||stockEditPosting;
+    const changes=stockEditPendingChanges();
+    if(button) button.disabled=(changes.length===0&&!stockEditSourcePending)||!stockEditMobileLotSelectionsReady(changes)||Boolean(document.querySelector('[data-mobile-stock-new-expiry].invalid'))||String(stockEditReason||'').trim().length<3||stockEditPosting||!mobileIsOnline();
   };
+  const mobileStockList=document.querySelector('.mobile-stock-list');
+  if(mobileStockList){
+    mobileStockList.addEventListener('change',event=>{
+      const lotSelect=event.target.closest('[data-mobile-stock-lot]');
+      if(!lotSelect) return;
+      const productId=Number(lotSelect.dataset.mobileStockLot);
+      stockEditLotSelections[productId]=lotSelect.value;
+      refreshMobileStockLotControl(productId);
+      refreshMobileStockConfirmButton();
+    });
+    mobileStockList.addEventListener('input',event=>{
+      const lotNumberInput=event.target.closest('[data-mobile-stock-new-lot]');
+      if(lotNumberInput){
+        stockEditNewLotNumbers[Number(lotNumberInput.dataset.mobileStockNewLot)]=lotNumberInput.value;
+        return;
+      }
+      const expiryInput=event.target.closest('[data-mobile-stock-new-expiry]');
+      if(!expiryInput) return;
+      const formatted=formatDMYInput(expiryInput.value);
+      if(expiryInput.value!==formatted) expiryInput.value=formatted;
+      const iso=dmyToISO(formatted);
+      stockEditNewLotExpiries[Number(expiryInput.dataset.mobileStockNewExpiry)]=iso||'';
+      expiryInput.classList.toggle('invalid',formatted!==''&&!iso);
+      refreshMobileStockConfirmButton();
+    });
+  }
   document.querySelectorAll('[data-mobile-stock-amount]').forEach(input=>{
     input.addEventListener('focus',()=>input.select());
     input.addEventListener('input',()=>{
@@ -9289,6 +9392,7 @@ function attachEvents(){
       if(amountText===''||!Number.isFinite(amount)){
         delete stockEditDraftStocks[product.id];
         input.classList.remove('pending');
+        refreshMobileStockLotControl(product.id);
         refreshMobileStockConfirmButton();
         return;
       }
@@ -9297,6 +9401,7 @@ function attachEvents(){
       else stockEditDraftStocks[product.id]=newStock;
       if(stockEditSourceInspectionListId&&newStock!==Number(product.stock)) stockEditSourcePending=true;
       input.classList.toggle('pending',newStock!==Number(product.stock));
+      refreshMobileStockLotControl(product.id);
       refreshMobileStockConfirmButton();
     });
     input.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); input.blur(); } });
