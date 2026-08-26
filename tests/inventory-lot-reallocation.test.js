@@ -11,12 +11,17 @@ assert.match(html, /data-stock-control-mode="lots"/);
 assert.match(html, /ปรับจำนวนแยกตาม LOT/);
 assert.match(html, /sb\.rpc\('reallocate_inventory_lots'/);
 assert.match(html, /currentProfile\?\.owner!==true/);
+assert.match(html, /id="stockLotReallocationUnit"/);
 
 const helperStart = html.indexOf('function stockLotReallocationPayload(');
 const helperEnd = html.indexOf('function stockLotReallocationDifferenceHtml(', helperStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart);
 const context = {
   inventoryMovementRound: value => Math.round((Number(value) || 0) * 1000000) / 1000000,
+  productUnitOptions: product => [
+    {name:product.unit,factor:1},
+    ...(product.units || []).map(unit => ({name:unit.sub,factor:unit.factor})),
+  ],
 };
 vm.createContext(context);
 vm.runInContext(html.slice(helperStart, helperEnd), context);
@@ -39,6 +44,17 @@ assert.deepEqual(
     {lotId:3,expectedQuantity:100,newQuantity:100},
     {lotId:4,expectedQuantity:150,newQuantity:125},
   ]
+);
+
+const boxSummary = context.stockLotReallocationSummary(groups, {A:16,B:3,C:9}, 25);
+assert.equal(boxSummary.oldTotal, 700);
+assert.equal(boxSummary.newTotal, 700);
+assert.equal(boxSummary.balanced, true);
+assert.deepEqual(JSON.parse(JSON.stringify(boxSummary.payload)), JSON.parse(JSON.stringify(summary.payload)));
+assert.equal(context.stockLotReallocationDisplayQuantity(725, 25), 29);
+assert.deepEqual(
+  JSON.parse(JSON.stringify(context.stockLotReallocationUnitOptions({unit:'ซอง',units:[{sub:'กล่อง',factor:25},{sub:'ลัง',factor:2500}]}))),
+  [{name:'ซอง',factor:1},{name:'กล่อง',factor:25},{name:'ลัง',factor:2500}]
 );
 
 const wrongTotal = context.stockLotReallocationSummary(groups, {A:400,B:75,C:250});

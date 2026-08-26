@@ -1523,6 +1523,9 @@
   .stock-lot-reallocation-modal{width:min(900px,96vw);max-height:92vh;}
   .stock-lot-reallocation-body{padding:0 18px 18px;overflow:auto;}
   .stock-lot-reallocation-notice{margin-bottom:13px;padding:10px 12px;border:1px solid #B9DDF2;border-radius:9px;background:#F1F9FE;color:#28627F;font-size:12.5px;line-height:1.5;}
+  .stock-lot-reallocation-unit-control{display:flex;align-items:center;gap:10px;margin-bottom:13px;padding:10px 12px;border:1px solid #D9E5EC;border-radius:9px;background:#fff;}
+  .stock-lot-reallocation-unit-control label{font-size:13px;font-weight:700;white-space:nowrap;}
+  .stock-lot-reallocation-unit-control select{min-width:180px;height:40px;border:1px solid #C9D8E2;border-radius:8px;background:#fff;padding:0 10px;font:14px 'Sarabun',sans-serif;}
   .stock-lot-reallocation-table{min-width:690px;}
   .stock-lot-reallocation-table td{text-align:center;}
   .stock-lot-reallocation-input{width:130px;height:38px;border:1px solid #C9D8E2;border-radius:8px;background:#fff;padding:0 9px;text-align:center;font:14px 'Sarabun',sans-serif;}
@@ -5924,13 +5927,15 @@ function renderStockControlAnomalies(){
   </div>`;
 }
 
-function stockLotReallocationPayload(groups,targets={}){
+function stockLotReallocationPayload(groups,targets={},factor=1){
+  factor=Number(factor)>0?Number(factor):1;
   const payload=[];
   (groups||[]).forEach((group,groupIndex)=>{
     const rows=(group.rows||[]).slice().sort((a,b)=>Number(a.id)-Number(b.id));
-    const rawTarget=targets[group.key]??targets[groupIndex]??group.quantityBase;
-    const target=Number(rawTarget);
-    if(!Number.isFinite(target)||target<0){
+    const rawTarget=targets[group.key]??targets[groupIndex]??stockLotReallocationDisplayQuantity(group.quantityBase,factor);
+    const displayTarget=Number(rawTarget);
+    const target=inventoryMovementRound(displayTarget*factor);
+    if(!Number.isFinite(displayTarget)||displayTarget<0||!Number.isFinite(target)||target<0){
       rows.forEach(row=>payload.push({lotId:Number(row.id),expectedQuantity:Number(row.quantity_base)||0,newQuantity:NaN}));
       return;
     }
@@ -5956,13 +5961,29 @@ function stockLotReallocationPayload(groups,targets={}){
   return payload;
 }
 
-function stockLotReallocationSummary(groups,targets={}){
-  const payload=stockLotReallocationPayload(groups,targets);
+function stockLotReallocationSummary(groups,targets={},factor=1){
+  const payload=stockLotReallocationPayload(groups,targets,factor);
   const oldTotal=inventoryMovementRound(payload.reduce((sum,row)=>sum+(Number(row.expectedQuantity)||0),0));
   const valid=payload.length>0&&payload.every(row=>Number.isFinite(row.newQuantity)&&row.newQuantity>=0);
   const newTotal=valid?inventoryMovementRound(payload.reduce((sum,row)=>sum+row.newQuantity,0)):NaN;
   const changes=valid?payload.filter(row=>Math.abs(row.newQuantity-row.expectedQuantity)>0.000001):[];
   return {payload,oldTotal,newTotal,valid,changes,changedCount:changes.length,balanced:valid&&Math.abs(newTotal-oldTotal)<=0.000001};
+}
+
+function stockLotReallocationDisplayQuantity(baseQuantity,factor=1){
+  const safeFactor=Number(factor)>0?Number(factor):1;
+  return inventoryMovementRound((Number(baseQuantity)||0)/safeFactor);
+}
+
+function stockLotReallocationUnitOptions(product){
+  const seen=new Set();
+  return productUnitOptions(product).filter(option=>{
+    const name=String(option?.name||'').trim();
+    const factor=Number(option?.factor);
+    if(!name||!Number.isFinite(factor)||factor<=0||seen.has(name)) return false;
+    seen.add(name);
+    return true;
+  }).map(option=>({name:String(option.name),factor:Number(option.factor)}));
 }
 
 function stockLotReallocationDifferenceHtml(value){
@@ -6020,10 +6041,13 @@ async function openStockLotReallocation(productId){
   const oldTotal=inventoryMovementRound(lots.reduce((sum,lot)=>sum+Number(lot.quantity_base||0),0));
   if(Math.abs(oldTotal-balance)>0.000001){ showToast('ยอดรวม LOT ไม่ตรงกับสต๊อก กรุณาแก้จากรายการผิดปกติก่อน','danger-top'); return; }
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
+  const unitOptions=stockLotReallocationUnitOptions(product);
+  let selectedUnit=unitOptions[0]||{name:product.unit||'หน่วย',factor:1};
   overlay.innerHTML=`<div class="modal stock-lot-reallocation-modal"><div class="modal-head"><div><h3>ปรับจำนวนแยกตาม LOT</h3><div class="sub">${escapeHtml(product.name)} · ${escapeHtml(activeWarehouse()?.name||'-')}</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div><div class="stock-lot-reallocation-body">
-    <div class="stock-lot-reallocation-notice">กรอกจำนวนที่ตรวจพบจริงของแต่ละ LOT เป็นหน่วยหลัก “${escapeHtml(product.unit||'หน่วย')}” ผลรวมใหม่ต้องเท่ากับ ${inspectionListAmount(oldTotal)} ${escapeHtml(product.unit||'')} ระบบจึงจะยืนยันได้</div>
-    <div class="seamless-table-wrap"><table class="grid-table doc-head-blue stock-lot-reallocation-table"><thead><tr><th>เลข LOT ผู้ผลิต</th><th>วันหมดอายุ</th><th>จำนวนเดิม (${escapeHtml(product.unit||'')})</th><th>จำนวนใหม่ (${escapeHtml(product.unit||'')})</th><th>ส่วนต่าง</th></tr></thead><tbody>${groups.map((group,index)=>`<tr><td>${escapeHtml(group.manufacturerLot||'ไม่ระบุ')}</td><td>${escapeHtml(group.expiryDate?fmtDateShort(group.expiryDate):'-')}</td><td class="mono">${inspectionListAmount(group.quantityBase)}</td><td><input class="stock-lot-reallocation-input" data-stock-lot-group="${index}" type="number" min="0" step="any" value="${group.quantityBase}"></td><td data-stock-lot-difference="${index}">${stockLotReallocationDifferenceHtml(0)}</td></tr>`).join('')}</tbody></table></div>
-    <div class="stock-lot-reallocation-summary"><div><span>ยอดรวมเดิม</span><b>${inspectionListAmount(oldTotal)} ${escapeHtml(product.unit||'')}</b></div><div><span>ยอดรวมใหม่</span><b id="stockLotNewTotal">${inspectionListAmount(oldTotal)} ${escapeHtml(product.unit||'')}</b></div><div><span>ผลต่างรวม</span><b id="stockLotTotalDifference">0 ${escapeHtml(product.unit||'')}</b></div></div>
+    <div class="stock-lot-reallocation-notice" id="stockLotReallocationNotice">กรอกจำนวนที่ตรวจพบจริงของแต่ละ LOT ผลรวมใหม่ต้องเท่ากับ <b>${inspectionListAmount(oldTotal)} ${escapeHtml(selectedUnit.name)}</b> ระบบจึงจะยืนยันได้</div>
+    <div class="stock-lot-reallocation-unit-control"><label for="stockLotReallocationUnit">หน่วยที่ใช้ปรับ</label><select id="stockLotReallocationUnit">${unitOptions.map(option=>`<option value="${escapeHtml(option.name)}">${escapeHtml(option.name)}${option.factor===1?'':` (1 ${escapeHtml(option.name)} = ${inspectionListAmount(option.factor)} ${escapeHtml(product.unit||'หน่วย')})`}</option>`).join('')}</select></div>
+    <div class="seamless-table-wrap"><table class="grid-table doc-head-blue stock-lot-reallocation-table"><thead><tr><th>เลข LOT ผู้ผลิต</th><th>วันหมดอายุ</th><th id="stockLotOldQuantityHead">จำนวนเดิม (${escapeHtml(selectedUnit.name)})</th><th id="stockLotNewQuantityHead">จำนวนใหม่ (${escapeHtml(selectedUnit.name)})</th><th>ส่วนต่าง</th></tr></thead><tbody>${groups.map((group,index)=>`<tr><td>${escapeHtml(group.manufacturerLot||'ไม่ระบุ')}</td><td>${escapeHtml(group.expiryDate?fmtDateShort(group.expiryDate):'-')}</td><td class="mono" data-stock-lot-old="${index}">${inspectionListAmount(group.quantityBase)}</td><td><input class="stock-lot-reallocation-input" data-stock-lot-group="${index}" type="number" min="0" step="any" value="${group.quantityBase}"></td><td data-stock-lot-difference="${index}">${stockLotReallocationDifferenceHtml(0)}</td></tr>`).join('')}</tbody></table></div>
+    <div class="stock-lot-reallocation-summary"><div><span>ยอดรวมเดิม</span><b id="stockLotOldTotal">${inspectionListAmount(oldTotal)} ${escapeHtml(selectedUnit.name)}</b></div><div><span>ยอดรวมใหม่</span><b id="stockLotNewTotal">${inspectionListAmount(oldTotal)} ${escapeHtml(selectedUnit.name)}</b></div><div><span>ผลต่างรวม</span><b id="stockLotTotalDifference">0 ${escapeHtml(selectedUnit.name)}</b></div></div>
     <div class="stock-lot-reallocation-reason"><label for="stockLotReallocationReason">เหตุผลการปรับ LOT <span class="req">*</span></label><input id="stockLotReallocationReason" maxlength="180" placeholder="เช่น ตรวจนับแยกตาม LOT แล้วพบว่ายอดอยู่ผิด LOT" autocomplete="off"></div>
     <div class="stock-lot-reallocation-actions"><button type="button" class="btn ghost" id="cancelStockLotReallocation">ยกเลิก</button><button type="button" class="btn primary" id="confirmStockLotReallocation" disabled>ยืนยันปรับจำนวน LOT</button></div>
   </div></div>`;
@@ -6034,6 +6058,7 @@ async function openStockLotReallocation(productId){
   overlay.addEventListener('click',event=>{ if(event.target===overlay) close(); });
   const reasonInput=overlay.querySelector('#stockLotReallocationReason');
   const confirmButton=overlay.querySelector('#confirmStockLotReallocation');
+  const unitSelect=overlay.querySelector('#stockLotReallocationUnit');
   const readTargets=()=>{
     const targets={};
     overlay.querySelectorAll('[data-stock-lot-group]').forEach(input=>{ targets[groups[Number(input.dataset.stockLotGroup)]?.key]=input.value; });
@@ -6041,22 +6066,45 @@ async function openStockLotReallocation(productId){
   };
   const refresh=()=>{
     const targets=readTargets();
+    const factor=selectedUnit.factor;
     groups.forEach((group,index)=>{
       const value=Number(targets[group.key]);
       const cell=overlay.querySelector(`[data-stock-lot-difference="${index}"]`);
-      if(cell) cell.innerHTML=Number.isFinite(value)?stockLotReallocationDifferenceHtml(value-group.quantityBase):stockLotReallocationDifferenceHtml(0);
+      const oldDisplay=stockLotReallocationDisplayQuantity(group.quantityBase,factor);
+      if(cell) cell.innerHTML=Number.isFinite(value)?stockLotReallocationDifferenceHtml(value-oldDisplay):stockLotReallocationDifferenceHtml(0);
     });
-    const summary=stockLotReallocationSummary(groups,targets);
+    const summary=stockLotReallocationSummary(groups,targets,factor);
     const totalNode=overlay.querySelector('#stockLotNewTotal');
     const differenceNode=overlay.querySelector('#stockLotTotalDifference');
-    if(totalNode) totalNode.textContent=summary.valid?`${inspectionListAmount(summary.newTotal)} ${product.unit||''}`:'กรอกจำนวนให้ถูกต้อง';
-    if(differenceNode) differenceNode.textContent=summary.valid?`${summary.newTotal>summary.oldTotal?'+':''}${inspectionListAmount(summary.newTotal-summary.oldTotal)} ${product.unit||''}`:'-';
+    const displayNewTotal=stockLotReallocationDisplayQuantity(summary.newTotal,factor);
+    const displayDifference=stockLotReallocationDisplayQuantity(summary.newTotal-summary.oldTotal,factor);
+    if(totalNode) totalNode.textContent=summary.valid?`${inspectionListAmount(displayNewTotal)} ${selectedUnit.name}`:'กรอกจำนวนให้ถูกต้อง';
+    if(differenceNode) differenceNode.textContent=summary.valid?`${displayDifference>0?'+':''}${inspectionListAmount(displayDifference)} ${selectedUnit.name}`:'-';
     confirmButton.disabled=!(summary.balanced&&summary.changedCount>=2&&reasonInput.value.trim().length>=3);
   };
+  unitSelect.addEventListener('change',()=>{
+    const currentTargets=readTargets();
+    const currentSummary=stockLotReallocationSummary(groups,currentTargets,selectedUnit.factor);
+    if(!currentSummary.valid){ unitSelect.value=selectedUnit.name; showToast('กรุณากรอกจำนวน LOT ให้ถูกต้องก่อนเปลี่ยนหน่วย','danger-top'); return; }
+    const baseTargets={};
+    groups.forEach((group,index)=>{ baseTargets[group.key]=inventoryMovementRound(Number(currentTargets[group.key]??currentTargets[index])*selectedUnit.factor); });
+    selectedUnit=unitOptions.find(option=>option.name===unitSelect.value)||unitOptions[0]||selectedUnit;
+    groups.forEach((group,index)=>{
+      const oldNode=overlay.querySelector(`[data-stock-lot-old="${index}"]`);
+      const input=overlay.querySelector(`[data-stock-lot-group="${index}"]`);
+      if(oldNode) oldNode.textContent=inspectionListAmount(stockLotReallocationDisplayQuantity(group.quantityBase,selectedUnit.factor));
+      if(input) input.value=String(stockLotReallocationDisplayQuantity(baseTargets[group.key],selectedUnit.factor));
+    });
+    overlay.querySelector('#stockLotOldQuantityHead').textContent=`จำนวนเดิม (${selectedUnit.name})`;
+    overlay.querySelector('#stockLotNewQuantityHead').textContent=`จำนวนใหม่ (${selectedUnit.name})`;
+    overlay.querySelector('#stockLotOldTotal').textContent=`${inspectionListAmount(stockLotReallocationDisplayQuantity(oldTotal,selectedUnit.factor))} ${selectedUnit.name}`;
+    overlay.querySelector('#stockLotReallocationNotice').innerHTML=`กรอกจำนวนที่ตรวจพบจริงของแต่ละ LOT ผลรวมใหม่ต้องเท่ากับ <b>${inspectionListAmount(stockLotReallocationDisplayQuantity(oldTotal,selectedUnit.factor))} ${escapeHtml(selectedUnit.name)}</b> ระบบจึงจะยืนยันได้`;
+    refresh();
+  });
   overlay.querySelectorAll('[data-stock-lot-group]').forEach(input=>input.addEventListener('input',refresh));
   reasonInput.addEventListener('input',refresh);
   confirmButton.onclick=async()=>{
-    const summary=stockLotReallocationSummary(groups,readTargets());
+    const summary=stockLotReallocationSummary(groups,readTargets(),selectedUnit.factor);
     if(!summary.balanced||summary.changedCount<2){ showToast('ยอดรวมใหม่ต้องเท่ากับยอดเดิม และต้องมีอย่างน้อย 2 LOT ที่เปลี่ยน','danger-top'); return; }
     if(reasonInput.value.trim().length<3){ showToast('กรุณาระบุเหตุผลการปรับ LOT','danger-top'); return; }
     confirmButton.disabled=true; confirmButton.textContent='กำลังบันทึก...';
