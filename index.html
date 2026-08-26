@@ -6558,6 +6558,9 @@ function addProductToMobileStockEdit(product,unitName=''){
   if(!stockEditItems.includes(product.id)) stockEditItems.unshift(product.id);
   const selected=inspectionListUnitOptions(product).find(option=>option.name===unitName)||inspectionListUnitOptions(product)[0];
   stockEditRowUnitSel[product.id]=selected?.name||product.unit;
+  if(stockEditRequiresReconciliation(product)&&!Object.prototype.hasOwnProperty.call(stockEditDraftStocks,product.id)){
+    stockEditDraftStocks[product.id]=Number(product.stock)||0;
+  }
   mobileStockQuery='';
   mobileStockLastProductId=product.id;
   render();

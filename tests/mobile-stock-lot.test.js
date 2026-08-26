@@ -8,8 +8,11 @@ const helperStart = html.indexOf('function stockEditAvailableLots(');
 const helperEnd = html.indexOf('async function confirmStockEditChanges(', helperStart);
 const mobileStart = html.indexOf('function stockEditMobileLotSelectionsReady(');
 const mobileEnd = html.indexOf('function refreshMobileStockLotControl(', mobileStart);
+const addStart = html.indexOf('function addProductToMobileStockEdit(');
+const addEnd = html.indexOf('function prepareMobileScanSound(', addStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, 'ไม่พบชุดฟังก์ชันสร้าง payload แก้ไขสต๊อก');
 assert.ok(mobileStart >= 0 && mobileEnd > mobileStart, 'ไม่พบชุดฟังก์ชันเลือก LOT บนมือถือ');
+assert.ok(addStart >= 0 && addEnd > addStart, 'ไม่พบฟังก์ชันเพิ่มสินค้าเข้าแก้ไขสต๊อกบนมือถือ');
 
 const product = {id:10, stock:10, unit:'กล่อง', expiry:'2030-12-31', units:[]};
 const context = {
@@ -74,6 +77,26 @@ assert.equal(autoFefoLine.selectedLotId, null, 'ค่า auto ต้องใ�
 context.stockEditLotSelections[10] = 'lot:102';
 const selectedDecreaseLine = context.stockEditAdjustmentLines(decreaseChange)[0];
 assert.equal(selectedDecreaseLine.selectedLotId, 102, 'ผู้ใช้ต้องระบุ LOT ที่ต้องการลดก่อนได้');
+
+const addContext = {
+  stockEditItems: [],
+  stockEditRowUnitSel: {},
+  stockEditDraftStocks: {},
+  mobileStockQuery: '8850000000000',
+  mobileStockLastProductId: null,
+  inspectionListUnitOptions: item => [{name:item.unit}],
+  stockEditRequiresReconciliation: item => item.id===10,
+  render: () => {},
+};
+vm.createContext(addContext);
+vm.runInContext(html.slice(addStart, addEnd), addContext);
+addContext.addProductToMobileStockEdit({id:10,stock:720,unit:'กล่อง'});
+assert.equal(addContext.stockEditDraftStocks[10], 720, 'สินค้าที่สต๊อกกับ LOT ไม่ตรงกันต้องสร้างรายการรอยืนยัน');
+addContext.stockEditDraftStocks[10]=719;
+addContext.addProductToMobileStockEdit({id:10,stock:720,unit:'กล่อง'});
+assert.equal(addContext.stockEditDraftStocks[10], 719, 'การยิงซ้ำต้องไม่เขียนทับจำนวนที่ผู้ใช้แก้ไว้แล้ว');
+addContext.addProductToMobileStockEdit({id:11,stock:50,unit:'ขวด'});
+assert.equal(Object.prototype.hasOwnProperty.call(addContext.stockEditDraftStocks,11), false, 'สินค้าที่สต๊อกกับ LOT ตรงกันต้องไม่สร้างรายการแก้ไขเปล่า');
 
 assert.match(html, /stockEditNewLotExpiries\[Number\(expiryInput\.dataset\.mobileStockNewExpiry\)\]=iso\|\|''/);
 assert.match(html, /data-mobile-stock-new-expiry\]\.invalid/);
