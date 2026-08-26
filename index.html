@@ -1518,10 +1518,30 @@
   .stock-control-anomaly-card span{display:block;color:var(--text-muted);font-size:12px;margin-bottom:4px;}
   .stock-control-anomaly-card b{font-size:24px;color:var(--primary);}
   .stock-control-anomaly-type{display:inline-flex;padding:4px 8px;border-radius:999px;background:#FFF1E8;color:#A95420;font-size:12px;font-weight:700;}
+  .stock-lot-reallocation-search{margin-bottom:14px;}
+  .stock-lot-reallocation-search input{width:100%;height:46px;border:1px solid #C9D8E2;border-radius:10px;background:#fff;padding:0 14px;font:14px 'Sarabun',sans-serif;}
+  .stock-lot-reallocation-modal{width:min(900px,96vw);max-height:92vh;}
+  .stock-lot-reallocation-body{padding:0 18px 18px;overflow:auto;}
+  .stock-lot-reallocation-notice{margin-bottom:13px;padding:10px 12px;border:1px solid #B9DDF2;border-radius:9px;background:#F1F9FE;color:#28627F;font-size:12.5px;line-height:1.5;}
+  .stock-lot-reallocation-table{min-width:690px;}
+  .stock-lot-reallocation-table td{text-align:center;}
+  .stock-lot-reallocation-input{width:130px;height:38px;border:1px solid #C9D8E2;border-radius:8px;background:#fff;padding:0 9px;text-align:center;font:14px 'Sarabun',sans-serif;}
+  .stock-lot-reallocation-diff{display:inline-flex;min-width:66px;justify-content:center;padding:4px 8px;border-radius:999px;font-weight:700;}
+  .stock-lot-reallocation-diff.in{background:#E6F6EB;color:#238344;}
+  .stock-lot-reallocation-diff.out{background:#FCEAE8;color:#B83B33;}
+  .stock-lot-reallocation-diff.same{background:#EEF2F5;color:#697784;}
+  .stock-lot-reallocation-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:14px 0;}
+  .stock-lot-reallocation-summary div{padding:11px 13px;border:1px solid #D9E5EC;border-radius:9px;background:#F8FBFD;}
+  .stock-lot-reallocation-summary span{display:block;color:var(--text-muted);font-size:12px;}
+  .stock-lot-reallocation-summary b{display:block;margin-top:3px;font-size:18px;}
+  .stock-lot-reallocation-reason label{display:block;margin-bottom:5px;font-size:13px;font-weight:700;}
+  .stock-lot-reallocation-reason input{width:100%;height:42px;border:1px solid #C9D8E2;border-radius:8px;padding:0 11px;font:14px 'Sarabun',sans-serif;}
+  .stock-lot-reallocation-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:15px;}
   @media (max-width:1100px){
     .stock-control-meta{grid-template-columns:1fr 1fr;}
     .stock-control-meta-field.note{grid-column:1/-1;}
     .stock-control-anomaly-summary{grid-template-columns:1fr;}
+    .stock-lot-reallocation-summary{grid-template-columns:1fr;}
   }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" onerror="window.__peposDependencyError='ไม่สามารถโหลดระบบ Excel'"></script>
@@ -1737,6 +1757,7 @@ function resetWarehouseScopedUiState(reportWarehouseValue){
   stockReportCatFilter={wh:reportWarehouseValue,category:'',brand:''};
   stockEditItems=[]; stockEditRowUnitSel={}; stockEditDraftStocks={}; stockEditSourceInspectionListId=null; stockEditSourcePending=false; stockEditPage=1;
   stockEditReason=''; stockEditNote=''; stockEditLotSelections={}; stockEditNewLotNumbers={}; stockEditNewLotExpiries={}; stockEditPosting=false; stockControlMode='count';
+  stockLotReallocationSearch=''; stockLotReallocationPage=1;
   inspectionListDraft=null; editingInspectionListId=null;
   inventoryMovementFilter.warehouse=reportWarehouseValue;
   inventoryMovementFilter.page=1;
@@ -3042,6 +3063,9 @@ let stockEditNewLotExpiries = {};
 let stockEditPosting = false;
 let stockControlMode = 'count';
 const STOCK_EDIT_PAGE_SIZE = 7;
+let stockLotReallocationSearch = '';
+let stockLotReallocationPage = 1;
+const STOCK_LOT_REALLOCATION_PAGE_SIZE = 20;
 // คิวหน้าพิมพ์ป้ายราคา แยกจากหน้ารายการสินค้าและหน้าแก้ไขสต๊อก
 let barcodePrintItems = [];
 let barcodePrintCatFilter = { category:'', brand:'' };
@@ -5155,11 +5179,13 @@ async function openProductLotDetails(productId){
   const historyToggle=historyCount?`<button type="button" class="lot-history-toggle" id="lotHistoryToggle" aria-expanded="false"><span class="lot-history-toggle-chevron">▸</span><span>แสดง LOT ที่หมดแล้ว (${historyCount})</span></button>`:'';
   const detailToggles=systemToggle||historyToggle?`<div class="lot-history-toggle-wrap">${systemToggle}${historyToggle}</div>`:'';
   const historyLoadMore=historyCount?`<div class="lot-history-load-more" id="lotHistoryLoadMoreWrap" hidden><button type="button" class="btn ghost small" id="lotHistoryLoadMoreBtn">โหลดเพิ่มเติม</button><span class="lot-history-progress" id="lotHistoryProgress"></span></div>`:'';
-  overlay.innerHTML=`<div class="modal lot-detail-modal"><div class="modal-head"><div><h3>รายละเอียด Lot</h3><div class="sub">${escapeHtml(product.name)} · ${escapeHtml(activeWarehouse()?.name||'-')}</div></div><button class="modal-close" aria-label="ปิด">×</button></div><div class="lot-detail-body"><div class="lot-detail-summary"><span>คงเหลือรวม ${escapeHtml(stockInLargestUnit({...product,stock:total}))}</span><span>${activeDisplayGroupCount} Lot ที่มีสินค้า</span><span>หมดอายุใกล้สุด ${escapeHtml(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]?fmtDateShort(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]):'-')}</span></div><div class="seamless-table-wrap"><table class="grid-table doc-head-blue lot-detail-table"><thead><tr><th class="lot-internal-column">รหัส LOT ภายใน</th><th>เลข LOT ผู้ผลิต</th><th>คงเหลือ</th><th>วันหมดอายุ</th><th>รับเข้าเมื่อ</th><th>สถานะ</th></tr></thead><tbody>${stockedRowsHtml||`<tr><td colspan="6" style="padding:28px;color:var(--text-muted);">${emptyStockedText}</td></tr>`}</tbody>${historyCount?'<tbody id="lotHistoryBody" hidden></tbody>':''}</table></div>${detailToggles}${historyLoadMore}${currentProfile?.owner&&stockedRows.length?'<div class="form-bottom-actions" style="justify-content:flex-end;"><button class="btn primary" id="saveLotDetailsBtn">บันทึกข้อมูล Lot</button></div>':''}</div></div>`;
+  const lotDetailActions=currentProfile?.owner&&stockedRows.length?`<div class="form-bottom-actions" style="justify-content:flex-end;gap:10px;">${activeDisplayGroupCount>=2?'<button class="btn ghost" type="button" id="openLotReallocationBtn">ปรับจำนวนแยกตาม LOT</button>':''}<button class="btn primary" id="saveLotDetailsBtn">บันทึกข้อมูล Lot</button></div>`:'';
+  overlay.innerHTML=`<div class="modal lot-detail-modal"><div class="modal-head"><div><h3>รายละเอียด Lot</h3><div class="sub">${escapeHtml(product.name)} · ${escapeHtml(activeWarehouse()?.name||'-')}</div></div><button class="modal-close" aria-label="ปิด">×</button></div><div class="lot-detail-body"><div class="lot-detail-summary"><span>คงเหลือรวม ${escapeHtml(stockInLargestUnit({...product,stock:total}))}</span><span>${activeDisplayGroupCount} Lot ที่มีสินค้า</span><span>หมดอายุใกล้สุด ${escapeHtml(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]?fmtDateShort(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]):'-')}</span></div><div class="seamless-table-wrap"><table class="grid-table doc-head-blue lot-detail-table"><thead><tr><th class="lot-internal-column">รหัส LOT ภายใน</th><th>เลข LOT ผู้ผลิต</th><th>คงเหลือ</th><th>วันหมดอายุ</th><th>รับเข้าเมื่อ</th><th>สถานะ</th></tr></thead><tbody>${stockedRowsHtml||`<tr><td colspan="6" style="padding:28px;color:var(--text-muted);">${emptyStockedText}</td></tr>`}</tbody>${historyCount?'<tbody id="lotHistoryBody" hidden></tbody>':''}</table></div>${detailToggles}${historyLoadMore}${lotDetailActions}</div></div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
   overlay.addEventListener('click',event=>{ if(event.target===overlay) close(); });
+  overlay.querySelector('#openLotReallocationBtn')?.addEventListener('click',()=>{ close(); openStockLotReallocation(product.id); });
   const systemDetailsButton=overlay.querySelector('#lotSystemDetailsToggle');
   if(systemDetailsButton) systemDetailsButton.addEventListener('click',()=>{
     const modal=overlay.querySelector('.lot-detail-modal');
@@ -5898,18 +5924,164 @@ function renderStockControlAnomalies(){
   </div>`;
 }
 
+function stockLotReallocationPayload(groups,targets={}){
+  const payload=[];
+  (groups||[]).forEach((group,groupIndex)=>{
+    const rows=(group.rows||[]).slice().sort((a,b)=>Number(a.id)-Number(b.id));
+    const rawTarget=targets[group.key]??targets[groupIndex]??group.quantityBase;
+    const target=Number(rawTarget);
+    if(!Number.isFinite(target)||target<0){
+      rows.forEach(row=>payload.push({lotId:Number(row.id),expectedQuantity:Number(row.quantity_base)||0,newQuantity:NaN}));
+      return;
+    }
+    const values=rows.map(row=>Number(row.quantity_base)||0);
+    let delta=inventoryMovementRound(target-values.reduce((sum,value)=>sum+value,0));
+    if(delta>0&&values.length){
+      values[0]=inventoryMovementRound(values[0]+delta);
+    }else if(delta<0){
+      let remove=Math.abs(delta);
+      for(let index=values.length-1;index>=0&&remove>0.000001;index--){
+        const taken=Math.min(remove,values[index]);
+        values[index]=inventoryMovementRound(values[index]-taken);
+        remove=inventoryMovementRound(remove-taken);
+      }
+      if(remove>0.000001) values[0]=NaN;
+    }
+    rows.forEach((row,index)=>payload.push({
+      lotId:Number(row.id),
+      expectedQuantity:Number(row.quantity_base)||0,
+      newQuantity:values[index]
+    }));
+  });
+  return payload;
+}
+
+function stockLotReallocationSummary(groups,targets={}){
+  const payload=stockLotReallocationPayload(groups,targets);
+  const oldTotal=inventoryMovementRound(payload.reduce((sum,row)=>sum+(Number(row.expectedQuantity)||0),0));
+  const valid=payload.length>0&&payload.every(row=>Number.isFinite(row.newQuantity)&&row.newQuantity>=0);
+  const newTotal=valid?inventoryMovementRound(payload.reduce((sum,row)=>sum+row.newQuantity,0)):NaN;
+  const changes=valid?payload.filter(row=>Math.abs(row.newQuantity-row.expectedQuantity)>0.000001):[];
+  return {payload,oldTotal,newTotal,valid,changes,changedCount:changes.length,balanced:valid&&Math.abs(newTotal-oldTotal)<=0.000001};
+}
+
+function stockLotReallocationDifferenceHtml(value){
+  const difference=inventoryMovementRound(value);
+  const className=difference>0?'in':difference<0?'out':'same';
+  const prefix=difference>0?'+':'';
+  return `<span class="stock-lot-reallocation-diff ${className}">${prefix}${inspectionListAmount(difference)}</span>`;
+}
+
+function stockLotReallocationRows(){
+  const needle=stockLotReallocationSearch.trim().toLowerCase();
+  return products.map(product=>{
+    const lots=activeInventoryLotsForProduct(product.id,activeWarehouseId);
+    const groups=groupInventoryLotDetailRows(lots);
+    return {product,lots,groups,total:groups.reduce((sum,group)=>sum+Number(group.quantityBase||0),0)};
+  }).filter(row=>row.groups.length>=2&&(!needle||String(row.product.name||'').toLowerCase().includes(needle)||String(row.product.sku||'').toLowerCase().includes(needle)||matchesBarcode(row.product,needle)))
+    .sort((a,b)=>String(a.product.name||'').localeCompare(String(b.product.name||''),'th'));
+}
+
+function renderStockLotReallocation(){
+  if(currentProfile?.owner!==true) return '<div class="rpt"><div style="padding:40px;text-align:center;color:var(--text-muted);">เฉพาะเจ้าของร้าน Level 1 เท่านั้นที่ปรับจำนวนแยกตาม LOT ได้</div></div>';
+  const rows=stockLotReallocationRows();
+  const totalPages=Math.max(1,Math.ceil(rows.length/STOCK_LOT_REALLOCATION_PAGE_SIZE));
+  stockLotReallocationPage=Math.min(totalPages,Math.max(1,Number(stockLotReallocationPage)||1));
+  const start=(stockLotReallocationPage-1)*STOCK_LOT_REALLOCATION_PAGE_SIZE;
+  const pageRows=rows.slice(start,start+STOCK_LOT_REALLOCATION_PAGE_SIZE);
+  return `<div class="rpt"><div class="pagehead"><div><h1>ปรับจำนวนแยกตาม LOT</h1><div class="sub">ย้ายจำนวนระหว่าง LOT ของสินค้าเดียวกัน โดยยอดคงเหลือรวมจะไม่เปลี่ยน</div></div></div>
+    <div class="stock-lot-reallocation-search"><input id="stockLotReallocationSearch" value="${escapeHtml(stockLotReallocationSearch)}" placeholder="ค้นหาจากชื่อ / รหัส / บาร์โค้ด..." autocomplete="off"></div>
+    <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue"><thead><tr><th>รหัสสินค้า</th><th>สินค้า</th><th>คงเหลือรวม</th><th>จำนวน LOT</th><th>หมดอายุใกล้สุด</th><th></th></tr></thead><tbody>${pageRows.map(row=>{
+      const nearest=row.groups.map(group=>group.expiryDate).filter(Boolean).sort()[0]||'';
+      return `<tr><td class="mono" style="text-align:center;">${escapeHtml(row.product.sku||'-')}</td><td>${escapeHtml(row.product.name)}</td><td style="text-align:center;">${escapeHtml(stockInLargestUnit({...row.product,stock:row.total}))}</td><td style="text-align:center;">${row.groups.length} LOT</td><td style="text-align:center;">${escapeHtml(nearest?fmtDateShort(nearest):'-')}</td><td style="text-align:center;"><button type="button" class="btn primary small" data-stock-lot-reallocation="${row.product.id}">ปรับจำนวน LOT</button></td></tr>`;
+    }).join('')||'<tr><td colspan="6" style="padding:38px;text-align:center;color:var(--text-muted);">ไม่พบสินค้าที่มีอย่างน้อย 2 LOT ในคลังนี้</td></tr>'}</tbody></table></div>
+    ${pagerHtml(stockLotReallocationPage,totalPages,'stock-lot-page')}
+  </div>`;
+}
+
+async function openStockLotReallocation(productId){
+  if(currentProfile?.owner!==true){ showToast('เฉพาะเจ้าของร้าน Level 1 เท่านั้น','danger-top'); return; }
+  if(isAllWarehousesMode()){ showToast('กรุณาเลือกคลังที่ต้องการปรับจาก TOPBAR ก่อน','danger-top'); return; }
+  const product=products.find(item=>Number(item.id)===Number(productId));
+  if(!product) return;
+  let lots=[],balance=warehouseStock(product.id,activeWarehouseId);
+  try{
+    const [lotsResult,balanceResult]=await Promise.all([
+      sb.from('inventory_lots').select(INVENTORY_LOT_DETAIL_COLUMNS).eq('product_id',product.id).eq('warehouse_id',Number(activeWarehouseId)).gt('quantity_base',0).neq('status','blocked').order('expiry_date',{ascending:true,nullsFirst:false}).order('received_at').order('id'),
+      sb.from('inventory_balances').select('stock').eq('product_id',product.id).eq('warehouse_id',Number(activeWarehouseId)).maybeSingle()
+    ]);
+    if(lotsResult.error) throw lotsResult.error;
+    if(balanceResult.error) throw balanceResult.error;
+    lots=(lotsResult.data||[]).map(normalizeInventoryLotRow);
+    balance=Number(balanceResult.data?.stock)||0;
+  }catch(error){ console.warn('load Lots for reallocation',error); showToast('โหลดข้อมูล LOT ไม่สำเร็จ','danger-top'); return; }
+  const groups=groupInventoryLotDetailRows(lots);
+  if(groups.length<2){ showToast('สินค้านี้ต้องมีอย่างน้อย 2 LOT ที่มีสินค้า','danger-top'); return; }
+  const oldTotal=inventoryMovementRound(lots.reduce((sum,lot)=>sum+Number(lot.quantity_base||0),0));
+  if(Math.abs(oldTotal-balance)>0.000001){ showToast('ยอดรวม LOT ไม่ตรงกับสต๊อก กรุณาแก้จากรายการผิดปกติก่อน','danger-top'); return; }
+  const overlay=document.createElement('div'); overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal stock-lot-reallocation-modal"><div class="modal-head"><div><h3>ปรับจำนวนแยกตาม LOT</h3><div class="sub">${escapeHtml(product.name)} · ${escapeHtml(activeWarehouse()?.name||'-')}</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div><div class="stock-lot-reallocation-body">
+    <div class="stock-lot-reallocation-notice">กรอกจำนวนที่ตรวจพบจริงของแต่ละ LOT เป็นหน่วยหลัก “${escapeHtml(product.unit||'หน่วย')}” ผลรวมใหม่ต้องเท่ากับ ${inspectionListAmount(oldTotal)} ${escapeHtml(product.unit||'')} ระบบจึงจะยืนยันได้</div>
+    <div class="seamless-table-wrap"><table class="grid-table doc-head-blue stock-lot-reallocation-table"><thead><tr><th>เลข LOT ผู้ผลิต</th><th>วันหมดอายุ</th><th>จำนวนเดิม (${escapeHtml(product.unit||'')})</th><th>จำนวนใหม่ (${escapeHtml(product.unit||'')})</th><th>ส่วนต่าง</th></tr></thead><tbody>${groups.map((group,index)=>`<tr><td>${escapeHtml(group.manufacturerLot||'ไม่ระบุ')}</td><td>${escapeHtml(group.expiryDate?fmtDateShort(group.expiryDate):'-')}</td><td class="mono">${inspectionListAmount(group.quantityBase)}</td><td><input class="stock-lot-reallocation-input" data-stock-lot-group="${index}" type="number" min="0" step="any" value="${group.quantityBase}"></td><td data-stock-lot-difference="${index}">${stockLotReallocationDifferenceHtml(0)}</td></tr>`).join('')}</tbody></table></div>
+    <div class="stock-lot-reallocation-summary"><div><span>ยอดรวมเดิม</span><b>${inspectionListAmount(oldTotal)} ${escapeHtml(product.unit||'')}</b></div><div><span>ยอดรวมใหม่</span><b id="stockLotNewTotal">${inspectionListAmount(oldTotal)} ${escapeHtml(product.unit||'')}</b></div><div><span>ผลต่างรวม</span><b id="stockLotTotalDifference">0 ${escapeHtml(product.unit||'')}</b></div></div>
+    <div class="stock-lot-reallocation-reason"><label for="stockLotReallocationReason">เหตุผลการปรับ LOT <span class="req">*</span></label><input id="stockLotReallocationReason" maxlength="180" placeholder="เช่น ตรวจนับแยกตาม LOT แล้วพบว่ายอดอยู่ผิด LOT" autocomplete="off"></div>
+    <div class="stock-lot-reallocation-actions"><button type="button" class="btn ghost" id="cancelStockLotReallocation">ยกเลิก</button><button type="button" class="btn primary" id="confirmStockLotReallocation" disabled>ยืนยันปรับจำนวน LOT</button></div>
+  </div></div>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  overlay.querySelector('.modal-close').onclick=close;
+  overlay.querySelector('#cancelStockLotReallocation').onclick=close;
+  overlay.addEventListener('click',event=>{ if(event.target===overlay) close(); });
+  const reasonInput=overlay.querySelector('#stockLotReallocationReason');
+  const confirmButton=overlay.querySelector('#confirmStockLotReallocation');
+  const readTargets=()=>{
+    const targets={};
+    overlay.querySelectorAll('[data-stock-lot-group]').forEach(input=>{ targets[groups[Number(input.dataset.stockLotGroup)]?.key]=input.value; });
+    return targets;
+  };
+  const refresh=()=>{
+    const targets=readTargets();
+    groups.forEach((group,index)=>{
+      const value=Number(targets[group.key]);
+      const cell=overlay.querySelector(`[data-stock-lot-difference="${index}"]`);
+      if(cell) cell.innerHTML=Number.isFinite(value)?stockLotReallocationDifferenceHtml(value-group.quantityBase):stockLotReallocationDifferenceHtml(0);
+    });
+    const summary=stockLotReallocationSummary(groups,targets);
+    const totalNode=overlay.querySelector('#stockLotNewTotal');
+    const differenceNode=overlay.querySelector('#stockLotTotalDifference');
+    if(totalNode) totalNode.textContent=summary.valid?`${inspectionListAmount(summary.newTotal)} ${product.unit||''}`:'กรอกจำนวนให้ถูกต้อง';
+    if(differenceNode) differenceNode.textContent=summary.valid?`${summary.newTotal>summary.oldTotal?'+':''}${inspectionListAmount(summary.newTotal-summary.oldTotal)} ${product.unit||''}`:'-';
+    confirmButton.disabled=!(summary.balanced&&summary.changedCount>=2&&reasonInput.value.trim().length>=3);
+  };
+  overlay.querySelectorAll('[data-stock-lot-group]').forEach(input=>input.addEventListener('input',refresh));
+  reasonInput.addEventListener('input',refresh);
+  confirmButton.onclick=async()=>{
+    const summary=stockLotReallocationSummary(groups,readTargets());
+    if(!summary.balanced||summary.changedCount<2){ showToast('ยอดรวมใหม่ต้องเท่ากับยอดเดิม และต้องมีอย่างน้อย 2 LOT ที่เปลี่ยน','danger-top'); return; }
+    if(reasonInput.value.trim().length<3){ showToast('กรุณาระบุเหตุผลการปรับ LOT','danger-top'); return; }
+    confirmButton.disabled=true; confirmButton.textContent='กำลังบันทึก...';
+    try{
+      const {data,error}=await sb.rpc('reallocate_inventory_lots',{p_product_id:product.id,p_warehouse_id:Number(activeWarehouseId),p_reason:reasonInput.value.trim(),p_lots:summary.payload});
+      if(error) throw error;
+      await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
+      close(); render(); showToast(`ปรับจำนวนแยกตาม LOT เรียบร้อย · ${data?.referenceId||''}`);
+    }catch(error){ console.warn('reallocate inventory Lots',error); confirmButton.disabled=false; confirmButton.textContent='ยืนยันปรับจำนวน LOT'; showToast(error?.message||'ปรับจำนวน LOT ไม่สำเร็จ กรุณาโหลดข้อมูลใหม่','danger-top'); }
+  };
+}
+
 function renderStockAdjust(){ return renderStockControlAnomalies(); }
 
 function renderStockControl(){
-  if(!['count','adjust','anomalies'].includes(stockControlMode)) stockControlMode='count';
+  if(!['count','adjust','anomalies','lots'].includes(stockControlMode)) stockControlMode='count';
   const pendingCount=inspectionLists.filter(inspectionListAvailableForStockEdit).length;
   const anomalyCount=stockControlAnomalyRows().length;
-  const content=stockControlMode==='count'?renderInspectionLists():stockControlMode==='adjust'?renderStockEdit():renderStockControlAnomalies();
+  const content=stockControlMode==='count'?renderInspectionLists():stockControlMode==='adjust'?renderStockEdit():stockControlMode==='lots'?renderStockLotReallocation():renderStockControlAnomalies();
   return `<div class="stock-control-page"><div class="stock-control-header"><div><h1>ตรวจนับและปรับสต๊อก</h1><p>${escapeHtml(activeWarehouse()?.name||'-')} · ตรวจสอบก่อนบันทึก ทุกการปรับจะมีเหตุผล ผู้ดำเนินการ และประวัติ LOT</p></div></div>
     <div class="stock-control-tabs" role="tablist" aria-label="งานตรวจนับและปรับสต๊อก">
       <button type="button" class="stock-control-tab ${stockControlMode==='count'?'active':''}" data-stock-control-mode="count" role="tab" aria-selected="${stockControlMode==='count'}">ตรวจนับสินค้า</button>
       <button type="button" class="stock-control-tab ${stockControlMode==='adjust'?'active':''}" data-stock-control-mode="adjust" role="tab" aria-selected="${stockControlMode==='adjust'}">รอยืนยันปรับสต๊อก <span class="stock-control-tab-count">${pendingCount}</span></button>
       <button type="button" class="stock-control-tab ${stockControlMode==='anomalies'?'active':''}" data-stock-control-mode="anomalies" role="tab" aria-selected="${stockControlMode==='anomalies'}">รายการผิดปกติ <span class="stock-control-tab-count">${anomalyCount}</span></button>
+      ${currentProfile?.owner?`<button type="button" class="stock-control-tab ${stockControlMode==='lots'?'active':''}" data-stock-control-mode="lots" role="tab" aria-selected="${stockControlMode==='lots'}">ปรับจำนวนแยกตาม LOT</button>`:''}
     </div><div class="stock-control-content">${content}</div></div>`;
 }
 
@@ -9311,6 +9483,22 @@ function attachEvents(){
   if(currentTab==='mobiletools') prepareMobileScanSound();
   document.querySelectorAll('[data-stock-control-mode]').forEach(button=>button.addEventListener('click',()=>{
     stockControlMode=button.dataset.stockControlMode;
+    render();
+  }));
+  const stockLotSearchInput=document.getElementById('stockLotReallocationSearch');
+  if(stockLotSearchInput) stockLotSearchInput.addEventListener('input',()=>{
+    stockLotReallocationSearch=stockLotSearchInput.value;
+    stockLotReallocationPage=1;
+    render();
+    const next=document.getElementById('stockLotReallocationSearch');
+    if(next){ next.focus(); next.setSelectionRange(next.value.length,next.value.length); }
+  });
+  document.querySelectorAll('[data-stock-lot-reallocation]').forEach(button=>button.addEventListener('click',()=>openStockLotReallocation(button.dataset.stockLotReallocation)));
+  document.querySelectorAll('[data-stock-lot-page]').forEach(button=>button.addEventListener('click',()=>{
+    const value=button.dataset.stockLotPage;
+    if(value==='prev') stockLotReallocationPage=Math.max(1,stockLotReallocationPage-1);
+    else if(value==='next') stockLotReallocationPage++;
+    else stockLotReallocationPage=Number(value)||1;
     render();
   }));
   document.querySelectorAll('[data-stock-control-review]').forEach(button=>button.addEventListener('click',()=>stockControlOpenAdjustmentForProduct(button.dataset.stockControlReview)));
