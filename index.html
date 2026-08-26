@@ -1331,8 +1331,7 @@
   .mobile-price-edit-field label{display:block;font-size:11px;color:var(--text-muted);margin:0 0 4px 3px;}
   .mobile-price-edit-input{width:100%;height:46px;border:1px solid var(--border);border-radius:10px;background:#fff;padding:0 11px;font:700 15px 'Sarabun',sans-serif;text-align:center;outline:none;}
   .mobile-price-edit-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px #2091D21A;}
-  .mobile-price-edit-field.stock{grid-column:1/-1;}
-  .mobile-price-edit-field.stock .mobile-price-edit-input{border-color:#79C5EE;background:#F2FAFE;color:var(--primary-dark);}
+  .mobile-price-stock-readonly{margin-bottom:8px;}
   .mobile-price-lot-field{grid-column:1/-1;text-align:left;}
   .mobile-price-lot-field label{display:block;font-size:11px;color:var(--text-muted);margin:0 0 4px 3px;}
   .mobile-price-lot-select{width:100%;height:46px;border:1px solid #E6B24A;border-radius:10px;background:#FFF9ED;padding:0 10px;font:600 13px 'Sarabun',sans-serif;outline:none;}
@@ -6276,8 +6275,6 @@ function mobilePriceEditPayload(product,unitName,values,warehouseId,lotId=null){
     if(!Number.isFinite(number)||(!allowNegative&&number<0)) return {error:`${label}ไม่ถูกต้อง`};
     return {value:number};
   };
-  const stockValue=readNumber(values?.stock,'คงเหลือ',{allowNegative:true});
-  if(stockValue.error) return stockValue;
   const priceValue=readNumber(values?.price,'ราคาขาย');
   if(priceValue.error) return priceValue;
   const costValue=readNumber(values?.cost,'ทุน');
@@ -6301,9 +6298,6 @@ function mobilePriceEditPayload(product,unitName,values,warehouseId,lotId=null){
     warehouseId:Number(warehouseId)||0,
     lotId:Number(lotId)||null,
     unitName:selected.name,
-    factor:Number(selected.factor)||1,
-    unitStock:stockValue.value,
-    stock:stockBaseFromUnitAmount(stockValue.value,selected.factor||1),
     price:priceValue.value,
     cost:costValue.value,
     expiry
@@ -6335,8 +6329,7 @@ function mobilePriceResultHtml(){
   return `<article class="mobile-result-card">
     <div class="mobile-result-name">${escapeHtml(product.name)}</div>
     ${options.length>1?`<select class="mobile-unit-select" id="mobilePriceUnit">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>หน่วย: ${escapeHtml(option.name)}</option>`).join('')}</select>`:`<div class="mobile-unit-select" style="display:flex;align-items:center;">หน่วย: ${escapeHtml(selected?.name||product.unit)}</div>`}
-    ${canEdit?`<div class="mobile-price-edit-grid">
-      <div class="mobile-price-edit-field stock"><label for="mobilePriceEditStock">คงเหลือ (${escapeHtml(selected?.name||product.unit)})</label><input id="mobilePriceEditStock" class="mobile-price-edit-input" type="number" step="any" inputmode="decimal" value="${selectedStock}"></div>
+    ${canEdit?`<div class="mobile-price-stock-readonly mobile-metric primary"><span>คงเหลือ</span><b id="mobilePriceStock">${inspectionListAmount(selectedStock)} ${escapeHtml(selected?.name||product.unit)}</b></div><div class="mobile-price-edit-grid">
       <div class="mobile-price-edit-field"><label for="mobilePriceEditSale">ราคาขาย</label><input id="mobilePriceEditSale" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.price)||0}"></div>
       <div class="mobile-price-edit-field"><label for="mobilePriceEditCost">ทุน</label><input id="mobilePriceEditCost" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.cost)||0}"></div>
       <div class="mobile-price-lot-field"><label for="mobilePriceLot">Lot ที่ต้องการแก้วันหมดอายุ</label><select id="mobilePriceLot" class="mobile-price-lot-select" ${editableLots.length?'':'disabled'}><option value="">${editableLots.length>1?'เลือก Lot ให้ชัดเจน':'ไม่มี Lot ที่มีสินค้า'}</option>${editableLots.map(lot=>`<option value="${lot.id}" ${Number(lot.id)===Number(selectedLot?.id)?'selected':''}>Lot ${escapeHtml(lot.manufacturer_lot||lot.internal_code||lot.id)} · ${escapeHtml(lotQuantityText(product,lot))} · ${escapeHtml(lot.expiry_date?fmtDateShort(lot.expiry_date):'ไม่ระบุวันหมดอายุ')}</option>`).join('')}</select></div>
@@ -6359,7 +6352,6 @@ async function saveMobilePriceChanges(){
   if(!mobileRequireOnline('บันทึกการแก้ไข')) return false;
   const product=products.find(entry=>Number(entry.id)===Number(mobilePriceProductId));
   const payload=mobilePriceEditPayload(product,mobilePriceUnitName,{
-    stock:document.getElementById('mobilePriceEditStock')?.value,
     price:document.getElementById('mobilePriceEditSale')?.value,
     cost:document.getElementById('mobilePriceEditCost')?.value,
     expiry:document.getElementById('mobilePriceEditExpiry')?.value
@@ -6371,14 +6363,13 @@ async function saveMobilePriceChanges(){
   setMobileDataStatus('saving');
   try{
     const metadata=productMetadataToRow(payload.product);
-    const {data,error}=await sb.rpc('owner_update_mobile_product_lot',{
+    const {data,error}=await sb.rpc('owner_update_mobile_product_details',{
       p_product_id:Number(product.id),
       p_warehouse_id:payload.warehouseId,
       p_lot_id:payload.lotId,
       p_product_data:metadata.data,
       p_price:Number(metadata.price)||0,
       p_cost:Number(metadata.cost)||0,
-      p_stock:payload.stock,
       p_expiry:payload.expiry||null
     });
     if(error) throw error;
@@ -9011,13 +9002,11 @@ function attachMobilePriceResultEvents(){
     const stockElement=document.getElementById('mobilePriceStock');
     const saleElement=document.getElementById('mobilePriceSale');
     const costElement=document.getElementById('mobilePriceCost');
-    const editStock=document.getElementById('mobilePriceEditStock');
     const editSale=document.getElementById('mobilePriceEditSale');
     const editCost=document.getElementById('mobilePriceEditCost');
     if(stockElement) stockElement.textContent=`${inspectionListAmount(selectedStock)} ${selected.name||product.unit}`;
     if(saleElement) saleElement.textContent=`${fmtMoney(selected.price||0)} บาท`;
     if(costElement) costElement.textContent=`${fmtMoney(selected.cost||0)} บาท`;
-    if(editStock){ editStock.value=selectedStock; editStock.previousElementSibling.textContent=`คงเหลือ (${selected.name||product.unit})`; }
     if(editSale) editSale.value=Number(selected.price)||0;
     if(editCost) editCost.value=Number(selected.cost)||0;
   });
