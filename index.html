@@ -1301,9 +1301,16 @@
   .mobile-install-notice-text b{display:block;font-size:13.5px;color:#7E5510;margin-bottom:2px;}
   .mobile-install-notice-text span{display:block;font-size:11.5px;color:#8B6B32;line-height:1.35;}
   .mobile-install-btn{border:0;border-radius:10px;background:var(--primary);color:#fff;padding:10px 12px;font:600 13px 'Sarabun',sans-serif;cursor:pointer;white-space:nowrap;flex-shrink:0;}
-  .mobile-tools-tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;background:#E9EEF3;border-radius:14px;padding:5px;margin-bottom:16px;position:sticky;top:0;z-index:7;}
+  .mobile-tools-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;background:#E9EEF3;border-radius:14px;padding:5px;margin-bottom:16px;position:sticky;top:0;z-index:7;}
   .mobile-tools-tab{min-height:50px;border:0;border-radius:10px;background:transparent;color:var(--text-muted);font:600 15px 'Sarabun',sans-serif;cursor:pointer;}
   .mobile-tools-tab.active{background:#fff;color:var(--primary);box-shadow:0 2px 8px #1D212914;}
+  .mobile-inventory-workflow{display:grid;gap:12px;}
+  .mobile-inventory-steps{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:5px;border:1px solid #DCE5EC;border-radius:13px;background:#F1F5F8;}
+  .mobile-inventory-step{min-height:46px;border:0;border-radius:9px;background:transparent;color:var(--text-muted);font:600 13px 'Sarabun',sans-serif;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;}
+  .mobile-inventory-step.active{background:#fff;color:var(--primary);box-shadow:0 2px 7px #1D212912;}
+  .mobile-inventory-step-number{width:23px;height:23px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;background:#DCE4EA;color:#6B7782;font-size:12px;font-weight:700;}
+  .mobile-inventory-step.active .mobile-inventory-step-number{background:var(--primary);color:#fff;}
+  .mobile-inspection-next{width:100%;height:50px;margin-top:12px;border:0;border-radius:11px;background:var(--primary);color:#fff;font:700 15px 'Sarabun',sans-serif;cursor:pointer;box-shadow:0 5px 18px #166D9F26;}
   .mobile-tool-panel{background:#fff;border:1px solid var(--border);border-radius:16px;padding:16px;}
   .mobile-tool-title{font-size:18px;font-weight:700;margin:0 0 3px;}
   .mobile-tool-sub{font-size:12.5px;color:var(--text-muted);margin-bottom:14px;}
@@ -2978,8 +2985,9 @@ let inspectionListOverviewSort = { key:'updatedAt', dir:-1 };
 let inspectionListOverviewSelectedIds = new Set();
 let inspectionListCounter = 1;
 const INSPECTION_LIST_PAGE_SIZE = 7;
-// โหมดมือถือ/เครื่องยิงบาร์โค้ดแบบมีจอ แสดงเฉพาะเช็คราคาและรายการตรวจสินค้า
+// โหมดมือถือ/เครื่องยิงบาร์โค้ดแบบมีจอ แสดงเช็คราคาและขั้นตอนตรวจ/แก้ไขสต๊อก
 let mobileToolMode = 'price';
+let mobileInventoryStep = 'inspection';
 let mobilePriceQuery = '';
 let mobilePriceProductId = null;
 let mobilePriceUnitName = '';
@@ -6516,7 +6524,8 @@ function renderMobileInspectionPanel(lists){
   if(mobileInspectionCreating) return mobileInspectionDraftHtml();
   const current=mobileInspectionCurrentList();
   const opened=current&&String(mobileInspectionOpenedListId)===String(current.id);
-  return `<section class="mobile-tool-panel"><button type="button" class="mobile-inspection-create-btn" id="mobileNewInspectionList">+ สร้างรายการตรวจสินค้า</button>${lists.length?`<div class="mobile-inspection-saved-label">รายการที่บันทึกไว้</div><select id="mobileInspectionList" class="mobile-inspection-select">${lists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(current?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})${list.stockAdjustedAt?' · แก้ไขจำนวนเรียบร้อย':''}</option>`).join('')}</select><div class="mobile-inspection-actions"><button type="button" class="mobile-inspection-action mobile-inspection-open" id="mobileOpenInspectionList">เปิดรายการ</button><button type="button" class="mobile-inspection-action mobile-inspection-delete" id="mobileDeleteInspectionList" ${mobileIsOnline()?'':'disabled'}>ลบบันทึก</button></div>${current?.stockAdjustedAt?'<div class="mobile-inspection-complete">✓ แก้ไขจำนวนเรียบร้อย</div>':''}${opened?`<div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div>`:'<div class="mobile-empty">เลือกรายการแล้วกด “เปิดรายการ” เพื่อเริ่มตรวจสินค้า</div>'}`:'<div class="mobile-empty">ยังไม่มีรายการที่บันทึกไว้ กด “สร้างรายการตรวจสินค้า” เพื่อเริ่มยิงสินค้า</div>'}</section>`;
+  const progress=opened?mobileInspectionProgress(current):{checked:0,total:0};
+  return `<section class="mobile-tool-panel"><button type="button" class="mobile-inspection-create-btn" id="mobileNewInspectionList">+ สร้างรายการตรวจสินค้า</button>${lists.length?`<div class="mobile-inspection-saved-label">รายการที่บันทึกไว้</div><select id="mobileInspectionList" class="mobile-inspection-select">${lists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(current?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})${list.stockAdjustedAt?' · แก้ไขจำนวนเรียบร้อย':''}</option>`).join('')}</select><div class="mobile-inspection-actions"><button type="button" class="mobile-inspection-action mobile-inspection-open" id="mobileOpenInspectionList">เปิดรายการ</button><button type="button" class="mobile-inspection-action mobile-inspection-delete" id="mobileDeleteInspectionList" ${mobileIsOnline()?'':'disabled'}>ลบบันทึก</button></div>${current?.stockAdjustedAt?'<div class="mobile-inspection-complete">✓ แก้ไขจำนวนเรียบร้อย</div>':''}${opened?`<div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div><button type="button" class="mobile-inspection-next" id="mobileContinueToStock">สรุปและแก้ไขสต๊อก (${progress.total})</button>`:'<div class="mobile-empty">เลือกรายการแล้วกด “เปิดรายการ” เพื่อเริ่มตรวจสินค้า</div>'}`:'<div class="mobile-empty">ยังไม่มีรายการที่บันทึกไว้ กด “สร้างรายการตรวจสินค้า” เพื่อเริ่มยิงสินค้า</div>'}</section>`;
 }
 function addProductToMobileInspectionDraft(product,unitName=''){
   if(!product||!inspectionListDraft) return false;
@@ -6710,6 +6719,7 @@ async function confirmMobileStockEditChanges(){
   mobileStockSourceListId='';
   mobileStockQuery='';
   mobileStockLastProductId=null;
+  mobileInventoryStep='inspection';
   render();
   return true;
 }
@@ -6744,13 +6754,17 @@ async function refreshMobileToolsData(button,options={}){
 function renderMobileTools(){
   const user=loggedInUser();
   const mobileStatus=mobileDataStatusDetails();
+  if(mobileToolMode==='inspection'||mobileToolMode==='stock'){
+    mobileInventoryStep=mobileToolMode==='stock'?'stock':'inspection';
+    mobileToolMode='inventory';
+  }
   // Mobile only shows lists still waiting for a stock adjustment. Completed
   // records remain untouched in `inspectionLists`, so desktop history is kept.
   const lists=[...mobileInspectionVisibleLists()].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
   return `<main class="mobile-tools-page">
     ${mobileInstallNoticeHtml()}
-    <nav class="mobile-tools-tabs" aria-label="เมนูมือถือ"><button type="button" class="mobile-tools-tab ${mobileToolMode==='price'?'active':''}" data-mobile-tool="price">เช็คราคา</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='inspection'?'active':''}" data-mobile-tool="inspection">ตรวจสินค้า</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='stock'?'active':''}" data-mobile-tool="stock">แก้ไขสต๊อก</button></nav>
-    ${mobileToolMode==='price'?`<section class="mobile-tool-panel"><div class="mobile-scan-row"><input id="mobilePriceInput" class="mobile-scan-input" value="${escapeHtml(mobilePriceQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobilePriceCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-camera-slot" id="mobilePriceCameraSlot"></div><div id="mobilePriceResult">${mobilePriceResultHtml()}</div></section>`:mobileToolMode==='inspection'?renderMobileInspectionPanel(lists):renderMobileStockEditPanel(lists)}
+    <nav class="mobile-tools-tabs" aria-label="เมนูมือถือ"><button type="button" class="mobile-tools-tab ${mobileToolMode==='price'?'active':''}" data-mobile-tool="price">เช็คราคา</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='inventory'?'active':''}" data-mobile-tool="inventory">ตรวจและแก้ไขสต๊อก</button></nav>
+    ${mobileToolMode==='price'?`<section class="mobile-tool-panel"><div class="mobile-scan-row"><input id="mobilePriceInput" class="mobile-scan-input" value="${escapeHtml(mobilePriceQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobilePriceCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-camera-slot" id="mobilePriceCameraSlot"></div><div id="mobilePriceResult">${mobilePriceResultHtml()}</div></section>`:`<div class="mobile-inventory-workflow"><div class="mobile-inventory-steps" role="tablist" aria-label="ขั้นตอนตรวจและแก้ไขสต๊อก"><button type="button" class="mobile-inventory-step ${mobileInventoryStep==='inspection'?'active':''}" data-mobile-inventory-step="inspection" role="tab" aria-selected="${mobileInventoryStep==='inspection'}"><span class="mobile-inventory-step-number">1</span><span>ตรวจนับ</span></button><button type="button" class="mobile-inventory-step ${mobileInventoryStep==='stock'?'active':''}" data-mobile-inventory-step="stock" role="tab" aria-selected="${mobileInventoryStep==='stock'}"><span class="mobile-inventory-step-number">2</span><span>สรุปและยืนยัน</span></button></div>${mobileInventoryStep==='inspection'?renderMobileInspectionPanel(lists):renderMobileStockEditPanel(lists)}</div>`}
     <header class="mobile-tools-head"><div class="mobile-tools-actions"><button type="button" class="mobile-tools-logout" id="mobileToolsLogout">ออกจากระบบ</button><button type="button" class="mobile-tools-refresh" id="mobileToolsRefresh" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล" ${mobileIsOnline()?'':'disabled'}><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg></button></div><div class="mobile-tools-brand"><div><h1>PEPOS</h1><span>${escapeHtml(user?.firstName||user?.username||'ผู้ใช้งาน')}</span><span class="mobile-tools-context" id="mobileDataStatus" data-state="${mobileStatus.state}" aria-live="polite">${escapeHtml(mobileStatus.text)}</span></div><div class="mobile-tools-logo">Rx</div></div></header>
   </main>`;
 }
@@ -9216,6 +9230,12 @@ function attachEvents(){
     mobileStockQuery=''; mobileStockLastProductId=null;
     render();
   }));
+  document.querySelectorAll('[data-mobile-inventory-step]').forEach(button=>button.addEventListener('click',()=>{
+    mobileInventoryStep=button.dataset.mobileInventoryStep==='stock'?'stock':'inspection';
+    mobileInspectionQuery=''; mobileInspectionLastProductId=null; mobileInspectionVisibleCount=25;
+    mobileStockQuery=''; mobileStockLastProductId=null;
+    render();
+  }));
   const mobilePriceInput=document.getElementById('mobilePriceInput');
   if(mobilePriceInput){
     mobilePriceInput.addEventListener('input',()=>{
@@ -9297,6 +9317,18 @@ function attachEvents(){
     mobileInspectionLastProductId=null; mobileInspectionQuery=''; render();
   });
   document.getElementById('mobileLoadMore')?.addEventListener('click',()=>{ mobileInspectionVisibleCount+=25; render(); });
+  document.getElementById('mobileContinueToStock')?.addEventListener('click',()=>{
+    const list=mobileInspectionCurrentList();
+    if(!list) return;
+    const progress=mobileInspectionProgress(list);
+    if(progress.total&&progress.checked<progress.total&&!confirm(`ตรวจแล้ว ${progress.checked} จาก ${progress.total} รายการ ต้องการไปสรุปและแก้ไขสต๊อกตอนนี้หรือไม่?`)) return;
+    mobileInventoryStep='stock';
+    mobileStockSourceListId=list.id;
+    if(!stockEditImportInspectionList(list.id,true)){
+      mobileInventoryStep='inspection';
+      render();
+    }
+  });
   const mobileStockSourceList=document.getElementById('mobileStockSourceList');
   if(mobileStockSourceList) mobileStockSourceList.addEventListener('change',()=>{ mobileStockSourceListId=mobileStockSourceList.value; });
   document.getElementById('mobileStockImport')?.addEventListener('click',()=>{
