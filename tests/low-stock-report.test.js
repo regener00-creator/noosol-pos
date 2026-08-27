@@ -65,6 +65,7 @@ assert.match(html,/data-lowstock-mode="out"/,'ต้องมีก้อนส�
 assert.match(html,/data-lowstock-mode="negative"/,'ต้องมีก้อนสินค้าติดลบ');
 assert.match(html,/LOW_STOCK_FILTER_STORAGE_KEY/,'ต้องจำเกณฑ์ที่กรอกไว้ในอุปกรณ์');
 assert.match(html,/low-stock-summary-stack[\s\S]*lowStockWarehouseFilter[\s\S]*data-lowstock-mode="negative"/,'ตัวเลือกคลังต้องอยู่เหนือก้อนสินค้าติดลบ');
+assert.match(html,/\.low-stock-filter-field select\{[^}]*appearance:none/,'ตัวเลือกคลังต้องใช้รูปแบบเฉพาะของหน้ารายงาน ไม่ใช้ select แบบดั้งเดิม');
 assert.match(html,/data-lowstock-unit="\$\{row\.productId\}"/,'ต้องเลือกหน่วยแสดงผลรายสินค้าได้');
 assert.doesNotMatch(html,/data-lowstock-threshold=/,'หน้ารายงานต้องไม่มีช่องแก้จุดสั่งซื้อขั้นต่ำ');
 assert.doesNotMatch(html,/id="createLowStockOrderBtn"/,'หน้ารายงานต้องไม่สร้างรายการสั่งของขาด');
