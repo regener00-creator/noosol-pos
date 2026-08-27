@@ -68,6 +68,10 @@ assert.match(html, /groupInventoryLotDetailRows\(lotRows\)/, 'รายงาน
 assert.match(html, /id="expiryWarehouseFilter"/, 'หน้ารายงานต้องเลือกคลังได้');
 assert.match(html, /data-expiry-mode="expired"/, 'ต้องกรองเฉพาะสินค้าหมดอายุแล้วได้');
 assert.match(html, /data-expiry-mode="near"/, 'ต้องกรองเฉพาะสินค้าใกล้หมดอายุได้');
+assert.match(html, /data-expiry-summary-mode="expired"/, 'ก้อนสรุปหมดอายุแล้วต้องกดกรองตารางได้');
+assert.match(html, /data-expiry-summary-days="30"/, 'ก้อนสรุป 30 วันต้องกดกรองตารางได้');
+assert.match(html, /data-expiry-summary-days="90"/, 'ก้อนสรุป 90 วันต้องกดกรองตารางได้');
+assert.match(html, /querySelectorAll\('\[data-expiry-summary-mode\]'\)/, 'ต้องผูกการทำงานให้ก้อนสรุปวันหมดอายุ');
 assert.match(html, /lowTh\('expiry','lot','เลข LOT'\)/);
 assert.match(html, /lowTh\('expiry','quantity','คงเหลือ',true\)/);
 assert.match(html, /data-product-lots="\$\{row\.productId\}"/, 'แต่ละแถวต้องเปิดดูรายละเอียด LOT ได้');

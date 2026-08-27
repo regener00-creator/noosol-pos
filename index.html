@@ -486,7 +486,9 @@
   .expiry-report-title h1{font-size:25px;margin:0 0 4px;}
   .expiry-report-title p{margin:0;color:var(--text-muted);font-size:13px;}
   .expiry-report-summary{display:grid;grid-template-columns:repeat(3,minmax(170px,1fr));gap:12px;}
-  .expiry-summary-card{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .expiry-summary-card{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;font-family:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s;}
+  .expiry-summary-card:hover{transform:translateY(-1px);border-color:#A8CEE4;box-shadow:0 6px 16px rgba(32,145,210,.10);}
+  .expiry-summary-card.active{border-color:var(--primary);box-shadow:0 0 0 2px #2091D21F inset,0 6px 16px rgba(32,145,210,.10);}
   .expiry-summary-card span{color:var(--text-muted);font-size:13px;}
   .expiry-summary-card b{font-size:24px;color:var(--primary);}
   .expiry-summary-card.expired{background:var(--danger-soft);border-color:#F1C7C3;}
@@ -8403,7 +8405,7 @@ function renderExpiry(){
 
   return `<div class="lowstock-section expiry-report-page">
     <div class="expiry-report-head"><div class="expiry-report-title"><h1>สินค้าใกล้หมดอายุ</h1><p>แสดงแยกตาม LOT และคลังสินค้า เพื่อวางแผนขาย คืนสินค้า หรือตัดจำหน่ายได้ถูกต้อง</p></div><button class="btn primary" id="printExpiryBtn">พิมพ์รายงาน</button></div>
-    <div class="expiry-report-summary"><div class="expiry-summary-card expired"><span>หมดอายุแล้ว</span><b>${expiredCount}</b></div><div class="expiry-summary-card urgent"><span>ใกล้หมดอายุภายใน 30 วัน</span><b>${within30Count}</b></div><div class="expiry-summary-card"><span>ใกล้หมดอายุภายใน 90 วัน</span><b>${within90Count}</b></div></div>
+    <div class="expiry-report-summary"><button type="button" class="expiry-summary-card expired ${lowStockPageFilter.expiryMode==='expired'?'active':''}" data-expiry-summary-mode="expired" aria-label="แสดงสินค้าที่หมดอายุแล้ว"><span>หมดอายุแล้ว</span><b>${expiredCount}</b></button><button type="button" class="expiry-summary-card urgent ${lowStockPageFilter.expiryMode==='near'&&expDays===30?'active':''}" data-expiry-summary-mode="near" data-expiry-summary-days="30" aria-label="แสดงสินค้าใกล้หมดอายุภายใน 30 วัน"><span>ใกล้หมดอายุภายใน 30 วัน</span><b>${within30Count}</b></button><button type="button" class="expiry-summary-card ${lowStockPageFilter.expiryMode==='near'&&expDays===90?'active':''}" data-expiry-summary-mode="near" data-expiry-summary-days="90" aria-label="แสดงสินค้าใกล้หมดอายุภายใน 90 วัน"><span>ใกล้หมดอายุภายใน 90 วัน</span><b>${within90Count}</b></button></div>
     <div class="expiry-report-controls">
       <select id="expiryWarehouseFilter" aria-label="เลือกคลังสินค้า"><option value="context" ${lowStockPageFilter.expiryWarehouse==='context'?'selected':''}>ตาม TOPBAR: ${escapeHtml(contextLabel)}</option><option value="all" ${lowStockPageFilter.expiryWarehouse==='all'?'selected':''}>ทุกคลัง</option>${warehouseOptions}</select>
       <div class="chip-group"><span class="chip-group-label">สถานะ</span><button class="filter-chip ${lowStockPageFilter.expiryMode==='all'?'active':''}" data-expiry-mode="all">ทั้งหมดในช่วง</button><button class="filter-chip ${lowStockPageFilter.expiryMode==='expired'?'active':''}" data-expiry-mode="expired">หมดอายุแล้ว</button><button class="filter-chip ${lowStockPageFilter.expiryMode==='near'?'active':''}" data-expiry-mode="near">ใกล้หมดอายุ</button></div>
@@ -11526,6 +11528,14 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   document.querySelectorAll('[data-expiry-mode]').forEach(el=>{
     el.addEventListener('click',()=>{ lowStockPageFilter.expiryMode=el.dataset.expiryMode||'all'; lowStockPageFilter.expiryPage=1; render(); });
+  });
+  document.querySelectorAll('[data-expiry-summary-mode]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      lowStockPageFilter.expiryMode=el.dataset.expirySummaryMode||'all';
+      if(el.dataset.expirySummaryDays) lowStockPageFilter.expiryDays=Number(el.dataset.expirySummaryDays);
+      lowStockPageFilter.expiryPage=1;
+      render();
+    });
   });
   const expiryWarehouseFilter=document.getElementById('expiryWarehouseFilter');
   if(expiryWarehouseFilter) expiryWarehouseFilter.addEventListener('change',()=>{ lowStockPageFilter.expiryWarehouse=expiryWarehouseFilter.value||'context'; lowStockPageFilter.expiryPage=1; render(); });
