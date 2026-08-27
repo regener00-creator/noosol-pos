@@ -485,18 +485,18 @@
   .expiry-report-title h1{font-size:25px;margin:0 0 4px;}
   .expiry-report-title p{margin:0;color:var(--text-muted);font-size:13px;}
   .expiry-report-summary{display:grid;grid-template-columns:repeat(3,minmax(170px,1fr));align-items:stretch;gap:12px;}
-  .expiry-summary-card{border:1px solid var(--border);border-radius:14px;background:var(--surface);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;font-family:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s;}
+  .expiry-summary-card{min-height:84px;border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:15px 17px;display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;font-family:inherit;text-align:left;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .15s;}
   .expiry-summary-card:hover{transform:translateY(-1px);border-color:#A8CEE4;box-shadow:0 6px 16px rgba(32,145,210,.10);}
   .expiry-summary-card.active{border-color:var(--primary);box-shadow:0 0 0 2px #2091D21F inset,0 6px 16px rgba(32,145,210,.10);}
-  .expiry-summary-card span{color:var(--text-muted);font-size:13px;}
-  .expiry-summary-card b{font-size:24px;color:var(--primary);}
+  .expiry-summary-card span{color:var(--text-muted);font-size:14px;font-weight:700;}
+  .expiry-summary-card b{min-width:38px;font-size:26px;line-height:1;text-align:center;color:var(--primary);}
   .expiry-summary-card.expired{background:var(--danger-soft);border-color:#F1C7C3;}
   .expiry-summary-card.expired b{color:var(--danger);}
   .expiry-summary-card.urgent{background:var(--accent-soft);border-color:#F0D9AE;}
   .expiry-summary-card.urgent b{color:#A66A00;}
-  .expiry-near-card{border:1px solid #F0D9AE;border-radius:14px;background:var(--accent-soft);display:flex;align-items:stretch;min-width:0;transition:border-color .15s,box-shadow .15s;}
+  .expiry-near-card{min-height:84px;border:1px solid #F0D9AE;border-radius:16px;background:var(--accent-soft);display:flex;align-items:stretch;min-width:0;transition:border-color .15s,box-shadow .15s;}
   .expiry-near-card.active{border-color:var(--accent);box-shadow:0 0 0 2px #E2A54224 inset,0 6px 16px rgba(166,106,0,.09);}
-  .expiry-near-card .expiry-summary-card{border:0;border-radius:13px 0 0 13px;background:transparent;box-shadow:none;flex:1;min-width:0;}
+  .expiry-near-card .expiry-summary-card{border:0;border-radius:15px 0 0 15px;background:transparent;box-shadow:none;flex:1;min-width:0;}
   .expiry-near-card .expiry-summary-card:hover{transform:none;box-shadow:none;}
   .expiry-days-field{display:flex;align-items:center;gap:7px;padding:10px 14px;border-left:1px solid #F0D9AE;white-space:nowrap;cursor:text;}
   .expiry-days-field span{color:#8A5A10;font-size:12px;font-weight:600;}
