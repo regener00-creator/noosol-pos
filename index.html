@@ -2600,6 +2600,24 @@ function fmtFavoritePrice(n){
   return (Number.isFinite(amount)?amount:0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
 }
 function escapeHtml(value){ return String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+function standardizePrintPreview(win){
+  const doc=win?.document; if(!doc) return;
+  const printButton=[...doc.querySelectorAll('button')].find(button=>String(button.getAttribute('onclick')||'').includes('window.print'));
+  const topbar=printButton?.closest('.toolbar,.screenbar,.bar,.tools'); if(!topbar) return;
+  topbar.classList.add('print-preview-topbar');
+  Object.assign(topbar.style,{position:'sticky',top:'0',zIndex:'99',width:'100%',minHeight:'58px',boxSizing:'border-box',display:'flex',justifyContent:'flex-end',alignItems:'center',gap:'8px',padding:'10px 18px',background:'#fff',boxShadow:'0 2px 8px #0002',textAlign:'right'});
+  topbar.replaceChildren();
+  const backButton=doc.createElement('button');
+  backButton.type='button'; backButton.textContent='ย้อนกลับ'; backButton.onclick=()=>win.close();
+  Object.assign(backButton.style,{border:'1px solid #d7dee5',borderRadius:'7px',background:'#fff',color:'#667085',padding:'9px 18px',font:'600 14px Sarabun, Tahoma, sans-serif',cursor:'pointer'});
+  const newPrintButton=doc.createElement('button');
+  newPrintButton.type='button'; newPrintButton.textContent='พิมพ์'; newPrintButton.onclick=()=>win.print();
+  Object.assign(newPrintButton.style,{border:'1px solid #2091D2',borderRadius:'7px',background:'#2091D2',color:'#fff',padding:'9px 18px',font:'600 14px Sarabun, Tahoma, sans-serif',cursor:'pointer'});
+  topbar.append(backButton,newPrintButton);
+  const printStyle=doc.createElement('style');
+  printStyle.textContent='@media print{.print-preview-topbar{display:none!important}}';
+  doc.head.appendChild(printStyle);
+}
 // ---------- ช่องเลือกวันที่แบบ วัน/เดือน/ปี (dd/mm/yyyy) พร้อมปฏิทินช่วยเลือก ----------
 function isoToDMY(iso){ if(!iso) return ''; const parts=String(iso).split('-'); if(parts.length!==3) return ''; const [y,m,d]=parts; return `${d}/${m}/${y}`; }
 function dmyToISO(dmy){
@@ -4180,7 +4198,7 @@ function printCashShiftSummary(shiftId){
   const summary=cashShiftEffectiveSummary(shift),payments=Object.entries(summary.payments||{}).map(([name,row])=>`<div><span>${escapeHtml(name)}</span><b>${fmtMoney((Number(row.sales)||0)-(Number(row.refunds)||0))}</b></div>`).join('');
   const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างสรุปกะ','danger-top'); return; }
   win.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>สรุปกะ ${escapeHtml(shift.shiftNo)}</title><style>@page{size:80mm auto;margin:0}*{box-sizing:border-box}body{font:12px Tahoma,sans-serif;margin:0;background:#eee}.tools{padding:10px;background:#fff;text-align:center}.tools button{padding:8px 18px}.paper{width:80mm;margin:10px auto;background:#fff;padding:9mm 7mm}.center{text-align:center}.line{border-top:1px dashed #555;margin:10px 0}.row,.payments div{display:flex;justify-content:space-between;gap:10px;padding:4px 0}.big{font-size:16px;font-weight:bold}.variance{font-size:16px;font-weight:bold;color:${Number(shift.variance)<0?'#b42318':'#187a36'}}.note{white-space:pre-wrap}@media print{body{background:#fff}.tools{display:none}.paper{margin:0}}</style></head><body><div class="tools"><button onclick="window.print()">พิมพ์</button></div><main class="paper"><div class="center"><h2>${escapeHtml(businessSettings.name||'PEPOS')}</h2><b>สรุปเปิดกะ–ปิดกะ</b><p>${escapeHtml(activeWarehouse()?.name||'')}</p></div><div class="line"></div><div class="row"><span>เลขกะ</span><b>${escapeHtml(shift.shiftNo)}</b></div><div class="row"><span>พนักงาน</span><b>${escapeHtml(shift.openedByName)}</b></div><div class="row"><span>เปิด</span><b>${cashShiftDateTime(shift.openedAt)}</b></div><div class="row"><span>ปิด</span><b>${cashShiftDateTime(shift.closedAt)}</b></div><div class="line"></div><div class="row"><span>เงินทอนตั้งต้น</span><b>${fmtMoney(shift.openingCash)}</b></div><div class="payments">${payments||'<div><span>ไม่มีรายการขาย</span><b>0.00</b></div>'}</div><div class="row"><span>ยอดขายสุทธิ</span><b>${fmtMoney(summary.netSales)}</b></div><div class="line"></div><div class="row big"><span>เงินสดตามระบบ</span><b>${fmtMoney(summary.expectedCash)}</b></div><div class="row"><span>เงินสดที่นับจริง</span><b>${fmtMoney(shift.countedCash)}</b></div><div class="row variance"><span>ขาด/เกิน</span><b>${Number(shift.variance)>0?'+':''}${fmtMoney(shift.variance)}</b></div>${shift.closeReason?`<div class="line"></div><div>เหตุผล</div><p class="note">${escapeHtml(shift.closeReason)}</p>`:''}<div class="line"></div><div class="center">ผู้ปิดกะ ${escapeHtml(shift.closedByName||'-')}</div></main></body></html>`);
-  win.document.close(); setTimeout(()=>win.print(),300);
+  win.document.close(); standardizePrintPreview(win); setTimeout(()=>win.print(),300);
 }
 
 function renderCheckout(){
@@ -7913,6 +7931,7 @@ function writeBarcodePrintWindow(printWindow,items=barcodePrintItems,labelSize=b
   printWindow.document.open();
   printWindow.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>พิมพ์${labelType==='promotion'?'ป้ายโปรโมชั่น':'ป้ายราคา'} ${labels.length} ดวง</title><style>@page{size:${width}mm ${height}mm;margin:0}*{box-sizing:border-box}body{margin:0;background:#e9edf0;color:#111;font-family:Tahoma,'Sarabun',sans-serif}.toolbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#fff;box-shadow:0 2px 8px #0002;font-size:13px}.toolbar button{border:0;border-radius:7px;background:#2091D2;color:#fff;padding:8px 16px;font:600 13px Tahoma;cursor:pointer}.label{width:${width}mm;height:${height}mm;margin:10px auto;padding:${compact?'1.6':'2'}mm ${compact?'2':'2.5'}mm ${compact?'1.3':'1.6'}mm;background:#fff;display:flex;flex-direction:column;justify-content:flex-start;overflow:hidden;page-break-after:always;break-after:page}.label:last-child{page-break-after:auto;break-after:auto}.label-head{height:${compact?'6.4':'8'}mm;display:flex;align-items:flex-start;gap:1.5mm;overflow:hidden}.name{flex:1;min-width:0;max-height:100%;overflow:hidden;font-size:${compact?'7.8':'9.5'}pt;font-weight:700;line-height:1.12}.sku{flex:0 0 auto;max-width:16mm;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right;font:${compact?'6.2':'7'}pt monospace;color:#4b5563}.price-row{height:${compact?'8':'11'}mm;display:flex;align-items:center;justify-content:space-between;gap:2mm;white-space:nowrap}.unit{font-size:${compact?'7':'8.5'}pt;color:#374151;overflow:hidden;text-overflow:ellipsis}.price{font-size:${compact?'16':'23'}pt;font-weight:800;line-height:1;letter-spacing:-.6px}.price span{font-size:.5em;margin-right:.6mm;vertical-align:.35em}.barcode{height:${compact?'8':'12'}mm;display:flex;align-items:center;justify-content:center;overflow:hidden}.barcode-label-svg{display:block;width:100%;height:100%}.code{text-align:center;font:${compact?'5.8':'7'}pt monospace;letter-spacing:.25px;line-height:1.05}.label.promotion{padding:0;border:.25mm solid #D7D7D7}.promo-banner{height:10mm;padding:1.1mm 2mm;background:#C83A32;color:#fff;display:flex;align-items:center;justify-content:space-between;gap:1.5mm;overflow:hidden}.promo-banner b{font-size:13pt;line-height:1;white-space:nowrap}.promo-banner span{font-size:6.6pt;line-height:1.15;text-align:right;max-height:7mm;overflow:hidden}.promo-price-row{height:11.5mm;padding:0 2mm;display:flex;align-items:center;gap:1mm;overflow:hidden}.promo-unit-note{width:11mm;color:#8F211B;font-size:7pt;font-weight:700;line-height:1.05}.promo-unit-note small,.promo-currency small{display:block;font-size:5.5pt}.promo-price{flex:1;text-align:center;font-size:26pt;font-weight:800;line-height:1;letter-spacing:-1px}.promo-price sup{font-size:10pt;vertical-align:top;letter-spacing:0}.promo-currency{width:10mm;color:#8F211B;font-size:7pt;font-weight:700;line-height:1.05}.promo-currency del{display:block;margin-top:.5mm;color:#444;font-size:6pt}.promo-product{height:6.2mm;padding:0 2mm;overflow:hidden;line-height:1.05}.promo-product b{display:block;font-size:6.8pt;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.promo-product span{display:block;font-size:5.6pt;color:#555;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.promo-bottom{height:11.7mm;padding:0 2mm 1mm;display:grid;grid-template-columns:13mm 1fr;grid-template-rows:8mm 2.2mm;column-gap:1mm;overflow:hidden}.promo-meta{grid-row:1/3;font:5.2pt monospace;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}.promo-meta small{font:4.7pt Tahoma;line-height:1.1}.promo-barcode{min-width:0;overflow:hidden}.promo-barcode .barcode-label-svg{width:100%;height:100%}.promo-code{text-align:center;font:5.3pt monospace;line-height:1}@media print{body{background:#fff}.toolbar{display:none}.label{margin:0;box-shadow:none}}</style></head><body><div class="toolbar"><span>${labelType==='promotion'?'ป้ายโปรโมชั่น':'ป้ายราคา'} ${width} × ${height} มม. แนวนอน · ทั้งหมด ${labels.length} ดวง</span><button onclick="window.print()">พิมพ์</button></div>${labels.join('')}</body></html>`);
   printWindow.document.close();
+  if(typeof standardizePrintPreview==='function') standardizePrintPreview(printWindow);
   setTimeout(()=>{ try{ printWindow.focus(); printWindow.print(); }catch(error){} },450);
   return true;
 }
@@ -8870,6 +8889,7 @@ function printRProduct(){
   </div>
   </body></html>`);
   win.document.close();
+  standardizePrintPreview(win);
 }
 
 function renderRProduct(){
@@ -9123,6 +9143,7 @@ function printRBill(filter=rbillFilter,reportTitle='รายงานยอด�
   </div>
   </body></html>`);
   win.document.close();
+  standardizePrintPreview(win);
 }
 
 function renderRBill(){
@@ -9313,6 +9334,7 @@ function printRProfit(){
     ${missingCount?`<div class="warning">มี ${missingCount} บิลที่ไม่มีข้อมูลต้นทุนและไม่ถูกรวมในรายงาน</div>`:''}${dayBlocksHtml}
   </main></body></html>`);
   win.document.close();
+  standardizePrintPreview(win);
 }
 
 function renderRProfit(){
@@ -11822,6 +11844,7 @@ function printTransfer(id){
   const win=window.open('','_blank');
   win.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${doc.id}</title><style>@page{size:A4;margin:14mm}body{font-family:Tahoma,sans-serif;color:#17212b;font-size:12px}h1{color:#2091D2;margin-bottom:4px}.meta{display:grid;grid-template-columns:120px 1fr;gap:7px;max-width:520px;margin:24px 0}table{width:100%;border-collapse:collapse}th{background:#2091D2;color:#fff;text-align:left}th,td{padding:8px;border-bottom:1px solid #d9e0e6}.r{text-align:right}.tools{margin-bottom:16px}.tools button{padding:8px 16px}@media print{.tools{display:none}}</style></head><body><div class="tools"><button onclick="window.print()">พิมพ์เอกสาร</button></div><h1>ใบโอนสินค้า</h1><b>${doc.id}</b><div class="meta"><span>วันที่</span><b>${fmtDate(doc.date)}</b><span>ผู้ขอโอน</span><b>${escapeHtml(doc.transferor||'-')}</b><span>คลังต้นทาง</span><b>${escapeHtml(doc.from)}</b><span>คลังปลายทาง</span><b>${escapeHtml(doc.to)}</b></div><table><thead><tr><th>#</th><th>ชื่อสินค้า / รายละเอียด</th><th class="r">จำนวน</th><th>หน่วย</th><th class="r">ต้นทุนต่อหน่วย</th><th class="r">ราคารวม</th></tr></thead><tbody>${rows}</tbody></table><p><b>จำนวนสินค้ารวม:</b> ${doc.totalQty}</p><p><b>หมายเหตุ:</b> ${escapeHtml(doc.note||'-')}</p></body></html>`);
   win.document.close();
+  standardizePrintPreview(win);
 }
 
 function bindUnitRowEvents(){
@@ -12329,7 +12352,6 @@ function setupA4DocumentPreview(win,{number,label,pageSelector}){
     *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
     body{padding-top:66px!important;padding-right:285px!important;background:#F0F0F0!important}
     .toolbar{position:fixed!important;top:0!important;left:0!important;right:0!important;z-index:30!important;height:66px!important;margin:0!important;padding:10px 18px!important;background:#fff!important;border-bottom:1px solid #dce3e8!important;box-shadow:none!important;display:flex!important;align-items:center!important;gap:14px!important}
-    .preview-doc-number{color:#2091D2;font-size:20px;font-weight:500;letter-spacing:.2px}
     .preview-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
     .preview-actions button{height:42px;min-width:142px;border-radius:6px;font:600 15px Sarabun;cursor:pointer}
     .preview-actions .close-preview{background:#fff!important;color:#6d7882!important;border:1px solid #bfc9d2!important}
@@ -12360,7 +12382,7 @@ function setupA4DocumentPreview(win,{number,label,pageSelector}){
   const toolbar=doc.querySelector('.toolbar,.screenbar');
   if(toolbar){
     toolbar.className='toolbar';
-    toolbar.innerHTML=`<div class="preview-doc-number">${escapeHtml(number)}</div><div class="preview-actions"><button type="button" class="close-preview" id="closeDocumentPreview">ปิดหน้าต่าง</button><button type="button" class="confirm-preview-print" id="confirmDocumentPrint">พิมพ์</button></div>`;
+    toolbar.innerHTML=`<div class="preview-actions"><button type="button" class="close-preview" id="closeDocumentPreview">ย้อนกลับ</button><button type="button" class="confirm-preview-print" id="confirmDocumentPrint">พิมพ์</button></div>`;
   }
   const sidebar=doc.createElement('aside');
   sidebar.className='document-print-sidebar';
@@ -12419,6 +12441,7 @@ function printPO(poId,kind='po'){
     @media print{body{background:#fff}.screenbar{display:none}.a4-page{margin:0;box-shadow:none}}
   </style></head><body><div class="screenbar"><span>ตัวอย่างเอกสาร A4</span><button onclick="window.print()">พิมพ์เอกสาร</button></div>${pages}</body></html>`);
   win.document.close();
+  standardizePrintPreview(win);
   if(kind==='po2'||kind==='gr') setupA4DocumentPreview(win,{number:docs.map(doc=>doc.id).join(', '),label:titleText,pageSelector:'.a4-page'});
 }
 // แปลงตัวเลขเป็นข้อความภาษาไทย (บาท/สตางค์)
@@ -14108,6 +14131,7 @@ function printA4CashReceipt(saleId){
   const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร','danger-top'); return; }
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>พิมพ์ - ${escapeHtml(meta.number)}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;background:#f0f0f0;color:#151515;font-family:'Sarabun',sans-serif}.toolbar{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:#fff;box-shadow:0 2px 8px #0002}.toolbar button{border:0;border-radius:7px;background:#2091D2;color:#fff;padding:9px 18px;font:600 14px Sarabun}.page{position:relative;width:210mm;min-height:297mm;margin:12px auto;padding:16mm 18mm;background:#fff;box-shadow:0 4px 20px #0002;overflow:hidden}.header{display:grid;grid-template-columns:1.15fr 1fr;gap:14mm;margin-top:2mm}.business{font-size:11.5px;line-height:1.6}.business-name,.customer-name{color:#2091D2;font-weight:700}.business-name{font-size:13px}.title-block{text-align:right}.title{color:#2091D2;font-size:21px;font-weight:700;margin-bottom:2px}.subtitle{color:#667085;font-size:12px;margin-bottom:8px}.not-tax{display:inline-block;margin-top:3px;padding:3px 8px;border:1px solid #efb5ae;border-radius:12px;color:#b42318;font-size:10.5px;font-weight:600}.docmeta{display:inline-grid;grid-template-columns:auto auto;gap:4px 14px;text-align:left;font-size:12px;margin-top:8px}.docmeta span:nth-child(odd){color:#2091D2;font-weight:600}.customer{margin:9mm 0 5mm;padding:4mm 5mm;border:1px solid #dce8ef;border-radius:6px}.customer div{font-size:12px;line-height:1.5}.items{width:100%;border-collapse:collapse;font-size:12px;margin-top:2mm}.items th{background:#2091D2;color:#fff;padding:7px 8px;text-align:left;font-weight:600}.items th.num,.items td.num{text-align:right}.items td{padding:7px 8px;border-bottom:1px solid #e4e8ec}.promo{color:#2091D2;font-weight:600}.summary-row{display:grid;grid-template-columns:1fr 82mm;gap:10mm;margin-top:6mm}.words{align-self:end;padding:5px 8px;border-bottom:1px solid #dce8ef;font-size:12px}.totals{font-size:12.5px}.totals div{display:flex;justify-content:space-between;padding:4px 0}.totals .grand{font-weight:700;border-top:1px solid #2091D2;margin-top:2px;padding-top:7px}.totals .grand span{color:#2091D2}.notice{margin-top:8mm;padding:7px 10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:5px;color:#9a3412;font-size:11px;text-align:center}.signheads{position:absolute;left:18mm;right:18mm;bottom:30mm;display:flex;justify-content:space-between;font-size:12px}.signheads span{width:60mm;text-align:center}.signlines{position:absolute;left:18mm;right:18mm;bottom:14mm;display:flex;justify-content:space-between;text-align:center;font-size:11px}.signlines div{width:60mm;border-top:1px solid #888;padding-top:4px}@media print{body{background:#fff}.toolbar{display:none}.page{margin:0;box-shadow:none}}</style></head><body><div class="toolbar"><span>ตัวอย่างบิลเงินสด A4</span><button onclick="window.print()">พิมพ์</button></div><main class="page"><section class="header"><div class="business"><span class="business-name">${escapeHtml(business.name||STORE_INFO.name)} (${businessBranch})</span><br>${escapeHtml(business.address||STORE_INFO.address)}<br>เลขประจำตัวผู้เสียภาษี ${escapeHtml(business.taxId||STORE_INFO.taxId||'-')}<br>เบอร์มือถือ ${escapeHtml(business.mobile||STORE_INFO.phone||'-')}<br>${escapeHtml(business.website||STORE_INFO.website||'')}</div><div class="title-block"><div class="title">บิลเงินสด</div><div class="subtitle">${isCopy?'สำเนา':'ต้นฉบับ'}</div><div class="not-tax">เอกสารนี้ไม่ใช่ใบกำกับภาษี</div><div class="docmeta"><span>เลขที่</span><span>${escapeHtml(meta.number)}</span><span>วันที่</span><span>${fmtDateShort(meta.saleDate)}</span><span>เวลา</span><span>${escapeHtml((sale.time||'').slice(11)||'-')}</span><span>ผู้ขาย</span><span>${escapeHtml(sale.cashier||'-')}</span><span>ชำระโดย</span><span>${escapeHtml(sale.payMethod||'-')}</span></div></div></section><section class="customer"><div class="customer-name">ผู้ซื้อ: ${escapeHtml(customer.name||'ลูกค้าทั่วไป')}${customerBranch?` (${customerBranch})`:''}</div><div>${escapeHtml(customer.address||'-')}</div><div>เลขประจำตัวผู้เสียภาษี ${escapeHtml(customer.taxId||'-')}${customer.phone?` · โทร ${escapeHtml(customer.phone)}`:''}</div></section><table class="items"><thead><tr><th>#</th><th>รายละเอียด</th><th class="num">จำนวน</th><th>หน่วย</th><th class="num">ราคาต่อหน่วย</th><th class="num">จำนวนเงิน</th></tr></thead><tbody>${rows}</tbody></table><section class="summary-row"><div class="words">(${bahtText(Number(sale.total)||0)})</div><div class="totals"><div><span>รวมรายการ</span><b>${fmtMoney(itemsTotal)} บาท</b></div>${sale.discount?`<div><span>ส่วนลด</span><b>- ${fmtMoney(sale.discount)} บาท</b></div>`:''}${sale.fee?`<div><span>ค่าธรรมเนียม</span><b>${fmtMoney(sale.fee)} บาท</b></div>`:''}<div class="grand"><span>จำนวนเงินรวมทั้งสิ้น</span><b>${fmtMoney(sale.total)} บาท</b></div></div></section><div class="notice">เอกสารนี้เป็นหลักฐานการรับชำระเงิน ไม่ใช่ใบกำกับภาษี และใช้เป็นหลักฐานภาษีซื้อไม่ได้</div><div class="signheads"><span>ในนาม ${escapeHtml(customer.name||'ลูกค้าทั่วไป')}</span><span>ในนาม ${escapeHtml(business.name||STORE_INFO.name)}</span></div><div class="signlines"><div>ผู้รับสินค้า / บริการ · วันที่</div><div>ผู้รับเงิน · วันที่</div></div></main></body></html>`);
   win.document.close();
+  standardizePrintPreview(win);
   meta.printLog.push({at:auditNow(),mode:'print'});
   sale.cashReceiptA4Meta=meta;
   persistSalesHistory();
@@ -14182,7 +14206,7 @@ function printFullTaxInvoice(saleId){
   win.document.head.appendChild(printColorStyle);
   const printTemplate=win.document.querySelector('.page').cloneNode(true);
   const toolbar=win.document.querySelector('.toolbar');
-  toolbar.innerHTML='<div class="preview-doc-number">'+escapeHtml(invoice.number)+'</div><div class="preview-actions"><button type="button" class="close-preview" id="closeTaxPreview">ปิดหน้าต่าง</button><button type="button" id="confirmTaxPrint">พิมพ์</button></div>';
+  toolbar.innerHTML='<div class="preview-actions"><button type="button" class="close-preview" id="closeTaxPreview">ย้อนกลับ</button><button type="button" id="confirmTaxPrint">พิมพ์</button></div>';
   const printSidebar=win.document.createElement('aside');
   printSidebar.className='tax-print-sidebar';
   printSidebar.innerHTML='<h3>ใบกำกับภาษี</h3><div class="tax-print-options"><label><input id="printOriginalOption" type="checkbox" checked> ต้นฉบับ</label><label><input id="printCopyOption" type="checkbox" checked> สำเนา</label><input id="printCopyCount" type="number" min="1" max="20" value="1" aria-label="จำนวนสำเนา"></div>';
@@ -14221,6 +14245,7 @@ function printQuotation(quotationIds){
   }).join('');
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>พิมพ์ - ${docs.map(d=>escapeHtml(d.id)).join(', ')}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;background:#F0F0F0;color:#151515;font-family:'Sarabun',sans-serif}.toolbar{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:#fff;box-shadow:0 2px 8px #0002}.toolbar button{border:0;border-radius:7px;background:#2091D2;color:#fff;padding:9px 18px;font:600 14px Sarabun}.page{position:relative;width:210mm;min-height:297mm;margin:12px auto;padding:16mm 18mm;background:#fff;box-shadow:0 4px 20px #0002;overflow:hidden;page-break-after:always}.page:last-child{page-break-after:auto}.header{display:grid;grid-template-columns:1.15fr 1fr;gap:14mm;margin-top:2mm}.business{font-size:11.5px;line-height:1.6}.title-block{text-align:right}.title{color:#2091D2;font-size:22px;font-weight:700;margin-bottom:8px}.docmeta{display:inline-grid;grid-template-columns:auto auto;gap:4px 14px;text-align:left;font-size:12px}.docmeta span:nth-child(odd){color:#2091D2;font-weight:600}.customer{margin:9mm 0 5mm}.customer .lbl{color:#2091D2;font-weight:600;font-size:12px;margin-bottom:2px}.customer div{font-size:12px;line-height:1.5}.items{width:100%;border-collapse:collapse;font-size:12px;margin-top:2mm}.items th{background:#2091D2;color:#fff;padding:7px 8px;text-align:left;font-weight:600}.items th.num,.items td.num{text-align:right}.items td{padding:7px 8px;border-bottom:1px solid #e4e8ec}.totals{width:82mm;margin:6mm 0 0 auto;font-size:12.5px}.totals div{display:flex;justify-content:space-between;padding:4px 0}.totals .lbl{color:#2091D2}.totals .grand{font-weight:700;border-top:1px solid #2091D2;margin-top:2px;padding-top:6px}.words{font-size:12px;margin-top:8mm}.signheads{position:absolute;left:18mm;right:18mm;bottom:30mm;display:flex;justify-content:space-between;font-size:12px}.signheads span{width:60mm;text-align:center}.signlines{position:absolute;left:18mm;right:18mm;bottom:14mm;display:flex;justify-content:space-between;text-align:center;font-size:11px}.signlines div{width:60mm;border-top:1px solid #888;padding-top:4px}@media print{body{background:#fff}.toolbar{display:none}.page{margin:0;box-shadow:none}}</style></head><body><div class="toolbar"><span>ตัวอย่างเอกสาร A4</span><button onclick="window.print()">พิมพ์</button></div>${pages}</body></html>`);
   win.document.close();
+  standardizePrintPreview(win);
   setupA4DocumentPreview(win,{number:docs.map(doc=>doc.id).join(', '),label:'ใบเสนอราคา',pageSelector:'.page'});
 }
 
@@ -14823,6 +14848,7 @@ function printStockAlertReport(kind){
   <table><thead><tr>${columns}</tr></thead><tbody>${rowsHtml}</tbody></table></div>
   </body></html>`);
   win.document.close();
+  standardizePrintPreview(win);
 }
 
 function printStockReport(){
@@ -14876,6 +14902,7 @@ function printStockReport(){
   </div>
   </body></html>`);
   win.document.close();
+  standardizePrintPreview(win);
 }
 
 function openPostPaymentModal(saleId){
@@ -14920,6 +14947,7 @@ function printShortReceipt(saleId,historical=false){
   const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างใบเสร็จ'); return; }
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>พิมพ์ - ${receiptNo}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>@page{size:80mm auto;margin:0}*{box-sizing:border-box}body{margin:0;background:#F0F0F0;color:#111;font-family:'Sarabun',sans-serif}.bar{position:sticky;top:0;z-index:5;background:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px #0002}.bar button{border:0;border-radius:7px;background:#2091D2;color:#fff;padding:8px 15px;font-family:inherit;font-weight:600}.receipt{position:relative;width:80mm;min-height:250mm;margin:12px auto;background:#fff;padding:24mm 8mm 15mm;box-shadow:0 4px 20px #0002}.copy-label{text-align:center;color:#2091D2;font-weight:700;font-size:10pt;margin-bottom:2mm}.center{text-align:center}.store{font-size:11pt;line-height:1.35}.store h2{font-size:14pt;margin:0 0 2px}.rule{border-top:1px solid #111;margin:7mm 0 4mm}.dash{border-top:1px dashed #111;margin:4mm 0}.title{font-weight:700;font-size:12pt}.meta{display:grid;grid-template-columns:25mm 1fr;gap:1mm;font-size:10pt;margin-top:4mm}.meta b{font-weight:600}.item{display:grid;grid-template-columns:minmax(0,1fr) 19mm;gap:2mm;align-items:start;padding:2mm 0;font-size:9.5pt}.item b{display:block;font-weight:500}.item small{display:block}.receipt-promo-tag{color:#2091D2;font-weight:600;}.item strong{text-align:right;font-weight:500}.summary{font-size:10pt}.summary>div{display:flex;justify-content:space-between;padding:1mm 0}.summary .total{font-size:12pt;font-weight:700;border-top:1px solid #111;border-bottom:3px double #111;padding:2mm 0}.vat{font-size:14pt;font-weight:700;margin:5mm 0}.footer{font-size:9pt}@media print{body{background:#fff}.bar{display:none}.receipt{margin:0;box-shadow:none;width:80mm;min-height:0}}</style></head><body><div class="bar"><span>ตัวอย่างใบเสร็จ 80 มม.</span><button onclick="window.print()">พิมพ์</button></div><div class="receipt"><div class="center store"><h2>${receiptBusiness.name||STORE_INFO.name}</h2><div>(${receiptBusiness.branch==='branch'?'สาขา':'สำนักงานใหญ่'})</div><div>${receiptBusiness.address||STORE_INFO.address}</div><br><div><b>เลขผู้เสียภาษี</b> ${receiptBusiness.taxId||STORE_INFO.taxId}</div><div><b>เว็บไซต์</b> ${receiptBusiness.website||STORE_INFO.website}</div></div><div class="rule"></div><div class="title">${registered?'ใบกำกับภาษีอย่างย่อ/ใบเสร็จรับเงิน':'ใบเสร็จรับเงิน'}</div><div>${receiptNo}</div><div class="dash"></div><div class="meta"><b>พนักงานขาย</b><span>${sale.cashier||loggedInUser()?.firstName||''}</span><b>วันที่</b><span>${fmtDateShort(sale.date)} ${(sale.time||'').slice(11)}</span><b>ชำระโดย</b><span>${sale.payMethod||'-'}</span></div><div class="rule"></div>${rows}<div class="dash"></div><div class="summary"><div><b>จำนวนรวม</b><b>${itemCount}</b></div><div><span>จำนวนเงินหลังหักส่วนลด</span><b>${fmtMoney(afterDiscount)}</b></div>${registered?`<div><span>ราคาไม่รวมภาษีมูลค่าเพิ่ม</span><b>${fmtMoney(beforeVat)}</b></div><div><span>ภาษีมูลค่าเพิ่ม 7%</span><b>${fmtMoney(vat)}</b></div>`:''}${sale.fee?`<div><span>ค่าธรรมเนียมบัตร</span><b>${fmtMoney(sale.fee)}</b></div>`:''}<div class="total"><span>รวมทั้งสิ้น</span><b>${fmtMoney(sale.total)}</b></div></div>${registered?'<div class="center vat">VAT INCLUDED</div>':''}<div class="dash"></div><div class="center footer">ขอบคุณที่ใช้บริการ<br>${receiptBusiness.mobile||STORE_INFO.phone}</div></div></body></html>`);
   win.document.close();
+  standardizePrintPreview(win);
   const receiptTitleEl=win.document.querySelector('.title');
   if(receiptTitleEl) receiptTitleEl.style.textAlign='center';
   const receiptNumberEl=win.document.querySelector('.title + div');
