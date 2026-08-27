@@ -28,5 +28,10 @@ assert.match(html,/\['auditlog','Audit Log'/);
 assert.match(html,/auditlog: renderAuditLog/);
 assert.match(html,/sb\.rpc\('get_central_audit_logs'/);
 assert.match(html,/\(tab==='settingsusers'\|\|tab==='auditlog'\)&&user\.owner!==true/);
+assert.match(html,/class="audit-log-toolbar" role="search"/);
+assert.match(html,/class="audit-log-filter-label">ค้นหาประวัติ/);
+assert.match(html,/id="auditLogClearSearch"/);
+assert.match(html,/id="auditLogClearFilters"/);
+assert.match(html,/\.audit-log-toolbar\{[^}]*linear-gradient/);
 
 console.log('central audit log tests passed');
