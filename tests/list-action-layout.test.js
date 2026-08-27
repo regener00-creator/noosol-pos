@@ -27,4 +27,15 @@ assert.match(
 );
 assert.doesNotMatch(html, /editproduct"\]\{color:#737D89/, 'ไอคอนปากกาแก้ไขต้องไม่กลับไปเป็นสีเทา');
 
+assert.match(
+  html,
+  /\.icon-btn\[data-open-inspection-list\],\s*\.icon-btn\[data-act="editproduct"\]\{color:var\(--primary\)!important;/,
+  'ไอคอนปากกาในหน้าตรวจนับและปรับสต๊อกต้องใช้สีฟ้าหลัก'
+);
+assert.match(
+  html,
+  /#docBulkPrint,[\s\S]*?\[data-act="printpo"\]\{color:var\(--accent\)!important;\}/,
+  'ไอคอนเครื่องพิมพ์ทุกหน้าต้องใช้สีเหลืองหลัก'
+);
+
 console.log('list action layout tests passed');
