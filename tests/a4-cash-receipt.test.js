@@ -9,9 +9,11 @@ const end = html.indexOf('function openFullTaxInvoiceModal(', start);
 assert.ok(start >= 0 && end > start, 'ไม่พบฟังก์ชันพิมพ์ใบเสร็จรับเงิน A4');
 const receiptLogic = html.slice(start, end);
 
-assert.match(html, /id="wantA4ReceiptBtn"/, 'หลังชำระเงินต้องมีตัวเลือกใบเสร็จ A4');
-assert.match(html, /id="historyA4ReceiptBtn"/, 'ประวัติการขายต้องมีตัวเลือกใบเสร็จ A4');
-assert.match(receiptLogic, /ใบเสร็จรับเงิน \/ บิลเงินสด/, 'หัวเอกสาร A4 ไม่ถูกต้อง');
+assert.doesNotMatch(html, /id="wantA4ReceiptBtn"/, 'หน้าชำระเงินสำเร็จต้องไม่มีตัวเลือกบิลเงินสด A4');
+assert.doesNotMatch(html, /id="historyA4ReceiptBtn"/, 'ประวัติการขายต้องไม่มีตัวเลือกบิลเงินสด A4');
+assert.match(html, /\['cashbill','บิลเงินสด'/, 'หมวดใบรายการต้องมีเมนูบิลเงินสด');
+assert.match(html, /cashbill: renderCashBills/, 'ต้องมีหน้ารายการบิลเงินสด');
+assert.match(receiptLogic, /<div class="title">บิลเงินสด<\/div>/, 'หัวเอกสาร A4 ต้องเป็นบิลเงินสด');
 assert.match(receiptLogic, /เอกสารนี้ไม่ใช่ใบกำกับภาษี/, 'ต้องระบุว่าเอกสารไม่ใช่ใบกำกับภาษี');
 assert.doesNotMatch(receiptLogic, /ภาษีมูลค่าเพิ่ม 7%|VAT INCLUDED/, 'บิลเงินสด A4 ต้องไม่แสดงยอด VAT');
 assert.doesNotMatch(receiptLogic, /complete_sale|adjust_inventory|inventory_count/, 'การพิมพ์เอกสารต้องไม่สร้างยอดขายหรือตัดสต๊อก');
