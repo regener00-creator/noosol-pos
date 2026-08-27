@@ -384,6 +384,7 @@
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--primary-dark);color:#fff;padding:11px 20px;border-radius:9px;font-size:13.5px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,0.18);opacity:0;pointer-events:none;transition:opacity .25s;}
   .toast.show{opacity:1;}
   .toast.danger-top{top:20px;bottom:auto;background:#C2483E;color:#fff;font-weight:700;font-size:14.5px;padding:12px 26px;}
+  .toast.warning-top{top:20px;bottom:auto;background:#A86F10;color:#fff;font-weight:700;font-size:14.5px;padding:12px 26px;}
   .tabbar{display:flex;gap:4px;margin-bottom:14px;border-bottom:1px solid var(--border);}
   .tabbtn{padding:9px 14px;border:none;background:none;font-family:inherit;font-size:13px;color:var(--text-muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
   .tabbtn.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600;}
@@ -6534,7 +6535,7 @@ async function confirmStockEditChanges(){
   if(!confirm(`ยืนยันบันทึกผลตรวจนับ ${summary}\nเหตุผล: ${stockEditReason}\nผู้ดำเนินการ: ${currentProfile?.firstName||currentProfile?.username||'-'}\n\nเมื่อยืนยันแล้ว ระบบจะบันทึกสต๊อกและ LOT พร้อมกัน`)) return false;
   stockEditPosting=true; render();
   try{
-    const {data,error}=await sb.rpc('post_inventory_count_adjustment',{
+    const {data,error}=await sb.rpc('post_inventory_count_adjustment_with_shortages',{
       p_warehouse_id:Number(activeWarehouseId),
       p_reason:String(stockEditReason).trim(),
       p_note:String(stockEditNote||'').trim(),
@@ -13801,6 +13802,7 @@ async function voidSaleHistory(id,onVoided){
 function saleLotCorrectionAllocations(item){
   const grouped=[],byId=new Map();
   (item?.lotAllocations||[]).forEach(allocation=>{
+    if(allocation?.pendingLot) return;
     const lotId=Number(allocation?.lotId)||0,baseQty=Number(allocation?.baseQty)||0;
     if(!lotId||baseQty<=0) return;
     const existing=byId.get(lotId);
@@ -13914,7 +13916,7 @@ function openSaleHistoryDetail(id){
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:760px;max-height:92vh;"><div class="modal-head"><h3>รายละเอียดการขาย ${sale.ref||sale.id}</h3><button class="modal-close">×</button></div>
     <div class="sale-detail-meta"><div><small>วันที่ / เวลา</small><b>${fmtDate(sale.date)} · ${(sale.time||'').slice(11)||'-'}</b></div><div><small>พนักงานขาย</small><b>${sale.cashier||'-'}</b></div><div><small>ลูกค้า / สมาชิก</small><b>${sale.member||sale.name||'ลูกค้าทั่วไป'}</b></div><div><small>วิธีชำระ</small><b>${sale.payMethod||'-'}</b></div></div>
-    <div class="sale-detail-table"><table class="grid-table"><thead><tr><th>ลำดับ</th><th>สินค้า / Lot</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคา/หน่วย</th><th class="mono">รวม</th></tr></thead><tbody>${(sale.items||[]).map((item,index)=>{ const lots=(item.lotAllocations||[]).map(allocation=>`${escapeHtml(allocation.lotNumber||allocation.internalCode||'-')} · ${escapeHtml(allocation.expiry?fmtDateShort(allocation.expiry):'ไม่ระบุวันหมดอายุ')} · ${escapeHtml(inventoryMovementRound(allocation.baseQty))} หน่วยหลัก`).join('<br>'); return `<tr><td>${index+1}</td><td>${escapeHtml(item.name)}${lots?`<small style="display:block;color:var(--text-muted);margin-top:4px;">Lot: ${lots}</small>`:''}</td><td class="mono num">${item.qty}</td><td>${escapeHtml(item.unit||'-')}</td><td class="mono num">${fmtMoney(item.price)}</td><td class="mono num">${fmtMoney(item.lineTotalGross!==undefined?item.lineTotalGross:item.qty*item.price)}</td></tr>`; }).join('')}</tbody></table></div>
+    <div class="sale-detail-table"><table class="grid-table"><thead><tr><th>ลำดับ</th><th>สินค้า / Lot</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคา/หน่วย</th><th class="mono">รวม</th></tr></thead><tbody>${(sale.items||[]).map((item,index)=>{ const lots=(item.lotAllocations||[]).map(allocation=>allocation.pendingLot?`<span style="color:var(--danger);font-weight:600;">รอจัด LOT · ${escapeHtml(inventoryMovementRound(allocation.baseQty))} หน่วยหลัก</span>`:`${escapeHtml(allocation.lotNumber||allocation.internalCode||'-')} · ${escapeHtml(allocation.expiry?fmtDateShort(allocation.expiry):'ไม่ระบุวันหมดอายุ')} · ${escapeHtml(inventoryMovementRound(allocation.baseQty))} หน่วยหลัก`).join('<br>'); return `<tr><td>${index+1}</td><td>${escapeHtml(item.name)}${lots?`<small style="display:block;color:var(--text-muted);margin-top:4px;">Lot: ${lots}</small>`:''}</td><td class="mono num">${item.qty}</td><td>${escapeHtml(item.unit||'-')}</td><td class="mono num">${fmtMoney(item.price)}</td><td class="mono num">${fmtMoney(item.lineTotalGross!==undefined?item.lineTotalGross:item.qty*item.price)}</td></tr>`; }).join('')}</tbody></table></div>
     <div class="sale-detail-summary"><div><span>รวมสินค้า</span><b>${fmtMoney(subtotal)} บาท</b></div>${sale.discount?`<div><span>ส่วนลด</span><b>- ${fmtMoney(sale.discount)} บาท</b></div>`:''}${sale.fee?`<div><span>ค่าธรรมเนียม</span><b>${fmtMoney(sale.fee)} บาท</b></div>`:''}<div class="grand"><span>ยอดสุทธิ</span><b>${fmtMoney(sale.total)} บาท</b></div>${sale.cashReceived?`<div><span>รับเงิน</span><b>${fmtMoney(sale.cashReceived)} บาท</b></div><div><span>เงินทอน</span><b>${fmtMoney(sale.cashChange||0)} บาท</b></div>`:''}</div>
     ${canCorrectLots?`<div class="sale-lot-correction-panel"><div><h4>LOT ที่ขายไม่ตรงกับระบบ?</h4><p>ย้ายการตัดไปยัง LOT ที่ขายจริง โดยยอดขายและสต๊อกรวมไม่เปลี่ยน</p></div><button class="btn ghost" id="correctSaleLotBtn">แก้ไข LOT ที่ขาย</button></div>`:''}${correctionLogHtml}
     <div class="history-doc-panel"><h4>ออกเอกสารย้อนหลัง</h4><p>${canIssue?'ใช้ข้อมูลและวันที่ขายเดิม การพิมพ์เอกสารจะไม่ตัดสต็อกหรือเพิ่มยอดขายซ้ำ':'ออกเอกสารได้เฉพาะรายการที่ชำระเงินเรียบร้อยแล้ว'}</p><div class="history-doc-buttons"><button id="historyShortReceiptBtn" ${canIssue?'':'disabled'}>🧾 ใบเสร็จอย่างย่อ</button><button id="historyTaxInvoiceBtn" ${canIssueTax?'':'disabled'}>${sale.fullTaxInvoice?'📄 เปิดใบกำกับภาษี':'📄 ออกใบกำกับภาษีย้อนหลัง'}</button></div></div>
@@ -14823,7 +14825,7 @@ async function doCheckout(payMethod,options={}){
     console.warn('complete sale',error);
     const message=String(error?.message||'');
     if(message.includes('cash shift required')){ currentCashShift=null; currentTab='cashshift'; await loadCashShiftsFromSupabase(); }
-    showToast(message.includes('cash shift required')?'กะถูกปิดไปแล้ว กรุณาเปิดกะใหม่':message.includes('non-expired')?'สต๊อก Lot ที่ยังไม่หมดอายุมีไม่เพียงพอ กรุณาตรวจ Lot สินค้า':'ชำระเงินไม่สำเร็จ ระบบไม่ได้สร้างบิลหรือตัดสต๊อก กรุณาลองใหม่','danger-top');
+    showToast(message.includes('cash shift required')?'กะถูกปิดไปแล้ว กรุณาเปิดกะใหม่':'ชำระเงินไม่สำเร็จ ระบบไม่ได้สร้างบิลหรือตัดสต๊อก กรุณาลองใหม่','danger-top');
     return;
   }
   const existingSaleIndex=salesHistory.findIndex(sale=>sale.id===completedSale.id);
@@ -14831,7 +14833,8 @@ async function doCheckout(payMethod,options={}){
   persistSalesHistory();
   cart = []; saleDiscount = 0; saleMember = null; pendingQty = 1;
   saleRef = nextSaleRef();
-  showToast(`ชำระเงินสำเร็จ (${payMethod||'เงินสด'}) ${fmtMoney(grand)} บาท`);
+  const pendingLotQty=(completedSale.items||[]).flatMap(item=>item.lotAllocations||[]).filter(allocation=>allocation.pendingLot).reduce((sum,allocation)=>sum+(Number(allocation.baseQty)||0),0);
+  showToast(pendingLotQty>0?`ชำระเงินสำเร็จ · มี ${inventoryMovementRound(pendingLotQty)} หน่วยหลักรอจัด LOT และสต๊อกอาจติดลบ`:`ชำระเงินสำเร็จ (${payMethod||'เงินสด'}) ${fmtMoney(grand)} บาท`,pendingLotQty>0?'warning-top':undefined);
   render();
   setTimeout(()=>openPostPaymentModal(completedSale.id),0);
 }

@@ -26,7 +26,7 @@ assert.match(html, /stockcontrol:\s*renderStockControl/);
 assert.match(html, /stockedit:\s*renderStockEdit/);
 assert.match(html, /data-stock-edit-amount="\$\{p\.id\}"/);
 assert.match(html, /data-stock-edit-remove="\$\{p\.id\}"/);
-assert.match(html, /sb\.rpc\('post_inventory_count_adjustment'/);
+assert.match(html, /sb\.rpc\('post_inventory_count_adjustment_with_shortages'/);
 assert.match(html, /persistWorkspaceData\(\)/);
 assert.match(html, /\.stock-edit-stock-input\{[^}]*text-align:center/);
 
@@ -39,7 +39,7 @@ assert.match(html.slice(stockEditConfirmHandlerStart, stockEditRemoveHandlerStar
 const confirmFunctionStart = html.indexOf('function confirmStockEditChanges(');
 const confirmFunctionEnd = html.indexOf('function inspectionListUnitOptions(', confirmFunctionStart);
 assert.ok(confirmFunctionStart >= 0 && confirmFunctionEnd > confirmFunctionStart);
-assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /post_inventory_count_adjustment/);
+assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /post_inventory_count_adjustment_with_shortages/);
 assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /p_reason:String\(stockEditReason\)/);
 assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /persistWorkspaceData\(\)/);
 assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /syncInspectionListsToSupabase\(\)/);
