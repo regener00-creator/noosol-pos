@@ -18,7 +18,7 @@ const inventoryBalanceMap = new Map([
   ['2:1',{stock:120}],['2:2',{stock:4}],
 ]);
 const context = {
-  lowStockPageFilter:{stockWarehouse:'all',stockThreshold:50},
+  lowStockPageFilter:{stockWarehouse:'all',stockMode:'low',stockThreshold:50},
   lowStockUnitSelection:{},
   activeWarehouseId:1,
   products,
@@ -47,10 +47,23 @@ context.lowStockUnitSelection[1]='กล่อง';
 rows=context.lowStockReportRows();
 assert.equal(rows.find(row=>row.key==='1:1').displayUnit,'กล่อง','ต้องจำหน่วยที่ผู้ใช้เลือกแยกตามสินค้า');
 assert.equal(rows.find(row=>row.key==='1:1').displayStock,3,'ต้องคำนวณจำนวนใหม่ตามหน่วยที่เลือก');
-assert.equal(context.lowStockReportConditionLabel(),'สินค้าที่คงเหลือต่ำกว่า 50 หน่วยหลัก');
+assert.equal(context.lowStockReportRowMatches(rows.find(row=>row.key==='1:1')) ,true,'สินค้าเลขบวกที่ต่ำกว่าเกณฑ์ต้องอยู่ในก้อนใกล้หมด');
+assert.equal(context.lowStockReportRowMatches(rows.find(row=>row.key==='2:1')) ,false,'สินค้าที่สูงกว่าเกณฑ์ต้องไม่อยู่ในก้อนใกล้หมด');
+assert.equal(context.lowStockReportRowMatches(rows.find(row=>row.key==='1:2'),'out'),true,'สต๊อกศูนย์ต้องอยู่เฉพาะก้อนสินค้าเป็นศูนย์');
+assert.equal(context.lowStockReportRowMatches({stock:-1},'negative'),true,'สต๊อกติดลบต้องอยู่เฉพาะก้อนสินค้าติดลบ');
+assert.equal(context.lowStockReportRowMatches({stock:0},'low'),false,'สต๊อกศูนย์ต้องไม่ซ้ำในก้อนใกล้หมด');
+assert.equal(context.lowStockReportConditionLabel(),'สินค้าที่คงเหลือมากกว่า 0 และต่ำกว่า 50 หน่วยหลัก');
+context.lowStockPageFilter.stockMode='out';
+assert.equal(context.lowStockReportConditionLabel(),'สินค้าที่คงเหลือเป็นศูนย์');
+context.lowStockPageFilter.stockMode='negative';
+assert.equal(context.lowStockReportConditionLabel(),'สินค้าที่มีสต๊อกติดลบ');
 
 assert.match(html,/id="lowStockWarehouseFilter"/,'หน้าสินค้าใกล้หมดต้องเลือกคลังได้');
-assert.match(html,/data-lowstock-n="\$\{value\}"/,'ต้องเลือกเกณฑ์จำนวนที่ต้องการแสดงได้');
+assert.match(html,/id="lowStockThresholdInput"/,'ต้องพิมพ์เกณฑ์จำนวนเองได้');
+assert.match(html,/data-lowstock-mode="low"/,'ต้องมีก้อนสินค้าใกล้หมด');
+assert.match(html,/data-lowstock-mode="out"/,'ต้องมีก้อนสินค้าเป็นศูนย์');
+assert.match(html,/data-lowstock-mode="negative"/,'ต้องมีก้อนสินค้าติดลบ');
+assert.match(html,/LOW_STOCK_FILTER_STORAGE_KEY/,'ต้องจำเกณฑ์ที่กรอกไว้ในอุปกรณ์');
 assert.match(html,/data-lowstock-unit="\$\{row\.productId\}"/,'ต้องเลือกหน่วยแสดงผลรายสินค้าได้');
 assert.doesNotMatch(html,/data-lowstock-threshold=/,'หน้ารายงานต้องไม่มีช่องแก้จุดสั่งซื้อขั้นต่ำ');
 assert.doesNotMatch(html,/id="createLowStockOrderBtn"/,'หน้ารายงานต้องไม่สร้างรายการสั่งของขาด');

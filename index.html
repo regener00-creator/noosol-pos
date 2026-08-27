@@ -448,6 +448,16 @@
   .low-stock-report-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;}
   .low-stock-report-title h1{font-size:25px;margin:0 0 4px;}
   .low-stock-report-title p{margin:0;color:var(--text-muted);font-size:13px;}
+  .low-stock-report-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+  .low-stock-summary-card{border:1px solid #B9E1F5;border-radius:14px;background:#EFF9FE;padding:14px 16px;display:flex;align-items:center;gap:12px;color:#176E9E;}
+  .low-stock-summary-card.active{border-color:var(--primary);box-shadow:0 0 0 2px #2091D21F inset;}
+  .low-stock-summary-card.out{background:#FFF8E9;border-color:#F1D79A;color:#9B6B00;}
+  .low-stock-summary-card.negative{background:#FFF4F3;border-color:#F1C3BF;color:#B43D35;}
+  .low-stock-summary-card-select{min-width:0;flex:1;border:0;background:transparent;color:inherit;padding:0;display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:inherit;text-align:left;cursor:pointer;}
+  .low-stock-summary-card-select span{font-size:13px;font-weight:600;}
+  .low-stock-summary-card-select b{font-size:24px;line-height:1;}
+  .low-stock-threshold-field{display:flex;align-items:center;gap:6px;padding-left:12px;border-left:1px solid #B9E1F5;font-size:12.5px;white-space:nowrap;}
+  .low-stock-threshold-field input{width:78px;min-width:0;padding:8px 10px;text-align:center;font-weight:700;}
   .low-stock-report-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
   .low-stock-report-controls select{min-width:230px;max-width:360px;}
   .low-stock-report-controls .low-stock-control-spacer{flex:1;}
@@ -457,8 +467,8 @@
   .low-stock-report-table .low-stock-unit-select{width:130px;min-width:0;margin:auto;}
   .low-stock-report-table tr.out td{background:#FFFCF5;}
   .low-stock-report-table tr.negative td{background:#FFF8F7;}
-  .low-stock-report-page .lowstock-table-scroll{height:calc(100vh - 300px);}
-  @media(max-width:900px){.low-stock-report-controls select{width:100%;max-width:none}.low-stock-report-controls .low-stock-control-spacer{display:none;}}
+  .low-stock-report-page .lowstock-table-scroll{height:calc(100vh - 390px);}
+  @media(max-width:900px){.low-stock-report-summary{grid-template-columns:1fr}.low-stock-report-controls select{width:100%;max-width:none}.low-stock-report-controls .low-stock-control-spacer{display:none;}}
   .expiry-report-page{display:flex;flex-direction:column;gap:14px;min-width:0;}
   .expiry-report-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;}
   .expiry-report-title h1{font-size:25px;margin:0 0 4px;}
@@ -3273,7 +3283,10 @@ let rbillFilter = { period:'today', from:'', to:'', month:'', year:'', wh:'all',
 let rprofitFilter = { period:'today', from:'', to:'', month:'', year:'', wh:'all', pay:'all', applied:false };
 let rtaxMonth=TODAY_STR.slice(0,7);
 // ตัวกรองหน้าสินค้าใกล้หมด/ใกล้หมดอายุ
-let lowStockPageFilter = { stockThreshold:50, stockWarehouse:'context', expiryDays:90, expiryMode:'all', expiryWarehouse:'context', stockPage:1, expiryPage:1 };
+const LOW_STOCK_FILTER_STORAGE_KEY='pharmacy_pos_low_stock_filter_v1';
+let savedLowStockThreshold=50;
+try{ const savedThreshold=Number(localStorage.getItem(LOW_STOCK_FILTER_STORAGE_KEY)); if(Number.isFinite(savedThreshold)&&savedThreshold>=1) savedLowStockThreshold=Math.floor(savedThreshold); }catch(error){}
+let lowStockPageFilter = { stockMode:'low', stockThreshold:savedLowStockThreshold, stockWarehouse:'context', expiryDays:90, expiryMode:'all', expiryWarehouse:'context', stockPage:1, expiryPage:1 };
 let lowStockUnitSelection = {};
 // รายการที่เพิ่มไว้ในหน้า "รายงานสินค้าคงเหลือ" (ค้นหา/สแกนแล้วสะสมเป็นรายการ)
 let stockReportItems = [];
@@ -8227,7 +8240,15 @@ function lowStockReportRows(){
   return rows;
 }
 function lowStockReportConditionLabel(){
-  return `สินค้าที่คงเหลือต่ำกว่า ${lowStockPageFilter.stockThreshold} หน่วยหลัก`;
+  if(lowStockPageFilter.stockMode==='out') return 'สินค้าที่คงเหลือเป็นศูนย์';
+  if(lowStockPageFilter.stockMode==='negative') return 'สินค้าที่มีสต๊อกติดลบ';
+  return `สินค้าที่คงเหลือมากกว่า 0 และต่ำกว่า ${lowStockPageFilter.stockThreshold} หน่วยหลัก`;
+}
+function lowStockReportRowMatches(row,mode=lowStockPageFilter.stockMode){
+  const stock=Number(row?.stock)||0;
+  if(mode==='out') return stock===0;
+  if(mode==='negative') return stock<0;
+  return stock>0&&stock<Number(lowStockPageFilter.stockThreshold);
 }
 function lowStockRowStatus(row){
   if(Number(row.stock)<0) return {label:'ติดลบ',cls:'danger',rowClass:'negative'};
@@ -8321,7 +8342,10 @@ function lowTh(table, key, label, alignRight){
 const LOWSTOCK_PAGE_SIZE = 20;
 function renderLowStock(){
   const allRows=lowStockReportRows();
-  const filteredRows=allRows.filter(row=>Number(row.stock)<Number(lowStockPageFilter.stockThreshold));
+  const filteredRows=allRows.filter(row=>lowStockReportRowMatches(row));
+  const lowCount=allRows.filter(row=>lowStockReportRowMatches(row,'low')).length;
+  const outCount=allRows.filter(row=>lowStockReportRowMatches(row,'out')).length;
+  const negativeCount=allRows.filter(row=>lowStockReportRowMatches(row,'negative')).length;
   const lowSorted=lowSortedList(filteredRows,lowStockSort.stock,(row,key)=>key==='stock'?row.stock:key==='sku'?(row.sku||''):key==='unit'?row.displayFactor:key==='wh'?row.warehouseName:row.name);
 
   const stockTotalPages=Math.max(1, Math.ceil(lowSorted.length/LOWSTOCK_PAGE_SIZE));
@@ -8331,13 +8355,16 @@ function renderLowStock(){
   const lowPageRows=lowSorted.slice(stockStart, stockStart+LOWSTOCK_PAGE_SIZE);
   const contextLabel=isAllWarehousesMode()?'ทุกคลัง':(activeWarehouse()?.name||'-');
   const warehouseOptions=accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(lowStockPageFilter.stockWarehouse)===String(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('');
-  const thresholdOptions=[10,50,100];
 
   return `<div class="lowstock-section low-stock-report-page">
     <div class="low-stock-report-head"><div class="low-stock-report-title"><h1>สินค้าใกล้หมด</h1><p>รายงานสำหรับดูจำนวนคงเหลือตามเกณฑ์ที่เลือกเท่านั้น หน้านี้ไม่เปลี่ยนจำนวนสต๊อก</p></div><button class="btn primary" id="printLowStockBtn">พิมพ์รายงาน</button></div>
+    <div class="low-stock-report-summary">
+      <div class="low-stock-summary-card ${lowStockPageFilter.stockMode==='low'?'active':''}"><button type="button" class="low-stock-summary-card-select" data-lowstock-mode="low"><span>สินค้าต่ำกว่าเกณฑ์</span><b>${lowCount}</b></button><label class="low-stock-threshold-field"><span>ต่ำกว่า</span><input id="lowStockThresholdInput" class="no-spin" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(lowStockPageFilter.stockThreshold)}" aria-label="จำนวนคงเหลือที่ถือว่าใกล้หมด"><span>ชิ้น</span></label></div>
+      <div class="low-stock-summary-card out ${lowStockPageFilter.stockMode==='out'?'active':''}"><button type="button" class="low-stock-summary-card-select" data-lowstock-mode="out"><span>สินค้าเป็นศูนย์</span><b>${outCount}</b></button></div>
+      <div class="low-stock-summary-card negative ${lowStockPageFilter.stockMode==='negative'?'active':''}"><button type="button" class="low-stock-summary-card-select" data-lowstock-mode="negative"><span>สินค้าติดลบ</span><b>${negativeCount}</b></button></div>
+    </div>
     <div class="low-stock-report-controls">
       <select id="lowStockWarehouseFilter" aria-label="เลือกคลังสินค้า"><option value="context" ${lowStockPageFilter.stockWarehouse==='context'?'selected':''}>ตาม TOPBAR: ${escapeHtml(contextLabel)}</option><option value="all" ${lowStockPageFilter.stockWarehouse==='all'?'selected':''}>ทุกคลัง</option>${warehouseOptions}</select>
-      <div class="chip-group"><span class="chip-group-label">แสดงสินค้าที่เหลือต่ำกว่า</span>${thresholdOptions.map(value=>`<button class="filter-chip ${Number(lowStockPageFilter.stockThreshold)===value?'active':''}" data-lowstock-n="${value}">${value} ชิ้น</button>`).join('')}</div>
     </div>
     <div class="doc-list-wrap seamless-table-wrap lowstock-table-scroll">
     <table class="low-table doc-head-blue low-stock-report-table"><thead><tr>${lowTh('stock','sku','รหัสสินค้า')}${lowTh('stock','name','สินค้า')}${lowTh('stock','stock','คงเหลือ',true)}${lowTh('stock','unit','หน่วย')}${lowTh('stock','wh','คลัง')}<th>สถานะ</th></tr></thead>
@@ -11444,13 +11471,31 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     el.addEventListener('click', ()=>{ if(typeof el.showPicker==='function'){ try{ el.showPicker(); }catch(error){} } });
   });
   // --- ตัวกรองหน้าสินค้าใกล้หมด/ใกล้หมดอายุ ---
-  document.querySelectorAll('[data-lowstock-n]').forEach(el=>{
+  document.querySelectorAll('[data-lowstock-mode]').forEach(el=>{
     el.addEventListener('click',()=>{
-      lowStockPageFilter.stockThreshold=Number(el.dataset.lowstockN)||50;
+      lowStockPageFilter.stockMode=el.dataset.lowstockMode||'low';
       lowStockPageFilter.stockPage=1;
       render();
     });
   });
+  const lowStockThresholdInput=document.getElementById('lowStockThresholdInput');
+  if(lowStockThresholdInput){
+    const applyLowStockThreshold=()=>{
+      const threshold=Math.floor(Number(lowStockThresholdInput.value));
+      if(!Number.isFinite(threshold)||threshold<1){
+        showToast('กรุณากรอกจำนวนตั้งแต่ 1 ขึ้นไป','danger');
+        lowStockThresholdInput.value=lowStockPageFilter.stockThreshold;
+        return;
+      }
+      lowStockPageFilter.stockThreshold=threshold;
+      lowStockPageFilter.stockMode='low';
+      lowStockPageFilter.stockPage=1;
+      safeLocalStorageSet(LOW_STOCK_FILTER_STORAGE_KEY,String(threshold),'เกณฑ์สินค้าใกล้หมด');
+      render();
+    };
+    lowStockThresholdInput.addEventListener('change',applyLowStockThreshold);
+    lowStockThresholdInput.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); applyLowStockThreshold(); } });
+  }
   const lowStockWarehouseFilter=document.getElementById('lowStockWarehouseFilter');
   if(lowStockWarehouseFilter) lowStockWarehouseFilter.addEventListener('change',()=>{
     lowStockPageFilter.stockWarehouse=lowStockWarehouseFilter.value||'context';
@@ -15026,7 +15071,7 @@ function openPriceCheckModal(){
 
 function printStockAlertReport(kind){
   const isExpiry=kind==='expiry';
-  const filtered=isExpiry?expiryReportLotRows().filter(row=>expiryReportRowMatches(row)):lowStockReportRows().filter(row=>Number(row.stock)<Number(lowStockPageFilter.stockThreshold));
+  const filtered=isExpiry?expiryReportLotRows().filter(row=>expiryReportRowMatches(row)):lowStockReportRows().filter(row=>lowStockReportRowMatches(row));
   const rows=isExpiry
     ?lowSortedList(filtered,lowStockSort.expiry,(row,key)=>key==='expiry'?(row.expiry||''):key==='status'?daysUntil(row.expiry):key==='lot'?(row.lotNumber||''):key==='quantity'?row.quantityBase:key==='wh'?(row.warehouseName||''):row.name)
     :lowSortedList(filtered,lowStockSort.stock,(row,key)=>key==='stock'?row.stock:key==='sku'?(row.sku||''):key==='unit'?row.displayFactor:key==='wh'?row.warehouseName:row.name);
