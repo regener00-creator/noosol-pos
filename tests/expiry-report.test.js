@@ -61,7 +61,8 @@ assert.equal(lotRows.find(row=>row.lotNumber==='LOT-A').quantityBase,10, 'LOT �
 assert.equal(lotRows.find(row=>row.lotNumber==='LOT-B').warehouseName,'สาขา');
 assert.equal(lotRows.find(row=>row.legacy).quantityText,'7 ขวด', 'สินค้าที่ไม่มี LOT ต้องยังแสดงจากยอดเดิม');
 
-assert.match(html, /สินค้าใกล้หมดอายุ \/ หมดอายุ/);
+assert.match(html, /สินค้าใกล้หมดอายุ/);
+assert.doesNotMatch(html, /สินค้าใกล้หมดอายุ \/ หมดอายุ/);
 assert.match(html, /function expiryReportLotRows\(\)/);
 assert.match(html, /groupInventoryLotDetailRows\(lotRows\)/, 'รายงานต้องรวมรายการรับเข้าที่เป็น LOT ผู้ผลิตเดียวกัน');
 assert.match(html, /id="expiryWarehouseFilter"/, 'หน้ารายงานต้องเลือกคลังได้');

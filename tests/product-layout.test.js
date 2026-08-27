@@ -38,7 +38,7 @@ const syncTopbarIndex = renderSource.indexOf('syncTopbarFormActions();');
 assert.ok(clearTopbarIndex >= 0 && clearTopbarIndex < renderMainIndex, 'ต้องล้างปุ่มเก่าใน topbar ก่อนสร้าง DOM หน้าใหม่');
 assert.ok(mainClassIndex >= 0 && mainClassIndex < renderMainIndex, 'ต้องล็อกแถบเลื่อนด้านนอกเฉพาะหน้ารายการสินค้าก่อน render');
 assert.ok(renderMainIndex < attachEventsIndex && attachEventsIndex < syncTopbarIndex, 'ต้องผูก event ก่อนย้ายปุ่มจริงขึ้น topbar');
-assert.match(html, /main\?main\.querySelector\('\.form-final-actions'\):null/);
+assert.match(html, /main\.querySelectorAll\('\.form-final-actions'\)/);
 assert.match(html, /\.main\.product-list-main\{overflow-y:hidden;\}/);
 assert.match(html, /\.product-list-page\{height:100%;min-height:0;\}/);
 assert.match(html, /\.product-list-page \.table-pane\{[^}]*flex:1;[^}]*min-height:0;[^}]*display:flex/);
