@@ -449,26 +449,33 @@
   .low-stock-report-title h1{font-size:25px;margin:0 0 4px;}
   .low-stock-report-title p{margin:0;color:var(--text-muted);font-size:13px;}
   .low-stock-report-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
-  .low-stock-summary-card{border:1px solid #B9E1F5;border-radius:14px;background:#EFF9FE;padding:14px 16px;display:flex;align-items:center;gap:12px;color:#176E9E;}
-  .low-stock-summary-card.active{border-color:var(--primary);box-shadow:0 0 0 2px #2091D21F inset;}
+  .low-stock-summary-card{min-height:84px;border:1px solid #CFE5F1;border-radius:16px;background:linear-gradient(135deg,#F5FBFE,#EAF7FD);padding:15px 17px;display:flex;align-items:center;gap:14px;color:#176E9E;box-shadow:0 3px 10px rgba(32,145,210,.06);transition:border-color .15s,box-shadow .15s,transform .15s;}
+  .low-stock-summary-card:hover{transform:translateY(-1px);box-shadow:0 7px 18px rgba(32,145,210,.11);}
+  .low-stock-summary-card.active{border-color:var(--primary);box-shadow:0 0 0 2px #2091D21F inset,0 7px 18px rgba(32,145,210,.12);}
   .low-stock-summary-card.out{background:#FFF8E9;border-color:#F1D79A;color:#9B6B00;}
   .low-stock-summary-card.negative{background:#FFF4F3;border-color:#F1C3BF;color:#B43D35;}
   .low-stock-summary-card-select{min-width:0;flex:1;border:0;background:transparent;color:inherit;padding:0;display:flex;align-items:center;justify-content:space-between;gap:10px;font-family:inherit;text-align:left;cursor:pointer;}
-  .low-stock-summary-card-select span{font-size:13px;font-weight:600;}
-  .low-stock-summary-card-select b{font-size:24px;line-height:1;}
-  .low-stock-threshold-field{display:flex;align-items:center;gap:6px;padding-left:12px;border-left:1px solid #B9E1F5;font-size:12.5px;white-space:nowrap;}
-  .low-stock-threshold-field input{width:78px;min-width:0;padding:8px 10px;text-align:center;font-weight:700;}
+  .low-stock-summary-card-select span{font-size:14px;font-weight:700;}
+  .low-stock-summary-card-select b{min-width:38px;font-size:26px;line-height:1;text-align:center;}
+  .low-stock-threshold-field{display:flex;align-items:center;gap:7px;padding-left:14px;border-left:1px solid #B9E1F5;font-size:12.5px;font-weight:600;white-space:nowrap;}
+  .low-stock-threshold-field input{width:82px;height:44px;min-width:0;padding:8px 10px;border:1px solid #C7DCE8;border-radius:11px;background:#fff;color:#176E9E;text-align:center;font-family:inherit;font-size:17px;font-weight:700;box-shadow:0 2px 7px rgba(32,145,210,.07);}
+  .low-stock-threshold-field input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px #2091D21A;}
   .low-stock-report-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
-  .low-stock-report-controls select{min-width:230px;max-width:360px;}
+  .low-stock-filter-field{width:min(100%,360px);display:flex;flex-direction:column;gap:7px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:0 3px 12px rgba(18,38,63,.04);}
+  .low-stock-filter-label{color:var(--text-muted);font-size:12px;font-weight:600;}
+  .low-stock-report-controls select{width:100%;min-width:230px;max-width:360px;height:44px;padding:0 40px 0 14px;border:1px solid #D6E0E8;border-radius:10px;background-color:#F9FBFD;color:var(--text);font-family:inherit;font-size:13.5px;font-weight:600;cursor:pointer;}
+  .low-stock-report-controls select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px #2091D21A;background:#fff;}
   .low-stock-report-controls .low-stock-control-spacer{flex:1;}
   .low-stock-report-table{min-width:960px;table-layout:fixed;}
   .low-stock-report-table .low-stock-product{text-align:left;}
   .low-stock-report-table .low-stock-product b{display:block;font-weight:600;}
-  .low-stock-report-table .low-stock-unit-select{width:130px;min-width:0;margin:auto;}
+  .low-stock-report-table .low-stock-unit-select{width:150px;min-width:0;height:42px;margin:auto;padding:0 34px 0 12px;border:1px solid #D5E1E9;border-radius:10px;background-color:#F9FBFD;color:#52606F;font-family:inherit;font-size:13px;font-weight:600;text-align:center;cursor:pointer;box-shadow:0 2px 6px rgba(18,38,63,.04);}
+  .low-stock-report-table .low-stock-unit-select:hover{border-color:#9FCFE8;background:#fff;}
+  .low-stock-report-table .low-stock-unit-select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px #2091D21A;background:#fff;color:var(--primary);}
   .low-stock-report-table tr.out td{background:#FFFCF5;}
   .low-stock-report-table tr.negative td{background:#FFF8F7;}
   .low-stock-report-page .lowstock-table-scroll{height:calc(100vh - 390px);}
-  @media(max-width:900px){.low-stock-report-summary{grid-template-columns:1fr}.low-stock-report-controls select{width:100%;max-width:none}.low-stock-report-controls .low-stock-control-spacer{display:none;}}
+  @media(max-width:900px){.low-stock-report-summary{grid-template-columns:1fr}.low-stock-filter-field{width:100%}.low-stock-report-controls select{width:100%;max-width:none}.low-stock-report-controls .low-stock-control-spacer{display:none;}}
   .expiry-report-page{display:flex;flex-direction:column;gap:14px;min-width:0;}
   .expiry-report-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;}
   .expiry-report-title h1{font-size:25px;margin:0 0 4px;}
@@ -8364,7 +8371,7 @@ function renderLowStock(){
       <div class="low-stock-summary-card negative ${lowStockPageFilter.stockMode==='negative'?'active':''}"><button type="button" class="low-stock-summary-card-select" data-lowstock-mode="negative"><span>สินค้าติดลบ</span><b>${negativeCount}</b></button></div>
     </div>
     <div class="low-stock-report-controls">
-      <select id="lowStockWarehouseFilter" aria-label="เลือกคลังสินค้า"><option value="context" ${lowStockPageFilter.stockWarehouse==='context'?'selected':''}>ตาม TOPBAR: ${escapeHtml(contextLabel)}</option><option value="all" ${lowStockPageFilter.stockWarehouse==='all'?'selected':''}>ทุกคลัง</option>${warehouseOptions}</select>
+      <label class="low-stock-filter-field"><span class="low-stock-filter-label">คลังสินค้าที่แสดง</span><select id="lowStockWarehouseFilter" aria-label="เลือกคลังสินค้า"><option value="context" ${lowStockPageFilter.stockWarehouse==='context'?'selected':''}>ตาม TOPBAR: ${escapeHtml(contextLabel)}</option><option value="all" ${lowStockPageFilter.stockWarehouse==='all'?'selected':''}>ทุกคลัง</option>${warehouseOptions}</select></label>
     </div>
     <div class="doc-list-wrap seamless-table-wrap lowstock-table-scroll">
     <table class="low-table doc-head-blue low-stock-report-table"><thead><tr>${lowTh('stock','sku','รหัสสินค้า')}${lowTh('stock','name','สินค้า')}${lowTh('stock','stock','คงเหลือ',true)}${lowTh('stock','unit','หน่วย')}${lowTh('stock','wh','คลัง')}<th>สถานะ</th></tr></thead>
