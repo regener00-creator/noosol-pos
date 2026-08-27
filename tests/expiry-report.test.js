@@ -66,11 +66,12 @@ assert.doesNotMatch(html, /สินค้าใกล้หมดอายุ \
 assert.match(html, /function expiryReportLotRows\(\)/);
 assert.match(html, /groupInventoryLotDetailRows\(lotRows\)/, 'รายงานต้องรวมรายการรับเข้าที่เป็น LOT ผู้ผลิตเดียวกัน');
 assert.match(html, /id="expiryWarehouseFilter"/, 'หน้ารายงานต้องเลือกคลังได้');
-assert.match(html, /data-expiry-mode="expired"/, 'ต้องกรองเฉพาะสินค้าหมดอายุแล้วได้');
-assert.match(html, /data-expiry-mode="near"/, 'ต้องกรองเฉพาะสินค้าใกล้หมดอายุได้');
 assert.match(html, /data-expiry-summary-mode="expired"/, 'ก้อนสรุปหมดอายุแล้วต้องกดกรองตารางได้');
-assert.match(html, /data-expiry-summary-days="30"/, 'ก้อนสรุป 30 วันต้องกดกรองตารางได้');
-assert.match(html, /data-expiry-summary-days="90"/, 'ก้อนสรุป 90 วันต้องกดกรองตารางได้');
+assert.match(html, /data-expiry-summary-mode="near"/, 'ก้อนสรุปใกล้วันหมดอายุต้องกดกรองตารางได้');
+assert.match(html, /id="expiryDaysInput"/, 'ต้องพิมพ์ระยะวันก่อนหมดอายุเองได้');
+assert.match(html, /EXPIRY_DAYS_FILTER_STORAGE_KEY/, 'ต้องจำระยะวันก่อนหมดอายุไว้ในอุปกรณ์');
+assert.doesNotMatch(html, /data-expiry-n=/, 'ต้องไม่มีปุ่มช่วงวันซ้ำด้านล่าง');
+assert.doesNotMatch(html, /class="expiry-report-controls"/, 'ต้องไม่มีแถบตัวกรองซ้ำด้านล่าง');
 assert.match(html, /querySelectorAll\('\[data-expiry-summary-mode\]'\)/, 'ต้องผูกการทำงานให้ก้อนสรุปวันหมดอายุ');
 assert.match(html, /lowTh\('expiry','lot','เลข LOT'\)/);
 assert.match(html, /lowTh\('expiry','quantity','คงเหลือ',true\)/);
