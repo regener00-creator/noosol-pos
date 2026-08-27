@@ -39,6 +39,7 @@ const reportContext = {
   ],
   inventoryBalanceRows:[{product_id:2,warehouse_id:1,stock:7,expiry:'soon'}],
   reportWarehouseIds:()=>[1,2],
+  normalizeInventoryReportWarehouseValue:value=>value,
   isAllWarehousesMode:()=>false,
   inventoryBalanceKey:(productId,warehouseId)=>`${warehouseId}:${productId}`,
   groupInventoryLotDetailRows:rows=>{
@@ -66,6 +67,7 @@ assert.doesNotMatch(html, /สินค้าใกล้หมดอายุ \
 assert.match(html, /function expiryReportLotRows\(\)/);
 assert.match(html, /groupInventoryLotDetailRows\(lotRows\)/, 'รายงานต้องรวมรายการรับเข้าที่เป็น LOT ผู้ผลิตเดียวกัน');
 assert.match(html, /id="expiryWarehouseFilter"/, 'หน้ารายงานต้องเลือกคลังได้');
+assert.doesNotMatch(html, /id="expiryWarehouseFilter"[^<]*<option value="context"/, 'หน้าสินค้าใกล้หมดอายุต้องไม่มีตัวเลือกตาม TOPBAR');
 assert.match(html, /data-expiry-summary-mode="expired"/, 'ก้อนสรุปหมดอายุแล้วต้องกดกรองตารางได้');
 assert.match(html, /data-expiry-summary-mode="near"/, 'ก้อนสรุปใกล้วันหมดอายุต้องกดกรองตารางได้');
 assert.match(html, /id="expiryDaysInput"/, 'ต้องพิมพ์ระยะวันก่อนหมดอายุเองได้');

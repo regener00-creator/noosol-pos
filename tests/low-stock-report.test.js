@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const start = html.indexOf('function lowStockReportWarehouseIds(');
+const start = html.indexOf('function inventoryReportDefaultWarehouseValue(');
 const end = html.indexOf('function expiryReportWarehouseIds(', start);
 assert.ok(start >= 0 && end > start, 'ไม่พบ logic รายงานสินค้าใกล้หมด');
 
@@ -25,6 +25,7 @@ const context = {
   warehouses:[{id:1,name:'สำนักงานใหญ่'},{id:2,name:'สาขา'}],
   inventoryBalanceMap,
   reportWarehouseIds:()=>[1,2],
+  loggedInUser:()=>({level:1}),
   isAllWarehousesMode:()=>false,
   inventoryBalanceKey:(productId,warehouseId)=>`${warehouseId}:${productId}`,
   productUnitOptions:product=>[
@@ -35,6 +36,12 @@ const context = {
 };
 vm.createContext(context);
 vm.runInContext(html.slice(start,end), context);
+
+assert.equal(context.inventoryReportDefaultWarehouseValue({level:1}),'all','Level 1 ต้องเริ่มต้นที่ทุกคลัง');
+context.activeWarehouseId=2;
+assert.equal(context.inventoryReportDefaultWarehouseValue({level:2}),'2','Level อื่นต้องเริ่มต้นที่คลังบน TOPBAR');
+assert.equal(context.normalizeInventoryReportWarehouseValue('context',{level:2}),'2','ค่าเดิมตาม TOPBAR ต้องถูกแปลงเป็นเลขคลังจริง');
+context.activeWarehouseId=1;
 
 let rows = context.lowStockReportRows();
 assert.equal(rows.length,4,'ต้องสร้างแถวสินค้า 2 ตัวแยกตาม 2 คลัง และไม่รวมบริการ');
@@ -59,6 +66,7 @@ context.lowStockPageFilter.stockMode='negative';
 assert.equal(context.lowStockReportConditionLabel(),'สินค้าที่มีสต๊อกติดลบ');
 
 assert.match(html,/id="lowStockWarehouseFilter"/,'หน้าสินค้าใกล้หมดต้องเลือกคลังได้');
+assert.doesNotMatch(html,/<option value="context"[^>]*>ตาม TOPBAR:/,'ต้องไม่มีตัวเลือกตาม TOPBAR ในหน้ารายงาน');
 assert.match(html,/id="lowStockThresholdInput"/,'ต้องพิมพ์เกณฑ์จำนวนเองได้');
 assert.match(html,/data-lowstock-mode="low"/,'ต้องมีก้อนสินค้าใกล้หมด');
 assert.match(html,/data-lowstock-mode="out"/,'ต้องมีก้อนสินค้าเป็นศูนย์');
