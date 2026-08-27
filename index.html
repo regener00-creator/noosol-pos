@@ -404,6 +404,7 @@
   .custom-item-form{padding:4px 18px 18px;display:grid;grid-template-columns:1fr 1fr;gap:11px 13px;}.custom-item-form .wide{grid-column:1/-1;}.custom-item-form label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;}.custom-item-form input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;}.custom-item-note{grid-column:1/-1;padding:9px 11px;border-radius:8px;background:var(--accent-soft);color:#7C5817;font-size:12px;}
   .pos-table{border:none;table-layout:fixed;width:100%;}
   .pos-table .pt-idx{width:80px;}
+  .pos-table .pt-sku{width:125px;}
   .pos-table .pt-name{width:auto;}
   .pos-table .pt-price{width:145px;}
   .pos-table .pt-unit{width:150px;}
@@ -412,11 +413,11 @@
   .pos-table .pt-del{width:56px;}
   .pos-del-cell{text-align:center;}
   .pos-table td,.pos-table th{overflow:hidden;text-overflow:ellipsis;}
-  .pos-table td:nth-child(2){white-space:normal;overflow:visible;text-align:left;}
-  .pos-table th:nth-child(2){text-align:left;}
-  .pos-table td:nth-child(3),.pos-table td:nth-child(4),.pos-table td:nth-child(5),.pos-table td:nth-child(6){text-align:left;}
-  .pos-table th:nth-child(3),.pos-table th:nth-child(4),.pos-table th:nth-child(6){text-align:left;}
-  .pos-table th:nth-child(5){text-align:center;}
+  .pos-table td:nth-child(3){white-space:normal;overflow:visible;text-align:left;}
+  .pos-table th:nth-child(3){text-align:left;}
+  .pos-table td:nth-child(4),.pos-table td:nth-child(5),.pos-table td:nth-child(6),.pos-table td:nth-child(7){text-align:left;}
+  .pos-table th:nth-child(4),.pos-table th:nth-child(5),.pos-table th:nth-child(7){text-align:left;}
+  .pos-table th:nth-child(6){text-align:center;}
   .pos-table th{border:none;border-bottom:2px solid var(--primary);background:transparent;text-align:center;padding:10px 8px;}
   .pos-table td{border:none;border-bottom:1px solid var(--border);text-align:center;}
   .pos-promo-tag{font-size:10.5px;font-weight:600;}
@@ -2370,10 +2371,9 @@ async function loadInspectionListsFromSupabase(){
   }catch(e){ console.warn('load inspection lists failed',e); }
 }
 
-// ----- Favorites sync (per-user: table PK is user_id+product_id, not id) -----
-// Different shape from upsertAndPrune()'s tables -- no single `id` column to
-// key off of, and rows must stay scoped to the CURRENT user only (never
-// touch another signed-in staff member's favorites).
+// ----- Shared favorites sync (one store-wide list for every signed-in user) -----
+// The table keeps user_id only as the last editor. product_id is the shared
+// primary key, so every account loads and edits the same ordered list.
 async function syncFavoritesToSupabase(){
   if(!currentProfile) return;
   favorites=normalizeFavorites(favorites);
@@ -2381,18 +2381,18 @@ async function syncFavoritesToSupabase(){
   if(lastSyncedSnapshot.favorites===snapshot) return;
   try{
     const rows=favorites.map((entry,position)=>({user_id:currentProfile.id,product_id:entry.pid,unit:entry.unit||'',position}));
-    if(rows.length){ const {error}=await sb.from('favorites').upsert(rows); if(error){ console.warn('sync favorites',error); return; } }
-    const {data:existing}=await fetchAllRows(()=>sb.from('favorites').select('product_id').eq('user_id',currentProfile.id));
+    if(rows.length){ const {error}=await sb.from('favorites').upsert(rows,{onConflict:'product_id'}); if(error){ console.warn('sync favorites',error); return; } }
+    const {data:existing}=await fetchAllRows(()=>sb.from('favorites').select('product_id'));
     const localIds=new Set(favorites.map(entry=>entry.pid));
     const del=(existing||[]).filter(r=>!localIds.has(r.product_id)).map(r=>r.product_id);
-    if(del.length) await sb.from('favorites').delete().eq('user_id',currentProfile.id).in('product_id',del);
+    if(del.length) await sb.from('favorites').delete().in('product_id',del);
     lastSyncedSnapshot.favorites=snapshot;
   }catch(e){ console.warn('sync favorites failed',e); }
 }
 async function loadFavoritesFromSupabase(){
   if(!currentProfile) return;
   try{
-    const {data,error}=await fetchAllRows(()=>sb.from('favorites').select('product_id,unit,position,created_at').eq('user_id',currentProfile.id).order('position').order('created_at'));
+    const {data,error}=await fetchAllRows(()=>sb.from('favorites').select('product_id,unit,position,created_at').order('position').order('created_at'));
     if(error){ console.warn('load favorites',error); return; }
     favorites=normalizeFavorites((data||[]).map(row=>({pid:row.product_id,unit:row.unit})));
     lastSyncedSnapshot.favorites=JSON.stringify(favorites);
@@ -4170,7 +4170,7 @@ function renderCheckout(){
   const taxSummary=cartTaxSummary(promoResult);
   const promoHints=getPromotionUpsellHints(cart);
   if(cart.length===0){
-    rowsHtml = `<tr><td colspan="7" class="pos-empty">ไม่พบรายการสินค้า — ค้นหาหรือสแกนบาร์โค้ดเพื่อเพิ่ม</td></tr>`;
+    rowsHtml = `<tr><td colspan="8" class="pos-empty">ไม่พบรายการสินค้า — ค้นหาหรือสแกนบาร์โค้ดเพื่อเพิ่ม</td></tr>`;
   } else {
     cart.forEach((line,idx)=>{
       const p=products.find(x=>x.id===line.pid);
@@ -4182,6 +4182,7 @@ function renderCheckout(){
         // บรรทัดของแถมอัตโนมัติจากโปรฯ "ซื้อสินค้า A แถมสินค้า B" - ลบ/แก้ไขเองไม่ได้ ต้องลดจำนวนสินค้าหลัก (A) ก่อนถึงจะหายไปเอง
         rowsHtml += `<tr class="pos-autofree-row">
           <td class="mono">${String(idx+1).padStart(3,'0')}</td>
+          <td class="mono">${escapeHtml(p?.sku||'-')}</td>
           <td>🎁 ${escapeHtml(line.name)}<br><small class="pos-promo-tag promo-active">ของแถม — ${escapeHtml(line.autoFreePromoName||'')}</small></td>
           <td class="mono num">0.00</td>
           <td>${escapeHtml(line.unit)}</td>
@@ -4208,7 +4209,8 @@ function renderCheckout(){
         : fmtMoney(displayUnitPrice);
       rowsHtml += `<tr>
         <td class="mono">${String(idx+1).padStart(3,'0')}</td>
-        <td>${line.custom?`<div class="custom-line-wrap"><input class="custom-line-input custom-line-name" data-custom-name data-line="${line.lineId}" value="${escapeHtml(line.name)}" placeholder="กรอกชื่อรายการ"></div>`:line.name}</td>
+        <td class="mono">${escapeHtml(p?.sku||'-')}</td>
+        <td>${line.custom?`<div class="custom-line-wrap"><input class="custom-line-input custom-line-name" data-custom-name data-line="${line.lineId}" value="${escapeHtml(line.name)}" placeholder="กรอกชื่อรายการ"></div>`:escapeHtml(line.name)}</td>
         <td class="mono num">${priceCell}</td>
         <td class="line-unit-cell">${unitCell}</td>
         <td class="pos-qty"><input class="line-qty" type="number" min="1" step="1" value="${line.qty}" data-line="${line.lineId}"></td>
@@ -4217,6 +4219,7 @@ function renderCheckout(){
       </tr>`;
       if(promoLine.promoFreeQty>0){
         rowsHtml += `<tr class="pos-free-row">
+          <td class="mono"></td>
           <td class="mono"></td>
           <td colspan="2">🎁 แถมฟรี — ${escapeHtml(line.name)}</td>
           <td>${escapeHtml(line.unit)}</td>
@@ -4253,7 +4256,7 @@ function renderCheckout(){
     <div class="pos-grid">
       <div class="pos-left">
         <div class="pos-title-row"><div class="pos-title">รายการ : ${formatSaleRefDisplay(saleRef)}</div><button class="btn ghost" id="addCustomItemBtn">+ รายการกรอกเอง</button></div>
-        <datalist id="inlineCustomUnits">${units.map(unit=>`<option value="${unit}">`).join('')}</datalist><table class="grid-table pos-table"><colgroup><col class="pt-idx"><col class="pt-name"><col class="pt-price"><col class="pt-unit"><col class="pt-qty"><col class="pt-total"><col class="pt-del"></colgroup><thead><tr><th>รายการที่</th><th>ชื่อ</th><th>ราคา</th><th>หน่วย</th><th>จำนวน</th><th>รวม</th><th></th></tr></thead>
+        <datalist id="inlineCustomUnits">${units.map(unit=>`<option value="${unit}">`).join('')}</datalist><table class="grid-table pos-table"><colgroup><col class="pt-idx"><col class="pt-sku"><col class="pt-name"><col class="pt-price"><col class="pt-unit"><col class="pt-qty"><col class="pt-total"><col class="pt-del"></colgroup><thead><tr><th>รายการที่</th><th>รหัสสินค้า</th><th>ชื่อ</th><th>ราคา</th><th>หน่วย</th><th>จำนวน</th><th>รวม</th><th></th></tr></thead>
         <tbody>${rowsHtml}</tbody></table>
         ${favHtml}
       </div>
