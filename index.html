@@ -444,6 +444,28 @@
   .filter-chip{padding:6px 14px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--text-muted);font-family:inherit;font-size:12.5px;font-weight:500;cursor:pointer;transition:all .12s;}
   .filter-chip:hover{border-color:var(--primary);color:var(--primary);}
   .filter-chip.active{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600;}
+  .expiry-report-page{display:flex;flex-direction:column;gap:14px;min-width:0;}
+  .expiry-report-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;}
+  .expiry-report-title h1{font-size:25px;margin:0 0 4px;}
+  .expiry-report-title p{margin:0;color:var(--text-muted);font-size:13px;}
+  .expiry-report-summary{display:grid;grid-template-columns:repeat(3,minmax(170px,1fr));gap:12px;}
+  .expiry-summary-card{border:1px solid var(--border);border-radius:12px;background:var(--surface);padding:14px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .expiry-summary-card span{color:var(--text-muted);font-size:13px;}
+  .expiry-summary-card b{font-size:24px;color:var(--primary);}
+  .expiry-summary-card.expired{background:var(--danger-soft);border-color:#F1C7C3;}
+  .expiry-summary-card.expired b{color:var(--danger);}
+  .expiry-summary-card.urgent{background:var(--accent-soft);border-color:#F0D9AE;}
+  .expiry-summary-card.urgent b{color:#A66A00;}
+  .expiry-report-controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);}
+  .expiry-report-controls select{min-width:220px;padding:8px 11px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);font:inherit;font-size:13px;}
+  .expiry-report-controls .expiry-control-spacer{flex:1;}
+  .expiry-report-table .expiry-product-name{font-weight:600;}
+  .expiry-report-table .expiry-product-sku{display:block;color:var(--text-muted);font-size:11.5px;margin-top:3px;}
+  .expiry-report-table .expiry-lot-code{font-weight:600;}
+  .expiry-report-table tr.expired td{background:#FFF8F7;}
+  .expiry-report-table tr.urgent td{background:#FFFCF4;}
+  .expiry-report-table .expiry-detail-btn{white-space:nowrap;}
+  @media(max-width:900px){.expiry-report-summary{grid-template-columns:1fr}.expiry-report-controls select{width:100%;min-width:0}.expiry-report-controls .expiry-control-spacer{display:none;}}
   .low-table th,.low-table td{text-align:center;}
   .low-table th:first-child,.low-table td:first-child{text-align:left;}
   .low-table th.num,.low-table td.num{text-align:center;}
@@ -3236,7 +3258,7 @@ let rbillFilter = { period:'today', from:'', to:'', month:'', year:'', wh:'all',
 let rprofitFilter = { period:'today', from:'', to:'', month:'', year:'', wh:'all', pay:'all', applied:false };
 let rtaxMonth=TODAY_STR.slice(0,7);
 // ตัวกรองหน้าสินค้าใกล้หมด/ใกล้หมดอายุ
-let lowStockPageFilter = { stockThreshold:50, expiryDays:90, stockPage:1, expiryPage:1 };
+let lowStockPageFilter = { stockThreshold:50, expiryDays:90, expiryMode:'all', expiryWarehouse:'context', stockPage:1, expiryPage:1 };
 // รายการที่เพิ่มไว้ในหน้า "รายงานสินค้าคงเหลือ" (ค้นหา/สแกนแล้วสะสมเป็นรายการ)
 let stockReportItems = [];
 // ตัวกรองหมวดสินค้าหลัก/ย่อย สำหรับหน้ารายงานสินค้าคงเหลือ (ไว้เพิ่มทั้งหมวดในคราวเดียว)
@@ -4033,7 +4055,7 @@ const NAV = [
     ['inventorymovement','รายการงานเคลื่อนไหว','<path d="M4 7h12"/><path d="M13 4l3 3-3 3"/><path d="M20 17H8"/><path d="M11 14l-3 3 3 3"/>'],
     ['rinventory','สินค้าคงเหลือ','<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'],
     ['lowstock','สินค้าใกล้หมด','<path d="M12 9v4"/><circle cx="12" cy="16.5" r="0.5" fill="currentColor"/><path d="M10.3 3.9L2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>'],
-    ['expiry','สินค้าหมดอายุ','<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M8 3.9 6.5 2.5M16 3.9l1.5-1.4"/>'],
+    ['expiry','สินค้าใกล้หมดอายุ / หมดอายุ','<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M8 3.9 6.5 2.5M16 3.9l1.5-1.4"/>'],
     ['rproduct','ยอดขายตามสินค้า','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>'],
     ['rbill','ยอดขายตามบิล','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>'],
     ['rprofit','กำไร / ขาดทุน','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/><path d="M7 8h12"/>'],
@@ -5551,15 +5573,18 @@ function inventoryLotDetailGroupsHtml(product,rows,{groupPrefix='stocked',readOn
 }
 const INVENTORY_LOT_HISTORY_PAGE_SIZE=50;
 const INVENTORY_LOT_DETAIL_COLUMNS='id,product_id,warehouse_id,internal_code,manufacturer_lot,expiry_date,quantity_base,unit_cost_base,received_at,source_type,source_id,status,updated_at';
-async function openProductLotDetails(productId){
+async function openProductLotDetails(productId,warehouseId=activeWarehouseId){
   const product=products.find(item=>Number(item.id)===Number(productId));
   if(!product) return;
-  let rows=inventoryLotsForProduct(product.id,activeWarehouseId);
+  const targetWarehouseId=Number(warehouseId)||Number(activeWarehouseId);
+  const targetWarehouse=warehouses.find(item=>Number(item.id)===targetWarehouseId);
+  const canManageWarehouse=currentProfile?.owner&&targetWarehouseId===Number(activeWarehouseId)&&!isAllWarehousesMode();
+  let rows=inventoryLotsForProduct(product.id,targetWarehouseId);
   let historyCount=inventoryLotDetailRowSets(rows).exhausted.length;
   try{
     const [stockedResult,historyCountResult]=await Promise.all([
-      sb.from('inventory_lots').select(INVENTORY_LOT_DETAIL_COLUMNS).eq('product_id',product.id).eq('warehouse_id',Number(activeWarehouseId)).gt('quantity_base',0).neq('status','exhausted').order('expiry_date',{ascending:true,nullsFirst:false}).order('received_at',{ascending:true}).order('id',{ascending:true}),
-      sb.from('inventory_lots').select('id',{count:'exact',head:true}).eq('product_id',product.id).eq('warehouse_id',Number(activeWarehouseId)).or('quantity_base.lte.0,status.eq.exhausted')
+      sb.from('inventory_lots').select(INVENTORY_LOT_DETAIL_COLUMNS).eq('product_id',product.id).eq('warehouse_id',targetWarehouseId).gt('quantity_base',0).neq('status','exhausted').order('expiry_date',{ascending:true,nullsFirst:false}).order('received_at',{ascending:true}).order('id',{ascending:true}),
+      sb.from('inventory_lots').select('id',{count:'exact',head:true}).eq('product_id',product.id).eq('warehouse_id',targetWarehouseId).or('quantity_base.lte.0,status.eq.exhausted')
     ]);
     if(stockedResult.error) throw stockedResult.error;
     rows=(stockedResult.data||[]).map(normalizeInventoryLotRow);
@@ -5574,14 +5599,14 @@ async function openProductLotDetails(productId){
   const activeDisplayGroupCount=groupInventoryLotDetailRows(activeRows).length;
   const total=activeRows.reduce((sum,row)=>sum+Number(row.quantity_base||0),0);
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
-  const stockedRowsHtml=inventoryLotDetailGroupsHtml(product,stockedRows,{groupPrefix:'stocked'});
+  const stockedRowsHtml=inventoryLotDetailGroupsHtml(product,stockedRows,{groupPrefix:'stocked',readOnly:!canManageWarehouse});
   const emptyStockedText=historyCount?'ไม่มี LOT ที่มีสินค้า':'ยังไม่มี LOT สำหรับสินค้านี้';
   const systemToggle=currentProfile?.owner&&(stockedRows.length||historyCount)?`<button type="button" class="lot-history-toggle" id="lotSystemDetailsToggle" aria-expanded="false"><span class="lot-history-toggle-chevron">▸</span><span>ดูรายละเอียดทางระบบ</span></button>`:'';
   const historyToggle=historyCount?`<button type="button" class="lot-history-toggle" id="lotHistoryToggle" aria-expanded="false"><span class="lot-history-toggle-chevron">▸</span><span>แสดง LOT ที่หมดแล้ว (${historyCount})</span></button>`:'';
   const detailToggles=systemToggle||historyToggle?`<div class="lot-history-toggle-wrap">${systemToggle}${historyToggle}</div>`:'';
   const historyLoadMore=historyCount?`<div class="lot-history-load-more" id="lotHistoryLoadMoreWrap" hidden><button type="button" class="btn ghost small" id="lotHistoryLoadMoreBtn">โหลดเพิ่มเติม</button><span class="lot-history-progress" id="lotHistoryProgress"></span></div>`:'';
-  const lotDetailActions=currentProfile?.owner&&stockedRows.length?`<div class="form-bottom-actions" style="justify-content:flex-end;gap:10px;">${activeDisplayGroupCount>=2?'<button class="btn ghost" type="button" id="openLotReallocationBtn">ปรับจำนวนแยกตาม LOT</button>':''}<button class="btn primary" id="saveLotDetailsBtn">บันทึกข้อมูล Lot</button></div>`:'';
-  overlay.innerHTML=`<div class="modal lot-detail-modal"><div class="modal-head"><div><h3>รายละเอียด Lot</h3><div class="sub">${escapeHtml(product.name)} · ${escapeHtml(activeWarehouse()?.name||'-')}</div></div><button class="modal-close" aria-label="ปิด">×</button></div><div class="lot-detail-body"><div class="lot-detail-summary"><span>คงเหลือรวม ${escapeHtml(stockInLargestUnit({...product,stock:total}))}</span><span>${activeDisplayGroupCount} Lot ที่มีสินค้า</span><span>หมดอายุใกล้สุด ${escapeHtml(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]?fmtDateShort(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]):'-')}</span></div><div class="seamless-table-wrap"><table class="grid-table doc-head-blue lot-detail-table"><thead><tr><th class="lot-internal-column">รหัส LOT ภายใน</th><th>เลข LOT ผู้ผลิต</th><th>คงเหลือ</th><th>วันหมดอายุ</th><th>รับเข้าเมื่อ</th><th>สถานะ</th></tr></thead><tbody>${stockedRowsHtml||`<tr><td colspan="6" style="padding:28px;color:var(--text-muted);">${emptyStockedText}</td></tr>`}</tbody>${historyCount?'<tbody id="lotHistoryBody" hidden></tbody>':''}</table></div>${detailToggles}${historyLoadMore}${lotDetailActions}</div></div>`;
+  const lotDetailActions=canManageWarehouse&&stockedRows.length?`<div class="form-bottom-actions" style="justify-content:flex-end;gap:10px;">${activeDisplayGroupCount>=2?'<button class="btn ghost" type="button" id="openLotReallocationBtn">ปรับจำนวนแยกตาม LOT</button>':''}<button class="btn primary" id="saveLotDetailsBtn">บันทึกข้อมูล Lot</button></div>`:'';
+  overlay.innerHTML=`<div class="modal lot-detail-modal"><div class="modal-head"><div><h3>รายละเอียด Lot</h3><div class="sub">${escapeHtml(product.name)} · ${escapeHtml(targetWarehouse?.name||'-')}</div></div><button class="modal-close" aria-label="ปิด">×</button></div><div class="lot-detail-body"><div class="lot-detail-summary"><span>คงเหลือรวม ${escapeHtml(stockInLargestUnit({...product,stock:total}))}</span><span>${activeDisplayGroupCount} Lot ที่มีสินค้า</span><span>หมดอายุใกล้สุด ${escapeHtml(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]?fmtDateShort(activeRows.map(row=>row.expiry_date).filter(Boolean).sort()[0]):'-')}</span></div>${canManageWarehouse?'':'<div class="info-box" style="margin-bottom:12px;">เปิดดูจากรายงานต่างคลัง จึงแสดงข้อมูลแบบอ่านอย่างเดียว หากต้องการแก้ไขให้เปลี่ยนคลังที่ TOPBAR ก่อน</div>'}<div class="seamless-table-wrap"><table class="grid-table doc-head-blue lot-detail-table"><thead><tr><th class="lot-internal-column">รหัส LOT ภายใน</th><th>เลข LOT ผู้ผลิต</th><th>คงเหลือ</th><th>วันหมดอายุ</th><th>รับเข้าเมื่อ</th><th>สถานะ</th></tr></thead><tbody>${stockedRowsHtml||`<tr><td colspan="6" style="padding:28px;color:var(--text-muted);">${emptyStockedText}</td></tr>`}</tbody>${historyCount?'<tbody id="lotHistoryBody" hidden></tbody>':''}</table></div>${detailToggles}${historyLoadMore}${lotDetailActions}</div></div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
@@ -5629,7 +5654,7 @@ async function openProductLotDetails(productId){
     const label=historyButton?.querySelector('span:last-child');
     if(label&&historyLoaded===0) label.textContent='กำลังโหลด LOT ที่หมดแล้ว...';
     try{
-      const {data,error}=await sb.from('inventory_lots').select(INVENTORY_LOT_DETAIL_COLUMNS).eq('product_id',product.id).eq('warehouse_id',Number(activeWarehouseId)).or('quantity_base.lte.0,status.eq.exhausted').order('received_at',{ascending:false}).order('id',{ascending:false}).range(historyLoaded,historyLoaded+INVENTORY_LOT_HISTORY_PAGE_SIZE-1);
+      const {data,error}=await sb.from('inventory_lots').select(INVENTORY_LOT_DETAIL_COLUMNS).eq('product_id',product.id).eq('warehouse_id',targetWarehouseId).or('quantity_base.lte.0,status.eq.exhausted').order('received_at',{ascending:false}).order('id',{ascending:false}).range(historyLoaded,historyLoaded+INVENTORY_LOT_HISTORY_PAGE_SIZE-1);
       if(error) throw error;
       const pageRows=(data||[]).map(normalizeInventoryLotRow);
       if(historyBody&&pageRows.length) historyBody.insertAdjacentHTML('beforeend',inventoryLotDetailGroupsHtml(product,pageRows,{groupPrefix:`exhausted-${historyLoaded}`,readOnly:true}));
@@ -8137,6 +8162,77 @@ function reportInventoryProductRows(){
     return {...product,stock:Number(balance.stock)||0,expiry:balance.expiry||'',_reportWarehouseId:Number(balance.warehouse_id),_reportWarehouseName:warehouse?.name||'-'};
   }).filter(Boolean);
 }
+function expiryReportWarehouseIds(){
+  const allowed=reportWarehouseIds();
+  const selected=String(lowStockPageFilter.expiryWarehouse||'context');
+  if(selected==='all') return allowed;
+  if(selected!=='context'){
+    const warehouseId=Number(selected);
+    if(allowed.includes(warehouseId)) return [warehouseId];
+  }
+  if(isAllWarehousesMode()) return allowed;
+  const activeId=Number(activeWarehouseId);
+  return allowed.includes(activeId)?[activeId]:allowed.slice(0,1);
+}
+function expiryReportLotRows(){
+  const warehouseIds=new Set(expiryReportWarehouseIds());
+  const productById=new Map(products.map(product=>[Number(product.id),product]));
+  const warehouseById=new Map(warehouses.map(warehouse=>[Number(warehouse.id),warehouse]));
+  const lotsByProductWarehouse=new Map();
+  (inventoryLotRows||[]).forEach(lot=>{
+    const warehouseId=Number(lot.warehouse_id),productId=Number(lot.product_id);
+    if(!warehouseIds.has(warehouseId)||Number(lot.quantity_base)<=0) return;
+    const key=inventoryBalanceKey(productId,warehouseId);
+    if(!lotsByProductWarehouse.has(key)) lotsByProductWarehouse.set(key,[]);
+    lotsByProductWarehouse.get(key).push(lot);
+  });
+  const rows=[];
+  lotsByProductWarehouse.forEach((lotRows,key)=>{
+    const first=lotRows[0],product=productById.get(Number(first?.product_id));
+    if(!product) return;
+    const warehouseId=Number(first.warehouse_id),warehouseName=warehouseById.get(warehouseId)?.name||'-';
+    groupInventoryLotDetailRows(lotRows).forEach(group=>{
+      const firstRow=group.rows[0]||{};
+      rows.push({
+        productId:Number(product.id),sku:product.sku||'',name:product.name,product,
+        lotNumber:group.manufacturerLot||(group.rows.length===1?firstRow.internal_code:'')||'ไม่ระบุ LOT',
+        expiry:group.expiryDate||'',quantityBase:Number(group.quantityBase)||0,
+        quantityText:lotQuantityText(product,{quantity_base:group.quantityBase}),
+        warehouseId,warehouseName,blocked:group.rows.every(row=>row.status==='blocked')
+      });
+    });
+  });
+  const balanceKeys=new Set();
+  (inventoryBalanceRows||[]).forEach(balance=>{
+    const warehouseId=Number(balance.warehouse_id),productId=Number(balance.product_id);
+    if(!warehouseIds.has(warehouseId)) return;
+    const key=inventoryBalanceKey(productId,warehouseId); balanceKeys.add(key);
+    if(lotsByProductWarehouse.has(key)||Number(balance.stock)<=0||!balance.expiry) return;
+    const product=productById.get(productId); if(!product) return;
+    rows.push({productId,sku:product.sku||'',name:product.name,product,lotNumber:'ข้อมูลเดิม (ไม่มี LOT)',expiry:balance.expiry,quantityBase:Number(balance.stock)||0,quantityText:lotQuantityText(product,{quantity_base:balance.stock}),warehouseId,warehouseName:warehouseById.get(warehouseId)?.name||'-',blocked:false,legacy:true});
+  });
+  if(warehouseIds.size===1){
+    const warehouseId=[...warehouseIds][0];
+    products.forEach(product=>{
+      const key=inventoryBalanceKey(product.id,warehouseId);
+      if(lotsByProductWarehouse.has(key)||balanceKeys.has(key)||Number(product.stock)<=0||!product.expiry) return;
+      rows.push({productId:Number(product.id),sku:product.sku||'',name:product.name,product,lotNumber:'ข้อมูลเดิม (ไม่มี LOT)',expiry:product.expiry,quantityBase:Number(product.stock)||0,quantityText:lotQuantityText(product,{quantity_base:product.stock}),warehouseId,warehouseName:warehouseById.get(warehouseId)?.name||'-',blocked:false,legacy:true});
+    });
+  }
+  return rows.filter(row=>row.expiry&&Number.isFinite(daysUntil(row.expiry)));
+}
+function expiryReportRowMatches(row,mode=lowStockPageFilter.expiryMode,withinDays=lowStockPageFilter.expiryDays){
+  const remaining=daysUntil(row?.expiry),limit=Math.max(0,Number(withinDays)||0);
+  if(!Number.isFinite(remaining)) return false;
+  if(mode==='expired') return remaining<0;
+  if(mode==='near') return remaining>=0&&remaining<=limit;
+  return remaining<=limit;
+}
+function expiryReportConditionLabel(){
+  if(lowStockPageFilter.expiryMode==='expired') return 'เฉพาะสินค้าที่หมดอายุแล้ว';
+  if(lowStockPageFilter.expiryMode==='near') return `สินค้าใกล้หมดอายุภายใน ${lowStockPageFilter.expiryDays} วัน`;
+  return `สินค้าหมดอายุแล้วและใกล้หมดอายุภายใน ${lowStockPageFilter.expiryDays} วัน`;
+}
 function lowSortedList(list, sortState, keyFn){
   const dir=sortState.dir;
   return [...list].sort((a,b)=>{
@@ -8182,28 +8278,34 @@ function renderLowStock(){
 }
 
 function renderExpiry(){
-  const expDays = lowStockPageFilter.expiryDays;
-  const nearExp = reportInventoryProductRows().filter(p=>daysUntil(p.expiry)<expDays);
+  const expDays=lowStockPageFilter.expiryDays;
   const expOpts=[30,60,90,180];
-  const expSorted = lowSortedList(nearExp, lowStockSort.expiry, (p,key)=> key==='expiry'?(p.expiry||'') : key==='status'?expiryBadge(p.expiry).label : p.name);
+  const allRows=expiryReportLotRows();
+  const filteredRows=allRows.filter(row=>expiryReportRowMatches(row));
+  const expSorted=lowSortedList(filteredRows,lowStockSort.expiry,(row,key)=>key==='expiry'?(row.expiry||''):key==='status'?daysUntil(row.expiry):key==='lot'?(row.lotNumber||''):key==='quantity'?row.quantityBase:key==='wh'?(row.warehouseName||''):row.name);
+  const expiredCount=allRows.filter(row=>daysUntil(row.expiry)<0).length;
+  const within30Count=allRows.filter(row=>daysUntil(row.expiry)>=0&&daysUntil(row.expiry)<=30).length;
+  const within90Count=allRows.filter(row=>daysUntil(row.expiry)>=0&&daysUntil(row.expiry)<=90).length;
   const expTotalPages=Math.max(1, Math.ceil(expSorted.length/LOWSTOCK_PAGE_SIZE));
   if(lowStockPageFilter.expiryPage>expTotalPages) lowStockPageFilter.expiryPage=expTotalPages;
   if(lowStockPageFilter.expiryPage<1) lowStockPageFilter.expiryPage=1;
   const expStart=(lowStockPageFilter.expiryPage-1)*LOWSTOCK_PAGE_SIZE;
   const expPageRows=expSorted.slice(expStart, expStart+LOWSTOCK_PAGE_SIZE);
+  const contextLabel=isAllWarehousesMode()?'ทุกคลัง':(activeWarehouse()?.name||'-');
+  const warehouseOptions=accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(lowStockPageFilter.expiryWarehouse)===String(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('');
 
-  return `<div class="lowstock-section">
-    <div class="lowstock-filter-row">
-      <h3 style="margin:0;">ใกล้หมดอายุ (${nearExp.length})</h3>
-      <div class="chip-group">
-        <span class="chip-group-label">แสดงสินค้าที่หมดอายุภายใน</span>
-        ${expOpts.map(n=>`<button class="filter-chip ${expDays===n?'active':''}" data-expiry-n="${n}">${n} วัน</button>`).join('')}
-      </div>
-      <button class="btn primary" id="printExpiryBtn">พิมพ์รายงาน</button>
+  return `<div class="lowstock-section expiry-report-page">
+    <div class="expiry-report-head"><div class="expiry-report-title"><h1>สินค้าใกล้หมดอายุ / หมดอายุ</h1><p>แสดงแยกตาม LOT และคลังสินค้า เพื่อวางแผนขาย คืนสินค้า หรือตัดจำหน่ายได้ถูกต้อง</p></div><button class="btn primary" id="printExpiryBtn">พิมพ์รายงาน</button></div>
+    <div class="expiry-report-summary"><div class="expiry-summary-card expired"><span>หมดอายุแล้ว</span><b>${expiredCount}</b></div><div class="expiry-summary-card urgent"><span>ใกล้หมดอายุภายใน 30 วัน</span><b>${within30Count}</b></div><div class="expiry-summary-card"><span>ใกล้หมดอายุภายใน 90 วัน</span><b>${within90Count}</b></div></div>
+    <div class="expiry-report-controls">
+      <select id="expiryWarehouseFilter" aria-label="เลือกคลังสินค้า"><option value="context" ${lowStockPageFilter.expiryWarehouse==='context'?'selected':''}>ตาม TOPBAR: ${escapeHtml(contextLabel)}</option><option value="all" ${lowStockPageFilter.expiryWarehouse==='all'?'selected':''}>ทุกคลัง</option>${warehouseOptions}</select>
+      <div class="chip-group"><span class="chip-group-label">สถานะ</span><button class="filter-chip ${lowStockPageFilter.expiryMode==='all'?'active':''}" data-expiry-mode="all">ทั้งหมดในช่วง</button><button class="filter-chip ${lowStockPageFilter.expiryMode==='expired'?'active':''}" data-expiry-mode="expired">หมดอายุแล้ว</button><button class="filter-chip ${lowStockPageFilter.expiryMode==='near'?'active':''}" data-expiry-mode="near">ใกล้หมดอายุ</button></div>
+      <span class="expiry-control-spacer"></span>
+      <div class="chip-group"><span class="chip-group-label">ภายใน</span>${expOpts.map(n=>`<button class="filter-chip ${expDays===n?'active':''}" data-expiry-n="${n}" ${lowStockPageFilter.expiryMode==='expired'?'disabled':''}>${n} วัน</button>`).join('')}</div>
     </div>
     <div class="doc-list-wrap seamless-table-wrap lowstock-table-scroll">
-    <table class="low-table doc-head-blue"><thead><tr>${lowTh('expiry','name','สินค้า')}${lowTh('expiry','expiry','วันหมดอายุ')}${lowTh('expiry','status','สถานะ')}<th>คลัง</th></tr></thead>
-    <tbody>${expPageRows.map(p=>{const b=expiryBadge(p.expiry);return `<tr><td>${p.name}</td><td class="mono ${daysUntil(p.expiry)<0?'expiry-past':''}">${fmtDate(p.expiry)}</td><td><span class="badge ${b.cls}">${b.label}</span></td><td>${escapeHtml(p._reportWarehouseName||activeWarehouse()?.name||'-')}</td></tr>`;}).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ไม่มีสินค้าใกล้หมดอายุ</td></tr>'}</tbody></table>
+    <table class="low-table doc-head-blue expiry-report-table"><thead><tr>${lowTh('expiry','name','สินค้า')}${lowTh('expiry','lot','เลข LOT')}${lowTh('expiry','quantity','คงเหลือ',true)}${lowTh('expiry','expiry','วันหมดอายุ')}${lowTh('expiry','status','สถานะ')}${lowTh('expiry','wh','คลัง')}<th>รายละเอียด</th></tr></thead>
+    <tbody>${expPageRows.map(row=>{const remaining=daysUntil(row.expiry),badge=expiryBadge(row.expiry),rowClass=remaining<0?'expired':remaining<=30?'urgent':'';return `<tr class="${rowClass}"><td><span class="expiry-product-name">${escapeHtml(row.name)}</span><span class="expiry-product-sku">รหัส ${escapeHtml(row.sku||'-')}</span></td><td><span class="expiry-lot-code">${escapeHtml(row.lotNumber)}</span>${row.blocked?'<span class="badge danger" style="margin:5px auto 0;">ระงับแล้ว</span>':''}</td><td class="mono num">${escapeHtml(row.quantityText)}</td><td class="mono ${remaining<0?'expiry-past':''}">${escapeHtml(fmtDate(row.expiry))}</td><td><span class="badge ${badge.cls}">${escapeHtml(badge.label)}</span></td><td>${escapeHtml(row.warehouseName)}</td><td><button class="btn ghost small expiry-detail-btn" data-product-lots="${row.productId}" data-lot-warehouse="${row.warehouseId}">ดู LOT</button></td></tr>`;}).join('')||`<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:28px;">ไม่พบ${escapeHtml(expiryReportConditionLabel())}</td></tr>`}</tbody></table>
     </div>
     <div style="padding-top:12px;">${pagerHtml(lowStockPageFilter.expiryPage, expTotalPages, 'lowpage-expiry')}</div>
   </div>
@@ -11277,6 +11379,11 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   document.querySelectorAll('[data-expiry-n]').forEach(el=>{
     el.addEventListener('click', ()=>{ lowStockPageFilter.expiryDays=Number(el.dataset.expiryN); lowStockPageFilter.expiryPage=1; render(); });
   });
+  document.querySelectorAll('[data-expiry-mode]').forEach(el=>{
+    el.addEventListener('click',()=>{ lowStockPageFilter.expiryMode=el.dataset.expiryMode||'all'; lowStockPageFilter.expiryPage=1; render(); });
+  });
+  const expiryWarehouseFilter=document.getElementById('expiryWarehouseFilter');
+  if(expiryWarehouseFilter) expiryWarehouseFilter.addEventListener('change',()=>{ lowStockPageFilter.expiryWarehouse=expiryWarehouseFilter.value||'context'; lowStockPageFilter.expiryPage=1; render(); });
   document.querySelectorAll('[data-lowsort]').forEach(el=>{
     el.addEventListener('click', ()=>{
       const [table,key]=el.dataset.lowsort.split(':');
@@ -11325,7 +11432,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   document.querySelectorAll('[data-product-lots]').forEach(button=>button.addEventListener('click',event=>{
     event.stopPropagation();
-    openProductLotDetails(Number(button.dataset.productLots));
+    openProductLotDetails(Number(button.dataset.productLots),Number(button.dataset.lotWarehouse)||activeWarehouseId);
   }));
   // --- ตัวกรองหน้ารายการงานเคลื่อนไหว ---
   const movementPeriod=document.getElementById('movementPeriod');
@@ -14835,29 +14942,26 @@ function openPriceCheckModal(){
 function printStockAlertReport(kind){
   const isExpiry=kind==='expiry';
   const threshold=lowStockPageFilter.stockThreshold;
-  const expiryDays=lowStockPageFilter.expiryDays;
   const reportProducts=reportInventoryProductRows();
-  const filtered=isExpiry
-    ?reportProducts.filter(product=>daysUntil(product.expiry)<expiryDays)
-    :reportProducts.filter(product=>product.stock<threshold);
+  const filtered=isExpiry?expiryReportLotRows().filter(row=>expiryReportRowMatches(row)):reportProducts.filter(product=>product.stock<threshold);
   const rows=isExpiry
-    ?lowSortedList(filtered,lowStockSort.expiry,(product,key)=>key==='expiry'?(product.expiry||''):key==='status'?expiryBadge(product.expiry).label:product.name)
+    ?lowSortedList(filtered,lowStockSort.expiry,(row,key)=>key==='expiry'?(row.expiry||''):key==='status'?daysUntil(row.expiry):key==='lot'?(row.lotNumber||''):key==='quantity'?row.quantityBase:key==='wh'?(row.warehouseName||''):row.name)
     :lowSortedList(filtered,lowStockSort.stock,(product,key)=>key==='stock'?product.stock:key==='wh'?(product._reportWarehouseName||''):product.name);
   if(!rows.length){ showToast(isExpiry?'ไม่มีสินค้าในช่วงวันหมดอายุที่เลือก':'ไม่มีสินค้าคงเหลือต่ำกว่าเกณฑ์ที่เลือก'); return; }
 
-  const title=isExpiry?'รายงานสินค้าหมดอายุ':'รายงานสินค้าใกล้หมด';
-  const condition=isExpiry?`แสดงสินค้าที่หมดอายุภายใน ${expiryDays} วัน`:`แสดงสินค้าที่เหลือต่ำกว่า ${threshold} ชิ้น`;
+  const title=isExpiry?'รายงานสินค้าใกล้หมดอายุ / หมดอายุ':'รายงานสินค้าใกล้หมด';
+  const condition=isExpiry?expiryReportConditionLabel():`แสดงสินค้าที่เหลือต่ำกว่า ${threshold} ชิ้น`;
   const dateText=fmtDashboardDate(TODAY_STR);
   const rowsHtml=rows.map((product,index)=>{
     if(isExpiry){
       const badge=expiryBadge(product.expiry);
       const statusClass=daysUntil(product.expiry)<0?'danger':daysUntil(product.expiry)<=30?'warn':'ok';
-      return `<tr><td class="c">${index+1}</td><td>${escapeHtml(product.name)}</td><td class="c">${fmtDateShort(product.expiry)}</td><td class="c ${statusClass}">${escapeHtml(badge.label)}</td><td>${escapeHtml(product._reportWarehouseName||activeWarehouse()?.name||'-')}</td></tr>`;
+      return `<tr><td class="c">${index+1}</td><td>${escapeHtml(product.name)}</td><td>${escapeHtml(product.lotNumber)}</td><td class="c">${escapeHtml(product.quantityText)}</td><td class="c">${fmtDateShort(product.expiry)}</td><td class="c ${statusClass}">${escapeHtml(badge.label)}</td><td>${escapeHtml(product.warehouseName||'-')}</td></tr>`;
     }
     return `<tr><td class="c">${index+1}</td><td>${escapeHtml(product.name)}</td><td class="c">${escapeHtml(product.stock)}</td><td>${escapeHtml(product._reportWarehouseName||activeWarehouse()?.name||'-')}</td></tr>`;
   }).join('');
   const columns=isExpiry
-    ?'<th class="c" style="width:7%;">#</th><th>สินค้า</th><th class="c" style="width:20%;">วันหมดอายุ</th><th class="c" style="width:22%;">สถานะ</th><th style="width:24%;">คลัง</th>'
+    ?'<th class="c" style="width:5%;">#</th><th>สินค้า</th><th>เลข LOT</th><th class="c">คงเหลือ</th><th class="c">วันหมดอายุ</th><th class="c">สถานะ</th><th>คลัง</th>'
     :'<th class="c" style="width:7%;">#</th><th>สินค้า</th><th class="c" style="width:20%;">คงเหลือ</th><th style="width:28%;">คลัง</th>';
   const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร'); return; }
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${title}</title>
