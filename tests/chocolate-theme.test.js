@@ -8,14 +8,15 @@ const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.webmanifes
 const icon = fs.readFileSync(path.join(root, 'pwa-icon.svg'), 'utf8');
 const serviceWorker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 
-assert.match(html, /<meta name="theme-color" content="#715750">/);
-assert.match(html, /--bg:#F7F3F1; --surface:#FFFFFF; --border:#E3D9D5;/);
-assert.match(html, /--sidebar:#715750; --sidebar-hover:#59423A;/);
-assert.match(html, /--primary:#715750; --primary-dark:#4D3731; --primary-soft:#F0E8E5;/);
+assert.match(html, /<meta name="theme-color" content="#5A3F32">/);
+assert.match(html, /--bg:#F8F4F2; --surface:#FFFFFF; --border:#E5DAD5;/);
+assert.match(html, /--sidebar:#5A3F32; --sidebar-hover:#493126;/);
+assert.match(html, /--primary:#5A3F32; --primary-dark:#3F2A22; --primary-soft:#EFE5E1;/);
 assert.doesNotMatch(html, /#2091D2|#1A76AE|#166D9F|#E5F4FB/i);
-assert.equal(manifest.background_color, '#F7F3F1');
-assert.equal(manifest.theme_color, '#715750');
-assert.match(icon, /fill="#715750"/);
-assert.match(serviceWorker, /CACHE_NAME='pepos-mobile-v8'/);
+assert.doesNotMatch(html, /#715750/i);
+assert.equal(manifest.background_color, '#F8F4F2');
+assert.equal(manifest.theme_color, '#5A3F32');
+assert.match(icon, /fill="#5A3F32"/);
+assert.match(serviceWorker, /CACHE_NAME='pepos-mobile-v9'/);
 
 console.log('chocolate theme tests passed');
