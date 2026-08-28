@@ -3184,10 +3184,11 @@ function persistSalesHistory(){
 }
 const weekSales = [ {d:'28 ก.ค.',v:420}, {d:'29 ก.ค.',v:580}, {d:'30 ก.ค.',v:310}, {d:'31 ก.ค.',v:490}, {d:'1 ส.ค.',v:670}, {d:'2 ส.ค.',v:174}, {d:'3 ส.ค.',v:96} ];
 let TODAY_STR = currentDateStr();
-const DEFAULT_DOCUMENT_PREFIXES={sale:'RE',taxInvoice:'INV',quotation:'QT',shortage:'SH',purchaseOrder:'PO',productReturn:'RT',goodsReceipt:'RI',productExchange:'EX',transfer:'TF',warehouse:'WH'};
+const DEFAULT_DOCUMENT_PREFIXES={sale:'RE',cashBill:'CB',taxInvoice:'INV',quotation:'QT',shortage:'SH',purchaseOrder:'PO',productReturn:'RT',goodsReceipt:'RI',productExchange:'EX',transfer:'TF',inspection:'CHECK',stockAdjustment:'SC',cashShift:'CS',warehouse:'WH'};
 let documentPrefixes={...DEFAULT_DOCUMENT_PREFIXES};
 const DOCUMENT_PREFIX_FIELDS=[
   {key:'sale',label:'ใบเสร็จจาก POS / ประวัติการขาย'},
+  {key:'cashBill',label:'บิลเงินสด A4'},
   {key:'taxInvoice',label:'ใบกำกับภาษีเต็มรูปแบบ'},
   {key:'quotation',label:'ใบเสนอราคา'},
   {key:'shortage',label:'สั่งของขาด'},
@@ -3196,6 +3197,9 @@ const DOCUMENT_PREFIX_FIELDS=[
   {key:'goodsReceipt',label:'ใบรับสินค้า'},
   {key:'productExchange',label:'เปลี่ยนสินค้า'},
   {key:'transfer',label:'โอนสินค้าระหว่างคลัง'},
+  {key:'inspection',label:'ตรวจสินค้า'},
+  {key:'stockAdjustment',label:'ตรวจนับและปรับสต๊อก'},
+  {key:'cashShift',label:'เปิด-ปิดระบบชำระ / เลขกะ'},
   {key:'warehouse',label:'รหัสคลังสินค้า / สาขา'}
 ];
 function normalizeDocumentPrefix(value,fallback=''){
@@ -3628,7 +3632,7 @@ function normalizeInspectionLists(value){
       seen.add(item.pid); return true;
     });
     return {
-      id:String(list.id||`CHECK-${String(index+1).padStart(4,'0')}`),
+      id:String(list.id||`${documentPrefixes.inspection}-${String(index+1).padStart(4,'0')}`),
       name:String(list.name||`รายการตรวจสินค้า ${index+1}`).trim()||`รายการตรวจสินค้า ${index+1}`,
       items,
       createdAt:String(list.createdAt||new Date().toISOString()),
@@ -3661,7 +3665,10 @@ function refreshDataCounters(){
   returnCounter=Math.max(1,...productReturns.map(doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1));
   standaloneTaxInvoiceCounter=Math.max(1,...standaloneTaxInvoices.map(doc=>(Number(String(doc.number||'').slice(-4))||0)+1));
   transferCounter=Math.max(1,...transfers.map(t=>(Number(String(t.id||'').slice(-4))||0)+1));
-  inspectionListCounter=Math.max(1,...inspectionLists.map(list=>(Number(String(list.id||'').replace(/\D/g,''))||0)+1));
+  inspectionListCounter=Math.max(1,...inspectionLists.map(list=>{
+    const match=String(list.id||'').match(/-(\d+)$/);
+    return (Number(match?.[1])||0)+1;
+  }));
 }
 function applyWorkspaceData(saved){
   if(!saved||typeof saved!=='object') return false;
@@ -3681,15 +3688,15 @@ function applyWorkspaceData(saved){
   if(Array.isArray(saved.transfers)) transfers=saved.transfers;
   if(Array.isArray(saved.standaloneTaxInvoices)) standaloneTaxInvoices=saved.standaloneTaxInvoices;
   if(Array.isArray(saved.favorites)) favorites=normalizeFavorites(saved.favorites,products);
-  if(Array.isArray(saved.inspectionLists)) inspectionLists=normalizeInspectionLists(saved.inspectionLists);
-  if(saved.currentUserProfile&&typeof saved.currentUserProfile==='object') currentUserProfile={...currentUserProfile,...saved.currentUserProfile};
-  if(saved.businessSettings&&typeof saved.businessSettings==='object'){
-    applyBusinessSettings(saved.businessSettings);
-  }
   if(saved.documentPrefixes&&typeof saved.documentPrefixes==='object'){
     Object.keys(DEFAULT_DOCUMENT_PREFIXES).forEach(key=>{
       documentPrefixes[key]=normalizeDocumentPrefix(saved.documentPrefixes[key],DEFAULT_DOCUMENT_PREFIXES[key]);
     });
+  }
+  if(Array.isArray(saved.inspectionLists)) inspectionLists=normalizeInspectionLists(saved.inspectionLists);
+  if(saved.currentUserProfile&&typeof saved.currentUserProfile==='object') currentUserProfile={...currentUserProfile,...saved.currentUserProfile};
+  if(saved.businessSettings&&typeof saved.businessSettings==='object'){
+    applyBusinessSettings(saved.businessSettings);
   }
   refreshDataCounters();
   saleRef=nextSaleRef();
@@ -7846,7 +7853,7 @@ function saveInspectionListDraft(options={}){
   const now=new Date().toISOString();
   const saved={...inspectionListDraft,name,warehouseId:Number(inspectionListDraft.warehouseId)||Number(activeWarehouseId)||0,items:inspectionListDraft.items.map(item=>({pid:Number(item.pid),unit:String(item.unit||'')})),updatedAt:now,stockAdjustedAt:'',stockAdjustedBy:''};
   if(editingInspectionListId==='new'){
-    saved.id=`CHECK-${String(inspectionListCounter++).padStart(4,'0')}`;
+    saved.id=`${documentPrefixes.inspection}-${String(inspectionListCounter++).padStart(4,'0')}`;
     saved.createdAt=saved.createdAt||now;
     inspectionLists.unshift(saved);
   }else{
@@ -14640,6 +14647,11 @@ function shortReceiptNumber(sale){
   const prefix=documentPrefixes.sale;
   return sale.shortReceiptMeta?.number || sale.ref || buildDocNumber(prefix, nextDailySeq(prefix, salesHistory.map(s=>s.ref).filter(Boolean)));
 }
+function nextA4CashReceiptNumber(){
+  const prefix=documentPrefixes.cashBill;
+  const numbers=salesHistory.map(sale=>sale.cashReceiptA4Meta?.number).filter(Boolean);
+  return buildDocNumber(prefix,nextDailySeq(prefix,numbers));
+}
 function nextFullTaxInvoiceNumber(){
   const pool=[...salesHistory.map(s=>s.fullTaxInvoice?.number).filter(Boolean), ...standaloneTaxInvoices.map(d=>d.number).filter(Boolean)];
   const prefix=documentPrefixes.taxInvoice;
@@ -14681,8 +14693,9 @@ function a4CashReceiptCustomer(sale){
 function openA4CashReceiptModal(saleId){
   const sale=salesHistory.find(item=>item.id===saleId); if(!sale||sale.status!=='done') return;
   const customer=a4CashReceiptCustomer(sale),meta=sale.cashReceiptA4Meta||{};
+  const documentNumber=meta.number||nextA4CashReceiptNumber();
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
-  overlay.innerHTML=`<div class="modal" style="width:650px;max-height:92vh;"><div class="modal-head"><div><h3>บิลเงินสด</h3><div class="sub">เลขที่ ${escapeHtml(meta.number||shortReceiptNumber(sale))} · วันที่ขาย ${fmtDateShort(sale.date)}</div></div><button class="modal-close" aria-label="ปิด">×</button></div>
+  overlay.innerHTML=`<div class="modal" style="width:650px;max-height:92vh;"><div class="modal-head"><div><h3>บิลเงินสด</h3><div class="sub">เลขที่ ${escapeHtml(documentNumber)} · วันที่ขาย ${fmtDateShort(sale.date)}</div></div><button class="modal-close" aria-label="ปิด">×</button></div>
     <div class="tax-lock-note" style="margin:0 20px 16px;">เอกสารนี้เป็นหลักฐานรับเงิน ไม่ใช่ใบกำกับภาษี และการพิมพ์จะไม่เพิ่มยอดขายหรือตัดสต๊อกซ้ำ</div>
     <form id="a4CashReceiptForm"><div class="tax-customer-form">
       <div class="wide"><label>ชื่อผู้ซื้อ / ลูกค้า</label><input id="a4_receipt_customer_name" value="${escapeHtml(customer.name)}" placeholder="ลูกค้าทั่วไป หรือชื่อกิจการ"></div>
@@ -14709,7 +14722,7 @@ function openA4CashReceiptModal(saleId){
   const issue=()=>{
     const data=collect(); if(!data) return;
     const old=sale.cashReceiptA4Meta||{};
-    sale.cashReceiptA4Meta={number:old.number||shortReceiptNumber(sale),saleDate:sale.date,issuedAt:old.issuedAt||auditNow(),customer:data,printLog:Array.isArray(old.printLog)?old.printLog:[]};
+    sale.cashReceiptA4Meta={number:old.number||documentNumber,saleDate:sale.date,issuedAt:old.issuedAt||auditNow(),customer:data,printLog:Array.isArray(old.printLog)?old.printLog:[]};
     persistSalesHistory();
     printA4CashReceipt(saleId);
   };
@@ -14719,7 +14732,7 @@ function openA4CashReceiptModal(saleId){
 function printA4CashReceipt(saleId){
   const sale=salesHistory.find(item=>item.id===saleId); if(!sale||sale.status!=='done') return;
   const old=sale.cashReceiptA4Meta||{},customer=old.customer||a4CashReceiptCustomer(sale);
-  const meta={number:old.number||shortReceiptNumber(sale),saleDate:old.saleDate||sale.date,issuedAt:old.issuedAt||auditNow(),customer,printLog:Array.isArray(old.printLog)?old.printLog:[]};
+  const meta={number:old.number||nextA4CashReceiptNumber(),saleDate:old.saleDate||sale.date,issuedAt:old.issuedAt||auditNow(),customer,printLog:Array.isArray(old.printLog)?old.printLog:[]};
   const isCopy=meta.printLog.length>0,business=sale.businessSnapshot||businessSettings,tax=saleTaxSummary(sale),registered=tax.registered;
   const lineAmount=item=>item.lineTotalGross!==undefined?Number(item.lineTotalGross)||0:item.lineTotal!==undefined?Number(item.lineTotal)||0:(Number(item.qty)||0)*(Number(item.price)||0);
   const itemsTotal=(sale.items||[]).reduce((sum,item)=>sum+lineAmount(item),0);

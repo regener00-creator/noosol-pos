@@ -20,7 +20,8 @@ assert.match(receiptLogic, /customerBranch\?` \(\$\{customerBranch\}\)`:''/, '�
 assert.match(receiptLogic, /เอกสารนี้ไม่ใช่ใบกำกับภาษี/, 'ต้องระบุว่าเอกสารไม่ใช่ใบกำกับภาษี');
 assert.doesNotMatch(receiptLogic, /ภาษีมูลค่าเพิ่ม 7%|VAT INCLUDED/, 'บิลเงินสด A4 ต้องไม่แสดงยอด VAT');
 assert.doesNotMatch(receiptLogic, /complete_sale|adjust_inventory|inventory_count/, 'การพิมพ์เอกสารต้องไม่สร้างยอดขายหรือตัดสต๊อก');
-assert.match(receiptLogic, /old\.number\|\|shortReceiptNumber\(sale\)/, 'A4 ต้องใช้เลขใบเสร็จเดิมของบิลขาย');
+assert.match(html, /function nextA4CashReceiptNumber\(\)[\s\S]{0,220}documentPrefixes\.cashBill/, 'บิลเงินสด A4 ต้องมีเลขเอกสารตามรหัสที่ตั้งไว้');
+assert.match(receiptLogic, /old\.number\|\|nextA4CashReceiptNumber\(\)/, 'การพิมพ์ซ้ำต้องใช้เลขบิลเงินสดเดิม ส่วนเอกสารใหม่ต้องออกเลขตามรหัสบิลเงินสด');
 assert.match(receiptLogic, /sale\.cashReceiptA4Meta=meta/, 'ต้องเก็บประวัติการพิมพ์ A4 ไว้กับบิลเดิม');
 
 console.log('a4 cash receipt tests passed');

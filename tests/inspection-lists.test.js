@@ -34,6 +34,7 @@ const context = {
   inspectionListOverviewSelectedIds: new Set(),
   expandedDocumentItemLists: new Set(),
   inspectionListCounter: 1,
+  documentPrefixes: {inspection:'CHECK'},
   mobileInspectionListId: '',
   mobileInspectionOpenedListId: '',
   mobileInspectionAddingToSaved: false,
