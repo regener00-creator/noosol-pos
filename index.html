@@ -6702,8 +6702,7 @@ function renderStockControl(){
   const pendingCount=inspectionLists.filter(inspectionListAvailableForStockEdit).length;
   const anomalyCount=stockControlAnomalyRows().length;
   const content=stockControlMode==='count'?renderInspectionLists():stockControlMode==='adjust'?renderStockEdit():stockControlMode==='lots'?renderStockLotReallocation():renderStockControlAnomalies();
-  return `<div class="stock-control-page"><div class="stock-control-header"><div><h1>ตรวจนับและปรับสต๊อก</h1><p>${escapeHtml(activeWarehouse()?.name||'-')} · ตรวจสอบก่อนบันทึก ทุกการปรับจะมีเหตุผล ผู้ดำเนินการ และประวัติ LOT</p></div></div>
-    <div class="stock-control-tabs" role="tablist" aria-label="งานตรวจนับและปรับสต๊อก">
+  return `<div class="stock-control-page"><div class="stock-control-tabs" role="tablist" aria-label="งานตรวจนับและปรับสต๊อก">
       <button type="button" class="stock-control-tab ${stockControlMode==='count'?'active':''}" data-stock-control-mode="count" role="tab" aria-selected="${stockControlMode==='count'}">ตรวจนับสินค้า</button>
       <button type="button" class="stock-control-tab ${stockControlMode==='adjust'?'active':''}" data-stock-control-mode="adjust" role="tab" aria-selected="${stockControlMode==='adjust'}">รอยืนยันปรับสต๊อก <span class="stock-control-tab-count">${pendingCount}</span></button>
       <button type="button" class="stock-control-tab ${stockControlMode==='anomalies'?'active':''}" data-stock-control-mode="anomalies" role="tab" aria-selected="${stockControlMode==='anomalies'}">รายการผิดปกติ <span class="stock-control-tab-count">${anomalyCount}</span></button>

@@ -14,6 +14,8 @@ assert.match(html, /\['stockcontrol','ตรวจนับและปรับ
 assert.doesNotMatch(html, /\['inspectionlists','ตรวจสินค้า'/);
 assert.doesNotMatch(html, /\['stockedit','แก้ไขสต๊อก'/);
 assert.doesNotMatch(html, /\['stockadjust','สินค้าติดลบ'/);
+assert.doesNotMatch(html, /<h1>ตรวจนับและปรับสต๊อก<\/h1>/);
+assert.doesNotMatch(html, /ตรวจสอบก่อนบันทึก ทุกการปรับจะมีเหตุผล ผู้ดำเนินการ และประวัติ LOT/);
 assert.match(html, /data-stock-control-mode="count"/);
 assert.match(html, /data-stock-control-mode="adjust"/);
 assert.match(html, /data-stock-control-mode="anomalies"/);
