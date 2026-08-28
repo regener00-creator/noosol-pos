@@ -24,6 +24,7 @@ assert.doesNotMatch(html, /แจ้งเตือนเพื่อให้�
 assert.doesNotMatch(html, /<h1>ปรับจำนวนแยกตาม LOT<\/h1>/);
 assert.doesNotMatch(html, /ย้ายจำนวนระหว่าง LOT ของสินค้าเดียวกัน โดยยอดคงเหลือรวมจะไม่เปลี่ยน/);
 assert.match(html, /\.stock-control-content>\.rpt\{padding:0;\}/);
+assert.match(html, /\.stock-control-tabs\{display:flex;justify-content:center;gap:6px;width:100%;max-width:1400px;margin:0 auto 18px;/);
 assert.match(html, /id="stockEditReason"/);
 assert.match(html, /ผู้ดำเนินการ/);
 assert.match(html, /LOT ที่ปรับ/);
