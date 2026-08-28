@@ -30,6 +30,11 @@ for (const inlineTitle of [
   'สมุดรายชื่อ <span class="page-title-meta">· ${list.length} รายชื่อ',
   'รายชื่อผู้แทน <span class="page-title-meta">· ${list.length} รายชื่อ',
   'รายงานการเคลื่อนไหว <span class="page-title-meta">· ${groups.length} บิล · ${rows.length} รายการเคลื่อนไหว',
+  'บิลเงินสด <span class="page-title-meta">เอกสารรับเงินกระดาษ A4 · ${docs.length} รายการ',
+  'ใบกำกับภาษีเต็มรูปแบบ <span class="page-title-meta">สร้างเอกสารใหม่ หรือ ออกเอกสารจากออเดอร์ย้อนหลัง · ${allItems.length} รายการ',
+  'ใบเสนอราคา <span class="page-title-meta">เสนอราคา ก่อนสั่งซื้อจริง · ${quotations.length} รายการ',
+  'ใบสั่งซื้อสินค้า <span class="page-title-meta">สร้างใบสั่งซื้อสินค้ากับผู้จำหน่าย · ${allDocs.length} รายการ',
+  'ใบคืนสินค้า <span class="page-title-meta">บันทึกการคืนสินค้าให้ผู้จำหน่าย · ${allDocs.length} รายการ',
 ]) {
   assert.ok(html.includes(inlineTitle), `ต้องย้ายข้อความสรุปมาต่อท้ายชื่อหน้า: ${inlineTitle}`);
 }
