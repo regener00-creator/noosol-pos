@@ -16,10 +16,17 @@ const server = http.createServer((request, response) => {
 });
 
 let browser;
+const browserExecutable = [
+  process.env.PEPOS_BROWSER_EXECUTABLE,
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
+].find(file => file && fs.existsSync(file));
 
 (async () => {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
-  browser = await chromium.launch({headless:true,executablePath:'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'});
+  assert.ok(browserExecutable, 'ไม่พบ Chrome หรือ Edge สำหรับทดสอบหน้าเว็บ');
+  browser = await chromium.launch({headless:true,executablePath:browserExecutable});
   const page = await browser.newPage({viewport:{width:1440,height:1000}});
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -65,6 +72,41 @@ let browser;
   assert.equal(await page.locator('#businessBranchFields').isVisible(), true);
 
   await page.screenshot({path:path.join(os.tmpdir(),'pepos-business-settings-browser.png'),fullPage:true});
+
+  await page.evaluate(() => {
+    activeWarehouseId=warehouses[0]?.id||1;
+    currentCashShift={id:'shift-browser-test',shiftNo:'CS202608270003',status:'open',openingCash:500,openedBy:'browser-test',openedByName:'กรธวัช จันทรวารี',openedAt:new Date().toISOString()};
+    currentTab='checkout';
+    document.getElementById('topbarFormActions').innerHTML='';
+    document.getElementById('main').innerHTML=renderCheckout();
+    attachEvents();
+    syncTopbarFormActions();
+  });
+  const paymentStatus=page.locator('#topbarFormActions .cash-shift-topbar-action');
+  assert.equal(await paymentStatus.count(), 1);
+  assert.equal(await page.locator('#main .cash-shift-topbar-action').count(), 0);
+  assert.match(await paymentStatus.innerText(), /^CS202608270003 เปิดอยู่ : เงินตั้งต้น 500\.00 บาท · กรธวัช จันทรวารี\s*สรุปชำระ$/);
+  const paymentStatusLayout=await paymentStatus.evaluate(element=>{
+    const text=element.querySelector('span').getBoundingClientRect();
+    const button=element.querySelector('button').getBoundingClientRect();
+    return {whiteSpace:getComputedStyle(element).whiteSpace,textCenter:text.top+(text.height/2),buttonCenter:button.top+(button.height/2)};
+  });
+  assert.equal(paymentStatusLayout.whiteSpace,'nowrap');
+  assert.ok(Math.abs(paymentStatusLayout.textCenter-paymentStatusLayout.buttonCenter)<2,'สถานะและปุ่มสรุปชำระต้องอยู่แถวเดียวกัน');
+
+  await page.evaluate(() => {
+    currentTab='cashshift';
+    document.getElementById('topbarFormActions').innerHTML='';
+    document.getElementById('main').innerHTML=renderCashShift();
+    attachEvents();
+    syncTopbarFormActions();
+  });
+  assert.equal(await page.locator('.cash-shift-heading h2').innerText(),'เปิด-ปิดระบบชำระ');
+  assert.equal(await page.locator('.cash-shift-heading .cash-shift-status').innerText(),'เปิดระบบชำระ');
+  assert.equal(await page.locator('.cash-shift-heading p').count(),0);
+  assert.equal(await page.locator('#cashShiftCloseForm h3').innerText(),'ปิดระบบ');
+  assert.equal(await page.locator('#cashShiftCloseForm button[type="submit"]').innerText(),'ยืนยันการปิดระบบ');
+
   assert.deepEqual(errors, []);
   console.log('business settings browser tests passed');
 })().catch(error => {

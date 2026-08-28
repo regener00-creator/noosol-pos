@@ -1665,9 +1665,9 @@
   .audit-log-table-wrap{overflow:auto;border:1px solid var(--border);border-radius:14px;background:var(--surface)}.audit-log-table{width:100%;border-collapse:collapse;min-width:1050px}.audit-log-table th{padding:12px;background:var(--primary);color:#fff;text-align:left;white-space:nowrap}.audit-log-table td{padding:12px;border-bottom:1px solid var(--border);vertical-align:top}.audit-log-table tr:last-child td{border-bottom:0}.audit-log-actor{display:flex;flex-direction:column;gap:2px}.audit-log-actor small{color:var(--text-muted)}.audit-log-chip{display:inline-flex;align-items:center;justify-content:center;padding:4px 9px;border-radius:999px;background:var(--primary-soft);color:var(--primary);font-weight:700;white-space:nowrap}.audit-log-chip.danger{background:var(--danger-soft);color:var(--danger)}.audit-log-chip.neutral{background:#eef1f4;color:var(--text-muted)}.audit-log-detail-row td{background:#f7fbfe}.audit-log-details{display:grid;grid-template-columns:1fr 1fr;gap:12px}.audit-log-data{padding:10px;border:1px solid var(--border);border-radius:10px;background:#fff;overflow-wrap:anywhere}.audit-log-data b{display:block;margin-bottom:6px;color:var(--text-muted)}.audit-log-pagination{display:flex;align-items:center;justify-content:center;gap:8px}.audit-log-empty{padding:36px;text-align:center;color:var(--text-muted)}
   @media(max-width:1100px){.audit-log-toolbar{grid-template-columns:1fr 1fr}.audit-log-search-filter{grid-column:1/-1}.audit-log-toolbar-summary{min-height:68px}}
   @media(max-width:720px){.audit-log-toolbar{grid-template-columns:1fr;padding:12px}.audit-log-search-filter{grid-column:auto}.audit-log-toolbar-summary{min-height:64px}.audit-log-details{grid-template-columns:1fr}}
-  .cash-shift-banner{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:12px;padding:11px 14px;border:1px solid #f0c36b;border-radius:10px;background:#fff8e8;color:#714b00;}
-  .cash-shift-banner.open{border-color:#b8dfc2;background:#f0faf3;color:#246b36;}
-  .cash-shift-banner strong{display:block;font-size:14px;}.cash-shift-banner small{display:block;margin-top:2px;color:inherit;opacity:.82;}
+  .cash-shift-topbar-action{display:flex;align-items:center;gap:9px;white-space:nowrap;color:#714b00;font-size:13px;}
+  .cash-shift-topbar-action.open{color:#246b36;}
+  .cash-shift-topbar-action strong{font-weight:700;}.cash-shift-topbar-action .btn{padding:7px 12px;}
   .cash-shift-page{max-width:1180px;margin:0 auto;}.cash-shift-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px;}
   .cash-shift-heading h2{margin:0 0 4px;font-size:23px;}.cash-shift-heading p{margin:0;color:var(--text-muted);}
   .cash-shift-status{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border-radius:999px;background:#edf2f7;color:#687386;font-weight:700;white-space:nowrap;}
@@ -4152,7 +4152,7 @@ const NAV = [
   ]},
   {section:'ขาย', items:[
     ['checkout','POS','<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.2a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 7H6"/>'],
-    ['cashshift','เปิดกะ–ปิดกะ','<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2M7 3l-2 2M17 3l2 2"/>'],
+    ['cashshift','เปิด-ปิดระบบชำระ','<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2M7 3l-2 2M17 3l2 2"/>'],
     ['history','ประวัติการขาย / ใบเสร็จ','<path d="M3 3v6h6"/><path d="M3.5 13a9 9 0 1 0 2-6.6L3 9"/><path d="M12 7v5l3 3"/>'],
     ['promotions','โปรโมชั่น','<path d="M20.59 13.41 11 22H2v-9L11.41 3.59a2 2 0 0 1 2.83 0l6.35 6.35a2 2 0 0 1 0 2.83zM7 8h.01"/><circle cx="7.5" cy="7.5" r="1.5"/>'],
   ]},
@@ -4316,12 +4316,11 @@ function renderCashShiftHistory(){
   return `<section class="cash-shift-history"><div class="cash-shift-history-head"><h3>ประวัติกะ</h3><small>แสดงล่าสุดไม่เกิน 100 กะ</small></div><div class="cash-shift-table-wrap"><table class="cash-shift-table"><thead><tr><th>เลขกะ</th><th>พนักงาน</th><th>เปิดเมื่อ</th><th>ปิดเมื่อ</th><th>เงินตั้งต้น</th><th>ยอดสุทธิ</th><th>เงินสดตามระบบ</th><th>ขาด/เกิน</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
 }
 function renderCashShift(){
-  if(isAllWarehousesMode()) return '<div class="panel">กรุณาเลือกคลังสินค้าแห่งเดียวก่อนเปิดหรือปิดกะ</div>';
-  const warehouseName=activeWarehouse()?.name||'-';
-  if(!currentCashShift) return `<main class="cash-shift-page"><div class="cash-shift-heading"><div><h2>เปิดกะ–ปิดกะ</h2><p>${escapeHtml(warehouseName)}</p></div><span class="cash-shift-status">ยังไม่เปิดกะ</span></div><form class="cash-shift-open-card" id="cashShiftOpenForm"><h3>เริ่มกะขาย</h3><p>นับเงินสดที่มีอยู่ในลิ้นชักก่อนเริ่มขาย แล้วกรอกเป็นเงินทอนตั้งต้น</p><label class="cash-shift-money-field"><span>เงินทอนตั้งต้น (บาท)</span><input id="cashShiftOpeningCash" type="number" min="0" max="999999999.99" step="0.01" value="0" inputmode="decimal" required></label><button class="btn primary" type="submit" ${cashShiftBusy?'disabled':''}>${cashShiftBusy?'กำลังเปิดกะ…':'เปิดกะและเริ่มขาย'}</button></form>${renderCashShiftHistory()}</main>`;
+  if(isAllWarehousesMode()) return '<div class="panel">กรุณาเลือกคลังสินค้าแห่งเดียวก่อนเปิดหรือปิดระบบชำระ</div>';
+  if(!currentCashShift) return `<main class="cash-shift-page"><div class="cash-shift-heading"><div><h2>เปิด-ปิดระบบชำระ</h2></div><span class="cash-shift-status">รอเปิดระบบชำระ</span></div><form class="cash-shift-open-card" id="cashShiftOpenForm"><h3>เริ่มต้นระบบชำระ</h3><p>นับเงินสดที่มีอยู่ในลิ้นชักก่อนเริ่มขาย แล้วกรอกเป็นเงินทอนตั้งต้น</p><label class="cash-shift-money-field"><span>เงินทอนตั้งต้น (บาท)</span><input id="cashShiftOpeningCash" type="number" min="0" max="999999999.99" step="0.01" value="0" inputmode="decimal" required></label><button class="btn primary" type="submit" ${cashShiftBusy?'disabled':''}>${cashShiftBusy?'กำลังเปิดระบบ…':'เปิดระบบชำระ'}</button></form>${renderCashShiftHistory()}</main>`;
   const shift=currentCashShift,summary=cashShiftSummary(shift),counted=String(cashShiftCloseDraft.countedCash||'').trim();
   const countedNumber=counted===''?null:Number(counted),variance=countedNumber===null?null:Math.round((countedNumber-summary.expectedCash)*100)/100,varianceClass=variance===null?'':Math.abs(variance)<.01?'ok':'danger';
-  return `<main class="cash-shift-page"><div class="cash-shift-heading"><div><h2>เปิดกะ–ปิดกะ</h2><p>${escapeHtml(warehouseName)}</p></div><span class="cash-shift-status open">กะเปิดอยู่</span></div><div class="cash-shift-meta"><div><span>เลขกะ</span><b class="mono">${escapeHtml(shift.shiftNo)}</b></div><div><span>พนักงาน</span><b>${escapeHtml(shift.openedByName||'-')}</b></div><div><span>เปิดเมื่อ</span><b>${cashShiftDateTime(shift.openedAt)}</b></div><div><span>เงินทอนตั้งต้น</span><b>${fmtMoney(shift.openingCash)} บาท</b></div></div><div class="cash-shift-summary-grid"><div class="cash-shift-stat primary"><span>ยอดขายรวม (${summary.saleCount} บิล)</span><b>${fmtMoney(summary.grossSales)}</b></div><div class="cash-shift-stat warn"><span>ยอดคืนจากยกเลิก (${summary.refundCount} บิล)</span><b>${fmtMoney(summary.refunds)}</b></div><div class="cash-shift-stat"><span>ยอดขายสุทธิ</span><b>${fmtMoney(summary.netSales)}</b></div><div class="cash-shift-stat primary"><span>เงินสดตามระบบ</span><b>${fmtMoney(summary.expectedCash)}</b></div></div><div class="cash-shift-layout"><section class="cash-shift-panel"><h3>สรุปตามวิธีชำระเงิน</h3>${cashShiftPaymentRows(summary)}<div class="cash-shift-total-row"><span>เงินทอนตั้งต้น + เงินสดขาย − เงินสดคืน</span><b>${fmtMoney(summary.expectedCash)} บาท</b></div></section><form class="cash-shift-panel cash-shift-close-form" id="cashShiftCloseForm"><h3>ปิดกะ</h3><label><span>เงินสดที่นับจริง (บาท)</span><input id="cashShiftCountedCash" type="number" min="0" max="999999999.99" step="0.01" inputmode="decimal" value="${escapeHtml(counted)}" required></label><div class="cash-shift-variance ${varianceClass}" id="cashShiftVariance"><span>ยอดขาด/เกิน</span><b>${variance===null?'กรอกเงินที่นับจริง':`${variance>0?'+':''}${fmtMoney(variance)} บาท`}</b></div><label><span>เหตุผลกรณีเงินขาด/เกิน</span><textarea id="cashShiftCloseReason" placeholder="จำเป็นเมื่อยอดขาดหรือเกิน">${escapeHtml(cashShiftCloseDraft.reason)}</textarea></label><button class="btn danger" type="submit" ${cashShiftBusy?'disabled':''}>${cashShiftBusy?'กำลังปิดกะ…':'ยืนยันปิดกะ'}</button></form></div>${renderCashShiftHistory()}</main>`;
+  return `<main class="cash-shift-page"><div class="cash-shift-heading"><div><h2>เปิด-ปิดระบบชำระ</h2></div><span class="cash-shift-status open">เปิดระบบชำระ</span></div><div class="cash-shift-meta"><div><span>เลขกะ</span><b class="mono">${escapeHtml(shift.shiftNo)}</b></div><div><span>พนักงาน</span><b>${escapeHtml(shift.openedByName||'-')}</b></div><div><span>เปิดเมื่อ</span><b>${cashShiftDateTime(shift.openedAt)}</b></div><div><span>เงินทอนตั้งต้น</span><b>${fmtMoney(shift.openingCash)} บาท</b></div></div><div class="cash-shift-summary-grid"><div class="cash-shift-stat primary"><span>ยอดขายรวม (${summary.saleCount} บิล)</span><b>${fmtMoney(summary.grossSales)}</b></div><div class="cash-shift-stat warn"><span>ยอดคืนจากยกเลิก (${summary.refundCount} บิล)</span><b>${fmtMoney(summary.refunds)}</b></div><div class="cash-shift-stat"><span>ยอดขายสุทธิ</span><b>${fmtMoney(summary.netSales)}</b></div><div class="cash-shift-stat primary"><span>เงินสดตามระบบ</span><b>${fmtMoney(summary.expectedCash)}</b></div></div><div class="cash-shift-layout"><section class="cash-shift-panel"><h3>สรุปตามวิธีชำระเงิน</h3>${cashShiftPaymentRows(summary)}<div class="cash-shift-total-row"><span>เงินทอนตั้งต้น + เงินสดขาย − เงินสดคืน</span><b>${fmtMoney(summary.expectedCash)} บาท</b></div></section><form class="cash-shift-panel cash-shift-close-form" id="cashShiftCloseForm"><h3>ปิดระบบ</h3><label><span>เงินสดที่นับจริง (บาท)</span><input id="cashShiftCountedCash" type="number" min="0" max="999999999.99" step="0.01" inputmode="decimal" value="${escapeHtml(counted)}" required></label><div class="cash-shift-variance ${varianceClass}" id="cashShiftVariance"><span>ยอดขาด/เกิน</span><b>${variance===null?'กรอกเงินที่นับจริง':`${variance>0?'+':''}${fmtMoney(variance)} บาท`}</b></div><label><span>เหตุผลกรณีเงินขาด/เกิน</span><textarea id="cashShiftCloseReason" placeholder="จำเป็นเมื่อยอดขาดหรือเกิน">${escapeHtml(cashShiftCloseDraft.reason)}</textarea></label><button class="btn danger" type="submit" ${cashShiftBusy?'disabled':''}>${cashShiftBusy?'กำลังปิดระบบ…':'ยืนยันการปิดระบบ'}</button></form></div>${renderCashShiftHistory()}</main>`;
 }
 
 async function openCashShift(event){
@@ -4333,10 +4332,10 @@ async function openCashShift(event){
     const {data,error}=await sb.rpc('open_cash_shift',{p_warehouse_id:Number(activeWarehouseId),p_opening_cash:openingCash});
     if(error) throw error;
     currentCashShift=normalizeCashShiftRow(data); cashShifts=[currentCashShift,...cashShifts.filter(shift=>shift.id!==currentCashShift.id)];
-    cashShiftCloseDraft={countedCash:'',reason:''}; showToast(`เปิดกะ ${currentCashShift.shiftNo} แล้ว`); currentTab='checkout';
+    cashShiftCloseDraft={countedCash:'',reason:''}; showToast(`เปิดระบบชำระ ${currentCashShift.shiftNo} แล้ว`); currentTab='checkout';
   }catch(error){
     const message=String(error?.message||'');
-    showToast(message.includes('already open')?'มีกะเปิดอยู่แล้ว กรุณารีเฟรชข้อมูล':message.includes('access denied')?'ไม่มีสิทธิ์ขายในคลังนี้':'เปิดกะไม่สำเร็จ กรุณาลองใหม่','danger-top');
+    showToast(message.includes('already open')?'ระบบชำระเปิดอยู่แล้ว กรุณารีเฟรชข้อมูล':message.includes('access denied')?'ไม่มีสิทธิ์ขายในคลังนี้':'เปิดระบบชำระไม่สำเร็จ กรุณาลองใหม่','danger-top');
     await loadCashShiftsFromSupabase();
   }finally{ cashShiftBusy=false; render(); }
 }
@@ -4346,17 +4345,17 @@ async function closeCashShift(event){
   if(!Number.isFinite(countedCash)||countedCash<0){ showToast('กรุณาระบุเงินสดที่นับจริงให้ถูกต้อง','danger-top'); return; }
   const variance=Math.round((countedCash-summary.expectedCash)*100)/100;
   if(Math.abs(variance)>=.01&&reason.length<3){ showToast('ยอดเงินขาดหรือเกิน กรุณาระบุเหตุผลอย่างน้อย 3 ตัวอักษร','danger-top'); document.getElementById('cashShiftCloseReason')?.focus(); return; }
-  if(!confirm(`ยืนยันปิดกะ ${currentCashShift.shiftNo} หรือไม่?\n\nเงินสดตามระบบ ${fmtMoney(summary.expectedCash)} บาท\nนับจริง ${fmtMoney(countedCash)} บาท\nขาด/เกิน ${variance>0?'+':''}${fmtMoney(variance)} บาท`)) return;
+  if(!confirm(`ยืนยันการปิดระบบ ${currentCashShift.shiftNo} หรือไม่?\n\nเงินสดตามระบบ ${fmtMoney(summary.expectedCash)} บาท\nนับจริง ${fmtMoney(countedCash)} บาท\nขาด/เกิน ${variance>0?'+':''}${fmtMoney(variance)} บาท`)) return;
   cashShiftBusy=true; render();
   try{
     const closingId=currentCashShift.id;
     const {data,error}=await sb.rpc('close_cash_shift',{p_shift_id:closingId,p_counted_cash:countedCash,p_close_reason:reason||null});
     if(error) throw error;
     const closed=normalizeCashShiftRow(data); cashShifts=[closed,...cashShifts.filter(shift=>shift.id!==closingId)]; currentCashShift=null;
-    cashShiftCloseDraft={countedCash:'',reason:''}; showToast(`ปิดกะ ${closed.shiftNo} เรียบร้อยแล้ว สามารถพิมพ์สรุปได้จากประวัติกะ`);
+    cashShiftCloseDraft={countedCash:'',reason:''}; showToast(`ปิดระบบ ${closed.shiftNo} เรียบร้อยแล้ว สามารถพิมพ์สรุปได้จากประวัติกะ`);
   }catch(error){
     const message=String(error?.message||'');
-    showToast(message.includes('variance reason')?'กรุณาระบุเหตุผลของยอดขาดหรือเกิน':message.includes('already closed')?'กะนี้ถูกปิดไปแล้ว กรุณารีเฟรชข้อมูล':'ปิดกะไม่สำเร็จ กรุณาลองใหม่','danger-top');
+    showToast(message.includes('variance reason')?'กรุณาระบุเหตุผลของยอดขาดหรือเกิน':message.includes('already closed')?'ระบบชำระนี้ถูกปิดไปแล้ว กรุณารีเฟรชข้อมูล':'ปิดระบบไม่สำเร็จ กรุณาลองใหม่','danger-top');
     await loadCashShiftsFromSupabase();
   }finally{ cashShiftBusy=false; render(); }
 }
@@ -4370,8 +4369,8 @@ function printCashShiftSummary(shiftId){
 
 function renderCheckout(){
   const shiftBanner=currentCashShift
-    ?`<div class="cash-shift-banner open"><div><strong>กะ ${escapeHtml(currentCashShift.shiftNo)} เปิดอยู่</strong><small>เงินทอนตั้งต้น ${fmtMoney(currentCashShift.openingCash)} บาท · ${escapeHtml(currentCashShift.openedByName)}</small></div><button class="btn ghost small" data-open-cash-shift>ดูสรุปกะ</button></div>`
-    :`<div class="cash-shift-banner"><div><strong>ยังไม่ได้เปิดกะ</strong><small>เพิ่มสินค้าในบิลได้ แต่ต้องเปิดกะก่อนรับชำระเงิน</small></div><button class="btn primary small" data-open-cash-shift>เปิดกะ</button></div>`;
+    ?`<div class="cash-shift-topbar-action open"><span><strong>${escapeHtml(currentCashShift.shiftNo)} เปิดอยู่</strong> : เงินตั้งต้น ${fmtMoney(currentCashShift.openingCash)} บาท · ${escapeHtml(currentCashShift.openedByName)}</span><button class="btn ghost small" data-open-cash-shift>สรุปชำระ</button></div>`
+    :`<div class="cash-shift-topbar-action"><span><strong>รอเปิดระบบชำระ</strong></span><button class="btn primary small" data-open-cash-shift>เปิดระบบชำระ</button></div>`;
   let rowsHtml='';
   const promoResult=applyPromotions(cart);
   const taxSummary=cartTaxSummary(promoResult);
@@ -10108,6 +10107,7 @@ function syncTopbarFormActions(){
   });
   [...main.querySelectorAll('.rpt-head-actions')].forEach(moveToTopbar);
   [...main.querySelectorAll('button.btn')].filter(button=>button.textContent.trim()==='พิมพ์รายงาน').forEach(moveToTopbar);
+  [...main.querySelectorAll('.cash-shift-topbar-action')].forEach(moveToTopbar);
 }
 
 function checkNegativeStockToast(pid){
@@ -14302,7 +14302,7 @@ function deleteSaleHistory(id,onDeleted){
 
 async function voidSaleHistory(id,onVoided){
   if(currentProfile?.owner!==true){ showToast('เฉพาะเจ้าของร้านเท่านั้นที่ยกเลิกบิลได้','danger-top'); return; }
-  if(!currentCashShift){ showToast('กรุณาเปิดกะก่อนยกเลิกบิลและคืนเงิน','danger-top'); currentTab='cashshift'; render(); return; }
+  if(!currentCashShift){ showToast('กรุณาเปิดระบบชำระก่อนยกเลิกบิลและคืนเงิน','danger-top'); currentTab='cashshift'; render(); return; }
   const sale=salesHistory.find(item=>item.id===id); if(!sale||sale.status!=='done') return;
   if(sale.shortReceiptMeta||sale.fullTaxInvoice){ showToast('บิลนี้ออกเอกสารแล้ว กรุณาจัดการเอกสารก่อนยกเลิกบิล','danger-top'); return; }
   const reason=prompt(`ระบุเหตุผลที่ยกเลิกบิล ${sale.ref||sale.id}`,'ขายผิดรายการ');
@@ -14323,7 +14323,7 @@ async function voidSaleHistory(id,onVoided){
     console.warn('void sale',error);
     const message=String(error?.message||'');
     if(message.includes('cash shift required')){ currentCashShift=null; currentTab='cashshift'; await loadCashShiftsFromSupabase(); }
-    const friendly=message.includes('cash shift required')?'กะถูกปิดไปแล้ว กรุณาเปิดกะใหม่':message.includes('no reversible Lot')||message.includes('no reversible')?'บิลเก่านี้ไม่มีข้อมูล LOT ที่เพียงพอสำหรับคืนอัตโนมัติ':message.includes('issued sales documents')?'บิลนี้มีเอกสารที่ออกแล้ว กรุณาจัดการเอกสารก่อน':'ยกเลิกบิลไม่สำเร็จ สต๊อกยังไม่ถูกเปลี่ยน กรุณาลองใหม่';
+    const friendly=message.includes('cash shift required')?'ระบบชำระถูกปิดไปแล้ว กรุณาเปิดระบบใหม่':message.includes('no reversible Lot')||message.includes('no reversible')?'บิลเก่านี้ไม่มีข้อมูล LOT ที่เพียงพอสำหรับคืนอัตโนมัติ':message.includes('issued sales documents')?'บิลนี้มีเอกสารที่ออกแล้ว กรุณาจัดการเอกสารก่อน':'ยกเลิกบิลไม่สำเร็จ สต๊อกยังไม่ถูกเปลี่ยน กรุณาลองใหม่';
     showToast(friendly,'danger-top');
   }
 }
@@ -14691,7 +14691,7 @@ function paymentQrMarkup(seed){
 
 function openPaymentModal(){
   if(cart.length===0) return;
-  if(!currentCashShift){ showToast('กรุณาเปิดกะก่อนรับชำระเงิน','danger-top'); currentTab='cashshift'; render(); return; }
+  if(!currentCashShift){ showToast('กรุณาเปิดระบบชำระก่อนรับชำระเงิน','danger-top'); currentTab='cashshift'; render(); return; }
   const invalid=cart.find(line=>line.custom&&(!String(line.name||'').trim()||line.price===''||Number(line.price)<0||!String(line.unit||'').trim()||Number(line.qty)<=0));
   if(invalid){
     showToast('กรุณากรอกชื่อ ราคา หน่วย และจำนวนของรายการกรอกเองให้ครบ');
@@ -15386,7 +15386,7 @@ function printShortReceipt(saleId,historical=false){
 
 async function doCheckout(payMethod,options={}){
   if(cart.length===0) return;
-  if(!currentCashShift){ showToast('กรุณาเปิดกะก่อนรับชำระเงิน','danger-top'); currentTab='cashshift'; render(); return; }
+  if(!currentCashShift){ showToast('กรุณาเปิดระบบชำระก่อนรับชำระเงิน','danger-top'); currentTab='cashshift'; render(); return; }
   const promoResult=applyPromotions(cart);
   const vatRegistered=isBusinessVatRegistered();
   const items=[];
@@ -15423,7 +15423,7 @@ async function doCheckout(payMethod,options={}){
     console.warn('complete sale',error);
     const message=String(error?.message||'');
     if(message.includes('cash shift required')){ currentCashShift=null; currentTab='cashshift'; await loadCashShiftsFromSupabase(); }
-    showToast(message.includes('cash shift required')?'กะถูกปิดไปแล้ว กรุณาเปิดกะใหม่':'ชำระเงินไม่สำเร็จ ระบบไม่ได้สร้างบิลหรือตัดสต๊อก กรุณาลองใหม่','danger-top');
+    showToast(message.includes('cash shift required')?'ระบบชำระถูกปิดไปแล้ว กรุณาเปิดระบบใหม่':'ชำระเงินไม่สำเร็จ ระบบไม่ได้สร้างบิลหรือตัดสต๊อก กรุณาลองใหม่','danger-top');
     return;
   }
   const existingSaleIndex=salesHistory.findIndex(sale=>sale.id===completedSale.id);
