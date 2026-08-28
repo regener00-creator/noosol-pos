@@ -49,7 +49,7 @@ assert.match(html, /placeholder="ค้นหาเลขบิล"/);
 assert.match(html, /hfBill\.addEventListener\('keydown'/);
 assert.match(html, /class="rpt sales-history-page"/);
 assert.match(html, /sales-history-table-wrap/);
-assert.match(html, /\.history-table tr\.history-date-divider td\{border-top:2px solid #151515!important;\}/);
+assert.match(html, /\.history-table tr\.history-date-divider td\{border-top:1px solid #151515!important;\}/);
 assert.match(html, /\.main\.sales-history-main\{overflow-y:hidden;\}/);
 assert.match(html, /classList\.toggle\('sales-history-main',currentTab==='history'\)/);
 
