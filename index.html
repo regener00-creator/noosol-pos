@@ -673,6 +673,8 @@
   .promo-status.promo-off{background:#EEF0F3;color:var(--text-muted);}
   .promo-status.promo-pending{background:var(--info-soft);color:var(--info);}
   .promo-status.promo-expired{background:var(--danger-soft);color:var(--danger);}
+  .promotion-list-page{width:100%;max-width:none;}
+  .promotion-list-topbar-source{display:none;}
   .cform{display:flex;flex-direction:column;gap:11px;margin-top:12px;}
   .crow{display:grid;grid-template-columns:130px 1fr;gap:12px;align-items:start;}
   .crow label{font-size:13px;color:var(--text-muted);padding-top:8px;}
@@ -8898,7 +8900,7 @@ function renderPromotions(){
   if(editingPromotionId!==null) return renderPromotionForm();
   const q=searchQuery.trim().toLowerCase();
   const list=promotions.filter(promo=>!q || (promo.name||'').toLowerCase().includes(q));
-  return `<div class="rpt"><div class="pagehead"><div><h1>โปรโมชั่น</h1><div class="sub">จัดการส่วนลด แถม และราคาพิเศษ · ${list.length} รายการ</div></div><button class="btn primary" id="newPromotionBtn">+ สร้างโปรโมชั่น</button></div>
+  return `<div class="rpt promotion-list-page"><div class="pagehead promotion-list-topbar-source"><div></div><button class="btn primary" id="newPromotionBtn">+ สร้างโปรโมชั่น</button></div>
     <div class="toolbar"><div></div><div class="searchbar"><input id="search" placeholder="ค้นหาจากชื่อโปรโมชั่น" value="${searchQuery}"></div></div>
     <div class="doc-list-wrap seamless-table-wrap">
     <table class="grid-table doc-head-blue contact-summary-table"><thead><tr><th>ชื่อโปรโมชั่น</th><th>ประเภท</th><th>เงื่อนไข</th><th>ผลลัพธ์</th><th>ช่วงเวลา</th><th>สถานะ</th><th style="width:120px;"></th></tr></thead>
