@@ -94,6 +94,7 @@
   .pagehead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px;}
   .pagehead h1{font-size:20px;margin:0;font-weight:600;}
   .pagehead .sub{color:var(--text-muted);font-size:13px;margin-top:2px;}
+  .page-title-meta{color:var(--text-muted);font-size:13px;font-weight:500;margin-left:8px;white-space:nowrap;}
   .topbar-action-source{display:none;}
   .breadcrumb{font-size:12px;color:var(--text-muted);margin-bottom:4px;}
   .statrow{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
@@ -4995,7 +4996,7 @@ function renderPurchaseOrder(){
   if(docListPage.po<1) docListPage.po=1;
   const start=(docListPage.po-1)*DOC_LIST_PAGE_SIZE;
   const pageDocs=allDocs.slice(start,start+DOC_LIST_PAGE_SIZE);
-  return `<div class="pagehead"><div><h1>สั่งของขาด</h1><div class="sub">บันทึกรายการสินค้าที่ต้องแจ้งสั่งกับผู้แทน · ${allDocs.length} รายการ</div></div><button class="btn primary" id="newPOBtn">+ สร้างรายการสั่งของขาด</button></div>
+  return `<div class="pagehead"><div><h1>สั่งของขาด <span class="page-title-meta">บันทึกรายการสินค้าที่ต้องแจ้งสั่งกับผู้แทน · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newPOBtn">+ สร้างรายการสั่งของขาด</button></div>
   ${documentBulkToolbar('po')}
   <div class="doc-list-wrap">
   <table class="grid-table doc-list po-doc-list"><colgroup><col style="width:42px"><col style="width:100px"><col style="width:130px"><col style="width:170px"><col style="width:340px"><col style="width:130px"><col style="width:130px"><col style="width:90px"><col style="width:56px"></colgroup><thead><tr><th style="width:42px;"><input class="doc-check" type="checkbox" aria-label="เลือกทั้งหมด"></th><th>${documentSortHeader('po','date','วันที่สั่ง')}</th><th>${documentSortHeader('po','supplier','ชื่อผู้แทน')}</th><th>ข้อมูลติดต่อ</th><th>รายการสั่งของ</th><th>หมายเหตุ</th><th>${documentSortHeader('po','status','สถานะ')}</th><th>${documentSortHeader('po','elapsed','ผ่านมาแล้ว')}</th><th style="width:56px;"></th></tr></thead>
@@ -5328,7 +5329,7 @@ function renderGoodsReceipt(){
   if(docListPage.gr<1) docListPage.gr=1;
   const start=(docListPage.gr-1)*DOC_LIST_PAGE_SIZE;
   const pageDocs=allDocs.slice(start,start+DOC_LIST_PAGE_SIZE);
-  return `<div class="pagehead"><div><h1>ใบรับสินค้า</h1><div class="sub">บันทึกและตรวจสอบการรับสินค้าเข้าคลัง · ${allDocs.length} รายการ</div></div><button class="btn primary" id="newGRBtn">+ สร้างใบรับสินค้า</button></div>
+  return `<div class="pagehead"><div><h1>ใบรับสินค้า <span class="page-title-meta">บันทึกและตรวจสอบการรับสินค้าเข้าคลัง · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newGRBtn">+ สร้างใบรับสินค้า</button></div>
   ${documentBulkToolbar('gr')}
   <div class="doc-list-wrap">
   <table class="grid-table doc-list po2-doc-list"><colgroup><col style="width:42px"><col style="width:120px"><col style="width:160px"><col style="width:180px"><col style="width:240px"><col style="width:180px"><col style="width:120px"><col style="width:110px"><col style="width:130px"><col style="width:126px"></colgroup><thead><tr><th style="width:42px;"><input class="doc-check" type="checkbox" aria-label="เลือกทั้งหมด"></th><th>${documentSortHeader('gr','date','วันที่')}</th><th>${documentSortHeader('gr','id','เลขที่เอกสาร')}</th><th>${documentSortHeader('gr','supplier','ชื่อผู้จำหน่าย')}</th><th>รายการ</th><th>สาขา</th><th>${documentSortHeader('gr','due','วันครบกำหนด')}</th><th class="mono">${documentSortHeader('gr','total','ยอดรวม')}</th><th>${documentSortHeader('gr','status','สถานะ')}</th><th style="width:126px;"></th></tr></thead>
@@ -5393,7 +5394,7 @@ function renderProductExchange(){
   if(docListPage.exchange<1) docListPage.exchange=1;
   const start=(docListPage.exchange-1)*DOC_LIST_PAGE_SIZE;
   const pageDocs=allDocs.slice(start,start+DOC_LIST_PAGE_SIZE);
-  return `<div class="pagehead"><div><h1>เปลี่ยนสินค้า</h1><div class="sub">ติดตามสินค้าที่ส่งไปเปลี่ยนและสินค้าที่ได้รับกลับ · ${allDocs.length} รายการ</div></div><button class="btn primary" id="newProductExchangeBtn">+ สร้างรายการเปลี่ยนสินค้า</button></div>
+  return `<div class="pagehead"><div><h1>เปลี่ยนสินค้า <span class="page-title-meta">ติดตามสินค้าที่ส่งไปเปลี่ยนและสินค้าที่ได้รับกลับ · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newProductExchangeBtn">+ สร้างรายการเปลี่ยนสินค้า</button></div>
   <div class="doc-list-wrap"><table class="grid-table doc-list"><colgroup><col style="width:125px"><col style="width:175px"><col style="width:210px"><col style="width:190px"><col><col style="width:160px"><col style="width:110px"></colgroup><thead><tr><th>${documentSortHeader('exchange','date','วันที่')}</th><th>${documentSortHeader('exchange','id','เลขที่เอกสาร')}</th><th>${documentSortHeader('exchange','supplier','ผู้จำหน่าย')}</th><th>คลัง / สาขา</th><th>รายการสินค้า</th><th>${documentSortHeader('exchange','status','สถานะ')}</th><th></th></tr></thead><tbody>
   ${pageDocs.map(doc=>{
     const deleteButton=documentHasPostedStock('exchange',doc)?'':`<button class="history-icon-btn danger" data-product-exchange-delete="${escapeHtml(doc.id)}" title="ลบ" aria-label="ลบ ${escapeHtml(doc.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`;
@@ -5636,7 +5637,7 @@ function renderInventoryMovement(){
   const start=(filter.page-1)*INVENTORY_MOVEMENT_PAGE_SIZE,pageGroups=groups.slice(start,start+INVENTORY_MOVEMENT_PAGE_SIZE);
   const periodOptions=[['range','วันที่'],['month','เดือน'],['year','ปี']];
   return `<div class="rpt movement-report-page">
-    <div class="pagehead"><div><h1>รายการงานเคลื่อนไหว</h1><div class="sub">รายงานการเข้า-ออกของสินค้า · ${groups.length} บิล · ${rows.length} รายการเคลื่อนไหว${totalPages>1?` · หน้า ${filter.page}/${totalPages}`:''}</div></div></div>
+    <div class="pagehead"><div><h1>รายงานการเคลื่อนไหว <span class="page-title-meta">· ${groups.length} บิล · ${rows.length} รายการเคลื่อนไหว${totalPages>1?` · หน้า ${filter.page}/${totalPages}`:''}</span></h1></div></div>
     <div class="rpt-filters">
       <div class="rpf-item"><select id="movementPeriod" class="rpt-select">${periodOptions.map(([value,label])=>`<option value="${value}" ${filter.period===value?'selected':''}>${label}</option>`).join('')}</select></div>
       ${filter.period==='range'?`<div class="rpf-item rpf-range">${dmyDateFieldHtml('movementFrom',range.from)}<span style="color:var(--text-muted);">ถึง</span>${dmyDateFieldHtml('movementTo',range.to)}</div>`:''}
@@ -6444,7 +6445,7 @@ function transferItemRowHtml(item,index){
 
 function renderTransfer(){
   if(editingTransferId!==null) return renderTransferForm();
-  return `<div class="rpt"><div class="pagehead"><div><h1>โอนสินค้าระหว่างคลัง</h1><div class="sub">ประวัติการโอนย้ายสต็อกระหว่างสาขา</div></div><button class="btn primary" id="newTransferBtn">+ สร้างรายการโอน</button></div>
+  return `<div class="rpt"><div class="pagehead"><div><h1>โอนสินค้าระหว่างคลัง</h1></div><button class="btn primary" id="newTransferBtn">+ สร้างรายการโอน</button></div>
   <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue transfer-summary-table"><thead><tr><th>เลขที่</th><th>วันที่</th><th>จากคลัง</th><th>ไปคลัง</th><th>รายการ</th><th>สถานะ</th><th></th></tr></thead>
   <tbody>${transfers.map(t=>{
     const cancelled=t.status==='ยกเลิก';
@@ -8081,7 +8082,7 @@ function renderBarcodePrint(){
   barcodePrintPage=pagination.currentPage;
   const isPromotionLabel=barcodePrintLabelType==='promotion';
   return `<div class="rpt barcode-print-page">
-    <div class="pagehead"><div><h1>พิมพ์ป้ายราคา</h1><div class="sub">เลือกสินค้า หน่วย และจำนวนป้าย แล้วพิมพ์ป้ายหน้าชั้นพร้อมราคาและบาร์โค้ด</div></div><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length?'':'disabled'}>ล้างรายการ</button><button class="btn primary" id="savePrintBarcodeBtn" ${barcodePrintItems.length?'':'disabled'}>บันทึกและพิมพ์${isPromotionLabel?'ป้ายโปรโมชั่น':'ป้ายราคา'} (${barcodePrintItems.length})</button></div></div>
+    <div class="pagehead"><div><h1>พิมพ์ป้ายราคา</h1></div><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length?'':'disabled'}>ล้างรายการ</button><button class="btn primary" id="savePrintBarcodeBtn" ${barcodePrintItems.length?'':'disabled'}>บันทึกและพิมพ์${isPromotionLabel?'ป้ายโปรโมชั่น':'ป้ายราคา'} (${barcodePrintItems.length})</button></div></div>
     <p class="barcode-print-help">${isPromotionLabel?'ป้ายโปรโมชั่นจะดึงเงื่อนไขและราคาจากโปรโมชั่นที่ใช้งานอยู่ รองรับขนาด 60 × 40 มม. แนวนอน':'ค่าเริ่มต้นเป็นป้ายแนวนอน 60 × 40 มม. หากสินค้ายังไม่มีบาร์โค้ด ระบบจะสร้าง Code 128 ภายในและบันทึกให้กับหน่วยที่เลือกเมื่อสั่งพิมพ์'}</p>
     <div class="rpt-filters" style="margin-bottom:14px;">
       <div class="rpf-item"><select id="barcodePrintCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(category=>`<option value="${escapeHtml(category)}" ${filter.category===category?'selected':''}>${escapeHtml(category)}</option>`).join('')}</select></div>
@@ -8568,7 +8569,7 @@ function renderContacts(){
   const th = (key,label) => `<th class="sortable" data-sort="${key}">${label}<span class="sortarrow">${sortArrow(key)}</span></th>`;
   const tab=(key,label,dot)=>`<button class="ct-tab ${contactFilter===key?'active':''}" data-cfilter="${key}">${dot?`<span class="ct-dot ${dot}"></span>`:''}${label}</button>`;
   return `<div class="rpt">
-    <div class="pagehead"><div><h1>สมุดรายชื่อ</h1><div class="sub">สมุดรายชื่อ › แสดงทั้งหมด · ${list.length} รายชื่อ</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadContactTemplateBtn">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
+    <div class="pagehead"><div><h1>สมุดรายชื่อ <span class="page-title-meta">· ${list.length} รายชื่อ</span></h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadContactTemplateBtn">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
     <div class="ct-tabs">
       ${tab('all','แสดงทั้งหมด','')}
       ${tab('customer','ลูกค้า','cust')}
@@ -8647,7 +8648,7 @@ function renderSalesRepresentatives(){
   if(editingSalesRepresentativeId!==null) return renderSalesRepresentativeForm();
   const q=searchQuery.trim().toLowerCase();
   const list=salesRepresentatives.filter(rep=>!q || (rep.name||'').toLowerCase().includes(q) || (rep.phone||'').toLowerCase().includes(q) || (rep.line||'').toLowerCase().includes(q) || (rep.company||'').toLowerCase().includes(q) || (rep.note||'').toLowerCase().includes(q));
-  return `<div class="rpt"><div class="pagehead"><div><h1>รายชื่อผู้แทน</h1><div class="sub">สมุดรายชื่อ › รายชื่อผู้แทน · ${list.length} รายชื่อ</div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportSalesRepsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadSalesRepTemplateBtn">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importSalesRepsBtn">นำเข้า Excel</button><input id="salesRepImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newSalesRepBtn">+ เพิ่มรายชื่อผู้แทน</button></div></div>
+  return `<div class="rpt"><div class="pagehead"><div><h1>รายชื่อผู้แทน <span class="page-title-meta">· ${list.length} รายชื่อ</span></h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportSalesRepsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadSalesRepTemplateBtn">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importSalesRepsBtn">นำเข้า Excel</button><input id="salesRepImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newSalesRepBtn">+ เพิ่มรายชื่อผู้แทน</button></div></div>
     <div class="toolbar"><div></div><div class="searchbar"><input id="search" placeholder="ค้นหาจากชื่อ / เบอร์โทร / ไลน์ / บริษัท" value="${searchQuery}"></div></div>
     <div class="doc-list-wrap seamless-table-wrap">
     <table class="grid-table doc-head-blue contact-summary-table"><thead><tr><th>ชื่อ</th><th>เบอร์โทร</th><th>ไลน์</th><th>บริษัท</th><th>ข้อมูลเพิ่มเติม</th><th style="width:120px;"></th></tr></thead>
@@ -9744,7 +9745,7 @@ function renderRInventory(){
   const brandOptions = brands.filter(brand=>products.some(product=>(!catf.category||product.category===catf.category)&&product.brand===brand));
   const matchCount = products.filter(product=>stockReportProductMatchesFilter(product,catf)&&(catf.wh||catf.category||catf.brand)).length;
   return `<div class="rpt">
-  <div class="pagehead"><div><h1>รายงานสินค้าคงเหลือ</h1><div class="sub">พิมพ์ชื่อ / รหัส / ยิงบาร์โค้ด หรือเลือกหมวดสินค้า เพื่อเพิ่มสินค้าลงรายงาน</div></div><div style="display:flex;gap:8px;"><button class="btn ghost" id="resetStockReportBtn">รีเซ็ตข้อมูล</button><button class="btn primary" id="printStockReportBtn">พิมพ์รายงาน</button></div></div>
+  <div class="pagehead topbar-action-source"><div></div><div style="display:flex;gap:8px;"><button class="btn ghost" id="resetStockReportBtn">รีเซ็ตข้อมูล</button><button class="btn primary" id="printStockReportBtn">พิมพ์รายงาน</button></div></div>
   <div class="inventory-report-section">
     <div class="rpt-filters" style="margin-bottom:14px;">
       <div class="rpf-item"><select id="srWarehouseSelect" class="rpt-select"><option value="all" ${selectedWarehouseValue==='all'?'selected':''}>ทุกคลัง</option>${accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(warehouse.id)===selectedWarehouseValue?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>
@@ -9828,7 +9829,7 @@ function renderBusinessSettings(){
   const statusState=businessSettingsDirty?'dirty':businessSettingsSyncState;
   const statusText=businessSettingsDirty?'มีการแก้ไขที่ยังไม่ได้บันทึก':businessSettingsSyncState==='synced'?(businessSettingsLastSyncedAt?`ซิงก์ข้อมูลล่าสุด ${auditLogDateTime(businessSettingsLastSyncedAt)}`:'ซิงก์ข้อมูลกับ Supabase แล้ว'):businessSettingsSyncState==='syncing'?'กำลังซิงก์ข้อมูลกับ Supabase...':businessSettingsSyncState==='error'?`บันทึกในเครื่องแล้ว แต่ซิงก์ไม่สำเร็จ: ${businessSettingsSyncError||'กรุณาลองบันทึกอีกครั้ง'}`:'ข้อมูลยังอยู่ในเครื่องนี้';
   return `<div class="settings-page business-settings-page" id="businessSettingsForm">
-    <div class="pagehead"><div><h1 class="settings-title">ข้อมูลธุรกิจ</h1><div class="sub">กำหนดข้อมูลร้านที่ใช้บนใบเสร็จ บิลเงินสด และเอกสารภาษี</div></div><div class="form-final-actions"><button class="btn primary" id="saveBusinessSettingsBtn">บันทึกข้อมูลธุรกิจ</button></div></div>
+    <div class="pagehead topbar-action-source"><div></div><div class="form-final-actions"><button class="btn primary" id="saveBusinessSettingsBtn">บันทึกข้อมูลธุรกิจ</button></div></div>
     <div class="settings-section">
       <div class="settings-row"><label>ประเภทธุรกิจ:</label><select id="set_business_type"><option ${b.type==='บริษัท'?'selected':''}>บริษัท</option><option ${b.type==='บุคคลธรรมดา'?'selected':''}>บุคคลธรรมดา</option><option ${b.type==='ห้างหุ้นส่วน'?'selected':''}>ห้างหุ้นส่วน</option></select></div>
       <div class="settings-row"><label>จดภาษีมูลค่าเพิ่ม:</label><select id="set_business_vat"><option ${b.vat==='จดภาษีมูลค่าเพิ่มแล้ว'?'selected':''}>จดภาษีมูลค่าเพิ่มแล้ว</option><option ${b.vat==='ยังไม่จดภาษีมูลค่าเพิ่ม'?'selected':''}>ยังไม่จดภาษีมูลค่าเพิ่ม</option></select></div>
@@ -9857,7 +9858,7 @@ function renderBusinessSettings(){
 }
 
 function renderSystemSettings(){
-  return `<div class="settings-page"><h1 class="settings-title">ตั้งค่าระบบ</h1>
+  return `<div class="settings-page">
     <div class="settings-section"><h2>รหัสนำหน้าเอกสาร</h2><div class="hint">กำหนดตัวอักษรนำหน้าหมายเลขเอกสาร ใช้ตัวอักษรอังกฤษหรือตัวเลขได้สูงสุด 8 ตัว และมีผลกับเอกสารที่สร้างใหม่เท่านั้น</div>
       <div class="document-prefix-grid">
         ${DOCUMENT_PREFIX_FIELDS.map(field=>`<div class="document-prefix-field"><label for="doc_prefix_${field.key}">${escapeHtml(field.label)}</label><input id="doc_prefix_${field.key}" maxlength="8" autocomplete="off" value="${escapeHtml(documentPrefixes[field.key])}" aria-label="รหัสนำหน้า ${escapeHtml(field.label)}"></div>`).join('')}
