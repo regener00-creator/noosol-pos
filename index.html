@@ -9763,7 +9763,7 @@ function renderRInventory(){
       <input id="srInput" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." style="width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;" autocomplete="off">
       <div id="srResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div>
     </div>
-    <table class="grid-table doc-head-blue"><thead><tr>${stockReportTh('name','สินค้า')}${stockReportTh('stock','คงเหลือ',true)}${stockReportTh('expiry','วันหมดอายุ',true)}<th>คลังสินค้า</th><th style="width:40px;"></th></tr></thead>
+    <table class="grid-table doc-head-blue"><thead><tr>${stockReportTh('name','สินค้า')}${stockReportTh('stock','คงเหลือ',true)}${stockReportTh('expiry','วันหมดอายุ',true)}<th style="width:40px;"></th></tr></thead>
     <tbody id="srTbody">${stockReportRowsHtml()}</tbody></table>
   </div>
   </div>`;
@@ -9806,16 +9806,13 @@ function stockReportRowsHtml(){
         const p=products.find(x=>x.id===row.pid);
         const warehouseValue=String(row.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
         const allWarehouses=warehouseValue==='all';
-        const warehouseId=Number(warehouseValue)||Number(activeWarehouseId);
         const stockVal=reportStock(row.pid,warehouseValue);
         const expiry=reportExpiry(row.pid,warehouseValue);
         const stockDisplay = p ? stockInLargestUnit({...p,stock:stockVal}) : `${stockVal} ${row.unit}`;
-        const warehouseName=warehouses.find(warehouse=>Number(warehouse.id)===Number(warehouseId))?.name||'-';
         const expiryDisplay=allWarehouses?stockReportExpiryBreakdownHtml(row.pid):fmtDateShort(expiry);
-        const warehouseDisplay=allWarehouses?stockReportWarehouseBreakdownHtml(p):escapeHtml(warehouseName);
-        return `<tr><td>${row.name}</td><td class="mono num ${stockVal<0?'stock-negative':''}" style="text-align:center;">${stockDisplay}</td><td class="mono num ${!allWarehouses&&daysUntil(expiry)<0?'expiry-past':''}" style="text-align:center;line-height:1.6;">${expiryDisplay}</td><td style="text-align:left;line-height:1.6;">${warehouseDisplay}</td><td class="num"><button class="history-icon-btn danger" data-sr-remove="${row.pid}" title="ลบ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td></tr>`;
+        return `<tr><td>${row.name}</td><td class="mono num ${stockVal<0?'stock-negative':''}" style="text-align:center;">${stockDisplay}</td><td class="mono num ${!allWarehouses&&daysUntil(expiry)<0?'expiry-past':''}" style="text-align:center;line-height:1.6;">${expiryDisplay}</td><td class="num"><button class="history-icon-btn danger" data-sr-remove="${row.pid}" title="ลบ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td></tr>`;
       }).join('')
-    : `<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีรายการ — ค้นหาหรือสแกนบาร์โค้ดด้านบนเพื่อเพิ่ม</td></tr>`;
+    : `<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีรายการ — ค้นหาหรือสแกนบาร์โค้ดด้านบนเพื่อเพิ่ม</td></tr>`;
 }
 
 function renderRReceivable(){
@@ -15464,18 +15461,17 @@ function printStockReport(){
   if(!stockReportItems.length){ showToast('ยังไม่มีรายการในรายงาน'); return; }
   const thDate=d=>{ const dt=new Date(d); return dt.getDate()+' '+['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][dt.getMonth()]+' '+dt.getFullYear(); };
   const today=new Date(TODAY_STR);
+  const selectedWarehouseValue=String(stockReportCatFilter.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
+  const selectedWarehouseName=selectedWarehouseValue==='all'?'ทุกคลัง':warehouses.find(warehouse=>Number(warehouse.id)===Number(selectedWarehouseValue))?.name||activeWarehouse()?.name||'-';
   const rowsHtml=stockReportSortedItems().map((row,index)=>{
     const p=products.find(x=>x.id===row.pid);
     const warehouseValue=String(row.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
     const allWarehouses=warehouseValue==='all';
-    const warehouseId=Number(warehouseValue)||Number(activeWarehouseId);
     const stockQty = p ? reportStock(p.id,warehouseValue) : row.stock;
     const stockUnit = p ? p.unit : row.unit;
     const expiry = p ? reportExpiry(p.id,warehouseValue) : row.expiry;
-    const warehouseName=warehouses.find(warehouse=>Number(warehouse.id)===Number(warehouseId))?.name||'-';
     const expiryText=allWarehouses?accessibleWarehouses().map(warehouse=>`${escapeHtml(warehouse.name)}: ${warehouseExpiry(row.pid,warehouse.id)?fmtDate(warehouseExpiry(row.pid,warehouse.id)):'-'}`).join('<br>'):(expiry?fmtDate(expiry):'-');
-    const warehouseText=allWarehouses?accessibleWarehouses().map(warehouse=>`${escapeHtml(warehouse.name)}: ${p?escapeHtml(stockInLargestUnit({...p,stock:warehouseStock(p.id,warehouse.id)})):'-'}`).join('<br>'):escapeHtml(warehouseName);
-    return `<tr><td class="c">${index+1}</td><td class="pd-name">${escapeHtml(row.name)}</td><td class="c">${escapeHtml(stockQty)}</td><td class="c">${escapeHtml(stockUnit||'-')}</td><td class="r">${expiryText}</td><td>${warehouseText}</td></tr>`;
+    return `<tr><td class="c">${index+1}</td><td class="pd-name">${escapeHtml(row.name)}</td><td class="c">${escapeHtml(stockQty)}</td><td class="c">${escapeHtml(stockUnit||'-')}</td><td class="r">${expiryText}</td></tr>`;
   }).join('');
   const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร'); return; }
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>รายงานสินค้าคงเหลือ</title>
@@ -15487,7 +15483,8 @@ function printStockReport(){
     .toolbar{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:#fff;box-shadow:0 2px 8px #0002}
     .toolbar button{border:0;border-radius:7px;background:#2091D2;color:#fff;padding:9px 18px;font:600 14px Sarabun;cursor:pointer}
     .page{width:210mm;min-height:297mm;margin:12px auto;padding:16mm 14mm;background:#fff;box-shadow:0 4px 20px #0002}
-    h1{text-align:center;font-size:20px;font-weight:700;margin:0 0 22px;color:#2091D2}
+    h1{text-align:center;font-size:20px;font-weight:700;margin:0 0 4px;color:#2091D2}
+    .warehouse{text-align:center;font-size:14px;font-weight:600;margin-bottom:8px;color:#2b2b2b}
     .meta{text-align:center;margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid #ddd;font-size:13px;}
     table{width:100%;border-collapse:collapse}
     thead th{text-align:left;padding:9px 8px;font-size:12px;font-weight:600;color:#fff;background:#2091D2;border:0}
@@ -15506,8 +15503,9 @@ function printStockReport(){
   <div class="toolbar"><span>ตัวอย่างรายงาน A4</span><button onclick="window.print()">พิมพ์</button></div>
   <div class="page">
     <h1>รายงานสินค้าคงเหลือ</h1>
+    <div class="warehouse">คลัง : ${escapeHtml(selectedWarehouseName)}</div>
     <div class="meta">ณ วันที่ ${thDate(today)}</div>
-    <table><thead><tr><th class="c" style="width:7%;">#</th><th style="width:36%;">สินค้า</th><th class="c">คงเหลือ</th><th class="c">หน่วย</th><th class="r">วันหมดอายุ</th><th class="c">คลังสินค้า</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+    <table><thead><tr><th class="c" style="width:7%;">#</th><th style="width:43%;">สินค้า</th><th class="c">คงเหลือ</th><th class="c">หน่วย</th><th class="r">วันหมดอายุ</th></tr></thead><tbody>${rowsHtml}</tbody></table>
   </div>
   </body></html>`);
   win.document.close();

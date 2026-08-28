@@ -21,8 +21,15 @@ assert.equal(context.stockReportProductMatchesFilter(product,{wh:'2',category:'�
 
 assert.match(html, /id="srWarehouseSelect"/);
 assert.match(html, />ทุกคลัง<\/option>/);
-assert.match(html, /stockReportTh\('expiry','วันหมดอายุ',true\)}<th>คลังสินค้า<\/th>/);
-assert.match(html, /<th class="r">วันหมดอายุ<\/th><th class="c">คลังสินค้า<\/th>/);
+const renderStart = html.indexOf('function renderRInventory(');
+const rowsStart = html.indexOf('function stockReportRowsHtml(', renderStart);
+const rowsEnd = html.indexOf('function renderRReceivable(', rowsStart);
+const printStart = html.indexOf('function printStockReport(');
+const printEnd = html.indexOf('function openPostPaymentModal(', printStart);
+assert.ok(renderStart >= 0 && rowsStart > renderStart && rowsEnd > rowsStart && printStart >= 0 && printEnd > printStart);
+assert.doesNotMatch(html.slice(renderStart, rowsEnd), /<th>คลังสินค้า<\/th>/, 'ตารางหน้าจอต้องไม่มีคอลัมน์คลังสินค้า');
+assert.doesNotMatch(html.slice(printStart, printEnd), /<th class="c">คลังสินค้า<\/th>/, 'ตารางฉบับพิมพ์ต้องไม่มีคอลัมน์คลังสินค้า');
+assert.match(html.slice(printStart, printEnd), /<h1>รายงานสินค้าคงเหลือ<\/h1>\s*<div class="warehouse">คลัง : \$\{escapeHtml\(selectedWarehouseName\)\}<\/div>/, 'ฉบับพิมพ์ต้องแสดงคลังที่เลือกใต้ชื่อรายงาน');
 assert.match(html, /stockReportItems\.unshift\(\{pid:p\.id, name:p\.name, stock:reportStock\(p\.id,warehouseValue\), unit:p\.unit, expiry:reportExpiry\(p\.id,warehouseValue\), wh:warehouseValue\}\)/);
 assert.match(html, /stockReportWarehouseBreakdownHtml/);
 assert.match(html, /stockReportExpiryBreakdownHtml/);
