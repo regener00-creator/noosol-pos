@@ -303,6 +303,14 @@
   .history-table .ht-status{width:90px;}
   .history-table .ht-actions{width:140px;}
   .history-table thead th{background:#2091D2;color:#fff;}
+  /* ประวัติการขาย: ล็อกหัวหน้าไว้และให้เลื่อนเฉพาะข้อมูลในตาราง */
+  .main.sales-history-main{overflow-y:hidden;}
+  .sales-history-page{height:100%;min-height:0;display:flex;flex-direction:column;}
+  .sales-history-page .pagehead,.sales-history-page .rpt-filters,.sales-history-page .pager{flex:0 0 auto;}
+  .sales-history-table-wrap{flex:1;min-height:0;overflow:auto;border-radius:var(--radius);background:var(--surface);}
+  .sales-history-table-wrap .history-table{margin:0;}
+  .sales-history-table-wrap .history-table thead th{position:sticky;top:0;z-index:2;}
+  .history-table tr.history-date-divider td{border-top:4px solid #151515!important;}
   .doc-head-blue thead th{background:#2091D2;color:#fff;}
   .grid-table th.sortable{cursor:pointer;user-select:none;white-space:nowrap;}
   .grid-table th.sortable:hover{background:var(--primary-soft);color:var(--primary);}
@@ -4250,7 +4258,7 @@ function renderDashboard(){
     </div>
     <div class="panel">
       <div class="seamless-table-wrap"><table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-bill"><col class="ht-time"><col class="ht-items"><col class="ht-total"><col class="ht-pay"></colgroup><thead><tr><th>วันที่</th><th>เลขที่บิล</th><th>เวลา</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th></tr></thead>
-      <tbody>${completedSales.length?completedSales.slice(0,8).map(s=>`<tr><td>${fmtDate(s.date)}</td><td class="mono">${s.ref||s.id}</td><td>${(s.time||'').slice(11)||'-'}</td><td>${salesHistoryItemsPreview(s.items)}</td><td class="mono num">${fmtMoney(s.total)}</td><td>${s.payMethod||'-'}</td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">ยังไม่มีรายการขาย</td></tr>`}</tbody></table></div>
+      <tbody>${completedSales.length?completedSales.slice(0,8).map(s=>`<tr><td>${fmtDate(s.date)}</td><td class="mono">${s.ref||s.id}</td><td>${saleHistoryTimeDisplay(s.time)}</td><td>${salesHistoryItemsPreview(s.items)}</td><td class="mono num">${fmtMoney(s.total)}</td><td>${s.payMethod||'-'}</td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">ยังไม่มีรายการขาย</td></tr>`}</tbody></table></div>
     </div>`;
 }
 
@@ -4524,6 +4532,26 @@ function salesHistoryItemsFull(items){
 }
 
 const HISTORY_PAGE_SIZE = 20;
+function saleHistoryTimeDisplay(value){
+  const text=String(value||'').trim();
+  if(!text) return '-';
+  // sale_time จากฐานข้อมูลเป็น ISO ที่มีเขตเวลา ส่วน data.time เป็นเวลาไทยแบบเดิม
+  if(/^\d{4}-\d{2}-\d{2}T.*(?:Z|[+-]\d{2}:?\d{2})$/i.test(text)){
+    const parsed=new Date(text);
+    if(!Number.isNaN(parsed.getTime())){
+      const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Bangkok',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(parsed);
+      const hour=parts.find(part=>part.type==='hour')?.value;
+      const minute=parts.find(part=>part.type==='minute')?.value;
+      if(hour&&minute) return `${hour}:${minute}`;
+    }
+  }
+  const match=text.match(/(?:^|[T\s])(\d{1,2}):(\d{2})/);
+  return match?`${match[1].padStart(2,'0')}:${match[2]}`:'-';
+}
+function isSalesHistoryDateBreak(rows,index){
+  if(index<=0) return false;
+  return String(rows[index]?.date||'').slice(0,10)!==String(rows[index-1]?.date||'').slice(0,10);
+}
 function historyDateRange(){
   const f=historyFilter;
   if(f.period==='month'){
@@ -4564,7 +4592,7 @@ function renderHistory(){
 
   let pager=pagerHtml(f.page, totalPages, 'hpage');
 
-  return `<div class="rpt">
+  return `<div class="rpt sales-history-page">
     <div class="pagehead"><div><h1>ประวัติการขาย</h1><div class="sub">${filtered.length} รายการ${totalPages>1?` · หน้า ${f.page}/${totalPages}`:''}</div></div></div>
     <div class="rpt-filters">
       <div class="rpf-item"><select id="hf_period" class="rpt-select">${periodOpts.map(([v,l])=>`<option value="${v}" ${f.period===v?'selected':''}>${l}</option>`).join('')}</select></div>
@@ -4574,16 +4602,18 @@ function renderHistory(){
       <div class="rpf-item"><input id="hf_bill" class="rpt-select" value="${escapeHtml(f.bill||'')}" placeholder="ค้นหาเลขบิล" autocomplete="off" style="min-width:190px;"></div>
       <button class="btn ghost rpf-apply" id="hfApplyBtn">แสดงผล</button>
     </div>
+    <div class="sales-history-table-wrap">
     <table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-bill"><col class="ht-time"><col class="ht-items"><col class="ht-total"><col class="ht-pay"><col class="ht-status"><col class="ht-actions"></colgroup><thead><tr><th>วันที่</th><th>เลขที่บิล</th><th>เวลา</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th><th>สถานะ</th><th></th></tr></thead>
-    <tbody>${pageRows.length? pageRows.map(s=>`<tr>
+    <tbody>${pageRows.length? pageRows.map((s,rowIndex)=>`<tr class="${isSalesHistoryDateBreak(pageRows,rowIndex)?'history-date-divider':''}">
       <td>${fmtDate(s.date)}</td><td class="mono">${s.ref||s.id}</td>
-      <td>${(s.time||'').slice(11)||'-'}</td>
+      <td>${saleHistoryTimeDisplay(s.time)}</td>
       <td>${salesHistoryItemsPreview(s.items)}</td>
       <td class="mono num">${fmtMoney(s.total)}</td>
       <td>${s.payMethod||'-'}</td>
       <td>${statusBadge(s.status)}</td>
       <td class="num"><div class="history-actions"><button class="history-icon-btn" data-sale-view="${s.id}" title="ดูรายละเอียด" aria-label="ดูรายละเอียด ${s.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>${s.status==='hold'?`<button class="btn primary small" data-act="resumehold" data-id="${s.id}">ทำต่อ</button>`:''}${s.status==='hold'&&canDeleteHeld?`<button class="history-icon-btn danger" data-delete-sale="${s.id}" title="ลบบิลพัก" aria-label="ลบบิลพัก ${s.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`:s.status==='done'&&canVoidCompleted?`<button class="history-icon-btn danger" data-void-sale="${s.id}" title="ยกเลิกบิลและคืนสต๊อก" aria-label="ยกเลิกบิล ${s.id}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l16 16M20 4L4 20"/></svg></button>`:''}</div></td>
     </tr>`).join('') : `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายการขายในช่วงเวลาที่เลือก</td></tr>`}</tbody></table>
+    </div>
     ${pager}
   </div>`;
 }
@@ -10045,6 +10075,7 @@ function render(){
   const mainElement=document.getElementById('main');
   mainElement.classList.toggle('product-list-main',currentTab==='products'&&editingProductId===null);
   mainElement.classList.toggle('barcode-print-main',currentTab==='barcodeprint');
+  mainElement.classList.toggle('sales-history-main',currentTab==='history');
   preserveMobileCameraScanner();
   mainElement.innerHTML = (RENDERERS[currentTab]||renderDashboard)();
   restoreMobileCameraScanner();
@@ -14444,7 +14475,7 @@ function openSaleHistoryDetail(id){
   const correctionLogHtml=correctionLog.length?`<div class="sale-lot-correction-log"><h4>ประวัติแก้ไข LOT (${correctionLog.length})</h4>${correctionLog.slice().reverse().map(log=>{ const qty=Number(log.quantity)>0?log.quantity:log.quantityBase,unit=log.unit||'หน่วยหลัก'; return `<div class="sale-lot-correction-log-item"><b>${escapeHtml(log.productName||'-')} ×${escapeHtml(inventoryMovementRound(qty))} ${escapeHtml(unit)}</b><br>${escapeHtml(log.fromLot?.lotNumber||'ไม่ระบุเลข LOT')} → ${escapeHtml(log.toLot?.lotNumber||'ไม่ระบุเลข LOT')} · ${escapeHtml(auditDisplay(log.at))}${log.reason?`<br>หมายเหตุ: ${escapeHtml(log.reason)}`:''}</div>`; }).join('')}</div>`:'';
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:760px;max-height:92vh;"><div class="modal-head"><h3>รายละเอียดการขาย ${sale.ref||sale.id}</h3><button class="modal-close">×</button></div>
-    <div class="sale-detail-meta"><div><small>วันที่ / เวลา</small><b>${fmtDate(sale.date)} · ${(sale.time||'').slice(11)||'-'}</b></div><div><small>พนักงานขาย</small><b>${sale.cashier||'-'}</b></div><div><small>ลูกค้า / สมาชิก</small><b>${sale.member||sale.name||'ลูกค้าทั่วไป'}</b></div><div><small>วิธีชำระ</small><b>${sale.payMethod||'-'}</b></div></div>
+    <div class="sale-detail-meta"><div><small>วันที่ / เวลา</small><b>${fmtDate(sale.date)} · ${saleHistoryTimeDisplay(sale.time)}</b></div><div><small>พนักงานขาย</small><b>${sale.cashier||'-'}</b></div><div><small>ลูกค้า / สมาชิก</small><b>${sale.member||sale.name||'ลูกค้าทั่วไป'}</b></div><div><small>วิธีชำระ</small><b>${sale.payMethod||'-'}</b></div></div>
     <div class="sale-detail-table"><table class="grid-table"><thead><tr><th>ลำดับ</th><th>สินค้า / Lot</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคา/หน่วย</th><th class="mono">รวม</th></tr></thead><tbody>${(sale.items||[]).map((item,index)=>{ const lots=(item.lotAllocations||[]).map(allocation=>allocation.pendingLot?`<span style="color:var(--danger);font-weight:600;">รอจัด LOT · ${escapeHtml(inventoryMovementRound(allocation.baseQty))} หน่วยหลัก</span>`:`${escapeHtml(allocation.lotNumber||allocation.internalCode||'-')} · ${escapeHtml(allocation.expiry?fmtDateShort(allocation.expiry):'ไม่ระบุวันหมดอายุ')} · ${escapeHtml(inventoryMovementRound(allocation.baseQty))} หน่วยหลัก`).join('<br>'); return `<tr><td>${index+1}</td><td>${escapeHtml(item.name)}${lots?`<small style="display:block;color:var(--text-muted);margin-top:4px;">Lot: ${lots}</small>`:''}</td><td class="mono num">${item.qty}</td><td>${escapeHtml(item.unit||'-')}</td><td class="mono num">${fmtMoney(item.price)}</td><td class="mono num">${fmtMoney(item.lineTotalGross!==undefined?item.lineTotalGross:item.qty*item.price)}</td></tr>`; }).join('')}</tbody></table></div>
     <div class="sale-detail-summary"><div><span>รวมสินค้า</span><b>${fmtMoney(subtotal)} บาท</b></div>${sale.discount?`<div><span>ส่วนลด</span><b>- ${fmtMoney(sale.discount)} บาท</b></div>`:''}${sale.fee?`<div><span>ค่าธรรมเนียม</span><b>${fmtMoney(sale.fee)} บาท</b></div>`:''}<div class="grand"><span>ยอดสุทธิ</span><b>${fmtMoney(sale.total)} บาท</b></div>${sale.cashReceived?`<div><span>รับเงิน</span><b>${fmtMoney(sale.cashReceived)} บาท</b></div><div><span>เงินทอน</span><b>${fmtMoney(sale.cashChange||0)} บาท</b></div>`:''}</div>
     ${canCorrectLots?`<div class="sale-lot-correction-panel"><div><h4>LOT ที่ขายไม่ตรงกับระบบ?</h4><p>ย้ายการตัดไปยัง LOT ที่ขายจริง โดยยอดขายและสต๊อกรวมไม่เปลี่ยน</p></div><button class="btn ghost" id="correctSaleLotBtn">แก้ไข LOT ที่ขาย</button></div>`:''}${correctionLogHtml}
@@ -14485,7 +14516,7 @@ function openHistoricalReceiptActions(saleId){
   const meta=sale.shortReceiptMeta;
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:500px;"><div class="modal-head"><h3>ใบเสร็จอย่างย่อย้อนหลัง</h3><button class="modal-close">×</button></div>
-    <div class="issued-doc-card"><strong>${shortReceiptNumber(sale)}</strong><div>วันที่ขาย: ${fmtDateShort(sale.date)} ${(sale.time||'').slice(11)}</div><div>ยอดสุทธิ: ${fmtMoney(sale.total)} บาท</div><div>พิมพ์แล้ว: ${meta?.printLog?.length||0} ครั้ง</div></div>
+    <div class="issued-doc-card"><strong>${shortReceiptNumber(sale)}</strong><div>วันที่ขาย: ${fmtDateShort(sale.date)} ${saleHistoryTimeDisplay(sale.time)}</div><div>ยอดสุทธิ: ${fmtMoney(sale.total)} บาท</div><div>พิมพ์แล้ว: ${meta?.printLog?.length||0} ครั้ง</div></div>
     <div class="modal-sub" style="padding-top:0;">วันที่ขายถูกล็อกไว้ตามรายการเดิม การพิมพ์ย้อนหลังไม่ตัดสต็อกและไม่เพิ่มยอดขาย</div>
     <div class="payment-actions"><button class="btn ghost" id="closeHistoricalReceiptBtn">ปิด</button><button class="btn primary" id="printHistoricalReceiptBtn">พิมพ์</button></div></div>`;
   document.body.appendChild(overlay);
