@@ -309,6 +309,7 @@
   .main.sales-history-main{overflow-y:hidden;}
   .sales-history-page{height:100%;min-height:0;display:flex;flex-direction:column;}
   .sales-history-page .pagehead,.sales-history-page .rpt-filters,.sales-history-page .pager{flex:0 0 auto;}
+  .sales-history-result-count{display:inline-flex;align-items:center;min-height:38px;padding:0 13px;border-radius:999px;background:var(--primary-soft);color:var(--primary);font-size:13px;font-weight:600;white-space:nowrap;}
   .sales-history-table-wrap{flex:1;min-height:0;overflow:auto;border-radius:var(--radius);background:var(--surface);}
   .sales-history-table-wrap .history-table{margin:0;overflow:visible;}
   .sales-history-table-wrap .history-table thead th{position:sticky;top:0;z-index:2;}
@@ -4597,14 +4598,13 @@ function renderHistory(){
   let pager=pagerHtml(f.page, totalPages, 'hpage');
 
   return `<div class="rpt sales-history-page">
-    <div class="pagehead"><div><h1>ประวัติการขาย</h1><div class="sub">${filtered.length} รายการ${totalPages>1?` · หน้า ${f.page}/${totalPages}`:''}</div></div></div>
     <div class="rpt-filters">
       <div class="rpf-item"><select id="hf_period" class="rpt-select">${periodOpts.map(([v,l])=>`<option value="${v}" ${f.period===v?'selected':''}>${l}</option>`).join('')}</select></div>
       ${f.period==='range'?`<div class="rpf-item rpf-range">${dmyDateFieldHtml('hf_from', range.from)}<span style="color:var(--text-muted);">ถึง</span>${dmyDateFieldHtml('hf_to', range.to)}</div>`:''}
       ${f.period==='month'?`<div class="rpf-item"><input type="month" id="hf_month" value="${f.month||TODAY_STR.slice(0,7)}" class="rpt-select"></div>`:''}
       ${f.period==='year'?`<div class="rpf-item"><select id="hf_year" class="rpt-select">${(()=>{const cy=Number(TODAY_STR.slice(0,4));let o='';for(let yy=cy;yy>=cy-6;yy--){o+=`<option value="${yy}" ${String(f.year||cy)===String(yy)?'selected':''}>${yy}</option>`;}return o;})()}</select></div>`:''}
       <div class="rpf-item"><input id="hf_bill" class="rpt-select" value="${escapeHtml(f.bill||'')}" placeholder="ค้นหาเลขบิล" autocomplete="off" style="min-width:190px;"></div>
-      <button class="btn ghost rpf-apply" id="hfApplyBtn">แสดงผล</button>
+      <button class="btn ghost rpf-apply" id="hfApplyBtn">แสดงผล</button><span class="sales-history-result-count">${filtered.length} รายการ</span>
     </div>
     <div class="sales-history-table-wrap">
     <table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-bill"><col class="ht-time"><col class="ht-items"><col class="ht-total"><col class="ht-pay"><col class="ht-status"><col class="ht-actions"></colgroup><thead><tr><th>วันที่</th><th>เลขที่บิล</th><th>เวลา</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th><th>สถานะ</th><th></th></tr></thead>
