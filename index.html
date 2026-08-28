@@ -181,6 +181,8 @@
   input[type="number"]{-moz-appearance:textfield;}
   .product-form-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:4px;padding-bottom:8px;}
   .product-form-actions .btn{min-width:120px;padding:12px 20px;}
+  .product-form-actions .product-delete-btn{margin-right:auto;background:var(--danger);color:#fff;border-color:var(--danger);}
+  .product-form-actions .product-delete-btn:hover{background:#a83c34;border-color:#a83c34;}
   @media (max-width:960px){ .prodrow.r2,.prodrow.r3,.prodrow.r4,.prodrow.namerow{grid-template-columns:1fr;} .barcode-cols{grid-template-columns:1fr;gap:20px;} }
   .field{display:flex;flex-direction:column;gap:5px;}
   .field label{font-size:12.5px;font-weight:600;color:var(--text);}
@@ -6361,6 +6363,7 @@ function renderProductForm(){
     </div>
 
     <div class="product-form-actions form-final-actions">
+      ${!isNew&&loggedInUser()?.owner===true&&Number(loggedInUser()?.level)===1?'<button class="btn product-delete-btn" id="deleteProductBtn" type="button">ลบสินค้า</button>':''}
       <button class="btn ghost" id="cancelProductBtn">ยกเลิก</button>
       <button class="btn primary" id="saveProductBtn">บันทึก</button>
     </div>
@@ -11992,6 +11995,8 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   }
   const saveProductBtn = document.getElementById('saveProductBtn');
   if(saveProductBtn) saveProductBtn.addEventListener('click', saveProduct);
+  const deleteProductBtn = document.getElementById('deleteProductBtn');
+  if(deleteProductBtn) deleteProductBtn.addEventListener('click', deleteUnusedProduct);
   document.querySelectorAll('[data-act="markpaid"]').forEach(el=>{
     el.addEventListener('click', ()=>{ const inv=invoicesAR.find(i=>i.id===el.dataset.id); if(inv){inv.paid=true; showToast(`รับชำระ ${inv.id} แล้ว`); render();} });
   });
@@ -14312,6 +14317,78 @@ function saveProduct(){
   persistWorkspaceData();
   editingProductId = null;
   render();
+}
+
+function valueReferencesProduct(value,productId){
+  const target=Number(productId);
+  if(!Number.isFinite(target)||value===null||value===undefined) return false;
+  if(Array.isArray(value)) return value.some(item=>valueReferencesProduct(item,target));
+  if(typeof value!=='object') return false;
+  for(const key of ['productId','pid','bgdBuyProductId','bgdGetProductId']){
+    if(Object.prototype.hasOwnProperty.call(value,key)&&Number(value[key])===target) return true;
+  }
+  return Object.values(value).some(item=>valueReferencesProduct(item,target));
+}
+
+function productDeletionLocalBlockers(productId){
+  const id=Number(productId),blockers=[];
+  const add=(label,condition)=>{ if(condition&&!blockers.includes(label)) blockers.push(label); };
+  add('บิลที่กำลังเปิดอยู่',valueReferencesProduct(cart,id));
+  add('ประวัติการขาย',valueReferencesProduct(salesHistory,id));
+  add('เอกสารสินค้า',[
+    quotations,invoicesAR,creditNotes,purchaseOrders,goodsReceipts,productExchanges,
+    purchaseOrdersFull,productReturns,transfers,standaloneTaxInvoices,
+  ].some(list=>valueReferencesProduct(list,id)));
+  add('รายการตรวจสินค้า',valueReferencesProduct(inspectionLists,id));
+  add('โปรโมชั่น',valueReferencesProduct(promotions,id));
+  add('จำนวนคงเหลือในคลัง',inventoryBalanceRows.some(row=>Number(row.product_id)===id&&Math.abs(Number(row.stock)||0)>0.000001));
+  add('ประวัติ LOT',inventoryLotRows.some(row=>Number(row.product_id)===id));
+  return blockers;
+}
+
+async function deleteUnusedProduct(){
+  if(loggedInUser()?.owner!==true||Number(loggedInUser()?.level)!==1){
+    showToast('เฉพาะเจ้าของร้าน Level 1 เท่านั้นที่ลบสินค้าได้','danger');
+    return false;
+  }
+  const product=products.find(item=>Number(item.id)===Number(editingProductId));
+  if(!product) return false;
+  const localBlockers=productDeletionLocalBlockers(product.id);
+  if(localBlockers.length){
+    showToast(`ลบสินค้าไม่ได้ เนื่องจากมี: ${localBlockers.join(', ')}`,'danger');
+    return false;
+  }
+  if(!confirm(`ยืนยันลบสินค้า “${product.name}”\nรหัสสินค้า ${product.sku||'-'}\n\nการลบถาวรไม่สามารถย้อนกลับได้`)) return false;
+  const button=document.getElementById('deleteProductBtn');
+  if(button){ button.disabled=true; button.textContent='กำลังตรวจสอบ...'; }
+  try{
+    const {data,error}=await sb.rpc('delete_unused_product',{p_product_id:Number(product.id)});
+    if(error) throw error;
+    const blockers=Array.isArray(data?.blockers)?data.blockers:[];
+    if(data?.deleted!==true){
+      showToast(blockers.length?`ลบสินค้าไม่ได้ เนื่องจากมี: ${blockers.join(', ')}`:'ลบสินค้าไม่ได้ เพราะสินค้านี้มีข้อมูลเกี่ยวข้อง','danger');
+      if(button){ button.disabled=false; button.textContent='ลบสินค้า'; }
+      return false;
+    }
+    products=products.filter(item=>Number(item.id)!==Number(product.id));
+    favorites=normalizeFavorites(favorites.filter(entry=>favoriteProductId(entry)!==Number(product.id)),products);
+    inventoryBalanceRows=inventoryBalanceRows.filter(row=>Number(row.product_id)!==Number(product.id));
+    inventoryLotRows=inventoryLotRows.filter(row=>Number(row.product_id)!==Number(product.id));
+    rebuildInventoryBalanceMap();
+    seedTableSnapshot('products',products,productMetadataToRow);
+    lastSyncedSnapshot.favorites=JSON.stringify(favorites);
+    editingProductId=null;
+    refreshDataCounters();
+    persistWorkspaceData();
+    showToast(`ลบสินค้า “${product.name}” แล้ว`);
+    render();
+    return true;
+  }catch(error){
+    console.error('delete unused product',error);
+    showToast(error?.message?.includes('Could not find the function')?'ระบบฐานข้อมูลยังไม่พร้อมสำหรับการลบสินค้า กรุณาลองใหม่หลังอัปเดตระบบ':(error?.message||'ลบสินค้าไม่สำเร็จ กรุณาลองอีกครั้ง'),'danger');
+    if(button){ button.disabled=false; button.textContent='ลบสินค้า'; }
+    return false;
+  }
 }
 
 function clearBill(){
