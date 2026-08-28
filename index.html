@@ -1437,9 +1437,10 @@
   .mobile-result-code{background:#fff;border:1px solid var(--border);border-radius:10px;padding:9px 10px;min-width:0;}
   .mobile-result-code span,.mobile-metric span{display:block;font-size:11px;color:var(--text-muted);margin-bottom:2px;}
   .mobile-result-code b{display:block;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .mobile-unit-select{width:100%;height:46px;border:1px solid var(--border);border-radius:10px;padding:0 12px;background:#fff;font:15px 'Sarabun',sans-serif;margin-bottom:10px;text-align:center;text-align-last:center;}
+  .mobile-unit-select{width:100%;height:46px;border:1px solid var(--border);border-radius:10px;padding:0 12px;background:#fff;font:15px 'Sarabun',sans-serif;margin-bottom:0;text-align:center;text-align-last:center;}
   .mobile-result-card div.mobile-unit-select{justify-content:center;}
   .mobile-metrics{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .mobile-price-edit-grid>.mobile-unit-select,.mobile-metrics>.mobile-unit-select{grid-column:1/-1;}
   .mobile-metric{border-radius:12px;padding:12px;background:#fff;border:1px solid var(--border);}
   .mobile-metric.primary{background:var(--primary);border-color:var(--primary);color:#fff;}
   .mobile-metric.primary span{color:#F2E5E0;}
@@ -7158,10 +7159,10 @@ function mobilePriceResultHtml(){
       : 'วันหมดอายุจะเปลี่ยนเฉพาะ Lot ที่เลือก และระบบจะเก็บประวัติการแก้ไข';
   return `<article class="mobile-result-card">
     <div class="mobile-result-name">${escapeHtml(product.name)}</div>
-    ${options.length>1?`<select class="mobile-unit-select" id="mobilePriceUnit">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>หน่วย: ${escapeHtml(option.name)}</option>`).join('')}</select>`:`<div class="mobile-unit-select" style="display:flex;align-items:center;">หน่วย: ${escapeHtml(selected?.name||product.unit)}</div>`}
     ${canEdit?`<div class="mobile-price-stock-readonly mobile-metric primary"><span>คงเหลือ</span><b id="mobilePriceStock">${inspectionListAmount(selectedStock)} ${escapeHtml(selected?.name||product.unit)}</b></div><div class="mobile-price-edit-grid">
       <div class="mobile-price-edit-field"><label for="mobilePriceEditSale">ราคาขาย</label><input id="mobilePriceEditSale" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.price)||0}"></div>
       <div class="mobile-price-edit-field"><label for="mobilePriceEditCost">ทุน</label><input id="mobilePriceEditCost" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.cost)||0}"></div>
+      ${options.length>1?`<select class="mobile-unit-select" id="mobilePriceUnit">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>หน่วย: ${escapeHtml(option.name)}</option>`).join('')}</select>`:`<div class="mobile-unit-select" style="display:flex;align-items:center;">หน่วย: ${escapeHtml(selected?.name||product.unit)}</div>`}
       <div class="mobile-price-lot-field"><label for="mobilePriceLot">Lot ที่ต้องการแก้วันหมดอายุ</label><select id="mobilePriceLot" class="mobile-price-lot-select" ${editableLots.length?'':'disabled'}><option value="">${editableLots.length>1?'เลือก Lot ให้ชัดเจน':'ไม่มี Lot ที่มีสินค้า'}</option>${editableLots.map(lot=>`<option value="${lot.id}" ${Number(lot.id)===Number(selectedLot?.id)?'selected':''}>Lot ${escapeHtml(lot.manufacturer_lot||lot.internal_code||lot.id)} · ${escapeHtml(lotQuantityText(product,lot))} · ${escapeHtml(lot.expiry_date?fmtDateShort(lot.expiry_date):'ไม่ระบุวันหมดอายุ')}</option>`).join('')}</select></div>
       <div class="mobile-price-edit-field" style="grid-column:1/-1;"><label for="mobilePriceEditExpiry">วันหมดอายุของ Lot ที่เลือก</label><input id="mobilePriceEditExpiry" class="mobile-price-edit-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="05-07-2027" value="${escapeHtml(selectedLotExpiry?fmtDateShort(selectedLotExpiry):'')}" ${selectedLot?'':'disabled'}></div>
       <div class="mobile-price-lot-hint" id="mobilePriceLotHint">${escapeHtml(lotHint)}</div>
@@ -7170,6 +7171,7 @@ function mobilePriceResultHtml(){
       <div class="mobile-metric primary"><span>คงเหลือ</span><b id="mobilePriceStock">${inspectionListAmount(selectedStock)} ${escapeHtml(selected?.name||product.unit)}</b></div>
       <div class="mobile-metric"><span>ราคาขาย</span><b id="mobilePriceSale">${fmtMoney(selected?.price||0)} บาท</b></div>
       ${canViewCost?`<div class="mobile-metric"><span>ทุน</span><b id="mobilePriceCost">${fmtMoney(selected?.cost||0)} บาท</b></div>`:''}
+      ${options.length>1?`<select class="mobile-unit-select" id="mobilePriceUnit">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>หน่วย: ${escapeHtml(option.name)}</option>`).join('')}</select>`:`<div class="mobile-unit-select" style="display:flex;align-items:center;">หน่วย: ${escapeHtml(selected?.name||product.unit)}</div>`}
       <div class="mobile-metric"><span>วันหมดอายุ</span><b>${escapeHtml(fmtDateShort(expiry))}</b></div>
     </div>`}
   </article>`;
