@@ -101,11 +101,22 @@ const browserExecutable = [
     attachEvents();
     syncTopbarFormActions();
   });
-  assert.equal(await page.locator('.cash-shift-heading h2').innerText(),'เปิด-ปิดระบบชำระ');
-  assert.equal(await page.locator('.cash-shift-heading .cash-shift-status').innerText(),'เปิดระบบชำระ');
-  assert.equal(await page.locator('.cash-shift-heading p').count(),0);
+  assert.equal(await page.locator('.cash-shift-heading').count(),0);
   assert.equal(await page.locator('#cashShiftCloseForm h3').innerText(),'ปิดระบบ');
   assert.equal(await page.locator('#cashShiftCloseForm button[type="submit"]').innerText(),'ยืนยันการปิดระบบ');
+
+  await page.evaluate(() => {
+    currentCashShift=null;
+    document.getElementById('topbarFormActions').innerHTML='';
+    document.getElementById('main').innerHTML=renderCashShift();
+    attachEvents();
+    syncTopbarFormActions();
+  });
+  const openShiftButton=page.locator('#topbarFormActions button[form="cashShiftOpenForm"]');
+  assert.equal(await openShiftButton.innerText(),'เปิดระบบชำระ');
+  assert.equal(await page.locator('#main .cash-shift-topbar-action').count(),0);
+  assert.equal(await page.locator('#cashShiftOpenForm').count(),1);
+  assert.equal(await openShiftButton.evaluate(button=>button.form?.id),'cashShiftOpenForm');
 
   assert.deepEqual(errors, []);
   console.log('business settings browser tests passed');

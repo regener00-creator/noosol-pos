@@ -7,12 +7,12 @@ const root = path.resolve(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const migration = fs.readFileSync(path.join(root, 'supabase/migrations/0042_cash_shifts.sql'), 'utf8');
 
-assert.match(html, /\['cashshift','เปิด-ปิดระบบชำระ'/);
+assert.match(html, /\['cashshift','ประวัติกะ'/);
 assert.match(html, /cashshift:\s*renderCashShift/);
-assert.match(html, /<h2>เปิด-ปิดระบบชำระ<\/h2>/);
+assert.doesNotMatch(html, /<h2>เปิด-ปิดระบบชำระ<\/h2>/);
 assert.match(html, /<h3>เริ่มต้นระบบชำระ<\/h3>/);
-assert.match(html, />รอเปิดระบบชำระ<\/span>/);
-assert.match(html, />เปิดระบบชำระ<\/span>/);
+assert.match(html, /form="cashShiftOpenForm"[\s\S]{0,160}>\$\{cashShiftBusy\?'กำลังเปิดระบบ…':'เปิดระบบชำระ'\}<\/button>/);
+assert.match(html, /cashShifts\.slice\(0,100\)\.map/);
 assert.match(html, /<h3>ปิดระบบ<\/h3>/);
 assert.match(html, /'ยืนยันการปิดระบบ'/);
 assert.match(html, /class="cash-shift-topbar-action open"/);
