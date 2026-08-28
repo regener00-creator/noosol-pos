@@ -9750,6 +9750,9 @@ function renderRInventory(){
   // หมวดย่อยจะแสดงเฉพาะที่มีสินค้าจริงอยู่ในหมวดหลักที่เลือกไว้ (ถ้ายังไม่เลือกหมวดหลัก จะโชว์หมวดย่อยทั้งหมด)
   const brandOptions = brands.filter(brand=>products.some(product=>(!catf.category||product.category===catf.category)&&product.brand===brand));
   const matchCount = products.filter(product=>stockReportProductMatchesFilter(product,catf)&&(catf.wh||catf.category||catf.brand)).length;
+  const warehouseHeaders=selectedWarehouseValue==='all'
+    ? accessibleWarehouses().map((warehouse,index)=>`<th class="num" title="${escapeHtml(warehouse.name)}">คลังที่ ${index+1}</th>`).join('')
+    : stockReportTh('stock','จำนวนคงเหลือ',true);
   return `<div class="rpt">
   <div class="pagehead topbar-action-source"><div></div><div style="display:flex;gap:8px;"><button class="btn ghost" id="resetStockReportBtn">รีเซ็ตข้อมูล</button><button class="btn primary" id="printStockReportBtn">พิมพ์รายงาน</button></div></div>
   <div class="inventory-report-section">
@@ -9763,7 +9766,7 @@ function renderRInventory(){
       <input id="srInput" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." style="width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;" autocomplete="off">
       <div id="srResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div>
     </div>
-    <table class="grid-table doc-head-blue"><thead><tr>${stockReportTh('name','สินค้า')}${stockReportTh('stock','จำนวนคงเหลือ',true)}<th style="width:40px;"></th></tr></thead>
+    <table class="grid-table doc-head-blue"><thead><tr>${stockReportTh('name','สินค้า')}${warehouseHeaders}<th style="width:40px;"></th></tr></thead>
     <tbody id="srTbody">${stockReportRowsHtml()}</tbody></table>
   </div>
   </div>`;
@@ -9801,15 +9804,25 @@ function stockReportExpiryBreakdownHtml(productId){
 
 function stockReportRowsHtml(){
   const sorted=stockReportSortedItems();
+  const selectedWarehouseValue=String(stockReportCatFilter.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
+  const reportWarehouses=selectedWarehouseValue==='all'?accessibleWarehouses():[];
   return sorted.length
     ? sorted.map(row=>{
         const p=products.find(x=>x.id===row.pid);
         const warehouseValue=String(row.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
+        if(warehouseValue==='all'){
+          const warehouseCells=reportWarehouses.map(warehouse=>{
+            const stockVal=warehouseStock(row.pid,warehouse.id);
+            const stockDisplay=p?stockInLargestUnit({...p,stock:stockVal}):`${stockVal} ${row.unit}`;
+            return `<td class="mono num ${stockVal<0?'stock-negative':''}" style="text-align:center;">${stockDisplay}</td>`;
+          }).join('');
+          return `<tr><td>${row.name}</td>${warehouseCells}<td class="num"><button class="history-icon-btn danger" data-sr-remove="${row.pid}" title="ลบ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td></tr>`;
+        }
         const stockVal=reportStock(row.pid,warehouseValue);
         const stockDisplay = p ? stockInLargestUnit({...p,stock:stockVal}) : `${stockVal} ${row.unit}`;
         return `<tr><td>${row.name}</td><td class="mono num ${stockVal<0?'stock-negative':''}" style="text-align:center;">${stockDisplay}</td><td class="num"><button class="history-icon-btn danger" data-sr-remove="${row.pid}" title="ลบ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td></tr>`;
       }).join('')
-    : `<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีรายการ — ค้นหาหรือสแกนบาร์โค้ดด้านบนเพื่อเพิ่ม</td></tr>`;
+    : `<tr><td colspan="${selectedWarehouseValue==='all'?reportWarehouses.length+2:3}" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีรายการ — ค้นหาหรือสแกนบาร์โค้ดด้านบนเพื่อเพิ่ม</td></tr>`;
 }
 
 function renderRReceivable(){
@@ -15460,9 +15473,24 @@ function printStockReport(){
   const today=new Date(TODAY_STR);
   const selectedWarehouseValue=String(stockReportCatFilter.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
   const selectedWarehouseName=selectedWarehouseValue==='all'?'ทุกคลัง':warehouses.find(warehouse=>Number(warehouse.id)===Number(selectedWarehouseValue))?.name||activeWarehouse()?.name||'-';
+  const reportWarehouses=selectedWarehouseValue==='all'?accessibleWarehouses():[];
+  const warehouseSummary=selectedWarehouseValue==='all'
+    ? reportWarehouses.map((warehouse,index)=>`<div>คลัง ${index+1} : ${escapeHtml(warehouse.name)}</div>`).join('')
+    : `<div>คลัง : ${escapeHtml(selectedWarehouseName)}</div>`;
+  const stockHeaders=selectedWarehouseValue==='all'
+    ? reportWarehouses.map((warehouse,index)=>`<th class="c" title="${escapeHtml(warehouse.name)}">คลังที่ ${index+1}</th>`).join('')
+    : '<th class="c">จำนวนคงเหลือ</th>';
   const rowsHtml=stockReportSortedItems().map(row=>{
     const p=products.find(x=>x.id===row.pid);
     const warehouseValue=String(row.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
+    if(warehouseValue==='all'){
+      const warehouseCells=reportWarehouses.map(warehouse=>{
+        const stockQty=warehouseStock(row.pid,warehouse.id);
+        const stockDisplay=p?stockInLargestUnit({...p,stock:stockQty}):`${stockQty} ${row.unit||''}`.trim();
+        return `<td class="c">${escapeHtml(stockDisplay)}</td>`;
+      }).join('');
+      return `<tr><td class="pd-name">${escapeHtml(row.name)}</td>${warehouseCells}</tr>`;
+    }
     const stockQty = p ? reportStock(p.id,warehouseValue) : row.stock;
     const stockDisplay=p?stockInLargestUnit({...p,stock:stockQty}):`${stockQty} ${row.unit||''}`.trim();
     return `<tr><td class="pd-name">${escapeHtml(row.name)}</td><td class="c">${escapeHtml(stockDisplay)}</td></tr>`;
@@ -15497,9 +15525,9 @@ function printStockReport(){
   <div class="toolbar"><span>ตัวอย่างรายงาน A4</span><button onclick="window.print()">พิมพ์</button></div>
   <div class="page">
     <h1>รายงานสินค้าคงเหลือ</h1>
-    <div class="warehouse">คลัง : ${escapeHtml(selectedWarehouseName)}</div>
+    <div class="warehouse">${warehouseSummary}</div>
     <div class="meta">ณ วันที่ ${thDate(today)}</div>
-    <table><thead><tr><th style="width:68%;">สินค้า</th><th class="c">จำนวนคงเหลือ</th></tr></thead><tbody>${rowsHtml}</tbody></table>
+    <table><thead><tr><th style="width:${selectedWarehouseValue==='all'?'52':'68'}%;">สินค้า</th>${stockHeaders}</tr></thead><tbody>${rowsHtml}</tbody></table>
   </div>
   </body></html>`);
   win.document.close();

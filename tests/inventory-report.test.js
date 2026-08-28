@@ -31,12 +31,34 @@ assert.doesNotMatch(html.slice(renderStart, rowsEnd), /<th>คลังสิน
 assert.doesNotMatch(html.slice(printStart, printEnd), /<th class="c">คลังสินค้า<\/th>/, 'ตารางฉบับพิมพ์ต้องไม่มีคอลัมน์คลังสินค้า');
 assert.doesNotMatch(html.slice(renderStart, rowsEnd), /stockReportTh\('expiry','วันหมดอายุ'/, 'ตารางหน้าจอต้องไม่มีคอลัมน์วันหมดอายุ');
 assert.doesNotMatch(html.slice(printStart, printEnd), />วันหมดอายุ<\/th>/, 'ตารางฉบับพิมพ์ต้องไม่มีคอลัมน์วันหมดอายุ');
-assert.match(html.slice(renderStart, rowsStart), /stockReportTh\('name','สินค้า'\)\}\$\{stockReportTh\('stock','จำนวนคงเหลือ',true\)\}<th style="width:40px;">/, 'หน้าจอต้องเหลือข้อมูลสินค้าและจำนวนคงเหลือ');
-assert.match(html.slice(printStart, printEnd), /<th[^>]*>สินค้า<\/th><th class="c">จำนวนคงเหลือ<\/th>/, 'ฉบับพิมพ์ต้องเหลือสินค้าและจำนวนคงเหลือ');
+assert.match(html.slice(renderStart, rowsStart), /warehouseHeaders=selectedWarehouseValue==='all'/, 'หน้าจอโหมดทุกคลังต้องสร้างหัวคอลัมน์แยกตามคลัง');
+assert.match(html.slice(renderStart, rowsStart), /คลังที่ \$\{index\+1\}/, 'หัวคอลัมน์ทุกคลังต้องเรียงเป็นคลังที่ 1, คลังที่ 2');
+assert.match(html.slice(rowsStart, rowsEnd), /warehouseStock\(row\.pid,warehouse\.id\)/, 'แถวโหมดทุกคลังต้องแสดงยอดของแต่ละคลัง');
+assert.match(html.slice(printStart, printEnd), /stockHeaders=selectedWarehouseValue==='all'/, 'ฉบับพิมพ์ต้องสร้างหัวคอลัมน์แยกตามคลัง');
 assert.doesNotMatch(html.slice(printStart, printEnd), /<th[^>]*>#<\/th>/, 'ฉบับพิมพ์ต้องไม่มีคอลัมน์ลำดับ');
-assert.match(html.slice(printStart, printEnd), /<h1>รายงานสินค้าคงเหลือ<\/h1>\s*<div class="warehouse">คลัง : \$\{escapeHtml\(selectedWarehouseName\)\}<\/div>/, 'ฉบับพิมพ์ต้องแสดงคลังที่เลือกใต้ชื่อรายงาน');
+assert.match(html.slice(printStart, printEnd), /คลัง \$\{index\+1\} : \$\{escapeHtml\(warehouse\.name\)\}/, 'ฉบับพิมพ์ทุกคลังต้องแจกแจงชื่อคลังตามลำดับ');
+assert.match(html.slice(printStart, printEnd), /<div class="warehouse">\$\{warehouseSummary\}<\/div>/, 'ฉบับพิมพ์ต้องแสดงสรุปคลังใต้ชื่อรายงาน');
 assert.match(html, /stockReportItems\.unshift\(\{pid:p\.id, name:p\.name, stock:reportStock\(p\.id,warehouseValue\), unit:p\.unit, expiry:reportExpiry\(p\.id,warehouseValue\), wh:warehouseValue\}\)/);
 assert.match(html, /stockReportWarehouseBreakdownHtml/);
 assert.doesNotMatch(html.slice(rowsStart, rowsEnd), /stockReportExpiryBreakdownHtml/, 'แถวรายงานต้องไม่แสดงวันหมดอายุ');
+
+const rowContext = {
+  stockReportItems:[{pid:1,name:'สินค้าทดสอบ',unit:'กล่อง',wh:'all'}],
+  stockReportCatFilter:{wh:'all'},
+  activeWarehouseId:1,
+  products:[{id:1,name:'สินค้าทดสอบ',unit:'กล่อง'}],
+  isAllWarehousesMode:()=>true,
+  accessibleWarehouses:()=>[{id:1,name:'พระยาสุเรนทร์'},{id:2,name:'พรชัย'}],
+  stockReportSortedItems:()=>rowContext.stockReportItems,
+  warehouseStock:(productId,warehouseId)=>warehouseId===1?12:34,
+  stockInLargestUnit:product=>`${product.stock} ${product.unit}`,
+  reportStock:()=>46
+};
+vm.createContext(rowContext);
+vm.runInContext(html.slice(rowsStart, rowsEnd), rowContext);
+const allWarehouseRows = rowContext.stockReportRowsHtml();
+assert.match(allWarehouseRows, />12 กล่อง<\/td>/, 'โหมดทุกคลังต้องแสดงยอดคลังที่ 1');
+assert.match(allWarehouseRows, />34 กล่อง<\/td>/, 'โหมดทุกคลังต้องแสดงยอดคลังที่ 2');
+assert.doesNotMatch(allWarehouseRows, />46 กล่อง<\/td>/, 'โหมดทุกคลังต้องไม่รวมยอดทุกคลังเป็นช่องเดียว');
 
 console.log('inventory report tests passed');
