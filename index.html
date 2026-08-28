@@ -1612,8 +1612,9 @@
   .stock-control-tab.active{background:#fff;color:var(--primary);box-shadow:0 2px 8px #1B6B9A1A;}
   .stock-control-tab-count{min-width:24px;height:24px;padding:0 7px;border-radius:999px;background:#DCEBF5;color:#315F7D;display:inline-flex;align-items:center;justify-content:center;font-size:12px;}
   .stock-control-tab.active .stock-control-tab-count{background:#E3F3FC;color:var(--primary);}
-  .stock-control-content>.rpt{padding:0;}
+  .stock-control-content>.rpt{width:100%;max-width:none;margin:0;padding:0;}
   .stock-control-content>.rpt>.pagehead{margin-top:0;}
+  .stock-control-content .doc-list-wrap,.stock-control-content .stock-edit-table-wrap{width:100%;max-width:none;margin-left:0;margin-right:0;}
   .stock-control-page .inspection-list-status.pending{background:#FFF3D7;color:#966B13;}
   .stock-control-meta{display:grid;grid-template-columns:minmax(170px,.55fr) minmax(220px,1fr) minmax(260px,1.4fr);gap:12px;margin:0 0 14px;padding:14px;border:1px solid #D9E5EC;border-radius:12px;background:#F8FBFD;}
   .stock-control-meta-field{min-width:0;}
@@ -6503,8 +6504,7 @@ function renderStockControlAnomalies(){
   const negativeCount=anomalies.filter(row=>row.type==='ยอดติดลบ').length;
   const mismatchCount=anomalies.filter(row=>row.type==='ยอดไม่ตรงกับ LOT').length;
   const expiredCount=anomalies.filter(row=>row.type==='LOT หมดอายุยังมีสินค้า').length;
-  return `<div class="rpt"><div class="pagehead"><div><h1>รายการผิดปกติ</h1><div class="sub">แจ้งเตือนเพื่อให้ตรวจนับก่อนปรับ ไม่แก้ยอดเป็นศูนย์ให้อัตโนมัติ</div></div></div>
-    <div class="stock-control-anomaly-summary"><div class="stock-control-anomaly-card"><span>ยอดติดลบ</span><b>${negativeCount}</b></div><div class="stock-control-anomaly-card"><span>ยอดไม่ตรงกับ LOT</span><b>${mismatchCount}</b></div><div class="stock-control-anomaly-card"><span>LOT หมดอายุยังมีสินค้า</span><b>${expiredCount}</b></div></div>
+  return `<div class="rpt"><div class="stock-control-anomaly-summary"><div class="stock-control-anomaly-card"><span>ยอดติดลบ</span><b>${negativeCount}</b></div><div class="stock-control-anomaly-card"><span>ยอดไม่ตรงกับ LOT</span><b>${mismatchCount}</b></div><div class="stock-control-anomaly-card"><span>LOT หมดอายุยังมีสินค้า</span><b>${expiredCount}</b></div></div>
     <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue"><thead><tr><th>รหัสสินค้า</th><th>สินค้า</th><th>ประเภท</th><th>รายละเอียด</th><th>คงเหลือ</th><th></th></tr></thead><tbody>${anomalies.map(row=>`<tr><td class="mono" style="text-align:center;">${escapeHtml(row.product.sku||'-')}</td><td>${escapeHtml(row.product.name)}</td><td style="text-align:center;"><span class="stock-control-anomaly-type">${escapeHtml(row.type)}</span></td><td>${escapeHtml(row.detail)}</td><td class="mono" style="text-align:center;">${inspectionListAmount(row.balance)} ${escapeHtml(row.product.unit||'')}</td><td style="text-align:center;"><button class="btn ghost small" data-stock-control-review="${row.product.id}">เปิดตรวจนับ</button></td></tr>`).join('')||'<tr><td colspan="6" style="padding:34px;text-align:center;color:var(--text-muted);">ไม่พบความผิดปกติของสต๊อกในคลังนี้</td></tr>'}</tbody></table></div>
   </div>`;
 }
@@ -6592,8 +6592,7 @@ function renderStockLotReallocation(){
   stockLotReallocationPage=Math.min(totalPages,Math.max(1,Number(stockLotReallocationPage)||1));
   const start=(stockLotReallocationPage-1)*STOCK_LOT_REALLOCATION_PAGE_SIZE;
   const pageRows=rows.slice(start,start+STOCK_LOT_REALLOCATION_PAGE_SIZE);
-  return `<div class="rpt"><div class="pagehead"><div><h1>ปรับจำนวนแยกตาม LOT</h1><div class="sub">ย้ายจำนวนระหว่าง LOT ของสินค้าเดียวกัน โดยยอดคงเหลือรวมจะไม่เปลี่ยน</div></div></div>
-    <div class="stock-lot-reallocation-search"><input id="stockLotReallocationSearch" value="${escapeHtml(stockLotReallocationSearch)}" placeholder="ค้นหาจากชื่อ / รหัส / บาร์โค้ด..." autocomplete="off"></div>
+  return `<div class="rpt"><div class="stock-lot-reallocation-search"><input id="stockLotReallocationSearch" value="${escapeHtml(stockLotReallocationSearch)}" placeholder="ค้นหาจากชื่อ / รหัส / บาร์โค้ด..." autocomplete="off"></div>
     <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue"><thead><tr><th>รหัสสินค้า</th><th>สินค้า</th><th>คงเหลือรวม</th><th>จำนวน LOT</th><th>หมดอายุใกล้สุด</th><th></th></tr></thead><tbody>${pageRows.map(row=>{
       const nearest=row.groups.map(group=>group.expiryDate).filter(Boolean).sort()[0]||'';
       return `<tr><td class="mono" style="text-align:center;">${escapeHtml(row.product.sku||'-')}</td><td>${escapeHtml(row.product.name)}</td><td style="text-align:center;">${escapeHtml(stockInLargestUnit({...row.product,stock:row.total}))}</td><td style="text-align:center;">${row.groups.length} LOT</td><td style="text-align:center;">${escapeHtml(nearest?fmtDateShort(nearest):'-')}</td><td style="text-align:center;"><button type="button" class="btn primary small" data-stock-lot-reallocation="${row.product.id}">ปรับจำนวน LOT</button></td></tr>`;
@@ -8254,7 +8253,7 @@ function renderStockEdit(){
   const pendingChanges=stockEditPendingChanges();
   const sourceList=stockEditInspectionSourceList();
   return `<div class="rpt stock-edit-page">
-    <div class="pagehead"><div><h1>รอยืนยันปรับสต๊อก</h1><div class="sub">กรอกจำนวนที่นับได้จริง ระบบจะแสดงส่วนต่างและบันทึกสต๊อกกับ LOT เป็นรายการเดียวกัน</div></div><div class="stock-edit-page-actions"><button class="btn primary" id="importInspectionListBtn">ดึงรายการตรวจนับ</button>${rows.length?`<button class="btn ghost" id="clearStockEditBtn">ล้างรายการ</button><button class="btn primary" id="confirmStockEditBtn" ${(pendingChanges.length||stockEditSourcePending)&&String(stockEditReason||'').trim().length>=3&&!stockEditPosting?'':'disabled'}>${stockEditPosting?'กำลังบันทึก...':'ยืนยันผลตรวจนับ'}</button>`:''}</div></div>
+    <div class="stock-edit-page-actions form-final-actions"><button class="btn primary" id="importInspectionListBtn">ดึงรายการตรวจนับ</button>${rows.length?`<button class="btn ghost" id="clearStockEditBtn">ล้างรายการ</button><button class="btn primary" id="confirmStockEditBtn" ${(pendingChanges.length||stockEditSourcePending)&&String(stockEditReason||'').trim().length>=3&&!stockEditPosting?'':'disabled'}>${stockEditPosting?'กำลังบันทึก...':'ยืนยันผลตรวจนับ'}</button>`:''}</div>
     <div class="stock-edit-section">
       <div class="stock-control-meta"><div class="stock-control-meta-field"><label>ผู้ดำเนินการ</label><b>${escapeHtml(currentProfile?.firstName||currentProfile?.username||'-')}</b></div><div class="stock-control-meta-field"><label for="stockEditReason">เหตุผล *</label><select id="stockEditReason"><option value="">เลือกเหตุผล</option>${['ตรวจนับสินค้าจริง','พบสินค้าชำรุด','พบสินค้าสูญหาย','พบสินค้ารับเกิน','แก้ไขยอดยกมา','อื่นๆ'].map(reason=>`<option value="${reason}" ${stockEditReason===reason?'selected':''}>${reason}</option>`).join('')}</select></div><div class="stock-control-meta-field note"><label for="stockEditNote">หมายเหตุเพิ่มเติม</label><input id="stockEditNote" value="${escapeHtml(stockEditNote)}" placeholder="รายละเอียดประกอบการปรับสต๊อก (ถ้ามี)"></div></div>
       <div class="rpt-filters" style="margin-bottom:14px;">

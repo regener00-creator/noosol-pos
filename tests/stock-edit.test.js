@@ -142,7 +142,8 @@ assert.deepEqual(Array.from(secondPage.rows, product => product.id), [8]);
 assert.equal(context.stockEditPagination(context.products, 99, 7).currentPage, 2);
 
 const rendered = context.renderStockEdit();
-assert.match(rendered, /<h1>รอยืนยันปรับสต๊อก<\/h1>/);
+assert.doesNotMatch(rendered, /<h1>รอยืนยันปรับสต๊อก<\/h1>/);
+assert.match(rendered, /stock-edit-page-actions form-final-actions/);
 assert.match(rendered, /id="stockEditCategorySelect"/);
 assert.match(rendered, /id="stockEditBrandSelect"/);
 assert.match(rendered, /id="stockEditAddByCategoryBtn"/);
