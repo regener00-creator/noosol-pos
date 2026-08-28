@@ -9259,7 +9259,7 @@ function renderRProduct(){
   const brandList=brands.slice();
   const productNames=products.map(p=>p.name);
 
-  return `<div class="rpt">
+  return `<div class="rpt rpt-page-scroll">
     <div class="rpt-head">
       <h1>รายงานยอดขายตามสินค้า</h1>
       <div class="rpt-head-actions">
@@ -9486,7 +9486,7 @@ function renderRBill(){
   const thDate=d=>{ const dt=new Date(d); return dt.getDate()+' '+['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][dt.getMonth()]+' '+dt.getFullYear(); };
   const today=new Date(TODAY_STR);
 
-  return `<div class="rpt">
+  return `<div class="rpt rpt-page-scroll">
     <div class="rpt-head">
       <h1>${reportTitle}</h1>
       <div class="rpt-head-actions">
@@ -10032,6 +10032,7 @@ const APP_TABLE_SCROLL_HOST_SELECTOR=[
   '.product-exchange-table-wrap','.warehouse-name-table','.transfer-items-wrap',
   '.doc-list-wrap','.seamless-table-wrap','.table-scroll'
 ].join(',');
+const APP_TABLE_SCROLL_EXEMPT_SELECTOR='.rpt-page-scroll';
 
 function scrollableTableFooterReserve(host,mainElement){
   const controls=[...mainElement.querySelectorAll('.pager,.audit-log-pagination')].filter(element=>{
@@ -10059,6 +10060,7 @@ function refreshScrollableTableHeights(mainElement=document.getElementById('main
 function prepareScrollableTables(mainElement=document.getElementById('main')){
   if(!mainElement) return;
   [...mainElement.querySelectorAll('table')].forEach(table=>{
+    if(table.closest(APP_TABLE_SCROLL_EXEMPT_SELECTOR)) return;
     let host=table.closest(APP_TABLE_SCROLL_HOST_SELECTOR);
     if(!host||!mainElement.contains(host)){
       host=document.createElement('div');
