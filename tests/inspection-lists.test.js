@@ -145,6 +145,8 @@ assert.equal(context.inspectionLists[0].stockAdjustedAt, '');
 
 context.inspectionLists[0].stockAdjustedAt = '2026-08-20T09:00:00.000Z';
 const overviewHtml = context.renderInspectionListOverview();
+assert.doesNotMatch(overviewHtml, /บันทึกชุดสินค้าไว้เปิดดูจำนวนคงเหลือล่าสุดได้ทุกครั้ง/);
+assert.match(html, /\.inspection-list-page\{width:100%;max-width:none;min-width:0;\}/);
 assert.match(overviewHtml, /รายการตรวจหน้าร้าน/);
 assert.match(overviewHtml, /data-open-inspection-list="CHECK-0001"/);
 assert.match(overviewHtml, /บันทึกผลแล้ว/);
