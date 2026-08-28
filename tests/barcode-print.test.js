@@ -22,7 +22,7 @@ const context = {
   barcodePrintLabelSize: '60x40',
   barcodePrintLabelType: 'price',
   barcodePrintPage: 1,
-  BARCODE_PRINT_PAGE_SIZE: 7,
+  BARCODE_PRINT_PAGE_SIZE: 10,
   TODAY_STR: '2026-08-21',
   promotions: [],
   categories: ['ยา'],
@@ -146,7 +146,7 @@ assert.match(html, /id="barcodePrintLabelType"/);
 assert.match(html, /รูปแบบ: ป้ายโปรโมชั่น/);
 assert.match(html, /value="60x40"[^>]*>ป้ายราคา 60 × 40 มม\. \(ค่าเริ่มต้น\)/);
 assert.match(html, /data-barcode-print-page/);
-assert.match(html, /BARCODE_PRINT_PAGE_SIZE = 7/);
+assert.match(html, /BARCODE_PRINT_PAGE_SIZE = 10/);
 assert.match(html, /\.main\.barcode-print-main\{overflow-y:hidden;\}/);
 assert.match(html, /\.barcode-print-table-wrap\{[^}]*flex:1;[^}]*overflow-y:hidden;/);
 assert.match(html, /classList\.toggle\('barcode-print-main',currentTab==='barcodeprint'\)/);

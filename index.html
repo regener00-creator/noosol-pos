@@ -2947,7 +2947,7 @@ function persistContacts(){ persistWorkspaceData(); }
 let nextContactId = Math.max(7,...contacts.map(contact=>(Number(contact.id)||0)+1));
 let contactFilter = 'all'; // all | customer | supplier | both
 let contactPage = 1;
-const CONTACTS_PER_PAGE = 20;
+const CONTACTS_PER_PAGE = 10;
 let editingContactId = null; // null=list, 'new', หรือ id
 let salesRepresentatives = [
   {id:1, name:'คุณอรทัย พรหมมา', phone:'081-555-1020', line:'orathai.pharma', note:'ผู้แทนเขตกรุงเทพฯ บริษัท เซ็นทรัลฟาร์มา'},
@@ -3015,7 +3015,7 @@ let contactSort = {key:'code', dir:1}; // เรียงลำดับตา�
 let productPage = 1;
 // จำหน่วยที่เลือกไว้ต่อสินค้าแต่ละตัว ในหน้ารายการสินค้า (สำหรับสลับดูราคา/ทุนตามหน่วย)
 let prodRowUnitSel = {};
-const PRODUCTS_PER_PAGE = 30;
+const PRODUCTS_PER_PAGE = 10;
 
 let cart = []; // แต่ละบิลเป็น array ของบรรทัด: {lineId, pid, unit, unitName, price, cost, factor, qty}
 let pendingQty = 1; // จำนวนที่ล็อกไว้ล่วงหน้า (พิมพ์ *10 ในช่องค้นหา)
@@ -3414,7 +3414,7 @@ let inspectionListSort = { key:'sku', dir:1 };
 let inspectionListOverviewSort = { key:'updatedAt', dir:-1 };
 let inspectionListOverviewSelectedIds = new Set();
 let inspectionListCounter = 1;
-const INSPECTION_LIST_PAGE_SIZE = 7;
+const INSPECTION_LIST_PAGE_SIZE = 10;
 // โหมดมือถือ/เครื่องยิงบาร์โค้ดแบบมีจอ แสดงเช็คราคาและขั้นตอนตรวจ/แก้ไขสต๊อก
 let mobileToolMode = 'price';
 let mobileInventoryStep = 'inspection';
@@ -3459,10 +3459,10 @@ let stockEditNewLotNumbers = {};
 let stockEditNewLotExpiries = {};
 let stockEditPosting = false;
 let stockControlMode = 'count';
-const STOCK_EDIT_PAGE_SIZE = 7;
+const STOCK_EDIT_PAGE_SIZE = 10;
 let stockLotReallocationSearch = '';
 let stockLotReallocationPage = 1;
-const STOCK_LOT_REALLOCATION_PAGE_SIZE = 20;
+const STOCK_LOT_REALLOCATION_PAGE_SIZE = 10;
 // คิวหน้าพิมพ์ป้ายราคา แยกจากหน้ารายการสินค้าและหน้าแก้ไขสต๊อก
 let barcodePrintItems = [];
 let barcodePrintCatFilter = { category:'', brand:'' };
@@ -3470,10 +3470,10 @@ let barcodePrintSearchQuery = '';
 let barcodePrintLabelSize = '60x40';
 let barcodePrintLabelType = 'price';
 let barcodePrintPage = 1;
-const BARCODE_PRINT_PAGE_SIZE = 7;
-// เลขหน้าสำหรับตารางเอกสารต่างๆ (แสดงหน้าละ 20 รายการ)
+const BARCODE_PRINT_PAGE_SIZE = 10;
+// เลขหน้าสำหรับตารางเอกสารต่างๆ (แสดงหน้าละ 10 รายการ)
 let docListPage = { po:1, po2:1, ret:1, gr:1, exchange:1, cashbill:1, taxinvoice:1, quotation:1 };
-const DOC_LIST_PAGE_SIZE = 20;
+const DOC_LIST_PAGE_SIZE = 10;
 let lowStockSort = { stock:{key:'name',dir:1}, expiry:{key:'expiry',dir:1} };
 // สถานะตัวกรองหน้าประวัติการขาย (ค่าเริ่มต้น = แสดงเฉพาะวันนี้)
 let historyFilter = { period:'range', from:'', to:'', month:'', year:'', bill:'', page:1 };
@@ -3482,7 +3482,7 @@ let inventoryMovementFilter = { period:'range', from:'', to:'', month:'', year:'
 let inventoryMovementSearchQuery = '';
 let inventoryMovementExpandedBills = new Set();
 let expandedDocumentItemLists = new Set();
-const INVENTORY_MOVEMENT_PAGE_SIZE = 20;
+const INVENTORY_MOVEMENT_PAGE_SIZE = 10;
 let poCounter = 32, grCounter = 31, po2Counter = 1, returnCounter = 1, productExchangeCounter = 1;
 let editingPOId = null; // null=list, 'new', หรือ id ของ PO
 let poDraft = null; // ร่าง PO ที่กำลังแก้ (เก็บค่าไว้ระหว่าง re-render)
@@ -3543,7 +3543,7 @@ let auditLogLoaded=false;
 let auditLogLoading=false;
 let auditLogError='';
 let auditLogPage=1;
-const AUDIT_LOG_PAGE_SIZE=50;
+const AUDIT_LOG_PAGE_SIZE=20;
 let auditLogFilter={search:'',entity:'all',action:'all'};
 let expandedAuditLogRows=new Set();
 let currentProfile=null; // Supabase Auth profile of the signed-in user, mapped by mapProfileRow()
@@ -4549,7 +4549,7 @@ function salesHistoryItemsFull(items){
   return `<div class="history-preview">${list.map(item=>`${item.name} ×${item.qty}`).join('<br>')}</div>`;
 }
 
-const HISTORY_PAGE_SIZE = 20;
+const HISTORY_PAGE_SIZE = 10;
 function saleHistoryTimeDisplay(value){
   const text=String(value||'').trim();
   if(!text) return '-';
@@ -5738,7 +5738,7 @@ function inventoryLotDetailGroupsHtml(product,rows,{groupPrefix='stocked',readOn
     return summary+group.rows.map(row=>inventoryLotDetailRowHtml(product,row,{childGroupIndex:groupKey,readOnly})).join('');
   }).join('');
 }
-const INVENTORY_LOT_HISTORY_PAGE_SIZE=50;
+const INVENTORY_LOT_HISTORY_PAGE_SIZE=10;
 const INVENTORY_LOT_DETAIL_COLUMNS='id,product_id,warehouse_id,internal_code,manufacturer_lot,expiry_date,quantity_base,unit_cost_base,received_at,source_type,source_id,status,updated_at';
 async function openProductLotDetails(productId,warehouseId=activeWarehouseId){
   const product=products.find(item=>Number(item.id)===Number(productId));
@@ -8476,7 +8476,7 @@ function lowTh(table, key, label, alignRight){
   const arrow = s.key===key ? (s.dir===1?' ▲':' ▼') : '';
   return `<th class="sortable ${alignRight?'num':''}" data-lowsort="${table}:${key}">${label}<span class="sortarrow">${arrow}</span></th>`;
 }
-const LOWSTOCK_PAGE_SIZE = 20;
+const LOWSTOCK_PAGE_SIZE = 10;
 function renderLowStock(){
   lowStockPageFilter.stockWarehouse=normalizeInventoryReportWarehouseValue(lowStockPageFilter.stockWarehouse);
   const allRows=lowStockReportRows();

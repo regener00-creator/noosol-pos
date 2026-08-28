@@ -83,7 +83,7 @@ const testProducts = [
     { id: 1, sku: 'P-001', barcode: '8850001', name: 'ยาทดสอบ', category: 'ยา', brand: 'ทั่วไป', unit: 'แผง', stock: 120, units: [{ sub: 'กล่อง', barcode: 'BOX-001', factor: 10 }] },
     { id: 2, sku: 'V-002', barcode: '8850002', name: 'วิตามินซี', category: 'วิตามิน', brand: 'แบรนด์เอ', unit: 'ขวด', stock: 5, units: [] },
 ];
-for (let id = 3; id <= 8; id++) testProducts.push({ id, sku: `P-00${id}`, barcode: `885000${id}`, name: `สินค้าทดสอบ ${id}`, category: 'ยา', brand: 'ทั่วไป', unit: 'กล่อง', stock: id, units: [] });
+for (let id = 3; id <= 11; id++) testProducts.push({ id, sku: `P-00${id}`, barcode: `885000${id}`, name: `สินค้าทดสอบ ${id}`, category: 'ยา', brand: 'ทั่วไป', unit: 'กล่อง', stock: id, units: [] });
 
 Object.assign(context, {
   products: testProducts,
@@ -108,7 +108,7 @@ Object.assign(context, {
   inspectionLists: [{id:'CHECK-0001',name:'ตรวจหน้าร้าน',items:[{pid:1,unit:'กล่อง'},{pid:2,unit:'ขวด'}],updatedAt:'2026-08-20T08:00:00.000Z',stockAdjustedAt:'',stockAdjustedBy:''}],
   currentProfile: {firstName:'เจ้าของร้าน',username:'owner'},
   activeWarehouseId: 1,
-  STOCK_EDIT_PAGE_SIZE: 7,
+  STOCK_EDIT_PAGE_SIZE: 10,
   escapeHtml: value => String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'),
   matchesBarcode: (product, query) => product.barcode === query || (product.units || []).some(unit => unit.barcode === query),
   stockInLargestUnit: product => `${product.stock} ${product.unit}`,
@@ -135,11 +135,11 @@ assert.equal(context.stockEditMatchesQuery(context.products[0], 'ไม่พบ
 assert.equal(context.stockEditPendingChanges(context.products, { 1: 60 }).length, 1);
 assert.equal(context.stockEditPendingChanges(context.products, { 1: 120 }).length, 0);
 assert.equal(context.stockEditPendingChanges(context.products, { 999: 10 }).length, 0);
-const secondPage = context.stockEditPagination(context.products, 2, 7);
+const secondPage = context.stockEditPagination(context.products, 2, 10);
 assert.equal(secondPage.currentPage, 2);
 assert.equal(secondPage.totalPages, 2);
-assert.deepEqual(Array.from(secondPage.rows, product => product.id), [8]);
-assert.equal(context.stockEditPagination(context.products, 99, 7).currentPage, 2);
+assert.deepEqual(Array.from(secondPage.rows, product => product.id), [11]);
+assert.equal(context.stockEditPagination(context.products, 99, 10).currentPage, 2);
 
 const rendered = context.renderStockEdit();
 assert.doesNotMatch(rendered, /<h1>รอยืนยันปรับสต๊อก<\/h1>/);
@@ -156,7 +156,7 @@ assert.match(rendered, /data-stock-edit-lot="1"/);
 assert.match(rendered, /id="confirmStockEditBtn"/);
 assert.ok(rendered.indexOf('id="clearStockEditBtn"') < rendered.indexOf('id="confirmStockEditBtn"'), 'ปุ่มยืนยันต้องอยู่หลังปุ่มล้างรายการ');
 assert.match(rendered, /data-stock-edit-page="2"/);
-assert.doesNotMatch(rendered, /สินค้าทดสอบ 8/);
+assert.doesNotMatch(rendered, /สินค้าทดสอบ 11/);
 assert.doesNotMatch(rendered, /id="stockEditSelectAll"/);
 assert.doesNotMatch(rendered, /data-stock-edit-check=/);
 assert.match(rendered, /P-001/);
@@ -172,7 +172,7 @@ assert.doesNotMatch(rendered, /data-stock-edit-open=/);
 
 context.stockEditPage = 2;
 const secondPageRendered = context.renderStockEdit();
-assert.match(secondPageRendered, /สินค้าทดสอบ 8/);
+assert.match(secondPageRendered, /สินค้าทดสอบ 11/);
 assert.match(secondPageRendered, /class="pagebtn active" data-stock-edit-page="2"/);
 
 assert.equal(context.stockEditImportInspectionList('CHECK-0001', false), true);

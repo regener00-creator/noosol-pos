@@ -74,7 +74,7 @@ assert.match(migration, /create or replace function public\.restore_store_invent
 assert.match(migration, /delete from public\.inventory_lot_movements/);
 assert.match(migration, /delete from public\.inventory_lots/);
 
-assert.match(html, /INVENTORY_LOT_HISTORY_PAGE_SIZE=50/);
+assert.match(html, /INVENTORY_LOT_HISTORY_PAGE_SIZE=10/);
 assert.match(html, /\.range\(historyLoaded,historyLoaded\+INVENTORY_LOT_HISTORY_PAGE_SIZE-1\)/);
 assert.equal(fs.existsSync(path.join(root, 'legacy', 'POS_original.html')), false, 'ไฟล์โปรแกรมเก่าต้องไม่อยู่ในพื้นที่ deploy');
 

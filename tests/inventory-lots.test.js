@@ -108,7 +108,7 @@ assert.match(html, /class="lot-internal-column">รหัส LOT ภายใน
 assert.match(html, /ดูรายละเอียดทางระบบ/);
 assert.match(html, /ซ่อนรายละเอียดทางระบบ/);
 assert.match(html, /currentProfile\?\.owner&&\(stockedRows\.length\|\|historyCount\)/);
-assert.match(html, /INVENTORY_LOT_HISTORY_PAGE_SIZE=50/);
+assert.match(html, /INVENTORY_LOT_HISTORY_PAGE_SIZE=10/);
 assert.match(html, /select\('id',\{count:'exact',head:true\}\)/);
 assert.match(html, /id="lotHistoryBody" hidden><\/tbody>/);
 assert.match(html, /id="lotHistoryLoadMoreBtn"/);

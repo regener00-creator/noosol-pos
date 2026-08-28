@@ -45,7 +45,7 @@ const context = {
   mobileInspectionCheckedByList: {},
   stockEditSourceInspectionListId: null,
   stockEditSourcePending: false,
-  INSPECTION_LIST_PAGE_SIZE: 7,
+  INSPECTION_LIST_PAGE_SIZE: 10,
   categories: [],
   brands: [],
   warehouses: [{id:1,name:'คลังหนึ่ง'},{id:2,name:'คลังสอง'}],
@@ -249,7 +249,7 @@ assert.match(html, /from\('inspection_lists'\)\.select\('\*'\)/);
 assert.match(html, /upsertAndPrune\('inspection_lists',inspectionLists,inspectionListToRow\)/);
 assert.match(html, /await loadInspectionListsFromSupabase\(\)/);
 assert.match(html, /data-inspection-list-page/);
-assert.match(html, /INSPECTION_LIST_PAGE_SIZE = 7/);
+assert.match(html, /INSPECTION_LIST_PAGE_SIZE = 10/);
 assert.doesNotMatch(html, /!filter\.wh\|\|String\(product\.wh\)===String\(filter\.wh\)/);
 assert.match(html, /warehouseStock\(product\.id,inspectionListDraft\?\.warehouseId/);
 assert.match(html, /mobile-inspection-complete/);
