@@ -310,7 +310,6 @@
   .sales-history-table-wrap{flex:1;min-height:0;overflow:auto;border-radius:var(--radius);background:var(--surface);}
   .sales-history-table-wrap .history-table{margin:0;}
   .sales-history-table-wrap .history-table thead th{position:sticky;top:0;z-index:2;}
-  .history-table tr.history-date-divider td{border-top:2px solid #151515!important;}
   .doc-head-blue thead th{background:#2091D2;color:#fff;}
   .grid-table th.sortable{cursor:pointer;user-select:none;white-space:nowrap;}
   .grid-table th.sortable:hover{background:var(--primary-soft);color:var(--primary);}
@@ -4548,10 +4547,6 @@ function saleHistoryTimeDisplay(value){
   const match=text.match(/(?:^|[T\s])(\d{1,2}):(\d{2})/);
   return match?`${match[1].padStart(2,'0')}:${match[2]}`:'-';
 }
-function isSalesHistoryDateBreak(rows,index){
-  if(index<=0) return false;
-  return String(rows[index]?.date||'').slice(0,10)!==String(rows[index-1]?.date||'').slice(0,10);
-}
 function historyDateRange(){
   const f=historyFilter;
   if(f.period==='month'){
@@ -4604,7 +4599,7 @@ function renderHistory(){
     </div>
     <div class="sales-history-table-wrap">
     <table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-bill"><col class="ht-time"><col class="ht-items"><col class="ht-total"><col class="ht-pay"><col class="ht-status"><col class="ht-actions"></colgroup><thead><tr><th>วันที่</th><th>เลขที่บิล</th><th>เวลา</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th><th>สถานะ</th><th></th></tr></thead>
-    <tbody>${pageRows.length? pageRows.map((s,rowIndex)=>`<tr class="${isSalesHistoryDateBreak(pageRows,rowIndex)?'history-date-divider':''}">
+    <tbody>${pageRows.length? pageRows.map(s=>`<tr>
       <td>${fmtDate(s.date)}</td><td class="mono">${s.ref||s.id}</td>
       <td>${saleHistoryTimeDisplay(s.time)}</td>
       <td>${salesHistoryItemsPreview(s.items)}</td>

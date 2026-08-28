@@ -40,16 +40,12 @@ assert.deepEqual(
   [rows[1]]
 );
 
-assert.equal(context.isSalesHistoryDateBreak(rows,0), false);
-assert.equal(context.isSalesHistoryDateBreak(rows,1), true);
-assert.equal(context.isSalesHistoryDateBreak([rows[0],{...rows[0],id:'SALE-1B'}],1), false);
-
 assert.match(html, /id="hf_bill"/);
 assert.match(html, /placeholder="ค้นหาเลขบิล"/);
 assert.match(html, /hfBill\.addEventListener\('keydown'/);
 assert.match(html, /class="rpt sales-history-page"/);
 assert.match(html, /sales-history-table-wrap/);
-assert.match(html, /\.history-table tr\.history-date-divider td\{border-top:2px solid #151515!important;\}/);
+assert.doesNotMatch(html, /history-date-divider|isSalesHistoryDateBreak/);
 assert.match(html, /\.main\.sales-history-main\{overflow-y:hidden;\}/);
 assert.match(html, /classList\.toggle\('sales-history-main',currentTab==='history'\)/);
 
