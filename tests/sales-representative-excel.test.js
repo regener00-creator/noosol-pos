@@ -11,10 +11,11 @@ assert.ok(helperStart >= 0 && helperEnd > helperStart, 'sales representative Exc
 const sandbox = {};
 vm.createContext(sandbox);
 vm.runInContext(`${html.slice(helperStart, helperEnd)}; this.headers=SALES_REP_EXCEL_HEADERS; this.toRow=salesRepresentativeToExcelRow;`, sandbox);
-const representative={id:7,name:'คุณทดสอบ',phone:'0812345678',line:'test.line',company:'บริษัท ทดสอบ',note:'กรุงเทพฯ'};
+const representative={id:7,code:'SR0007',name:'คุณทดสอบ',phone:'0812345678',line:'test.line',company:'บริษัท ทดสอบ',note:'กรุงเทพฯ'};
 const row=sandbox.toRow(representative);
 assert.deepEqual(Object.keys(row),Array.from(sandbox.headers));
 assert.equal(row['รหัสอ้างอิงระบบ'],7);
+assert.equal(row['รหัสผู้ติดต่อ'],'SR0007');
 assert.equal(row['ชื่อผู้แทน'],'คุณทดสอบ');
 assert.equal(row['ข้อมูลเพิ่มเติม'],'กรุงเทพฯ');
 
@@ -27,8 +28,16 @@ assert.match(listCode,/id="exportSalesRepsBtn"/);
 assert.match(listCode,/id="downloadSalesRepTemplateBtn"/);
 assert.match(listCode,/id="importSalesRepsBtn"/);
 assert.match(listCode,/id="salesRepImportFile"/);
+assert.match(listCode,/<tr><th style="width:140px;">รหัสผู้ติดต่อ<\/th><th>ชื่อ<\/th>/);
+assert.match(listCode,/<tr><td class="mono">\$\{rep\.code\|\|'-'\}<\/td><td>\$\{rep\.name\}<\/td>/);
+assert.match(listCode,/\(rep\.code\|\|'\'\)\.toLowerCase\(\)\.includes\(q\)/);
 assert.match(formCode,/id="saveSalesRepBtn">บันทึก<\/button>/);
+assert.ok(formCode.indexOf('id="sr_code"') < formCode.indexOf('id="sr_name"'),'contact code field must be first in the representative form');
 assert.doesNotMatch(formCode,/บันทึกแล้วปิด/);
+
+assert.match(html,/const code=get\('sr_code'\);/);
+assert.match(html,/String\(rep\.code\|\|'\'\)\.trim\(\)\.toLowerCase\(\)===code\.toLowerCase\(\)/);
+assert.match(html,/productImportValue\(row,\['รหัสผู้ติดต่อ','รหัส','code'\]\)/);
 
 const eventsStart=html.indexOf('const newSalesRepBtn =');
 const eventsEnd=html.indexOf('// --- promotions ---',eventsStart);

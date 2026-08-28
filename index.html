@@ -2939,9 +2939,9 @@ let contactPage = 1;
 const CONTACTS_PER_PAGE = 10;
 let editingContactId = null; // null=list, 'new', หรือ id
 let salesRepresentatives = [
-  {id:1, name:'คุณอรทัย พรหมมา', phone:'081-555-1020', line:'orathai.pharma', note:'ผู้แทนเขตกรุงเทพฯ บริษัท เซ็นทรัลฟาร์มา'},
-  {id:2, name:'คุณณัฐวุฒิ แสงทอง', phone:'089-234-7788', line:'nattawut.med', note:'ติดต่อเรื่องยาและเวชภัณฑ์'},
-  {id:3, name:'คุณพิมพ์ชนก ศรีสุข', phone:'086-901-4455', line:'pim.srisuk', note:'เข้าพบร้านทุกวันพุธช่วงบ่าย'},
+  {id:1, code:'', name:'คุณอรทัย พรหมมา', phone:'081-555-1020', line:'orathai.pharma', note:'ผู้แทนเขตกรุงเทพฯ บริษัท เซ็นทรัลฟาร์มา'},
+  {id:2, code:'', name:'คุณณัฐวุฒิ แสงทอง', phone:'089-234-7788', line:'nattawut.med', note:'ติดต่อเรื่องยาและเวชภัณฑ์'},
+  {id:3, code:'', name:'คุณพิมพ์ชนก ศรีสุข', phone:'086-901-4455', line:'pim.srisuk', note:'เข้าพบร้านทุกวันพุธช่วงบ่าย'},
 ];
 let nextSalesRepresentativeId = 4;
 let editingSalesRepresentativeId = null;
@@ -8634,20 +8634,21 @@ function renderContactForm(){
 function renderSalesRepresentatives(){
   if(editingSalesRepresentativeId!==null) return renderSalesRepresentativeForm();
   const q=searchQuery.trim().toLowerCase();
-  const list=salesRepresentatives.filter(rep=>!q || (rep.name||'').toLowerCase().includes(q) || (rep.phone||'').toLowerCase().includes(q) || (rep.line||'').toLowerCase().includes(q) || (rep.company||'').toLowerCase().includes(q) || (rep.note||'').toLowerCase().includes(q));
+  const list=salesRepresentatives.filter(rep=>!q || (rep.code||'').toLowerCase().includes(q) || (rep.name||'').toLowerCase().includes(q) || (rep.phone||'').toLowerCase().includes(q) || (rep.line||'').toLowerCase().includes(q) || (rep.company||'').toLowerCase().includes(q) || (rep.note||'').toLowerCase().includes(q));
   return `<div class="rpt"><div class="pagehead"><div><h1>รายชื่อผู้แทน <span class="page-title-meta">· ${list.length} รายชื่อ</span></h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportSalesRepsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadSalesRepTemplateBtn">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importSalesRepsBtn">นำเข้า Excel</button><input id="salesRepImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newSalesRepBtn">+ เพิ่มรายชื่อผู้แทน</button></div></div>
-    <div class="toolbar"><div></div><div class="searchbar"><input id="search" placeholder="ค้นหาจากชื่อ / เบอร์โทร / ไลน์ / บริษัท" value="${searchQuery}"></div></div>
+    <div class="toolbar"><div></div><div class="searchbar"><input id="search" placeholder="ค้นหาจากรหัสผู้ติดต่อ / ชื่อ / เบอร์โทร / ไลน์ / บริษัท" value="${searchQuery}"></div></div>
     <div class="doc-list-wrap seamless-table-wrap">
-    <table class="grid-table doc-head-blue contact-summary-table"><thead><tr><th>ชื่อ</th><th>เบอร์โทร</th><th>ไลน์</th><th>บริษัท</th><th>ข้อมูลเพิ่มเติม</th><th style="width:120px;"></th></tr></thead>
-    <tbody>${list.map(rep=>`<tr><td>${rep.name}</td><td class="mono">${rep.phone||'-'}</td><td>${rep.line||'-'}</td><td>${rep.company||'-'}</td><td>${rep.note||'-'}</td><td style="text-align:center;"><div class="history-actions sales-representative-actions"><button class="history-icon-btn" data-act="editsalesrep" data-id="${rep.id}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(rep.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn danger" data-act="deletesalesrep" data-id="${rep.id}" title="ลบ" aria-label="ลบ ${escapeHtml(rep.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td></tr>`).join('')||'<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">ยังไม่มีรายชื่อผู้แทน</td></tr>'}</tbody></table>
+    <table class="grid-table doc-head-blue contact-summary-table"><thead><tr><th style="width:140px;">รหัสผู้ติดต่อ</th><th>ชื่อ</th><th>เบอร์โทร</th><th>ไลน์</th><th>บริษัท</th><th>ข้อมูลเพิ่มเติม</th><th style="width:120px;"></th></tr></thead>
+    <tbody>${list.map(rep=>`<tr><td class="mono">${rep.code||'-'}</td><td>${rep.name}</td><td class="mono">${rep.phone||'-'}</td><td>${rep.line||'-'}</td><td>${rep.company||'-'}</td><td>${rep.note||'-'}</td><td style="text-align:center;"><div class="history-actions sales-representative-actions"><button class="history-icon-btn" data-act="editsalesrep" data-id="${rep.id}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(rep.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn danger" data-act="deletesalesrep" data-id="${rep.id}" title="ลบ" aria-label="ลบ ${escapeHtml(rep.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">ยังไม่มีรายชื่อผู้แทน</td></tr>'}</tbody></table>
     </div></div>`;
 }
 
 function renderSalesRepresentativeForm(){
   const isNew=editingSalesRepresentativeId==='new';
-  const rep=isNew?{name:'',phone:'',line:'',company:'',note:''}:salesRepresentatives.find(x=>x.id===editingSalesRepresentativeId);
+  const rep=isNew?{code:'',name:'',phone:'',line:'',company:'',note:''}:salesRepresentatives.find(x=>x.id===editingSalesRepresentativeId);
   return `<div class="rpt"><div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › รายชื่อผู้แทน › ${isNew?'เพิ่มรายชื่อ':'แก้ไขรายชื่อ'}</div><h1>${isNew?'เพิ่มรายชื่อผู้แทน':'แก้ไขรายชื่อผู้แทน'}</h1></div><div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelSalesRepBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveSalesRepBtn">บันทึก</button></div></div>
     <div class="panel"><h3>ข้อมูลผู้แทน</h3><div class="cform">
+      <div class="crow"><label>รหัสผู้ติดต่อ</label><input id="sr_code" value="${rep.code||''}" placeholder="เช่น SR001 (ไม่บังคับ)"></div>
       <div class="crow"><label>ชื่อ <span class="req">*</span></label><input id="sr_name" value="${rep.name||''}" placeholder="ชื่อผู้แทน"></div>
       <div class="crow"><label>เบอร์โทร</label><input id="sr_phone" class="phone-input" value="${rep.phone||''}" placeholder="เบอร์มือถือ / โทรศัพท์"></div>
       <div class="crow"><label>ไลน์</label><input id="sr_line" value="${rep.line||''}" placeholder="LINE ID หรือเบอร์ที่ใช้กับไลน์"></div>
@@ -13232,7 +13233,12 @@ function saveSalesRepresentative(){
   const get=id=>(document.getElementById(id)?.value||'').trim();
   const name=get('sr_name');
   if(!name){ showToast('กรุณากรอกชื่อผู้แทน'); document.getElementById('sr_name').focus(); return; }
-  const data={name,phone:get('sr_phone'),line:get('sr_line'),company:get('sr_company'),note:get('sr_note')};
+  const code=get('sr_code');
+  if(code){
+    const duplicate=salesRepresentatives.find(rep=>rep.id!==editingSalesRepresentativeId&&String(rep.code||'').trim().toLowerCase()===code.toLowerCase());
+    if(duplicate){ showToast(`รหัสผู้ติดต่อ "${code}" ถูกใช้แล้วโดย "${duplicate.name}"`); document.getElementById('sr_code').focus(); return; }
+  }
+  const data={code,name,phone:get('sr_phone'),line:get('sr_line'),company:get('sr_company'),note:get('sr_note')};
   if(editingSalesRepresentativeId==='new'){
     salesRepresentatives.push({id:nextSalesRepresentativeId++,...data});
     showToast(`เพิ่มรายชื่อผู้แทน “${name}” แล้ว`);
@@ -13737,10 +13743,11 @@ function exportContactsToExcel(){
   showToast(`ส่งออกสมุดรายชื่อ ${rows.length} รายการแล้ว`);
 }
 
-const SALES_REP_EXCEL_HEADERS=['รหัสอ้างอิงระบบ','ชื่อผู้แทน','เบอร์โทร','ไลน์','บริษัท','ข้อมูลเพิ่มเติม'];
+const SALES_REP_EXCEL_HEADERS=['รหัสอ้างอิงระบบ','รหัสผู้ติดต่อ','ชื่อผู้แทน','เบอร์โทร','ไลน์','บริษัท','ข้อมูลเพิ่มเติม'];
 function salesRepresentativeToExcelRow(representative){
   const values={
     'รหัสอ้างอิงระบบ':representative.id??'',
+    'รหัสผู้ติดต่อ':representative.code||'',
     'ชื่อผู้แทน':representative.name||'',
     'เบอร์โทร':representative.phone||'',
     'ไลน์':representative.line||'',
@@ -13752,16 +13759,17 @@ function salesRepresentativeToExcelRow(representative){
   return row;
 }
 function downloadSalesRepresentativeImportTemplate(){
-  const example=[salesRepresentativeToExcelRow({id:'',name:'คุณตัวอย่าง ใจดี',phone:'081-234-5678',line:'example.line',company:'บริษัท ตัวอย่าง จำกัด',note:'ผู้แทนเขตกรุงเทพฯ'})];
+  const example=[salesRepresentativeToExcelRow({id:'',code:'SR0001',name:'คุณตัวอย่าง ใจดี',phone:'081-234-5678',line:'example.line',company:'บริษัท ตัวอย่าง จำกัด',note:'ผู้แทนเขตกรุงเทพฯ'})];
   if(window.XLSX){
     const sheet=XLSX.utils.json_to_sheet(example);
-    sheet['!cols']=[{wch:18},{wch:28},{wch:18},{wch:22},{wch:32},{wch:42}];
+    sheet['!cols']=[{wch:18},{wch:18},{wch:28},{wch:18},{wch:22},{wch:32},{wch:42}];
     const workbook=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook,sheet,'รายชื่อผู้แทน');
     const instructions=[
       ['หัวข้อ','วิธีกรอก'],
       ['รหัสอ้างอิงระบบ','รายชื่อใหม่ปล่อยว่างได้ หากเป็นไฟล์ที่ส่งออกจากระบบให้คงค่านี้ไว้เพื่ออัปเดตรายชื่อเดิม'],
-      ['ชื่อผู้แทน','จำเป็นต้องกรอก หากไม่มีรหัสอ้างอิงระบบ ระบบจะจับคู่จากชื่อที่ตรงกัน'],
+      ['รหัสผู้ติดต่อ','ถ้ากรอกและตรงกับรายชื่อเดิมในระบบ จะอัปเดตรายชื่อนั้นแทนการสร้างใหม่ (เว้นว่างได้)'],
+      ['ชื่อผู้แทน','จำเป็นต้องกรอก หากไม่มีรหัสอ้างอิงระบบหรือรหัสผู้ติดต่อ ระบบจะจับคู่จากชื่อที่ตรงกัน'],
       ['เบอร์โทร / ไลน์ / บริษัท / ข้อมูลเพิ่มเติม','กรอกได้ตามต้องการ'],
       ['ข้อสำคัญ','อย่าเปลี่ยนชื่อหัวคอลัมน์ในแถวแรก'],
     ];
@@ -13790,15 +13798,15 @@ async function importSalesRepresentativesFromExcel(file){
   const toCreate=[];
   const toUpdate=[];
   const skipped=[];
-  const seenNames=new Set();
+  const seenInFile=new Set();
   sourceRows.forEach((row,index)=>{
     const line=index+2;
     const name=String(productImportValue(row,['ชื่อผู้แทน','ชื่อ','name'])).trim();
     if(!name){ skipped.push(`แถว ${line}: ไม่มีชื่อผู้แทน`); return; }
     const normalizedName=name.toLowerCase();
-    if(seenNames.has(normalizedName)){ skipped.push(`แถว ${line}: ชื่อผู้แทน ${name} ซ้ำกับแถวก่อนหน้า`); return; }
-    seenNames.add(normalizedName);
+    const code=String(productImportValue(row,['รหัสผู้ติดต่อ','รหัส','code'])).trim();
     const data={
+      code,
       name,
       phone:String(productImportValue(row,['เบอร์โทร','เบอร์มือถือ','phone'])).trim(),
       line:String(productImportValue(row,['ไลน์','line','lineid'])).trim(),
@@ -13808,9 +13816,12 @@ async function importSalesRepresentativesFromExcel(file){
     let existing=null;
     const systemId=productImportNumber(productImportValue(row,['รหัสอ้างอิงระบบ','systemid']),NaN);
     if(Number.isFinite(systemId)) existing=salesRepresentatives.find(representative=>representative.id===systemId)||null;
+    if(!existing&&code) existing=salesRepresentatives.find(representative=>String(representative.code||'').trim().toLowerCase()===code.toLowerCase())||null;
     if(!existing) existing=salesRepresentatives.find(representative=>String(representative.name||'').trim().toLowerCase()===normalizedName)||null;
-    if(existing) toUpdate.push({existing,data});
-    else toCreate.push(data);
+    const fileKey=existing?`id:${existing.id}`:(code?`code:${code.toLowerCase()}`:`name:${normalizedName}`);
+    if(seenInFile.has(fileKey)){ skipped.push(`แถว ${line}: ซ้ำกับแถวก่อนหน้าในไฟล์เดียวกัน (${name})`); return; }
+    seenInFile.add(fileKey);
+    if(existing) toUpdate.push({existing,data}); else toCreate.push(data);
   });
   if(!toCreate.length&&!toUpdate.length){
     alert(`ไม่สามารถนำเข้ารายชื่อผู้แทนได้\n\n${skipped.slice(0,8).join('\n')}${skipped.length>8?`\nและอีก ${skipped.length-8} รายการ`:''}`);
@@ -13836,7 +13847,7 @@ function exportSalesRepresentativesToExcel(){
   if(!salesRepresentatives.length){ showToast('ยังไม่มีรายชื่อผู้แทนให้ส่งออก'); return; }
   const rows=salesRepresentatives.map(salesRepresentativeToExcelRow);
   const sheet=XLSX.utils.json_to_sheet(rows);
-  sheet['!cols']=[{wch:18},{wch:28},{wch:18},{wch:22},{wch:32},{wch:42}];
+  sheet['!cols']=[{wch:18},{wch:18},{wch:28},{wch:18},{wch:22},{wch:32},{wch:42}];
   const workbook=XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook,sheet,'รายชื่อผู้แทน');
   XLSX.writeFile(workbook,`PEPOS-รายชื่อผู้แทน-${TODAY_STR}.xlsx`);
