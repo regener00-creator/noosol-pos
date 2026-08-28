@@ -618,7 +618,6 @@
   .barcode-print-page{height:100%;min-height:0;min-width:0;display:flex;flex-direction:column;}
   .barcode-print-page .pagehead{flex:0 0 auto;margin-bottom:10px;}
   .barcode-print-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-  .barcode-print-help{flex:0 0 auto;margin:0 0 10px;padding:8px 11px;border:1px solid #B9DDF0;border-radius:9px;background:#F1F8FD;color:#315D74;font-size:13px;}
   .barcode-print-page .rpt-filters{flex:0 0 auto;margin-bottom:10px;}
   .barcode-print-search-wrap{position:relative;flex:0 0 auto;margin-bottom:10px;}
   .barcode-print-search{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit;font-size:14px;}
@@ -8084,8 +8083,7 @@ function renderBarcodePrint(){
   barcodePrintPage=pagination.currentPage;
   const isPromotionLabel=barcodePrintLabelType==='promotion';
   return `<div class="rpt barcode-print-page">
-    <div class="pagehead"><div><h1>พิมพ์ป้ายราคา</h1></div><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length?'':'disabled'}>ล้างรายการ</button><button class="btn primary" id="savePrintBarcodeBtn" ${barcodePrintItems.length?'':'disabled'}>บันทึกและพิมพ์${isPromotionLabel?'ป้ายโปรโมชั่น':'ป้ายราคา'} (${barcodePrintItems.length})</button></div></div>
-    <p class="barcode-print-help">${isPromotionLabel?'ป้ายโปรโมชั่นจะดึงเงื่อนไขและราคาจากโปรโมชั่นที่ใช้งานอยู่ รองรับขนาด 60 × 40 มม. แนวนอน':'ค่าเริ่มต้นเป็นป้ายแนวนอน 60 × 40 มม. หากสินค้ายังไม่มีบาร์โค้ด ระบบจะสร้าง Code 128 ภายในและบันทึกให้กับหน่วยที่เลือกเมื่อสั่งพิมพ์'}</p>
+    <div class="pagehead"><div><h1>พิมพ์ป้ายราคา <span class="page-title-meta">${isPromotionLabel?'ป้ายโปรโมชั่นจะดึงเงื่อนไขและราคาจากโปรโมชั่นที่ใช้งานอยู่ รองรับขนาด 60 × 40 มม. แนวนอน':'ค่าเริ่มต้นเป็นป้ายแนวนอน 60 × 40 มม. หากสินค้ายังไม่มีบาร์โค้ด ระบบจะสร้าง Code 128 ภายในและบันทึกให้กับหน่วยที่เลือกเมื่อสั่งพิมพ์'}</span></h1></div><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length?'':'disabled'}>ล้างรายการ</button><button class="btn primary" id="savePrintBarcodeBtn" ${barcodePrintItems.length?'':'disabled'}>บันทึกและพิมพ์${isPromotionLabel?'ป้ายโปรโมชั่น':'ป้ายราคา'} (${barcodePrintItems.length})</button></div></div>
     <div class="rpt-filters" style="margin-bottom:14px;">
       <div class="rpf-item"><select id="barcodePrintCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(category=>`<option value="${escapeHtml(category)}" ${filter.category===category?'selected':''}>${escapeHtml(category)}</option>`).join('')}</select></div>
       <div class="rpf-item"><select id="barcodePrintBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(brand=>`<option value="${escapeHtml(brand)}" ${filter.brand===brand?'selected':''}>${escapeHtml(brand)}</option>`).join('')}</select></div>
