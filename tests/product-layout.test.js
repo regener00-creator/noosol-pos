@@ -19,6 +19,12 @@ assert.ok(groupIndex > actionsIndex, 'กลุ่มปุ่มต้องอ
 assert.ok(groupIndex >= 0, 'ไม่พบกล่องกลุ่มสินค้า');
 assert.ok(searchIndex > groupIndex, 'ช่องค้นหาต้องอยู่หลังกล่องกลุ่มสินค้า');
 assert.ok(tableIndex > searchIndex, 'ช่องค้นหาต้องอยู่ก่อนตารางข้อมูลสินค้า');
+assert.match(source, /product-group-header[^>]*><span class="product-group-title">กลุ่มสินค้า<\/span><span class="product-group-separator">:<\/span><div class="product-group-categories">/, 'ชื่อและหมวดหลักต้องอยู่แถวเดียวกันในแถบสีฟ้า');
+assert.match(source, /<div class="product-group-brands">\$\{brandHtml\}<\/div>/, 'หมวดย่อยต้องแสดงในพื้นที่สีขาวใต้แถบหมวดหลัก');
+assert.match(source, /requestedCategoryOrder=\['ยา','อาหารเสริม','อื่นๆ','ไม่ทราบหมวดหมู่'\]/, 'หมวดหลักต้องเรียงตามลำดับที่กำหนด');
+assert.match(source, /class="product-group-category \$\{active\?'active':''\}" data-product-category=/, 'หมวดหลักต้องกดเลือกได้');
+assert.match(source, /class="product-group-brand \$\{active\?'active':''\}" data-product-category=.*data-product-brand=/, 'หมวดย่อยต้องกดเลือกได้');
+assert.doesNotMatch(source, /tree-cat-row|tree-brand-flyout/, 'หน้ารายการสินค้าต้องไม่ใช้โครงสร้างหมวดหลักแนวตั้งเดิม');
 assert.match(html, /\.product-list-search\{[^}]*max-width:none;[^}]*width:100%/);
 assert.match(html, /\.product-list-actions\{[^}]*display:flex/);
 assert.doesNotMatch(source, /product-head-search/);

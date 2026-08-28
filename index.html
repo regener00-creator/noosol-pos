@@ -241,7 +241,22 @@
   .prodsplit{display:grid;grid-template-columns:1fr;gap:12px;align-items:start;}
   .tree-pane{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;}
   .prodsplit>.tree-pane{margin-top:0;border:none;box-shadow:none;}
-  .tree-head{background:#2091D2;border-bottom:1px solid #2091D2;padding:11px 14px;font-size:13px;font-weight:600;color:#fff;text-align:center;}
+  .product-group-header{display:flex;align-items:center;gap:8px;min-height:48px;padding:8px 16px;background:#2091D2;color:#fff;overflow-x:auto;scrollbar-width:thin;}
+  .product-group-title{font-size:14px;font-weight:700;white-space:nowrap;flex:0 0 auto;}
+  .product-group-separator{font-weight:700;opacity:.8;flex:0 0 auto;}
+  .product-group-categories{display:flex;align-items:center;gap:6px;min-width:max-content;}
+  .product-group-category{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid rgba(255,255,255,.35);border-radius:8px;background:transparent;color:#fff;font-family:inherit;font-size:13.5px;font-weight:600;white-space:nowrap;cursor:pointer;transition:background .15s,border-color .15s,color .15s;}
+  .product-group-category:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.7);}
+  .product-group-category.active{background:#fff;border-color:#fff;color:#1686c7;}
+  .product-group-category-count{display:inline-flex;align-items:center;justify-content:center;min-width:23px;padding:1px 6px;border-radius:999px;background:rgba(255,255,255,.18);font-size:10.5px;font-weight:600;}
+  .product-group-category.active .product-group-category-count{background:#eaf6fd;color:#1686c7;}
+  .product-group-brands{display:flex;align-items:center;flex-wrap:wrap;gap:7px;min-height:62px;padding:12px 16px;background:var(--surface);}
+  .product-group-brand{display:inline-flex;align-items:center;gap:7px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font-family:inherit;font-size:13px;cursor:pointer;white-space:nowrap;transition:border-color .15s,background .15s,color .15s;}
+  .product-group-brand:hover{border-color:#8dcbea;background:#f4fbff;color:#167db8;}
+  .product-group-brand.active{border-color:#2091D2;background:var(--primary-soft);color:var(--primary);font-weight:600;}
+  .product-group-brand-count{font-size:10.5px;color:var(--text-muted);background:var(--bg);padding:1px 7px;border-radius:999px;}
+  .product-group-brand.active .product-group-brand-count{background:#fff;color:var(--primary);}
+  .product-group-empty{width:100%;color:var(--text-muted);font-size:13px;text-align:left;}
   .product-list-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
   .product-list-page{height:100%;min-height:0;}
   .product-list-page .prodsplit{height:100%;min-height:0;display:flex;flex-direction:column;align-items:stretch;}
@@ -251,34 +266,6 @@
   .product-list-page .pager{flex:0 0 auto;margin-top:10px;}
   .product-list-search{max-width:none;width:100%;}
   .product-list-search input{width:100%;padding:11px 13px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:14px;background:var(--surface);}
-  .tree-body{padding:8px;max-height:320px;overflow-y:auto;display:flex;flex-direction:column;gap:2px;}
-  .tree-cat-row{display:flex;align-items:flex-start;gap:6px;}
-  .tree-cat-row>.tree-item.cat{width:230px;flex-shrink:0;}
-  .tree-brand-flyout{display:flex;flex-wrap:wrap;align-content:flex-start;gap:4px;flex:1;min-width:0;padding-top:2px;}
-  .tree-item{display:flex;align-items:center;gap:7px;padding:8px 9px;border-radius:8px;cursor:pointer;font-size:13.5px;user-select:none;color:var(--text);transition:background .12s;}
-  .tree-item.cat{font-weight:600;}
-  .tree-item:hover{background:var(--bg);}
-  .tree-item.sel{background:var(--bg);color:var(--text);font-weight:600;}
-  .tree-item.sel .tree-ic{opacity:1;}
-  .tree-item.brand{padding:6px 9px 6px 34px;font-size:12.5px;font-weight:300;color:var(--text);position:relative;border-radius:6px;background:none;}
-  .tree-item.brand::before{content:"";position:absolute;left:18px;top:0;bottom:0;width:1px;background:var(--border);}
-  .tree-item.brand:hover{background:none;color:var(--text);}
-  .tree-item.brand.sel{color:var(--primary);background:none;font-weight:300;}
-  .tree-item.brand.sel::before{background:var(--primary);opacity:.4;}
-  .tree-body .tree-item{flex:0 0 auto;}
-  .tree-body .tree-item.brand{padding:6px 10px;}
-  .tree-body .tree-item.brand::before{display:none;}
-  .tree-ic{width:16px;text-align:center;flex-shrink:0;font-size:13px;opacity:.75;}
-  .tree-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .tree-item .tree-count{font-family:inherit;font-size:10.5px;color:var(--text-muted);background:var(--bg);padding:1px 7px;border-radius:10px;flex-shrink:0;}
-  .tree-item.sel .tree-count{background:var(--bg);color:var(--text-muted);}
-  .tree-item.brand.sel .tree-count{background:var(--primary-soft);color:var(--primary);}
-  .tree-caret{width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-size:9px;color:var(--text-muted);transition:transform .15s;cursor:pointer;border-radius:4px;}
-  .tree-caret:hover{background:rgba(0,0,0,0.06);}
-  .tree-item.sel .tree-caret{color:var(--text-muted);}
-  .tree-caret.exp{transform:rotate(90deg);}
-  .tree-caret.spacer{cursor:default;}
-  .tree-caret.spacer:hover{background:none;}
   .table-pane{min-width:0;}
   .table-pane>.toolbar .searchbar{max-width:none;width:100%;}
   .table-scroll{overflow-x:auto;}
@@ -390,7 +377,7 @@
   .pagebtn.active{background:var(--primary);border-color:var(--primary);color:#fff;font-weight:600;}
   .pagebtn:disabled{opacity:.35;cursor:default;}
   .pager .pageinfo{font-size:13px;color:var(--text-muted);font-family:inherit;}
-  @media (max-width:960px){ .prodsplit{grid-template-columns:1fr;} .prodsplit>.tree-pane{margin-top:0;} .tree-body{max-height:220px;} .product-table-scroll{height:calc(100vh - 390px);min-height:320px;} .main.product-list-main{overflow-y:auto;} .product-list-page{height:auto;} .product-list-page .prodsplit{height:auto;display:grid;} .product-list-page .table-pane{display:block;} .product-list-page .product-table-scroll{height:calc(100vh - 390px);min-height:320px;} }
+  @media (max-width:960px){ .prodsplit{grid-template-columns:1fr;} .prodsplit>.tree-pane{margin-top:0;} .product-group-header{padding:7px 10px;} .product-group-brands{min-height:54px;padding:10px;} .product-table-scroll{height:calc(100vh - 390px);min-height:320px;} .main.product-list-main{overflow-y:auto;} .product-list-page{height:auto;} .product-list-page .prodsplit{height:auto;display:grid;} .product-list-page .table-pane{display:block;} .product-list-page .product-table-scroll{height:calc(100vh - 390px);min-height:320px;} }
   @media (max-width:960px){ .unitrow{grid-template-columns:1fr;} .unitrow .u_eq{display:none;} }
   .empty-state{color:var(--text-muted);text-align:center;padding:40px 0;font-size:13.5px;}
   .toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--primary-dark);color:#fff;padding:11px 20px;border-radius:9px;font-size:13.5px;font-weight:500;box-shadow:0 8px 24px rgba(0,0,0,0.18);opacity:0;pointer-events:none;transition:opacity .25s;}
@@ -3022,7 +3009,6 @@ let productPage = 1;
 // จำหน่วยที่เลือกไว้ต่อสินค้าแต่ละตัว ในหน้ารายการสินค้า (สำหรับสลับดูราคา/ทุนตามหน่วย)
 let prodRowUnitSel = {};
 const PRODUCTS_PER_PAGE = 30;
-let expandedCats = {}; // เก็บสถานะกาง/พับของหมวด
 
 let cart = []; // แต่ละบิลเป็น array ของบรรทัด: {lineId, pid, unit, unitName, price, cost, factor, qty}
 let pendingQty = 1; // จำนวนที่ล็อกไว้ล่วงหน้า (พิมพ์ *10 ในช่องค้นหา)
@@ -5900,35 +5886,31 @@ function renderProducts(){
     return true;
   }) : [];
 
-  // สร้างทรีซ้าย
-  let treeHtml = '';
-  Object.keys(tree).sort((a,b)=>{
-    if(a==='ไม่ทราบหมวดหมู่') return 1;
-    if(b==='ไม่ทราบหมวดหมู่') return -1;
-    return a.localeCompare(b,'th');
-  }).forEach(cat=>{
-    const brands = [...tree[cat]].sort();
-    const catCount = catCounts[cat]||0;
-    const hasSubgroups = brands.length>1||brands[0]!=='ทั่วไป';
-    const isExp = expandedCats[cat] && hasSubgroups;
-    const catSel = selectedGroup && selectedGroup.cat===cat && !selectedGroup.brand;
-    treeHtml += `<div class="tree-cat-row"><div class="tree-item cat ${catSel?'sel':''}" data-cat="${cat}">
-      <span class="tree-caret ${hasSubgroups?'':'spacer'} ${isExp?'exp':''}" data-toggle="${hasSubgroups?cat:''}">${hasSubgroups?'▸':''}</span>
-      <span class="tree-ic">📁</span><span class="tree-name">${cat}</span> <span class="tree-count">${catCount}</span></div>`;
-    if(isExp){
-      treeHtml += `<div class="tree-brand-flyout">`;
-      brands.forEach(brand=>{
-        if(brand==='ทั่วไป' && brands.length===1) return;
-        const brCount = brCounts[cat+'|||'+brand]||0;
-        const brSel = selectedGroup && selectedGroup.cat===cat && selectedGroup.brand===brand;
-        treeHtml += `<div class="tree-item brand ${brSel?'sel':''}" data-cat="${cat}" data-brand="${brand}"><span class="tree-name">${brand}</span> <span class="tree-count">${brCount}</span></div>`;
-      });
-      treeHtml += `</div>`;
+  // หมวดหลักอยู่ในแถบสีฟ้า ส่วนหมวดย่อยของหมวดที่เลือกอยู่ในพื้นที่สีขาวด้านล่าง
+  const requestedCategoryOrder=['ยา','อาหารเสริม','อื่นๆ','ไม่ทราบหมวดหมู่'];
+  const categoryNames=Object.keys(tree).sort((a,b)=>{
+    const ai=requestedCategoryOrder.indexOf(a),bi=requestedCategoryOrder.indexOf(b);
+    if(ai>=0||bi>=0){
+      if(ai<0) return b==='ไม่ทราบหมวดหมู่'?-1:1;
+      if(bi<0) return a==='ไม่ทราบหมวดหมู่'?1:-1;
+      return ai-bi;
     }
-    treeHtml += `</div>`;
+    return a.localeCompare(b,'th');
   });
-
-  const groupLabel = !selectedGroup ? 'กรุณาเลือกกลุ่มสินค้า' : (selectedGroup.brand ? `${selectedGroup.cat} › ${selectedGroup.brand}` : selectedGroup.cat);
+  const activeCategory=selectedGroup?.cat&&tree[selectedGroup.cat]?selectedGroup.cat:'';
+  const categoryHtml=categoryNames.map(cat=>{
+    const active=activeCategory===cat;
+    return `<button type="button" class="product-group-category ${active?'active':''}" data-product-category="${escapeHtml(cat)}"><span>${escapeHtml(cat)}</span><span class="product-group-category-count">${catCounts[cat]||0}</span></button>`;
+  }).join('');
+  let brandHtml='<div class="product-group-empty">เลือกกลุ่มสินค้าหลักเพื่อแสดงหมวดสินค้าย่อย</div>';
+  if(activeCategory){
+    const activeBrands=[...tree[activeCategory]].sort((a,b)=>a.localeCompare(b,'th'));
+    const visibleBrands=activeBrands.filter(brand=>brand!=='ทั่วไป'||activeBrands.length>1);
+    brandHtml=visibleBrands.length?visibleBrands.map(brand=>{
+      const active=selectedGroup?.brand===brand;
+      return `<button type="button" class="product-group-brand ${active?'active':''}" data-product-category="${escapeHtml(activeCategory)}" data-product-brand="${escapeHtml(brand)}"><span>${escapeHtml(brand)}</span><span class="product-group-brand-count">${brCounts[activeCategory+'|||'+brand]||0}</span></button>`;
+    }).join(''):'<div class="product-group-empty">หมวดนี้ไม่มีหมวดสินค้าย่อย</div>';
+  }
 
   // เรียงข้อมูลตามคอลัมน์ที่เลือก
   const sk = productSort.key, sdir = productSort.dir;
@@ -5958,8 +5940,8 @@ function renderProducts(){
     <div class="product-list-actions form-final-actions"><button class="btn ghost" id="exportProductsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadProductTemplateBtn">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importProductsBtn">นำเข้า Excel</button><input id="productImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newProductBtn">+ เพิ่มสินค้า</button></div>
     <div class="prodsplit">
       <div class="tree-pane">
-        <div class="tree-head">กลุ่มสินค้า</div>
-        <div class="tree-body">${treeHtml}</div>
+        <div class="product-group-header"><span class="product-group-title">กลุ่มสินค้า</span><span class="product-group-separator">:</span><div class="product-group-categories">${categoryHtml}</div></div>
+        <div class="product-group-brands">${brandHtml}</div>
       </div>
       <div class="searchbar product-list-search"><input id="search" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" value="${searchQuery}"></div>
       <div class="table-pane">
@@ -11543,16 +11525,18 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   document.querySelectorAll('[data-delete-system-user]').forEach(btn=>{
     btn.addEventListener('click',()=>deleteSystemUser(btn.dataset.deleteSystemUser));
   });
-  // --- group tree ---
-  document.querySelectorAll('.tree-caret[data-toggle]').forEach(el=>{
-    el.addEventListener('click', e=>{ e.stopPropagation(); const cat=el.dataset.toggle; expandedCats[cat]=!expandedCats[cat]; render(); });
+  // --- product groups ---
+  document.querySelectorAll('.product-group-category').forEach(el=>{
+    el.addEventListener('click',()=>{
+      selectedGroup={cat:el.dataset.productCategory};
+      productPage=1;
+      render();
+    });
   });
-  document.querySelectorAll('.tree-item').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      if(el.dataset.grp==='all'){ selectedGroup=null; }
-      else if(el.dataset.brand){ selectedGroup={cat:el.dataset.cat, brand:el.dataset.brand}; }
-      else if(el.dataset.cat){ selectedGroup={cat:el.dataset.cat}; expandedCats[el.dataset.cat]=true; }
-      productPage = 1;
+  document.querySelectorAll('.product-group-brand').forEach(el=>{
+    el.addEventListener('click',()=>{
+      selectedGroup={cat:el.dataset.productCategory,brand:el.dataset.productBrand};
+      productPage=1;
       render();
     });
   });
