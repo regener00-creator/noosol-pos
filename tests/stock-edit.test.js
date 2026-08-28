@@ -40,7 +40,8 @@ const confirmFunctionStart = html.indexOf('function confirmStockEditChanges(');
 const confirmFunctionEnd = html.indexOf('function inspectionListUnitOptions(', confirmFunctionStart);
 assert.ok(confirmFunctionStart >= 0 && confirmFunctionEnd > confirmFunctionStart);
 assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /post_inventory_count_adjustment_with_shortages/);
-assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /p_reason:String\(stockEditReason\)/);
+assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /p_reason:AUTOMATIC_STOCK_ADJUSTMENT_REASON/);
+assert.doesNotMatch(html.slice(confirmFunctionStart, confirmFunctionEnd), /กรุณาระบุเหตุผล|เหตุผล:/);
 assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /persistWorkspaceData\(\)/);
 assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /syncInspectionListsToSupabase\(\)/);
 assert.match(html, /function openStockEditInspectionListPicker\(/);
@@ -97,8 +98,7 @@ Object.assign(context, {
   stockEditPage: 1,
   stockEditSourceInspectionListId: null,
   stockEditSourcePending: false,
-  stockEditReason: 'ตรวจนับสินค้าจริง',
-  stockEditNote: '',
+  AUTOMATIC_STOCK_ADJUSTMENT_REASON: 'ตรวจนับและปรับสต๊อกจากยอดตรวจนับ',
   stockEditLotSelections: {},
   stockEditNewLotNumbers: {},
   stockEditNewLotExpiries: {},
@@ -150,8 +150,9 @@ assert.match(rendered, /id="stockEditAddByCategoryBtn"/);
 assert.match(rendered, /id="stockEditInput"/);
 assert.match(rendered, /id="importInspectionListBtn"/);
 assert.match(rendered, /<th>รหัสสินค้า<\/th><th>บาร์โค้ด<\/th><th>สินค้า<\/th><th>หน่วย<\/th><th>ในระบบ<\/th><th>นับได้<\/th><th>ต่าง<\/th><th>LOT ที่ปรับ<\/th><th aria-label="จัดการ"><\/th>/);
-assert.match(rendered, /id="stockEditReason"/);
-assert.match(rendered, /ผู้ดำเนินการ/);
+assert.doesNotMatch(rendered, /id="stockEditReason"/);
+assert.doesNotMatch(rendered, /id="stockEditNote"/);
+assert.doesNotMatch(rendered, /stock-control-meta/);
 assert.match(rendered, /data-stock-edit-lot="1"/);
 assert.match(rendered, /id="confirmStockEditBtn"/);
 assert.ok(rendered.indexOf('id="clearStockEditBtn"') < rendered.indexOf('id="confirmStockEditBtn"'), 'ปุ่มยืนยันต้องอยู่หลังปุ่มล้างรายการ');
@@ -194,12 +195,12 @@ assert.match(html, /inspectionLists\.filter\(inspectionListAvailableForStockEdit
 
 let persisted = 0;
 let inspectionSync = 0;
+let lastAdjustmentPayload = null;
 Object.assign(context, {
   stockEditDraftStocks: {1: 250},
   stockEditSourceInspectionListId: null,
   stockEditSourcePending: false,
-  stockEditReason: 'ตรวจนับสินค้าจริง',
-  sb: {rpc: async (name,payload) => ({data:{documentNo:'SC20260826-TEST',postedAt:'2026-08-26T10:00:00.000Z',operatorName:'เจ้าของร้าน',balances:[{productId:1,warehouseId:1,stock:250}]},error:null,name,payload})},
+  sb: {rpc: async (name,payload) => { lastAdjustmentPayload=payload; return {data:{documentNo:'SC20260826-TEST',postedAt:'2026-08-26T10:00:00.000Z',operatorName:'เจ้าของร้าน',balances:[{productId:1,warehouseId:1,stock:250}]},error:null,name,payload}; }},
   updateInventoryBalanceLocal: (id, warehouseId, stock) => { const product=context.products.find(item=>item.id===id); if(product) product.stock=stock; },
   loadInventoryLotsFromSupabase: async () => true,
   persistWorkspaceData: () => { persisted++; },
@@ -210,6 +211,8 @@ Object.assign(context, {
 (async()=>{
   assert.equal(await context.confirmStockEditChanges(), true);
   assert.equal(context.products[0].stock, 250);
+  assert.equal(lastAdjustmentPayload.p_reason, 'ตรวจนับและปรับสต๊อกจากยอดตรวจนับ');
+  assert.equal(lastAdjustmentPayload.p_note, '');
   assert.equal(persisted, 1);
   assert.equal(inspectionSync, 0);
   assert.deepEqual(Object.keys(context.stockEditDraftStocks), []);

@@ -27,8 +27,10 @@ assert.doesNotMatch(html, /<h1>ปรับจำนวนแยกตาม LOT
 assert.doesNotMatch(html, /ย้ายจำนวนระหว่าง LOT ของสินค้าเดียวกัน โดยยอดคงเหลือรวมจะไม่เปลี่ยน/);
 assert.match(html, /\.stock-control-content>\.rpt\{padding:0;\}/);
 assert.match(html, /\.stock-control-tabs\{display:flex;justify-content:center;gap:6px;width:100%;max-width:1400px;margin:0 auto 18px;/);
-assert.match(html, /id="stockEditReason"/);
-assert.match(html, /ผู้ดำเนินการ/);
+assert.doesNotMatch(html, /id="stockEditReason"/);
+assert.doesNotMatch(html, /id="stockEditNote"/);
+assert.doesNotMatch(html, /mobile-stock-reason|stock-control-meta/);
+assert.match(html, /p_reason:AUTOMATIC_STOCK_ADJUSTMENT_REASON/);
 assert.match(html, /LOT ที่ปรับ/);
 assert.match(html, /post_inventory_count_adjustment/);
 

@@ -1527,9 +1527,6 @@
   .mobile-stock-source-note{display:flex;justify-content:space-between;gap:8px;align-items:center;background:#F2F8FC;border:1px solid #E0D3CD;border-radius:11px;padding:10px 12px;margin-bottom:12px;font-size:12px;color:var(--primary-dark);}
   .mobile-stock-source-note b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .mobile-stock-source-note span{flex-shrink:0;font-weight:700;}
-  .mobile-stock-reason{display:grid;gap:7px;margin-bottom:12px;padding:11px;border:1px solid #E4D9D4;border-radius:11px;background:#FBF8F6;}
-  .mobile-stock-reason label{font-size:11.5px;color:var(--text-muted);}
-  .mobile-stock-reason select,.mobile-stock-reason input{width:100%;height:44px;border:1px solid var(--border);border-radius:9px;background:#fff;padding:0 10px;font:14px 'Sarabun',sans-serif;}
   .mobile-stock-results{display:grid;gap:7px;margin:-2px 0 12px;}
   .mobile-stock-result{width:100%;border:1px solid #E0D3CD;border-radius:11px;background:#FCF9F7;padding:10px 12px;text-align:left;font:13px 'Sarabun',sans-serif;cursor:pointer;}
   .mobile-stock-result b{display:block;margin-bottom:2px;}
@@ -1613,11 +1610,6 @@
   .stock-control-content>.rpt{padding:0;}
   .stock-control-content>.rpt>.pagehead{margin-top:0;}
   .stock-control-page .inspection-list-status.pending{background:#FFF3D7;color:#966B13;}
-  .stock-control-meta{display:grid;grid-template-columns:minmax(170px,.55fr) minmax(220px,1fr) minmax(260px,1.4fr);gap:12px;margin:0 0 14px;padding:14px;border:1px solid #E5DCD8;border-radius:12px;background:#FBF8F6;}
-  .stock-control-meta-field{min-width:0;}
-  .stock-control-meta-field label{display:block;margin-bottom:5px;color:var(--text-muted);font-size:12px;}
-  .stock-control-meta-field b{display:flex;align-items:center;min-height:42px;padding:0 12px;border:1px solid #E5DCD8;border-radius:8px;background:#fff;font-size:14px;}
-  .stock-control-meta-field select,.stock-control-meta-field input{width:100%;height:42px;border:1px solid #D8CDC8;border-radius:8px;background:#fff;padding:0 11px;font:14px 'Sarabun',sans-serif;}
   .stock-control-difference{display:inline-flex;min-width:58px;justify-content:center;padding:4px 8px;border-radius:999px;font-weight:700;}
   .stock-control-difference.in{background:#E6F6EB;color:#238344;}
   .stock-control-difference.out{background:#FCEAE8;color:#B83B33;}
@@ -1649,12 +1641,8 @@
   .stock-lot-reallocation-summary div{padding:11px 13px;border:1px solid #E5DCD8;border-radius:9px;background:#FBF8F6;}
   .stock-lot-reallocation-summary span{display:block;color:var(--text-muted);font-size:12px;}
   .stock-lot-reallocation-summary b{display:block;margin-top:3px;font-size:18px;}
-  .stock-lot-reallocation-reason label{display:block;margin-bottom:5px;font-size:13px;font-weight:700;}
-  .stock-lot-reallocation-reason input{width:100%;height:42px;border:1px solid #D8CDC8;border-radius:8px;padding:0 11px;font:14px 'Sarabun',sans-serif;}
   .stock-lot-reallocation-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:15px;}
   @media (max-width:1100px){
-    .stock-control-meta{grid-template-columns:1fr 1fr;}
-    .stock-control-meta-field.note{grid-column:1/-1;}
     .stock-control-anomaly-summary{grid-template-columns:1fr;}
     .stock-lot-reallocation-summary{grid-template-columns:1fr;}
   }
@@ -1914,7 +1902,7 @@ function resetWarehouseScopedUiState(reportWarehouseValue){
   stockReportItems=[];
   stockReportCatFilter={wh:reportWarehouseValue,category:'',brand:''};
   stockEditItems=[]; stockEditRowUnitSel={}; stockEditDraftStocks={}; stockEditSourceInspectionListId=null; stockEditSourcePending=false; stockEditPage=1;
-  stockEditReason=''; stockEditNote=''; stockEditLotSelections={}; stockEditNewLotNumbers={}; stockEditNewLotExpiries={}; stockEditPosting=false; stockControlMode='count';
+  stockEditLotSelections={}; stockEditNewLotNumbers={}; stockEditNewLotExpiries={}; stockEditPosting=false; stockControlMode='count';
   stockLotReallocationSearch=''; stockLotReallocationPage=1;
   inspectionListDraft=null; editingInspectionListId=null;
   if(typeof resetInventoryReportWarehouseFilters==='function') resetInventoryReportWarehouseFilters();
@@ -3453,8 +3441,8 @@ let stockEditDraftStocks = {};
 let stockEditPage = 1;
 let stockEditSourceInspectionListId = null;
 let stockEditSourcePending = false;
-let stockEditReason = '';
-let stockEditNote = '';
+const AUTOMATIC_STOCK_ADJUSTMENT_REASON = 'ตรวจนับและปรับสต๊อกจากยอดตรวจนับ';
+const AUTOMATIC_LOT_REALLOCATION_REASON = 'ปรับจำนวน LOT จากรายการผิดปกติ';
 let stockEditLotSelections = {};
 let stockEditNewLotNumbers = {};
 let stockEditNewLotExpiries = {};
@@ -6636,7 +6624,6 @@ async function openStockLotReallocation(productId){
     <div class="stock-lot-reallocation-unit-control"><label for="stockLotReallocationUnit">หน่วยที่ใช้ปรับ</label><select id="stockLotReallocationUnit">${unitOptions.map(option=>`<option value="${escapeHtml(option.name)}">${escapeHtml(option.name)}${option.factor===1?'':` (1 ${escapeHtml(option.name)} = ${inspectionListAmount(option.factor)} ${escapeHtml(product.unit||'หน่วย')})`}</option>`).join('')}</select></div>
     <div class="seamless-table-wrap"><table class="grid-table doc-head-blue stock-lot-reallocation-table"><thead><tr><th>เลข LOT ผู้ผลิต</th><th>วันหมดอายุ</th><th id="stockLotOldQuantityHead">จำนวนเดิม (${escapeHtml(selectedUnit.name)})</th><th id="stockLotNewQuantityHead">จำนวนใหม่ (${escapeHtml(selectedUnit.name)})</th><th>ส่วนต่าง</th></tr></thead><tbody>${groups.map((group,index)=>`<tr><td>${escapeHtml(group.manufacturerLot||'ไม่ระบุ')}</td><td>${escapeHtml(group.expiryDate?fmtDateShort(group.expiryDate):'-')}</td><td class="mono" data-stock-lot-old="${index}">${inspectionListAmount(group.quantityBase)}</td><td><input class="stock-lot-reallocation-input" data-stock-lot-group="${index}" type="number" min="0" step="any" value="${group.quantityBase}"></td><td data-stock-lot-difference="${index}">${stockLotReallocationDifferenceHtml(0)}</td></tr>`).join('')}</tbody></table></div>
     <div class="stock-lot-reallocation-summary"><div><span>ยอดรวมเดิม</span><b id="stockLotOldTotal">${inspectionListAmount(oldTotal)} ${escapeHtml(selectedUnit.name)}</b></div><div><span>ยอดรวมใหม่</span><b id="stockLotNewTotal">${inspectionListAmount(oldTotal)} ${escapeHtml(selectedUnit.name)}</b></div><div><span>ผลต่างรวม</span><b id="stockLotTotalDifference">0 ${escapeHtml(selectedUnit.name)}</b></div></div>
-    <div class="stock-lot-reallocation-reason"><label for="stockLotReallocationReason">เหตุผลการปรับ LOT <span class="req">*</span></label><input id="stockLotReallocationReason" maxlength="180" placeholder="เช่น ตรวจนับแยกตาม LOT แล้วพบว่ายอดอยู่ผิด LOT" autocomplete="off"></div>
     <div class="stock-lot-reallocation-actions"><button type="button" class="btn ghost" id="cancelStockLotReallocation">ยกเลิก</button><button type="button" class="btn primary" id="confirmStockLotReallocation" disabled>ยืนยันปรับจำนวน LOT</button></div>
   </div></div>`;
   document.body.appendChild(overlay);
@@ -6644,7 +6631,6 @@ async function openStockLotReallocation(productId){
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('#cancelStockLotReallocation').onclick=close;
   overlay.addEventListener('click',event=>{ if(event.target===overlay) close(); });
-  const reasonInput=overlay.querySelector('#stockLotReallocationReason');
   const confirmButton=overlay.querySelector('#confirmStockLotReallocation');
   const unitSelect=overlay.querySelector('#stockLotReallocationUnit');
   const readTargets=()=>{
@@ -6668,7 +6654,7 @@ async function openStockLotReallocation(productId){
     const displayDifference=stockLotReallocationDisplayQuantity(summary.newTotal-summary.oldTotal,factor);
     if(totalNode) totalNode.textContent=summary.valid?`${inspectionListAmount(displayNewTotal)} ${selectedUnit.name}`:'กรอกจำนวนให้ถูกต้อง';
     if(differenceNode) differenceNode.textContent=summary.valid?`${displayDifference>0?'+':''}${inspectionListAmount(displayDifference)} ${selectedUnit.name}`:'-';
-    confirmButton.disabled=!(summary.balanced&&summary.changedCount>=2&&reasonInput.value.trim().length>=3);
+    confirmButton.disabled=!(summary.balanced&&summary.changedCount>=2);
   };
   unitSelect.addEventListener('change',()=>{
     const currentTargets=readTargets();
@@ -6690,14 +6676,12 @@ async function openStockLotReallocation(productId){
     refresh();
   });
   overlay.querySelectorAll('[data-stock-lot-group]').forEach(input=>input.addEventListener('input',refresh));
-  reasonInput.addEventListener('input',refresh);
   confirmButton.onclick=async()=>{
     const summary=stockLotReallocationSummary(groups,readTargets(),selectedUnit.factor);
     if(!summary.balanced||summary.changedCount<2){ showToast('ยอดรวมใหม่ต้องเท่ากับยอดเดิม และต้องมีอย่างน้อย 2 LOT ที่เปลี่ยน','danger-top'); return; }
-    if(reasonInput.value.trim().length<3){ showToast('กรุณาระบุเหตุผลการปรับ LOT','danger-top'); return; }
     confirmButton.disabled=true; confirmButton.textContent='กำลังบันทึก...';
     try{
-      const {data,error}=await sb.rpc('reallocate_inventory_lots',{p_product_id:product.id,p_warehouse_id:Number(activeWarehouseId),p_reason:reasonInput.value.trim(),p_lots:summary.payload});
+      const {data,error}=await sb.rpc('reallocate_inventory_lots',{p_product_id:product.id,p_warehouse_id:Number(activeWarehouseId),p_reason:AUTOMATIC_LOT_REALLOCATION_REASON,p_lots:summary.payload});
       if(error) throw error;
       await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
       close(); render(); showToast(`ปรับจำนวนแยกตาม LOT เรียบร้อย · ${data?.referenceId||''}`);
@@ -6752,7 +6736,6 @@ function stockEditImportInspectionList(listId,askBeforeReplace=true){
   stockEditPage=1;
   stockEditSourceInspectionListId=list.id;
   stockEditSourcePending=true;
-  stockEditReason=stockEditReason||'ตรวจนับสินค้าจริง';
   stockControlMode='adjust';
   showToast(`ดึงข้อมูลจาก “${list.name}” แล้ว ${entries.length} รายการ`);
   render();
@@ -6813,18 +6796,17 @@ async function confirmStockEditChanges(){
   if(stockEditPosting) return false;
   const changes=stockEditPendingChanges();
   if(!changes.length&&!stockEditSourcePending) return false;
-  if(String(stockEditReason||'').trim().length<3){ showToast('กรุณาระบุเหตุผลการตรวจนับหรือปรับสต๊อก','danger'); return false; }
   if(changes.some(change=>Number(change.newStock)<0)){ showToast('จำนวนหลังตรวจนับต้องไม่ต่ำกว่า 0','danger'); return false; }
   const linePayload=stockEditAdjustmentLines(changes);
   const sourceList=stockEditInspectionSourceList();
   const summary=changes.length?`${changes.length} รายการ`:'ไม่พบส่วนต่าง (ปิดงานตรวจนับ)';
-  if(!confirm(`ยืนยันบันทึกผลตรวจนับ ${summary}\nเหตุผล: ${stockEditReason}\nผู้ดำเนินการ: ${currentProfile?.firstName||currentProfile?.username||'-'}\n\nเมื่อยืนยันแล้ว ระบบจะบันทึกสต๊อกและ LOT พร้อมกัน`)) return false;
+  if(!confirm(`ยืนยันบันทึกผลตรวจนับ ${summary}\nผู้ดำเนินการ: ${currentProfile?.firstName||currentProfile?.username||'-'}\n\nเมื่อยืนยันแล้ว ระบบจะบันทึกสต๊อกและ LOT พร้อมกัน`)) return false;
   stockEditPosting=true; render();
   try{
     const {data,error}=await sb.rpc('post_inventory_count_adjustment_with_shortages',{
       p_warehouse_id:Number(activeWarehouseId),
-      p_reason:String(stockEditReason).trim(),
-      p_note:String(stockEditNote||'').trim(),
+      p_reason:AUTOMATIC_STOCK_ADJUSTMENT_REASON,
+      p_note:'',
       p_source_inspection_id:sourceList?.id||null,
       p_lines:linePayload
     });
@@ -6836,7 +6818,6 @@ async function confirmStockEditChanges(){
     stockEditLotSelections={};
     stockEditNewLotNumbers={};
     stockEditNewLotExpiries={};
-    stockEditNote='';
     persistWorkspaceData();
     if(completedInspectionList) await syncInspectionListsToSupabase();
     showToast(`บันทึกผลตรวจนับ ${data?.documentNo||''} แล้ว${changes.length?` · ปรับ ${changes.length} รายการ`:' · ยอดตรงกับระบบ'}`);
@@ -7588,10 +7569,8 @@ function renderMobileStockEditPanel(lists){
   if(!availableLists.length) mobileStockSourceListId='';
   const sourceList=stockEditInspectionSourceList();
   const pendingChanges=stockEditPendingChanges();
-  const canConfirm=(pendingChanges.length>0||stockEditSourcePending)&&stockEditMobileLotSelectionsReady(pendingChanges)&&String(stockEditReason||'').trim().length>=3&&!stockEditPosting&&mobileIsOnline();
-  const reasonOptions=['ตรวจนับสินค้าจริง','พบสินค้าชำรุด','พบสินค้าสูญหาย','พบสินค้ารับเกิน','แก้ไขยอดยกมา','อื่นๆ'];
-  const reasonHtml=`<div class="mobile-stock-reason"><label for="stockEditReason">เหตุผลการปรับสต๊อก *</label><select id="stockEditReason"><option value="">เลือกเหตุผล</option>${reasonOptions.map(reason=>`<option value="${reason}" ${stockEditReason===reason?'selected':''}>${reason}</option>`).join('')}</select><input id="stockEditNote" value="${escapeHtml(stockEditNote)}" placeholder="หมายเหตุเพิ่มเติม (ถ้ามี)"></div>`;
-  return `<section class="mobile-tool-panel"><div class="mobile-stock-source"><select id="mobileStockSourceList" ${availableLists.length?'':'disabled'}>${availableLists.length?availableLists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(selectedSource?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})</option>`).join(''):'<option value="">ไม่มีรายการที่รอแก้ไขสต๊อก</option>'}</select><button type="button" class="mobile-stock-import" id="mobileStockImport" ${availableLists.length?'':'disabled'}>ดึงข้อมูล</button></div>${sourceList?`<div class="mobile-stock-source-note"><b>${escapeHtml(sourceList.name)}</b><span>${stockEditSourcePending?'รอยืนยันการแก้ไข':'แก้ไขจำนวนเรียบร้อย'}</span></div>`:''}${mobileStockEditRowsHtml()}${reasonHtml}<div class="mobile-stock-confirm-wrap"><button type="button" class="mobile-stock-confirm" id="mobileConfirmStockEdit" ${canConfirm?'':'disabled'}>${!mobileIsOnline()?'ออฟไลน์ — ยังบันทึกไม่ได้':stockEditPosting?'กำลังบันทึก...':'ยืนยันผลตรวจนับ'}</button></div></section>`;
+  const canConfirm=(pendingChanges.length>0||stockEditSourcePending)&&stockEditMobileLotSelectionsReady(pendingChanges)&&!stockEditPosting&&mobileIsOnline();
+  return `<section class="mobile-tool-panel"><div class="mobile-stock-source"><select id="mobileStockSourceList" ${availableLists.length?'':'disabled'}>${availableLists.length?availableLists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(selectedSource?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})</option>`).join(''):'<option value="">ไม่มีรายการที่รอแก้ไขสต๊อก</option>'}</select><button type="button" class="mobile-stock-import" id="mobileStockImport" ${availableLists.length?'':'disabled'}>ดึงข้อมูล</button></div>${sourceList?`<div class="mobile-stock-source-note"><b>${escapeHtml(sourceList.name)}</b><span>${stockEditSourcePending?'รอยืนยันการแก้ไข':'แก้ไขจำนวนเรียบร้อย'}</span></div>`:''}${mobileStockEditRowsHtml()}<div class="mobile-stock-confirm-wrap"><button type="button" class="mobile-stock-confirm" id="mobileConfirmStockEdit" ${canConfirm?'':'disabled'}>${!mobileIsOnline()?'ออฟไลน์ — ยังบันทึกไม่ได้':stockEditPosting?'กำลังบันทึก...':'ยืนยันผลตรวจนับ'}</button></div></section>`;
 }
 async function confirmMobileStockEditChanges(){
   if(!mobileRequireOnline('ยืนยันแก้ไขสต๊อก')) return false;
@@ -8260,9 +8239,8 @@ function renderStockEdit(){
   const pendingChanges=stockEditPendingChanges();
   const sourceList=stockEditInspectionSourceList();
   return `<div class="rpt stock-edit-page">
-    <div class="stock-edit-page-actions form-final-actions"><button class="btn primary" id="importInspectionListBtn">ดึงรายการตรวจนับ</button>${rows.length?`<button class="btn ghost" id="clearStockEditBtn">ล้างรายการ</button><button class="btn primary" id="confirmStockEditBtn" ${(pendingChanges.length||stockEditSourcePending)&&String(stockEditReason||'').trim().length>=3&&!stockEditPosting?'':'disabled'}>${stockEditPosting?'กำลังบันทึก...':'ยืนยันผลตรวจนับ'}</button>`:''}</div>
+    <div class="stock-edit-page-actions form-final-actions"><button class="btn primary" id="importInspectionListBtn">ดึงรายการตรวจนับ</button>${rows.length?`<button class="btn ghost" id="clearStockEditBtn">ล้างรายการ</button><button class="btn primary" id="confirmStockEditBtn" ${(pendingChanges.length||stockEditSourcePending)&&!stockEditPosting?'':'disabled'}>${stockEditPosting?'กำลังบันทึก...':'ยืนยันผลตรวจนับ'}</button>`:''}</div>
     <div class="stock-edit-section">
-      <div class="stock-control-meta"><div class="stock-control-meta-field"><label>ผู้ดำเนินการ</label><b>${escapeHtml(currentProfile?.firstName||currentProfile?.username||'-')}</b></div><div class="stock-control-meta-field"><label for="stockEditReason">เหตุผล *</label><select id="stockEditReason"><option value="">เลือกเหตุผล</option>${['ตรวจนับสินค้าจริง','พบสินค้าชำรุด','พบสินค้าสูญหาย','พบสินค้ารับเกิน','แก้ไขยอดยกมา','อื่นๆ'].map(reason=>`<option value="${reason}" ${stockEditReason===reason?'selected':''}>${reason}</option>`).join('')}</select></div><div class="stock-control-meta-field note"><label for="stockEditNote">หมายเหตุเพิ่มเติม</label><input id="stockEditNote" value="${escapeHtml(stockEditNote)}" placeholder="รายละเอียดประกอบการปรับสต๊อก (ถ้ามี)"></div></div>
       <div class="rpt-filters" style="margin-bottom:14px;">
         <div class="rpf-item"><select id="stockEditCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${filter.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></div>
         <div class="rpf-item"><select id="stockEditBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(b=>`<option value="${escapeHtml(b)}" ${filter.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select></div>
@@ -10690,7 +10668,7 @@ function attachEvents(){
   const refreshMobileStockConfirmButton=()=>{
     const button=document.getElementById('mobileConfirmStockEdit');
     const changes=stockEditPendingChanges();
-    if(button) button.disabled=(changes.length===0&&!stockEditSourcePending)||!stockEditMobileLotSelectionsReady(changes)||Boolean(document.querySelector('[data-mobile-stock-new-expiry].invalid'))||String(stockEditReason||'').trim().length<3||stockEditPosting||!mobileIsOnline();
+    if(button) button.disabled=(changes.length===0&&!stockEditSourcePending)||!stockEditMobileLotSelectionsReady(changes)||Boolean(document.querySelector('[data-mobile-stock-new-expiry].invalid'))||stockEditPosting||!mobileIsOnline();
   };
   const mobileStockList=document.querySelector('.mobile-stock-list');
   if(mobileStockList){
@@ -11124,17 +11102,13 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const confirmStockEditBtn=document.getElementById('confirmStockEditBtn');
   const clearStockEditBtn=document.getElementById('clearStockEditBtn');
   const importInspectionListBtn=document.getElementById('importInspectionListBtn');
-  const stockEditReasonInput=document.getElementById('stockEditReason');
-  const stockEditNoteInput=document.getElementById('stockEditNote');
-  if(stockEditReasonInput) stockEditReasonInput.addEventListener('change',()=>{ stockEditReason=stockEditReasonInput.value; render(); });
-  if(stockEditNoteInput) stockEditNoteInput.addEventListener('input',()=>{ stockEditNote=stockEditNoteInput.value; });
   if(importInspectionListBtn) importInspectionListBtn.addEventListener('click',openStockEditInspectionListPicker);
   if(stockEditCategorySelect) stockEditCategorySelect.addEventListener('change',()=>{ stockEditCatFilter.category=stockEditCategorySelect.value; stockEditCatFilter.brand=''; render(); });
   if(stockEditBrandSelect) stockEditBrandSelect.addEventListener('change',()=>{ stockEditCatFilter.brand=stockEditBrandSelect.value; render(); });
   if(stockEditAddByCategoryBtn) stockEditAddByCategoryBtn.addEventListener('click',()=>openStockEditCategoryPicker(stockEditCatFilter));
   if(clearStockEditBtn) clearStockEditBtn.addEventListener('click',()=>{
     if(!confirm('ต้องการล้างรายการสินค้าในหน้าแก้ไขสต๊อกใช่หรือไม่?')) return;
-    stockEditItems=[]; stockEditRowUnitSel={}; stockEditDraftStocks={}; stockEditSearchQuery=''; stockEditCatFilter={category:'',brand:''}; stockEditPage=1; stockEditSourceInspectionListId=null; stockEditSourcePending=false; stockEditReason=''; stockEditNote=''; stockEditLotSelections={}; stockEditNewLotNumbers={}; stockEditNewLotExpiries={}; render();
+    stockEditItems=[]; stockEditRowUnitSel={}; stockEditDraftStocks={}; stockEditSearchQuery=''; stockEditCatFilter={category:'',brand:''}; stockEditPage=1; stockEditSourceInspectionListId=null; stockEditSourcePending=false; stockEditLotSelections={}; stockEditNewLotNumbers={}; stockEditNewLotExpiries={}; render();
   });
   if(stockEditInput&&stockEditResults){
     const addProduct=p=>{
@@ -11176,7 +11150,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     });
   }
   document.querySelectorAll('[data-stock-edit-unit]').forEach(select=>select.addEventListener('change',()=>{ stockEditRowUnitSel[Number(select.dataset.stockEditUnit)]=select.value; render(); }));
-  const refreshStockEditConfirmButton=()=>{ if(confirmStockEditBtn) confirmStockEditBtn.disabled=(stockEditPendingChanges().length===0&&!stockEditSourcePending)||String(stockEditReason||'').trim().length<3||stockEditPosting; };
+  const refreshStockEditConfirmButton=()=>{ if(confirmStockEditBtn) confirmStockEditBtn.disabled=(stockEditPendingChanges().length===0&&!stockEditSourcePending)||stockEditPosting; };
   document.querySelectorAll('[data-stock-edit-amount]').forEach(input=>{
     input.addEventListener('focus',()=>input.select());
     input.addEventListener('keydown',event=>{

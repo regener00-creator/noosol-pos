@@ -10,6 +10,8 @@ const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '003
 assert.match(html, /data-stock-control-mode="lots"/);
 assert.match(html, /ปรับจำนวนแยกตาม LOT/);
 assert.match(html, /sb\.rpc\('reallocate_inventory_lots'/);
+assert.match(html, /p_reason:AUTOMATIC_LOT_REALLOCATION_REASON/);
+assert.doesNotMatch(html, /stockLotReallocationReason|stock-lot-reallocation-reason|กรุณาระบุเหตุผลการปรับ LOT/);
 assert.match(html, /currentProfile\?\.owner!==true/);
 assert.match(html, /id="stockLotReallocationUnit"/);
 
