@@ -23,7 +23,7 @@ assert.doesNotMatch(html, /<h1>รายการผิดปกติ<\/h1>/);
 assert.doesNotMatch(html, /แจ้งเตือนเพื่อให้ตรวจนับก่อนปรับ ไม่แก้ยอดเป็นศูนย์ให้อัตโนมัติ/);
 assert.doesNotMatch(html, /<h1>ปรับจำนวนแยกตาม LOT<\/h1>/);
 assert.doesNotMatch(html, /ย้ายจำนวนระหว่าง LOT ของสินค้าเดียวกัน โดยยอดคงเหลือรวมจะไม่เปลี่ยน/);
-assert.match(html, /\.stock-control-content>\.rpt\{width:100%;max-width:none;margin:0;padding:0;\}/);
+assert.match(html, /\.stock-control-content>\.rpt\{padding:0;\}/);
 assert.match(html, /id="stockEditReason"/);
 assert.match(html, /ผู้ดำเนินการ/);
 assert.match(html, /LOT ที่ปรับ/);
