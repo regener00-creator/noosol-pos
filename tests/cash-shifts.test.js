@@ -13,6 +13,10 @@ assert.doesNotMatch(html, /<h2>เปิด-ปิดระบบชำระ<\/
 assert.match(html, /<h3>เริ่มต้นระบบชำระ<\/h3>/);
 assert.match(html, /form="cashShiftOpenForm"[\s\S]{0,160}>\$\{cashShiftBusy\?'กำลังเปิดระบบ…':'เปิดระบบชำระ'\}<\/button>/);
 assert.match(html, /cashShifts\.slice\(0,100\)\.map/);
+const historyStart = html.indexOf('function renderCashShiftHistory(');
+const historyEnd = html.indexOf('function renderCashShift(', historyStart);
+const historySource = html.slice(historyStart, historyEnd);
+assert.doesNotMatch(historySource, /cash-shift-history-head|แสดงล่าสุดไม่เกิน 100 กะ/, 'ต้องไม่แสดงหัวข้อและคำอธิบายเหนือประวัติกะ');
 assert.match(html, /<h3>ปิดระบบ<\/h3>/);
 assert.match(html, /'ยืนยันการปิดระบบ'/);
 assert.match(html, /class="cash-shift-topbar-action open"/);

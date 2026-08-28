@@ -4326,12 +4326,12 @@ function cashShiftPaymentRows(summary){
   return names.map(name=>{ const row=summary.payments[name]||{},sales=Number(row.sales)||0,refunds=Number(row.refunds)||0; return `<div class="cash-shift-payment-row"><span>${escapeHtml(name)} <small>ขาย ${Number(row.saleCount)||0}${refunds?` · คืน ${Number(row.refundCount)||0}`:''}</small></span><b>${fmtMoney(sales-refunds)} บาท</b></div>`; }).join('');
 }
 function renderCashShiftHistory(){
-  if(!cashShifts.length) return '<div class="cash-shift-history"><div class="cash-shift-history-head"><h3>ประวัติกะ</h3><small>แสดงล่าสุดไม่เกิน 100 กะ</small></div><div class="panel" style="text-align:center;color:var(--text-muted);">ยังไม่มีประวัติกะในคลังนี้</div></div>';
+  if(!cashShifts.length) return '<div class="cash-shift-history"><div class="panel" style="text-align:center;color:var(--text-muted);">ยังไม่มีประวัติกะในคลังนี้</div></div>';
   const rows=cashShifts.slice(0,100).map(shift=>{
     const summary=cashShiftEffectiveSummary(shift),variance=shift.variance,varianceClass=Number(variance)>0?'positive':Number(variance)<0?'negative':'';
     return `<tr><td class="mono">${escapeHtml(shift.shiftNo)}</td><td>${escapeHtml(shift.openedByName||'-')}</td><td>${cashShiftDateTime(shift.openedAt)}</td><td>${shift.status==='closed'?cashShiftDateTime(shift.closedAt):'<span class="cash-shift-status open">เปิดอยู่</span>'}</td><td class="num">${fmtMoney(shift.openingCash)}</td><td class="num">${fmtMoney(summary.netSales)}</td><td class="num">${fmtMoney(summary.expectedCash)}</td><td class="num cash-shift-variance-text ${varianceClass}">${shift.status==='closed'?fmtMoney(variance):'-'}</td><td>${shift.status==='closed'?`<button class="btn ghost small cash-shift-print" data-print-cash-shift="${shift.id}">พิมพ์สรุป</button>`:'-'}</td></tr>`;
   }).join('');
-  return `<section class="cash-shift-history"><div class="cash-shift-history-head"><h3>ประวัติกะ</h3><small>แสดงล่าสุดไม่เกิน 100 กะ</small></div><div class="cash-shift-table-wrap"><table class="cash-shift-table"><thead><tr><th>เลขกะ</th><th>พนักงาน</th><th>เปิดเมื่อ</th><th>ปิดเมื่อ</th><th>เงินตั้งต้น</th><th>ยอดสุทธิ</th><th>เงินสดตามระบบ</th><th>ขาด/เกิน</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
+  return `<section class="cash-shift-history"><div class="cash-shift-table-wrap"><table class="cash-shift-table"><thead><tr><th>เลขกะ</th><th>พนักงาน</th><th>เปิดเมื่อ</th><th>ปิดเมื่อ</th><th>เงินตั้งต้น</th><th>ยอดสุทธิ</th><th>เงินสดตามระบบ</th><th>ขาด/เกิน</th><th></th></tr></thead><tbody>${rows}</tbody></table></div></section>`;
 }
 function renderCashShift(){
   if(isAllWarehousesMode()) return '<div class="panel">กรุณาเลือกคลังสินค้าแห่งเดียวก่อนเปิดหรือปิดระบบชำระ</div>';
