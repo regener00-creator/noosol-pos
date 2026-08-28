@@ -834,6 +834,10 @@
   .seamless-table-wrap>table th:last-child,.seamless-table-wrap>table td:last-child{border-right:0;}
   .seamless-table-wrap>table thead:first-child tr:first-child th{border-top:0;}
   .seamless-table-wrap>table tbody:last-child tr:last-child td{border-bottom:0;}
+  /* ตารางทุกหน้า: ให้เลื่อนข้อมูลภายในกรอบ โดยคงหัวตาราง ตัวกรอง และปุ่มของหน้าไว้ */
+  .app-table-scroll-region{width:100%;max-height:var(--app-table-scroll-height,calc(100vh - 300px));min-height:0;overflow:auto!important;overscroll-behavior:contain;border-radius:var(--radius);background:var(--surface);}
+  .app-table-scroll-region>table{width:100%;margin:0;}
+  .app-table-scroll-region table thead th{position:sticky;top:0;z-index:5;}
   .doc-list th,.doc-list td{vertical-align:middle;}
   .doc-check{width:16px;height:16px;accent-color:var(--primary);cursor:pointer;}
   .doc-list thead tr{background:#2091D2;}
@@ -10027,6 +10031,54 @@ function renderAddSystemUser(){
     </div></div></div>`;
 }
 
+const APP_TABLE_SCROLL_HOST_SELECTOR=[
+  '.app-table-scroll-region',
+  '.sales-history-table-wrap','.product-table-scroll','.cash-shift-table-wrap',
+  '.audit-log-table-wrap','.stock-edit-table-wrap','.inspection-list-table-wrap',
+  '.inspection-list-overview-wrap','.barcode-print-table-wrap','.lowstock-table-scroll',
+  '.product-exchange-table-wrap','.warehouse-name-table','.transfer-items-wrap',
+  '.doc-list-wrap','.seamless-table-wrap','.table-scroll'
+].join(',');
+
+function scrollableTableFooterReserve(host,mainElement){
+  const controls=[...mainElement.querySelectorAll('.pager,.audit-log-pagination')].filter(element=>{
+    if(host.contains(element)||getComputedStyle(element).display==='none') return false;
+    return Boolean(host.compareDocumentPosition(element)&Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+  if(!controls.length) return 16;
+  const control=controls[0];
+  const style=getComputedStyle(control);
+  return Math.min(110,Math.ceil(control.getBoundingClientRect().height+(parseFloat(style.marginTop)||0)+(parseFloat(style.marginBottom)||0)+20));
+}
+
+function refreshScrollableTableHeights(mainElement=document.getElementById('main')){
+  if(!mainElement) return;
+  const mainRect=mainElement.getBoundingClientRect();
+  const maxForMain=Math.max(220,Math.floor(mainElement.clientHeight-28));
+  mainElement.querySelectorAll('.app-table-scroll-region').forEach(host=>{
+    const top=host.getBoundingClientRect().top;
+    const reserve=scrollableTableFooterReserve(host,mainElement);
+    const available=Math.max(220,Math.min(maxForMain,Math.floor(mainRect.bottom-top-reserve)));
+    host.style.setProperty('--app-table-scroll-height',`${available}px`);
+  });
+}
+
+function prepareScrollableTables(mainElement=document.getElementById('main')){
+  if(!mainElement) return;
+  [...mainElement.querySelectorAll('table')].forEach(table=>{
+    let host=table.closest(APP_TABLE_SCROLL_HOST_SELECTOR);
+    if(!host||!mainElement.contains(host)){
+      host=document.createElement('div');
+      host.className='app-table-scroll-region';
+      table.parentNode.insertBefore(host,table);
+      host.appendChild(table);
+    }else{
+      host.classList.add('app-table-scroll-region');
+    }
+  });
+  requestAnimationFrame(()=>refreshScrollableTableHeights(mainElement));
+}
+
 const RENDERERS = {
   mobiletools: renderMobileTools,
   dashboard: renderDashboard, checkout: renderCheckout, cashshift: renderCashShift, cashbill: renderCashBills, taxinvoice: renderTaxInvoices, quotation: renderQuotation, invoice: renderInvoice,
@@ -10076,8 +10128,10 @@ function render(){
   preserveMobileCameraScanner();
   mainElement.innerHTML = (RENDERERS[currentTab]||renderDashboard)();
   restoreMobileCameraScanner();
+  prepareScrollableTables(mainElement);
   attachEvents();
   syncTopbarFormActions();
+  requestAnimationFrame(()=>refreshScrollableTableHeights(mainElement));
   renderLoginState();
   if(currentTab==='mobiletools'&&mobileToolMode==='price'&&!mobileCameraSession) setTimeout(()=>document.getElementById('mobilePriceInput')?.focus(),60);
 }
@@ -15506,6 +15560,7 @@ window.addEventListener('resize',()=>{
   mobileViewportResizeTimer=setTimeout(()=>{
     const mobileMode=isMobileDeviceMode();
     if(mobileMode!==document.body.classList.contains('mobile-device-mode')) render();
+    else refreshScrollableTableHeights();
   },180);
 });
 
