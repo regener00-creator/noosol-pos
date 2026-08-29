@@ -9,7 +9,7 @@ const migration = fs.readFileSync(path.join(root, 'supabase/migrations/0042_cash
 
 assert.match(html, /\['cashshift','เปิด-ปิดระบบชำระ'/);
 assert.match(html, /cashshift:\s*renderCashShift/);
-assert.match(html, /\.cash-shift-page\{max-width:1180px;margin:0;\}/, 'ก้อนข้อมูลเปิด-ปิดระบบชำระต้องชิดซ้าย');
+assert.match(html, /\.cash-shift-page\{max-width:1180px;margin:0 auto;\}/, 'ก้อนข้อมูลเปิด-ปิดระบบชำระต้องอยู่กึ่งกลางหน้า');
 assert.doesNotMatch(html, /<h2>เปิด-ปิดระบบชำระ<\/h2>/);
 assert.match(html, /<h3>เริ่มต้นระบบชำระ<\/h3>/);
 assert.match(html, /form="cashShiftOpenForm"[\s\S]{0,160}>\$\{cashShiftBusy\?'กำลังเปิดระบบ…':'เปิดระบบชำระ'\}<\/button>/);
