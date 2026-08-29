@@ -6343,7 +6343,7 @@ function renderProductForm(){
     </div>
 
     <div class="barcode-cols">
-    <div class="panel"><div class="paneltoggle"><div><h3>บาร์โค้ดเพิ่มเติม</h3><div class="psub" style="margin:0;">เผื่อสินค้าเปลี่ยนเลขบาร์โค้ดในล็อตใหม่ — ยิงเลขไหนก็เจอสินค้าตัวเดียวกัน</div></div>
+    <div class="panel"><div class="paneltoggle"><div><h3>บาร์โค้ดเพิ่มเติม <span class="psub" style="font-weight:400;">• เผื่อสินค้าเปลี่ยนเลขบาร์โค้ดในล็อตใหม่ — ยิงเลขไหนก็เจอสินค้าตัวเดียวกัน</span></h3></div>
       <label class="switch"><input type="checkbox" id="f_extrabc_toggle" ${(p.extraBarcodes&&p.extraBarcodes.length)?'checked':''}><span class="slider"></span></label></div>
       <div id="extraBcBody" style="${(p.extraBarcodes&&p.extraBarcodes.length)?'':'display:none;'}margin-top:14px;">
         <div id="extraBarcodeRows">${(p.extraBarcodes&&p.extraBarcodes.length?extraBarcodeEntries(p):[{code:'',unit:p.unit||''}]).map(entry=>extraBarcodeRowHtml(entry,extraBarcodeAvailableUnits(p),p.unit)).join('')}</div>
@@ -6351,7 +6351,7 @@ function renderProductForm(){
       </div>
     </div>
 
-    <div class="panel"><div class="paneltoggle"><div><h3>บาร์โค้ดผู้จำหน่าย</h3><div class="psub" style="margin:0;">เผื่อผู้จำหน่ายแต่ละเจ้ามีเลขบาร์โค้ดของตัวเอง — ยิงแล้วก็เจอสินค้าตัวนี้</div></div>
+    <div class="panel"><div class="paneltoggle"><div><h3>บาร์โค้ดผู้จำหน่าย <span class="psub" style="font-weight:400;">• เผื่อผู้จำหน่ายแต่ละเจ้ามีเลขบาร์โค้ดของตัวเอง — ยิงแล้วก็เจอสินค้าตัวนี้</span></h3></div>
       <label class="switch"><input type="checkbox" id="f_vendorbc_toggle" ${(p.vendorBarcodes&&p.vendorBarcodes.length)?'checked':''}><span class="slider"></span></label></div>
       <div id="vendorBcBody" style="${(p.vendorBarcodes&&p.vendorBarcodes.length)?'':'display:none;'}margin-top:14px;">
         <div id="vendorBarcodeRows">${(p.vendorBarcodes&&p.vendorBarcodes.length?p.vendorBarcodes:[{vendor:'',code:''}]).map(vb=>vendorBarcodeRowHtml(vb)).join('')}</div>
