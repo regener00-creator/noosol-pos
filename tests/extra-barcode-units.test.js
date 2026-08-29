@@ -57,7 +57,8 @@ assert.doesNotMatch(formSource, /id=["']f_wh["']/, 'ต้องไม่แส�
 assert.doesNotMatch(formSource, /id=["']f_expiry["']/, 'วันหมดอายุต้องจัดการในแต่ละ LOT');
 assert.match(formSource, /<label>ยี่ห้อ\/แบรนด์<\/label>/, 'ต้องใช้ชื่อยี่ห้อ/แบรนด์');
 assert.match(formSource, /<h3>หน่วยและราคา<\/h3>/, 'ต้องใช้หัวข้อหน่วยและราคา');
-assert.match(formSource, /'แก้ไขสินค้า'/, 'หัวข้อหน้าแก้ไขต้องใช้คำว่าแก้ไขสินค้า');
+assert.match(formSource, /\$\{isNew\?'<h1>เพิ่มบริการหรือสินค้า<\/h1>':''\}/, 'หัวข้อใหญ่ต้องแสดงเฉพาะหน้าเพิ่มสินค้า');
+assert.doesNotMatch(formSource, /<h1>แก้ไขสินค้า<\/h1>/, 'หน้าแก้ไขต้องไม่แสดงหัวข้อใหญ่แก้ไขสินค้า');
 assert.doesNotMatch(formSource, /แก้ไขบริการหรือสินค้า/, 'ต้องไม่ใช้ชื่อหน้าแก้ไขเดิม');
 
 console.log('extra barcode unit tests passed');

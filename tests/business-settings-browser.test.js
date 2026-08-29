@@ -81,7 +81,7 @@ const browserExecutable = [
     attachEvents();
     syncTopbarFormActions();
   });
-  assert.equal(await page.locator('.pagehead h1').innerText(),'แก้ไขสินค้า');
+  assert.equal(await page.locator('.pagehead h1').count(),0);
   assert.equal(await page.locator('text=ประเภทสินค้า').count(),0);
   assert.equal(await page.locator('#f_wh').count(),0);
   assert.equal(await page.locator('#f_expiry').count(),0);

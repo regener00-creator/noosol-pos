@@ -6299,7 +6299,7 @@ function renderProductForm(){
   const mainUnitSelect=comboSelect('f_unit', units, p.unit, 'ระบุหน่วยสินค้า');
   const renderedMainUnitSelect=isNew?mainUnitSelect:mainUnitSelect.replace('<select ','<select disabled ');
   return `
-    <div class="pagehead"><div><div class="breadcrumb">รายการสินค้า › ${isNew?'เพิ่มสินค้า':'แก้ไขสินค้า'}</div><h1>${isNew?'เพิ่มบริการหรือสินค้า':'แก้ไขสินค้า'}</h1></div></div>
+    <div class="pagehead"><div><div class="breadcrumb">รายการสินค้า › ${isNew?'เพิ่มสินค้า':'แก้ไขสินค้า'}</div>${isNew?'<h1>เพิ่มบริการหรือสินค้า</h1>':''}</div></div>
 
     <div class="panel product-status-panel ${isProductActive(p)?'':'inactive'}"><div class="paneltoggle"><div><h3>สถานะสินค้า</h3><div class="psub" style="margin:0;">ปิดใช้งานเมื่อไม่ต้องการขายหรือเลือกสินค้านี้ในเอกสารใหม่ รายงานและประวัติเดิมยังคงอยู่</div></div><label class="switch" title="เปิดหรือปิดใช้งานสินค้า"><input type="checkbox" id="f_active" ${isProductActive(p)?'checked':''}><span class="slider"></span></label></div></div>
 
