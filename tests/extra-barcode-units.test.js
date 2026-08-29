@@ -43,14 +43,21 @@ assert.ok(rowHtml.indexOf('class="eb_unit"') < rowHtml.indexOf('class="eb_code"'
 const formStart = html.indexOf('function renderProductForm()');
 const formEnd = html.indexOf('function renderWarehouse()', formStart);
 const formSource = html.slice(formStart, formEnd);
-const productDataPanel = formSource.slice(formSource.indexOf('ข้อมูลสินค้า'), formSource.indexOf('เพิ่มหน่วยสินค้า'));
-const unitPanel = formSource.slice(formSource.indexOf('เพิ่มหน่วยสินค้า'), formSource.indexOf('บาร์โค้ดเพิ่มเติม'));
+const productDataPanel = formSource.slice(formSource.indexOf('ข้อมูลสินค้า'), formSource.indexOf('หน่วยและราคา'));
+const unitPanel = formSource.slice(formSource.indexOf('หน่วยและราคา'), formSource.indexOf('บาร์โค้ดเพิ่มเติม'));
 for (const id of ['f_price', 'f_cost', 'f_stock']) {
   assert.doesNotMatch(productDataPanel, new RegExp(`id=["']${id}["']`), `${id} ต้องย้ายออกจากข้อมูลสินค้า`);
-  assert.match(unitPanel, new RegExp(`id=["']${id}["']`), `${id} ต้องอยู่ในส่วนเพิ่มหน่วยสินค้า`);
+  assert.match(unitPanel, new RegExp(`id=["']${id}["']`), `${id} ต้องอยู่ในส่วนหน่วยและราคา`);
 }
 assert.doesNotMatch(productDataPanel, /renderedMainUnitSelect/, 'หน่วยหลักต้องย้ายออกจากข้อมูลสินค้า');
-assert.match(unitPanel, /renderedMainUnitSelect/, 'หน่วยหลักต้องอยู่ในส่วนเพิ่มหน่วยสินค้า');
+assert.match(unitPanel, /renderedMainUnitSelect/, 'หน่วยหลักต้องอยู่ในส่วนหน่วยและราคา');
 assert.match(formSource, /extraBarcodeRowHtml\(entry,extraBarcodeAvailableUnits\(p\),p\.unit\)/);
+assert.doesNotMatch(formSource, /<h3>ประเภทสินค้า<\/h3>/, 'ต้องไม่แสดงก้อนประเภทสินค้า');
+assert.doesNotMatch(formSource, /id=["']f_wh["']/, 'ต้องไม่แสดงคลังที่แก้ไขไม่ได้');
+assert.doesNotMatch(formSource, /id=["']f_expiry["']/, 'วันหมดอายุต้องจัดการในแต่ละ LOT');
+assert.match(formSource, /<label>ยี่ห้อ\/แบรนด์<\/label>/, 'ต้องใช้ชื่อยี่ห้อ/แบรนด์');
+assert.match(formSource, /<h3>หน่วยและราคา<\/h3>/, 'ต้องใช้หัวข้อหน่วยและราคา');
+assert.match(formSource, /'แก้ไขสินค้า'/, 'หัวข้อหน้าแก้ไขต้องใช้คำว่าแก้ไขสินค้า');
+assert.doesNotMatch(formSource, /แก้ไขบริการหรือสินค้า/, 'ต้องไม่ใช้ชื่อหน้าแก้ไขเดิม');
 
 console.log('extra barcode unit tests passed');

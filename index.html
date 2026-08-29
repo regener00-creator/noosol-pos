@@ -6299,24 +6299,14 @@ function renderProductForm(){
   const mainUnitSelect=comboSelect('f_unit', units, p.unit, 'ระบุหน่วยสินค้า');
   const renderedMainUnitSelect=isNew?mainUnitSelect:mainUnitSelect.replace('<select ','<select disabled ');
   return `
-    <div class="pagehead"><div><div class="breadcrumb">รายการสินค้า › ${isNew?'เพิ่มสินค้า':'แก้ไขสินค้า'}</div><h1>${isNew?'เพิ่มบริการหรือสินค้า':'แก้ไขบริการหรือสินค้า'}</h1></div></div>
-
-    <div class="panel"><h3>ประเภทสินค้า</h3>
-      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:8px;">
-        ${productTypes.map(([val,label])=>`
-          <label class="typecard ${p.type===val?'sel':''}" data-type="${val}">
-            <input type="radio" name="ptype" value="${val}" ${p.type===val?'checked':''} style="margin-left:6px;">${label}
-          </label>`).join('')}
-      </div>
-    </div>
+    <div class="pagehead"><div><div class="breadcrumb">รายการสินค้า › ${isNew?'เพิ่มสินค้า':'แก้ไขสินค้า'}</div><h1>${isNew?'เพิ่มบริการหรือสินค้า':'แก้ไขสินค้า'}</h1></div></div>
 
     <div class="panel product-status-panel ${isProductActive(p)?'':'inactive'}"><div class="paneltoggle"><div><h3>สถานะสินค้า</h3><div class="psub" style="margin:0;">ปิดใช้งานเมื่อไม่ต้องการขายหรือเลือกสินค้านี้ในเอกสารใหม่ รายงานและประวัติเดิมยังคงอยู่</div></div><label class="switch" title="เปิดหรือปิดใช้งานสินค้า"><input type="checkbox" id="f_active" ${isProductActive(p)?'checked':''}><span class="slider"></span></label></div></div>
 
     <div class="panel"><h3 class="prodform-gap">หมวดสินค้า</h3>
-      <div class="prodrow r3">
+      <div class="prodrow r2">
         <div class="field"><label>หมวดสินค้าหลัก</label>${comboSelect('f_category', categories, p.category, 'ระบุหมวดสินค้า')}</div>
-        <div class="field"><label>หมวดสินค้าย่อย</label>${comboSelect('f_brand', brands, p.brand||'ทั่วไป', 'ระบุกลุ่มย่อย')}</div>
-        <div class="field"><label>คลัง / สาขาที่กำลังใช้งาน</label><select id="f_wh" disabled><option value="${activeWarehouseId}">${escapeHtml(activeWarehouse()?.name||'-')}</option></select></div>
+        <div class="field"><label>ยี่ห้อ/แบรนด์</label>${comboSelect('f_brand', brands, p.brand||'ทั่วไป', 'ระบุยี่ห้อ/แบรนด์')}</div>
       </div>
     </div>
 
@@ -6329,8 +6319,7 @@ function renderProductForm(){
         <div class="prodrow r1">
           <div class="field"><label>ชื่อสินค้า <span class="req">*</span></label><input id="f_name" value="${p.name}"></div>
         </div>
-        <div class="prodrow r2">
-          <div class="field"><label>วันหมดอายุ</label>${dmyDateFieldHtml('f_expiry',p.expiry)}</div>
+        <div class="prodrow r1">
           <div class="field"><label>ภาษีมูลค่าเพิ่ม (VAT)</label>${isBusinessVatRegistered()?`<select id="f_vat"><option value="incl" ${(p.vat||'incl')==='incl'?'selected':''}>VAT 7% — ราคาขายรวม VAT แล้ว</option><option value="excl" ${p.vat==='excl'?'selected':''}>VAT 7% — ราคาขายยังไม่รวม VAT</option><option value="none" ${p.vat==='none'?'selected':''}>ยกเว้น VAT</option></select>`:`<input id="f_vat" type="hidden" value="${normalizeProductVatMode(p.vat)}"><input value="ไม่คิด VAT — กิจการยังไม่จด VAT" readonly>`}</div>
         </div>
         <div class="prodrow r1">
@@ -6339,7 +6328,7 @@ function renderProductForm(){
       </div>
     </div>
 
-    <div class="panel"><div><h3>เพิ่มหน่วยสินค้า</h3><div class="psub" style="margin:0;">กำหนดหน่วยหลัก ราคาขาย ทุน และจำนวนคงเหลือ รวมถึงหน่วยขายเพิ่มเติมของสินค้านี้</div></div>
+    <div class="panel"><div><h3>หน่วยและราคา</h3><div class="psub" style="margin:0;">กำหนดหน่วยหลัก ราคาขาย ทุน และจำนวนคงเหลือ รวมถึงหน่วยขายเพิ่มเติมของสินค้านี้</div></div>
       <div class="product-main-unit-grid">
         <div class="field"><label>หน่วยสินค้าหลัก <span class="req">*</span></label>${renderedMainUnitSelect}${isNew?'':`<button class="btn ghost small" type="button" id="changeBaseUnitBtn" style="margin-top:6px;">เปลี่ยนหน่วยหลัก</button>`}</div>
         <div class="field"><label>ราคาขาย <span class="req">*</span></label><input id="f_price" class="no-spin" type="number" value="${p.price}" placeholder="0.00"></div>
@@ -11916,9 +11905,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(cancelProductBtn) cancelProductBtn.addEventListener('click', ()=>{ editingProductId=null; render(); });
   const changeBaseUnitBtn=document.getElementById('changeBaseUnitBtn');
   if(changeBaseUnitBtn) changeBaseUnitBtn.addEventListener('click',openProductBaseUnitChangeModal);
-  document.querySelectorAll('.typecard').forEach(el=>{
-    el.addEventListener('click', ()=>{ document.querySelectorAll('.typecard').forEach(c=>c.classList.remove('sel')); el.classList.add('sel'); el.querySelector('input').checked=true; });
-  });
   // toggle sections
   [['f_multiunit','multiunitBody'],['f_extrabc_toggle','extraBcBody'],['f_vendorbc_toggle','vendorBcBody']].forEach(([tog,body])=>{
     const t=document.getElementById(tog);
@@ -14265,7 +14251,6 @@ function saveProduct(){
   if(!name){ showToast('กรุณากรอกชื่อสินค้า'); g('f_name').focus(); return; }
   if(!unit){ showToast('กรุณากรอกหน่วยสินค้า'); g('f_unit').focus(); return; }
   if(isNaN(price)){ showToast('กรุณากรอกราคาขาย'); g('f_price').focus(); return; }
-  const typeEl = document.querySelector('input[name="ptype"]:checked');
   const gv = id => { const el=g(id); return el?el.value:''; };
   // multi-unit rows
   const multiunit = g('f_multiunit') && g('f_multiunit').checked;
@@ -14312,8 +14297,7 @@ function saveProduct(){
     wh: existing?.wh||Number(activeWarehouseId),
     desc: g('f_desc').value.trim(),
     stock: parseInt(g('f_stock').value)||0,
-    expiry: dmyToISO(g('f_expiry').value) || g('f_expiry').value,
-    type: typeEl ? typeEl.value : 'stock',
+    type: existing?.type || 'stock',
     vat: gv('f_vat') || 'incl',
     multiunit, units,
     hasOpening, openingDate: gv('f_openingdate'), openingQty: parseFloat(gv('f_openingqty'))||0, openingCost: parseFloat(gv('f_openingcost'))||0,
@@ -14333,12 +14317,10 @@ function saveProduct(){
     const p = products.find(x=>x.id===editingProductId);
     savedProductId=p.id;
     const oldStock=Number(p.stock)||0;
-    const oldExpiry=p.expiry||'';
     const catalogExpiry=p._catalogExpiry;
     Object.assign(p, data);
     p._catalogExpiry=catalogExpiry;
     if((Number(data.stock)||0)!==oldStock) setProductStockOnSupabase(p.id,data.stock,activeWarehouseId);
-    if(String(data.expiry||'')!==String(oldExpiry||'')) setProductExpiryOnSupabase(p.id,data.expiry,activeWarehouseId);
     showToast(`บันทึกการแก้ไข "${name}" แล้ว`);
   }
   if(data.active===false){

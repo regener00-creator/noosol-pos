@@ -74,6 +74,23 @@ const browserExecutable = [
   await page.screenshot({path:path.join(os.tmpdir(),'pepos-business-settings-browser.png'),fullPage:true});
 
   await page.evaluate(() => {
+    editingProductId=products[0].id;
+    currentTab='products';
+    document.getElementById('topbarFormActions').innerHTML='';
+    document.getElementById('main').innerHTML=renderProductForm();
+    attachEvents();
+    syncTopbarFormActions();
+  });
+  assert.equal(await page.locator('.pagehead h1').innerText(),'แก้ไขสินค้า');
+  assert.equal(await page.locator('text=ประเภทสินค้า').count(),0);
+  assert.equal(await page.locator('#f_wh').count(),0);
+  assert.equal(await page.locator('#f_expiry').count(),0);
+  assert.equal(await page.locator('label', {hasText:'ยี่ห้อ/แบรนด์'}).count(),1);
+  assert.equal(await page.locator('h3', {hasText:'หน่วยและราคา'}).count(),1);
+  assert.equal(await page.locator('#f_stock').isEditable(),true);
+  await page.screenshot({path:path.join(os.tmpdir(),'pepos-product-form-browser.png'),fullPage:true});
+
+  await page.evaluate(() => {
     activeWarehouseId=warehouses[0]?.id||1;
     currentCashShift={id:'shift-browser-test',shiftNo:'CS202608270003',status:'open',openingCash:500,openedBy:'browser-test',openedByName:'กรธวัช จันทรวารี',openedAt:new Date().toISOString()};
     currentTab='checkout';
