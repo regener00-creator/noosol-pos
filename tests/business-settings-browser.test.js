@@ -102,10 +102,11 @@ const browserExecutable = [
   assert.equal(new Set(productFieldRows.unit).size,1,'หน่วย ราคา ทุน คงเหลือ และบาร์โค้ดต้องอยู่บรรทัดเดียวกัน');
   const desktopBaseUnitAction=await page.evaluate(() => {
     const barcode=document.querySelector('#f_barcode').getBoundingClientRect();
-    const button=document.querySelector('#changeBaseUnitBtn').getBoundingClientRect();
-    return {sameTop:Math.abs(barcode.top-button.top)<3,afterBarcode:button.left>barcode.right};
+    const element=document.querySelector('#changeBaseUnitBtn');
+    const button=element.getBoundingClientRect();
+    return {sameTop:Math.abs(barcode.top-button.top)<3,afterBarcode:button.left>barcode.right,background:getComputedStyle(element).backgroundColor};
   });
-  assert.deepEqual(desktopBaseUnitAction,{sameTop:true,afterBarcode:true},'ปุ่มเปลี่ยนหน่วยหลักต้องอยู่ต่อจากเลขบาร์โค้ด');
+  assert.deepEqual(desktopBaseUnitAction,{sameTop:true,afterBarcode:true,background:'rgb(79, 64, 56)'},'ปุ่มเปลี่ยนหน่วยหลักต้องอยู่ต่อจากเลขบาร์โค้ดและเป็นสีน้ำตาล');
   await page.screenshot({path:path.join(os.tmpdir(),'pepos-product-form-browser.png'),fullPage:true});
   await page.setViewportSize({width:390,height:844});
   const mobileProductFieldRows=await page.evaluate(() => {
@@ -127,6 +128,17 @@ const browserExecutable = [
   assert.deepEqual(mobileBaseUnitAction,{belowBarcode:true,fullWidth:true},'ปุ่มเปลี่ยนหน่วยหลักบนมือถือต้องอยู่ใต้เลขบาร์โค้ดและกว้างเต็มแถว');
   await page.screenshot({path:path.join(os.tmpdir(),'pepos-product-form-mobile-browser.png'),fullPage:true});
   await page.setViewportSize({width:1440,height:1000});
+
+  await page.evaluate(() => {
+    editingProductId='new';
+    currentTab='products';
+    document.getElementById('topbarFormActions').innerHTML='';
+    document.getElementById('main').innerHTML=renderProductForm();
+    attachEvents();
+    syncTopbarFormActions();
+  });
+  assert.equal(await page.locator('.pagehead h1').count(),0);
+  assert.equal(await page.getByText('เพิ่มบริการหรือสินค้า', {exact:true}).count(),0);
 
   await page.evaluate(() => {
     activeWarehouseId=warehouses[0]?.id||1;

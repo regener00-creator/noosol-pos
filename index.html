@@ -6302,7 +6302,7 @@ function renderProductForm(){
   const mainUnitSelect=comboSelect('f_unit', units, p.unit, 'ระบุหน่วยสินค้า');
   const renderedMainUnitSelect=isNew?mainUnitSelect:mainUnitSelect.replace('<select ','<select disabled ');
   return `
-    <div class="pagehead"><div><div class="breadcrumb">รายการสินค้า › ${isNew?'เพิ่มสินค้า':'แก้ไขสินค้า'}</div>${isNew?'<h1>เพิ่มบริการหรือสินค้า</h1>':''}</div></div>
+    <div class="pagehead"><div><div class="breadcrumb">รายการสินค้า › ${isNew?'เพิ่มสินค้า':'แก้ไขสินค้า'}</div></div></div>
 
     <div class="panel product-status-panel ${isProductActive(p)?'':'inactive'}"><div class="paneltoggle"><div><h3>สถานะสินค้า</h3><div class="psub" style="margin:0;">ปิดใช้งานเมื่อไม่ต้องการขายหรือเลือกสินค้านี้ในเอกสารใหม่ รายงานและประวัติเดิมยังคงอยู่</div></div><label class="switch" title="เปิดหรือปิดใช้งานสินค้า"><input type="checkbox" id="f_active" ${isProductActive(p)?'checked':''}><span class="slider"></span></label></div></div>
 
@@ -6333,7 +6333,7 @@ function renderProductForm(){
         ${canViewCost?`<div class="field"><label>ราคาทุน</label><input id="f_cost" class="no-spin" type="number" value="${p.cost!==undefined?p.cost:''}" placeholder="0.00"></div>`:`<input id="f_cost" type="hidden" value="${p.cost!==undefined?p.cost:''}">`}
         <div class="field"><label>จำนวนคงเหลือ</label><input id="f_stock" class="no-spin" type="number" value="${p.stock}" placeholder="0"></div>
         <div class="field"><label>เลขบาร์โค้ด</label><input id="f_barcode" value="${p.barcode}"></div>
-        ${isNew?'':'<button class="btn ghost small product-base-unit-action" type="button" id="changeBaseUnitBtn">เปลี่ยนหน่วยหลัก</button>'}
+        ${isNew?'':'<button class="btn primary small product-base-unit-action" type="button" id="changeBaseUnitBtn">เปลี่ยนหน่วยหลัก</button>'}
       </div>
       <div class="paneltoggle product-extra-unit-toggle"><div><h3 style="font-size:14px;">หน่วยสินค้าเพิ่มเติม</h3><div class="psub" style="margin:0;">เช่น 1 ซอง = 4 เม็ด หรือ 1 กล่อง = 25 ซอง มีผลต่อราคาและการตัดสต๊อกตามหน่วยที่ขาย</div></div>
       <label class="switch"><input type="checkbox" id="f_multiunit" ${(isNew?true:p.multiunit)?'checked':''}><span class="slider"></span></label></div>

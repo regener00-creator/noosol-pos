@@ -60,7 +60,8 @@ assert.match(formSource, /<label>ยี่ห้อ\/แบรนด์<\/label>
 assert.doesNotMatch(formSource, /<h3>หน่วยและราคา<\/h3>/, 'ต้องไม่แสดงหัวข้อหน่วยและราคา');
 assert.doesNotMatch(formSource, /กำหนดหน่วยหลัก ราคาขาย ทุน และจำนวนคงเหลือ รวมถึงหน่วยขายเพิ่มเติมของสินค้านี้/, 'ต้องไม่แสดงคำอธิบายก้อนหน่วยและราคา');
 assert.ok(unitPanel.indexOf('id="changeBaseUnitBtn"') > unitPanel.indexOf('id="f_barcode"'), 'ปุ่มเปลี่ยนหน่วยหลักต้องอยู่ต่อจากเลขบาร์โค้ด');
-assert.match(formSource, /\$\{isNew\?'<h1>เพิ่มบริการหรือสินค้า<\/h1>':''\}/, 'หัวข้อใหญ่ต้องแสดงเฉพาะหน้าเพิ่มสินค้า');
+assert.match(unitPanel, /class="btn primary small product-base-unit-action"[^>]*id="changeBaseUnitBtn"/, 'ปุ่มเปลี่ยนหน่วยหลักต้องเป็นปุ่มสีน้ำตาล');
+assert.doesNotMatch(formSource, /<h1>เพิ่มบริการหรือสินค้า<\/h1>/, 'หน้าเพิ่มสินค้าต้องไม่แสดงหัวข้อใหญ่');
 assert.doesNotMatch(formSource, /<h1>แก้ไขสินค้า<\/h1>/, 'หน้าแก้ไขต้องไม่แสดงหัวข้อใหญ่แก้ไขสินค้า');
 assert.doesNotMatch(formSource, /แก้ไขบริการหรือสินค้า/, 'ต้องไม่ใช้ชื่อหน้าแก้ไขเดิม');
 
