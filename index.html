@@ -984,7 +984,7 @@
   .rpf-result span{font-size:11.5px;color:var(--text-muted);}
   .rpf-result-empty{padding:12px;text-align:center;color:var(--text-muted);font-size:13px;}
   /* หน้ารายการงานเคลื่อนไหว: scoped เพื่อไม่กระทบตารางรายงานอื่น */
-  .movement-report-search{position:relative;margin-bottom:12px;}
+  .movement-report-search{position:relative;flex:1;min-width:280px;}
   .movement-report-search input{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;background:var(--surface);}
   .movement-selected-products{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);}
   .movement-selected-label{font-size:12.5px;font-weight:600;color:var(--text-muted);white-space:nowrap;padding-top:5px;}
@@ -5659,8 +5659,8 @@ function renderInventoryMovement(){
       <div class="rpf-item"><select id="movementCategory" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(category=>`<option value="${escapeHtml(category)}" ${filter.category===category?'selected':''}>${escapeHtml(category)}</option>`).join('')}</select></div>
       <div class="rpf-item"><select id="movementBrand" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(brand=>`<option value="${escapeHtml(brand)}" ${filter.brand===brand?'selected':''}>${escapeHtml(brand)}</option>`).join('')}</select></div>
       <button class="btn ghost" id="movementAddCategoryBtn" ${(filter.category||filter.brand)?'':'disabled'}>เลือกสินค้าในหมวดนี้${(filter.category||filter.brand)?` (${matchCount})`:''}</button>
+      <div class="movement-report-search"><input id="movementSearch" value="${escapeHtml(inventoryMovementSearchQuery)}" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." autocomplete="off"><div id="movementSearchResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div></div>
     </div>
-    <div class="movement-report-search"><input id="movementSearch" value="${escapeHtml(inventoryMovementSearchQuery)}" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." autocomplete="off"><div id="movementSearchResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div></div>
     ${selectedProducts.length?`<div class="movement-selected-products"><span class="movement-selected-label">สินค้าที่เลือก ${selectedProducts.length} รายการ</span><div class="movement-selected-list">${selectedProducts.map(product=>`<span class="movement-product-chip">${escapeHtml(product.name)}<button type="button" data-movement-remove="${product.id}" aria-label="ลบ ${escapeHtml(product.name)}">×</button></span>`).join('')}</div><button type="button" class="movement-clear-products" id="movementClearProducts">ล้างทั้งหมด</button></div>`:'<div class="movement-selected-products"><span class="movement-selected-label">สินค้า: ทั้งหมด</span></div>'}
     <div class="doc-list-wrap"><table class="grid-table doc-head-blue movement-report-table"><colgroup><col style="width:120px"><col style="width:135px"><col style="width:180px"><col style="width:85px"><col><col style="width:150px"><col style="width:250px"></colgroup><thead><tr><th>วันที่</th><th>รายการ</th><th>บิล</th><th>เวลา</th><th>สินค้า</th><th>เข้า-ออก</th><th>คลังสินค้า</th></tr></thead><tbody>${pageGroups.map(inventoryMovementGroupRowHtml).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายการเคลื่อนไหวในช่วงเวลาหรือสินค้าที่เลือก</td></tr>'}</tbody></table></div>
     ${pagerHtml(filter.page,totalPages,'movement-page')}

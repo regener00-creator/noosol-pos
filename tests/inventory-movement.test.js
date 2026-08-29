@@ -93,6 +93,7 @@ assert.match(html, /id="movementDirection"/);
 assert.match(html, /id="movementCategory"/);
 assert.match(html, /id="movementBrand"/);
 assert.match(html, /id="movementSearch"/);
+assert.match(html, /id="movementAddCategoryBtn"[^]*?<div class="movement-report-search"><input id="movementSearch"/, 'ช่องค้นหาต้องอยู่ต่อจากปุ่มเลือกสินค้าในหมวดเดียวกัน');
 assert.match(html, /<th>วันที่<\/th><th>รายการ<\/th><th>บิล<\/th><th>เวลา<\/th><th>สินค้า<\/th><th>เข้า-ออก<\/th><th>คลังสินค้า<\/th>/);
 assert.match(html, /data-movement-group=/);
 assert.match(html, /movement-product-preview-more/);
