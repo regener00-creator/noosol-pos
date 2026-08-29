@@ -217,9 +217,11 @@
   .unitrow-eq input,.unitrow-eq select{width:auto;}
   .unitrow .u_del{width:26px;height:26px;border:1px solid var(--border);background:var(--danger-soft);color:var(--danger);border-radius:7px;cursor:pointer;font-size:15px;line-height:1;}
   @media (max-width:960px){ .unitrow{grid-template-columns:1fr;} .unitrow-eq{flex-wrap:wrap;} }
-  .product-main-unit-grid{display:grid;grid-template-columns:minmax(150px,1.25fr) repeat(3,minmax(105px,1fr)) minmax(155px,1.25fr);gap:14px;margin-top:14px;}
+  .product-main-unit-grid{display:grid;grid-template-columns:minmax(120px,1.2fr) repeat(3,minmax(75px,.9fr)) minmax(120px,1.2fr);gap:12px;}
+  .product-main-unit-grid.has-base-unit-action{grid-template-columns:minmax(120px,1.15fr) repeat(3,minmax(70px,.85fr)) minmax(120px,1.15fr) minmax(120px,.9fr);}
+  .product-base-unit-action{align-self:end;height:38px;width:100%;}
   .product-extra-unit-toggle{margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
-  @media (max-width:960px){.product-main-unit-grid{grid-template-columns:1fr;}}
+  @media (max-width:960px){.product-main-unit-grid,.product-main-unit-grid.has-base-unit-action{grid-template-columns:1fr;}.product-base-unit-action{height:40px;}}
   .modal-overlay{position:fixed;inset:0;background:rgba(10,25,22,0.45);display:flex;align-items:center;justify-content:center;z-index:100;}
   .modal{background:var(--surface);border-radius:14px;width:380px;max-width:90vw;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 20px 50px rgba(0,0,0,0.3);overflow:hidden;}
   .modal-head{display:flex;justify-content:space-between;align-items:center;padding:16px 18px 10px;}
@@ -6324,13 +6326,14 @@ function renderProductForm(){
       </div>
     </div>
 
-    <div class="panel"><div><h3>หน่วยและราคา</h3><div class="psub" style="margin:0;">กำหนดหน่วยหลัก ราคาขาย ทุน และจำนวนคงเหลือ รวมถึงหน่วยขายเพิ่มเติมของสินค้านี้</div></div>
-      <div class="product-main-unit-grid">
-        <div class="field"><label>หน่วยสินค้าหลัก <span class="req">*</span></label>${renderedMainUnitSelect}${isNew?'':`<button class="btn ghost small" type="button" id="changeBaseUnitBtn" style="margin-top:6px;">เปลี่ยนหน่วยหลัก</button>`}</div>
+    <div class="panel product-pricing-panel">
+      <div class="product-main-unit-grid ${isNew?'':'has-base-unit-action'}">
+        <div class="field"><label>หน่วยสินค้าหลัก <span class="req">*</span></label>${renderedMainUnitSelect}</div>
         <div class="field"><label>ราคาขาย <span class="req">*</span></label><input id="f_price" class="no-spin" type="number" value="${p.price}" placeholder="0.00"></div>
         ${canViewCost?`<div class="field"><label>ราคาทุน</label><input id="f_cost" class="no-spin" type="number" value="${p.cost!==undefined?p.cost:''}" placeholder="0.00"></div>`:`<input id="f_cost" type="hidden" value="${p.cost!==undefined?p.cost:''}">`}
         <div class="field"><label>จำนวนคงเหลือ</label><input id="f_stock" class="no-spin" type="number" value="${p.stock}" placeholder="0"></div>
         <div class="field"><label>เลขบาร์โค้ด</label><input id="f_barcode" value="${p.barcode}"></div>
+        ${isNew?'':'<button class="btn ghost small product-base-unit-action" type="button" id="changeBaseUnitBtn">เปลี่ยนหน่วยหลัก</button>'}
       </div>
       <div class="paneltoggle product-extra-unit-toggle"><div><h3 style="font-size:14px;">หน่วยสินค้าเพิ่มเติม</h3><div class="psub" style="margin:0;">เช่น 1 ซอง = 4 เม็ด หรือ 1 กล่อง = 25 ซอง มีผลต่อราคาและการตัดสต๊อกตามหน่วยที่ขาย</div></div>
       <label class="switch"><input type="checkbox" id="f_multiunit" ${(isNew?true:p.multiunit)?'checked':''}><span class="slider"></span></label></div>

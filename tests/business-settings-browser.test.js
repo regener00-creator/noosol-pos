@@ -86,7 +86,8 @@ const browserExecutable = [
   assert.equal(await page.locator('#f_wh').count(),0);
   assert.equal(await page.locator('#f_expiry').count(),0);
   assert.equal(await page.locator('label', {hasText:'ยี่ห้อ/แบรนด์'}).count(),1);
-  assert.equal(await page.locator('h3', {hasText:'หน่วยและราคา'}).count(),1);
+  assert.equal(await page.locator('h3', {hasText:'หน่วยและราคา'}).count(),0);
+  assert.equal(await page.getByText('กำหนดหน่วยหลัก ราคาขาย ทุน และจำนวนคงเหลือ รวมถึงหน่วยขายเพิ่มเติมของสินค้านี้', {exact:true}).count(),0);
   assert.equal(await page.locator('#f_stock').isEditable(),true);
   const productFieldRows=await page.evaluate(() => {
     const top=id=>Math.round(document.querySelector(id).closest('.field').getBoundingClientRect().top);
@@ -99,6 +100,12 @@ const browserExecutable = [
   assert.equal(new Set(productFieldRows.category).size,1,'หมวดสินค้า แบรนด์ และ VAT ต้องอยู่บรรทัดเดียวกัน');
   assert.equal(new Set(productFieldRows.identity).size,1,'SKU และชื่อสินค้าต้องอยู่บรรทัดเดียวกัน');
   assert.equal(new Set(productFieldRows.unit).size,1,'หน่วย ราคา ทุน คงเหลือ และบาร์โค้ดต้องอยู่บรรทัดเดียวกัน');
+  const desktopBaseUnitAction=await page.evaluate(() => {
+    const barcode=document.querySelector('#f_barcode').getBoundingClientRect();
+    const button=document.querySelector('#changeBaseUnitBtn').getBoundingClientRect();
+    return {sameTop:Math.abs(barcode.top-button.top)<3,afterBarcode:button.left>barcode.right};
+  });
+  assert.deepEqual(desktopBaseUnitAction,{sameTop:true,afterBarcode:true},'ปุ่มเปลี่ยนหน่วยหลักต้องอยู่ต่อจากเลขบาร์โค้ด');
   await page.screenshot({path:path.join(os.tmpdir(),'pepos-product-form-browser.png'),fullPage:true});
   await page.setViewportSize({width:390,height:844});
   const mobileProductFieldRows=await page.evaluate(() => {
@@ -112,6 +119,12 @@ const browserExecutable = [
   assert.equal(new Set(mobileProductFieldRows.category).size,3,'ช่องหมวดสินค้าบนมือถือต้องเรียงลงคนละบรรทัด');
   assert.equal(new Set(mobileProductFieldRows.identity).size,2,'SKU และชื่อสินค้าบนมือถือต้องเรียงลงคนละบรรทัด');
   assert.equal(new Set(mobileProductFieldRows.unit).size,5,'ช่องหน่วยและราคาบนมือถือต้องเรียงลงคนละบรรทัด');
+  const mobileBaseUnitAction=await page.evaluate(() => {
+    const barcode=document.querySelector('#f_barcode').getBoundingClientRect();
+    const button=document.querySelector('#changeBaseUnitBtn').getBoundingClientRect();
+    return {belowBarcode:button.top>barcode.bottom,fullWidth:Math.abs(button.width-barcode.width)<2};
+  });
+  assert.deepEqual(mobileBaseUnitAction,{belowBarcode:true,fullWidth:true},'ปุ่มเปลี่ยนหน่วยหลักบนมือถือต้องอยู่ใต้เลขบาร์โค้ดและกว้างเต็มแถว');
   await page.screenshot({path:path.join(os.tmpdir(),'pepos-product-form-mobile-browser.png'),fullPage:true});
   await page.setViewportSize({width:1440,height:1000});
 

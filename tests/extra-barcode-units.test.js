@@ -43,20 +43,23 @@ assert.ok(rowHtml.indexOf('class="eb_unit"') < rowHtml.indexOf('class="eb_code"'
 const formStart = html.indexOf('function renderProductForm()');
 const formEnd = html.indexOf('function renderWarehouse()', formStart);
 const formSource = html.slice(formStart, formEnd);
-const productDataPanel = formSource.slice(formSource.indexOf('ข้อมูลสินค้า'), formSource.indexOf('หน่วยและราคา'));
-const unitPanel = formSource.slice(formSource.indexOf('หน่วยและราคา'), formSource.indexOf('บาร์โค้ดเพิ่มเติม'));
+const productPricingPanelStart = formSource.indexOf('<div class="panel product-pricing-panel">');
+const productDataPanel = formSource.slice(formSource.indexOf('ข้อมูลสินค้า'), productPricingPanelStart);
+const unitPanel = formSource.slice(productPricingPanelStart, formSource.indexOf('บาร์โค้ดเพิ่มเติม'));
 for (const id of ['f_price', 'f_cost', 'f_stock']) {
   assert.doesNotMatch(productDataPanel, new RegExp(`id=["']${id}["']`), `${id} ต้องย้ายออกจากข้อมูลสินค้า`);
-  assert.match(unitPanel, new RegExp(`id=["']${id}["']`), `${id} ต้องอยู่ในส่วนหน่วยและราคา`);
+  assert.match(unitPanel, new RegExp(`id=["']${id}["']`), `${id} ต้องอยู่ในก้อนข้อมูลหน่วยและราคา`);
 }
 assert.doesNotMatch(productDataPanel, /renderedMainUnitSelect/, 'หน่วยหลักต้องย้ายออกจากข้อมูลสินค้า');
-assert.match(unitPanel, /renderedMainUnitSelect/, 'หน่วยหลักต้องอยู่ในส่วนหน่วยและราคา');
+assert.match(unitPanel, /renderedMainUnitSelect/, 'หน่วยหลักต้องอยู่ในก้อนข้อมูลหน่วยและราคา');
 assert.match(formSource, /extraBarcodeRowHtml\(entry,extraBarcodeAvailableUnits\(p\),p\.unit\)/);
 assert.doesNotMatch(formSource, /<h3>ประเภทสินค้า<\/h3>/, 'ต้องไม่แสดงก้อนประเภทสินค้า');
 assert.doesNotMatch(formSource, /id=["']f_wh["']/, 'ต้องไม่แสดงคลังที่แก้ไขไม่ได้');
 assert.doesNotMatch(formSource, /id=["']f_expiry["']/, 'วันหมดอายุต้องจัดการในแต่ละ LOT');
 assert.match(formSource, /<label>ยี่ห้อ\/แบรนด์<\/label>/, 'ต้องใช้ชื่อยี่ห้อ/แบรนด์');
-assert.match(formSource, /<h3>หน่วยและราคา<\/h3>/, 'ต้องใช้หัวข้อหน่วยและราคา');
+assert.doesNotMatch(formSource, /<h3>หน่วยและราคา<\/h3>/, 'ต้องไม่แสดงหัวข้อหน่วยและราคา');
+assert.doesNotMatch(formSource, /กำหนดหน่วยหลัก ราคาขาย ทุน และจำนวนคงเหลือ รวมถึงหน่วยขายเพิ่มเติมของสินค้านี้/, 'ต้องไม่แสดงคำอธิบายก้อนหน่วยและราคา');
+assert.ok(unitPanel.indexOf('id="changeBaseUnitBtn"') > unitPanel.indexOf('id="f_barcode"'), 'ปุ่มเปลี่ยนหน่วยหลักต้องอยู่ต่อจากเลขบาร์โค้ด');
 assert.match(formSource, /\$\{isNew\?'<h1>เพิ่มบริการหรือสินค้า<\/h1>':''\}/, 'หัวข้อใหญ่ต้องแสดงเฉพาะหน้าเพิ่มสินค้า');
 assert.doesNotMatch(formSource, /<h1>แก้ไขสินค้า<\/h1>/, 'หน้าแก้ไขต้องไม่แสดงหัวข้อใหญ่แก้ไขสินค้า');
 assert.doesNotMatch(formSource, /แก้ไขบริการหรือสินค้า/, 'ต้องไม่ใช้ชื่อหน้าแก้ไขเดิม');
