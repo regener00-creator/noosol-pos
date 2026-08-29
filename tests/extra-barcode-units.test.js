@@ -59,6 +59,9 @@ assert.doesNotMatch(formSource, /id=["']f_expiry["']/, 'วันหมดอา
 assert.match(formSource, /<label>ยี่ห้อ\/แบรนด์<\/label>/, 'ต้องใช้ชื่อยี่ห้อ/แบรนด์');
 assert.doesNotMatch(formSource, /<h3>หน่วยและราคา<\/h3>/, 'ต้องไม่แสดงหัวข้อหน่วยและราคา');
 assert.doesNotMatch(formSource, /กำหนดหน่วยหลัก ราคาขาย ทุน และจำนวนคงเหลือ รวมถึงหน่วยขายเพิ่มเติมของสินค้านี้/, 'ต้องไม่แสดงคำอธิบายก้อนหน่วยและราคา');
+assert.doesNotMatch(formSource, /หน่วยสินค้าหลัก: <b/, 'ต้องไม่แสดงคำอธิบายหน่วยหลักซ้ำเหนือรายการหน่วยเพิ่มเติม');
+assert.doesNotMatch(formSource, /เช่น 1 ซอง = 4 เม็ด หรือ 1 กล่อง = 25 ซอง/, 'ต้องไม่แสดงคำอธิบายเดิมใต้หัวข้อหน่วยสินค้าเพิ่มเติม');
+assert.match(formSource, /หน่วยสินค้าเพิ่มเติม <span[^>]*>• ตัวอย่าง: 1 กล่อง = 10 แผง, 1 ลัง = 10 กล่อง<\/span>/, 'ตัวอย่างต้องอยู่ต่อท้ายหัวข้อหน่วยสินค้าเพิ่มเติม');
 assert.ok(unitPanel.indexOf('id="changeBaseUnitBtn"') > unitPanel.indexOf('id="f_barcode"'), 'ปุ่มเปลี่ยนหน่วยหลักต้องอยู่ต่อจากเลขบาร์โค้ด');
 assert.match(unitPanel, /class="btn primary small product-base-unit-action"[^>]*id="changeBaseUnitBtn"/, 'ปุ่มเปลี่ยนหน่วยหลักต้องเป็นปุ่มสีน้ำตาล');
 assert.doesNotMatch(formSource, /<h1>เพิ่มบริการหรือสินค้า<\/h1>/, 'หน้าเพิ่มสินค้าต้องไม่แสดงหัวข้อใหญ่');

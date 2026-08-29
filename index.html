@@ -6334,10 +6334,9 @@ function renderProductForm(){
         <div class="field"><label>เลขบาร์โค้ด</label><input id="f_barcode" value="${p.barcode}"></div>
         ${isNew?'':'<button class="btn primary small product-base-unit-action" type="button" id="changeBaseUnitBtn">เปลี่ยนหน่วยหลัก</button>'}
       </div>
-      <div class="paneltoggle product-extra-unit-toggle"><div><h3 style="font-size:14px;">หน่วยสินค้าเพิ่มเติม</h3><div class="psub" style="margin:0;">เช่น 1 ซอง = 4 เม็ด หรือ 1 กล่อง = 25 ซอง มีผลต่อราคาและการตัดสต๊อกตามหน่วยที่ขาย</div></div>
+      <div class="paneltoggle product-extra-unit-toggle"><div><h3 style="font-size:14px;">หน่วยสินค้าเพิ่มเติม <span class="psub" style="font-weight:400;">• ตัวอย่าง: 1 กล่อง = 10 แผง, 1 ลัง = 10 กล่อง</span></h3></div>
       <label class="switch"><input type="checkbox" id="f_multiunit" ${(isNew?true:p.multiunit)?'checked':''}><span class="slider"></span></label></div>
       <div id="multiunitBody" style="${(isNew?true:p.multiunit)?'':'display:none;'}margin-top:14px;">
-        <div style="font-size:12.5px;color:var(--text-muted);margin-bottom:10px;">หน่วยสินค้าหลัก: <b style="color:var(--text);">${p.unit||'(ยังไม่ระบุ)'}</b> — ตัวอย่าง: 1 กล่อง = 10 แผง, 1 ลัง = 10 กล่อง</div>
         <div id="unitRows">${(()=>{ const rawRows=(p.units&&p.units.length?p.units:[{sub:'',per:'',base:'',price:'',cost:'',barcode:''}]); const rows=computeUnitRowsWithStock(rawRows, p.unit, Number(p.stock)||0); const names=rows.map(r=>r.sub); return rows.map(u=>unitRowHtml(u, p.unit, names)).join(''); })()}</div>
         <button class="btn ghost small" id="addUnitBtn" style="margin-top:8px;">+ เพิ่มหน่วยสินค้า</button>
       </div>
