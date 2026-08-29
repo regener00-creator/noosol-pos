@@ -27,6 +27,9 @@ assert.match(source, /class="product-group-brand \$\{active\?'active':''\}" data
 assert.doesNotMatch(source, /tree-cat-row|tree-brand-flyout/, 'หน้ารายการสินค้าต้องไม่ใช้โครงสร้างหมวดหลักแนวตั้งเดิม');
 assert.match(html, /\.product-list-search\{[^}]*max-width:none;[^}]*width:100%/);
 assert.match(html, /\.product-list-actions\{[^}]*display:flex/);
+assert.match(html, /\.product-group-category\{[^}]*background:#fff;[^}]*color:#76574C;/, 'หมวดสินค้าหลักทุกปุ่มต้องเป็นพื้นขาวและตัวอักษรน้ำตาล');
+assert.match(html, /\.product-group-category-count\{[^}]*background:#F3EBE8;[^}]*color:#76574C;/, 'จำนวนสินค้าในหมวดต้องใช้ป้ายสีน้ำตาลอ่อน');
+assert.match(html, /\.product-group-category\.active\{[^}]*border-color:#C6AAA0;/, 'หมวดที่เลือกต้องยังมีสถานะแยกให้สังเกตได้');
 assert.doesNotMatch(source, /product-head-search/);
 assert.doesNotMatch(source, /pagehead product-pagehead/);
 assert.doesNotMatch(source, /<th>บาร์โค้ด<\/th>/, 'หน้ารายการสินค้าต้องไม่แสดงคอลัมน์บาร์โค้ด');
