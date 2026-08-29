@@ -47,6 +47,7 @@ assert.ok(inventoryReportStart >= 0 && inventoryReportEnd > inventoryReportStart
 assert.doesNotMatch(inventoryReportSource, /<h1>รายงานสินค้าคงเหลือ<\/h1>/, 'ต้องลบชื่อรายงานสินค้าคงเหลือออกจากพื้นที่เนื้อหา');
 assert.match(html, /class="pagehead topbar-action-source"[^]*?id="resetStockReportBtn"[^]*?id="printStockReportBtn"/, 'ปุ่มรายงานสินค้าคงเหลือต้องยังอยู่บน TOPBAR');
 assert.match(html, /class="pagehead topbar-action-source"[^]*?id="saveBusinessSettingsBtn"/, 'ปุ่มบันทึกข้อมูลธุรกิจต้องยังอยู่บน TOPBAR');
+assert.match(html, /<div class="toolbar"><h1[^>]*>รายชื่อผู้แทน <span class="page-title-meta">· \$\{list\.length\} รายชื่อ<\/span><\/h1><div class="searchbar">/, 'ชื่อหน้ารายชื่อผู้แทนและจำนวนต้องอยู่แถวเดียวกับช่องค้นหา');
 
 for (const buttonId of ['auditLogRefresh', 'newWarehouseBtn', 'addSystemUserBtn', 'printExpiryBtn', 'printLowStockBtn']) {
   assert.match(html, new RegExp(`class="pagehead topbar-action-source"[^]*?id="${buttonId}"`), `ปุ่ม ${buttonId} ต้องยังส่งไป TOPBAR ได้`);
