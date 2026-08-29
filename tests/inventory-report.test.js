@@ -21,6 +21,13 @@ assert.equal(context.stockReportProductMatchesFilter(product,{wh:'2',category:'�
 
 assert.match(html, /id="srWarehouseSelect"/);
 assert.match(html, />ทุกคลัง<\/option>/);
+assert.match(html, /function stockReportSelectedItemsHtml\(\)/, 'ต้องมีตัวสร้างกล่องสินค้าที่เลือก');
+assert.match(html, /สินค้าที่เลือก \$\{stockReportItems\.length\} รายการ/, 'กล่องต้องแสดงจำนวนสินค้าที่เลือก');
+assert.match(html, /class="stock-report-selected-list"/, 'รายการสินค้าที่เลือกต้องอยู่ในพื้นที่เลื่อนภายใน');
+assert.match(html, /data-sr-chip-remove="\$\{row\.pid\}"/, 'สินค้าแต่ละรายการต้องลบออกจากตัวกรองได้');
+assert.match(html, /id="srClearSelected">ล้างทั้งหมด<\/button>/, 'ต้องมีปุ่มล้างสินค้าที่เลือกทั้งหมด');
+assert.match(html, /id="stockReportSelectedWrap">\$\{stockReportSelectedItemsHtml\(\)\}/, 'กล่องสินค้าที่เลือกต้องแสดงในหน้ารายงานสินค้าคงเหลือ');
+assert.match(html, /srSelectedWrap\.innerHTML=stockReportSelectedItemsHtml\(\)/, 'กล่องสินค้าที่เลือกต้องอัปเดตพร้อมตาราง');
 const renderStart = html.indexOf('function renderRInventory(');
 const rowsStart = html.indexOf('function stockReportRowsHtml(', renderStart);
 const rowsEnd = html.indexOf('function renderRReceivable(', rowsStart);

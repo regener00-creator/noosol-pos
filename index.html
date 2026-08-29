@@ -992,6 +992,13 @@
   .movement-product-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #D9CAC4;border-radius:18px;background:var(--primary-soft);color:var(--primary-dark);padding:4px 8px 4px 10px;font:500 12px 'Sarabun',sans-serif;}
   .movement-product-chip button{border:0;background:transparent;color:inherit;padding:0;cursor:pointer;font-size:16px;line-height:1;}
   .movement-clear-products{border:0;background:transparent;color:var(--danger);font:600 12px 'Sarabun',sans-serif;cursor:pointer;white-space:nowrap;padding:5px 2px;}
+  /* รายงานสินค้าคงเหลือ: รายการสินค้าที่เลือกในตัวกรอง */
+  .stock-report-selected-products{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);}
+  .stock-report-selected-label{font-size:12.5px;font-weight:600;color:var(--text-muted);white-space:nowrap;padding-top:5px;}
+  .stock-report-selected-list{display:flex;gap:6px;flex-wrap:wrap;align-content:flex-start;flex:1;max-height:92px;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;}
+  .stock-report-product-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #D9CAC4;border-radius:18px;background:var(--primary-soft);color:var(--primary-dark);padding:4px 8px 4px 10px;font:500 12px 'Sarabun',sans-serif;}
+  .stock-report-product-chip button{border:0;background:transparent;color:inherit;padding:0;cursor:pointer;font-size:16px;line-height:1;}
+  .stock-report-clear-products{border:0;background:transparent;color:var(--danger);font:600 12px 'Sarabun',sans-serif;cursor:pointer;white-space:nowrap;padding:5px 2px;}
   .movement-report-table{min-width:1060px;table-layout:fixed;}
   .movement-report-table th,.movement-report-table td{text-align:center;vertical-align:middle;}
   .movement-report-table td.movement-product-cell{text-align:left;line-height:1.45;}
@@ -9711,6 +9718,10 @@ function renderREmployee(){
 function stockReportProductMatchesFilter(product,filter=stockReportCatFilter){
   return (!filter.category||product?.category===filter.category)&&(!filter.brand||product?.brand===filter.brand);
 }
+function stockReportSelectedItemsHtml(){
+  if(!stockReportItems.length) return '';
+  return `<div class="stock-report-selected-products"><span class="stock-report-selected-label">สินค้าที่เลือก ${stockReportItems.length} รายการ</span><div class="stock-report-selected-list">${stockReportItems.map(row=>`<span class="stock-report-product-chip">${escapeHtml(row.name)}<button type="button" data-sr-chip-remove="${row.pid}" aria-label="ลบ ${escapeHtml(row.name)}">×</button></span>`).join('')}</div><button type="button" class="stock-report-clear-products" id="srClearSelected">ล้างทั้งหมด</button></div>`;
+}
 function renderRInventory(){
   const catf=stockReportCatFilter;
   const selectedWarehouseValue=String(catf.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
@@ -9730,6 +9741,7 @@ function renderRInventory(){
       <div class="rpf-item"><select id="srBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(b=>`<option value="${escapeHtml(b)}" ${catf.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select></div>
       <button class="btn ghost" id="srAddByCategoryBtn" ${(catf.wh||catf.category||catf.brand)?'':'disabled'}>เลือกสินค้าในตัวกรองนี้${(catf.wh||catf.category||catf.brand)?` (${matchCount})`:''}</button>
     </div>
+    <div id="stockReportSelectedWrap">${stockReportSelectedItemsHtml()}</div>
     <div style="position:relative;margin-bottom:14px;">
       <input id="srInput" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." style="width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;" autocomplete="off">
       <div id="srResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div>
@@ -10924,9 +10936,11 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const srInput=document.getElementById('srInput');
   const srResults=document.getElementById('srResults');
   const srTbody=document.getElementById('srTbody');
+  const srSelectedWrap=document.getElementById('stockReportSelectedWrap');
   if(srInput && srTbody){
     const refreshSrTable=()=>{
       srTbody.innerHTML=stockReportRowsHtml();
+      if(srSelectedWrap) srSelectedWrap.innerHTML=stockReportSelectedItemsHtml();
       srTbody.querySelectorAll('[data-sr-remove]').forEach(btn=>{
         btn.addEventListener('click', ()=>{
           const pid=Number(btn.dataset.srRemove);
@@ -10936,6 +10950,18 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       });
     };
     refreshSrTable();
+    if(srSelectedWrap) srSelectedWrap.addEventListener('click', event=>{
+      const removeButton=event.target.closest('[data-sr-chip-remove]');
+      if(removeButton){
+        stockReportItems=stockReportItems.filter(row=>row.pid!==Number(removeButton.dataset.srChipRemove));
+        refreshSrTable();
+        return;
+      }
+      if(event.target.closest('#srClearSelected')){
+        stockReportItems=[];
+        refreshSrTable();
+      }
+    });
     const addSrProduct=(p)=>{
       if(stockReportItems.some(r=>r.pid===p.id)) return;
       const warehouseValue=String(stockReportCatFilter.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
