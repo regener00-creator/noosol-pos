@@ -169,6 +169,7 @@
   .prodrow.r3{grid-template-columns:repeat(3,1fr);}
   .prodrow.r4{grid-template-columns:repeat(4,1fr);}
   .prodrow.namerow{grid-template-columns:9fr 2fr 2fr 2fr;}
+  .product-identity-grid{grid-template-columns:minmax(180px,1fr) minmax(300px,2fr);}
   .barcode-cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;}
   .barcode-col-head{font-size:13px;font-weight:600;margin-bottom:4px;color:var(--text);}
   .panel h3.prodform-gap{margin-bottom:20px;}
@@ -189,7 +190,7 @@
   .product-status-badge{display:inline-flex;align-items:center;border-radius:999px;padding:3px 9px;margin-left:8px;background:#eef1f4;color:var(--text-muted);font-size:11px;font-weight:700;vertical-align:middle;}
   .product-inactive-row{background:#fafbfc;}
   .product-inactive-row td:not(:last-child){color:#7b8491;}
-  @media (max-width:960px){ .prodrow.r2,.prodrow.r3,.prodrow.r4,.prodrow.namerow{grid-template-columns:1fr;} .barcode-cols{grid-template-columns:1fr;gap:20px;} }
+  @media (max-width:960px){ .prodrow.r2,.prodrow.r3,.prodrow.r4,.prodrow.namerow,.product-identity-grid{grid-template-columns:1fr;} .barcode-cols{grid-template-columns:1fr;gap:20px;} }
   .field{display:flex;flex-direction:column;gap:5px;}
   .field label{font-size:12.5px;font-weight:600;color:var(--text);}
   .field .req{color:var(--danger);}
@@ -216,7 +217,7 @@
   .unitrow-eq input,.unitrow-eq select{width:auto;}
   .unitrow .u_del{width:26px;height:26px;border:1px solid var(--border);background:var(--danger-soft);color:var(--danger);border-radius:7px;cursor:pointer;font-size:15px;line-height:1;}
   @media (max-width:960px){ .unitrow{grid-template-columns:1fr;} .unitrow-eq{flex-wrap:wrap;} }
-  .product-main-unit-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr;gap:14px;margin-top:14px;}
+  .product-main-unit-grid{display:grid;grid-template-columns:minmax(150px,1.25fr) repeat(3,minmax(105px,1fr)) minmax(155px,1.25fr);gap:14px;margin-top:14px;}
   .product-extra-unit-toggle{margin-top:16px;padding-top:16px;border-top:1px solid var(--border);}
   @media (max-width:960px){.product-main-unit-grid{grid-template-columns:1fr;}}
   .modal-overlay{position:fixed;inset:0;background:rgba(10,25,22,0.45);display:flex;align-items:center;justify-content:center;z-index:100;}
@@ -6304,23 +6305,18 @@ function renderProductForm(){
     <div class="panel product-status-panel ${isProductActive(p)?'':'inactive'}"><div class="paneltoggle"><div><h3>สถานะสินค้า</h3><div class="psub" style="margin:0;">ปิดใช้งานเมื่อไม่ต้องการขายหรือเลือกสินค้านี้ในเอกสารใหม่ รายงานและประวัติเดิมยังคงอยู่</div></div><label class="switch" title="เปิดหรือปิดใช้งานสินค้า"><input type="checkbox" id="f_active" ${isProductActive(p)?'checked':''}><span class="slider"></span></label></div></div>
 
     <div class="panel"><h3 class="prodform-gap">หมวดสินค้า</h3>
-      <div class="prodrow r2">
+      <div class="prodrow r3 product-category-grid">
         <div class="field"><label>หมวดสินค้าหลัก</label>${comboSelect('f_category', categories, p.category, 'ระบุหมวดสินค้า')}</div>
         <div class="field"><label>ยี่ห้อ/แบรนด์</label>${comboSelect('f_brand', brands, p.brand||'ทั่วไป', 'ระบุยี่ห้อ/แบรนด์')}</div>
+        <div class="field"><label>ภาษีมูลค่าเพิ่ม (VAT)</label>${isBusinessVatRegistered()?`<select id="f_vat"><option value="incl" ${(p.vat||'incl')==='incl'?'selected':''}>VAT 7% — ราคาขายรวม VAT แล้ว</option><option value="excl" ${p.vat==='excl'?'selected':''}>VAT 7% — ราคาขายยังไม่รวม VAT</option><option value="none" ${p.vat==='none'?'selected':''}>ยกเว้น VAT</option></select>`:`<input id="f_vat" type="hidden" value="${normalizeProductVatMode(p.vat)}"><input value="ไม่คิด VAT — กิจการยังไม่จด VAT" readonly>`}</div>
       </div>
     </div>
 
     <div class="panel"><h3 class="prodform-gap">ข้อมูลสินค้า</h3>
       <div class="prodform">
-        <div class="prodrow r2">
+        <div class="prodrow product-identity-grid">
           <div class="field"><label>รหัสสินค้า (SKU)</label><input id="f_sku" value="${p.sku||''}"></div>
-          <div class="field"><label>เลขบาร์โค้ดหลัก</label><input id="f_barcode" value="${p.barcode}"></div>
-        </div>
-        <div class="prodrow r1">
           <div class="field"><label>ชื่อสินค้า <span class="req">*</span></label><input id="f_name" value="${p.name}"></div>
-        </div>
-        <div class="prodrow r1">
-          <div class="field"><label>ภาษีมูลค่าเพิ่ม (VAT)</label>${isBusinessVatRegistered()?`<select id="f_vat"><option value="incl" ${(p.vat||'incl')==='incl'?'selected':''}>VAT 7% — ราคาขายรวม VAT แล้ว</option><option value="excl" ${p.vat==='excl'?'selected':''}>VAT 7% — ราคาขายยังไม่รวม VAT</option><option value="none" ${p.vat==='none'?'selected':''}>ยกเว้น VAT</option></select>`:`<input id="f_vat" type="hidden" value="${normalizeProductVatMode(p.vat)}"><input value="ไม่คิด VAT — กิจการยังไม่จด VAT" readonly>`}</div>
         </div>
         <div class="prodrow r1">
           <div class="field"><label>รายละเอียดเพิ่มเติม</label><textarea id="f_desc" rows="2">${p.desc||''}</textarea></div>
@@ -6334,6 +6330,7 @@ function renderProductForm(){
         <div class="field"><label>ราคาขาย <span class="req">*</span></label><input id="f_price" class="no-spin" type="number" value="${p.price}" placeholder="0.00"></div>
         ${canViewCost?`<div class="field"><label>ราคาทุน</label><input id="f_cost" class="no-spin" type="number" value="${p.cost!==undefined?p.cost:''}" placeholder="0.00"></div>`:`<input id="f_cost" type="hidden" value="${p.cost!==undefined?p.cost:''}">`}
         <div class="field"><label>จำนวนคงเหลือ</label><input id="f_stock" class="no-spin" type="number" value="${p.stock}" placeholder="0"></div>
+        <div class="field"><label>เลขบาร์โค้ด</label><input id="f_barcode" value="${p.barcode}"></div>
       </div>
       <div class="paneltoggle product-extra-unit-toggle"><div><h3 style="font-size:14px;">หน่วยสินค้าเพิ่มเติม</h3><div class="psub" style="margin:0;">เช่น 1 ซอง = 4 เม็ด หรือ 1 กล่อง = 25 ซอง มีผลต่อราคาและการตัดสต๊อกตามหน่วยที่ขาย</div></div>
       <label class="switch"><input type="checkbox" id="f_multiunit" ${(isNew?true:p.multiunit)?'checked':''}><span class="slider"></span></label></div>

@@ -88,7 +88,32 @@ const browserExecutable = [
   assert.equal(await page.locator('label', {hasText:'ยี่ห้อ/แบรนด์'}).count(),1);
   assert.equal(await page.locator('h3', {hasText:'หน่วยและราคา'}).count(),1);
   assert.equal(await page.locator('#f_stock').isEditable(),true);
+  const productFieldRows=await page.evaluate(() => {
+    const top=id=>Math.round(document.querySelector(id).closest('.field').getBoundingClientRect().top);
+    return {
+      category:[top('#f_category'),top('#f_brand'),top('#f_vat')],
+      identity:[top('#f_sku'),top('#f_name')],
+      unit:[top('#f_unit'),top('#f_price'),top('#f_cost'),top('#f_stock'),top('#f_barcode')],
+    };
+  });
+  assert.equal(new Set(productFieldRows.category).size,1,'หมวดสินค้า แบรนด์ และ VAT ต้องอยู่บรรทัดเดียวกัน');
+  assert.equal(new Set(productFieldRows.identity).size,1,'SKU และชื่อสินค้าต้องอยู่บรรทัดเดียวกัน');
+  assert.equal(new Set(productFieldRows.unit).size,1,'หน่วย ราคา ทุน คงเหลือ และบาร์โค้ดต้องอยู่บรรทัดเดียวกัน');
   await page.screenshot({path:path.join(os.tmpdir(),'pepos-product-form-browser.png'),fullPage:true});
+  await page.setViewportSize({width:390,height:844});
+  const mobileProductFieldRows=await page.evaluate(() => {
+    const top=id=>Math.round(document.querySelector(id).closest('.field').getBoundingClientRect().top);
+    return {
+      category:[top('#f_category'),top('#f_brand'),top('#f_vat')],
+      identity:[top('#f_sku'),top('#f_name')],
+      unit:[top('#f_unit'),top('#f_price'),top('#f_cost'),top('#f_stock'),top('#f_barcode')],
+    };
+  });
+  assert.equal(new Set(mobileProductFieldRows.category).size,3,'ช่องหมวดสินค้าบนมือถือต้องเรียงลงคนละบรรทัด');
+  assert.equal(new Set(mobileProductFieldRows.identity).size,2,'SKU และชื่อสินค้าบนมือถือต้องเรียงลงคนละบรรทัด');
+  assert.equal(new Set(mobileProductFieldRows.unit).size,5,'ช่องหน่วยและราคาบนมือถือต้องเรียงลงคนละบรรทัด');
+  await page.screenshot({path:path.join(os.tmpdir(),'pepos-product-form-mobile-browser.png'),fullPage:true});
+  await page.setViewportSize({width:1440,height:1000});
 
   await page.evaluate(() => {
     activeWarehouseId=warehouses[0]?.id||1;
