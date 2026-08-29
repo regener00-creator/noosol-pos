@@ -4216,7 +4216,7 @@ const NAV = [
     ['settingsbusiness','ตั้งค่าธุรกิจ','<path d="M4 21v-9l8-5 8 5v9"/><path d="M9 21v-6h6v6"/>'],
     ['warehouse','คลังสินค้า / สาขา','<path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/>'],
     ['settingsusers','เพิ่มผู้ใช้งาน','<path d="M15 19a6 6 0 0 0-12 0"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M16 11h6"/>'],
-    ['auditlog','Audit Log','<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/><path d="M8 4V2M16 4V2"/>'],
+    ['auditlog','AUDIT LOG','<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/><path d="M8 4V2M16 4V2"/>'],
     ['settingssystem','ตั้งค่าระบบ','<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'],
   ]},
 ];
@@ -9932,7 +9932,7 @@ async function loadAuditLogsFromSupabase(force=false){
     auditLogRows=Array.isArray(data)?data:[];
     auditLogLoaded=true;
   }catch(error){
-    console.error('โหลด Audit Log ไม่สำเร็จ',error);
+    console.error('โหลด AUDIT LOG ไม่สำเร็จ',error);
     auditLogError=error?.message||'โหลดประวัติการทำงานไม่สำเร็จ';
   }finally{
     auditLogLoading=false;
@@ -9974,7 +9974,7 @@ function auditDataHtml(data){
   return Object.entries(data).slice(0,12).map(([key,value])=>`<div><b>${escapeHtml(auditFieldLabel(key))}</b> ${escapeHtml(auditValueText(value))}</div>`).join('');
 }
 function renderAuditLog(){
-  if(loggedInUser()?.owner!==true) return `<div class="empty"><h2>ไม่มีสิทธิ์เข้าถึง</h2><p>เฉพาะเจ้าของร้านเท่านั้นที่ดู Audit Log ได้</p></div>`;
+  if(loggedInUser()?.owner!==true) return `<div class="empty"><h2>ไม่มีสิทธิ์เข้าถึง</h2><p>เฉพาะเจ้าของร้านเท่านั้นที่ดู AUDIT LOG ได้</p></div>`;
   if(!auditLogLoaded&&!auditLogLoading) setTimeout(()=>loadAuditLogsFromSupabase(),0);
   const search=String(auditLogFilter.search||'').trim().toLowerCase();
   const filtered=auditLogRows.filter(row=>{
@@ -9997,7 +9997,7 @@ function renderAuditLog(){
     return `<tr><td>${escapeHtml(auditLogDateTime(row.occurred_at))}</td><td><div class="audit-log-actor"><strong>${escapeHtml(row.actor_name||'ระบบ')}</strong><small>${row.actor_level?`Level ${escapeHtml(row.actor_level)}`:'ระบบ'}</small></div></td><td><strong>${escapeHtml(auditEntityLabel(row.entity_type))}</strong><br><small>${escapeHtml(row.entity_id||'-')}</small></td><td><span class="audit-log-chip ${dangerous?'danger':row.action==='insert'?'':'neutral'}">${escapeHtml(auditActionLabel(row.action))}</span></td><td>${escapeHtml(warehouse)}</td><td>${escapeHtml(auditRowSummary(row))}</td><td><button class="history-icon-btn" data-audit-log-toggle="${escapeHtml(key)}" title="${expanded?'ซ่อน':'ดู'}รายละเอียด" aria-label="${expanded?'ซ่อน':'ดู'}รายละเอียด">${expanded?'−':'+'}</button></td></tr>${expanded?`<tr class="audit-log-detail-row"><td colspan="7"><div class="audit-log-details"><div class="audit-log-data"><b>ข้อมูลเดิม</b>${auditDataHtml(row.before_data)}</div><div class="audit-log-data"><b>ข้อมูลใหม่</b>${auditDataHtml(row.after_data)}</div></div></td></tr>`:''}`;
   }).join('');
   return `<div class="audit-log-page"><div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="auditLogRefresh">รีเฟรชข้อมูล</button></div>
-    <div class="audit-log-toolbar" role="search" aria-label="ค้นหาและกรอง Audit Log">
+    <div class="audit-log-toolbar" role="search" aria-label="ค้นหาและกรอง AUDIT LOG">
       <label class="audit-log-filter audit-log-search-filter"><span class="audit-log-filter-label">ค้นหาประวัติ</span><span class="audit-log-control audit-log-search-control"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input id="auditLogSearch" value="${escapeHtml(auditLogFilter.search)}" placeholder="ผู้ใช้งาน รายการ หรือเลขเอกสาร" autocomplete="off">${auditLogFilter.search?'<button type="button" class="audit-log-clear-search" id="auditLogClearSearch" title="ล้างคำค้นหา" aria-label="ล้างคำค้นหา">×</button>':''}</span></label>
       <label class="audit-log-filter"><span class="audit-log-filter-label">ประเภทรายการ</span><span class="audit-log-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"></path><path d="M8 9h8M8 13h5"></path></svg><select id="auditLogEntity"><option value="all">ทุกรายการ</option>${entityOptions}</select></span></label>
       <label class="audit-log-filter"><span class="audit-log-filter-label">การทำงาน</span><span class="audit-log-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg><select id="auditLogAction"><option value="all">ทุกการทำงาน</option>${actionOptions}</select></span></label>

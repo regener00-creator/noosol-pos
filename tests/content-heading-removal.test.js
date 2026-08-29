@@ -6,7 +6,7 @@ const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
 assert.match(html, /\.topbar-action-source\{display:none;\}/, 'แหล่งปุ่ม TOPBAR ต้องไม่กินพื้นที่หน้า');
 
-for (const heading of ['Audit Log', 'คลังสินค้า / สาขา', 'ผู้ใช้งานในระบบ', 'สินค้าใกล้หมดอายุ', 'สินค้าใกล้หมด', 'ตั้งค่าระบบ', 'ข้อมูลธุรกิจ', 'รายงานภาษี']) {
+for (const heading of ['AUDIT LOG', 'คลังสินค้า / สาขา', 'ผู้ใช้งานในระบบ', 'สินค้าใกล้หมดอายุ', 'สินค้าใกล้หมด', 'ตั้งค่าระบบ', 'ข้อมูลธุรกิจ', 'รายงานภาษี']) {
   assert.doesNotMatch(html, new RegExp(`<h1[^>]*>${heading.replace('/', '\\/')}<\\/h1>`), `ต้องลบหัวข้อ ${heading} ออกจากพื้นที่เนื้อหา`);
 }
 

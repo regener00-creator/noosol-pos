@@ -24,7 +24,7 @@ assert.match(compactMigration,/private\.audit_identity_snapshot/);
 assert.match(compactMigration,/jsonb_object_keys\(v_before\|\|v_after\)/);
 assert.match(indexMigration,/drop index if exists public\.idx_audit_logs_entity_occurred/);
 
-assert.match(html,/\['auditlog','Audit Log'/);
+assert.match(html,/\['auditlog','AUDIT LOG'/);
 assert.match(html,/auditlog: renderAuditLog/);
 assert.match(html,/sb\.rpc\('get_central_audit_logs'/);
 assert.match(html,/\(tab==='settingsusers'\|\|tab==='auditlog'\)&&user\.owner!==true/);
