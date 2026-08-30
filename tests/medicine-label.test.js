@@ -1,0 +1,80 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const helpersStart = html.indexOf("const MEDICINE_LABEL_SIZE_STORAGE_KEY=");
+const helpersEnd = html.indexOf('function isProductActive(', helpersStart);
+const printStart = html.indexOf('function medicineLabelContentLength(');
+const printEnd = html.indexOf('function openPostPaymentModal(', printStart);
+assert.ok(helpersStart >= 0 && helpersEnd > helpersStart, 'ไม่พบชุดข้อมูลและตัวช่วยฉลากยา');
+assert.ok(printStart >= 0 && printEnd > printStart, 'ไม่พบชุดพิมพ์ฉลากยา');
+
+let printHtml = '';
+let printCount = 0;
+const printWindow = {
+  document: {
+    write(value) { printHtml += value; },
+    close() {},
+  },
+  print() { printCount += 1; },
+};
+const context = {
+  localStorage: {getItem: () => null, setItem: () => {}},
+  currentProfile: {firstName:'เภสัชกร',lastName:'ทดสอบ'},
+  currentUserProfile: {},
+  salesHistory: [],
+  businessSettings: {name:'ร้านยาทดสอบ',address:'1 ถนนทดสอบ',phone:'02-000-0000'},
+  STORE_INFO: {name:'PEPOS',address:'',phone:''},
+  businessDocumentName: business => business.name,
+  businessPrimaryPhone: business => business.phone,
+  escapeHtml: value => String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'),
+  fmtDateShort: value => String(value).split('-').reverse().join('-'),
+  showToast: () => {},
+  standardizePrintPreview: () => {},
+  setTimeout: callback => callback(),
+  window: {open: () => printWindow},
+};
+vm.createContext(context);
+vm.runInContext(`${html.slice(helpersStart, helpersEnd)}\n${html.slice(printStart, printEnd)}`, context);
+
+const complete = context.normalizeDispensingLabel({
+  enabled:true,
+  drugName:'Paracetamol 500 mg',
+  patientName:'สมชาย ใจดี',
+  pharmacistName:'ภก. ทดสอบ',
+  indication:'แก้ปวด',
+  directions:'รับประทานครั้งละ 1 เม็ด หลังอาหาร',
+  warning:'อาจทำให้ง่วง',
+});
+assert.equal(complete.patientName, 'สมชาย ใจดี');
+assert.equal(context.normalizeDispensingLabel({...complete, drugName:''}), null, 'ฉลากที่ไม่มีชื่อยาและความแรงต้องไม่ผ่าน');
+assert.equal(context.normalizeDispensingLabel({...complete, indication:''}), null, 'ฉลากที่ไม่มีข้อบ่งใช้ต้องไม่ผ่าน');
+assert.equal(context.normalizeDispensingLabel({...complete, directions:''}), null, 'ฉลากที่ไม่มีวิธีใช้ต้องไม่ผ่าน');
+assert.equal(context.medicineLabelFitsSize(complete, '80x50'), true);
+assert.equal(context.medicineLabelFitsSize({...complete, directions:'ย'.repeat(300)}, '60x40'), false);
+
+context.salesHistory.push({
+  id:'SALE-1', ref:'RE202608300001', date:'2026-08-30', medicineLabelSize:'80x50',
+  businessSnapshot:context.businessSettings,
+  items:[{name:'Paracetamol 500 mg',qty:10,unit:'เม็ด',dispensingLabel:complete}],
+});
+assert.equal(context.printMedicineLabels('SALE-1'), true);
+assert.match(printHtml, /@page\{size:80mm 50mm;margin:0\}/);
+assert.match(printHtml, /ตัวอย่างฉลากยา 80 × 50 มม\. \(แนะนำ\) · 1 ใบ/);
+assert.match(printHtml, /Paracetamol 500 mg/);
+assert.match(printHtml, /ผู้รับยา/);
+assert.match(printHtml, /สมชาย ใจดี/);
+assert.match(printHtml, /รับประทานครั้งละ 1 เม็ด หลังอาหาร/);
+assert.match(printHtml, /เภสัชกร ภก\. ทดสอบ/);
+assert.equal(printCount, 1);
+
+assert.match(html, /data-medicine-label-line=/, 'หน้า POS ต้องมีปุ่มจัดทำฉลากยารายการต่อรายการ');
+assert.match(html, /id="printMedicineLabelsBtn"/, 'หลังชำระต้องมีปุ่มพิมพ์ฉลากยา');
+assert.match(html, /id="historyMedicineLabelsBtn"/, 'ประวัติการขายต้องพิมพ์ฉลากย้อนหลังได้');
+assert.match(html, /dispensingLabel:normalizeDispensingLabel\(l\.dispensingLabel\)/, 'ข้อมูลฉลากต้องถูกบันทึกไปกับรายการขาย');
+assert.match(html, /medicineLabelSize,discount/, 'ขนาดฉลากต้องถูกบันทึกไปกับบิล');
+assert.match(html, /ข้อความยาวเกินขนาดฉลากที่เลือก/, 'ระบบต้องป้องกันข้อความล้นฉลาก');
+
+console.log('medicine label tests passed');

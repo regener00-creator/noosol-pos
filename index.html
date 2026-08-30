@@ -1226,6 +1226,32 @@
   .after-pay-heading{text-align:center;font-size:21px;font-weight:700;margin-bottom:4px;}.after-pay-sub{text-align:center;color:var(--text-muted);margin-bottom:17px;}
   .after-pay-options{display:flex;flex-direction:column;gap:10px;padding:4px 18px 20px;}.after-pay-choice{position:relative;display:flex;align-items:center;justify-content:center;gap:13px;width:100%;padding:15px 17px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;text-align:center;}.after-pay-choice:hover{border-color:var(--primary);background:var(--primary-soft);color:var(--primary);}.after-pay-choice span{position:absolute;left:25px;font-size:23px;}
   .after-pay-choice.new-order{background:var(--primary);border-color:var(--primary);color:#fff;}.after-pay-choice.new-order:hover{background:var(--primary-dark);border-color:var(--primary-dark);color:#fff;}
+  .pos-item-name-line{display:flex;align-items:center;gap:8px;min-width:0;}
+  .pos-item-name-content{min-width:0;flex:1;overflow-wrap:anywhere;}
+  .pos-med-label-btn{flex-shrink:0;border:1px solid var(--border);border-radius:999px;background:#fff;color:var(--text-muted);padding:3px 8px;font:600 10.5px 'Sarabun',sans-serif;cursor:pointer;}
+  .pos-med-label-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-soft);}
+  .pos-med-label-btn.active{border-color:var(--primary);background:var(--primary);color:#fff;}
+  .pos-med-label-summary{display:block;margin-top:4px;color:var(--primary);font-size:10.5px;line-height:1.35;}
+  .medicine-label-modal{width:min(720px,calc(100vw - 28px));max-height:92vh;overflow-y:auto;}
+  .medicine-label-product{margin:0 18px 14px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--primary-soft);}
+  .medicine-label-product b{display:block;font-size:15px;}
+  .medicine-label-product span{display:block;margin-top:3px;color:var(--text-muted);font-size:12px;}
+  .medicine-label-form{padding:0 18px 18px;}
+  .medicine-label-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .medicine-label-field{display:flex;flex-direction:column;gap:6px;}
+  .medicine-label-field.wide{grid-column:1/-1;}
+  .medicine-label-field>span{font-size:12.5px;font-weight:600;}
+  .medicine-label-field input,.medicine-label-field select,.medicine-label-field textarea{width:100%;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);padding:9px 11px;font:13.5px 'Sarabun',sans-serif;}
+  .medicine-label-field textarea{min-height:66px;resize:vertical;line-height:1.45;}
+  .medicine-label-field input:focus,.medicine-label-field select:focus,.medicine-label-field textarea:focus{outline:2px solid var(--primary);outline-offset:1px;}
+  .medicine-label-quick-title{margin:14px 0 7px;font-size:12.5px;font-weight:700;}
+  .medicine-label-quick-list{display:flex;flex-wrap:wrap;gap:7px;}
+  .medicine-label-quick{border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);padding:7px 9px;font:12px 'Sarabun',sans-serif;cursor:pointer;text-align:left;}
+  .medicine-label-quick:hover{border-color:var(--primary);background:var(--primary-soft);color:var(--primary);}
+  .medicine-label-safety{margin-top:14px;padding:10px 12px;border-radius:9px;background:#FFF7E8;color:#805100;font-size:12px;line-height:1.45;}
+  .medicine-label-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px;}
+  .sale-medicine-label-summary{display:block;margin-top:4px;color:var(--primary);font-size:11px;font-weight:600;}
+  @media (max-width:720px){.medicine-label-grid{grid-template-columns:1fr;}.medicine-label-field.wide{grid-column:auto;}}
   .fav-check{display:flex;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:13.5px;cursor:pointer;}
   .fav-add-box{position:relative;padding:0 16px 12px;}
   .fav-add-box input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13.5px;background:var(--surface);}
@@ -3018,6 +3044,54 @@ const PRODUCTS_PER_PAGE = 10;
 let cart = []; // แต่ละบิลเป็น array ของบรรทัด: {lineId, pid, unit, unitName, price, cost, factor, qty}
 let pendingQty = 1; // จำนวนที่ล็อกไว้ล่วงหน้า (พิมพ์ *10 ในช่องค้นหา)
 let lineCounter = 1;
+const MEDICINE_LABEL_SIZE_STORAGE_KEY='pepos_medicine_label_size';
+const MEDICINE_LABEL_SIZES={
+  '80x50':{width:80,height:50,label:'80 × 50 มม. (แนะนำ)'},
+  '60x40':{width:60,height:40,label:'60 × 40 มม. (กะทัดรัด)'},
+};
+const MEDICINE_LABEL_DIRECTION_PRESETS=[
+  'รับประทานครั้งละ 1 เม็ด วันละ 3 ครั้ง หลังอาหาร เช้า กลางวัน เย็น',
+  'รับประทานครั้งละ 1 เม็ด วันละ 2 ครั้ง หลังอาหาร เช้า เย็น',
+  'รับประทานครั้งละ 1 เม็ด วันละ 1 ครั้ง ก่อนนอน',
+  'รับประทานครั้งละ 1 เม็ด เมื่อมีอาการ ทุก 6 ชั่วโมง',
+  'ทาบาง ๆ บริเวณที่เป็น วันละ 2 ครั้ง',
+  'หยอดบริเวณที่มีอาการ ครั้งละ 1 หยด วันละ 3 ครั้ง',
+];
+const MEDICINE_LABEL_WARNING_PRESETS=['อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร','รับประทานยานี้ติดต่อกันจนหมด','เขย่าขวดก่อนใช้','เก็บยาในตู้เย็น ห้ามแช่แข็ง'];
+let medicineLabelSize=(()=>{ try{ const saved=localStorage.getItem(MEDICINE_LABEL_SIZE_STORAGE_KEY); return MEDICINE_LABEL_SIZES[saved]?saved:'80x50'; }catch(_error){ return '80x50'; } })();
+function medicineLabelMemberName(member=saleMember){
+  if(!member) return '';
+  return String(typeof member==='object'?(member.name||''):member).trim();
+}
+function currentPharmacistName(){
+  const profile=currentProfile||currentUserProfile||{};
+  return [profile.firstName,profile.lastName].filter(Boolean).join(' ').trim()||String(profile.username||'').trim();
+}
+function normalizeDispensingLabel(value){
+  if(!value||value.enabled===false) return null;
+  const label={
+    enabled:true,
+    drugName:String(value.drugName||'').trim(),
+    patientName:String(value.patientName||'').trim(),
+    indication:String(value.indication||'').trim(),
+    directions:String(value.directions||'').trim(),
+    warning:String(value.warning||'').trim(),
+    pharmacistName:String(value.pharmacistName||'').trim(),
+  };
+  return label.drugName&&label.patientName&&label.indication&&label.directions&&label.pharmacistName?label:null;
+}
+function medicineLabelSummary(value){
+  const label=normalizeDispensingLabel(value);
+  return label?`${label.patientName} · ${label.directions}`:'';
+}
+function medicineLabelsForSale(sale){
+  return (sale?.items||[]).filter(item=>normalizeDispensingLabel(item?.dispensingLabel));
+}
+function setMedicineLabelSize(value){
+  medicineLabelSize=MEDICINE_LABEL_SIZES[value]?value:'80x50';
+  try{ localStorage.setItem(MEDICINE_LABEL_SIZE_STORAGE_KEY,medicineLabelSize); }catch(_error){}
+  return medicineLabelSize;
+}
 function isProductActive(product){
   return Boolean(product)&&product.active!==false;
 }
@@ -3071,6 +3145,70 @@ function addBlankCustomCartLine(){
   cart.push({lineId,pid:null,name:'',unit:'',unitName:'',price:'',cost:'',factor:0,qty:1,custom:true});
   render();
   setTimeout(()=>document.querySelector(`.custom-line-name[data-line="${lineId}"]`)?.focus(),0);
+}
+function openMedicineLabelEditor(lineId){
+  const line=cart.find(item=>String(item.lineId)===String(lineId)); if(!line||line.autoFreeFromPromo) return;
+  document.querySelector('.medicine-label-modal')?.closest('.modal-overlay')?.remove();
+  const existing=normalizeDispensingLabel(line.dispensingLabel);
+  const otherPatient=cart.map(item=>normalizeDispensingLabel(item.dispensingLabel)?.patientName).find(Boolean)||'';
+  const draft={
+    drugName:existing?.drugName||String(line.name||'').trim(),
+    patientName:existing?.patientName||otherPatient||medicineLabelMemberName(),
+    indication:existing?.indication||'',
+    directions:existing?.directions||'',
+    warning:existing?.warning||'',
+    pharmacistName:existing?.pharmacistName||currentPharmacistName(),
+  };
+  const overlay=document.createElement('div'); overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal medicine-label-modal"><div class="modal-head"><h3>จัดทำฉลากยา</h3><button class="modal-close" type="button">×</button></div>
+    <div class="medicine-label-product"><b>${escapeHtml(line.name||'รายการยา')}</b><span>จำนวน ${escapeHtml(line.qty)} ${escapeHtml(line.unit||'หน่วย')}</span></div>
+    <form class="medicine-label-form" id="medicineLabelForm">
+      <div class="medicine-label-grid">
+        <label class="medicine-label-field wide"><span>ชื่อยา / ความแรงบนฉลาก *</span><input id="medicineLabelDrugName" value="${escapeHtml(draft.drugName)}" autocomplete="off" required></label>
+        <label class="medicine-label-field"><span>ชื่อผู้รับยา *</span><input id="medicineLabelPatient" value="${escapeHtml(draft.patientName)}" autocomplete="off" required></label>
+        <label class="medicine-label-field"><span>เภสัชกรผู้จ่ายยา *</span><input id="medicineLabelPharmacist" value="${escapeHtml(draft.pharmacistName)}" autocomplete="off" required></label>
+        <label class="medicine-label-field"><span>ข้อบ่งใช้ *</span><input id="medicineLabelIndication" value="${escapeHtml(draft.indication)}" placeholder="เช่น แก้ปวด ลดไข้" autocomplete="off" required></label>
+        <label class="medicine-label-field"><span>ขนาดฉลาก</span><select id="medicineLabelSize">${Object.entries(MEDICINE_LABEL_SIZES).map(([value,option])=>`<option value="${value}" ${value===medicineLabelSize?'selected':''}>${option.label}</option>`).join('')}</select></label>
+        <label class="medicine-label-field wide"><span>วิธีใช้ยา *</span><textarea id="medicineLabelDirections" placeholder="ระบุครั้งละเท่าไร วันละกี่ครั้ง และเวลาใช้" required>${escapeHtml(draft.directions)}</textarea></label>
+        <label class="medicine-label-field wide"><span>คำแนะนำหรือคำเตือน</span><textarea id="medicineLabelWarning" placeholder="ระบุเมื่อจำเป็น">${escapeHtml(draft.warning)}</textarea></label>
+      </div>
+      <div class="medicine-label-quick-title">เลือกวิธีใช้แบบรวดเร็ว แล้วแก้ข้อความได้</div>
+      <div class="medicine-label-quick-list">${MEDICINE_LABEL_DIRECTION_PRESETS.map((text,index)=>`<button class="medicine-label-quick" type="button" data-medicine-direction="${index}">${escapeHtml(text)}</button>`).join('')}</div>
+      <div class="medicine-label-quick-title">เพิ่มคำเตือน</div>
+      <div class="medicine-label-quick-list">${MEDICINE_LABEL_WARNING_PRESETS.map((text,index)=>`<button class="medicine-label-quick" type="button" data-medicine-warning="${index}">${escapeHtml(text)}</button>`).join('')}</div>
+      <div class="medicine-label-safety">เภสัชกรต้องตรวจสอบชื่อยา ขนาดยา วิธีใช้ และคำเตือนก่อนพิมพ์ ระบบจะไม่เลือกวิธีใช้ยาให้อัตโนมัติ</div>
+      <div class="medicine-label-actions">${existing?'<button class="btn ghost" type="button" id="removeMedicineLabelBtn">นำฉลากออก</button>':''}<button class="btn ghost" type="button" id="cancelMedicineLabelBtn">ยกเลิก</button><button class="btn primary" type="submit">บันทึกฉลากยา</button></div>
+    </form></div>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  overlay.querySelector('.modal-close').onclick=close;
+  overlay.querySelector('#cancelMedicineLabelBtn').onclick=close;
+  overlay.querySelectorAll('[data-medicine-direction]').forEach(button=>button.onclick=()=>{ overlay.querySelector('#medicineLabelDirections').value=MEDICINE_LABEL_DIRECTION_PRESETS[Number(button.dataset.medicineDirection)]||''; });
+  overlay.querySelectorAll('[data-medicine-warning]').forEach(button=>button.onclick=()=>{
+    const field=overlay.querySelector('#medicineLabelWarning'),text=MEDICINE_LABEL_WARNING_PRESETS[Number(button.dataset.medicineWarning)]||'';
+    if(!text) return; const values=String(field.value||'').split('\n').map(value=>value.trim()).filter(Boolean); if(!values.includes(text)) values.push(text); field.value=values.join('\n');
+  });
+  const removeButton=overlay.querySelector('#removeMedicineLabelBtn');
+  if(removeButton) removeButton.onclick=()=>{ delete line.dispensingLabel; close(); showToast(`นำฉลากยา “${line.name}” ออกจากบิลแล้ว`); render(); };
+  overlay.querySelector('#medicineLabelForm').onsubmit=event=>{
+    event.preventDefault();
+    const label=normalizeDispensingLabel({
+      enabled:true,
+      drugName:overlay.querySelector('#medicineLabelDrugName').value,
+      patientName:overlay.querySelector('#medicineLabelPatient').value,
+      indication:overlay.querySelector('#medicineLabelIndication').value,
+      directions:overlay.querySelector('#medicineLabelDirections').value,
+      warning:overlay.querySelector('#medicineLabelWarning').value,
+      pharmacistName:overlay.querySelector('#medicineLabelPharmacist').value,
+    });
+    if(!label){ showToast('กรุณากรอกชื่อยา ชื่อผู้รับยา เภสัชกร ข้อบ่งใช้ และวิธีใช้ให้ครบ','danger-top'); return; }
+    const selectedSize=overlay.querySelector('#medicineLabelSize').value;
+    if(!medicineLabelFitsSize(label,selectedSize)){ showToast('ข้อความยาวเกินขนาดฉลากที่เลือก กรุณาใช้ขนาด 80 × 50 มม. หรือย่อข้อความ','danger-top'); return; }
+    const oversizedOther=cart.find(item=>String(item.lineId)!==String(line.lineId)&&normalizeDispensingLabel(item.dispensingLabel)&&!medicineLabelFitsSize(item.dispensingLabel,selectedSize));
+    if(oversizedOther){ showToast(`ฉลาก “${oversizedOther.name}” ยาวเกินขนาดที่เลือก กรุณาใช้ขนาด 80 × 50 มม.`,'danger-top'); return; }
+    line.dispensingLabel=label; setMedicineLabelSize(selectedSize); close(); showToast(`บันทึกฉลากยา “${line.name}” แล้ว`); render();
+  };
+  setTimeout(()=>overlay.querySelector(existing?'#medicineLabelIndication':'#medicineLabelPatient')?.focus(),0);
 }
 function productUnitOptions(p){
   // คืน list ของหน่วยที่เลือกได้: หน่วยหลัก + หน่วยรองที่ตั้งไว้ (label = ชื่อหน่วยล้วน)
@@ -4430,6 +4568,8 @@ function renderCheckout(){
         : line.unit;
       const linkedPromo=(!line.custom && line.pid)?findMatchingPromotion(line):null;
       const displayUnitPrice=grossAmountForVatMode(line.price,lineVatMode,taxSummary.registered);
+      const dispensingLabel=normalizeDispensingLabel(line.dispensingLabel);
+      const itemNameHtml=line.custom?`<div class="custom-line-wrap"><input class="custom-line-input custom-line-name" data-custom-name data-line="${line.lineId}" value="${escapeHtml(line.name)}" placeholder="กรอกชื่อรายการ"></div>`:escapeHtml(line.name);
       const priceCell = line.custom
         ? `<input class="custom-line-input custom-line-price" data-custom-price data-line="${line.lineId}" type="number" min="0" step="0.01" value="${line.price}" placeholder="0.00">`
         : promoLine.promoId
@@ -4440,7 +4580,7 @@ function renderCheckout(){
       rowsHtml += `<tr>
         <td class="mono">${String(idx+1).padStart(3,'0')}</td>
         <td class="mono">${escapeHtml(p?.sku||'-')}</td>
-        <td>${line.custom?`<div class="custom-line-wrap"><input class="custom-line-input custom-line-name" data-custom-name data-line="${line.lineId}" value="${escapeHtml(line.name)}" placeholder="กรอกชื่อรายการ"></div>`:escapeHtml(line.name)}</td>
+        <td><div class="pos-item-name-line"><div class="pos-item-name-content">${itemNameHtml}</div><button class="pos-med-label-btn ${dispensingLabel?'active':''}" type="button" data-medicine-label-line="${line.lineId}" title="${dispensingLabel?'แก้ไขฉลากยา':'จัดทำฉลากยา'}">Rx ฉลากยา</button></div>${dispensingLabel?`<small class="pos-med-label-summary">${escapeHtml(medicineLabelSummary(dispensingLabel))}</small>`:''}</td>
         <td class="mono num">${priceCell}</td>
         <td class="line-unit-cell">${unitCell}</td>
         <td class="pos-qty"><input class="line-qty" type="number" min="1" step="1" value="${line.qty}" data-line="${line.lineId}"></td>
@@ -10740,6 +10880,7 @@ function attachEvents(){
   });
   const addCustomItemBtn=document.getElementById('addCustomItemBtn');
   if(addCustomItemBtn) addCustomItemBtn.addEventListener('click',addBlankCustomCartLine);
+  document.querySelectorAll('[data-medicine-label-line]').forEach(button=>button.addEventListener('click',()=>openMedicineLabelEditor(button.dataset.medicineLabelLine)));
   document.querySelectorAll('[data-custom-name]').forEach(input=>{ input.addEventListener('input',()=>{ const line=cart.find(item=>item.lineId==input.dataset.line); if(line) line.name=input.value; }); });
   document.querySelectorAll('[data-custom-unit]').forEach(input=>{ input.addEventListener('input',()=>{ const line=cart.find(item=>item.lineId==input.dataset.line); if(line){ line.unit=input.value; line.unitName=input.value; } }); });
   document.querySelectorAll('[data-custom-price]').forEach(input=>{ input.addEventListener('input',()=>{ const line=cart.find(item=>item.lineId==input.dataset.line); if(!line) return; line.price=input.value===''?'':Math.max(0,parseFloat(input.value)||0); line.cost=line.price; const total=document.querySelector(`[data-line-total="${line.lineId}"]`); if(total) total.textContent=fmtMoney((Number(line.price)||0)*(Number(line.qty)||0)); recalcPOSCartDOM(); }); });
@@ -14618,15 +14759,16 @@ function openSaleHistoryDetail(id){
   const canDeleteHeld=sale.status==='hold'&&!isLevel2User();
   const canVoidCompleted=sale.status==='done'&&currentProfile?.owner===true;
   const canCorrectLots=!!currentProfile?.owner&&canIssue&&(sale.items||[]).some(item=>Number(item?.productId)&&saleLotCorrectionAllocations(item).length);
+  const canPrintMedicineLabels=canIssue&&medicineLabelsForSale(sale).length>0;
   const correctionLog=Array.isArray(sale.lotCorrectionLog)?sale.lotCorrectionLog:[];
   const correctionLogHtml=correctionLog.length?`<div class="sale-lot-correction-log"><h4>ประวัติแก้ไข LOT (${correctionLog.length})</h4>${correctionLog.slice().reverse().map(log=>{ const qty=Number(log.quantity)>0?log.quantity:log.quantityBase,unit=log.unit||'หน่วยหลัก'; return `<div class="sale-lot-correction-log-item"><b>${escapeHtml(log.productName||'-')} ×${escapeHtml(inventoryMovementRound(qty))} ${escapeHtml(unit)}</b><br>${escapeHtml(log.fromLot?.lotNumber||'ไม่ระบุเลข LOT')} → ${escapeHtml(log.toLot?.lotNumber||'ไม่ระบุเลข LOT')} · ${escapeHtml(auditDisplay(log.at))}${log.reason?`<br>หมายเหตุ: ${escapeHtml(log.reason)}`:''}</div>`; }).join('')}</div>`:'';
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:760px;max-height:92vh;"><div class="modal-head"><h3>รายละเอียดการขาย ${sale.ref||sale.id}</h3><button class="modal-close">×</button></div>
     <div class="sale-detail-meta"><div><small>วันที่ / เวลา</small><b>${fmtDate(sale.date)} · ${saleHistoryTimeDisplay(sale.time)}</b></div><div><small>พนักงานขาย</small><b>${sale.cashier||'-'}</b></div><div><small>ลูกค้า / สมาชิก</small><b>${sale.member||sale.name||'ลูกค้าทั่วไป'}</b></div><div><small>วิธีชำระ</small><b>${sale.payMethod||'-'}</b></div></div>
-    <div class="sale-detail-table"><table class="grid-table"><thead><tr><th>ลำดับ</th><th>สินค้า / Lot</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคา/หน่วย</th><th class="mono">รวม</th></tr></thead><tbody>${(sale.items||[]).map((item,index)=>{ const lots=(item.lotAllocations||[]).map(allocation=>allocation.pendingLot?`<span style="color:var(--danger);font-weight:600;">รอจัด LOT · ${escapeHtml(inventoryMovementRound(allocation.baseQty))} หน่วยหลัก</span>`:`${escapeHtml(allocation.lotNumber||allocation.internalCode||'-')} · ${escapeHtml(allocation.expiry?fmtDateShort(allocation.expiry):'ไม่ระบุวันหมดอายุ')} · ${escapeHtml(inventoryMovementRound(allocation.baseQty))} หน่วยหลัก`).join('<br>'); return `<tr><td>${index+1}</td><td>${escapeHtml(item.name)}${lots?`<small style="display:block;color:var(--text-muted);margin-top:4px;">Lot: ${lots}</small>`:''}</td><td class="mono num">${item.qty}</td><td>${escapeHtml(item.unit||'-')}</td><td class="mono num">${fmtMoney(item.price)}</td><td class="mono num">${fmtMoney(item.lineTotalGross!==undefined?item.lineTotalGross:item.qty*item.price)}</td></tr>`; }).join('')}</tbody></table></div>
+    <div class="sale-detail-table"><table class="grid-table"><thead><tr><th>ลำดับ</th><th>สินค้า / Lot</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคา/หน่วย</th><th class="mono">รวม</th></tr></thead><tbody>${(sale.items||[]).map((item,index)=>{ const lots=(item.lotAllocations||[]).map(allocation=>allocation.pendingLot?`<span style="color:var(--danger);font-weight:600;">รอจัด LOT · ${escapeHtml(inventoryMovementRound(allocation.baseQty))} หน่วยหลัก</span>`:`${escapeHtml(allocation.lotNumber||allocation.internalCode||'-')} · ${escapeHtml(allocation.expiry?fmtDateShort(allocation.expiry):'ไม่ระบุวันหมดอายุ')} · ${escapeHtml(inventoryMovementRound(allocation.baseQty))} หน่วยหลัก`).join('<br>'); const label=normalizeDispensingLabel(item.dispensingLabel); return `<tr><td>${index+1}</td><td>${escapeHtml(item.name)}${label?`<small class="sale-medicine-label-summary">Rx ${escapeHtml(label.patientName)} · ${escapeHtml(label.directions)}</small>`:''}${lots?`<small style="display:block;color:var(--text-muted);margin-top:4px;">Lot: ${lots}</small>`:''}</td><td class="mono num">${item.qty}</td><td>${escapeHtml(item.unit||'-')}</td><td class="mono num">${fmtMoney(item.price)}</td><td class="mono num">${fmtMoney(item.lineTotalGross!==undefined?item.lineTotalGross:item.qty*item.price)}</td></tr>`; }).join('')}</tbody></table></div>
     <div class="sale-detail-summary"><div><span>รวมสินค้า</span><b>${fmtMoney(subtotal)} บาท</b></div>${sale.discount?`<div><span>ส่วนลด</span><b>- ${fmtMoney(sale.discount)} บาท</b></div>`:''}${sale.fee?`<div><span>ค่าธรรมเนียม</span><b>${fmtMoney(sale.fee)} บาท</b></div>`:''}<div class="grand"><span>ยอดสุทธิ</span><b>${fmtMoney(sale.total)} บาท</b></div>${sale.cashReceived?`<div><span>รับเงิน</span><b>${fmtMoney(sale.cashReceived)} บาท</b></div><div><span>เงินทอน</span><b>${fmtMoney(sale.cashChange||0)} บาท</b></div>`:''}</div>
     ${canCorrectLots?`<div class="sale-lot-correction-panel"><div><h4>LOT ที่ขายไม่ตรงกับระบบ?</h4><p>ย้ายการตัดไปยัง LOT ที่ขายจริง โดยยอดขายและสต๊อกรวมไม่เปลี่ยน</p></div><button class="btn ghost" id="correctSaleLotBtn">แก้ไข LOT ที่ขาย</button></div>`:''}${correctionLogHtml}
-    <div class="history-doc-panel"><h4>ออกเอกสารย้อนหลัง</h4><p>${canIssue?'ใช้ข้อมูลและวันที่ขายเดิม การพิมพ์เอกสารจะไม่ตัดสต็อกหรือเพิ่มยอดขายซ้ำ':'ออกเอกสารได้เฉพาะรายการที่ชำระเงินเรียบร้อยแล้ว'}</p><div class="history-doc-buttons"><button id="historyShortReceiptBtn" ${canIssue?'':'disabled'}>🧾 ใบเสร็จอย่างย่อ</button><button id="historyTaxInvoiceBtn" ${canIssueTax?'':'disabled'}>${sale.fullTaxInvoice?'📄 เปิดใบกำกับภาษี':'📄 ออกใบกำกับภาษีย้อนหลัง'}</button></div></div>
+    <div class="history-doc-panel"><h4>ออกเอกสารย้อนหลัง</h4><p>${canIssue?'ใช้ข้อมูลและวันที่ขายเดิม การพิมพ์เอกสารจะไม่ตัดสต็อกหรือเพิ่มยอดขายซ้ำ':'ออกเอกสารได้เฉพาะรายการที่ชำระเงินเรียบร้อยแล้ว'}</p><div class="history-doc-buttons">${canPrintMedicineLabels?`<button id="historyMedicineLabelsBtn">Rx พิมพ์ฉลากยา (${medicineLabelsForSale(sale).length})</button>`:''}<button id="historyShortReceiptBtn" ${canIssue?'':'disabled'}>🧾 ใบเสร็จอย่างย่อ</button><button id="historyTaxInvoiceBtn" ${canIssueTax?'':'disabled'}>${sale.fullTaxInvoice?'📄 เปิดใบกำกับภาษี':'📄 ออกใบกำกับภาษีย้อนหลัง'}</button></div></div>
     <div class="payment-actions"><button class="btn ghost" id="closeSaleDetailBtn">ปิด</button>${canDeleteHeld?`<button class="btn" id="deleteSaleDetailBtn" style="background:var(--danger);color:#fff;">ลบบิลพัก</button>`:canVoidCompleted?`<button class="btn" id="voidSaleDetailBtn" style="background:var(--danger);color:#fff;">ยกเลิกบิลและคืนสต๊อก</button>`:''}</div></div>`;
   document.body.appendChild(overlay);
   const close=()=>{ overlay.remove(); render(); };
@@ -14634,6 +14776,7 @@ function openSaleHistoryDetail(id){
   const deleteDetailBtn=overlay.querySelector('#deleteSaleDetailBtn'); if(deleteDetailBtn) deleteDetailBtn.onclick=()=>deleteSaleHistory(id,close);
   const voidDetailBtn=overlay.querySelector('#voidSaleDetailBtn'); if(voidDetailBtn) voidDetailBtn.onclick=()=>voidSaleHistory(id,close);
   const correctLotBtn=overlay.querySelector('#correctSaleLotBtn'); if(correctLotBtn) correctLotBtn.onclick=()=>{ close(); openSaleLotCorrection(id); };
+  const historyMedicineLabelsBtn=overlay.querySelector('#historyMedicineLabelsBtn'); if(historyMedicineLabelsBtn) historyMedicineLabelsBtn.onclick=()=>printMedicineLabels(id);
   overlay.querySelector('#historyShortReceiptBtn').onclick=()=>{ if(canIssue){ close(); openHistoricalReceiptActions(id); } };
   overlay.querySelector('#historyTaxInvoiceBtn').onclick=()=>{ if(!canIssueTax) return; close(); sale.fullTaxInvoice?openFullTaxInvoiceModal(id):startTaxInvoiceForm(id); };
   
@@ -14878,6 +15021,8 @@ function openPaymentModal(){
   if(!currentCashShift){ showToast('กรุณาเปิดระบบชำระก่อนรับชำระเงิน','danger-top'); currentTab='cashshift'; render(); return; }
   const inactiveLine=cart.find(line=>line.pid&&!isProductActive(products.find(product=>Number(product.id)===Number(line.pid))));
   if(inactiveLine){ showToast(`สินค้า “${inactiveLine.name}” ถูกปิดใช้งานแล้ว กรุณาลบออกจากบิล`,'danger-top'); return; }
+  const invalidMedicineLabel=cart.find(line=>line.dispensingLabel&&!normalizeDispensingLabel(line.dispensingLabel));
+  if(invalidMedicineLabel){ showToast(`ฉลากยา “${invalidMedicineLabel.name}” มีข้อมูลไม่ครบ กรุณาเปิดแก้ไขอีกครั้ง`,'danger-top'); openMedicineLabelEditor(invalidMedicineLabel.lineId); return; }
   const invalid=cart.find(line=>line.custom&&(!String(line.name||'').trim()||line.price===''||Number(line.price)<0||!String(line.unit||'').trim()||Number(line.qty)<=0));
   if(invalid){
     showToast('กรุณากรอกชื่อ ราคา หน่วย และจำนวนของรายการกรอกเองให้ครบ');
@@ -15529,8 +15674,34 @@ function printStockReport(){
   standardizePrintPreview(win);
 }
 
+function medicineLabelContentLength(label){
+  const normalized=normalizeDispensingLabel(label); if(!normalized) return 0;
+  return [normalized.drugName,normalized.patientName,normalized.indication,normalized.directions,normalized.warning,normalized.pharmacistName].join('').length;
+}
+function medicineLabelFitsSize(label,sizeKey){
+  return medicineLabelContentLength(label)<=(sizeKey==='60x40'?240:420);
+}
+function printMedicineLabels(saleId){
+  const sale=salesHistory.find(item=>item.id===saleId); if(!sale) return false;
+  const items=medicineLabelsForSale(sale); if(!items.length){ showToast('บิลนี้ไม่มีรายการฉลากยา','danger-top'); return false; }
+  const sizeKey=MEDICINE_LABEL_SIZES[sale.medicineLabelSize]?sale.medicineLabelSize:'80x50';
+  const size=MEDICINE_LABEL_SIZES[sizeKey],compact=sizeKey==='60x40';
+  const oversized=items.find(item=>!medicineLabelFitsSize(item.dispensingLabel,sizeKey));
+  if(oversized){ showToast(`ข้อความฉลาก “${oversized.name}” ยาวเกินขนาด ${size.label} กรุณาใช้ฉลาก 80 × 50 มม. หรือย่อข้อความ`,'danger-top'); return false; }
+  const business=sale.businessSnapshot||businessSettings;
+  const businessName=businessDocumentName(business,STORE_INFO.name),phone=businessPrimaryPhone(business);
+  const labels=items.map(item=>{
+    const label=normalizeDispensingLabel(item.dispensingLabel),length=medicineLabelContentLength(label),density=length>(compact?170:300)?' dense':'';
+    return `<section class="medicine-label${density}"><header><b>${escapeHtml(businessName)}</b><span>${escapeHtml(phone?`โทร ${phone}`:'')}</span><small>${escapeHtml(business.address||STORE_INFO.address||'')}</small></header><div class="patient"><span>ผู้รับยา</span><b>${escapeHtml(label.patientName)}</b></div><div class="drug">${escapeHtml(label.drugName)}</div><div class="quantity">จำนวน ${escapeHtml(item.qty)} ${escapeHtml(item.unit||'หน่วย')} · ใช้สำหรับ ${escapeHtml(label.indication)}</div><div class="directions">${escapeHtml(label.directions)}</div>${label.warning?`<div class="warning">คำเตือน: ${escapeHtml(label.warning).replace(/\n/g,' · ')}</div>`:''}<footer><span>วันที่ ${escapeHtml(fmtDateShort(sale.date))} · ${escapeHtml(sale.ref||sale.id)}</span><span>เภสัชกร ${escapeHtml(label.pharmacistName)}</span></footer></section>`;
+  }).join('');
+  const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างฉลากยา','danger-top'); return false; }
+  win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>ฉลากยา ${escapeHtml(sale.ref||sale.id)}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet"><style>@page{size:${size.width}mm ${size.height}mm;margin:0}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{margin:0;background:#ece9e7;color:#171311;font-family:'Sarabun',Tahoma,sans-serif}.toolbar{position:sticky;top:0;z-index:5;background:#fff;padding:10px 18px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px #0002}.toolbar button{border:0;border-radius:7px;background:#4F4038;color:#fff;padding:9px 18px;font:600 14px Sarabun}.medicine-label{width:${size.width}mm;height:${size.height}mm;margin:10px auto;background:#fff;padding:${compact?'2.4':'3'}mm;display:flex;flex-direction:column;gap:${compact?'1.0':'1.25'}mm;overflow:hidden;page-break-after:always;box-shadow:0 3px 14px #0002}.medicine-label:last-child{page-break-after:auto}header{display:grid;grid-template-columns:1fr auto;gap:0 2mm;padding-bottom:${compact?'.8':'1'}mm;border-bottom:.35mm solid #4F4038;line-height:1.15}header b{font-size:${compact?'8':'9'}pt;color:#4F4038}header span{font-size:${compact?'5.8':'6.5'}pt;text-align:right}header small{grid-column:1/-1;font-size:${compact?'5.2':'5.8'}pt;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.patient{display:flex;align-items:baseline;gap:1.5mm;font-size:${compact?'6.5':'7.5'}pt}.patient span{color:#6b625e}.patient b{font-size:${compact?'7.5':'8.5'}pt}.drug{font-size:${compact?'9':'11'}pt;font-weight:700;line-height:1.1}.quantity{font-size:${compact?'6.2':'7'}pt;line-height:1.15}.directions{padding:${compact?'1':'1.2'}mm;border-radius:1.5mm;background:#F1ECE9;color:#2B2422;font-size:${compact?'7.7':'9'}pt;font-weight:700;line-height:1.2}.warning{color:#A43A31;font-size:${compact?'5.8':'6.8'}pt;font-weight:600;line-height:1.15;white-space:pre-wrap}.medicine-label footer{display:flex;justify-content:space-between;gap:2mm;margin-top:auto;padding-top:.8mm;border-top:.2mm solid #BDB4AF;font-size:${compact?'5.2':'5.8'}pt}.dense{gap:${compact?'.65':'.85'}mm}.dense .drug{font-size:${compact?'8':'9.5'}pt}.dense .directions{font-size:${compact?'6.8':'7.8'}pt}.dense .warning{font-size:${compact?'5.2':'6'}pt}@media print{body{background:#fff}.toolbar{display:none}.medicine-label{margin:0;box-shadow:none}}</style></head><body><div class="toolbar"><span>ตัวอย่างฉลากยา ${escapeHtml(size.label)} · ${items.length} ใบ</span><button onclick="window.print()">พิมพ์</button></div>${labels}</body></html>`);
+  win.document.close(); standardizePrintPreview(win); setTimeout(()=>win.print(),350); return true;
+}
+
 function openPostPaymentModal(saleId){
   const sale=salesHistory.find(item=>item.id===saleId); if(!sale) return;
+  const medicineLabelCount=medicineLabelsForSale(sale).length;
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:430px;"><div class="modal-head"><h3>ชำระเงินสำเร็จ</h3><button class="modal-close">×</button></div><div id="afterPayContent"></div></div>`;
   document.body.appendChild(overlay);
@@ -15541,7 +15712,8 @@ function openPostPaymentModal(saleId){
   overlay.querySelector('.modal-close').onclick=close;
   const renderStart=()=>{
     stopKeyHandler();
-    content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">✓</div><div class="after-pay-heading">รับชำระ ${fmtMoney(sale.total)} บาทแล้ว</div><div class="after-pay-sub">${sale.payMethod||'เงินสด'} · ${sale.ref||sale.id}</div></div><div class="after-pay-options"><button class="after-pay-choice" id="wantShortReceiptBtn"><span>🧾</span> ใบเสร็จอย่างย่อ 80 มม.</button><button class="after-pay-choice new-order" id="startNewOrderBtn"><span>＋</span> เสร็จสิ้น</button></div>`;
+    content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">✓</div><div class="after-pay-heading">รับชำระ ${fmtMoney(sale.total)} บาทแล้ว</div><div class="after-pay-sub">${sale.payMethod||'เงินสด'} · ${sale.ref||sale.id}</div></div><div class="after-pay-options">${medicineLabelCount?`<button class="after-pay-choice" id="printMedicineLabelsBtn"><span>Rx</span> พิมพ์ฉลากยา ${medicineLabelCount} ใบ</button>`:''}<button class="after-pay-choice" id="wantShortReceiptBtn"><span>🧾</span> ใบเสร็จอย่างย่อ 80 มม.</button><button class="after-pay-choice new-order" id="startNewOrderBtn"><span>＋</span> เสร็จสิ้น</button></div>`;
+    const printMedicineButton=content.querySelector('#printMedicineLabelsBtn'); if(printMedicineButton) printMedicineButton.onclick=()=>printMedicineLabels(saleId);
     content.querySelector('#wantShortReceiptBtn').onclick=renderReceiptActions;
     content.querySelector('#startNewOrderBtn').onclick=close;
     activeKeyHandler=e=>{ if(e.key==='Enter'){ e.preventDefault(); close(); } };
@@ -15597,7 +15769,7 @@ async function doCheckout(payMethod,options={}){
     const vatMode=l.custom?(vatRegistered?'incl':'none'):effectiveProductVatMode(p);
     const lineTotalGross=grossAmountForVatMode(lineTotal,vatMode,vatRegistered);
     items.push({lineKey:String(idx+1),productId:l.pid||null,warehouseId:Number(activeWarehouseId)||null,name:l.name,qty:l.qty,baseQty:(Number(l.qty)||0)*(Number(l.factor)||1),price:Number(l.price)||0,cost:costSnapshot.cost,costTotal:costSnapshot.costTotal,costSource:costSnapshot.costSource,unit:l.unit,factor:l.factor||0,custom:!!l.custom,
-      promoId:promoLine.promoId||null,promoName:promoLine.promoName||'',lineTotal,lineTotalGross,vatMode,promoFreeQty:promoLine.promoFreeQty||0});
+      promoId:promoLine.promoId||null,promoName:promoLine.promoName||'',lineTotal,lineTotalGross,vatMode,promoFreeQty:promoLine.promoFreeQty||0,dispensingLabel:normalizeDispensingLabel(l.dispensingLabel)});
   });
   const itemTaxSummary=calculateSaleTaxSummary(items.map(item=>({amount:item.lineTotal,vatMode:item.vatMode})),saleDiscount,vatRegistered);
   const fee = Math.max(0,Number(options.fee)||0);
@@ -15607,11 +15779,11 @@ async function doCheckout(payMethod,options={}){
   const discount=taxSummary.discount;
   const costTotal=items.reduce((sum,item)=>sum+(Number(item.costTotal)||0),0);
   const grand=taxSummary.total;
-  const saleDraft={warehouseId:Number(activeWarehouseId)||null,warehouseName:activeWarehouse()?.name||'',cashier:loggedInUser()?.firstName||employees[0],member:saleMember,status:'done',payMethod:payMethod||'เงินสด',items,discount,vat:taxSummary.vat,vatRegistered,taxSummary,businessSnapshot:JSON.parse(JSON.stringify(businessSettings)),fee,costTotal,grossProfit:roundMoney(taxSummary.beforeVat-costTotal),cashReceived:options.cashReceived||0,cashChange:options.cashChange||0,total:grand};
+  const saleDraft={warehouseId:Number(activeWarehouseId)||null,warehouseName:activeWarehouse()?.name||'',cashier:loggedInUser()?.firstName||employees[0],member:saleMember,status:'done',payMethod:payMethod||'เงินสด',items,medicineLabelSize,discount,vat:taxSummary.vat,vatRegistered,taxSummary,businessSnapshot:JSON.parse(JSON.stringify(businessSettings)),fee,costTotal,grossProfit:roundMoney(taxSummary.beforeVat-costTotal),cashReceived:options.cashReceived||0,cashChange:options.cashChange||0,total:grand};
   let completedSale;
   try{
     const requestId=checkoutRequestId();
-    const rpcItems=items.map(item=>({lineKey:item.lineKey,productId:item.productId,warehouseId:item.warehouseId,qty:item.qty,factor:item.factor||1,baseQty:item.baseQty,custom:item.custom,name:item.name,price:item.price,cost:item.cost,costTotal:item.costTotal,costSource:item.costSource,unit:item.unit,promoId:item.promoId,promoName:item.promoName,lineTotal:item.lineTotal,lineTotalGross:item.lineTotalGross,vatMode:item.vatMode,promoFreeQty:item.promoFreeQty}));
+    const rpcItems=items.map(item=>({lineKey:item.lineKey,productId:item.productId,warehouseId:item.warehouseId,qty:item.qty,factor:item.factor||1,baseQty:item.baseQty,custom:item.custom,name:item.name,price:item.price,cost:item.cost,costTotal:item.costTotal,costSource:item.costSource,unit:item.unit,promoId:item.promoId,promoName:item.promoName,lineTotal:item.lineTotal,lineTotalGross:item.lineTotalGross,vatMode:item.vatMode,promoFreeQty:item.promoFreeQty,dispensingLabel:item.dispensingLabel}));
     const {data,error}=await sb.rpc('complete_sale',{p_request_id:requestId,p_ref_prefix:documentPrefixes.sale,p_warehouse_id:Number(activeWarehouseId),p_sale:saleDraft,p_items:rpcItems});
     if(error) throw error;
     completedSale={...(data?.sale||{}),cashShiftId:currentCashShift.id};
