@@ -93,6 +93,9 @@ assert.match(printHtml, /class="medicine-label-icon"/, 'หน้าพิมพ
 assert.match(printHtml, /class="medicine-label-badge">ขนาดรับประทาน<\/span>/, 'ต้องแสดงขนาดรับประทานเป็นป้ายสีดำ');
 assert.match(printHtml, /ครั้งละ<\/span><b class="medicine-label-value">1<\/b><span>เม็ด<\/span>/);
 assert.match(printHtml, /class="medicine-label-badge">จำนวน<\/span><b class="medicine-label-value">7<\/b><span>วัน<\/span>/);
+assert.match(printHtml, /medicine-label-indication[^>]*>.*class="medicine-label-badge">ข้อบ่งใช้<\/span><b class="medicine-label-value">แก้ปวด<\/b>/, 'ต้องย้ายข้อบ่งใช้มาไว้ในช่องขนาดรับประทานเดิม');
+assert.match(printHtml, /medicine-label-dose-stack[^>]*>.*ขนาดรับประทาน.*medicine-label-dose-line.*จำนวน/s, 'ขนาดรับประทานต้องอยู่เหนือจำนวนในช่องเดียวกัน');
+assert.doesNotMatch(printHtml, /ใช้สำหรับ แก้ปวด/, 'ต้องไม่แสดงข้อบ่งใช้ต่อท้ายชื่อยาอีก');
 assert.match(printHtml, /class="medicine-label-row medicine-label-schedule"/, 'ต้องมีแถวช่วงเวลาการใช้ยา');
 assert.match(printHtml, /<i>✓<\/i>หลังอาหาร/, 'ช่วงเวลาที่ระบุในวิธีใช้ต้องถูกทำเครื่องหมาย');
 assert.match(printHtml, /<i>✓<\/i>เช้า/);
