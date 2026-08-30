@@ -128,6 +128,9 @@ assert.match(printHtml, /\.medicine-label-dose-line\+\.medicine-label-dose-line\
 assert.match(printHtml, /--medicine-label-text-nudge:\.22mm;--medicine-label-dose-nudge:\.28mm;--medicine-label-dose-value-nudge:\.34mm/, 'ฉลากปกติต้องชดเชยแนวตัวอักษรให้อยู่กึ่งกลางทางสายตา');
 assert.match(printHtml, /\.medicine-label-dose-line>\*\{position:relative;top:var\(--medicine-label-dose-nudge\)\}/, 'ข้อมูลขนาดรับประทานต้องขยับลงกึ่งกลางแถว');
 assert.match(printHtml, /\.medicine-label-dose-line>\.medicine-label-value,\.medicine-label-dose-line>\.medicine-label-value\+span\{top:var\(--medicine-label-dose-value-nudge\)\}/, 'จำนวนและหน่วยต้องอยู่แนวเดียวกับป้ายหัวข้อ');
+assert.match(printHtml, /\.medicine-label-duration-line\{align-items:baseline\}/, 'หัวข้อระยะเวลาและข้อมูลต้องอยู่บนแนวอักษรเดียวกัน');
+assert.match(printHtml, /\.medicine-label-duration-line>\*\{top:var\(--medicine-label-dose-nudge\)\}/, 'หัวข้อระยะเวลาและข้อมูลต้องขยับลงเท่ากัน');
+assert.doesNotMatch(printHtml, /header\{[^}]*border-bottom:/, 'ต้องไม่มีเส้นใต้โลโก้และเบอร์โทร');
 assert.doesNotMatch(printHtml, /ใช้สำหรับ แก้ปวด/, 'ต้องไม่แสดงข้อบ่งใช้ต่อท้ายชื่อยาอีก');
 assert.match(printHtml, /class="medicine-label-row medicine-label-schedule"/, 'ต้องมีแถวช่วงเวลาการใช้ยา');
 assert.match(printHtml, /\.medicine-label-schedule \.medicine-label-cell:first-child\{justify-content:flex-start\}/, 'ไอคอนนาฬิกาและตัวเลือกก่อนหรือหลังอาหารต้องชิดซ้าย');
