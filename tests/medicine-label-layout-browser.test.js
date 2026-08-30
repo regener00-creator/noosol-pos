@@ -52,8 +52,8 @@ function renderLabel(size) {
         indication:'66666',
         doseAmount:'1',
         doseUnit:'เม็ด',
-        durationMode:'until_recovered',
-        durationDays:'',
+        durationMode:'days',
+        durationDays:'52',
         mealTiming:'before',
         intervalValue:'30',
         intervalUnit:'minutes',
@@ -81,7 +81,7 @@ const browserExecutable = [
     const page = await browser.newPage({viewport:{width:700,height:500},deviceScaleFactor:2});
     await page.route('https://fonts.googleapis.com/**', route => route.abort());
     const labelHtml=renderLabel(size).replace('sapuri-pharmacy-logo.png',logoData);
-    assert.match(labelHtml, /medicine-label-duration-value">จนกว่าอาการจะหาย<\/b>/, `${size} ต้องแสดงระยะเวลาจนกว่าอาการจะหาย`);
+    assert.match(labelHtml, /class="medicine-label-value">52<\/b><span>วัน<\/span>/, `${size} ต้องแสดงระยะเวลา 52 วัน`);
     assert.match(labelHtml, /<i class="is-checked"><\/i>ทุก 30 นาที/, `${size} ต้องถมดำช่องทุก 30 นาทีบนกระดาษ`);
     await page.setContent(labelHtml, {waitUntil:'domcontentloaded'});
     await page.locator('.toolbar').evaluate(element => element.remove());
@@ -93,6 +93,13 @@ const browserExecutable = [
       const timeChoices = [...element.querySelectorAll('.medicine-label-schedule .medicine-label-cell:last-child .medicine-label-choice')].map(choice => choice.getBoundingClientRect());
       const rightCellWidths = ['meta','dose','schedule','footer'].map(section => element.querySelector(`.medicine-label-${section} .medicine-label-cell:last-child`)?.getBoundingClientRect().width);
       const checkedChoiceStyles = [...element.querySelectorAll('.medicine-label-choice i.is-checked')].map(choice => getComputedStyle(choice).backgroundColor);
+      const firstDoseLine = element.querySelector('.medicine-label-dose-line:not(.medicine-label-duration-line)');
+      const doseLabelRect = firstDoseLine.querySelector('.medicine-label-section-label').getBoundingClientRect();
+      const doseValueRect = firstDoseLine.querySelector('.medicine-label-value').getBoundingClientRect();
+      const durationLineRect = element.querySelector('.medicine-label-duration-line').getBoundingClientRect();
+      const durationChildRects = [...element.querySelector('.medicine-label-duration-line').children].map(child => child.getBoundingClientRect());
+      const durationContentTop = Math.min(...durationChildRects.map(rect => rect.top));
+      const durationContentBottom = Math.max(...durationChildRects.map(rect => rect.bottom));
       return {
         width:[element.clientWidth,element.scrollWidth],
         height:[element.clientHeight,element.scrollHeight],
@@ -102,6 +109,8 @@ const browserExecutable = [
         timeChoiceGaps:timeChoices.slice(1).map((rect,index) => rect.left - timeChoices[index].right),
         rightCellWidths,
         checkedChoiceStyles,
+        doseTextCenters:[doseLabelRect.top + doseLabelRect.height / 2,doseValueRect.top + doseValueRect.height / 2],
+        durationCenters:[durationLineRect.top + durationLineRect.height / 2,(durationContentTop + durationContentBottom) / 2],
       };
     });
     assert.ok(metrics.width[1] <= metrics.width[0] + 1, `${size} ต้องไม่มีข้อมูลล้นด้านข้าง`);
@@ -117,6 +126,8 @@ const browserExecutable = [
     assert.ok(Math.max(...metrics.rightCellWidths) - Math.min(...metrics.rightCellWidths) <= 1, `${size} ช่องขนาดรับประทาน ระยะเวลา ช่วงเวลา และเภสัชกรต้องกว้างเท่าช่องวันที่จ่ายยา`);
     assert.ok(metrics.checkedChoiceStyles.length >= 1, `${size} ต้องมีช่องตัวเลือกที่ถูกเลือก`);
     assert.ok(metrics.checkedChoiceStyles.every(color => color === 'rgb(17, 17, 17)'), `${size} ช่องที่เลือกต้องถมสีดำทุกช่อง`);
+    assert.ok(Math.abs(metrics.doseTextCenters[0] - metrics.doseTextCenters[1]) <= 1.5, `${size} หัวข้อรับประทานครั้งละต้องอยู่กึ่งกลางแนวเดียวกับจำนวนยา`);
+    assert.ok(Math.abs(metrics.durationCenters[0] - metrics.durationCenters[1]) <= 2.2, `${size} ระยะเวลา 52 วันต้องอยู่กึ่งกลางช่อง`);
     await page.locator('.medicine-label').screenshot({path:path.join(os.tmpdir(),`pepos-medicine-label-${size}.png`)});
     await page.close();
   }
