@@ -100,6 +100,8 @@ const browserExecutable = [
       const durationChildRects = [...element.querySelector('.medicine-label-duration-line').children].map(child => child.getBoundingClientRect());
       const durationContentTop = Math.min(...durationChildRects.map(rect => rect.top));
       const durationContentBottom = Math.max(...durationChildRects.map(rect => rect.bottom));
+      const durationValueRect = element.querySelector('.medicine-label-duration-line .medicine-label-value').getBoundingClientRect();
+      const durationUnitRect = element.querySelector('.medicine-label-duration-line .medicine-label-value + span').getBoundingClientRect();
       return {
         width:[element.clientWidth,element.scrollWidth],
         height:[element.clientHeight,element.scrollHeight],
@@ -111,6 +113,10 @@ const browserExecutable = [
         checkedChoiceStyles,
         doseTextCenters:[doseLabelRect.top + doseLabelRect.height / 2,doseValueRect.top + doseValueRect.height / 2],
         durationCenters:[durationLineRect.top + durationLineRect.height / 2,(durationContentTop + durationContentBottom) / 2],
+        durationValueAndUnitCenters:[durationValueRect.top + durationValueRect.height / 2,durationUnitRect.top + durationUnitRect.height / 2],
+        headingWeights:[...element.querySelectorAll('.medicine-label-key,.medicine-label-section-label')].map(node => Number(getComputedStyle(node).fontWeight)),
+        valueWeights:[...element.querySelectorAll('.medicine-label-value')].map(node => Number(getComputedStyle(node).fontWeight)),
+        doseUnitWeights:[...element.querySelectorAll('.medicine-label-dose-line>.medicine-label-value+span')].map(node => Number(getComputedStyle(node).fontWeight)),
       };
     });
     assert.ok(metrics.width[1] <= metrics.width[0] + 1, `${size} ต้องไม่มีข้อมูลล้นด้านข้าง`);
@@ -128,6 +134,11 @@ const browserExecutable = [
     assert.ok(metrics.checkedChoiceStyles.every(color => color === 'rgb(17, 17, 17)'), `${size} ช่องที่เลือกต้องถมสีดำทุกช่อง`);
     assert.ok(Math.abs(metrics.doseTextCenters[0] - metrics.doseTextCenters[1]) <= 1.5, `${size} หัวข้อรับประทานครั้งละต้องอยู่กึ่งกลางแนวเดียวกับจำนวนยา`);
     assert.ok(Math.abs(metrics.durationCenters[0] - metrics.durationCenters[1]) <= 2.2, `${size} ระยะเวลา 52 วันต้องอยู่กึ่งกลางช่อง`);
+    assert.ok(metrics.durationValueAndUnitCenters[1] > metrics.durationValueAndUnitCenters[0], `${size} คำว่าวันต้องขยับต่ำลงจากเลขระยะเวลา`);
+    assert.ok(metrics.durationValueAndUnitCenters[1] - metrics.durationValueAndUnitCenters[0] <= 1, `${size} คำว่าวันต้องไม่ต่ำกว่าเลขระยะเวลามากเกินไป`);
+    assert.ok(metrics.headingWeights.every(weight => weight >= 700), `${size} หัวข้อทั้งหมดต้องเป็นตัวหนา`);
+    assert.ok(metrics.valueWeights.every(weight => weight === 400), `${size} ข้อมูลทั้งหมดต้องเป็นตัวบาง`);
+    assert.ok(metrics.doseUnitWeights.every(weight => weight === 400), `${size} หน่วยรับประทานและวันต้องเป็นตัวบาง`);
     await page.locator('.medicine-label').screenshot({path:path.join(os.tmpdir(),`pepos-medicine-label-${size}.png`)});
     await page.close();
   }

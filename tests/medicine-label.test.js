@@ -128,11 +128,14 @@ assert.match(printHtml, /\.medicine-label-dose-stack\{[^}]*display:grid;grid-tem
 assert.match(printHtml, /\.medicine-label-dose-line\+\.medicine-label-dose-line\{[^}]*border-top:\.1mm solid #111\}/, 'แถวล่างต้องไม่มีระยะห่างส่วนเกิน');
 assert.match(printHtml, /--medicine-label-text-nudge:\.22mm;--medicine-label-dose-nudge:\.28mm;--medicine-label-dose-value-nudge:\.34mm/, 'ฉลากปกติต้องชดเชยแนวตัวอักษรให้อยู่กึ่งกลางทางสายตา');
 assert.match(printHtml, /\.medicine-label-dose-line>\*\{position:relative;top:var\(--medicine-label-dose-nudge\)\}/, 'ข้อมูลขนาดรับประทานต้องขยับลงกึ่งกลางแถว');
-assert.match(printHtml, /\.medicine-label-dose-line>\.medicine-label-value,\.medicine-label-dose-line>\.medicine-label-value\+span\{top:var\(--medicine-label-dose-value-nudge\)\}/, 'จำนวนและหน่วยต้องอยู่แนวเดียวกับป้ายหัวข้อ');
+assert.match(printHtml, /\.medicine-label-key\{[^}]*font-weight:700/, 'หัวข้อข้อมูลทั้งหมดต้องเป็นตัวหนา');
+assert.match(printHtml, /\.medicine-label-value\{[^}]*font-weight:400/, 'ข้อมูลทั้งหมดต้องเป็นตัวบาง');
+assert.match(printHtml, /\.medicine-label-dose-line>\.medicine-label-value,\.medicine-label-dose-line>\.medicine-label-value\+span\{top:var\(--medicine-label-dose-value-nudge\);font-weight:400\}/, 'จำนวนและหน่วยต้องเป็นตัวบางและอยู่แนวเดียวกัน');
 assert.match(printHtml, /\.medicine-label-dose-line:not\(\.medicine-label-duration-line\)>\.medicine-label-section-label\{top:calc\(var\(--medicine-label-dose-nudge\) \+ \.18mm\)\}/, 'หัวข้อรับประทานครั้งละต้องขยับลงให้เสมอข้อมูล');
 assert.match(printHtml, /\.medicine-label-duration-line\{align-items:center\}/, 'หัวข้อระยะเวลาและข้อมูลต้องจัดกึ่งกลางแถว');
 assert.match(printHtml, /\.medicine-label-duration-line>\*\{top:calc\(var\(--medicine-label-dose-nudge\) \+ \.22mm\)\}/, 'หัวข้อระยะเวลาและข้อมูลต้องขยับลงเท่ากัน');
-assert.match(printHtml, /\.medicine-label-dose-line\{[^}]*font-weight:700\}/, 'ข้อความขนาดรับประทานและระยะเวลาต้องเป็นตัวหนาทั้งบรรทัด');
+assert.match(printHtml, /\.medicine-label-duration-line>\.medicine-label-value\+span\{top:calc\(var\(--medicine-label-dose-value-nudge\) \+ \.14mm\)\}/, 'คำว่าวันต้องขยับลงให้เสมอเลขระยะเวลา');
+assert.match(printHtml, /\.medicine-label-dose-line\{[^}]*font-weight:700\}/, 'หัวข้อขนาดรับประทานและระยะเวลาต้องเป็นตัวหนา');
 assert.match(printHtml, /\.medicine-label-meta\{grid-template-columns:1\.12fr \.88fr\}/, 'ช่องวันที่จ่ายยาต้องใช้สัดส่วนคอลัมน์มาตรฐาน');
 assert.match(printHtml, /\.medicine-label-dose\{grid-template-columns:1\.12fr \.88fr;/, 'ช่องขนาดรับประทานและระยะเวลาต้องกว้างเท่าช่องวันที่จ่ายยา');
 assert.match(printHtml, /\.medicine-label-schedule\{grid-template-columns:1\.12fr \.88fr\}/, 'ช่องช่วงเวลารับประทานต้องกว้างเท่าช่องวันที่จ่ายยา');
