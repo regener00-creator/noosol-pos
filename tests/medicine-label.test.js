@@ -66,6 +66,8 @@ assert.match(printHtml, /ตัวอย่างฉลากยา 80 × 50 ม
 assert.match(printHtml, /Paracetamol 500 mg/);
 assert.match(printHtml, /sapuri-pharmacy-logo\.png/);
 assert.match(printHtml, /class="medicine-label-brand-logo"/);
+assert.match(printHtml, /\.medicine-label-brand\{display:contents\}/);
+assert.match(printHtml, /grid-row:1\/3;align-self:center/);
 assert.match(printHtml, /<small>โทร 02-000-0000<\/small>/);
 assert.doesNotMatch(printHtml, /1 ถนนทดสอบ/, 'ฉลากยาไม่ควรแสดงที่อยู่ร้าน');
 assert.match(printHtml, /ผู้รับยา/);
