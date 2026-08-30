@@ -70,6 +70,8 @@ assert.match(printHtml, /\.medicine-label-brand\{display:contents\}/);
 assert.match(printHtml, /grid-row:1\/3;align-self:center/);
 assert.match(printHtml, /border:\.2mm solid #222;border-radius:/);
 assert.match(printHtml, /filter:grayscale\(1\) contrast\(1\.15\)/);
+assert.match(printHtml, /width:11\.6mm;height:11\.6mm/);
+assert.match(printHtml, /left:-2\.25mm;top:-2\.15mm/);
 assert.doesNotMatch(printHtml, /#4F4038|#A43A31|#F1ECE9|#2B2422/, 'หน้าพิมพ์ฉลากยาต้องใช้เฉพาะโทนขาวดำ');
 assert.match(printHtml, /<small>โทร 02-000-0000<\/small>/);
 assert.doesNotMatch(printHtml, /1 ถนนทดสอบ/, 'ฉลากยาไม่ควรแสดงที่อยู่ร้าน');
