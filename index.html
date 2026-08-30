@@ -15797,7 +15797,7 @@ function printMedicineLabels(saleId){
 body{margin:0;background:#e6e6e6;color:#111;font-family:'Noto Sans Thai',Tahoma,sans-serif}
 .toolbar{position:sticky;top:0;z-index:5;background:#fff;padding:10px 18px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px #0002}
 .toolbar button{border:0;border-radius:7px;background:#111;color:#fff;padding:9px 18px;font:600 14px 'Noto Sans Thai',sans-serif}
-.medicine-label{width:${size.width}mm;height:${size.height}mm;margin:10px auto;background:#fff;padding:${compact?'1.8':'2.5'}mm;display:flex;flex-direction:column;gap:${compact?'.55':'.75'}mm;overflow:hidden;page-break-after:always;box-shadow:0 3px 14px #0002}
+.medicine-label{--medicine-label-text-nudge:${compact?'.14':'.22'}mm;--medicine-label-dose-nudge:${compact?'.18':'.28'}mm;--medicine-label-dose-value-nudge:${compact?'.22':'.34'}mm;width:${size.width}mm;height:${size.height}mm;margin:10px auto;background:#fff;padding:${compact?'1.8':'2.5'}mm;display:flex;flex-direction:column;gap:${compact?'.55':'.75'}mm;overflow:hidden;page-break-after:always;box-shadow:0 3px 14px #0002}
 .medicine-label:last-child{page-break-after:auto}
 header{display:grid;grid-template-columns:${compact?'6.5':'7.5'}mm minmax(0,1fr) auto;grid-template-rows:auto auto;column-gap:${compact?'.8':'1'}mm;row-gap:${compact?'.15':'.25'}mm;align-items:center;padding-bottom:${compact?'.45':'.6'}mm;border-bottom:.12mm solid #111;line-height:1.15}
 .medicine-label-brand{display:contents}
@@ -15818,6 +15818,7 @@ header{display:grid;grid-template-columns:${compact?'6.5':'7.5'}mm minmax(0,1fr)
 .medicine-label-icon{flex:0 0 ${compact?'2.7':'3.4'}mm;width:${compact?'2.7':'3.4'}mm;height:${compact?'2.7':'3.4'}mm}
 .medicine-label-key{flex:0 0 auto;font-size:${compact?'4.2':'5'}pt;font-weight:600;white-space:nowrap}
 .medicine-label-value{min-width:0;font-size:${compact?'4.8':'5.7'}pt;font-weight:700;line-height:1.12;overflow-wrap:anywhere}
+.medicine-label-meta .medicine-label-key,.medicine-label-meta .medicine-label-value,.medicine-label-drug .medicine-label-key,.medicine-label-drug .medicine-label-value,.medicine-label-warning .medicine-label-key,.medicine-label-warning .medicine-label-value,.medicine-label-footer .medicine-label-key,.medicine-label-footer .medicine-label-value{position:relative;top:var(--medicine-label-text-nudge)}
 .medicine-label-meta .medicine-label-value{white-space:nowrap}
 .medicine-label-drug .medicine-label-value{font-size:${compact?'6.2':'7.3'}pt}
 .medicine-label-badge{flex:0 0 auto;border-radius:999px;background:#111;color:#fff;padding:${compact?'.2mm .65mm':'.25mm .8mm'};font-size:${compact?'3.9':'4.6'}pt;font-weight:700;white-space:nowrap}
@@ -15828,9 +15829,12 @@ header{display:grid;grid-template-columns:${compact?'6.5':'7.5'}mm minmax(0,1fr)
 .medicine-label-dose-stack{display:grid;grid-template-rows:1fr 1fr;align-items:stretch!important;justify-content:stretch!important;padding:0}
 .medicine-label-dose-line{display:flex;align-items:center;justify-content:flex-start;gap:${compact?'.4':'.55'}mm;min-width:0;min-height:0;padding:${compact?'.35mm .55mm':'.45mm .75mm'}}
 .medicine-label-dose-line+.medicine-label-dose-line{border-top:.1mm solid #111}
+.medicine-label-dose-line>*{position:relative;top:var(--medicine-label-dose-nudge)}
+.medicine-label-dose-line>.medicine-label-value,.medicine-label-dose-line>.medicine-label-value+span{top:var(--medicine-label-dose-value-nudge)}
 .medicine-label-dose .medicine-label-value{font-size:${compact?'5.6':'6.7'}pt;white-space:nowrap}
 .medicine-label-checks{justify-content:center;gap:${compact?'.45':'.75'}mm;padding-top:${compact?'.35':'.45'}mm;padding-bottom:${compact?'.35':'.45'}mm}
 .medicine-label-schedule .medicine-label-cell:first-child{justify-content:flex-start}
+.medicine-label-schedule .medicine-label-cell:last-child{justify-content:space-evenly;gap:${compact?'.3':'.55'}mm}
 .medicine-label-choice{display:inline-flex;align-items:center;gap:.3mm;font-size:${compact?'3.5':'4.2'}pt;white-space:nowrap}
 .medicine-label-choice i{display:inline-flex;align-items:center;justify-content:center;width:${compact?'1.8':'2.2'}mm;height:${compact?'1.8':'2.2'}mm;border:.12mm solid #111;border-radius:.25mm;font:700 ${compact?'3.4':'4'}pt Arial,sans-serif;font-style:normal}
 .medicine-label-legacy .medicine-label-cell{padding-top:.35mm;padding-bottom:.35mm}

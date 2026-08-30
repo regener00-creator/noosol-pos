@@ -39,23 +39,23 @@ vm.runInContext(`${html.slice(helpersStart, helpersEnd)}\n${html.slice(printStar
 function renderLabel(size) {
   printHtml = '';
   context.salesHistory = [{
-    id:`SALE-${size}`, ref:'RE202608300001', date:'2026-08-30', medicineLabelSize:size,
+    id:`SALE-${size}`, ref:'RE202608300006', date:'2026-08-03', medicineLabelSize:size,
     businessSnapshot:context.businessSettings,
     items:[{
-      name:'Decolgen prin (4 tablets)', qty:1, unit:'กล่อง',
-      lotAllocations:[{expiry:'2031-08-09'}],
+      name:'[BP] Alben Anthelmintics 200 mg (2 tablets)', qty:1, unit:'กล่อง',
+      lotAllocations:[],
       dispensingLabel:{
         enabled:true,
-        drugName:'Decolgen prin (4 tablets)',
-        patientName:'ผู้รับยาทดสอบ',
+        drugName:'[BP] Alben Anthelmintics 200 mg (2 tablets)',
+        patientName:'55555',
         pharmacistName:'เภสัชกร กรธวัช จันทรวารี',
-        indication:'ลดไข้ บรรเทาอาการคัดจมูก',
+        indication:'66666',
         doseAmount:'1',
         doseUnit:'เม็ด',
-        durationDays:'7',
-        mealTiming:'after',
+        durationDays:'4',
+        mealTiming:'before',
         doseTimes:['morning','noon','evening'],
-        warning:'อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร',
+        warning:'อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร · รับประทานยานี้ติดต่อกันจนหมด',
       },
     }],
   }];
@@ -84,12 +84,14 @@ const browserExecutable = [
       const doseLines = [...element.querySelectorAll('.medicine-label-dose-line')].map(line => line.getBoundingClientRect());
       const warningKey = element.querySelector('.medicine-label-warning .medicine-label-key')?.getBoundingClientRect();
       const warningValue = element.querySelector('.medicine-label-warning .medicine-label-value')?.getBoundingClientRect();
+      const timeChoices = [...element.querySelectorAll('.medicine-label-schedule .medicine-label-cell:last-child .medicine-label-choice')].map(choice => choice.getBoundingClientRect());
       return {
         width:[element.clientWidth,element.scrollWidth],
         height:[element.clientHeight,element.scrollHeight],
         infoHeight:[info.clientHeight,info.scrollHeight],
         doseLineHeights:doseLines.map(rect => rect.height),
         warningCenters:[warningKey && warningKey.top + warningKey.height / 2,warningValue && warningValue.top + warningValue.height / 2],
+        timeChoiceGaps:timeChoices.slice(1).map((rect,index) => rect.left - timeChoices[index].right),
       };
     });
     assert.ok(metrics.width[1] <= metrics.width[0] + 1, `${size} ต้องไม่มีข้อมูลล้นด้านข้าง`);
@@ -99,6 +101,8 @@ const browserExecutable = [
     assert.ok(Math.abs(metrics.doseLineHeights[0] - metrics.doseLineHeights[1]) <= 1, `${size} สองแถวขนาดรับประทานต้องสูงเท่ากัน`);
     assert.ok(metrics.warningCenters.every(Number.isFinite), `${size} ต้องมีหัวข้อและข้อมูลคำเตือน`);
     assert.ok(Math.abs(metrics.warningCenters[0] - metrics.warningCenters[1]) <= 1, `${size} หัวข้อและข้อมูลคำเตือนต้องอยู่กึ่งกลางแนวเดียวกัน`);
+    assert.equal(metrics.timeChoiceGaps.length, 3, `${size} ต้องมีช่องว่างระหว่างช่วงเวลาทั้งสี่`);
+    assert.ok(Math.min(...metrics.timeChoiceGaps) >= 2, `${size} ช่วงเวลารับประทานต้องไม่ชิดกัน`);
     await page.locator('.medicine-label').screenshot({path:path.join(os.tmpdir(),`pepos-medicine-label-${size}.png`)});
     await page.close();
   }

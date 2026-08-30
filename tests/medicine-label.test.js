@@ -103,9 +103,13 @@ assert.match(printHtml, /\.medicine-label-indication\{[^}]*flex-direction:column
 assert.match(printHtml, /medicine-label-dose-stack[^>]*>.*ขนาดรับประทาน.*medicine-label-dose-line.*ระยะเวลา/s, 'ขนาดรับประทานต้องอยู่เหนือระยะเวลาในช่องเดียวกัน');
 assert.match(printHtml, /\.medicine-label-dose-stack\{[^}]*display:grid;grid-template-rows:1fr 1fr/, 'ช่องขนาดรับประทานและระยะเวลาต้องแบ่งความสูงเท่ากัน');
 assert.match(printHtml, /\.medicine-label-dose-line\+\.medicine-label-dose-line\{[^}]*border-top:\.1mm solid #111\}/, 'แถวล่างต้องไม่มีระยะห่างส่วนเกิน');
+assert.match(printHtml, /--medicine-label-text-nudge:\.22mm;--medicine-label-dose-nudge:\.28mm;--medicine-label-dose-value-nudge:\.34mm/, 'ฉลากปกติต้องชดเชยแนวตัวอักษรให้อยู่กึ่งกลางทางสายตา');
+assert.match(printHtml, /\.medicine-label-dose-line>\*\{position:relative;top:var\(--medicine-label-dose-nudge\)\}/, 'ข้อมูลขนาดรับประทานต้องขยับลงกึ่งกลางแถว');
+assert.match(printHtml, /\.medicine-label-dose-line>\.medicine-label-value,\.medicine-label-dose-line>\.medicine-label-value\+span\{top:var\(--medicine-label-dose-value-nudge\)\}/, 'จำนวนและหน่วยต้องอยู่แนวเดียวกับป้ายหัวข้อ');
 assert.doesNotMatch(printHtml, /ใช้สำหรับ แก้ปวด/, 'ต้องไม่แสดงข้อบ่งใช้ต่อท้ายชื่อยาอีก');
 assert.match(printHtml, /class="medicine-label-row medicine-label-schedule"/, 'ต้องมีแถวช่วงเวลาการใช้ยา');
 assert.match(printHtml, /\.medicine-label-schedule \.medicine-label-cell:first-child\{justify-content:flex-start\}/, 'ไอคอนนาฬิกาและตัวเลือกก่อนหรือหลังอาหารต้องชิดซ้าย');
+assert.match(printHtml, /\.medicine-label-schedule \.medicine-label-cell:last-child\{justify-content:space-evenly;/, 'ช่วงเวลารับประทานต้องกระจายระยะห่างเต็มช่อง');
 assert.match(printHtml, /<i>✓<\/i>หลังอาหาร/, 'ช่วงเวลาที่ระบุในวิธีใช้ต้องถูกทำเครื่องหมาย');
 assert.match(printHtml, /<i>✓<\/i>เช้า/);
 assert.match(printHtml, /<i>✓<\/i>กลางวัน/);
