@@ -58,7 +58,7 @@ assert.equal(context.medicineLabelFitsSize({...complete, directions:'ย'.repeat
 context.salesHistory.push({
   id:'SALE-1', ref:'RE202608300001', date:'2026-08-30', medicineLabelSize:'80x50',
   businessSnapshot:context.businessSettings,
-  items:[{name:'Paracetamol 500 mg',qty:10,unit:'เม็ด',dispensingLabel:complete}],
+  items:[{name:'Paracetamol 500 mg',qty:10,unit:'เม็ด',lotAllocations:[{expiry:'2027-12-31'}],dispensingLabel:complete}],
 });
 assert.equal(context.printMedicineLabels('SALE-1'), true);
 assert.match(printHtml, /@page\{size:80mm 50mm;margin:0\}/);
@@ -75,10 +75,18 @@ assert.match(printHtml, /left:-2\.25mm;top:-2\.15mm/);
 assert.doesNotMatch(printHtml, /#4F4038|#A43A31|#F1ECE9|#2B2422/, 'หน้าพิมพ์ฉลากยาต้องใช้เฉพาะโทนขาวดำ');
 assert.match(printHtml, /<small>โทร 02-000-0000<\/small>/);
 assert.doesNotMatch(printHtml, /1 ถนนทดสอบ/, 'ฉลากยาไม่ควรแสดงที่อยู่ร้าน');
+assert.match(printHtml, /class="medicine-label-info"/, 'ข้อมูลฉลากต้องอยู่ในกรอบตาราง');
+assert.match(printHtml, /class="medicine-label-row medicine-label-meta"/, 'ต้องแบ่งผู้รับยาและวันที่เป็นแถว');
+assert.match(printHtml, /class="medicine-label-badge">จำนวนยา<\/span>/, 'หัวข้อสำคัญต้องใช้ป้ายสีดำ');
+assert.match(printHtml, /class="medicine-label-row medicine-label-schedule"/, 'ต้องมีแถวช่วงเวลาการใช้ยา');
+assert.match(printHtml, /<i>✓<\/i>หลังอาหาร/, 'ช่วงเวลาที่ระบุในวิธีใช้ต้องถูกทำเครื่องหมาย');
+assert.match(printHtml, /class="medicine-label-row medicine-label-warning"/, 'คำเตือนต้องอยู่ในแถวของตาราง');
+assert.match(printHtml, /วันหมดอายุ<\/span><b class="medicine-label-value">31-12-2027<\/b>/, 'ต้องแสดงวันหมดอายุจาก Lot ที่จ่าย');
+assert.doesNotMatch(printHtml, /background:#f1f1f1/, 'ก้อนข้อมูลใหม่ต้องไม่ใช้กล่องพื้นเทาแบบเดิม');
 assert.match(printHtml, /ผู้รับยา/);
 assert.match(printHtml, /สมชาย ใจดี/);
 assert.match(printHtml, /รับประทานครั้งละ 1 เม็ด หลังอาหาร/);
-assert.match(printHtml, /เภสัชกร ภก\. ทดสอบ/);
+assert.match(printHtml, /เภสัชกร<\/span><b class="medicine-label-value">ภก\. ทดสอบ<\/b>/);
 assert.equal(printCount, 1);
 
 assert.match(html, /data-medicine-label-line=/, 'หน้า POS ต้องมีปุ่มจัดทำฉลากยารายการต่อรายการ');

@@ -15682,6 +15682,18 @@ function medicineLabelContentLength(label){
 function medicineLabelFitsSize(label,sizeKey){
   return medicineLabelContentLength(label)<=(sizeKey==='60x40'?240:420);
 }
+function medicineLabelExpiryText(item){
+  const dates=(item?.lotAllocations||[])
+    .map(allocation=>String(allocation?.expiry||'').slice(0,10))
+    .filter(value=>/^\d{4}-\d{2}-\d{2}$/.test(value))
+    .sort();
+  return dates.length?fmtDateShort(dates[0]):'ไม่ระบุ';
+}
+function medicineLabelScheduleHtml(directions){
+  const text=String(directions||'');
+  const choice=(token,label)=>`<span class="medicine-label-choice"><i>${text.includes(token)?'✓':''}</i>${label}</span>`;
+  return `<div class="medicine-label-row medicine-label-schedule"><div class="medicine-label-cell medicine-label-checks"><span class="medicine-label-symbol">◷</span>${choice('ก่อนอาหาร','ก่อนอาหาร')}${choice('หลังอาหาร','หลังอาหาร')}</div><div class="medicine-label-cell medicine-label-checks">${choice('เช้า','เช้า')}${choice('กลางวัน','กลางวัน')}${choice('เย็น','เย็น')}${choice('ก่อนนอน','ก่อนนอน')}</div></div>`;
+}
 function printMedicineLabels(saleId){
   const sale=salesHistory.find(item=>item.id===saleId); if(!sale) return false;
   const items=medicineLabelsForSale(sale); if(!items.length){ showToast('บิลนี้ไม่มีรายการฉลากยา','danger-top'); return false; }
@@ -15694,10 +15706,53 @@ function printMedicineLabels(saleId){
   const logoUrl=typeof location!=='undefined'?new URL(MEDICINE_LABEL_LOGO_PATH,location.href).href:MEDICINE_LABEL_LOGO_PATH;
   const labels=items.map(item=>{
     const label=normalizeDispensingLabel(item.dispensingLabel),length=medicineLabelContentLength(label),density=length>(compact?170:300)?' dense':'';
-    return `<section class="medicine-label${density}"><header><div class="medicine-label-brand"><span class="medicine-label-logo-frame"><img class="medicine-label-brand-logo" src="${escapeHtml(logoUrl)}" alt="โลโก้ SAPURI Pharmacy"></span><b>${escapeHtml(businessName)}</b></div><small>${escapeHtml(phone?`โทร ${phone}`:'')}</small></header><div class="patient"><span>ผู้รับยา</span><b>${escapeHtml(label.patientName)}</b></div><div class="drug">${escapeHtml(label.drugName)}</div><div class="quantity">จำนวน ${escapeHtml(item.qty)} ${escapeHtml(item.unit||'หน่วย')} · ใช้สำหรับ ${escapeHtml(label.indication)}</div><div class="directions">${escapeHtml(label.directions)}</div>${label.warning?`<div class="warning">คำเตือน: ${escapeHtml(label.warning).replace(/\n/g,' · ')}</div>`:''}<footer><span>วันที่ ${escapeHtml(fmtDateShort(sale.date))} · ${escapeHtml(sale.ref||sale.id)}</span><span>เภสัชกร ${escapeHtml(label.pharmacistName)}</span></footer></section>`;
+    const saleRef=escapeHtml(sale.ref||sale.id),saleDate=escapeHtml(fmtDateShort(sale.date)),expiry=escapeHtml(medicineLabelExpiryText(item));
+    return `<section class="medicine-label${density}"><header><div class="medicine-label-brand"><span class="medicine-label-logo-frame"><img class="medicine-label-brand-logo" src="${escapeHtml(logoUrl)}" alt="โลโก้ SAPURI Pharmacy"></span><b>${escapeHtml(businessName)}</b></div><small>${escapeHtml(phone?`โทร ${phone}`:'')}</small></header><div class="medicine-label-info"><div class="medicine-label-row medicine-label-meta"><div class="medicine-label-cell"><span class="medicine-label-symbol">○</span><span class="medicine-label-key">ผู้รับยา</span><b class="medicine-label-value">${escapeHtml(label.patientName)}</b></div><div class="medicine-label-cell"><span class="medicine-label-symbol">▦</span><span class="medicine-label-key">วันที่</span><b class="medicine-label-value">${saleDate}</b><small>${saleRef}</small></div></div><div class="medicine-label-row medicine-label-drug"><div class="medicine-label-cell"><span class="medicine-label-symbol">◇</span><span class="medicine-label-key">ชื่อยา</span><b class="medicine-label-value">${escapeHtml(label.drugName)}</b></div></div><div class="medicine-label-row medicine-label-details"><div class="medicine-label-cell"><span class="medicine-label-badge">จำนวนยา</span><b class="medicine-label-value">${escapeHtml(item.qty)} ${escapeHtml(item.unit||'หน่วย')}</b></div><div class="medicine-label-cell"><span class="medicine-label-badge">ใช้สำหรับ</span><b class="medicine-label-value">${escapeHtml(label.indication)}</b></div></div><div class="medicine-label-row medicine-label-directions"><div class="medicine-label-cell"><span class="medicine-label-symbol">≡</span><span class="medicine-label-badge">วิธีใช้ยา</span><b class="medicine-label-value">${escapeHtml(label.directions)}</b></div></div>${medicineLabelScheduleHtml(label.directions)}${label.warning?`<div class="medicine-label-row medicine-label-warning"><div class="medicine-label-cell"><span class="medicine-label-symbol">△</span><span class="medicine-label-key">คำเตือน</span><b class="medicine-label-value">${escapeHtml(label.warning).replace(/\n/g,' · ')}</b></div></div>`:''}<div class="medicine-label-row medicine-label-footer"><div class="medicine-label-cell"><span class="medicine-label-symbol">▦</span><span class="medicine-label-key">วันหมดอายุ</span><b class="medicine-label-value">${expiry}</b></div><div class="medicine-label-cell"><span class="medicine-label-symbol">✚</span><span class="medicine-label-key">เภสัชกร</span><b class="medicine-label-value">${escapeHtml(label.pharmacistName)}</b></div></div></div></section>`;
   }).join('');
   const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างฉลากยา','danger-top'); return false; }
-  win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>ฉลากยา ${escapeHtml(sale.ref||sale.id)}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet"><style>@page{size:${size.width}mm ${size.height}mm;margin:0}*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}body{margin:0;background:#e6e6e6;color:#111;font-family:'Sarabun',Tahoma,sans-serif}.toolbar{position:sticky;top:0;z-index:5;background:#fff;padding:10px 18px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px #0002}.toolbar button{border:0;border-radius:7px;background:#111;color:#fff;padding:9px 18px;font:600 14px Sarabun}.medicine-label{width:${size.width}mm;height:${size.height}mm;margin:10px auto;background:#fff;padding:${compact?'2.4':'3'}mm;display:flex;flex-direction:column;gap:${compact?'1.0':'1.25'}mm;overflow:hidden;page-break-after:always;box-shadow:0 3px 14px #0002}.medicine-label:last-child{page-break-after:auto}header{display:grid;grid-template-columns:${compact?'6.5':'7.5'}mm minmax(0,1fr);grid-template-rows:auto auto;column-gap:${compact?'.8':'1'}mm;row-gap:${compact?'.15':'.25'}mm;align-items:center;padding-bottom:${compact?'.8':'1'}mm;border-bottom:.35mm solid #111;line-height:1.15}.medicine-label-brand{display:contents}.medicine-label-logo-frame{position:relative;width:${compact?'6.5':'7.5'}mm;height:${compact?'6.5':'7.5'}mm;overflow:hidden;grid-column:1;grid-row:1/3;align-self:center;border:.2mm solid #222;border-radius:${compact?'1':'1.2'}mm;background:#fff}.medicine-label-brand-logo{position:absolute;width:${compact?'10':'11.6'}mm;height:${compact?'10':'11.6'}mm;left:${compact?'-1.94':'-2.25'}mm;top:${compact?'-1.88':'-2.15'}mm;object-fit:cover;filter:grayscale(1) contrast(1.15)}.medicine-label-brand b{grid-column:2;grid-row:1;align-self:end;font-size:${compact?'8':'9'}pt;line-height:1;color:#111}.medicine-label header small{grid-column:2;grid-row:2;align-self:start;font-size:${compact?'5.2':'5.8'}pt;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.patient{display:flex;align-items:baseline;gap:1.5mm;font-size:${compact?'6.5':'7.5'}pt}.patient span{color:#555}.patient b{font-size:${compact?'7.5':'8.5'}pt}.drug{font-size:${compact?'9':'11'}pt;font-weight:700;line-height:1.1}.quantity{font-size:${compact?'6.2':'7'}pt;line-height:1.15}.directions{padding:${compact?'1':'1.2'}mm;border:.2mm solid #d4d4d4;border-radius:1.5mm;background:#f1f1f1;color:#111;font-size:${compact?'7.7':'9'}pt;font-weight:700;line-height:1.2}.warning{padding-left:1mm;border-left:.4mm solid #111;color:#111;font-size:${compact?'5.8':'6.8'}pt;font-weight:700;line-height:1.15;white-space:pre-wrap}.medicine-label footer{display:flex;justify-content:space-between;gap:2mm;margin-top:auto;padding-top:.8mm;border-top:.2mm solid #777;font-size:${compact?'5.2':'5.8'}pt}.dense{gap:${compact?'.65':'.85'}mm}.dense .drug{font-size:${compact?'8':'9.5'}pt}.dense .directions{font-size:${compact?'6.8':'7.8'}pt}.dense .warning{font-size:${compact?'5.2':'6'}pt}@media print{body{background:#fff}.toolbar{display:none}.medicine-label{margin:0;box-shadow:none}}</style></head><body><div class="toolbar"><span>ตัวอย่างฉลากยา ${escapeHtml(size.label)} · ${items.length} ใบ</span><button onclick="window.print()">พิมพ์</button></div>${labels}</body></html>`);
+  win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>ฉลากยา ${escapeHtml(sale.ref||sale.id)}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet"><style>
+@page{size:${size.width}mm ${size.height}mm;margin:0}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+body{margin:0;background:#e6e6e6;color:#111;font-family:'Sarabun',Tahoma,sans-serif}
+.toolbar{position:sticky;top:0;z-index:5;background:#fff;padding:10px 18px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px #0002}
+.toolbar button{border:0;border-radius:7px;background:#111;color:#fff;padding:9px 18px;font:600 14px Sarabun}
+.medicine-label{width:${size.width}mm;height:${size.height}mm;margin:10px auto;background:#fff;padding:${compact?'1.8':'2.5'}mm;display:flex;flex-direction:column;gap:${compact?'.55':'.75'}mm;overflow:hidden;page-break-after:always;box-shadow:0 3px 14px #0002}
+.medicine-label:last-child{page-break-after:auto}
+header{display:grid;grid-template-columns:${compact?'6.5':'7.5'}mm minmax(0,1fr);grid-template-rows:auto auto;column-gap:${compact?'.8':'1'}mm;row-gap:${compact?'.15':'.25'}mm;align-items:center;padding-bottom:${compact?'.45':'.6'}mm;border-bottom:.35mm solid #111;line-height:1.15}
+.medicine-label-brand{display:contents}
+.medicine-label-logo-frame{position:relative;width:${compact?'6.5':'7.5'}mm;height:${compact?'6.5':'7.5'}mm;overflow:hidden;grid-column:1;grid-row:1/3;align-self:center;border:.2mm solid #222;border-radius:${compact?'1':'1.2'}mm;background:#fff}
+.medicine-label-brand-logo{position:absolute;width:${compact?'10':'11.6'}mm;height:${compact?'10':'11.6'}mm;left:${compact?'-1.94':'-2.25'}mm;top:${compact?'-1.88':'-2.15'}mm;object-fit:cover;filter:grayscale(1) contrast(1.15)}
+.medicine-label-brand b{grid-column:2;grid-row:1;align-self:end;font-size:${compact?'8':'9'}pt;line-height:1;color:#111}
+.medicine-label header small{grid-column:2;grid-row:2;align-self:start;font-size:${compact?'5.2':'5.8'}pt;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.medicine-label-info{flex:1;min-height:0;display:flex;flex-direction:column;border:.25mm solid #111;border-radius:${compact?'1.2':'1.6'}mm;overflow:hidden;background:#fff}
+.medicine-label-row{display:grid;border-bottom:.2mm solid #111;min-height:0}
+.medicine-label-row:last-child{border-bottom:0}
+.medicine-label-meta{grid-template-columns:1.12fr .88fr}
+.medicine-label-details{grid-template-columns:.82fr 1.18fr}
+.medicine-label-schedule{grid-template-columns:.78fr 1.22fr}
+.medicine-label-footer{grid-template-columns:1fr 1fr}
+.medicine-label-cell{display:flex;align-items:center;gap:${compact?'.45':'.65'}mm;min-width:0;padding:${compact?'.45mm .55mm':'.6mm .75mm'};line-height:1.08}
+.medicine-label-cell+.medicine-label-cell{border-left:.2mm solid #111}
+.medicine-label-symbol{flex:0 0 ${compact?'2':'2.5'}mm;text-align:center;font:700 ${compact?'5.1':'6'}pt Arial,sans-serif}
+.medicine-label-key{flex:0 0 auto;font-size:${compact?'4.2':'5'}pt;font-weight:600;white-space:nowrap}
+.medicine-label-value{min-width:0;font-size:${compact?'4.8':'5.7'}pt;font-weight:700;line-height:1.12;overflow-wrap:anywhere}
+.medicine-label-meta .medicine-label-value{white-space:nowrap}
+.medicine-label-meta small{display:${compact?'none':'inline'};margin-left:auto;font-size:${compact?'3.2':'3.8'}pt;white-space:nowrap}
+.medicine-label-drug .medicine-label-value{font-size:${compact?'6.2':'7.3'}pt}
+.medicine-label-badge{flex:0 0 auto;border-radius:999px;background:#111;color:#fff;padding:${compact?'.2mm .65mm':'.25mm .8mm'};font-size:${compact?'3.9':'4.6'}pt;font-weight:700;white-space:nowrap}
+.medicine-label-directions{flex:1;min-height:${compact?'4':'5'}mm}
+.medicine-label-directions .medicine-label-cell{align-items:flex-start}
+.medicine-label-directions .medicine-label-value{font-size:${compact?'5.2':'6.2'}pt}
+.medicine-label-checks{justify-content:center;gap:${compact?'.45':'.75'}mm;padding-top:${compact?'.35':'.45'}mm;padding-bottom:${compact?'.35':'.45'}mm}
+.medicine-label-choice{display:inline-flex;align-items:center;gap:.3mm;font-size:${compact?'3.5':'4.2'}pt;white-space:nowrap}
+.medicine-label-choice i{display:inline-flex;align-items:center;justify-content:center;width:${compact?'1.8':'2.2'}mm;height:${compact?'1.8':'2.2'}mm;border:.2mm solid #111;border-radius:.25mm;font:700 ${compact?'3.4':'4'}pt Arial,sans-serif;font-style:normal}
+.medicine-label-warning .medicine-label-value{font-size:${compact?'4':'4.8'}pt;line-height:1.08}
+.medicine-label-footer .medicine-label-value{font-size:${compact?'4.1':'4.9'}pt}
+.dense .medicine-label-value{font-size:${compact?'4.2':'5'}pt}
+.dense .medicine-label-drug .medicine-label-value{font-size:${compact?'5.4':'6.4'}pt}
+.dense .medicine-label-directions .medicine-label-value{font-size:${compact?'4.5':'5.4'}pt}
+@media print{body{background:#fff}.toolbar{display:none}.medicine-label{margin:0;box-shadow:none}}
+</style></head><body><div class="toolbar"><span>ตัวอย่างฉลากยา ${escapeHtml(size.label)} · ${items.length} ใบ</span><button onclick="window.print()">พิมพ์</button></div>${labels}</body></html>`);
   win.document.close(); standardizePrintPreview(win);
   let printStarted=false;
   const startPrint=()=>{ if(printStarted) return; printStarted=true; win.print(); };
