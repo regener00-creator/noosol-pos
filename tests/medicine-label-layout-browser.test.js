@@ -81,15 +81,24 @@ const browserExecutable = [
     await page.locator('.toolbar').evaluate(element => element.remove());
     const metrics = await page.locator('.medicine-label').evaluate(element => {
       const info = element.querySelector('.medicine-label-info');
+      const doseLines = [...element.querySelectorAll('.medicine-label-dose-line')].map(line => line.getBoundingClientRect());
+      const warningKey = element.querySelector('.medicine-label-warning .medicine-label-key')?.getBoundingClientRect();
+      const warningValue = element.querySelector('.medicine-label-warning .medicine-label-value')?.getBoundingClientRect();
       return {
         width:[element.clientWidth,element.scrollWidth],
         height:[element.clientHeight,element.scrollHeight],
         infoHeight:[info.clientHeight,info.scrollHeight],
+        doseLineHeights:doseLines.map(rect => rect.height),
+        warningCenters:[warningKey && warningKey.top + warningKey.height / 2,warningValue && warningValue.top + warningValue.height / 2],
       };
     });
     assert.ok(metrics.width[1] <= metrics.width[0] + 1, `${size} ต้องไม่มีข้อมูลล้นด้านข้าง`);
     assert.ok(metrics.height[1] <= metrics.height[0] + 1, `${size} ต้องไม่มีข้อมูลล้นด้านล่าง`);
     assert.ok(metrics.infoHeight[1] <= metrics.infoHeight[0] + 1, `${size} ตารางข้อมูลต้องอยู่ภายในกรอบ`);
+    assert.equal(metrics.doseLineHeights.length, 2, `${size} ต้องมีขนาดรับประทานและระยะเวลาสองแถว`);
+    assert.ok(Math.abs(metrics.doseLineHeights[0] - metrics.doseLineHeights[1]) <= 1, `${size} สองแถวขนาดรับประทานต้องสูงเท่ากัน`);
+    assert.ok(metrics.warningCenters.every(Number.isFinite), `${size} ต้องมีหัวข้อและข้อมูลคำเตือน`);
+    assert.ok(Math.abs(metrics.warningCenters[0] - metrics.warningCenters[1]) <= 1, `${size} หัวข้อและข้อมูลคำเตือนต้องอยู่กึ่งกลางแนวเดียวกัน`);
     await page.locator('.medicine-label').screenshot({path:path.join(os.tmpdir(),`pepos-medicine-label-${size}.png`)});
     await page.close();
   }
