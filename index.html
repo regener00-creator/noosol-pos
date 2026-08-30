@@ -3098,10 +3098,10 @@ function medicineLabelMealTiming(value,directions=''){
 }
 function medicineLabelIntervalHours(value,directions=''){
   const explicit=String(value??'').trim(),number=Number(explicit);
-  if(explicit&&Number.isInteger(number)&&number>=1&&number<=168) return String(number);
+  if(explicit&&Number.isInteger(number)&&number>=1) return String(number);
   const matched=String(directions||'').match(/ทุก\s*([0-9]+)\s*(?:ชั่วโมง|ชม\.?)/);
   const legacy=Number(matched?.[1]);
-  return Number.isInteger(legacy)&&legacy>=1&&legacy<=168?String(legacy):'';
+  return Number.isInteger(legacy)&&legacy>=1?String(legacy):'';
 }
 function medicineLabelDoseTimes(value,directions=''){
   const allowed=new Set(MEDICINE_LABEL_TIME_OPTIONS.map(option=>option.value));
@@ -3267,7 +3267,7 @@ function openMedicineLabelEditor(lineId){
         <fieldset class="medicine-label-option-group"><legend>ก่อน/หลังอาหาร หรือทุกกี่ชั่วโมง</legend><div class="medicine-label-options">
           <label class="medicine-label-option"><input type="radio" name="medicineLabelMealTiming" value="before" ${draft.mealTiming==='before'?'checked':''}>ก่อนอาหาร</label>
           <label class="medicine-label-option"><input type="radio" name="medicineLabelMealTiming" value="after" ${draft.mealTiming==='after'?'checked':''}>หลังอาหาร</label>
-          <span class="medicine-label-every-hours"><label class="medicine-label-option"><input type="checkbox" id="medicineLabelEveryHoursEnabled" ${draft.intervalHours?'checked':''}>ทุก</label><input class="medicine-label-inline-number" id="medicineLabelIntervalHours" type="number" min="1" max="168" step="1" value="${escapeHtml(draft.intervalHours)}" inputmode="numeric" aria-label="จำนวนชั่วโมง" ${draft.intervalHours?'required':'disabled'}><span>ชั่วโมง</span></span>
+          <span class="medicine-label-every-hours"><label class="medicine-label-option"><input type="checkbox" id="medicineLabelEveryHoursEnabled" ${draft.intervalHours?'checked':''}>ทุก</label><input class="medicine-label-inline-number" id="medicineLabelIntervalHours" type="number" min="1" step="1" value="${escapeHtml(draft.intervalHours)}" inputmode="numeric" aria-label="จำนวนชั่วโมง" ${draft.intervalHours?'required':'disabled'}><span>ชั่วโมง</span></span>
         </div></fieldset>
         <fieldset class="medicine-label-option-group"><legend>ช่วงเวลารับประทาน</legend><div class="medicine-label-options">${MEDICINE_LABEL_TIME_OPTIONS.map(option=>`<label class="medicine-label-option"><input type="checkbox" name="medicineLabelDoseTime" value="${option.value}" ${draft.doseTimes.includes(option.value)?'checked':''}>${option.label}</label>`).join('')}</div></fieldset>
         <label class="medicine-label-field wide"><span>คำแนะนำหรือคำเตือน</span><textarea id="medicineLabelWarning" placeholder="ระบุเมื่อจำเป็น">${escapeHtml(draft.warning)}</textarea></label>
@@ -3300,7 +3300,7 @@ function openMedicineLabelEditor(lineId){
     const intervalHours=everyHoursToggle.checked?intervalHoursInput.value:'';
     const doseTimes=[...overlay.querySelectorAll('input[name="medicineLabelDoseTime"]:checked')].map(input=>input.value);
     const durationValid=durationMode!=='days'||(Number.isInteger(Number(durationDays))&&Number(durationDays)>=1);
-    const intervalValid=!everyHoursToggle.checked||(Number.isInteger(Number(intervalHours))&&Number(intervalHours)>=1&&Number(intervalHours)<=168);
+    const intervalValid=!everyHoursToggle.checked||(Number.isInteger(Number(intervalHours))&&Number(intervalHours)>=1);
     if(!(Number(doseAmount)>0)||!doseUnit||!MEDICINE_LABEL_DURATION_OPTIONS.some(option=>option.value===durationMode)||!durationValid||!intervalValid||(!doseTimes.length&&!intervalHours)){ showToast('กรุณาระบุขนาดต่อครั้ง หน่วย ระยะเวลา และเลือกช่วงเวลารับประทานหรือกรอกทุกกี่ชั่วโมง','danger-top'); return; }
     const label=normalizeDispensingLabel({
       enabled:true,
