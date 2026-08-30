@@ -68,7 +68,17 @@ const browserExecutable = [
   await page.locator('#medicineLabelDoseAmount').fill('1');
   await page.locator('#medicineLabelDoseUnit').selectOption('เม็ด');
   await page.locator('#medicineLabelDurationDays').fill('7');
-  await page.locator('input[name="medicineLabelMealTiming"][value="after"]').check();
+  const beforeMeal = page.locator('input[name="medicineLabelMealTiming"][value="before"]');
+  const afterMeal = page.locator('input[name="medicineLabelMealTiming"][value="after"]');
+  assert.equal(await beforeMeal.getAttribute('type'), 'checkbox');
+  assert.equal(await afterMeal.getAttribute('type'), 'checkbox');
+  await afterMeal.check();
+  await afterMeal.uncheck();
+  assert.equal(await afterMeal.isChecked(), false, 'ต้องกดเอาติ๊กหลังอาหารออกได้');
+  await beforeMeal.check();
+  assert.equal(await afterMeal.isChecked(), false, 'ก่อนอาหารและหลังอาหารต้องไม่ถูกเลือกพร้อมกัน');
+  await afterMeal.check();
+  assert.equal(await beforeMeal.isChecked(), false, 'เลือกหลังอาหารแล้วต้องเอาติ๊กก่อนอาหารออก');
   await page.locator('input[name="medicineLabelDoseTime"][value="morning"]').check();
   await page.locator('input[name="medicineLabelDoseTime"][value="noon"]').check();
   await page.locator('input[name="medicineLabelDoseTime"][value="evening"]').check();
