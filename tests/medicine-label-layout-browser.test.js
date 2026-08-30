@@ -55,6 +55,7 @@ function renderLabel(size) {
         durationMode:'until_recovered',
         durationDays:'',
         mealTiming:'before',
+        intervalHours:'6',
         doseTimes:['morning','noon','evening'],
         warning:'อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร · รับประทานยานี้ติดต่อกันจนหมด',
       },
@@ -80,6 +81,7 @@ const browserExecutable = [
     await page.route('https://fonts.googleapis.com/**', route => route.abort());
     const labelHtml=renderLabel(size).replace('sapuri-pharmacy-logo.png',logoData);
     assert.match(labelHtml, /medicine-label-duration-value">จนกว่าอาการจะหาย<\/b>/, `${size} ต้องแสดงระยะเวลาจนกว่าอาการจะหาย`);
+    assert.match(labelHtml, /<i>✓<\/i>ทุก 6 ชม\./, `${size} ต้องแสดงทุก 6 ชั่วโมงบนกระดาษ`);
     await page.setContent(labelHtml, {waitUntil:'domcontentloaded'});
     await page.locator('.toolbar').evaluate(element => element.remove());
     const metrics = await page.locator('.medicine-label').evaluate(element => {

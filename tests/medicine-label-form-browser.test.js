@@ -56,6 +56,8 @@ const browserExecutable = [
   assert.equal(await page.locator('#medicineLabelDurationMode').count(), 1);
   assert.equal(await page.locator('#medicineLabelDurationDays').count(), 1);
   assert.equal(await page.locator('input[name="medicineLabelMealTiming"][value="none"]').count(), 0, 'ต้องไม่มีตัวเลือกไม่เกี่ยวกับอาหาร');
+  assert.equal(await page.locator('#medicineLabelEveryHoursEnabled').count(), 1);
+  assert.equal(await page.locator('#medicineLabelIntervalHours').isDisabled(), true);
   assert.deepEqual(await page.locator('#medicineLabelDurationMode option').allTextContents(), ['กำหนดจำนวนวัน','ใช้เมื่อมีอาการ','จนกว่าอาการจะหาย']);
   assert.equal(await page.locator('#medicineLabelDurationMode').inputValue(), 'days');
   assert.equal(await page.locator('#medicineLabelDurationDaysField').isVisible(), true);
@@ -102,6 +104,22 @@ const browserExecutable = [
   await page.evaluate(() => openMedicineLabelEditor(501));
   assert.equal(await page.locator('#medicineLabelDurationMode').inputValue(), 'as_needed');
   assert.equal(await page.locator('#medicineLabelDurationDaysField').isHidden(), true);
+  await page.locator('.login-screen').evaluateAll(screens => screens.forEach(screen => { screen.style.display='none'; }));
+  for(const input of await page.locator('input[name="medicineLabelDoseTime"]').all()) await input.uncheck();
+  await page.locator('#medicineLabelEveryHoursEnabled').check();
+  assert.equal(await page.locator('#medicineLabelIntervalHours').isEnabled(), true);
+  assert.equal(await page.locator('#medicineLabelIntervalHours').getAttribute('required'), '');
+  await page.locator('#medicineLabelIntervalHours').fill('6');
+  await page.locator('.login-screen').evaluateAll(screens => screens.forEach(screen => { screen.style.display='none'; }));
+  await page.locator('#medicineLabelForm button[type="submit"]').click();
+  await page.waitForSelector('#medicineLabelForm', {state:'detached'});
+  const savedEveryHours = await page.evaluate(() => cart[0].dispensingLabel);
+  assert.equal(savedEveryHours.intervalHours, '6');
+  assert.deepEqual(savedEveryHours.doseTimes, []);
+  assert.equal(savedEveryHours.directions, 'รับประทานครั้งละ 1 เม็ด หลังอาหาร ทุก 6 ชั่วโมง ใช้เมื่อมีอาการ');
+  await page.evaluate(() => openMedicineLabelEditor(501));
+  assert.equal(await page.locator('#medicineLabelEveryHoursEnabled').isChecked(), true);
+  assert.equal(await page.locator('#medicineLabelIntervalHours').inputValue(), '6');
   assert.deepEqual(errors, []);
   console.log('medicine label form browser tests passed');
 })().catch(error => {

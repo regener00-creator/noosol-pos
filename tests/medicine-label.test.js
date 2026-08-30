@@ -68,6 +68,11 @@ assert.equal(context.medicineLabelDurationText(asNeeded), 'ใช้เมื่
 const untilRecovered = context.normalizeDispensingLabel({...structuredInput,durationMode:'until_recovered',durationDays:''});
 assert.equal(untilRecovered.directions, 'รับประทานครั้งละ 1 เม็ด หลังอาหาร เช้า กลางวัน เย็น จนกว่าอาการจะหาย');
 assert.equal(context.medicineLabelDurationText(untilRecovered), 'จนกว่าอาการจะหาย');
+const everySixHours = context.normalizeDispensingLabel({...structuredInput,intervalHours:'6',doseTimes:[]});
+assert.equal(everySixHours.intervalHours, '6');
+assert.deepEqual(Array.from(everySixHours.doseTimes), []);
+assert.equal(everySixHours.directions, 'รับประทานครั้งละ 1 เม็ด หลังอาหาร ทุก 6 ชั่วโมง เป็นเวลา 7 วัน');
+assert.equal(context.medicineLabelIntervalHours(undefined,'รับประทานครั้งละ 1 เม็ด ทุก 8 ชั่วโมง'), '8', 'ฉลากเก่าต้องอ่านความถี่รายชั่วโมงจากข้อความได้');
 const legacy = context.normalizeDispensingLabel({...structuredInput,doseAmount:undefined,doseUnit:undefined,durationDays:undefined,doseTimes:undefined,mealTiming:undefined,directions:'รับประทานครั้งละ 1 เม็ด หลังอาหาร'});
 assert.equal(legacy.directions, 'รับประทานครั้งละ 1 เม็ด หลังอาหาร', 'ฉลากเก่าต้องยังเปิดและพิมพ์ได้');
 assert.equal(context.medicineLabelFitsSize(complete, '80x50'), true);
@@ -141,7 +146,15 @@ context.salesHistory.push({
 assert.equal(context.printMedicineLabels('SALE-2'), true);
 assert.match(printHtml, /class="medicine-label-section-label">ระยะเวลา<\/span><b class="medicine-label-value medicine-label-duration-value">ใช้เมื่อมีอาการ<\/b>/, 'ฉลากต้องแสดงระยะเวลาแบบใช้เมื่อมีอาการโดยไม่มีจำนวนวัน');
 assert.doesNotMatch(printHtml, /ใช้เมื่อมีอาการ<\/b><span>วัน<\/span>/, 'ระยะเวลาแบบใช้เมื่อมีอาการต้องไม่มีคำว่าวัน');
-assert.equal(printCount, 2);
+printHtml='';
+context.salesHistory.push({
+  id:'SALE-3',ref:'RE202608300003',date:'2026-08-30',medicineLabelSize:'80x50',businessSnapshot:context.businessSettings,
+  items:[{name:'Paracetamol 500 mg',qty:10,unit:'เม็ด',lotAllocations:[],dispensingLabel:everySixHours}],
+});
+assert.equal(context.printMedicineLabels('SALE-3'), true);
+assert.match(printHtml, /<i>✓<\/i>ทุก 6 ชม\./, 'ฉลากต้องทำเครื่องหมายและแสดงทุกกี่ชั่วโมงบนกระดาษ');
+assert.doesNotMatch(printHtml, /<i>✓<\/i>เช้า/, 'ฉลากแบบทุกกี่ชั่วโมงไม่ต้องบังคับเลือกช่วงเวลา');
+assert.equal(printCount, 3);
 
 assert.match(html, /id="medicineLabelDoseAmount"/, 'ฟอร์มต้องมีช่องขนาดรับประทานต่อครั้ง');
 assert.match(html, /id="medicineLabelDoseUnit"/, 'ฟอร์มต้องมีตัวเลือกหน่วยรับประทาน');
@@ -151,6 +164,8 @@ assert.match(html, /value:'as_needed',label:'ใช้เมื่อมีอ�
 assert.match(html, /value:'until_recovered',label:'จนกว่าอาการจะหาย'/, 'ต้องมีตัวเลือกจนกว่าอาการจะหาย');
 assert.match(html, /name="medicineLabelMealTiming"/, 'ฟอร์มต้องมีตัวเลือกก่อนหรือหลังอาหาร');
 assert.doesNotMatch(html, /name="medicineLabelMealTiming" value="none"/, 'หน้าจัดทำฉลากยาต้องไม่มีตัวเลือกไม่เกี่ยวกับอาหาร');
+assert.match(html, /id="medicineLabelEveryHoursEnabled"/, 'ฟอร์มต้องมีตัวเลือกทุกกี่ชั่วโมงต่อจากหลังอาหาร');
+assert.match(html, /id="medicineLabelIntervalHours"/, 'ฟอร์มต้องมีช่องกรอกจำนวนชั่วโมง');
 assert.match(html, /name="medicineLabelDoseTime"/, 'ฟอร์มต้องมีตัวเลือกช่วงเวลารับประทาน');
 assert.doesNotMatch(html, /id="medicineLabelDirections"/, 'ต้องนำช่องวิธีใช้ยาแบบข้อความออก');
 assert.doesNotMatch(html, /data-medicine-direction=/, 'ต้องนำปุ่มวิธีใช้แบบข้อความออก');
