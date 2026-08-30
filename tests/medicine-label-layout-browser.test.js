@@ -52,7 +52,8 @@ function renderLabel(size) {
         indication:'66666',
         doseAmount:'1',
         doseUnit:'เม็ด',
-        durationDays:'4',
+        durationMode:'until_recovered',
+        durationDays:'',
         mealTiming:'before',
         doseTimes:['morning','noon','evening'],
         warning:'อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร · รับประทานยานี้ติดต่อกันจนหมด',
@@ -77,7 +78,9 @@ const browserExecutable = [
   for (const size of ['80x50','60x40']) {
     const page = await browser.newPage({viewport:{width:700,height:500},deviceScaleFactor:2});
     await page.route('https://fonts.googleapis.com/**', route => route.abort());
-    await page.setContent(renderLabel(size).replace('sapuri-pharmacy-logo.png',logoData), {waitUntil:'domcontentloaded'});
+    const labelHtml=renderLabel(size).replace('sapuri-pharmacy-logo.png',logoData);
+    assert.match(labelHtml, /medicine-label-duration-value">จนกว่าอาการจะหาย<\/b>/, `${size} ต้องแสดงระยะเวลาจนกว่าอาการจะหาย`);
+    await page.setContent(labelHtml, {waitUntil:'domcontentloaded'});
     await page.locator('.toolbar').evaluate(element => element.remove());
     const metrics = await page.locator('.medicine-label').evaluate(element => {
       const info = element.querySelector('.medicine-label-info');

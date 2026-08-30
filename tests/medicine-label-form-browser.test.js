@@ -53,7 +53,12 @@ const browserExecutable = [
   assert.equal(await page.locator('#medicineLabelDirections').count(), 0, 'ต้องไม่มีช่องวิธีใช้ยาแบบข้อความ');
   assert.equal(await page.locator('#medicineLabelDoseAmount').count(), 1);
   assert.equal(await page.locator('#medicineLabelDoseUnit').count(), 1);
+  assert.equal(await page.locator('#medicineLabelDurationMode').count(), 1);
   assert.equal(await page.locator('#medicineLabelDurationDays').count(), 1);
+  assert.equal(await page.locator('input[name="medicineLabelMealTiming"][value="none"]').count(), 0, 'ต้องไม่มีตัวเลือกไม่เกี่ยวกับอาหาร');
+  assert.deepEqual(await page.locator('#medicineLabelDurationMode option').allTextContents(), ['กำหนดจำนวนวัน','ใช้เมื่อมีอาการ','จนกว่าอาการจะหาย']);
+  assert.equal(await page.locator('#medicineLabelDurationMode').inputValue(), 'days');
+  assert.equal(await page.locator('#medicineLabelDurationDaysField').isVisible(), true);
   await page.locator('#medicineLabelPatient').fill('สมชาย ใจดี');
   await page.locator('#medicineLabelIndication').fill('ลดไข้');
   await page.locator('#medicineLabelDoseAmount').fill('1');
@@ -70,6 +75,7 @@ const browserExecutable = [
   const saved = await page.evaluate(() => cart[0].dispensingLabel);
   assert.equal(saved.doseAmount, '1');
   assert.equal(saved.doseUnit, 'เม็ด');
+  assert.equal(saved.durationMode, 'days');
   assert.equal(saved.durationDays, '7');
   assert.equal(saved.mealTiming, 'after');
   assert.deepEqual(saved.doseTimes, ['morning','noon','evening']);
@@ -78,9 +84,24 @@ const browserExecutable = [
   await page.evaluate(() => openMedicineLabelEditor(501));
   assert.equal(await page.locator('#medicineLabelDoseAmount').inputValue(), '1');
   assert.equal(await page.locator('#medicineLabelDoseUnit').inputValue(), 'เม็ด');
+  assert.equal(await page.locator('#medicineLabelDurationMode').inputValue(), 'days');
   assert.equal(await page.locator('#medicineLabelDurationDays').inputValue(), '7');
   assert.equal(await page.locator('input[name="medicineLabelMealTiming"][value="after"]').isChecked(), true);
   assert.equal(await page.locator('input[name="medicineLabelDoseTime"][value="morning"]').isChecked(), true);
+  await page.locator('#medicineLabelDurationMode').selectOption('as_needed');
+  assert.equal(await page.locator('#medicineLabelDurationDaysField').isHidden(), true);
+  assert.equal(await page.locator('#medicineLabelDurationDays').isDisabled(), true);
+  assert.equal(await page.locator('#medicineLabelDurationDays').getAttribute('required'), null);
+  await page.locator('.login-screen').evaluateAll(screens => screens.forEach(screen => { screen.style.display='none'; }));
+  await page.locator('#medicineLabelForm button[type="submit"]').click();
+  await page.waitForSelector('#medicineLabelForm', {state:'detached'});
+  const savedAsNeeded = await page.evaluate(() => cart[0].dispensingLabel);
+  assert.equal(savedAsNeeded.durationMode, 'as_needed');
+  assert.equal(savedAsNeeded.durationDays, '');
+  assert.equal(savedAsNeeded.directions, 'รับประทานครั้งละ 1 เม็ด หลังอาหาร เช้า กลางวัน เย็น ใช้เมื่อมีอาการ');
+  await page.evaluate(() => openMedicineLabelEditor(501));
+  assert.equal(await page.locator('#medicineLabelDurationMode').inputValue(), 'as_needed');
+  assert.equal(await page.locator('#medicineLabelDurationDaysField').isHidden(), true);
   assert.deepEqual(errors, []);
   console.log('medicine label form browser tests passed');
 })().catch(error => {

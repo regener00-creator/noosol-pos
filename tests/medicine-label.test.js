@@ -54,11 +54,20 @@ const structuredInput = {
 };
 const complete = context.normalizeDispensingLabel(structuredInput);
 assert.equal(complete.patientName, 'สมชาย ใจดี');
+assert.equal(complete.durationMode, 'days');
 assert.equal(complete.directions, 'รับประทานครั้งละ 1 เม็ด หลังอาหาร เช้า กลางวัน เย็น เป็นเวลา 7 วัน');
 assert.deepEqual(Array.from(complete.doseTimes), ['morning','noon','evening']);
 assert.equal(context.normalizeDispensingLabel({...complete, drugName:''}), null, 'ฉลากที่ไม่มีชื่อยาและความแรงต้องไม่ผ่าน');
 assert.equal(context.normalizeDispensingLabel({...complete, indication:''}), null, 'ฉลากที่ไม่มีข้อบ่งใช้ต้องไม่ผ่าน');
 assert.equal(context.normalizeDispensingLabel({...structuredInput, doseTimes:[]}), null, 'ฉลากใหม่ที่ไม่เลือกช่วงเวลาต้องไม่ผ่าน');
+const asNeeded = context.normalizeDispensingLabel({...structuredInput,durationMode:'as_needed',durationDays:''});
+assert.equal(asNeeded.durationMode, 'as_needed');
+assert.equal(asNeeded.durationDays, '');
+assert.equal(asNeeded.directions, 'รับประทานครั้งละ 1 เม็ด หลังอาหาร เช้า กลางวัน เย็น ใช้เมื่อมีอาการ');
+assert.equal(context.medicineLabelDurationText(asNeeded), 'ใช้เมื่อมีอาการ');
+const untilRecovered = context.normalizeDispensingLabel({...structuredInput,durationMode:'until_recovered',durationDays:''});
+assert.equal(untilRecovered.directions, 'รับประทานครั้งละ 1 เม็ด หลังอาหาร เช้า กลางวัน เย็น จนกว่าอาการจะหาย');
+assert.equal(context.medicineLabelDurationText(untilRecovered), 'จนกว่าอาการจะหาย');
 const legacy = context.normalizeDispensingLabel({...structuredInput,doseAmount:undefined,doseUnit:undefined,durationDays:undefined,doseTimes:undefined,mealTiming:undefined,directions:'รับประทานครั้งละ 1 เม็ด หลังอาหาร'});
 assert.equal(legacy.directions, 'รับประทานครั้งละ 1 เม็ด หลังอาหาร', 'ฉลากเก่าต้องยังเปิดและพิมพ์ได้');
 assert.equal(context.medicineLabelFitsSize(complete, '80x50'), true);
@@ -124,12 +133,24 @@ assert.match(printHtml, /ชื่อผู้ป่วย/);
 assert.match(printHtml, /สมชาย ใจดี/);
 assert.match(printHtml, /เภสัชกร<\/span><b class="medicine-label-value">ทดสอบ<\/b>/, 'ต้องแสดงคำว่าเภสัชกรเพียงครั้งเดียว');
 assert.doesNotMatch(printHtml, /ภก\. ทดสอบ/, 'ต้องไม่แสดงคำนำหน้าเภสัชกรซ้ำกับหัวข้อ');
-assert.equal(printCount, 1);
+printHtml='';
+context.salesHistory.push({
+  id:'SALE-2',ref:'RE202608300002',date:'2026-08-30',medicineLabelSize:'80x50',businessSnapshot:context.businessSettings,
+  items:[{name:'Paracetamol 500 mg',qty:10,unit:'เม็ด',lotAllocations:[],dispensingLabel:asNeeded}],
+});
+assert.equal(context.printMedicineLabels('SALE-2'), true);
+assert.match(printHtml, /class="medicine-label-section-label">ระยะเวลา<\/span><b class="medicine-label-value medicine-label-duration-value">ใช้เมื่อมีอาการ<\/b>/, 'ฉลากต้องแสดงระยะเวลาแบบใช้เมื่อมีอาการโดยไม่มีจำนวนวัน');
+assert.doesNotMatch(printHtml, /ใช้เมื่อมีอาการ<\/b><span>วัน<\/span>/, 'ระยะเวลาแบบใช้เมื่อมีอาการต้องไม่มีคำว่าวัน');
+assert.equal(printCount, 2);
 
 assert.match(html, /id="medicineLabelDoseAmount"/, 'ฟอร์มต้องมีช่องขนาดรับประทานต่อครั้ง');
 assert.match(html, /id="medicineLabelDoseUnit"/, 'ฟอร์มต้องมีตัวเลือกหน่วยรับประทาน');
 assert.match(html, /id="medicineLabelDurationDays"/, 'ฟอร์มต้องมีช่องระยะเวลา');
+assert.match(html, /id="medicineLabelDurationMode"/, 'ฟอร์มต้องมีรูปแบบระยะเวลา');
+assert.match(html, /value:'as_needed',label:'ใช้เมื่อมีอาการ'/, 'ต้องมีตัวเลือกใช้เมื่อมีอาการ');
+assert.match(html, /value:'until_recovered',label:'จนกว่าอาการจะหาย'/, 'ต้องมีตัวเลือกจนกว่าอาการจะหาย');
 assert.match(html, /name="medicineLabelMealTiming"/, 'ฟอร์มต้องมีตัวเลือกก่อนหรือหลังอาหาร');
+assert.doesNotMatch(html, /name="medicineLabelMealTiming" value="none"/, 'หน้าจัดทำฉลากยาต้องไม่มีตัวเลือกไม่เกี่ยวกับอาหาร');
 assert.match(html, /name="medicineLabelDoseTime"/, 'ฟอร์มต้องมีตัวเลือกช่วงเวลารับประทาน');
 assert.doesNotMatch(html, /id="medicineLabelDirections"/, 'ต้องนำช่องวิธีใช้ยาแบบข้อความออก');
 assert.doesNotMatch(html, /data-medicine-direction=/, 'ต้องนำปุ่มวิธีใช้แบบข้อความออก');
