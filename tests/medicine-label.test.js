@@ -95,12 +95,13 @@ assert.match(printHtml, /class="medicine-label-row medicine-label-meta"/, 'ต�
 assert.match(printHtml, /class="medicine-label-key">วันที่จ่ายยา<\/span>/, 'ต้องใช้คำว่าวันที่จ่ายยา');
 assert.match(printHtml, /class="medicine-label-bill">RE202608300001<\/span>/, 'เลขบิลต้องอยู่มุมขวาบน');
 assert.match(printHtml, /class="medicine-label-icon"/, 'หน้าพิมพ์ต้องใช้ไอคอนเส้น SVG');
-assert.match(printHtml, /class="medicine-label-badge">ขนาดรับประทาน<\/span>/, 'ต้องแสดงขนาดรับประทานเป็นป้ายสีดำ');
-assert.match(printHtml, /ครั้งละ<\/span><b class="medicine-label-value">1<\/b><span>เม็ด<\/span>/);
-assert.match(printHtml, /class="medicine-label-badge">ระยะเวลา<\/span><b class="medicine-label-value">7<\/b><span>วัน<\/span>/);
-assert.match(printHtml, /medicine-label-indication[^>]*><div class="medicine-label-indication-head">.*class="medicine-label-badge">ข้อบ่งใช้<\/span><\/div><b class="medicine-label-value">แก้ปวด<\/b>/, 'ไอคอนและหัวข้อข้อบ่งใช้ต้องอยู่บรรทัดบน และข้อมูลอยู่บรรทัดถัดไป');
+assert.match(printHtml, /class="medicine-label-section-label">รับประทานครั้งละ<\/span><b class="medicine-label-value">1<\/b><span>เม็ด<\/span>/, 'ต้องใช้คำว่ารับประทานครั้งละเพียงครั้งเดียว');
+assert.match(printHtml, /class="medicine-label-section-label">ระยะเวลา<\/span><b class="medicine-label-value">7<\/b><span>วัน<\/span>/);
+assert.match(printHtml, /medicine-label-indication[^>]*><div class="medicine-label-indication-head">.*class="medicine-label-section-label">ข้อบ่งใช้<\/span><\/div><b class="medicine-label-value">แก้ปวด<\/b>/, 'ไอคอนและหัวข้อข้อบ่งใช้ต้องอยู่บรรทัดบน และข้อมูลอยู่บรรทัดถัดไป');
+assert.doesNotMatch(printHtml, /medicine-label-badge/, 'หัวข้อข้อบ่งใช้ ขนาดรับประทาน และระยะเวลาต้องไม่มีป้ายพื้นดำ');
+assert.doesNotMatch(printHtml, /\.medicine-label-section-label\{[^}]*background:/, 'หัวข้อส่วนข้อมูลต้องไม่มีสีพื้นหลัง');
 assert.match(printHtml, /\.medicine-label-indication\{[^}]*flex-direction:column;align-items:flex-start!important;justify-content:flex-start!important/, 'ข้อบ่งใช้ต้องเริ่มจากมุมซ้ายบนของกล่อง');
-assert.match(printHtml, /medicine-label-dose-stack[^>]*>.*ขนาดรับประทาน.*medicine-label-dose-line.*ระยะเวลา/s, 'ขนาดรับประทานต้องอยู่เหนือระยะเวลาในช่องเดียวกัน');
+assert.match(printHtml, /medicine-label-dose-stack[^>]*>.*รับประทานครั้งละ.*medicine-label-dose-line.*ระยะเวลา/s, 'รับประทานครั้งละต้องอยู่เหนือระยะเวลาในช่องเดียวกัน');
 assert.match(printHtml, /\.medicine-label-dose-stack\{[^}]*display:grid;grid-template-rows:1fr 1fr/, 'ช่องขนาดรับประทานและระยะเวลาต้องแบ่งความสูงเท่ากัน');
 assert.match(printHtml, /\.medicine-label-dose-line\+\.medicine-label-dose-line\{[^}]*border-top:\.1mm solid #111\}/, 'แถวล่างต้องไม่มีระยะห่างส่วนเกิน');
 assert.match(printHtml, /--medicine-label-text-nudge:\.22mm;--medicine-label-dose-nudge:\.28mm;--medicine-label-dose-value-nudge:\.34mm/, 'ฉลากปกติต้องชดเชยแนวตัวอักษรให้อยู่กึ่งกลางทางสายตา');
