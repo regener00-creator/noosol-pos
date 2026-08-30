@@ -77,7 +77,7 @@ assert.match(printHtml, /sapuri-pharmacy-logo\.png/);
 assert.match(printHtml, /class="medicine-label-brand-logo"/);
 assert.match(printHtml, /\.medicine-label-brand\{display:contents\}/);
 assert.match(printHtml, /grid-row:1\/3;align-self:center/);
-assert.match(printHtml, /border:\.2mm solid #222;border-radius:/);
+assert.match(printHtml, /border:\.15mm solid #222;border-radius:/);
 assert.match(printHtml, /filter:grayscale\(1\) contrast\(1\.15\)/);
 assert.match(printHtml, /width:11\.6mm;height:11\.6mm/);
 assert.match(printHtml, /left:-2\.25mm;top:-2\.15mm/);
@@ -87,6 +87,8 @@ assert.doesNotMatch(printHtml, /#4F4038|#A43A31|#F1ECE9|#2B2422/, 'หน้า�
 assert.match(printHtml, /<small>โทร 02-000-0000<\/small>/);
 assert.doesNotMatch(printHtml, /1 ถนนทดสอบ/, 'ฉลากยาไม่ควรแสดงที่อยู่ร้าน');
 assert.match(printHtml, /class="medicine-label-info"/, 'ข้อมูลฉลากต้องอยู่ในกรอบตาราง');
+assert.match(printHtml, /\.medicine-label-info\{[^}]*border:\.15mm solid #111/, 'กรอบข้อมูลต้องใช้เส้นบาง');
+assert.match(printHtml, /\.medicine-label-row\{[^}]*border-bottom:\.15mm solid #111/, 'เส้นแบ่งแถวต้องบางลง');
 assert.match(printHtml, /class="medicine-label-row medicine-label-meta"/, 'ต้องแบ่งผู้รับยาและวันที่เป็นแถว');
 assert.match(printHtml, /class="medicine-label-bill">RE202608300001<\/span>/, 'เลขบิลต้องอยู่มุมขวาบน');
 assert.match(printHtml, /class="medicine-label-icon"/, 'หน้าพิมพ์ต้องใช้ไอคอนเส้น SVG');
