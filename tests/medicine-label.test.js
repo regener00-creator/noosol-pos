@@ -39,21 +39,30 @@ const context = {
 vm.createContext(context);
 vm.runInContext(`${html.slice(helpersStart, helpersEnd)}\n${html.slice(printStart, printEnd)}`, context);
 
-const complete = context.normalizeDispensingLabel({
+const structuredInput = {
   enabled:true,
   drugName:'Paracetamol 500 mg',
   patientName:'สมชาย ใจดี',
   pharmacistName:'ภก. ทดสอบ',
   indication:'แก้ปวด',
-  directions:'รับประทานครั้งละ 1 เม็ด หลังอาหาร',
+  doseAmount:'1',
+  doseUnit:'เม็ด',
+  durationDays:'7',
+  mealTiming:'after',
+  doseTimes:['morning','noon','evening'],
   warning:'อาจทำให้ง่วง',
-});
+};
+const complete = context.normalizeDispensingLabel(structuredInput);
 assert.equal(complete.patientName, 'สมชาย ใจดี');
+assert.equal(complete.directions, 'รับประทานครั้งละ 1 เม็ด หลังอาหาร เช้า กลางวัน เย็น เป็นเวลา 7 วัน');
+assert.deepEqual(Array.from(complete.doseTimes), ['morning','noon','evening']);
 assert.equal(context.normalizeDispensingLabel({...complete, drugName:''}), null, 'ฉลากที่ไม่มีชื่อยาและความแรงต้องไม่ผ่าน');
 assert.equal(context.normalizeDispensingLabel({...complete, indication:''}), null, 'ฉลากที่ไม่มีข้อบ่งใช้ต้องไม่ผ่าน');
-assert.equal(context.normalizeDispensingLabel({...complete, directions:''}), null, 'ฉลากที่ไม่มีวิธีใช้ต้องไม่ผ่าน');
+assert.equal(context.normalizeDispensingLabel({...structuredInput, doseTimes:[]}), null, 'ฉลากใหม่ที่ไม่เลือกช่วงเวลาต้องไม่ผ่าน');
+const legacy = context.normalizeDispensingLabel({...structuredInput,doseAmount:undefined,doseUnit:undefined,durationDays:undefined,doseTimes:undefined,mealTiming:undefined,directions:'รับประทานครั้งละ 1 เม็ด หลังอาหาร'});
+assert.equal(legacy.directions, 'รับประทานครั้งละ 1 เม็ด หลังอาหาร', 'ฉลากเก่าต้องยังเปิดและพิมพ์ได้');
 assert.equal(context.medicineLabelFitsSize(complete, '80x50'), true);
-assert.equal(context.medicineLabelFitsSize({...complete, directions:'ย'.repeat(300)}, '60x40'), false);
+assert.equal(context.medicineLabelFitsSize({...complete, warning:'ย'.repeat(300)}, '60x40'), false);
 
 context.salesHistory.push({
   id:'SALE-1', ref:'RE202608300001', date:'2026-08-30', medicineLabelSize:'80x50',
@@ -72,23 +81,38 @@ assert.match(printHtml, /border:\.2mm solid #222;border-radius:/);
 assert.match(printHtml, /filter:grayscale\(1\) contrast\(1\.15\)/);
 assert.match(printHtml, /width:11\.6mm;height:11\.6mm/);
 assert.match(printHtml, /left:-2\.25mm;top:-2\.15mm/);
+assert.match(printHtml, /family=Noto\+Sans\+Thai/);
+assert.match(printHtml, /font-family:'Noto Sans Thai'/);
 assert.doesNotMatch(printHtml, /#4F4038|#A43A31|#F1ECE9|#2B2422/, 'หน้าพิมพ์ฉลากยาต้องใช้เฉพาะโทนขาวดำ');
 assert.match(printHtml, /<small>โทร 02-000-0000<\/small>/);
 assert.doesNotMatch(printHtml, /1 ถนนทดสอบ/, 'ฉลากยาไม่ควรแสดงที่อยู่ร้าน');
 assert.match(printHtml, /class="medicine-label-info"/, 'ข้อมูลฉลากต้องอยู่ในกรอบตาราง');
 assert.match(printHtml, /class="medicine-label-row medicine-label-meta"/, 'ต้องแบ่งผู้รับยาและวันที่เป็นแถว');
-assert.match(printHtml, /class="medicine-label-badge">จำนวนยา<\/span>/, 'หัวข้อสำคัญต้องใช้ป้ายสีดำ');
+assert.match(printHtml, /class="medicine-label-bill">RE202608300001<\/span>/, 'เลขบิลต้องอยู่มุมขวาบน');
+assert.match(printHtml, /class="medicine-label-icon"/, 'หน้าพิมพ์ต้องใช้ไอคอนเส้น SVG');
+assert.match(printHtml, /class="medicine-label-badge">ขนาดรับประทาน<\/span>/, 'ต้องแสดงขนาดรับประทานเป็นป้ายสีดำ');
+assert.match(printHtml, /ครั้งละ<\/span><b class="medicine-label-value">1<\/b><span>เม็ด<\/span>/);
+assert.match(printHtml, /class="medicine-label-badge">จำนวน<\/span><b class="medicine-label-value">7<\/b><span>วัน<\/span>/);
 assert.match(printHtml, /class="medicine-label-row medicine-label-schedule"/, 'ต้องมีแถวช่วงเวลาการใช้ยา');
 assert.match(printHtml, /<i>✓<\/i>หลังอาหาร/, 'ช่วงเวลาที่ระบุในวิธีใช้ต้องถูกทำเครื่องหมาย');
+assert.match(printHtml, /<i>✓<\/i>เช้า/);
+assert.match(printHtml, /<i>✓<\/i>กลางวัน/);
+assert.match(printHtml, /<i>✓<\/i>เย็น/);
 assert.match(printHtml, /class="medicine-label-row medicine-label-warning"/, 'คำเตือนต้องอยู่ในแถวของตาราง');
 assert.match(printHtml, /วันหมดอายุ<\/span><b class="medicine-label-value">31-12-2027<\/b>/, 'ต้องแสดงวันหมดอายุจาก Lot ที่จ่าย');
 assert.doesNotMatch(printHtml, /background:#f1f1f1/, 'ก้อนข้อมูลใหม่ต้องไม่ใช้กล่องพื้นเทาแบบเดิม');
-assert.match(printHtml, /ผู้รับยา/);
+assert.match(printHtml, /ชื่อผู้ป่วย/);
 assert.match(printHtml, /สมชาย ใจดี/);
-assert.match(printHtml, /รับประทานครั้งละ 1 เม็ด หลังอาหาร/);
 assert.match(printHtml, /เภสัชกร<\/span><b class="medicine-label-value">ภก\. ทดสอบ<\/b>/);
 assert.equal(printCount, 1);
 
+assert.match(html, /id="medicineLabelDoseAmount"/, 'ฟอร์มต้องมีช่องขนาดรับประทานต่อครั้ง');
+assert.match(html, /id="medicineLabelDoseUnit"/, 'ฟอร์มต้องมีตัวเลือกหน่วยรับประทาน');
+assert.match(html, /id="medicineLabelDurationDays"/, 'ฟอร์มต้องมีช่องระยะเวลา');
+assert.match(html, /name="medicineLabelMealTiming"/, 'ฟอร์มต้องมีตัวเลือกก่อนหรือหลังอาหาร');
+assert.match(html, /name="medicineLabelDoseTime"/, 'ฟอร์มต้องมีตัวเลือกช่วงเวลารับประทาน');
+assert.doesNotMatch(html, /id="medicineLabelDirections"/, 'ต้องนำช่องวิธีใช้ยาแบบข้อความออก');
+assert.doesNotMatch(html, /data-medicine-direction=/, 'ต้องนำปุ่มวิธีใช้แบบข้อความออก');
 assert.match(html, /data-medicine-label-line=/, 'หน้า POS ต้องมีปุ่มจัดทำฉลากยารายการต่อรายการ');
 assert.match(html, /id="printMedicineLabelsBtn"/, 'หลังชำระต้องมีปุ่มพิมพ์ฉลากยา');
 assert.match(html, /id="historyMedicineLabelsBtn"/, 'ประวัติการขายต้องพิมพ์ฉลากย้อนหลังได้');

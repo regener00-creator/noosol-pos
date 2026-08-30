@@ -1,0 +1,93 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const http = require('node:http');
+const path = require('node:path');
+const { chromium } = require('playwright');
+
+const root = path.join(__dirname, '..');
+const types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.webmanifest':'application/manifest+json','.png':'image/png','.svg':'image/svg+xml'};
+const server = http.createServer((request, response) => {
+  const pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1').pathname);
+  const file = path.join(root, pathname === '/' ? 'index.html' : pathname.replace(/^\//, ''));
+  if (!file.startsWith(root) || !fs.existsSync(file)) { response.writeHead(404).end(); return; }
+  response.writeHead(200, {'Content-Type': types[path.extname(file)] || 'application/octet-stream'});
+  fs.createReadStream(file).pipe(response);
+});
+
+let browser;
+const browserExecutable = [
+  process.env.PEPOS_BROWSER_EXECUTABLE,
+  'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+  'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+].find(file => file && fs.existsSync(file));
+
+(async () => {
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  assert.ok(browserExecutable, 'ไม่พบ Chrome หรือ Edge สำหรับทดสอบฟอร์มฉลากยา');
+  browser = await chromium.launch({headless:true,executablePath:browserExecutable});
+  const page = await browser.newPage({viewport:{width:1000,height:900}});
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await page.route('https://cdn.jsdelivr.net/npm/xlsx@*/**', route => route.fulfill({contentType:'text/javascript',body:'window.XLSX={};'}));
+  await page.route('https://cdn.jsdelivr.net/npm/@supabase/**', route => route.fulfill({contentType:'text/javascript',body:`
+    (()=>{
+      const query=new Proxy({}, {get(_target,property){
+        if(property==='then') return resolve=>resolve({data:null,error:null});
+        return ()=>query;
+      }});
+      window.supabase={createClient:()=>new Proxy({auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}),signOut:async()=>({error:null})}}, {get(target,property){return property in target?target[property]:(()=>query);}})};
+    })();
+  `}));
+  await page.goto(`http://127.0.0.1:${server.address().port}/`, {waitUntil:'domcontentloaded',timeout:15000});
+  await page.waitForFunction(() => typeof openMedicineLabelEditor === 'function');
+  await page.evaluate(() => {
+    document.querySelectorAll('.login-screen').forEach(screen => {
+      screen.style.display = 'none';
+    });
+    currentProfile={id:'pharmacist-test',firstName:'เภสัชกร',lastName:'ทดสอบ'};
+    cart=[{lineId:501,pid:1,name:'Paracetamol 500 mg',unit:'กล่อง',qty:1,price:100,cost:50,factor:1}];
+    openMedicineLabelEditor(501);
+  });
+
+  assert.equal(await page.locator('#medicineLabelDirections').count(), 0, 'ต้องไม่มีช่องวิธีใช้ยาแบบข้อความ');
+  assert.equal(await page.locator('#medicineLabelDoseAmount').count(), 1);
+  assert.equal(await page.locator('#medicineLabelDoseUnit').count(), 1);
+  assert.equal(await page.locator('#medicineLabelDurationDays').count(), 1);
+  await page.locator('#medicineLabelPatient').fill('สมชาย ใจดี');
+  await page.locator('#medicineLabelIndication').fill('ลดไข้');
+  await page.locator('#medicineLabelDoseAmount').fill('1');
+  await page.locator('#medicineLabelDoseUnit').selectOption('เม็ด');
+  await page.locator('#medicineLabelDurationDays').fill('7');
+  await page.locator('input[name="medicineLabelMealTiming"][value="after"]').check();
+  await page.locator('input[name="medicineLabelDoseTime"][value="morning"]').check();
+  await page.locator('input[name="medicineLabelDoseTime"][value="noon"]').check();
+  await page.locator('input[name="medicineLabelDoseTime"][value="evening"]').check();
+  await page.locator('#medicineLabelWarning').fill('อาจทำให้ง่วง');
+  await page.locator('#medicineLabelForm button[type="submit"]').click();
+  await page.waitForSelector('#medicineLabelForm', {state:'detached'});
+
+  const saved = await page.evaluate(() => cart[0].dispensingLabel);
+  assert.equal(saved.doseAmount, '1');
+  assert.equal(saved.doseUnit, 'เม็ด');
+  assert.equal(saved.durationDays, '7');
+  assert.equal(saved.mealTiming, 'after');
+  assert.deepEqual(saved.doseTimes, ['morning','noon','evening']);
+  assert.equal(saved.directions, 'รับประทานครั้งละ 1 เม็ด หลังอาหาร เช้า กลางวัน เย็น เป็นเวลา 7 วัน');
+
+  await page.evaluate(() => openMedicineLabelEditor(501));
+  assert.equal(await page.locator('#medicineLabelDoseAmount').inputValue(), '1');
+  assert.equal(await page.locator('#medicineLabelDoseUnit').inputValue(), 'เม็ด');
+  assert.equal(await page.locator('#medicineLabelDurationDays').inputValue(), '7');
+  assert.equal(await page.locator('input[name="medicineLabelMealTiming"][value="after"]').isChecked(), true);
+  assert.equal(await page.locator('input[name="medicineLabelDoseTime"][value="morning"]').isChecked(), true);
+  assert.deepEqual(errors, []);
+  console.log('medicine label form browser tests passed');
+})().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+}).finally(async () => {
+  if (browser) await browser.close();
+  if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
+  await new Promise(resolve => server.close(resolve));
+});

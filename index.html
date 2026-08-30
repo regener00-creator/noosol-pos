@@ -1244,6 +1244,12 @@
   .medicine-label-field input,.medicine-label-field select,.medicine-label-field textarea{width:100%;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);padding:9px 11px;font:13.5px 'Sarabun',sans-serif;}
   .medicine-label-field textarea{min-height:66px;resize:vertical;line-height:1.45;}
   .medicine-label-field input:focus,.medicine-label-field select:focus,.medicine-label-field textarea:focus{outline:2px solid var(--primary);outline-offset:1px;}
+  .medicine-label-dose-fields{grid-column:1/-1;display:grid;grid-template-columns:.8fr 1fr .8fr;gap:12px;}
+  .medicine-label-option-group{min-width:0;margin:0;padding:10px 12px 12px;border:1px solid var(--border);border-radius:9px;background:#fff;}
+  .medicine-label-option-group legend{padding:0 5px;font-size:12.5px;font-weight:700;}
+  .medicine-label-options{display:flex;flex-wrap:wrap;gap:8px 13px;}
+  .medicine-label-option{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;white-space:nowrap;}
+  .medicine-label-option input{width:auto;margin:0;accent-color:var(--primary);}
   .medicine-label-quick-title{margin:14px 0 7px;font-size:12.5px;font-weight:700;}
   .medicine-label-quick-list{display:flex;flex-wrap:wrap;gap:7px;}
   .medicine-label-quick{border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);padding:7px 9px;font:12px 'Sarabun',sans-serif;cursor:pointer;text-align:left;}
@@ -1251,7 +1257,7 @@
   .medicine-label-safety{margin-top:14px;padding:10px 12px;border-radius:9px;background:#FFF7E8;color:#805100;font-size:12px;line-height:1.45;}
   .medicine-label-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px;}
   .sale-medicine-label-summary{display:block;margin-top:4px;color:var(--primary);font-size:11px;font-weight:600;}
-  @media (max-width:720px){.medicine-label-grid{grid-template-columns:1fr;}.medicine-label-field.wide{grid-column:auto;}}
+  @media (max-width:720px){.medicine-label-grid{grid-template-columns:1fr;}.medicine-label-field.wide{grid-column:auto;}.medicine-label-dose-fields{grid-column:auto;grid-template-columns:1fr;}.medicine-label-option-group{grid-column:auto;}}
   .fav-check{display:flex;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:13.5px;cursor:pointer;}
   .fav-add-box{position:relative;padding:0 16px 12px;}
   .fav-add-box input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13.5px;background:var(--surface);}
@@ -3050,13 +3056,12 @@ const MEDICINE_LABEL_SIZES={
   '80x50':{width:80,height:50,label:'80 × 50 มม. (แนะนำ)'},
   '60x40':{width:60,height:40,label:'60 × 40 มม. (กะทัดรัด)'},
 };
-const MEDICINE_LABEL_DIRECTION_PRESETS=[
-  'รับประทานครั้งละ 1 เม็ด วันละ 3 ครั้ง หลังอาหาร เช้า กลางวัน เย็น',
-  'รับประทานครั้งละ 1 เม็ด วันละ 2 ครั้ง หลังอาหาร เช้า เย็น',
-  'รับประทานครั้งละ 1 เม็ด วันละ 1 ครั้ง ก่อนนอน',
-  'รับประทานครั้งละ 1 เม็ด เมื่อมีอาการ ทุก 6 ชั่วโมง',
-  'ทาบาง ๆ บริเวณที่เป็น วันละ 2 ครั้ง',
-  'หยอดบริเวณที่มีอาการ ครั้งละ 1 หยด วันละ 3 ครั้ง',
+const MEDICINE_LABEL_DOSE_UNITS=['เม็ด','แคปซูล','ช้อนชา','ช้อนโต๊ะ','มิลลิลิตร','หยด','ซอง','พัฟ','ครั้ง'];
+const MEDICINE_LABEL_TIME_OPTIONS=[
+  {value:'morning',label:'เช้า'},
+  {value:'noon',label:'กลางวัน'},
+  {value:'evening',label:'เย็น'},
+  {value:'bedtime',label:'ก่อนนอน'},
 ];
 const MEDICINE_LABEL_WARNING_PRESETS=['อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร','รับประทานยานี้ติดต่อกันจนหมด','เขย่าขวดก่อนใช้','เก็บยาในตู้เย็น ห้ามแช่แข็ง'];
 let medicineLabelSize=(()=>{ try{ const saved=localStorage.getItem(MEDICINE_LABEL_SIZE_STORAGE_KEY); return MEDICINE_LABEL_SIZES[saved]?saved:'80x50'; }catch(_error){ return '80x50'; } })();
@@ -3068,14 +3073,52 @@ function currentPharmacistName(){
   const profile=currentProfile||currentUserProfile||{};
   return [profile.firstName,profile.lastName].filter(Boolean).join(' ').trim()||String(profile.username||'').trim();
 }
+function medicineLabelLegacyDoseParts(directions){
+  const text=String(directions||'').trim();
+  const dose=text.match(/ครั้งละ\s*([0-9]+(?:\.[0-9]+)?|[0-9]+\/[0-9]+)\s*([^\s]+)/);
+  const duration=text.match(/(?:เป็นเวลา|ติดต่อกัน|จำนวน)\s*([0-9]+)\s*วัน/);
+  return {doseAmount:dose?.[1]||'',doseUnit:dose?.[2]||'',durationDays:duration?.[1]||''};
+}
+function medicineLabelMealTiming(value,directions=''){
+  const explicit=String(value??'').trim();
+  if(['before','after','none'].includes(explicit)) return explicit;
+  const text=String(directions||'');
+  if(text.includes('ก่อนอาหาร')) return 'before';
+  if(text.includes('หลังอาหาร')) return 'after';
+  return 'none';
+}
+function medicineLabelDoseTimes(value,directions=''){
+  const allowed=new Set(MEDICINE_LABEL_TIME_OPTIONS.map(option=>option.value));
+  if(Array.isArray(value)) return [...new Set(value.map(item=>String(item||'').trim()).filter(item=>allowed.has(item)))];
+  const text=String(directions||'');
+  return MEDICINE_LABEL_TIME_OPTIONS.filter(option=>text.includes(option.label)).map(option=>option.value);
+}
+function medicineLabelDirectionsFromParts(value){
+  const amount=String(value?.doseAmount||'').trim(),unit=String(value?.doseUnit||'').trim(),duration=String(value?.durationDays||'').trim();
+  const times=medicineLabelDoseTimes(value?.doseTimes,value?.directions);
+  if(!amount||!unit||!duration||!times.length) return String(value?.directions||'').trim();
+  const meal=medicineLabelMealTiming(value?.mealTiming,value?.directions);
+  const mealText=meal==='before'?'ก่อนอาหาร':meal==='after'?'หลังอาหาร':'';
+  const timeText=MEDICINE_LABEL_TIME_OPTIONS.filter(option=>times.includes(option.value)).map(option=>option.label).join(' ');
+  return [`รับประทานครั้งละ ${amount} ${unit}`,mealText,timeText,`เป็นเวลา ${duration} วัน`].filter(Boolean).join(' ');
+}
 function normalizeDispensingLabel(value){
   if(!value||value.enabled===false) return null;
+  const legacyDirections=String(value.directions||'').trim(),legacy=medicineLabelLegacyDoseParts(legacyDirections);
+  const doseAmount=String(value.doseAmount??legacy.doseAmount).trim(),doseUnit=String(value.doseUnit??legacy.doseUnit).trim(),durationDays=String(value.durationDays??legacy.durationDays).trim();
+  const mealTiming=medicineLabelMealTiming(value.mealTiming,legacyDirections),doseTimes=medicineLabelDoseTimes(value.doseTimes,legacyDirections);
+  const directions=medicineLabelDirectionsFromParts({doseAmount,doseUnit,durationDays,mealTiming,doseTimes,directions:legacyDirections});
   const label={
     enabled:true,
     drugName:String(value.drugName||'').trim(),
     patientName:String(value.patientName||'').trim(),
     indication:String(value.indication||'').trim(),
-    directions:String(value.directions||'').trim(),
+    doseAmount,
+    doseUnit,
+    durationDays,
+    mealTiming,
+    doseTimes,
+    directions,
     warning:String(value.warning||'').trim(),
     pharmacistName:String(value.pharmacistName||'').trim(),
   };
@@ -3156,10 +3199,15 @@ function openMedicineLabelEditor(lineId){
     drugName:existing?.drugName||String(line.name||'').trim(),
     patientName:existing?.patientName||otherPatient||medicineLabelMemberName(),
     indication:existing?.indication||'',
-    directions:existing?.directions||'',
+    doseAmount:existing?.doseAmount||'1',
+    doseUnit:existing?.doseUnit||(MEDICINE_LABEL_DOSE_UNITS.includes(String(line.unit||''))?String(line.unit):'เม็ด'),
+    durationDays:existing?.durationDays||'',
+    mealTiming:existing?.mealTiming||'none',
+    doseTimes:existing?.doseTimes||[],
     warning:existing?.warning||'',
     pharmacistName:existing?.pharmacistName||currentPharmacistName(),
   };
+  const doseUnits=MEDICINE_LABEL_DOSE_UNITS.includes(draft.doseUnit)?MEDICINE_LABEL_DOSE_UNITS:[draft.doseUnit,...MEDICINE_LABEL_DOSE_UNITS];
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal medicine-label-modal"><div class="modal-head"><h3>จัดทำฉลากยา</h3><button class="modal-close" type="button">×</button></div>
     <div class="medicine-label-product"><b>${escapeHtml(line.name||'รายการยา')}</b><span>จำนวน ${escapeHtml(line.qty)} ${escapeHtml(line.unit||'หน่วย')}</span></div>
@@ -3170,21 +3218,28 @@ function openMedicineLabelEditor(lineId){
         <label class="medicine-label-field"><span>เภสัชกรผู้จ่ายยา *</span><input id="medicineLabelPharmacist" value="${escapeHtml(draft.pharmacistName)}" autocomplete="off" required></label>
         <label class="medicine-label-field"><span>ข้อบ่งใช้ *</span><input id="medicineLabelIndication" value="${escapeHtml(draft.indication)}" placeholder="เช่น แก้ปวด ลดไข้" autocomplete="off" required></label>
         <label class="medicine-label-field"><span>ขนาดฉลาก</span><select id="medicineLabelSize">${Object.entries(MEDICINE_LABEL_SIZES).map(([value,option])=>`<option value="${value}" ${value===medicineLabelSize?'selected':''}>${option.label}</option>`).join('')}</select></label>
-        <label class="medicine-label-field wide"><span>วิธีใช้ยา *</span><textarea id="medicineLabelDirections" placeholder="ระบุครั้งละเท่าไร วันละกี่ครั้ง และเวลาใช้" required>${escapeHtml(draft.directions)}</textarea></label>
+        <div class="medicine-label-dose-fields">
+          <label class="medicine-label-field"><span>ขนาดรับประทานต่อครั้ง *</span><input id="medicineLabelDoseAmount" type="number" min="0.01" step="0.01" value="${escapeHtml(draft.doseAmount)}" inputmode="decimal" required></label>
+          <label class="medicine-label-field"><span>หน่วยรับประทาน *</span><select id="medicineLabelDoseUnit" required>${doseUnits.map(unit=>`<option value="${escapeHtml(unit)}" ${unit===draft.doseUnit?'selected':''}>${escapeHtml(unit)}</option>`).join('')}</select></label>
+          <label class="medicine-label-field"><span>ระยะเวลา (วัน) *</span><input id="medicineLabelDurationDays" type="number" min="1" step="1" value="${escapeHtml(draft.durationDays)}" inputmode="numeric" required></label>
+        </div>
+        <fieldset class="medicine-label-option-group"><legend>ก่อนหรือหลังอาหาร</legend><div class="medicine-label-options">
+          <label class="medicine-label-option"><input type="radio" name="medicineLabelMealTiming" value="before" ${draft.mealTiming==='before'?'checked':''}>ก่อนอาหาร</label>
+          <label class="medicine-label-option"><input type="radio" name="medicineLabelMealTiming" value="after" ${draft.mealTiming==='after'?'checked':''}>หลังอาหาร</label>
+          <label class="medicine-label-option"><input type="radio" name="medicineLabelMealTiming" value="none" ${draft.mealTiming==='none'?'checked':''}>ไม่เกี่ยวกับอาหาร</label>
+        </div></fieldset>
+        <fieldset class="medicine-label-option-group"><legend>ช่วงเวลารับประทาน *</legend><div class="medicine-label-options">${MEDICINE_LABEL_TIME_OPTIONS.map(option=>`<label class="medicine-label-option"><input type="checkbox" name="medicineLabelDoseTime" value="${option.value}" ${draft.doseTimes.includes(option.value)?'checked':''}>${option.label}</label>`).join('')}</div></fieldset>
         <label class="medicine-label-field wide"><span>คำแนะนำหรือคำเตือน</span><textarea id="medicineLabelWarning" placeholder="ระบุเมื่อจำเป็น">${escapeHtml(draft.warning)}</textarea></label>
       </div>
-      <div class="medicine-label-quick-title">เลือกวิธีใช้แบบรวดเร็ว แล้วแก้ข้อความได้</div>
-      <div class="medicine-label-quick-list">${MEDICINE_LABEL_DIRECTION_PRESETS.map((text,index)=>`<button class="medicine-label-quick" type="button" data-medicine-direction="${index}">${escapeHtml(text)}</button>`).join('')}</div>
       <div class="medicine-label-quick-title">เพิ่มคำเตือน</div>
       <div class="medicine-label-quick-list">${MEDICINE_LABEL_WARNING_PRESETS.map((text,index)=>`<button class="medicine-label-quick" type="button" data-medicine-warning="${index}">${escapeHtml(text)}</button>`).join('')}</div>
-      <div class="medicine-label-safety">เภสัชกรต้องตรวจสอบชื่อยา ขนาดยา วิธีใช้ และคำเตือนก่อนพิมพ์ ระบบจะไม่เลือกวิธีใช้ยาให้อัตโนมัติ</div>
+      <div class="medicine-label-safety">เภสัชกรต้องตรวจสอบชื่อยา ขนาดต่อครั้ง หน่วย ระยะเวลา ช่วงรับประทาน และคำเตือนก่อนพิมพ์ ระบบจะไม่กำหนดวิธีใช้ยาให้เอง</div>
       <div class="medicine-label-actions">${existing?'<button class="btn ghost" type="button" id="removeMedicineLabelBtn">นำฉลากออก</button>':''}<button class="btn ghost" type="button" id="cancelMedicineLabelBtn">ยกเลิก</button><button class="btn primary" type="submit">บันทึกฉลากยา</button></div>
     </form></div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('#cancelMedicineLabelBtn').onclick=close;
-  overlay.querySelectorAll('[data-medicine-direction]').forEach(button=>button.onclick=()=>{ overlay.querySelector('#medicineLabelDirections').value=MEDICINE_LABEL_DIRECTION_PRESETS[Number(button.dataset.medicineDirection)]||''; });
   overlay.querySelectorAll('[data-medicine-warning]').forEach(button=>button.onclick=()=>{
     const field=overlay.querySelector('#medicineLabelWarning'),text=MEDICINE_LABEL_WARNING_PRESETS[Number(button.dataset.medicineWarning)]||'';
     if(!text) return; const values=String(field.value||'').split('\n').map(value=>value.trim()).filter(Boolean); if(!values.includes(text)) values.push(text); field.value=values.join('\n');
@@ -3193,16 +3248,24 @@ function openMedicineLabelEditor(lineId){
   if(removeButton) removeButton.onclick=()=>{ delete line.dispensingLabel; close(); showToast(`นำฉลากยา “${line.name}” ออกจากบิลแล้ว`); render(); };
   overlay.querySelector('#medicineLabelForm').onsubmit=event=>{
     event.preventDefault();
+    const doseAmount=overlay.querySelector('#medicineLabelDoseAmount').value,doseUnit=overlay.querySelector('#medicineLabelDoseUnit').value,durationDays=overlay.querySelector('#medicineLabelDurationDays').value;
+    const mealTiming=overlay.querySelector('input[name="medicineLabelMealTiming"]:checked')?.value||'none';
+    const doseTimes=[...overlay.querySelectorAll('input[name="medicineLabelDoseTime"]:checked')].map(input=>input.value);
+    if(!(Number(doseAmount)>0)||!doseUnit||!Number.isInteger(Number(durationDays))||Number(durationDays)<1||!doseTimes.length){ showToast('กรุณาระบุขนาดต่อครั้ง หน่วย จำนวนวัน และเลือกช่วงเวลารับประทานอย่างน้อย 1 ช่วง','danger-top'); return; }
     const label=normalizeDispensingLabel({
       enabled:true,
       drugName:overlay.querySelector('#medicineLabelDrugName').value,
       patientName:overlay.querySelector('#medicineLabelPatient').value,
       indication:overlay.querySelector('#medicineLabelIndication').value,
-      directions:overlay.querySelector('#medicineLabelDirections').value,
+      doseAmount,
+      doseUnit,
+      durationDays,
+      mealTiming,
+      doseTimes,
       warning:overlay.querySelector('#medicineLabelWarning').value,
       pharmacistName:overlay.querySelector('#medicineLabelPharmacist').value,
     });
-    if(!label){ showToast('กรุณากรอกชื่อยา ชื่อผู้รับยา เภสัชกร ข้อบ่งใช้ และวิธีใช้ให้ครบ','danger-top'); return; }
+    if(!label){ showToast('กรุณากรอกข้อมูลฉลากยาให้ครบ','danger-top'); return; }
     const selectedSize=overlay.querySelector('#medicineLabelSize').value;
     if(!medicineLabelFitsSize(label,selectedSize)){ showToast('ข้อความยาวเกินขนาดฉลากที่เลือก กรุณาใช้ขนาด 80 × 50 มม. หรือย่อข้อความ','danger-top'); return; }
     const oversizedOther=cart.find(item=>String(item.lineId)!==String(line.lineId)&&normalizeDispensingLabel(item.dispensingLabel)&&!medicineLabelFitsSize(item.dispensingLabel,selectedSize));
@@ -15689,10 +15752,22 @@ function medicineLabelExpiryText(item){
     .sort();
   return dates.length?fmtDateShort(dates[0]):'ไม่ระบุ';
 }
-function medicineLabelScheduleHtml(directions){
-  const text=String(directions||'');
-  const choice=(token,label)=>`<span class="medicine-label-choice"><i>${text.includes(token)?'✓':''}</i>${label}</span>`;
-  return `<div class="medicine-label-row medicine-label-schedule"><div class="medicine-label-cell medicine-label-checks"><span class="medicine-label-symbol">◷</span>${choice('ก่อนอาหาร','ก่อนอาหาร')}${choice('หลังอาหาร','หลังอาหาร')}</div><div class="medicine-label-cell medicine-label-checks">${choice('เช้า','เช้า')}${choice('กลางวัน','กลางวัน')}${choice('เย็น','เย็น')}${choice('ก่อนนอน','ก่อนนอน')}</div></div>`;
+function medicineLabelIconSvg(name){
+  const paths={
+    patient:'<circle cx="12" cy="6.2" r="3.6"/><path d="M4.5 21v-2.6a7.5 7.5 0 0 1 15 0V21z"/>',
+    calendar:'<rect x="3" y="5" width="18" height="16" rx="1.8"/><path d="M8 3v4M16 3v4M3 10h18M7 14h2M11 14h2M15 14h2M7 18h2M11 18h2M15 18h2"/>',
+    pill:'<path d="M8.4 18.6a4.25 4.25 0 0 1-6-6l10-10a4.25 4.25 0 0 1 6 6z"/><path d="m7.5 7.5 9 9"/>',
+    clipboard:'<rect x="4.5" y="4.5" width="15" height="17" rx="1.8"/><path d="M9 4.5V3h6v1.5M8 10h8M8 14h8M8 18h5"/>',
+    clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>',
+    warning:'<path d="M10.2 3.8 2.4 18a2 2 0 0 0 1.8 3h15.6a2 2 0 0 0 1.8-3L13.8 3.8a2 2 0 0 0-3.6 0zM12 9v5M12 18h.01"/>',
+    pharmacist:'<circle cx="9" cy="6" r="3.2"/><path d="M3.5 20v-2.4a5.5 5.5 0 0 1 11 0V20z"/><rect x="14" y="12" width="7" height="7" rx="1"/><path d="M17.5 14v3M16 15.5h3"/>',
+  };
+  return `<svg class="medicine-label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]||''}</svg>`;
+}
+function medicineLabelScheduleHtml(label){
+  const times=new Set(medicineLabelDoseTimes(label?.doseTimes,label?.directions)),meal=medicineLabelMealTiming(label?.mealTiming,label?.directions);
+  const choice=(checked,text)=>`<span class="medicine-label-choice"><i>${checked?'✓':''}</i>${text}</span>`;
+  return `<div class="medicine-label-row medicine-label-schedule"><div class="medicine-label-cell medicine-label-checks">${medicineLabelIconSvg('clock')}${choice(meal==='before','ก่อนอาหาร')}${choice(meal==='after','หลังอาหาร')}</div><div class="medicine-label-cell medicine-label-checks">${MEDICINE_LABEL_TIME_OPTIONS.map(option=>choice(times.has(option.value),option.label)).join('')}</div></div>`;
 }
 function printMedicineLabels(saleId){
   const sale=salesHistory.find(item=>item.id===saleId); if(!sale) return false;
@@ -15707,50 +15782,56 @@ function printMedicineLabels(saleId){
   const labels=items.map(item=>{
     const label=normalizeDispensingLabel(item.dispensingLabel),length=medicineLabelContentLength(label),density=length>(compact?170:300)?' dense':'';
     const saleRef=escapeHtml(sale.ref||sale.id),saleDate=escapeHtml(fmtDateShort(sale.date)),expiry=escapeHtml(medicineLabelExpiryText(item));
-    return `<section class="medicine-label${density}"><header><div class="medicine-label-brand"><span class="medicine-label-logo-frame"><img class="medicine-label-brand-logo" src="${escapeHtml(logoUrl)}" alt="โลโก้ SAPURI Pharmacy"></span><b>${escapeHtml(businessName)}</b></div><small>${escapeHtml(phone?`โทร ${phone}`:'')}</small></header><div class="medicine-label-info"><div class="medicine-label-row medicine-label-meta"><div class="medicine-label-cell"><span class="medicine-label-symbol">○</span><span class="medicine-label-key">ผู้รับยา</span><b class="medicine-label-value">${escapeHtml(label.patientName)}</b></div><div class="medicine-label-cell"><span class="medicine-label-symbol">▦</span><span class="medicine-label-key">วันที่</span><b class="medicine-label-value">${saleDate}</b><small>${saleRef}</small></div></div><div class="medicine-label-row medicine-label-drug"><div class="medicine-label-cell"><span class="medicine-label-symbol">◇</span><span class="medicine-label-key">ชื่อยา</span><b class="medicine-label-value">${escapeHtml(label.drugName)}</b></div></div><div class="medicine-label-row medicine-label-details"><div class="medicine-label-cell"><span class="medicine-label-badge">จำนวนยา</span><b class="medicine-label-value">${escapeHtml(item.qty)} ${escapeHtml(item.unit||'หน่วย')}</b></div><div class="medicine-label-cell"><span class="medicine-label-badge">ใช้สำหรับ</span><b class="medicine-label-value">${escapeHtml(label.indication)}</b></div></div><div class="medicine-label-row medicine-label-directions"><div class="medicine-label-cell"><span class="medicine-label-symbol">≡</span><span class="medicine-label-badge">วิธีใช้ยา</span><b class="medicine-label-value">${escapeHtml(label.directions)}</b></div></div>${medicineLabelScheduleHtml(label.directions)}${label.warning?`<div class="medicine-label-row medicine-label-warning"><div class="medicine-label-cell"><span class="medicine-label-symbol">△</span><span class="medicine-label-key">คำเตือน</span><b class="medicine-label-value">${escapeHtml(label.warning).replace(/\n/g,' · ')}</b></div></div>`:''}<div class="medicine-label-row medicine-label-footer"><div class="medicine-label-cell"><span class="medicine-label-symbol">▦</span><span class="medicine-label-key">วันหมดอายุ</span><b class="medicine-label-value">${expiry}</b></div><div class="medicine-label-cell"><span class="medicine-label-symbol">✚</span><span class="medicine-label-key">เภสัชกร</span><b class="medicine-label-value">${escapeHtml(label.pharmacistName)}</b></div></div></div></section>`;
+    const structured=Boolean(label.doseAmount&&label.doseUnit&&label.durationDays&&label.doseTimes.length);
+    const doseAmount=escapeHtml(label.doseAmount||'-'),doseUnit=escapeHtml(label.doseUnit||''),durationDays=escapeHtml(label.durationDays||'-');
+    const legacyDirections=!structured&&label.directions?`<div class="medicine-label-row medicine-label-legacy"><div class="medicine-label-cell"><b class="medicine-label-value">${escapeHtml(label.directions)}</b></div></div>`:'';
+    return `<section class="medicine-label${density}"><header><div class="medicine-label-brand"><span class="medicine-label-logo-frame"><img class="medicine-label-brand-logo" src="${escapeHtml(logoUrl)}" alt="โลโก้ SAPURI Pharmacy"></span><b>${escapeHtml(businessName)}</b></div><small>${escapeHtml(phone?`โทร ${phone}`:'')}</small><span class="medicine-label-bill">${saleRef}</span></header><div class="medicine-label-info"><div class="medicine-label-row medicine-label-meta"><div class="medicine-label-cell">${medicineLabelIconSvg('patient')}<span class="medicine-label-key">ชื่อผู้ป่วย</span><b class="medicine-label-value">${escapeHtml(label.patientName)}</b></div><div class="medicine-label-cell">${medicineLabelIconSvg('calendar')}<span class="medicine-label-key">วันที่</span><b class="medicine-label-value">${saleDate}</b></div></div><div class="medicine-label-row medicine-label-drug"><div class="medicine-label-cell">${medicineLabelIconSvg('pill')}<span class="medicine-label-key">ชื่อยา</span><b class="medicine-label-value">${escapeHtml(label.drugName)}</b><small>ใช้สำหรับ ${escapeHtml(label.indication)}</small></div></div><div class="medicine-label-row medicine-label-dose"><div class="medicine-label-cell">${medicineLabelIconSvg('clipboard')}<span class="medicine-label-badge">ขนาดรับประทาน</span><span>ครั้งละ</span><b class="medicine-label-value">${doseAmount}</b><span>${doseUnit}</span></div><div class="medicine-label-cell"><span class="medicine-label-badge">จำนวน</span><b class="medicine-label-value">${durationDays}</b><span>วัน</span></div></div>${medicineLabelScheduleHtml(label)}${legacyDirections}${label.warning?`<div class="medicine-label-row medicine-label-warning"><div class="medicine-label-cell">${medicineLabelIconSvg('warning')}<span class="medicine-label-key">ข้อควรระวัง</span><b class="medicine-label-value">${escapeHtml(label.warning).replace(/\n/g,' · ')}</b></div></div>`:''}<div class="medicine-label-row medicine-label-footer"><div class="medicine-label-cell">${medicineLabelIconSvg('calendar')}<span class="medicine-label-key">วันหมดอายุ</span><b class="medicine-label-value">${expiry}</b></div><div class="medicine-label-cell">${medicineLabelIconSvg('pharmacist')}<span class="medicine-label-key">เภสัชกร</span><b class="medicine-label-value">${escapeHtml(label.pharmacistName)}</b></div></div></div></section>`;
   }).join('');
   const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างฉลากยา','danger-top'); return false; }
-  win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>ฉลากยา ${escapeHtml(sale.ref||sale.id)}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet"><style>
+  win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>ฉลากยา ${escapeHtml(sale.ref||sale.id)}</title><link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet"><style>
 @page{size:${size.width}mm ${size.height}mm;margin:0}
 *{box-sizing:border-box;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-body{margin:0;background:#e6e6e6;color:#111;font-family:'Sarabun',Tahoma,sans-serif}
+body{margin:0;background:#e6e6e6;color:#111;font-family:'Noto Sans Thai',Tahoma,sans-serif}
 .toolbar{position:sticky;top:0;z-index:5;background:#fff;padding:10px 18px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px #0002}
-.toolbar button{border:0;border-radius:7px;background:#111;color:#fff;padding:9px 18px;font:600 14px Sarabun}
+.toolbar button{border:0;border-radius:7px;background:#111;color:#fff;padding:9px 18px;font:600 14px 'Noto Sans Thai',sans-serif}
 .medicine-label{width:${size.width}mm;height:${size.height}mm;margin:10px auto;background:#fff;padding:${compact?'1.8':'2.5'}mm;display:flex;flex-direction:column;gap:${compact?'.55':'.75'}mm;overflow:hidden;page-break-after:always;box-shadow:0 3px 14px #0002}
 .medicine-label:last-child{page-break-after:auto}
-header{display:grid;grid-template-columns:${compact?'6.5':'7.5'}mm minmax(0,1fr);grid-template-rows:auto auto;column-gap:${compact?'.8':'1'}mm;row-gap:${compact?'.15':'.25'}mm;align-items:center;padding-bottom:${compact?'.45':'.6'}mm;border-bottom:.35mm solid #111;line-height:1.15}
+header{display:grid;grid-template-columns:${compact?'6.5':'7.5'}mm minmax(0,1fr) auto;grid-template-rows:auto auto;column-gap:${compact?'.8':'1'}mm;row-gap:${compact?'.15':'.25'}mm;align-items:center;padding-bottom:${compact?'.45':'.6'}mm;border-bottom:.35mm solid #111;line-height:1.15}
 .medicine-label-brand{display:contents}
 .medicine-label-logo-frame{position:relative;width:${compact?'6.5':'7.5'}mm;height:${compact?'6.5':'7.5'}mm;overflow:hidden;grid-column:1;grid-row:1/3;align-self:center;border:.2mm solid #222;border-radius:${compact?'1':'1.2'}mm;background:#fff}
 .medicine-label-brand-logo{position:absolute;width:${compact?'10':'11.6'}mm;height:${compact?'10':'11.6'}mm;left:${compact?'-1.94':'-2.25'}mm;top:${compact?'-1.88':'-2.15'}mm;object-fit:cover;filter:grayscale(1) contrast(1.15)}
 .medicine-label-brand b{grid-column:2;grid-row:1;align-self:end;font-size:${compact?'8':'9'}pt;line-height:1;color:#111}
 .medicine-label header small{grid-column:2;grid-row:2;align-self:start;font-size:${compact?'5.2':'5.8'}pt;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.medicine-label-bill{grid-column:3;grid-row:1/3;align-self:start;padding-top:.2mm;font-size:${compact?'3.3':'4'}pt;font-weight:600;white-space:nowrap}
 .medicine-label-info{flex:1;min-height:0;display:flex;flex-direction:column;border:.25mm solid #111;border-radius:${compact?'1.2':'1.6'}mm;overflow:hidden;background:#fff}
 .medicine-label-row{display:grid;border-bottom:.2mm solid #111;min-height:0}
 .medicine-label-row:last-child{border-bottom:0}
 .medicine-label-meta{grid-template-columns:1.12fr .88fr}
-.medicine-label-details{grid-template-columns:.82fr 1.18fr}
+.medicine-label-dose{grid-template-columns:1.2fr .8fr;flex:1;min-height:${compact?'4.5':'6'}mm}
 .medicine-label-schedule{grid-template-columns:.78fr 1.22fr}
 .medicine-label-footer{grid-template-columns:1fr 1fr}
 .medicine-label-cell{display:flex;align-items:center;gap:${compact?'.45':'.65'}mm;min-width:0;padding:${compact?'.45mm .55mm':'.6mm .75mm'};line-height:1.08}
 .medicine-label-cell+.medicine-label-cell{border-left:.2mm solid #111}
-.medicine-label-symbol{flex:0 0 ${compact?'2':'2.5'}mm;text-align:center;font:700 ${compact?'5.1':'6'}pt Arial,sans-serif}
+.medicine-label-icon{flex:0 0 ${compact?'2.7':'3.4'}mm;width:${compact?'2.7':'3.4'}mm;height:${compact?'2.7':'3.4'}mm}
 .medicine-label-key{flex:0 0 auto;font-size:${compact?'4.2':'5'}pt;font-weight:600;white-space:nowrap}
 .medicine-label-value{min-width:0;font-size:${compact?'4.8':'5.7'}pt;font-weight:700;line-height:1.12;overflow-wrap:anywhere}
 .medicine-label-meta .medicine-label-value{white-space:nowrap}
-.medicine-label-meta small{display:${compact?'none':'inline'};margin-left:auto;font-size:${compact?'3.2':'3.8'}pt;white-space:nowrap}
 .medicine-label-drug .medicine-label-value{font-size:${compact?'6.2':'7.3'}pt}
+.medicine-label-drug small{margin-left:auto;font-size:${compact?'3.5':'4.2'}pt;font-weight:500;white-space:nowrap}
 .medicine-label-badge{flex:0 0 auto;border-radius:999px;background:#111;color:#fff;padding:${compact?'.2mm .65mm':'.25mm .8mm'};font-size:${compact?'3.9':'4.6'}pt;font-weight:700;white-space:nowrap}
-.medicine-label-directions{flex:1;min-height:${compact?'4':'5'}mm}
-.medicine-label-directions .medicine-label-cell{align-items:flex-start}
-.medicine-label-directions .medicine-label-value{font-size:${compact?'5.2':'6.2'}pt}
+.medicine-label-dose .medicine-label-cell{font-size:${compact?'4.2':'5.1'}pt;justify-content:flex-start}
+.medicine-label-dose .medicine-label-cell:last-child{justify-content:center}
+.medicine-label-dose .medicine-label-value{font-size:${compact?'5.6':'6.7'}pt;white-space:nowrap}
 .medicine-label-checks{justify-content:center;gap:${compact?'.45':'.75'}mm;padding-top:${compact?'.35':'.45'}mm;padding-bottom:${compact?'.35':'.45'}mm}
 .medicine-label-choice{display:inline-flex;align-items:center;gap:.3mm;font-size:${compact?'3.5':'4.2'}pt;white-space:nowrap}
 .medicine-label-choice i{display:inline-flex;align-items:center;justify-content:center;width:${compact?'1.8':'2.2'}mm;height:${compact?'1.8':'2.2'}mm;border:.2mm solid #111;border-radius:.25mm;font:700 ${compact?'3.4':'4'}pt Arial,sans-serif;font-style:normal}
+.medicine-label-legacy .medicine-label-cell{padding-top:.35mm;padding-bottom:.35mm}
+.medicine-label-legacy .medicine-label-value{font-size:${compact?'3.7':'4.4'}pt;font-weight:600}
 .medicine-label-warning .medicine-label-value{font-size:${compact?'4':'4.8'}pt;line-height:1.08}
 .medicine-label-footer .medicine-label-value{font-size:${compact?'4.1':'4.9'}pt}
 .dense .medicine-label-value{font-size:${compact?'4.2':'5'}pt}
 .dense .medicine-label-drug .medicine-label-value{font-size:${compact?'5.4':'6.4'}pt}
-.dense .medicine-label-directions .medicine-label-value{font-size:${compact?'4.5':'5.4'}pt}
+.dense .medicine-label-dose .medicine-label-value{font-size:${compact?'5':'5.8'}pt}
 @media print{body{background:#fff}.toolbar{display:none}.medicine-label{margin:0;box-shadow:none}}
 </style></head><body><div class="toolbar"><span>ตัวอย่างฉลากยา ${escapeHtml(size.label)} · ${items.length} ใบ</span><button onclick="window.print()">พิมพ์</button></div>${labels}</body></html>`);
   win.document.close(); standardizePrintPreview(win);
