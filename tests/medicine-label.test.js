@@ -113,6 +113,7 @@ assert.match(printHtml, /\.medicine-label-row\{[^}]*border-bottom:\.1mm solid #1
 assert.match(printHtml, /stroke-width="1\.4"/, 'เส้นไอคอนต้องบางลง');
 assert.match(printHtml, /\.medicine-label-choice i\{[^}]*border:\.12mm solid #111/, 'กรอบช่องเลือกต้องบางลง');
 assert.match(printHtml, /\.medicine-label-choice i\.is-checked\{background:#111\}/, 'ช่องตัวเลือกที่เลือกต้องถมสีดำ');
+assert.match(printHtml, /\.medicine-label-choice i\.is-checked::after\{content:'✓';color:#fff;/, 'ช่องตัวเลือกที่เลือกต้องมีเครื่องหมายถูกสีขาว');
 assert.match(printHtml, /class="medicine-label-row medicine-label-meta"/, 'ต้องแบ่งผู้รับยาและวันที่เป็นแถว');
 assert.match(printHtml, /class="medicine-label-key">วันที่จ่ายยา :<\/span>/, 'วันที่จ่ายยาต้องมีเครื่องหมายทวิภาค');
 assert.match(printHtml, /class="medicine-label-bill">RE202608300001<\/span>/, 'เลขบิลต้องอยู่มุมขวาบน');
@@ -129,8 +130,10 @@ assert.match(printHtml, /\.medicine-label-dose-line\+\.medicine-label-dose-line\
 assert.match(printHtml, /--medicine-label-text-nudge:\.22mm;--medicine-label-dose-nudge:\.28mm;--medicine-label-dose-value-nudge:\.34mm/, 'ฉลากปกติต้องชดเชยแนวตัวอักษรให้อยู่กึ่งกลางทางสายตา');
 assert.match(printHtml, /\.medicine-label-dose-line>\*\{position:relative;top:var\(--medicine-label-dose-nudge\)\}/, 'ข้อมูลขนาดรับประทานต้องขยับลงกึ่งกลางแถว');
 assert.match(printHtml, /\.medicine-label-key\{[^}]*font-weight:700/, 'หัวข้อข้อมูลทั้งหมดต้องเป็นตัวหนา');
-assert.match(printHtml, /\.medicine-label-value\{[^}]*font-weight:400/, 'ข้อมูลทั้งหมดต้องเป็นตัวบาง');
-assert.match(printHtml, /\.medicine-label-dose-line>\.medicine-label-value,\.medicine-label-dose-line>\.medicine-label-value\+span\{top:var\(--medicine-label-dose-value-nudge\);font-weight:400\}/, 'จำนวนและหน่วยต้องเป็นตัวบางและอยู่แนวเดียวกัน');
+assert.match(printHtml, /\.medicine-label-value\{[^}]*font-weight:400/, 'ข้อมูลส่วนทั่วไปต้องใช้น้ำหนักปกติเป็นค่าเริ่มต้น');
+assert.match(printHtml, /\.medicine-label-dose-line>\.medicine-label-value,\.medicine-label-dose-line>\.medicine-label-value\+span\{top:var\(--medicine-label-dose-value-nudge\);font-weight:700\}/, 'ข้อมูลและหน่วยรับประทานต้องเป็นตัวหนาและอยู่แนวเดียวกัน');
+assert.match(printHtml, /\.medicine-label-drug \.medicine-label-value\{[^}]*font-weight:700\}/, 'ข้อมูลชื่อยาต้องเป็นตัวหนา');
+assert.match(printHtml, /\.medicine-label-footer \.medicine-label-value\{[^}]*font-weight:700\}/, 'ข้อมูลวันหมดอายุและเภสัชกรต้องเป็นตัวหนา');
 assert.match(printHtml, /\.medicine-label-dose-line:not\(\.medicine-label-duration-line\)>\.medicine-label-section-label\{top:calc\(var\(--medicine-label-dose-nudge\) \+ \.18mm\)\}/, 'หัวข้อรับประทานครั้งละต้องขยับลงให้เสมอข้อมูล');
 assert.match(printHtml, /\.medicine-label-duration-line\{align-items:center\}/, 'หัวข้อระยะเวลาและข้อมูลต้องจัดกึ่งกลางแถว');
 assert.match(printHtml, /\.medicine-label-duration-line>\*\{top:calc\(var\(--medicine-label-dose-nudge\) \+ \.22mm\)\}/, 'หัวข้อระยะเวลาและข้อมูลต้องขยับลงเท่ากัน');
@@ -143,7 +146,7 @@ assert.match(printHtml, /\.medicine-label-footer\{grid-template-columns:1\.12fr 
 assert.doesNotMatch(printHtml, /header\{[^}]*border-bottom:/, 'ต้องไม่มีเส้นใต้โลโก้และเบอร์โทร');
 assert.doesNotMatch(printHtml, /ใช้สำหรับ แก้ปวด/, 'ต้องไม่แสดงข้อบ่งใช้ต่อท้ายชื่อยาอีก');
 assert.match(printHtml, /class="medicine-label-row medicine-label-schedule"/, 'ต้องมีแถวช่วงเวลาการใช้ยา');
-assert.match(printHtml, /\.medicine-label-schedule \.medicine-label-cell:first-child\{justify-content:flex-start\}/, 'ไอคอนนาฬิกาและตัวเลือกก่อนหรือหลังอาหารต้องชิดซ้าย');
+assert.match(printHtml, /\.medicine-label-schedule \.medicine-label-cell:first-child\{justify-content:space-between\}/, 'ก่อนอาหาร หลังอาหาร และทุกช่วงเวลาต้องกระจายเต็มช่อง');
 assert.match(printHtml, /\.medicine-label-schedule \.medicine-label-cell:last-child\{justify-content:space-evenly;/, 'ช่วงเวลารับประทานต้องกระจายระยะห่างเต็มช่อง');
 assert.match(printHtml, /<i class="is-checked"><\/i>หลังอาหาร/, 'ช่วงเวลาที่ระบุในวิธีใช้ต้องถมช่องสีดำ');
 assert.match(printHtml, /<i class="is-checked"><\/i>เช้า/);

@@ -15884,7 +15884,7 @@ header{display:grid;grid-template-columns:${compact?'6.5':'7.5'}mm minmax(0,1fr)
 .medicine-label-value{min-width:0;font-size:${compact?'4.8':'5.7'}pt;font-weight:400;line-height:1.12;overflow-wrap:anywhere}
 .medicine-label-meta .medicine-label-key,.medicine-label-meta .medicine-label-value,.medicine-label-drug .medicine-label-key,.medicine-label-drug .medicine-label-value,.medicine-label-warning .medicine-label-key,.medicine-label-warning .medicine-label-value,.medicine-label-footer .medicine-label-key,.medicine-label-footer .medicine-label-value{position:relative;top:var(--medicine-label-text-nudge)}
 .medicine-label-meta .medicine-label-value{white-space:nowrap}
-.medicine-label-drug .medicine-label-value{font-size:${compact?'6.2':'7.3'}pt}
+.medicine-label-drug .medicine-label-value{font-size:${compact?'6.2':'7.3'}pt;font-weight:700}
 .medicine-label-section-label{flex:0 0 auto;color:#111;font-size:${compact?'4.2':'5'}pt;font-weight:700;line-height:1.08;white-space:nowrap}
 .medicine-label-dose .medicine-label-cell{font-size:${compact?'4.2':'5.1'}pt;justify-content:flex-start}
 .medicine-label-indication{flex-direction:column;align-items:flex-start!important;justify-content:flex-start!important;gap:${compact?'.2':'.3'}mm}
@@ -15894,7 +15894,7 @@ header{display:grid;grid-template-columns:${compact?'6.5':'7.5'}mm minmax(0,1fr)
 .medicine-label-dose-line{display:flex;align-items:center;justify-content:flex-start;gap:${compact?'.4':'.55'}mm;min-width:0;min-height:0;padding:${compact?'.35mm .55mm':'.45mm .75mm'};font-weight:700}
 .medicine-label-dose-line+.medicine-label-dose-line{border-top:.1mm solid #111}
 .medicine-label-dose-line>*{position:relative;top:var(--medicine-label-dose-nudge)}
-.medicine-label-dose-line>.medicine-label-value,.medicine-label-dose-line>.medicine-label-value+span{top:var(--medicine-label-dose-value-nudge);font-weight:400}
+.medicine-label-dose-line>.medicine-label-value,.medicine-label-dose-line>.medicine-label-value+span{top:var(--medicine-label-dose-value-nudge);font-weight:700}
 .medicine-label-dose-line:not(.medicine-label-duration-line)>.medicine-label-section-label{top:calc(var(--medicine-label-dose-nudge) + ${compact?'.12':'.18'}mm)}
 .medicine-label-duration-line{align-items:center}
 .medicine-label-duration-line>*{top:calc(var(--medicine-label-dose-nudge) + ${compact?'.16':'.22'}mm)}
@@ -15902,16 +15902,17 @@ header{display:grid;grid-template-columns:${compact?'6.5':'7.5'}mm minmax(0,1fr)
 .medicine-label-dose .medicine-label-value{font-size:${compact?'5.6':'6.7'}pt;white-space:nowrap}
 .medicine-label-dose .medicine-label-duration-value{font-size:${compact?'3.8':'5.2'}pt;line-height:1.05;white-space:${compact?'nowrap':'normal'}}
 .medicine-label-checks{justify-content:center;gap:${compact?'.25':'.5'}mm;padding-top:${compact?'.35':'.45'}mm;padding-bottom:${compact?'.35':'.45'}mm}
-.medicine-label-schedule .medicine-label-cell:first-child{justify-content:flex-start}
+.medicine-label-schedule .medicine-label-cell:first-child{justify-content:space-between}
 .medicine-label-schedule .medicine-label-cell:last-child{justify-content:space-evenly;gap:${compact?'.3':'.55'}mm}
 .medicine-label-choice{display:inline-flex;align-items:center;gap:${compact?'.18':'.3'}mm;font-size:${compact?'3.05':'3.9'}pt;white-space:nowrap}
 .medicine-label-choice i{display:inline-flex;align-items:center;justify-content:center;width:${compact?'1.8':'2.2'}mm;height:${compact?'1.8':'2.2'}mm;border:.12mm solid #111;border-radius:.25mm;font:700 ${compact?'3.4':'4'}pt Arial,sans-serif;font-style:normal}
 .medicine-label-choice i.is-checked{background:#111}
+.medicine-label-choice i.is-checked::after{content:'✓';color:#fff;font-weight:700;line-height:1}
 .medicine-label-legacy .medicine-label-cell{padding-top:.35mm;padding-bottom:.35mm}
 .medicine-label-legacy .medicine-label-value{font-size:${compact?'3.7':'4.4'}pt;font-weight:400}
 .medicine-label-warning .medicine-label-key,.medicine-label-warning .medicine-label-value{display:inline-flex;align-items:center;min-height:${compact?'2.7':'3.4'}mm;line-height:1.08}
 .medicine-label-warning .medicine-label-value{font-size:${compact?'4':'4.8'}pt}
-.medicine-label-footer .medicine-label-value{font-size:${compact?'4.1':'4.9'}pt}
+.medicine-label-footer .medicine-label-value{font-size:${compact?'4.1':'4.9'}pt;font-weight:700}
 .dense .medicine-label-value{font-size:${compact?'4.2':'5'}pt}
 .dense .medicine-label-drug .medicine-label-value{font-size:${compact?'5.4':'6.4'}pt}
 .dense .medicine-label-dose .medicine-label-value{font-size:${compact?'5':'5.8'}pt}
