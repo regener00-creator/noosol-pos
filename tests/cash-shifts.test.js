@@ -10,7 +10,8 @@ const migration = fs.readFileSync(path.join(root, 'supabase/migrations/0042_cash
 assert.match(html, /\['cashshift','เปิด-ปิดระบบชำระ'/);
 assert.match(html, /cashshift:\s*renderCashShift/);
 assert.match(html, /\.cash-shift-page\{max-width:1180px;margin:0 auto;\}/, 'ก้อนข้อมูลเปิด-ปิดระบบชำระต้องอยู่กึ่งกลางหน้า');
-assert.match(html, /\.cash-shift-overview\{min-width:0;\}/, 'ข้อมูลกะและสรุปยอดต้องจำกัดอยู่ในคอลัมน์สรุปวิธีชำระ');
+assert.match(html, /\.cash-shift-layout\{[^}]*align-items:stretch;\}/, 'คอลัมน์สรุปวิธีชำระและปิดระบบต้องสูงเท่ากัน');
+assert.match(html, /\.cash-shift-overview\{min-width:0;display:flex;flex-direction:column;\}\.cash-shift-overview>\.cash-shift-panel\{flex:1;\}/, 'กล่องสรุปวิธีชำระต้องยืดลงมาจนเสมอกล่องปิดระบบ');
 assert.match(html, /<div class="cash-shift-layout"><div class="cash-shift-overview"><div class="cash-shift-meta">[\s\S]*?<section class="cash-shift-panel"><h3>สรุปตามวิธีชำระเงิน<\/h3>[\s\S]*?<\/section><\/div><form class="cash-shift-panel cash-shift-close-form"/, 'กล่องปิดระบบต้องขึ้นมาอยู่ข้างข้อมูลกะและสรุปวิธีชำระ');
 assert.match(html, /\.cash-shift-table th\{[^}]*text-align:center[^}]*\}/, 'หัวตารางประวัติระบบชำระต้องอยู่กึ่งกลาง');
 assert.match(html, /\.cash-shift-table td\{[^}]*text-align:center[^}]*\}/, 'ข้อมูลตารางประวัติระบบชำระต้องอยู่กึ่งกลาง');
