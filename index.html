@@ -8782,10 +8782,18 @@ function deleteNamedPriceLabelTemplate(labelSize,templateId){
   return {deleted:deleting,library:saved.library,template:saved.template};
 }
 
-function priceLabelElementStyle(element,key){
+function priceLabelPreviewScale(canvasWidthPx,labelWidthMm){
+  const canvasWidth=Number(canvasWidthPx);
+  const physicalWidthMm=Number(labelWidthMm);
+  if(!Number.isFinite(canvasWidth)||canvasWidth<=0||!Number.isFinite(physicalWidthMm)||physicalWidthMm<=0) return 1;
+  return canvasWidth/(physicalWidthMm*96/25.4);
+}
+
+function priceLabelElementStyle(element,key,renderScale=1){
+  const scale=priceLabelClamp(renderScale,.1,20,1);
   const justify=element.align==='center'?'center':element.align==='right'?'flex-end':'flex-start';
-  const reverseStyle=element.reverse?`background:${element.color};color:#ffffff;padding:0 1.2mm;border-radius:.7mm;`:`background:transparent;color:${element.color};`;
-  const typography=key==='barcode'?'justify-content:flex-start;':`font-size:${element.fontSize}pt;font-weight:${element.fontWeight};${reverseStyle}text-align:${element.align};justify-content:${justify};`;
+  const reverseStyle=element.reverse?`background:${element.color};color:#ffffff;padding:0 ${Math.round(1.2*scale*1000)/1000}mm;border-radius:${Math.round(.7*scale*1000)/1000}mm;`:`background:transparent;color:${element.color};`;
+  const typography=key==='barcode'?'justify-content:flex-start;':`font-size:${Math.round(element.fontSize*scale*1000)/1000}pt;font-weight:${element.fontWeight};${reverseStyle}text-align:${element.align};justify-content:${justify};`;
   return `left:${element.x}%;top:${element.y}%;width:${element.width}%;height:${element.height}%;display:flex;align-items:center;box-sizing:border-box;${typography}`;
 }
 
@@ -8839,6 +8847,8 @@ function openPriceLabelDesigner(labelSize=barcodePrintLabelSize){
   const savedTemplateSelect=overlay.querySelector('#savedPriceLabelTemplateSelect');
   const templateNameInput=overlay.querySelector('#priceLabelTemplateNameInput');
   const deleteSavedTemplateButton=overlay.querySelector('#deleteSavedPriceLabelTemplateBtn');
+  let previewResizeObserver=null;
+  const currentPreviewScale=()=>priceLabelPreviewScale(canvas.getBoundingClientRect().width,widthMm);
   const customTarget=id=>`custom:${id}`;
   const targetInfo=target=>{
     if(String(target).startsWith('custom:')){
@@ -8868,7 +8878,7 @@ function openPriceLabelDesigner(labelSize=barcodePrintLabelSize){
   };
   const elementMarkup=(target,kind,element)=>{
     const value=kind==='barcode'?code128BSvg(sample.code,40):kind==='custom'?escapeHtml(element.text):escapeHtml(sample[kind]||'');
-    return `<div class="price-label-design-element ${selected===target?'selected':''} ${element.visible?'':'hidden-element'}" data-price-label-element="${escapeHtml(target)}" style="${priceLabelElementStyle(element,kind)}">${value}<span class="price-label-resize-handle" aria-hidden="true"></span></div>`;
+    return `<div class="price-label-design-element ${selected===target?'selected':''} ${element.visible?'':'hidden-element'}" data-price-label-element="${escapeHtml(target)}" style="${priceLabelElementStyle(element,kind,currentPreviewScale())}">${value}<span class="price-label-resize-handle" aria-hidden="true"></span></div>`;
   };
   const controlMarkup=()=>{
     let info=targetInfo(selected);
@@ -8882,11 +8892,13 @@ function openPriceLabelDesigner(labelSize=barcodePrintLabelSize){
     return `<div class="price-label-element-tabs">${editorTargets().map(entry=>`<button type="button" class="price-label-element-tab ${selected===entry.target?'active':''} ${entry.element.visible?'':'off'}" data-price-label-tab="${escapeHtml(entry.target)}">${escapeHtml(entry.label)}</button>`).join('')}</div><div class="price-label-control-card"><div class="price-label-control-head"><strong>${escapeHtml(info.label)}</strong><label class="price-label-visible-toggle"><input type="checkbox" data-price-label-visible ${element.visible?'checked':''}> แสดงบนป้าย</label></div><div class="price-label-control-grid"><div class="price-label-control-section-title" style="margin-top:0;padding-top:0;border-top:0">ตำแหน่งและขนาด</div>${positionFields}${typography}</div></div>`;
   };
   const updateNode=(node,element,key)=>{
-    node.style.left=`${element.x}%`; node.style.top=`${element.y}%`; node.style.width=`${element.width}%`; node.style.height=`${element.height}%`;
-    if(key!=='barcode'){
-      node.style.fontSize=`${element.fontSize}pt`; node.style.fontWeight=String(element.fontWeight); node.style.color=element.reverse?'#ffffff':element.color; node.style.background=element.reverse?element.color:'transparent'; node.style.padding=element.reverse?'0 1.2mm':'0'; node.style.borderRadius=element.reverse?'.7mm':'0'; node.style.textAlign=element.align;
-      node.style.justifyContent=element.align==='center'?'center':element.align==='right'?'flex-end':'flex-start';
-    }
+    node.style.cssText=priceLabelElementStyle(element,key,currentPreviewScale());
+  };
+  const syncPreviewScale=()=>{
+    canvas.querySelectorAll('[data-price-label-element]').forEach(node=>{
+      const info=targetInfo(node.dataset.priceLabelElement);
+      if(info) updateNode(node,info.element,info.kind);
+    });
   };
   const attachCanvasInteractions=()=>{
     canvas.querySelectorAll('[data-price-label-element]').forEach(node=>{
@@ -8923,6 +8935,7 @@ function openPriceLabelDesigner(labelSize=barcodePrintLabelSize){
     draft=normalizePriceLabelTemplate(draft,validSize);
     if(!targetInfo(selected)) selected='name';
     canvas.innerHTML=editorTargets().map(entry=>elementMarkup(entry.target,entry.kind,entry.element)).join('');
+    syncPreviewScale();
     panel.innerHTML=controlMarkup();
     presetSelect.value=draft.preset;
     panel.querySelectorAll('[data-price-label-tab]').forEach(button=>button.addEventListener('click',()=>{ selected=button.dataset.priceLabelTab; renderEditor(); }));
@@ -8948,7 +8961,7 @@ function openPriceLabelDesigner(labelSize=barcodePrintLabelSize){
     const selectedEntry=library.templates.find(entry=>entry.id===selectedTemplateId);
     templateNameInput.value=selectedEntry?.name||'';
   };
-  const close=()=>overlay.remove();
+  const close=()=>{ previewResizeObserver?.disconnect(); overlay.remove(); };
   overlay.querySelector('.modal-close').addEventListener('click',close);
   overlay.querySelector('#cancelPriceLabelDesignerBtn').addEventListener('click',close);
   overlay.addEventListener('click',event=>{ if(event.target===overlay) close(); });
@@ -9002,6 +9015,10 @@ function openPriceLabelDesigner(labelSize=barcodePrintLabelSize){
     }else savePriceLabelTemplate(validSize,draft);
     close(); showToast(savedName?`บันทึกและใช้แม่แบบ “${savedName}” แล้ว`:`บันทึกแม่แบบป้ายราคา ${widthMm} × ${heightMm} มม. แล้ว`);
   });
+  if(typeof ResizeObserver==='function'){
+    previewResizeObserver=new ResizeObserver(()=>syncPreviewScale());
+    previewResizeObserver.observe(canvas);
+  }
   refreshLibraryControls();
   renderEditor();
 }

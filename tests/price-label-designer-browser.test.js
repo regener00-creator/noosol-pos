@@ -76,6 +76,12 @@ const browserExecutable = [
   await fontSize.fill('96');
   await fontSize.press('Tab');
   assert.equal(await fontSize.inputValue(),'96');
+  const previewTypography = await page.locator('[data-price-label-element="price"]').evaluate((element) => {
+    const canvas=element.closest('#priceLabelDesignerCanvas');
+    return {fontSize:parseFloat(getComputedStyle(element).fontSize),canvasWidth:canvas.getBoundingClientRect().width};
+  });
+  const expectedPreviewFontSize=96*previewTypography.canvasWidth*25.4/(72*50);
+  assert.ok(Math.abs(previewTypography.fontSize-expectedPreviewFontSize)<1, 'ขนาดตัวอักษรในตัวออกแบบต้องตรงตามสเกลกระดาษจริง');
   assert.deepEqual(await page.locator('[data-price-label-color]').evaluateAll(elements => elements.map(element => element.value)), ['#000000','#e60012']);
   await page.locator('[data-price-label-color][value="#000000"]').evaluate(element => { element.checked=true; element.dispatchEvent(new Event('change',{bubbles:true})); });
   assert.equal((await page.locator('.price-label-reverse-toggle').textContent()).trim(),'REVERSE TYPE');
