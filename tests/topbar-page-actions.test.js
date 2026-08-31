@@ -13,6 +13,7 @@ assert.match(source,/\.pagehead/,'กลุ่มปุ่มสร้างแ�
 assert.match(source,/\.rpt-head-actions/,'ปุ่มรายงานในหัวรายงานต้องย้ายขึ้น TOPBAR');
 assert.match(source,/textContent\.trim\(\)===\'พิมพ์รายงาน\'/,'ปุ่มพิมพ์รายงานที่อยู่นอกหัวหน้าต้องย้ายขึ้น TOPBAR');
 assert.match(source,/\.cash-shift-topbar-action/,'สถานะระบบชำระของหน้า POS ต้องย้ายขึ้น TOPBAR');
+assert.match(source,/slot\.querySelectorAll\('\.cash-shift-topbar-action'\)/,'ระบบต้องค้นหาและลบสถานะระบบชำระที่ซ้ำใน TOPBAR');
 assert.match(html,/attachEvents\(\);\s*syncTopbarFormActions\(\);/,'ต้องผูก event ก่อนย้าย DOM เพื่อไม่ให้ปุ่มทำงานผิดตัว');
 
 const transferStart=html.indexOf('function renderTransferForm()');

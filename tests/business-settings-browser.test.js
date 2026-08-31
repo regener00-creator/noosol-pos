@@ -143,6 +143,8 @@ const browserExecutable = [
   await page.evaluate(() => {
     activeWarehouseId=warehouses[0]?.id||1;
     currentCashShift={id:'shift-browser-test',shiftNo:'CS202608270003',status:'open',openingCash:500,openedBy:'browser-test',openedByName:'กรธวัช จันทรวารี',openedAt:new Date().toISOString()};
+    const product=products[0];
+    cart=[{lineId:'promo-free-browser-test',pid:product.id,name:product.name,unit:product.unit,qty:2,price:0,factor:1,autoFreeFromPromo:true,autoFreePromoName:'โปรทดสอบ'}];
     currentTab='checkout';
     document.getElementById('topbarFormActions').innerHTML='';
     document.getElementById('main').innerHTML=renderCheckout();
@@ -153,6 +155,9 @@ const browserExecutable = [
   assert.equal(await paymentStatus.count(), 1);
   assert.equal(await page.locator('#main .cash-shift-topbar-action').count(), 0);
   assert.match(await paymentStatus.innerText(), /^CS202608270003 เปิดอยู่ : เงินตั้งต้น 500\.00 บาท · กรธวัช จันทรวารี\s*สรุปชำระ$/);
+  const freeQuantity=page.locator('.pos-autofree-row .pos-qty');
+  assert.equal(await freeQuantity.innerText(),'2');
+  assert.deepEqual(await freeQuantity.evaluate(cell=>({display:getComputedStyle(cell).display,inputCount:cell.querySelectorAll('input').length})),{display:'table-cell',inputCount:0});
   const paymentStatusLayout=await paymentStatus.evaluate(element=>{
     const text=element.querySelector('span').getBoundingClientRect();
     const button=element.querySelector('button').getBoundingClientRect();
@@ -160,6 +165,11 @@ const browserExecutable = [
   });
   assert.equal(paymentStatusLayout.whiteSpace,'nowrap');
   assert.ok(Math.abs(paymentStatusLayout.textCenter-paymentStatusLayout.buttonCenter)<2,'สถานะและปุ่มสรุปชำระต้องอยู่แถวเดียวกัน');
+  await paymentStatus.evaluate(element=>element.parentElement.appendChild(element.cloneNode(true)));
+  assert.equal(await page.locator('#topbarFormActions .cash-shift-topbar-action').count(),2,'ต้องจำลองสถานะ TOPBAR ซ้ำได้ก่อนทดสอบการล้าง');
+  await page.evaluate(() => syncTopbarFormActions());
+  assert.equal(await page.locator('#topbarFormActions .cash-shift-topbar-action').count(),1,'ระบบต้องลบสถานะระบบชำระที่ซ้ำใน TOPBAR');
+  await page.screenshot({path:path.join(os.tmpdir(),'pepos-checkout-regressions-browser.png'),fullPage:true});
 
   await page.evaluate(() => {
     currentTab='cashshift';
