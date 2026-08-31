@@ -88,6 +88,7 @@ const browserExecutable = [
     const metrics = await page.locator('.medicine-label').evaluate(element => {
       const info = element.querySelector('.medicine-label-info');
       const brand = element.querySelector('.medicine-label-brand b').getBoundingClientRect();
+      const logo = element.querySelector('.medicine-label-logo-frame').getBoundingClientRect();
       const contact = element.querySelector('.medicine-label-contact').getBoundingClientRect();
       const contactStyle = getComputedStyle(element.querySelector('.medicine-label-contact'));
       const doseLines = [...element.querySelectorAll('.medicine-label-dose-line')].map(line => line.getBoundingClientRect());
@@ -113,7 +114,7 @@ const browserExecutable = [
       return {
         width:[element.clientWidth,element.scrollWidth],
         height:[element.clientHeight,element.scrollHeight],
-        contact:{text:element.querySelector('.medicine-label-contact').innerText,top:contact.top,brandBottom:brand.bottom,weight:Number(contactStyle.fontWeight),overflow:element.querySelector('.medicine-label-contact').scrollWidth-element.querySelector('.medicine-label-contact').clientWidth},
+        contact:{text:element.querySelector('.medicine-label-contact').innerText,top:contact.top,bottom:contact.bottom,brandBottom:brand.bottom,logoBottom:logo.bottom,weight:Number(contactStyle.fontWeight),overflow:element.querySelector('.medicine-label-contact').scrollWidth-element.querySelector('.medicine-label-contact').clientWidth},
         infoHeight:[info.clientHeight,info.scrollHeight],
         doseLineHeights:doseLines.map(rect => rect.height),
         warningCenters:[warningKey && warningKey.top + warningKey.height / 2,warningValue && warningValue.top + warningValue.height / 2],
@@ -135,6 +136,7 @@ const browserExecutable = [
     assert.ok(metrics.width[1] <= metrics.width[0] + 1, `${size} ต้องไม่มีข้อมูลล้นด้านข้าง`);
     assert.equal(metrics.contact.text.replace(/\s+/g,' '), 'โทร : 099-298-9693 LINE : @NOOSOL', `${size} ต้องแสดง LINE ต่อจากเบอร์โทร`);
     assert.ok(metrics.contact.top > metrics.contact.brandBottom, `${size} เบอร์โทรต้องเว้นระยะลงมาจากชื่อร้าน`);
+    assert.ok(Math.abs(metrics.contact.bottom-metrics.contact.logoBottom)<=1, `${size} เส้นล่างของแถวเบอร์โทรต้องตรงกับเส้นล่างกรอบโลโก้`);
     assert.ok(metrics.contact.weight >= 700, `${size} เบอร์โทรและ LINE ต้องเป็นตัวหนา`);
     assert.ok(metrics.contact.overflow <= 1, `${size} เบอร์โทรและ LINE ต้องไม่ถูกตัด`);
     assert.ok(metrics.height[1] <= metrics.height[0] + 1, `${size} ต้องไม่มีข้อมูลล้นด้านล่าง`);

@@ -106,7 +106,7 @@ assert.match(printHtml, /family=Noto\+Sans\+Thai/);
 assert.match(printHtml, /font-family:'Noto Sans Thai'/);
 assert.doesNotMatch(printHtml, /#4F4038|#A43A31|#F1ECE9|#2B2422/, 'หน้าพิมพ์ฉลากยาต้องใช้เฉพาะโทนขาวดำ');
 assert.match(printHtml, /<small class="medicine-label-contact"><span>โทร : 02-000-0000<\/span><span>LINE : @NOOSOL<\/span><\/small>/);
-assert.match(printHtml, /\.medicine-label-contact\{[^}]*margin-top:\.35mm;[^}]*font-weight:700/, 'เบอร์โทรและ LINE ต้องเป็นตัวหนาและขยับลงจากชื่อร้าน');
+assert.match(printHtml, /\.medicine-label-contact\{[^}]*align-self:end;[^}]*font-weight:700/, 'เบอร์โทรและ LINE ต้องเป็นตัวหนาและชิดเส้นล่างของกรอบโลโก้');
 assert.doesNotMatch(printHtml, /1 ถนนทดสอบ/, 'ฉลากยาไม่ควรแสดงที่อยู่ร้าน');
 assert.match(printHtml, /class="medicine-label-info"/, 'ข้อมูลฉลากต้องอยู่ในกรอบตาราง');
 assert.match(printHtml, /\.medicine-label-info\{[^}]*border:\.1mm solid #111/, 'กรอบข้อมูลต้องใช้เส้นบาง');
