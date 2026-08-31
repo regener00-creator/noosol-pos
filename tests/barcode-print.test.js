@@ -101,7 +101,9 @@ assert.equal(context.writeBarcodePrintWindow(printWindow,[{pid:1,unit:'กล่
 assert.match(printHtml, /@page\{size:80mm 50mm;margin:0\}/);
 assert.match(printHtml, /ป้ายราคา 80 × 50 มม\. แนวนอน/);
 assert.match(printHtml, /สินค้าทดสอบหนึ่ง/);
-assert.match(printHtml, /฿<\/span>120\.00/);
+assert.match(printHtml, /<div class="price">120\.00<\/div>/);
+assert.doesNotMatch(printHtml, /฿/);
+assert.match(printHtml, /\.price\{color:#e60012;/);
 assert.match(printHtml, /NEW-001/);
 assert.equal((printHtml.match(/<section class="label">/g)||[]).length, 2);
 assert.equal(printCount, 1);
