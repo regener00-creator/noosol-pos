@@ -23,6 +23,11 @@ const context = {
   barcodePrintLabelType: 'price',
   barcodePrintPage: 1,
   BARCODE_PRINT_PAGE_SIZE: 10,
+  BARCODE_PRINT_LABEL_DIMENSIONS: {'80x50':[80,50],'60x40':[60,40],'50x30':[50,30],'40x30':[40,30]},
+  PRICE_LABEL_ELEMENT_META: {name:{label:'ชื่อสินค้า'},unit:{label:'หน่วย'},price:{label:'ราคา'},barcode:{label:'บาร์โค้ด'},code:{label:'เลขบาร์โค้ด'}},
+  PRICE_LABEL_PRESET_LABELS: {left:'ชิดซ้าย / เว้นด้านขวา',full:'เต็มพื้นที่',center:'เน้นราคากึ่งกลาง',custom:'กำหนดเอง'},
+  businessSettings: {priceLabelTemplates:{}},
+  priceLabelTemplateSyncPromise: Promise.resolve(),
   TODAY_STR: '2026-08-21',
   promotions: [],
   categories: ['ยา'],
@@ -33,6 +38,7 @@ const context = {
   matchesBarcode: (product, query) => product.barcode === query || (product.units || []).some(unit => unit.barcode === query),
   extraBarcodeEntries: product => (product.extraBarcodes || []).map((code, index) => ({code, unit:(product.extraBarcodeUnits || [])[index] || product.unit})),
   persistWorkspaceData: () => { persistCount++; },
+  syncBusinessSettingsToSupabase: async () => true,
   showToast: () => {},
   render: () => { renderCount++; },
   alert: () => {},
@@ -101,18 +107,36 @@ assert.equal(context.writeBarcodePrintWindow(printWindow,[{pid:1,unit:'กล่
 assert.match(printHtml, /@page\{size:80mm 50mm;margin:0\}/);
 assert.match(printHtml, /ป้ายราคา 80 × 50 มม\. แนวนอน/);
 assert.match(printHtml, /สินค้าทดสอบหนึ่ง/);
-assert.match(printHtml, /<div class="price">120\.00<\/div>/);
+assert.match(printHtml, /data-price-label-element="price"[^>]*>120\.00<\/div>/);
 assert.doesNotMatch(printHtml, /฿/);
 assert.match(printHtml, /\.price\{color:#e60012;/);
-assert.match(printHtml, /class="regular-content" style="width:66%;/);
+assert.match(printHtml, /class="regular-layout"/);
+assert.match(printHtml, /data-price-label-element="name"[^>]*left:3%;top:4%;width:61%;/);
 assert.doesNotMatch(printHtml, /P-001/);
-assert.match(printHtml, /family=Noto\+Sans\+Thai:wght@400;500;600;700/);
+assert.match(printHtml, /family=Noto\+Sans\+Thai:wght@400;500;600;700;800/);
 assert.match(printHtml, /\.label,.code,.promo-code,.promo-meta,.promo-meta small\{font-family:'Noto Sans Thai',Tahoma,sans-serif\}/);
-assert.match(printHtml, /class="barcode" style="flex:none;width:90%;height:13\.5mm;justify-content:flex-start"/);
-assert.match(printHtml, /class="code" style="width:90%;text-align:left">NEW-001<\/div>/);
+assert.match(printHtml, /data-price-label-element="barcode"[^>]*left:3%;top:63%;width:55%;height:25%;/);
+assert.match(printHtml, /data-price-label-element="code"[^>]*left:3%;top:90%;width:55%;height:7%;[^>]*>NEW-001<\/div>/);
 assert.match(printHtml, /NEW-001/);
-assert.equal((printHtml.match(/<section class="label">/g)||[]).length, 2);
+assert.equal((printHtml.match(/<section class="label"/g)||[]).length, 2);
 assert.equal(printCount, 1);
+
+const minimum40 = context.priceLabelBarcodeMinimum('40x30');
+assert.equal(minimum40.width, 80);
+assert.ok(minimum40.height > 26 && minimum40.height < 27);
+const compactTemplate = context.priceLabelPresetTemplate('40x30', 'left');
+assert.ok(compactTemplate.elements.barcode.width >= 80);
+assert.ok(compactTemplate.elements.barcode.height >= minimum40.height);
+const currentTemplate = context.getPriceLabelTemplate('80x50');
+const savedTemplate = context.savePriceLabelTemplate('80x50', {...currentTemplate,preset:'custom',elements:{...currentTemplate.elements,price:{...currentTemplate.elements.price,x:35,color:'#123456'}}});
+assert.equal(savedTemplate.preset, 'custom');
+assert.equal(savedTemplate.elements.price.x, 35);
+assert.equal(savedTemplate.elements.price.color, '#123456');
+assert.equal(context.businessSettings.priceLabelTemplates['80x50'].elements.price.x, 35);
+printHtml = '';
+assert.equal(context.writeBarcodePrintWindow(printWindow,[{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:1}],'80x50','price'), true);
+assert.match(printHtml, /<section class="label" style="padding:0">/);
+assert.match(printHtml, /data-price-label-element="price"[^>]*left:35%;[^>]*color:#123456;/);
 
 context.promotions = [];
 const noPromotionErrors = context.barcodePrintValidation([{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:1}],'promotion');
