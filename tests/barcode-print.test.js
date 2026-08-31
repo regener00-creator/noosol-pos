@@ -106,6 +106,8 @@ assert.doesNotMatch(printHtml, /฿/);
 assert.match(printHtml, /\.price\{color:#e60012;/);
 assert.match(printHtml, /class="regular-content" style="width:66%;/);
 assert.doesNotMatch(printHtml, /P-001/);
+assert.match(printHtml, /class="barcode" style="flex:none;width:90%;height:13\.5mm;justify-content:flex-start"/);
+assert.match(printHtml, /class="code" style="width:90%;text-align:left">NEW-001<\/div>/);
 assert.match(printHtml, /NEW-001/);
 assert.equal((printHtml.match(/<section class="label">/g)||[]).length, 2);
 assert.equal(printCount, 1);
