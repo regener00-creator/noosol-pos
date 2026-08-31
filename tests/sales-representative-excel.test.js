@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
 const helperStart = html.indexOf("const SALES_REP_EXCEL_HEADERS=");
-const helperEnd = html.indexOf('function downloadSalesRepresentativeImportTemplate(', helperStart);
+const helperEnd = html.indexOf('async function downloadSalesRepresentativeImportTemplate(', helperStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, 'sales representative Excel helpers must exist');
 const sandbox = {};
 vm.createContext(sandbox);
@@ -29,7 +29,7 @@ assert.match(listCode,/id="downloadSalesRepTemplateBtn"/);
 assert.match(listCode,/id="importSalesRepsBtn"/);
 assert.match(listCode,/id="salesRepImportFile"/);
 assert.match(listCode,/<tr><th style="width:140px;">รหัสผู้ติดต่อ<\/th><th>ชื่อ<\/th>/);
-assert.match(listCode,/<tr><td class="mono">\$\{rep\.code\|\|'-'\}<\/td><td>\$\{rep\.name\}<\/td>/);
+assert.match(listCode,/<tr><td class="mono">\$\{escapeHtml\(rep\.code\|\|'-'\)\}<\/td><td>\$\{escapeHtml\(rep\.name\)\}<\/td>/);
 assert.match(listCode,/\(rep\.code\|\|'\'\)\.toLowerCase\(\)\.includes\(q\)/);
 assert.match(formCode,/id="saveSalesRepBtn">บันทึก<\/button>/);
 assert.ok(formCode.indexOf('id="sr_code"') < formCode.indexOf('id="sr_name"'),'contact code field must be first in the representative form');

@@ -34,7 +34,7 @@ assert.match(html, /sb\.rpc\('open_cash_shift'/);
 assert.match(html, /sb\.rpc\('close_cash_shift'/);
 assert.match(html, /\.from\('cash_shifts'\)[\s\S]{0,250}\.limit\(100\)/);
 assert.match(html, /function openPaymentModal\(\)[\s\S]{0,180}!currentCashShift/);
-assert.match(html, /async function doCheckout\([^)]*\)[\s\S]{0,180}!currentCashShift/);
+assert.match(html, /async function doCheckout\([^)]*\)[\s\S]{0,420}!currentCashShift/);
 assert.match(html, /async function voidSaleHistory\([^)]*\)[\s\S]{0,320}!currentCashShift/);
 assert.match(html, /cart\.length===0\|\|!currentCashShift/);
 

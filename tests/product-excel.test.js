@@ -5,7 +5,7 @@ const vm = require('node:vm');
 
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const helperStart = html.indexOf('const PRODUCT_EXCEL_MIN_REPEAT_COLUMNS=');
-const helperEnd = html.indexOf('function downloadProductImportTemplate(', helperStart);
+const helperEnd = html.indexOf('async function downloadProductImportTemplate(', helperStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, 'product Excel helpers must exist');
 
 const sandbox = {
@@ -18,7 +18,7 @@ vm.createContext(sandbox);
 vm.runInContext(`${html.slice(helperStart, helperEnd)}; this.productExcelColumnCounts=productExcelColumnCounts; this.productExcelHeaders=productExcelHeaders; this.productToExcelRow=productToExcelRow;`, sandbox);
 
 const products = [{
-  id: 44,
+  id: 9007199254740001,
   sku: 'P0044',
   name: 'สินค้าทดสอบ',
   barcode: '0000123400012',
@@ -36,6 +36,7 @@ const products = [{
   wh: 1,
   desc: 'รายละเอียด',
   units: [{sub: 'กล่อง', per: 10, base: 'แผง', price: 140, cost: 90, barcode: 'UNIT-1'}],
+  _clientCreateToken: 'must-not-be-exported',
 }];
 
 const counts = sandbox.productExcelColumnCounts(products);
@@ -43,6 +44,8 @@ assert.deepEqual(JSON.parse(JSON.stringify(counts)), {extraBarcodes: 2, vendors:
 const headers = Array.from(sandbox.productExcelHeaders(counts));
 const row = sandbox.productToExcelRow(products[0], counts, sandbox.warehouses);
 assert.deepEqual(Object.keys(row), headers, 'export row must use the exact shared template column order');
+assert.equal(row['รหัสอ้างอิงระบบ'], '9007199254740001', 'Excel must receive large bigint ids as exact text');
+assert.ok(!Object.values(row).includes('must-not-be-exported'), 'internal creation token must stay out of Excel');
 assert.equal(row['บาร์โค้ด'], '0000123400012');
 assert.equal(row['บาร์โค้ดเพิ่มเติม 1'], 'EXTRA-1');
 assert.equal(row['หน่วยบาร์โค้ดเพิ่มเติม 1'], 'กล่อง');

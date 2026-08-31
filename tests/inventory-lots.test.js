@@ -10,11 +10,13 @@ const exchangeMigration = fs.readFileSync(path.join(root, 'supabase', 'migration
 const returnMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0022_inventory_lot_product_returns.sql'), 'utf8');
 const historyMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0023_inventory_lot_history_pagination.sql'), 'utf8');
 
-const helperStart = html.indexOf('function normalizeInventoryLotRow(');
+const helperStart = html.indexOf('function inventoryLotKey(');
 const helperEnd = html.indexOf('function inventoryLotStatus(', helperStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, 'ไม่พบ helper ของ Lot');
 const context = {
   activeWarehouseId: 1,
+  inventoryBalanceKey: (productId, warehouseId) => `${Number(warehouseId)||0}:${Number(productId)||0}`,
+  inventoryLotMap: new Map(),
   inventoryLotRows: [
     {id:'1',product_id:'10',warehouse_id:'1',quantity_base:'5',status:'active'},
     {id:'2',product_id:'10',warehouse_id:'1',quantity_base:'0',status:'exhausted'},
@@ -24,6 +26,7 @@ const context = {
 };
 vm.createContext(context);
 vm.runInContext(html.slice(helperStart, helperEnd), context);
+context.rebuildInventoryLotMap();
 assert.equal(context.normalizeInventoryLotRow(context.inventoryLotRows[0]).quantity_base, 5);
 assert.equal(context.inventoryLotsForProduct(10, 1).length, 3);
 assert.equal(context.inventoryLotsForProduct(10, 1, {includeEmpty:false}).length, 2);
@@ -90,8 +93,8 @@ assert.match(historyMigration, /where quantity_base<=0 or status='exhausted'/);
 assert.match(html, /<th>เลข Lot<\/th><th>วันหมดอายุ<\/th>/);
 assert.match(html, /sb\.rpc\('complete_sale'/);
 assert.match(html, /const rpcItems=items\.map/);
-assert.match(html, /clearCheckoutRequestId\(\)/);
-assert.match(html, /ระบบไม่ได้สร้างบิลหรือตัดสต๊อก/);
+assert.match(html, /clearCheckoutRequestId\(requestContext\.id\)/);
+assert.match(html, /ยังไม่ได้รับการยืนยันจากระบบ กรุณากดชำระซ้ำ ระบบจะใช้คำขอเดิมและไม่สร้างบิลซ้ำ/);
 assert.match(html, /สินค้า \/ Lot/);
 assert.match(html, /data-product-lots/);
 assert.match(html, /update_inventory_lot_details/);

@@ -1,0 +1,13 @@
+{
+  "name": "noosol-pos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Static regression tests for the PEPOS single-page application",
+  "scripts": {
+    "test": "node tests/check-inline-js.js && node tests/run-node-tests.js",
+    "test:static": "node tests/run-node-tests.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

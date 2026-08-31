@@ -59,7 +59,8 @@ const rowContext = {
   stockReportSortedItems:()=>rowContext.stockReportItems,
   warehouseStock:(productId,warehouseId)=>warehouseId===1?12:34,
   stockInLargestUnit:product=>`${product.stock} ${product.unit}`,
-  reportStock:()=>46
+  reportStock:()=>46,
+  escapeHtml:value=>String(value)
 };
 vm.createContext(rowContext);
 vm.runInContext(html.slice(rowsStart, rowsEnd), rowContext);

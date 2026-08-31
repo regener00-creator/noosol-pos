@@ -131,7 +131,8 @@ const preserveCameraIndex = mainRender.indexOf('preserveMobileCameraScanner();')
 const replaceMainIndex = mainRender.indexOf('mainElement.innerHTML');
 const restoreCameraIndex = mainRender.indexOf('restoreMobileCameraScanner();');
 assert.ok(preserveCameraIndex >= 0 && preserveCameraIndex < replaceMainIndex && replaceMainIndex < restoreCameraIndex, 'ต้องรักษากรอบกล้องไว้ระหว่าง render');
-assert.match(html, /await Promise\.all\(\[loadCoreDataFromSupabase\(\),loadInspectionListsFromSupabase\(\)\]\)/);
+assert.match(html, /await Promise\.all\(\[loadInventoryBalancesFromSupabase\(\),loadInventoryLotsFromSupabase\(\),loadInspectionListsFromSupabase\(\)\]\)/);
+assert.doesNotMatch(html.slice(html.indexOf('async function refreshMobileToolsData('),html.indexOf('function renderMobileTools(')),/loadCoreDataFromSupabase\(\)/);
 assert.match(html, /data-mobile-stock-amount=/);
 assert.match(html, /data-mobile-stock-unit=/);
 assert.match(html, /class="mobile-stock-info-row"/);
@@ -238,7 +239,7 @@ assert.ok(manifest.icons.some(icon => icon.src === '/pwa-icon-512.png' && icon.s
 assert.match(serviceWorker, /request\.mode==='navigate'/);
 assert.match(serviceWorker, /fetch\(request\)/);
 assert.match(serviceWorker, /caches\.match\('\/index\.html'\)/);
-assert.match(serviceWorker, /pepos-mobile-v10/);
+assert.match(serviceWorker, /pepos-mobile-v11/);
 assert.doesNotMatch(serviceWorker, /\/mobile-scan-success\.mp3/);
 assert.doesNotMatch(serviceWorker, /\/mobile-scan-error\.mp3/);
 assert.match(serviceWorker, /cdn\.jsdelivr\.net/);

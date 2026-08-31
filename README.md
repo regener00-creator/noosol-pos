@@ -68,3 +68,13 @@
 ## Dev
 
 ไม่มี build step — เป็น static HTML/JS ล้วน เปิด `index.html` ตรงๆ ได้เลย
+
+### Tests
+
+รันชุดตรวจ syntax และ regression tests ที่ไม่ต้องติดตั้ง dependency เพิ่มได้ทันทีหลัง clone:
+
+```sh
+npm test
+```
+
+ชุดเริ่มต้นจะไม่รวมไฟล์ `*-browser.test.js` ซึ่งต้องใช้ Playwright จาก environment สำหรับทดสอบ browser โดยเฉพาะ

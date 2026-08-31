@@ -43,12 +43,25 @@ assert.deepEqual(
   ))),
   {fullReload:false,changedIds:[2,3],deletedIds:[4]}
 );
+assert.deepEqual(
+  JSON.parse(JSON.stringify(plan(
+    [{id:1},{id:2},{id:4}],
+    {version:4,versions:{'1':'a','2':'old','4':'d'}},
+    [{id:1,updated_at:'a'},{id:2,updated_at:'b'},{id:3,updated_at:'c'}],
+    true,
+    new Map([['2','update'],['4','insert']])
+  ))),
+  {fullReload:false,changedIds:[3],deletedIds:[]},
+  'dirty local products must survive remote manifest changes and absences'
+);
 const coreLoadStart = html.indexOf('async function loadCoreDataFromSupabase(');
 const coreLoadEnd = html.indexOf('// ----- Sales history sync', coreLoadStart);
 const coreLoad = html.slice(coreLoadStart, coreLoadEnd);
 assert.match(coreLoad, /loadProductRowsFromSupabase\(\)/);
 assert.doesNotMatch(coreLoad, /from\('products'\)\.select\('\*'\)/, 'normal core load must use the product manifest cache');
 assert.match(coreLoad, /products=prodRows\|\|\[\]/, 'normalized product objects must be assigned without a second mapping pass');
+assert.match(coreLoad, /seedProductSyncSnapshot\(products,productDirtyOperations\)/, 'dirty products must not be seeded as synchronized');
+assert.match(coreLoad, /if\(productDirtyOperations\.size\) scheduleSupabaseCoreSync\(\)/, 'dirty products recovered on boot must retry upload');
 assert.doesNotMatch(coreLoad, /products=\(prodRows\|\|\[\]\)\.map\(rowToProduct\)/, 'double mapping strips JSON-only barcode metadata');
 
 const contactImportStart = html.indexOf('async function importContactsFromExcel(');

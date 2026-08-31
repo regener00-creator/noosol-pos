@@ -22,6 +22,45 @@ function json(body: unknown, status = 200) {
   })
 }
 
+type AdminClient = ReturnType<typeof createClient>
+
+async function cleanupCreatedOwner(
+  admin: AdminClient,
+  userId: string,
+  createdWarehouseId: number | null = null,
+) {
+  const errors: string[] = []
+  const { error: accessError } = await admin
+    .from('profile_warehouse_access')
+    .delete()
+    .eq('user_id', userId)
+  if (accessError) errors.push(`warehouse access: ${accessError.message}`)
+
+  const { error: profileError } = await admin.from('profiles').delete().eq('id', userId)
+  if (profileError) errors.push(`profile: ${profileError.message}`)
+
+  if (createdWarehouseId) {
+    const { error: warehouseError } = await admin.from('warehouses').delete().eq('id', createdWarehouseId)
+    if (warehouseError) errors.push(`warehouse: ${warehouseError.message}`)
+  }
+
+  let authDeleted = false
+  let authError = ''
+  for (let attempt = 0; attempt < 2 && !authDeleted; attempt += 1) {
+    const { error } = await admin.auth.admin.deleteUser(userId)
+    if (!error) authDeleted = true
+    else authError = error.message
+  }
+  if (!authDeleted) errors.push(`Auth: ${authError || 'unknown cleanup error'}`)
+  return { ok: errors.length === 0, error: errors.join('; ') }
+}
+
+function cleanupMessage(baseMessage: string, cleanup: { ok: boolean; error: string }) {
+  return cleanup.ok
+    ? baseMessage
+    : `${baseMessage}; คำเตือน: กู้คืนการสร้างเจ้าของร้านไม่ครบ (${cleanup.error}) กรุณาตรวจสอบ Supabase Auth และข้อมูลร้าน`
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
   try {
@@ -79,11 +118,12 @@ Deno.serve(async (req) => {
       level: 1,
     })
     if (profileErr) {
-      await admin.auth.admin.deleteUser(created.user.id)
-      return json({ error: profileErr.message }, 400)
+      const cleanup = await cleanupCreatedOwner(admin, created.user.id)
+      return json({ error: cleanupMessage(profileErr.message, cleanup) }, cleanup.ok ? 400 : 500)
     }
 
     let warehouseId: number | null = null
+    let createdWarehouseId: number | null = null
     const { data: existingWarehouse, error: warehouseReadErr } = await admin
       .from('warehouses')
       .select('id')
@@ -91,9 +131,8 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle()
     if (warehouseReadErr) {
-      await admin.from('profiles').delete().eq('id', created.user.id)
-      await admin.auth.admin.deleteUser(created.user.id)
-      return json({ error: warehouseReadErr.message }, 400)
+      const cleanup = await cleanupCreatedOwner(admin, created.user.id)
+      return json({ error: cleanupMessage(warehouseReadErr.message, cleanup) }, cleanup.ok ? 400 : 500)
     }
     warehouseId = existingWarehouse?.id || null
     if (!warehouseId) {
@@ -113,33 +152,32 @@ Deno.serve(async (req) => {
         .select('id')
         .single()
       if (warehouseErr) {
-        await admin.from('profiles').delete().eq('id', created.user.id)
-        await admin.auth.admin.deleteUser(created.user.id)
-        return json({ error: warehouseErr.message }, 400)
+        const cleanup = await cleanupCreatedOwner(admin, created.user.id)
+        return json({ error: cleanupMessage(warehouseErr.message, cleanup) }, cleanup.ok ? 400 : 500)
       }
       warehouseId = createdWarehouse.id
+      createdWarehouseId = createdWarehouse.id
     }
 
     const { error: accessErr } = await admin.from('profile_warehouse_access').upsert({
       user_id: created.user.id,
       warehouse_id: warehouseId,
       can_sell: true,
+      can_receive_goods: true,
       can_manage_stock: true,
     })
     if (accessErr) {
-      await admin.from('profiles').delete().eq('id', created.user.id)
-      await admin.auth.admin.deleteUser(created.user.id)
-      return json({ error: accessErr.message }, 400)
+      const cleanup = await cleanupCreatedOwner(admin, created.user.id, createdWarehouseId)
+      return json({ error: cleanupMessage(accessErr.message, cleanup) }, cleanup.ok ? 400 : 500)
     }
 
     const { data: tokenConsumed, error: consumeError } = await admin.rpc('admin_consume_owner_bootstrap_token', {
       p_token: setupToken,
     })
     if (consumeError || tokenConsumed !== true) {
-      await admin.from('profile_warehouse_access').delete().eq('user_id', created.user.id)
-      await admin.from('profiles').delete().eq('id', created.user.id)
-      await admin.auth.admin.deleteUser(created.user.id)
-      return json({ error: 'กุญแจตั้งค่าเจ้าของร้านถูกใช้งานแล้ว กรุณาเริ่มขั้นตอนใหม่' }, 409)
+      const cleanup = await cleanupCreatedOwner(admin, created.user.id, createdWarehouseId)
+      const message = cleanupMessage('กุญแจตั้งค่าเจ้าของร้านถูกใช้งานแล้ว กรุณาเริ่มขั้นตอนใหม่', cleanup)
+      return json({ error: message }, cleanup.ok ? 409 : 500)
     }
 
     return json({ ok: true, id: created.user.id, warehouseId })

@@ -13,6 +13,7 @@ const products = [
   {id:2,sku:'P-002',name:'สินค้าทดสอบสอง',category:'ยา',brand:'ทั่วไป',unit:'ขวด',barcode:'OLD-002',price:80,units:[],extraBarcodes:['EXTRA-002'],vendorBarcodes:[]},
 ];
 let persistCount = 0;
+let persistOptions = null;
 let renderCount = 0;
 const context = {
   products,
@@ -38,7 +39,8 @@ const context = {
   isoToDMY: value => String(value).split('-').reverse().join('/'),
   matchesBarcode: (product, query) => product.barcode === query || (product.units || []).some(unit => unit.barcode === query),
   extraBarcodeEntries: product => (product.extraBarcodes || []).map((code, index) => ({code, unit:(product.extraBarcodeUnits || [])[index] || product.unit})),
-  persistWorkspaceData: () => { persistCount++; },
+  persistWorkspaceData: async options => { persistCount++; persistOptions=options; return true; },
+  rebuildProductLookupMaps: () => {},
   syncBusinessSettingsToSupabase: async () => true,
   showToast: () => {},
   render: () => { renderCount++; },
@@ -51,6 +53,7 @@ context.findMatchingPromotion = line => context.promotions.find(promo => context
 vm.createContext(context);
 vm.runInContext(html.slice(start, end), context);
 
+async function run(){
 assert.deepEqual(Array.from(context.code128BValues('123456')), [104,17,18,19,20,21,22,16,106]);
 assert.throws(() => context.code128BValues(''), /กรุณากรอกบาร์โค้ด/);
 assert.throws(() => context.code128BValues('ยา'), /ตัวเลขและตัวอักษรอังกฤษ/);
@@ -87,9 +90,10 @@ assert.match(context.barcodePrintValidation()[0].message, /จำนวนฉล
 
 context.barcodePrintItems[0].qty = 2;
 context.barcodePrintItems.splice(1, 1);
-assert.equal(context.saveBarcodePrintItems(null), true);
+assert.equal(await context.saveBarcodePrintItems(null), true);
 assert.equal(products[0].barcode, 'NEW-001');
 assert.equal(persistCount, 1);
+assert.deepEqual(JSON.parse(JSON.stringify(persistOptions)),{productChanges:{updatedIds:[1]}});
 assert.equal(renderCount, 1);
 
 let printHtml = '';
@@ -198,3 +202,6 @@ assert.match(html, /classList\.toggle\('barcode-print-main',currentTab==='barcod
 assert.match(html, /@page\{size:\$\{width\}mm \$\{height\}mm;margin:0\}/);
 
 console.log('barcode print tests passed');
+}
+
+run().catch(error=>{ console.error(error); process.exitCode=1; });
