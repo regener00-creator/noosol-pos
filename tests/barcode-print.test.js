@@ -25,6 +25,7 @@ const context = {
   BARCODE_PRINT_PAGE_SIZE: 10,
   BARCODE_PRINT_LABEL_DIMENSIONS: {'80x50':[80,50],'60x40':[60,40],'50x30':[50,30],'40x30':[40,30]},
   PRICE_LABEL_ELEMENT_META: {name:{label:'ชื่อสินค้า'},unit:{label:'หน่วย'},price:{label:'ราคา'},barcode:{label:'บาร์โค้ด'},code:{label:'เลขบาร์โค้ด'}},
+  PRICE_LABEL_TEXT_COLORS: ['#000000','#e60012'],
   PRICE_LABEL_PRESET_LABELS: {left:'ชิดซ้าย / เว้นด้านขวา',full:'เต็มพื้นที่',center:'เน้นราคากึ่งกลาง',custom:'กำหนดเอง'},
   businessSettings: {priceLabelTemplates:{}},
   priceLabelTemplateSyncPromise: Promise.resolve(),
@@ -127,16 +128,22 @@ assert.ok(minimum40.height > 26 && minimum40.height < 27);
 const compactTemplate = context.priceLabelPresetTemplate('40x30', 'left');
 assert.ok(compactTemplate.elements.barcode.width >= 80);
 assert.ok(compactTemplate.elements.barcode.height >= minimum40.height);
+assert.equal(context.normalizePriceLabelElement('name',{color:'#123456'},'80x50',{color:'#000000'}).color,'#000000');
 const currentTemplate = context.getPriceLabelTemplate('80x50');
-const savedTemplate = context.savePriceLabelTemplate('80x50', {...currentTemplate,preset:'custom',elements:{...currentTemplate.elements,price:{...currentTemplate.elements.price,x:35,color:'#123456'}}});
+const savedTemplate = context.savePriceLabelTemplate('80x50', {...currentTemplate,preset:'custom',elements:{...currentTemplate.elements,price:{...currentTemplate.elements.price,x:35,color:'#e60012',reverse:true}},customTexts:[{id:'sale-note',text:'สินค้าขายดี',x:63,y:5,width:32,height:12,fontSize:11,fontWeight:700,color:'#000000',align:'center',reverse:true,visible:true}]});
 assert.equal(savedTemplate.preset, 'custom');
 assert.equal(savedTemplate.elements.price.x, 35);
-assert.equal(savedTemplate.elements.price.color, '#123456');
+assert.equal(savedTemplate.elements.price.color, '#e60012');
+assert.equal(savedTemplate.elements.price.reverse, true);
+assert.equal(savedTemplate.customTexts[0].text, 'สินค้าขายดี');
+assert.equal(savedTemplate.customTexts[0].reverse, true);
 assert.equal(context.businessSettings.priceLabelTemplates['80x50'].elements.price.x, 35);
 printHtml = '';
 assert.equal(context.writeBarcodePrintWindow(printWindow,[{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:1}],'80x50','price'), true);
 assert.match(printHtml, /<section class="label" style="padding:0">/);
-assert.match(printHtml, /data-price-label-element="price"[^>]*left:35%;[^>]*color:#123456;/);
+assert.match(printHtml, /data-price-label-element="price"[^>]*left:35%;[^>]*background:#e60012;color:#ffffff;/);
+assert.match(printHtml, /data-price-label-custom-text="sale-note"[^>]*background:#000000;color:#ffffff;[^>]*>สินค้าขายดี<\/div>/);
+assert.match(printHtml, /\.price-label-print-element\{-webkit-print-color-adjust:exact;print-color-adjust:exact\}/);
 
 context.promotions = [];
 const noPromotionErrors = context.barcodePrintValidation([{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:1}],'promotion');

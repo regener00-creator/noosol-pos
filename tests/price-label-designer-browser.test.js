@@ -71,10 +71,15 @@ const browserExecutable = [
   const priceX = page.locator('[data-price-label-field="x"]');
   await priceX.fill('7');
   await priceX.press('Tab');
-  await page.locator('[data-price-label-field="color"]').evaluate(element => {
-    element.value='#123456';
-    element.dispatchEvent(new Event('change',{bubbles:true}));
-  });
+  assert.deepEqual(await page.locator('[data-price-label-color]').evaluateAll(elements => elements.map(element => element.value)), ['#000000','#e60012']);
+  await page.locator('[data-price-label-color][value="#000000"]').check({force:true});
+  await page.locator('[data-price-label-reverse]').check();
+  await page.locator('#addPriceLabelCustomTextBtn').click();
+  assert.equal(await page.locator('[data-price-label-tab]').count(), 6);
+  await page.locator('[data-price-label-custom-value]').fill('SALE -15%');
+  await page.locator('[data-price-label-custom-value]').press('Tab');
+  await page.locator('[data-price-label-color][value="#e60012"]').check({force:true});
+  await page.locator('[data-price-label-reverse]').check();
   await page.locator('[data-price-label-tab="barcode"]').click();
   const barcodeWidth = page.locator('[data-price-label-field="width"]');
   await barcodeWidth.fill('10');
@@ -89,14 +94,22 @@ const browserExecutable = [
   const saved = await page.evaluate(() => businessSettings.priceLabelTemplates['80x50']);
   assert.equal(saved.preset,'custom');
   assert.equal(saved.elements.price.x,7);
-  assert.equal(saved.elements.price.color,'#123456');
+  assert.equal(saved.elements.price.color,'#000000');
+  assert.equal(saved.elements.price.reverse,true);
   assert.equal(saved.elements.unit.visible,false);
   assert.ok(saved.elements.barcode.width>=40);
+  assert.equal(saved.customTexts.length,1);
+  assert.equal(saved.customTexts[0].text,'SALE -15%');
+  assert.equal(saved.customTexts[0].color,'#e60012');
+  assert.equal(saved.customTexts[0].reverse,true);
 
   await page.locator('#openPriceLabelDesignerBtn').click();
   await page.locator('[data-price-label-tab="price"]').click();
   assert.equal(await page.locator('[data-price-label-field="x"]').inputValue(),'7');
-  assert.equal(await page.locator('[data-price-label-field="color"]').inputValue(),'#123456');
+  assert.equal(await page.locator('[data-price-label-color][value="#000000"]').isChecked(),true);
+  assert.equal(await page.locator('[data-price-label-reverse]').isChecked(),true);
+  await page.locator('[data-price-label-tab]').filter({hasText:'ข้อความ 1'}).click();
+  assert.equal(await page.locator('[data-price-label-custom-value]').inputValue(),'SALE -15%');
   assert.deepEqual(errors, []);
   console.log('price label designer browser tests passed');
 })().catch(error => {
