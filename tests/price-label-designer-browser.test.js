@@ -48,7 +48,7 @@ const browserExecutable = [
     products=[{id:9001,sku:'P-9001',name:'Decolgen prin (4 tablets)',unit:'กล่อง',barcode:'8851824336354',price:180,units:[],extraBarcodes:[],vendorBarcodes:[]}];
     barcodePrintItems=[{pid:9001,unit:'กล่อง',barcode:'8851824336354',qty:1}];
     barcodePrintLabelType='price';
-    barcodePrintLabelSize='80x50';
+    barcodePrintLabelSize='50x30';
     businessSettings={...businessSettings,priceLabelTemplates:{},priceLabelTemplateLibraries:{}};
     main.innerHTML=renderBarcodePrint();
     attachEvents();
@@ -59,18 +59,23 @@ const browserExecutable = [
   assert.equal(await page.locator('.price-label-designer-modal').isVisible(), true);
   assert.equal(await page.locator('[data-price-label-tab]').count(), 5);
   assert.equal(await page.locator('.price-label-design-element').count(), 5);
+  assert.match(await page.locator('.price-label-safety-note').textContent(), /24 × 6 มม\./);
   assert.match(await page.locator('.price-label-safety-note').textContent(), /32 × 8 มม\./);
   const ratio = await page.locator('#priceLabelDesignerCanvas').evaluate(element => {
     const rect=element.getBoundingClientRect();
     return rect.width/rect.height;
   });
-  assert.ok(Math.abs(ratio-1.6)<0.02, 'พื้นที่ออกแบบต้องเป็นสัดส่วน 80 × 50 มม.');
+  assert.ok(Math.abs(ratio-(5/3))<0.02, 'พื้นที่ออกแบบต้องเป็นสัดส่วน 50 × 30 มม.');
 
   await page.locator('#priceLabelPresetSelect').selectOption('center');
   await page.locator('[data-price-label-tab="price"]').click();
   const priceX = page.locator('[data-price-label-field="x"]');
   await priceX.fill('7');
   await priceX.press('Tab');
+  const fontSize = page.locator('[data-price-label-field="fontSize"]');
+  await fontSize.fill('96');
+  await fontSize.press('Tab');
+  assert.equal(await fontSize.inputValue(),'96');
   assert.deepEqual(await page.locator('[data-price-label-color]').evaluateAll(elements => elements.map(element => element.value)), ['#000000','#e60012']);
   await page.locator('[data-price-label-color][value="#000000"]').evaluate(element => { element.checked=true; element.dispatchEvent(new Event('change',{bubbles:true})); });
   assert.equal((await page.locator('.price-label-reverse-toggle').textContent()).trim(),'REVERSE TYPE');
@@ -85,7 +90,8 @@ const browserExecutable = [
   const barcodeWidth = page.locator('[data-price-label-field="width"]');
   await barcodeWidth.fill('10');
   await barcodeWidth.press('Tab');
-  assert.ok(Number(await barcodeWidth.inputValue())>=40, 'ป้าย 80 มม. ต้องบังคับบาร์โค้ดกว้างอย่างน้อย 32 มม.');
+  assert.ok(Number(await barcodeWidth.inputValue())>=48, 'ป้าย 50 มม. ต้องบังคับบาร์โค้ดกว้างอย่างน้อย 24 มม.');
+  assert.ok((await page.locator('.price-label-barcode-limit').getAttribute('class')).includes('warning'));
   await page.locator('[data-price-label-tab="unit"]').click();
   await page.locator('[data-price-label-visible]').uncheck();
   assert.ok((await page.locator('[data-price-label-tab="unit"]').getAttribute('class')).includes('off'));
@@ -94,25 +100,26 @@ const browserExecutable = [
   await page.locator('#priceLabelTemplateNameInput').fill('แม่แบบสำเนา');
   await page.locator('#saveAsNewPriceLabelTemplateBtn').click();
   assert.equal(await page.locator('#savedPriceLabelTemplateSelect option').count(),2);
-  const libraryBeforeUse = await page.evaluate(() => businessSettings.priceLabelTemplateLibraries['80x50']);
+  const libraryBeforeUse = await page.evaluate(() => businessSettings.priceLabelTemplateLibraries['50x30']);
   assert.equal(libraryBeforeUse.templates.length,2);
   assert.equal(libraryBeforeUse.activeId,libraryBeforeUse.templates[0].id);
   await page.locator('#savedPriceLabelTemplateSelect').selectOption(libraryBeforeUse.templates[0].id);
   await page.locator('#savePriceLabelDesignerBtn').click();
   await page.waitForSelector('.price-label-designer-modal',{state:'detached'});
 
-  const saved = await page.evaluate(() => businessSettings.priceLabelTemplates['80x50']);
+  const saved = await page.evaluate(() => businessSettings.priceLabelTemplates['50x30']);
   assert.equal(saved.preset,'custom');
   assert.equal(saved.elements.price.x,7);
+  assert.equal(saved.elements.price.fontSize,96);
   assert.equal(saved.elements.price.color,'#000000');
   assert.equal(saved.elements.price.reverse,true);
   assert.equal(saved.elements.unit.visible,false);
-  assert.ok(saved.elements.barcode.width>=40);
+  assert.ok(saved.elements.barcode.width>=48);
   assert.equal(saved.customTexts.length,1);
   assert.equal(saved.customTexts[0].text,'SALE -15%');
   assert.equal(saved.customTexts[0].color,'#e60012');
   assert.equal(saved.customTexts[0].reverse,true);
-  const savedLibrary = await page.evaluate(() => businessSettings.priceLabelTemplateLibraries['80x50']);
+  const savedLibrary = await page.evaluate(() => businessSettings.priceLabelTemplateLibraries['50x30']);
   assert.equal(savedLibrary.templates.length,2);
   assert.equal(savedLibrary.activeId,savedLibrary.templates[0].id);
 
