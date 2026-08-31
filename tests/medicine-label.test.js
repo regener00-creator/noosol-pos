@@ -183,6 +183,14 @@ assert.equal(printCount, 3);
 
 assert.match(html, /id="medicineLabelDoseAmount"/, 'ฟอร์มต้องมีช่องขนาดรับประทานต่อครั้ง');
 assert.match(html, /id="medicineLabelDoseUnit"/, 'ฟอร์มต้องมีตัวเลือกหน่วยรับประทาน');
+assert.match(html, /id="medicineLabelDoseUnitManage"/, 'ฟอร์มต้องมีปุ่มจัดการหน่วยรับประทาน');
+assert.match(html, /id="medicineLabelDoseUnitNew"/, 'ต้องเพิ่มหน่วยรับประทานใหม่ได้');
+assert.match(html, /id="medicineLabelDoseUnitList"/, 'ต้องแสดงรายการสำหรับจัดลำดับหน่วยรับประทาน');
+assert.match(html, /data-dose-unit-action="up"/, 'ต้องเลื่อนหน่วยรับประทานขึ้นได้');
+assert.match(html, /data-dose-unit-action="down"/, 'ต้องเลื่อนหน่วยรับประทานลงได้');
+assert.match(html, /function normalizeMedicineLabelDoseUnits\(/, 'ต้องตรวจและตัดหน่วยรับประทานซ้ำก่อนบันทึก');
+assert.match(html, /function saveMedicineLabelDoseUnits\(/, 'ต้องบันทึกรายการหน่วยรับประทานที่จัดเอง');
+assert.match(html, /medicineLabelDoseUnits:\[\.\.\.MEDICINE_LABEL_DOSE_UNITS\]/, 'ข้อมูลธุรกิจเริ่มต้นต้องมีหน่วยรับประทานมาตรฐาน');
 assert.match(html, /id="medicineLabelDurationDays"/, 'ฟอร์มต้องมีช่องระยะเวลา');
 assert.match(html, /id="medicineLabelDurationMode"/, 'ฟอร์มต้องมีรูปแบบระยะเวลา');
 assert.match(html, /value:'as_needed',label:'ใช้เมื่อมีอาการ'/, 'ต้องมีตัวเลือกใช้เมื่อมีอาการ');

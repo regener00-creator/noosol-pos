@@ -1241,11 +1241,29 @@
   .medicine-label-field{display:flex;flex-direction:column;gap:6px;}
   .medicine-label-field[hidden]{display:none!important;}
   .medicine-label-field.wide{grid-column:1/-1;}
-  .medicine-label-field>span{font-size:12.5px;font-weight:600;}
+  .medicine-label-field>span,.medicine-label-field>label{font-size:12.5px;font-weight:600;}
   .medicine-label-field input,.medicine-label-field select,.medicine-label-field textarea{width:100%;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);padding:9px 11px;font:13.5px 'Sarabun',sans-serif;}
   .medicine-label-field textarea{min-height:66px;resize:vertical;line-height:1.45;}
   .medicine-label-field input:focus,.medicine-label-field select:focus,.medicine-label-field textarea:focus{outline:2px solid var(--primary);outline-offset:1px;}
   .medicine-label-dose-fields{grid-column:1/-1;display:grid;grid-template-columns:.8fr 1fr 1fr .8fr;gap:12px;}
+  .medicine-label-unit-select-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px;}
+  .medicine-label-unit-manage-btn{border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--primary);padding:0 10px;font:600 12px 'Sarabun',sans-serif;cursor:pointer;white-space:nowrap;}
+  .medicine-label-unit-manage-btn:hover,.medicine-label-unit-manage-btn[aria-expanded="true"]{border-color:var(--primary);background:var(--primary-soft);}
+  .medicine-label-unit-manager{grid-column:1/-1;border:1px solid var(--border);border-radius:10px;background:var(--bg);padding:12px;}
+  .medicine-label-unit-manager[hidden]{display:none!important;}
+  .medicine-label-unit-manager-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:9px;}
+  .medicine-label-unit-manager-head b{font-size:13px;}.medicine-label-unit-manager-head span{color:var(--text-muted);font-size:11.5px;}
+  .medicine-label-unit-add{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-bottom:9px;}
+  .medicine-label-unit-add input{min-width:0;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);padding:8px 10px;font:13px 'Sarabun',sans-serif;}
+  .medicine-label-unit-add button{border:0;border-radius:8px;background:var(--primary);color:#fff;padding:8px 14px;font:600 12.5px 'Sarabun',sans-serif;cursor:pointer;}
+  .medicine-label-unit-list{display:flex;flex-direction:column;gap:6px;}
+  .medicine-label-unit-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;padding:7px 8px 7px 11px;border:1px solid var(--border);border-radius:8px;background:#fff;}
+  .medicine-label-unit-row>span{min-width:0;overflow-wrap:anywhere;font-size:13px;font-weight:600;}
+  .medicine-label-unit-row-actions{display:flex;gap:5px;}
+  .medicine-label-unit-row-actions button{min-width:30px;height:29px;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--text);font:600 12px 'Sarabun',sans-serif;cursor:pointer;}
+  .medicine-label-unit-row-actions button:hover:not(:disabled){border-color:var(--primary);color:var(--primary);background:var(--primary-soft);}
+  .medicine-label-unit-row-actions button:disabled{opacity:.35;cursor:not-allowed;}
+  .medicine-label-unit-row-actions .delete{padding:0 8px;color:var(--danger);}
   .medicine-label-option-group{min-width:0;margin:0;padding:10px 12px 12px;border:1px solid var(--border);border-radius:9px;background:#fff;}
   .medicine-label-option-group legend{padding:0 5px;font-size:12.5px;font-weight:700;}
   .medicine-label-options{display:flex;flex-wrap:wrap;gap:8px 13px;}
@@ -1263,7 +1281,7 @@
   .medicine-label-safety{margin-top:14px;padding:10px 12px;border-radius:9px;background:#FFF7E8;color:#805100;font-size:12px;line-height:1.45;}
   .medicine-label-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px;}
   .sale-medicine-label-summary{display:block;margin-top:4px;color:var(--primary);font-size:11px;font-weight:600;}
-  @media (max-width:720px){.medicine-label-grid{grid-template-columns:1fr;}.medicine-label-field.wide{grid-column:auto;}.medicine-label-dose-fields{grid-column:auto;grid-template-columns:1fr;}.medicine-label-option-group{grid-column:auto;}}
+  @media (max-width:720px){.medicine-label-grid{grid-template-columns:1fr;}.medicine-label-field.wide{grid-column:auto;}.medicine-label-dose-fields{grid-column:auto;grid-template-columns:1fr;}.medicine-label-option-group{grid-column:auto;}.medicine-label-unit-manager{grid-column:auto;}.medicine-label-unit-manager-head{align-items:flex-start;flex-direction:column;gap:2px;}}
   .fav-check{display:flex;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:13.5px;cursor:pointer;}
   .fav-add-box{position:relative;padding:0 16px 12px;}
   .fav-add-box input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13.5px;background:var(--surface);}
@@ -3076,6 +3094,28 @@ const MEDICINE_LABEL_DURATION_OPTIONS=[
 ];
 const MEDICINE_LABEL_WARNING_PRESETS=['อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร','รับประทานยานี้ติดต่อกันจนหมด','เขย่าขวดก่อนใช้','เก็บยาในตู้เย็น ห้ามแช่แข็ง'];
 let medicineLabelSize=(()=>{ try{ const saved=localStorage.getItem(MEDICINE_LABEL_SIZE_STORAGE_KEY); return MEDICINE_LABEL_SIZES[saved]?saved:'80x50'; }catch(_error){ return '80x50'; } })();
+let medicineLabelDoseUnitSyncPromise=Promise.resolve();
+function normalizeMedicineLabelDoseUnits(values){
+  const result=[],seen=new Set();
+  (Array.isArray(values)?values:[]).forEach(value=>{
+    const unit=String(value||'').trim().replace(/\s+/g,' ').slice(0,40),key=unit.toLocaleLowerCase('th-TH');
+    if(!unit||seen.has(key)) return;
+    seen.add(key); result.push(unit);
+  });
+  return result;
+}
+function getMedicineLabelDoseUnits(){
+  const saved=normalizeMedicineLabelDoseUnits(businessSettings?.medicineLabelDoseUnits);
+  return saved.length?saved:[...MEDICINE_LABEL_DOSE_UNITS];
+}
+function saveMedicineLabelDoseUnits(values){
+  const normalized=normalizeMedicineLabelDoseUnits(values);
+  if(!normalized.length) return getMedicineLabelDoseUnits();
+  businessSettings={...businessSettings,medicineLabelDoseUnits:normalized};
+  persistWorkspaceData();
+  medicineLabelDoseUnitSyncPromise=medicineLabelDoseUnitSyncPromise.then(()=>syncBusinessSettingsToSupabase(),()=>syncBusinessSettingsToSupabase());
+  return [...normalized];
+}
 function medicineLabelMemberName(member=saleMember){
   if(!member) return '';
   return String(typeof member==='object'?(member.name||''):member).trim();
@@ -3239,12 +3279,13 @@ function openMedicineLabelEditor(lineId){
   document.querySelector('.medicine-label-modal')?.closest('.modal-overlay')?.remove();
   const existing=normalizeDispensingLabel(line.dispensingLabel);
   const otherPatient=cart.map(item=>normalizeDispensingLabel(item.dispensingLabel)?.patientName).find(Boolean)||'';
+  const savedDoseUnits=getMedicineLabelDoseUnits(),lineUnit=String(line.unit||'').trim();
   const draft={
     drugName:existing?.drugName||String(line.name||'').trim(),
     patientName:existing?.patientName||otherPatient||medicineLabelMemberName(),
     indication:existing?.indication||'',
     doseAmount:existing?.doseAmount||'1',
-    doseUnit:existing?.doseUnit||(MEDICINE_LABEL_DOSE_UNITS.includes(String(line.unit||''))?String(line.unit):'เม็ด'),
+    doseUnit:existing?.doseUnit||(savedDoseUnits.includes(lineUnit)?lineUnit:(savedDoseUnits.includes('เม็ด')?'เม็ด':savedDoseUnits[0])),
     durationMode:existing?.durationMode||'days',
     durationDays:existing?.durationDays||'',
     mealTiming:existing?.mealTiming||'none',
@@ -3254,7 +3295,7 @@ function openMedicineLabelEditor(lineId){
     warning:existing?.warning||'',
     pharmacistName:existing?.pharmacistName||currentPharmacistName(),
   };
-  const doseUnits=MEDICINE_LABEL_DOSE_UNITS.includes(draft.doseUnit)?MEDICINE_LABEL_DOSE_UNITS:[draft.doseUnit,...MEDICINE_LABEL_DOSE_UNITS];
+  const doseUnits=savedDoseUnits.includes(draft.doseUnit)?savedDoseUnits:[draft.doseUnit,...savedDoseUnits];
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal medicine-label-modal"><div class="modal-head"><h3>จัดทำฉลากยา</h3><button class="modal-close" type="button">×</button></div>
     <div class="medicine-label-product"><b>${escapeHtml(line.name||'รายการยา')}</b><span>จำนวน ${escapeHtml(line.qty)} ${escapeHtml(line.unit||'หน่วย')}</span></div>
@@ -3267,10 +3308,15 @@ function openMedicineLabelEditor(lineId){
         <label class="medicine-label-field"><span>ขนาดฉลาก</span><select id="medicineLabelSize">${Object.entries(MEDICINE_LABEL_SIZES).map(([value,option])=>`<option value="${value}" ${value===medicineLabelSize?'selected':''}>${option.label}</option>`).join('')}</select></label>
         <div class="medicine-label-dose-fields">
           <label class="medicine-label-field"><span>ขนาดรับประทานต่อครั้ง *</span><input id="medicineLabelDoseAmount" type="number" min="0.01" step="0.01" value="${escapeHtml(draft.doseAmount)}" inputmode="decimal" required></label>
-          <label class="medicine-label-field"><span>หน่วยรับประทาน *</span><select id="medicineLabelDoseUnit" required>${doseUnits.map(unit=>`<option value="${escapeHtml(unit)}" ${unit===draft.doseUnit?'selected':''}>${escapeHtml(unit)}</option>`).join('')}</select></label>
+          <div class="medicine-label-field"><label for="medicineLabelDoseUnit">หน่วยรับประทาน *</label><div class="medicine-label-unit-select-wrap"><select id="medicineLabelDoseUnit" required>${doseUnits.map(unit=>`<option value="${escapeHtml(unit)}" ${unit===draft.doseUnit?'selected':''}>${escapeHtml(unit)}</option>`).join('')}</select><button class="medicine-label-unit-manage-btn" id="medicineLabelDoseUnitManage" type="button" aria-expanded="false">จัดการ</button></div></div>
           <label class="medicine-label-field"><span>ระยะเวลา *</span><select id="medicineLabelDurationMode" required>${MEDICINE_LABEL_DURATION_OPTIONS.map(option=>`<option value="${option.value}" ${option.value===draft.durationMode?'selected':''}>${option.label}</option>`).join('')}</select></label>
           <label class="medicine-label-field" id="medicineLabelDurationDaysField" ${draft.durationMode==='days'?'':'hidden'}><span>จำนวนวัน *</span><input id="medicineLabelDurationDays" type="number" min="1" step="1" value="${escapeHtml(draft.durationDays)}" inputmode="numeric" ${draft.durationMode==='days'?'required':''}></label>
         </div>
+        <section class="medicine-label-unit-manager" id="medicineLabelDoseUnitManager" hidden>
+          <div class="medicine-label-unit-manager-head"><b>จัดการหน่วยรับประทาน</b><span>เพิ่ม ลบ หรือจัดลำดับสำหรับรายการเลือก</span></div>
+          <div class="medicine-label-unit-add"><input id="medicineLabelDoseUnitNew" maxlength="40" placeholder="เช่น หลอด หรือ ซีซี" autocomplete="off"><button id="medicineLabelDoseUnitAdd" type="button">เพิ่มหน่วย</button></div>
+          <div class="medicine-label-unit-list" id="medicineLabelDoseUnitList"></div>
+        </section>
         <fieldset class="medicine-label-option-group"><legend>ก่อน/หลังอาหาร หรือทุกกี่ชั่วโมง/นาที</legend><div class="medicine-label-options">
           <label class="medicine-label-option"><input type="checkbox" name="medicineLabelMealTiming" value="before" ${draft.mealTiming==='before'?'checked':''}>ก่อนอาหาร</label>
           <label class="medicine-label-option"><input type="checkbox" name="medicineLabelMealTiming" value="after" ${draft.mealTiming==='after'?'checked':''}>หลังอาหาร</label>
@@ -3288,6 +3334,54 @@ function openMedicineLabelEditor(lineId){
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('#cancelMedicineLabelBtn').onclick=close;
+  const doseUnitSelect=overlay.querySelector('#medicineLabelDoseUnit'),doseUnitManageButton=overlay.querySelector('#medicineLabelDoseUnitManage'),doseUnitManager=overlay.querySelector('#medicineLabelDoseUnitManager'),doseUnitList=overlay.querySelector('#medicineLabelDoseUnitList'),doseUnitNewInput=overlay.querySelector('#medicineLabelDoseUnitNew');
+  const renderDoseUnitManager=(preferredUnit='')=>{
+    const stored=getMedicineLabelDoseUnits(),current=String(preferredUnit||doseUnitSelect.value||stored[0]||'').trim();
+    const selectable=stored.includes(current)?stored:[current,...stored].filter(Boolean);
+    doseUnitSelect.innerHTML=selectable.map(unit=>`<option value="${escapeHtml(unit)}">${escapeHtml(unit)}</option>`).join('');
+    doseUnitSelect.value=selectable.includes(current)?current:(stored[0]||'');
+    doseUnitList.innerHTML=stored.map((unit,index)=>`<div class="medicine-label-unit-row" data-dose-unit-index="${index}"><span>${escapeHtml(unit)}</span><div class="medicine-label-unit-row-actions"><button type="button" data-dose-unit-action="up" title="เลื่อน ${escapeHtml(unit)} ขึ้น" aria-label="เลื่อน ${escapeHtml(unit)} ขึ้น" ${index===0?'disabled':''}>↑</button><button type="button" data-dose-unit-action="down" title="เลื่อน ${escapeHtml(unit)} ลง" aria-label="เลื่อน ${escapeHtml(unit)} ลง" ${index===stored.length-1?'disabled':''}>↓</button><button class="delete" type="button" data-dose-unit-action="delete" aria-label="ลบ ${escapeHtml(unit)}">ลบ</button></div></div>`).join('');
+  };
+  doseUnitManageButton.onclick=()=>{
+    const willOpen=doseUnitManager.hidden;
+    doseUnitManager.hidden=!willOpen;
+    doseUnitManageButton.setAttribute('aria-expanded',String(willOpen));
+    doseUnitManageButton.textContent=willOpen?'ปิด':'จัดการ';
+    if(willOpen){
+      const selected=String(doseUnitSelect.value||'').trim(),stored=getMedicineLabelDoseUnits();
+      if(selected&&!stored.includes(selected)) saveMedicineLabelDoseUnits([selected,...stored]);
+      renderDoseUnitManager(selected);
+      setTimeout(()=>doseUnitNewInput.focus(),0);
+    }
+  };
+  const addDoseUnit=()=>{
+    const unit=normalizeMedicineLabelDoseUnits([doseUnitNewInput.value])[0]||'';
+    if(!unit){ showToast('กรุณากรอกชื่อหน่วยรับประทาน','danger-top'); doseUnitNewInput.focus(); return; }
+    const stored=getMedicineLabelDoseUnits(),existingUnit=stored.find(value=>value.toLocaleLowerCase('th-TH')===unit.toLocaleLowerCase('th-TH'));
+    if(existingUnit){ renderDoseUnitManager(existingUnit); showToast('มีหน่วยรับประทานนี้อยู่แล้ว'); }
+    else{ saveMedicineLabelDoseUnits([...stored,unit]); renderDoseUnitManager(unit); showToast(`เพิ่มหน่วย “${unit}” แล้ว`); }
+    doseUnitNewInput.value=''; doseUnitNewInput.focus();
+  };
+  overlay.querySelector('#medicineLabelDoseUnitAdd').onclick=addDoseUnit;
+  doseUnitNewInput.onkeydown=event=>{ if(event.key==='Enter'){ event.preventDefault(); addDoseUnit(); } };
+  doseUnitList.onclick=event=>{
+    const button=event.target.closest('[data-dose-unit-action]'); if(!button||button.disabled) return;
+    const row=button.closest('[data-dose-unit-index]'),index=Number(row?.dataset.doseUnitIndex),action=button.dataset.doseUnitAction,stored=getMedicineLabelDoseUnits();
+    if(!Number.isInteger(index)||index<0||index>=stored.length) return;
+    let selected=doseUnitSelect.value;
+    if(action==='delete'){
+      if(stored.length===1){ showToast('ต้องมีหน่วยรับประทานอย่างน้อย 1 หน่วย','danger-top'); return; }
+      if(!confirm(`ลบหน่วยรับประทาน “${stored[index]}” หรือไม่?`)) return;
+      const removed=stored.splice(index,1)[0];
+      if(selected===removed) selected=stored[Math.min(index,stored.length-1)];
+    }else{
+      const target=action==='up'?index-1:index+1;
+      if(target<0||target>=stored.length) return;
+      [stored[index],stored[target]]=[stored[target],stored[index]];
+    }
+    saveMedicineLabelDoseUnits(stored); renderDoseUnitManager(selected);
+  };
+  renderDoseUnitManager(draft.doseUnit);
   const durationModeField=overlay.querySelector('#medicineLabelDurationMode'),durationDaysField=overlay.querySelector('#medicineLabelDurationDaysField'),durationDaysInput=overlay.querySelector('#medicineLabelDurationDays');
   const mealTimingInputs=[...overlay.querySelectorAll('input[name="medicineLabelMealTiming"]')];
   mealTimingInputs.forEach(input=>input.onchange=()=>{ if(input.checked) mealTimingInputs.forEach(other=>{ if(other!==input) other.checked=false; }); });
@@ -3781,7 +3875,7 @@ const STORE_INFO = {
   phone: '',
   website: '',
 };
-const DEFAULT_BUSINESS_SETTINGS={type:'บุคคลธรรมดา',vat:'ยังไม่จดภาษีมูลค่าเพิ่ม',vatRegistrationDate:'',name:'',address:'',taxId:'',branch:'none',branchCode:'',branchName:'',officePhone:'',mobile:'',fax:'',website:'',documentPhone:'mobile',english:false};
+const DEFAULT_BUSINESS_SETTINGS={type:'บุคคลธรรมดา',vat:'ยังไม่จดภาษีมูลค่าเพิ่ม',vatRegistrationDate:'',name:'',address:'',taxId:'',branch:'none',branchCode:'',branchName:'',officePhone:'',mobile:'',fax:'',website:'',documentPhone:'mobile',english:false,medicineLabelDoseUnits:[...MEDICINE_LABEL_DOSE_UNITS]};
 let businessSettings={...DEFAULT_BUSINESS_SETTINGS};
 let businessSettingsDirty=false;
 let businessSettingsSyncState='local';
