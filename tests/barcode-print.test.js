@@ -104,6 +104,8 @@ assert.match(printHtml, /สินค้าทดสอบหนึ่ง/);
 assert.match(printHtml, /<div class="price">120\.00<\/div>/);
 assert.doesNotMatch(printHtml, /฿/);
 assert.match(printHtml, /\.price\{color:#e60012;/);
+assert.match(printHtml, /class="regular-content" style="width:66%;/);
+assert.doesNotMatch(printHtml, /P-001/);
 assert.match(printHtml, /NEW-001/);
 assert.equal((printHtml.match(/<section class="label">/g)||[]).length, 2);
 assert.equal(printCount, 1);
