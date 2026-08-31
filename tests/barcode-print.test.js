@@ -19,7 +19,7 @@ const context = {
   barcodePrintItems: [],
   barcodePrintCatFilter: {category:'',brand:''},
   barcodePrintSearchQuery: '',
-  barcodePrintLabelSize: '60x40',
+  barcodePrintLabelSize: '80x50',
   barcodePrintLabelType: 'price',
   barcodePrintPage: 1,
   BARCODE_PRINT_PAGE_SIZE: 10,
@@ -97,9 +97,9 @@ const printWindow = {
   focus: () => {},
   print: () => { printCount++; },
 };
-assert.equal(context.writeBarcodePrintWindow(printWindow,[{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:2}],'60x40'), true);
-assert.match(printHtml, /@page\{size:60mm 40mm;margin:0\}/);
-assert.match(printHtml, /ป้ายราคา 60 × 40 มม\. แนวนอน/);
+assert.equal(context.writeBarcodePrintWindow(printWindow,[{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:2}],'80x50'), true);
+assert.match(printHtml, /@page\{size:80mm 50mm;margin:0\}/);
+assert.match(printHtml, /ป้ายราคา 80 × 50 มม\. แนวนอน/);
 assert.match(printHtml, /สินค้าทดสอบหนึ่ง/);
 assert.match(printHtml, /฿<\/span>120\.00/);
 assert.match(printHtml, /NEW-001/);
@@ -124,13 +124,13 @@ assert.match(bundleDetails.condition, /ซื้อ 2 กล่อง ราค�
 
 context.promotions = [{id:12,name:'ซื้อ 1 แถม 1 คละสินค้าได้',active:true,scope:'buygetdiff',type:'buygetdiff',bgdBuyProductId:1,bgdBuyUnit:'กล่อง',bgdBuyQty:1,bgdGetProductId:1,bgdGetUnit:'กล่อง',bgdGetQty:1,startDate:'2026-08-01',endDate:'2026-08-31'}];
 printHtml = '';
-assert.equal(context.writeBarcodePrintWindow(printWindow,[{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:1}],'60x40','promotion'), true);
+assert.equal(context.writeBarcodePrintWindow(printWindow,[{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:1}],'80x50','promotion'), true);
 assert.match(printHtml, /class="label promotion"/);
 assert.match(printHtml, /<b>ซื้อ 1 แถม 1<\/b>/);
 assert.match(printHtml, /คละสินค้าได้/);
 assert.match(printHtml, /รับฟรี 1 กล่อง/);
 assert.match(printHtml, /class="promo-price">120<sup>\.00<\/sup>/);
-assert.match(printHtml, /ป้ายโปรโมชั่น 60 × 40 มม\. แนวนอน/);
+assert.match(printHtml, /ป้ายโปรโมชั่น 80 × 50 มม\. แนวนอน/);
 
 assert.match(html, /barcodeprint:\s*renderBarcodePrint/);
 assert.match(html, /LEVEL2_HIDDEN_TABS[^\n]+barcodeprint/);
@@ -138,13 +138,16 @@ assert.match(html, /id="savePrintBarcodeBtn"/);
 assert.match(html, /id="barcodePrintAddMissingBtn"/);
 assert.match(html, /พิมพ์ป้ายราคา/);
 assert.match(html, /พิมพ์ป้ายราคา <span class="page-title-meta">\$\{isPromotionLabel\?/);
-assert.match(html, /ค่าเริ่มต้นเป็นป้ายแนวนอน 60 × 40 มม\./);
+assert.match(html, /ค่าเริ่มต้นเป็นป้ายแนวนอน 80 × 50 มม\./);
+assert.match(html, /ป้ายโปรโมชั่นจะดึงเงื่อนไขและราคาจากโปรโมชั่นที่ใช้งานอยู่ รองรับขนาด 80 × 50 มม\. แนวนอน/);
 assert.doesNotMatch(html, /class="barcode-print-help"/);
-assert.match(html, /barcodePrintLabelSize = '60x40'/);
+assert.match(html, /barcodePrintLabelSize = '80x50'/);
 assert.match(html, /barcodePrintLabelType = 'price'/);
 assert.match(html, /id="barcodePrintLabelType"/);
 assert.match(html, /รูปแบบ: ป้ายโปรโมชั่น/);
-assert.match(html, /value="60x40"[^>]*>ป้ายราคา 60 × 40 มม\. \(ค่าเริ่มต้น\)/);
+assert.match(html, /value="80x50"[^>]*>ป้ายราคา 80 × 50 มม\. \(ค่าเริ่มต้น\)/);
+assert.match(html, /barcodePrintLabelType==='promotion'\) barcodePrintLabelSize='80x50'/);
+assert.match(html, /const large=width>=80&&height>=50;/);
 assert.match(html, /data-barcode-print-page/);
 assert.match(html, /BARCODE_PRINT_PAGE_SIZE = 10/);
 assert.match(html, /\.main\.barcode-print-main\{overflow-y:hidden;\}/);
