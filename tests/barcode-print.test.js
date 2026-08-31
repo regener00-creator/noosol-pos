@@ -106,6 +106,8 @@ assert.doesNotMatch(printHtml, /฿/);
 assert.match(printHtml, /\.price\{color:#e60012;/);
 assert.match(printHtml, /class="regular-content" style="width:66%;/);
 assert.doesNotMatch(printHtml, /P-001/);
+assert.match(printHtml, /family=Noto\+Sans\+Thai:wght@400;500;600;700/);
+assert.match(printHtml, /\.label,.code,.promo-code,.promo-meta,.promo-meta small\{font-family:'Noto Sans Thai',Tahoma,sans-serif\}/);
 assert.match(printHtml, /class="barcode" style="flex:none;width:90%;height:13\.5mm;justify-content:flex-start"/);
 assert.match(printHtml, /class="code" style="width:90%;text-align:left">NEW-001<\/div>/);
 assert.match(printHtml, /NEW-001/);
