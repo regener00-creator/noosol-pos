@@ -51,7 +51,7 @@ const browserExecutable = [
   await page.waitForTimeout(500);
   await page.evaluate(() => {
     currentProfile={id:'browser-test',level:1,owner:true,firstName:'ทดสอบ'};
-    businessSettings={...DEFAULT_BUSINESS_SETTINGS,name:'ร้าน <ทดสอบ>',vat:'ยังไม่จดภาษีมูลค่าเพิ่ม',branch:'head'};
+    businessSettings={...DEFAULT_BUSINESS_SETTINGS,name:'ร้าน <ทดสอบ>',line:'@NOOSOL',vat:'ยังไม่จดภาษีมูลค่าเพิ่ม',branch:'head'};
     currentTab='settingsbusiness';
     document.getElementById('main').innerHTML=renderBusinessSettings();
     attachEvents();
@@ -60,6 +60,8 @@ const browserExecutable = [
   });
 
   assert.equal(await page.locator('#set_business_name').inputValue(), 'ร้าน <ทดสอบ>');
+  assert.equal(await page.locator('#set_business_line').inputValue(), '@NOOSOL');
+  assert.equal(await page.locator('#set_business_line').getAttribute('placeholder'), 'เช่น @NOOSOL');
   assert.equal(await page.locator('#businessVatDateRow').isHidden(), true);
   assert.equal(await page.locator('#businessTaxBranchRow').isHidden(), true);
   assert.equal(await page.locator('#topbarFormActions #saveBusinessSettingsBtn').count(), 1);

@@ -25,7 +25,7 @@ const context = {
   currentProfile: {firstName:'เภสัชกร',lastName:'ทดสอบ'},
   currentUserProfile: {},
   salesHistory: [],
-  businessSettings: {name:'ร้านยาทดสอบ',address:'1 ถนนทดสอบ',phone:'02-000-0000'},
+  businessSettings: {name:'ร้านยาทดสอบ',address:'1 ถนนทดสอบ',phone:'02-000-0000',line:'@NOOSOL'},
   STORE_INFO: {name:'PEPOS',address:'',phone:''},
   businessDocumentName: business => business.name,
   businessPrimaryPhone: business => business.phone,
@@ -105,7 +105,8 @@ assert.match(printHtml, /left:-2\.25mm;top:-2\.15mm/);
 assert.match(printHtml, /family=Noto\+Sans\+Thai/);
 assert.match(printHtml, /font-family:'Noto Sans Thai'/);
 assert.doesNotMatch(printHtml, /#4F4038|#A43A31|#F1ECE9|#2B2422/, 'หน้าพิมพ์ฉลากยาต้องใช้เฉพาะโทนขาวดำ');
-assert.match(printHtml, /<small>โทร 02-000-0000<\/small>/);
+assert.match(printHtml, /<small class="medicine-label-contact"><span>โทร : 02-000-0000<\/span><span>LINE : @NOOSOL<\/span><\/small>/);
+assert.match(printHtml, /\.medicine-label-contact\{[^}]*margin-top:\.35mm;[^}]*font-weight:700/, 'เบอร์โทรและ LINE ต้องเป็นตัวหนาและขยับลงจากชื่อร้าน');
 assert.doesNotMatch(printHtml, /1 ถนนทดสอบ/, 'ฉลากยาไม่ควรแสดงที่อยู่ร้าน');
 assert.match(printHtml, /class="medicine-label-info"/, 'ข้อมูลฉลากต้องอยู่ในกรอบตาราง');
 assert.match(printHtml, /\.medicine-label-info\{[^}]*border:\.1mm solid #111/, 'กรอบข้อมูลต้องใช้เส้นบาง');

@@ -30,6 +30,8 @@ assert.match(html, /branch:'none'/, 'ค่าเริ่มต้นต้อ�
 assert.match(html, /name="set_branch" value="none"/, 'หน้าตั้งค่าต้องมีตัวเลือกยังไม่ระบุ');
 assert.match(html, /class="form-final-actions"><button class="btn primary" id="saveBusinessSettingsBtn"/, 'ปุ่มบันทึกต้องย้ายขึ้น TOPBAR');
 assert.match(html, /value="\$\{escapeHtml\(b\.name\)\}"/, 'ชื่อธุรกิจในฟอร์มต้อง escape');
+assert.match(html, /id="set_business_line"[^>]*placeholder="เช่น @NOOSOL"/, 'หน้าตั้งค่าธุรกิจต้องมีช่อง LINE');
+assert.match(html, /line:get\('set_business_line'\)/, 'ต้องบันทึก LINE ไปกับข้อมูลธุรกิจ');
 assert.match(html, /branch=vat===VAT_REGISTERED_LABEL\?selectedBranch:'none'/, 'ร้านที่ไม่จด VAT ต้องบันทึกสาขาเป็นไม่ระบุ');
 assert.match(html, /const synced=await syncBusinessSettingsToSupabase\(\)/, 'ต้องรอผลซิงก์ก่อนแจ้งผู้ใช้');
 assert.doesNotMatch(html, /receiptBusiness\.branch==='branch'/, 'ใบเสร็จต้องใช้กติกาสาขากลาง');
