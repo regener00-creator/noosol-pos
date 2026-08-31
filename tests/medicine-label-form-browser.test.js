@@ -61,6 +61,7 @@ const browserExecutable = [
   assert.equal(await page.locator('label', {has:page.locator('#medicineLabelPharmacist')}).locator('span').textContent(), 'เภสัชกร *');
   assert.equal(await page.locator('.medicine-label-option-group legend').first().textContent(), 'ก่อน / หลังอาหาร');
   assert.equal(await page.locator('.medicine-label-warning-group legend').textContent(), 'เพิ่มเติม / ข้อควรระวัง');
+  assert.equal(await page.locator('.medicine-label-quick-title').count(), 0, 'ต้องไม่มีหัวข้อเพิ่มคำเตือน');
   assert.equal(await page.locator('#medicineLabelWarning').isVisible(), true, 'ช่องเพิ่มเติมและข้อควรระวังต้องพิมพ์ข้อความได้โดยตรง');
   assert.equal(await page.locator('#medicineLabelWarningPresetManager').isHidden(), true);
   assert.equal(await page.locator('#medicineLabelDirections').count(), 0, 'ต้องไม่มีช่องวิธีใช้ยาแบบข้อความ');

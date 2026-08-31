@@ -210,7 +210,8 @@ assert.match(html, /<span>เภสัชกร \*<\/span><input id="medicineLab
 assert.match(html, /<legend>ก่อน \/ หลังอาหาร<\/legend>/, 'หัวข้อก่อนหรือหลังอาหารต้องอยู่บนเส้นกรอบ');
 assert.match(html, /medicine-label-warning-group"><legend>เพิ่มเติม \/ ข้อควรระวัง<\/legend>/, 'เพิ่มเติมและข้อควรระวังต้องอยู่บนเส้นกรอบ');
 assert.match(html, /<textarea id="medicineLabelWarning" placeholder="พิมพ์ข้อความเพิ่มเติมหรือข้อควรระวังของฉลากนี้">/, 'ต้องพิมพ์ข้อความเพิ่มเติมหรือข้อควรระวังเองได้');
-assert.match(html, /medicine-label-warning-quick-head"><div class="medicine-label-quick-title">เพิ่มคำเตือน<\/div>/, 'เครื่องมือเพิ่มข้อความต้องอยู่แถวเดียวกับหัวข้อเพิ่มคำเตือน');
+assert.match(html, /medicine-label-warning-quick-head"><div class="medicine-label-warning-preset-add">/, 'เครื่องมือ Quick Use ต้องอยู่ต่อจากช่องข้อความ');
+assert.doesNotMatch(html, /class="medicine-label-quick-title">เพิ่มคำเตือน<\/div>/, 'ต้องไม่มีหัวข้อเพิ่มคำเตือน');
 assert.match(html, /id="medicineLabelWarningPresetNew"/, 'ต้องเพิ่มคำเตือน Quick Use เองได้');
 assert.match(html, /id="medicineLabelWarningPresetAdd"[^>]*>เพิ่มข้อความ<\/button>/, 'ปุ่มเพิ่มข้อความต้องอยู่ในส่วน Quick Use');
 assert.match(html, /id="medicineLabelWarningPresetManage"/, 'ต้องมีปุ่มจัดการคำเตือน Quick Use');

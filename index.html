@@ -1274,15 +1274,13 @@
   .medicine-label-inline-unit{width:82px;padding:5px 7px;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--text);font:13px 'Sarabun',sans-serif;}
   .medicine-label-inline-number:disabled{background:var(--bg);color:var(--text-muted);}
   .medicine-label-inline-unit:disabled{background:var(--bg);color:var(--text-muted);}
-  .medicine-label-quick-title{margin:14px 0 7px;font-size:12.5px;font-weight:700;}
   .medicine-label-quick-list{display:flex;flex-wrap:wrap;gap:7px;}
   .medicine-label-quick{border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);padding:7px 9px;font:12px 'Sarabun',sans-serif;cursor:pointer;text-align:left;}
   .medicine-label-quick:hover{border-color:var(--primary);background:var(--primary-soft);color:var(--primary);}
   .medicine-label-warning-group{grid-column:1/-1;padding:10px 12px 12px;}
   .medicine-label-warning-group>textarea{width:100%;min-height:66px;resize:vertical;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);padding:9px 11px;font:13.5px 'Sarabun',sans-serif;line-height:1.45;}
   .medicine-label-warning-group>textarea:focus,.medicine-label-warning-preset-add input:focus{outline:2px solid var(--primary);outline-offset:1px;}
-  .medicine-label-warning-quick-head{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px;margin:11px 0 8px;}
-  .medicine-label-warning-quick-head .medicine-label-quick-title{margin:0;white-space:nowrap;}
+  .medicine-label-warning-quick-head{margin:11px 0 8px;}
   .medicine-label-warning-preset-add{display:grid;grid-template-columns:minmax(150px,1fr) auto auto;gap:7px;}
   .medicine-label-warning-preset-add input{min-width:0;width:100%;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);padding:8px 10px;font:13px 'Sarabun',sans-serif;}
   .medicine-label-warning-preset-add button{border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--primary);padding:8px 12px;font:600 12px 'Sarabun',sans-serif;cursor:pointer;white-space:nowrap;}
@@ -1301,7 +1299,7 @@
   .medicine-label-safety{margin-top:14px;padding:10px 12px;border-radius:9px;background:#FFF7E8;color:#805100;font-size:12px;line-height:1.45;}
   .medicine-label-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px;}
   .sale-medicine-label-summary{display:block;margin-top:4px;color:var(--primary);font-size:11px;font-weight:600;}
-  @media (max-width:720px){.medicine-label-grid{grid-template-columns:1fr;}.medicine-label-field.wide{grid-column:auto;}.medicine-label-dose-fields{grid-column:auto;grid-template-columns:1fr;}.medicine-label-option-group{grid-column:auto;}.medicine-label-unit-manager{grid-column:auto;}.medicine-label-unit-manager-head{align-items:flex-start;flex-direction:column;gap:2px;}.medicine-label-warning-quick-head{grid-template-columns:1fr;gap:7px;}.medicine-label-warning-preset-add{grid-template-columns:1fr 1fr;}.medicine-label-warning-preset-add input{grid-column:1/-1;}.medicine-label-warning-preset-row{grid-template-columns:1fr;}.medicine-label-warning-preset-row-actions{justify-content:flex-end;}}
+  @media (max-width:720px){.medicine-label-grid{grid-template-columns:1fr;}.medicine-label-field.wide{grid-column:auto;}.medicine-label-dose-fields{grid-column:auto;grid-template-columns:1fr;}.medicine-label-option-group{grid-column:auto;}.medicine-label-unit-manager{grid-column:auto;}.medicine-label-unit-manager-head{align-items:flex-start;flex-direction:column;gap:2px;}.medicine-label-warning-preset-add{grid-template-columns:1fr 1fr;}.medicine-label-warning-preset-add input{grid-column:1/-1;}.medicine-label-warning-preset-row{grid-template-columns:1fr;}.medicine-label-warning-preset-row-actions{justify-content:flex-end;}}
   .fav-check{display:flex;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:13.5px;cursor:pointer;}
   .fav-add-box{position:relative;padding:0 16px 12px;}
   .fav-add-box input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13.5px;background:var(--surface);}
@@ -3367,7 +3365,7 @@ function openMedicineLabelEditor(lineId){
         <fieldset class="medicine-label-option-group"><legend>ช่วงเวลารับประทาน</legend><div class="medicine-label-options">${MEDICINE_LABEL_TIME_OPTIONS.map(option=>`<label class="medicine-label-option"><input type="checkbox" name="medicineLabelDoseTime" value="${option.value}" ${draft.doseTimes.includes(option.value)?'checked':''}>${option.label}</label>`).join('')}</div></fieldset>
         <fieldset class="medicine-label-option-group medicine-label-warning-group"><legend>เพิ่มเติม / ข้อควรระวัง</legend>
           <textarea id="medicineLabelWarning" placeholder="พิมพ์ข้อความเพิ่มเติมหรือข้อควรระวังของฉลากนี้">${escapeHtml(draft.warning)}</textarea>
-          <div class="medicine-label-warning-quick-head"><div class="medicine-label-quick-title">เพิ่มคำเตือน</div><div class="medicine-label-warning-preset-add"><input id="medicineLabelWarningPresetNew" maxlength="180" placeholder="เพิ่มคำ Quick Use ใหม่" autocomplete="off"><button class="add" id="medicineLabelWarningPresetAdd" type="button">เพิ่มข้อความ</button><button id="medicineLabelWarningPresetManage" type="button" aria-expanded="false">จัดการ</button></div></div>
+          <div class="medicine-label-warning-quick-head"><div class="medicine-label-warning-preset-add"><input id="medicineLabelWarningPresetNew" maxlength="180" placeholder="เพิ่มคำ Quick Use ใหม่" autocomplete="off"><button class="add" id="medicineLabelWarningPresetAdd" type="button">เพิ่มข้อความ</button><button id="medicineLabelWarningPresetManage" type="button" aria-expanded="false">จัดการ</button></div></div>
           <div class="medicine-label-quick-list" id="medicineLabelWarningQuickList"></div>
           <section class="medicine-label-warning-preset-manager" id="medicineLabelWarningPresetManager" hidden><div class="medicine-label-warning-preset-list" id="medicineLabelWarningPresetList"></div></section>
         </fieldset>
@@ -3456,7 +3454,7 @@ function openMedicineLabelEditor(lineId){
     if(!warning){ showToast('กรุณาพิมพ์คำเตือน Quick Use','danger-top'); warningPresetNewInput.focus(); return; }
     const stored=getMedicineLabelWarningPresets(),existingPreset=stored.find(value=>value.toLocaleLowerCase('th-TH')===warning.toLocaleLowerCase('th-TH'));
     if(existingPreset) showToast('มีคำเตือน Quick Use นี้อยู่แล้ว');
-    else{ saveMedicineLabelWarningPresets([...stored,warning]); renderMedicineLabelWarningPresets(); showToast(`เพิ่มคำเตือน “${warning}” แล้ว`); }
+    else{ saveMedicineLabelWarningPresets([...stored,warning]); renderMedicineLabelWarningPresets(); showToast(`บันทึก Quick Use “${warning}” แล้ว`); }
     warningPresetNewInput.value=''; warningPresetNewInput.focus();
   };
   overlay.querySelector('#medicineLabelWarningPresetAdd').onclick=addMedicineLabelWarningPreset;
