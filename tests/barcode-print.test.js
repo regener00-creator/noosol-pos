@@ -27,8 +27,9 @@ const context = {
   PRICE_LABEL_ELEMENT_META: {name:{label:'ชื่อสินค้า'},unit:{label:'หน่วย'},price:{label:'ราคา'},barcode:{label:'บาร์โค้ด'},code:{label:'เลขบาร์โค้ด'}},
   PRICE_LABEL_TEXT_COLORS: ['#000000','#e60012'],
   PRICE_LABEL_PRESET_LABELS: {left:'ชิดซ้าย / เว้นด้านขวา',full:'เต็มพื้นที่',center:'เน้นราคากึ่งกลาง',custom:'กำหนดเอง'},
-  businessSettings: {priceLabelTemplates:{}},
+  businessSettings: {priceLabelTemplates:{},priceLabelTemplateLibraries:{}},
   priceLabelTemplateSyncPromise: Promise.resolve(),
+  priceLabelNamedTemplateCounter: 0,
   TODAY_STR: '2026-08-21',
   promotions: [],
   categories: ['ยา'],
@@ -144,6 +145,22 @@ assert.match(printHtml, /<section class="label" style="padding:0">/);
 assert.match(printHtml, /data-price-label-element="price"[^>]*left:35%;[^>]*background:#e60012;color:#ffffff;/);
 assert.match(printHtml, /data-price-label-custom-text="sale-note"[^>]*background:#000000;color:#ffffff;[^>]*>สินค้าขายดี<\/div>/);
 assert.match(printHtml, /\.price-label-print-element\{-webkit-print-color-adjust:exact;print-color-adjust:exact\}/);
+const namedOne = context.saveNamedPriceLabelTemplate('80x50','หน้าชั้นยา',savedTemplate);
+const secondDraft = {...savedTemplate,elements:{...savedTemplate.elements,price:{...savedTemplate.elements.price,x:5,color:'#000000',reverse:false}}};
+const namedTwo = context.saveNamedPriceLabelTemplate('80x50','ป้ายราคาดำ',secondDraft,'',{activate:false});
+let templateLibrary = context.getPriceLabelTemplateLibrary('80x50');
+assert.equal(templateLibrary.templates.length,2);
+assert.equal(templateLibrary.activeId,namedOne.id);
+assert.equal(context.getPriceLabelTemplate('80x50').elements.price.x,35);
+assert.equal(context.saveNamedPriceLabelTemplate('80x50','หน้าชั้นยา',secondDraft),null,'ห้ามบันทึกชื่อแม่แบบซ้ำ');
+context.saveNamedPriceLabelTemplate('80x50','ป้ายราคาดำ',secondDraft,namedTwo.id);
+templateLibrary = context.getPriceLabelTemplateLibrary('80x50');
+assert.equal(templateLibrary.activeId,namedTwo.id);
+assert.equal(context.getPriceLabelTemplate('80x50').elements.price.x,5);
+const deletedTemplate = context.deleteNamedPriceLabelTemplate('80x50',namedTwo.id);
+assert.equal(deletedTemplate.library.templates.length,1);
+assert.equal(deletedTemplate.library.activeId,namedOne.id);
+assert.equal(context.getPriceLabelTemplate('80x50').elements.price.x,35);
 
 context.promotions = [];
 const noPromotionErrors = context.barcodePrintValidation([{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:1}],'promotion');
