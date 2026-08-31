@@ -1233,9 +1233,9 @@
   .pos-med-label-btn.active{border-color:var(--primary);background:var(--primary);color:#fff;}
   .pos-med-label-summary{display:block;margin-top:4px;color:var(--primary);font-size:10.5px;line-height:1.35;}
   .medicine-label-modal{width:min(720px,calc(100vw - 28px));max-height:92vh;overflow-y:auto;}
-  .medicine-label-product{margin:0 18px 14px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--primary-soft);}
-  .medicine-label-product b{display:block;font-size:15px;}
-  .medicine-label-product span{display:block;margin-top:3px;color:var(--text-muted);font-size:12px;}
+  .medicine-label-product{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 18px 14px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--primary-soft);}
+  .medicine-label-product b{min-width:0;font-size:15px;overflow-wrap:anywhere;}
+  .medicine-label-product span{flex:0 0 auto;color:var(--text-muted);font-size:12px;white-space:nowrap;}
   .medicine-label-form{padding:0 18px 18px;}
   .medicine-label-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
   .medicine-label-field{display:flex;flex-direction:column;gap:6px;}
@@ -1278,10 +1278,23 @@
   .medicine-label-quick-list{display:flex;flex-wrap:wrap;gap:7px;}
   .medicine-label-quick{border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);padding:7px 9px;font:12px 'Sarabun',sans-serif;cursor:pointer;text-align:left;}
   .medicine-label-quick:hover{border-color:var(--primary);background:var(--primary-soft);color:var(--primary);}
+  .medicine-label-warning-group{grid-column:1/-1;padding:10px 12px 12px;}
+  .medicine-label-warning-add{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;margin-bottom:9px;}
+  .medicine-label-warning-add input,.medicine-label-warning-row input{min-width:0;width:100%;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);padding:8px 10px;font:13px 'Sarabun',sans-serif;}
+  .medicine-label-warning-add input:focus,.medicine-label-warning-row input:focus{outline:2px solid var(--primary);outline-offset:1px;}
+  .medicine-label-warning-add button{border:0;border-radius:8px;background:var(--primary);color:#fff;padding:8px 14px;font:600 12.5px 'Sarabun',sans-serif;cursor:pointer;white-space:nowrap;}
+  .medicine-label-warning-list{display:flex;flex-direction:column;gap:6px;margin-top:9px;}
+  .medicine-label-warning-empty{padding:8px 10px;border:1px dashed var(--border);border-radius:8px;color:var(--text-muted);font-size:12px;text-align:center;}
+  .medicine-label-warning-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;}
+  .medicine-label-warning-row-actions{display:flex;gap:5px;}
+  .medicine-label-warning-row-actions button{min-width:30px;height:34px;border:1px solid var(--border);border-radius:7px;background:#fff;color:var(--text);font:600 12px 'Sarabun',sans-serif;cursor:pointer;}
+  .medicine-label-warning-row-actions button:hover:not(:disabled){border-color:var(--primary);color:var(--primary);background:var(--primary-soft);}
+  .medicine-label-warning-row-actions button:disabled{opacity:.35;cursor:not-allowed;}
+  .medicine-label-warning-row-actions .delete{padding:0 8px;color:var(--danger);}
   .medicine-label-safety{margin-top:14px;padding:10px 12px;border-radius:9px;background:#FFF7E8;color:#805100;font-size:12px;line-height:1.45;}
   .medicine-label-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:16px;}
   .sale-medicine-label-summary{display:block;margin-top:4px;color:var(--primary);font-size:11px;font-weight:600;}
-  @media (max-width:720px){.medicine-label-grid{grid-template-columns:1fr;}.medicine-label-field.wide{grid-column:auto;}.medicine-label-dose-fields{grid-column:auto;grid-template-columns:1fr;}.medicine-label-option-group{grid-column:auto;}.medicine-label-unit-manager{grid-column:auto;}.medicine-label-unit-manager-head{align-items:flex-start;flex-direction:column;gap:2px;}}
+  @media (max-width:720px){.medicine-label-grid{grid-template-columns:1fr;}.medicine-label-field.wide{grid-column:auto;}.medicine-label-dose-fields{grid-column:auto;grid-template-columns:1fr;}.medicine-label-option-group{grid-column:auto;}.medicine-label-unit-manager{grid-column:auto;}.medicine-label-unit-manager-head{align-items:flex-start;flex-direction:column;gap:2px;}.medicine-label-warning-add{grid-template-columns:1fr;}.medicine-label-warning-row{grid-template-columns:1fr;}.medicine-label-warning-row-actions{justify-content:flex-end;}}
   .fav-check{display:flex;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:13.5px;cursor:pointer;}
   .fav-add-box{position:relative;padding:0 16px 12px;}
   .fav-add-box input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13.5px;background:var(--surface);}
@@ -3295,15 +3308,16 @@ function openMedicineLabelEditor(lineId){
     warning:existing?.warning||'',
     pharmacistName:existing?.pharmacistName||currentPharmacistName(),
   };
+  let medicineLabelWarningItems=String(draft.warning||'').split('\n').map(value=>value.trim()).filter(Boolean);
   const doseUnits=savedDoseUnits.includes(draft.doseUnit)?savedDoseUnits:[draft.doseUnit,...savedDoseUnits];
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal medicine-label-modal"><div class="modal-head"><h3>จัดทำฉลากยา</h3><button class="modal-close" type="button">×</button></div>
     <div class="medicine-label-product"><b>${escapeHtml(line.name||'รายการยา')}</b><span>จำนวน ${escapeHtml(line.qty)} ${escapeHtml(line.unit||'หน่วย')}</span></div>
     <form class="medicine-label-form" id="medicineLabelForm">
       <div class="medicine-label-grid">
-        <label class="medicine-label-field wide"><span>ชื่อยา / ความแรงบนฉลาก *</span><input id="medicineLabelDrugName" value="${escapeHtml(draft.drugName)}" autocomplete="off" required></label>
+        <label class="medicine-label-field wide"><span>ชื่อยา *</span><input id="medicineLabelDrugName" value="${escapeHtml(draft.drugName)}" autocomplete="off" required></label>
         <label class="medicine-label-field"><span>ชื่อผู้รับยา *</span><input id="medicineLabelPatient" value="${escapeHtml(draft.patientName)}" autocomplete="off" required></label>
-        <label class="medicine-label-field"><span>เภสัชกรผู้จ่ายยา *</span><input id="medicineLabelPharmacist" value="${escapeHtml(draft.pharmacistName)}" autocomplete="off" required></label>
+        <label class="medicine-label-field"><span>เภสัชกร *</span><input id="medicineLabelPharmacist" value="${escapeHtml(draft.pharmacistName)}" autocomplete="off" required></label>
         <label class="medicine-label-field"><span>ข้อบ่งใช้ *</span><input id="medicineLabelIndication" value="${escapeHtml(draft.indication)}" placeholder="เช่น แก้ปวด ลดไข้" autocomplete="off" required></label>
         <label class="medicine-label-field"><span>ขนาดฉลาก</span><select id="medicineLabelSize">${Object.entries(MEDICINE_LABEL_SIZES).map(([value,option])=>`<option value="${value}" ${value===medicineLabelSize?'selected':''}>${option.label}</option>`).join('')}</select></label>
         <div class="medicine-label-dose-fields">
@@ -3317,16 +3331,20 @@ function openMedicineLabelEditor(lineId){
           <div class="medicine-label-unit-add"><input id="medicineLabelDoseUnitNew" maxlength="40" placeholder="เช่น หลอด หรือ ซีซี" autocomplete="off"><button id="medicineLabelDoseUnitAdd" type="button">เพิ่มหน่วย</button></div>
           <div class="medicine-label-unit-list" id="medicineLabelDoseUnitList"></div>
         </section>
-        <fieldset class="medicine-label-option-group"><legend>ก่อน/หลังอาหาร หรือทุกกี่ชั่วโมง/นาที</legend><div class="medicine-label-options">
+        <fieldset class="medicine-label-option-group"><legend>ก่อน / หลังอาหาร</legend><div class="medicine-label-options">
           <label class="medicine-label-option"><input type="checkbox" name="medicineLabelMealTiming" value="before" ${draft.mealTiming==='before'?'checked':''}>ก่อนอาหาร</label>
           <label class="medicine-label-option"><input type="checkbox" name="medicineLabelMealTiming" value="after" ${draft.mealTiming==='after'?'checked':''}>หลังอาหาร</label>
           <span class="medicine-label-every-hours"><label class="medicine-label-option"><input type="checkbox" id="medicineLabelEveryIntervalEnabled" ${draft.intervalValue?'checked':''}>ทุก</label><input class="medicine-label-inline-number" id="medicineLabelIntervalValue" type="number" min="1" step="1" value="${escapeHtml(draft.intervalValue)}" inputmode="numeric" aria-label="จำนวนช่วงเวลา" ${draft.intervalValue?'required':'disabled'}><select class="medicine-label-inline-unit" id="medicineLabelIntervalUnit" aria-label="หน่วยช่วงเวลา" ${draft.intervalValue?'':'disabled'}><option value="hours" ${draft.intervalUnit==='hours'?'selected':''}>ชั่วโมง</option><option value="minutes" ${draft.intervalUnit==='minutes'?'selected':''}>นาที</option></select></span>
         </div></fieldset>
         <fieldset class="medicine-label-option-group"><legend>ช่วงเวลารับประทาน</legend><div class="medicine-label-options">${MEDICINE_LABEL_TIME_OPTIONS.map(option=>`<label class="medicine-label-option"><input type="checkbox" name="medicineLabelDoseTime" value="${option.value}" ${draft.doseTimes.includes(option.value)?'checked':''}>${option.label}</label>`).join('')}</div></fieldset>
-        <label class="medicine-label-field wide"><span>คำแนะนำหรือคำเตือน</span><textarea id="medicineLabelWarning" placeholder="ระบุเมื่อจำเป็น">${escapeHtml(draft.warning)}</textarea></label>
+        <fieldset class="medicine-label-option-group medicine-label-warning-group"><legend>เพิ่มเติม / ข้อควรระวัง</legend>
+          <div class="medicine-label-warning-add"><input id="medicineLabelWarningNew" maxlength="180" placeholder="พิมพ์ข้อความที่ต้องการเพิ่ม" autocomplete="off"><button id="medicineLabelWarningAdd" type="button">เพิ่มข้อความ</button></div>
+          <div class="medicine-label-quick-title">เพิ่มคำเตือน</div>
+          <div class="medicine-label-quick-list">${MEDICINE_LABEL_WARNING_PRESETS.map((text,index)=>`<button class="medicine-label-quick" type="button" data-medicine-warning="${index}">${escapeHtml(text)}</button>`).join('')}</div>
+          <textarea id="medicineLabelWarning" hidden>${escapeHtml(draft.warning)}</textarea>
+          <div class="medicine-label-warning-list" id="medicineLabelWarningList"></div>
+        </fieldset>
       </div>
-      <div class="medicine-label-quick-title">เพิ่มคำเตือน</div>
-      <div class="medicine-label-quick-list">${MEDICINE_LABEL_WARNING_PRESETS.map((text,index)=>`<button class="medicine-label-quick" type="button" data-medicine-warning="${index}">${escapeHtml(text)}</button>`).join('')}</div>
       <div class="medicine-label-safety">เภสัชกรต้องตรวจสอบชื่อยา ขนาดต่อครั้ง หน่วย ระยะเวลา ช่วงรับประทานหรือความถี่เป็นชั่วโมง/นาที และคำเตือนก่อนพิมพ์ ระบบจะไม่กำหนดวิธีใช้ยาให้เอง</div>
       <div class="medicine-label-actions">${existing?'<button class="btn ghost" type="button" id="removeMedicineLabelBtn">นำฉลากออก</button>':''}<button class="btn ghost" type="button" id="cancelMedicineLabelBtn">ยกเลิก</button><button class="btn primary" type="submit">บันทึกฉลากยา</button></div>
     </form></div>`;
@@ -3390,10 +3408,43 @@ function openMedicineLabelEditor(lineId){
   const everyIntervalToggle=overlay.querySelector('#medicineLabelEveryIntervalEnabled'),intervalValueInput=overlay.querySelector('#medicineLabelIntervalValue'),intervalUnitField=overlay.querySelector('#medicineLabelIntervalUnit');
   const syncIntervalField=()=>{ intervalValueInput.disabled=!everyIntervalToggle.checked; intervalValueInput.required=everyIntervalToggle.checked; intervalUnitField.disabled=!everyIntervalToggle.checked; if(!everyIntervalToggle.checked) intervalValueInput.value=''; };
   everyIntervalToggle.onchange=()=>{ syncIntervalField(); if(everyIntervalToggle.checked) intervalValueInput.focus(); }; syncIntervalField();
-  overlay.querySelectorAll('[data-medicine-warning]').forEach(button=>button.onclick=()=>{
-    const field=overlay.querySelector('#medicineLabelWarning'),text=MEDICINE_LABEL_WARNING_PRESETS[Number(button.dataset.medicineWarning)]||'';
-    if(!text) return; const values=String(field.value||'').split('\n').map(value=>value.trim()).filter(Boolean); if(!values.includes(text)) values.push(text); field.value=values.join('\n');
-  });
+  const warningField=overlay.querySelector('#medicineLabelWarning'),warningList=overlay.querySelector('#medicineLabelWarningList'),warningNewInput=overlay.querySelector('#medicineLabelWarningNew');
+  const warningValues=()=>medicineLabelWarningItems.map(value=>String(value||'').trim()).filter(Boolean);
+  const syncWarningField=()=>{ warningField.value=warningValues().join('\n'); };
+  const syncWarningRows=()=>{ medicineLabelWarningItems=[...warningList.querySelectorAll('[data-medicine-warning-input]')].map(input=>input.value); syncWarningField(); };
+  const renderMedicineLabelWarnings=(focusIndex=-1)=>{
+    warningList.innerHTML=medicineLabelWarningItems.length
+      ?medicineLabelWarningItems.map((text,index)=>`<div class="medicine-label-warning-row" data-medicine-warning-row="${index}"><input data-medicine-warning-input="${index}" value="${escapeHtml(text)}" maxlength="180" aria-label="ข้อความเพิ่มเติมหรือข้อควรระวัง ${index+1}"><div class="medicine-label-warning-row-actions"><button type="button" data-medicine-warning-action="up" aria-label="เลื่อนข้อความขึ้น" ${index===0?'disabled':''}>↑</button><button type="button" data-medicine-warning-action="down" aria-label="เลื่อนข้อความลง" ${index===medicineLabelWarningItems.length-1?'disabled':''}>↓</button><button class="delete" type="button" data-medicine-warning-action="delete" aria-label="ลบข้อความ">ลบ</button></div></div>`).join('')
+      :'<div class="medicine-label-warning-empty">ยังไม่มีข้อความเพิ่มเติมหรือข้อควรระวัง</div>';
+    syncWarningField();
+    if(focusIndex>=0) setTimeout(()=>warningList.querySelector(`[data-medicine-warning-input="${focusIndex}"]`)?.focus(),0);
+  };
+  const addMedicineLabelWarning=text=>{
+    const warning=String(text||'').trim();
+    if(!warning){ showToast('กรุณาพิมพ์ข้อความที่ต้องการเพิ่ม','danger-top'); warningNewInput.focus(); return; }
+    syncWarningRows();
+    if(warningValues().some(value=>value.toLocaleLowerCase('th-TH')===warning.toLocaleLowerCase('th-TH'))){ showToast('มีข้อความนี้อยู่แล้ว'); return; }
+    medicineLabelWarningItems.push(warning); warningNewInput.value=''; renderMedicineLabelWarnings(medicineLabelWarningItems.length-1);
+  };
+  overlay.querySelector('#medicineLabelWarningAdd').onclick=()=>addMedicineLabelWarning(warningNewInput.value);
+  warningNewInput.onkeydown=event=>{ if(event.key==='Enter'){ event.preventDefault(); addMedicineLabelWarning(warningNewInput.value); } };
+  overlay.querySelectorAll('[data-medicine-warning]').forEach(button=>button.onclick=()=>addMedicineLabelWarning(MEDICINE_LABEL_WARNING_PRESETS[Number(button.dataset.medicineWarning)]||''));
+  warningList.oninput=event=>{ const input=event.target.closest('[data-medicine-warning-input]'); if(!input) return; medicineLabelWarningItems[Number(input.dataset.medicineWarningInput)]=input.value; syncWarningField(); };
+  warningList.onclick=event=>{
+    const button=event.target.closest('[data-medicine-warning-action]'); if(!button||button.disabled) return;
+    syncWarningRows();
+    const row=button.closest('[data-medicine-warning-row]'),index=Number(row?.dataset.medicineWarningRow),action=button.dataset.medicineWarningAction;
+    if(!Number.isInteger(index)||index<0||index>=medicineLabelWarningItems.length) return;
+    let focusIndex=index;
+    if(action==='delete') medicineLabelWarningItems.splice(index,1);
+    else{
+      const target=action==='up'?index-1:index+1;
+      if(target<0||target>=medicineLabelWarningItems.length) return;
+      [medicineLabelWarningItems[index],medicineLabelWarningItems[target]]=[medicineLabelWarningItems[target],medicineLabelWarningItems[index]]; focusIndex=target;
+    }
+    renderMedicineLabelWarnings(action==='delete'?Math.min(index,medicineLabelWarningItems.length-1):focusIndex);
+  };
+  renderMedicineLabelWarnings();
   const removeButton=overlay.querySelector('#removeMedicineLabelBtn');
   if(removeButton) removeButton.onclick=()=>{ delete line.dispensingLabel; close(); showToast(`นำฉลากยา “${line.name}” ออกจากบิลแล้ว`); render(); };
   overlay.querySelector('#medicineLabelForm').onsubmit=event=>{
@@ -3405,6 +3456,7 @@ function openMedicineLabelEditor(lineId){
     const durationValid=durationMode!=='days'||(Number.isInteger(Number(durationDays))&&Number(durationDays)>=1);
     const intervalValid=!everyIntervalToggle.checked||(Number.isInteger(Number(intervalValue))&&Number(intervalValue)>=1&&['hours','minutes'].includes(intervalUnit));
     if(!(Number(doseAmount)>0)||!doseUnit||!MEDICINE_LABEL_DURATION_OPTIONS.some(option=>option.value===durationMode)||!durationValid||!intervalValid||(!doseTimes.length&&!intervalValue)){ showToast('กรุณาระบุขนาดต่อครั้ง หน่วย ระยะเวลา และเลือกช่วงเวลารับประทานหรือกรอกความถี่เป็นชั่วโมง/นาที','danger-top'); return; }
+    syncWarningRows();
     const label=normalizeDispensingLabel({
       enabled:true,
       drugName:overlay.querySelector('#medicineLabelDrugName').value,
@@ -3418,7 +3470,7 @@ function openMedicineLabelEditor(lineId){
       intervalValue,
       intervalUnit,
       doseTimes,
-      warning:overlay.querySelector('#medicineLabelWarning').value,
+      warning:warningValues().join('\n'),
       pharmacistName:overlay.querySelector('#medicineLabelPharmacist').value,
     });
     if(!label){ showToast('กรุณากรอกข้อมูลฉลากยาให้ครบ','danger-top'); return; }

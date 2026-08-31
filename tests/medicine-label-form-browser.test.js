@@ -50,6 +50,17 @@ const browserExecutable = [
     openMedicineLabelEditor(501);
   });
 
+  const productLine = await page.locator('.medicine-label-product').evaluate(element => {
+    const name = element.querySelector('b').getBoundingClientRect();
+    const quantity = element.querySelector('span').getBoundingClientRect();
+    return {nameTop:name.top,quantityTop:quantity.top,text:element.textContent};
+  });
+  assert.ok(Math.abs(productLine.nameTop - productLine.quantityTop) < 5, 'ชื่อสินค้าและจำนวนต้องอยู่แถวเดียวกัน');
+  assert.match(productLine.text, /Paracetamol 500 mg.*จำนวน 1 กล่อง/s);
+  assert.equal(await page.locator('label', {has:page.locator('#medicineLabelDrugName')}).locator('span').textContent(), 'ชื่อยา *');
+  assert.equal(await page.locator('label', {has:page.locator('#medicineLabelPharmacist')}).locator('span').textContent(), 'เภสัชกร *');
+  assert.equal(await page.locator('.medicine-label-option-group legend').first().textContent(), 'ก่อน / หลังอาหาร');
+  assert.equal(await page.locator('.medicine-label-warning-group legend').textContent(), 'เพิ่มเติม / ข้อควรระวัง');
   assert.equal(await page.locator('#medicineLabelDirections').count(), 0, 'ต้องไม่มีช่องวิธีใช้ยาแบบข้อความ');
   assert.equal(await page.locator('#medicineLabelDoseAmount').count(), 1);
   assert.equal(await page.locator('#medicineLabelDoseUnit').count(), 1);
@@ -98,7 +109,16 @@ const browserExecutable = [
   await page.locator('input[name="medicineLabelDoseTime"][value="morning"]').check();
   await page.locator('input[name="medicineLabelDoseTime"][value="noon"]').check();
   await page.locator('input[name="medicineLabelDoseTime"][value="evening"]').check();
-  await page.locator('#medicineLabelWarning').fill('อาจทำให้ง่วง');
+  await page.locator('#medicineLabelWarningNew').fill('เก็บให้พ้นมือเด็ก');
+  await page.locator('#medicineLabelWarningAdd').click();
+  await page.locator('[data-medicine-warning="0"]').click();
+  assert.deepEqual(await page.locator('[data-medicine-warning-input]').evaluateAll(inputs => inputs.map(input => input.value)), ['เก็บให้พ้นมือเด็ก','อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร']);
+  await page.locator('[data-medicine-warning-row="1"] [data-medicine-warning-action="up"]').click();
+  assert.deepEqual(await page.locator('[data-medicine-warning-input]').evaluateAll(inputs => inputs.map(input => input.value)), ['อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร','เก็บให้พ้นมือเด็ก'], 'ต้องเลื่อนลำดับคำเตือนได้');
+  await page.locator('[data-medicine-warning-row="1"] [data-medicine-warning-action="delete"]').click();
+  assert.deepEqual(await page.locator('[data-medicine-warning-input]').evaluateAll(inputs => inputs.map(input => input.value)), ['อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร'], 'ต้องลบคำเตือนได้');
+  await page.locator('#medicineLabelWarningNew').fill('ห้ามรับประทานพร้อมนม');
+  await page.locator('#medicineLabelWarningAdd').click();
   await page.locator('#medicineLabelForm button[type="submit"]').click();
   await page.waitForSelector('#medicineLabelForm', {state:'detached'});
 
@@ -109,6 +129,7 @@ const browserExecutable = [
   assert.equal(saved.durationDays, '7');
   assert.equal(saved.mealTiming, 'after');
   assert.deepEqual(saved.doseTimes, ['morning','noon','evening']);
+  assert.equal(saved.warning, 'อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร\nห้ามรับประทานพร้อมนม');
   assert.equal(saved.directions, 'รับประทานครั้งละ 1 เม็ด หลังอาหาร เช้า กลางวัน เย็น เป็นเวลา 7 วัน');
 
   await page.evaluate(() => openMedicineLabelEditor(501));
@@ -119,6 +140,7 @@ const browserExecutable = [
   assert.equal(await page.locator('#medicineLabelDurationDays').inputValue(), '7');
   assert.equal(await page.locator('input[name="medicineLabelMealTiming"][value="after"]').isChecked(), true);
   assert.equal(await page.locator('input[name="medicineLabelDoseTime"][value="morning"]').isChecked(), true);
+  assert.deepEqual(await page.locator('[data-medicine-warning-input]').evaluateAll(inputs => inputs.map(input => input.value)), ['อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร','ห้ามรับประทานพร้อมนม'], 'ข้อความเพิ่มเติมต้องคงลำดับเมื่อเปิดแก้ไขอีกครั้ง');
   await page.locator('#medicineLabelDurationMode').selectOption('as_needed');
   assert.equal(await page.locator('#medicineLabelDurationDaysField').isHidden(), true);
   assert.equal(await page.locator('#medicineLabelDurationDays').isDisabled(), true);

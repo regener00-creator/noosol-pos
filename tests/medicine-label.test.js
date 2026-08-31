@@ -204,6 +204,18 @@ assert.match(html, /id="medicineLabelEveryIntervalEnabled"/, 'ฟอร์มต
 assert.match(html, /id="medicineLabelIntervalValue"/, 'ฟอร์มต้องมีช่องกรอกจำนวนช่วงเวลา');
 assert.match(html, /id="medicineLabelIntervalUnit"/, 'ฟอร์มต้องเลือกหน่วยชั่วโมงหรือนาทีได้');
 assert.match(html, /name="medicineLabelDoseTime"/, 'ฟอร์มต้องมีตัวเลือกช่วงเวลารับประทาน');
+assert.match(html, /\.medicine-label-product\{display:flex;align-items:center;justify-content:space-between;/, 'ชื่อสินค้าและจำนวนต้องอยู่ในแถวเดียวกัน');
+assert.match(html, /<span>ชื่อยา \*<\/span><input id="medicineLabelDrugName"/, 'หัวข้อช่องชื่อยาต้องใช้คำสั้น');
+assert.match(html, /<span>เภสัชกร \*<\/span><input id="medicineLabelPharmacist"/, 'หัวข้อช่องเภสัชกรต้องใช้คำสั้น');
+assert.match(html, /<legend>ก่อน \/ หลังอาหาร<\/legend>/, 'หัวข้อก่อนหรือหลังอาหารต้องอยู่บนเส้นกรอบ');
+assert.match(html, /medicine-label-warning-group"><legend>เพิ่มเติม \/ ข้อควรระวัง<\/legend>/, 'เพิ่มเติมและข้อควรระวังต้องอยู่บนเส้นกรอบ');
+assert.match(html, /id="medicineLabelWarningNew"/, 'ต้องพิมพ์ข้อความเพิ่มเติมหรือข้อควรระวังเองได้');
+assert.match(html, /data-medicine-warning-action="up"/, 'ต้องเลื่อนลำดับข้อความขึ้นได้');
+assert.match(html, /data-medicine-warning-action="down"/, 'ต้องเลื่อนลำดับข้อความลงได้');
+assert.match(html, /data-medicine-warning-action="delete"/, 'ต้องลบข้อความได้');
+assert.doesNotMatch(html, /ชื่อยา \/ ความแรงบนฉลาก/, 'ต้องนำหัวข้อชื่อยาแบบเดิมออก');
+assert.doesNotMatch(html, /เภสัชกรผู้จ่ายยา/, 'ต้องนำหัวข้อเภสัชกรแบบเดิมออก');
+assert.doesNotMatch(html, /คำแนะนำหรือคำเตือน/, 'ต้องนำหัวข้อคำเตือนแบบเดิมออก');
 assert.doesNotMatch(html, /id="medicineLabelDirections"/, 'ต้องนำช่องวิธีใช้ยาแบบข้อความออก');
 assert.doesNotMatch(html, /data-medicine-direction=/, 'ต้องนำปุ่มวิธีใช้แบบข้อความออก');
 assert.match(html, /data-medicine-label-line=/, 'หน้า POS ต้องมีปุ่มจัดทำฉลากยารายการต่อรายการ');
