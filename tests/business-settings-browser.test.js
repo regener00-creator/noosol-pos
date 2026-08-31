@@ -173,6 +173,20 @@ const browserExecutable = [
   assert.equal(await page.locator('#topbarFormActions .cash-shift-topbar-action').count(),1,'ระบบต้องลบสถานะระบบชำระที่ซ้ำใน TOPBAR');
   await page.screenshot({path:path.join(os.tmpdir(),'pepos-checkout-regressions-browser.png'),fullPage:true});
 
+  await page.keyboard.press('F2');
+  assert.equal(await page.locator('.checkout-pay-modal').count(),1,'F2 ต้องเปิดหน้าต่างเก็บเงิน');
+  assert.match(await page.locator('[data-method="cash"]').innerText(),/\[F4\] เงินสด/);
+  assert.match(await page.locator('[data-method="bank"]').innerText(),/\[F9\] โอนธนาคาร/);
+  await page.keyboard.press('F4');
+  assert.equal(await page.locator('#checkoutPayTitle').innerText(),'รับชำระเงินสด','F4 ต้องเลือกเงินสด');
+  assert.equal(await page.locator('#cashDisplay').count(),1);
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('F9');
+  assert.equal(await page.locator('#checkoutPayTitle').innerText(),'ชำระด้วยการโอนธนาคาร','F9 ต้องเลือกโอนธนาคาร');
+  assert.equal(await page.locator('#bankFinishBtn').count(),1);
+  await page.locator('.checkout-pay-modal .modal-close').click();
+  assert.equal(await page.locator('.checkout-pay-modal').count(),0);
+
   await page.evaluate(() => {
     currentTab='cashshift';
     document.getElementById('topbarFormActions').innerHTML='';

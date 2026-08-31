@@ -8,9 +8,12 @@ const end = html.indexOf('function openCustomItemModal()', start);
 assert.ok(start >= 0 && end > start, 'ไม่พบหน้าต่างเลือกวิธีชำระเงิน');
 
 const paymentModal = html.slice(start, end);
-assert.match(paymentModal, /\[F2\] เงินสด/);
-assert.match(paymentModal, /\[F4\] โอนธนาคาร/);
-assert.match(paymentModal, /e\.key==='F2'\?'cash':e\.key==='F4'\?'bank'/);
+assert.match(html, /id="checkoutBtn"[^>]*>\[F2\] เก็บเงิน<\/button>/);
+assert.match(paymentModal, /\[F4\] เงินสด/);
+assert.match(paymentModal, /\[F9\] โอนธนาคาร/);
+assert.match(paymentModal, /e\.key==='F4'\?'cash':e\.key==='F9'\?'bank'/);
 assert.match(paymentModal, /if\(!e\.repeat\) content\.querySelector/);
+assert.match(html, /if\(e\.key==='F2' && currentTab==='checkout'\)[\s\S]{0,140}e\.repeat\|\|document\.querySelector\('\.modal-overlay'\)/, 'F2 ต้องเปิดหน้าชำระจาก POS เพียงครั้งเดียว');
+assert.doesNotMatch(html, /\[F9\] เก็บเงิน|\[F2\] เงินสด|\[F4\] โอนธนาคาร/, 'ต้องไม่เหลือข้อความคีย์ลัดชุดเดิม');
 
 console.log('payment shortcut tests passed');

@@ -5022,7 +5022,7 @@ function renderCheckout(){
         <div class="pos-footer">
           <button class="pos-fbtn danger" id="clearBillBtn" title="ยกเลิกออเดอร์นี้" aria-label="ยกเลิกออเดอร์"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></button>
           <button class="pos-fbtn hold" id="holdBtn">พักออเดอร์</button>
-          <button class="pos-fbtn pay" id="checkoutBtn" ${cart.length===0||!currentCashShift?'disabled':''}>[F9] เก็บเงิน</button>
+          <button class="pos-fbtn pay" id="checkoutBtn" ${cart.length===0||!currentCashShift?'disabled':''}>[F2] เก็บเงิน</button>
         </div>
         ${promoHints.length?`<div class="pos-promo-hints">${promoHints.map(h=>`<div class="pos-promo-hint"><div class="pos-promo-hint-head">💡 ${escapeHtml(h.name)} - ${escapeHtml(h.unit)}</div><div class="pos-promo-hint-body"><div><span>ชื่อโปร:</span> ${escapeHtml(h.promoName)}</div><div><span>ผลลัพธ์:</span> ${escapeHtml(h.note)}</div><div class="pos-promo-hint-nudge">ซื้อเพิ่มอีก ${h.needMore} ${escapeHtml(h.unit)} เพื่อรับสิทธิ์โปรโมชั่นนี้</div></div></div>`).join('')}</div>`:''}
       </div>
@@ -15856,13 +15856,13 @@ function openPaymentModal(){
   const renderChoice=()=>{
     stopKeyHandler();
     title.hidden=true;
-    content.innerHTML=`<div class="payment-choice-total"><span>ยอดชำระ</span><b>${fmtMoney(grand)}</b><span>บาท</span></div><div style="padding:8px 16px 18px;display:flex;flex-direction:column;gap:10px;"><button class="paymethod" data-method="cash"><span style="font-size:20px;">💵</span> [F2] เงินสด</button><button class="paymethod" data-method="bank"><span style="font-size:20px;">🏦</span> [F4] โอนธนาคาร</button><button class="paymethod" data-method="card"><span style="font-size:20px;">💳</span> บัตรเครดิต</button><button class="paymethod" data-method="online"><span style="font-size:20px;">🌐</span> ออนไลน์</button></div>`;
+    content.innerHTML=`<div class="payment-choice-total"><span>ยอดชำระ</span><b>${fmtMoney(grand)}</b><span>บาท</span></div><div style="padding:8px 16px 18px;display:flex;flex-direction:column;gap:10px;"><button class="paymethod" data-method="cash"><span style="font-size:20px;">💵</span> [F4] เงินสด</button><button class="paymethod" data-method="bank"><span style="font-size:20px;">🏦</span> [F9] โอนธนาคาร</button><button class="paymethod" data-method="card"><span style="font-size:20px;">💳</span> บัตรเครดิต</button><button class="paymethod" data-method="online"><span style="font-size:20px;">🌐</span> ออนไลน์</button></div>`;
     content.querySelector('[data-method="cash"]').onclick=renderCash;
     content.querySelector('[data-method="bank"]').onclick=renderBank;
     content.querySelector('[data-method="card"]').onclick=renderCard;
     content.querySelector('[data-method="online"]').onclick=renderOnline;
     activeKeyHandler=e=>{
-      const method=e.key==='F2'?'cash':e.key==='F4'?'bank':'';
+      const method=e.key==='F4'?'cash':e.key==='F9'?'bank':'';
       if(!method) return;
       e.preventDefault();
       if(!e.repeat) content.querySelector(`[data-method="${method}"]`)?.click();
@@ -16733,10 +16733,11 @@ document.addEventListener('mouseup', e=>{
 document.addEventListener('click', ()=>{
   if(openDocMenu){ openDocMenu=null; render(); }
 });
-// F9 = เก็บเงิน (ลัดขั้นตอนแทนการเอื้อมมือไปคลิกปุ่ม) เฉพาะตอนอยู่หน้า POS และมีสินค้าในบิลแล้วเท่านั้น
+// F2 = เก็บเงิน (ลัดขั้นตอนแทนการเอื้อมมือไปคลิกปุ่ม) เฉพาะตอนอยู่หน้า POS และมีสินค้าในบิลแล้วเท่านั้น
 document.addEventListener('keydown', e=>{
-  if(e.key==='F9' && currentTab==='checkout'){
+  if(e.key==='F2' && currentTab==='checkout'){
     e.preventDefault();
+    if(e.repeat||document.querySelector('.modal-overlay')) return;
     const btn=document.getElementById('checkoutBtn');
     if(btn && !btn.disabled) btn.click();
   }
