@@ -61,6 +61,8 @@ const browserExecutable = [
   assert.equal(await page.locator('label', {has:page.locator('#medicineLabelPharmacist')}).locator('span').textContent(), 'เภสัชกร *');
   assert.equal(await page.locator('.medicine-label-option-group legend').first().textContent(), 'ก่อน / หลังอาหาร');
   assert.equal(await page.locator('.medicine-label-warning-group legend').textContent(), 'เพิ่มเติม / ข้อควรระวัง');
+  assert.equal(await page.locator('#medicineLabelWarning').isVisible(), true, 'ช่องเพิ่มเติมและข้อควรระวังต้องพิมพ์ข้อความได้โดยตรง');
+  assert.equal(await page.locator('#medicineLabelWarningPresetManager').isHidden(), true);
   assert.equal(await page.locator('#medicineLabelDirections').count(), 0, 'ต้องไม่มีช่องวิธีใช้ยาแบบข้อความ');
   assert.equal(await page.locator('#medicineLabelDoseAmount').count(), 1);
   assert.equal(await page.locator('#medicineLabelDoseUnit').count(), 1);
@@ -109,16 +111,23 @@ const browserExecutable = [
   await page.locator('input[name="medicineLabelDoseTime"][value="morning"]').check();
   await page.locator('input[name="medicineLabelDoseTime"][value="noon"]').check();
   await page.locator('input[name="medicineLabelDoseTime"][value="evening"]').check();
-  await page.locator('#medicineLabelWarningNew').fill('เก็บให้พ้นมือเด็ก');
-  await page.locator('#medicineLabelWarningAdd').click();
-  await page.locator('[data-medicine-warning="0"]').click();
-  assert.deepEqual(await page.locator('[data-medicine-warning-input]').evaluateAll(inputs => inputs.map(input => input.value)), ['เก็บให้พ้นมือเด็ก','อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร']);
-  await page.locator('[data-medicine-warning-row="1"] [data-medicine-warning-action="up"]').click();
-  assert.deepEqual(await page.locator('[data-medicine-warning-input]').evaluateAll(inputs => inputs.map(input => input.value)), ['อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร','เก็บให้พ้นมือเด็ก'], 'ต้องเลื่อนลำดับคำเตือนได้');
-  await page.locator('[data-medicine-warning-row="1"] [data-medicine-warning-action="delete"]').click();
-  assert.deepEqual(await page.locator('[data-medicine-warning-input]').evaluateAll(inputs => inputs.map(input => input.value)), ['อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร'], 'ต้องลบคำเตือนได้');
-  await page.locator('#medicineLabelWarningNew').fill('ห้ามรับประทานพร้อมนม');
-  await page.locator('#medicineLabelWarningAdd').click();
+  await page.locator('#medicineLabelWarningPresetNew').fill('เก็บให้พ้นมือเด็ก');
+  await page.locator('#medicineLabelWarningPresetAdd').click();
+  await page.locator('#medicineLabelWarningPresetNew').fill('ห้ามรับประทานพร้อมนม');
+  await page.locator('#medicineLabelWarningPresetAdd').click();
+  await page.locator('#medicineLabelWarningPresetManage').click();
+  assert.equal(await page.locator('#medicineLabelWarningPresetManager').isVisible(), true);
+  const customWarningRow = page.locator('.medicine-label-warning-preset-row').filter({hasText:'ห้ามรับประทานพร้อมนม'});
+  await customWarningRow.locator('[data-medicine-warning-preset-action="up"]').click();
+  const removedWarningRow = page.locator('.medicine-label-warning-preset-row').filter({hasText:'เก็บให้พ้นมือเด็ก'});
+  await removedWarningRow.locator('[data-medicine-warning-preset-action="delete"]').click();
+  const managedWarningPresets = await page.locator('[data-medicine-warning-preset]').allTextContents();
+  assert.equal(managedWarningPresets.includes('เก็บให้พ้นมือเด็ก'), false, 'ต้องลบคำเตือน Quick Use ได้');
+  assert.equal(managedWarningPresets.at(-1), 'ห้ามรับประทานพร้อมนม', 'ต้องเลื่อนลำดับคำเตือน Quick Use ได้');
+  assert.deepEqual(await page.evaluate(() => businessSettings.medicineLabelWarningPresets), managedWarningPresets, 'รายการ Quick Use ต้องบันทึกในข้อมูลธุรกิจ');
+  await page.locator('#medicineLabelWarning').fill('ข้อความที่พิมพ์เอง');
+  await page.locator('[data-medicine-warning-preset]').last().click();
+  await page.locator('[data-medicine-warning-preset]').first().click();
   await page.locator('#medicineLabelForm button[type="submit"]').click();
   await page.waitForSelector('#medicineLabelForm', {state:'detached'});
 
@@ -129,7 +138,7 @@ const browserExecutable = [
   assert.equal(saved.durationDays, '7');
   assert.equal(saved.mealTiming, 'after');
   assert.deepEqual(saved.doseTimes, ['morning','noon','evening']);
-  assert.equal(saved.warning, 'อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร\nห้ามรับประทานพร้อมนม');
+  assert.equal(saved.warning, 'ข้อความที่พิมพ์เอง\nห้ามรับประทานพร้อมนม\nอาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร');
   assert.equal(saved.directions, 'รับประทานครั้งละ 1 เม็ด หลังอาหาร เช้า กลางวัน เย็น เป็นเวลา 7 วัน');
 
   await page.evaluate(() => openMedicineLabelEditor(501));
@@ -140,7 +149,8 @@ const browserExecutable = [
   assert.equal(await page.locator('#medicineLabelDurationDays').inputValue(), '7');
   assert.equal(await page.locator('input[name="medicineLabelMealTiming"][value="after"]').isChecked(), true);
   assert.equal(await page.locator('input[name="medicineLabelDoseTime"][value="morning"]').isChecked(), true);
-  assert.deepEqual(await page.locator('[data-medicine-warning-input]').evaluateAll(inputs => inputs.map(input => input.value)), ['อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร','ห้ามรับประทานพร้อมนม'], 'ข้อความเพิ่มเติมต้องคงลำดับเมื่อเปิดแก้ไขอีกครั้ง');
+  assert.equal(await page.locator('#medicineLabelWarning').inputValue(), 'ข้อความที่พิมพ์เอง\nห้ามรับประทานพร้อมนม\nอาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร', 'ข้อความเพิ่มเติมต้องคงอยู่เมื่อเปิดแก้ไขอีกครั้ง');
+  assert.deepEqual(await page.locator('[data-medicine-warning-preset]').allTextContents(), managedWarningPresets, 'คำเตือน Quick Use ที่จัดไว้ต้องคงลำดับเมื่อเปิดฉลากครั้งถัดไป');
   await page.locator('#medicineLabelDurationMode').selectOption('as_needed');
   assert.equal(await page.locator('#medicineLabelDurationDaysField').isHidden(), true);
   assert.equal(await page.locator('#medicineLabelDurationDays').isDisabled(), true);
