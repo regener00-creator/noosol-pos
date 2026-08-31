@@ -47,13 +47,15 @@ const browserExecutable = [
     currentProfile={id:'owner-test',owner:true,firstName:'เจ้าของ',lastName:'ร้าน'};
     products=[{id:9001,sku:'P-9001',name:'Decolgen prin (4 tablets)',unit:'กล่อง',barcode:'8851824336354',price:180,units:[],extraBarcodes:[],vendorBarcodes:[]}];
     barcodePrintItems=[{pid:9001,unit:'กล่อง',barcode:'8851824336354',qty:1}];
-    barcodePrintLabelType='price';
     barcodePrintLabelSize='50x30';
     businessSettings={...businessSettings,priceLabelTemplates:{},priceLabelTemplateLibraries:{}};
     main.innerHTML=renderBarcodePrint();
     attachEvents();
   });
 
+  assert.equal(await page.locator('#barcodePrintLabelType').count(),0);
+  assert.equal(await page.locator('#barcodePrintLabelSize').inputValue(),'50x30');
+  assert.match(await page.locator('.page-title-meta').textContent(),/50 × 30 มม\./);
   assert.equal(await page.locator('#openPriceLabelDesignerBtn').isVisible(), true);
   await page.locator('#openPriceLabelDesignerBtn').click();
   assert.equal(await page.locator('.price-label-designer-modal').isVisible(), true);

@@ -19,8 +19,7 @@ const context = {
   barcodePrintItems: [],
   barcodePrintCatFilter: {category:'',brand:''},
   barcodePrintSearchQuery: '',
-  barcodePrintLabelSize: '80x50',
-  barcodePrintLabelType: 'price',
+  barcodePrintLabelSize: '50x30',
   barcodePrintPage: 1,
   BARCODE_PRINT_PAGE_SIZE: 10,
   BARCODE_PRINT_LABEL_DIMENSIONS: {'80x50':[80,50],'60x40':[60,40],'50x30':[50,30],'40x30':[40,30]},
@@ -111,12 +110,12 @@ assert.match(printHtml, /ป้ายราคา 80 × 50 มม\. แนวน
 assert.match(printHtml, /สินค้าทดสอบหนึ่ง/);
 assert.match(printHtml, /data-price-label-element="price"[^>]*>120\.00<\/div>/);
 assert.doesNotMatch(printHtml, /฿/);
-assert.match(printHtml, /\.price\{color:#e60012;/);
+assert.match(printHtml, /data-price-label-element="price"[^>]*color:#e60012;/);
 assert.match(printHtml, /class="regular-layout"/);
 assert.match(printHtml, /data-price-label-element="name"[^>]*left:3%;top:4%;width:61%;/);
 assert.doesNotMatch(printHtml, /P-001/);
 assert.match(printHtml, /family=Noto\+Sans\+Thai:wght@400;500;600;700;800/);
-assert.match(printHtml, /\.label,.code,.promo-code,.promo-meta,.promo-meta small\{font-family:'Noto Sans Thai',Tahoma,sans-serif\}/);
+assert.match(printHtml, /body,.toolbar button,.label\{font-family:'Noto Sans Thai',Tahoma,sans-serif\}/);
 assert.match(printHtml, /data-price-label-element="barcode"[^>]*left:3%;top:63%;width:55%;height:25%;/);
 assert.match(printHtml, /data-price-label-element="code"[^>]*left:3%;top:90%;width:55%;height:7%;[^>]*>NEW-001<\/div>/);
 assert.match(printHtml, /NEW-001/);
@@ -151,7 +150,7 @@ assert.equal(savedTemplate.customTexts[0].text, 'สินค้าขายด�
 assert.equal(savedTemplate.customTexts[0].reverse, true);
 assert.equal(context.businessSettings.priceLabelTemplates['80x50'].elements.price.x, 35);
 printHtml = '';
-assert.equal(context.writeBarcodePrintWindow(printWindow,[{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:1}],'80x50','price'), true);
+assert.equal(context.writeBarcodePrintWindow(printWindow,[{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:1}],'80x50'), true);
 assert.match(printHtml, /<section class="label" style="padding:0">/);
 assert.match(printHtml, /data-price-label-element="price"[^>]*left:35%;[^>]*background:#e60012;color:#ffffff;/);
 assert.match(printHtml, /data-price-label-custom-text="sale-note"[^>]*background:#000000;color:#ffffff;[^>]*>สินค้าขายดี<\/div>/);
@@ -173,48 +172,24 @@ assert.equal(deletedTemplate.library.templates.length,1);
 assert.equal(deletedTemplate.library.activeId,namedOne.id);
 assert.equal(context.getPriceLabelTemplate('80x50').elements.price.x,35);
 
-context.promotions = [];
-const noPromotionErrors = context.barcodePrintValidation([{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:1}],'promotion');
-assert.equal(noPromotionErrors[0].field, 'promotion');
-assert.match(noPromotionErrors[0].message, /ไม่มีโปรโมชั่นที่ใช้งานอยู่/);
-
-context.promotions = [{id:10,name:'ลดทันที 25%',active:true,scope:'product',productId:1,unit:'กล่อง',type:'discount',discountMode:'percent',discountValue:25,startDate:'2026-08-01',endDate:'2026-08-31'}];
-const discountDetails = context.barcodePrintPromotionDetails({pid:1,unit:'กล่อง'},products[0],context.barcodePrintUnitOptions(products[0])[0]);
-assert.equal(discountDetails.price, 90);
-assert.equal(discountDetails.condition, 'ลด 25%');
-
-context.promotions = [{id:11,name:'ซื้อสองราคาพิเศษ',active:true,scope:'product',productId:1,unit:'กล่อง',type:'bundle',bundleQty:2,bundlePrice:200}];
-const bundleDetails = context.barcodePrintPromotionDetails({pid:1,unit:'กล่อง'},products[0],context.barcodePrintUnitOptions(products[0])[0]);
-assert.equal(bundleDetails.price, 200);
-assert.equal(bundleDetails.originalPrice, 240);
-assert.match(bundleDetails.condition, /ซื้อ 2 กล่อง ราคา 200\.00 บาท/);
-
-context.promotions = [{id:12,name:'ซื้อ 1 แถม 1 คละสินค้าได้',active:true,scope:'buygetdiff',type:'buygetdiff',bgdBuyProductId:1,bgdBuyUnit:'กล่อง',bgdBuyQty:1,bgdGetProductId:1,bgdGetUnit:'กล่อง',bgdGetQty:1,startDate:'2026-08-01',endDate:'2026-08-31'}];
 printHtml = '';
-assert.equal(context.writeBarcodePrintWindow(printWindow,[{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:1}],'80x50','promotion'), true);
-assert.match(printHtml, /class="label promotion"/);
-assert.match(printHtml, /<b>ซื้อ 1 แถม 1<\/b>/);
-assert.match(printHtml, /คละสินค้าได้/);
-assert.match(printHtml, /รับฟรี 1 กล่อง/);
-assert.match(printHtml, /class="promo-price">120<sup>\.00<\/sup>/);
-assert.match(printHtml, /ป้ายโปรโมชั่น 80 × 50 มม\. แนวนอน/);
+assert.equal(context.writeBarcodePrintWindow(printWindow,[{pid:1,unit:'กล่อง',barcode:'NEW-001',qty:1}]), true);
+assert.match(printHtml, /@page\{size:50mm 30mm;margin:0\}/);
+assert.match(printHtml, /ป้ายราคา 50 × 30 มม\. แนวนอน/);
+assert.doesNotMatch(printHtml, /promotion|ป้ายโปรโมชั่น/);
 
 assert.match(html, /barcodeprint:\s*renderBarcodePrint/);
 assert.match(html, /LEVEL2_HIDDEN_TABS[^\n]+barcodeprint/);
 assert.match(html, /id="savePrintBarcodeBtn"/);
 assert.match(html, /id="barcodePrintAddMissingBtn"/);
 assert.match(html, /พิมพ์ป้ายราคา/);
-assert.match(html, /พิมพ์ป้ายราคา <span class="page-title-meta">\$\{isPromotionLabel\?/);
-assert.match(html, /ค่าเริ่มต้นเป็นป้ายแนวนอน 80 × 50 มม\./);
-assert.match(html, /ป้ายโปรโมชั่นจะดึงเงื่อนไขและราคาจากโปรโมชั่นที่ใช้งานอยู่ รองรับขนาด 80 × 50 มม\. แนวนอน/);
+assert.match(html, /ค่าเริ่มต้นเป็นป้ายแนวนอน 50 × 30 มม\./);
 assert.doesNotMatch(html, /class="barcode-print-help"/);
-assert.match(html, /barcodePrintLabelSize = '80x50'/);
-assert.match(html, /barcodePrintLabelType = 'price'/);
-assert.match(html, /id="barcodePrintLabelType"/);
-assert.match(html, /รูปแบบ: ป้ายโปรโมชั่น/);
-assert.match(html, /value="80x50"[^>]*>ป้ายราคา 80 × 50 มม\. \(ค่าเริ่มต้น\)/);
-assert.match(html, /barcodePrintLabelType==='promotion'\) barcodePrintLabelSize='80x50'/);
-assert.match(html, /const large=width>=80&&height>=50;/);
+assert.match(html, /barcodePrintLabelSize = '50x30'/);
+assert.doesNotMatch(html, /id="barcodePrintLabelType"/);
+assert.doesNotMatch(html, /barcodePrintPromotionDetails|barcodePrintPromotionForItem/);
+assert.doesNotMatch(html, /รูปแบบ: ป้ายโปรโมชั่น|ป้ายโปรโมชั่นจะดึงเงื่อนไข/);
+assert.match(html, /value="50x30"[^>]*>ป้ายราคา 50 × 30 มม\. \(ค่าเริ่มต้น\)/);
 assert.match(html, /data-barcode-print-page/);
 assert.match(html, /BARCODE_PRINT_PAGE_SIZE = 10/);
 assert.match(html, /\.main\.barcode-print-main\{overflow-y:hidden;\}/);
