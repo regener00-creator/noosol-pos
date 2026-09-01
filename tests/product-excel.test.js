@@ -22,6 +22,7 @@ const products = [{
   sku: 'P0044',
   name: 'สินค้าทดสอบ',
   barcode: '0000123400012',
+  scanDefaultUnit: 'แผง',
   extraBarcodes: ['EXTRA-1'],
   extraBarcodeUnits: ['กล่อง'],
   vendorBarcodes: [{vendor: 'ผู้จำหน่าย ก', code: 'VENDOR-1'}],
@@ -44,13 +45,14 @@ assert.deepEqual(JSON.parse(JSON.stringify(counts)), {extraBarcodes: 2, vendors:
 const headers = Array.from(sandbox.productExcelHeaders(counts));
 const row = sandbox.productToExcelRow(products[0], counts, sandbox.warehouses);
 assert.deepEqual(Object.keys(row), headers, 'export row must use the exact shared template column order');
-assert.deepEqual(headers.slice(0,13), ['รหัสสินค้า','ชื่อสินค้า','หมวดสินค้า','ยี่ห้อ / หมวดย่อย','หน่วยหลัก','ราคาขาย (หน่วยหลัก)','ราคาทุน (หน่วยหลัก)','บาร์โค้ดหลัก','ภาษีมูลค่าเพิ่ม','คลังสินค้า','จำนวนคงเหลือ (หน่วยหลัก)','วันหมดอายุ','รายละเอียด'], 'ข้อมูลพื้นฐานต้องเรียงอยู่ด้านหน้าก่อนข้อมูลเสริม');
+assert.deepEqual(headers.slice(0,14), ['รหัสสินค้า','ชื่อสินค้า','หมวดสินค้า','ยี่ห้อ / หมวดย่อย','หน่วยหลัก','ราคาขาย (หน่วยหลัก)','ราคาทุน (หน่วยหลัก)','บาร์โค้ดหลัก','หน่วยเริ่มต้นเมื่อยิงบาร์โค้ด','ภาษีมูลค่าเพิ่ม','คลังสินค้า','จำนวนคงเหลือ (หน่วยหลัก)','วันหมดอายุ','รายละเอียด'], 'ข้อมูลพื้นฐานต้องเรียงอยู่ด้านหน้าก่อนข้อมูลเสริม');
 assert.ok(headers.indexOf('หน่วยเพิ่มเติม 1') < headers.indexOf('บาร์โค้ดสำรอง 1'), 'หน่วยเพิ่มเติมต้องอยู่ก่อนกลุ่มบาร์โค้ดสำรอง');
 assert.ok(headers.indexOf('บาร์โค้ดสำรอง 1') < headers.indexOf('ชื่อผู้จำหน่าย 1'), 'บาร์โค้ดสำรองต้องอยู่ก่อนกลุ่มผู้จำหน่าย');
 assert.equal(headers.at(-1), 'รหัสอ้างอิงระบบ (ห้ามแก้)', 'รหัสภายในต้องย้ายไปท้ายสุดและระบุว่าไม่ควรแก้');
 assert.equal(row['รหัสอ้างอิงระบบ (ห้ามแก้)'], '9007199254740001', 'Excel must receive large bigint ids as exact text');
 assert.ok(!Object.values(row).includes('must-not-be-exported'), 'internal creation token must stay out of Excel');
 assert.equal(row['บาร์โค้ดหลัก'], '0000123400012');
+assert.equal(row['หน่วยเริ่มต้นเมื่อยิงบาร์โค้ด'], 'แผง');
 assert.equal(row['บาร์โค้ดสำรอง 1'], 'EXTRA-1');
 assert.equal(row['หน่วยของบาร์โค้ดสำรอง 1'], 'กล่อง');
 assert.equal(row['บาร์โค้ดผู้จำหน่าย 1'], 'VENDOR-1');
@@ -71,6 +73,7 @@ assert.match(html.slice(templateStart, importStart), /productToExcelRow\(/, 'tem
 assert.match(html.slice(exportStart, exportEnd), /productToExcelRow\(/, 'export must use the shared row schema');
 assert.match(html.slice(exportStart, exportEnd), /sheet\['!autofilter'\]=\{ref:sheet\['!ref'\]\}/, 'export must enable Excel header filters');
 assert.match(html.slice(importStart, exportStart), /parseProductVatMode\(/, 'import must preserve the product VAT mode');
+assert.match(html.slice(importStart, exportStart), /scanDefaultUnitProvided/, 'import must preserve the scan default unit when the column is absent');
 assert.match(html.slice(importStart, exportStart), /'ราคาขาย \(หน่วยหลัก\)'[^]*'ราคาขาย'/, 'import must accept both the clearer and legacy headers');
 
 console.log('product Excel tests passed');

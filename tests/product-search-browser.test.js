@@ -97,6 +97,16 @@ const browserExecutable = [
   assert.equal(await search.inputValue(), 'D-001', 'แม้พิมพ์ช้าและตารางกรองระหว่างตัวอักษร ช่องค้นหาต้องรับข้อความได้ครบ');
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'search');
   assert.equal(await page.locator('.prodtable .prod-inline-name').inputValue(), 'Decolgen prin (4 tablets)');
+  await page.evaluate(() => {
+    editingProductId=9101;
+    document.getElementById('main').innerHTML=renderProductForm();
+    attachEvents();
+  });
+  const scanUnitSelect=page.locator('#f_scan_default_unit');
+  assert.equal(await scanUnitSelect.locator('option').count(), 3, 'ต้องเลือกได้ทั้งตามบาร์โค้ด หน่วยหลัก และหน่วยเพิ่มเติม');
+  await scanUnitSelect.selectOption('ลัง');
+  await page.evaluate(() => { products.find(product=>product.id===9101).scanDefaultUnit=document.getElementById('f_scan_default_unit').value; });
+  assert.equal(await page.evaluate(() => productScanUnitName(products.find(product=>product.id===9101),'กล่อง')), 'ลัง', 'ยิงบาร์โค้ดต้องใช้หน่วยเริ่มต้นที่บันทึกไว้');
   assert.deepEqual(errors, [], `พบ JavaScript error: ${errors.join(' | ')}`);
   console.log('product search browser tests passed');
 })().catch(error => {
