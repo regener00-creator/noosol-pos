@@ -74,7 +74,7 @@ const browserExecutable = [
   await page.locator('.prodtable .prod-unit-select').selectOption('ลัง');
   assert.equal(await page.locator('.prodtable .prod-unit-barcode').inputValue(), 'CASE-D-001', 'เมื่อเปลี่ยนหน่วยต้องเปลี่ยนบาร์โค้ดตามหน่วยทันที');
   await page.locator('.prodtable .prod-unit-barcode').fill('CASE-D-NEW');
-  await page.locator('.prodtable .prod-unit-barcode').press('Tab');
+  await page.locator('.prodtable .prod-unit-barcode').press('Enter');
   await page.waitForTimeout(220);
   assert.equal(await page.evaluate(() => products.find(product=>product.id===9101).units[0].barcode), 'CASE-D-NEW', 'ต้องบันทึกบาร์โค้ดลงหน่วยเพิ่มเติมที่เลือก');
   assert.equal(await page.locator('.prodtable .prod-unit-barcode').inputValue(), 'CASE-D-NEW');

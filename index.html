@@ -12981,6 +12981,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       el.addEventListener('input',()=>{ el.value=formatDMYInput(el.value); });
       el.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); el.blur(); } });
     }
+    if(el.classList.contains('prod-inline-barcode')){
+      el.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); el.blur(); } });
+    }
     el.addEventListener('change', async ()=>{
       const pid=Number(el.dataset.pid);
       const field=el.dataset.field;
