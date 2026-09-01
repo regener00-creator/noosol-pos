@@ -18,6 +18,7 @@ assert.match(html, /branch:branchValue==='branch'\?'branch':branchValue==='head'
 assert.match(receiptLogic, /<div class="title">บิลเงินสด<\/div>/, 'หัวเอกสาร A4 ต้องเป็นบิลเงินสด');
 assert.match(receiptLogic, /customerBranch\?` \(\$\{customerBranch\}\)`:''/, 'เอกสารต้องไม่แสดงวงเล็บสถานประกอบการเมื่อไม่ระบุ');
 assert.match(receiptLogic, /เอกสารนี้ไม่ใช่ใบกำกับภาษี/, 'ต้องระบุว่าเอกสารไม่ใช่ใบกำกับภาษี');
+assert.match(receiptLogic, /businessPrimaryPhone\(business\)[\s\S]{0,180}business\.line\?`<br>LINE \$\{escapeHtml\(business\.line\)\}`/, 'บิลเงินสดต้องแสดง LINE ใต้เบอร์โทรเมื่อมีข้อมูล');
 assert.doesNotMatch(receiptLogic, /ภาษีมูลค่าเพิ่ม 7%|VAT INCLUDED/, 'บิลเงินสด A4 ต้องไม่แสดงยอด VAT');
 assert.doesNotMatch(receiptLogic, /complete_sale|adjust_inventory|inventory_count/, 'การพิมพ์เอกสารต้องไม่สร้างยอดขายหรือตัดสต๊อก');
 assert.match(html, /function nextA4CashReceiptNumber\(\)[\s\S]{0,220}documentPrefixes\.cashBill/, 'บิลเงินสด A4 ต้องมีเลขเอกสารตามรหัสที่ตั้งไว้');
