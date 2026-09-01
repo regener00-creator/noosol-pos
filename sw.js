@@ -1,4 +1,4 @@
-const CACHE_NAME='pepos-mobile-v11';
+const CACHE_NAME='pepos-mobile-v12';
 const APP_SHELL=['/','/index.html','/manifest.webmanifest','/pwa-icon.svg','/pwa-icon-192.png','/pwa-icon-512.png','/sapuri-pharmacy-logo.png'];
 const TRUSTED_CDN_HOSTS=new Set(['cdn.jsdelivr.net']);
 

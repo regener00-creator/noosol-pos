@@ -1919,13 +1919,9 @@ function mapProfileRow(row){
   return { id:row.id, username:row.username, firstName:row.first_name||'', lastName:row.last_name||'', phone:row.phone||'', note:row.note||'', owner:!!row.owner, level:Number(row.level)||2 };
 }
 
-// ----- Core data sync (Milestone 3): warehouses, products, contacts, sales reps -----
-// Data model: full local object kept in `data` jsonb; a few fields are also
-// pulled into real columns for filtering/reporting. Local arrays stay ordinary
-// arrays -- the rest of the app reads/writes them exactly as before.
-// persistWorkspaceData() (called after every meaningful change, via render())
-// is the single hook point that also pushes the current arrays to Supabase,
-// so no other call site in the app needs to change.
+// ----- Core data sync: warehouses, products, contacts, sales reps -----
+// Queryable fields live in real columns; `data` keeps only additional metadata.
+// Local arrays remain the UI model while incremental sync sends changed rows.
 const ACTIVE_WAREHOUSE_SESSION_KEY='pepos_active_warehouse_v1';
 let activeWarehouseId=0;
 let allWarehousesMode=false;
@@ -2081,64 +2077,61 @@ function resetWarehouseScopedUiState(reportWarehouseValue){
   rprofitFilter.wh=reportWarehouseValue;
   if(currentProfile&&reportWarehouseValue!=='all'&&typeof loadCashShiftsFromSupabase==='function') loadCashShiftsFromSupabase().then(()=>render());
 }
+const PRODUCT_DUPLICATE_DATA_KEYS=['id','sku','name','category','brand','type','product_type','wh','warehouse_id','stock','cost','price','unit','expiry','_catalogExpiry'];
+function additionalData(record,duplicateKeys){
+  const data={...(record&&typeof record==='object'?record:{})};
+  duplicateKeys.forEach(key=>delete data[key]);
+  return data;
+}
 function productToRow(p){
-  const data={...p}; delete data._catalogExpiry;
-  return { id:p.id, sku:p.sku||null, name:p.name||'', category:p.category||null, brand:p.brand||null, product_type:p.type||null, warehouse_id:p.wh||null, stock:Number(p.stock)||0, cost:Number(p.cost)||0, price:Number(p.price)||0, unit:p.unit||null, data };
+  const data=additionalData(p,PRODUCT_DUPLICATE_DATA_KEYS);
+  return { id:p.id, sku:p.sku||null, name:p.name||'', category:p.category||null, brand:p.brand||null, product_type:p.type||null, warehouse_id:p.wh||null, cost:Number(p.cost)||0, price:Number(p.price)||0, unit:p.unit||null, data };
 }
 // Existing product metadata must never carry a possibly stale stock value from
 // another browser tab. Stock is changed only through the atomic stock RPCs.
 function productMetadataToRow(p){
-  const data={...p};
-  delete data.stock;
-  data.expiry=p._catalogExpiry!==undefined?p._catalogExpiry:(p.expiry||'');
-  delete data._catalogExpiry;
+  const data=additionalData(p,PRODUCT_DUPLICATE_DATA_KEYS);
   return { id:p.id, sku:p.sku||null, name:p.name||'', category:p.category||null, brand:p.brand||null, product_type:p.type||null, warehouse_id:p.wh||null, cost:Number(p.cost)||0, price:Number(p.price)||0, unit:p.unit||null, data };
 }
 function rowToProduct(row){
   row=row||{};
   const data=row.data&&typeof row.data==='object'?row.data:{};
   const hasValue=value=>value!==null&&value!==undefined&&value!=='';
-  const textFallback=(dataValue,flatValue,fallback='')=>{
-    if(hasValue(dataValue)) return dataValue;
-    if(hasValue(flatValue)) return flatValue;
-    return fallback;
+  const textValue=(key,flatValue,fallback='')=>Object.hasOwn(data,key)&&hasValue(data[key])?data[key]:(hasValue(flatValue)?flatValue:fallback);
+  const numberValue=(key,flatValue)=>{
+    if(Object.hasOwn(data,key)&&hasValue(data[key])&&Number.isFinite(Number(data[key]))) return Number(data[key]);
+    return Number.isFinite(Number(flatValue))?Number(flatValue):0;
   };
-  const numberFallback=(dataValue,flatValue)=>{
-    if(hasValue(dataValue)){
-      const dataNumber=Number(dataValue);
-      if(Number.isFinite(dataNumber)) return dataNumber;
-    }
-    const flatNumber=Number(flatValue);
-    return Number.isFinite(flatNumber)?flatNumber:0;
-  };
-  // Existing products keep most metadata in `data`. Flat columns are fallbacks
-  // because legacy rows can contain blank/zero flat values. Stock is the one
-  // authoritative flat value so stale JSON stock never replaces the live total.
+  // The data fallback is read-only compatibility for a device that opens an
+  // old row before the cleanup migration. New writes always remove these keys.
   return {
     ...data,
     id:row.id,
-    sku:textFallback(data.sku,row.sku),
-    name:textFallback(data.name,row.name),
-    category:textFallback(data.category,row.category),
-    brand:textFallback(data.brand,row.brand),
-    type:textFallback(data.type,row.product_type,'stock'),
-    wh:hasValue(data.wh)?data.wh:(row.warehouse_id??null),
-    stock:Number(row.stock)||0,
-    cost:numberFallback(data.cost,row.cost),
-    price:numberFallback(data.price,row.price),
-    unit:textFallback(data.unit,row.unit),
-    _catalogExpiry:textFallback(data.expiry,null),
+    sku:textValue('sku',row.sku),
+    name:textValue('name',row.name),
+    category:textValue('category',row.category),
+    brand:textValue('brand',row.brand),
+    type:textValue('type',row.product_type,'stock'),
+    wh:Object.hasOwn(data,'wh')&&hasValue(data.wh)?data.wh:(row.warehouse_id??null),
+    stock:0,
+    cost:numberValue('cost',row.cost),
+    price:numberValue('price',row.price),
+    unit:textValue('unit',row.unit),
+    _catalogExpiry:textValue('expiry',null),
   };
 }
-function warehouseToRow(w){ return { id:w.id, name:w.name||'', data:w }; }
+function warehouseToRow(w){ return { id:w.id, name:w.name||'', data:additionalData(w,['id','name']) }; }
 function rowToWarehouse(row){ return { ...(row.data||{}), id:row.id, name:row.name }; }
 function contactToRow(c){
   const types=Array.isArray(c.types)?c.types:[];
   const type=types.includes('customer')&&types.includes('supplier')?'both':(types.includes('supplier')?'supplier':'customer');
-  return { id:c.id, type, name:c.name||'', phone:c.phone||null, data:c };
+  return { id:c.id, type, name:c.name||'', phone:c.phone||null, data:additionalData(c,['id','type','types','name','phone']) };
 }
-function rowToContact(row){ return { ...(row.data||{}), id:row.id, name:row.name }; }
-function salesRepToRow(r){ return { id:r.id, name:r.name||'', data:r }; }
+function rowToContact(row){
+  const types=row.type==='both'?['customer','supplier']:[row.type==='supplier'?'supplier':'customer'];
+  return { ...(row.data||{}), id:row.id, name:row.name, phone:row.phone||'', types };
+}
+function salesRepToRow(r){ return { id:r.id, name:r.name||'', data:additionalData(r,['id','name']) }; }
 function rowToSalesRep(row){ return { ...(row.data||{}), id:row.id, name:row.name }; }
 
 // Supabase/PostgREST caps SELECT results at a fixed row count per request
@@ -2474,15 +2467,8 @@ async function loadProductRowsFromSupabase(){
   return {data:loadedProducts,error:null};
 }
 
-// Content-hash guard: render() (and therefore the sync schedulers below) fires
-// on nearly every click/keystroke, including plenty that touch zero core data
-// (typing a search term, switching report tabs, sorting a table). Without this
-// check, EVERY one of those still re-uploads the full table -- e.g. all 2,800+
-// products -- once the debounce below elapses, even though nothing changed.
-// Comparing against a cached JSON snapshot of the last successful upload skips
-// the network call entirely when a table is unchanged, which is the common
-// case for most renders. Only cached on success, so a failed sync retries
-// next time instead of being skipped.
+// Content-hash guard: snapshots make the incremental synchronizer send only changed rows.
+// Failed writes are intentionally not acknowledged so a later save retries them.
 let lastSyncedSnapshot={};
 const syncedTableRows={};
 function tableSnapshot(localArray,toRow){
@@ -2782,20 +2768,8 @@ async function syncCoreDataToSupabase(){
   coreSyncInFlight=false;
 }
 
-// ----- Stock changes bypass the debounced full-array sync above -----
-// syncCoreDataToSupabase() re-uploads this device's ENTIRE local `products`
-// snapshot (including `stock`) after a 2.5s pause. If a second device/tab is
-// open at the same time (e.g. a cashier mid-checkout while the owner fixes
-// stock elsewhere), that other tab's next sync -- firing from any unrelated
-// change, on its own timer -- would re-upload ITS stale copy of `stock` and
-// silently undo the fix. Stock changes are therefore written to Supabase
-// immediately, touching only the `stock` column of the one affected row, so
-// a slow/stale sync from another tab can never clobber them.
-// adjustProductStockOnSupabase: relative change (checkout, goods receipt) --
-//   uses an atomic SQL increment (adjust_product_stock RPC) so two
-//   simultaneous sales of the same product can't race each other.
-// setProductStockOnSupabase: absolute value (stock-adjust page) -- a direct
-//   "set to X", matching the admin's explicit intent.
+// Stock never travels through product metadata sync. It is written atomically
+// to inventory_balances/inventory_lots and then reflected into the local UI.
 async function adjustProductStockOnSupabase(productId,delta,warehouseId=activeWarehouseId){
   if(!currentProfile||!delta) return;
   const targetWarehouseId=Number(warehouseId)||Number(activeWarehouseId);
@@ -3041,17 +3015,11 @@ async function loadCoreDataFromSupabase(){
   }catch(e){ console.warn('load core data failed',e); }
 }
 
-// ----- Sales history sync (Milestone 4) -----
-// Whole record kept in `data` jsonb (item shape differs slightly between the
-// mock generator / held sales / completed checkouts, so no separate line-item
-// table is used); a few fields are pulled into real columns for reporting.
-// Still uploads the *entire* salesHistory array whenever it upserts (via
-// upsertAndPrune -- see its own comment), but the unchanged-content check
-// there means that only actually happens right after a real sales-history
-// change, not on unrelated renders. Worth revisiting for real incremental
-// sync if the sales log grows into the tens of thousands of rows, since the
-// per-sync payload size itself is still O(all sales), just no longer O(all
-// renders) x O(all sales).
+// ----- Sales history sync -----
+// Posted sales intentionally keep an immutable document body in `data` for
+// reprints, voids, and audits. The flat columns are reporting indexes, while
+// the JSON body remains the authoritative historic document and is therefore
+// not treated like duplicate mutable master data.
 function saleToRow(s){
   let saleTime=null;
   if(s.time){ const d=new Date(String(s.time).replace(' ','T')); if(!isNaN(d.getTime())) saleTime=d.toISOString(); }
@@ -3069,29 +3037,12 @@ function rowToSale(row){
   return {...fallback,...(row.data||{}),id:row.id};
 }
 
-let salesSyncInFlight=false, salesSyncPending=false;
-async function syncSalesHistoryToSupabase(){
-  if(!currentProfile) return;
-  if(await adoptRemoteMaintenanceEpoch()){
-    await loadCoreDataFromSupabase(); await loadSalesHistoryFromSupabase(); await loadCashShiftsFromSupabase(); await loadInspectionListsFromSupabase(); await loadPromotionsFromSupabase(); await loadFavoritesFromSupabase();
-    render(); return;
-  }
-  if(salesSyncInFlight){ salesSyncPending=true; return; }
-  salesSyncInFlight=true;
-  do{
-    salesSyncPending=false;
-    try{ await upsertAndPrune('sales',salesHistory,saleToRow); }
-    catch(e){ console.warn('sync sales failed',e); }
-  }while(salesSyncPending);
-  salesSyncInFlight=false;
-}
 async function loadSalesHistoryFromSupabase(){
   try{
     const { data:rows, error } = await fetchAllRows(()=>sb.from('sales').select('*').order('sale_date',{ascending:false}));
     if(error){ console.warn('load sales',error); return; }
-    if((rows||[]).length===0){ salesHistory=[]; seedTableSnapshot('sales',salesHistory,saleToRow); return; }
+    if((rows||[]).length===0){ salesHistory=[]; return; }
     salesHistory=rows.map(rowToSale);
-    seedTableSnapshot('sales',salesHistory,saleToRow);
     invoiceCounter=maxArrayValue(salesHistory,s=>(Number(String(s.id||'').replace(/\D/g,''))||0)+1,1000);
   }catch(e){ console.warn('load sales failed',e); }
 }
@@ -3310,132 +3261,12 @@ if(localStorage.getItem(RESET_RECOVERY_ONCE_KEY)!=='done'){
   Object.keys(localStorage).filter(key=>key.startsWith('pharmacy_pos_')).forEach(key=>localStorage.removeItem(key));
   localStorage.setItem(RESET_RECOVERY_ONCE_KEY,'done');
 }
-let warehouses = [
-  {id:1,name:'สาขาหลัก (ถ.สุขุมวิท)',code:'WH-001',address:'',postcode:'',purpose:'ขายสินค้า',contactName:'',email:'',phone:''},
-  {id:2,name:'สาขา 2 (ตลาดนัดเช้า)',code:'WH-002',address:'',postcode:'',purpose:'ขายสินค้า',contactName:'',email:'',phone:''},
-];
+let warehouses=[];
 const WAREHOUSE_STORAGE_KEY='pharmacy_pos_warehouses_v1';
 try{ const savedWarehouses=JSON.parse(localStorage.getItem(WAREHOUSE_STORAGE_KEY)||'null'); if(Array.isArray(savedWarehouses)&&savedWarehouses.length) warehouses=savedWarehouses; }catch(error){ console.warn('ไม่สามารถโหลดรายชื่อคลังสินค้าได้',error); }
 function persistWarehouses(){ persistWorkspaceData(); }
 let nextWarehouseId=maxArrayValue(warehouses,w=>(Number(w.id)||0)+1,1);
-let products = [
-  {id:1, name:'พาราเซตามอล 500mg', unit:'แผง', price:15, stock:120, threshold:30, expiry:'2027-11-01', barcode:'8850000100019', wh:1, multiunit:true, units:[{sub:'กล่อง', per:10, base:'แผง', factor:10, price:140, cost:90, barcode:'8850000100026'},{sub:'ลัง', per:10, base:'กล่อง', factor:100, price:1350, cost:880, barcode:'8850000100033'}]},
-  {id:2, name:'ผงเกลือแร่ ORS', unit:'ซอง', price:8, stock:60, threshold:20, expiry:'2026-09-15', barcode:'8850000100026', wh:1},
-  {id:3, name:'ยาลดกรด ไมล่านต้า', unit:'ขวด', price:45, stock:24, threshold:15, expiry:'2027-03-20', barcode:'8850000100033', wh:1},
-  {id:4, name:'วิตามินซี 1000mg', unit:'กระปุก', price:120, stock:18, threshold:20, expiry:'2026-08-20', barcode:'8850000100040', wh:2},
-  {id:5, name:'อม็อกซีซิลลิน 500mg', unit:'แผง (10 แคปซูล)', price:35, stock:40, threshold:15, expiry:'2027-01-10', barcode:'8850000100057', wh:1},
-  {id:6, name:'ยาแก้แพ้ คลอเฟนิรามีน', unit:'แผง (10 เม็ด)', price:10, stock:0, threshold:20, expiry:'2027-05-01', barcode:'8850000100064', wh:1},
-  {id:7, name:'พลาสเตอร์ปิดแผล', unit:'กล่อง', price:25, stock:33, threshold:10, expiry:'2028-02-14', barcode:'8850000100071', wh:2},
-  {id:8, name:'ยาหยอดตา ไทม์โรล', unit:'ขวด', price:55, stock:15, threshold:10, expiry:'2026-08-10', barcode:'8850000100088', wh:1},
-  {id:9, name:'ยาแก้ไอ น้ำดำ', unit:'ขวด', price:32, stock:22, threshold:15, expiry:'2026-12-01', barcode:'8850000100095', wh:1},
-  {id:10, name:'เจลแอลกอฮอล์ล้างมือ', unit:'ขวด 100ml', price:40, stock:50, threshold:15, expiry:'2028-06-30', barcode:'8850000100101', wh:2},
-  {id:11, name:'ยาธาตุน้ำแดง', unit:'ขวด', price:18, stock:5, threshold:10, expiry:'2026-07-25', barcode:'8850000100118', wh:1},
-  {id:12, name:'ผ้าก๊อซปลอดเชื้อ', unit:'ห่อ', price:12, stock:70, threshold:20, expiry:'2028-01-01', barcode:'8850000100125', wh:1},
-  {id:13, name:'ยาแก้ไอ น้ำดำ ตราเสือดาว', unit:'ขวด', price:38, stock:70, threshold:10, expiry:'2026-03-21', barcode:'8850000200013', wh:1, sku:'P0013', category:'ยาสามัญประจำบ้าน', brand:'เสือดาว', type:'stock', cost:22.11},
-  {id:14, name:'สไปรูลิน่า ชนิดเม็ด', unit:'กระปุก', price:286, stock:5, threshold:25, expiry:'2028-09-09', barcode:'8850000200014', wh:1, sku:'P0014', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:185.07},
-  {id:15, name:'ไฟเบอร์อาหารเสริม ชนิดผง', unit:'กระปุก', price:256, stock:90, threshold:20, expiry:'2027-02-10', barcode:'8850000200015', wh:2, sku:'P0015', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:147.54},
-  {id:16, name:'อาหารเสริมลดน้ำหนัก แอลคาร์นิทีน', unit:'กระปุก', price:394, stock:25, threshold:30, expiry:'2028-02-28', barcode:'8850000200016', wh:2, sku:'P0016', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:216.99},
-  {id:17, name:'ยาแก้ปวดไมเกรน ซูมาทริปแทน', unit:'แผง', price:160, stock:18, threshold:15, expiry:'2027-09-25', barcode:'8850000200017', wh:1, sku:'P0017', category:'ยาเฉพาะทาง', brand:'ทั่วไป', type:'stock', cost:106.68},
-  {id:18, name:'ยาดม สมุนไพร', unit:'หลอด', price:18, stock:8, threshold:20, expiry:'2027-04-02', barcode:'8850000200018', wh:1, sku:'P0018', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:11.92},
-  {id:19, name:'ผ้าปิดจมูกเด็ก', unit:'กล่อง', price:59, stock:5, threshold:25, expiry:'2028-03-05', barcode:'8850000200019', wh:2, sku:'P0019', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:45.3},
-  {id:20, name:'แอลกอฮอล์ล้างแผล 70%', unit:'ขวด', price:32, stock:80, threshold:30, expiry:'2027-09-25', barcode:'8850000200020', wh:1, sku:'P0020', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:18.82},
-  {id:21, name:'ครีเอทีน มอนอไฮเดรต', unit:'กระปุก', price:634, stock:150, threshold:20, expiry:'2028-08-04', barcode:'8850000200021', wh:1, sku:'P0021', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:406.88},
-  {id:22, name:'โปรตีนสกัดจากพืช', unit:'กระปุก', price:850, stock:100, threshold:30, expiry:'2027-01-03', barcode:'8850000200022', wh:1, sku:'P0022', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:533.6},
-  {id:23, name:'ยาหอบหืด ซัลบูทามอล พ่น', unit:'ขวด', price:158, stock:35, threshold:10, expiry:'2027-11-16', barcode:'8850000200023', wh:1, sku:'P0023', category:'ยาเฉพาะทาง', brand:'ทั่วไป', type:'stock', cost:119.8},
-  {id:24, name:'ยาหยอดตา ไทม์โรล', unit:'ขวด', price:56, stock:100, threshold:30, expiry:'2028-07-07', barcode:'8850000200024', wh:1, sku:'P0024', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:40.12},
-  {id:25, name:'อม็อกซีซิลลิน 500mg', unit:'แผง', price:32, stock:50, threshold:25, expiry:'2029-01-22', barcode:'8850000200025', wh:1, sku:'P0025', category:'ยาปฏิชีวนะ', brand:'ทั่วไป', type:'stock', cost:20.77},
-  {id:26, name:'ลูทีน บำรุงสายตา', unit:'กระปุก', price:311, stock:8, threshold:15, expiry:'2028-08-05', barcode:'8850000200026', wh:2, sku:'P0026', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:223.14},
-  {id:27, name:'ไซโปรฟลอกซาซิน 500mg', unit:'แผง', price:62, stock:5, threshold:25, expiry:'2028-02-02', barcode:'8850000200027', wh:1, sku:'P0027', category:'ยาปฏิชีวนะ', brand:'ทั่วไป', type:'stock', cost:40.7},
-  {id:28, name:'แผ่นแปะเย็นลดไข้เด็ก', unit:'กล่อง', price:48, stock:22, threshold:15, expiry:'2028-04-28', barcode:'8850000200028', wh:2, sku:'P0028', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:36.63},
-  {id:29, name:'ยาต้านฮีสตามีน เฟกโซเฟนาดีน 180mg', unit:'แผง', price:86, stock:0, threshold:25, expiry:'2028-05-14', barcode:'8850000200029', wh:2, sku:'P0029', category:'ยาเฉพาะทาง', brand:'ทั่วไป', type:'stock', cost:50.56},
-  {id:30, name:'โลชั่นทาผิวสำหรับผิวแพ้ง่าย', unit:'ขวด', price:183, stock:3, threshold:30, expiry:'2026-12-11', barcode:'8850000200030', wh:1, sku:'P0030', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:113.14},
-  {id:31, name:'โสมสกัด เพิ่มพลังงาน', unit:'กระปุก', price:360, stock:80, threshold:15, expiry:'2026-12-03', barcode:'8850000200031', wh:1, sku:'P0031', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:237.48},
-  {id:32, name:'แผ่นแปะร้อน', unit:'กล่อง', price:44, stock:22, threshold:25, expiry:'2026-12-08', barcode:'8850000200032', wh:1, sku:'P0032', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:24.89},
-  {id:33, name:'เข็มฉีดยา 1cc', unit:'กล่อง', price:88, stock:100, threshold:30, expiry:'2027-04-22', barcode:'8850000200033', wh:2, sku:'P0033', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:56.89},
-  {id:34, name:'แอสไพริน 300mg', unit:'แผง', price:12, stock:150, threshold:20, expiry:'2026-01-15', barcode:'8850000200034', wh:1, sku:'P0034', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:7.69},
-  {id:35, name:'ยาเบาหวาน เมทฟอร์มิน 500mg', unit:'แผง', price:32, stock:25, threshold:15, expiry:'2026-04-12', barcode:'8850000200035', wh:2, sku:'P0035', category:'ยาเฉพาะทาง', brand:'ทั่วไป', type:'stock', cost:19.17},
-  {id:36, name:'น้ำมันปลา โอเมก้า 3', unit:'กระปุก', price:277, stock:30, threshold:30, expiry:'2029-09-01', barcode:'8850000200036', wh:2, sku:'P0036', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:205.47},
-  {id:37, name:'คลินดามัยซิน 300mg', unit:'แผง', price:99, stock:12, threshold:20, expiry:'2026-08-24', barcode:'8850000200037', wh:1, sku:'P0037', category:'ยาปฏิชีวนะ', brand:'ทั่วไป', type:'stock', cost:56.81},
-  {id:38, name:'วิตามินรวมสำหรับเด็ก ชนิดเยลลี่', unit:'กระปุก', price:169, stock:35, threshold:15, expiry:'2027-09-16', barcode:'8850000200038', wh:2, sku:'P0038', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:116.46},
-  {id:39, name:'ยาแก้แพ้ คลอเฟนิรามีน 4mg', unit:'แผง', price:12, stock:5, threshold:25, expiry:'2026-01-11', barcode:'8850000200039', wh:1, sku:'P0039', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:8.94},
-  {id:40, name:'ไอบูโพรเฟน 400mg', unit:'แผง', price:22, stock:60, threshold:30, expiry:'2028-01-04', barcode:'8850000200040', wh:1, sku:'P0040', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:13.43},
-  {id:41, name:'น้ำมันตับปลา', unit:'ขวด', price:170, stock:12, threshold:30, expiry:'2026-10-19', barcode:'8850000200041', wh:1, sku:'P0041', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:120.52},
-  {id:42, name:'เทอร์โมมิเตอร์ดิจิทัล', unit:'ชิ้น', price:187, stock:40, threshold:10, expiry:'2027-11-08', barcode:'8850000200042', wh:1, sku:'P0042', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:104.65},
-  {id:43, name:'ยาทาแก้ผื่นคัน คาลาไมน์', unit:'ขวด', price:35, stock:50, threshold:30, expiry:'2027-03-26', barcode:'8850000200043', wh:1, sku:'P0043', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:23.76},
-  {id:44, name:'โฟลิกแอซิด สำหรับคุณแม่ตั้งครรภ์', unit:'กระปุก', price:146, stock:35, threshold:25, expiry:'2029-04-09', barcode:'8850000200044', wh:1, sku:'P0044', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:81.13},
-  {id:45, name:'วิตามินซี 1000mg', unit:'กระปุก', price:133, stock:3, threshold:25, expiry:'2028-06-10', barcode:'8850000200045', wh:1, sku:'P0045', category:'วิตามิน/อาหารเสริม', brand:'วิตะมิน', type:'stock', cost:76.46},
-  {id:46, name:'อาร์จินีน เสริมสมรรถภาพ', unit:'กระปุก', price:458, stock:45, threshold:20, expiry:'2026-05-12', barcode:'8850000200046', wh:2, sku:'P0046', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:321.43},
-  {id:47, name:'เมลาโทนิน ช่วยการนอนหลับ', unit:'กระปุก', price:298, stock:35, threshold:10, expiry:'2026-10-06', barcode:'8850000200047', wh:2, sku:'P0047', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:221.72},
-  {id:48, name:'อาหารเสริมบำรุงข้อเข่า ชนิดน้ำ', unit:'ขวด', price:537, stock:40, threshold:20, expiry:'2028-02-13', barcode:'8850000200048', wh:1, sku:'P0048', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:369.03},
-  {id:49, name:'เซฟาเล็กซิน 500mg', unit:'แผง', price:55, stock:0, threshold:30, expiry:'2028-11-24', barcode:'8850000200049', wh:1, sku:'P0049', category:'ยาปฏิชีวนะ', brand:'ทั่วไป', type:'stock', cost:39.22},
-  {id:50, name:'กรดอะมิโน บีซีเอเอ', unit:'กระปุก', price:643, stock:35, threshold:30, expiry:'2026-12-10', barcode:'8850000200050', wh:2, sku:'P0050', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:364},
-  {id:51, name:'ด็อกซีไซคลิน 100mg', unit:'แผง', price:45, stock:30, threshold:30, expiry:'2028-11-13', barcode:'8850000200051', wh:1, sku:'P0051', category:'ยาปฏิชีวนะ', brand:'ทั่วไป', type:'stock', cost:28.13},
-  {id:52, name:'หน้ากากอนามัย 3 ชั้น', unit:'กล่อง', price:67, stock:90, threshold:10, expiry:'2027-07-26', barcode:'8850000200052', wh:2, sku:'P0052', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:41.49},
-  {id:53, name:'นอร์ฟลอกซาซิน 400mg', unit:'แผง', price:55, stock:18, threshold:30, expiry:'2029-03-22', barcode:'8850000200053', wh:1, sku:'P0053', category:'ยาปฏิชีวนะ', brand:'ทั่วไป', type:'stock', cost:35.84},
-  {id:54, name:'น้ำผึ้งผสมมะนาว เสริมภูมิ', unit:'ขวด', price:174, stock:120, threshold:20, expiry:'2026-09-22', barcode:'8850000200054', wh:2, sku:'P0054', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:122.27},
-  {id:55, name:'โคไตรม็อกซาโซล', unit:'แผง', price:24, stock:0, threshold:10, expiry:'2028-10-28', barcode:'8850000200055', wh:1, sku:'P0055', category:'ยาปฏิชีวนะ', brand:'ทั่วไป', type:'stock', cost:14.3},
-  {id:56, name:'โคเอนไซม์คิวเทน', unit:'กระปุก', price:384, stock:100, threshold:15, expiry:'2028-08-13', barcode:'8850000200056', wh:1, sku:'P0056', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:289.46},
-  {id:57, name:'วิตามินดี3 2000IU', unit:'กระปุก', price:168, stock:8, threshold:25, expiry:'2029-09-15', barcode:'8850000200057', wh:1, sku:'P0057', category:'วิตามิน/อาหารเสริม', brand:'วิตะมิน', type:'stock', cost:118.97},
-  {id:58, name:'น้ำเกลือล้างแผล 0.9%', unit:'ขวด', price:36, stock:8, threshold:25, expiry:'2028-11-17', barcode:'8850000200058', wh:2, sku:'P0058', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:27.4},
-  {id:59, name:'พลาสเตอร์ปิดแผล ตราเสือ', unit:'กล่อง', price:28, stock:120, threshold:30, expiry:'2028-08-06', barcode:'8850000200059', wh:2, sku:'P0059', category:'เวชภัณฑ์/อุปกรณ์', brand:'เสือ', type:'stock', cost:21.14},
-  {id:60, name:'ยาแก้ปวดหลัง สเปรย์เย็น', unit:'กระป๋อง', price:97, stock:150, threshold:20, expiry:'2028-08-21', barcode:'8850000200060', wh:1, sku:'P0060', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:70.12},
-  {id:61, name:'ยาหยอดตา นาโน่เทียร์', unit:'ขวด', price:46, stock:30, threshold:15, expiry:'2027-09-03', barcode:'8850000200061', wh:1, sku:'P0061', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:26.12},
-  {id:62, name:'ถุงมือยาง ไนไตรล์', unit:'กล่อง', price:112, stock:12, threshold:15, expiry:'2026-11-11', barcode:'8850000200062', wh:2, sku:'P0062', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:71.47},
-  {id:63, name:'นมผึ้ง (รอยัลเยลลี่)', unit:'กระปุก', price:523, stock:50, threshold:25, expiry:'2028-12-01', barcode:'8850000200063', wh:2, sku:'P0063', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:312.53},
-  {id:64, name:'ยาหยอดหู', unit:'ขวด', price:38, stock:30, threshold:25, expiry:'2028-09-24', barcode:'8850000200064', wh:1, sku:'P0064', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:29.14},
-  {id:65, name:'อะซิโทรมัยซิน 500mg', unit:'แผง', price:123, stock:70, threshold:10, expiry:'2029-11-26', barcode:'8850000200065', wh:2, sku:'P0065', category:'ยาปฏิชีวนะ', brand:'ทั่วไป', type:'stock', cost:75.37},
-  {id:66, name:'ยาลดความดัน อัมโลดิพีน 5mg', unit:'แผง', price:49, stock:12, threshold:30, expiry:'2028-10-19', barcode:'8850000200066', wh:1, sku:'P0066', category:'ยาเฉพาะทาง', brand:'ทั่วไป', type:'stock', cost:36.42},
-  {id:67, name:'ยาบรรเทาปวดประจำเดือน เจลนวด', unit:'หลอด', price:51, stock:60, threshold:15, expiry:'2026-11-11', barcode:'8850000200067', wh:1, sku:'P0067', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:33.08},
-  {id:68, name:'ยาแก้กรดไหลย้อน โอเมพราโซล 20mg', unit:'แผง', price:55, stock:45, threshold:20, expiry:'2028-05-27', barcode:'8850000200068', wh:1, sku:'P0068', category:'ยาเฉพาะทาง', brand:'ทั่วไป', type:'stock', cost:34.52},
-  {id:69, name:'ผงเกลือแร่ ORS รสมะนาว', unit:'ซอง', price:9, stock:3, threshold:20, expiry:'2026-11-02', barcode:'8850000200069', wh:1, sku:'P0069', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:6.5},
-  {id:70, name:'ผ้ายืดพันแผล', unit:'ม้วน', price:28, stock:0, threshold:30, expiry:'2027-08-22', barcode:'8850000200070', wh:1, sku:'P0070', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:16.68},
-  {id:71, name:'เข็มเจาะเลือดปลายนิ้ว', unit:'กล่อง', price:125, stock:25, threshold:20, expiry:'2028-12-23', barcode:'8850000200071', wh:1, sku:'P0071', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:75.02},
-  {id:72, name:'ธาตุเหล็ก บำรุงเลือด', unit:'กระปุก', price:158, stock:30, threshold:10, expiry:'2027-10-22', barcode:'8850000200072', wh:2, sku:'P0072', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:92.85},
-  {id:73, name:'แอสตาแซนธิน ต้านอนุมูลอิสระ', unit:'กระปุก', price:449, stock:5, threshold:30, expiry:'2029-04-04', barcode:'8850000200073', wh:2, sku:'P0073', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:320.79},
-  {id:74, name:'ยาหม่องน้ำ', unit:'ขวด', price:49, stock:8, threshold:30, expiry:'2027-09-14', barcode:'8850000200074', wh:2, sku:'P0074', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:33.72},
-  {id:75, name:'เจลแอลกอฮอล์ล้างมือ 450ml', unit:'ขวด', price:87, stock:0, threshold:25, expiry:'2026-07-12', barcode:'8850000200075', wh:2, sku:'P0075', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:60.81},
-  {id:76, name:'เคอร์คูมิน สกัดจากขมิ้นชัน', unit:'กระปุก', price:408, stock:80, threshold:20, expiry:'2028-08-15', barcode:'8850000200076', wh:2, sku:'P0076', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:265.27},
-  {id:77, name:'วิตามินซี ชนิดเคี้ยว รสส้ม', unit:'กระปุก', price:106, stock:35, threshold:15, expiry:'2026-05-15', barcode:'8850000200077', wh:1, sku:'P0077', category:'วิตามิน/อาหารเสริม', brand:'วิตะมิน', type:'stock', cost:72.74},
-  {id:78, name:'ยาแก้แพ้ ลอราทาดีน 10mg', unit:'แผง', price:38, stock:45, threshold:20, expiry:'2026-10-06', barcode:'8850000200078', wh:2, sku:'P0078', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:25.88},
-  {id:79, name:'ยาแก้เมารถ ดรามามีน', unit:'แผง', price:19, stock:35, threshold:20, expiry:'2029-05-18', barcode:'8850000200079', wh:1, sku:'P0079', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:13.94},
-  {id:80, name:'สำลีพันก้าน', unit:'กล่อง', price:18, stock:22, threshold:25, expiry:'2027-12-16', barcode:'8850000200080', wh:2, sku:'P0080', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:10.69},
-  {id:81, name:'เมโทรนิดาโซล 400mg', unit:'แผง', price:30, stock:30, threshold:15, expiry:'2027-05-22', barcode:'8850000200081', wh:2, sku:'P0081', category:'ยาปฏิชีวนะ', brand:'ทั่วไป', type:'stock', cost:16.62},
-  {id:82, name:'ยาแก้ไอ ขับเสมหะ บรอมเฮกซีน', unit:'ขวด', price:45, stock:50, threshold:30, expiry:'2029-08-09', barcode:'8850000200082', wh:2, sku:'P0082', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:30.25},
-  {id:83, name:'แคลเซียม+วิตามินดี', unit:'กระปุก', price:202, stock:18, threshold:20, expiry:'2026-12-25', barcode:'8850000200083', wh:1, sku:'P0083', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:116.71},
-  {id:84, name:'ยาระบาย ดัลคอแล็กซ์', unit:'แผง', price:52, stock:25, threshold:30, expiry:'2028-10-10', barcode:'8850000200084', wh:1, sku:'P0084', category:'ยาสามัญประจำบ้าน', brand:'ดัลคอแล็กซ์', type:'stock', cost:37.43},
-  {id:85, name:'ยาแก้เวียนศีรษะ เบตาฮีสทีน', unit:'แผง', price:63, stock:40, threshold:15, expiry:'2029-09-05', barcode:'8850000200085', wh:2, sku:'P0085', category:'ยาเฉพาะทาง', brand:'ทั่วไป', type:'stock', cost:38.94},
-  {id:86, name:'ชุดตรวจ ATK โควิด', unit:'กล่อง', price:59, stock:30, threshold:15, expiry:'2028-02-28', barcode:'8850000200086', wh:1, sku:'P0086', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:33.19},
-  {id:87, name:'ผงเกลือแร่ ORS รสส้ม', unit:'ซอง', price:9, stock:60, threshold:20, expiry:'2026-05-28', barcode:'8850000200087', wh:2, sku:'P0087', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:5.92},
-  {id:88, name:'อีริโทรมัยซิน 500mg', unit:'แผง', price:45, stock:70, threshold:10, expiry:'2029-01-05', barcode:'8850000200088', wh:1, sku:'P0088', category:'ยาปฏิชีวนะ', brand:'ทั่วไป', type:'stock', cost:25.43},
-  {id:89, name:'ผ้าก๊อซปลอดเชื้อ 4x4 นิ้ว', unit:'ห่อ', price:13, stock:5, threshold:15, expiry:'2026-11-20', barcode:'8850000200089', wh:1, sku:'P0089', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:9.99},
-  {id:90, name:'สำลีก้อน', unit:'ถุง', price:24, stock:60, threshold:20, expiry:'2028-05-19', barcode:'8850000200090', wh:1, sku:'P0090', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:15.3},
-  {id:91, name:'ยาธาตุน้ำขาว', unit:'ขวด', price:17, stock:18, threshold:15, expiry:'2026-03-08', barcode:'8850000200091', wh:1, sku:'P0091', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:12.24},
-  {id:92, name:'เจลแอลกอฮอล์ล้างมือ 100ml', unit:'ขวด', price:41, stock:50, threshold:25, expiry:'2028-05-02', barcode:'8850000200092', wh:1, sku:'P0092', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:24.03},
-  {id:93, name:'แครนเบอร์รี่สกัด บำรุงระบบทางเดินปัสสาวะ', unit:'กระปุก', price:384, stock:60, threshold:10, expiry:'2027-11-19', barcode:'8850000200093', wh:1, sku:'P0093', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:236.17},
-  {id:94, name:'ยาแก้ปวดฟัน เจลทาเหงือก', unit:'หลอด', price:38, stock:150, threshold:15, expiry:'2027-02-02', barcode:'8850000200094', wh:1, sku:'P0094', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:25.66},
-  {id:95, name:'เจลลี่ผลไม้รวมวิตามินสำหรับเด็ก', unit:'กระปุก', price:176, stock:100, threshold:20, expiry:'2028-12-10', barcode:'8850000200095', wh:2, sku:'P0095', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:120.89},
-  {id:96, name:'มิลค์ทิสเซิล บำรุงตับ', unit:'กระปุก', price:385, stock:70, threshold:25, expiry:'2026-08-14', barcode:'8850000200096', wh:2, sku:'P0096', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:256.07},
-  {id:97, name:'ยาแก้ปวดท้องประจำเดือน โพรนาแพน', unit:'แผง', price:32, stock:22, threshold:30, expiry:'2026-11-27', barcode:'8850000200097', wh:2, sku:'P0097', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:17.79},
-  {id:98, name:'ไบโอติน บำรุงผมและเล็บ', unit:'กระปุก', price:231, stock:15, threshold:25, expiry:'2028-05-06', barcode:'8850000200098', wh:2, sku:'P0098', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:167.59},
-  {id:99, name:'พลาสเตอร์กันน้ำ', unit:'กล่อง', price:37, stock:5, threshold:25, expiry:'2027-06-22', barcode:'8850000200099', wh:1, sku:'P0099', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:24.53},
-  {id:100, name:'ปรุงยาบำรุงกำลัง สมุนไพรจีน', unit:'กล่อง', price:756, stock:70, threshold:20, expiry:'2028-09-02', barcode:'8850000200100', wh:2, sku:'P0100', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:473.15},
-  {id:101, name:'ยาดมแก้วิงเวียน', unit:'ขวด', price:23, stock:8, threshold:25, expiry:'2026-11-28', barcode:'8850000200101', wh:2, sku:'P0101', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:13.99},
-  {id:102, name:'พาราเซตามอล 500mg (แผง 10 เม็ด)', unit:'แผง', price:15, stock:40, threshold:30, expiry:'2029-08-25', barcode:'8850000200102', wh:1, sku:'P0102', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:8.9},
-  {id:103, name:'ยาสีฟันสมุนไพร', unit:'หลอด', price:62, stock:30, threshold:25, expiry:'2028-02-01', barcode:'8850000200103', wh:1, sku:'P0103', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:41.93},
-  {id:104, name:'ถั่งเช่าสกัด', unit:'กระปุก', price:806, stock:0, threshold:30, expiry:'2027-02-15', barcode:'8850000200104', wh:1, sku:'P0104', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:500.91},
-  {id:105, name:'ที่ตรวจครรภ์', unit:'ชิ้น', price:47, stock:30, threshold:30, expiry:'2028-08-16', barcode:'8850000200105', wh:1, sku:'P0105', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:27.51},
-  {id:106, name:'ครีมกันแดด SPF50', unit:'หลอด', price:283, stock:18, threshold:30, expiry:'2027-02-09', barcode:'8850000200106', wh:2, sku:'P0106', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:165.06},
-  {id:107, name:'เครื่องวัดความดันโลหิต', unit:'ชิ้น', price:1223, stock:25, threshold:10, expiry:'2027-10-19', barcode:'8850000200107', wh:2, sku:'P0107', category:'เวชภัณฑ์/อุปกรณ์', brand:'ทั่วไป', type:'stock', cost:894.23},
-  {id:108, name:'ไลโคปีน จากมะเขือเทศ', unit:'กระปุก', price:330, stock:70, threshold:20, expiry:'2028-07-15', barcode:'8850000200108', wh:2, sku:'P0108', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:215.39},
-  {id:109, name:'แมกนีเซียม บำรุงกล้ามเนื้อ', unit:'กระปุก', price:219, stock:22, threshold:30, expiry:'2028-01-11', barcode:'8850000200109', wh:2, sku:'P0109', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:169.85},
-  {id:110, name:'โปรไบโอติกส์ ปรับสมดุลลำไส้', unit:'กล่อง', price:342, stock:45, threshold:15, expiry:'2026-03-17', barcode:'8850000200110', wh:2, sku:'P0110', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:251.93},
-  {id:111, name:'กลูโคซามีน บำรุงข้อ', unit:'กระปุก', price:535, stock:60, threshold:10, expiry:'2028-01-24', barcode:'8850000200111', wh:1, sku:'P0111', category:'วิตามิน/อาหารเสริม', brand:'ทั่วไป', type:'stock', cost:401.82},
-  {id:112, name:'เจลลดไข้ แผ่นเย็น', unit:'กล่อง', price:42, stock:12, threshold:10, expiry:'2027-06-20', barcode:'8850000200112', wh:2, sku:'P0112', category:'ยาสามัญประจำบ้าน', brand:'ทั่วไป', type:'stock', cost:29.43},
-];
-const _catMap = {1:'ยาสามัญประจำบ้าน',2:'ยาสามัญประจำบ้าน',3:'ยาสามัญประจำบ้าน',4:'วิตามิน/อาหารเสริม',5:'ยาปฏิชีวนะ',6:'ยาสามัญประจำบ้าน',7:'เวชภัณฑ์/อุปกรณ์',8:'ยาเฉพาะทาง',9:'ยาสามัญประจำบ้าน',10:'เวชภัณฑ์/อุปกรณ์',11:'ยาสามัญประจำบ้าน',12:'เวชภัณฑ์/อุปกรณ์'};
-const _brandMap = {1:'ทั่วไป',2:'ทั่วไป',3:'ไมล่านต้า',4:'วิตะมิน',5:'ทั่วไป',6:'ทั่วไป',7:'3M',8:'ทั่วไป',9:'ทั่วไป',10:'ทั่วไป',11:'ทั่วไป',12:'ทั่วไป'};
-const _costMap = {1:9,2:5,3:30,4:78,5:22,6:6,7:15,8:38,9:20,10:26,11:11,12:7};
-products.forEach(p=>{ p.sku = p.sku || ('P'+String(p.id).padStart(4,'0')); p.category = p.category || _catMap[p.id] || ''; p.brand = p.brand || _brandMap[p.id] || 'ทั่วไป'; p.type = p.type || 'stock'; p.desc = p.desc || ''; if(p.cost===undefined) p.cost = _costMap[p.id] ?? 0; });
+let products=[];
 let productByIdMap=new Map(),exactProductCodeMap=new Map();
 function rebuildProductLookupMaps(){
   productByIdMap=new Map();
@@ -3457,28 +3288,17 @@ function rebuildProductLookupMaps(){
 function productById(id){ return productByIdMap.get(Number(id))||null; }
 rebuildProductLookupMaps();
 
-let contacts = [
-  {id:1, name:'Cash Sale / ขายเงินสด', entity:'individual', types:['customer'], contactName:'', phone:'', email:'', taxId:'', address:'', bank:'', bankAcc:'', note:''},
-  {id:2, name:'คลินิกหมอสมศักดิ์', entity:'juristic', types:['customer'], contactName:'คุณสมศักดิ์', phone:'081-234-5678', email:'somsak@clinic.co.th', taxId:'0105551234567', creditDays:30, address:'', bank:'ธนาคารกสิกรไทย', bankAcc:'123-4-56789-0', note:''},
-  {id:3, name:'ร้านสะดวกซื้อ ป.เจริญ', entity:'juristic', types:['customer'], contactName:'คุณเจริญ', phone:'02-111-2222', email:'', taxId:'', creditDays:15, address:'', bank:'', bankAcc:'', note:''},
-  {id:4, name:'บ. เซ็นทรัลฟาร์มา จำกัด', entity:'juristic', types:['supplier'], contactName:'ฝ่ายขาย', phone:'02-333-4444', email:'sales@centralpharma.co.th', taxId:'0105539876543', address:'', bank:'ธนาคารไทยพาณิชย์', bankAcc:'987-6-54321-0', note:''},
-  {id:5, name:'องค์การเภสัชกรรม', entity:'juristic', types:['supplier'], contactName:'', phone:'02-203-8000', email:'', taxId:'0994000165501', address:'', bank:'', bankAcc:'', note:''},
-  {id:6, name:'บ. ไบโอฟาร์ม จำกัด', entity:'juristic', types:['supplier','customer'], contactName:'คุณวิภา', phone:'02-555-6666', email:'', taxId:'', address:'', bank:'', bankAcc:'', note:''},
-];
+let contacts=[];
 const CONTACTS_STORAGE_KEY='pharmacy_pos_contacts_v1';
 try{ const savedContacts=JSON.parse(localStorage.getItem(CONTACTS_STORAGE_KEY)||'null'); if(Array.isArray(savedContacts)) contacts=savedContacts; }catch(error){ console.warn('ไม่สามารถโหลดสมุดรายชื่อได้',error); }
 function persistContacts(){ persistWorkspaceData(); }
-let nextContactId=maxArrayValue(contacts,contact=>(Number(contact.id)||0)+1,7);
+let nextContactId=maxArrayValue(contacts,contact=>(Number(contact.id)||0)+1,1);
 let contactFilter = 'all'; // all | customer | supplier | both
 let contactPage = 1;
 const CONTACTS_PER_PAGE = 10;
 let editingContactId = null; // null=list, 'new', หรือ id
-let salesRepresentatives = [
-  {id:1, code:'', name:'คุณอรทัย พรหมมา', phone:'081-555-1020', line:'orathai.pharma', note:'ผู้แทนเขตกรุงเทพฯ บริษัท เซ็นทรัลฟาร์มา'},
-  {id:2, code:'', name:'คุณณัฐวุฒิ แสงทอง', phone:'089-234-7788', line:'nattawut.med', note:'ติดต่อเรื่องยาและเวชภัณฑ์'},
-  {id:3, code:'', name:'คุณพิมพ์ชนก ศรีสุข', phone:'086-901-4455', line:'pim.srisuk', note:'เข้าพบร้านทุกวันพุธช่วงบ่าย'},
-];
-let nextSalesRepresentativeId = 4;
+let salesRepresentatives=[];
+let nextSalesRepresentativeId = 1;
 let editingSalesRepresentativeId = null;
 // ===== ระบบโปรโมชั่น =====
 // scope: 'product' (ผูกสินค้าเดี่ยว) | 'category' (ผูกหมวด/แบรนด์)
@@ -4026,55 +3846,8 @@ function stockAllUnits(p){
 }
 function stockBaseFromUnitAmount(amount,factor){ const f=Number(factor); return (Number(amount)||0)*(f>0?f:1); }
 function stockUnitAmountFromBase(baseStock,factor){ const f=Number(factor); return Math.round(((Number(baseStock)||0)/(f>0?f:1))*100)/100; }
-function generateMockSalesHistory(){
-  const today = new Date();
-  const fmtISO = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  const cashiers=['เภสัชกรหญิงมานี','พนักงานขายสมชาย'];
-  const payMethods=['เงินสด','โอนธนาคาร','บัตรเครดิต'];
-  const pool = products.filter(p=>p.price>0);
-  if(!pool.length) return [];
-  const N_DAYS = 365, N_SALES = 300;
-  const dayOffsets=[];
-  for(let i=0;i<N_SALES;i++){ dayOffsets.push(Math.floor(Math.random()*N_DAYS)); }
-  dayOffsets.sort((a,b)=>b-a); // ไล่จากไกลสุด(ปีที่แล้ว) มาใกล้สุด(วันนี้) เพื่อให้เลขบิลไล่ตามลำดับเวลา
-  const perDaySeq={};
-  const records=[];
-  let invoiceSeq=1000;
-  dayOffsets.forEach(offset=>{
-    const d=new Date(today); d.setDate(d.getDate()-offset);
-    const dateStr=fmtISO(d);
-    perDaySeq[dateStr]=(perDaySeq[dateStr]||0)+1;
-    const seq=perDaySeq[dateStr];
-    const ref=`RE${dateStr.replace(/-/g,'')}${String(seq).padStart(4,'0')}`;
-    const hh=String(8+Math.floor(Math.random()*10)).padStart(2,'0');
-    const mm=String(Math.floor(Math.random()*60)).padStart(2,'0');
-    const itemCount=1+Math.floor(Math.random()*3);
-    const items=[]; let total=0; const usedNames=new Set();
-    for(let k=0;k<itemCount;k++){
-      let p=pool[Math.floor(Math.random()*pool.length)]; let guard=0;
-      while(usedNames.has(p.name) && guard<5){ p=pool[Math.floor(Math.random()*pool.length)]; guard++; }
-      usedNames.add(p.name);
-      const qty=1+Math.floor(Math.random()*3);
-      items.push({name:p.name, qty, price:p.price});
-      total+=qty*p.price;
-    }
-    const roll=Math.random();
-    const status = roll<0.94 ? 'done' : (roll<0.97 ? 'cancel' : 'hold');
-    records.push({ id:'INV-'+(invoiceSeq++), ref, date:dateStr, time:`${dateStr} ${hh}:${mm}`, cashier:cashiers[Math.floor(Math.random()*cashiers.length)], status, items, discount:0, vat:0, total, payMethod:payMethods[Math.floor(Math.random()*payMethods.length)] });
-  });
-  records.sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time));
-  return records;
-}
-let salesHistory = generateMockSalesHistory();
-const SALES_STORAGE_KEY='pharmacy_pos_sales_history_v1';
-try{
-  const savedSales=JSON.parse(localStorage.getItem(SALES_STORAGE_KEY)||'null');
-  if(Array.isArray(savedSales)) salesHistory=savedSales;
-}catch(error){ console.warn('ไม่สามารถโหลดประวัติการขายที่บันทึกไว้ได้',error); }
-function persistSalesHistory({sync=false}={}){
-  persistWorkspaceData();
-  if(sync) syncSalesHistoryToSupabase();
-}
+let salesHistory=[];
+const SALES_STORAGE_KEY="pharmacy_pos_sales_history_v1";
 async function updateSaleDocumentMetadata(saleId,metadata){
   const id=String(saleId||'').trim();
   if(!id) throw new Error('ไม่พบรหัสรายการขาย');
@@ -4083,8 +3856,6 @@ async function updateSaleDocumentMetadata(saleId,metadata){
   const index=salesHistory.findIndex(item=>String(item.id)===id);
   if(index<0) throw new Error('ไม่พบรายการขายในอุปกรณ์นี้');
   salesHistory[index]={...salesHistory[index],...(data?.sale||data||{}),id};
-  seedTableSnapshot('sales',salesHistory,saleToRow);
-  persistSalesHistory({sync:false});
   return salesHistory[index];
 }
 const weekSales = [ {d:'28 ก.ค.',v:420}, {d:'29 ก.ค.',v:580}, {d:'30 ก.ค.',v:310}, {d:'31 ก.ค.',v:490}, {d:'1 ส.ค.',v:670}, {d:'2 ส.ค.',v:174}, {d:'3 ส.ค.',v:96} ];
@@ -4140,7 +3911,7 @@ function isBusinessVatRegistered(settings=businessSettings){
 function businessPrimaryPhone(settings=businessSettings){
   const preferred=settings?.documentPhone==='office'?'officePhone':'mobile';
   const fallback=preferred==='officePhone'?'mobile':'officePhone';
-  return String(settings?.[preferred]||settings?.[fallback]||'').trim();
+  return String(settings?.[preferred]||settings?.[fallback]||settings?.phone||'').trim();
 }
 function businessTaxBranchLabel(settings=businessSettings,options={}){
   const registered=options.registered===undefined?isBusinessVatRegistered(settings):options.registered===true;
@@ -4156,6 +3927,14 @@ function businessDocumentName(settings=businessSettings,fallbackName='',options=
   const name=String(settings?.name||fallbackName||'').trim();
   const branch=businessTaxBranchLabel(settings,options);
   return `${name}${branch?` (${branch})`:''}`;
+}
+const BUSINESS_DOCUMENT_SNAPSHOT_KEYS=['type','vat','vatRegistrationDate','name','address','taxId','branch','branchCode','branchName','officePhone','mobile','phone','fax','line','website','documentPhone','english'];
+function businessDocumentSnapshot(settings=businessSettings){
+  const source=settings&&typeof settings==='object'?settings:{};
+  return BUSINESS_DOCUMENT_SNAPSHOT_KEYS.reduce((snapshot,key)=>{
+    if(source[key]!==undefined) snapshot[key]=source[key];
+    return snapshot;
+  },{});
 }
 function businessTypeTaxIdHint(type){
   if(type==='บุคคลธรรมดา') return 'บุคคลธรรมดาไทยใช้เลขบัตรประชาชน 13 หลักได้';
@@ -4632,6 +4411,7 @@ function workspaceSnapshot(){
 function localWorkspaceSnapshot(){
   const snapshot=workspaceSnapshot();
   delete snapshot.products;
+  delete snapshot.salesHistory;
   return snapshot;
 }
 function refreshDataCounters(){
@@ -4659,7 +4439,6 @@ function applyWorkspaceData(saved){
   if(Array.isArray(saved.products)) products=saved.products;
   if(Array.isArray(saved.contacts)) contacts=saved.contacts;
   if(Array.isArray(saved.salesRepresentatives)) salesRepresentatives=saved.salesRepresentatives;
-  if(Array.isArray(saved.salesHistory)) salesHistory=saved.salesHistory;
   if(Array.isArray(saved.quotations)) quotations=saved.quotations;
   if(Array.isArray(saved.invoicesAR)) invoicesAR=saved.invoicesAR;
   if(Array.isArray(saved.creditNotes)) creditNotes=saved.creditNotes;
@@ -4689,8 +4468,15 @@ function applyWorkspaceData(saved){
 }
 function loadWorkspaceData(){
   try{
-    const saved=JSON.parse(localStorage.getItem(WORKSPACE_STORAGE_KEY)||'null');
+    let saved=JSON.parse(localStorage.getItem(WORKSPACE_STORAGE_KEY)||'null');
     if(Array.isArray(saved?.products)) legacyWorkspaceProducts=saved.products;
+    if(saved&&typeof saved==='object'&&Object.hasOwn(saved,'salesHistory')){
+      saved={...saved};
+      delete saved.salesHistory;
+      const cleaned=JSON.stringify(saved);
+      if(safeLocalStorageSet(WORKSPACE_STORAGE_KEY,cleaned,'ข้อมูลระบบ')) lastPersistedWorkspaceJson=cleaned;
+    }
+    localStorage.removeItem(SALES_STORAGE_KEY);
     applyWorkspaceData(saved);
   }
   catch(error){ console.warn('ไม่สามารถโหลดข้อมูลระบบที่บันทึกไว้ได้',error); }
@@ -5813,7 +5599,7 @@ function saveStandaloneTaxInvoice(){
   const discount=Number(d.discount)||0;
   const itemsWithVat=items.map(item=>({...item,productId:item.productId||item.pid||documentProductForTax(item)?.id||null,vatMode:documentItemVatMode(item,true,businessSettings)}));
   const taxSummary=calculateDocumentTaxSummary(itemsWithVat,discount,true,businessSettings);
-  const doc={id:d.number,number:d.number,date:d.date,saleDate:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),issuedAt:auditNow(),customer:{name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items:itemsWithVat,discount,total:taxSummary.total,vatRegistered:true,taxSummary,businessSnapshot:JSON.parse(JSON.stringify(businessSettings)),note:d.note||'',printLog:[]};
+  const doc={id:d.number,number:d.number,date:d.date,saleDate:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),issuedAt:auditNow(),customer:{name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items:itemsWithVat,discount,total:taxSummary.total,vatRegistered:true,taxSummary,businessSnapshot:businessDocumentSnapshot(),note:d.note||'',printLog:[]};
   standaloneTaxInvoices.unshift(doc); persistStandaloneTaxInvoices();
   editingTaxInvoiceSaleId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false;
   showToast(`บันทึกใบกำกับภาษี ${doc.number} แล้ว`);
@@ -6000,7 +5786,7 @@ function saveQuotation(){
   const taxSummary=calculateDocumentTaxSummary(itemsWithVat,discount,vatRegistered,businessSettings);
   const total=taxSummary.total;
   const old=editingQuotationId!=='new'?quotations.find(doc=>doc.id===editingQuotationId):null;
-  const record={id:d.number,date:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),customer:d.name,customerInfo:{id:d.customerId||'',name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items:itemsWithVat,discount,total,vatRegistered,taxSummary,businessSnapshot:old?.businessSnapshot||JSON.parse(JSON.stringify(businessSettings)),note:d.note||'',status:old?.status||'รอตอบรับ'};
+  const record={id:d.number,date:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),customer:d.name,customerInfo:{id:d.customerId||'',name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items:itemsWithVat,discount,total,vatRegistered,taxSummary,businessSnapshot:old?.businessSnapshot||businessDocumentSnapshot(),note:d.note||'',status:old?.status||'รอตอบรับ'};
   if(editingQuotationId==='new'){ quotations.unshift(record); }else{ const index=quotations.findIndex(doc=>doc.id===editingQuotationId); if(index>-1) quotations[index]=record; }
   persistQuotations(); editingQuotationId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; showToast(`บันทึกใบเสนอราคา ${record.id} แล้ว`); render();
 }
@@ -14389,7 +14175,7 @@ async function savePO(silent=false){
       return false;
     }
   }
-  const rec={ id:draft.id, supplier:draft.supplier, date:draft.date, credit:kind==='ret'?0:(styled?(draft.credit||0):0), dueDate:kind==='ret'?'':(styled?addDaysToDate(draft.date,draft.credit||0):''), items:savedItems, discount:kind==='ret'?0:(styled?(draft.discount||0):0), total:kind==='ret'?0:tax.total, taxMode:kind==='ret'?'none':(styled?(draft.taxMode||'incl'):'none'), taxSummary:kind==='ret'?calculatePurchaseTaxSummary([],0,'none'):(styled?tax:null), supplierTaxInvoiceNo:styled?(draft.supplierTaxInvoiceNo||''):'', supplierTaxInvoiceDate:styled?(draft.supplierTaxInvoiceDate||''):'', businessSnapshot:old?.businessSnapshot||JSON.parse(JSON.stringify(businessSettings)), note:draft.note||'', status:old?.status||docDefaultStatus(kind), ...(kind==='gr'?{warehouseId:Number(draft.warehouseId),stockApplied:old?.stockApplied===true,stockAppliedAt:old?.stockAppliedAt||'',createdByUserId:old?.createdByUserId||String(currentProfile?.id||'')}:kind==='ret'?{warehouseId:Number(draft.warehouseId),stockApplied:old?.stockApplied===true,stockAppliedAt:old?.stockAppliedAt||''}:{}) };
+  const rec={ id:draft.id, supplier:draft.supplier, date:draft.date, credit:kind==='ret'?0:(styled?(draft.credit||0):0), dueDate:kind==='ret'?'':(styled?addDaysToDate(draft.date,draft.credit||0):''), items:savedItems, discount:kind==='ret'?0:(styled?(draft.discount||0):0), total:kind==='ret'?0:tax.total, taxMode:kind==='ret'?'none':(styled?(draft.taxMode||'incl'):'none'), taxSummary:kind==='ret'?calculatePurchaseTaxSummary([],0,'none'):(styled?tax:null), supplierTaxInvoiceNo:styled?(draft.supplierTaxInvoiceNo||''):'', supplierTaxInvoiceDate:styled?(draft.supplierTaxInvoiceDate||''):'', businessSnapshot:old?.businessSnapshot||businessDocumentSnapshot(), note:draft.note||'', status:old?.status||docDefaultStatus(kind), ...(kind==='gr'?{warehouseId:Number(draft.warehouseId),stockApplied:old?.stockApplied===true,stockAppliedAt:old?.stockAppliedAt||'',createdByUserId:old?.createdByUserId||String(currentProfile?.id||'')}:kind==='ret'?{warehouseId:Number(draft.warehouseId),stockApplied:old?.stockApplied===true,stockAppliedAt:old?.stockAppliedAt||''}:{}) };
   if(kind==='gr'){
     const saveButton=document.getElementById('savePOBtn');
     if(saveButton) saveButton.disabled=true;
@@ -16128,8 +15914,6 @@ async function holdOrder(){
     const saved={...heldSale,...(data?.sale||data||{})};
     if(!saved.id) throw new Error('ระบบไม่ได้ส่งรหัสบิลพักกลับมา');
     salesHistory.unshift(saved);
-    seedTableSnapshot('sales',salesHistory,saleToRow);
-    persistSalesHistory({sync:false});
     cart=[]; saleDiscount=0; saleMember=null; pendingQty=1;
     saleRef=nextSaleRef();
     showToast(`พักออเดอร์ "${name||'ไม่มีชื่อ'}" แล้ว`);
@@ -16155,8 +15939,6 @@ async function resumeHold(billId){
     saleRef=bill.ref;
     const idx=salesHistory.indexOf(bill);
     if(idx>-1) salesHistory.splice(idx,1);
-    seedTableSnapshot('sales',salesHistory,saleToRow);
-    persistSalesHistory({sync:false});
     currentTab='checkout';
     showToast(`ดึงออเดอร์ "${bill.name||''}" กลับมาทำต่อ`);
     render();
@@ -16175,8 +15957,6 @@ async function deleteSaleHistory(id,onDeleted){
     const {error}=await sb.rpc('delete_held_sale',{p_sale_id:String(sale.id)});
     if(error) throw error;
     const index=salesHistory.indexOf(sale); if(index>-1) salesHistory.splice(index,1);
-    seedTableSnapshot('sales',salesHistory,saleToRow);
-    persistSalesHistory({sync:false});
     if(onDeleted) onDeleted();
     showToast(`ลบบิลพัก ${sale.ref||sale.id} แล้ว`);
     render();
@@ -16201,7 +15981,6 @@ async function voidSaleHistory(id,onVoided){
     const index=salesHistory.findIndex(item=>item.id===sale.id);
     if(index>=0) salesHistory[index]={...salesHistory[index],...(data?.sale||{}),id:sale.id,status:'void',voidShiftId:currentCashShift.id};
     await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
-    persistSalesHistory();
     if(onVoided) onVoided();
     showToast(`ยกเลิกบิล ${sale.ref||sale.id} และคืนสต๊อกแล้ว`);
     render();
@@ -16303,7 +16082,6 @@ async function openSaleLotCorrection(id){
         if(error) throw error;
         const saleIndex=salesHistory.findIndex(entry=>entry.id===sale.id);
         if(saleIndex>=0) salesHistory[saleIndex]={...salesHistory[saleIndex],...(data?.sale||{}),id:sale.id};
-        persistSalesHistory();
         await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
         close(); showToast('แก้ไข LOT ที่ขายเรียบร้อยแล้ว'); openSaleHistoryDetail(sale.id);
       }catch(error){
@@ -16469,7 +16247,6 @@ function printA4CashReceipt(saleId,previewWindow=null){
   standardizePrintPreview(win);
   meta.printLog.push({at:auditNow(),mode:'print'});
   sale.cashReceiptA4Meta=meta;
-  persistSalesHistory({sync:false});
   updateSaleDocumentMetadata(sale.id,{cashReceiptA4Meta:meta}).catch(error=>{
     console.warn('log cash bill print',error);
     showToast('พิมพ์เอกสารได้ แต่บันทึกประวัติการพิมพ์ไม่สำเร็จ','danger-top');
@@ -16573,7 +16350,6 @@ function printFullTaxInvoice(saleId){
   invoice.printLog.push({at:auditNow(),mode:'print'});
   if(standaloneDoc) persistStandaloneTaxInvoices();
   else{
-    persistSalesHistory({sync:false});
     updateSaleDocumentMetadata(sale.id,{fullTaxInvoice:invoice}).catch(error=>{
       console.warn('log tax invoice print',error);
       showToast('พิมพ์เอกสารได้ แต่บันทึกประวัติการพิมพ์ไม่สำเร็จ','danger-top');
@@ -17452,7 +17228,6 @@ function printShortReceipt(saleId,historical=false){
   sale.shortReceiptMeta=sale.shortReceiptMeta||{number:receiptNo,saleDate:sale.date,issuedAt:auditNow(),printLog:[]};
   sale.shortReceiptMeta.printLog=sale.shortReceiptMeta.printLog||[];
   sale.shortReceiptMeta.printLog.push({at:auditNow(),mode:'print'});
-  persistSalesHistory({sync:false});
   updateSaleDocumentMetadata(sale.id,{shortReceiptMeta:sale.shortReceiptMeta}).catch(error=>{
     console.warn('log short receipt print',error);
     showToast('พิมพ์ใบเสร็จได้ แต่บันทึกประวัติการพิมพ์ไม่สำเร็จ','danger-top');
@@ -17488,7 +17263,7 @@ async function doCheckout(payMethod,options={}){
   const discount=taxSummary.discount;
   const costTotal=items.reduce((sum,item)=>sum+(Number(item.costTotal)||0),0);
   const grand=taxSummary.total;
-  const saleDraft={warehouseId:Number(activeWarehouseId)||null,warehouseName:activeWarehouse()?.name||'',cashier:loggedInUser()?.firstName||employees[0],member:saleMember,status:'done',payMethod:payMethod||'เงินสด',items,medicineLabelSize,discount,vat:taxSummary.vat,vatRegistered,taxSummary,businessSnapshot:JSON.parse(JSON.stringify(businessSettings)),fee,costTotal,grossProfit:roundMoney(taxSummary.beforeVat-costTotal),cashReceived:options.cashReceived||0,cashChange:options.cashChange||0,total:grand};
+  const saleDraft={warehouseId:Number(activeWarehouseId)||null,warehouseName:activeWarehouse()?.name||'',cashier:loggedInUser()?.firstName||employees[0],member:saleMember,status:'done',payMethod:payMethod||'เงินสด',items,medicineLabelSize,discount,vat:taxSummary.vat,vatRegistered,taxSummary,businessSnapshot:businessDocumentSnapshot(),fee,costTotal,grossProfit:roundMoney(taxSummary.beforeVat-costTotal),cashReceived:options.cashReceived||0,cashChange:options.cashChange||0,total:grand};
   checkoutInFlight=true;
   const checkoutButton=document.getElementById('checkoutBtn');
   if(checkoutButton){ checkoutButton.disabled=true; checkoutButton.textContent='กำลังบันทึก...'; }
@@ -17526,8 +17301,6 @@ async function doCheckout(payMethod,options={}){
   const existingSaleIndex=salesHistory.findIndex(sale=>sale.id===completedSale.id);
   if(existingSaleIndex>=0) salesHistory[existingSaleIndex]=completedSale; else salesHistory.unshift(completedSale);
   cart = []; saleDiscount = 0; saleMember = null; pendingQty = 1;
-  seedTableSnapshot('sales',salesHistory,saleToRow);
-  persistSalesHistory({sync:false});
   saleRef = nextSaleRef();
   checkoutInFlight=false;
   const pendingLotQty=(completedSale.items||[]).flatMap(item=>item.lotAllocations||[]).filter(allocation=>allocation.pendingLot).reduce((sum,allocation)=>sum+(Number(allocation.baseQty)||0),0);

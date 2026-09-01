@@ -43,7 +43,7 @@ const legacyMapped = sandbox.rowToProduct({
   },
 });
 assert.equal(legacyMapped.price, 320, 'legacy JSON price must not be replaced by a zero flat value');
-assert.equal(legacyMapped.stock, 7, 'flat stock must override a stale JSON stock value');
+assert.equal(legacyMapped.stock, 0, 'catalog rows must not provide stock before inventory balances are applied');
 assert.equal(legacyMapped.cost, 210);
 assert.equal(legacyMapped.name, 'Favorite product');
 assert.equal(legacyMapped.sku, '10366');

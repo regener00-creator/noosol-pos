@@ -15,7 +15,7 @@ assert.match(genericSync, /const deleted=\[\.\.\.previous\.keys\(\)\]/, 'deletes
 const productMetaStart = html.indexOf('function productMetadataToRow(');
 const productMetaEnd = html.indexOf('function rowToProduct(', productMetaStart);
 const productMeta = html.slice(productMetaStart, productMetaEnd);
-assert.match(productMeta, /delete data\.stock/);
+assert.match(productMeta, /additionalData\(p,PRODUCT_DUPLICATE_DATA_KEYS\)/);
 assert.doesNotMatch(productMeta, /stock:Number\(p\.stock\)/);
 const productSyncStart = html.indexOf('async function updateProductMetadataInChunks(');
 const productSyncEnd = html.indexOf('// Sync only rows changed', productSyncStart);

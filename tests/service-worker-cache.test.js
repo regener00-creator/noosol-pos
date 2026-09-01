@@ -4,7 +4,7 @@ const path = require('node:path');
 
 const worker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
 
-assert.match(worker, /const CACHE_NAME='pepos-mobile-v11';/);
+assert.match(worker, /const CACHE_NAME='pepos-mobile-v12';/);
 assert.match(
   worker,
   /const APP_SHELL=\[[^\]]*'\/sapuri-pharmacy-logo\.png'[^\]]*\];/s,
