@@ -38,6 +38,8 @@ const DEVICE_ID_STORAGE_KEY='pepos_device_id_v1';
 const PENDING_STOCK_OPERATIONS_KEY='pepos_pending_stock_operations_v1';
 let syncUiState=navigator.onLine?'synced':'offline';
 let syncUiErrorCount=0;
+let syncUiLastError=null;
+let coreSyncFailureDetail=null;
 function currentDeviceId(){
   let id=''; try{ id=localStorage.getItem(DEVICE_ID_STORAGE_KEY)||''; }catch(_error){}
   if(!id){ id=globalThis.crypto?.randomUUID?.()||`device-${Date.now()}-${Math.random().toString(36).slice(2)}`; try{ localStorage.setItem(DEVICE_ID_STORAGE_KEY,id); }catch(_error){} }
@@ -48,8 +50,112 @@ function renderSyncStatusChip(){
   const state=navigator.onLine?syncUiState:'offline';
   const labels={synced:'ซิงก์แล้ว',syncing:'กำลังซิงก์…',error:`ซิงก์ไม่สำเร็จ${syncUiErrorCount?` (${syncUiErrorCount})`:''}`,offline:'ออฟไลน์'};
   chip.dataset.state=state; chip.textContent=labels[state]||labels.synced;
+  chip.title=state==='error'?'กดเพื่อดูสาเหตุและลองซิงก์ใหม่':state==='offline'?'กดเพื่อดูรายละเอียดการเชื่อมต่อ':'กดเพื่อลองซิงก์อีกครั้ง';
 }
 function setSyncUiState(state,errorCount=syncUiErrorCount){ syncUiState=state; syncUiErrorCount=Math.max(0,Number(errorCount)||0); renderSyncStatusChip(); }
+function rememberSyncUiError(error,{operation='sync_core_data',tableName='',recordId='',fallbackMessage='ซิงก์ข้อมูลไม่สำเร็จ'}={}){
+  syncUiLastError={
+    operation:String(operation||'sync_core_data'),
+    table_name:String(tableName||''),
+    record_id:String(recordId||''),
+    error_code:String(error?.code||''),
+    message:String(error?.message||fallbackMessage),
+    occurred_at:new Date().toISOString(),
+    local:true,
+  };
+  setSyncUiState(navigator.onLine?'error':'offline',syncUiErrorCount+1);
+  return syncUiLastError;
+}
+function noteCoreSyncFailure(error,{operation='sync_core_data',tableName='',recordId='',fallbackMessage='ซิงก์ข้อมูลไม่สำเร็จ'}={}){
+  coreSyncFailureDetail={error,operation,tableName,recordId,fallbackMessage};
+  return false;
+}
+const SYNC_TABLE_LABELS={warehouses:'คลังสินค้า',products:'สินค้า',contacts:'สมุดรายชื่อ',sales_representatives:'ผู้แทนจำหน่าย',inspection_lists:'รายการตรวจสินค้า',promotions:'โปรโมชั่น',inventory_balances:'ยอดสต๊อก',inventory_lots:'LOT สินค้า'};
+const SYNC_OPERATION_LABELS={sync_core_data:'ซิงก์ข้อมูลหลัก',save_revisioned_document:'บันทึกเอกสาร',run_stock_operation:'ปรับข้อมูลสต๊อก',owner_upsert_warehouse:'บันทึกคลังสินค้า',owner_delete_warehouse:'ลบคลังสินค้า'};
+function syncEventTitle(row={}){
+  const table=SYNC_TABLE_LABELS[String(row.table_name||'')]||String(row.table_name||'');
+  return table||SYNC_OPERATION_LABELS[String(row.operation||'')]||String(row.operation||'ซิงก์ข้อมูล');
+}
+function syncEventCause(row={}){
+  const message=String(row.message||'ไม่พบข้อความจากเซิร์ฟเวอร์'),code=String(row.error_code||'');
+  const text=`${code} ${message}`.toLowerCase();
+  if(!navigator.onLine||/(failed to fetch|network|load failed|offline)/.test(text)) return 'การเชื่อมต่ออินเทอร์เน็ตหรือเซิร์ฟเวอร์ขาดหาย';
+  if(/(jwt|401|refresh token|not authenticated)/.test(text)) return 'การเข้าสู่ระบบหมดอายุ กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่';
+  if(/(42501|permission denied|row-level security|rls)/.test(text)) return 'บัญชีนี้ไม่มีสิทธิ์อ่านหรือบันทึกข้อมูลส่วนนี้';
+  if(/(revision_conflict|40001|ถูกแก้ไขจากอีกเครื่อง)/.test(text)) return 'ข้อมูลถูกแก้ไขจากอีกเครื่องก่อนหน้านี้ กรุณาโหลดข้อมูลล่าสุด';
+  if(/(23505|duplicate key|already exists)/.test(text)) return 'มีรหัสข้อมูลซ้ำกับรายการที่มีอยู่แล้ว';
+  if(/(23503|foreign key)/.test(text)) return 'ไม่พบข้อมูลที่รายการนี้อ้างอิงอยู่';
+  return message;
+}
+function syncEventTime(value){
+  const date=new Date(value||Date.now());
+  if(Number.isNaN(date.getTime())) return '-';
+  return date.toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
+}
+function syncDetailRowsHtml(rows=[]){
+  if(!rows.length) return '<div class="sync-detail-empty">ยังไม่มีประวัติข้อผิดพลาดจากเซิร์ฟเวอร์</div>';
+  return rows.map(row=>{
+    const cause=syncEventCause(row),message=String(row.message||'');
+    const meta=[row.error_code?`รหัส ${row.error_code}`:'',row.record_id?`รายการ ${row.record_id}`:''].filter(Boolean).join(' · ');
+    return `<article class="sync-detail-item">
+      <div class="sync-detail-item-head"><strong>${escapeHtml(syncEventTitle(row))}</strong><time>${escapeHtml(syncEventTime(row.occurred_at))}</time></div>
+      <div class="sync-detail-cause">${escapeHtml(cause)}</div>
+      ${message&&message!==cause?`<div class="sync-detail-technical">รายละเอียด: ${escapeHtml(message)}</div>`:''}
+      ${meta?`<div class="sync-detail-meta">${escapeHtml(meta)}</div>`:''}
+    </article>`;
+  }).join('');
+}
+async function loadSyncEventDetails(){
+  if(!sb||!currentProfile) return [];
+  const {data,error}=await sb.from('sync_events')
+    .select('id,severity,category,operation,table_name,record_id,error_code,message,status,occurred_at')
+    .order('occurred_at',{ascending:false})
+    .limit(30);
+  if(error) throw error;
+  return Array.isArray(data)?data:[];
+}
+function openSyncDetailsModal(){
+  document.querySelector('.sync-detail-overlay')?.remove();
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay sync-detail-overlay';
+  const localRows=syncUiLastError?[syncUiLastError]:[];
+  overlay.innerHTML=`<section class="modal sync-detail-modal" role="dialog" aria-modal="true" aria-labelledby="syncDetailTitle">
+    <div class="modal-head"><div><h3 id="syncDetailTitle">รายละเอียดการซิงก์</h3><div class="sync-detail-summary">${navigator.onLine?'เชื่อมต่ออินเทอร์เน็ตแล้ว':'อุปกรณ์ออฟไลน์'}${syncUiErrorCount?` · ล้มเหลวสะสม ${syncUiErrorCount} รอบ`:''}</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div>
+    <div class="sync-detail-local">${localRows.length?`<div class="sync-detail-section-title">สาเหตุล่าสุดบนเครื่องนี้</div>${syncDetailRowsHtml(localRows)}`:''}</div>
+    <div class="sync-detail-section-title sync-detail-history-title">ประวัติล่าสุดจากเซิร์ฟเวอร์</div>
+    <div class="sync-detail-list"><div class="sync-detail-loading">กำลังโหลดรายละเอียด…</div></div>
+    <div class="sync-detail-note">ตัวเลขบนปุ่มคือจำนวนรอบที่ซิงก์ล้มเหลว ไม่ใช่จำนวนรายการข้อมูล</div>
+    <div class="sync-detail-actions"><button class="btn ghost sync-detail-close" type="button">ปิด</button><button class="btn primary sync-detail-retry" type="button">ลองซิงก์ใหม่</button></div>
+  </section>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  overlay.querySelector('.modal-close').onclick=close;
+  overlay.querySelector('.sync-detail-close').onclick=close;
+  overlay.onclick=event=>{ if(event.target===overlay) close(); };
+  const list=overlay.querySelector('.sync-detail-list');
+  const refresh=async()=>{
+    list.innerHTML='<div class="sync-detail-loading">กำลังโหลดรายละเอียด…</div>';
+    try{
+      const rows=await loadSyncEventDetails();
+      if(!overlay.isConnected) return;
+      list.innerHTML=syncDetailRowsHtml(rows);
+    }catch(error){
+      if(!overlay.isConnected) return;
+      list.innerHTML=`<div class="sync-detail-load-error">โหลดประวัติจากเซิร์ฟเวอร์ไม่ได้<br><span>${escapeHtml(syncEventCause({message:error?.message,error_code:error?.code}))}</span></div>`;
+    }
+  };
+  overlay.querySelector('.sync-detail-retry').onclick=async event=>{
+    const button=event.currentTarget;
+    button.disabled=true; button.textContent='กำลังซิงก์…';
+    await syncCoreDataToSupabase();
+    if(!overlay.isConnected) return;
+    const summary=overlay.querySelector('.sync-detail-summary');
+    summary.textContent=syncUiState==='synced'?'ซิงก์ล่าสุดสำเร็จแล้ว':`${navigator.onLine?'เชื่อมต่ออินเทอร์เน็ตแล้ว':'อุปกรณ์ออฟไลน์'}${syncUiErrorCount?` · ล้มเหลวสะสม ${syncUiErrorCount} รอบ`:''}`;
+    button.disabled=false; button.textContent='ลองซิงก์ใหม่';
+    refresh();
+  };
+  refresh();
+}
 async function reportClientEvent({severity='error',category='sync',operation,tableName='',recordId='',errorCode='',message,context={}}){
   if(!currentProfile||!operation||!message) return;
   try{ await sb.rpc('report_client_event',{p_device_id:currentDeviceId(),p_severity:severity,p_category:category,p_operation:String(operation),p_table_name:tableName||null,p_record_id:recordId||null,p_error_code:errorCode||null,p_message:String(message).slice(0,1000),p_context:cloudClean(context||{})}); }catch(_error){}
@@ -67,7 +173,7 @@ async function runStockOperation(operation,args={}){
   setSyncUiState('syncing');
   const {data,error}=await sb.rpc('run_stock_operation',{p_request_id:requestId,p_operation:operation,p_args:payload});
   if(error){
-    setSyncUiState('error',syncUiErrorCount+1);
+    rememberSyncUiError(error,{operation,recordId:String(payload.receiptId||payload.returnId||payload.exchangeId||payload.saleId||payload.productId||''),fallbackMessage:'บันทึกการเปลี่ยนแปลงสต๊อกไม่สำเร็จ'});
     reportClientEvent({operation,recordId:String(payload.receiptId||payload.returnId||payload.exchangeId||payload.saleId||payload.productId||''),errorCode:error.code||'',message:error.message||'Stock operation failed',context:{payloadHash}});
     throw error;
   }
@@ -832,11 +938,11 @@ async function upsertAndPrune(table,localArray,toRow){
   if(!changed.length&&!deleted.length) return true;
   if(changed.length){
     const error=await upsertRowsInChunks(table,changed.map(toRow));
-    if(error){ console.warn('sync '+table,error); return false; }
+    if(error){ console.warn('sync '+table,error); return noteCoreSyncFailure(error,{operation:'upsert_rows',tableName:table,fallbackMessage:`ซิงก์ ${SYNC_TABLE_LABELS[table]||table} ไม่สำเร็จ`}); }
   }
   if(deleted.length){
     const {error}=await sb.from(table).delete().in('id',deleted);
-    if(error){ console.warn('sync delete '+table,error); return false; }
+    if(error){ console.warn('sync delete '+table,error); return noteCoreSyncFailure(error,{operation:'delete_rows',tableName:table,fallbackMessage:`ลบข้อมูล ${SYNC_TABLE_LABELS[table]||table} จากเซิร์ฟเวอร์ไม่สำเร็จ`}); }
   }
   syncedTableRows[table]=current;
   return true;
@@ -858,11 +964,11 @@ async function syncWarehousesIncrementally(){
       p_name:row.name,
       p_data:row.data,
     });
-    if(error){ console.warn('sync warehouse',row.id,error); return false; }
+    if(error){ console.warn('sync warehouse',row.id,error); return noteCoreSyncFailure(error,{operation:'owner_upsert_warehouse',tableName:table,recordId:row.id,fallbackMessage:'ซิงก์คลังสินค้าไม่สำเร็จ'}); }
   }
   for(const id of deleted){
     const {error}=await sb.rpc('owner_delete_warehouse',{p_id:Number(id)});
-    if(error){ console.warn('sync delete warehouse',id,error); return false; }
+    if(error){ console.warn('sync delete warehouse',id,error); return noteCoreSyncFailure(error,{operation:'owner_delete_warehouse',tableName:table,recordId:id,fallbackMessage:'ลบคลังสินค้าจากเซิร์ฟเวอร์ไม่สำเร็จ'}); }
   }
   syncedTableRows[table]=current;
   return true;
@@ -887,6 +993,7 @@ async function prepareProductInsertCandidatesForSync(previous){
       tokenAssignments.forEach(entry=>{ if(entry.hadToken) entry.product._clientCreateToken=entry.previousToken; else delete entry.product._clientCreateToken; });
       operationAssignments.forEach(entry=>{ if(entry.hadOperation) productDirtyOperations.set(entry.id,entry.previousOperation); else productDirtyOperations.delete(entry.id); });
       console.warn('sync new products: creation token cache failed');
+      if(typeof noteCoreSyncFailure==='function') return noteCoreSyncFailure(new Error('บันทึกรหัสป้องกันสินค้าใหม่ชนกันลงเครื่องไม่สำเร็จ'),{operation:'prepare_product_insert',tableName:'products'});
       return false;
     }
   }
@@ -904,21 +1011,21 @@ async function syncProductsIncrementally(){
   const deleted=[...previous.keys()].filter(id=>!current.has(id));
   if(updated.length){
     const error=await updateProductMetadataInChunks(updated);
-    if(error){ console.warn('sync products',error); return false; }
+    if(error){ console.warn('sync products',error); return noteCoreSyncFailure(error,{operation:'update_products',tableName:table,fallbackMessage:'แก้ไขสินค้าบนเซิร์ฟเวอร์ไม่สำเร็จ'}); }
   }
   if(inserted.length){
     // New client-generated ids must fail closed on a primary-key collision.
     // Upsert would silently replace the product created by another device.
     const error=await insertRowsInChunks(table,inserted.map(productToRow));
-    if(error){ console.warn('sync new products',error); return false; }
+    if(error){ console.warn('sync new products',error); return noteCoreSyncFailure(error,{operation:'insert_products',tableName:table,fallbackMessage:'เพิ่มสินค้าใหม่บนเซิร์ฟเวอร์ไม่สำเร็จ'}); }
     const {data:insertedRevisions,error:revisionError}=await sb.from('products').select('id,revision').in('id',inserted.map(product=>product.id));
-    if(revisionError){ console.warn('load new product revisions',revisionError); return false; }
+    if(revisionError){ console.warn('load new product revisions',revisionError); return noteCoreSyncFailure(revisionError,{operation:'load_product_revisions',tableName:table,fallbackMessage:'ตรวจสอบข้อมูลสินค้าใหม่ไม่สำเร็จ'}); }
     const revisions=new Map((insertedRevisions||[]).map(row=>[String(row.id),Number(row.revision)||1]));
     inserted.forEach(product=>{ product._revision=revisions.get(String(product.id))||1; });
   }
   if(deleted.length){
     const {error}=await sb.from(table).delete().in('id',deleted);
-    if(error){ console.warn('sync delete products',error); return false; }
+    if(error){ console.warn('sync delete products',error); return noteCoreSyncFailure(error,{operation:'delete_products',tableName:table,fallbackMessage:'ลบสินค้าจากเซิร์ฟเวอร์ไม่สำเร็จ'}); }
   }
   syncedTableRows[table]=tableSnapshot(products,productMetadataToRow);
   const acknowledgedDirtyIds=[];
@@ -929,7 +1036,7 @@ async function syncProductsIncrementally(){
   }
   if(acknowledgedDirtyIds.length){
     const dirtyStatePersisted=await clearAcknowledgedProductDirtyOperations(acknowledgedDirtyIds,dirtyAtStart);
-    if(!dirtyStatePersisted){ seedProductSyncSnapshot(products,productDirtyOperations); return false; }
+    if(!dirtyStatePersisted){ seedProductSyncSnapshot(products,productDirtyOperations); return noteCoreSyncFailure(new Error('บันทึกสถานะสินค้าที่ซิงก์แล้วลงเครื่องไม่สำเร็จ'),{operation:'persist_product_sync_state',tableName:table}); }
   }
   return true;
 }
@@ -963,6 +1070,7 @@ async function syncCoreDataToSupabase(){
   do{
     coreSyncPending=false;
     try{
+      coreSyncFailureDetail=null;
       if(loggedInUser()?.owner===true){
         if(!await syncWarehousesIncrementally()) throw new Error('ซิงก์คลังสินค้าไม่สำเร็จ');
         if(!await syncProductsIncrementally()) throw new Error('ซิงก์สินค้าไม่สำเร็จ');
@@ -970,12 +1078,13 @@ async function syncCoreDataToSupabase(){
         if(!await upsertAndPrune('sales_representatives',salesRepresentatives,salesRepToRow)) throw new Error('ซิงก์รายชื่อผู้แทนไม่สำเร็จ');
         for(const [table,getArr] of DOC_TABLES){ await syncRevisionedDocuments(table,getArr()); }
       }
-      await syncInspectionListsToSupabase();
+      if(!await syncInspectionListsToSupabase()) throw new Error('ซิงก์รายการตรวจสินค้าไม่สำเร็จ');
       setSyncUiState('synced',0);
     }catch(e){
       console.warn('sync core data failed',e);
-      setSyncUiState(navigator.onLine?'error':'offline',syncUiErrorCount+1);
-      reportClientEvent({operation:'sync_core_data',message:e?.message||'ซิงก์ข้อมูลไม่สำเร็จ',context:{tab:currentTab}});
+      const detail=coreSyncFailureDetail||{error:e,operation:'sync_core_data',tableName:'',recordId:'',fallbackMessage:'ซิงก์ข้อมูลไม่สำเร็จ'};
+      const latest=rememberSyncUiError(detail.error||e,detail);
+      reportClientEvent({operation:latest.operation,tableName:latest.table_name,recordId:latest.record_id,errorCode:latest.error_code,message:latest.message,context:{tab:currentTab}});
       if(e?.code==='REVISION_CONFLICT') showToast(e.message,'danger-top');
     }
   }while(coreSyncPending);
@@ -1114,8 +1223,8 @@ async function loadDocumentPrefixesFromSupabase(){
 function inspectionListToRow(list){ return {id:list.id,data:list}; }
 async function syncInspectionListsToSupabase(){
   if(!currentProfile) return false;
-  try{ await upsertAndPrune('inspection_lists',inspectionLists,inspectionListToRow); return true; }
-  catch(e){ console.warn('sync inspection lists failed',e); return false; }
+  try{ return await upsertAndPrune('inspection_lists',inspectionLists,inspectionListToRow); }
+  catch(e){ console.warn('sync inspection lists failed',e); return noteCoreSyncFailure(e,{operation:'sync_inspection_lists',tableName:'inspection_lists',fallbackMessage:'ซิงก์รายการตรวจสินค้าไม่สำเร็จ'}); }
 }
 async function loadInspectionListsFromSupabase(){
   try{
@@ -9821,7 +9930,10 @@ function syncTopbarFormActions(){
   if(!main) return;
   renderSyncStatusChip();
   const syncChip=document.getElementById('syncStatusChip');
-  if(syncChip) syncChip.onclick=()=>{ setSyncUiState('syncing'); syncCoreDataToSupabase(); };
+  if(syncChip) syncChip.onclick=()=>{
+    if(syncUiState==='error'||syncUiErrorCount>0||!navigator.onLine){ openSyncDetailsModal(); return; }
+    setSyncUiState('syncing'); syncCoreDataToSupabase();
+  };
   const moveToTopbar=node=>{ if(node&&node!==slot&&!slot.contains(node)) slot.appendChild(node); };
   [...main.querySelectorAll('.form-final-actions')].forEach(moveToTopbar);
   [...main.querySelectorAll('.pagehead')].forEach(pagehead=>{
