@@ -15554,33 +15554,36 @@ function openPostPaymentModal(saleId){
   overlay.innerHTML=`<div class="modal" style="width:430px;"><div class="modal-head"><h3>ชำระเงินสำเร็จ</h3><button class="modal-close">×</button></div><div id="afterPayContent"></div></div>`;
   document.body.appendChild(overlay);
   const content=overlay.querySelector('#afterPayContent');
+  let receiptPrintStarted=false;
   let activeKeyHandler=null;
   const stopKeyHandler=()=>{ if(activeKeyHandler){ document.removeEventListener('keydown',activeKeyHandler); activeKeyHandler=null; } };
   const close=()=>{ stopKeyHandler(); overlay.remove(); setTimeout(()=>document.getElementById('search')?.focus(),0); };
-  overlay.querySelector('.modal-close').onclick=close;
-  const renderStart=()=>{
+  const requestClose=()=>{
+    if(!receiptPrintStarted){ showToast('กรุณาพิมพ์ใบเสร็จอย่างย่อก่อนเริ่มออเดอร์ใหม่','warning-top'); return; }
+    close();
+  };
+  overlay.querySelector('.modal-close').onclick=requestClose;
+  const renderRequiredReceipt=()=>{
     stopKeyHandler();
-    content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">✓</div><div class="after-pay-heading">รับชำระ ${fmtMoney(sale.total)} บาทแล้ว</div><div class="after-pay-sub">${escapeHtml(sale.payMethod||'เงินสด')} · ${escapeHtml(sale.ref||sale.id)}</div></div><div class="after-pay-options">${medicineLabelCount?`<button class="after-pay-choice" id="printMedicineLabelsBtn"><span>Rx</span> พิมพ์ฉลากยา ${medicineLabelCount} ใบ</button>`:''}<button class="after-pay-choice" id="wantShortReceiptBtn"><span>🧾</span> ใบเสร็จอย่างย่อ 80 มม.</button><button class="after-pay-choice new-order" id="startNewOrderBtn"><span>＋</span> เสร็จสิ้น</button></div>`;
+    content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">✓</div><div class="after-pay-heading">รับชำระ ${fmtMoney(sale.total)} บาทแล้ว</div><div class="after-pay-sub">${escapeHtml(sale.payMethod||'เงินสด')} · ${escapeHtml(sale.ref||sale.id)}<br>ต้องเปิดหน้าพิมพ์ใบเสร็จก่อนเริ่มออเดอร์ใหม่ หากเครื่องพิมพ์มีปัญหาสามารถพิมพ์ย้อนหลังได้</div></div><div class="after-pay-options">${medicineLabelCount?`<button class="after-pay-choice" id="printMedicineLabelsBtn"><span>Rx</span> พิมพ์ฉลากยา ${medicineLabelCount} ใบ</button>`:''}<button class="after-pay-choice" id="printShortReceiptBtn"><span>🖨</span> พิมพ์ใบเสร็จอย่างย่อ 80 มม.</button><button class="after-pay-choice new-order" id="afterReceiptNewOrderBtn" disabled><span>＋</span> เสร็จสิ้น</button></div>`;
     const printMedicineButton=content.querySelector('#printMedicineLabelsBtn'); if(printMedicineButton) printMedicineButton.onclick=()=>printMedicineLabels(saleId);
-    content.querySelector('#wantShortReceiptBtn').onclick=renderReceiptActions;
-    content.querySelector('#startNewOrderBtn').onclick=close;
-    activeKeyHandler=e=>{ if(e.key==='Enter'){ e.preventDefault(); close(); } };
+    const printReceiptButton=content.querySelector('#printShortReceiptBtn');
+    const finishButton=content.querySelector('#afterReceiptNewOrderBtn');
+    printReceiptButton.onclick=()=>{
+      if(!printShortReceipt(saleId)) return;
+      receiptPrintStarted=true;
+      finishButton.disabled=false;
+      printReceiptButton.innerHTML='<span>🖨</span> เปิดหน้าพิมพ์แล้ว · พิมพ์อีกครั้ง';
+    };
+    finishButton.onclick=close;
+    activeKeyHandler=e=>{ if(e.key==='Enter'){ e.preventDefault(); receiptPrintStarted?close():printReceiptButton.click(); } };
     document.addEventListener('keydown',activeKeyHandler);
   };
-  const renderReceiptActions=()=>{
-    stopKeyHandler();
-    content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">🧾</div><div class="after-pay-heading">ใบเสร็จรับเงินอย่างย่อ</div><div class="after-pay-sub">เลือกวิธีนำใบเสร็จไปใช้งาน</div></div><div class="after-pay-options"><button class="after-pay-choice" id="printShortReceiptBtn"><span>🖨</span> พิมพ์ใบเสร็จรับเงิน</button><div class="checkout-payment-nav" style="margin-top:2px;"><button class="btn ghost" id="afterPayBackBtn">← ย้อนกลับ</button><button class="btn primary" id="afterReceiptNewOrderBtn">เสร็จสิ้น</button></div></div>`;
-    content.querySelector('#printShortReceiptBtn').onclick=()=>printShortReceipt(saleId);
-    content.querySelector('#afterPayBackBtn').onclick=renderStart;
-    content.querySelector('#afterReceiptNewOrderBtn').onclick=close;
-    activeKeyHandler=e=>{ if(e.key==='Enter'){ e.preventDefault(); close(); } };
-    document.addEventListener('keydown',activeKeyHandler);
-  };
-  renderStart();
+  renderRequiredReceipt();
 }
 
 function printShortReceipt(saleId,historical=false){
-  const sale=salesHistory.find(item=>item.id===saleId); if(!sale) return;
+  const sale=salesHistory.find(item=>item.id===saleId); if(!sale) return false;
   const tax=saleTaxSummary(sale),registered=tax.registered;
   const lineAmount=item=>item.lineTotalGross!==undefined?Number(item.lineTotalGross)||0:item.lineTotal!==undefined?Number(item.lineTotal)||0:(Number(item.qty)||0)*(Number(item.price)||0);
   const afterDiscount=Math.max(0,tax.total-(Number(sale.fee)||0)),beforeVat=tax.beforeVat,vat=tax.vat;
@@ -15588,7 +15591,7 @@ function printShortReceipt(saleId,historical=false){
   const itemCount=(sale.items||[]).reduce((sum,item)=>sum+(Number(item.qty)||0),0);
   const receiptNo=shortReceiptNumber(sale);
   const rows=(sale.items||[]).map(item=>`<div class="item"><div><b>${escapeHtml(item.name)}</b><small>${escapeHtml(item.qty)} ${escapeHtml(item.unit||'')} × ${fmtMoney(grossAmountForVatMode(item.price,item.vatMode,registered))}</small>${item.promoName?`<small class="receipt-promo-tag">🏷 ${escapeHtml(item.promoName)}</small>`:''}${item.promoFreeQty?`<small class="receipt-promo-tag">🎁 แถมฟรี ${escapeHtml(item.promoFreeQty)} ${escapeHtml(item.unit||'')}</small>`:''}</div><strong>${fmtMoney(lineAmount(item))}</strong></div>`).join('');
-  const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างใบเสร็จ'); return; }
+  const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างใบเสร็จ'); return false; }
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>พิมพ์ - ${escapeHtml(receiptNo)}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>@page{size:80mm auto;margin:0}*{box-sizing:border-box}body{margin:0;background:#F0F0F0;color:#111;font-family:'Sarabun',sans-serif}.bar{position:sticky;top:0;z-index:5;background:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px #0002}.bar button{border:0;border-radius:7px;background:#4F4038;color:#fff;padding:8px 15px;font-family:inherit;font-weight:600}.receipt{position:relative;width:80mm;min-height:250mm;margin:12px auto;background:#fff;padding:24mm 8mm 15mm;box-shadow:0 4px 20px #0002}.copy-label{text-align:center;color:#4F4038;font-weight:700;font-size:10pt;margin-bottom:2mm}.center{text-align:center}.store{font-size:11pt;line-height:1.35}.store h2{font-size:14pt;margin:0 0 2px}.rule{border-top:1px solid #111;margin:7mm 0 4mm}.dash{border-top:1px dashed #111;margin:4mm 0}.title{font-weight:700;font-size:12pt}.meta{display:grid;grid-template-columns:25mm 1fr;gap:1mm;font-size:10pt;margin-top:4mm}.meta b{font-weight:600}.item{display:grid;grid-template-columns:minmax(0,1fr) 19mm;gap:2mm;align-items:start;padding:2mm 0;font-size:9.5pt}.item b{display:block;font-weight:500}.item small{display:block}.receipt-promo-tag{color:#4F4038;font-weight:600;}.item strong{text-align:right;font-weight:500}.summary{font-size:10pt}.summary>div{display:flex;justify-content:space-between;padding:1mm 0}.summary .total{font-size:12pt;font-weight:700;border-top:1px solid #111;border-bottom:3px double #111;padding:2mm 0}.vat{font-size:14pt;font-weight:700;margin:5mm 0}.footer{font-size:9pt}@media print{body{background:#fff}.bar{display:none}.receipt{margin:0;box-shadow:none;width:80mm;min-height:0}}</style></head><body><div class="bar"><span>ตัวอย่างใบเสร็จ 80 มม.</span><button onclick="window.print()">พิมพ์</button></div><div class="receipt"><div class="center store"><h2>${escapeHtml(businessDocumentName(receiptBusiness,STORE_INFO.name,{registered}))}</h2><div>${escapeHtml(receiptBusiness.address||STORE_INFO.address)}</div>${(receiptBusiness.taxId||STORE_INFO.taxId)?`<br><div><b>เลขผู้เสียภาษี</b> ${escapeHtml(receiptBusiness.taxId||STORE_INFO.taxId)}</div>`:''}${(receiptBusiness.website||STORE_INFO.website)?`<div><b>เว็บไซต์</b> ${escapeHtml(receiptBusiness.website||STORE_INFO.website)}</div>`:''}</div><div class="rule"></div><div class="title">${registered?'ใบกำกับภาษีอย่างย่อ/ใบเสร็จรับเงิน':'ใบเสร็จรับเงิน'}</div><div>${escapeHtml(receiptNo)}</div><div class="dash"></div><div class="meta"><b>พนักงานขาย</b><span>${escapeHtml(sale.cashier||loggedInUser()?.firstName||'')}</span><b>วันที่</b><span>${fmtDateShort(sale.date)} ${escapeHtml((sale.time||'').slice(11))}</span><b>ชำระโดย</b><span>${escapeHtml(sale.payMethod||'-')}</span></div><div class="rule"></div>${rows}<div class="dash"></div><div class="summary"><div><b>จำนวนรวม</b><b>${itemCount}</b></div><div><span>จำนวนเงินหลังหักส่วนลด</span><b>${fmtMoney(afterDiscount)}</b></div>${registered?`<div><span>ราคาไม่รวมภาษีมูลค่าเพิ่ม</span><b>${fmtMoney(beforeVat)}</b></div><div><span>ภาษีมูลค่าเพิ่ม 7%</span><b>${fmtMoney(vat)}</b></div>`:''}${sale.fee?`<div><span>ค่าธรรมเนียมบัตร</span><b>${fmtMoney(sale.fee)}</b></div>`:''}<div class="total"><span>รวมทั้งสิ้น</span><b>${fmtMoney(sale.total)}</b></div></div>${registered?'<div class="center vat">VAT INCLUDED</div>':''}<div class="dash"></div><div class="center footer">ขอบคุณที่ใช้บริการ${businessPrimaryPhone(receiptBusiness)?`<br>${escapeHtml(businessPrimaryPhone(receiptBusiness))}`:''}</div></div></body></html>`);
   win.document.close();
   const receiptFooter=win.document.querySelector('.footer');
@@ -15610,6 +15613,7 @@ function printShortReceipt(saleId,historical=false){
     showToast('พิมพ์ใบเสร็จได้ แต่บันทึกประวัติการพิมพ์ไม่สำเร็จ','danger-top');
   });
   setTimeout(()=>win.print(),350);
+  return true;
 }
 
 async function doCheckout(payMethod,options={}){
