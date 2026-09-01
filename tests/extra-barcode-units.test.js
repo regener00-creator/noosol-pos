@@ -34,11 +34,6 @@ assert.equal(sandbox.extraBarcodeUnitForCode(products[0], 'OLD-BOX'), 'กล่
 assert.equal(sandbox.findProductByExactCode('OLD-BOX').unitName, 'กล่อง');
 assert.equal(sandbox.findProductByExactCode('VENDOR').unitName, 'เม็ด');
 assert.equal(sandbox.findProductByExactCode('PACK').unitName, 'ซอง');
-assert.equal(sandbox.productScanUnitName(products[0], 'กล่อง'), 'กล่อง', 'สินค้าเดิมต้องขายตามหน่วยของบาร์โค้ด');
-products[0].scanDefaultUnit = 'ซอง';
-assert.equal(sandbox.productScanUnitName(products[0], 'กล่อง'), 'ซอง', 'หน่วยเริ่มต้นต้องแทนหน่วยบนบาร์โค้ดเมื่อกำหนดไว้');
-products[0].scanDefaultUnit = 'ไม่มีหน่วยนี้';
-assert.equal(sandbox.productScanUnitName(products[0], 'กล่อง'), 'กล่อง', 'หน่วยที่ถูกลบต้องย้อนกลับไปใช้หน่วยของบาร์โค้ด');
 
 const legacy = {unit: 'ขวด', units: [], extraBarcodes: ['LEGACY']};
 assert.equal(sandbox.extraBarcodeUnitForCode(legacy, 'LEGACY'), 'ขวด', 'สินค้าเดิมต้องใช้หน่วยหลักโดยอัตโนมัติ');
@@ -57,8 +52,8 @@ for (const id of ['f_price', 'f_cost', 'f_stock']) {
 }
 assert.doesNotMatch(productDataPanel, /renderedMainUnitSelect/, 'หน่วยหลักต้องย้ายออกจากข้อมูลสินค้า');
 assert.match(unitPanel, /renderedMainUnitSelect/, 'หน่วยหลักต้องอยู่ในก้อนข้อมูลหน่วยและราคา');
-assert.match(formSource, /id="f_scan_default_unit"/, 'ต้องมีตัวเลือกหน่วยเริ่มต้นเมื่อยิงบาร์โค้ด');
-assert.match(unitPanel, /เมื่อยิงบาร์โค้ด ให้ขายเป็น/, 'ต้องอธิบายตัวเลือกหน่วยยิงบาร์โค้ดอย่างตรงไปตรงมา');
+assert.doesNotMatch(formSource, /id="f_scan_default_unit"/, 'ต้องไม่มีตัวเลือกบังคับเปลี่ยนหน่วยเมื่อยิงบาร์โค้ด');
+assert.doesNotMatch(unitPanel, /เมื่อยิงบาร์โค้ด ให้ขายเป็น/, 'ต้องลบระบบบังคับเปลี่ยนหน่วยเมื่อยิงบาร์โค้ด');
 assert.match(formSource, /extraBarcodeRowHtml\(entry,extraBarcodeAvailableUnits\(p\),p\.unit\)/);
 assert.doesNotMatch(formSource, /<h3>ประเภทสินค้า<\/h3>/, 'ต้องไม่แสดงก้อนประเภทสินค้า');
 assert.doesNotMatch(formSource, /id=["']f_wh["']/, 'ต้องไม่แสดงคลังที่แก้ไขไม่ได้');
@@ -80,7 +75,8 @@ assert.doesNotMatch(formSource, /แก้ไขบริการหรือ�
 const saveStart = html.indexOf('async function saveProduct()');
 const saveEnd = html.indexOf('function valueReferencesProduct(', saveStart);
 const saveSource = html.slice(saveStart, saveEnd);
-assert.match(saveSource, /scanDefaultUnit: validBarcodeUnits\.has\(requestedScanUnit\)\?requestedScanUnit:''/, 'ต้องบันทึกเฉพาะหน่วยเริ่มต้นที่ยังมีอยู่ในสินค้า');
-assert.match(html, /addToCart\(exactHit\.product\.id, productScanUnitName\(exactHit\.product,exactHit\.unitName\), pendingQty\)/, 'การยิงบาร์โค้ดหน้า POS ต้องใช้หน่วยเริ่มต้นของสินค้า');
+assert.doesNotMatch(saveSource, /scanDefaultUnit/, 'ต้องไม่บันทึกค่าหน่วยบังคับเมื่อยิงบาร์โค้ด');
+assert.doesNotMatch(html, /function productScanUnitName\(/, 'ต้องไม่มีตัวช่วยเปลี่ยนหน่วยของบาร์โค้ดเป็นหน่วยอื่น');
+assert.match(html, /addToCart\(exactHit\.product\.id, exactHit\.unitName, pendingQty\)/, 'การยิงบาร์โค้ดหน้า POS ต้องขายตามหน่วยที่ผูกกับบาร์โค้ด');
 
 console.log('extra barcode unit tests passed');

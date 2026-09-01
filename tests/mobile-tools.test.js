@@ -239,7 +239,7 @@ assert.ok(manifest.icons.some(icon => icon.src === '/pwa-icon-512.png' && icon.s
 assert.match(serviceWorker, /request\.mode==='navigate'/);
 assert.match(serviceWorker, /fetch\(request\)/);
 assert.match(serviceWorker, /caches\.match\('\/index\.html'\)/);
-assert.match(serviceWorker, /pepos-mobile-v14/);
+assert.match(serviceWorker, /pepos-mobile-v15/);
 assert.doesNotMatch(serviceWorker, /\/mobile-scan-success\.mp3/);
 assert.doesNotMatch(serviceWorker, /\/mobile-scan-error\.mp3/);
 assert.match(serviceWorker, /cdn\.jsdelivr\.net/);

@@ -1,5 +1,5 @@
-const CACHE_NAME='pepos-mobile-v14';
-const APP_SHELL=['/','/index.html','/styles.css','/app.js?v=20260901-line-contact','/manifest.webmanifest','/pwa-icon.svg','/pwa-icon-192.png','/pwa-icon-512.png','/sapuri-pharmacy-logo.png'];
+const CACHE_NAME='pepos-mobile-v15';
+const APP_SHELL=['/','/index.html','/styles.css','/app.js?v=20260901-barcode-unit-direct','/manifest.webmanifest','/pwa-icon.svg','/pwa-icon-192.png','/pwa-icon-512.png','/sapuri-pharmacy-logo.png'];
 const TRUSTED_CDN_HOSTS=new Set(['cdn.jsdelivr.net']);
 
 self.addEventListener('install',event=>{

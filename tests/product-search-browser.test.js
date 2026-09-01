@@ -102,11 +102,7 @@ const browserExecutable = [
     document.getElementById('main').innerHTML=renderProductForm();
     attachEvents();
   });
-  const scanUnitSelect=page.locator('#f_scan_default_unit');
-  assert.equal(await scanUnitSelect.locator('option').count(), 3, 'ต้องเลือกได้ทั้งตามบาร์โค้ด หน่วยหลัก และหน่วยเพิ่มเติม');
-  await scanUnitSelect.selectOption('ลัง');
-  await page.evaluate(() => { products.find(product=>product.id===9101).scanDefaultUnit=document.getElementById('f_scan_default_unit').value; });
-  assert.equal(await page.evaluate(() => productScanUnitName(products.find(product=>product.id===9101),'กล่อง')), 'ลัง', 'ยิงบาร์โค้ดต้องใช้หน่วยเริ่มต้นที่บันทึกไว้');
+  assert.equal(await page.locator('#f_scan_default_unit').count(), 0, 'ต้องไม่มีตัวเลือกบังคับเปลี่ยนหน่วยเมื่อยิงบาร์โค้ด');
   assert.deepEqual(errors, [], `พบ JavaScript error: ${errors.join(' | ')}`);
   console.log('product search browser tests passed');
 })().catch(error => {
