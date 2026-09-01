@@ -15565,7 +15565,7 @@ function openPostPaymentModal(saleId){
   overlay.querySelector('.modal-close').onclick=requestClose;
   const renderRequiredReceipt=()=>{
     stopKeyHandler();
-    content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">✓</div><div class="after-pay-heading">รับชำระ ${fmtMoney(sale.total)} บาทแล้ว</div><div class="after-pay-sub">${escapeHtml(sale.payMethod||'เงินสด')} · ${escapeHtml(sale.ref||sale.id)}<br>กดเสร็จสิ้นเพื่อเปิดการพิมพ์ใบเสร็จ หากเครื่องพิมพ์มีปัญหาสามารถพิมพ์ย้อนหลังได้</div></div><div class="after-pay-options">${medicineLabelCount?`<button class="after-pay-choice" id="printMedicineLabelsBtn"><span>Rx</span> พิมพ์ฉลากยา ${medicineLabelCount} ใบ</button>`:''}<button class="after-pay-choice new-order" id="finishAndPrintReceiptBtn"><span>🖨</span> เสร็จสิ้น</button></div>`;
+    content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">✓</div><div class="after-pay-heading">รับชำระ ${fmtMoney(sale.total)} บาทแล้ว</div><div class="after-pay-sub">${escapeHtml(sale.payMethod||'เงินสด')} · ${escapeHtml(sale.ref||sale.id)}</div></div><div class="after-pay-options">${medicineLabelCount?`<button class="after-pay-choice" id="printMedicineLabelsBtn"><span>Rx</span> พิมพ์ฉลากยา ${medicineLabelCount} ใบ</button>`:''}<button class="after-pay-choice new-order" id="finishAndPrintReceiptBtn"><span>🖨</span> เสร็จสิ้น</button></div>`;
     const printMedicineButton=content.querySelector('#printMedicineLabelsBtn'); if(printMedicineButton) printMedicineButton.onclick=()=>printMedicineLabels(saleId);
     const finishAndPrintButton=content.querySelector('#finishAndPrintReceiptBtn');
     finishAndPrintButton.onclick=()=>{
