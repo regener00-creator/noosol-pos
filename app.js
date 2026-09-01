@@ -107,7 +107,8 @@ function syncDetailRowsHtml(rows=[]){
   if(!rows.length) return '<div class="sync-detail-empty">ยังไม่มีประวัติข้อผิดพลาดจากเซิร์ฟเวอร์</div>';
   return rows.map(row=>{
     const cause=syncEventCause(row),message=String(row.message||'');
-    const meta=[row.error_code?`รหัส ${row.error_code}`:'',row.record_id?`รายการ ${row.record_id}`:''].filter(Boolean).join(' · ');
+    const repeated=Math.max(1,Number(row.occurrence_count)||1);
+    const meta=[row.status==='resolved'?'แก้ไขแล้ว':'ยังเปิดอยู่',repeated>1?`เกิดซ้ำ ${repeated.toLocaleString('th-TH')} ครั้ง`:'',row.error_code?`รหัส ${row.error_code}`:'',row.record_id?`รายการ ${row.record_id}`:''].filter(Boolean).join(' · ');
     const conflictProductId=row.local?syncConflictProductId(row):0;
     return `<article class="sync-detail-item">
       <div class="sync-detail-item-head"><strong>${escapeHtml(syncEventTitle(row))}</strong><time>${escapeHtml(syncEventTime(row.occurred_at))}</time></div>
@@ -148,7 +149,7 @@ async function loadLatestConflictedProduct(productId){
 async function loadSyncEventDetails(){
   if(!sb||!currentProfile) return [];
   const {data,error}=await sb.from('sync_events')
-    .select('id,severity,category,operation,table_name,record_id,error_code,message,status,occurred_at')
+    .select('id,severity,category,operation,table_name,record_id,error_code,message,status,first_occurred_at,occurred_at,resolved_at,occurrence_count')
     .order('occurred_at',{ascending:false})
     .limit(30);
   if(error) throw error;
@@ -217,6 +218,14 @@ function openSyncDetailsModal(){
 async function reportClientEvent({severity='error',category='sync',operation,tableName='',recordId='',errorCode='',message,context={}}){
   if(!currentProfile||!operation||!message) return;
   try{ await sb.rpc('report_client_event',{p_device_id:currentDeviceId(),p_severity:severity,p_category:category,p_operation:String(operation),p_table_name:tableName||null,p_record_id:recordId||null,p_error_code:errorCode||null,p_message:String(message).slice(0,1000),p_context:cloudClean(context||{})}); }catch(_error){}
+}
+async function resolveOwnSyncEventsThrough(through){
+  if(!currentProfile) return;
+  try{
+    const {error}=await sb.rpc('resolve_own_sync_events',{p_device_id:currentDeviceId(),p_through:through||new Date().toISOString()});
+    if(error&&!['PGRST202','42883'].includes(String(error.code||''))) console.warn('resolve sync events failed',error);
+  }
+  catch(_error){ /* compatible with the short rollout window before the RPC exists */ }
 }
 function readPendingStockOperations(){ try{ const rows=JSON.parse(localStorage.getItem(PENDING_STOCK_OPERATIONS_KEY)||'{}'); return rows&&typeof rows==='object'?rows:{}; }catch(_error){ return {}; } }
 function writePendingStockOperations(rows){ try{ localStorage.setItem(PENDING_STOCK_OPERATIONS_KEY,JSON.stringify(rows||{})); return true; }catch(_error){ return false; } }
@@ -517,6 +526,72 @@ async function fetchAllRows(buildQuery){
     from+=pageSize;
   }
   return {data:allRows,error:null};
+}
+
+// Bounded server-side paging for history/document screens. Unlike
+// fetchAllRows(), this helper deliberately stops at maxRows so opening a page
+// cannot download an unbounded table into the browser. Callers also apply a
+// date range whenever the table has a queryable date field.
+async function fetchBoundedRows(buildQuery,{pageSize=250,maxRows=5000}={}){
+  const safePageSize=Math.max(1,Math.min(1000,Number(pageSize)||250));
+  const safeMaxRows=Math.max(safePageSize,Number(maxRows)||safePageSize);
+  let from=0,allRows=[];
+  while(allRows.length<safeMaxRows){
+    const remaining=safeMaxRows-allRows.length;
+    const take=Math.min(safePageSize,remaining);
+    const probeExtra=remaining<=safePageSize?1:0;
+    const {data,error}=await buildQuery().range(from,from+take+probeExtra-1);
+    if(error) return {data:null,error,truncated:false};
+    const page=data||[];
+    if(page.length>take) return {data:allRows.concat(page.slice(0,take)),error:null,truncated:true};
+    allRows=allRows.concat(page);
+    if(page.length<take+probeExtra) return {data:allRows,error:null,truncated:false};
+    from+=take;
+  }
+  return {data:allRows,error:null,truncated:false};
+}
+function normalizedServerDate(value){
+  const date=String(value||'').slice(0,10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(date)?date:'';
+}
+function serverDateRange(from,to){
+  const start=normalizedServerDate(from),end=normalizedServerDate(to);
+  if(!start||!end) return null;
+  return start<=end?{from:start,to:end}:{from:end,to:start};
+}
+function rangeCoveredBy(loadedRanges,range){
+  if(!range) return false;
+  return (loadedRanges||[]).some(item=>item.from<=range.from&&item.to>=range.to);
+}
+function rangeOverlapsAny(loadedRanges,range){
+  if(!range) return false;
+  return (loadedRanges||[]).some(item=>item.from<=range.to&&item.to>=range.from);
+}
+function rememberLoadedRange(loadedRanges,range){
+  if(!range) return loadedRanges||[];
+  const ranges=[...(loadedRanges||[]),range].sort((a,b)=>a.from.localeCompare(b.from));
+  return ranges.reduce((merged,item)=>{
+    const last=merged[merged.length-1];
+    if(last&&item.from<=last.to){ if(item.to>last.to) last.to=item.to; }
+    else merged.push({...item});
+    return merged;
+  },[]);
+}
+function offsetServerDate(value,days){
+  const [year,month,date]=String(value||'').split('-').map(Number);
+  const utc=new Date(Date.UTC(year,month-1,date));
+  utc.setUTCDate(utc.getUTCDate()+Number(days||0));
+  return `${utc.getUTCFullYear()}-${String(utc.getUTCMonth()+1).padStart(2,'0')}-${String(utc.getUTCDate()).padStart(2,'0')}`;
+}
+function forgetLoadedRange(loadedRanges,range){
+  if(!range) return loadedRanges||[];
+  return (loadedRanges||[]).flatMap(item=>{
+    if(range.to<item.from||range.from>item.to) return [{...item}];
+    const remaining=[];
+    if(range.from>item.from) remaining.push({from:item.from,to:offsetServerDate(range.from,-1)});
+    if(range.to<item.to) remaining.push({from:offsetServerDate(range.to,1),to:item.to});
+    return remaining;
+  });
 }
 
 // Product reads use a lightweight manifest (id + updated_at) after the first
@@ -1116,6 +1191,94 @@ const DOC_TABLES = [
   ['transfers', ()=>transfers, v=>{transfers=v;}],
   ['standalone_tax_invoices', ()=>standaloneTaxInvoices, v=>{standaloneTaxInvoices=v;}],
 ];
+const DOCUMENT_QUERY_PAGE_SIZE=250;
+const DOCUMENT_QUERY_MAX_ROWS=1000;
+const documentLoadStates=Object.fromEntries(DOC_TABLES.map(([table])=>[table,{loaded:false,full:false,recent:false,ranges:[],recentTruncated:false,truncatedRanges:[]}]));
+const documentLoadPromises=new Map();
+function documentTableEntry(table){ return DOC_TABLES.find(([name])=>name===table)||null; }
+function resetDocumentLoadStates(){
+  Object.values(documentLoadStates).forEach(state=>{ state.loaded=false; state.full=false; state.recent=false; state.ranges=[]; state.recentTruncated=false; state.truncatedRanges=[]; });
+  documentLoadPromises.clear();
+  DOC_TABLES.forEach(([table])=>{ delete syncedTableRows[table]; });
+}
+function mergeRowsById(current,incoming){
+  const rows=new Map((current||[]).map(row=>[String(row.id),row]));
+  (incoming||[]).forEach(row=>rows.set(String(row.id),row));
+  return [...rows.values()].sort((a,b)=>String(b.id||'').localeCompare(String(a.id||'')));
+}
+function documentRequestLoaded(table,{range=null,recent=false,full=false}={}){
+  const state=documentLoadStates[table];
+  if(!state) return true;
+  if(state.full) return true;
+  if(full) return false;
+  if(range) return rangeCoveredBy(state.ranges,range);
+  return recent?state.recent:state.loaded;
+}
+function documentRequestTruncated(table,{range=null,recent=false}={}){
+  const state=documentLoadStates[table];
+  if(!state||state.full) return false;
+  if(range&&rangeOverlapsAny(state.truncatedRanges,range)) return true;
+  return !!recent&&state.recentTruncated;
+}
+async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full=false}={}){
+  const entry=documentTableEntry(table),state=documentLoadStates[table];
+  if(!entry||!state) return false;
+  const normalizedRange=range?serverDateRange(range.from,range.to):null;
+  const request={range:normalizedRange,recent:!!recent,full:!!full};
+  if(documentRequestLoaded(table,request)) return true;
+  const requestKey=`${table}:${full?'full':normalizedRange?`${normalizedRange.from}:${normalizedRange.to}`:'recent'}`;
+  if(documentLoadPromises.has(requestKey)) return documentLoadPromises.get(requestKey);
+  const promise=(async()=>{
+    try{
+      const buildQuery=()=>{
+        let query=sb.from(table).select('*').order('id',{ascending:false});
+        // These generic document tables keep their business date in data.date.
+        // Standalone tax invoices can use saleDate, so their normal list uses
+        // the bounded recent-page path rather than an incomplete date filter.
+        if(normalizedRange&&table!=='standalone_tax_invoices') query=query.gte('data->>date',normalizedRange.from).lte('data->>date',normalizedRange.to);
+        return query;
+      };
+      const result=full
+        ?await fetchAllRows(buildQuery)
+        :await fetchBoundedRows(buildQuery,{pageSize:DOCUMENT_QUERY_PAGE_SIZE,maxRows:DOCUMENT_QUERY_MAX_ROWS});
+      if(result.error) throw result.error;
+      let incoming=(result.data||[]).map(rowToDoc);
+      if(table==='goods_receipts') incoming=normalizeGoodsReceiptDocuments(incoming);
+      const [,getArr,setArr]=entry;
+      const next=full||!state.loaded?incoming:mergeRowsById(getArr(),incoming);
+      setArr(next);
+      // A partial snapshot contains only rows actually observed by this
+      // browser. Merge newly observed ids into the snapshot instead of
+      // replacing it, otherwise a locally deleted row could disappear from
+      // change tracking while another date window is loading.
+      if(full) seedTableSnapshot(table,next,docToRow);
+      else{
+        const snapshot=new Map(syncedTableRows[table]||[]);
+        incoming.forEach(doc=>snapshot.set(String(doc.id),JSON.stringify(docToRow(doc))));
+        syncedTableRows[table]=snapshot;
+      }
+      state.loaded=true;
+      state.full=!!full;
+      state.recent=state.recent||!!recent||(!normalizedRange&&!full);
+      if(normalizedRange) state.ranges=rememberLoadedRange(state.ranges,normalizedRange);
+      if(full){ state.recentTruncated=false; state.truncatedRanges=[]; }
+      else if(result.truncated){
+        if(normalizedRange) state.truncatedRanges=rememberLoadedRange(state.truncatedRanges,normalizedRange);
+        else if(recent) state.recentTruncated=true;
+      }
+      refreshDataCounters();
+      return true;
+    }catch(error){
+      console.warn(`load ${table}`,error);
+      throw error;
+    }finally{ documentLoadPromises.delete(requestKey); }
+  })();
+  documentLoadPromises.set(requestKey,promise);
+  return promise;
+}
+async function loadAllDocumentsForBackup(){
+  await Promise.all(DOC_TABLES.map(([table])=>loadDocumentTableFromSupabase(table,{full:true})));
+}
 async function syncCoreDataToSupabase(){
   if(!currentProfile) return;
   if(await adoptRemoteMaintenanceEpoch()){
@@ -1127,6 +1290,7 @@ async function syncCoreDataToSupabase(){
   setSyncUiState('syncing');
   do{
     coreSyncPending=false;
+    const syncAttemptStartedAt=new Date().toISOString();
     try{
       coreSyncFailureDetail=null;
       if(loggedInUser()?.owner===true){
@@ -1134,9 +1298,14 @@ async function syncCoreDataToSupabase(){
         if(!await syncProductsIncrementally()) throw new Error('ซิงก์สินค้าไม่สำเร็จ');
         if(!await upsertAndPrune('contacts',contacts,contactToRow)) throw new Error('ซิงก์สมุดรายชื่อไม่สำเร็จ');
         if(!await upsertAndPrune('sales_representatives',salesRepresentatives,salesRepToRow)) throw new Error('ซิงก์รายชื่อผู้แทนไม่สำเร็จ');
-        for(const [table,getArr] of DOC_TABLES){ await syncRevisionedDocuments(table,getArr()); }
+        for(const [table,getArr] of DOC_TABLES){
+          // Unopened document tables are intentionally absent from memory.
+          // Never compare an empty/unloaded array with the remote table.
+          if(documentLoadStates[table]?.loaded) await syncRevisionedDocuments(table,getArr());
+        }
       }
       if(!await syncInspectionListsToSupabase()) throw new Error('ซิงก์รายการตรวจสินค้าไม่สำเร็จ');
+      await resolveOwnSyncEventsThrough(syncAttemptStartedAt);
       setSyncUiState('synced',0);
     }catch(e){
       console.warn('sync core data failed',e);
@@ -1348,16 +1517,22 @@ async function loadCoreDataFromSupabase(){
     // still mandatory; only this newly introduced table has a legacy fallback.
     const permissionTablePending=permissionErr&&['42P01','PGRST205'].includes(String(permissionErr.code||''));
     if(whErr||prodErr||contactErr||repErr||accessErr||(permissionErr&&!permissionTablePending)||balanceErr||lotErr){ console.warn('load core data',whErr||prodErr||contactErr||repErr||accessErr||permissionErr||balanceErr||lotErr); return; }
-    const docResults=await Promise.all(DOC_TABLES.map(([table])=>fetchAllRows(()=>sb.from(table).select('*').order('id',{ascending:false}))));
-    const docErr=docResults.find(r=>r.error);
-    if(docErr){ console.warn('load core data (docs)',docErr.error); return; }
-    const allEmpty=(whRows||[]).length===0&&(prodRows||[]).length===0&&(contactRows||[]).length===0&&(repRows||[]).length===0&&docResults.every(r=>(r.data||[]).length===0);
+    const masterDataEmpty=(whRows||[]).length===0&&(prodRows||[]).length===0&&(contactRows||[]).length===0&&(repRows||[]).length===0;
+    let remoteDocumentsExist=false;
+    if(masterDataEmpty){
+      const presenceChecks=[];
+      for(const [table] of DOC_TABLES) presenceChecks.push(sb.from(table).select('id').limit(1));
+      const presenceResults=await Promise.all(presenceChecks);
+      const presenceError=presenceResults.find(result=>result.error)?.error;
+      if(presenceError){ console.warn('check remote document presence',presenceError); return; }
+      remoteDocumentsExist=presenceResults.some(result=>(result.data||[]).length>0);
+    }
+    const allEmpty=masterDataEmpty&&!remoteDocumentsExist;
     if(allEmpty){
       // Import only a real saved workspace. Never push the built-in demo rows
       // into an intentionally empty production database.
       if(indexedProductCacheReady&&products.length){ await syncCoreDataToSupabase(); return; }
       warehouses=[]; products=[]; contacts=[]; salesRepresentatives=[];
-      DOC_TABLES.forEach(([_table,_getArr,setArr])=>setArr([]));
     }
     warehouses=(whRows||[]).map(rowToWarehouse);
     // loadProductRowsFromSupabase() already returns normalized product objects.
@@ -1375,13 +1550,6 @@ async function loadCoreDataFromSupabase(){
     contacts=(contactRows||[]).map(rowToContact);
     salesRepresentatives=(repRows||[]).map(rowToSalesRep);
     refreshCategoryBrandUnitLists();
-    DOC_TABLES.forEach(([table,_getArr,setArr],i)=>{
-      const rows=docResults[i].data||[];
-      setArr(rows.map(rowToDoc));
-    });
-    const goodsReceiptsBeforeNormalization=JSON.stringify(goodsReceipts);
-    goodsReceipts=normalizeGoodsReceiptDocuments(goodsReceipts);
-    const goodsReceiptsMigrated=goodsReceiptsBeforeNormalization!==JSON.stringify(goodsReceipts);
     // Seed the change-detection cache to match what we just loaded, so the
     // next debounced sync doesn't immediately re-upload everything again
     // merely because it hasn't "seen" this exact snapshot before.
@@ -1389,10 +1557,6 @@ async function loadCoreDataFromSupabase(){
     seedProductSyncSnapshot(products,productDirtyOperations);
     seedTableSnapshot('contacts',contacts,contactToRow);
     seedTableSnapshot('sales_representatives',salesRepresentatives,salesRepToRow);
-    DOC_TABLES.forEach(([table,getArr])=>{
-      if(table==='goods_receipts'&&goodsReceiptsMigrated) delete syncedTableRows[table];
-      else seedTableSnapshot(table,getArr(),docToRow);
-    });
     nextWarehouseId=maxArrayValue(warehouses,w=>(Number(w.id)||0)+1,1);
     nextContactId=maxArrayValue(contacts,c=>(Number(c.id)||0)+1,1);
     nextSalesRepresentativeId=maxArrayValue(salesRepresentatives,r=>(Number(r.id)||0)+1,1);
@@ -1423,14 +1587,122 @@ function rowToSale(row){
   return {...fallback,...(row.data||{}),id:row.id};
 }
 
-async function loadSalesHistoryFromSupabase(){
-  try{
-    const { data:rows, error } = await fetchAllRows(()=>sb.from('sales').select('*').order('sale_date',{ascending:false}));
-    if(error){ console.warn('load sales',error); return; }
-    if((rows||[]).length===0){ salesHistory=[]; return; }
-    salesHistory=rows.map(rowToSale);
-    invoiceCounter=maxArrayValue(salesHistory,s=>(Number(String(s.id||'').replace(/\D/g,''))||0)+1,1000);
-  }catch(e){ console.warn('load sales failed',e); }
+const SALES_QUERY_PAGE_SIZE=500;
+const SALES_QUERY_MAX_ROWS=5000;
+const salesLoadState={loaded:false,full:false,holds:false,recent:false,ranges:[],truncatedRanges:[],holdsTruncated:false};
+const salesLoadPromises=new Map();
+function resetSalesLoadState(){
+  salesLoadState.loaded=false; salesLoadState.full=false; salesLoadState.holds=false; salesLoadState.recent=false; salesLoadState.ranges=[]; salesLoadState.truncatedRanges=[]; salesLoadState.holdsTruncated=false;
+  salesLoadPromises.clear();
+}
+function clearLoadedHistoryMemory(){
+  salesHistory=[];
+  DOC_TABLES.forEach(([_table,_getArr,setArr])=>setArr([]));
+  resetSalesLoadState(); resetDocumentLoadStates();
+  onDemandTabErrors.clear(); onDemandTabJobs.clear();
+}
+function salesRequestLoaded({range=null,includeHolds=false,includeRecent=false,full=false}={}){
+  if(salesLoadState.full) return true;
+  if(full) return false;
+  return (!range||rangeCoveredBy(salesLoadState.ranges,range))&&(!includeHolds||salesLoadState.holds)&&(!includeRecent||salesLoadState.recent);
+}
+function salesRequestTruncated({range=null,includeHolds=false}={}){
+  if(salesLoadState.full) return false;
+  return !!(range&&rangeOverlapsAny(salesLoadState.truncatedRanges,range))||!!(includeHolds&&salesLoadState.holdsTruncated);
+}
+function mergeSalesRows(current,incoming){
+  const rows=new Map((current||[]).map(sale=>[String(sale.id),sale]));
+  (incoming||[]).forEach(sale=>rows.set(String(sale.id),sale));
+  return [...rows.values()].sort((a,b)=>{
+    const dateCompare=String(b.date||'').localeCompare(String(a.date||''));
+    return dateCompare||String(b.time||b.id||'').localeCompare(String(a.time||a.id||''));
+  });
+}
+async function loadSalesHistoryFromSupabase(options={}){
+  const defaultRange=serverDateRange(`${TODAY_STR.slice(0,7)}-01`,TODAY_STR);
+  const range=options.full?null:serverDateRange(options.from||defaultRange?.from,options.to||defaultRange?.to);
+  const includeHolds=options.includeHolds!==false;
+  const includeRecent=options.includeRecent!==false;
+  const full=options.full===true;
+  const completeRange=options.completeRange===true&&!!range;
+  const request={range,includeHolds,includeRecent,full};
+  if(!completeRange&&salesRequestLoaded(request)) return true;
+  const requestKey=full?'full':`${completeRange?'complete:':''}${range?.from||''}:${range?.to||''}:${includeHolds?'holds':'sales'}:${includeRecent?'recent':'range-only'}`;
+  if(salesLoadPromises.has(requestKey)) return salesLoadPromises.get(requestKey);
+  const promise=(async()=>{
+    try{
+      const buildRangeQuery=()=>{
+        let query=sb.from('sales').select('*').order('sale_date',{ascending:false}).order('sale_time',{ascending:false});
+        if(range) query=query.gte('sale_date',range.from).lte('sale_date',range.to);
+        return query;
+      };
+      const result=full||completeRange
+        ?await fetchAllRows(buildRangeQuery)
+        :await fetchBoundedRows(buildRangeQuery,{pageSize:SALES_QUERY_PAGE_SIZE,maxRows:SALES_QUERY_MAX_ROWS});
+      if(result.error) throw result.error;
+      let rows=result.data||[];
+      let holdsTruncated=false;
+      if(includeRecent&&!full&&!salesLoadState.recent){
+        const {data:recentRows,error:recentError}=await sb.from('sales').select('*').eq('status','done').order('sale_date',{ascending:false}).order('sale_time',{ascending:false}).limit(8);
+        if(recentError) throw recentError;
+        rows=mergeRowsById(rows,recentRows||[]);
+        salesLoadState.recent=true;
+      }
+      if(includeHolds&&!full&&(!salesLoadState.holds||(completeRange&&salesLoadState.holdsTruncated))){
+        const heldQuery=()=>sb.from('sales').select('*').eq('status','hold').order('sale_date',{ascending:false}).order('sale_time',{ascending:false});
+        const heldResult=completeRange?await fetchAllRows(heldQuery):await fetchBoundedRows(heldQuery,{pageSize:250,maxRows:1000});
+        if(heldResult.error) throw heldResult.error;
+        rows=mergeRowsById(rows,heldResult.data||[]);
+        holdsTruncated=!!heldResult.truncated;
+        salesLoadState.holds=true;
+        if(completeRange) salesLoadState.holdsTruncated=false;
+      }
+      const incoming=rows.map(rowToSale);
+      salesHistory=full||!salesLoadState.loaded?incoming:mergeSalesRows(salesHistory,incoming);
+      salesHistory=mergeSalesRows([],salesHistory);
+      salesLoadState.loaded=true;
+      salesLoadState.full=full;
+      if(range) salesLoadState.ranges=rememberLoadedRange(salesLoadState.ranges,range);
+      if(full){ salesLoadState.holds=true; salesLoadState.recent=true; }
+      if(full){ salesLoadState.truncatedRanges=[]; salesLoadState.holdsTruncated=false; }
+      else if(completeRange){ salesLoadState.truncatedRanges=forgetLoadedRange(salesLoadState.truncatedRanges,range); }
+      else{
+        if(result.truncated&&range) salesLoadState.truncatedRanges=rememberLoadedRange(salesLoadState.truncatedRanges,range);
+        if(holdsTruncated) salesLoadState.holdsTruncated=true;
+      }
+      invoiceCounter=maxArrayValue(salesHistory,s=>(Number(String(s.id||'').replace(/\D/g,''))||0)+1,1000);
+      if(typeof saleRef!=='undefined'&&!cart.length) saleRef=nextSaleRef();
+      return true;
+    }catch(error){
+      console.warn('load sales failed',error);
+      throw error;
+    }finally{ salesLoadPromises.delete(requestKey); }
+  })();
+  salesLoadPromises.set(requestKey,promise);
+  return promise;
+}
+async function loadAllSalesForBackup(){ return loadSalesHistoryFromSupabase({full:true,includeHolds:true}); }
+async function findSaleByIdentifier(identifier){
+  const raw=String(identifier||'').trim();
+  if(!raw) return null;
+  const needle=raw.toLowerCase();
+  const local=salesHistory.find(item=>[item.id,item.ref,item.shortReceiptMeta?.number,item.cashReceiptA4Meta?.number].some(value=>String(value||'').trim().toLowerCase()===needle));
+  if(local) return local;
+  const candidates=[
+    ['id',raw],['id',raw.toUpperCase()],['ref',raw],['ref',raw.toUpperCase()],
+    ['data->shortReceiptMeta->>number',raw],['data->cashReceiptA4Meta->>number',raw],
+  ];
+  for(const [column,value] of candidates){
+    const {data,error}=await sb.from('sales').select('*').eq(column,value).limit(1);
+    if(error) throw error;
+    if(data?.[0]){
+      const sale=rowToSale(data[0]);
+      salesHistory=mergeSalesRows(salesHistory,[sale]);
+      salesLoadState.loaded=true;
+      return sale;
+    }
+  }
+  return null;
 }
 
 function normalizeCashShiftRow(row){
@@ -2813,7 +3085,7 @@ async function clearLocalStoreCachesForReset(){
   lastPersistedWorkspaceJson='';
 }
 function clearRemoteResetSensitiveMemory(){
-  salesHistory=[]; quotations=[]; invoicesAR=[]; creditNotes=[]; purchaseOrders=[]; goodsReceipts=[]; productExchanges=[]; purchaseOrdersFull=[]; productReturns=[]; transfers=[]; standaloneTaxInvoices=[];
+  clearLoadedHistoryMemory();
   inspectionLists=[]; promotions=[]; favorites=[]; cart=[]; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); inventoryLotRows=[]; inventoryLotMap=new Map();
   cashShifts=[]; currentCashShift=null; cashShiftCloseDraft={countedCash:'',reason:''};
   documentPrefixes={...DEFAULT_DOCUMENT_PREFIXES};
@@ -3101,6 +3373,7 @@ async function logoutSystem(){
   }
   await sb.auth.signOut();
   currentProfile=null;
+  clearLoadedHistoryMemory();
   activeWarehouseId=0; allWarehousesMode=false; warehouseAccessRows=[]; pagePermissionRows=[]; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); cashShifts=[]; currentCashShift=null;
   systemUsers=[]; systemUsersLoaded=false;
   const password=document.getElementById('loginPassword'); if(password) password.value='';
@@ -3902,11 +4175,14 @@ function renderCashBills(){
     ${pagerHtml(docListPage.cashbill,totalPages,'docpage-cashbill')}`;
 }
 
-function searchCashBillOrder(){
+async function searchCashBillOrder(){
   const input=document.getElementById('cash_bill_order_number');
-  const query=String(input?.value||'').trim().toLowerCase();
+  const query=String(input?.value||'').trim();
   if(!query){ showToast('กรุณากรอกเลขออเดอร์'); input?.focus(); return; }
-  const sale=salesHistory.find(item=>item.status==='done'&&[item.id,item.ref,shortReceiptNumber(item)].some(value=>String(value||'').trim().toLowerCase()===query));
+  let sale;
+  try{ sale=await findSaleByIdentifier(query); }
+  catch(error){ console.warn('search cash bill order',error); showToast('ค้นหาออเดอร์ไม่สำเร็จ กรุณาลองใหม่','danger-top'); return; }
+  if(sale?.status!=='done') sale=null;
   if(!sale){ showToast('ไม่พบออเดอร์ที่ชำระเงินเรียบร้อยแล้ว','danger'); input?.focus(); return; }
   cashBillLookupOpen=false;
   openA4CashReceiptModal(sale.id);
@@ -3991,11 +4267,14 @@ function renderTaxInvoiceOrderLookup(){
     <table class="grid-table po-items document-centered-items"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคาต่อหน่วย</th><th class="mono">ราคารวม</th></tr></thead><tbody><tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">กรอกเลขออเดอร์ด้านบนเพื่อแสดงรายการขายย้อนหลัง</td></tr></tbody></table>`;
 }
 
-function searchTaxInvoiceOrder(){
+async function searchTaxInvoiceOrder(){
   const input=document.getElementById('tax_order_number');
-  const query=(input?.value||'').trim().toLowerCase();
+  const query=(input?.value||'').trim();
   if(!query){ showToast('กรุณากรอกเลขออเดอร์'); input?.focus(); return; }
-  const sale=salesHistory.find(item=>item.status==='done'&&[item.id,item.ref,shortReceiptNumber(item)].some(value=>String(value||'').trim().toLowerCase()===query));
+  let sale;
+  try{ sale=await findSaleByIdentifier(query); }
+  catch(error){ console.warn('search tax invoice order',error); showToast('ค้นหาออเดอร์ไม่สำเร็จ กรุณาลองใหม่','danger-top'); return; }
+  if(sale?.status!=='done') sale=null;
   if(!sale){ showToast('ไม่พบออเดอร์ที่ชำระเงินเรียบร้อยแล้ว'); input?.focus(); return; }
   if(!canIssueTaxInvoiceForSale(sale)&&!sale.fullTaxInvoice){ showToast('รายการขายนี้เกิดขึ้นขณะที่กิจการยังไม่จด VAT จึงออกใบกำกับภาษีไม่ได้','danger'); return; }
   if(sale.fullTaxInvoice) showToast('ออเดอร์นี้เคยออกใบกำกับภาษีแล้ว กำลังเปิดเอกสารเดิม');
@@ -8804,14 +9083,16 @@ function renderPromotionForm(){
 }
 
 function renderRSales(){
-  const monthTotal = salesHistory.reduce((a,s)=>a+s.total,0);
+  const monthKey=TODAY_STR.slice(0,7);
+  const monthSales=salesHistory.filter(s=>s.status==='done'&&String(s.date||'').slice(0,7)===monthKey);
+  const monthTotal = monthSales.reduce((a,s)=>a+(Number(s.total)||0),0);
   return `<div class="pagehead"><div><h1>สรุปยอดขาย</h1><div class="sub">ยอดขายรวมตามช่วงเวลา</div></div></div>
-  <div class="statrow"><div class="stat"><div class="slabel">ยอดขายล่าสุด</div><div class="sval">${fmtMoney(salesHistory[0]?.total||0)}</div></div>
+  <div class="statrow"><div class="stat"><div class="slabel">ยอดขายล่าสุด</div><div class="sval">${fmtMoney(monthSales[0]?.total||0)}</div></div>
   <div class="stat"><div class="slabel">ยอดขายเดือนนี้</div><div class="sval">${fmtMoney(monthTotal)}</div></div>
-  <div class="stat"><div class="slabel">จำนวนบิล</div><div class="sval">${salesHistory.length}</div></div>
-  <div class="stat"><div class="slabel">ค่าเฉลี่ย/บิล</div><div class="sval">${fmtMoney(monthTotal/(salesHistory.length||1))}</div></div></div>
-  <div class="panel"><h3>รายการขายทั้งหมด</h3><table><thead><tr><th>เลขที่</th><th>วันที่</th><th>พนักงาน</th><th class="mono">ยอดรวม</th></tr></thead>
-  <tbody>${salesHistory.map(s=>`<tr><td class="mono">${escapeHtml(s.id)}</td><td>${escapeHtml(s.time||s.date||'-')}</td><td>${escapeHtml(s.cashier||'-')}</td><td class="mono">${fmtMoney(s.total)}</td></tr>`).join('')}</tbody></table></div>`;
+  <div class="stat"><div class="slabel">จำนวนบิล</div><div class="sval">${monthSales.length}</div></div>
+  <div class="stat"><div class="slabel">ค่าเฉลี่ย/บิล</div><div class="sval">${fmtMoney(monthTotal/(monthSales.length||1))}</div></div></div>
+  <div class="panel"><h3>รายการขายเดือนนี้</h3><table><thead><tr><th>เลขที่</th><th>วันที่</th><th>พนักงาน</th><th class="mono">ยอดรวม</th></tr></thead>
+  <tbody>${monthSales.map(s=>`<tr><td class="mono">${escapeHtml(s.id)}</td><td>${escapeHtml(s.time||s.date||'-')}</td><td>${escapeHtml(s.cashier||'-')}</td><td class="mono">${fmtMoney(s.total)}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
 function rproductPeriodRange(){
@@ -9458,9 +9739,10 @@ function renderRTax(){
 function renderREmployee(){
   const counts = {};
   employees.forEach(e=>counts[e]={bills:0,total:0});
-  salesHistory.forEach(s=>{ if(!counts[s.cashier]) counts[s.cashier]={bills:0,total:0}; counts[s.cashier].bills++; counts[s.cashier].total+=s.total; });
+  const monthKey=TODAY_STR.slice(0,7);
+  salesHistory.filter(s=>s.status==='done'&&String(s.date||'').slice(0,7)===monthKey).forEach(s=>{ if(!counts[s.cashier]) counts[s.cashier]={bills:0,total:0}; counts[s.cashier].bills++; counts[s.cashier].total+=Number(s.total)||0; });
   const rows = Object.entries(counts).sort((a,b)=>b[1].total-a[1].total);
-  return `<div class="pagehead"><div><h1>ยอดขายตามพนักงาน</h1><div class="sub">เปรียบเทียบผลงานพนักงานขาย</div></div></div>
+  return `<div class="pagehead"><div><h1>ยอดขายตามพนักงาน</h1><div class="sub">เปรียบเทียบผลงานพนักงานขายเดือนนี้</div></div></div>
   <table><thead><tr><th>พนักงาน</th><th class="mono">จำนวนบิล</th><th class="mono">ยอดขายรวม</th><th class="mono">เฉลี่ย/บิล</th></tr></thead>
   <tbody>${rows.map(([name,d])=>`<tr><td>${escapeHtml(name||'-')}</td><td class="mono">${d.bills}</td><td class="mono">${fmtMoney(d.total)}</td><td class="mono">${fmtMoney(d.bills?d.total/d.bills:0)}</td></tr>`).join('')}</tbody></table>`;
 }
@@ -9886,6 +10168,111 @@ function prepareScrollableTables(mainElement=document.getElementById('main')){
   requestAnimationFrame(()=>refreshScrollableTableHeights(mainElement));
 }
 
+const TAB_DOCUMENT_TABLES={
+  quotation:['quotations'],invoice:['invoices_ar'],creditnote:['credit_notes'],purchaseorder:['purchase_orders'],
+  goodsreceipt:['goods_receipts'],productexchange:['product_exchanges'],purchaseorder2:['purchase_orders_full'],
+  productreturn:['product_returns'],transfer:['transfers'],taxinvoice:['standalone_tax_invoices'],
+  rreceivable:['invoices_ar','credit_notes'],rtax:['goods_receipts'],
+};
+const ON_DEMAND_AGGREGATE_TABS=new Set(['dashboard','history','rproduct','rbill','rprofit','rtax','rsales','remployee','inventorymovement','rreceivable']);
+const onDemandTabJobs=new Map();
+const onDemandTabErrors=new Map();
+function localIsoDaysAgo(days){
+  const date=currentLocalDate(); date.setDate(date.getDate()-Math.max(0,Number(days)||0));
+  return `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+}
+function monthServerRange(monthValue=TODAY_STR.slice(0,7)){
+  const [year,month]=String(monthValue||'').split('-').map(Number);
+  if(!year||!month) return serverDateRange(TODAY_STR,TODAY_STR);
+  return serverDateRange(`${year}-${String(month).padStart(2,'0')}-01`,`${year}-${String(month).padStart(2,'0')}-${String(new Date(year,month,0).getDate()).padStart(2,'0')}`);
+}
+function salesRangeForTab(tab){
+  if(tab==='dashboard'||tab==='rsales'||tab==='remployee') return serverDateRange(`${TODAY_STR.slice(0,7)}-01`,TODAY_STR);
+  if(tab==='checkout') return serverDateRange(TODAY_STR,TODAY_STR);
+  if(tab==='cashshift') return serverDateRange(String(currentCashShift?.openedAt||TODAY_STR).slice(0,10),TODAY_STR);
+  if(tab==='history') return serverDateRange(historyDateRange().from,historyDateRange().to);
+  if(tab==='rproduct'&&rproductFilter.applied) return serverDateRange(rproductPeriodRange().from,rproductPeriodRange().to);
+  if(tab==='rbill'&&rbillFilter.applied) return serverDateRange(rbillPeriodRange().from,rbillPeriodRange().to);
+  if(tab==='rprofit'&&rprofitFilter.applied) return serverDateRange(rprofitPeriodRange().from,rprofitPeriodRange().to);
+  if(tab==='rtax') return monthServerRange(rtaxMonth);
+  if(tab==='inventorymovement') return serverDateRange(inventoryMovementDateRange().from,inventoryMovementDateRange().to);
+  if(tab==='cashbill'||tab==='taxinvoice') return serverDateRange(localIsoDaysAgo(365),TODAY_STR);
+  return null;
+}
+function dataRequestsForTab(tab){
+  const requests={sales:null,documents:[]};
+  const salesRange=salesRangeForTab(tab);
+  if(salesRange) requests.sales={range:salesRange,includeHolds:tab==='checkout',includeRecent:tab==='dashboard'};
+  (TAB_DOCUMENT_TABLES[tab]||[]).forEach(table=>requests.documents.push({table,recent:true,range:null}));
+  if(tab==='inventorymovement'){
+    const range=serverDateRange(inventoryMovementDateRange().from,inventoryMovementDateRange().to);
+    ['goods_receipts','product_exchanges','product_returns','transfers'].forEach(table=>requests.documents.push({table,range,recent:false}));
+  }
+  return requests;
+}
+function onDemandRequestKey(tab,requests){
+  return `${tab}:${JSON.stringify({sales:requests.sales?.range||null,holds:!!requests.sales?.includeHolds,recent:!!requests.sales?.includeRecent,documents:requests.documents.map(item=>[item.table,item.range?.from||'',item.range?.to||'',!!item.recent])})}`;
+}
+function ensureOnDemandDataForTab(tab){
+  const requests=dataRequestsForTab(tab);
+  const salesNeeded=!!requests.sales&&!salesRequestLoaded(requests.sales);
+  const documentsNeeded=requests.documents.filter(item=>!documentRequestLoaded(item.table,item));
+  const key=onDemandRequestKey(tab,requests);
+  const truncatedSales=!!requests.sales&&salesRequestTruncated(requests.sales);
+  const truncatedDocuments=requests.documents.filter(item=>documentRequestTruncated(item.table,item)).map(item=>item.table);
+  if(!salesNeeded&&!documentsNeeded.length){
+    if(truncatedSales||truncatedDocuments.length) return {status:'truncated',key,tab,requests,truncatedSales,truncatedDocuments,blocking:ON_DEMAND_AGGREGATE_TABS.has(tab)||tab==='checkout'};
+    return {status:'ready',key,tab,requests};
+  }
+  if(onDemandTabErrors.has(key)) return {status:'error',key,tab,requests,error:onDemandTabErrors.get(key)};
+  if(!onDemandTabJobs.has(key)){
+    const tasks=[];
+    if(salesNeeded) tasks.push(loadSalesHistoryFromSupabase({from:requests.sales.range.from,to:requests.sales.range.to,includeHolds:requests.sales.includeHolds,includeRecent:requests.sales.includeRecent}));
+    documentsNeeded.forEach(item=>tasks.push(loadDocumentTableFromSupabase(item.table,item)));
+    const job=Promise.all(tasks).then(()=>{
+      onDemandTabJobs.delete(key); onDemandTabErrors.delete(key);
+      if(currentProfile&&currentTab===tab) render();
+    }).catch(error=>{
+      onDemandTabJobs.delete(key); onDemandTabErrors.set(key,error);
+      if(currentProfile&&currentTab===tab) render();
+    });
+    onDemandTabJobs.set(key,job);
+  }
+  return {status:'loading',key,tab,requests};
+}
+function onDemandStateHtml(state){
+  if(state.status==='loading') return '<div class="panel" style="margin:24px;padding:34px;text-align:center;">กำลังโหลดข้อมูลจากระบบ…</div>';
+  if(state.status==='error') return `<div class="panel" style="margin:24px;padding:30px;text-align:center;"><div style="font-weight:700;margin-bottom:8px;">โหลดข้อมูลหน้านี้ไม่สำเร็จ</div><div style="color:var(--text-muted);margin-bottom:16px;">${escapeHtml(state.error?.message||'กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่')}</div><button class="btn primary" id="retryOnDemandDataBtn">ลองใหม่</button></div>`;
+  if(state.status!=='truncated') return '';
+  const documentText=state.truncatedDocuments.length?`เอกสารเกิน ${DOCUMENT_QUERY_MAX_ROWS.toLocaleString()} รายการ`:'';
+  const salesText=state.truncatedSales?`ยอดขายในช่วงที่เลือกเกิน ${SALES_QUERY_MAX_ROWS.toLocaleString()} รายการ`:'';
+  const detail=[salesText,documentText].filter(Boolean).join(' และ ');
+  const actions=[];
+  if(state.truncatedDocuments.length) actions.push('<button class="btn ghost" id="loadAllOnDemandDocsBtn">โหลดเอกสารเก่าทั้งหมด</button>');
+  if(state.truncatedSales&&state.requests.sales?.range) actions.push('<button class="btn ghost" id="loadCompleteSalesRangeBtn">โหลดช่วงที่เลือกให้ครบ</button>');
+  else if(state.truncatedSales&&!state.blocking) actions.push('<button class="btn ghost" id="loadAllOnDemandSalesBtn">โหลดประวัติขายทั้งหมด</button>');
+  return `<div class="panel" style="margin:16px 0;padding:18px;border-color:#e2b15b;background:#fff8e8;color:#79530f;"><b>ข้อมูลมากกว่าขีดจำกัดที่ปลอดภัย</b><div style="margin-top:5px;">${escapeHtml(detail)}${state.blocking?' กรุณาเลือกช่วงวันที่ให้แคบลงก่อนแสดงผล เพื่อไม่ให้ยอดรวมคลาดเคลื่อน':' หน้านี้กำลังแสดงเฉพาะข้อมูลล่าสุด'}</div>${actions.length?`<div style="display:flex;gap:8px;margin-top:12px;">${actions.join('')}</div>`:''}</div>`;
+}
+function attachOnDemandStateEvents(state){
+  document.getElementById('retryOnDemandDataBtn')?.addEventListener('click',()=>{ onDemandTabErrors.delete(state.key); render(); });
+  document.getElementById('loadAllOnDemandDocsBtn')?.addEventListener('click',async()=>{
+    const button=document.getElementById('loadAllOnDemandDocsBtn'); if(button){ button.disabled=true; button.textContent='กำลังโหลด…'; }
+    try{ await Promise.all([...new Set(state.truncatedDocuments)].map(table=>loadDocumentTableFromSupabase(table,{full:true}))); render(); }
+    catch(error){ onDemandTabErrors.set(state.key,error); render(); }
+  });
+  document.getElementById('loadAllOnDemandSalesBtn')?.addEventListener('click',async()=>{
+    const button=document.getElementById('loadAllOnDemandSalesBtn'); if(button){ button.disabled=true; button.textContent='กำลังโหลด…'; }
+    try{ await loadSalesHistoryFromSupabase({full:true,includeHolds:true}); render(); }
+    catch(error){ onDemandTabErrors.set(state.key,error); render(); }
+  });
+  document.getElementById('loadCompleteSalesRangeBtn')?.addEventListener('click',async()=>{
+    const button=document.getElementById('loadCompleteSalesRangeBtn'); if(button){ button.disabled=true; button.textContent='กำลังโหลด…'; }
+    const range=state.requests.sales?.range;
+    try{ await loadSalesHistoryFromSupabase({from:range.from,to:range.to,includeHolds:state.requests.sales.includeHolds,completeRange:true}); render(); }
+    catch(error){ onDemandTabErrors.set(state.key,error); render(); }
+  });
+}
+
 const RENDERERS = {
   mobiletools: renderMobileTools,
   dashboard: renderDashboard, checkout: renderCheckout, cashshift: renderCashShift, cashbill: renderCashBills, taxinvoice: renderTaxInvoices, quotation: renderQuotation, invoice: renderInvoice,
@@ -9929,12 +10316,23 @@ function render(){
   mainElement.classList.toggle('product-list-main',currentTab==='products'&&editingProductId===null);
   mainElement.classList.toggle('barcode-print-main',currentTab==='barcodeprint');
   mainElement.classList.toggle('sales-history-main',currentTab==='history');
+  const onDemandState=ensureOnDemandDataForTab(currentTab);
+  if(onDemandState.status==='loading'||onDemandState.status==='error'||(onDemandState.status==='truncated'&&onDemandState.blocking)){
+    preserveMobileCameraScanner();
+    mainElement.innerHTML=onDemandStateHtml(onDemandState);
+    restoreMobileCameraScanner();
+    attachOnDemandStateEvents(onDemandState);
+    renderLoginState();
+    return;
+  }
   preserveMobileCameraScanner();
-  mainElement.innerHTML = (RENDERERS[currentTab]||renderDashboard)();
+  const onDemandNotice=onDemandState.status==='truncated'?onDemandStateHtml(onDemandState):'';
+  mainElement.innerHTML = onDemandNotice+(RENDERERS[currentTab]||renderDashboard)();
   restoreMobileCameraScanner();
   prepareScrollableTables(mainElement);
   attachEvents();
   syncTopbarFormActions();
+  attachOnDemandStateEvents(onDemandState);
   requestAnimationFrame(()=>refreshScrollableTableHeights(mainElement));
   renderLoginState();
   if(currentTab==='mobiletools'&&mobileToolMode==='price'&&!mobileCameraSession) setTimeout(()=>document.getElementById('mobilePriceInput')?.focus(),60);
@@ -13005,6 +13403,10 @@ function saveDocumentPrefixes(){
 }
 
 async function storeBackupDataSnapshot(){
+  // Normal screens intentionally keep only bounded history windows in memory.
+  // A backup is the explicit exception: hydrate every sale/document first so
+  // the exported file can always restore the complete store.
+  await Promise.all([loadAllSalesForBackup(),loadAllDocumentsForBackup()]);
   const data=cloudClean(workspaceSnapshot());
   delete data.cart;
   delete data.saleDiscount;
@@ -15970,7 +16372,7 @@ document.getElementById('warehouseChoiceForm')?.addEventListener('submit',event=
 document.getElementById('warehouseChoiceLogout')?.addEventListener('click',logoutSystem);
 
 sb.auth.onAuthStateChange((event)=>{
-  if(event==='SIGNED_OUT'){ currentProfile=null; activeWarehouseId=0; allWarehousesMode=false; renderLoginState(); }
+  if(event==='SIGNED_OUT'){ currentProfile=null; clearLoadedHistoryMemory(); activeWarehouseId=0; allWarehousesMode=false; renderLoginState(); }
 });
 
 let mobileViewportResizeTimer=null;

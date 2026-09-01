@@ -12,6 +12,7 @@
   },
   "devDependencies": {
     "@supabase/supabase-js": "2.111.0",
+    "esbuild": "0.28.2",
     "playwright": "1.62.1"
   },
   "engines": {
