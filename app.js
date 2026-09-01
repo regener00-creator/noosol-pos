@@ -15565,18 +15565,15 @@ function openPostPaymentModal(saleId){
   overlay.querySelector('.modal-close').onclick=requestClose;
   const renderRequiredReceipt=()=>{
     stopKeyHandler();
-    content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">✓</div><div class="after-pay-heading">รับชำระ ${fmtMoney(sale.total)} บาทแล้ว</div><div class="after-pay-sub">${escapeHtml(sale.payMethod||'เงินสด')} · ${escapeHtml(sale.ref||sale.id)}<br>ต้องเปิดหน้าพิมพ์ใบเสร็จก่อนเริ่มออเดอร์ใหม่ หากเครื่องพิมพ์มีปัญหาสามารถพิมพ์ย้อนหลังได้</div></div><div class="after-pay-options">${medicineLabelCount?`<button class="after-pay-choice" id="printMedicineLabelsBtn"><span>Rx</span> พิมพ์ฉลากยา ${medicineLabelCount} ใบ</button>`:''}<button class="after-pay-choice" id="printShortReceiptBtn"><span>🖨</span> พิมพ์ใบเสร็จอย่างย่อ 80 มม.</button><button class="after-pay-choice new-order" id="afterReceiptNewOrderBtn" disabled><span>＋</span> เสร็จสิ้น</button></div>`;
+    content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">✓</div><div class="after-pay-heading">รับชำระ ${fmtMoney(sale.total)} บาทแล้ว</div><div class="after-pay-sub">${escapeHtml(sale.payMethod||'เงินสด')} · ${escapeHtml(sale.ref||sale.id)}<br>กดเสร็จสิ้นเพื่อเปิดการพิมพ์ใบเสร็จ หากเครื่องพิมพ์มีปัญหาสามารถพิมพ์ย้อนหลังได้</div></div><div class="after-pay-options">${medicineLabelCount?`<button class="after-pay-choice" id="printMedicineLabelsBtn"><span>Rx</span> พิมพ์ฉลากยา ${medicineLabelCount} ใบ</button>`:''}<button class="after-pay-choice new-order" id="finishAndPrintReceiptBtn"><span>🖨</span> เสร็จสิ้น</button></div>`;
     const printMedicineButton=content.querySelector('#printMedicineLabelsBtn'); if(printMedicineButton) printMedicineButton.onclick=()=>printMedicineLabels(saleId);
-    const printReceiptButton=content.querySelector('#printShortReceiptBtn');
-    const finishButton=content.querySelector('#afterReceiptNewOrderBtn');
-    printReceiptButton.onclick=()=>{
+    const finishAndPrintButton=content.querySelector('#finishAndPrintReceiptBtn');
+    finishAndPrintButton.onclick=()=>{
       if(!printShortReceipt(saleId)) return;
       receiptPrintStarted=true;
-      finishButton.disabled=false;
-      printReceiptButton.innerHTML='<span>🖨</span> เปิดหน้าพิมพ์แล้ว · พิมพ์อีกครั้ง';
+      close();
     };
-    finishButton.onclick=close;
-    activeKeyHandler=e=>{ if(e.key==='Enter'){ e.preventDefault(); receiptPrintStarted?close():printReceiptButton.click(); } };
+    activeKeyHandler=e=>{ if(e.key==='Enter'){ e.preventDefault(); finishAndPrintButton.click(); } };
     document.addEventListener('keydown',activeKeyHandler);
   };
   renderRequiredReceipt();
