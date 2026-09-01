@@ -4,7 +4,7 @@
   "private": true,
   "description": "Static regression tests for the PEPOS single-page application",
   "scripts": {
-    "build": "node tests/check-inline-js.js && node tests/run-node-tests.js",
+    "build": "node tests/check-inline-js.js && node tests/run-node-tests.js && node scripts/build-static.mjs",
     "test": "pnpm run test:static && pnpm run test:browser",
     "test:static": "node tests/check-inline-js.js && node tests/run-node-tests.js",
     "test:browser": "node tests/run-browser-tests.js",
