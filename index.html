@@ -50,7 +50,8 @@
   .navbtn[data-tab="dashboard"],.navbtn[data-tab="checkout"]{background:#fff;color:var(--primary);font-weight:700;}
   .navbtn svg{width:15px;height:15px;flex-shrink:0;}
   .shell{flex:1;display:flex;flex-direction:column;min-width:0;}
-  .topbar{height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:18px;padding:0 24px;}
+  .topbar{position:relative;height:56px;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:18px;padding:0 24px;}
+  .topbar-center-brand{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:13px;font-weight:700;letter-spacing:.12em;color:var(--primary-dark);white-space:nowrap;pointer-events:none;user-select:none;}
   .topbar-form-actions{display:flex;align-items:center;gap:10px;}
   .topbar-form-actions:empty{display:none;}
   .topbar-form-actions .form-bottom-actions,.topbar-form-actions .form-actions-top,.topbar-form-actions .product-form-actions{border-top:none;margin-top:0;padding-top:0;padding-bottom:0;}
@@ -1872,7 +1873,7 @@
 <div class="app" id="appRoot" hidden>
   <div class="sidebar" id="sidebar"></div>
   <div class="shell">
-    <div class="topbar"><div class="topbar-date" id="topbarDate"></div><div class="topbar-form-actions" id="topbarFormActions"></div></div>
+    <div class="topbar"><div class="topbar-date" id="topbarDate"></div><div class="topbar-center-brand" aria-label="PRANC-HIBES">P R A N C - H I B E S</div><div class="topbar-form-actions" id="topbarFormActions"></div></div>
     <div class="main" id="main"></div>
   </div>
 </div>
