@@ -4,9 +4,9 @@ const path = require('node:path');
 
 const worker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
 
-assert.match(worker, /const CACHE_NAME='pepos-mobile-v13';/);
+assert.match(worker, /const CACHE_NAME='pepos-mobile-v14';/);
 assert.match(worker, /\/styles\.css/);
-assert.match(worker, /\/app\.js/);
+assert.match(worker, /\/app\.js\?v=20260901-line-contact/);
 assert.match(
   worker,
   /const APP_SHELL=\[[^\]]*'\/sapuri-pharmacy-logo\.png'[^\]]*\];/s,
@@ -15,5 +15,6 @@ assert.match(
 assert.match(worker, /keys\.filter\(key=>key!==CACHE_NAME\)\.map\(key=>caches\.delete\(key\)\)/);
 assert.match(worker, /request\.mode==='navigate'/);
 assert.match(worker, /\.catch\(\(\)=>caches\.match\('\/index\.html'\)\)/);
+assert.match(worker, /event\.respondWith\(fetch\(request\)[\s\S]{0,260}\.catch\(\(\)=>caches\.match\(request\)\)\)/, 'ไฟล์โปรแกรมต้องตรวจเวอร์ชันออนไลน์ก่อนใช้แคชเก่า');
 
 console.log('service worker cache tests passed');

@@ -1,5 +1,5 @@
-const CACHE_NAME='pepos-mobile-v13';
-const APP_SHELL=['/','/index.html','/styles.css','/app.js','/manifest.webmanifest','/pwa-icon.svg','/pwa-icon-192.png','/pwa-icon-512.png','/sapuri-pharmacy-logo.png'];
+const CACHE_NAME='pepos-mobile-v14';
+const APP_SHELL=['/','/index.html','/styles.css','/app.js?v=20260901-line-contact','/manifest.webmanifest','/pwa-icon.svg','/pwa-icon-192.png','/pwa-icon-512.png','/sapuri-pharmacy-logo.png'];
 const TRUSTED_CDN_HOSTS=new Set(['cdn.jsdelivr.net']);
 
 self.addEventListener('install',event=>{
@@ -30,8 +30,8 @@ self.addEventListener('fetch',event=>{
     }).catch(()=>caches.match('/index.html')));
     return;
   }
-  event.respondWith(caches.match(request).then(cached=>cached||fetch(request).then(response=>{
+  event.respondWith(fetch(request).then(response=>{
     if(response.ok) caches.open(CACHE_NAME).then(cache=>cache.put(request,response.clone()));
     return response;
-  })));
+  }).catch(()=>caches.match(request)));
 });

@@ -17,6 +17,6 @@ assert.doesNotMatch(html, /#715750|#5A3F32/i);
 assert.equal(manifest.background_color, '#F7F5F3');
 assert.equal(manifest.theme_color, '#4F4038');
 assert.match(icon, /fill="#4F4038"/);
-assert.match(serviceWorker, /CACHE_NAME='pepos-mobile-v13'/);
+assert.match(serviceWorker, /CACHE_NAME='pepos-mobile-v14'/);
 
 console.log('chocolate theme tests passed');
