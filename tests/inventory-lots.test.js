@@ -4,11 +4,11 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const lotMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0019_inventory_lots.sql'), 'utf8');
-const exchangeMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0020_inventory_lot_product_exchange.sql'), 'utf8');
-const returnMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0022_inventory_lot_product_returns.sql'), 'utf8');
-const historyMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0023_inventory_lot_history_pagination.sql'), 'utf8');
+const html = require("./load-app-source")();
+const lotMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260825070255_inventory_lots.sql'), 'utf8');
+const exchangeMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260825071743_inventory_lot_product_exchange.sql'), 'utf8');
+const returnMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260825072937_inventory_lot_product_returns.sql'), 'utf8');
+const historyMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260825114641_inventory_lot_history_pagination.sql'), 'utf8');
 
 const helperStart = html.indexOf('function inventoryLotKey(');
 const helperEnd = html.indexOf('function inventoryLotStatus(', helperStart);
@@ -120,7 +120,7 @@ assert.match(html, /loadHistoryPage=async/);
 assert.doesNotMatch(html, /exhaustedRowsHtml=inventoryLotDetailGroupsHtml/);
 assert.match(html, /class="product-exchange-lot"/);
 assert.match(html, /class="poi_return_lot"/);
-assert.match(html, /sb\.rpc\('apply_product_return_lots'/);
+assert.match(html, /runStockOperation\('apply_product_return_lots'/);
 assert.match(html, /ใบคืนสินค้านี้ตัดสต๊อกแล้ว จึงแก้สินค้า จำนวน หน่วย หรือ Lot ไม่ได้/);
 assert.doesNotMatch(html, /<th>ทุน\/หน่วยหลัก<\/th>/, 'หน้ารายละเอียด Lot ต้องไม่แสดงต้นทุน');
 

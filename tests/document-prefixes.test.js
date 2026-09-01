@@ -4,8 +4,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0050_configurable_document_prefixes.sql'), 'utf8');
+const html = require("./load-app-source")();
+const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260828082142_configurable_document_prefixes.sql'), 'utf8');
 
 for (const [key, value] of [
   ['cashBill','CB'],

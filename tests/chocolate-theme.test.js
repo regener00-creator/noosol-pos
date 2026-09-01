@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.webmanifest'), 'utf8'));
 const icon = fs.readFileSync(path.join(root, 'pwa-icon.svg'), 'utf8');
 const serviceWorker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
@@ -17,6 +17,6 @@ assert.doesNotMatch(html, /#715750|#5A3F32/i);
 assert.equal(manifest.background_color, '#F7F5F3');
 assert.equal(manifest.theme_color, '#4F4038');
 assert.match(icon, /fill="#4F4038"/);
-assert.match(serviceWorker, /CACHE_NAME='pepos-mobile-v12'/);
+assert.match(serviceWorker, /CACHE_NAME='pepos-mobile-v13'/);
 
 console.log('chocolate theme tests passed');

@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 
 assert.match(html,/const PRODUCT_CACHE_DB_NAME='pepos-product-cache'/);
 assert.match(html,/db\.createObjectStore\(PRODUCT_CACHE_PRODUCTS_STORE,\{keyPath:'id'\}\)/);

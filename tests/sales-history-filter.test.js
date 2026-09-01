@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const logicStart = html.indexOf('function saleHistoryTimeDisplay(');
 const logicEnd = html.indexOf('function renderHistory(', logicStart);
 assert.ok(logicStart >= 0 && logicEnd > logicStart, 'ไม่พบ logic กรองประวัติการขาย');

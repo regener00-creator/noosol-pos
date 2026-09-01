@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const start = html.indexOf('const CODE128_PATTERNS=');
 const end = html.indexOf('function stockEditMatchesQuery(', start);
 assert.ok(start >= 0 && end > start, 'ไม่พบชุดฟังก์ชันพิมพ์ป้ายราคา');

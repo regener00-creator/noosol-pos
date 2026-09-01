@@ -1,5 +1,4 @@
 -- Security, integrity and scale hardening.
--- Supabase migration history version: 20260831185553.
 --
 -- This migration deliberately separates readable POS data from writable data:
 --   * authenticated staff can read only the warehouses assigned to them;

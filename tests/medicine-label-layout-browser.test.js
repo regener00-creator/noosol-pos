@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 const { chromium } = require('playwright');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const logoData = `data:image/png;base64,${fs.readFileSync(path.join(__dirname, '..', 'sapuri-pharmacy-logo.png')).toString('base64')}`;
 const helpersStart = html.indexOf("const MEDICINE_LABEL_SIZE_STORAGE_KEY=");
 const helpersEnd = html.indexOf('function isProductActive(', helpersStart);
@@ -72,7 +72,7 @@ const browserExecutable = [
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
-].find(file => file && fs.existsSync(file));
+].find(file => file && fs.existsSync(file)) || chromium.executablePath();
 
 (async () => {
   assert.ok(browserExecutable, 'ไม่พบ Chrome หรือ Edge สำหรับทดสอบฉลากยา');

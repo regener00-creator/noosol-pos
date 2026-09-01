@@ -3,8 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0044_allow_sale_lot_shortages.sql'), 'utf8');
+const html = require("./load-app-source")();
+const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260827035835_allow_sale_lot_shortages.sql'), 'utf8');
 
 assert.match(migration, /create or replace function private\.inventory_lot_shortage_delta/);
 assert.match(migration, /movement_type in \(\s*'sale_shortage','sale_shortage_void','stock_count_shortage_reconcile'/);
@@ -33,7 +33,7 @@ assert.match(migration, /create or replace function public\.void_sale/);
 assert.match(migration, /if v_pending or v_lot\.source_type='sale_shortage' then/);
 assert.match(migration, /'sale_shortage_void',v_quantity,0/);
 
-assert.match(html, /sb\.rpc\('post_inventory_count_adjustment_with_shortages'/);
+assert.match(html, /runStockOperation\('post_inventory_count_adjustment_with_shortages'/);
 assert.match(html, /if\(allocation\?\.pendingLot\) return/);
 assert.match(html, /รอจัด LOT · \$\{escapeHtml\(inventoryMovementRound\(allocation\.baseQty\)\)\}/);
 assert.match(html, /สต๊อกอาจติดลบ/);

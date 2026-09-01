@@ -2,10 +2,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '0039_central_audit_log.sql'), 'utf8');
-const compactMigration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '0040_compact_central_audit_payloads.sql'), 'utf8');
-const indexMigration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '0041_trim_central_audit_indexes.sql'), 'utf8');
+const html = require("./load-app-source")();
+const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20260826091554_central_audit_log.sql'), 'utf8');
+const compactMigration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20260826091911_compact_central_audit_payloads.sql'), 'utf8');
+const indexMigration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20260826092040_trim_central_audit_indexes.sql'), 'utf8');
 
 assert.match(migration,/create table if not exists public\.audit_logs/);
 assert.match(migration,/alter table public\.audit_logs enable row level security/);

@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const duplicateIndexCleanup = fs.readFileSync(
   path.join(__dirname, '..', 'supabase', 'migrations', '20260831185755_remove_duplicate_cash_shift_index.sql'),
   'utf8'

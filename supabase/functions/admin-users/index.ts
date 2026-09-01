@@ -30,6 +30,87 @@ function json(body: unknown, status = 200) {
 type AdminClient = ReturnType<typeof createClient>
 const WAREHOUSE_ACCESS_PAGE_SIZE = 500
 const PROFILE_PAGE_SIZE = 500
+const PASSWORD_MIN_LENGTH = 10
+const COMMON_PASSWORDS = new Set([
+  '1234567890', 'password123', 'qwerty1234', 'admin12345',
+  '1111111111', '0000000000', 'abcdefghij', 'password1',
+])
+
+type PagePermission = {
+  pageKey: string
+  warehouseId: number | null
+  canView: boolean
+  canCreate: boolean
+  canEdit: boolean
+  canDelete: boolean
+  canPrint: boolean
+  canExport: boolean
+}
+
+function normalizePagePermissions(value: unknown): PagePermission[] | null {
+  if (!Array.isArray(value)) return null
+  const rows: PagePermission[] = []
+  const seen = new Set<string>()
+  for (const entry of value) {
+    if (!entry || typeof entry !== 'object') return null
+    const item = entry as Record<string, unknown>
+    const pageKey = String(item.pageKey || '').trim().toLowerCase()
+    const warehouseId = item.warehouseId === null || item.warehouseId === undefined || item.warehouseId === ''
+      ? null
+      : Number(item.warehouseId)
+    if (!/^[a-z0-9_]+$/.test(pageKey)) return null
+    if (warehouseId !== null && (!Number.isSafeInteger(warehouseId) || warehouseId <= 0)) return null
+    const key = `${pageKey}:${warehouseId ?? 'all'}`
+    if (seen.has(key)) return null
+    seen.add(key)
+    rows.push({
+      pageKey,
+      warehouseId,
+      canView: item.canView !== false,
+      canCreate: item.canCreate === true,
+      canEdit: item.canEdit === true,
+      canDelete: item.canDelete === true,
+      canPrint: item.canPrint === true,
+      canExport: item.canExport === true,
+    })
+  }
+  return rows
+}
+
+async function validatePasswordSecurity(password: string): Promise<string> {
+  if (password.length < PASSWORD_MIN_LENGTH) return `Password ต้องมีอย่างน้อย ${PASSWORD_MIN_LENGTH} ตัวอักษร`
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) return 'Password ต้องมีทั้งตัวอักษรและตัวเลข'
+  if (COMMON_PASSWORDS.has(password.toLowerCase())) return 'Password นี้คาดเดาง่ายเกินไป กรุณาใช้รหัสอื่น'
+  try {
+    const digest = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(password))
+    const hash = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase()
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 5000)
+    const response = await fetch(`https://api.pwnedpasswords.com/range/${hash.slice(0, 5)}`, {
+      headers: { 'Add-Padding': 'true', 'User-Agent': 'PEPOS-password-check' },
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+    if (response.ok) {
+      const suffix = hash.slice(5)
+      const leaked = (await response.text()).split(/\r?\n/).some((line) => line.split(':')[0] === suffix)
+      if (leaked) return 'Password นี้เคยรั่วไหลบนอินเทอร์เน็ต กรุณาใช้รหัสอื่น'
+    }
+  } catch (error) {
+    console.warn('Leaked-password lookup unavailable', error)
+  }
+  return ''
+}
+
+async function sha256Text(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+function createRecoveryCode(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(12))
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase()
+}
 
 function normalizeWarehouseIds(value: unknown): number[] | null {
   if (!Array.isArray(value)) return null
@@ -63,6 +144,23 @@ async function listAllWarehouseAccess(admin: AdminClient) {
       .select('user_id, warehouse_id')
       .order('user_id')
       .order('warehouse_id')
+      .range(from, from + WAREHOUSE_ACCESS_PAGE_SIZE - 1)
+    if (error) throw new Error(error.message)
+    const batch = data || []
+    rows.push(...batch)
+    if (batch.length < WAREHOUSE_ACCESS_PAGE_SIZE) break
+  }
+  return rows
+}
+
+async function listAllPagePermissions(admin: AdminClient) {
+  const rows: Array<Record<string, unknown>> = []
+  for (let from = 0; ; from += WAREHOUSE_ACCESS_PAGE_SIZE) {
+    const { data, error } = await admin
+      .from('profile_page_permissions')
+      .select('user_id,page_key,warehouse_id,can_view,can_create,can_edit,can_delete,can_print,can_export')
+      .order('user_id')
+      .order('page_key')
       .range(from, from + WAREHOUSE_ACCESS_PAGE_SIZE - 1)
     if (error) throw new Error(error.message)
     const batch = data || []
@@ -146,6 +244,22 @@ Deno.serve(async (req) => {
       .single()
     if (!callerProfile?.owner || Number(callerProfile.level) !== 1) return json({ error: 'forbidden: owner only' }, 403)
 
+    if (action === 'create-owner-recovery-code') {
+      const recoveryCode = createRecoveryCode()
+      const codeHash = await sha256Text(recoveryCode)
+      const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
+      const { error } = await admin.from('owner_recovery_codes').upsert({
+        owner_id: caller.id,
+        code_hash: codeHash,
+        expires_at: expiresAt,
+        attempts: 0,
+        used_at: null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'owner_id' })
+      if (error) return json({ error: error.message }, 400)
+      return json({ ok: true, recoveryCode, expiresAt })
+    }
+
     if (action === 'reset-store') {
       const mode = String(body.mode || '').trim().toLowerCase()
       const password = String(body.password || '')
@@ -200,10 +314,12 @@ Deno.serve(async (req) => {
     if (action === 'list') {
       let profiles: Array<Record<string, unknown>>
       let accessRows: Array<{ user_id: string; warehouse_id: number }>
+      let permissionRows: Array<Record<string, unknown>>
       try {
-        ;[profiles, accessRows] = await Promise.all([
+        ;[profiles, accessRows, permissionRows] = await Promise.all([
           listAllProfiles(admin),
           listAllWarehouseAccess(admin),
+          listAllPagePermissions(admin),
         ])
       } catch (error) {
         return json({ error: error instanceof Error ? error.message : String(error) }, 400)
@@ -217,9 +333,27 @@ Deno.serve(async (req) => {
         ids.push(warehouseId)
         warehouseIdsByUser.set(userId, ids)
       }
+      const permissionsByUser = new Map<string, PagePermission[]>()
+      for (const row of permissionRows || []) {
+        const userId = String(row.user_id || '')
+        if (!userId) continue
+        const permissions = permissionsByUser.get(userId) || []
+        permissions.push({
+          pageKey: String(row.page_key || ''),
+          warehouseId: row.warehouse_id === null ? null : Number(row.warehouse_id),
+          canView: row.can_view !== false,
+          canCreate: row.can_create === true,
+          canEdit: row.can_edit === true,
+          canDelete: row.can_delete === true,
+          canPrint: row.can_print === true,
+          canExport: row.can_export === true,
+        })
+        permissionsByUser.set(userId, permissions)
+      }
       const users = profiles.map((profile) => ({
         ...profile,
         warehouseIds: warehouseIdsByUser.get(String(profile.id)) || [],
+        pagePermissions: permissionsByUser.get(String(profile.id)) || [],
       }))
       return json({ ok: true, users })
     }
@@ -232,17 +366,18 @@ Deno.serve(async (req) => {
       const note = String(body.note || '').trim()
       const level = body.level === undefined ? 2 : Number(body.level)
       const warehouseIds = normalizeWarehouseIds(body.warehouseIds)
+      const pagePermissions = normalizePagePermissions(body.pagePermissions)
 
       if (!username || !/^[A-Za-z0-9._-]+$/.test(username)) {
         return json({ error: 'ID ใช้ได้เฉพาะตัวอักษรอังกฤษ ตัวเลข จุด ขีดกลาง และขีดล่าง' }, 400)
       }
-      if (!password || password.length < 4) {
-        return json({ error: 'Password ต้องมีอย่างน้อย 4 ตัวอักษร' }, 400)
-      }
+      const passwordError = await validatePasswordSecurity(password)
+      if (passwordError) return json({ error: passwordError }, 400)
       if (!firstName) return json({ error: 'กรุณากรอกชื่อ' }, 400)
       if (![2, 3, 4].includes(level)) return json({ error: 'ระดับสิทธิ์ผู้ใช้งานไม่ถูกต้อง' }, 400)
       if (!warehouseIds) return json({ error: 'รูปแบบคลังสินค้าที่เลือกไม่ถูกต้อง' }, 400)
       if (!warehouseIds.length) return json({ error: 'ผู้ใช้งานทั่วไปต้องเข้าถึงคลังสินค้าอย่างน้อย 1 แห่ง' }, 400)
+      if (!pagePermissions) return json({ error: 'รูปแบบสิทธิ์การใช้งานไม่ถูกต้อง' }, 400)
 
       const email = username.toLowerCase() + '@noosol-pos.internal'
       const { data: created, error: createErr } = await admin.auth.admin.createUser({
@@ -252,7 +387,7 @@ Deno.serve(async (req) => {
       })
       if (createErr) return json({ error: createErr.message }, 400)
 
-      const { error: profileErr } = await admin.rpc('admin_create_staff_profile_access', {
+      const { error: profileErr } = await admin.rpc('admin_create_staff_access_v2', {
         p_user_id: created.user.id,
         p_username: username.toLowerCase(),
         p_first_name: firstName,
@@ -260,6 +395,7 @@ Deno.serve(async (req) => {
         p_note: note,
         p_level: level,
         p_warehouse_ids: warehouseIds,
+        p_permissions: pagePermissions,
       })
       if (profileErr) {
         const cleanup = await deleteAuthUserWithRetry(admin, created.user.id)
@@ -282,7 +418,10 @@ Deno.serve(async (req) => {
         .single()
       if (targetError || !target) return json({ error: targetError?.message || 'ไม่พบผู้ใช้งาน' }, 404)
       const targetIsOwner = target.owner === true
-      if (password && password.length < 4) return json({ error: 'Password ต้องมีอย่างน้อย 4 ตัวอักษร' }, 400)
+      if (password) {
+        const passwordError = await validatePasswordSecurity(password)
+        if (passwordError) return json({ error: passwordError }, 400)
+      }
 
       let warehouseIds: number[] | null = null
       if (body.warehouseIds !== undefined) {
@@ -293,6 +432,10 @@ Deno.serve(async (req) => {
         }
       }
       const requestedLevel = body.level === undefined ? null : Number(body.level)
+      const pagePermissions = body.pagePermissions === undefined ? null : normalizePagePermissions(body.pagePermissions)
+      if (body.pagePermissions !== undefined && !pagePermissions) {
+        return json({ error: 'รูปแบบสิทธิ์การใช้งานไม่ถูกต้อง' }, 400)
+      }
       if (!targetIsOwner && requestedLevel !== null && ![2, 3, 4].includes(requestedLevel)) {
         return json({ error: 'ระดับสิทธิ์ผู้ใช้งานไม่ถูกต้อง' }, 400)
       }
@@ -333,13 +476,14 @@ Deno.serve(async (req) => {
         return json({ ok: true })
       }
 
-      const { error: updateError } = await admin.rpc('admin_update_staff_profile_access', {
+      const { error: updateError } = await admin.rpc('admin_update_staff_access_v2', {
         p_user_id: id,
         p_first_name: body.firstName === undefined ? null : String(body.firstName).trim(),
         p_phone: body.phone === undefined ? null : String(body.phone).trim(),
         p_note: body.note === undefined ? null : String(body.note).trim(),
         p_level: requestedLevel,
         p_warehouse_ids: warehouseIds,
+        p_permissions: pagePermissions || [],
       })
       if (updateError) {
         const warning = passwordChanged

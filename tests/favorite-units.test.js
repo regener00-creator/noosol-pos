@@ -3,8 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '0018_favorite_units.sql'), 'utf8');
+const html = require("./load-app-source")();
+const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20260825042037_favorite_units.sql'), 'utf8');
 const context = {};
 vm.createContext(context);
 

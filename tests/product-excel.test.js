@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const helperStart = html.indexOf('const PRODUCT_EXCEL_MIN_REPEAT_COLUMNS=');
 const helperEnd = html.indexOf('async function downloadProductImportTemplate(', helperStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, 'product Excel helpers must exist');

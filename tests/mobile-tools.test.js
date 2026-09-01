@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const manifest = JSON.parse(fs.readFileSync(path.join(root, 'manifest.webmanifest'), 'utf8'));
 const serviceWorker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 
@@ -239,7 +239,7 @@ assert.ok(manifest.icons.some(icon => icon.src === '/pwa-icon-512.png' && icon.s
 assert.match(serviceWorker, /request\.mode==='navigate'/);
 assert.match(serviceWorker, /fetch\(request\)/);
 assert.match(serviceWorker, /caches\.match\('\/index\.html'\)/);
-assert.match(serviceWorker, /pepos-mobile-v12/);
+assert.match(serviceWorker, /pepos-mobile-v13/);
 assert.doesNotMatch(serviceWorker, /\/mobile-scan-success\.mp3/);
 assert.doesNotMatch(serviceWorker, /\/mobile-scan-error\.mp3/);
 assert.match(serviceWorker, /cdn\.jsdelivr\.net/);

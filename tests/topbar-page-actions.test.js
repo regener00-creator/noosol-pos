@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const start = html.indexOf('function syncTopbarFormActions(');
 const end = html.indexOf('function checkNegativeStockToast(', start);
 assert.ok(start >= 0 && end > start, 'ไม่พบระบบย้ายปุ่มขึ้น TOPBAR');

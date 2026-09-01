@@ -2,8 +2,8 @@ const fs=require('fs');
 const vm=require('vm');
 const assert=require('assert');
 
-const html=fs.readFileSync('index.html','utf8');
-const migration=fs.readFileSync('supabase/migrations/0049_inactive_products.sql','utf8');
+const html = require("./load-app-source")();
+const migration=fs.readFileSync('supabase/migrations/20260828071028_inactive_products.sql','utf8');
 
 function extractFunction(name){
   const start=html.indexOf(`function ${name}(`);
@@ -35,4 +35,3 @@ assert(migration.includes("product.data ->> 'active'"));
 assert(migration.includes('before insert or update of product_id on public.sale_items'));
 
 console.log('product active tests passed');
-

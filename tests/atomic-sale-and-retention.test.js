@@ -4,10 +4,10 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0025_atomic_sales_void_and_inventory_backup.sql'), 'utf8');
-const protectionMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0026_protect_completed_sales_and_posted_documents.sql'), 'utf8');
-const sequenceMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0027_seed_sale_sequence_from_existing_refs.sql'), 'utf8');
+const html = require("./load-app-source")();
+const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260825131705_atomic_sales_void_and_inventory_backup.sql'), 'utf8');
+const protectionMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260825131916_protect_completed_sales_and_posted_documents.sql'), 'utf8');
+const sequenceMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260825132107_seed_sale_sequence_from_existing_refs.sql'), 'utf8');
 const hardeningMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260831185553_security_integrity_and_scale_hardening.sql'), 'utf8');
 
 const checkoutStart = html.indexOf('async function doCheckout(');
@@ -41,7 +41,7 @@ const deleteSale = html.slice(deleteStart, deleteEnd);
 assert.match(deleteSale, /sale\.status!=='hold'/, 'ลบได้เฉพาะบิลพัก');
 assert.match(deleteSale, /บิลที่ชำระแล้วห้ามลบ/);
 assert.match(html, /data-void-sale=/, 'บิลสำเร็จต้องใช้ปุ่มยกเลิกบิล');
-assert.match(html, /sb\.rpc\('void_sale'/);
+assert.match(html, /runStockOperation\('void_sale'/);
 
 const helperStart = html.indexOf('function documentHasPostedStock(');
 const helperEnd = html.indexOf('function deleteSelectedDocuments(', helperStart);

@@ -4,11 +4,11 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0030_inventory_count_adjustments.sql'), 'utf8');
-const indexMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0031_inventory_count_adjustment_indexes.sql'), 'utf8');
-const sequenceMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0032_reseed_inventory_sequences.sql'), 'utf8');
-const negativeStockMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0033_allow_negative_recorded_count_stock.sql'), 'utf8');
+const html = require("./load-app-source")();
+const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260826025528_inventory_count_adjustments.sql'), 'utf8');
+const indexMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260826025624_inventory_count_adjustment_indexes.sql'), 'utf8');
+const sequenceMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260826025849_reseed_inventory_sequences.sql'), 'utf8');
+const negativeStockMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260826030155_allow_negative_recorded_count_stock.sql'), 'utf8');
 
 assert.match(html, /\['stockcontrol','ตรวจนับและปรับสต๊อก'/);
 assert.doesNotMatch(html, /\['inspectionlists','ตรวจสินค้า'/);
@@ -30,7 +30,7 @@ assert.match(html, /\.stock-control-tabs\{display:flex;justify-content:center;ga
 assert.doesNotMatch(html, /id="stockEditReason"/);
 assert.doesNotMatch(html, /id="stockEditNote"/);
 assert.doesNotMatch(html, /mobile-stock-reason|stock-control-meta/);
-assert.match(html, /p_reason:AUTOMATIC_STOCK_ADJUSTMENT_REASON/);
+assert.match(html, /reason:AUTOMATIC_STOCK_ADJUSTMENT_REASON/);
 assert.match(html, /LOT ที่ปรับ/);
 assert.match(html, /post_inventory_count_adjustment/);
 

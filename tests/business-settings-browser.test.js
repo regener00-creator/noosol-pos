@@ -6,7 +6,7 @@ const path = require('node:path');
 const { chromium } = require('playwright');
 
 const root = path.join(__dirname, '..');
-const types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.webmanifest':'application/manifest+json','.png':'image/png','.svg':'image/svg+xml'};
+const types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webmanifest':'application/manifest+json','.png':'image/png','.svg':'image/svg+xml'};
 const server = http.createServer((request, response) => {
   const pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1').pathname);
   const file = path.join(root, pathname === '/' ? 'index.html' : pathname.replace(/^\//, ''));
@@ -21,7 +21,7 @@ const browserExecutable = [
   'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'
-].find(file => file && fs.existsSync(file));
+].find(file => file && fs.existsSync(file)) || chromium.executablePath();
 
 (async () => {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
@@ -76,6 +76,7 @@ const browserExecutable = [
   await page.screenshot({path:path.join(os.tmpdir(),'pepos-business-settings-browser.png'),fullPage:true});
 
   await page.evaluate(() => {
+    products=[{id:99001,sku:'TEST-1',name:'สินค้าทดสอบ',category:'ยา',brand:'ทั่วไป',unit:'กล่อง',barcode:'8850000000991',price:100,cost:70,stock:5,units:[],extraBarcodes:[],vendorBarcodes:[],active:true}];
     editingProductId=products[0].id;
     currentTab='products';
     document.getElementById('topbarFormActions').innerHTML='';

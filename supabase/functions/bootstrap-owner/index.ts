@@ -23,6 +23,36 @@ function json(body: unknown, status = 200) {
 }
 
 type AdminClient = ReturnType<typeof createClient>
+const PASSWORD_MIN_LENGTH = 10
+const COMMON_PASSWORDS = new Set([
+  '1234567890', 'password123', 'qwerty1234', 'admin12345',
+  '1111111111', '0000000000', 'abcdefghij', 'password1',
+])
+
+async function validatePasswordSecurity(password: string): Promise<string> {
+  if (password.length < PASSWORD_MIN_LENGTH) return `Password ต้องมีอย่างน้อย ${PASSWORD_MIN_LENGTH} ตัวอักษร`
+  if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) return 'Password ต้องมีทั้งตัวอักษรและตัวเลข'
+  if (COMMON_PASSWORDS.has(password.toLowerCase())) return 'Password นี้คาดเดาง่ายเกินไป กรุณาใช้รหัสอื่น'
+  try {
+    const digest = await crypto.subtle.digest('SHA-1', new TextEncoder().encode(password))
+    const hash = [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase()
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 5000)
+    const response = await fetch(`https://api.pwnedpasswords.com/range/${hash.slice(0, 5)}`, {
+      headers: { 'Add-Padding': 'true', 'User-Agent': 'PEPOS-password-check' },
+      signal: controller.signal,
+    })
+    clearTimeout(timeout)
+    if (response.ok) {
+      const suffix = hash.slice(5)
+      const leaked = (await response.text()).split(/\r?\n/).some((line) => line.split(':')[0] === suffix)
+      if (leaked) return 'Password นี้เคยรั่วไหลบนอินเทอร์เน็ต กรุณาใช้รหัสอื่น'
+    }
+  } catch (error) {
+    console.warn('Leaked-password lookup unavailable', error)
+  }
+  return ''
+}
 
 async function cleanupCreatedOwner(
   admin: AdminClient,
@@ -94,9 +124,8 @@ Deno.serve(async (req) => {
     if (!username || !/^[A-Za-z0-9._-]+$/.test(username)) {
       return json({ error: 'ID ใช้ได้เฉพาะตัวอักษรอังกฤษ ตัวเลข จุด ขีดกลาง และขีดล่าง' }, 400)
     }
-    if (!password || password.length < 4) {
-      return json({ error: 'Password ต้องมีอย่างน้อย 4 ตัวอักษร' }, 400)
-    }
+    const passwordError = await validatePasswordSecurity(password)
+    if (passwordError) return json({ error: passwordError }, 400)
     if (!firstName) {
       return json({ error: 'กรุณากรอกชื่อเจ้าของร้าน' }, 400)
     }

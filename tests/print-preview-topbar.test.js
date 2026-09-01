@@ -1,6 +1,6 @@
 const fs=require('fs');
 const path=require('path');
-const source=fs.readFileSync(path.join(__dirname,'..','index.html'),'utf8');
+const source = require("./load-app-source")();
 
 if(!source.includes('function standardizePrintPreview(win)')) throw new Error('missing shared print preview topbar');
 if(!source.includes("backButton.textContent='ย้อนกลับ'")) throw new Error('missing back button');

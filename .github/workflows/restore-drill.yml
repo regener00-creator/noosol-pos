@@ -1,0 +1,30 @@
+name: Restore drill (test database only)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  restore-drill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: restore-test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm restore:drill
+        env:
+          RESTORE_TEST_SUPABASE_URL: ${{ secrets.RESTORE_TEST_SUPABASE_URL }}
+          RESTORE_TEST_SUPABASE_KEY: ${{ secrets.RESTORE_TEST_SUPABASE_KEY }}
+          RESTORE_TEST_OWNER_EMAIL: ${{ secrets.RESTORE_TEST_OWNER_EMAIL }}
+          RESTORE_TEST_OWNER_PASSWORD: ${{ secrets.RESTORE_TEST_OWNER_PASSWORD }}
+          RESTORE_DRILL_BACKUP_BASE64: ${{ secrets.RESTORE_DRILL_BACKUP_BASE64 }}

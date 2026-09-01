@@ -3,8 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0045_shared_favorites.sql'), 'utf8');
+const html = require("./load-app-source")();
+const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260827034723_shared_favorites.sql'), 'utf8');
 
 assert.match(html, /upsert\(rows,\{onConflict:'product_id'\}\)/);
 assert.match(html, /from\('favorites'\)\.select\('product_id'\)\)/);

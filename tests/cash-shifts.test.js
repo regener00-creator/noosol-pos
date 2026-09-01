@@ -4,8 +4,8 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const migration = fs.readFileSync(path.join(root, 'supabase/migrations/0042_cash_shifts.sql'), 'utf8');
+const html = require("./load-app-source")();
+const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20260826104917_cash_shifts.sql'), 'utf8');
 
 assert.match(html, /\['cashshift','เปิด-ปิดระบบชำระ'/);
 assert.match(html, /cashshift:\s*renderCashShift/);

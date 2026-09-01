@@ -4,8 +4,8 @@ const path = require('path');
 const vm = require('vm');
 
 const root = path.resolve(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0024_correct_sale_lot_allocation.sql'), 'utf8');
+const html = require("./load-app-source")();
+const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260825121426_correct_sale_lot_allocation.sql'), 'utf8');
 
 const allocationStart = html.indexOf('function saleLotCorrectionAllocations(');
 const labelStart = html.indexOf('function saleLotCorrectionLabel(', allocationStart);
@@ -46,7 +46,7 @@ assert.match(context.saleLotCorrectionValidation(item, 7, 1, 2, 1, [{ ...lots[1]
 
 assert.match(html, /id="correctSaleLotBtn">แก้ไข LOT ที่ขาย/);
 assert.match(html, /currentProfile\?\.owner&&canIssue/);
-assert.match(html, /sb\.rpc\('correct_sale_lot_allocation'/);
+assert.match(html, /runStockOperation\('correct_sale_lot_allocation'/);
 assert.match(html, /ยอดสต๊อกรวมและยอดขายจะไม่เปลี่ยน/);
 assert.match(html, /lotCorrectionLog/);
 

@@ -66,14 +66,14 @@ for (const signature of [
   /admin_update_staff_profile_access\([\s\S]*?\) from public, anon, authenticated, service_role;[\s\S]*?admin_update_staff_profile_access\([\s\S]*?\) to service_role;/i,
 ]) assert.match(migration, signature);
 
-assert.match(edge, /admin\.rpc\('admin_create_staff_profile_access'/);
-assert.match(edge, /admin\.rpc\('admin_update_staff_profile_access'/);
+assert.match(edge, /admin\.rpc\('admin_create_staff_access_v2'/);
+assert.match(edge, /admin\.rpc\('admin_update_staff_access_v2'/);
 assert.doesNotMatch(edge, /syncStaffWarehouseAccess|restoreWarehouseAccess/);
 
 // Both potentially unbounded list inputs are read in deterministic fixed-size
 // pages and stop only when a short page is returned.
 const profilePager = section(edge, 'async function listAllProfiles(', 'async function listAllWarehouseAccess(');
-const accessPager = section(edge, 'async function listAllWarehouseAccess(', 'async function deleteAuthUserWithRetry(');
+const accessPager = section(edge, 'async function listAllWarehouseAccess(', 'async function listAllPagePermissions(');
 assert.match(profilePager, /\.order\('owner',[\s\S]*\.order\('id'\)[\s\S]*\.range\(from, from \+ PROFILE_PAGE_SIZE - 1\)/);
 assert.match(profilePager, /batch\.length < PROFILE_PAGE_SIZE/);
 assert.match(accessPager, /\.order\('user_id'\)[\s\S]*\.order\('warehouse_id'\)[\s\S]*\.range\(from, from \+ WAREHOUSE_ACCESS_PAGE_SIZE - 1\)/);
@@ -117,7 +117,7 @@ assert.match(createAction, /deleteAuthUserWithRetry\(admin, created\.user\.id\)/
 assert.match(createAction, /สร้างบัญชี Auth แล้วแต่ลบคืนไม่สำเร็จ/);
 const updateAction = section(edge, "if (action === 'update')", "if (action === 'delete')");
 assert.ok(
-  updateAction.indexOf('admin.auth.admin.updateUserById') < updateAction.indexOf("admin.rpc('admin_update_staff_profile_access'"),
+  updateAction.indexOf('admin.auth.admin.updateUserById') < updateAction.indexOf("admin.rpc('admin_update_staff_access_v2'"),
   'password must be changed before the transactional profile/access RPC'
 );
 assert.match(updateAction, /Password สำเร็จแล้ว แต่ข้อมูลผู้ใช้งานและสิทธิ์คลังไม่ได้เปลี่ยน/);

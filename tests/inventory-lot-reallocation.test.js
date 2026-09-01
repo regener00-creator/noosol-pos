@@ -4,13 +4,13 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '0038_inventory_lot_reallocation.sql'), 'utf8');
+const html = require("./load-app-source")();
+const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260826081600_inventory_lot_reallocation.sql'), 'utf8');
 
 assert.match(html, /data-stock-control-mode="lots"/);
 assert.match(html, /ปรับจำนวนแยกตาม LOT/);
-assert.match(html, /sb\.rpc\('reallocate_inventory_lots'/);
-assert.match(html, /p_reason:AUTOMATIC_LOT_REALLOCATION_REASON/);
+assert.match(html, /runStockOperation\('reallocate_inventory_lots'/);
+assert.match(html, /reason:AUTOMATIC_LOT_REALLOCATION_REASON/);
 assert.doesNotMatch(html, /stockLotReallocationReason|stock-lot-reallocation-reason|กรุณาระบุเหตุผลการปรับ LOT/);
 assert.match(html, /currentProfile\?\.owner!==true/);
 assert.match(html, /id="stockLotReallocationUnit"/);

@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const helperStart = html.indexOf('function extraBarcodeEntries(');
 const helperEnd = html.indexOf('function vendorBarcodeRowHtml(', helperStart);
 const exactStart = html.indexOf('function findProductByExactCode(');

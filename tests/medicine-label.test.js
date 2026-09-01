@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const helpersStart = html.indexOf("const MEDICINE_LABEL_SIZE_STORAGE_KEY=");
 const helpersEnd = html.indexOf('function isProductActive(', helpersStart);
 const printStart = html.indexOf('function medicineLabelContentLength(');

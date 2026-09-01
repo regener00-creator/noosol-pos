@@ -3,8 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '0016_product_base_unit_changes.sql'), 'utf8');
+const html = require("./load-app-source")();
+const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20260825033255_product_base_unit_changes.sql'), 'utf8');
 const context = {
   extraBarcodeEntries: product => (product.extraBarcodes || []).map((code, index) => ({code, unit:(product.extraBarcodeUnits || [])[index] || product.unit})),
 };
@@ -105,7 +105,7 @@ assert.deepEqual(Array.from(context.productBaseUnitChangeBlockers(101)), [
 
 assert.match(html, /id="changeBaseUnitBtn"/);
 assert.match(html, /mainUnitSelect\.replace\('<select ','<select disabled '\)/);
-assert.match(html, /sb\.rpc\('change_product_base_unit'/);
+assert.match(html, /runStockOperation\('change_product_base_unit'/);
 assert.match(html, /กรุณาใช้ปุ่ม “เปลี่ยนหน่วยหลัก”/);
 assert.match(html, /barcodePrintBarcodeOwners\(\)\.find/);
 assert.match(migration, /create table if not exists public\.product_unit_changes/);

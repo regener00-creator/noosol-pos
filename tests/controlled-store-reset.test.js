@@ -3,9 +3,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
-const migration = fs.readFileSync(path.join(root, 'supabase/migrations/0028_controlled_store_reset.sql'), 'utf8');
-const bootstrapMigration = fs.readFileSync(path.join(root, 'supabase/migrations/0029_secure_owner_bootstrap.sql'), 'utf8');
+const html = require("./load-app-source")();
+const migration = fs.readFileSync(path.join(root, 'supabase/migrations/20260825140454_controlled_store_reset.sql'), 'utf8');
+const bootstrapMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20260825140951_secure_owner_bootstrap.sql'), 'utf8');
 const adminUsers = fs.readFileSync(path.join(root, 'supabase/functions/admin-users/index.ts'), 'utf8');
 const bootstrapOwner = fs.readFileSync(path.join(root, 'supabase/functions/bootstrap-owner/index.ts'), 'utf8');
 

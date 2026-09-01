@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const normalizeStart = html.indexOf('function normalizeInspectionLists(');
 const normalizeEnd = html.indexOf('function workspaceSnapshot(', normalizeStart);
 const expandableStart = html.indexOf('function expandableDocumentItemRows(');

@@ -2,8 +2,8 @@ const fs=require('fs');
 const vm=require('vm');
 const assert=require('assert');
 
-const html=fs.readFileSync('index.html','utf8');
-const migration=fs.readFileSync('supabase/migrations/0048_delete_unused_products.sql','utf8');
+const html = require("./load-app-source")();
+const migration=fs.readFileSync('supabase/migrations/20260828064349_delete_unused_products.sql','utf8');
 
 function extractFunction(name){
   const start=html.indexOf(`function ${name}(`);

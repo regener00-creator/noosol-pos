@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const start = html.indexOf('function openPriceCheckModal()');
 const end = html.indexOf('function printStockAlertReport(', start);
 assert.ok(start >= 0 && end > start, 'ไม่พบหน้าต่างเช็คราคาบนคอม');

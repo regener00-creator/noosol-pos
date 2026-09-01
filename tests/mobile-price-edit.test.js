@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 
 assert.match(html, /function canEditMobilePrice\(user=loggedInUser\(\)\)/);
 assert.match(html, /user\?\.owner===true&&Number\(user\?\.level\)===1/);

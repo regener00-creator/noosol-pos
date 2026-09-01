@@ -3,20 +3,21 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const context = {};
 vm.createContext(context);
 
-const historyNavIndex = html.indexOf("['history','ประวัติการขาย / ใบเสร็จ'");
-const promotionsNavIndex = html.indexOf("['promotions','โปรโมชั่น'");
-const purchaseSectionIndex = html.indexOf("{section:'ซื้อ'");
-const productsNavIndex = html.indexOf("['products','รายการสินค้า'");
-const stockControlNavIndex = html.indexOf("['stockcontrol','ตรวจนับและปรับสต๊อก'");
-const barcodePrintNavIndex = html.indexOf("['barcodeprint','พิมพ์ป้ายราคา'");
-const warehouseNavIndex = html.indexOf("['warehouse','คลังสินค้า / สาขา'");
-const transferNavIndex = html.indexOf("['transfer','โอนสินค้าระหว่างคลัง'");
-const settingsBusinessNavIndex = html.indexOf("['settingsbusiness','ตั้งค่าธุรกิจ'");
-const settingsUsersNavIndex = html.indexOf("['settingsusers','เพิ่มผู้ใช้งาน'");
+const navSource=html.slice(html.indexOf('const NAV = ['),html.indexOf('function renderSidebar'));
+const historyNavIndex = navSource.indexOf("['history','ประวัติการขาย / ใบเสร็จ'");
+const promotionsNavIndex = navSource.indexOf("['promotions','โปรโมชั่น'");
+const purchaseSectionIndex = navSource.indexOf("{section:'ซื้อ'");
+const productsNavIndex = navSource.indexOf("['products','รายการสินค้า'");
+const stockControlNavIndex = navSource.indexOf("['stockcontrol','ตรวจนับและปรับสต๊อก'");
+const barcodePrintNavIndex = navSource.indexOf("['barcodeprint','พิมพ์ป้ายราคา'");
+const warehouseNavIndex = navSource.indexOf("['warehouse','คลังสินค้า / สาขา'");
+const transferNavIndex = navSource.indexOf("['transfer','โอนสินค้าระหว่างคลัง'");
+const settingsBusinessNavIndex = navSource.indexOf("['settingsbusiness','ตั้งค่าธุรกิจ'");
+const settingsUsersNavIndex = navSource.indexOf("['settingsusers','เพิ่มผู้ใช้งาน'");
 assert.ok(historyNavIndex >= 0 && promotionsNavIndex > historyNavIndex && purchaseSectionIndex > promotionsNavIndex, 'เมนูโปรโมชั่นต้องอยู่ใต้ประวัติการขายในหมวดขาย');
 assert.ok(productsNavIndex >= 0 && stockControlNavIndex > productsNavIndex && transferNavIndex > stockControlNavIndex && barcodePrintNavIndex > transferNavIndex, 'เมนูตรวจนับต้องรวมอยู่ระหว่างรายการสินค้าและการโอนสินค้า');
 assert.ok(settingsBusinessNavIndex >= 0 && warehouseNavIndex > settingsBusinessNavIndex && settingsUsersNavIndex > warehouseNavIndex, 'เมนูคลังสินค้า / สาขาต้องอยู่ใต้ตั้งค่าธุรกิจ');
@@ -26,7 +27,7 @@ assert.match(html, /stockcontrol:\s*renderStockControl/);
 assert.match(html, /stockedit:\s*renderStockEdit/);
 assert.match(html, /data-stock-edit-amount="\$\{p\.id\}"/);
 assert.match(html, /data-stock-edit-remove="\$\{p\.id\}"/);
-assert.match(html, /sb\.rpc\('post_inventory_count_adjustment_with_shortages'/);
+assert.match(html, /runStockOperation\('post_inventory_count_adjustment_with_shortages'/);
 assert.match(html, /persistWorkspaceData\(\)/);
 assert.match(html, /\.stock-edit-stock-input\{[^}]*text-align:center/);
 
@@ -40,7 +41,7 @@ const confirmFunctionStart = html.indexOf('function confirmStockEditChanges(');
 const confirmFunctionEnd = html.indexOf('function inspectionListUnitOptions(', confirmFunctionStart);
 assert.ok(confirmFunctionStart >= 0 && confirmFunctionEnd > confirmFunctionStart);
 assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /post_inventory_count_adjustment_with_shortages/);
-assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /p_reason:AUTOMATIC_STOCK_ADJUSTMENT_REASON/);
+assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /reason:AUTOMATIC_STOCK_ADJUSTMENT_REASON/);
 assert.doesNotMatch(html.slice(confirmFunctionStart, confirmFunctionEnd), /กรุณาระบุเหตุผล|เหตุผล:/);
 assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /persistWorkspaceData\(\)/);
 assert.match(html.slice(confirmFunctionStart, confirmFunctionEnd), /syncInspectionListsToSupabase\(\)/);
@@ -201,6 +202,7 @@ Object.assign(context, {
   stockEditSourceInspectionListId: null,
   stockEditSourcePending: false,
   sb: {rpc: async (name,payload) => { lastAdjustmentPayload=payload; return {data:{documentNo:'SC20260826-TEST',postedAt:'2026-08-26T10:00:00.000Z',operatorName:'เจ้าของร้าน',balances:[{productId:1,warehouseId:1,stock:250}]},error:null,name,payload}; }},
+  runStockOperation: async (_name,payload) => { lastAdjustmentPayload=payload; return {documentNo:'SC20260826-TEST',postedAt:'2026-08-26T10:00:00.000Z',operatorName:'เจ้าของร้าน',balances:[{productId:1,warehouseId:1,stock:250}]}; },
   updateInventoryBalanceLocal: (id, warehouseId, stock) => { const product=context.products.find(item=>item.id===id); if(product) product.stock=stock; },
   loadInventoryLotsFromSupabase: async () => true,
   persistWorkspaceData: () => { persisted++; },
@@ -211,8 +213,8 @@ Object.assign(context, {
 (async()=>{
   assert.equal(await context.confirmStockEditChanges(), true);
   assert.equal(context.products[0].stock, 250);
-  assert.equal(lastAdjustmentPayload.p_reason, 'ตรวจนับและปรับสต๊อกจากยอดตรวจนับ');
-  assert.equal(lastAdjustmentPayload.p_note, '');
+  assert.equal(lastAdjustmentPayload.reason, 'ตรวจนับและปรับสต๊อกจากยอดตรวจนับ');
+  assert.equal(lastAdjustmentPayload.note, '');
   assert.equal(persisted, 1);
   assert.equal(inspectionSync, 0);
   assert.deepEqual(Object.keys(context.stockEditDraftStocks), []);

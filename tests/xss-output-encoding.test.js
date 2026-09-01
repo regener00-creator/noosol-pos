@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const textPayload = '<img src=x onerror="globalThis.__xss=1">';
 const attributePayload = '"><img src=x onerror="globalThis.__xss=1">';
 const textareaPayload = '</textarea><img src=x onerror="globalThis.__xss=1">';

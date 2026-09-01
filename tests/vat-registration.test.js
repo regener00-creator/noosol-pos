@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const context = { businessSettings:{vat:'ยังไม่จดภาษีมูลค่าเพิ่ม',vatRegistrationDate:''}, currentDateStr:()=> '2026-08-25', products:[] };
 vm.createContext(context);
 

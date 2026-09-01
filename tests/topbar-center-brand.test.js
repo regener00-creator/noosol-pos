@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 
 assert.match(html, /class="topbar-center-brand" aria-label="PRANC-HIBES">P R A N C - H I B E S<\/div>/, 'TOPBAR บนคอมต้องแสดงข้อความกึ่งกลาง');
 assert.match(html, /\.topbar\{position:relative;/, 'TOPBAR ต้องเป็นกรอบอ้างอิงตำแหน่งกึ่งกลาง');

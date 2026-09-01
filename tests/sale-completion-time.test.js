@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '0045_sale_completion_time.sql'), 'utf8');
+const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20260828014306_sale_completion_time.sql'), 'utf8');
 const stockPosting = migration.indexOf('v_posting:=public.post_sale_inventory_lots');
 const completionClock = migration.indexOf('v_now:=clock_timestamp()');
 const reference = migration.indexOf('v_sale_ref:=private.next_sale_reference');

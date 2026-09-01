@@ -3,19 +3,19 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const migration = fs.readFileSync(
-  path.join(__dirname, '..', 'supabase', 'migrations', '0034_mobile_lot_expiry_audit.sql'),
+  path.join(__dirname, '..', 'supabase', 'migrations', '20260826035255_mobile_lot_expiry_audit.sql'),
   'utf8',
 );
 const indexMigration = fs.readFileSync(
-  path.join(__dirname, '..', 'supabase', 'migrations', '0035_mobile_lot_expiry_audit_indexes.sql'),
+  path.join(__dirname, '..', 'supabase', 'migrations', '20260826035401_mobile_lot_expiry_audit_indexes.sql'),
   'utf8',
 );
 const detailsMigration = fs.readFileSync(
-  path.join(__dirname, '..', 'supabase', 'migrations', '0036_mobile_product_details_without_stock.sql'),
+  path.join(__dirname, '..', 'supabase', 'migrations', '20260826062842_mobile_product_details_without_stock.sql'),
   'utf8',
 );
 const retireMigration = fs.readFileSync(
-  path.join(__dirname, '..', 'supabase', 'migrations', '0037_retire_mobile_stock_edit_rpcs.sql'),
+  path.join(__dirname, '..', 'supabase', 'migrations', '20260826062957_retire_mobile_stock_edit_rpcs.sql'),
   'utf8',
 );
 

@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 
 const helperStart = html.indexOf("const SALES_REP_EXCEL_HEADERS=");
 const helperEnd = html.indexOf('async function downloadSalesRepresentativeImportTemplate(', helperStart);

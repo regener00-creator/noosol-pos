@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const dateStart = html.indexOf('function dmyToISO(');
 const dateEnd = html.indexOf('function dmyDateFieldHtml(', dateStart);
 assert.ok(dateStart >= 0 && dateEnd > dateStart, 'ไม่พบฟังก์ชันแปลงวันที่ที่พิมพ์เอง');

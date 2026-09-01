@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const context = {};
 vm.createContext(context);
 
@@ -55,7 +55,7 @@ assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:true}, 'รอ�
 assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:true}, 'รอรับสินค้า').allowed, false, 'รับเข้าสต๊อกแล้วต้องห้ามย้อนสถานะเพื่อไม่ให้ Lot เพี้ยน');
 assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:true}, 'ชำระเรียบร้อย').stockDirection, 0);
 assert.equal(context.goodsReceiptStatusChangePlan({stockApplied:false}, 'ชำระเรียบร้อย').allowed, false);
-assert.match(html, /sb\.rpc\('apply_goods_receipt_lots'/);
+assert.match(html, /runStockOperation\('apply_goods_receipt_lots'/);
 assert.match(html, /loadInventoryLotsFromSupabase\(\)/);
 
 assert.match(html, /<option value="รอรับสินค้า"/);
@@ -70,8 +70,8 @@ assert.doesNotMatch(html, /plan\.stockDirection>0&&!goodsReceiptItemsMatchWareho
 assert.match(html, /normalizeGoodsReceiptItems\(items,draft\.warehouseId\)/);
 assert.doesNotMatch(html, /if\(kind==='gr'\)\{ grCounter\+\+; adjustGoodsReceiptStock\(savedItems,1\); \}/);
 assert.match(html, /if\(action==='duplicate'&&kind!=='gr'\)/, 'ใบรับสินค้าไม่ควรเข้าทางสร้างซ้ำที่ไม่มี UI');
-assert.match(html, /editingId==='new'[\s\S]{0,120}from\('goods_receipts'\)\.insert\(row\)/, 'ใบใหม่ต้อง insert เพื่อไม่ทับเลขที่ชนกันจากหลายเครื่อง');
-assert.match(html, /from\('goods_receipts'\)\.update\(\{data:row\.data\}\)\.eq\('id',row\.id\)/, 'เอกสารเก่าต้อง update เฉพาะ id เดิม');
+assert.match(html, /_revision:Number\(old\?\._revision\)\|\|0/, 'ใบใหม่ต้องเริ่ม revision ที่ 0 และเอกสารเดิมต้องใช้ revision ล่าสุด');
+assert.match(html, /saveRevisionedDocument\('goods_receipts',rec\)/, 'ใบรับสินค้าต้องบันทึกแบบกันสองเครื่องเขียนทับกัน');
 const bulkDeleteStart = html.indexOf('function deleteSelectedDocuments(');
 const bulkDeleteEnd = html.indexOf('function printSelectedDocuments(', bulkDeleteStart);
 const singleDeleteStart = html.indexOf("if(action==='delete')", html.indexOf('function handleDocumentAction('));

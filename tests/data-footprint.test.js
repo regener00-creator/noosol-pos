@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
-const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
+const html = require("./load-app-source")();
 const migration = fs.readFileSync(
   path.join(root, 'supabase', 'migrations', '20260901021726_optimize_persisted_data_footprint.sql'),
   'utf8'

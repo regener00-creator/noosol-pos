@@ -3,8 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '0009_product_exchanges.sql'), 'utf8');
+const html = require("./load-app-source")();
+const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20260822035255_product_exchanges.sql'), 'utf8');
 const context = {};
 vm.createContext(context);
 
@@ -102,7 +102,8 @@ context.applyProductExchangeLocally(partialReturnDocument,{applyOutgoing:true,ap
 context.applyProductExchangeLocally(partialReturnDocument,{applyOutgoing:false,applyIncoming:true});
 assert.deepEqual(context.products.map(product=>product.stock), [4,5,4,1]);
 
-assert.ok(html.indexOf("['productexchange','เปลี่ยนสินค้า'") > html.indexOf("['goodsreceipt','รับเข้าสินค้า'"), 'เมนูเปลี่ยนสินค้าต้องอยู่ใต้รับเข้าสินค้า');
+const navSource=html.slice(html.indexOf('const NAV = ['),html.indexOf('function renderSidebar'));
+assert.ok(navSource.indexOf("['productexchange','เปลี่ยนสินค้า'") > navSource.indexOf("['goodsreceipt','รับเข้าสินค้า'"), 'เมนูเปลี่ยนสินค้าต้องอยู่ใต้รับเข้าสินค้า');
 assert.match(html, /productexchange:\s*renderProductExchange/);
 assert.match(html, /\['product_exchanges', \(\)=>productExchanges/);
 assert.match(html, /id="confirmExchangeSentBtn"/);
