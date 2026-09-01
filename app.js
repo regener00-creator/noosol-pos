@@ -92,18 +92,58 @@ function syncEventTime(value){
   if(Number.isNaN(date.getTime())) return '-';
   return date.toLocaleString('th-TH',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
 }
+function syncConflictProductId(row={}){
+  row=row||{};
+  const code=String(row.error_code||'').toUpperCase(),message=String(row.message||'');
+  if(code!=='REVISION_CONFLICT'&&!message.includes('ถูกแก้ไขจากอีกเครื่อง')) return 0;
+  const explicit=String(row.record_id||'').trim();
+  if(explicit&&Number.isFinite(Number(explicit))) return Number(explicit);
+  const token=String(message.match(/สินค้า\s+(.+?)\s+ถูกแก้ไขจากอีกเครื่อง/)?.[1]||'').trim();
+  if(!token) return 0;
+  const local=(products||[]).find(product=>String(product.sku||'').trim()===token)||(products||[]).find(product=>String(product.id)===token);
+  return Number(local?.id)||0;
+}
 function syncDetailRowsHtml(rows=[]){
   if(!rows.length) return '<div class="sync-detail-empty">ยังไม่มีประวัติข้อผิดพลาดจากเซิร์ฟเวอร์</div>';
   return rows.map(row=>{
     const cause=syncEventCause(row),message=String(row.message||'');
     const meta=[row.error_code?`รหัส ${row.error_code}`:'',row.record_id?`รายการ ${row.record_id}`:''].filter(Boolean).join(' · ');
+    const conflictProductId=row.local?syncConflictProductId(row):0;
     return `<article class="sync-detail-item">
       <div class="sync-detail-item-head"><strong>${escapeHtml(syncEventTitle(row))}</strong><time>${escapeHtml(syncEventTime(row.occurred_at))}</time></div>
       <div class="sync-detail-cause">${escapeHtml(cause)}</div>
       ${message&&message!==cause?`<div class="sync-detail-technical">รายละเอียด: ${escapeHtml(message)}</div>`:''}
       ${meta?`<div class="sync-detail-meta">${escapeHtml(meta)}</div>`:''}
+      ${conflictProductId?`<button class="btn primary sync-conflict-load-latest" type="button" data-product-id="${conflictProductId}">โหลดข้อมูลล่าสุด</button>`:''}
     </article>`;
   }).join('');
+}
+async function loadLatestConflictedProduct(productId){
+  const id=Number(productId)||0;
+  const current=(products||[]).find(product=>Number(product.id)===id);
+  if(!id||!current) throw new Error('ไม่พบสินค้าที่ต้องการโหลดในเครื่องนี้');
+  if(!confirm(`โหลดข้อมูลล่าสุดของ “${current.name||current.sku||id}” จากเซิร์ฟเวอร์หรือไม่?\n\nข้อมูลที่แก้ไขค้างอยู่ในเครื่องสำหรับสินค้านี้จะถูกแทนที่ แต่สต๊อกและ LOT จะไม่ถูกแก้ไข`)) return false;
+  const {data,error}=await sb.from('products').select('*').eq('id',id).maybeSingle();
+  if(error) throw error;
+  if(!data) throw new Error('ไม่พบสินค้านี้บนเซิร์ฟเวอร์ อาจถูกลบไปแล้ว');
+  const normalizedRemote=rowToProduct(data);
+  const remote={...normalizedRemote,stock:Number(current.stock)||0,expiry:current.expiry||'',_catalogExpiry:normalizedRemote._catalogExpiry};
+  const nextProducts=products.map(product=>Number(product.id)===id?remote:product);
+  const nextDirtyOperations=new Map(productDirtyOperations);
+  nextDirtyOperations.delete(String(id));
+  const persisted=await persistProductsToIndexedDB(nextProducts,true,nextDirtyOperations);
+  if(!persisted) throw new Error('บันทึกข้อมูลล่าสุดลงเครื่องไม่สำเร็จ');
+  products=nextProducts;
+  productDirtyOperations=nextDirtyOperations;
+  rebuildProductLookupMaps();
+  refreshCategoryBrandUnitLists();
+  refreshDataCounters();
+  seedProductSyncSnapshot(products,productDirtyOperations);
+  if(Number(syncConflictProductId(syncUiLastError))===id) syncUiLastError=null;
+  setSyncUiState('syncing');
+  await syncCoreDataToSupabase();
+  render();
+  return true;
 }
 async function loadSyncEventDetails(){
   if(!sb||!currentProfile) return [];
@@ -131,7 +171,25 @@ function openSyncDetailsModal(){
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('.sync-detail-close').onclick=close;
-  overlay.onclick=event=>{ if(event.target===overlay) close(); };
+  overlay.onclick=async event=>{
+    if(event.target===overlay){ close(); return; }
+    const button=event.target.closest?.('.sync-conflict-load-latest');
+    if(!button||button.disabled) return;
+    button.disabled=true; button.textContent='กำลังโหลด…';
+    try{
+      const loaded=await loadLatestConflictedProduct(button.dataset.productId);
+      if(!overlay.isConnected) return;
+      if(!loaded){ button.disabled=false; button.textContent='โหลดข้อมูลล่าสุด'; return; }
+      overlay.querySelector('.sync-detail-local').innerHTML='<div class="sync-detail-resolved">โหลดข้อมูลล่าสุดแล้ว</div>';
+      const summary=overlay.querySelector('.sync-detail-summary');
+      summary.textContent=syncUiState==='synced'?'โหลดและซิงก์ข้อมูลล่าสุดสำเร็จแล้ว':`${navigator.onLine?'เชื่อมต่ออินเทอร์เน็ตแล้ว':'อุปกรณ์ออฟไลน์'}${syncUiErrorCount?` · ล้มเหลวสะสม ${syncUiErrorCount} รอบ`:''}`;
+      refresh();
+    }catch(error){
+      if(!overlay.isConnected) return;
+      button.disabled=false; button.textContent='โหลดข้อมูลล่าสุด';
+      showToast(error?.message||'โหลดข้อมูลล่าสุดไม่สำเร็จ','danger-top');
+    }
+  };
   const list=overlay.querySelector('.sync-detail-list');
   const refresh=async()=>{
     list.innerHTML='<div class="sync-detail-loading">กำลังโหลดรายละเอียด…</div>';
@@ -919,7 +977,7 @@ async function updateProductMetadataInChunks(productRows){
     const failed=results.find(result=>result.error);
     if(failed) return failed.error;
     const conflictIndex=results.findIndex(result=>!result.data);
-    if(conflictIndex>=0){ const error=new Error(`สินค้า ${batch[conflictIndex]?.sku||batch[conflictIndex]?.id} ถูกแก้ไขจากอีกเครื่องแล้ว`); error.code='REVISION_CONFLICT'; return error; }
+    if(conflictIndex>=0){ const error=new Error(`สินค้า ${batch[conflictIndex]?.sku||batch[conflictIndex]?.id} ถูกแก้ไขจากอีกเครื่องแล้ว`); error.code='REVISION_CONFLICT'; error.productId=batch[conflictIndex]?.id; return error; }
     results.forEach((result,index)=>{ batch[index]._revision=Number(result.data?.revision)||Number(batch[index]._revision)||1; });
   }
   return null;
@@ -1011,7 +1069,7 @@ async function syncProductsIncrementally(){
   const deleted=[...previous.keys()].filter(id=>!current.has(id));
   if(updated.length){
     const error=await updateProductMetadataInChunks(updated);
-    if(error){ console.warn('sync products',error); return noteCoreSyncFailure(error,{operation:'update_products',tableName:table,fallbackMessage:'แก้ไขสินค้าบนเซิร์ฟเวอร์ไม่สำเร็จ'}); }
+    if(error){ console.warn('sync products',error); return noteCoreSyncFailure(error,{operation:'update_products',tableName:table,recordId:error.productId||'',fallbackMessage:'แก้ไขสินค้าบนเซิร์ฟเวอร์ไม่สำเร็จ'}); }
   }
   if(inserted.length){
     // New client-generated ids must fail closed on a primary-key collision.
