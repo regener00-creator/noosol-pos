@@ -32,8 +32,11 @@ assert.match(html, /\.product-group-category-count\{[^}]*background:#F3EBE8;[^}]
 assert.match(html, /\.product-group-category\.active\{[^}]*border-color:#C6AAA0;/, 'หมวดที่เลือกต้องยังมีสถานะแยกให้สังเกตได้');
 assert.doesNotMatch(source, /product-head-search/);
 assert.doesNotMatch(source, /pagehead product-pagehead/);
-assert.doesNotMatch(source, /<th>บาร์โค้ด<\/th>/, 'หน้ารายการสินค้าต้องไม่แสดงคอลัมน์บาร์โค้ด');
-assert.doesNotMatch(source, /col-barcode/, 'หน้ารายการสินค้าต้องไม่สร้างคอลัมน์บาร์โค้ด');
+assert.match(source, /<col class="col-sku"><col class="col-barcode"><col class="col-name">/, 'คอลัมน์บาร์โค้ดต้องอยู่ถัดจากรหัสสินค้า');
+assert.match(source, /\$\{th\('sku','รหัสสินค้า'\)\}<th>บาร์โค้ด<\/th>\$\{th\('name','สินค้า'\)\}/, 'หัวข้อบาร์โค้ดต้องอยู่ระหว่างรหัสสินค้าและชื่อสินค้า');
+assert.match(source, /barcode:p\.barcode\|\|''[^]*barcode:u\.barcode\|\|''/, 'รายการหน่วยต้องเก็บบาร์โค้ดของทั้งหน่วยหลักและหน่วยเพิ่มเติม');
+assert.match(source, /class="mono prod-unit-barcode"[^]*selOpt\.barcode/, 'แถวสินค้าต้องแสดงบาร์โค้ดของหน่วยที่เลือก');
+assert.match(html, /\.prodtable \.col-barcode\{width:170px;\}/, 'คอลัมน์บาร์โค้ดต้องมีความกว้างอ่านเลขได้ชัดเจน');
 assert.match(source, /placeholder="ค้นหาจาก ชื่อ \/ รหัส \/ บาร์โค้ด"/, 'ยังต้องค้นหาด้วยบาร์โค้ดได้');
 assert.match(html, /function restoreSearchInputFocus\(selectionStart,selectionEnd\)/, 'ต้องมีตัวช่วยคืนโฟกัสและตำแหน่งเคอร์เซอร์ให้ช่องค้นหา');
 assert.match(html, /if\(e\.isComposing\) return;[^]*restoreSearchInputFocus\(selectionStart,selectionEnd\);/, 'ช่องค้นหาต้องไม่วาดหน้าใหม่ระหว่างประกอบอักษร และต้องคืนโฟกัสหลังกรองข้อมูล');

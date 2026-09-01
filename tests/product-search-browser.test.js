@@ -48,7 +48,7 @@ const browserExecutable = [
     renderSidebar=()=>{};
     currentProfile={id:'owner-search-test',owner:true,level:1,firstName:'เจ้าของ'};
     products=[
-      {id:9101,sku:'D-001',name:'Decolgen prin (4 tablets)',category:'ยา',brand:'ทั่วไป',unit:'กล่อง',barcode:'8850000000001',price:180,cost:120,stock:10,units:[],extraBarcodes:[],vendorBarcodes:[],active:true},
+      {id:9101,sku:'D-001',name:'Decolgen prin (4 tablets)',category:'ยา',brand:'ทั่วไป',unit:'กล่อง',barcode:'8850000000001',price:180,cost:120,stock:10,units:[{sub:'ลัง',factor:30,price:5000,cost:3500,barcode:'CASE-D-001'}],extraBarcodes:[],vendorBarcodes:[],active:true},
       {id:9102,sku:'P-001',name:'Paracetamol 500 mg',category:'ยา',brand:'ทั่วไป',unit:'กล่อง',barcode:'8850000000002',price:50,cost:30,stock:20,units:[],extraBarcodes:[],vendorBarcodes:[],active:true},
     ];
     inventoryLots=[];
@@ -70,6 +70,9 @@ const browserExecutable = [
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'search', 'ช่องค้นหาต้องคงโฟกัสหลังกรองข้อมูล');
   assert.equal(await page.locator('.prodtable tbody tr').count(), 1, 'ผลการค้นหาต้องเหลือสินค้าที่ตรงกันหนึ่งรายการ');
   assert.equal(await page.locator('.prodtable .prod-inline-name').inputValue(), 'Decolgen prin (4 tablets)');
+  assert.equal(await page.locator('.prodtable .prod-unit-barcode').textContent(), '8850000000001', 'ค่าเริ่มต้นต้องแสดงบาร์โค้ดหน่วยหลัก');
+  await page.locator('.prodtable .prod-unit-select').selectOption('ลัง');
+  assert.equal(await page.locator('.prodtable .prod-unit-barcode').textContent(), 'CASE-D-001', 'เมื่อเปลี่ยนหน่วยต้องเปลี่ยนบาร์โค้ดตามหน่วยทันที');
 
   await search.fill('');
   await page.waitForTimeout(220);
