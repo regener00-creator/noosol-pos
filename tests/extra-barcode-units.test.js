@@ -77,6 +77,6 @@ const saveEnd = html.indexOf('function valueReferencesProduct(', saveStart);
 const saveSource = html.slice(saveStart, saveEnd);
 assert.doesNotMatch(saveSource, /scanDefaultUnit/, 'ต้องไม่บันทึกค่าหน่วยบังคับเมื่อยิงบาร์โค้ด');
 assert.doesNotMatch(html, /function productScanUnitName\(/, 'ต้องไม่มีตัวช่วยเปลี่ยนหน่วยของบาร์โค้ดเป็นหน่วยอื่น');
-assert.match(html, /addToCart\(exactHit\.product\.id, exactHit\.unitName, pendingQty\)/, 'การยิงบาร์โค้ดหน้า POS ต้องขายตามหน่วยที่ผูกกับบาร์โค้ด');
+assert.match(html, /addToCart\(exactHit\.product\.id, consumePosSaleUnit\(exactHit\.product,exactHit\.unitName\), pendingQty\)/, 'การยิงบาร์โค้ดหน้า POS ต้องขายตามหน่วยที่ผูกกับบาร์โค้ด เว้นแต่เปิดคำสั่งหน่วยเล็กสุดไว้');
 
 console.log('extra barcode unit tests passed');

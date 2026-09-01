@@ -4,9 +4,9 @@ const path = require('node:path');
 
 const worker = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
 
-assert.match(worker, /const CACHE_NAME='pepos-mobile-v15';/);
+assert.match(worker, /const CACHE_NAME='pepos-mobile-v16';/);
 assert.match(worker, /\/styles\.css/);
-assert.match(worker, /\/app\.js\?v=20260901-barcode-unit-direct/);
+assert.match(worker, /\/app\.js\?v=20260901-pos-smallest-command/);
 assert.match(
   worker,
   /const APP_SHELL=\[[^\]]*'\/sapuri-pharmacy-logo\.png'[^\]]*\];/s,

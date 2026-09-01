@@ -1587,6 +1587,8 @@ const PRODUCTS_PER_PAGE = 10;
 
 let cart = []; // แต่ละบิลเป็น array ของบรรทัด: {lineId, pid, unit, unitName, price, cost, factor, qty}
 let pendingQty = 1; // จำนวนที่ล็อกไว้ล่วงหน้า (พิมพ์ *10 ในช่องค้นหา)
+const POS_SMALLEST_UNIT_COMMAND='PEPOS-CMD-SMALLEST';
+let posSmallestUnitOnce=false;
 let lineCounter = 1;
 const MEDICINE_LABEL_SIZE_STORAGE_KEY='pepos_medicine_label_size';
 const MEDICINE_LABEL_LOGO_PATH='sapuri-pharmacy-logo.png';
@@ -2050,6 +2052,27 @@ function productUnitOptions(p){
   const opts=[{name:p.unit, label:p.unit, price:p.price, cost:productUnitCost(p,p.unit,1), factor:1, barcode:p.barcode||''}];
   (p.units||[]).forEach(u=>{ if(u.sub) opts.push({name:u.sub, label:u.sub, price:u.price||p.price*(u.factor||1), cost:productUnitCost(p,u.sub,u.factor||1), factor:u.factor||1, barcode:u.barcode||''}); });
   return opts;
+}
+function smallestProductUnitName(product){
+  if(!product) return '';
+  const options=productUnitOptions(product).filter(option=>Number(option.factor)>0);
+  if(!options.length) return String(product?.unit||'');
+  return options.reduce((smallest,option)=>Number(option.factor)<Number(smallest.factor)?option:smallest,options[0]).name;
+}
+function consumePosSaleUnit(product,fallbackUnitName=null){
+  if(!posSmallestUnitOnce) return fallbackUnitName;
+  posSmallestUnitOnce=false;
+  return smallestProductUnitName(product)||fallbackUnitName;
+}
+function isPosSmallestUnitCommand(value){
+  return String(value||'').trim().toUpperCase()===POS_SMALLEST_UNIT_COMMAND;
+}
+function setPosSmallestUnitOnce(enabled,{announce=true}={}){
+  posSmallestUnitOnce=Boolean(enabled);
+  searchQuery='';
+  render();
+  setTimeout(()=>document.getElementById('search')?.focus(),0);
+  if(announce) showToast(posSmallestUnitOnce?'พร้อมแล้ว — สินค้ารายการถัดไปจะขายเป็นหน่วยเล็กสุด':'ยกเลิกการขายหน่วยเล็กสุดแล้ว');
 }
 function favoriteProductId(entry){
   const value=entry&&typeof entry==='object'?(entry.pid??entry.productId):entry;
@@ -3288,7 +3311,7 @@ function renderSidebar(){
   html += `<div class="sidebar-logout-wrap"><button class="logout-btn sidebar-logout-btn" id="logoutBtn">ออกจากระบบ</button></div>`;
   document.getElementById('sidebar').innerHTML = html;
   document.getElementById('logoutBtn')?.addEventListener('click',logoutSystem);
-  document.querySelectorAll('.navbtn').forEach(btn=>{ btn.addEventListener('click', ()=>{ if(currentTab==='settingsbusiness'&&businessSettingsDirty&&!confirm('มีข้อมูลธุรกิจที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')) return; businessSettingsDirty=false; currentTab = btn.dataset.tab; searchQuery=''; editingPOId=null; poDraft=null; editingGRId=null; grDraft=null; editingPO2Id=null; po2Draft=null; editingReturnId=null; returnDraft=null; editingProductExchangeId=null; productExchangeDraft=null; editingTaxInvoiceSaleId=null; editingQuotationId=null; cashBillLookupOpen=false; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; openDocMenu=null; poSupplierEditorOpen=false; poRepresentativeEditorId=null; editingContactId=null; editingSalesRepresentativeId=null; editingPromotionId=null; editingProductId=null; editingInspectionListId=null; inspectionListDraft=null; inspectionListSearchQuery=''; inspectionListCatFilter={wh:'',category:'',brand:''}; inspectionListPage=1; addingSystemUser=false; editingSystemUserId=null; addingWarehouse=false; editingWarehouseId=null; editingTransferId=null; transferDraft=null; rproductFilter.applied=false; rbillFilter.applied=false; rprofitFilter.applied=false; render(); }); });
+  document.querySelectorAll('.navbtn').forEach(btn=>{ btn.addEventListener('click', ()=>{ if(currentTab==='settingsbusiness'&&businessSettingsDirty&&!confirm('มีข้อมูลธุรกิจที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')) return; businessSettingsDirty=false; currentTab = btn.dataset.tab; if(currentTab!=='checkout') posSmallestUnitOnce=false; searchQuery=''; editingPOId=null; poDraft=null; editingGRId=null; grDraft=null; editingPO2Id=null; po2Draft=null; editingReturnId=null; returnDraft=null; editingProductExchangeId=null; productExchangeDraft=null; editingTaxInvoiceSaleId=null; editingQuotationId=null; cashBillLookupOpen=false; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; openDocMenu=null; poSupplierEditorOpen=false; poRepresentativeEditorId=null; editingContactId=null; editingSalesRepresentativeId=null; editingPromotionId=null; editingProductId=null; editingInspectionListId=null; inspectionListDraft=null; inspectionListSearchQuery=''; inspectionListCatFilter={wh:'',category:'',brand:''}; inspectionListPage=1; addingSystemUser=false; editingSystemUserId=null; addingWarehouse=false; editingWarehouseId=null; editingTransferId=null; transferDraft=null; rproductFilter.applied=false; rbillFilter.applied=false; rprofitFilter.applied=false; render(); }); });
 }
 
 // ---------- Page renderers ----------
@@ -3537,7 +3560,9 @@ function renderCheckout(){
   return `${shiftBanner}
     <div class="pos-searchrow">
       <div class="pos-search"><span class="pos-bc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg></span><input id="search" placeholder="ค้นหาสินค้า / รหัส / สแกนบาร์โค้ด (ctrl + Q)" value="${escapeHtml(searchQuery)}" autocomplete="off"></div>
+      <button class="pos-smallest-unit-btn ${posSmallestUnitOnce?'active':''}" id="posSmallestUnitBtn" type="button" aria-pressed="${posSmallestUnitOnce?'true':'false'}"><span>หน่วยเล็กสุด 1 รายการ</span><kbd>Home</kbd></button>
     </div>
+    ${posSmallestUnitOnce?'<div class="pos-smallest-unit-status"><span class="pos-smallest-unit-status-dot"></span><strong>พร้อมขายหน่วยเล็กสุด</strong><span>ยิงหรือเลือกสินค้า 1 รายการ · กด Home หรือ Esc เพื่อยกเลิก</span></div>':''}
     ${searchQuery ? renderSearchResults() : ''}
     <div class="pos-grid">
       <div class="pos-left">
@@ -6395,7 +6420,8 @@ let posSearchRenderTimer=null;
 let listSearchRenderTimer=null;
 function addProductFromPOSAction(el){
   const pid=Number(el.dataset.id);
-  addToCart(pid, el.dataset.unit||null, pendingQty);
+  const product=products.find(item=>Number(item.id)===pid);
+  addToCart(pid, consumePosSaleUnit(product,el.dataset.unit||null), pendingQty);
   checkNegativeStockToast(pid);
   pendingQty=1;
   if(currentTab==='checkout') searchQuery='';
@@ -9404,6 +9430,26 @@ function renderBusinessSettings(){
     </div></div>`;
 }
 
+function renderPosCommandBarcodeSection(){
+  return `<div class="settings-section"><h2>บาร์โค้ดคำสั่งหน้า POS</h2><div class="hint">ใช้แทนปุ่ม Home: ยิงบาร์โค้ดคำสั่งนี้ 1 ครั้ง แล้วสินค้ารายการถัดไปที่ยิงหรือเลือกจะขายเป็นหน่วยเล็กสุดทันที หลังเพิ่มสินค้าแล้วระบบจะกลับสู่โหมดปกติอัตโนมัติ</div>
+    <div class="pos-command-barcode-card">
+      <div class="pos-command-barcode-preview"><strong>ขายหน่วยเล็กสุด 1 รายการ</strong>${code128BSvg(POS_SMALLEST_UNIT_COMMAND,52)}<span>${escapeHtml(POS_SMALLEST_UNIT_COMMAND)}</span></div>
+      <div class="pos-command-barcode-steps"><b>วิธีใช้</b><ol><li>ยิงบาร์โค้ดคำสั่งนี้</li><li>ตรวจว่าหน้า POS แสดงคำว่า “พร้อมขายหน่วยเล็กสุด”</li><li>ยิงสินค้าที่ต้องการ ระบบจะเลือกหน่วยเล็กสุดให้เพียงรายการเดียว</li></ol><p>กด Home หรือ Esc เพื่อยกเลิกก่อนยิงสินค้าได้</p></div>
+    </div>
+    <div class="settings-actions"><button class="btn primary" id="printPosSmallestUnitCommandBtn" type="button">พิมพ์บาร์โค้ดคำสั่ง</button></div>
+  </div>`;
+}
+function printPosSmallestUnitCommandBarcode(){
+  const win=window.open('','_blank');
+  if(!win){ showToast('เบราว์เซอร์บล็อกหน้าพิมพ์ กรุณาอนุญาต Pop-up แล้วลองใหม่','danger-top'); return; }
+  const barcode=code128BSvg(POS_SMALLEST_UNIT_COMMAND,52);
+  win.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>บาร์โค้ดคำสั่งขายหน่วยเล็กสุด</title><style>
+    @page{size:80mm 50mm;margin:0}*{box-sizing:border-box}body{margin:0;background:#ececec;font-family:Tahoma,"Noto Sans Thai",sans-serif;color:#000}.toolbar{height:58px;background:#fff;padding:10px 18px;text-align:right}.toolbar button{padding:9px 18px;border:0;border-radius:7px;background:#4F4038;color:#fff;font:600 14px Tahoma;cursor:pointer}.command-card{width:80mm;height:50mm;margin:18px auto 0;background:#fff;border:1.2px solid #000;border-radius:4mm;padding:4mm 5mm;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden}.command-card h1{font-size:18pt;line-height:1.15;margin:0 0 2.5mm;text-align:center}.command-card .barcode-label-svg{display:block;width:66mm;height:18mm}.command-card .code{font:10pt monospace;letter-spacing:.4px;margin-top:1.2mm}.command-card .note{font-size:9pt;margin-top:1.5mm;font-weight:700}@media print{body{background:#fff}.toolbar{display:none}.command-card{margin:0;border:1.2px solid #000}}
+  </style></head><body><div class="toolbar"><button onclick="window.print()">พิมพ์</button></div><main class="command-card"><h1>ขายหน่วยเล็กสุด 1 รายการ</h1>${barcode}<div class="code">${escapeHtml(POS_SMALLEST_UNIT_COMMAND)}</div><div class="note">ยิงใบนี้ก่อนสินค้า 1 ครั้ง</div></main></body></html>`);
+  win.document.close();
+  standardizePrintPreview(win);
+}
+
 function renderSystemSettings(){
   return `<div class="settings-page">
     <div class="settings-section"><h2>รหัสนำหน้าเอกสาร</h2><div class="hint">กำหนดตัวอักษรนำหน้าหมายเลขเอกสาร ใช้ตัวอักษรอังกฤษหรือตัวเลขได้สูงสุด 8 ตัว และมีผลกับเอกสารที่สร้างใหม่เท่านั้น</div>
@@ -9412,6 +9458,7 @@ function renderSystemSettings(){
       </div>
       <div class="settings-actions"><button class="btn primary" id="saveDocumentPrefixesBtn">บันทึกรหัสนำหน้าเอกสาร</button></div>
     </div>
+    ${renderPosCommandBarcodeSection()}
     ${renderOwnerRecoverySection()}
     ${renderStoreBackupSection()}
     ${renderStoreMaintenanceSection()}
@@ -10412,19 +10459,27 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     if(currentTab==='checkout') searchEl.addEventListener('keydown', e=>{
       if(e.key==='Enter'){
         const q=searchQuery.trim(); if(!q) return;
+        if(isPosSmallestUnitCommand(q)){
+          e.preventDefault();
+          posSmallestUnitOnce=true; searchQuery=''; render();
+          setTimeout(()=>document.getElementById('search')?.focus(),0);
+          showToast('พร้อมแล้ว — ยิงสินค้ารายการถัดไปเพื่อขายเป็นหน่วยเล็กสุด');
+          return;
+        }
         // พิมพ์ *N เพื่อล็อกจำนวนล่วงหน้า เช่น *10
         const qtyMatch = q.match(/^\*\s*(\d+)$/);
         if(qtyMatch){ pendingQty = Math.max(1, parseInt(qtyMatch[1])||1); searchQuery=''; render(); const s=document.getElementById('search'); if(s){ s.focus(); s.placeholder=`× ${pendingQty} — ยิงบาร์โค้ด/พิมพ์รหัสสินค้าถัดไป`; } showToast(`ล็อกจำนวน × ${pendingQty} ไว้แล้ว`); return; }
         // ค้นหาสินค้า: บาร์โค้ดตรงเป๊ะก่อน (รวมบาร์โค้ดของหน่วยย่อยเช่นกล่อง/ลัง) แล้วค่อยชื่อ/รหัส
         const exactHit=findProductByExactCode(q);
-        if(exactHit){ addToCart(exactHit.product.id, exactHit.unitName, pendingQty); checkNegativeStockToast(exactHit.product.id); pendingQty=1; searchQuery=''; render(); const s=document.getElementById('search'); if(s) s.focus(); return; }
+        if(exactHit){ addToCart(exactHit.product.id, consumePosSaleUnit(exactHit.product,exactHit.unitName), pendingQty); checkNegativeStockToast(exactHit.product.id); pendingQty=1; searchQuery=''; render(); const s=document.getElementById('search'); if(s) s.focus(); return; }
         const list = activeProducts().filter(p=>p.name.toLowerCase().includes(q.toLowerCase())||matchesBarcode(p,q)||(p.sku||'').toLowerCase().includes(q.toLowerCase()));
-        if(list.length>=1){ const p=list[0]; addToCart(p.id, null, pendingQty); checkNegativeStockToast(p.id); pendingQty=1; searchQuery=''; render(); const s=document.getElementById('search'); if(s) s.focus(); }
+        if(list.length>=1){ const p=list[0]; addToCart(p.id, consumePosSaleUnit(p,null), pendingQty); checkNegativeStockToast(p.id); pendingQty=1; searchQuery=''; render(); const s=document.getElementById('search'); if(s) s.focus(); }
       }
     });
     // แสดงจำนวนที่ล็อกไว้ใน placeholder ถ้ามี
     if(pendingQty>1 && !searchQuery) searchEl.placeholder = `× ${pendingQty} — ยิงบาร์โค้ด/พิมพ์รหัสสินค้าถัดไป`;
   }
+  document.getElementById('posSmallestUnitBtn')?.addEventListener('click',()=>setPosSmallestUnitOnce(!posSmallestUnitOnce));
   const newMemberBtn = document.getElementById('newMemberBtn');
   if(newMemberBtn) newMemberBtn.addEventListener('click', ()=>{ const n=(prompt('ชื่อลูกค้าสมาชิกใหม่:')||'').trim(); if(n){ saleMember=n; render(); } });
   const memberSearch = document.getElementById('memberSearch');
@@ -11079,6 +11134,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(businessVatDateInput) businessVatDateInput.addEventListener('input',()=>{ businessVatDateInput.value=formatDMYInput(businessVatDateInput.value); });
   const saveDocumentPrefixesBtn=document.getElementById('saveDocumentPrefixesBtn');
   if(saveDocumentPrefixesBtn) saveDocumentPrefixesBtn.addEventListener('click',saveDocumentPrefixes);
+  document.getElementById('printPosSmallestUnitCommandBtn')?.addEventListener('click',printPosSmallestUnitCommandBarcode);
   const downloadStoreBackupBtn=document.getElementById('downloadStoreBackupBtn');
   if(downloadStoreBackupBtn) downloadStoreBackupBtn.addEventListener('click',downloadStoreBackup);
   document.getElementById('createOwnerRecoveryCodeBtn')?.addEventListener('click',createOwnerRecoveryCode);
@@ -15703,6 +15759,20 @@ document.addEventListener('click', ()=>{
 });
 // F2 = เก็บเงิน (ลัดขั้นตอนแทนการเอื้อมมือไปคลิกปุ่ม) เฉพาะตอนอยู่หน้า POS และมีสินค้าในบิลแล้วเท่านั้น
 document.addEventListener('keydown', e=>{
+  if(currentTab==='checkout'&&!document.querySelector('.modal-overlay')){
+    const target=e.target;
+    const typing=target?.matches?.('input,textarea,select,[contenteditable="true"]');
+    if(e.key==='Home'&&!e.repeat&&(!typing||target?.id==='search')){
+      e.preventDefault();
+      setPosSmallestUnitOnce(!posSmallestUnitOnce);
+      return;
+    }
+    if(e.key==='Escape'&&posSmallestUnitOnce){
+      e.preventDefault();
+      setPosSmallestUnitOnce(false);
+      return;
+    }
+  }
   if(e.key==='F2' && currentTab==='checkout'){
     e.preventDefault();
     if(e.repeat||document.querySelector('.modal-overlay')) return;

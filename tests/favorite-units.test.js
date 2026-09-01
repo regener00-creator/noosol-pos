@@ -59,7 +59,7 @@ assert.deepEqual(JSON.parse(JSON.stringify(context.cart)),[{
 }]);
 
 assert.match(html,/data-unit="\$\{escapeHtml\(item\.unit\)\}"/);
-assert.match(html,/addToCart\(pid, el\.dataset\.unit\|\|null, pendingQty\)/);
+assert.match(html,/addToCart\(pid, consumePosSaleUnit\(product,el\.dataset\.unit\|\|null\), pendingQty\)/);
 assert.match(html,/\$\{escapeHtml\(item\.unit\)\} - \$\{fmtFavoritePrice\(item\.price\)\}/);
 assert.match(html,/data-fav-result-unit/);
 assert.match(migration,/add column if not exists unit text not null default ''/);

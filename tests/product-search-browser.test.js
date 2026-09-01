@@ -50,6 +50,7 @@ const browserExecutable = [
     products=[
       {id:9101,sku:'D-001',name:'Decolgen prin (4 tablets)',category:'ยา',brand:'ทั่วไป',unit:'กล่อง',barcode:'8850000000001',price:180,cost:120,stock:10,units:[{sub:'ลัง',factor:30,price:5000,cost:3500,barcode:'CASE-D-001'}],extraBarcodes:[],vendorBarcodes:[],active:true},
       {id:9102,sku:'P-001',name:'Paracetamol 500 mg',category:'ยา',brand:'ทั่วไป',unit:'กล่อง',barcode:'8850000000002',price:50,cost:30,stock:20,units:[],extraBarcodes:[],vendorBarcodes:[],active:true},
+      {id:9103,sku:'A-001',name:'Amoxicillin test',category:'ยา',brand:'ทั่วไป',unit:'แผง',barcode:'PANEL-A-001',price:30,cost:20,stock:100,units:[{sub:'กล่อง',factor:10,price:280,cost:190,barcode:'BOX-A-001'}],extraBarcodes:[],vendorBarcodes:[],active:true},
     ];
     inventoryLots=[];
     currentTab='products';
@@ -103,6 +104,31 @@ const browserExecutable = [
     attachEvents();
   });
   assert.equal(await page.locator('#f_scan_default_unit').count(), 0, 'ต้องไม่มีตัวเลือกบังคับเปลี่ยนหน่วยเมื่อยิงบาร์โค้ด');
+  await page.evaluate(() => {
+    cart=[];
+    currentTab='checkout';
+    searchQuery='';
+    posSmallestUnitOnce=false;
+    rebuildProductLookupMaps();
+    document.getElementById('main').innerHTML=renderCheckout();
+    attachEvents();
+  });
+  await page.locator('#posSmallestUnitBtn').click();
+  assert.equal(await page.locator('.pos-smallest-unit-status').count(), 1, 'กดปุ่มแล้วต้องแสดงสถานะพร้อมขายหน่วยเล็กสุด');
+  await page.locator('#search').fill('BOX-A-001');
+  await page.locator('#search').press('Enter');
+  assert.equal(await page.evaluate(() => cart[0]?.unit), 'แผง', 'แม้ยิงบาร์โค้ดกล่อง รายการถัดไปต้องขายเป็นหน่วยเล็กสุด');
+  assert.equal(await page.locator('.pos-smallest-unit-status').count(), 0, 'เพิ่มสินค้าแล้วโหมดหน่วยเล็กสุดต้องดับอัตโนมัติ');
+  await page.locator('#search').fill('BOX-A-001');
+  await page.locator('#search').press('Enter');
+  assert.equal(await page.evaluate(() => cart.find(line=>line.unit==='กล่อง')?.qty), 1, 'การยิงครั้งถัดมาต้องกลับมาขายตามบาร์โค้ดกล่องตามปกติ');
+  await page.locator('#search').press('Home');
+  assert.equal(await page.locator('.pos-smallest-unit-status').count(), 1, 'ปุ่ม Home ต้องเปิดโหมดได้');
+  await page.locator('#search').press('Escape');
+  assert.equal(await page.locator('.pos-smallest-unit-status').count(), 0, 'ปุ่ม Esc ต้องยกเลิกโหมดได้');
+  await page.locator('#search').fill('PEPOS-CMD-SMALLEST');
+  await page.locator('#search').press('Enter');
+  assert.equal(await page.locator('.pos-smallest-unit-status').count(), 1, 'ยิงบาร์โค้ดคำสั่งต้องเปิดโหมดได้');
   assert.deepEqual(errors, [], `พบ JavaScript error: ${errors.join(' | ')}`);
   console.log('product search browser tests passed');
 })().catch(error => {
