@@ -8146,6 +8146,7 @@ function mobileInspectionDraftRowsHtml(){
   }).join('')}</div>`;
 }
 let posSearchRenderTimer=null;
+let listSearchRenderTimer=null;
 function addProductFromPOSAction(el){
   const pid=Number(el.dataset.id);
   addToCart(pid, el.dataset.unit||null, pendingQty);
@@ -8167,6 +8168,15 @@ function refreshPOSSearchResults(){
   searchRow.insertAdjacentHTML('afterend',renderSearchResults());
   const results=searchRow.nextElementSibling;
   if(results?.classList?.contains('pos-results')) bindPOSAddActions(results);
+}
+function restoreSearchInputFocus(selectionStart,selectionEnd){
+  const input=document.getElementById('search');
+  if(!input) return;
+  input.focus({preventScroll:true});
+  const length=input.value.length;
+  const start=Number.isInteger(selectionStart)?Math.min(selectionStart,length):length;
+  const end=Number.isInteger(selectionEnd)?Math.min(selectionEnd,length):start;
+  try{ input.setSelectionRange(start,end); }catch(error){}
 }
 function mobileInspectionDraftHtml(){
   if(!inspectionListDraft) return '<div class="mobile-empty">ไม่พบร่างรายการ กรุณากดสร้างรายการใหม่</div>';
@@ -12102,7 +12112,18 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       searchQuery=e.target.value;
       productPage=1;
       if(currentTab==='contacts') contactPage=1;
-      if(currentTab!=='checkout'){ render(); return; }
+      if(currentTab!=='checkout'){
+        if(e.isComposing) return;
+        clearTimeout(listSearchRenderTimer);
+        const searchTab=currentTab;
+        listSearchRenderTimer=setTimeout(()=>{
+          if(currentTab!==searchTab||document.getElementById('search')!==searchEl) return;
+          const selectionStart=searchEl.selectionStart,selectionEnd=searchEl.selectionEnd;
+          render();
+          restoreSearchInputFocus(selectionStart,selectionEnd);
+        },120);
+        return;
+      }
       clearTimeout(posSearchRenderTimer);
       posSearchRenderTimer=setTimeout(refreshPOSSearchResults,60);
     });
