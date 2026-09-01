@@ -70,9 +70,24 @@ const browserExecutable = [
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'search', 'ช่องค้นหาต้องคงโฟกัสหลังกรองข้อมูล');
   assert.equal(await page.locator('.prodtable tbody tr').count(), 1, 'ผลการค้นหาต้องเหลือสินค้าที่ตรงกันหนึ่งรายการ');
   assert.equal(await page.locator('.prodtable .prod-inline-name').inputValue(), 'Decolgen prin (4 tablets)');
-  assert.equal(await page.locator('.prodtable .prod-unit-barcode').textContent(), '8850000000001', 'ค่าเริ่มต้นต้องแสดงบาร์โค้ดหน่วยหลัก');
+  assert.equal(await page.locator('.prodtable .prod-unit-barcode').inputValue(), '8850000000001', 'ค่าเริ่มต้นต้องแสดงบาร์โค้ดหน่วยหลัก');
   await page.locator('.prodtable .prod-unit-select').selectOption('ลัง');
-  assert.equal(await page.locator('.prodtable .prod-unit-barcode').textContent(), 'CASE-D-001', 'เมื่อเปลี่ยนหน่วยต้องเปลี่ยนบาร์โค้ดตามหน่วยทันที');
+  assert.equal(await page.locator('.prodtable .prod-unit-barcode').inputValue(), 'CASE-D-001', 'เมื่อเปลี่ยนหน่วยต้องเปลี่ยนบาร์โค้ดตามหน่วยทันที');
+  await page.locator('.prodtable .prod-unit-barcode').fill('CASE-D-NEW');
+  await page.locator('.prodtable .prod-unit-barcode').press('Tab');
+  await page.waitForTimeout(220);
+  assert.equal(await page.evaluate(() => products.find(product=>product.id===9101).units[0].barcode), 'CASE-D-NEW', 'ต้องบันทึกบาร์โค้ดลงหน่วยเพิ่มเติมที่เลือก');
+  assert.equal(await page.locator('.prodtable .prod-unit-barcode').inputValue(), 'CASE-D-NEW');
+  await page.locator('.prodtable .prod-unit-barcode').fill('8850000000002');
+  await page.locator('.prodtable .prod-unit-barcode').press('Tab');
+  await page.waitForTimeout(120);
+  assert.equal(await page.evaluate(() => products.find(product=>product.id===9101).units[0].barcode), 'CASE-D-NEW', 'บาร์โค้ดซ้ำกับสินค้าอื่นต้องไม่ถูกบันทึก');
+  assert.equal(await page.locator('.prodtable .prod-unit-barcode').inputValue(), 'CASE-D-NEW', 'เมื่อเลขซ้ำ ช่องต้องคืนค่าเดิม');
+  await page.locator('.prodtable .prod-unit-select').selectOption('กล่อง');
+  await page.locator('.prodtable .prod-unit-barcode').fill('8850000000099');
+  await page.locator('.prodtable .prod-unit-barcode').press('Tab');
+  await page.waitForTimeout(220);
+  assert.equal(await page.evaluate(() => products.find(product=>product.id===9101).barcode), '8850000000099', 'ต้องแก้บาร์โค้ดหน่วยหลักจากรายการสินค้าได้');
 
   await search.fill('');
   await page.waitForTimeout(220);
