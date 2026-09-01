@@ -290,7 +290,7 @@ function accessibleWarehouses(){
   return (warehouses||[]).filter(warehouse=>allowed.has(Number(warehouse.id)));
 }
 const PAGE_PERMISSION_OPTIONS=[
-  ['dashboard','ภาพรวม'],['checkout','ขายสินค้า'],['cashshift','เปิด-ปิดระบบชำระ'],['history','ประวัติการขาย'],
+  ['dashboard','ภาพรวม'],['checkout','ขายสินค้า'],['notes','NOTE'],['cashshift','เปิด-ปิดระบบชำระ'],['history','ประวัติการขาย'],
   ['goodsreceipt','ใบรับสินค้า'],['products','รายการสินค้า'],['inventorymovement','รายงานการเคลื่อนไหว'],
   ['rinventory','รายงานสินค้าคงเหลือ'],['lowstock','สินค้าใกล้หมด'],['expiry','สินค้าใกล้หมดอายุ'],
   ['rproduct','รายงานสินค้า'],['rbill','รายงานบิล'],['cashbill','บิลเงินสด'],['inspectionlists','ตรวจนับและปรับสต๊อก'],
@@ -311,6 +311,7 @@ function canPerformPageAction(action='view',pageKey=currentTab,user=loggedInUser
   const allRows=rows||[];
   if(!allRows.length){
     if(action==='view') return !LEVEL2_HIDDEN_TABS.has(pageKey);
+    if(pageKey==='notes') return ['create','edit','delete'].includes(action);
     return ['checkout','cashshift','goodsreceipt','inspectionlists'].includes(pageKey)&&['create','edit','print'].includes(action);
   }
   const matches=permissionsForPage(pageKey,activeWarehouseId,allRows);
@@ -2951,8 +2952,24 @@ let businessSettingsDirty=false;
 let businessSettingsSyncState='local';
 let businessSettingsSyncError='';
 let businessSettingsLastSyncedAt='';
+const NOTE_PAGE_SIZE=100;
+const NOTE_ROW_SELECT='id,title,content_html,hidden_from_level2,created_by,updated_by,created_at,updated_at';
+const NOTE_COLORS=[
+  ['#2B2016','น้ำตาลเข้ม'],['#B42318','แดง'],['#D97706','ส้ม'],['#2D7D3D','เขียว'],
+  ['#1570A6','ฟ้า'],['#3448A3','น้ำเงิน'],['#7A3E9D','ม่วง'],['#000000','ดำ']
+];
+let notes=[];
+let notesLoaded=false;
+let notesLoading=false;
+let notesHasMore=false;
+let noteLoadError='';
+let editingNoteId=null;
+let noteDraft=null;
+let noteDraftDirty=false;
 window.addEventListener('beforeunload',event=>{
-  if(currentTab!=='settingsbusiness'||!businessSettingsDirty) return;
+  const hasUnsavedBusiness=currentTab==='settingsbusiness'&&businessSettingsDirty;
+  const hasUnsavedNote=currentTab==='notes'&&noteDraftDirty;
+  if(!hasUnsavedBusiness&&!hasUnsavedNote) return;
   event.preventDefault();
   event.returnValue='';
 });
@@ -3087,6 +3104,7 @@ async function clearLocalStoreCachesForReset(){
 function clearRemoteResetSensitiveMemory(){
   clearLoadedHistoryMemory();
   inspectionLists=[]; promotions=[]; favorites=[]; cart=[]; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); inventoryLotRows=[]; inventoryLotMap=new Map();
+  notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false;
   cashShifts=[]; currentCashShift=null; cashShiftCloseDraft={countedCash:'',reason:''};
   documentPrefixes={...DEFAULT_DOCUMENT_PREFIXES};
   businessSettings={...DEFAULT_BUSINESS_SETTINGS};
@@ -3374,6 +3392,7 @@ async function logoutSystem(){
   await sb.auth.signOut();
   currentProfile=null;
   clearLoadedHistoryMemory();
+  notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false;
   activeWarehouseId=0; allWarehousesMode=false; warehouseAccessRows=[]; pagePermissionRows=[]; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); cashShifts=[]; currentCashShift=null;
   systemUsers=[]; systemUsersLoaded=false;
   const password=document.getElementById('loginPassword'); if(password) password.value='';
@@ -3697,6 +3716,7 @@ const NAV = [
   ]},
   {section:'ขาย', items:[
     ['checkout','POS','<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.2a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 7H6"/>'],
+    ['notes','NOTE','<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/>'],
     ['cashshift','เปิด-ปิดระบบชำระ','<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2M7 3l-2 2M17 3l2 2"/>'],
     ['history','ประวัติการขาย / ใบเสร็จ','<path d="M3 3v6h6"/><path d="M3.5 13a9 9 0 1 0 2-6.6L3 9"/><path d="M12 7v5l3 3"/>'],
     ['promotions','โปรโมชั่น','<path d="M20.59 13.41 11 22H2v-9L11.41 3.59a2 2 0 0 1 2.83 0l6.35 6.35a2 2 0 0 1 0 2.83zM7 8h.01"/><circle cx="7.5" cy="7.5" r="1.5"/>'],
@@ -3756,10 +3776,259 @@ function renderSidebar(){
   html += `<div class="sidebar-logout-wrap"><button class="logout-btn sidebar-logout-btn" id="logoutBtn">ออกจากระบบ</button></div>`;
   document.getElementById('sidebar').innerHTML = html;
   document.getElementById('logoutBtn')?.addEventListener('click',logoutSystem);
-  document.querySelectorAll('.navbtn').forEach(btn=>{ btn.addEventListener('click', ()=>{ if(currentTab==='settingsbusiness'&&businessSettingsDirty&&!confirm('มีข้อมูลธุรกิจที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')) return; businessSettingsDirty=false; currentTab = btn.dataset.tab; if(currentTab!=='checkout') posSmallestUnitOnce=false; searchQuery=''; editingPOId=null; poDraft=null; editingGRId=null; grDraft=null; editingPO2Id=null; po2Draft=null; editingReturnId=null; returnDraft=null; editingProductExchangeId=null; productExchangeDraft=null; editingTaxInvoiceSaleId=null; editingQuotationId=null; cashBillLookupOpen=false; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; openDocMenu=null; poSupplierEditorOpen=false; poRepresentativeEditorId=null; editingContactId=null; editingSalesRepresentativeId=null; editingPromotionId=null; editingProductId=null; editingInspectionListId=null; inspectionListDraft=null; inspectionListSearchQuery=''; inspectionListCatFilter={wh:'',category:'',brand:''}; inspectionListPage=1; addingSystemUser=false; editingSystemUserId=null; addingWarehouse=false; editingWarehouseId=null; editingTransferId=null; transferDraft=null; rproductFilter.applied=false; rbillFilter.applied=false; rprofitFilter.applied=false; render(); }); });
+  document.querySelectorAll('.navbtn').forEach(btn=>{ btn.addEventListener('click', ()=>{ if(currentTab==='settingsbusiness'&&businessSettingsDirty&&!confirm('มีข้อมูลธุรกิจที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')) return; if(currentTab==='notes'&&noteDraftDirty&&!confirm('มีโน้ตที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')) return; businessSettingsDirty=false; noteDraftDirty=false; currentTab = btn.dataset.tab; if(currentTab!=='checkout') posSmallestUnitOnce=false; searchQuery=''; editingPOId=null; poDraft=null; editingGRId=null; grDraft=null; editingPO2Id=null; po2Draft=null; editingReturnId=null; returnDraft=null; editingProductExchangeId=null; productExchangeDraft=null; editingTaxInvoiceSaleId=null; editingQuotationId=null; cashBillLookupOpen=false; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; openDocMenu=null; poSupplierEditorOpen=false; poRepresentativeEditorId=null; editingContactId=null; editingSalesRepresentativeId=null; editingPromotionId=null; editingProductId=null; editingInspectionListId=null; inspectionListDraft=null; inspectionListSearchQuery=''; inspectionListCatFilter={wh:'',category:'',brand:''}; inspectionListPage=1; addingSystemUser=false; editingSystemUserId=null; addingWarehouse=false; editingWarehouseId=null; editingTransferId=null; transferDraft=null; rproductFilter.applied=false; rbillFilter.applied=false; rprofitFilter.applied=false; render(); }); });
 }
 
 // ---------- Page renderers ----------
+function normalizeNoteColor(value){
+  const color=String(value||'').trim();
+  if(!/^(#[0-9a-f]{3,8}|rgba?\([\d\s.,%]+\))$/i.test(color)) return '';
+  const probe=document.createElement('span');
+  probe.style.color=color;
+  return probe.style.color||'';
+}
+function sanitizeNoteHtml(value){
+  const template=document.createElement('template');
+  template.innerHTML=String(value||'');
+  const allowed=new Set(['b','strong','u','s','strike','span','font','div','p','br']);
+  const blocked=new Set(['script','style','iframe','object','embed','svg','math','link','meta']);
+  [...template.content.querySelectorAll('*')].forEach(element=>{
+    const tag=element.tagName.toLowerCase();
+    if(blocked.has(tag)){ element.remove(); return; }
+    if(!allowed.has(tag)){ element.replaceWith(...element.childNodes); return; }
+    const color=normalizeNoteColor(element.getAttribute('color')||element.style?.color||'');
+    [...element.attributes].forEach(attribute=>element.removeAttribute(attribute.name));
+    if(tag==='font'){
+      const span=document.createElement('span');
+      if(color) span.style.color=color;
+      span.append(...element.childNodes);
+      element.replaceWith(span);
+      return;
+    }
+    if(tag==='span'){
+      if(color) element.style.color=color;
+      else element.replaceWith(...element.childNodes);
+    }
+  });
+  return template.innerHTML;
+}
+function notePlainText(contentHtml){
+  const wrapper=document.createElement('div');
+  wrapper.innerHTML=sanitizeNoteHtml(contentHtml);
+  return String(wrapper.textContent||'').replace(/\s+/g,' ').trim();
+}
+function mapNoteRow(row={}){
+  return {
+    id:String(row.id||''),title:String(row.title||''),contentHtml:sanitizeNoteHtml(row.content_html||''),
+    hiddenFromLevel2:row.hidden_from_level2===true,createdBy:String(row.created_by||''),updatedBy:String(row.updated_by||''),
+    createdAt:row.created_at||'',updatedAt:row.updated_at||''
+  };
+}
+function noteDraftFromRow(note){
+  return note?{title:note.title,contentHtml:sanitizeNoteHtml(note.contentHtml),hiddenFromLevel2:note.hiddenFromLevel2,updatedAt:note.updatedAt}:null;
+}
+function noteUpdatedText(value){
+  const date=new Date(value||'');
+  return Number.isNaN(date.getTime())?'-':date.toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});
+}
+function canEditNote(note){
+  return !!note&&(loggedInUser()?.owner===true||(String(note.createdBy)===String(currentProfile?.id)&&canPerformPageAction('edit','notes')));
+}
+function canDeleteNote(note){
+  return !!note&&(loggedInUser()?.owner===true||(String(note.createdBy)===String(currentProfile?.id)&&canPerformPageAction('delete','notes')));
+}
+function sortNotes(){ notes.sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))); }
+async function loadNotes({append=false}={}){
+  if(notesLoading||!sb||!currentProfile) return;
+  notesLoading=true;
+  noteLoadError='';
+  if(currentTab==='notes') render();
+  try{
+    const offset=append?notes.length:0;
+    const {data,error}=await sb.from('notes').select(NOTE_ROW_SELECT).order('updated_at',{ascending:false}).range(offset,offset+NOTE_PAGE_SIZE-1);
+    if(error) throw error;
+    const rows=(data||[]).map(mapNoteRow);
+    if(append){
+      const merged=new Map(notes.map(note=>[note.id,note]));
+      rows.forEach(note=>merged.set(note.id,note));
+      notes=[...merged.values()];
+    }else notes=rows;
+    sortNotes();
+    notesLoaded=true;
+    notesHasMore=rows.length===NOTE_PAGE_SIZE;
+    if(editingNoteId&&editingNoteId!=='new'){
+      const selected=notes.find(note=>note.id===editingNoteId);
+      if(selected&&!noteDraftDirty) noteDraft=noteDraftFromRow(selected);
+    }
+  }catch(error){
+    noteLoadError=error?.message||'โหลดโน้ตไม่สำเร็จ';
+  }finally{
+    notesLoading=false;
+    if(currentTab==='notes') render();
+  }
+}
+function selectNote(note){
+  if(!note) return;
+  if(noteDraftDirty&&!confirm('มีโน้ตที่ยังไม่ได้บันทึก ต้องการเปลี่ยนไปเปิดโน้ตอื่นหรือไม่?')) return;
+  editingNoteId=note.id;
+  noteDraft=noteDraftFromRow(note);
+  noteDraftDirty=false;
+  render();
+}
+function startNewNote(){
+  if(!canPerformPageAction('create','notes')){ showToast('บัญชีนี้ไม่มีสิทธิ์สร้างโน้ต','danger'); return; }
+  if(noteDraftDirty&&!confirm('มีโน้ตที่ยังไม่ได้บันทึก ต้องการสร้างโน้ตใหม่หรือไม่?')) return;
+  editingNoteId='new';
+  noteDraft={title:'',contentHtml:'',hiddenFromLevel2:false,updatedAt:''};
+  noteDraftDirty=false;
+  render();
+  setTimeout(()=>document.getElementById('noteTitle')?.focus(),0);
+}
+function renderNotes(){
+  if(!notesLoaded&&!notesLoading&&!noteLoadError) setTimeout(()=>loadNotes(),0);
+  if(editingNoteId&&editingNoteId!=='new'&&!notes.some(note=>note.id===editingNoteId)){
+    editingNoteId=null; noteDraft=null; noteDraftDirty=false;
+  }
+  if(editingNoteId===null&&notes.length){
+    editingNoteId=notes[0].id;
+    noteDraft=noteDraftFromRow(notes[0]);
+  }
+  const selected=editingNoteId==='new'?null:notes.find(note=>note.id===editingNoteId)||null;
+  const draft=noteDraft||noteDraftFromRow(selected);
+  const canCreate=canPerformPageAction('create','notes');
+  const canEdit=editingNoteId==='new'?canCreate:canEditNote(selected);
+  const canDelete=canDeleteNote(selected);
+  const list=notes.map(note=>{
+    const preview=notePlainText(note.contentHtml)||'ยังไม่มีข้อความ';
+    return `<button type="button" class="note-list-item ${String(note.id)===String(editingNoteId)?'active':''}" data-note-id="${escapeHtml(note.id)}">
+      <span class="note-list-title">${escapeHtml(note.title)}</span>
+      <span class="note-list-preview">${escapeHtml(preview.slice(0,110))}</span>
+      <span class="note-list-meta"><time>${escapeHtml(noteUpdatedText(note.updatedAt))}</time>${note.hiddenFromLevel2?'<b class="note-private-badge">ซ่อนจาก LEVEL 2</b>':''}</span>
+    </button>`;
+  }).join('');
+  const editor=draft?`<form class="note-editor-panel" id="noteEditorForm">
+    <div class="note-editor-heading">
+      <label for="noteTitle">ชื่อโน้ต</label>
+      <input id="noteTitle" maxlength="160" autocomplete="off" value="${escapeHtml(draft.title)}" ${canEdit?'':'readonly'} placeholder="ตั้งชื่อโน้ต">
+    </div>
+    <div class="note-toolbar" role="toolbar" aria-label="จัดรูปแบบข้อความ">
+      <button type="button" data-note-command="bold" title="ตัวหนา" aria-label="ตัวหนา" ${canEdit?'':'disabled'}><b>B</b></button>
+      <button type="button" data-note-command="underline" title="ขีดเส้นใต้" aria-label="ขีดเส้นใต้" ${canEdit?'':'disabled'}><u>U</u></button>
+      <button type="button" data-note-command="strikeThrough" title="ขีดฆ่า" aria-label="ขีดฆ่า" ${canEdit?'':'disabled'}><s>S</s></button>
+      <span class="note-toolbar-divider"></span>
+      <span class="note-color-label">สีข้อความ</span>
+      <span class="note-color-list">${NOTE_COLORS.map(([color,label])=>`<button type="button" class="note-color-swatch" data-note-color="${color}" style="--note-color:${color}" title="${escapeHtml(label)}" aria-label="สี${escapeHtml(label)}" ${canEdit?'':'disabled'}></button>`).join('')}</span>
+    </div>
+    <div id="noteContentEditor" class="note-content-editor ${canEdit?'':'readonly'}" contenteditable="${canEdit?'true':'false'}" role="textbox" aria-multiline="true" data-placeholder="เขียนข้อความที่นี่…">${sanitizeNoteHtml(draft.contentHtml)}</div>
+    ${loggedInUser()?.owner===true?`<label class="note-visibility-option"><input id="noteHiddenFromLevel2" type="checkbox" ${draft.hiddenFromLevel2?'checked':''} ${canEdit?'':'disabled'}><span><b>ซ่อนโน้ตนี้จาก LEVEL 2</b><small>ผู้ใช้งาน LEVEL 2 จะไม่สามารถเห็นโน้ตนี้ได้</small></span></label>`:''}
+    <div class="note-editor-footer">
+      <span>${selected?`แก้ไขล่าสุด ${escapeHtml(noteUpdatedText(selected.updatedAt))}`:'โน้ตใหม่'}</span>
+      <div>${canDelete?'<button class="btn danger" id="deleteNoteBtn" type="button">ลบโน้ต</button>':''}${canEdit?'<button class="btn primary" id="saveNoteBtn" type="submit">บันทึกโน้ต</button>':''}</div>
+    </div>
+  </form>`:`<div class="note-empty-editor"><div class="note-empty-icon">NOTE</div><h2>เลือกโน้ตที่ต้องการเปิด</h2><p>หรือสร้างโน้ตใหม่เพื่อจดข้อความที่ต้องการ</p>${canCreate?'<button class="btn primary" id="emptyAddNoteBtn" type="button">+ เพิ่มโน้ต</button>':''}</div>`;
+  return `<div class="notes-page">
+    <div class="notes-page-head"><div><h1>NOTE</h1><p>พื้นที่จดบันทึกสำหรับร้าน</p></div>${canCreate?'<button class="btn primary" id="addNoteBtn" type="button">+ เพิ่มโน้ต</button>':''}</div>
+    ${noteLoadError?`<div class="notice danger note-load-error">${escapeHtml(noteLoadError)} <button class="btn ghost" id="retryNotesBtn" type="button">ลองใหม่</button></div>`:''}
+    <div class="notes-layout">
+      <aside class="note-list-panel" aria-label="รายการโน้ต">
+        ${!notesLoaded&&notesLoading?'<div class="note-list-status">กำลังโหลดโน้ต…</div>':list||'<div class="note-list-status">ยังไม่มีโน้ต</div>'}
+        ${notesHasMore?`<button class="btn ghost note-load-more" id="loadMoreNotesBtn" type="button" ${notesLoading?'disabled':''}>${notesLoading?'กำลังโหลด…':'โหลดโน้ตเพิ่มเติม'}</button>`:''}
+      </aside>
+      ${editor}
+    </div>
+  </div>`;
+}
+function updateNoteDraftFromEditor(){
+  if(!noteDraft) return;
+  noteDraft={
+    ...noteDraft,
+    title:document.getElementById('noteTitle')?.value||'',
+    contentHtml:sanitizeNoteHtml(document.getElementById('noteContentEditor')?.innerHTML||''),
+    hiddenFromLevel2:loggedInUser()?.owner===true&&document.getElementById('noteHiddenFromLevel2')?.checked===true
+  };
+  noteDraftDirty=true;
+}
+async function saveNote(event){
+  event?.preventDefault();
+  if(!noteDraft) return;
+  updateNoteDraftFromEditor();
+  const title=String(noteDraft.title||'').trim();
+  const contentHtml=sanitizeNoteHtml(noteDraft.contentHtml||'');
+  if(!title){ showToast('กรุณาใส่ชื่อโน้ต','danger'); document.getElementById('noteTitle')?.focus(); return; }
+  const button=document.getElementById('saveNoteBtn');
+  if(button){ button.disabled=true; button.textContent='กำลังบันทึก…'; }
+  const payload={title,content_html:contentHtml,hidden_from_level2:loggedInUser()?.owner===true&&noteDraft.hiddenFromLevel2===true};
+  try{
+    let result;
+    if(editingNoteId==='new') result=await sb.from('notes').insert(payload).select(NOTE_ROW_SELECT).single();
+    else result=await sb.from('notes').update(payload).eq('id',editingNoteId).eq('updated_at',noteDraft.updatedAt).select(NOTE_ROW_SELECT).maybeSingle();
+    if(result.error) throw result.error;
+    if(!result.data) throw new Error('โน้ตนี้ถูกแก้ไขหรือลบจากอีกเครื่อง กรุณาโหลดหน้า NOTE ใหม่');
+    const saved=mapNoteRow(result.data);
+    const index=notes.findIndex(note=>note.id===saved.id);
+    if(index>=0) notes[index]=saved; else notes.push(saved);
+    sortNotes();
+    editingNoteId=saved.id;
+    noteDraft=noteDraftFromRow(saved);
+    noteDraftDirty=false;
+    notesLoaded=true;
+    showToast('บันทึกโน้ตแล้ว');
+    render();
+  }catch(error){
+    showToast(error?.message||'บันทึกโน้ตไม่สำเร็จ','danger');
+    if(button){ button.disabled=false; button.textContent='บันทึกโน้ต'; }
+  }
+}
+async function deleteSelectedNote(){
+  const note=notes.find(item=>item.id===editingNoteId);
+  if(!note||!canDeleteNote(note)) return;
+  if(!confirm(`ลบโน้ต “${note.title}” หรือไม่?`)) return;
+  const button=document.getElementById('deleteNoteBtn');
+  if(button){ button.disabled=true; button.textContent='กำลังลบ…'; }
+  try{
+    const {data,error}=await sb.from('notes').delete().eq('id',note.id).eq('updated_at',note.updatedAt).select('id').maybeSingle();
+    if(error) throw error;
+    if(!data) throw new Error('โน้ตนี้ถูกแก้ไขหรือลบจากอีกเครื่อง กรุณาโหลดหน้า NOTE ใหม่');
+    notes=notes.filter(item=>item.id!==note.id);
+    editingNoteId=null; noteDraft=null; noteDraftDirty=false;
+    showToast('ลบโน้ตแล้ว');
+    render();
+  }catch(error){
+    showToast(error?.message||'ลบโน้ตไม่สำเร็จ','danger');
+    if(button){ button.disabled=false; button.textContent='ลบโน้ต'; }
+  }
+}
+function attachNoteEvents(){
+  if(currentTab!=='notes') return;
+  document.getElementById('addNoteBtn')?.addEventListener('click',startNewNote);
+  document.getElementById('emptyAddNoteBtn')?.addEventListener('click',startNewNote);
+  document.getElementById('retryNotesBtn')?.addEventListener('click',()=>{ noteLoadError=''; notesLoaded=false; loadNotes(); });
+  document.getElementById('loadMoreNotesBtn')?.addEventListener('click',()=>loadNotes({append:true}));
+  document.querySelectorAll('[data-note-id]').forEach(button=>button.addEventListener('click',()=>selectNote(notes.find(note=>note.id===button.dataset.noteId))));
+  document.getElementById('noteEditorForm')?.addEventListener('submit',saveNote);
+  document.getElementById('deleteNoteBtn')?.addEventListener('click',deleteSelectedNote);
+  const markDirty=()=>{ noteDraftDirty=true; };
+  document.getElementById('noteTitle')?.addEventListener('input',markDirty);
+  document.getElementById('noteHiddenFromLevel2')?.addEventListener('change',markDirty);
+  const editor=document.getElementById('noteContentEditor');
+  editor?.addEventListener('input',markDirty);
+  editor?.addEventListener('paste',event=>{
+    event.preventDefault();
+    const html=event.clipboardData?.getData('text/html');
+    const plain=event.clipboardData?.getData('text/plain')||'';
+    const safe=html?sanitizeNoteHtml(html):escapeHtml(plain).replace(/\r?\n/g,'<br>');
+    document.execCommand('insertHTML',false,safe);
+    noteDraftDirty=true;
+  });
+  document.querySelectorAll('[data-note-command]').forEach(button=>{
+    button.addEventListener('mousedown',event=>event.preventDefault());
+    button.addEventListener('click',()=>{ if(button.disabled||!editor) return; document.execCommand(button.dataset.noteCommand,false,null); editor.focus(); noteDraftDirty=true; });
+  });
+  document.querySelectorAll('[data-note-color]').forEach(button=>{
+    button.addEventListener('mousedown',event=>event.preventDefault());
+    button.addEventListener('click',()=>{ if(button.disabled||!editor) return; document.execCommand('foreColor',false,button.dataset.noteColor); editor.focus(); noteDraftDirty=true; });
+  });
+}
 function renderDashboard(){
   const completedSales = salesHistory.filter(s=>s.status==='done').filter(s=>isAllWarehousesMode()||(s.items||[]).some(item=>String(saleWarehouseForReport(s,item,products.find(product=>Number(product.id)===Number(item.productId))||products.find(product=>product.name===item.name)||{}))===String(activeWarehouseId)));
   const todaySales = completedSales.filter(s=>(s.date||'').slice(0,10)===TODAY_STR);
@@ -10070,12 +10339,12 @@ function renderAuditLog(){
 }
 
 function defaultLevel2PagePermissions(){
-  const visible=new Set(['dashboard','checkout','cashshift','history','goodsreceipt','products','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','inspectionlists']);
+  const visible=new Set(['dashboard','checkout','notes','cashshift','history','goodsreceipt','products','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','inspectionlists']);
   return PAGE_PERMISSION_OPTIONS.filter(([pageKey])=>visible.has(pageKey)).map(([pageKey])=>({
     pageKey,warehouseId:null,canView:true,
-    canCreate:['checkout','cashshift','goodsreceipt','inspectionlists'].includes(pageKey),
-    canEdit:['checkout','cashshift','goodsreceipt','inspectionlists'].includes(pageKey),
-    canDelete:false,canPrint:['history','goodsreceipt','rinventory','rproduct','rbill'].includes(pageKey),
+    canCreate:['checkout','notes','cashshift','goodsreceipt','inspectionlists'].includes(pageKey),
+    canEdit:['checkout','notes','cashshift','goodsreceipt','inspectionlists'].includes(pageKey),
+    canDelete:pageKey==='notes',canPrint:['history','goodsreceipt','rinventory','rproduct','rbill'].includes(pageKey),
     canExport:['inventorymovement','rinventory','rproduct','rbill'].includes(pageKey)
   }));
 }
@@ -10275,7 +10544,7 @@ function attachOnDemandStateEvents(state){
 
 const RENDERERS = {
   mobiletools: renderMobileTools,
-  dashboard: renderDashboard, checkout: renderCheckout, cashshift: renderCashShift, cashbill: renderCashBills, taxinvoice: renderTaxInvoices, quotation: renderQuotation, invoice: renderInvoice,
+  dashboard: renderDashboard, checkout: renderCheckout, notes: renderNotes, cashshift: renderCashShift, cashbill: renderCashBills, taxinvoice: renderTaxInvoices, quotation: renderQuotation, invoice: renderInvoice,
   creditnote: renderCreditNote, history: renderHistory, purchaseorder: renderPurchaseOrder, purchaseorder2: renderPurchaseOrder2, productreturn: renderProductReturn, goodsreceipt: renderGoodsReceipt, productexchange: renderProductExchange,
   products: renderProducts, stockcontrol: renderStockControl, inspectionlists: renderInspectionLists, barcodeprint: renderBarcodePrint, warehouse: renderWarehouse, transfer: renderTransfer, stockadjust: renderStockAdjust, stockedit: renderStockEdit, lowstock: renderLowStock, expiry: renderExpiry, promotions: renderPromotions,
   contacts: renderContacts, salesreps: renderSalesRepresentatives, rsales: renderRSales, rproduct: renderRProduct, rbill: renderRBill, rprofit: renderRProfit, rtax: renderRTax, remployee: renderREmployee,
@@ -10627,6 +10896,7 @@ async function changeProductExchangeStatus(status){
 }
 function attachEvents(){
   if(currentTab==='mobiletools') prepareMobileScanSound();
+  attachNoteEvents();
   document.querySelectorAll('[data-open-cash-shift]').forEach(button=>button.addEventListener('click',()=>{ currentTab='cashshift'; render(); }));
   document.getElementById('cashShiftOpenForm')?.addEventListener('submit',openCashShift);
   document.getElementById('cashShiftCloseForm')?.addEventListener('submit',closeCashShift);
@@ -16372,7 +16642,7 @@ document.getElementById('warehouseChoiceForm')?.addEventListener('submit',event=
 document.getElementById('warehouseChoiceLogout')?.addEventListener('click',logoutSystem);
 
 sb.auth.onAuthStateChange((event)=>{
-  if(event==='SIGNED_OUT'){ currentProfile=null; clearLoadedHistoryMemory(); activeWarehouseId=0; allWarehousesMode=false; renderLoginState(); }
+  if(event==='SIGNED_OUT'){ currentProfile=null; clearLoadedHistoryMemory(); notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false; activeWarehouseId=0; allWarehousesMode=false; renderLoginState(); }
 });
 
 let mobileViewportResizeTimer=null;
