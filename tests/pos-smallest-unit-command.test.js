@@ -38,6 +38,9 @@ const product = {
   ],
 };
 assert.equal(context.smallestProductUnitName(product), 'แผง');
+assert.equal(context.productBarcodeForUnit(product, 'แผง'), 'PANEL');
+assert.equal(context.productBarcodeForUnit(product, 'กล่อง'), 'BOX');
+assert.equal(context.productBarcodeForUnit(product, 'ลัง'), 'CASE');
 assert.equal(context.smallestProductUnitName({unit: 'ขวด', barcode: 'BOTTLE', price: 50, units: []}), 'ขวด');
 assert.equal(context.isPosSmallestUnitCommand(' pepos-cmd-smallest '), true);
 assert.equal(context.isPosSmallestUnitCommand('BOX'), false);

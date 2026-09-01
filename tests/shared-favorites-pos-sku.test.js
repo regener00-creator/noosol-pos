@@ -17,9 +17,9 @@ assert.match(migration, /create policy favorites_shared_rows[\s\S]*for all to au
 assert.match(migration, /with check \(\(select auth\.uid\(\)\)=user_id\)/i);
 assert.match(migration, /duplicate_rank>1/);
 
-assert.match(html, /<th>รายการที่<\/th><th>รหัสสินค้า<\/th><th>ชื่อ<\/th>/);
-assert.match(html, /<col class="pt-idx"><col class="pt-sku"><col class="pt-name">/);
-assert.match(html, /<td class="mono">\$\{escapeHtml\(p\?\.sku\|\|'-'\)\}<\/td>/);
+assert.match(html, /<th>รายการที่<\/th><th>บาร์โค้ดสินค้า<\/th><th>ชื่อ<\/th>/);
+assert.match(html, /<col class="pt-idx"><col class="pt-barcode"><col class="pt-name">/);
+assert.match(html, /<td class="mono">\$\{escapeHtml\(productBarcodeForUnit\(p,line\.unit\)\|\|'-'\)\}<\/td>/);
 assert.match(html, /colspan="8" class="pos-empty"/);
 
 console.log('shared favorites and POS SKU tests passed');

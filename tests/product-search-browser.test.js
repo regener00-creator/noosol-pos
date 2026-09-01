@@ -118,10 +118,12 @@ const browserExecutable = [
   await page.locator('#search').fill('BOX-A-001');
   await page.locator('#search').press('Enter');
   assert.equal(await page.evaluate(() => cart[0]?.unit), 'แผง', 'แม้ยิงบาร์โค้ดกล่อง รายการถัดไปต้องขายเป็นหน่วยเล็กสุด');
+  assert.equal(await page.locator('.pos-table tbody tr').first().locator('td').nth(1).textContent(), 'PANEL-A-001', 'หน้า POS ต้องแสดงบาร์โค้ดของหน่วยที่ขายจริง');
   assert.equal(await page.locator('.pos-smallest-unit-status').count(), 0, 'เพิ่มสินค้าแล้วโหมดหน่วยเล็กสุดต้องดับอัตโนมัติ');
   await page.locator('#search').fill('BOX-A-001');
   await page.locator('#search').press('Enter');
   assert.equal(await page.evaluate(() => cart.find(line=>line.unit==='กล่อง')?.qty), 1, 'การยิงครั้งถัดมาต้องกลับมาขายตามบาร์โค้ดกล่องตามปกติ');
+  assert.equal(await page.locator('.pos-table tbody tr').nth(1).locator('td').nth(1).textContent(), 'BOX-A-001', 'แถวหน่วยกล่องต้องแสดงบาร์โค้ดกล่อง');
   await page.locator('#search').press('Home');
   assert.equal(await page.locator('.pos-smallest-unit-status').count(), 1, 'ปุ่ม Home ต้องเปิดโหมดได้');
   await page.locator('#search').press('Escape');

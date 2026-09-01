@@ -414,7 +414,7 @@
   .custom-item-form{padding:4px 18px 18px;display:grid;grid-template-columns:1fr 1fr;gap:11px 13px;}.custom-item-form .wide{grid-column:1/-1;}.custom-item-form label{display:block;font-size:12px;font-weight:600;margin-bottom:4px;}.custom-item-form input{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;}.custom-item-note{grid-column:1/-1;padding:9px 11px;border-radius:8px;background:var(--accent-soft);color:#7C5817;font-size:12px;}
   .pos-table{border:none;table-layout:fixed;width:100%;}
   .pos-table .pt-idx{width:80px;}
-  .pos-table .pt-sku{width:125px;}
+  .pos-table .pt-barcode{width:165px;}
   .pos-table .pt-name{width:auto;}
   .pos-table .pt-price{width:145px;}
   .pos-table .pt-unit{width:150px;}

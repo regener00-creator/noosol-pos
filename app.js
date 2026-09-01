@@ -2053,6 +2053,11 @@ function productUnitOptions(p){
   (p.units||[]).forEach(u=>{ if(u.sub) opts.push({name:u.sub, label:u.sub, price:u.price||p.price*(u.factor||1), cost:productUnitCost(p,u.sub,u.factor||1), factor:u.factor||1, barcode:u.barcode||''}); });
   return opts;
 }
+function productBarcodeForUnit(product,unitName){
+  if(!product) return '';
+  if(!unitName||unitName===product.unit) return String(product.barcode||'').trim();
+  return String((product.units||[]).find(unit=>unit.sub===unitName)?.barcode||'').trim();
+}
 function smallestProductUnitName(product){
   if(!product) return '';
   const options=productUnitOptions(product).filter(option=>Number(option.factor)>0);
@@ -3489,7 +3494,7 @@ function renderCheckout(){
         // บรรทัดของแถมอัตโนมัติจากโปรฯ "ซื้อสินค้า A แถมสินค้า B" - ลบ/แก้ไขเองไม่ได้ ต้องลดจำนวนสินค้าหลัก (A) ก่อนถึงจะหายไปเอง
         rowsHtml += `<tr class="pos-autofree-row">
           <td class="mono">${String(idx+1).padStart(3,'0')}</td>
-          <td class="mono">${escapeHtml(p?.sku||'-')}</td>
+          <td class="mono">${escapeHtml(productBarcodeForUnit(p,line.unit)||'-')}</td>
           <td>🎁 ${escapeHtml(line.name)}<br><small class="pos-promo-tag promo-active">ของแถม — ${escapeHtml(line.autoFreePromoName||'')}</small></td>
           <td class="mono num">0.00</td>
           <td>${escapeHtml(line.unit)}</td>
@@ -3518,7 +3523,7 @@ function renderCheckout(){
         : fmtMoney(displayUnitPrice);
       rowsHtml += `<tr>
         <td class="mono">${String(idx+1).padStart(3,'0')}</td>
-        <td class="mono">${escapeHtml(p?.sku||'-')}</td>
+        <td class="mono">${escapeHtml(productBarcodeForUnit(p,line.unit)||'-')}</td>
         <td><div class="pos-item-name-line"><div class="pos-item-name-content">${itemNameHtml}</div><button class="pos-med-label-btn ${dispensingLabel?'active':''}" type="button" data-medicine-label-line="${line.lineId}" title="${dispensingLabel?'แก้ไขฉลากยา':'จัดทำฉลากยา'}">ฉลากยา</button></div>${dispensingLabel?`<small class="pos-med-label-summary">${escapeHtml(medicineLabelSummary(dispensingLabel))}</small>`:''}</td>
         <td class="mono num">${priceCell}</td>
         <td class="line-unit-cell">${unitCell}</td>
@@ -3567,7 +3572,7 @@ function renderCheckout(){
     <div class="pos-grid">
       <div class="pos-left">
         <div class="pos-title-row"><div class="pos-title">รายการ : ${formatSaleRefDisplay(saleRef)}</div><button class="btn ghost" id="addCustomItemBtn">+ รายการกรอกเอง</button></div>
-        <datalist id="inlineCustomUnits">${units.map(unit=>`<option value="${escapeHtml(unit)}">`).join('')}</datalist><table class="grid-table pos-table"><colgroup><col class="pt-idx"><col class="pt-sku"><col class="pt-name"><col class="pt-price"><col class="pt-unit"><col class="pt-qty"><col class="pt-total"><col class="pt-del"></colgroup><thead><tr><th>รายการที่</th><th>รหัสสินค้า</th><th>ชื่อ</th><th>ราคา</th><th>หน่วย</th><th>จำนวน</th><th>รวม</th><th></th></tr></thead>
+        <datalist id="inlineCustomUnits">${units.map(unit=>`<option value="${escapeHtml(unit)}">`).join('')}</datalist><table class="grid-table pos-table"><colgroup><col class="pt-idx"><col class="pt-barcode"><col class="pt-name"><col class="pt-price"><col class="pt-unit"><col class="pt-qty"><col class="pt-total"><col class="pt-del"></colgroup><thead><tr><th>รายการที่</th><th>บาร์โค้ดสินค้า</th><th>ชื่อ</th><th>ราคา</th><th>หน่วย</th><th>จำนวน</th><th>รวม</th><th></th></tr></thead>
         <tbody>${rowsHtml}</tbody></table>
         ${favHtml}
       </div>
