@@ -2854,6 +2854,8 @@ const MOBILE_SCAN_ERROR_SOUND_URL='data:audio/mpeg;base64,SUQzAwAAAAABBVRYWFgAAA
 let mobileScanSound=null;
 let mobileScanErrorSound=null;
 let mobileScanAudioContext=null;
+let mobileScanDecodedSounds={success:null,error:null};
+let mobileScanDecodePromises={success:null,error:null};
 let mobileScanSoundUnlockAttached=false;
 let mobileCameraSession=null;
 let deferredPwaInstallPrompt = null;
@@ -7334,70 +7336,96 @@ function mobileScanVibrate(kind){
     console.warn('สั่นแจ้งผลสแกนบาร์โค้ดไม่สำเร็จ',error);
   }
 }
-function playMobileScanTone(kind='success'){
-  const context=prepareMobileScanAudioContext();
-  if(!context){ mobileScanVibrate(kind); return false; }
-  const emit=()=>{
-    try{
-      const tones=kind==='error'
-        ?[{frequency:190,duration:.12,delay:0},{frequency:145,duration:.17,delay:.17}]
-        :[{frequency:880,duration:.09,delay:0}];
-      const start=context.currentTime+.01;
-      tones.forEach(tone=>{
-        const oscillator=context.createOscillator();
-        const gain=context.createGain();
-        const toneStart=start+tone.delay;
-        const toneEnd=toneStart+tone.duration;
-        oscillator.type='sine';
-        oscillator.frequency.setValueAtTime(tone.frequency,toneStart);
-        gain.gain.setValueAtTime(.0001,toneStart);
-        gain.gain.exponentialRampToValueAtTime(kind==='error'?.22:.16,toneStart+.012);
-        gain.gain.exponentialRampToValueAtTime(.0001,toneEnd);
-        oscillator.connect(gain);
-        gain.connect(context.destination);
-        oscillator.start(toneStart);
-        oscillator.stop(toneEnd+.02);
-      });
-      mobileScanVibrate(kind);
-    }catch(error){
-      console.warn('เล่นเสียงสำรองของเครื่องสแกนไม่สำเร็จ',error);
-      mobileScanVibrate(kind);
-    }
-  };
-  if(context.state==='suspended'&&typeof context.resume==='function'){
-    const resumed=context.resume();
-    if(resumed?.then) resumed.then(emit).catch(()=>mobileScanVibrate(kind));
-    else emit();
-  }else emit();
-  return true;
+function mobileScanSoundUrl(kind='success'){
+  return kind==='error'?MOBILE_SCAN_ERROR_SOUND_URL:MOBILE_SCAN_SOUND_URL;
 }
-function playMobileScanSound(){
+function prepareMobileScanDecodedSound(kind='success'){
+  const soundKind=kind==='error'?'error':'success';
+  const context=prepareMobileScanAudioContext();
+  if(!context||typeof context.decodeAudioData!=='function'||typeof atob!=='function') return null;
+  if(mobileScanDecodedSounds[soundKind]) return Promise.resolve(mobileScanDecodedSounds[soundKind]);
+  if(mobileScanDecodePromises[soundKind]) return mobileScanDecodePromises[soundKind];
   try{
-    const sound=prepareMobileScanSound();
-    if(!sound) return playMobileScanTone('success');
+    const encoded=mobileScanSoundUrl(soundKind).split(',')[1]||'';
+    const binary=atob(encoded);
+    const bytes=new Uint8Array(binary.length);
+    for(let index=0;index<binary.length;index+=1) bytes[index]=binary.charCodeAt(index);
+    mobileScanDecodePromises[soundKind]=new Promise((resolve,reject)=>{
+      let settled=false;
+      const done=buffer=>{
+        if(settled) return;
+        settled=true;
+        mobileScanDecodedSounds[soundKind]=buffer;
+        resolve(buffer);
+      };
+      const fail=error=>{
+        if(settled) return;
+        settled=true;
+        reject(error);
+      };
+      try{
+        const decoded=context.decodeAudioData(bytes.buffer,done,fail);
+        if(decoded?.then) decoded.then(done).catch(fail);
+      }catch(error){ fail(error); }
+    }).catch(error=>{
+      mobileScanDecodePromises[soundKind]=null;
+      console.warn('ถอดรหัสเสียงสแกนบาร์โค้ดไม่สำเร็จ',error);
+      return null;
+    });
+    return mobileScanDecodePromises[soundKind];
+  }catch(error){
+    console.warn('เตรียมข้อมูลเสียงสแกนบาร์โค้ดไม่สำเร็จ',error);
+    return null;
+  }
+}
+function playMobileScanHtmlSound(kind='success'){
+  try{
+    const sound=kind==='error'?prepareMobileScanErrorSound():prepareMobileScanSound();
+    if(!sound){ mobileScanVibrate(kind); return false; }
     sound.pause();
     sound.currentTime=0;
     const playback=sound.play();
-    if(playback?.catch) playback.catch(()=>playMobileScanTone('success'));
+    if(playback?.then) playback.then(()=>mobileScanVibrate(kind)).catch(()=>mobileScanVibrate(kind));
+    else mobileScanVibrate(kind);
     return true;
   }catch(error){
     console.warn('เล่นเสียงสแกนบาร์โค้ดไม่สำเร็จ',error);
-    return playMobileScanTone('success');
+    mobileScanVibrate(kind);
+    return false;
   }
 }
+function playMobileScanDecodedSound(kind='success'){
+  const soundKind=kind==='error'?'error':'success';
+  const context=prepareMobileScanAudioContext();
+  const prepared=prepareMobileScanDecodedSound(soundKind);
+  if(!context||!prepared) return false;
+  const emit=buffer=>{
+    if(!buffer){ playMobileScanHtmlSound(soundKind); return; }
+    try{
+      const source=context.createBufferSource();
+      source.buffer=buffer;
+      source.connect(context.destination);
+      source.start(0);
+      mobileScanVibrate(soundKind);
+    }catch(error){
+      console.warn('เล่นไฟล์เสียงสแกนบาร์โค้ดไม่สำเร็จ',error);
+      playMobileScanHtmlSound(soundKind);
+    }
+  };
+  prepared.then(buffer=>{
+    if(context.state==='suspended'&&typeof context.resume==='function'){
+      const resumed=context.resume();
+      if(resumed?.then) resumed.then(()=>emit(buffer)).catch(()=>playMobileScanHtmlSound(soundKind));
+      else emit(buffer);
+    }else emit(buffer);
+  }).catch(()=>playMobileScanHtmlSound(soundKind));
+  return true;
+}
+function playMobileScanSound(){
+  return playMobileScanDecodedSound('success')||playMobileScanHtmlSound('success');
+}
 function playMobileScanErrorSound(){
-  try{
-    const sound=prepareMobileScanErrorSound();
-    if(!sound) return playMobileScanTone('error');
-    sound.pause();
-    sound.currentTime=0;
-    const playback=sound.play();
-    if(playback?.catch) playback.catch(()=>playMobileScanTone('error'));
-    return true;
-  }catch(error){
-    console.warn('เล่นเสียงแจ้งเตือนสแกนบาร์โค้ดไม่สำเร็จ',error);
-    return playMobileScanTone('error');
-  }
+  return playMobileScanDecodedSound('error')||playMobileScanHtmlSound('error');
 }
 function unlockMobileScanSound(){
   try{
@@ -10977,6 +11005,8 @@ function attachEvents(){
   if(currentTab==='mobiletools'){
     prepareMobileScanSound();
     prepareMobileScanErrorSound();
+    prepareMobileScanDecodedSound('success');
+    prepareMobileScanDecodedSound('error');
     attachMobileScanSoundUnlock();
   }
   attachNoteEvents();
