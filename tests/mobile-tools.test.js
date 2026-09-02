@@ -110,6 +110,8 @@ assert.doesNotMatch(mobileStockPanel, /id="mobileStockInput"/);
 assert.doesNotMatch(mobileStockPanel, /id="mobileStockCamera"/);
 assert.doesNotMatch(mobileStockPanel, /id="mobileStockCameraSlot"/);
 assert.doesNotMatch(mobileStockPanel, /data-mobile-stock-result=/);
+assert.match(mobileStockPanel, /class="mobile-stock-source"><button[^>]+id="mobileStockImport"[\s\S]*?<select id="mobileStockSourceList"/);
+assert.match(html, /\.mobile-stock-source\{display:grid;grid-template-columns:auto minmax\(0,1fr\);/);
 assert.match(mobileStockPanel, /\$\{mobileStockEditRowsHtml\(\)\}<div class="mobile-stock-confirm-wrap">/);
 assert.doesNotMatch(mobileStockPanel, /reasonHtml|mobile-stock-reason|stockEditReason|stockEditNote|เหตุผลการปรับสต๊อก/);
 assert.match(html, /id="mobileToolsRefresh"/);
