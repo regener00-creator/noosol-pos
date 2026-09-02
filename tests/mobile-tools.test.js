@@ -20,6 +20,8 @@ assert.match(html, /data-mobile-inventory-step="inspection"/);
 assert.match(html, /data-mobile-inventory-step="stock"/);
 assert.match(html, /ตรวจและแก้ไขสต๊อก/);
 assert.match(html, /id="mobileContinueToStock"/);
+assert.match(html, /class="mobile-scan-row mobile-scan-row-camera-left"><button[^>]+id="mobilePriceCamera"[\s\S]*?<input id="mobilePriceInput"/);
+assert.match(html, /\.mobile-scan-row-camera-left\{grid-template-columns:52px minmax\(0,1fr\);\}/);
 assert.match(html, /id="mobileOpenInspectionList"/);
 assert.match(html, /id="mobileDeleteInspectionList"/);
 assert.match(html, /id="mobileDeleteInspectionList"[^>]*>ลบบันทึก<\/button>/);
