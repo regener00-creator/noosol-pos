@@ -61,6 +61,8 @@ assert.match(html, /value!==lastValue/);
 assert.match(html, /class="mobile-camera-slot" id="mobilePriceCameraSlot"/);
 assert.equal((html.match(/class="mobile-camera-slot" id="mobileInspectionCameraSlot"/g)||[]).length, 1);
 assert.match(html, /camera\.className='mobile-camera-inline'/);
+assert.match(html, /class="mobile-camera-head"><button[^>]+class="mobile-camera-close"[^>]*>×<\/button><span>ส่องบาร์โค้ดให้อยู่ในกรอบ<\/span>/);
+assert.match(html, /\.mobile-camera-head>span\{flex:1;text-align:right;\}/);
 assert.doesNotMatch(html, /mobile-camera-overlay/);
 assert.doesNotMatch(html, /\.mobile-camera-inline\{[^}]*position:fixed/);
 assert.match(html, /function preserveMobileCameraScanner\(\)/);

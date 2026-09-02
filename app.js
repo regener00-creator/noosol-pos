@@ -7719,7 +7719,7 @@ async function openMobileCameraScanner(onCode,options={}){
   closeMobileCameraScanner();
   const camera=document.createElement('div');
   camera.className='mobile-camera-inline';
-  camera.innerHTML=`<div class="mobile-camera-box"><div class="mobile-camera-head"><span>ส่องบาร์โค้ดให้อยู่ในกรอบ</span><button type="button" class="mobile-camera-close" aria-label="ปิดกล้อง">×</button></div><div class="mobile-camera-video-wrap"><video class="mobile-camera-video" autoplay muted playsinline></video><div class="mobile-camera-guide"></div></div><div class="mobile-camera-message">กำลังเปิดกล้อง...</div></div>`;
+  camera.innerHTML=`<div class="mobile-camera-box"><div class="mobile-camera-head"><button type="button" class="mobile-camera-close" aria-label="ปิดกล้อง">×</button><span>ส่องบาร์โค้ดให้อยู่ในกรอบ</span></div><div class="mobile-camera-video-wrap"><video class="mobile-camera-video" autoplay muted playsinline></video><div class="mobile-camera-guide"></div></div><div class="mobile-camera-message">กำลังเปิดกล้อง...</div></div>`;
   host.replaceChildren(camera);
   const video=camera.querySelector('video');
   const message=camera.querySelector('.mobile-camera-message');

@@ -1748,6 +1748,7 @@
   .mobile-camera-inline{width:100%;margin:12px 0 6px;padding:12px;background:#07131E;color:#fff;border-radius:18px;box-shadow:0 8px 22px #0F355522;}
   .mobile-camera-box{width:100%;}
   .mobile-camera-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-weight:600;}
+  .mobile-camera-head>span{flex:1;text-align:right;}
   .mobile-camera-close{width:36px;height:36px;border:1px solid #FFFFFF55;background:#FFFFFF14;color:#fff;border-radius:50%;font-size:23px;line-height:1;cursor:pointer;}
   .mobile-camera-video-wrap{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:16/9;}
   .mobile-camera-video{width:100%;height:100%;object-fit:cover;display:block;}
