@@ -7373,32 +7373,30 @@ function playMobileScanTone(kind='success'){
 }
 function playMobileScanSound(){
   try{
-    if(playMobileScanTone('success')) return true;
     const sound=prepareMobileScanSound();
-    if(!sound) return false;
+    if(!sound) return playMobileScanTone('success');
     sound.pause();
     sound.currentTime=0;
     const playback=sound.play();
-    if(playback?.catch) playback.catch(()=>{});
+    if(playback?.catch) playback.catch(()=>playMobileScanTone('success'));
     return true;
   }catch(error){
     console.warn('เล่นเสียงสแกนบาร์โค้ดไม่สำเร็จ',error);
-    return false;
+    return playMobileScanTone('success');
   }
 }
 function playMobileScanErrorSound(){
   try{
-    if(playMobileScanTone('error')) return true;
     const sound=prepareMobileScanErrorSound();
-    if(!sound) return false;
+    if(!sound) return playMobileScanTone('error');
     sound.pause();
     sound.currentTime=0;
     const playback=sound.play();
-    if(playback?.catch) playback.catch(()=>{});
+    if(playback?.catch) playback.catch(()=>playMobileScanTone('error'));
     return true;
   }catch(error){
     console.warn('เล่นเสียงแจ้งเตือนสแกนบาร์โค้ดไม่สำเร็จ',error);
-    return false;
+    return playMobileScanTone('error');
   }
 }
 function unlockMobileScanSound(){

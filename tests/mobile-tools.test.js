@@ -41,8 +41,10 @@ assert.match(html, /mobileScanErrorSound=new Audio\(MOBILE_SCAN_ERROR_SOUND_URL\
 assert.match(html, /function prepareMobileScanAudioContext\(\)/);
 assert.match(html, /function playMobileScanTone\(kind='success'\)/);
 assert.match(html, /document\.addEventListener\('keydown',unlock,\{capture:true\}\)/);
-assert.match(html, /playMobileScanTone\('success'\)/);
-assert.match(html, /playMobileScanTone\('error'\)/);
+assert.match(html, /const sound=prepareMobileScanSound\(\);\s*if\(!sound\) return playMobileScanTone\('success'\)/);
+assert.match(html, /playback\.catch\(\(\)=>playMobileScanTone\('success'\)\)/);
+assert.match(html, /const sound=prepareMobileScanErrorSound\(\);\s*if\(!sound\) return playMobileScanTone\('error'\)/);
+assert.match(html, /playback\.catch\(\(\)=>playMobileScanTone\('error'\)\)/);
 assert.match(html, /sound\.currentTime=0/);
 assert.ok((html.match(/playMobileScanSound\(\)/g)||[]).length >= 5);
 assert.ok((html.match(/playMobileScanErrorSound\(\)/g)||[]).length >= 10);
