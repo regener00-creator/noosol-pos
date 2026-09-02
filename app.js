@@ -2993,6 +2993,12 @@ let auditLogLoading=false;
 let auditLogError='';
 let auditLogPage=1;
 const AUDIT_LOG_PAGE_SIZE=20;
+let auditLogTotal=0;
+let auditLogPageCount=1;
+let auditLogHasNewer=false;
+let auditLogHasOlder=false;
+let auditLogRequestToken=0;
+let auditLogSearchTimer=null;
 let auditLogFilter={search:'',entity:'all',action:'all'};
 let expandedAuditLogRows=new Set();
 let currentProfile=null; // Supabase Auth profile of the signed-in user, mapped by mapProfileRow()
@@ -10359,21 +10365,57 @@ function systemUserLevelLabel(level){
   return ({1:'Level 1 - เจ้าของร้าน',2:'Level 2 - บุคคลทั่วไป',3:'Level 3 - ยังไม่กำหนด',4:'Level 4 - ยังไม่กำหนด'})[Number(level)]||'Level 2 - บุคคลทั่วไป';
 }
 
-async function loadAuditLogsFromSupabase(force=false){
-  if(loggedInUser()?.owner!==true||auditLogLoading||(!force&&auditLogLoaded)) return;
+const AUDIT_LOG_ENTITY_TYPES=['products','product','warehouses','settings','contacts','sales_representatives','promotions','sales','cash_shifts','quotations','invoices_ar','credit_notes','purchase_orders','goods_receipts','product_exchanges','purchase_orders_full','product_returns','transfers','standalone_tax_invoices','inspection_lists','profiles','profile_warehouse_access','inventory_count','inventory_lot','store_reset'];
+const AUDIT_LOG_ACTION_TYPES=['insert','update','delete','stock_adjusted','unit_changed','lot_expiry_changed','lot_reallocated','store_reset'];
+async function loadAuditLogsFromSupabase(force=false,direction='first'){
+  if(loggedInUser()?.owner!==true||(!force&&(auditLogLoading||auditLogLoaded))) return;
+  const pageDirection=['first','previous','next','last'].includes(direction)?direction:'first';
+  const cursorRow=pageDirection==='next'?auditLogRows[auditLogRows.length-1]:pageDirection==='previous'?auditLogRows[0]:null;
+  if((pageDirection==='next'||pageDirection==='previous')&&!cursorRow) return;
+  const requestToken=++auditLogRequestToken;
+  const filterSnapshot={
+    search:String(auditLogFilter.search||'').trim(),
+    entity:auditLogFilter.entity||'all',
+    action:auditLogFilter.action||'all'
+  };
+  const includeTotal=pageDirection==='first'||!auditLogLoaded;
   auditLogLoading=true;
   auditLogError='';
   try{
-    const {data,error}=await sb.rpc('get_central_audit_logs',{p_limit:500,p_offset:0});
+    const {data,error}=await sb.rpc('get_central_audit_log_page',{
+      p_limit:AUDIT_LOG_PAGE_SIZE,
+      p_cursor_time:cursorRow?.occurred_at||null,
+      p_cursor_key:cursorRow?.event_key||null,
+      p_direction:pageDirection,
+      p_search:filterSnapshot.search,
+      p_entity:filterSnapshot.entity,
+      p_action:filterSnapshot.action,
+      p_include_total:includeTotal
+    });
     if(error) throw error;
-    auditLogRows=Array.isArray(data)?data:[];
+    if(requestToken!==auditLogRequestToken) return;
+    auditLogRows=Array.isArray(data?.rows)?data.rows:[];
+    if(data?.totalCount!==null&&data?.totalCount!==undefined){
+      auditLogTotal=Math.max(0,Number(data.totalCount)||0);
+      auditLogPageCount=Math.max(1,Math.ceil(auditLogTotal/AUDIT_LOG_PAGE_SIZE));
+    }
+    if(pageDirection==='first') auditLogPage=1;
+    else if(pageDirection==='last') auditLogPage=auditLogPageCount;
+    else if(pageDirection==='previous') auditLogPage=Math.max(1,auditLogPage-1);
+    else if(pageDirection==='next') auditLogPage=Math.min(auditLogPageCount,auditLogPage+1);
+    auditLogHasNewer=data?.hasNewer===true;
+    auditLogHasOlder=data?.hasOlder===true;
+    expandedAuditLogRows.clear();
     auditLogLoaded=true;
   }catch(error){
+    if(requestToken!==auditLogRequestToken) return;
     console.error('โหลด AUDIT LOG ไม่สำเร็จ',error);
     auditLogError=error?.message||'โหลดประวัติการทำงานไม่สำเร็จ';
   }finally{
-    auditLogLoading=false;
-    if(currentTab==='auditlog') render();
+    if(requestToken===auditLogRequestToken){
+      auditLogLoading=false;
+      if(currentTab==='auditlog') render();
+    }
   }
 }
 function auditLogDateTime(value){
@@ -10413,18 +10455,13 @@ function auditDataHtml(data){
 function renderAuditLog(){
   if(loggedInUser()?.owner!==true) return `<div class="empty"><h2>ไม่มีสิทธิ์เข้าถึง</h2><p>เฉพาะเจ้าของร้านเท่านั้นที่ดู AUDIT LOG ได้</p></div>`;
   if(!auditLogLoaded&&!auditLogLoading) setTimeout(()=>loadAuditLogsFromSupabase(),0);
-  const search=String(auditLogFilter.search||'').trim().toLowerCase();
-  const filtered=auditLogRows.filter(row=>{
-    if(auditLogFilter.entity!=='all'&&row.entity_type!==auditLogFilter.entity) return false;
-    if(auditLogFilter.action!=='all'&&row.action!==auditLogFilter.action) return false;
-    if(!search) return true;
-    return [row.actor_name,row.entity_id,row.summary,auditEntityLabel(row.entity_type),auditActionLabel(row.action),auditRowSummary(row)].some(value=>String(value||'').toLowerCase().includes(search));
-  });
-  const pageCount=Math.max(1,Math.ceil(filtered.length/AUDIT_LOG_PAGE_SIZE));
+  const pageRows=auditLogRows;
+  const pageCount=Math.max(1,auditLogPageCount);
   auditLogPage=Math.min(Math.max(1,auditLogPage),pageCount);
-  const pageRows=filtered.slice((auditLogPage-1)*AUDIT_LOG_PAGE_SIZE,auditLogPage*AUDIT_LOG_PAGE_SIZE);
-  const entityOptions=[...new Set(auditLogRows.map(row=>row.entity_type).filter(Boolean))].sort().map(value=>`<option value="${escapeHtml(value)}" ${auditLogFilter.entity===value?'selected':''}>${escapeHtml(auditEntityLabel(value))}</option>`).join('');
-  const actionOptions=[...new Set(auditLogRows.map(row=>row.action).filter(Boolean))].sort().map(value=>`<option value="${escapeHtml(value)}" ${auditLogFilter.action===value?'selected':''}>${escapeHtml(auditActionLabel(value))}</option>`).join('');
+  const entityTypes=[...new Set([...AUDIT_LOG_ENTITY_TYPES,auditLogFilter.entity==='all'?null:auditLogFilter.entity].filter(Boolean))];
+  const actionTypes=[...new Set([...AUDIT_LOG_ACTION_TYPES,auditLogFilter.action==='all'?null:auditLogFilter.action].filter(Boolean))];
+  const entityOptions=entityTypes.map(value=>`<option value="${escapeHtml(value)}" ${auditLogFilter.entity===value?'selected':''}>${escapeHtml(auditEntityLabel(value))}</option>`).join('');
+  const actionOptions=actionTypes.map(value=>`<option value="${escapeHtml(value)}" ${auditLogFilter.action===value?'selected':''}>${escapeHtml(auditActionLabel(value))}</option>`).join('');
   const hasActiveFilter=!!auditLogFilter.search||auditLogFilter.entity!=='all'||auditLogFilter.action!=='all';
   const rows=pageRows.map(row=>{
     const key=String(row.event_key||'');
@@ -10438,11 +10475,11 @@ function renderAuditLog(){
       <label class="audit-log-filter audit-log-search-filter"><span class="audit-log-filter-label">ค้นหาประวัติ</span><span class="audit-log-control audit-log-search-control"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input id="auditLogSearch" value="${escapeHtml(auditLogFilter.search)}" placeholder="ผู้ใช้งาน รายการ หรือเลขเอกสาร" autocomplete="off">${auditLogFilter.search?'<button type="button" class="audit-log-clear-search" id="auditLogClearSearch" title="ล้างคำค้นหา" aria-label="ล้างคำค้นหา">×</button>':''}</span></label>
       <label class="audit-log-filter"><span class="audit-log-filter-label">ประเภทรายการ</span><span class="audit-log-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"></path><path d="M8 9h8M8 13h5"></path></svg><select id="auditLogEntity"><option value="all">ทุกรายการ</option>${entityOptions}</select></span></label>
       <label class="audit-log-filter"><span class="audit-log-filter-label">การทำงาน</span><span class="audit-log-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg><select id="auditLogAction"><option value="all">ทุกการทำงาน</option>${actionOptions}</select></span></label>
-      <div class="audit-log-toolbar-summary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"></path></svg><span>ผลลัพธ์ที่พบ</span><strong>${filtered.length} รายการ</strong>${hasActiveFilter?'<button type="button" class="audit-log-clear-filters" id="auditLogClearFilters">ล้างตัวกรองทั้งหมด</button>':''}</div>
+      <div class="audit-log-toolbar-summary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"></path></svg><span>ผลลัพธ์ที่พบ</span><strong>${auditLogTotal} รายการ</strong>${hasActiveFilter?'<button type="button" class="audit-log-clear-filters" id="auditLogClearFilters">ล้างตัวกรองทั้งหมด</button>':''}</div>
     </div>
     ${auditLogError?`<div class="notice danger">${escapeHtml(auditLogError)}</div>`:''}
     ${auditLogLoading&&!auditLogLoaded?'<div class="audit-log-empty">กำลังโหลดประวัติการทำงาน...</div>':`<div class="audit-log-table-wrap"><table class="audit-log-table"><thead><tr><th>วันและเวลา</th><th>ผู้ใช้งาน</th><th>รายการ</th><th>การทำงาน</th><th>คลังสินค้า</th><th>รายละเอียด</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="7" class="audit-log-empty">ไม่พบประวัติการทำงาน</td></tr>'}</tbody></table></div>`}
-    <div class="audit-log-pagination"><button class="btn ghost" data-audit-log-page="prev" ${auditLogPage<=1?'disabled':''}>ก่อนหน้า</button><span>หน้า ${auditLogPage} / ${pageCount}</span><button class="btn ghost" data-audit-log-page="next" ${auditLogPage>=pageCount?'disabled':''}>ถัดไป</button></div></div>`;
+    <div class="audit-log-pagination"><button class="btn ghost" data-audit-log-page="first" ${!auditLogHasNewer||auditLogLoading?'disabled':''}>กลับไปหน้าแรก</button><button class="btn ghost" data-audit-log-page="previous" ${!auditLogHasNewer||auditLogLoading?'disabled':''}>ก่อนหน้า</button><span>หน้า ${auditLogPage} / ${pageCount}</span><button class="btn ghost" data-audit-log-page="next" ${!auditLogHasOlder||auditLogLoading?'disabled':''}>ถัดไป</button><button class="btn ghost" data-audit-log-page="last" ${!auditLogHasOlder||auditLogLoading?'disabled':''}>ไปหน้าสุดท้าย</button></div></div>`;
 }
 
 function defaultLevel2PagePermissions(){
@@ -11030,29 +11067,42 @@ function attachEvents(){
   if(auditLogSearch) auditLogSearch.addEventListener('input',()=>{
     auditLogFilter.search=auditLogSearch.value;
     auditLogPage=1;
-    render();
-    const next=document.getElementById('auditLogSearch');
-    if(next){ next.focus(); next.setSelectionRange(next.value.length,next.value.length); }
+    auditLogRequestToken++;
+    clearTimeout(auditLogSearchTimer);
+    auditLogSearchTimer=setTimeout(()=>{
+      auditLogLoaded=false;
+      loadAuditLogsFromSupabase(true,'first');
+    },350);
   });
   const auditLogEntity=document.getElementById('auditLogEntity');
-  if(auditLogEntity) auditLogEntity.addEventListener('change',()=>{ auditLogFilter.entity=auditLogEntity.value; auditLogPage=1; render(); });
+  if(auditLogEntity) auditLogEntity.addEventListener('change',()=>{
+    auditLogFilter.entity=auditLogEntity.value; auditLogPage=1; auditLogLoaded=false;
+    loadAuditLogsFromSupabase(true,'first'); render();
+  });
   const auditLogAction=document.getElementById('auditLogAction');
-  if(auditLogAction) auditLogAction.addEventListener('change',()=>{ auditLogFilter.action=auditLogAction.value; auditLogPage=1; render(); });
+  if(auditLogAction) auditLogAction.addEventListener('change',()=>{
+    auditLogFilter.action=auditLogAction.value; auditLogPage=1; auditLogLoaded=false;
+    loadAuditLogsFromSupabase(true,'first'); render();
+  });
   document.getElementById('auditLogClearSearch')?.addEventListener('click',()=>{
-    auditLogFilter.search=''; auditLogPage=1; render();
+    clearTimeout(auditLogSearchTimer);
+    auditLogFilter.search=''; auditLogPage=1; auditLogLoaded=false;
+    loadAuditLogsFromSupabase(true,'first'); render();
     setTimeout(()=>document.getElementById('auditLogSearch')?.focus(),0);
   });
   document.getElementById('auditLogClearFilters')?.addEventListener('click',()=>{
-    auditLogFilter={search:'',entity:'all',action:'all'}; auditLogPage=1; render();
+    clearTimeout(auditLogSearchTimer);
+    auditLogFilter={search:'',entity:'all',action:'all'}; auditLogPage=1; auditLogLoaded=false;
+    loadAuditLogsFromSupabase(true,'first'); render();
   });
-  document.getElementById('auditLogRefresh')?.addEventListener('click',()=>{ auditLogLoaded=false; loadAuditLogsFromSupabase(true); render(); });
+  document.getElementById('auditLogRefresh')?.addEventListener('click',()=>{ auditLogLoaded=false; auditLogPage=1; loadAuditLogsFromSupabase(true,'first'); render(); });
   document.querySelectorAll('[data-audit-log-toggle]').forEach(button=>button.addEventListener('click',()=>{
     const key=button.dataset.auditLogToggle;
     if(expandedAuditLogRows.has(key)) expandedAuditLogRows.delete(key); else expandedAuditLogRows.add(key);
     render();
   }));
   document.querySelectorAll('[data-audit-log-page]').forEach(button=>button.addEventListener('click',()=>{
-    auditLogPage+=button.dataset.auditLogPage==='prev'?-1:1;
+    loadAuditLogsFromSupabase(true,button.dataset.auditLogPage);
     render();
   }));
   document.querySelectorAll('[data-stock-control-mode]').forEach(button=>button.addEventListener('click',()=>{
