@@ -2853,6 +2853,8 @@ const MOBILE_SCAN_SOUND_URL='data:audio/mpeg;base64,SUQzBAAAAAAAalRJVDIAAAAiAAAD
 const MOBILE_SCAN_ERROR_SOUND_URL='data:audio/mpeg;base64,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';
 let mobileScanSound=null;
 let mobileScanErrorSound=null;
+let mobileScanAudioContext=null;
+let mobileScanSoundUnlockAttached=false;
 let mobileCameraSession=null;
 let deferredPwaInstallPrompt = null;
 // รายการและตัวกรองของหน้าแก้ไขสต๊อก (แยกจากรายงานสินค้าคงเหลือโดยเด็ดขาด)
@@ -7311,8 +7313,67 @@ function prepareMobileScanErrorSound(){
   mobileScanErrorSound.load();
   return mobileScanErrorSound;
 }
+function prepareMobileScanAudioContext(){
+  if(mobileScanAudioContext) return mobileScanAudioContext;
+  const AudioContextClass=typeof window!=='undefined'&&(window.AudioContext||window.webkitAudioContext);
+  if(typeof AudioContextClass!=='function') return null;
+  try{
+    mobileScanAudioContext=new AudioContextClass();
+    return mobileScanAudioContext;
+  }catch(error){
+    console.warn('เตรียมระบบเสียงสแกนบาร์โค้ดไม่สำเร็จ',error);
+    return null;
+  }
+}
+function mobileScanVibrate(kind){
+  try{
+    if(typeof navigator!=='undefined'&&typeof navigator.vibrate==='function'){
+      navigator.vibrate(kind==='error'?[90,60,140]:45);
+    }
+  }catch(error){
+    console.warn('สั่นแจ้งผลสแกนบาร์โค้ดไม่สำเร็จ',error);
+  }
+}
+function playMobileScanTone(kind='success'){
+  const context=prepareMobileScanAudioContext();
+  if(!context){ mobileScanVibrate(kind); return false; }
+  const emit=()=>{
+    try{
+      const tones=kind==='error'
+        ?[{frequency:190,duration:.12,delay:0},{frequency:145,duration:.17,delay:.17}]
+        :[{frequency:880,duration:.09,delay:0}];
+      const start=context.currentTime+.01;
+      tones.forEach(tone=>{
+        const oscillator=context.createOscillator();
+        const gain=context.createGain();
+        const toneStart=start+tone.delay;
+        const toneEnd=toneStart+tone.duration;
+        oscillator.type='sine';
+        oscillator.frequency.setValueAtTime(tone.frequency,toneStart);
+        gain.gain.setValueAtTime(.0001,toneStart);
+        gain.gain.exponentialRampToValueAtTime(kind==='error'?.22:.16,toneStart+.012);
+        gain.gain.exponentialRampToValueAtTime(.0001,toneEnd);
+        oscillator.connect(gain);
+        gain.connect(context.destination);
+        oscillator.start(toneStart);
+        oscillator.stop(toneEnd+.02);
+      });
+      mobileScanVibrate(kind);
+    }catch(error){
+      console.warn('เล่นเสียงสำรองของเครื่องสแกนไม่สำเร็จ',error);
+      mobileScanVibrate(kind);
+    }
+  };
+  if(context.state==='suspended'&&typeof context.resume==='function'){
+    const resumed=context.resume();
+    if(resumed?.then) resumed.then(emit).catch(()=>mobileScanVibrate(kind));
+    else emit();
+  }else emit();
+  return true;
+}
 function playMobileScanSound(){
   try{
+    if(playMobileScanTone('success')) return true;
     const sound=prepareMobileScanSound();
     if(!sound) return false;
     sound.pause();
@@ -7327,6 +7388,7 @@ function playMobileScanSound(){
 }
 function playMobileScanErrorSound(){
   try{
+    if(playMobileScanTone('error')) return true;
     const sound=prepareMobileScanErrorSound();
     if(!sound) return false;
     sound.pause();
@@ -7341,6 +7403,11 @@ function playMobileScanErrorSound(){
 }
 function unlockMobileScanSound(){
   try{
+    const context=prepareMobileScanAudioContext();
+    if(context?.state==='suspended'&&typeof context.resume==='function'){
+      const resumed=context.resume();
+      if(resumed?.catch) resumed.catch(()=>{});
+    }
     [prepareMobileScanSound(),prepareMobileScanErrorSound()].filter(Boolean).forEach(sound=>{
       const muted=sound.muted;
       sound.muted=true;
@@ -7352,6 +7419,20 @@ function unlockMobileScanSound(){
   }catch(error){
     console.warn('เตรียมเสียงสแกนบาร์โค้ดไม่สำเร็จ',error);
   }
+}
+function attachMobileScanSoundUnlock(){
+  if(mobileScanSoundUnlockAttached||typeof document==='undefined') return;
+  const unlock=()=>{
+    const context=prepareMobileScanAudioContext();
+    if(context?.state==='suspended'&&typeof context.resume==='function'){
+      const resumed=context.resume();
+      if(resumed?.catch) resumed.catch(()=>{});
+    }
+  };
+  document.addEventListener('pointerdown',unlock,{capture:true,passive:true});
+  document.addEventListener('touchstart',unlock,{capture:true,passive:true});
+  document.addEventListener('keydown',unlock,{capture:true});
+  mobileScanSoundUnlockAttached=true;
 }
 function mobileHandleStockCode(code){
   const query=String(code||'').trim();
@@ -10895,7 +10976,11 @@ async function changeProductExchangeStatus(status){
   }
 }
 function attachEvents(){
-  if(currentTab==='mobiletools') prepareMobileScanSound();
+  if(currentTab==='mobiletools'){
+    prepareMobileScanSound();
+    prepareMobileScanErrorSound();
+    attachMobileScanSoundUnlock();
+  }
   attachNoteEvents();
   document.querySelectorAll('[data-open-cash-shift]').forEach(button=>button.addEventListener('click',()=>{ currentTab='cashshift'; render(); }));
   document.getElementById('cashShiftOpenForm')?.addEventListener('submit',openCashShift);

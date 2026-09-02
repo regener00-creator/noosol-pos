@@ -38,6 +38,11 @@ assert.equal(fs.existsSync(path.join(root,'mobile-scan-success.mp3')),false);
 assert.equal(fs.existsSync(path.join(root,'mobile-scan-error.mp3')),false);
 assert.match(html, /mobileScanSound=new Audio\(MOBILE_SCAN_SOUND_URL\)/);
 assert.match(html, /mobileScanErrorSound=new Audio\(MOBILE_SCAN_ERROR_SOUND_URL\)/);
+assert.match(html, /function prepareMobileScanAudioContext\(\)/);
+assert.match(html, /function playMobileScanTone\(kind='success'\)/);
+assert.match(html, /document\.addEventListener\('keydown',unlock,\{capture:true\}\)/);
+assert.match(html, /playMobileScanTone\('success'\)/);
+assert.match(html, /playMobileScanTone\('error'\)/);
 assert.match(html, /sound\.currentTime=0/);
 assert.ok((html.match(/playMobileScanSound\(\)/g)||[]).length >= 5);
 assert.ok((html.match(/playMobileScanErrorSound\(\)/g)||[]).length >= 10);
@@ -267,7 +272,7 @@ class FakeAudio {
 }
 const soundContext = { Audio: FakeAudio, console };
 vm.createContext(soundContext);
-vm.runInContext(`const MOBILE_SCAN_SOUND_URL='data:audio/mpeg;base64,SUQz'; const MOBILE_SCAN_ERROR_SOUND_URL='data:audio/mpeg;base64,RVJST1I='; let mobileScanSound=null; let mobileScanErrorSound=null; ${html.slice(soundFunctionStart, soundFunctionEnd)}`, soundContext);
+vm.runInContext(`const MOBILE_SCAN_SOUND_URL='data:audio/mpeg;base64,SUQz'; const MOBILE_SCAN_ERROR_SOUND_URL='data:audio/mpeg;base64,RVJST1I='; let mobileScanSound=null; let mobileScanErrorSound=null; let mobileScanAudioContext=null; let mobileScanSoundUnlockAttached=false; ${html.slice(soundFunctionStart, soundFunctionEnd)}`, soundContext);
 assert.equal(soundContext.playMobileScanSound(), true);
 assert.equal(soundContext.playMobileScanSound(), true);
 assert.equal(sounds.length, 1);
@@ -286,6 +291,40 @@ assert.equal(sounds[1].loadCount, 1);
 assert.equal(sounds[1].pauseCount, 2);
 assert.equal(sounds[1].playCount, 2);
 assert.equal(sounds[1].currentTime, 0);
+
+const generatedFrequencies = [];
+const vibrationPatterns = [];
+class FakeAudioParam {
+  setValueAtTime(value) { generatedFrequencies.push(value); }
+  exponentialRampToValueAtTime() {}
+}
+class FakeOscillator {
+  constructor() { this.frequency = new FakeAudioParam(); }
+  connect() {}
+  start() {}
+  stop() {}
+}
+class FakeGain {
+  constructor() { this.gain = new FakeAudioParam(); }
+  connect() {}
+}
+class FakeAudioContext {
+  constructor() { this.state = 'running'; this.currentTime = 1; this.destination = {}; }
+  createOscillator() { return new FakeOscillator(); }
+  createGain() { return new FakeGain(); }
+  resume() { this.state = 'running'; return Promise.resolve(); }
+}
+const toneContext = {
+  window: { AudioContext: FakeAudioContext },
+  navigator: { vibrate: pattern => vibrationPatterns.push(pattern) },
+  console,
+};
+vm.createContext(toneContext);
+vm.runInContext(`const MOBILE_SCAN_SOUND_URL='data:audio/mpeg;base64,SUQz'; const MOBILE_SCAN_ERROR_SOUND_URL='data:audio/mpeg;base64,RVJST1I='; let mobileScanSound=null; let mobileScanErrorSound=null; let mobileScanAudioContext=null; let mobileScanSoundUnlockAttached=false; ${html.slice(soundFunctionStart, soundFunctionEnd)}`, toneContext);
+assert.equal(toneContext.playMobileScanSound(), true);
+assert.equal(toneContext.playMobileScanErrorSound(), true);
+assert.deepEqual(generatedFrequencies.filter(value => value > 1), [880, 190, 145]);
+assert.equal(JSON.stringify(vibrationPatterns), JSON.stringify([45, [90, 60, 140]]));
 
 const functionStart = html.indexOf('function mobileProductMatches(');
 const functionEnd = html.indexOf('function mobilePriceMatches(', functionStart);
