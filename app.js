@@ -4284,7 +4284,7 @@ function renderCheckout(){
   return `${shiftBanner}
     <div class="pos-searchrow">
       <div class="pos-search"><span class="pos-bc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg></span><input id="search" placeholder="ค้นหาสินค้า / รหัส / สแกนบาร์โค้ด (ctrl + Q)" value="${escapeHtml(searchQuery)}" autocomplete="off"></div>
-      <button class="pos-smallest-unit-btn ${posSmallestUnitOnce?'active':''}" id="posSmallestUnitBtn" type="button" aria-pressed="${posSmallestUnitOnce?'true':'false'}"><span>หน่วยเล็กสุด 1 รายการ</span><kbd>Home</kbd></button>
+      <button class="pos-smallest-unit-btn ${posSmallestUnitOnce?'active':''}" id="posSmallestUnitBtn" type="button" aria-pressed="${posSmallestUnitOnce?'true':'false'}"><span>หน่วยเล็กสุด</span><kbd>Home</kbd></button>
     </div>
     ${posSmallestUnitOnce?'<div class="pos-smallest-unit-status"><span class="pos-smallest-unit-status-dot"></span><strong>พร้อมขายหน่วยเล็กสุด</strong><span>ยิงหรือเลือกสินค้า 1 รายการ · กด Home หรือ Esc เพื่อยกเลิก</span></div>':''}
     ${searchQuery ? renderSearchResults() : ''}

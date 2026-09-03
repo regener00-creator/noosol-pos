@@ -4,6 +4,8 @@ const source = require('./load-app-source')();
 
 assert.match(source, /const POS_SMALLEST_UNIT_COMMAND='PEPOS-CMD-SMALLEST'/);
 assert.match(source, /id="posSmallestUnitBtn"/);
+assert.match(source, /id="posSmallestUnitBtn"[^>]*><span>หน่วยเล็กสุด<\/span>/);
+assert.doesNotMatch(source, /id="posSmallestUnitBtn"[^>]*><span>หน่วยเล็กสุด 1 รายการ<\/span>/);
 assert.match(source, /พร้อมขายหน่วยเล็กสุด/);
 assert.match(source, /e\.key==='Home'/);
 assert.match(source, /e\.key==='Escape'&&posSmallestUnitOnce/);
