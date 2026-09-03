@@ -98,6 +98,17 @@ const browserExecutable = [
   assert.equal(await search.inputValue(), 'D-001', 'แม้พิมพ์ช้าและตารางกรองระหว่างตัวอักษร ช่องค้นหาต้องรับข้อความได้ครบ');
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'search');
   assert.equal(await page.locator('.prodtable .prod-inline-name').inputValue(), 'Decolgen prin (4 tablets)');
+  await page.waitForTimeout(150);
+  await page.keyboard.type('8850000000002', {delay:5});
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(220);
+  assert.equal(await search.inputValue(), '8850000000002', 'ยิงบาร์โค้ดหลังพิมพ์ค้นหาเองต้องแทนข้อความเดิมทั้งหมด');
+  assert.equal(await page.locator('.prodtable .prod-inline-name').inputValue(), 'Paracetamol 500 mg');
+  await page.keyboard.type('8850000000099', {delay:5});
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(220);
+  assert.equal(await search.inputValue(), '8850000000099', 'ยิงบาร์โค้ดครั้งต่อไปต้องแทนเลขจากการยิงครั้งก่อน');
+  assert.equal(await page.locator('.prodtable .prod-inline-name').inputValue(), 'Decolgen prin (4 tablets)');
   await page.evaluate(() => {
     editingProductId=9101;
     document.getElementById('main').innerHTML=renderProductForm();

@@ -42,6 +42,10 @@ assert.match(source, /placeholder="ค้นหาจาก ชื่อ \/ ร�
 assert.match(html, /function restoreSearchInputFocus\(selectionStart,selectionEnd\)/, 'ต้องมีตัวช่วยคืนโฟกัสและตำแหน่งเคอร์เซอร์ให้ช่องค้นหา');
 assert.match(html, /if\(e\.isComposing\) return;[^]*restoreSearchInputFocus\(selectionStart,selectionEnd\);/, 'ช่องค้นหาต้องไม่วาดหน้าใหม่ระหว่างประกอบอักษร และต้องคืนโฟกัสหลังกรองข้อมูล');
 assert.match(html, /listSearchRenderTimer=setTimeout\(\(\)=>\{[^]*\},120\);/, 'การกรองรายการต้องรอให้ผู้ใช้หยุดพิมพ์ช่วงสั้น ๆ เพื่อไม่ให้ตัวอักษรหาย');
+assert.match(html, /if\(currentTab!==['"]products['"]\|\|e\.isComposing\) return;/, 'การตรวจจับเครื่องยิงต้องทำงานเฉพาะหน้ารายการสินค้า');
+assert.match(html, /const scannerLike=scannerValue\.length>=4&&now-productScannerLastKeyAt<=120/, 'ต้องแยกชุดอักขระที่เครื่องยิงส่งมาอย่างรวดเร็วออกจากการพิมพ์ทั่วไป');
+assert.match(html, /\^\[A-Za-z0-9/, 'ชุดที่ตรวจว่าเป็นบาร์โค้ดต้องจำกัดเป็นอักขระที่บาร์โค้ดใช้ได้');
+assert.match(html, /searchQuery=scannerValue;[^]*searchEl\.value=scannerValue;[^]*nextSearch\.select\(\);/, 'บาร์โค้ดใหม่ต้องแทนข้อความค้นหาเดิมและพร้อมรับการยิงครั้งถัดไป');
 
 const renderStart = html.indexOf('function render(){');
 const renderEnd = html.indexOf('function syncTopbarFormActions()', renderStart);

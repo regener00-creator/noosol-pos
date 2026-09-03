@@ -11466,6 +11466,37 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   const searchEl = document.getElementById('search');
   if(searchEl){
+    let productScannerBurst='';
+    let productScannerLastKeyAt=0;
+    searchEl.addEventListener('keydown',e=>{
+      if(currentTab!=='products'||e.isComposing) return;
+      const now=Date.now();
+      if(e.key==='Enter'){
+        const scannerValue=productScannerBurst;
+        const scannerLike=scannerValue.length>=4&&now-productScannerLastKeyAt<=120&&/^[A-Za-z0-9._/+:-]+$/.test(scannerValue);
+        productScannerBurst='';
+        productScannerLastKeyAt=0;
+        if(!scannerLike) return;
+        e.preventDefault();
+        clearTimeout(listSearchRenderTimer);
+        searchQuery=scannerValue;
+        productPage=1;
+        searchEl.value=scannerValue;
+        render();
+        requestAnimationFrame(()=>{
+          const nextSearch=document.getElementById('search');
+          if(nextSearch){ nextSearch.focus({preventScroll:true}); nextSearch.select(); }
+        });
+        return;
+      }
+      if(e.key.length!==1||e.ctrlKey||e.altKey||e.metaKey){
+        if(!['Shift','CapsLock'].includes(e.key)){ productScannerBurst=''; productScannerLastKeyAt=0; }
+        return;
+      }
+      if(!productScannerLastKeyAt||now-productScannerLastKeyAt>75) productScannerBurst=e.key;
+      else productScannerBurst+=e.key;
+      productScannerLastKeyAt=now;
+    });
     searchEl.addEventListener('input',e=>{
       searchQuery=e.target.value;
       productPage=1;
