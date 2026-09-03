@@ -1595,9 +1595,10 @@
   .mobile-install-notice-text b{display:block;font-size:13.5px;color:#7E5510;margin-bottom:2px;}
   .mobile-install-notice-text span{display:block;font-size:11.5px;color:#8B6B32;line-height:1.35;}
   .mobile-install-btn{border:0;border-radius:10px;background:var(--primary);color:#fff;padding:10px 12px;font:600 13px 'Sarabun',sans-serif;cursor:pointer;white-space:nowrap;flex-shrink:0;}
-  .mobile-tools-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;background:#EEE8E5;border-radius:14px;padding:5px;margin-bottom:16px;position:sticky;top:0;z-index:7;}
+  .mobile-tools-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;background:#EEE8E5;border-radius:14px;padding:5px;margin-bottom:0;position:sticky;top:0;z-index:7;}
   .mobile-tools-tab{min-height:50px;border:0;border-radius:10px;background:transparent;color:var(--text-muted);font:600 15px 'Sarabun',sans-serif;cursor:pointer;}
   .mobile-tools-tab.active{background:#fff;color:var(--primary);box-shadow:0 2px 8px #2B242214;}
+  .mobile-tools-tab-brand{margin:7px 0 12px;text-align:center;color:var(--text-muted);font:600 9px/1.2 'Sarabun',sans-serif;letter-spacing:.08em;}
   .mobile-inventory-workflow{display:grid;gap:12px;}
   .mobile-inventory-steps{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:5px;border:1px solid #DCE5EC;border-radius:13px;background:#F4EFEC;}
   .mobile-inventory-step{min-height:46px;border:0;border-radius:9px;background:transparent;color:var(--text-muted);font:600 13px 'Sarabun',sans-serif;display:flex;align-items:center;justify-content:center;gap:7px;cursor:pointer;}
