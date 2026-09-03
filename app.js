@@ -7786,7 +7786,7 @@ async function openMobileCameraScanner(onCode,options={}){
               nextDetectionAt=now+650;
               const accepted=onCode(value)!==false;
               if(navigator.vibrate) navigator.vibrate(accepted?80:[40,50,40]);
-              message.textContent=accepted?`สแกนแล้ว: ${value} — ยิงสินค้าชิ้นถัดไปได้เลย`:`ยังไม่เพิ่ม: ${value} — เลื่อนไปยิงสินค้าชิ้นอื่นได้เลย`;
+              message.textContent='P R A N C - H I B E S';
             }
           }
         }catch(error){

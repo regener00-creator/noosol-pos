@@ -248,6 +248,9 @@ const mobilePriceInputHandler = html.slice(mobilePriceInputHandlerStart, mobileP
 assert.doesNotMatch(mobilePriceInputHandler, /render\(\)/);
 assert.match(mobilePriceInputHandler, /result\.innerHTML=mobilePriceResultHtml\(\)/);
 assert.match(mobilePriceInputHandler, /attachMobilePriceResultEvents\(\)/);
+assert.match(html, /message\.textContent='P R A N C - H I B E S'/);
+assert.doesNotMatch(html, /สแกนแล้ว: \$\{value\} — ยิงสินค้าชิ้นถัดไปได้เลย/);
+assert.doesNotMatch(html, /ยังไม่เพิ่ม: \$\{value\} — เลื่อนไปยิงสินค้าชิ้นอื่นได้เลย/);
 
 assert.equal(manifest.display, 'standalone');
 assert.equal(manifest.short_name, 'PEPOS');
