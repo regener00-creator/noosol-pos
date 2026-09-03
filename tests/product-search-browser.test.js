@@ -109,6 +109,13 @@ const browserExecutable = [
   await page.waitForTimeout(220);
   assert.equal(await search.inputValue(), '8850000000099', 'ยิงบาร์โค้ดครั้งต่อไปต้องแทนเลขจากการยิงครั้งก่อน');
   assert.equal(await page.locator('.prodtable .prod-inline-name').inputValue(), 'Decolgen prin (4 tablets)');
+  await search.fill('BOX-A-001');
+  await search.press('Enter');
+  await page.waitForTimeout(220);
+  assert.equal(await page.locator('.prodtable .prod-inline-name').inputValue(), 'Amoxicillin test', 'บาร์โค้ดหน่วยเพิ่มเติมต้องค้นเจอสินค้าตัวเดิม');
+  assert.equal(await page.locator('.prodtable .prod-unit-select').inputValue(), 'กล่อง', 'ต้องเลือกหน่วยที่ผูกกับบาร์โค้ดให้อัตโนมัติ');
+  assert.equal(await page.locator('.prodtable .prod-unit-barcode').inputValue(), 'BOX-A-001', 'คอลัมน์บาร์โค้ดต้องแสดงเลขของหน่วยที่ยิง');
+  assert.equal(await page.evaluate(() => products.find(product=>product.id===9103).unit), 'แผง', 'การเลือกหน่วยในตารางต้องไม่เปลี่ยนหน่วยหลักของสินค้า');
   await page.evaluate(() => {
     editingProductId=9101;
     document.getElementById('main').innerHTML=renderProductForm();

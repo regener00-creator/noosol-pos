@@ -4126,6 +4126,14 @@ function findProductByExactCode(q){
   return null;
 }
 
+function selectProductListUnitByExactCode(code){
+  const match=findProductByExactCode(code);
+  if(!match?.product||!match.unitName) return null;
+  const validUnit=productUnitOptions(match.product).some(option=>option.name===match.unitName);
+  if(validUnit) prodRowUnitSel[match.product.id]=match.unitName;
+  return match;
+}
+
 function cashShiftSummary(shift,sales=salesHistory){
   const payments={};
   const payment=name=>payments[name]||(payments[name]={sales:0,refunds:0,net:0,saleCount:0,refundCount:0});
@@ -11483,6 +11491,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
         clearTimeout(listSearchRenderTimer);
         searchQuery=scannerValue;
         productPage=1;
+        selectProductListUnitByExactCode(scannerValue);
         searchEl.value=scannerValue;
         render();
         requestAnimationFrame(()=>{
@@ -11503,6 +11512,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
         listSearchRenderTimer=setTimeout(()=>{
           if(currentTab!==searchTab||document.getElementById('search')!==searchEl) return;
           const selectionStart=searchEl.selectionStart,selectionEnd=searchEl.selectionEnd;
+          if(searchTab==='products') selectProductListUnitByExactCode(searchQuery);
           render();
           restoreSearchInputFocus(selectionStart,selectionEnd);
         },120);
