@@ -2248,6 +2248,9 @@ function setMedicineLabelSize(value){
 function isProductActive(product){
   return Boolean(product)&&product.active!==false;
 }
+function isProductDataReviewed(product){
+  return Boolean(String(product?.dataReviewedAt||'').trim());
+}
 function activeProducts(productList=products){
   return (productList||[]).filter(isProductActive);
 }
@@ -5829,11 +5832,12 @@ function renderProducts(){
           const unitOpts=[{sub:p.unit, price:p.price, cost:p.cost||p.openingCost||0, barcode:p.barcode||''}, ...((p.units||[]).map(u=>({sub:u.sub, price:u.price, cost:u.cost||0, barcode:u.barcode||''})))];
           const selUnit=prodRowUnitSel[p.id]||p.unit;
           const selOpt=unitOpts.find(u=>u.sub===selUnit)||unitOpts[0];
+          const dataReviewed=isProductDataReviewed(p);
           const unitSelectHtml = unitOpts.length>1
             ? `<select class="prod-unit-select" data-pid="${p.id}">${unitOpts.map(u=>`<option value="${escapeHtml(u.sub)}" ${u.sub===selOpt.sub?'selected':''}>${escapeHtml(u.sub)}</option>`).join('')}</select>`
             : `<span class="prod-unit-fixed">${escapeHtml(p.unit)}</span>`;
           const lotCount=inventoryLotCount(p.id,activeWarehouseId);
-          return `<tr class="${isProductActive(p)?'':'product-inactive-row'}"><td class="mono" style="text-align:center;"><input class="prod-inline-edit" data-pid="${p.id}" data-field="sku" value="${escapeHtml(p.sku||'')}" placeholder="-"></td><td class="mono" style="text-align:center;"><input class="prod-inline-edit prod-inline-barcode prod-unit-barcode" data-pid="${p.id}" data-field="barcode" data-unit="${escapeHtml(selOpt.sub)}" value="${escapeHtml(selOpt.barcode||'')}" placeholder="-" autocomplete="off" aria-label="บาร์โค้ดหน่วย ${escapeHtml(selOpt.sub)}"></td><td><input class="prod-inline-edit prod-inline-name" data-pid="${p.id}" data-field="name" value="${escapeHtml(p.name)}">${isProductActive(p)?'':'<span class="product-status-badge">ปิดใช้งาน</span>'}</td><td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="price" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.price}"></td>${canViewCost?`<td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="cost" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.cost}"></td>`:''}<td style="text-align:center;">${unitSelectHtml}</td><td class="num stock-cell ${p.stock<0?'stock-negative':''}" style="text-align:center;" data-act="stockcheck" data-id="${p.id}" title="กดเพื่อดูทุกหน่วย">${escapeHtml(stockInLargestUnit(p))} <span class="stock-caret">▾</span></td><td style="text-align:center;"><button class="product-lot-link ${lotCount?'':'empty'}" data-product-lots="${p.id}">${lotCount} Lot ▾</button></td>${canOpenProductEditor?`<td class="num"><button class="icon-btn" data-act="editproduct" data-id="${p.id}" title="แก้ไข" aria-label="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></td>`:''}</tr>`;
+          return `<tr class="${isProductActive(p)?'':'product-inactive-row'} ${dataReviewed?'product-reviewed-row':''}"><td class="mono" style="text-align:center;"><input class="prod-inline-edit" data-pid="${p.id}" data-field="sku" value="${escapeHtml(p.sku||'')}" placeholder="-"></td><td class="mono" style="text-align:center;"><input class="prod-inline-edit prod-inline-barcode prod-unit-barcode" data-pid="${p.id}" data-field="barcode" data-unit="${escapeHtml(selOpt.sub)}" value="${escapeHtml(selOpt.barcode||'')}" placeholder="-" autocomplete="off" aria-label="บาร์โค้ดหน่วย ${escapeHtml(selOpt.sub)}"></td><td><input class="prod-inline-edit prod-inline-name" data-pid="${p.id}" data-field="name" value="${escapeHtml(p.name)}">${isProductActive(p)?'':'<span class="product-status-badge">ปิดใช้งาน</span>'}</td><td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="price" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.price}"></td>${canViewCost?`<td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="cost" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.cost}"></td>`:''}<td style="text-align:center;">${unitSelectHtml}</td><td class="num stock-cell ${p.stock<0?'stock-negative':''}" style="text-align:center;" data-act="stockcheck" data-id="${p.id}" title="กดเพื่อดูทุกหน่วย">${escapeHtml(stockInLargestUnit(p))} <span class="stock-caret">▾</span></td><td style="text-align:center;"><button class="product-lot-link ${lotCount?'':'empty'}" data-product-lots="${p.id}">${lotCount} Lot ▾</button></td>${canOpenProductEditor?`<td class="num"><div class="product-row-actions"><button class="icon-btn" data-act="editproduct" data-id="${p.id}" title="แก้ไข" aria-label="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="icon-btn product-reviewed-toggle ${dataReviewed?'active':''}" data-toggle-product-reviewed="${p.id}" title="${dataReviewed?'ยกเลิกสถานะข้อมูลครบถ้วน':'ทำเครื่องหมายว่าข้อมูลครบถ้วน'}" aria-label="${dataReviewed?'ยกเลิกสถานะข้อมูลครบถ้วน':'ทำเครื่องหมายว่าข้อมูลครบถ้วน'}" aria-pressed="${dataReviewed?'true':'false'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg></button></div></td>`:''}</tr>`;
         }).join('')||`<tr><td colspan="${productColumnCount}" style="text-align:center;color:var(--text-muted);padding:30px;">${q?'ไม่พบสินค้าที่ค้นหา':selectedGroup?'ไม่มีสินค้าในกลุ่มนี้':'กรุณาเลือกกลุ่มสินค้าจากด้านซ้าย หรือค้นหาสินค้าได้ทันที'}</td></tr>`}</tbody></table>
         </div>
         ${pager}
@@ -12382,6 +12386,32 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     nat.addEventListener('change', ()=>{
       const txt=document.getElementById(nat.dataset.target);
       if(txt){ txt.value=isoToDMY(nat.value); txt.dispatchEvent(new Event('change')); }
+    });
+  });
+  document.querySelectorAll('[data-toggle-product-reviewed]').forEach(button=>{
+    button.addEventListener('click',async()=>{
+      const pid=Number(button.dataset.toggleProductReviewed);
+      const product=products.find(item=>Number(item.id)===pid);
+      if(!product) return;
+      const previousAt=product.dataReviewedAt;
+      const previousBy=product.dataReviewedBy;
+      const wasReviewed=isProductDataReviewed(product);
+      button.disabled=true;
+      if(wasReviewed){ delete product.dataReviewedAt; delete product.dataReviewedBy; }
+      else{
+        product.dataReviewedAt=new Date().toISOString();
+        product.dataReviewedBy=currentPharmacistName()||String(loggedInUser()?.username||'').trim();
+      }
+      const cached=await persistWorkspaceData({productChanges:{updatedIds:[pid]}});
+      if(!cached){
+        if(previousAt===undefined) delete product.dataReviewedAt; else product.dataReviewedAt=previousAt;
+        if(previousBy===undefined) delete product.dataReviewedBy; else product.dataReviewedBy=previousBy;
+        showToast('บันทึกสถานะตรวจข้อมูลไม่สำเร็จ กรุณาลองใหม่','danger-top');
+        render();
+        return;
+      }
+      showToast(wasReviewed?'ยกเลิกสถานะข้อมูลครบถ้วนแล้ว':'ทำเครื่องหมายว่าข้อมูลครบถ้วนแล้ว');
+      render();
     });
   });
   // แก้ไขข้อมูลสินค้าแบบอินไลน์ในหน้ารายการสินค้า (รหัส/ชื่อ/ราคา/ทุน/วันหมดอายุของคลังที่ใช้งาน)

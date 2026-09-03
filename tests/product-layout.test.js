@@ -38,6 +38,9 @@ assert.match(source, /barcode:p\.barcode\|\|''[^]*barcode:u\.barcode\|\|''/, '�
 assert.match(source, /class="prod-inline-edit prod-inline-barcode prod-unit-barcode"[^]*data-field="barcode"[^]*data-unit="\$\{escapeHtml\(selOpt\.sub\)\}"[^]*value="\$\{escapeHtml\(selOpt\.barcode\|\|''\)\}"/, 'แถวสินค้าต้องแก้บาร์โค้ดของหน่วยที่เลือกได้');
 assert.match(html, /field==='barcode'[^]*barcodePrintBarcodeOwners\(\)\.find[^]*unitRow\.barcode=requested;[^]*p\.barcode=requested;/, 'การแก้บาร์โค้ดต้องตรวจเลขซ้ำและบันทึกลงหน่วยที่เลือก');
 assert.match(html, /\.prodtable \.col-barcode\{width:170px;\}/, 'คอลัมน์บาร์โค้ดต้องมีความกว้างอ่านเลขได้ชัดเจน');
+assert.match(source, /data-toggle-product-reviewed="\$\{p\.id\}"[^]*aria-pressed="\$\{dataReviewed\?'true':'false'\}"/, 'ท้ายแถวสินค้าต้องมีปุ่มติ๊กเพื่อระบุว่าตรวจข้อมูลครบแล้ว');
+assert.match(html, /document\.querySelectorAll\('\[data-toggle-product-reviewed\]'\)[^]*product\.dataReviewedAt=new Date\(\)\.toISOString\(\);[^]*persistWorkspaceData\(\{productChanges:\{updatedIds:\[pid\]\}\}\)/, 'สถานะตรวจข้อมูลต้องบันทึกลงข้อมูลสินค้าและซิงก์ได้');
+assert.match(html, /\.product-reviewed-row>td\{background:#EFF9F1;color:#237A3A;\}/, 'แถวที่ตรวจข้อมูลครบแล้วต้องแสดงพื้นและตัวอักษรสีเขียว');
 assert.match(source, /placeholder="ค้นหาจาก ชื่อ \/ รหัส \/ บาร์โค้ด"/, 'ยังต้องค้นหาด้วยบาร์โค้ดได้');
 assert.match(html, /function restoreSearchInputFocus\(selectionStart,selectionEnd\)/, 'ต้องมีตัวช่วยคืนโฟกัสและตำแหน่งเคอร์เซอร์ให้ช่องค้นหา');
 assert.match(html, /if\(e\.isComposing\) return;[^]*restoreSearchInputFocus\(selectionStart,selectionEnd\);/, 'ช่องค้นหาต้องไม่วาดหน้าใหม่ระหว่างประกอบอักษร และต้องคืนโฟกัสหลังกรองข้อมูล');
