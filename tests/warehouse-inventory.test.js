@@ -4,11 +4,12 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const html = require("./load-app-source")();
-const start = html.indexOf("const ACTIVE_WAREHOUSE_SESSION_KEY=");
+const start = html.indexOf("const ACTIVE_WAREHOUSE_STORAGE_KEY=");
 const end = html.indexOf('function productToRow(', start);
 assert.ok(start >= 0 && end > start, 'ไม่พบ logic แยกสต๊อกตามคลัง');
 
 const session = new Map();
+const persistent = new Map();
 const products = [{id:10,name:'ยา A',stock:99,expiry:'2028-01-01'}];
 const sandbox = {
   currentProfile: {id:'owner-1',owner:true},
@@ -24,6 +25,12 @@ const sandbox = {
   sessionStorage:{
     getItem:key=>session.get(key) ?? null,
     setItem:(key,value)=>session.set(key,String(value)),
+    removeItem:key=>session.delete(key),
+  },
+  localStorage:{
+    getItem:key=>persistent.get(key) ?? null,
+    setItem:(key,value)=>persistent.set(key,String(value)),
+    removeItem:key=>persistent.delete(key),
   },
 };
 vm.createContext(sandbox);
@@ -48,6 +55,9 @@ assert.equal(sandbox.stockReportCatFilter.wh,'all');
 assert.equal(sandbox.selectActiveWarehouse(2),true);
 assert.equal(sandbox.getAllWarehousesMode(),false);
 assert.equal(sandbox.getActiveWarehouseId(),2);
+assert.equal(persistent.get('pepos_active_warehouse_v1:owner-1'),'2','คลังที่เลือกต้องถูกจำไว้แม้ปิดแล้วเปิดแอปใหม่');
+assert.equal(sandbox.clearActiveWarehouseSelection({id:'owner-1'}),undefined);
+assert.equal(persistent.has('pepos_active_warehouse_v1:owner-1'),false,'การออกจากระบบต้องล้างคลังที่จำไว้ของบัญชีนั้น');
 assert.equal(products[0].stock,4);
 assert.equal(products[0].expiry,'2029-02-03');
 assert.equal(sandbox.cart.length,0,'เปลี่ยนคลังต้องล้างบิลค้าง');

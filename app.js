@@ -1,7 +1,9 @@
 // ===== Supabase Auth wiring (replaces plaintext systemUsers login) =====
 const SUPABASE_URL = 'https://tgwqmpvdjyxwivjxceoq.supabase.co';
 const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_Lo0ABFMvYp8IqceZ3DLIow_jrMv1V8j';
-const sb = window.supabase?.createClient ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY) : null;
+const sb = window.supabase?.createClient ? window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+  auth:{persistSession:true,autoRefreshToken:true}
+}) : null;
 const EDGE_FUNCTIONS_URL = SUPABASE_URL + '/functions/v1';
 const XLSX_SCRIPT_URL='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
 let xlsxLoadPromise=null;
@@ -261,7 +263,7 @@ function mapProfileRow(row){
 // ----- Core data sync: warehouses, products, contacts, sales reps -----
 // Queryable fields live in real columns; `data` keeps only additional metadata.
 // Local arrays remain the UI model while incremental sync sends changed rows.
-const ACTIVE_WAREHOUSE_SESSION_KEY='pepos_active_warehouse_v1';
+const ACTIVE_WAREHOUSE_STORAGE_KEY='pepos_active_warehouse_v1';
 let activeWarehouseId=0;
 let allWarehousesMode=false;
 let warehouseAccessRows=[];
@@ -401,9 +403,20 @@ async function loadInventoryLotsFromSupabase(){
   rebuildInventoryLotMap();
   return true;
 }
+function activeWarehouseStorageKey(profile=currentProfile){ return `${ACTIVE_WAREHOUSE_STORAGE_KEY}:${profile?.id||''}`; }
+function clearActiveWarehouseSelection(profile=currentProfile){
+  const key=activeWarehouseStorageKey(profile);
+  try{ localStorage.removeItem(key); }catch(error){}
+  try{ sessionStorage.removeItem(key); }catch(error){}
+}
 function restoreActiveWarehouseSelection(){
   let stored='';
-  try{ stored=String(sessionStorage.getItem(`${ACTIVE_WAREHOUSE_SESSION_KEY}:${currentProfile?.id||''}`)||''); }catch(error){}
+  const key=activeWarehouseStorageKey();
+  try{ stored=String(localStorage.getItem(key)||''); }catch(error){}
+  if(!stored){
+    try{ stored=String(sessionStorage.getItem(key)||''); }catch(error){}
+    if(stored){ try{ localStorage.setItem(key,stored); }catch(error){} }
+  }
   const allowed=accessibleWarehouses();
   allWarehousesMode=stored==='all'&&canUseAllWarehousesMode();
   const storedId=Number(stored)||0;
@@ -416,7 +429,7 @@ function selectActiveWarehouse(warehouseId){
     if(!canUseAllWarehousesMode()) return false;
     allWarehousesMode=true;
     activeWarehouseId=Number(allowed[0]?.id)||0;
-    try{ sessionStorage.setItem(`${ACTIVE_WAREHOUSE_SESSION_KEY}:${currentProfile?.id||''}`,'all'); }catch(error){}
+    try{ localStorage.setItem(activeWarehouseStorageKey(),'all'); }catch(error){}
     applyActiveWarehouseInventory();
     resetWarehouseScopedUiState('all');
     return true;
@@ -425,7 +438,7 @@ function selectActiveWarehouse(warehouseId){
   if(!selected) return false;
   allWarehousesMode=false;
   activeWarehouseId=Number(selected.id);
-  try{ sessionStorage.setItem(`${ACTIVE_WAREHOUSE_SESSION_KEY}:${currentProfile?.id||''}`,String(activeWarehouseId)); }catch(error){}
+  try{ localStorage.setItem(activeWarehouseStorageKey(),String(activeWarehouseId)); }catch(error){}
   applyActiveWarehouseInventory();
   resetWarehouseScopedUiState(String(activeWarehouseId));
   return true;
@@ -2858,6 +2871,13 @@ let mobileScanDecodedSounds={success:null,error:null};
 let mobileScanDecodePromises={success:null,error:null};
 let mobileScanSoundUnlockAttached=false;
 let mobileCameraSession=null;
+function prepareMobileLandingPage(){
+  mobileToolMode='price';
+  mobileInventoryStep='inspection';
+  mobilePriceQuery=''; mobilePriceProductId=null; mobilePriceUnitName=''; mobilePriceLotId=null;
+  mobileInspectionQuery=''; mobileInspectionLastProductId=null; mobileInspectionVisibleCount=25;
+  mobileStockQuery=''; mobileStockLastProductId=null;
+}
 let deferredPwaInstallPrompt = null;
 // รายการและตัวกรองของหน้าแก้ไขสต๊อก (แยกจากรายงานสินค้าคงเหลือโดยเด็ดขาด)
 let stockEditItems = [];
@@ -3313,7 +3333,7 @@ function requestWarehouseChange(){
   if(readPendingCheckoutRequest()){ showToast('มีรายการชำระที่ยังรอยืนยัน กรุณากดชำระซ้ำให้เสร็จก่อนเปลี่ยนคลัง','danger-top'); return; }
   if(cart.length&&!confirm('มีสินค้าอยู่ในบิล การเปลี่ยนคลังจะล้างบิลปัจจุบัน ยืนยันเปลี่ยนคลังหรือไม่?')) return;
   activeWarehouseId=0; allWarehousesMode=false; cashShifts=[]; currentCashShift=null;
-  try{ sessionStorage.removeItem(`${ACTIVE_WAREHOUSE_SESSION_KEY}:${currentProfile?.id||''}`); }catch(error){}
+  clearActiveWarehouseSelection();
   render();
 }
 async function createInitialOwner(event){
@@ -3387,6 +3407,7 @@ async function loginSystem(event){
     if(error) error.textContent='ไม่พบข้อมูลผู้ใช้งานนี้ในระบบ กรุณาติดต่อเจ้าของร้าน';
     return;
   }
+  if(isMobileDeviceMode()) prepareMobileLandingPage();
   if(error) error.textContent='';
   await loadWorkspaceFromSupabase();
   render();
@@ -3399,6 +3420,7 @@ async function logoutSystem(){
     render();
     return false;
   }
+  clearActiveWarehouseSelection();
   await sb.auth.signOut();
   currentProfile=null;
   clearLoadedHistoryMemory();
@@ -16805,7 +16827,7 @@ document.getElementById('warehouseChoiceForm')?.addEventListener('submit',event=
 document.getElementById('warehouseChoiceLogout')?.addEventListener('click',logoutSystem);
 
 sb.auth.onAuthStateChange((event)=>{
-  if(event==='SIGNED_OUT'){ currentProfile=null; clearLoadedHistoryMemory(); notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false; activeWarehouseId=0; allWarehousesMode=false; renderLoginState(); }
+  if(event==='SIGNED_OUT'){ clearActiveWarehouseSelection(); currentProfile=null; clearLoadedHistoryMemory(); notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false; activeWarehouseId=0; allWarehousesMode=false; renderLoginState(); }
 });
 
 let mobileViewportResizeTimer=null;
@@ -16877,6 +16899,7 @@ window.addEventListener('error',event=>notifyRuntimeError('โปรแกรม
     systemHasOwner = ownerErr ? true : !!ownerCheck; // default to "true" (login screen) if the check itself fails
   }catch(e){ systemHasOwner = true; }
   try{ await loadCurrentProfile(); }catch(e){ currentProfile=null; }
+  if(currentProfile&&isMobileDeviceMode()) prepareMobileLandingPage();
   if(currentProfile){ try{ await loadWorkspaceFromSupabase(); }catch(e){ console.warn('load core data on boot failed',e); } }
   render();
 })();
