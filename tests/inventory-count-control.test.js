@@ -10,7 +10,7 @@ const indexMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations',
 const sequenceMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260826025849_reseed_inventory_sequences.sql'), 'utf8');
 const negativeStockMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260826030155_allow_negative_recorded_count_stock.sql'), 'utf8');
 
-assert.match(html, /\['stockcontrol','ตรวจนับและปรับสต๊อก'/);
+assert.match(html, /\['stockcontrol','ตรวจนับ \/ ปรับสต๊อก'/);
 assert.doesNotMatch(html, /\['inspectionlists','ตรวจสินค้า'/);
 assert.doesNotMatch(html, /\['stockedit','แก้ไขสต๊อก'/);
 assert.doesNotMatch(html, /\['stockadjust','สินค้าติดลบ'/);

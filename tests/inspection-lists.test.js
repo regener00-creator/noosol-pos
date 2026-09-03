@@ -243,7 +243,7 @@ assert.deepEqual(Array.from(context.mobileInspectionSavedAddItems,item=>({pid:it
 assert.equal(context.addProductToMobileInspectionSavedDraft(products[0],'กล่อง'),false,'สินค้าที่รอเพิ่มแล้วต้องไม่ซ้ำ');
 assert.equal(context.addProductToMobileInspectionSavedDraft(products[1],'ขวด'),false,'สินค้าที่อยู่ในรายการเดิมต้องไม่ซ้ำ');
 
-assert.match(html, /\['stockcontrol','ตรวจนับและปรับสต๊อก'/);
+assert.match(html, /\['stockcontrol','ตรวจนับ \/ ปรับสต๊อก'/);
 assert.match(html, /inspectionlists:\s*renderInspectionLists/);
 assert.match(html, /from\('inspection_lists'\)\.select\('\*'\)/);
 assert.match(html, /upsertAndPrune\('inspection_lists',inspectionLists,inspectionListToRow\)/);
