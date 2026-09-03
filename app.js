@@ -11466,17 +11466,19 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   const searchEl = document.getElementById('search');
   if(searchEl){
-    let productScannerBurst='';
-    let productScannerLastKeyAt=0;
+    const productSearchStartingValue=String(searchEl.value||'').trim();
     searchEl.addEventListener('keydown',e=>{
       if(currentTab!=='products'||e.isComposing) return;
-      const now=Date.now();
       if(e.key==='Enter'){
-        const scannerValue=productScannerBurst;
-        const scannerLike=scannerValue.length>=4&&now-productScannerLastKeyAt<=120&&/^[A-Za-z0-9._/+:-]+$/.test(scannerValue);
-        productScannerBurst='';
-        productScannerLastKeyAt=0;
-        if(!scannerLike) return;
+        const currentValue=String(searchEl.value||'').trim();
+        const knownSuffix=[...exactProductCodeMap.keys()]
+          .filter(code=>String(code).length>=4&&currentValue.endsWith(String(code)))
+          .sort((left,right)=>String(right).length-String(left).length)[0]||'';
+        const appendedValue=currentValue.startsWith(productSearchStartingValue)&&currentValue.length>productSearchStartingValue.length
+          ?currentValue.slice(productSearchStartingValue.length).trim()
+          :(currentValue!==productSearchStartingValue?currentValue:'');
+        const scannerValue=knownSuffix||(/^[A-Za-z0-9._/+:-]{4,}$/.test(appendedValue)?appendedValue:'');
+        if(!scannerValue) return;
         e.preventDefault();
         clearTimeout(listSearchRenderTimer);
         searchQuery=scannerValue;
@@ -11489,13 +11491,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
         });
         return;
       }
-      if(e.key.length!==1||e.ctrlKey||e.altKey||e.metaKey){
-        if(!['Shift','CapsLock'].includes(e.key)){ productScannerBurst=''; productScannerLastKeyAt=0; }
-        return;
-      }
-      if(!productScannerLastKeyAt||now-productScannerLastKeyAt>75) productScannerBurst=e.key;
-      else productScannerBurst+=e.key;
-      productScannerLastKeyAt=now;
     });
     searchEl.addEventListener('input',e=>{
       searchQuery=e.target.value;

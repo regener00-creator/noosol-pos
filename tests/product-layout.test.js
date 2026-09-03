@@ -43,8 +43,9 @@ assert.match(html, /function restoreSearchInputFocus\(selectionStart,selectionEn
 assert.match(html, /if\(e\.isComposing\) return;[^]*restoreSearchInputFocus\(selectionStart,selectionEnd\);/, 'ช่องค้นหาต้องไม่วาดหน้าใหม่ระหว่างประกอบอักษร และต้องคืนโฟกัสหลังกรองข้อมูล');
 assert.match(html, /listSearchRenderTimer=setTimeout\(\(\)=>\{[^]*\},120\);/, 'การกรองรายการต้องรอให้ผู้ใช้หยุดพิมพ์ช่วงสั้น ๆ เพื่อไม่ให้ตัวอักษรหาย');
 assert.match(html, /if\(currentTab!==['"]products['"]\|\|e\.isComposing\) return;/, 'การตรวจจับเครื่องยิงต้องทำงานเฉพาะหน้ารายการสินค้า');
-assert.match(html, /const scannerLike=scannerValue\.length>=4&&now-productScannerLastKeyAt<=120/, 'ต้องแยกชุดอักขระที่เครื่องยิงส่งมาอย่างรวดเร็วออกจากการพิมพ์ทั่วไป');
-assert.match(html, /\^\[A-Za-z0-9/, 'ชุดที่ตรวจว่าเป็นบาร์โค้ดต้องจำกัดเป็นอักขระที่บาร์โค้ดใช้ได้');
+assert.match(html, /const productSearchStartingValue=String\(searchEl\.value\|\|''\)\.trim\(\)/, 'ต้องจำข้อความเดิมก่อนรับค่าจากเครื่องยิง');
+assert.match(html, /const knownSuffix=\[\.\.\.exactProductCodeMap\.keys\(\)\][^]*currentValue\.endsWith/, 'ต้องตรวจบาร์โค้ดที่รู้จักจากท้ายข้อความโดยไม่ผูกกับความเร็วเครื่องยิง');
+assert.match(html, /currentValue\.slice\(productSearchStartingValue\.length\)\.trim\(\)/, 'ต้องแยกค่าที่เครื่องยิงต่อท้ายข้อความค้นหาเดิม');
 assert.match(html, /searchQuery=scannerValue;[^]*searchEl\.value=scannerValue;[^]*nextSearch\.select\(\);/, 'บาร์โค้ดใหม่ต้องแทนข้อความค้นหาเดิมและพร้อมรับการยิงครั้งถัดไป');
 
 const renderStart = html.indexOf('function render(){');
