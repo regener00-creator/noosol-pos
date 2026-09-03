@@ -3721,20 +3721,22 @@ function expiryBadge(expiry){
 
 // ---------- Sidebar ----------
 const NAV = [
-  {section:'', items:[
+  {section:'ทั่วไป', items:[
     ['dashboard','DASHBOARD','<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>'],
+    ['notes','NOTE','<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/>'],
   ]},
   {section:'ขาย', items:[
     ['checkout','POS','<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.2a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 7H6"/>'],
-    ['notes','NOTE','<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/>'],
     ['cashshift','เปิด-ปิดระบบชำระ','<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2M7 3l-2 2M17 3l2 2"/>'],
     ['history','ประวัติการขาย / ใบเสร็จ','<path d="M3 3v6h6"/><path d="M3.5 13a9 9 0 1 0 2-6.6L3 9"/><path d="M12 7v5l3 3"/>'],
     ['promotions','โปรโมชั่น','<path d="M20.59 13.41 11 22H2v-9L11.41 3.59a2 2 0 0 1 2.83 0l6.35 6.35a2 2 0 0 1 0 2.83zM7 8h.01"/><circle cx="7.5" cy="7.5" r="1.5"/>'],
   ]},
-  {section:'ซื้อ', items:[
+  {section:'ซื้อและรับสินค้า', items:[
     ['purchaseorder','สั่งของขาด','<path d="M3 3h3l2.4 12.2a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 7H6"/>'],
+    ['purchaseorder2','ใบสั่งซื้อสินค้า','<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>'],
     ['goodsreceipt','รับเข้าสินค้า','<path d="M21 8L12 3 3 8"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13V3"/>'],
     ['productexchange','เปลี่ยนสินค้า','<path d="M7 7h11l-3-3"/><path d="M18 7l-3 3"/><path d="M17 17H6l3 3"/><path d="M6 17l3-3"/>'],
+    ['productreturn','ใบคืนสินค้า','<path d="M3 7h13a5 5 0 0 1 0 10H8"/><path d="M8 13l-4 4 4 4"/><path d="M4 17h12"/>'],
   ]},
   {section:'คลัง & สินค้า', items:[
     ['products','รายการสินค้า','<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/>'],
@@ -3746,12 +3748,10 @@ const NAV = [
     ['contacts','ลูกค้า / ผู้จำหน่าย','<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>'],
     ['salesreps','รายชื่อผู้แทน','<circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1"/><path d="M16 5h5M18.5 2.5v5"/>'],
   ]},
-  {section:'ใบรายการ', items:[
+  {section:'เอกสารขาย', items:[
     ['cashbill','บิลเงินสด','<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M8 8h8M8 12h8M8 16h5"/>'],
     ['taxinvoice','ใบกำกับภาษีเต็มรูปแบบ','<path d="M4 3h16v18H4z"/><path d="M8 8h8M8 12h8M8 16h5"/>'],
     ['quotation','ใบเสนอราคา','<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h5"/>'],
-    ['purchaseorder2','ใบสั่งซื้อสินค้า','<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>'],
-    ['productreturn','ใบคืนสินค้า','<path d="M3 7h13a5 5 0 0 1 0 10H8"/><path d="M8 13l-4 4 4 4"/><path d="M4 17h12"/>'],
   ]},
   {section:'รายงาน', items:[
     ['inventorymovement','รายการงานเคลื่อนไหว','<path d="M4 7h12"/><path d="M13 4l3 3-3 3"/><path d="M20 17H8"/><path d="M11 14l-3 3 3 3"/>'],

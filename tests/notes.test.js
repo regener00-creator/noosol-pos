@@ -9,10 +9,11 @@ const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '202
 const indexMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260901163154_notes_fk_indexes.sql'), 'utf8');
 
 const nav = app.slice(app.indexOf('const NAV = ['), app.indexOf('function renderSidebar()'));
-const checkoutNav = nav.indexOf("['checkout','POS'");
+const dashboardNav = nav.indexOf("['dashboard','DASHBOARD'");
 const noteNav = nav.indexOf("['notes','NOTE'");
-const cashShiftNav = nav.indexOf("['cashshift','เปิด-ปิดระบบชำระ'");
-assert.ok(checkoutNav >= 0 && noteNav > checkoutNav && noteNav < cashShiftNav, 'NOTE ต้องอยู่ใต้ POS และก่อนเมนูเปิด-ปิดระบบชำระ');
+const salesSectionNav = nav.indexOf("{section:'ขาย'");
+assert.ok(nav.includes("{section:'ทั่วไป'"), 'ต้องมีกลุ่มเมนูทั่วไป');
+assert.ok(dashboardNav >= 0 && noteNav > dashboardNav && noteNav < salesSectionNav, 'NOTE ต้องอยู่ถัดจาก DASHBOARD ในกลุ่มทั่วไป');
 
 assert.match(app, /\['checkout','ขายสินค้า'\],\['notes','NOTE'\]/, 'NOTE ต้องอยู่ในตัวเลือกสิทธิ์รายหน้า');
 assert.match(app, /dashboard: renderDashboard, checkout: renderCheckout, notes: renderNotes/, 'NOTE ต้องมี renderer ของตัวเอง');
