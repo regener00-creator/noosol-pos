@@ -5,8 +5,8 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
-const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260901162028_shared_notes.sql'), 'utf8');
-const indexMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260901163257_notes_fk_indexes.sql'), 'utf8');
+const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260901162858_shared_notes.sql'), 'utf8');
+const indexMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260901163154_notes_fk_indexes.sql'), 'utf8');
 
 const nav = app.slice(app.indexOf('const NAV = ['), app.indexOf('function renderSidebar()'));
 const checkoutNav = nav.indexOf("['checkout','POS'");
