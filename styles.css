@@ -1263,7 +1263,7 @@
   .fav-card .fav-price{font-size:13.5px;color:var(--primary);font-weight:600;}
   .fav-empty{color:var(--text-muted);font-size:13px;padding:8px 0;}
   .sumdiscount{display:flex;align-items:center;gap:10px;}
-  .pos-footer{display:grid;grid-template-columns:auto 1fr;gap:10px;}
+  .pos-footer{display:grid;grid-template-columns:1fr auto;gap:10px;}
   .pos-footer .pos-fbtn.pay{grid-column:1 / -1;}
   .pos-fbtn{padding:14px;border-radius:10px;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);}
   .pos-fbtn.danger{color:var(--danger);border-color:var(--danger-soft);background:var(--danger-soft);display:flex;align-items:center;justify-content:center;}

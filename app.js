@@ -4284,7 +4284,7 @@ function renderCheckout(){
   return `${shiftBanner}
     <div class="pos-searchrow">
       <div class="pos-search"><span class="pos-bc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg></span><input id="search" placeholder="ค้นหาสินค้า / รหัส / สแกนบาร์โค้ด (ctrl + Q)" value="${escapeHtml(searchQuery)}" autocomplete="off"></div>
-      <button class="pos-smallest-unit-btn ${posSmallestUnitOnce?'active':''}" id="posSmallestUnitBtn" type="button" aria-pressed="${posSmallestUnitOnce?'true':'false'}"><span>หน่วยเล็กสุด</span><kbd>Home</kbd></button>
+      <button class="pos-smallest-unit-btn ${posSmallestUnitOnce?'active':''}" id="posSmallestUnitBtn" type="button" aria-pressed="${posSmallestUnitOnce?'true':'false'}"><kbd>Home</kbd><span>หน่วยเล็กสุด</span></button>
     </div>
     ${posSmallestUnitOnce?'<div class="pos-smallest-unit-status"><span class="pos-smallest-unit-status-dot"></span><strong>พร้อมขายหน่วยเล็กสุด</strong><span>ยิงหรือเลือกสินค้า 1 รายการ · กด Home หรือ Esc เพื่อยกเลิก</span></div>':''}
     ${searchQuery ? renderSearchResults() : ''}
@@ -4309,8 +4309,8 @@ function renderCheckout(){
           <div class="sumrow grand"><span>ยอดชำระ</span><span class="mono" id="posGrandValue">${fmtMoney(grand)}</span></div>
         </div>
         <div class="pos-footer">
-          <button class="pos-fbtn danger" id="clearBillBtn" title="ยกเลิกออเดอร์นี้" aria-label="ยกเลิกออเดอร์"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></button>
           <button class="pos-fbtn hold" id="holdBtn">พักออเดอร์</button>
+          <button class="pos-fbtn danger" id="clearBillBtn" title="ยกเลิกออเดอร์นี้" aria-label="ยกเลิกออเดอร์"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></button>
           <button class="pos-fbtn pay" id="checkoutBtn" ${cart.length===0||!currentCashShift||checkoutInFlight?'disabled':''}>[F2] เก็บเงิน</button>
         </div>
         ${promoHints.length?`<div class="pos-promo-hints">${promoHints.map(h=>`<div class="pos-promo-hint"><div class="pos-promo-hint-head">💡 ${escapeHtml(h.name)} - ${escapeHtml(h.unit)}</div><div class="pos-promo-hint-body"><div><span>ชื่อโปร:</span> ${escapeHtml(h.promoName)}</div><div><span>ผลลัพธ์:</span> ${escapeHtml(h.note)}</div><div class="pos-promo-hint-nudge">ซื้อเพิ่มอีก ${h.needMore} ${escapeHtml(h.unit)} เพื่อรับสิทธิ์โปรโมชั่นนี้</div></div></div>`).join('')}</div>`:''}
