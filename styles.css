@@ -2022,7 +2022,7 @@
     .note-editor-footer>div{justify-content:flex-end;}
   }
 
-  .representative-history-page{max-width:1500px;margin:0 auto;}
+  .representative-history-page{width:100%;max-width:none;margin:0;}
   .representative-history-page .pagehead p{margin:5px 0 0;color:var(--text-muted);}
   .representative-history-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px;}
   .representative-history-summary>div{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 18px;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:0 5px 18px rgba(79,64,56,.05);}

@@ -78,6 +78,15 @@ let browser;
   assert.match(await page.locator('.representative-group-card').textContent(), /NOTE 1 : เล่นรายการทอง/);
   assert.match(await page.locator('.representative-group-card').textContent(), /วันที่ 04-09-2026/);
   assert.match(await page.locator('.representative-group-card').textContent(), /NOTE 2 : ซื้อครบไปเที่ยวฟรี/);
+  const historyPageWidth=await page.locator('.representative-history-page').evaluate(element=>{
+    const parent=element.parentElement;
+    const parentStyle=getComputedStyle(parent);
+    return {
+      actual:Math.round(element.getBoundingClientRect().width),
+      available:Math.round(parent.clientWidth-parseFloat(parentStyle.paddingLeft)-parseFloat(parentStyle.paddingRight))
+    };
+  });
+  assert.ok(Math.abs(historyPageWidth.actual-historyPageWidth.available)<=2,'representative history must use the full content width like purchase orders');
 
   await page.locator('#newRepresentativeActivityBtn').click();
   assert.equal(await page.locator('#repActivityRepresentative').inputValue(), '10');

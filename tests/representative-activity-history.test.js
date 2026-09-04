@@ -45,6 +45,7 @@ assert.match(historyRender, /id="representativeHistoryNoteSearch"/);
 assert.match(historyRender, /ค้นหาจาก NOTE/);
 assert.doesNotMatch(historyRender, /representativeHistoryTypeFilter|ทุกประเภท|โปรโมชั่นที่ยังใช้ได้|ถึงกำหนดติดตาม/);
 assert.match(html, /\.representative-groups-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+assert.match(html, /\.representative-history-page\{width:100%;max-width:none;margin:0;\}/);
 assert.match(html, /data-open-representative-history=/);
 assert.match(html, /data-open-product-history=/);
 assert.match(html, /รายการสินค้าที่ดูแลมี/);
