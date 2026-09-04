@@ -970,6 +970,24 @@
   .payment-actions{display:flex;justify-content:flex-end;gap:12px;border-top:1px solid var(--border);padding:14px 24px 20px;}
   .payment-actions .btn{min-width:150px;}
   .payment-actions .save-payment{background:#80C91C;color:#fff;}
+  .void-sale-modal{width:520px;max-height:92vh;}
+  .void-sale-modal .modal-head{border-bottom:1px solid var(--border);padding:20px 22px 14px;}
+  .void-sale-modal .modal-head h3{font-size:21px;}
+  .void-sale-modal .modal-head .sub{font-size:12px;color:var(--text-muted);margin-top:4px;}
+  .void-sale-body{display:grid;gap:14px;padding:18px 22px;overflow-y:auto;}
+  .void-sale-summary{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px 18px;padding:14px 16px;border:1px solid var(--border);border-radius:12px;background:var(--primary-soft);}
+  .void-sale-summary span{color:var(--text-muted);font-size:13px;}
+  .void-sale-summary strong{font-size:20px;color:var(--danger);}
+  .void-sale-summary b{font-size:14px;}
+  .void-sale-receipt-note{display:grid;gap:3px;padding:13px 15px;border:1px solid #F0D39D;border-radius:11px;background:#FFF8E8;color:#7B5716;}
+  .void-sale-receipt-note span{font-size:13px;}
+  .void-sale-receipt-note small{font-size:12px;line-height:1.5;}
+  .void-sale-reason{display:grid;gap:7px;font-size:13px;font-weight:700;color:var(--text);}
+  .void-sale-reason b{color:var(--danger);}
+  .void-sale-reason textarea{width:100%;min-height:104px;resize:vertical;border:1px solid var(--border);border-radius:10px;padding:12px 13px;font:inherit;font-weight:400;color:var(--text);background:var(--surface);box-sizing:border-box;}
+  .void-sale-reason textarea:focus{outline:none;border-color:#2497D3;box-shadow:0 0 0 3px rgba(36,151,211,.12);}
+  .void-sale-warning{font-size:12px;line-height:1.6;color:var(--text-muted);}
+  @media(max-width:600px){.void-sale-modal{width:min(94vw,520px)}.void-sale-modal .payment-actions{padding:12px 18px 18px}.void-sale-modal .payment-actions .btn{min-width:0;flex:1}}
   @media(max-width:760px){.payment-summary,.payment-row{grid-template-columns:1fr}.payment-row>label{padding-top:0}.payment-radio{flex-direction:column;align-items:flex-start;gap:8px}}
   .doc-list tbody tr.selected td{background:#F5EFEC;}
   .doc-bulkbar{display:flex;align-items:center;gap:12px;margin:0 0 12px;padding:2px 0;}

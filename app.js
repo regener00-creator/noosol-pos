@@ -15841,30 +15841,63 @@ async function deleteSaleHistory(id,onDeleted){
   }
 }
 
+function openVoidSaleReasonModal(sale,onVoided){
+  document.querySelector('.void-sale-overlay')?.remove();
+  const receiptMeta=sale.shortReceiptMeta;
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay void-sale-overlay';
+  overlay.innerHTML=`<div class="modal void-sale-modal" role="dialog" aria-modal="true" aria-labelledby="voidSaleTitle">
+    <div class="modal-head"><div><h3 id="voidSaleTitle">ยกเลิกบิลและคืนสต๊อก</h3><div class="sub">เลขที่บิล ${escapeHtml(sale.ref||sale.id)}</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div>
+    <form id="voidSaleForm">
+      <div class="void-sale-body">
+        <div class="void-sale-summary"><span>ยอดที่ยกเลิก</span><strong>${fmtMoney(sale.total)} บาท</strong><span>วิธีชำระ</span><b>${escapeHtml(sale.payMethod||'-')}</b></div>
+        ${receiptMeta?`<div class="void-sale-receipt-note"><b>ออกใบเสร็จอย่างย่อแล้ว</b><span>${escapeHtml(shortReceiptNumber(sale))} · พิมพ์ ${receiptMeta.printLog?.length||0} ครั้ง</span><small>ระบบจะเก็บใบเสร็จเดิมไว้เป็นประวัติ และเปลี่ยนบิลนี้เป็นสถานะยกเลิก</small></div>`:''}
+        <label class="void-sale-reason" for="voidSaleReason"><span>เหตุผลการยกเลิกบิล <b>*</b></span><textarea id="voidSaleReason" rows="4" maxlength="500" placeholder="เช่น ขายผิดรายการ หรือลูกค้าคืนสินค้า" required></textarea></label>
+        <div class="void-sale-warning">เมื่อยืนยัน ระบบจะคืนสินค้าเข้า LOT เดิม บันทึกยอดคืนในกะปัจจุบัน และเก็บผู้ดำเนินการพร้อมเหตุผลไว้ตรวจสอบ</div>
+      </div>
+      <div class="payment-actions"><button class="btn ghost" type="button" id="cancelVoidSaleBtn">ยกเลิก</button><button class="btn" type="submit" id="confirmVoidSaleBtn" style="background:var(--danger);color:#fff;">ยืนยันยกเลิกบิล</button></div>
+    </form>
+  </div>`;
+  document.body.appendChild(overlay);
+  const form=overlay.querySelector('#voidSaleForm');
+  const reasonInput=overlay.querySelector('#voidSaleReason');
+  const submit=overlay.querySelector('#confirmVoidSaleBtn');
+  const close=()=>overlay.remove();
+  overlay.querySelector('.modal-close').onclick=close;
+  overlay.querySelector('#cancelVoidSaleBtn').onclick=close;
+  overlay.addEventListener('click',event=>{ if(event.target===overlay) close(); });
+  form.onsubmit=async event=>{
+    event.preventDefault();
+    const reason=reasonInput.value.trim();
+    if(!reason){ showToast('กรุณาระบุเหตุผลที่ยกเลิกบิล','danger-top'); reasonInput.focus(); return; }
+    submit.disabled=true; submit.textContent='กำลังยกเลิกบิล...';
+    try{
+      const data=await runStockOperation('void_sale',{saleId:sale.id,reason});
+      const index=salesHistory.findIndex(item=>item.id===sale.id);
+      if(index>=0) salesHistory[index]={...salesHistory[index],...(data?.sale||{}),id:sale.id,status:'void',voidShiftId:currentCashShift.id};
+      await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
+      close();
+      if(onVoided) onVoided();
+      showToast(`ยกเลิกบิล ${sale.ref||sale.id} และคืนสต๊อกแล้ว`);
+      render();
+    }catch(error){
+      console.warn('void sale',error);
+      const message=String(error?.message||'');
+      if(message.includes('cash shift required')){ currentCashShift=null; currentTab='cashshift'; await loadCashShiftsFromSupabase(); close(); }
+      const friendly=message.includes('cash shift required')?'ระบบชำระถูกปิดไปแล้ว กรุณาเปิดระบบใหม่':message.includes('no reversible Lot')||message.includes('no reversible')?'บิลเก่านี้ไม่มีข้อมูล LOT ที่เพียงพอสำหรับคืนอัตโนมัติ':message.includes('full tax invoice')||message.includes('issued sales documents')?'บิลนี้มีใบกำกับภาษีเต็มรูปแบบ กรุณาจัดการเอกสารภาษีก่อน':'ยกเลิกบิลไม่สำเร็จ สต๊อกยังไม่ถูกเปลี่ยน กรุณาลองใหม่';
+      showToast(friendly,'danger-top');
+      submit.disabled=false; submit.textContent='ยืนยันยกเลิกบิล';
+    }
+  };
+  setTimeout(()=>reasonInput.focus(),0);
+}
+
 async function voidSaleHistory(id,onVoided){
   if(currentProfile?.owner!==true){ showToast('เฉพาะเจ้าของร้านเท่านั้นที่ยกเลิกบิลได้','danger-top'); return; }
   if(!currentCashShift){ showToast('กรุณาเปิดระบบชำระก่อนยกเลิกบิลและคืนเงิน','danger-top'); currentTab='cashshift'; render(); return; }
   const sale=salesHistory.find(item=>item.id===id); if(!sale||sale.status!=='done') return;
-  if(sale.shortReceiptMeta||sale.fullTaxInvoice){ showToast('บิลนี้ออกเอกสารแล้ว กรุณาจัดการเอกสารก่อนยกเลิกบิล','danger-top'); return; }
-  const reason=prompt(`ระบุเหตุผลที่ยกเลิกบิล ${sale.ref||sale.id}`,'ขายผิดรายการ');
-  if(reason===null) return;
-  if(!reason.trim()){ showToast('กรุณาระบุเหตุผลที่ยกเลิกบิล','danger-top'); return; }
-  if(!confirm(`ยืนยันยกเลิกบิล ${sale.ref||sale.id} หรือไม่?\n\nระบบจะคืนสินค้าเข้า LOT เดิมและเก็บบิลนี้ไว้เป็นประวัติ`)) return;
-  try{
-    const data=await runStockOperation('void_sale',{saleId:sale.id,reason:reason.trim()});
-    const index=salesHistory.findIndex(item=>item.id===sale.id);
-    if(index>=0) salesHistory[index]={...salesHistory[index],...(data?.sale||{}),id:sale.id,status:'void',voidShiftId:currentCashShift.id};
-    await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
-    if(onVoided) onVoided();
-    showToast(`ยกเลิกบิล ${sale.ref||sale.id} และคืนสต๊อกแล้ว`);
-    render();
-  }catch(error){
-    console.warn('void sale',error);
-    const message=String(error?.message||'');
-    if(message.includes('cash shift required')){ currentCashShift=null; currentTab='cashshift'; await loadCashShiftsFromSupabase(); }
-    const friendly=message.includes('cash shift required')?'ระบบชำระถูกปิดไปแล้ว กรุณาเปิดระบบใหม่':message.includes('no reversible Lot')||message.includes('no reversible')?'บิลเก่านี้ไม่มีข้อมูล LOT ที่เพียงพอสำหรับคืนอัตโนมัติ':message.includes('issued sales documents')?'บิลนี้มีเอกสารที่ออกแล้ว กรุณาจัดการเอกสารก่อน':'ยกเลิกบิลไม่สำเร็จ สต๊อกยังไม่ถูกเปลี่ยน กรุณาลองใหม่';
-    showToast(friendly,'danger-top');
-  }
+  if(sale.fullTaxInvoice){ showToast('บิลนี้มีใบกำกับภาษีเต็มรูปแบบ กรุณาจัดการเอกสารภาษีก่อนยกเลิกบิล','danger-top'); return; }
+  openVoidSaleReasonModal(sale,onVoided);
 }
 
 function saleLotCorrectionAllocations(item){
