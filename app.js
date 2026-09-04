@@ -4443,7 +4443,7 @@ function representativeProductsEditorMatches(){
   return matches.sort((a,b)=>{
     const selectedDiff=Number(editor.productIds.has(Number(b.id)))-Number(editor.productIds.has(Number(a.id)));
     return selectedDiff||String(a.name||'').localeCompare(String(b.name||''),'th');
-  }).slice(0,120);
+  }).slice(0,27);
 }
 function representativeProductsEditorRowsHtml(){
   const editor=representativeProductsEditor;
@@ -4457,7 +4457,7 @@ function representativeProductsSelectedHtml(){
   if(!editor) return '';
   const canEdit=canPerformPageAction('edit','salesreps');
   const selected=[...editor.productIds].map(productForActivityId).filter(Boolean).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'th'));
-  return selected.length?selected.map(product=>`<span>${escapeHtml(product.name)}${canEdit?`<button type="button" data-remove-representative-product="${product.id}" aria-label="ลบ ${escapeHtml(product.name)}">×</button>`:''}</span>`).join(''):'<div class="representative-products-empty">ยังไม่ได้เลือกสินค้า</div>';
+  return selected.length?selected.map(product=>`<article class="representative-product-choice representative-product-selected-card"><span><b>${escapeHtml(product.name)}</b><small>${escapeHtml(product.sku||'-')} · ${escapeHtml(product.barcode||'ไม่มีบาร์โค้ด')}</small></span>${canEdit?`<button type="button" data-remove-representative-product="${product.id}" aria-label="ลบ ${escapeHtml(product.name)}">×</button>`:''}</article>`).join(''):'<div class="representative-products-empty">ยังไม่ได้เลือกสินค้า</div>';
 }
 function representativeProductsEditorModalHtml(){
   const editor=representativeProductsEditor;
@@ -4465,7 +4465,7 @@ function representativeProductsEditorModalHtml(){
   const representative=representativeForActivityId(editor.representativeId);
   const canEdit=canPerformPageAction('edit','salesreps');
   return `<div class="modal-overlay representative-products-overlay"><section class="modal representative-products-modal" role="dialog" aria-modal="true" aria-labelledby="representativeProductsTitle"><div class="modal-head"><div><h3 id="representativeProductsTitle">สินค้าที่ดูแล</h3><div class="sub">ผู้แทน ${escapeHtml(representative?.name||'-')} · เลือกแล้ว <b id="representativeProductsSelectedCount">${editor.productIds.size}</b> รายการ</div></div><button class="modal-close" id="closeRepresentativeProductsEditorBtn" type="button" aria-label="ปิด">×</button></div>
-    <div class="representative-products-editor-body"><div class="representative-products-search"><input id="representativeProductsSearch" autocomplete="off" value="${escapeHtml(editor.search)}" placeholder="ค้นหาชื่อสินค้า รหัส หรือยิงบาร์โค้ด"></div><div class="representative-products-selected"><h4>สินค้าที่เลือก</h4><div id="representativeProductsSelectedList">${representativeProductsSelectedHtml()}</div></div><div class="representative-products-options-head"><h4>รายการสินค้า</h4><span>เมื่อไม่ค้นหา จะแสดงเฉพาะสินค้าที่เลือก</span></div><div class="representative-products-options" id="representativeProductsOptions">${representativeProductsEditorRowsHtml()}</div></div>
+    <div class="representative-products-editor-body"><div class="representative-products-search"><input id="representativeProductsSearch" autocomplete="off" value="${escapeHtml(editor.search)}" placeholder="ค้นหาชื่อสินค้า รหัส หรือยิงบาร์โค้ด"></div><div class="representative-products-selected"><h4>สินค้าที่เลือก</h4><div id="representativeProductsSelectedList">${representativeProductsSelectedHtml()}</div></div><div class="representative-products-options-head"><h4>รายการสินค้า</h4><span>แสดงสูงสุด 27 รายการต่อการค้นหา</span></div><div class="representative-products-options" id="representativeProductsOptions">${representativeProductsEditorRowsHtml()}</div></div>
     <div class="representative-products-actions"><button class="btn ghost" id="cancelRepresentativeProductsEditorBtn" type="button">${canEdit?'ยกเลิก':'ปิด'}</button>${canEdit?'<button class="btn primary" id="saveRepresentativeProductsBtn" type="button">บันทึกสินค้าที่ดูแล</button>':''}</div></section></div>`;
 }
 function representativeEditorModalHtml(){
@@ -4554,13 +4554,10 @@ function representativeHistoryNoteHtml(note,index){
 }
 function representativeProfileHtml(group){
   const representative=group.representative;
-  const productsHtml=group.managedProducts.length
-    ?group.managedProducts.map(product=>`<span>${escapeHtml(product.name)}</span>`).join('')
-    :'<span class="muted">-</span>';
   const field=(label,value,className='')=>`<div class="representative-profile-field ${className}"><span>${label}</span><div>${value}</div></div>`;
   return `<section class="representative-profile-panel">
     ${field('ชื่อผู้แทน',`<strong>${escapeHtml(representative.name||'-')}</strong>`,'representative-profile-name')}
-    ${field('สินค้าที่ดูแล',`<button type="button" class="representative-profile-products-trigger" data-manage-representative-products="${representative.id}"><span class="representative-profile-products">${productsHtml}</span><small>กดเพื่อดู เพิ่ม หรือลบสินค้า</small></button>`,'representative-profile-products-field')}
+    ${field('สินค้าที่ดูแล',`<button type="button" class="representative-profile-products-trigger" data-manage-representative-products="${representative.id}">คลิกเพื่อดูสินค้า</button>`,'representative-profile-products-field')}
     ${field('เบอร์โทร',escapeHtml(representative.phone||'-'))}
     ${field('ไลน์',escapeHtml(representative.line||'-'))}
     ${field('บริษัท',escapeHtml(representative.company||'-'))}
