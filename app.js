@@ -1974,6 +1974,7 @@ let contactFilter = 'all'; // all | customer | supplier | both
 let contactPage = 1;
 const CONTACTS_PER_PAGE = 10;
 let editingContactId = null; // null=list, 'new', หรือ id
+let editingCustomerPriceContactId = null;
 let salesRepresentatives=[];
 let nextSalesRepresentativeId = 1;
 let editingSalesRepresentativeId = null;
@@ -3925,7 +3926,7 @@ function renderSidebar(){
   html += `<div class="sidebar-logout-wrap"><button class="logout-btn sidebar-logout-btn" id="logoutBtn">ออกจากระบบ</button></div>`;
   document.getElementById('sidebar').innerHTML = html;
   document.getElementById('logoutBtn')?.addEventListener('click',logoutSystem);
-  document.querySelectorAll('.navbtn').forEach(btn=>{ btn.addEventListener('click', ()=>{ if(currentTab==='settingsbusiness'&&businessSettingsDirty&&!confirm('มีข้อมูลธุรกิจที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')) return; if(currentTab==='notes'&&noteDraftDirty&&!confirm('มีโน้ตที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')) return; businessSettingsDirty=false; noteDraftDirty=false; currentTab = btn.dataset.tab; if(currentTab!=='checkout') posSmallestUnitOnce=false; searchQuery=''; editingPOId=null; poDraft=null; editingGRId=null; grDraft=null; editingPO2Id=null; po2Draft=null; editingReturnId=null; returnDraft=null; editingProductExchangeId=null; productExchangeDraft=null; editingTaxInvoiceSaleId=null; editingQuotationId=null; cashBillLookupOpen=false; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; openDocMenu=null; poSupplierEditorOpen=false; poRepresentativeEditorId=null; editingContactId=null; editingSalesRepresentativeId=null; editingPromotionId=null; editingProductId=null; editingInspectionListId=null; inspectionListDraft=null; inspectionListSearchQuery=''; inspectionListCatFilter={wh:'',category:'',brand:''}; inspectionListPage=1; addingSystemUser=false; editingSystemUserId=null; addingWarehouse=false; editingWarehouseId=null; editingTransferId=null; transferDraft=null; rproductFilter.applied=false; rbillFilter.applied=false; rprofitFilter.applied=false; render(); }); });
+  document.querySelectorAll('.navbtn').forEach(btn=>{ btn.addEventListener('click', ()=>{ if(currentTab==='settingsbusiness'&&businessSettingsDirty&&!confirm('มีข้อมูลธุรกิจที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')) return; if(currentTab==='notes'&&noteDraftDirty&&!confirm('มีโน้ตที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')) return; businessSettingsDirty=false; noteDraftDirty=false; currentTab = btn.dataset.tab; if(currentTab!=='checkout') posSmallestUnitOnce=false; searchQuery=''; editingPOId=null; poDraft=null; editingGRId=null; grDraft=null; editingPO2Id=null; po2Draft=null; editingReturnId=null; returnDraft=null; editingProductExchangeId=null; productExchangeDraft=null; editingTaxInvoiceSaleId=null; editingQuotationId=null; cashBillLookupOpen=false; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; openDocMenu=null; poSupplierEditorOpen=false; poRepresentativeEditorId=null; editingContactId=null; editingCustomerPriceContactId=null; editingSalesRepresentativeId=null; editingPromotionId=null; editingProductId=null; editingInspectionListId=null; inspectionListDraft=null; inspectionListSearchQuery=''; inspectionListCatFilter={wh:'',category:'',brand:''}; inspectionListPage=1; addingSystemUser=false; editingSystemUserId=null; addingWarehouse=false; editingWarehouseId=null; editingTransferId=null; transferDraft=null; rproductFilter.applied=false; rbillFilter.applied=false; rprofitFilter.applied=false; render(); }); });
 }
 
 // ---------- Page renderers ----------
@@ -9089,6 +9090,7 @@ function renderExpiry(){
 }
 
 function renderContacts(){
+  if(editingCustomerPriceContactId!==null) return renderCustomerPricingForm();
   if(editingContactId!==null) return renderContactForm();
   const q = searchQuery.trim();
   let list = contacts.filter(c=>{
@@ -9144,7 +9146,7 @@ function renderContacts(){
       <td class="mono">${escapeHtml(c.phone||'-')}</td>
       <td>${escapeHtml(c.email||'-')}</td>
       <td style="white-space:nowrap;">${typeBadge(c)}</td>
-      <td style="text-align:center;"><div class="history-actions contact-action-icons"><button class="history-icon-btn" data-act="editcontact" data-id="${c.id}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn danger" data-act="deletecontact" data-id="${c.id}" title="ลบ" aria-label="ลบ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td>
+      <td style="text-align:center;"><div class="history-actions contact-action-icons"><button class="history-icon-btn" data-act="editcontact" data-id="${c.id}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button>${c.types.includes('customer')?`<button class="history-icon-btn customer-price-action" data-act="customerprice" data-id="${c.id}" title="ราคาพิเศษ" aria-label="ราคาพิเศษ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 13 11 22l-9-9V4h9l9 9z"/><circle cx="7.5" cy="9.5" r="1.5"/></svg></button>`:''}<button class="history-icon-btn danger" data-act="deletecontact" data-id="${c.id}" title="ลบ" aria-label="ลบ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td>
     </tr>`).join('')||`<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายชื่อในกลุ่มนี้</td></tr>`}</tbody></table>
     </div>${pagerHtml(contactPage,totalPages,'contactpage')}</div>`;
 }
@@ -9193,7 +9195,6 @@ function renderContactForm(){
   const isNew = editingContactId==='new';
   const c = isNew ? {name:'',entity:'juristic',types:['customer'],contactName:'',email:'',phone:'',taxId:'',creditDays:'',branch:'main',address:'',postcode:'',bank:'',bankAcc:'',accType:'',note:'',customerPrices:[]} : contacts.find(x=>x.id===editingContactId);
   const chk = t => c.types.includes(t)?'checked':'';
-  const customerPrices=normalizedCustomerPriceRules(c);
   return `
     <div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › ${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</div><h1>${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</h1></div>
       <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelContactBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveContactBtn">บันทึกแล้วปิด</button></div>
@@ -9240,12 +9241,23 @@ function renderContactForm(){
           <div class="crow"><label>โน๊ต</label><textarea id="c_note" rows="2">${escapeHtml(c.note||'')}</textarea></div>
         </div>
       </div>
+    </div>`;
+}
+
+function renderCustomerPricingForm(){
+  const customer=contacts.find(contact=>Number(contact.id)===Number(editingCustomerPriceContactId));
+  if(!customer) return '<div class="empty">ไม่พบข้อมูลลูกค้า</div>';
+  const customerPrices=normalizedCustomerPriceRules(customer);
+  return `<div class="rpt customer-pricing-page">
+    <div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › ราคาพิเศษ</div><h1>ราคาพิเศษสำหรับลูกค้ารายนี้ <span class="page-title-meta">· ${escapeHtml(customer.name)}</span></h1></div>
+      <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelCustomerPricingBtn">ย้อนกลับ</button><button class="btn primary" id="saveCustomerPricingBtn">บันทึกราคาพิเศษ</button></div>
     </div>
     <div class="panel customer-pricing-panel">
-      <div class="customer-pricing-heading"><div><h3>ราคาพิเศษสำหรับลูกค้ารายนี้</h3><p>ค้นหาหรือยิงบาร์โค้ดเพื่อเพิ่มสินค้า ราคานี้จะไม่ซ้อนโปรโมชั่นทั่วไป และไม่มีผลกับราคาหน้าร้านหรือตัวเลขในบิลเก่า</p></div></div>
+      <div class="customer-pricing-heading"><div><h3>รายการสินค้า</h3><p>ค้นหาหรือยิงบาร์โค้ดเพื่อเพิ่มสินค้า ราคานี้จะไม่ซ้อนโปรโมชั่นทั่วไป และไม่มีผลกับราคาหน้าร้านหรือตัวเลขในบิลเก่า</p></div></div>
       <div class="customer-price-search-wrap"><div class="customer-price-search"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg></span><input id="customerPriceSearch" placeholder="ค้นหาสินค้า / รหัส / สแกนบาร์โค้ด" autocomplete="off"></div><div class="customer-price-search-results" id="customerPriceSearchResults" hidden></div></div>
       <div class="customer-price-table-wrap"><table class="grid-table customer-price-table"><colgroup><col class="customer-price-col-barcode"><col class="customer-price-col-name"><col class="customer-price-col-unit"><col class="customer-price-col-price"><col class="customer-price-col-cost"><col class="customer-price-col-action"></colgroup><thead><tr><th>บาร์โค้ดสินค้า</th><th>ชื่อ</th><th>หน่วย</th><th>ราคาพิเศษ</th><th>ทุน</th><th></th></tr></thead><tbody id="customerPriceRows">${customerPrices.map(customerPriceRowHtml).join('')||'<tr class="customer-price-empty"><td colspan="6">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>'}</tbody></table></div>
-    </div>`;
+    </div>
+  </div>`;
 }
 
 function renderSalesRepresentatives(){
@@ -12258,7 +12270,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const exportContactsBtn = document.getElementById('exportContactsBtn');
   if(exportContactsBtn) exportContactsBtn.addEventListener('click',exportContactsToExcel);
   document.querySelectorAll('[data-act="editcontact"]').forEach(el=>{
-    el.addEventListener('click', ()=>{ editingContactId=Number(el.dataset.id); render(); });
+    el.addEventListener('click', ()=>{ editingCustomerPriceContactId=null; editingContactId=Number(el.dataset.id); render(); });
+  });
+  document.querySelectorAll('[data-act="customerprice"]').forEach(el=>{
+    el.addEventListener('click', ()=>{ editingContactId=null; editingCustomerPriceContactId=Number(el.dataset.id); render(); });
   });
   document.querySelectorAll('[data-act="deletecontact"]').forEach(el=>{
     el.addEventListener('click', ()=>deleteContact(Number(el.dataset.id)));
@@ -12267,6 +12282,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(cancelContactBtn) cancelContactBtn.addEventListener('click', ()=>{ editingContactId=null; render(); });
   const saveContactBtn = document.getElementById('saveContactBtn');
   if(saveContactBtn) saveContactBtn.addEventListener('click', saveContact);
+  const cancelCustomerPricingBtn=document.getElementById('cancelCustomerPricingBtn');
+  if(cancelCustomerPricingBtn) cancelCustomerPricingBtn.addEventListener('click',()=>{ editingCustomerPriceContactId=null; render(); });
+  const saveCustomerPricingBtn=document.getElementById('saveCustomerPricingBtn');
+  if(saveCustomerPricingBtn) saveCustomerPricingBtn.addEventListener('click',saveCustomerPricing);
   const customerPriceRows=document.getElementById('customerPriceRows');
   const bindCustomerPriceRows=()=>document.querySelectorAll('[data-customer-price-row]').forEach(row=>{
     const unitSelect=row.querySelector('.customer-price-unit');
@@ -15126,8 +15145,6 @@ function saveContact(){
   }
   const entityEl = document.querySelector('input[name="c_entity"]:checked');
   const accEl = document.querySelector('input[name="c_acctype"]:checked');
-  const customerPrices=collectCustomerPriceRules();
-  if(customerPrices===null) return;
   const data = {
     name, types,
     entity: entityEl?entityEl.value:'juristic',
@@ -15145,10 +15162,9 @@ function saveContact(){
     accType: accEl?accEl.value:'',
     note: g('c_note').value.trim(),
     defaultDocument:'short_receipt',
-    customerPrices,
   };
   if(editingContactId==='new'){
-    contacts.push({id:nextContactId++, ...data});
+    contacts.push({id:nextContactId++, ...data, customerPrices:[]});
     showToast(`เพิ่มรายชื่อ "${name}" แล้ว`);
   } else {
     Object.assign(contacts.find(x=>x.id===editingContactId), data);
@@ -15156,6 +15172,18 @@ function saveContact(){
   }
   persistContacts();
   editingContactId = null;
+  render();
+}
+
+function saveCustomerPricing(){
+  const customer=contacts.find(contact=>Number(contact.id)===Number(editingCustomerPriceContactId));
+  if(!customer){ showToast('ไม่พบข้อมูลลูกค้า','danger-top'); return; }
+  const customerPrices=collectCustomerPriceRules();
+  if(customerPrices===null) return;
+  customer.customerPrices=customerPrices;
+  persistContacts();
+  editingCustomerPriceContactId=null;
+  showToast(`บันทึกราคาพิเศษของ “${customer.name}” แล้ว`);
   render();
 }
 

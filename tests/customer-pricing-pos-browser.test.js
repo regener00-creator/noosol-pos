@@ -41,9 +41,13 @@ const browserExecutable = [
     currentProfile={id:'owner-customer-price',owner:true,level:1,firstName:'เจ้าของ'};
     products=[{id:101,sku:'D-001',name:'Decolgen',category:'ยา',brand:'ทั่วไป',unit:'ซอง',barcode:'SACHET-101',price:8,cost:5,stock:100,units:[{sub:'กล่อง',factor:25,price:180,cost:110,barcode:'BOX-101'}],extraBarcodes:[],vendorBarcodes:[],active:true}];
     contacts=[{id:7,name:'ลูกค้า A',types:['customer'],entity:'individual',phone:'0812345678',defaultDocument:'cash_bill',customerPrices:[{id:'a-box',productId:101,unit:'กล่อง',price:160}]}];
-    nextContactId=8; editingContactId=7; currentTab='contacts';
-    document.getElementById('main').innerHTML=renderContactForm(); attachEvents();
+    nextContactId=8; editingContactId=null; editingCustomerPriceContactId=null; currentTab='contacts'; searchQuery=''; contactFilter='all';
+    document.getElementById('main').innerHTML=renderContacts(); attachEvents();
   });
+  assert.equal(await page.locator('[data-act="customerprice"]').count(),1);
+  assert.equal(await page.locator('[data-act="editcontact"] + [data-act="customerprice"]').count(),1);
+  await page.locator('[data-act="customerprice"]').click();
+  assert.equal(await page.locator('#saveCustomerPricingBtn').count(),1);
   assert.equal(await page.locator('#c_default_document').count(),0);
   assert.deepEqual(await page.locator('.customer-price-table thead th').allTextContents(),['บาร์โค้ดสินค้า','ชื่อ','หน่วย','ราคาพิเศษ','ทุน','']);
   assert.equal(await page.locator('.customer-price-product-name b').textContent(),'Decolgen');
@@ -58,10 +62,17 @@ const browserExecutable = [
   assert.equal(await page.locator('[data-customer-price-row]').last().locator('.customer-price-unit').inputValue(),'ซอง');
   assert.equal(await page.locator('[data-customer-price-row]').last().locator('.customer-price-cost').inputValue(),'5.00');
   await page.locator('[data-customer-price-row]').last().locator('.customer-price-value').fill('7');
-  await page.locator('#saveContactBtn').click();
+  await page.locator('#saveCustomerPricingBtn').click();
   assert.equal(await page.evaluate(()=>contacts[0].customerPrices[0].price),155);
   assert.equal(await page.evaluate(()=>contacts[0].customerPrices[1].price),7);
-  assert.equal(await page.evaluate(()=>contacts[0].defaultDocument),'short_receipt');
+  assert.equal(await page.evaluate(()=>customerDefaultDocument(contacts[0])),'short_receipt');
+  await page.locator('[data-act="editcontact"]').click();
+  assert.equal(await page.locator('.customer-pricing-panel').count(),0);
+  assert.equal(await page.locator('#customerPriceSearch').count(),0);
+  await page.locator('#c_phone').fill('0899999999');
+  await page.locator('#saveContactBtn').click();
+  assert.equal(await page.evaluate(()=>contacts[0].customerPrices.length),2);
+  assert.equal(await page.evaluate(()=>contacts[0].phone),'089-999-9999');
 
   await page.evaluate(() => {
     currentTab='checkout'; cart=[]; saleMember=customerSaleSnapshot(contacts[0]); currentCashShift={id:'shift-test',shiftNo:'CS-TEST',openingCash:0,openedByName:'เจ้าของ'};
