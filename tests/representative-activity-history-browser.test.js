@@ -63,7 +63,8 @@ let browser;
     ];
     representativeActivityNotes=[
       {id:'note-1',title:'เล่นรายการทอง',contentHtml:'<p>บลาบลาบลา</p>',hiddenFromLevel2:false,representativeId:10,activityType:'general',eventDate:'2026-09-04',updatedAt:'2026-09-04T10:00:00Z'},
-      {id:'note-2',title:'ซื้อครบไปเที่ยวฟรี',contentHtml:'<p>ซื้อครบตามยอดที่กำหนด</p>',hiddenFromLevel2:false,representativeId:10,activityType:'general',eventDate:'2026-09-02',updatedAt:'2026-09-02T10:00:00Z'}
+      {id:'note-2',title:'ซื้อครบไปเที่ยวฟรี',contentHtml:'<p>ซื้อครบตามยอดที่กำหนด</p>',hiddenFromLevel2:false,representativeId:10,activityType:'general',eventDate:'2026-09-02',updatedAt:'2026-09-02T10:00:00Z'},
+      {id:'note-5',title:'แผนสั่งเดือนหน้า',contentHtml:'<p>เตรียมยอดสั่งซื้อ</p>',hiddenFromLevel2:false,representativeId:10,activityType:'general',eventDate:'2026-09-01',updatedAt:'2026-09-01T09:00:00Z'}
     ];
     representativeActivityLoadedKey=representativeHistoryKey();
     currentTab='salesreps';
@@ -74,11 +75,15 @@ let browser;
 
   assert.equal(await page.locator('.representative-history-page h1').textContent(), 'ข้อมูลผู้แทน PEPO');
   assert.equal(await page.locator('.representative-group-card').count(), 1);
-  assert.match(await page.locator('.representative-group-card').textContent(), /LIPITOR 10 MG/);
+  assert.doesNotMatch(await page.locator('.representative-group-card').textContent(), /LIPITOR 10 MG|รายการสินค้าที่ดูแลมี/);
   assert.match(await page.locator('.representative-group-card').textContent(), /NOTE 1 : เล่นรายการทอง/);
   assert.match(await page.locator('.representative-group-card').textContent(), /วันที่ 04-09-2026/);
   assert.match(await page.locator('.representative-group-card').textContent(), /NOTE 2 : ซื้อครบไปเที่ยวฟรี/);
   assert.equal(await page.locator('.representative-history-summary').count(),0,'summary cards must not appear on representative history');
+  const notePositions=await page.locator('.representative-group-card .representative-note-card').evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().y)));
+  assert.equal(notePositions.length,3);
+  assert.equal(notePositions[0],notePositions[1]);
+  assert.equal(notePositions[1],notePositions[2]);
   const historyPageWidth=await page.locator('.representative-history-page').evaluate(element=>{
     const parent=element.parentElement;
     const parentStyle=getComputedStyle(parent);
@@ -129,8 +134,7 @@ let browser;
   assert.equal(await page.locator('.representative-group-card').count(),3);
   assert.equal(await page.locator('#representativeHistoryRepresentativeSearch,#representativeHistoryProductSearch,#representativeHistoryNoteSearch').count(),3);
   const cardPositions=await page.locator('.representative-group-card').evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().y)));
-  assert.equal(cardPositions[0],cardPositions[1]);
-  assert.equal(cardPositions[1],cardPositions[2]);
+  assert.ok(cardPositions[0]<cardPositions[1]&&cardPositions[1]<cardPositions[2],'representative groups must use full-width rows');
 
   await page.locator('#representativeHistoryRepresentativeSearch').fill('NANA');
   await page.locator('#searchRepresentativeHistoryBtn').click();
@@ -149,7 +153,7 @@ let browser;
 
   await page.locator('#representativeHistoryNoteSearch').fill('');
   await page.locator('#searchRepresentativeHistoryBtn').click();
-  await page.locator('[data-open-product-history="20"]').first().click();
+  await page.evaluate(()=>openRepresentativeHistory({productId:20,originTab:'representativehistory'}));
   assert.equal(await page.locator('.representative-history-page h1').textContent(), 'ผู้แทนที่ดูแล LIPITOR 10 MG');
   assert.equal(await page.locator('#closeRepresentativeHistoryBtn').count(),1);
   assert.deepEqual(errors, []);

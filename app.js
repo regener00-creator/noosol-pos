@@ -4496,14 +4496,11 @@ function representativeHistoryGroups(){
   }).filter(Boolean).sort((a,b)=>String(a.representative.name||'').localeCompare(String(b.representative.name||''),'th'));
 }
 function representativeHistoryGroupHtml(group){
-  const productHtml=group.managedProducts.length
-    ?group.managedProducts.map(product=>`<button type="button" class="representative-managed-product" data-open-product-history="${product.id}">${escapeHtml(product.name)}</button>`).join('')
-    :'<span class="representative-group-empty">ยังไม่ได้ระบุสินค้า</span>';
   const notesHtml=group.notes.length?group.notes.map((note,index)=>{
     const canEdit=canEditNote(note),canDelete=canDeleteNote(note);
     return `<article class="representative-note-card"><div class="representative-note-head"><b>NOTE ${index+1} : ${escapeHtml(note.title||'-')}</b><span>วันที่ ${escapeHtml(representativeActivityDateLabel(note.eventDate))}</span></div>${note.contentHtml?`<div class="representative-note-body">${sanitizeNoteHtml(note.contentHtml)}</div>`:'<div class="representative-note-body muted">ไม่มีข้อมูลเพิ่มเติม</div>'}${canEdit||canDelete?`<div class="representative-activity-actions">${canEdit?`<button class="btn ghost small" data-edit-representative-activity="${escapeHtml(note.id)}" type="button">แก้ไข</button>`:''}${canDelete?`<button class="btn danger small" data-delete-representative-activity="${escapeHtml(note.id)}" type="button">ลบ</button>`:''}</div>`:''}</article>`;
   }).join(''):'<div class="representative-group-empty">ยังไม่มี NOTE</div>';
-  return `<article class="representative-group-card"><header><div><span>ชื่อผู้แทน</span><button type="button" data-open-representative-history="${group.representative.id}">${escapeHtml(group.representative.name)}</button></div>${group.representative.company?`<small>${escapeHtml(group.representative.company)}</small>`:''}</header><section><h3>รายการสินค้าที่ดูแลมี</h3><div class="representative-managed-products">${productHtml}</div></section><section class="representative-notes-list">${notesHtml}</section></article>`;
+  return `<article class="representative-group-card"><header><div><span>ชื่อผู้แทน</span><button type="button" data-open-representative-history="${group.representative.id}">${escapeHtml(group.representative.name)}</button></div>${group.representative.company?`<small>${escapeHtml(group.representative.company)}</small>`:''}</header><section class="representative-notes-list">${notesHtml}</section></article>`;
 }
 function renderRepresentativeHistory(){
   const context=representativeHistoryContext||{};

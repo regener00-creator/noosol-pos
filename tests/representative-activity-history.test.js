@@ -8,6 +8,7 @@ const baseMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', 
 const multiProductMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260904151422_representative_activity_multiple_products.sql'), 'utf8');
 const managedProductsMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260904183146_representative_managed_products_and_notes.sql'), 'utf8');
 const historyRender = html.slice(html.indexOf('function renderRepresentativeHistory(){'),html.indexOf('function syncRepresentativeActivityDraftFromForm(){'));
+const historyGroupRender = html.slice(html.indexOf('function representativeHistoryGroupHtml(group){'),html.indexOf('function renderRepresentativeHistory(){'));
 const activityForm = html.slice(html.indexOf('function representativeActivityFormHtml(){'),html.indexOf('function representativeActivityCardHtml('));
 
 assert.match(baseMigration, /alter table public\.notes[\s\S]*representative_id bigint[\s\S]*product_id bigint[\s\S]*activity_type text/);
@@ -45,11 +46,12 @@ assert.match(historyRender, /id="representativeHistoryNoteSearch"/);
 assert.match(historyRender, /ค้นหาจาก NOTE/);
 assert.doesNotMatch(historyRender, /representative-history-summary|NOTE ทั้งหมด/);
 assert.doesNotMatch(historyRender, /representativeHistoryTypeFilter|ทุกประเภท|โปรโมชั่นที่ยังใช้ได้|ถึงกำหนดติดตาม/);
-assert.match(html, /\.representative-groups-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+assert.match(html, /\.representative-groups-grid\{display:grid;grid-template-columns:1fr/);
 assert.match(html, /\.representative-history-page\{width:100%;max-width:none;margin:0;\}/);
 assert.match(html, /data-open-representative-history=/);
 assert.match(html, /data-open-product-history=/);
-assert.match(html, /รายการสินค้าที่ดูแลมี/);
+assert.doesNotMatch(historyGroupRender, /รายการสินค้าที่ดูแลมี|representative-managed-products/);
+assert.match(html, /\.representative-notes-list\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
 assert.match(html, /NOTE \$\{index\+1\} :/);
 
 assert.match(activityForm, /กำหนดสินค้าที่ผู้แทนดูแล และเพิ่ม NOTE พร้อมวันที่และหัวข้อ/);
