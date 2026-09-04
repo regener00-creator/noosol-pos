@@ -4436,7 +4436,10 @@ function representativeProductsEditorMatches(){
   const editor=representativeProductsEditor;
   if(!editor) return [];
   const needle=normalizedActivityName(editor.search);
-  const matches=products.filter(product=>!needle||normalizedActivityName(`${product.name||''} ${product.sku||''} ${product.barcode||''}`).includes(needle));
+  const matches=products.filter(product=>needle
+    ?normalizedActivityName(`${product.name||''} ${product.sku||''} ${product.barcode||''}`).includes(needle)
+    :editor.productIds.has(Number(product.id))
+  );
   return matches.sort((a,b)=>{
     const selectedDiff=Number(editor.productIds.has(Number(b.id)))-Number(editor.productIds.has(Number(a.id)));
     return selectedDiff||String(a.name||'').localeCompare(String(b.name||''),'th');
@@ -4462,7 +4465,7 @@ function representativeProductsEditorModalHtml(){
   const representative=representativeForActivityId(editor.representativeId);
   const canEdit=canPerformPageAction('edit','salesreps');
   return `<div class="modal-overlay representative-products-overlay"><section class="modal representative-products-modal" role="dialog" aria-modal="true" aria-labelledby="representativeProductsTitle"><div class="modal-head"><div><h3 id="representativeProductsTitle">สินค้าที่ดูแล</h3><div class="sub">ผู้แทน ${escapeHtml(representative?.name||'-')} · เลือกแล้ว <b id="representativeProductsSelectedCount">${editor.productIds.size}</b> รายการ</div></div><button class="modal-close" id="closeRepresentativeProductsEditorBtn" type="button" aria-label="ปิด">×</button></div>
-    <div class="representative-products-editor-body"><div class="representative-products-search"><input id="representativeProductsSearch" autocomplete="off" value="${escapeHtml(editor.search)}" placeholder="ค้นหาชื่อสินค้า รหัส หรือยิงบาร์โค้ด"></div><div class="representative-products-selected"><h4>สินค้าที่เลือก</h4><div id="representativeProductsSelectedList">${representativeProductsSelectedHtml()}</div></div><div class="representative-products-options-head"><h4>รายการสินค้า</h4><span>แสดงสูงสุด 120 รายการต่อการค้นหา</span></div><div class="representative-products-options" id="representativeProductsOptions">${representativeProductsEditorRowsHtml()}</div></div>
+    <div class="representative-products-editor-body"><div class="representative-products-search"><input id="representativeProductsSearch" autocomplete="off" value="${escapeHtml(editor.search)}" placeholder="ค้นหาชื่อสินค้า รหัส หรือยิงบาร์โค้ด"></div><div class="representative-products-selected"><h4>สินค้าที่เลือก</h4><div id="representativeProductsSelectedList">${representativeProductsSelectedHtml()}</div></div><div class="representative-products-options-head"><h4>รายการสินค้า</h4><span>เมื่อไม่ค้นหา จะแสดงเฉพาะสินค้าที่เลือก</span></div><div class="representative-products-options" id="representativeProductsOptions">${representativeProductsEditorRowsHtml()}</div></div>
     <div class="representative-products-actions"><button class="btn ghost" id="cancelRepresentativeProductsEditorBtn" type="button">${canEdit?'ยกเลิก':'ปิด'}</button>${canEdit?'<button class="btn primary" id="saveRepresentativeProductsBtn" type="button">บันทึกสินค้าที่ดูแล</button>':''}</div></section></div>`;
 }
 function representativeEditorModalHtml(){

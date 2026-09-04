@@ -76,6 +76,8 @@ assert.doesNotMatch(noteEditor, /repActivityRepresentative|representativeManaged
 assert.match(productsEditor, /id="representativeProductsSearch"/);
 assert.match(productsEditor, /id="representativeProductsSelectedList"/);
 assert.match(productsEditor, /id="saveRepresentativeProductsBtn"/);
+assert.match(html, /:editor\.productIds\.has\(Number\(product\.id\)\)/);
+assert.match(productsEditor, /เมื่อไม่ค้นหา จะแสดงเฉพาะสินค้าที่เลือก/);
 assert.match(html, /data-manage-representative-products=/);
 assert.match(html, /function representativeEditorModalHtml\(\)/);
 assert.match(historyRender, /id="newSalesRepBtn"/);
