@@ -47,7 +47,10 @@ let browser;
     currentProfile={id:'owner-test',level:1,owner:true,firstName:'เจ้าของ'};
     warehouses=[{id:1,name:'คลังทดสอบ'}]; activeWarehouseId=1; warehouseAccessRows=[];
     notesLoaded=true;
-    notes=[{id:'note-1',title:'โน้ตทดสอบ',contentHtml:'ข้อความ <b>สำคัญ</b>',hiddenFromLevel2:true,createdBy:'owner-test',updatedAt:'2026-09-01T15:00:00Z'}];
+    notes=[
+      {id:'note-1',title:'โน้ตทดสอบ',contentHtml:'ข้อความ <b>สำคัญ</b>',hiddenFromLevel2:true,createdBy:'owner-test',updatedAt:'2026-09-01T15:00:00Z'},
+      {id:'representative-note',title:'NOTE ผู้แทนที่ต้องไม่แสดง',contentHtml:'ข้อมูลผู้แทน',hiddenFromLevel2:false,representativeId:10,activityType:'general',createdBy:'owner-test',updatedAt:'2026-09-02T15:00:00Z'}
+    ];
     editingNoteId='note-1';
     noteDraft=noteDraftFromRow(notes[0]);
     currentTab='notes';
@@ -61,6 +64,8 @@ let browser;
   assert.equal(await page.locator('#noteHiddenFromLevel2').isChecked(), true);
   assert.equal(await page.locator('[data-note-command]').count(), 3);
   assert.equal(await page.locator('[data-note-color]').count(), 8);
+  assert.equal(await page.locator('.note-list-item').count(),1);
+  assert.doesNotMatch(await page.locator('.note-list-panel').textContent(),/NOTE ผู้แทนที่ต้องไม่แสดง/);
 
   await page.locator('#addNoteBtn').click();
   await page.locator('#noteTitle').fill('หลายรูปแบบ');

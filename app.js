@@ -4021,6 +4021,7 @@ function canEditNote(note){
 function canDeleteNote(note){
   return !!note&&(loggedInUser()?.owner===true||(String(note.createdBy)===String(currentProfile?.id)&&canPerformPageAction('delete','notes')));
 }
+function isStandaloneNote(note){ return !!note&&!note.activityType&&!note.representativeId; }
 function sortNotes(){ notes.sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))); }
 async function loadNotes({append=false}={}){
   if(notesLoading||!sb||!currentProfile) return;
@@ -4028,12 +4029,13 @@ async function loadNotes({append=false}={}){
   noteLoadError='';
   if(currentTab==='notes') render();
   try{
-    const offset=append?notes.length:0;
-    const {data,error}=await sb.from('notes').select(NOTE_ROW_SELECT).order('updated_at',{ascending:false}).range(offset,offset+NOTE_PAGE_SIZE-1);
+    const standaloneNotes=notes.filter(isStandaloneNote);
+    const offset=append?standaloneNotes.length:0;
+    const {data,error}=await sb.from('notes').select(NOTE_ROW_SELECT).is('activity_type',null).is('representative_id',null).order('updated_at',{ascending:false}).range(offset,offset+NOTE_PAGE_SIZE-1);
     if(error) throw error;
-    const rows=(data||[]).map(mapNoteRow);
+    const rows=(data||[]).map(mapNoteRow).filter(isStandaloneNote);
     if(append){
-      const merged=new Map(notes.map(note=>[note.id,note]));
+      const merged=new Map(standaloneNotes.map(note=>[note.id,note]));
       rows.forEach(note=>merged.set(note.id,note));
       notes=[...merged.values()];
     }else notes=rows;
@@ -4070,19 +4072,20 @@ function startNewNote(){
 }
 function renderNotes(){
   if(!notesLoaded&&!notesLoading&&!noteLoadError) setTimeout(()=>loadNotes(),0);
-  if(editingNoteId&&editingNoteId!=='new'&&!notes.some(note=>note.id===editingNoteId)){
+  const standaloneNotes=notes.filter(isStandaloneNote);
+  if(editingNoteId&&editingNoteId!=='new'&&!standaloneNotes.some(note=>note.id===editingNoteId)){
     editingNoteId=null; noteDraft=null; noteDraftDirty=false;
   }
-  if(editingNoteId===null&&notes.length){
-    editingNoteId=notes[0].id;
-    noteDraft=noteDraftFromRow(notes[0]);
+  if(editingNoteId===null&&standaloneNotes.length){
+    editingNoteId=standaloneNotes[0].id;
+    noteDraft=noteDraftFromRow(standaloneNotes[0]);
   }
-  const selected=editingNoteId==='new'?null:notes.find(note=>note.id===editingNoteId)||null;
+  const selected=editingNoteId==='new'?null:standaloneNotes.find(note=>note.id===editingNoteId)||null;
   const draft=noteDraft||noteDraftFromRow(selected);
   const canCreate=canPerformPageAction('create','notes');
   const canEdit=editingNoteId==='new'?canCreate:canEditNote(selected);
   const canDelete=canDeleteNote(selected);
-  const list=notes.map(note=>{
+  const list=standaloneNotes.map(note=>{
     const preview=notePlainText(note.contentHtml)||'ยังไม่มีข้อความ';
     const activityRepresentative=representativeForActivityId(note.representativeId),activityProduct=productForActivityId(note.productId);
     return `<button type="button" class="note-list-item ${String(note.id)===String(editingNoteId)?'active':''}" data-note-id="${escapeHtml(note.id)}">
@@ -4558,9 +4561,6 @@ async function saveRepresentativeActivity(){
     if(!savedId) throw new Error('ฐานข้อมูลไม่ได้ส่งรหัสประวัติกลับมา');
     const savedResult=await sb.from('notes').select(NOTE_ROW_SELECT).eq('id',savedId).single();
     if(savedResult.error) throw savedResult.error;
-    const saved=mapNoteRow(savedResult.data);
-    const noteIndex=notes.findIndex(note=>note.id===saved.id);
-    if(noteIndex>=0) notes[noteIndex]=saved; else if(notesLoaded) notes.push(saved);
     representativeActivityDraft=null;
     representativeActivityLoadedKey='';
     showToast('บันทึกผู้แทน สินค้าที่ดูแล และ NOTE แล้ว');
@@ -4578,7 +4578,6 @@ async function deleteRepresentativeActivity(id){
     if(error) throw error;
     if(!data) throw new Error('รายการนี้ถูกแก้ไขหรือลบจากอีกเครื่องแล้ว');
     representativeActivityNotes=representativeActivityNotes.filter(item=>item.id!==note.id);
-    notes=notes.filter(item=>item.id!==note.id);
     showToast('ลบประวัติแล้ว');
     render();
   }catch(error){ showToast(error?.message||'ลบประวัติไม่สำเร็จ','danger-top'); }
