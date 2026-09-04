@@ -137,8 +137,9 @@ let browser;
   assert.equal(await page.locator('.representative-group-card').count(),5);
   assert.equal(await page.locator('#representativeHistoryRepresentativeSearch,#representativeHistoryProductSearch,#representativeHistoryNoteSearch').count(),3);
   const cardPositions=await page.locator('.representative-group-card').evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().y)));
-  assert.equal(new Set(cardPositions.slice(0,4)).size,1,'representative cards must display four per row on desktop');
-  assert.ok(cardPositions[4]>cardPositions[0],'the fifth representative card must start the next row');
+  assert.equal(new Set(cardPositions.slice(0,3)).size,1,'representative cards must display three per row on desktop');
+  assert.ok(cardPositions[3]>cardPositions[0],'the fourth representative card must start the next row');
+  assert.equal(cardPositions[3],cardPositions[4],'the fourth and fifth representative cards must share the second row');
   assert.equal(await page.locator('.representative-note-owner').count(),0,'notes must remain inside their representative card');
 
   await page.locator('#representativeHistoryRepresentativeSearch').fill('NANA');
