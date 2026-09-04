@@ -365,15 +365,14 @@
   .product-review-pending-row>td{background:#FFF8E1;color:#956500;}
   .product-review-pending-row .prod-inline-edit,.product-review-pending-row .prod-unit-select,.product-review-pending-row .prod-unit-fixed,.product-review-pending-row .stock-cell{color:#956500;font-weight:700;}
   .product-review-pending-row .product-lot-link{color:#956500;border-color:#E3C76F;background:#FFFDF4;}
-  .product-review-pending-toggle{color:#8A8F96;}
-  .product-review-pending-toggle.active{color:#A56D00;border-color:#E2BC51;background:#FFF3C4;}
-  .product-review-pending-toggle.active:hover{color:#7C5200;border-color:#C69724;background:#FFEBA1;}
+  .product-review-cycle-toggle{color:#7C8793;transition:color .15s,border-color .15s,background .15s;}
+  .product-review-cycle-toggle[data-review-status="pending"]{color:#A56D00;border-color:#E2BC51;background:#FFF3C4;}
+  .product-review-cycle-toggle[data-review-status="pending"]:hover{color:#7C5200;border-color:#C69724;background:#FFEBA1;}
   .product-reviewed-row>td{background:#EFF9F1;color:#237A3A;}
   .product-reviewed-row .prod-inline-edit,.product-reviewed-row .prod-unit-select,.product-reviewed-row .prod-unit-fixed,.product-reviewed-row .stock-cell{color:#237A3A;font-weight:700;}
   .product-reviewed-row .product-lot-link{color:#237A3A;border-color:#B7DDBF;background:#F6FCF7;}
-  .product-reviewed-toggle{color:#7C8793;}
-  .product-reviewed-toggle.active{color:#25823F;border-color:#76BE88;background:#E5F6E9;}
-  .product-reviewed-toggle.active:hover{color:#17682D;border-color:#25823F;background:#D7F0DD;}
+  .product-review-cycle-toggle[data-review-status="complete"]{color:#25823F;border-color:#76BE88;background:#E5F6E9;}
+  .product-review-cycle-toggle[data-review-status="complete"]:hover{color:#17682D;border-color:#25823F;background:#D7F0DD;}
   .product-lot-link{border:1px solid #D9C8C1;background:#F8F3F1;color:var(--primary);border-radius:8px;padding:7px 10px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
   .product-lot-link:hover{background:var(--primary-soft);border-color:var(--primary);}
   .product-lot-link.empty{color:var(--text-muted);border-color:var(--border);background:var(--surface);}

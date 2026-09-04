@@ -38,9 +38,10 @@ assert.match(source, /barcode:p\.barcode\|\|''[^]*barcode:u\.barcode\|\|''/, '�
 assert.match(source, /class="prod-inline-edit prod-inline-barcode prod-unit-barcode"[^]*data-field="barcode"[^]*data-unit="\$\{escapeHtml\(selOpt\.sub\)\}"[^]*value="\$\{escapeHtml\(selOpt\.barcode\|\|''\)\}"/, 'แถวสินค้าต้องแก้บาร์โค้ดของหน่วยที่เลือกได้');
 assert.match(html, /field==='barcode'[^]*barcodePrintBarcodeOwners\(\)\.find[^]*unitRow\.barcode=requested;[^]*p\.barcode=requested;/, 'การแก้บาร์โค้ดต้องตรวจเลขซ้ำและบันทึกลงหน่วยที่เลือก');
 assert.match(html, /\.prodtable \.col-barcode\{width:170px;\}/, 'คอลัมน์บาร์โค้ดต้องมีความกว้างอ่านเลขได้ชัดเจน');
-assert.match(source, /data-set-product-review-status="pending"[^]*data-pid="\$\{p\.id\}"[^]*aria-pressed="\$\{dataPending\?'true':'false'\}"/, 'ท้ายแถวสินค้าต้องมีปุ่มสีเหลืองสำหรับสถานะกำลังแก้ไขหรือรอข้อมูล');
-assert.match(source, /data-set-product-review-status="complete"[^]*data-pid="\$\{p\.id\}"[^]*aria-pressed="\$\{dataReviewed\?'true':'false'\}"/, 'ท้ายแถวสินค้าต้องมีปุ่มติ๊กสีเขียวสำหรับข้อมูลครบถ้วน');
-assert.match(html, /document\.querySelectorAll\('\[data-set-product-review-status\]'\)[^]*product\.dataReviewStatus=requestedStatus;[^]*persistWorkspaceData\(\{productChanges:\{updatedIds:\[pid\]\}\}\)/, 'สถานะตรวจข้อมูลต้องบันทึกลงข้อมูลสินค้าและซิงก์ได้');
+assert.match(source, /data-cycle-product-review-status="\$\{p\.id\}"[^]*data-review-status="\$\{reviewStatusValue\}"/, 'ท้ายแถวสินค้าต้องมีปุ่มเดียวสำหรับวนสถานะปกติ เหลือง และเขียว');
+assert.doesNotMatch(source, /data-set-product-review-status=/, 'ต้องไม่เหลือปุ่มสีเหลืองและสีเขียวแยกกัน');
+assert.match(source, /title="ผู้แทนที่ดูแลสินค้าและ NOTE"/, 'ปุ่มผู้แทนในรายการสินค้าต้องสื่อว่าดึงจากสินค้าที่ดูแลของผู้แทน');
+assert.match(html, /document\.querySelectorAll\('\[data-cycle-product-review-status\]'\)[^]*currentStatus==='pending'\?'complete':currentStatus==='complete'\?'':'pending'[^]*product\.dataReviewStatus=requestedStatus;[^]*persistWorkspaceData\(\{productChanges:\{updatedIds:\[pid\]\}\}\)/, 'ปุ่มสถานะเดียวต้องวนปกติไปเหลือง ไปเขียว แล้วกลับปกติ พร้อมบันทึกและซิงก์');
 assert.match(html, /\.product-review-pending-row>td\{background:#FFF8E1;color:#956500;\}/, 'แถวที่กำลังแก้ไขหรือรอข้อมูลต้องแสดงพื้นและตัวอักษรสีเหลือง');
 assert.match(html, /\.product-reviewed-row>td\{background:#EFF9F1;color:#237A3A;\}/, 'แถวที่ตรวจข้อมูลครบแล้วต้องแสดงพื้นและตัวอักษรสีเขียว');
 assert.match(source, /placeholder="ค้นหาจาก ชื่อ \/ รหัส \/ บาร์โค้ด"/, 'ยังต้องค้นหาด้วยบาร์โค้ดได้');

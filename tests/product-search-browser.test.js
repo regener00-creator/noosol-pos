@@ -116,18 +116,22 @@ const browserExecutable = [
   assert.equal(await page.locator('.prodtable .prod-unit-select').inputValue(), 'กล่อง', 'ต้องเลือกหน่วยที่ผูกกับบาร์โค้ดให้อัตโนมัติ');
   assert.equal(await page.locator('.prodtable .prod-unit-barcode').inputValue(), 'BOX-A-001', 'คอลัมน์บาร์โค้ดต้องแสดงเลขของหน่วยที่ยิง');
   assert.equal(await page.evaluate(() => products.find(product=>product.id===9103).unit), 'แผง', 'การเลือกหน่วยในตารางต้องไม่เปลี่ยนหน่วยหลักของสินค้า');
-  await page.locator('[data-set-product-review-status="pending"][data-pid="9103"]').click();
+  const reviewStatusButton=page.locator('[data-cycle-product-review-status="9103"]');
+  assert.equal(await reviewStatusButton.count(),1,'สถานะสีเหลืองและสีเขียวต้องรวมเป็นปุ่มเดียว');
+  assert.equal(await reviewStatusButton.getAttribute('data-review-status'),'normal');
+  await reviewStatusButton.click();
   await page.waitForFunction(() => products.find(product=>product.id===9103)?.dataReviewStatus==='pending'&&document.querySelector('.prodtable tbody tr')?.classList.contains('product-review-pending-row'));
   assert.equal(await page.locator('.prodtable tbody tr').first().getAttribute('class').then(value=>value.includes('product-review-pending-row')), true, 'กดสถานะรอข้อมูลแล้วทั้งแถวต้องเปลี่ยนเป็นสีเหลือง');
-  assert.equal(await page.locator('[data-set-product-review-status="pending"][data-pid="9103"]').getAttribute('aria-pressed'), 'true', 'ปุ่มสถานะรอข้อมูลต้องแสดงว่าเลือกแล้ว');
-  await page.locator('[data-set-product-review-status="complete"][data-pid="9103"]').click();
+  assert.equal(await reviewStatusButton.getAttribute('data-review-status'),'pending','คลิกครั้งแรกต้องเป็นสถานะสีเหลือง');
+  await reviewStatusButton.click();
   await page.waitForFunction(() => products.find(product=>product.id===9103)?.dataReviewStatus==='complete'&&Boolean(products.find(product=>product.id===9103)?.dataReviewedAt)&&document.querySelector('.prodtable tbody tr')?.classList.contains('product-reviewed-row'));
   assert.equal(await page.locator('.prodtable tbody tr').first().getAttribute('class').then(value=>value.includes('product-reviewed-row')), true, 'กดติ๊กแล้วทั้งแถวต้องเปลี่ยนเป็นสถานะสีเขียว');
   assert.equal(await page.locator('.prodtable tbody tr').first().getAttribute('class').then(value=>value.includes('product-review-pending-row')), false, 'เมื่อเลือกข้อมูลครบถ้วนต้องยกเลิกสีเหลืองโดยอัตโนมัติ');
-  assert.equal(await page.locator('[data-set-product-review-status="complete"][data-pid="9103"]').getAttribute('aria-pressed'), 'true', 'ปุ่มติ๊กต้องแสดงสถานะที่เลือกแล้ว');
-  await page.locator('[data-set-product-review-status="complete"][data-pid="9103"]').click();
+  assert.equal(await reviewStatusButton.getAttribute('data-review-status'),'complete','คลิกครั้งที่สองต้องเป็นสถานะสีเขียว');
+  await reviewStatusButton.click();
   await page.waitForFunction(() => !products.find(product=>product.id===9103)?.dataReviewStatus&&!products.find(product=>product.id===9103)?.dataReviewedAt&&!document.querySelector('.prodtable tbody tr')?.classList.contains('product-reviewed-row'));
-  assert.equal(await page.locator('.prodtable tbody tr').first().getAttribute('class').then(value=>value.includes('product-reviewed-row')), false, 'กดติ๊กซ้ำต้องยกเลิกสถานะข้อมูลครบถ้วนได้');
+  assert.equal(await page.locator('.prodtable tbody tr').first().getAttribute('class').then(value=>value.includes('product-reviewed-row')), false, 'คลิกครั้งที่สามต้องกลับเป็นสถานะปกติ');
+  assert.equal(await reviewStatusButton.getAttribute('data-review-status'),'normal');
   await page.evaluate(() => {
     editingProductId=9101;
     document.getElementById('main').innerHTML=renderProductForm();

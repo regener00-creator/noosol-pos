@@ -6620,11 +6620,17 @@ function renderProducts(){
           const dataReviewStatus=productDataReviewStatus(p);
           const dataPending=dataReviewStatus==='pending';
           const dataReviewed=dataReviewStatus==='complete';
+          const reviewStatusValue=dataReviewStatus||'normal';
+          const reviewStatusLabel=dataPending?'กำลังแก้ไข / รอข้อมูล':dataReviewed?'ข้อมูลครบถ้วน':'ยังไม่กำหนดสถานะ';
+          const reviewNextLabel=dataPending?'ข้อมูลครบถ้วน':dataReviewed?'ล้างสถานะ':'กำลังแก้ไข / รอข้อมูล';
+          const reviewStatusIcon=dataPending
+            ?'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
+            :dataReviewed?'<circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/>':'<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>';
           const unitSelectHtml = unitOpts.length>1
             ? `<select class="prod-unit-select" data-pid="${p.id}">${unitOpts.map(u=>`<option value="${escapeHtml(u.sub)}" ${u.sub===selOpt.sub?'selected':''}>${escapeHtml(u.sub)}</option>`).join('')}</select>`
             : `<span class="prod-unit-fixed">${escapeHtml(p.unit)}</span>`;
           const lotCount=inventoryLotCount(p.id,activeWarehouseId);
-          return `<tr class="${isProductActive(p)?'':'product-inactive-row'} ${dataPending?'product-review-pending-row':''} ${dataReviewed?'product-reviewed-row':''}"><td class="mono" style="text-align:center;"><input class="prod-inline-edit" data-pid="${p.id}" data-field="sku" value="${escapeHtml(p.sku||'')}" placeholder="-"></td><td class="mono" style="text-align:center;"><input class="prod-inline-edit prod-inline-barcode prod-unit-barcode" data-pid="${p.id}" data-field="barcode" data-unit="${escapeHtml(selOpt.sub)}" value="${escapeHtml(selOpt.barcode||'')}" placeholder="-" autocomplete="off" aria-label="บาร์โค้ดหน่วย ${escapeHtml(selOpt.sub)}"></td><td><input class="prod-inline-edit prod-inline-name" data-pid="${p.id}" data-field="name" value="${escapeHtml(p.name)}">${isProductActive(p)?'':'<span class="product-status-badge">ปิดใช้งาน</span>'}</td><td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="price" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.price}"></td>${canViewCost?`<td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="cost" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.cost}"></td>`:''}<td style="text-align:center;">${unitSelectHtml}</td><td class="num stock-cell ${p.stock<0?'stock-negative':''}" style="text-align:center;" data-act="stockcheck" data-id="${p.id}" title="กดเพื่อดูทุกหน่วย">${escapeHtml(stockInLargestUnit(p))} <span class="stock-caret">▾</span></td><td style="text-align:center;"><button class="product-lot-link ${lotCount?'':'empty'}" data-product-lots="${p.id}">${lotCount} Lot ▾</button></td>${canOpenProductEditor?`<td class="num"><div class="product-row-actions"><button class="icon-btn representative-history-action" data-product-representative-history="${p.id}" title="ประวัติผู้แทนและสินค้า" aria-label="เปิดประวัติผู้แทนของ ${escapeHtml(p.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 7v5l3 2"/></svg></button><button class="icon-btn" data-act="editproduct" data-id="${p.id}" title="แก้ไข" aria-label="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="icon-btn product-review-pending-toggle ${dataPending?'active':''}" data-set-product-review-status="pending" data-pid="${p.id}" title="${dataPending?'ยกเลิกสถานะกำลังแก้ไข / รอข้อมูล':'กำลังแก้ไข / รอข้อมูล'}" aria-label="${dataPending?'ยกเลิกสถานะกำลังแก้ไข / รอข้อมูล':'กำลังแก้ไข / รอข้อมูล'}" aria-pressed="${dataPending?'true':'false'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></button><button class="icon-btn product-reviewed-toggle ${dataReviewed?'active':''}" data-set-product-review-status="complete" data-pid="${p.id}" title="${dataReviewed?'ยกเลิกสถานะข้อมูลครบถ้วน':'ข้อมูลครบถ้วน'}" aria-label="${dataReviewed?'ยกเลิกสถานะข้อมูลครบถ้วน':'ข้อมูลครบถ้วน'}" aria-pressed="${dataReviewed?'true':'false'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12 4 4L19 6"/></svg></button></div></td>`:''}</tr>`;
+          return `<tr class="${isProductActive(p)?'':'product-inactive-row'} ${dataPending?'product-review-pending-row':''} ${dataReviewed?'product-reviewed-row':''}"><td class="mono" style="text-align:center;"><input class="prod-inline-edit" data-pid="${p.id}" data-field="sku" value="${escapeHtml(p.sku||'')}" placeholder="-"></td><td class="mono" style="text-align:center;"><input class="prod-inline-edit prod-inline-barcode prod-unit-barcode" data-pid="${p.id}" data-field="barcode" data-unit="${escapeHtml(selOpt.sub)}" value="${escapeHtml(selOpt.barcode||'')}" placeholder="-" autocomplete="off" aria-label="บาร์โค้ดหน่วย ${escapeHtml(selOpt.sub)}"></td><td><input class="prod-inline-edit prod-inline-name" data-pid="${p.id}" data-field="name" value="${escapeHtml(p.name)}">${isProductActive(p)?'':'<span class="product-status-badge">ปิดใช้งาน</span>'}</td><td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="price" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.price}"></td>${canViewCost?`<td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="cost" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.cost}"></td>`:''}<td style="text-align:center;">${unitSelectHtml}</td><td class="num stock-cell ${p.stock<0?'stock-negative':''}" style="text-align:center;" data-act="stockcheck" data-id="${p.id}" title="กดเพื่อดูทุกหน่วย">${escapeHtml(stockInLargestUnit(p))} <span class="stock-caret">▾</span></td><td style="text-align:center;"><button class="product-lot-link ${lotCount?'':'empty'}" data-product-lots="${p.id}">${lotCount} Lot ▾</button></td>${canOpenProductEditor?`<td class="num"><div class="product-row-actions"><button class="icon-btn representative-history-action" data-product-representative-history="${p.id}" title="ผู้แทนที่ดูแลสินค้าและ NOTE" aria-label="เปิดผู้แทนที่ดูแล ${escapeHtml(p.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 7v5l3 2"/></svg></button><button class="icon-btn" data-act="editproduct" data-id="${p.id}" title="แก้ไข" aria-label="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="icon-btn product-review-cycle-toggle" data-cycle-product-review-status="${p.id}" data-review-status="${reviewStatusValue}" title="สถานะ: ${reviewStatusLabel} · คลิกเพื่อเปลี่ยนเป็น ${reviewNextLabel}" aria-label="สถานะตรวจข้อมูล ${reviewStatusLabel}; คลิกเพื่อเปลี่ยนเป็น ${reviewNextLabel}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${reviewStatusIcon}</svg></button></div></td>`:''}</tr>`;
         }).join('')||`<tr><td colspan="${productColumnCount}" style="text-align:center;color:var(--text-muted);padding:30px;">${q?'ไม่พบสินค้าที่ค้นหา':selectedGroup?'ไม่มีสินค้าในกลุ่มนี้':'กรุณาเลือกกลุ่มสินค้าจากด้านซ้าย หรือค้นหาสินค้าได้ทันที'}</td></tr>`}</tbody></table>
         </div>
         ${pager}
@@ -13298,17 +13304,16 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       if(txt){ txt.value=isoToDMY(nat.value); txt.dispatchEvent(new Event('change')); }
     });
   });
-  document.querySelectorAll('[data-set-product-review-status]').forEach(button=>{
+  document.querySelectorAll('[data-cycle-product-review-status]').forEach(button=>{
     button.addEventListener('click',async()=>{
-      const pid=Number(button.dataset.pid);
-      const requestedStatus=String(button.dataset.setProductReviewStatus||'').trim();
-      if(!['pending','complete'].includes(requestedStatus)) return;
+      const pid=Number(button.dataset.cycleProductReviewStatus);
       const product=products.find(item=>Number(item.id)===pid);
       if(!product) return;
       const trackedFields=['dataReviewStatus','dataReviewUpdatedAt','dataReviewUpdatedBy','dataReviewedAt','dataReviewedBy'];
       const previousValues=Object.fromEntries(trackedFields.map(field=>[field,product[field]]));
       const currentStatus=productDataReviewStatus(product);
-      const shouldClear=currentStatus===requestedStatus;
+      const requestedStatus=currentStatus==='pending'?'complete':currentStatus==='complete'?'':'pending';
+      const shouldClear=requestedStatus==='';
       button.disabled=true;
       if(shouldClear){
         trackedFields.forEach(field=>{ delete product[field]; });
@@ -15625,6 +15630,9 @@ async function recoverOwnerPassword(){
 }
 
 const SALES_REP_EXCEL_HEADERS=['รหัสอ้างอิงระบบ','รหัสผู้ติดต่อ','ชื่อผู้แทน','เบอร์โทร','ไลน์','บริษัท','ข้อมูลเพิ่มเติม'];
+const SALES_REP_EXPORT_HEADERS=[...SALES_REP_EXCEL_HEADERS,'จำนวนสินค้าที่ดูแล','จำนวน NOTE'];
+const SALES_REP_NOTE_EXCEL_HEADERS=['รหัสอ้างอิงผู้แทน','รหัสผู้ติดต่อ','ชื่อผู้แทน','ลำดับ NOTE','รหัสอ้างอิง NOTE','วันที่ NOTE','ชื่อ NOTE','เนื้อหา NOTE','ซ่อนจาก LEVEL 2','สร้างเมื่อ','แก้ไขล่าสุด'];
+const SALES_REP_PRODUCT_EXCEL_HEADERS=['รหัสอ้างอิงผู้แทน','รหัสผู้ติดต่อ','ชื่อผู้แทน','รหัสอ้างอิงสินค้า','รหัสสินค้า (SKU)','เลขบาร์โค้ด','ชื่อสินค้า'];
 function salesRepresentativeToExcelRow(representative){
   const values={
     'รหัสอ้างอิงระบบ':representative.id??'',
@@ -15638,6 +15646,102 @@ function salesRepresentativeToExcelRow(representative){
   const row={};
   SALES_REP_EXCEL_HEADERS.forEach(header=>{ row[header]=values[header]; });
   return row;
+}
+function salesRepresentativeExcelDate(value,{dateOnly=false}={}){
+  const text=String(value||'').trim();
+  if(!text) return '';
+  const date=new Date(dateOnly&&/^\d{4}-\d{2}-\d{2}$/.test(text)?`${text}T00:00:00`:text);
+  return Number.isNaN(date.getTime())?'':date;
+}
+function salesRepresentativeExportRows(representatives,assignments,notes,catalog){
+  const representativeList=Array.isArray(representatives)?representatives:[];
+  const assignmentList=Array.isArray(assignments)?assignments:[];
+  const noteList=Array.isArray(notes)?notes:[];
+  const productList=Array.isArray(catalog)?catalog:[];
+  const representativesById=new Map(representativeList.map(representative=>[Number(representative.id),representative]));
+  const productsById=new Map(productList.map(product=>[Number(product.id),product]));
+  const productCounts=new Map(),noteCounts=new Map();
+  assignmentList.forEach(assignment=>{
+    const representativeId=Number(assignment.representativeId);
+    if(representativesById.has(representativeId)) productCounts.set(representativeId,(productCounts.get(representativeId)||0)+1);
+  });
+  noteList.forEach(note=>{
+    const representativeId=Number(note.representativeId);
+    if(representativesById.has(representativeId)) noteCounts.set(representativeId,(noteCounts.get(representativeId)||0)+1);
+  });
+  const representativeRows=representativeList.map(representative=>({
+    ...salesRepresentativeToExcelRow(representative),
+    'จำนวนสินค้าที่ดูแล':productCounts.get(Number(representative.id))||0,
+    'จำนวน NOTE':noteCounts.get(Number(representative.id))||0,
+  }));
+  const productRows=assignmentList.map(assignment=>{
+    const representative=representativesById.get(Number(assignment.representativeId));
+    if(!representative) return null;
+    const product=productsById.get(Number(assignment.productId))||{};
+    return {
+      'รหัสอ้างอิงผู้แทน':representative.id??'',
+      'รหัสผู้ติดต่อ':representative.code||'',
+      'ชื่อผู้แทน':representative.name||'',
+      'รหัสอ้างอิงสินค้า':assignment.productId??'',
+      'รหัสสินค้า (SKU)':product.sku||'',
+      'เลขบาร์โค้ด':product.barcode||'',
+      'ชื่อสินค้า':product.name||'',
+    };
+  }).filter(Boolean).sort((a,b)=>String(a['ชื่อผู้แทน']).localeCompare(String(b['ชื่อผู้แทน']),'th')||String(a['ชื่อสินค้า']).localeCompare(String(b['ชื่อสินค้า']),'th'));
+  const noteNumbers=new Map();
+  const noteRows=[...noteList].filter(note=>representativesById.has(Number(note.representativeId))).sort((a,b)=>{
+    const representativeA=representativesById.get(Number(a.representativeId));
+    const representativeB=representativesById.get(Number(b.representativeId));
+    return String(representativeA?.name||'').localeCompare(String(representativeB?.name||''),'th')
+      ||String(b.eventDate||'').localeCompare(String(a.eventDate||''))
+      ||String(b.updatedAt||'').localeCompare(String(a.updatedAt||''));
+  }).map(note=>{
+    const representativeId=Number(note.representativeId);
+    const representative=representativesById.get(representativeId);
+    const noteNumber=(noteNumbers.get(representativeId)||0)+1;
+    noteNumbers.set(representativeId,noteNumber);
+    return {
+      'รหัสอ้างอิงผู้แทน':representative.id??'',
+      'รหัสผู้ติดต่อ':representative.code||'',
+      'ชื่อผู้แทน':representative.name||'',
+      'ลำดับ NOTE':noteNumber,
+      'รหัสอ้างอิง NOTE':note.id||'',
+      'วันที่ NOTE':salesRepresentativeExcelDate(note.eventDate,{dateOnly:true}),
+      'ชื่อ NOTE':note.title||'',
+      'เนื้อหา NOTE':notePlainText(note.contentHtml||''),
+      'ซ่อนจาก LEVEL 2':note.hiddenFromLevel2?'ใช่':'ไม่',
+      'สร้างเมื่อ':salesRepresentativeExcelDate(note.createdAt),
+      'แก้ไขล่าสุด':salesRepresentativeExcelDate(note.updatedAt),
+    };
+  });
+  return {representativeRows,noteRows,productRows};
+}
+function salesRepresentativeExcelSheet(rows,headers,widths,dateFormats={}){
+  const sheet=XLSX.utils.json_to_sheet(rows,{header:headers,cellDates:true});
+  sheet['!cols']=widths.map(wch=>({wch}));
+  const endRow=Math.max(0,rows.length),endColumn=Math.max(0,headers.length-1);
+  sheet['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:endRow,c:endColumn}})};
+  Object.entries(dateFormats).forEach(([header,format])=>{
+    const column=headers.indexOf(header);
+    if(column<0) return;
+    for(let row=1;row<=endRow;row++){
+      const cell=sheet[XLSX.utils.encode_cell({r:row,c:column})];
+      if(cell&&cell.v instanceof Date) cell.z=format;
+    }
+  });
+  return sheet;
+}
+async function loadSalesRepresentativeExcelDetails(){
+  const [assignmentResult,noteResult]=await Promise.all([
+    fetchAllRows(()=>sb.from('sales_representative_products').select('representative_id,product_id,created_at,updated_at').order('representative_id').order('product_id')),
+    fetchAllRows(()=>sb.from('notes').select(NOTE_ROW_SELECT).not('activity_type','is',null).order('event_date',{ascending:false}).order('updated_at',{ascending:false}))
+  ]);
+  if(assignmentResult.error) throw assignmentResult.error;
+  if(noteResult.error) throw noteResult.error;
+  return {
+    assignments:(assignmentResult.data||[]).map(row=>({representativeId:Number(row.representative_id),productId:Number(row.product_id),createdAt:row.created_at||'',updatedAt:row.updated_at||''})),
+    notes:(noteResult.data||[]).map(mapNoteRow),
+  };
 }
 async function downloadSalesRepresentativeImportTemplate(){
   try{ await ensureXlsxLoaded(); }catch(error){ console.warn('load xlsx',error); }
@@ -15725,15 +15829,30 @@ async function importSalesRepresentativesFromExcel(file){
   render();
 }
 async function exportSalesRepresentativesToExcel(){
-  try{ await ensureXlsxLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบส่งออก Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
-  if(!salesRepresentatives.length){ showToast('ยังไม่มีรายชื่อผู้แทนให้ส่งออก'); return; }
-  const rows=salesRepresentatives.map(salesRepresentativeToExcelRow);
-  const sheet=XLSX.utils.json_to_sheet(rows);
-  sheet['!cols']=[{wch:18},{wch:18},{wch:28},{wch:18},{wch:22},{wch:32},{wch:42}];
-  const workbook=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook,sheet,'รายชื่อผู้แทน');
-  XLSX.writeFile(workbook,`PEPOS-รายชื่อผู้แทน-${TODAY_STR}.xlsx`);
-  showToast(`ส่งออกรายชื่อผู้แทน ${rows.length} รายการแล้ว`);
+  const button=document.getElementById('exportSalesRepsBtn');
+  const originalLabel=button?.textContent||'ส่งออก Excel';
+  if(button){ button.disabled=true; button.textContent='กำลังเตรียม Excel…'; }
+  try{
+    await ensureXlsxLoaded();
+    if(!salesRepresentatives.length){ showToast('ยังไม่มีรายชื่อผู้แทนให้ส่งออก'); return; }
+    const details=await loadSalesRepresentativeExcelDetails();
+    const {representativeRows,noteRows,productRows}=salesRepresentativeExportRows(salesRepresentatives,details.assignments,details.notes,products);
+    const workbook=XLSX.utils.book_new();
+    const representativeSheet=salesRepresentativeExcelSheet(representativeRows,SALES_REP_EXPORT_HEADERS,[18,18,28,18,22,32,42,20,16]);
+    XLSX.utils.book_append_sheet(workbook,representativeSheet,'รายชื่อผู้แทน');
+    const noteSheet=salesRepresentativeExcelSheet(noteRows,SALES_REP_NOTE_EXCEL_HEADERS,[20,18,28,14,38,16,34,70,20,22,22],{'วันที่ NOTE':'dd/mm/yyyy','สร้างเมื่อ':'dd/mm/yyyy hh:mm','แก้ไขล่าสุด':'dd/mm/yyyy hh:mm'});
+    noteSheet['!rows']=[{hpt:24},...noteRows.map(()=>({hpt:42}))];
+    XLSX.utils.book_append_sheet(workbook,noteSheet,'NOTE ผู้แทน');
+    const productSheet=salesRepresentativeExcelSheet(productRows,SALES_REP_PRODUCT_EXCEL_HEADERS,[20,18,28,20,20,22,42]);
+    XLSX.utils.book_append_sheet(workbook,productSheet,'สินค้าที่ดูแล');
+    XLSX.writeFile(workbook,`PEPOS-ข้อมูลผู้แทน-${TODAY_STR}.xlsx`,{cellDates:true});
+    showToast(`ส่งออกผู้แทน ${representativeRows.length} รายการ · NOTE ${noteRows.length} รายการ · สินค้าที่ดูแล ${productRows.length} รายการแล้ว`);
+  }catch(error){
+    console.warn('export sales representatives',error);
+    showToast(error?.message||'ส่งออกข้อมูลผู้แทนไม่สำเร็จ กรุณาลองใหม่');
+  }finally{
+    if(button){ button.disabled=false; button.textContent=originalLabel; }
+  }
 }
 
 function updateContactEntityLabels(){
