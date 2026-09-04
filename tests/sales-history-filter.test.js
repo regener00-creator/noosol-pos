@@ -18,7 +18,8 @@ assert.equal(context.saleHistoryTimeDisplay('2026-08-28T12:56:23.000Z'), '19:56'
 assert.equal(context.saleHistoryTimeDisplay(''), '-');
 assert.equal(context.saleHistoryCustomerDisplay({member:{name:'ลูกค้า A'}}), 'ลูกค้า A');
 assert.equal(context.saleHistoryCustomerDisplay({customerName:'ลูกค้า B'}), 'ลูกค้า B');
-assert.equal(context.saleHistoryCustomerDisplay({}), 'ลูกค้าทั่วไป');
+assert.equal(context.saleHistoryCustomerDisplay({}), '-');
+assert.equal(context.saleHistoryCustomerDisplay({member:'ลูกค้าทั่วไป'}), '-');
 
 const rows = [
   {id:'SALE-1',ref:'RE202608180002',date:'2026-08-18'},

@@ -4503,7 +4503,8 @@ function filterSalesHistory(rows,filter,range){
 function saleHistoryCustomerDisplay(sale){
   const member=sale?.member;
   const memberName=member&&typeof member==='object'?member.name:member;
-  return String(memberName||sale?.customerName||sale?.customerSnapshot?.name||sale?.cashReceiptA4Meta?.customer?.name||sale?.fullTaxInvoice?.customer?.name||sale?.name||'ลูกค้าทั่วไป').trim()||'ลูกค้าทั่วไป';
+  const name=String(memberName||sale?.customerName||sale?.customerSnapshot?.name||sale?.cashReceiptA4Meta?.customer?.name||sale?.fullTaxInvoice?.customer?.name||sale?.name||'').trim();
+  return !name||name==='ลูกค้าทั่วไป'?'-':name;
 }
 function renderHistory(){
   const f=historyFilter;
