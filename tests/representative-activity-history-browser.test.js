@@ -78,6 +78,7 @@ let browser;
   assert.match(await page.locator('.representative-group-card').textContent(), /NOTE 1 : เล่นรายการทอง/);
   assert.match(await page.locator('.representative-group-card').textContent(), /วันที่ 04-09-2026/);
   assert.match(await page.locator('.representative-group-card').textContent(), /NOTE 2 : ซื้อครบไปเที่ยวฟรี/);
+  assert.equal(await page.locator('.representative-history-summary').count(),0,'summary cards must not appear on representative history');
   const historyPageWidth=await page.locator('.representative-history-page').evaluate(element=>{
     const parent=element.parentElement;
     const parentStyle=getComputedStyle(parent);

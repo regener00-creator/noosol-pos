@@ -43,6 +43,7 @@ assert.match(historyRender, /id="representativeHistoryRepresentativeSearch"/);
 assert.match(historyRender, /id="representativeHistoryProductSearch"/);
 assert.match(historyRender, /id="representativeHistoryNoteSearch"/);
 assert.match(historyRender, /ค้นหาจาก NOTE/);
+assert.doesNotMatch(historyRender, /representative-history-summary|NOTE ทั้งหมด/);
 assert.doesNotMatch(historyRender, /representativeHistoryTypeFilter|ทุกประเภท|โปรโมชั่นที่ยังใช้ได้|ถึงกำหนดติดตาม/);
 assert.match(html, /\.representative-groups-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
 assert.match(html, /\.representative-history-page\{width:100%;max-width:none;margin:0;\}/);
