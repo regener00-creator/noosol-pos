@@ -75,12 +75,15 @@ let browser;
     document.querySelectorAll('.login-screen,.warehouse-choice-screen').forEach(screen=>{screen.style.display='none';});
   });
 
-  assert.equal(await page.locator('.representative-history-page h1').textContent(), 'ข้อมูลผู้แทน PEPO');
+  assert.equal(await page.locator('.representative-history-page h1').count(),0,'representative detail page must not repeat its heading');
+  assert.doesNotMatch(await page.locator('.representative-history-page').textContent(),/ค้นหาผู้แทน สินค้าที่ดูแล และ NOTE ได้จากหน้าเดียว/);
   assert.equal(await page.locator('.representative-profile-panel').count(),1);
   const profileText=await page.locator('.representative-profile-panel').textContent();
   assert.match(profileText,/ชื่อผู้แทน/);
-  assert.match(profileText,/สินค้าที่ดูแล/);
-  assert.match(profileText,/คลิกเพื่อดูสินค้า/);
+  assert.doesNotMatch(profileText,/^สินค้าที่ดูแล$/m);
+  assert.match(profileText,/คลิกเพื่อดูสินค้าที่ผู้แทนดูแล/);
+  const profileAlignment=await page.locator('.representative-profile-field').evaluateAll(elements=>elements.map(element=>({textAlign:getComputedStyle(element).textAlign,justifyContent:getComputedStyle(element).justifyContent})));
+  assert.ok(profileAlignment.every(style=>style.textAlign==='center'&&style.justifyContent==='center'),'representative profile content must be centered inside every cell');
   assert.doesNotMatch(profileText,/LIPITOR 10 MG/,'profile must not expand managed product names');
   assert.match(profileText,/เบอร์โทร\s*081-234-5678/);
   assert.match(profileText,/ไลน์\s*pepo\.line/);
@@ -146,7 +149,7 @@ let browser;
   await page.locator('.representative-note-list-item').first().click();
 
   const managedProductsTrigger=page.locator('[data-manage-representative-products="10"]');
-  assert.equal((await managedProductsTrigger.textContent()).trim(),'คลิกเพื่อดูสินค้า');
+  assert.equal((await managedProductsTrigger.textContent()).trim(),'คลิกเพื่อดูสินค้าที่ผู้แทนดูแล');
   await managedProductsTrigger.click();
   assert.equal(await page.locator('.representative-products-modal').count(),1);
   assert.equal(await page.locator('#representativeProductsSelectedCount').textContent(),'3');

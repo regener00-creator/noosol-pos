@@ -4570,10 +4570,10 @@ function representativeHistoryNoteHtml(note,index){
 }
 function representativeProfileHtml(group){
   const representative=group.representative;
-  const field=(label,value,className='')=>`<div class="representative-profile-field ${className}"><span>${label}</span><div>${value}</div></div>`;
+  const field=(label,value,className='')=>`<div class="representative-profile-field ${className}">${label?`<span>${label}</span>`:''}<div>${value}</div></div>`;
   return `<section class="representative-profile-panel">
     ${field('ชื่อผู้แทน',`<strong>${escapeHtml(representative.name||'-')}</strong>`,'representative-profile-name')}
-    ${field('สินค้าที่ดูแล',`<button type="button" class="representative-profile-products-trigger" data-manage-representative-products="${representative.id}">คลิกเพื่อดูสินค้า</button>`,'representative-profile-products-field')}
+    ${field('',`<button type="button" class="representative-profile-products-trigger" data-manage-representative-products="${representative.id}">คลิกเพื่อดูสินค้าที่ผู้แทนดูแล</button>`,'representative-profile-products-field')}
     ${field('เบอร์โทร',escapeHtml(representative.phone||'-'))}
     ${field('ไลน์',escapeHtml(representative.line||'-'))}
     ${field('บริษัท',escapeHtml(representative.company||'-'))}
@@ -4618,7 +4618,10 @@ function renderRepresentativeHistory(){
     :`${historyFilters}<div class="representative-groups-grid">${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':groups.map(representativeHistoryGroupHtml).join('')||'<div class="representative-history-empty">ยังไม่มีข้อมูลที่ตรงกับการค้นหา</div>'}</div>`;
   const centralActions=`<button class="btn ghost" id="exportSalesRepsBtn" type="button">ส่งออก Excel</button><button class="btn ghost" id="downloadSalesRepTemplateBtn" type="button">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importSalesRepsBtn" type="button">นำเข้า Excel</button><input id="salesRepImportFile" type="file" accept=".xlsx,.xls,.csv" hidden>${canCreateRepresentative?'<button class="btn primary" id="newSalesRepBtn" type="button">+ เพิ่มผู้แทน</button>':''}`;
   const detailActions=`<button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button>${canEditRepresentative?`<button class="btn ghost" data-act="editsalesrep" data-id="${representative.id}" type="button">แก้ไขข้อมูลผู้แทน</button>`:''}${representativeDetail&&canCreate?'<button class="btn primary" id="newRepresentativeActivityBtn" type="button">+ เพิ่มโน้ต</button>':''}`;
-  return `<div class="rpt representative-history-page"><div class="pagehead"><div>${central?'':`<div class="breadcrumb">ผู้แทน › ผู้แทนและสินค้าที่ดูแล</div>`}<h1>${escapeHtml(title)}</h1><p>${representative?.company?escapeHtml(representative.company):product?`รหัสสินค้า ${escapeHtml(product.sku||'-')}`:'ค้นหาผู้แทน สินค้าที่ดูแล และ NOTE ได้จากหน้าเดียว'}</p></div><div class="form-final-actions representative-topbar-actions">${central?centralActions:detailActions}</div></div>${representativeActivityLoadError?`<div class="notice danger">${escapeHtml(representativeActivityLoadError)}</div>`:''}${pageBody}</div>${representativeProductsEditorModalHtml()}${representativeEditorModalHtml()}`;
+  const pageHead=representativeDetail
+    ?`<div class="pagehead topbar-action-source representative-detail-pagehead"><div></div><div class="form-final-actions representative-topbar-actions">${detailActions}</div></div>`
+    :`<div class="pagehead"><div>${central?'':`<div class="breadcrumb">ผู้แทน › ผู้แทนและสินค้าที่ดูแล</div>`}<h1>${escapeHtml(title)}</h1><p>${product?`รหัสสินค้า ${escapeHtml(product.sku||'-')}`:'ค้นหาผู้แทน สินค้าที่ดูแล และ NOTE ได้จากหน้าเดียว'}</p></div><div class="form-final-actions representative-topbar-actions">${central?centralActions:detailActions}</div></div>`;
+  return `<div class="rpt representative-history-page">${pageHead}${representativeActivityLoadError?`<div class="notice danger">${escapeHtml(representativeActivityLoadError)}</div>`:''}${pageBody}</div>${representativeProductsEditorModalHtml()}${representativeEditorModalHtml()}`;
 }
 function syncRepresentativeActivityDraftFromForm(){
   if(!representativeActivityDraft) return;

@@ -10,6 +10,7 @@ const managedProductsMigration = fs.readFileSync(path.join(root, 'supabase', 'mi
 const separatedEditorsMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260904142648_separate_representative_products_and_notes.sql'), 'utf8');
 const historyRender = html.slice(html.indexOf('function renderRepresentativeHistory(){'),html.indexOf('function syncRepresentativeActivityDraftFromForm(){'));
 const historyGroupRender = html.slice(html.indexOf('function representativeHistoryGroupHtml(group){'),html.indexOf('function renderRepresentativeHistory(){'));
+const representativeProfileRender = html.slice(html.indexOf('function representativeProfileHtml(group){'),html.indexOf('function representativeNoteWorkspaceHtml(group,canCreate){'));
 const noteEditor = html.slice(html.indexOf('function representativeNoteEditorPanelHtml('),html.indexOf('function openRepresentativeProductsEditor('));
 const productsEditor = html.slice(html.indexOf('function representativeProductsEditorModalHtml(){'),html.indexOf('function representativeEditorModalHtml(){'));
 
@@ -70,7 +71,10 @@ assert.match(html, /\.representative-notes-list\{display:grid;grid-template-colu
 assert.match(html, /\.representative-note-body\{display:-webkit-box;[^}]*overflow:hidden;[^}]*-webkit-line-clamp:4;/);
 assert.match(html, /NOTE \$\{index\+1\} :/);
 assert.match(html, /\.representative-profile-panel\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
-assert.match(html, /ชื่อผู้แทน[\s\S]*สินค้าที่ดูแล[\s\S]*เบอร์โทร[\s\S]*ไลน์[\s\S]*บริษัท[\s\S]*ข้อมูลเพิ่มเติม/);
+assert.match(representativeProfileRender, /ชื่อผู้แทน[\s\S]*คลิกเพื่อดูสินค้าที่ผู้แทนดูแล[\s\S]*เบอร์โทร[\s\S]*ไลน์[\s\S]*บริษัท[\s\S]*ข้อมูลเพิ่มเติม/);
+assert.doesNotMatch(representativeProfileRender, /field\('สินค้าที่ดูแล'/);
+assert.match(html, /\.representative-profile-field\{display:flex;[^}]*justify-content:center;[^}]*text-align:center;/);
+assert.match(historyRender, /pagehead topbar-action-source representative-detail-pagehead/);
 assert.match(html, /\.representative-note-workspace\{display:grid;grid-template-columns:minmax\(270px,340px\) minmax\(0,1fr\)/);
 assert.match(html, /data-select-representative-note=/);
 assert.match(html, /representative-note-list-panel[\s\S]*representative-note-inline-editor/);
@@ -95,7 +99,7 @@ assert.match(html, /data-add-representative-product=/);
 assert.match(html, /\.slice\(0,12\)/);
 assert.match(html, /representative-product-selected-card/);
 assert.doesNotMatch(productsEditor, /รายการสินค้า|representativeProductsOptions|แสดงสูงสุด/);
-assert.match(html, /คลิกเพื่อดูสินค้า/);
+assert.match(html, /คลิกเพื่อดูสินค้าที่ผู้แทนดูแล/);
 assert.doesNotMatch(html, /กดเพื่อดู เพิ่ม หรือลบสินค้า/);
 assert.match(html, /data-manage-representative-products=/);
 assert.match(html, /function representativeEditorModalHtml\(\)/);

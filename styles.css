@@ -2106,13 +2106,13 @@
   .representative-note-body p{margin:0;}
   .representative-note-body.muted{color:var(--text-muted);font-style:italic;}
   .representative-profile-panel{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-bottom:14px;overflow:hidden;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:0 8px 25px rgba(79,64,56,.06);}
-  .representative-profile-field{min-width:0;padding:14px 16px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);}
+  .representative-profile-field{display:flex;min-width:0;min-height:98px;flex-direction:column;justify-content:center;padding:14px 16px;border-right:1px solid var(--border);border-bottom:1px solid var(--border);text-align:center;}
   .representative-profile-field:nth-child(3n){border-right:0;}
   .representative-profile-field:nth-last-child(-n+3){border-bottom:0;}
   .representative-profile-field>span{display:block;margin-bottom:6px;color:var(--text-muted);font-size:12px;font-weight:700;}
-  .representative-profile-field>div{min-height:24px;color:var(--text);font-size:15px;line-height:1.55;overflow-wrap:anywhere;}
+  .representative-profile-field>div{width:100%;min-height:24px;color:var(--text);font-size:15px;line-height:1.55;overflow-wrap:anywhere;}
   .representative-profile-name strong{color:var(--primary-dark);font-size:20px;}
-  .representative-profile-products-trigger{display:flex;width:100%;min-height:52px;align-items:center;border:1px solid transparent;border-radius:10px;background:transparent;padding:7px;text-align:left;color:var(--primary);font-family:inherit;font-weight:700;cursor:pointer;transition:border-color .15s,background .15s;}
+  .representative-profile-products-trigger{display:flex;width:100%;min-height:52px;align-items:center;justify-content:center;border:1px solid transparent;border-radius:10px;background:transparent;padding:7px;text-align:center;color:var(--primary);font-family:inherit;font-weight:700;cursor:pointer;transition:border-color .15s,background .15s;}
   .representative-profile-products-trigger:hover,.representative-profile-products-trigger:focus-visible{border-color:var(--primary);background:var(--primary-soft);outline:0;}
   .representative-editor-body{padding:20px 22px;overflow:auto;}
   .representative-editor-grid .crow label{display:block;margin-bottom:6px;color:var(--text-muted);font-size:12px;font-weight:700;}
