@@ -4436,21 +4436,30 @@ function representativeProductsEditorMatches(){
   const editor=representativeProductsEditor;
   if(!editor) return [];
   const needle=normalizedActivityName(editor.search);
-  const matches=products.filter(product=>needle
-    ?normalizedActivityName(`${product.name||''} ${product.sku||''} ${product.barcode||''}`).includes(needle)
-    :editor.productIds.has(Number(product.id))
-  );
+  if(!needle) return [];
+  const matches=products.filter(product=>normalizedActivityName(`${product.name||''} ${product.sku||''} ${product.barcode||''}`).includes(needle));
   return matches.sort((a,b)=>{
-    const selectedDiff=Number(editor.productIds.has(Number(b.id)))-Number(editor.productIds.has(Number(a.id)));
-    return selectedDiff||String(a.name||'').localeCompare(String(b.name||''),'th');
-  }).slice(0,27);
+    const searchRank=product=>{
+      const sku=normalizedActivityName(product.sku),barcode=normalizedActivityName(product.barcode),name=normalizedActivityName(product.name);
+      if(sku===needle||barcode===needle) return 0;
+      if(sku.startsWith(needle)||barcode.startsWith(needle)) return 1;
+      if(name.startsWith(needle)) return 2;
+      return 3;
+    };
+    return searchRank(a)-searchRank(b)||String(a.name||'').localeCompare(String(b.name||''),'th');
+  }).slice(0,12);
 }
-function representativeProductsEditorRowsHtml(){
+function representativeProductsSearchResultsHtml(){
   const editor=representativeProductsEditor;
   if(!editor) return '';
+  const needle=normalizedActivityName(editor.search);
+  if(!needle) return '';
   const canEdit=canPerformPageAction('edit','salesreps');
   const rows=representativeProductsEditorMatches();
-  return rows.length?rows.map(product=>`<label class="representative-product-choice ${editor.productIds.has(Number(product.id))?'selected':''}"><input type="checkbox" data-representative-product-toggle="${product.id}" ${editor.productIds.has(Number(product.id))?'checked':''} ${canEdit?'':'disabled'}><span><b>${escapeHtml(product.name)}</b><small>${escapeHtml(product.sku||'-')} · ${escapeHtml(product.barcode||'ไม่มีบาร์โค้ด')}</small></span></label>`).join(''):'<div class="representative-products-empty">ไม่พบสินค้าที่ค้นหา</div>';
+  return rows.length?rows.map(product=>{
+    const selected=editor.productIds.has(Number(product.id));
+    return `<button type="button" class="representative-product-search-result ${selected?'selected':''}" data-add-representative-product="${product.id}" ${canEdit&&!selected?'':'disabled'}><span><b>${escapeHtml(product.name)}</b><small>${escapeHtml(product.sku||'-')} · ${escapeHtml(product.barcode||'ไม่มีบาร์โค้ด')}</small></span><em>${selected?'เลือกแล้ว':'เลือก'}</em></button>`;
+  }).join(''):'<div class="representative-products-empty">ไม่พบสินค้าที่ค้นหา</div>';
 }
 function representativeProductsSelectedHtml(){
   const editor=representativeProductsEditor;
@@ -4465,7 +4474,7 @@ function representativeProductsEditorModalHtml(){
   const representative=representativeForActivityId(editor.representativeId);
   const canEdit=canPerformPageAction('edit','salesreps');
   return `<div class="modal-overlay representative-products-overlay"><section class="modal representative-products-modal" role="dialog" aria-modal="true" aria-labelledby="representativeProductsTitle"><div class="modal-head"><div><h3 id="representativeProductsTitle">สินค้าที่ดูแล</h3><div class="sub">ผู้แทน ${escapeHtml(representative?.name||'-')} · เลือกแล้ว <b id="representativeProductsSelectedCount">${editor.productIds.size}</b> รายการ</div></div><button class="modal-close" id="closeRepresentativeProductsEditorBtn" type="button" aria-label="ปิด">×</button></div>
-    <div class="representative-products-editor-body"><div class="representative-products-search"><input id="representativeProductsSearch" autocomplete="off" value="${escapeHtml(editor.search)}" placeholder="ค้นหาชื่อสินค้า รหัส หรือยิงบาร์โค้ด"></div><div class="representative-products-selected"><h4>สินค้าที่เลือก</h4><div id="representativeProductsSelectedList">${representativeProductsSelectedHtml()}</div></div><div class="representative-products-options-head"><h4>รายการสินค้า</h4><span>แสดงสูงสุด 27 รายการต่อการค้นหา</span></div><div class="representative-products-options" id="representativeProductsOptions">${representativeProductsEditorRowsHtml()}</div></div>
+    <div class="representative-products-editor-body"><div class="representative-products-search"><input id="representativeProductsSearch" autocomplete="off" value="${escapeHtml(editor.search)}" placeholder="ค้นหาชื่อสินค้า รหัส หรือยิงบาร์โค้ด" role="combobox" aria-autocomplete="list" aria-controls="representativeProductsDropdown" aria-expanded="${normalizedActivityName(editor.search)?'true':'false'}"><div class="representative-products-dropdown" id="representativeProductsDropdown" role="listbox" ${normalizedActivityName(editor.search)?'':'hidden'}>${representativeProductsSearchResultsHtml()}</div></div><div class="representative-products-selected"><h4>สินค้าที่เลือก</h4><div id="representativeProductsSelectedList">${representativeProductsSelectedHtml()}</div></div></div>
     <div class="representative-products-actions"><button class="btn ghost" id="cancelRepresentativeProductsEditorBtn" type="button">${canEdit?'ยกเลิก':'ปิด'}</button>${canEdit?'<button class="btn primary" id="saveRepresentativeProductsBtn" type="button">บันทึกสินค้าที่ดูแล</button>':''}</div></section></div>`;
 }
 function representativeEditorModalHtml(){
@@ -4658,16 +4667,21 @@ async function deleteRepresentativeActivity(id){
 function drawRepresentativeProductsEditor(){
   const editor=representativeProductsEditor;
   if(!editor) return;
-  const options=document.getElementById('representativeProductsOptions');
+  const dropdown=document.getElementById('representativeProductsDropdown');
+  const search=document.getElementById('representativeProductsSearch');
   const selected=document.getElementById('representativeProductsSelectedList');
   const count=document.getElementById('representativeProductsSelectedCount');
-  if(options) options.innerHTML=representativeProductsEditorRowsHtml();
+  const hasSearch=Boolean(normalizedActivityName(editor.search));
+  if(dropdown){ dropdown.innerHTML=representativeProductsSearchResultsHtml(); dropdown.hidden=!hasSearch; }
+  if(search) search.setAttribute('aria-expanded',hasSearch?'true':'false');
   if(selected) selected.innerHTML=representativeProductsSelectedHtml();
   if(count) count.textContent=editor.productIds.size;
-  document.querySelectorAll('[data-representative-product-toggle]').forEach(input=>input.addEventListener('change',()=>{
-    const productId=Number(input.dataset.representativeProductToggle);
-    if(input.checked) editor.productIds.add(productId); else editor.productIds.delete(productId);
+  document.querySelectorAll('[data-add-representative-product]').forEach(button=>button.addEventListener('click',()=>{
+    editor.productIds.add(Number(button.dataset.addRepresentativeProduct));
+    editor.search='';
+    if(search) search.value='';
     drawRepresentativeProductsEditor();
+    search?.focus();
   }));
   document.querySelectorAll('[data-remove-representative-product]').forEach(button=>button.addEventListener('click',()=>{
     editor.productIds.delete(Number(button.dataset.removeRepresentativeProduct));
@@ -4750,6 +4764,13 @@ function attachRepresentativeHistoryEvents(){
   document.getElementById('representativeProductsSearch')?.addEventListener('input',event=>{
     if(!representativeProductsEditor) return;
     representativeProductsEditor.search=event.target.value;
+    drawRepresentativeProductsEditor();
+  });
+  document.getElementById('representativeProductsSearch')?.addEventListener('keydown',event=>{
+    if(event.key!=='Escape'||!representativeProductsEditor?.search) return;
+    event.preventDefault();
+    representativeProductsEditor.search='';
+    event.currentTarget.value='';
     drawRepresentativeProductsEditor();
   });
   drawRepresentativeProductsEditor();
