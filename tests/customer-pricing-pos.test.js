@@ -29,7 +29,7 @@ assert.equal(line.price,160);
 assert.equal(line.regularPrice,180);
 assert.equal(line.priceSource,'customer');
 assert.equal(line.customerPriceRuleId,'a-box');
-assert.equal(context.customerDefaultDocument(customer),'cash_bill');
+assert.equal(context.customerDefaultDocument(customer),'short_receipt');
 
 context.saleMember = null;
 context.applySalePriceToLine(line,product,'กล่อง',{preserveQuotation:false});

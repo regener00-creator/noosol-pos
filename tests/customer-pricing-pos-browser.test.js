@@ -44,12 +44,24 @@ const browserExecutable = [
     nextContactId=8; editingContactId=7; currentTab='contacts';
     document.getElementById('main').innerHTML=renderContactForm(); attachEvents();
   });
-  assert.equal(await page.locator('#c_default_document').inputValue(),'cash_bill');
-  assert.equal(await page.locator('.customer-price-product').inputValue(),'Decolgen');
+  assert.equal(await page.locator('#c_default_document').count(),0);
+  assert.deepEqual(await page.locator('.customer-price-table thead th').allTextContents(),['บาร์โค้ดสินค้า','ชื่อ','หน่วย','ราคาพิเศษ','ทุน','']);
+  assert.equal(await page.locator('.customer-price-product-name b').textContent(),'Decolgen');
+  assert.equal(await page.locator('.customer-price-barcode').textContent(),'BOX-101');
   assert.equal(await page.locator('.customer-price-unit').inputValue(),'กล่อง');
+  assert.equal(await page.locator('.customer-price-cost').inputValue(),'110.00');
+  assert.equal(await page.locator('.customer-price-cost').getAttribute('readonly'),'');
   await page.locator('.customer-price-value').fill('155');
+  await page.locator('#customerPriceSearch').fill('SACHET-101');
+  await page.locator('#customerPriceSearch').press('Enter');
+  assert.equal(await page.locator('[data-customer-price-row]').count(),2);
+  assert.equal(await page.locator('[data-customer-price-row]').last().locator('.customer-price-unit').inputValue(),'ซอง');
+  assert.equal(await page.locator('[data-customer-price-row]').last().locator('.customer-price-cost').inputValue(),'5.00');
+  await page.locator('[data-customer-price-row]').last().locator('.customer-price-value').fill('7');
   await page.locator('#saveContactBtn').click();
   assert.equal(await page.evaluate(()=>contacts[0].customerPrices[0].price),155);
+  assert.equal(await page.evaluate(()=>contacts[0].customerPrices[1].price),7);
+  assert.equal(await page.evaluate(()=>contacts[0].defaultDocument),'short_receipt');
 
   await page.evaluate(() => {
     currentTab='checkout'; cart=[]; saleMember=customerSaleSnapshot(contacts[0]); currentCashShift={id:'shift-test',shiftNo:'CS-TEST',openingCash:0,openedByName:'เจ้าของ'};
@@ -58,6 +70,8 @@ const browserExecutable = [
   assert.equal(await page.evaluate(()=>cart[0].price),155);
   assert.equal(await page.evaluate(()=>cart[0].regularPrice),180);
   assert.equal(await page.locator('.pos-customer-price-tag').count(),1);
+  assert.equal((await page.locator('.pos-table thead').textContent()).includes('ทุน'),false);
+  assert.equal(await page.locator('.pos-table .customer-price-cost').count(),0);
   assert.equal(await page.locator('#memberSearch').count(),0);
   assert.equal(await page.locator('.pos-customer-card').count(),0);
   assert.equal(await page.locator('.pos-customer-slot>label').count(),0);

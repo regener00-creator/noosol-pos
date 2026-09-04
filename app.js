@@ -2280,8 +2280,7 @@ function saleLineCostSnapshot(line,product){
   return {cost,costTotal:cost*qty,costSource:line?.custom?'custom_price':'product_manual'};
 }
 function customerDefaultDocument(customer){
-  const value=String(customer?.defaultDocument||'short_receipt');
-  return ['short_receipt','cash_bill','full_tax_invoice'].includes(value)?value:'short_receipt';
+  return 'short_receipt';
 }
 function customerSaleSnapshot(customer){
   if(!customer) return null;
@@ -2329,10 +2328,6 @@ function refreshCartCustomerPrices(){
     if(product) applySalePriceToLine(line,product,line.unit);
   });
 }
-function posCustomerDocumentLabel(customer){
-  const value=customerDefaultDocument(customer);
-  return value==='cash_bill'?'บิลเงินสด':value==='full_tax_invoice'?'ใบกำกับภาษีเต็มรูปแบบ':'ใบเสร็จอย่างย่อ';
-}
 function openPOSCustomerPicker(){
   const customers=customersList();
   const selected=activeSaleCustomer();
@@ -2341,7 +2336,7 @@ function openPOSCustomerPicker(){
     const active=String(customer.id)===String(selected?.id);
     return `<button class="pos-customer-picker-item ${active?'active':''}" type="button" data-pos-customer-index="${index}">
       <span class="pos-customer-picker-main"><strong>${escapeHtml(customer.name||'-')}</strong><small>${escapeHtml(customer.phone||customer.taxId||'ไม่มีเบอร์โทร')}</small></span>
-      <span class="pos-customer-picker-meta"><small>${escapeHtml(posCustomerDocumentLabel(customer))}</small>${ruleCount?`<b>${ruleCount} ราคาพิเศษ</b>`:''}</span>
+      <span class="pos-customer-picker-meta">${ruleCount?`<b>${ruleCount} ราคาพิเศษ</b>`:''}</span>
       <span class="pos-customer-picker-check">${active?'✓':''}</span>
     </button>`;
   }).join('');
@@ -4458,7 +4453,7 @@ function renderCheckout(){
             <span><strong>${escapeHtml(selectedCustomer?.name||'ลูกค้าทั่วไป')}</strong><small>${selectedCustomer?'กดเพื่อเปลี่ยนลูกค้า':'กดเพื่อเลือกลูกค้า'}</small></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21v-2a7 7 0 0 1 14 0v2M17 11h4M19 9v4"/></svg>
           </button>
-          ${selectedCustomer?`<div class="pos-customer-note"><span>ใช้ราคาพิเศษที่ตั้งไว้โดยอัตโนมัติ</span><b>${customerDefaultDocument(selectedCustomer)==='cash_bill'?'บิลเงินสด':customerDefaultDocument(selectedCustomer)==='full_tax_invoice'?'ใบกำกับภาษีเต็มรูปแบบ':'ใบเสร็จอย่างย่อ'}</b></div>`:''}
+          ${selectedCustomer?'<div class="pos-customer-note"><span>ใช้ราคาพิเศษที่ตั้งไว้โดยอัตโนมัติ</span></div>':''}
         </div>
         <div class="pos-actions">
           <button class="pos-action ${showFavorites?'on':''}" id="favBtn"><span class="pa-ic">⭐</span> สินค้าโปรด</button>
@@ -9156,13 +9151,18 @@ function renderContacts(){
 
 function customerPriceRowHtml(rule={},index=0){
   const product=products.find(item=>Number(item.id)===Number(rule.productId));
-  return `<div class="customer-price-row" data-customer-price-row>
-    <input type="hidden" class="customer-price-id" value="${escapeHtml(rule.id||'')}">
-    <label><span>สินค้า</span><input class="customer-price-product" list="customerPriceProductList" value="${escapeHtml(product?.name||'')}" placeholder="พิมพ์ชื่อหรือรหัสสินค้า" autocomplete="off"></label>
-    <label><span>หน่วยขาย</span><input class="customer-price-unit" list="customerPriceUnitList" value="${escapeHtml(rule.unit||product?.unit||'')}" placeholder="เช่น กล่อง" autocomplete="off"></label>
-    <label><span>ราคาพิเศษ</span><input class="customer-price-value" type="number" min="0" step="0.01" value="${Number.isFinite(Number(rule.price))?escapeHtml(rule.price):''}" placeholder="0.00"></label>
-    <button class="history-icon-btn danger customer-price-remove" type="button" title="ลบราคาพิเศษ" aria-label="ลบราคาพิเศษ">×</button>
-  </div>`;
+  if(!product) return '';
+  const options=productUnitOptions(product);
+  const selectedUnit=options.some(option=>option.name===rule.unit)?rule.unit:(options[0]?.name||product.unit||'');
+  const selectedOption=options.find(option=>option.name===selectedUnit)||options[0];
+  return `<tr class="customer-price-row" data-customer-price-row data-product-id="${escapeHtml(product.id)}">
+    <td class="mono customer-price-barcode">${escapeHtml(productBarcodeForUnit(product,selectedUnit)||'-')}</td>
+    <td class="customer-price-product-name"><input type="hidden" class="customer-price-id" value="${escapeHtml(rule.id||'')}"><input type="hidden" class="customer-price-product-id" value="${escapeHtml(product.id)}"><b>${escapeHtml(product.name)}</b><small>${escapeHtml(product.sku||'-')}</small></td>
+    <td><select class="customer-price-unit" aria-label="หน่วย ${escapeHtml(product.name)}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selectedUnit?'selected':''}>${escapeHtml(option.name)}</option>`).join('')}</select></td>
+    <td><input class="customer-price-value mono" type="number" min="0" step="0.01" value="${Number.isFinite(Number(rule.price))?escapeHtml(rule.price):''}" placeholder="0.00" aria-label="ราคาพิเศษ ${escapeHtml(product.name)}"></td>
+    <td><input class="customer-price-cost mono" value="${escapeHtml(fmtMoney(selectedOption?.cost||0))}" readonly tabindex="-1" aria-label="ทุน ${escapeHtml(product.name)}"></td>
+    <td><button class="history-icon-btn danger customer-price-remove" type="button" title="ลบราคาพิเศษ" aria-label="ลบราคาพิเศษ ${escapeHtml(product.name)}">×</button></td>
+  </tr>`;
 }
 
 function sellQuotationAtPos(id){
@@ -9191,7 +9191,7 @@ function sellQuotationAtPos(id){
 
 function renderContactForm(){
   const isNew = editingContactId==='new';
-  const c = isNew ? {name:'',entity:'juristic',types:['customer'],contactName:'',email:'',phone:'',taxId:'',creditDays:'',branch:'main',address:'',postcode:'',bank:'',bankAcc:'',accType:'',note:'',defaultDocument:'short_receipt',customerPrices:[]} : contacts.find(x=>x.id===editingContactId);
+  const c = isNew ? {name:'',entity:'juristic',types:['customer'],contactName:'',email:'',phone:'',taxId:'',creditDays:'',branch:'main',address:'',postcode:'',bank:'',bankAcc:'',accType:'',note:'',customerPrices:[]} : contacts.find(x=>x.id===editingContactId);
   const chk = t => c.types.includes(t)?'checked':'';
   const customerPrices=normalizedCustomerPriceRules(c);
   return `
@@ -9242,11 +9242,9 @@ function renderContactForm(){
       </div>
     </div>
     <div class="panel customer-pricing-panel">
-      <div class="customer-pricing-heading"><div><h3>ราคาพิเศษสำหรับลูกค้ารายนี้</h3><p>กำหนดแยกตามสินค้าและหน่วยขาย ราคานี้จะไม่ซ้อนโปรโมชั่นทั่วไป และไม่มีผลกับราคาหน้าร้านหรือตัวเลขในบิลเก่า</p></div><button class="btn ghost small" id="addCustomerPriceBtn" type="button">+ เพิ่มราคาพิเศษ</button></div>
-      <div class="customer-document-preference"><label>เอกสารเริ่มต้นหลังชำระ</label><select id="c_default_document"><option value="short_receipt" ${customerDefaultDocument(c)==='short_receipt'?'selected':''}>ใบเสร็จอย่างย่อ</option><option value="cash_bill" ${customerDefaultDocument(c)==='cash_bill'?'selected':''}>บิลเงินสด A4</option><option value="full_tax_invoice" ${customerDefaultDocument(c)==='full_tax_invoice'?'selected':''}>ใบกำกับภาษีเต็มรูปแบบ</option></select></div>
-      <datalist id="customerPriceProductList">${activeProducts().map(product=>`<option value="${escapeHtml(product.name)}">${escapeHtml(product.sku||'')}</option>`).join('')}</datalist>
-      <datalist id="customerPriceUnitList">${units.map(unit=>`<option value="${escapeHtml(unit)}">`).join('')}</datalist>
-      <div id="customerPriceRows">${customerPrices.map(customerPriceRowHtml).join('')||'<div class="customer-price-empty">ยังไม่ได้กำหนดราคาพิเศษ</div>'}</div>
+      <div class="customer-pricing-heading"><div><h3>ราคาพิเศษสำหรับลูกค้ารายนี้</h3><p>ค้นหาหรือยิงบาร์โค้ดเพื่อเพิ่มสินค้า ราคานี้จะไม่ซ้อนโปรโมชั่นทั่วไป และไม่มีผลกับราคาหน้าร้านหรือตัวเลขในบิลเก่า</p></div></div>
+      <div class="customer-price-search-wrap"><div class="customer-price-search"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg></span><input id="customerPriceSearch" placeholder="ค้นหาสินค้า / รหัส / สแกนบาร์โค้ด" autocomplete="off"></div><div class="customer-price-search-results" id="customerPriceSearchResults" hidden></div></div>
+      <div class="customer-price-table-wrap"><table class="grid-table customer-price-table"><colgroup><col class="customer-price-col-barcode"><col class="customer-price-col-name"><col class="customer-price-col-unit"><col class="customer-price-col-price"><col class="customer-price-col-cost"><col class="customer-price-col-action"></colgroup><thead><tr><th>บาร์โค้ดสินค้า</th><th>ชื่อ</th><th>หน่วย</th><th>ราคาพิเศษ</th><th>ทุน</th><th></th></tr></thead><tbody id="customerPriceRows">${customerPrices.map(customerPriceRowHtml).join('')||'<tr class="customer-price-empty"><td colspan="6">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>'}</tbody></table></div>
     </div>`;
 }
 
@@ -12270,20 +12268,78 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const saveContactBtn = document.getElementById('saveContactBtn');
   if(saveContactBtn) saveContactBtn.addEventListener('click', saveContact);
   const customerPriceRows=document.getElementById('customerPriceRows');
-  const bindCustomerPriceRemove=()=>document.querySelectorAll('.customer-price-remove').forEach(button=>{
-    button.onclick=()=>{
-      button.closest('[data-customer-price-row]')?.remove();
-      if(customerPriceRows&&!customerPriceRows.querySelector('[data-customer-price-row]')) customerPriceRows.innerHTML='<div class="customer-price-empty">ยังไม่ได้กำหนดราคาพิเศษ</div>';
+  const bindCustomerPriceRows=()=>document.querySelectorAll('[data-customer-price-row]').forEach(row=>{
+    const unitSelect=row.querySelector('.customer-price-unit');
+    if(unitSelect){
+      unitSelect.dataset.previousUnit=unitSelect.value;
+      unitSelect.onchange=()=>{
+        const productId=Number(row.querySelector('.customer-price-product-id')?.value||row.dataset.productId);
+        const duplicate=[...document.querySelectorAll('[data-customer-price-row]')].find(other=>other!==row&&Number(other.querySelector('.customer-price-product-id')?.value||other.dataset.productId)===productId&&other.querySelector('.customer-price-unit')?.value===unitSelect.value);
+        if(duplicate){ showToast('สินค้านี้มีราคาพิเศษของหน่วยที่เลือกอยู่แล้ว','danger-top'); unitSelect.value=unitSelect.dataset.previousUnit; return; }
+        const product=products.find(item=>Number(item.id)===productId);
+        const option=productUnitOptions(product).find(item=>item.name===unitSelect.value);
+        row.querySelector('.customer-price-barcode').textContent=productBarcodeForUnit(product,unitSelect.value)||'-';
+        row.querySelector('.customer-price-cost').value=fmtMoney(option?.cost||0);
+        unitSelect.dataset.previousUnit=unitSelect.value;
+      };
+    }
+    const remove=row.querySelector('.customer-price-remove');
+    if(remove) remove.onclick=()=>{
+      row.remove();
+      if(customerPriceRows&&!customerPriceRows.querySelector('[data-customer-price-row]')) customerPriceRows.innerHTML='<tr class="customer-price-empty"><td colspan="6">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>';
     };
   });
-  const addCustomerPriceBtn=document.getElementById('addCustomerPriceBtn');
-  if(addCustomerPriceBtn&&customerPriceRows) addCustomerPriceBtn.addEventListener('click',()=>{
+  const customerPriceSearch=document.getElementById('customerPriceSearch');
+  const customerPriceSearchResults=document.getElementById('customerPriceSearchResults');
+  const customerPriceMatches=query=>{
+    const text=String(query||'').trim(),lower=text.toLowerCase();
+    if(!text) return [];
+    const exact=findProductByExactCode(text);
+    const matches=activeProducts().filter(product=>product.name.toLowerCase().includes(lower)||(product.sku||'').toLowerCase().includes(lower)||matchesBarcode(product,text)).slice(0,8);
+    if(exact?.product){
+      const filtered=matches.filter(product=>Number(product.id)!==Number(exact.product.id));
+      return [{product:exact.product,unit:exact.unitName||exact.product.unit},...filtered.map(product=>({product,unit:product.unit}))].slice(0,8);
+    }
+    return matches.map(product=>({product,unit:product.unit}));
+  };
+  const addCustomerPriceProduct=(product,unit)=>{
+    if(!product||!customerPriceRows) return;
+    const selectedUnit=productUnitOptions(product).some(option=>option.name===unit)?unit:product.unit;
+    const existing=[...customerPriceRows.querySelectorAll('[data-customer-price-row]')].find(row=>Number(row.querySelector('.customer-price-product-id')?.value||row.dataset.productId)===Number(product.id)&&row.querySelector('.customer-price-unit')?.value===selectedUnit);
+    if(existing){ showToast(`มีราคาพิเศษ “${product.name}” หน่วย ${selectedUnit} อยู่แล้ว`); existing.querySelector('.customer-price-value')?.focus(); return; }
     customerPriceRows.querySelector('.customer-price-empty')?.remove();
-    customerPriceRows.insertAdjacentHTML('beforeend',customerPriceRowHtml({},customerPriceRows.querySelectorAll('[data-customer-price-row]').length));
-    bindCustomerPriceRemove();
-    customerPriceRows.querySelector('[data-customer-price-row]:last-child .customer-price-product')?.focus();
-  });
-  bindCustomerPriceRemove();
+    customerPriceRows.insertAdjacentHTML('beforeend',customerPriceRowHtml({productId:product.id,unit:selectedUnit,price:''},customerPriceRows.querySelectorAll('[data-customer-price-row]').length));
+    bindCustomerPriceRows();
+    customerPriceRows.querySelector('[data-customer-price-row]:last-child .customer-price-value')?.focus();
+    if(customerPriceSearch) customerPriceSearch.value='';
+    if(customerPriceSearchResults){ customerPriceSearchResults.hidden=true; customerPriceSearchResults.innerHTML=''; }
+  };
+  const renderCustomerPriceSearchResults=()=>{
+    if(!customerPriceSearch||!customerPriceSearchResults) return [];
+    const query=customerPriceSearch.value.trim();
+    const matches=customerPriceMatches(query);
+    if(!query){ customerPriceSearchResults.hidden=true; customerPriceSearchResults.innerHTML=''; return matches; }
+    customerPriceSearchResults.innerHTML=matches.length?matches.map(({product,unit})=>`<button class="customer-price-search-result" type="button" data-customer-price-product="${escapeHtml(product.id)}" data-customer-price-unit="${escapeHtml(unit)}"><span><b>${escapeHtml(product.name)}</b><small>${escapeHtml(productBarcodeForUnit(product,unit)||product.sku||'-')} · ${escapeHtml(unit)}</small></span><strong class="mono">${fmtMoney(regularProductUnitPrice(product,unit))}</strong></button>`).join(''):'<div class="customer-price-search-empty">ไม่พบสินค้า</div>';
+    customerPriceSearchResults.hidden=false;
+    customerPriceSearchResults.querySelectorAll('[data-customer-price-product]').forEach(button=>button.addEventListener('mousedown',event=>{
+      event.preventDefault();
+      addCustomerPriceProduct(products.find(product=>Number(product.id)===Number(button.dataset.customerPriceProduct)),button.dataset.customerPriceUnit);
+    }));
+    return matches;
+  };
+  if(customerPriceSearch){
+    customerPriceSearch.addEventListener('input',renderCustomerPriceSearchResults);
+    customerPriceSearch.addEventListener('keydown',event=>{
+      if(event.key!=='Enter') return;
+      event.preventDefault();
+      const matches=customerPriceMatches(customerPriceSearch.value);
+      if(matches.length) addCustomerPriceProduct(matches[0].product,matches[0].unit);
+      else showToast('ไม่พบสินค้าที่ค้นหา','danger-top');
+    });
+    customerPriceSearch.addEventListener('blur',()=>setTimeout(()=>{ if(customerPriceSearchResults) customerPriceSearchResults.hidden=true; },120));
+    customerPriceSearch.addEventListener('focus',renderCustomerPriceSearchResults);
+  }
+  bindCustomerPriceRows();
   const newSalesRepBtn = document.getElementById('newSalesRepBtn');
   if(newSalesRepBtn) newSalesRepBtn.addEventListener('click', ()=>{ editingSalesRepresentativeId='new'; searchQuery=''; render(); });
   const importSalesRepsBtn = document.getElementById('importSalesRepsBtn');
@@ -15039,12 +15095,11 @@ function collectCustomerPriceRules(){
   const rules=[];
   const duplicateKeys=new Set();
   for(const row of document.querySelectorAll('[data-customer-price-row]')){
-    const productText=String(row.querySelector('.customer-price-product')?.value||'').trim();
+    const productId=Number(row.querySelector('.customer-price-product-id')?.value||row.dataset.productId);
     const unit=String(row.querySelector('.customer-price-unit')?.value||'').trim();
     const priceText=String(row.querySelector('.customer-price-value')?.value||'').trim();
-    if(!productText&&!unit&&!priceText) continue;
-    const product=products.find(item=>item.name===productText||String(item.sku||'').toLowerCase()===productText.toLowerCase());
-    if(!product){ showToast(`ไม่พบสินค้า “${productText||'-'}” กรุณาเลือกจากรายการ`,'danger-top'); row.querySelector('.customer-price-product')?.focus(); return null; }
+    const product=products.find(item=>Number(item.id)===productId);
+    if(!product){ showToast('ไม่พบสินค้าที่กำหนดราคาพิเศษ กรุณาลบรายการแล้วเพิ่มใหม่','danger-top'); return null; }
     if(!productUnitOptions(product).some(option=>option.name===unit)){ showToast(`หน่วย “${unit||'-'}” ไม่ได้อยู่ในสินค้า “${product.name}”`,'danger-top'); row.querySelector('.customer-price-unit')?.focus(); return null; }
     const price=Number(priceText);
     if(!Number.isFinite(price)||price<0){ showToast('กรุณากรอกราคาพิเศษให้ถูกต้อง','danger-top'); row.querySelector('.customer-price-value')?.focus(); return null; }
@@ -15089,7 +15144,7 @@ function saveContact(){
     bankAcc: g('c_bankacc').value.trim(),
     accType: accEl?accEl.value:'',
     note: g('c_note').value.trim(),
-    defaultDocument:g('c_default_document')?.value||'short_receipt',
+    defaultDocument:'short_receipt',
     customerPrices,
   };
   if(editingContactId==='new'){
@@ -16948,9 +17003,7 @@ header{display:grid;grid-template-columns:${compact?'6.5':'7.5'}mm minmax(0,1fr)
 
 function openPostPaymentModal(saleId){
   const sale=salesHistory.find(item=>item.id===saleId); if(!sale) return;
-  let preferredDocument=customerDefaultDocument({defaultDocument:sale.defaultDocument||sale.member?.defaultDocument});
-  if(preferredDocument==='full_tax_invoice'&&!saleTaxSummary(sale).registered) preferredDocument='cash_bill';
-  const documentLabel=preferredDocument==='cash_bill'?'บิลเงินสด A4':preferredDocument==='full_tax_invoice'?'ใบกำกับภาษีเต็มรูปแบบ':'ใบเสร็จอย่างย่อ';
+  const documentLabel='ใบเสร็จอย่างย่อ';
   const medicineLabelCount=medicineLabelsForSale(sale).length;
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:430px;"><div class="modal-head"><h3>ชำระเงินสำเร็จ</h3><button class="modal-close">×</button></div><div id="afterPayContent"></div></div>`;
@@ -16967,18 +17020,12 @@ function openPostPaymentModal(saleId){
   overlay.querySelector('.modal-close').onclick=requestClose;
   const renderRequiredReceipt=()=>{
     stopKeyHandler();
-    content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">✓</div><div class="after-pay-heading">รับชำระ ${fmtMoney(sale.total)} บาทแล้ว</div><div class="after-pay-sub">${escapeHtml(sale.payMethod||'เงินสด')} · ${escapeHtml(sale.ref||sale.id)}</div>${preferredDocument==='cash_bill'&&sale.defaultDocument==='full_tax_invoice'?'<div class="after-pay-doc-warning">กิจการยังไม่จด VAT ระบบจึงใช้บิลเงินสดแทน</div>':''}</div><div class="after-pay-options">${medicineLabelCount?`<button class="after-pay-choice" id="printMedicineLabelsBtn"><span>Rx</span> พิมพ์ฉลากยา ${medicineLabelCount} ใบ</button>`:''}<button class="after-pay-choice new-order" id="finishAndPrintReceiptBtn"><span>🖨</span> ${escapeHtml(documentLabel)}</button></div>`;
+    content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">✓</div><div class="after-pay-heading">รับชำระ ${fmtMoney(sale.total)} บาทแล้ว</div><div class="after-pay-sub">${escapeHtml(sale.payMethod||'เงินสด')} · ${escapeHtml(sale.ref||sale.id)}</div></div><div class="after-pay-options">${medicineLabelCount?`<button class="after-pay-choice" id="printMedicineLabelsBtn"><span>Rx</span> พิมพ์ฉลากยา ${medicineLabelCount} ใบ</button>`:''}<button class="after-pay-choice new-order" id="finishAndPrintReceiptBtn"><span>🖨</span> ${escapeHtml(documentLabel)}</button></div>`;
     const printMedicineButton=content.querySelector('#printMedicineLabelsBtn'); if(printMedicineButton) printMedicineButton.onclick=()=>printMedicineLabels(saleId);
     const finishAndPrintButton=content.querySelector('#finishAndPrintReceiptBtn');
     finishAndPrintButton.onclick=()=>{
-      if(preferredDocument==='short_receipt'){
-        if(!printShortReceipt(saleId)) return;
-        receiptPrintStarted=true; close(); return;
-      }
-      receiptPrintStarted=true;
-      close();
-      if(preferredDocument==='cash_bill') setTimeout(()=>openA4CashReceiptModal(saleId),0);
-      else setTimeout(()=>startTaxInvoiceForm(saleId),0);
+      if(!printShortReceipt(saleId)) return;
+      receiptPrintStarted=true; close();
     };
     activeKeyHandler=e=>{ if(e.key==='Enter'){ e.preventDefault(); finishAndPrintButton.click(); } };
     document.addEventListener('keydown',activeKeyHandler);
