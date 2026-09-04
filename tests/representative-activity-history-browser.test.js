@@ -79,13 +79,19 @@ let browser;
   assert.equal(await page.locator('.representative-group-card').count(), 1);
   assert.doesNotMatch(await page.locator('.representative-group-card').textContent(), /LIPITOR 10 MG|รายการสินค้าที่ดูแลมี/);
   assert.match(await page.locator('.representative-notes-list').textContent(), /NOTE 1 : เล่นรายการทอง/);
-  assert.match(await page.locator('.representative-notes-list').textContent(), /วันที่ 04-09-2026/);
+  assert.match(await page.locator('.representative-notes-list').textContent(), /04-09-2026/);
+  assert.doesNotMatch(await page.locator('.representative-notes-list').textContent(), /วันที่ 04-09-2026/);
   assert.match(await page.locator('.representative-notes-list').textContent(), /NOTE 2 : ซื้อครบไปเที่ยวฟรี/);
   assert.equal(await page.locator('.representative-history-summary').count(),0,'summary cards must not appear on representative history');
   const notePositions=await page.locator('.representative-group-card .representative-note-card').evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().y)));
   assert.equal(notePositions.length,3);
   assert.equal(notePositions[0],notePositions[1]);
   assert.equal(notePositions[1],notePositions[2]);
+  const firstNoteHeadingLayout=await page.locator('.representative-note-head').first().evaluate(element=>({
+    titleBottom:element.querySelector('b').getBoundingClientRect().bottom,
+    dateTop:element.querySelector('span').getBoundingClientRect().top
+  }));
+  assert.ok(firstNoteHeadingLayout.dateTop>=firstNoteHeadingLayout.titleBottom,'note date must appear below the NOTE title');
   const historyPageWidth=await page.locator('.representative-history-page').evaluate(element=>{
     const parent=element.parentElement;
     const parentStyle=getComputedStyle(parent);

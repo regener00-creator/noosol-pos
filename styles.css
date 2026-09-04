@@ -2100,9 +2100,9 @@
   .representative-notes-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:8px;}
   .representative-notes-list>.representative-group-empty{grid-column:1/-1;}
   .representative-note-card{padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--bg);}
-  .representative-note-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;}
+  .representative-note-head{display:flex;align-items:flex-start;flex-direction:column;gap:3px;}
   .representative-note-head b{color:var(--primary-dark);font-size:14px;}
-  .representative-note-head span{flex:0 0 auto;color:var(--text-muted);font-size:11px;}
+  .representative-note-head span{color:var(--text-muted);font-size:11px;}
   .representative-note-body{margin-top:8px;color:var(--text);font-size:13px;line-height:1.6;overflow-wrap:anywhere;}
   .representative-note-body p{margin:0;}
   .representative-note-body.muted{color:var(--text-muted);font-style:italic;}
