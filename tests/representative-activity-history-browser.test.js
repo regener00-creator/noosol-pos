@@ -49,7 +49,9 @@ let browser;
     salesRepresentatives=[
       {id:10,code:'REP-10',name:'PEPO',company:'บริษัทตัวแทน A'},
       {id:11,code:'REP-11',name:'NANA',company:'บริษัทตัวแทน B'},
-      {id:12,code:'REP-12',name:'JOJO',company:'บริษัทตัวแทน C'}
+      {id:12,code:'REP-12',name:'JOJO',company:'บริษัทตัวแทน C'},
+      {id:13,code:'REP-13',name:'MAYA',company:'บริษัทตัวแทน D'},
+      {id:14,code:'REP-14',name:'RINA',company:'บริษัทตัวแทน E'}
     ];
     products=[
       {id:20,sku:'LIP10',name:'LIPITOR 10 MG',unit:'กล่อง',barcode:'8850000000001',extraBarcodes:[],supplierBarcodes:[]},
@@ -76,11 +78,11 @@ let browser;
   assert.equal(await page.locator('.representative-history-page h1').textContent(), 'ข้อมูลผู้แทน PEPO');
   assert.equal(await page.locator('.representative-group-card').count(), 1);
   assert.doesNotMatch(await page.locator('.representative-group-card').textContent(), /LIPITOR 10 MG|รายการสินค้าที่ดูแลมี/);
-  assert.match(await page.locator('.representative-group-card').textContent(), /NOTE 1 : เล่นรายการทอง/);
-  assert.match(await page.locator('.representative-group-card').textContent(), /วันที่ 04-09-2026/);
-  assert.match(await page.locator('.representative-group-card').textContent(), /NOTE 2 : ซื้อครบไปเที่ยวฟรี/);
+  assert.match(await page.locator('.representative-notes-list').textContent(), /NOTE 1 : เล่นรายการทอง/);
+  assert.match(await page.locator('.representative-notes-list').textContent(), /วันที่ 04-09-2026/);
+  assert.match(await page.locator('.representative-notes-list').textContent(), /NOTE 2 : ซื้อครบไปเที่ยวฟรี/);
   assert.equal(await page.locator('.representative-history-summary').count(),0,'summary cards must not appear on representative history');
-  const notePositions=await page.locator('.representative-group-card .representative-note-card').evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().y)));
+  const notePositions=await page.locator('.representative-notes-list .representative-note-card').evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().y)));
   assert.equal(notePositions.length,3);
   assert.equal(notePositions[0],notePositions[1]);
   assert.equal(notePositions[1],notePositions[2]);
@@ -121,7 +123,8 @@ let browser;
     representativeHistoryFilter=emptyRepresentativeHistoryFilter();
     representativeProductAssignments=[
       {representativeId:10,productId:20},{representativeId:10,productId:21},{representativeId:10,productId:22},
-      {representativeId:11,productId:20},{representativeId:12,productId:21}
+      {representativeId:11,productId:20},{representativeId:12,productId:21},
+      {representativeId:13,productId:20},{representativeId:14,productId:21}
     ];
     representativeActivityNotes=[...representativeActivityNotes,
       {id:'note-3',title:'แจ้งรอบส่งสินค้า',contentHtml:'<p>ส่งทุกวันจันทร์</p>',hiddenFromLevel2:false,representativeId:11,activityType:'general',eventDate:'2026-09-03',updatedAt:'2026-09-03T10:00:00Z'},
@@ -131,10 +134,10 @@ let browser;
     document.getElementById('main').innerHTML=renderRepresentativeHistoryOverview();
     attachEvents();
   });
-  assert.equal(await page.locator('.representative-group-card').count(),3);
+  assert.equal(await page.locator('.representative-group-card').count(),5);
   assert.equal(await page.locator('#representativeHistoryRepresentativeSearch,#representativeHistoryProductSearch,#representativeHistoryNoteSearch').count(),3);
   const cardPositions=await page.locator('.representative-group-card').evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().y)));
-  assert.ok(cardPositions[0]<cardPositions[1]&&cardPositions[1]<cardPositions[2],'representative groups must use full-width rows');
+  assert.equal(new Set(cardPositions).size,1,'representative name cards must display five per row on desktop');
 
   await page.locator('#representativeHistoryRepresentativeSearch').fill('NANA');
   await page.locator('#searchRepresentativeHistoryBtn').click();
