@@ -50,6 +50,7 @@ assert.match(historyCode,/id="importSalesRepsBtn"/);
 assert.match(historyCode,/id="salesRepImportFile"/);
 assert.match(historyCode,/id="newSalesRepBtn"/);
 assert.match(formCode,/id="saveSalesRepBtn"[^>]*>บันทึกข้อมูลผู้แทน<\/button>/);
+assert.match(html,/class="form-final-actions representative-topbar-actions"/,'ชุดปุ่มหน้าผู้แทนต้องมีระยะห่างเฉพาะเมื่อย้ายขึ้น TOPBAR');
 assert.ok(formCode.indexOf('id="sr_code"') < formCode.indexOf('id="sr_name"'),'contact code field must be first in the representative form');
 assert.doesNotMatch(formCode,/บันทึกแล้วปิด/);
 assert.doesNotMatch(html, /<h1[^>]*>รายชื่อผู้แทน/);

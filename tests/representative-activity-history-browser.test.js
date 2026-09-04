@@ -187,14 +187,18 @@ let browser;
       {id:'note-4',title:'รายการหน้าฝน',contentHtml:'<p>เริ่มเดือนหน้า</p>',hiddenFromLevel2:false,representativeId:12,activityType:'general',eventDate:'2026-09-01',updatedAt:'2026-09-01T10:00:00Z'}
     ];
     representativeActivityLoadedKey=representativeHistoryKey();
+    document.getElementById('topbarFormActions').innerHTML='';
     document.getElementById('main').innerHTML=renderRepresentativeHistoryOverview();
     attachEvents();
+    syncTopbarFormActions();
   });
   assert.equal(await page.locator('.representative-group-card').count(),5);
   assert.equal(await page.locator('#representativeHistoryRepresentativeSearch,#representativeHistoryProductSearch,#representativeHistoryNoteSearch').count(),3);
   assert.equal(await page.locator('#newSalesRepBtn').count(),1,'central representative history must add representatives directly');
+  assert.equal(await page.locator('.topbar-form-actions .representative-topbar-actions').evaluate(element=>getComputedStyle(element).gap),'12px','representative TOPBAR actions must not touch each other');
   await page.locator('#newSalesRepBtn').click();
   assert.equal(await page.locator('.representative-editor-modal').count(),1);
+  assert.equal(await page.locator('.representative-editor-actions').evaluate(element=>getComputedStyle(element).gap),'14px','representative editor actions must have comfortable spacing');
   assert.equal(await page.locator('#sr_name').inputValue(),'');
   await page.locator('#cancelSalesRepBottomBtn').click();
   const cardPositions=await page.locator('.representative-group-card').evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().y)));
