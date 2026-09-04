@@ -16,6 +16,9 @@ assert.equal(context.saleHistoryTimeDisplay('2026-08-28 19:56:23'), '19:56');
 assert.equal(context.saleHistoryTimeDisplay('11:53:23'), '11:53');
 assert.equal(context.saleHistoryTimeDisplay('2026-08-28T12:56:23.000Z'), '19:56');
 assert.equal(context.saleHistoryTimeDisplay(''), '-');
+assert.equal(context.saleHistoryCustomerDisplay({member:{name:'ลูกค้า A'}}), 'ลูกค้า A');
+assert.equal(context.saleHistoryCustomerDisplay({customerName:'ลูกค้า B'}), 'ลูกค้า B');
+assert.equal(context.saleHistoryCustomerDisplay({}), 'ลูกค้าทั่วไป');
 
 const rows = [
   {id:'SALE-1',ref:'RE202608180002',date:'2026-08-18'},
@@ -48,6 +51,8 @@ assert.doesNotMatch(html, /<h1>ประวัติการขาย<\/h1>/);
 assert.match(html, /id="hfApplyBtn">แสดงผล<\/button><span class="sales-history-result-count">\$\{filtered\.length\} รายการ<\/span>/);
 assert.match(html, /\.sales-history-result-count\{[^}]*background:var\(--primary-soft\);[^}]*color:var\(--primary\);/);
 assert.match(html, /sales-history-table-wrap/);
+assert.match(html, /<th>เลขที่บิล<\/th><th>ลูกค้า<\/th><th>เวลา<\/th>/);
+assert.match(html, /saleHistoryCustomerDisplay\(s\)/);
 assert.doesNotMatch(html, /history-date-divider|isSalesHistoryDateBreak/);
 assert.match(html, /\.main\.sales-history-main\{overflow-y:hidden;\}/);
 assert.match(html, /classList\.toggle\('sales-history-main',currentTab==='history'\)/);

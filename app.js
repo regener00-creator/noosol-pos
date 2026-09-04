@@ -4161,7 +4161,7 @@ function renderDashboard(){
     </div>
     <div class="panel">
       <div class="seamless-table-wrap"><table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-bill"><col class="ht-time"><col class="ht-items"><col class="ht-total"><col class="ht-pay"></colgroup><thead><tr><th>วันที่</th><th>เลขที่บิล</th><th>เวลา</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th></tr></thead>
-      <tbody>${completedSales.length?completedSales.slice(0,8).map(s=>`<tr><td>${escapeHtml(fmtDate(s.date))}</td><td class="mono">${escapeHtml(s.ref||s.id)}</td><td>${escapeHtml(saleHistoryTimeDisplay(s.time))}</td><td>${salesHistoryItemsPreview(s.items)}</td><td class="mono num">${fmtMoney(s.total)}</td><td>${escapeHtml(s.payMethod||'-')}</td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">ยังไม่มีรายการขาย</td></tr>`}</tbody></table></div>
+      <tbody>${completedSales.length?completedSales.slice(0,8).map(s=>`<tr><td>${escapeHtml(fmtDate(s.date))}</td><td class="mono">${escapeHtml(s.ref||s.id)}</td><td>${escapeHtml(saleHistoryTimeDisplay(s.time))}</td><td class="history-items-cell">${salesHistoryItemsPreview(s.items)}</td><td class="mono num">${fmtMoney(s.total)}</td><td>${escapeHtml(s.payMethod||'-')}</td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">ยังไม่มีรายการขาย</td></tr>`}</tbody></table></div>
     </div>`;
 }
 
@@ -4500,6 +4500,11 @@ function filterSalesHistory(rows,filter,range){
     return date>=range.from&&date<=range.to&&(!bill||billNumber.includes(bill));
   });
 }
+function saleHistoryCustomerDisplay(sale){
+  const member=sale?.member;
+  const memberName=member&&typeof member==='object'?member.name:member;
+  return String(memberName||sale?.customerName||sale?.customerSnapshot?.name||sale?.cashReceiptA4Meta?.customer?.name||sale?.fullTaxInvoice?.customer?.name||sale?.name||'ลูกค้าทั่วไป').trim()||'ลูกค้าทั่วไป';
+}
 function renderHistory(){
   const f=historyFilter;
   const canDeleteHeld=!isLevel2User();
@@ -4526,16 +4531,17 @@ function renderHistory(){
       <button class="btn ghost rpf-apply" id="hfApplyBtn">แสดงผล</button><span class="sales-history-result-count">${filtered.length} รายการ</span>
     </div>
     <div class="sales-history-table-wrap">
-    <table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-bill"><col class="ht-time"><col class="ht-items"><col class="ht-total"><col class="ht-pay"><col class="ht-status"><col class="ht-actions"></colgroup><thead><tr><th>วันที่</th><th>เลขที่บิล</th><th>เวลา</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th><th>สถานะ</th><th></th></tr></thead>
+    <table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-bill"><col class="ht-customer"><col class="ht-time"><col class="ht-items"><col class="ht-total"><col class="ht-pay"><col class="ht-status"><col class="ht-actions"></colgroup><thead><tr><th>วันที่</th><th>เลขที่บิล</th><th>ลูกค้า</th><th>เวลา</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th><th>สถานะ</th><th></th></tr></thead>
     <tbody>${pageRows.length? pageRows.map(s=>`<tr>
       <td>${fmtDate(s.date)}</td><td class="mono">${escapeHtml(s.ref||s.id)}</td>
+      <td>${escapeHtml(saleHistoryCustomerDisplay(s))}</td>
       <td>${saleHistoryTimeDisplay(s.time)}</td>
-      <td>${salesHistoryItemsPreview(s.items)}</td>
+      <td class="history-items-cell">${salesHistoryItemsPreview(s.items)}</td>
       <td class="mono num">${fmtMoney(s.total)}</td>
       <td>${escapeHtml(s.payMethod||'-')}</td>
       <td>${statusBadge(s.status)}</td>
       <td class="num"><div class="history-actions"><button class="history-icon-btn" data-sale-view="${escapeHtml(s.id)}" title="ดูรายละเอียด" aria-label="ดูรายละเอียด ${escapeHtml(s.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>${s.status==='hold'?`<button class="btn primary small" data-act="resumehold" data-id="${escapeHtml(s.id)}">ทำต่อ</button>`:''}${s.status==='hold'&&canDeleteHeld?`<button class="history-icon-btn danger" data-delete-sale="${escapeHtml(s.id)}" title="ลบบิลพัก" aria-label="ลบบิลพัก ${escapeHtml(s.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`:s.status==='done'&&canVoidCompleted?`<button class="history-icon-btn danger" data-void-sale="${escapeHtml(s.id)}" title="ยกเลิกบิลและคืนสต๊อก" aria-label="ยกเลิกบิล ${escapeHtml(s.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l16 16M20 4L4 20"/></svg></button>`:''}</div></td>
-    </tr>`).join('') : `<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายการขายในช่วงเวลาที่เลือก</td></tr>`}</tbody></table>
+    </tr>`).join('') : `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายการขายในช่วงเวลาที่เลือก</td></tr>`}</tbody></table>
     </div>
     ${pager}
   </div>`;

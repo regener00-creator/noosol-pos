@@ -307,10 +307,11 @@
   .grid-table td.num{text-align:left;}
   .history-table td{text-align:center;}
   .history-table td.num{text-align:center;}
-  .history-table td:nth-child(4){text-align:left;}
+  .history-table td.history-items-cell{text-align:left;}
   .history-table{table-layout:fixed;}
   .history-table .ht-date{width:110px;}
   .history-table .ht-bill{width:150px;}
+  .history-table .ht-customer{width:160px;}
   .history-table .ht-time{width:80px;}
   .history-table .ht-items{width:auto;}
   .history-table .ht-total{width:100px;}
