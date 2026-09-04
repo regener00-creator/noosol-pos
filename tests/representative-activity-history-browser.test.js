@@ -25,7 +25,7 @@ let browser;
 (async () => {
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   browser = await chromium.launch({headless:true, executablePath:browserExecutable});
-  const page = await browser.newPage({viewport:{width:1366,height:900}});
+  const page = await browser.newPage({viewport:{width:1600,height:900}});
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('https://cdn.jsdelivr.net/npm/xlsx@*/**', route => route.fulfill({contentType:'text/javascript',body:'window.XLSX={};'}));
@@ -84,17 +84,39 @@ let browser;
     currentTab='representativehistory';
     representativeHistoryContext=centralRepresentativeHistoryContext();
     representativeHistoryFilter=emptyRepresentativeHistoryFilter();
+    const firstActivity=representativeActivityNotes[0];
+    representativeActivityNotes=[firstActivity,...[2,3,4].map(number=>({
+      ...firstActivity,
+      id:`activity-${number}`,
+      title:`โปรโมชั่นชุดที่ ${number}`,
+      eventDate:`2026-09-0${number}`,
+      updatedAt:`2026-09-0${number}T10:00:00Z`
+    }))];
     representativeActivityLoadedKey=representativeHistoryKey();
     document.getElementById('main').innerHTML=renderRepresentativeHistoryOverview();
     attachEvents();
   });
   assert.equal(await page.locator('.representative-history-page h1').textContent(), 'ประวัติผู้แทน');
-  assert.equal(await page.locator('#representativeHistoryRepresentativeFilter').count(), 1);
-  assert.equal(await page.locator('#representativeHistoryProductFilter option').count(), 2);
-  assert.equal(await page.locator('#representativeHistoryReminderFilter').count(), 1);
-  assert.match(await page.locator('.representative-history-result-count').textContent(), /1 จาก 1 รายการ/);
-  await page.locator('#representativeHistoryReminderFilter').selectOption('scheduled');
-  assert.equal(await page.locator('.representative-activity-card').count(), 1);
+  assert.equal(await page.locator('#representativeHistoryTypeFilter').count(), 1);
+  assert.equal(await page.locator('#searchRepresentativeHistoryBtn').count(), 1);
+  assert.equal(await page.locator('#representativeHistoryRepresentativeFilter,#representativeHistoryProductFilter,#representativeHistoryFromFilter,#representativeHistoryToFilter,#representativeHistoryReminderFilter,#clearRepresentativeHistoryFiltersBtn,#reloadRepresentativeHistoryBtn,.representative-history-result-count').count(), 0);
+  const filterTops=await page.locator('#representativeHistoryTypeFilter,#searchRepresentativeHistoryBtn').evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().top)));
+  assert.ok(Math.abs(filterTops[0]-filterTops[1])<=2,'type and search controls must share one row');
+  assert.equal(await page.locator('.representative-activity-card').count(), 4);
+  const cardPositions=await page.locator('.representative-activity-card').evaluateAll(elements=>elements.map(element=>{
+    const box=element.getBoundingClientRect();
+    return {x:Math.round(box.x),y:Math.round(box.y)};
+  }));
+  assert.equal(cardPositions[0].y,cardPositions[1].y);
+  assert.equal(cardPositions[1].y,cardPositions[2].y);
+  assert.ok(cardPositions[0].x<cardPositions[1].x&&cardPositions[1].x<cardPositions[2].x,'desktop must show three history cards per row');
+  assert.ok(cardPositions[3].y>cardPositions[0].y,'the fourth card must start a new row');
+  await page.locator('#representativeHistorySearch').fill('ไม่พบรายการนี้');
+  await page.locator('#searchRepresentativeHistoryBtn').click();
+  assert.equal(await page.locator('.representative-activity-card').count(), 0);
+  await page.locator('#representativeHistorySearch').fill('');
+  await page.locator('#representativeHistorySearch').press('Enter');
+  assert.equal(await page.locator('.representative-activity-card').count(), 4);
   await page.locator('[data-open-representative-history="10"]').first().click();
   assert.equal(await page.locator('.representative-history-page h1').textContent(), 'ประวัติผู้แทน คุณโป้');
   assert.equal(await page.locator('#closeRepresentativeHistoryBtn').count(), 1);

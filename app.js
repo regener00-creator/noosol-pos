@@ -4210,7 +4210,7 @@ function representativeHistoryKey(context=representativeHistoryContext){
   if(!context) return '';
   return `${context.central?'central':'detail'}:rep:${Number(context.representativeId)||0}:product:${Number(context.productId)||0}`;
 }
-function emptyRepresentativeHistoryFilter(){ return {type:'all',representativeId:'',productId:'',from:'',to:'',reminder:'all',search:''}; }
+function emptyRepresentativeHistoryFilter(){ return {type:'all',search:''}; }
 function centralRepresentativeHistoryContext(){ return {representativeId:null,productId:null,originTab:'representativehistory',central:true,returnFilter:null}; }
 function isRepresentativeHistoryScreen(){ return currentTab==='salesreps'||currentTab==='representativehistory'; }
 function representativeActivityTypeLabel(type){ return REPRESENTATIVE_ACTIVITY_TYPES[type]||'หมายเหตุ'; }
@@ -4418,15 +4418,8 @@ function renderRepresentativeHistory(){
   if(!representativeActivityLoading&&representativeActivityLoadedKey!==representativeHistoryKey(context)&&!representativeActivityLoadError) setTimeout(()=>loadRepresentativeActivityHistory(),0);
   const all=representativeTimelineActivities();
   const needle=normalizedActivityName(representativeHistoryFilter.search);
-  const activityProductIds=activity=>new Set([Number(activity.productId),...(activity.items||[]).map(item=>Number(item.productId))].filter(Boolean));
   const filtered=all.filter(activity=>{
     if(representativeHistoryFilter.type!=='all'&&activity.activityType!==representativeHistoryFilter.type) return false;
-    if(representativeHistoryFilter.representativeId&&Number(activity.representativeId)!==Number(representativeHistoryFilter.representativeId)) return false;
-    if(representativeHistoryFilter.productId&&!activityProductIds(activity).has(Number(representativeHistoryFilter.productId))) return false;
-    if(representativeHistoryFilter.from&&String(activity.eventDate||'')<representativeHistoryFilter.from) return false;
-    if(representativeHistoryFilter.to&&String(activity.eventDate||'')>representativeHistoryFilter.to) return false;
-    if(representativeHistoryFilter.reminder==='scheduled'&&!activity.reminderDate) return false;
-    if(representativeHistoryFilter.reminder==='due'&&(!activity.reminderDate||activity.reminderDate>TODAY_STR)) return false;
     return !needle||activityFilterText(activity).includes(needle);
   });
   const productIds=new Set(all.flatMap(activity=>[Number(activity.productId),...(activity.items||[]).map(item=>Number(item.productId))]).filter(Boolean));
@@ -4435,25 +4428,16 @@ function renderRepresentativeHistory(){
   const activePromotionCount=all.filter(activity=>activity.activityType==='promotion'&&(!activity.validTo||activity.validTo>=TODAY_STR)).length;
   const dueReminderCount=all.filter(activity=>activity.reminderDate&&activity.reminderDate<=TODAY_STR).length;
   const title=central?'ประวัติผู้แทน':representative?`ประวัติผู้แทน ${representative.name}`:`ประวัติสินค้า ${product.name}`;
-  const availableProducts=[...productIds].map(productForActivityId).filter(Boolean).sort((a,b)=>String(a.name).localeCompare(String(b.name),'th'));
   const canCreate=canPerformPageAction('create','notes');
-  const centralFilters=`<div class="representative-history-filter representative-history-filter-central panel">
-    <label><span>ผู้แทน</span><select id="representativeHistoryRepresentativeFilter"><option value="">ผู้แทนทั้งหมด</option>${salesRepresentatives.map(rep=>`<option value="${rep.id}" ${Number(representativeHistoryFilter.representativeId)===Number(rep.id)?'selected':''}>${escapeHtml(rep.name)}${rep.company?` · ${escapeHtml(rep.company)}`:''}</option>`).join('')}</select></label>
-    <label><span>สินค้า</span><select id="representativeHistoryProductFilter"><option value="">สินค้าทั้งหมด</option>${availableProducts.map(item=>`<option value="${item.id}" ${Number(representativeHistoryFilter.productId)===Number(item.id)?'selected':''}>${escapeHtml(item.name)} · ${escapeHtml(item.sku||'-')}</option>`).join('')}</select></label>
+  const historyFilters=`<div class="representative-history-filter representative-history-filter-minimal panel">
     <label><span>ประเภท</span><select id="representativeHistoryTypeFilter"><option value="all">ทุกประเภท</option>${Object.entries(REPRESENTATIVE_ACTIVITY_TYPES).map(([value,label])=>`<option value="${value}" ${representativeHistoryFilter.type===value?'selected':''}>${escapeHtml(label)}</option>`).join('')}</select></label>
-    <label><span>ตั้งแต่วันที่</span><input id="representativeHistoryFromFilter" type="date" value="${escapeHtml(representativeHistoryFilter.from)}"></label>
-    <label><span>ถึงวันที่</span><input id="representativeHistoryToFilter" type="date" value="${escapeHtml(representativeHistoryFilter.to)}"></label>
-    <label><span>การติดตาม</span><select id="representativeHistoryReminderFilter"><option value="all">ทั้งหมด</option><option value="scheduled" ${representativeHistoryFilter.reminder==='scheduled'?'selected':''}>มีวันติดตาม</option><option value="due" ${representativeHistoryFilter.reminder==='due'?'selected':''}>ถึงกำหนด / เกินกำหนด</option></select></label>
-    <div class="representative-history-search"><span>ค้นหา</span><input id="representativeHistorySearch" value="${escapeHtml(representativeHistoryFilter.search)}" placeholder="หัวข้อ สินค้า ผู้แทน หรือเลขที่เอกสาร"></div>
-    <div class="representative-history-filter-actions"><button class="btn ghost" id="clearRepresentativeHistoryFiltersBtn" type="button">ล้างตัวกรอง</button><button class="btn ghost" id="reloadRepresentativeHistoryBtn" type="button">รีเฟรช</button></div>
-    <div class="representative-history-result-count">แสดง ${filtered.length.toLocaleString('th-TH')} จาก ${all.length.toLocaleString('th-TH')} รายการ</div>
+    <div class="representative-history-search"><span>ค้นหา</span><div class="representative-history-search-row"><input id="representativeHistorySearch" value="${escapeHtml(representativeHistoryFilter.search)}" placeholder="หัวข้อ สินค้า ผู้แทน หรือเลขที่เอกสาร"><button class="btn primary" id="searchRepresentativeHistoryBtn" type="button">ค้นหา</button></div></div>
   </div>`;
-  const detailFilters=`<div class="representative-history-filter panel"><select id="representativeHistoryTypeFilter"><option value="all">ทุกประเภท</option>${Object.entries(REPRESENTATIVE_ACTIVITY_TYPES).map(([value,label])=>`<option value="${value}" ${representativeHistoryFilter.type===value?'selected':''}>${escapeHtml(label)}</option>`).join('')}</select><input id="representativeHistorySearch" value="${escapeHtml(representativeHistoryFilter.search)}" placeholder="ค้นหาหัวข้อ สินค้า ผู้แทน หรือเลขที่เอกสาร"><button class="btn ghost" id="reloadRepresentativeHistoryBtn" type="button">รีเฟรช</button></div>`;
   return `<div class="rpt representative-history-page">
     <div class="pagehead"><div>${central?'':`<div class="breadcrumb">${context.originTab==='representativehistory'?'ประวัติผู้แทน':'รายชื่อผู้แทน'} › ประวัติผู้แทนและสินค้า</div>`}<h1>${escapeHtml(title)}</h1><p>${representative?.company?escapeHtml(representative.company):product?`รหัสสินค้า ${escapeHtml(product.sku||'-')}`:''}</p></div><div class="form-final-actions">${central?'':'<button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button>'}${canCreate?'<button class="btn primary" id="newRepresentativeActivityBtn" type="button">+ เพิ่มประวัติ / NOTE</button>':''}</div></div>
     <div class="representative-history-summary"><div><span>รายการทั้งหมด</span><b>${all.length}</b></div><div><span>${representative?'สินค้าที่เกี่ยวข้อง':'ผู้แทนที่เกี่ยวข้อง'}</span><b>${representative?productCount:representativeCount}</b></div>${central?`<div><span>สินค้าที่เกี่ยวข้อง</span><b>${productCount}</b></div>`:''}<div><span>โปรโมชั่นที่ยังใช้ได้</span><b>${activePromotionCount}</b></div><div><span>ถึงกำหนดติดตาม</span><b>${dueReminderCount}</b></div></div>
     ${representativeActivityFormHtml()}
-    ${central?centralFilters:detailFilters}
+    ${historyFilters}
     ${representativeActivityLoadError?`<div class="notice danger">${escapeHtml(representativeActivityLoadError)}</div>`:''}
     <div class="representative-activity-timeline">${representativeActivityLoading&&representativeActivityLoadedKey!==representativeHistoryKey(context)?'<div class="representative-history-empty">กำลังโหลดประวัติ…</div>':filtered.map(representativeActivityCardHtml).join('')||'<div class="representative-history-empty">ยังไม่มีประวัติที่ตรงกับตัวกรอง</div>'}</div>
   </div>`;
@@ -4523,20 +4507,14 @@ function attachRepresentativeHistoryEvents(){
   document.getElementById('cancelRepresentativeActivityBtn')?.addEventListener('click',()=>{ representativeActivityDraft=null; render(); });
   document.getElementById('cancelRepresentativeActivityBottomBtn')?.addEventListener('click',()=>{ representativeActivityDraft=null; render(); });
   document.getElementById('saveRepresentativeActivityBtn')?.addEventListener('click',saveRepresentativeActivity);
-  document.getElementById('reloadRepresentativeHistoryBtn')?.addEventListener('click',()=>{ representativeActivityLoadedKey=''; loadRepresentativeActivityHistory({force:true}); });
   document.getElementById('representativeHistoryTypeFilter')?.addEventListener('change',event=>{ representativeHistoryFilter.type=event.target.value; render(); });
-  document.getElementById('representativeHistoryRepresentativeFilter')?.addEventListener('change',event=>{ representativeHistoryFilter.representativeId=event.target.value; render(); });
-  document.getElementById('representativeHistoryProductFilter')?.addEventListener('change',event=>{ representativeHistoryFilter.productId=event.target.value; render(); });
-  document.getElementById('representativeHistoryFromFilter')?.addEventListener('change',event=>{ representativeHistoryFilter.from=event.target.value; render(); });
-  document.getElementById('representativeHistoryToFilter')?.addEventListener('change',event=>{ representativeHistoryFilter.to=event.target.value; render(); });
-  document.getElementById('representativeHistoryReminderFilter')?.addEventListener('change',event=>{ representativeHistoryFilter.reminder=event.target.value; render(); });
-  document.getElementById('clearRepresentativeHistoryFiltersBtn')?.addEventListener('click',()=>{ representativeHistoryFilter=emptyRepresentativeHistoryFilter(); render(); });
   const historySearch=document.getElementById('representativeHistorySearch');
-  historySearch?.addEventListener('input',event=>{
-    representativeHistoryFilter.search=event.target.value;
-    clearTimeout(historySearch._renderTimer);
-    historySearch._renderTimer=setTimeout(()=>{ const position=historySearch.selectionStart; render(); const next=document.getElementById('representativeHistorySearch'); next?.focus(); next?.setSelectionRange(position,position); },160);
-  });
+  const searchHistory=()=>{
+    representativeHistoryFilter.search=historySearch?.value||'';
+    render();
+  };
+  document.getElementById('searchRepresentativeHistoryBtn')?.addEventListener('click',searchHistory);
+  historySearch?.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); searchHistory(); } });
   document.querySelectorAll('[data-edit-representative-activity]').forEach(button=>button.addEventListener('click',()=>editRepresentativeActivity(representativeActivityNotes.find(note=>note.id===button.dataset.editRepresentativeActivity))));
   document.querySelectorAll('[data-delete-representative-activity]').forEach(button=>button.addEventListener('click',()=>deleteRepresentativeActivity(button.dataset.deleteRepresentativeActivity)));
   const historyOrigin=representativeHistoryContext.central?'representativehistory':representativeHistoryContext.originTab;
