@@ -10,7 +10,7 @@ const managedProductsMigration = fs.readFileSync(path.join(root, 'supabase', 'mi
 const separatedEditorsMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260904142648_separate_representative_products_and_notes.sql'), 'utf8');
 const historyRender = html.slice(html.indexOf('function renderRepresentativeHistory(){'),html.indexOf('function syncRepresentativeActivityDraftFromForm(){'));
 const historyGroupRender = html.slice(html.indexOf('function representativeHistoryGroupHtml(group){'),html.indexOf('function renderRepresentativeHistory(){'));
-const noteEditor = html.slice(html.indexOf('function representativeNoteEditorModalHtml(){'),html.indexOf('function openRepresentativeProductsEditor('));
+const noteEditor = html.slice(html.indexOf('function representativeNoteEditorPanelHtml('),html.indexOf('function openRepresentativeProductsEditor('));
 const productsEditor = html.slice(html.indexOf('function representativeProductsEditorModalHtml(){'),html.indexOf('function representativeEditorModalHtml(){'));
 
 assert.match(baseMigration, /alter table public\.notes[\s\S]*representative_id bigint[\s\S]*product_id bigint[\s\S]*activity_type text/);
@@ -73,17 +73,19 @@ assert.match(html, /\.representative-profile-panel\{display:grid;grid-template-c
 assert.match(html, /ชื่อผู้แทน[\s\S]*สินค้าที่ดูแล[\s\S]*เบอร์โทร[\s\S]*ไลน์[\s\S]*บริษัท[\s\S]*ข้อมูลเพิ่มเติม/);
 assert.match(html, /\.representative-note-workspace\{display:grid;grid-template-columns:minmax\(270px,340px\) minmax\(0,1fr\)/);
 assert.match(html, /data-select-representative-note=/);
-assert.match(html, /representative-note-list-panel[\s\S]*representative-note-detail-panel/);
-assert.match(noteEditor, /เพิ่ม NOTE/);
+assert.match(html, /representative-note-list-panel[\s\S]*representative-note-inline-editor/);
+assert.match(noteEditor, /id="representativeNoteEditorForm"/);
 assert.match(noteEditor, /id="repActivityEventDate"/);
 assert.match(noteEditor, /id="repActivityTitle"/);
-assert.match(noteEditor, /id="repActivityContentEditor"[\s\S]*contenteditable="true"/);
+assert.match(noteEditor, /id="repActivityContentEditor"[\s\S]*contenteditable=/);
 assert.match(noteEditor, /data-representative-note-command="bold"/);
 assert.match(noteEditor, /data-representative-note-command="underline"/);
 assert.match(noteEditor, /data-representative-note-command="strikeThrough"/);
 assert.match(noteEditor, /data-representative-note-color=/);
 assert.doesNotMatch(noteEditor, /<textarea id="repActivityContent"/);
 assert.doesNotMatch(noteEditor, /repActivityRepresentative|representativeManagedProductSearch|repActivityType|repActivityValidFrom|repActivityValidTo|repActivityReminderDate|quotedPrice|minimumQuantity|conditionNote/);
+assert.match(html, /NOTE \$\{index\+1\} : \$\{escapeHtml\(note\.title\|\|'-'\)\}[\s\S]*วันที่/);
+assert.doesNotMatch(html, /data-edit-representative-activity=/);
 assert.match(productsEditor, /id="representativeProductsSearch"/);
 assert.match(productsEditor, /id="representativeProductsDropdown"/);
 assert.match(productsEditor, /id="representativeProductsSelectedList"/);
