@@ -46,94 +46,92 @@ let browser;
   await page.evaluate(() => {
     currentProfile={id:'owner-test',level:1,owner:true,firstName:'เจ้าของ'};
     warehouses=[{id:1,name:'คลังทดสอบ'}]; activeWarehouseId=1; warehouseAccessRows=[];
-    salesRepresentatives=[{id:10,code:'REP-10',name:'คุณโป้',phone:'0812345678',line:'po-test',company:'บริษัทตัวแทน',note:''}];
+    salesRepresentatives=[
+      {id:10,code:'REP-10',name:'PEPO',company:'บริษัทตัวแทน A'},
+      {id:11,code:'REP-11',name:'NANA',company:'บริษัทตัวแทน B'},
+      {id:12,code:'REP-12',name:'JOJO',company:'บริษัทตัวแทน C'}
+    ];
     products=[
-      {id:20,sku:'50264',name:'Decolgen',unit:'กล่อง',barcode:'8850000000001',extraBarcodes:[],supplierBarcodes:[]},
-      {id:21,sku:'50265',name:'Lotemo Kids',unit:'ขวด',barcode:'8850000000002',extraBarcodes:[],supplierBarcodes:[]}
+      {id:20,sku:'LIP10',name:'LIPITOR 10 MG',unit:'กล่อง',barcode:'8850000000001',extraBarcodes:[],supplierBarcodes:[]},
+      {id:21,sku:'LIP20',name:'LIPITOR 20 MG',unit:'กล่อง',barcode:'8850000000002',extraBarcodes:[],supplierBarcodes:[]},
+      {id:22,sku:'LIP30',name:'LIPITOR 30 MG',unit:'กล่อง',barcode:'8850000000003',extraBarcodes:[],supplierBarcodes:[]}
     ];
     representativeHistoryContext={representativeId:10,productId:null,originTab:'salesreps'};
+    representativeProductAssignments=[
+      {representativeId:10,productId:20},{representativeId:10,productId:21},{representativeId:10,productId:22}
+    ];
+    representativeActivityNotes=[
+      {id:'note-1',title:'เล่นรายการทอง',contentHtml:'<p>บลาบลาบลา</p>',hiddenFromLevel2:false,representativeId:10,activityType:'general',eventDate:'2026-09-04',updatedAt:'2026-09-04T10:00:00Z'},
+      {id:'note-2',title:'ซื้อครบไปเที่ยวฟรี',contentHtml:'<p>ซื้อครบตามยอดที่กำหนด</p>',hiddenFromLevel2:false,representativeId:10,activityType:'general',eventDate:'2026-09-02',updatedAt:'2026-09-02T10:00:00Z'}
+    ];
     representativeActivityLoadedKey=representativeHistoryKey();
-    representativeActivityNotes=[{
-      id:'activity-1',title:'โปรโมชั่นเดือนกันยายน',contentHtml:'<p>ซื้อ 10 กล่อง แถม 1 กล่อง</p>',hiddenFromLevel2:false,
-      representativeId:10,productId:20,activityType:'promotion',eventDate:'2026-09-01',validFrom:'2026-09-01',validTo:'2026-09-30',
-      quotedPrice:160,minimumQuantity:10,unit:'กล่อง',reminderDate:'2026-09-25',updatedAt:'2026-09-01T10:00:00Z',
-      activityItems:[{id:1,productId:20,name:'Decolgen',quotedPrice:160,minimumQuantity:10,unit:'กล่อง',conditionNote:'ซื้อ 10 แถม 1',sortOrder:0}]
-    }];
-    purchaseOrders=[]; goodsReceipts=[]; purchaseOrdersFull=[]; productReturns=[];
     currentTab='salesreps';
     document.getElementById('main').innerHTML=renderSalesRepresentatives();
     attachEvents();
     document.querySelectorAll('.login-screen,.warehouse-choice-screen').forEach(screen=>{screen.style.display='none';});
   });
 
-  assert.equal(await page.locator('.representative-history-page h1').textContent(), 'ประวัติผู้แทน คุณโป้');
-  assert.equal(await page.locator('.representative-activity-card').count(), 1);
-  assert.match(await page.locator('.representative-activity-card').textContent(), /Decolgen/);
-  assert.match(await page.locator('.representative-activity-card').textContent(), /160\.00 บาท/);
-  assert.match(await page.locator('.representative-activity-source').textContent(), /NOTE/);
+  assert.equal(await page.locator('.representative-history-page h1').textContent(), 'ข้อมูลผู้แทน PEPO');
+  assert.equal(await page.locator('.representative-group-card').count(), 1);
+  assert.match(await page.locator('.representative-group-card').textContent(), /LIPITOR 10 MG/);
+  assert.match(await page.locator('.representative-group-card').textContent(), /NOTE 1 : เล่นรายการทอง/);
+  assert.match(await page.locator('.representative-group-card').textContent(), /วันที่ 04-09-2026/);
+  assert.match(await page.locator('.representative-group-card').textContent(), /NOTE 2 : ซื้อครบไปเที่ยวฟรี/);
 
   await page.locator('#newRepresentativeActivityBtn').click();
   assert.equal(await page.locator('#repActivityRepresentative').inputValue(), '10');
-  const firstItem=page.locator('.representative-activity-item-editor').first();
-  await firstItem.locator('[data-representative-item-field="productSearch"]').fill('50264');
-  await firstItem.locator('[data-representative-item-field="productSearch"]').press('Enter');
-  assert.equal(await firstItem.locator('[data-representative-item-field="productId"]').inputValue(), '20');
-  assert.equal(await firstItem.locator('[data-representative-item-field="unit"]').inputValue(), 'กล่อง');
-  await firstItem.locator('[data-representative-item-field="quotedPrice"]').fill('155');
+  assert.equal(await page.locator('.representative-activity-item-editor').count(),3);
+  assert.equal(await page.locator('#repActivityType,#repActivityValidFrom,#repActivityValidTo,#repActivityReminderDate,[data-representative-item-field="quotedPrice"],[data-representative-item-field="minimumQuantity"],[data-representative-item-field="unit"],[data-representative-item-field="conditionNote"]').count(),0);
   await page.locator('#addRepresentativeActivityItemBtn').click();
-  assert.equal(await page.locator('.representative-activity-item-editor').count(),2);
-  const secondItem=page.locator('.representative-activity-item-editor').nth(1);
-  await secondItem.locator('[data-representative-item-field="productSearch"]').fill('50265');
-  await secondItem.locator('[data-representative-item-field="productSearch"]').press('Enter');
-  assert.equal(await secondItem.locator('[data-representative-item-field="productId"]').inputValue(),'21');
-  assert.equal(await secondItem.locator('[data-representative-item-field="unit"]').inputValue(),'ขวด');
-  assert.equal(await firstItem.locator('[data-representative-item-field="quotedPrice"]').inputValue(),'155','adding another item must preserve the first row');
-
+  const lastItem=page.locator('.representative-activity-item-editor').last();
+  await lastItem.locator('[data-representative-item-field="productSearch"]').fill('LIP30');
+  await lastItem.locator('[data-representative-item-field="productSearch"]').press('Enter');
+  assert.equal(await lastItem.locator('[data-representative-item-field="productId"]').inputValue(),'22');
+  assert.equal(await page.locator('.representative-activity-item-editor').first().locator('[data-representative-item-field="productId"]').inputValue(),'20','adding another product must preserve existing managed products');
   await page.locator('#cancelRepresentativeActivityBottomBtn').click();
-  await page.locator('#representativeHistoryTypeFilter').selectOption('contact');
-  assert.equal(await page.locator('.representative-activity-card').count(), 0);
-  assert.match(await page.locator('.representative-history-empty').textContent(), /ยังไม่มีประวัติ/);
 
   await page.evaluate(() => {
     currentTab='representativehistory';
     representativeHistoryContext=centralRepresentativeHistoryContext();
     representativeHistoryFilter=emptyRepresentativeHistoryFilter();
-    const firstActivity=representativeActivityNotes[0];
-    representativeActivityNotes=[firstActivity,...[2,3,4].map(number=>({
-      ...firstActivity,
-      id:`activity-${number}`,
-      title:`โปรโมชั่นชุดที่ ${number}`,
-      eventDate:`2026-09-0${number}`,
-      updatedAt:`2026-09-0${number}T10:00:00Z`
-    }))];
+    representativeProductAssignments=[
+      {representativeId:10,productId:20},{representativeId:10,productId:21},{representativeId:10,productId:22},
+      {representativeId:11,productId:20},{representativeId:12,productId:21}
+    ];
+    representativeActivityNotes=[...representativeActivityNotes,
+      {id:'note-3',title:'แจ้งรอบส่งสินค้า',contentHtml:'<p>ส่งทุกวันจันทร์</p>',hiddenFromLevel2:false,representativeId:11,activityType:'general',eventDate:'2026-09-03',updatedAt:'2026-09-03T10:00:00Z'},
+      {id:'note-4',title:'รายการหน้าฝน',contentHtml:'<p>เริ่มเดือนหน้า</p>',hiddenFromLevel2:false,representativeId:12,activityType:'general',eventDate:'2026-09-01',updatedAt:'2026-09-01T10:00:00Z'}
+    ];
     representativeActivityLoadedKey=representativeHistoryKey();
     document.getElementById('main').innerHTML=renderRepresentativeHistoryOverview();
     attachEvents();
   });
-  assert.equal(await page.locator('.representative-history-page h1').textContent(), 'ประวัติผู้แทน');
-  assert.equal(await page.locator('#representativeHistoryTypeFilter').count(), 1);
-  assert.equal(await page.locator('#searchRepresentativeHistoryBtn').count(), 1);
-  assert.equal(await page.locator('#representativeHistoryRepresentativeFilter,#representativeHistoryProductFilter,#representativeHistoryFromFilter,#representativeHistoryToFilter,#representativeHistoryReminderFilter,#clearRepresentativeHistoryFiltersBtn,#reloadRepresentativeHistoryBtn,.representative-history-result-count').count(), 0);
-  const filterTops=await page.locator('#representativeHistoryTypeFilter,#searchRepresentativeHistoryBtn').evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().top)));
-  assert.ok(Math.abs(filterTops[0]-filterTops[1])<=2,'type and search controls must share one row');
-  assert.equal(await page.locator('.representative-activity-card').count(), 4);
-  const cardPositions=await page.locator('.representative-activity-card').evaluateAll(elements=>elements.map(element=>{
-    const box=element.getBoundingClientRect();
-    return {x:Math.round(box.x),y:Math.round(box.y)};
-  }));
-  assert.equal(cardPositions[0].y,cardPositions[1].y);
-  assert.equal(cardPositions[1].y,cardPositions[2].y);
-  assert.ok(cardPositions[0].x<cardPositions[1].x&&cardPositions[1].x<cardPositions[2].x,'desktop must show three history cards per row');
-  assert.ok(cardPositions[3].y>cardPositions[0].y,'the fourth card must start a new row');
-  await page.locator('#representativeHistorySearch').fill('ไม่พบรายการนี้');
+  assert.equal(await page.locator('.representative-group-card').count(),3);
+  assert.equal(await page.locator('#representativeHistoryRepresentativeSearch,#representativeHistoryProductSearch,#representativeHistoryNoteSearch').count(),3);
+  const cardPositions=await page.locator('.representative-group-card').evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().y)));
+  assert.equal(cardPositions[0],cardPositions[1]);
+  assert.equal(cardPositions[1],cardPositions[2]);
+
+  await page.locator('#representativeHistoryRepresentativeSearch').fill('NANA');
   await page.locator('#searchRepresentativeHistoryBtn').click();
-  assert.equal(await page.locator('.representative-activity-card').count(), 0);
-  await page.locator('#representativeHistorySearch').fill('');
-  await page.locator('#representativeHistorySearch').press('Enter');
-  assert.equal(await page.locator('.representative-activity-card').count(), 4);
-  await page.locator('[data-open-representative-history="10"]').first().click();
-  assert.equal(await page.locator('.representative-history-page h1').textContent(), 'ประวัติผู้แทน คุณโป้');
-  assert.equal(await page.locator('#closeRepresentativeHistoryBtn').count(), 1);
+  assert.equal(await page.locator('.representative-group-card').count(),1);
+  assert.match(await page.locator('.representative-group-card').textContent(),/NANA/);
+  await page.locator('#representativeHistoryRepresentativeSearch').fill('');
+  await page.locator('#representativeHistoryProductSearch').fill('LIPITOR 30');
+  await page.locator('#representativeHistoryProductSearch').press('Enter');
+  assert.equal(await page.locator('.representative-group-card').count(),1);
+  assert.match(await page.locator('.representative-group-card').textContent(),/PEPO/);
+  await page.locator('#representativeHistoryProductSearch').fill('');
+  await page.locator('#representativeHistoryNoteSearch').fill('หน้าฝน');
+  await page.locator('#searchRepresentativeHistoryBtn').click();
+  assert.equal(await page.locator('.representative-group-card').count(),1);
+  assert.match(await page.locator('.representative-group-card').textContent(),/JOJO/);
+
+  await page.locator('#representativeHistoryNoteSearch').fill('');
+  await page.locator('#searchRepresentativeHistoryBtn').click();
+  await page.locator('[data-open-product-history="20"]').first().click();
+  assert.equal(await page.locator('.representative-history-page h1').textContent(), 'ผู้แทนที่ดูแล LIPITOR 10 MG');
+  assert.equal(await page.locator('#closeRepresentativeHistoryBtn').count(),1);
   assert.deepEqual(errors, []);
 })().catch(error => {
   console.error(error);

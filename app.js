@@ -3122,11 +3122,12 @@ let noteDraftDirty=false;
 const REPRESENTATIVE_ACTIVITY_TYPES={promotion:'โปรโมชั่น',price_quote:'แจ้งราคา',contact:'ติดต่อ / เข้าเยี่ยม',purchase_order:'สั่งสินค้า',goods_receipt:'รับสินค้า',product_return:'คืนสินค้า',general:'หมายเหตุ'};
 let representativeHistoryContext=null;
 let representativeActivityNotes=[];
+let representativeProductAssignments=[];
 let representativeActivityLoading=false;
 let representativeActivityLoadedKey='';
 let representativeActivityLoadError='';
 let representativeActivityDraft=null;
-let representativeHistoryFilter={type:'all',representativeId:'',productId:'',from:'',to:'',reminder:'all',search:''};
+let representativeHistoryFilter={representativeSearch:'',productSearch:'',noteSearch:''};
 window.addEventListener('beforeunload',event=>{
   const hasUnsavedBusiness=currentTab==='settingsbusiness'&&businessSettingsDirty;
   const hasUnsavedNote=currentTab==='notes'&&noteDraftDirty;
@@ -4218,15 +4219,16 @@ function representativeHistoryKey(context=representativeHistoryContext){
   if(!context) return '';
   return `${context.central?'central':'detail'}:rep:${Number(context.representativeId)||0}:product:${Number(context.productId)||0}`;
 }
-function emptyRepresentativeHistoryFilter(){ return {type:'all',search:''}; }
+function emptyRepresentativeHistoryFilter(){ return {representativeSearch:'',productSearch:'',noteSearch:''}; }
 function centralRepresentativeHistoryContext(){ return {representativeId:null,productId:null,originTab:'representativehistory',central:true,returnFilter:null}; }
 function isRepresentativeHistoryScreen(){ return currentTab==='salesreps'||currentTab==='representativehistory'; }
 function representativeActivityTypeLabel(type){ return REPRESENTATIVE_ACTIVITY_TYPES[type]||'หมายเหตุ'; }
-function representativeActivityDateLabel(value){ return value?isoToDMY(String(value).slice(0,10)):'-'; }
+function representativeActivityDateLabel(value){ return value?isoToDMY(String(value).slice(0,10)).replaceAll('/','-'):'-'; }
 function representativeForActivityId(id){ return salesRepresentatives.find(rep=>Number(rep.id)===Number(id))||null; }
 function productForActivityId(id){ return products.find(product=>Number(product.id)===Number(id))||null; }
 function resetRepresentativeActivityLoad(){
   representativeActivityNotes=[];
+  representativeProductAssignments=[];
   representativeActivityLoadedKey='';
   representativeActivityLoadError='';
   representativeActivityLoading=false;
@@ -4271,21 +4273,38 @@ async function loadRepresentativeActivityHistory({force=false}={}){
   representativeActivityLoadError='';
   if(isRepresentativeHistoryScreen()) render();
   try{
-    const buildActivityQuery=()=>{
-      const select=context.productId
-        ?`${NOTE_ROW_SELECT},matched_activity_items:representative_activity_items!inner(note_id)`
-        :NOTE_ROW_SELECT;
-      let query=sb.from('notes').select(select).not('activity_type','is',null);
-      if(context.representativeId) query=query.eq('representative_id',context.representativeId);
-      if(context.productId) query=query.eq('matched_activity_items.product_id',context.productId);
-      return query.order('event_date',{ascending:false}).order('updated_at',{ascending:false});
-    };
-    const [activityResult]=await Promise.all([
-      fetchAllRows(buildActivityQuery),
-      ...['purchase_orders','goods_receipts','purchase_orders_full','product_returns'].map(table=>loadDocumentTableFromSupabase(table,{full:true}))
-    ]);
+    let representativeIds=[];
+    if(context.productId){
+      const matchedResult=await fetchAllRows(()=>sb.from('sales_representative_products').select('representative_id,product_id,created_at,updated_at').eq('product_id',context.productId).order('representative_id'));
+      if(matchedResult.error) throw matchedResult.error;
+      representativeIds=[...new Set((matchedResult.data||[]).map(row=>Number(row.representative_id)).filter(Boolean))];
+    }else if(context.representativeId){
+      representativeIds=[Number(context.representativeId)];
+    }
+    const assignmentResult=context.productId&&representativeIds.length===0
+      ?{data:[],error:null}
+      :await fetchAllRows(()=>{
+        let query=sb.from('sales_representative_products').select('representative_id,product_id,created_at,updated_at');
+        if(context.representativeId) query=query.eq('representative_id',context.representativeId);
+        else if(context.productId) query=query.in('representative_id',representativeIds);
+        return query.order('representative_id').order('product_id');
+      });
+    if(assignmentResult.error) throw assignmentResult.error;
+    const assignments=(assignmentResult.data||[]).map(row=>({
+      representativeId:Number(row.representative_id),productId:Number(row.product_id),createdAt:row.created_at||'',updatedAt:row.updated_at||''
+    }));
+    if(context.central) representativeIds=[...new Set(assignments.map(row=>row.representativeId).filter(Boolean))];
+    const activityResult=context.productId&&representativeIds.length===0
+      ?{data:[],error:null}
+      :await fetchAllRows(()=>{
+        let query=sb.from('notes').select(NOTE_ROW_SELECT).not('activity_type','is',null);
+        if(context.representativeId) query=query.eq('representative_id',context.representativeId);
+        else if(context.productId) query=query.in('representative_id',representativeIds);
+        return query.order('event_date',{ascending:false}).order('updated_at',{ascending:false});
+      });
     if(activityResult.error) throw activityResult.error;
     if(representativeHistoryKey()!==key) return;
+    representativeProductAssignments=assignments;
     representativeActivityNotes=(activityResult.data||[]).map(mapNoteRow);
     representativeActivityLoadedKey=key;
   }catch(error){
@@ -4375,35 +4394,35 @@ function representativeActivityDraftItem(item={}){
   const product=productForActivityId(productId);
   return {
     key:item.key||`representative-item-${++representativeActivityItemSequence}`,productId,
-    productName:item.productName||item.name||product?.name||'',quotedPrice:item.quotedPrice??item.price??'',
-    minimumQuantity:item.minimumQuantity??item.qty??'',unit:item.unit||product?.unit||'',conditionNote:item.conditionNote||''
+    productName:item.productName||item.name||product?.name||''
   };
+}
+function managedProductItemsForRepresentative(representativeId){
+  return representativeProductAssignments
+    .filter(row=>Number(row.representativeId)===Number(representativeId))
+    .map(row=>representativeActivityDraftItem({productId:row.productId}));
 }
 function newRepresentativeActivityDraft(){
   const context=representativeHistoryContext||{};
-  return {id:'new',representativeId:context.representativeId||salesRepresentatives[0]?.id||'',activityType:'promotion',eventDate:TODAY_STR,title:'',content:'',validFrom:TODAY_STR,validTo:'',reminderDate:'',updatedAt:'',items:[representativeActivityDraftItem({productId:context.productId||''})]};
+  const representativeId=context.representativeId||representativeProductAssignments.find(row=>!context.productId||Number(row.productId)===Number(context.productId))?.representativeId||salesRepresentatives[0]?.id||'';
+  const assignedItems=managedProductItemsForRepresentative(representativeId);
+  const contextItem=context.productId&&!assignedItems.some(item=>Number(item.productId)===Number(context.productId))?representativeActivityDraftItem({productId:context.productId}):null;
+  return {id:'new',representativeId,eventDate:TODAY_STR,title:'',content:'',updatedAt:'',items:[...assignedItems,...(contextItem?[contextItem]:[])]};
 }
 function editRepresentativeActivity(note){
   if(!canEditNote(note)) return;
-  const sourceItems=note.activityItems?.length?note.activityItems:(note.productId?[{
-    productId:note.productId,name:productForActivityId(note.productId)?.name||'',quotedPrice:note.quotedPrice,
-    minimumQuantity:note.minimumQuantity,unit:note.unit||'',conditionNote:''
-  }]:[]);
+  const sourceItems=managedProductItemsForRepresentative(note.representativeId);
   representativeActivityDraft={
-    id:note.id,representativeId:note.representativeId||'',activityType:note.activityType||'general',eventDate:note.eventDate||TODAY_STR,
-    title:note.title||'',content:notePlainText(note.contentHtml||''),validFrom:note.validFrom||'',validTo:note.validTo||'',
-    reminderDate:note.reminderDate||'',updatedAt:note.updatedAt||'',items:(sourceItems.length?sourceItems:[{}]).map(representativeActivityDraftItem)
+    id:note.id,representativeId:note.representativeId||'',eventDate:note.eventDate||TODAY_STR,
+    title:note.title||'',content:notePlainText(note.contentHtml||''),updatedAt:note.updatedAt||'',
+    items:(sourceItems.length?sourceItems:[representativeActivityDraftItem()]).map(representativeActivityDraftItem)
   };
   render();
 }
 function representativeActivityItemEditorHtml(item,index){
   const selectedProduct=productForActivityId(item.productId);
   return `<div class="representative-activity-item-editor" data-representative-activity-item="${index}">
-    <div class="crow representative-activity-product-picker"><label>สินค้า <span class="req">*</span></label><input data-representative-item-field="productSearch" autocomplete="off" value="${escapeHtml(item.productName||selectedProduct?.name||'')}" placeholder="ค้นหาชื่อ / รหัส / ยิงบาร์โค้ด"><input data-representative-item-field="productId" type="hidden" value="${escapeHtml(item.productId||'')}"><div data-representative-item-results class="representative-activity-product-results" hidden></div></div>
-    <div class="crow"><label>ราคาที่เสนอ</label><input data-representative-item-field="quotedPrice" type="number" min="0" step="0.01" value="${escapeHtml(item.quotedPrice)}" placeholder="0.00"></div>
-    <div class="crow"><label>จำนวนขั้นต่ำ</label><input data-representative-item-field="minimumQuantity" type="number" min="0.0001" step="any" value="${escapeHtml(item.minimumQuantity)}" placeholder="ไม่บังคับ"></div>
-    <div class="crow"><label>หน่วย</label><input data-representative-item-field="unit" value="${escapeHtml(item.unit||'')}" placeholder="เช่น กล่อง"></div>
-    <div class="crow representative-activity-item-condition"><label>เงื่อนไขเฉพาะสินค้า</label><input data-representative-item-field="conditionNote" maxlength="1000" value="${escapeHtml(item.conditionNote||'')}" placeholder="เช่น ซื้อ 12 แถม 1"></div>
+    <div class="crow representative-activity-product-picker"><input data-representative-item-field="productSearch" autocomplete="off" value="${escapeHtml(item.productName||selectedProduct?.name||'')}" placeholder="ค้นหาชื่อสินค้า รหัส หรือยิงบาร์โค้ด"><input data-representative-item-field="productId" type="hidden" value="${escapeHtml(item.productId||'')}"><div data-representative-item-results class="representative-activity-product-results" hidden></div></div>
     <button class="btn danger small representative-activity-remove-item" data-remove-representative-activity-item="${index}" type="button" aria-label="ลบสินค้า">ลบ</button>
   </div>`;
 }
@@ -4413,19 +4432,13 @@ function representativeActivityFormHtml(){
   const items=Array.isArray(draft.items)&&draft.items.length?draft.items:[representativeActivityDraftItem()];
   draft.items=items;
   return `<section class="representative-activity-form panel">
-    <div class="representative-activity-form-head"><div><h3>${draft.id==='new'?'เพิ่มประวัติ / NOTE':'แก้ไขประวัติ / NOTE'}</h3><p>บันทึกการคุยหนึ่งครั้งพร้อมสินค้าทุกรายการที่ผู้แทนแจ้ง</p></div><button class="modal-close" id="cancelRepresentativeActivityBtn" type="button" aria-label="ปิด">×</button></div>
+    <div class="representative-activity-form-head"><div><h3>${draft.id==='new'?'เพิ่มประวัติผู้แทน':'แก้ไขประวัติผู้แทน'}</h3><p>กำหนดสินค้าที่ผู้แทนดูแล และเพิ่ม NOTE พร้อมวันที่และหัวข้อ</p></div><button class="modal-close" id="cancelRepresentativeActivityBtn" type="button" aria-label="ปิด">×</button></div>
     <div class="representative-activity-grid">
-      <div class="crow"><label>วันที่ <span class="req">*</span></label><input id="repActivityEventDate" type="date" value="${escapeHtml(draft.eventDate||TODAY_STR)}"></div>
-      <div class="crow"><label>ประเภท <span class="req">*</span></label><select id="repActivityType">${Object.entries(REPRESENTATIVE_ACTIVITY_TYPES).map(([value,label])=>`<option value="${value}" ${draft.activityType===value?'selected':''}>${escapeHtml(label)}</option>`).join('')}</select></div>
-      <div class="crow"><label>ผู้แทน <span class="req">*</span></label><select id="repActivityRepresentative"><option value="">เลือกผู้แทน</option>${salesRepresentatives.map(rep=>`<option value="${rep.id}" ${Number(draft.representativeId)===Number(rep.id)?'selected':''}>${escapeHtml(rep.name)}${rep.company?` · ${escapeHtml(rep.company)}`:''}</option>`).join('')}</select></div>
-      <div class="crow representative-activity-wide"><label>หัวข้อ</label><input id="repActivityTitle" maxlength="160" value="${escapeHtml(draft.title||'')}" placeholder="เช่น โปรโมชั่นเดือนกันยายน"></div>
-      <div class="representative-activity-items-editor representative-activity-wide"><div class="representative-activity-items-editor-head"><div><b>รายการสินค้า</b><span>${items.length} รายการ</span></div><button class="btn ghost small" id="addRepresentativeActivityItemBtn" type="button">+ เพิ่มสินค้า</button></div>${items.map((item,index)=>representativeActivityItemEditorHtml(item,index)).join('')}</div>
-      <div class="crow"><label>เริ่มโปรโมชั่น</label><input id="repActivityValidFrom" type="date" value="${escapeHtml(draft.validFrom||'')}"></div>
-      <div class="crow"><label>สิ้นสุดโปรโมชั่น</label><input id="repActivityValidTo" type="date" value="${escapeHtml(draft.validTo||'')}"></div>
-      <div class="crow"><label>วันที่ติดตาม</label><input id="repActivityReminderDate" type="date" value="${escapeHtml(draft.reminderDate||'')}"></div>
-      <div class="crow representative-activity-wide"><label>NOTE เพิ่มเติม</label><textarea id="repActivityContent" rows="4" placeholder="เงื่อนไข ของแถม หรือรายละเอียดที่คุยกับผู้แทน">${escapeHtml(draft.content||'')}</textarea></div>
+      <div class="crow representative-activity-wide"><label>ชื่อผู้แทน <span class="req">*</span></label><select id="repActivityRepresentative"><option value="">เลือกผู้แทน</option>${salesRepresentatives.map(rep=>`<option value="${rep.id}" ${Number(draft.representativeId)===Number(rep.id)?'selected':''}>${escapeHtml(rep.name)}${rep.company?` · ${escapeHtml(rep.company)}`:''}</option>`).join('')}</select></div>
+      <div class="representative-activity-items-editor representative-activity-wide"><div class="representative-activity-items-editor-head"><div><b>รายการสินค้าที่ดูแล</b><span>${items.filter(item=>item.productId).length} รายการ</span></div><button class="btn ghost small" id="addRepresentativeActivityItemBtn" type="button">+ เพิ่มสินค้า</button></div>${items.map((item,index)=>representativeActivityItemEditorHtml(item,index)).join('')}</div>
+      <div class="representative-note-editor representative-activity-wide"><h4>NOTE เพิ่มเติม</h4><div class="representative-note-fields"><div class="crow"><label>วันที่ <span class="req">*</span></label><input id="repActivityEventDate" type="date" value="${escapeHtml(draft.eventDate||TODAY_STR)}"></div><div class="crow"><label>หัวข้อ <span class="req">*</span></label><input id="repActivityTitle" maxlength="160" value="${escapeHtml(draft.title||'')}" placeholder="เช่น ซื้อครบไปเที่ยวฟรี"></div><div class="crow representative-note-content"><label>ข้อมูลเพิ่มเติม</label><textarea id="repActivityContent" rows="4" placeholder="กรอกรายละเอียด NOTE">${escapeHtml(draft.content||'')}</textarea></div></div></div>
     </div>
-    <div class="representative-activity-form-actions"><button class="btn ghost" id="cancelRepresentativeActivityBottomBtn" type="button">ยกเลิก</button><button class="btn primary" id="saveRepresentativeActivityBtn" type="button">บันทึกประวัติ</button></div>
+    <div class="representative-activity-form-actions"><button class="btn ghost" id="cancelRepresentativeActivityBottomBtn" type="button">ยกเลิก</button><button class="btn primary" id="saveRepresentativeActivityBtn" type="button">บันทึกข้อมูล</button></div>
   </section>`;
 }
 function representativeActivityCardHtml(activity){
@@ -4458,6 +4471,43 @@ function representativeActivityCardHtml(activity){
     </div>
   </article>`;
 }
+function representativeHistoryGroups(){
+  const context=representativeHistoryContext||{};
+  const groupIds=new Set();
+  representativeProductAssignments.forEach(row=>groupIds.add(Number(row.representativeId)));
+  representativeActivityNotes.forEach(note=>groupIds.add(Number(note.representativeId)));
+  if(context.representativeId) groupIds.add(Number(context.representativeId));
+  const representativeNeedle=normalizedActivityName(representativeHistoryFilter.representativeSearch);
+  const productNeedle=normalizedActivityName(representativeHistoryFilter.productSearch);
+  const noteNeedle=normalizedActivityName(representativeHistoryFilter.noteSearch);
+  return [...groupIds].map(id=>{
+    const representative=representativeForActivityId(id);
+    if(!representative) return null;
+    const managedProducts=representativeProductAssignments
+      .filter(row=>Number(row.representativeId)===id)
+      .map(row=>productForActivityId(row.productId))
+      .filter(Boolean)
+      .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'th'));
+    const notesForRepresentative=representativeActivityNotes
+      .filter(note=>Number(note.representativeId)===id)
+      .sort((a,b)=>String(b.eventDate||b.updatedAt||'').localeCompare(String(a.eventDate||a.updatedAt||''))||String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+    const representativeText=normalizedActivityName(`${representative.name||''} ${representative.company||''} ${representative.code||''}`);
+    const productMatches=!productNeedle||managedProducts.some(product=>normalizedActivityName(`${product.name||''} ${product.sku||''} ${product.barcode||''}`).includes(productNeedle));
+    const noteMatches=!noteNeedle||notesForRepresentative.some(note=>normalizedActivityName(`${note.title||''} ${notePlainText(note.contentHtml||'')} ${representativeActivityDateLabel(note.eventDate)}`).includes(noteNeedle));
+    if((representativeNeedle&&!representativeText.includes(representativeNeedle))||!productMatches||!noteMatches) return null;
+    return {representative,managedProducts,notes:notesForRepresentative};
+  }).filter(Boolean).sort((a,b)=>String(a.representative.name||'').localeCompare(String(b.representative.name||''),'th'));
+}
+function representativeHistoryGroupHtml(group){
+  const productHtml=group.managedProducts.length
+    ?group.managedProducts.map(product=>`<button type="button" class="representative-managed-product" data-open-product-history="${product.id}">${escapeHtml(product.name)}</button>`).join('')
+    :'<span class="representative-group-empty">ยังไม่ได้ระบุสินค้า</span>';
+  const notesHtml=group.notes.length?group.notes.map((note,index)=>{
+    const canEdit=canEditNote(note),canDelete=canDeleteNote(note);
+    return `<article class="representative-note-card"><div class="representative-note-head"><b>NOTE ${index+1} : ${escapeHtml(note.title||'-')}</b><span>วันที่ ${escapeHtml(representativeActivityDateLabel(note.eventDate))}</span></div>${note.contentHtml?`<div class="representative-note-body">${sanitizeNoteHtml(note.contentHtml)}</div>`:'<div class="representative-note-body muted">ไม่มีข้อมูลเพิ่มเติม</div>'}${canEdit||canDelete?`<div class="representative-activity-actions">${canEdit?`<button class="btn ghost small" data-edit-representative-activity="${escapeHtml(note.id)}" type="button">แก้ไข</button>`:''}${canDelete?`<button class="btn danger small" data-delete-representative-activity="${escapeHtml(note.id)}" type="button">ลบ</button>`:''}</div>`:''}</article>`;
+  }).join(''):'<div class="representative-group-empty">ยังไม่มี NOTE</div>';
+  return `<article class="representative-group-card"><header><div><span>ชื่อผู้แทน</span><button type="button" data-open-representative-history="${group.representative.id}">${escapeHtml(group.representative.name)}</button></div>${group.representative.company?`<small>${escapeHtml(group.representative.company)}</small>`:''}</header><section><h3>รายการสินค้าที่ดูแลมี</h3><div class="representative-managed-products">${productHtml}</div></section><section class="representative-notes-list">${notesHtml}</section></article>`;
+}
 function renderRepresentativeHistory(){
   const context=representativeHistoryContext||{};
   const representative=representativeForActivityId(context.representativeId);
@@ -4465,31 +4515,13 @@ function renderRepresentativeHistory(){
   const central=context.central===true;
   if(!central&&!representative&&!product) return '<div class="empty">ไม่พบผู้แทนหรือสินค้า</div>';
   if(!representativeActivityLoading&&representativeActivityLoadedKey!==representativeHistoryKey(context)&&!representativeActivityLoadError) setTimeout(()=>loadRepresentativeActivityHistory(),0);
-  const all=representativeTimelineActivities();
-  const needle=normalizedActivityName(representativeHistoryFilter.search);
-  const filtered=all.filter(activity=>{
-    if(representativeHistoryFilter.type!=='all'&&activity.activityType!==representativeHistoryFilter.type) return false;
-    return !needle||activityFilterText(activity).includes(needle);
-  });
-  const productIds=new Set(all.flatMap(activity=>[Number(activity.productId),...(activity.items||[]).map(item=>Number(item.productId))]).filter(Boolean));
-  const productCount=productIds.size;
-  const representativeCount=new Set(all.map(activity=>Number(activity.representativeId)).filter(Boolean)).size;
-  const activePromotionCount=all.filter(activity=>activity.activityType==='promotion'&&(!activity.validTo||activity.validTo>=TODAY_STR)).length;
-  const dueReminderCount=all.filter(activity=>activity.reminderDate&&activity.reminderDate<=TODAY_STR).length;
-  const title=central?'ประวัติผู้แทน':representative?`ประวัติผู้แทน ${representative.name}`:`ประวัติสินค้า ${product.name}`;
+  const groups=representativeHistoryGroups();
+  const productCount=new Set(representativeProductAssignments.map(row=>Number(row.productId)).filter(Boolean)).size;
+  const noteCount=representativeActivityNotes.length;
+  const title=central?'ประวัติผู้แทน':representative?`ข้อมูลผู้แทน ${representative.name}`:`ผู้แทนที่ดูแล ${product.name}`;
   const canCreate=canPerformPageAction('create','notes');
-  const historyFilters=`<div class="representative-history-filter representative-history-filter-minimal panel">
-    <label><span>ประเภท</span><select id="representativeHistoryTypeFilter"><option value="all">ทุกประเภท</option>${Object.entries(REPRESENTATIVE_ACTIVITY_TYPES).map(([value,label])=>`<option value="${value}" ${representativeHistoryFilter.type===value?'selected':''}>${escapeHtml(label)}</option>`).join('')}</select></label>
-    <div class="representative-history-search"><span>ค้นหา</span><div class="representative-history-search-row"><input id="representativeHistorySearch" value="${escapeHtml(representativeHistoryFilter.search)}" placeholder="หัวข้อ สินค้า ผู้แทน หรือเลขที่เอกสาร"><button class="btn primary" id="searchRepresentativeHistoryBtn" type="button">ค้นหา</button></div></div>
-  </div>`;
-  return `<div class="rpt representative-history-page">
-    <div class="pagehead"><div>${central?'':`<div class="breadcrumb">${context.originTab==='representativehistory'?'ประวัติผู้แทน':'รายชื่อผู้แทน'} › ประวัติผู้แทนและสินค้า</div>`}<h1>${escapeHtml(title)}</h1><p>${representative?.company?escapeHtml(representative.company):product?`รหัสสินค้า ${escapeHtml(product.sku||'-')}`:''}</p></div><div class="form-final-actions">${central?'':'<button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button>'}${canCreate?'<button class="btn primary" id="newRepresentativeActivityBtn" type="button">+ เพิ่มประวัติ / NOTE</button>':''}</div></div>
-    <div class="representative-history-summary"><div><span>รายการทั้งหมด</span><b>${all.length}</b></div><div><span>${representative?'สินค้าที่เกี่ยวข้อง':'ผู้แทนที่เกี่ยวข้อง'}</span><b>${representative?productCount:representativeCount}</b></div>${central?`<div><span>สินค้าที่เกี่ยวข้อง</span><b>${productCount}</b></div>`:''}<div><span>โปรโมชั่นที่ยังใช้ได้</span><b>${activePromotionCount}</b></div><div><span>ถึงกำหนดติดตาม</span><b>${dueReminderCount}</b></div></div>
-    ${representativeActivityFormHtml()}
-    ${historyFilters}
-    ${representativeActivityLoadError?`<div class="notice danger">${escapeHtml(representativeActivityLoadError)}</div>`:''}
-    <div class="representative-activity-timeline">${representativeActivityLoading&&representativeActivityLoadedKey!==representativeHistoryKey(context)?'<div class="representative-history-empty">กำลังโหลดประวัติ…</div>':filtered.map(representativeActivityCardHtml).join('')||'<div class="representative-history-empty">ยังไม่มีประวัติที่ตรงกับตัวกรอง</div>'}</div>
-  </div>`;
+  const historyFilters=`<div class="representative-history-filter representative-history-filter-minimal panel"><label><span>ชื่อผู้แทน</span><input id="representativeHistoryRepresentativeSearch" value="${escapeHtml(representativeHistoryFilter.representativeSearch)}" placeholder="ค้นหาชื่อผู้แทน"></label><label><span>ชื่อสินค้า</span><input id="representativeHistoryProductSearch" value="${escapeHtml(representativeHistoryFilter.productSearch)}" placeholder="ค้นหาตามชื่อสินค้า"></label><div class="representative-history-search"><span>ค้นหาจาก NOTE</span><div class="representative-history-search-row"><input id="representativeHistoryNoteSearch" value="${escapeHtml(representativeHistoryFilter.noteSearch)}" placeholder="หัวข้อหรือข้อมูลใน NOTE"><button class="btn primary" id="searchRepresentativeHistoryBtn" type="button">ค้นหา</button></div></div></div>`;
+  return `<div class="rpt representative-history-page"><div class="pagehead"><div>${central?'':`<div class="breadcrumb">${context.originTab==='representativehistory'?'ประวัติผู้แทน':'รายชื่อผู้แทน'} › ผู้แทนและสินค้าที่ดูแล</div>`}<h1>${escapeHtml(title)}</h1><p>${representative?.company?escapeHtml(representative.company):product?`รหัสสินค้า ${escapeHtml(product.sku||'-')}`:'ค้นหาผู้แทน สินค้าที่ดูแล และ NOTE ได้จากหน้าเดียว'}</p></div><div class="form-final-actions">${central?'':'<button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button>'}${canCreate?'<button class="btn primary" id="newRepresentativeActivityBtn" type="button">+ เพิ่มประวัติ</button>':''}</div></div><div class="representative-history-summary"><div><span>ชื่อผู้แทน</span><b>${groups.length}</b></div><div><span>สินค้าที่ดูแล</span><b>${productCount}</b></div><div><span>NOTE ทั้งหมด</span><b>${noteCount}</b></div></div>${representativeActivityFormHtml()}${historyFilters}${representativeActivityLoadError?`<div class="notice danger">${escapeHtml(representativeActivityLoadError)}</div>`:''}<div class="representative-groups-grid">${representativeActivityLoading&&representativeActivityLoadedKey!==representativeHistoryKey(context)?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':groups.map(representativeHistoryGroupHtml).join('')||'<div class="representative-history-empty">ยังไม่มีข้อมูลที่ตรงกับการค้นหา</div>'}</div></div>`;
 }
 function syncRepresentativeActivityDraftFromForm(){
   if(!representativeActivityDraft) return;
@@ -4498,14 +4530,12 @@ function syncRepresentativeActivityDraftFromForm(){
   const items=itemRows.map((row,index)=>{
     const field=name=>row.querySelector(`[data-representative-item-field="${name}"]`)?.value??'';
     return representativeActivityDraftItem({
-      key:representativeActivityDraft.items?.[index]?.key,productId:field('productId'),productName:field('productSearch'),
-      quotedPrice:field('quotedPrice'),minimumQuantity:field('minimumQuantity'),unit:field('unit'),conditionNote:field('conditionNote')
+      key:representativeActivityDraft.items?.[index]?.key,productId:field('productId'),productName:field('productSearch')
     });
   });
   Object.assign(representativeActivityDraft,{
-    eventDate:value('repActivityEventDate'),activityType:value('repActivityType'),representativeId:value('repActivityRepresentative'),
-    title:value('repActivityTitle'),content:value('repActivityContent'),items,
-    validFrom:value('repActivityValidFrom'),validTo:value('repActivityValidTo'),reminderDate:value('repActivityReminderDate')
+    eventDate:value('repActivityEventDate'),representativeId:value('repActivityRepresentative'),
+    title:value('repActivityTitle'),content:value('repActivityContent'),items
   });
 }
 async function saveRepresentativeActivity(){
@@ -4514,31 +4544,24 @@ async function saveRepresentativeActivity(){
   if(draft?.id==='new'&&!canPerformPageAction('create','notes')){ showToast('บัญชีนี้ไม่มีสิทธิ์เพิ่มประวัติ','danger-top'); return; }
   if(!draft?.representativeId){ showToast('กรุณาเลือกผู้แทน','danger-top'); document.getElementById('repActivityRepresentative')?.focus(); return; }
   if(!draft.eventDate){ showToast('กรุณาเลือกวันที่','danger-top'); return; }
-  if(draft.validFrom&&draft.validTo&&draft.validTo<draft.validFrom){ showToast('วันสิ้นสุดโปรโมชั่นต้องไม่ก่อนวันเริ่ม','danger-top'); return; }
-  const enteredItems=(draft.items||[]).filter(item=>item.productId||String(item.productName||'').trim()||item.quotedPrice!==''||item.minimumQuantity!==''||String(item.unit||'').trim()||String(item.conditionNote||'').trim());
+  if(!String(draft.title||'').trim()){ showToast('กรุณากรอกหัวข้อ NOTE','danger-top'); document.getElementById('repActivityTitle')?.focus(); return; }
+  const enteredItems=(draft.items||[]).filter(item=>item.productId||String(item.productName||'').trim());
   const unfinishedIndex=enteredItems.findIndex(item=>!item.productId);
   if(unfinishedIndex>=0){ showToast(`กรุณาเลือกสินค้าในรายการที่ ${unfinishedIndex+1} จากผลการค้นหา`,'danger-top'); return; }
+  if(!enteredItems.length){ showToast('กรุณาเลือกสินค้าที่ผู้แทนดูแลอย่างน้อย 1 รายการ','danger-top'); return; }
   const duplicateProduct=enteredItems.find((item,index)=>enteredItems.findIndex(other=>Number(other.productId)===Number(item.productId))!==index);
   if(duplicateProduct){ showToast(`สินค้า “${duplicateProduct.productName||productForActivityId(duplicateProduct.productId)?.name||''}” ถูกเลือกซ้ำ`,'danger-top'); return; }
-  if(enteredItems.some(item=>item.quotedPrice!==''&&Number(item.quotedPrice)<0)){ showToast('ราคาที่เสนอต้องไม่ติดลบ','danger-top'); return; }
-  if(enteredItems.some(item=>item.minimumQuantity!==''&&Number(item.minimumQuantity)<=0)){ showToast('จำนวนขั้นต่ำต้องมากกว่า 0','danger-top'); return; }
-  const firstProduct=productForActivityId(enteredItems[0]?.productId),typeLabel=representativeActivityTypeLabel(draft.activityType);
-  const title=String(draft.title||'').trim()||`${typeLabel}${firstProduct?` · ${firstProduct.name}${enteredItems.length>1?` และอีก ${enteredItems.length-1} รายการ`:''}`:''}`;
+  const title=String(draft.title||'').trim();
   const text=String(draft.content||'').trim();
   const rpcPayload={
     p_note_id:draft.id==='new'?null:draft.id,p_expected_updated_at:draft.id==='new'?null:draft.updatedAt,p_title:title,
     p_content_html:text?`<p>${escapeHtml(text).replace(/\r?\n/g,'<br>')}</p>`:'',p_representative_id:Number(draft.representativeId),
-    p_activity_type:draft.activityType||'general',p_event_date:draft.eventDate,p_valid_from:draft.validFrom||null,p_valid_to:draft.validTo||null,
-    p_reminder_date:draft.reminderDate||null,p_items:enteredItems.map(item=>({
-      productId:Number(item.productId),quotedPrice:item.quotedPrice===''?null:Number(item.quotedPrice),
-      minimumQuantity:item.minimumQuantity===''?null:Number(item.minimumQuantity),unit:String(item.unit||'').trim()||null,
-      conditionNote:String(item.conditionNote||'').trim()||null
-    }))
+    p_event_date:draft.eventDate,p_product_ids:enteredItems.map(item=>Number(item.productId))
   };
   const button=document.getElementById('saveRepresentativeActivityBtn');
   if(button){ button.disabled=true; button.textContent='กำลังบันทึก…'; }
   try{
-    const result=await sb.rpc('save_representative_activity',rpcPayload);
+    const result=await sb.rpc('save_representative_note',rpcPayload);
     if(result.error) throw result.error;
     const savedId=String(result.data||'');
     if(!savedId) throw new Error('ฐานข้อมูลไม่ได้ส่งรหัสประวัติกลับมา');
@@ -4549,11 +4572,11 @@ async function saveRepresentativeActivity(){
     if(noteIndex>=0) notes[noteIndex]=saved; else if(notesLoaded) notes.push(saved);
     representativeActivityDraft=null;
     representativeActivityLoadedKey='';
-    showToast('บันทึกประวัติผู้แทนและสินค้าแล้ว');
+    showToast('บันทึกผู้แทน สินค้าที่ดูแล และ NOTE แล้ว');
     await loadRepresentativeActivityHistory({force:true});
   }catch(error){
     showToast(error?.message||'บันทึกประวัติไม่สำเร็จ','danger-top');
-    if(button){ button.disabled=false; button.textContent='บันทึกประวัติ'; }
+    if(button){ button.disabled=false; button.textContent='บันทึกข้อมูล'; }
   }
 }
 async function deleteRepresentativeActivity(id){
@@ -4587,14 +4610,24 @@ function attachRepresentativeHistoryEvents(){
     if(!representativeActivityDraft.items.length) representativeActivityDraft.items.push(representativeActivityDraftItem());
     render();
   }));
-  document.getElementById('representativeHistoryTypeFilter')?.addEventListener('change',event=>{ representativeHistoryFilter.type=event.target.value; render(); });
-  const historySearch=document.getElementById('representativeHistorySearch');
+  document.getElementById('repActivityRepresentative')?.addEventListener('change',event=>{
+    syncRepresentativeActivityDraftFromForm();
+    representativeActivityDraft.representativeId=event.target.value;
+    const assignedItems=managedProductItemsForRepresentative(event.target.value);
+    representativeActivityDraft.items=assignedItems.length?assignedItems:[representativeActivityDraftItem()];
+    render();
+  });
+  const representativeSearch=document.getElementById('representativeHistoryRepresentativeSearch');
+  const productSearchFilter=document.getElementById('representativeHistoryProductSearch');
+  const noteSearch=document.getElementById('representativeHistoryNoteSearch');
   const searchHistory=()=>{
-    representativeHistoryFilter.search=historySearch?.value||'';
+    representativeHistoryFilter.representativeSearch=representativeSearch?.value||'';
+    representativeHistoryFilter.productSearch=productSearchFilter?.value||'';
+    representativeHistoryFilter.noteSearch=noteSearch?.value||'';
     render();
   };
   document.getElementById('searchRepresentativeHistoryBtn')?.addEventListener('click',searchHistory);
-  historySearch?.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); searchHistory(); } });
+  [representativeSearch,productSearchFilter,noteSearch].forEach(input=>input?.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); searchHistory(); } }));
   document.querySelectorAll('[data-edit-representative-activity]').forEach(button=>button.addEventListener('click',()=>editRepresentativeActivity(representativeActivityNotes.find(note=>note.id===button.dataset.editRepresentativeActivity))));
   document.querySelectorAll('[data-delete-representative-activity]').forEach(button=>button.addEventListener('click',()=>deleteRepresentativeActivity(button.dataset.deleteRepresentativeActivity)));
   const historyOrigin=representativeHistoryContext.central?'representativehistory':representativeHistoryContext.originTab;
@@ -4612,7 +4645,6 @@ function attachRepresentativeHistoryEvents(){
     };
     const choose=product=>{
       productId.value=product?.id||''; productSearch.value=product?.name||''; results.hidden=true; results.innerHTML='';
-      const unit=row.querySelector('[data-representative-item-field="unit"]'); if(unit&&!unit.value) unit.value=product?.unit||'';
     };
     const draw=()=>{
       const rows=matches(productSearch.value);
