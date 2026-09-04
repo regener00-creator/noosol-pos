@@ -4490,12 +4490,11 @@ function representativeProductsEditorModalHtml(){
 function representativeEditorModalHtml(){
   if(editingSalesRepresentativeId===null) return '';
   const isNew=editingSalesRepresentativeId==='new';
-  const representative=isNew?{code:'',name:'',phone:'',line:'',company:'',note:''}:salesRepresentatives.find(item=>Number(item.id)===Number(editingSalesRepresentativeId));
+  const representative=isNew?{name:'',phone:'',line:'',company:'',note:''}:salesRepresentatives.find(item=>Number(item.id)===Number(editingSalesRepresentativeId));
   if(!representative) return '';
   return `<div class="modal-overlay representative-editor-overlay"><section class="modal representative-editor-modal" role="dialog" aria-modal="true" aria-labelledby="representativeEditorTitle">
-    <div class="modal-head"><div><h3 id="representativeEditorTitle">${isNew?'เพิ่มข้อมูลผู้แทน':'แก้ไขข้อมูลผู้แทน'}</h3><div class="sub">บันทึกข้อมูลติดต่อจากหน้าผู้แทนได้ทันที</div></div><button class="modal-close" id="cancelSalesRepBtn" type="button" aria-label="ปิด">×</button></div>
+    <div class="modal-head"><div><h3 id="representativeEditorTitle">${isNew?'เพิ่มข้อมูลผู้แทน':'แก้ไขข้อมูลผู้แทน'}</h3></div><button class="modal-close" id="cancelSalesRepBtn" type="button" aria-label="ปิด">×</button></div>
     <div class="representative-editor-body"><div class="representative-editor-grid">
-      <div class="crow"><label>รหัสผู้ติดต่อ</label><input id="sr_code" value="${escapeHtml(representative.code||'')}" placeholder="เช่น SR001 (ไม่บังคับ)"></div>
       <div class="crow"><label>ชื่อผู้แทน <span class="req">*</span></label><input id="sr_name" value="${escapeHtml(representative.name||'')}" placeholder="ชื่อผู้แทน"></div>
       <div class="crow"><label>เบอร์โทร</label><input id="sr_phone" class="phone-input" value="${escapeHtml(representative.phone||'')}" placeholder="เบอร์มือถือ / โทรศัพท์"></div>
       <div class="crow"><label>ไลน์</label><input id="sr_line" value="${escapeHtml(representative.line||'')}" placeholder="LINE ID หรือเบอร์ที่ใช้กับไลน์"></div>
@@ -15088,12 +15087,7 @@ function saveSalesRepresentative(){
   const get=id=>(document.getElementById(id)?.value||'').trim();
   const name=get('sr_name');
   if(!name){ showToast('กรุณากรอกชื่อผู้แทน'); document.getElementById('sr_name').focus(); return; }
-  const code=get('sr_code');
-  if(code){
-    const duplicate=salesRepresentatives.find(rep=>rep.id!==editingSalesRepresentativeId&&String(rep.code||'').trim().toLowerCase()===code.toLowerCase());
-    if(duplicate){ showToast(`รหัสผู้ติดต่อ "${code}" ถูกใช้แล้วโดย "${duplicate.name}"`); document.getElementById('sr_code').focus(); return; }
-  }
-  const data={code,name,phone:get('sr_phone'),line:get('sr_line'),company:get('sr_company'),note:get('sr_note')};
+  const data={name,phone:get('sr_phone'),line:get('sr_line'),company:get('sr_company'),note:get('sr_note')};
   if(editingSalesRepresentativeId==='new'){
     salesRepresentatives.push({id:nextSalesRepresentativeId++,...data});
     showToast(`เพิ่มรายชื่อผู้แทน “${name}” แล้ว`);
@@ -15632,14 +15626,13 @@ async function recoverOwnerPassword(){
   }catch(error){ alert(error?.message||'กู้คืน Password ไม่สำเร็จ'); }
 }
 
-const SALES_REP_EXCEL_HEADERS=['รหัสอ้างอิงระบบ','รหัสผู้ติดต่อ','ชื่อผู้แทน','เบอร์โทร','ไลน์','บริษัท','ข้อมูลเพิ่มเติม'];
+const SALES_REP_EXCEL_HEADERS=['รหัสอ้างอิงระบบ','ชื่อผู้แทน','เบอร์โทร','ไลน์','บริษัท','ข้อมูลเพิ่มเติม'];
 const SALES_REP_EXPORT_HEADERS=[...SALES_REP_EXCEL_HEADERS,'จำนวนสินค้าที่ดูแล','จำนวน NOTE'];
-const SALES_REP_NOTE_EXCEL_HEADERS=['รหัสอ้างอิงผู้แทน','รหัสผู้ติดต่อ','ชื่อผู้แทน','ลำดับ NOTE','รหัสอ้างอิง NOTE','วันที่ NOTE','ชื่อ NOTE','เนื้อหา NOTE','ซ่อนจาก LEVEL 2','สร้างเมื่อ','แก้ไขล่าสุด'];
-const SALES_REP_PRODUCT_EXCEL_HEADERS=['รหัสอ้างอิงผู้แทน','รหัสผู้ติดต่อ','ชื่อผู้แทน','รหัสอ้างอิงสินค้า','รหัสสินค้า (SKU)','เลขบาร์โค้ด','ชื่อสินค้า'];
+const SALES_REP_NOTE_EXCEL_HEADERS=['รหัสอ้างอิงผู้แทน','ชื่อผู้แทน','ลำดับ NOTE','รหัสอ้างอิง NOTE','วันที่ NOTE','ชื่อ NOTE','เนื้อหา NOTE','ซ่อนจาก LEVEL 2','สร้างเมื่อ','แก้ไขล่าสุด'];
+const SALES_REP_PRODUCT_EXCEL_HEADERS=['รหัสอ้างอิงผู้แทน','ชื่อผู้แทน','รหัสอ้างอิงสินค้า','รหัสสินค้า (SKU)','เลขบาร์โค้ด','ชื่อสินค้า'];
 function salesRepresentativeToExcelRow(representative){
   const values={
     'รหัสอ้างอิงระบบ':representative.id??'',
-    'รหัสผู้ติดต่อ':representative.code||'',
     'ชื่อผู้แทน':representative.name||'',
     'เบอร์โทร':representative.phone||'',
     'ไลน์':representative.line||'',
@@ -15683,7 +15676,6 @@ function salesRepresentativeExportRows(representatives,assignments,notes,catalog
     const product=productsById.get(Number(assignment.productId))||{};
     return {
       'รหัสอ้างอิงผู้แทน':representative.id??'',
-      'รหัสผู้ติดต่อ':representative.code||'',
       'ชื่อผู้แทน':representative.name||'',
       'รหัสอ้างอิงสินค้า':assignment.productId??'',
       'รหัสสินค้า (SKU)':product.sku||'',
@@ -15705,7 +15697,6 @@ function salesRepresentativeExportRows(representatives,assignments,notes,catalog
     noteNumbers.set(representativeId,noteNumber);
     return {
       'รหัสอ้างอิงผู้แทน':representative.id??'',
-      'รหัสผู้ติดต่อ':representative.code||'',
       'ชื่อผู้แทน':representative.name||'',
       'ลำดับ NOTE':noteNumber,
       'รหัสอ้างอิง NOTE':note.id||'',
@@ -15748,17 +15739,16 @@ async function loadSalesRepresentativeExcelDetails(){
 }
 async function downloadSalesRepresentativeImportTemplate(){
   try{ await ensureXlsxLoaded(); }catch(error){ console.warn('load xlsx',error); }
-  const example=[salesRepresentativeToExcelRow({id:'',code:'SR0001',name:'คุณตัวอย่าง ใจดี',phone:'081-234-5678',line:'example.line',company:'บริษัท ตัวอย่าง จำกัด',note:'ผู้แทนเขตกรุงเทพฯ'})];
+  const example=[salesRepresentativeToExcelRow({id:'',name:'คุณตัวอย่าง ใจดี',phone:'081-234-5678',line:'example.line',company:'บริษัท ตัวอย่าง จำกัด',note:'ผู้แทนเขตกรุงเทพฯ'})];
   if(window.XLSX){
     const sheet=XLSX.utils.json_to_sheet(example);
-    sheet['!cols']=[{wch:18},{wch:18},{wch:28},{wch:18},{wch:22},{wch:32},{wch:42}];
+    sheet['!cols']=[{wch:18},{wch:28},{wch:18},{wch:22},{wch:32},{wch:42}];
     const workbook=XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook,sheet,'รายชื่อผู้แทน');
     const instructions=[
       ['หัวข้อ','วิธีกรอก'],
       ['รหัสอ้างอิงระบบ','รายชื่อใหม่ปล่อยว่างได้ หากเป็นไฟล์ที่ส่งออกจากระบบให้คงค่านี้ไว้เพื่ออัปเดตรายชื่อเดิม'],
-      ['รหัสผู้ติดต่อ','ถ้ากรอกและตรงกับรายชื่อเดิมในระบบ จะอัปเดตรายชื่อนั้นแทนการสร้างใหม่ (เว้นว่างได้)'],
-      ['ชื่อผู้แทน','จำเป็นต้องกรอก หากไม่มีรหัสอ้างอิงระบบหรือรหัสผู้ติดต่อ ระบบจะจับคู่จากชื่อที่ตรงกัน'],
+      ['ชื่อผู้แทน','จำเป็นต้องกรอก หากไม่มีรหัสอ้างอิงระบบ ระบบจะจับคู่จากชื่อที่ตรงกัน'],
       ['เบอร์โทร / ไลน์ / บริษัท / ข้อมูลเพิ่มเติม','กรอกได้ตามต้องการ'],
       ['ข้อสำคัญ','อย่าเปลี่ยนชื่อหัวคอลัมน์ในแถวแรก'],
     ];
@@ -15793,9 +15783,8 @@ async function importSalesRepresentativesFromExcel(file){
     const name=String(productImportValue(row,['ชื่อผู้แทน','ชื่อ','name'])).trim();
     if(!name){ skipped.push(`แถว ${line}: ไม่มีชื่อผู้แทน`); return; }
     const normalizedName=name.toLowerCase();
-    const code=String(productImportValue(row,['รหัสผู้ติดต่อ','รหัส','code'])).trim();
+    const legacyCode=String(productImportValue(row,['รหัสผู้ติดต่อ','รหัส','code'])).trim();
     const data={
-      code,
       name,
       phone:String(productImportValue(row,['เบอร์โทร','เบอร์มือถือ','phone'])).trim(),
       line:String(productImportValue(row,['ไลน์','line','lineid'])).trim(),
@@ -15805,9 +15794,9 @@ async function importSalesRepresentativesFromExcel(file){
     let existing=null;
     const systemId=productImportNumber(productImportValue(row,['รหัสอ้างอิงระบบ','systemid']),NaN);
     if(Number.isFinite(systemId)) existing=salesRepresentatives.find(representative=>representative.id===systemId)||null;
-    if(!existing&&code) existing=salesRepresentatives.find(representative=>String(representative.code||'').trim().toLowerCase()===code.toLowerCase())||null;
+    if(!existing&&legacyCode) existing=salesRepresentatives.find(representative=>String(representative.code||'').trim().toLowerCase()===legacyCode.toLowerCase())||null;
     if(!existing) existing=salesRepresentatives.find(representative=>String(representative.name||'').trim().toLowerCase()===normalizedName)||null;
-    const fileKey=existing?`id:${existing.id}`:(code?`code:${code.toLowerCase()}`:`name:${normalizedName}`);
+    const fileKey=existing?`id:${existing.id}`:(legacyCode?`code:${legacyCode.toLowerCase()}`:`name:${normalizedName}`);
     if(seenInFile.has(fileKey)){ skipped.push(`แถว ${line}: ซ้ำกับแถวก่อนหน้าในไฟล์เดียวกัน (${name})`); return; }
     seenInFile.add(fileKey);
     if(existing) toUpdate.push({existing,data}); else toCreate.push(data);
@@ -15841,12 +15830,12 @@ async function exportSalesRepresentativesToExcel(){
     const details=await loadSalesRepresentativeExcelDetails();
     const {representativeRows,noteRows,productRows}=salesRepresentativeExportRows(salesRepresentatives,details.assignments,details.notes,products);
     const workbook=XLSX.utils.book_new();
-    const representativeSheet=salesRepresentativeExcelSheet(representativeRows,SALES_REP_EXPORT_HEADERS,[18,18,28,18,22,32,42,20,16]);
+    const representativeSheet=salesRepresentativeExcelSheet(representativeRows,SALES_REP_EXPORT_HEADERS,[18,28,18,22,32,42,20,16]);
     XLSX.utils.book_append_sheet(workbook,representativeSheet,'รายชื่อผู้แทน');
-    const noteSheet=salesRepresentativeExcelSheet(noteRows,SALES_REP_NOTE_EXCEL_HEADERS,[20,18,28,14,38,16,34,70,20,22,22],{'วันที่ NOTE':'dd/mm/yyyy','สร้างเมื่อ':'dd/mm/yyyy hh:mm','แก้ไขล่าสุด':'dd/mm/yyyy hh:mm'});
+    const noteSheet=salesRepresentativeExcelSheet(noteRows,SALES_REP_NOTE_EXCEL_HEADERS,[20,28,14,38,16,34,70,20,22,22],{'วันที่ NOTE':'dd/mm/yyyy','สร้างเมื่อ':'dd/mm/yyyy hh:mm','แก้ไขล่าสุด':'dd/mm/yyyy hh:mm'});
     noteSheet['!rows']=[{hpt:24},...noteRows.map(()=>({hpt:42}))];
     XLSX.utils.book_append_sheet(workbook,noteSheet,'NOTE ผู้แทน');
-    const productSheet=salesRepresentativeExcelSheet(productRows,SALES_REP_PRODUCT_EXCEL_HEADERS,[20,18,28,20,20,22,42]);
+    const productSheet=salesRepresentativeExcelSheet(productRows,SALES_REP_PRODUCT_EXCEL_HEADERS,[20,28,20,20,22,42]);
     XLSX.utils.book_append_sheet(workbook,productSheet,'สินค้าที่ดูแล');
     XLSX.writeFile(workbook,`PEPOS-ข้อมูลผู้แทน-${TODAY_STR}.xlsx`,{cellDates:true});
     showToast(`ส่งออกผู้แทน ${representativeRows.length} รายการ · NOTE ${noteRows.length} รายการ · สินค้าที่ดูแล ${productRows.length} รายการแล้ว`);

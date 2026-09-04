@@ -15,7 +15,9 @@ const representative={id:7,code:'SR0007',name:'คุณทดสอบ',phone:'
 const row=sandbox.toRow(representative);
 assert.deepEqual(Object.keys(row),Array.from(sandbox.headers));
 assert.equal(row['รหัสอ้างอิงระบบ'],7);
-assert.equal(row['รหัสผู้ติดต่อ'],'SR0007');
+assert.equal(sandbox.headers.includes('รหัสผู้ติดต่อ'),false);
+assert.equal(sandbox.noteHeaders.includes('รหัสผู้ติดต่อ'),false);
+assert.equal(sandbox.productHeaders.includes('รหัสผู้ติดต่อ'),false);
 assert.equal(row['ชื่อผู้แทน'],'คุณทดสอบ');
 assert.equal(row['ข้อมูลเพิ่มเติม'],'กรุงเทพฯ');
 
@@ -51,12 +53,11 @@ assert.match(historyCode,/id="salesRepImportFile"/);
 assert.match(historyCode,/id="newSalesRepBtn"/);
 assert.match(formCode,/id="saveSalesRepBtn"[^>]*>บันทึกข้อมูลผู้แทน<\/button>/);
 assert.match(html,/class="form-final-actions representative-topbar-actions"/,'ชุดปุ่มหน้าผู้แทนต้องมีระยะห่างเฉพาะเมื่อย้ายขึ้น TOPBAR');
-assert.ok(formCode.indexOf('id="sr_code"') < formCode.indexOf('id="sr_name"'),'contact code field must be first in the representative form');
+assert.doesNotMatch(formCode,/id="sr_code"|รหัสผู้ติดต่อ|บันทึกข้อมูลติดต่อจากหน้าผู้แทนได้ทันที/);
 assert.doesNotMatch(formCode,/บันทึกแล้วปิด/);
 assert.doesNotMatch(html, /<h1[^>]*>รายชื่อผู้แทน/);
 
-assert.match(html,/const code=get\('sr_code'\);/);
-assert.match(html,/String\(rep\.code\|\|'\'\)\.trim\(\)\.toLowerCase\(\)===code\.toLowerCase\(\)/);
+assert.doesNotMatch(html,/const code=get\('sr_code'\);/);
 assert.match(html,/productImportValue\(row,\['รหัสผู้ติดต่อ','รหัส','code'\]\)/);
 
 const eventsStart=html.indexOf('const newSalesRepBtn =');
