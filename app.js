@@ -3127,6 +3127,7 @@ let representativeActivityLoading=false;
 let representativeActivityLoadedKey='';
 let representativeActivityLoadError='';
 let representativeActivityDraft=null;
+let selectedRepresentativeNoteId=null;
 let representativeHistoryFilter={representativeSearch:'',productSearch:'',noteSearch:''};
 window.addEventListener('beforeunload',event=>{
   const hasUnsavedBusiness=currentTab==='settingsbusiness'&&businessSettingsDirty;
@@ -4246,6 +4247,7 @@ function openRepresentativeHistory({representativeId=null,productId=null,originT
   };
   representativeHistoryFilter=emptyRepresentativeHistoryFilter();
   representativeActivityDraft=null;
+  selectedRepresentativeNoteId=null;
   editingSalesRepresentativeId=null;
   resetRepresentativeActivityLoad();
   currentTab=originTab==='representativehistory'?'representativehistory':'salesreps';
@@ -4257,6 +4259,7 @@ function closeRepresentativeHistory(){
   representativeHistoryContext=origin==='representativehistory'?centralRepresentativeHistoryContext():null;
   representativeHistoryFilter=origin==='representativehistory'&&returnFilter?returnFilter:emptyRepresentativeHistoryFilter();
   representativeActivityDraft=null;
+  selectedRepresentativeNoteId=null;
   resetRepresentativeActivityLoad();
   currentTab=origin;
   render();
@@ -4500,11 +4503,40 @@ function representativeHistoryGroups(){
 }
 function representativeHistoryGroupHtml(group){
   const notesHtml=group.notes.length?group.notes.map((note,index)=>representativeHistoryNoteHtml(note,index)).join(''):'<div class="representative-group-empty">ยังไม่มี NOTE</div>';
-  return `<article class="representative-group-card"><header><div><span>ชื่อผู้แทน</span><button type="button" data-open-representative-history="${group.representative.id}">${escapeHtml(group.representative.name)}</button></div>${group.representative.company?`<small>${escapeHtml(group.representative.company)}</small>`:''}</header><section class="representative-notes-list">${notesHtml}</section></article>`;
+  return `<article class="representative-group-card" data-representative-card-open="${group.representative.id}" role="button" tabindex="0" aria-label="เปิดข้อมูลผู้แทน ${escapeHtml(group.representative.name)}"><header><div><span>ชื่อผู้แทน</span><button type="button" data-open-representative-history="${group.representative.id}">${escapeHtml(group.representative.name)}</button></div>${group.representative.company?`<small>${escapeHtml(group.representative.company)}</small>`:''}</header><section class="representative-notes-list">${notesHtml}</section></article>`;
 }
 function representativeHistoryNoteHtml(note,index){
   const canEdit=canEditNote(note),canDelete=canDeleteNote(note);
   return `<article class="representative-note-card"><div class="representative-note-head"><b>NOTE ${index+1} : ${escapeHtml(note.title||'-')}</b><span>${escapeHtml(representativeActivityDateLabel(note.eventDate))}</span></div>${note.contentHtml?`<div class="representative-note-body">${sanitizeNoteHtml(note.contentHtml)}</div>`:'<div class="representative-note-body muted">ไม่มีข้อมูลเพิ่มเติม</div>'}${canEdit||canDelete?`<div class="representative-activity-actions">${canEdit?`<button class="btn ghost small" data-edit-representative-activity="${escapeHtml(note.id)}" type="button">แก้ไข</button>`:''}${canDelete?`<button class="btn danger small" data-delete-representative-activity="${escapeHtml(note.id)}" type="button">ลบ</button>`:''}</div>`:''}</article>`;
+}
+function representativeProfileHtml(group){
+  const representative=group.representative;
+  const productsHtml=group.managedProducts.length
+    ?group.managedProducts.map(product=>`<span>${escapeHtml(product.name)}</span>`).join('')
+    :'<span class="muted">-</span>';
+  const field=(label,value,className='')=>`<div class="representative-profile-field ${className}"><span>${label}</span><div>${value}</div></div>`;
+  return `<section class="representative-profile-panel">
+    ${field('ชื่อผู้แทน',`<strong>${escapeHtml(representative.name||'-')}</strong>`,'representative-profile-name')}
+    ${field('สินค้าที่ดูแล',`<div class="representative-profile-products">${productsHtml}</div>`,'representative-profile-products-field')}
+    ${field('เบอร์โทร',escapeHtml(representative.phone||'-'))}
+    ${field('ไลน์',escapeHtml(representative.line||'-'))}
+    ${field('บริษัท',escapeHtml(representative.company||'-'))}
+    ${field('ข้อมูลเพิ่มเติม',escapeHtml(representative.note||'-').replace(/\r?\n/g,'<br>'))}
+  </section>`;
+}
+function representativeNoteWorkspaceHtml(group,canCreate){
+  const notes=group.notes;
+  let selected=notes.find(note=>String(note.id)===String(selectedRepresentativeNoteId));
+  if(!selected&&notes.length){ selected=notes[0]; selectedRepresentativeNoteId=selected.id; }
+  if(!notes.length) selectedRepresentativeNoteId=null;
+  const selectedIndex=selected?notes.findIndex(note=>String(note.id)===String(selected.id)):-1;
+  const list=notes.map((note,index)=>`<button type="button" class="representative-note-list-item ${String(note.id)===String(selected?.id)?'active':''}" data-select-representative-note="${escapeHtml(note.id)}"><strong>NOTE ${index+1}</strong><span>${escapeHtml(note.title||'-')}</span><small>${escapeHtml(representativeActivityDateLabel(note.eventDate))}</small></button>`).join('');
+  const canEdit=selected&&canEditNote(selected),canDelete=selected&&canDeleteNote(selected);
+  const detail=selected?`<section class="representative-note-detail-panel">
+    <header class="representative-note-detail-head"><div><span>NOTE ${selectedIndex+1}</span><h2>${escapeHtml(selected.title||'-')}</h2><small>${escapeHtml(representativeActivityDateLabel(selected.eventDate))}</small></div>${canEdit||canDelete?`<div class="representative-note-detail-actions">${canEdit?`<button class="btn ghost" data-edit-representative-activity="${escapeHtml(selected.id)}" type="button">แก้ไข</button>`:''}${canDelete?`<button class="btn danger" data-delete-representative-activity="${escapeHtml(selected.id)}" type="button">ลบ</button>`:''}</div>`:''}</header>
+    <div class="representative-note-detail-content">${selected.contentHtml?sanitizeNoteHtml(selected.contentHtml):'<span class="muted">ไม่มีข้อมูลเพิ่มเติม</span>'}</div>
+  </section>`:`<section class="representative-note-detail-panel representative-note-detail-empty"><div class="note-empty-icon">NOTE</div><h2>ยังไม่มี NOTE ของผู้แทนคนนี้</h2><p>เพิ่ม NOTE เพื่อเก็บข้อมูลที่ต้องการติดตาม</p>${canCreate?'<button class="btn primary" id="emptyAddRepresentativeNoteBtn" type="button">+ เพิ่ม NOTE</button>':''}</section>`;
+  return `<div class="representative-note-workspace"><aside class="representative-note-list-panel" aria-label="รายการ NOTE ของผู้แทน">${list||'<div class="representative-note-list-empty">ยังไม่มี NOTE</div>'}</aside>${detail}</div>`;
 }
 function renderRepresentativeHistory(){
   const context=representativeHistoryContext||{};
@@ -4518,7 +4550,12 @@ function renderRepresentativeHistory(){
   const canCreate=canPerformPageAction('create','notes');
   const historyFilters=`<div class="representative-history-filter representative-history-filter-minimal panel"><label><span>ชื่อผู้แทน</span><input id="representativeHistoryRepresentativeSearch" value="${escapeHtml(representativeHistoryFilter.representativeSearch)}" placeholder="ค้นหาชื่อผู้แทน"></label><label><span>ชื่อสินค้า</span><input id="representativeHistoryProductSearch" value="${escapeHtml(representativeHistoryFilter.productSearch)}" placeholder="ค้นหาตามชื่อสินค้า"></label><div class="representative-history-search"><span>ค้นหาจาก NOTE</span><div class="representative-history-search-row"><input id="representativeHistoryNoteSearch" value="${escapeHtml(representativeHistoryFilter.noteSearch)}" placeholder="หัวข้อหรือข้อมูลใน NOTE"><button class="btn primary" id="searchRepresentativeHistoryBtn" type="button">ค้นหา</button></div></div></div>`;
   const loading=representativeActivityLoading&&representativeActivityLoadedKey!==representativeHistoryKey(context);
-  return `<div class="rpt representative-history-page"><div class="pagehead"><div>${central?'':`<div class="breadcrumb">${context.originTab==='representativehistory'?'ประวัติผู้แทน':'รายชื่อผู้แทน'} › ผู้แทนและสินค้าที่ดูแล</div>`}<h1>${escapeHtml(title)}</h1><p>${representative?.company?escapeHtml(representative.company):product?`รหัสสินค้า ${escapeHtml(product.sku||'-')}`:'ค้นหาผู้แทน สินค้าที่ดูแล และ NOTE ได้จากหน้าเดียว'}</p></div><div class="form-final-actions">${central?'':'<button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button>'}${canCreate?'<button class="btn primary" id="newRepresentativeActivityBtn" type="button">+ เพิ่มประวัติ</button>':''}</div></div>${representativeActivityFormHtml()}${historyFilters}${representativeActivityLoadError?`<div class="notice danger">${escapeHtml(representativeActivityLoadError)}</div>`:''}<div class="representative-groups-grid">${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':groups.map(representativeHistoryGroupHtml).join('')||'<div class="representative-history-empty">ยังไม่มีข้อมูลที่ตรงกับการค้นหา</div>'}</div></div>`;
+  const representativeDetail=representative&&!product&&!central;
+  const detailGroup=representativeDetail?groups.find(group=>Number(group.representative.id)===Number(representative.id)):null;
+  const pageBody=representativeDetail&&detailGroup
+    ?`${representativeProfileHtml(detailGroup)}${representativeActivityFormHtml()}${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':representativeNoteWorkspaceHtml(detailGroup,canCreate)}`
+    :`${representativeActivityFormHtml()}${historyFilters}<div class="representative-groups-grid">${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':groups.map(representativeHistoryGroupHtml).join('')||'<div class="representative-history-empty">ยังไม่มีข้อมูลที่ตรงกับการค้นหา</div>'}</div>`;
+  return `<div class="rpt representative-history-page"><div class="pagehead"><div>${central?'':`<div class="breadcrumb">${context.originTab==='representativehistory'?'ประวัติผู้แทน':'รายชื่อผู้แทน'} › ผู้แทนและสินค้าที่ดูแล</div>`}<h1>${escapeHtml(title)}</h1><p>${representative?.company?escapeHtml(representative.company):product?`รหัสสินค้า ${escapeHtml(product.sku||'-')}`:'ค้นหาผู้แทน สินค้าที่ดูแล และ NOTE ได้จากหน้าเดียว'}</p></div><div class="form-final-actions">${central?'':'<button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button>'}${canCreate?'<button class="btn primary" id="newRepresentativeActivityBtn" type="button">+ เพิ่มประวัติ</button>':''}</div></div>${representativeActivityLoadError?`<div class="notice danger">${escapeHtml(representativeActivityLoadError)}</div>`:''}${pageBody}</div>`;
 }
 function syncRepresentativeActivityDraftFromForm(){
   if(!representativeActivityDraft) return;
@@ -4561,6 +4598,7 @@ async function saveRepresentativeActivity(){
     if(!savedId) throw new Error('ฐานข้อมูลไม่ได้ส่งรหัสประวัติกลับมา');
     const savedResult=await sb.from('notes').select(NOTE_ROW_SELECT).eq('id',savedId).single();
     if(savedResult.error) throw savedResult.error;
+    selectedRepresentativeNoteId=savedId;
     representativeActivityDraft=null;
     representativeActivityLoadedKey='';
     showToast('บันทึกผู้แทน สินค้าที่ดูแล และ NOTE แล้ว');
@@ -4578,6 +4616,7 @@ async function deleteRepresentativeActivity(id){
     if(error) throw error;
     if(!data) throw new Error('รายการนี้ถูกแก้ไขหรือลบจากอีกเครื่องแล้ว');
     representativeActivityNotes=representativeActivityNotes.filter(item=>item.id!==note.id);
+    if(String(selectedRepresentativeNoteId)===String(note.id)) selectedRepresentativeNoteId=null;
     showToast('ลบประวัติแล้ว');
     render();
   }catch(error){ showToast(error?.message||'ลบประวัติไม่สำเร็จ','danger-top'); }
@@ -4586,6 +4625,7 @@ function attachRepresentativeHistoryEvents(){
   if(!representativeHistoryContext) return;
   document.getElementById('closeRepresentativeHistoryBtn')?.addEventListener('click',closeRepresentativeHistory);
   document.getElementById('newRepresentativeActivityBtn')?.addEventListener('click',()=>{ representativeActivityDraft=newRepresentativeActivityDraft(); render(); });
+  document.getElementById('emptyAddRepresentativeNoteBtn')?.addEventListener('click',()=>{ representativeActivityDraft=newRepresentativeActivityDraft(); render(); });
   document.getElementById('cancelRepresentativeActivityBtn')?.addEventListener('click',()=>{ representativeActivityDraft=null; render(); });
   document.getElementById('cancelRepresentativeActivityBottomBtn')?.addEventListener('click',()=>{ representativeActivityDraft=null; render(); });
   document.getElementById('saveRepresentativeActivityBtn')?.addEventListener('click',saveRepresentativeActivity);
@@ -4614,8 +4654,14 @@ function attachRepresentativeHistoryEvents(){
   [representativeSearch,productSearchFilter,noteSearch].forEach(input=>input?.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); searchHistory(); } }));
   document.querySelectorAll('[data-edit-representative-activity]').forEach(button=>button.addEventListener('click',()=>editRepresentativeActivity(representativeActivityNotes.find(note=>note.id===button.dataset.editRepresentativeActivity))));
   document.querySelectorAll('[data-delete-representative-activity]').forEach(button=>button.addEventListener('click',()=>deleteRepresentativeActivity(button.dataset.deleteRepresentativeActivity)));
+  document.querySelectorAll('[data-select-representative-note]').forEach(button=>button.addEventListener('click',()=>{ selectedRepresentativeNoteId=button.dataset.selectRepresentativeNote; render(); }));
   const historyOrigin=representativeHistoryContext.central?'representativehistory':representativeHistoryContext.originTab;
   document.querySelectorAll('[data-open-representative-history]').forEach(button=>button.addEventListener('click',()=>openRepresentativeHistory({representativeId:Number(button.dataset.openRepresentativeHistory),originTab:historyOrigin})));
+  document.querySelectorAll('[data-representative-card-open]').forEach(card=>{
+    const open=()=>openRepresentativeHistory({representativeId:Number(card.dataset.representativeCardOpen),originTab:historyOrigin});
+    card.addEventListener('click',event=>{ if(event.target.closest('button,a,input,select,textarea')) return; open(); });
+    card.addEventListener('keydown',event=>{ if((event.key==='Enter'||event.key===' ')&&!event.target.closest('button,a,input,select,textarea')){ event.preventDefault(); open(); } });
+  });
   document.querySelectorAll('[data-open-product-history]').forEach(button=>button.addEventListener('click',()=>openRepresentativeHistory({productId:Number(button.dataset.openProductHistory),originTab:historyOrigin})));
   {
     const productSearch=document.getElementById('representativeManagedProductSearch'),results=document.getElementById('representativeManagedProductResults');

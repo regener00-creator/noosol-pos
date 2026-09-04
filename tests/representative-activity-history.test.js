@@ -35,7 +35,10 @@ assert.match(html, /function loadRepresentativeActivityHistory\(/);
 assert.match(html, /sb\.from\('sales_representative_products'\)/);
 assert.match(html, /function representativeHistoryGroups\(\)/);
 assert.match(html, /function representativeHistoryGroupHtml\(/);
+assert.match(html, /function representativeProfileHtml\(/);
+assert.match(html, /function representativeNoteWorkspaceHtml\(/);
 assert.match(html, /data-representative-history=/);
+assert.match(html, /data-representative-card-open=/);
 assert.match(html, /data-product-representative-history=/);
 assert.match(html, /\['representativehistory','ประวัติผู้แทน'/);
 assert.match(html, /representativehistory: renderRepresentativeHistoryOverview/);
@@ -54,6 +57,11 @@ assert.doesNotMatch(historyGroupRender, /รายการสินค้าท
 assert.match(html, /\.representative-notes-list\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
 assert.match(html, /\.representative-note-body\{display:-webkit-box;[^}]*overflow:hidden;[^}]*-webkit-line-clamp:4;/);
 assert.match(html, /NOTE \$\{index\+1\} :/);
+assert.match(html, /\.representative-profile-panel\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+assert.match(html, /ชื่อผู้แทน[\s\S]*สินค้าที่ดูแล[\s\S]*เบอร์โทร[\s\S]*ไลน์[\s\S]*บริษัท[\s\S]*ข้อมูลเพิ่มเติม/);
+assert.match(html, /\.representative-note-workspace\{display:grid;grid-template-columns:minmax\(270px,340px\) minmax\(0,1fr\)/);
+assert.match(html, /data-select-representative-note=/);
+assert.match(html, /representative-note-list-panel[\s\S]*representative-note-detail-panel/);
 
 assert.match(activityForm, /กำหนดสินค้าที่ผู้แทนดูแล และเพิ่ม NOTE พร้อมวันที่และหัวข้อ/);
 assert.match(activityForm, /ชื่อผู้แทน/);

@@ -47,7 +47,7 @@ let browser;
     currentProfile={id:'owner-test',level:1,owner:true,firstName:'เจ้าของ'};
     warehouses=[{id:1,name:'คลังทดสอบ'}]; activeWarehouseId=1; warehouseAccessRows=[];
     salesRepresentatives=[
-      {id:10,code:'REP-10',name:'PEPO',company:'บริษัทตัวแทน A'},
+      {id:10,code:'REP-10',name:'PEPO',phone:'081-234-5678',line:'pepo.line',company:'บริษัทตัวแทน A',note:'ดูแลเขตกรุงเทพฯ'},
       {id:11,code:'REP-11',name:'NANA',company:'บริษัทตัวแทน B'},
       {id:12,code:'REP-12',name:'JOJO',company:'บริษัทตัวแทน C'},
       {id:13,code:'REP-13',name:'MAYA',company:'บริษัทตัวแทน D'},
@@ -76,23 +76,28 @@ let browser;
   });
 
   assert.equal(await page.locator('.representative-history-page h1').textContent(), 'ข้อมูลผู้แทน PEPO');
-  assert.equal(await page.locator('.representative-group-card').count(), 1);
-  assert.doesNotMatch(await page.locator('.representative-group-card').textContent(), /LIPITOR 10 MG|รายการสินค้าที่ดูแลมี/);
-  assert.match(await page.locator('.representative-notes-list').textContent(), /NOTE 1 : เล่นรายการทอง/);
-  assert.match(await page.locator('.representative-notes-list').textContent(), /04-09-2026/);
-  assert.doesNotMatch(await page.locator('.representative-notes-list').textContent(), /วันที่ 04-09-2026/);
-  assert.match(await page.locator('.representative-notes-list').textContent(), /NOTE 2 : ซื้อครบไปเที่ยวฟรี/);
+  assert.equal(await page.locator('.representative-profile-panel').count(),1);
+  const profileText=await page.locator('.representative-profile-panel').textContent();
+  assert.match(profileText,/ชื่อผู้แทน/);
+  assert.match(profileText,/สินค้าที่ดูแล/);
+  assert.match(profileText,/LIPITOR 10 MG/);
+  assert.match(profileText,/เบอร์โทร\s*081-234-5678/);
+  assert.match(profileText,/ไลน์\s*pepo\.line/);
+  assert.match(profileText,/บริษัท\s*บริษัทตัวแทน A/);
+  assert.match(profileText,/ข้อมูลเพิ่มเติม\s*ดูแลเขตกรุงเทพฯ/);
+  assert.equal(await page.locator('.representative-note-list-item').count(),3);
+  assert.match(await page.locator('.representative-note-list-panel').textContent(),/NOTE 1[\s\S]*NOTE 2[\s\S]*NOTE 3/);
+  assert.match(await page.locator('.representative-note-detail-head').textContent(),/NOTE 1[\s\S]*เล่นรายการทอง[\s\S]*04-09-2026/);
+  assert.match(await page.locator('.representative-note-detail-content').textContent(),/บลาบลาบลา/);
+  await page.locator('.representative-note-list-item').nth(1).click();
+  assert.match(await page.locator('.representative-note-detail-head').textContent(),/NOTE 2[\s\S]*ซื้อครบไปเที่ยวฟรี[\s\S]*02-09-2026/);
+  assert.match(await page.locator('.representative-note-detail-content').textContent(),/ซื้อครบตามยอดที่กำหนด/);
   assert.equal(await page.locator('.representative-history-summary').count(),0,'summary cards must not appear on representative history');
-  const notePositions=await page.locator('.representative-group-card .representative-note-card').evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().y)));
-  assert.equal(notePositions.length,3);
-  assert.equal(notePositions[0],notePositions[1]);
-  assert.equal(notePositions[1],notePositions[2]);
-  const firstNoteHeadingLayout=await page.locator('.representative-note-head').first().evaluate(element=>({
-    titleBottom:element.querySelector('b').getBoundingClientRect().bottom,
-    dateTop:element.querySelector('span').getBoundingClientRect().top
-  }));
-  assert.ok(firstNoteHeadingLayout.dateTop>=firstNoteHeadingLayout.titleBottom,'note date must appear below the NOTE title');
-  assert.equal(await page.locator('.representative-note-body').first().evaluate(element=>getComputedStyle(element).webkitLineClamp),'4','note details must be limited to four lines');
+  const workspaceColumns=await page.locator('.representative-note-workspace').evaluate(element=>{
+    const [list,detail]=element.children;
+    return {listRight:list.getBoundingClientRect().right,detailLeft:detail.getBoundingClientRect().left};
+  });
+  assert.ok(workspaceColumns.detailLeft>workspaceColumns.listRight,'NOTE list must be on the left and selected NOTE detail on the right');
   const historyPageWidth=await page.locator('.representative-history-page').evaluate(element=>{
     const parent=element.parentElement;
     const parentStyle=getComputedStyle(parent);
@@ -148,6 +153,7 @@ let browser;
   assert.ok(cardPositions[3]>cardPositions[0],'the fourth representative card must start the next row');
   assert.equal(cardPositions[3],cardPositions[4],'the fourth and fifth representative cards must share the second row');
   assert.equal(await page.locator('.representative-note-owner').count(),0,'notes must remain inside their representative card');
+  assert.equal(await page.locator('.representative-note-body').first().evaluate(element=>getComputedStyle(element).webkitLineClamp),'4','overview note details must be limited to four lines');
 
   await page.locator('#representativeHistoryRepresentativeSearch').fill('NANA');
   await page.locator('#searchRepresentativeHistoryBtn').click();
@@ -166,6 +172,10 @@ let browser;
 
   await page.locator('#representativeHistoryNoteSearch').fill('');
   await page.locator('#searchRepresentativeHistoryBtn').click();
+  assert.equal(await page.locator('.representative-group-card').count(),5);
+  await page.locator('[data-representative-card-open="10"]').click();
+  assert.equal(await page.locator('.representative-profile-panel').count(),1,'clicking a representative card must open the representative profile');
+  assert.equal(await page.locator('.representative-note-workspace').count(),1);
   await page.evaluate(()=>openRepresentativeHistory({productId:20,originTab:'representativehistory'}));
   assert.equal(await page.locator('.representative-history-page h1').textContent(), 'ผู้แทนที่ดูแล LIPITOR 10 MG');
   assert.equal(await page.locator('#closeRepresentativeHistoryBtn').count(),1);
