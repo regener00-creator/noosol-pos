@@ -4453,8 +4453,7 @@ function renderCheckout(){
         ${favHtml}
       </div>
       <div class="pos-right">
-        <div class="pos-customer-card">
-          <label>ลูกค้า / สมาชิก</label>
+        <div class="pos-customer-slot">
           <button class="pos-customer-select-btn ${selectedCustomer?'selected':''}" id="openCustomerPickerBtn" type="button">
             <span><strong>${escapeHtml(selectedCustomer?.name||'ลูกค้าทั่วไป')}</strong><small>${selectedCustomer?'กดเพื่อเปลี่ยนลูกค้า':'กดเพื่อเลือกลูกค้า'}</small></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21v-2a7 7 0 0 1 14 0v2M17 11h4M19 9v4"/></svg>

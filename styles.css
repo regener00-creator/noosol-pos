@@ -1256,8 +1256,7 @@
   .pos-del{width:30px;height:30px;border:1px solid var(--border);background:var(--danger-soft);color:var(--danger);border-radius:7px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
   .pos-del:hover{background:var(--danger);color:#fff;}
   .pos-right{position:sticky;top:16px;display:flex;flex-direction:column;gap:14px;}
-  .pos-customer-card{border:1px solid #d8c9c1;border-radius:12px;background:#fff;padding:12px;display:grid;gap:7px;box-shadow:0 2px 8px #4f40380a}
-  .pos-customer-card>label{font-size:12px;font-weight:700;color:var(--text-muted)}
+  .pos-customer-slot{display:grid;gap:7px}
   .pos-customer-select-btn{width:100%;min-height:52px;border:1px solid var(--border);border-radius:10px;background:#fff;padding:8px 11px;display:flex;align-items:center;justify-content:space-between;gap:12px;text-align:left;font:inherit;color:var(--text);cursor:pointer;transition:.16s ease}
   .pos-customer-select-btn:hover{border-color:var(--primary);background:var(--primary-soft)}
   .pos-customer-select-btn.selected{border-color:#91c9a0;background:#f2fbf5}
