@@ -59,6 +59,7 @@ assert.match(activityForm, /id="repActivityTitle"/);
 assert.match(activityForm, /id="repActivityContent"/);
 assert.match(activityForm, /id="addRepresentativeActivityItemBtn"/);
 assert.doesNotMatch(activityForm, /repActivityType|repActivityValidFrom|repActivityValidTo|repActivityReminderDate|quotedPrice|minimumQuantity|conditionNote|เริ่มโปรโมชั่น|สิ้นสุดโปรโมชั่น|วันที่ติดตาม/);
+assert.match(html, /\.representative-activity-items-editor\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
 assert.match(html, /sb\.rpc\('save_representative_note',rpcPayload\)/);
 assert.match(html, /p_product_ids:enteredItems\.map/);
 assert.match(html, /notes:'NOTE \/ ประวัติผู้แทน'/);

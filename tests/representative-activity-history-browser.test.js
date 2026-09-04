@@ -81,6 +81,13 @@ let browser;
   await page.locator('#newRepresentativeActivityBtn').click();
   assert.equal(await page.locator('#repActivityRepresentative').inputValue(), '10');
   assert.equal(await page.locator('.representative-activity-item-editor').count(),3);
+  const managedProductPositions=await page.locator('.representative-activity-item-editor').evaluateAll(elements=>elements.map(element=>{
+    const box=element.getBoundingClientRect();
+    return {x:Math.round(box.x),y:Math.round(box.y)};
+  }));
+  assert.equal(managedProductPositions[0].y,managedProductPositions[1].y);
+  assert.equal(managedProductPositions[1].y,managedProductPositions[2].y);
+  assert.ok(managedProductPositions[0].x<managedProductPositions[1].x&&managedProductPositions[1].x<managedProductPositions[2].x,'managed products must display three items per row on desktop');
   assert.equal(await page.locator('#repActivityType,#repActivityValidFrom,#repActivityValidTo,#repActivityReminderDate,[data-representative-item-field="quotedPrice"],[data-representative-item-field="minimumQuantity"],[data-representative-item-field="unit"],[data-representative-item-field="conditionNote"]').count(),0);
   await page.locator('#addRepresentativeActivityItemBtn').click();
   const lastItem=page.locator('.representative-activity-item-editor').last();
