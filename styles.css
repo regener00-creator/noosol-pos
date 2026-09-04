@@ -344,7 +344,7 @@
   .prodtable .col-stock{width:170px;}
   .prodtable .col-lots{width:105px;}
   .prodtable .col-expiry{width:130px;}
-  .prodtable .col-edit{width:92px;}
+  .prodtable .col-edit{width:132px;}
   .prodtable th,.prodtable td{border-left:0;border-right:0;}
   .prodtable td{overflow:hidden;text-overflow:ellipsis;}
   .prodtable td:nth-child(3){white-space:normal;}
@@ -361,6 +361,12 @@
   .prod-unit-fixed{font-size:12.5px;color:var(--text-muted);}
   .prodtable td:last-child{text-align:center;overflow:visible;text-overflow:clip;}
   .product-row-actions{display:flex;align-items:center;justify-content:center;gap:7px;}
+  .product-review-pending-row>td{background:#FFF8E1;color:#956500;}
+  .product-review-pending-row .prod-inline-edit,.product-review-pending-row .prod-unit-select,.product-review-pending-row .prod-unit-fixed,.product-review-pending-row .stock-cell{color:#956500;font-weight:700;}
+  .product-review-pending-row .product-lot-link{color:#956500;border-color:#E3C76F;background:#FFFDF4;}
+  .product-review-pending-toggle{color:#8A8F96;}
+  .product-review-pending-toggle.active{color:#A56D00;border-color:#E2BC51;background:#FFF3C4;}
+  .product-review-pending-toggle.active:hover{color:#7C5200;border-color:#C69724;background:#FFEBA1;}
   .product-reviewed-row>td{background:#EFF9F1;color:#237A3A;}
   .product-reviewed-row .prod-inline-edit,.product-reviewed-row .prod-unit-select,.product-reviewed-row .prod-unit-fixed,.product-reviewed-row .stock-cell{color:#237A3A;font-weight:700;}
   .product-reviewed-row .product-lot-link{color:#237A3A;border-color:#B7DDBF;background:#F6FCF7;}
@@ -370,6 +376,7 @@
   .product-lot-link{border:1px solid #D9C8C1;background:#F8F3F1;color:var(--primary);border-radius:8px;padding:7px 10px;font-family:inherit;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap;}
   .product-lot-link:hover{background:var(--primary-soft);border-color:var(--primary);}
   .product-lot-link.empty{color:var(--text-muted);border-color:var(--border);background:var(--surface);}
+  .product-review-pending-row .product-lot-link.empty{color:#956500;border-color:#E3C76F;background:#FFFDF4;}
   .product-reviewed-row .product-lot-link.empty{color:#237A3A;border-color:#B7DDBF;background:#F6FCF7;}
   .lot-detail-modal{width:min(1040px,96vw);max-height:90vh;display:flex;flex-direction:column;}
   .lot-detail-body{padding:0 18px 18px;overflow:auto;}
