@@ -3104,7 +3104,9 @@ let businessSettingsSyncState='local';
 let businessSettingsSyncError='';
 let businessSettingsLastSyncedAt='';
 const NOTE_PAGE_SIZE=100;
-const NOTE_ROW_SELECT='id,title,content_html,hidden_from_level2,representative_id,product_id,activity_type,event_date,valid_from,valid_to,quoted_price,minimum_quantity,unit,reminder_date,created_by,updated_by,created_at,updated_at';
+const REPRESENTATIVE_ACTIVITY_ITEM_SELECT='id,product_id,product_name,quoted_price,minimum_quantity,unit,condition_note,sort_order';
+const NOTE_ROW_BASE_SELECT='id,title,content_html,hidden_from_level2,representative_id,product_id,activity_type,event_date,valid_from,valid_to,quoted_price,minimum_quantity,unit,reminder_date,created_by,updated_by,created_at,updated_at';
+const NOTE_ROW_SELECT=`${NOTE_ROW_BASE_SELECT},representative_activity_items(${REPRESENTATIVE_ACTIVITY_ITEM_SELECT})`;
 const NOTE_COLORS=[
   ['#2B2016','น้ำตาลเข้ม'],['#B42318','แดง'],['#D97706','ส้ม'],['#2D7D3D','เขียว'],
   ['#1570A6','ฟ้า'],['#3448A3','น้ำเงิน'],['#7A3E9D','ม่วง'],['#000000','ดำ']
@@ -3990,13 +3992,19 @@ function notePlainText(contentHtml){
   return String(wrapper.textContent||'').replace(/\s+/g,' ').trim();
 }
 function mapNoteRow(row={}){
+  const activityRows=Array.isArray(row.representative_activity_items)?row.representative_activity_items:[];
   return {
     id:String(row.id||''),title:String(row.title||''),contentHtml:sanitizeNoteHtml(row.content_html||''),
     hiddenFromLevel2:row.hidden_from_level2===true,createdBy:String(row.created_by||''),updatedBy:String(row.updated_by||''),
     representativeId:row.representative_id==null?null:Number(row.representative_id),productId:row.product_id==null?null:Number(row.product_id),
     activityType:String(row.activity_type||''),eventDate:String(row.event_date||''),validFrom:String(row.valid_from||''),validTo:String(row.valid_to||''),
     quotedPrice:row.quoted_price==null?null:Number(row.quoted_price),minimumQuantity:row.minimum_quantity==null?null:Number(row.minimum_quantity),
-    unit:String(row.unit||''),reminderDate:String(row.reminder_date||''),createdAt:row.created_at||'',updatedAt:row.updated_at||''
+    unit:String(row.unit||''),reminderDate:String(row.reminder_date||''),createdAt:row.created_at||'',updatedAt:row.updated_at||'',
+    activityItems:activityRows.sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0)).map(item=>({
+      id:item.id==null?'':Number(item.id),productId:item.product_id==null?null:Number(item.product_id),name:String(item.product_name||''),
+      quotedPrice:item.quoted_price==null?null:Number(item.quoted_price),minimumQuantity:item.minimum_quantity==null?null:Number(item.minimum_quantity),
+      unit:String(item.unit||''),conditionNote:String(item.condition_note||''),sortOrder:Number(item.sort_order||0)
+    }))
   };
 }
 function noteDraftFromRow(note){
@@ -4264,9 +4272,12 @@ async function loadRepresentativeActivityHistory({force=false}={}){
   if(isRepresentativeHistoryScreen()) render();
   try{
     const buildActivityQuery=()=>{
-      let query=sb.from('notes').select(NOTE_ROW_SELECT).not('activity_type','is',null);
+      const select=context.productId
+        ?`${NOTE_ROW_SELECT},matched_activity_items:representative_activity_items!inner(note_id)`
+        :NOTE_ROW_SELECT;
+      let query=sb.from('notes').select(select).not('activity_type','is',null);
       if(context.representativeId) query=query.eq('representative_id',context.representativeId);
-      if(context.productId) query=query.eq('product_id',context.productId);
+      if(context.productId) query=query.eq('matched_activity_items.product_id',context.productId);
       return query.order('event_date',{ascending:false}).order('updated_at',{ascending:false});
     };
     const [activityResult]=await Promise.all([
@@ -4338,45 +4349,77 @@ function representativeDocumentActivities(context=representativeHistoryContext){
   return events;
 }
 function representativeTimelineActivities(){
-  const manual=representativeActivityNotes.map(note=>({...note,manual:true,items:note.productId?[{productId:note.productId,name:productForActivityId(note.productId)?.name||'สินค้าถูกลบ',qty:note.minimumQuantity||0,unit:note.unit||'',price:note.quotedPrice||0}]:[]}));
+  const manual=representativeActivityNotes.map(note=>{
+    const sourceItems=note.activityItems?.length?note.activityItems:(note.productId?[{
+      productId:note.productId,name:productForActivityId(note.productId)?.name||'สินค้าถูกลบ',minimumQuantity:note.minimumQuantity,
+      unit:note.unit||'',quotedPrice:note.quotedPrice,conditionNote:''
+    }]:[]);
+    return {...note,manual:true,items:sourceItems.map(item=>({
+      productId:item.productId,name:item.name||productForActivityId(item.productId)?.name||'สินค้าถูกลบ',qty:item.minimumQuantity,
+      unit:item.unit||'',price:item.quotedPrice,conditionNote:item.conditionNote||''
+    }))};
+  });
   return [...manual,...representativeDocumentActivities()].sort((a,b)=>String(b.eventDate||b.updatedAt||'').localeCompare(String(a.eventDate||a.updatedAt||''))||String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
 }
 function activityFilterText(activity){
   const representative=representativeForActivityId(activity.representativeId);
   const items=(activity.items||[]).map(item=>{
     const product=productForActivityId(item.productId);
-    return `${item.name} ${item.unit} ${product?.sku||''} ${product?.barcode||''}`;
+    return `${item.name} ${item.unit} ${item.conditionNote||''} ${product?.sku||''} ${product?.barcode||''}`;
   }).join(' ');
   return normalizedActivityName(`${activity.title} ${notePlainText(activity.contentHtml||'')} ${representative?.name||''} ${representative?.company||''} ${items} ${activity.sourceId||''} ${activity.status||''}`);
 }
+let representativeActivityItemSequence=0;
+function representativeActivityDraftItem(item={}){
+  const productId=item.productId||'';
+  const product=productForActivityId(productId);
+  return {
+    key:item.key||`representative-item-${++representativeActivityItemSequence}`,productId,
+    productName:item.productName||item.name||product?.name||'',quotedPrice:item.quotedPrice??item.price??'',
+    minimumQuantity:item.minimumQuantity??item.qty??'',unit:item.unit||product?.unit||'',conditionNote:item.conditionNote||''
+  };
+}
 function newRepresentativeActivityDraft(){
   const context=representativeHistoryContext||{};
-  return {id:'new',representativeId:context.representativeId||salesRepresentatives[0]?.id||'',productId:context.productId||'',activityType:'promotion',eventDate:TODAY_STR,title:'',content:'',validFrom:TODAY_STR,validTo:'',quotedPrice:'',minimumQuantity:'',unit:productForActivityId(context.productId)?.unit||'',reminderDate:'',updatedAt:''};
+  return {id:'new',representativeId:context.representativeId||salesRepresentatives[0]?.id||'',activityType:'promotion',eventDate:TODAY_STR,title:'',content:'',validFrom:TODAY_STR,validTo:'',reminderDate:'',updatedAt:'',items:[representativeActivityDraftItem({productId:context.productId||''})]};
 }
 function editRepresentativeActivity(note){
   if(!canEditNote(note)) return;
+  const sourceItems=note.activityItems?.length?note.activityItems:(note.productId?[{
+    productId:note.productId,name:productForActivityId(note.productId)?.name||'',quotedPrice:note.quotedPrice,
+    minimumQuantity:note.minimumQuantity,unit:note.unit||'',conditionNote:''
+  }]:[]);
   representativeActivityDraft={
-    id:note.id,representativeId:note.representativeId||'',productId:note.productId||'',activityType:note.activityType||'general',eventDate:note.eventDate||TODAY_STR,
-    title:note.title||'',content:notePlainText(note.contentHtml||''),validFrom:note.validFrom||'',validTo:note.validTo||'',quotedPrice:note.quotedPrice??'',
-    minimumQuantity:note.minimumQuantity??'',unit:note.unit||'',reminderDate:note.reminderDate||'',updatedAt:note.updatedAt||''
+    id:note.id,representativeId:note.representativeId||'',activityType:note.activityType||'general',eventDate:note.eventDate||TODAY_STR,
+    title:note.title||'',content:notePlainText(note.contentHtml||''),validFrom:note.validFrom||'',validTo:note.validTo||'',
+    reminderDate:note.reminderDate||'',updatedAt:note.updatedAt||'',items:(sourceItems.length?sourceItems:[{}]).map(representativeActivityDraftItem)
   };
   render();
+}
+function representativeActivityItemEditorHtml(item,index){
+  const selectedProduct=productForActivityId(item.productId);
+  return `<div class="representative-activity-item-editor" data-representative-activity-item="${index}">
+    <div class="crow representative-activity-product-picker"><label>สินค้า <span class="req">*</span></label><input data-representative-item-field="productSearch" autocomplete="off" value="${escapeHtml(item.productName||selectedProduct?.name||'')}" placeholder="ค้นหาชื่อ / รหัส / ยิงบาร์โค้ด"><input data-representative-item-field="productId" type="hidden" value="${escapeHtml(item.productId||'')}"><div data-representative-item-results class="representative-activity-product-results" hidden></div></div>
+    <div class="crow"><label>ราคาที่เสนอ</label><input data-representative-item-field="quotedPrice" type="number" min="0" step="0.01" value="${escapeHtml(item.quotedPrice)}" placeholder="0.00"></div>
+    <div class="crow"><label>จำนวนขั้นต่ำ</label><input data-representative-item-field="minimumQuantity" type="number" min="0.0001" step="any" value="${escapeHtml(item.minimumQuantity)}" placeholder="ไม่บังคับ"></div>
+    <div class="crow"><label>หน่วย</label><input data-representative-item-field="unit" value="${escapeHtml(item.unit||'')}" placeholder="เช่น กล่อง"></div>
+    <div class="crow representative-activity-item-condition"><label>เงื่อนไขเฉพาะสินค้า</label><input data-representative-item-field="conditionNote" maxlength="1000" value="${escapeHtml(item.conditionNote||'')}" placeholder="เช่น ซื้อ 12 แถม 1"></div>
+    <button class="btn danger small representative-activity-remove-item" data-remove-representative-activity-item="${index}" type="button" aria-label="ลบสินค้า">ลบ</button>
+  </div>`;
 }
 function representativeActivityFormHtml(){
   const draft=representativeActivityDraft;
   if(!draft) return '';
-  const selectedProduct=productForActivityId(draft.productId);
+  const items=Array.isArray(draft.items)&&draft.items.length?draft.items:[representativeActivityDraftItem()];
+  draft.items=items;
   return `<section class="representative-activity-form panel">
-    <div class="representative-activity-form-head"><div><h3>${draft.id==='new'?'เพิ่มประวัติ / NOTE':'แก้ไขประวัติ / NOTE'}</h3><p>บันทึกรายการนี้จะแสดงในหน้า NOTE และ Timeline ของผู้แทนกับสินค้าเดียวกัน</p></div><button class="modal-close" id="cancelRepresentativeActivityBtn" type="button" aria-label="ปิด">×</button></div>
+    <div class="representative-activity-form-head"><div><h3>${draft.id==='new'?'เพิ่มประวัติ / NOTE':'แก้ไขประวัติ / NOTE'}</h3><p>บันทึกการคุยหนึ่งครั้งพร้อมสินค้าทุกรายการที่ผู้แทนแจ้ง</p></div><button class="modal-close" id="cancelRepresentativeActivityBtn" type="button" aria-label="ปิด">×</button></div>
     <div class="representative-activity-grid">
       <div class="crow"><label>วันที่ <span class="req">*</span></label><input id="repActivityEventDate" type="date" value="${escapeHtml(draft.eventDate||TODAY_STR)}"></div>
       <div class="crow"><label>ประเภท <span class="req">*</span></label><select id="repActivityType">${Object.entries(REPRESENTATIVE_ACTIVITY_TYPES).map(([value,label])=>`<option value="${value}" ${draft.activityType===value?'selected':''}>${escapeHtml(label)}</option>`).join('')}</select></div>
       <div class="crow"><label>ผู้แทน <span class="req">*</span></label><select id="repActivityRepresentative"><option value="">เลือกผู้แทน</option>${salesRepresentatives.map(rep=>`<option value="${rep.id}" ${Number(draft.representativeId)===Number(rep.id)?'selected':''}>${escapeHtml(rep.name)}${rep.company?` · ${escapeHtml(rep.company)}`:''}</option>`).join('')}</select></div>
-      <div class="crow representative-activity-product-picker"><label>สินค้า</label><input id="repActivityProductSearch" autocomplete="off" value="${escapeHtml(selectedProduct?.name||'')}" placeholder="ค้นหาชื่อ / รหัส / ยิงบาร์โค้ด"><input id="repActivityProductId" type="hidden" value="${escapeHtml(draft.productId||'')}"><div id="repActivityProductResults" class="representative-activity-product-results" hidden></div></div>
       <div class="crow representative-activity-wide"><label>หัวข้อ</label><input id="repActivityTitle" maxlength="160" value="${escapeHtml(draft.title||'')}" placeholder="เช่น โปรโมชั่นเดือนกันยายน"></div>
-      <div class="crow"><label>ราคาที่เสนอ</label><input id="repActivityPrice" type="number" min="0" step="0.01" value="${escapeHtml(draft.quotedPrice)}" placeholder="0.00"></div>
-      <div class="crow"><label>จำนวนขั้นต่ำ</label><input id="repActivityMinimum" type="number" min="0.000001" step="any" value="${escapeHtml(draft.minimumQuantity)}" placeholder="ไม่บังคับ"></div>
-      <div class="crow"><label>หน่วย</label><input id="repActivityUnit" value="${escapeHtml(draft.unit||'')}" placeholder="เช่น กล่อง"></div>
+      <div class="representative-activity-items-editor representative-activity-wide"><div class="representative-activity-items-editor-head"><div><b>รายการสินค้า</b><span>${items.length} รายการ</span></div><button class="btn ghost small" id="addRepresentativeActivityItemBtn" type="button">+ เพิ่มสินค้า</button></div>${items.map((item,index)=>representativeActivityItemEditorHtml(item,index)).join('')}</div>
       <div class="crow"><label>เริ่มโปรโมชั่น</label><input id="repActivityValidFrom" type="date" value="${escapeHtml(draft.validFrom||'')}"></div>
       <div class="crow"><label>สิ้นสุดโปรโมชั่น</label><input id="repActivityValidTo" type="date" value="${escapeHtml(draft.validTo||'')}"></div>
       <div class="crow"><label>วันที่ติดตาม</label><input id="repActivityReminderDate" type="date" value="${escapeHtml(draft.reminderDate||'')}"></div>
@@ -4388,16 +4431,22 @@ function representativeActivityFormHtml(){
 function representativeActivityCardHtml(activity){
   const representative=representativeForActivityId(activity.representativeId);
   const product=activity.productId?productForActivityId(activity.productId):null;
-  const itemHtml=(activity.items||[]).length?`<div class="representative-activity-items">${activity.items.map(item=>`<span>${item.productId?`<button type="button" class="representative-activity-link" data-open-product-history="${escapeHtml(item.productId)}">${escapeHtml(item.name)}</button>`:`<b>${escapeHtml(item.name)}</b>`}${item.qty?` · ${escapeHtml(inventoryMovementRound(item.qty))} ${escapeHtml(item.unit||'')}`:''}${item.price?` · ${fmtMoney(item.price)} บาท`:''}</span>`).join('')}</div>`:'';
+  const itemHtml=(activity.items||[]).length?`<div class="representative-activity-items">${activity.items.map(item=>{
+    const details=[];
+    if(item.price!=null&&(activity.manual||Number(item.price)!==0)) details.push(`${fmtMoney(item.price)} บาท${item.unit?` / ${escapeHtml(item.unit)}`:''}`);
+    if(item.qty) details.push(`ขั้นต่ำ ${escapeHtml(inventoryMovementRound(item.qty))} ${escapeHtml(item.unit||'')}`);
+    if(item.conditionNote) details.push(escapeHtml(item.conditionNote));
+    return `<div>${item.productId?`<button type="button" class="representative-activity-link" data-open-product-history="${escapeHtml(item.productId)}">${escapeHtml(item.name)}</button>`:`<b>${escapeHtml(item.name)}</b>`}${details.length?`<small>${details.join(' · ')}</small>`:''}</div>`;
+  }).join('')}</div>`:'';
   const commercial=[];
-  if(activity.quotedPrice!=null) commercial.push(`ราคา ${fmtMoney(activity.quotedPrice)} บาท${activity.unit?` / ${escapeHtml(activity.unit)}`:''}`);
-  if(activity.minimumQuantity) commercial.push(`ขั้นต่ำ ${escapeHtml(inventoryMovementRound(activity.minimumQuantity))} ${escapeHtml(activity.unit||'')}`);
+  if(!(activity.items||[]).length&&activity.quotedPrice!=null) commercial.push(`ราคา ${fmtMoney(activity.quotedPrice)} บาท${activity.unit?` / ${escapeHtml(activity.unit)}`:''}`);
+  if(!(activity.items||[]).length&&activity.minimumQuantity) commercial.push(`ขั้นต่ำ ${escapeHtml(inventoryMovementRound(activity.minimumQuantity))} ${escapeHtml(activity.unit||'')}`);
   if(activity.validFrom||activity.validTo) commercial.push(`ช่วง ${escapeHtml(representativeActivityDateLabel(activity.validFrom))} – ${escapeHtml(representativeActivityDateLabel(activity.validTo))}`);
   if(activity.reminderDate) commercial.push(`ติดตาม ${escapeHtml(representativeActivityDateLabel(activity.reminderDate))}`);
   const identity=[];
   if(representative) identity.push(`<button type="button" class="representative-activity-link" data-open-representative-history="${escapeHtml(representative.id)}">ผู้แทน ${escapeHtml(representative.name)}</button>`);
   else identity.push('ไม่พบผู้แทน');
-  if(product) identity.push(`<button type="button" class="representative-activity-link" data-open-product-history="${escapeHtml(product.id)}">${escapeHtml(product.name)}</button>`);
+  if(product&&!(activity.items||[]).length) identity.push(`<button type="button" class="representative-activity-link" data-open-product-history="${escapeHtml(product.id)}">${escapeHtml(product.name)}</button>`);
   if(activity.status) identity.push(escapeHtml(activity.status));
   const canEdit=activity.manual&&canEditNote(activity),canDelete=activity.manual&&canDeleteNote(activity);
   return `<article class="representative-activity-card ${activity.manual?'manual':'document'}">
@@ -4445,9 +4494,17 @@ function renderRepresentativeHistory(){
 function syncRepresentativeActivityDraftFromForm(){
   if(!representativeActivityDraft) return;
   const value=id=>document.getElementById(id)?.value??'';
+  const itemRows=[...document.querySelectorAll('[data-representative-activity-item]')];
+  const items=itemRows.map((row,index)=>{
+    const field=name=>row.querySelector(`[data-representative-item-field="${name}"]`)?.value??'';
+    return representativeActivityDraftItem({
+      key:representativeActivityDraft.items?.[index]?.key,productId:field('productId'),productName:field('productSearch'),
+      quotedPrice:field('quotedPrice'),minimumQuantity:field('minimumQuantity'),unit:field('unit'),conditionNote:field('conditionNote')
+    });
+  });
   Object.assign(representativeActivityDraft,{
-    eventDate:value('repActivityEventDate'),activityType:value('repActivityType'),representativeId:value('repActivityRepresentative'),productId:value('repActivityProductId'),
-    title:value('repActivityTitle'),content:value('repActivityContent'),quotedPrice:value('repActivityPrice'),minimumQuantity:value('repActivityMinimum'),unit:value('repActivityUnit'),
+    eventDate:value('repActivityEventDate'),activityType:value('repActivityType'),representativeId:value('repActivityRepresentative'),
+    title:value('repActivityTitle'),content:value('repActivityContent'),items,
     validFrom:value('repActivityValidFrom'),validTo:value('repActivityValidTo'),reminderDate:value('repActivityReminderDate')
   });
 }
@@ -4458,24 +4515,36 @@ async function saveRepresentativeActivity(){
   if(!draft?.representativeId){ showToast('กรุณาเลือกผู้แทน','danger-top'); document.getElementById('repActivityRepresentative')?.focus(); return; }
   if(!draft.eventDate){ showToast('กรุณาเลือกวันที่','danger-top'); return; }
   if(draft.validFrom&&draft.validTo&&draft.validTo<draft.validFrom){ showToast('วันสิ้นสุดโปรโมชั่นต้องไม่ก่อนวันเริ่ม','danger-top'); return; }
-  const product=productForActivityId(draft.productId),typeLabel=representativeActivityTypeLabel(draft.activityType);
-  const title=String(draft.title||'').trim()||`${typeLabel}${product?` · ${product.name}`:''}`;
+  const enteredItems=(draft.items||[]).filter(item=>item.productId||String(item.productName||'').trim()||item.quotedPrice!==''||item.minimumQuantity!==''||String(item.unit||'').trim()||String(item.conditionNote||'').trim());
+  const unfinishedIndex=enteredItems.findIndex(item=>!item.productId);
+  if(unfinishedIndex>=0){ showToast(`กรุณาเลือกสินค้าในรายการที่ ${unfinishedIndex+1} จากผลการค้นหา`,'danger-top'); return; }
+  const duplicateProduct=enteredItems.find((item,index)=>enteredItems.findIndex(other=>Number(other.productId)===Number(item.productId))!==index);
+  if(duplicateProduct){ showToast(`สินค้า “${duplicateProduct.productName||productForActivityId(duplicateProduct.productId)?.name||''}” ถูกเลือกซ้ำ`,'danger-top'); return; }
+  if(enteredItems.some(item=>item.quotedPrice!==''&&Number(item.quotedPrice)<0)){ showToast('ราคาที่เสนอต้องไม่ติดลบ','danger-top'); return; }
+  if(enteredItems.some(item=>item.minimumQuantity!==''&&Number(item.minimumQuantity)<=0)){ showToast('จำนวนขั้นต่ำต้องมากกว่า 0','danger-top'); return; }
+  const firstProduct=productForActivityId(enteredItems[0]?.productId),typeLabel=representativeActivityTypeLabel(draft.activityType);
+  const title=String(draft.title||'').trim()||`${typeLabel}${firstProduct?` · ${firstProduct.name}${enteredItems.length>1?` และอีก ${enteredItems.length-1} รายการ`:''}`:''}`;
   const text=String(draft.content||'').trim();
-  const payload={
-    title,content_html:text?`<p>${escapeHtml(text).replace(/\r?\n/g,'<br>')}</p>`:'',hidden_from_level2:false,
-    representative_id:Number(draft.representativeId),product_id:draft.productId?Number(draft.productId):null,activity_type:draft.activityType||'general',event_date:draft.eventDate,
-    valid_from:draft.validFrom||null,valid_to:draft.validTo||null,quoted_price:draft.quotedPrice===''?null:Number(draft.quotedPrice),
-    minimum_quantity:draft.minimumQuantity===''?null:Number(draft.minimumQuantity),unit:String(draft.unit||'').trim()||null,reminder_date:draft.reminderDate||null
+  const rpcPayload={
+    p_note_id:draft.id==='new'?null:draft.id,p_expected_updated_at:draft.id==='new'?null:draft.updatedAt,p_title:title,
+    p_content_html:text?`<p>${escapeHtml(text).replace(/\r?\n/g,'<br>')}</p>`:'',p_representative_id:Number(draft.representativeId),
+    p_activity_type:draft.activityType||'general',p_event_date:draft.eventDate,p_valid_from:draft.validFrom||null,p_valid_to:draft.validTo||null,
+    p_reminder_date:draft.reminderDate||null,p_items:enteredItems.map(item=>({
+      productId:Number(item.productId),quotedPrice:item.quotedPrice===''?null:Number(item.quotedPrice),
+      minimumQuantity:item.minimumQuantity===''?null:Number(item.minimumQuantity),unit:String(item.unit||'').trim()||null,
+      conditionNote:String(item.conditionNote||'').trim()||null
+    }))
   };
   const button=document.getElementById('saveRepresentativeActivityBtn');
   if(button){ button.disabled=true; button.textContent='กำลังบันทึก…'; }
   try{
-    let result;
-    if(draft.id==='new') result=await sb.from('notes').insert(payload).select(NOTE_ROW_SELECT).single();
-    else result=await sb.from('notes').update(payload).eq('id',draft.id).eq('updated_at',draft.updatedAt).select(NOTE_ROW_SELECT).maybeSingle();
+    const result=await sb.rpc('save_representative_activity',rpcPayload);
     if(result.error) throw result.error;
-    if(!result.data) throw new Error('รายการนี้ถูกแก้ไขจากอีกเครื่อง กรุณารีเฟรชแล้วลองใหม่');
-    const saved=mapNoteRow(result.data);
+    const savedId=String(result.data||'');
+    if(!savedId) throw new Error('ฐานข้อมูลไม่ได้ส่งรหัสประวัติกลับมา');
+    const savedResult=await sb.from('notes').select(NOTE_ROW_SELECT).eq('id',savedId).single();
+    if(savedResult.error) throw savedResult.error;
+    const saved=mapNoteRow(savedResult.data);
     const noteIndex=notes.findIndex(note=>note.id===saved.id);
     if(noteIndex>=0) notes[noteIndex]=saved; else if(notesLoaded) notes.push(saved);
     representativeActivityDraft=null;
@@ -4507,6 +4576,17 @@ function attachRepresentativeHistoryEvents(){
   document.getElementById('cancelRepresentativeActivityBtn')?.addEventListener('click',()=>{ representativeActivityDraft=null; render(); });
   document.getElementById('cancelRepresentativeActivityBottomBtn')?.addEventListener('click',()=>{ representativeActivityDraft=null; render(); });
   document.getElementById('saveRepresentativeActivityBtn')?.addEventListener('click',saveRepresentativeActivity);
+  document.getElementById('addRepresentativeActivityItemBtn')?.addEventListener('click',()=>{
+    syncRepresentativeActivityDraftFromForm();
+    representativeActivityDraft.items.push(representativeActivityDraftItem());
+    render();
+  });
+  document.querySelectorAll('[data-remove-representative-activity-item]').forEach(button=>button.addEventListener('click',()=>{
+    syncRepresentativeActivityDraftFromForm();
+    representativeActivityDraft.items.splice(Number(button.dataset.removeRepresentativeActivityItem),1);
+    if(!representativeActivityDraft.items.length) representativeActivityDraft.items.push(representativeActivityDraftItem());
+    render();
+  }));
   document.getElementById('representativeHistoryTypeFilter')?.addEventListener('change',event=>{ representativeHistoryFilter.type=event.target.value; render(); });
   const historySearch=document.getElementById('representativeHistorySearch');
   const searchHistory=()=>{
@@ -4520,8 +4600,9 @@ function attachRepresentativeHistoryEvents(){
   const historyOrigin=representativeHistoryContext.central?'representativehistory':representativeHistoryContext.originTab;
   document.querySelectorAll('[data-open-representative-history]').forEach(button=>button.addEventListener('click',()=>openRepresentativeHistory({representativeId:Number(button.dataset.openRepresentativeHistory),originTab:historyOrigin})));
   document.querySelectorAll('[data-open-product-history]').forEach(button=>button.addEventListener('click',()=>openRepresentativeHistory({productId:Number(button.dataset.openProductHistory),originTab:historyOrigin})));
-  const productSearch=document.getElementById('repActivityProductSearch'),productId=document.getElementById('repActivityProductId'),results=document.getElementById('repActivityProductResults');
-  if(productSearch&&productId&&results){
+  document.querySelectorAll('[data-representative-activity-item]').forEach(row=>{
+    const productSearch=row.querySelector('[data-representative-item-field="productSearch"]'),productId=row.querySelector('[data-representative-item-field="productId"]'),results=row.querySelector('[data-representative-item-results]');
+    if(!productSearch||!productId||!results) return;
     const matches=query=>{
       const text=String(query||'').trim(),lower=text.toLowerCase();
       if(!text) return [];
@@ -4531,7 +4612,7 @@ function attachRepresentativeHistoryEvents(){
     };
     const choose=product=>{
       productId.value=product?.id||''; productSearch.value=product?.name||''; results.hidden=true; results.innerHTML='';
-      const unit=document.getElementById('repActivityUnit'); if(unit&&!unit.value) unit.value=product?.unit||'';
+      const unit=row.querySelector('[data-representative-item-field="unit"]'); if(unit&&!unit.value) unit.value=product?.unit||'';
     };
     const draw=()=>{
       const rows=matches(productSearch.value);
@@ -4544,7 +4625,7 @@ function attachRepresentativeHistoryEvents(){
     productSearch.addEventListener('focus',draw);
     productSearch.addEventListener('blur',()=>setTimeout(()=>{ results.hidden=true; },120));
     productSearch.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); const rows=draw(); if(rows[0]) choose(rows[0]); } });
-  }
+  });
 }
 function renderDashboard(){
   const completedSales = salesHistory.filter(s=>s.status==='done').filter(s=>isAllWarehousesMode()||(s.items||[]).some(item=>String(saleWarehouseForReport(s,item,products.find(product=>Number(product.id)===Number(item.productId))||products.find(product=>product.name===item.name)||{}))===String(activeWarehouseId)));

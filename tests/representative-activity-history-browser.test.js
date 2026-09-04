@@ -47,13 +47,17 @@ let browser;
     currentProfile={id:'owner-test',level:1,owner:true,firstName:'เจ้าของ'};
     warehouses=[{id:1,name:'คลังทดสอบ'}]; activeWarehouseId=1; warehouseAccessRows=[];
     salesRepresentatives=[{id:10,code:'REP-10',name:'คุณโป้',phone:'0812345678',line:'po-test',company:'บริษัทตัวแทน',note:''}];
-    products=[{id:20,sku:'50264',name:'Decolgen',unit:'กล่อง',barcode:'8850000000001',extraBarcodes:[],supplierBarcodes:[]}];
+    products=[
+      {id:20,sku:'50264',name:'Decolgen',unit:'กล่อง',barcode:'8850000000001',extraBarcodes:[],supplierBarcodes:[]},
+      {id:21,sku:'50265',name:'Lotemo Kids',unit:'ขวด',barcode:'8850000000002',extraBarcodes:[],supplierBarcodes:[]}
+    ];
     representativeHistoryContext={representativeId:10,productId:null,originTab:'salesreps'};
     representativeActivityLoadedKey=representativeHistoryKey();
     representativeActivityNotes=[{
       id:'activity-1',title:'โปรโมชั่นเดือนกันยายน',contentHtml:'<p>ซื้อ 10 กล่อง แถม 1 กล่อง</p>',hiddenFromLevel2:false,
       representativeId:10,productId:20,activityType:'promotion',eventDate:'2026-09-01',validFrom:'2026-09-01',validTo:'2026-09-30',
-      quotedPrice:160,minimumQuantity:10,unit:'กล่อง',reminderDate:'2026-09-25',updatedAt:'2026-09-01T10:00:00Z'
+      quotedPrice:160,minimumQuantity:10,unit:'กล่อง',reminderDate:'2026-09-25',updatedAt:'2026-09-01T10:00:00Z',
+      activityItems:[{id:1,productId:20,name:'Decolgen',quotedPrice:160,minimumQuantity:10,unit:'กล่อง',conditionNote:'ซื้อ 10 แถม 1',sortOrder:0}]
     }];
     purchaseOrders=[]; goodsReceipts=[]; purchaseOrdersFull=[]; productReturns=[];
     currentTab='salesreps';
@@ -70,10 +74,20 @@ let browser;
 
   await page.locator('#newRepresentativeActivityBtn').click();
   assert.equal(await page.locator('#repActivityRepresentative').inputValue(), '10');
-  await page.locator('#repActivityProductSearch').fill('50264');
-  await page.locator('#repActivityProductSearch').press('Enter');
-  assert.equal(await page.locator('#repActivityProductId').inputValue(), '20');
-  assert.equal(await page.locator('#repActivityUnit').inputValue(), 'กล่อง');
+  const firstItem=page.locator('.representative-activity-item-editor').first();
+  await firstItem.locator('[data-representative-item-field="productSearch"]').fill('50264');
+  await firstItem.locator('[data-representative-item-field="productSearch"]').press('Enter');
+  assert.equal(await firstItem.locator('[data-representative-item-field="productId"]').inputValue(), '20');
+  assert.equal(await firstItem.locator('[data-representative-item-field="unit"]').inputValue(), 'กล่อง');
+  await firstItem.locator('[data-representative-item-field="quotedPrice"]').fill('155');
+  await page.locator('#addRepresentativeActivityItemBtn').click();
+  assert.equal(await page.locator('.representative-activity-item-editor').count(),2);
+  const secondItem=page.locator('.representative-activity-item-editor').nth(1);
+  await secondItem.locator('[data-representative-item-field="productSearch"]').fill('50265');
+  await secondItem.locator('[data-representative-item-field="productSearch"]').press('Enter');
+  assert.equal(await secondItem.locator('[data-representative-item-field="productId"]').inputValue(),'21');
+  assert.equal(await secondItem.locator('[data-representative-item-field="unit"]').inputValue(),'ขวด');
+  assert.equal(await firstItem.locator('[data-representative-item-field="quotedPrice"]').inputValue(),'155','adding another item must preserve the first row');
 
   await page.locator('#cancelRepresentativeActivityBottomBtn').click();
   await page.locator('#representativeHistoryTypeFilter').selectOption('contact');

@@ -5,6 +5,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const html = require('./load-app-source')();
 const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260904151421_representative_product_activity_notes.sql'), 'utf8');
+const multiProductMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260904151422_representative_activity_multiple_products.sql'), 'utf8');
 const historyRender = html.slice(html.indexOf('function renderRepresentativeHistory(){'),html.indexOf('function syncRepresentativeActivityDraftFromForm(){'));
 
 assert.match(migration, /alter table public\.notes[\s\S]*representative_id bigint[\s\S]*product_id bigint[\s\S]*activity_type text/);
@@ -14,6 +15,16 @@ assert.match(migration, /notes_representative_activity_idx/);
 assert.match(migration, /notes_product_activity_idx/);
 assert.match(migration, /grant insert \(representative_id,product_id,activity_type/);
 assert.match(migration, /create trigger audit_notes_changes/);
+assert.match(multiProductMigration, /create table public\.representative_activity_items/);
+assert.match(multiProductMigration, /references public\.notes\(id\) on delete cascade/);
+assert.match(multiProductMigration, /representative_activity_items_note_product_uidx/);
+assert.match(multiProductMigration, /alter table public\.representative_activity_items enable row level security/);
+assert.match(multiProductMigration, /create policy representative_activity_items_read/);
+assert.match(multiProductMigration, /create or replace function public\.save_representative_activity/);
+assert.match(multiProductMigration, /security definer[\s\S]*set search_path = ''/);
+assert.match(multiProductMigration, /for update[\s\S]*p_expected_updated_at/);
+assert.match(multiProductMigration, /delete from public\.representative_activity_items[\s\S]*insert into public\.representative_activity_items/);
+assert.match(multiProductMigration, /revoke all on function public\.save_representative_activity/);
 
 assert.match(html, /function renderRepresentativeHistory\(\)/);
 assert.match(html, /function renderRepresentativeHistoryOverview\(\)/);
@@ -32,8 +43,14 @@ assert.doesNotMatch(historyRender, /representativeHistoryRepresentativeFilter|re
 assert.match(html, /\.representative-activity-timeline\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
 assert.match(html, /data-open-representative-history=/);
 assert.match(html, /data-open-product-history=/);
-assert.match(html, /บันทึกรายการนี้จะแสดงในหน้า NOTE และ Timeline/);
-assert.match(html, /activity_type:draft\.activityType\|\|'general'/);
+assert.match(html, /บันทึกการคุยหนึ่งครั้งพร้อมสินค้าทุกรายการที่ผู้แทนแจ้ง/);
+assert.match(html, /id="addRepresentativeActivityItemBtn"/);
+assert.match(html, /data-representative-activity-item=/);
+assert.match(html, /data-representative-item-field="conditionNote"/);
+assert.match(html, /sb\.rpc\('save_representative_activity',rpcPayload\)/);
+assert.match(html, /p_activity_type:draft\.activityType\|\|'general'/);
+assert.match(html, /representative_activity_items!inner/);
+assert.match(html, /NOTE_ROW_SELECT},matched_activity_items:representative_activity_items!inner\(note_id\)/, 'product history must filter with a second relation so editing keeps every item');
 assert.match(html, /notes:'NOTE \/ ประวัติผู้แทน'/);
 
 console.log('representative activity history tests passed');
