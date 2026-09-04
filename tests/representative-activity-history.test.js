@@ -46,8 +46,14 @@ assert.match(html, /function representativeProfileHtml\(/);
 assert.match(html, /function representativeNoteWorkspaceHtml\(/);
 assert.match(html, /data-representative-card-open=/);
 assert.match(html, /data-product-representative-history=/);
-assert.match(html, /\['representativehistory','ประวัติผู้แทน'/);
+assert.match(html, /\['representativehistory','ผู้แทน'/);
 assert.match(html, /representativehistory: renderRepresentativeHistoryOverview/);
+const navSource = html.slice(html.indexOf('const NAV = ['),html.indexOf('function renderSidebar()'));
+const contactsNavIndex = navSource.indexOf("['contacts','ลูกค้า / ผู้จำหน่าย'");
+const representativeNavIndex = navSource.indexOf("['representativehistory','ผู้แทน'");
+const contactsSectionIndex = navSource.indexOf("{section:'สมุดรายชื่อ'");
+const salesDocumentsSectionIndex = navSource.indexOf("{section:'เอกสารขาย'");
+assert.ok(contactsSectionIndex>=0&&contactsNavIndex>contactsSectionIndex&&representativeNavIndex>contactsNavIndex&&representativeNavIndex<salesDocumentsSectionIndex,'เมนูผู้แทนต้องอยู่ใต้ลูกค้า / ผู้จำหน่าย');
 
 assert.match(historyRender, /id="representativeHistoryRepresentativeSearch"/);
 assert.match(historyRender, /id="representativeHistoryProductSearch"/);
@@ -71,7 +77,12 @@ assert.match(html, /representative-note-list-panel[\s\S]*representative-note-det
 assert.match(noteEditor, /เพิ่ม NOTE/);
 assert.match(noteEditor, /id="repActivityEventDate"/);
 assert.match(noteEditor, /id="repActivityTitle"/);
-assert.match(noteEditor, /id="repActivityContent"/);
+assert.match(noteEditor, /id="repActivityContentEditor"[\s\S]*contenteditable="true"/);
+assert.match(noteEditor, /data-representative-note-command="bold"/);
+assert.match(noteEditor, /data-representative-note-command="underline"/);
+assert.match(noteEditor, /data-representative-note-command="strikeThrough"/);
+assert.match(noteEditor, /data-representative-note-color=/);
+assert.doesNotMatch(noteEditor, /<textarea id="repActivityContent"/);
 assert.doesNotMatch(noteEditor, /repActivityRepresentative|representativeManagedProductSearch|repActivityType|repActivityValidFrom|repActivityValidTo|repActivityReminderDate|quotedPrice|minimumQuantity|conditionNote/);
 assert.match(productsEditor, /id="representativeProductsSearch"/);
 assert.match(productsEditor, /id="representativeProductsSelectedList"/);
@@ -92,6 +103,6 @@ assert.match(html, /p_product_ids:\[\]/);
 assert.match(html, /sb\.rpc\('save_representative_products'/);
 assert.doesNotMatch(html, /function representativeActivityFormHtml\(\)/);
 assert.doesNotMatch(html, /\['salesreps','รายชื่อผู้แทน'/);
-assert.match(html, /notes:'NOTE \/ ประวัติผู้แทน'/);
+assert.match(html, /notes:'NOTE \/ ผู้แทน'/);
 
 console.log('representative activity history tests passed');

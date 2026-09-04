@@ -111,8 +111,20 @@ let browser;
 
   await page.locator('#newRepresentativeActivityBtn').click();
   assert.equal(await page.locator('.representative-note-editor-modal').count(),1);
-  assert.equal(await page.locator('#repActivityEventDate,#repActivityTitle,#repActivityContent').count(),3);
+  assert.equal(await page.locator('#repActivityEventDate,#repActivityTitle,#repActivityContentEditor').count(),3);
+  assert.equal(await page.locator('.representative-note-toolbar').count(),1);
+  assert.equal(await page.locator('[data-representative-note-command]').count(),3);
+  assert.equal(await page.locator('[data-representative-note-color]').count(),8);
+  assert.equal(await page.locator('#repActivityContent').count(),0,'representative NOTE must use the formatted editor instead of a plain textarea');
   assert.equal(await page.locator('#repActivityRepresentative,#representativeManagedProductSearch,.representative-activity-item-editor').count(),0,'NOTE editor must no longer contain representative or product assignment fields');
+  const representativeContentEditor=page.locator('#repActivityContentEditor');
+  await representativeContentEditor.fill('ข้อความสำคัญ');
+  await representativeContentEditor.selectText();
+  await page.locator('[data-representative-note-command="bold"]').click();
+  assert.match(await representativeContentEditor.innerHTML(),/<b>ข้อความสำคัญ<\/b>/i,'bold formatting must be applied to representative NOTE content');
+  await representativeContentEditor.selectText();
+  await page.locator('[data-representative-note-color="#B42318"]').click();
+  assert.match(await representativeContentEditor.innerHTML(),/#b42318|rgb\(180,\s*35,\s*24\)/i,'text color must be applied to representative NOTE content');
   await page.locator('#cancelRepresentativeActivityBottomBtn').click();
 
   const managedProductsTrigger=page.locator('[data-manage-representative-products="10"]');

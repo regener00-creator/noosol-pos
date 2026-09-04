@@ -2123,6 +2123,7 @@
   .representative-note-fields input,.representative-note-fields textarea,.representative-editor-grid input,.representative-editor-grid textarea{width:100%;border:1px solid var(--border);border-radius:10px;background:var(--surface);padding:11px 12px;font:inherit;}
   .representative-note-fields input,.representative-editor-grid input{height:44px;}
   .representative-note-fields textarea,.representative-editor-grid textarea{resize:vertical;}
+  .representative-note-content-editor{min-height:260px;max-height:42vh;}
   .representative-note-editor-actions,.representative-products-actions,.representative-editor-actions{display:flex;justify-content:flex-end;gap:9px;border-top:1px solid var(--border);padding:14px 20px;}
   .representative-products-modal{width:min(1080px,96vw);max-width:1080px;max-height:92vh;overflow:hidden;}
   .representative-products-editor-body{display:flex;min-height:0;flex:1;flex-direction:column;gap:14px;padding:18px 20px;overflow:auto;}

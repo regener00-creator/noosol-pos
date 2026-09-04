@@ -297,7 +297,7 @@ const PAGE_PERMISSION_OPTIONS=[
   ['rinventory','รายงานสินค้าคงเหลือ'],['lowstock','สินค้าใกล้หมด'],['expiry','สินค้าใกล้หมดอายุ'],
   ['rproduct','รายงานสินค้า'],['rbill','รายงานบิล'],['cashbill','บิลเงินสด'],['inspectionlists','ตรวจนับและปรับสต๊อก'],
   ['purchaseorder','สั่งของขาด'],['purchaseorder2','ใบสั่งซื้อสินค้า'],['productreturn','ใบคืนสินค้า'],
-  ['productexchange','เปลี่ยนสินค้า'],['contacts','สมุดรายชื่อ'],['salesreps','ประวัติผู้แทน'],
+  ['productexchange','เปลี่ยนสินค้า'],['contacts','สมุดรายชื่อ'],['salesreps','ผู้แทน'],
   ['taxinvoice','ใบกำกับภาษีเต็มรูปแบบ'],['quotation','ใบเสนอราคา'],['barcodeprint','พิมพ์ป้ายราคา'],
   ['promotions','โปรโมชั่น'],['warehouse','คลังสินค้า / สาขา'],['transfer','โอนย้ายสต๊อก'],
   ['rprofit','รายงานกำไร'],['rtax','รายงานภาษี']
@@ -3903,7 +3903,6 @@ const NAV = [
     ['goodsreceipt','รับเข้าสินค้า','<path d="M21 8L12 3 3 8"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13V3"/>'],
     ['productexchange','เปลี่ยนสินค้า','<path d="M7 7h11l-3-3"/><path d="M18 7l-3 3"/><path d="M17 17H6l3 3"/><path d="M6 17l3-3"/>'],
     ['productreturn','ใบคืนสินค้า','<path d="M3 7h13a5 5 0 0 1 0 10H8"/><path d="M8 13l-4 4 4 4"/><path d="M4 17h12"/>'],
-    ['representativehistory','ประวัติผู้แทน','<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 7v5l3 2"/>'],
   ]},
   {section:'คลัง & สินค้า', items:[
     ['products','รายการสินค้า','<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/>'],
@@ -3913,6 +3912,7 @@ const NAV = [
   ]},
   {section:'สมุดรายชื่อ', items:[
     ['contacts','ลูกค้า / ผู้จำหน่าย','<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>'],
+    ['representativehistory','ผู้แทน','<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 7v5l3 2"/>'],
   ]},
   {section:'เอกสารขาย', items:[
     ['cashbill','บิลเงินสด','<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M8 8h8M8 12h8M8 16h5"/>'],
@@ -4406,13 +4406,13 @@ function newRepresentativeNoteDraft(){
   const context=representativeHistoryContext||{};
   const representativeId=context.representativeId||'';
   if(!representativeId) return null;
-  return {id:'new',representativeId,eventDate:TODAY_STR,title:'',content:'',updatedAt:''};
+  return {id:'new',representativeId,eventDate:TODAY_STR,title:'',contentHtml:'',updatedAt:''};
 }
 function editRepresentativeActivity(note){
   if(!canEditNote(note)) return;
   representativeActivityDraft={
     id:note.id,representativeId:note.representativeId||'',eventDate:note.eventDate||TODAY_STR,
-    title:note.title||'',content:notePlainText(note.contentHtml||''),updatedAt:note.updatedAt||''
+    title:note.title||'',contentHtml:sanitizeNoteHtml(note.contentHtml||''),updatedAt:note.updatedAt||''
   };
   render();
 }
@@ -4422,7 +4422,7 @@ function representativeNoteEditorModalHtml(){
   const representative=representativeForActivityId(draft.representativeId);
   return `<div class="modal-overlay representative-note-editor-overlay"><section class="modal representative-note-editor-modal" role="dialog" aria-modal="true" aria-labelledby="representativeNoteEditorTitle">
     <div class="modal-head"><div><h3 id="representativeNoteEditorTitle">${draft.id==='new'?'เพิ่ม NOTE':'แก้ไข NOTE'}</h3><div class="sub">ผู้แทน ${escapeHtml(representative?.name||'-')}</div></div><button class="modal-close" id="cancelRepresentativeActivityBtn" type="button" aria-label="ปิด">×</button></div>
-    <div class="representative-note-editor-body"><div class="representative-note-fields"><div class="crow"><label>วันที่ <span class="req">*</span></label><input id="repActivityEventDate" type="date" value="${escapeHtml(draft.eventDate||TODAY_STR)}"></div><div class="crow"><label>หัวข้อ <span class="req">*</span></label><input id="repActivityTitle" maxlength="160" value="${escapeHtml(draft.title||'')}" placeholder="เช่น ซื้อครบไปเที่ยวฟรี"></div><div class="crow representative-note-content"><label>ข้อมูลเพิ่มเติม</label><textarea id="repActivityContent" rows="9" placeholder="กรอกรายละเอียด NOTE">${escapeHtml(draft.content||'')}</textarea></div></div></div>
+    <div class="representative-note-editor-body"><div class="representative-note-fields"><div class="crow"><label>วันที่ <span class="req">*</span></label><input id="repActivityEventDate" type="date" value="${escapeHtml(draft.eventDate||TODAY_STR)}"></div><div class="crow"><label>หัวข้อ <span class="req">*</span></label><input id="repActivityTitle" maxlength="160" value="${escapeHtml(draft.title||'')}" placeholder="เช่น ซื้อครบไปเที่ยวฟรี"></div><div class="crow representative-note-content"><label>ข้อมูลเพิ่มเติม</label><div class="note-toolbar representative-note-toolbar" role="toolbar" aria-label="จัดรูปแบบข้อมูลเพิ่มเติม"><button type="button" data-representative-note-command="bold" title="ตัวหนา" aria-label="ตัวหนา"><b>B</b></button><button type="button" data-representative-note-command="underline" title="ขีดเส้นใต้" aria-label="ขีดเส้นใต้"><u>U</u></button><button type="button" data-representative-note-command="strikeThrough" title="ขีดฆ่า" aria-label="ขีดฆ่า"><s>S</s></button><span class="note-toolbar-divider"></span><span class="note-color-label">สีข้อความ</span><span class="note-color-list">${NOTE_COLORS.map(([color,label])=>`<button type="button" class="note-color-swatch" data-representative-note-color="${color}" style="--note-color:${color}" title="${escapeHtml(label)}" aria-label="สี${escapeHtml(label)}"></button>`).join('')}</span></div><div id="repActivityContentEditor" class="note-content-editor representative-note-content-editor" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="กรอกรายละเอียด NOTE">${sanitizeNoteHtml(draft.contentHtml||'')}</div></div></div></div>
     <div class="representative-note-editor-actions"><button class="btn ghost" id="cancelRepresentativeActivityBottomBtn" type="button">ยกเลิก</button><button class="btn primary" id="saveRepresentativeActivityBtn" type="button">บันทึก NOTE</button></div>
   </section></div>`;
 }
@@ -4474,7 +4474,7 @@ function representativeEditorModalHtml(){
   const representative=isNew?{code:'',name:'',phone:'',line:'',company:'',note:''}:salesRepresentatives.find(item=>Number(item.id)===Number(editingSalesRepresentativeId));
   if(!representative) return '';
   return `<div class="modal-overlay representative-editor-overlay"><section class="modal representative-editor-modal" role="dialog" aria-modal="true" aria-labelledby="representativeEditorTitle">
-    <div class="modal-head"><div><h3 id="representativeEditorTitle">${isNew?'เพิ่มข้อมูลผู้แทน':'แก้ไขข้อมูลผู้แทน'}</h3><div class="sub">บันทึกข้อมูลติดต่อจากหน้าประวัติผู้แทนได้ทันที</div></div><button class="modal-close" id="cancelSalesRepBtn" type="button" aria-label="ปิด">×</button></div>
+    <div class="modal-head"><div><h3 id="representativeEditorTitle">${isNew?'เพิ่มข้อมูลผู้แทน':'แก้ไขข้อมูลผู้แทน'}</h3><div class="sub">บันทึกข้อมูลติดต่อจากหน้าผู้แทนได้ทันที</div></div><button class="modal-close" id="cancelSalesRepBtn" type="button" aria-label="ปิด">×</button></div>
     <div class="representative-editor-body"><div class="representative-editor-grid">
       <div class="crow"><label>รหัสผู้ติดต่อ</label><input id="sr_code" value="${escapeHtml(representative.code||'')}" placeholder="เช่น SR001 (ไม่บังคับ)"></div>
       <div class="crow"><label>ชื่อผู้แทน <span class="req">*</span></label><input id="sr_name" value="${escapeHtml(representative.name||'')}" placeholder="ชื่อผู้แทน"></div>
@@ -4586,7 +4586,7 @@ function renderRepresentativeHistory(){
   if(!central&&!representative&&!product) return '<div class="empty">ไม่พบผู้แทนหรือสินค้า</div>';
   if(!representativeActivityLoading&&representativeActivityLoadedKey!==representativeHistoryKey(context)&&!representativeActivityLoadError) setTimeout(()=>loadRepresentativeActivityHistory(),0);
   const groups=representativeHistoryGroups();
-  const title=central?'ประวัติผู้แทน':representative?`ข้อมูลผู้แทน ${representative.name}`:`ผู้แทนที่ดูแล ${product.name}`;
+  const title=central?'ผู้แทน':representative?`ข้อมูลผู้แทน ${representative.name}`:`ผู้แทนที่ดูแล ${product.name}`;
   const canCreate=canPerformPageAction('create','notes');
   const canCreateRepresentative=canPerformPageAction('create','salesreps');
   const canEditRepresentative=representative&&canPerformPageAction('edit','salesreps');
@@ -4599,13 +4599,14 @@ function renderRepresentativeHistory(){
     :`${historyFilters}<div class="representative-groups-grid">${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':groups.map(representativeHistoryGroupHtml).join('')||'<div class="representative-history-empty">ยังไม่มีข้อมูลที่ตรงกับการค้นหา</div>'}</div>`;
   const centralActions=`<button class="btn ghost" id="exportSalesRepsBtn" type="button">ส่งออก Excel</button><button class="btn ghost" id="downloadSalesRepTemplateBtn" type="button">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importSalesRepsBtn" type="button">นำเข้า Excel</button><input id="salesRepImportFile" type="file" accept=".xlsx,.xls,.csv" hidden>${canCreateRepresentative?'<button class="btn primary" id="newSalesRepBtn" type="button">+ เพิ่มผู้แทน</button>':''}`;
   const detailActions=`<button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button>${canEditRepresentative?`<button class="btn ghost" data-act="editsalesrep" data-id="${representative.id}" type="button">แก้ไขข้อมูลผู้แทน</button>`:''}${representativeDetail&&canCreate?'<button class="btn primary" id="newRepresentativeActivityBtn" type="button">+ เพิ่มโน้ต</button>':''}`;
-  return `<div class="rpt representative-history-page"><div class="pagehead"><div>${central?'':`<div class="breadcrumb">ประวัติผู้แทน › ผู้แทนและสินค้าที่ดูแล</div>`}<h1>${escapeHtml(title)}</h1><p>${representative?.company?escapeHtml(representative.company):product?`รหัสสินค้า ${escapeHtml(product.sku||'-')}`:'ค้นหาผู้แทน สินค้าที่ดูแล และ NOTE ได้จากหน้าเดียว'}</p></div><div class="form-final-actions">${central?centralActions:detailActions}</div></div>${representativeActivityLoadError?`<div class="notice danger">${escapeHtml(representativeActivityLoadError)}</div>`:''}${pageBody}</div>${representativeNoteEditorModalHtml()}${representativeProductsEditorModalHtml()}${representativeEditorModalHtml()}`;
+  return `<div class="rpt representative-history-page"><div class="pagehead"><div>${central?'':`<div class="breadcrumb">ผู้แทน › ผู้แทนและสินค้าที่ดูแล</div>`}<h1>${escapeHtml(title)}</h1><p>${representative?.company?escapeHtml(representative.company):product?`รหัสสินค้า ${escapeHtml(product.sku||'-')}`:'ค้นหาผู้แทน สินค้าที่ดูแล และ NOTE ได้จากหน้าเดียว'}</p></div><div class="form-final-actions">${central?centralActions:detailActions}</div></div>${representativeActivityLoadError?`<div class="notice danger">${escapeHtml(representativeActivityLoadError)}</div>`:''}${pageBody}</div>${representativeNoteEditorModalHtml()}${representativeProductsEditorModalHtml()}${representativeEditorModalHtml()}`;
 }
 function syncRepresentativeActivityDraftFromForm(){
   if(!representativeActivityDraft) return;
   const value=id=>document.getElementById(id)?.value??'';
   Object.assign(representativeActivityDraft,{
-    eventDate:value('repActivityEventDate'),title:value('repActivityTitle'),content:value('repActivityContent')
+    eventDate:value('repActivityEventDate'),title:value('repActivityTitle'),
+    contentHtml:sanitizeNoteHtml(document.getElementById('repActivityContentEditor')?.innerHTML||'')
   });
 }
 async function saveRepresentativeActivity(){
@@ -4616,10 +4617,10 @@ async function saveRepresentativeActivity(){
   if(!draft.eventDate){ showToast('กรุณาเลือกวันที่','danger-top'); return; }
   if(!String(draft.title||'').trim()){ showToast('กรุณากรอกหัวข้อ NOTE','danger-top'); document.getElementById('repActivityTitle')?.focus(); return; }
   const title=String(draft.title||'').trim();
-  const text=String(draft.content||'').trim();
+  const contentHtml=sanitizeNoteHtml(draft.contentHtml||'');
   const rpcPayload={
     p_note_id:draft.id==='new'?null:draft.id,p_expected_updated_at:draft.id==='new'?null:draft.updatedAt,p_title:title,
-    p_content_html:text?`<p>${escapeHtml(text).replace(/\r?\n/g,'<br>')}</p>`:'',p_representative_id:Number(draft.representativeId),
+    p_content_html:notePlainText(contentHtml)?contentHtml:'',p_representative_id:Number(draft.representativeId),
     p_event_date:draft.eventDate,p_product_ids:[]
   };
   const button=document.getElementById('saveRepresentativeActivityBtn');
@@ -4704,6 +4705,21 @@ function attachRepresentativeHistoryEvents(){
   document.getElementById('cancelRepresentativeActivityBtn')?.addEventListener('click',()=>{ representativeActivityDraft=null; render(); });
   document.getElementById('cancelRepresentativeActivityBottomBtn')?.addEventListener('click',()=>{ representativeActivityDraft=null; render(); });
   document.getElementById('saveRepresentativeActivityBtn')?.addEventListener('click',saveRepresentativeActivity);
+  const representativeNoteEditor=document.getElementById('repActivityContentEditor');
+  representativeNoteEditor?.addEventListener('paste',event=>{
+    event.preventDefault();
+    const html=event.clipboardData?.getData('text/html');
+    const plain=event.clipboardData?.getData('text/plain')||'';
+    document.execCommand('insertHTML',false,html?sanitizeNoteHtml(html):escapeHtml(plain).replace(/\r?\n/g,'<br>'));
+  });
+  document.querySelectorAll('[data-representative-note-command]').forEach(button=>{
+    button.addEventListener('mousedown',event=>event.preventDefault());
+    button.addEventListener('click',()=>{ if(!representativeNoteEditor) return; document.execCommand(button.dataset.representativeNoteCommand,false,null); representativeNoteEditor.focus(); });
+  });
+  document.querySelectorAll('[data-representative-note-color]').forEach(button=>{
+    button.addEventListener('mousedown',event=>event.preventDefault());
+    button.addEventListener('click',()=>{ if(!representativeNoteEditor) return; document.execCommand('foreColor',false,button.dataset.representativeNoteColor); representativeNoteEditor.focus(); });
+  });
   const representativeSearch=document.getElementById('representativeHistoryRepresentativeSearch');
   const productSearchFilter=document.getElementById('representativeHistoryProductSearch');
   const noteSearch=document.getElementById('representativeHistoryNoteSearch');
@@ -11197,7 +11213,7 @@ function auditLogDateTime(value){
   return `${pad(date.getDate())}-${pad(date.getMonth()+1)}-${date.getFullYear()} / ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 function auditEntityLabel(type){
-  return ({products:'สินค้า',product:'สินค้า',warehouses:'คลังสินค้า',settings:'การตั้งค่า',contacts:'สมุดรายชื่อ',sales_representatives:'ผู้แทนขาย',notes:'NOTE / ประวัติผู้แทน',promotions:'โปรโมชั่น',sales:'บิลขาย',cash_shifts:'กะขาย',quotations:'ใบเสนอราคา',invoices_ar:'ใบแจ้งหนี้',credit_notes:'ใบลดหนี้',purchase_orders:'สั่งของขาด',goods_receipts:'ใบรับสินค้า',product_exchanges:'เปลี่ยนสินค้า',purchase_orders_full:'ใบสั่งซื้อสินค้า',product_returns:'ใบคืนสินค้า',transfers:'โอนสินค้าระหว่างคลัง',standalone_tax_invoices:'ใบกำกับภาษี',inspection_lists:'รายการตรวจสินค้า',profiles:'ผู้ใช้งาน',profile_warehouse_access:'สิทธิ์คลังสินค้า',inventory_count:'ปรับสต๊อก',inventory_lot:'Lot สินค้า',store_reset:'ล้างข้อมูลระบบ'})[type]||type||'-';
+  return ({products:'สินค้า',product:'สินค้า',warehouses:'คลังสินค้า',settings:'การตั้งค่า',contacts:'สมุดรายชื่อ',sales_representatives:'ผู้แทนขาย',notes:'NOTE / ผู้แทน',promotions:'โปรโมชั่น',sales:'บิลขาย',cash_shifts:'กะขาย',quotations:'ใบเสนอราคา',invoices_ar:'ใบแจ้งหนี้',credit_notes:'ใบลดหนี้',purchase_orders:'สั่งของขาด',goods_receipts:'ใบรับสินค้า',product_exchanges:'เปลี่ยนสินค้า',purchase_orders_full:'ใบสั่งซื้อสินค้า',product_returns:'ใบคืนสินค้า',transfers:'โอนสินค้าระหว่างคลัง',standalone_tax_invoices:'ใบกำกับภาษี',inspection_lists:'รายการตรวจสินค้า',profiles:'ผู้ใช้งาน',profile_warehouse_access:'สิทธิ์คลังสินค้า',inventory_count:'ปรับสต๊อก',inventory_lot:'Lot สินค้า',store_reset:'ล้างข้อมูลระบบ'})[type]||type||'-';
 }
 function auditActionLabel(action){
   return ({insert:'สร้าง',update:'แก้ไข',delete:'ลบ',stock_adjusted:'ปรับสต๊อก',unit_changed:'เปลี่ยนหน่วยหลัก',lot_expiry_changed:'แก้วันหมดอายุ Lot',lot_reallocated:'ปรับจำนวนแยก Lot',store_reset:'ล้างข้อมูล'})[action]||action||'-';
