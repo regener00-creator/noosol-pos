@@ -1969,6 +1969,16 @@ let contacts=[];
 const CONTACTS_STORAGE_KEY='pharmacy_pos_contacts_v1';
 try{ const savedContacts=JSON.parse(localStorage.getItem(CONTACTS_STORAGE_KEY)||'null'); if(Array.isArray(savedContacts)) contacts=savedContacts; }catch(error){ console.warn('ไม่สามารถโหลดสมุดรายชื่อได้',error); }
 function persistContacts(){ persistWorkspaceData(); }
+async function persistCustomerPricingImmediately(contact){
+  if(!currentProfile||!contact) return true;
+  const row=contactToRow(contact);
+  const {error}=await sb.from('contacts').upsert(row,{onConflict:'id'});
+  if(error) throw error;
+  const snapshot=syncedTableRows.contacts||new Map();
+  snapshot.set(String(row.id),JSON.stringify(row));
+  syncedTableRows.contacts=snapshot;
+  return true;
+}
 let nextContactId=maxArrayValue(contacts,contact=>(Number(contact.id)||0)+1,1);
 let contactFilter = 'all'; // all | customer | supplier | both
 let contactPage = 1;
@@ -15175,16 +15185,26 @@ function saveContact(){
   render();
 }
 
-function saveCustomerPricing(){
+async function saveCustomerPricing(){
   const customer=contacts.find(contact=>Number(contact.id)===Number(editingCustomerPriceContactId));
   if(!customer){ showToast('ไม่พบข้อมูลลูกค้า','danger-top'); return; }
   const customerPrices=collectCustomerPriceRules();
   if(customerPrices===null) return;
   customer.customerPrices=customerPrices;
   persistContacts();
-  editingCustomerPriceContactId=null;
-  showToast(`บันทึกราคาพิเศษของ “${customer.name}” แล้ว`);
-  render();
+  const saveButton=document.getElementById('saveCustomerPricingBtn');
+  if(saveButton){ saveButton.disabled=true; saveButton.textContent='กำลังบันทึก...'; }
+  try{
+    await persistCustomerPricingImmediately(customer);
+    editingCustomerPriceContactId=null;
+    showToast(`บันทึกราคาพิเศษของ “${customer.name}” แล้ว`);
+    render();
+  }catch(error){
+    console.warn('save customer pricing',error);
+    rememberSyncUiError(error,{operation:'save_customer_pricing',tableName:'contacts',recordId:customer.id,fallbackMessage:'บันทึกราคาพิเศษไม่สำเร็จ'});
+    showToast('บันทึกราคาพิเศษขึ้นระบบไม่สำเร็จ กรุณาลองอีกครั้ง','danger-top');
+    if(saveButton){ saveButton.disabled=false; saveButton.textContent='บันทึกราคาพิเศษ'; }
+  }
 }
 
 function deleteContact(id){
@@ -17156,7 +17176,8 @@ async function doCheckout(payMethod,options={}){
     if(message.includes('cash shift required')){ currentCashShift=null; currentTab='cashshift'; await loadCashShiftsFromSupabase(); }
     checkoutInFlight=false;
     render();
-    showToast(message.includes('cash shift required')?'ระบบชำระถูกปิดไปแล้ว กรุณาเปิดระบบใหม่':message.includes('is inactive')?'มีสินค้าถูกปิดใช้งาน กรุณารีเฟรชและลบสินค้านั้นออกจากบิล':lowerMessage.includes('payload')?'มีคำขอชำระเดิมค้างอยู่ ระบบจะไม่สร้างคำขอใหม่ กรุณาตรวจสอบบิลเดิม':definitiveFailure?(message||'ระบบปฏิเสธรายการ กรุณาตรวจข้อมูลแล้วลองใหม่'):'ยังไม่ได้รับการยืนยันจากระบบ กรุณากดชำระซ้ำ ระบบจะใช้คำขอเดิมและไม่สร้างบิลซ้ำ','danger-top');
+    const checkoutErrorMessage=message.includes('cash shift required')?'ระบบชำระถูกปิดไปแล้ว กรุณาเปิดระบบใหม่':message.includes('is inactive')?'มีสินค้าถูกปิดใช้งาน กรุณารีเฟรชและลบสินค้านั้นออกจากบิล':lowerMessage.includes('customer special price')?'ราคาพิเศษของลูกค้ายังไม่ตรงกับข้อมูลบนระบบ กรุณาเปิดสมุดรายชื่อแล้วบันทึกราคาพิเศษอีกครั้ง':lowerMessage.includes('product price changed')?'ราคาสินค้าเปลี่ยนแล้ว กรุณาล้างรายการเดิมและยิงสินค้าใหม่':lowerMessage.includes('payload')?'มีคำขอชำระเดิมค้างอยู่ ระบบจะไม่สร้างคำขอใหม่ กรุณาตรวจสอบบิลเดิม':definitiveFailure?(message||'ระบบปฏิเสธรายการ กรุณาตรวจข้อมูลแล้วลองใหม่'):'ยังไม่ได้รับการยืนยันจากระบบ กรุณากดชำระซ้ำ ระบบจะใช้คำขอเดิมและไม่สร้างบิลซ้ำ';
+    showToast(checkoutErrorMessage,'danger-top');
     return;
   }
   const existingSaleIndex=salesHistory.findIndex(sale=>sale.id===completedSale.id);
