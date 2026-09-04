@@ -15,12 +15,21 @@ assert.match(migration, /grant insert \(representative_id,product_id,activity_ty
 assert.match(migration, /create trigger audit_notes_changes/);
 
 assert.match(html, /function renderRepresentativeHistory\(\)/);
+assert.match(html, /function renderRepresentativeHistoryOverview\(\)/);
 assert.match(html, /function loadRepresentativeActivityHistory\(/);
 assert.match(html, /function representativeDocumentActivities\(/);
 assert.match(html, /\['purchase_orders','goods_receipts','purchase_orders_full','product_returns'\]/);
 assert.match(html, /companyMatches\.length===1\?companyMatches\[0\]:null/, 'must not guess a representative when several people share one company');
 assert.match(html, /data-representative-history=/);
 assert.match(html, /data-product-representative-history=/);
+assert.match(html, /\['representativehistory','ประวัติผู้แทน'/);
+assert.match(html, /representativehistory: renderRepresentativeHistoryOverview/);
+assert.match(html, /id="representativeHistoryRepresentativeFilter"/);
+assert.match(html, /id="representativeHistoryProductFilter"/);
+assert.match(html, /id="representativeHistoryFromFilter"/);
+assert.match(html, /id="representativeHistoryReminderFilter"/);
+assert.match(html, /data-open-representative-history=/);
+assert.match(html, /data-open-product-history=/);
 assert.match(html, /บันทึกรายการนี้จะแสดงในหน้า NOTE และ Timeline/);
 assert.match(html, /activity_type:draft\.activityType\|\|'general'/);
 assert.match(html, /notes:'NOTE \/ ประวัติผู้แทน'/);

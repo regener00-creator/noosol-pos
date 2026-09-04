@@ -2024,12 +2024,17 @@
 
   .representative-history-page{max-width:1500px;margin:0 auto;}
   .representative-history-page .pagehead p{margin:5px 0 0;color:var(--text-muted);}
-  .representative-history-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px;}
+  .representative-history-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:14px;}
   .representative-history-summary>div{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:16px 18px;border:1px solid var(--border);border-radius:14px;background:var(--surface);box-shadow:0 5px 18px rgba(79,64,56,.05);}
   .representative-history-summary span{color:var(--text-muted);font-size:13px;}
   .representative-history-summary b{color:var(--primary);font-size:24px;}
   .representative-history-filter{display:grid;grid-template-columns:minmax(170px,230px) minmax(260px,1fr) auto;gap:10px;align-items:center;margin-bottom:14px;padding:12px;}
   .representative-history-filter input,.representative-history-filter select{width:100%;height:42px;border:1px solid var(--border);border-radius:9px;background:var(--surface);padding:0 12px;font-family:inherit;}
+  .representative-history-filter-central{grid-template-columns:repeat(3,minmax(0,1fr));align-items:end;padding:16px;}
+  .representative-history-filter-central label,.representative-history-search{display:flex;min-width:0;flex-direction:column;gap:6px;color:var(--text-muted);font-size:12px;font-weight:700;}
+  .representative-history-filter-central select{white-space:nowrap;text-overflow:ellipsis;overflow:hidden;}
+  .representative-history-filter-actions{display:flex;justify-content:flex-end;gap:8px;align-items:center;}
+  .representative-history-result-count{grid-column:1/-1;border-top:1px solid var(--border);padding-top:11px;color:var(--text-muted);font-size:12px;font-weight:700;text-align:right;}
   .representative-activity-form{margin-bottom:14px;padding:18px;}
   .representative-activity-form-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:15px;}
   .representative-activity-form-head h3{margin:0;color:var(--primary-dark);font-size:20px;}
@@ -2057,6 +2062,8 @@
   .representative-activity-title{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;}
   .representative-activity-title h3{margin:0;color:var(--primary-dark);font-size:16px;}
   .representative-activity-title p{margin:4px 0 0;color:var(--text-muted);font-size:12px;}
+  .representative-activity-link{display:inline;border:0;background:transparent;padding:0;color:#1570A6;font:inherit;font-weight:700;cursor:pointer;text-align:left;}
+  .representative-activity-link:hover{text-decoration:underline;}
   .representative-activity-source{flex:0 0 auto;border-radius:999px;background:var(--primary-soft);color:var(--primary);padding:4px 9px;font-size:11px;font-weight:800;}
   .representative-activity-commercial{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;}
   .representative-activity-commercial span{border-radius:8px;background:#FFF7E7;color:#8B5A0B;padding:6px 9px;font-size:12px;font-weight:700;}
@@ -2068,9 +2075,11 @@
   @media(max-width:900px){
     .representative-history-summary{grid-template-columns:1fr;}
     .representative-history-filter{grid-template-columns:1fr;}
+    .representative-history-filter-central{grid-template-columns:1fr 1fr;}
+    .representative-history-filter-actions,.representative-history-result-count{grid-column:1/-1;}
     .representative-activity-grid{grid-template-columns:1fr 1fr;}
     .representative-activity-wide{grid-column:1/-1;}
     .representative-activity-card{grid-template-columns:1fr;}
     .representative-activity-date{flex-direction:row;justify-content:space-between;padding:11px 14px;}
   }
-  @media(max-width:620px){.representative-activity-grid{grid-template-columns:1fr;}.representative-activity-wide{grid-column:auto;}}
+  @media(max-width:620px){.representative-history-filter-central{grid-template-columns:1fr;}.representative-history-filter-actions{justify-content:stretch;}.representative-history-filter-actions .btn{flex:1;}.representative-activity-grid{grid-template-columns:1fr;}.representative-activity-wide{grid-column:auto;}}

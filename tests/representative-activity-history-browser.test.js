@@ -79,6 +79,25 @@ let browser;
   await page.locator('#representativeHistoryTypeFilter').selectOption('contact');
   assert.equal(await page.locator('.representative-activity-card').count(), 0);
   assert.match(await page.locator('.representative-history-empty').textContent(), /ยังไม่มีประวัติ/);
+
+  await page.evaluate(() => {
+    currentTab='representativehistory';
+    representativeHistoryContext=centralRepresentativeHistoryContext();
+    representativeHistoryFilter=emptyRepresentativeHistoryFilter();
+    representativeActivityLoadedKey=representativeHistoryKey();
+    document.getElementById('main').innerHTML=renderRepresentativeHistoryOverview();
+    attachEvents();
+  });
+  assert.equal(await page.locator('.representative-history-page h1').textContent(), 'ประวัติผู้แทน');
+  assert.equal(await page.locator('#representativeHistoryRepresentativeFilter').count(), 1);
+  assert.equal(await page.locator('#representativeHistoryProductFilter option').count(), 2);
+  assert.equal(await page.locator('#representativeHistoryReminderFilter').count(), 1);
+  assert.match(await page.locator('.representative-history-result-count').textContent(), /1 จาก 1 รายการ/);
+  await page.locator('#representativeHistoryReminderFilter').selectOption('scheduled');
+  assert.equal(await page.locator('.representative-activity-card').count(), 1);
+  await page.locator('[data-open-representative-history="10"]').first().click();
+  assert.equal(await page.locator('.representative-history-page h1').textContent(), 'ประวัติผู้แทน คุณโป้');
+  assert.equal(await page.locator('#closeRepresentativeHistoryBtn').count(), 1);
   assert.deepEqual(errors, []);
 })().catch(error => {
   console.error(error);

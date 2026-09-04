@@ -3124,7 +3124,7 @@ let representativeActivityLoading=false;
 let representativeActivityLoadedKey='';
 let representativeActivityLoadError='';
 let representativeActivityDraft=null;
-let representativeHistoryFilter={type:'all',search:''};
+let representativeHistoryFilter={type:'all',representativeId:'',productId:'',from:'',to:'',reminder:'all',search:''};
 window.addEventListener('beforeunload',event=>{
   const hasUnsavedBusiness=currentTab==='settingsbusiness'&&businessSettingsDirty;
   const hasUnsavedNote=currentTab==='notes'&&noteDraftDirty;
@@ -3430,12 +3430,15 @@ loadWorkspaceData();
 
 function loggedInUser(){ return currentProfile; }
 function isLevel2User(user=loggedInUser()){ return Number(user?.level)===2; }
-const LEVEL2_HIDDEN_TABS=new Set(['settingssystem','settingsbusiness','rprofit','rtax','warehouse','transfer','stockcontrol','stockadjust','stockedit','barcodeprint','promotions','purchaseorder','productexchange','contacts','salesreps','taxinvoice','quotation','purchaseorder2','productreturn']);
-const ALL_WAREHOUSES_TABS=new Set(['dashboard','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','rprofit','rtax','auditlog']);
+const LEVEL2_HIDDEN_TABS=new Set(['settingssystem','settingsbusiness','rprofit','rtax','warehouse','transfer','stockcontrol','stockadjust','stockedit','barcodeprint','promotions','purchaseorder','productexchange','contacts','salesreps','representativehistory','taxinvoice','quotation','purchaseorder2','productreturn']);
+const ALL_WAREHOUSES_TABS=new Set(['dashboard','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','rprofit','rtax','auditlog','representativehistory']);
 function canAccessTab(tab,user=loggedInUser()){
   if(!user) return false;
   if(isAllWarehousesMode()&&!ALL_WAREHOUSES_TABS.has(tab)) return false;
   if((tab==='settingsusers'||tab==='auditlog')&&user.owner!==true) return false;
+  if(tab==='representativehistory'&&Number(user.level)===2){
+    return canPerformPageAction('view','salesreps',user)&&canPerformPageAction('view','notes',user);
+  }
   if(Number(user.level)===2&&!canPerformPageAction('view',tab,user)) return false;
   return true;
 }
@@ -3895,6 +3898,7 @@ const NAV = [
     ['goodsreceipt','รับเข้าสินค้า','<path d="M21 8L12 3 3 8"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13V3"/>'],
     ['productexchange','เปลี่ยนสินค้า','<path d="M7 7h11l-3-3"/><path d="M18 7l-3 3"/><path d="M17 17H6l3 3"/><path d="M6 17l3-3"/>'],
     ['productreturn','ใบคืนสินค้า','<path d="M3 7h13a5 5 0 0 1 0 10H8"/><path d="M8 13l-4 4 4 4"/><path d="M4 17h12"/>'],
+    ['representativehistory','ประวัติผู้แทน','<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 7v5l3 2"/>'],
   ]},
   {section:'คลัง & สินค้า', items:[
     ['products','รายการสินค้า','<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/>'],
@@ -4204,8 +4208,11 @@ function attachNoteEvents(){
 
 function representativeHistoryKey(context=representativeHistoryContext){
   if(!context) return '';
-  return `rep:${Number(context.representativeId)||0}:product:${Number(context.productId)||0}`;
+  return `${context.central?'central':'detail'}:rep:${Number(context.representativeId)||0}:product:${Number(context.productId)||0}`;
 }
+function emptyRepresentativeHistoryFilter(){ return {type:'all',representativeId:'',productId:'',from:'',to:'',reminder:'all',search:''}; }
+function centralRepresentativeHistoryContext(){ return {representativeId:null,productId:null,originTab:'representativehistory',central:true,returnFilter:null}; }
+function isRepresentativeHistoryScreen(){ return currentTab==='salesreps'||currentTab==='representativehistory'; }
 function representativeActivityTypeLabel(type){ return REPRESENTATIVE_ACTIVITY_TYPES[type]||'หมายเหตุ'; }
 function representativeActivityDateLabel(value){ return value?isoToDMY(String(value).slice(0,10)):'-'; }
 function representativeForActivityId(id){ return salesRepresentatives.find(rep=>Number(rep.id)===Number(id))||null; }
@@ -4221,29 +4228,40 @@ function openRepresentativeHistory({representativeId=null,productId=null,originT
   representativeHistoryContext={
     representativeId:representativeId?Number(representativeId):null,
     productId:productId?Number(productId):null,
-    originTab:originTab||'salesreps'
+    originTab:originTab||'salesreps',central:false,
+    returnFilter:originTab==='representativehistory'?{...representativeHistoryFilter}:null
   };
-  representativeHistoryFilter={type:'all',search:''};
+  representativeHistoryFilter=emptyRepresentativeHistoryFilter();
   representativeActivityDraft=null;
   editingSalesRepresentativeId=null;
   resetRepresentativeActivityLoad();
-  currentTab='salesreps';
+  currentTab=originTab==='representativehistory'?'representativehistory':'salesreps';
   render();
 }
 function closeRepresentativeHistory(){
   const origin=representativeHistoryContext?.originTab||'salesreps';
-  representativeHistoryContext=null;
+  const returnFilter=representativeHistoryContext?.returnFilter;
+  representativeHistoryContext=origin==='representativehistory'?centralRepresentativeHistoryContext():null;
+  representativeHistoryFilter=origin==='representativehistory'&&returnFilter?returnFilter:emptyRepresentativeHistoryFilter();
   representativeActivityDraft=null;
   resetRepresentativeActivityLoad();
   currentTab=origin;
   render();
+}
+function renderRepresentativeHistoryOverview(){
+  if(!representativeHistoryContext){
+    representativeHistoryContext=centralRepresentativeHistoryContext();
+    representativeHistoryFilter=emptyRepresentativeHistoryFilter();
+    resetRepresentativeActivityLoad();
+  }
+  return renderRepresentativeHistory();
 }
 async function loadRepresentativeActivityHistory({force=false}={}){
   const context=representativeHistoryContext,key=representativeHistoryKey(context);
   if(!context||representativeActivityLoading||(!force&&representativeActivityLoadedKey===key)) return;
   representativeActivityLoading=true;
   representativeActivityLoadError='';
-  if(currentTab==='salesreps') render();
+  if(isRepresentativeHistoryScreen()) render();
   try{
     const buildActivityQuery=()=>{
       let query=sb.from('notes').select(NOTE_ROW_SELECT).not('activity_type','is',null);
@@ -4263,7 +4281,7 @@ async function loadRepresentativeActivityHistory({force=false}={}){
     representativeActivityLoadError=error?.message||'โหลดประวัติผู้แทนและสินค้าไม่สำเร็จ';
   }finally{
     representativeActivityLoading=false;
-    if(currentTab==='salesreps'&&representativeHistoryKey()===key) render();
+    if(isRepresentativeHistoryScreen()&&representativeHistoryKey()===key) render();
   }
 }
 function normalizedActivityName(value){ return String(value||'').trim().toLocaleLowerCase('th-TH'); }
@@ -4303,6 +4321,7 @@ function representativeDocumentActivities(context=representativeHistoryContext){
   sources.forEach(source=>(source.rows||[]).forEach(doc=>{
     const representative=documentRepresentative(doc);
     if(context.representativeId&&Number(representative?.id)!==Number(context.representativeId)) return;
+    if(context.central&&!representative) return;
     const items=documentActivityItems(doc);
     const relevantItems=context.productId?items.filter(item=>Number(item.productId)===Number(context.productId)):items;
     if(context.productId&&!relevantItems.length) return;
@@ -4324,7 +4343,10 @@ function representativeTimelineActivities(){
 }
 function activityFilterText(activity){
   const representative=representativeForActivityId(activity.representativeId);
-  const items=(activity.items||[]).map(item=>`${item.name} ${item.unit}`).join(' ');
+  const items=(activity.items||[]).map(item=>{
+    const product=productForActivityId(item.productId);
+    return `${item.name} ${item.unit} ${product?.sku||''} ${product?.barcode||''}`;
+  }).join(' ');
   return normalizedActivityName(`${activity.title} ${notePlainText(activity.contentHtml||'')} ${representative?.name||''} ${representative?.company||''} ${items} ${activity.sourceId||''} ${activity.status||''}`);
 }
 function newRepresentativeActivityDraft(){
@@ -4332,6 +4354,7 @@ function newRepresentativeActivityDraft(){
   return {id:'new',representativeId:context.representativeId||salesRepresentatives[0]?.id||'',productId:context.productId||'',activityType:'promotion',eventDate:TODAY_STR,title:'',content:'',validFrom:TODAY_STR,validTo:'',quotedPrice:'',minimumQuantity:'',unit:productForActivityId(context.productId)?.unit||'',reminderDate:'',updatedAt:''};
 }
 function editRepresentativeActivity(note){
+  if(!canEditNote(note)) return;
   representativeActivityDraft={
     id:note.id,representativeId:note.representativeId||'',productId:note.productId||'',activityType:note.activityType||'general',eventDate:note.eventDate||TODAY_STR,
     title:note.title||'',content:notePlainText(note.contentHtml||''),validFrom:note.validFrom||'',validTo:note.validTo||'',quotedPrice:note.quotedPrice??'',
@@ -4365,18 +4388,24 @@ function representativeActivityFormHtml(){
 function representativeActivityCardHtml(activity){
   const representative=representativeForActivityId(activity.representativeId);
   const product=activity.productId?productForActivityId(activity.productId):null;
-  const itemHtml=(activity.items||[]).length?`<div class="representative-activity-items">${activity.items.map(item=>`<span><b>${escapeHtml(item.name)}</b>${item.qty?` · ${escapeHtml(inventoryMovementRound(item.qty))} ${escapeHtml(item.unit||'')}`:''}${item.price?` · ${fmtMoney(item.price)} บาท`:''}</span>`).join('')}</div>`:'';
+  const itemHtml=(activity.items||[]).length?`<div class="representative-activity-items">${activity.items.map(item=>`<span>${item.productId?`<button type="button" class="representative-activity-link" data-open-product-history="${escapeHtml(item.productId)}">${escapeHtml(item.name)}</button>`:`<b>${escapeHtml(item.name)}</b>`}${item.qty?` · ${escapeHtml(inventoryMovementRound(item.qty))} ${escapeHtml(item.unit||'')}`:''}${item.price?` · ${fmtMoney(item.price)} บาท`:''}</span>`).join('')}</div>`:'';
   const commercial=[];
   if(activity.quotedPrice!=null) commercial.push(`ราคา ${fmtMoney(activity.quotedPrice)} บาท${activity.unit?` / ${escapeHtml(activity.unit)}`:''}`);
   if(activity.minimumQuantity) commercial.push(`ขั้นต่ำ ${escapeHtml(inventoryMovementRound(activity.minimumQuantity))} ${escapeHtml(activity.unit||'')}`);
   if(activity.validFrom||activity.validTo) commercial.push(`ช่วง ${escapeHtml(representativeActivityDateLabel(activity.validFrom))} – ${escapeHtml(representativeActivityDateLabel(activity.validTo))}`);
   if(activity.reminderDate) commercial.push(`ติดตาม ${escapeHtml(representativeActivityDateLabel(activity.reminderDate))}`);
+  const identity=[];
+  if(representative) identity.push(`<button type="button" class="representative-activity-link" data-open-representative-history="${escapeHtml(representative.id)}">ผู้แทน ${escapeHtml(representative.name)}</button>`);
+  else identity.push('ไม่พบผู้แทน');
+  if(product) identity.push(`<button type="button" class="representative-activity-link" data-open-product-history="${escapeHtml(product.id)}">${escapeHtml(product.name)}</button>`);
+  if(activity.status) identity.push(escapeHtml(activity.status));
+  const canEdit=activity.manual&&canEditNote(activity),canDelete=activity.manual&&canDeleteNote(activity);
   return `<article class="representative-activity-card ${activity.manual?'manual':'document'}">
     <div class="representative-activity-date"><b>${escapeHtml(representativeActivityDateLabel(activity.eventDate))}</b><span>${escapeHtml(representativeActivityTypeLabel(activity.activityType))}</span></div>
-    <div class="representative-activity-body"><div class="representative-activity-title"><div><h3>${escapeHtml(activity.title||'-')}</h3><p>${representative?`ผู้แทน ${escapeHtml(representative.name)}`:'ไม่พบผู้แทน'}${product?` · ${escapeHtml(product.name)}`:''}${activity.status?` · ${escapeHtml(activity.status)}`:''}</p></div><span class="representative-activity-source">${activity.manual?'NOTE':escapeHtml(activity.sourceLabel||'เอกสาร')}</span></div>
+    <div class="representative-activity-body"><div class="representative-activity-title"><div><h3>${escapeHtml(activity.title||'-')}</h3><p>${identity.join('<span aria-hidden="true"> · </span>')}</p></div><span class="representative-activity-source">${activity.manual?'NOTE':escapeHtml(activity.sourceLabel||'เอกสาร')}</span></div>
       ${commercial.length?`<div class="representative-activity-commercial">${commercial.map(text=>`<span>${text}</span>`).join('')}</div>`:''}${itemHtml}
       ${activity.contentHtml?`<div class="representative-activity-note">${sanitizeNoteHtml(activity.contentHtml)}</div>`:''}
-      ${activity.manual?`<div class="representative-activity-actions"><button class="btn ghost small" data-edit-representative-activity="${escapeHtml(activity.id)}" type="button">แก้ไข</button><button class="btn danger small" data-delete-representative-activity="${escapeHtml(activity.id)}" type="button">ลบ</button></div>`:''}
+      ${canEdit||canDelete?`<div class="representative-activity-actions">${canEdit?`<button class="btn ghost small" data-edit-representative-activity="${escapeHtml(activity.id)}" type="button">แก้ไข</button>`:''}${canDelete?`<button class="btn danger small" data-delete-representative-activity="${escapeHtml(activity.id)}" type="button">ลบ</button>`:''}</div>`:''}
     </div>
   </article>`;
 }
@@ -4384,20 +4413,47 @@ function renderRepresentativeHistory(){
   const context=representativeHistoryContext||{};
   const representative=representativeForActivityId(context.representativeId);
   const product=productForActivityId(context.productId);
-  if(!representative&&!product) return '<div class="empty">ไม่พบผู้แทนหรือสินค้า</div>';
+  const central=context.central===true;
+  if(!central&&!representative&&!product) return '<div class="empty">ไม่พบผู้แทนหรือสินค้า</div>';
   if(!representativeActivityLoading&&representativeActivityLoadedKey!==representativeHistoryKey(context)&&!representativeActivityLoadError) setTimeout(()=>loadRepresentativeActivityHistory(),0);
   const all=representativeTimelineActivities();
   const needle=normalizedActivityName(representativeHistoryFilter.search);
-  const filtered=all.filter(activity=>(representativeHistoryFilter.type==='all'||activity.activityType===representativeHistoryFilter.type)&&(!needle||activityFilterText(activity).includes(needle)));
-  const productCount=new Set(all.flatMap(activity=>(activity.items||[]).map(item=>Number(item.productId)).filter(Boolean))).size;
+  const activityProductIds=activity=>new Set([Number(activity.productId),...(activity.items||[]).map(item=>Number(item.productId))].filter(Boolean));
+  const filtered=all.filter(activity=>{
+    if(representativeHistoryFilter.type!=='all'&&activity.activityType!==representativeHistoryFilter.type) return false;
+    if(representativeHistoryFilter.representativeId&&Number(activity.representativeId)!==Number(representativeHistoryFilter.representativeId)) return false;
+    if(representativeHistoryFilter.productId&&!activityProductIds(activity).has(Number(representativeHistoryFilter.productId))) return false;
+    if(representativeHistoryFilter.from&&String(activity.eventDate||'')<representativeHistoryFilter.from) return false;
+    if(representativeHistoryFilter.to&&String(activity.eventDate||'')>representativeHistoryFilter.to) return false;
+    if(representativeHistoryFilter.reminder==='scheduled'&&!activity.reminderDate) return false;
+    if(representativeHistoryFilter.reminder==='due'&&(!activity.reminderDate||activity.reminderDate>TODAY_STR)) return false;
+    return !needle||activityFilterText(activity).includes(needle);
+  });
+  const productIds=new Set(all.flatMap(activity=>[Number(activity.productId),...(activity.items||[]).map(item=>Number(item.productId))]).filter(Boolean));
+  const productCount=productIds.size;
   const representativeCount=new Set(all.map(activity=>Number(activity.representativeId)).filter(Boolean)).size;
   const activePromotionCount=all.filter(activity=>activity.activityType==='promotion'&&(!activity.validTo||activity.validTo>=TODAY_STR)).length;
-  const title=representative?`ประวัติผู้แทน ${representative.name}`:`ประวัติสินค้า ${product.name}`;
+  const dueReminderCount=all.filter(activity=>activity.reminderDate&&activity.reminderDate<=TODAY_STR).length;
+  const title=central?'ประวัติผู้แทน':representative?`ประวัติผู้แทน ${representative.name}`:`ประวัติสินค้า ${product.name}`;
+  const availableProducts=[...productIds].map(productForActivityId).filter(Boolean).sort((a,b)=>String(a.name).localeCompare(String(b.name),'th'));
+  const canCreate=canPerformPageAction('create','notes');
+  const centralFilters=`<div class="representative-history-filter representative-history-filter-central panel">
+    <label><span>ผู้แทน</span><select id="representativeHistoryRepresentativeFilter"><option value="">ผู้แทนทั้งหมด</option>${salesRepresentatives.map(rep=>`<option value="${rep.id}" ${Number(representativeHistoryFilter.representativeId)===Number(rep.id)?'selected':''}>${escapeHtml(rep.name)}${rep.company?` · ${escapeHtml(rep.company)}`:''}</option>`).join('')}</select></label>
+    <label><span>สินค้า</span><select id="representativeHistoryProductFilter"><option value="">สินค้าทั้งหมด</option>${availableProducts.map(item=>`<option value="${item.id}" ${Number(representativeHistoryFilter.productId)===Number(item.id)?'selected':''}>${escapeHtml(item.name)} · ${escapeHtml(item.sku||'-')}</option>`).join('')}</select></label>
+    <label><span>ประเภท</span><select id="representativeHistoryTypeFilter"><option value="all">ทุกประเภท</option>${Object.entries(REPRESENTATIVE_ACTIVITY_TYPES).map(([value,label])=>`<option value="${value}" ${representativeHistoryFilter.type===value?'selected':''}>${escapeHtml(label)}</option>`).join('')}</select></label>
+    <label><span>ตั้งแต่วันที่</span><input id="representativeHistoryFromFilter" type="date" value="${escapeHtml(representativeHistoryFilter.from)}"></label>
+    <label><span>ถึงวันที่</span><input id="representativeHistoryToFilter" type="date" value="${escapeHtml(representativeHistoryFilter.to)}"></label>
+    <label><span>การติดตาม</span><select id="representativeHistoryReminderFilter"><option value="all">ทั้งหมด</option><option value="scheduled" ${representativeHistoryFilter.reminder==='scheduled'?'selected':''}>มีวันติดตาม</option><option value="due" ${representativeHistoryFilter.reminder==='due'?'selected':''}>ถึงกำหนด / เกินกำหนด</option></select></label>
+    <div class="representative-history-search"><span>ค้นหา</span><input id="representativeHistorySearch" value="${escapeHtml(representativeHistoryFilter.search)}" placeholder="หัวข้อ สินค้า ผู้แทน หรือเลขที่เอกสาร"></div>
+    <div class="representative-history-filter-actions"><button class="btn ghost" id="clearRepresentativeHistoryFiltersBtn" type="button">ล้างตัวกรอง</button><button class="btn ghost" id="reloadRepresentativeHistoryBtn" type="button">รีเฟรช</button></div>
+    <div class="representative-history-result-count">แสดง ${filtered.length.toLocaleString('th-TH')} จาก ${all.length.toLocaleString('th-TH')} รายการ</div>
+  </div>`;
+  const detailFilters=`<div class="representative-history-filter panel"><select id="representativeHistoryTypeFilter"><option value="all">ทุกประเภท</option>${Object.entries(REPRESENTATIVE_ACTIVITY_TYPES).map(([value,label])=>`<option value="${value}" ${representativeHistoryFilter.type===value?'selected':''}>${escapeHtml(label)}</option>`).join('')}</select><input id="representativeHistorySearch" value="${escapeHtml(representativeHistoryFilter.search)}" placeholder="ค้นหาหัวข้อ สินค้า ผู้แทน หรือเลขที่เอกสาร"><button class="btn ghost" id="reloadRepresentativeHistoryBtn" type="button">รีเฟรช</button></div>`;
   return `<div class="rpt representative-history-page">
-    <div class="pagehead"><div><div class="breadcrumb">รายชื่อผู้แทน › ประวัติผู้แทนและสินค้า</div><h1>${escapeHtml(title)}</h1><p>${representative?.company?escapeHtml(representative.company):product?`รหัสสินค้า ${escapeHtml(product.sku||'-')}`:''}</p></div><div class="form-final-actions"><button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button><button class="btn primary" id="newRepresentativeActivityBtn" type="button">+ เพิ่มประวัติ / NOTE</button></div></div>
-    <div class="representative-history-summary"><div><span>รายการทั้งหมด</span><b>${all.length}</b></div><div><span>${representative?'สินค้าที่เกี่ยวข้อง':'ผู้แทนที่เกี่ยวข้อง'}</span><b>${representative?productCount:representativeCount}</b></div><div><span>โปรโมชั่นที่ยังใช้ได้</span><b>${activePromotionCount}</b></div></div>
+    <div class="pagehead"><div>${central?'':`<div class="breadcrumb">${context.originTab==='representativehistory'?'ประวัติผู้แทน':'รายชื่อผู้แทน'} › ประวัติผู้แทนและสินค้า</div>`}<h1>${escapeHtml(title)}</h1><p>${representative?.company?escapeHtml(representative.company):product?`รหัสสินค้า ${escapeHtml(product.sku||'-')}`:''}</p></div><div class="form-final-actions">${central?'':'<button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button>'}${canCreate?'<button class="btn primary" id="newRepresentativeActivityBtn" type="button">+ เพิ่มประวัติ / NOTE</button>':''}</div></div>
+    <div class="representative-history-summary"><div><span>รายการทั้งหมด</span><b>${all.length}</b></div><div><span>${representative?'สินค้าที่เกี่ยวข้อง':'ผู้แทนที่เกี่ยวข้อง'}</span><b>${representative?productCount:representativeCount}</b></div>${central?`<div><span>สินค้าที่เกี่ยวข้อง</span><b>${productCount}</b></div>`:''}<div><span>โปรโมชั่นที่ยังใช้ได้</span><b>${activePromotionCount}</b></div><div><span>ถึงกำหนดติดตาม</span><b>${dueReminderCount}</b></div></div>
     ${representativeActivityFormHtml()}
-    <div class="representative-history-filter panel"><select id="representativeHistoryTypeFilter"><option value="all">ทุกประเภท</option>${Object.entries(REPRESENTATIVE_ACTIVITY_TYPES).map(([value,label])=>`<option value="${value}" ${representativeHistoryFilter.type===value?'selected':''}>${escapeHtml(label)}</option>`).join('')}</select><input id="representativeHistorySearch" value="${escapeHtml(representativeHistoryFilter.search)}" placeholder="ค้นหาหัวข้อ สินค้า ผู้แทน หรือเลขที่เอกสาร"><button class="btn ghost" id="reloadRepresentativeHistoryBtn" type="button">รีเฟรช</button></div>
+    ${central?centralFilters:detailFilters}
     ${representativeActivityLoadError?`<div class="notice danger">${escapeHtml(representativeActivityLoadError)}</div>`:''}
     <div class="representative-activity-timeline">${representativeActivityLoading&&representativeActivityLoadedKey!==representativeHistoryKey(context)?'<div class="representative-history-empty">กำลังโหลดประวัติ…</div>':filtered.map(representativeActivityCardHtml).join('')||'<div class="representative-history-empty">ยังไม่มีประวัติที่ตรงกับตัวกรอง</div>'}</div>
   </div>`;
@@ -4414,6 +4470,7 @@ function syncRepresentativeActivityDraftFromForm(){
 async function saveRepresentativeActivity(){
   syncRepresentativeActivityDraftFromForm();
   const draft=representativeActivityDraft;
+  if(draft?.id==='new'&&!canPerformPageAction('create','notes')){ showToast('บัญชีนี้ไม่มีสิทธิ์เพิ่มประวัติ','danger-top'); return; }
   if(!draft?.representativeId){ showToast('กรุณาเลือกผู้แทน','danger-top'); document.getElementById('repActivityRepresentative')?.focus(); return; }
   if(!draft.eventDate){ showToast('กรุณาเลือกวันที่','danger-top'); return; }
   if(draft.validFrom&&draft.validTo&&draft.validTo<draft.validFrom){ showToast('วันสิ้นสุดโปรโมชั่นต้องไม่ก่อนวันเริ่ม','danger-top'); return; }
@@ -4468,6 +4525,12 @@ function attachRepresentativeHistoryEvents(){
   document.getElementById('saveRepresentativeActivityBtn')?.addEventListener('click',saveRepresentativeActivity);
   document.getElementById('reloadRepresentativeHistoryBtn')?.addEventListener('click',()=>{ representativeActivityLoadedKey=''; loadRepresentativeActivityHistory({force:true}); });
   document.getElementById('representativeHistoryTypeFilter')?.addEventListener('change',event=>{ representativeHistoryFilter.type=event.target.value; render(); });
+  document.getElementById('representativeHistoryRepresentativeFilter')?.addEventListener('change',event=>{ representativeHistoryFilter.representativeId=event.target.value; render(); });
+  document.getElementById('representativeHistoryProductFilter')?.addEventListener('change',event=>{ representativeHistoryFilter.productId=event.target.value; render(); });
+  document.getElementById('representativeHistoryFromFilter')?.addEventListener('change',event=>{ representativeHistoryFilter.from=event.target.value; render(); });
+  document.getElementById('representativeHistoryToFilter')?.addEventListener('change',event=>{ representativeHistoryFilter.to=event.target.value; render(); });
+  document.getElementById('representativeHistoryReminderFilter')?.addEventListener('change',event=>{ representativeHistoryFilter.reminder=event.target.value; render(); });
+  document.getElementById('clearRepresentativeHistoryFiltersBtn')?.addEventListener('click',()=>{ representativeHistoryFilter=emptyRepresentativeHistoryFilter(); render(); });
   const historySearch=document.getElementById('representativeHistorySearch');
   historySearch?.addEventListener('input',event=>{
     representativeHistoryFilter.search=event.target.value;
@@ -4476,6 +4539,9 @@ function attachRepresentativeHistoryEvents(){
   });
   document.querySelectorAll('[data-edit-representative-activity]').forEach(button=>button.addEventListener('click',()=>editRepresentativeActivity(representativeActivityNotes.find(note=>note.id===button.dataset.editRepresentativeActivity))));
   document.querySelectorAll('[data-delete-representative-activity]').forEach(button=>button.addEventListener('click',()=>deleteRepresentativeActivity(button.dataset.deleteRepresentativeActivity)));
+  const historyOrigin=representativeHistoryContext.central?'representativehistory':representativeHistoryContext.originTab;
+  document.querySelectorAll('[data-open-representative-history]').forEach(button=>button.addEventListener('click',()=>openRepresentativeHistory({representativeId:Number(button.dataset.openRepresentativeHistory),originTab:historyOrigin})));
+  document.querySelectorAll('[data-open-product-history]').forEach(button=>button.addEventListener('click',()=>openRepresentativeHistory({productId:Number(button.dataset.openProductHistory),originTab:historyOrigin})));
   const productSearch=document.getElementById('repActivityProductSearch'),productId=document.getElementById('repActivityProductId'),results=document.getElementById('repActivityProductResults');
   if(productSearch&&productId&&results){
     const matches=query=>{
@@ -11248,7 +11314,7 @@ const RENDERERS = {
   dashboard: renderDashboard, checkout: renderCheckout, notes: renderNotes, cashshift: renderCashShift, cashbill: renderCashBills, taxinvoice: renderTaxInvoices, quotation: renderQuotation, invoice: renderInvoice,
   creditnote: renderCreditNote, history: renderHistory, purchaseorder: renderPurchaseOrder, purchaseorder2: renderPurchaseOrder2, productreturn: renderProductReturn, goodsreceipt: renderGoodsReceipt, productexchange: renderProductExchange,
   products: renderProducts, stockcontrol: renderStockControl, inspectionlists: renderInspectionLists, barcodeprint: renderBarcodePrint, warehouse: renderWarehouse, transfer: renderTransfer, stockadjust: renderStockAdjust, stockedit: renderStockEdit, lowstock: renderLowStock, expiry: renderExpiry, promotions: renderPromotions,
-  contacts: renderContacts, salesreps: renderSalesRepresentatives, rsales: renderRSales, rproduct: renderRProduct, rbill: renderRBill, rprofit: renderRProfit, rtax: renderRTax, remployee: renderREmployee,
+  contacts: renderContacts, salesreps: renderSalesRepresentatives, representativehistory: renderRepresentativeHistoryOverview, rsales: renderRSales, rproduct: renderRProduct, rbill: renderRBill, rprofit: renderRProfit, rtax: renderRTax, remployee: renderREmployee,
   inventorymovement: renderInventoryMovement, rinventory: renderRInventory, rreceivable: renderRReceivable, settingsbusiness: renderBusinessSettings, settingsuser: renderUserSettings, settingsusers: renderSystemUsers, auditlog: renderAuditLog, settingssystem: renderSystemSettings,
 };
 
