@@ -92,6 +92,7 @@ let browser;
     dateTop:element.querySelector('span').getBoundingClientRect().top
   }));
   assert.ok(firstNoteHeadingLayout.dateTop>=firstNoteHeadingLayout.titleBottom,'note date must appear below the NOTE title');
+  assert.equal(await page.locator('.representative-note-body').first().evaluate(element=>getComputedStyle(element).webkitLineClamp),'4','note details must be limited to four lines');
   const historyPageWidth=await page.locator('.representative-history-page').evaluate(element=>{
     const parent=element.parentElement;
     const parentStyle=getComputedStyle(parent);

@@ -2103,7 +2103,7 @@
   .representative-note-head{display:flex;align-items:flex-start;flex-direction:column;gap:3px;}
   .representative-note-head b{color:var(--primary-dark);font-size:14px;}
   .representative-note-head span{color:var(--text-muted);font-size:11px;}
-  .representative-note-body{margin-top:8px;color:var(--text);font-size:13px;line-height:1.6;overflow-wrap:anywhere;}
+  .representative-note-body{display:-webkit-box;margin-top:8px;overflow:hidden;color:var(--text);font-size:13px;line-height:1.6;overflow-wrap:anywhere;-webkit-box-orient:vertical;-webkit-line-clamp:4;}
   .representative-note-body p{margin:0;}
   .representative-note-body.muted{color:var(--text-muted);font-style:italic;}
   @media(max-width:1180px){.representative-groups-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}

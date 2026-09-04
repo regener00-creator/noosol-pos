@@ -52,6 +52,7 @@ assert.match(html, /data-open-representative-history=/);
 assert.match(html, /data-open-product-history=/);
 assert.doesNotMatch(historyGroupRender, /รายการสินค้าที่ดูแลมี|representative-managed-products/);
 assert.match(html, /\.representative-notes-list\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+assert.match(html, /\.representative-note-body\{display:-webkit-box;[^}]*overflow:hidden;[^}]*-webkit-line-clamp:4;/);
 assert.match(html, /NOTE \$\{index\+1\} :/);
 
 assert.match(activityForm, /กำหนดสินค้าที่ผู้แทนดูแล และเพิ่ม NOTE พร้อมวันที่และหัวข้อ/);
