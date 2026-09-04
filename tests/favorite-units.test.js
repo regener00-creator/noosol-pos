@@ -55,7 +55,7 @@ assert.equal(context.fmtFavoritePrice(180.5),'180.5');
 Object.assign(context,{products:[product],cart:[],lineCounter:1});
 context.addToCart(101,'กล่อง',2);
 assert.deepEqual(JSON.parse(JSON.stringify(context.cart)),[{
-  lineId:1,pid:101,name:'Decolgen prin',unit:'กล่อง',unitName:'กล่อง',price:190,cost:110,factor:40,qty:2,
+  lineId:1,pid:101,name:'Decolgen prin',unit:'กล่อง',unitName:'กล่อง',price:190,regularPrice:190,cost:110,factor:40,qty:2,priceSource:'standard',customerPriceRuleId:null,
 }]);
 
 assert.match(html,/data-unit="\$\{escapeHtml\(item\.unit\)\}"/);
