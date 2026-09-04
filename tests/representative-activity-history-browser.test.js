@@ -54,7 +54,8 @@ let browser;
     products=[
       {id:20,sku:'LIP10',name:'LIPITOR 10 MG',unit:'กล่อง',barcode:'8850000000001',extraBarcodes:[],supplierBarcodes:[]},
       {id:21,sku:'LIP20',name:'LIPITOR 20 MG',unit:'กล่อง',barcode:'8850000000002',extraBarcodes:[],supplierBarcodes:[]},
-      {id:22,sku:'LIP30',name:'LIPITOR 30 MG',unit:'กล่อง',barcode:'8850000000003',extraBarcodes:[],supplierBarcodes:[]}
+      {id:22,sku:'LIP30',name:'LIPITOR 30 MG',unit:'กล่อง',barcode:'8850000000003',extraBarcodes:[],supplierBarcodes:[]},
+      {id:23,sku:'LIP40',name:'LIPITOR 40 MG',unit:'กล่อง',barcode:'8850000000004',extraBarcodes:[],supplierBarcodes:[]}
     ];
     representativeHistoryContext={representativeId:10,productId:null,originTab:'salesreps'};
     representativeProductAssignments=[
@@ -81,6 +82,7 @@ let browser;
   await page.locator('#newRepresentativeActivityBtn').click();
   assert.equal(await page.locator('#repActivityRepresentative').inputValue(), '10');
   assert.equal(await page.locator('.representative-activity-item-editor').count(),3);
+  assert.equal(await page.locator('#representativeManagedProductSearch').count(),1,'managed products must share one search field');
   const managedProductPositions=await page.locator('.representative-activity-item-editor').evaluateAll(elements=>elements.map(element=>{
     const box=element.getBoundingClientRect();
     return {x:Math.round(box.x),y:Math.round(box.y)};
@@ -89,12 +91,13 @@ let browser;
   assert.equal(managedProductPositions[1].y,managedProductPositions[2].y);
   assert.ok(managedProductPositions[0].x<managedProductPositions[1].x&&managedProductPositions[1].x<managedProductPositions[2].x,'managed products must display three items per row on desktop');
   assert.equal(await page.locator('#repActivityType,#repActivityValidFrom,#repActivityValidTo,#repActivityReminderDate,[data-representative-item-field="quotedPrice"],[data-representative-item-field="minimumQuantity"],[data-representative-item-field="unit"],[data-representative-item-field="conditionNote"]').count(),0);
-  await page.locator('#addRepresentativeActivityItemBtn').click();
-  const lastItem=page.locator('.representative-activity-item-editor').last();
-  await lastItem.locator('[data-representative-item-field="productSearch"]').fill('LIP30');
-  await lastItem.locator('[data-representative-item-field="productSearch"]').press('Enter');
-  assert.equal(await lastItem.locator('[data-representative-item-field="productId"]').inputValue(),'22');
-  assert.equal(await page.locator('.representative-activity-item-editor').first().locator('[data-representative-item-field="productId"]').inputValue(),'20','adding another product must preserve existing managed products');
+  await page.locator('#representativeManagedProductSearch').fill('LIP40');
+  await page.locator('#representativeManagedProductSearch').press('Enter');
+  assert.equal(await page.locator('.representative-activity-item-editor').count(),4);
+  assert.equal(await page.locator('[data-representative-item-product-id="23"]').count(),1);
+  assert.equal(await page.locator('[data-representative-item-product-id="20"]').count(),1,'adding another product must preserve existing managed products');
+  const fourthPosition=await page.locator('.representative-activity-item-editor').nth(3).evaluate(element=>Math.round(element.getBoundingClientRect().y));
+  assert.ok(fourthPosition>managedProductPositions[0].y,'the fourth managed product must start the next row');
   await page.locator('#cancelRepresentativeActivityBottomBtn').click();
 
   await page.evaluate(() => {
