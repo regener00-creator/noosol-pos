@@ -75,7 +75,8 @@ assert.match(html, /\.representative-note-workspace\{display:grid;grid-template-
 assert.match(html, /data-select-representative-note=/);
 assert.match(html, /representative-note-list-panel[\s\S]*representative-note-inline-editor/);
 assert.match(noteEditor, /id="representativeNoteEditorForm"/);
-assert.match(noteEditor, /id="repActivityEventDate"/);
+assert.match(noteEditor, /dmyDateFieldHtml\('repActivityEventDate'/);
+assert.doesNotMatch(noteEditor, /id="repActivityEventDate" type="date"/);
 assert.match(noteEditor, /id="repActivityTitle"/);
 assert.match(noteEditor, /id="repActivityContentEditor"[\s\S]*contenteditable=/);
 assert.match(noteEditor, /data-representative-note-command="bold"/);
@@ -102,6 +103,7 @@ assert.match(historyRender, /id="newSalesRepBtn"/);
 assert.match(historyRender, /\+ เพิ่มโน้ต/);
 assert.doesNotMatch(historyRender, /\+ เพิ่มประวัติ|representativeActivityFormHtml/);
 assert.match(html, /sb\.rpc\('save_representative_note',rpcPayload\)/);
+assert.match(html, /eventDate:dmyToISO\(value\('repActivityEventDate'\)\)\|\|''/);
 assert.match(html, /p_product_ids:\[\]/);
 assert.match(html, /sb\.rpc\('save_representative_products'/);
 assert.doesNotMatch(html, /function representativeActivityFormHtml\(\)/);

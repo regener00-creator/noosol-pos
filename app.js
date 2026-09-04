@@ -4430,7 +4430,7 @@ function representativeNoteEditorPanelHtml({draft,selected,index,canCreate}){
   const dateLabel=representativeActivityDateLabel(draft.eventDate||TODAY_STR);
   return `<form class="note-editor-panel representative-note-inline-editor" id="representativeNoteEditorForm" data-note-number="${noteNumber}">
     <div class="representative-note-inline-caption"><strong id="representativeNoteCaptionTitle">NOTE ${noteNumber} : ${escapeHtml(title)}</strong><span id="representativeNoteCaptionDate">วันที่ ${escapeHtml(dateLabel)}</span></div>
-    <div class="representative-note-inline-fields"><div class="note-editor-heading"><label for="repActivityTitle">ชื่อโน้ต</label><input id="repActivityTitle" maxlength="160" autocomplete="off" value="${escapeHtml(draft.title||'')}" ${canEdit?'':'readonly'} placeholder="ตั้งชื่อโน้ต"></div><div class="note-editor-heading"><label for="repActivityEventDate">วันที่</label><input id="repActivityEventDate" type="date" value="${escapeHtml(draft.eventDate||TODAY_STR)}" ${canEdit?'':'disabled'}></div></div>
+    <div class="representative-note-inline-fields"><div class="note-editor-heading"><label for="repActivityTitle">ชื่อโน้ต</label><input id="repActivityTitle" maxlength="160" autocomplete="off" value="${escapeHtml(draft.title||'')}" ${canEdit?'':'readonly'} placeholder="ตั้งชื่อโน้ต"></div><div class="note-editor-heading"><label for="repActivityEventDate">วันที่</label>${dmyDateFieldHtml('repActivityEventDate',draft.eventDate||TODAY_STR,{readonly:!canEdit,extraClass:'representative-note-date-input'})}</div></div>
     <div class="note-toolbar representative-note-toolbar" role="toolbar" aria-label="จัดรูปแบบข้อมูลเพิ่มเติม"><button type="button" data-representative-note-command="bold" title="ตัวหนา" aria-label="ตัวหนา" ${canEdit?'':'disabled'}><b>B</b></button><button type="button" data-representative-note-command="underline" title="ขีดเส้นใต้" aria-label="ขีดเส้นใต้" ${canEdit?'':'disabled'}><u>U</u></button><button type="button" data-representative-note-command="strikeThrough" title="ขีดฆ่า" aria-label="ขีดฆ่า" ${canEdit?'':'disabled'}><s>S</s></button><span class="note-toolbar-divider"></span><span class="note-color-label">สีข้อความ</span><span class="note-color-list">${NOTE_COLORS.map(([color,label])=>`<button type="button" class="note-color-swatch" data-representative-note-color="${color}" style="--note-color:${color}" title="${escapeHtml(label)}" aria-label="สี${escapeHtml(label)}" ${canEdit?'':'disabled'}></button>`).join('')}</span></div>
     <div id="repActivityContentEditor" class="note-content-editor representative-note-content-editor ${canEdit?'':'readonly'}" contenteditable="${canEdit?'true':'false'}" role="textbox" aria-multiline="true" data-placeholder="เขียนข้อความที่นี่…">${sanitizeNoteHtml(draft.contentHtml||'')}</div>
     <div class="note-editor-footer"><span>${isNew?'โน้ตใหม่':`แก้ไขล่าสุด ${escapeHtml(noteUpdatedText(selected?.updatedAt))}`}</span><div>${canDelete?'<button class="btn danger" id="deleteRepresentativeNoteBtn" type="button">ลบโน้ต</button>':''}${canEdit?'<button class="btn primary" id="saveRepresentativeActivityBtn" type="submit">บันทึกโน้ต</button>':''}</div></div>
@@ -4624,7 +4624,7 @@ function syncRepresentativeActivityDraftFromForm(){
   if(!representativeActivityDraft) return;
   const value=id=>document.getElementById(id)?.value??'';
   Object.assign(representativeActivityDraft,{
-    eventDate:value('repActivityEventDate'),title:value('repActivityTitle'),
+    eventDate:dmyToISO(value('repActivityEventDate'))||'',title:value('repActivityTitle'),
     contentHtml:sanitizeNoteHtml(document.getElementById('repActivityContentEditor')?.innerHTML||'')
   });
 }
@@ -4761,6 +4761,7 @@ function attachRepresentativeHistoryEvents(){
     if(captionDate) captionDate.textContent=`วันที่ ${representativeActivityDateLabel(representativeActivityDraft?.eventDate||TODAY_STR)}`;
   };
   document.getElementById('repActivityTitle')?.addEventListener('input',updateRepresentativeNoteDraft);
+  document.getElementById('repActivityEventDate')?.addEventListener('input',()=>setTimeout(updateRepresentativeNoteDraft,0));
   document.getElementById('repActivityEventDate')?.addEventListener('change',updateRepresentativeNoteDraft);
   const representativeNoteEditor=document.getElementById('repActivityContentEditor');
   representativeNoteEditor?.addEventListener('input',updateRepresentativeNoteDraft);

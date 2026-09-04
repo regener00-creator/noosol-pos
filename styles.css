@@ -2164,6 +2164,9 @@
   .representative-note-inline-caption strong{font-size:18px;overflow-wrap:anywhere;}
   .representative-note-inline-caption span{color:var(--text-muted);font-size:12px;}
   .representative-note-inline-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(180px,240px);gap:12px;}
+  .representative-note-inline-fields .dmy-field{width:100%;}
+  .representative-note-inline-fields .dmy-input{width:100%;height:48px;padding:0 38px 0 14px;}
+  .representative-note-inline-fields .dmy-native{right:0;width:30px;height:100%;padding:0;border:0;}
   .representative-note-detail-panel{display:flex;flex-direction:column;overflow:hidden;}
   .representative-note-detail-empty{align-items:center;justify-content:center;padding:32px;text-align:center;}
   .representative-note-detail-empty h2{margin:18px 0 6px;color:var(--primary-dark);}
