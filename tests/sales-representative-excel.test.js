@@ -29,7 +29,7 @@ assert.match(listCode,/id="downloadSalesRepTemplateBtn"/);
 assert.match(listCode,/id="importSalesRepsBtn"/);
 assert.match(listCode,/id="salesRepImportFile"/);
 assert.match(listCode,/<tr><th style="width:140px;">รหัสผู้ติดต่อ<\/th><th>ชื่อ<\/th>/);
-assert.match(listCode,/<tr><td class="mono">\$\{escapeHtml\(rep\.code\|\|'-'\)\}<\/td><td>\$\{escapeHtml\(rep\.name\)\}<\/td>/);
+assert.match(listCode,/<tr><td class="mono">\$\{escapeHtml\(rep\.code\|\|'-'\)\}<\/td><td><button class="representative-history-name"[^>]*>\$\{escapeHtml\(rep\.name\)\}<\/button><\/td>/);
 assert.match(listCode,/\(rep\.code\|\|'\'\)\.toLowerCase\(\)\.includes\(q\)/);
 assert.match(formCode,/id="saveSalesRepBtn">บันทึก<\/button>/);
 assert.ok(formCode.indexOf('id="sr_code"') < formCode.indexOf('id="sr_name"'),'contact code field must be first in the representative form');
