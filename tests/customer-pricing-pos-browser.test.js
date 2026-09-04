@@ -58,8 +58,13 @@ const browserExecutable = [
   assert.equal(await page.evaluate(()=>cart[0].price),155);
   assert.equal(await page.evaluate(()=>cart[0].regularPrice),180);
   assert.equal(await page.locator('.pos-customer-price-tag').count(),1);
-  assert.equal(await page.locator('#memberSearch').inputValue(),'7');
-  await page.locator('#memberSearch').selectOption('');
+  assert.equal(await page.locator('#memberSearch').count(),0);
+  assert.equal(await page.locator('#openCustomerPickerBtn strong').textContent(),'ลูกค้า A');
+  await page.locator('#openCustomerPickerBtn').click();
+  assert.equal(await page.locator('.pos-customer-picker-modal').count(),1);
+  await page.locator('#posCustomerPickerSearch').fill('081234');
+  assert.equal(await page.locator('[data-pos-customer-index]:visible').count(),1);
+  await page.locator('[data-pos-customer-general]').click();
   assert.equal(await page.evaluate(()=>cart[0].price),180);
   assert.equal(await page.locator('.pos-customer-price-tag').count(),0);
 

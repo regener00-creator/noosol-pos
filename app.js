@@ -2329,6 +2329,63 @@ function refreshCartCustomerPrices(){
     if(product) applySalePriceToLine(line,product,line.unit);
   });
 }
+function posCustomerDocumentLabel(customer){
+  const value=customerDefaultDocument(customer);
+  return value==='cash_bill'?'บิลเงินสด':value==='full_tax_invoice'?'ใบกำกับภาษีเต็มรูปแบบ':'ใบเสร็จอย่างย่อ';
+}
+function openPOSCustomerPicker(){
+  const customers=customersList();
+  const selected=activeSaleCustomer();
+  const rows=customers.map((customer,index)=>{
+    const ruleCount=normalizedCustomerPriceRules(customer).length;
+    const active=String(customer.id)===String(selected?.id);
+    return `<button class="pos-customer-picker-item ${active?'active':''}" type="button" data-pos-customer-index="${index}">
+      <span class="pos-customer-picker-main"><strong>${escapeHtml(customer.name||'-')}</strong><small>${escapeHtml(customer.phone||customer.taxId||'ไม่มีเบอร์โทร')}</small></span>
+      <span class="pos-customer-picker-meta"><small>${escapeHtml(posCustomerDocumentLabel(customer))}</small>${ruleCount?`<b>${ruleCount} ราคาพิเศษ</b>`:''}</span>
+      <span class="pos-customer-picker-check">${active?'✓':''}</span>
+    </button>`;
+  }).join('');
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay pos-customer-picker-overlay';
+  overlay.innerHTML=`<div class="modal pos-customer-picker-modal" role="dialog" aria-modal="true" aria-labelledby="posCustomerPickerTitle">
+    <div class="modal-head"><div><h3 id="posCustomerPickerTitle">เลือกลูกค้า / สมาชิก</h3><div class="sub">เลือกลูกค้าเพื่อใช้ราคาพิเศษและข้อมูลออกเอกสาร</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div>
+    <div class="pos-customer-picker-search"><input id="posCustomerPickerSearch" type="search" placeholder="ค้นหาชื่อ เบอร์โทร หรือเลขประจำตัวผู้เสียภาษี" autocomplete="off"></div>
+    <div class="pos-customer-picker-list">
+      <button class="pos-customer-picker-item general ${selected?'':'active'}" type="button" data-pos-customer-general>
+        <span class="pos-customer-picker-main"><strong>ลูกค้าทั่วไป</strong><small>ไม่ใช้ราคาพิเศษของสมาชิก</small></span>
+        <span class="pos-customer-picker-check">${selected?'':'✓'}</span>
+      </button>
+      <div id="posCustomerPickerRows">${rows||'<div class="pos-customer-picker-empty">ยังไม่มีรายชื่อลูกค้าในสมุดรายชื่อ</div>'}</div>
+      <div class="pos-customer-picker-empty" id="posCustomerPickerNoResults" hidden>ไม่พบลูกค้าที่ค้นหา</div>
+    </div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  const choose=customer=>{
+    saleMember=customer?customerSaleSnapshot(customer):null;
+    refreshCartCustomerPrices();
+    close();
+    render();
+  };
+  overlay.querySelector('.modal-close').addEventListener('click',close);
+  overlay.addEventListener('mousedown',event=>{ if(event.target===overlay) close(); });
+  overlay.querySelector('[data-pos-customer-general]').addEventListener('click',()=>choose(null));
+  overlay.querySelectorAll('[data-pos-customer-index]').forEach(button=>button.addEventListener('click',()=>choose(customers[Number(button.dataset.posCustomerIndex)])));
+  const search=overlay.querySelector('#posCustomerPickerSearch');
+  const noResults=overlay.querySelector('#posCustomerPickerNoResults');
+  search.addEventListener('input',()=>{
+    const query=search.value.trim().toLowerCase();
+    let visible=0;
+    overlay.querySelectorAll('[data-pos-customer-index]').forEach(button=>{
+      const customer=customers[Number(button.dataset.posCustomerIndex)];
+      const haystack=`${customer?.name||''} ${customer?.phone||''} ${customer?.taxId||''}`.toLowerCase();
+      button.hidden=!!query&&!haystack.includes(query);
+      if(!button.hidden) visible++;
+    });
+    noResults.hidden=!query||visible>0;
+  });
+  requestAnimationFrame(()=>search.focus());
+}
 function addToCart(pid, unitName, qty){
   const p = products.find(x=>x.id===pid); if(!p) return;
   if(p.active===false){ showToast(`สินค้า “${p.name}” ถูกปิดใช้งานแล้ว`,'danger-top'); return; }
@@ -4289,8 +4346,6 @@ function printCashShiftSummary(shiftId){
 
 function renderCheckout(){
   const selectedCustomer=activeSaleCustomer();
-  const selectedCustomerId=selectedCustomer?.id??'';
-  const customerOptions=customersList().map(customer=>`<option value="${escapeHtml(customer.id)}" ${String(customer.id)===String(selectedCustomerId)?'selected':''}>${escapeHtml(customer.name)}</option>`).join('');
   const shiftBanner=currentCashShift
     ?`<div class="cash-shift-topbar-action open"><span><strong>${escapeHtml(currentCashShift.shiftNo)} เปิดอยู่</strong> : เงินตั้งต้น ${fmtMoney(currentCashShift.openingCash)} บาท · ${escapeHtml(currentCashShift.openedByName)}</span><button class="btn ghost small" data-open-cash-shift>สรุปชำระ</button></div>`
     :`<div class="cash-shift-topbar-action"><button class="btn primary small" data-open-cash-shift>เปิดระบบชำระ</button></div>`;
@@ -4399,8 +4454,11 @@ function renderCheckout(){
       </div>
       <div class="pos-right">
         <div class="pos-customer-card">
-          <label for="memberSearch">ลูกค้า / สมาชิก</label>
-          <select id="memberSearch"><option value="">ลูกค้าทั่วไป</option>${customerOptions}</select>
+          <label>ลูกค้า / สมาชิก</label>
+          <button class="pos-customer-select-btn ${selectedCustomer?'selected':''}" id="openCustomerPickerBtn" type="button">
+            <span><strong>${escapeHtml(selectedCustomer?.name||'ลูกค้าทั่วไป')}</strong><small>${selectedCustomer?'กดเพื่อเปลี่ยนลูกค้า':'กดเพื่อเลือกลูกค้า'}</small></span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21v-2a7 7 0 0 1 14 0v2M17 11h4M19 9v4"/></svg>
+          </button>
           ${selectedCustomer?`<div class="pos-customer-note"><span>ใช้ราคาพิเศษที่ตั้งไว้โดยอัตโนมัติ</span><b>${customerDefaultDocument(selectedCustomer)==='cash_bill'?'บิลเงินสด':customerDefaultDocument(selectedCustomer)==='full_tax_invoice'?'ใบกำกับภาษีเต็มรูปแบบ':'ใบเสร็จอย่างย่อ'}</b></div>`:''}
         </div>
         <div class="pos-actions">
@@ -11680,13 +11738,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     if(pendingQty>1 && !searchQuery) searchEl.placeholder = `× ${pendingQty} — ยิงบาร์โค้ด/พิมพ์รหัสสินค้าถัดไป`;
   }
   document.getElementById('posSmallestUnitBtn')?.addEventListener('click',()=>setPosSmallestUnitOnce(!posSmallestUnitOnce));
-  const memberSearch = document.getElementById('memberSearch');
-  if(memberSearch) memberSearch.addEventListener('change', e=>{
-    const customer=customersList().find(item=>String(item.id)===String(e.target.value));
-    saleMember=customer?customerSaleSnapshot(customer):null;
-    refreshCartCustomerPrices();
-    render();
-  });
+  document.getElementById('openCustomerPickerBtn')?.addEventListener('click',openPOSCustomerPicker);
   const checkoutBtn = document.getElementById('checkoutBtn');
   if(checkoutBtn) checkoutBtn.addEventListener('click', openPaymentModal);
   // --- top action buttons ---
