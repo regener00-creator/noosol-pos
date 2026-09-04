@@ -4,12 +4,14 @@ const path = require('node:path');
 
 const root = path.join(__dirname, '..');
 const html = require('./load-app-source')();
-const baseMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260904151421_representative_product_activity_notes.sql'), 'utf8');
-const multiProductMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260904151422_representative_activity_multiple_products.sql'), 'utf8');
-const managedProductsMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260904183146_representative_managed_products_and_notes.sql'), 'utf8');
+const baseMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260904082715_representative_product_activity_notes.sql'), 'utf8');
+const multiProductMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260904110037_representative_activity_multiple_products.sql'), 'utf8');
+const managedProductsMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260904114305_representative_managed_products_and_notes.sql'), 'utf8');
+const separatedEditorsMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260904142648_separate_representative_products_and_notes.sql'), 'utf8');
 const historyRender = html.slice(html.indexOf('function renderRepresentativeHistory(){'),html.indexOf('function syncRepresentativeActivityDraftFromForm(){'));
 const historyGroupRender = html.slice(html.indexOf('function representativeHistoryGroupHtml(group){'),html.indexOf('function renderRepresentativeHistory(){'));
-const activityForm = html.slice(html.indexOf('function representativeActivityFormHtml(){'),html.indexOf('function representativeActivityCardHtml('));
+const noteEditor = html.slice(html.indexOf('function representativeNoteEditorModalHtml(){'),html.indexOf('function openRepresentativeProductsEditor('));
+const productsEditor = html.slice(html.indexOf('function representativeProductsEditorModalHtml(){'),html.indexOf('function representativeEditorModalHtml(){'));
 
 assert.match(baseMigration, /alter table public\.notes[\s\S]*representative_id bigint[\s\S]*product_id bigint[\s\S]*activity_type text/);
 assert.match(baseMigration, /create trigger audit_notes_changes/);
@@ -28,6 +30,11 @@ assert.match(managedProductsMigration, /for update[\s\S]*p_expected_updated_at/)
 assert.match(managedProductsMigration, /delete from public\.sales_representative_products[\s\S]*insert into public\.sales_representative_products/);
 assert.match(managedProductsMigration, /delete from public\.representative_activity_items/);
 assert.match(managedProductsMigration, /revoke all on function public\.save_representative_note/);
+assert.match(separatedEditorsMigration, /create or replace function public\.save_representative_products/);
+assert.match(separatedEditorsMigration, /security definer[\s\S]*set search_path = ''/);
+assert.match(separatedEditorsMigration, /delete from public\.sales_representative_products[\s\S]*insert into public\.sales_representative_products/);
+assert.match(separatedEditorsMigration, /revoke all on function public\.save_representative_products\(bigint,jsonb\)[\s\S]*grant execute[\s\S]*authenticated,service_role/);
+assert.doesNotMatch(separatedEditorsMigration.slice(0,separatedEditorsMigration.indexOf('create or replace function public.save_representative_products')), /delete from public\.sales_representative_products/);
 
 assert.match(html, /function renderRepresentativeHistory\(\)/);
 assert.match(html, /function renderRepresentativeHistoryOverview\(\)/);
@@ -37,7 +44,6 @@ assert.match(html, /function representativeHistoryGroups\(\)/);
 assert.match(html, /function representativeHistoryGroupHtml\(/);
 assert.match(html, /function representativeProfileHtml\(/);
 assert.match(html, /function representativeNoteWorkspaceHtml\(/);
-assert.match(html, /data-representative-history=/);
 assert.match(html, /data-representative-card-open=/);
 assert.match(html, /data-product-representative-history=/);
 assert.match(html, /\['representativehistory','ประวัติผู้แทน'/);
@@ -62,20 +68,24 @@ assert.match(html, /ชื่อผู้แทน[\s\S]*สินค้าท�
 assert.match(html, /\.representative-note-workspace\{display:grid;grid-template-columns:minmax\(270px,340px\) minmax\(0,1fr\)/);
 assert.match(html, /data-select-representative-note=/);
 assert.match(html, /representative-note-list-panel[\s\S]*representative-note-detail-panel/);
-
-assert.match(activityForm, /กำหนดสินค้าที่ผู้แทนดูแล และเพิ่ม NOTE พร้อมวันที่และหัวข้อ/);
-assert.match(activityForm, /ชื่อผู้แทน/);
-assert.match(activityForm, /รายการสินค้าที่ดูแล/);
-assert.match(activityForm, /NOTE เพิ่มเติม/);
-assert.match(activityForm, /id="repActivityEventDate"/);
-assert.match(activityForm, /id="repActivityTitle"/);
-assert.match(activityForm, /id="repActivityContent"/);
-assert.match(activityForm, /id="representativeManagedProductSearch"/);
-assert.doesNotMatch(activityForm, /id="addRepresentativeActivityItemBtn"|data-representative-item-field="productSearch"/);
-assert.doesNotMatch(activityForm, /repActivityType|repActivityValidFrom|repActivityValidTo|repActivityReminderDate|quotedPrice|minimumQuantity|conditionNote|เริ่มโปรโมชั่น|สิ้นสุดโปรโมชั่น|วันที่ติดตาม/);
-assert.match(html, /\.representative-managed-product-selection-grid\{display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+assert.match(noteEditor, /เพิ่ม NOTE/);
+assert.match(noteEditor, /id="repActivityEventDate"/);
+assert.match(noteEditor, /id="repActivityTitle"/);
+assert.match(noteEditor, /id="repActivityContent"/);
+assert.doesNotMatch(noteEditor, /repActivityRepresentative|representativeManagedProductSearch|repActivityType|repActivityValidFrom|repActivityValidTo|repActivityReminderDate|quotedPrice|minimumQuantity|conditionNote/);
+assert.match(productsEditor, /id="representativeProductsSearch"/);
+assert.match(productsEditor, /id="representativeProductsSelectedList"/);
+assert.match(productsEditor, /id="saveRepresentativeProductsBtn"/);
+assert.match(html, /data-manage-representative-products=/);
+assert.match(html, /function representativeEditorModalHtml\(\)/);
+assert.match(historyRender, /id="newSalesRepBtn"/);
+assert.match(historyRender, /\+ เพิ่มโน้ต/);
+assert.doesNotMatch(historyRender, /\+ เพิ่มประวัติ|representativeActivityFormHtml/);
 assert.match(html, /sb\.rpc\('save_representative_note',rpcPayload\)/);
-assert.match(html, /p_product_ids:enteredItems\.map/);
+assert.match(html, /p_product_ids:\[\]/);
+assert.match(html, /sb\.rpc\('save_representative_products'/);
+assert.doesNotMatch(html, /function representativeActivityFormHtml\(\)/);
+assert.doesNotMatch(html, /\['salesreps','รายชื่อผู้แทน'/);
 assert.match(html, /notes:'NOTE \/ ประวัติผู้แทน'/);
 
 console.log('representative activity history tests passed');

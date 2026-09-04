@@ -109,9 +109,9 @@ test('product and sales-representative edit forms encode input and textarea valu
     salesRepresentatives: [{id: 9, code: attributePayload, name: textPayload, phone: attributePayload, line: attributePayload, company: textPayload, note: textareaPayload}],
   };
   vm.createContext(repContext);
-  const repSource = sourceBetween('function renderSalesRepresentativeForm(', '// ===== ระบบโปรโมชั่น =====');
-  vm.runInContext(`${repSource}\nthis.renderSalesRepresentativeForm=renderSalesRepresentativeForm;`, repContext);
-  assertPayloadEncoded(repContext.renderSalesRepresentativeForm(), 'renderSalesRepresentativeForm');
+  const repSource = sourceBetween('function representativeEditorModalHtml(', 'function representativeActivityCardHtml(');
+  vm.runInContext(`${repSource}\nthis.representativeEditorModalHtml=representativeEditorModalHtml;`, repContext);
+  assertPayloadEncoded(repContext.representativeEditorModalHtml(), 'representativeEditorModalHtml');
 });
 
 test('supplier editor and purchase item rows encode stored values', () => {

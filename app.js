@@ -297,7 +297,7 @@ const PAGE_PERMISSION_OPTIONS=[
   ['rinventory','รายงานสินค้าคงเหลือ'],['lowstock','สินค้าใกล้หมด'],['expiry','สินค้าใกล้หมดอายุ'],
   ['rproduct','รายงานสินค้า'],['rbill','รายงานบิล'],['cashbill','บิลเงินสด'],['inspectionlists','ตรวจนับและปรับสต๊อก'],
   ['purchaseorder','สั่งของขาด'],['purchaseorder2','ใบสั่งซื้อสินค้า'],['productreturn','ใบคืนสินค้า'],
-  ['productexchange','เปลี่ยนสินค้า'],['contacts','สมุดรายชื่อ'],['salesreps','รายชื่อผู้แทน'],
+  ['productexchange','เปลี่ยนสินค้า'],['contacts','สมุดรายชื่อ'],['salesreps','ประวัติผู้แทน'],
   ['taxinvoice','ใบกำกับภาษีเต็มรูปแบบ'],['quotation','ใบเสนอราคา'],['barcodeprint','พิมพ์ป้ายราคา'],
   ['promotions','โปรโมชั่น'],['warehouse','คลังสินค้า / สาขา'],['transfer','โอนย้ายสต๊อก'],
   ['rprofit','รายงานกำไร'],['rtax','รายงานภาษี']
@@ -3128,6 +3128,7 @@ let representativeActivityLoadedKey='';
 let representativeActivityLoadError='';
 let representativeActivityDraft=null;
 let selectedRepresentativeNoteId=null;
+let representativeProductsEditor=null;
 let representativeHistoryFilter={representativeSearch:'',productSearch:'',noteSearch:''};
 window.addEventListener('beforeunload',event=>{
   const hasUnsavedBusiness=currentTab==='settingsbusiness'&&businessSettingsDirty;
@@ -3912,7 +3913,6 @@ const NAV = [
   ]},
   {section:'สมุดรายชื่อ', items:[
     ['contacts','ลูกค้า / ผู้จำหน่าย','<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>'],
-    ['salesreps','รายชื่อผู้แทน','<circle cx="9" cy="8" r="3"/><path d="M3 20v-1a6 6 0 0 1 12 0v1"/><path d="M16 5h5M18.5 2.5v5"/>'],
   ]},
   {section:'เอกสารขาย', items:[
     ['cashbill','บิลเงินสด','<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M8 8h8M8 12h8M8 16h5"/>'],
@@ -4247,6 +4247,7 @@ function openRepresentativeHistory({representativeId=null,productId=null,originT
   };
   representativeHistoryFilter=emptyRepresentativeHistoryFilter();
   representativeActivityDraft=null;
+  representativeProductsEditor=null;
   selectedRepresentativeNoteId=null;
   editingSalesRepresentativeId=null;
   resetRepresentativeActivityLoad();
@@ -4259,6 +4260,7 @@ function closeRepresentativeHistory(){
   representativeHistoryContext=origin==='representativehistory'?centralRepresentativeHistoryContext():null;
   representativeHistoryFilter=origin==='representativehistory'&&returnFilter?returnFilter:emptyRepresentativeHistoryFilter();
   representativeActivityDraft=null;
+  representativeProductsEditor=null;
   selectedRepresentativeNoteId=null;
   resetRepresentativeActivityLoad();
   currentTab=origin;
@@ -4394,55 +4396,92 @@ function activityFilterText(activity){
   }).join(' ');
   return normalizedActivityName(`${activity.title} ${notePlainText(activity.contentHtml||'')} ${representative?.name||''} ${representative?.company||''} ${items} ${activity.sourceId||''} ${activity.status||''}`);
 }
-let representativeActivityItemSequence=0;
-function representativeActivityDraftItem(item={}){
-  const productId=item.productId||'';
-  const product=productForActivityId(productId);
-  return {
-    key:item.key||`representative-item-${++representativeActivityItemSequence}`,productId,
-    productName:item.productName||item.name||product?.name||''
-  };
-}
-function managedProductItemsForRepresentative(representativeId){
+function managedProductIdsForRepresentative(representativeId){
   return representativeProductAssignments
     .filter(row=>Number(row.representativeId)===Number(representativeId))
-    .map(row=>representativeActivityDraftItem({productId:row.productId}));
+    .map(row=>Number(row.productId))
+    .filter(Boolean);
 }
-function newRepresentativeActivityDraft(){
+function newRepresentativeNoteDraft(){
   const context=representativeHistoryContext||{};
-  const representativeId=context.representativeId||representativeProductAssignments.find(row=>!context.productId||Number(row.productId)===Number(context.productId))?.representativeId||salesRepresentatives[0]?.id||'';
-  const assignedItems=managedProductItemsForRepresentative(representativeId);
-  const contextItem=context.productId&&!assignedItems.some(item=>Number(item.productId)===Number(context.productId))?representativeActivityDraftItem({productId:context.productId}):null;
-  return {id:'new',representativeId,eventDate:TODAY_STR,title:'',content:'',updatedAt:'',items:[...assignedItems,...(contextItem?[contextItem]:[])]};
+  const representativeId=context.representativeId||'';
+  if(!representativeId) return null;
+  return {id:'new',representativeId,eventDate:TODAY_STR,title:'',content:'',updatedAt:''};
 }
 function editRepresentativeActivity(note){
   if(!canEditNote(note)) return;
-  const sourceItems=managedProductItemsForRepresentative(note.representativeId);
   representativeActivityDraft={
     id:note.id,representativeId:note.representativeId||'',eventDate:note.eventDate||TODAY_STR,
-    title:note.title||'',content:notePlainText(note.contentHtml||''),updatedAt:note.updatedAt||'',
-    items:sourceItems.map(representativeActivityDraftItem)
+    title:note.title||'',content:notePlainText(note.contentHtml||''),updatedAt:note.updatedAt||''
   };
   render();
 }
-function representativeActivityItemEditorHtml(item,index){
-  const selectedProduct=productForActivityId(item.productId);
-  return `<div class="representative-activity-item-editor" data-representative-activity-item="${index}" data-representative-item-product-id="${escapeHtml(item.productId||'')}"><span>${escapeHtml(item.productName||selectedProduct?.name||'สินค้าถูกลบ')}</span><button class="representative-activity-remove-item" data-remove-representative-activity-item="${index}" type="button" aria-label="ลบ ${escapeHtml(item.productName||selectedProduct?.name||'สินค้า')}">×</button></div>`;
-}
-function representativeActivityFormHtml(){
+function representativeNoteEditorModalHtml(){
   const draft=representativeActivityDraft;
   if(!draft) return '';
-  const items=Array.isArray(draft.items)?draft.items:[];
-  draft.items=items;
-  return `<section class="representative-activity-form panel">
-    <div class="representative-activity-form-head"><div><h3>${draft.id==='new'?'เพิ่มประวัติผู้แทน':'แก้ไขประวัติผู้แทน'}</h3><p>กำหนดสินค้าที่ผู้แทนดูแล และเพิ่ม NOTE พร้อมวันที่และหัวข้อ</p></div><button class="modal-close" id="cancelRepresentativeActivityBtn" type="button" aria-label="ปิด">×</button></div>
-    <div class="representative-activity-grid">
-      <div class="crow representative-activity-wide"><label>ชื่อผู้แทน <span class="req">*</span></label><select id="repActivityRepresentative"><option value="">เลือกผู้แทน</option>${salesRepresentatives.map(rep=>`<option value="${rep.id}" ${Number(draft.representativeId)===Number(rep.id)?'selected':''}>${escapeHtml(rep.name)}${rep.company?` · ${escapeHtml(rep.company)}`:''}</option>`).join('')}</select></div>
-      <div class="representative-activity-items-editor representative-activity-wide"><div class="representative-activity-items-editor-head"><div class="representative-activity-items-editor-title"><b>รายการสินค้าที่ดูแล</b><span>${items.filter(item=>item.productId).length} รายการ</span></div><div class="representative-activity-product-picker"><input id="representativeManagedProductSearch" autocomplete="off" placeholder="ค้นหาชื่อสินค้า รหัส หรือยิงบาร์โค้ด"><div id="representativeManagedProductResults" class="representative-activity-product-results" hidden></div></div></div><div class="representative-managed-product-selection-grid">${items.map((item,index)=>representativeActivityItemEditorHtml(item,index)).join('')||'<div class="representative-managed-product-selection-empty">ยังไม่ได้เลือกสินค้า</div>'}</div></div>
-      <div class="representative-note-editor representative-activity-wide"><h4>NOTE เพิ่มเติม</h4><div class="representative-note-fields"><div class="crow"><label>วันที่ <span class="req">*</span></label><input id="repActivityEventDate" type="date" value="${escapeHtml(draft.eventDate||TODAY_STR)}"></div><div class="crow"><label>หัวข้อ <span class="req">*</span></label><input id="repActivityTitle" maxlength="160" value="${escapeHtml(draft.title||'')}" placeholder="เช่น ซื้อครบไปเที่ยวฟรี"></div><div class="crow representative-note-content"><label>ข้อมูลเพิ่มเติม</label><textarea id="repActivityContent" rows="4" placeholder="กรอกรายละเอียด NOTE">${escapeHtml(draft.content||'')}</textarea></div></div></div>
-    </div>
-    <div class="representative-activity-form-actions"><button class="btn ghost" id="cancelRepresentativeActivityBottomBtn" type="button">ยกเลิก</button><button class="btn primary" id="saveRepresentativeActivityBtn" type="button">บันทึกข้อมูล</button></div>
-  </section>`;
+  const representative=representativeForActivityId(draft.representativeId);
+  return `<div class="modal-overlay representative-note-editor-overlay"><section class="modal representative-note-editor-modal" role="dialog" aria-modal="true" aria-labelledby="representativeNoteEditorTitle">
+    <div class="modal-head"><div><h3 id="representativeNoteEditorTitle">${draft.id==='new'?'เพิ่ม NOTE':'แก้ไข NOTE'}</h3><div class="sub">ผู้แทน ${escapeHtml(representative?.name||'-')}</div></div><button class="modal-close" id="cancelRepresentativeActivityBtn" type="button" aria-label="ปิด">×</button></div>
+    <div class="representative-note-editor-body"><div class="representative-note-fields"><div class="crow"><label>วันที่ <span class="req">*</span></label><input id="repActivityEventDate" type="date" value="${escapeHtml(draft.eventDate||TODAY_STR)}"></div><div class="crow"><label>หัวข้อ <span class="req">*</span></label><input id="repActivityTitle" maxlength="160" value="${escapeHtml(draft.title||'')}" placeholder="เช่น ซื้อครบไปเที่ยวฟรี"></div><div class="crow representative-note-content"><label>ข้อมูลเพิ่มเติม</label><textarea id="repActivityContent" rows="9" placeholder="กรอกรายละเอียด NOTE">${escapeHtml(draft.content||'')}</textarea></div></div></div>
+    <div class="representative-note-editor-actions"><button class="btn ghost" id="cancelRepresentativeActivityBottomBtn" type="button">ยกเลิก</button><button class="btn primary" id="saveRepresentativeActivityBtn" type="button">บันทึก NOTE</button></div>
+  </section></div>`;
+}
+function openRepresentativeProductsEditor(representativeId){
+  const representative=representativeForActivityId(representativeId);
+  if(!representative) return;
+  representativeProductsEditor={representativeId:Number(representativeId),productIds:new Set(managedProductIdsForRepresentative(representativeId)),search:''};
+  render();
+}
+function representativeProductsEditorMatches(){
+  const editor=representativeProductsEditor;
+  if(!editor) return [];
+  const needle=normalizedActivityName(editor.search);
+  const matches=products.filter(product=>!needle||normalizedActivityName(`${product.name||''} ${product.sku||''} ${product.barcode||''}`).includes(needle));
+  return matches.sort((a,b)=>{
+    const selectedDiff=Number(editor.productIds.has(Number(b.id)))-Number(editor.productIds.has(Number(a.id)));
+    return selectedDiff||String(a.name||'').localeCompare(String(b.name||''),'th');
+  }).slice(0,120);
+}
+function representativeProductsEditorRowsHtml(){
+  const editor=representativeProductsEditor;
+  if(!editor) return '';
+  const canEdit=canPerformPageAction('edit','salesreps');
+  const rows=representativeProductsEditorMatches();
+  return rows.length?rows.map(product=>`<label class="representative-product-choice ${editor.productIds.has(Number(product.id))?'selected':''}"><input type="checkbox" data-representative-product-toggle="${product.id}" ${editor.productIds.has(Number(product.id))?'checked':''} ${canEdit?'':'disabled'}><span><b>${escapeHtml(product.name)}</b><small>${escapeHtml(product.sku||'-')} · ${escapeHtml(product.barcode||'ไม่มีบาร์โค้ด')}</small></span></label>`).join(''):'<div class="representative-products-empty">ไม่พบสินค้าที่ค้นหา</div>';
+}
+function representativeProductsSelectedHtml(){
+  const editor=representativeProductsEditor;
+  if(!editor) return '';
+  const canEdit=canPerformPageAction('edit','salesreps');
+  const selected=[...editor.productIds].map(productForActivityId).filter(Boolean).sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'th'));
+  return selected.length?selected.map(product=>`<span>${escapeHtml(product.name)}${canEdit?`<button type="button" data-remove-representative-product="${product.id}" aria-label="ลบ ${escapeHtml(product.name)}">×</button>`:''}</span>`).join(''):'<div class="representative-products-empty">ยังไม่ได้เลือกสินค้า</div>';
+}
+function representativeProductsEditorModalHtml(){
+  const editor=representativeProductsEditor;
+  if(!editor) return '';
+  const representative=representativeForActivityId(editor.representativeId);
+  const canEdit=canPerformPageAction('edit','salesreps');
+  return `<div class="modal-overlay representative-products-overlay"><section class="modal representative-products-modal" role="dialog" aria-modal="true" aria-labelledby="representativeProductsTitle"><div class="modal-head"><div><h3 id="representativeProductsTitle">สินค้าที่ดูแล</h3><div class="sub">ผู้แทน ${escapeHtml(representative?.name||'-')} · เลือกแล้ว <b id="representativeProductsSelectedCount">${editor.productIds.size}</b> รายการ</div></div><button class="modal-close" id="closeRepresentativeProductsEditorBtn" type="button" aria-label="ปิด">×</button></div>
+    <div class="representative-products-editor-body"><div class="representative-products-search"><input id="representativeProductsSearch" autocomplete="off" value="${escapeHtml(editor.search)}" placeholder="ค้นหาชื่อสินค้า รหัส หรือยิงบาร์โค้ด"></div><div class="representative-products-selected"><h4>สินค้าที่เลือก</h4><div id="representativeProductsSelectedList">${representativeProductsSelectedHtml()}</div></div><div class="representative-products-options-head"><h4>รายการสินค้า</h4><span>แสดงสูงสุด 120 รายการต่อการค้นหา</span></div><div class="representative-products-options" id="representativeProductsOptions">${representativeProductsEditorRowsHtml()}</div></div>
+    <div class="representative-products-actions"><button class="btn ghost" id="cancelRepresentativeProductsEditorBtn" type="button">${canEdit?'ยกเลิก':'ปิด'}</button>${canEdit?'<button class="btn primary" id="saveRepresentativeProductsBtn" type="button">บันทึกสินค้าที่ดูแล</button>':''}</div></section></div>`;
+}
+function representativeEditorModalHtml(){
+  if(editingSalesRepresentativeId===null) return '';
+  const isNew=editingSalesRepresentativeId==='new';
+  const representative=isNew?{code:'',name:'',phone:'',line:'',company:'',note:''}:salesRepresentatives.find(item=>Number(item.id)===Number(editingSalesRepresentativeId));
+  if(!representative) return '';
+  return `<div class="modal-overlay representative-editor-overlay"><section class="modal representative-editor-modal" role="dialog" aria-modal="true" aria-labelledby="representativeEditorTitle">
+    <div class="modal-head"><div><h3 id="representativeEditorTitle">${isNew?'เพิ่มข้อมูลผู้แทน':'แก้ไขข้อมูลผู้แทน'}</h3><div class="sub">บันทึกข้อมูลติดต่อจากหน้าประวัติผู้แทนได้ทันที</div></div><button class="modal-close" id="cancelSalesRepBtn" type="button" aria-label="ปิด">×</button></div>
+    <div class="representative-editor-body"><div class="representative-editor-grid">
+      <div class="crow"><label>รหัสผู้ติดต่อ</label><input id="sr_code" value="${escapeHtml(representative.code||'')}" placeholder="เช่น SR001 (ไม่บังคับ)"></div>
+      <div class="crow"><label>ชื่อผู้แทน <span class="req">*</span></label><input id="sr_name" value="${escapeHtml(representative.name||'')}" placeholder="ชื่อผู้แทน"></div>
+      <div class="crow"><label>เบอร์โทร</label><input id="sr_phone" class="phone-input" value="${escapeHtml(representative.phone||'')}" placeholder="เบอร์มือถือ / โทรศัพท์"></div>
+      <div class="crow"><label>ไลน์</label><input id="sr_line" value="${escapeHtml(representative.line||'')}" placeholder="LINE ID หรือเบอร์ที่ใช้กับไลน์"></div>
+      <div class="crow"><label>บริษัท</label><input id="sr_company" value="${escapeHtml(representative.company||'')}" placeholder="บริษัท/ร้านที่ผู้แทนดูแล"></div>
+      <div class="crow representative-editor-note"><label>ข้อมูลเพิ่มเติม</label><textarea id="sr_note" rows="5" placeholder="เช่น เขตพื้นที่ หรือช่วงเวลาที่ติดต่อสะดวก">${escapeHtml(representative.note||'')}</textarea></div>
+    </div></div>
+    <div class="representative-editor-actions"><button class="btn ghost" id="cancelSalesRepBottomBtn" type="button">ยกเลิก</button><button class="btn primary" id="saveSalesRepBtn" type="button">บันทึกข้อมูลผู้แทน</button></div>
+  </section></div>`;
 }
 function representativeActivityCardHtml(activity){
   const representative=representativeForActivityId(activity.representativeId);
@@ -4477,6 +4516,7 @@ function representativeActivityCardHtml(activity){
 function representativeHistoryGroups(){
   const context=representativeHistoryContext||{};
   const groupIds=new Set();
+  if(context.central) salesRepresentatives.forEach(representative=>groupIds.add(Number(representative.id)));
   representativeProductAssignments.forEach(row=>groupIds.add(Number(row.representativeId)));
   representativeActivityNotes.forEach(note=>groupIds.add(Number(note.representativeId)));
   if(context.representativeId) groupIds.add(Number(context.representativeId));
@@ -4517,7 +4557,7 @@ function representativeProfileHtml(group){
   const field=(label,value,className='')=>`<div class="representative-profile-field ${className}"><span>${label}</span><div>${value}</div></div>`;
   return `<section class="representative-profile-panel">
     ${field('ชื่อผู้แทน',`<strong>${escapeHtml(representative.name||'-')}</strong>`,'representative-profile-name')}
-    ${field('สินค้าที่ดูแล',`<div class="representative-profile-products">${productsHtml}</div>`,'representative-profile-products-field')}
+    ${field('สินค้าที่ดูแล',`<button type="button" class="representative-profile-products-trigger" data-manage-representative-products="${representative.id}"><span class="representative-profile-products">${productsHtml}</span><small>กดเพื่อดู เพิ่ม หรือลบสินค้า</small></button>`,'representative-profile-products-field')}
     ${field('เบอร์โทร',escapeHtml(representative.phone||'-'))}
     ${field('ไลน์',escapeHtml(representative.line||'-'))}
     ${field('บริษัท',escapeHtml(representative.company||'-'))}
@@ -4548,46 +4588,39 @@ function renderRepresentativeHistory(){
   const groups=representativeHistoryGroups();
   const title=central?'ประวัติผู้แทน':representative?`ข้อมูลผู้แทน ${representative.name}`:`ผู้แทนที่ดูแล ${product.name}`;
   const canCreate=canPerformPageAction('create','notes');
+  const canCreateRepresentative=canPerformPageAction('create','salesreps');
+  const canEditRepresentative=representative&&canPerformPageAction('edit','salesreps');
   const historyFilters=`<div class="representative-history-filter representative-history-filter-minimal panel"><label><span>ชื่อผู้แทน</span><input id="representativeHistoryRepresentativeSearch" value="${escapeHtml(representativeHistoryFilter.representativeSearch)}" placeholder="ค้นหาชื่อผู้แทน"></label><label><span>ชื่อสินค้า</span><input id="representativeHistoryProductSearch" value="${escapeHtml(representativeHistoryFilter.productSearch)}" placeholder="ค้นหาตามชื่อสินค้า"></label><div class="representative-history-search"><span>ค้นหาจาก NOTE</span><div class="representative-history-search-row"><input id="representativeHistoryNoteSearch" value="${escapeHtml(representativeHistoryFilter.noteSearch)}" placeholder="หัวข้อหรือข้อมูลใน NOTE"><button class="btn primary" id="searchRepresentativeHistoryBtn" type="button">ค้นหา</button></div></div></div>`;
   const loading=representativeActivityLoading&&representativeActivityLoadedKey!==representativeHistoryKey(context);
   const representativeDetail=representative&&!product&&!central;
   const detailGroup=representativeDetail?groups.find(group=>Number(group.representative.id)===Number(representative.id)):null;
   const pageBody=representativeDetail&&detailGroup
-    ?`${representativeProfileHtml(detailGroup)}${representativeActivityFormHtml()}${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':representativeNoteWorkspaceHtml(detailGroup,canCreate)}`
-    :`${representativeActivityFormHtml()}${historyFilters}<div class="representative-groups-grid">${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':groups.map(representativeHistoryGroupHtml).join('')||'<div class="representative-history-empty">ยังไม่มีข้อมูลที่ตรงกับการค้นหา</div>'}</div>`;
-  return `<div class="rpt representative-history-page"><div class="pagehead"><div>${central?'':`<div class="breadcrumb">${context.originTab==='representativehistory'?'ประวัติผู้แทน':'รายชื่อผู้แทน'} › ผู้แทนและสินค้าที่ดูแล</div>`}<h1>${escapeHtml(title)}</h1><p>${representative?.company?escapeHtml(representative.company):product?`รหัสสินค้า ${escapeHtml(product.sku||'-')}`:'ค้นหาผู้แทน สินค้าที่ดูแล และ NOTE ได้จากหน้าเดียว'}</p></div><div class="form-final-actions">${central?'':'<button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button>'}${canCreate?'<button class="btn primary" id="newRepresentativeActivityBtn" type="button">+ เพิ่มประวัติ</button>':''}</div></div>${representativeActivityLoadError?`<div class="notice danger">${escapeHtml(representativeActivityLoadError)}</div>`:''}${pageBody}</div>`;
+    ?`${representativeProfileHtml(detailGroup)}${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':representativeNoteWorkspaceHtml(detailGroup,canCreate)}`
+    :`${historyFilters}<div class="representative-groups-grid">${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':groups.map(representativeHistoryGroupHtml).join('')||'<div class="representative-history-empty">ยังไม่มีข้อมูลที่ตรงกับการค้นหา</div>'}</div>`;
+  const centralActions=`<button class="btn ghost" id="exportSalesRepsBtn" type="button">ส่งออก Excel</button><button class="btn ghost" id="downloadSalesRepTemplateBtn" type="button">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importSalesRepsBtn" type="button">นำเข้า Excel</button><input id="salesRepImportFile" type="file" accept=".xlsx,.xls,.csv" hidden>${canCreateRepresentative?'<button class="btn primary" id="newSalesRepBtn" type="button">+ เพิ่มผู้แทน</button>':''}`;
+  const detailActions=`<button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button>${canEditRepresentative?`<button class="btn ghost" data-act="editsalesrep" data-id="${representative.id}" type="button">แก้ไขข้อมูลผู้แทน</button>`:''}${representativeDetail&&canCreate?'<button class="btn primary" id="newRepresentativeActivityBtn" type="button">+ เพิ่มโน้ต</button>':''}`;
+  return `<div class="rpt representative-history-page"><div class="pagehead"><div>${central?'':`<div class="breadcrumb">ประวัติผู้แทน › ผู้แทนและสินค้าที่ดูแล</div>`}<h1>${escapeHtml(title)}</h1><p>${representative?.company?escapeHtml(representative.company):product?`รหัสสินค้า ${escapeHtml(product.sku||'-')}`:'ค้นหาผู้แทน สินค้าที่ดูแล และ NOTE ได้จากหน้าเดียว'}</p></div><div class="form-final-actions">${central?centralActions:detailActions}</div></div>${representativeActivityLoadError?`<div class="notice danger">${escapeHtml(representativeActivityLoadError)}</div>`:''}${pageBody}</div>${representativeNoteEditorModalHtml()}${representativeProductsEditorModalHtml()}${representativeEditorModalHtml()}`;
 }
 function syncRepresentativeActivityDraftFromForm(){
   if(!representativeActivityDraft) return;
   const value=id=>document.getElementById(id)?.value??'';
-  const itemRows=[...document.querySelectorAll('[data-representative-activity-item]')];
-  const items=itemRows.map((row,index)=>representativeActivityDraftItem({
-    key:representativeActivityDraft.items?.[index]?.key,productId:row.dataset.representativeItemProductId
-  }));
   Object.assign(representativeActivityDraft,{
-    eventDate:value('repActivityEventDate'),representativeId:value('repActivityRepresentative'),
-    title:value('repActivityTitle'),content:value('repActivityContent'),items
+    eventDate:value('repActivityEventDate'),title:value('repActivityTitle'),content:value('repActivityContent')
   });
 }
 async function saveRepresentativeActivity(){
   syncRepresentativeActivityDraftFromForm();
   const draft=representativeActivityDraft;
   if(draft?.id==='new'&&!canPerformPageAction('create','notes')){ showToast('บัญชีนี้ไม่มีสิทธิ์เพิ่มประวัติ','danger-top'); return; }
-  if(!draft?.representativeId){ showToast('กรุณาเลือกผู้แทน','danger-top'); document.getElementById('repActivityRepresentative')?.focus(); return; }
+  if(!draft?.representativeId){ showToast('ไม่พบข้อมูลผู้แทน','danger-top'); return; }
   if(!draft.eventDate){ showToast('กรุณาเลือกวันที่','danger-top'); return; }
   if(!String(draft.title||'').trim()){ showToast('กรุณากรอกหัวข้อ NOTE','danger-top'); document.getElementById('repActivityTitle')?.focus(); return; }
-  const enteredItems=(draft.items||[]).filter(item=>item.productId||String(item.productName||'').trim());
-  const unfinishedIndex=enteredItems.findIndex(item=>!item.productId);
-  if(unfinishedIndex>=0){ showToast(`กรุณาเลือกสินค้าในรายการที่ ${unfinishedIndex+1} จากผลการค้นหา`,'danger-top'); return; }
-  if(!enteredItems.length){ showToast('กรุณาเลือกสินค้าที่ผู้แทนดูแลอย่างน้อย 1 รายการ','danger-top'); return; }
-  const duplicateProduct=enteredItems.find((item,index)=>enteredItems.findIndex(other=>Number(other.productId)===Number(item.productId))!==index);
-  if(duplicateProduct){ showToast(`สินค้า “${duplicateProduct.productName||productForActivityId(duplicateProduct.productId)?.name||''}” ถูกเลือกซ้ำ`,'danger-top'); return; }
   const title=String(draft.title||'').trim();
   const text=String(draft.content||'').trim();
   const rpcPayload={
     p_note_id:draft.id==='new'?null:draft.id,p_expected_updated_at:draft.id==='new'?null:draft.updatedAt,p_title:title,
     p_content_html:text?`<p>${escapeHtml(text).replace(/\r?\n/g,'<br>')}</p>`:'',p_representative_id:Number(draft.representativeId),
-    p_event_date:draft.eventDate,p_product_ids:enteredItems.map(item=>Number(item.productId))
+    p_event_date:draft.eventDate,p_product_ids:[]
   };
   const button=document.getElementById('saveRepresentativeActivityBtn');
   if(button){ button.disabled=true; button.textContent='กำลังบันทึก…'; }
@@ -4601,11 +4634,11 @@ async function saveRepresentativeActivity(){
     selectedRepresentativeNoteId=savedId;
     representativeActivityDraft=null;
     representativeActivityLoadedKey='';
-    showToast('บันทึกผู้แทน สินค้าที่ดูแล และ NOTE แล้ว');
+    showToast('บันทึก NOTE แล้ว');
     await loadRepresentativeActivityHistory({force:true});
   }catch(error){
     showToast(error?.message||'บันทึกประวัติไม่สำเร็จ','danger-top');
-    if(button){ button.disabled=false; button.textContent='บันทึกข้อมูล'; }
+    if(button){ button.disabled=false; button.textContent='บันทึก NOTE'; }
   }
 }
 async function deleteRepresentativeActivity(id){
@@ -4621,26 +4654,56 @@ async function deleteRepresentativeActivity(id){
     render();
   }catch(error){ showToast(error?.message||'ลบประวัติไม่สำเร็จ','danger-top'); }
 }
+function drawRepresentativeProductsEditor(){
+  const editor=representativeProductsEditor;
+  if(!editor) return;
+  const options=document.getElementById('representativeProductsOptions');
+  const selected=document.getElementById('representativeProductsSelectedList');
+  const count=document.getElementById('representativeProductsSelectedCount');
+  if(options) options.innerHTML=representativeProductsEditorRowsHtml();
+  if(selected) selected.innerHTML=representativeProductsSelectedHtml();
+  if(count) count.textContent=editor.productIds.size;
+  document.querySelectorAll('[data-representative-product-toggle]').forEach(input=>input.addEventListener('change',()=>{
+    const productId=Number(input.dataset.representativeProductToggle);
+    if(input.checked) editor.productIds.add(productId); else editor.productIds.delete(productId);
+    drawRepresentativeProductsEditor();
+  }));
+  document.querySelectorAll('[data-remove-representative-product]').forEach(button=>button.addEventListener('click',()=>{
+    editor.productIds.delete(Number(button.dataset.removeRepresentativeProduct));
+    drawRepresentativeProductsEditor();
+  }));
+}
+async function saveRepresentativeManagedProducts(){
+  const editor=representativeProductsEditor;
+  if(!editor||!canPerformPageAction('edit','salesreps')) return;
+  const button=document.getElementById('saveRepresentativeProductsBtn');
+  if(button){ button.disabled=true; button.textContent='กำลังบันทึก…'; }
+  try{
+    const productIds=[...editor.productIds].map(Number).filter(Boolean);
+    const {error}=await sb.rpc('save_representative_products',{p_representative_id:Number(editor.representativeId),p_product_ids:productIds});
+    if(error) throw error;
+    representativeProductAssignments=[
+      ...representativeProductAssignments.filter(row=>Number(row.representativeId)!==Number(editor.representativeId)),
+      ...productIds.map(productId=>({representativeId:Number(editor.representativeId),productId,createdAt:'',updatedAt:''}))
+    ];
+    representativeProductsEditor=null;
+    representativeActivityLoadedKey='';
+    showToast('บันทึกสินค้าที่ดูแลแล้ว');
+    await loadRepresentativeActivityHistory({force:true});
+  }catch(error){
+    showToast(error?.message||'บันทึกสินค้าที่ดูแลไม่สำเร็จ','danger-top');
+    if(button){ button.disabled=false; button.textContent='บันทึกสินค้าที่ดูแล'; }
+  }
+}
 function attachRepresentativeHistoryEvents(){
   if(!representativeHistoryContext) return;
   document.getElementById('closeRepresentativeHistoryBtn')?.addEventListener('click',closeRepresentativeHistory);
-  document.getElementById('newRepresentativeActivityBtn')?.addEventListener('click',()=>{ representativeActivityDraft=newRepresentativeActivityDraft(); render(); });
-  document.getElementById('emptyAddRepresentativeNoteBtn')?.addEventListener('click',()=>{ representativeActivityDraft=newRepresentativeActivityDraft(); render(); });
+  const openNewNote=()=>{ representativeActivityDraft=newRepresentativeNoteDraft(); if(representativeActivityDraft) render(); };
+  document.getElementById('newRepresentativeActivityBtn')?.addEventListener('click',openNewNote);
+  document.getElementById('emptyAddRepresentativeNoteBtn')?.addEventListener('click',openNewNote);
   document.getElementById('cancelRepresentativeActivityBtn')?.addEventListener('click',()=>{ representativeActivityDraft=null; render(); });
   document.getElementById('cancelRepresentativeActivityBottomBtn')?.addEventListener('click',()=>{ representativeActivityDraft=null; render(); });
   document.getElementById('saveRepresentativeActivityBtn')?.addEventListener('click',saveRepresentativeActivity);
-  document.querySelectorAll('[data-remove-representative-activity-item]').forEach(button=>button.addEventListener('click',()=>{
-    syncRepresentativeActivityDraftFromForm();
-    representativeActivityDraft.items.splice(Number(button.dataset.removeRepresentativeActivityItem),1);
-    render();
-  }));
-  document.getElementById('repActivityRepresentative')?.addEventListener('change',event=>{
-    syncRepresentativeActivityDraftFromForm();
-    representativeActivityDraft.representativeId=event.target.value;
-    const assignedItems=managedProductItemsForRepresentative(event.target.value);
-    representativeActivityDraft.items=assignedItems.length?assignedItems:[representativeActivityDraftItem()];
-    render();
-  });
   const representativeSearch=document.getElementById('representativeHistoryRepresentativeSearch');
   const productSearchFilter=document.getElementById('representativeHistoryProductSearch');
   const noteSearch=document.getElementById('representativeHistoryNoteSearch');
@@ -4663,39 +4726,18 @@ function attachRepresentativeHistoryEvents(){
     card.addEventListener('keydown',event=>{ if((event.key==='Enter'||event.key===' ')&&!event.target.closest('button,a,input,select,textarea')){ event.preventDefault(); open(); } });
   });
   document.querySelectorAll('[data-open-product-history]').forEach(button=>button.addEventListener('click',()=>openRepresentativeHistory({productId:Number(button.dataset.openProductHistory),originTab:historyOrigin})));
-  {
-    const productSearch=document.getElementById('representativeManagedProductSearch'),results=document.getElementById('representativeManagedProductResults');
-    if(!productSearch||!results) return;
-    const matches=query=>{
-      const text=String(query||'').trim(),lower=text.toLowerCase();
-      if(!text) return [];
-      const exact=findProductByExactCode(text)?.product;
-      const rows=products.filter(product=>normalizedActivityName(product.name).includes(lower)||normalizedActivityName(product.sku).includes(lower)||matchesBarcode(product,text)).slice(0,8);
-      return exact?[exact,...rows.filter(product=>Number(product.id)!==Number(exact.id))].slice(0,8):rows;
-    };
-    const choose=product=>{
-      if(!product) return;
-      syncRepresentativeActivityDraftFromForm();
-      if(representativeActivityDraft.items.some(item=>Number(item.productId)===Number(product.id))){
-        showToast(`เลือกสินค้า “${product.name}” ไว้แล้ว`,'danger-top');
-        productSearch.value=''; results.hidden=true; results.innerHTML='';
-        return;
-      }
-      representativeActivityDraft.items.push(representativeActivityDraftItem({productId:product.id}));
-      render();
-    };
-    const draw=()=>{
-      const rows=matches(productSearch.value);
-      results.innerHTML=rows.length?rows.map(product=>`<button type="button" data-representative-activity-product="${product.id}"><b>${escapeHtml(product.name)}</b><small>${escapeHtml(product.sku||'-')} · ${escapeHtml(product.barcode||'ไม่มีบาร์โค้ด')}</small></button>`).join(''):'<div>ไม่พบสินค้า</div>';
-      results.hidden=!productSearch.value.trim();
-      results.querySelectorAll('[data-representative-activity-product]').forEach(button=>button.addEventListener('mousedown',event=>{ event.preventDefault(); choose(productForActivityId(button.dataset.representativeActivityProduct)); }));
-      return rows;
-    };
-    productSearch.addEventListener('input',draw);
-    productSearch.addEventListener('focus',draw);
-    productSearch.addEventListener('blur',()=>setTimeout(()=>{ results.hidden=true; },120));
-    productSearch.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); const rows=draw(); if(rows[0]) choose(rows[0]); } });
-  }
+  document.querySelectorAll('[data-manage-representative-products]').forEach(button=>button.addEventListener('click',()=>openRepresentativeProductsEditor(Number(button.dataset.manageRepresentativeProducts))));
+  const closeProductsEditor=()=>{ representativeProductsEditor=null; render(); };
+  document.getElementById('closeRepresentativeProductsEditorBtn')?.addEventListener('click',closeProductsEditor);
+  document.getElementById('cancelRepresentativeProductsEditorBtn')?.addEventListener('click',closeProductsEditor);
+  document.getElementById('saveRepresentativeProductsBtn')?.addEventListener('click',saveRepresentativeManagedProducts);
+  document.getElementById('representativeProductsSearch')?.addEventListener('input',event=>{
+    if(!representativeProductsEditor) return;
+    representativeProductsEditor.search=event.target.value;
+    drawRepresentativeProductsEditor();
+  });
+  drawRepresentativeProductsEditor();
+  document.getElementById('cancelSalesRepBottomBtn')?.addEventListener('click',()=>{ editingSalesRepresentativeId=null; render(); });
 }
 function renderDashboard(){
   const completedSales = salesHistory.filter(s=>s.status==='done').filter(s=>isAllWarehousesMode()||(s.items||[]).some(item=>String(saleWarehouseForReport(s,item,products.find(product=>Number(product.id)===Number(item.productId))||products.find(product=>product.name===item.name)||{}))===String(activeWarehouseId)));
@@ -9779,30 +9821,8 @@ function renderCustomerPricingForm(){
 }
 
 function renderSalesRepresentatives(){
-  if(representativeHistoryContext) return renderRepresentativeHistory();
-  if(editingSalesRepresentativeId!==null) return renderSalesRepresentativeForm();
-  const q=searchQuery.trim().toLowerCase();
-  const list=salesRepresentatives.filter(rep=>!q || (rep.code||'').toLowerCase().includes(q) || (rep.name||'').toLowerCase().includes(q) || (rep.phone||'').toLowerCase().includes(q) || (rep.line||'').toLowerCase().includes(q) || (rep.company||'').toLowerCase().includes(q) || (rep.note||'').toLowerCase().includes(q));
-  return `<div class="rpt"><div class="pagehead"><div></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportSalesRepsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadSalesRepTemplateBtn">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importSalesRepsBtn">นำเข้า Excel</button><input id="salesRepImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newSalesRepBtn">+ เพิ่มรายชื่อผู้แทน</button></div></div>
-    <div class="toolbar"><h1 style="font-size:20px;margin:0;font-weight:600;">รายชื่อผู้แทน <span class="page-title-meta">· ${list.length} รายชื่อ</span></h1><div class="searchbar"><input id="search" placeholder="ค้นหาจากรหัสผู้ติดต่อ / ชื่อ / เบอร์โทร / ไลน์ / บริษัท" value="${escapeHtml(searchQuery)}"></div></div>
-    <div class="doc-list-wrap seamless-table-wrap">
-    <table class="grid-table doc-head-blue contact-summary-table"><thead><tr><th style="width:140px;">รหัสผู้ติดต่อ</th><th>ชื่อ</th><th>เบอร์โทร</th><th>ไลน์</th><th>บริษัท</th><th>ข้อมูลเพิ่มเติม</th><th style="width:156px;"></th></tr></thead>
-    <tbody>${list.map(rep=>`<tr><td class="mono">${escapeHtml(rep.code||'-')}</td><td><button class="representative-history-name" data-representative-history="${escapeHtml(rep.id)}" type="button">${escapeHtml(rep.name)}</button></td><td class="mono">${escapeHtml(rep.phone||'-')}</td><td>${escapeHtml(rep.line||'-')}</td><td>${escapeHtml(rep.company||'-')}</td><td>${escapeHtml(rep.note||'-')}</td><td style="text-align:center;"><div class="history-actions sales-representative-actions"><button class="history-icon-btn representative-history-action" data-representative-history="${escapeHtml(rep.id)}" title="ประวัติผู้แทนและสินค้า" aria-label="เปิดประวัติ ${escapeHtml(rep.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 7v5l3 2"/></svg></button><button class="history-icon-btn" data-act="editsalesrep" data-id="${escapeHtml(rep.id)}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(rep.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn danger" data-act="deletesalesrep" data-id="${escapeHtml(rep.id)}" title="ลบ" aria-label="ลบ ${escapeHtml(rep.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td></tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">ยังไม่มีรายชื่อผู้แทน</td></tr>'}</tbody></table>
-    </div></div>`;
-}
-
-function renderSalesRepresentativeForm(){
-  const isNew=editingSalesRepresentativeId==='new';
-  const rep=isNew?{code:'',name:'',phone:'',line:'',company:'',note:''}:salesRepresentatives.find(x=>x.id===editingSalesRepresentativeId);
-  return `<div class="rpt"><div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › รายชื่อผู้แทน › ${isNew?'เพิ่มรายชื่อ':'แก้ไขรายชื่อ'}</div><h1>${isNew?'เพิ่มรายชื่อผู้แทน':'แก้ไขรายชื่อผู้แทน'}</h1></div><div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelSalesRepBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveSalesRepBtn">บันทึก</button></div></div>
-    <div class="panel"><h3>ข้อมูลผู้แทน</h3><div class="cform">
-      <div class="crow"><label>รหัสผู้ติดต่อ</label><input id="sr_code" value="${escapeHtml(rep.code||'')}" placeholder="เช่น SR001 (ไม่บังคับ)"></div>
-      <div class="crow"><label>ชื่อ <span class="req">*</span></label><input id="sr_name" value="${escapeHtml(rep.name||'')}" placeholder="ชื่อผู้แทน"></div>
-      <div class="crow"><label>เบอร์โทร</label><input id="sr_phone" class="phone-input" value="${escapeHtml(rep.phone||'')}" placeholder="เบอร์มือถือ / โทรศัพท์"></div>
-      <div class="crow"><label>ไลน์</label><input id="sr_line" value="${escapeHtml(rep.line||'')}" placeholder="LINE ID หรือเบอร์ที่ใช้กับไลน์"></div>
-      <div class="crow"><label>บริษัท</label><input id="sr_company" value="${escapeHtml(rep.company||'')}" placeholder="บริษัท/ร้านที่ผู้แทนดูแล"></div>
-      <div class="crow"><label>ข้อมูลเพิ่มเติม</label><textarea id="sr_note" rows="5" placeholder="เช่น เขตพื้นที่ หรือช่วงเวลาที่ติดต่อสะดวก">${escapeHtml(rep.note||'')}</textarea></div>
-    </div></div></div>`;
+  if(!representativeHistoryContext) representativeHistoryContext={central:true,originTab:'representativehistory'};
+  return renderRepresentativeHistory();
 }
 
 // ===== ระบบโปรโมชั่น =====

@@ -11,7 +11,7 @@ assert.match(
 );
 assert.match(html, /class="history-actions product-exchange-actions"/, 'หน้าเปลี่ยนสินค้าต้องใช้กลุ่มไอคอนเฉพาะหน้า');
 assert.match(html, /class="history-actions contact-action-icons"/, 'หน้าสมุดรายชื่อต้องใช้กลุ่มไอคอนเฉพาะหน้า');
-assert.match(html, /class="history-actions sales-representative-actions"/, 'หน้ารายชื่อผู้แทนต้องใช้กลุ่มไอคอนเฉพาะหน้า');
+assert.doesNotMatch(html, /class="history-actions sales-representative-actions"/, 'หน้ารายชื่อผู้แทนแบบเก่าต้องถูกถอดออก');
 assert.match(html, /class="history-actions product-return-actions"/, 'หน้าใบคืนสินค้าต้องใช้กลุ่มไอคอนเฉพาะหน้า');
 assert.match(html, /\.product-exchange-form-actions\{display:flex;align-items:center;gap:14px;\}/, 'ปุ่มยกเลิกและบันทึกหน้าเปลี่ยนสินค้าต้องมีระยะห่าง');
 

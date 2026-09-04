@@ -29,7 +29,6 @@ for (const inlineTitle of [
   'ใบรับสินค้า <span class="page-title-meta">บันทึกและตรวจสอบการรับสินค้าเข้าคลัง · ${allDocs.length} รายการ',
   'เปลี่ยนสินค้า <span class="page-title-meta">ติดตามสินค้าที่ส่งไปเปลี่ยนและสินค้าที่ได้รับกลับ · ${allDocs.length} รายการ',
   'สมุดรายชื่อ <span class="page-title-meta">· ${list.length} รายชื่อ',
-  'รายชื่อผู้แทน <span class="page-title-meta">· ${list.length} รายชื่อ',
   'รายงานการเคลื่อนไหว <span class="page-title-meta">· ${groups.length} บิล · ${rows.length} รายการเคลื่อนไหว',
   'บิลเงินสด <span class="page-title-meta">เอกสารรับเงินกระดาษ A4 · ${docs.length} รายการ',
   'ใบกำกับภาษีเต็มรูปแบบ <span class="page-title-meta">สร้างเอกสารใหม่ หรือ ออกเอกสารจากออเดอร์ย้อนหลัง · ${allItems.length} รายการ',
@@ -47,7 +46,7 @@ assert.ok(inventoryReportStart >= 0 && inventoryReportEnd > inventoryReportStart
 assert.doesNotMatch(inventoryReportSource, /<h1>รายงานสินค้าคงเหลือ<\/h1>/, 'ต้องลบชื่อรายงานสินค้าคงเหลือออกจากพื้นที่เนื้อหา');
 assert.match(html, /class="pagehead topbar-action-source"[^]*?id="resetStockReportBtn"[^]*?id="printStockReportBtn"/, 'ปุ่มรายงานสินค้าคงเหลือต้องยังอยู่บน TOPBAR');
 assert.match(html, /class="pagehead topbar-action-source"[^]*?id="saveBusinessSettingsBtn"/, 'ปุ่มบันทึกข้อมูลธุรกิจต้องยังอยู่บน TOPBAR');
-assert.match(html, /<div class="toolbar"><h1[^>]*>รายชื่อผู้แทน <span class="page-title-meta">· \$\{list\.length\} รายชื่อ<\/span><\/h1><div class="searchbar">/, 'ชื่อหน้ารายชื่อผู้แทนและจำนวนต้องอยู่แถวเดียวกับช่องค้นหา');
+assert.doesNotMatch(html, /<h1[^>]*>รายชื่อผู้แทน/, 'ต้องถอดหน้ารายชื่อผู้แทนแบบเก่าออกจากระบบ');
 
 for (const buttonId of ['auditLogRefresh', 'newWarehouseBtn', 'addSystemUserBtn', 'printExpiryBtn', 'printLowStockBtn']) {
   assert.match(html, new RegExp(`class="pagehead topbar-action-source"[^]*?id="${buttonId}"`), `ปุ่ม ${buttonId} ต้องยังส่งไป TOPBAR ได้`);

@@ -109,25 +109,27 @@ let browser;
   assert.ok(Math.abs(historyPageWidth.actual-historyPageWidth.available)<=2,'representative history must use the full content width like purchase orders');
 
   await page.locator('#newRepresentativeActivityBtn').click();
-  assert.equal(await page.locator('#repActivityRepresentative').inputValue(), '10');
-  assert.equal(await page.locator('.representative-activity-item-editor').count(),3);
-  assert.equal(await page.locator('#representativeManagedProductSearch').count(),1,'managed products must share one search field');
-  const managedProductPositions=await page.locator('.representative-activity-item-editor').evaluateAll(elements=>elements.map(element=>{
-    const box=element.getBoundingClientRect();
-    return {x:Math.round(box.x),y:Math.round(box.y)};
-  }));
-  assert.equal(managedProductPositions[0].y,managedProductPositions[1].y);
-  assert.equal(managedProductPositions[1].y,managedProductPositions[2].y);
-  assert.ok(managedProductPositions[0].x<managedProductPositions[1].x&&managedProductPositions[1].x<managedProductPositions[2].x,'managed products must display three items per row on desktop');
-  assert.equal(await page.locator('#repActivityType,#repActivityValidFrom,#repActivityValidTo,#repActivityReminderDate,[data-representative-item-field="quotedPrice"],[data-representative-item-field="minimumQuantity"],[data-representative-item-field="unit"],[data-representative-item-field="conditionNote"]').count(),0);
-  await page.locator('#representativeManagedProductSearch').fill('LIP40');
-  await page.locator('#representativeManagedProductSearch').press('Enter');
-  assert.equal(await page.locator('.representative-activity-item-editor').count(),4);
-  assert.equal(await page.locator('[data-representative-item-product-id="23"]').count(),1);
-  assert.equal(await page.locator('[data-representative-item-product-id="20"]').count(),1,'adding another product must preserve existing managed products');
-  const fourthPosition=await page.locator('.representative-activity-item-editor').nth(3).evaluate(element=>Math.round(element.getBoundingClientRect().y));
-  assert.ok(fourthPosition>managedProductPositions[0].y,'the fourth managed product must start the next row');
+  assert.equal(await page.locator('.representative-note-editor-modal').count(),1);
+  assert.equal(await page.locator('#repActivityEventDate,#repActivityTitle,#repActivityContent').count(),3);
+  assert.equal(await page.locator('#repActivityRepresentative,#representativeManagedProductSearch,.representative-activity-item-editor').count(),0,'NOTE editor must no longer contain representative or product assignment fields');
   await page.locator('#cancelRepresentativeActivityBottomBtn').click();
+
+  await page.locator('[data-manage-representative-products="10"]').click();
+  assert.equal(await page.locator('.representative-products-modal').count(),1);
+  assert.equal(await page.locator('#representativeProductsSelectedCount').textContent(),'3');
+  assert.equal(await page.locator('[data-representative-product-toggle]').count(),4);
+  await page.locator('#representativeProductsSearch').fill('LIP40');
+  assert.equal(await page.locator('[data-representative-product-toggle="23"]').count(),1);
+  await page.locator('[data-representative-product-toggle="23"]').check();
+  assert.equal(await page.locator('#representativeProductsSelectedCount').textContent(),'4');
+  assert.match(await page.locator('#representativeProductsSelectedList').textContent(),/LIPITOR 40 MG/);
+  await page.locator('#cancelRepresentativeProductsEditorBtn').click();
+
+  await page.locator('[data-act="editsalesrep"][data-id="10"]').click();
+  assert.equal(await page.locator('.representative-editor-modal').count(),1);
+  assert.equal(await page.locator('#sr_name').inputValue(),'PEPO');
+  assert.equal(await page.locator('#sr_phone').inputValue(),'081-234-5678');
+  await page.locator('#cancelSalesRepBottomBtn').click();
 
   await page.evaluate(() => {
     currentTab='representativehistory';
@@ -148,6 +150,11 @@ let browser;
   });
   assert.equal(await page.locator('.representative-group-card').count(),5);
   assert.equal(await page.locator('#representativeHistoryRepresentativeSearch,#representativeHistoryProductSearch,#representativeHistoryNoteSearch').count(),3);
+  assert.equal(await page.locator('#newSalesRepBtn').count(),1,'central representative history must add representatives directly');
+  await page.locator('#newSalesRepBtn').click();
+  assert.equal(await page.locator('.representative-editor-modal').count(),1);
+  assert.equal(await page.locator('#sr_name').inputValue(),'');
+  await page.locator('#cancelSalesRepBottomBtn').click();
   const cardPositions=await page.locator('.representative-group-card').evaluateAll(elements=>elements.map(element=>Math.round(element.getBoundingClientRect().y)));
   assert.equal(new Set(cardPositions.slice(0,3)).size,1,'representative cards must display three per row on desktop');
   assert.ok(cardPositions[3]>cardPositions[0],'the fourth representative card must start the next row');
