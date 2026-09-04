@@ -1,0 +1,39 @@
+{
+  "anon": [
+    "has_any_owner()"
+  ],
+  "authenticated": [
+    "adjust_inventory_stock(bigint,bigint,numeric)",
+    "apply_inventory_transfer(text)",
+    "can_current_user_page(text,bigint,text)",
+    "close_cash_shift(uuid,numeric,text)",
+    "complete_sale(uuid,text,bigint,jsonb,jsonb,text)",
+    "delete_held_sale(text)",
+    "delete_unused_product(bigint)",
+    "export_store_inventory_backup()",
+    "get_central_audit_log_page(integer,timestamptz,text,text,text,text,text,boolean)",
+    "get_notes_page(text,timestamptz,uuid,integer)",
+    "get_representative_note_cards(bigint[],text,integer)",
+    "get_representative_notes_page(bigint,text,date,timestamptz,uuid,integer)",
+    "get_representative_page(bigint,bigint,text,text,text,text,bigint,integer)",
+    "has_any_owner()",
+    "open_cash_shift(bigint,numeric)",
+    "owner_delete_warehouse(bigint)",
+    "owner_set_setting(text,jsonb)",
+    "owner_update_mobile_product_details(bigint,bigint,bigint,jsonb,numeric,numeric,date)",
+    "owner_upsert_warehouse(bigint,text,jsonb)",
+    "record_goods_receipt_payment(text,jsonb)",
+    "record_print_event(text,text,text,integer,bigint,jsonb)",
+    "report_client_event(text,text,text,text,text,text,text,text,jsonb)",
+    "resolve_own_sync_events(text,timestamptz)",
+    "restore_store_backup_atomic(jsonb)",
+    "run_stock_operation(uuid,text,jsonb)",
+    "save_held_sale(jsonb)",
+    "save_representative_note(uuid,timestamptz,text,text,bigint,date,jsonb)",
+    "save_representative_products(bigint,jsonb)",
+    "save_revisioned_document(uuid,text,text,jsonb,bigint,boolean)",
+    "set_inventory_expiry(bigint,bigint,date)",
+    "set_inventory_stock(bigint,bigint,numeric)",
+    "update_sale_document_metadata(text,jsonb)"
+  ]
+}

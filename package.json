@@ -8,6 +8,7 @@
     "test": "pnpm run test:static && pnpm run test:browser",
     "test:static": "node tests/check-inline-js.js && node tests/run-node-tests.js",
     "test:browser": "node tests/run-browser-tests.js",
+    "check:migrations": "node scripts/check-migration-parity.mjs",
     "restore:drill": "node scripts/restore-drill.mjs"
   },
   "devDependencies": {

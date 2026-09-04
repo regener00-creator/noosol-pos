@@ -31,12 +31,56 @@ let browser;
   await page.route('https://cdn.jsdelivr.net/npm/xlsx@*/**', route => route.fulfill({contentType:'text/javascript',body:'window.XLSX={};'}));
   await page.route('https://cdn.jsdelivr.net/npm/@supabase/**', route => route.fulfill({contentType:'text/javascript',body:`
     (()=>{
-      const query=new Proxy({}, {get(_target,property){
-        if(property==='then') return resolve=>resolve({data:[],error:null});
-        return ()=>query;
-      }});
+      const resultQuery=data=>{
+        const query=new Proxy({}, {get(_target,property){
+          if(property==='then') return resolve=>resolve({data,error:null});
+          return ()=>query;
+        }});
+        return query;
+      };
+      const query=resultQuery([]);
+      const normalized=value=>String(value||'').trim().toLocaleLowerCase('th-TH');
+      const rpc=(name,args={})=>{
+        window.__representativeRpcAssignments||=[...(window.representativeProductAssignments||[])];
+        window.__representativeRpcNotes||=[...(window.representativeActivityNotes||[])];
+        const assignments=window.__representativeRpcAssignments;
+        const notes=window.__representativeRpcNotes;
+        if(name==='get_representative_page'){
+          if(window.__representativeRpcRepresentatives) window.salesRepresentatives=[...window.__representativeRpcRepresentatives];
+          if(window.__representativeRpcProducts) window.products=[...window.__representativeRpcProducts];
+          const representativeNeedle=normalized(args.p_representative_search);
+          const productNeedle=normalized(args.p_product_search);
+          const noteNeedle=normalized(args.p_note_search);
+          let rows=(window.__representativeRpcRepresentatives||window.salesRepresentatives||[]).filter(representative=>{
+            if(args.p_representative_id&&Number(representative.id)!==Number(args.p_representative_id)) return false;
+            if(args.p_product_id&&!assignments.some(row=>Number(row.representativeId)===Number(representative.id)&&Number(row.productId)===Number(args.p_product_id))) return false;
+            if(representativeNeedle&&!normalized([representative.name,representative.company,representative.code,representative.phone,representative.line].join(' ')).includes(representativeNeedle)) return false;
+            if(productNeedle&&!assignments.filter(row=>Number(row.representativeId)===Number(representative.id)).some(row=>{
+              const product=(window.products||[]).find(item=>Number(item.id)===Number(row.productId));
+              return normalized([product?.name,product?.sku,product?.barcode].join(' ')).includes(productNeedle);
+            })) return false;
+            if(noteNeedle&&!notes.filter(note=>Number(note.representativeId)===Number(representative.id)).some(note=>normalized([note.title,note.contentHtml].join(' ')).includes(noteNeedle))) return false;
+            return true;
+          }).map(representative=>({representative_id:representative.id,representative_name:representative.name,sort_name:normalized(representative.name)}));
+          rows.sort((a,b)=>a.sort_name.localeCompare(b.sort_name,'th')||a.representative_id-b.representative_id);
+          if(args.p_cursor_name!=null) rows=rows.filter(row=>row.sort_name>args.p_cursor_name||(row.sort_name===args.p_cursor_name&&row.representative_id>Number(args.p_cursor_id)));
+          return resultQuery(rows.slice(0,Number(args.p_limit||24)+1));
+        }
+        if(name==='get_representative_note_cards'){
+          const ids=new Set((args.p_representative_ids||[]).map(Number)),needle=normalized(args.p_search),limit=Number(args.p_limit_per_representative||3);
+          const rows=[];
+          ids.forEach(id=>rows.push(...notes.filter(note=>Number(note.representativeId)===id&&(!needle||normalized([note.title,note.contentHtml].join(' ')).includes(needle))).sort((a,b)=>String(b.eventDate||'').localeCompare(String(a.eventDate||''))).slice(0,limit).map(note=>({id:note.id,title:note.title,content_html:note.contentHtml,hidden_from_level2:false,representative_id:note.representativeId,activity_type:note.activityType,event_date:note.eventDate,updated_at:note.updatedAt,representative_activity_items:[]}))));
+          return resultQuery(rows);
+        }
+        if(name==='get_representative_notes_page'){
+          const needle=normalized(args.p_search);
+          const rows=notes.filter(note=>Number(note.representativeId)===Number(args.p_representative_id)&&(!needle||normalized([note.title,note.contentHtml].join(' ')).includes(needle))).sort((a,b)=>String(b.eventDate||'').localeCompare(String(a.eventDate||''))).slice(0,Number(args.p_limit||50)+1).map(note=>({id:note.id,title:note.title,content_html:note.contentHtml,hidden_from_level2:false,representative_id:note.representativeId,activity_type:note.activityType,event_date:note.eventDate,updated_at:note.updatedAt,representative_activity_items:[]}));
+          return resultQuery(rows);
+        }
+        return query;
+      };
       window.supabase={createClient:()=>new Proxy({
-        auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}),signOut:async()=>({error:null})}
+        auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}),signOut:async()=>({error:null})},rpc
       }, {get(target,property){return property in target?target[property]:(()=>query);}})};
     })();
   `}));
@@ -59,6 +103,8 @@ let browser;
       {id:22,sku:'LIP30',name:'LIPITOR 30 MG',unit:'กล่อง',barcode:'8850000000003',extraBarcodes:[],supplierBarcodes:[]},
       {id:23,sku:'LIP40',name:'LIPITOR 40 MG',unit:'กล่อง',barcode:'8850000000004',extraBarcodes:[],supplierBarcodes:[]}
     ];
+    window.__representativeRpcRepresentatives=[...salesRepresentatives];
+    window.__representativeRpcProducts=[...products];
     representativeHistoryContext={representativeId:10,productId:null,originTab:'salesreps'};
     representativeProductAssignments=[
       {representativeId:10,productId:20},{representativeId:10,productId:21},{representativeId:10,productId:22}
@@ -189,6 +235,8 @@ let browser;
       {id:'note-3',title:'แจ้งรอบส่งสินค้า',contentHtml:'<p>ส่งทุกวันจันทร์</p>',hiddenFromLevel2:false,representativeId:11,activityType:'general',eventDate:'2026-09-03',updatedAt:'2026-09-03T10:00:00Z'},
       {id:'note-4',title:'รายการหน้าฝน',contentHtml:'<p>เริ่มเดือนหน้า</p>',hiddenFromLevel2:false,representativeId:12,activityType:'general',eventDate:'2026-09-01',updatedAt:'2026-09-01T10:00:00Z'}
     ];
+    window.__representativeRpcAssignments=[...representativeProductAssignments];
+    window.__representativeRpcNotes=[...representativeActivityNotes];
     representativeActivityLoadedKey=representativeHistoryKey();
     document.getElementById('topbarFormActions').innerHTML='';
     document.getElementById('main').innerHTML=renderRepresentativeHistoryOverview();
@@ -213,23 +261,28 @@ let browser;
 
   await page.locator('#representativeHistoryRepresentativeSearch').fill('NANA');
   await page.locator('#searchRepresentativeHistoryBtn').click();
+  await page.waitForFunction(()=>document.querySelectorAll('.representative-group-card').length===1&&document.querySelector('.representative-group-card')?.textContent.includes('NANA'));
   assert.equal(await page.locator('.representative-group-card').count(),1);
   assert.match(await page.locator('.representative-group-card').textContent(),/NANA/);
   await page.locator('#representativeHistoryRepresentativeSearch').fill('');
   await page.locator('#representativeHistoryProductSearch').fill('LIPITOR 30');
   await page.locator('#representativeHistoryProductSearch').press('Enter');
+  await page.waitForFunction(()=>document.querySelectorAll('.representative-group-card').length===1&&document.querySelector('.representative-group-card')?.textContent.includes('PEPO'));
   assert.equal(await page.locator('.representative-group-card').count(),1);
   assert.match(await page.locator('.representative-group-card').textContent(),/PEPO/);
   await page.locator('#representativeHistoryProductSearch').fill('');
   await page.locator('#representativeHistoryNoteSearch').fill('หน้าฝน');
   await page.locator('#searchRepresentativeHistoryBtn').click();
+  await page.waitForFunction(()=>document.querySelectorAll('.representative-group-card').length===1&&document.querySelector('.representative-group-card')?.textContent.includes('JOJO'));
   assert.equal(await page.locator('.representative-group-card').count(),1);
   assert.match(await page.locator('.representative-group-card').textContent(),/JOJO/);
 
   await page.locator('#representativeHistoryNoteSearch').fill('');
   await page.locator('#searchRepresentativeHistoryBtn').click();
+  await page.waitForFunction(()=>document.querySelectorAll('.representative-group-card').length===5);
   assert.equal(await page.locator('.representative-group-card').count(),5);
   await page.locator('[data-representative-card-open="10"]').click();
+  await page.waitForFunction(()=>document.querySelectorAll('.representative-profile-panel').length===1);
   assert.equal(await page.locator('.representative-profile-panel').count(),1,'clicking a representative card must open the representative profile');
   assert.equal(await page.locator('.representative-note-workspace').count(),1);
   await page.evaluate(()=>openRepresentativeHistory({productId:20,originTab:'representativehistory'}));

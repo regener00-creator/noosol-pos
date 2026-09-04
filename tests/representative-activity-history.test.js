@@ -8,6 +8,9 @@ const baseMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', 
 const multiProductMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260904110037_representative_activity_multiple_products.sql'), 'utf8');
 const managedProductsMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260904114305_representative_managed_products_and_notes.sql'), 'utf8');
 const separatedEditorsMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260904142648_separate_representative_products_and_notes.sql'), 'utf8');
+const optimizedMigrationName = fs.readdirSync(path.join(root, 'supabase', 'migrations')).find(name=>name.endsWith('_optimize_rpc_and_representative_history.sql'));
+assert.ok(optimizedMigrationName,'optimized representative history migration is required');
+const optimizedMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', optimizedMigrationName), 'utf8');
 const historyRender = html.slice(html.indexOf('function renderRepresentativeHistory(){'),html.indexOf('function syncRepresentativeActivityDraftFromForm(){'));
 const historyGroupRender = html.slice(html.indexOf('function representativeHistoryGroupHtml(group){'),html.indexOf('function renderRepresentativeHistory(){'));
 const representativeProfileRender = html.slice(html.indexOf('function representativeProfileHtml(group){'),html.indexOf('function representativeNoteWorkspaceHtml(group,canCreate){'));
@@ -36,10 +39,15 @@ assert.match(separatedEditorsMigration, /security definer[\s\S]*set search_path 
 assert.match(separatedEditorsMigration, /delete from public\.sales_representative_products[\s\S]*insert into public\.sales_representative_products/);
 assert.match(separatedEditorsMigration, /revoke all on function public\.save_representative_products\(bigint,jsonb\)[\s\S]*grant execute[\s\S]*authenticated,service_role/);
 assert.doesNotMatch(separatedEditorsMigration.slice(0,separatedEditorsMigration.indexOf('create or replace function public.save_representative_products')), /delete from public\.sales_representative_products/);
+assert.match(optimizedMigration,/drop function if exists public\.save_representative_activity/);
+assert.match(optimizedMigration,/create or replace function public\.get_representative_page/);
+assert.match(optimizedMigration,/create or replace function public\.get_representative_notes_page/);
 
 assert.match(html, /function renderRepresentativeHistory\(\)/);
 assert.match(html, /function renderRepresentativeHistoryOverview\(\)/);
 assert.match(html, /function loadRepresentativeActivityHistory\(/);
+assert.match(html, /sb\.rpc\('get_representative_page'/);
+assert.match(html, /sb\.rpc\('get_representative_notes_page'/);
 assert.match(html, /sb\.from\('sales_representative_products'\)/);
 assert.match(html, /function representativeHistoryGroups\(\)/);
 assert.match(html, /function representativeHistoryGroupHtml\(/);

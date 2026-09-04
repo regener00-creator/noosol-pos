@@ -12,6 +12,9 @@ const paginationMigration = fs.readFileSync(path.join(__dirname, '..', 'supabase
 const lastPageMigrationName = fs.readdirSync(path.join(__dirname, '..', 'supabase', 'migrations')).find(name=>name.endsWith('_fix_audit_log_last_page_size.sql'));
 assert.ok(lastPageMigrationName,'Audit Log last-page remainder migration is required');
 const lastPageMigration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', lastPageMigrationName), 'utf8');
+const optimizedMigrationName = fs.readdirSync(path.join(__dirname, '..', 'supabase', 'migrations')).find(name=>name.endsWith('_optimize_rpc_and_representative_history.sql'));
+assert.ok(optimizedMigrationName,'RPC retirement migration is required');
+const optimizedMigration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', optimizedMigrationName), 'utf8');
 
 assert.match(migration,/create table if not exists public\.audit_logs/);
 assert.match(migration,/alter table public\.audit_logs enable row level security/);
@@ -40,6 +43,7 @@ assert.match(paginationMigration,/private\.run_data_retention\(5000\)/);
 assert.match(lastPageMigration,/v_page_limit integer := v_limit/);
 assert.match(lastPageMigration,/mod\(v_total_count, v_limit\)/);
 assert.match(lastPageMigration,/limit v_page_limit \+ 1/);
+assert.match(optimizedMigration,/drop function if exists public\.get_central_audit_logs\(integer,integer\)/);
 
 assert.match(html,/\['auditlog','AUDIT LOG'/);
 assert.match(html,/auditlog: renderAuditLog/);

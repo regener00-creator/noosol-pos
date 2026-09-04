@@ -1,0 +1,39 @@
+name: Supabase Migration Parity
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'scripts/check-migration-parity.mjs'
+      - '.github/workflows/migration-parity.yml'
+  schedule:
+    - cron: '17 20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Compare GitHub and Supabase migrations
+        shell: bash
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::warning::ยังไม่ได้ตั้ง secret SUPABASE_DB_URL จึงตรวจได้เฉพาะไฟล์ใน GitHub"
+            node scripts/check-migration-parity.mjs
+          else
+            node scripts/check-migration-parity.mjs --require-live
+          fi

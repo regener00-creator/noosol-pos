@@ -17,12 +17,22 @@ Supabase project ref: `tgwqmpvdjyxwivjxceoq`
 
 ## การพัฒนา
 
-โปรแกรมเป็น static HTML/JavaScript ไม่มี build step
+โปรแกรมเป็น static HTML/JavaScript และสร้างไฟล์ Production แบบ minify ก่อน deploy
 
 รันชุดตรวจ syntax และ regression tests:
 
 ```sh
-npm test
+pnpm test
 ```
 
 ไฟล์ `*-browser.test.js` ใช้สำหรับการตรวจด้วย browser environment แยกต่างหาก
+
+ตรวจชื่อและลำดับ Migration ใน GitHub:
+
+```sh
+pnpm run check:migrations
+```
+
+Workflow `Supabase Migration Parity` จะตรวจ GitHub เทียบกับฐานข้อมูลทุกวันและเมื่อ Migration บน `main` เปลี่ยน หากตั้ง Repository secret ชื่อ `SUPABASE_DB_URL` เป็น connection string ของฐานข้อมูล Supabase แล้ว กรณีที่เลข Migration สองฝั่งไม่ตรงกัน Workflow จะล้มเหลวและแจ้งเลขที่ขาดอย่างชัดเจน
+
+รายการ RPC ที่ browser เรียกได้ถูกกำหนดไว้ใน `supabase/rpc-allowlist.json` และมี regression test ป้องกันไม่ให้แอปเพิ่ม RPC โดยไม่ประกาศสิทธิ์ก่อน

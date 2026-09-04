@@ -272,6 +272,9 @@ let inventoryBalanceRows=[];
 let inventoryBalanceMap=new Map();
 let inventoryLotRows=[];
 let inventoryLotMap=new Map();
+let loadedInventoryBalanceWarehouseIds=new Set();
+let loadedInventoryLotWarehouseIds=new Set();
+let inventoryWarehouseLoadPromises=new Map();
 function inventoryBalanceKey(productId,warehouseId){ return `${Number(warehouseId)||0}:${Number(productId)||0}`; }
 function inventoryLotKey(productId,warehouseId){ return inventoryBalanceKey(productId,warehouseId); }
 function rebuildInventoryBalanceMap(){
@@ -388,20 +391,60 @@ function applyActiveWarehouseInventory(){
     product.expiry=warehouseExpiry(product.id,activeWarehouseId);
   });
 }
-async function loadInventoryBalancesFromSupabase(){
+function normalizedInventoryWarehouseIds(warehouseIds){
+  return [...new Set((warehouseIds||[]).map(Number).filter(Boolean))].sort((a,b)=>a-b);
+}
+function inventoryScopeWarehouseIds(){
+  if(isAllWarehousesMode()) return normalizedInventoryWarehouseIds(reportWarehouseIds());
+  return normalizedInventoryWarehouseIds([activeWarehouseId]);
+}
+function resetLoadedInventoryScopes(){
+  loadedInventoryBalanceWarehouseIds=new Set();
+  loadedInventoryLotWarehouseIds=new Set();
+  inventoryWarehouseLoadPromises=new Map();
+}
+async function loadInventoryBalancesFromSupabase({warehouseIds=inventoryScopeWarehouseIds(),force=true}={}){
   if(!currentProfile) return false;
-  const {data,error}=await fetchAllRows(()=>sb.from('inventory_balances').select('warehouse_id,product_id,stock,expiry,updated_at').order('warehouse_id').order('product_id'));
+  const requested=normalizedInventoryWarehouseIds(warehouseIds);
+  const targets=force?requested:requested.filter(id=>!loadedInventoryBalanceWarehouseIds.has(id));
+  if(!targets.length) return true;
+  const {data,error}=await fetchAllRows(()=>sb.from('inventory_balances').select('warehouse_id,product_id,stock,expiry,updated_at').in('warehouse_id',targets).order('warehouse_id').order('product_id'));
   if(error){ console.warn('load inventory balances',error); return false; }
-  inventoryBalanceRows=(data||[]).map(row=>({...row,warehouse_id:Number(row.warehouse_id),product_id:Number(row.product_id),stock:Number(row.stock)||0}));
+  const targetSet=new Set(targets);
+  inventoryBalanceRows=[
+    ...inventoryBalanceRows.filter(row=>!targetSet.has(Number(row.warehouse_id))),
+    ...(data||[]).map(row=>({...row,warehouse_id:Number(row.warehouse_id),product_id:Number(row.product_id),stock:Number(row.stock)||0}))
+  ];
+  targets.forEach(id=>loadedInventoryBalanceWarehouseIds.add(id));
   rebuildInventoryBalanceMap(); applyActiveWarehouseInventory(); return true;
 }
-async function loadInventoryLotsFromSupabase(){
+async function loadInventoryLotsFromSupabase({warehouseIds=inventoryScopeWarehouseIds(),force=true}={}){
   if(!currentProfile) return false;
-  const {data,error}=await fetchAllRows(()=>sb.from('inventory_lots').select('id,product_id,warehouse_id,internal_code,manufacturer_lot,expiry_date,quantity_base,unit_cost_base,received_at,source_type,source_id,status,updated_at').gt('quantity_base',0).order('warehouse_id').order('product_id').order('expiry_date',{ascending:true,nullsFirst:false}).order('received_at'));
+  const requested=normalizedInventoryWarehouseIds(warehouseIds);
+  const targets=force?requested:requested.filter(id=>!loadedInventoryLotWarehouseIds.has(id));
+  if(!targets.length) return true;
+  const {data,error}=await fetchAllRows(()=>sb.from('inventory_lots').select('id,product_id,warehouse_id,internal_code,manufacturer_lot,expiry_date,quantity_base,unit_cost_base,received_at,source_type,source_id,status,updated_at').in('warehouse_id',targets).gt('quantity_base',0).order('warehouse_id').order('product_id').order('expiry_date',{ascending:true,nullsFirst:false}).order('received_at'));
   if(error){ console.warn('load inventory lots',error); return false; }
-  inventoryLotRows=(data||[]).map(normalizeInventoryLotRow);
+  const targetSet=new Set(targets);
+  inventoryLotRows=[
+    ...inventoryLotRows.filter(row=>!targetSet.has(Number(row.warehouse_id))),
+    ...(data||[]).map(normalizeInventoryLotRow)
+  ];
+  targets.forEach(id=>loadedInventoryLotWarehouseIds.add(id));
   rebuildInventoryLotMap();
   return true;
+}
+async function loadWarehouseInventoryFromSupabase(warehouseIds=inventoryScopeWarehouseIds(),{force=false}={}){
+  const targets=normalizedInventoryWarehouseIds(warehouseIds);
+  if(!targets.length) return true;
+  const key=`${force?'force':'cached'}:${targets.join(',')}`;
+  if(inventoryWarehouseLoadPromises.has(key)) return inventoryWarehouseLoadPromises.get(key);
+  const promise=Promise.all([
+    loadInventoryBalancesFromSupabase({warehouseIds:targets,force}),
+    loadInventoryLotsFromSupabase({warehouseIds:targets,force})
+  ]).then(results=>results.every(Boolean)).finally(()=>inventoryWarehouseLoadPromises.delete(key));
+  inventoryWarehouseLoadPromises.set(key,promise);
+  return promise;
 }
 function activeWarehouseStorageKey(profile=currentProfile){ return `${ACTIVE_WAREHOUSE_STORAGE_KEY}:${profile?.id||''}`; }
 function clearActiveWarehouseSelection(profile=currentProfile){
@@ -432,6 +475,7 @@ function selectActiveWarehouse(warehouseId){
     try{ localStorage.setItem(activeWarehouseStorageKey(),'all'); }catch(error){}
     applyActiveWarehouseInventory();
     resetWarehouseScopedUiState('all');
+    loadWarehouseInventoryFromSupabase(reportWarehouseIds()).then(()=>render()).catch(error=>console.warn('load all warehouse inventory',error));
     return true;
   }
   const selected=allowed.find(warehouse=>Number(warehouse.id)===Number(warehouseId));
@@ -441,6 +485,7 @@ function selectActiveWarehouse(warehouseId){
   try{ localStorage.setItem(activeWarehouseStorageKey(),String(activeWarehouseId)); }catch(error){}
   applyActiveWarehouseInventory();
   resetWarehouseScopedUiState(String(activeWarehouseId));
+  loadWarehouseInventoryFromSupabase([activeWarehouseId]).then(()=>render()).catch(error=>console.warn('load selected warehouse inventory',error));
   return true;
 }
 function resetWarehouseScopedUiState(reportWarehouseValue){
@@ -1342,7 +1387,7 @@ async function adjustProductStockOnSupabase(productId,delta,warehouseId=activeWa
     const {data,error}=await sb.rpc('adjust_inventory_stock',{p_product_id:productId,p_warehouse_id:targetWarehouseId,p_delta:delta});
     if(error){ console.warn('adjust product stock',productId,error); return; }
     updateInventoryBalanceLocal(productId,targetWarehouseId,Number(data)||0);
-    await loadInventoryLotsFromSupabase();
+    await loadInventoryLotsFromSupabase({warehouseIds:[targetWarehouseId]});
   }
   catch(e){ console.warn('adjust product stock failed',productId,e); }
 }
@@ -1354,7 +1399,7 @@ async function setProductStockOnSupabase(productId,newStock,warehouseId=activeWa
     const {data,error}=await sb.rpc('set_inventory_stock',{p_product_id:productId,p_warehouse_id:targetWarehouseId,p_stock:Number(newStock)||0});
     if(error){ console.warn('set product stock',productId,error); return; }
     updateInventoryBalanceLocal(productId,targetWarehouseId,Number(data)||0);
-    await loadInventoryLotsFromSupabase();
+    await loadInventoryLotsFromSupabase({warehouseIds:[targetWarehouseId]});
   }
   catch(e){ console.warn('set product stock failed',productId,e); }
 }
@@ -1367,7 +1412,7 @@ async function setProductExpiryOnSupabase(productId,newExpiry,warehouseId=active
     const {data,error}=await sb.rpc('set_inventory_expiry',{p_product_id:productId,p_warehouse_id:targetWarehouseId,p_expiry:normalizedExpiry});
     if(error){ console.warn('set product expiry',productId,error); return false; }
     updateInventoryBalanceLocal(productId,targetWarehouseId,warehouseStock(productId,targetWarehouseId),data||'');
-    await loadInventoryLotsFromSupabase();
+    await loadInventoryLotsFromSupabase({warehouseIds:[targetWarehouseId]});
     return true;
   }catch(error){ console.warn('set product expiry failed',productId,error); return false; }
 }
@@ -1377,7 +1422,7 @@ async function transferProductStockOnSupabase(productId,fromWarehouseId,toWareho
     const data=await runStockOperation('transfer_inventory_stock',{productId,fromWarehouseId:Number(fromWarehouseId),toWarehouseId:Number(toWarehouseId),quantity:Number(quantity)});
     updateInventoryBalanceLocal(productId,fromWarehouseId,Number(data?.fromStock)||0);
     updateInventoryBalanceLocal(productId,toWarehouseId,Number(data?.toStock)||0);
-    await loadInventoryLotsFromSupabase();
+    await loadInventoryLotsFromSupabase({warehouseIds:[fromWarehouseId,toWarehouseId]});
     return data;
   }catch(error){ console.warn('transfer product stock failed',productId,error); return null; }
 }
@@ -1516,21 +1561,19 @@ async function loadFavoritesFromSupabase(){
 async function loadCoreDataFromSupabase(){
   try{
     await adoptRemoteMaintenanceEpoch();
-    const [{data:whRows,error:whErr},{data:prodRows,error:prodErr},{data:contactRows,error:contactErr},{data:repRows,error:repErr},{data:accessRows,error:accessErr},{data:permissionRows,error:permissionErr},{data:balanceRows,error:balanceErr},{data:lotRows,error:lotErr}]=await Promise.all([
+    const [{data:whRows,error:whErr},{data:prodRows,error:prodErr},{data:contactRows,error:contactErr},{data:repRows,error:repErr},{data:accessRows,error:accessErr},{data:permissionRows,error:permissionErr}]=await Promise.all([
       fetchAllRows(()=>sb.from('warehouses').select('*').order('id')),
       loadProductRowsFromSupabase(),
       fetchAllRows(()=>sb.from('contacts').select('*').order('id')),
       fetchAllRows(()=>sb.from('sales_representatives').select('*').order('id')),
       fetchAllRows(()=>sb.from('profile_warehouse_access').select('*').eq('user_id',currentProfile.id).order('warehouse_id')),
       fetchAllRows(()=>sb.from('profile_page_permissions').select('*').eq('user_id',currentProfile.id).order('page_key')),
-      fetchAllRows(()=>sb.from('inventory_balances').select('warehouse_id,product_id,stock,expiry,updated_at').order('warehouse_id').order('product_id')),
-      fetchAllRows(()=>sb.from('inventory_lots').select('id,product_id,warehouse_id,internal_code,manufacturer_lot,expiry_date,quantity_base,unit_cost_base,received_at,source_type,source_id,status,updated_at').gt('quantity_base',0).order('warehouse_id').order('product_id').order('expiry_date',{ascending:true,nullsFirst:false}).order('received_at')),
     ]);
     // Keep the current app usable during the short rolling-deploy window before
     // the page-permission migration reaches Supabase. Every other core table is
     // still mandatory; only this newly introduced table has a legacy fallback.
     const permissionTablePending=permissionErr&&['42P01','PGRST205'].includes(String(permissionErr.code||''));
-    if(whErr||prodErr||contactErr||repErr||accessErr||(permissionErr&&!permissionTablePending)||balanceErr||lotErr){ console.warn('load core data',whErr||prodErr||contactErr||repErr||accessErr||permissionErr||balanceErr||lotErr); return; }
+    if(whErr||prodErr||contactErr||repErr||accessErr||(permissionErr&&!permissionTablePending)){ console.warn('load core data',whErr||prodErr||contactErr||repErr||accessErr||permissionErr); return; }
     const masterDataEmpty=(whRows||[]).length===0&&(prodRows||[]).length===0&&(contactRows||[]).length===0&&(repRows||[]).length===0;
     let remoteDocumentsExist=false;
     if(masterDataEmpty){
@@ -1556,11 +1599,16 @@ async function loadCoreDataFromSupabase(){
     rebuildProductLookupMaps();
     warehouseAccessRows=accessRows||[];
     pagePermissionRows=permissionTablePending?[]:(permissionRows||[]);
-    inventoryBalanceRows=(balanceRows||[]).map(row=>({...row,warehouse_id:Number(row.warehouse_id),product_id:Number(row.product_id),stock:Number(row.stock)||0}));
-    inventoryLotRows=(lotRows||[]).map(normalizeInventoryLotRow);
+    inventoryBalanceRows=[];
+    inventoryLotRows=[];
+    resetLoadedInventoryScopes();
     rebuildInventoryBalanceMap();
     rebuildInventoryLotMap();
     restoreActiveWarehouseSelection();
+    if(!await loadWarehouseInventoryFromSupabase(inventoryScopeWarehouseIds(),{force:true})){
+      console.warn('load core inventory failed');
+      return;
+    }
     contacts=(contactRows||[]).map(rowToContact);
     salesRepresentatives=(repRows||[]).map(rowToSalesRep);
     refreshCategoryBrandUnitLists();
@@ -3104,6 +3152,8 @@ let businessSettingsSyncState='local';
 let businessSettingsSyncError='';
 let businessSettingsLastSyncedAt='';
 const NOTE_PAGE_SIZE=100;
+const REPRESENTATIVE_HISTORY_PAGE_SIZE=24;
+const REPRESENTATIVE_NOTE_PAGE_SIZE=50;
 const REPRESENTATIVE_ACTIVITY_ITEM_SELECT='id,product_id,product_name,quoted_price,minimum_quantity,unit,condition_note,sort_order';
 const NOTE_ROW_BASE_SELECT='id,title,content_html,hidden_from_level2,representative_id,product_id,activity_type,event_date,valid_from,valid_to,quoted_price,minimum_quantity,unit,reminder_date,created_by,updated_by,created_at,updated_at';
 const NOTE_ROW_SELECT=`${NOTE_ROW_BASE_SELECT},representative_activity_items(${REPRESENTATIVE_ACTIVITY_ITEM_SELECT})`;
@@ -3116,6 +3166,8 @@ let notesLoaded=false;
 let notesLoading=false;
 let notesHasMore=false;
 let noteLoadError='';
+let noteSearchQuery='';
+let notePageCursor=null;
 let editingNoteId=null;
 let noteDraft=null;
 let noteDraftDirty=false;
@@ -3131,6 +3183,11 @@ let representativeActivityDraftDirty=false;
 let selectedRepresentativeNoteId=null;
 let representativeProductsEditor=null;
 let representativeHistoryFilter={representativeSearch:'',productSearch:'',noteSearch:''};
+let representativeHistoryRepresentativeIds=[];
+let representativeHistoryHasMore=false;
+let representativeHistoryCursor=null;
+let representativeNotesHasMore=false;
+let representativeNotesCursor=null;
 window.addEventListener('beforeunload',event=>{
   const hasUnsavedBusiness=currentTab==='settingsbusiness'&&businessSettingsDirty;
   const hasUnsavedNote=currentTab==='notes'&&noteDraftDirty;
@@ -3277,7 +3334,8 @@ async function clearLocalStoreCachesForReset(){
 function clearRemoteResetSensitiveMemory(){
   clearLoadedHistoryMemory();
   inspectionLists=[]; promotions=[]; favorites=[]; cart=[]; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); inventoryLotRows=[]; inventoryLotMap=new Map();
-  notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false;
+  resetLoadedInventoryScopes();
+  notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false; noteSearchQuery=''; notePageCursor=null;
   cashShifts=[]; currentCashShift=null; cashShiftCloseDraft={countedCash:'',reason:''};
   documentPrefixes={...DEFAULT_DOCUMENT_PREFIXES};
   businessSettings={...DEFAULT_BUSINESS_SETTINGS};
@@ -3570,8 +3628,8 @@ async function logoutSystem(){
   await sb.auth.signOut();
   currentProfile=null;
   clearLoadedHistoryMemory();
-  notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false;
-  activeWarehouseId=0; allWarehousesMode=false; warehouseAccessRows=[]; pagePermissionRows=[]; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); cashShifts=[]; currentCashShift=null;
+  notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false; noteSearchQuery=''; notePageCursor=null;
+  activeWarehouseId=0; allWarehousesMode=false; warehouseAccessRows=[]; pagePermissionRows=[]; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); inventoryLotRows=[]; inventoryLotMap=new Map(); resetLoadedInventoryScopes(); cashShifts=[]; currentCashShift=null;
   systemUsers=[]; systemUsersLoaded=false;
   const password=document.getElementById('loginPassword'); if(password) password.value='';
   renderLoginState();
@@ -4026,17 +4084,24 @@ function canDeleteNote(note){
 }
 function isStandaloneNote(note){ return !!note&&!note.activityType&&!note.representativeId; }
 function sortNotes(){ notes.sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))); }
-async function loadNotes({append=false}={}){
+async function loadNotes({append=false,reset=false}={}){
   if(notesLoading||!sb||!currentProfile) return;
+  if(reset){ notes=[]; notesLoaded=false; notesHasMore=false; notePageCursor=null; }
   notesLoading=true;
   noteLoadError='';
   if(currentTab==='notes') render();
   try{
     const standaloneNotes=notes.filter(isStandaloneNote);
-    const offset=append?standaloneNotes.length:0;
-    const {data,error}=await sb.from('notes').select(NOTE_ROW_SELECT).is('activity_type',null).is('representative_id',null).order('updated_at',{ascending:false}).range(offset,offset+NOTE_PAGE_SIZE-1);
+    const cursor=append?notePageCursor:null;
+    const {data,error}=await sb.rpc('get_notes_page',{
+      p_search:String(noteSearchQuery||'').trim()||null,
+      p_cursor_updated_at:cursor?.updatedAt||null,
+      p_cursor_id:cursor?.id||null,
+      p_limit:NOTE_PAGE_SIZE
+    }).select(NOTE_ROW_SELECT);
     if(error) throw error;
-    const rows=(data||[]).map(mapNoteRow).filter(isStandaloneNote);
+    const fetched=(data||[]).map(mapNoteRow).filter(isStandaloneNote);
+    const rows=fetched.slice(0,NOTE_PAGE_SIZE);
     if(append){
       const merged=new Map(standaloneNotes.map(note=>[note.id,note]));
       rows.forEach(note=>merged.set(note.id,note));
@@ -4044,7 +4109,9 @@ async function loadNotes({append=false}={}){
     }else notes=rows;
     sortNotes();
     notesLoaded=true;
-    notesHasMore=rows.length===NOTE_PAGE_SIZE;
+    notesHasMore=fetched.length>NOTE_PAGE_SIZE;
+    const last=rows.at(-1);
+    notePageCursor=last?{updatedAt:last.updatedAt,id:last.id}:null;
     if(editingNoteId&&editingNoteId!=='new'){
       const selected=notes.find(note=>note.id===editingNoteId);
       if(selected&&!noteDraftDirty) noteDraft=noteDraftFromRow(selected);
@@ -4122,6 +4189,7 @@ function renderNotes(){
     ${noteLoadError?`<div class="notice danger note-load-error">${escapeHtml(noteLoadError)} <button class="btn ghost" id="retryNotesBtn" type="button">ลองใหม่</button></div>`:''}
     <div class="notes-layout">
       <aside class="note-list-panel" aria-label="รายการโน้ต">
+        <div class="note-list-search"><input id="noteServerSearch" value="${escapeHtml(noteSearchQuery)}" placeholder="ค้นหาชื่อหรือข้อความใน NOTE"><button class="btn ghost" id="searchNotesBtn" type="button">ค้นหา</button></div>
         ${!notesLoaded&&notesLoading?'<div class="note-list-status">กำลังโหลดโน้ต…</div>':list||'<div class="note-list-status">ยังไม่มีโน้ต</div>'}
         ${notesHasMore?`<button class="btn ghost note-load-more" id="loadMoreNotesBtn" type="button" ${notesLoading?'disabled':''}>${notesLoading?'กำลังโหลด…':'โหลดโน้ตเพิ่มเติม'}</button>`:''}
       </aside>
@@ -4195,6 +4263,15 @@ function attachNoteEvents(){
   document.getElementById('emptyAddNoteBtn')?.addEventListener('click',startNewNote);
   document.getElementById('retryNotesBtn')?.addEventListener('click',()=>{ noteLoadError=''; notesLoaded=false; loadNotes(); });
   document.getElementById('loadMoreNotesBtn')?.addEventListener('click',()=>loadNotes({append:true}));
+  const noteSearch=document.getElementById('noteServerSearch');
+  const searchNotes=()=>{
+    if(noteDraftDirty&&!confirm('มีโน้ตที่ยังไม่ได้บันทึก ต้องการค้นหาและละทิ้งการแก้ไขหรือไม่?')) return;
+    noteSearchQuery=noteSearch?.value||'';
+    editingNoteId=null; noteDraft=null; noteDraftDirty=false;
+    loadNotes({reset:true});
+  };
+  document.getElementById('searchNotesBtn')?.addEventListener('click',searchNotes);
+  noteSearch?.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); searchNotes(); } });
   document.querySelectorAll('[data-note-id]').forEach(button=>button.addEventListener('click',()=>selectNote(notes.find(note=>note.id===button.dataset.noteId))));
   document.getElementById('noteEditorForm')?.addEventListener('submit',saveNote);
   document.getElementById('deleteNoteBtn')?.addEventListener('click',deleteSelectedNote);
@@ -4223,7 +4300,7 @@ function attachNoteEvents(){
 
 function representativeHistoryKey(context=representativeHistoryContext){
   if(!context) return '';
-  return `${context.central?'central':'detail'}:rep:${Number(context.representativeId)||0}:product:${Number(context.productId)||0}`;
+  return `${context.central?'central':'detail'}:rep:${Number(context.representativeId)||0}:product:${Number(context.productId)||0}:filters:${JSON.stringify(representativeHistoryFilter)}`;
 }
 function emptyRepresentativeHistoryFilter(){ return {representativeSearch:'',productSearch:'',noteSearch:''}; }
 function centralRepresentativeHistoryContext(){ return {representativeId:null,productId:null,originTab:'representativehistory',central:true,returnFilter:null}; }
@@ -4235,6 +4312,11 @@ function productForActivityId(id){ return products.find(product=>Number(product.
 function resetRepresentativeActivityLoad(){
   representativeActivityNotes=[];
   representativeProductAssignments=[];
+  representativeHistoryRepresentativeIds=[];
+  representativeHistoryHasMore=false;
+  representativeHistoryCursor=null;
+  representativeNotesHasMore=false;
+  representativeNotesCursor=null;
   representativeActivityLoadedKey='';
   representativeActivityLoadError='';
   representativeActivityLoading=false;
@@ -4279,46 +4361,91 @@ function renderRepresentativeHistoryOverview(){
   }
   return renderRepresentativeHistory();
 }
-async function loadRepresentativeActivityHistory({force=false}={}){
+async function loadRepresentativeActivityHistory({force=false,append=false}={}){
   const context=representativeHistoryContext,key=representativeHistoryKey(context);
-  if(!context||representativeActivityLoading||(!force&&representativeActivityLoadedKey===key)) return;
+  if(!context||representativeActivityLoading||(!force&&!append&&representativeActivityLoadedKey===key)) return;
+  if(force&&!append){
+    representativeActivityNotes=[];
+    representativeProductAssignments=[];
+    representativeHistoryRepresentativeIds=[];
+    representativeHistoryHasMore=false;
+    representativeHistoryCursor=null;
+    representativeNotesHasMore=false;
+    representativeNotesCursor=null;
+    representativeActivityLoadedKey='';
+  }
   representativeActivityLoading=true;
   representativeActivityLoadError='';
   if(isRepresentativeHistoryScreen()) render();
   try{
-    let representativeIds=[];
-    if(context.productId){
-      const matchedResult=await fetchAllRows(()=>sb.from('sales_representative_products').select('representative_id,product_id,created_at,updated_at').eq('product_id',context.productId).order('representative_id'));
-      if(matchedResult.error) throw matchedResult.error;
-      representativeIds=[...new Set((matchedResult.data||[]).map(row=>Number(row.representative_id)).filter(Boolean))];
-    }else if(context.representativeId){
-      representativeIds=[Number(context.representativeId)];
+    const detailMode=!!context.representativeId&&!context.productId&&!context.central;
+    if(detailMode){
+      const representativeId=Number(context.representativeId);
+      const [assignmentResult,activityResult]=await Promise.all([
+        fetchAllRows(()=>sb.from('sales_representative_products').select('representative_id,product_id,created_at,updated_at').eq('representative_id',representativeId).order('product_id')),
+        sb.rpc('get_representative_notes_page',{
+          p_representative_id:representativeId,
+          p_search:String(representativeHistoryFilter.noteSearch||'').trim()||null,
+          p_cursor_event_date:append?representativeNotesCursor?.eventDate||null:null,
+          p_cursor_updated_at:append?representativeNotesCursor?.updatedAt||null:null,
+          p_cursor_id:append?representativeNotesCursor?.id||null:null,
+          p_limit:REPRESENTATIVE_NOTE_PAGE_SIZE
+        }).select(NOTE_ROW_SELECT)
+      ]);
+      if(assignmentResult.error) throw assignmentResult.error;
+      if(activityResult.error) throw activityResult.error;
+      const fetched=(activityResult.data||[]).map(mapNoteRow);
+      const page=fetched.slice(0,REPRESENTATIVE_NOTE_PAGE_SIZE);
+      const mappedAssignments=(assignmentResult.data||[]).map(row=>({representativeId:Number(row.representative_id),productId:Number(row.product_id),createdAt:row.created_at||'',updatedAt:row.updated_at||''}));
+      if(representativeHistoryKey()!==key) return;
+      representativeHistoryRepresentativeIds=[representativeId];
+      representativeProductAssignments=mappedAssignments;
+      if(append){
+        const merged=new Map(representativeActivityNotes.map(note=>[String(note.id),note]));
+        page.forEach(note=>merged.set(String(note.id),note));
+        representativeActivityNotes=[...merged.values()];
+      }else representativeActivityNotes=page;
+      representativeNotesHasMore=fetched.length>REPRESENTATIVE_NOTE_PAGE_SIZE;
+      const last=page.at(-1);
+      representativeNotesCursor=last?{eventDate:last.eventDate||'0001-01-01',updatedAt:last.updatedAt,id:last.id}:null;
+    }else{
+      const cursor=append?representativeHistoryCursor:null;
+      const pageResult=await sb.rpc('get_representative_page',{
+        p_representative_id:context.representativeId?Number(context.representativeId):null,
+        p_product_id:context.productId?Number(context.productId):null,
+        p_representative_search:String(representativeHistoryFilter.representativeSearch||'').trim()||null,
+        p_product_search:String(representativeHistoryFilter.productSearch||'').trim()||null,
+        p_note_search:String(representativeHistoryFilter.noteSearch||'').trim()||null,
+        p_cursor_name:cursor?.name||null,
+        p_cursor_id:cursor?.id||null,
+        p_limit:REPRESENTATIVE_HISTORY_PAGE_SIZE
+      });
+      if(pageResult.error) throw pageResult.error;
+      const fetched=pageResult.data||[];
+      const page=fetched.slice(0,REPRESENTATIVE_HISTORY_PAGE_SIZE);
+      const pageIds=page.map(row=>Number(row.representative_id)).filter(Boolean);
+      const [assignmentResult,noteResult]=pageIds.length?await Promise.all([
+        fetchAllRows(()=>sb.from('sales_representative_products').select('representative_id,product_id,created_at,updated_at').in('representative_id',pageIds).order('representative_id').order('product_id')),
+        sb.rpc('get_representative_note_cards',{p_representative_ids:pageIds,p_search:String(representativeHistoryFilter.noteSearch||'').trim()||null,p_limit_per_representative:3}).select(NOTE_ROW_SELECT)
+      ]):[{data:[],error:null},{data:[],error:null}];
+      if(assignmentResult.error) throw assignmentResult.error;
+      if(noteResult.error) throw noteResult.error;
+      if(representativeHistoryKey()!==key) return;
+      const assignments=(assignmentResult.data||[]).map(row=>({representativeId:Number(row.representative_id),productId:Number(row.product_id),createdAt:row.created_at||'',updatedAt:row.updated_at||''}));
+      const activityNotes=(noteResult.data||[]).map(mapNoteRow);
+      if(append){
+        representativeHistoryRepresentativeIds=[...new Set([...representativeHistoryRepresentativeIds,...pageIds])];
+        representativeProductAssignments=[...representativeProductAssignments,...assignments];
+        representativeActivityNotes=[...representativeActivityNotes,...activityNotes];
+      }else{
+        representativeHistoryRepresentativeIds=pageIds;
+        representativeProductAssignments=assignments;
+        representativeActivityNotes=activityNotes;
+      }
+      representativeHistoryHasMore=fetched.length>REPRESENTATIVE_HISTORY_PAGE_SIZE;
+      const last=page.at(-1);
+      representativeHistoryCursor=last?{name:last.sort_name||'',id:Number(last.representative_id)}:null;
     }
-    const assignmentResult=context.productId&&representativeIds.length===0
-      ?{data:[],error:null}
-      :await fetchAllRows(()=>{
-        let query=sb.from('sales_representative_products').select('representative_id,product_id,created_at,updated_at');
-        if(context.representativeId) query=query.eq('representative_id',context.representativeId);
-        else if(context.productId) query=query.in('representative_id',representativeIds);
-        return query.order('representative_id').order('product_id');
-      });
-    if(assignmentResult.error) throw assignmentResult.error;
-    const assignments=(assignmentResult.data||[]).map(row=>({
-      representativeId:Number(row.representative_id),productId:Number(row.product_id),createdAt:row.created_at||'',updatedAt:row.updated_at||''
-    }));
-    if(context.central) representativeIds=[...new Set(assignments.map(row=>row.representativeId).filter(Boolean))];
-    const activityResult=context.productId&&representativeIds.length===0
-      ?{data:[],error:null}
-      :await fetchAllRows(()=>{
-        let query=sb.from('notes').select(NOTE_ROW_SELECT).not('activity_type','is',null);
-        if(context.representativeId) query=query.eq('representative_id',context.representativeId);
-        else if(context.productId) query=query.in('representative_id',representativeIds);
-        return query.order('event_date',{ascending:false}).order('updated_at',{ascending:false});
-      });
-    if(activityResult.error) throw activityResult.error;
-    if(representativeHistoryKey()!==key) return;
-    representativeProductAssignments=assignments;
-    representativeActivityNotes=(activityResult.data||[]).map(mapNoteRow);
     representativeActivityLoadedKey=key;
   }catch(error){
     representativeActivityLoadError=error?.message||'โหลดประวัติผู้แทนและสินค้าไม่สำเร็จ';
@@ -4535,13 +4662,10 @@ function representativeActivityCardHtml(activity){
 function representativeHistoryGroups(){
   const context=representativeHistoryContext||{};
   const groupIds=new Set();
-  if(context.central) salesRepresentatives.forEach(representative=>groupIds.add(Number(representative.id)));
+  if(context.central||context.productId) representativeHistoryRepresentativeIds.forEach(id=>groupIds.add(Number(id)));
   representativeProductAssignments.forEach(row=>groupIds.add(Number(row.representativeId)));
   representativeActivityNotes.forEach(note=>groupIds.add(Number(note.representativeId)));
   if(context.representativeId) groupIds.add(Number(context.representativeId));
-  const representativeNeedle=normalizedActivityName(representativeHistoryFilter.representativeSearch);
-  const productNeedle=normalizedActivityName(representativeHistoryFilter.productSearch);
-  const noteNeedle=normalizedActivityName(representativeHistoryFilter.noteSearch);
   return [...groupIds].map(id=>{
     const representative=representativeForActivityId(id);
     if(!representative) return null;
@@ -4553,10 +4677,6 @@ function representativeHistoryGroups(){
     const notesForRepresentative=representativeActivityNotes
       .filter(note=>Number(note.representativeId)===id)
       .sort((a,b)=>String(b.eventDate||b.updatedAt||'').localeCompare(String(a.eventDate||a.updatedAt||''))||String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
-    const representativeText=normalizedActivityName(`${representative.name||''} ${representative.company||''} ${representative.code||''}`);
-    const productMatches=!productNeedle||managedProducts.some(product=>normalizedActivityName(`${product.name||''} ${product.sku||''} ${product.barcode||''}`).includes(productNeedle));
-    const noteMatches=!noteNeedle||notesForRepresentative.some(note=>normalizedActivityName(`${note.title||''} ${notePlainText(note.contentHtml||'')} ${representativeActivityDateLabel(note.eventDate)}`).includes(noteNeedle));
-    if((representativeNeedle&&!representativeText.includes(representativeNeedle))||!productMatches||!noteMatches) return null;
     return {representative,managedProducts,notes:notesForRepresentative};
   }).filter(Boolean).sort((a,b)=>String(a.representative.name||'').localeCompare(String(b.representative.name||''),'th'));
 }
@@ -4594,7 +4714,7 @@ function representativeNoteWorkspaceHtml(group,canCreate){
   const list=notes.map((note,index)=>`<button type="button" class="representative-note-list-item ${String(note.id)===String(selected?.id)?'active':''}" data-select-representative-note="${escapeHtml(note.id)}"><span class="representative-note-list-line"><strong>NOTE ${index+1} : ${escapeHtml(note.title||'-')}</strong><small>วันที่ ${escapeHtml(representativeActivityDateLabel(note.eventDate))}</small></span></button>`).join('');
   const draft=representativeActivityDraft;
   const detail=draft?representativeNoteEditorPanelHtml({draft,selected,index:isNew?notes.length:selectedIndex,canCreate}):`<section class="representative-note-detail-panel representative-note-detail-empty"><div class="note-empty-icon">NOTE</div><h2>ยังไม่มี NOTE ของผู้แทนคนนี้</h2><p>เพิ่ม NOTE เพื่อเก็บข้อมูลที่ต้องการติดตาม</p>${canCreate?'<button class="btn primary" id="emptyAddRepresentativeNoteBtn" type="button">+ เพิ่ม NOTE</button>':''}</section>`;
-  return `<div class="representative-note-workspace"><aside class="representative-note-list-panel" aria-label="รายการ NOTE ของผู้แทน">${list||'<div class="representative-note-list-empty">ยังไม่มี NOTE</div>'}</aside>${detail}</div>`;
+  return `<div class="representative-note-workspace"><aside class="representative-note-list-panel" aria-label="รายการ NOTE ของผู้แทน"><div class="representative-note-search"><input id="representativeHistoryNoteSearch" value="${escapeHtml(representativeHistoryFilter.noteSearch)}" placeholder="ค้นหา NOTE ของผู้แทน"><button class="btn ghost" id="searchRepresentativeHistoryBtn" type="button">ค้นหา</button></div>${list||'<div class="representative-note-list-empty">ยังไม่มี NOTE</div>'}${representativeNotesHasMore?`<button class="btn ghost representative-history-load-more" id="loadMoreRepresentativeNotesBtn" type="button" ${representativeActivityLoading?'disabled':''}>${representativeActivityLoading?'กำลังโหลด…':'โหลด NOTE เพิ่มเติม'}</button>`:''}</aside>${detail}</div>`;
 }
 function renderRepresentativeHistory(){
   const context=representativeHistoryContext||{};
@@ -4614,7 +4734,7 @@ function renderRepresentativeHistory(){
   const detailGroup=representativeDetail?groups.find(group=>Number(group.representative.id)===Number(representative.id)):null;
   const pageBody=representativeDetail&&detailGroup
     ?`${representativeProfileHtml(detailGroup)}${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':representativeNoteWorkspaceHtml(detailGroup,canCreate)}`
-    :`${historyFilters}<div class="representative-groups-grid">${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':groups.map(representativeHistoryGroupHtml).join('')||'<div class="representative-history-empty">ยังไม่มีข้อมูลที่ตรงกับการค้นหา</div>'}</div>`;
+    :`${historyFilters}<div class="representative-groups-grid">${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':groups.map(representativeHistoryGroupHtml).join('')||'<div class="representative-history-empty">ยังไม่มีข้อมูลที่ตรงกับการค้นหา</div>'}</div>${representativeHistoryHasMore?`<button class="btn ghost representative-history-load-more" id="loadMoreRepresentativeHistoryBtn" type="button" ${representativeActivityLoading?'disabled':''}>${representativeActivityLoading?'กำลังโหลด…':'โหลดผู้แทนเพิ่มเติม'}</button>`:''}`;
   const centralActions=`<button class="btn ghost" id="exportSalesRepsBtn" type="button">ส่งออก Excel</button><button class="btn ghost" id="downloadSalesRepTemplateBtn" type="button">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importSalesRepsBtn" type="button">นำเข้า Excel</button><input id="salesRepImportFile" type="file" accept=".xlsx,.xls,.csv" hidden>${canCreateRepresentative?'<button class="btn primary" id="newSalesRepBtn" type="button">+ เพิ่มผู้แทน</button>':''}`;
   const detailActions=`<button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button>${canEditRepresentative?`<button class="btn ghost" data-act="editsalesrep" data-id="${representative.id}" type="button">แก้ไขข้อมูลผู้แทน</button>`:''}${representativeDetail&&canCreate?'<button class="btn primary" id="newRepresentativeActivityBtn" type="button">+ เพิ่มโน้ต</button>':''}`;
   const pageHead=representativeDetail
@@ -4786,13 +4906,19 @@ function attachRepresentativeHistoryEvents(){
   const productSearchFilter=document.getElementById('representativeHistoryProductSearch');
   const noteSearch=document.getElementById('representativeHistoryNoteSearch');
   const searchHistory=()=>{
+    if(representativeActivityDraftDirty&&!confirm('มี NOTE ที่ยังไม่ได้บันทึก ต้องการค้นหาและละทิ้งการแก้ไขหรือไม่?')) return;
     representativeHistoryFilter.representativeSearch=representativeSearch?.value||'';
     representativeHistoryFilter.productSearch=productSearchFilter?.value||'';
     representativeHistoryFilter.noteSearch=noteSearch?.value||'';
-    render();
+    representativeActivityDraft=null;
+    representativeActivityDraftDirty=false;
+    selectedRepresentativeNoteId=null;
+    loadRepresentativeActivityHistory({force:true});
   };
   document.getElementById('searchRepresentativeHistoryBtn')?.addEventListener('click',searchHistory);
   [representativeSearch,productSearchFilter,noteSearch].forEach(input=>input?.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); searchHistory(); } }));
+  document.getElementById('loadMoreRepresentativeHistoryBtn')?.addEventListener('click',()=>loadRepresentativeActivityHistory({append:true}));
+  document.getElementById('loadMoreRepresentativeNotesBtn')?.addEventListener('click',()=>loadRepresentativeActivityHistory({append:true}));
   document.querySelectorAll('[data-select-representative-note]').forEach(button=>button.addEventListener('click',()=>{
     if(representativeActivityDraftDirty&&!confirm('มี NOTE ที่ยังไม่ได้บันทึก ต้องการเปิดโน้ตอื่นหรือไม่?')) return;
     const note=representativeActivityNotes.find(item=>String(item.id)===String(button.dataset.selectRepresentativeNote));
@@ -17077,13 +17203,14 @@ function openPaymentModal(){
   const renderCash=()=>{
     stopKeyHandler();
     title.hidden=false; title.textContent='รับชำระเงินสด'; let cashValue='';
-    content.innerHTML=`<div class="checkout-pay-body"><div class="checkout-pay-total">ยอดที่ต้องชำระ<b>${fmtMoney(grand)} บาท</b></div><input class="cash-display" id="cashDisplay" value="0" readonly aria-label="จำนวนเงินที่รับ"><div class="cash-keypad">${['7','8','9','4','5','6','1','2','3','00','0','.'].map(k=>`<button class="cash-key" data-cash-key="${k}">${k}</button>`).join('')}<button class="cash-key action" data-cash-key="back">⌫ ลบ</button><button class="cash-key action" data-cash-key="exact">รับพอดี</button><button class="cash-key action" data-cash-key="clear">ล้าง</button></div><div class="cash-balance short" id="cashBalance">เงินขาดอีก ${fmtMoney(grand)} บาท</div><div class="checkout-payment-nav"><button class="btn ghost" id="paymentBackBtn">← ย้อนกลับ</button><button class="btn finish" id="cashFinishBtn" disabled>เสร็จสิ้น</button></div></div>`;
+    content.innerHTML=`<div class="checkout-pay-body"><div class="checkout-pay-total">ยอดที่ต้องชำระ<b>${fmtMoney(grand)} บาท</b></div><input class="cash-display" id="cashDisplay" value="0" readonly aria-label="จำนวนเงินที่รับ"><div class="cash-keypad">${['7','8','9','4','5','6','1','2','3','00','0','.'].map(k=>`<button class="cash-key" data-cash-key="${k}">${k}</button>`).join('')}<button class="cash-key action" data-cash-key="back">⌫ ลบ</button><button class="cash-key action" data-cash-key="exact">[F2] รับเงินพอดี</button><button class="cash-key action" data-cash-key="clear">ล้าง</button></div><div class="cash-balance short" id="cashBalance">เงินขาดอีก ${fmtMoney(grand)} บาท</div><div class="checkout-payment-nav"><button class="btn ghost" id="paymentBackBtn">← ย้อนกลับ</button><button class="btn finish" id="cashFinishBtn" disabled>เสร็จสิ้น</button></div></div>`;
     const display=content.querySelector('#cashDisplay'),balance=content.querySelector('#cashBalance'),finish=content.querySelector('#cashFinishBtn');
     const update=()=>{ const received=parseFloat(cashValue)||0,diff=received-grand; display.value=cashValue||'0'; if(diff<0){ balance.className='cash-balance short'; balance.textContent=`เงินขาดอีก ${fmtMoney(Math.abs(diff))} บาท`; finish.disabled=true; }else{ balance.className='cash-balance change'; balance.textContent=`เงินทอน ${fmtMoney(diff)} บาท`; finish.disabled=false; } };
     const applyCashKey=key=>{ if(key==='clear') cashValue=''; else if(key==='back') cashValue=cashValue.slice(0,-1); else if(key==='exact') cashValue=grand.toFixed(2); else if(key==='.'&&!cashValue.includes('.')) cashValue=(cashValue||'0')+'.'; else if(/^\d+$/.test(key)&&cashValue.replace('.','').length<10) cashValue+=key; update(); };
     content.querySelectorAll('[data-cash-key]').forEach(btn=>btn.onclick=()=>applyCashKey(btn.dataset.cashKey));
     activeKeyHandler=e=>{
       let key=null;
+      if(e.key==='F2'){ e.preventDefault(); if(!e.repeat) applyCashKey('exact'); return; }
       if(/^\d$/.test(e.key)) key=e.key;
       else if(e.key==='.'||e.code==='NumpadDecimal'||e.key==='Decimal') key='.';
       else if(e.key==='Backspace') key='back';
@@ -18015,7 +18142,7 @@ document.getElementById('warehouseChoiceForm')?.addEventListener('submit',event=
 document.getElementById('warehouseChoiceLogout')?.addEventListener('click',logoutSystem);
 
 sb.auth.onAuthStateChange((event)=>{
-  if(event==='SIGNED_OUT'){ clearActiveWarehouseSelection(); currentProfile=null; clearLoadedHistoryMemory(); notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false; activeWarehouseId=0; allWarehousesMode=false; renderLoginState(); }
+  if(event==='SIGNED_OUT'){ clearActiveWarehouseSelection(); currentProfile=null; clearLoadedHistoryMemory(); notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; noteSearchQuery=''; notePageCursor=null; editingNoteId=null; noteDraft=null; noteDraftDirty=false; activeWarehouseId=0; allWarehousesMode=false; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); inventoryLotRows=[]; inventoryLotMap=new Map(); resetLoadedInventoryScopes(); renderLoginState(); }
 });
 
 let mobileViewportResizeTimer=null;

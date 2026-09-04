@@ -4,8 +4,10 @@ const path = require('node:path');
 
 const root = path.join(__dirname, '..');
 const app = require('./load-app-source')();
+const migrationName=fs.readdirSync(path.join(root,'supabase','migrations')).find(name=>name.endsWith('_allow_customer_special_prices.sql'));
+assert.ok(migrationName,'customer special price migration is required');
 const migration = fs.readFileSync(
-  path.join(root, 'supabase', 'migrations', '20260904064221_allow_customer_special_prices.sql'),
+  path.join(root, 'supabase', 'migrations', migrationName),
   'utf8',
 );
 

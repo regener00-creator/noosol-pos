@@ -23,7 +23,7 @@ assert.match(app, /data-note-color=/, 'ตัวแก้ไขต้องม�
 assert.match(app, /id="noteHiddenFromLevel2"/, 'เจ้าของต้องมีตัวเลือกซ่อนโน้ตจาก LEVEL 2');
 assert.match(app, /loggedInUser\(\)\?\.owner===true\?`<label class="note-visibility-option"/, 'ตัวเลือกซ่อนต้องแสดงเฉพาะเจ้าของร้าน');
 assert.match(app, /function isStandaloneNote\(note\)[\s\S]*!note\.activityType&&!note\.representativeId/, 'NOTE ทั่วไปต้องแยกจาก NOTE ผู้แทน');
-assert.match(app, /sb\.from\('notes'\)\.select\(NOTE_ROW_SELECT\)\.is\('activity_type',null\)\.is\('representative_id',null\)/, 'หน้า NOTE ต้องโหลดเฉพาะ NOTE ทั่วไป');
+assert.match(app, /sb\.rpc\('get_notes_page',[\s\S]*p_search:[\s\S]*p_cursor_updated_at:[\s\S]*p_cursor_id:/, 'หน้า NOTE ต้องค้นหาและแบ่งหน้าฝั่งเซิร์ฟเวอร์');
 
 assert.match(migration, /create table if not exists public\.notes/i);
 assert.match(migration, /alter table public\.notes enable row level security/i);

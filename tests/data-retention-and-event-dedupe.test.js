@@ -12,6 +12,9 @@ const migration = fs.readFileSync(
   path.join(root, 'supabase', 'migrations', migrationName),
   'utf8',
 );
+const optimizedMigrationName=fs.readdirSync(path.join(root,'supabase','migrations')).find(name=>name.endsWith('_optimize_rpc_and_representative_history.sql'));
+assert.ok(optimizedMigrationName,'RPC retirement migration must exist');
+const optimizedMigration=fs.readFileSync(path.join(root,'supabase','migrations',optimizedMigrationName),'utf8');
 
 assert.match(migration, /create extension if not exists pg_cron with schema pg_catalog/i);
 assert.match(migration, /create or replace function private\.run_data_retention/i);
@@ -54,6 +57,7 @@ assert.match(migration, /operation_ledger_completed_idx/i);
 assert.match(migration, /ledger\.completed_at is not null[\s\S]*ledger\.completed_at < v_cutoff/i);
 assert.match(migration, /function private\.run_data_retention[\s\S]*security invoker/i);
 assert.match(migration, /revoke all on function private\.run_data_retention\(integer\)[\s\S]*service_role/i);
+assert.match(optimizedMigration,/drop function if exists public\.resolve_sync_event\(uuid\)/i);
 
 assert.doesNotMatch(migration, /vacuum\s+full/i);
 assert.doesNotMatch(migration, /\bcluster\s+public\.products/i);
