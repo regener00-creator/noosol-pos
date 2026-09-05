@@ -11,7 +11,7 @@ const separatedEditorsMigration = fs.readFileSync(path.join(root, 'supabase', 'm
 const optimizedMigrationName = fs.readdirSync(path.join(root, 'supabase', 'migrations')).find(name=>name.endsWith('_optimize_rpc_and_representative_history.sql'));
 assert.ok(optimizedMigrationName,'optimized representative history migration is required');
 const optimizedMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', optimizedMigrationName), 'utf8');
-const noteMetadataMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260905103229_representative_note_metadata.sql'), 'utf8');
+const noteMetadataMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260905040841_representative_note_metadata.sql'), 'utf8');
 const historyRender = html.slice(html.indexOf('function renderRepresentativeHistory(){'),html.indexOf('function syncRepresentativeActivityDraftFromForm(){'));
 const historyGroupRender = html.slice(html.indexOf('function representativeHistoryGroupHtml(group){'),html.indexOf('function renderRepresentativeHistory(){'));
 const representativeProfileRender = html.slice(html.indexOf('function representativeProfileHtml(group){'),html.indexOf('function representativeNoteWorkspaceHtml(group,canCreate){'));
@@ -48,6 +48,7 @@ assert.match(noteMetadataMigration,/row_number\(\) over[\s\S]*order by note\.cre
 assert.match(noteMetadataMigration,/count\(\*\) over \(partition by note\.representative_id\)/);
 assert.match(noteMetadataMigration,/security invoker/);
 assert.match(noteMetadataMigration,/revoke all[\s\S]*grant execute[\s\S]*authenticated,service_role/);
+assert.match(noteMetadataMigration,/notify pgrst, 'reload schema'/);
 
 assert.match(html, /function renderRepresentativeHistory\(\)/);
 assert.match(html, /function renderRepresentativeHistoryOverview\(\)/);
@@ -55,6 +56,9 @@ assert.match(html, /function loadRepresentativeActivityHistory\(/);
 assert.match(html, /sb\.rpc\('get_representative_page'/);
 assert.match(html, /sb\.rpc\('get_representative_notes_page'/);
 assert.match(html, /sb\.rpc\('get_representative_note_metadata'/);
+assert.match(html, /function isMissingRepresentativeNoteMetadataRpc\(error\)/);
+assert.match(html, /PGRST202[\s\S]*get_representative_note_metadata/);
+assert.match(html, /function fetchRepresentativeNoteMetadata\(representativeIds,noteIds\)/);
 assert.match(html, /sb\.from\('sales_representative_products'\)/);
 assert.match(html, /function representativeHistoryGroups\(\)/);
 assert.match(html, /function representativeHistoryGroupHtml\(/);

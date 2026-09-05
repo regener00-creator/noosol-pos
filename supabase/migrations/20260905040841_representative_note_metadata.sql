@@ -66,3 +66,6 @@ grant execute on function public.get_representative_note_metadata(bigint[],uuid[
 
 comment on function public.get_representative_note_metadata(bigint[],uuid[])
 is 'Returns stable chronological NOTE numbers and total NOTE counts for representative history cards and detail pages.';
+
+-- Make the new RPC visible to the Data API immediately after this migration.
+notify pgrst, 'reload schema';

@@ -4327,6 +4327,22 @@ function mergeRepresentativeNoteMetadata(rows,{replace=false}={}){
     if(row.note_id) representativeNoteMetadata.set(String(row.note_id),{number:Math.max(1,Number(row.note_number)||1),total:Math.max(0,Number(row.note_count)||0)});
   });
 }
+function isMissingRepresentativeNoteMetadataRpc(error){
+  const details=[error?.message,error?.details,error?.hint].filter(Boolean).join(' ');
+  return String(error?.code||'')==='PGRST202'&&details.includes('get_representative_note_metadata');
+}
+async function fetchRepresentativeNoteMetadata(representativeIds,noteIds){
+  const ids=(representativeIds||[]).map(Number).filter(Boolean);
+  if(!ids.length) return {data:[],error:null};
+  const result=await sb.rpc('get_representative_note_metadata',{
+    p_representative_ids:ids,p_note_ids:(noteIds||[]).filter(Boolean)
+  });
+  if(isMissingRepresentativeNoteMetadataRpc(result.error)){
+    console.warn('Representative NOTE metadata RPC is not available yet; using loaded-page numbering.');
+    return {data:[],error:null};
+  }
+  return result;
+}
 function representativeForActivityId(id){ return salesRepresentatives.find(rep=>Number(rep.id)===Number(id))||null; }
 function productForActivityId(id){ return products.find(product=>Number(product.id)===Number(id))||null; }
 function resetRepresentativeActivityLoad(){
@@ -4420,9 +4436,7 @@ async function loadRepresentativeActivityHistory({force=false,append=false}={}){
       if(activityResult.error) throw activityResult.error;
       const fetched=(activityResult.data||[]).map(mapNoteRow);
       const page=fetched.slice(0,REPRESENTATIVE_NOTE_PAGE_SIZE);
-      const metadataResult=await sb.rpc('get_representative_note_metadata',{
-        p_representative_ids:[representativeId],p_note_ids:page.map(note=>note.id)
-      });
+      const metadataResult=await fetchRepresentativeNoteMetadata([representativeId],page.map(note=>note.id));
       if(metadataResult.error) throw metadataResult.error;
       const mappedAssignments=(assignmentResult.data||[]).map(row=>({representativeId:Number(row.representative_id),productId:Number(row.product_id),createdAt:row.created_at||'',updatedAt:row.updated_at||''}));
       if(representativeHistoryKey()!==key) return;
@@ -4459,9 +4473,7 @@ async function loadRepresentativeActivityHistory({force=false,append=false}={}){
       ]):[{data:[],error:null},{data:[],error:null}];
       if(assignmentResult.error) throw assignmentResult.error;
       if(noteResult.error) throw noteResult.error;
-      const noteMetadataResult=pageIds.length?await sb.rpc('get_representative_note_metadata',{
-        p_representative_ids:pageIds,p_note_ids:(noteResult.data||[]).map(row=>row.id)
-      }):{data:[],error:null};
+      const noteMetadataResult=await fetchRepresentativeNoteMetadata(pageIds,(noteResult.data||[]).map(row=>row.id));
       if(noteMetadataResult.error) throw noteMetadataResult.error;
       if(representativeHistoryKey()!==key) return;
       const assignments=(assignmentResult.data||[]).map(row=>({representativeId:Number(row.representative_id),productId:Number(row.product_id),createdAt:row.created_at||'',updatedAt:row.updated_at||''}));
