@@ -2110,6 +2110,7 @@
   .representative-group-card>header small{color:var(--text-muted);text-align:right;}
   .representative-group-meta{display:flex;min-width:0;align-items:center;justify-content:flex-end;gap:8px;}
   .representative-note-overflow{flex:0 0 auto;border-radius:999px;background:var(--primary);color:#fff;padding:3px 8px;font-size:12px;font-weight:800;}
+  .representative-group-card>header .representative-note-overflow{color:#fff;}
   .representative-group-card>section{padding:12px;}
   .representative-group-empty{display:block;color:var(--text-muted);font-size:12px;}
   .representative-notes-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:8px;}

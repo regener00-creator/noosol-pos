@@ -269,6 +269,7 @@ let browser;
   assert.equal(await page.locator('.representative-group-card').count(),5);
   assert.equal(await page.locator('[data-representative-card-open="10"] .representative-note-card').count(),3,'overview must show no more than three NOTE cards');
   assert.equal((await page.locator('[data-representative-card-open="10"] .representative-note-overflow').textContent()).trim(),'+2');
+  assert.equal(await page.locator('[data-representative-card-open="10"] .representative-note-overflow').evaluate(element=>getComputedStyle(element).color),'rgb(255, 255, 255)','overflow NOTE count must stay white');
   assert.equal(await page.locator('#representativeHistoryRepresentativeSearch,#representativeHistoryProductSearch,#representativeHistoryNoteSearch').count(),3);
   assert.equal(await page.locator('#newSalesRepBtn').count(),1,'central representative history must add representatives directly');
   assert.equal(await page.locator('.topbar-form-actions .representative-topbar-actions').evaluate(element=>getComputedStyle(element).gap),'12px','representative TOPBAR actions must not touch each other');
