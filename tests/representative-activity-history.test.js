@@ -82,6 +82,12 @@ assert.match(html, /\.representative-profile-panel\{display:grid;grid-template-c
 assert.match(representativeProfileRender, /ชื่อผู้แทน[\s\S]*คลิกเพื่อดูสินค้าที่ผู้แทนดูแล[\s\S]*เบอร์โทร[\s\S]*ไลน์[\s\S]*บริษัท[\s\S]*ข้อมูลเพิ่มเติม/);
 assert.doesNotMatch(representativeProfileRender, /field\('สินค้าที่ดูแล'/);
 assert.match(html, /\.representative-profile-field\{display:flex;[^}]*justify-content:center;[^}]*text-align:center;/);
+assert.match(representativeProfileRender, /เบอร์โทร[\s\S]*representative-profile-contact[\s\S]*ไลน์[\s\S]*representative-profile-contact[\s\S]*บริษัท[\s\S]*representative-profile-contact/);
+assert.match(html, /\.representative-profile-contact>div\{font-weight:700;\}/);
+assert.match(html, /\.representative-profile-products-trigger\{[^}]*font-size:17px;/);
+assert.match(html, /\.representative-note-head span\{[^}]*font-weight:600;/);
+assert.match(html, /\.representative-note-list-line small\{[^}]*font-weight:600;/);
+assert.match(html, /\.representative-note-date-input \.dmy-input\{font-weight:600;\}/);
 assert.match(historyRender, /pagehead topbar-action-source representative-detail-pagehead/);
 assert.match(html, /\.representative-note-workspace\{display:grid;grid-template-columns:minmax\(270px,340px\) minmax\(0,1fr\)/);
 assert.match(html, /data-select-representative-note=/);

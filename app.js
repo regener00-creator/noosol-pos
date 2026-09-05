@@ -4691,9 +4691,9 @@ function representativeProfileHtml(group){
   return `<section class="representative-profile-panel">
     ${field('ชื่อผู้แทน',`<strong>${escapeHtml(representative.name||'-')}</strong>`,'representative-profile-name')}
     ${field('',`<button type="button" class="representative-profile-products-trigger" data-manage-representative-products="${representative.id}">คลิกเพื่อดูสินค้าที่ผู้แทนดูแล</button>`,'representative-profile-products-field')}
-    ${field('เบอร์โทร',escapeHtml(representative.phone||'-'))}
-    ${field('ไลน์',escapeHtml(representative.line||'-'))}
-    ${field('บริษัท',escapeHtml(representative.company||'-'))}
+    ${field('เบอร์โทร',escapeHtml(representative.phone||'-'),'representative-profile-contact')}
+    ${field('ไลน์',escapeHtml(representative.line||'-'),'representative-profile-contact')}
+    ${field('บริษัท',escapeHtml(representative.company||'-'),'representative-profile-contact')}
     ${field('ข้อมูลเพิ่มเติม',escapeHtml(representative.note||'-').replace(/\r?\n/g,'<br>'))}
   </section>`;
 }
