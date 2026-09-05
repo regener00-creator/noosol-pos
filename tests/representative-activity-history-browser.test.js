@@ -72,6 +72,17 @@ let browser;
           ids.forEach(id=>rows.push(...notes.filter(note=>Number(note.representativeId)===id&&(!needle||normalized([note.title,note.contentHtml].join(' ')).includes(needle))).sort((a,b)=>String(b.eventDate||'').localeCompare(String(a.eventDate||''))).slice(0,limit).map(note=>({id:note.id,title:note.title,content_html:note.contentHtml,hidden_from_level2:false,representative_id:note.representativeId,activity_type:note.activityType,event_date:note.eventDate,updated_at:note.updatedAt,representative_activity_items:[]}))));
           return resultQuery(rows);
         }
+        if(name==='get_representative_note_metadata'){
+          const ids=new Set((args.p_representative_ids||[]).map(Number)),requestedNoteIds=new Set((args.p_note_ids||[]).map(String));
+          const rows=[];
+          ids.forEach(id=>{
+            const ranked=notes.filter(note=>Number(note.representativeId)===id).sort((a,b)=>String(a.createdAt||a.updatedAt||a.eventDate||'').localeCompare(String(b.createdAt||b.updatedAt||b.eventDate||''))||String(a.id).localeCompare(String(b.id)));
+            const selected=ranked.map((note,index)=>({note,index})).filter(({note})=>requestedNoteIds.has(String(note.id)));
+            if(!selected.length) rows.push({representative_id:id,note_id:null,note_number:null,note_count:ranked.length});
+            else selected.forEach(({note,index})=>rows.push({representative_id:id,note_id:note.id,note_number:index+1,note_count:ranked.length}));
+          });
+          return resultQuery(rows);
+        }
         if(name==='get_representative_notes_page'){
           const needle=normalized(args.p_search);
           const rows=notes.filter(note=>Number(note.representativeId)===Number(args.p_representative_id)&&(!needle||normalized([note.title,note.contentHtml].join(' ')).includes(needle))).sort((a,b)=>String(b.eventDate||'').localeCompare(String(a.eventDate||''))).slice(0,Number(args.p_limit||50)+1).map(note=>({id:note.id,title:note.title,content_html:note.contentHtml,hidden_from_level2:false,representative_id:note.representativeId,activity_type:note.activityType,event_date:note.eventDate,updated_at:note.updatedAt,representative_activity_items:[]}));
@@ -114,6 +125,8 @@ let browser;
       {id:'note-2',title:'ซื้อครบไปเที่ยวฟรี',contentHtml:'<p>ซื้อครบตามยอดที่กำหนด</p>',hiddenFromLevel2:false,representativeId:10,activityType:'general',eventDate:'2026-09-02',updatedAt:'2026-09-02T10:00:00Z'},
       {id:'note-5',title:'แผนสั่งเดือนหน้า',contentHtml:'<p>เตรียมยอดสั่งซื้อ</p>',hiddenFromLevel2:false,representativeId:10,activityType:'general',eventDate:'2026-09-01',updatedAt:'2026-09-01T09:00:00Z'}
     ];
+    representativeNoteMetadata=new Map([['note-1',{number:3,total:3}],['note-2',{number:2,total:3}],['note-5',{number:1,total:3}]]);
+    representativeNoteTotals=new Map([[10,3]]);
     representativeActivityLoadedKey=representativeHistoryKey();
     currentTab='salesreps';
     document.getElementById('main').innerHTML=renderSalesRepresentatives();
@@ -136,11 +149,11 @@ let browser;
   assert.match(profileText,/บริษัท\s*บริษัทตัวแทน A/);
   assert.match(profileText,/ข้อมูลเพิ่มเติม\s*ดูแลเขตกรุงเทพฯ/);
   assert.equal(await page.locator('.representative-note-list-item').count(),3);
-  assert.match(await page.locator('.representative-note-list-panel').textContent(),/NOTE 1[\s\S]*NOTE 2[\s\S]*NOTE 3/);
-  assert.match(await page.locator('.representative-note-list-item').first().textContent(),/NOTE 1 : เล่นรายการทอง[\s\S]*04 \/ 09 \/ 2026/);
+  assert.match(await page.locator('.representative-note-list-panel').textContent(),/NOTE 3[\s\S]*NOTE 2[\s\S]*NOTE 1/);
+  assert.match(await page.locator('.representative-note-list-item').first().textContent(),/NOTE 3 : เล่นรายการทอง[\s\S]*04 \/ 09 \/ 2026/);
   assert.doesNotMatch(await page.locator('.representative-note-list-item').first().textContent(),/วันที่/);
   assert.equal(await page.locator('.representative-note-inline-caption').count(),0,'repeated NOTE title and date caption must be removed from the editor');
-  assert.equal((await page.locator('label[for="repActivityTitle"]').textContent()).trim(),'NOTE 1');
+  assert.equal((await page.locator('label[for="repActivityTitle"]').textContent()).trim(),'NOTE 3');
   assert.equal(await page.locator('#repActivityTitle').inputValue(),'เล่นรายการทอง');
   assert.equal(await page.locator('#repActivityEventDate').inputValue(),'04/09/2026');
   assert.equal(await page.locator('#repActivityEventDate').getAttribute('placeholder'),'วว/ดด/ปปปป');
@@ -163,9 +176,11 @@ let browser;
   assert.equal(await page.locator('.representative-history-summary').count(),0,'summary cards must not appear on representative history');
   const workspaceColumns=await page.locator('.representative-note-workspace').evaluate(element=>{
     const [list,detail]=element.children;
-    return {listRight:list.getBoundingClientRect().right,detailLeft:detail.getBoundingClientRect().left};
+    return {listRight:list.getBoundingClientRect().right,detailLeft:detail.getBoundingClientRect().left,listWidth:list.getBoundingClientRect().width,detailWidth:detail.getBoundingClientRect().width};
   });
   assert.ok(workspaceColumns.detailLeft>workspaceColumns.listRight,'NOTE list must be on the left and selected NOTE detail on the right');
+  assert.ok(Math.abs((workspaceColumns.listWidth/workspaceColumns.detailWidth)-0.5)<0.04,'NOTE list must use one third and NOTE detail two thirds of the available width');
+  assert.equal(await page.locator('.representative-note-search #newRepresentativeActivityBtn').count(),1,'add NOTE button must be next to NOTE search');
   const historyPageWidth=await page.locator('.representative-history-page').evaluate(element=>{
     const parent=element.parentElement;
     const parentStyle=getComputedStyle(parent);
@@ -236,9 +251,13 @@ let browser;
       {representativeId:13,productId:20},{representativeId:14,productId:21}
     ];
     representativeActivityNotes=[...representativeActivityNotes,
+      {id:'note-6',title:'ราคาพิเศษรอบใหม่',contentHtml:'<p>ใช้ถึงสิ้นเดือน</p>',hiddenFromLevel2:false,representativeId:10,activityType:'general',eventDate:'2026-09-05',updatedAt:'2026-09-05T10:00:00Z'},
+      {id:'note-7',title:'ราคาเปิดร้าน',contentHtml:'<p>ข้อมูลเดิม</p>',hiddenFromLevel2:false,representativeId:10,activityType:'general',eventDate:'2026-08-31',updatedAt:'2026-08-31T10:00:00Z'},
       {id:'note-3',title:'แจ้งรอบส่งสินค้า',contentHtml:'<p>ส่งทุกวันจันทร์</p>',hiddenFromLevel2:false,representativeId:11,activityType:'general',eventDate:'2026-09-03',updatedAt:'2026-09-03T10:00:00Z'},
       {id:'note-4',title:'รายการหน้าฝน',contentHtml:'<p>เริ่มเดือนหน้า</p>',hiddenFromLevel2:false,representativeId:12,activityType:'general',eventDate:'2026-09-01',updatedAt:'2026-09-01T10:00:00Z'}
     ];
+    representativeNoteMetadata=new Map();
+    representativeNoteTotals=new Map();
     window.__representativeRpcAssignments=[...representativeProductAssignments];
     window.__representativeRpcNotes=[...representativeActivityNotes];
     representativeActivityLoadedKey=representativeHistoryKey();
@@ -248,6 +267,8 @@ let browser;
     syncTopbarFormActions();
   });
   assert.equal(await page.locator('.representative-group-card').count(),5);
+  assert.equal(await page.locator('[data-representative-card-open="10"] .representative-note-card').count(),3,'overview must show no more than three NOTE cards');
+  assert.equal((await page.locator('[data-representative-card-open="10"] .representative-note-overflow').textContent()).trim(),'+2');
   assert.equal(await page.locator('#representativeHistoryRepresentativeSearch,#representativeHistoryProductSearch,#representativeHistoryNoteSearch').count(),3);
   assert.equal(await page.locator('#newSalesRepBtn').count(),1,'central representative history must add representatives directly');
   assert.equal(await page.locator('.topbar-form-actions .representative-topbar-actions').evaluate(element=>getComputedStyle(element).gap),'12px','representative TOPBAR actions must not touch each other');

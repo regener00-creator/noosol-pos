@@ -2108,6 +2108,8 @@
   .representative-group-card>header button{overflow:hidden;border:0;background:transparent;padding:0;color:var(--primary-dark);font-family:inherit;font-size:18px;font-weight:800;text-align:left;text-overflow:ellipsis;cursor:pointer;}
   .representative-group-card>header button:hover{text-decoration:underline;}
   .representative-group-card>header small{color:var(--text-muted);text-align:right;}
+  .representative-group-meta{display:flex;min-width:0;align-items:center;justify-content:flex-end;gap:8px;}
+  .representative-note-overflow{flex:0 0 auto;border-radius:999px;background:var(--primary);color:#fff;padding:3px 8px;font-size:12px;font-weight:800;}
   .representative-group-card>section{padding:12px;}
   .representative-group-empty{display:block;color:var(--text-muted);font-size:12px;}
   .representative-notes-list{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch;gap:8px;}
@@ -2165,9 +2167,10 @@
   .representative-editor-modal{width:min(780px,94vw);max-width:780px;overflow:hidden;}
   .representative-editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px;}
   .representative-editor-note{grid-column:1/-1;}
-  .representative-note-workspace{display:grid;grid-template-columns:minmax(270px,340px) minmax(0,1fr);gap:16px;align-items:stretch;}
+  .representative-note-workspace{display:grid;grid-template-columns:minmax(300px,1fr) minmax(0,2fr);gap:16px;align-items:stretch;}
   .representative-note-list-panel,.representative-note-detail-panel{min-width:0;min-height:560px;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:0 8px 25px rgba(79,64,56,.06);}
   .representative-note-list-panel{display:flex;max-height:calc(100vh - 300px);flex-direction:column;gap:8px;padding:10px;overflow:auto;}
+  .representative-note-search{grid-template-columns:minmax(0,1fr) auto auto;}
   .representative-history-load-more{display:block;margin:14px auto 0;}
   .representative-note-list-panel .representative-history-load-more{width:100%;margin-top:auto;}
   .representative-note-list-item{display:flex;width:100%;padding:14px;border:1px solid transparent;border-radius:12px;background:#F8F4F2;color:var(--text);font-family:inherit;text-align:left;cursor:pointer;transition:border-color .15s,background .15s,transform .15s;}

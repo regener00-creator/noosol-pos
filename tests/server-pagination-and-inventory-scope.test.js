@@ -27,6 +27,7 @@ for(const rpc of ['get_notes_page','get_representative_page','get_representative
   assert.match(app,new RegExp(`sb\\.rpc\\('${rpc}'`));
 }
 assert.match(migration,/\(note\.updated_at,note\.id\) < \(p_cursor_updated_at,p_cursor_id\)/);
+assert.match(app,/sb\.rpc\('get_representative_note_metadata'/);
 assert.match(migration,/lower\(coalesce\(representative\.name,''\)\),representative\.id[\s\S]*> \(p_cursor_name,p_cursor_id\)/);
 assert.match(app,/fetched\.slice\(0,NOTE_PAGE_SIZE\)/);
 assert.match(app,/fetched\.slice\(0,REPRESENTATIVE_HISTORY_PAGE_SIZE\)/);

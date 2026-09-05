@@ -14,6 +14,7 @@
     "get_central_audit_log_page(integer,timestamptz,text,text,text,text,text,boolean)",
     "get_notes_page(text,timestamptz,uuid,integer)",
     "get_representative_note_cards(bigint[],text,integer)",
+    "get_representative_note_metadata(bigint[],uuid[])",
     "get_representative_notes_page(bigint,text,date,timestamptz,uuid,integer)",
     "get_representative_page(bigint,bigint,text,text,text,text,bigint,integer)",
     "has_any_owner()",
