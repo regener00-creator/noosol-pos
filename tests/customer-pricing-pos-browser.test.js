@@ -40,7 +40,7 @@ const browserExecutable = [
     renderLoginState=()=>true; renderSidebar=()=>{}; persistContacts=()=>{}; persistQuotations=()=>{};
     currentProfile={id:'owner-customer-price',owner:true,level:1,firstName:'เจ้าของ'};
     products=[{id:101,sku:'D-001',name:'Decolgen',category:'ยา',brand:'ทั่วไป',unit:'ซอง',barcode:'SACHET-101',price:8,cost:5,stock:100,units:[{sub:'กล่อง',factor:25,price:180,cost:110,barcode:'BOX-101'}],extraBarcodes:[],vendorBarcodes:[],active:true}];
-    contacts=[{id:7,name:'ลูกค้า A',types:['customer'],entity:'individual',phone:'0812345678',defaultDocument:'cash_bill',customerPrices:[{id:'a-box',productId:101,unit:'กล่อง',price:160}]}];
+    contacts=[{id:7,name:'ลูกค้า A',types:['customer'],entity:'individual',phone:'0812345678',line:'old.line',postcode:'10110',contactName:'ข้อมูลเดิม',bank:'ธนาคารเดิม',bankName:'ชื่อเดิม',bankAcc:'123',accType:'saving',defaultDocument:'cash_bill',customerPrices:[{id:'a-box',productId:101,unit:'กล่อง',price:160}]}];
     nextContactId=8; editingContactId=null; editingCustomerPriceContactId=null; currentTab='contacts'; searchQuery=''; contactFilter='all';
     document.getElementById('main').innerHTML=renderContacts(); attachEvents();
   });
@@ -69,10 +69,16 @@ const browserExecutable = [
   await page.locator('[data-act="editcontact"]').click();
   assert.equal(await page.locator('.customer-pricing-panel').count(),0);
   assert.equal(await page.locator('#customerPriceSearch').count(),0);
+  assert.equal(await page.locator('.contact-editor-grid').count(),1);
+  assert.equal(await page.locator('#c_postcode,#c_contactname,#c_bank,#c_bankname,#c_bankacc,[name="c_acctype"]').count(),0);
+  assert.equal(await page.locator('#c_line').inputValue(),'old.line');
+  await page.locator('#c_line').fill('new.line');
   await page.locator('#c_phone').fill('0899999999');
   await page.locator('#saveContactBtn').click();
   assert.equal(await page.evaluate(()=>contacts[0].customerPrices.length),2);
   assert.equal(await page.evaluate(()=>contacts[0].phone),'089-999-9999');
+  assert.equal(await page.evaluate(()=>contacts[0].line),'new.line');
+  assert.deepEqual(await page.evaluate(()=>({postcode:contacts[0].postcode,contactName:contacts[0].contactName,bank:contacts[0].bank,bankName:contacts[0].bankName,bankAcc:contacts[0].bankAcc,accType:contacts[0].accType})),{postcode:'10110',contactName:'ข้อมูลเดิม',bank:'ธนาคารเดิม',bankName:'ชื่อเดิม',bankAcc:'123',accType:'saving'});
 
   await page.evaluate(() => {
     currentTab='checkout'; cart=[]; saleMember=customerSaleSnapshot(contacts[0]); currentCashShift={id:'shift-test',shiftNo:'CS-TEST',openingCash:0,openedByName:'เจ้าของ'};

@@ -9968,53 +9968,33 @@ function sellQuotationAtPos(id){
 
 function renderContactForm(){
   const isNew = editingContactId==='new';
-  const c = isNew ? {name:'',entity:'juristic',types:['customer'],contactName:'',email:'',phone:'',taxId:'',creditDays:'',branch:'main',address:'',postcode:'',bank:'',bankAcc:'',accType:'',note:'',customerPrices:[]} : contacts.find(x=>x.id===editingContactId);
+  const c = isNew ? {name:'',entity:'juristic',types:['customer'],email:'',line:'',phone:'',taxId:'',creditDays:'',address:'',note:'',customerPrices:[]} : contacts.find(x=>x.id===editingContactId);
   const chk = t => c.types.includes(t)?'checked':'';
   return `
     <div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › ${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</div><h1>${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</h1></div>
       <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelContactBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveContactBtn">บันทึกแล้วปิด</button></div>
     </div>
-    <div class="grid2col">
-      <div class="panel">
-        <h3>ข้อมูลผู้ติดต่อ</h3>
-        <div class="cform">
-          <div class="crow"><label>ประเภท</label><div class="cradio">
+    <div class="panel contact-editor-panel">
+      <div class="contact-editor-grid">
+          <div class="contact-editor-field"><label>ประเภท</label><div class="cradio">
             <label><input type="checkbox" id="c_type_customer" ${chk('customer')}> ลูกค้า</label>
             <label><input type="checkbox" id="c_type_supplier" ${chk('supplier')}> ผู้จำหน่าย</label>
           </div></div>
-          <div class="crow"><label>ประเภทผู้ติดต่อ</label><div class="cradio">
-            <label><input type="radio" name="c_entity" value="juristic" ${c.entity==='juristic'?'checked':''} onchange="updateContactEntityLabels()"> นิติบุคคล</label>
-            <label><input type="radio" name="c_entity" value="individual" ${c.entity==='individual'?'checked':''} onchange="updateContactEntityLabels()"> บุคคลธรรมดา</label>
+          <div class="contact-editor-field"><label>ประเภทผู้ติดต่อ</label><div class="cradio">
+            <label><input type="radio" name="c_entity" value="juristic" ${c.entity==='juristic'?'checked':''}> นิติบุคคล</label>
+            <label><input type="radio" name="c_entity" value="individual" ${c.entity==='individual'?'checked':''}> บุคคลธรรมดา</label>
           </div></div>
-          <div class="crow"><label>เครดิต (วัน)</label><input id="c_credit" type="number" value="${escapeHtml(c.creditDays||'')}" placeholder="0"></div>
-          <div class="crow"><label>รหัสผู้ติดต่อ</label><input id="c_code" value="${escapeHtml(c.code||'')}" placeholder="เช่น C001 (ไม่บังคับ)"></div>
-          <div class="crow"><label id="c_name_label">${c.entity==='individual'?'ชื่อ-นามสกุล':'ชื่อธุรกิจ'} <span class="req">*</span></label><input id="c_name" value="${escapeHtml(c.name||'')}" placeholder="เช่น บริษัท ... จำกัด หรือ ชื่อลูกค้า"></div>
-          <div class="crow"><label id="c_taxid_label">${c.entity==='individual'?'เลขบัตรประชาชน':'เลขผู้เสียภาษี'}</label><input id="c_taxid" value="${escapeHtml(c.taxId||'')}" placeholder="เลข 10-13 หลัก (ไม่บังคับ)"></div>
-          <div class="crow"><label>ที่อยู่</label><textarea id="c_address" rows="3">${escapeHtml(c.address||'')}</textarea></div>
-          <div class="crow"><label>รหัสไปรษณีย์</label><input id="c_postcode" value="${escapeHtml(c.postcode||'')}"></div>
-        </div>
-      </div>
-      <div class="panel">
-        <h3>รายละเอียดผู้ติดต่อ</h3>
-        <div class="cform">
-          <div class="crow"><label>ชื่อผู้ติดต่อ</label><input id="c_contactname" value="${escapeHtml(c.contactName||'')}" placeholder="ชื่อคนที่ติดต่อได้"></div>
-          <div class="crow"><label>อีเมล</label><input id="c_email" type="email" value="${escapeHtml(c.email||'')}"></div>
-          <div class="crow"><label>เบอร์มือถือ / โทรศัพท์</label><input id="c_phone" class="phone-input" value="${escapeHtml(c.phone||'')}"></div>
-        </div>
-        <h3 style="margin-top:18px;">ข้อมูลธนาคาร (ไม่บังคับ)</h3>
-        <div class="cform">
-          <div class="crow"><label>ธนาคาร</label><input id="c_bank" value="${escapeHtml(c.bank||'')}" placeholder="เช่น ธนาคารกสิกรไทย"></div>
-          <div class="crow"><label>ชื่อบัญชี</label><input id="c_bankname" value="${escapeHtml(c.bankName||'')}"></div>
-          <div class="crow"><label>เลขที่บัญชี</label><input id="c_bankacc" value="${escapeHtml(c.bankAcc||'')}"></div>
-          <div class="crow"><label>ประเภทบัญชี</label><div class="cradio">
-            <label><input type="radio" name="c_acctype" value="saving" ${c.accType==='saving'?'checked':''}> ออมทรัพย์</label>
-            <label><input type="radio" name="c_acctype" value="current" ${c.accType==='current'?'checked':''}> กระแสรายวัน</label>
-          </div></div>
-        </div>
-        <h3 style="margin-top:18px;">ข้อมูลเพิ่มเติม</h3>
-        <div class="cform">
-          <div class="crow"><label>โน๊ต</label><textarea id="c_note" rows="2">${escapeHtml(c.note||'')}</textarea></div>
-        </div>
+          <div class="contact-editor-field"><label>รหัสผู้ติดต่อ</label><input id="c_code" value="${escapeHtml(c.code||'')}" placeholder="เช่น C001 (ไม่บังคับ)"></div>
+          <div class="contact-editor-field"><label>เครดิต</label><input id="c_credit" type="number" min="0" value="${escapeHtml(c.creditDays||'')}" placeholder="0 วัน"></div>
+          <div class="contact-editor-field"><label>ชื่อ-นามสกุล <span class="req">*</span></label><input id="c_name" value="${escapeHtml(c.name||'')}" placeholder="กรอกชื่อ-นามสกุล"></div>
+          <div class="contact-editor-field"><label>เลขบัตรประชาชน</label><input id="c_taxid" value="${escapeHtml(c.taxId||'')}" placeholder="เลข 13 หลัก (ไม่บังคับ)"></div>
+          <div class="contact-editor-field contact-editor-wide"><label>ที่อยู่</label><textarea id="c_address" rows="3">${escapeHtml(c.address||'')}</textarea></div>
+          <div class="contact-editor-contact-row contact-editor-wide">
+            <div class="contact-editor-field"><label>อีเมล์</label><input id="c_email" type="email" value="${escapeHtml(c.email||'')}"></div>
+            <div class="contact-editor-field"><label>ไลน์</label><input id="c_line" value="${escapeHtml(c.line||'')}" placeholder="LINE ID"></div>
+            <div class="contact-editor-field"><label>เบอร์โทร</label><input id="c_phone" class="phone-input" value="${escapeHtml(c.phone||'')}"></div>
+          </div>
+          <div class="contact-editor-field contact-editor-wide"><label>เพิ่มเติม</label><textarea id="c_note" rows="3">${escapeHtml(c.note||'')}</textarea></div>
       </div>
     </div>`;
 }
@@ -15965,15 +15945,6 @@ async function exportSalesRepresentativesToExcel(){
   }
 }
 
-function updateContactEntityLabels(){
-  const entityEl = document.querySelector('input[name="c_entity"]:checked');
-  const isIndividual = entityEl && entityEl.value==='individual';
-  const nameLabel = document.getElementById('c_name_label');
-  const taxidLabel = document.getElementById('c_taxid_label');
-  if(nameLabel) nameLabel.innerHTML = (isIndividual?'ชื่อ-นามสกุล':'ชื่อธุรกิจ') + ' <span class="req">*</span>';
-  if(taxidLabel) taxidLabel.textContent = isIndividual?'เลขบัตรประชาชน':'เลขผู้เสียภาษี';
-}
-
 function collectCustomerPriceRules(){
   const rules=[];
   const duplicateKeys=new Set();
@@ -15997,7 +15968,7 @@ function collectCustomerPriceRules(){
 function saveContact(){
   const g = id => document.getElementById(id);
   const name = g('c_name').value.trim();
-  if(!name){ showToast('กรุณากรอกชื่อธุรกิจ / ชื่อ'); g('c_name').focus(); return; }
+  if(!name){ showToast('กรุณากรอกชื่อ-นามสกุล'); g('c_name').focus(); return; }
   const types = [];
   if(g('c_type_customer').checked) types.push('customer');
   if(g('c_type_supplier').checked) types.push('supplier');
@@ -16008,7 +15979,7 @@ function saveContact(){
     if(dup){ showToast(`รหัสผู้ติดต่อ "${code}" ถูกใช้แล้วโดย "${dup.name}"`); g('c_code').focus(); return; }
   }
   const entityEl = document.querySelector('input[name="c_entity"]:checked');
-  const accEl = document.querySelector('input[name="c_acctype"]:checked');
+  const existing=editingContactId==='new'?null:contacts.find(x=>x.id===editingContactId);
   const data = {
     name, types,
     entity: entityEl?entityEl.value:'juristic',
@@ -16016,17 +15987,17 @@ function saveContact(){
     taxId: g('c_taxid').value.trim(),
     creditDays: parseInt(g('c_credit').value)||'',
     address: g('c_address').value.trim(),
-    postcode: g('c_postcode').value.trim(),
-    contactName: g('c_contactname').value.trim(),
     email: g('c_email').value.trim(),
+    line: g('c_line').value.trim(),
     phone: g('c_phone').value.trim(),
-    bank: g('c_bank').value.trim(),
-    bankName: g('c_bankname').value.trim(),
-    bankAcc: g('c_bankacc').value.trim(),
-    accType: accEl?accEl.value:'',
     note: g('c_note').value.trim(),
     defaultDocument:'short_receipt',
   };
+  if(existing){
+    ['postcode','contactName','bank','bankName','bankAcc','accType'].forEach(key=>{
+      if(Object.hasOwn(existing,key)) data[key]=existing[key];
+    });
+  }
   if(editingContactId==='new'){
     contacts.push({id:nextContactId++, ...data, customerPrices:[]});
     showToast(`เพิ่มรายชื่อ "${name}" แล้ว`);

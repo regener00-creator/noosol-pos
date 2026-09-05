@@ -68,7 +68,7 @@ assert.match(events,/downloadSalesRepresentativeImportTemplate/);
 assert.match(events,/exportSalesRepresentativesToExcel/);
 
 const exportStart=html.indexOf('async function exportSalesRepresentativesToExcel()');
-const exportEnd=html.indexOf('function updateContactEntityLabels()',exportStart);
+const exportEnd=html.indexOf('function collectCustomerPriceRules()',exportStart);
 const exportCode=html.slice(exportStart,exportEnd);
 assert.match(exportCode,/loadSalesRepresentativeExcelDetails\(\)/);
 assert.match(exportCode,/book_append_sheet\(workbook,noteSheet,'NOTE ผู้แทน'\)/);

@@ -29,7 +29,7 @@ test('build minifies app assets and injects one matching content version', async
   assert.equal(htmlCssVersion, built.assetVersion);
   assert.equal(workerVersion, built.assetVersion);
 
-  assert.match(built.appCode, /updateContactEntityLabels/, 'minification must preserve function names called by generated inline HTML');
+  assert.doesNotMatch(built.appCode, /updateContactEntityLabels/, 'removed contact fields must not leave an obsolete inline handler in the deploy bundle');
   assert.doesNotThrow(() => new vm.Script(built.appCode), 'minified JavaScript must remain syntactically valid');
 
   const changed = await buildModule.prepareTextAssets({ ...input, versionInputs: [Buffer.from('static-assets-v2')] });
