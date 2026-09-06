@@ -12,7 +12,9 @@ const migration = fs.readFileSync(
 );
 
 assert.match(app, /async function persistCustomerPricingImmediately\(contact\)/);
-assert.match(app, /sb\.from\('contacts'\)\.upsert\(row,\{onConflict:'id'\}\)/);
+assert.match(app, /updateRevisionedRows\('contacts',\[contact\],contactToRow\)/);
+assert.match(app, /insertRevisionedRows\('contacts',\[contact\],contactToRow\)/);
+assert.doesNotMatch(app, /sb\.from\('contacts'\)\.upsert\(row,\{onConflict:'id'\}\)/);
 assert.match(app, /await persistCustomerPricingImmediately\(customer\)/);
 assert.match(app, /save_customer_pricing/);
 assert.match(app, /ราคาพิเศษของลูกค้ายังไม่ตรงกับข้อมูลบนระบบ/);

@@ -30,7 +30,7 @@ assert.match(html, /id="stockReportSelectedWrap">\$\{stockReportSelectedItemsHtm
 assert.match(html, /srSelectedWrap\.innerHTML=stockReportSelectedItemsHtml\(\)/, 'กล่องสินค้าที่เลือกต้องอัปเดตพร้อมตาราง');
 const renderStart = html.indexOf('function renderRInventory(');
 const rowsStart = html.indexOf('function stockReportRowsHtml(', renderStart);
-const rowsEnd = html.indexOf('function renderRReceivable(', rowsStart);
+const rowsEnd = html.indexOf('function renderBusinessSettings(', rowsStart);
 const printStart = html.indexOf('function printStockReport(');
 const printEnd = html.indexOf('function openPostPaymentModal(', printStart);
 assert.ok(renderStart >= 0 && rowsStart > renderStart && rowsEnd > rowsStart && printStart >= 0 && printEnd > printStart);

@@ -33,7 +33,7 @@ const context = {
   inspectionListOverviewSort: {key:'updatedAt',dir:-1},
   inspectionListOverviewSelectedIds: new Set(),
   expandedDocumentItemLists: new Set(),
-  inspectionListCounter: 1,
+  generateInspectionListId: () => 'CHECK-NEW-SAFE-ID',
   documentPrefixes: {inspection:'CHECK'},
   mobileInspectionListId: '',
   mobileInspectionOpenedListId: '',
@@ -136,7 +136,7 @@ context.inspectionListDraft = {id:null,name:'',items:[{pid:1,unit:'ลัง'}],
 context.editingInspectionListId = 'new';
 assert.equal(context.saveInspectionListDraft(), true);
 assert.equal(context.inspectionLists.length, 1);
-assert.equal(context.inspectionLists[0].id, 'CHECK-0001');
+assert.equal(context.inspectionLists[0].id, 'CHECK-NEW-SAFE-ID');
 assert.equal(context.inspectionLists[0].name, 'รายการตรวจหน้าร้าน');
 assert.deepEqual(Array.from(context.inspectionLists[0].items, item => ({pid:item.pid,unit:item.unit})), [{pid:1,unit:'ลัง'}]);
 assert.equal(persistCount, 1);
@@ -152,7 +152,7 @@ assert.match(overviewHtml, /inspection-list-overview-head-actions form-final-act
 assert.match(html, /\.inspection-list-page\{min-width:0;\}/);
 assert.doesNotMatch(html, /\.inspection-list-page\{width:100%;max-width:none;/);
 assert.match(overviewHtml, /รายการตรวจหน้าร้าน/);
-assert.match(overviewHtml, /data-open-inspection-list="CHECK-0001"/);
+assert.match(overviewHtml, /data-open-inspection-list="CHECK-NEW-SAFE-ID"/);
 assert.match(overviewHtml, /บันทึกผลแล้ว/);
 assert.match(overviewHtml, /inspection-list-overview-table/);
 assert.match(overviewHtml, /id="inspectionListSelectAll"/);
@@ -175,7 +175,7 @@ const productPreview = context.inspectionListPreviewHtml({items:[{pid:1},{pid:2}
 assert.equal((productPreview.match(/doc-expandable-item-line/g)||[]).length, 3);
 assert.match(productPreview, /\+1 รายการ/);
 products.splice(-2);
-context.editingInspectionListId = 'CHECK-0001';
+context.editingInspectionListId = 'CHECK-NEW-SAFE-ID';
 context.inspectionListDraft = JSON.parse(JSON.stringify(context.inspectionLists[0]));
 const ownerEditorHtml = context.renderInspectionListEditor();
 assert.doesNotMatch(ownerEditorHtml, />ราคาขาย</);
@@ -200,15 +200,15 @@ context.mobileInspectionListId = completedList.id;
 assert.deepEqual(Array.from(context.mobileInspectionVisibleLists(), list => list.id), ['CHECK-0002']);
 assert.equal(context.mobileInspectionCurrentList().id, 'CHECK-0002', 'มือถือควรข้ามรายการที่แก้ไขจำนวนเรียบร้อยแล้ว');
 context.inspectionListOverviewSort = {key:'createdAt',dir:-1};
-assert.deepEqual(Array.from(context.inspectionListOverviewSortedLists(), list => list.id), ['CHECK-0002','CHECK-0001']);
+assert.deepEqual(Array.from(context.inspectionListOverviewSortedLists(), list => list.id), ['CHECK-0002','CHECK-NEW-SAFE-ID']);
 context.inspectionListOverviewSort = {key:'status',dir:1};
-assert.deepEqual(Array.from(context.inspectionListOverviewSortedLists(), list => list.id), ['CHECK-0002','CHECK-0001']);
-context.inspectionListOverviewSelectedIds.add('CHECK-0001');
+assert.deepEqual(Array.from(context.inspectionListOverviewSortedLists(), list => list.id), ['CHECK-0002','CHECK-NEW-SAFE-ID']);
+context.inspectionListOverviewSelectedIds.add('CHECK-NEW-SAFE-ID');
 assert.match(context.renderInspectionListOverview(), /id="deleteSelectedInspectionListsBtn"/);
 context.inspectionListOverviewSelectedIds.add('CHECK-0002');
 context.confirm = () => true;
-context.mobileInspectionListId = 'CHECK-0001';
-context.mobileInspectionOpenedListId = 'CHECK-0001';
+context.mobileInspectionListId = 'CHECK-NEW-SAFE-ID';
+context.mobileInspectionOpenedListId = 'CHECK-NEW-SAFE-ID';
 context.mobileStockSourceListId = 'CHECK-0002';
 context.stockEditSourceInspectionListId = 'CHECK-0002';
 context.stockEditSourcePending = true;
@@ -244,7 +244,7 @@ assert.equal(context.addProductToMobileInspectionSavedDraft(products[0],'กล�
 assert.equal(context.addProductToMobileInspectionSavedDraft(products[1],'ขวด'),false,'สินค้าที่อยู่ในรายการเดิมต้องไม่ซ้ำ');
 
 assert.match(html, /\['stockcontrol','ตรวจนับ \/ ปรับสต๊อก'/);
-assert.match(html, /inspectionlists:\s*renderInspectionLists/);
+assert.doesNotMatch(html, /inspectionlists:\s*renderInspectionLists/);
 assert.match(html, /from\('inspection_lists'\)\.select\('\*'\)/);
 assert.match(html, /upsertAndPrune\('inspection_lists',inspectionLists,inspectionListToRow\)/);
 assert.match(html, /await loadInspectionListsFromSupabase\(\)/);
@@ -260,12 +260,12 @@ assert.match(html, /function deleteSelectedInspectionLists\(/);
 assert.match(html, /deleteSelectedInspectionListsBtn/);
 
 context.inspectionLists = [completedList];
-context.mobileInspectionListId = 'CHECK-0001';
-context.mobileInspectionOpenedListId = 'CHECK-0001';
-context.mobileStockSourceListId = 'CHECK-0001';
-context.stockEditSourceInspectionListId = 'CHECK-0001';
+context.mobileInspectionListId = 'CHECK-NEW-SAFE-ID';
+context.mobileInspectionOpenedListId = 'CHECK-NEW-SAFE-ID';
+context.mobileStockSourceListId = 'CHECK-NEW-SAFE-ID';
+context.stockEditSourceInspectionListId = 'CHECK-NEW-SAFE-ID';
 context.stockEditSourcePending = true;
-assert.equal(context.deleteInspectionListById('CHECK-0001'), true);
+assert.equal(context.deleteInspectionListById('CHECK-NEW-SAFE-ID'), true);
 assert.equal(context.inspectionLists.length, 0);
 assert.equal(context.mobileInspectionListId, '');
 assert.equal(context.mobileInspectionOpenedListId, '');

@@ -34,7 +34,7 @@ assert.ok(auditLogNavIndex > systemSettingsNavIndex, 'AUDIT LOG ต้องอ�
 assert.doesNotMatch(html, /\['stockadjust','ปรับเป็นศูนย์'/);
 assert.match(html, /LEVEL2_HIDDEN_TABS[^\n]+stockcontrol/);
 assert.match(html, /stockcontrol:\s*renderStockControl/);
-assert.match(html, /stockedit:\s*renderStockEdit/);
+assert.doesNotMatch(html, /stockedit:\s*renderStockEdit/);
 assert.match(html, /data-stock-edit-amount="\$\{p\.id\}"/);
 assert.match(html, /data-stock-edit-remove="\$\{p\.id\}"/);
 assert.match(html, /runStockOperation\('post_inventory_count_adjustment_with_shortages'/);

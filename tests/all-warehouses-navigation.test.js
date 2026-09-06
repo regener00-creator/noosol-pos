@@ -11,6 +11,7 @@ assert.ok(start >= 0 && end > start, 'ไม่พบ logic จำกัดเ�
 const context = {
   loggedInUser:()=>({owner:true,level:1}),
   isAllWarehousesMode:()=>true,
+  canPerformPageAction:()=>true,
 };
 vm.createContext(context);
 vm.runInContext(html.slice(start, end), context);

@@ -27,6 +27,10 @@ assert.doesNotMatch(historySource, /cash-shift-history-head|แสดงล่�
 assert.match(html, /<h3>ปิดระบบ<\/h3>/);
 assert.match(html, /'ยืนยันการปิดระบบ'/);
 assert.match(html, /class="cash-shift-topbar-action open"/);
+assert.match(html, /function cashShiftOverdueInfo\(/);
+assert.match(html, /applyCashShiftOverdueUi\(mainElement\)/);
+assert.match(html, /ระบบจะไม่ปิดให้อัตโนมัติ/);
+assert.match(html, /\.cash-shift-topbar-action\.open\.overdue/);
 assert.match(html, /<strong>\$\{escapeHtml\(currentCashShift\.shiftNo\)\} เปิดอยู่<\/strong> : เงินตั้งต้น/);
 assert.match(html, />สรุปชำระ<\/button>/);
 assert.doesNotMatch(html, /class="cash-shift-banner/);
@@ -79,5 +83,14 @@ assert.equal(summary.saleCount, 2);
 assert.equal(summary.refundCount, 1);
 assert.equal(summary.payments['เงินสด'].net, 150);
 assert.equal(summary.payments['โอนธนาคาร'].net, 300);
+
+const overdueStart = html.indexOf('function cashShiftOverdueInfo(');
+const overdueEnd = html.indexOf('function cashShiftOverdueNotice(', overdueStart);
+assert.ok(overdueStart >= 0 && overdueEnd > overdueStart, 'ไม่พบ logic เตือนระบบชำระเปิดค้าง');
+vm.runInContext(html.slice(overdueStart, overdueEnd), context);
+assert.equal(context.cashShiftOverdueInfo({status:'closed',openedAt:'2026-09-05T08:00:00'},new Date('2026-09-06T09:00:00')),null);
+assert.equal(context.cashShiftOverdueInfo({status:'open',openedAt:'2026-09-06T08:00:00'},new Date('2026-09-06T09:00:00')),null);
+assert.equal(context.cashShiftOverdueInfo({status:'open',openedAt:'2026-09-05T23:30:00'},new Date('2026-09-06T00:30:00')).crossedDay,true);
+assert.equal(context.cashShiftOverdueInfo({status:'open',openedAt:'2026-09-06T00:00:00'},new Date('2026-09-06T16:30:00')).label,'16 ชม.');
 
 console.log('cash shift tests passed');

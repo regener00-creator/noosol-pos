@@ -17,7 +17,8 @@ for (const [key, value] of [
   assert.match(html, new RegExp(`key:'${key}'`), `ต้องมีช่องตั้งค่า ${key}`);
 }
 
-assert.match(html, /saved\.id=`\$\{documentPrefixes\.inspection\}-\$\{String\(inspectionListCounter\+\+\)\.padStart\(4,'0'\)\}`/);
+assert.match(html, /saved\.id=generateInspectionListId\(\)/);
+assert.match(html, /function generateInspectionListId\(\)/);
 assert.match(html, /function nextA4CashReceiptNumber\(\)[\s\S]{0,260}documentPrefixes\.cashBill/);
 assert.match(html, /number:old\.number\|\|nextA4CashReceiptNumber\(\)/);
 assert.match(migration, /private\.configured_document_prefix\(''stockAdjustment'',''SC''\)/);

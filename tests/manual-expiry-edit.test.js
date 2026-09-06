@@ -26,7 +26,8 @@ assert.match(html, /หมดอายุใกล้สุด/);
 assert.match(html, /placeholder="วว-ดด-ปปปป"/);
 assert.match(html, /id="mobilePriceEditExpiry"[^>]*type="text"[^>]*inputmode="numeric"/);
 assert.doesNotMatch(html, /id="mobilePriceEditExpiry"[^>]*type="date"/);
-assert.match(html, /await setProductExpiryOnSupabase\(pid,expiry,activeWarehouseId\)/);
+assert.match(html, /owner_update_mobile_product_details/);
+assert.match(html, /p_lot_id:payload\.lotId/);
 assert.match(html, /กรุณากรอกวันหมดอายุเป็น วัน-เดือน-ปี เช่น 05-07-2027/);
 
 console.log('manual expiry edit tests passed');

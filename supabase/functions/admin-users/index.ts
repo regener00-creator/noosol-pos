@@ -374,7 +374,7 @@ Deno.serve(async (req) => {
       const passwordError = await validatePasswordSecurity(password)
       if (passwordError) return json({ error: passwordError }, 400)
       if (!firstName) return json({ error: 'กรุณากรอกชื่อ' }, 400)
-      if (![2, 3, 4].includes(level)) return json({ error: 'ระดับสิทธิ์ผู้ใช้งานไม่ถูกต้อง' }, 400)
+      if (level !== 2) return json({ error: 'บัญชีพนักงานต้องใช้ Level 2 และกำหนดสิทธิ์รายหน้า' }, 400)
       if (!warehouseIds) return json({ error: 'รูปแบบคลังสินค้าที่เลือกไม่ถูกต้อง' }, 400)
       if (!warehouseIds.length) return json({ error: 'ผู้ใช้งานทั่วไปต้องเข้าถึงคลังสินค้าอย่างน้อย 1 แห่ง' }, 400)
       if (!pagePermissions) return json({ error: 'รูปแบบสิทธิ์การใช้งานไม่ถูกต้อง' }, 400)
@@ -432,6 +432,7 @@ Deno.serve(async (req) => {
         }
       }
       const requestedLevel = body.level === undefined ? null : Number(body.level)
+      if (requestedLevel !== null && requestedLevel !== 2) return json({ error: 'บัญชีพนักงานต้องใช้ Level 2 และกำหนดสิทธิ์รายหน้า' }, 400)
       const pagePermissions = body.pagePermissions === undefined ? null : normalizePagePermissions(body.pagePermissions)
       if (body.pagePermissions !== undefined && !pagePermissions) {
         return json({ error: 'รูปแบบสิทธิ์การใช้งานไม่ถูกต้อง' }, 400)

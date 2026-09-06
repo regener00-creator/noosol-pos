@@ -312,7 +312,9 @@ function permissionsForPage(pageKey,warehouseId=activeWarehouseId,rows=pagePermi
 }
 function canPerformPageAction(action='view',pageKey=currentTab,user=loggedInUser(),rows=pagePermissionRows){
   if(user?.owner===true||Number(user?.level)===1) return true;
-  if(Number(user?.level)!==2) return true;
+  // Unknown/future staff levels must fail closed.  Previously Level 3/4
+  // bypassed the permission matrix and received every action implicitly.
+  if(Number(user?.level)!==2) return false;
   const allRows=rows||[];
   if(!allRows.length){
     if(action==='view') return !LEVEL2_HIDDEN_TABS.has(pageKey);
@@ -555,14 +557,14 @@ function rowToWarehouse(row){ return { ...(row.data||{}), id:row.id, name:row.na
 function contactToRow(c){
   const types=Array.isArray(c.types)?c.types:[];
   const type=types.includes('customer')&&types.includes('supplier')?'both':(types.includes('supplier')?'supplier':'customer');
-  return { id:c.id, type, name:c.name||'', phone:c.phone||null, data:additionalData(c,['id','type','types','name','phone']) };
+  return { id:c.id, type, name:c.name||'', phone:c.phone||null, data:additionalData(c,['id','type','types','name','phone','_revision']), revision:Number(c._revision)||0 };
 }
 function rowToContact(row){
   const types=row.type==='both'?['customer','supplier']:[row.type==='supplier'?'supplier':'customer'];
-  return { ...(row.data||{}), id:row.id, name:row.name, phone:row.phone||'', types };
+  return { ...(row.data||{}), id:row.id, name:row.name, phone:row.phone||'', types, _revision:Number(row.revision)||1 };
 }
-function salesRepToRow(r){ return { id:r.id, name:r.name||'', data:additionalData(r,['id','name']) }; }
-function rowToSalesRep(row){ return { ...(row.data||{}), id:row.id, name:row.name }; }
+function salesRepToRow(r){ return { id:r.id, name:r.name||'', data:additionalData(r,['id','name','_revision']), revision:Number(r._revision)||0 }; }
+function rowToSalesRep(row){ return { ...(row.data||{}), id:row.id, name:row.name, _revision:Number(row.revision)||1 }; }
 
 // Supabase/PostgREST caps SELECT results at a fixed row count per request
 // (1,000 by default) unless the query is explicitly paginated with
@@ -1116,6 +1118,62 @@ async function updateProductMetadataInChunks(productRows){
   }
   return null;
 }
+function revisionConflictError(table,id){
+  const error=new Error(`${SYNC_TABLE_LABELS[table]||table} รายการ ${id} ถูกแก้ไขจากอีกเครื่องแล้ว กรุณาโหลดข้อมูลล่าสุด`);
+  error.code='REVISION_CONFLICT';
+  error.recordId=id;
+  return error;
+}
+async function insertRevisionedRows(table,items,toRow){
+  for(let index=0;index<items.length;index+=100){
+    const batch=items.slice(index,index+100);
+    batch.forEach(item=>{ if(!item._clientCreateToken) item._clientCreateToken=generateProductCreateToken(); });
+    const rows=batch.map(item=>{ const {revision,...row}=toRow(item); return row; });
+    const {data,error}=await sb.from(table).insert(rows).select('id,revision,data');
+    if(error){
+      const ids=rows.map(row=>row.id);
+      const verification=await sb.from(table).select('id,revision,data').in('id',ids);
+      if(verification.error) return error;
+      const remoteById=new Map((verification.data||[]).map(row=>[String(row.id),row]));
+      for(const item of batch){
+        const remote=remoteById.get(String(item.id));
+        if(!remote||String(remote.data?._clientCreateToken||'')!==String(item._clientCreateToken||'')) return revisionConflictError(table,item.id);
+        item._revision=Number(remote.revision)||1;
+      }
+      continue;
+    }
+    const revisionById=new Map((data||[]).map(row=>[String(row.id),Number(row.revision)||1]));
+    batch.forEach(item=>{ item._revision=revisionById.get(String(item.id))||1; });
+  }
+  return null;
+}
+async function updateRevisionedRows(table,items,toRow){
+  for(let index=0;index<items.length;index+=12){
+    const batch=items.slice(index,index+12);
+    const results=await Promise.all(batch.map(item=>{
+      const row=toRow(item),{id,revision,...changes}=row;
+      return sb.from(table).update(changes).eq('id',id).eq('revision',revision).select('id,revision').maybeSingle();
+    }));
+    const failed=results.find(result=>result.error);
+    if(failed) return failed.error;
+    const conflictIndex=results.findIndex(result=>!result.data);
+    if(conflictIndex>=0) return revisionConflictError(table,batch[conflictIndex]?.id);
+    results.forEach((result,resultIndex)=>{ batch[resultIndex]._revision=Number(result.data?.revision)||Number(batch[resultIndex]._revision)||1; });
+  }
+  return null;
+}
+async function deleteRevisionedRows(table,deletedIds,previous){
+  for(const id of deletedIds){
+    let previousRow={};
+    try{ previousRow=JSON.parse(previous.get(String(id))||'{}'); }catch(error){}
+    const revision=Number(previousRow.revision)||0;
+    if(!revision) return revisionConflictError(table,id);
+    const {data,error}=await sb.from(table).delete().eq('id',id).eq('revision',revision).select('id');
+    if(error) return error;
+    if(!(data||[]).length) return revisionConflictError(table,id);
+  }
+  return null;
+}
 // Sync only rows changed since this device last loaded/saved them. Deletions
 // are derived from that same baseline, never by comparing against every remote
 // id, so a stale device cannot delete records created by another device.
@@ -1129,14 +1187,16 @@ async function upsertAndPrune(table,localArray,toRow){
   const deleted=[...previous.keys()].filter(id=>!current.has(id));
   if(!changed.length&&!deleted.length) return true;
   if(changed.length){
-    const error=await upsertRowsInChunks(table,changed.map(toRow));
+    const inserts=changed.filter(item=>(Number(item._revision)||0)===0);
+    const updates=changed.filter(item=>(Number(item._revision)||0)>0);
+    const error=(inserts.length?await insertRevisionedRows(table,inserts,toRow):null)||(updates.length?await updateRevisionedRows(table,updates,toRow):null);
     if(error){ console.warn('sync '+table,error); return noteCoreSyncFailure(error,{operation:'upsert_rows',tableName:table,fallbackMessage:`ซิงก์ ${SYNC_TABLE_LABELS[table]||table} ไม่สำเร็จ`}); }
   }
   if(deleted.length){
-    const {error}=await sb.from(table).delete().in('id',deleted);
+    const error=await deleteRevisionedRows(table,deleted,previous);
     if(error){ console.warn('sync delete '+table,error); return noteCoreSyncFailure(error,{operation:'delete_rows',tableName:table,fallbackMessage:`ลบข้อมูล ${SYNC_TABLE_LABELS[table]||table} จากเซิร์ฟเวอร์ไม่สำเร็จ`}); }
   }
-  syncedTableRows[table]=current;
+  syncedTableRows[table]=tableSnapshot(localArray,toRow);
   return true;
 }
 async function syncWarehousesIncrementally(){
@@ -1379,43 +1439,6 @@ async function syncCoreDataToSupabase(){
 
 // Stock never travels through product metadata sync. It is written atomically
 // to inventory_balances/inventory_lots and then reflected into the local UI.
-async function adjustProductStockOnSupabase(productId,delta,warehouseId=activeWarehouseId){
-  if(!currentProfile||!delta) return;
-  const targetWarehouseId=Number(warehouseId)||Number(activeWarehouseId);
-  if(!targetWarehouseId){ console.warn('adjust product stock: warehouse is required',productId); return; }
-  try{
-    const {data,error}=await sb.rpc('adjust_inventory_stock',{p_product_id:productId,p_warehouse_id:targetWarehouseId,p_delta:delta});
-    if(error){ console.warn('adjust product stock',productId,error); return; }
-    updateInventoryBalanceLocal(productId,targetWarehouseId,Number(data)||0);
-    await loadInventoryLotsFromSupabase({warehouseIds:[targetWarehouseId]});
-  }
-  catch(e){ console.warn('adjust product stock failed',productId,e); }
-}
-async function setProductStockOnSupabase(productId,newStock,warehouseId=activeWarehouseId){
-  if(!currentProfile) return;
-  const targetWarehouseId=Number(warehouseId)||Number(activeWarehouseId);
-  if(!targetWarehouseId){ console.warn('set product stock: warehouse is required',productId); return; }
-  try{
-    const {data,error}=await sb.rpc('set_inventory_stock',{p_product_id:productId,p_warehouse_id:targetWarehouseId,p_stock:Number(newStock)||0});
-    if(error){ console.warn('set product stock',productId,error); return; }
-    updateInventoryBalanceLocal(productId,targetWarehouseId,Number(data)||0);
-    await loadInventoryLotsFromSupabase({warehouseIds:[targetWarehouseId]});
-  }
-  catch(e){ console.warn('set product stock failed',productId,e); }
-}
-async function setProductExpiryOnSupabase(productId,newExpiry,warehouseId=activeWarehouseId){
-  if(!currentProfile) return false;
-  const targetWarehouseId=Number(warehouseId)||Number(activeWarehouseId);
-  if(!targetWarehouseId){ console.warn('set product expiry: warehouse is required',productId); return false; }
-  try{
-    const normalizedExpiry=String(newExpiry||'').trim()||null;
-    const {data,error}=await sb.rpc('set_inventory_expiry',{p_product_id:productId,p_warehouse_id:targetWarehouseId,p_expiry:normalizedExpiry});
-    if(error){ console.warn('set product expiry',productId,error); return false; }
-    updateInventoryBalanceLocal(productId,targetWarehouseId,warehouseStock(productId,targetWarehouseId),data||'');
-    await loadInventoryLotsFromSupabase({warehouseIds:[targetWarehouseId]});
-    return true;
-  }catch(error){ console.warn('set product expiry failed',productId,error); return false; }
-}
 async function transferProductStockOnSupabase(productId,fromWarehouseId,toWarehouseId,quantity){
   if(!currentProfile||!quantity) return null;
   try{
@@ -1506,7 +1529,7 @@ async function loadDocumentPrefixesFromSupabase(){
 // ----- Saved product inspection lists sync -----
 // Each list is its own row so two devices can add/edit different lists without
 // replacing the entire shared array in settings.
-function inspectionListToRow(list){ return {id:list.id,data:list}; }
+function inspectionListToRow(list){ return {id:list.id,data:additionalData(list,['id','_revision']),revision:Number(list._revision)||0}; }
 async function syncInspectionListsToSupabase(){
   if(!currentProfile) return false;
   try{ return await upsertAndPrune('inspection_lists',inspectionLists,inspectionListToRow); }
@@ -1517,7 +1540,7 @@ async function loadInspectionListsFromSupabase(){
     const {data,error}=await fetchAllRows(()=>sb.from('inspection_lists').select('*').order('id'));
     if(error){ console.warn('load inspection lists',error); return; }
     if((data||[]).length){
-      inspectionLists=normalizeInspectionLists(data.map(row=>({...(row.data||{}),id:row.id})));
+      inspectionLists=normalizeInspectionLists(data.map(row=>({...(row.data||{}),id:row.id,_revision:Number(row.revision)||1})));
       seedTableSnapshot('inspection_lists',inspectionLists,inspectionListToRow);
     }else{
       // One-time migration from the former settings-array storage.
@@ -1620,8 +1643,6 @@ async function loadCoreDataFromSupabase(){
     seedTableSnapshot('contacts',contacts,contactToRow);
     seedTableSnapshot('sales_representatives',salesRepresentatives,salesRepToRow);
     nextWarehouseId=maxArrayValue(warehouses,w=>(Number(w.id)||0)+1,1);
-    nextContactId=maxArrayValue(contacts,c=>(Number(c.id)||0)+1,1);
-    nextSalesRepresentativeId=maxArrayValue(salesRepresentatives,r=>(Number(r.id)||0)+1,1);
     refreshDataCounters();
     if(productDirtyOperations.size) scheduleSupabaseCoreSync();
   }catch(e){ console.warn('load core data failed',e); }
@@ -2019,22 +2040,22 @@ try{ const savedContacts=JSON.parse(localStorage.getItem(CONTACTS_STORAGE_KEY)||
 function persistContacts(){ persistWorkspaceData(); }
 async function persistCustomerPricingImmediately(contact){
   if(!currentProfile||!contact) return true;
-  const row=contactToRow(contact);
-  const {error}=await sb.from('contacts').upsert(row,{onConflict:'id'});
+  const error=(Number(contact._revision)||0)>0
+    ?await updateRevisionedRows('contacts',[contact],contactToRow)
+    :await insertRevisionedRows('contacts',[contact],contactToRow);
   if(error) throw error;
+  const row=contactToRow(contact);
   const snapshot=syncedTableRows.contacts||new Map();
   snapshot.set(String(row.id),JSON.stringify(row));
   syncedTableRows.contacts=snapshot;
   return true;
 }
-let nextContactId=maxArrayValue(contacts,contact=>(Number(contact.id)||0)+1,1);
 let contactFilter = 'all'; // all | customer | supplier | both
 let contactPage = 1;
 const CONTACTS_PER_PAGE = 10;
 let editingContactId = null; // null=list, 'new', หรือ id
 let editingCustomerPriceContactId = null;
 let salesRepresentatives=[];
-let nextSalesRepresentativeId = 1;
 let editingSalesRepresentativeId = null;
 // ===== ระบบโปรโมชั่น =====
 // scope: 'product' (ผูกสินค้าเดี่ยว) | 'category' (ผูกหมวด/แบรนด์)
@@ -2042,7 +2063,7 @@ let editingSalesRepresentativeId = null;
 let promotions = [];
 const PROMOTIONS_STORAGE_KEY='pharmacy_pos_promotions_v1';
 try{ const savedPromotions=JSON.parse(localStorage.getItem(PROMOTIONS_STORAGE_KEY)||'null'); if(Array.isArray(savedPromotions)) promotions=savedPromotions; }catch(error){ console.warn('ไม่สามารถโหลดโปรโมชั่นได้',error); }
-function promotionToRow(promotion){ return {id:promotion.id,data:promotion}; }
+function promotionToRow(promotion){ return {id:promotion.id,data:additionalData(promotion,['id','_revision']),revision:Number(promotion._revision)||0}; }
 async function syncPromotionsToSupabase(){
   if(!currentProfile) return;
   try{ await upsertAndPrune('promotions',promotions,promotionToRow); }
@@ -2054,13 +2075,12 @@ async function loadPromotionsFromSupabase(){
     const {data,error}=await fetchAllRows(()=>sb.from('promotions').select('*').order('id'));
     if(error){ console.warn('load promotions',error); return; }
     if((data||[]).length){
-      promotions=data.map(row=>({...(row.data||{}),id:row.id}));
+      promotions=data.map(row=>({...(row.data||{}),id:row.id,_revision:Number(row.revision)||1}));
       seedTableSnapshot('promotions',promotions,promotionToRow);
     }else{
       seedTableSnapshot('promotions',[],promotionToRow);
       if(promotions.length) await syncPromotionsToSupabase();
     }
-    nextPromotionId=maxArrayValue(promotions,p=>(Number(p.id)||0)+1,1);
   }catch(error){ console.warn('load promotions failed',error); }
 }
 function persistPromotions(){
@@ -2068,7 +2088,6 @@ function persistPromotions(){
   localStorage.removeItem(PROMOTIONS_STORAGE_KEY);
   syncPromotionsToSupabase();
 }
-let nextPromotionId=maxArrayValue(promotions,p=>(Number(p.id)||0)+1,1);
 let editingPromotionId = null; // null=list, 'new', หรือ id
 let currentPromoDraftItems = null; // รายการสินค้าที่เจาะจงเลือกในฟอร์มโปรโมชั่น (โหมด scope=category, categoryMode=select) — sync จาก promo.items ทุกครั้งที่เปิดฟอร์ม
 let promoDraftItemsSyncedFor = undefined; // ติดตามว่า currentPromoDraftItems sync จาก editingPromotionId ตัวไหนไปแล้ว กัน overwrite ระหว่างแก้ไขที่ยังไม่ได้บันทึก
@@ -2444,6 +2463,19 @@ function openPOSCustomerPicker(){
   });
   requestAnimationFrame(()=>search.focus());
 }
+function generateClientRecordId(records=[]){
+  const used=new Set((records||[]).map(record=>String(record?.id)));
+  for(let attempt=0;attempt<64;attempt++){
+    const candidate=randomProductIdCandidate();
+    if(Number.isSafeInteger(candidate)&&candidate>0&&!used.has(String(candidate))) return candidate;
+  }
+  throw new Error('ไม่สามารถสร้างรหัสอ้างอิงใหม่ได้ กรุณาลองอีกครั้ง');
+}
+function generateInspectionListId(){
+  const prefix=normalizeDocumentPrefix(documentPrefixes.inspection,'IC');
+  const token=globalThis.crypto?.randomUUID?.()||`${Date.now().toString(36)}-${randomProductIdCandidate().toString(36)}`;
+  return `${prefix}-${String(token).replaceAll('-','').slice(0,16).toUpperCase()}`;
+}
 function openPOSCustomerCreateModal(){
   const overlay=document.createElement('div');
   overlay.className='modal-overlay pos-customer-create-overlay';
@@ -2465,7 +2497,7 @@ function openPOSCustomerCreateModal(){
     close();
     render();
   });
-  requestAnimationFrame(()=>overlay.querySelector('#c_name')?.focus());
+  overlay.querySelector('#c_name')?.focus();
 }
 function addToCart(pid, unitName, qty){
   const p = products.find(x=>x.id===pid); if(!p) return;
@@ -3038,7 +3070,6 @@ let inspectionListPage = 1;
 let inspectionListSort = { key:'sku', dir:1 };
 let inspectionListOverviewSort = { key:'updatedAt', dir:-1 };
 let inspectionListOverviewSelectedIds = new Set();
-let inspectionListCounter = 1;
 const INSPECTION_LIST_PAGE_SIZE = 10;
 // โหมดมือถือ/เครื่องยิงบาร์โค้ดแบบมีจอ แสดงเช็คราคาและขั้นตอนตรวจ/แก้ไขสต๊อก
 let mobileToolMode = 'price';
@@ -3401,6 +3432,8 @@ function normalizeInspectionLists(value){
       seen.add(item.pid); return true;
     });
     return {
+      ...(list._clientCreateToken?{_clientCreateToken:String(list._clientCreateToken)}:{}),
+      _revision:Number(list._revision)||0,
       id:String(list.id||`${documentPrefixes.inspection}-${String(index+1).padStart(4,'0')}`),
       name:String(list.name||`รายการตรวจสินค้า ${index+1}`).trim()||`รายการตรวจสินค้า ${index+1}`,
       items,
@@ -3424,8 +3457,6 @@ function localWorkspaceSnapshot(){
 function refreshDataCounters(){
   nextWarehouseId=maxArrayValue(warehouses,w=>(Number(w.id)||0)+1,1);
   nextProductSkuNumber=maxArrayValue(products,p=>productSkuSequenceNumber(p.sku)+1,1);
-  nextContactId=maxArrayValue(contacts,c=>(Number(c.id)||0)+1,1);
-  nextSalesRepresentativeId=maxArrayValue(salesRepresentatives,r=>(Number(r.id)||0)+1,1);
   invoiceCounter=maxArrayValue(salesHistory,s=>(Number(String(s.id||'').replace(/\D/g,''))||0)+1,1);
   quotationCounter=maxArrayValue(quotations,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
   poCounter=maxArrayValue(purchaseOrders,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
@@ -3435,10 +3466,6 @@ function refreshDataCounters(){
   returnCounter=maxArrayValue(productReturns,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
   standaloneTaxInvoiceCounter=maxArrayValue(standaloneTaxInvoices,doc=>(Number(String(doc.number||'').slice(-4))||0)+1,1);
   transferCounter=maxArrayValue(transfers,t=>(Number(String(t.id||'').slice(-4))||0)+1,1);
-  inspectionListCounter=maxArrayValue(inspectionLists,list=>{
-    const match=String(list.id||'').match(/-(\d+)$/);
-    return (Number(match?.[1])||0)+1;
-  },1);
 }
 function applyWorkspaceData(saved){
   if(!saved||typeof saved!=='object') return false;
@@ -3528,17 +3555,17 @@ loadWorkspaceData();
 
 function loggedInUser(){ return currentProfile; }
 function isLevel2User(user=loggedInUser()){ return Number(user?.level)===2; }
-const LEVEL2_HIDDEN_TABS=new Set(['settingssystem','settingsbusiness','rprofit','rtax','warehouse','transfer','stockcontrol','stockadjust','stockedit','barcodeprint','promotions','purchaseorder','productexchange','contacts','salesreps','representativehistory','taxinvoice','quotation','purchaseorder2','productreturn']);
+const LEVEL2_HIDDEN_TABS=new Set(['settingssystem','settingsbusiness','rprofit','rtax','warehouse','transfer','stockcontrol','barcodeprint','promotions','purchaseorder','productexchange','contacts','salesreps','representativehistory','taxinvoice','quotation','purchaseorder2','productreturn']);
 const ALL_WAREHOUSES_TABS=new Set(['dashboard','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','rprofit','rtax','auditlog','representativehistory']);
 function canAccessTab(tab,user=loggedInUser()){
   if(!user) return false;
   if(isAllWarehousesMode()&&!ALL_WAREHOUSES_TABS.has(tab)) return false;
   if((tab==='settingsusers'||tab==='auditlog')&&user.owner!==true) return false;
+  if(tab==='stockcontrol') return canPerformPageAction('view','inspectionlists',user);
   if(tab==='representativehistory'&&Number(user.level)===2){
     return canPerformPageAction('view','salesreps',user)&&canPerformPageAction('view','notes',user);
   }
-  if(Number(user.level)===2&&!canPerformPageAction('view',tab,user)) return false;
-  return true;
+  return canPerformPageAction('view',tab,user);
 }
 function renderLoginState(){
   const user=loggedInUser();
@@ -5249,6 +5276,35 @@ function cashShiftDateTime(value){
   const pad=number=>String(number).padStart(2,'0');
   return `${pad(date.getDate())}-${pad(date.getMonth()+1)}-${date.getFullYear()} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
+function cashShiftOverdueInfo(shift,now=new Date()){
+  const opened=new Date(shift?.openedAt||'');
+  if(Number.isNaN(opened.getTime())||shift?.status!=='open') return null;
+  const ageHours=Math.max(0,(now.getTime()-opened.getTime())/3600000);
+  const crossedDay=opened.getFullYear()!==now.getFullYear()||opened.getMonth()!==now.getMonth()||opened.getDate()!==now.getDate();
+  if(!crossedDay&&ageHours<16) return null;
+  return {ageHours,crossedDay,label:ageHours>=24?`${Math.floor(ageHours/24)} วัน ${Math.floor(ageHours%24)} ชม.`:`${Math.floor(ageHours)} ชม.`};
+}
+function cashShiftOverdueNotice(shift){
+  const overdue=cashShiftOverdueInfo(shift);
+  return overdue?`<div class="notice danger cash-shift-overdue"><b>ระบบชำระเปิดค้าง ${escapeHtml(overdue.label)}</b> · กรุณาตรวจเงินและปิดระบบก่อนเริ่มรอบขายใหม่ ระบบจะไม่ปิดให้อัตโนมัติเพื่อป้องกันยอดคลาดเคลื่อน</div>`:'';
+}
+function applyCashShiftOverdueUi(mainElement){
+  const overdue=cashShiftOverdueInfo(currentCashShift);
+  if(!mainElement||!overdue) return;
+  const action=mainElement.querySelector('.cash-shift-topbar-action.open');
+  if(action){
+    action.classList.add('overdue');
+    const strong=action.querySelector('strong');
+    if(strong) strong.textContent=`${currentCashShift.shiftNo} เปิดอยู่ · ค้าง ${overdue.label}`;
+    const button=action.querySelector('[data-open-cash-shift]');
+    if(button) button.textContent='ตรวจและปิดระบบ';
+  }
+  if(currentTab==='cashshift'){
+    const notice=document.createElement('div');
+    notice.innerHTML=cashShiftOverdueNotice(currentCashShift);
+    if(notice.firstElementChild) mainElement.prepend(notice.firstElementChild);
+  }
+}
 function cashShiftPaymentRows(summary){
   const preferred=['เงินสด','โอนธนาคาร','บัตรเครดิต','ออนไลน์','ไม่ระบุ'];
   const names=Object.keys(summary.payments||{}).sort((a,b)=>{ const ai=preferred.indexOf(a),bi=preferred.indexOf(b); return (ai<0?99:ai)-(bi<0?99:bi)||a.localeCompare(b,'th'); });
@@ -5814,7 +5870,7 @@ function saveTaxInvoiceCustomer(){
   if(!name){ showToast('กรุณากรอกชื่อลูกค้า'); document.getElementById('tax_form_customer_name')?.focus(); return; }
   const duplicate=customersList().find(customer=>customer.name.trim().toLowerCase()===name.toLowerCase());
   if(duplicate){ d.customerId=duplicate.id; taxInvoiceAddingCustomer=false; showToast('มีชื่อลูกค้านี้อยู่แล้ว ระบบเลือกรายชื่อเดิมให้แล้ว'); render(); return; }
-  const customer={id:nextContactId++,name,entity:d.taxId?'juristic':'individual',types:['customer'],contactName:'',phone:d.phone||'',email:d.email||'',taxId:d.taxId||'',creditDays:d.credit||'',address:d.address||'',bank:'',bankAcc:'',note:''};
+  const customer={id:generateClientRecordId(contacts),name,entity:d.taxId?'juristic':'individual',types:['customer'],contactName:'',phone:d.phone||'',email:d.email||'',taxId:d.taxId||'',creditDays:d.credit||'',address:d.address||'',bank:'',bankAcc:'',note:''};
   contacts.push(customer);
   persistContacts();
   d.customerId=customer.id;
@@ -6262,18 +6318,6 @@ function normalizeGoodsReceiptItems(items,targetWarehouseId=0){
     const unitInfo=poPurchaseUnitOptions(product).find(option=>option.name===item.unit);
     const warehouseId=Number(targetWarehouseId)||Number(item.warehouseId)||Number(product?.wh)||0;
     return {...item,lineId:String(item.lineId||index+1),productId:product?.id||item.productId||'',warehouseId,stockFactor:Number(item.stockFactor)||(unitInfo?.factor||1),lotNumber:String(item.lotNumber||'').trim(),expiry:String(item.expiry||'')};
-  });
-}
-
-function adjustGoodsReceiptStock(items,direction){
-  normalizeGoodsReceiptItems(items).forEach(item=>{
-    const product=products.find(p=>p.id===Number(item.productId))||products.find(p=>p.name===item.name);
-    if(!product) return;
-    const baseQty=(Number(item.qty)||0)*(Number(item.stockFactor)||1);
-    const delta=direction*baseQty;
-    const warehouseId=Number(item.warehouseId)||Number(activeWarehouseId);
-    if(warehouseId===Number(activeWarehouseId)) product.stock=(Number(product.stock)||0)+delta;
-    adjustProductStockOnSupabase(product.id,delta,warehouseId);
   });
 }
 
@@ -7179,7 +7223,7 @@ function unitRowHtml(u, mainUnit, siblingNames){
     </div>
     <input class="u_price" type="number" value="${escapeHtml(u.price||'')}" placeholder="ขาย">
     ${isLevel2User()?`<input class="u_cost" type="hidden" value="${escapeHtml(u.cost||'')}">`:`<input class="u_cost" type="number" value="${escapeHtml(u.cost||'')}" placeholder="ทุน">`}
-    <input class="u_stock" type="number" step="any" value="${escapeHtml(u.stock===''||u.stock===undefined||u.stock===null?'':(Math.round(u.stock*100)/100))}" placeholder="จำนวนคงเหลือ">
+    <input class="u_stock" type="number" step="any" value="${escapeHtml(u.stock===''||u.stock===undefined||u.stock===null?'':(Math.round(u.stock*100)/100))}" placeholder="จำนวนคงเหลือ" readonly title="จำนวนคงเหลือแก้ได้จากหน้าตรวจนับและปรับสต๊อก">
     <input class="u_barcode" value="${escapeHtml(u.barcode||'')}" placeholder="เลขบาร์โค้ด">
     <button class="u_del" title="ลบ">×</button>
   </div>`;
@@ -7418,10 +7462,11 @@ function renderProductForm(){
         <div class="field"><label>หน่วยสินค้าหลัก <span class="req">*</span></label>${renderedMainUnitSelect}</div>
         <div class="field"><label>ราคาขาย <span class="req">*</span></label><input id="f_price" class="no-spin" type="number" value="${escapeHtml(p.price)}" placeholder="0.00"></div>
         ${canViewCost?`<div class="field"><label>ราคาทุน</label><input id="f_cost" class="no-spin" type="number" value="${escapeHtml(p.cost!==undefined?p.cost:'')}" placeholder="0.00"></div>`:`<input id="f_cost" type="hidden" value="${escapeHtml(p.cost!==undefined?p.cost:'')}">`}
-        <div class="field"><label>จำนวนคงเหลือ</label><input id="f_stock" class="no-spin" type="number" value="${escapeHtml(p.stock)}" placeholder="0"></div>
+        <div class="field"><label>จำนวนคงเหลือ</label><input id="f_stock" class="no-spin" type="number" value="${escapeHtml(Number(p.stock)||0)}" readonly title="จำนวนคงเหลือแก้ได้จากหน้าตรวจนับและปรับสต๊อก"></div>
         <div class="field"><label>เลขบาร์โค้ด</label><input id="f_barcode" value="${escapeHtml(p.barcode)}"></div>
         ${isNew?'':'<button class="btn primary small product-base-unit-action" type="button" id="changeBaseUnitBtn">เปลี่ยนหน่วยหลัก</button>'}
       </div>
+      <div class="product-stock-edit-hint">จำนวนคงเหลือแก้ได้จากหน้า “ตรวจนับและปรับสต๊อก” เพื่อให้มีเหตุผล ผู้ดำเนินการ และ LOT</div>
       <div class="paneltoggle product-extra-unit-toggle"><div><h3 style="font-size:14px;">หน่วยสินค้าเพิ่มเติม <span class="psub" style="font-weight:400;">• ตัวอย่าง: 1 กล่อง = 10 แผง, 1 ลัง = 10 กล่อง</span></h3></div>
       <label class="switch"><input type="checkbox" id="f_multiunit" ${(isNew?true:p.multiunit)?'checked':''}><span class="slider"></span></label></div>
       <div id="multiunitBody" style="${(isNew?true:p.multiunit)?'':'display:none;'}margin-top:14px;">
@@ -7762,8 +7807,6 @@ async function openStockLotReallocation(productId){
     }catch(error){ console.warn('reallocate inventory Lots',error); confirmButton.disabled=false; confirmButton.textContent='ยืนยันปรับจำนวน LOT'; showToast(error?.message||'ปรับจำนวน LOT ไม่สำเร็จ กรุณาโหลดข้อมูลใหม่','danger-top'); }
   };
 }
-
-function renderStockAdjust(){ return renderStockControlAnomalies(); }
 
 function renderStockControl(){
   if(!['count','adjust','anomalies','lots'].includes(stockControlMode)) stockControlMode='count';
@@ -9083,7 +9126,7 @@ function saveInspectionListDraft(options={}){
   const now=new Date().toISOString();
   const saved={...inspectionListDraft,name,warehouseId:Number(inspectionListDraft.warehouseId)||Number(activeWarehouseId)||0,items:inspectionListDraft.items.map(item=>({pid:Number(item.pid),unit:String(item.unit||'')})),updatedAt:now,stockAdjustedAt:'',stockAdjustedBy:''};
   if(editingInspectionListId==='new'){
-    saved.id=`${documentPrefixes.inspection}-${String(inspectionListCounter++).padStart(4,'0')}`;
+    saved.id=generateInspectionListId();
     saved.createdAt=saved.createdAt||now;
     inspectionLists.unshift(saved);
   }else{
@@ -10738,19 +10781,6 @@ function renderPromotionForm(){
     </div>`;
 }
 
-function renderRSales(){
-  const monthKey=TODAY_STR.slice(0,7);
-  const monthSales=salesHistory.filter(s=>s.status==='done'&&String(s.date||'').slice(0,7)===monthKey);
-  const monthTotal = monthSales.reduce((a,s)=>a+(Number(s.total)||0),0);
-  return `<div class="pagehead"><div><h1>สรุปยอดขาย</h1><div class="sub">ยอดขายรวมตามช่วงเวลา</div></div></div>
-  <div class="statrow"><div class="stat"><div class="slabel">ยอดขายล่าสุด</div><div class="sval">${fmtMoney(monthSales[0]?.total||0)}</div></div>
-  <div class="stat"><div class="slabel">ยอดขายเดือนนี้</div><div class="sval">${fmtMoney(monthTotal)}</div></div>
-  <div class="stat"><div class="slabel">จำนวนบิล</div><div class="sval">${monthSales.length}</div></div>
-  <div class="stat"><div class="slabel">ค่าเฉลี่ย/บิล</div><div class="sval">${fmtMoney(monthTotal/(monthSales.length||1))}</div></div></div>
-  <div class="panel"><h3>รายการขายเดือนนี้</h3><table><thead><tr><th>เลขที่</th><th>วันที่</th><th>พนักงาน</th><th class="mono">ยอดรวม</th></tr></thead>
-  <tbody>${monthSales.map(s=>`<tr><td class="mono">${escapeHtml(s.id)}</td><td>${escapeHtml(s.time||s.date||'-')}</td><td>${escapeHtml(s.cashier||'-')}</td><td class="mono">${fmtMoney(s.total)}</td></tr>`).join('')}</tbody></table></div>`;
-}
-
 function rproductPeriodRange(){
   const today = new Date(TODAY_STR); // อ้างอิงวันปัจจุบันของระบบ
   const y=today.getFullYear(), m=today.getMonth();
@@ -11392,17 +11422,6 @@ function renderRTax(){
   </div>`;
 }
 
-function renderREmployee(){
-  const counts = {};
-  employees.forEach(e=>counts[e]={bills:0,total:0});
-  const monthKey=TODAY_STR.slice(0,7);
-  salesHistory.filter(s=>s.status==='done'&&String(s.date||'').slice(0,7)===monthKey).forEach(s=>{ if(!counts[s.cashier]) counts[s.cashier]={bills:0,total:0}; counts[s.cashier].bills++; counts[s.cashier].total+=Number(s.total)||0; });
-  const rows = Object.entries(counts).sort((a,b)=>b[1].total-a[1].total);
-  return `<div class="pagehead"><div><h1>ยอดขายตามพนักงาน</h1><div class="sub">เปรียบเทียบผลงานพนักงานขายเดือนนี้</div></div></div>
-  <table><thead><tr><th>พนักงาน</th><th class="mono">จำนวนบิล</th><th class="mono">ยอดขายรวม</th><th class="mono">เฉลี่ย/บิล</th></tr></thead>
-  <tbody>${rows.map(([name,d])=>`<tr><td>${escapeHtml(name||'-')}</td><td class="mono">${d.bills}</td><td class="mono">${fmtMoney(d.total)}</td><td class="mono">${fmtMoney(d.bills?d.total/d.bills:0)}</td></tr>`).join('')}</tbody></table>`;
-}
-
 function stockReportProductMatchesFilter(product,filter=stockReportCatFilter){
   return (!filter.category||product?.category===filter.category)&&(!filter.brand||product?.brand===filter.brand);
 }
@@ -11491,16 +11510,6 @@ function stockReportRowsHtml(){
         return `<tr><td>${escapeHtml(row.name)}</td><td class="mono num ${stockVal<0?'stock-negative':''}" style="text-align:center;">${escapeHtml(stockDisplay)}</td><td class="num"><button class="history-icon-btn danger" data-sr-remove="${escapeHtml(row.pid)}" title="ลบ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td></tr>`;
       }).join('')
     : `<tr><td colspan="${selectedWarehouseValue==='all'?reportWarehouses.length+2:3}" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีรายการ — ค้นหาหรือสแกนบาร์โค้ดด้านบนเพื่อเพิ่ม</td></tr>`;
-}
-
-function renderRReceivable(){
-  const unpaid = invoicesAR.filter(i=>!i.paid);
-  const totalUnpaid = unpaid.reduce((a,i)=>a+i.total,0);
-  return `<div class="pagehead"><div><h1>การเก็บเงิน (ลูกหนี้)</h1><div class="sub">ยอดค้างชำระจากลูกค้าเชื่อ</div></div></div>
-  <div class="statrow"><div class="stat"><div class="slabel">ยอดค้างชำระรวม</div><div class="sval">${fmtMoney(totalUnpaid)}</div></div>
-  <div class="stat"><div class="slabel">จำนวนบิลค้าง</div><div class="sval">${unpaid.length}</div></div></div>
-  <table><thead><tr><th>เลขที่</th><th>ลูกค้า</th><th>ครบกำหนด</th><th class="mono">ยอดค้าง</th></tr></thead>
-  <tbody>${unpaid.map(i=>`<tr><td class="mono">${escapeHtml(i.id)}</td><td>${escapeHtml(i.customer||'-')}</td><td>${escapeHtml(fmtDate(i.dueDate))}</td><td class="mono">${fmtMoney(i.total)}</td></tr>`).join('')||'<tr><td colspan="4" style="text-align:center;color:var(--text-muted);padding:20px;">ไม่มียอดค้างชำระ</td></tr>'}</tbody></table>`;
 }
 
 function renderBusinessSettings(){
@@ -11799,7 +11808,7 @@ function renderAddSystemUser(){
       <div class="system-user-form-field"><label>ชื่อ *</label><input id="new_user_first" value="${escapeHtml(user?.firstName||'')}"></div>
       <div class="system-user-form-field"><label>เบอร์โทร</label><input id="new_user_phone" class="phone-input" inputmode="tel" value="${escapeHtml(user?.phone||'')}"></div>
       <div class="system-user-form-field wide"><label>ข้อมูลอื่น ๆ</label><textarea id="new_user_note" rows="3" placeholder="ข้อมูลเพิ่มเติมเกี่ยวกับผู้ใช้งาน">${escapeHtml(user?.note||'')}</textarea></div>
-      <div class="system-user-form-field wide"><label>สิทธิ์การเข้าถึง</label><select id="new_user_level" ${user?.owner?'disabled':''}><option value="1" ${currentLevel===1?'selected':''} ${user?.owner?'':'disabled'}>Level 1 - เจ้าของร้าน</option><option value="2" ${currentLevel===2?'selected':''}>Level 2 - บุคคลทั่วไป</option><option value="3" ${currentLevel===3?'selected':''}>Level 3 - ยังไม่กำหนด</option><option value="4" ${currentLevel===4?'selected':''}>Level 4 - ยังไม่กำหนด</option></select></div>
+      <div class="system-user-form-field wide"><label>สิทธิ์การเข้าถึง</label><select id="new_user_level" ${user?.owner?'disabled':''}><option value="1" ${currentLevel===1?'selected':''} ${user?.owner?'':'disabled'}>Level 1 - เจ้าของร้าน</option><option value="2" ${currentLevel!==1?'selected':''}>Level 2 - พนักงาน (กำหนดสิทธิ์รายหน้า)</option></select></div>
       ${user?.owner?'':`<div class="system-user-form-field wide"><label>คลังสินค้าที่เข้าถึง *</label><div class="system-user-warehouse-grid">${warehouseOptions||'<span>ยังไม่มีคลังสินค้าในระบบ</span>'}</div><small class="system-user-warehouse-hint">เลือกอย่างน้อย 1 คลัง ผู้ใช้งานจะเห็นและทำรายการได้เฉพาะคลังที่เลือก</small></div>`}
       ${user?.owner?'':`<div class="system-user-form-field wide"><label>สิทธิ์ตามหน้าที่</label>${systemUserPermissionMatrixHtml(user)}</div>`}
     </div></div></div>`;
@@ -11859,9 +11868,9 @@ const TAB_DOCUMENT_TABLES={
   quotation:['quotations'],invoice:['invoices_ar'],creditnote:['credit_notes'],purchaseorder:['purchase_orders'],
   goodsreceipt:['goods_receipts'],productexchange:['product_exchanges'],purchaseorder2:['purchase_orders_full'],
   productreturn:['product_returns'],transfer:['transfers'],taxinvoice:['standalone_tax_invoices'],
-  rreceivable:['invoices_ar','credit_notes'],rtax:['goods_receipts'],
+  rtax:['goods_receipts'],
 };
-const ON_DEMAND_AGGREGATE_TABS=new Set(['dashboard','history','rproduct','rbill','rprofit','rtax','rsales','remployee','inventorymovement','rreceivable']);
+const ON_DEMAND_AGGREGATE_TABS=new Set(['dashboard','history','rproduct','rbill','rprofit','rtax','inventorymovement']);
 const onDemandTabJobs=new Map();
 const onDemandTabErrors=new Map();
 function localIsoDaysAgo(days){
@@ -11874,7 +11883,7 @@ function monthServerRange(monthValue=TODAY_STR.slice(0,7)){
   return serverDateRange(`${year}-${String(month).padStart(2,'0')}-01`,`${year}-${String(month).padStart(2,'0')}-${String(new Date(year,month,0).getDate()).padStart(2,'0')}`);
 }
 function salesRangeForTab(tab){
-  if(tab==='dashboard'||tab==='rsales'||tab==='remployee') return serverDateRange(`${TODAY_STR.slice(0,7)}-01`,TODAY_STR);
+  if(tab==='dashboard') return serverDateRange(`${TODAY_STR.slice(0,7)}-01`,TODAY_STR);
   if(tab==='checkout') return serverDateRange(TODAY_STR,TODAY_STR);
   if(tab==='cashshift') return serverDateRange(String(currentCashShift?.openedAt||TODAY_STR).slice(0,10),TODAY_STR);
   if(tab==='history') return serverDateRange(historyDateRange().from,historyDateRange().to);
@@ -11964,9 +11973,9 @@ const RENDERERS = {
   mobiletools: renderMobileTools,
   dashboard: renderDashboard, checkout: renderCheckout, notes: renderNotes, cashshift: renderCashShift, cashbill: renderCashBills, taxinvoice: renderTaxInvoices, quotation: renderQuotation, invoice: renderInvoice,
   creditnote: renderCreditNote, history: renderHistory, purchaseorder: renderPurchaseOrder, purchaseorder2: renderPurchaseOrder2, productreturn: renderProductReturn, goodsreceipt: renderGoodsReceipt, productexchange: renderProductExchange,
-  products: renderProducts, stockcontrol: renderStockControl, inspectionlists: renderInspectionLists, barcodeprint: renderBarcodePrint, warehouse: renderWarehouse, transfer: renderTransfer, stockadjust: renderStockAdjust, stockedit: renderStockEdit, lowstock: renderLowStock, expiry: renderExpiry, promotions: renderPromotions,
-  contacts: renderContacts, salesreps: renderSalesRepresentatives, representativehistory: renderRepresentativeHistoryOverview, rsales: renderRSales, rproduct: renderRProduct, rbill: renderRBill, rprofit: renderRProfit, rtax: renderRTax, remployee: renderREmployee,
-  inventorymovement: renderInventoryMovement, rinventory: renderRInventory, rreceivable: renderRReceivable, settingsbusiness: renderBusinessSettings, settingsuser: renderUserSettings, settingsusers: renderSystemUsers, auditlog: renderAuditLog, settingssystem: renderSystemSettings,
+  products: renderProducts, stockcontrol: renderStockControl, barcodeprint: renderBarcodePrint, warehouse: renderWarehouse, transfer: renderTransfer, lowstock: renderLowStock, expiry: renderExpiry, promotions: renderPromotions,
+  contacts: renderContacts, salesreps: renderSalesRepresentatives, representativehistory: renderRepresentativeHistoryOverview, rproduct: renderRProduct, rbill: renderRBill, rprofit: renderRProfit, rtax: renderRTax,
+  inventorymovement: renderInventoryMovement, rinventory: renderRInventory, settingsbusiness: renderBusinessSettings, settingsuser: renderUserSettings, settingsusers: renderSystemUsers, auditlog: renderAuditLog, settingssystem: renderSystemSettings,
 };
 
 function render(){
@@ -12017,6 +12026,7 @@ function render(){
   const onDemandNotice=onDemandState.status==='truncated'?onDemandStateHtml(onDemandState):'';
   posSalesHistoryOnDemandState=null;
   mainElement.innerHTML = onDemandNotice+(RENDERERS[currentTab]||renderDashboard)();
+  applyCashShiftOverdueUi(mainElement);
   restoreMobileCameraScanner();
   prepareScrollableTables(mainElement);
   attachEvents();
@@ -13761,10 +13771,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   // แก้ไขข้อมูลสินค้าแบบอินไลน์ในหน้ารายการสินค้า (รหัส/ชื่อ/ราคา/ทุน/วันหมดอายุของคลังที่ใช้งาน)
   document.querySelectorAll('.prod-inline-edit').forEach(el=>{
-    if(el.classList.contains('prod-inline-expiry')){
-      el.addEventListener('input',()=>{ el.value=formatDMYInput(el.value); });
-      el.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); el.blur(); } });
-    }
     if(el.classList.contains('prod-inline-barcode')){
       el.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); el.blur(); } });
     }
@@ -13811,29 +13817,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       } else if(field==='name'){
         const v=el.value.trim();
         if(v) p.name=v; else el.value=p.name;
-      } else if(field==='expiry'){
-        const expiryText=el.value.trim();
-        const expiry=expiryText?dmyToISO(expiryText):'';
-        if(expiryText&&!expiry){
-          showToast('กรุณากรอกวันหมดอายุเป็น วัน-เดือน-ปี เช่น 05-07-2027','danger-top');
-          el.value=p.expiry?fmtDateShort(p.expiry):'';
-          return;
-        }
-        el.disabled=true;
-        const saved=await setProductExpiryOnSupabase(pid,expiry,activeWarehouseId);
-        if(!saved){
-          el.disabled=false;
-          el.value=p.expiry?fmtDateShort(p.expiry):'';
-          showToast('บันทึกวันหมดอายุไม่สำเร็จ กรุณาลองใหม่','danger-top');
-          return;
-        }
-        el.value=expiry?fmtDateShort(expiry):'';
       }
-      if(field!=='expiry'){
-        rebuildProductLookupMaps();
-        const cached=await persistWorkspaceData({productChanges:{updatedIds:[pid]}});
-        if(!cached){ showToast('บันทึกข้อมูลแล้ว แต่เก็บสำเนาในเครื่องไม่สำเร็จ กรุณาอย่าเพิ่งปิดหน้านี้','danger-top'); return; }
-      }
+      rebuildProductLookupMaps();
+      const cached=await persistWorkspaceData({productChanges:{updatedIds:[pid]}});
+      if(!cached){ showToast('บันทึกข้อมูลแล้ว แต่เก็บสำเนาในเครื่องไม่สำเร็จ กรุณาอย่าเพิ่งปิดหน้านี้','danger-top'); return; }
       showToast('บันทึกการแก้ไขแล้ว');
       render();
     });
@@ -14089,19 +14076,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   [['f_multiunit','multiunitBody'],['f_extrabc_toggle','extraBcBody'],['f_vendorbc_toggle','vendorBcBody']].forEach(([tog,body])=>{
     const t=document.getElementById(tog);
     if(t) t.addEventListener('change', ()=>{ const b=document.getElementById(body); if(b) b.style.display = t.checked?'':'none'; });
-  });
-  // แก้จำนวนคงเหลือหน่วยหลักโดยตรง → คำนวณจำนวนคงเหลือของหน่วยเสริมทุกแถวให้ตรงกันทันที (สมมาตรกับการแก้จากหน่วยเสริม)
-  const mainStockInput=document.getElementById('f_stock');
-  if(mainStockInput) mainStockInput.addEventListener('input', ()=>{
-    const mainUnit=(document.getElementById('f_unit')||{}).value||'หน่วยหลัก';
-    const rawData=collectUnitRowsFromDOM();
-    const newMainStock=Number(mainStockInput.value)||0;
-    document.querySelectorAll('#unitRows .unitrow').forEach(row=>{
-      const stockEl=row.querySelector('.u_stock'); if(!stockEl) return;
-      const sub=row.querySelector('.u_sub').value;
-      const rowFactor=resolveNetFactor(sub, rawData, mainUnit);
-      stockEl.value = rowFactor>0 ? (Math.round((newMainStock/rowFactor)*100)/100) : '';
-    });
   });
   // add/remove unit rows
   const addUnitBtn = document.getElementById('addUnitBtn');
@@ -14572,27 +14546,6 @@ function bindUnitRowEvents(){
   document.querySelectorAll('#unitRows .u_sub').forEach(sel=>{
     sel.addEventListener('change', ()=>{ setTimeout(refreshUnitRows, 0); });
   });
-  // แก้จำนวนคงเหลือของหน่วยไหนก็ได้ → คำนวณหน่วยหลักและหน่วยอื่นๆ ให้ตรงกันทันที
-  document.querySelectorAll('#unitRows .u_stock').forEach(input=>{
-    input.addEventListener('focus', ()=>input.select());
-    input.addEventListener('input', ()=>{
-      const mainUnit=(document.getElementById('f_unit')||{}).value||'หน่วยหลัก';
-      const rawData=collectUnitRowsFromDOM(); // per/base ปัจจุบัน สำหรับคำนวณ factor (ไม่เกี่ยวกับค่าที่เพิ่งพิมพ์)
-      const thisSub=input.closest('.unitrow').querySelector('.u_sub').value;
-      const nf=resolveNetFactor(thisSub, rawData, mainUnit);
-      if(nf<=0) return; // ยังระบุหน่วย/อ้างอิงหน่วยไม่ครบ คำนวณไม่ได้
-      const newMainStock=(Number(input.value)||0)*nf;
-      const stockInput=document.getElementById('f_stock');
-      if(stockInput) stockInput.value=Math.round(newMainStock*100)/100;
-      document.querySelectorAll('#unitRows .unitrow').forEach(row=>{
-        const stockEl=row.querySelector('.u_stock');
-        if(!stockEl||stockEl===input) return;
-        const sub=row.querySelector('.u_sub').value;
-        const rowFactor=resolveNetFactor(sub, rawData, mainUnit);
-        stockEl.value = rowFactor>0 ? (Math.round((newMainStock/rowFactor)*100)/100) : '';
-      });
-    });
-  });
 }
 function bindUnitDelete(){ bindUnitRowEvents(); }
 
@@ -14872,7 +14825,7 @@ function savePORepresentativeFromPO(){
   if(duplicate){ showToast('มีชื่อผู้แทนนี้อยู่แล้ว'); document.getElementById('po_rep_name').focus(); return; }
   const data={name,phone:get('po_rep_phone'),line:get('po_rep_line'),note:get('po_rep_note')};
   if(poRepresentativeEditorId==='new'){
-    salesRepresentatives.push({id:nextSalesRepresentativeId++,...data});
+    salesRepresentatives.push({id:generateClientRecordId(salesRepresentatives),...data});
     showToast(`เพิ่มผู้แทน “${name}” แล้ว`);
   }else{
     const rep=salesRepresentatives.find(x=>x.id===poRepresentativeEditorId);
@@ -15503,7 +15456,7 @@ function saveSalesRepresentative(){
   if(!name){ showToast('กรุณากรอกชื่อผู้แทน'); document.getElementById('sr_name').focus(); return; }
   const data={name,phone:get('sr_phone'),line:get('sr_line'),company:get('sr_company'),note:get('sr_note')};
   if(editingSalesRepresentativeId==='new'){
-    salesRepresentatives.push({id:nextSalesRepresentativeId++,...data});
+    salesRepresentatives.push({id:generateClientRecordId(salesRepresentatives),...data});
     showToast(`เพิ่มรายชื่อผู้แทน “${name}” แล้ว`);
   }else{
     const rep=salesRepresentatives.find(x=>x.id===editingSalesRepresentativeId);
@@ -15837,7 +15790,7 @@ function savePromotion(){
     if(data.bundlePrice<=0){ showToast('กรุณากรอกราคาพิเศษให้ถูกต้อง'); return; }
   }
   if(editingPromotionId==='new'){
-    promotions.push({id:nextPromotionId++,...data});
+    promotions.push({id:generateClientRecordId(promotions),...data});
     showToast(`สร้างโปรโมชั่น "${name}" แล้ว`);
   } else {
     Object.assign(promotions.find(x=>x.id===editingPromotionId),data);
@@ -15972,7 +15925,7 @@ async function importContactsFromExcel(file){
   if(!confirm(confirmation)) return;
 
   toUpdate.forEach(({existing,data})=>Object.assign(existing,data));
-  toCreate.forEach(data=>contacts.push({id:nextContactId++,...data}));
+  toCreate.forEach(data=>contacts.push({id:generateClientRecordId(contacts),...data}));
   persistContacts();
   showToast(`นำเข้าสมุดรายชื่อสำเร็จ · เพิ่มใหม่ ${toCreate.length} · อัปเดต ${toUpdate.length}${skipped.length?` · ข้าม ${skipped.length}`:''}`);
   render();
@@ -16229,7 +16182,7 @@ async function importSalesRepresentativesFromExcel(file){
       if(poDraft?.supplier===oldName) poDraft.supplier=data.name;
     }
   });
-  toCreate.forEach(data=>salesRepresentatives.push({id:nextSalesRepresentativeId++,...data}));
+  toCreate.forEach(data=>salesRepresentatives.push({id:generateClientRecordId(salesRepresentatives),...data}));
   persistWorkspaceData();
   showToast(`นำเข้ารายชื่อผู้แทนสำเร็จ · เพิ่มใหม่ ${toCreate.length} · อัปเดต ${toUpdate.length}${skipped.length?` · ข้าม ${skipped.length}`:''}`);
   render();
@@ -16316,7 +16269,7 @@ function saveContactEditorData(contactId=editingContactId){
   }
   let savedContact=existing;
   if(contactId==='new'){
-    savedContact={id:nextContactId++, ...data, customerPrices:[]};
+    savedContact={id:generateClientRecordId(contacts), ...data, customerPrices:[]};
     contacts.push(savedContact);
     showToast(`เพิ่มรายชื่อ "${name}" แล้ว`);
   } else {
@@ -16529,6 +16482,34 @@ async function downloadProductImportTemplate(){
   link.click();
   setTimeout(()=>URL.revokeObjectURL(link.href),1000);
 }
+async function applyImportedInventoryTargets(targets){
+  const grouped=new Map();
+  (targets||[]).forEach(target=>{
+    const warehouseId=Number(target.warehouseId)||Number(activeWarehouseId);
+    const expectedStock=Number(target.expectedStock)||0;
+    const targetStock=Number(target.targetStock)||0;
+    if(!warehouseId||targetStock===expectedStock) return;
+    const rows=grouped.get(warehouseId)||[];
+    rows.push({
+      productId:Number(target.productId),expectedStock,targetStock,
+      unitName:String(target.unitName||''),selectedLotId:null,
+      lotNumber:'',expiry:String(target.expiry||''),
+    });
+    grouped.set(warehouseId,rows);
+  });
+  for(const [warehouseId,rows] of grouped){
+    for(let index=0;index<rows.length;index+=500){
+      const data=await runStockOperation('post_inventory_count_adjustment_with_shortages',{
+        warehouseId,reason:'นำเข้าสินค้า Excel',note:'ปรับยอดจากไฟล์นำเข้า',sourceInspectionId:null,
+        lines:rows.slice(index,index+500),
+      });
+      (data?.balances||[]).forEach(balance=>updateInventoryBalanceLocal(balance.productId,balance.warehouseId,balance.stock));
+    }
+  }
+  if(grouped.size) await loadWarehouseInventoryFromSupabase([...grouped.keys()],{force:true});
+  return grouped.size;
+}
+
 async function importProductsFromExcel(file){
   try{ await ensureXlsxLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบอ่าน Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
   let workbook;
@@ -16537,6 +16518,10 @@ async function importProductsFromExcel(file){
   const firstSheet=workbook.Sheets[workbook.SheetNames[0]];
   const sourceRows=XLSX.utils.sheet_to_json(firstSheet,{defval:'',raw:true});
   if(!sourceRows.length){ showToast('ไม่พบข้อมูลสินค้าในไฟล์'); return; }
+  // Import may target a warehouse other than the currently selected one.
+  // Load its authoritative balances first so optimistic stock checks are exact.
+  const inventoryReady=await loadWarehouseInventoryFromSupabase(accessibleWarehouses().map(warehouse=>warehouse.id),{force:true});
+  if(!inventoryReady){ showToast('โหลดสต๊อกล่าสุดก่อนนำเข้าไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่','danger-top'); return; }
 
   // Track which product id currently "owns" each sku/barcode, so a row that
   // edits an EXISTING product (matched via รหัสอ้างอิงระบบ or a matching sku)
@@ -16666,6 +16651,10 @@ async function importProductsFromExcel(file){
   }
   const confirmation=`พบข้อมูล ${sourceRows.length} แถว\nจะเพิ่มสินค้าใหม่ ${toCreate.length} รายการ\nจะอัปเดตสินค้าเดิม ${toUpdate.length} รายการ${skipped.length?`\nข้าม ${skipped.length} รายการที่ข้อมูลไม่ครบหรือซ้ำ`:''}\n\nยืนยันนำเข้าหรือไม่?`;
   if(!confirm(confirmation)) return;
+  const importStockTargets=[
+    ...toCreate.map(product=>({productId:product.id,warehouseId:Number(product.wh)||Number(activeWarehouseId),expectedStock:0,targetStock:Number(product.stock)||0,unitName:product.unit,expiry:product.expiry||''})),
+    ...toUpdate.map(({existing,data,inventoryWarehouseId})=>({productId:existing.id,warehouseId:Number(inventoryWarehouseId)||Number(activeWarehouseId),expectedStock:Number(warehouseStock(existing.id,inventoryWarehouseId))||0,targetStock:Number(data.stock)||0,unitName:data.unit||existing.unit,expiry:data.expiry||''})),
+  ];
   nextProductSkuNumber=stagedNextProductSkuNumber;
   let contactsChanged=false;
   [...toCreate,...toUpdate.map(u=>u.data)].forEach(product=>{
@@ -16688,25 +16677,38 @@ async function importProductsFromExcel(file){
         return;
       }
       contacts.push({
-        id:nextContactId++,name:vendorName,entity:'juristic',types:['supplier'],contactName:'',phone:'',email:'',taxId:'',creditDays:'',address:'',bank:'',bankAcc:'',note:'เพิ่มจากการนำเข้าสินค้า Excel'
+        id:generateClientRecordId(contacts),name:vendorName,entity:'juristic',types:['supplier'],contactName:'',phone:'',email:'',taxId:'',creditDays:'',address:'',bank:'',bankAcc:'',note:'เพิ่มจากการนำเข้าสินค้า Excel'
       });
       contactsChanged=true;
     });
   });
   if(contactsChanged) persistContacts();
-  toUpdate.forEach(({existing,data,inventoryWarehouseId})=>{
-    const oldStock=Number(existing.stock)||0;
+  toUpdate.forEach(({existing,data})=>{
     const catalogExpiry=existing._catalogExpiry;
-    Object.assign(existing,data);
+    const currentStock=Number(existing.stock)||0;
+    Object.assign(existing,{...data,stock:currentStock,expiry:existing.expiry||''});
     existing._catalogExpiry=catalogExpiry;
-    if((Number(data.stock)||0)!==oldStock||Number(inventoryWarehouseId)!==Number(activeWarehouseId)) setProductStockOnSupabase(existing.id,data.stock,inventoryWarehouseId);
-    setProductExpiryOnSupabase(existing.id,data.expiry,inventoryWarehouseId);
   });
+  toCreate.forEach(product=>{ product.stock=0; product.expiry=''; });
   products.push(...toCreate);
   rebuildProductLookupMaps();
   productPage=1;
   const productCacheSaved=await persistWorkspaceData({productChanges:{insertedIds:toCreate.map(product=>product.id),updatedIds:toUpdate.map(entry=>entry.existing.id)}});
   if(!productCacheSaved){ showToast('นำเข้าข้อมูลแล้ว แต่เก็บสำเนาสินค้าในเครื่องไม่สำเร็จ กรุณาอย่าเพิ่งปิดหน้านี้','danger-top'); return; }
+  await syncCoreDataToSupabase();
+  if(syncUiState!=='synced'){
+    showToast('บันทึกข้อมูลสินค้าแล้ว แต่ยังไม่ปรับสต๊อก เพราะซิงก์สินค้าไปเซิร์ฟเวอร์ไม่สำเร็จ กรุณากดซิงก์แล้วนำเข้าอีกครั้ง','danger-top');
+    render();
+    return;
+  }
+  try{
+    await applyImportedInventoryTargets(importStockTargets);
+  }catch(error){
+    console.error('apply imported inventory targets',error);
+    showToast(`นำเข้าข้อมูลสินค้าแล้ว แต่ปรับสต๊อกไม่สำเร็จ: ${error?.message||'กรุณาตรวจสอบรายการในหน้าตรวจนับและปรับสต๊อก'}`,'danger-top');
+    render();
+    return;
+  }
   showToast(`นำเข้าสินค้าสำเร็จ · เพิ่มใหม่ ${toCreate.length} · อัปเดต ${toUpdate.length}${skipped.length?` · ข้าม ${skipped.length}`:''}`);
   render();
 }
@@ -16778,7 +16780,9 @@ async function saveProduct(){
     vendorBarcodes: Array.from(document.querySelectorAll('#vendorBarcodeRows .bcrow')).map(r=>({vendor:r.querySelector('.vb_vendor').value, code:r.querySelector('.vb_code').value.trim()})).filter(v=>v.code),
     wh: existing?.wh||Number(activeWarehouseId),
     desc: g('f_desc').value.trim(),
-    stock: parseInt(g('f_stock').value)||0,
+    // Product metadata never changes stock. New products start at zero and
+    // existing stock remains whatever inventory_balances currently reports.
+    stock: existing?(Number(existing.stock)||0):0,
     type: existing?.type || 'stock',
     vat: gv('f_vat') || 'incl',
     multiunit, units,
@@ -16808,11 +16812,9 @@ async function saveProduct(){
   } else {
     const p = products.find(x=>x.id===editingProductId);
     savedProductId=p.id;
-    const oldStock=Number(p.stock)||0;
     const catalogExpiry=p._catalogExpiry;
     Object.assign(p, data);
     p._catalogExpiry=catalogExpiry;
-    if((Number(data.stock)||0)!==oldStock) setProductStockOnSupabase(p.id,data.stock,activeWarehouseId);
     showToast(`บันทึกการแก้ไข "${name}" แล้ว`);
   }
   if(data.active===false){
@@ -17928,37 +17930,21 @@ function openStockCheckModal(pid){
   overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:380px;">
     <div class="modal-head"><h3>คงเหลือ: ${escapeHtml(p.name)}</h3><button class="modal-close">×</button></div>
-    <div class="modal-sub" id="stockCheckSub">คงเหลือทั้งหมด ${escapeHtml(p.stock)} ${escapeHtml(p.unit||'')} — แก้จำนวนหน่วยไหนก็ได้ หน่วยอื่นจะคำนวณตามให้อัตโนมัติ:</div>
-    <div class="manage-list">${rows.map(r=>`<div class="manage-item"><span>${escapeHtml(r.name)}</span><input type="number" step="any" class="stock-check-input mono" data-factor="${escapeHtml(r.factor)}" value="${escapeHtml(Math.round(r.amount*100)/100)}" style="width:120px;text-align:right;padding:7px 9px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:14px;"></div>`).join('')}</div>
-    <div class="modal-actions" style="display:flex;justify-content:flex-end;gap:10px;padding:12px 16px 16px;"><button class="btn ghost stock-check-cancel">ยกเลิก</button><button class="btn primary" id="stockCheckSaveBtn">บันทึกจำนวนคงเหลือ</button></div>
+    <div class="modal-sub" id="stockCheckSub">คงเหลือทั้งหมด ${escapeHtml(p.stock)} ${escapeHtml(p.unit||'')} · แสดงผลตามหน่วยสินค้า</div>
+    <div class="manage-list">${rows.map(r=>`<div class="manage-item"><span>${escapeHtml(r.name)}</span><b class="mono">${escapeHtml(Math.round(r.amount*100)/100)}</b></div>`).join('')}</div>
+    <div class="modal-actions" style="display:flex;justify-content:flex-end;gap:10px;padding:12px 16px 16px;"><button class="btn ghost stock-check-cancel">ปิด</button><button class="btn primary" id="stockCheckAdjustBtn" ${canPerformPageAction('edit','inspectionlists')?'':'disabled'}>ไปตรวจนับและปรับสต๊อก</button></div>
   </div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('.stock-check-cancel').onclick=close;
   
-  const inputs=[...overlay.querySelectorAll('.stock-check-input')];
-  const subEl=overlay.querySelector('#stockCheckSub');
-  inputs.forEach(input=>{
-    input.addEventListener('input', ()=>{
-      const newBaseStock=stockBaseFromUnitAmount(input.value,input.dataset.factor);
-      inputs.forEach(other=>{
-        if(other===input) return;
-        other.value=stockUnitAmountFromBase(newBaseStock,other.dataset.factor);
-      });
-      subEl.textContent=`คงเหลือทั้งหมด ${Math.round(newBaseStock*100)/100} ${p.unit} — แก้จำนวนหน่วยไหนก็ได้ หน่วยอื่นจะคำนวณตามให้อัตโนมัติ:`;
-    });
-    input.addEventListener('focus', ()=>input.select());
-  });
-  overlay.querySelector('#stockCheckSaveBtn').addEventListener('click', ()=>{
-    const baseInput=inputs.find(i=>Number(i.dataset.factor)===1);
-    const newStock=stockBaseFromUnitAmount(baseInput.value,baseInput.dataset.factor);
-    if(newStock===p.stock){ close(); return; }
-    p.stock=newStock;
-    setProductStockOnSupabase(p.id,newStock);
-    persistWorkspaceData();
-    showToast(`ปรับจำนวนคงเหลือ "${p.name}" เป็น ${newStock} ${p.unit} แล้ว`);
+  overlay.querySelector('#stockCheckAdjustBtn')?.addEventListener('click',()=>{
     close();
+    currentTab='stockcontrol';
+    stockControlMode='count';
+    if(!stockEditItems.includes(p.id)) stockEditItems.unshift(p.id);
+    stockEditPage=1;
     render();
   });
 }

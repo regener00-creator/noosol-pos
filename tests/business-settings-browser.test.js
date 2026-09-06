@@ -91,7 +91,7 @@ const browserExecutable = [
   assert.equal(await page.locator('label', {hasText:'ยี่ห้อ/แบรนด์'}).count(),1);
   assert.equal(await page.locator('h3', {hasText:'หน่วยและราคา'}).count(),0);
   assert.equal(await page.getByText('กำหนดหน่วยหลัก ราคาขาย ทุน และจำนวนคงเหลือ รวมถึงหน่วยขายเพิ่มเติมของสินค้านี้', {exact:true}).count(),0);
-  assert.equal(await page.locator('#f_stock').isEditable(),true);
+  assert.equal(await page.locator('#f_stock').isEditable(),false);
   const productFieldRows=await page.evaluate(() => {
     const top=id=>Math.round(document.querySelector(id).closest('.field').getBoundingClientRect().top);
     return {

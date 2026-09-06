@@ -11,6 +11,10 @@ const genericSync = html.slice(syncStart, syncEnd);
 assert.ok(syncStart >= 0 && syncEnd > syncStart);
 assert.doesNotMatch(genericSync, /select\('id'\)/, 'incremental sync must not prune against every remote id');
 assert.match(genericSync, /const deleted=\[\.\.\.previous\.keys\(\)\]/, 'deletes must come only from the device baseline');
+assert.match(genericSync, /insertRevisionedRows\(table,inserts,toRow\)/);
+assert.match(genericSync, /updateRevisionedRows\(table,updates,toRow\)/);
+assert.match(genericSync, /deleteRevisionedRows\(table,deleted,previous\)/);
+assert.doesNotMatch(genericSync, /\.upsert\(/, 'shared master data must not overwrite an existing id');
 
 const productMetaStart = html.indexOf('function productMetadataToRow(');
 const productMetaEnd = html.indexOf('function rowToProduct(', productMetaStart);
@@ -68,7 +72,9 @@ const contactImportStart = html.indexOf('async function importContactsFromExcel(
 const productImportStart = html.indexOf('async function importProductsFromExcel(', contactImportStart);
 const productImportEnd = html.indexOf('function exportProductsToExcel(', productImportStart);
 assert.doesNotMatch(html.slice(contactImportStart, productImportStart), /setProductStockOnSupabase/);
-assert.match(html.slice(productImportStart, productImportEnd), /setProductStockOnSupabase\(existing\.id,data\.stock,inventoryWarehouseId\)/);
+assert.doesNotMatch(html.slice(productImportStart, productImportEnd), /setProductStockOnSupabase/);
+assert.match(html.slice(productImportStart, productImportEnd), /applyImportedInventoryTargets\(importStockTargets\)/);
+assert.match(html, /post_inventory_count_adjustment_with_shortages/);
 
 const dateStart = html.indexOf('function currentLocalDate(');
 const dateEnd = html.indexOf('function fmtDateShort(', dateStart);

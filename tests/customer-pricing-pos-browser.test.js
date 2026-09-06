@@ -41,7 +41,7 @@ const browserExecutable = [
     currentProfile={id:'owner-customer-price',owner:true,level:1,firstName:'เจ้าของ'};
     products=[{id:101,sku:'D-001',name:'Decolgen',category:'ยา',brand:'ทั่วไป',unit:'ซอง',barcode:'SACHET-101',price:8,cost:5,stock:100,units:[{sub:'กล่อง',factor:25,price:180,cost:110,barcode:'BOX-101'}],extraBarcodes:[],vendorBarcodes:[],active:true}];
     contacts=[{id:7,name:'ลูกค้า A',types:['customer'],entity:'individual',phone:'0812345678',line:'old.line',postcode:'10110',contactName:'ข้อมูลเดิม',bank:'ธนาคารเดิม',bankName:'ชื่อเดิม',bankAcc:'123',accType:'saving',defaultDocument:'cash_bill',customerPrices:[{id:'a-box',productId:101,unit:'กล่อง',price:160}]}];
-    nextContactId=8; editingContactId=null; editingCustomerPriceContactId=null; currentTab='contacts'; searchQuery=''; contactFilter='all';
+    editingContactId=null; editingCustomerPriceContactId=null; currentTab='contacts'; searchQuery=''; contactFilter='all';
     document.getElementById('main').innerHTML=renderContacts(); attachEvents();
   });
   assert.equal(await page.locator('[data-act="customerprice"]').count(),1);

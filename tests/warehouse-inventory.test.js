@@ -74,9 +74,8 @@ sandbox.setWarehouseAccess([{user_id:'staff-1',warehouse_id:1,can_sell:true},{us
 assert.deepEqual(Array.from(sandbox.accessibleWarehouses(),warehouse=>warehouse.id),[1]);
 assert.equal(sandbox.selectActiveWarehouse(2),false,'ผู้ใช้ต้องเลือกคลังที่ไม่มีสิทธิ์ไม่ได้');
 
-assert.match(html,/sb\.rpc\('adjust_inventory_stock'/);
-assert.match(html,/sb\.rpc\('set_inventory_stock'/);
-assert.match(html,/sb\.rpc\('set_inventory_expiry'/);
+assert.doesNotMatch(html,/sb\.rpc\('(adjust_inventory_stock|set_inventory_stock|set_inventory_expiry)'/);
+assert.match(html,/runStockOperation\('post_inventory_count_adjustment_with_shortages'/);
 assert.match(html,/warehouseId:Number\(activeWarehouseId\)\|\|null/,'บิลขายต้องบันทึกคลังที่ใช้งาน');
 assert.match(html,/คลัง: \$\{isAllWarehousesMode\(\)\?'ทุกคลัง'/);
 assert.match(html,/const ALL_WAREHOUSES_TABS=new Set\(\['dashboard','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','rprofit','rtax','auditlog','representativehistory'\]\)/);

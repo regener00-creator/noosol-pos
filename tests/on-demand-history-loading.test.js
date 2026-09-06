@@ -51,10 +51,10 @@ assert.match(source, /loadAllOnDemandDocsBtn/,
   'truncated document lists must offer an explicit older-document load');
 assert.match(source, /async function findSaleByIdentifier/,
   'historical receipt lookups must be able to query outside the cached date window');
-assert.match(source, /rreceivable:\['invoices_ar','credit_notes'\],rtax:\['goods_receipts'\]/,
-  'VAT and receivable reports must hydrate every document family they aggregate');
-assert.match(source, /ON_DEMAND_AGGREGATE_TABS=new Set\(\[[^\]]*'rreceivable'/,
-  'receivable totals must block instead of rendering a truncated document set');
+assert.doesNotMatch(source, /rreceivable:\['invoices_ar','credit_notes'\]/,
+  'removed receivable alias must not keep a duplicate document-loading route');
+assert.doesNotMatch(source, /ON_DEMAND_AGGREGATE_TABS=new Set\(\[[^\]]*'rreceivable'/,
+  'removed receivable alias must not keep a duplicate aggregate route');
 assert.match(source, /clearLoadedHistoryMemory\(\)/,
   'logout/reset paths must clear partial history from the previous session');
 

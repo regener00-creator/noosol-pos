@@ -9,6 +9,10 @@ const migration = fs.readFileSync(
   path.join(root, 'supabase/migrations/20260831185553_security_integrity_and_scale_hardening.sql'),
   'utf8'
 );
+const permissionMigration = fs.readFileSync(
+  path.join(root, 'supabase/migrations/20260906080709_unify_stock_and_staff_permissions.sql'),
+  'utf8'
+);
 
 function section(source, startMarker, endMarker) {
   const start = source.indexOf(startMarker);
@@ -49,8 +53,8 @@ assert.match(migration, /staff must have at least one warehouse/i);
 assert.match(migration, /warehouse ids must be distinct/i);
 assert.match(migration, /where warehouse\.id = v_warehouse_id[\s\S]*for key share/i);
 
-// Level 2 receives goods. Downgrading to Level 3/4 rewrites the retained rows
-// to false, while the unrelated explicit stock-management bit is preserved.
+// Level 2 receives goods, while the database now rejects unsupported legacy
+// staff levels so all staff authorization comes from the page permission map.
 assert.match(createRpc, /select p_user_id, requested\.id, true, false, p_level = 2/i);
 assert.match(updateRpc, /select p_user_id, requested\.id, true, false, v_level = 2/i);
 assert.match(conflictUpdate, /can_receive_goods = excluded\.can_receive_goods/i);
@@ -112,16 +116,20 @@ assert.match(cleanupHelper, /attempt < 2/);
 assert.match(cleanupHelper, /return \{ ok: false, error:/);
 const createAction = section(edge, "if (action === 'create')", "if (action === 'update')");
 assert.match(createAction, /body\.level === undefined \? 2 : Number\(body\.level\)/);
-assert.match(createAction, /!\[2, 3, 4\]\.includes\(level\)/);
+assert.match(createAction, /level !== 2/);
 assert.match(createAction, /deleteAuthUserWithRetry\(admin, created\.user\.id\)/);
 assert.match(createAction, /สร้างบัญชี Auth แล้วแต่ลบคืนไม่สำเร็จ/);
 const updateAction = section(edge, "if (action === 'update')", "if (action === 'delete')");
+assert.match(updateAction, /requestedLevel !== 2/);
 assert.ok(
   updateAction.indexOf('admin.auth.admin.updateUserById') < updateAction.indexOf("admin.rpc('admin_update_staff_access_v2'"),
   'password must be changed before the transactional profile/access RPC'
 );
 assert.match(updateAction, /Password สำเร็จแล้ว แต่ข้อมูลผู้ใช้งานและสิทธิ์คลังไม่ได้เปลี่ยน/);
 assert.doesNotMatch(updateAction, /restoreWarehouseAccess|previousAccess|rollbackErrors/);
+assert.match(permissionMigration, /profiles_supported_level_check/i);
+assert.match(permissionMigration, /coalesce\(owner,false\) and level=1/i);
+assert.match(permissionMigration, /not coalesce\(owner,false\) and level=2/i);
 
 const bootstrapCleanup = section(bootstrap, 'async function cleanupCreatedOwner(', 'function cleanupMessage(');
 assert.match(bootstrapCleanup, /attempt < 2/);

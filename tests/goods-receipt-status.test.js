@@ -34,7 +34,7 @@ assert.equal(context.goodsReceiptItemsMatchWarehouse({warehouseId:2,items:[{prod
 assert.equal(context.goodsReceiptItemsMatchWarehouse({warehouseId:2,items:[{productId:10}]},warehouseRows,productRows),true, 'คลังต่างกันต้องยังค้นและรับสินค้าในแค็ตตาล็อกกลางได้');
 
 const normalizeItemsStart = html.indexOf('function poPurchaseUnitOptions(');
-const normalizeItemsEnd = html.indexOf('function adjustGoodsReceiptStock(', normalizeItemsStart);
+const normalizeItemsEnd = html.indexOf('async function changeGoodsReceiptStatus(', normalizeItemsStart);
 assert.ok(normalizeItemsStart >= 0 && normalizeItemsEnd > normalizeItemsStart, 'ไม่พบ logic ผูกสาขากับรายการรับสินค้า');
 Object.assign(context, {products:[{id:10,name:'ยา A',wh:1,unit:'กล่อง',cost:10,units:[]}]});
 vm.runInContext(html.slice(normalizeItemsStart, normalizeItemsEnd), context);
