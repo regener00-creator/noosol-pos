@@ -98,6 +98,11 @@ const browserExecutable = [
     iconIsFirst:button.firstElementChild?.tagName.toLowerCase()==='svg'
   }));
   assert.deepEqual(customerButtonLayout,{justifyContent:'center',iconIsFirst:true});
+  const posBorderStyles=await page.locator('#posSmallestUnitBtn,#favBtn,#priceCheckBtn').evaluateAll(buttons=>buttons.map(button=>({
+    width:getComputedStyle(button).borderTopWidth,
+    color:getComputedStyle(button).borderTopColor
+  })));
+  assert.ok(posBorderStyles.every(style=>style.width===posBorderStyles[2].width&&style.color===posBorderStyles[2].color),'smallest unit and favorite borders must match price check');
   await page.locator('#openCustomerPickerBtn').click();
   assert.equal(await page.locator('.pos-customer-picker-modal').count(),1);
   await page.locator('#posCustomerPickerSearch').fill('081234');

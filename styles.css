@@ -436,7 +436,7 @@
   .pos-search .pos-bc{padding:0 12px;color:var(--text-muted);display:flex;align-items:center;border-left:1px solid var(--border);}
   .pos-search input{flex:1;border:none;outline:none;padding:12px 14px;font-family:inherit;font-size:14.5px;background:transparent;}
   .pos-searchrow{grid-template-columns:2.6fr 1fr;gap:18px;margin-bottom:10px;}
-  .pos-smallest-unit-btn{min-height:45px;padding:0 14px;border:1px solid var(--primary);border-radius:9px;background:#fff;color:var(--primary);font-family:inherit;font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;white-space:nowrap;transition:.15s ease;}
+  .pos-smallest-unit-btn{min-height:45px;padding:0 14px;border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--primary);font-family:inherit;font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;white-space:nowrap;transition:.15s ease;}
   .pos-smallest-unit-btn:hover{background:var(--primary-soft);}
   .pos-smallest-unit-btn.active{background:var(--primary);color:#fff;box-shadow:0 0 0 3px rgba(79,64,56,.14);}
   .pos-smallest-unit-btn kbd{padding:2px 7px;border:1px solid currentColor;border-radius:5px;background:rgba(255,255,255,.18);font-family:inherit;font-size:11px;font-weight:700;}
@@ -1322,7 +1322,7 @@
   .pos-actions{display:flex;flex-direction:column;gap:10px;margin-bottom:0;}
   .pos-action{display:flex;align-items:center;gap:8px;padding:13px 18px;border:1px solid var(--border);background:var(--surface);border-radius:9px;font-family:inherit;font-size:14.5px;font-weight:500;cursor:pointer;color:var(--text);justify-content:center;}
   .pos-action:hover{border-color:var(--primary);color:var(--primary);}
-  .pos-action.on{background:var(--surface);border-color:var(--primary);color:var(--primary);font-weight:600;}
+  .pos-action.on{background:var(--surface);border-color:var(--border);color:var(--primary);font-weight:600;}
   .pos-action .pa-ic{font-size:16px;}
   .pos-left{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;}
   .fav-strip{margin-top:18px;border-top:1px dashed var(--border);padding-top:14px;}
