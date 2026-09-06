@@ -3208,6 +3208,7 @@ let representativeActivityLoadError='';
 let representativeActivityDraft=null;
 let representativeActivityDraftDirty=false;
 let selectedRepresentativeNoteId=null;
+let selectedRepresentativeNoteIdsToDelete=new Set();
 let representativeProductsEditor=null;
 let representativeHistoryFilter={representativeSearch:'',productSearch:'',noteSearch:''};
 let representativeHistoryRepresentativeIds=[];
@@ -4385,6 +4386,7 @@ function resetRepresentativeActivityLoad(){
   representativeActivityLoadedKey='';
   representativeActivityLoadError='';
   representativeActivityLoading=false;
+  selectedRepresentativeNoteIdsToDelete.clear();
 }
 function openRepresentativeHistory({representativeId=null,productId=null,originTab=currentTab}={}){
   if(!representativeId&&!productId) return;
@@ -4700,6 +4702,19 @@ function representativeEditorModalHtml(){
     <div class="representative-editor-actions"><button class="btn ghost" id="cancelSalesRepBottomBtn" type="button">ยกเลิก</button><button class="btn primary" id="saveSalesRepBtn" type="button">บันทึกข้อมูลผู้แทน</button></div>
   </section></div>`;
 }
+function openRepresentativeAdditionalInfo(representativeId){
+  const representative=representativeForActivityId(representativeId);
+  if(!representative) return;
+  const info=String(representative.note||'').trim();
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay representative-info-overlay';
+  overlay.innerHTML=`<section class="modal representative-info-modal" role="dialog" aria-modal="true" aria-labelledby="representativeInfoTitle"><div class="modal-head"><div><h3 id="representativeInfoTitle">ข้อมูลเพิ่มเติม</h3><div class="sub">ผู้แทน ${escapeHtml(representative.name||'-')}</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div><div class="representative-info-body">${info?escapeHtml(info).replace(/\r?\n/g,'<br>'):'ไม่มีข้อมูลเพิ่มเติม'}</div><div class="representative-info-actions"><button class="btn primary" type="button">ปิด</button></div></section>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  overlay.querySelector('.modal-close').addEventListener('click',close);
+  overlay.querySelector('.representative-info-actions .btn').addEventListener('click',close);
+  overlay.addEventListener('mousedown',event=>{ if(event.target===overlay) close(); });
+}
 function representativeActivityCardHtml(activity){
   const representative=representativeForActivityId(activity.representativeId);
   const product=activity.productId?productForActivityId(activity.productId):null;
@@ -4762,13 +4777,17 @@ function representativeHistoryNoteHtml(note,fallbackNumber){
 function representativeProfileHtml(group){
   const representative=group.representative;
   const field=(label,value,className='')=>`<div class="representative-profile-field ${className}">${label?`<span>${label}</span>`:''}<div>${value}</div></div>`;
+  const additionalInfo=String(representative.note||'').trim();
+  const additionalInfoHtml=additionalInfo
+    ?`<button type="button" class="representative-profile-info-trigger" data-view-representative-info="${representative.id}" title="คลิกเพื่อดูข้อมูลทั้งหมด"><span>${escapeHtml(additionalInfo).replace(/\r?\n/g,'<br>')}</span><small>คลิกเพื่อดูทั้งหมด</small></button>`
+    :'-';
   return `<section class="representative-profile-panel">
     ${field('ชื่อผู้แทน',`<strong>${escapeHtml(representative.name||'-')}</strong>`,'representative-profile-name')}
     ${field('',`<button type="button" class="representative-profile-products-trigger" data-manage-representative-products="${representative.id}">คลิกเพื่อดูสินค้าที่ผู้แทนดูแล</button>`,'representative-profile-products-field')}
     ${field('เบอร์โทร',escapeHtml(representative.phone||'-'),'representative-profile-contact')}
     ${field('ไลน์',escapeHtml(representative.line||'-'),'representative-profile-contact')}
     ${field('บริษัท',escapeHtml(representative.company||'-'),'representative-profile-contact')}
-    ${field('ข้อมูลเพิ่มเติม',escapeHtml(representative.note||'-').replace(/\r?\n/g,'<br>'))}
+    ${field('ข้อมูลเพิ่มเติม',additionalInfoHtml,'representative-profile-info')}
   </section>`;
 }
 function representativeNoteWorkspaceHtml(group,canCreate){
@@ -4784,12 +4803,19 @@ function representativeNoteWorkspaceHtml(group,canCreate){
     representativeActivityDraft=representativeNoteDraftFromRow(selected);
     representativeActivityDraftDirty=false;
   }
-  const list=notes.map((note,index)=>`<button type="button" class="representative-note-list-item ${String(note.id)===String(selected?.id)?'active':''}" data-select-representative-note="${escapeHtml(note.id)}"><span class="representative-note-list-line"><strong>NOTE ${representativeNoteNumber(note,Math.max(1,noteTotal-index))} : ${escapeHtml(note.title||'-')}</strong><small>${escapeHtml(representativeNoteDateLabel(note.eventDate))}</small></span></button>`).join('');
+  const list=notes.map((note,index)=>{
+    const noteId=String(note.id);
+    const canDelete=canDeleteNote(note);
+    const checked=selectedRepresentativeNoteIdsToDelete.has(noteId);
+    return `<div class="representative-note-list-row ${String(note.id)===String(selected?.id)?'active':''}">${canDelete?`<label class="representative-note-delete-choice" title="เลือกโน้ตนี้เพื่อลบ"><input type="checkbox" data-representative-note-delete="${escapeHtml(note.id)}" aria-label="เลือก NOTE ${representativeNoteNumber(note,Math.max(1,noteTotal-index))} เพื่อลบ" ${checked?'checked':''}></label>`:'<span class="representative-note-delete-placeholder" aria-hidden="true"></span>'}<button type="button" class="representative-note-list-item ${String(note.id)===String(selected?.id)?'active':''}" data-select-representative-note="${escapeHtml(note.id)}"><span class="representative-note-list-line"><strong>NOTE ${representativeNoteNumber(note,Math.max(1,noteTotal-index))} : ${escapeHtml(note.title||'-')}</strong><small>${escapeHtml(representativeNoteDateLabel(note.eventDate))}</small></span></button></div>`;
+  }).join('');
   const draft=representativeActivityDraft;
   const noteNumber=isNew?noteTotal+1:representativeNoteNumber(selected,Math.max(1,noteTotal-selectedIndex));
   const detail=draft?representativeNoteEditorPanelHtml({draft,selected,noteNumber,canCreate}):`<section class="representative-note-detail-panel representative-note-detail-empty"><div class="note-empty-icon">NOTE</div><h2>ยังไม่มี NOTE ของผู้แทนคนนี้</h2><p>เพิ่ม NOTE เพื่อเก็บข้อมูลที่ต้องการติดตาม</p></section>`;
   const addButton=canCreate?'<button class="btn primary" id="newRepresentativeActivityBtn" type="button">+ เพิ่มโน้ต</button>':'';
-  return `<div class="representative-note-workspace"><aside class="representative-note-list-panel" aria-label="รายการ NOTE ของผู้แทน"><div class="representative-note-search"><input id="representativeHistoryNoteSearch" value="${escapeHtml(representativeHistoryFilter.noteSearch)}" placeholder="ค้นหา NOTE ของผู้แทน"><button class="btn ghost" id="searchRepresentativeHistoryBtn" type="button">ค้นหา</button>${addButton}</div>${list||'<div class="representative-note-list-empty">ยังไม่มี NOTE</div>'}${representativeNotesHasMore?`<button class="btn ghost representative-history-load-more" id="loadMoreRepresentativeNotesBtn" type="button" ${representativeActivityLoading?'disabled':''}>${representativeActivityLoading?'กำลังโหลด…':'โหลด NOTE เพิ่มเติม'}</button>`:''}</aside>${detail}</div>`;
+  const selectedDeleteCount=[...selectedRepresentativeNoteIdsToDelete].filter(id=>notes.some(note=>String(note.id)===id&&canDeleteNote(note))).length;
+  const bulkDeleteButton=notes.some(canDeleteNote)?`<div class="representative-note-bulk-actions"><button class="btn danger" id="deleteSelectedRepresentativeNotesBtn" type="button" ${selectedDeleteCount?'':'disabled'}>ลบที่เลือก${selectedDeleteCount?` (${selectedDeleteCount})`:''}</button></div>`:'';
+  return `<div class="representative-note-workspace"><aside class="representative-note-list-panel" aria-label="รายการ NOTE ของผู้แทน"><div class="representative-note-search"><input id="representativeHistoryNoteSearch" value="${escapeHtml(representativeHistoryFilter.noteSearch)}" placeholder="ค้นหา NOTE ของผู้แทน"><button class="btn ghost" id="searchRepresentativeHistoryBtn" type="button">ค้นหา</button>${addButton}</div>${bulkDeleteButton}${list||'<div class="representative-note-list-empty">ยังไม่มี NOTE</div>'}${representativeNotesHasMore?`<button class="btn ghost representative-history-load-more" id="loadMoreRepresentativeNotesBtn" type="button" ${representativeActivityLoading?'disabled':''}>${representativeActivityLoading?'กำลังโหลด…':'โหลด NOTE เพิ่มเติม'}</button>`:''}</aside>${detail}</div>`;
 }
 function renderRepresentativeHistory(){
   const context=representativeHistoryContext||{};
@@ -4811,7 +4837,7 @@ function renderRepresentativeHistory(){
     ?`${representativeProfileHtml(detailGroup)}${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':representativeNoteWorkspaceHtml(detailGroup,canCreate)}`
     :`${historyFilters}<div class="representative-groups-grid">${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':groups.map(representativeHistoryGroupHtml).join('')||'<div class="representative-history-empty">ยังไม่มีข้อมูลที่ตรงกับการค้นหา</div>'}</div>${representativeHistoryHasMore?`<button class="btn ghost representative-history-load-more" id="loadMoreRepresentativeHistoryBtn" type="button" ${representativeActivityLoading?'disabled':''}>${representativeActivityLoading?'กำลังโหลด…':'โหลดผู้แทนเพิ่มเติม'}</button>`:''}`;
   const centralActions=`<button class="btn ghost" id="exportSalesRepsBtn" type="button">ส่งออก Excel</button><button class="btn ghost" id="downloadSalesRepTemplateBtn" type="button">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importSalesRepsBtn" type="button">นำเข้า Excel</button><input id="salesRepImportFile" type="file" accept=".xlsx,.xls,.csv" hidden>${canCreateRepresentative?'<button class="btn primary" id="newSalesRepBtn" type="button">+ เพิ่มผู้แทน</button>':''}`;
-  const detailActions=`<button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button>${canEditRepresentative?`<button class="btn ghost" data-act="editsalesrep" data-id="${representative.id}" type="button">แก้ไขข้อมูลผู้แทน</button>`:''}`;
+  const detailActions=`<button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button>${canEditRepresentative?`<button class="btn primary" data-act="editsalesrep" data-id="${representative.id}" type="button">แก้ไขข้อมูลผู้แทน</button>`:''}`;
   const pageHead=representativeDetail
     ?`<div class="pagehead topbar-action-source representative-detail-pagehead"><div></div><div class="form-final-actions representative-topbar-actions">${detailActions}</div></div>`
     :`<div class="pagehead"><div>${central?'':`<div class="breadcrumb">ผู้แทน › ผู้แทนและสินค้าที่ดูแล</div>`}<h1>${escapeHtml(title)}</h1><p>${product?`รหัสสินค้า ${escapeHtml(product.sku||'-')}`:'ค้นหาผู้แทน สินค้าที่ดูแล และ NOTE ได้จากหน้าเดียว'}</p></div><div class="form-final-actions representative-topbar-actions">${central?centralActions:detailActions}</div></div>`;
@@ -4888,6 +4914,43 @@ async function deleteRepresentativeActivity(id){
     if(button){ button.disabled=false; button.textContent='ลบโน้ต'; }
   }
 }
+async function deleteSelectedRepresentativeNotes(){
+  const selectedIds=new Set([...selectedRepresentativeNoteIdsToDelete].map(String));
+  const notes=representativeActivityNotes.filter(note=>selectedIds.has(String(note.id))&&canDeleteNote(note));
+  if(!notes.length){ showToast('กรุณาติ๊กเลือกโน้ตที่ต้องการลบ','danger-top'); return; }
+  const deletingCurrent=notes.some(note=>String(note.id)===String(selectedRepresentativeNoteId));
+  const warning=deletingCurrent&&representativeActivityDraftDirty
+    ?`ยืนยันลบโน้ตที่เลือก ${notes.length} รายการหรือไม่? การแก้ไขที่ยังไม่ได้บันทึกจะถูกลบด้วย`
+    :`ยืนยันลบโน้ตที่เลือก ${notes.length} รายการหรือไม่?`;
+  if(!confirm(warning)) return;
+  const button=document.getElementById('deleteSelectedRepresentativeNotesBtn');
+  if(button){ button.disabled=true; button.textContent='กำลังลบ…'; }
+  const deletedIds=[];
+  const failed=[];
+  for(const note of notes){
+    try{
+      const {data,error}=await sb.from('notes').delete().eq('id',note.id).eq('updated_at',note.updatedAt).select('id').maybeSingle();
+      if(error) throw error;
+      if(!data) throw new Error('โน้ตถูกแก้ไขหรือลบจากอีกเครื่องแล้ว');
+      deletedIds.push(String(note.id));
+    }catch(error){ failed.push({note,error}); }
+  }
+  if(deletedIds.length){
+    const deletedSet=new Set(deletedIds);
+    representativeActivityNotes=representativeActivityNotes.filter(note=>!deletedSet.has(String(note.id)));
+    deletedIds.forEach(id=>selectedRepresentativeNoteIdsToDelete.delete(id));
+    if(deletedSet.has(String(selectedRepresentativeNoteId))){
+      selectedRepresentativeNoteId=null;
+      representativeActivityDraft=null;
+      representativeActivityDraftDirty=false;
+    }
+    representativeActivityLoadedKey='';
+    showToast(`ลบ NOTE แล้ว ${deletedIds.length} รายการ`);
+  }
+  if(failed.length) showToast(`ลบไม่สำเร็จ ${failed.length} รายการ กรุณาโหลดข้อมูลล่าสุดแล้วลองใหม่`,'danger-top');
+  if(deletedIds.length||failed.length) await loadRepresentativeActivityHistory({force:true});
+  else if(button){ button.disabled=false; button.textContent=`ลบที่เลือก (${notes.length})`; }
+}
 function drawRepresentativeProductsEditor(){
   const editor=representativeProductsEditor;
   if(!editor) return;
@@ -4948,6 +5011,19 @@ function attachRepresentativeHistoryEvents(){
   document.getElementById('emptyAddRepresentativeNoteBtn')?.addEventListener('click',openNewNote);
   document.getElementById('representativeNoteEditorForm')?.addEventListener('submit',saveRepresentativeActivity);
   document.getElementById('deleteRepresentativeNoteBtn')?.addEventListener('click',()=>deleteRepresentativeActivity(representativeActivityDraft?.id));
+  const updateRepresentativeBulkDeleteButton=()=>{
+    const button=document.getElementById('deleteSelectedRepresentativeNotesBtn');
+    if(!button) return;
+    const count=[...selectedRepresentativeNoteIdsToDelete].filter(id=>representativeActivityNotes.some(note=>String(note.id)===String(id)&&canDeleteNote(note))).length;
+    button.disabled=count===0;
+    button.textContent=count?`ลบที่เลือก (${count})`:'ลบที่เลือก';
+  };
+  document.querySelectorAll('[data-representative-note-delete]').forEach(checkbox=>checkbox.addEventListener('change',()=>{
+    const noteId=String(checkbox.dataset.representativeNoteDelete);
+    if(checkbox.checked) selectedRepresentativeNoteIdsToDelete.add(noteId); else selectedRepresentativeNoteIdsToDelete.delete(noteId);
+    updateRepresentativeBulkDeleteButton();
+  }));
+  document.getElementById('deleteSelectedRepresentativeNotesBtn')?.addEventListener('click',deleteSelectedRepresentativeNotes);
   const updateRepresentativeNoteDraft=()=>{
     syncRepresentativeActivityDraftFromForm();
     representativeActivityDraftDirty=true;
@@ -4983,6 +5059,7 @@ function attachRepresentativeHistoryEvents(){
     representativeActivityDraft=null;
     representativeActivityDraftDirty=false;
     selectedRepresentativeNoteId=null;
+    selectedRepresentativeNoteIdsToDelete.clear();
     loadRepresentativeActivityHistory({force:true});
   };
   document.getElementById('searchRepresentativeHistoryBtn')?.addEventListener('click',searchHistory);
@@ -5007,6 +5084,7 @@ function attachRepresentativeHistoryEvents(){
   });
   document.querySelectorAll('[data-open-product-history]').forEach(button=>button.addEventListener('click',()=>openRepresentativeHistory({productId:Number(button.dataset.openProductHistory),originTab:historyOrigin})));
   document.querySelectorAll('[data-manage-representative-products]').forEach(button=>button.addEventListener('click',()=>openRepresentativeProductsEditor(Number(button.dataset.manageRepresentativeProducts))));
+  document.querySelectorAll('[data-view-representative-info]').forEach(button=>button.addEventListener('click',()=>openRepresentativeAdditionalInfo(Number(button.dataset.viewRepresentativeInfo))));
   const closeProductsEditor=()=>{ representativeProductsEditor=null; render(); };
   document.getElementById('closeRepresentativeProductsEditorBtn')?.addEventListener('click',closeProductsEditor);
   document.getElementById('cancelRepresentativeProductsEditorBtn')?.addEventListener('click',closeProductsEditor);
@@ -5298,8 +5376,8 @@ function renderCheckout(){
       <div class="pos-right">
         <div class="pos-customer-slot">
           <button class="pos-customer-select-btn ${selectedCustomer?'selected':''}" id="openCustomerPickerBtn" type="button">
-            <span><strong>${escapeHtml(selectedCustomer?.name||'ลูกค้าทั่วไป')}</strong><small>${selectedCustomer?'กดเพื่อเปลี่ยนลูกค้า':'กดเพื่อเลือกลูกค้า'}</small></span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21v-2a7 7 0 0 1 14 0v2M17 11h4M19 9v4"/></svg>
+            <span><strong>${escapeHtml(selectedCustomer?.name||'ลูกค้าทั่วไป')}</strong><small>${selectedCustomer?'กดเพื่อเปลี่ยนลูกค้า':'กดเพื่อเลือกลูกค้า'}</small></span>
           </button>
           ${selectedCustomer?'<div class="pos-customer-note"><span>ใช้ราคาพิเศษที่ตั้งไว้โดยอัตโนมัติ</span></div>':''}
         </div>

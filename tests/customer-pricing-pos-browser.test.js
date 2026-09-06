@@ -93,6 +93,11 @@ const browserExecutable = [
   assert.equal(await page.locator('.pos-customer-card').count(),0);
   assert.equal(await page.locator('.pos-customer-slot>label').count(),0);
   assert.equal(await page.locator('#openCustomerPickerBtn strong').textContent(),'ลูกค้า A');
+  const customerButtonLayout=await page.locator('#openCustomerPickerBtn').evaluate(button=>({
+    justifyContent:getComputedStyle(button).justifyContent,
+    iconIsFirst:button.firstElementChild?.tagName.toLowerCase()==='svg'
+  }));
+  assert.deepEqual(customerButtonLayout,{justifyContent:'center',iconIsFirst:true});
   await page.locator('#openCustomerPickerBtn').click();
   assert.equal(await page.locator('.pos-customer-picker-modal').count(),1);
   await page.locator('#posCustomerPickerSearch').fill('081234');

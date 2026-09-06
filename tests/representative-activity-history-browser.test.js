@@ -102,7 +102,7 @@ let browser;
     currentProfile={id:'owner-test',level:1,owner:true,firstName:'เจ้าของ'};
     warehouses=[{id:1,name:'คลังทดสอบ'}]; activeWarehouseId=1; warehouseAccessRows=[];
     salesRepresentatives=[
-      {id:10,code:'REP-10',name:'PEPO',phone:'081-234-5678',line:'pepo.line',company:'บริษัทตัวแทน A',note:'ดูแลเขตกรุงเทพฯ'},
+      {id:10,code:'REP-10',name:'PEPO',phone:'081-234-5678',line:'pepo.line',company:'บริษัทตัวแทน A',note:'ดูแลเขตกรุงเทพฯ\nข้อมูลบรรทัด 2\nข้อมูลบรรทัด 3\nข้อมูลบรรทัด 4\nข้อมูลบรรทัด 5\nข้อมูลบรรทัด 6'},
       {id:11,code:'REP-11',name:'NANA',company:'บริษัทตัวแทน B'},
       {id:12,code:'REP-12',name:'JOJO',company:'บริษัทตัวแทน C'},
       {id:13,code:'REP-13',name:'MAYA',company:'บริษัทตัวแทน D'},
@@ -127,6 +127,7 @@ let browser;
     ];
     representativeNoteMetadata=new Map([['note-1',{number:3,total:3}],['note-2',{number:2,total:3}],['note-5',{number:1,total:3}]]);
     representativeNoteTotals=new Map([[10,3]]);
+    selectedRepresentativeNoteIdsToDelete.clear();
     representativeActivityLoadedKey=representativeHistoryKey();
     currentTab='salesreps';
     document.getElementById('main').innerHTML=renderSalesRepresentatives();
@@ -148,7 +149,18 @@ let browser;
   assert.match(profileText,/ไลน์\s*pepo\.line/);
   assert.match(profileText,/บริษัท\s*บริษัทตัวแทน A/);
   assert.match(profileText,/ข้อมูลเพิ่มเติม\s*ดูแลเขตกรุงเทพฯ/);
+  assert.equal(await page.locator('.representative-profile-info-trigger>span').evaluate(element=>getComputedStyle(element).webkitLineClamp),'5');
+  await page.locator('.representative-profile-info-trigger').click();
+  assert.equal(await page.locator('.representative-info-modal').count(),1);
+  assert.match(await page.locator('.representative-info-body').textContent(),/ข้อมูลบรรทัด 6/,'popup must show the complete additional information');
+  await page.locator('.representative-info-actions .btn').click();
+  assert.equal(await page.locator('.representative-info-modal').count(),0);
   assert.equal(await page.locator('.representative-note-list-item').count(),3);
+  assert.equal(await page.locator('[data-representative-note-delete]').count(),3);
+  assert.equal(await page.locator('#deleteSelectedRepresentativeNotesBtn').isDisabled(),true);
+  await page.locator('[data-representative-note-delete]').first().check();
+  await page.locator('[data-representative-note-delete]').nth(2).check();
+  assert.equal((await page.locator('#deleteSelectedRepresentativeNotesBtn').textContent()).trim(),'ลบที่เลือก (2)');
   assert.match(await page.locator('.representative-note-list-panel').textContent(),/NOTE 3[\s\S]*NOTE 2[\s\S]*NOTE 1/);
   assert.match(await page.locator('.representative-note-list-item').first().textContent(),/NOTE 3 : เล่นรายการทอง[\s\S]*04 \/ 09 \/ 2026/);
   assert.doesNotMatch(await page.locator('.representative-note-list-item').first().textContent(),/วันที่/);
@@ -235,6 +247,7 @@ let browser;
   assert.equal(await page.locator('#representativeProductsDropdown:visible').count(),0,'search dropdown must close after selecting a product');
   await page.locator('#cancelRepresentativeProductsEditorBtn').click();
 
+  assert.match(await page.locator('[data-act="editsalesrep"][data-id="10"]').getAttribute('class'),/\bprimary\b/,'edit representative button must use the same primary style as save NOTE');
   await page.locator('[data-act="editsalesrep"][data-id="10"]').click();
   assert.equal(await page.locator('.representative-editor-modal').count(),1);
   assert.equal(await page.locator('#sr_name').inputValue(),'PEPO');

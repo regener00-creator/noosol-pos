@@ -98,6 +98,9 @@ assert.match(html, /\.representative-profile-field\{display:flex;[^}]*justify-co
 assert.match(representativeProfileRender, /เบอร์โทร[\s\S]*representative-profile-contact[\s\S]*ไลน์[\s\S]*representative-profile-contact[\s\S]*บริษัท[\s\S]*representative-profile-contact/);
 assert.match(html, /\.representative-profile-contact>div\{font-weight:700;\}/);
 assert.match(html, /\.representative-profile-products-trigger\{[^}]*font-size:17px;/);
+assert.match(representativeProfileRender, /data-view-representative-info=/);
+assert.match(html, /\.representative-profile-info-trigger>span\{[^}]*-webkit-line-clamp:5;/);
+assert.match(html, /function openRepresentativeAdditionalInfo\(/);
 assert.match(html, /\.representative-note-head span\{[^}]*font-weight:600;/);
 assert.match(html, /\.representative-note-list-line small\{[^}]*font-weight:600;/);
 assert.match(html, /\.representative-note-date-input \.dmy-input\{font-weight:600;\}/);
@@ -105,6 +108,9 @@ assert.match(historyRender, /pagehead topbar-action-source representative-detail
 assert.match(html, /\.representative-note-workspace\{display:grid;grid-template-columns:minmax\(300px,1fr\) minmax\(0,2fr\)/);
 assert.match(html, /\.representative-note-search\{grid-template-columns:minmax\(0,1fr\) auto auto;\}/);
 assert.match(html, /data-select-representative-note=/);
+assert.match(html, /data-representative-note-delete=/);
+assert.match(html, /function deleteSelectedRepresentativeNotes\(/);
+assert.match(html, /id="deleteSelectedRepresentativeNotesBtn"/);
 assert.match(html, /representative-note-list-panel[\s\S]*representative-note-inline-editor/);
 assert.match(noteEditor, /id="representativeNoteEditorForm"/);
 assert.match(noteEditor, /dmyDateFieldHtml\('repActivityEventDate'/);
@@ -136,6 +142,7 @@ assert.match(html, /data-manage-representative-products=/);
 assert.match(html, /function representativeEditorModalHtml\(\)/);
 assert.match(historyRender, /id="newSalesRepBtn"/);
 assert.match(html, /representative-note-search[\s\S]*id="newRepresentativeActivityBtn"[\s\S]*\+ เพิ่มโน้ต/);
+assert.match(historyRender, /class="btn primary" data-act="editsalesrep"/);
 assert.doesNotMatch(historyRender, /detailActions=`[^`]*newRepresentativeActivityBtn/);
 assert.doesNotMatch(historyRender, /\+ เพิ่มประวัติ|representativeActivityFormHtml/);
 assert.match(html, /sb\.rpc\('save_representative_note',rpcPayload\)/);
