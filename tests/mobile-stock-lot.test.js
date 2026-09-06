@@ -57,7 +57,7 @@ context.stockEditNewLotExpiries[10] = '2029-07-05';
 assert.equal(context.stockEditMobileLotSelectionsReady(increaseChange), true);
 const newLotHtml = context.mobileStockEditLotHtml(product);
 assert.match(newLotHtml, /data-mobile-stock-new-lot="10"/);
-assert.match(newLotHtml, /value="05-07-2029"/);
+assert.match(newLotHtml, /value="05\/07\/2029"/);
 const newLotLine = context.stockEditAdjustmentLines(increaseChange)[0];
 assert.equal(newLotLine.selectedLotId, null);
 assert.equal(newLotLine.lotNumber, 'LOT-C');

@@ -1958,8 +1958,8 @@ function dmyToISO(dmy){
 }
 function formatDMYInput(value){
   const digits=String(value||'').replace(/\D/g,'').slice(0,8);
-  if(digits.length>4) return `${digits.slice(0,2)}-${digits.slice(2,4)}-${digits.slice(4)}`;
-  if(digits.length>2) return `${digits.slice(0,2)}-${digits.slice(2)}`;
+  if(digits.length>4) return `${digits.slice(0,2)}/${digits.slice(2,4)}/${digits.slice(4)}`;
+  if(digits.length>2) return `${digits.slice(0,2)}/${digits.slice(2)}`;
   return digits;
 }
 function dmyDateFieldHtml(id, isoValue, opts){
@@ -1972,6 +1972,30 @@ function dmyDateFieldHtml(id, isoValue, opts){
     ${readonly?'':`<svg class="dmy-cal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
     <input type="date" class="dmy-native" data-target="${id}" value="${isoValue||''}" tabindex="-1" aria-hidden="true">`}
   </span>`;
+}
+function bindDmyDateFields(){
+  if(document.documentElement.dataset.dmyDateFieldsBound==='1') return;
+  document.documentElement.dataset.dmyDateFieldsBound='1';
+  document.addEventListener('input',event=>{
+    const txt=event.target.closest?.('.dmy-input');
+    if(!txt||txt.readOnly||txt.disabled) return;
+    const value=formatDMYInput(txt.value);
+    if(txt.value!==value) txt.value=value;
+    const nativeInput=txt.parentElement?.querySelector?.('.dmy-native');
+    const iso=dmyToISO(value);
+    if(nativeInput&&iso) nativeInput.value=iso;
+  });
+  document.addEventListener('click',event=>{
+    const nativeInput=event.target.closest?.('.dmy-native');
+    if(!nativeInput||typeof nativeInput.showPicker!=='function') return;
+    try{ nativeInput.showPicker(); }catch(error){}
+  });
+  document.addEventListener('change',event=>{
+    const nativeInput=event.target.closest?.('.dmy-native');
+    if(!nativeInput) return;
+    const txt=document.getElementById(nativeInput.dataset.target);
+    if(txt){ txt.value=isoToDMY(nativeInput.value); txt.dispatchEvent(new Event('change')); }
+  });
 }
 // จัดรูปแบบเบอร์โทรเป็น xxx-xxx-xxxx ขณะพิมพ์
 function formatPhoneValue(raw){
@@ -6091,7 +6115,7 @@ function renderPOForm(kind='po'){
         <div class="crow"><label>เลขผู้เสียภาษี</label><div class="po-addr mono">${supplierObj?escapeHtml(supplierObj.taxId||'-'):'-'}</div></div>
         <div class="crow"><label>ภาษีในเอกสาร</label><select id="po_tax_mode"><option value="incl" ${po.taxMode==='incl'?'selected':''}>ราคารวม VAT แล้ว</option><option value="excl" ${po.taxMode==='excl'?'selected':''}>ราคายังไม่รวม VAT</option><option value="none" ${po.taxMode==='none'?'selected':''}>ไม่มี VAT</option></select></div>
         <div class="crow"><label>เลขที่ใบกำกับภาษีผู้จำหน่าย</label><input id="po_supplier_tax_invoice_no" value="${escapeHtml(po.supplierTaxInvoiceNo||'')}" placeholder="กรอกเมื่อได้รับใบกำกับภาษี"></div>
-        <div class="crow"><label>วันที่ใบกำกับภาษี</label><input id="po_supplier_tax_invoice_date" value="${escapeHtml(po.supplierTaxInvoiceDate?fmtDateShort(po.supplierTaxInvoiceDate):'')}" placeholder="วัน-เดือน-ปี เช่น 25-08-2026" inputmode="numeric"></div>
+        <div class="crow"><label>วันที่ใบกำกับภาษี</label><input id="po_supplier_tax_invoice_date" class="dmy-input" value="${escapeHtml(isoToDMY(po.supplierTaxInvoiceDate))}" placeholder="วว/ดด/ปปปป" inputmode="numeric" maxlength="10" autocomplete="off"></div>
       </div>
       <div class="po-head-right">
         <div class="po-total-label">จำนวนเงินรวมทั้งสิ้น</div>
@@ -6282,7 +6306,7 @@ function poItemRowHtml(it,i){
     <td><input class="poi_qty mono no-spin" type="number" min="0" value="${escapeHtml(it.qty||0)}" style="width:70px;text-align:right;" ${locked?'disabled':''}></td>
     <td><select class="poi_unit" style="min-width:90px;" ${product&&!locked?'':'disabled'}>${product?unitOptions.map(u=>`<option value="${escapeHtml(u.name)}" ${it.unit===u.name?'selected':''}>${escapeHtml(u.name)}</option>`).join(''):'<option value="">เลือกสินค้า</option>'}</select></td>
     <td><input class="poi_price mono" type="number" min="0" value="${escapeHtml(it.price??'')}" placeholder="กรอกราคา" style="width:90px;text-align:right;" ${locked?'disabled':''}></td>
-    ${goodsReceipt?`<td><input class="poi_lot" value="${escapeHtml(it.lotNumber||'')}" placeholder="ไม่บังคับ" ${locked?'disabled':''}></td><td><input class="poi_expiry" inputmode="numeric" maxlength="10" value="${escapeHtml(it.expiry?fmtDateShort(it.expiry):'')}" placeholder="วว-ดด-ปปปป" ${locked?'disabled':''}></td>`:''}
+    ${goodsReceipt?`<td><input class="poi_lot" value="${escapeHtml(it.lotNumber||'')}" placeholder="ไม่บังคับ" ${locked?'disabled':''}></td><td><input class="poi_expiry dmy-input" inputmode="numeric" maxlength="10" autocomplete="off" value="${escapeHtml(isoToDMY(it.expiry))}" placeholder="วว/ดด/ปปปป" ${locked?'disabled':''}></td>`:''}
     <td class="mono num poi_total">${fmtMoney(lineTotal)}</td>
     <td class="num"><button class="poi_del" title="ลบ" ${locked?'disabled':''}>×</button></td>
   </tr>`;
@@ -6529,7 +6553,7 @@ function productExchangeSectionHtml(side,title,subtitle,items,locked){
   const rows=(items||[]).map((raw,index)=>{
     const item=normalizeProductExchangeItem(raw); if(!item) return '';
     const product=products.find(entry=>Number(entry.id)===Number(item.pid));
-    return `<tr data-product-exchange-row="${side}" data-index="${index}"><td class="mono">${escapeHtml(product?.sku||'-')}</td><td class="mono">${escapeHtml(item.barcode||product?.barcode||'-')}</td><td class="product-exchange-name">${escapeHtml(product?.name||item.name||'-')}</td><td><input class="product-exchange-qty" type="number" min="0.01" step="any" value="${item.qty}" ${locked?'disabled':''}></td><td><select class="product-exchange-unit" ${locked?'disabled':''}>${productExchangeUnitOptionsHtml(product,item.unit,locked)}</select></td><td>${side==='incoming'?`<input class="product-exchange-lot" value="${escapeHtml(item.lotNumber||'')}" placeholder="ไม่ระบุ" ${locked?'disabled':''}>`:'<span style="color:var(--text-muted);">ระบบตัด FEFO</span>'}</td><td><input class="product-exchange-expiry" type="text" inputmode="numeric" maxlength="10" placeholder="วว-ดด-ปปปป" value="${escapeHtml(item.expiry?fmtDateShort(item.expiry):'')}" ${locked?'disabled':''}></td><td class="mono">${productExchangeItemBaseQty(item)} ${escapeHtml(product?.unit||'')}</td><td>${locked?'':`<button type="button" class="product-exchange-delete" data-product-exchange-remove="${side}:${index}" title="ลบ">⌫</button>`}</td></tr>`;
+    return `<tr data-product-exchange-row="${side}" data-index="${index}"><td class="mono">${escapeHtml(product?.sku||'-')}</td><td class="mono">${escapeHtml(item.barcode||product?.barcode||'-')}</td><td class="product-exchange-name">${escapeHtml(product?.name||item.name||'-')}</td><td><input class="product-exchange-qty" type="number" min="0.01" step="any" value="${item.qty}" ${locked?'disabled':''}></td><td><select class="product-exchange-unit" ${locked?'disabled':''}>${productExchangeUnitOptionsHtml(product,item.unit,locked)}</select></td><td>${side==='incoming'?`<input class="product-exchange-lot" value="${escapeHtml(item.lotNumber||'')}" placeholder="ไม่ระบุ" ${locked?'disabled':''}>`:'<span style="color:var(--text-muted);">ระบบตัด FEFO</span>'}</td><td><input class="product-exchange-expiry dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(item.expiry))}" ${locked?'disabled':''}></td><td class="mono">${productExchangeItemBaseQty(item)} ${escapeHtml(product?.unit||'')}</td><td>${locked?'':`<button type="button" class="product-exchange-delete" data-product-exchange-remove="${side}:${index}" title="ลบ">⌫</button>`}</td></tr>`;
   }).join('');
   return `<section class="product-exchange-section ${locked?'product-exchange-locked':''}" data-product-exchange-side="${side}"><div class="product-exchange-section-head"><div><h2>${title}</h2><span>${subtitle}</span></div>${side==='incoming'&&!locked?'<button type="button" class="btn ghost" id="copyExchangeOutgoingBtn">คัดลอกจากสินค้าที่ส่งไป</button>':''}</div>
     ${locked?'':`<div class="product-exchange-scan-wrap"><div class="product-exchange-scan-row"><input id="productExchangeScan_${side}" data-product-exchange-scan="${side}" autocomplete="off" placeholder="ค้นหา / ยิงบาร์โค้ด / รหัสสินค้า"><button type="button" class="btn ghost" data-product-exchange-add-first="${side}">เพิ่มสินค้า</button></div><div class="product-exchange-results" id="productExchangeResults_${side}" hidden></div></div>`}
@@ -6552,7 +6576,7 @@ function renderProductExchangeForm(){
   const suppliers=suppliersList();
   return `<div class="product-exchange-form"><div class="pagehead"><div><div class="breadcrumb">ซื้อ › เปลี่ยนสินค้า</div><h1>${escapeHtml(draft.id)}</h1></div><div class="form-final-actions product-exchange-form-actions"><button class="btn ghost" id="cancelProductExchangeBtn">ยกเลิก</button><button class="btn primary" id="saveProductExchangeBtn" ${received?'disabled':''}>บันทึกเอกสาร</button></div></div>
     <div class="product-exchange-status-note">สถานะ: <b>${escapeHtml(draft.status||'ร่าง')}</b>${received?' · ปิดการรับกลับและลงสต๊อกแล้ว รายการถูกล็อกเพื่อป้องกันการบันทึกซ้ำ':''}</div>
-    <div class="panel product-exchange-meta"><label>วันที่เอกสาร<input id="productExchangeDate" type="date" value="${escapeHtml(draft.date||TODAY_STR)}" ${received?'disabled':''}></label><label>ผู้จำหน่าย<select id="productExchangeSupplier" ${received?'disabled':''}><option value="">เลือกผู้จำหน่าย</option>${suppliers.map(item=>`<option value="${escapeHtml(item.name)}" ${item.name===draft.supplier?'selected':''}>${escapeHtml(item.name)}</option>`).join('')}</select></label><label>คลัง / สาขา<select id="productExchangeWarehouse" ${outgoingLocked?'disabled':''}>${accessibleWarehouses().map(item=>`<option value="${item.id}" ${Number(item.id)===Number(draft.warehouseId)?'selected':''}>${escapeHtml(item.name)}</option>`).join('')}</select></label><label>เลขที่เอกสาร<input value="${escapeHtml(draft.id)}" readonly></label><label class="product-exchange-note">หมายเหตุ<textarea id="productExchangeNote" rows="2" ${received?'disabled':''} placeholder="รายละเอียดเพิ่มเติม">${escapeHtml(draft.note||'')}</textarea></label></div>
+    <div class="panel product-exchange-meta"><label>วันที่เอกสาร<input id="productExchangeDate" class="dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(draft.date||TODAY_STR))}" ${received?'disabled':''}></label><label>ผู้จำหน่าย<select id="productExchangeSupplier" ${received?'disabled':''}><option value="">เลือกผู้จำหน่าย</option>${suppliers.map(item=>`<option value="${escapeHtml(item.name)}" ${item.name===draft.supplier?'selected':''}>${escapeHtml(item.name)}</option>`).join('')}</select></label><label>คลัง / สาขา<select id="productExchangeWarehouse" ${outgoingLocked?'disabled':''}>${accessibleWarehouses().map(item=>`<option value="${item.id}" ${Number(item.id)===Number(draft.warehouseId)?'selected':''}>${escapeHtml(item.name)}</option>`).join('')}</select></label><label>เลขที่เอกสาร<input value="${escapeHtml(draft.id)}" readonly></label><label class="product-exchange-note">หมายเหตุ<textarea id="productExchangeNote" rows="2" ${received?'disabled':''} placeholder="รายละเอียดเพิ่มเติม">${escapeHtml(draft.note||'')}</textarea></label></div>
     ${productExchangeSectionHtml('outgoing','สินค้าที่ส่งไปเปลี่ยน','ตัดออกจากสต๊อกเมื่อยืนยัน “ส่งไปเปลี่ยนแล้ว”',draft.outgoingItems,outgoingLocked)}
     ${productExchangeSectionHtml('incoming','สินค้าที่ได้รับกลับ','รับคืนไม่ครบหรือรับเป็นสินค้าคนละตัวได้ · ระบบเพิ่มเฉพาะรายการและจำนวนที่ระบุ',draft.incomingItems,incomingLocked)}
     ${outgoingLocked?productExchangeReconciliationHtml(draft):''}
@@ -6838,7 +6862,7 @@ function inventoryLotDetailRowHtml(product,row,{childGroupIndex=null,readOnly=fa
   const classes=[childGroupIndex===null?'':'lot-group-child',readOnly?'lot-history-row':''].filter(Boolean).join(' ');
   const attributes=`${classes?` class="${classes}"`:''}${childGroupIndex===null?'':` data-lot-group-child="${childGroupIndex}" hidden`}${readOnly?` data-lot-history-row="${row.id}"`:` data-lot-row="${row.id}"`}`;
   const canEdit=currentProfile?.owner&&!readOnly;
-  return `<tr${attributes}><td class="mono lot-internal-column">${escapeHtml(row.internal_code||'-')}</td><td>${canEdit?`<input class="lot-edit-number" value="${escapeHtml(row.manufacturer_lot||'')}" placeholder="ไม่ระบุ">`:escapeHtml(row.manufacturer_lot||'-')}</td><td class="mono">${escapeHtml(lotQuantityText(product,row))}</td><td>${canEdit?`<input class="lot-edit-expiry" inputmode="numeric" maxlength="10" value="${escapeHtml(row.expiry_date?fmtDateShort(row.expiry_date):'')}" placeholder="วว-ดด-ปปปป">`:escapeHtml(row.expiry_date?fmtDateShort(row.expiry_date):'-')}</td><td>${escapeHtml(row.received_at?fmtDateShort(String(row.received_at).slice(0,10)):'-')}</td><td><span class="lot-status ${status.key}">${status.label}</span></td></tr>`;
+  return `<tr${attributes}><td class="mono lot-internal-column">${escapeHtml(row.internal_code||'-')}</td><td>${canEdit?`<input class="lot-edit-number" value="${escapeHtml(row.manufacturer_lot||'')}" placeholder="ไม่ระบุ">`:escapeHtml(row.manufacturer_lot||'-')}</td><td class="mono">${escapeHtml(lotQuantityText(product,row))}</td><td>${canEdit?`<input class="lot-edit-expiry dmy-input" inputmode="numeric" maxlength="10" autocomplete="off" value="${escapeHtml(isoToDMY(row.expiry_date))}" placeholder="วว/ดด/ปปปป">`:escapeHtml(row.expiry_date?fmtDateShort(row.expiry_date):'-')}</td><td>${escapeHtml(row.received_at?fmtDateShort(String(row.received_at).slice(0,10)):'-')}</td><td><span class="lot-status ${status.key}">${status.label}</span></td></tr>`;
 }
 function inventoryLotDetailGroupsHtml(product,rows,{groupPrefix='stocked',readOnly=false}={}){
   return groupInventoryLotDetailRows(rows).map((group,groupIndex)=>{
@@ -6974,7 +6998,6 @@ async function openProductLotDetails(productId,warehouseId=activeWarehouseId){
     if(chevron) chevron.textContent=expanded?'▸':'▾';
     overlay.querySelectorAll(`[data-lot-group-child="${button.dataset.lotGroupToggle}"]`).forEach(row=>{ row.hidden=expanded; });
   });
-  overlay.querySelectorAll('.lot-edit-expiry').forEach(input=>input.addEventListener('input',()=>{ input.value=formatDMYInput(input.value); }));
   const saveButton=overlay.querySelector('#saveLotDetailsBtn');
   if(saveButton) saveButton.onclick=async()=>{
     const changes=[];
@@ -7914,6 +7937,7 @@ async function confirmStockEditChanges(){
   const changes=stockEditPendingChanges();
   if(!changes.length&&!stockEditSourcePending) return false;
   if(changes.some(change=>Number(change.newStock)<0)){ showToast('จำนวนหลังตรวจนับต้องไม่ต่ำกว่า 0','danger'); return false; }
+  if(typeof document!=='undefined'&&document.querySelector('[data-stock-edit-new-expiry].stock-edit-invalid,[data-mobile-stock-new-expiry].invalid')){ showToast('กรุณากรอกวันหมดอายุเป็น วัน/เดือน/ปี หรือเว้นว่าง','danger'); return false; }
   const linePayload=stockEditAdjustmentLines(changes);
   const sourceList=stockEditInspectionSourceList();
   const summary=changes.length?`${changes.length} รายการ`:'ไม่พบส่วนต่าง (ปิดงานตรวจนับ)';
@@ -8207,7 +8231,7 @@ function mobilePriceEditPayload(product,unitName,values,warehouseId,lotId=null){
   const expiryText=String(values?.expiry||'').trim();
   if(expiryText&&!Number(lotId)) return {error:'กรุณาเลือก Lot ก่อนแก้วันหมดอายุ'};
   const expiry=expiryText?dmyToISO(expiryText):null;
-  if(expiryText&&!expiry) return {error:'กรุณากรอกวันหมดอายุเป็น วัน-เดือน-ปี เช่น 05-07-2027'};
+  if(expiryText&&!expiry) return {error:'กรุณากรอกวันหมดอายุเป็น วัน/เดือน/ปี เช่น 05/07/2027'};
   const nextProduct={...product,units:(product.units||[]).map(unit=>({...unit}))};
   if(selected.name===product.unit){
     nextProduct.price=priceValue.value;
@@ -8258,7 +8282,7 @@ function mobilePriceResultHtml(){
       <div class="mobile-price-edit-field"><label for="mobilePriceEditCost">ทุน</label><input id="mobilePriceEditCost" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.cost)||0}"></div>
       ${options.length>1?`<select class="mobile-unit-select" id="mobilePriceUnit">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>หน่วย: ${escapeHtml(option.name)}</option>`).join('')}</select>`:`<div class="mobile-unit-select" style="display:flex;align-items:center;">หน่วย: ${escapeHtml(selected?.name||product.unit)}</div>`}
       <div class="mobile-price-lot-field"><label for="mobilePriceLot">Lot ที่ต้องการแก้วันหมดอายุ</label><select id="mobilePriceLot" class="mobile-price-lot-select" ${editableLots.length?'':'disabled'}><option value="">${editableLots.length>1?'เลือก Lot ให้ชัดเจน':'ไม่มี Lot ที่มีสินค้า'}</option>${editableLots.map(lot=>`<option value="${lot.id}" ${Number(lot.id)===Number(selectedLot?.id)?'selected':''}>Lot ${escapeHtml(lot.manufacturer_lot||lot.internal_code||lot.id)} · ${escapeHtml(lotQuantityText(product,lot))} · ${escapeHtml(lot.expiry_date?fmtDateShort(lot.expiry_date):'ไม่ระบุวันหมดอายุ')}</option>`).join('')}</select></div>
-      <div class="mobile-price-edit-field" style="grid-column:1/-1;"><label for="mobilePriceEditExpiry">วันหมดอายุของ Lot ที่เลือก</label><input id="mobilePriceEditExpiry" class="mobile-price-edit-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="05-07-2027" value="${escapeHtml(selectedLotExpiry?fmtDateShort(selectedLotExpiry):'')}" ${selectedLot?'':'disabled'}></div>
+      <div class="mobile-price-edit-field" style="grid-column:1/-1;"><label for="mobilePriceEditExpiry">วันหมดอายุของ Lot ที่เลือก</label><input id="mobilePriceEditExpiry" class="mobile-price-edit-input dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(selectedLotExpiry))}" ${selectedLot?'':'disabled'}></div>
       <div class="mobile-price-lot-hint" id="mobilePriceLotHint">${escapeHtml(lotHint)}</div>
     </div>
     <button type="button" class="mobile-price-edit-save" id="mobilePriceSaveChanges" ${mobileIsOnline()?'':'disabled'}>${mobileIsOnline()?'บันทึกการแก้ไข':'ออฟไลน์ — ยังบันทึกไม่ได้'}</button><div class="mobile-price-edit-status" id="mobilePriceEditStatus"></div>`:`<div class="mobile-metrics">
@@ -8821,7 +8845,7 @@ function mobileStockEditLotHtml(product){
     return `<div class="mobile-stock-lot-title"><label>LOT ที่ลดจำนวน</label><span class="mobile-stock-lot-difference out">${escapeHtml(differenceLabel)}</span></div><select class="mobile-stock-lot-select" data-mobile-stock-lot="${product.id}"><option value="auto" ${selection==='auto'?'selected':''}>${escapeHtml(autoLabel)}</option>${lotOptions}</select><span class="mobile-stock-lot-hint">ระบบจะตัด LOT ที่เลือกก่อน หากไม่พอจะตัด LOT ใกล้หมดอายุลำดับถัดไป</span>`;
   }
   const storedExpiry=Object.prototype.hasOwnProperty.call(stockEditNewLotExpiries,product.id)?stockEditNewLotExpiries[product.id]:(product.expiry||'');
-  const newLotFields=selection==='new'?`<div class="mobile-stock-new-lot-fields"><label>เลข LOT ผู้ผลิต<input data-mobile-stock-new-lot="${product.id}" value="${escapeHtml(stockEditNewLotNumbers[product.id]||'')}" placeholder="เช่น ABC123" autocomplete="off"></label><label>วันหมดอายุ<input data-mobile-stock-new-expiry="${product.id}" value="${escapeHtml(isoToDMY(storedExpiry).replaceAll('/','-'))}" placeholder="05-07-2027" inputmode="numeric" maxlength="10" autocomplete="off"></label></div>`:'';
+  const newLotFields=selection==='new'?`<div class="mobile-stock-new-lot-fields"><label>เลข LOT ผู้ผลิต<input data-mobile-stock-new-lot="${product.id}" value="${escapeHtml(stockEditNewLotNumbers[product.id]||'')}" placeholder="เช่น ABC123" autocomplete="off"></label><label>วันหมดอายุ<input class="dmy-input" data-mobile-stock-new-expiry="${product.id}" value="${escapeHtml(isoToDMY(storedExpiry))}" placeholder="วว/ดด/ปปปป" inputmode="numeric" maxlength="10" autocomplete="off"></label></div>`:'';
   return `<div class="mobile-stock-lot-title"><label>LOT ที่เพิ่มจำนวน</label><span class="mobile-stock-lot-difference">${escapeHtml(differenceLabel)}</span></div><select class="mobile-stock-lot-select" data-mobile-stock-lot="${product.id}"><option value="choose" ${selection==='choose'?'selected':''}>เลือก LOT ที่จะเพิ่ม</option>${lotOptions}<option value="new" ${selection==='new'?'selected':''}>+ สร้าง LOT ใหม่</option></select>${newLotFields}<span class="mobile-stock-lot-hint">เลือก LOT เดิมให้ตรงกับสินค้าที่พบ หรือสร้าง LOT ใหม่พร้อมกรอกเลขและวันหมดอายุ</span>`;
 }
 function refreshMobileStockLotControl(productId){
@@ -8858,7 +8882,7 @@ async function confirmMobileStockEditChanges(){
     return false;
   }
   if(document.querySelector('[data-mobile-stock-new-expiry].invalid')){
-    showToast('กรุณากรอกวันหมดอายุรูปแบบ 05-07-2027 หรือเว้นว่าง','danger-top');
+    showToast('กรุณากรอกวันหมดอายุรูปแบบ 05/07/2027 หรือเว้นว่าง','danger-top');
     return false;
   }
   const completedSourceId=stockEditSourcePending?stockEditSourceInspectionListId:null;
@@ -9885,7 +9909,7 @@ function stockEditLotControlHtml(product,difference){
   if(lotDifference<0){
     return `<select class="stock-control-lot-select" data-stock-edit-lot="${product.id}"><option value="auto" ${selection==='auto'?'selected':''}>อัตโนมัติตาม FEFO</option>${lotOptions}</select><span class="stock-control-lot-hint">เลือก LOT ที่พบส่วนต่าง หรือให้ระบบตัด LOT ใกล้หมดอายุก่อน</span>`;
   }
-  const newLotFields=selection==='new'?`<div class="stock-control-new-lot-fields"><input class="stock-control-new-lot-input" data-stock-edit-new-lot="${product.id}" value="${escapeHtml(stockEditNewLotNumbers[product.id]||'')}" placeholder="เลข LOT ผู้ผลิต (ถ้ามี)"><input class="stock-control-new-lot-input" type="date" data-stock-edit-new-expiry="${product.id}" value="${escapeHtml(stockEditNewLotExpiries[product.id]||product.expiry||'')}" aria-label="วันหมดอายุ LOT ใหม่"></div>`:'';
+  const newLotFields=selection==='new'?`<div class="stock-control-new-lot-fields"><input class="stock-control-new-lot-input" data-stock-edit-new-lot="${product.id}" value="${escapeHtml(stockEditNewLotNumbers[product.id]||'')}" placeholder="เลข LOT ผู้ผลิต (ถ้ามี)"><input class="stock-control-new-lot-input dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" data-stock-edit-new-expiry="${product.id}" value="${escapeHtml(isoToDMY(stockEditNewLotExpiries[product.id]||product.expiry||''))}" placeholder="วว/ดด/ปปปป" aria-label="วันหมดอายุ LOT ใหม่"></div>`:'';
   return `<select class="stock-control-lot-select" data-stock-edit-lot="${product.id}">${lotOptions}<option value="new" ${selection==='new'?'selected':''}>สร้าง LOT ใหม่</option></select>${newLotFields}<span class="stock-control-lot-hint">ของที่พบเกินต้องเข้า LOT เดิมหรือสร้าง LOT ใหม่</span>`;
 }
 
@@ -11523,7 +11547,7 @@ function renderBusinessSettings(){
     <div class="settings-section">
       <div class="settings-row"><label>ประเภทธุรกิจ:</label><select id="set_business_type"><option ${b.type==='บริษัท'?'selected':''}>บริษัท</option><option ${b.type==='บุคคลธรรมดา'?'selected':''}>บุคคลธรรมดา</option><option ${b.type==='ห้างหุ้นส่วน'?'selected':''}>ห้างหุ้นส่วน</option></select></div>
       <div class="settings-row"><label>จดภาษีมูลค่าเพิ่ม:</label><select id="set_business_vat"><option ${b.vat==='จดภาษีมูลค่าเพิ่มแล้ว'?'selected':''}>จดภาษีมูลค่าเพิ่มแล้ว</option><option ${b.vat==='ยังไม่จดภาษีมูลค่าเพิ่ม'?'selected':''}>ยังไม่จดภาษีมูลค่าเพิ่ม</option></select></div>
-      <div class="settings-row" id="businessVatDateRow" ${vatSelected?'':'hidden'}><label>วันที่เริ่มจด VAT ตาม ภ.พ.20:</label><div><input id="set_business_vat_date" value="${escapeHtml(b.vatRegistrationDate?fmtDateShort(b.vatRegistrationDate):'')}" placeholder="วัน-เดือน-ปี เช่น 01-01-2027" inputmode="numeric" maxlength="10" autocomplete="off"><small class="business-field-hint">ระบบจะเริ่มคิด VAT และอนุญาตให้ออกใบกำกับภาษีตั้งแต่วันที่นี้</small></div></div>
+      <div class="settings-row" id="businessVatDateRow" ${vatSelected?'':'hidden'}><label>วันที่เริ่มจด VAT ตาม ภ.พ.20:</label><div><input id="set_business_vat_date" class="dmy-input" value="${escapeHtml(isoToDMY(b.vatRegistrationDate))}" placeholder="วว/ดด/ปปปป" inputmode="numeric" maxlength="10" autocomplete="off"><small class="business-field-hint">ระบบจะเริ่มคิด VAT และอนุญาตให้ออกใบกำกับภาษีตั้งแต่วันที่นี้</small></div></div>
       <div class="hint">หากเลือก “ยังไม่จดภาษีมูลค่าเพิ่ม” ระบบจะไม่คิด VAT และไม่ออกใบกำกับภาษีสำหรับรายการขายใหม่ โดยจะเก็บค่าภาษีของสินค้าเดิมไว้ใช้เมื่อจด VAT ในอนาคต</div>
     </div>
     <div class="settings-section"><h2>รายละเอียดธุรกิจ</h2><div class="hint">ข้อมูลใช้สำหรับการออกเอกสาร</div>
@@ -12143,19 +12167,18 @@ function attachMobilePriceResultEvents(){
     const hint=document.getElementById('mobilePriceLotHint');
     if(expiryInput){
       expiryInput.disabled=!lot;
-      expiryInput.value=lot?.expiry_date?fmtDateShort(lot.expiry_date):'';
+      expiryInput.value=isoToDMY(lot?.expiry_date);
     }
     if(hint) hint.textContent=lot
       ? 'วันหมดอายุจะเปลี่ยนเฉพาะ Lot ที่เลือก และระบบจะเก็บประวัติการแก้ไข'
       : 'สินค้านี้มีหลาย Lot กรุณาเลือก Lot ที่ต้องการแก้วันหมดอายุ';
   });
-  const mobileExpiryInput=document.getElementById('mobilePriceEditExpiry');
-  if(mobileExpiryInput) mobileExpiryInput.addEventListener('input',()=>{ mobileExpiryInput.value=formatDMYInput(mobileExpiryInput.value); });
   document.getElementById('mobilePriceSaveChanges')?.addEventListener('click',saveMobilePriceChanges);
 }
 function syncProductExchangeFromDOM(){
   const draft=productExchangeDraft; if(!draft) return;
-  const date=document.getElementById('productExchangeDate'); if(date) draft.date=date.value||draft.date;
+  const date=document.getElementById('productExchangeDate');
+  if(date){ const raw=date.value.trim(); draft.date=raw?(dmyToISO(raw)||raw):''; }
   const supplier=document.getElementById('productExchangeSupplier'); if(supplier) draft.supplier=supplier.value;
   const warehouse=document.getElementById('productExchangeWarehouse'); if(warehouse) draft.warehouseId=Number(warehouse.value)||0;
   const note=document.getElementById('productExchangeNote'); if(note) draft.note=note.value;
@@ -12242,9 +12265,9 @@ function bindProductExchangeScanners(){
     if(exact) addProductExchangeItem(side,exact.product.id,exact.unit);
     else{ const first=productExchangeSearchMatches(input?.value)[0]; if(first) addProductExchangeItem(side,first.id); else showToast('กรุณาค้นหาหรือยิงบาร์โค้ดสินค้า'); }
   }));
-  document.querySelectorAll('.product-exchange-expiry').forEach(input=>input.addEventListener('input',()=>{ input.value=formatDMYInput(input.value); }));
 }
 function validateProductExchangeDraft(draft,forStatus='ร่าง'){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(draft.date||''))||dmyToISO(isoToDMY(draft.date))!==draft.date){ showToast('กรุณากรอกวันที่เอกสารเป็น วัน/เดือน/ปี'); document.getElementById('productExchangeDate')?.focus(); return false; }
   if(!draft.supplier){ showToast('กรุณาเลือกผู้จำหน่าย'); return false; }
   if(!draft.warehouseId){ showToast('กรุณาเลือกคลัง / สาขา'); return false; }
   if(!draft.outgoingItems.length){ showToast('กรุณาเพิ่มสินค้าที่ส่งไปเปลี่ยนอย่างน้อย 1 รายการ'); return false; }
@@ -12252,7 +12275,7 @@ function validateProductExchangeDraft(draft,forStatus='ร่าง'){
   if(forStatus==='รับสินค้ากลับแล้ว'){
     if(!draft.incomingItems.length){ showToast('กรุณาเพิ่มสินค้าที่ได้รับกลับอย่างน้อย 1 รายการ'); return false; }
     if(draft.incomingItems.some(item=>productExchangeItemBaseQty(item)<=0)){ showToast('จำนวนสินค้าที่รับกลับต้องมากกว่า 0'); return false; }
-    if(draft.incomingItems.some(item=>!/^\d{4}-\d{2}-\d{2}$/.test(String(item.expiry||'')))){ showToast('กรุณาระบุวันหมดอายุของสินค้าที่ได้รับกลับให้ครบในรูปแบบ วัน-เดือน-ปี'); return false; }
+    if(draft.incomingItems.some(item=>!/^\d{4}-\d{2}-\d{2}$/.test(String(item.expiry||'')))){ showToast('กรุณาระบุวันหมดอายุของสินค้าที่ได้รับกลับให้ครบในรูปแบบ วัน/เดือน/ปี'); return false; }
   }
   return true;
 }
@@ -12636,11 +12659,10 @@ function attachEvents(){
       }
       const expiryInput=event.target.closest('[data-mobile-stock-new-expiry]');
       if(!expiryInput) return;
-      const formatted=formatDMYInput(expiryInput.value);
-      if(expiryInput.value!==formatted) expiryInput.value=formatted;
-      const iso=dmyToISO(formatted);
+      const expiryText=expiryInput.value.trim();
+      const iso=dmyToISO(expiryText);
       stockEditNewLotExpiries[Number(expiryInput.dataset.mobileStockNewExpiry)]=iso||'';
-      expiryInput.classList.toggle('invalid',formatted!==''&&!iso);
+      expiryInput.classList.toggle('invalid',expiryText!==''&&!iso);
       refreshMobileStockConfirmButton();
     });
   }
@@ -13162,7 +13184,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     });
   }
   document.querySelectorAll('[data-stock-edit-unit]').forEach(select=>select.addEventListener('change',()=>{ stockEditRowUnitSel[Number(select.dataset.stockEditUnit)]=select.value; render(); }));
-  const refreshStockEditConfirmButton=()=>{ if(confirmStockEditBtn) confirmStockEditBtn.disabled=(stockEditPendingChanges().length===0&&!stockEditSourcePending)||stockEditPosting; };
+  const refreshStockEditConfirmButton=()=>{ if(confirmStockEditBtn) confirmStockEditBtn.disabled=(stockEditPendingChanges().length===0&&!stockEditSourcePending)||Boolean(document.querySelector('[data-stock-edit-new-expiry].stock-edit-invalid'))||stockEditPosting; };
   document.querySelectorAll('[data-stock-edit-amount]').forEach(input=>{
     input.addEventListener('focus',()=>input.select());
     input.addEventListener('keydown',event=>{
@@ -13199,7 +13221,12 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(confirmStockEditBtn) confirmStockEditBtn.addEventListener('click',confirmStockEditChanges);
   document.querySelectorAll('[data-stock-edit-lot]').forEach(select=>select.addEventListener('change',()=>{ stockEditLotSelections[Number(select.dataset.stockEditLot)]=select.value; render(); }));
   document.querySelectorAll('[data-stock-edit-new-lot]').forEach(input=>input.addEventListener('input',()=>{ stockEditNewLotNumbers[Number(input.dataset.stockEditNewLot)]=input.value; }));
-  document.querySelectorAll('[data-stock-edit-new-expiry]').forEach(input=>input.addEventListener('input',()=>{ stockEditNewLotExpiries[Number(input.dataset.stockEditNewExpiry)]=input.value; }));
+  document.querySelectorAll('[data-stock-edit-new-expiry]').forEach(input=>input.addEventListener('input',()=>{
+    const expiryText=input.value.trim(),iso=dmyToISO(expiryText);
+    stockEditNewLotExpiries[Number(input.dataset.stockEditNewExpiry)]=iso||'';
+    input.classList.toggle('stock-edit-invalid',expiryText!==''&&!iso);
+    refreshStockEditConfirmButton();
+  }));
   document.querySelectorAll('[data-stock-edit-remove]').forEach(button=>button.addEventListener('click',()=>{
     const id=Number(button.dataset.stockEditRemove);
     stockEditItems=stockEditItems.filter(itemId=>itemId!==id);
@@ -13539,8 +13566,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(businessTaxInput) businessTaxInput.addEventListener('input',()=>{ businessTaxInput.value=businessTaxInput.value.replace(/\D/g,'').slice(0,13); });
   const businessBranchCodeInput=document.getElementById('set_business_branch_code');
   if(businessBranchCodeInput) businessBranchCodeInput.addEventListener('input',()=>{ businessBranchCodeInput.value=businessBranchCodeInput.value.replace(/\D/g,'').slice(0,5); });
-  const businessVatDateInput=document.getElementById('set_business_vat_date');
-  if(businessVatDateInput) businessVatDateInput.addEventListener('input',()=>{ businessVatDateInput.value=formatDMYInput(businessVatDateInput.value); });
   const saveDocumentPrefixesBtn=document.getElementById('saveDocumentPrefixesBtn');
   if(saveDocumentPrefixesBtn) saveDocumentPrefixesBtn.addEventListener('click',saveDocumentPrefixes);
   document.getElementById('printPosSmallestUnitCommandBtn')?.addEventListener('click',printPosSmallestUnitCommandBarcode);
@@ -13709,25 +13734,8 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       renderKeepScroll();
     });
   });
-  // ช่องวันที่แบบ วัน/เดือน/ปี (dd/mm/yyyy) — พิมพ์เองได้ หรือกดไอคอนปฏิทินเพื่อเลือก
-  document.querySelectorAll('.dmy-input').forEach(txt=>{
-    txt.addEventListener('input', ()=>{
-      let v=txt.value.replace(/[^\d]/g,'');
-      if(v.length>2) v=v.slice(0,2)+'/'+v.slice(2);
-      if(v.length>5) v=v.slice(0,5)+'/'+v.slice(5,9);
-      txt.value=v;
-      const nat=txt.parentElement.querySelector('.dmy-native');
-      const iso=dmyToISO(v);
-      if(nat && iso) nat.value=iso;
-    });
-  });
-  document.querySelectorAll('.dmy-native').forEach(nat=>{
-    nat.addEventListener('click', ()=>{ if(typeof nat.showPicker==='function'){ try{ nat.showPicker(); }catch(error){} } });
-    nat.addEventListener('change', ()=>{
-      const txt=document.getElementById(nat.dataset.target);
-      if(txt){ txt.value=isoToDMY(nat.value); txt.dispatchEvent(new Event('change')); }
-    });
-  });
+  // ช่องวันที่แบบ วัน/เดือน/ปี — ใช้ตัวจัดรูปแบบร่วมกันทั้งหน้าปกติและ popup
+  bindDmyDateFields();
   document.querySelectorAll('[data-cycle-product-review-status]').forEach(button=>{
     button.addEventListener('click',async()=>{
       const pid=Number(button.dataset.cycleProductReviewStatus);
@@ -14638,7 +14646,7 @@ function openGoodsReceiptPayment(id){
     <div class="modal-head"><h3>บันทึกการชำระเงิน</h3><button class="modal-close" aria-label="ปิด">×</button></div>
     <div class="payment-body">
       <div class="payment-summary"><b>เลขที่เอกสาร:</b><strong>${escapeHtml(doc.id)} (${escapeHtml(doc.supplier)})</strong><b>ยอดที่ต้องชำระ:</b><span>${fmtMoney(doc.total)} บาท</span></div>
-      <div class="payment-row"><label>วันที่ชำระ:</label><input id="pay_date" type="text" value="${fmtDate(TODAY_STR)}" placeholder="DD-MM-YYYY"></div>
+      <div class="payment-row"><label>วันที่ชำระ:</label><input id="pay_date" class="dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" value="${isoToDMY(TODAY_STR)}" placeholder="วว/ดด/ปปปป"></div>
       <div class="payment-row"><label>ยอดจ่ายสุทธิ:</label><input id="pay_amount" type="number" min="0" step="0.01" value="${(Number(doc.total)||0).toFixed(2)}"></div>
       <div class="payment-row"><label></label><label class="payment-check"><input id="pay_withholding" type="checkbox"> หัก ณ ที่จ่าย</label></div>
       <div class="payment-row"><label>ยอดเงินขาด/เงินเกิน:</label><div class="payment-diff"><span id="pay_diff">0.00</span> บาท</div></div>
@@ -14661,7 +14669,9 @@ function openGoodsReceiptPayment(id){
   const savePaymentBtn=overlay.querySelector('#savePaymentBtn');
   savePaymentBtn.onclick=async()=>{
     const paid=parseFloat(amount.value); if(isNaN(paid)||paid<0){ showToast('กรุณากรอกยอดจ่ายสุทธิ'); amount.focus(); return; }
-    const payment={date:overlay.querySelector('#pay_date').value,amount:paid,withholding:overlay.querySelector('#pay_withholding').checked,reasonType:overlay.querySelector('input[name="pay_reason_type"]:checked')?.value||'',reason:overlay.querySelector('#pay_reason').value,method:overlay.querySelector('#pay_method').value,note:overlay.querySelector('#pay_note').value};
+    const paymentDateInput=overlay.querySelector('#pay_date'),paymentDate=dmyToISO(paymentDateInput.value);
+    if(!paymentDate){ showToast('กรุณากรอกวันที่ชำระเป็น วัน/เดือน/ปี'); paymentDateInput.focus(); return; }
+    const payment={date:paymentDate,amount:paid,withholding:overlay.querySelector('#pay_withholding').checked,reasonType:overlay.querySelector('input[name="pay_reason_type"]:checked')?.value||'',reason:overlay.querySelector('#pay_reason').value,method:overlay.querySelector('#pay_method').value,note:overlay.querySelector('#pay_note').value};
     const originalLabel=savePaymentBtn.textContent;
     savePaymentBtn.disabled=true;
     savePaymentBtn.textContent='กำลังบันทึก...';
@@ -14809,7 +14819,6 @@ function bindPOItemEvents(){
   document.querySelectorAll('#poItemRows .po-item-row').forEach(row=>{
     const unitSel=row.querySelector('.poi_unit'); if(unitSel) unitSel.addEventListener('change', ()=>{ recalcPORow(row); if(currentTab==='productreturn'){ syncPOFromDOM(); render(); } });
     ['.poi_qty','.poi_price'].forEach(sel=>{ const el=row.querySelector(sel); if(el) el.addEventListener('input', ()=>recalcPORow(row)); });
-    const expiry=row.querySelector('.poi_expiry'); if(expiry) expiry.addEventListener('input',()=>{ expiry.value=formatDMYInput(expiry.value); });
     const returnLot=row.querySelector('.poi_return_lot'); if(returnLot) returnLot.addEventListener('change',()=>{ syncPOFromDOM(); render(); });
     row.querySelector('.poi_del').addEventListener('click', ()=>{ syncPOFromDOM(); if((currentTab==='taxinvoice'||currentTab==='quotation')&&typeof syncTaxInvoiceDraftFromDOM==='function') syncTaxInvoiceDraftFromDOM(); const draft=activePurchaseDraft(); draft.items.splice([...document.querySelectorAll('#poItemRows .po-item-row')].indexOf(row),1); if(draft.items.length===0) draft.items=[{name:'',qty:1,unit:'',price:''}]; render(); });
   });
@@ -14906,7 +14915,7 @@ function syncPOFromDOM(){
   const taxDate=document.getElementById('po_supplier_tax_invoice_date');
   if(taxDate){
     const raw=taxDate.value.trim();
-    draft.supplierTaxInvoiceDate=raw?(dmyToISO(raw)||''):'';
+    draft.supplierTaxInvoiceDate=raw?(dmyToISO(raw)||raw):'';
   }
   const note=document.getElementById('po_note'); if(note) draft.note=note.value;
   const rows=document.querySelectorAll('#poItemRows .po-item-row');
@@ -14951,7 +14960,8 @@ async function savePO(silent=false){
   const items=draft.items.filter(it=>it.name && it.qty>0);
   if(items.length===0){ showToast('กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ'); return false; }
   if(items.some(it=>!products.some(p=>p.name===it.name))){ showToast('กรุณาเลือกสินค้าจากผลการค้นหา'); return false; }
-  if(kind==='gr'&&items.some(item=>item.expiry&&!/^\d{4}-\d{2}-\d{2}$/.test(item.expiry))){ showToast('กรุณากรอกวันหมดอายุเป็น วัน-เดือน-ปี เช่น 05-07-2027'); return false; }
+  if(styled&&draft.supplierTaxInvoiceDate&&!/^\d{4}-\d{2}-\d{2}$/.test(draft.supplierTaxInvoiceDate)){ showToast('กรุณากรอกวันที่ใบกำกับภาษีเป็น วัน/เดือน/ปี'); document.getElementById('po_supplier_tax_invoice_date')?.focus(); return false; }
+  if(kind==='gr'&&items.some(item=>item.expiry&&!/^\d{4}-\d{2}-\d{2}$/.test(item.expiry))){ showToast('กรุณากรอกวันหมดอายุเป็น วัน/เดือน/ปี เช่น 05/07/2027'); return false; }
   if(kind==='ret'&&items.some(item=>!Number(item.lotId))){ showToast('กรุณาเลือก Lot ที่คืนให้ครบทุกสินค้า'); return false; }
   const tax=styled?calculatePurchaseTaxSummary(items,draft.discount||0,draft.taxMode||'incl'):calculatePurchaseTaxSummary([],0,'none');
   const old=editingId!=='new'?list.find(x=>x.id===editingId):null;
@@ -15183,7 +15193,7 @@ async function saveBusinessSettings(){
   if(vat===VAT_REGISTERED_LABEL){
     if(!get('set_business_name')||!get('set_business_address')){ showToast('กรุณากรอกชื่อและที่อยู่ธุรกิจให้ครบก่อนเปิดใช้ VAT','danger'); return; }
     if(!taxId){ showToast('กรุณากรอกเลขประจำตัวผู้เสียภาษี 13 หลัก','danger'); document.getElementById('set_business_tax')?.focus(); return; }
-    if(!vatRegistrationDate){ showToast('กรุณากรอกวันที่เริ่มจด VAT ตาม ภ.พ.20 เป็น วัน-เดือน-ปี','danger'); document.getElementById('set_business_vat_date')?.focus(); return; }
+    if(!vatRegistrationDate){ showToast('กรุณากรอกวันที่เริ่มจด VAT ตาม ภ.พ.20 เป็น วัน/เดือน/ปี','danger'); document.getElementById('set_business_vat_date')?.focus(); return; }
     if(!['head','branch'].includes(branch)){ showToast('กรุณาเลือกสำนักงานใหญ่หรือสาขาตาม ภ.พ.20','danger'); return; }
     if(branch==='branch'&&!/^\d{5}$/.test(get('set_business_branch_code'))){ showToast('รหัสสาขาต้องมี 5 หลัก','danger'); document.getElementById('set_business_branch_code')?.focus(); return; }
     if(branch==='branch'&&!get('set_business_branch_name')){ showToast('กรุณากรอกชื่อสาขา','danger'); document.getElementById('set_business_branch_name')?.focus(); return; }

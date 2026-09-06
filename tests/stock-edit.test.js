@@ -124,6 +124,7 @@ Object.assign(context, {
   matchesBarcode: (product, query) => product.barcode === query || (product.units || []).some(unit => unit.barcode === query),
   stockInLargestUnit: product => `${product.stock} ${product.unit}`,
   fmtDate: value => value,
+  isoToDMY: value => value ? value.split('-').reverse().join('/') : '',
   inspectionListAmount: value => String(value),
   showToast: () => {},
   render: () => {},

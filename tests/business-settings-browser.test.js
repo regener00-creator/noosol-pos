@@ -70,6 +70,8 @@ const browserExecutable = [
   await page.locator('#set_business_vat').selectOption('จดภาษีมูลค่าเพิ่มแล้ว');
   assert.equal(await page.locator('#businessVatDateRow').isVisible(), true);
   assert.equal(await page.locator('#businessTaxBranchRow').isVisible(), true);
+  await page.locator('#set_business_vat_date').fill('06092026');
+  assert.equal(await page.locator('#set_business_vat_date').inputValue(), '06/09/2026', 'ช่องวันที่ต้องเติมเครื่องหมาย / ระหว่างพิมพ์ตัวเลขให้อัตโนมัติ');
   await page.locator('input[name="set_branch"][value="branch"]').check({force:true});
   assert.equal(await page.locator('#businessBranchFields').isVisible(), true);
 

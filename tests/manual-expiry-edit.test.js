@@ -18,16 +18,16 @@ assert.equal(context.dmyToISO('29-02-2028'), '2028-02-29');
 assert.equal(context.dmyToISO('29-02-2027'), null);
 assert.equal(context.dmyToISO('31-04-2027'), null);
 assert.equal(context.dmyToISO('2027-07-05'), null);
-assert.equal(context.formatDMYInput('05072027'), '05-07-2027');
+assert.equal(context.formatDMYInput('05072027'), '05/07/2027');
 
-assert.match(html, /class="lot-edit-expiry"[^>]*inputmode="numeric"/);
+assert.match(html, /class="lot-edit-expiry dmy-input"[^>]*inputmode="numeric"/);
 assert.match(html, /update_inventory_lot_details/);
 assert.match(html, /หมดอายุใกล้สุด/);
-assert.match(html, /placeholder="วว-ดด-ปปปป"/);
-assert.match(html, /id="mobilePriceEditExpiry"[^>]*type="text"[^>]*inputmode="numeric"/);
+assert.match(html, /placeholder="วว\/ดด\/ปปปป"/);
+assert.match(html, /id="mobilePriceEditExpiry"[^>]*class="mobile-price-edit-input dmy-input"[^>]*type="text"[^>]*inputmode="numeric"/);
 assert.doesNotMatch(html, /id="mobilePriceEditExpiry"[^>]*type="date"/);
 assert.match(html, /owner_update_mobile_product_details/);
 assert.match(html, /p_lot_id:payload\.lotId/);
-assert.match(html, /กรุณากรอกวันหมดอายุเป็น วัน-เดือน-ปี เช่น 05-07-2027/);
+assert.match(html, /กรุณากรอกวันหมดอายุเป็น วัน\/เดือน\/ปี เช่น 05\/07\/2027/);
 
 console.log('manual expiry edit tests passed');
