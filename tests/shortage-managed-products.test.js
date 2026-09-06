@@ -12,15 +12,13 @@ assert.match(source, /\.shortage-form-grid \.shortage-date-field \.dmy-input\{[^
 assert.match(source, /\.shortage-form-grid \.shortage-date-field \.dmy-native\{[^}]*width:30px/, 'ปุ่มปฏิทินต้องไม่ซ้อนทับพื้นที่พิมพ์วันที่');
 assert.match(form, /วันที่สั่ง[\s\S]*ชื่อผู้แทน[\s\S]*id="newPORepBtn"[\s\S]*id="shortageManagedProductsBtn"/);
 assert.match(form, /class="btn primary" id="shortageManagedProductsBtn"/, 'ปุ่มสินค้าที่ดูแลต้องใช้สีเดียวกับปุ่มบันทึกเอกสาร');
-assert.match(form, /id="createPurchaseOrderFromShortageBtn"[^>]*>สร้างใบสั่งซื้อจากรายการนี้</, 'ต้องสร้างใบสั่งซื้อจากรายการจดสั่งได้');
+assert.doesNotMatch(form, /createPurchaseOrderFromShortageBtn|สร้างใบสั่งซื้อจากรายการนี้/, 'หน้าสั่งซื้อสินค้าต้องเป็นระบบเดียวและไม่มีขั้นตอนแปลงเอกสารซ้ำ');
+assert.match(form, /สั่งซื้อสินค้า ›/);
 assert.match(form, /shortage-note-field[\s\S]*หมายเหตุ/);
-assert.doesNotMatch(form, /id="editPORepBtn"/, 'หน้าจดสั่งสินค้าต้องไม่มีปุ่มแก้ไขข้างชื่อผู้แทน');
+assert.doesNotMatch(form, /id="editPORepBtn"/, 'หน้าสั่งซื้อสินค้าต้องไม่มีปุ่มแก้ไขข้างชื่อผู้แทน');
 assert.match(source, /from\('sales_representative_products'\)[\s\S]{0,220}\.eq\('representative_id',Number\(representative\.id\)\)/);
 assert.match(source, /data-shortage-managed-product=/);
 assert.match(source, /addDocumentScannedProduct\(product\.id,product\.unit\)/);
-assert.match(source, /function purchaseOrderDraftFromShortage\(shortage\)/);
-assert.match(source, /sourceShortageId:String\(shortage\?\.id\|\|''\)/);
-assert.match(source, /function createPurchaseOrderFromShortage\(\)/);
-assert.match(source, /if\(kind==='po2'&&rec\.sourceShortageId\)/, 'บันทึกใบสั่งซื้อแล้วต้องปรับสถานะรายการจดสั่งต้นทาง');
+assert.doesNotMatch(source, /function createPurchaseOrderFromShortage\(\)/);
 
 console.log('shortage managed products tests passed');

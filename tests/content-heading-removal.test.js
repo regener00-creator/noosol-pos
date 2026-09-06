@@ -25,7 +25,7 @@ for (const description of [
 }
 
 for (const inlineTitle of [
-  'สั่งของขาด <span class="page-title-meta">บันทึกรายการสินค้าที่ต้องแจ้งสั่งกับผู้แทน · ${allDocs.length} รายการ',
+  'สั่งซื้อสินค้า <span class="page-title-meta">บันทึกรายการสินค้าที่ต้องแจ้งสั่งกับผู้แทน · ${allDocs.length} รายการ',
   'ใบรับสินค้า <span class="page-title-meta">บันทึกและตรวจสอบการรับสินค้าเข้าคลัง · ${allDocs.length} รายการ',
   'เปลี่ยนสินค้า <span class="page-title-meta">ติดตามสินค้าที่ส่งไปเปลี่ยนและสินค้าที่ได้รับกลับ · ${allDocs.length} รายการ',
   'สมุดรายชื่อ <span class="page-title-meta">· ${list.length} รายชื่อ',
@@ -33,7 +33,6 @@ for (const inlineTitle of [
   'บิลเงินสด <span class="page-title-meta">เอกสารรับเงินกระดาษ A4 · ${docs.length} รายการ',
   'ใบกำกับภาษีเต็มรูปแบบ <span class="page-title-meta">สร้างเอกสารใหม่ หรือ ออกเอกสารจากออเดอร์ย้อนหลัง · ${allItems.length} รายการ',
   'ใบเสนอราคา <span class="page-title-meta">เสนอราคา ก่อนสั่งซื้อจริง · ${quotations.length} รายการ',
-  'ใบสั่งซื้อสินค้า <span class="page-title-meta">สร้างใบสั่งซื้อสินค้ากับผู้จำหน่าย · ${allDocs.length} รายการ',
   'ใบคืนสินค้า <span class="page-title-meta">บันทึกการคืนสินค้าให้ผู้จำหน่าย · ${allDocs.length} รายการ',
 ]) {
   assert.ok(html.includes(inlineTitle), `ต้องย้ายข้อความสรุปมาต่อท้ายชื่อหน้า: ${inlineTitle}`);

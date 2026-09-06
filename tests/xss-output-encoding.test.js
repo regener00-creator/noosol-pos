@@ -117,7 +117,7 @@ test('product and sales-representative edit forms encode input and textarea valu
 test('supplier editor and purchase item rows encode stored values', () => {
   const supplierContext = {escapeHtml};
   vm.createContext(supplierContext);
-  const supplierSource = sourceBetween('function poSupplierEditorHtml(', 'function renderPurchaseOrder2(');
+  const supplierSource = sourceBetween('function poSupplierEditorHtml(', 'function renderProductReturn(');
   vm.runInContext(`${supplierSource}\nthis.poSupplierEditorHtml=poSupplierEditorHtml;`, supplierContext);
   assertPayloadEncoded(supplierContext.poSupplierEditorHtml({
     name: attributePayload,

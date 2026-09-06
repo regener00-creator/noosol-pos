@@ -299,7 +299,7 @@ const PAGE_PERMISSION_OPTIONS=[
   ['goodsreceipt','ใบรับสินค้า'],['products','รายการสินค้า'],['inventorymovement','รายงานการเคลื่อนไหว'],
   ['rinventory','รายงานสินค้าคงเหลือ'],['lowstock','สินค้าใกล้หมด'],['expiry','สินค้าใกล้หมดอายุ'],
   ['rproduct','รายงานสินค้า'],['rbill','รายงานบิล'],['cashbill','บิลเงินสด'],['inspectionlists','ตรวจนับและปรับสต๊อก'],
-  ['purchaseorder','สั่งของขาด'],['purchaseorder2','ใบสั่งซื้อสินค้า'],['productreturn','ใบคืนสินค้า'],
+  ['purchaseorder','สั่งซื้อสินค้า'],['productreturn','ใบคืนสินค้า'],
   ['productexchange','เปลี่ยนสินค้า'],['contacts','สมุดรายชื่อ'],['salesreps','ผู้แทน'],
   ['taxinvoice','ใบกำกับภาษีเต็มรูปแบบ'],['quotation','ใบเสนอราคา'],['barcodeprint','พิมพ์ป้ายราคา'],
   ['promotions','โปรโมชั่น'],['warehouse','คลังสินค้า / สาขา'],['transfer','โอนย้ายสต๊อก'],
@@ -2863,8 +2863,7 @@ const DOCUMENT_PREFIX_FIELDS=[
   {key:'cashBill',label:'บิลเงินสด A4'},
   {key:'taxInvoice',label:'ใบกำกับภาษีเต็มรูปแบบ'},
   {key:'quotation',label:'ใบเสนอราคา'},
-  {key:'shortage',label:'สั่งของขาด'},
-  {key:'purchaseOrder',label:'ใบสั่งซื้อสินค้า'},
+  {key:'shortage',label:'สั่งซื้อสินค้า'},
   {key:'productReturn',label:'ใบคืนสินค้า'},
   {key:'goodsReceipt',label:'ใบรับสินค้า'},
   {key:'productExchange',label:'เปลี่ยนสินค้า'},
@@ -3787,7 +3786,7 @@ function nextYearlySeq(prefix, values){
 function buildDocNumber(prefix, seq){ return `${prefix}${TODAY_STR.replace(/-/g,'')}${String(seq).padStart(4,'0')}`; }
 function docCounter(kind){ const list=docList(kind); return nextDailySeq(docPrefix(kind), list.map(d=>d.id)); }
 function bumpDocCounter(kind){ /* ไม่ต้องทำอะไร: เลขคำนวณสดจากรายการเอกสารเสมอ (รีเซ็ตรายวันอัตโนมัติ) */ }
-function docLabelText(kind){ return kind==='gr'?'ใบรับสินค้า':kind==='po2'?'ใบสั่งซื้อสินค้า':kind==='ret'?'ใบคืนสินค้า':'สั่งของขาด'; }
+function docLabelText(kind){ return kind==='gr'?'ใบรับสินค้า':kind==='po2'?'ใบสั่งซื้อสินค้า':kind==='ret'?'ใบคืนสินค้า':'สั่งซื้อสินค้า'; }
 function docDefaultStatus(kind){ return kind==='gr'?'รอรับสินค้า':kind==='po2'?'รอสั่งซื้อ':kind==='ret'?'รอรับคืน':'รอสั่งของ'; }
 const GOODS_RECEIPT_STATUSES=['รอรับสินค้า','รับสินค้าแล้ว','ชำระเรียบร้อย'];
 function goodsReceiptWarehouseId(doc,warehouseList,productList){
@@ -4042,8 +4041,7 @@ const NAV = [
     ['promotions','โปรโมชั่น','<path d="M20.59 13.41 11 22H2v-9L11.41 3.59a2 2 0 0 1 2.83 0l6.35 6.35a2 2 0 0 1 0 2.83zM7 8h.01"/><circle cx="7.5" cy="7.5" r="1.5"/>'],
   ]},
   {section:'ซื้อ & รับสินค้า', items:[
-    ['purchaseorder','จดสั่งสินค้า','<path d="M3 3h3l2.4 12.2a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 7H6"/>'],
-    ['purchaseorder2','ใบสั่งซื้อสินค้า','<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>'],
+    ['purchaseorder','สั่งซื้อสินค้า','<path d="M3 3h3l2.4 12.2a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 7H6"/>'],
     ['goodsreceipt','รับเข้าสินค้า','<path d="M21 8L12 3 3 8"/><path d="M3 8v8l9 5 9-5V8"/><path d="M12 13V3"/>'],
     ['productexchange','เปลี่ยนสินค้า','<path d="M7 7h11l-3-3"/><path d="M18 7l-3 3"/><path d="M17 17H6l3 3"/><path d="M6 17l3-3"/>'],
     ['productreturn','ใบคืนสินค้า','<path d="M3 7h13a5 5 0 0 1 0 10H8"/><path d="M8 13l-4 4 4 4"/><path d="M4 17h12"/>'],
@@ -4612,8 +4610,7 @@ function documentActivityItems(doc){
 function representativeDocumentActivities(context=representativeHistoryContext){
   if(!context) return [];
   const sources=[
-    {key:'purchase_orders',label:'จดสั่งสินค้า',type:'purchase_order',rows:purchaseOrders},
-    {key:'purchase_orders_full',label:'ใบสั่งซื้อสินค้า',type:'purchase_order',rows:purchaseOrdersFull},
+    {key:'purchase_orders',label:'สั่งซื้อสินค้า',type:'purchase_order',rows:purchaseOrders},
     {key:'goods_receipts',label:'ใบรับสินค้า',type:'goods_receipt',rows:goodsReceipts},
     {key:'product_returns',label:'ใบคืนสินค้า',type:'product_return',rows:productReturns}
   ];
@@ -6059,14 +6056,14 @@ function renderPurchaseOrder(){
   if(docListPage.po<1) docListPage.po=1;
   const start=(docListPage.po-1)*DOC_LIST_PAGE_SIZE;
   const pageDocs=allDocs.slice(start,start+DOC_LIST_PAGE_SIZE);
-  return `<div class="pagehead"><div><h1>สั่งของขาด <span class="page-title-meta">บันทึกรายการสินค้าที่ต้องแจ้งสั่งกับผู้แทน · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newPOBtn">+ สร้างรายการสั่งของขาด</button></div>
+  return `<div class="pagehead"><div><h1>สั่งซื้อสินค้า <span class="page-title-meta">บันทึกรายการสินค้าที่ต้องแจ้งสั่งกับผู้แทน · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newPOBtn">+ สร้างรายการสั่งซื้อ</button></div>
   ${documentBulkToolbar('po')}
   <div class="doc-list-wrap">
   <table class="grid-table doc-list po-doc-list"><colgroup><col style="width:42px"><col style="width:100px"><col style="width:130px"><col style="width:170px"><col style="width:340px"><col style="width:130px"><col style="width:130px"><col style="width:90px"><col style="width:56px"></colgroup><thead><tr><th style="width:42px;"><input class="doc-check" type="checkbox" aria-label="เลือกทั้งหมด"></th><th>${documentSortHeader('po','date','วันที่สั่ง')}</th><th>${documentSortHeader('po','supplier','ชื่อผู้แทน')}</th><th>ข้อมูลติดต่อ</th><th>รายการสั่งของ</th><th>หมายเหตุ</th><th>${documentSortHeader('po','status','สถานะ')}</th><th>${documentSortHeader('po','elapsed','ผ่านมาแล้ว')}</th><th style="width:56px;"></th></tr></thead>
   <tbody>${pageDocs.map(po=>`<tr>
     <td style="text-align:center;"><input class="doc-check" type="checkbox" value="${escapeHtml(po.id)}" aria-label="เลือก ${escapeHtml(po.id)}"></td><td style="text-align:center;">${escapeHtml(fmtDate(po.date))}</td><td style="text-align:center;">${escapeHtml(po.supplier)}</td><td style="text-align:center;">${shortageRepresentativeContact(po.supplier)}</td>
     <td>${shortageAllItems(po.items,po.id)}</td><td>${escapeHtml(po.note||'-')}</td><td style="text-align:center;">${documentStatusControl('po',po)}</td><td style="text-align:center;"><span class="elapsed-days">${elapsedDaysSince(po.date)} วัน</span></td>
-    <td style="text-align:center;"><button class="shortage-edit-btn" data-act="editpo" data-id="${escapeHtml(po.id)}" title="แก้ไขรายการ" aria-label="แก้ไข ${escapeHtml(po.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button></td></tr>${expandableDocumentItemsDetailRow('shortage',po.id,po.items,9)}`).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px;">ยังไม่มีรายการสั่งของขาด</td></tr>'}</tbody></table>
+    <td style="text-align:center;"><button class="shortage-edit-btn" data-act="editpo" data-id="${escapeHtml(po.id)}" title="แก้ไขรายการ" aria-label="แก้ไข ${escapeHtml(po.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button></td></tr>${expandableDocumentItemsDetailRow('shortage',po.id,po.items,9)}`).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px;">ยังไม่มีรายการสั่งซื้อสินค้า</td></tr>'}</tbody></table>
   </div>
   ${pagerHtml(docListPage.po, totalPages, 'docpage-po')}`;
 }
@@ -6097,8 +6094,7 @@ function renderPOForm(kind='po'){
   if(!['incl','excl','none'].includes(po.taxMode)) po.taxMode='incl';
   const docLabel=docLabelText(kind);
   if(kind==='gr'&&!Number(po.warehouseId)) po.warehouseId=goodsReceiptWarehouseId(po);
-  const supplierOptions=suppliersList();
-  const supplierObj = supplierOptions.find(s=>s.name===po.supplier);
+  const supplierObj = suppliersList().find(s=>s.name===po.supplier);
   const canEditSupplierInline=kind!=='gr'||loggedInUser()?.owner===true;
   const discount = po.discount||0;
   const tax = calculatePurchaseTaxSummary(po.items,discount,po.taxMode);
@@ -6109,7 +6105,7 @@ function renderPOForm(kind='po'){
     <div class="po-head">
       <div class="po-head-left">
         <div class="crow"><label>ชื่อผู้จำหน่าย <span class="req">*</span></label>
-          <div class="po-supplier-pick"><select id="po_supplier"><option value="">เลือกผู้จำหน่าย</option>${po.supplier&&!supplierOptions.some(s=>s.name===po.supplier)?`<option value="${escapeHtml(po.supplier)}" selected>${escapeHtml(po.supplier)} (จากรายการจดสั่ง)</option>`:''}${supplierOptions.map(s=>`<option value="${escapeHtml(s.name)}" ${po.supplier===s.name?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}</select>${canEditSupplierInline?`<button class="btn ghost small" id="editPOSupplierBtn" type="button" ${supplierObj?'':'disabled'}>${poSupplierEditorOpen?'ปิด':'แก้ไขข้อมูล'}</button>`:''}</div></div>
+          <div class="po-supplier-pick"><select id="po_supplier"><option value="">เลือกผู้จำหน่าย</option>${suppliersList().map(s=>`<option value="${escapeHtml(s.name)}" ${po.supplier===s.name?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}</select>${canEditSupplierInline?`<button class="btn ghost small" id="editPOSupplierBtn" type="button" ${supplierObj?'':'disabled'}>${poSupplierEditorOpen?'ปิด':'แก้ไขข้อมูล'}</button>`:''}</div></div>
         ${kind==='gr'?`<div class="crow"><label>รับเข้าคลัง / สาขา <span class="req">*</span></label><select id="po_warehouse" ${po.stockApplied===true?'disabled':''}><option value="">เลือกคลัง / สาขา</option>${accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${Number(po.warehouseId)===Number(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>`:''}
         ${canEditSupplierInline&&supplierObj&&poSupplierEditorOpen?poSupplierEditorHtml(supplierObj):''}
         <div class="crow"><label>ที่อยู่</label><div class="po-addr">${supplierObj?escapeHtml(supplierObj.address||'-'):'(เลือกผู้จำหน่ายเพื่อแสดงที่อยู่)'}</div></div>
@@ -6144,59 +6140,6 @@ function renderPOForm(kind='po'){
       </div>
     </div>
     <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePOBtn">บันทึกเอกสาร</button></div>`;
-}
-
-function purchaseOrderDraftFromShortage(shortage){
-  const representative=salesRepresentatives.find(rep=>rep.name===shortage?.supplier);
-  const candidates=[representative?.company,shortage?.supplier].map(value=>String(value||'').trim()).filter(Boolean);
-  const supplier=suppliersList().find(contact=>candidates.some(candidate=>candidate.localeCompare(String(contact.name||'').trim(),'th',{sensitivity:'base'})===0));
-  const supplierName=supplier?.name||candidates[0]||'';
-  const credit=Math.max(0,Number(supplier?.creditDays)||0);
-  const date=shortage?.date||TODAY_STR;
-  const items=(shortage?.items||[]).filter(item=>item?.name&&Number(item.qty)>0).map(item=>{
-    const product=products.find(entry=>Number(entry.id)===Number(item.productId))||products.find(entry=>entry.name===item.name);
-    return {productId:product?.id||'',name:item.name,qty:Number(item.qty)||0,unit:item.unit||product?.unit||'',price:''};
-  });
-  return {
-    id:buildDocNumber(docPrefix('po2'),docCounter('po2')),
-    supplier:supplierName,
-    date,
-    credit,
-    dueDate:addDaysToDate(date,credit),
-    items,
-    note:shortage?.note||'',
-    discount:0,
-    taxMode:'incl',
-    supplierTaxInvoiceNo:'',
-    supplierTaxInvoiceDate:'',
-    sourceShortageId:String(shortage?.id||'')
-  };
-}
-
-async function createPurchaseOrderFromShortage(){
-  if(currentTab!=='purchaseorder') return;
-  const button=document.getElementById('createPurchaseOrderFromShortageBtn');
-  if(button) button.disabled=true;
-  const shortageId=await savePO(true);
-  if(!shortageId){ if(button) button.disabled=false; return; }
-  const existing=purchaseOrdersFull.find(doc=>String(doc.sourceShortageId||'')===String(shortageId));
-  editingPOId=null;
-  poDraft=null;
-  poRepresentativeEditorId=null;
-  poSupplierEditorOpen=false;
-  currentTab='purchaseorder2';
-  if(existing){
-    editingPO2Id=existing.id;
-    po2Draft=null;
-    render();
-    showToast(`รายการนี้สร้างเป็น ${existing.id} แล้ว ระบบเปิดใบเดิมให้แก้ไข`);
-    return;
-  }
-  const shortage=purchaseOrders.find(doc=>doc.id===shortageId);
-  editingPO2Id='new';
-  po2Draft=purchaseOrderDraftFromShortage(shortage);
-  render();
-  showToast('นำข้อมูลมาใส่ในใบสั่งซื้อแล้ว กรุณาตรวจผู้จำหน่ายและราคาก่อนบันทึก');
 }
 
 function documentProductScannerHtml(hideHint=false){
@@ -6299,7 +6242,7 @@ async function openShortageManagedProductsModal(){
 
 function renderShortageOrderForm(po,isNew){
   const representative=salesRepresentatives.find(rep=>rep.name===po.supplier);
-  return `<div class="pagehead"><div><div class="breadcrumb">สั่งของขาด › ${isNew?'สร้างรายการ':'แก้ไขรายการ'}</div><h1>${escapeHtml(po.id)}</h1></div></div>
+  return `<div class="pagehead"><div><div class="breadcrumb">สั่งซื้อสินค้า › ${isNew?'สร้างรายการ':'แก้ไขรายการ'}</div><h1>${escapeHtml(po.id)}</h1></div></div>
     <div class="panel"><div class="shortage-form-grid">
       <div class="shortage-form-main">
         <div class="shortage-form-controls">
@@ -6317,7 +6260,7 @@ function renderShortageOrderForm(po,isNew){
     <div class="shortage-section-title">รายการที่สั่ง</div>
     <table class="grid-table po-items shortage-document-items"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th style="width:48px;"></th></tr></thead><tbody id="poItemRows">${po.items.map((it,i)=>shortageItemRowHtml(it,i)).join('')}</tbody></table>
     <button class="btn ghost small" id="addPOItemBtn" style="margin-top:8px;">+ เพิ่มแถวรายการ</button>
-    <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ปิดหน้าต่าง</button><button class="btn ghost" id="createPurchaseOrderFromShortageBtn">สร้างใบสั่งซื้อจากรายการนี้</button><button class="btn primary" id="savePOBtn">บันทึกเอกสาร</button></div>`;
+    <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePOBtn">บันทึกเอกสาร</button></div>`;
 }
 
 function renderProductReturnForm(po,isNew){
@@ -6478,23 +6421,6 @@ function poSupplierEditorHtml(s){
     </div>
     <div class="po-supplier-edit-actions"><button class="btn ghost small" id="cancelPOSupplierEditBtn" type="button">ยกเลิก</button><button class="btn primary small" id="savePOSupplierEditBtn" type="button">บันทึกข้อมูลผู้จำหน่าย</button></div>
   </div>`;
-}
-
-function renderPurchaseOrder2(){
-  if(editingPO2Id!==null) return renderPOForm('po2');
-  const allDocs=sortedDocuments(purchaseOrdersFull,'po2');
-  const totalPages=Math.max(1, Math.ceil(allDocs.length/DOC_LIST_PAGE_SIZE));
-  if(docListPage.po2>totalPages) docListPage.po2=totalPages;
-  if(docListPage.po2<1) docListPage.po2=1;
-  const start=(docListPage.po2-1)*DOC_LIST_PAGE_SIZE;
-  const pageDocs=allDocs.slice(start,start+DOC_LIST_PAGE_SIZE);
-  return `<div class="pagehead"><div><h1>ใบสั่งซื้อสินค้า <span class="page-title-meta">สร้างใบสั่งซื้อสินค้ากับผู้จำหน่าย · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newPO2Btn">+ สร้างใบสั่งซื้อสินค้า</button></div>
-  ${documentBulkToolbar('po2')}
-  <div class="doc-list-wrap">
-  <table class="grid-table doc-list po2-doc-list"><colgroup><col style="width:42px"><col style="width:120px"><col style="width:160px"><col style="width:180px"><col style="width:260px"><col style="width:120px"><col style="width:110px"><col style="width:130px"><col style="width:126px"></colgroup><thead><tr><th style="width:42px;"><input class="doc-check" type="checkbox" aria-label="เลือกทั้งหมด"></th><th>${documentSortHeader('po2','date','วันที่')}</th><th>${documentSortHeader('po2','id','เลขที่เอกสาร')}</th><th>${documentSortHeader('po2','supplier','ชื่อผู้จำหน่าย')}</th><th>รายการ</th><th>${documentSortHeader('po2','due','วันครบกำหนด')}</th><th class="mono">${documentSortHeader('po2','total','ยอดรวม')}</th><th>${documentSortHeader('po2','status','สถานะ')}</th><th style="width:126px;"></th></tr></thead>
-  <tbody>${pageDocs.map(g=>`<tr><td style="text-align:center;"><input class="doc-check" type="checkbox" value="${escapeHtml(g.id)}" aria-label="เลือก ${escapeHtml(g.id)}"></td><td style="text-align:center;">${escapeHtml(fmtDate(g.date))}</td><td class="mono" style="text-align:center;">${escapeHtml(g.id)}</td><td style="text-align:center;">${escapeHtml(g.supplier)}</td><td>${documentItemsPreview(g.items)}</td><td style="text-align:center;">${documentDueBadge(g)}</td><td class="mono num" style="text-align:center;">${fmtMoney(g.total)}</td><td style="text-align:center;">${documentStatusControl('po2',g)}</td><td style="text-align:center;"><div class="history-actions"><button class="history-icon-btn po2-edit-btn" data-doc-action="edit" data-kind="po2" data-id="${escapeHtml(g.id)}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(g.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn" data-doc-action="print" data-kind="po2" data-id="${escapeHtml(g.id)}" title="พิมพ์" aria-label="พิมพ์ ${escapeHtml(g.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg></button><button class="history-icon-btn danger" data-doc-action="delete" data-kind="po2" data-id="${escapeHtml(g.id)}" title="ลบ" aria-label="ลบ ${escapeHtml(g.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td></tr>`).join('')||`<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px;">ยังไม่มีใบสั่งซื้อสินค้า</td></tr>`}</tbody></table>
-  </div>
-  ${pagerHtml(docListPage.po2, totalPages, 'docpage-po2')}`;
 }
 
 function renderProductReturn(){
@@ -11786,7 +11712,7 @@ function auditLogDateTime(value){
   return `${pad(date.getDate())}-${pad(date.getMonth()+1)}-${date.getFullYear()} / ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 function auditEntityLabel(type){
-  return ({products:'สินค้า',product:'สินค้า',warehouses:'คลังสินค้า',settings:'การตั้งค่า',contacts:'สมุดรายชื่อ',sales_representatives:'ผู้แทนขาย',notes:'NOTE / ผู้แทน',promotions:'โปรโมชั่น',sales:'บิลขาย',cash_shifts:'กะขาย',quotations:'ใบเสนอราคา',invoices_ar:'ใบแจ้งหนี้',credit_notes:'ใบลดหนี้',purchase_orders:'สั่งของขาด',goods_receipts:'ใบรับสินค้า',product_exchanges:'เปลี่ยนสินค้า',purchase_orders_full:'ใบสั่งซื้อสินค้า',product_returns:'ใบคืนสินค้า',transfers:'โอนสินค้าระหว่างคลัง',standalone_tax_invoices:'ใบกำกับภาษี',inspection_lists:'รายการตรวจสินค้า',profiles:'ผู้ใช้งาน',profile_warehouse_access:'สิทธิ์คลังสินค้า',inventory_count:'ปรับสต๊อก',inventory_lot:'Lot สินค้า',store_reset:'ล้างข้อมูลระบบ'})[type]||type||'-';
+  return ({products:'สินค้า',product:'สินค้า',warehouses:'คลังสินค้า',settings:'การตั้งค่า',contacts:'สมุดรายชื่อ',sales_representatives:'ผู้แทนขาย',notes:'NOTE / ผู้แทน',promotions:'โปรโมชั่น',sales:'บิลขาย',cash_shifts:'กะขาย',quotations:'ใบเสนอราคา',invoices_ar:'ใบแจ้งหนี้',credit_notes:'ใบลดหนี้',purchase_orders:'สั่งซื้อสินค้า',goods_receipts:'ใบรับสินค้า',product_exchanges:'เปลี่ยนสินค้า',purchase_orders_full:'เอกสารซื้อเดิม',product_returns:'ใบคืนสินค้า',transfers:'โอนสินค้าระหว่างคลัง',standalone_tax_invoices:'ใบกำกับภาษี',inspection_lists:'รายการตรวจสินค้า',profiles:'ผู้ใช้งาน',profile_warehouse_access:'สิทธิ์คลังสินค้า',inventory_count:'ปรับสต๊อก',inventory_lot:'Lot สินค้า',store_reset:'ล้างข้อมูลระบบ'})[type]||type||'-';
 }
 function auditActionLabel(action){
   return ({insert:'สร้าง',update:'แก้ไข',delete:'ลบ',stock_adjusted:'ปรับสต๊อก',unit_changed:'เปลี่ยนหน่วยหลัก',lot_expiry_changed:'แก้วันหมดอายุ Lot',lot_reallocated:'ปรับจำนวนแยก Lot',store_reset:'ล้างข้อมูล'})[action]||action||'-';
@@ -11944,7 +11870,7 @@ function prepareScrollableTables(mainElement=document.getElementById('main')){
 
 const TAB_DOCUMENT_TABLES={
   quotation:['quotations'],invoice:['invoices_ar'],creditnote:['credit_notes'],purchaseorder:['purchase_orders'],
-  goodsreceipt:['goods_receipts'],productexchange:['product_exchanges'],purchaseorder2:['purchase_orders_full'],
+  goodsreceipt:['goods_receipts'],productexchange:['product_exchanges'],
   productreturn:['product_returns'],transfer:['transfers'],taxinvoice:['standalone_tax_invoices'],
   rtax:['goods_receipts'],
 };
@@ -12050,7 +11976,7 @@ function attachOnDemandStateEvents(state){
 const RENDERERS = {
   mobiletools: renderMobileTools,
   dashboard: renderDashboard, checkout: renderCheckout, notes: renderNotes, cashshift: renderCashShift, cashbill: renderCashBills, taxinvoice: renderTaxInvoices, quotation: renderQuotation, invoice: renderInvoice,
-  creditnote: renderCreditNote, history: renderHistory, purchaseorder: renderPurchaseOrder, purchaseorder2: renderPurchaseOrder2, productreturn: renderProductReturn, goodsreceipt: renderGoodsReceipt, productexchange: renderProductExchange,
+  creditnote: renderCreditNote, history: renderHistory, purchaseorder: renderPurchaseOrder, productreturn: renderProductReturn, goodsreceipt: renderGoodsReceipt, productexchange: renderProductExchange,
   products: renderProducts, stockcontrol: renderStockControl, barcodeprint: renderBarcodePrint, warehouse: renderWarehouse, transfer: renderTransfer, lowstock: renderLowStock, expiry: renderExpiry, promotions: renderPromotions,
   contacts: renderContacts, salesreps: renderSalesRepresentatives, representativehistory: renderRepresentativeHistoryOverview, rproduct: renderRProduct, rbill: renderRBill, rprofit: renderRProfit, rtax: renderRTax,
   inventorymovement: renderInventoryMovement, rinventory: renderRInventory, settingsbusiness: renderBusinessSettings, settingsuser: renderUserSettings, settingsusers: renderSystemUsers, auditlog: renderAuditLog, settingssystem: renderSystemSettings,
@@ -12064,6 +11990,7 @@ function render(){
   document.title=mobileMode?'PEPOS':'ร้านยา POS v50';
   if(mobileMode) currentTab='mobiletools';
   else if(currentTab==='mobiletools') currentTab='dashboard';
+  if(currentTab==='purchaseorder2') currentTab='purchaseorder';
   if(currentTab!=='checkout') posSalesHistoryModalOpen=false;
   if(!canAccessTab(currentTab)){
     currentTab='dashboard';
@@ -14239,8 +14166,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(newPOBtn) newPOBtn.addEventListener('click', ()=>{ editingPOId='new'; poDraft=null; poSupplierEditorOpen=false; poRepresentativeEditorId=null; render(); });
   const newGRBtn = document.getElementById('newGRBtn');
   if(newGRBtn) newGRBtn.addEventListener('click', ()=>{ editingGRId='new'; grDraft=null; poSupplierEditorOpen=false; render(); });
-  const newPO2Btn = document.getElementById('newPO2Btn');
-  if(newPO2Btn) newPO2Btn.addEventListener('click', ()=>{ editingPO2Id='new'; po2Draft=null; poSupplierEditorOpen=false; render(); });
   const newReturnBtn=document.getElementById('newReturnBtn');
   if(newReturnBtn) newReturnBtn.addEventListener('click',()=>{ editingReturnId='new'; returnDraft=null; poSupplierEditorOpen=false; render(); });
   const newProductExchangeBtn=document.getElementById('newProductExchangeBtn');
@@ -14283,8 +14208,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(cancelPOBtn) cancelPOBtn.addEventListener('click', ()=>{ const kind=currentDocKind(); setDocEditingId(kind,null); setDocDraft(kind,null); poSupplierEditorOpen=false; poRepresentativeEditorId=null; render(); });
   const savePOBtn = document.getElementById('savePOBtn');
   if(savePOBtn) savePOBtn.addEventListener('click', async()=>{ await savePO(false); });
-  const createPurchaseOrderFromShortageBtn=document.getElementById('createPurchaseOrderFromShortageBtn');
-  if(createPurchaseOrderFromShortageBtn) createPurchaseOrderFromShortageBtn.addEventListener('click',createPurchaseOrderFromShortage);
   const printPOFormBtn = document.getElementById('printPOFormBtn');
   if(printPOFormBtn) printPOFormBtn.addEventListener('click', async()=>{ const kind=currentDocKind(); const saved=await savePO(true); if(saved) printPO(saved,kind); });
   const addPOItemBtn = document.getElementById('addPOItemBtn');
@@ -14631,12 +14554,12 @@ function updateDocumentSelectionUI(){
 function selectedDocumentIds(){ return [...document.querySelectorAll('.doc-list tbody .doc-check:checked')].map(box=>box.value); }
 function deleteShortageOrders(ids){
   ids=[...new Set(ids||[])].filter(Boolean); if(!ids.length) return;
-  const message=ids.length===1?'ยืนยันลบรายการสั่งของขาดนี้หรือไม่?':`ยืนยันลบรายการสั่งของขาดที่เลือกทั้งหมด ${ids.length} รายการหรือไม่?`;
+  const message=ids.length===1?'ยืนยันลบรายการสั่งซื้อนี้หรือไม่?':`ยืนยันลบรายการสั่งซื้อที่เลือกทั้งหมด ${ids.length} รายการหรือไม่?`;
   if(!confirm(message)) return;
   let deleted=0;
   for(let i=purchaseOrders.length-1;i>=0;i--){ if(ids.includes(purchaseOrders[i].id)){ purchaseOrders.splice(i,1); deleted++; } }
   persistWorkspaceData();
-  showToast(`ลบรายการสั่งของขาด ${deleted} รายการแล้ว`);
+  showToast(`ลบรายการสั่งซื้อ ${deleted} รายการแล้ว`);
   render();
 }
 function documentHasPostedStock(kind,doc){
@@ -14650,15 +14573,6 @@ function refusePostedDocumentDeletion(kind,doc){
   if(!documentHasPostedStock(kind,doc)) return false;
   showToast(`ลบ ${doc.id||'เอกสารนี้'} ไม่ได้ เพราะเอกสารนี้เคยส่งผลต่อสต๊อกแล้ว กรุณาเก็บไว้เป็นประวัติ`,'danger');
   return true;
-}
-function restoreShortageStatusAfterPurchaseOrderDeletion(deletedDocuments){
-  const remainingSourceIds=new Set(purchaseOrdersFull.map(doc=>String(doc.sourceShortageId||'')).filter(Boolean));
-  (deletedDocuments||[]).forEach(doc=>{
-    const sourceId=String(doc?.sourceShortageId||'');
-    if(!sourceId||remainingSourceIds.has(sourceId)) return;
-    const shortage=purchaseOrders.find(item=>String(item.id)===sourceId);
-    if(shortage?.status==='สั่งแล้ว') shortage.status='รอสั่งของ';
-  });
 }
 function deleteSelectedDocuments(kind,ids){
   ids=[...new Set(ids||[])].filter(Boolean);
@@ -14691,7 +14605,6 @@ function deleteSelectedDocuments(kind,ids){
       :`ยืนยันลบ${label}ที่เลือกทั้งหมด ${selected.length} รายการหรือไม่?`;
     if(!confirm(message)) return;
     for(let index=list.length-1;index>=0;index--){ if(ids.includes(list[index].id)) list.splice(index,1); }
-    if(kind==='po2') restoreShortageStatusAfterPurchaseOrderDeletion(selected);
     persistWorkspaceData();
     showToast(`ลบ${label} ${selected.length} รายการแล้ว`);
     render();
@@ -15041,7 +14954,6 @@ async function savePO(silent=false){
     }
   }
   const rec={ id:draft.id, _revision:Number(old?._revision)||0, supplier:draft.supplier, date:draft.date, credit:kind==='ret'?0:(styled?(draft.credit||0):0), dueDate:kind==='ret'?'':(styled?addDaysToDate(draft.date,draft.credit||0):''), items:savedItems, discount:kind==='ret'?0:(styled?(draft.discount||0):0), total:kind==='ret'?0:tax.total, taxMode:kind==='ret'?'none':(styled?(draft.taxMode||'incl'):'none'), taxSummary:kind==='ret'?calculatePurchaseTaxSummary([],0,'none'):(styled?tax:null), supplierTaxInvoiceNo:styled?(draft.supplierTaxInvoiceNo||''):'', supplierTaxInvoiceDate:styled?(draft.supplierTaxInvoiceDate||''):'', businessSnapshot:old?.businessSnapshot||businessDocumentSnapshot(), note:draft.note||'', status:old?.status||docDefaultStatus(kind), ...(kind==='gr'?{warehouseId:Number(draft.warehouseId),stockApplied:old?.stockApplied===true,stockAppliedAt:old?.stockAppliedAt||'',createdByUserId:old?.createdByUserId||String(currentProfile?.id||'')}:kind==='ret'?{warehouseId:Number(draft.warehouseId),stockApplied:old?.stockApplied===true,stockAppliedAt:old?.stockAppliedAt||''}:{}) };
-  if(kind==='po2'&&draft.sourceShortageId) rec.sourceShortageId=String(draft.sourceShortageId);
   if(kind==='gr'){
     const saveButton=document.getElementById('savePOBtn');
     if(saveButton) saveButton.disabled=true;
@@ -15068,10 +14980,6 @@ async function savePO(silent=false){
     }
   }
   if(kind==='gr') seedTableSnapshot('goods_receipts',goodsReceipts,docToRow);
-  if(kind==='po2'&&rec.sourceShortageId){
-    const source=purchaseOrders.find(doc=>String(doc.id)===String(rec.sourceShortageId));
-    if(source) source.status='สั่งแล้ว';
-  }
   const savedId=rec.id;
   persistWorkspaceData();
   if(!silent){ setDocEditingId(kind,null); setDocDraft(kind,null); if(kind==='po') poRepresentativeEditorId=null; showToast(`บันทึก${docLabelText(kind)}แล้ว`); render(); }
@@ -15095,7 +15003,6 @@ async function handleDocumentAction(kind,id,action){
   if(action==='duplicate'&&kind!=='gr'){
     const copy=JSON.parse(JSON.stringify(doc));
     copy.id=docPrefix(kind)+TODAY_STR.replace(/-/g,'')+String(docCounter(kind)).padStart(4,'0'); copy.date=TODAY_STR; copy.dueDate=addDaysToDate(copy.date,copy.credit||0); copy.status=docDefaultStatus(kind);
-    if(kind==='po2') delete copy.sourceShortageId;
     if(kind==='ret'){
       copy.items=normalizeGoodsReceiptItems(copy.items,copy.warehouseId).map((item,index)=>({...item,lineId:String(index+1),lotId:null,lotNumber:'',expiry:''}));
       copy.status='รอรับคืน';
@@ -15124,7 +15031,6 @@ async function handleDocumentAction(kind,id,action){
         }
       }
       const idx=list.findIndex(x=>x.id===id); if(idx>-1) list.splice(idx,1);
-      if(kind==='po2') restoreShortageStatusAfterPurchaseOrderDeletion([doc]);
       if(kind==='gr') seedTableSnapshot('goods_receipts',goodsReceipts,docToRow);
       persistWorkspaceData();
       showToast(`ลบ ${doc.id} แล้ว`);

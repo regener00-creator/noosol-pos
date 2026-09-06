@@ -60,20 +60,14 @@ let browser;
       {id:102,name:'ยา B',sku:'B-102',barcode:'885000102',unit:'ขวด',price:200,cost:100,stock:10,units:[],extraBarcodes:[],vendorBarcodes:[],active:true},
       {id:103,name:'ยา C',sku:'C-103',barcode:'885000103',unit:'ชิ้น',price:300,cost:150,stock:10,units:[],extraBarcodes:[],vendorBarcodes:[],active:true},
     ];
-    salesRepresentatives=[{id:10,name:'PEPO',phone:'0812345678',line:'pepo',company:'บริษัท PEPO',note:''}];
-    contacts=[{id:20,name:'บริษัท PEPO',types:['supplier'],creditDays:15,address:'กรุงเทพฯ',taxId:'',phone:'',line:'',email:''}];
+    salesRepresentatives=[{id:10,name:'PEPO',phone:'0812345678',line:'pepo',note:''}];
     representativeProductAssignments=[];
     purchaseOrders=[];
-    purchaseOrdersFull=[];
     currentTab='purchaseorder';
     editingPOId='new';
-    editingPO2Id=null;
-    po2Draft=null;
     poDraft={id:'SH202609060001',supplier:'PEPO',date:'2026-09-06',credit:0,dueDate:'',items:[{name:'',qty:1,unit:'',price:''}],note:'',discount:0,taxMode:'none'};
     render=()=>{
-      document.getElementById('main').innerHTML=currentTab==='purchaseorder2'
-        ? (editingPO2Id===null?renderPurchaseOrder2():renderPOForm('po2'))
-        : (editingPOId===null?renderPurchaseOrder():renderPOForm('po'));
+      document.getElementById('main').innerHTML=renderPOForm();
       attachEvents();
     };
     render();
@@ -124,21 +118,7 @@ let browser;
   assert.deepEqual(await page.locator('#poItemRows .poi_name').evaluateAll(inputs=>inputs.map(input=>input.value)), ['ยา A','ยา B']);
   await page.locator('#closeShortageManagedProductsBtn').click();
   assert.equal(await page.locator('.shortage-managed-products-modal').count(), 0);
-  await page.locator('#po_note').fill('สั่งรอบเย็น');
-  await page.locator('#createPurchaseOrderFromShortageBtn').click();
-  await page.waitForSelector('#po_tax_mode');
-  assert.equal(await page.locator('#po_supplier').inputValue(), 'บริษัท PEPO');
-  assert.equal(await page.locator('#po_date').inputValue(), '07/09/2026');
-  assert.equal(await page.locator('#po_credit').inputValue(), '15');
-  assert.deepEqual(await page.locator('#poItemRows .poi_name').evaluateAll(inputs=>inputs.map(input=>input.value)), ['ยา A','ยา B']);
-  assert.deepEqual(await page.locator('#poItemRows .poi_qty').evaluateAll(inputs=>inputs.map(input=>input.value)), ['2','1']);
-  assert.deepEqual(await page.locator('#poItemRows .poi_price').evaluateAll(inputs=>inputs.map(input=>input.value)), ['','']);
-  assert.equal(await page.locator('#po_note').inputValue(), 'สั่งรอบเย็น');
-  assert.deepEqual(await page.evaluate(()=>({shortageCount:purchaseOrders.length,formalCount:purchaseOrdersFull.length,status:purchaseOrders[0]?.status})), {shortageCount:1,formalCount:0,status:'รอสั่งของ'}, 'รายการต้นทางต้องยังอยู่และยังไม่เปลี่ยนสถานะก่อนบันทึกใบสั่งซื้อ');
-  await page.locator('#savePOBtn').click();
-  await page.waitForSelector('#newPO2Btn');
-  assert.deepEqual(await page.evaluate(()=>({formalCount:purchaseOrdersFull.length,sourceId:purchaseOrdersFull[0]?.sourceShortageId,status:purchaseOrders[0]?.status})), {formalCount:1,sourceId:'SH202609060001',status:'สั่งแล้ว'});
-  assert.equal(await page.evaluate(()=>purchaseOrdersFull[0].items.every(item=>item.productId)), true, 'รายการในใบสั่งซื้อต้องเชื่อมกับสินค้าเดิม');
+  assert.equal(await page.locator('#createPurchaseOrderFromShortageBtn').count(), 0, 'หน้าสั่งซื้อสินค้าต้องไม่มีปุ่มสร้างเอกสารซ้ำ');
   assert.deepEqual(errors, [], `พบ JavaScript error: ${errors.join(' | ')}`);
   console.log('shortage managed products browser tests passed');
 })().catch(error=>{ console.error(error); process.exitCode=1; }).finally(async()=>{
