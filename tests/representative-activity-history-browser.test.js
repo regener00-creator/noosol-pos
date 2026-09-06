@@ -150,6 +150,8 @@ let browser;
   assert.match(profileText,/บริษัท\s*บริษัทตัวแทน A/);
   assert.match(profileText,/ข้อมูลเพิ่มเติม\s*ดูแลเขตกรุงเทพฯ/);
   assert.equal(await page.locator('.representative-profile-info-trigger>span').evaluate(element=>getComputedStyle(element).webkitLineClamp),'5');
+  assert.equal(await page.locator('.representative-profile-info-trigger>span').evaluate(element=>getComputedStyle(element).fontWeight),'400');
+  assert.doesNotMatch(await page.locator('.representative-profile-info-trigger').textContent(),/คลิกเพื่อดูทั้งหมด/);
   await page.locator('.representative-profile-info-trigger').click();
   assert.equal(await page.locator('.representative-info-modal').count(),1);
   assert.match(await page.locator('.representative-info-body').textContent(),/ข้อมูลบรรทัด 6/,'popup must show the complete additional information');

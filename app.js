@@ -4779,7 +4779,7 @@ function representativeProfileHtml(group){
   const field=(label,value,className='')=>`<div class="representative-profile-field ${className}">${label?`<span>${label}</span>`:''}<div>${value}</div></div>`;
   const additionalInfo=String(representative.note||'').trim();
   const additionalInfoHtml=additionalInfo
-    ?`<button type="button" class="representative-profile-info-trigger" data-view-representative-info="${representative.id}" title="คลิกเพื่อดูข้อมูลทั้งหมด"><span>${escapeHtml(additionalInfo).replace(/\r?\n/g,'<br>')}</span><small>คลิกเพื่อดูทั้งหมด</small></button>`
+    ?`<button type="button" class="representative-profile-info-trigger" data-view-representative-info="${representative.id}" title="เปิดดูข้อมูลเพิ่มเติม"><span>${escapeHtml(additionalInfo).replace(/\r?\n/g,'<br>')}</span></button>`
     :'-';
   return `<section class="representative-profile-panel">
     ${field('ชื่อผู้แทน',`<strong>${escapeHtml(representative.name||'-')}</strong>`,'representative-profile-name')}

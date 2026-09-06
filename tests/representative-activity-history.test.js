@@ -100,6 +100,8 @@ assert.match(html, /\.representative-profile-contact>div\{font-weight:700;\}/);
 assert.match(html, /\.representative-profile-products-trigger\{[^}]*font-size:17px;/);
 assert.match(representativeProfileRender, /data-view-representative-info=/);
 assert.match(html, /\.representative-profile-info-trigger>span\{[^}]*-webkit-line-clamp:5;/);
+assert.match(html, /\.representative-profile-info-trigger>span\{[^}]*font-weight:400;/);
+assert.doesNotMatch(representativeProfileRender, /คลิกเพื่อดูทั้งหมด/);
 assert.match(html, /function openRepresentativeAdditionalInfo\(/);
 assert.match(html, /\.representative-note-head span\{[^}]*font-weight:600;/);
 assert.match(html, /\.representative-note-list-line small\{[^}]*font-weight:600;/);
