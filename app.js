@@ -6097,7 +6097,8 @@ function renderPOForm(kind='po'){
   if(!['incl','excl','none'].includes(po.taxMode)) po.taxMode='incl';
   const docLabel=docLabelText(kind);
   if(kind==='gr'&&!Number(po.warehouseId)) po.warehouseId=goodsReceiptWarehouseId(po);
-  const supplierObj = suppliersList().find(s=>s.name===po.supplier);
+  const supplierOptions=suppliersList();
+  const supplierObj = supplierOptions.find(s=>s.name===po.supplier);
   const canEditSupplierInline=kind!=='gr'||loggedInUser()?.owner===true;
   const discount = po.discount||0;
   const tax = calculatePurchaseTaxSummary(po.items,discount,po.taxMode);
@@ -6108,7 +6109,7 @@ function renderPOForm(kind='po'){
     <div class="po-head">
       <div class="po-head-left">
         <div class="crow"><label>ชื่อผู้จำหน่าย <span class="req">*</span></label>
-          <div class="po-supplier-pick"><select id="po_supplier"><option value="">เลือกผู้จำหน่าย</option>${suppliersList().map(s=>`<option value="${escapeHtml(s.name)}" ${po.supplier===s.name?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}</select>${canEditSupplierInline?`<button class="btn ghost small" id="editPOSupplierBtn" type="button" ${supplierObj?'':'disabled'}>${poSupplierEditorOpen?'ปิด':'แก้ไขข้อมูล'}</button>`:''}</div></div>
+          <div class="po-supplier-pick"><select id="po_supplier"><option value="">เลือกผู้จำหน่าย</option>${po.supplier&&!supplierOptions.some(s=>s.name===po.supplier)?`<option value="${escapeHtml(po.supplier)}" selected>${escapeHtml(po.supplier)} (จากรายการจดสั่ง)</option>`:''}${supplierOptions.map(s=>`<option value="${escapeHtml(s.name)}" ${po.supplier===s.name?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}</select>${canEditSupplierInline?`<button class="btn ghost small" id="editPOSupplierBtn" type="button" ${supplierObj?'':'disabled'}>${poSupplierEditorOpen?'ปิด':'แก้ไขข้อมูล'}</button>`:''}</div></div>
         ${kind==='gr'?`<div class="crow"><label>รับเข้าคลัง / สาขา <span class="req">*</span></label><select id="po_warehouse" ${po.stockApplied===true?'disabled':''}><option value="">เลือกคลัง / สาขา</option>${accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${Number(po.warehouseId)===Number(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>`:''}
         ${canEditSupplierInline&&supplierObj&&poSupplierEditorOpen?poSupplierEditorHtml(supplierObj):''}
         <div class="crow"><label>ที่อยู่</label><div class="po-addr">${supplierObj?escapeHtml(supplierObj.address||'-'):'(เลือกผู้จำหน่ายเพื่อแสดงที่อยู่)'}</div></div>
@@ -6143,6 +6144,59 @@ function renderPOForm(kind='po'){
       </div>
     </div>
     <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePOBtn">บันทึกเอกสาร</button></div>`;
+}
+
+function purchaseOrderDraftFromShortage(shortage){
+  const representative=salesRepresentatives.find(rep=>rep.name===shortage?.supplier);
+  const candidates=[representative?.company,shortage?.supplier].map(value=>String(value||'').trim()).filter(Boolean);
+  const supplier=suppliersList().find(contact=>candidates.some(candidate=>candidate.localeCompare(String(contact.name||'').trim(),'th',{sensitivity:'base'})===0));
+  const supplierName=supplier?.name||candidates[0]||'';
+  const credit=Math.max(0,Number(supplier?.creditDays)||0);
+  const date=shortage?.date||TODAY_STR;
+  const items=(shortage?.items||[]).filter(item=>item?.name&&Number(item.qty)>0).map(item=>{
+    const product=products.find(entry=>Number(entry.id)===Number(item.productId))||products.find(entry=>entry.name===item.name);
+    return {productId:product?.id||'',name:item.name,qty:Number(item.qty)||0,unit:item.unit||product?.unit||'',price:''};
+  });
+  return {
+    id:buildDocNumber(docPrefix('po2'),docCounter('po2')),
+    supplier:supplierName,
+    date,
+    credit,
+    dueDate:addDaysToDate(date,credit),
+    items,
+    note:shortage?.note||'',
+    discount:0,
+    taxMode:'incl',
+    supplierTaxInvoiceNo:'',
+    supplierTaxInvoiceDate:'',
+    sourceShortageId:String(shortage?.id||'')
+  };
+}
+
+async function createPurchaseOrderFromShortage(){
+  if(currentTab!=='purchaseorder') return;
+  const button=document.getElementById('createPurchaseOrderFromShortageBtn');
+  if(button) button.disabled=true;
+  const shortageId=await savePO(true);
+  if(!shortageId){ if(button) button.disabled=false; return; }
+  const existing=purchaseOrdersFull.find(doc=>String(doc.sourceShortageId||'')===String(shortageId));
+  editingPOId=null;
+  poDraft=null;
+  poRepresentativeEditorId=null;
+  poSupplierEditorOpen=false;
+  currentTab='purchaseorder2';
+  if(existing){
+    editingPO2Id=existing.id;
+    po2Draft=null;
+    render();
+    showToast(`รายการนี้สร้างเป็น ${existing.id} แล้ว ระบบเปิดใบเดิมให้แก้ไข`);
+    return;
+  }
+  const shortage=purchaseOrders.find(doc=>doc.id===shortageId);
+  editingPO2Id='new';
+  po2Draft=purchaseOrderDraftFromShortage(shortage);
+  render();
+  showToast('นำข้อมูลมาใส่ในใบสั่งซื้อแล้ว กรุณาตรวจผู้จำหน่ายและราคาก่อนบันทึก');
 }
 
 function documentProductScannerHtml(hideHint=false){
@@ -6263,7 +6317,7 @@ function renderShortageOrderForm(po,isNew){
     <div class="shortage-section-title">รายการที่สั่ง</div>
     <table class="grid-table po-items shortage-document-items"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th style="width:48px;"></th></tr></thead><tbody id="poItemRows">${po.items.map((it,i)=>shortageItemRowHtml(it,i)).join('')}</tbody></table>
     <button class="btn ghost small" id="addPOItemBtn" style="margin-top:8px;">+ เพิ่มแถวรายการ</button>
-    <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePOBtn">บันทึกเอกสาร</button></div>`;
+    <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ปิดหน้าต่าง</button><button class="btn ghost" id="createPurchaseOrderFromShortageBtn">สร้างใบสั่งซื้อจากรายการนี้</button><button class="btn primary" id="savePOBtn">บันทึกเอกสาร</button></div>`;
 }
 
 function renderProductReturnForm(po,isNew){
@@ -14229,6 +14283,8 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(cancelPOBtn) cancelPOBtn.addEventListener('click', ()=>{ const kind=currentDocKind(); setDocEditingId(kind,null); setDocDraft(kind,null); poSupplierEditorOpen=false; poRepresentativeEditorId=null; render(); });
   const savePOBtn = document.getElementById('savePOBtn');
   if(savePOBtn) savePOBtn.addEventListener('click', async()=>{ await savePO(false); });
+  const createPurchaseOrderFromShortageBtn=document.getElementById('createPurchaseOrderFromShortageBtn');
+  if(createPurchaseOrderFromShortageBtn) createPurchaseOrderFromShortageBtn.addEventListener('click',createPurchaseOrderFromShortage);
   const printPOFormBtn = document.getElementById('printPOFormBtn');
   if(printPOFormBtn) printPOFormBtn.addEventListener('click', async()=>{ const kind=currentDocKind(); const saved=await savePO(true); if(saved) printPO(saved,kind); });
   const addPOItemBtn = document.getElementById('addPOItemBtn');
@@ -14595,6 +14651,15 @@ function refusePostedDocumentDeletion(kind,doc){
   showToast(`ลบ ${doc.id||'เอกสารนี้'} ไม่ได้ เพราะเอกสารนี้เคยส่งผลต่อสต๊อกแล้ว กรุณาเก็บไว้เป็นประวัติ`,'danger');
   return true;
 }
+function restoreShortageStatusAfterPurchaseOrderDeletion(deletedDocuments){
+  const remainingSourceIds=new Set(purchaseOrdersFull.map(doc=>String(doc.sourceShortageId||'')).filter(Boolean));
+  (deletedDocuments||[]).forEach(doc=>{
+    const sourceId=String(doc?.sourceShortageId||'');
+    if(!sourceId||remainingSourceIds.has(sourceId)) return;
+    const shortage=purchaseOrders.find(item=>String(item.id)===sourceId);
+    if(shortage?.status==='สั่งแล้ว') shortage.status='รอสั่งของ';
+  });
+}
 function deleteSelectedDocuments(kind,ids){
   ids=[...new Set(ids||[])].filter(Boolean);
   if(!ids.length) return;
@@ -14626,6 +14691,7 @@ function deleteSelectedDocuments(kind,ids){
       :`ยืนยันลบ${label}ที่เลือกทั้งหมด ${selected.length} รายการหรือไม่?`;
     if(!confirm(message)) return;
     for(let index=list.length-1;index>=0;index--){ if(ids.includes(list[index].id)) list.splice(index,1); }
+    if(kind==='po2') restoreShortageStatusAfterPurchaseOrderDeletion(selected);
     persistWorkspaceData();
     showToast(`ลบ${label} ${selected.length} รายการแล้ว`);
     render();
@@ -14975,6 +15041,7 @@ async function savePO(silent=false){
     }
   }
   const rec={ id:draft.id, _revision:Number(old?._revision)||0, supplier:draft.supplier, date:draft.date, credit:kind==='ret'?0:(styled?(draft.credit||0):0), dueDate:kind==='ret'?'':(styled?addDaysToDate(draft.date,draft.credit||0):''), items:savedItems, discount:kind==='ret'?0:(styled?(draft.discount||0):0), total:kind==='ret'?0:tax.total, taxMode:kind==='ret'?'none':(styled?(draft.taxMode||'incl'):'none'), taxSummary:kind==='ret'?calculatePurchaseTaxSummary([],0,'none'):(styled?tax:null), supplierTaxInvoiceNo:styled?(draft.supplierTaxInvoiceNo||''):'', supplierTaxInvoiceDate:styled?(draft.supplierTaxInvoiceDate||''):'', businessSnapshot:old?.businessSnapshot||businessDocumentSnapshot(), note:draft.note||'', status:old?.status||docDefaultStatus(kind), ...(kind==='gr'?{warehouseId:Number(draft.warehouseId),stockApplied:old?.stockApplied===true,stockAppliedAt:old?.stockAppliedAt||'',createdByUserId:old?.createdByUserId||String(currentProfile?.id||'')}:kind==='ret'?{warehouseId:Number(draft.warehouseId),stockApplied:old?.stockApplied===true,stockAppliedAt:old?.stockAppliedAt||''}:{}) };
+  if(kind==='po2'&&draft.sourceShortageId) rec.sourceShortageId=String(draft.sourceShortageId);
   if(kind==='gr'){
     const saveButton=document.getElementById('savePOBtn');
     if(saveButton) saveButton.disabled=true;
@@ -15001,6 +15068,10 @@ async function savePO(silent=false){
     }
   }
   if(kind==='gr') seedTableSnapshot('goods_receipts',goodsReceipts,docToRow);
+  if(kind==='po2'&&rec.sourceShortageId){
+    const source=purchaseOrders.find(doc=>String(doc.id)===String(rec.sourceShortageId));
+    if(source) source.status='สั่งแล้ว';
+  }
   const savedId=rec.id;
   persistWorkspaceData();
   if(!silent){ setDocEditingId(kind,null); setDocDraft(kind,null); if(kind==='po') poRepresentativeEditorId=null; showToast(`บันทึก${docLabelText(kind)}แล้ว`); render(); }
@@ -15024,6 +15095,7 @@ async function handleDocumentAction(kind,id,action){
   if(action==='duplicate'&&kind!=='gr'){
     const copy=JSON.parse(JSON.stringify(doc));
     copy.id=docPrefix(kind)+TODAY_STR.replace(/-/g,'')+String(docCounter(kind)).padStart(4,'0'); copy.date=TODAY_STR; copy.dueDate=addDaysToDate(copy.date,copy.credit||0); copy.status=docDefaultStatus(kind);
+    if(kind==='po2') delete copy.sourceShortageId;
     if(kind==='ret'){
       copy.items=normalizeGoodsReceiptItems(copy.items,copy.warehouseId).map((item,index)=>({...item,lineId:String(index+1),lotId:null,lotNumber:'',expiry:''}));
       copy.status='รอรับคืน';
@@ -15052,6 +15124,7 @@ async function handleDocumentAction(kind,id,action){
         }
       }
       const idx=list.findIndex(x=>x.id===id); if(idx>-1) list.splice(idx,1);
+      if(kind==='po2') restoreShortageStatusAfterPurchaseOrderDeletion([doc]);
       if(kind==='gr') seedTableSnapshot('goods_receipts',goodsReceipts,docToRow);
       persistWorkspaceData();
       showToast(`ลบ ${doc.id} แล้ว`);
