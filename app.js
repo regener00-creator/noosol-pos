@@ -5381,7 +5381,6 @@ function renderCheckout(){
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M3 21v-2a7 7 0 0 1 14 0v2M17 11h4M19 9v4"/></svg>
             <span><strong>${escapeHtml(selectedCustomer?.name||'ลูกค้าทั่วไป')}</strong><small>${selectedCustomer?'กดเพื่อเปลี่ยนลูกค้า':'กดเพื่อเลือกลูกค้า'}</small></span>
           </button>
-          ${selectedCustomer?'<div class="pos-customer-note"><span>ใช้ราคาพิเศษที่ตั้งไว้โดยอัตโนมัติ</span></div>':''}
         </div>
         <div class="pos-actions">
           <button class="pos-action ${showFavorites?'on':''}" id="favBtn"><span class="pa-ic">⭐</span> สินค้าโปรด</button>
@@ -6031,12 +6030,97 @@ function shortageRepresentativeEditorHtml(){
     <div class="po-supplier-edit-actions"><button class="btn ghost small" id="cancelPORepEditBtn" type="button">ยกเลิก</button><button class="btn primary small" id="savePORepEditBtn" type="button">${isNew?'เพิ่มและเลือกผู้แทน':'บันทึกข้อมูลผู้แทน'}</button></div></div>`;
 }
 
+function shortageManagedProductsForRepresentative(representativeId){
+  const productIds=new Set(managedProductIdsForRepresentative(representativeId));
+  return activeProducts()
+    .filter(product=>productIds.has(Number(product.id)))
+    .sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'th'));
+}
+
+function shortageManagedProductStatus(product){
+  const draft=activePurchaseDraft();
+  const lines=(draft?.items||[]).filter(item=>Number(item.productId)===Number(product.id)||item.name===product.name);
+  if(!lines.length) return 'กดเพื่อเพิ่ม';
+  if(lines.length===1) return `ในรายการ ${Number(lines[0].qty)||0} ${lines[0].unit||product.unit||''}`;
+  return `อยู่ในรายการแล้ว ${lines.length} แถว`;
+}
+
+async function openShortageManagedProductsModal(){
+  syncPOFromDOM();
+  const draft=activePurchaseDraft();
+  const representative=salesRepresentatives.find(rep=>rep.name===draft?.supplier);
+  if(!representative){ showToast('กรุณาเลือกผู้แทนก่อนดูสินค้าที่ดูแล'); return; }
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay shortage-managed-products-overlay';
+  overlay.innerHTML=`<section class="modal shortage-managed-products-modal" role="dialog" aria-modal="true" aria-labelledby="shortageManagedProductsTitle">
+    <div class="modal-head"><div><h3 id="shortageManagedProductsTitle">สินค้าที่ดูแล</h3><div class="sub">ผู้แทน ${escapeHtml(representative.name)}</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div>
+    <div class="shortage-managed-products-search"><input id="shortageManagedProductsSearch" type="search" placeholder="ค้นหาชื่อ รหัส หรือบาร์โค้ดสินค้า" autocomplete="off"></div>
+    <div class="shortage-managed-products-status" id="shortageManagedProductsStatus">กำลังโหลดสินค้าที่ดูแล…</div>
+    <div class="shortage-managed-products-list" id="shortageManagedProductsList"></div>
+    <div class="shortage-managed-products-actions"><button class="btn primary" id="closeShortageManagedProductsBtn" type="button">ปิด</button></div>
+  </section>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  overlay.querySelector('.modal-close').addEventListener('click',close);
+  overlay.querySelector('#closeShortageManagedProductsBtn').addEventListener('click',close);
+  overlay.addEventListener('click',event=>{ if(event.target===overlay) close(); });
+  const search=overlay.querySelector('#shortageManagedProductsSearch');
+  const status=overlay.querySelector('#shortageManagedProductsStatus');
+  const list=overlay.querySelector('#shortageManagedProductsList');
+  let managedProducts=[];
+  const renderProducts=()=>{
+    const query=String(search.value||'').trim().toLowerCase();
+    const visible=managedProducts.filter(product=>!query||[product.name,product.sku,product.barcode,...extraBarcodeEntries(product).map(item=>item.code)]
+      .some(value=>String(value||'').toLowerCase().includes(query)));
+    status.textContent=query?`พบ ${visible.length} จาก ${managedProducts.length} รายการ`:`${managedProducts.length} รายการ · กดที่สินค้าเพื่อเพิ่มลงรายการสั่ง`;
+    list.innerHTML=visible.length?visible.map(product=>`<button type="button" class="shortage-managed-product-card" data-shortage-managed-product="${escapeHtml(product.id)}">
+      <span class="shortage-managed-product-info"><b>${escapeHtml(product.name)}</b><small>รหัส ${escapeHtml(product.sku||'-')} · บาร์โค้ด ${escapeHtml(product.barcode||'-')}</small></span>
+      <span class="shortage-managed-product-add">${escapeHtml(shortageManagedProductStatus(product))}</span>
+    </button>`).join(''):`<div class="shortage-managed-products-empty">${managedProducts.length?'ไม่พบสินค้าที่ค้นหา':'ผู้แทนคนนี้ยังไม่มีสินค้าที่ดูแล'}</div>`;
+    list.querySelectorAll('[data-shortage-managed-product]').forEach(button=>button.addEventListener('click',()=>{
+      const product=products.find(item=>Number(item.id)===Number(button.dataset.shortageManagedProduct));
+      if(!product) return;
+      addDocumentScannedProduct(product.id,product.unit);
+      button.classList.add('added');
+      button.querySelector('.shortage-managed-product-add').textContent=shortageManagedProductStatus(product);
+      showToast(`เพิ่ม “${product.name}” ลงรายการแล้ว`);
+    }));
+  };
+  search.addEventListener('input',renderProducts);
+  const cached=shortageManagedProductsForRepresentative(representative.id);
+  try{
+    const {data,error}=await fetchAllRows(()=>sb.from('sales_representative_products')
+      .select('representative_id,product_id,created_at,updated_at')
+      .eq('representative_id',Number(representative.id))
+      .order('product_id'));
+    if(error) throw error;
+    representativeProductAssignments=[
+      ...representativeProductAssignments.filter(row=>Number(row.representativeId)!==Number(representative.id)),
+      ...(data||[]).map(row=>({representativeId:Number(row.representative_id),productId:Number(row.product_id),createdAt:row.created_at||'',updatedAt:row.updated_at||''}))
+    ];
+    managedProducts=shortageManagedProductsForRepresentative(representative.id);
+    renderProducts();
+    search.focus();
+  }catch(error){
+    console.warn('load shortage managed products',error);
+    if(cached.length){
+      managedProducts=cached;
+      renderProducts();
+      status.textContent=`แสดงข้อมูลที่โหลดไว้ ${cached.length} รายการ · โหลดข้อมูลล่าสุดไม่สำเร็จ`;
+    }else{
+      status.textContent='โหลดสินค้าที่ดูแลไม่สำเร็จ กรุณาปิดแล้วลองใหม่';
+      status.classList.add('error');
+      list.innerHTML='<div class="shortage-managed-products-empty">ยังไม่สามารถแสดงรายการสินค้าได้</div>';
+    }
+  }
+}
+
 function renderShortageOrderForm(po,isNew){
   const representative=salesRepresentatives.find(rep=>rep.name===po.supplier);
   return `<div class="pagehead"><div><div class="breadcrumb">สั่งของขาด › ${isNew?'สร้างรายการ':'แก้ไขรายการ'}</div><h1>${escapeHtml(po.id)}</h1></div></div>
     <div class="panel"><div class="shortage-form-grid">
       <div><label>ชื่อผู้แทน <span class="req">*</span></label><div class="shortage-rep-pick"><select id="po_supplier"><option value="">เลือกผู้แทน</option>${salesRepresentatives.map(rep=>`<option value="${escapeHtml(rep.name)}" ${po.supplier===rep.name?'selected':''}>${escapeHtml(rep.name)}</option>`).join('')}</select><button class="btn ghost small" id="newPORepBtn" type="button">+ เพิ่ม</button><button class="btn ghost small" id="editPORepBtn" type="button" ${representative?'':'disabled'}>แก้ไข</button></div></div>
-      <div><label>วันที่สั่ง <span class="req">*</span></label>${dmyDateFieldHtml('po_date',po.date||TODAY_STR)}</div>
+      <div class="shortage-date-tools"><button class="btn ghost" id="shortageManagedProductsBtn" type="button" ${representative?'':'disabled'}>สินค้าที่ดูแล</button><div class="shortage-date-field"><label>วันที่สั่ง <span class="req">*</span></label>${dmyDateFieldHtml('po_date',po.date||TODAY_STR)}</div></div>
       <div><label>ข้อมูลผู้แทน</label><div class="shortage-rep-info">${representative?`<div><small>เบอร์โทร</small><b class="mono">${escapeHtml(representative.phone||'-')}</b></div><div><small>ไลน์</small><b>${escapeHtml(representative.line||'-')}</b></div><div class="wide"><small>ข้อมูลเพิ่มเติม</small><b>${escapeHtml(representative.note||'-')}</b></div>`:'<div class="wide" style="color:var(--text-muted);font-size:12.5px;">เลือกผู้แทนเพื่อแสดงข้อมูลติดต่อ</div>'}</div></div>
       <div><label>หมายเหตุ</label><textarea id="po_note" rows="2" placeholder="ระบุหมายเหตุเพิ่มเติม">${escapeHtml(po.note||'')}</textarea></div>
       ${poRepresentativeEditorId!==null?shortageRepresentativeEditorHtml():''}
@@ -14140,6 +14224,8 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(newPORepBtn) newPORepBtn.addEventListener('click',()=>{ syncPOFromDOM(); poRepresentativeEditorId='new'; render(); });
   const editPORepBtn=document.getElementById('editPORepBtn');
   if(editPORepBtn) editPORepBtn.addEventListener('click',()=>{ syncPOFromDOM(); const draft=activePurchaseDraft(); const rep=salesRepresentatives.find(x=>x.name===draft?.supplier); if(rep){ poRepresentativeEditorId=rep.id; render(); } });
+  const shortageManagedProductsBtn=document.getElementById('shortageManagedProductsBtn');
+  if(shortageManagedProductsBtn) shortageManagedProductsBtn.addEventListener('click',openShortageManagedProductsModal);
   const cancelPORepEditBtn=document.getElementById('cancelPORepEditBtn');
   if(cancelPORepEditBtn) cancelPORepEditBtn.addEventListener('click',()=>{ syncPOFromDOM(); poRepresentativeEditorId=null; render(); });
   const savePORepEditBtn=document.getElementById('savePORepEditBtn');
