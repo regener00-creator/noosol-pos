@@ -17446,11 +17446,10 @@ function favManageListHtml(){
     if(!p) return '';
     const selectedUnit=favoriteSelectedUnit(entry,p);
     const selectedOption=productUnitOptions(p).find(option=>option.name===selectedUnit)||productUnitOptions(p)[0];
-    return `<div class="fav-manage-row">
+    return `<div class="fav-manage-row" draggable="true" tabindex="0" data-fav-drag-index="${i}" data-fav-product-id="${id}" aria-label="${escapeHtml(p.name)} คลิกค้างแล้วลากเพื่อจัดลำดับ">
+      <span class="fav-drag-handle" aria-hidden="true">⠿</span>
       <div class="fav-manage-info"><span class="fav-manage-name">${escapeHtml(p.name)}</span><select class="fav-manage-unit" data-fav-unit-change="${i}" aria-label="หน่วยสินค้าโปรด ${escapeHtml(p.name)}">${favoriteUnitOptionsHtml(p,selectedUnit)}</select><span class="fav-manage-price mono">${fmtMoney(selectedOption?.price||0)}</span></div>
       <div class="fav-manage-actions">
-        <button class="icon-btn" data-fav-move="up" data-fav-index="${i}" title="เลื่อนขึ้น" ${i===0?'disabled':''}>▲</button>
-        <button class="icon-btn" data-fav-move="down" data-fav-index="${i}" title="เลื่อนลง" ${i===favorites.length-1?'disabled':''}>▼</button>
         <button class="icon-btn danger" data-fav-remove="${i}" title="ลบออกจากสินค้าโปรด">×</button>
       </div>
     </div>`;
@@ -17649,7 +17648,7 @@ function openManageFavModal(){
   overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:560px;max-height:82vh;display:flex;flex-direction:column;">
     <div class="modal-head"><h3>จัดการสินค้าโปรด</h3><button class="modal-close">×</button></div>
-    <div class="modal-sub">ค้นหาสินค้า เลือกหน่วยที่ต้องการ แล้วเพิ่มเป็นปุ่มลัด</div>
+    <div class="modal-sub">ค้นหาสินค้า เลือกหน่วย หรือลากก้อนสินค้าเพื่อจัดลำดับ</div>
     <div class="fav-add-box">
       <input type="text" id="favAddSearch" placeholder="ค้นหาชื่อ / รหัส / บาร์โค้ด เพื่อเพิ่ม" autocomplete="off">
       <div id="favAddResults" class="fav-add-results" hidden></div>
@@ -17668,16 +17667,54 @@ function openManageFavModal(){
     listEl.innerHTML=favManageListHtml();
     bindListButtons();
   };
+  const moveFavorite=(index,direction,focusProductId=null)=>{
+    const nextIndex=index+direction;
+    if(index<0||index>=favorites.length||nextIndex<0||nextIndex>=favorites.length) return false;
+    [favorites[index],favorites[nextIndex]]=[favorites[nextIndex],favorites[index]];
+    saveFavorites();
+    refreshList();
+    if(focusProductId!=null) listEl.querySelector(`[data-fav-product-id="${focusProductId}"]`)?.focus();
+    return true;
+  };
   function bindListButtons(){
-    listEl.querySelectorAll('[data-fav-move]').forEach(btn=>{
-      btn.addEventListener('click', ()=>{
-        const idx=Number(btn.dataset.favIndex); if(idx<0||idx>=favorites.length) return;
-        const dir=btn.dataset.favMove==='up'?-1:1;
-        const swapIdx=idx+dir;
-        if(swapIdx<0||swapIdx>=favorites.length) return;
-        [favorites[idx],favorites[swapIdx]]=[favorites[swapIdx],favorites[idx]];
-        saveFavorites();
+    let draggedRow=null;
+    listEl.querySelectorAll('[data-fav-drag-index]').forEach(row=>{
+      row.addEventListener('dragstart',event=>{
+        if(event.target.closest('select,button')){ event.preventDefault(); return; }
+        draggedRow=row;
+        row.classList.add('is-dragging');
+        event.dataTransfer.effectAllowed='move';
+        event.dataTransfer.setData('text/plain',row.dataset.favProductId||'');
+      });
+      row.addEventListener('dragover',event=>{
+        if(!draggedRow||draggedRow===row) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect='move';
+        const bounds=row.getBoundingClientRect();
+        const insertAfter=event.clientY>bounds.top+(bounds.height/2);
+        listEl.insertBefore(draggedRow,insertAfter?row.nextElementSibling:row);
+      });
+      row.addEventListener('drop',event=>event.preventDefault());
+      row.addEventListener('dragend',()=>{
+        if(!draggedRow) return;
+        draggedRow.classList.remove('is-dragging');
+        const byProductId=new Map(favorites.map(entry=>[favoriteProductId(entry),entry]));
+        const reordered=[...listEl.querySelectorAll('[data-fav-product-id]')]
+          .map(item=>byProductId.get(Number(item.dataset.favProductId)))
+          .filter(Boolean);
+        const changed=reordered.some((entry,index)=>favoriteProductId(entry)!==favoriteProductId(favorites[index]));
+        draggedRow=null;
+        if(changed){
+          favorites=reordered;
+          saveFavorites();
+          showToast('บันทึกลำดับสินค้าโปรดแล้ว');
+        }
         refreshList();
+      });
+      row.addEventListener('keydown',event=>{
+        if(event.target!==row||!event.altKey||(event.key!=='ArrowUp'&&event.key!=='ArrowDown')) return;
+        event.preventDefault();
+        moveFavorite(Number(row.dataset.favDragIndex),event.key==='ArrowUp'?-1:1,Number(row.dataset.favProductId));
       });
     });
     listEl.querySelectorAll('[data-fav-remove]').forEach(btn=>{
