@@ -13,7 +13,7 @@ assert.ok(optimizedMigrationName,'optimized representative history migration is 
 const optimizedMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', optimizedMigrationName), 'utf8');
 const noteMetadataMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260905040841_representative_note_metadata.sql'), 'utf8');
 const historyRender = html.slice(html.indexOf('function renderRepresentativeHistory(){'),html.indexOf('function syncRepresentativeActivityDraftFromForm(){'));
-const historyGroupRender = html.slice(html.indexOf('function representativeHistoryGroupHtml(group){'),html.indexOf('function renderRepresentativeHistory(){'));
+const historyGroupRender = html.slice(html.indexOf('function representativeHistoryGroupHtml('),html.indexOf('function renderRepresentativeHistory(){'));
 const representativeProfileRender = html.slice(html.indexOf('function representativeProfileHtml(group){'),html.indexOf('function representativeNoteWorkspaceHtml(group,canCreate){'));
 const noteEditor = html.slice(html.indexOf('function representativeNoteEditorPanelHtml('),html.indexOf('function openRepresentativeProductsEditor('));
 const productsEditor = html.slice(html.indexOf('function representativeProductsEditorModalHtml(){'),html.indexOf('function representativeEditorModalHtml(){'));
@@ -144,6 +144,10 @@ assert.doesNotMatch(html, /กดเพื่อดู เพิ่ม หรื
 assert.match(html, /data-manage-representative-products=/);
 assert.match(html, /function representativeEditorModalHtml\(\)/);
 assert.match(historyRender, /id="newSalesRepBtn"/);
+assert.match(historyGroupRender, /data-sales-representative-delete=/);
+assert.match(historyRender, /id="deleteSelectedSalesRepresentativesBtn"/);
+assert.match(html, /async function deleteSelectedSalesRepresentatives\(\)[\s\S]*from\('sales_representatives'\)\.delete\(\)\.in\('id',ids\)\.select\('id'\)/);
+assert.match(html, /closest\('button,a,input,label,select,textarea'\)/);
 assert.match(html, /representative-note-search[\s\S]*id="newRepresentativeActivityBtn"[\s\S]*\+ เพิ่มโน้ต/);
 assert.match(html, /representative-note-search[\s\S]*id="newRepresentativeActivityBtn"[\s\S]*id="deleteSelectedRepresentativeNotesBtn"/);
 assert.match(historyRender, /class="btn primary" data-act="editsalesrep"/);

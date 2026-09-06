@@ -3211,6 +3211,7 @@ let representativeActivityDraft=null;
 let representativeActivityDraftDirty=false;
 let selectedRepresentativeNoteId=null;
 let selectedRepresentativeNoteIdsToDelete=new Set();
+let selectedSalesRepresentativeIdsToDelete=new Set();
 let representativeProductsEditor=null;
 let representativeHistoryFilter={representativeSearch:'',productSearch:'',noteSearch:''};
 let representativeHistoryRepresentativeIds=[];
@@ -4389,6 +4390,7 @@ function resetRepresentativeActivityLoad(){
   representativeActivityLoadError='';
   representativeActivityLoading=false;
   selectedRepresentativeNoteIdsToDelete.clear();
+  selectedSalesRepresentativeIdsToDelete.clear();
 }
 function openRepresentativeHistory({representativeId=null,productId=null,originTab=currentTab}={}){
   if(!representativeId&&!productId) return;
@@ -4766,12 +4768,14 @@ function representativeHistoryGroups(){
     return {representative,managedProducts,notes:notesForRepresentative,noteTotal:representativeNoteTotal(id,notesForRepresentative.length)};
   }).filter(Boolean).sort((a,b)=>String(a.representative.name||'').localeCompare(String(b.representative.name||''),'th'));
 }
-function representativeHistoryGroupHtml(group){
+function representativeHistoryGroupHtml(group,allowDeleteSelection=false){
   const visibleNotes=group.notes.slice(0,3);
   const notesHtml=visibleNotes.length?visibleNotes.map((note,index)=>representativeHistoryNoteHtml(note,Math.max(1,group.noteTotal-index))).join(''):'<div class="representative-group-empty">ยังไม่มี NOTE</div>';
   const hiddenNoteCount=Math.max(0,group.noteTotal-visibleNotes.length);
   const groupMeta=[group.representative.company?`<small>${escapeHtml(group.representative.company)}</small>`:'',hiddenNoteCount?`<span class="representative-note-overflow">+${hiddenNoteCount}</span>`:''].filter(Boolean).join('');
-  return `<article class="representative-group-card" data-representative-card-open="${group.representative.id}" role="button" tabindex="0" aria-label="เปิดข้อมูลผู้แทน ${escapeHtml(group.representative.name)}"><header><div><span>ชื่อผู้แทน</span><button type="button" data-open-representative-history="${group.representative.id}">${escapeHtml(group.representative.name)}</button></div>${groupMeta?`<div class="representative-group-meta">${groupMeta}</div>`:''}</header><section class="representative-notes-list">${notesHtml}</section></article>`;
+  const representativeId=Number(group.representative.id);
+  const deleteChoice=allowDeleteSelection&&canPerformPageAction('delete','salesreps')?`<label class="representative-group-delete-choice" title="เลือกผู้แทนนี้เพื่อลบ"><input type="checkbox" data-sales-representative-delete="${representativeId}" aria-label="เลือกผู้แทน ${escapeHtml(group.representative.name)} เพื่อลบ" ${selectedSalesRepresentativeIdsToDelete.has(representativeId)?'checked':''}></label>`:'';
+  return `<article class="representative-group-card" data-representative-card-open="${representativeId}" role="button" tabindex="0" aria-label="เปิดข้อมูลผู้แทน ${escapeHtml(group.representative.name)}"><header><div>${deleteChoice}<span>ชื่อผู้แทน</span><button type="button" data-open-representative-history="${representativeId}">${escapeHtml(group.representative.name)}</button></div>${groupMeta?`<div class="representative-group-meta">${groupMeta}</div>`:''}</header><section class="representative-notes-list">${notesHtml}</section></article>`;
 }
 function representativeHistoryNoteHtml(note,fallbackNumber){
   return `<article class="representative-note-card"><div class="representative-note-head"><b>NOTE ${representativeNoteNumber(note,fallbackNumber)} : ${escapeHtml(note.title||'-')}</b><span>${escapeHtml(representativeNoteDateLabel(note.eventDate))}</span></div>${note.contentHtml?`<div class="representative-note-body">${sanitizeNoteHtml(note.contentHtml)}</div>`:'<div class="representative-note-body muted">ไม่มีข้อมูลเพิ่มเติม</div>'}</article>`;
@@ -4830,6 +4834,7 @@ function renderRepresentativeHistory(){
   const title=central?'ผู้แทน':representative?`ข้อมูลผู้แทน ${representative.name}`:`ผู้แทนที่ดูแล ${product.name}`;
   const canCreate=canPerformPageAction('create','notes');
   const canCreateRepresentative=canPerformPageAction('create','salesreps');
+  const canDeleteRepresentative=central&&canPerformPageAction('delete','salesreps');
   const canEditRepresentative=representative&&canPerformPageAction('edit','salesreps');
   const historyFilters=`<div class="representative-history-filter representative-history-filter-minimal panel"><label><span>ชื่อผู้แทน</span><input id="representativeHistoryRepresentativeSearch" value="${escapeHtml(representativeHistoryFilter.representativeSearch)}" placeholder="ค้นหาชื่อผู้แทน"></label><label><span>ชื่อสินค้า</span><input id="representativeHistoryProductSearch" value="${escapeHtml(representativeHistoryFilter.productSearch)}" placeholder="ค้นหาตามชื่อสินค้า"></label><div class="representative-history-search"><span>ค้นหาจาก NOTE</span><div class="representative-history-search-row"><input id="representativeHistoryNoteSearch" value="${escapeHtml(representativeHistoryFilter.noteSearch)}" placeholder="หัวข้อหรือข้อมูลใน NOTE"><button class="btn primary" id="searchRepresentativeHistoryBtn" type="button">ค้นหา</button></div></div></div>`;
   const loading=representativeActivityLoading&&representativeActivityLoadedKey!==representativeHistoryKey(context);
@@ -4837,8 +4842,10 @@ function renderRepresentativeHistory(){
   const detailGroup=representativeDetail?groups.find(group=>Number(group.representative.id)===Number(representative.id)):null;
   const pageBody=representativeDetail&&detailGroup
     ?`${representativeProfileHtml(detailGroup)}${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':representativeNoteWorkspaceHtml(detailGroup,canCreate)}`
-    :`${historyFilters}<div class="representative-groups-grid">${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':groups.map(representativeHistoryGroupHtml).join('')||'<div class="representative-history-empty">ยังไม่มีข้อมูลที่ตรงกับการค้นหา</div>'}</div>${representativeHistoryHasMore?`<button class="btn ghost representative-history-load-more" id="loadMoreRepresentativeHistoryBtn" type="button" ${representativeActivityLoading?'disabled':''}>${representativeActivityLoading?'กำลังโหลด…':'โหลดผู้แทนเพิ่มเติม'}</button>`:''}`;
-  const centralActions=`<button class="btn ghost" id="exportSalesRepsBtn" type="button">ส่งออก Excel</button><button class="btn ghost" id="downloadSalesRepTemplateBtn" type="button">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importSalesRepsBtn" type="button">นำเข้า Excel</button><input id="salesRepImportFile" type="file" accept=".xlsx,.xls,.csv" hidden>${canCreateRepresentative?'<button class="btn primary" id="newSalesRepBtn" type="button">+ เพิ่มผู้แทน</button>':''}`;
+    :`${historyFilters}<div class="representative-groups-grid">${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':groups.map(group=>representativeHistoryGroupHtml(group,central)).join('')||'<div class="representative-history-empty">ยังไม่มีข้อมูลที่ตรงกับการค้นหา</div>'}</div>${representativeHistoryHasMore?`<button class="btn ghost representative-history-load-more" id="loadMoreRepresentativeHistoryBtn" type="button" ${representativeActivityLoading?'disabled':''}>${representativeActivityLoading?'กำลังโหลด…':'โหลดผู้แทนเพิ่มเติม'}</button>`:''}`;
+  const selectedRepresentativeDeleteCount=[...selectedSalesRepresentativeIdsToDelete].filter(id=>groups.some(group=>Number(group.representative.id)===Number(id))).length;
+  const deleteRepresentativesButton=canDeleteRepresentative?`<button class="btn danger" id="deleteSelectedSalesRepresentativesBtn" type="button" ${selectedRepresentativeDeleteCount?'':'disabled'}>ลบที่เลือก${selectedRepresentativeDeleteCount?` (${selectedRepresentativeDeleteCount})`:''}</button>`:'';
+  const centralActions=`<button class="btn ghost" id="exportSalesRepsBtn" type="button">ส่งออก Excel</button><button class="btn ghost" id="downloadSalesRepTemplateBtn" type="button">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importSalesRepsBtn" type="button">นำเข้า Excel</button><input id="salesRepImportFile" type="file" accept=".xlsx,.xls,.csv" hidden>${deleteRepresentativesButton}${canCreateRepresentative?'<button class="btn primary" id="newSalesRepBtn" type="button">+ เพิ่มผู้แทน</button>':''}`;
   const detailActions=`<button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button>${canEditRepresentative?`<button class="btn primary" data-act="editsalesrep" data-id="${representative.id}" type="button">แก้ไขข้อมูลผู้แทน</button>`:''}`;
   const pageHead=representativeDetail
     ?`<div class="pagehead topbar-action-source representative-detail-pagehead"><div></div><div class="form-final-actions representative-topbar-actions">${detailActions}</div></div>`
@@ -4953,6 +4960,34 @@ async function deleteSelectedRepresentativeNotes(){
   if(deletedIds.length||failed.length) await loadRepresentativeActivityHistory({force:true});
   else if(button){ button.disabled=false; button.textContent=`ลบที่เลือก (${notes.length})`; }
 }
+async function deleteSelectedSalesRepresentatives(){
+  if(!canPerformPageAction('delete','salesreps')){ showToast('บัญชีนี้ไม่มีสิทธิ์ลบผู้แทน','danger-top'); return; }
+  const selectedIds=new Set([...selectedSalesRepresentativeIdsToDelete].map(Number).filter(Boolean));
+  const representatives=salesRepresentatives.filter(representative=>selectedIds.has(Number(representative.id)));
+  if(!representatives.length){ showToast('กรุณาติ๊กเลือกผู้แทนที่ต้องการลบ','danger-top'); return; }
+  if(!confirm(`ยืนยันลบผู้แทนที่เลือก ${representatives.length} คนหรือไม่?\nสินค้าที่ดูแลจะถูกนำออก แต่ NOTE และเอกสารเดิมจะยังคงอยู่เป็นประวัติ`)) return;
+  const button=document.getElementById('deleteSelectedSalesRepresentativesBtn');
+  if(button){ button.disabled=true; button.textContent='กำลังลบ…'; }
+  try{
+    const ids=representatives.map(representative=>Number(representative.id));
+    const {data,error}=await sb.from('sales_representatives').delete().in('id',ids).select('id');
+    if(error) throw error;
+    const deletedIds=new Set((data||[]).map(row=>Number(row.id)));
+    if(deletedIds.size!==ids.length) throw new Error('ผู้แทนบางรายการถูกแก้ไขหรือลบจากอีกเครื่องแล้ว กรุณาโหลดข้อมูลล่าสุด');
+    salesRepresentatives=salesRepresentatives.filter(representative=>!deletedIds.has(Number(representative.id)));
+    representativeProductAssignments=representativeProductAssignments.filter(row=>!deletedIds.has(Number(row.representativeId)));
+    representativeActivityNotes=representativeActivityNotes.map(note=>deletedIds.has(Number(note.representativeId))?{...note,representativeId:null}:note);
+    deletedIds.forEach(id=>selectedSalesRepresentativeIdsToDelete.delete(id));
+    seedTableSnapshot('sales_representatives',salesRepresentatives,salesRepToRow);
+    representativeActivityLoadedKey='';
+    persistWorkspaceData();
+    showToast(`ลบผู้แทนแล้ว ${deletedIds.size} คน`);
+    await loadRepresentativeActivityHistory({force:true});
+  }catch(error){
+    showToast(error?.message||'ลบผู้แทนไม่สำเร็จ','danger-top');
+    if(button){ button.disabled=false; button.textContent=`ลบที่เลือก (${representatives.length})`; }
+  }
+}
 function drawRepresentativeProductsEditor(){
   const editor=representativeProductsEditor;
   if(!editor) return;
@@ -5026,6 +5061,19 @@ function attachRepresentativeHistoryEvents(){
     updateRepresentativeBulkDeleteButton();
   }));
   document.getElementById('deleteSelectedRepresentativeNotesBtn')?.addEventListener('click',deleteSelectedRepresentativeNotes);
+  const updateRepresentativeDeleteButton=()=>{
+    const button=document.getElementById('deleteSelectedSalesRepresentativesBtn');
+    if(!button) return;
+    const count=[...selectedSalesRepresentativeIdsToDelete].filter(id=>salesRepresentatives.some(representative=>Number(representative.id)===Number(id))).length;
+    button.disabled=count===0;
+    button.textContent=count?`ลบที่เลือก (${count})`:'ลบที่เลือก';
+  };
+  document.querySelectorAll('[data-sales-representative-delete]').forEach(checkbox=>checkbox.addEventListener('change',()=>{
+    const representativeId=Number(checkbox.dataset.salesRepresentativeDelete);
+    if(checkbox.checked) selectedSalesRepresentativeIdsToDelete.add(representativeId); else selectedSalesRepresentativeIdsToDelete.delete(representativeId);
+    updateRepresentativeDeleteButton();
+  }));
+  document.getElementById('deleteSelectedSalesRepresentativesBtn')?.addEventListener('click',deleteSelectedSalesRepresentatives);
   const updateRepresentativeNoteDraft=()=>{
     syncRepresentativeActivityDraftFromForm();
     representativeActivityDraftDirty=true;
@@ -5081,8 +5129,8 @@ function attachRepresentativeHistoryEvents(){
   document.querySelectorAll('[data-open-representative-history]').forEach(button=>button.addEventListener('click',()=>openRepresentativeHistory({representativeId:Number(button.dataset.openRepresentativeHistory),originTab:historyOrigin})));
   document.querySelectorAll('[data-representative-card-open]').forEach(card=>{
     const open=()=>openRepresentativeHistory({representativeId:Number(card.dataset.representativeCardOpen),originTab:historyOrigin});
-    card.addEventListener('click',event=>{ if(event.target.closest('button,a,input,select,textarea')) return; open(); });
-    card.addEventListener('keydown',event=>{ if((event.key==='Enter'||event.key===' ')&&!event.target.closest('button,a,input,select,textarea')){ event.preventDefault(); open(); } });
+    card.addEventListener('click',event=>{ if(event.target.closest('button,a,input,label,select,textarea')) return; open(); });
+    card.addEventListener('keydown',event=>{ if((event.key==='Enter'||event.key===' ')&&!event.target.closest('button,a,input,label,select,textarea')){ event.preventDefault(); open(); } });
   });
   document.querySelectorAll('[data-open-product-history]').forEach(button=>button.addEventListener('click',()=>openRepresentativeHistory({productId:Number(button.dataset.openProductHistory),originTab:historyOrigin})));
   document.querySelectorAll('[data-manage-representative-products]').forEach(button=>button.addEventListener('click',()=>openRepresentativeProductsEditor(Number(button.dataset.manageRepresentativeProducts))));
