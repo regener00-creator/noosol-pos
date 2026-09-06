@@ -159,6 +159,12 @@ let browser;
   assert.equal(await page.locator('.representative-info-modal').count(),0);
   assert.equal(await page.locator('.representative-note-list-item').count(),3);
   assert.equal(await page.locator('[data-representative-note-delete]').count(),3);
+  const noteDeleteLayout=await page.locator('.representative-note-list-row').first().evaluate(row=>({
+    sameBox:row.querySelector('.representative-note-list-item')!==null&&row.querySelector('[data-representative-note-delete]')!==null,
+    checkboxAfterNote:row.lastElementChild?.classList.contains('representative-note-delete-choice')||false,
+    checkboxPosition:getComputedStyle(row.querySelector('.representative-note-delete-choice')).position
+  }));
+  assert.deepEqual(noteDeleteLayout,{sameBox:true,checkboxAfterNote:true,checkboxPosition:'absolute'});
   assert.equal(await page.locator('#deleteSelectedRepresentativeNotesBtn').isDisabled(),true);
   await page.locator('[data-representative-note-delete]').first().check();
   await page.locator('[data-representative-note-delete]').nth(2).check();
