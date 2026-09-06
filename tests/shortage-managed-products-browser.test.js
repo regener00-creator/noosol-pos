@@ -81,6 +81,7 @@ let browser;
   const summaryBox = await page.locator('.shortage-rep-summary').boundingBox();
   assert.ok(mainBox && summaryBox && mainBox.x < summaryBox.x, 'form fields must be on the left and representative information on the right');
   assert.ok(Math.abs(mainBox.y - summaryBox.y) < 2, 'both shortage form columns must begin on the same row');
+  assert.ok(Math.abs(mainBox.width - summaryBox.width) < 2, 'representative information must use half of the available header width');
   const controlOrder = await page.locator('.shortage-form-controls').evaluate(element=>[...element.children].map(child=>child.id||child.className));
   assert.deepEqual(controlOrder, ['shortage-date-field','shortage-rep-field','newPORepBtn','shortageManagedProductsBtn']);
   assert.match(await page.locator('.shortage-rep-summary').textContent(), /ข้อมูลผู้แทน[\s\S]*0812345678[\s\S]*pepo/);

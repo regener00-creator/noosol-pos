@@ -6,6 +6,7 @@ const formStart = source.indexOf('function renderShortageOrderForm');
 const formEnd = source.indexOf('function renderProductReturnForm', formStart);
 const form = source.slice(formStart, formEnd);
 assert.match(form, /shortage-form-grid[\s\S]*shortage-form-main[\s\S]*shortage-rep-summary/);
+assert.match(source, /\.shortage-form-grid\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/, 'ข้อมูลผู้แทนต้องกว้างครึ่งหนึ่งของพื้นที่ส่วนบน');
 assert.match(form, /วันที่สั่ง[\s\S]*ชื่อผู้แทน[\s\S]*id="newPORepBtn"[\s\S]*id="shortageManagedProductsBtn"/);
 assert.match(form, /shortage-note-field[\s\S]*หมายเหตุ/);
 assert.doesNotMatch(form, /id="editPORepBtn"/, 'หน้าจดสั่งสินค้าต้องไม่มีปุ่มแก้ไขข้างชื่อผู้แทน');

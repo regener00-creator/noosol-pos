@@ -904,10 +904,10 @@
   .po-foot-right .sumrow.grand{border-bottom:none;border-top:2px solid var(--text);font-weight:700;padding-top:12px;}
   .po-foot-right .sumrow.grand span:last-child{font-size:18px;color:var(--primary-dark);}
   .po-foot textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13.5px;resize:vertical;}
-  .shortage-form-grid{display:grid;grid-template-columns:minmax(0,2fr) minmax(270px,1fr);gap:18px;align-items:stretch;}
+  .shortage-form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;align-items:stretch;}
   .shortage-form-main{display:grid;gap:14px;align-content:start;min-width:0;}
-  .shortage-form-controls{display:grid;grid-template-columns:minmax(150px,.8fr) minmax(210px,1.25fr) auto auto;gap:10px;align-items:end;}
-  .shortage-form-controls>.btn{height:41px;white-space:nowrap;}
+  .shortage-form-controls{display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.25fr) auto auto;gap:10px;align-items:end;}
+  .shortage-form-controls>.btn{height:41px;padding-inline:10px;white-space:nowrap;}
   .shortage-rep-field,.shortage-date-field{min-width:0;}
   .shortage-form-grid label{display:block;font-size:12.5px;font-weight:600;margin-bottom:5px;}
   .shortage-form-grid input,.shortage-form-grid select,.shortage-form-grid textarea{width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13.5px;background:var(--surface);}
