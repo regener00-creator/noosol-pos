@@ -33,5 +33,7 @@ assert.match(listSource, /data-act="editpo"[\s\S]*data-act="printpo"/, 'ไอ�
 assert.match(toolbarSource, /const canPrint=kind!=='ret'&&kind!=='po';/, 'การเลือกหลายรายการในหน้าสั่งซื้อสินค้าต้องไม่มีคำสั่งพิมพ์');
 assert.match(printSource, /ข้อมูลผู้แทน[\s\S]*ชื่อ <b>[\s\S]*บริษัท <b>/, 'เอกสารพิมพ์ต้องแสดงเฉพาะชื่อและบริษัทของผู้แทน');
 assert.doesNotMatch(printSource, /เบอร์โทร \$\{escapeHtml\(supplier\?\.phone|ไลน์ \$\{escapeHtml\(supplier\?\.line|supplier\?\.note/, 'เอกสารพิมพ์ต้องไม่แสดงเบอร์โทร ไลน์ หรือข้อมูลเพิ่มเติมของผู้แทน');
+assert.doesNotMatch(printSource, /<b>หมายเหตุ:<\/b>/, 'เอกสารสั่งซื้อสินค้าต้องไม่มีหมายเหตุท้ายกระดาษ');
+assert.doesNotMatch(printSource, /styled\?'ผู้ขาย':'ผู้แทน'|styled\?'ผู้รับสินค้า':'ผู้อนุมัติ'/, 'เอกสารสั่งซื้อสินค้าต้องไม่มีช่องลงชื่อผู้แทนและผู้อนุมัติ');
 
 console.log('shortage managed products tests passed');
