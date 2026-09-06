@@ -60,14 +60,14 @@ let browser;
       {id:102,name:'ยา B',sku:'B-102',barcode:'885000102',unit:'ขวด',price:200,cost:100,stock:10,units:[],extraBarcodes:[],vendorBarcodes:[],active:true},
       {id:103,name:'ยา C',sku:'C-103',barcode:'885000103',unit:'ชิ้น',price:300,cost:150,stock:10,units:[],extraBarcodes:[],vendorBarcodes:[],active:true},
     ];
-    salesRepresentatives=[{id:10,name:'PEPO',phone:'0812345678',line:'pepo',note:''}];
+    salesRepresentatives=[{id:10,name:'PEPO',phone:'0812345678',line:'pepo',company:'บริษัท PEPO',note:'ข้อมูลเพิ่มเติม'}];
     representativeProductAssignments=[];
     purchaseOrders=[];
     currentTab='purchaseorder';
     editingPOId='new';
     poDraft={id:'SH202609060001',supplier:'PEPO',date:'2026-09-06',credit:0,dueDate:'',items:[{name:'',qty:1,unit:'',price:''}],note:'',discount:0,taxMode:'none'};
     render=()=>{
-      document.getElementById('main').innerHTML=renderPOForm();
+      document.getElementById('main').innerHTML=editingPOId===null?renderPurchaseOrder():renderPOForm();
       attachEvents();
     };
     render();
@@ -119,6 +119,16 @@ let browser;
   await page.locator('#closeShortageManagedProductsBtn').click();
   assert.equal(await page.locator('.shortage-managed-products-modal').count(), 0);
   assert.equal(await page.locator('#createPurchaseOrderFromShortageBtn').count(), 0, 'หน้าสั่งซื้อสินค้าต้องไม่มีปุ่มสร้างเอกสารซ้ำ');
+  await page.evaluate(()=>{
+    purchaseOrders=[{id:'SH202609060001',supplier:'PEPO',date:'2026-09-06',items:[{productId:101,name:'ยา A',qty:2,unit:'กล่อง'}],note:'',status:'รอสั่งของ'}];
+    editingPOId=null;
+    poDraft=null;
+    render();
+  });
+  assert.deepEqual(await page.locator('.shortage-row-actions button').evaluateAll(buttons=>buttons.map(button=>button.dataset.act)), ['editpo','printpo'], 'ไอคอนพิมพ์ต้องอยู่ถัดจากไอคอนแก้ไข');
+  await page.locator('.po-doc-list tbody .doc-check').check();
+  assert.equal(await page.locator('#docBulkPrint').count(),0,'แถบจัดการรายการที่เลือกต้องไม่มีปุ่มพิมพ์');
+  assert.equal(await page.locator('#docBulkDelete').count(),1,'ยังต้องเลือกลบหลายรายการได้');
   assert.deepEqual(errors, [], `พบ JavaScript error: ${errors.join(' | ')}`);
   console.log('shortage managed products browser tests passed');
 })().catch(error=>{ console.error(error); process.exitCode=1; }).finally(async()=>{

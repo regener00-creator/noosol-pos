@@ -5,6 +5,15 @@ assert.doesNotMatch(source, /ใช้ราคาพิเศษที่ตั
 const formStart = source.indexOf('function renderShortageOrderForm');
 const formEnd = source.indexOf('function renderProductReturnForm', formStart);
 const form = source.slice(formStart, formEnd);
+const listStart=source.indexOf('function renderPurchaseOrder()');
+const listEnd=source.indexOf('function poUnitOptions(',listStart);
+const listSource=source.slice(listStart,listEnd);
+const toolbarStart=source.indexOf('function documentBulkToolbar(');
+const toolbarEnd=source.indexOf('function expiryBadge(',toolbarStart);
+const toolbarSource=source.slice(toolbarStart,toolbarEnd);
+const printStart=source.indexOf('function printPO(');
+const printEnd=source.indexOf('// แปลงตัวเลขเป็นข้อความภาษาไทย',printStart);
+const printSource=source.slice(printStart,printEnd);
 assert.match(form, /shortage-form-grid[\s\S]*shortage-form-main[\s\S]*shortage-rep-summary/);
 assert.match(source, /\.shortage-form-grid\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/, 'ข้อมูลผู้แทนต้องกว้างครึ่งหนึ่งของพื้นที่ส่วนบน');
 assert.match(source, /\.shortage-form-controls\{[^}]*grid-template-columns:240px minmax\(0,1fr\) auto auto/, 'คอลัมน์วันที่ต้องพอดีกับช่องเพื่อให้ชื่อผู้แทนใช้พื้นที่ว่าง');
@@ -20,5 +29,9 @@ assert.match(source, /from\('sales_representative_products'\)[\s\S]{0,220}\.eq\(
 assert.match(source, /data-shortage-managed-product=/);
 assert.match(source, /addDocumentScannedProduct\(product\.id,product\.unit\)/);
 assert.doesNotMatch(source, /function createPurchaseOrderFromShortage\(\)/);
+assert.match(listSource, /data-act="editpo"[\s\S]*data-act="printpo"/, 'ไอคอนพิมพ์ต้องอยู่หลังไอคอนแก้ไขในแต่ละเอกสาร');
+assert.match(toolbarSource, /const canPrint=kind!=='ret'&&kind!=='po';/, 'การเลือกหลายรายการในหน้าสั่งซื้อสินค้าต้องไม่มีคำสั่งพิมพ์');
+assert.match(printSource, /ข้อมูลผู้แทน[\s\S]*ชื่อ <b>[\s\S]*บริษัท <b>/, 'เอกสารพิมพ์ต้องแสดงเฉพาะชื่อและบริษัทของผู้แทน');
+assert.doesNotMatch(printSource, /เบอร์โทร \$\{escapeHtml\(supplier\?\.phone|ไลน์ \$\{escapeHtml\(supplier\?\.line|supplier\?\.note/, 'เอกสารพิมพ์ต้องไม่แสดงเบอร์โทร ไลน์ หรือข้อมูลเพิ่มเติมของผู้แทน');
 
 console.log('shortage managed products tests passed');
