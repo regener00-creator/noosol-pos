@@ -6119,11 +6119,17 @@ function renderShortageOrderForm(po,isNew){
   const representative=salesRepresentatives.find(rep=>rep.name===po.supplier);
   return `<div class="pagehead"><div><div class="breadcrumb">สั่งของขาด › ${isNew?'สร้างรายการ':'แก้ไขรายการ'}</div><h1>${escapeHtml(po.id)}</h1></div></div>
     <div class="panel"><div class="shortage-form-grid">
-      <div><label>ชื่อผู้แทน <span class="req">*</span></label><div class="shortage-rep-pick"><select id="po_supplier"><option value="">เลือกผู้แทน</option>${salesRepresentatives.map(rep=>`<option value="${escapeHtml(rep.name)}" ${po.supplier===rep.name?'selected':''}>${escapeHtml(rep.name)}</option>`).join('')}</select><button class="btn ghost small" id="newPORepBtn" type="button">+ เพิ่ม</button><button class="btn ghost small" id="editPORepBtn" type="button" ${representative?'':'disabled'}>แก้ไข</button></div></div>
-      <div class="shortage-date-tools"><button class="btn ghost" id="shortageManagedProductsBtn" type="button" ${representative?'':'disabled'}>สินค้าที่ดูแล</button><div class="shortage-date-field"><label>วันที่สั่ง <span class="req">*</span></label>${dmyDateFieldHtml('po_date',po.date||TODAY_STR)}</div></div>
-      <div><label>ข้อมูลผู้แทน</label><div class="shortage-rep-info">${representative?`<div><small>เบอร์โทร</small><b class="mono">${escapeHtml(representative.phone||'-')}</b></div><div><small>ไลน์</small><b>${escapeHtml(representative.line||'-')}</b></div><div class="wide"><small>ข้อมูลเพิ่มเติม</small><b>${escapeHtml(representative.note||'-')}</b></div>`:'<div class="wide" style="color:var(--text-muted);font-size:12.5px;">เลือกผู้แทนเพื่อแสดงข้อมูลติดต่อ</div>'}</div></div>
-      <div><label>หมายเหตุ</label><textarea id="po_note" rows="2" placeholder="ระบุหมายเหตุเพิ่มเติม">${escapeHtml(po.note||'')}</textarea></div>
-      ${poRepresentativeEditorId!==null?shortageRepresentativeEditorHtml():''}
+      <div class="shortage-form-main">
+        <div class="shortage-form-controls">
+          <div class="shortage-date-field"><label>วันที่สั่ง <span class="req">*</span></label>${dmyDateFieldHtml('po_date',po.date||TODAY_STR)}</div>
+          <div class="shortage-rep-field"><label>ชื่อผู้แทน <span class="req">*</span></label><select id="po_supplier"><option value="">เลือกผู้แทน</option>${salesRepresentatives.map(rep=>`<option value="${escapeHtml(rep.name)}" ${po.supplier===rep.name?'selected':''}>${escapeHtml(rep.name)}</option>`).join('')}</select></div>
+          <button class="btn ghost small" id="newPORepBtn" type="button">+ เพิ่ม</button>
+          <button class="btn ghost" id="shortageManagedProductsBtn" type="button" ${representative?'':'disabled'}>สินค้าที่ดูแล</button>
+        </div>
+        <div class="shortage-note-field"><label>หมายเหตุ</label><textarea id="po_note" rows="2" placeholder="ระบุหมายเหตุเพิ่มเติม">${escapeHtml(po.note||'')}</textarea></div>
+        ${poRepresentativeEditorId!==null?shortageRepresentativeEditorHtml():''}
+      </div>
+      <aside class="shortage-rep-summary"><label>ข้อมูลผู้แทน</label><div class="shortage-rep-info">${representative?`<div><small>เบอร์โทร</small><b class="mono">${escapeHtml(representative.phone||'-')}</b></div><div><small>ไลน์</small><b>${escapeHtml(representative.line||'-')}</b></div><div><small>บริษัท</small><b>${escapeHtml(representative.company||'-')}</b></div><div class="wide"><small>ข้อมูลเพิ่มเติม</small><b>${escapeHtml(representative.note||'-')}</b></div>`:'<div class="wide shortage-rep-empty">เลือกผู้แทนเพื่อแสดงข้อมูลติดต่อ</div>'}</div></aside>
     </div></div>
     ${documentProductScannerHtml()}
     <div class="shortage-section-title">รายการที่สั่ง</div>

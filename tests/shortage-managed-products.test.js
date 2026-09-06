@@ -2,7 +2,13 @@ const assert = require('node:assert/strict');
 const source = require('./load-app-source')();
 
 assert.doesNotMatch(source, /ใช้ราคาพิเศษที่ตั้งไว้โดยอัตโนมัติ/);
-assert.match(source, /id="shortageManagedProductsBtn"[^>]*>สินค้าที่ดูแล<\/button><div class="shortage-date-field"><label>วันที่สั่ง/);
+const formStart = source.indexOf('function renderShortageOrderForm');
+const formEnd = source.indexOf('function renderProductReturnForm', formStart);
+const form = source.slice(formStart, formEnd);
+assert.match(form, /shortage-form-grid[\s\S]*shortage-form-main[\s\S]*shortage-rep-summary/);
+assert.match(form, /วันที่สั่ง[\s\S]*ชื่อผู้แทน[\s\S]*id="newPORepBtn"[\s\S]*id="shortageManagedProductsBtn"/);
+assert.match(form, /shortage-note-field[\s\S]*หมายเหตุ/);
+assert.doesNotMatch(form, /id="editPORepBtn"/, 'หน้าจดสั่งสินค้าต้องไม่มีปุ่มแก้ไขข้างชื่อผู้แทน');
 assert.match(source, /from\('sales_representative_products'\)[\s\S]{0,220}\.eq\('representative_id',Number\(representative\.id\)\)/);
 assert.match(source, /data-shortage-managed-product=/);
 assert.match(source, /addDocumentScannedProduct\(product\.id,product\.unit\)/);

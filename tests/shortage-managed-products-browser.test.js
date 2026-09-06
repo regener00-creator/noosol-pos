@@ -74,7 +74,16 @@ let browser;
   });
 
   assert.equal(await page.locator('#shortageManagedProductsBtn').count(), 1);
-  assert.equal(await page.locator('#shortageManagedProductsBtn + .shortage-date-field #po_date').count(), 1, 'managed-products button must be before the order date');
+  assert.equal(await page.locator('.shortage-form-grid > .shortage-form-main').count(), 1);
+  assert.equal(await page.locator('.shortage-form-grid > .shortage-rep-summary').count(), 1);
+  assert.equal(await page.locator('#editPORepBtn').count(), 0, 'edit representative button must be removed from the shortage form');
+  const mainBox = await page.locator('.shortage-form-main').boundingBox();
+  const summaryBox = await page.locator('.shortage-rep-summary').boundingBox();
+  assert.ok(mainBox && summaryBox && mainBox.x < summaryBox.x, 'form fields must be on the left and representative information on the right');
+  assert.ok(Math.abs(mainBox.y - summaryBox.y) < 2, 'both shortage form columns must begin on the same row');
+  const controlOrder = await page.locator('.shortage-form-controls').evaluate(element=>[...element.children].map(child=>child.id||child.className));
+  assert.deepEqual(controlOrder, ['shortage-date-field','shortage-rep-field','newPORepBtn','shortageManagedProductsBtn']);
+  assert.match(await page.locator('.shortage-rep-summary').textContent(), /ข้อมูลผู้แทน[\s\S]*0812345678[\s\S]*pepo/);
   await page.locator('#shortageManagedProductsBtn').click();
   await page.waitForSelector('.shortage-managed-product-card');
   assert.equal(await page.locator('.shortage-managed-products-modal').count(), 1);
