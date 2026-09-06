@@ -2424,13 +2424,7 @@ function openPOSCustomerPicker(){
   overlay.querySelector('.modal-close').addEventListener('click',close);
   overlay.querySelector('#addPOSCustomerBtn').addEventListener('click',()=>{
     close();
-    currentTab='contacts';
-    editingCustomerPriceContactId=null;
-    editingContactId='new';
-    contactFilter='customer';
-    contactPage=1;
-    searchQuery='';
-    render();
+    openPOSCustomerCreateModal();
   });
   overlay.addEventListener('mousedown',event=>{ if(event.target===overlay) close(); });
   overlay.querySelector('[data-pos-customer-general]').addEventListener('click',()=>choose(null));
@@ -2449,6 +2443,29 @@ function openPOSCustomerPicker(){
     noResults.hidden=!query||visible>0;
   });
   requestAnimationFrame(()=>search.focus());
+}
+function openPOSCustomerCreateModal(){
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay pos-customer-create-overlay';
+  overlay.innerHTML=`<div class="modal pos-customer-create-modal" role="dialog" aria-modal="true" aria-labelledby="posCustomerCreateTitle">
+    <div class="modal-head"><div><h3 id="posCustomerCreateTitle">สร้างรายชื่อผู้ติดต่อ</h3><div class="sub">เพิ่มลูกค้าใหม่โดยไม่ต้องออกจากหน้า POS</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div>
+    <div class="pos-customer-create-body">${contactEditorFieldsHtml(emptyCustomerContactDraft())}</div>
+    <div class="pos-customer-create-actions"><button class="btn ghost" id="cancelPOSCustomerCreateBtn" type="button">ปิดหน้าต่าง</button><button class="btn primary" id="savePOSCustomerCreateBtn" type="button">บันทึกแล้วปิด</button></div>
+  </div>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  overlay.querySelector('.modal-close').addEventListener('click',close);
+  overlay.querySelector('#cancelPOSCustomerCreateBtn').addEventListener('click',close);
+  overlay.addEventListener('mousedown',event=>{ if(event.target===overlay) close(); });
+  overlay.querySelector('#savePOSCustomerCreateBtn').addEventListener('click',()=>{
+    const customer=saveContactEditorData('new');
+    if(!customer) return;
+    saleMember=customerSaleSnapshot(customer);
+    refreshCartCustomerPrices();
+    close();
+    render();
+  });
+  requestAnimationFrame(()=>overlay.querySelector('#c_name')?.focus());
 }
 function addToCart(pid, unitName, qty){
   const p = products.find(x=>x.id===pid); if(!p) return;
@@ -10027,16 +10044,12 @@ function sellQuotationAtPos(id){
   render();
 }
 
-function renderContactForm(){
-  const isNew = editingContactId==='new';
-  const c = isNew ? {name:'',entity:'juristic',types:['customer'],email:'',line:'',phone:'',taxId:'',creditDays:'',address:'',note:'',customerPrices:[]} : contacts.find(x=>x.id===editingContactId);
+function emptyCustomerContactDraft(){
+  return {name:'',entity:'juristic',types:['customer'],email:'',line:'',phone:'',taxId:'',creditDays:'',address:'',note:'',customerPrices:[]};
+}
+function contactEditorFieldsHtml(c){
   const chk = t => c.types.includes(t)?'checked':'';
-  return `
-    <div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › ${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</div><h1>${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</h1></div>
-      <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelContactBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveContactBtn">บันทึกแล้วปิด</button></div>
-    </div>
-    <div class="panel contact-editor-panel">
-      <div class="contact-editor-grid">
+  return `<div class="contact-editor-grid">
           <div class="contact-editor-field"><label>ประเภท</label><div class="cradio">
             <label><input type="checkbox" id="c_type_customer" ${chk('customer')}> ลูกค้า</label>
             <label><input type="checkbox" id="c_type_supplier" ${chk('supplier')}> ผู้จำหน่าย</label>
@@ -10056,8 +10069,16 @@ function renderContactForm(){
             <div class="contact-editor-field"><label>เบอร์โทร</label><input id="c_phone" class="phone-input" value="${escapeHtml(c.phone||'')}"></div>
           </div>
           <div class="contact-editor-field contact-editor-wide"><label>เพิ่มเติม</label><textarea id="c_note" rows="3">${escapeHtml(c.note||'')}</textarea></div>
-      </div>
-    </div>`;
+      </div>`;
+}
+function renderContactForm(){
+  const isNew = editingContactId==='new';
+  const c = isNew ? emptyCustomerContactDraft() : contacts.find(x=>x.id===editingContactId);
+  return `
+    <div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › ${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</div><h1>${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</h1></div>
+      <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelContactBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveContactBtn">บันทึกแล้วปิด</button></div>
+    </div>
+    <div class="panel contact-editor-panel">${contactEditorFieldsHtml(c)}</div>`;
 }
 
 function renderCustomerPricingForm(){
@@ -16026,21 +16047,21 @@ function collectCustomerPriceRules(){
   return rules;
 }
 
-function saveContact(){
+function saveContactEditorData(contactId=editingContactId){
   const g = id => document.getElementById(id);
   const name = g('c_name').value.trim();
-  if(!name){ showToast('กรุณากรอกชื่อ-นามสกุล'); g('c_name').focus(); return; }
+  if(!name){ showToast('กรุณากรอกชื่อ-นามสกุล'); g('c_name').focus(); return null; }
   const types = [];
   if(g('c_type_customer').checked) types.push('customer');
   if(g('c_type_supplier').checked) types.push('supplier');
-  if(types.length===0){ showToast('กรุณาเลือกประเภท (ลูกค้า หรือ ผู้จำหน่าย)'); return; }
+  if(types.length===0){ showToast('กรุณาเลือกประเภท (ลูกค้า หรือ ผู้จำหน่าย)'); return null; }
   const code = g('c_code').value.trim();
   if(code){
-    const dup = contacts.find(x=>x.id!==editingContactId && String(x.code||'').trim().toLowerCase()===code.toLowerCase());
-    if(dup){ showToast(`รหัสผู้ติดต่อ "${code}" ถูกใช้แล้วโดย "${dup.name}"`); g('c_code').focus(); return; }
+    const dup = contacts.find(x=>x.id!==contactId && String(x.code||'').trim().toLowerCase()===code.toLowerCase());
+    if(dup){ showToast(`รหัสผู้ติดต่อ "${code}" ถูกใช้แล้วโดย "${dup.name}"`); g('c_code').focus(); return null; }
   }
   const entityEl = document.querySelector('input[name="c_entity"]:checked');
-  const existing=editingContactId==='new'?null:contacts.find(x=>x.id===editingContactId);
+  const existing=contactId==='new'?null:contacts.find(x=>x.id===contactId);
   const data = {
     name, types,
     entity: entityEl?entityEl.value:'juristic',
@@ -16059,14 +16080,21 @@ function saveContact(){
       if(Object.hasOwn(existing,key)) data[key]=existing[key];
     });
   }
-  if(editingContactId==='new'){
-    contacts.push({id:nextContactId++, ...data, customerPrices:[]});
+  let savedContact=existing;
+  if(contactId==='new'){
+    savedContact={id:nextContactId++, ...data, customerPrices:[]};
+    contacts.push(savedContact);
     showToast(`เพิ่มรายชื่อ "${name}" แล้ว`);
   } else {
-    Object.assign(contacts.find(x=>x.id===editingContactId), data);
+    Object.assign(savedContact, data);
     showToast(`บันทึก "${name}" แล้ว`);
   }
   persistContacts();
+  return savedContact;
+}
+function saveContact(){
+  const savedContact=saveContactEditorData(editingContactId);
+  if(!savedContact) return;
   editingContactId = null;
   render();
 }

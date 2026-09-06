@@ -1,10 +1,10 @@
 const assert = require('node:assert/strict');
 const source = require('./load-app-source')();
 
-const formStart = source.indexOf('function renderContactForm()');
+const formStart = source.indexOf('function contactEditorFieldsHtml(c)');
 const formEnd = source.indexOf('function renderCustomerPricingForm()', formStart);
 const form = source.slice(formStart, formEnd);
-const saveStart = source.indexOf('function saveContact()');
+const saveStart = source.indexOf('function saveContactEditorData(');
 const saveEnd = source.indexOf('async function saveCustomerPricing()', saveStart);
 const save = source.slice(saveStart, saveEnd);
 
@@ -17,6 +17,7 @@ assert.match(form, /<label>อีเมล์<\/label>[\s\S]*<label>ไลน์
 assert.match(form, /contact-editor-wide"><label>เพิ่มเติม<\/label>/);
 assert.doesNotMatch(form, /รหัสไปรษณีย์|<label>ชื่อผู้ติดต่อ<\/label>|ข้อมูลธนาคาร|<label>ธนาคาร<\/label>|ชื่อบัญชี|เลขที่บัญชี|ประเภทบัญชี/);
 assert.doesNotMatch(form, /c_postcode|c_contactname|c_bank|c_bankname|c_bankacc|c_acctype/);
+assert.match(source, /openPOSCustomerCreateModal\(\)[\s\S]*contactEditorFieldsHtml\(emptyCustomerContactDraft\(\)\)/);
 assert.match(save, /line: g\('c_line'\)\.value\.trim\(\)/);
 assert.doesNotMatch(save, /g\('c_postcode'\)|g\('c_contactname'\)|g\('c_bank'\)|g\('c_bankname'\)|g\('c_bankacc'\)/);
 

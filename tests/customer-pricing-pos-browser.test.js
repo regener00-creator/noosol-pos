@@ -103,9 +103,24 @@ const browserExecutable = [
   await page.locator('#openCustomerPickerBtn').click();
   assert.equal(await page.locator('#addPOSCustomerBtn').textContent(),'เพิ่มลูกค้า');
   await page.locator('#addPOSCustomerBtn').click();
-  assert.equal(await page.locator('#main h1').textContent(),'สร้างรายชื่อผู้ติดต่อ');
-  assert.deepEqual(await page.evaluate(()=>({currentTab,editingContactId,contactFilter})),{currentTab:'contacts',editingContactId:'new',contactFilter:'customer'});
+  assert.equal(await page.locator('.pos-customer-create-modal').count(),1);
+  assert.equal(await page.locator('#posCustomerCreateTitle').textContent(),'สร้างรายชื่อผู้ติดต่อ');
+  assert.deepEqual(await page.evaluate(()=>({currentTab,editingContactId})),{currentTab:'checkout',editingContactId:null});
   assert.equal(await page.locator('#c_type_customer').isChecked(),true);
+  await page.locator('#c_name').fill('ยังไม่บันทึก');
+  await page.locator('#cancelPOSCustomerCreateBtn').click();
+  assert.equal(await page.locator('.pos-customer-create-modal').count(),0);
+  assert.equal(await page.evaluate(()=>contacts.some(contact=>contact.name==='ยังไม่บันทึก')),false);
+  assert.equal(await page.evaluate(()=>currentTab),'checkout');
+  await page.locator('#openCustomerPickerBtn').click();
+  await page.locator('#addPOSCustomerBtn').click();
+  await page.locator('#c_name').fill('ลูกค้าใหม่');
+  await page.locator('#c_phone').fill('0891112222');
+  await page.locator('#savePOSCustomerCreateBtn').click();
+  assert.equal(await page.locator('.pos-customer-create-modal').count(),0);
+  assert.equal(await page.evaluate(()=>currentTab),'checkout');
+  assert.equal(await page.evaluate(()=>saleMember?.name),'ลูกค้าใหม่');
+  assert.equal(await page.locator('#openCustomerPickerBtn strong').textContent(),'ลูกค้าใหม่');
 
   await page.evaluate(() => {
     quotations=[{id:'QT-TEST',date:'2026-09-04',customer:'ลูกค้า A',customerInfo:{id:7,name:'ลูกค้า A'},items:[{productId:101,name:'Decolgen',qty:2,unit:'กล่อง',price:150}],discount:0,total:300,status:'รอตอบรับ'}];
