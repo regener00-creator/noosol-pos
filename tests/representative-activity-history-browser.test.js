@@ -201,6 +201,7 @@ let browser;
   assert.ok(workspaceColumns.detailLeft>workspaceColumns.listRight,'NOTE list must be on the left and selected NOTE detail on the right');
   assert.ok(Math.abs((workspaceColumns.listWidth/workspaceColumns.detailWidth)-0.5)<0.04,'NOTE list must use one third and NOTE detail two thirds of the available width');
   assert.equal(await page.locator('.representative-note-search #newRepresentativeActivityBtn').count(),1,'add NOTE button must be next to NOTE search');
+  assert.equal(await page.locator('.representative-note-search #newRepresentativeActivityBtn + #deleteSelectedRepresentativeNotesBtn').count(),1,'bulk delete must be immediately after add NOTE');
   const historyPageWidth=await page.locator('.representative-history-page').evaluate(element=>{
     const parent=element.parentElement;
     const parentStyle=getComputedStyle(parent);
