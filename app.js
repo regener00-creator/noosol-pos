@@ -2402,7 +2402,7 @@ function openPOSCustomerPicker(){
   const overlay=document.createElement('div');
   overlay.className='modal-overlay pos-customer-picker-overlay';
   overlay.innerHTML=`<div class="modal pos-customer-picker-modal" role="dialog" aria-modal="true" aria-labelledby="posCustomerPickerTitle">
-    <div class="modal-head"><div><h3 id="posCustomerPickerTitle">เลือกลูกค้า / สมาชิก</h3><div class="sub">เลือกลูกค้าเพื่อใช้ราคาพิเศษและข้อมูลออกเอกสาร</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div>
+    <div class="modal-head"><div><h3 id="posCustomerPickerTitle">เลือกลูกค้า / สมาชิก</h3><div class="sub">เลือกลูกค้าเพื่อใช้ราคาพิเศษและข้อมูลออกเอกสาร</div></div><div class="pos-customer-picker-head-actions"><button class="btn primary" id="addPOSCustomerBtn" type="button">เพิ่มลูกค้า</button><button class="modal-close" type="button" aria-label="ปิด">×</button></div></div>
     <div class="pos-customer-picker-search"><input id="posCustomerPickerSearch" type="search" placeholder="ค้นหาชื่อ เบอร์โทร หรือเลขประจำตัวผู้เสียภาษี" autocomplete="off"></div>
     <div class="pos-customer-picker-list">
       <button class="pos-customer-picker-item general ${selected?'':'active'}" type="button" data-pos-customer-general>
@@ -2422,6 +2422,16 @@ function openPOSCustomerPicker(){
     render();
   };
   overlay.querySelector('.modal-close').addEventListener('click',close);
+  overlay.querySelector('#addPOSCustomerBtn').addEventListener('click',()=>{
+    close();
+    currentTab='contacts';
+    editingCustomerPriceContactId=null;
+    editingContactId='new';
+    contactFilter='customer';
+    contactPage=1;
+    searchQuery='';
+    render();
+  });
   overlay.addEventListener('mousedown',event=>{ if(event.target===overlay) close(); });
   overlay.querySelector('[data-pos-customer-general]').addEventListener('click',()=>choose(null));
   overlay.querySelectorAll('[data-pos-customer-index]').forEach(button=>button.addEventListener('click',()=>choose(customers[Number(button.dataset.posCustomerIndex)])));

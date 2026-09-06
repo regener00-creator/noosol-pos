@@ -1295,6 +1295,7 @@
   .pos-customer-picker-modal{width:620px;max-height:min(82vh,760px)}
   .pos-customer-picker-modal .modal-head{padding:20px 22px 14px;border-bottom:1px solid var(--border)}
   .pos-customer-picker-modal .modal-head h3{font-size:21px}.pos-customer-picker-modal .modal-head .sub{margin-top:4px;font-size:12px;color:var(--text-muted)}
+  .pos-customer-picker-head-actions{display:flex;align-items:center;gap:10px}.pos-customer-picker-head-actions .btn{min-height:40px;padding:8px 16px;white-space:nowrap}
   .pos-customer-picker-search{padding:14px 18px 10px}.pos-customer-picker-search input{width:100%;min-height:46px;border:1px solid var(--border);border-radius:10px;padding:10px 13px;font:inherit;background:#fff;color:var(--text)}
   .pos-customer-picker-search input:focus{outline:2px solid color-mix(in srgb,var(--primary) 25%,transparent);border-color:var(--primary)}
   .pos-customer-picker-list{padding:2px 18px 18px;overflow-y:auto;display:grid;gap:8px}

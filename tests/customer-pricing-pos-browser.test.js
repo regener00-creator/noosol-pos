@@ -100,6 +100,12 @@ const browserExecutable = [
   await page.locator('[data-pos-customer-general]').click();
   assert.equal(await page.evaluate(()=>cart[0].price),180);
   assert.equal(await page.locator('.pos-customer-price-tag').count(),0);
+  await page.locator('#openCustomerPickerBtn').click();
+  assert.equal(await page.locator('#addPOSCustomerBtn').textContent(),'เพิ่มลูกค้า');
+  await page.locator('#addPOSCustomerBtn').click();
+  assert.equal(await page.locator('#main h1').textContent(),'สร้างรายชื่อผู้ติดต่อ');
+  assert.deepEqual(await page.evaluate(()=>({currentTab,editingContactId,contactFilter})),{currentTab:'contacts',editingContactId:'new',contactFilter:'customer'});
+  assert.equal(await page.locator('#c_type_customer').isChecked(),true);
 
   await page.evaluate(() => {
     quotations=[{id:'QT-TEST',date:'2026-09-04',customer:'ลูกค้า A',customerInfo:{id:7,name:'ลูกค้า A'},items:[{productId:101,name:'Decolgen',qty:2,unit:'กล่อง',price:150}],discount:0,total:300,status:'รอตอบรับ'}];
