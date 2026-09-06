@@ -103,6 +103,14 @@ const browserExecutable = [
     color:getComputedStyle(button).borderTopColor
   })));
   assert.ok(posBorderStyles.every(style=>style.width===posBorderStyles[2].width&&style.color===posBorderStyles[2].color),'smallest unit and favorite borders must match price check');
+  const posActionRows=await page.locator('#favBtn,#priceCheckBtn,#histBtn').evaluateAll(buttons=>buttons.map(button=>Math.round(button.getBoundingClientRect().top)));
+  assert.equal(new Set(posActionRows).size,1,'favorite, price check, and sales history must stay on one row');
+  await page.locator('#histBtn').click();
+  assert.equal(await page.locator('.pos-sales-history-modal').count(),1);
+  assert.equal(await page.evaluate(()=>currentTab),'checkout','opening sales history from POS must not leave checkout');
+  await page.locator('#closePOSSalesHistoryBottomBtn').click();
+  assert.equal(await page.locator('.pos-sales-history-modal').count(),0);
+  assert.equal(await page.evaluate(()=>currentTab),'checkout');
   await page.locator('#openCustomerPickerBtn').click();
   assert.equal(await page.locator('.pos-customer-picker-modal').count(),1);
   await page.locator('#posCustomerPickerSearch').fill('081234');

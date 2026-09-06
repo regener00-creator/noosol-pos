@@ -3132,6 +3132,8 @@ const DOC_LIST_PAGE_SIZE = 10;
 let lowStockSort = { stock:{key:'name',dir:1}, expiry:{key:'expiry',dir:1} };
 // สถานะตัวกรองหน้าประวัติการขาย (ค่าเริ่มต้น = แสดงเฉพาะวันนี้)
 let historyFilter = { period:'range', from:'', to:'', month:'', year:'', bill:'', page:1 };
+let posSalesHistoryModalOpen=false;
+let posSalesHistoryOnDemandState=null;
 // ตัวกรองหน้ารายการงานเคลื่อนไหว (ไม่เลือกสินค้า = แสดงสินค้าทั้งหมด)
 let inventoryMovementFilter = { period:'range', from:'', to:'', month:'', year:'', warehouse:'', type:'all', bill:'', direction:'all', category:'', brand:'', products:[], page:1 };
 let inventoryMovementSearchQuery = '';
@@ -5400,7 +5402,7 @@ function renderCheckout(){
         </div>
         ${promoHints.length?`<div class="pos-promo-hints">${promoHints.map(h=>`<div class="pos-promo-hint"><div class="pos-promo-hint-head">💡 ${escapeHtml(h.name)} - ${escapeHtml(h.unit)}</div><div class="pos-promo-hint-body"><div><span>ชื่อโปร:</span> ${escapeHtml(h.promoName)}</div><div><span>ผลลัพธ์:</span> ${escapeHtml(h.note)}</div><div class="pos-promo-hint-nudge">ซื้อเพิ่มอีก ${h.needMore} ${escapeHtml(h.unit)} เพื่อรับสิทธิ์โปรโมชั่นนี้</div></div></div>`).join('')}</div>`:''}
       </div>
-    </div>`;
+    </div>${posSalesHistoryModalOpen?renderPOSSalesHistoryModal():''}`;
 }
 
 function recalcPOSCartDOM(){
@@ -5524,6 +5526,13 @@ function renderHistory(){
     </div>
     ${pager}
   </div>`;
+}
+function renderPOSSalesHistoryModal(){
+  const state=ensureOnDemandDataForTab('history');
+  posSalesHistoryOnDemandState=state;
+  const unavailable=state.status==='loading'||state.status==='error'||(state.status==='truncated'&&state.blocking);
+  const content=unavailable?onDemandStateHtml(state):`${state.status==='truncated'?onDemandStateHtml(state):''}${renderHistory()}`;
+  return `<div class="modal-overlay pos-sales-history-overlay"><section class="modal pos-sales-history-modal" role="dialog" aria-modal="true" aria-labelledby="posSalesHistoryTitle"><div class="modal-head"><div><h3 id="posSalesHistoryTitle">ประวัติการขาย</h3><div class="sub">ดูรายการขายโดยไม่ออกจากหน้า POS</div></div><button class="modal-close" id="closePOSSalesHistoryBtn" type="button" aria-label="ปิด">×</button></div><div class="pos-sales-history-body">${content}</div><div class="pos-sales-history-actions"><button class="btn primary" id="closePOSSalesHistoryBottomBtn" type="button">ปิด</button></div></section></div>`;
 }
 
 function renderCashBillLookup(){
@@ -11771,10 +11780,10 @@ function ensureOnDemandDataForTab(tab){
     documentsNeeded.forEach(item=>tasks.push(loadDocumentTableFromSupabase(item.table,item)));
     const job=Promise.all(tasks).then(()=>{
       onDemandTabJobs.delete(key); onDemandTabErrors.delete(key);
-      if(currentProfile&&currentTab===tab) render();
+      if(currentProfile&&(currentTab===tab||(tab==='history'&&currentTab==='checkout'&&posSalesHistoryModalOpen))) render();
     }).catch(error=>{
       onDemandTabJobs.delete(key); onDemandTabErrors.set(key,error);
-      if(currentProfile&&currentTab===tab) render();
+      if(currentProfile&&(currentTab===tab||(tab==='history'&&currentTab==='checkout'&&posSalesHistoryModalOpen))) render();
     });
     onDemandTabJobs.set(key,job);
   }
@@ -11830,6 +11839,7 @@ function render(){
   document.title=mobileMode?'PEPOS':'ร้านยา POS v50';
   if(mobileMode) currentTab='mobiletools';
   else if(currentTab==='mobiletools') currentTab='dashboard';
+  if(currentTab!=='checkout') posSalesHistoryModalOpen=false;
   if(!canAccessTab(currentTab)){
     currentTab='dashboard';
     addingSystemUser=false; editingSystemUserId=null;
@@ -11867,12 +11877,14 @@ function render(){
   }
   preserveMobileCameraScanner();
   const onDemandNotice=onDemandState.status==='truncated'?onDemandStateHtml(onDemandState):'';
+  posSalesHistoryOnDemandState=null;
   mainElement.innerHTML = onDemandNotice+(RENDERERS[currentTab]||renderDashboard)();
   restoreMobileCameraScanner();
   prepareScrollableTables(mainElement);
   attachEvents();
   syncTopbarFormActions();
   attachOnDemandStateEvents(onDemandState);
+  if(posSalesHistoryOnDemandState) attachOnDemandStateEvents(posSalesHistoryOnDemandState);
   requestAnimationFrame(()=>refreshScrollableTableHeights(mainElement));
   renderLoginState();
   if(currentTab==='mobiletools'&&mobileToolMode==='price'&&!mobileCameraSession) setTimeout(()=>document.getElementById('mobilePriceInput')?.focus(),60);
@@ -13059,7 +13071,11 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     render();
   }));
   const histBtn = document.getElementById('histBtn');
-  if(histBtn) histBtn.addEventListener('click', ()=>{ currentTab='history'; render(); });
+  if(histBtn) histBtn.addEventListener('click', ()=>{ posSalesHistoryModalOpen=true; render(); });
+  const closePOSSalesHistory=()=>{ posSalesHistoryModalOpen=false; render(); };
+  document.getElementById('closePOSSalesHistoryBtn')?.addEventListener('click',closePOSSalesHistory);
+  document.getElementById('closePOSSalesHistoryBottomBtn')?.addEventListener('click',closePOSSalesHistory);
+  document.querySelector('.pos-sales-history-overlay')?.addEventListener('mousedown',event=>{ if(event.target===event.currentTarget) closePOSSalesHistory(); });
   // --- footer buttons ---
   const clearBillBtn = document.getElementById('clearBillBtn');
   if(clearBillBtn) clearBillBtn.addEventListener('click', clearBill);
@@ -16806,6 +16822,7 @@ async function resumeHold(billId){
     saleRef=bill.ref;
     const idx=salesHistory.indexOf(bill);
     if(idx>-1) salesHistory.splice(idx,1);
+    posSalesHistoryModalOpen=false;
     currentTab='checkout';
     showToast(`ดึงออเดอร์ "${bill.name||''}" กลับมาทำต่อ`);
     render();

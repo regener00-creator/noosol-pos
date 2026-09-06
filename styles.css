@@ -1319,11 +1319,18 @@
   .sumrow.grand span:first-child{color:var(--text);font-size:17px;font-weight:600;}
   .sumrow.grand span:last-child{font-size:26px;font-weight:700;color:var(--primary-dark);}
   .pos-pay{width:100%;padding:16px;font-size:16px;}
-  .pos-actions{display:flex;flex-direction:column;gap:10px;margin-bottom:0;}
-  .pos-action{display:flex;align-items:center;gap:8px;padding:13px 18px;border:1px solid var(--border);background:var(--surface);border-radius:9px;font-family:inherit;font-size:14.5px;font-weight:500;cursor:pointer;color:var(--text);justify-content:center;}
+  .pos-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin-bottom:0;}
+  .pos-action{display:flex;min-width:0;align-items:center;gap:5px;padding:12px 7px;border:1px solid var(--border);background:var(--surface);border-radius:9px;font-family:inherit;font-size:12.5px;font-weight:500;cursor:pointer;color:var(--text);justify-content:center;white-space:nowrap;}
   .pos-action:hover{border-color:var(--primary);color:var(--primary);}
   .pos-action.on{background:var(--surface);border-color:var(--border);color:var(--primary);font-weight:600;}
   .pos-action .pa-ic{font-size:16px;}
+  .pos-sales-history-modal{width:min(1480px,96vw);max-width:96vw;height:min(88vh,900px);max-height:88vh;}
+  .pos-sales-history-modal>.modal-head{flex:0 0 auto;padding:18px 22px 14px;border-bottom:1px solid var(--border);}
+  .pos-sales-history-modal>.modal-head h3{font-size:21px;}
+  .pos-sales-history-modal>.modal-head .sub{margin-top:4px;color:var(--text-muted);font-size:12px;}
+  .pos-sales-history-body{flex:1;min-height:0;padding:16px 18px;overflow:hidden;background:var(--bg);}
+  .pos-sales-history-body>.sales-history-page{height:100%;}
+  .pos-sales-history-actions{display:flex;flex:0 0 auto;justify-content:flex-end;padding:12px 20px 16px;border-top:1px solid var(--border);background:var(--surface);}
   .pos-left{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;}
   .fav-strip{margin-top:18px;border-top:1px dashed var(--border);padding-top:14px;}
   .fav-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:13.5px;font-weight:600;color:var(--text-muted);}
