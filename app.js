@@ -6124,7 +6124,7 @@ function renderShortageOrderForm(po,isNew){
           <div class="shortage-date-field"><label>วันที่สั่ง <span class="req">*</span></label>${dmyDateFieldHtml('po_date',po.date||TODAY_STR)}</div>
           <div class="shortage-rep-field"><label>ชื่อผู้แทน <span class="req">*</span></label><select id="po_supplier"><option value="">เลือกผู้แทน</option>${salesRepresentatives.map(rep=>`<option value="${escapeHtml(rep.name)}" ${po.supplier===rep.name?'selected':''}>${escapeHtml(rep.name)}</option>`).join('')}</select></div>
           <button class="btn ghost small" id="newPORepBtn" type="button">+ เพิ่ม</button>
-          <button class="btn ghost" id="shortageManagedProductsBtn" type="button" ${representative?'':'disabled'}>สินค้าที่ดูแล</button>
+          <button class="btn primary" id="shortageManagedProductsBtn" type="button" ${representative?'':'disabled'}>สินค้าที่ดูแล</button>
         </div>
         <div class="shortage-note-field"><label>หมายเหตุ</label><textarea id="po_note" rows="2" placeholder="ระบุหมายเหตุเพิ่มเติม">${escapeHtml(po.note||'')}</textarea></div>
         ${poRepresentativeEditorId!==null?shortageRepresentativeEditorHtml():''}

@@ -98,6 +98,7 @@ assert.match(html, /\.representative-profile-field\{display:flex;[^}]*justify-co
 assert.match(representativeProfileRender, /เบอร์โทร[\s\S]*representative-profile-contact[\s\S]*ไลน์[\s\S]*representative-profile-contact[\s\S]*บริษัท[\s\S]*representative-profile-contact/);
 assert.match(html, /\.representative-profile-contact>div\{font-weight:700;\}/);
 assert.match(html, /\.representative-profile-products-trigger\{[^}]*font-size:17px;/);
+assert.match(html, /\.representative-profile-products-trigger\{[^}]*background:var\(--primary\)[^}]*color:#fff/, 'กล่องสินค้าที่ดูแลต้องใช้สีเดียวกับปุ่มบันทึกโน้ต');
 assert.match(representativeProfileRender, /data-view-representative-info=/);
 assert.match(html, /\.representative-profile-info-trigger>span\{[^}]*-webkit-line-clamp:5;/);
 assert.match(html, /\.representative-profile-info-trigger>span\{[^}]*font-weight:400;/);

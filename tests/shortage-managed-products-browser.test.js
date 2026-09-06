@@ -95,6 +95,8 @@ let browser;
   await page.keyboard.press('Control+A');
   await page.keyboard.type('07092026');
   assert.equal(await page.locator('#po_date').inputValue(), '07/09/2026', 'order date must accept direct numeric typing');
+  const shortageButtonColors = await page.locator('#shortageManagedProductsBtn, #savePOBtn').evaluateAll(elements=>elements.map(element=>getComputedStyle(element).backgroundColor));
+  assert.equal(shortageButtonColors[0],shortageButtonColors[1],'managed-products button must match the save-document button color');
   assert.match(await page.locator('.shortage-rep-summary').textContent(), /ข้อมูลผู้แทน[\s\S]*0812345678[\s\S]*pepo/);
   await page.locator('#shortageManagedProductsBtn').click();
   await page.waitForSelector('.shortage-managed-product-card');

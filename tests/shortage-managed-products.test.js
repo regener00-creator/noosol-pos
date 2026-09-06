@@ -11,6 +11,7 @@ assert.match(source, /\.shortage-form-controls\{[^}]*grid-template-columns:240px
 assert.match(source, /\.shortage-form-grid \.shortage-date-field \.dmy-input\{[^}]*width:100%/, 'ช่องพิมพ์วันที่ต้องยาวถึงไอคอนปฏิทิน');
 assert.match(source, /\.shortage-form-grid \.shortage-date-field \.dmy-native\{[^}]*width:30px/, 'ปุ่มปฏิทินต้องไม่ซ้อนทับพื้นที่พิมพ์วันที่');
 assert.match(form, /วันที่สั่ง[\s\S]*ชื่อผู้แทน[\s\S]*id="newPORepBtn"[\s\S]*id="shortageManagedProductsBtn"/);
+assert.match(form, /class="btn primary" id="shortageManagedProductsBtn"/, 'ปุ่มสินค้าที่ดูแลต้องใช้สีเดียวกับปุ่มบันทึกเอกสาร');
 assert.match(form, /shortage-note-field[\s\S]*หมายเหตุ/);
 assert.doesNotMatch(form, /id="editPORepBtn"/, 'หน้าจดสั่งสินค้าต้องไม่มีปุ่มแก้ไขข้างชื่อผู้แทน');
 assert.match(source, /from\('sales_representative_products'\)[\s\S]{0,220}\.eq\('representative_id',Number\(representative\.id\)\)/);

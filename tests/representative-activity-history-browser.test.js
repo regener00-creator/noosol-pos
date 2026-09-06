@@ -236,6 +236,9 @@ let browser;
 
   const managedProductsTrigger=page.locator('[data-manage-representative-products="10"]');
   assert.equal((await managedProductsTrigger.textContent()).trim(),'คลิกเพื่อดูสินค้าที่ผู้แทนดูแล');
+  const managedProductsColor=await managedProductsTrigger.evaluate(element=>getComputedStyle(element).backgroundColor);
+  const saveNoteColor=await page.locator('#saveRepresentativeActivityBtn').evaluate(element=>getComputedStyle(element).backgroundColor);
+  assert.equal(managedProductsColor,saveNoteColor,'managed-products box must match the save-note button color');
   await managedProductsTrigger.click();
   assert.equal(await page.locator('.representative-products-modal').count(),1);
   assert.equal(await page.locator('#representativeProductsSelectedCount').textContent(),'3');
