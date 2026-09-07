@@ -104,7 +104,7 @@ assert.deepEqual(context.products.map(product=>product.stock), [4,5,4,1]);
 
 const navSource=html.slice(html.indexOf('const NAV = ['),html.indexOf('function renderSidebar'));
 assert.ok(navSource.indexOf("['productexchange','เปลี่ยนสินค้า'") > navSource.indexOf("['goodsreceipt','รับเข้าสินค้า'"), 'เมนูเปลี่ยนสินค้าต้องอยู่ใต้รับเข้าสินค้า');
-assert.match(html, /productexchange:\s*renderProductExchange/);
+assert.match(html, /productexchange:\s*\(\)=>renderProductExchange\(\)/);
 assert.match(html, /\['product_exchanges', \(\)=>productExchanges/);
 assert.match(html, /id="confirmExchangeSentBtn"/);
 assert.match(html, /id="confirmExchangeReceivedBtn"/);

@@ -46,7 +46,7 @@ assert.match(lastPageMigration,/limit v_page_limit \+ 1/);
 assert.match(optimizedMigration,/drop function if exists public\.get_central_audit_logs\(integer,integer\)/);
 
 assert.match(html,/\['auditlog','AUDIT LOG'/);
-assert.match(html,/auditlog: renderAuditLog/);
+assert.match(html,/auditlog: \(\)=>renderAuditLog\(\)/);
 assert.match(html,/sb\.rpc\('get_central_audit_log_page'/);
 assert.doesNotMatch(html,/sb\.rpc\('get_central_audit_logs'/,'AUDIT LOG must not load a fixed 500-row browser snapshot');
 assert.match(html,/data-audit-log-page="first"/);

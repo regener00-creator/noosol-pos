@@ -12,7 +12,7 @@ const receiptLogic = html.slice(start, end);
 assert.doesNotMatch(html, /id="wantA4ReceiptBtn"/, 'หน้าชำระเงินสำเร็จต้องไม่มีตัวเลือกบิลเงินสด A4');
 assert.doesNotMatch(html, /id="historyA4ReceiptBtn"/, 'ประวัติการขายต้องไม่มีตัวเลือกบิลเงินสด A4');
 assert.match(html, /\['cashbill','บิลเงินสด'/, 'หมวดใบรายการต้องมีเมนูบิลเงินสด');
-assert.match(html, /cashbill: renderCashBills/, 'ต้องมีหน้ารายการบิลเงินสด');
+assert.match(html, /cashbill: \(\)=>renderCashBills\(\)/, 'ต้องมีหน้ารายการบิลเงินสดที่โหลดโค้ดเมื่อเปิดหน้า');
 assert.match(html, /<option value="none"[^>]*>ไม่ระบุ<\/option>/, 'สถานประกอบการต้องเลือกไม่ระบุได้');
 assert.match(html, /branch:branchValue==='branch'\?'branch':branchValue==='head'\?'head':'none'/, 'ต้องบันทึกสถานประกอบการแบบไม่ระบุได้');
 assert.match(receiptLogic, /<div class="title">บิลเงินสด<\/div>/, 'หัวเอกสาร A4 ต้องเป็นบิลเงินสด');

@@ -8,6 +8,47 @@ const EDGE_FUNCTIONS_URL = SUPABASE_URL + '/functions/v1';
 const XLSX_SCRIPT_URL='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
 let xlsxLoadPromise=null;
 const APP_ASSET_VERSION=new URL(document.currentScript?.src||location.href).searchParams.get('v')||'';
+// Build extracts exactly these declarations into versioned classic-script chunks.
+// Keeping one source preserves the shared legacy scope and source-level tests.
+const PAGE_CODE_GROUPS={
+  "reports":{"tabs":["rproduct","rbill","rprofit","rtax","rinventory","inventorymovement","lowstock","expiry"],"functions":["renderRProduct","renderRBill","renderRProfit","renderRTax","renderRInventory","renderInventoryMovement","renderLowStock","renderExpiry"]},
+  "documents":{"tabs":["cashbill","taxinvoice","quotation","purchaseorder","productreturn","goodsreceipt","productexchange"],"functions":["renderCashBills","renderCashBillLookup","renderTaxInvoices","renderTaxInvoiceOrderLookup","renderStandaloneTaxInvoiceForm","renderTaxInvoiceForm","renderQuotation","renderQuotationForm","renderPurchaseOrder","renderPOForm","renderShortageOrderForm","renderProductReturnForm","renderProductReturn","renderGoodsReceipt","renderProductExchange","renderProductExchangeForm"]},
+  "settings":{"tabs":["settingsbusiness","settingssystem","settingsuser","settingsusers","auditlog","warehouse"],"functions":["renderBusinessSettings","renderSystemSettings","renderUserSettings","renderSystemUsers","renderAddSystemUser","renderAuditLog","renderWarehouse","renderWarehouseForm"]},
+  "catalog":{"tabs":["products","contacts","promotions"],"functions":["renderProducts","renderProductForm","renderContacts","renderContactForm","renderCustomerPricingForm","renderPromotions","renderPromotionForm"]}
+};
+const pageCodeLoads=new Map();
+function pageCodeGroup(tab){ return Object.keys(PAGE_CODE_GROUPS).find(group=>PAGE_CODE_GROUPS[group].tabs.includes(tab)); }
+function pageCodeReady(group){ return !group||PAGE_CODE_GROUPS[group].functions.every(name=>typeof window[name]==='function'); }
+function ensurePageCodeLoaded(tab){
+  const group=pageCodeGroup(tab);
+  if(pageCodeReady(group)) return Promise.resolve(true);
+  if(pageCodeLoads.has(group)) return pageCodeLoads.get(group);
+  const promise=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src=`/page-${group}.js${APP_ASSET_VERSION?`?v=${encodeURIComponent(APP_ASSET_VERSION)}`:''}`;
+    script.async=true;
+    script.onload=()=>pageCodeReady(group)?resolve(true):reject(new Error('โหลดส่วนประกอบหน้านี้ไม่ครบ กรุณาโหลดโปรแกรมใหม่'));
+    script.onerror=()=>{ script.remove(); reject(new Error('โหลดหน้านี้ไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่')); };
+    document.head.appendChild(script);
+  }).catch(error=>{ pageCodeLoads.delete(group); throw error; });
+  pageCodeLoads.set(group,promise);
+  return promise;
+}
+function showPageCodeLoading(tab,mainElement){
+  if(pageCodeReady(pageCodeGroup(tab))) return false;
+  const owner={};
+  mainElement.pageCodeOwner=owner;
+  mainElement.innerHTML='<div class="hint" role="status">กำลังโหลดหน้านี้...</div>';
+  ensurePageCodeLoaded(tab).then(()=>{
+    if(currentTab===tab&&mainElement.pageCodeOwner===owner) render();
+  }).catch(error=>{
+    if(currentTab!==tab||mainElement.pageCodeOwner!==owner) return;
+    mainElement.innerHTML=`<div class="hint" role="alert">${escapeHtml(error.message)} <button class="btn" id="retryPageCodeBtn" type="button">ลองใหม่</button> <button class="btn ghost" id="reloadPageCodeBtn" type="button">โหลดโปรแกรมใหม่</button></div>`;
+    mainElement.querySelector('#retryPageCodeBtn').onclick=()=>render();
+    mainElement.querySelector('#reloadPageCodeBtn').onclick=()=>location.reload();
+  });
+  return true;
+}
 let excelToolsLoadPromise=null;
 function ensureExcelToolsLoaded(){
   if(window.downloadProductImportTemplate) return Promise.resolve(true);
@@ -490,41 +531,78 @@ function inventoryScopeWarehouseIds(){
   if(isAllWarehousesMode()) return normalizedInventoryWarehouseIds(reportWarehouseIds());
   return normalizedInventoryWarehouseIds([activeWarehouseId]);
 }
+let inventoryReadGeneration=0;
+let inventoryReadChains=new Map();
+function queueInventoryRead(kind,read){
+  const generation=inventoryReadGeneration,profileId=currentProfile?.id;
+  const isCurrent=()=>generation===inventoryReadGeneration&&profileId===currentProfile?.id;
+  const previous=inventoryReadChains.get(kind)||Promise.resolve();
+  const pending=previous.catch(()=>false).then(()=>isCurrent()?read(isCurrent):false);
+  inventoryReadChains.set(kind,pending);
+  return pending.finally(()=>{ if(inventoryReadChains.get(kind)===pending) inventoryReadChains.delete(kind); });
+}
+function normalizedInventoryProductIds(productIds){
+  return productIds===null?null:[...new Set((productIds||[]).map(Number).filter(id=>Number.isSafeInteger(id)&&id>0))];
+}
+async function fetchInventoryScopeRows(queryFactory,productIds){
+  if(productIds===null) return fetchAllRows(queryFactory);
+  const rows=[];
+  for(let offset=0;offset<productIds.length;offset+=200){
+    const {data,error}=await fetchAllRows(()=>queryFactory().in('product_id',productIds.slice(offset,offset+200)));
+    if(error) return {data:null,error};
+    rows.push(...(data||[]));
+  }
+  return {data:rows,error:null};
+}
 function resetLoadedInventoryScopes(){
+  inventoryReadGeneration++;
+  inventoryReadChains=new Map();
   loadedInventoryBalanceWarehouseIds=new Set();
   loadedInventoryLotWarehouseIds=new Set();
   inventoryWarehouseLoadPromises=new Map();
 }
-async function loadInventoryBalancesFromSupabase({warehouseIds=inventoryScopeWarehouseIds(),force=true}={}){
+async function loadInventoryBalancesFromSupabase({warehouseIds=inventoryScopeWarehouseIds(),force=true,productIds=null}={}){
   if(!currentProfile) return false;
   const requested=normalizedInventoryWarehouseIds(warehouseIds);
-  const targets=force?requested:requested.filter(id=>!loadedInventoryBalanceWarehouseIds.has(id));
+  const selected=normalizedInventoryProductIds(productIds);
+  if(selected!==null&&!selected.length) return true;
+  return queueInventoryRead('balances',async isCurrent=>{
+  const targets=force||selected!==null?requested:requested.filter(id=>!loadedInventoryBalanceWarehouseIds.has(id));
   if(!targets.length) return true;
-  const {data,error}=await fetchAllRows(()=>sb.from('inventory_balances').select('warehouse_id,product_id,stock,expiry,updated_at').in('warehouse_id',targets).order('warehouse_id').order('product_id'));
+  const {data,error}=await fetchInventoryScopeRows(()=>sb.from('inventory_balances').select('warehouse_id,product_id,stock,expiry,updated_at').in('warehouse_id',targets).order('warehouse_id').order('product_id'),selected);
   if(error){ console.warn('load inventory balances',error); return false; }
+  if(!isCurrent()) return false;
   const targetSet=new Set(targets);
+  const selectedSet=selected===null?null:new Set(selected);
   inventoryBalanceRows=[
-    ...inventoryBalanceRows.filter(row=>!targetSet.has(Number(row.warehouse_id))),
+    ...inventoryBalanceRows.filter(row=>!targetSet.has(Number(row.warehouse_id))||(selectedSet&&!selectedSet.has(Number(row.product_id)))),
     ...(data||[]).map(row=>({...row,warehouse_id:Number(row.warehouse_id),product_id:Number(row.product_id),stock:Number(row.stock)||0}))
   ];
-  targets.forEach(id=>loadedInventoryBalanceWarehouseIds.add(id));
+  if(selected===null) targets.forEach(id=>loadedInventoryBalanceWarehouseIds.add(id));
   rebuildInventoryBalanceMap(); applyActiveWarehouseInventory(); return true;
+  });
 }
-async function loadInventoryLotsFromSupabase({warehouseIds=inventoryScopeWarehouseIds(),force=true}={}){
+async function loadInventoryLotsFromSupabase({warehouseIds=inventoryScopeWarehouseIds(),force=true,productIds=null}={}){
   if(!currentProfile) return false;
   const requested=normalizedInventoryWarehouseIds(warehouseIds);
-  const targets=force?requested:requested.filter(id=>!loadedInventoryLotWarehouseIds.has(id));
+  const selected=normalizedInventoryProductIds(productIds);
+  if(selected!==null&&!selected.length) return true;
+  return queueInventoryRead('lots',async isCurrent=>{
+  const targets=force||selected!==null?requested:requested.filter(id=>!loadedInventoryLotWarehouseIds.has(id));
   if(!targets.length) return true;
-  const {data,error}=await fetchAllRows(()=>sb.from('inventory_lots').select('id,product_id,warehouse_id,internal_code,manufacturer_lot,expiry_date,quantity_base,unit_cost_base,received_at,source_type,source_id,status,updated_at').in('warehouse_id',targets).gt('quantity_base',0).order('warehouse_id').order('product_id').order('expiry_date',{ascending:true,nullsFirst:false}).order('received_at'));
+  const {data,error}=await fetchInventoryScopeRows(()=>sb.from('inventory_lots').select('id,product_id,warehouse_id,internal_code,manufacturer_lot,expiry_date,quantity_base,unit_cost_base,received_at,source_type,source_id,status,updated_at').in('warehouse_id',targets).gt('quantity_base',0).order('warehouse_id').order('product_id').order('expiry_date',{ascending:true,nullsFirst:false}).order('received_at').order('id'),selected);
   if(error){ console.warn('load inventory lots',error); return false; }
+  if(!isCurrent()) return false;
   const targetSet=new Set(targets);
+  const selectedSet=selected===null?null:new Set(selected);
   inventoryLotRows=[
-    ...inventoryLotRows.filter(row=>!targetSet.has(Number(row.warehouse_id))),
+    ...inventoryLotRows.filter(row=>!targetSet.has(Number(row.warehouse_id))||(selectedSet&&!selectedSet.has(Number(row.product_id)))),
     ...(data||[]).map(normalizeInventoryLotRow)
   ];
-  targets.forEach(id=>loadedInventoryLotWarehouseIds.add(id));
+  if(selected===null) targets.forEach(id=>loadedInventoryLotWarehouseIds.add(id));
   rebuildInventoryLotMap();
   return true;
+  });
 }
 async function loadWarehouseInventoryFromSupabase(warehouseIds=inventoryScopeWarehouseIds(),{force=false}={}){
   const targets=normalizedInventoryWarehouseIds(warehouseIds);
@@ -534,7 +612,7 @@ async function loadWarehouseInventoryFromSupabase(warehouseIds=inventoryScopeWar
   const promise=Promise.all([
     loadInventoryBalancesFromSupabase({warehouseIds:targets,force}),
     loadInventoryLotsFromSupabase({warehouseIds:targets,force})
-  ]).then(results=>results.every(Boolean)).finally(()=>inventoryWarehouseLoadPromises.delete(key));
+  ]).then(results=>results.every(Boolean)).finally(()=>{ if(inventoryWarehouseLoadPromises.get(key)===promise) inventoryWarehouseLoadPromises.delete(key); });
   inventoryWarehouseLoadPromises.set(key,promise);
   return promise;
 }
@@ -767,6 +845,7 @@ let productCacheStartupBlocked=false;
 let indexedProductCacheReady=false;
 let cachedProductManifest=null;
 let productCacheFingerprints=new Map();
+let productCacheDirtyFingerprint=null;
 let productCacheWriteChain=Promise.resolve();
 let productDirtyOperations=new Map();
 let legacyWorkspaceProducts=null;
@@ -921,6 +1000,7 @@ function persistProductsToIndexedDB(productRows=products,removeMissing=true,dirt
       transaction.objectStore(PRODUCT_CACHE_META_STORE).put({key:PRODUCT_CACHE_DIRTY_KEY,value:dirtyValue});
       await transactionDone;
       productCacheFingerprints=nextFingerprints;
+      productCacheDirtyFingerprint=JSON.stringify(dirtyValue);
       indexedProductCacheReady=rows.length>0;
       return true;
     }catch(error){
@@ -936,18 +1016,26 @@ function persistProductChangesToIndexedDB(changes={},dirtyOperations=productDirt
   const deletedIds=[...(changes.deletedIds||[])].map(String);
   const rows=JSON.parse(JSON.stringify((products||[]).filter(product=>changedIds.has(String(product.id)))));
   const dirtyValue=productDirtyOperationsValue(dirtyOperations);
+  const rowFingerprints=new Map(rows.map(product=>[String(product.id),JSON.stringify(product)]));
+  const dirtyFingerprint=JSON.stringify(dirtyValue);
   const write=async()=>{
     try{
+      // Compare inside the queue: an earlier write may already have saved this
+      // acknowledgement. Never skip the dirty-state write after a failed write.
+      const changedRows=rows.filter(product=>productCacheFingerprints.get(String(product.id))!==rowFingerprints.get(String(product.id)));
+      const removedIds=deletedIds.filter(id=>productCacheFingerprints.has(id));
+      if(!changedRows.length&&!removedIds.length&&productCacheDirtyFingerprint===dirtyFingerprint) return true;
       const db=await openProductCacheDb();
       const transaction=db.transaction([PRODUCT_CACHE_PRODUCTS_STORE,PRODUCT_CACHE_META_STORE],'readwrite');
       const transactionDone=idbTransactionDone(transaction);
       const store=transaction.objectStore(PRODUCT_CACHE_PRODUCTS_STORE);
-      rows.forEach(product=>store.put(product));
-      deletedIds.forEach(id=>store.delete(Number.isFinite(Number(id))?Number(id):id));
+      changedRows.forEach(product=>store.put(product));
+      removedIds.forEach(id=>store.delete(Number.isFinite(Number(id))?Number(id):id));
       transaction.objectStore(PRODUCT_CACHE_META_STORE).put({key:PRODUCT_CACHE_DIRTY_KEY,value:dirtyValue});
       await transactionDone;
-      rows.forEach(product=>productCacheFingerprints.set(String(product.id),JSON.stringify(product)));
-      deletedIds.forEach(id=>productCacheFingerprints.delete(id));
+      changedRows.forEach(product=>productCacheFingerprints.set(String(product.id),rowFingerprints.get(String(product.id))));
+      removedIds.forEach(id=>productCacheFingerprints.delete(id));
+      productCacheDirtyFingerprint=dirtyFingerprint;
       indexedProductCacheReady=productCacheFingerprints.size>0;
       return true;
     }catch(error){
@@ -968,6 +1056,7 @@ async function clearProductIndexedCache(){
   indexedProductCacheReady=false;
   cachedProductManifest=null;
   productCacheFingerprints=new Map();
+  productCacheDirtyFingerprint=null;
   productDirtyOperations=new Map();
   if(!window.indexedDB) return;
   try{ await idbRequest(indexedDB.deleteDatabase(PRODUCT_CACHE_DB_NAME)); }
@@ -1097,13 +1186,29 @@ async function clearAcknowledgedProductDirtyOperations(ids,expectedOperations){
   const removable=(ids||[]).map(String).filter(id=>productDirtyOperations.get(id)===expected.get(id));
   if(!removable.length) return true;
   const next=new Map(productDirtyOperations);
-  const expectedRows=tableSnapshot(products,productMetadataToRow);
+  const removableSet=new Set(removable);
+  const expectedRows=tableSnapshot(products.filter(product=>removableSet.has(String(product.id))),productMetadataToRow);
   removable.forEach(id=>next.delete(id));
-  const persisted=await persistProductsToIndexedDB(products,true,next);
+  const persisted=await persistProductChangesToIndexedDB({updatedIds:removable,deletedIds:removable.filter(id=>!expectedRows.has(id))},next);
   if(!persisted) return false;
-  const latestRows=tableSnapshot(products,productMetadataToRow);
+  const latestRows=tableSnapshot(products.filter(product=>removableSet.has(String(product.id))),productMetadataToRow);
   removable.forEach(id=>{ if(productDirtyOperations.get(id)===expected.get(id)&&latestRows.get(id)===expectedRows.get(id)) productDirtyOperations.delete(id); });
   return true;
+}
+async function refreshDocumentInventory(document){
+  const items=document?.items||[];
+  const productIds=normalizedInventoryProductIds(items.map(item=>item.productId));
+  if(!productIds.length) return true;
+  const warehouseIds=normalizedInventoryWarehouseIds([document?.warehouseId,...items.map(item=>item.warehouseId)]);
+  const scope={productIds,warehouseIds:warehouseIds.length?warehouseIds:inventoryScopeWarehouseIds(),force:true};
+  try{
+    const results=await Promise.all([loadInventoryBalancesFromSupabase(scope),loadInventoryLotsFromSupabase(scope)]);
+    if(results.every(Boolean)) return true;
+  }catch(error){ console.warn('refresh document inventory',error); }
+  // The stock transaction has already committed. A read failure must not tell
+  // the cashier that the sale/return failed or invite a duplicate transaction.
+  showToast('บันทึกรายการแล้ว แต่โหลดสต๊อกล่าสุดไม่สำเร็จ กรุณารีเฟรชข้อมูล','warning-top');
+  return false;
 }
 function cloneSyncRecords(records){ return JSON.parse(JSON.stringify(records||[])); }
 function syncAcknowledgement(table,localArray,toRow){
@@ -1397,7 +1502,7 @@ async function syncProductsIncrementally(){
   if(!await prepareProductInsertCandidatesForSync(previous)) return false;
   const current=tableSnapshot(products,productMetadataToRow);
   const dirtyAtStart=new Map(productDirtyOperations);
-  const changed=cloneSyncRecords(products.filter(product=>previous.get(String(product.id))!==JSON.stringify(productMetadataToRow(product))));
+  const changed=cloneSyncRecords(products.filter(product=>previous.get(String(product.id))!==current.get(String(product.id))));
   const acknowledge=syncAcknowledgement(table,products,productMetadataToRow);
   const inserted=changed.filter(product=>dirtyAtStart.get(String(product.id))==='insert'||(!dirtyAtStart.has(String(product.id))&&!previous.has(String(product.id))));
   const updated=changed.filter(product=>dirtyAtStart.get(String(product.id))==='update'||(!dirtyAtStart.has(String(product.id))&&previous.has(String(product.id))));
@@ -6608,7 +6713,7 @@ async function changeGoodsReceiptStatus(id,status){
       const data=await runStockOperation('apply_goods_receipt_lots',{receiptId:doc.id});
       Object.assign(doc,data?.receipt||{},data?.receipt?{id:doc.id}:{});
       seedTableSnapshot('goods_receipts',goodsReceipts,docToRow);
-      await Promise.allSettled([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
+      await refreshDocumentInventory(doc);
     }catch(error){
       console.warn('apply goods receipt lots',error);
       showToast('รับสินค้าเข้าสต๊อกไม่สำเร็จ กรุณาตรวจจำนวน Lot และลองใหม่','danger-top');
@@ -6643,7 +6748,7 @@ async function changeProductReturnStatus(id,status){
       const data=await runStockOperation('apply_product_return_lots',{returnId:doc.id});
       Object.assign(doc,data?.return||{},data?.return?{id:doc.id}:{});
       seedTableSnapshot('product_returns',productReturns,docToRow);
-      await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
+      await refreshDocumentInventory(doc);
     }catch(error){ console.warn('apply product return lots',error); showToast('ตัดสต๊อกตาม Lot ไม่สำเร็จ กรุณาตรวจจำนวนสินค้าใน Lot','danger-top'); render(); return; }
   }
   doc.status=status==='คืนเรียบร้อย'?'คืนเรียบร้อย':'รอรับคืน';
@@ -12223,11 +12328,11 @@ function attachOnDemandStateEvents(state){
 
 const RENDERERS = {
   mobiletools: renderMobileTools,
-  dashboard: renderDashboard, checkout: renderCheckout, notes: renderNotes, cashshift: renderCashShift, cashbill: renderCashBills, taxinvoice: renderTaxInvoices, quotation: renderQuotation, invoice: renderInvoice,
-  creditnote: renderCreditNote, history: renderHistory, purchaseorder: renderPurchaseOrder, productreturn: renderProductReturn, goodsreceipt: renderGoodsReceipt, productexchange: renderProductExchange,
-  products: renderProducts, stockcontrol: renderStockControl, barcodeprint: renderBarcodePrint, warehouse: renderWarehouse, transfer: renderTransfer, lowstock: renderLowStock, expiry: renderExpiry, promotions: renderPromotions,
-  contacts: renderContacts, salesreps: renderSalesRepresentatives, representativehistory: renderRepresentativeHistoryOverview, rproduct: renderRProduct, rbill: renderRBill, rprofit: renderRProfit, rtax: renderRTax,
-  inventorymovement: renderInventoryMovement, rinventory: renderRInventory, settingsbusiness: renderBusinessSettings, settingsuser: renderUserSettings, settingsusers: renderSystemUsers, auditlog: renderAuditLog, settingssystem: renderSystemSettings,
+  dashboard: renderDashboard, checkout: renderCheckout, notes: renderNotes, cashshift: renderCashShift, cashbill: ()=>renderCashBills(), taxinvoice: ()=>renderTaxInvoices(), quotation: ()=>renderQuotation(), invoice: renderInvoice,
+  creditnote: renderCreditNote, history: renderHistory, purchaseorder: ()=>renderPurchaseOrder(), productreturn: ()=>renderProductReturn(), goodsreceipt: ()=>renderGoodsReceipt(), productexchange: ()=>renderProductExchange(),
+  products: ()=>renderProducts(), stockcontrol: renderStockControl, barcodeprint: renderBarcodePrint, warehouse: ()=>renderWarehouse(), transfer: renderTransfer, lowstock: ()=>renderLowStock(), expiry: ()=>renderExpiry(), promotions: ()=>renderPromotions(),
+  contacts: ()=>renderContacts(), salesreps: renderSalesRepresentatives, representativehistory: renderRepresentativeHistoryOverview, rproduct: ()=>renderRProduct(), rbill: ()=>renderRBill(), rprofit: ()=>renderRProfit(), rtax: ()=>renderRTax(),
+  inventorymovement: ()=>renderInventoryMovement(), rinventory: ()=>renderRInventory(), settingsbusiness: ()=>renderBusinessSettings(), settingsuser: ()=>renderUserSettings(), settingsusers: ()=>renderSystemUsers(), auditlog: ()=>renderAuditLog(), settingssystem: ()=>renderSystemSettings(),
 };
 
 function render(){
@@ -12266,6 +12371,8 @@ function render(){
   mainElement.classList.toggle('product-list-main',currentTab==='products'&&editingProductId===null);
   mainElement.classList.toggle('barcode-print-main',currentTab==='barcodeprint');
   mainElement.classList.toggle('sales-history-main',currentTab==='history');
+  if(showPageCodeLoading(currentTab,mainElement)) return;
+  mainElement.pageCodeOwner=null;
   const onDemandState=ensureOnDemandDataForTab(currentTab);
   if(onDemandState.status==='loading'||onDemandState.status==='error'||(onDemandState.status==='truncated'&&onDemandState.blocking)){
     preserveMobileCameraScanner();
@@ -16539,7 +16646,7 @@ function openVoidSaleReasonModal(sale,onVoided){
       const data=await runStockOperation('void_sale',{saleId:sale.id,reason});
       const index=salesHistory.findIndex(item=>item.id===sale.id);
       if(index>=0) salesHistory[index]={...salesHistory[index],...(data?.sale||{}),id:sale.id,status:'void',voidShiftId:currentCashShift.id};
-      await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]);
+      await refreshDocumentInventory(data?.sale||sale);
       close();
       if(onVoided) onVoided();
       showToast(`ยกเลิกบิล ${sale.ref||sale.id} และคืนสต๊อกแล้ว`);
@@ -17914,7 +18021,7 @@ async function doCheckout(payMethod,options={}){
   showToast(pendingLotQty>0?`ชำระเงินสำเร็จ · มี ${inventoryMovementRound(pendingLotQty)} หน่วยหลักรอจัด LOT และสต๊อกอาจติดลบ`:`ชำระเงินสำเร็จ (${completedPayMethod}) ${fmtMoney(completedTotal)} บาท`,pendingLotQty>0?'warning-top':undefined);
   render();
   setTimeout(()=>openPostPaymentModal(completedSale.id),0);
-  Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase()]).catch(error=>console.warn('refresh inventory after sale',error));
+  refreshDocumentInventory(completedSale);
 }
 
 // คลิกช่องตัวเลขครั้งเดียวแล้วเลือกค่าทั้งหมด เพื่อพิมพ์ค่าใหม่ทับได้ทันที

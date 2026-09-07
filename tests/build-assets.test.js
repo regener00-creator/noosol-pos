@@ -31,6 +31,15 @@ test('build minifies app assets and injects one matching content version', async
 
   assert.doesNotMatch(built.appCode, /updateContactEntityLabels/, 'removed contact fields must not leave an obsolete inline handler in the deploy bundle');
   assert.doesNotThrow(() => new vm.Script(built.appCode), 'minified JavaScript must remain syntactically valid');
+  assert.equal(Object.keys(built.pageCodes).length,4);
+  for(const [file,code] of Object.entries(built.pageCodes)){
+    assert.doesNotThrow(()=>new vm.Script(code),`${file} parses`);
+    assert.ok(code.includes(built.assetVersion),`${file} rejects a mismatched app version`);
+  }
+  assert.doesNotMatch(built.appCode,/function renderRProduct\(/,'report implementation is not downloaded with the initial app');
+  assert.match(built.pageCodes['page-reports.js'],/function renderRProduct\(/);
+  const changedPage=await buildModule.prepareTextAssets({...input,appSource:appSource.replace('function renderRProduct(){','function renderRProduct(){ window.__chunkBuildProbe=true;')});
+  assert.notEqual(changedPage.assetVersion,built.assetVersion,'editing a lazy page rotates the shared asset version');
 
   const changed = await buildModule.prepareTextAssets({ ...input, versionInputs: [Buffer.from('static-assets-v2')] });
   assert.notEqual(changed.assetVersion, built.assetVersion, 'any versioned asset change must rotate the cache version');
