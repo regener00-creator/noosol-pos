@@ -53,6 +53,7 @@
 .recovery-dialog .form-grid{margin-top:18px;}
 .recovery-question-wrap strong{display:block;padding:12px 14px;border-radius:10px;background:var(--primary-soft);color:var(--primary-dark);}
 .recovery-dialog [hidden]{display:none!important;}
+.modal-overlay.owner-password-recovery-overlay{z-index:10001;}
   .sync-detail-modal{width:min(680px,94vw);max-height:min(760px,90vh);}
   .sync-detail-modal .modal-head{align-items:flex-start;padding:20px 22px 12px;border-bottom:1px solid var(--border);}
   .sync-detail-modal .modal-head h3{font-size:20px;}

@@ -69,7 +69,10 @@ let browser;
 
   await page.locator('#addNoteBtn').click();
   await page.locator('#noteTitle').fill('หลายรูปแบบ');
-  await page.locator('#noteContentEditor').fill('แดงน้ำเงิน');
+  await page.locator('#noteContentEditor').evaluate((editor) => {
+    editor.textContent='แดงน้ำเงิน';
+    editor.dispatchEvent(new InputEvent('input',{bubbles:true,inputType:'insertText',data:'แดงน้ำเงิน'}));
+  });
   await page.evaluate(() => {
     const editor=document.getElementById('noteContentEditor');
     const text=editor.firstChild;
