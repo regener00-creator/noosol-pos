@@ -30,6 +30,16 @@ assert.match(source, /class="dmy-input" data-mobile-stock-new-expiry/, 'วั�
 assert.match(source, /const paymentDateInput=[\s\S]{0,180}dmyToISO\(paymentDateInput\.value\)/, 'วันที่ชำระต้องตรวจสอบและบันทึกเป็นวันที่มาตรฐาน');
 assert.match(source, /const date=document\.getElementById\('productExchangeDate'\);[\s\S]{0,160}dmyToISO\(raw\)/, 'วันที่เอกสารแลกสินค้าต้องแปลงเป็นวันที่มาตรฐาน');
 
+for (const [id, label] of [
+  ['promo_start', 'วันเริ่มโปรโมชั่น'],
+  ['promo_end', 'วันสิ้นสุดโปรโมชั่น'],
+  ['po_date', 'วันที่ในใบรับสินค้า ใบคืนสินค้า และใบเสนอราคา'],
+  ['transfer_date', 'วันที่ในรายการโอน'],
+]) {
+  assert.match(source, new RegExp(`dmyDateFieldHtml\\('${id}'`), `${label} ต้องใช้ช่องวันที่ที่พิมพ์ตัวเลขได้`);
+}
+assert.match(source, /\.transfer-meta-fields \.dmy-field,\.transfer-meta-fields \.dmy-input\{width:100%;min-width:0;\}/, 'ช่องวันที่ในรายการโอนต้องยาวเต็มพื้นที่ถึงไอคอนปฏิทิน');
+
 const visibleNativeDates = [...source.matchAll(/<input[^>]*type="date"[^>]*>/g)]
   .map(match => match[0])
   .filter(tag => !tag.includes('class="dmy-native"'));

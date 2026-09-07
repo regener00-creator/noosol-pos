@@ -1632,6 +1632,8 @@
   .transfer-meta-fields{display:grid;grid-template-columns:125px minmax(230px,1fr);gap:10px 12px;align-items:center;}
   .transfer-meta-fields label{font-size:13px;font-weight:600;}
   .transfer-meta-fields input,.transfer-meta-fields select{width:100%;padding:9px 11px;border:1px solid #DCE4E3;border-radius:8px;background:#fff;color:var(--text);font-family:inherit;font-size:13px;}
+  .transfer-meta-fields .dmy-field,.transfer-meta-fields .dmy-input{width:100%;min-width:0;}
+  .transfer-meta-fields .dmy-input{padding-right:38px;}
   .transfer-meta-fields input:focus,.transfer-meta-fields select:focus{outline:2px solid #DAC9C2;outline-offset:0;border-color:#B99C90;}
   .transfer-count{text-align:right;padding:16px 18px;}
   .transfer-count b{display:block;color:var(--primary);font-family:inherit;font-size:32px;line-height:1.1;margin-top:6px;}
