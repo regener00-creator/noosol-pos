@@ -17,6 +17,7 @@ const staticDeployFiles = [
   'pwa-icon-512.png',
   'pwa-icon.svg',
   'sapuri-pharmacy-logo.png',
+  'sapuri-brand-logo.png',
 ]
 
 function addVersionInput(hash, content) {

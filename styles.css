@@ -90,7 +90,8 @@
   .login-screen{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:24px;background:linear-gradient(135deg,#F6F0ED 0%,#FAF7F5 52%,#E8DDD8 100%);}
   .login-card{width:min(440px,100%);background:#fff;border:1px solid #E2DBD7;border-radius:22px;padding:36px;box-shadow:0 24px 70px #32282126;}
   .login-brand{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:24px;color:var(--primary);font-size:23px;font-weight:700;}
-  .login-brand .rx{width:48px;height:48px;border-radius:14px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;}
+  .login-brand .brand-logo-frame{position:relative;width:58px;height:58px;border-radius:16px;background:#fff;display:block;overflow:hidden;flex:0 0 58px;box-shadow:0 3px 12px #3228211F;}
+  .login-brand .brand-logo-frame img{position:absolute;left:50%;top:50%;width:86px;height:86px;max-width:none;object-fit:cover;transform:translate(-50%,-50%);}
   .login-card h1{text-align:center;font-size:25px;margin:0 0 6px;}
   .login-sub{text-align:center;color:var(--text-muted);font-size:14px;margin-bottom:26px;}
   .login-field{margin-bottom:16px;}
@@ -1731,7 +1732,8 @@
   .mobile-tools-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;}
   .mobile-tools-brand{display:flex;align-items:center;gap:10px;min-width:0;}
   .mobile-tools-brand>div:first-child{min-width:0;text-align:right;}
-  .mobile-tools-logo{width:42px;height:42px;border-radius:13px;background:var(--primary);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;}
+  .mobile-tools-logo{position:relative;width:42px;height:42px;border-radius:13px;background:#fff;overflow:hidden;flex-shrink:0;box-shadow:0 2px 8px #3228211F;}
+  .mobile-tools-logo img{position:absolute;left:50%;top:50%;width:63px;height:63px;max-width:none;object-fit:cover;transform:translate(-50%,-50%);}
   .mobile-tools-brand h1{font-size:20px;margin:0;line-height:1.2;}
   .mobile-tools-brand span{display:block;color:var(--text-muted);font-size:12px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .mobile-tools-context{font-size:10.5px!important;margin-top:1px!important;max-width:230px;}

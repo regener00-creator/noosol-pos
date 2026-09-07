@@ -141,7 +141,7 @@ const mobileFooter = mobileToolsRender.slice(mobileFooterStart, mobileFooterEnd)
 const mobileLogoutIndex = mobileFooter.indexOf('id="mobileToolsLogout"');
 const mobileRefreshIndex = mobileFooter.indexOf('id="mobileToolsRefresh"');
 const mobileTitleIndex = mobileFooter.indexOf('<h1>PEPOS</h1>');
-const mobileLogoIndex = mobileFooter.indexOf('mobile-tools-logo">Rx');
+const mobileLogoIndex = mobileFooter.indexOf('mobile-tools-logo"><img src="/sapuri-brand-logo.png"');
 assert.ok(mobileLogoutIndex >= 0 && mobileRefreshIndex > mobileLogoutIndex && mobileTitleIndex > mobileRefreshIndex && mobileLogoIndex > mobileTitleIndex);
 const mainRenderStart = html.indexOf('function render(){');
 const mainRenderEnd = html.indexOf('function syncTopbarFormActions()', mainRenderStart);

@@ -19,6 +19,11 @@ assert.match(
   /const APP_SHELL=\[[^\]]*'\/sapuri-pharmacy-logo\.png'[^\]]*\];/s,
   'medicine-label printing must have its logo available offline'
 );
+assert.match(
+  worker,
+  /const APP_SHELL=\[[^\]]*'\/sapuri-brand-logo\.png'[^\]]*\];/s,
+  'SAPURI brand logo must be available offline'
+);
 assert.match(worker, /keys\.filter\(key=>key!==CACHE_NAME\)\.map\(key=>caches\.delete\(key\)\)/);
 assert.match(worker, /request\.mode==='navigate'/);
 assert.match(worker, /\.catch\(\(\)=>caches\.match\('\/index\.html'\)\)/);
