@@ -180,6 +180,7 @@ context.inspectionListDraft = JSON.parse(JSON.stringify(context.inspectionLists[
 const ownerEditorHtml = context.renderInspectionListEditor();
 assert.doesNotMatch(ownerEditorHtml, /จำนวนคงเหลือในตารางเป็นค่าล่าสุดจากรายการสินค้า/);
 assert.doesNotMatch(ownerEditorHtml, /<h1>สร้างรายการตรวจสินค้า<\/h1>/);
+assert.doesNotMatch(ownerEditorHtml, /คลัง &amp; สินค้า|คลัง & สินค้า/);
 assert.match(ownerEditorHtml, /class="inspection-list-editor-toolbar"/);
 assert.match(ownerEditorHtml, /class="rpt-filters inspection-list-editor-filters"/);
 assert.ok(ownerEditorHtml.indexOf('id="inspectionListName"') < ownerEditorHtml.indexOf('id="inspectionListWarehouse"'));

@@ -8080,7 +8080,7 @@ function renderInspectionListEditor(){
   const pagination=inspectionListPagination();
   inspectionListPage=pagination.currentPage;
   return `<div class="rpt inspection-list-page">
-    <div class="pagehead"><div><div class="breadcrumb">คลัง & สินค้า › ตรวจสินค้า › ${editingInspectionListId==='new'?'สร้างรายการ':'แก้ไขรายการ'}</div>${editingInspectionListId==='new'?'':'<h1>แก้ไขรายการตรวจสินค้า</h1>'}</div><div class="inspection-list-actions form-final-actions"><button class="btn ghost" id="cancelInspectionListBtn">ยกเลิก</button><button class="btn primary" id="saveInspectionListBtn">บันทึกรายการ</button></div></div>
+    <div class="pagehead"><div>${editingInspectionListId==='new'?'':'<h1>แก้ไขรายการตรวจสินค้า</h1>'}</div><div class="inspection-list-actions form-final-actions"><button class="btn ghost" id="cancelInspectionListBtn">ยกเลิก</button><button class="btn primary" id="saveInspectionListBtn">บันทึกรายการ</button></div></div>
     <div class="inspection-list-editor-section">
       <div class="inspection-list-editor-toolbar">
         <div class="inspection-list-name-field"><label for="inspectionListName">ชื่อรายการ *</label><input id="inspectionListName" class="inspection-list-name-input" value="${escapeHtml(draft.name||'')}" placeholder="เช่น รายการตรวจสินค้าหน้าร้าน"></div>
