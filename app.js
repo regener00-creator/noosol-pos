@@ -12340,7 +12340,8 @@ function render(){
   TODAY_STR=currentDateStr();
   const mobileMode=isMobileDeviceMode();
   document.body.classList.toggle('mobile-device-mode',mobileMode);
-  document.title='SAPURI';
+  const standaloneAppWindow=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator?.standalone===true;
+  document.title=standaloneAppWindow?'':'SAPURI';
   if(mobileMode) currentTab='mobiletools';
   else if(currentTab==='mobiletools') currentTab='dashboard';
   if(currentTab==='purchaseorder2') currentTab='purchaseorder';

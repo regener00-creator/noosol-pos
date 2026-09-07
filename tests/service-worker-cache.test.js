@@ -7,13 +7,14 @@ const index = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const assetToken = '__PEPOS_ASSET_VERSION__';
 
 assert.equal((worker.match(new RegExp(assetToken, 'g')) || []).length, 1, 'service worker must define the build token once');
-assert.equal((index.match(new RegExp(assetToken, 'g')) || []).length, 2, 'HTML must version both app.js and styles.css');
+assert.equal((index.match(new RegExp(assetToken, 'g')) || []).length, 3, 'HTML must version app.js, styles.css, and the install manifest');
 assert.match(worker, /const ASSET_VERSION='__PEPOS_ASSET_VERSION__';/);
 assert.match(worker, /const CACHE_NAME=`pepos-mobile-\$\{ASSET_VERSION\}`;/);
 assert.match(worker, /`\/styles\.css\?v=\$\{ASSET_VERSION\}`/);
 assert.match(worker, /`\/app\.js\?v=\$\{ASSET_VERSION\}`/);
 assert.match(index, /\/styles\.css\?v=__PEPOS_ASSET_VERSION__/);
 assert.match(index, /\/app\.js\?v=__PEPOS_ASSET_VERSION__/);
+assert.match(index, /\/manifest\.webmanifest\?v=__PEPOS_ASSET_VERSION__/);
 assert.match(
   worker,
   /const APP_SHELL=\[[^\]]*'\/sapuri-pharmacy-logo\.png'[^\]]*\];/s,
@@ -24,6 +25,8 @@ assert.match(
   /const APP_SHELL=\[[^\]]*'\/sapuri-brand-logo\.png'[^\]]*\];/s,
   'SAPURI brand logo must be available offline'
 );
+assert.match(worker, /'\/sapuri-app-icon-192\.png'/);
+assert.match(worker, /'\/sapuri-app-icon-512\.png'/);
 assert.match(worker, /keys\.filter\(key=>key!==CACHE_NAME\)\.map\(key=>caches\.delete\(key\)\)/);
 assert.match(worker, /request\.mode==='navigate'/);
 assert.match(worker, /\.catch\(\(\)=>caches\.match\('\/index\.html'\)\)/);

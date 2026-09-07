@@ -13,9 +13,8 @@ const outputDirectory = resolve(projectRoot, 'public')
 
 const staticDeployFiles = [
   'manifest.webmanifest',
-  'pwa-icon-192.png',
-  'pwa-icon-512.png',
-  'pwa-icon.svg',
+  'sapuri-app-icon-192.png',
+  'sapuri-app-icon-512.png',
   'sapuri-pharmacy-logo.png',
   'sapuri-brand-logo.png',
 ]
