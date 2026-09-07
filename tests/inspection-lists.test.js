@@ -179,6 +179,7 @@ context.editingInspectionListId = 'CHECK-NEW-SAFE-ID';
 context.inspectionListDraft = JSON.parse(JSON.stringify(context.inspectionLists[0]));
 const ownerEditorHtml = context.renderInspectionListEditor();
 assert.doesNotMatch(ownerEditorHtml, /จำนวนคงเหลือในตารางเป็นค่าล่าสุดจากรายการสินค้า/);
+assert.doesNotMatch(ownerEditorHtml, /<h1>สร้างรายการตรวจสินค้า<\/h1>/);
 assert.match(ownerEditorHtml, /class="inspection-list-editor-toolbar"/);
 assert.match(ownerEditorHtml, /class="rpt-filters inspection-list-editor-filters"/);
 assert.ok(ownerEditorHtml.indexOf('id="inspectionListName"') < ownerEditorHtml.indexOf('id="inspectionListWarehouse"'));
