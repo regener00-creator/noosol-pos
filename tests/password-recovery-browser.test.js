@@ -29,8 +29,22 @@ const executable=['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','
   const dialog=page.locator('#ownerPasswordRecoveryForm');
   await dialog.waitFor({state:'visible'});
   assert.ok(await page.locator('.owner-password-recovery-overlay').evaluate(element=>Number(getComputedStyle(element).zIndex)>Number(getComputedStyle(document.querySelector('#loginScreen')).zIndex)),'recovery overlay must appear above login screen');
+  assert.ok(await dialog.locator('.form-grid').evaluate(element=>parseFloat(getComputedStyle(element).paddingLeft)>=18),'recovery fields must have horizontal spacing from the dialog edge');
   await page.click('.owner-password-recovery-overlay .recovery-cancel');
   assert.equal(await page.locator('#ownerPasswordRecoveryForm').count(),0,'cancel must close recovery dialog');
+  await page.evaluate(()=>{
+    callEdgeFunction=async(name,payload)=>name==='owner-recovery'&&payload.action==='question'?{question:'คำถามทดสอบ'}:{};
+    recoverOwnerPassword();
+  });
+  await page.fill('#recoveryUsername','owner');
+  await page.click('#recoveryContinueButton');
+  await page.locator('#recoveryAnswer').waitFor({state:'visible'});
+  assert.equal(await page.locator('#ownerPasswordRecoveryForm .password-eye-btn').count(),3,'answer and both new password fields must have visibility buttons');
+  await page.fill('#recoveryAnswer','secret');
+  await page.click('[data-toggle-password="recoveryAnswer"]');
+  assert.equal(await page.locator('#recoveryAnswer').getAttribute('type'),'text','answer visibility button must reveal the answer');
+  assert.match(await page.locator('[data-toggle-password="recoveryAnswer"]').getAttribute('aria-label'),/ซ่อนคำตอบ/);
+  await page.click('.owner-password-recovery-overlay .recovery-cancel');
   await page.evaluate(()=>{
     window.recoveryWrites=[];
     callEdgeFunction=async(name,payload)=>{window.recoveryWrites.push({name,payload});return {};};

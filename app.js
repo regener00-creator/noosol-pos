@@ -12684,6 +12684,25 @@ async function changeProductExchangeStatus(status){
     buttons.forEach(button=>button.disabled=false);
   }
 }
+function bindPasswordVisibilityToggles(root=document){
+  root.querySelectorAll('[data-toggle-password]').forEach(button=>{
+    if(button.dataset.passwordToggleBound==='1') return;
+    button.dataset.passwordToggleBound='1';
+    button.addEventListener('click',()=>{
+      const input=document.getElementById(button.dataset.togglePassword);
+      if(!input) return;
+      const showing=input.type==='password';
+      input.type=showing?'text':'password';
+      button.classList.toggle('showing-password',showing);
+      const subject=button.dataset.passwordLabel||'Password';
+      const label=`${showing?'ซ่อน':'แสดง'}${/^[A-Za-z]/.test(subject)?' ':''}${subject}`;
+      button.setAttribute('aria-label',label);
+      button.title=label;
+      input.focus();
+    });
+  });
+}
+
 function attachEvents(){
   if(currentTab==='mobiletools'){
     prepareMobileScanSound();
@@ -13026,19 +13045,7 @@ function attachEvents(){
     input.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); input.blur(); } });
   });
   document.getElementById('mobileConfirmStockEdit')?.addEventListener('click',confirmMobileStockEditChanges);
-  document.querySelectorAll('[data-toggle-password]').forEach(button=>{
-    button.addEventListener('click',()=>{
-      const input=document.getElementById(button.dataset.togglePassword);
-      if(!input) return;
-      const showing=input.type==='password';
-      input.type=showing?'text':'password';
-      button.classList.toggle('showing-password',showing);
-      const label=showing?'ซ่อน Password':'แสดง Password';
-      button.setAttribute('aria-label',label);
-      button.title=label;
-      input.focus();
-    });
-  });
+  bindPasswordVisibilityToggles();
   bindPOSAddActions();
   const addCustomItemBtn=document.getElementById('addCustomItemBtn');
   if(addCustomItemBtn) addCustomItemBtn.addEventListener('click',addBlankCustomCartLine);
@@ -16213,8 +16220,9 @@ function recoverOwnerPassword(){
   document.querySelector('.owner-password-recovery-overlay')?.remove();
   const overlay=document.createElement('div');
   overlay.className='modal-overlay owner-password-recovery-overlay';
-  overlay.innerHTML=`<form class="modal recovery-dialog" id="ownerPasswordRecoveryForm" role="dialog" aria-modal="true"><div class="modal-head"><h3>กู้คืน Password เจ้าของร้าน</h3><button class="modal-close" type="button" aria-label="ปิด">×</button></div><div class="form-grid"><label class="field full"><span>ID เจ้าของร้าน</span><input id="recoveryUsername" autocomplete="username" required></label><div class="field full recovery-question-wrap" hidden><span>คำถาม</span><strong id="recoveryQuestionText"></strong></div><label class="field full recovery-reset-field" hidden><span>คำตอบ</span><input id="recoveryAnswer" type="password" autocomplete="off"></label><label class="field full recovery-reset-field" hidden><span>Password ใหม่</span><input id="recoveryNewPassword" type="password" autocomplete="new-password" minlength="10"></label><label class="field full recovery-reset-field" hidden><span>ยืนยัน Password ใหม่</span><input id="recoveryPasswordConfirm" type="password" autocomplete="new-password" minlength="10"></label></div><div class="login-error" id="recoveryModalError"></div><div class="modal-actions"><button class="btn ghost recovery-cancel" type="button">ยกเลิก</button><button class="btn primary" id="recoveryContinueButton" type="submit">แสดงคำถาม</button></div></form>`;
+  overlay.innerHTML=`<form class="modal recovery-dialog" id="ownerPasswordRecoveryForm" role="dialog" aria-modal="true"><div class="modal-head"><h3>กู้คืน Password เจ้าของร้าน</h3><button class="modal-close" type="button" aria-label="ปิด">×</button></div><div class="form-grid"><label class="field full"><span>ID เจ้าของร้าน</span><input id="recoveryUsername" autocomplete="username" required></label><div class="field full recovery-question-wrap" hidden><span>คำถาม</span><strong id="recoveryQuestionText"></strong></div><label class="field full recovery-reset-field" hidden><span>คำตอบ</span><div class="password-input-wrap"><input id="recoveryAnswer" type="password" autocomplete="off"><button class="password-eye-btn" type="button" data-toggle-password="recoveryAnswer" data-password-label="คำตอบ" aria-label="แสดงคำตอบ" title="แสดงคำตอบ"><svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3l18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-2.1 2.8M6.6 6.6C3.6 8.3 2 12 2 12s3.5 6 10 6a10.5 10.5 0 0 0 5.4-1.4"/></svg></button></div></label><label class="field full recovery-reset-field" hidden><span>Password ใหม่</span><div class="password-input-wrap"><input id="recoveryNewPassword" type="password" autocomplete="new-password" minlength="10"><button class="password-eye-btn" type="button" data-toggle-password="recoveryNewPassword" aria-label="แสดง Password" title="แสดง Password"><svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3l18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-2.1 2.8M6.6 6.6C3.6 8.3 2 12 2 12s3.5 6 10 6a10.5 10.5 0 0 0 5.4-1.4"/></svg></button></div></label><label class="field full recovery-reset-field" hidden><span>ยืนยัน Password ใหม่</span><div class="password-input-wrap"><input id="recoveryPasswordConfirm" type="password" autocomplete="new-password" minlength="10"><button class="password-eye-btn" type="button" data-toggle-password="recoveryPasswordConfirm" aria-label="แสดง Password" title="แสดง Password"><svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3l18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-2.1 2.8M6.6 6.6C3.6 8.3 2 12 2 12s3.5 6 10 6a10.5 10.5 0 0 0 5.4-1.4"/></svg></button></div></label></div><div class="login-error" id="recoveryModalError"></div><div class="modal-actions"><button class="btn ghost recovery-cancel" type="button">ยกเลิก</button><button class="btn primary" id="recoveryContinueButton" type="submit">แสดงคำถาม</button></div></form>`;
   document.body.appendChild(overlay);
+  bindPasswordVisibilityToggles(overlay);
   const close=()=>overlay.remove(); overlay.querySelector('.modal-close').onclick=close; overlay.querySelector('.recovery-cancel').onclick=close;
   const form=overlay.querySelector('form'),errorElement=overlay.querySelector('#recoveryModalError'),button=overlay.querySelector('#recoveryContinueButton');
   let questionLoaded=false;
