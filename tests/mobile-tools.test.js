@@ -140,7 +140,7 @@ const mobileFooterEnd = mobileToolsRender.indexOf('</header>', mobileFooterStart
 const mobileFooter = mobileToolsRender.slice(mobileFooterStart, mobileFooterEnd);
 const mobileLogoutIndex = mobileFooter.indexOf('id="mobileToolsLogout"');
 const mobileRefreshIndex = mobileFooter.indexOf('id="mobileToolsRefresh"');
-const mobileTitleIndex = mobileFooter.indexOf('<h1>PEPOS</h1>');
+const mobileTitleIndex = mobileFooter.indexOf('<h1>SAPURI</h1>');
 const mobileLogoIndex = mobileFooter.indexOf('mobile-tools-logo"><img src="/sapuri-brand-logo.png"');
 assert.ok(mobileLogoutIndex >= 0 && mobileRefreshIndex > mobileLogoutIndex && mobileTitleIndex > mobileRefreshIndex && mobileLogoIndex > mobileTitleIndex);
 const mainRenderStart = html.indexOf('function render(){');
@@ -255,11 +255,10 @@ assert.doesNotMatch(html, /ส่องบาร์โค้ดให้อย�
 assert.match(html, /message\.textContent=accepted\?`สแกนแล้ว: \$\{value\} — ยิงสินค้าชิ้นถัดไปได้เลย`:`ยังไม่เพิ่ม: \$\{value\} — เลื่อนไปยิงสินค้าชิ้นอื่นได้เลย`/);
 
 assert.equal(manifest.display, 'standalone');
-assert.equal(manifest.short_name, 'PEPOS');
+assert.equal(manifest.name, 'SAPURI');
+assert.equal(manifest.short_name, 'SAPURI');
 assert.equal(manifest.start_url, '/');
-assert.ok(manifest.icons.some(icon => icon.src === '/pwa-icon.svg'));
-assert.ok(manifest.icons.some(icon => icon.src === '/pwa-icon-192.png' && icon.sizes === '192x192'));
-assert.ok(manifest.icons.some(icon => icon.src === '/pwa-icon-512.png' && icon.sizes === '512x512'));
+assert.ok(manifest.icons.some(icon => icon.src === '/sapuri-brand-logo.png' && icon.sizes === '1254x1254'));
 assert.match(serviceWorker, /request\.mode==='navigate'/);
 assert.match(serviceWorker, /fetch\(request\)/);
 assert.match(serviceWorker, /caches\.match\('\/index\.html'\)/);
@@ -268,8 +267,7 @@ assert.doesNotMatch(serviceWorker, /\/mobile-scan-success\.mp3/);
 assert.doesNotMatch(serviceWorker, /\/mobile-scan-error\.mp3/);
 assert.match(serviceWorker, /cdn\.jsdelivr\.net/);
 assert.match(vercelConfig, /media-src 'self' data: blob:/);
-assert.ok(fs.statSync(path.join(root, 'pwa-icon-192.png')).size > 1000);
-assert.ok(fs.statSync(path.join(root, 'pwa-icon-512.png')).size > 3000);
+assert.ok(fs.statSync(path.join(root, 'sapuri-brand-logo.png')).size > 3000);
 
 const soundFunctionStart = html.indexOf('function prepareMobileScanSound(');
 const soundFunctionEnd = html.indexOf('function mobileHandleStockCode(', soundFunctionStart);

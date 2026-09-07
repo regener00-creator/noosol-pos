@@ -1,6 +1,6 @@
 {
-  "name": "PEPOS - เช็คราคาและตรวจสินค้า",
-  "short_name": "PEPOS",
+  "name": "SAPURI",
+  "short_name": "SAPURI",
   "description": "เช็คราคาและตรวจจำนวนสินค้าด้วยมือถือหรือเครื่องยิงบาร์โค้ดแบบมีจอ",
   "lang": "th",
   "start_url": "/",
@@ -11,21 +11,9 @@
   "theme_color": "#4F4038",
   "icons": [
     {
-      "src": "/pwa-icon-192.png",
-      "sizes": "192x192",
+      "src": "/sapuri-brand-logo.png",
+      "sizes": "1254x1254",
       "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/pwa-icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any maskable"
-    },
-    {
-      "src": "/pwa-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
       "purpose": "any maskable"
     }
   ]
