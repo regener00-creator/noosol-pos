@@ -18,9 +18,36 @@ function getServiceKey(): string {
   return (dict.default || Object.values(dict)[0]) as string
 }
 
+function normalizeRecoveryAnswer(value: string): string {
+  return value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('th-TH')
+}
+
+function hexToBytes(value: string): Uint8Array {
+  return new Uint8Array(value.match(/.{2}/g)?.map((part) => Number.parseInt(part, 16)) || [])
+}
+
+function bytesToHex(bytes: Uint8Array): string {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+}
+
+async function hashRecoveryAnswer(answer: string, saltHex: string, iterations: number): Promise<string> {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(normalizeRecoveryAnswer(answer)), 'PBKDF2', false, ['deriveBits'])
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: hexToBytes(saltHex), iterations }, key, 256)
+  return bytesToHex(new Uint8Array(bits))
+}
+
+function timingSafeEqualHex(left: string, right: string): boolean {
+  const a = hexToBytes(left)
+  const b = hexToBytes(right)
+  let difference = a.length ^ b.length
+  const length = Math.max(a.length, b.length)
+  for (let index = 0; index < length; index += 1) difference |= (a[index] || 0) ^ (b[index] || 0)
+  return difference === 0
+}
+
 async function hashText(value: string, algorithm: AlgorithmIdentifier = 'SHA-256'): Promise<string> {
   const digest = await crypto.subtle.digest(algorithm, new TextEncoder().encode(value))
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+  return bytesToHex(new Uint8Array(digest))
 }
 
 async function validatePasswordSecurity(password: string): Promise<string> {
@@ -48,24 +75,48 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'method not allowed' }, 405)
   try {
     const body = await req.json()
+    const action = String(body.action || '').trim().toLowerCase()
     const username = String(body.username || '').trim().toLowerCase()
-    const recoveryCode = String(body.recoveryCode || '').replace(/[^a-f0-9]/gi, '').toUpperCase()
-    const password = String(body.password || '')
-    if (!username || !/^[A-F0-9]{24}$/.test(recoveryCode)) return json({ error: 'ID หรือรหัสกู้คืนไม่ถูกต้อง' }, 400)
-    const passwordError = await validatePasswordSecurity(password)
-    if (passwordError) return json({ error: passwordError }, 400)
+    if (!username || !/^[a-z0-9._-]+$/i.test(username)) return json({ error: 'กรุณากรอก ID เจ้าของร้านให้ถูกต้อง' }, 400)
 
     const admin = createClient(Deno.env.get('SUPABASE_URL')!, getServiceKey(), { auth: { persistSession: false } })
-    const suppliedHash = await hashText(recoveryCode)
-    // Look up by the 96-bit one-time secret first. Invalid requests therefore
-    // cannot discover an owner username or deliberately lock a valid code.
-    const { data: recovery } = await admin.from('owner_recovery_codes').select('owner_id,expires_at,used_at').eq('code_hash', suppliedHash).maybeSingle()
-    if (!recovery || recovery.used_at || new Date(recovery.expires_at).getTime() <= Date.now()) return json({ error: 'ID หรือรหัสกู้คืนไม่ถูกต้อง' }, 400)
-    const { data: profile } = await admin.from('profiles').select('id').eq('id', recovery.owner_id).eq('owner', true).ilike('username', username).maybeSingle()
-    if (!profile?.id) return json({ error: 'ID หรือรหัสกู้คืนไม่ถูกต้อง' }, 400)
+    const { data: profile, error: profileError } = await admin.from('profiles').select('id').eq('owner', true).eq('username', username).maybeSingle()
+    if (profileError) return json({ error: 'ตรวจสอบบัญชีเจ้าของร้านไม่สำเร็จ กรุณาลองใหม่' }, 503)
+    const { data: challenge } = profile?.id
+      ? await admin.from('password_recovery_challenges').select('user_id,question,answer_salt,answer_hash,answer_iterations,failed_attempts,locked_until').eq('user_id', profile.id).maybeSingle()
+      : { data: null }
+
+    if (action === 'question') {
+      if (!profile?.id || !challenge?.question) return json({ error: 'ยังไม่ได้ตั้งคำถามกู้คืน Password กรุณาติดต่อผู้ดูแลระบบ' }, 404)
+      return json({ ok: true, question: challenge.question })
+    }
+    if (action !== 'reset') return json({ error: 'คำสั่งไม่ถูกต้อง' }, 400)
+
+    const answer = String(body.answer || '').trim()
+    const password = String(body.password || '')
+    if (!answer || !password) return json({ error: 'กรุณากรอกคำตอบและ Password ใหม่ให้ครบ' }, 400)
+    if (password.length < PASSWORD_MIN_LENGTH || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+      return json({ error: `Password ต้องมีอย่างน้อย ${PASSWORD_MIN_LENGTH} ตัวอักษร และมีทั้งตัวอักษรกับตัวเลข` }, 400)
+    }
+    if (!profile?.id || !challenge?.answer_hash) return json({ error: 'ID หรือคำตอบไม่ถูกต้อง' }, 400)
+    if (challenge.locked_until && new Date(challenge.locked_until).getTime() > Date.now()) {
+      return json({ error: 'ตอบคำถามผิดหลายครั้ง กรุณารอ 15 นาทีแล้วลองใหม่' }, 429)
+    }
+
+    const suppliedHash = await hashRecoveryAnswer(answer, String(challenge.answer_salt), Number(challenge.answer_iterations) || 310000)
+    if (!timingSafeEqualHex(suppliedHash, String(challenge.answer_hash))) {
+      const { data: failureRows, error: failureError } = await admin.rpc('record_password_recovery_failure', { p_user_id: profile.id })
+      if (failureError) return json({ error: 'ตรวจสอบคำตอบไม่สำเร็จ กรุณาลองใหม่' }, 503)
+      const failure = Array.isArray(failureRows) ? failureRows[0] : failureRows
+      if (failure?.locked_until) return json({ error: 'ตอบคำถามผิดหลายครั้ง กรุณารอ 15 นาทีแล้วลองใหม่' }, 429)
+      return json({ error: 'ID หรือคำตอบไม่ถูกต้อง' }, 400)
+    }
+
+    const passwordError = await validatePasswordSecurity(password)
+    if (passwordError) return json({ error: passwordError }, 400)
     const { error: authError } = await admin.auth.admin.updateUserById(profile.id, { password })
     if (authError) return json({ error: authError.message }, 400)
-    await admin.from('owner_recovery_codes').update({ used_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('owner_id', profile.id)
+    await admin.from('password_recovery_challenges').update({ failed_attempts: 0, locked_until: null, updated_at: new Date().toISOString() }).eq('user_id', profile.id)
     return json({ ok: true })
   } catch (error) {
     console.error('owner recovery failed', error)

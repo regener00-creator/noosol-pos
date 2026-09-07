@@ -3738,7 +3738,7 @@ async function loadSystemUsersFromServer(){
   systemUsersLoading=true;
   try{
     const result=await callEdgeFunction('admin-users',{action:'list'});
-    systemUsers=(result.users||[]).map(u=>({id:u.id,username:u.username,firstName:u.first_name||'',phone:u.phone||'',note:u.note||'',owner:!!u.owner,level:Number(u.level)||2,warehouseIds:[...new Set((Array.isArray(u.warehouseIds)?u.warehouseIds:Array.isArray(u.warehouse_ids)?u.warehouse_ids:[]).map(Number).filter(id=>Number.isInteger(id)&&id>0))],pagePermissions:Array.isArray(u.pagePermissions)?u.pagePermissions:[]}));
+    systemUsers=(result.users||[]).map(u=>({id:u.id,username:u.username,firstName:u.first_name||'',phone:u.phone||'',note:u.note||'',owner:!!u.owner,level:Number(u.level)||2,recoveryQuestion:u.recoveryQuestion||'',hasRecoveryAnswer:u.hasRecoveryAnswer===true,warehouseIds:[...new Set((Array.isArray(u.warehouseIds)?u.warehouseIds:Array.isArray(u.warehouse_ids)?u.warehouse_ids:[]).map(Number).filter(id=>Number.isInteger(id)&&id>0))],pagePermissions:Array.isArray(u.pagePermissions)?u.pagePermissions:[]}));
     systemUsersLoaded=true;
   }catch(e){
     showToast('โหลดรายชื่อผู้ใช้งานไม่สำเร็จ: '+(e.message||''));
@@ -11664,16 +11664,10 @@ function renderSystemSettings(){
       <div class="settings-actions"><button class="btn primary" id="saveDocumentPrefixesBtn">บันทึกรหัสนำหน้าเอกสาร</button></div>
     </div>
     ${renderPosCommandBarcodeSection()}
-    ${renderOwnerRecoverySection()}
     ${renderStoreBackupSection()}
     ${renderStoreMaintenanceSection()}
     ${renderStoreResetDialog()}
     </div>`;
-}
-
-function renderOwnerRecoverySection(){
-  if(loggedInUser()?.owner!==true) return '';
-  return `<div class="settings-section"><h2>รหัสกู้คืน Password เจ้าของร้าน</h2><div class="hint">สร้างรหัสสำรองไว้ 1 ชุด เก็บแยกจากเครื่องนี้ หากลืม Password จะใช้รหัสนี้ตั้ง Password ใหม่ได้ รหัสเดิมจะถูกยกเลิกทันทีเมื่อสร้างใหม่</div><div class="settings-actions"><button class="btn primary" id="createOwnerRecoveryCodeBtn" type="button">สร้างและดาวน์โหลดรหัสกู้คืน</button></div></div>`;
 }
 
 function storeBackupSummary(data=workspaceSnapshot()){
@@ -11886,6 +11880,8 @@ function renderAddSystemUser(){
   const defaultWarehouseId=Number(activeWarehouseId)||Number(warehouses[0]?.id)||0;
   const selectedWarehouseIds=new Set((editing?(user?.warehouseIds||[]):[defaultWarehouseId]).map(Number).filter(Boolean));
   const warehouseOptions=warehouses.map(warehouse=>`<label class="system-user-warehouse-option"><input type="checkbox" data-system-user-warehouse value="${escapeHtml(warehouse.id)}" ${selectedWarehouseIds.has(Number(warehouse.id))?'checked':''}><span>${escapeHtml(warehouse.name)}</span></label>`).join('');
+  const recoveryFields=user?.owner?`<div class="system-user-form-field wide"><label>คำถาม *</label><input id="new_user_recovery_question" type="text" maxlength="200" autocomplete="off" placeholder="เช่น ชื่อเล่นของคุณแม่คืออะไร" value="${escapeHtml(user.recoveryQuestion||'')}"><small class="system-user-warehouse-hint">ใช้คำถามที่เจ้าของร้านจำคำตอบได้ แต่บุคคลอื่นเดาได้ยาก</small></div>
+      <div class="system-user-form-field wide"><label>คำตอบ *</label><div class="password-input-wrap"><input id="new_user_recovery_answer" type="password" maxlength="200" autocomplete="new-password" placeholder="${user.hasRecoveryAnswer?'เว้นว่างเพื่อใช้คำตอบเดิม':'กรอกคำตอบสำหรับรีเซ็ต Password'}"><button class="password-eye-btn" type="button" data-toggle-password="new_user_recovery_answer" aria-label="แสดงคำตอบ" title="แสดงคำตอบ"><svg class="eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><svg class="eye-closed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 3l18 18"/><path d="M10.6 6.2A10.8 10.8 0 0 1 12 6c6.5 0 10 6 10 6a17 17 0 0 1-2.1 2.8M6.6 6.6C3.6 8.3 2 12 2 12s3.5 6 10 6a10.5 10.5 0 0 0 5.4-1.4"/></svg></button></div><small class="system-user-warehouse-hint">ระบบจะไม่แสดงคำตอบเดิม หากเปลี่ยนคำถามต้องกรอกคำตอบใหม่ด้วย</small></div>`:'';
   return `<div class="settings-page"><div class="pagehead"><div><div class="breadcrumb">ตั้งค่า › ผู้ใช้งานในระบบ › ${editing?'แก้ไขผู้ใช้งาน':'เพิ่มผู้ใช้งาน'}</div><h1>${editing?'แก้ไขผู้ใช้งาน':'เพิ่มผู้ใช้งาน'}</h1></div><div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelAddSystemUserBtn">ยกเลิก</button><button class="btn primary" id="saveSystemUserBtn">บันทึกผู้ใช้งาน</button></div></div>
     <div class="panel"><div class="system-user-form-grid">
       <div class="system-user-form-field wide"><label>ID *</label><input id="new_user_id" type="text" autocomplete="off" placeholder="กำหนด ID สำหรับเข้าสู่ระบบ" value="${escapeHtml(user?.username||'')}" ${editing?'readonly title="เปลี่ยน ID ไม่ได้หลังสร้างบัญชีแล้ว"':''}></div>
@@ -11894,6 +11890,7 @@ function renderAddSystemUser(){
       <div class="system-user-form-field"><label>ชื่อ *</label><input id="new_user_first" value="${escapeHtml(user?.firstName||'')}"></div>
       <div class="system-user-form-field"><label>เบอร์โทร</label><input id="new_user_phone" class="phone-input" inputmode="tel" value="${escapeHtml(user?.phone||'')}"></div>
       <div class="system-user-form-field wide"><label>ข้อมูลอื่น ๆ</label><textarea id="new_user_note" rows="3" placeholder="ข้อมูลเพิ่มเติมเกี่ยวกับผู้ใช้งาน">${escapeHtml(user?.note||'')}</textarea></div>
+      ${recoveryFields}
       <div class="system-user-form-field wide"><label>สิทธิ์การเข้าถึง</label><select id="new_user_level" ${user?.owner?'disabled':''}><option value="1" ${currentLevel===1?'selected':''} ${user?.owner?'':'disabled'}>Level 1 - เจ้าของร้าน</option><option value="2" ${currentLevel!==1?'selected':''}>Level 2 - พนักงาน (กำหนดสิทธิ์รายหน้า)</option></select></div>
       ${user?.owner?'':`<div class="system-user-form-field wide"><label>คลังสินค้าที่เข้าถึง *</label><div class="system-user-warehouse-grid">${warehouseOptions||'<span>ยังไม่มีคลังสินค้าในระบบ</span>'}</div><small class="system-user-warehouse-hint">เลือกอย่างน้อย 1 คลัง ผู้ใช้งานจะเห็นและทำรายการได้เฉพาะคลังที่เลือก</small></div>`}
       ${user?.owner?'':`<div class="system-user-form-field wide"><label>สิทธิ์ตามหน้าที่</label>${systemUserPermissionMatrixHtml(user)}</div>`}
@@ -13634,7 +13631,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   document.getElementById('printPosSmallestUnitCommandBtn')?.addEventListener('click',printPosSmallestUnitCommandBarcode);
   const downloadStoreBackupBtn=document.getElementById('downloadStoreBackupBtn');
   if(downloadStoreBackupBtn) downloadStoreBackupBtn.addEventListener('click',downloadStoreBackup);
-  document.getElementById('createOwnerRecoveryCodeBtn')?.addEventListener('click',createOwnerRecoveryCode);
   const restoreStoreBackupBtn=document.getElementById('restoreStoreBackupBtn');
   const restoreStoreBackupFile=document.getElementById('restoreStoreBackupFile');
   if(restoreStoreBackupBtn&&restoreStoreBackupFile) restoreStoreBackupBtn.addEventListener('click',()=>restoreStoreBackupFile.click());
@@ -15465,12 +15461,18 @@ async function saveSystemUser(){
   const get=id=>(document.getElementById(id)?.value||'').trim();
   const username=get('new_user_id'),firstName=get('new_user_first'),password=get('new_user_password'),passwordConfirm=get('new_user_password_confirm');
   const editingUser=editingSystemUserId!==null?systemUsers.find(user=>String(user.id)===String(editingSystemUserId)):null;
+  const recoveryQuestion=editingUser?.owner?get('new_user_recovery_question'):'';
+  const recoveryAnswer=editingUser?.owner?get('new_user_recovery_answer'):'';
   if(!username){ showToast('กรุณากรอก ID ผู้ใช้งาน'); document.getElementById('new_user_id').focus(); return; }
   if(!/^[A-Za-z0-9._-]+$/.test(username)){ showToast('ID ใช้ได้เฉพาะตัวอักษรอังกฤษ ตัวเลข จุด ขีดกลาง และขีดล่าง'); document.getElementById('new_user_id').focus(); return; }
   if(!editingUser&&(password.length<10||!/[A-Za-z]/.test(password)||!/\d/.test(password))){ showToast('รหัสผ่านต้องมีอย่างน้อย 10 ตัวอักษร และมีทั้งตัวอักษรกับตัวเลข'); document.getElementById('new_user_password').focus(); return; }
   if(editingUser&&password&&(password.length<10||!/[A-Za-z]/.test(password)||!/\d/.test(password))){ showToast('รหัสผ่านใหม่ต้องมีอย่างน้อย 10 ตัวอักษร และมีทั้งตัวอักษรกับตัวเลข'); document.getElementById('new_user_password').focus(); return; }
   if(password!==passwordConfirm){ showToast('รหัสผ่านและการยืนยันไม่ตรงกัน'); document.getElementById('new_user_password_confirm').focus(); return; }
   if(!firstName){ showToast('กรุณากรอกชื่อผู้ใช้งาน'); document.getElementById('new_user_first').focus(); return; }
+  if(editingUser?.owner&&recoveryQuestion.length<5){ showToast('กรุณากรอกคำถามอย่างน้อย 5 ตัวอักษร'); document.getElementById('new_user_recovery_question').focus(); return; }
+  if(editingUser?.owner&&!editingUser.hasRecoveryAnswer&&recoveryAnswer.length<4){ showToast('กรุณากรอกคำตอบอย่างน้อย 4 ตัวอักษร'); document.getElementById('new_user_recovery_answer').focus(); return; }
+  if(editingUser?.owner&&recoveryQuestion!==String(editingUser.recoveryQuestion||'').trim()&&!recoveryAnswer){ showToast('เมื่อเปลี่ยนคำถาม กรุณากรอกคำตอบใหม่ด้วย'); document.getElementById('new_user_recovery_answer').focus(); return; }
+  if(editingUser?.owner&&recoveryAnswer&&recoveryAnswer.length<4){ showToast('คำตอบต้องมีอย่างน้อย 4 ตัวอักษร'); document.getElementById('new_user_recovery_answer').focus(); return; }
   if(!editingUser&&systemUsers.some(u=>String(u.username||'').toLowerCase()===username.toLowerCase())){ showToast('ID นี้มีอยู่ในระบบแล้ว'); return; }
   const requestedLevel=Number(get('new_user_level'))||2;
   const level=editingUser?.owner?1:Math.min(4,Math.max(2,requestedLevel));
@@ -15486,7 +15488,7 @@ async function saveSystemUser(){
   if(saveBtn) saveBtn.disabled=true;
   try{
     if(editingUser){
-      await callEdgeFunction('admin-users',{action:'update',id:editingUser.id,password:password||undefined,firstName,phone,note,level,warehouseIds,pagePermissions});
+      await callEdgeFunction('admin-users',{action:'update',id:editingUser.id,password:password||undefined,firstName,phone,note,level,warehouseIds,pagePermissions,...(editingUser.owner?{recoveryQuestion,recoveryAnswer:recoveryAnswer||undefined}:{})});
       if(editingUser.owner) Object.assign(currentUserProfile,{firstName,phone});
     }else{
       await callEdgeFunction('admin-users',{action:'create',username,password,firstName,phone,note,level,warehouseIds,pagePermissions});
@@ -16032,33 +16034,20 @@ async function exportContactsToExcel(){
   showToast(`ส่งออกสมุดรายชื่อ ${rows.length} รายการแล้ว`);
 }
 
-async function createOwnerRecoveryCode(){
-  if(loggedInUser()?.owner!==true) return;
-  if(!confirm('สร้างรหัสกู้คืนใหม่หรือไม่? รหัสกู้คืนเดิมจะใช้ไม่ได้ทันที')) return;
-  const button=document.getElementById('createOwnerRecoveryCodeBtn'); if(button) button.disabled=true;
-  try{
-    const result=await callEdgeFunction('admin-users',{action:'create-owner-recovery-code'});
-    const content=`PEPOS - รหัสกู้คืน Password เจ้าของร้าน\nID เจ้าของร้าน: ${currentProfile?.username||''}\nรหัสกู้คืน: ${result.recoveryCode}\nใช้ได้ถึง: ${new Date(result.expiresAt).toLocaleString('th-TH')}\n\nเก็บไฟล์นี้ไว้ในพื้นที่ส่วนตัวแยกจากเครื่องขาย`;
-    const url=URL.createObjectURL(new Blob([content],{type:'text/plain;charset=utf-8'}));
-    const link=document.createElement('a'); link.href=url; link.download=`PEPOS-Recovery-${currentDateStr()}.txt`; link.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-    try{ await navigator.clipboard?.writeText(result.recoveryCode); }catch(_error){}
-    prompt('ดาวน์โหลดไฟล์รหัสกู้คืนแล้ว และคัดลอกรหัสไว้ให้ด้วย กรุณาเก็บในที่ปลอดภัย',result.recoveryCode);
-    showToast('สร้างรหัสกู้คืนใหม่แล้ว');
-  }catch(error){ showToast(error?.message||'สร้างรหัสกู้คืนไม่สำเร็จ','danger'); }
-  if(button) button.disabled=false;
-}
-
 async function recoverOwnerPassword(){
   const username=(prompt('กรอก ID เจ้าของร้าน')||'').trim(); if(!username) return;
-  const recoveryCode=(prompt('กรอกรหัสกู้คืน 24 ตัว')||'').trim(); if(!recoveryCode) return;
+  let questionResult;
+  try{ questionResult=await callEdgeFunction('owner-recovery',{action:'question',username}); }
+  catch(error){ alert(error?.message||'ไม่สามารถโหลดคำถามกู้คืน Password ได้'); return; }
+  const answer=(prompt(`คำถาม: ${questionResult.question}\n\nกรอกคำตอบ`)||'').trim(); if(!answer) return;
   const password=prompt('กำหนด Password ใหม่ อย่างน้อย 10 ตัว มีตัวอักษรและตัวเลข')||''; if(!password) return;
   const confirmation=prompt('กรอก Password ใหม่อีกครั้ง')||'';
   if(password!==confirmation){ alert('Password ใหม่ทั้งสองครั้งไม่ตรงกัน'); return; }
   try{
-    await callEdgeFunction('owner-recovery',{username,recoveryCode,password});
+    await callEdgeFunction('owner-recovery',{action:'reset',username,answer,password});
     const userInput=document.getElementById('loginUserId'),passwordInput=document.getElementById('loginPassword');
     if(userInput) userInput.value=username; if(passwordInput) passwordInput.value='';
-    alert('ตั้ง Password ใหม่สำเร็จแล้ว กรุณาเข้าสู่ระบบ และสร้างรหัสกู้คืนชุดใหม่หลังเข้าสู่ระบบ');
+    alert('ตั้ง Password ใหม่สำเร็จแล้ว กรุณาเข้าสู่ระบบด้วย Password ใหม่');
     passwordInput?.focus();
   }catch(error){ alert(error?.message||'กู้คืน Password ไม่สำเร็จ'); }
 }

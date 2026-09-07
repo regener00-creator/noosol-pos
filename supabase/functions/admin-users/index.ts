@@ -31,6 +31,8 @@ type AdminClient = ReturnType<typeof createClient>
 const WAREHOUSE_ACCESS_PAGE_SIZE = 500
 const PROFILE_PAGE_SIZE = 500
 const PASSWORD_MIN_LENGTH = 10
+const RECOVERY_ANSWER_MIN_LENGTH = 4
+const RECOVERY_HASH_ITERATIONS = 310000
 const COMMON_PASSWORDS = new Set([
   '1234567890', 'password123', 'qwerty1234', 'admin12345',
   '1111111111', '0000000000', 'abcdefghij', 'password1',
@@ -102,14 +104,46 @@ async function validatePasswordSecurity(password: string): Promise<string> {
   return ''
 }
 
-async function sha256Text(value: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('')
+function bytesToHex(bytes: Uint8Array): string {
+  return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('')
 }
 
-function createRecoveryCode(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(12))
-  return [...bytes].map((byte) => byte.toString(16).padStart(2, '0')).join('').toUpperCase()
+function normalizeRecoveryAnswer(value: string): string {
+  return value.normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase('th-TH')
+}
+
+async function hashRecoveryAnswer(answer: string, saltHex: string, iterations = RECOVERY_HASH_ITERATIONS): Promise<string> {
+  const salt = new Uint8Array(saltHex.match(/.{2}/g)?.map((part) => Number.parseInt(part, 16)) || [])
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(normalizeRecoveryAnswer(answer)), 'PBKDF2', false, ['deriveBits'])
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt, iterations }, key, 256)
+  return bytesToHex(new Uint8Array(bits))
+}
+
+async function saveRecoveryChallenge(admin: AdminClient, userId: string, questionValue: unknown, answerValue: unknown): Promise<string> {
+  const question = String(questionValue ?? '').trim()
+  const answer = String(answerValue ?? '').trim()
+  if (question.length < 5 || question.length > 200) return 'คำถามต้องมีความยาว 5-200 ตัวอักษร'
+  if (answer && (answer.length < RECOVERY_ANSWER_MIN_LENGTH || answer.length > 200)) return `คำตอบต้องมีความยาว ${RECOVERY_ANSWER_MIN_LENGTH}-200 ตัวอักษร`
+
+  const { data: existing, error: existingError } = await admin.from('password_recovery_challenges').select('question').eq('user_id', userId).maybeSingle()
+  if (existingError) return existingError.message
+  if (!existing && !answer) return 'กรุณากรอกคำตอบสำหรับกู้คืน Password'
+  if (existing && String(existing.question || '').trim() !== question && !answer) return 'เมื่อเปลี่ยนคำถาม กรุณากรอกคำตอบใหม่ด้วย'
+  if (!answer) return ''
+
+  const saltHex = bytesToHex(crypto.getRandomValues(new Uint8Array(16)))
+  const answerHash = await hashRecoveryAnswer(answer, saltHex)
+  const { error } = await admin.from('password_recovery_challenges').upsert({
+    user_id: userId,
+    question,
+    answer_salt: saltHex,
+    answer_hash: answerHash,
+    answer_iterations: RECOVERY_HASH_ITERATIONS,
+    failed_attempts: 0,
+    locked_until: null,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' })
+  return error?.message || ''
 }
 
 function normalizeWarehouseIds(value: unknown): number[] | null {
@@ -134,6 +168,12 @@ async function listAllProfiles(admin: AdminClient) {
     if (batch.length < PROFILE_PAGE_SIZE) break
   }
   return rows
+}
+
+async function listAllRecoveryChallenges(admin: AdminClient) {
+  const { data, error } = await admin.from('password_recovery_challenges').select('user_id, question').order('user_id')
+  if (error) throw new Error(error.message)
+  return data || []
 }
 
 async function listAllWarehouseAccess(admin: AdminClient) {
@@ -244,22 +284,6 @@ Deno.serve(async (req) => {
       .single()
     if (!callerProfile?.owner || Number(callerProfile.level) !== 1) return json({ error: 'forbidden: owner only' }, 403)
 
-    if (action === 'create-owner-recovery-code') {
-      const recoveryCode = createRecoveryCode()
-      const codeHash = await sha256Text(recoveryCode)
-      const expiresAt = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString()
-      const { error } = await admin.from('owner_recovery_codes').upsert({
-        owner_id: caller.id,
-        code_hash: codeHash,
-        expires_at: expiresAt,
-        attempts: 0,
-        used_at: null,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'owner_id' })
-      if (error) return json({ error: error.message }, 400)
-      return json({ ok: true, recoveryCode, expiresAt })
-    }
-
     if (action === 'reset-store') {
       const mode = String(body.mode || '').trim().toLowerCase()
       const password = String(body.password || '')
@@ -315,11 +339,13 @@ Deno.serve(async (req) => {
       let profiles: Array<Record<string, unknown>>
       let accessRows: Array<{ user_id: string; warehouse_id: number }>
       let permissionRows: Array<Record<string, unknown>>
+      let recoveryRows: Array<{ user_id: string; question: string }>
       try {
-        ;[profiles, accessRows, permissionRows] = await Promise.all([
+        ;[profiles, accessRows, permissionRows, recoveryRows] = await Promise.all([
           listAllProfiles(admin),
           listAllWarehouseAccess(admin),
           listAllPagePermissions(admin),
+          listAllRecoveryChallenges(admin),
         ])
       } catch (error) {
         return json({ error: error instanceof Error ? error.message : String(error) }, 400)
@@ -350,10 +376,13 @@ Deno.serve(async (req) => {
         })
         permissionsByUser.set(userId, permissions)
       }
+      const recoveryByUser = new Map(recoveryRows.map((row) => [String(row.user_id), String(row.question || '')]))
       const users = profiles.map((profile) => ({
         ...profile,
         warehouseIds: warehouseIdsByUser.get(String(profile.id)) || [],
         pagePermissions: permissionsByUser.get(String(profile.id)) || [],
+        recoveryQuestion: recoveryByUser.get(String(profile.id)) || '',
+        hasRecoveryAnswer: recoveryByUser.has(String(profile.id)),
       }))
       return json({ ok: true, users })
     }
@@ -455,6 +484,15 @@ Deno.serve(async (req) => {
       }
 
       if (targetIsOwner) {
+        if (body.recoveryQuestion !== undefined || body.recoveryAnswer !== undefined) {
+          const recoveryError = await saveRecoveryChallenge(admin, id, body.recoveryQuestion, body.recoveryAnswer)
+          if (recoveryError) {
+            const warning = passwordChanged
+              ? 'เปลี่ยน Password สำเร็จแล้ว แต่บันทึกคำถามกู้คืนไม่สำเร็จ กรุณาลองบันทึกอีกครั้งโดยเว้นช่อง Password ว่าง: '
+              : ''
+            return json({ error: warning + recoveryError }, passwordChanged ? 409 : 400)
+          }
+        }
         const updates: Record<string, unknown> = {}
         if (body.firstName !== undefined) updates.first_name = String(body.firstName).trim()
         if (body.phone !== undefined) updates.phone = String(body.phone).trim()
