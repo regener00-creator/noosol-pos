@@ -10,8 +10,8 @@ const migration=fs.readFileSync(path.join(root,'supabase','migrations','20260907
 assert.match(app,/PENDING_CLIENT_EVENTS_KEY/);
 assert.match(app,/async function flushPendingClientEvents\(\)/);
 assert.match(app,/window\.addEventListener\('online',[\s\S]*flushPendingClientEvents\(\)/);
-assert.match(app,/from\('product_change_log'\)/);
-assert.match(app,/fetchProductChangesAfter\(startCursor\)/);
+assert.match(app,/from\('products'\)\.select\('id,revision'\)/);
+assert.match(app,/fetchProductRevisionManifest\(\)/);
 assert.match(app,/owner_resolve_sync_event/);
 assert.match(app,/get_owner_database_health/);
 assert.match(app,/id="recoveryNewPassword"[^>]*type="password"/);

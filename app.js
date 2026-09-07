@@ -150,10 +150,10 @@ async function loadLatestConflictedProduct(productId,eventId=''){
   if(!confirm(`โหลดข้อมูลล่าสุดของ “${current.name||current.sku||id}” จากเซิร์ฟเวอร์หรือไม่?\n\nข้อมูลที่แก้ไขค้างอยู่ในเครื่องสำหรับสินค้านี้จะถูกแทนที่ แต่สต๊อกและ LOT จะไม่ถูกแก้ไข`)) return false;
   const {data,error}=await sb.from('products').select('*').eq('id',id).maybeSingle();
   if(error) throw error;
-  if(!data) throw new Error('ไม่พบสินค้านี้บนเซิร์ฟเวอร์ อาจถูกลบไปแล้ว');
-  const normalizedRemote=rowToProduct(data);
-  const remote={...normalizedRemote,stock:Number(current.stock)||0,expiry:current.expiry||'',_catalogExpiry:normalizedRemote._catalogExpiry};
-  const nextProducts=products.map(product=>Number(product.id)===id?remote:product);
+  if(!data&&!confirm('สินค้านี้ถูกลบบนเซิร์ฟเวอร์แล้ว ต้องการทิ้งการแก้ไขที่ค้างในเครื่องและนำออกจากรายการในเครื่องหรือไม่?')) return false;
+  const normalizedRemote=data?rowToProduct(data):null;
+  const remote=data?{...normalizedRemote,stock:Number(current.stock)||0,expiry:current.expiry||'',_catalogExpiry:normalizedRemote._catalogExpiry}:null;
+  const nextProducts=data?products.map(product=>Number(product.id)===id?remote:product):products.filter(product=>Number(product.id)!==id);
   const nextDirtyOperations=new Map(productDirtyOperations);
   nextDirtyOperations.delete(String(id));
   const persisted=await persistProductsToIndexedDB(nextProducts,true,nextDirtyOperations);
@@ -254,11 +254,34 @@ function openSyncDetailsModal(){
   refresh();
 }
 function readPendingClientEvents(){
-  try{ const rows=JSON.parse(localStorage.getItem(PENDING_CLIENT_EVENTS_KEY)||'[]'); return Array.isArray(rows)?rows.slice(-MAX_PENDING_CLIENT_EVENTS):[]; }
+  try{
+    const legacy=JSON.parse(localStorage.getItem(PENDING_CLIENT_EVENTS_KEY)||'[]');
+    // Migrate the old shared array before deleting it. Each event now owns a
+    // separate key so an acknowledgement cannot overwrite a concurrent append.
+    if(Array.isArray(legacy)&&legacy.length){
+      legacy.forEach((event,index)=>{
+        const id=event.id||`legacy-${index}-${event.createdAt||''}`;
+        localStorage.setItem(`${PENDING_CLIENT_EVENTS_KEY}:${id}`,JSON.stringify({...event,id}));
+      });
+      localStorage.removeItem(PENDING_CLIENT_EVENTS_KEY);
+    }
+    const rows=[];
+    for(let index=0;index<localStorage.length;index++){
+      const key=localStorage.key(index);
+      if(!key?.startsWith(`${PENDING_CLIENT_EVENTS_KEY}:`)) continue;
+      try{ const event=JSON.parse(localStorage.getItem(key)); if(event?.id) rows.push(event); }catch(_error){}
+    }
+    return rows.sort((a,b)=>String(a.createdAt).localeCompare(String(b.createdAt))||String(a.id).localeCompare(String(b.id)));
+  }
   catch(_error){ return []; }
 }
-function writePendingClientEvents(rows){
-  try{ localStorage.setItem(PENDING_CLIENT_EVENTS_KEY,JSON.stringify((rows||[]).slice(-MAX_PENDING_CLIENT_EVENTS))); return true; }
+function enqueuePendingClientEvent(event){
+  try{
+    localStorage.setItem(`${PENDING_CLIENT_EVENTS_KEY}:${event.id}`,JSON.stringify(event));
+    const excess=readPendingClientEvents().slice(0,-MAX_PENDING_CLIENT_EVENTS);
+    excess.forEach(row=>localStorage.removeItem(`${PENDING_CLIENT_EVENTS_KEY}:${row.id}`));
+    return true;
+  }
   catch(_error){ return false; }
 }
 let pendingClientEventFlushPromise=null;
@@ -266,24 +289,26 @@ async function flushPendingClientEvents(){
   if(pendingClientEventFlushPromise) return pendingClientEventFlushPromise;
   if(!currentProfile||!sb||!navigator.onLine) return false;
   pendingClientEventFlushPromise=(async()=>{
-    let rows=readPendingClientEvents();
-    while(rows.length){
-      const event=rows[0];
+    const attempted=new Set();
+    let allSaved=true;
+    while(navigator.onLine){
+      const event=readPendingClientEvents().find(row=>!attempted.has(row.id));
+      if(!event) break;
+      attempted.add(event.id);
       try{
         const {error}=await sb.rpc('report_client_event',{p_device_id:currentDeviceId(),p_severity:event.severity,p_category:event.category,p_operation:event.operation,p_table_name:event.tableName||null,p_record_id:event.recordId||null,p_error_code:event.errorCode||null,p_message:event.message,p_context:event.context||{}});
         if(error) throw error;
-        rows.shift(); writePendingClientEvents(rows);
-      }catch(_error){ return false; }
+        localStorage.removeItem(`${PENDING_CLIENT_EVENTS_KEY}:${event.id}`);
+      }catch(_error){ allSaved=false; }
     }
-    return true;
+    return allSaved;
   })().finally(()=>{ pendingClientEventFlushPromise=null; });
   return pendingClientEventFlushPromise;
 }
 async function reportClientEvent({severity='error',category='sync',operation,tableName='',recordId='',errorCode='',message,context={}}){
   if(!operation||!message) return false;
-  const rows=readPendingClientEvents();
-  rows.push({id:globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`,severity,category,operation:String(operation),tableName:String(tableName||''),recordId:String(recordId||''),errorCode:String(errorCode||''),message:String(message).slice(0,1000),context:cloudClean(context||{}),createdAt:new Date().toISOString()});
-  writePendingClientEvents(rows);
+  const event={id:globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`,severity,category,operation:String(operation),tableName:String(tableName||''),recordId:String(recordId||''),errorCode:String(errorCode||''),message:String(message).slice(0,1000),context:cloudClean(context||{}),createdAt:new Date().toISOString()};
+  if(!enqueuePendingClientEvent(event)){ console.warn('ไม่สามารถเก็บ Error เพื่อส่งซ้ำได้'); return false; }
   return flushPendingClientEvents();
 }
 async function resolveOwnSyncEventsThrough(through){
@@ -728,16 +753,17 @@ function forgetLoadedRange(loadedRanges,range){
 // v4 forces one safe full reload after fixing the product loader's accidental
 // second rowToProduct() pass, which discarded JSON-only metadata such as every
 // barcode collection, extra units and expiry dates from the device cache.
-const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v5';
-const PRODUCT_MANIFEST_VERSION=5;
+const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v6';
+const PRODUCT_MANIFEST_VERSION=6;
 const PRODUCT_CACHE_DB_NAME='pepos-product-cache';
 const PRODUCT_CACHE_DB_VERSION=2;
 const PRODUCT_CACHE_PRODUCTS_STORE='products';
 const PRODUCT_CACHE_META_STORE='meta';
 const PRODUCT_CACHE_WORKSPACE_STORE='workspace';
-const PRODUCT_CACHE_MANIFEST_KEY='product-manifest-v5';
+const PRODUCT_CACHE_MANIFEST_KEY='product-manifest-v6';
 const PRODUCT_CACHE_DIRTY_KEY='product-dirty-operations-v1';
 let productCacheDbPromise=null;
+let productCacheStartupBlocked=false;
 let indexedProductCacheReady=false;
 let cachedProductManifest=null;
 let productCacheFingerprints=new Map();
@@ -746,7 +772,7 @@ let productDirtyOperations=new Map();
 let legacyWorkspaceProducts=null;
 function readProductManifestCache(){
   const cached=cachedProductManifest;
-  if(!cached||cached.version!==PRODUCT_MANIFEST_VERSION||!Number.isSafeInteger(Number(cached.changeCursor))||Number(cached.changeCursor)<0) return null;
+  if(!cached||cached.version!==PRODUCT_MANIFEST_VERSION) return null;
   return cached;
 }
 function normalizeProductDirtyOperations(value){
@@ -793,14 +819,30 @@ function openProductCacheDb(){
   if(!window.indexedDB) return Promise.reject(new Error('IndexedDB unavailable'));
   productCacheDbPromise=new Promise((resolve,reject)=>{
     const request=indexedDB.open(PRODUCT_CACHE_DB_NAME,PRODUCT_CACHE_DB_VERSION);
+    let expired=false;
+    const timer=setTimeout(()=>{
+      expired=true; productCacheDbPromise=null;
+      const error=new Error('เปิดแคชสินค้าไม่ได้ กรุณาปิดแท็บหรือหน้าต่าง PEPOS อื่น แล้วเปิดหน้านี้ใหม่');
+      error.code='PRODUCT_CACHE_BLOCKED'; reject(error);
+    },10000);
+    request.onblocked=()=>{
+      if(typeof showToast==='function') showToast('กรุณาปิดแท็บหรือหน้าต่าง PEPOS รุ่นเก่า เพื่ออัปเดตแคชสินค้า','danger-top');
+    };
     request.onupgradeneeded=()=>{
       const db=request.result;
       if(!db.objectStoreNames.contains(PRODUCT_CACHE_PRODUCTS_STORE)) db.createObjectStore(PRODUCT_CACHE_PRODUCTS_STORE,{keyPath:'id'});
       if(!db.objectStoreNames.contains(PRODUCT_CACHE_META_STORE)) db.createObjectStore(PRODUCT_CACHE_META_STORE,{keyPath:'key'});
       if(!db.objectStoreNames.contains(PRODUCT_CACHE_WORKSPACE_STORE)) db.createObjectStore(PRODUCT_CACHE_WORKSPACE_STORE,{keyPath:'key'});
     };
-    request.onsuccess=()=>resolve(request.result);
-    request.onerror=()=>{ productCacheDbPromise=null; reject(request.error||new Error('เปิดแคชสินค้าไม่สำเร็จ')); };
+    request.onsuccess=()=>{
+      clearTimeout(timer);
+      const db=request.result;
+      if(expired){ db.close(); return; }
+      db.onversionchange=()=>{ db.close(); productCacheDbPromise=null; };
+      db.onclose=()=>{ productCacheDbPromise=null; };
+      resolve(db);
+    };
+    request.onerror=()=>{ clearTimeout(timer); if(!expired) productCacheDbPromise=null; reject(request.error||new Error('เปิดแคชสินค้าไม่สำเร็จ')); };
   });
   return productCacheDbPromise;
 }
@@ -834,15 +876,21 @@ async function loadProductCacheFromIndexedDB(){
     return indexedProductCacheReady;
   }catch(error){
     indexedProductCacheReady=false;
+    if(error?.code==='PRODUCT_CACHE_BLOCKED'){
+      productCacheStartupBlocked=true;
+      const notice=document.getElementById('loginError');
+      if(notice) notice.textContent=error.message;
+      if(typeof showToast==='function') showToast(error.message,'danger-top');
+      return false;
+    }
     console.warn('ไม่สามารถโหลดแคชสินค้าจาก IndexedDB ได้ ระบบจะดึงข้อมูลจากเซิร์ฟเวอร์',error);
     return false;
   }
 }
-async function saveProductManifestCache(changeCursor){
+async function saveProductManifestCache(){
   const manifest={
     version:PRODUCT_MANIFEST_VERSION,
     savedAt:new Date().toISOString(),
-    changeCursor:Math.max(0,Number(changeCursor)||0),
   };
   try{
     const db=await openProductCacheDb();
@@ -940,22 +988,17 @@ async function fetchAllProductRows(){
   }
   return {data:allRows,error:null};
 }
-function productChangeFeedUnavailable(error){
-  return ['42P01','PGRST205','PGRST204'].includes(String(error?.code||''))||/product_change_log/i.test(String(error?.message||''));
-}
-async function fetchProductChangeEdge(ascending){
-  const {data,error}=await sb.from('product_change_log').select('change_id').order('change_id',{ascending}).limit(1);
-  return {data:Number(data?.[0]?.change_id)||0,error};
-}
-async function fetchProductChangesAfter(changeCursor){
+async function fetchProductRevisionManifest(){
   const pageSize=1000;
-  let cursor=Math.max(0,Number(changeCursor)||0),allRows=[];
+  let cursor=null,allRows=[];
   while(true){
-    const {data,error}=await sb.from('product_change_log').select('change_id,product_id,operation,revision').gt('change_id',cursor).order('change_id',{ascending:true}).limit(pageSize);
+    let query=sb.from('products').select('id,revision').order('id',{ascending:true}).limit(pageSize);
+    if(cursor!==null) query=query.gt('id',cursor);
+    const {data,error}=await query;
     if(error) return {data:null,error};
     const rows=data||[]; allRows.push(...rows);
     if(rows.length<pageSize) break;
-    cursor=Number(rows[rows.length-1].change_id)||cursor;
+    cursor=rows[rows.length-1].id;
   }
   return {data:allRows,error:null};
 }
@@ -986,83 +1029,45 @@ function mergeRemoteProductsWithDirtyLocal(remoteProducts,localProducts=products
 function reconcileProductDirtyOperationsWithRemoteIds(remoteIds){
   const available=new Set((remoteIds||[]).map(String));
   for(const [id,operation] of [...productDirtyOperations]){
-    if(operation==='update'&&!available.has(id)) productDirtyOperations.set(id,'insert');
-    else if(operation==='delete'&&!available.has(id)) productDirtyOperations.delete(id);
+    // Keep missing updates as updates: the revision guard must report a
+    // conflict. Only the user may choose to discard them, never reinsert them.
+    if(operation==='delete'&&!available.has(id)) productDirtyOperations.delete(id);
   }
 }
 function reconcileProductDirtyOperationsWithChanges(changes){
   for(const change of changes||[]){
     if(change.operation!=='delete') continue;
     const id=String(change.product_id),operation=productDirtyOperations.get(id);
-    if(operation==='update') productDirtyOperations.set(id,'insert');
-    else if(operation==='delete') productDirtyOperations.delete(id);
+    if(operation==='delete') productDirtyOperations.delete(id);
   }
 }
 async function loadProductRowsFromSupabase(){
-  const cachedManifest=readProductManifestCache();
-  let fullReload=!indexedProductCacheReady||!cachedManifest;
-  let startCursor=Number(cachedManifest?.changeCursor)||0;
-  if(!fullReload){
-    const oldest=await fetchProductChangeEdge(true);
-    if(oldest.error){
-      if(productChangeFeedUnavailable(oldest.error)) return loadProductRowsFromSupabaseLegacy();
-      return {data:null,error:oldest.error};
-    }
-    if(oldest.data&&startCursor<oldest.data-1) fullReload=true;
-  }
-  if(fullReload){
-    const before=await fetchProductChangeEdge(false);
-    if(before.error){
-      if(productChangeFeedUnavailable(before.error)) return loadProductRowsFromSupabaseLegacy();
-      return {data:null,error:before.error};
-    }
-    const {data,error}=await fetchAllProductRows();
-    if(error) return {data:null,error};
-    reconcileProductDirtyOperationsWithRemoteIds((data||[]).map(row=>row.id));
-    let loadedProducts=mergeRemoteProductsWithDirtyLocal((data||[]).map(rowToProduct));
-    const during=await fetchProductChangesAfter(before.data);
-    if(during.error) return {data:null,error:during.error};
-    if(during.data.length){
-      reconcileProductDirtyOperationsWithChanges(during.data);
-      const latest=new Map(); during.data.forEach(change=>latest.set(String(change.product_id),change));
-      const changed=[...latest.values()].filter(change=>change.operation!=='delete'&&!productDirtyOperations.has(String(change.product_id))).map(change=>change.product_id);
-      const deleted=new Set([...latest.values()].filter(change=>change.operation==='delete'&&!productDirtyOperations.has(String(change.product_id))).map(change=>String(change.product_id)));
-      const updated=await fetchProductRowsByIds(changed); if(updated.error) return {data:null,error:updated.error};
-      const replace=new Set(changed.map(String));
-      loadedProducts=loadedProducts.filter(product=>!replace.has(String(product.id))&&!deleted.has(String(product.id))).concat((updated.data||[]).map(rowToProduct));
-      loadedProducts=mergeRemoteProductsWithDirtyLocal(loadedProducts);
-    }
-    const productRowsPersisted=await persistProductsToIndexedDB(loadedProducts,true);
-    const cursor=during.data.length?Number(during.data[during.data.length-1].change_id):before.data;
-    if(productRowsPersisted) await saveProductManifestCache(cursor);
-    return {data:loadedProducts,error:null};
-  }
-  const changes=await fetchProductChangesAfter(startCursor);
-  if(changes.error){
-    if(productChangeFeedUnavailable(changes.error)) return loadProductRowsFromSupabaseLegacy();
-    return {data:null,error:changes.error};
-  }
-  if(!changes.data.length) return {data:products,error:null};
-  reconcileProductDirtyOperationsWithChanges(changes.data);
-  const latestByProduct=new Map(); changes.data.forEach(change=>latestByProduct.set(String(change.product_id),change));
-  const changedIds=[...latestByProduct.values()].filter(change=>change.operation!=='delete'&&!productDirtyOperations.has(String(change.product_id))).map(change=>change.product_id);
-  const deletedIds=[...latestByProduct.values()].filter(change=>change.operation==='delete'&&!productDirtyOperations.has(String(change.product_id))).map(change=>change.product_id);
+  // Identity sequence values are not commit order. Reconcile authoritative
+  // id/revision pairs on every refresh, then download only changed full rows.
+  // This also repairs old cursors and caches that outlived log retention.
+  const manifest=await fetchProductRevisionManifest();
+  if(manifest.error) return {data:null,error:manifest.error};
+  const remoteIds=new Set(manifest.data.map(row=>String(row.id)));
+  reconcileProductDirtyOperationsWithRemoteIds([...remoteIds]);
+  const fullReload=!indexedProductCacheReady||!readProductManifestCache();
+  const localById=new Map(products.map(product=>[String(product.id),product]));
+  const changedIds=manifest.data.filter(row=>{
+    if(productDirtyOperations.has(String(row.id))) return false;
+    const local=localById.get(String(row.id));
+    return fullReload||!local||Number(local._revision)!==Number(row.revision);
+  }).map(row=>row.id);
+  const deletedIds=products.filter(product=>!remoteIds.has(String(product.id))&&!productDirtyOperations.has(String(product.id))).map(product=>product.id);
   const {data:changedRows,error}=await fetchProductRowsByIds(changedIds);
   if(error) return {data:null,error};
+  const fetchedIds=new Set((changedRows||[]).map(row=>String(row.id)));
+  changedIds.filter(id=>!fetchedIds.has(String(id))).forEach(id=>deletedIds.push(id));
   const changedSet=new Set(changedIds.map(String)),deletedSet=new Set(deletedIds.map(String));
   let loadedProducts=(products||[]).filter(product=>!changedSet.has(String(product.id))&&!deletedSet.has(String(product.id)));
   loadedProducts.push(...(changedRows||[]).map(rowToProduct));
   loadedProducts=mergeRemoteProductsWithDirtyLocal(loadedProducts);
   products=loadedProducts;
   const productRowsPersisted=await persistProductChangesToIndexedDB({updatedIds:changedIds,deletedIds});
-  if(productRowsPersisted) await saveProductManifestCache(Number(changes.data[changes.data.length-1].change_id));
-  return {data:loadedProducts,error:null};
-}
-async function loadProductRowsFromSupabaseLegacy(){
-  const {data,error}=await fetchAllProductRows();
-  if(error) return {data:null,error};
-  const loadedProducts=mergeRemoteProductsWithDirtyLocal((data||[]).map(rowToProduct));
-  await persistProductsToIndexedDB(loadedProducts,true);
+  if(productRowsPersisted) await saveProductManifestCache();
   return {data:loadedProducts,error:null};
 }
 
@@ -1092,11 +1097,31 @@ async function clearAcknowledgedProductDirtyOperations(ids,expectedOperations){
   const removable=(ids||[]).map(String).filter(id=>productDirtyOperations.get(id)===expected.get(id));
   if(!removable.length) return true;
   const next=new Map(productDirtyOperations);
+  const expectedRows=tableSnapshot(products,productMetadataToRow);
   removable.forEach(id=>next.delete(id));
   const persisted=await persistProductsToIndexedDB(products,true,next);
   if(!persisted) return false;
-  removable.forEach(id=>{ if(productDirtyOperations.get(id)===expected.get(id)) productDirtyOperations.delete(id); });
+  const latestRows=tableSnapshot(products,productMetadataToRow);
+  removable.forEach(id=>{ if(productDirtyOperations.get(id)===expected.get(id)&&latestRows.get(id)===expectedRows.get(id)) productDirtyOperations.delete(id); });
   return true;
+}
+function cloneSyncRecords(records){ return JSON.parse(JSON.stringify(records||[])); }
+function syncAcknowledgement(table,localArray,toRow){
+  // Only detached payloads acknowledged by the server become the baseline.
+  const snapshot=new Map(syncedTableRows[table]||[]);
+  syncedTableRows[table]=snapshot;
+  return item=>{
+    const live=localArray.find(row=>String(row.id)===String(item.id));
+    if(live){
+      live._revision=Number(item._revision)||Number(live._revision)||0;
+      if(item._clientCreateToken) live._clientCreateToken=item._clientCreateToken;
+    }
+    snapshot.set(String(item.id),JSON.stringify(toRow(item)));
+    if(table==='products'&&typeof persistProductChangesToIndexedDB==='function') persistProductChangesToIndexedDB({updatedIds:[item.id]});
+    else if(typeof scheduleWorkspaceCacheWrite==='function'){
+      workspaceCachePendingSnapshot=localWorkspaceSnapshot(); scheduleWorkspaceCacheWrite();
+    }
+  };
 }
 async function upsertRowsInChunks(table,rows){
   for(let i=0;i<rows.length;i+=200){
@@ -1204,13 +1229,18 @@ async function insertRowsInChunks(table,rows){
   }
   return null;
 }
-async function updateProductMetadataInChunks(productRows){
+async function updateProductMetadataInChunks(productRows,onAcknowledged=()=>{}){
   for(let i=0;i<productRows.length;i+=12){
     const batch=productRows.slice(i,i+12);
     const results=await Promise.all(batch.map(product=>{
       const row=productMetadataToRow(product),{id,revision,...changes}=row;
       return sb.from('products').update(changes).eq('id',id).eq('revision',revision).select('id,revision').maybeSingle();
     }));
+    results.forEach((result,index)=>{
+      if(result.error||!result.data) return;
+      batch[index]._revision=Number(result.data.revision)||Number(batch[index]._revision)||1;
+      onAcknowledged(batch[index]);
+    });
     const failed=results.find(result=>result.error);
     if(failed) return failed.error;
     const conflictIndex=results.findIndex(result=>!result.data);
@@ -1225,7 +1255,7 @@ function revisionConflictError(table,id){
   error.recordId=id;
   return error;
 }
-async function insertRevisionedRows(table,items,toRow){
+async function insertRevisionedRows(table,items,toRow,onAcknowledged=()=>{}){
   for(let index=0;index<items.length;index+=100){
     const batch=items.slice(index,index+100);
     batch.forEach(item=>{ if(!item._clientCreateToken) item._clientCreateToken=generateProductCreateToken(); });
@@ -1240,21 +1270,27 @@ async function insertRevisionedRows(table,items,toRow){
         const remote=remoteById.get(String(item.id));
         if(!remote||String(remote.data?._clientCreateToken||'')!==String(item._clientCreateToken||'')) return revisionConflictError(table,item.id);
         item._revision=Number(remote.revision)||1;
+        onAcknowledged(item);
       }
       continue;
     }
     const revisionById=new Map((data||[]).map(row=>[String(row.id),Number(row.revision)||1]));
-    batch.forEach(item=>{ item._revision=revisionById.get(String(item.id))||1; });
+    batch.forEach(item=>{ item._revision=revisionById.get(String(item.id))||1; onAcknowledged(item); });
   }
   return null;
 }
-async function updateRevisionedRows(table,items,toRow){
+async function updateRevisionedRows(table,items,toRow,onAcknowledged=()=>{}){
   for(let index=0;index<items.length;index+=12){
     const batch=items.slice(index,index+12);
     const results=await Promise.all(batch.map(item=>{
       const row=toRow(item),{id,revision,...changes}=row;
       return sb.from(table).update(changes).eq('id',id).eq('revision',revision).select('id,revision').maybeSingle();
     }));
+    results.forEach((result,index)=>{
+      if(result.error||!result.data) return;
+      batch[index]._revision=Number(result.data.revision)||Number(batch[index]._revision)||1;
+      onAcknowledged(batch[index]);
+    });
     const failed=results.find(result=>result.error);
     if(failed) return failed.error;
     const conflictIndex=results.findIndex(result=>!result.data);
@@ -1263,7 +1299,7 @@ async function updateRevisionedRows(table,items,toRow){
   }
   return null;
 }
-async function deleteRevisionedRows(table,deletedIds,previous){
+async function deleteRevisionedRows(table,deletedIds,previous,onAcknowledged=()=>{}){
   for(const id of deletedIds){
     let previousRow={};
     try{ previousRow=JSON.parse(previous.get(String(id))||'{}'); }catch(error){}
@@ -1272,6 +1308,7 @@ async function deleteRevisionedRows(table,deletedIds,previous){
     const {data,error}=await sb.from(table).delete().eq('id',id).eq('revision',revision).select('id');
     if(error) return error;
     if(!(data||[]).length) return revisionConflictError(table,id);
+    onAcknowledged(String(id));
   }
   return null;
 }
@@ -1281,23 +1318,25 @@ async function deleteRevisionedRows(table,deletedIds,previous){
 async function upsertAndPrune(table,localArray,toRow){
   const previous=syncedTableRows[table]||new Map();
   const current=tableSnapshot(localArray,toRow);
-  const changed=(localArray||[]).filter(item=>{
+  const changedLive=(localArray||[]).filter(item=>{
     const row=toRow(item);
     return previous.get(String(row.id))!==JSON.stringify(row);
   });
+  changedLive.forEach(item=>{ if(!(Number(item._revision)||0)&&!item._clientCreateToken) item._clientCreateToken=generateProductCreateToken(); });
+  const changed=cloneSyncRecords(changedLive);
+  const acknowledge=syncAcknowledgement(table,localArray,toRow);
   const deleted=[...previous.keys()].filter(id=>!current.has(id));
   if(!changed.length&&!deleted.length) return true;
   if(changed.length){
     const inserts=changed.filter(item=>(Number(item._revision)||0)===0);
     const updates=changed.filter(item=>(Number(item._revision)||0)>0);
-    const error=(inserts.length?await insertRevisionedRows(table,inserts,toRow):null)||(updates.length?await updateRevisionedRows(table,updates,toRow):null);
+    const error=(inserts.length?await insertRevisionedRows(table,inserts,toRow,acknowledge):null)||(updates.length?await updateRevisionedRows(table,updates,toRow,acknowledge):null);
     if(error){ console.warn('sync '+table,error); return noteCoreSyncFailure(error,{operation:'upsert_rows',tableName:table,fallbackMessage:`ซิงก์ ${SYNC_TABLE_LABELS[table]||table} ไม่สำเร็จ`}); }
   }
   if(deleted.length){
-    const error=await deleteRevisionedRows(table,deleted,previous);
+    const error=await deleteRevisionedRows(table,deleted,previous,id=>syncedTableRows[table].delete(id));
     if(error){ console.warn('sync delete '+table,error); return noteCoreSyncFailure(error,{operation:'delete_rows',tableName:table,fallbackMessage:`ลบข้อมูล ${SYNC_TABLE_LABELS[table]||table} จากเซิร์ฟเวอร์ไม่สำเร็จ`}); }
   }
-  syncedTableRows[table]=tableSnapshot(localArray,toRow);
   return true;
 }
 async function syncWarehousesIncrementally(){
@@ -1358,12 +1397,13 @@ async function syncProductsIncrementally(){
   if(!await prepareProductInsertCandidatesForSync(previous)) return false;
   const current=tableSnapshot(products,productMetadataToRow);
   const dirtyAtStart=new Map(productDirtyOperations);
-  const changed=products.filter(product=>previous.get(String(product.id))!==JSON.stringify(productMetadataToRow(product)));
+  const changed=cloneSyncRecords(products.filter(product=>previous.get(String(product.id))!==JSON.stringify(productMetadataToRow(product))));
+  const acknowledge=syncAcknowledgement(table,products,productMetadataToRow);
   const inserted=changed.filter(product=>dirtyAtStart.get(String(product.id))==='insert'||(!dirtyAtStart.has(String(product.id))&&!previous.has(String(product.id))));
   const updated=changed.filter(product=>dirtyAtStart.get(String(product.id))==='update'||(!dirtyAtStart.has(String(product.id))&&previous.has(String(product.id))));
   const deleted=[...previous.keys()].filter(id=>!current.has(id));
   if(updated.length){
-    const error=await updateProductMetadataInChunks(updated);
+    const error=await updateProductMetadataInChunks(updated,acknowledge);
     if(error){ console.warn('sync products',error); return noteCoreSyncFailure(error,{operation:'update_products',tableName:table,recordId:error.productId||'',fallbackMessage:'แก้ไขสินค้าบนเซิร์ฟเวอร์ไม่สำเร็จ'}); }
   }
   if(inserted.length){
@@ -1374,23 +1414,26 @@ async function syncProductsIncrementally(){
     const {data:insertedRevisions,error:revisionError}=await sb.from('products').select('id,revision').in('id',inserted.map(product=>product.id));
     if(revisionError){ console.warn('load new product revisions',revisionError); return noteCoreSyncFailure(revisionError,{operation:'load_product_revisions',tableName:table,fallbackMessage:'ตรวจสอบข้อมูลสินค้าใหม่ไม่สำเร็จ'}); }
     const revisions=new Map((insertedRevisions||[]).map(row=>[String(row.id),Number(row.revision)||1]));
-    inserted.forEach(product=>{ product._revision=revisions.get(String(product.id))||1; });
+    inserted.forEach(product=>{ product._revision=revisions.get(String(product.id))||1; acknowledge(product); });
   }
   if(deleted.length){
     const {error}=await sb.from(table).delete().in('id',deleted);
     if(error){ console.warn('sync delete products',error); return noteCoreSyncFailure(error,{operation:'delete_products',tableName:table,fallbackMessage:'ลบสินค้าจากเซิร์ฟเวอร์ไม่สำเร็จ'}); }
+    deleted.forEach(id=>syncedTableRows[table].delete(id));
   }
-  syncedTableRows[table]=tableSnapshot(products,productMetadataToRow);
   const acknowledgedDirtyIds=[];
   for(const [id,operation] of dirtyAtStart){
     const unchangedOperation=productDirtyOperations.get(id)===operation;
-    const unchangedProduct=operation==='delete'?!current.has(id):current.get(id)===JSON.stringify(productMetadataToRow(products.find(product=>String(product.id)===id)||{}));
+    const live=products.find(product=>String(product.id)===id);
+    const unchangedProduct=operation==='delete'?!live:syncedTableRows[table].get(id)===JSON.stringify(productMetadataToRow(live||{}));
+    if(operation==='insert'&&!unchangedProduct&&syncedTableRows[table].has(id)) productDirtyOperations.set(id,live?'update':'delete');
     if(unchangedOperation&&unchangedProduct) acknowledgedDirtyIds.push(id);
   }
   if(acknowledgedDirtyIds.length){
     const dirtyStatePersisted=await clearAcknowledgedProductDirtyOperations(acknowledgedDirtyIds,dirtyAtStart);
     if(!dirtyStatePersisted){ seedProductSyncSnapshot(products,productDirtyOperations); return noteCoreSyncFailure(new Error('บันทึกสถานะสินค้าที่ซิงก์แล้วลงเครื่องไม่สำเร็จ'),{operation:'persist_product_sync_state',tableName:table}); }
   }
+  if(changed.length) await persistProductChangesToIndexedDB({updatedIds:changed.map(product=>product.id)});
   return true;
 }
 
@@ -2290,14 +2333,15 @@ async function saveRevisionedDocument(table,doc,{remove=false,expectedRevision=n
 async function syncRevisionedDocuments(table,localArray){
   const previous=syncedTableRows[table]||new Map();
   const current=tableSnapshot(localArray,docToRow);
-  const changed=(localArray||[]).filter(doc=>previous.get(String(doc.id))!==JSON.stringify(docToRow(doc)));
+  const changed=cloneSyncRecords((localArray||[]).filter(doc=>previous.get(String(doc.id))!==JSON.stringify(docToRow(doc))));
+  const acknowledge=syncAcknowledgement(table,localArray,docToRow);
   const deleted=[...previous.keys()].filter(id=>!current.has(id));
-  for(const doc of changed) await saveRevisionedDocument(table,doc);
+  for(const doc of changed){ await saveRevisionedDocument(table,doc); acknowledge(doc); }
   for(const id of deleted){
     const previousRow=JSON.parse(previous.get(String(id))||'{}');
     await saveRevisionedDocument(table,{id,_revision:Number(previousRow.revision)||0},{remove:true,expectedRevision:Number(previousRow.revision)||0});
+    syncedTableRows[table].delete(id);
   }
-  syncedTableRows[table]=tableSnapshot(localArray,docToRow);
   return true;
 }
 const MEDICINE_LABEL_DURATION_OPTIONS=[
@@ -3806,6 +3850,7 @@ async function loadCurrentProfile(){
   currentUserProfile={...currentUserProfile,firstName:currentProfile.firstName,lastName:currentProfile.lastName,phone:currentProfile.phone};
 }
 async function loginSystem(event){
+  if(productCacheStartupBlocked){ event?.preventDefault(); showToast('กรุณาปิดแท็บ PEPOS อื่น แล้วรีเฟรชหน้านี้เพื่อโหลดข้อมูลค้างส่งอย่างปลอดภัย','danger-top'); return; }
   event?.preventDefault();
   const username=(document.getElementById('loginUserId')?.value||'').trim().toLowerCase();
   const password=document.getElementById('loginPassword')?.value||'';
@@ -16050,7 +16095,7 @@ function openOwnerRecoverySetupModal(){
     const answer=overlay.querySelector('#requiredRecoveryAnswer').value.trim();
     const errorElement=overlay.querySelector('#requiredRecoveryError');
     const button=overlay.querySelector('button[type="submit"]');
-    if(question.length<5||answer.length<3){ errorElement.textContent='กรุณากรอกคำถามอย่างน้อย 5 ตัว และคำตอบอย่างน้อย 3 ตัว'; return; }
+    if(question.length<5||answer.length<4){ errorElement.textContent='กรุณากรอกคำถามอย่างน้อย 5 ตัว และคำตอบอย่างน้อย 4 ตัว'; return; }
     button.disabled=true;
     try{ await callEdgeFunction('admin-users',{action:'save-own-recovery',question,answer}); ownerRecoverySetupRequired=false; overlay.remove(); showToast('ตั้งคำถามกู้คืน Password แล้ว'); }
     catch(error){ errorElement.textContent=error?.message||'บันทึกคำถามกู้คืนไม่สำเร็จ'; button.disabled=false; }
@@ -17987,6 +18032,7 @@ window.addEventListener('error',event=>notifyRuntimeError('โปรแกรม
     return;
   }
   await loadProductCacheFromIndexedDB();
+  if(productCacheStartupBlocked) return;
   try{
     const { data:ownerCheck, error:ownerErr } = await sb.rpc('has_any_owner');
     systemHasOwner = ownerErr ? true : !!ownerCheck; // default to "true" (login screen) if the check itself fails

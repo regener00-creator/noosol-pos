@@ -39,7 +39,7 @@ assert.doesNotMatch(html, /setTimeout\([^\n]*persistProductsToIndexedDB[^\n]*120
 const manifestLoad = section('async function loadProductRowsFromSupabase(){', '// Content-hash guard:');
 assert.match(manifestLoad, /mergeRemoteProductsWithDirtyLocal/);
 assert.match(manifestLoad, /if\(productRowsPersisted\) await saveProductManifestCache\(/);
-assert.match(manifestLoad, /fetchProductChangesAfter\(startCursor\)/);
+assert.match(manifestLoad, /fetchProductRevisionManifest\(\)/);
 
 const checkoutStart = html.indexOf('function readPendingCheckoutRequest(){');
 const checkoutEnd = html.indexOf('async function clearLocalStoreCachesForReset()', checkoutStart);

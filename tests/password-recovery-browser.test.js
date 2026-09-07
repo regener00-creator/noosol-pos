@@ -31,6 +31,20 @@ const executable=['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','
   assert.ok(await page.locator('.owner-password-recovery-overlay').evaluate(element=>Number(getComputedStyle(element).zIndex)>Number(getComputedStyle(document.querySelector('#loginScreen')).zIndex)),'recovery overlay must appear above login screen');
   await page.click('.owner-password-recovery-overlay .recovery-cancel');
   assert.equal(await page.locator('#ownerPasswordRecoveryForm').count(),0,'cancel must close recovery dialog');
+  await page.evaluate(()=>{
+    window.recoveryWrites=[];
+    callEdgeFunction=async(name,payload)=>{window.recoveryWrites.push({name,payload});return {};};
+    openOwnerRecoverySetupModal();
+  });
+  await page.fill('#requiredRecoveryQuestion','คำถามทดสอบ');
+  await page.fill('#requiredRecoveryAnswer','abc');
+  await page.click('#ownerRecoverySetupForm button[type="submit"]');
+  assert.match(await page.locator('#requiredRecoveryError').innerText(),/อย่างน้อย 4 ตัว/);
+  assert.equal(await page.evaluate(()=>window.recoveryWrites.length),0,'three characters must not be submitted');
+  await page.fill('#requiredRecoveryAnswer','abcd');
+  await page.click('#ownerRecoverySetupForm button[type="submit"]');
+  await page.waitForFunction(()=>window.recoveryWrites.length===1);
+  assert.equal(await page.locator('#ownerRecoverySetupForm').count(),0,'four characters must save and close the form');
   assert.deepEqual(errors,[]);
   console.log('password recovery browser tests passed');
 })().catch(error=>{ console.error(error); process.exitCode=1; }).finally(async()=>{ await browser?.close(); server.close(); });

@@ -32,9 +32,9 @@ assert.match(migration, /revoke all on function public\.set_inventory_expiry[\s\
 assert.match(app, /function generateClientRecordId\(/);
 assert.match(app, /function generateInspectionListId\(/);
 assert.doesNotMatch(app, /nextContactId|nextSalesRepresentativeId|nextPromotionId|inspectionListCounter/);
-assert.match(app, /insertRevisionedRows\(table,inserts,toRow\)/);
-assert.match(app, /updateRevisionedRows\(table,updates,toRow\)/);
-assert.match(app, /deleteRevisionedRows\(table,deleted,previous\)/);
+assert.match(app, /insertRevisionedRows\(table,inserts,toRow,acknowledge\)/);
+assert.match(app, /updateRevisionedRows\(table,updates,toRow,acknowledge\)/);
+assert.match(app, /deleteRevisionedRows\(table,deleted,previous,/);
 assert.match(app, /function contactToRow[\s\S]{0,420}revision:Number\(c\._revision\)\|\|0/);
 assert.match(app, /function salesRepToRow[\s\S]{0,260}revision:Number\(r\._revision\)\|\|0/);
 assert.match(app, /function promotionToRow[\s\S]{0,260}revision:Number\(promotion\._revision\)\|\|0/);
