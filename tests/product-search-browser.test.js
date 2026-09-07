@@ -58,6 +58,10 @@ const browserExecutable = [
     selectedGroup=null;
     searchQuery='';
     productPage=1;
+    representativeManagedProductIndexRows=[{representativeId:701,productId:9101}];
+    representativeManagedProductIds=new Set([9101]);
+    representativeManagedProductIndexLoaded=true;
+    representativeManagedProductIndexLoadedAt=Date.now();
     rebuildProductLookupMaps();
     document.getElementById('main').innerHTML=renderProducts();
     attachEvents();
@@ -72,6 +76,7 @@ const browserExecutable = [
   assert.equal(await page.locator('.prodtable tbody tr').count(), 1, 'ผลการค้นหาต้องเหลือสินค้าที่ตรงกันหนึ่งรายการ');
   assert.equal(await page.locator('.prodtable .prod-inline-name').inputValue(), 'Decolgen prin (4 tablets)');
   assert.equal(await page.locator('.prodtable .prod-unit-barcode').inputValue(), '8850000000001', 'ค่าเริ่มต้นต้องแสดงบาร์โค้ดหน่วยหลัก');
+  assert.equal(await page.locator('[data-product-representative-history="9101"]').count(), 1, 'สินค้าที่อยู่ในสินค้าที่ดูแลต้องมีปุ่มผู้แทนและ NOTE');
   await page.locator('.prodtable .prod-unit-select').selectOption('ลัง');
   assert.equal(await page.locator('.prodtable .prod-unit-barcode').inputValue(), 'CASE-D-001', 'เมื่อเปลี่ยนหน่วยต้องเปลี่ยนบาร์โค้ดตามหน่วยทันที');
   await page.locator('.prodtable .prod-unit-barcode').fill('CASE-D-NEW');
@@ -104,6 +109,7 @@ const browserExecutable = [
   await page.waitForTimeout(220);
   assert.equal(await search.inputValue(), '8850000000002', 'ยิงบาร์โค้ดหลังพิมพ์ค้นหาเองต้องแทนข้อความเดิมทั้งหมด');
   assert.equal(await page.locator('.prodtable .prod-inline-name').inputValue(), 'Paracetamol 500 mg');
+  assert.equal(await page.locator('[data-product-representative-history]').count(), 0, 'สินค้าที่ไม่มีผู้แทนดูแลต้องไม่แสดงปุ่มผู้แทนและ NOTE');
   await page.keyboard.type('8850000000099', {delay:90});
   await page.keyboard.press('Enter');
   await page.waitForTimeout(220);

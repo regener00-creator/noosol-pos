@@ -3265,6 +3265,12 @@ const REPRESENTATIVE_ACTIVITY_TYPES={promotion:'โปรโมชั่น',pri
 let representativeHistoryContext=null;
 let representativeActivityNotes=[];
 let representativeProductAssignments=[];
+let representativeManagedProductIndexRows=[];
+let representativeManagedProductIds=new Set();
+let representativeManagedProductIndexLoaded=false;
+let representativeManagedProductIndexLoadedAt=0;
+let representativeManagedProductIndexPromise=null;
+let representativeManagedProductIndexToken=0;
 let representativeActivityLoading=false;
 let representativeActivityLoadedKey='';
 let representativeActivityLoadError='';
@@ -3429,6 +3435,7 @@ function clearRemoteResetSensitiveMemory(){
   clearLoadedHistoryMemory();
   inspectionLists=[]; promotions=[]; favorites=[]; cart=[]; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); inventoryLotRows=[]; inventoryLotMap=new Map();
   resetLoadedInventoryScopes();
+  resetRepresentativeManagedProductIndex();
   notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false; noteSearchQuery=''; notePageCursor=null;
   cashShifts=[]; currentCashShift=null; cashShiftCloseDraft={countedCash:'',reason:''};
   documentPrefixes={...DEFAULT_DOCUMENT_PREFIXES};
@@ -3718,6 +3725,7 @@ async function logoutSystem(){
   await sb.auth.signOut();
   currentProfile=null;
   clearLoadedHistoryMemory();
+  resetRepresentativeManagedProductIndex();
   notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false; noteSearchQuery=''; notePageCursor=null;
   activeWarehouseId=0; allWarehousesMode=false; warehouseAccessRows=[]; pagePermissionRows=[]; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); inventoryLotRows=[]; inventoryLotMap=new Map(); resetLoadedInventoryScopes(); cashShifts=[]; currentCashShift=null;
   systemUsers=[]; systemUsersLoaded=false;
@@ -4668,6 +4676,66 @@ function managedProductIdsForRepresentative(representativeId){
     .map(row=>Number(row.productId))
     .filter(Boolean);
 }
+const REPRESENTATIVE_MANAGED_PRODUCT_INDEX_TTL_MS=60*1000;
+function rebuildRepresentativeManagedProductIds(){
+  representativeManagedProductIds=new Set(representativeManagedProductIndexRows.map(row=>Number(row.productId)).filter(Boolean));
+}
+function resetRepresentativeManagedProductIndex(){
+  representativeManagedProductIndexToken+=1;
+  representativeManagedProductIndexRows=[];
+  representativeManagedProductIds=new Set();
+  representativeManagedProductIndexLoaded=false;
+  representativeManagedProductIndexLoadedAt=0;
+  representativeManagedProductIndexPromise=null;
+}
+function updateRepresentativeManagedProductIndex(representativeId,productIds){
+  if(!representativeManagedProductIndexLoaded) return;
+  const repId=Number(representativeId);
+  representativeManagedProductIndexRows=[
+    ...representativeManagedProductIndexRows.filter(row=>Number(row.representativeId)!==repId),
+    ...(productIds||[]).map(Number).filter(Boolean).map(productId=>({representativeId:repId,productId}))
+  ];
+  rebuildRepresentativeManagedProductIds();
+  representativeManagedProductIndexLoadedAt=Date.now();
+}
+function removeRepresentativesFromManagedProductIndex(representativeIds){
+  if(!representativeManagedProductIndexLoaded) return;
+  const ids=new Set((representativeIds||[]).map(Number).filter(Boolean));
+  representativeManagedProductIndexRows=representativeManagedProductIndexRows.filter(row=>!ids.has(Number(row.representativeId)));
+  rebuildRepresentativeManagedProductIds();
+  representativeManagedProductIndexLoadedAt=Date.now();
+}
+function productHasManagedRepresentative(productId){
+  return representativeManagedProductIndexLoaded&&representativeManagedProductIds.has(Number(productId));
+}
+async function loadRepresentativeManagedProductIndex({force=false}={}){
+  if(!currentProfile||isLevel2User()) return false;
+  const fresh=representativeManagedProductIndexLoaded&&(Date.now()-representativeManagedProductIndexLoadedAt)<REPRESENTATIVE_MANAGED_PRODUCT_INDEX_TTL_MS;
+  if(!force&&fresh) return true;
+  if(representativeManagedProductIndexPromise) return representativeManagedProductIndexPromise;
+  const profileId=String(currentProfile.id||'');
+  const requestToken=++representativeManagedProductIndexToken;
+  const request=(async()=>{
+    try{
+      const {data,error}=await fetchAllRows(()=>sb.from('sales_representative_products').select('representative_id,product_id').order('product_id'));
+      if(error) throw error;
+      if(requestToken!==representativeManagedProductIndexToken||String(currentProfile?.id||'')!==profileId) return false;
+      representativeManagedProductIndexRows=(data||[]).map(row=>({representativeId:Number(row.representative_id),productId:Number(row.product_id)})).filter(row=>row.representativeId&&row.productId);
+      rebuildRepresentativeManagedProductIds();
+      representativeManagedProductIndexLoaded=true;
+      representativeManagedProductIndexLoadedAt=Date.now();
+      if(currentTab==='products'&&editingProductId===null) render();
+      return true;
+    }catch(error){
+      console.warn('load representative managed product index',error);
+      return false;
+    }finally{
+      if(representativeManagedProductIndexPromise===request) representativeManagedProductIndexPromise=null;
+    }
+  })();
+  representativeManagedProductIndexPromise=request;
+  return request;
+}
 function newRepresentativeNoteDraft(){
   const context=representativeHistoryContext||{};
   const representativeId=context.representativeId||'';
@@ -5031,6 +5099,7 @@ async function deleteSelectedSalesRepresentatives(){
     if(deletedIds.size!==ids.length) throw new Error('ผู้แทนบางรายการถูกแก้ไขหรือลบจากอีกเครื่องแล้ว กรุณาโหลดข้อมูลล่าสุด');
     salesRepresentatives=salesRepresentatives.filter(representative=>!deletedIds.has(Number(representative.id)));
     representativeProductAssignments=representativeProductAssignments.filter(row=>!deletedIds.has(Number(row.representativeId)));
+    removeRepresentativesFromManagedProductIndex([...deletedIds]);
     representativeActivityNotes=representativeActivityNotes.map(note=>deletedIds.has(Number(note.representativeId))?{...note,representativeId:null}:note);
     deletedIds.forEach(id=>selectedSalesRepresentativeIdsToDelete.delete(id));
     seedTableSnapshot('sales_representatives',salesRepresentatives,salesRepToRow);
@@ -5080,6 +5149,7 @@ async function saveRepresentativeManagedProducts(){
       ...representativeProductAssignments.filter(row=>Number(row.representativeId)!==Number(editor.representativeId)),
       ...productIds.map(productId=>({representativeId:Number(editor.representativeId),productId,createdAt:'',updatedAt:''}))
     ];
+    updateRepresentativeManagedProductIndex(editor.representativeId,productIds);
     representativeProductsEditor=null;
     representativeActivityLoadedKey='';
     showToast('บันทึกสินค้าที่ดูแลแล้ว');
@@ -7017,6 +7087,8 @@ function renderProducts(){
   const canViewCost=!level2;
   const canOpenProductEditor=!level2;
   const productColumnCount=7+(canViewCost?1:0)+(canOpenProductEditor?1:0);
+  const representativeIndexStale=!representativeManagedProductIndexLoaded||(Date.now()-representativeManagedProductIndexLoadedAt)>=REPRESENTATIVE_MANAGED_PRODUCT_INDEX_TTL_MS;
+  if(canOpenProductEditor&&representativeIndexStale&&!representativeManagedProductIndexPromise) setTimeout(()=>{ void loadRepresentativeManagedProductIndex(); },0);
 
   // ตารางขวา: กรองตามกลุ่มที่เลือก + คำค้น
   let filtered = (selectedGroup||q) ? products.filter(p=>{
@@ -7107,7 +7179,8 @@ function renderProducts(){
             ? `<select class="prod-unit-select" data-pid="${p.id}">${unitOpts.map(u=>`<option value="${escapeHtml(u.sub)}" ${u.sub===selOpt.sub?'selected':''}>${escapeHtml(u.sub)}</option>`).join('')}</select>`
             : `<span class="prod-unit-fixed">${escapeHtml(p.unit)}</span>`;
           const lotCount=inventoryLotCount(p.id,activeWarehouseId);
-          return `<tr class="${isProductActive(p)?'':'product-inactive-row'} ${dataPending?'product-review-pending-row':''} ${dataReviewed?'product-reviewed-row':''}"><td class="mono" style="text-align:center;"><input class="prod-inline-edit" data-pid="${p.id}" data-field="sku" value="${escapeHtml(p.sku||'')}" placeholder="-"></td><td class="mono" style="text-align:center;"><input class="prod-inline-edit prod-inline-barcode prod-unit-barcode" data-pid="${p.id}" data-field="barcode" data-unit="${escapeHtml(selOpt.sub)}" value="${escapeHtml(selOpt.barcode||'')}" placeholder="-" autocomplete="off" aria-label="บาร์โค้ดหน่วย ${escapeHtml(selOpt.sub)}"></td><td><input class="prod-inline-edit prod-inline-name" data-pid="${p.id}" data-field="name" value="${escapeHtml(p.name)}">${isProductActive(p)?'':'<span class="product-status-badge">ปิดใช้งาน</span>'}</td><td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="price" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.price}"></td>${canViewCost?`<td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="cost" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.cost}"></td>`:''}<td style="text-align:center;">${unitSelectHtml}</td><td class="num stock-cell ${p.stock<0?'stock-negative':''}" style="text-align:center;" data-act="stockcheck" data-id="${p.id}" title="กดเพื่อดูทุกหน่วย">${escapeHtml(stockInLargestUnit(p))} <span class="stock-caret">▾</span></td><td style="text-align:center;"><button class="product-lot-link ${lotCount?'':'empty'}" data-product-lots="${p.id}">${lotCount} Lot ▾</button></td>${canOpenProductEditor?`<td class="num"><div class="product-row-actions"><button class="icon-btn representative-history-action" data-product-representative-history="${p.id}" title="ผู้แทนที่ดูแลสินค้าและ NOTE" aria-label="เปิดผู้แทนที่ดูแล ${escapeHtml(p.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 7v5l3 2"/></svg></button><button class="icon-btn" data-act="editproduct" data-id="${p.id}" title="แก้ไข" aria-label="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="icon-btn product-review-cycle-toggle" data-cycle-product-review-status="${p.id}" data-review-status="${reviewStatusValue}" title="สถานะ: ${reviewStatusLabel} · คลิกเพื่อเปลี่ยนเป็น ${reviewNextLabel}" aria-label="สถานะตรวจข้อมูล ${reviewStatusLabel}; คลิกเพื่อเปลี่ยนเป็น ${reviewNextLabel}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${reviewStatusIcon}</svg></button></div></td>`:''}</tr>`;
+          const representativeHistoryButton=productHasManagedRepresentative(p.id)?`<button class="icon-btn representative-history-action" data-product-representative-history="${p.id}" title="ผู้แทนที่ดูแลสินค้าและ NOTE" aria-label="เปิดผู้แทนที่ดูแล ${escapeHtml(p.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 7v5l3 2"/></svg></button>`:'';
+          return `<tr class="${isProductActive(p)?'':'product-inactive-row'} ${dataPending?'product-review-pending-row':''} ${dataReviewed?'product-reviewed-row':''}"><td class="mono" style="text-align:center;"><input class="prod-inline-edit" data-pid="${p.id}" data-field="sku" value="${escapeHtml(p.sku||'')}" placeholder="-"></td><td class="mono" style="text-align:center;"><input class="prod-inline-edit prod-inline-barcode prod-unit-barcode" data-pid="${p.id}" data-field="barcode" data-unit="${escapeHtml(selOpt.sub)}" value="${escapeHtml(selOpt.barcode||'')}" placeholder="-" autocomplete="off" aria-label="บาร์โค้ดหน่วย ${escapeHtml(selOpt.sub)}"></td><td><input class="prod-inline-edit prod-inline-name" data-pid="${p.id}" data-field="name" value="${escapeHtml(p.name)}">${isProductActive(p)?'':'<span class="product-status-badge">ปิดใช้งาน</span>'}</td><td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="price" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.price}"></td>${canViewCost?`<td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="cost" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.cost}"></td>`:''}<td style="text-align:center;">${unitSelectHtml}</td><td class="num stock-cell ${p.stock<0?'stock-negative':''}" style="text-align:center;" data-act="stockcheck" data-id="${p.id}" title="กดเพื่อดูทุกหน่วย">${escapeHtml(stockInLargestUnit(p))} <span class="stock-caret">▾</span></td><td style="text-align:center;"><button class="product-lot-link ${lotCount?'':'empty'}" data-product-lots="${p.id}">${lotCount} Lot ▾</button></td>${canOpenProductEditor?`<td class="num"><div class="product-row-actions">${representativeHistoryButton}<button class="icon-btn" data-act="editproduct" data-id="${p.id}" title="แก้ไข" aria-label="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="icon-btn product-review-cycle-toggle" data-cycle-product-review-status="${p.id}" data-review-status="${reviewStatusValue}" title="สถานะ: ${reviewStatusLabel} · คลิกเพื่อเปลี่ยนเป็น ${reviewNextLabel}" aria-label="สถานะตรวจข้อมูล ${reviewStatusLabel}; คลิกเพื่อเปลี่ยนเป็น ${reviewNextLabel}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${reviewStatusIcon}</svg></button></div></td>`:''}</tr>`;
         }).join('')||`<tr><td colspan="${productColumnCount}" style="text-align:center;color:var(--text-muted);padding:30px;">${q?'ไม่พบสินค้าที่ค้นหา':selectedGroup?'ไม่มีสินค้าในกลุ่มนี้':'กรุณาเลือกกลุ่มสินค้าจากด้านซ้าย หรือค้นหาสินค้าได้ทันที'}</td></tr>`}</tbody></table>
         </div>
         ${pager}
@@ -15473,6 +15546,7 @@ function deleteSalesRepresentative(id){
   const rep=salesRepresentatives.find(x=>x.id===id); if(!rep) return;
   if(!confirm(`ยืนยันลบรายชื่อผู้แทน "${rep.name}" ?`)) return;
   salesRepresentatives=salesRepresentatives.filter(x=>x.id!==id);
+  removeRepresentativesFromManagedProductIndex([id]);
   persistWorkspaceData();
   showToast(`ลบรายชื่อผู้แทน "${rep.name}" แล้ว`);
   render();
@@ -18448,7 +18522,7 @@ document.getElementById('warehouseChoiceForm')?.addEventListener('submit',event=
 document.getElementById('warehouseChoiceLogout')?.addEventListener('click',logoutSystem);
 
 sb.auth.onAuthStateChange((event)=>{
-  if(event==='SIGNED_OUT'){ clearActiveWarehouseSelection(); currentProfile=null; clearLoadedHistoryMemory(); notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; noteSearchQuery=''; notePageCursor=null; editingNoteId=null; noteDraft=null; noteDraftDirty=false; activeWarehouseId=0; allWarehousesMode=false; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); inventoryLotRows=[]; inventoryLotMap=new Map(); resetLoadedInventoryScopes(); renderLoginState(); }
+  if(event==='SIGNED_OUT'){ clearActiveWarehouseSelection(); currentProfile=null; clearLoadedHistoryMemory(); resetRepresentativeManagedProductIndex(); notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; noteSearchQuery=''; notePageCursor=null; editingNoteId=null; noteDraft=null; noteDraftDirty=false; activeWarehouseId=0; allWarehousesMode=false; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); inventoryLotRows=[]; inventoryLotMap=new Map(); resetLoadedInventoryScopes(); renderLoginState(); }
 });
 
 let mobileViewportResizeTimer=null;

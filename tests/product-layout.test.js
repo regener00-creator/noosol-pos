@@ -40,7 +40,10 @@ assert.match(html, /field==='barcode'[^]*barcodePrintBarcodeOwners\(\)\.find[^]*
 assert.match(html, /\.prodtable \.col-barcode\{width:170px;\}/, 'คอลัมน์บาร์โค้ดต้องมีความกว้างอ่านเลขได้ชัดเจน');
 assert.match(source, /data-cycle-product-review-status="\$\{p\.id\}"[^]*data-review-status="\$\{reviewStatusValue\}"/, 'ท้ายแถวสินค้าต้องมีปุ่มเดียวสำหรับวนสถานะปกติ เหลือง และเขียว');
 assert.doesNotMatch(source, /data-set-product-review-status=/, 'ต้องไม่เหลือปุ่มสีเหลืองและสีเขียวแยกกัน');
+assert.match(source, /const representativeHistoryButton=productHasManagedRepresentative\(p\.id\)\?/, 'ปุ่มผู้แทนต้องสร้างเฉพาะสินค้าที่ผูกอยู่ในสินค้าที่ดูแล');
 assert.match(source, /title="ผู้แทนที่ดูแลสินค้าและ NOTE"/, 'ปุ่มผู้แทนในรายการสินค้าต้องสื่อว่าดึงจากสินค้าที่ดูแลของผู้แทน');
+assert.match(html, /function loadRepresentativeManagedProductIndex[\s\S]*from\('sales_representative_products'\)\.select\('representative_id,product_id'\)/, 'หน้ารายการสินค้าต้องโหลดดัชนีสินค้าที่ผู้แทนดูแลจากฐานข้อมูลจริง');
+assert.match(source, /representativeIndexStale[\s\S]*loadRepresentativeManagedProductIndex\(\)/, 'หน้ารายการสินค้าต้องโหลดดัชนีเมื่อยังไม่มีข้อมูลหรือข้อมูลเก่า');
 assert.match(html, /document\.querySelectorAll\('\[data-cycle-product-review-status\]'\)[^]*currentStatus==='pending'\?'complete':currentStatus==='complete'\?'':'pending'[^]*product\.dataReviewStatus=requestedStatus;[^]*persistWorkspaceData\(\{productChanges:\{updatedIds:\[pid\]\}\}\)/, 'ปุ่มสถานะเดียวต้องวนปกติไปเหลือง ไปเขียว แล้วกลับปกติ พร้อมบันทึกและซิงก์');
 assert.match(html, /\.product-review-pending-row>td\{background:#FFF8E1;color:#956500;\}/, 'แถวที่กำลังแก้ไขหรือรอข้อมูลต้องแสดงพื้นและตัวอักษรสีเหลือง');
 assert.match(html, /\.product-reviewed-row>td\{background:#EFF9F1;color:#237A3A;\}/, 'แถวที่ตรวจข้อมูลครบแล้วต้องแสดงพื้นและตัวอักษรสีเขียว');
