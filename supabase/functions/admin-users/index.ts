@@ -284,6 +284,22 @@ Deno.serve(async (req) => {
       .single()
     if (!callerProfile?.owner || Number(callerProfile.level) !== 1) return json({ error: 'forbidden: owner only' }, 403)
 
+    if (action === 'recovery-status') {
+      const { data, error } = await admin
+        .from('password_recovery_challenges')
+        .select('question')
+        .eq('user_id', caller.id)
+        .maybeSingle()
+      if (error) return json({ error: error.message }, 400)
+      return json({ ok: true, configured: !!data?.question, question: String(data?.question || '') })
+    }
+
+    if (action === 'save-own-recovery') {
+      const recoveryError = await saveRecoveryChallenge(admin, caller.id, body.question, body.answer)
+      if (recoveryError) return json({ error: recoveryError }, 400)
+      return json({ ok: true })
+    }
+
     if (action === 'reset-store') {
       const mode = String(body.mode || '').trim().toLowerCase()
       const password = String(body.password || '')

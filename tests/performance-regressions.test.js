@@ -24,14 +24,11 @@ assert.doesNotMatch(
 );
 
 const persistSection = section('function persistWorkspaceData(options={}){', 'function schedulePersistWorkspaceData(){');
-assert.match(
-  persistSection,
-  /const workspaceChanged=serialized!==lastPersistedWorkspaceJson/,
-  'workspace persistence must detect unchanged lightweight data'
-);
+assert.match(persistSection,/workspaceCachePendingSnapshot=localWorkspaceSnapshot\(\)/,'workspace persistence must queue a structured IndexedDB snapshot');
+assert.doesNotMatch(persistSection,/JSON\.stringify\(localWorkspaceSnapshot\(\)\)/,'workspace persistence must not synchronously stringify the complete snapshot');
 assert.match(persistSection,/if\(productChanges\) productCachePromise=persistProductChangesToIndexedDB\(productChanges\)/,'product mutations must persist only changed rows immediately');
 assert.match(persistSection,/productCachePromise\.then\(saved=>\{ if\(saved\) scheduleSupabaseCoreSync\(\); \}\)/,'product network sync must wait for its incremental cache write');
-assert.match(persistSection,/else if\(workspaceChanged\) scheduleSupabaseCoreSync\(\)/,'unchanged renders must not schedule network work');
+assert.match(persistSection,/else scheduleSupabaseCoreSync\(\)/,'workspace changes must schedule debounced network work');
 assert.doesNotMatch(persistSection,/persistProductsToIndexedDB\(products,true\)/,'single-product edits must not fingerprint the full catalog');
 
 assert.doesNotMatch(

@@ -7,6 +7,25 @@ const sb = window.supabase?.createClient ? window.supabase.createClient(SUPABASE
 const EDGE_FUNCTIONS_URL = SUPABASE_URL + '/functions/v1';
 const XLSX_SCRIPT_URL='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
 let xlsxLoadPromise=null;
+const APP_ASSET_VERSION=new URL(document.currentScript?.src||location.href).searchParams.get('v')||'';
+let excelToolsLoadPromise=null;
+function ensureExcelToolsLoaded(){
+  if(window.downloadProductImportTemplate) return Promise.resolve(true);
+  if(excelToolsLoadPromise) return excelToolsLoadPromise;
+  excelToolsLoadPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src=`/excel-tools.js${APP_ASSET_VERSION?`?v=${encodeURIComponent(APP_ASSET_VERSION)}`:''}`;
+    script.async=true;
+    script.onload=()=>window.downloadProductImportTemplate?resolve(true):reject(new Error('โหลดเครื่องมือ Excel ไม่สมบูรณ์'));
+    script.onerror=()=>reject(new Error('โหลดเครื่องมือ Excel ไม่สำเร็จ'));
+    document.head.appendChild(script);
+  }).catch(error=>{ excelToolsLoadPromise=null; throw error; });
+  return excelToolsLoadPromise;
+}
+async function invokeExcelTool(name,...args){
+  try{ await ensureExcelToolsLoaded(); return await window[name](...args); }
+  catch(error){ showToast(error?.message||'เปิดเครื่องมือ Excel ไม่สำเร็จ','danger-top'); return null; }
+}
 function ensureXlsxLoaded(){
   if(window.XLSX) return Promise.resolve(window.XLSX);
   if(xlsxLoadPromise) return xlsxLoadPromise;
@@ -38,6 +57,8 @@ async function callEdgeFunction(name, payload){
 }
 const DEVICE_ID_STORAGE_KEY='pepos_device_id_v1';
 const PENDING_STOCK_OPERATIONS_KEY='pepos_pending_stock_operations_v1';
+const PENDING_CLIENT_EVENTS_KEY='pepos_pending_client_events_v1';
+const MAX_PENDING_CLIENT_EVENTS=100;
 let syncUiState=navigator.onLine?'synced':'offline';
 let syncUiErrorCount=0;
 let syncUiLastError=null;
@@ -110,18 +131,19 @@ function syncDetailRowsHtml(rows=[]){
   return rows.map(row=>{
     const cause=syncEventCause(row),message=String(row.message||'');
     const repeated=Math.max(1,Number(row.occurrence_count)||1);
-    const meta=[row.status==='resolved'?'แก้ไขแล้ว':'ยังเปิดอยู่',repeated>1?`เกิดซ้ำ ${repeated.toLocaleString('th-TH')} ครั้ง`:'',row.error_code?`รหัส ${row.error_code}`:'',row.record_id?`รายการ ${row.record_id}`:''].filter(Boolean).join(' · ');
-    const conflictProductId=row.local?syncConflictProductId(row):0;
+    const device=row.device_id?`เครื่อง ${String(row.device_id).slice(0,8)}`:'';
+    const meta=[row.status==='resolved'?'แก้ไขแล้ว':'ยังเปิดอยู่',device,repeated>1?`เกิดซ้ำ ${repeated.toLocaleString('th-TH')} ครั้ง`:'',row.error_code?`รหัส ${row.error_code}`:'',row.record_id?`รายการ ${row.record_id}`:''].filter(Boolean).join(' · ');
+    const conflictProductId=(row.local||currentProfile?.owner)?syncConflictProductId(row):0;
     return `<article class="sync-detail-item">
       <div class="sync-detail-item-head"><strong>${escapeHtml(syncEventTitle(row))}</strong><time>${escapeHtml(syncEventTime(row.occurred_at))}</time></div>
       <div class="sync-detail-cause">${escapeHtml(cause)}</div>
       ${message&&message!==cause?`<div class="sync-detail-technical">รายละเอียด: ${escapeHtml(message)}</div>`:''}
       ${meta?`<div class="sync-detail-meta">${escapeHtml(meta)}</div>`:''}
-      ${conflictProductId?`<button class="btn primary sync-conflict-load-latest" type="button" data-product-id="${conflictProductId}">โหลดข้อมูลล่าสุด</button>`:''}
+      <div class="sync-detail-row-actions">${conflictProductId?`<button class="btn primary sync-conflict-load-latest" type="button" data-product-id="${conflictProductId}" data-event-id="${escapeHtml(row.id||'')}">โหลดข้อมูลล่าสุด</button>`:''}${currentProfile?.owner&&row.status!=='resolved'&&!row.local?`<button class="btn ghost sync-event-resolve" type="button" data-event-id="${escapeHtml(row.id||'')}">ปิดรายการ</button>`:''}</div>
     </article>`;
   }).join('');
 }
-async function loadLatestConflictedProduct(productId){
+async function loadLatestConflictedProduct(productId,eventId=''){
   const id=Number(productId)||0;
   const current=(products||[]).find(product=>Number(product.id)===id);
   if(!id||!current) throw new Error('ไม่พบสินค้าที่ต้องการโหลดในเครื่องนี้');
@@ -145,13 +167,20 @@ async function loadLatestConflictedProduct(productId){
   if(Number(syncConflictProductId(syncUiLastError))===id) syncUiLastError=null;
   setSyncUiState('syncing');
   await syncCoreDataToSupabase();
+  if(eventId) await resolveSyncEventAsOwner(eventId);
   render();
   return true;
+}
+async function resolveSyncEventAsOwner(eventId){
+  if(!eventId||!currentProfile?.owner) return false;
+  const {data,error}=await sb.rpc('owner_resolve_sync_event',{p_event_id:eventId});
+  if(error) throw error;
+  return data===true;
 }
 async function loadSyncEventDetails(){
   if(!sb||!currentProfile) return [];
   const {data,error}=await sb.from('sync_events')
-    .select('id,severity,category,operation,table_name,record_id,error_code,message,status,first_occurred_at,occurred_at,resolved_at,occurrence_count')
+    .select('id,device_id,severity,category,operation,table_name,record_id,error_code,message,status,first_occurred_at,occurred_at,resolved_at,occurrence_count')
     .order('occurred_at',{ascending:false})
     .limit(30);
   if(error) throw error;
@@ -176,11 +205,18 @@ function openSyncDetailsModal(){
   overlay.querySelector('.sync-detail-close').onclick=close;
   overlay.onclick=async event=>{
     if(event.target===overlay){ close(); return; }
+    const resolveButton=event.target.closest?.('.sync-event-resolve');
+    if(resolveButton&&!resolveButton.disabled){
+      resolveButton.disabled=true; resolveButton.textContent='กำลังปิด…';
+      try{ await resolveSyncEventAsOwner(resolveButton.dataset.eventId); await refresh(); }
+      catch(error){ resolveButton.disabled=false; resolveButton.textContent='ปิดรายการ'; showToast(error?.message||'ปิดรายการไม่สำเร็จ','danger-top'); }
+      return;
+    }
     const button=event.target.closest?.('.sync-conflict-load-latest');
     if(!button||button.disabled) return;
     button.disabled=true; button.textContent='กำลังโหลด…';
     try{
-      const loaded=await loadLatestConflictedProduct(button.dataset.productId);
+      const loaded=await loadLatestConflictedProduct(button.dataset.productId,button.dataset.eventId);
       if(!overlay.isConnected) return;
       if(!loaded){ button.disabled=false; button.textContent='โหลดข้อมูลล่าสุด'; return; }
       overlay.querySelector('.sync-detail-local').innerHTML='<div class="sync-detail-resolved">โหลดข้อมูลล่าสุดแล้ว</div>';
@@ -217,9 +253,38 @@ function openSyncDetailsModal(){
   };
   refresh();
 }
+function readPendingClientEvents(){
+  try{ const rows=JSON.parse(localStorage.getItem(PENDING_CLIENT_EVENTS_KEY)||'[]'); return Array.isArray(rows)?rows.slice(-MAX_PENDING_CLIENT_EVENTS):[]; }
+  catch(_error){ return []; }
+}
+function writePendingClientEvents(rows){
+  try{ localStorage.setItem(PENDING_CLIENT_EVENTS_KEY,JSON.stringify((rows||[]).slice(-MAX_PENDING_CLIENT_EVENTS))); return true; }
+  catch(_error){ return false; }
+}
+let pendingClientEventFlushPromise=null;
+async function flushPendingClientEvents(){
+  if(pendingClientEventFlushPromise) return pendingClientEventFlushPromise;
+  if(!currentProfile||!sb||!navigator.onLine) return false;
+  pendingClientEventFlushPromise=(async()=>{
+    let rows=readPendingClientEvents();
+    while(rows.length){
+      const event=rows[0];
+      try{
+        const {error}=await sb.rpc('report_client_event',{p_device_id:currentDeviceId(),p_severity:event.severity,p_category:event.category,p_operation:event.operation,p_table_name:event.tableName||null,p_record_id:event.recordId||null,p_error_code:event.errorCode||null,p_message:event.message,p_context:event.context||{}});
+        if(error) throw error;
+        rows.shift(); writePendingClientEvents(rows);
+      }catch(_error){ return false; }
+    }
+    return true;
+  })().finally(()=>{ pendingClientEventFlushPromise=null; });
+  return pendingClientEventFlushPromise;
+}
 async function reportClientEvent({severity='error',category='sync',operation,tableName='',recordId='',errorCode='',message,context={}}){
-  if(!currentProfile||!operation||!message) return;
-  try{ await sb.rpc('report_client_event',{p_device_id:currentDeviceId(),p_severity:severity,p_category:category,p_operation:String(operation),p_table_name:tableName||null,p_record_id:recordId||null,p_error_code:errorCode||null,p_message:String(message).slice(0,1000),p_context:cloudClean(context||{})}); }catch(_error){}
+  if(!operation||!message) return false;
+  const rows=readPendingClientEvents();
+  rows.push({id:globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`,severity,category,operation:String(operation),tableName:String(tableName||''),recordId:String(recordId||''),errorCode:String(errorCode||''),message:String(message).slice(0,1000),context:cloudClean(context||{}),createdAt:new Date().toISOString()});
+  writePendingClientEvents(rows);
+  return flushPendingClientEvents();
 }
 async function resolveOwnSyncEventsThrough(through){
   if(!currentProfile) return;
@@ -663,13 +728,14 @@ function forgetLoadedRange(loadedRanges,range){
 // v4 forces one safe full reload after fixing the product loader's accidental
 // second rowToProduct() pass, which discarded JSON-only metadata such as every
 // barcode collection, extra units and expiry dates from the device cache.
-const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v4';
-const PRODUCT_MANIFEST_VERSION=4;
+const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v5';
+const PRODUCT_MANIFEST_VERSION=5;
 const PRODUCT_CACHE_DB_NAME='pepos-product-cache';
-const PRODUCT_CACHE_DB_VERSION=1;
+const PRODUCT_CACHE_DB_VERSION=2;
 const PRODUCT_CACHE_PRODUCTS_STORE='products';
 const PRODUCT_CACHE_META_STORE='meta';
-const PRODUCT_CACHE_MANIFEST_KEY='product-manifest-v4';
+const PRODUCT_CACHE_WORKSPACE_STORE='workspace';
+const PRODUCT_CACHE_MANIFEST_KEY='product-manifest-v5';
 const PRODUCT_CACHE_DIRTY_KEY='product-dirty-operations-v1';
 let productCacheDbPromise=null;
 let indexedProductCacheReady=false;
@@ -678,14 +744,9 @@ let productCacheFingerprints=new Map();
 let productCacheWriteChain=Promise.resolve();
 let productDirtyOperations=new Map();
 let legacyWorkspaceProducts=null;
-function productManifestVersions(rows){
-  const versions={};
-  (rows||[]).forEach(row=>{ versions[String(row.id)]=String(row.updated_at||''); });
-  return versions;
-}
 function readProductManifestCache(){
   const cached=cachedProductManifest;
-  if(!cached||cached.version!==PRODUCT_MANIFEST_VERSION||!cached.versions||typeof cached.versions!=='object') return null;
+  if(!cached||cached.version!==PRODUCT_MANIFEST_VERSION||!Number.isSafeInteger(Number(cached.changeCursor))||Number(cached.changeCursor)<0) return null;
   return cached;
 }
 function normalizeProductDirtyOperations(value){
@@ -736,28 +797,25 @@ function openProductCacheDb(){
       const db=request.result;
       if(!db.objectStoreNames.contains(PRODUCT_CACHE_PRODUCTS_STORE)) db.createObjectStore(PRODUCT_CACHE_PRODUCTS_STORE,{keyPath:'id'});
       if(!db.objectStoreNames.contains(PRODUCT_CACHE_META_STORE)) db.createObjectStore(PRODUCT_CACHE_META_STORE,{keyPath:'key'});
+      if(!db.objectStoreNames.contains(PRODUCT_CACHE_WORKSPACE_STORE)) db.createObjectStore(PRODUCT_CACHE_WORKSPACE_STORE,{keyPath:'key'});
     };
     request.onsuccess=()=>resolve(request.result);
     request.onerror=()=>{ productCacheDbPromise=null; reject(request.error||new Error('เปิดแคชสินค้าไม่สำเร็จ')); };
   });
   return productCacheDbPromise;
 }
-function validLegacyProductManifest(){
-  try{
-    const cached=JSON.parse(localStorage.getItem(PRODUCT_MANIFEST_STORAGE_KEY)||'null');
-    return cached&&cached.version===PRODUCT_MANIFEST_VERSION&&cached.versions&&typeof cached.versions==='object'?cached:null;
-  }catch(error){ return null; }
-}
 async function loadProductCacheFromIndexedDB(){
   try{
     const db=await openProductCacheDb();
-    const transaction=db.transaction([PRODUCT_CACHE_PRODUCTS_STORE,PRODUCT_CACHE_META_STORE],'readonly');
+    const transaction=db.transaction([PRODUCT_CACHE_PRODUCTS_STORE,PRODUCT_CACHE_META_STORE,PRODUCT_CACHE_WORKSPACE_STORE],'readonly');
     const transactionDone=idbTransactionDone(transaction);
     const productRowsPromise=idbRequest(transaction.objectStore(PRODUCT_CACHE_PRODUCTS_STORE).getAll());
     const manifestPromise=idbRequest(transaction.objectStore(PRODUCT_CACHE_META_STORE).get(PRODUCT_CACHE_MANIFEST_KEY));
     const dirtyOperationsPromise=idbRequest(transaction.objectStore(PRODUCT_CACHE_META_STORE).get(PRODUCT_CACHE_DIRTY_KEY));
-    const [productRows,manifestRow,dirtyOperationsRow]=await Promise.all([productRowsPromise,manifestPromise,dirtyOperationsPromise]);
+    const workspacePromise=idbRequest(transaction.objectStore(PRODUCT_CACHE_WORKSPACE_STORE).get('current'));
+    const [productRows,manifestRow,dirtyOperationsRow,workspaceRow]=await Promise.all([productRowsPromise,manifestPromise,dirtyOperationsPromise,workspacePromise]);
     await transactionDone;
+    if(workspaceRow?.value) applyWorkspaceData(workspaceRow.value);
     productDirtyOperations=normalizeProductDirtyOperations(dirtyOperationsRow?.value);
     if(Array.isArray(productRows)&&productRows.length){
       products=productRows;
@@ -765,7 +823,7 @@ async function loadProductCacheFromIndexedDB(){
     }else if(Array.isArray(legacyWorkspaceProducts)&&legacyWorkspaceProducts.length){
       products=legacyWorkspaceProducts;
     }
-    cachedProductManifest=manifestRow?.value||validLegacyProductManifest();
+    cachedProductManifest=manifestRow?.value||null;
     indexedProductCacheReady=Array.isArray(productRows)&&productRows.length>0;
     if(!indexedProductCacheReady&&Array.isArray(legacyWorkspaceProducts)&&legacyWorkspaceProducts.length){
       await persistProductsToIndexedDB(legacyWorkspaceProducts,true);
@@ -780,11 +838,11 @@ async function loadProductCacheFromIndexedDB(){
     return false;
   }
 }
-async function saveProductManifestCache(rows){
+async function saveProductManifestCache(changeCursor){
   const manifest={
     version:PRODUCT_MANIFEST_VERSION,
     savedAt:new Date().toISOString(),
-    versions:productManifestVersions(rows),
+    changeCursor:Math.max(0,Number(changeCursor)||0),
   };
   try{
     const db=await openProductCacheDb();
@@ -794,6 +852,7 @@ async function saveProductManifestCache(rows){
     await transactionDone;
     cachedProductManifest=manifest;
     localStorage.removeItem(PRODUCT_MANIFEST_STORAGE_KEY);
+    localStorage.removeItem('pepos_product_manifest_v4');
     return true;
   }catch(error){ console.warn('ไม่สามารถบันทึกสารบัญแคชสินค้าใน IndexedDB ได้',error); return false; }
 }
@@ -866,32 +925,6 @@ async function clearProductIndexedCache(){
   try{ await idbRequest(indexedDB.deleteDatabase(PRODUCT_CACHE_DB_NAME)); }
   catch(error){ console.warn('ล้างแคชสินค้าใน IndexedDB ไม่สำเร็จ',error); }
 }
-function planProductManifestSync(localProducts,cachedManifest,manifestRows,hasWorkspaceCache,dirtyOperations=new Map()){
-  const cacheUsable=!!hasWorkspaceCache&&!!cachedManifest&&cachedManifest.version===PRODUCT_MANIFEST_VERSION&&cachedManifest.versions&&typeof cachedManifest.versions==='object';
-  if(!cacheUsable) return {fullReload:true,changedIds:[],deletedIds:[]};
-  const dirty=normalizeProductDirtyOperations(dirtyOperations);
-  const remoteVersions=productManifestVersions(manifestRows);
-  const localIds=new Set((localProducts||[]).map(product=>String(product.id)));
-  const changedIds=(manifestRows||[]).filter(row=>!dirty.has(String(row.id))&&(!localIds.has(String(row.id))||cachedManifest.versions[String(row.id)]!==String(row.updated_at||''))).map(row=>row.id);
-  const remoteIds=new Set(Object.keys(remoteVersions));
-  const deletedIds=(localProducts||[]).map(product=>product.id).filter(id=>!dirty.has(String(id))&&!remoteIds.has(String(id)));
-  return {fullReload:false,changedIds,deletedIds};
-}
-async function fetchProductManifestRows(){
-  const pageSize=1000;
-  let lastId=null,allRows=[];
-  while(true){
-    let query=sb.from('products').select('id,updated_at,revision').order('id',{ascending:true}).limit(pageSize);
-    if(lastId!==null) query=query.gt('id',lastId);
-    const {data,error}=await query;
-    if(error) return {data:null,error};
-    const rows=data||[];
-    allRows=allRows.concat(rows);
-    if(rows.length<pageSize) break;
-    lastId=rows[rows.length-1].id;
-  }
-  return {data:allRows,error:null};
-}
 async function fetchAllProductRows(){
   const pageSize=1000;
   let lastId=null,allRows=[];
@@ -907,6 +940,25 @@ async function fetchAllProductRows(){
   }
   return {data:allRows,error:null};
 }
+function productChangeFeedUnavailable(error){
+  return ['42P01','PGRST205','PGRST204'].includes(String(error?.code||''))||/product_change_log/i.test(String(error?.message||''));
+}
+async function fetchProductChangeEdge(ascending){
+  const {data,error}=await sb.from('product_change_log').select('change_id').order('change_id',{ascending}).limit(1);
+  return {data:Number(data?.[0]?.change_id)||0,error};
+}
+async function fetchProductChangesAfter(changeCursor){
+  const pageSize=1000;
+  let cursor=Math.max(0,Number(changeCursor)||0),allRows=[];
+  while(true){
+    const {data,error}=await sb.from('product_change_log').select('change_id,product_id,operation,revision').gt('change_id',cursor).order('change_id',{ascending:true}).limit(pageSize);
+    if(error) return {data:null,error};
+    const rows=data||[]; allRows.push(...rows);
+    if(rows.length<pageSize) break;
+    cursor=Number(rows[rows.length-1].change_id)||cursor;
+  }
+  return {data:allRows,error:null};
+}
 async function fetchProductRowsByIds(ids){
   const allRows=[];
   for(let i=0;i<ids.length;i+=200){
@@ -915,15 +967,6 @@ async function fetchProductRowsByIds(ids){
     allRows.push(...(data||[]));
   }
   return {data:allRows,error:null};
-}
-function reconcileProductDirtyOperationsWithManifest(manifestRows){
-  const remoteIds=new Set((manifestRows||[]).map(row=>String(row.id)));
-  let changed=false;
-  for(const [id,operation] of productDirtyOperations){
-    if(operation==='update'&&!remoteIds.has(id)){ productDirtyOperations.set(id,'insert'); changed=true; }
-    else if(operation==='delete'&&!remoteIds.has(id)){ productDirtyOperations.delete(id); changed=true; }
-  }
-  return changed;
 }
 function mergeRemoteProductsWithDirtyLocal(remoteProducts,localProducts=products,dirtyOperations=productDirtyOperations){
   const dirty=normalizeProductDirtyOperations(dirtyOperations);
@@ -940,28 +983,86 @@ function mergeRemoteProductsWithDirtyLocal(remoteProducts,localProducts=products
   }
   return merged.sort((a,b)=>(Number(a.id)||0)-(Number(b.id)||0));
 }
+function reconcileProductDirtyOperationsWithRemoteIds(remoteIds){
+  const available=new Set((remoteIds||[]).map(String));
+  for(const [id,operation] of [...productDirtyOperations]){
+    if(operation==='update'&&!available.has(id)) productDirtyOperations.set(id,'insert');
+    else if(operation==='delete'&&!available.has(id)) productDirtyOperations.delete(id);
+  }
+}
+function reconcileProductDirtyOperationsWithChanges(changes){
+  for(const change of changes||[]){
+    if(change.operation!=='delete') continue;
+    const id=String(change.product_id),operation=productDirtyOperations.get(id);
+    if(operation==='update') productDirtyOperations.set(id,'insert');
+    else if(operation==='delete') productDirtyOperations.delete(id);
+  }
+}
 async function loadProductRowsFromSupabase(){
-  const {data:manifestRows,error:manifestError}=await fetchProductManifestRows();
-  if(manifestError) return {data:null,error:manifestError};
-  reconcileProductDirtyOperationsWithManifest(manifestRows);
   const cachedManifest=readProductManifestCache();
-  const plan=planProductManifestSync(products,cachedManifest,manifestRows,indexedProductCacheReady,productDirtyOperations);
-  let loadedProducts;
-  if(plan.fullReload){
+  let fullReload=!indexedProductCacheReady||!cachedManifest;
+  let startCursor=Number(cachedManifest?.changeCursor)||0;
+  if(!fullReload){
+    const oldest=await fetchProductChangeEdge(true);
+    if(oldest.error){
+      if(productChangeFeedUnavailable(oldest.error)) return loadProductRowsFromSupabaseLegacy();
+      return {data:null,error:oldest.error};
+    }
+    if(oldest.data&&startCursor<oldest.data-1) fullReload=true;
+  }
+  if(fullReload){
+    const before=await fetchProductChangeEdge(false);
+    if(before.error){
+      if(productChangeFeedUnavailable(before.error)) return loadProductRowsFromSupabaseLegacy();
+      return {data:null,error:before.error};
+    }
     const {data,error}=await fetchAllProductRows();
     if(error) return {data:null,error};
-    loadedProducts=mergeRemoteProductsWithDirtyLocal((data||[]).map(rowToProduct));
-  }else{
-    const {data:changedRows,error}=await fetchProductRowsByIds(plan.changedIds);
-    if(error) return {data:null,error};
-    const changedIds=new Set(plan.changedIds.map(String));
-    const deletedIds=new Set(plan.deletedIds.map(String));
-    loadedProducts=(products||[]).filter(product=>!changedIds.has(String(product.id))&&!deletedIds.has(String(product.id)));
-    loadedProducts.push(...(changedRows||[]).map(rowToProduct));
-    loadedProducts=mergeRemoteProductsWithDirtyLocal(loadedProducts);
+    reconcileProductDirtyOperationsWithRemoteIds((data||[]).map(row=>row.id));
+    let loadedProducts=mergeRemoteProductsWithDirtyLocal((data||[]).map(rowToProduct));
+    const during=await fetchProductChangesAfter(before.data);
+    if(during.error) return {data:null,error:during.error};
+    if(during.data.length){
+      reconcileProductDirtyOperationsWithChanges(during.data);
+      const latest=new Map(); during.data.forEach(change=>latest.set(String(change.product_id),change));
+      const changed=[...latest.values()].filter(change=>change.operation!=='delete'&&!productDirtyOperations.has(String(change.product_id))).map(change=>change.product_id);
+      const deleted=new Set([...latest.values()].filter(change=>change.operation==='delete'&&!productDirtyOperations.has(String(change.product_id))).map(change=>String(change.product_id)));
+      const updated=await fetchProductRowsByIds(changed); if(updated.error) return {data:null,error:updated.error};
+      const replace=new Set(changed.map(String));
+      loadedProducts=loadedProducts.filter(product=>!replace.has(String(product.id))&&!deleted.has(String(product.id))).concat((updated.data||[]).map(rowToProduct));
+      loadedProducts=mergeRemoteProductsWithDirtyLocal(loadedProducts);
+    }
+    const productRowsPersisted=await persistProductsToIndexedDB(loadedProducts,true);
+    const cursor=during.data.length?Number(during.data[during.data.length-1].change_id):before.data;
+    if(productRowsPersisted) await saveProductManifestCache(cursor);
+    return {data:loadedProducts,error:null};
   }
-  const productRowsPersisted=await persistProductsToIndexedDB(loadedProducts,true);
-  if(productRowsPersisted) await saveProductManifestCache(manifestRows);
+  const changes=await fetchProductChangesAfter(startCursor);
+  if(changes.error){
+    if(productChangeFeedUnavailable(changes.error)) return loadProductRowsFromSupabaseLegacy();
+    return {data:null,error:changes.error};
+  }
+  if(!changes.data.length) return {data:products,error:null};
+  reconcileProductDirtyOperationsWithChanges(changes.data);
+  const latestByProduct=new Map(); changes.data.forEach(change=>latestByProduct.set(String(change.product_id),change));
+  const changedIds=[...latestByProduct.values()].filter(change=>change.operation!=='delete'&&!productDirtyOperations.has(String(change.product_id))).map(change=>change.product_id);
+  const deletedIds=[...latestByProduct.values()].filter(change=>change.operation==='delete'&&!productDirtyOperations.has(String(change.product_id))).map(change=>change.product_id);
+  const {data:changedRows,error}=await fetchProductRowsByIds(changedIds);
+  if(error) return {data:null,error};
+  const changedSet=new Set(changedIds.map(String)),deletedSet=new Set(deletedIds.map(String));
+  let loadedProducts=(products||[]).filter(product=>!changedSet.has(String(product.id))&&!deletedSet.has(String(product.id)));
+  loadedProducts.push(...(changedRows||[]).map(rowToProduct));
+  loadedProducts=mergeRemoteProductsWithDirtyLocal(loadedProducts);
+  products=loadedProducts;
+  const productRowsPersisted=await persistProductChangesToIndexedDB({updatedIds:changedIds,deletedIds});
+  if(productRowsPersisted) await saveProductManifestCache(Number(changes.data[changes.data.length-1].change_id));
+  return {data:loadedProducts,error:null};
+}
+async function loadProductRowsFromSupabaseLegacy(){
+  const {data,error}=await fetchAllProductRows();
+  if(error) return {data:null,error};
+  const loadedProducts=mergeRemoteProductsWithDirtyLocal((data||[]).map(rowToProduct));
+  await persistProductsToIndexedDB(loadedProducts,true);
   return {data:loadedProducts,error:null};
 }
 
@@ -1426,6 +1527,7 @@ async function syncCoreDataToSupabase(){
       if(!await syncInspectionListsToSupabase()) throw new Error('ซิงก์รายการตรวจสินค้าไม่สำเร็จ');
       await resolveOwnSyncEventsThrough(syncAttemptStartedAt);
       setSyncUiState('synced',0);
+      flushPendingClientEvents();
     }catch(e){
       console.warn('sync core data failed',e);
       const detail=coreSyncFailureDetail||{error:e,operation:'sync_core_data',tableName:'',recordId:'',fallbackMessage:'ซิงก์ข้อมูลไม่สำเร็จ'};
@@ -3321,6 +3423,7 @@ let auditLogSearchTimer=null;
 let auditLogFilter={search:'',entity:'all',action:'all'};
 let expandedAuditLogRows=new Set();
 let currentProfile=null; // Supabase Auth profile of the signed-in user, mapped by mapProfileRow()
+let ownerRecoverySetupRequired=false;
 let cashShifts=[];
 let currentCashShift=null;
 let cashShiftCloseDraft={countedCash:'',reason:''};
@@ -3344,7 +3447,8 @@ const MAINTENANCE_EPOCH_STORAGE_KEY='pepos_maintenance_epoch_v1';
 const OWNER_BOOTSTRAP_TOKEN_STORAGE_KEY='pepos_owner_bootstrap_token_v1';
 let maintenanceEpoch=localStorage.getItem(MAINTENANCE_EPOCH_STORAGE_KEY)||'';
 let workspacePersistTimer=null;
-let lastPersistedWorkspaceJson=localStorage.getItem(WORKSPACE_STORAGE_KEY)||'';
+let workspaceCachePendingSnapshot=null;
+let workspaceCacheWritePromise=Promise.resolve(true);
 let checkoutInFlight=false;
 let pendingCheckoutContextMemory=null;
 function cloudClean(value){
@@ -3429,7 +3533,7 @@ async function clearLocalStoreCachesForReset(){
   }catch(error){ console.warn('ล้างแคชหลังรีเซ็ตไม่สำเร็จ',error); }
   await clearProductIndexedCache();
   pendingCheckoutContextMemory=null;
-  lastPersistedWorkspaceJson='';
+  workspaceCachePendingSnapshot=null;
 }
 function clearRemoteResetSensitiveMemory(){
   clearLoadedHistoryMemory();
@@ -3545,41 +3649,55 @@ function loadWorkspaceData(){
       saved={...saved};
       delete saved.salesHistory;
       const cleaned=JSON.stringify(saved);
-      if(safeLocalStorageSet(WORKSPACE_STORAGE_KEY,cleaned,'ข้อมูลระบบ')) lastPersistedWorkspaceJson=cleaned;
+      safeLocalStorageSet(WORKSPACE_STORAGE_KEY,cleaned,'ข้อมูลระบบ');
     }
     localStorage.removeItem(SALES_STORAGE_KEY);
     applyWorkspaceData(saved);
   }
   catch(error){ console.warn('ไม่สามารถโหลดข้อมูลระบบที่บันทึกไว้ได้',error); }
 }
-function workspacePersistencePayload(){
-  return JSON.stringify(localWorkspaceSnapshot());
+function flushWorkspaceCacheToIndexedDB(){
+  const snapshot=workspaceCachePendingSnapshot;
+  workspaceCachePendingSnapshot=null;
+  if(!snapshot) return workspaceCacheWritePromise;
+  const write=async()=>{
+    try{
+      const db=await openProductCacheDb();
+      const transaction=db.transaction(PRODUCT_CACHE_WORKSPACE_STORE,'readwrite');
+      const done=idbTransactionDone(transaction);
+      transaction.objectStore(PRODUCT_CACHE_WORKSPACE_STORE).put({key:'current',value:snapshot,savedAt:new Date().toISOString()});
+      await done;
+      localStorage.removeItem(WORKSPACE_STORAGE_KEY);
+      return true;
+    }catch(error){ console.warn('บันทึกแคชข้อมูลระบบลง IndexedDB ไม่สำเร็จ',error); return false; }
+  };
+  workspaceCacheWritePromise=workspaceCacheWritePromise.then(write,write);
+  return workspaceCacheWritePromise;
+}
+function scheduleWorkspaceCacheWrite(){
+  clearTimeout(workspacePersistTimer);
+  workspacePersistTimer=setTimeout(flushWorkspaceCacheToIndexedDB,120);
 }
 function persistWorkspaceData(options={}){
   const productChanges=options?.productChanges||null;
   if(productChanges) markProductChangesDirty(productChanges);
-  const serialized=workspacePersistencePayload();
-  const workspaceChanged=serialized!==lastPersistedWorkspaceJson;
+  workspaceCachePendingSnapshot=localWorkspaceSnapshot();
+  scheduleWorkspaceCacheWrite();
   let productCachePromise=Promise.resolve(true);
   if(productChanges) productCachePromise=persistProductChangesToIndexedDB(productChanges);
-  if(workspaceChanged){
-    const stored=safeLocalStorageSet(WORKSPACE_STORAGE_KEY,serialized,'ข้อมูลระบบ');
-    if(stored) lastPersistedWorkspaceJson=serialized;
-    // These keys were used before the unified workspace snapshot and otherwise
-    // duplicate the same data until the browser quota is exhausted.
-    [WAREHOUSE_STORAGE_KEY,CONTACTS_STORAGE_KEY,SALES_STORAGE_KEY,QUOTATION_STORAGE_KEY,TRANSFER_STORAGE_KEY,TAX_INVOICE_STORAGE_KEY,PROMOTIONS_STORAGE_KEY].forEach(key=>localStorage.removeItem(key));
-  }
+  [WAREHOUSE_STORAGE_KEY,CONTACTS_STORAGE_KEY,SALES_STORAGE_KEY,QUOTATION_STORAGE_KEY,TRANSFER_STORAGE_KEY,TAX_INVOICE_STORAGE_KEY,PROMOTIONS_STORAGE_KEY].forEach(key=>localStorage.removeItem(key));
   if(productChanges){
     // Never send a new product/token before its local recovery copy is durable.
     // Otherwise an ambiguous network success followed by a close/reload would
     // lose the only token capable of proving the retry belongs to the same row.
     productCachePromise.then(saved=>{ if(saved) scheduleSupabaseCoreSync(); });
-  }else if(workspaceChanged) scheduleSupabaseCoreSync();
+  }else scheduleSupabaseCoreSync();
   return productCachePromise;
 }
 function schedulePersistWorkspaceData(){
-  clearTimeout(workspacePersistTimer);
-  workspacePersistTimer=setTimeout(persistWorkspaceData,1000);
+  workspaceCachePendingSnapshot=localWorkspaceSnapshot();
+  scheduleWorkspaceCacheWrite();
+  scheduleSupabaseCoreSync();
 }
 // Supabase writes are debounced separately. The incremental synchronizer then
 // sends only changed rows instead of the complete catalog.
@@ -3712,6 +3830,8 @@ async function loginSystem(event){
   if(error) error.textContent='';
   await loadWorkspaceFromSupabase();
   render();
+  await enforceOwnerRecoverySetup();
+  checkOwnerDatabaseHealth();
 }
 async function logoutSystem(){
   const pendingRequest=readPendingCheckoutRequest();
@@ -4095,8 +4215,12 @@ const NAV = [
   ]},
 ];
 
+let sidebarRenderSignature='';
 function renderSidebar(){
   const user=loggedInUser();
+  const signature=JSON.stringify([user?.id,user?.level,user?.owner,currentTab,isAllWarehousesMode(),user?.pagePermissions||[],user?.warehouseIds||[]]);
+  if(signature===sidebarRenderSignature&&document.getElementById('sidebar')?.children.length) return;
+  sidebarRenderSignature=signature;
   let html = `<div class="brand sidebar-user"><div class="sidebar-user-text"><b>${escapeHtml(user?.firstName||user?.username||'')}</b><span>${escapeHtml(systemUserLevelLabel(user?.level))}</span></div></div>`;
   NAV.forEach(g=>{
     const visibleItems=g.items.filter(([tab])=>canAccessTab(tab));
@@ -12079,7 +12203,7 @@ function render(){
   }
   if(isLevel2User()&&currentTab==='products'&&editingProductId!==null&&editingProductId!=='new') editingProductId=null;
   reconcileAutoFreeLines();
-  if(mobileMode) document.getElementById('sidebar').innerHTML='';
+  if(mobileMode){ document.getElementById('sidebar').innerHTML=''; sidebarRenderSignature=''; }
   else renderSidebar();
   // เคลียร์ปุ่มเก่าที่ topbar ก่อนสร้าง HTML ใหม่และผูก event listener เสมอ
   // ป้องกัน duplicate id ระหว่างปุ่มเก่าที่ topbar กับปุ่มใหม่ใน .main ตอน attachEvents() ค้นหาด้วย getElementById
@@ -13385,12 +13509,12 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(productImportFile) productImportFile.addEventListener('change',async()=>{
     const file=productImportFile.files?.[0];
     productImportFile.value='';
-    if(file) await importProductsFromExcel(file);
+    if(file) await invokeExcelTool('importProductsFromExcel',file);
   });
   const downloadProductTemplateBtn = document.getElementById('downloadProductTemplateBtn');
-  if(downloadProductTemplateBtn) downloadProductTemplateBtn.addEventListener('click',downloadProductImportTemplate);
+  if(downloadProductTemplateBtn) downloadProductTemplateBtn.addEventListener('click',()=>invokeExcelTool('downloadProductImportTemplate'));
   const exportProductsBtn = document.getElementById('exportProductsBtn');
-  if(exportProductsBtn) exportProductsBtn.addEventListener('click',exportProductsToExcel);
+  if(exportProductsBtn) exportProductsBtn.addEventListener('click',()=>invokeExcelTool('exportProductsToExcel'));
   document.querySelectorAll('[data-act="editproduct"]').forEach(el=>{
     el.addEventListener('click', ()=>{ if(isLevel2User()) return; editingProductId=Number(el.dataset.id); render(); });
   });
@@ -13412,12 +13536,12 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(contactImportFile) contactImportFile.addEventListener('change',async()=>{
     const file=contactImportFile.files?.[0];
     contactImportFile.value='';
-    if(file) await importContactsFromExcel(file);
+    if(file) await invokeExcelTool('importContactsFromExcel',file);
   });
   const downloadContactTemplateBtn = document.getElementById('downloadContactTemplateBtn');
-  if(downloadContactTemplateBtn) downloadContactTemplateBtn.addEventListener('click',downloadContactImportTemplate);
+  if(downloadContactTemplateBtn) downloadContactTemplateBtn.addEventListener('click',()=>invokeExcelTool('downloadContactImportTemplate'));
   const exportContactsBtn = document.getElementById('exportContactsBtn');
-  if(exportContactsBtn) exportContactsBtn.addEventListener('click',exportContactsToExcel);
+  if(exportContactsBtn) exportContactsBtn.addEventListener('click',()=>invokeExcelTool('exportContactsToExcel'));
   document.querySelectorAll('[data-act="editcontact"]').forEach(el=>{
     el.addEventListener('click', ()=>{ editingCustomerPriceContactId=null; editingContactId=Number(el.dataset.id); render(); });
   });
@@ -13516,12 +13640,12 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(salesRepImportFile) salesRepImportFile.addEventListener('change',async()=>{
     const file=salesRepImportFile.files?.[0];
     salesRepImportFile.value='';
-    if(file) await importSalesRepresentativesFromExcel(file);
+    if(file) await invokeExcelTool('importSalesRepresentativesFromExcel',file);
   });
   const downloadSalesRepTemplateBtn = document.getElementById('downloadSalesRepTemplateBtn');
-  if(downloadSalesRepTemplateBtn) downloadSalesRepTemplateBtn.addEventListener('click',downloadSalesRepresentativeImportTemplate);
+  if(downloadSalesRepTemplateBtn) downloadSalesRepTemplateBtn.addEventListener('click',()=>invokeExcelTool('downloadSalesRepresentativeImportTemplate'));
   const exportSalesRepsBtn = document.getElementById('exportSalesRepsBtn');
-  if(exportSalesRepsBtn) exportSalesRepsBtn.addEventListener('click',exportSalesRepresentativesToExcel);
+  if(exportSalesRepsBtn) exportSalesRepsBtn.addEventListener('click',()=>invokeExcelTool('exportSalesRepresentativesToExcel'));
   document.querySelectorAll('[data-act="editsalesrep"]').forEach(el=>{
     el.addEventListener('click', ()=>{ editingSalesRepresentativeId=Number(el.dataset.id); render(); });
   });
@@ -15883,395 +16007,89 @@ function deletePromotion(id){
   render();
 }
 
-async function downloadContactImportTemplate(){
-  try{ await ensureXlsxLoaded(); }catch(error){ console.warn('load xlsx',error); }
-  const example=[{
-    'รหัสผู้ติดต่อ':'C0001','ประเภทผู้ติดต่อ':'นิติบุคคล','ประเภท':'ลูกค้า','ชื่อธุรกิจ / ชื่อ':'บริษัท ตัวอย่าง จำกัด',
-    'เลขผู้เสียภาษี':'0105551234567','เครดิต (วัน)':30,'ที่อยู่':'','รหัสไปรษณีย์':'',
-    'ชื่อผู้ติดต่อ':'คุณตัวอย่าง','อีเมล':'','เบอร์มือถือ':'081-234-5678',
-    'ธนาคาร':'','ชื่อบัญชี':'','เลขที่บัญชี':'','ประเภทบัญชี':'','โน๊ต':''
-  }];
-  if(window.XLSX){
-    const sheet=XLSX.utils.json_to_sheet(example);
-    sheet['!cols']=Object.keys(example[0]).map(header=>({wch:Math.max(14,Math.min(28,header.length+5))}));
-    const workbook=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook,sheet,'สมุดรายชื่อ');
-    const instructions=[
-      ['หัวข้อ','วิธีกรอก'],
-      ['รหัสผู้ติดต่อ','ถ้ากรอกและตรงกับรายชื่อเดิมในระบบ จะอัปเดตรายชื่อนั้นแทนการสร้างใหม่ (เว้นว่างได้)'],
-      ['ชื่อธุรกิจ / ชื่อ','จำเป็นต้องกรอก ถ้าไม่กรอกรหัสผู้ติดต่อ ระบบจะจับคู่จากชื่อที่ตรงกันเป๊ะแทน'],
-      ['ประเภทผู้ติดต่อ','กรอก นิติบุคคล หรือ บุคคลธรรมดา (ไม่บังคับ ค่าเริ่มต้น นิติบุคคล)'],
-      ['ประเภท','กรอก ลูกค้า, ผู้จำหน่าย หรือ ทั้งคู่ (ไม่บังคับ ค่าเริ่มต้น ลูกค้า)'],
-      ['ประเภทบัญชี','กรอก ออมทรัพย์ หรือ กระแสรายวัน (ไม่บังคับ)'],
-      ['ข้อสำคัญ','อย่าเปลี่ยนชื่อหัวคอลัมน์ในแถวแรก'],
-    ];
-    const instructionSheet=XLSX.utils.aoa_to_sheet(instructions);
-    instructionSheet['!cols']=[{wch:20},{wch:80}];
-    XLSX.utils.book_append_sheet(workbook,instructionSheet,'วิธีกรอก');
-    XLSX.writeFile(workbook,'PEPOS-ตัวอย่างนำเข้าสมุดรายชื่อ.xlsx');
-    return;
-  }
-  const headers=Object.keys(example[0]);
-  const csv='\uFEFF'+headers.join(',')+'\n'+headers.map(key=>`"${String(example[0][key]).replace(/"/g,'""')}"`).join(',');
-  const link=document.createElement('a');
-  link.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-  link.download='PEPOS-ตัวอย่างนำเข้าสมุดรายชื่อ.csv';
-  link.click();
-  setTimeout(()=>URL.revokeObjectURL(link.href),1000);
-}
-function contactImportTypes(value){
-  const text=String(value||'').trim().toLowerCase();
-  const types=[];
-  if(text.includes('ลูกค้า')||text.includes('customer')) types.push('customer');
-  if(text.includes('จำหน่าย')||text.includes('supplier')||text.includes('vendor')) types.push('supplier');
-  if(text.includes('ทั้งคู่')||text.includes('both')){ if(!types.includes('customer')) types.push('customer'); if(!types.includes('supplier')) types.push('supplier'); }
-  return types.length?types:['customer'];
-}
-function contactImportEntity(value){
-  const text=String(value||'').trim().toLowerCase();
-  if(text.includes('บุคคลธรรมดา')||text.includes('individual')) return 'individual';
-  return 'juristic';
-}
-function contactImportAccType(value){
-  const text=String(value||'').trim().toLowerCase();
-  if(text.includes('กระแส')||text.includes('current')) return 'current';
-  if(text.includes('ออม')||text.includes('saving')) return 'saving';
-  return '';
-}
-async function importContactsFromExcel(file){
-  try{ await ensureXlsxLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบอ่าน Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
-  let workbook;
-  try{ workbook=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:false}); }
-  catch(error){ showToast('ไม่สามารถอ่านไฟล์ Excel นี้ได้'); return; }
-  const firstSheet=workbook.Sheets[workbook.SheetNames[0]];
-  const sourceRows=XLSX.utils.sheet_to_json(firstSheet,{defval:'',raw:true});
-  if(!sourceRows.length){ showToast('ไม่พบข้อมูลในไฟล์'); return; }
 
-  const toCreate=[];
-  const toUpdate=[];
-  const skipped=[];
-  const seenInFile=new Set(); // guard against two rows in the same file matching the same existing contact
-
-  sourceRows.forEach((row,index)=>{
-    const line=index+2;
-    const name=String(productImportValue(row,['ชื่อธุรกิจ / ชื่อ','ชื่อธุรกิจ','ชื่อ','รายชื่อ','name'])).trim();
-    if(!name){ skipped.push(`แถว ${line}: ไม่มีชื่อธุรกิจ / ชื่อ`); return; }
-    const code=String(productImportValue(row,['รหัสผู้ติดต่อ','รหัส','code'])).trim();
-    const data={
-      name,
-      types:contactImportTypes(productImportValue(row,['ประเภท','type'])),
-      entity:contactImportEntity(productImportValue(row,['ประเภทผู้ติดต่อ','entity'])),
-      code,
-      taxId:String(productImportValue(row,['เลขผู้เสียภาษี','taxid'])).trim(),
-      creditDays:productImportNumber(productImportValue(row,['เครดิต (วัน)','เครดิต','creditdays']),'')||'',
-      address:String(productImportValue(row,['ที่อยู่','address'])).trim(),
-      postcode:String(productImportValue(row,['รหัสไปรษณีย์','postcode'])).trim(),
-      contactName:String(productImportValue(row,['ชื่อผู้ติดต่อ','contactname'])).trim(),
-      email:String(productImportValue(row,['อีเมล','email'])).trim(),
-      phone:String(productImportValue(row,['เบอร์มือถือ','เบอร์โทร','phone'])).trim(),
-      bank:String(productImportValue(row,['ธนาคาร','bank'])).trim(),
-      bankName:String(productImportValue(row,['ชื่อบัญชี','bankname'])).trim(),
-      bankAcc:String(productImportValue(row,['เลขที่บัญชี','bankacc'])).trim(),
-      accType:contactImportAccType(productImportValue(row,['ประเภทบัญชี','acctype'])),
-      note:String(productImportValue(row,['โน๊ต','หมายเหตุ','note'])).trim(),
-    };
-    let existing=null;
-    const systemId=productImportNumber(productImportValue(row,['รหัสอ้างอิงระบบ','systemid']),NaN);
-    if(Number.isFinite(systemId)) existing=contacts.find(c=>c.id===systemId);
-    if(!existing&&code) existing=contacts.find(c=>String(c.code||'').trim().toLowerCase()===code.toLowerCase());
-    if(!existing) existing=contacts.find(c=>String(c.name||'').trim().toLowerCase()===name.toLowerCase());
-    if(existing){
-      if(seenInFile.has(existing.id)){ skipped.push(`แถว ${line}: ซ้ำกับแถวก่อนหน้าในไฟล์เดียวกัน (${name})`); return; }
-      seenInFile.add(existing.id);
-      toUpdate.push({existing,data});
-    }else{
-      toCreate.push(data);
-    }
-  });
-
-  if(!toCreate.length&&!toUpdate.length){
-    alert(`ไม่สามารถนำเข้าข้อมูลได้\n\n${skipped.slice(0,8).join('\n')}${skipped.length>8?`\nและอีก ${skipped.length-8} รายการ`:''}`);
-    return;
-  }
-  const confirmation=`พบข้อมูล ${sourceRows.length} แถว\nจะเพิ่มรายชื่อใหม่ ${toCreate.length} รายการ\nจะอัปเดตรายชื่อเดิม ${toUpdate.length} รายการ${skipped.length?`\nข้าม ${skipped.length} แถวที่ข้อมูลไม่ครบ`:''}\n\nยืนยันนำเข้าหรือไม่?`;
-  if(!confirm(confirmation)) return;
-
-  toUpdate.forEach(({existing,data})=>Object.assign(existing,data));
-  toCreate.forEach(data=>contacts.push({id:generateClientRecordId(contacts),...data}));
-  persistContacts();
-  showToast(`นำเข้าสมุดรายชื่อสำเร็จ · เพิ่มใหม่ ${toCreate.length} · อัปเดต ${toUpdate.length}${skipped.length?` · ข้าม ${skipped.length}`:''}`);
-  render();
-}
-
-async function exportContactsToExcel(){
-  try{ await ensureXlsxLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบส่งออก Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
-  if(!contacts.length){ showToast('ยังไม่มีข้อมูลให้ส่งออก'); return; }
-  const typeLabel=c=>{ const isCust=c.types?.includes('customer'),isSupp=c.types?.includes('supplier'); if(isCust&&isSupp) return 'ทั้งคู่'; if(isSupp) return 'ผู้จำหน่าย'; return 'ลูกค้า'; };
-  const rows=contacts.map(c=>({
-    'รหัสอ้างอิงระบบ':c.id,
-    'รหัสผู้ติดต่อ':c.code||'',
-    'ประเภทผู้ติดต่อ':c.entity==='individual'?'บุคคลธรรมดา':'นิติบุคคล',
-    'ประเภท':typeLabel(c),
-    'ชื่อธุรกิจ / ชื่อ':c.name||'',
-    'เลขผู้เสียภาษี':c.taxId||'',
-    'เครดิต (วัน)':c.creditDays||'',
-    'ที่อยู่':c.address||'',
-    'รหัสไปรษณีย์':c.postcode||'',
-    'ชื่อผู้ติดต่อ':c.contactName||'',
-    'อีเมล':c.email||'',
-    'เบอร์มือถือ':c.phone||'',
-    'ธนาคาร':c.bank||'',
-    'ชื่อบัญชี':c.bankName||'',
-    'เลขที่บัญชี':c.bankAcc||'',
-    'ประเภทบัญชี':c.accType==='current'?'กระแสรายวัน':(c.accType==='saving'?'ออมทรัพย์':''),
-    'โน๊ต':c.note||'',
-  }));
-  const sheet=XLSX.utils.json_to_sheet(rows);
-  sheet['!cols']=Object.keys(rows[0]).map(header=>({wch:Math.max(14,Math.min(28,header.length+5))}));
-  const workbook=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook,sheet,'สมุดรายชื่อ');
-  XLSX.writeFile(workbook,`PEPOS-สมุดรายชื่อ-${TODAY_STR}.xlsx`);
-  showToast(`ส่งออกสมุดรายชื่อ ${rows.length} รายการแล้ว`);
-}
-
-async function recoverOwnerPassword(){
-  const username=(prompt('กรอก ID เจ้าของร้าน')||'').trim(); if(!username) return;
-  let questionResult;
-  try{ questionResult=await callEdgeFunction('owner-recovery',{action:'question',username}); }
-  catch(error){ alert(error?.message||'ไม่สามารถโหลดคำถามกู้คืน Password ได้'); return; }
-  const answer=(prompt(`คำถาม: ${questionResult.question}\n\nกรอกคำตอบ`)||'').trim(); if(!answer) return;
-  const password=prompt('กำหนด Password ใหม่ อย่างน้อย 10 ตัว มีตัวอักษรและตัวเลข')||''; if(!password) return;
-  const confirmation=prompt('กรอก Password ใหม่อีกครั้ง')||'';
-  if(password!==confirmation){ alert('Password ใหม่ทั้งสองครั้งไม่ตรงกัน'); return; }
+async function enforceOwnerRecoverySetup(){
+  if(!currentProfile?.owner) return false;
   try{
-    await callEdgeFunction('owner-recovery',{action:'reset',username,answer,password});
-    const userInput=document.getElementById('loginUserId'),passwordInput=document.getElementById('loginPassword');
-    if(userInput) userInput.value=username; if(passwordInput) passwordInput.value='';
-    alert('ตั้ง Password ใหม่สำเร็จแล้ว กรุณาเข้าสู่ระบบด้วย Password ใหม่');
-    passwordInput?.focus();
-  }catch(error){ alert(error?.message||'กู้คืน Password ไม่สำเร็จ'); }
-}
-
-const SALES_REP_EXCEL_HEADERS=['รหัสอ้างอิงระบบ','ชื่อผู้แทน','เบอร์โทร','ไลน์','บริษัท','ข้อมูลเพิ่มเติม'];
-const SALES_REP_EXPORT_HEADERS=[...SALES_REP_EXCEL_HEADERS,'จำนวนสินค้าที่ดูแล','จำนวน NOTE'];
-const SALES_REP_NOTE_EXCEL_HEADERS=['รหัสอ้างอิงผู้แทน','ชื่อผู้แทน','ลำดับ NOTE','รหัสอ้างอิง NOTE','วันที่ NOTE','ชื่อ NOTE','เนื้อหา NOTE','ซ่อนจาก LEVEL 2','สร้างเมื่อ','แก้ไขล่าสุด'];
-const SALES_REP_PRODUCT_EXCEL_HEADERS=['รหัสอ้างอิงผู้แทน','ชื่อผู้แทน','รหัสอ้างอิงสินค้า','รหัสสินค้า (SKU)','เลขบาร์โค้ด','ชื่อสินค้า'];
-function salesRepresentativeToExcelRow(representative){
-  const values={
-    'รหัสอ้างอิงระบบ':representative.id??'',
-    'ชื่อผู้แทน':representative.name||'',
-    'เบอร์โทร':representative.phone||'',
-    'ไลน์':representative.line||'',
-    'บริษัท':representative.company||'',
-    'ข้อมูลเพิ่มเติม':representative.note||'',
-  };
-  const row={};
-  SALES_REP_EXCEL_HEADERS.forEach(header=>{ row[header]=values[header]; });
-  return row;
-}
-function salesRepresentativeExcelDate(value,{dateOnly=false}={}){
-  const text=String(value||'').trim();
-  if(!text) return '';
-  const date=new Date(dateOnly&&/^\d{4}-\d{2}-\d{2}$/.test(text)?`${text}T00:00:00`:text);
-  return Number.isNaN(date.getTime())?'':date;
-}
-function salesRepresentativeExportRows(representatives,assignments,notes,catalog){
-  const representativeList=Array.isArray(representatives)?representatives:[];
-  const assignmentList=Array.isArray(assignments)?assignments:[];
-  const noteList=Array.isArray(notes)?notes:[];
-  const productList=Array.isArray(catalog)?catalog:[];
-  const representativesById=new Map(representativeList.map(representative=>[Number(representative.id),representative]));
-  const productsById=new Map(productList.map(product=>[Number(product.id),product]));
-  const productCounts=new Map(),noteCounts=new Map();
-  assignmentList.forEach(assignment=>{
-    const representativeId=Number(assignment.representativeId);
-    if(representativesById.has(representativeId)) productCounts.set(representativeId,(productCounts.get(representativeId)||0)+1);
-  });
-  noteList.forEach(note=>{
-    const representativeId=Number(note.representativeId);
-    if(representativesById.has(representativeId)) noteCounts.set(representativeId,(noteCounts.get(representativeId)||0)+1);
-  });
-  const representativeRows=representativeList.map(representative=>({
-    ...salesRepresentativeToExcelRow(representative),
-    'จำนวนสินค้าที่ดูแล':productCounts.get(Number(representative.id))||0,
-    'จำนวน NOTE':noteCounts.get(Number(representative.id))||0,
-  }));
-  const productRows=assignmentList.map(assignment=>{
-    const representative=representativesById.get(Number(assignment.representativeId));
-    if(!representative) return null;
-    const product=productsById.get(Number(assignment.productId))||{};
-    return {
-      'รหัสอ้างอิงผู้แทน':representative.id??'',
-      'ชื่อผู้แทน':representative.name||'',
-      'รหัสอ้างอิงสินค้า':assignment.productId??'',
-      'รหัสสินค้า (SKU)':product.sku||'',
-      'เลขบาร์โค้ด':product.barcode||'',
-      'ชื่อสินค้า':product.name||'',
-    };
-  }).filter(Boolean).sort((a,b)=>String(a['ชื่อผู้แทน']).localeCompare(String(b['ชื่อผู้แทน']),'th')||String(a['ชื่อสินค้า']).localeCompare(String(b['ชื่อสินค้า']),'th'));
-  const noteNumbers=new Map();
-  const noteRows=[...noteList].filter(note=>representativesById.has(Number(note.representativeId))).sort((a,b)=>{
-    const representativeA=representativesById.get(Number(a.representativeId));
-    const representativeB=representativesById.get(Number(b.representativeId));
-    return String(representativeA?.name||'').localeCompare(String(representativeB?.name||''),'th')
-      ||String(b.eventDate||'').localeCompare(String(a.eventDate||''))
-      ||String(b.updatedAt||'').localeCompare(String(a.updatedAt||''));
-  }).map(note=>{
-    const representativeId=Number(note.representativeId);
-    const representative=representativesById.get(representativeId);
-    const noteNumber=(noteNumbers.get(representativeId)||0)+1;
-    noteNumbers.set(representativeId,noteNumber);
-    return {
-      'รหัสอ้างอิงผู้แทน':representative.id??'',
-      'ชื่อผู้แทน':representative.name||'',
-      'ลำดับ NOTE':noteNumber,
-      'รหัสอ้างอิง NOTE':note.id||'',
-      'วันที่ NOTE':salesRepresentativeExcelDate(note.eventDate,{dateOnly:true}),
-      'ชื่อ NOTE':note.title||'',
-      'เนื้อหา NOTE':notePlainText(note.contentHtml||''),
-      'ซ่อนจาก LEVEL 2':note.hiddenFromLevel2?'ใช่':'ไม่',
-      'สร้างเมื่อ':salesRepresentativeExcelDate(note.createdAt),
-      'แก้ไขล่าสุด':salesRepresentativeExcelDate(note.updatedAt),
-    };
-  });
-  return {representativeRows,noteRows,productRows};
-}
-function salesRepresentativeExcelSheet(rows,headers,widths,dateFormats={}){
-  const sheet=XLSX.utils.json_to_sheet(rows,{header:headers,cellDates:true});
-  sheet['!cols']=widths.map(wch=>({wch}));
-  const endRow=Math.max(0,rows.length),endColumn=Math.max(0,headers.length-1);
-  sheet['!autofilter']={ref:XLSX.utils.encode_range({s:{r:0,c:0},e:{r:endRow,c:endColumn}})};
-  Object.entries(dateFormats).forEach(([header,format])=>{
-    const column=headers.indexOf(header);
-    if(column<0) return;
-    for(let row=1;row<=endRow;row++){
-      const cell=sheet[XLSX.utils.encode_cell({r:row,c:column})];
-      if(cell&&cell.v instanceof Date) cell.z=format;
-    }
-  });
-  return sheet;
-}
-async function loadSalesRepresentativeExcelDetails(){
-  const [assignmentResult,noteResult]=await Promise.all([
-    fetchAllRows(()=>sb.from('sales_representative_products').select('representative_id,product_id,created_at,updated_at').order('representative_id').order('product_id')),
-    fetchAllRows(()=>sb.from('notes').select(NOTE_ROW_SELECT).not('activity_type','is',null).order('event_date',{ascending:false}).order('updated_at',{ascending:false}))
-  ]);
-  if(assignmentResult.error) throw assignmentResult.error;
-  if(noteResult.error) throw noteResult.error;
-  return {
-    assignments:(assignmentResult.data||[]).map(row=>({representativeId:Number(row.representative_id),productId:Number(row.product_id),createdAt:row.created_at||'',updatedAt:row.updated_at||''})),
-    notes:(noteResult.data||[]).map(mapNoteRow),
-  };
-}
-async function downloadSalesRepresentativeImportTemplate(){
-  try{ await ensureXlsxLoaded(); }catch(error){ console.warn('load xlsx',error); }
-  const example=[salesRepresentativeToExcelRow({id:'',name:'คุณตัวอย่าง ใจดี',phone:'081-234-5678',line:'example.line',company:'บริษัท ตัวอย่าง จำกัด',note:'ผู้แทนเขตกรุงเทพฯ'})];
-  if(window.XLSX){
-    const sheet=XLSX.utils.json_to_sheet(example);
-    sheet['!cols']=[{wch:18},{wch:28},{wch:18},{wch:22},{wch:32},{wch:42}];
-    const workbook=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook,sheet,'รายชื่อผู้แทน');
-    const instructions=[
-      ['หัวข้อ','วิธีกรอก'],
-      ['รหัสอ้างอิงระบบ','รายชื่อใหม่ปล่อยว่างได้ หากเป็นไฟล์ที่ส่งออกจากระบบให้คงค่านี้ไว้เพื่ออัปเดตรายชื่อเดิม'],
-      ['ชื่อผู้แทน','จำเป็นต้องกรอก หากไม่มีรหัสอ้างอิงระบบ ระบบจะจับคู่จากชื่อที่ตรงกัน'],
-      ['เบอร์โทร / ไลน์ / บริษัท / ข้อมูลเพิ่มเติม','กรอกได้ตามต้องการ'],
-      ['ข้อสำคัญ','อย่าเปลี่ยนชื่อหัวคอลัมน์ในแถวแรก'],
-    ];
-    const instructionSheet=XLSX.utils.aoa_to_sheet(instructions);
-    instructionSheet['!cols']=[{wch:28},{wch:90}];
-    XLSX.utils.book_append_sheet(workbook,instructionSheet,'วิธีกรอก');
-    XLSX.writeFile(workbook,'PEPOS-คู่มือนำเข้ารายชื่อผู้แทน.xlsx');
-    return;
-  }
-  const csv='\uFEFF'+SALES_REP_EXCEL_HEADERS.join(',')+'\n'+SALES_REP_EXCEL_HEADERS.map(header=>`"${String(example[0][header]).replace(/"/g,'""')}"`).join(',');
-  const link=document.createElement('a');
-  link.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-  link.download='PEPOS-คู่มือนำเข้ารายชื่อผู้แทน.csv';
-  link.click();
-  setTimeout(()=>URL.revokeObjectURL(link.href),1000);
-}
-async function importSalesRepresentativesFromExcel(file){
-  try{ await ensureXlsxLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบอ่าน Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
-  let workbook;
-  try{ workbook=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:false}); }
-  catch(error){ showToast('ไม่สามารถอ่านไฟล์ Excel นี้ได้'); return; }
-  const firstSheet=workbook.Sheets[workbook.SheetNames[0]];
-  const sourceRows=XLSX.utils.sheet_to_json(firstSheet,{defval:'',raw:true});
-  if(!sourceRows.length){ showToast('ไม่พบรายชื่อผู้แทนในไฟล์'); return; }
-
-  const toCreate=[];
-  const toUpdate=[];
-  const skipped=[];
-  const seenInFile=new Set();
-  sourceRows.forEach((row,index)=>{
-    const line=index+2;
-    const name=String(productImportValue(row,['ชื่อผู้แทน','ชื่อ','name'])).trim();
-    if(!name){ skipped.push(`แถว ${line}: ไม่มีชื่อผู้แทน`); return; }
-    const normalizedName=name.toLowerCase();
-    const legacyCode=String(productImportValue(row,['รหัสผู้ติดต่อ','รหัส','code'])).trim();
-    const data={
-      name,
-      phone:String(productImportValue(row,['เบอร์โทร','เบอร์มือถือ','phone'])).trim(),
-      line:String(productImportValue(row,['ไลน์','line','lineid'])).trim(),
-      company:String(productImportValue(row,['บริษัท','company'])).trim(),
-      note:String(productImportValue(row,['ข้อมูลเพิ่มเติม','หมายเหตุ','โน๊ต','note'])).trim(),
-    };
-    let existing=null;
-    const systemId=productImportNumber(productImportValue(row,['รหัสอ้างอิงระบบ','systemid']),NaN);
-    if(Number.isFinite(systemId)) existing=salesRepresentatives.find(representative=>representative.id===systemId)||null;
-    if(!existing&&legacyCode) existing=salesRepresentatives.find(representative=>String(representative.code||'').trim().toLowerCase()===legacyCode.toLowerCase())||null;
-    if(!existing) existing=salesRepresentatives.find(representative=>String(representative.name||'').trim().toLowerCase()===normalizedName)||null;
-    const fileKey=existing?`id:${existing.id}`:(legacyCode?`code:${legacyCode.toLowerCase()}`:`name:${normalizedName}`);
-    if(seenInFile.has(fileKey)){ skipped.push(`แถว ${line}: ซ้ำกับแถวก่อนหน้าในไฟล์เดียวกัน (${name})`); return; }
-    seenInFile.add(fileKey);
-    if(existing) toUpdate.push({existing,data}); else toCreate.push(data);
-  });
-  if(!toCreate.length&&!toUpdate.length){
-    alert(`ไม่สามารถนำเข้ารายชื่อผู้แทนได้\n\n${skipped.slice(0,8).join('\n')}${skipped.length>8?`\nและอีก ${skipped.length-8} รายการ`:''}`);
-    return;
-  }
-  const confirmation=`พบข้อมูล ${sourceRows.length} แถว\nจะเพิ่มรายชื่อใหม่ ${toCreate.length} รายการ\nจะอัปเดตรายชื่อเดิม ${toUpdate.length} รายการ${skipped.length?`\nข้าม ${skipped.length} แถวที่ข้อมูลไม่ครบหรือซ้ำ`:''}\n\nยืนยันนำเข้าหรือไม่?`;
-  if(!confirm(confirmation)) return;
-  toUpdate.forEach(({existing,data})=>{
-    const oldName=existing.name;
-    Object.assign(existing,data);
-    if(oldName!==data.name){
-      purchaseOrders.forEach(document=>{ if(document.supplier===oldName) document.supplier=data.name; });
-      if(poDraft?.supplier===oldName) poDraft.supplier=data.name;
-    }
-  });
-  toCreate.forEach(data=>salesRepresentatives.push({id:generateClientRecordId(salesRepresentatives),...data}));
-  persistWorkspaceData();
-  showToast(`นำเข้ารายชื่อผู้แทนสำเร็จ · เพิ่มใหม่ ${toCreate.length} · อัปเดต ${toUpdate.length}${skipped.length?` · ข้าม ${skipped.length}`:''}`);
-  render();
-}
-async function exportSalesRepresentativesToExcel(){
-  const button=document.getElementById('exportSalesRepsBtn');
-  const originalLabel=button?.textContent||'ส่งออก Excel';
-  if(button){ button.disabled=true; button.textContent='กำลังเตรียม Excel…'; }
-  try{
-    await ensureXlsxLoaded();
-    if(!salesRepresentatives.length){ showToast('ยังไม่มีรายชื่อผู้แทนให้ส่งออก'); return; }
-    const details=await loadSalesRepresentativeExcelDetails();
-    const {representativeRows,noteRows,productRows}=salesRepresentativeExportRows(salesRepresentatives,details.assignments,details.notes,products);
-    const workbook=XLSX.utils.book_new();
-    const representativeSheet=salesRepresentativeExcelSheet(representativeRows,SALES_REP_EXPORT_HEADERS,[18,28,18,22,32,42,20,16]);
-    XLSX.utils.book_append_sheet(workbook,representativeSheet,'รายชื่อผู้แทน');
-    const noteSheet=salesRepresentativeExcelSheet(noteRows,SALES_REP_NOTE_EXCEL_HEADERS,[20,28,14,38,16,34,70,20,22,22],{'วันที่ NOTE':'dd/mm/yyyy','สร้างเมื่อ':'dd/mm/yyyy hh:mm','แก้ไขล่าสุด':'dd/mm/yyyy hh:mm'});
-    noteSheet['!rows']=[{hpt:24},...noteRows.map(()=>({hpt:42}))];
-    XLSX.utils.book_append_sheet(workbook,noteSheet,'NOTE ผู้แทน');
-    const productSheet=salesRepresentativeExcelSheet(productRows,SALES_REP_PRODUCT_EXCEL_HEADERS,[20,28,20,20,22,42]);
-    XLSX.utils.book_append_sheet(workbook,productSheet,'สินค้าที่ดูแล');
-    XLSX.writeFile(workbook,`PEPOS-ข้อมูลผู้แทน-${TODAY_STR}.xlsx`,{cellDates:true});
-    showToast(`ส่งออกผู้แทน ${representativeRows.length} รายการ · NOTE ${noteRows.length} รายการ · สินค้าที่ดูแล ${productRows.length} รายการแล้ว`);
+    const result=await callEdgeFunction('admin-users',{action:'recovery-status'});
+    ownerRecoverySetupRequired=result.configured!==true;
+    if(ownerRecoverySetupRequired) openOwnerRecoverySetupModal();
+    return ownerRecoverySetupRequired;
   }catch(error){
-    console.warn('export sales representatives',error);
-    showToast(error?.message||'ส่งออกข้อมูลผู้แทนไม่สำเร็จ กรุณาลองใหม่');
-  }finally{
-    if(button){ button.disabled=false; button.textContent=originalLabel; }
+    reportClientEvent({category:'security',operation:'recovery_status',message:error?.message||'ตรวจคำถามกู้คืนไม่สำเร็จ'});
+    return false;
   }
 }
+const DATABASE_HEALTH_CHECK_KEY='pepos_database_health_checked_v1';
+async function checkOwnerDatabaseHealth({force=false}={}){
+  if(!currentProfile?.owner||!sb) return null;
+  const now=Date.now(),last=Number(localStorage.getItem(DATABASE_HEALTH_CHECK_KEY))||0;
+  if(!force&&now-last<24*60*60*1000) return null;
+  try{
+    const {data,error}=await sb.rpc('get_owner_database_health');
+    if(error){ if(['PGRST202','42883'].includes(String(error.code||''))) return null; throw error; }
+    localStorage.setItem(DATABASE_HEALTH_CHECK_KEY,String(now));
+    const result=Array.isArray(data)?data[0]:data;
+    if(result?.level==='warning'||result?.level==='critical'){
+      const used=(Number(result.databaseBytes||0)/1024/1024).toFixed(1);
+      showToast(`ฐานข้อมูลใช้พื้นที่ ${used} MB ${result.level==='critical'?'เกินระดับ 250 MB แล้ว':'ถึงระดับเตือน 100 MB แล้ว'} กรุณาสำรองและตรวจพื้นที่`,'danger-top');
+    }
+    return result;
+  }catch(error){ reportClientEvent({category:'monitoring',operation:'database_health',message:error?.message||'ตรวจพื้นที่ฐานข้อมูลไม่สำเร็จ'}); return null; }
+}
+function openOwnerRecoverySetupModal(){
+  document.querySelector('.owner-recovery-setup-overlay')?.remove();
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay owner-recovery-setup-overlay';
+  overlay.innerHTML=`<form class="modal recovery-dialog" id="ownerRecoverySetupForm" role="dialog" aria-modal="true"><div class="modal-head"><div><h3>ตั้งคำถามกู้คืน Password</h3><div class="sub">เจ้าของร้านต้องตั้งค่าให้เรียบร้อยก่อนใช้งานระบบต่อ</div></div></div><div class="form-grid"><label class="field full"><span>คำถาม *</span><input id="requiredRecoveryQuestion" maxlength="200" placeholder="เช่น ร้านแรกของฉันชื่ออะไร" required></label><label class="field full"><span>คำตอบ *</span><input id="requiredRecoveryAnswer" type="password" maxlength="200" autocomplete="new-password" placeholder="คำตอบจะถูกซ่อนและเข้ารหัส" required></label></div><div class="login-error" id="requiredRecoveryError"></div><div class="modal-actions"><button class="btn ghost" id="requiredRecoveryLogout" type="button">ออกจากระบบ</button><button class="btn primary" type="submit">บันทึกและใช้งานต่อ</button></div></form>`;
+  document.body.appendChild(overlay);
+  overlay.querySelector('#requiredRecoveryLogout').onclick=()=>logoutSystem();
+  overlay.querySelector('form').onsubmit=async event=>{
+    event.preventDefault();
+    const question=overlay.querySelector('#requiredRecoveryQuestion').value.trim();
+    const answer=overlay.querySelector('#requiredRecoveryAnswer').value.trim();
+    const errorElement=overlay.querySelector('#requiredRecoveryError');
+    const button=overlay.querySelector('button[type="submit"]');
+    if(question.length<5||answer.length<3){ errorElement.textContent='กรุณากรอกคำถามอย่างน้อย 5 ตัว และคำตอบอย่างน้อย 3 ตัว'; return; }
+    button.disabled=true;
+    try{ await callEdgeFunction('admin-users',{action:'save-own-recovery',question,answer}); ownerRecoverySetupRequired=false; overlay.remove(); showToast('ตั้งคำถามกู้คืน Password แล้ว'); }
+    catch(error){ errorElement.textContent=error?.message||'บันทึกคำถามกู้คืนไม่สำเร็จ'; button.disabled=false; }
+  };
+  setTimeout(()=>overlay.querySelector('#requiredRecoveryQuestion')?.focus(),0);
+}
+function recoverOwnerPassword(){
+  document.querySelector('.owner-password-recovery-overlay')?.remove();
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay owner-password-recovery-overlay';
+  overlay.innerHTML=`<form class="modal recovery-dialog" id="ownerPasswordRecoveryForm" role="dialog" aria-modal="true"><div class="modal-head"><h3>กู้คืน Password เจ้าของร้าน</h3><button class="modal-close" type="button" aria-label="ปิด">×</button></div><div class="form-grid"><label class="field full"><span>ID เจ้าของร้าน</span><input id="recoveryUsername" autocomplete="username" required></label><div class="field full recovery-question-wrap" hidden><span>คำถาม</span><strong id="recoveryQuestionText"></strong></div><label class="field full recovery-reset-field" hidden><span>คำตอบ</span><input id="recoveryAnswer" type="password" autocomplete="off"></label><label class="field full recovery-reset-field" hidden><span>Password ใหม่</span><input id="recoveryNewPassword" type="password" autocomplete="new-password" minlength="10"></label><label class="field full recovery-reset-field" hidden><span>ยืนยัน Password ใหม่</span><input id="recoveryPasswordConfirm" type="password" autocomplete="new-password" minlength="10"></label></div><div class="login-error" id="recoveryModalError"></div><div class="modal-actions"><button class="btn ghost recovery-cancel" type="button">ยกเลิก</button><button class="btn primary" id="recoveryContinueButton" type="submit">แสดงคำถาม</button></div></form>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove(); overlay.querySelector('.modal-close').onclick=close; overlay.querySelector('.recovery-cancel').onclick=close;
+  const form=overlay.querySelector('form'),errorElement=overlay.querySelector('#recoveryModalError'),button=overlay.querySelector('#recoveryContinueButton');
+  let questionLoaded=false;
+  form.onsubmit=async event=>{
+    event.preventDefault(); errorElement.textContent=''; button.disabled=true;
+    const username=overlay.querySelector('#recoveryUsername').value.trim();
+    try{
+      if(!questionLoaded){
+        const result=await callEdgeFunction('owner-recovery',{action:'question',username});
+        overlay.querySelector('#recoveryQuestionText').textContent=result.question;
+        overlay.querySelector('.recovery-question-wrap').hidden=false;
+        overlay.querySelectorAll('.recovery-reset-field').forEach(element=>element.hidden=false);
+        overlay.querySelector('#recoveryUsername').readOnly=true; questionLoaded=true; button.textContent='ตั้ง Password ใหม่';
+        overlay.querySelector('#recoveryAnswer').focus();
+      }else{
+        const answer=overlay.querySelector('#recoveryAnswer').value.trim(),password=overlay.querySelector('#recoveryNewPassword').value,confirmation=overlay.querySelector('#recoveryPasswordConfirm').value;
+        if(password!==confirmation) throw new Error('Password ใหม่ทั้งสองช่องไม่ตรงกัน');
+        await callEdgeFunction('owner-recovery',{action:'reset',username,answer,password});
+        const loginUser=document.getElementById('loginUserId'); if(loginUser) loginUser.value=username;
+        close(); showToast('ตั้ง Password ใหม่สำเร็จแล้ว กรุณาเข้าสู่ระบบ'); document.getElementById('loginPassword')?.focus();
+      }
+    }catch(error){ errorElement.textContent=error?.message||'กู้คืน Password ไม่สำเร็จ'; }
+    finally{ if(overlay.isConnected) button.disabled=false; }
+  };
+  setTimeout(()=>overlay.querySelector('#recoveryUsername')?.focus(),0);
+}
+
 
 function collectCustomerPriceRules(){
   const rules=[];
@@ -16376,415 +16194,6 @@ function deleteContact(id){
   render();
 }
 
-function productImportHeader(value){
-  return String(value||'').trim().toLowerCase().replace(/[\s_\-()（）]/g,'');
-}
-// productImportValue() gets called MANY times per row (up to 80-100+ for a
-// product row with several extra units/barcodes), and used to rebuild the
-// whole normalized-header map from `row` on every single call. For a
-// large import (e.g. importing thousands of products) that meant hundreds
-// of thousands of redundant object rebuilds, blocking the tab for several
-// seconds. `row` is a stable object reference for the whole time one row
-// is being processed, so a WeakMap keyed on it lets every call for the
-// SAME row reuse one cached normalization instead of rebuilding it --
-// no changes needed at any call site, since they all already pass the
-// same row object through for every field they read off it.
-const _importRowNormalizeCache=new WeakMap();
-function productImportValue(row,aliases){
-  let normalized=_importRowNormalizeCache.get(row);
-  if(!normalized){
-    normalized={};
-    Object.entries(row||{}).forEach(([key,value])=>{ normalized[productImportHeader(key)]=value; });
-    _importRowNormalizeCache.set(row,normalized);
-  }
-  for(const alias of aliases){
-    const key=productImportHeader(alias);
-    if(Object.prototype.hasOwnProperty.call(normalized,key)) return normalized[key];
-  }
-  return '';
-}
-function productImportNumber(value,fallback=0){
-  const number=Number(String(value??'').replace(/,/g,'').trim());
-  return Number.isFinite(number)?number:fallback;
-}
-function productImportDate(value){
-  if(value===null||value===undefined||value==='') return '';
-  if(typeof value==='number'&&window.XLSX?.SSF?.parse_date_code){
-    const parsed=XLSX.SSF.parse_date_code(value);
-    if(parsed) return `${String(parsed.y).padStart(4,'0')}-${String(parsed.m).padStart(2,'0')}-${String(parsed.d).padStart(2,'0')}`;
-  }
-  if(value instanceof Date&&!Number.isNaN(value.getTime())) return `${value.getFullYear()}-${String(value.getMonth()+1).padStart(2,'0')}-${String(value.getDate()).padStart(2,'0')}`;
-  const text=String(value).trim();
-  let match=text.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
-  if(match) return `${match[1]}-${match[2].padStart(2,'0')}-${match[3].padStart(2,'0')}`;
-  match=text.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
-  if(match) return `${match[3]}-${match[2].padStart(2,'0')}-${match[1].padStart(2,'0')}`;
-  return '';
-}
-const PRODUCT_EXCEL_MIN_REPEAT_COLUMNS=2;
-const PRODUCT_EXCEL_MAX_REPEAT_COLUMNS=10;
-function productExcelColumnCounts(productRows=[]){
-  const bounded=value=>Math.min(PRODUCT_EXCEL_MAX_REPEAT_COLUMNS,Math.max(PRODUCT_EXCEL_MIN_REPEAT_COLUMNS,value));
-  const longest=selector=>productRows.reduce((maximum,product)=>Math.max(maximum,selector(product)),0);
-  return {
-    extraBarcodes:bounded(longest(product=>(product.extraBarcodes||[]).length)),
-    vendors:bounded(longest(product=>(product.vendorBarcodes||[]).length)),
-    units:bounded(longest(product=>(product.units||[]).length)),
-  };
-}
-function productExcelHeaders(counts){
-  const headers=['รหัสสินค้า','ชื่อสินค้า','หมวดสินค้า','ยี่ห้อ / หมวดย่อย','หน่วยหลัก','ราคาขาย (หน่วยหลัก)','ราคาทุน (หน่วยหลัก)','บาร์โค้ดหลัก','ภาษีมูลค่าเพิ่ม','คลังสินค้า','จำนวนคงเหลือ (หน่วยหลัก)','วันหมดอายุ','รายละเอียด'];
-  for(let number=1;number<=counts.units;number++){
-    headers.push(`หน่วยเพิ่มเติม ${number}`,`จำนวนบรรจุ ${number}`,`เทียบกับหน่วย ${number}`,`ราคาขายหน่วยเพิ่มเติม ${number}`,`ราคาทุนหน่วยเพิ่มเติม ${number}`,`บาร์โค้ดหน่วยเพิ่มเติม ${number}`);
-  }
-  for(let number=1;number<=counts.extraBarcodes;number++) headers.push(`หน่วยของบาร์โค้ดสำรอง ${number}`,`บาร์โค้ดสำรอง ${number}`);
-  for(let number=1;number<=counts.vendors;number++) headers.push(`ชื่อผู้จำหน่าย ${number}`,`บาร์โค้ดผู้จำหน่าย ${number}`);
-  headers.push('รหัสอ้างอิงระบบ (ห้ามแก้)');
-  return headers;
-}
-function productExcelColumnWidth(header){
-  if(header==='ชื่อสินค้า'||header==='รายละเอียด') return {wch:34};
-  if(/บาร์โค้ด|รหัสอ้างอิงระบบ|ชื่อผู้จำหน่าย/.test(header)) return {wch:24};
-  if(/หมวด|หน่วย|ราคา|จำนวน|ภาษี|คลัง/.test(header)) return {wch:20};
-  return {wch:16};
-}
-function productToExcelRow(product,counts,warehouseRows=warehouses){
-  const productRows=typeof products!=='undefined'&&Array.isArray(products)?products:[];
-  const selectedWarehouseId=typeof activeWarehouseId!=='undefined'?Number(activeWarehouseId):Number(product.wh);
-  const storedProduct=productRows.some(item=>Number(item.id)===Number(product.id));
-  const inventoryReady=storedProduct&&typeof warehouseStock==='function'&&typeof warehouseExpiry==='function';
-  const exportStock=inventoryReady?warehouseStock(product.id,selectedWarehouseId):(Number(product.stock)||0);
-  const exportExpiry=inventoryReady?warehouseExpiry(product.id,selectedWarehouseId):(product.expiry||'');
-  const values={
-    'รหัสสินค้า':product.sku||'',
-    'ชื่อสินค้า':product.name||'',
-    'หมวดสินค้า':product.category||'',
-    'ยี่ห้อ / หมวดย่อย':product.brand||'',
-    'หน่วยหลัก':product.unit||'',
-    'ราคาขาย (หน่วยหลัก)':product.price||0,
-    'ราคาทุน (หน่วยหลัก)':product.cost||0,
-    'บาร์โค้ดหลัก':product.barcode||'',
-    'ภาษีมูลค่าเพิ่ม':productVatModeLabel(product.vat),
-    'คลังสินค้า':warehouseRows.find(warehouse=>Number(warehouse.id)===Number(selectedWarehouseId||product.wh))?.name||'',
-    'จำนวนคงเหลือ (หน่วยหลัก)':exportStock,
-    'วันหมดอายุ':exportExpiry?fmtDateShort(exportExpiry):'',
-    'รายละเอียด':product.desc||'',
-  };
-  for(let number=1;number<=counts.units;number++){
-    const unit=(product.units||[])[number-1];
-    values[`หน่วยเพิ่มเติม ${number}`]=unit?.sub||'';
-    values[`จำนวนบรรจุ ${number}`]=unit?.per||'';
-    values[`เทียบกับหน่วย ${number}`]=unit?.base||'';
-    values[`ราคาขายหน่วยเพิ่มเติม ${number}`]=unit?.price||'';
-    values[`ราคาทุนหน่วยเพิ่มเติม ${number}`]=unit?.cost||'';
-    values[`บาร์โค้ดหน่วยเพิ่มเติม ${number}`]=unit?.barcode||'';
-  }
-  const extraEntries=extraBarcodeEntries(product);
-  for(let number=1;number<=counts.extraBarcodes;number++){
-    const entry=extraEntries[number-1];
-    values[`หน่วยของบาร์โค้ดสำรอง ${number}`]=entry?.unit||product.unit||'';
-    values[`บาร์โค้ดสำรอง ${number}`]=entry?.code||'';
-  }
-  for(let number=1;number<=counts.vendors;number++){
-    const vendor=(product.vendorBarcodes||[])[number-1];
-    values[`ชื่อผู้จำหน่าย ${number}`]=vendor?.vendor&&vendor.vendor!=='ไม่ระบุ'?vendor.vendor:'';
-    values[`บาร์โค้ดผู้จำหน่าย ${number}`]=vendor?.code||'';
-  }
-  // Preserve 16-digit safe-integer ids when Excel opens and saves the file.
-  values['รหัสอ้างอิงระบบ (ห้ามแก้)']=product.id===null||product.id===undefined?'':String(product.id);
-  const row={};
-  productExcelHeaders(counts).forEach(header=>{ row[header]=values[header]??''; });
-  return row;
-}
-async function downloadProductImportTemplate(){
-  try{ await ensureXlsxLoaded(); }catch(error){ console.warn('load xlsx',error); }
-  const counts=productExcelColumnCounts(products);
-  const example=[productToExcelRow({
-    id:'',sku:'P0001',name:'พาราเซตามอล 500mg',barcode:'8850000100019',extraBarcodes:['8850000100018'],extraBarcodeUnits:['แผง'],
-    vendorBarcodes:[{vendor:'บริษัท ตัวอย่าง จำกัด',code:'VENDOR-PARA-01'}],category:'ยาสามัญประจำบ้าน',brand:'ทั่วไป',unit:'แผง',
-    price:15,cost:9,vat:'incl',stock:120,expiry:'2027-12-31',wh:warehouses[0]?.id,desc:'',
-    units:[
-      {sub:'กล่อง',per:10,base:'แผง',price:140,cost:90,barcode:'8850000100026'},
-      {sub:'ลัง',per:10,base:'กล่อง',price:1350,cost:880,barcode:'8850000100033'},
-    ],
-  },counts)];
-  if(window.XLSX){
-    const sheet=XLSX.utils.json_to_sheet(example);
-    sheet['!cols']=Object.keys(example[0]).map(productExcelColumnWidth);
-    sheet['!autofilter']={ref:sheet['!ref']};
-    const workbook=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook,sheet,'สินค้า');
-    const instructions=[
-      ['หัวข้อ','วิธีกรอก'],
-      ['รหัสอ้างอิงระบบ (ห้ามแก้)','สินค้าใหม่ปล่อยว่างได้ หากเป็นไฟล์ที่ส่งออกจากระบบให้คงค่านี้ไว้เพื่ออัปเดตสินค้ารายการเดิม'],
-      ['บาร์โค้ดหลัก','ตั้งรูปแบบเซลล์เป็นข้อความ (Text) เพื่อป้องกันเลข 0 ด้านหน้าหาย'],
-      ['บาร์โค้ดสำรอง','กรอกหน่วยและเลขบาร์โค้ดเป็นคู่หมายเลขเดียวกัน เช่น หน่วยของบาร์โค้ดสำรอง 1 คู่กับ บาร์โค้ดสำรอง 1'],
-      ['บาร์โค้ดผู้จำหน่าย','กรอกชื่อผู้จำหน่ายและบาร์โค้ดในหมายเลขชุดเดียวกัน เช่น ชื่อผู้จำหน่าย 1 คู่กับ บาร์โค้ดผู้จำหน่าย 1'],
-      ['หน่วยเพิ่มเติม','กรอกเป็นชุดหมายเลขเดียวกัน เช่น หน่วยเพิ่มเติม 1 พร้อมจำนวนบรรจุ 1 เทียบกับหน่วย 1 ราคา ทุน และบาร์โค้ด'],
-      ['ตัวอย่างหน่วย','1 กล่อง = 10 แผง: หน่วยเพิ่มเติม=กล่อง, จำนวนบรรจุ=10, เทียบกับหน่วย=แผง'],
-      ['หน่วยลำดับถัดไป','1 ลัง = 10 กล่อง: หน่วยเพิ่มเติม=ลัง, จำนวนบรรจุ=10, เทียบกับหน่วย=กล่อง'],
-      ['ภาษีมูลค่าเพิ่ม','กรอก ราคารวม VAT แล้ว, ราคายังไม่รวม VAT หรือ ไม่มี VAT'],
-      ['วันหมดอายุ','กรอกแบบ วัน/เดือน/ปี เช่น 31/12/2027'],
-      ['ข้อสำคัญ','อย่าเปลี่ยนชื่อหัวคอลัมน์ในแถวแรก'],
-    ];
-    const instructionSheet=XLSX.utils.aoa_to_sheet(instructions);
-    instructionSheet['!cols']=[{wch:24},{wch:90}];
-    XLSX.utils.book_append_sheet(workbook,instructionSheet,'วิธีกรอก');
-    XLSX.writeFile(workbook,'PEPOS-ตัวอย่างนำเข้าสินค้า.xlsx');
-    return;
-  }
-  const headers=Object.keys(example[0]);
-  const csv='\uFEFF'+headers.join(',')+'\n'+headers.map(key=>`"${String(example[0][key]).replace(/"/g,'""')}"`).join(',');
-  const link=document.createElement('a');
-  link.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-  link.download='PEPOS-ตัวอย่างนำเข้าสินค้า.csv';
-  link.click();
-  setTimeout(()=>URL.revokeObjectURL(link.href),1000);
-}
-async function applyImportedInventoryTargets(targets){
-  const grouped=new Map();
-  (targets||[]).forEach(target=>{
-    const warehouseId=Number(target.warehouseId)||Number(activeWarehouseId);
-    const expectedStock=Number(target.expectedStock)||0;
-    const targetStock=Number(target.targetStock)||0;
-    if(!warehouseId||targetStock===expectedStock) return;
-    const rows=grouped.get(warehouseId)||[];
-    rows.push({
-      productId:Number(target.productId),expectedStock,targetStock,
-      unitName:String(target.unitName||''),selectedLotId:null,
-      lotNumber:'',expiry:String(target.expiry||''),
-    });
-    grouped.set(warehouseId,rows);
-  });
-  for(const [warehouseId,rows] of grouped){
-    for(let index=0;index<rows.length;index+=500){
-      const data=await runStockOperation('post_inventory_count_adjustment_with_shortages',{
-        warehouseId,reason:'นำเข้าสินค้า Excel',note:'ปรับยอดจากไฟล์นำเข้า',sourceInspectionId:null,
-        lines:rows.slice(index,index+500),
-      });
-      (data?.balances||[]).forEach(balance=>updateInventoryBalanceLocal(balance.productId,balance.warehouseId,balance.stock));
-    }
-  }
-  if(grouped.size) await loadWarehouseInventoryFromSupabase([...grouped.keys()],{force:true});
-  return grouped.size;
-}
-
-async function importProductsFromExcel(file){
-  try{ await ensureXlsxLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบอ่าน Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
-  let workbook;
-  try{ workbook=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:false}); }
-  catch(error){ showToast('ไม่สามารถอ่านไฟล์ Excel นี้ได้'); return; }
-  const firstSheet=workbook.Sheets[workbook.SheetNames[0]];
-  const sourceRows=XLSX.utils.sheet_to_json(firstSheet,{defval:'',raw:true});
-  if(!sourceRows.length){ showToast('ไม่พบข้อมูลสินค้าในไฟล์'); return; }
-  // Import may target a warehouse other than the currently selected one.
-  // Load its authoritative balances first so optimistic stock checks are exact.
-  const inventoryReady=await loadWarehouseInventoryFromSupabase(accessibleWarehouses().map(warehouse=>warehouse.id),{force:true});
-  if(!inventoryReady){ showToast('โหลดสต๊อกล่าสุดก่อนนำเข้าไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่','danger-top'); return; }
-
-  // Track which product id currently "owns" each sku/barcode, so a row that
-  // edits an EXISTING product (matched via รหัสอ้างอิงระบบ or a matching sku)
-  // doesn't get flagged as conflicting with itself -- only a genuine clash
-  // with a DIFFERENT product blocks the row.
-  const skuOwner=new Map();
-  products.forEach(p=>{ const s=String(p.sku||'').trim().toLowerCase(); if(s) skuOwner.set(s,p.id); });
-  const barcodeOwner=new Map();
-  products.forEach(p=>{
-    [p.barcode,...(p.extraBarcodes||[]),...(p.vendorBarcodes||[]).map(v=>v.code),...(p.units||[]).map(u=>u.barcode)]
-      .map(c=>String(c||'').trim().toLowerCase()).filter(Boolean)
-      .forEach(c=>barcodeOwner.set(c,p.id));
-  });
-
-  const toCreate=[];
-  const toUpdate=[]; // {existing,data}
-  const skipped=[];
-  const seenInFile=new Set();
-  const reservedProductIds=new Set(products.map(product=>String(product.id)));
-  let stagedNextProductSkuNumber=nextProductSkuNumber;
-  sourceRows.forEach((row,index)=>{
-    const line=index+2;
-    const name=String(productImportValue(row,['ชื่อสินค้า','สินค้า','name'])).trim();
-    const unit=String(productImportValue(row,['หน่วยหลัก','หน่วย','unit'])).trim();
-    const priceRaw=productImportValue(row,['ราคาขาย (หน่วยหลัก)','ราคาขาย','ขาย','price']);
-    const price=productImportNumber(priceRaw,NaN);
-    const sku=String(productImportValue(row,['รหัสสินค้า','sku','code'])).trim();
-    const barcode=String(productImportValue(row,['บาร์โค้ดหลัก','บาร์โค้ด','barcode'])).trim();
-    const extraBarcodes=[];
-    const extraBarcodeUnits=[];
-    const vendorBarcodes=[];
-    const rawUnitRows=[];
-    for(let number=1;number<=10;number++){
-      const extraAliases=[`บาร์โค้ดสำรอง ${number}`,`บาร์โค้ดสำรอง${number}`,`บาร์โค้ดเพิ่มเติม ${number}`,`บาร์โค้ดเพิ่มเติม${number}`,`extrabarcode${number}`];
-      if(number===1) extraAliases.push('บาร์โค้ดสำรอง','บาร์โค้ดเพิ่มเติม','extrabarcode');
-      const extraCode=String(productImportValue(row,extraAliases)).trim();
-      if(extraCode){
-        const extraUnit=String(productImportValue(row,[`หน่วยของบาร์โค้ดสำรอง ${number}`,`หน่วยของบาร์โค้ดสำรอง${number}`,`หน่วยบาร์โค้ดเพิ่มเติม ${number}`,`หน่วยบาร์โค้ดเพิ่มเติม${number}`,`extrabarcodeunit${number}`])).trim()||unit;
-        extraBarcodes.push(extraCode);
-        extraBarcodeUnits.push(extraUnit);
-      }
-
-      const vendorNameAliases=[`ชื่อผู้จำหน่าย ${number}`,`ชื่อผู้จำหน่าย${number}`,`vendor${number}`];
-      const vendorCodeAliases=[`บาร์โค้ดผู้จำหน่าย ${number}`,`บาร์โค้ดผู้จำหน่าย${number}`,`บาร์โค้ด vendor ${number}`,`บาร์โค้ดvendor${number}`,`vendorbarcode${number}`];
-      if(number===1){ vendorNameAliases.push('ชื่อผู้จำหน่าย','vendor'); vendorCodeAliases.push('บาร์โค้ด vendor','บาร์โค้ดผู้จำหน่าย','vendorbarcode'); }
-      const vendor=String(productImportValue(row,vendorNameAliases)).trim();
-      const vendorCode=String(productImportValue(row,vendorCodeAliases)).trim();
-      if(vendorCode) vendorBarcodes.push({vendor:vendor||'ไม่ระบุ',code:vendorCode});
-
-      const unitAliases=[`หน่วยเพิ่มเติม ${number}`,`หน่วยเพิ่มเติม${number}`,`หน่วยย่อย ${number}`,`additionalunit${number}`];
-      if(number===1) unitAliases.push('หน่วยเพิ่มเติม','หน่วยย่อย','additionalunit');
-      const sub=String(productImportValue(row,unitAliases)).trim();
-      if(sub){
-        const per=productImportNumber(productImportValue(row,[`จำนวนบรรจุ ${number}`,`จำนวนบรรจุ${number}`,`จำนวนต่อหน่วย ${number}`,`จำนวนต่อหน่วย${number}`,`บรรจุ ${number}`,`per${number}`]),0);
-        const base=String(productImportValue(row,[`เทียบกับหน่วย ${number}`,`เทียบกับหน่วย${number}`,`อ้างอิงหน่วย ${number}`,`อ้างอิงหน่วย${number}`,`หน่วยฐาน ${number}`,`baseunit${number}`])).trim()||unit;
-        const unitPrice=productImportNumber(productImportValue(row,[`ราคาขายหน่วยเพิ่มเติม ${number}`,`ราคาขายหน่วยเพิ่มเติม${number}`,`ราคาขายหน่วย ${number}`,`ราคาขายหน่วย${number}`,`unitprice${number}`]),0);
-        const unitCost=productImportNumber(productImportValue(row,[`ราคาทุนหน่วยเพิ่มเติม ${number}`,`ราคาทุนหน่วยเพิ่มเติม${number}`,`ราคาทุนหน่วย ${number}`,`ราคาทุนหน่วย${number}`,`unitcost${number}`]),0);
-        const unitBarcode=String(productImportValue(row,[`บาร์โค้ดหน่วยเพิ่มเติม ${number}`,`บาร์โค้ดหน่วยเพิ่มเติม${number}`,`บาร์โค้ดหน่วย ${number}`,`บาร์โค้ดหน่วย${number}`,`unitbarcode${number}`])).trim();
-        if(per>0) rawUnitRows.push({sub,per,base,price:unitPrice,cost:unitCost,barcode:unitBarcode});
-      }
-    }
-    if(!name||!unit||!Number.isFinite(price)){ skipped.push(`แถว ${line}: ชื่อสินค้า หน่วย หรือราคาขายไม่ครบ`); return; }
-
-    let existing=null;
-    const systemId=productImportNumber(productImportValue(row,['รหัสอ้างอิงระบบ (ห้ามแก้)','รหัสอ้างอิงระบบ','systemid']),NaN);
-    if(Number.isFinite(systemId)) existing=products.find(p=>p.id===systemId)||null;
-    if(!existing&&sku) existing=products.find(p=>String(p.sku||'').trim().toLowerCase()===sku.toLowerCase())||null;
-    if(existing&&seenInFile.has(existing.id)){ skipped.push(`แถว ${line}: ซ้ำกับแถวก่อนหน้าในไฟล์เดียวกัน (${name})`); return; }
-
-    if(sku){
-      const owner=skuOwner.get(sku.toLowerCase());
-      if(owner!==undefined&&owner!==existing?.id){ skipped.push(`แถว ${line}: รหัสสินค้า ${sku} ซ้ำกับสินค้าอื่นที่มีอยู่แล้ว`); return; }
-    }
-    const rowBarcodes=[barcode,...extraBarcodes,...vendorBarcodes.map(item=>item.code),...rawUnitRows.map(item=>item.barcode)].filter(Boolean);
-    const normalizedRowBarcodes=rowBarcodes.map(code=>code.toLowerCase());
-    const repeatedInRow=normalizedRowBarcodes.find((code,position)=>normalizedRowBarcodes.indexOf(code)!==position);
-    if(repeatedInRow){ skipped.push(`แถว ${line}: บาร์โค้ด ${repeatedInRow} ซ้ำกันเองในแถวเดียวกัน`); return; }
-    const conflictBarcode=normalizedRowBarcodes.find(code=>{ const owner=barcodeOwner.get(code); return owner!==undefined&&owner!==existing?.id; });
-    if(conflictBarcode){ skipped.push(`แถว ${line}: บาร์โค้ด ${conflictBarcode} ซ้ำกับสินค้าอื่นที่มีอยู่แล้ว`); return; }
-
-    const category=String(productImportValue(row,['หมวดสินค้า','หมวดหลัก','category'])).trim()||'ไม่ทราบหมวดหมู่';
-    const brand=String(productImportValue(row,['ยี่ห้อ / หมวดย่อย','หมวดย่อย','ยี่ห้อ','brand'])).trim()||'ทั่วไป';
-    const warehouseValue=String(productImportValue(row,['คลังสินค้า','คลัง','warehouse'])).trim();
-    const warehouse=warehouses.find(item=>String(item.id)===warehouseValue||String(item.name||'').trim().toLowerCase()===warehouseValue.toLowerCase()||String(item.code||'').trim().toLowerCase()===warehouseValue.toLowerCase())||activeWarehouse()||warehouses[0];
-    const productUnits=rawUnitRows.map(item=>({...item,factor:resolveNetFactor(item.sub,rawUnitRows,unit)}));
-    let finalSku=sku||existing?.sku||'';
-    if(!finalSku){
-      const allocation=allocateReadableProductSku(skuOwner.keys(),stagedNextProductSkuNumber);
-      finalSku=allocation.sku;
-      stagedNextProductSkuNumber=allocation.nextSequence;
-    }
-    stagedNextProductSkuNumber=Math.max(stagedNextProductSkuNumber,productSkuSequenceNumber(finalSku)+1);
-    const data={
-      name,sku:finalSku,barcode,category,brand,unit,price,
-      cost:productImportNumber(productImportValue(row,['ราคาทุน (หน่วยหลัก)','ราคาทุน','ทุน','cost']),existing?.cost||0),
-      vat:parseProductVatMode(productImportValue(row,['ภาษีมูลค่าเพิ่ม','vat']),existing?.vat||'incl'),
-      stock:productImportNumber(productImportValue(row,['จำนวนคงเหลือ (หน่วยหลัก)','จำนวนคงเหลือ','คงเหลือ','stock']),existing?.stock||0),
-      expiry:productImportDate(productImportValue(row,['วันหมดอายุ','expiry','expiredate']))||existing?.expiry||'',
-      wh:existing?.wh||warehouse?.id||Number(activeWarehouseId)||1,
-      desc:String(productImportValue(row,['รายละเอียด','ข้อมูลเพิ่มเติม','description','desc'])).trim(),
-      extraBarcodes,extraBarcodeUnits,vendorBarcodes,multiunit:productUnits.length>0,units:productUnits,
-    };
-
-    if(existing){
-      seenInFile.add(existing.id);
-      skuOwner.set(finalSku.toLowerCase(),existing.id);
-      normalizedRowBarcodes.forEach(code=>barcodeOwner.set(code,existing.id));
-      toUpdate.push({existing,data,inventoryWarehouseId:warehouse?.id||Number(activeWarehouseId)});
-    }else{
-      const id=generateClientProductId(reservedProductIds);
-      reservedProductIds.add(String(id));
-      const product={
-        id,...data,
-        _clientCreateToken:generateProductCreateToken(),
-        type:'stock',hasOpening:false,openingDate:'',openingQty:0,openingCost:0,
-        lowAlert:true,lowMode:'default',threshold:DEFAULT_LOW_STOCK_THRESHOLD,
-      };
-      toCreate.push(product);
-      skuOwner.set(finalSku.toLowerCase(),id);
-      normalizedRowBarcodes.forEach(code=>barcodeOwner.set(code,id));
-    }
-  });
-
-  if(!toCreate.length&&!toUpdate.length){
-    alert(`ไม่สามารถนำเข้าสินค้าได้\n\n${skipped.slice(0,8).join('\n')}${skipped.length>8?`\nและอีก ${skipped.length-8} รายการ`:''}`);
-    return;
-  }
-  const confirmation=`พบข้อมูล ${sourceRows.length} แถว\nจะเพิ่มสินค้าใหม่ ${toCreate.length} รายการ\nจะอัปเดตสินค้าเดิม ${toUpdate.length} รายการ${skipped.length?`\nข้าม ${skipped.length} รายการที่ข้อมูลไม่ครบหรือซ้ำ`:''}\n\nยืนยันนำเข้าหรือไม่?`;
-  if(!confirm(confirmation)) return;
-  const importStockTargets=[
-    ...toCreate.map(product=>({productId:product.id,warehouseId:Number(product.wh)||Number(activeWarehouseId),expectedStock:0,targetStock:Number(product.stock)||0,unitName:product.unit,expiry:product.expiry||''})),
-    ...toUpdate.map(({existing,data,inventoryWarehouseId})=>({productId:existing.id,warehouseId:Number(inventoryWarehouseId)||Number(activeWarehouseId),expectedStock:Number(warehouseStock(existing.id,inventoryWarehouseId))||0,targetStock:Number(data.stock)||0,unitName:data.unit||existing.unit,expiry:data.expiry||''})),
-  ];
-  nextProductSkuNumber=stagedNextProductSkuNumber;
-  let contactsChanged=false;
-  [...toCreate,...toUpdate.map(u=>u.data)].forEach(product=>{
-    if(!categories.includes(product.category)) categories.push(product.category);
-    if(!brands.includes(product.brand)) brands.push(product.brand);
-    if(!units.includes(product.unit)) units.push(product.unit);
-    (product.units||[]).forEach(item=>{
-      if(item.sub&&!units.includes(item.sub)) units.push(item.sub);
-    });
-    (product.vendorBarcodes||[]).forEach(item=>{
-      const vendorName=String(item.vendor||'').trim();
-      if(!vendorName||vendorName==='ไม่ระบุ') return;
-      const existingContact=contacts.find(contact=>String(contact.name||'').trim().toLowerCase()===vendorName.toLowerCase());
-      if(existingContact){
-        if(!Array.isArray(existingContact.types)) existingContact.types=[];
-        if(!existingContact.types.includes('supplier')){
-          existingContact.types.push('supplier');
-          contactsChanged=true;
-        }
-        return;
-      }
-      contacts.push({
-        id:generateClientRecordId(contacts),name:vendorName,entity:'juristic',types:['supplier'],contactName:'',phone:'',email:'',taxId:'',creditDays:'',address:'',bank:'',bankAcc:'',note:'เพิ่มจากการนำเข้าสินค้า Excel'
-      });
-      contactsChanged=true;
-    });
-  });
-  if(contactsChanged) persistContacts();
-  toUpdate.forEach(({existing,data})=>{
-    const catalogExpiry=existing._catalogExpiry;
-    const currentStock=Number(existing.stock)||0;
-    Object.assign(existing,{...data,stock:currentStock,expiry:existing.expiry||''});
-    existing._catalogExpiry=catalogExpiry;
-  });
-  toCreate.forEach(product=>{ product.stock=0; product.expiry=''; });
-  products.push(...toCreate);
-  rebuildProductLookupMaps();
-  productPage=1;
-  const productCacheSaved=await persistWorkspaceData({productChanges:{insertedIds:toCreate.map(product=>product.id),updatedIds:toUpdate.map(entry=>entry.existing.id)}});
-  if(!productCacheSaved){ showToast('นำเข้าข้อมูลแล้ว แต่เก็บสำเนาสินค้าในเครื่องไม่สำเร็จ กรุณาอย่าเพิ่งปิดหน้านี้','danger-top'); return; }
-  await syncCoreDataToSupabase();
-  if(syncUiState!=='synced'){
-    showToast('บันทึกข้อมูลสินค้าแล้ว แต่ยังไม่ปรับสต๊อก เพราะซิงก์สินค้าไปเซิร์ฟเวอร์ไม่สำเร็จ กรุณากดซิงก์แล้วนำเข้าอีกครั้ง','danger-top');
-    render();
-    return;
-  }
-  try{
-    await applyImportedInventoryTargets(importStockTargets);
-  }catch(error){
-    console.error('apply imported inventory targets',error);
-    showToast(`นำเข้าข้อมูลสินค้าแล้ว แต่ปรับสต๊อกไม่สำเร็จ: ${error?.message||'กรุณาตรวจสอบรายการในหน้าตรวจนับและปรับสต๊อก'}`,'danger-top');
-    render();
-    return;
-  }
-  showToast(`นำเข้าสินค้าสำเร็จ · เพิ่มใหม่ ${toCreate.length} · อัปเดต ${toUpdate.length}${skipped.length?` · ข้าม ${skipped.length}`:''}`);
-  render();
-}
-
-async function exportProductsToExcel(){
-  try{ await ensureXlsxLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบส่งออก Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
-  if(!products.length){ showToast('ยังไม่มีข้อมูลให้ส่งออก'); return; }
-  const counts=productExcelColumnCounts(products);
-  const rows=products.map(product=>productToExcelRow(product,counts));
-  const sheet=XLSX.utils.json_to_sheet(rows);
-  sheet['!cols']=Object.keys(rows[0]).map(productExcelColumnWidth);
-  sheet['!autofilter']={ref:sheet['!ref']};
-  const workbook=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook,sheet,'สินค้า');
-  XLSX.writeFile(workbook,`PEPOS-รายการสินค้า-${TODAY_STR}.xlsx`);
-  showToast(`ส่งออกรายการสินค้า ${rows.length} รายการแล้ว`);
-}
 
 async function saveProduct(){
   const g = id => document.getElementById(id);
@@ -18511,7 +17920,7 @@ document.getElementById('warehouseChoiceForm')?.addEventListener('submit',event=
 document.getElementById('warehouseChoiceLogout')?.addEventListener('click',logoutSystem);
 
 sb.auth.onAuthStateChange((event)=>{
-  if(event==='SIGNED_OUT'){ clearActiveWarehouseSelection(); currentProfile=null; clearLoadedHistoryMemory(); resetRepresentativeManagedProductIndex(); notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; noteSearchQuery=''; notePageCursor=null; editingNoteId=null; noteDraft=null; noteDraftDirty=false; activeWarehouseId=0; allWarehousesMode=false; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); inventoryLotRows=[]; inventoryLotMap=new Map(); resetLoadedInventoryScopes(); renderLoginState(); }
+  if(event==='SIGNED_OUT'){ document.querySelector('.owner-recovery-setup-overlay')?.remove(); ownerRecoverySetupRequired=false; clearActiveWarehouseSelection(); currentProfile=null; clearLoadedHistoryMemory(); resetRepresentativeManagedProductIndex(); notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; noteSearchQuery=''; notePageCursor=null; editingNoteId=null; noteDraft=null; noteDraftDirty=false; activeWarehouseId=0; allWarehousesMode=false; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); inventoryLotRows=[]; inventoryLotMap=new Map(); resetLoadedInventoryScopes(); renderLoginState(); }
 });
 
 let mobileViewportResizeTimer=null;
@@ -18547,7 +17956,7 @@ function refreshMobileToolsOnResume(){
 }
 window.addEventListener('online',()=>{
   setSyncUiState('syncing');
-  if(loggedInUser()) syncCoreDataToSupabase();
+  if(loggedInUser()){ flushPendingClientEvents(); syncCoreDataToSupabase(); }
   setMobileDataStatus('online','กลับมาออนไลน์แล้ว');
   if(currentTab==='mobiletools'){ render(); refreshMobileToolsOnResume(); }
 });
@@ -18586,4 +17995,5 @@ window.addEventListener('error',event=>notifyRuntimeError('โปรแกรม
   if(currentProfile&&isMobileDeviceMode()) prepareMobileLandingPage();
   if(currentProfile){ try{ await loadWorkspaceFromSupabase(); }catch(e){ console.warn('load core data on boot failed',e); } }
   render();
+  if(currentProfile){ flushPendingClientEvents(); await enforceOwnerRecoverySetup(); checkOwnerDatabaseHealth(); }
 })();

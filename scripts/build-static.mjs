@@ -34,8 +34,8 @@ function renderVersionedTemplate(template, assetVersion, name) {
   return rendered
 }
 
-export async function prepareTextAssets({ appSource, stylesSource, indexTemplate, workerTemplate, versionInputs = [] }) {
-  const [appResult, stylesResult] = await Promise.all([
+export async function prepareTextAssets({ appSource, excelToolsSource = '', stylesSource, indexTemplate, workerTemplate, versionInputs = [] }) {
+  const [appResult, excelToolsResult, stylesResult] = await Promise.all([
     transform(appSource, {
       loader: 'js',
       target: 'es2020',
@@ -46,6 +46,7 @@ export async function prepareTextAssets({ appSource, stylesSource, indexTemplate
       // The regression test guards the generated inline-HTML callback name.
       minify: true,
     }),
+    transform(excelToolsSource, { loader: 'js', target: 'es2020', charset: 'utf8', legalComments: 'none', minify: true }),
     transform(stylesSource, {
       loader: 'css',
       target: 'chrome100',
@@ -56,12 +57,13 @@ export async function prepareTextAssets({ appSource, stylesSource, indexTemplate
   ])
 
   const hash = createHash('sha256')
-  ;[appResult.code, stylesResult.code, indexTemplate, workerTemplate, ...versionInputs]
+  ;[appResult.code, excelToolsResult.code, stylesResult.code, indexTemplate, workerTemplate, ...versionInputs]
     .forEach(input => addVersionInput(hash, input))
   const assetVersion = hash.digest('hex').slice(0, 16)
 
   return {
     appCode: appResult.code,
+    excelToolsCode: excelToolsResult.code,
     stylesCode: stylesResult.code,
     indexHtml: renderVersionedTemplate(indexTemplate, assetVersion, 'index.html'),
     workerCode: renderVersionedTemplate(workerTemplate, assetVersion, 'sw.js'),
@@ -74,8 +76,9 @@ export async function buildStatic() {
     throw new Error('Refusing to write outside the project directory')
   }
 
-  const [appSource, stylesSource, indexTemplate, workerTemplate, ...staticContents] = await Promise.all([
+  const [appSource, excelToolsSource, stylesSource, indexTemplate, workerTemplate, ...staticContents] = await Promise.all([
     readFile(join(projectRoot, 'app.js'), 'utf8'),
+    readFile(join(projectRoot, 'excel-tools.js'), 'utf8'),
     readFile(join(projectRoot, 'styles.css'), 'utf8'),
     readFile(join(projectRoot, 'index.html'), 'utf8'),
     readFile(join(projectRoot, 'sw.js'), 'utf8'),
@@ -83,6 +86,7 @@ export async function buildStatic() {
   ])
   const prepared = await prepareTextAssets({
     appSource,
+    excelToolsSource,
     stylesSource,
     indexTemplate,
     workerTemplate,
@@ -93,6 +97,7 @@ export async function buildStatic() {
   await mkdir(outputDirectory, { recursive: true })
   await Promise.all([
     writeFile(join(outputDirectory, 'app.js'), prepared.appCode),
+    writeFile(join(outputDirectory, 'excel-tools.js'), prepared.excelToolsCode),
     writeFile(join(outputDirectory, 'styles.css'), prepared.stylesCode),
     writeFile(join(outputDirectory, 'index.html'), prepared.indexHtml),
     writeFile(join(outputDirectory, 'sw.js'), prepared.workerCode),
@@ -101,7 +106,7 @@ export async function buildStatic() {
 
   const jsSaving = Math.round((1 - prepared.appCode.length / appSource.length) * 100)
   const cssSaving = Math.round((1 - prepared.stylesCode.length / stylesSource.length) * 100)
-  console.log(`Prepared ${staticDeployFiles.length + 4} public files (asset ${prepared.assetVersion}; JS -${jsSaving}%; CSS -${cssSaving}%)`)
+  console.log(`Prepared ${staticDeployFiles.length + 5} public files (asset ${prepared.assetVersion}; JS -${jsSaving}%; CSS -${cssSaving}%)`)
 }
 
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : ''

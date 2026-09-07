@@ -212,7 +212,7 @@ async function run() {
   const persistence = section('function persistWorkspaceData(options={}){', 'function schedulePersistWorkspaceData(){');
   assert.match(persistence, /productCachePromise\.then\(saved=>\{ if\(saved\) scheduleSupabaseCoreSync\(\); \}\)/, 'product network sync must wait for the durable token/cache write');
 
-  const reconcile = section('function reconcileProductDirtyOperationsWithManifest(', 'function mergeRemoteProductsWithDirtyLocal(');
+  const reconcile = section('function reconcileProductDirtyOperationsWithRemoteIds(', 'async function loadProductRowsFromSupabase(');
   assert.doesNotMatch(reconcile, /operation==='insert'[\s\S]*?set\(id,'update'\)/, 'a colliding dirty insert must never become an overwrite-capable update');
 
   const excelImport = section('async function importProductsFromExcel(', 'async function exportProductsToExcel(');

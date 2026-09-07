@@ -27,37 +27,11 @@ const productMetadataUpdate = html.slice(productSyncStart, productSyncEnd);
 assert.match(productMetadataUpdate, /from\('products'\)\.update\(changes\)\.eq\('id',id\)/);
 assert.doesNotMatch(productMetadataUpdate, /\.upsert\(/, 'existing product metadata must not upsert a missing stock column');
 
-const manifestLogicStart = html.indexOf('function productManifestVersions(');
-const manifestLogicEnd = html.indexOf('async function fetchProductManifestRows(', manifestLogicStart);
-const manifestLogic = html.slice(manifestLogicStart, manifestLogicEnd);
-assert.ok(manifestLogicStart >= 0 && manifestLogicEnd > manifestLogicStart);
-assert.match(html, /const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v4'/, 'recovery release must invalidate the barcode-less local product cache');
-assert.match(html, /const PRODUCT_MANIFEST_VERSION=4/);
-const manifestSandbox = { PRODUCT_MANIFEST_VERSION: 4 };
-vm.createContext(manifestSandbox);
-vm.runInContext(`${manifestLogic}; this.planProductManifestSync=planProductManifestSync;`, manifestSandbox);
-const plan = manifestSandbox.planProductManifestSync;
-assert.equal(plan([{id:1}], null, [{id:1,updated_at:'a'}], true).fullReload, true);
-assert.deepEqual(
-  JSON.parse(JSON.stringify(plan(
-    [{id:1},{id:2},{id:4}],
-    {version:4,versions:{'1':'a','2':'old','4':'d'}},
-    [{id:1,updated_at:'a'},{id:2,updated_at:'b'},{id:3,updated_at:'c'}],
-    true
-  ))),
-  {fullReload:false,changedIds:[2,3],deletedIds:[4]}
-);
-assert.deepEqual(
-  JSON.parse(JSON.stringify(plan(
-    [{id:1},{id:2},{id:4}],
-    {version:4,versions:{'1':'a','2':'old','4':'d'}},
-    [{id:1,updated_at:'a'},{id:2,updated_at:'b'},{id:3,updated_at:'c'}],
-    true,
-    new Map([['2','update'],['4','insert']])
-  ))),
-  {fullReload:false,changedIds:[3],deletedIds:[]},
-  'dirty local products must survive remote manifest changes and absences'
-);
+assert.match(html, /const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v5'/, 'delta-sync release must invalidate the old full-manifest cache');
+assert.match(html, /const PRODUCT_MANIFEST_VERSION=5/);
+assert.match(html,/function fetchProductChangesAfter\(changeCursor\)/);
+assert.match(html,/\.gt\('change_id',cursor\)/);
+assert.match(html,/productDirtyOperations\.has\(String\(change\.product_id\)\)/,'dirty local products must survive remote delta changes');
 const coreLoadStart = html.indexOf('async function loadCoreDataFromSupabase(');
 const coreLoadEnd = html.indexOf('// ----- Sales history sync', coreLoadStart);
 const coreLoad = html.slice(coreLoadStart, coreLoadEnd);
