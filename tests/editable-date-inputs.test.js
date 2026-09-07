@@ -6,6 +6,9 @@ assert.match(source, /function formatDMYInput\(value\)[\s\S]{0,320}replace\(\/\\
 assert.match(source, /\$\{digits\.slice\(0,2\)\}\/\$\{digits\.slice\(2,4\)\}/, 'วันที่ต้องเติมเครื่องหมาย / ให้อัตโนมัติ');
 assert.match(source, /const value=formatDMYInput\(txt\.value\)/, 'ช่องวันที่ทั้งหมดต้องใช้ตัวจัดรูปแบบเดียวกัน');
 assert.match(source, /bindDmyDateFields\(\);/, 'ต้องเปิดใช้งานตัวจัดรูปแบบวันที่ส่วนกลาง');
+assert.match(source, /class="dmy-cal-trigger"/, 'ปฏิทินต้องเป็นปุ่มแยกจากช่องพิมพ์วันที่');
+assert.match(source, /event\.target\.closest\?\.\('\.dmy-cal-trigger'\)/, 'การเปิดปฏิทินต้องทำผ่านปุ่มปฏิทิน');
+assert.match(source, /\.dmy-native\{[^}]*pointer-events:none/, 'ช่องวันที่ของเบราว์เซอร์ต้องไม่วางทับและขวางการพิมพ์');
 
 const editableDateInputs = [
   'po_supplier_tax_invoice_date',

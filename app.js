@@ -1969,7 +1969,7 @@ function dmyDateFieldHtml(id, isoValue, opts){
   const reqAttr = opts.required ? '' : '';
   return `<span class="dmy-field ${extraClass}">
     <input type="text" class="rpt-select dmy-input ${extraClass}" id="${id}" value="${isoToDMY(isoValue)}" placeholder="วว/ดด/ปปปป" inputmode="numeric" maxlength="10" autocomplete="off" ${readonly}>
-    ${readonly?'':`<svg class="dmy-cal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    ${readonly?'':`<button type="button" class="dmy-cal-trigger" aria-label="เลือกวันที่จากปฏิทิน"><svg class="dmy-cal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg></button>
     <input type="date" class="dmy-native" data-target="${id}" value="${isoValue||''}" tabindex="-1" aria-hidden="true">`}
   </span>`;
 }
@@ -1986,9 +1986,15 @@ function bindDmyDateFields(){
     if(nativeInput&&iso) nativeInput.value=iso;
   });
   document.addEventListener('click',event=>{
-    const nativeInput=event.target.closest?.('.dmy-native');
-    if(!nativeInput||typeof nativeInput.showPicker!=='function') return;
-    try{ nativeInput.showPicker(); }catch(error){}
+    const trigger=event.target.closest?.('.dmy-cal-trigger');
+    if(!trigger) return;
+    event.preventDefault();
+    const nativeInput=trigger.parentElement?.querySelector?.('.dmy-native');
+    if(!nativeInput) return;
+    try{
+      if(typeof nativeInput.showPicker==='function') nativeInput.showPicker();
+      else nativeInput.click();
+    }catch(error){}
   });
   document.addEventListener('change',event=>{
     const nativeInput=event.target.closest?.('.dmy-native');
