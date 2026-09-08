@@ -43,7 +43,7 @@ assert.ok(rowHtml.indexOf('class="eb_unit"') < rowHtml.indexOf('class="eb_code"'
 const formStart = html.indexOf('function renderProductForm()');
 const formEnd = html.indexOf('function renderWarehouse()', formStart);
 const formSource = html.slice(formStart, formEnd);
-const productPricingPanelStart = formSource.indexOf('<div class="panel product-pricing-panel">');
+const productPricingPanelStart = formSource.indexOf('<div class="panel product-pricing-panel ');
 const productDataPanel = formSource.slice(formSource.indexOf('ข้อมูลสินค้า'), productPricingPanelStart);
 const unitPanel = formSource.slice(productPricingPanelStart, formSource.indexOf('บาร์โค้ดเพิ่มเติม'));
 for (const id of ['f_price', 'f_cost', 'f_stock']) {

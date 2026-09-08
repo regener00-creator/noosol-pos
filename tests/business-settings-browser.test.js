@@ -109,9 +109,19 @@ const browserExecutable = [
     const barcode=document.querySelector('#f_barcode').getBoundingClientRect();
     const element=document.querySelector('#changeBaseUnitBtn');
     const button=element.getBoundingClientRect();
-    return {sameTop:Math.abs(barcode.top-button.top)<3,afterBarcode:button.left>barcode.right,background:getComputedStyle(element).backgroundColor};
+    return {sameCenter:Math.abs(barcode.top+barcode.height/2-button.top-button.height/2)<3,afterBarcode:button.left>barcode.right,background:getComputedStyle(element).backgroundColor};
   });
-  assert.deepEqual(desktopBaseUnitAction,{sameTop:true,afterBarcode:true,background:'rgb(79, 64, 56)'},'ปุ่มเปลี่ยนหน่วยหลักต้องอยู่ต่อจากเลขบาร์โค้ดและเป็นสีน้ำตาล');
+  assert.deepEqual(desktopBaseUnitAction,{sameCenter:true,afterBarcode:true,background:'rgb(79, 64, 56)'},'ปุ่มเปลี่ยนหน่วยหลักต้องอยู่ต่อจากเลขบาร์โค้ดและเป็นสีน้ำตาล');
+  await page.evaluate(()=>{document.querySelector('#multiunitBody').style.display='block';});
+  const alignedUnitFields=await page.evaluate(()=>{
+    const rect=selector=>document.querySelector(selector).getBoundingClientRect();
+    const pairs=[['#f_unit','.unitrow-eq'],['#f_price','.u_price'],['#f_cost','.u_cost'],['#f_stock','.u_stock'],['#f_barcode','.u_barcode'],['#changeBaseUnitBtn','.u_del']];
+    return pairs.map(([a,b])=>{const x=rect(a),y=rect(b);return {a,widthDiff:Math.abs(x.width-y.width),leftDiff:Math.abs(x.left-y.left),heightDiff:Math.abs(x.height-y.height)};});
+  });
+  for(const pair of alignedUnitFields){
+    assert.ok(pair.widthDiff<1&&pair.leftDiff<1,`${pair.a} must align with corresponding extra-unit field: ${JSON.stringify(pair)}`);
+    if(pair.a!=='#f_unit')assert.ok(pair.heightDiff<1,`${pair.a} must match height`);
+  }
   await page.screenshot({path:path.join(os.tmpdir(),'pepos-product-form-browser.png'),fullPage:true});
   await page.setViewportSize({width:390,height:844});
   const mobileProductFieldRows=await page.evaluate(() => {
@@ -128,9 +138,9 @@ const browserExecutable = [
   const mobileBaseUnitAction=await page.evaluate(() => {
     const barcode=document.querySelector('#f_barcode').getBoundingClientRect();
     const button=document.querySelector('#changeBaseUnitBtn').getBoundingClientRect();
-    return {belowBarcode:button.top>barcode.bottom,fullWidth:Math.abs(button.width-barcode.width)<2};
+    return {belowBarcode:button.top>barcode.bottom,compact:button.width===26&&button.height===26};
   });
-  assert.deepEqual(mobileBaseUnitAction,{belowBarcode:true,fullWidth:true},'ปุ่มเปลี่ยนหน่วยหลักบนมือถือต้องอยู่ใต้เลขบาร์โค้ดและกว้างเต็มแถว');
+  assert.deepEqual(mobileBaseUnitAction,{belowBarcode:true,compact:true},'ปุ่มเปลี่ยนหน่วยหลักบนจอแคบต้องอยู่ใต้เลขบาร์โค้ดและมีขนาดเท่าปุ่มลบ');
   await page.screenshot({path:path.join(os.tmpdir(),'pepos-product-form-mobile-browser.png'),fullPage:true});
   await page.setViewportSize({width:1440,height:1000});
 
