@@ -8602,6 +8602,20 @@ function mobilePriceEditPayload(product,unitName,values,warehouseId,lotId=null){
   const expiry=expiryText?dmyToISO(expiryText):null;
   if(expiryText&&!expiry) return {error:'กรุณากรอกวันหมดอายุเป็น วัน/เดือน/ปี เช่น 05/07/2027'};
   const nextProduct={...product,units:(product.units||[]).map(unit=>({...unit}))};
+  if(values?.reviewStatus!==undefined){
+    if(!['normal','complete','pending'].includes(values.reviewStatus)) return {error:'สถานะสีสินค้าไม่ถูกต้อง'};
+    const requestedStatus=values.reviewStatus==='normal'?'':values.reviewStatus;
+    if(requestedStatus!==productDataReviewStatus(product)){
+      const reviewFields=['dataReviewStatus','dataReviewUpdatedAt','dataReviewUpdatedBy','dataReviewedAt','dataReviewedBy'];
+      reviewFields.forEach(field=>{ delete nextProduct[field]; });
+      if(requestedStatus){
+        const changedAt=new Date().toISOString();
+        const changedBy=currentPharmacistName()||String(loggedInUser()?.username||'').trim();
+        Object.assign(nextProduct,{dataReviewStatus:requestedStatus,dataReviewUpdatedAt:changedAt,dataReviewUpdatedBy:changedBy});
+        if(requestedStatus==='complete') Object.assign(nextProduct,{dataReviewedAt:changedAt,dataReviewedBy:changedBy});
+      }
+    }
+  }
   if(selected.name===product.unit){
     nextProduct.price=priceValue.value;
     nextProduct.cost=costValue.value;
@@ -8654,6 +8668,9 @@ function mobilePriceResultHtml(){
       <div class="mobile-price-edit-field" style="grid-column:1/-1;"><label for="mobilePriceEditExpiry">วันหมดอายุของ Lot ที่เลือก</label><input id="mobilePriceEditExpiry" class="mobile-price-edit-input dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(selectedLotExpiry))}" ${selectedLot?'':'disabled'}></div>
       <div class="mobile-price-lot-hint" id="mobilePriceLotHint">${escapeHtml(lotHint)}</div>
     </div>
+    <div class="mobile-price-review-colors" role="group" aria-label="สีสถานะสินค้า">
+      ${[['normal','สีปกติ'],['complete','สีเขียว'],['pending','สีเหลือง']].map(([value,label])=>`<button type="button" class="product-review-filter" data-mobile-review-status="${value}" aria-pressed="${(productDataReviewStatus(product)||'normal')===value}"><span class="product-review-filter-dot" aria-hidden="true"></span>${label}</button>`).join('')}
+    </div>
     <button type="button" class="mobile-price-edit-save" id="mobilePriceSaveChanges" ${mobileIsOnline()?'':'disabled'}>${mobileIsOnline()?'บันทึกการแก้ไข':'ออฟไลน์ — ยังบันทึกไม่ได้'}</button><div class="mobile-price-edit-status" id="mobilePriceEditStatus"></div>`:`<div class="mobile-metrics">
       <div class="mobile-metric primary"><span>คงเหลือ</span><b id="mobilePriceStock">${inspectionListAmount(selectedStock)} ${escapeHtml(selected?.name||product.unit)}</b></div>
       <div class="mobile-metric"><span>ราคาขาย</span><b id="mobilePriceSale">${fmtMoney(selected?.price||0)} บาท</b></div>
@@ -8673,11 +8690,14 @@ async function saveMobilePriceChanges(){
   const payload=mobilePriceEditPayload(product,mobilePriceUnitName,{
     price:document.getElementById('mobilePriceEditSale')?.value,
     cost:document.getElementById('mobilePriceEditCost')?.value,
-    expiry:document.getElementById('mobilePriceEditExpiry')?.value
+    expiry:document.getElementById('mobilePriceEditExpiry')?.value,
+    reviewStatus:document.querySelector('[data-mobile-review-status][aria-pressed="true"]')?.dataset.mobileReviewStatus
   },activeWarehouseId,document.getElementById('mobilePriceLot')?.value||mobilePriceLotId);
   if(payload.error){ showToast(payload.error,'danger-top'); return false; }
   if(!payload.warehouseId){ showToast('กรุณาเลือกคลังสินค้าก่อนแก้ไขข้อมูล','danger-top'); return false; }
   const button=document.getElementById('mobilePriceSaveChanges');
+  const reviewButtons=[...document.querySelectorAll('[data-mobile-review-status]')];
+  reviewButtons.forEach(btn=>{ btn.disabled=true; });
   if(button){ button.disabled=true; button.textContent='กำลังบันทึก...'; }
   setMobileDataStatus('saving');
   try{
@@ -8693,6 +8713,10 @@ async function saveMobilePriceChanges(){
     });
     if(error) throw error;
     Object.assign(product,payload.product);
+    // Object.assign alone cannot clear fields omitted when returning to normal.
+    ['dataReviewStatus','dataReviewUpdatedAt','dataReviewUpdatedBy','dataReviewedAt','dataReviewedBy'].forEach(field=>{
+      if(!Object.hasOwn(payload.product,field)) delete product[field];
+    });
     updateInventoryBalanceLocal(product.id,payload.warehouseId,Number(data?.stock??payload.stock),data?.expiry||'');
     await loadInventoryLotsFromSupabase();
     const dirtyOperation=productDirtyOperations.get(String(product.id));
@@ -8716,6 +8740,7 @@ async function saveMobilePriceChanges(){
     showToast(error?.message||'บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่','danger-top');
     return false;
   }finally{
+    reviewButtons.forEach(btn=>{ if(btn.isConnected) btn.disabled=false; });
     if(button?.isConnected){ button.disabled=!mobileIsOnline(); button.textContent=mobileIsOnline()?'บันทึกการแก้ไข':'ออฟไลน์ — ยังบันทึกไม่ได้'; }
   }
 }
@@ -12545,6 +12570,16 @@ function attachMobilePriceResultEvents(){
       : 'สินค้านี้มีหลาย Lot กรุณาเลือก Lot ที่ต้องการแก้วันหมดอายุ';
   });
   document.getElementById('mobilePriceSaveChanges')?.addEventListener('click',saveMobilePriceChanges);
+  document.querySelectorAll('[data-mobile-review-status]').forEach(button=>{
+    button.addEventListener('click',()=>{
+      if(!canEditMobilePrice()) return;
+      document.querySelectorAll('[data-mobile-review-status]').forEach(option=>{
+        option.setAttribute('aria-pressed',String(option===button));
+      });
+      const status=document.getElementById('mobilePriceEditStatus');
+      if(status) status.textContent='เลือกสีแล้ว — กดบันทึกการแก้ไขเพื่อซิงก์กับคอม';
+    });
+  });
 }
 function syncProductExchangeFromDOM(){
   const draft=productExchangeDraft; if(!draft) return;

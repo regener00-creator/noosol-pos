@@ -1,0 +1,101 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const http=require('node:http');
+const {chromium}=require('playwright');
+const root=path.join(__dirname,'..');
+const server=http.createServer((req,res)=>{
+  const file=path.join(root,new URL(req.url,'http://localhost').pathname.replace(/^\//,'')||'index.html');
+  if(!file.startsWith(root+path.sep)||!fs.existsSync(file)){res.writeHead(404).end();return;}
+  const mime={'.html':'text/html','.js':'text/javascript','.css':'text/css','.webmanifest':'application/manifest+json'};
+  res.writeHead(200,{'Content-Type':(mime[path.extname(file)]||'application/octet-stream')+'; charset=utf-8'});
+  fs.createReadStream(file).pipe(res);
+});
+let browser;
+(async()=>{
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const executablePath=[process.env.PEPOS_BROWSER_EXECUTABLE,'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'].find(p=>p&&fs.existsSync(p))||chromium.executablePath();
+  browser=await chromium.launch({headless:true,executablePath});
+  const page=await browser.newPage({viewport:{width:390,height:844}});
+  const errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  await page.route('https://**/*',route=>{
+    if(route.request().url().includes('/npm/@supabase/')) return route.fulfill({contentType:'text/javascript',body:`
+      const query=new Proxy({}, {get(t,p){if(p==='then')return resolve=>resolve({data:null,error:null});return ()=>query;}});
+      window.supabase={createClient:()=>new Proxy({auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})}},{get(t,p){return p in t?t[p]:()=>query;}})};
+    `});
+    return route.fulfill({body:'',contentType:'text/plain'});
+  });
+  await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:'domcontentloaded'});
+  await page.waitForFunction(()=>typeof mobilePriceResultHtml==='function');
+  await page.evaluate(()=>{
+    document.querySelectorAll('.login-screen').forEach(el=>el.style.display='none');
+    currentProfile={id:'owner-test',owner:true,level:1,firstName:'Owner'};
+    products=[{id:9101,name:'Product A',sku:'A',unit:'กล่อง',price:100,cost:60,stock:25,units:[],active:true},{id:9102,name:'Product B',sku:'B',unit:'กล่อง',price:50,cost:30,stock:10,units:[],active:true}];
+    activeWarehouseId=1;warehouses=[{id:1,name:'Test'}];inventoryLots=[];
+    window.rpcCalls=[];window.failSave=false;
+    sb.rpc=async(name,args)=>{
+      window.rpcCalls.push({name,args});
+      if(window.failSave)return {error:{message:'Simulated save failure'}};
+      window.savedProductRow={...productMetadataToRow(products.find(p=>p.id===args.p_product_id)),data:args.p_product_data,price:args.p_price,cost:args.p_cost};
+      return {data:{stock:25,expiry:null},error:null};
+    };
+    loadInventoryLotsFromSupabase=async()=>{};
+    persistProductsToIndexedDB=async()=>true;
+    persistWorkspaceData=async()=>true;
+    window.showMobileProduct=id=>{
+      mobileSelectPriceProduct(products.find(p=>p.id===id));
+      document.getElementById('main').innerHTML=mobilePriceResultHtml();
+      attachMobilePriceResultEvents();
+    };
+    window.showMobileProduct(9101);
+  });
+  const color=value=>page.locator(`[data-mobile-review-status="${value}"]`);
+  const save=page.locator('#mobilePriceSaveChanges');
+  assert.equal(await color('normal').getAttribute('aria-pressed'),'true');
+  const boxes=await page.locator('[data-mobile-review-status]').evaluateAll(buttons=>buttons.map(b=>{const r=b.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};}));
+  assert.equal(boxes.length,3);
+  assert.ok(boxes.every(b=>b.y===boxes[0].y&&b.height>=44),'three touch-friendly buttons on same row');
+  assert.ok(boxes[2].x+boxes[2].width<=390,'no horizontal overflow');
+  assert.ok((await save.boundingBox()).y>boxes[0].y+boxes[0].height,'above save button');
+  await page.locator('#mobilePriceEditSale').fill('105');
+  await color('complete').click();
+  assert.equal(await page.locator('#mobilePriceEditSale').inputValue(),'105','color selection preserves other edits');
+  assert.equal(await page.evaluate(()=>window.rpcCalls.length),0,'selection alone does not save');
+  assert.equal(await page.evaluate(()=>products[0].dataReviewStatus),undefined);
+  await save.click();
+  await page.waitForFunction(()=>products[0].dataReviewStatus==='complete');
+  assert.equal(await page.evaluate(()=>window.rpcCalls[0].args.p_product_data.dataReviewStatus),'complete');
+  assert.equal(await page.evaluate(()=>window.rpcCalls[0].name),'owner_update_mobile_product_details');
+  assert.equal(await page.evaluate(()=>Object.hasOwn(window.rpcCalls[0].args,'p_stock')),false);
+  assert.equal(await page.evaluate(()=>products[0].stock),25);
+  await page.evaluate(()=>{
+    const fromOtherDevice=rowToProduct(window.savedProductRow);
+    products=[fromOtherDevice,products[1]];searchQuery='Product A';selectedGroup=null;editingProductId=null;
+    representativeManagedProductIndexLoaded=true;representativeManagedProductIndexLoadedAt=Date.now();
+    document.getElementById('main').innerHTML=renderProducts();
+  });
+  assert.equal(await page.locator('.product-reviewed-row').count(),1,'database payload reloaded on desktop renders green');
+  await page.evaluate(()=>window.showMobileProduct(9101));
+  await color('pending').click();await save.click();
+  await page.waitForFunction(()=>products[0].dataReviewStatus==='pending');
+  assert.equal(await page.evaluate(()=>products[0].dataReviewedAt),undefined);
+  await color('normal').click();await save.click();
+  await page.waitForFunction(()=>!products[0].dataReviewStatus);
+  assert.equal(await page.evaluate(()=>productDataReviewStatus(rowToProduct(window.savedProductRow))),'','normal must not retain green fields on another device');
+  await color('complete').click();
+  await page.evaluate(()=>window.failSave=true);
+  await save.click();
+  await page.waitForFunction(()=>mobileDataStatusState==='error');
+  assert.equal(await page.evaluate(()=>productDataReviewStatus(products[0])),'','failed save does not change saved color');
+  assert.equal(await color('complete').isEnabled(),true);
+  await page.evaluate(()=>window.showMobileProduct(9102));
+  assert.equal(await color('normal').getAttribute('aria-pressed'),'true','next product does not inherit draft');
+  await page.evaluate(()=>{currentProfile={id:'staff',owner:false,level:2};window.showMobileProduct(9102);});
+  assert.equal(await page.locator('[data-mobile-review-status]').count(),0,'preserve existing owner-only editing permissions');
+  assert.deepEqual(errors,[]);
+  console.log('mobile review colors browser tests passed');
+})().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
+  if(browser)await browser.close();
+  await new Promise(resolve=>server.close(resolve));
+});

@@ -34,6 +34,8 @@ const payloadEnd = html.indexOf('function mobilePriceResultHtml(', payloadStart)
 assert.ok(payloadStart >= 0 && payloadEnd > payloadStart, 'ไม่พบฟังก์ชันคำนวณข้อมูลแก้ไขราคาบนมือถือ');
 
 const context = {
+  currentPharmacistName:()=> 'เจ้าของทดสอบ',
+  loggedInUser:()=>({username:'owner'}),
   inspectionListUnitOptions(product) {
     return [
       { name: product.unit, factor: 1, price: product.price, cost: product.cost },
@@ -42,6 +44,8 @@ const context = {
   },
 };
 vm.createContext(context);
+const reviewStart=html.indexOf('function productDataReviewStatus(');
+vm.runInContext(html.slice(reviewStart,html.indexOf('function isProductDataReviewed(',reviewStart)),context);
 const dateStart = html.indexOf('function dmyToISO(');
 const dateEnd = html.indexOf('function dmyDateFieldHtml(', dateStart);
 assert.ok(dateStart >= 0 && dateEnd > dateStart, 'ไม่พบฟังก์ชันแปลงวันที่ที่พิมพ์เอง');
@@ -87,3 +91,19 @@ assert.match(context.mobilePriceEditPayload(product, 'กล่อง', { price:
 assert.equal(context.mobilePriceEditPayload(product, 'กล่อง', { price: 1, cost: 1, expiry: '5/7/2027' }, 1, 91).expiry, '2027-07-05');
 
 console.log('mobile price edit tests passed');
+const values={price:100,cost:60,expiry:'',reviewStatus:'complete'};
+const green=context.mobilePriceEditPayload(product,'กล่อง',values,1).product;
+assert.equal(green.dataReviewStatus,'complete');
+assert.ok(green.dataReviewedAt);
+assert.equal(green.dataReviewedBy,'เจ้าของทดสอบ');
+assert.equal(product.dataReviewStatus,undefined,'draft must not mutate saved product');
+assert.equal(context.mobilePriceEditPayload(green,'กล่อง',values,1).product.dataReviewedAt,green.dataReviewedAt,'same color keeps timestamp');
+const yellow=context.mobilePriceEditPayload(green,'กล่อง',{...values,reviewStatus:'pending'},1).product;
+assert.equal(yellow.dataReviewStatus,'pending');
+assert.equal(yellow.dataReviewedAt,undefined,'yellow clears legacy green marker');
+const normal=context.mobilePriceEditPayload(green,'กล่อง',{...values,reviewStatus:'normal'},1).product;
+assert.equal(normal.dataReviewStatus,undefined);
+assert.equal(normal.dataReviewedAt,undefined);
+assert.equal(normal.dataReviewedBy,undefined);
+assert.match(context.mobilePriceEditPayload(product,'กล่อง',{...values,reviewStatus:'invalid'},1).error,/สถานะสี/);
+assert.ok(html.indexOf('class="mobile-price-review-colors"')<html.indexOf('id="mobilePriceSaveChanges"'),'color buttons above save');
