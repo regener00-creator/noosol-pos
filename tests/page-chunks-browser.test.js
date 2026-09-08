@@ -23,16 +23,21 @@ let browser;
   const page=await context.newPage();const errors=[],chunks=[];
   page.on('pageerror',error=>errors.push(error.message));
   page.on('request',request=>{if(/\/page-[a-z]+\.js/.test(request.url())) chunks.push(request.url());});
-  await page.route('https://**',route=>{
+  await page.route('https://**/*',route=>{
     if(route.request().url().includes('/@supabase/')) return route.fulfill({contentType:'text/javascript',body:`(()=>{const q=new Proxy({}, {get(_t,k){return k==='then'?(resolve=>resolve({data:[],error:null})):(()=>q);}});window.supabase={createClient:()=>new Proxy({auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})}},{get:(t,k)=>k in t?t[k]:(()=>q)})};})();`});
     return route.fulfill({body:'',contentType:'text/plain'});
   });
   await page.goto(`http://127.0.0.1:${server.address().port}/`);
   await page.waitForFunction(()=>typeof render==='function');
+  assert.equal(await page.evaluate(()=>!!sb?.auth),true,'isolated Supabase client must be installed before testing routes');
   assert.equal(chunks.length,0,'login does not request desktop page code');
   assert.equal(await page.evaluate(()=>typeof window.renderProducts),'undefined');
   await page.evaluate(()=>{
     currentProfile={id:'isolated-test',level:1,owner:true,firstName:'ทดสอบ'};
+    // This suite tests chunk rendering, not authenticated Edge Function calls.
+    // An empty auth-session mock otherwise triggers the user loader's retry loop.
+    systemUsersLoaded=true;
+    systemUsers=[{id:'isolated-test',username:'test-owner',owner:true,level:1}];
     activeWarehouseId=1;warehouses=[{id:1,name:'คลังทดสอบ',active:true}];
     renderLoginState=()=>true;canAccessTab=()=>true;isMobileDeviceMode=()=>false;
     ensureOnDemandDataForTab=()=>({status:'ready'});
@@ -61,6 +66,7 @@ let browser;
   // Exercise the actual built renderers and attached controls in all lazy routes.
   const tabs=await page.evaluate(()=>Object.values(PAGE_CODE_GROUPS).flatMap(group=>group.tabs));
   for(const tab of tabs){
+    console.log(`checking lazy route: ${tab}`);
     await page.evaluate(async tab=>{await ensurePageCodeLoaded(tab);currentTab=tab;render();},tab);
     assert.ok((await page.locator('#main').innerText()).trim().length,`${tab} renders content`);
   }

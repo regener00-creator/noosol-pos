@@ -23,6 +23,7 @@
     "owner_resolve_sync_event(uuid)",
     "owner_set_setting(text,jsonb)",
     "owner_update_mobile_product_details(bigint,bigint,bigint,jsonb,numeric,numeric,date)",
+    "owner_update_mobile_product_details_revisioned(bigint,bigint,bigint,bigint,jsonb,numeric,numeric,date)",
     "owner_upsert_warehouse(bigint,text,jsonb)",
     "record_goods_receipt_payment(text,jsonb)",
     "record_print_event(text,text,text,integer,bigint,jsonb)",

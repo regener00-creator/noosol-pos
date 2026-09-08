@@ -127,7 +127,7 @@ function rememberSyncUiError(error,{operation='sync_core_data',tableName='',reco
     occurred_at:new Date().toISOString(),
     local:true,
   };
-  setSyncUiState(navigator.onLine?'error':'offline',syncUiErrorCount+1);
+  setSyncUiState(navigator.onLine?'error':'offline',syncUiErrorCount+(error?.syncPaused?0:1));
   return syncUiLastError;
 }
 function noteCoreSyncFailure(error,{operation='sync_core_data',tableName='',recordId='',fallbackMessage='ซิงก์ข้อมูลไม่สำเร็จ'}={}){
@@ -146,7 +146,7 @@ function syncEventCause(row={}){
   if(!navigator.onLine||/(failed to fetch|network|load failed|offline)/.test(text)) return 'การเชื่อมต่ออินเทอร์เน็ตหรือเซิร์ฟเวอร์ขาดหาย';
   if(/(jwt|401|refresh token|not authenticated)/.test(text)) return 'การเข้าสู่ระบบหมดอายุ กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่';
   if(/(42501|permission denied|row-level security|rls)/.test(text)) return 'บัญชีนี้ไม่มีสิทธิ์อ่านหรือบันทึกข้อมูลส่วนนี้';
-  if(/(revision_conflict|40001|ถูกแก้ไขจากอีกเครื่อง)/.test(text)) return 'ข้อมูลถูกแก้ไขจากอีกเครื่องก่อนหน้านี้ กรุณาโหลดข้อมูลล่าสุด';
+  if(/(revision_conflict|40001|ถูกแก้ไขจากอีกเครื่อง)/.test(text)) return 'ข้อมูลในเครื่องต่างจากเซิร์ฟเวอร์ การแก้ไขยังเก็บไว้ในเครื่อง กรุณาตรวจสอบก่อนโหลดข้อมูลล่าสุด';
   if(/(23505|duplicate key|already exists)/.test(text)) return 'มีรหัสข้อมูลซ้ำกับรายการที่มีอยู่แล้ว';
   if(/(23503|foreign key)/.test(text)) return 'ไม่พบข้อมูลที่รายการนี้อ้างอิงอยู่';
   return message;
@@ -201,6 +201,7 @@ async function loadLatestConflictedProduct(productId,eventId=''){
   if(!persisted) throw new Error('บันทึกข้อมูลล่าสุดลงเครื่องไม่สำเร็จ');
   products=nextProducts;
   productDirtyOperations=nextDirtyOperations;
+  updateProductMetadataInChunks.paused?.delete(String(id));
   rebuildProductLookupMaps();
   refreshCategoryBrandUnitLists();
   refreshDataCounters();
@@ -285,6 +286,8 @@ function openSyncDetailsModal(){
   overlay.querySelector('.sync-detail-retry').onclick=async event=>{
     const button=event.currentTarget;
     button.disabled=true; button.textContent='กำลังซิงก์…';
+    // Explicit user retry is allowed; automatic retries leave conflicts paused.
+    updateProductMetadataInChunks.paused?.clear();
     await syncCoreDataToSupabase();
     if(!overlay.isConnected) return;
     const summary=overlay.querySelector('.sync-detail-summary');
@@ -1335,11 +1338,42 @@ async function insertRowsInChunks(table,rows){
   return null;
 }
 async function updateProductMetadataInChunks(productRows,onAcknowledged=()=>{}){
+  // Pause unchanged conflicts in this session, without dropping the durable
+  // dirty queue. A new revision/draft or explicit reload permits another try.
+  const paused=updateProductMetadataInChunks.paused||(updateProductMetadataInChunks.paused=new Map());
+  const stable=value=>JSON.stringify(value,(_,v)=>v&&typeof v==='object'&&!Array.isArray(v)?Object.fromEntries(Object.keys(v).sort().map(key=>[key,v[key]])):v);
+  const content=row=>{ const {revision,...metadata}=row; return stable(metadata); };
+  let firstConflict=null;
   for(let i=0;i<productRows.length;i+=12){
     const batch=productRows.slice(i,i+12);
-    const results=await Promise.all(batch.map(product=>{
+    const results=await Promise.all(batch.map(async product=>{
       const row=productMetadataToRow(product),{id,revision,...changes}=row;
-      return sb.from('products').update(changes).eq('id',id).eq('revision',revision).select('id,revision').maybeSingle();
+      const key=String(id),fingerprint=stable(row);
+      if(paused.get(key)===fingerprint) return {data:null,paused:true};
+      const result=await sb.from('products').update(changes).eq('id',id).eq('revision',revision).select('id,revision').maybeSingle();
+      if(result.error||result.data){ if(result.data) paused.delete(key); return result; }
+      const remote=await sb.from('products').select('*').eq('id',id).maybeSingle();
+      if(remote.error) return remote;
+      if(remote.data){
+        const canonical=productMetadataToRow(rowToProduct(remote.data));
+        // A previously successful write may have lost its response. Identical
+        // metadata is already saved; acknowledge it without another write.
+        if(content(canonical)===content(row)){
+          paused.delete(key);
+          return {data:{id,revision:remote.data.revision}};
+        }
+        const baseline=syncedTableRows.products?.get(key);
+        let previous=null;
+        try{ previous=JSON.parse(baseline||'null'); }catch(error){}
+        // Stock/LOT operations also bump revision. Rebase only when ALL
+        // catalog fields still match our known baseline, then use CAS again.
+        if(previous&&content(previous)===content(canonical)){
+          const retried=await sb.from('products').update(changes).eq('id',id).eq('revision',remote.data.revision).select('id,revision').maybeSingle();
+          if(retried.error||retried.data){ if(retried.data) paused.delete(key); return retried; }
+        }
+      }
+      paused.set(key,fingerprint);
+      return {data:null};
     }));
     results.forEach((result,index)=>{
       if(result.error||!result.data) return;
@@ -1349,10 +1383,14 @@ async function updateProductMetadataInChunks(productRows,onAcknowledged=()=>{}){
     const failed=results.find(result=>result.error);
     if(failed) return failed.error;
     const conflictIndex=results.findIndex(result=>!result.data);
-    if(conflictIndex>=0){ const error=new Error(`สินค้า ${batch[conflictIndex]?.sku||batch[conflictIndex]?.id} ถูกแก้ไขจากอีกเครื่องแล้ว`); error.code='REVISION_CONFLICT'; error.productId=batch[conflictIndex]?.id; return error; }
-    results.forEach((result,index)=>{ batch[index]._revision=Number(result.data?.revision)||Number(batch[index]._revision)||1; });
+    if(conflictIndex>=0){
+      const error=new Error(`สินค้า ${batch[conflictIndex]?.sku||batch[conflictIndex]?.id} มีข้อมูลต่างจากเซิร์ฟเวอร์ — เก็บการแก้ไขไว้และพักส่งรายการนี้ กรุณาตรวจสอบก่อนโหลดข้อมูลล่าสุด`);
+      error.code='REVISION_CONFLICT'; error.productId=batch[conflictIndex]?.id;
+      error.syncPaused=results.filter(result=>!result.data).every(result=>result.paused);
+      if(!firstConflict||firstConflict.syncPaused&&!error.syncPaused) firstConflict=error;
+    }
   }
-  return null;
+  return firstConflict;
 }
 function revisionConflictError(table,id){
   const error=new Error(`${SYNC_TABLE_LABELS[table]||table} รายการ ${id} ถูกแก้ไขจากอีกเครื่องแล้ว กรุณาโหลดข้อมูลล่าสุด`);
@@ -1507,9 +1545,13 @@ async function syncProductsIncrementally(){
   const inserted=changed.filter(product=>dirtyAtStart.get(String(product.id))==='insert'||(!dirtyAtStart.has(String(product.id))&&!previous.has(String(product.id))));
   const updated=changed.filter(product=>dirtyAtStart.get(String(product.id))==='update'||(!dirtyAtStart.has(String(product.id))&&previous.has(String(product.id))));
   const deleted=[...previous.keys()].filter(id=>!current.has(id));
+  let productUpdateError=null;
   if(updated.length){
     const error=await updateProductMetadataInChunks(updated,acknowledge);
-    if(error){ console.warn('sync products',error); return noteCoreSyncFailure(error,{operation:'update_products',tableName:table,recordId:error.productId||'',fallbackMessage:'แก้ไขสินค้าบนเซิร์ฟเวอร์ไม่สำเร็จ'}); }
+    if(error){
+      if(error.code!=='REVISION_CONFLICT') return noteCoreSyncFailure(error,{operation:'update_products',tableName:table,recordId:error.productId||'',fallbackMessage:'แก้ไขสินค้าบนเซิร์ฟเวอร์ไม่สำเร็จ'});
+      productUpdateError=error;
+    }
   }
   if(inserted.length){
     // New client-generated ids must fail closed on a primary-key collision.
@@ -1539,6 +1581,7 @@ async function syncProductsIncrementally(){
     if(!dirtyStatePersisted){ seedProductSyncSnapshot(products,productDirtyOperations); return noteCoreSyncFailure(new Error('บันทึกสถานะสินค้าที่ซิงก์แล้วลงเครื่องไม่สำเร็จ'),{operation:'persist_product_sync_state',tableName:table}); }
   }
   if(changed.length) await persistProductChangesToIndexedDB({updatedIds:changed.map(product=>product.id)});
+  if(productUpdateError) return noteCoreSyncFailure(productUpdateError,{operation:'update_products',tableName:table,recordId:productUpdateError.productId||'',fallbackMessage:'มีสินค้ารอตรวจสอบข้อมูลที่ขัดแย้ง'});
   return true;
 }
 
@@ -1661,9 +1704,14 @@ async function syncCoreDataToSupabase(){
     const syncAttemptStartedAt=new Date().toISOString();
     try{
       coreSyncFailureDetail=null;
+      let pendingProductFailure=null;
       if(loggedInUser()?.owner===true){
         if(!await syncWarehousesIncrementally()) throw new Error('ซิงก์คลังสินค้าไม่สำเร็จ');
-        if(!await syncProductsIncrementally()) throw new Error('ซิงก์สินค้าไม่สำเร็จ');
+        if(!await syncProductsIncrementally()){
+          if(coreSyncFailureDetail?.error?.code!=='REVISION_CONFLICT') throw new Error('ซิงก์สินค้าไม่สำเร็จ');
+          pendingProductFailure=coreSyncFailureDetail;
+          coreSyncFailureDetail=null;
+        }
         if(!await upsertAndPrune('contacts',contacts,contactToRow)) throw new Error('ซิงก์สมุดรายชื่อไม่สำเร็จ');
         if(!await upsertAndPrune('sales_representatives',salesRepresentatives,salesRepToRow)) throw new Error('ซิงก์รายชื่อผู้แทนไม่สำเร็จ');
         for(const [table,getArr] of DOC_TABLES){
@@ -1673,6 +1721,7 @@ async function syncCoreDataToSupabase(){
         }
       }
       if(!await syncInspectionListsToSupabase()) throw new Error('ซิงก์รายการตรวจสินค้าไม่สำเร็จ');
+      if(pendingProductFailure){ coreSyncFailureDetail=pendingProductFailure; throw pendingProductFailure.error; }
       await resolveOwnSyncEventsThrough(syncAttemptStartedAt);
       setSyncUiState('synced',0);
       flushPendingClientEvents();
@@ -1680,8 +1729,8 @@ async function syncCoreDataToSupabase(){
       console.warn('sync core data failed',e);
       const detail=coreSyncFailureDetail||{error:e,operation:'sync_core_data',tableName:'',recordId:'',fallbackMessage:'ซิงก์ข้อมูลไม่สำเร็จ'};
       const latest=rememberSyncUiError(detail.error||e,detail);
-      reportClientEvent({operation:latest.operation,tableName:latest.table_name,recordId:latest.record_id,errorCode:latest.error_code,message:latest.message,context:{tab:currentTab}});
-      if(e?.code==='REVISION_CONFLICT') showToast(e.message,'danger-top');
+      if(!detail.error?.syncPaused) reportClientEvent({operation:latest.operation,tableName:latest.table_name,recordId:latest.record_id,errorCode:latest.error_code,message:latest.message,context:{tab:currentTab}});
+      if(e?.code==='REVISION_CONFLICT'&&!e.syncPaused) showToast(e.message,'danger-top');
     }
   }while(coreSyncPending);
   coreSyncInFlight=false;
@@ -2417,15 +2466,13 @@ async function refreshProductReviewColors(){
   productReviewRefreshAt=Date.now();
   const profileId=currentProfile.id;
   try{
-    // Read only the small review-state projection, not the entire catalog.
-    // An authoritative snapshot also detects a color cleared on another device.
-    const {data,error}=await fetchAllRows(()=>sb.from('products')
-      .select('id,dataReviewStatus:data->>dataReviewStatus,dataReviewedAt:data->>dataReviewedAt')
-      .or('data->>dataReviewStatus.in.(pending,complete),data->>dataReviewedAt.not.is.null').order('id'));
+    // Compare compact id/revision pairs so price/unit changes are received
+    // even when the review color stays the same. Fetch full rows only on change.
+    const {data,error}=await fetchProductRevisionManifest();
     if(error) throw error;
     if(currentProfile?.id!==profileId||!canRefreshProductReviewColors()) return false;
-    const statuses=new Map((data||[]).map(row=>[String(row.id),productDataReviewStatus(row)]));
-    const changedIds=products.filter(p=>!productDirtyOperations.has(String(p.id))&&productDataReviewStatus(p)!==(statuses.get(String(p.id))||'')).map(p=>p.id);
+    const revisions=new Map((data||[]).map(row=>[String(row.id),Number(row.revision)]));
+    const changedIds=products.filter(p=>!productDirtyOperations.has(String(p.id))&&revisions.has(String(p.id))&&Number(p._revision)!==revisions.get(String(p.id))).map(p=>p.id);
     if(!changedIds.length) return true;
     const result=await fetchProductRowsByIds(changedIds);
     if(result.error) throw result.error;
@@ -8766,8 +8813,9 @@ async function saveMobilePriceChanges(){
   setMobileDataStatus('saving');
   try{
     const metadata=productMetadataToRow(payload.product);
-    const {data,error}=await sb.rpc('owner_update_mobile_product_details',{
+    const {data,error}=await sb.rpc('owner_update_mobile_product_details_revisioned',{
       p_product_id:Number(product.id),
+      p_expected_revision:Number(product._revision)||0,
       p_warehouse_id:payload.warehouseId,
       p_lot_id:payload.lotId,
       p_product_data:metadata.data,
@@ -8776,10 +8824,14 @@ async function saveMobilePriceChanges(){
       p_expiry:payload.expiry||null
     });
     if(error) throw error;
-    Object.assign(product,payload.product);
+    // The RPC returns the canonical saved row under the same transaction lock.
+    // Never acknowledge the submitted object with its old revision.
+    if(!data?.product) throw new Error('ยังรับข้อมูลสินค้าที่บันทึกไม่ได้ กรุณาลองโหลดข้อมูลอีกครั้ง');
+    const savedProduct=rowToProduct(data.product);
+    Object.assign(product,savedProduct,{stock:product.stock,expiry:product.expiry});
     // Object.assign alone cannot clear fields omitted when returning to normal.
     ['dataReviewStatus','dataReviewUpdatedAt','dataReviewUpdatedBy','dataReviewedAt','dataReviewedBy'].forEach(field=>{
-      if(!Object.hasOwn(payload.product,field)) delete product[field];
+      if(!Object.hasOwn(savedProduct,field)) delete product[field];
     });
     updateInventoryBalanceLocal(product.id,payload.warehouseId,Number(data?.stock??payload.stock),data?.expiry||'');
     await loadInventoryLotsFromSupabase();
@@ -8801,7 +8853,12 @@ async function saveMobilePriceChanges(){
   }catch(error){
     console.warn('บันทึกข้อมูลสินค้าจากมือถือไม่สำเร็จ',error);
     setMobileDataStatus(mobileIsOnline()?'error':'offline','บันทึกไม่สำเร็จ');
-    showToast(error?.message||'บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่','danger-top');
+    const message=error?.message==='REVISION_CONFLICT'
+      ?'ข้อมูลสินค้าเปลี่ยนแล้ว ยังไม่ได้บันทึกการแก้ไขครั้งนี้ กรุณาจดค่าที่แก้ไว้ แล้วกดรีเฟรชข้อมูลก่อนเปิดสินค้านี้ใหม่'
+      :error?.message||'บันทึกข้อมูลไม่สำเร็จ กรุณาลองใหม่';
+    const status=document.getElementById('mobilePriceEditStatus');
+    if(status) status.textContent=message;
+    showToast(message,'danger-top');
     return false;
   }finally{
     reviewButtons.forEach(btn=>{ if(btn.isConnected) btn.disabled=false; });

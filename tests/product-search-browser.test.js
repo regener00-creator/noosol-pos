@@ -31,7 +31,7 @@ const browserExecutable = [
   page.on('pageerror', error => errors.push(error.message));
   await page.route('https://fonts.googleapis.com/**', route => route.fulfill({contentType:'text/css',body:''}));
   await page.route('https://cdn.jsdelivr.net/npm/xlsx@*/**', route => route.fulfill({contentType:'text/javascript',body:'window.XLSX={};'}));
-  await page.route('https://cdn.jsdelivr.net/npm/@supabase/**', route => route.fulfill({contentType:'text/javascript',body:`
+  await page.addInitScript(`
     (()=>{
       const query=new Proxy({}, {get(_target,property){
         if(property==='then') return resolve=>resolve({data:null,error:null});
@@ -39,9 +39,11 @@ const browserExecutable = [
       }});
       window.supabase={createClient:()=>new Proxy({auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}}),signOut:async()=>({error:null})}}, {get(target,property){return property in target?target[property]:(()=>query);}})};
     })();
-  `}));
+  `);
+  await page.route('https://**/*', route => route.fulfill({body:'',contentType:'text/plain'}));
   await page.goto(`http://127.0.0.1:${server.address().port}/`, {waitUntil:'domcontentloaded',timeout:15000});
   await page.waitForFunction(() => typeof renderProducts === 'function' && typeof attachEvents === 'function');
+  assert.equal(await page.evaluate(()=>!!sb?.auth),true,'isolated database client is installed before testing search');
   await page.evaluate(() => {
     document.querySelectorAll('.login-screen').forEach(screen => { screen.style.display='none'; });
     renderLoginState=()=>true;

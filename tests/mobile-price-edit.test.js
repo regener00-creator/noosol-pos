@@ -21,7 +21,7 @@ assert.doesNotMatch(html, /<h2 class="mobile-tool-title">เช็คราค�
 assert.doesNotMatch(html, /\.mobile-price-edit-field\.stock/);
 assert.match(html, /\.mobile-price-stock-readonly\{margin-bottom:8px;\}/);
 assert.match(html, /@media \(max-width:420px\)[\s\S]*\.mobile-price-edit-grid\{grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\);\}/);
-assert.match(html, /sb\.rpc\('owner_update_mobile_product_details'/);
+assert.match(html, /sb\.rpc\('owner_update_mobile_product_details_revisioned'/);
 const saveStart = html.indexOf('async function saveMobilePriceChanges(');
 const saveEnd = html.indexOf('function mobileInspectionVisibleLists(', saveStart);
 assert.ok(saveStart >= 0 && saveEnd > saveStart, 'ไม่พบฟังก์ชันบันทึกข้อมูลเช็คราคาบนมือถือ');
