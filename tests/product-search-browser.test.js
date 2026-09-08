@@ -171,6 +171,31 @@ const browserExecutable = [
   await page.locator('#search').fill('PEPOS-CMD-SMALLEST');
   await page.locator('#search').press('Enter');
   assert.equal(await page.locator('.pos-smallest-unit-status').count(), 1, 'ยิงบาร์โค้ดคำสั่งต้องเปิดโหมดได้');
+  await page.evaluate(()=>{currentTab='products';editingProductId=null;searchQuery='Amoxicillin';render();});
+  await page.locator('.prodtable .prod-unit-select').selectOption('กล่อง');
+  await page.locator('#search').fill('Paracetamol');
+  await page.locator('#search').press('Enter');
+  await page.locator('#search').fill('PANEL-A-001');
+  await page.locator('#search').press('Enter');
+  assert.equal(await page.locator('.prodtable .prod-unit-select').inputValue(),'กล่อง','หน่วยที่เลือกเองต้องคงอยู่แม้ค้นด้วยบาร์โค้ดหน่วยอื่น');
+  assert.equal(await page.locator('.prodtable .prod-unit-barcode').inputValue(),'BOX-A-001');
+  const productFixtures=await page.evaluate(()=>products);
+  await page.reload({waitUntil:'domcontentloaded'});
+  await page.waitForFunction(()=>typeof renderProducts==='function');
+  await page.evaluate(fixtures=>{
+    products=fixtures;rebuildProductLookupMaps();currentProfile={id:'owner-search-test',owner:true,level:1};
+    renderLoginState=()=>true;renderSidebar=()=>{};
+    document.querySelectorAll('.login-screen').forEach(screen=>screen.style.display='none');
+    currentTab='products';editingProductId=null;selectedGroup=null;searchQuery='Amoxicillin';productPage=1;
+    representativeManagedProductIndexLoaded=true;representativeManagedProductIndexLoadedAt=Date.now();
+    render();
+  },productFixtures);
+  assert.equal(await page.locator('.prodtable .prod-unit-select').inputValue(),'กล่อง','เปิดหน้าใหม่ต้องจำหน่วยจากที่เก็บถาวร ไม่ใช่ตัวแปรในหน้าเดิม');
+  assert.equal(await page.evaluate(()=>products.find(p=>p.id===9103).unit),'แผง','ค่าการแสดงผลต้องไม่แก้หน่วยหลัก');
+  await page.evaluate(()=>{searchQuery='Decolgen';render();});
+  assert.equal(await page.locator('.prodtable .prod-unit-select').inputValue(),'กล่อง','แต่ละสินค้าจำหน่วยแยกกัน');
+  await page.evaluate(()=>{searchQuery='Amoxicillin';products.find(p=>p.id===9103).units=[];render();});
+  assert.equal(await page.locator('.prodtable .prod-unit-barcode').inputValue(),'PANEL-A-001','ถ้าหน่วยเดิมถูกลบต้องกลับไปใช้หน่วยหลักที่ยังมีอยู่');
   assert.deepEqual(errors, [], `พบ JavaScript error: ${errors.join(' | ')}`);
   console.log('product search browser tests passed');
 })().catch(error => {

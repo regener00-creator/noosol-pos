@@ -2394,6 +2394,31 @@ let contactSort = {key:'code', dir:1}; // เรียงลำดับตา�
 let productPage = 1;
 // จำหน่วยที่เลือกไว้ต่อสินค้าแต่ละตัว ในหน้ารายการสินค้า (สำหรับสลับดูราคา/ทุนตามหน่วย)
 let prodRowUnitSel = {};
+const PRODUCT_LIST_UNIT_PREFERENCE_PREFIX='pepos_product_list_unit_v1:';
+const productListUnitPreferenceFallback=new Map();
+function productListUnitPreference(product){
+  if(!product) return '';
+  const id=String(product.id);
+  let unit=productListUnitPreferenceFallback.get(id)||'';
+  try{ if(!unit) unit=localStorage.getItem(PRODUCT_LIST_UNIT_PREFERENCE_PREFIX+id)||''; }catch(error){}
+  return [product.unit,...(product.units||[]).map(item=>item.sub)].includes(unit)?unit:'';
+}
+function rememberProductListUnit(product,unit){
+  if(!product||![product.unit,...(product.units||[]).map(item=>item.sub)].includes(unit)) return false;
+  const id=String(product.id);
+  prodRowUnitSel[id]=unit;
+  try{
+    // One key per product avoids serializing the catalog or overwriting another
+    // tab's selections for unrelated products. This is a display preference only.
+    localStorage.setItem(PRODUCT_LIST_UNIT_PREFERENCE_PREFIX+id,unit);
+    productListUnitPreferenceFallback.delete(id);
+    return true;
+  }catch(error){
+    productListUnitPreferenceFallback.set(id,unit);
+    showToast('เปลี่ยนหน่วยแล้ว แต่เครื่องไม่สามารถจำหน่วยหลังปิดโปรแกรมได้ กรุณาตรวจพื้นที่หรือการตั้งค่าเบราว์เซอร์','warning-top');
+    return false;
+  }
+}
 const PRODUCTS_PER_PAGE = 10;
 
 let cart = []; // แต่ละบิลเป็น array ของบรรทัด: {lineId, pid, unit, unitName, price, cost, factor, qty}
@@ -7438,7 +7463,7 @@ function renderProducts(){
         <table class="grid-table doc-head-blue prodtable"><colgroup><col class="col-sku"><col class="col-barcode"><col class="col-name"><col class="col-price">${canViewCost?'<col class="col-cost">':''}<col class="col-unit"><col class="col-stock"><col class="col-lots">${canOpenProductEditor?'<col class="col-edit">':''}</colgroup><thead><tr>${th('sku','รหัสสินค้า')}<th>บาร์โค้ด</th>${th('name','สินค้า')}${th('price','ขาย','mono num')}${canViewCost?th('cost','ทุน','mono num'):''}<th>หน่วย</th>${th('stock','คงเหลือ','mono num')}<th>Lot</th>${canOpenProductEditor?'<th></th>':''}</tr></thead>
         <tbody>${pageRows.map(p=>{
           const unitOpts=[{sub:p.unit, price:p.price, cost:p.cost||p.openingCost||0, barcode:p.barcode||''}, ...((p.units||[]).map(u=>({sub:u.sub, price:u.price, cost:u.cost||0, barcode:u.barcode||''})))];
-          const selUnit=prodRowUnitSel[p.id]||p.unit;
+          const selUnit=productListUnitPreference(p)||prodRowUnitSel[p.id]||p.unit;
           const selOpt=unitOpts.find(u=>u.sub===selUnit)||unitOpts[0];
           const dataReviewStatus=productDataReviewStatus(p);
           const dataPending=dataReviewStatus==='pending';
@@ -14179,7 +14204,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   document.querySelectorAll('.prod-unit-select').forEach(el=>{
     el.addEventListener('change', ()=>{
       const pid=Number(el.dataset.pid);
-      prodRowUnitSel[pid]=el.value;
+      rememberProductListUnit(products.find(product=>Number(product.id)===pid),el.value);
       render();
     });
   });
