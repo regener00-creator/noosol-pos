@@ -196,6 +196,52 @@ const browserExecutable = [
   assert.equal(await page.locator('.prodtable .prod-unit-select').inputValue(),'กล่อง','แต่ละสินค้าจำหน่วยแยกกัน');
   await page.evaluate(()=>{searchQuery='Amoxicillin';products.find(p=>p.id===9103).units=[];render();});
   assert.equal(await page.locator('.prodtable .prod-unit-barcode').inputValue(),'PANEL-A-001','ถ้าหน่วยเดิมถูกลบต้องกลับไปใช้หน่วยหลักที่ยังมีอยู่');
+  await page.evaluate(()=>{
+    searchQuery='';selectedGroup=null;
+    products[0].dataReviewStatus='complete';
+    products[1].dataReviewStatus='pending';
+    render();
+  });
+  const greenFilter=page.locator('[data-product-review-filter="complete"]');
+  const yellowFilter=page.locator('[data-product-review-filter="pending"]');
+  const allFilter=page.locator('[data-product-review-filter="all"]');
+  const beforeFilter=await page.evaluate(()=>JSON.stringify(products));
+  await greenFilter.click();
+  assert.equal(await page.locator('.prodtable .prod-inline-name').inputValue(),'Decolgen prin (4 tablets)');
+  assert.equal(await greenFilter.getAttribute('aria-pressed'),'true');
+  await yellowFilter.click();
+  assert.equal(await page.locator('.prodtable .prod-inline-name').inputValue(),'Paracetamol 500 mg');
+  await page.locator('#search').fill('Decolgen');
+  await page.locator('#search').press('Enter');
+  assert.equal(await page.locator('.prodtable .prod-inline-name').count(),0,'สีต้องกรองร่วมกับคำค้น');
+  assert.match(await page.locator('.prodtable tbody').innerText(),/ไม่พบสินค้า/);
+  await greenFilter.click();
+  assert.equal(await page.locator('.prodtable .prod-inline-name').count(),1);
+  await page.locator('#search').fill('');
+  await page.locator('#search').press('Enter');
+  await allFilter.click();
+  assert.equal(await page.locator('.prodtable .prod-inline-name').count(),3,'ทั้งหมดต้องรวมสินค้าที่ไม่มีสี');
+  assert.equal(await page.evaluate(()=>JSON.stringify(products)),beforeFilter,'การกรองต้องไม่แก้ข้อมูลสินค้า');
+  await page.evaluate(()=>{
+    products[0].category='อาหารเสริม';selectedGroup={cat:'ยา'};render();
+  });
+  await greenFilter.click();
+  assert.equal(await page.locator('.prodtable .prod-inline-name').count(),0,'สีต้องกรองร่วมกับหมวด');
+  await page.evaluate(()=>{
+    selectedGroup=null;
+    delete products[0].dataReviewStatus;
+    products[0].dataReviewedAt='2026-09-08T00:00:00Z';
+    products.push(...Array.from({length:12},(_,i)=>({...products[0],id:9200+i,sku:`T${i}`,name:`Green ${i}`})));
+    render();
+  });
+  assert.equal(await page.locator('.prodtable .prod-inline-name').count(),10,'กรองก่อนแบ่งหน้าและรองรับสถานะเขียวแบบเดิม');
+  await page.evaluate(()=>{productPage=2;render();});
+  assert.equal(await page.locator('.prodtable .prod-inline-name').count(),3);
+  await yellowFilter.click();
+  assert.equal(await page.evaluate(()=>productPage),1,'เปลี่ยนสีต้องกลับหน้าแรก');
+  assert.equal(await page.locator('.prodtable .prod-inline-name').inputValue(),'Paracetamol 500 mg');
+  await page.locator('[data-cycle-product-review-status="9102"]').click();
+  await page.waitForFunction(()=>products.find(p=>p.id===9102).dataReviewStatus==='complete'&&!document.querySelector('.prodtable .prod-inline-name'));
   assert.deepEqual(errors, [], `พบ JavaScript error: ${errors.join(' | ')}`);
   console.log('product search browser tests passed');
 })().catch(error => {

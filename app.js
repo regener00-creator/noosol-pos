@@ -2392,6 +2392,8 @@ let selectedGroup = null; // {cat} หรือ {cat, brand}; null = ยัง�
 let productSort = {key:'sku', dir:1}; // dir: 1 = น้อยไปมาก, -1 = มากไปน้อย
 let contactSort = {key:'code', dir:1}; // เรียงลำดับตารางสมุดรายชื่อ
 let productPage = 1;
+let productReviewFilter = 'all';
+let productReviewFilterUsed = false;
 // จำหน่วยที่เลือกไว้ต่อสินค้าแต่ละตัว ในหน้ารายการสินค้า (สำหรับสลับดูราคา/ทุนตามหน่วย)
 let prodRowUnitSel = {};
 const PRODUCT_LIST_UNIT_PREFERENCE_PREFIX='pepos_product_list_unit_v1:';
@@ -7390,7 +7392,8 @@ function renderProducts(){
   if(canOpenProductEditor&&representativeIndexStale&&!representativeManagedProductIndexPromise) setTimeout(()=>{ void loadRepresentativeManagedProductIndex(); },0);
 
   // ตารางขวา: กรองตามกลุ่มที่เลือก + คำค้น
-  let filtered = (selectedGroup||q) ? products.filter(p=>{
+  let filtered = (selectedGroup||q||productReviewFilterUsed) ? products.filter(p=>{
+    if(productReviewFilter!=='all'&&productDataReviewStatus(p)!==productReviewFilter) return false;
     if(q){
       const needle=q.toLowerCase();
       return String(p.name||'').toLowerCase().includes(needle)||matchesBarcode(p,q)||String(p.sku||'').toLowerCase().includes(needle);
@@ -7457,7 +7460,12 @@ function renderProducts(){
         <div class="product-group-header"><span class="product-group-title">กลุ่มสินค้า</span><span class="product-group-separator">:</span><div class="product-group-categories">${categoryHtml}</div></div>
         <div class="product-group-brands">${brandHtml}</div>
       </div>
-      <div class="searchbar product-list-search"><input id="search" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" value="${escapeHtml(searchQuery)}"></div>
+      <div class="searchbar product-list-search">
+        <input id="search" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" value="${escapeHtml(searchQuery)}">
+        <div class="product-review-filters" role="group" aria-label="กรองสินค้าตามสี">
+          ${[['all','ทั้งหมด'],['complete','สีเขียว'],['pending','สีเหลือง']].map(([value,label])=>`<button type="button" class="product-review-filter" data-product-review-filter="${value}" aria-pressed="${productReviewFilter===value}" title="${value==='complete'?'ข้อมูลครบถ้วน':value==='pending'?'กำลังแก้ไข / รอข้อมูล':'ทุกสี รวมสินค้าที่ยังไม่ได้ทำสี'}"><span class="product-review-filter-dot" aria-hidden="true"></span>${label}</button>`).join('')}
+        </div>
+      </div>
       <div class="table-pane">
         <div class="table-scroll product-table-scroll">
         <table class="grid-table doc-head-blue prodtable"><colgroup><col class="col-sku"><col class="col-barcode"><col class="col-name"><col class="col-price">${canViewCost?'<col class="col-cost">':''}<col class="col-unit"><col class="col-stock"><col class="col-lots">${canOpenProductEditor?'<col class="col-edit">':''}</colgroup><thead><tr>${th('sku','รหัสสินค้า')}<th>บาร์โค้ด</th>${th('name','สินค้า')}${th('price','ขาย','mono num')}${canViewCost?th('cost','ทุน','mono num'):''}<th>หน่วย</th>${th('stock','คงเหลือ','mono num')}<th>Lot</th>${canOpenProductEditor?'<th></th>':''}</tr></thead>
@@ -7480,7 +7488,7 @@ function renderProducts(){
           const lotCount=inventoryLotCount(p.id,activeWarehouseId);
           const representativeHistoryButton=productHasManagedRepresentative(p.id)?`<button class="icon-btn representative-history-action" data-product-representative-history="${p.id}" title="ผู้แทนที่ดูแลสินค้าและ NOTE" aria-label="เปิดผู้แทนที่ดูแล ${escapeHtml(p.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 7v5l3 2"/></svg></button>`:'';
           return `<tr class="${isProductActive(p)?'':'product-inactive-row'} ${dataPending?'product-review-pending-row':''} ${dataReviewed?'product-reviewed-row':''}"><td class="mono" style="text-align:center;"><input class="prod-inline-edit" data-pid="${p.id}" data-field="sku" value="${escapeHtml(p.sku||'')}" placeholder="-"></td><td class="mono" style="text-align:center;"><input class="prod-inline-edit prod-inline-barcode prod-unit-barcode" data-pid="${p.id}" data-field="barcode" data-unit="${escapeHtml(selOpt.sub)}" value="${escapeHtml(selOpt.barcode||'')}" placeholder="-" autocomplete="off" aria-label="บาร์โค้ดหน่วย ${escapeHtml(selOpt.sub)}"></td><td><input class="prod-inline-edit prod-inline-name" data-pid="${p.id}" data-field="name" value="${escapeHtml(p.name)}">${isProductActive(p)?'':'<span class="product-status-badge">ปิดใช้งาน</span>'}</td><td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="price" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.price}"></td>${canViewCost?`<td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="cost" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.cost}"></td>`:''}<td style="text-align:center;">${unitSelectHtml}</td><td class="num stock-cell ${p.stock<0?'stock-negative':''}" style="text-align:center;" data-act="stockcheck" data-id="${p.id}" title="กดเพื่อดูทุกหน่วย">${escapeHtml(stockInLargestUnit(p))} <span class="stock-caret">▾</span></td><td style="text-align:center;"><button class="product-lot-link ${lotCount?'':'empty'}" data-product-lots="${p.id}">${lotCount} Lot ▾</button></td>${canOpenProductEditor?`<td class="num"><div class="product-row-actions">${representativeHistoryButton}<button class="icon-btn" data-act="editproduct" data-id="${p.id}" title="แก้ไข" aria-label="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="icon-btn product-review-cycle-toggle" data-cycle-product-review-status="${p.id}" data-review-status="${reviewStatusValue}" title="สถานะ: ${reviewStatusLabel} · คลิกเพื่อเปลี่ยนเป็น ${reviewNextLabel}" aria-label="สถานะตรวจข้อมูล ${reviewStatusLabel}; คลิกเพื่อเปลี่ยนเป็น ${reviewNextLabel}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${reviewStatusIcon}</svg></button></div></td>`:''}</tr>`;
-        }).join('')||`<tr><td colspan="${productColumnCount}" style="text-align:center;color:var(--text-muted);padding:30px;">${q?'ไม่พบสินค้าที่ค้นหา':selectedGroup?'ไม่มีสินค้าในกลุ่มนี้':'กรุณาเลือกกลุ่มสินค้าจากด้านซ้าย หรือค้นหาสินค้าได้ทันที'}</td></tr>`}</tbody></table>
+        }).join('')||`<tr><td colspan="${productColumnCount}" style="text-align:center;color:var(--text-muted);padding:30px;">${productReviewFilterUsed?'ไม่พบสินค้าตามตัวกรองที่เลือก':q?'ไม่พบสินค้าที่ค้นหา':selectedGroup?'ไม่มีสินค้าในกลุ่มนี้':'กรุณาเลือกกลุ่มสินค้า เลือกสี หรือค้นหาสินค้าได้ทันที'}</td></tr>`}</tbody></table>
         </div>
         ${pager}
       </div>
@@ -14040,6 +14048,14 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     btn.addEventListener('click',()=>deleteSystemUser(btn.dataset.deleteSystemUser));
   });
   // --- product groups ---
+  document.querySelectorAll('[data-product-review-filter]').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      productReviewFilter=btn.dataset.productReviewFilter;
+      productReviewFilterUsed=true;
+      productPage=1;
+      render();
+    });
+  });
   document.querySelectorAll('.product-group-category').forEach(el=>{
     el.addEventListener('click',()=>{
       selectedGroup={cat:el.dataset.productCategory};

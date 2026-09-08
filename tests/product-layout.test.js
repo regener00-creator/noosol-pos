@@ -11,7 +11,7 @@ const source = html.slice(start, end);
 const pageIndex = source.indexOf('<div class="product-list-page">');
 const actionsIndex = source.indexOf('<div class="product-list-actions form-final-actions">');
 const groupIndex = source.indexOf('<div class="tree-pane">');
-const searchIndex = source.indexOf('<div class="searchbar product-list-search"><input id="search"');
+const searchIndex = source.search(/<div class="searchbar product-list-search">\s*<input id="search"/);
 const tableIndex = source.indexOf('<div class="table-pane">');
 
 assert.ok(actionsIndex >= 0, 'ไม่พบกลุ่มปุ่มสำหรับย้ายขึ้น topbar');

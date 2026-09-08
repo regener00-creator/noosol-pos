@@ -304,7 +304,17 @@
   .product-list-page .table-pane{flex:1;min-height:0;display:flex;flex-direction:column;}
   .product-list-page .product-table-scroll{height:auto;min-height:0;flex:1;}
   .product-list-page .pager{flex:0 0 auto;margin-top:10px;}
-  .product-list-search{max-width:none;width:100%;}
+  .product-list-search{max-width:none;width:100%;display:flex;align-items:center;gap:12px;flex-wrap:wrap;}
+  .product-list-search #search{flex:1 1 280px;min-width:0;}
+  .product-review-filters{display:flex;gap:6px;flex-wrap:wrap;}
+  .product-review-filter{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:inherit;font-size:14px;cursor:pointer;white-space:nowrap;}
+  .product-review-filter[aria-pressed="true"]{border-color:var(--primary);box-shadow:inset 0 0 0 1px var(--primary);font-weight:700;}
+  .product-review-filter:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+  .product-review-filter-dot{width:9px;height:9px;border-radius:50%;background:#8b817b;}
+  .product-review-filter[data-product-review-filter="complete"] .product-review-filter-dot{background:#24934c;}
+  .product-review-filter[data-product-review-filter="pending"] .product-review-filter-dot{background:#c38b08;}
+  .product-review-filter[data-product-review-filter="complete"][aria-pressed="true"]{background:#e6f5eb;color:#176b35;border-color:#24934c;box-shadow:inset 0 0 0 1px #24934c;}
+  .product-review-filter[data-product-review-filter="pending"][aria-pressed="true"]{background:#fff5d6;color:#835b00;border-color:#c38b08;box-shadow:inset 0 0 0 1px #c38b08;}
   .product-list-search input{width:100%;padding:11px 13px;border-radius:8px;border:1px solid var(--border);font-family:inherit;font-size:14px;background:var(--surface);}
   .table-pane{min-width:0;}
   .table-pane>.toolbar .searchbar{max-width:none;width:100%;}
