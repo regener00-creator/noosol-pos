@@ -2394,6 +2394,70 @@ let contactSort = {key:'code', dir:1}; // เรียงลำดับตา�
 let productPage = 1;
 let productReviewFilter = 'all';
 let productReviewFilterUsed = false;
+let productReviewRefreshInFlight=false;
+let productReviewRefreshAt=0;
+let productReviewRefreshTimer=null;
+function scheduleProductReviewRefresh(){
+  clearTimeout(productReviewRefreshTimer);
+  productReviewRefreshTimer=null;
+  if(!currentProfile||currentTab!=='products'||editingProductId!==null||document.visibilityState==='hidden'||navigator.onLine===false) return;
+  productReviewRefreshTimer=setTimeout(async()=>{
+    await refreshProductReviewColors();
+    scheduleProductReviewRefresh();
+  },15000);
+}
+function canRefreshProductReviewColors(){
+  const focused=document.activeElement;
+  return Boolean(currentProfile)&&currentTab==='products'&&editingProductId===null&&document.visibilityState!=='hidden'&&navigator.onLine!==false&&!coreSyncInFlight&&
+    !(focused?.matches('input,textarea,select,[contenteditable="true"]')&&focused.id!=='search');
+}
+async function refreshProductReviewColors(){
+  if(productReviewRefreshInFlight||!canRefreshProductReviewColors()||Date.now()-productReviewRefreshAt<15000) return false;
+  productReviewRefreshInFlight=true;
+  productReviewRefreshAt=Date.now();
+  const profileId=currentProfile.id;
+  try{
+    // Read only the small review-state projection, not the entire catalog.
+    // An authoritative snapshot also detects a color cleared on another device.
+    const {data,error}=await fetchAllRows(()=>sb.from('products')
+      .select('id,dataReviewStatus:data->>dataReviewStatus,dataReviewedAt:data->>dataReviewedAt')
+      .or('data->>dataReviewStatus.in.(pending,complete),data->>dataReviewedAt.not.is.null').order('id'));
+    if(error) throw error;
+    if(currentProfile?.id!==profileId||!canRefreshProductReviewColors()) return false;
+    const statuses=new Map((data||[]).map(row=>[String(row.id),productDataReviewStatus(row)]));
+    const changedIds=products.filter(p=>!productDirtyOperations.has(String(p.id))&&productDataReviewStatus(p)!==(statuses.get(String(p.id))||'')).map(p=>p.id);
+    if(!changedIds.length) return true;
+    const result=await fetchProductRowsByIds(changedIds);
+    if(result.error) throw result.error;
+    if(currentProfile?.id!==profileId||!canRefreshProductReviewColors()) return false;
+    const byId=new Map(products.map((p,index)=>[String(p.id),index]));
+    const updatedIds=[];
+    for(const row of result.data||[]){
+      const id=String(row.id),index=byId.get(id);
+      if(index===undefined||productDirtyOperations.has(id)) continue;
+      const previous=products[index];
+      if(Number(row.revision)<Number(previous._revision)) continue;
+      products[index]={...rowToProduct(row),stock:previous.stock,expiry:previous.expiry};
+      syncedTableRows.products?.set(id,JSON.stringify(productMetadataToRow(products[index])));
+      updatedIds.push(row.id);
+    }
+    if(!updatedIds.length) return true;
+    rebuildProductLookupMaps();
+    const focused=document.activeElement;
+    const searchFocused=focused?.id==='search';
+    const selectionStart=focused?.selectionStart,selectionEnd=focused?.selectionEnd;
+    const scrollTop=document.querySelector('.product-table-scroll')?.scrollTop||0;
+    render();
+    const scroller=document.querySelector('.product-table-scroll');
+    if(scroller) scroller.scrollTop=scrollTop;
+    if(searchFocused) restoreSearchInputFocus(selectionStart,selectionEnd);
+    await persistProductChangesToIndexedDB({updatedIds});
+    return true;
+  }catch(error){
+    console.warn('refresh product review colors failed',error);
+    return false;
+  }finally{ productReviewRefreshInFlight=false; }
+}
 // จำหน่วยที่เลือกไว้ต่อสินค้าแต่ละตัว ในหน้ารายการสินค้า (สำหรับสลับดูราคา/ทุนตามหน่วย)
 let prodRowUnitSel = {};
 const PRODUCT_LIST_UNIT_PREFERENCE_PREFIX='pepos_product_list_unit_v1:';
@@ -8669,7 +8733,7 @@ function mobilePriceResultHtml(){
       <div class="mobile-price-lot-hint" id="mobilePriceLotHint">${escapeHtml(lotHint)}</div>
     </div>
     <div class="mobile-price-review-colors" role="group" aria-label="สีสถานะสินค้า">
-      ${[['normal','สีปกติ'],['complete','สีเขียว'],['pending','สีเหลือง']].map(([value,label])=>`<button type="button" class="product-review-filter" data-mobile-review-status="${value}" aria-pressed="${(productDataReviewStatus(product)||'normal')===value}"><span class="product-review-filter-dot" aria-hidden="true"></span>${label}</button>`).join('')}
+      ${[['normal','สีปกติ'],['pending','สีเหลือง'],['complete','สีเขียว']].map(([value,label])=>`<button type="button" class="product-review-filter" data-mobile-review-status="${value}" aria-pressed="${(productDataReviewStatus(product)||'normal')===value}"><span class="product-review-filter-dot" aria-hidden="true"></span>${label}</button>`).join('')}
     </div>
     <button type="button" class="mobile-price-edit-save" id="mobilePriceSaveChanges" ${mobileIsOnline()?'':'disabled'}>${mobileIsOnline()?'บันทึกการแก้ไข':'ออฟไลน์ — ยังบันทึกไม่ได้'}</button><div class="mobile-price-edit-status" id="mobilePriceEditStatus"></div>`:`<div class="mobile-metrics">
       <div class="mobile-metric primary"><span>คงเหลือ</span><b id="mobilePriceStock">${inspectionListAmount(selectedStock)} ${escapeHtml(selected?.name||product.unit)}</b></div>
@@ -12395,6 +12459,7 @@ const RENDERERS = {
 };
 
 function render(){
+  scheduleProductReviewRefresh();
   if(!renderLoginState()){ closeMobileCameraScanner(); return; }
   TODAY_STR=currentDateStr();
   const mobileMode=isMobileDeviceMode();
@@ -18204,6 +18269,9 @@ window.addEventListener('offline',()=>{
   if(currentTab==='mobiletools') render();
 });
 window.addEventListener('focus',refreshMobileToolsOnResume);
+// Only active product lists query review colors; other pages and hidden tabs do no work.
+window.addEventListener('focus',()=>{ void refreshProductReviewColors(); scheduleProductReviewRefresh(); });
+document.addEventListener('visibilitychange',()=>{ scheduleProductReviewRefresh(); if(document.visibilityState==='visible') void refreshProductReviewColors(); });
 document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible') refreshMobileToolsOnResume(); });
 
 let runtimeErrorNoticeShown=false;
