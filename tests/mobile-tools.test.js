@@ -252,7 +252,8 @@ assert.match(mobilePriceInputHandler, /result\.innerHTML=mobilePriceResultHtml\(
 assert.match(mobilePriceInputHandler, /attachMobilePriceResultEvents\(\)/);
 assert.match(html, /mobile-camera-head[^`]+<span>P R A N C - H I B E S<\/span>/);
 assert.doesNotMatch(html, /ส่องบาร์โค้ดให้อยู่ในกรอบ/);
-assert.match(html, /message\.textContent=accepted\?`สแกนแล้ว: \$\{value\} — ยิงสินค้าชิ้นถัดไปได้เลย`:`ยังไม่เพิ่ม: \$\{value\} — เลื่อนไปยิงสินค้าชิ้นอื่นได้เลย`/);
+assert.match(html, /const fixedMessage=hostId==='mobilePriceCameraSlot'\?'P R A N C - H I B E S':''/);
+assert.match(html, /message\.textContent=fixedMessage\|\|\(accepted\?`สแกนแล้ว: \$\{value\} — ยิงสินค้าชิ้นถัดไปได้เลย`:`ยังไม่เพิ่ม: \$\{value\} — เลื่อนไปยิงสินค้าชิ้นอื่นได้เลย`\)/);
 
 assert.equal(manifest.display, 'standalone');
 assert.equal(manifest.name, 'SAPURI');

@@ -9397,6 +9397,7 @@ async function openMobileCameraScanner(onCode,options={}){
   const continuous=options.continuous===true;
   const hostId=String(options.hostId||'');
   const buttonId=String(options.buttonId||'');
+  const fixedMessage=hostId==='mobilePriceCameraSlot'?'P R A N C - H I B E S':'';
   if(!navigator.mediaDevices?.getUserMedia){ playMobileScanErrorSound(); showToast('อุปกรณ์นี้ไม่รองรับการเปิดกล้อง กรุณาใช้เครื่องยิงหรือพิมพ์บาร์โค้ด','danger-top'); return false; }
   if(!('BarcodeDetector' in window)){ playMobileScanErrorSound(); showToast('เบราว์เซอร์นี้ยังสแกนด้วยกล้องไม่ได้ กรุณาเปิดใน Chrome','danger-top'); openMobileBrowserHelp({cameraBlocked:true}); return false; }
   const host=document.getElementById(hostId);
@@ -9404,7 +9405,7 @@ async function openMobileCameraScanner(onCode,options={}){
   closeMobileCameraScanner();
   const camera=document.createElement('div');
   camera.className='mobile-camera-inline';
-  camera.innerHTML=`<div class="mobile-camera-box"><div class="mobile-camera-head"><button type="button" class="mobile-camera-close" aria-label="ปิดกล้อง">×</button><span>P R A N C - H I B E S</span></div><div class="mobile-camera-video-wrap"><video class="mobile-camera-video" autoplay muted playsinline></video><div class="mobile-camera-guide"></div></div><div class="mobile-camera-message">กำลังเปิดกล้อง...</div></div>`;
+  camera.innerHTML=`<div class="mobile-camera-box"><div class="mobile-camera-head"><button type="button" class="mobile-camera-close" aria-label="ปิดกล้อง">×</button><span>P R A N C - H I B E S</span></div><div class="mobile-camera-video-wrap"><video class="mobile-camera-video" autoplay muted playsinline></video><div class="mobile-camera-guide"></div></div><div class="mobile-camera-message">${fixedMessage||'กำลังเปิดกล้อง...'}</div></div>`;
   host.replaceChildren(camera);
   const video=camera.querySelector('video');
   const message=camera.querySelector('.mobile-camera-message');
@@ -9420,7 +9421,7 @@ async function openMobileCameraScanner(onCode,options={}){
     if(session.closed||mobileCameraSession!==session){ session.stream.getTracks().forEach(track=>track.stop()); return false; }
     video.srcObject=session.stream;
     await video.play();
-    message.textContent=continuous?'สแกนต่อเนื่อง — ยิงได้หลายสินค้า กด × เมื่อต้องการปิด':'พร้อมสแกน — ถือกล้องให้นิ่ง';
+    message.textContent=fixedMessage||(continuous?'สแกนต่อเนื่อง — ยิงได้หลายสินค้า กด × เมื่อต้องการปิด':'พร้อมสแกน — ถือกล้องให้นิ่ง');
     const desiredFormats=['code_128','ean_13','ean_8','upc_a','upc_e','code_39','itf','codabar','qr_code'];
     const supportedFormats=typeof BarcodeDetector.getSupportedFormats==='function'?await BarcodeDetector.getSupportedFormats():desiredFormats;
     const formats=desiredFormats.filter(format=>supportedFormats.includes(format));
@@ -9443,7 +9444,7 @@ async function openMobileCameraScanner(onCode,options={}){
               nextDetectionAt=now+650;
               const accepted=onCode(value)!==false;
               if(navigator.vibrate) navigator.vibrate(accepted?80:[40,50,40]);
-              message.textContent=accepted?`สแกนแล้ว: ${value} — ยิงสินค้าชิ้นถัดไปได้เลย`:`ยังไม่เพิ่ม: ${value} — เลื่อนไปยิงสินค้าชิ้นอื่นได้เลย`;
+              message.textContent=fixedMessage||(accepted?`สแกนแล้ว: ${value} — ยิงสินค้าชิ้นถัดไปได้เลย`:`ยังไม่เพิ่ม: ${value} — เลื่อนไปยิงสินค้าชิ้นอื่นได้เลย`);
             }
           }
         }catch(error){
