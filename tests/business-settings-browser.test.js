@@ -93,18 +93,21 @@ const browserExecutable = [
   assert.equal(await page.locator('label', {hasText:'ยี่ห้อ/แบรนด์'}).count(),1);
   assert.equal(await page.locator('h3', {hasText:'หน่วยและราคา'}).count(),0);
   assert.equal(await page.getByText('กำหนดหน่วยหลัก ราคาขาย ทุน และจำนวนคงเหลือ รวมถึงหน่วยขายเพิ่มเติมของสินค้านี้', {exact:true}).count(),0);
-  assert.equal(await page.locator('#f_stock').isEditable(),false);
+  assert.equal(await page.locator('#f_stock').isVisible(),false);
+  assert.equal(await page.locator('.u_stock').first().isVisible(),false);
+  assert.equal(await page.locator('.product-pricing-panel').getByText('จำนวนคงเหลือ',{exact:true}).count(),0);
+  assert.equal(await page.evaluate(()=>Number(document.querySelector('#f_stock').value)===Number(products.find(p=>p.id===editingProductId).stock)),true,'hidden stock remains unchanged');
   const productFieldRows=await page.evaluate(() => {
     const top=id=>Math.round(document.querySelector(id).closest('.field').getBoundingClientRect().top);
     return {
       category:[top('#f_category'),top('#f_brand'),top('#f_vat')],
       identity:[top('#f_sku'),top('#f_name')],
-      unit:[top('#f_unit'),top('#f_price'),top('#f_cost'),top('#f_stock'),top('#f_barcode')],
+      unit:[top('#f_unit'),top('#f_price'),top('#f_cost'),top('#f_barcode')],
     };
   });
   assert.equal(new Set(productFieldRows.category).size,1,'หมวดสินค้า แบรนด์ และ VAT ต้องอยู่บรรทัดเดียวกัน');
   assert.equal(new Set(productFieldRows.identity).size,1,'SKU และชื่อสินค้าต้องอยู่บรรทัดเดียวกัน');
-  assert.equal(new Set(productFieldRows.unit).size,1,'หน่วย ราคา ทุน คงเหลือ และบาร์โค้ดต้องอยู่บรรทัดเดียวกัน');
+  assert.equal(new Set(productFieldRows.unit).size,1,'หน่วย ราคา ทุน และบาร์โค้ดต้องอยู่บรรทัดเดียวกัน');
   const desktopBaseUnitAction=await page.evaluate(() => {
     const barcode=document.querySelector('#f_barcode').getBoundingClientRect();
     const element=document.querySelector('#changeBaseUnitBtn');
@@ -115,7 +118,7 @@ const browserExecutable = [
   await page.evaluate(()=>{document.querySelector('#multiunitBody').style.display='block';});
   const alignedUnitFields=await page.evaluate(()=>{
     const rect=selector=>document.querySelector(selector).getBoundingClientRect();
-    const pairs=[['#f_unit','.unitrow-eq'],['#f_price','.u_price'],['#f_cost','.u_cost'],['#f_stock','.u_stock'],['#f_barcode','.u_barcode'],['#changeBaseUnitBtn','.u_del']];
+    const pairs=[['#f_unit','.unitrow-eq'],['#f_price','.u_price'],['#f_cost','.u_cost'],['#f_barcode','.u_barcode'],['#changeBaseUnitBtn','.u_del']];
     return pairs.map(([a,b])=>{const x=rect(a),y=rect(b);return {a,widthDiff:Math.abs(x.width-y.width),leftDiff:Math.abs(x.left-y.left),heightDiff:Math.abs(x.height-y.height)};});
   });
   for(const pair of alignedUnitFields){
@@ -129,12 +132,12 @@ const browserExecutable = [
     return {
       category:[top('#f_category'),top('#f_brand'),top('#f_vat')],
       identity:[top('#f_sku'),top('#f_name')],
-      unit:[top('#f_unit'),top('#f_price'),top('#f_cost'),top('#f_stock'),top('#f_barcode')],
+      unit:[top('#f_unit'),top('#f_price'),top('#f_cost'),top('#f_barcode')],
     };
   });
   assert.equal(new Set(mobileProductFieldRows.category).size,3,'ช่องหมวดสินค้าบนมือถือต้องเรียงลงคนละบรรทัด');
   assert.equal(new Set(mobileProductFieldRows.identity).size,2,'SKU และชื่อสินค้าบนมือถือต้องเรียงลงคนละบรรทัด');
-  assert.equal(new Set(mobileProductFieldRows.unit).size,5,'ช่องหน่วยและราคาบนมือถือต้องเรียงลงคนละบรรทัด');
+  assert.equal(new Set(mobileProductFieldRows.unit).size,4,'ช่องหน่วยและราคาบนมือถือต้องเรียงลงคนละบรรทัด');
   const mobileBaseUnitAction=await page.evaluate(() => {
     const barcode=document.querySelector('#f_barcode').getBoundingClientRect();
     const button=document.querySelector('#changeBaseUnitBtn').getBoundingClientRect();

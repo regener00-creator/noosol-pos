@@ -7724,7 +7724,7 @@ function unitRowHtml(u, mainUnit, siblingNames){
     </div>
     <input class="u_price" type="number" value="${escapeHtml(u.price||'')}" placeholder="ขาย">
     ${isLevel2User()?`<input class="u_cost" type="hidden" value="${escapeHtml(u.cost||'')}">`:`<input class="u_cost" type="number" value="${escapeHtml(u.cost||'')}" placeholder="ทุน">`}
-    <input class="u_stock" type="number" step="any" value="${escapeHtml(u.stock===''||u.stock===undefined||u.stock===null?'':(Math.round(u.stock*100)/100))}" placeholder="จำนวนคงเหลือ" readonly title="จำนวนคงเหลือแก้ได้จากหน้าตรวจนับและปรับสต๊อก">
+    <input class="u_stock" type="hidden" value="${escapeHtml(u.stock===''||u.stock===undefined||u.stock===null?'':(Math.round(u.stock*100)/100))}" readonly>
     <input class="u_barcode" value="${escapeHtml(u.barcode||'')}" placeholder="เลขบาร์โค้ด">
     <button class="u_del" title="ลบ">×</button>
   </div>`;
@@ -7963,11 +7963,10 @@ function renderProductForm(){
         <div class="field"><label>หน่วยสินค้าหลัก <span class="req">*</span></label>${renderedMainUnitSelect}</div>
         <div class="field"><label>ราคาขาย <span class="req">*</span></label><input id="f_price" class="no-spin" type="number" value="${escapeHtml(p.price)}" placeholder="0.00"></div>
         ${canViewCost?`<div class="field"><label>ราคาทุน</label><input id="f_cost" class="no-spin" type="number" value="${escapeHtml(p.cost!==undefined?p.cost:'')}" placeholder="0.00"></div>`:`<input id="f_cost" type="hidden" value="${escapeHtml(p.cost!==undefined?p.cost:'')}">`}
-        <div class="field"><label>จำนวนคงเหลือ</label><input id="f_stock" class="no-spin" type="number" value="${escapeHtml(Number(p.stock)||0)}" readonly title="จำนวนคงเหลือแก้ได้จากหน้าตรวจนับและปรับสต๊อก"></div>
+        <input id="f_stock" type="hidden" value="${escapeHtml(Number(p.stock)||0)}" readonly>
         <div class="field"><label>เลขบาร์โค้ด</label><input id="f_barcode" value="${escapeHtml(p.barcode)}"></div>
         ${isNew?'':'<button class="btn primary small product-base-unit-action" type="button" id="changeBaseUnitBtn" title="เปลี่ยนหน่วยหลัก" aria-label="เปลี่ยนหน่วยหลัก"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></svg></button>'}
       </div>
-      <div class="product-stock-edit-hint">จำนวนคงเหลือแก้ได้จากหน้า “ตรวจนับและปรับสต๊อก” เพื่อให้มีเหตุผล ผู้ดำเนินการ และ LOT</div>
       <div class="paneltoggle product-extra-unit-toggle"><div><h3 style="font-size:14px;">หน่วยสินค้าเพิ่มเติม <span class="psub" style="font-weight:400;">• ตัวอย่าง: 1 กล่อง = 10 แผง, 1 ลัง = 10 กล่อง</span></h3></div>
       <label class="switch"><input type="checkbox" id="f_multiunit" ${(isNew?true:p.multiunit)?'checked':''}><span class="slider"></span></label></div>
       <div id="multiunitBody" style="${(isNew?true:p.multiunit)?'':'display:none;'}margin-top:14px;">
