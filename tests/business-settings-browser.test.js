@@ -227,6 +227,44 @@ const browserExecutable = [
   assert.equal(await page.locator('#cashShiftOpenForm').count(),1);
   assert.equal(await openShiftButton.evaluate(button=>button.form?.id),'cashShiftOpenForm');
 
+  await page.evaluate(() => {
+    products=[{id:99001,sku:'HIDDEN-SKU',name:'สินค้าทดสอบ LOT ใหม่',unit:'กล่อง',barcode:'8850000000991',stock:5,units:[]}];
+    inventoryLotRows=[];
+    stockEditItems=[99001];
+    stockEditDraftStocks={99001:8};
+    stockEditLotSelections={99001:'new'};
+    stockEditNewLotNumbers={};
+    stockEditNewLotExpiries={};
+    stockEditSourceInspectionListId=null;
+    stockEditPage=1;
+    currentTab='stockcontrol';
+    stockControlMode='adjust';
+    document.getElementById('topbarFormActions').innerHTML='';
+    document.getElementById('main').innerHTML=renderStockEdit();
+    attachEvents();
+  });
+  assert.equal(await page.locator('.stock-edit-table th').count(),8);
+  assert.equal(await page.locator('.stock-edit-table').getByText('รหัสสินค้า',{exact:true}).count(),0);
+  assert.equal(await page.locator('.stock-edit-table').getByText('HIDDEN-SKU',{exact:true}).count(),0);
+  for(const width of [1100,1440,1920]){
+    await page.setViewportSize({width,height:1000});
+    const fields=await page.evaluate(()=>{
+      const lot=document.querySelector('[data-stock-edit-new-lot]').getBoundingClientRect();
+      const expiry=document.querySelector('[data-stock-edit-new-expiry]').getBoundingClientRect();
+      return {width:lot.width,widthDifference:Math.abs(lot.width-expiry.width),gap:expiry.top-lot.bottom};
+    });
+    assert.ok(fields.width>=180,'เลข LOT ต้องไม่ถูกบีบจนอ่านไม่ได้');
+    assert.ok(fields.widthDifference<1,'เลข LOT กับวันที่ต้องกว้างเท่ากัน');
+    assert.ok(fields.gap>=4,'เลข LOT กับวันที่ต้องแยกคนละบรรทัด');
+  }
+  await page.locator('[data-stock-edit-new-lot]').fill('LOT-TEST-0909');
+  await page.locator('[data-stock-edit-new-expiry]').fill('09092030');
+  assert.equal(await page.locator('[data-stock-edit-new-expiry]').inputValue(),'09/09/2030');
+  assert.equal(await page.evaluate(()=>stockEditNewLotNumbers[99001]),'LOT-TEST-0909');
+  assert.equal(await page.evaluate(()=>products[0].stock),5,'กรอก LOT ต้องยังไม่เปลี่ยนสต๊อก');
+  await page.setViewportSize({width:1440,height:1000});
+  await page.locator('.stock-edit-table-wrap').screenshot({path:path.join(os.tmpdir(),'pepos-stock-lot-fields-browser.png')});
+
   assert.deepEqual(errors, []);
   console.log('business settings browser tests passed');
 })().catch(error => {

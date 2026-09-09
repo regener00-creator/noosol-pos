@@ -10429,7 +10429,7 @@ function stockEditLotControlHtml(product,difference){
 }
 
 function stockEditRowsHtml(rows=stockEditCurrentProducts()){
-  if(!rows.length) return '<tr><td colspan="9" class="stock-edit-empty">ยังไม่มีรายการ — ดึงรายการตรวจสินค้า ค้นหา/สแกนบาร์โค้ด หรือเลือกสินค้าในหมวดด้านบนเพื่อเพิ่ม</td></tr>';
+  if(!rows.length) return '<tr><td colspan="8" class="stock-edit-empty">ยังไม่มีรายการ — ดึงรายการตรวจสินค้า ค้นหา/สแกนบาร์โค้ด หรือเลือกสินค้าในหมวดด้านบนเพื่อเพิ่ม</td></tr>';
   return rows.map(p=>{
     const unitOptions=[{name:p.unit,barcode:p.barcode||'',factor:1},...(p.units||[]).filter(u=>u.sub&&Number(u.factor)>0).map(u=>({name:u.sub,barcode:u.barcode||'',factor:Number(u.factor)}))];
     const selectedUnit=stockEditRowUnitSel[p.id]||p.unit;
@@ -10446,7 +10446,6 @@ function stockEditRowsHtml(rows=stockEditCurrentProducts()){
       ? `<select class="stock-edit-unit-select" data-stock-edit-unit="${p.id}">${unitOptions.map(u=>`<option value="${escapeHtml(u.name)}" ${u.name===selectedOption.name?'selected':''}>${escapeHtml(u.name)}</option>`).join('')}</select>`
       : `<span class="stock-edit-unit-fixed">${escapeHtml(p.unit||'-')}</span>`;
     return `<tr data-stock-edit-row="${p.id}">
-      <td class="mono" style="text-align:center;">${escapeHtml(p.sku||'-')}</td>
       <td class="mono" style="text-align:center;">${escapeHtml(selectedOption.barcode||'-')}</td>
       <td>${escapeHtml(p.name)}</td>
       <td style="text-align:center;">${unitHtml}</td>
@@ -10485,7 +10484,8 @@ function renderStockEdit(){
       </div>
       <div class="stock-edit-table-wrap seamless-table-wrap">
         <table class="grid-table doc-head-blue stock-edit-table">
-          <thead><tr><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>สินค้า</th><th>หน่วย</th><th>ในระบบ</th><th>นับได้</th><th>ต่าง</th><th>LOT ที่ปรับ</th><th aria-label="จัดการ"></th></tr></thead>
+          <colgroup><col class="stock-edit-col-barcode"><col class="stock-edit-col-name"><col class="stock-edit-col-unit"><col class="stock-edit-col-stock"><col class="stock-edit-col-count"><col class="stock-edit-col-difference"><col class="stock-edit-col-lot"><col class="stock-edit-col-action"></colgroup>
+          <thead><tr><th>บาร์โค้ด</th><th>สินค้า</th><th>หน่วย</th><th>ในระบบ</th><th>นับได้</th><th>ต่าง</th><th>LOT ที่ปรับ</th><th aria-label="จัดการ"></th></tr></thead>
           <tbody id="stockEditTbody">${stockEditRowsHtml(pagination.rows)}</tbody>
         </table>
       </div>

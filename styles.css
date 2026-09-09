@@ -611,14 +611,16 @@
   /* หน้าแก้ไขสต๊อก: scoped ทั้งหมดเพื่อไม่กระทบตาราง/ตัวกรองหน้าอื่น */
   .stock-edit-section{min-width:0;}
   .stock-edit-table-wrap{max-height:calc(100vh - 340px);min-height:300px;overflow:auto;border-radius:var(--radius);}
-  .stock-edit-table{table-layout:fixed;min-width:900px;width:100%;}
+  .stock-edit-table{table-layout:fixed;min-width:1100px;width:100%;}
   .stock-edit-table thead th{position:sticky;top:0;z-index:3;}
-  .stock-edit-table .stock-edit-col-sku{width:120px;}
-  .stock-edit-table .stock-edit-col-barcode{width:180px;}
+  .stock-edit-table .stock-edit-col-barcode{width:150px;}
   .stock-edit-table .stock-edit-col-name{width:auto;}
-  .stock-edit-table .stock-edit-col-unit{width:150px;}
-  .stock-edit-table .stock-edit-col-stock{width:190px;}
-  .stock-edit-table .stock-edit-col-action{width:64px;}
+  .stock-edit-table .stock-edit-col-unit{width:100px;}
+  .stock-edit-table .stock-edit-col-stock{width:100px;}
+  .stock-edit-table .stock-edit-col-count{width:110px;}
+  .stock-edit-table .stock-edit-col-difference{width:80px;}
+  .stock-edit-table .stock-edit-col-lot{width:240px;}
+  .stock-edit-table .stock-edit-col-action{width:56px;}
   .stock-edit-table td{vertical-align:middle;}
   .stock-edit-page-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
   .stock-edit-unit-select{width:100%;max-width:120px;font-size:13px;color:var(--text-muted);border:1px solid transparent;background:transparent;text-align:center;padding:6px;cursor:pointer;border-radius:6px;}
@@ -1988,7 +1990,8 @@
   .stock-control-difference.out{background:#FCEAE8;color:#B83B33;}
   .stock-control-lot-cell{min-width:220px;text-align:left;}
   .stock-control-lot-select,.stock-control-new-lot-input{width:100%;height:36px;border:1px solid #D8CDC8;border-radius:7px;background:#fff;padding:0 8px;font:12px 'Sarabun',sans-serif;}
-  .stock-control-new-lot-fields{display:grid;grid-template-columns:1fr 118px;gap:5px;margin-top:5px;}
+  .stock-control-new-lot-fields{display:grid;grid-template-columns:minmax(0,1fr);gap:5px;margin-top:5px;}
+  .stock-control-new-lot-input{min-width:0;box-sizing:border-box;}
   .stock-control-lot-hint{display:block;color:var(--text-muted);font-size:11px;line-height:1.35;margin-top:4px;}
   .stock-control-anomaly-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px;}
   .stock-control-anomaly-card{border:1px solid #E5DCD8;border-radius:12px;background:#fff;padding:14px;}
