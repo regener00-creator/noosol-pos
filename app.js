@@ -2552,6 +2552,12 @@ const MEDICINE_LABEL_TIME_OPTIONS=[
   {value:'evening',label:'เย็น'},
   {value:'bedtime',label:'ก่อนนอน'},
 ];
+const MEDICINE_LABEL_MEAL_OPTIONS=[
+  {value:'before',label:'ก่อนอาหาร'},
+  {value:'after',label:'หลังอาหาร'},
+  {value:'with_food',label:'พร้อมอาหาร'},
+  {value:'empty_stomach',label:'ขณะท้องว่าง'},
+];
 async function saveRevisionedDocument(table,doc,{remove=false,expectedRevision=null}={}){
   const row=docToRow(doc),revision=expectedRevision===null?row.revision:Number(expectedRevision)||0;
   const requestPayload={table,id:String(row.id||''),data:row.data,revision,remove:!!remove};
@@ -2654,10 +2660,12 @@ function medicineLabelLegacyDoseParts(directions){
 }
 function medicineLabelMealTiming(value,directions=''){
   const explicit=String(value??'').trim();
-  if(['before','after','none'].includes(explicit)) return explicit;
+  if([...MEDICINE_LABEL_MEAL_OPTIONS.map(option=>option.value),'none'].includes(explicit)) return explicit;
   const text=String(directions||'');
   if(text.includes('ก่อนอาหาร')) return 'before';
   if(text.includes('หลังอาหาร')) return 'after';
+  if(text.includes('พร้อมอาหาร')) return 'with_food';
+  if(text.includes('ขณะท้องว่าง')) return 'empty_stomach';
   return 'none';
 }
 function medicineLabelInterval(value,unit,directions=''){
@@ -2699,7 +2707,7 @@ function medicineLabelDirectionsFromParts(value){
   const durationMode=medicineLabelDurationMode(value?.durationMode,duration,value?.directions),durationText=medicineLabelDurationText({...value,durationMode,durationDays:duration});
   if(!amount||!unit||!durationText||(!times.length&&!interval.value)) return String(value?.directions||'').trim();
   const meal=medicineLabelMealTiming(value?.mealTiming,value?.directions);
-  const mealText=meal==='before'?'ก่อนอาหาร':meal==='after'?'หลังอาหาร':'';
+  const mealText=MEDICINE_LABEL_MEAL_OPTIONS.find(option=>option.value===meal)?.label||'';
   const timeText=MEDICINE_LABEL_TIME_OPTIONS.filter(option=>times.includes(option.value)).map(option=>option.label).join(' ');
   const durationDirection=durationMode==='days'?`เป็นเวลา ${durationText}`:durationText;
   return [`รับประทานครั้งละ ${amount} ${unit}`,mealText,intervalText,timeText,durationDirection].filter(Boolean).join(' ');
@@ -2994,11 +3002,13 @@ function openMedicineLabelEditor(lineId){
           <div class="medicine-label-unit-add"><input id="medicineLabelDoseUnitNew" maxlength="40" placeholder="เช่น หลอด หรือ ซีซี" autocomplete="off"><button id="medicineLabelDoseUnitAdd" type="button">เพิ่มหน่วย</button></div>
           <div class="medicine-label-unit-list" id="medicineLabelDoseUnitList"></div>
         </section>
-        <fieldset class="medicine-label-option-group"><legend>ก่อน / หลังอาหาร</legend><div class="medicine-label-options">
-          <label class="medicine-label-option"><input type="checkbox" name="medicineLabelMealTiming" value="before" ${draft.mealTiming==='before'?'checked':''}>ก่อนอาหาร</label>
-          <label class="medicine-label-option"><input type="checkbox" name="medicineLabelMealTiming" value="after" ${draft.mealTiming==='after'?'checked':''}>หลังอาหาร</label>
-          <span class="medicine-label-every-hours"><label class="medicine-label-option"><input type="checkbox" id="medicineLabelEveryIntervalEnabled" ${draft.intervalValue?'checked':''}>ทุก</label><input class="medicine-label-inline-number" id="medicineLabelIntervalValue" type="number" min="1" step="1" value="${escapeHtml(draft.intervalValue)}" inputmode="numeric" aria-label="จำนวนช่วงเวลา" ${draft.intervalValue?'required':'disabled'}><select class="medicine-label-inline-unit" id="medicineLabelIntervalUnit" aria-label="หน่วยช่วงเวลา" ${draft.intervalValue?'':'disabled'}><option value="hours" ${draft.intervalUnit==='hours'?'selected':''}>ชั่วโมง</option><option value="minutes" ${draft.intervalUnit==='minutes'?'selected':''}>นาที</option></select></span>
-        </div></fieldset>
+        <fieldset class="medicine-label-option-group medicine-label-meal-group"><legend>มื้ออาหาร</legend>
+          <div class="medicine-label-options medicine-label-meal-row">
+            ${MEDICINE_LABEL_MEAL_OPTIONS.slice(0,2).map(option=>`<label class="medicine-label-option"><input type="checkbox" name="medicineLabelMealTiming" value="${option.value}" ${draft.mealTiming===option.value?'checked':''}>${option.label}</label>`).join('')}
+            <span class="medicine-label-every-hours"><label class="medicine-label-option"><input type="checkbox" id="medicineLabelEveryIntervalEnabled" ${draft.intervalValue?'checked':''}>ทุก</label><input class="medicine-label-inline-number" id="medicineLabelIntervalValue" type="number" min="1" step="1" value="${escapeHtml(draft.intervalValue)}" inputmode="numeric" aria-label="จำนวนช่วงเวลา" ${draft.intervalValue?'required':'disabled'}><select class="medicine-label-inline-unit" id="medicineLabelIntervalUnit" aria-label="หน่วยช่วงเวลา" ${draft.intervalValue?'':'disabled'}><option value="hours" ${draft.intervalUnit==='hours'?'selected':''}>ชั่วโมง</option><option value="minutes" ${draft.intervalUnit==='minutes'?'selected':''}>นาที</option></select></span>
+          </div>
+          <div class="medicine-label-options medicine-label-meal-row medicine-label-meal-row-secondary">${MEDICINE_LABEL_MEAL_OPTIONS.slice(2).map(option=>`<label class="medicine-label-option"><input type="checkbox" name="medicineLabelMealTiming" value="${option.value}" ${draft.mealTiming===option.value?'checked':''}>${option.label}</label>`).join('')}</div>
+        </fieldset>
         <fieldset class="medicine-label-option-group"><legend>ช่วงเวลารับประทาน</legend><div class="medicine-label-options">${MEDICINE_LABEL_TIME_OPTIONS.map(option=>`<label class="medicine-label-option"><input type="checkbox" name="medicineLabelDoseTime" value="${option.value}" ${draft.doseTimes.includes(option.value)?'checked':''}>${option.label}</label>`).join('')}</div></fieldset>
         <fieldset class="medicine-label-option-group medicine-label-warning-group"><legend>เพิ่มเติม / ข้อควรระวัง</legend>
           <textarea id="medicineLabelWarning" placeholder="พิมพ์ข้อความเพิ่มเติมหรือข้อควรระวังของฉลากนี้">${escapeHtml(draft.warning)}</textarea>
@@ -17983,7 +17993,7 @@ function medicineLabelScheduleHtml(label){
   const times=new Set(medicineLabelDoseTimes(label?.doseTimes,label?.directions)),meal=medicineLabelMealTiming(label?.mealTiming,label?.directions),interval=medicineLabelInterval(label?.intervalValue??label?.intervalHours,label?.intervalUnit||(label?.intervalHours?'hours':''),label?.directions);
   const choice=(checked,text)=>`<span class="medicine-label-choice"><i class="${checked?'is-checked':''}"></i>${text}</span>`;
   const intervalLabel=interval.value?`ทุก ${interval.value} ${interval.unit==='minutes'?'นาที':'ชม.'}`:'ทุก __';
-  return `<div class="medicine-label-row medicine-label-schedule"><div class="medicine-label-cell medicine-label-checks">${medicineLabelIconSvg('clock')}${choice(meal==='before','ก่อนอาหาร')}${choice(meal==='after','หลังอาหาร')}${choice(Boolean(interval.value),intervalLabel)}</div><div class="medicine-label-cell medicine-label-checks">${MEDICINE_LABEL_TIME_OPTIONS.map(option=>choice(times.has(option.value),option.label)).join('')}</div></div>`;
+  return `<div class="medicine-label-row medicine-label-schedule"><div class="medicine-label-cell medicine-label-checks medicine-label-meal-checks">${medicineLabelIconSvg('clock')}<span class="medicine-label-meal-choice-grid">${MEDICINE_LABEL_MEAL_OPTIONS.map(option=>choice(meal===option.value,option.label)).join('')}${choice(Boolean(interval.value),intervalLabel)}</span></div><div class="medicine-label-cell medicine-label-checks">${MEDICINE_LABEL_TIME_OPTIONS.map(option=>choice(times.has(option.value),option.label)).join('')}</div></div>`;
 }
 function medicineLabelPharmacistDisplay(value){
   return String(value||'').trim().replace(/^(?:เภสัชกร|ภก\.?|ภญ\.?)\s*/i,'').trim()||'-';
@@ -18057,7 +18067,8 @@ header{display:grid;grid-template-columns:${compact?'6.5':'7.5'}mm minmax(0,1fr)
 .medicine-label-dose .medicine-label-value{font-size:${compact?'5.6':'6.7'}pt;white-space:nowrap}
 .medicine-label-dose .medicine-label-duration-value{font-size:${compact?'3.8':'5.2'}pt;line-height:1.05;white-space:${compact?'nowrap':'normal'}}
 .medicine-label-checks{justify-content:center;gap:${compact?'.25':'.5'}mm;padding-top:${compact?'.35':'.45'}mm;padding-bottom:${compact?'.35':'.45'}mm}
-.medicine-label-schedule .medicine-label-cell:first-child{justify-content:space-between}
+.medicine-label-schedule .medicine-label-cell:first-child{justify-content:flex-start}
+.medicine-label-meal-choice-grid{flex:1;min-width:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:center;gap:${compact?'.18mm .3mm':'.3mm .55mm'}}
 .medicine-label-schedule .medicine-label-cell:last-child{justify-content:space-evenly;gap:${compact?'.3':'.55'}mm}
 .medicine-label-choice{display:inline-flex;align-items:center;gap:${compact?'.18':'.3'}mm;font-size:${compact?'3.05':'3.9'}pt;white-space:nowrap}
 .medicine-label-choice i{display:inline-flex;align-items:center;justify-content:center;width:${compact?'1.8':'2.2'}mm;height:${compact?'1.8':'2.2'}mm;border:.12mm solid #111;border-radius:.25mm;font:700 ${compact?'3.4':'4'}pt Arial,sans-serif;font-style:normal}

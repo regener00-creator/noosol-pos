@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const http = require('node:http');
+const os = require('node:os');
 const path = require('node:path');
 const { chromium } = require('playwright');
 
@@ -59,7 +60,7 @@ const browserExecutable = [
   assert.match(productLine.text, /Paracetamol 500 mg.*จำนวน 1 กล่อง/s);
   assert.equal(await page.locator('label', {has:page.locator('#medicineLabelDrugName')}).locator('span').textContent(), 'ชื่อยา *');
   assert.equal(await page.locator('label', {has:page.locator('#medicineLabelPharmacist')}).locator('span').textContent(), 'เภสัชกร *');
-  assert.equal(await page.locator('.medicine-label-option-group legend').first().textContent(), 'ก่อน / หลังอาหาร');
+  assert.equal(await page.locator('.medicine-label-option-group legend').first().textContent(), 'มื้ออาหาร');
   assert.equal(await page.locator('.medicine-label-warning-group legend').textContent(), 'เพิ่มเติม / ข้อควรระวัง');
   assert.equal(await page.locator('.medicine-label-quick-title').count(), 0, 'ต้องไม่มีหัวข้อเพิ่มคำเตือน');
   assert.equal(await page.locator('#medicineLabelWarning').isVisible(), true, 'ช่องเพิ่มเติมและข้อควรระวังต้องพิมพ์ข้อความได้โดยตรง');
@@ -100,6 +101,13 @@ const browserExecutable = [
   await page.locator('#medicineLabelDurationDays').fill('7');
   const beforeMeal = page.locator('input[name="medicineLabelMealTiming"][value="before"]');
   const afterMeal = page.locator('input[name="medicineLabelMealTiming"][value="after"]');
+  const withFood = page.locator('input[name="medicineLabelMealTiming"][value="with_food"]');
+  const emptyStomach = page.locator('input[name="medicineLabelMealTiming"][value="empty_stomach"]');
+  const mealRows=await page.locator('.medicine-label-meal-row').evaluateAll(rows=>rows.map(row=>({top:row.getBoundingClientRect().top,labels:[...row.querySelectorAll('label')].map(label=>label.textContent.trim())})));
+  assert.deepEqual(mealRows[0].labels.slice(0,2),['ก่อนอาหาร','หลังอาหาร']);
+  assert.deepEqual(mealRows[1].labels,['พร้อมอาหาร','ขณะท้องว่าง']);
+  assert.ok(mealRows[1].top>mealRows[0].top,'พร้อมอาหารและขณะท้องว่างต้องอยู่ใต้แถวก่อนและหลังอาหาร');
+  await page.locator('.medicine-label-meal-group').screenshot({path:path.join(os.tmpdir(),'pepos-medicine-label-meal-form.png')});
   assert.equal(await beforeMeal.getAttribute('type'), 'checkbox');
   assert.equal(await afterMeal.getAttribute('type'), 'checkbox');
   await afterMeal.check();
@@ -109,6 +117,11 @@ const browserExecutable = [
   assert.equal(await afterMeal.isChecked(), false, 'ก่อนอาหารและหลังอาหารต้องไม่ถูกเลือกพร้อมกัน');
   await afterMeal.check();
   assert.equal(await beforeMeal.isChecked(), false, 'เลือกหลังอาหารแล้วต้องเอาติ๊กก่อนอาหารออก');
+  await withFood.check();
+  assert.equal(await afterMeal.isChecked(), false, 'เลือกพร้อมอาหารแล้วต้องเอาติ๊กหลังอาหารออก');
+  await emptyStomach.check();
+  assert.equal(await withFood.isChecked(), false, 'เลือกขณะท้องว่างแล้วต้องเอาติ๊กพร้อมอาหารออก');
+  await afterMeal.check();
   await page.locator('input[name="medicineLabelDoseTime"][value="morning"]').check();
   await page.locator('input[name="medicineLabelDoseTime"][value="noon"]').check();
   await page.locator('input[name="medicineLabelDoseTime"][value="evening"]').check();

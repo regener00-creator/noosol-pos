@@ -119,8 +119,9 @@ const browserExecutable = [
         doseLineHeights:doseLines.map(rect => rect.height),
         warningCenters:[warningKey && warningKey.top + warningKey.height / 2,warningValue && warningValue.top + warningValue.height / 2],
         timeChoiceGaps:timeChoices.slice(1).map((rect,index) => rect.left - timeChoices[index].right),
-        mealChoiceGaps:mealChoices.slice(1).map((rect,index) => rect.left - mealChoices[index].right),
+        mealChoiceCount:mealChoices.length,
         mealJustify:getComputedStyle(mealCell).justifyContent,
+        mealGridColumns:getComputedStyle(mealCell.querySelector('.medicine-label-meal-choice-grid')).gridTemplateColumns.split(' ').length,
         rightCellWidths,
         checkedChoiceStyles,
         checkedChoiceMarks,
@@ -147,9 +148,9 @@ const browserExecutable = [
     assert.ok(Math.abs(metrics.warningCenters[0] - metrics.warningCenters[1]) <= 1, `${size} หัวข้อและข้อมูลคำเตือนต้องอยู่กึ่งกลางแนวเดียวกัน`);
     assert.equal(metrics.timeChoiceGaps.length, 3, `${size} ต้องมีช่องว่างระหว่างช่วงเวลาทั้งสี่`);
     assert.ok(Math.min(...metrics.timeChoiceGaps) >= 2, `${size} ช่วงเวลารับประทานต้องไม่ชิดกัน`);
-    assert.equal(metrics.mealJustify, 'space-between', `${size} ก่อนอาหาร หลังอาหาร และทุกช่วงเวลาต้องกระจายเต็มช่อง`);
-    assert.equal(metrics.mealChoiceGaps.length, 2, `${size} ต้องมีตัวเลือกก่อนอาหาร หลังอาหาร และทุกช่วงเวลา`);
-    assert.ok(Math.min(...metrics.mealChoiceGaps) >= 2, `${size} ตัวเลือกก่อนอาหาร หลังอาหาร และทุกช่วงเวลาต้องไม่ชิดกัน`);
+    assert.equal(metrics.mealJustify, 'flex-start', `${size} กลุ่มตัวเลือกมื้ออาหารต้องเริ่มต่อจากไอคอน`);
+    assert.equal(metrics.mealChoiceCount, 5, `${size} ต้องมีตัวเลือกมื้ออาหารสี่แบบและทุกช่วงเวลา`);
+    assert.equal(metrics.mealGridColumns, 3, `${size} ตัวเลือกมื้ออาหารต้องเรียงเป็นตารางเพื่อไม่ให้ล้น`);
     assert.ok(metrics.rightCellWidths.every(Number.isFinite), `${size} ต้องมีช่องด้านขวาครบทุกแถว`);
     assert.ok(Math.max(...metrics.rightCellWidths) - Math.min(...metrics.rightCellWidths) <= 1, `${size} ช่องขนาดรับประทาน ระยะเวลา ช่วงเวลา และเภสัชกรต้องกว้างเท่าช่องวันที่จ่ายยา`);
     assert.ok(metrics.checkedChoiceStyles.length >= 1, `${size} ต้องมีช่องตัวเลือกที่ถูกเลือก`);

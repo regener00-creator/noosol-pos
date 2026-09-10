@@ -1548,6 +1548,9 @@
   .medicine-label-option-group{min-width:0;margin:0;padding:10px 12px 12px;border:1px solid var(--border);border-radius:9px;background:#fff;}
   .medicine-label-option-group legend{padding:0 5px;font-size:12.5px;font-weight:700;}
   .medicine-label-options{display:flex;flex-wrap:wrap;gap:8px 13px;}
+  .medicine-label-meal-group{grid-column:1/-1;}
+  .medicine-label-meal-row{align-items:center;}
+  .medicine-label-meal-row-secondary{margin-top:9px;padding-top:9px;border-top:1px solid var(--border);}
   .medicine-label-option{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;white-space:nowrap;}
   .medicine-label-option input{width:auto;margin:0;accent-color:var(--primary);}
   .medicine-label-every-hours{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;font-size:13px;}
