@@ -211,14 +211,15 @@ assert.match(html, /value:'with_food',label:'พร้อมอาหาร'/, '
 assert.match(html, /value:'empty_stomach',label:'ขณะท้องว่าง'/, 'ต้องมีตัวเลือกขณะท้องว่าง');
 assert.doesNotMatch(html, /type="radio" name="medicineLabelMealTiming"/, 'ก่อนและหลังอาหารต้องไม่ใช้ radio ที่เอาติ๊กออกไม่ได้');
 assert.doesNotMatch(html, /name="medicineLabelMealTiming" value="none"/, 'หน้าจัดทำฉลากยาต้องไม่มีตัวเลือกไม่เกี่ยวกับอาหาร');
-assert.match(html, /id="medicineLabelEveryIntervalEnabled"/, 'ฟอร์มต้องมีตัวเลือกทุกช่วงเวลาต่อจากหลังอาหาร');
+assert.match(html, /id="medicineLabelEveryIntervalEnabled"/, 'ฟอร์มต้องมีตัวเลือกทุกช่วงเวลาต่อจากช่วงเวลารับประทาน');
 assert.match(html, /id="medicineLabelIntervalValue"/, 'ฟอร์มต้องมีช่องกรอกจำนวนช่วงเวลา');
 assert.match(html, /id="medicineLabelIntervalUnit"/, 'ฟอร์มต้องเลือกหน่วยชั่วโมงหรือนาทีได้');
 assert.match(html, /name="medicineLabelDoseTime"/, 'ฟอร์มต้องมีตัวเลือกช่วงเวลารับประทาน');
 assert.match(html, /\.medicine-label-product\{display:flex;align-items:center;justify-content:space-between;/, 'ชื่อสินค้าและจำนวนต้องอยู่ในแถวเดียวกัน');
 assert.match(html, /<span>ชื่อยา \*<\/span><input id="medicineLabelDrugName"/, 'หัวข้อช่องชื่อยาต้องใช้คำสั้น');
 assert.match(html, /<span>เภสัชกร \*<\/span><input id="medicineLabelPharmacist"/, 'หัวข้อช่องเภสัชกรต้องใช้คำสั้น');
-assert.match(html, /<legend>มื้ออาหาร<\/legend>/, 'หัวข้อมื้ออาหารต้องอยู่บนเส้นกรอบ');
+assert.match(html, /<legend>มื้ออาหาร \/ ช่วงเวลารับประทาน<\/legend>/, 'หัวข้อมื้ออาหารและช่วงเวลารับประทานต้องอยู่บนเส้นกรอบเดียวกัน');
+assert.doesNotMatch(html, /<legend>ช่วงเวลารับประทาน<\/legend>/, 'ต้องไม่มีกรอบช่วงเวลารับประทานซ้ำ');
 assert.match(html, /medicine-label-warning-group"><legend>เพิ่มเติม \/ ข้อควรระวัง<\/legend>/, 'เพิ่มเติมและข้อควรระวังต้องอยู่บนเส้นกรอบ');
 assert.match(html, /<textarea id="medicineLabelWarning" placeholder="พิมพ์ข้อความเพิ่มเติมหรือข้อควรระวังของฉลากนี้">/, 'ต้องพิมพ์ข้อความเพิ่มเติมหรือข้อควรระวังเองได้');
 assert.match(html, /medicine-label-warning-quick-head"><div class="medicine-label-warning-preset-add">/, 'เครื่องมือ Quick Use ต้องอยู่ต่อจากช่องข้อความ');
