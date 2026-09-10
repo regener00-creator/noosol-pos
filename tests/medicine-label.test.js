@@ -191,11 +191,14 @@ assert.equal(printCount, 3);
 
 assert.match(html, /id="medicineLabelDoseAmount"/, 'ฟอร์มต้องมีช่องขนาดรับประทานต่อครั้ง');
 assert.match(html, /id="medicineLabelDoseUnit"/, 'ฟอร์มต้องมีตัวเลือกหน่วยรับประทาน');
-assert.match(html, /id="medicineLabelDoseUnitManage"/, 'ฟอร์มต้องมีปุ่มจัดการหน่วยรับประทาน');
+assert.match(html, /<option value="__manage_dose_units__">จัดการ<\/option>/, 'จัดการต้องเป็นตัวเลือกล่างสุดของ Dropdown หน่วยรับประทาน');
+assert.doesNotMatch(html, /id="medicineLabelDoseUnitManage"/, 'ต้องไม่มีปุ่มจัดการหน่วยรับประทานแยกจาก Dropdown');
+assert.match(html, /id="medicineLabelDoseUnitPopupTitle">จัดการหน่วยรับประทาน<\/h3>/, 'เลือกจัดการแล้วต้องเปิด Popup');
 assert.match(html, /id="medicineLabelDoseUnitNew"/, 'ต้องเพิ่มหน่วยรับประทานใหม่ได้');
 assert.match(html, /id="medicineLabelDoseUnitList"/, 'ต้องแสดงรายการสำหรับจัดลำดับหน่วยรับประทาน');
 assert.match(html, /data-dose-unit-action="up"/, 'ต้องเลื่อนหน่วยรับประทานขึ้นได้');
 assert.match(html, /data-dose-unit-action="down"/, 'ต้องเลื่อนหน่วยรับประทานลงได้');
+assert.match(html, /data-dose-unit-action="delete"/, 'ต้องลบหน่วยรับประทานใน Popup ได้');
 assert.match(html, /function normalizeMedicineLabelDoseUnits\(/, 'ต้องตรวจและตัดหน่วยรับประทานซ้ำก่อนบันทึก');
 assert.match(html, /function saveMedicineLabelDoseUnits\(/, 'ต้องบันทึกรายการหน่วยรับประทานที่จัดเอง');
 assert.match(html, /medicineLabelDoseUnits:\[\.\.\.MEDICINE_LABEL_DOSE_UNITS\]/, 'ข้อมูลธุรกิจเริ่มต้นต้องมีหน่วยรับประทานมาตรฐาน');
@@ -223,6 +226,7 @@ assert.doesNotMatch(html, /<legend>ช่วงเวลารับประท
 assert.match(html, /medicine-label-warning-group"><legend>เพิ่มเติม \/ ข้อควรระวัง<\/legend>/, 'เพิ่มเติมและข้อควรระวังต้องอยู่บนเส้นกรอบ');
 assert.match(html, /<textarea id="medicineLabelWarning" placeholder="พิมพ์ข้อความเพิ่มเติมหรือข้อควรระวังของฉลากนี้">/, 'ต้องพิมพ์ข้อความเพิ่มเติมหรือข้อควรระวังเองได้');
 assert.match(html, /id="medicineLabelWarningPresetOpen"[^>]*>เพิ่มข้อความ<\/button>/, 'หน้าหลักต้องมีปุ่มเปิด Popup เพิ่มข้อความ Quick Use');
+assert.match(html, /id="medicineLabelWarningQuickList"><\/div>\s*<div class="medicine-label-warning-quick-head"><button[^>]+id="medicineLabelWarningPresetOpen"/, 'ปุ่มเพิ่มข้อความต้องอยู่ท้ายรายการ Quick Use');
 assert.doesNotMatch(html, /class="medicine-label-quick-title">เพิ่มคำเตือน<\/div>/, 'ต้องไม่มีหัวข้อเพิ่มคำเตือน');
 assert.match(html, /id="medicineLabelWarningPresetNew"/, 'ต้องเพิ่มคำเตือน Quick Use เองได้');
 assert.match(html, /id="medicineLabelWarningPresetAdd"[^>]*>เพิ่มข้อความ<\/button>/, 'Popup ต้องมีปุ่มเพิ่มข้อความ Quick Use');

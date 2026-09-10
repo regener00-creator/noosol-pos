@@ -2993,15 +2993,10 @@ function openMedicineLabelEditor(lineId){
         <label class="medicine-label-field"><span>ขนาดฉลาก</span><select id="medicineLabelSize">${Object.entries(MEDICINE_LABEL_SIZES).map(([value,option])=>`<option value="${value}" ${value===medicineLabelSize?'selected':''}>${option.label}</option>`).join('')}</select></label>
         <div class="medicine-label-dose-fields">
           <label class="medicine-label-field"><span>ขนาดรับประทานต่อครั้ง *</span><input id="medicineLabelDoseAmount" type="number" min="0.01" step="0.01" value="${escapeHtml(draft.doseAmount)}" inputmode="decimal" required></label>
-          <div class="medicine-label-field"><label for="medicineLabelDoseUnit">หน่วยรับประทาน *</label><div class="medicine-label-unit-select-wrap"><select id="medicineLabelDoseUnit" required>${doseUnits.map(unit=>`<option value="${escapeHtml(unit)}" ${unit===draft.doseUnit?'selected':''}>${escapeHtml(unit)}</option>`).join('')}</select><button class="medicine-label-unit-manage-btn" id="medicineLabelDoseUnitManage" type="button" aria-expanded="false">จัดการ</button></div></div>
+          <div class="medicine-label-field"><label for="medicineLabelDoseUnit">หน่วยรับประทาน *</label><div class="medicine-label-unit-select-wrap"><select id="medicineLabelDoseUnit" required>${doseUnits.map(unit=>`<option value="${escapeHtml(unit)}" ${unit===draft.doseUnit?'selected':''}>${escapeHtml(unit)}</option>`).join('')}<option value="__manage_dose_units__">จัดการ</option></select></div></div>
           <label class="medicine-label-field"><span>ระยะเวลา *</span><select id="medicineLabelDurationMode" required>${MEDICINE_LABEL_DURATION_OPTIONS.map(option=>`<option value="${option.value}" ${option.value===draft.durationMode?'selected':''}>${option.label}</option>`).join('')}</select></label>
           <label class="medicine-label-field" id="medicineLabelDurationDaysField" ${draft.durationMode==='days'?'':'hidden'}><span>จำนวนวัน *</span><input id="medicineLabelDurationDays" type="number" min="1" step="1" value="${escapeHtml(draft.durationDays)}" inputmode="numeric" ${draft.durationMode==='days'?'required':''}></label>
         </div>
-        <section class="medicine-label-unit-manager" id="medicineLabelDoseUnitManager" hidden>
-          <div class="medicine-label-unit-manager-head"><b>จัดการหน่วยรับประทาน</b><span>เพิ่ม ลบ หรือจัดลำดับสำหรับรายการเลือก</span></div>
-          <div class="medicine-label-unit-add"><input id="medicineLabelDoseUnitNew" maxlength="40" placeholder="เช่น หลอด หรือ ซีซี" autocomplete="off"><button id="medicineLabelDoseUnitAdd" type="button">เพิ่มหน่วย</button></div>
-          <div class="medicine-label-unit-list" id="medicineLabelDoseUnitList"></div>
-        </section>
         <fieldset class="medicine-label-option-group medicine-label-meal-group"><legend>มื้ออาหาร / ช่วงเวลารับประทาน</legend>
           <div class="medicine-label-options medicine-label-meal-row">${MEDICINE_LABEL_MEAL_OPTIONS.map(option=>`<label class="medicine-label-option"><input type="checkbox" name="medicineLabelMealTiming" value="${option.value}" ${draft.mealTiming===option.value?'checked':''}>${option.label}</label>`).join('')}</div>
           <div class="medicine-label-options medicine-label-meal-row medicine-label-meal-row-secondary">
@@ -3011,66 +3006,85 @@ function openMedicineLabelEditor(lineId){
         </fieldset>
         <fieldset class="medicine-label-option-group medicine-label-warning-group"><legend>เพิ่มเติม / ข้อควรระวัง</legend>
           <textarea id="medicineLabelWarning" placeholder="พิมพ์ข้อความเพิ่มเติมหรือข้อควรระวังของฉลากนี้">${escapeHtml(draft.warning)}</textarea>
-          <div class="medicine-label-warning-quick-head"><button class="medicine-label-warning-popup-open" id="medicineLabelWarningPresetOpen" type="button">เพิ่มข้อความ</button></div>
           <div class="medicine-label-quick-list" id="medicineLabelWarningQuickList"></div>
+          <div class="medicine-label-warning-quick-head"><button class="medicine-label-warning-popup-open" id="medicineLabelWarningPresetOpen" type="button">เพิ่มข้อความ</button></div>
         </fieldset>
       </div>
       <div class="medicine-label-safety">เภสัชกรต้องตรวจสอบชื่อยา ขนาดต่อครั้ง หน่วย ระยะเวลา ช่วงรับประทานหรือความถี่เป็นชั่วโมง/นาที และคำเตือนก่อนพิมพ์ ระบบจะไม่กำหนดวิธีใช้ยาให้เอง</div>
       <div class="medicine-label-actions">${existing?'<button class="btn ghost" type="button" id="removeMedicineLabelBtn">นำฉลากออก</button>':''}<button class="btn ghost" type="button" id="cancelMedicineLabelBtn">ยกเลิก</button><button class="btn primary" type="submit">บันทึกฉลากยา</button></div>
     </form></div>`;
   document.body.appendChild(overlay);
-  let warningPresetPopup=null;
-  const close=()=>{ warningPresetPopup?.remove(); warningPresetPopup=null; overlay.remove(); };
+  let doseUnitPopup=null,warningPresetPopup=null;
+  const close=()=>{ doseUnitPopup?.remove(); warningPresetPopup?.remove(); doseUnitPopup=null; warningPresetPopup=null; overlay.remove(); };
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('#cancelMedicineLabelBtn').onclick=close;
-  const doseUnitSelect=overlay.querySelector('#medicineLabelDoseUnit'),doseUnitManageButton=overlay.querySelector('#medicineLabelDoseUnitManage'),doseUnitManager=overlay.querySelector('#medicineLabelDoseUnitManager'),doseUnitList=overlay.querySelector('#medicineLabelDoseUnitList'),doseUnitNewInput=overlay.querySelector('#medicineLabelDoseUnitNew');
-  const renderDoseUnitManager=(preferredUnit='')=>{
-    const stored=getMedicineLabelDoseUnits(),current=String(preferredUnit||doseUnitSelect.value||stored[0]||'').trim();
+  const doseUnitManageValue='__manage_dose_units__',doseUnitSelect=overlay.querySelector('#medicineLabelDoseUnit');
+  let selectedDoseUnit=String(draft.doseUnit||doseUnits[0]||'').trim();
+  const renderDoseUnitSelect=(preferredUnit='')=>{
+    const stored=getMedicineLabelDoseUnits(),current=String(preferredUnit||selectedDoseUnit||stored[0]||'').trim();
     const selectable=stored.includes(current)?stored:[current,...stored].filter(Boolean);
-    doseUnitSelect.innerHTML=selectable.map(unit=>`<option value="${escapeHtml(unit)}">${escapeHtml(unit)}</option>`).join('');
-    doseUnitSelect.value=selectable.includes(current)?current:(stored[0]||'');
-    doseUnitList.innerHTML=stored.map((unit,index)=>`<div class="medicine-label-unit-row" data-dose-unit-index="${index}"><span>${escapeHtml(unit)}</span><div class="medicine-label-unit-row-actions"><button type="button" data-dose-unit-action="up" title="เลื่อน ${escapeHtml(unit)} ขึ้น" aria-label="เลื่อน ${escapeHtml(unit)} ขึ้น" ${index===0?'disabled':''}>↑</button><button type="button" data-dose-unit-action="down" title="เลื่อน ${escapeHtml(unit)} ลง" aria-label="เลื่อน ${escapeHtml(unit)} ลง" ${index===stored.length-1?'disabled':''}>↓</button><button class="delete" type="button" data-dose-unit-action="delete" aria-label="ลบ ${escapeHtml(unit)}">ลบ</button></div></div>`).join('');
+    selectedDoseUnit=selectable.includes(current)?current:(stored[0]||'');
+    doseUnitSelect.innerHTML=`${selectable.map(unit=>`<option value="${escapeHtml(unit)}">${escapeHtml(unit)}</option>`).join('')}<option value="${doseUnitManageValue}">จัดการ</option>`;
+    doseUnitSelect.value=selectedDoseUnit;
   };
-  doseUnitManageButton.onclick=()=>{
-    const willOpen=doseUnitManager.hidden;
-    doseUnitManager.hidden=!willOpen;
-    doseUnitManageButton.setAttribute('aria-expanded',String(willOpen));
-    doseUnitManageButton.textContent=willOpen?'ปิด':'จัดการ';
-    if(willOpen){
-      const selected=String(doseUnitSelect.value||'').trim(),stored=getMedicineLabelDoseUnits();
-      if(selected&&!stored.includes(selected)) saveMedicineLabelDoseUnits([selected,...stored]);
-      renderDoseUnitManager(selected);
-      setTimeout(()=>doseUnitNewInput.focus(),0);
-    }
+  const openMedicineLabelDoseUnitPopup=()=>{
+    if(doseUnitPopup) return;
+    const stored=getMedicineLabelDoseUnits();
+    if(selectedDoseUnit&&!stored.includes(selectedDoseUnit)) saveMedicineLabelDoseUnits([selectedDoseUnit,...stored]);
+    const popup=document.createElement('div');
+    popup.className='modal-overlay medicine-label-dose-unit-overlay';
+    popup.innerHTML=`<div class="modal medicine-label-dose-unit-modal" role="dialog" aria-modal="true" aria-labelledby="medicineLabelDoseUnitPopupTitle">
+      <div class="modal-head"><div><h3 id="medicineLabelDoseUnitPopupTitle">จัดการหน่วยรับประทาน</h3><div class="medicine-label-unit-popup-sub">เพิ่ม ลบ หรือจัดเรียงหน่วยสำหรับรายการเลือก</div></div><button class="modal-close" id="medicineLabelDoseUnitPopupClose" type="button" aria-label="ปิด">×</button></div>
+      <div class="medicine-label-unit-popup-body">
+        <div class="medicine-label-unit-add"><input id="medicineLabelDoseUnitNew" maxlength="40" placeholder="เช่น หลอด หรือ ซีซี" autocomplete="off"><button id="medicineLabelDoseUnitAdd" type="button">เพิ่มหน่วย</button></div>
+        <div class="medicine-label-unit-list" id="medicineLabelDoseUnitList"></div>
+      </div>
+      <div class="medicine-label-unit-popup-actions"><button class="btn ghost" id="medicineLabelDoseUnitPopupDone" type="button">ปิด</button></div>
+    </div>`;
+    document.body.appendChild(popup); doseUnitPopup=popup;
+    const popupList=popup.querySelector('#medicineLabelDoseUnitList'),popupInput=popup.querySelector('#medicineLabelDoseUnitNew');
+    const closePopup=()=>{ popup.remove(); if(doseUnitPopup===popup) doseUnitPopup=null; doseUnitSelect.focus(); };
+    const renderPopupList=()=>{
+      const units=getMedicineLabelDoseUnits();
+      popupList.innerHTML=units.map((unit,index)=>`<div class="medicine-label-unit-row" data-dose-unit-index="${index}"><span>${escapeHtml(unit)}</span><div class="medicine-label-unit-row-actions"><button type="button" data-dose-unit-action="up" title="เลื่อน ${escapeHtml(unit)} ขึ้น" aria-label="เลื่อน ${escapeHtml(unit)} ขึ้น" ${index===0?'disabled':''}>↑</button><button type="button" data-dose-unit-action="down" title="เลื่อน ${escapeHtml(unit)} ลง" aria-label="เลื่อน ${escapeHtml(unit)} ลง" ${index===units.length-1?'disabled':''}>↓</button><button class="delete" type="button" data-dose-unit-action="delete" aria-label="ลบ ${escapeHtml(unit)}">ลบ</button></div></div>`).join('');
+    };
+    const addDoseUnit=()=>{
+      const unit=normalizeMedicineLabelDoseUnits([popupInput.value])[0]||'';
+      if(!unit){ showToast('กรุณากรอกชื่อหน่วยรับประทาน','danger-top'); popupInput.focus(); return; }
+      const units=getMedicineLabelDoseUnits(),existingUnit=units.find(value=>value.toLocaleLowerCase('th-TH')===unit.toLocaleLowerCase('th-TH'));
+      if(existingUnit){ renderDoseUnitSelect(existingUnit); showToast('มีหน่วยรับประทานนี้อยู่แล้ว'); }
+      else{ saveMedicineLabelDoseUnits([...units,unit]); renderDoseUnitSelect(unit); renderPopupList(); showToast(`เพิ่มหน่วย “${unit}” แล้ว`); }
+      popupInput.value=''; popupInput.focus();
+    };
+    popup.querySelector('#medicineLabelDoseUnitAdd').onclick=addDoseUnit;
+    popupInput.onkeydown=event=>{ if(event.key==='Enter'){ event.preventDefault(); addDoseUnit(); } };
+    popupList.onclick=event=>{
+      const button=event.target.closest('[data-dose-unit-action]'); if(!button||button.disabled) return;
+      const row=button.closest('[data-dose-unit-index]'),index=Number(row?.dataset.doseUnitIndex),action=button.dataset.doseUnitAction,units=getMedicineLabelDoseUnits();
+      if(!Number.isInteger(index)||index<0||index>=units.length) return;
+      let nextSelected=selectedDoseUnit;
+      if(action==='delete'){
+        if(units.length===1){ showToast('ต้องมีหน่วยรับประทานอย่างน้อย 1 หน่วย','danger-top'); return; }
+        if(!confirm(`ลบหน่วยรับประทาน “${units[index]}” หรือไม่?`)) return;
+        const removed=units.splice(index,1)[0];
+        if(nextSelected===removed) nextSelected=units[Math.min(index,units.length-1)];
+      }else{
+        const target=action==='up'?index-1:index+1;
+        if(target<0||target>=units.length) return;
+        [units[index],units[target]]=[units[target],units[index]];
+      }
+      saveMedicineLabelDoseUnits(units); renderDoseUnitSelect(nextSelected); renderPopupList();
+    };
+    popup.querySelector('#medicineLabelDoseUnitPopupClose').onclick=closePopup;
+    popup.querySelector('#medicineLabelDoseUnitPopupDone').onclick=closePopup;
+    popup.onclick=event=>{ if(event.target===popup) closePopup(); };
+    renderPopupList(); setTimeout(()=>popupInput.focus(),0);
   };
-  const addDoseUnit=()=>{
-    const unit=normalizeMedicineLabelDoseUnits([doseUnitNewInput.value])[0]||'';
-    if(!unit){ showToast('กรุณากรอกชื่อหน่วยรับประทาน','danger-top'); doseUnitNewInput.focus(); return; }
-    const stored=getMedicineLabelDoseUnits(),existingUnit=stored.find(value=>value.toLocaleLowerCase('th-TH')===unit.toLocaleLowerCase('th-TH'));
-    if(existingUnit){ renderDoseUnitManager(existingUnit); showToast('มีหน่วยรับประทานนี้อยู่แล้ว'); }
-    else{ saveMedicineLabelDoseUnits([...stored,unit]); renderDoseUnitManager(unit); showToast(`เพิ่มหน่วย “${unit}” แล้ว`); }
-    doseUnitNewInput.value=''; doseUnitNewInput.focus();
+  doseUnitSelect.onchange=()=>{
+    if(doseUnitSelect.value===doseUnitManageValue){ renderDoseUnitSelect(selectedDoseUnit); openMedicineLabelDoseUnitPopup(); }
+    else selectedDoseUnit=doseUnitSelect.value;
   };
-  overlay.querySelector('#medicineLabelDoseUnitAdd').onclick=addDoseUnit;
-  doseUnitNewInput.onkeydown=event=>{ if(event.key==='Enter'){ event.preventDefault(); addDoseUnit(); } };
-  doseUnitList.onclick=event=>{
-    const button=event.target.closest('[data-dose-unit-action]'); if(!button||button.disabled) return;
-    const row=button.closest('[data-dose-unit-index]'),index=Number(row?.dataset.doseUnitIndex),action=button.dataset.doseUnitAction,stored=getMedicineLabelDoseUnits();
-    if(!Number.isInteger(index)||index<0||index>=stored.length) return;
-    let selected=doseUnitSelect.value;
-    if(action==='delete'){
-      if(stored.length===1){ showToast('ต้องมีหน่วยรับประทานอย่างน้อย 1 หน่วย','danger-top'); return; }
-      if(!confirm(`ลบหน่วยรับประทาน “${stored[index]}” หรือไม่?`)) return;
-      const removed=stored.splice(index,1)[0];
-      if(selected===removed) selected=stored[Math.min(index,stored.length-1)];
-    }else{
-      const target=action==='up'?index-1:index+1;
-      if(target<0||target>=stored.length) return;
-      [stored[index],stored[target]]=[stored[target],stored[index]];
-    }
-    saveMedicineLabelDoseUnits(stored); renderDoseUnitManager(selected);
-  };
-  renderDoseUnitManager(draft.doseUnit);
+  renderDoseUnitSelect(draft.doseUnit);
   const durationModeField=overlay.querySelector('#medicineLabelDurationMode'),durationDaysField=overlay.querySelector('#medicineLabelDurationDaysField'),durationDaysInput=overlay.querySelector('#medicineLabelDurationDays');
   const mealTimingInputs=[...overlay.querySelectorAll('input[name="medicineLabelMealTiming"]')];
   mealTimingInputs.forEach(input=>input.onchange=()=>{ if(input.checked) mealTimingInputs.forEach(other=>{ if(other!==input) other.checked=false; }); });
