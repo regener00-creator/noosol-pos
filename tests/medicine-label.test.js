@@ -222,11 +222,12 @@ assert.match(html, /<legend>มื้ออาหาร \/ ช่วงเวล
 assert.doesNotMatch(html, /<legend>ช่วงเวลารับประทาน<\/legend>/, 'ต้องไม่มีกรอบช่วงเวลารับประทานซ้ำ');
 assert.match(html, /medicine-label-warning-group"><legend>เพิ่มเติม \/ ข้อควรระวัง<\/legend>/, 'เพิ่มเติมและข้อควรระวังต้องอยู่บนเส้นกรอบ');
 assert.match(html, /<textarea id="medicineLabelWarning" placeholder="พิมพ์ข้อความเพิ่มเติมหรือข้อควรระวังของฉลากนี้">/, 'ต้องพิมพ์ข้อความเพิ่มเติมหรือข้อควรระวังเองได้');
-assert.match(html, /medicine-label-warning-quick-head"><div class="medicine-label-warning-preset-add">/, 'เครื่องมือ Quick Use ต้องอยู่ต่อจากช่องข้อความ');
+assert.match(html, /id="medicineLabelWarningPresetOpen"[^>]*>เพิ่มข้อความ<\/button>/, 'หน้าหลักต้องมีปุ่มเปิด Popup เพิ่มข้อความ Quick Use');
 assert.doesNotMatch(html, /class="medicine-label-quick-title">เพิ่มคำเตือน<\/div>/, 'ต้องไม่มีหัวข้อเพิ่มคำเตือน');
 assert.match(html, /id="medicineLabelWarningPresetNew"/, 'ต้องเพิ่มคำเตือน Quick Use เองได้');
-assert.match(html, /id="medicineLabelWarningPresetAdd"[^>]*>เพิ่มข้อความ<\/button>/, 'ปุ่มเพิ่มข้อความต้องอยู่ในส่วน Quick Use');
-assert.match(html, /id="medicineLabelWarningPresetManage"/, 'ต้องมีปุ่มจัดการคำเตือน Quick Use');
+assert.match(html, /id="medicineLabelWarningPresetAdd"[^>]*>เพิ่มข้อความ<\/button>/, 'Popup ต้องมีปุ่มเพิ่มข้อความ Quick Use');
+assert.match(html, /id="medicineLabelWarningPresetPopupTitle">ข้อความ Quick Use<\/h3>/, 'ต้องจัดการ Quick Use ใน Popup');
+assert.doesNotMatch(html, /id="medicineLabelWarningPresetManage"/, 'ต้องนำปุ่มจัดการเดิมออกจากหน้าหลัก');
 assert.match(html, /data-medicine-warning-preset-action="up"/, 'ต้องเลื่อนลำดับคำเตือน Quick Use ขึ้นได้');
 assert.match(html, /data-medicine-warning-preset-action="down"/, 'ต้องเลื่อนลำดับคำเตือน Quick Use ลงได้');
 assert.match(html, /data-medicine-warning-preset-action="delete"/, 'ต้องลบคำเตือน Quick Use ได้');

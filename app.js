@@ -3011,16 +3011,16 @@ function openMedicineLabelEditor(lineId){
         </fieldset>
         <fieldset class="medicine-label-option-group medicine-label-warning-group"><legend>เพิ่มเติม / ข้อควรระวัง</legend>
           <textarea id="medicineLabelWarning" placeholder="พิมพ์ข้อความเพิ่มเติมหรือข้อควรระวังของฉลากนี้">${escapeHtml(draft.warning)}</textarea>
-          <div class="medicine-label-warning-quick-head"><div class="medicine-label-warning-preset-add"><input id="medicineLabelWarningPresetNew" maxlength="180" placeholder="เพิ่มคำ Quick Use ใหม่" autocomplete="off"><button class="add" id="medicineLabelWarningPresetAdd" type="button">เพิ่มข้อความ</button><button id="medicineLabelWarningPresetManage" type="button" aria-expanded="false">จัดการ</button></div></div>
+          <div class="medicine-label-warning-quick-head"><button class="medicine-label-warning-popup-open" id="medicineLabelWarningPresetOpen" type="button">เพิ่มข้อความ</button></div>
           <div class="medicine-label-quick-list" id="medicineLabelWarningQuickList"></div>
-          <section class="medicine-label-warning-preset-manager" id="medicineLabelWarningPresetManager" hidden><div class="medicine-label-warning-preset-list" id="medicineLabelWarningPresetList"></div></section>
         </fieldset>
       </div>
       <div class="medicine-label-safety">เภสัชกรต้องตรวจสอบชื่อยา ขนาดต่อครั้ง หน่วย ระยะเวลา ช่วงรับประทานหรือความถี่เป็นชั่วโมง/นาที และคำเตือนก่อนพิมพ์ ระบบจะไม่กำหนดวิธีใช้ยาให้เอง</div>
       <div class="medicine-label-actions">${existing?'<button class="btn ghost" type="button" id="removeMedicineLabelBtn">นำฉลากออก</button>':''}<button class="btn ghost" type="button" id="cancelMedicineLabelBtn">ยกเลิก</button><button class="btn primary" type="submit">บันทึกฉลากยา</button></div>
     </form></div>`;
   document.body.appendChild(overlay);
-  const close=()=>overlay.remove();
+  let warningPresetPopup=null;
+  const close=()=>{ warningPresetPopup?.remove(); warningPresetPopup=null; overlay.remove(); };
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('#cancelMedicineLabelBtn').onclick=close;
   const doseUnitSelect=overlay.querySelector('#medicineLabelDoseUnit'),doseUnitManageButton=overlay.querySelector('#medicineLabelDoseUnitManage'),doseUnitManager=overlay.querySelector('#medicineLabelDoseUnitManager'),doseUnitList=overlay.querySelector('#medicineLabelDoseUnitList'),doseUnitNewInput=overlay.querySelector('#medicineLabelDoseUnitNew');
@@ -3079,14 +3079,11 @@ function openMedicineLabelEditor(lineId){
   const everyIntervalToggle=overlay.querySelector('#medicineLabelEveryIntervalEnabled'),intervalValueInput=overlay.querySelector('#medicineLabelIntervalValue'),intervalUnitField=overlay.querySelector('#medicineLabelIntervalUnit');
   const syncIntervalField=()=>{ intervalValueInput.disabled=!everyIntervalToggle.checked; intervalValueInput.required=everyIntervalToggle.checked; intervalUnitField.disabled=!everyIntervalToggle.checked; if(!everyIntervalToggle.checked) intervalValueInput.value=''; };
   everyIntervalToggle.onchange=()=>{ syncIntervalField(); if(everyIntervalToggle.checked) intervalValueInput.focus(); }; syncIntervalField();
-  const warningField=overlay.querySelector('#medicineLabelWarning'),warningQuickList=overlay.querySelector('#medicineLabelWarningQuickList'),warningPresetManager=overlay.querySelector('#medicineLabelWarningPresetManager'),warningPresetList=overlay.querySelector('#medicineLabelWarningPresetList'),warningPresetNewInput=overlay.querySelector('#medicineLabelWarningPresetNew'),warningPresetManageButton=overlay.querySelector('#medicineLabelWarningPresetManage');
+  const warningField=overlay.querySelector('#medicineLabelWarning'),warningQuickList=overlay.querySelector('#medicineLabelWarningQuickList'),warningPresetOpenButton=overlay.querySelector('#medicineLabelWarningPresetOpen');
   const renderMedicineLabelWarningPresets=()=>{
     const stored=getMedicineLabelWarningPresets();
     warningQuickList.innerHTML=stored.length
       ?stored.map((text,index)=>`<button class="medicine-label-quick" type="button" data-medicine-warning-preset="${index}">${escapeHtml(text)}</button>`).join('')
-      :'<div class="medicine-label-warning-preset-empty">ยังไม่มีคำเตือน Quick Use</div>';
-    warningPresetList.innerHTML=stored.length
-      ?stored.map((text,index)=>`<div class="medicine-label-warning-preset-row" data-medicine-warning-preset-row="${index}"><span>${escapeHtml(text)}</span><div class="medicine-label-warning-preset-row-actions"><button type="button" data-medicine-warning-preset-action="up" aria-label="เลื่อนคำเตือนขึ้น" ${index===0?'disabled':''}>↑</button><button type="button" data-medicine-warning-preset-action="down" aria-label="เลื่อนคำเตือนลง" ${index===stored.length-1?'disabled':''}>↓</button><button class="delete" type="button" data-medicine-warning-preset-action="delete" aria-label="ลบคำเตือน">ลบ</button></div></div>`).join('')
       :'<div class="medicine-label-warning-preset-empty">ยังไม่มีคำเตือน Quick Use</div>';
   };
   const appendMedicineLabelWarning=text=>{
@@ -3095,34 +3092,57 @@ function openMedicineLabelEditor(lineId){
     if(!values.some(value=>value.toLocaleLowerCase('th-TH')===warning.toLocaleLowerCase('th-TH'))) values.push(warning);
     warningField.value=values.join('\n'); warningField.focus();
   };
-  const addMedicineLabelWarningPreset=()=>{
-    const warning=normalizeMedicineLabelWarningPresets([warningPresetNewInput.value])[0]||'';
-    if(!warning){ showToast('กรุณาพิมพ์คำเตือน Quick Use','danger-top'); warningPresetNewInput.focus(); return; }
-    const stored=getMedicineLabelWarningPresets(),existingPreset=stored.find(value=>value.toLocaleLowerCase('th-TH')===warning.toLocaleLowerCase('th-TH'));
-    if(existingPreset) showToast('มีคำเตือน Quick Use นี้อยู่แล้ว');
-    else{ saveMedicineLabelWarningPresets([...stored,warning]); renderMedicineLabelWarningPresets(); showToast(`บันทึก Quick Use “${warning}” แล้ว`); }
-    warningPresetNewInput.value=''; warningPresetNewInput.focus();
+  const openMedicineLabelWarningPresetPopup=()=>{
+    if(warningPresetPopup) return;
+    const popup=document.createElement('div');
+    popup.className='modal-overlay medicine-label-warning-preset-overlay';
+    popup.innerHTML=`<div class="modal medicine-label-warning-preset-modal" role="dialog" aria-modal="true" aria-labelledby="medicineLabelWarningPresetPopupTitle">
+      <div class="modal-head"><div><h3 id="medicineLabelWarningPresetPopupTitle">ข้อความ Quick Use</h3><div class="medicine-label-warning-preset-sub">เพิ่ม ลบ หรือจัดเรียงข้อความที่ใช้บ่อย</div></div><button class="modal-close" id="medicineLabelWarningPresetPopupClose" type="button" aria-label="ปิด">×</button></div>
+      <div class="medicine-label-warning-preset-popup-body">
+        <div class="medicine-label-warning-preset-add"><input id="medicineLabelWarningPresetNew" maxlength="180" placeholder="พิมพ์ข้อความใหม่" autocomplete="off"><button class="add" id="medicineLabelWarningPresetAdd" type="button">เพิ่มข้อความ</button></div>
+        <div class="medicine-label-warning-preset-list" id="medicineLabelWarningPresetList"></div>
+      </div>
+      <div class="medicine-label-warning-preset-popup-actions"><button class="btn ghost" id="medicineLabelWarningPresetPopupDone" type="button">ปิด</button></div>
+    </div>`;
+    document.body.appendChild(popup); warningPresetPopup=popup;
+    const popupList=popup.querySelector('#medicineLabelWarningPresetList'),popupInput=popup.querySelector('#medicineLabelWarningPresetNew');
+    const closePopup=()=>{ popup.remove(); if(warningPresetPopup===popup) warningPresetPopup=null; warningPresetOpenButton.focus(); };
+    const renderPopupList=()=>{
+      const stored=getMedicineLabelWarningPresets();
+      popupList.innerHTML=stored.length
+        ?stored.map((text,index)=>`<div class="medicine-label-warning-preset-row" data-medicine-warning-preset-row="${index}"><span>${escapeHtml(text)}</span><div class="medicine-label-warning-preset-row-actions"><button type="button" data-medicine-warning-preset-action="up" aria-label="เลื่อนคำเตือนขึ้น" ${index===0?'disabled':''}>↑</button><button type="button" data-medicine-warning-preset-action="down" aria-label="เลื่อนคำเตือนลง" ${index===stored.length-1?'disabled':''}>↓</button><button class="delete" type="button" data-medicine-warning-preset-action="delete" aria-label="ลบคำเตือน">ลบ</button></div></div>`).join('')
+        :'<div class="medicine-label-warning-preset-empty">ยังไม่มีคำเตือน Quick Use</div>';
+    };
+    const addPreset=()=>{
+      const warning=normalizeMedicineLabelWarningPresets([popupInput.value])[0]||'';
+      if(!warning){ showToast('กรุณาพิมพ์คำเตือน Quick Use','danger-top'); popupInput.focus(); return; }
+      const stored=getMedicineLabelWarningPresets(),existingPreset=stored.find(value=>value.toLocaleLowerCase('th-TH')===warning.toLocaleLowerCase('th-TH'));
+      if(existingPreset) showToast('มีคำเตือน Quick Use นี้อยู่แล้ว');
+      else{ saveMedicineLabelWarningPresets([...stored,warning]); renderMedicineLabelWarningPresets(); renderPopupList(); showToast(`บันทึก Quick Use “${warning}” แล้ว`); }
+      popupInput.value=''; popupInput.focus();
+    };
+    popup.querySelector('#medicineLabelWarningPresetAdd').onclick=addPreset;
+    popupInput.onkeydown=event=>{ if(event.key==='Enter'){ event.preventDefault(); addPreset(); } };
+    popupList.onclick=event=>{
+      const button=event.target.closest('[data-medicine-warning-preset-action]'); if(!button||button.disabled) return;
+      const row=button.closest('[data-medicine-warning-preset-row]'),index=Number(row?.dataset.medicineWarningPresetRow),action=button.dataset.medicineWarningPresetAction,stored=getMedicineLabelWarningPresets();
+      if(!Number.isInteger(index)||index<0||index>=stored.length) return;
+      if(action==='delete') stored.splice(index,1);
+      else{
+        const target=action==='up'?index-1:index+1; if(target<0||target>=stored.length) return;
+        [stored[index],stored[target]]=[stored[target],stored[index]];
+      }
+      saveMedicineLabelWarningPresets(stored); renderMedicineLabelWarningPresets(); renderPopupList();
+    };
+    popup.querySelector('#medicineLabelWarningPresetPopupClose').onclick=closePopup;
+    popup.querySelector('#medicineLabelWarningPresetPopupDone').onclick=closePopup;
+    popup.onclick=event=>{ if(event.target===popup) closePopup(); };
+    renderPopupList(); setTimeout(()=>popupInput.focus(),0);
   };
-  overlay.querySelector('#medicineLabelWarningPresetAdd').onclick=addMedicineLabelWarningPreset;
-  warningPresetNewInput.onkeydown=event=>{ if(event.key==='Enter'){ event.preventDefault(); addMedicineLabelWarningPreset(); } };
-  warningPresetManageButton.onclick=()=>{
-    const willOpen=warningPresetManager.hidden; warningPresetManager.hidden=!willOpen;
-    warningPresetManageButton.setAttribute('aria-expanded',String(willOpen)); warningPresetManageButton.textContent=willOpen?'ปิด':'จัดการ';
-  };
+  warningPresetOpenButton.onclick=openMedicineLabelWarningPresetPopup;
   warningQuickList.onclick=event=>{
     const button=event.target.closest('[data-medicine-warning-preset]'); if(!button) return;
     appendMedicineLabelWarning(getMedicineLabelWarningPresets()[Number(button.dataset.medicineWarningPreset)]||'');
-  };
-  warningPresetList.onclick=event=>{
-    const button=event.target.closest('[data-medicine-warning-preset-action]'); if(!button||button.disabled) return;
-    const row=button.closest('[data-medicine-warning-preset-row]'),index=Number(row?.dataset.medicineWarningPresetRow),action=button.dataset.medicineWarningPresetAction,stored=getMedicineLabelWarningPresets();
-    if(!Number.isInteger(index)||index<0||index>=stored.length) return;
-    if(action==='delete') stored.splice(index,1);
-    else{
-      const target=action==='up'?index-1:index+1; if(target<0||target>=stored.length) return;
-      [stored[index],stored[target]]=[stored[target],stored[index]];
-    }
-    saveMedicineLabelWarningPresets(stored); renderMedicineLabelWarningPresets();
   };
   renderMedicineLabelWarningPresets();
   const removeButton=overlay.querySelector('#removeMedicineLabelBtn');

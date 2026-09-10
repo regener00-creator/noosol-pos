@@ -65,7 +65,9 @@ const browserExecutable = [
   assert.equal(await page.locator('.medicine-label-warning-group legend').textContent(), 'เพิ่มเติม / ข้อควรระวัง');
   assert.equal(await page.locator('.medicine-label-quick-title').count(), 0, 'ต้องไม่มีหัวข้อเพิ่มคำเตือน');
   assert.equal(await page.locator('#medicineLabelWarning').isVisible(), true, 'ช่องเพิ่มเติมและข้อควรระวังต้องพิมพ์ข้อความได้โดยตรง');
-  assert.equal(await page.locator('#medicineLabelWarningPresetManager').isHidden(), true);
+  assert.equal(await page.locator('#medicineLabelWarningPresetOpen').textContent(), 'เพิ่มข้อความ');
+  assert.equal(await page.locator('#medicineLabelWarningPresetManage').count(), 0, 'หน้าหลักต้องไม่มีปุ่มจัดการ Quick Use');
+  assert.equal(await page.locator('#medicineLabelWarningPresetNew').count(), 0, 'ช่องเพิ่มข้อความต้องอยู่ใน Popup เท่านั้น');
   assert.equal(await page.locator('#medicineLabelDirections').count(), 0, 'ต้องไม่มีช่องวิธีใช้ยาแบบข้อความ');
   assert.equal(await page.locator('#medicineLabelDoseAmount').count(), 1);
   assert.equal(await page.locator('#medicineLabelDoseUnit').count(), 1);
@@ -131,12 +133,13 @@ const browserExecutable = [
   await page.locator('input[name="medicineLabelDoseTime"][value="morning"]').check();
   await page.locator('input[name="medicineLabelDoseTime"][value="noon"]').check();
   await page.locator('input[name="medicineLabelDoseTime"][value="evening"]').check();
+  await page.locator('#medicineLabelWarningPresetOpen').click();
+  assert.equal(await page.locator('.medicine-label-warning-preset-modal').isVisible(), true, 'ปุ่มเพิ่มข้อความต้องเปิด Popup');
+  assert.equal(await page.locator('#medicineLabelWarningPresetPopupTitle').textContent(), 'ข้อความ Quick Use');
   await page.locator('#medicineLabelWarningPresetNew').fill('เก็บให้พ้นมือเด็ก');
   await page.locator('#medicineLabelWarningPresetAdd').click();
   await page.locator('#medicineLabelWarningPresetNew').fill('ห้ามรับประทานพร้อมนม');
   await page.locator('#medicineLabelWarningPresetAdd').click();
-  await page.locator('#medicineLabelWarningPresetManage').click();
-  assert.equal(await page.locator('#medicineLabelWarningPresetManager').isVisible(), true);
   const customWarningRow = page.locator('.medicine-label-warning-preset-row').filter({hasText:'ห้ามรับประทานพร้อมนม'});
   await customWarningRow.locator('[data-medicine-warning-preset-action="up"]').click();
   const removedWarningRow = page.locator('.medicine-label-warning-preset-row').filter({hasText:'เก็บให้พ้นมือเด็ก'});
@@ -145,6 +148,9 @@ const browserExecutable = [
   assert.equal(managedWarningPresets.includes('เก็บให้พ้นมือเด็ก'), false, 'ต้องลบคำเตือน Quick Use ได้');
   assert.equal(managedWarningPresets.at(-1), 'ห้ามรับประทานพร้อมนม', 'ต้องเลื่อนลำดับคำเตือน Quick Use ได้');
   assert.deepEqual(await page.evaluate(() => businessSettings.medicineLabelWarningPresets), managedWarningPresets, 'รายการ Quick Use ต้องบันทึกในข้อมูลธุรกิจ');
+  await page.locator('.medicine-label-warning-preset-modal').screenshot({path:path.join(os.tmpdir(),'pepos-medicine-label-warning-popup.png')});
+  await page.locator('#medicineLabelWarningPresetPopupDone').click();
+  assert.equal(await page.locator('.medicine-label-warning-preset-modal').count(), 0, 'ปุ่มปิดต้องปิด Popup');
   await page.locator('#medicineLabelWarning').fill('ข้อความที่พิมพ์เอง');
   await page.locator('[data-medicine-warning-preset]').last().click();
   await page.locator('[data-medicine-warning-preset]').first().click();
