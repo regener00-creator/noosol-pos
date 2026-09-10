@@ -191,7 +191,7 @@ assert.equal(printCount, 3);
 
 assert.match(html, /id="medicineLabelDoseAmount"/, 'ฟอร์มต้องมีช่องขนาดรับประทานต่อครั้ง');
 assert.match(html, /id="medicineLabelDoseUnit"/, 'ฟอร์มต้องมีตัวเลือกหน่วยรับประทาน');
-assert.match(html, /<option value="__manage_dose_units__">จัดการ<\/option>/, 'จัดการต้องเป็นตัวเลือกล่างสุดของ Dropdown หน่วยรับประทาน');
+assert.match(html, /<option class="medicine-label-dose-unit-divider" disabled>──────────<\/option><option class="medicine-label-dose-unit-manage-option" value="__manage_dose_units__">⚙ จัดการหน่วยรับประทาน<\/option>/, 'เมนูจัดการต้องมีเส้นคั่น ไอคอน และอยู่ล่างสุดของ Dropdown');
 assert.doesNotMatch(html, /id="medicineLabelDoseUnitManage"/, 'ต้องไม่มีปุ่มจัดการหน่วยรับประทานแยกจาก Dropdown');
 assert.match(html, /id="medicineLabelDoseUnitPopupTitle">จัดการหน่วยรับประทาน<\/h3>/, 'เลือกจัดการแล้วต้องเปิด Popup');
 assert.match(html, /id="medicineLabelDoseUnitNew"/, 'ต้องเพิ่มหน่วยรับประทานใหม่ได้');

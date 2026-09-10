@@ -1528,6 +1528,8 @@
   .medicine-label-field input:focus,.medicine-label-field select:focus,.medicine-label-field textarea:focus{outline:2px solid var(--primary);outline-offset:1px;}
   .medicine-label-dose-fields{grid-column:1/-1;display:grid;grid-template-columns:.8fr 1fr 1fr .8fr;gap:12px;}
   .medicine-label-unit-select-wrap{display:block;}
+  #medicineLabelDoseUnit option.medicine-label-dose-unit-divider{color:var(--border);background:#fff;}
+  #medicineLabelDoseUnit option.medicine-label-dose-unit-manage-option{color:var(--primary);background:var(--primary-soft);font-weight:700;}
   .medicine-label-dose-unit-overlay{z-index:180;}
   .medicine-label-dose-unit-modal{width:min(520px,calc(100vw - 28px));max-height:min(78vh,680px);}
   .medicine-label-dose-unit-modal .modal-head{align-items:flex-start;padding:18px 20px 13px;border-bottom:1px solid var(--border);}

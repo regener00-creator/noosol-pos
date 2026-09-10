@@ -2993,7 +2993,7 @@ function openMedicineLabelEditor(lineId){
         <label class="medicine-label-field"><span>ขนาดฉลาก</span><select id="medicineLabelSize">${Object.entries(MEDICINE_LABEL_SIZES).map(([value,option])=>`<option value="${value}" ${value===medicineLabelSize?'selected':''}>${option.label}</option>`).join('')}</select></label>
         <div class="medicine-label-dose-fields">
           <label class="medicine-label-field"><span>ขนาดรับประทานต่อครั้ง *</span><input id="medicineLabelDoseAmount" type="number" min="0.01" step="0.01" value="${escapeHtml(draft.doseAmount)}" inputmode="decimal" required></label>
-          <div class="medicine-label-field"><label for="medicineLabelDoseUnit">หน่วยรับประทาน *</label><div class="medicine-label-unit-select-wrap"><select id="medicineLabelDoseUnit" required>${doseUnits.map(unit=>`<option value="${escapeHtml(unit)}" ${unit===draft.doseUnit?'selected':''}>${escapeHtml(unit)}</option>`).join('')}<option value="__manage_dose_units__">จัดการ</option></select></div></div>
+          <div class="medicine-label-field"><label for="medicineLabelDoseUnit">หน่วยรับประทาน *</label><div class="medicine-label-unit-select-wrap"><select id="medicineLabelDoseUnit" required>${doseUnits.map(unit=>`<option data-dose-unit-option value="${escapeHtml(unit)}" ${unit===draft.doseUnit?'selected':''}>${escapeHtml(unit)}</option>`).join('')}<option class="medicine-label-dose-unit-divider" disabled>──────────</option><option class="medicine-label-dose-unit-manage-option" value="__manage_dose_units__">⚙ จัดการหน่วยรับประทาน</option></select></div></div>
           <label class="medicine-label-field"><span>ระยะเวลา *</span><select id="medicineLabelDurationMode" required>${MEDICINE_LABEL_DURATION_OPTIONS.map(option=>`<option value="${option.value}" ${option.value===draft.durationMode?'selected':''}>${option.label}</option>`).join('')}</select></label>
           <label class="medicine-label-field" id="medicineLabelDurationDaysField" ${draft.durationMode==='days'?'':'hidden'}><span>จำนวนวัน *</span><input id="medicineLabelDurationDays" type="number" min="1" step="1" value="${escapeHtml(draft.durationDays)}" inputmode="numeric" ${draft.durationMode==='days'?'required':''}></label>
         </div>
@@ -3024,7 +3024,7 @@ function openMedicineLabelEditor(lineId){
     const stored=getMedicineLabelDoseUnits(),current=String(preferredUnit||selectedDoseUnit||stored[0]||'').trim();
     const selectable=stored.includes(current)?stored:[current,...stored].filter(Boolean);
     selectedDoseUnit=selectable.includes(current)?current:(stored[0]||'');
-    doseUnitSelect.innerHTML=`${selectable.map(unit=>`<option value="${escapeHtml(unit)}">${escapeHtml(unit)}</option>`).join('')}<option value="${doseUnitManageValue}">จัดการ</option>`;
+    doseUnitSelect.innerHTML=`${selectable.map(unit=>`<option data-dose-unit-option value="${escapeHtml(unit)}">${escapeHtml(unit)}</option>`).join('')}<option class="medicine-label-dose-unit-divider" disabled>──────────</option><option class="medicine-label-dose-unit-manage-option" value="${doseUnitManageValue}">⚙ จัดการหน่วยรับประทาน</option>`;
     doseUnitSelect.value=selectedDoseUnit;
   };
   const openMedicineLabelDoseUnitPopup=()=>{

@@ -73,8 +73,9 @@ const browserExecutable = [
   assert.equal(await page.locator('#medicineLabelDoseUnit').count(), 1);
   assert.equal(await page.locator('#medicineLabelDoseUnitManage').count(), 0, 'ต้องไม่มีปุ่มจัดการแยกจาก Dropdown');
   const initialDoseUnitOptions = await page.locator('#medicineLabelDoseUnit option').allTextContents();
-  assert.equal(initialDoseUnitOptions.at(-1), 'จัดการ', 'จัดการต้องเป็นตัวเลือกล่างสุดของ Dropdown');
-  const initialDoseUnits = initialDoseUnitOptions.slice(0,-1);
+  assert.equal(initialDoseUnitOptions.at(-2), '──────────', 'ต้องมีเส้นคั่นหน่วยทั่วไปออกจากเมนูจัดการ');
+  assert.equal(initialDoseUnitOptions.at(-1), '⚙ จัดการหน่วยรับประทาน', 'จัดการต้องเป็นตัวเลือกล่างสุดและแตกต่างจากหน่วยทั่วไป');
+  const initialDoseUnits = await page.locator('#medicineLabelDoseUnit option[data-dose-unit-option]').allTextContents();
   const selectedDoseUnitBeforeManage = await page.locator('#medicineLabelDoseUnit').inputValue();
   await page.locator('#medicineLabelDoseUnit').selectOption('__manage_dose_units__');
   assert.equal(await page.locator('.medicine-label-dose-unit-modal').isVisible(), true, 'เลือกจัดการแล้วต้องเปิด Popup');
@@ -83,11 +84,11 @@ const browserExecutable = [
   await page.locator('#medicineLabelDoseUnitNew').fill('หลอด');
   await page.locator('#medicineLabelDoseUnitAdd').click();
   assert.equal(await page.locator('#medicineLabelDoseUnit').inputValue(), 'หลอด', 'หน่วยที่เพิ่มใหม่ต้องถูกเลือกทันที');
-  let managedDoseUnits = await page.locator('#medicineLabelDoseUnit option:not([value="__manage_dose_units__"])').allTextContents();
+  let managedDoseUnits = await page.locator('#medicineLabelDoseUnit option[data-dose-unit-option]').allTextContents();
   assert.deepEqual(managedDoseUnits, [...initialDoseUnits, 'หลอด']);
   const addedUnitRow = page.locator('.medicine-label-unit-row').filter({has:page.locator('span', {hasText:'หลอด'})});
   await addedUnitRow.locator('[data-dose-unit-action="up"]').click();
-  managedDoseUnits = await page.locator('#medicineLabelDoseUnit option:not([value="__manage_dose_units__"])').allTextContents();
+  managedDoseUnits = await page.locator('#medicineLabelDoseUnit option[data-dose-unit-option]').allTextContents();
   assert.equal(managedDoseUnits.at(-2), 'หลอด', 'การเลื่อนขึ้นต้องเปลี่ยนลำดับในรายการเลือกทันที');
   assert.deepEqual(await page.evaluate(() => businessSettings.medicineLabelDoseUnits), managedDoseUnits, 'ลำดับหน่วยต้องถูกเก็บในข้อมูลธุรกิจ');
   await page.locator('#medicineLabelDoseUnitNew').fill('หน่วยชั่วคราว');
@@ -188,7 +189,7 @@ const browserExecutable = [
   await page.evaluate(() => openMedicineLabelEditor(501));
   assert.equal(await page.locator('#medicineLabelDoseAmount').inputValue(), '1');
   assert.equal(await page.locator('#medicineLabelDoseUnit').inputValue(), 'เม็ด');
-  assert.deepEqual(await page.locator('#medicineLabelDoseUnit option:not([value="__manage_dose_units__"])').allTextContents(), managedDoseUnits, 'ลำดับหน่วยที่จัดไว้ต้องคงอยู่เมื่อเปิดฉลากครั้งถัดไป');
+  assert.deepEqual(await page.locator('#medicineLabelDoseUnit option[data-dose-unit-option]').allTextContents(), managedDoseUnits, 'ลำดับหน่วยที่จัดไว้ต้องคงอยู่เมื่อเปิดฉลากครั้งถัดไป');
   assert.equal(await page.locator('#medicineLabelDurationMode').inputValue(), 'days');
   assert.equal(await page.locator('#medicineLabelDurationDays').inputValue(), '7');
   assert.equal(await page.locator('input[name="medicineLabelMealTiming"][value="after"]').isChecked(), true);
