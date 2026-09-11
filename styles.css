@@ -2350,11 +2350,9 @@
   .loyalty-membership-dates span,.loyalty-membership-dates strong{display:block;font-weight:700;line-height:1.45;}
   .loyalty-membership-dates span{color:var(--text-muted);font-size:13px;margin-bottom:2px;}
   .customer-tier-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;}
-  .customer-tier-choice{min-height:92px;border:1px solid var(--border);border-radius:12px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--text-muted);background:#f7f5f3;opacity:.64;font-weight:600;text-align:center;}
+  .customer-tier-choice{min-height:70px;border:1px solid var(--border);border-radius:12px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--text-muted);background:#f7f5f3;opacity:.64;font-weight:600;text-align:center;}
   .customer-tier-choice.is-current{opacity:1;border-width:2px;font-weight:800;box-shadow:0 5px 14px #4f40381a;}
   .customer-tier-choice strong{font-size:11px;font-weight:800;}
-  .customer-tier-current-average{display:flex;flex-direction:column;align-items:center;font-size:10px;line-height:1.35;font-weight:500;}
-  .customer-tier-current-average b{font-size:11px;font-weight:800;white-space:nowrap;}
   .customer-tier-choice-general.is-current{border-color:#6d5a4f;background:#eee9e5;color:#56473e;}
   .customer-tier-choice-regular.is-current{border-color:#58a475;background:#e2f3e8;color:#247745;}
   .customer-tier-choice-special.is-current{border-color:#d2a840;background:#fff0c7;color:#885d10;}
@@ -2414,6 +2412,15 @@
 .loyalty-redeem-button{background:var(--primary,#5b463b);border-color:var(--primary,#5b463b);color:#fff}
 .loyalty-redeem-button:hover:not(:disabled){background:var(--primary-dark,#40312a);border-color:var(--primary-dark,#40312a);color:#fff}
 .loyalty-redeem-button:disabled{color:#fff}
+.customer-tier-progress{display:grid;gap:7px;margin-top:12px;width:100%}
+.customer-tier-progress-head{display:flex;align-items:flex-end;justify-content:space-between;gap:8px;font-size:11px;line-height:1.35}
+.customer-tier-progress-head span{color:var(--text-muted,#7b7069)}
+.customer-tier-progress-head strong{font-size:11px;text-align:right;color:var(--text,#302822)}
+.customer-tier-progress-track{height:10px;overflow:hidden;border-radius:999px;background:#e7e0da;box-shadow:inset 0 0 0 1px #d8cec6}
+.customer-tier-progress-track>span{display:block;height:100%;min-width:0;border-radius:inherit;background:linear-gradient(90deg,#7f695c,#4f4038);transition:width .25s ease}
+.customer-tier-progress-pos{padding-top:10px;border-top:1px solid #e1d9d2}
+.customer-tier-progress-status{margin-top:10px;color:var(--text-muted,#7b7069);font-size:11px;text-align:center}
+.customer-tier-progress-status.is-error{color:#b42318}
 .loyalty-panel .loyalty-error{color:#b42318}
 .loyalty-modal{width:min(460px,calc(100vw - 24px))}
 .loyalty-modal-body{padding:20px;display:grid;gap:14px}

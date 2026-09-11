@@ -10815,6 +10815,14 @@ function customerTierFromPurchases(yearTotal,elapsedMonths){
   const key=total>=50000*months?'special':total>=10000*months?'regular':'general';
   return {key,label:{special:'ลูกค้าพิเศษ',regular:'ลูกค้าประจำ',general:'ลูกค้าทั่วไป'}[key],average:total/months};
 }
+function customerTierProgress(yearTotal,elapsedMonths){
+  const months=Math.min(12,Math.max(1,Number(elapsedMonths)||1));
+  const total=Math.max(0,Number(yearTotal)||0);
+  const tier=customerTierFromPurchases(total,months);
+  const next=tier.key==='general'?{label:'ลูกค้าประจำ',target:10000*months}:tier.key==='regular'?{label:'ลูกค้าพิเศษ',target:50000*months}:null;
+  if(!next) return {tier,remaining:0,percent:100,nextLabel:''};
+  return {tier,remaining:Math.max(0,next.target-total),percent:Math.max(0,Math.min(100,total/next.target*100)),nextLabel:next.label};
+}
 function loyaltyRedemptionLimit(total,balance){
   return Number(total)>=1000?Math.max(0,Math.min(Math.floor(Number(total)||0),Math.floor(Number(balance)||0))):0;
 }
@@ -10856,6 +10864,7 @@ function loadCustomerLoyalty(ids,force=false){
 function customerLoyaltyPanelHtml(customer,readOnly=false){
   if(!customer?.id) return '';
   const state=loadCustomerLoyalty([customer.id]),account=state.data?.[0];
+  const tierState=readOnly?null:customerPurchaseLoad([customer.id]);
   const redeemed=readOnly?0:effectiveLoyaltyRedemption();
   const eligible=!readOnly&&cartTaxSummary(applyPromotions(cart),saleDiscount).total>=1000;
   const adjustmentHtml=Number(account?.adjustmentDue)>0
@@ -10873,7 +10882,8 @@ function customerLoyaltyPanelHtml(customer,readOnly=false){
   const redeemedSummary=redeemed?`<small>ใช้ ${redeemed} แต้ม ลด ${fmtMoney(redeemed)} บาท (รวมในส่วนลดแล้ว)</small>`:'';
   const redeemHtml=readOnly?'':`<div class="loyalty-redeem-row"><button class="btn primary small loyalty-redeem-button" data-redeem-loyalty type="button" ${!account||!eligible||Number(account.balance)<=0?'disabled':''}>ใช้แต้มเป็นส่วนลด</button>${saleLoyaltySelection?'<button class="btn ghost small" data-clear-loyalty type="button">ยกเลิกใช้แต้ม</button>':''}</div>${redeemedSummary}`;
   const titleHtml=readOnly?'<strong>แต้มสะสม</strong>':'<div class="loyalty-panel-title"><strong>แต้มสะสม</strong><span>• จะใช้แต้มได้เมื่อยอดถึง 1,000 บาท</span></div>';
-  return `<div class="loyalty-panel${readOnly?' customer-history-loyalty-panel':''}" data-loyalty-customer="${escapeHtml(customer.id)}" data-loyalty-readonly="${readOnly?'true':'false'}"><div class="loyalty-panel-head">${titleHtml}<button class="btn ghost small" data-refresh-loyalty type="button">รีเฟรชแต้ม</button></div>${accountHtml}${redeemHtml}</div>`;
+  const tierProgressHtml=readOnly?'':customerTierProgressHtml(tierState,customer.id,'pos');
+  return `<div class="loyalty-panel${readOnly?' customer-history-loyalty-panel':''}" data-loyalty-customer="${escapeHtml(customer.id)}" data-loyalty-readonly="${readOnly?'true':'false'}"><div class="loyalty-panel-head">${titleHtml}<button class="btn ghost small" data-refresh-loyalty type="button">รีเฟรชแต้ม</button></div>${accountHtml}${tierProgressHtml}${redeemHtml}</div>`;
 }
 function loyaltyExpiryWarning(expiresOn,today=currentDateStr()){
   const parse=value=>{const match=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return match?{year:Number(match[1]),month:Number(match[2]),day:Number(match[3])}:null;};
@@ -10973,8 +10983,9 @@ function saleLoyaltySummaryHtml(sale){
 }
 function customerPurchaseLoad(ids,view=null){
   const today=currentDateStr();
+  const posTierOnly=currentTab==='checkout'&&!view&&ids.length===1;
   const params={p_customer_ids:ids.map(String),p_year:Number(view?.year||today.slice(0,4)),p_month:view?.mode==='month'?Number(view.month):null,p_page:view?.page||1,p_include_bills:!!view,p_warehouse_id:Number(activeWarehouseId)||null};
-  const key=JSON.stringify([currentProfile?.id,activeWarehouseId,pagePermissionRows,today,params]);
+  const key=JSON.stringify([currentProfile?.id,activeWarehouseId,pagePermissionRows,today,posTierOnly,params]);
   if(customerPurchaseState?.key===key&&Date.now()-customerPurchaseState.loadedAt<60000) return customerPurchaseState;
   const state={key,loading:ids.length>0,data:ids.length?null:{summaries:[]},error:'',loadedAt:Date.now()};
   customerPurchaseState=state;
@@ -10982,8 +10993,11 @@ function customerPurchaseLoad(ids,view=null){
   Promise.resolve().then(async()=>{
     const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),20000);
     try{
-      if(!sb||!canPerformPageAction('view','contacts')) throw new Error('ไม่สามารถอ่านประวัติการซื้อได้');
-      const {data,error}=await sb.rpc('get_customer_purchase_history',params).abortSignal(controller.signal);
+      if(!sb||(!posTierOnly&&!canPerformPageAction('view','contacts'))) throw new Error('ไม่สามารถอ่านประวัติการซื้อได้');
+      const request=posTierOnly
+        ?sb.rpc('get_pos_customer_tier_progress',{p_customer_id:String(ids[0]),p_warehouse_id:Number(activeWarehouseId)||null})
+        :sb.rpc('get_customer_purchase_history',params);
+      const {data,error}=await request.abortSignal(controller.signal);
       if(error) throw error;
       if(!data||!Array.isArray(data.summaries)) throw new Error('ข้อมูลประวัติการซื้อไม่ครบถ้วน');
       state.data=data;
@@ -11002,6 +11016,8 @@ function customerPurchaseLoad(ids,view=null){
         fields.forEach(([id,value])=>{const input=document.getElementById(id);if(input) input.value=value;});
         const input=focusId&&document.getElementById(focusId);
         if(input){input.focus({preventScroll:true});if(input.type!=='number'&&Number.isInteger(start)&&input.setSelectionRange) input.setSelectionRange(start,end);}
+      }else if(customerPurchaseState===state&&currentTab==='checkout'&&!view&&ids.length===1&&String(activeSaleCustomer()?.id)===String(ids[0])){
+        refreshCustomerLoyaltyPanel();
       }
     }
   });
@@ -11027,11 +11043,18 @@ function customerTierOverviewHtml(state,id){
   ];
   const choices=tiers.map(tier=>{
     const active=tier.key===current?.key;
-    const averageHtml=active?`<small class="customer-tier-current-average">ยอดซื้อเฉลี่ย <b>${fmtMoney(current.average)} บาท</b></small>`:'';
-    return `<div class="customer-tier-choice customer-tier-choice-${tier.key}${active?' is-current':''}"${active?' aria-current="true"':''}><span>${tier.label}</span>${averageHtml}${active?'<strong>✓ ระดับนี้</strong>':''}</div>`;
+    return `<div class="customer-tier-choice customer-tier-choice-${tier.key}${active?' is-current':''}"${active?' aria-current="true"':''}><span>${tier.label}</span></div>`;
   }).join('');
   const status=current?'':`<small class="customer-tier-overview-status">${state?.loading?'กำลังคำนวณระดับ…':state?.error?'ยังคำนวณระดับไม่ได้':'—'}</small>`;
-  return `<div class="customer-tier-overview">${choices}</div>${status}`;
+  return `<div class="customer-tier-overview">${choices}</div>${status}${current?customerTierProgressHtml(state,id,'history'):''}`;
+}
+function customerTierProgressHtml(state,id,context='history'){
+  const summary=state?.data?.summaries?.find(row=>String(row.customerId)===String(id));
+  if(!summary) return `<div class="customer-tier-progress-status ${state?.error?'is-error':''}">${state?.loading?'กำลังคำนวณความคืบหน้า…':state?.error?'คำนวณความคืบหน้าไม่ได้':'—'}</div>`;
+  const progress=customerTierProgress(summary.currentYearTotal,state.data.elapsedMonths);
+  const message=progress.nextLabel?`ซื้ออีก ${fmtMoney(progress.remaining)} บาท ถึง${progress.nextLabel}`:'ถึงระดับสูงสุดแล้ว';
+  const label=context==='pos'?progress.tier.label:'ความคืบหน้าสู่ระดับถัดไป';
+  return `<div class="customer-tier-progress customer-tier-progress-${context}"><div class="customer-tier-progress-head"><span>${label}</span><strong>${message}</strong></div><div class="customer-tier-progress-track" role="progressbar" aria-label="${escapeHtml(label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(progress.percent)}"><span style="width:${progress.percent.toFixed(2)}%"></span></div></div>`;
 }
 function customerMonthlyAverageHtml(state,id){
   const summary=state?.data?.summaries?.find(row=>String(row.customerId)===String(id));

@@ -39,6 +39,7 @@ let browser;
     window.failRead=false;window.failCheckout=false;window.ambiguous=false;window.requests=[];
     window.loyaltyRpc=async(name,p)=>{
       if(name==='get_customer_loyalty')return window.failRead?{error:{message:'offline'}}:{data:[{customerId:'1',balance:200,joinedOn:'2025-12-03',periodStart:'2025-12-03',expiresOn:'2026-12-03',expiresAt:'2026-12-02T17:00:00Z'}]};
+      if(name==='get_pos_customer_tier_progress')return {error:null,data:{asOf:'2026-09-11',currentYear:2026,elapsedMonths:9,summaries:[{customerId:'1',currentYearTotal:90000}],bills:[],totalBills:0,page:1}};
       if(name==='complete_sale'){
         window.requests.push(p);
         if(window.ambiguous)return {error:{message:'Failed to fetch'}};
@@ -55,6 +56,9 @@ let browser;
   assert.deepEqual(await page.locator('[data-redeem-loyalty]').evaluate(button=>({background:getComputedStyle(button).backgroundColor,color:getComputedStyle(button).color})),{background:'rgb(79, 64, 56)',color:'rgb(255, 255, 255)'});
   assert.match(await page.locator('#customerLoyaltyPanel').innerText(),/หมดอายุ 03-12-2026[\s\S]*แต้มจะหมดอายุภายใน 3 เดือน/);
   assert.equal(await page.getByText(/สมัคร 03-12-2025/).count(),0,'POS must show expiry without joined date');
+  await page.locator('.customer-tier-progress-pos').waitFor();
+  assert.match(await page.locator('.customer-tier-progress-pos').innerText(),/ลูกค้าประจำ[\s\S]*ซื้ออีก 360,000.00 บาท ถึงลูกค้าพิเศษ/);
+  assert.equal(await page.locator('.customer-tier-progress-pos [role="progressbar"]').getAttribute('aria-valuenow'),'20');
   await page.locator('[data-redeem-loyalty]').click();
   await page.locator('#loyaltyPointsInput').fill('100');await page.locator('#loyaltyApply').click();
   assert.equal(await page.locator('#posGrandValue').textContent(),'900.00');
