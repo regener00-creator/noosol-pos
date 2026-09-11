@@ -2401,6 +2401,11 @@
 .loyalty-panel-head,.loyalty-redeem-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .loyalty-panel small{display:block;color:#7b7069;margin-top:6px;line-height:1.5}
 .loyalty-balance{display:block;font-size:23px;margin:4px 0}
+.loyalty-expiry-date strong{font-weight:800;color:var(--text,#302822)}
+.loyalty-expiry-warning{padding:7px 10px;border-radius:9px;font-weight:700;text-align:center}
+.loyalty-expiry-warning.is-warning{background:#fff4cf;color:#7a5600}
+.loyalty-expiry-warning.is-urgent{background:#ffe4c2;color:#914c00}
+.loyalty-expiry-warning.is-critical{background:#ffe0dc;color:#a52a20}
 .loyalty-redeem-row{justify-content:flex-start;margin-top:10px}
 .loyalty-panel .loyalty-error{color:#b42318}
 .loyalty-modal{width:min(460px,calc(100vw - 24px))}

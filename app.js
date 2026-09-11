@@ -734,7 +734,7 @@ function contactToRow(c){
 }
 function rowToContact(row){
   const types=row.type==='both'?['customer','supplier']:[row.type==='supplier'?'supplier':'customer'];
-  return { ...(row.data||{}), id:row.id, name:row.name, phone:row.phone||'', types, _revision:Number(row.revision)||1 };
+  return { ...(row.data||{}), id:row.id, name:row.name, phone:row.phone||'', types, loyaltyJoinedAt:row.data?.loyaltyJoinedAt||row.created_at||'', _revision:Number(row.revision)||1 };
 }
 function salesRepToRow(r){ return { id:r.id, name:r.name||'', data:additionalData(r,['id','name','_revision']), revision:Number(r._revision)||0 }; }
 function rowToSalesRep(row){ return { ...(row.data||{}), id:row.id, name:row.name, _revision:Number(row.revision)||1 }; }
@@ -10864,12 +10864,52 @@ function customerLoyaltyPanelHtml(customer,readOnly=false){
   let accountHtml=`<small class="${state.error?'loyalty-error':''}" role="status">${state.error||'กำลังอ่านแต้ม…'}</small>`;
   if(account){
     const balanceHtml=`<b class="loyalty-balance">${escapeHtml(account.balance)} แต้ม</b>`;
+    const expiryWarning=!readOnly&&Number(account.balance)>0?loyaltyExpiryWarning(account.expiresOn):null;
+    const expiryWarningHtml=expiryWarning?`<small class="loyalty-expiry-warning is-${expiryWarning.level}" role="alert">⚠ แต้มจะหมดอายุภายใน ${expiryWarning.months} เดือน</small>`:'';
     accountHtml=readOnly
       ?`${balanceHtml}<div class="loyalty-membership-dates"><div><span>สมัคร</span><strong>${escapeHtml(fmtDateShort(account.joinedOn))}</strong></div><div><span>หมดอายุ</span><strong>${escapeHtml(fmtDateShort(account.expiresOn))}</strong></div></div>${adjustmentHtml}`
-      :`${balanceHtml}<small>สมัคร ${escapeHtml(fmtDateShort(account.joinedOn))} · หมดอายุ ${escapeHtml(fmtDateShort(account.expiresOn))}</small>${adjustmentHtml}`;
+      :`${balanceHtml}<small class="loyalty-expiry-date">หมดอายุ <strong>${escapeHtml(fmtDateShort(account.expiresOn))}</strong></small>${expiryWarningHtml}${adjustmentHtml}`;
   }
   const redeemHtml=readOnly?'':`<div class="loyalty-redeem-row"><button class="btn ghost small" data-redeem-loyalty type="button" ${!account||!eligible||Number(account.balance)<=0?'disabled':''}>ใช้แต้มเป็นส่วนลด</button>${saleLoyaltySelection?'<button class="btn ghost small" data-clear-loyalty type="button">ยกเลิกใช้แต้ม</button>':''}</div><small>${redeemed?`ใช้ ${redeemed} แต้ม ลด ${fmtMoney(redeemed)} บาท (รวมในส่วนลดแล้ว)`:'ใช้แต้มได้เมื่อยอดหลังส่วนลดอื่นถึง 1,000 บาท'}</small>`;
   return `<div class="loyalty-panel${readOnly?' customer-history-loyalty-panel':''}" data-loyalty-customer="${escapeHtml(customer.id)}" data-loyalty-readonly="${readOnly?'true':'false'}"><div class="loyalty-panel-head"><strong>แต้มสะสม</strong><button class="btn ghost small" data-refresh-loyalty type="button">รีเฟรชแต้ม</button></div>${accountHtml}${redeemHtml}</div>`;
+}
+function loyaltyExpiryWarning(expiresOn,today=currentDateStr()){
+  const parse=value=>{const match=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return match?{year:Number(match[1]),month:Number(match[2]),day:Number(match[3])}:null;};
+  const expiry=parse(expiresOn),current=parse(today);
+  if(!expiry||!current) return null;
+  const key=parts=>parts.year*10000+parts.month*100+parts.day;
+  if(key(current)>=key(expiry)) return null;
+  const subtractMonths=months=>{
+    const monthIndex=expiry.year*12+expiry.month-1-months;
+    const year=Math.floor(monthIndex/12),month=monthIndex-year*12+1;
+    const lastDay=new Date(Date.UTC(year,month,0)).getUTCDate();
+    return {year,month,day:Math.min(expiry.day,lastDay)};
+  };
+  for(const months of [1,2,3]){
+    if(key(current)>=key(subtractMonths(months))) return {months,level:months===1?'critical':months===2?'urgent':'warning'};
+  }
+  return null;
+}
+function customerLoyaltyExpiryFromJoinedAt(joinedAt,today=currentDateStr()){
+  const currentMatch=String(today||'').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if(!currentMatch) return '';
+  let joinedMatch=String(joinedAt||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!joinedMatch){
+    const date=new Date(joinedAt);
+    if(!Number.isFinite(date.getTime())) return '';
+    const parts=Object.fromEntries(new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date).filter(part=>part.type!=='literal').map(part=>[part.type,part.value]));
+    joinedMatch=['',parts.year,parts.month,parts.day];
+  }
+  const joined={year:Number(joinedMatch[1]),month:Number(joinedMatch[2]),day:Number(joinedMatch[3])};
+  const current={year:Number(currentMatch[1]),month:Number(currentMatch[2]),day:Number(currentMatch[3])};
+  const anniversary=year=>{
+    const lastDay=new Date(Date.UTC(year,joined.month,0)).getUTCDate();
+    return `${String(year).padStart(4,'0')}-${String(joined.month).padStart(2,'0')}-${String(Math.min(joined.day,lastDay)).padStart(2,'0')}`;
+  };
+  let years=Math.max(0,current.year-joined.year);
+  const currentKey=`${String(current.year).padStart(4,'0')}-${String(current.month).padStart(2,'0')}-${String(current.day).padStart(2,'0')}`;
+  if(years>0&&anniversary(joined.year+years)>currentKey) years--;
+  return anniversary(joined.year+years+1);
 }
 function refreshCustomerLoyaltyPanel(){
   const host=document.getElementById('customerLoyaltyPanel');if(!host) return;
@@ -11086,8 +11126,14 @@ function renderContacts(){
     let va, vb;
     if(csk==='code'){ va=a.code||''; vb=b.code||''; }
     else if(csk==='type'){ va=typeSortLabel(a); vb=typeSortLabel(b); }
+    else if(csk==='loyaltyExpiry'){
+      va=customerLoyaltyExpiryFromJoinedAt(a.loyaltyJoinedAt);vb=customerLoyaltyExpiryFromJoinedAt(b.loyaltyJoinedAt);
+      if(!va&&!vb) return String(a.name||'').localeCompare(String(b.name||''),'th')||String(a.id).localeCompare(String(b.id));
+      if(!va) return 1;
+      if(!vb) return -1;
+    }
     else { va=a.name||''; vb=b.name||''; }
-    return va.localeCompare(vb,'th')*csdir;
+    return (va.localeCompare(vb,'th')||String(a.name||'').localeCompare(String(b.name||''),'th')||String(a.id).localeCompare(String(b.id)))*csdir;
   });
   const totalPages=Math.max(1,Math.ceil(list.length/CONTACTS_PER_PAGE));
   contactPage=Math.min(Math.max(1,contactPage),totalPages);
@@ -11098,7 +11144,7 @@ function renderContacts(){
   const sortArrow = key => contactSort.key===key ? (contactSort.dir===1?' ▲':' ▼') : '';
   const th = (key,label) => `<th class="sortable" data-sort="${key}">${label}<span class="sortarrow">${sortArrow(key)}</span></th>`;
   const tableHead=isCustomers
-    ?`${th('name','ชื่อ')}<th>เบอร์โทร</th><th>ไลน์</th><th>แต้มคงเหลือ</th><th>ระดับลูกค้า</th><th>ยอดซื้อเฉลี่ยต่อเดือน</th><th>วันหมดอายุแต้ม</th><th></th>`
+    ?`${th('name','ชื่อ')}<th>เบอร์โทร</th><th>ไลน์</th><th>แต้มคงเหลือ</th><th>ระดับลูกค้า</th><th>ยอดซื้อเฉลี่ยต่อเดือน</th>${th('loyaltyExpiry','วันหมดอายุแต้ม')}<th></th>`
     :`${th('code','รหัสผู้ติดต่อ')}${th('name','รายชื่อ')}<th>ชื่อผู้ติดต่อ</th><th>เบอร์ติดต่อ</th><th>อีเมล</th>${th('type','ประเภท')}<th></th>`;
   return `<div class="rpt">
     <div class="pagehead"><div><h1>${isCustomers?'ลูกค้า':'ผู้จำหน่าย'} <span class="page-title-meta">· ${list.length} รายชื่อ</span></h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
@@ -16839,7 +16885,7 @@ function saveContactEditorData(contactId=editingContactId){
   }
   let savedContact=existing;
   if(contactId==='new'){
-    savedContact={id:recordId, ...data, customerPrices:[]};
+    savedContact={id:recordId, ...data, customerPrices:[],loyaltyJoinedAt:new Date().toISOString()};
     contacts.push(savedContact);
     showToast(`เพิ่มรายชื่อ "${name}" แล้ว`);
   } else {

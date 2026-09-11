@@ -32,3 +32,13 @@ test('points persist with ambiguous retry, not a separately charged payment',()=
   assert.match(source,/Number\(saleDiscount\)\+loyaltyRedeemed,vatRegistered/);
   assert.match(source,/saleDraft.loyaltyPeriodStart=loyaltyRedeemed\?saleLoyaltySelection\?\.periodStart:null/);
 });
+test('expiry warning uses calendar month thresholds and loyalty anniversary stays anchored',()=>{
+  const ctx=vm.createContext({currentDateStr:()=> '2026-09-11',Date,Intl});
+  vm.runInContext(fn('loyaltyExpiryWarning')+'\n'+fn('customerLoyaltyExpiryFromJoinedAt'),ctx);
+  assert.equal(ctx.loyaltyExpiryWarning('2026-12-11').months,3);
+  assert.equal(ctx.loyaltyExpiryWarning('2026-11-11').months,2);
+  assert.equal(ctx.loyaltyExpiryWarning('2026-10-11').months,1);
+  assert.equal(ctx.loyaltyExpiryWarning('2026-12-12'),null);
+  assert.equal(ctx.customerLoyaltyExpiryFromJoinedAt('2025-09-12T00:00:00+07:00','2026-09-11'),'2026-09-12');
+  assert.equal(ctx.customerLoyaltyExpiryFromJoinedAt('2024-02-29T00:00:00+07:00','2025-01-01'),'2025-02-28');
+});

@@ -30,6 +30,7 @@ let browser;
     renderLoginState=()=>true;persistContacts=()=>{};refreshDocumentInventory=()=>{};openPostPaymentModal=()=>{};
     currentProfile={id:'test-owner',owner:true,level:1,firstName:'ทดสอบ'};
     activeWarehouseId=1;warehouses=[{id:1,name:'คลังทดสอบ'}];
+    currentDateStr=()=> '2026-09-11';
     currentCashShift={id:'shift-test',shiftNo:'CS-TEST',openingCash:0,openedByName:'ทดสอบ'};
     businessSettings={...DEFAULT_BUSINESS_SETTINGS,vatRegistered:false};
     contacts=[{id:1,name:'ลูกค้า A',types:['customer']},{id:2,name:'ลูกค้า B',types:['customer']}];
@@ -37,7 +38,7 @@ let browser;
     currentTab='checkout';saleMember=customerSaleSnapshot(contacts[0]);cart=[];saleDiscount=0;addToCart(101,'กล่อง',1);
     window.failRead=false;window.failCheckout=false;window.ambiguous=false;window.requests=[];
     window.loyaltyRpc=async(name,p)=>{
-      if(name==='get_customer_loyalty')return window.failRead?{error:{message:'offline'}}:{data:[{customerId:'1',balance:200,joinedOn:'2026-09-03',periodStart:'2026-09-03',expiresOn:'2099-09-03',expiresAt:'2099-09-02T17:00:00Z'}]};
+      if(name==='get_customer_loyalty')return window.failRead?{error:{message:'offline'}}:{data:[{customerId:'1',balance:200,joinedOn:'2025-12-03',periodStart:'2025-12-03',expiresOn:'2026-12-03',expiresAt:'2026-12-02T17:00:00Z'}]};
       if(name==='complete_sale'){
         window.requests.push(p);
         if(window.ambiguous)return {error:{message:'Failed to fetch'}};
@@ -49,6 +50,8 @@ let browser;
     render();
   });
   await page.getByText('200 แต้ม',{exact:true}).waitFor();
+  assert.match(await page.locator('#customerLoyaltyPanel').innerText(),/หมดอายุ 03-12-2026[\s\S]*แต้มจะหมดอายุภายใน 3 เดือน/);
+  assert.equal(await page.getByText(/สมัคร 03-12-2025/).count(),0,'POS must show expiry without joined date');
   await page.locator('[data-redeem-loyalty]').click();
   await page.locator('#loyaltyPointsInput').fill('100');await page.locator('#loyaltyApply').click();
   assert.equal(await page.locator('#posGrandValue').textContent(),'900.00');
