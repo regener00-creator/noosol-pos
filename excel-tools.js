@@ -1,40 +1,4 @@
 // Excel import/export feature bundle. Loaded only when an Excel action is used.
-async function downloadContactImportTemplate(){
-  try{ await ensureXlsxLoaded(); }catch(error){ console.warn('load xlsx',error); }
-  const example=[{
-    'รหัสผู้ติดต่อ':'C0001','ประเภทผู้ติดต่อ':'นิติบุคคล','ประเภท':'ลูกค้า','ชื่อธุรกิจ / ชื่อ':'บริษัท ตัวอย่าง จำกัด',
-    'เลขผู้เสียภาษี':'0105551234567','เครดิต (วัน)':30,'ที่อยู่':'','รหัสไปรษณีย์':'',
-    'ชื่อผู้ติดต่อ':'คุณตัวอย่าง','อีเมล':'','เบอร์มือถือ':'081-234-5678',
-    'ธนาคาร':'','ชื่อบัญชี':'','เลขที่บัญชี':'','ประเภทบัญชี':'','โน๊ต':''
-  }];
-  if(window.XLSX){
-    const sheet=XLSX.utils.json_to_sheet(example);
-    sheet['!cols']=Object.keys(example[0]).map(header=>({wch:Math.max(14,Math.min(28,header.length+5))}));
-    const workbook=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook,sheet,'สมุดรายชื่อ');
-    const instructions=[
-      ['หัวข้อ','วิธีกรอก'],
-      ['รหัสผู้ติดต่อ','ถ้ากรอกและตรงกับรายชื่อเดิมในระบบ จะอัปเดตรายชื่อนั้นแทนการสร้างใหม่ (เว้นว่างได้)'],
-      ['ชื่อธุรกิจ / ชื่อ','จำเป็นต้องกรอก ถ้าไม่กรอกรหัสผู้ติดต่อ ระบบจะจับคู่จากชื่อที่ตรงกันเป๊ะแทน'],
-      ['ประเภทผู้ติดต่อ','กรอก นิติบุคคล หรือ บุคคลธรรมดา (ไม่บังคับ ค่าเริ่มต้น นิติบุคคล)'],
-      ['ประเภท','กรอก ลูกค้า, ผู้จำหน่าย หรือ ทั้งคู่ (ไม่บังคับ ค่าเริ่มต้น ลูกค้า)'],
-      ['ประเภทบัญชี','กรอก ออมทรัพย์ หรือ กระแสรายวัน (ไม่บังคับ)'],
-      ['ข้อสำคัญ','อย่าเปลี่ยนชื่อหัวคอลัมน์ในแถวแรก'],
-    ];
-    const instructionSheet=XLSX.utils.aoa_to_sheet(instructions);
-    instructionSheet['!cols']=[{wch:20},{wch:80}];
-    XLSX.utils.book_append_sheet(workbook,instructionSheet,'วิธีกรอก');
-    XLSX.writeFile(workbook,'PEPOS-ตัวอย่างนำเข้าสมุดรายชื่อ.xlsx');
-    return;
-  }
-  const headers=Object.keys(example[0]);
-  const csv='\uFEFF'+headers.join(',')+'\n'+headers.map(key=>`"${String(example[0][key]).replace(/"/g,'""')}"`).join(',');
-  const link=document.createElement('a');
-  link.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-  link.download='PEPOS-ตัวอย่างนำเข้าสมุดรายชื่อ.csv';
-  link.click();
-  setTimeout(()=>URL.revokeObjectURL(link.href),1000);
-}
 function contactImportTypes(value){
   const text=String(value||'').trim().toLowerCase();
   const types=[];
@@ -262,34 +226,6 @@ async function loadSalesRepresentativeExcelDetails(){
     notes:(noteResult.data||[]).map(mapNoteRow),
   };
 }
-async function downloadSalesRepresentativeImportTemplate(){
-  try{ await ensureXlsxLoaded(); }catch(error){ console.warn('load xlsx',error); }
-  const example=[salesRepresentativeToExcelRow({id:'',name:'คุณตัวอย่าง ใจดี',phone:'081-234-5678',line:'example.line',company:'บริษัท ตัวอย่าง จำกัด',note:'ผู้แทนเขตกรุงเทพฯ'})];
-  if(window.XLSX){
-    const sheet=XLSX.utils.json_to_sheet(example);
-    sheet['!cols']=[{wch:18},{wch:28},{wch:18},{wch:22},{wch:32},{wch:42}];
-    const workbook=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook,sheet,'รายชื่อผู้แทน');
-    const instructions=[
-      ['หัวข้อ','วิธีกรอก'],
-      ['รหัสอ้างอิงระบบ','รายชื่อใหม่ปล่อยว่างได้ หากเป็นไฟล์ที่ส่งออกจากระบบให้คงค่านี้ไว้เพื่ออัปเดตรายชื่อเดิม'],
-      ['ชื่อผู้แทน','จำเป็นต้องกรอก หากไม่มีรหัสอ้างอิงระบบ ระบบจะจับคู่จากชื่อที่ตรงกัน'],
-      ['เบอร์โทร / ไลน์ / บริษัท / ข้อมูลเพิ่มเติม','กรอกได้ตามต้องการ'],
-      ['ข้อสำคัญ','อย่าเปลี่ยนชื่อหัวคอลัมน์ในแถวแรก'],
-    ];
-    const instructionSheet=XLSX.utils.aoa_to_sheet(instructions);
-    instructionSheet['!cols']=[{wch:28},{wch:90}];
-    XLSX.utils.book_append_sheet(workbook,instructionSheet,'วิธีกรอก');
-    XLSX.writeFile(workbook,'PEPOS-คู่มือนำเข้ารายชื่อผู้แทน.xlsx');
-    return;
-  }
-  const csv='\uFEFF'+SALES_REP_EXCEL_HEADERS.join(',')+'\n'+SALES_REP_EXCEL_HEADERS.map(header=>`"${String(example[0][header]).replace(/"/g,'""')}"`).join(',');
-  const link=document.createElement('a');
-  link.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-  link.download='PEPOS-คู่มือนำเข้ารายชื่อผู้แทน.csv';
-  link.click();
-  setTimeout(()=>URL.revokeObjectURL(link.href),1000);
-}
 async function importSalesRepresentativesFromExcel(file){
   try{ await ensureXlsxLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบอ่าน Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
   let workbook;
@@ -491,51 +427,6 @@ function productToExcelRow(product,counts,warehouseRows=warehouses){
   const row={};
   productExcelHeaders(counts).forEach(header=>{ row[header]=values[header]??''; });
   return row;
-}
-async function downloadProductImportTemplate(){
-  try{ await ensureXlsxLoaded(); }catch(error){ console.warn('load xlsx',error); }
-  const counts=productExcelColumnCounts(products);
-  const example=[productToExcelRow({
-    id:'',sku:'P0001',name:'พาราเซตามอล 500mg',barcode:'8850000100019',extraBarcodes:['8850000100018'],extraBarcodeUnits:['แผง'],
-    vendorBarcodes:[{vendor:'บริษัท ตัวอย่าง จำกัด',code:'VENDOR-PARA-01'}],category:'ยาสามัญประจำบ้าน',brand:'ทั่วไป',unit:'แผง',
-    price:15,cost:9,vat:'incl',stock:120,expiry:'2027-12-31',wh:warehouses[0]?.id,desc:'',
-    units:[
-      {sub:'กล่อง',per:10,base:'แผง',price:140,cost:90,barcode:'8850000100026'},
-      {sub:'ลัง',per:10,base:'กล่อง',price:1350,cost:880,barcode:'8850000100033'},
-    ],
-  },counts)];
-  if(window.XLSX){
-    const sheet=XLSX.utils.json_to_sheet(example);
-    sheet['!cols']=Object.keys(example[0]).map(productExcelColumnWidth);
-    sheet['!autofilter']={ref:sheet['!ref']};
-    const workbook=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook,sheet,'สินค้า');
-    const instructions=[
-      ['หัวข้อ','วิธีกรอก'],
-      ['รหัสอ้างอิงระบบ (ห้ามแก้)','สินค้าใหม่ปล่อยว่างได้ หากเป็นไฟล์ที่ส่งออกจากระบบให้คงค่านี้ไว้เพื่ออัปเดตสินค้ารายการเดิม'],
-      ['บาร์โค้ดหลัก','ตั้งรูปแบบเซลล์เป็นข้อความ (Text) เพื่อป้องกันเลข 0 ด้านหน้าหาย'],
-      ['บาร์โค้ดสำรอง','กรอกหน่วยและเลขบาร์โค้ดเป็นคู่หมายเลขเดียวกัน เช่น หน่วยของบาร์โค้ดสำรอง 1 คู่กับ บาร์โค้ดสำรอง 1'],
-      ['บาร์โค้ดผู้จำหน่าย','กรอกชื่อผู้จำหน่ายและบาร์โค้ดในหมายเลขชุดเดียวกัน เช่น ชื่อผู้จำหน่าย 1 คู่กับ บาร์โค้ดผู้จำหน่าย 1'],
-      ['หน่วยเพิ่มเติม','กรอกเป็นชุดหมายเลขเดียวกัน เช่น หน่วยเพิ่มเติม 1 พร้อมจำนวนบรรจุ 1 เทียบกับหน่วย 1 ราคา ทุน และบาร์โค้ด'],
-      ['ตัวอย่างหน่วย','1 กล่อง = 10 แผง: หน่วยเพิ่มเติม=กล่อง, จำนวนบรรจุ=10, เทียบกับหน่วย=แผง'],
-      ['หน่วยลำดับถัดไป','1 ลัง = 10 กล่อง: หน่วยเพิ่มเติม=ลัง, จำนวนบรรจุ=10, เทียบกับหน่วย=กล่อง'],
-      ['ภาษีมูลค่าเพิ่ม','กรอก ราคารวม VAT แล้ว, ราคายังไม่รวม VAT หรือ ไม่มี VAT'],
-      ['วันหมดอายุ','กรอกแบบ วัน/เดือน/ปี เช่น 31/12/2027'],
-      ['ข้อสำคัญ','อย่าเปลี่ยนชื่อหัวคอลัมน์ในแถวแรก'],
-    ];
-    const instructionSheet=XLSX.utils.aoa_to_sheet(instructions);
-    instructionSheet['!cols']=[{wch:24},{wch:90}];
-    XLSX.utils.book_append_sheet(workbook,instructionSheet,'วิธีกรอก');
-    XLSX.writeFile(workbook,'PEPOS-ตัวอย่างนำเข้าสินค้า.xlsx');
-    return;
-  }
-  const headers=Object.keys(example[0]);
-  const csv='\uFEFF'+headers.join(',')+'\n'+headers.map(key=>`"${String(example[0][key]).replace(/"/g,'""')}"`).join(',');
-  const link=document.createElement('a');
-  link.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
-  link.download='PEPOS-ตัวอย่างนำเข้าสินค้า.csv';
-  link.click();
-  setTimeout(()=>URL.revokeObjectURL(link.href),1000);
 }
 async function applyImportedInventoryTargets(targets){
   const grouped=new Map();

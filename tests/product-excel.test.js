@@ -5,7 +5,7 @@ const vm = require('node:vm');
 
 const html = require("./load-app-source")();
 const helperStart = html.indexOf('const PRODUCT_EXCEL_MIN_REPEAT_COLUMNS=');
-const helperEnd = html.indexOf('async function downloadProductImportTemplate(', helperStart);
+const helperEnd = html.indexOf('async function applyImportedInventoryTargets(', helperStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, 'product Excel helpers must exist');
 
 const sandbox = {
@@ -64,11 +64,9 @@ assert.equal(row['ภาษีมูลค่าเพิ่ม'], 'ราคา
 assert.ok(headers.includes('ภาษีมูลค่าเพิ่ม'));
 assert.deepEqual(JSON.parse(JSON.stringify(sandbox.productExcelColumnWidth('ชื่อสินค้า'))), {wch:34}, 'ชื่อสินค้าต้องมีพื้นที่อ่านง่าย');
 
-const templateStart = html.indexOf('function downloadProductImportTemplate(');
-const importStart = html.indexOf('async function importProductsFromExcel(', templateStart);
+const importStart = html.indexOf('async function importProductsFromExcel(', helperEnd);
 const exportStart = html.indexOf('function exportProductsToExcel(', importStart);
 const exportEnd = html.indexOf('function saveProduct(', exportStart);
-assert.match(html.slice(templateStart, importStart), /productToExcelRow\(/, 'template must use the shared row schema');
 assert.match(html.slice(exportStart, exportEnd), /productToExcelRow\(/, 'export must use the shared row schema');
 assert.match(html.slice(exportStart, exportEnd), /sheet\['!autofilter'\]=\{ref:sheet\['!ref'\]\}/, 'export must enable Excel header filters');
 assert.match(html.slice(importStart, exportStart), /parseProductVatMode\(/, 'import must preserve the product VAT mode');

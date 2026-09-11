@@ -51,13 +51,13 @@ function showPageCodeLoading(tab,mainElement){
 }
 let excelToolsLoadPromise=null;
 function ensureExcelToolsLoaded(){
-  if(window.downloadProductImportTemplate) return Promise.resolve(true);
+  if(window.exportProductsToExcel) return Promise.resolve(true);
   if(excelToolsLoadPromise) return excelToolsLoadPromise;
   excelToolsLoadPromise=new Promise((resolve,reject)=>{
     const script=document.createElement('script');
     script.src=`/excel-tools.js${APP_ASSET_VERSION?`?v=${encodeURIComponent(APP_ASSET_VERSION)}`:''}`;
     script.async=true;
-    script.onload=()=>window.downloadProductImportTemplate?resolve(true):reject(new Error('โหลดเครื่องมือ Excel ไม่สมบูรณ์'));
+    script.onload=()=>window.exportProductsToExcel?resolve(true):reject(new Error('โหลดเครื่องมือ Excel ไม่สมบูรณ์'));
     script.onerror=()=>reject(new Error('โหลดเครื่องมือ Excel ไม่สำเร็จ'));
     document.head.appendChild(script);
   }).catch(error=>{ excelToolsLoadPromise=null; throw error; });
@@ -5434,7 +5434,7 @@ function renderRepresentativeHistory(){
     :`${historyFilters}<div class="representative-groups-grid">${loading?'<div class="representative-history-empty">กำลังโหลดข้อมูล…</div>':groups.map(group=>representativeHistoryGroupHtml(group,central)).join('')||'<div class="representative-history-empty">ยังไม่มีข้อมูลที่ตรงกับการค้นหา</div>'}</div>${representativeHistoryHasMore?`<button class="btn ghost representative-history-load-more" id="loadMoreRepresentativeHistoryBtn" type="button" ${representativeActivityLoading?'disabled':''}>${representativeActivityLoading?'กำลังโหลด…':'โหลดผู้แทนเพิ่มเติม'}</button>`:''}`;
   const selectedRepresentativeDeleteCount=[...selectedSalesRepresentativeIdsToDelete].filter(id=>groups.some(group=>Number(group.representative.id)===Number(id))).length;
   const deleteRepresentativesButton=canDeleteRepresentative?`<button class="btn danger" id="deleteSelectedSalesRepresentativesBtn" type="button" ${selectedRepresentativeDeleteCount?'':'disabled'}>ลบที่เลือก${selectedRepresentativeDeleteCount?` (${selectedRepresentativeDeleteCount})`:''}</button>`:'';
-  const centralActions=`<button class="btn ghost" id="exportSalesRepsBtn" type="button">ส่งออก Excel</button><button class="btn ghost" id="downloadSalesRepTemplateBtn" type="button">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importSalesRepsBtn" type="button">นำเข้า Excel</button><input id="salesRepImportFile" type="file" accept=".xlsx,.xls,.csv" hidden>${deleteRepresentativesButton}${canCreateRepresentative?'<button class="btn primary" id="newSalesRepBtn" type="button">+ เพิ่มผู้แทน</button>':''}`;
+  const centralActions=`<button class="btn ghost" id="exportSalesRepsBtn" type="button">ส่งออก Excel</button><button class="btn ghost" id="importSalesRepsBtn" type="button">นำเข้า Excel</button><input id="salesRepImportFile" type="file" accept=".xlsx,.xls,.csv" hidden>${deleteRepresentativesButton}${canCreateRepresentative?'<button class="btn primary" id="newSalesRepBtn" type="button">+ เพิ่มผู้แทน</button>':''}`;
   const detailActions=`<button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button>${canEditRepresentative?`<button class="btn primary" data-act="editsalesrep" data-id="${representative.id}" type="button">แก้ไขข้อมูลผู้แทน</button>`:''}`;
   const pageHead=representativeDetail
     ?`<div class="pagehead topbar-action-source representative-detail-pagehead"><div></div><div class="form-final-actions representative-topbar-actions">${detailActions}</div></div>`
@@ -7622,7 +7622,7 @@ function renderProducts(){
   let pager = pagerHtml(productPage, totalPages, 'page');
 
   return `<div class="product-list-page">
-    <div class="product-list-actions form-final-actions"><button class="btn ghost" id="exportProductsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadProductTemplateBtn">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importProductsBtn">นำเข้า Excel</button><input id="productImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newProductBtn">+ เพิ่มสินค้า</button></div>
+    <div class="product-list-actions form-final-actions"><button class="btn ghost" id="exportProductsBtn">ส่งออก Excel</button><button class="btn ghost" id="importProductsBtn">นำเข้า Excel</button><input id="productImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newProductBtn">+ เพิ่มสินค้า</button></div>
     <div class="prodsplit">
       <div class="tree-pane">
         <div class="product-group-header"><span class="product-group-title">กลุ่มสินค้า</span><span class="product-group-separator">:</span><div class="product-group-categories">${categoryHtml}</div></div>
@@ -11047,7 +11047,7 @@ function renderContacts(){
   const sortArrow = key => contactSort.key===key ? (contactSort.dir===1?' ▲':' ▼') : '';
   const th = (key,label) => `<th class="sortable" data-sort="${key}">${label}<span class="sortarrow">${sortArrow(key)}</span></th>`;
   return `<div class="rpt">
-    <div class="pagehead"><div><h1>${isCustomers?'ลูกค้า':'ผู้จำหน่าย'} <span class="page-title-meta">· ${list.length} รายชื่อ</span></h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadContactTemplateBtn">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
+    <div class="pagehead"><div><h1>${isCustomers?'ลูกค้า':'ผู้จำหน่าย'} <span class="page-title-meta">· ${list.length} รายชื่อ</span></h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
     <div class="ct-tabs">
       ${isCustomers?'<button class="btn ghost" id="refreshCustomerPurchases">รีเฟรชยอดซื้อ</button>':''}
       <div class="toolbar"><div class="searchbar"><input id="search" placeholder="ค้นหาจากรหัสผู้ติดต่อ / ชื่อ / ผู้ติดต่อ / เบอร์" value="${escapeHtml(searchQuery)}"></div></div>
@@ -11057,12 +11057,12 @@ function renderContacts(){
     <table class="grid-table doc-head-blue contact-summary-table"><thead><tr>${th('code','รหัสผู้ติดต่อ')}${th('name','รายชื่อ')}<th>ชื่อผู้ติดต่อ</th><th>เบอร์ติดต่อ</th><th>อีเมล</th>${isCustomers?'<th>ระดับลูกค้า</th>':th('type','ประเภท')}<th></th></tr></thead>
     <tbody>${pageList.map(c=>`<tr>
       <td class="mono">${escapeHtml(c.code||'-')}</td>
-      <td style="text-align:left;">${isCustomers?`<button class="customer-history-link" data-customer-history="${c.id}" title="ดูประวัติการซื้อ">${escapeHtml(c.name)}</button>`:escapeHtml(c.name)}</td>
+      <td style="text-align:left;">${escapeHtml(c.name)}</td>
       <td>${escapeHtml(c.contactName||'-')}</td>
       <td class="mono">${escapeHtml(c.phone||'-')}</td>
       <td>${escapeHtml(c.email||'-')}</td>
       <td style="white-space:nowrap;">${isCustomers?customerTierHtml(purchaseState,c.id):typeBadge(c)}</td>
-      <td style="text-align:center;"><div class="history-actions contact-action-icons"><button class="history-icon-btn" data-act="editcontact" data-id="${c.id}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button>${c.types.includes('customer')?`<button class="history-icon-btn customer-price-action" data-act="customerprice" data-id="${c.id}" title="ราคาพิเศษ" aria-label="ราคาพิเศษ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 13 11 22l-9-9V4h9l9 9z"/><circle cx="7.5" cy="9.5" r="1.5"/></svg></button>`:''}<button class="history-icon-btn danger" data-act="deletecontact" data-id="${c.id}" title="ลบ" aria-label="ลบ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td>
+      <td style="text-align:center;"><div class="history-actions contact-action-icons">${isCustomers?`<button class="history-icon-btn customer-purchase-history-action" data-customer-history="${c.id}" title="ประวัติการซื้อ" aria-label="ดูประวัติการซื้อ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11v8"/><path d="M5 3v18l2-1.5L9 21l2-1.5L13 21l2-1.5"/><path d="M8 8h5M8 12h3"/><circle cx="17" cy="16" r="4"/><path d="M17 14v2l1.4 1"/></svg></button>`:''}<button class="history-icon-btn" data-act="editcontact" data-id="${c.id}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button>${c.types.includes('customer')?`<button class="history-icon-btn customer-price-action" data-act="customerprice" data-id="${c.id}" title="ราคาพิเศษ" aria-label="ราคาพิเศษ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 13 11 22l-9-9V4h9l9 9z"/><circle cx="7.5" cy="9.5" r="1.5"/></svg></button>`:''}<button class="history-icon-btn danger" data-act="deletecontact" data-id="${c.id}" title="ลบ" aria-label="ลบ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td>
     </tr>`).join('')||`<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายชื่อในกลุ่มนี้</td></tr>`}</tbody></table>
     </div>${pagerHtml(contactPage,totalPages,'contactpage')}</div>`;
 }
@@ -14141,8 +14141,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     productImportFile.value='';
     if(file) await invokeExcelTool('importProductsFromExcel',file);
   });
-  const downloadProductTemplateBtn = document.getElementById('downloadProductTemplateBtn');
-  if(downloadProductTemplateBtn) downloadProductTemplateBtn.addEventListener('click',()=>invokeExcelTool('downloadProductImportTemplate'));
   const exportProductsBtn = document.getElementById('exportProductsBtn');
   if(exportProductsBtn) exportProductsBtn.addEventListener('click',()=>invokeExcelTool('exportProductsToExcel'));
   document.querySelectorAll('[data-act="editproduct"]').forEach(el=>{
@@ -14170,8 +14168,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     contactImportFile.value='';
     if(file) await invokeExcelTool('importContactsFromExcel',file);
   });
-  const downloadContactTemplateBtn = document.getElementById('downloadContactTemplateBtn');
-  if(downloadContactTemplateBtn) downloadContactTemplateBtn.addEventListener('click',()=>invokeExcelTool('downloadContactImportTemplate'));
   const exportContactsBtn = document.getElementById('exportContactsBtn');
   if(exportContactsBtn) exportContactsBtn.addEventListener('click',()=>invokeExcelTool('exportContactsToExcel'));
   document.querySelectorAll('[data-act="editcontact"]').forEach(el=>{
@@ -14275,8 +14271,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     salesRepImportFile.value='';
     if(file) await invokeExcelTool('importSalesRepresentativesFromExcel',file);
   });
-  const downloadSalesRepTemplateBtn = document.getElementById('downloadSalesRepTemplateBtn');
-  if(downloadSalesRepTemplateBtn) downloadSalesRepTemplateBtn.addEventListener('click',()=>invokeExcelTool('downloadSalesRepresentativeImportTemplate'));
   const exportSalesRepsBtn = document.getElementById('exportSalesRepsBtn');
   if(exportSalesRepsBtn) exportSalesRepsBtn.addEventListener('click',()=>invokeExcelTool('exportSalesRepresentativesToExcel'));
   document.querySelectorAll('[data-act="editsalesrep"]').forEach(el=>{

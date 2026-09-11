@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const html = require("./load-app-source")();
 
 const helperStart = html.indexOf("const SALES_REP_EXCEL_HEADERS=");
-const helperEnd = html.indexOf('async function downloadSalesRepresentativeImportTemplate(', helperStart);
+const helperEnd = html.indexOf('async function importSalesRepresentativesFromExcel(', helperStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, 'sales representative Excel helpers must exist');
 const sandbox = {notePlainText:value=>String(value||'').replace(/<[^>]*>/g,'').trim()};
 vm.createContext(sandbox);
@@ -47,7 +47,7 @@ const formEnd=html.indexOf('function representativeActivityCardHtml(',formStart)
 const historyCode=html.slice(historyStart,historyEnd);
 const formCode=html.slice(formStart,formEnd);
 assert.match(historyCode,/id="exportSalesRepsBtn"/);
-assert.match(historyCode,/id="downloadSalesRepTemplateBtn"/);
+assert.doesNotMatch(historyCode,/downloadSalesRepTemplateBtn|ดาวน์โหลดคู่มือนำเข้า/);
 assert.match(historyCode,/id="importSalesRepsBtn"/);
 assert.match(historyCode,/id="salesRepImportFile"/);
 assert.match(historyCode,/id="newSalesRepBtn"/);
@@ -64,7 +64,7 @@ const eventsStart=html.indexOf('const newSalesRepBtn =');
 const eventsEnd=html.indexOf('// --- promotions ---',eventsStart);
 const events=html.slice(eventsStart,eventsEnd);
 assert.match(events,/importSalesRepresentativesFromExcel/);
-assert.match(events,/downloadSalesRepresentativeImportTemplate/);
+assert.doesNotMatch(events,/downloadSalesRepresentativeImportTemplate/);
 assert.match(events,/exportSalesRepresentativesToExcel/);
 
 const exportStart=html.indexOf('async function exportSalesRepresentativesToExcel()');
@@ -75,6 +75,6 @@ assert.match(exportCode,/book_append_sheet\(workbook,noteSheet,'NOTE ผู้�
 assert.match(exportCode,/book_append_sheet\(workbook,productSheet,'สินค้าที่ดูแล'\)/);
 assert.match(exportCode,/NOTE \$\{noteRows\.length\} รายการ/);
 
-assert.match(html,/id="downloadContactTemplateBtn">ดาวน์โหลดคู่มือนำเข้า<\/button>/);
+assert.doesNotMatch(html,/downloadContactTemplateBtn|downloadProductTemplateBtn|downloadSalesRepTemplateBtn|ดาวน์โหลดคู่มือนำเข้า/);
 
 console.log('sales representative Excel tests passed');
