@@ -11,6 +11,7 @@ const logicStart = html.indexOf('function inventoryMovementRound(');
 const logicEnd = html.indexOf('function inventoryMovementDateRange(', logicStart);
 assert.ok(logicStart >= 0 && logicEnd > logicStart, 'ไม่พบ logic รายการงานเคลื่อนไหว');
 vm.runInContext(html.slice(logicStart, logicEnd), context);
+assert.doesNotMatch(html.slice(logicStart,logicEnd), /filter\?\.bill/,'ตัวกรองเลขบิลต้องถูกนำออกจากรายงานความเคลื่อนไหว');
 
 const products = [
   {id:1,name:'Decolgen prin (4 tablets)',unit:'ซอง',wh:1},
@@ -69,29 +70,39 @@ assert.equal(context.inventoryMovementGroupItemCount(transferGroup), 1, 'สิ�
 assert.equal(context.inventoryMovementGroupWarehouseText(transferGroup), 'สำนักงานใหญ่ → พรชัย');
 
 assert.deepEqual(
-  JSON.parse(JSON.stringify(context.filterInventoryMovements(rows,{type:'เปลี่ยนสินค้า',bill:'ex20260822',direction:'เข้า',products:[]},{from:'2026-08-18',to:'2026-08-23'}).map(row=>[row.bill,row.productId,row.direction]))),
+  JSON.parse(JSON.stringify(context.filterInventoryMovements(rows,{type:'เปลี่ยนสินค้า',direction:'เข้า',products:[]},{from:'2026-08-18',to:'2026-08-23'}).map(row=>[row.bill,row.productId,row.direction]))),
   [['EX202608220001',1,'เข้า']]
 );
 assert.deepEqual(
   JSON.parse(JSON.stringify(context.filterInventoryMovements([
     {date:'2026-08-24',warehouseId:1,type:'ขาย',bill:'A',direction:'ออก',productId:1},
     {date:'2026-08-24',warehouseId:2,type:'ขาย',bill:'B',direction:'ออก',productId:1},
-  ],{warehouse:'2',type:'all',bill:'',direction:'all',products:[]},{from:'2026-08-24',to:'2026-08-24'}).map(row=>row.bill))),
+  ],{warehouse:'2',type:'all',direction:'all',products:[]},{from:'2026-08-24',to:'2026-08-24'}).map(row=>row.bill))),
   ['B']
 );
 assert.deepEqual(
-  JSON.parse(JSON.stringify(context.filterInventoryMovements(rows,{type:'all',bill:'',direction:'ออก',products:[1]},{from:'2026-08-18',to:'2026-08-18'}).map(row=>[row.bill,row.productId,row.direction]))),
+  JSON.parse(JSON.stringify(context.filterInventoryMovements(rows,{type:'all',direction:'ออก',products:[1]},{from:'2026-08-18',to:'2026-08-18'}).map(row=>[row.bill,row.productId,row.direction]))),
   [['RE202608180002',1,'ออก']]
 );
 
-assert.match(html, /\['inventorymovement','รายการงานเคลื่อนไหว'/);
+assert.match(html, /\['inventorymovement','รายงานความเคลื่อนไหว'/);
 assert.match(html, /id="movementPeriod"/);
 assert.match(html, /id="movementWarehouse"/);
 assert.match(html, /id="movementType"/);
-assert.match(html, /id="movementBill"/);
-assert.match(html, /id="movementDirection"/);
+const movementRenderStart=html.indexOf('function renderInventoryMovement()');
+const movementRenderEnd=html.indexOf('function buildGroupTree()',movementRenderStart);
+const movementRender=html.slice(movementRenderStart,movementRenderEnd);
+assert.doesNotMatch(movementRender, /id="movementBill"|placeholder="ค้นหาเลขบิล"/);
+assert.doesNotMatch(movementRender, /id="movementDirection"/);
+assert.match(movementRender, /\['ขาย','รับเข้าสินค้า','เปลี่ยนสินค้า','คืนสินค้า','โอนสินค้า'\][\s\S]*movement-filter-divider[\s\S]*value="direction:all"[\s\S]*เข้า-ออกทั้งหมด[\s\S]*\['เข้า','ออก','เปลี่ยน'\]/);
+assert.match(html, /inventoryMovementFilter\.type=kind==='type'\?value:'all'[\s\S]*inventoryMovementFilter\.direction=kind==='direction'\?value:'all'/);
 assert.match(html, /id="movementCategory"/);
 assert.match(html, /id="movementBrand"/);
+
+const reportsNavStart=html.indexOf("{section:'รายงาน', items:[");
+const reportsNavEnd=html.indexOf("{section:'ตั้งค่า', items:[",reportsNavStart);
+const reportsNav=html.slice(reportsNavStart,reportsNavEnd);
+assert.ok(reportsNav.indexOf("['inventorymovement','รายงานความเคลื่อนไหว'")>reportsNav.indexOf("['rtax','รายงานภาษี'"),'รายงานความเคลื่อนไหวต้องอยู่ใต้รายงานภาษี');
 assert.match(html, /id="movementSearch"/);
 assert.match(html, /id="movementAddCategoryBtn"[^]*?<div class="movement-report-search"><input id="movementSearch"/, 'ช่องค้นหาต้องอยู่ต่อจากปุ่มเลือกสินค้าในหมวดเดียวกัน');
 assert.match(html, /<th>วันที่<\/th><th>รายการ<\/th><th>บิล<\/th><th>เวลา<\/th><th>สินค้า<\/th><th>เข้า-ออก<\/th><th>คลังสินค้า<\/th>/);

@@ -3637,7 +3637,7 @@ let historyFilter = { period:'range', from:'', to:'', month:'', year:'', bill:''
 let posSalesHistoryModalOpen=false;
 let posSalesHistoryOnDemandState=null;
 // ตัวกรองหน้ารายการงานเคลื่อนไหว (ไม่เลือกสินค้า = แสดงสินค้าทั้งหมด)
-let inventoryMovementFilter = { period:'range', from:'', to:'', month:'', year:'', warehouse:'', type:'all', bill:'', direction:'all', category:'', brand:'', products:[], page:1 };
+let inventoryMovementFilter = { period:'range', from:'', to:'', month:'', year:'', warehouse:'', type:'all', direction:'all', scope:'type:all', category:'', brand:'', products:[], page:1 };
 let inventoryMovementSearchQuery = '';
 let inventoryMovementExpandedBills = new Set();
 let expandedDocumentItemLists = new Set();
@@ -4539,7 +4539,6 @@ const NAV = [
     ['quotation','ใบเสนอราคา','<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h5"/>'],
   ]},
   {section:'รายงาน', items:[
-    ['inventorymovement','รายการงานเคลื่อนไหว','<path d="M4 7h12"/><path d="M13 4l3 3-3 3"/><path d="M20 17H8"/><path d="M11 14l-3 3 3 3"/>'],
     ['rinventory','สินค้าคงเหลือ','<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'],
     ['lowstock','สินค้าใกล้หมด','<path d="M12 9v4"/><circle cx="12" cy="16.5" r="0.5" fill="currentColor"/><path d="M10.3 3.9L2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>'],
     ['expiry','สินค้าใกล้หมดอายุ','<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M8 3.9 6.5 2.5M16 3.9l1.5-1.4"/>'],
@@ -4547,6 +4546,7 @@ const NAV = [
     ['rbill','ยอดขายตามบิล','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>'],
     ['rprofit','กำไร / ขาดทุน','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/><path d="M7 8h12"/>'],
     ['rtax','รายงานภาษี','<path d="M5 3h14v18H5z"/><path d="M8 7h8M8 11h8M8 15h4"/>'],
+    ['inventorymovement','รายงานความเคลื่อนไหว','<path d="M4 7h12"/><path d="M13 4l3 3-3 3"/><path d="M20 17H8"/><path d="M11 14l-3 3 3 3"/>'],
   ]},
   {section:'ตั้งค่า', items:[
     ['settingsbusiness','ตั้งค่าธุรกิจ','<path d="M4 21v-9l8-5 8 5v9"/><path d="M9 21v-6h6v6"/>'],
@@ -7200,12 +7200,10 @@ function filterInventoryMovements(rows,filter,range){
   const selectedIds=new Set((filter?.products||[]).map(Number));
   const type=filter?.type||'all',direction=filter?.direction||'all';
   const warehouse=String(filter?.warehouse||'all');
-  const bill=String(filter?.bill||'').trim().toLowerCase();
   return (rows||[]).filter(row=>
     row.date>=range.from&&row.date<=range.to&&
     (warehouse==='all'||String(row.warehouseId)===warehouse)&&
     (type==='all'||row.type===type)&&
-    (!bill||String(row.bill||'').toLowerCase().includes(bill))&&
     (direction==='all'||row.direction===direction)&&
     (!selectedIds.size||selectedIds.has(Number(row.productId)))
   );
@@ -7306,6 +7304,7 @@ function renderInventoryMovement(){
   filter.page=Math.min(totalPages,Math.max(1,Number(filter.page)||1));
   const start=(filter.page-1)*INVENTORY_MOVEMENT_PAGE_SIZE,pageGroups=groups.slice(start,start+INVENTORY_MOVEMENT_PAGE_SIZE);
   const periodOptions=[['range','วันที่'],['month','เดือน'],['year','ปี']];
+  const primaryFilter=filter.scope||(filter.direction!=='all'?`direction:${filter.direction}`:`type:${filter.type||'all'}`);
   return `<div class="rpt movement-report-page">
     <div class="pagehead"><div><h1>รายงานการเคลื่อนไหว <span class="page-title-meta">· ${groups.length} บิล · ${rows.length} รายการเคลื่อนไหว${totalPages>1?` · หน้า ${filter.page}/${totalPages}`:''}</span></h1></div></div>
     <div class="rpt-filters">
@@ -7314,9 +7313,7 @@ function renderInventoryMovement(){
       ${filter.period==='month'?`<div class="rpf-item"><input type="month" id="movementMonth" value="${filter.month||TODAY_STR.slice(0,7)}" class="rpt-select"></div>`:''}
       ${filter.period==='year'?`<div class="rpf-item"><select id="movementYear" class="rpt-select">${(()=>{const currentYear=Number(TODAY_STR.slice(0,4));let options='';for(let year=currentYear;year>=currentYear-6;year--) options+=`<option value="${year}" ${String(filter.year||currentYear)===String(year)?'selected':''}>${year}</option>`;return options;})()}</select></div>`:''}
       <div class="rpf-item"><select id="movementWarehouse" class="rpt-select"><option value="all" ${selectedWarehouse==='all'?'selected':''}>ทุกคลัง</option>${accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(warehouse.id)===selectedWarehouse?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>
-      <div class="rpf-item"><select id="movementType" class="rpt-select"><option value="all">รายการทั้งหมด</option>${['ขาย','รับเข้าสินค้า','เปลี่ยนสินค้า','คืนสินค้า','โอนสินค้า'].map(type=>`<option value="${type}" ${filter.type===type?'selected':''}>${type}</option>`).join('')}</select></div>
-      <div class="rpf-item"><input id="movementBill" class="rpt-select" value="${escapeHtml(filter.bill||'')}" placeholder="ค้นหาเลขบิล" autocomplete="off" style="min-width:180px;"></div>
-      <div class="rpf-item"><select id="movementDirection" class="rpt-select"><option value="all">เข้า-ออกทั้งหมด</option>${['เข้า','ออก','เปลี่ยน'].map(direction=>`<option value="${direction}" ${filter.direction===direction?'selected':''}>${direction}</option>`).join('')}</select></div>
+      <div class="rpf-item"><select id="movementType" class="rpt-select"><option value="type:all" ${primaryFilter==='type:all'?'selected':''}>รายการทั้งหมด</option>${['ขาย','รับเข้าสินค้า','เปลี่ยนสินค้า','คืนสินค้า','โอนสินค้า'].map(type=>`<option value="type:${type}" ${primaryFilter===`type:${type}`?'selected':''}>${type}</option>`).join('')}<option class="movement-filter-divider" disabled>────────────</option><option value="direction:all" ${primaryFilter==='direction:all'?'selected':''}>เข้า-ออกทั้งหมด</option>${['เข้า','ออก','เปลี่ยน'].map(direction=>`<option value="direction:${direction}" ${primaryFilter===`direction:${direction}`?'selected':''}>${direction}</option>`).join('')}</select></div>
       <button class="btn ghost rpf-apply" id="movementApplyBtn">แสดงผล</button>
     </div>
     <div class="rpt-filters">
@@ -14935,16 +14932,16 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const movementWarehouse=document.getElementById('movementWarehouse');
   if(movementWarehouse) movementWarehouse.addEventListener('change',()=>{ inventoryMovementFilter.warehouse=movementWarehouse.value; inventoryMovementFilter.page=1; render(); });
   const movementType=document.getElementById('movementType');
-  if(movementType) movementType.addEventListener('change',()=>{ inventoryMovementFilter.type=movementType.value; inventoryMovementFilter.page=1; render(); });
-  const movementBill=document.getElementById('movementBill');
-  if(movementBill){
-    movementBill.addEventListener('input',()=>{ inventoryMovementFilter.bill=movementBill.value; });
-    movementBill.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); inventoryMovementFilter.bill=movementBill.value; inventoryMovementFilter.page=1; render(); } });
-  }
-  const movementDirection=document.getElementById('movementDirection');
-  if(movementDirection) movementDirection.addEventListener('change',()=>{ inventoryMovementFilter.direction=movementDirection.value; inventoryMovementFilter.page=1; render(); });
+  if(movementType) movementType.addEventListener('change',()=>{
+    const [kind,value]=movementType.value.split(':');
+    inventoryMovementFilter.scope=movementType.value;
+    inventoryMovementFilter.type=kind==='type'?value:'all';
+    inventoryMovementFilter.direction=kind==='direction'?value:'all';
+    inventoryMovementFilter.page=1;
+    render();
+  });
   const movementApplyBtn=document.getElementById('movementApplyBtn');
-  if(movementApplyBtn) movementApplyBtn.addEventListener('click',()=>{ if(movementBill) inventoryMovementFilter.bill=movementBill.value; inventoryMovementFilter.page=1; render(); });
+  if(movementApplyBtn) movementApplyBtn.addEventListener('click',()=>{ inventoryMovementFilter.page=1; render(); });
   const movementCategory=document.getElementById('movementCategory');
   if(movementCategory) movementCategory.addEventListener('change',()=>{ inventoryMovementFilter.category=movementCategory.value; inventoryMovementFilter.brand=''; inventoryMovementFilter.page=1; render(); });
   const movementBrand=document.getElementById('movementBrand');
