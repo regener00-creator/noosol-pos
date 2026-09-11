@@ -128,6 +128,9 @@ const browserExecutable = [
   assert.equal(await page.locator('#c_type_supplier').count(),0);
   assert.equal(await page.locator('#c_fixed_type').inputValue(),'customer');
   assert.equal(await page.locator('#c_taxid_label').textContent(),'เลขผู้เสียภาษี');
+  const customerIdentityLayout=await page.locator('#c_code,#c_name,#c_taxid,#c_credit').evaluateAll(inputs=>inputs.map(input=>({left:Math.round(input.getBoundingClientRect().left),top:Math.round(input.getBoundingClientRect().top)})));
+  assert.equal(new Set(customerIdentityLayout.map(item=>item.top)).size,1);
+  assert.deepEqual(customerIdentityLayout.map(item=>item.left),[...customerIdentityLayout].sort((a,b)=>a.left-b.left).map(item=>item.left));
   await page.locator('input[name="c_entity"][value="individual"]').check();
   assert.equal(await page.locator('#c_taxid_label').textContent(),'เลขบัตรประชาชน');
   await page.locator('#c_name').fill('ยังไม่บันทึก');

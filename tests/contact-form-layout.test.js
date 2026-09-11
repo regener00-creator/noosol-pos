@@ -10,8 +10,7 @@ const save = source.slice(saveStart, saveEnd);
 
 assert.ok(formStart >= 0 && formEnd > formStart, 'contact editor form must exist');
 assert.match(form, /normalizedFixedType=[\s\S]*c_fixed_type[\s\S]*<label>ประเภท<\/label>[\s\S]*<label>ประเภทผู้ติดต่อ<\/label>/);
-assert.match(form, /<label>รหัสผู้ติดต่อ<\/label>[\s\S]*<label>เครดิต<\/label>/);
-assert.match(form, /<label>ชื่อ-นามสกุล[\s\S]*c_taxid_label[\s\S]*เลขผู้เสียภาษี[\s\S]*เลขบัตรประชาชน/);
+assert.match(form, /contact-editor-identity-row[\s\S]*<label>รหัสผู้ติดต่อ<\/label>[\s\S]*<label>ชื่อ-นามสกุล[\s\S]*c_taxid_label[\s\S]*เลขผู้เสียภาษี[\s\S]*เลขบัตรประชาชน[\s\S]*<label>เครดิต<\/label>/);
 assert.match(form, /contact-editor-wide"><label>ที่อยู่<\/label>/);
 assert.match(form, /<label>อีเมล์<\/label>[\s\S]*<label>ไลน์<\/label>[\s\S]*<label>เบอร์โทร<\/label>/);
 assert.match(form, /contact-editor-wide"><label>เพิ่มเติม<\/label>/);

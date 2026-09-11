@@ -11127,10 +11127,12 @@ function contactEditorFieldsHtml(c,fixedType=''){
             <label><input type="radio" name="c_entity" value="juristic" ${c.entity==='juristic'?'checked':''}> นิติบุคคล</label>
             <label><input type="radio" name="c_entity" value="individual" ${c.entity==='individual'?'checked':''}> บุคคลธรรมดา</label>
           </div></div>
-          <div class="contact-editor-field"><label>รหัสผู้ติดต่อ</label><input id="c_code" value="${escapeHtml(c.code||'')}" placeholder="เช่น C001 (ไม่บังคับ)"></div>
-          <div class="contact-editor-field"><label>เครดิต</label><input id="c_credit" type="number" min="0" value="${escapeHtml(c.creditDays||'')}" placeholder="0 วัน"></div>
-          <div class="contact-editor-field"><label>ชื่อ-นามสกุล <span class="req">*</span></label><input id="c_name" value="${escapeHtml(c.name||'')}" placeholder="กรอกชื่อ-นามสกุล"></div>
-          <div class="contact-editor-field"><label id="c_taxid_label">${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'}</label><input id="c_taxid" value="${escapeHtml(c.taxId||'')}" placeholder="${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'} 13 หลัก (ไม่บังคับ)"></div>
+          <div class="contact-editor-identity-row contact-editor-wide">
+            <div class="contact-editor-field"><label>รหัสผู้ติดต่อ</label><input id="c_code" value="${escapeHtml(c.code||'')}" placeholder="เช่น C001 (ไม่บังคับ)"></div>
+            <div class="contact-editor-field"><label>ชื่อ-นามสกุล <span class="req">*</span></label><input id="c_name" value="${escapeHtml(c.name||'')}" placeholder="กรอกชื่อ-นามสกุล"></div>
+            <div class="contact-editor-field"><label id="c_taxid_label">${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'}</label><input id="c_taxid" value="${escapeHtml(c.taxId||'')}" placeholder="${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'} 13 หลัก (ไม่บังคับ)"></div>
+            <div class="contact-editor-field"><label>เครดิต</label><input id="c_credit" type="number" min="0" value="${escapeHtml(c.creditDays||'')}" placeholder="0 วัน"></div>
+          </div>
           <div class="contact-editor-field contact-editor-wide"><label>ที่อยู่</label><textarea id="c_address" rows="3">${escapeHtml(c.address||'')}</textarea></div>
           <div class="contact-editor-contact-row contact-editor-wide">
             <div class="contact-editor-field"><label>อีเมล์</label><input id="c_email" type="email" value="${escapeHtml(c.email||'')}"></div>
