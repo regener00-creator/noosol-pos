@@ -13,6 +13,7 @@ assert.match(form, /normalizedFixedType=[\s\S]*c_fixed_type[\s\S]*<label>ปร�
 assert.match(form, /contact-editor-identity-row[\s\S]*<label>รหัสผู้ติดต่อ<\/label>[\s\S]*<label>ชื่อ-นามสกุล[\s\S]*c_taxid_label[\s\S]*เลขผู้เสียภาษี[\s\S]*เลขบัตรประชาชน[\s\S]*<label>เครดิต<\/label>/);
 assert.match(form, /hideCode=normalizedFixedType==='customer'\|\|currentTab==='customers'/);
 assert.match(form, /\$\{hideCode\?'':`<div class="contact-editor-field"><label>รหัสผู้ติดต่อ<\/label>/);
+assert.match(form, /id="c_code"[\s\S]*placeholder="ระบบสร้างให้อัตโนมัติเมื่อบันทึก"/);
 assert.match(form, /contact-editor-identity-row-customer-new[\s\S]*contact-editor-identity-row-customer-edit/);
 assert.match(form, /isNewCustomer\?'':`<div class="contact-editor-field"><label>เครดิต<\/label>/);
 assert.match(source, /emptyCustomerContactDraft\(type='customer'\)[\s\S]*normalizedType==='customer'\?'individual':'juristic'/);
@@ -25,7 +26,8 @@ assert.doesNotMatch(form, /c_postcode|c_contactname|c_bank|c_bankname|c_bankacc|
 assert.match(source, /openPOSCustomerCreateModal\(\)[\s\S]*contactEditorFieldsHtml\(emptyCustomerContactDraft\(\),'customer'\)/);
 assert.match(source, /function renderContactForm\(\)[\s\S]*fixedType=isNew\?\(currentTab==='customers'\?'customer':'supplier'\):''[\s\S]*contactEditorFieldsHtml\(c,fixedType\)/);
 assert.match(save, /const fixedType=g\('c_fixed_type'\)\?\.value\|\|'';[\s\S]*\['customer','supplier'\]\.includes\(fixedType\)\?\[fixedType\]:\[\]/);
-assert.match(save, /recordId=contactId==='new'\?generateClientRecordId\(contacts\)[\s\S]*const codeInput=g\('c_code'\)[\s\S]*contactId==='new'&&fixedType==='customer'\?`C-\$\{Number\(recordId\)\.toString\(36\)\.toUpperCase\(\)\}`/);
+assert.match(source, /function automaticContactCode\(type,recordId\)[\s\S]*type==='supplier'\?'S':type==='customer'\?'C'/);
+assert.match(save, /recordId=contactId==='new'\?generateClientRecordId\(contacts\)[\s\S]*automaticType=fixedType\|\|\(types\.length===1\?types\[0\]:''\)[\s\S]*automaticContactCode\(automaticType,recordId\)/);
 assert.match(save, /creditDays: g\('c_credit'\)\?/);
 assert.match(save, /line: g\('c_line'\)\.value\.trim\(\)/);
 assert.match(save, /phone: formatPhoneValue\(g\('c_phone'\)\.value\)/);

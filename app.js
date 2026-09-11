@@ -11235,6 +11235,13 @@ function emptyCustomerContactDraft(type='customer'){
   const normalizedType=type==='supplier'?'supplier':'customer';
   return {name:'',entity:normalizedType==='customer'?'individual':'juristic',types:[normalizedType],email:'',line:'',phone:'',taxId:'',creditDays:'',address:'',note:'',customerPrices:[]};
 }
+function automaticContactCode(type,recordId){
+  const prefix=type==='supplier'?'S':type==='customer'?'C':'';
+  const numericId=Number(recordId);
+  return prefix&&Number.isSafeInteger(numericId)&&numericId>0
+    ?`${prefix}-${numericId.toString(36).toUpperCase()}`
+    :'';
+}
 function contactEditorFieldsHtml(c,fixedType=''){
   const normalizedFixedType=['customer','supplier'].includes(fixedType)?fixedType:'';
   const chk = t => (c.types||[]).includes(t)?'checked':'';
@@ -11254,7 +11261,7 @@ function contactEditorFieldsHtml(c,fixedType=''){
             <label><input type="radio" name="c_entity" value="individual" ${c.entity==='individual'?'checked':''}> บุคคลธรรมดา</label>
           </div></div>
           <div class="contact-editor-identity-row contact-editor-wide ${hideCode?(isNewCustomer?'contact-editor-identity-row-customer-new':'contact-editor-identity-row-customer-edit'):''}">
-            ${hideCode?'':`<div class="contact-editor-field"><label>รหัสผู้ติดต่อ</label><input id="c_code" value="${escapeHtml(c.code||'')}" placeholder="เช่น C001 (ไม่บังคับ)"></div>`}
+            ${hideCode?'':`<div class="contact-editor-field"><label>รหัสผู้ติดต่อ</label><input id="c_code" value="${escapeHtml(c.code||'')}" placeholder="ระบบสร้างให้อัตโนมัติเมื่อบันทึก"></div>`}
             <div class="contact-editor-field"><label>ชื่อ-นามสกุล <span class="req">*</span></label><input id="c_name" value="${escapeHtml(c.name||'')}" placeholder="กรอกชื่อ-นามสกุล"></div>
             <div class="contact-editor-field"><label id="c_taxid_label">${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'}</label><input id="c_taxid" value="${escapeHtml(c.taxId||'')}" placeholder="${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'} 13 หลัก (ไม่บังคับ)"></div>
             ${isNewCustomer?'':`<div class="contact-editor-field"><label>เครดิต</label><input id="c_credit" type="number" min="0" value="${escapeHtml(c.creditDays||'')}" placeholder="0 วัน"></div>`}
@@ -16885,7 +16892,10 @@ function saveContactEditorData(contactId=editingContactId){
   const recordId=contactId==='new'?generateClientRecordId(contacts):existing?.id;
   const codeInput=g('c_code');
   const enteredCode=codeInput?.value.trim()||'';
-  const code=codeInput?(enteredCode||existing?.code||''):(existing?.code||(contactId==='new'&&fixedType==='customer'?`C-${Number(recordId).toString(36).toUpperCase()}`:''));
+  const automaticType=fixedType||(types.length===1?types[0]:'');
+  const code=codeInput
+    ?(enteredCode||existing?.code||automaticContactCode(automaticType,recordId))
+    :(existing?.code||automaticContactCode('customer',recordId));
   if(code){
     const dup = contacts.find(x=>x.id!==contactId && String(x.code||'').trim().toLowerCase()===code.toLowerCase());
     if(dup){ showToast(`รหัสผู้ติดต่อ "${code}" ถูกใช้แล้วโดย "${dup.name}"`); codeInput?.focus(); return null; }
