@@ -129,10 +129,9 @@ const browserExecutable = [
   assert.equal(await page.locator('#c_fixed_type').inputValue(),'customer');
   assert.equal(await page.locator('input[name="c_entity"][value="individual"]').isChecked(),true);
   assert.equal(await page.locator('#c_taxid_label').textContent(),'เลขบัตรประชาชน');
-  assert.equal(await page.locator('#c_code').isEditable(),false);
-  assert.equal(await page.locator('#c_code').getAttribute('placeholder'),'ระบบจะสร้างให้อัตโนมัติ');
+  assert.equal(await page.locator('#c_code').count(),0);
   assert.equal(await page.locator('#c_credit').count(),0);
-  const customerIdentityLayout=await page.locator('#c_code,#c_name,#c_taxid').evaluateAll(inputs=>inputs.map(input=>({left:Math.round(input.getBoundingClientRect().left),top:Math.round(input.getBoundingClientRect().top)})));
+  const customerIdentityLayout=await page.locator('#c_name,#c_taxid').evaluateAll(inputs=>inputs.map(input=>({left:Math.round(input.getBoundingClientRect().left),top:Math.round(input.getBoundingClientRect().top)})));
   assert.equal(new Set(customerIdentityLayout.map(item=>item.top)).size,1);
   assert.deepEqual(customerIdentityLayout.map(item=>item.left),[...customerIdentityLayout].sort((a,b)=>a.left-b.left).map(item=>item.left));
   await page.locator('#c_name').fill('ยังไม่บันทึก');

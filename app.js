@@ -10882,10 +10882,20 @@ function customerLoyaltyBalanceHtml(state,id){
   const text=account?`${Number(account.balance)||0} แต้ม`:state?.loading?'กำลังโหลด…':state?.error?'อ่านแต้มไม่ได้':'—';
   return `<span class="customer-loyalty-table-balance ${state?.error?'customer-purchase-error':''}" data-customer-loyalty-balance="${escapeHtml(id)}">${escapeHtml(text)}</span>`;
 }
+function customerLoyaltyExpiryHtml(state,id){
+  const account=state?.data?.find(row=>String(row.customerId)===String(id));
+  const text=account?fmtDateShort(account.expiresOn):state?.loading?'กำลังโหลด…':state?.error?'อ่านวันหมดอายุไม่ได้':'—';
+  return `<span class="customer-loyalty-table-expiry ${state?.error?'customer-purchase-error':''}" data-customer-loyalty-expiry="${escapeHtml(id)}">${escapeHtml(text)}</span>`;
+}
 function refreshCustomerLoyaltyTable(){
   document.querySelectorAll('[data-customer-loyalty-balance]').forEach(host=>{
     const account=customerLoyaltyState?.data?.find(row=>String(row.customerId)===String(host.dataset.customerLoyaltyBalance));
     host.textContent=account?`${Number(account.balance)||0} แต้ม`:customerLoyaltyState?.loading?'กำลังโหลด…':customerLoyaltyState?.error?'อ่านแต้มไม่ได้':'—';
+    host.classList.toggle('customer-purchase-error',!!customerLoyaltyState?.error);
+  });
+  document.querySelectorAll('[data-customer-loyalty-expiry]').forEach(host=>{
+    const account=customerLoyaltyState?.data?.find(row=>String(row.customerId)===String(host.dataset.customerLoyaltyExpiry));
+    host.textContent=account?fmtDateShort(account.expiresOn):customerLoyaltyState?.loading?'กำลังโหลด…':customerLoyaltyState?.error?'อ่านวันหมดอายุไม่ได้':'—';
     host.classList.toggle('customer-purchase-error',!!customerLoyaltyState?.error);
   });
 }
@@ -11088,21 +11098,21 @@ function renderContacts(){
   const sortArrow = key => contactSort.key===key ? (contactSort.dir===1?' ▲':' ▼') : '';
   const th = (key,label) => `<th class="sortable" data-sort="${key}">${label}<span class="sortarrow">${sortArrow(key)}</span></th>`;
   const tableHead=isCustomers
-    ?`${th('code','รหัสผู้ติดต่อ')}${th('name','ชื่อ')}<th>เบอร์โทร</th><th>ไลน์</th><th>แต้มคงเหลือ</th><th>ระดับลูกค้า</th><th>ยอดซื้อเฉลี่ยต่อเดือน</th><th></th>`
+    ?`${th('name','ชื่อ')}<th>เบอร์โทร</th><th>ไลน์</th><th>แต้มคงเหลือ</th><th>ระดับลูกค้า</th><th>ยอดซื้อเฉลี่ยต่อเดือน</th><th>วันหมดอายุแต้ม</th><th></th>`
     :`${th('code','รหัสผู้ติดต่อ')}${th('name','รายชื่อ')}<th>ชื่อผู้ติดต่อ</th><th>เบอร์ติดต่อ</th><th>อีเมล</th>${th('type','ประเภท')}<th></th>`;
   return `<div class="rpt">
     <div class="pagehead"><div><h1>${isCustomers?'ลูกค้า':'ผู้จำหน่าย'} <span class="page-title-meta">· ${list.length} รายชื่อ</span></h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
     <div class="ct-tabs">
       ${isCustomers?'<button class="btn ghost" id="refreshCustomerPurchases">รีเฟรชยอดซื้อ</button>':''}
-      <div class="toolbar"><div class="searchbar"><input id="search" placeholder="ค้นหาจากรหัสผู้ติดต่อ / ชื่อ / ผู้ติดต่อ / เบอร์" value="${escapeHtml(searchQuery)}"></div></div>
+      <div class="toolbar"><div class="searchbar"><input id="search" placeholder="${isCustomers?'ค้นหาจากชื่อ / เบอร์โทร / ไลน์':'ค้นหาจากรหัสผู้ติดต่อ / ชื่อ / ผู้ติดต่อ / เบอร์'}" value="${escapeHtml(searchQuery)}"></div></div>
     </div>
     ${isCustomers?customerPurchaseNotice(purchaseState):''}
     <div class="doc-list-wrap seamless-table-wrap">
     <table class="grid-table doc-head-blue contact-summary-table"><thead><tr>${tableHead}</tr></thead>
     <tbody>${pageList.map(c=>`<tr>
-      <td class="mono">${escapeHtml(c.code||'-')}</td>
+      ${isCustomers?'':`<td class="mono">${escapeHtml(c.code||'-')}</td>`}
       <td style="text-align:${isCustomers?'center':'left'};">${escapeHtml(c.name)}</td>
-      ${isCustomers?`<td class="mono">${escapeHtml(c.phone||'-')}</td><td>${escapeHtml(c.line||'-')}</td><td>${customerLoyaltyBalanceHtml(loyaltyState,c.id)}</td><td style="white-space:nowrap;">${customerTierOnlyHtml(purchaseState,c.id)}</td><td class="mono">${customerMonthlyAverageHtml(purchaseState,c.id)}</td>`:`<td>${escapeHtml(c.contactName||'-')}</td><td class="mono">${escapeHtml(c.phone||'-')}</td><td>${escapeHtml(c.email||'-')}</td><td style="white-space:nowrap;">${typeBadge(c)}</td>`}
+      ${isCustomers?`<td class="mono">${escapeHtml(c.phone||'-')}</td><td>${escapeHtml(c.line||'-')}</td><td>${customerLoyaltyBalanceHtml(loyaltyState,c.id)}</td><td style="white-space:nowrap;">${customerTierOnlyHtml(purchaseState,c.id)}</td><td class="mono">${customerMonthlyAverageHtml(purchaseState,c.id)}</td><td class="mono">${customerLoyaltyExpiryHtml(loyaltyState,c.id)}</td>`:`<td>${escapeHtml(c.contactName||'-')}</td><td class="mono">${escapeHtml(c.phone||'-')}</td><td>${escapeHtml(c.email||'-')}</td><td style="white-space:nowrap;">${typeBadge(c)}</td>`}
       <td style="text-align:center;"><div class="history-actions contact-action-icons">${isCustomers?`<button class="history-icon-btn customer-purchase-history-action" data-customer-history="${c.id}" title="ประวัติการซื้อ" aria-label="ดูประวัติการซื้อ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11v8"/><path d="M5 3v18l2-1.5L9 21l2-1.5L13 21l2-1.5"/><path d="M8 8h5M8 12h3"/><circle cx="17" cy="16" r="4"/><path d="M17 14v2l1.4 1"/></svg></button>`:''}${c.types.includes('customer')?`<button class="history-icon-btn customer-price-action" data-act="customerprice" data-id="${c.id}" title="ราคาพิเศษ" aria-label="ราคาพิเศษ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 13 11 22l-9-9V4h9l9 9z"/><circle cx="7.5" cy="9.5" r="1.5"/></svg></button>`:''}<button class="history-icon-btn" data-act="editcontact" data-id="${c.id}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn danger" data-act="deletecontact" data-id="${c.id}" title="ลบ" aria-label="ลบ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td>
     </tr>`).join('')||`<tr><td colspan="${isCustomers?8:7}" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายชื่อในกลุ่มนี้</td></tr>`}</tbody></table>
     </div>${pagerHtml(contactPage,totalPages,'contactpage')}</div>`;
@@ -11158,6 +11168,7 @@ function contactEditorFieldsHtml(c,fixedType=''){
   const chk = t => (c.types||[]).includes(t)?'checked':'';
   const isJuristic=c.entity!=='individual';
   const isNewCustomer=normalizedFixedType==='customer'&&!c.id;
+  const hideCode=normalizedFixedType==='customer'||currentTab==='customers';
   const typeField=normalizedFixedType
     ? `<input type="hidden" id="c_fixed_type" value="${normalizedFixedType}">`
     : `<div class="contact-editor-field"><label>ประเภท</label><div class="cradio">
@@ -11170,8 +11181,8 @@ function contactEditorFieldsHtml(c,fixedType=''){
             <label><input type="radio" name="c_entity" value="juristic" ${c.entity==='juristic'?'checked':''}> นิติบุคคล</label>
             <label><input type="radio" name="c_entity" value="individual" ${c.entity==='individual'?'checked':''}> บุคคลธรรมดา</label>
           </div></div>
-          <div class="contact-editor-identity-row contact-editor-wide ${isNewCustomer?'contact-editor-identity-row-new-customer':''}">
-            <div class="contact-editor-field"><label>รหัสผู้ติดต่อ</label><input id="c_code" value="${escapeHtml(c.code||'')}" ${isNewCustomer?'readonly placeholder="ระบบจะสร้างให้อัตโนมัติ"':'placeholder="เช่น C001 (ไม่บังคับ)"'}></div>
+          <div class="contact-editor-identity-row contact-editor-wide ${hideCode?(isNewCustomer?'contact-editor-identity-row-customer-new':'contact-editor-identity-row-customer-edit'):''}">
+            ${hideCode?'':`<div class="contact-editor-field"><label>รหัสผู้ติดต่อ</label><input id="c_code" value="${escapeHtml(c.code||'')}" placeholder="เช่น C001 (ไม่บังคับ)"></div>`}
             <div class="contact-editor-field"><label>ชื่อ-นามสกุล <span class="req">*</span></label><input id="c_name" value="${escapeHtml(c.name||'')}" placeholder="กรอกชื่อ-นามสกุล"></div>
             <div class="contact-editor-field"><label id="c_taxid_label">${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'}</label><input id="c_taxid" value="${escapeHtml(c.taxId||'')}" placeholder="${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'} 13 หลัก (ไม่บังคับ)"></div>
             ${isNewCustomer?'':`<div class="contact-editor-field"><label>เครดิต</label><input id="c_credit" type="number" min="0" value="${escapeHtml(c.creditDays||'')}" placeholder="0 วัน"></div>`}
@@ -16800,11 +16811,12 @@ function saveContactEditorData(contactId=editingContactId){
   if(types.length===0){ showToast('กรุณาเลือกประเภท (ลูกค้า หรือ ผู้จำหน่าย)'); return null; }
   const existing=contactId==='new'?null:contacts.find(x=>x.id===contactId);
   const recordId=contactId==='new'?generateClientRecordId(contacts):existing?.id;
-  const enteredCode=g('c_code')?.value.trim()||'';
-  const code=enteredCode||(contactId==='new'&&fixedType==='customer'?`C-${Number(recordId).toString(36).toUpperCase()}`:'');
+  const codeInput=g('c_code');
+  const enteredCode=codeInput?.value.trim()||'';
+  const code=codeInput?(enteredCode||existing?.code||''):(existing?.code||(contactId==='new'&&fixedType==='customer'?`C-${Number(recordId).toString(36).toUpperCase()}`:''));
   if(code){
     const dup = contacts.find(x=>x.id!==contactId && String(x.code||'').trim().toLowerCase()===code.toLowerCase());
-    if(dup){ showToast(`รหัสผู้ติดต่อ "${code}" ถูกใช้แล้วโดย "${dup.name}"`); g('c_code').focus(); return null; }
+    if(dup){ showToast(`รหัสผู้ติดต่อ "${code}" ถูกใช้แล้วโดย "${dup.name}"`); codeInput?.focus(); return null; }
   }
   const entityEl = document.querySelector('input[name="c_entity"]:checked');
   const data = {
