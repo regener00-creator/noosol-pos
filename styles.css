@@ -2399,6 +2399,8 @@
 /* Customer anniversary points: compact in POS, shared with customer history. */
 .loyalty-panel{border:1px solid #dcd4cd;background:#faf8f5;border-radius:12px;padding:12px 14px;margin:8px 0;color:#4f4038}
 .loyalty-panel-head,.loyalty-redeem-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.loyalty-panel-title{display:flex;align-items:baseline;gap:5px;flex-wrap:wrap}
+.loyalty-panel-title span{color:#7b7069;font-size:12px;font-weight:500}
 .loyalty-panel small{display:block;color:#7b7069;margin-top:6px;line-height:1.5}
 .loyalty-balance{display:block;font-size:23px;margin:4px 0}
 .loyalty-expiry-date strong{font-weight:800;color:var(--text,#302822)}
@@ -2407,6 +2409,9 @@
 .loyalty-expiry-warning.is-urgent{background:#ffe4c2;color:#914c00}
 .loyalty-expiry-warning.is-critical{background:#ffe0dc;color:#a52a20}
 .loyalty-redeem-row{justify-content:flex-start;margin-top:10px}
+.loyalty-redeem-button{background:var(--primary,#5b463b);border-color:var(--primary,#5b463b);color:#fff}
+.loyalty-redeem-button:hover:not(:disabled){background:var(--primary-dark,#40312a);border-color:var(--primary-dark,#40312a);color:#fff}
+.loyalty-redeem-button:disabled{color:#fff}
 .loyalty-panel .loyalty-error{color:#b42318}
 .loyalty-modal{width:min(460px,calc(100vw - 24px))}
 .loyalty-modal-body{padding:20px;display:grid;gap:14px}
