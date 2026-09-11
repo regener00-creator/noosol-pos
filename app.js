@@ -4568,7 +4568,8 @@ function renderSidebar(){
     if(!visibleItems.length) return;
     if(g.section) html += `<div class="navsection">${g.section}</div>`;
     visibleItems.forEach(([tab,label,svg])=>{
-      html += `<button class="navbtn ${currentTab===tab?'active':''}" data-tab="${tab}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${svg}</svg>${label}</button>`;
+      const labelHtml=g.section==='ขาย'?`<span class="sales-nav-label">${label}</span>`:label;
+      html += `<button class="navbtn ${currentTab===tab?'active':''}" data-tab="${tab}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${svg}</svg>${labelHtml}</button>`;
     });
   });
   html += `<div class="sidebar-logout-wrap"><button class="logout-btn sidebar-logout-btn" id="logoutBtn">ออกจากระบบ</button></div>`;
@@ -5761,7 +5762,6 @@ function renderDashboard(){
   const topItems = Object.entries(itemCounts).sort((a,b)=>b[1]-a[1]).slice(0,10);
   const colors=['var(--primary)','var(--accent)','var(--info)','var(--danger)'];
   return `
-    <div class="dashboard-page">
     <div class="statrow" style="grid-template-columns:repeat(${canViewProfit?4:2},minmax(0,1fr));${canViewProfit?'':'max-width:520px;'}">
       <div class="stat"><div class="stat-heading"><div class="sicon teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></div><div class="slabel">ยอดขายวันนี้</div></div><div class="sval">${fmtMoney(todayTotal)}</div></div>
       ${canViewProfit?`
@@ -5781,7 +5781,6 @@ function renderDashboard(){
     <div class="panel">
       <div class="seamless-table-wrap"><table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-bill"><col class="ht-time"><col class="ht-items"><col class="ht-total"><col class="ht-pay"></colgroup><thead><tr><th>วันที่</th><th>เลขที่บิล</th><th>เวลา</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th></tr></thead>
       <tbody>${completedSales.length?completedSales.slice(0,8).map(s=>`<tr><td>${escapeHtml(fmtDate(s.date))}</td><td class="mono">${escapeHtml(s.ref||s.id)}</td><td>${escapeHtml(saleHistoryTimeDisplay(s.time))}</td><td class="history-items-cell">${salesHistoryItemsPreview(s.items)}</td><td class="mono num">${fmtMoney(s.total)}</td><td>${escapeHtml(s.payMethod||'-')}</td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">ยังไม่มีรายการขาย</td></tr>`}</tbody></table></div>
-    </div>
     </div>`;
 }
 

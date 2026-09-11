@@ -13,9 +13,10 @@ const fontFiles = [
   'line-seed-sans-th-extra-bold.woff2',
 ];
 
-assert.match(app, /function renderDashboard\(\)[\s\S]*?<div class="dashboard-page">/);
-assert.match(app, /function renderNotes\(\)[\s\S]*?<div class="notes-page">/);
-assert.match(css, /\.dashboard-page,\.dashboard-page \*,\.notes-page,\.notes-page \*\{font-family:'LINE Seed Sans TH','Sarabun',sans-serif;\}/);
+assert.match(app, /const labelHtml=g\.section==='ขาย'\?`<span class="sales-nav-label">\$\{label\}<\/span>`:label;/);
+assert.match(css, /\.sales-nav-label\{font-family:'LINE Seed Sans TH','Sarabun',sans-serif;\}/);
+assert.doesNotMatch(css, /\.dashboard-page[^}]*LINE Seed Sans TH/);
+assert.doesNotMatch(css, /\.notes-page[^}]*LINE Seed Sans TH/);
 assert.equal((css.match(/@font-face\{font-family:'LINE Seed Sans TH'/g) || []).length, 3);
 
 for (const name of fontFiles) {
@@ -27,4 +28,4 @@ for (const name of fontFiles) {
 
 assert.doesNotMatch(css, /body\{[^}]*LINE Seed Sans TH/, 'ฟอนต์ทดลองต้องไม่กระทบทั้งระบบ');
 
-console.log('dashboard and notes LINE Seed Sans TH tests passed');
+console.log('sidebar sales labels LINE Seed Sans TH tests passed');

@@ -5,7 +5,7 @@ const path = require('node:path');
 const { chromium } = require('playwright');
 
 const root = path.join(__dirname, '..');
-const types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webmanifest':'application/manifest+json','.png':'image/png','.svg':'image/svg+xml','.woff2':'font/woff2'};
+const types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webmanifest':'application/manifest+json','.png':'image/png','.svg':'image/svg+xml'};
 const server = http.createServer((request, response) => {
   const pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1').pathname);
   const file = path.join(root, pathname === '/' ? 'index.html' : pathname.replace(/^\//, ''));
@@ -66,13 +66,6 @@ let browser;
   assert.equal(await page.locator('[data-note-color]').count(), 8);
   assert.equal(await page.locator('.note-list-item').count(),1);
   assert.doesNotMatch(await page.locator('.note-list-panel').textContent(),/NOTE ผู้แทนที่ต้องไม่แสดง/);
-  await page.evaluate(() => document.fonts.load('16px "LINE Seed Sans TH"'));
-  assert.match(await page.locator('.notes-page').evaluate(element => getComputedStyle(element).fontFamily), /LINE Seed Sans TH/);
-
-  await page.evaluate(() => { document.getElementById('main').innerHTML=renderDashboard(); });
-  assert.equal(await page.locator('.dashboard-page').count(), 1);
-  assert.match(await page.locator('.dashboard-page').evaluate(element => getComputedStyle(element).fontFamily), /LINE Seed Sans TH/);
-  await page.evaluate(() => { document.getElementById('main').innerHTML=renderNotes(); attachNoteEvents(); });
 
   await page.locator('#addNoteBtn').click();
   await page.locator('#noteTitle').fill('หลายรูปแบบ');

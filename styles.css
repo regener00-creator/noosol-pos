@@ -31,6 +31,7 @@
   .sidebar-logout-btn:hover{border-color:var(--danger);color:#fff;background:var(--danger);}
   .navsection{font-size:10.5px;color:#E3D4CF;text-transform:uppercase;letter-spacing:.06em;padding:12px 10px 4px;}
   .navbtn{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;background:transparent;border:none;color:#F7F0ED;font-family:inherit;font-size:13.5px;cursor:pointer;text-align:right;width:100%;transition:background .15s;}
+  .sales-nav-label{font-family:'LINE Seed Sans TH','Sarabun',sans-serif;}
   .navbtn:hover{background:var(--sidebar-hover);}
   .navbtn.active{background:var(--sidebar-hover)!important;color:#fff!important;font-weight:700;}
   .navbtn[data-tab="dashboard"],.navbtn[data-tab="checkout"]{background:#fff;color:var(--primary);font-weight:700;}
@@ -2081,8 +2082,6 @@
   .cash-shift-history{margin-top:18px;}.cash-shift-history-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}.cash-shift-history-head h3{margin:0;}.cash-shift-history-head small{color:var(--text-muted);}
   .cash-shift-table-wrap{overflow:auto;border:1px solid var(--border);border-radius:11px;}.cash-shift-table{width:100%;border-collapse:collapse;min-width:900px;}.cash-shift-table th{background:var(--primary);color:#fff;text-align:center;padding:10px;font-size:12px;}.cash-shift-table td{padding:10px;border-bottom:1px solid var(--border);text-align:center;vertical-align:middle;}.cash-shift-table tr:last-child td{border-bottom:0;}.cash-shift-table .num{text-align:center;font-family:monospace;}.cash-shift-variance-text.positive{color:#23753a;}.cash-shift-variance-text.negative{color:var(--danger);}.cash-shift-print{white-space:nowrap;}
   @media(max-width:900px){.cash-shift-summary-grid,.cash-shift-meta{grid-template-columns:repeat(2,minmax(0,1fr));}.cash-shift-layout{grid-template-columns:1fr;}}
-  .dashboard-page,.dashboard-page *,.notes-page,.notes-page *{font-family:'LINE Seed Sans TH','Sarabun',sans-serif;}
-  .dashboard-page{width:100%;}
   .notes-page{max-width:1320px;margin:0 auto;}
   .notes-page-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;}
   .notes-page-head h1{margin:0;color:#2B2016;font-size:30px;line-height:1.2;}
