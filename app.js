@@ -10858,11 +10858,18 @@ function customerLoyaltyPanelHtml(customer,readOnly=false){
   const state=loadCustomerLoyalty([customer.id]),account=state.data?.[0];
   const redeemed=readOnly?0:effectiveLoyaltyRedemption();
   const eligible=!readOnly&&cartTaxSummary(applyPromotions(cart),saleDiscount).total>=1000;
-  return `<div class="loyalty-panel" data-loyalty-customer="${escapeHtml(customer.id)}" data-loyalty-readonly="${readOnly?'true':'false'}">
-    <div class="loyalty-panel-head"><strong>แต้มสะสม</strong><button class="btn ghost small" data-refresh-loyalty type="button">รีเฟรชแต้ม</button></div>
-    ${account?`<b class="loyalty-balance">${escapeHtml(account.balance)} แต้ม</b><small>สมัคร ${escapeHtml(fmtDateShort(account.joinedOn))} · หมดอายุ ${escapeHtml(fmtDateShort(account.expiresOn))}</small>${Number(account.adjustmentDue)>0?`<small class="loyalty-error">มีแต้มรอหักคืน ${escapeHtml(account.adjustmentDue)} แต้มจากบิลยกเลิก แต้มที่ได้รับใหม่จะชดเชยส่วนนี้ก่อน</small>`:''}`:`<small class="${state.error?'loyalty-error':''}" role="status">${state.error||'กำลังอ่านแต้ม…'}</small>`}
-    ${readOnly?'':`<div class="loyalty-redeem-row"><button class="btn ghost small" data-redeem-loyalty type="button" ${!account||!eligible||Number(account.balance)<=0?'disabled':''}>ใช้แต้มเป็นส่วนลด</button>${saleLoyaltySelection?'<button class="btn ghost small" data-clear-loyalty type="button">ยกเลิกใช้แต้ม</button>':''}</div><small>${redeemed?`ใช้ ${redeemed} แต้ม ลด ${fmtMoney(redeemed)} บาท (รวมในส่วนลดแล้ว)`:'ใช้แต้มได้เมื่อยอดหลังส่วนลดอื่นถึง 1,000 บาท'}</small>`}
-  </div>`;
+  const adjustmentHtml=Number(account?.adjustmentDue)>0
+    ?`<small class="loyalty-error">มีแต้มรอหักคืน ${escapeHtml(account.adjustmentDue)} แต้มจากบิลยกเลิก แต้มที่ได้รับใหม่จะชดเชยส่วนนี้ก่อน</small>`
+    :'';
+  let accountHtml=`<small class="${state.error?'loyalty-error':''}" role="status">${state.error||'กำลังอ่านแต้ม…'}</small>`;
+  if(account){
+    const balanceHtml=`<b class="loyalty-balance">${escapeHtml(account.balance)} แต้ม</b>`;
+    accountHtml=readOnly
+      ?`${balanceHtml}<div class="loyalty-membership-dates"><div><span>สมัคร</span><strong>${escapeHtml(fmtDateShort(account.joinedOn))}</strong></div><div><span>หมดอายุ</span><strong>${escapeHtml(fmtDateShort(account.expiresOn))}</strong></div></div>${adjustmentHtml}`
+      :`${balanceHtml}<small>สมัคร ${escapeHtml(fmtDateShort(account.joinedOn))} · หมดอายุ ${escapeHtml(fmtDateShort(account.expiresOn))}</small>${adjustmentHtml}`;
+  }
+  const redeemHtml=readOnly?'':`<div class="loyalty-redeem-row"><button class="btn ghost small" data-redeem-loyalty type="button" ${!account||!eligible||Number(account.balance)<=0?'disabled':''}>ใช้แต้มเป็นส่วนลด</button>${saleLoyaltySelection?'<button class="btn ghost small" data-clear-loyalty type="button">ยกเลิกใช้แต้ม</button>':''}</div><small>${redeemed?`ใช้ ${redeemed} แต้ม ลด ${fmtMoney(redeemed)} บาท (รวมในส่วนลดแล้ว)`:'ใช้แต้มได้เมื่อยอดหลังส่วนลดอื่นถึง 1,000 บาท'}</small>`;
+  return `<div class="loyalty-panel${readOnly?' customer-history-loyalty-panel':''}" data-loyalty-customer="${escapeHtml(customer.id)}" data-loyalty-readonly="${readOnly?'true':'false'}"><div class="loyalty-panel-head"><strong>แต้มสะสม</strong><button class="btn ghost small" data-refresh-loyalty type="button">รีเฟรชแต้ม</button></div>${accountHtml}${redeemHtml}</div>`;
 }
 function refreshCustomerLoyaltyPanel(){
   const host=document.getElementById('customerLoyaltyPanel');if(!host) return;
@@ -10958,6 +10965,21 @@ function customerTierOnlyHtml(state,id){
   const tier=customerTierFromPurchases(summary.currentYearTotal,state.data.elapsedMonths);
   return `<span class="customer-tier customer-tier-${tier.key}">${tier.label}</span>`;
 }
+function customerTierOverviewHtml(state,id){
+  const summary=state?.data?.summaries?.find(row=>String(row.customerId)===String(id));
+  const current=summary?customerTierFromPurchases(summary.currentYearTotal,state.data.elapsedMonths):null;
+  const tiers=[
+    {key:'general',label:'ลูกค้าทั่วไป'},
+    {key:'regular',label:'ลูกค้าประจำ'},
+    {key:'special',label:'ลูกค้าพิเศษ'}
+  ];
+  const choices=tiers.map(tier=>{
+    const active=tier.key===current?.key;
+    return `<div class="customer-tier-choice customer-tier-choice-${tier.key}${active?' is-current':''}"${active?' aria-current="true"':''}><span>${tier.label}</span>${active?'<strong>✓ ระดับนี้</strong>':''}</div>`;
+  }).join('');
+  const status=current?'':`<small class="customer-tier-overview-status">${state?.loading?'กำลังคำนวณระดับ…':state?.error?'ยังคำนวณระดับไม่ได้':'—'}</small>`;
+  return `<div class="customer-tier-overview">${choices}</div>${status}`;
+}
 function customerMonthlyAverageHtml(state,id){
   const summary=state?.data?.summaries?.find(row=>String(row.customerId)===String(id));
   if(!summary) return `<span class="muted">${state?.loading?'กำลังโหลด…':state?.error?'ยังคำนวณไม่ได้':'—'}</span>`;
@@ -10977,9 +10999,9 @@ function renderCustomerPurchaseHistory(){
   return `<div class="rpt customer-purchases-page">
     <div class="pagehead"><h1>${escapeHtml(customer.name)} <span class="page-title-meta">· ประวัติการซื้อ</span></h1><div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="closeCustomerHistory">ย้อนกลับ</button><button class="btn primary" id="refreshCustomerPurchases">รีเฟรชยอดซื้อ</button></div></div>
     <div class="customer-purchase-cards">
-      <section class="customer-purchase-summary-card"><div class="customer-purchase-summary-row"><span>ยอดซื้อทั้งหมด</span><strong>${money(summary?.lifetimeTotal)}</strong></div><div class="customer-purchase-summary-row"><span>${view.mode==='month'?'ยอดซื้อต่อเดือน':'ยอดซื้อต่อปี'}</span><strong>${money(summary?.periodTotal)}</strong><small>${summary?`${view.mode==='month'?String(view.month).padStart(2,'0')+'/':''}${view.year} · ${summary.periodBills} บิลสำเร็จ`:''}</small></div><div class="customer-purchase-summary-row"><span>ยอดเฉลี่ย</span><strong>${monthlyAverage}</strong><small>${summary?'ต่อเดือน':''}</small></div></section>
+      <section class="customer-purchase-summary-card"><div class="customer-purchase-summary-row"><span>ยอดซื้อทั้งหมด</span><strong>${money(summary?.lifetimeTotal)}</strong></div><div class="customer-purchase-summary-row"><span>${view.mode==='month'?'ยอดซื้อเดือนนี้':'ยอดซื้อต่อปี'}</span><strong>${money(summary?.periodTotal)}</strong><small>${summary?`${view.mode==='month'?String(view.month).padStart(2,'0')+'/':''}${view.year} · ${summary.periodBills} บิลสำเร็จ`:''}</small></div><div class="customer-purchase-summary-row"><span>ยอดเฉลี่ย</span><strong>${monthlyAverage}</strong><small>${summary?'ต่อเดือน':''}</small></div></section>
       <section class="customer-purchase-loyalty-card"><div id="customerLoyaltyPanel" data-readonly="true">${customerLoyaltyPanelHtml(customer,true)}</div></section>
-      <section><span>ระดับปัจจุบัน</span><div>${customerTierOnlyHtml(state,customer.id)}</div></section>
+      <section class="customer-purchase-tier-card"><span>ระดับปัจจุบัน</span><div>${customerTierOverviewHtml(state,customer.id)}</div></section>
     </div>
     <div class="customer-purchase-filters">
       <label>แสดงประวัติ<select id="customerHistoryMode"><option value="month" ${view.mode==='month'?'selected':''}>รายเดือน</option><option value="year" ${view.mode==='year'?'selected':''}>รายปี</option></select></label>
