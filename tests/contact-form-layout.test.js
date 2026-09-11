@@ -18,6 +18,7 @@ assert.match(form, /isNewCustomer\?'':`<div class="contact-editor-field"><label>
 assert.match(source, /emptyCustomerContactDraft\(type='customer'\)[\s\S]*normalizedType==='customer'\?'individual':'juristic'/);
 assert.match(form, /contact-editor-wide"><label>ที่อยู่<\/label>/);
 assert.match(form, /<label>อีเมล์<\/label>[\s\S]*<label>ไลน์<\/label>[\s\S]*<label>เบอร์โทร<\/label>/);
+assert.match(form, /id="c_phone" class="phone-input" inputmode="numeric" autocomplete="tel" maxlength="12"[\s\S]*formatPhoneValue\(c\.phone\|\|''\)[\s\S]*placeholder="xxx-xxx-xxxx"/);
 assert.match(form, /contact-editor-wide"><label>เพิ่มเติม<\/label>/);
 assert.doesNotMatch(form, /รหัสไปรษณีย์|<label>ชื่อผู้ติดต่อ<\/label>|ข้อมูลธนาคาร|<label>ธนาคาร<\/label>|ชื่อบัญชี|เลขที่บัญชี|ประเภทบัญชี/);
 assert.doesNotMatch(form, /c_postcode|c_contactname|c_bank|c_bankname|c_bankacc|c_acctype/);
@@ -27,6 +28,7 @@ assert.match(save, /const fixedType=g\('c_fixed_type'\)\?\.value\|\|'';[\s\S]*\[
 assert.match(save, /recordId=contactId==='new'\?generateClientRecordId\(contacts\)[\s\S]*const codeInput=g\('c_code'\)[\s\S]*contactId==='new'&&fixedType==='customer'\?`C-\$\{Number\(recordId\)\.toString\(36\)\.toUpperCase\(\)\}`/);
 assert.match(save, /creditDays: g\('c_credit'\)\?/);
 assert.match(save, /line: g\('c_line'\)\.value\.trim\(\)/);
+assert.match(save, /phone: formatPhoneValue\(g\('c_phone'\)\.value\)/);
 assert.doesNotMatch(save, /g\('c_postcode'\)|g\('c_contactname'\)|g\('c_bank'\)|g\('c_bankname'\)|g\('c_bankacc'\)/);
 
 console.log('contact form layout tests passed');

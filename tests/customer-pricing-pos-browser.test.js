@@ -72,8 +72,10 @@ const browserExecutable = [
   assert.equal(await page.locator('.contact-editor-grid').count(),1);
   assert.equal(await page.locator('#c_postcode,#c_contactname,#c_bank,#c_bankname,#c_bankacc,[name="c_acctype"]').count(),0);
   assert.equal(await page.locator('#c_line').inputValue(),'old.line');
+  assert.equal(await page.locator('#c_phone').inputValue(),'081-234-5678','เบอร์เดิมที่ไม่มีขีดต้องจัดรูปแบบเมื่อเปิดหน้าแก้ไขลูกค้า');
   await page.locator('#c_line').fill('new.line');
   await page.locator('#c_phone').fill('0899999999');
+  assert.equal(await page.locator('#c_phone').inputValue(),'089-999-9999','ช่องลูกค้าต้องจัดรูปแบบขณะกรอก');
   await page.locator('#saveContactBtn').click();
   assert.equal(await page.evaluate(()=>contacts[0].customerPrices.length),2);
   assert.equal(await page.evaluate(()=>contacts[0].phone),'089-999-9999');

@@ -11263,7 +11263,7 @@ function contactEditorFieldsHtml(c,fixedType=''){
           <div class="contact-editor-contact-row contact-editor-wide">
             <div class="contact-editor-field"><label>อีเมล์</label><input id="c_email" type="email" value="${escapeHtml(c.email||'')}"></div>
             <div class="contact-editor-field"><label>ไลน์</label><input id="c_line" value="${escapeHtml(c.line||'')}" placeholder="LINE ID"></div>
-            <div class="contact-editor-field"><label>เบอร์โทร</label><input id="c_phone" class="phone-input" value="${escapeHtml(c.phone||'')}"></div>
+            <div class="contact-editor-field"><label>เบอร์โทร</label><input id="c_phone" class="phone-input" inputmode="numeric" autocomplete="tel" maxlength="12" value="${escapeHtml(formatPhoneValue(c.phone||''))}" placeholder="xxx-xxx-xxxx"></div>
           </div>
           <div class="contact-editor-field contact-editor-wide"><label>เพิ่มเติม</label><textarea id="c_note" rows="3">${escapeHtml(c.note||'')}</textarea></div>
       </div>`;
@@ -16900,7 +16900,7 @@ function saveContactEditorData(contactId=editingContactId){
     address: g('c_address').value.trim(),
     email: g('c_email').value.trim(),
     line: g('c_line').value.trim(),
-    phone: g('c_phone').value.trim(),
+    phone: formatPhoneValue(g('c_phone').value),
     note: g('c_note').value.trim(),
     defaultDocument:'short_receipt',
   };
