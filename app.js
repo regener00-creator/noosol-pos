@@ -11072,7 +11072,7 @@ function renderContacts(){
   const sortArrow = key => contactSort.key===key ? (contactSort.dir===1?' ▲':' ▼') : '';
   const th = (key,label) => `<th class="sortable" data-sort="${key}">${label}<span class="sortarrow">${sortArrow(key)}</span></th>`;
   const tableHead=isCustomers
-    ?`${th('code','รหัสผู้ติดต่อ')}${th('name','ชื่อ')}<th>เบอร์โทร</th><th>ไลน์</th><th>แต้มคงเหลือ</th><th>ระดับลูกค้า</th><th>ยอดเฉลี่ยต่อเดือน</th><th></th>`
+    ?`${th('code','รหัสผู้ติดต่อ')}${th('name','ชื่อ')}<th>เบอร์โทร</th><th>ไลน์</th><th>แต้มคงเหลือ</th><th>ระดับลูกค้า</th><th>ยอดซื้อเฉลี่ยต่อเดือน</th><th></th>`
     :`${th('code','รหัสผู้ติดต่อ')}${th('name','รายชื่อ')}<th>ชื่อผู้ติดต่อ</th><th>เบอร์ติดต่อ</th><th>อีเมล</th>${th('type','ประเภท')}<th></th>`;
   return `<div class="rpt">
     <div class="pagehead"><div><h1>${isCustomers?'ลูกค้า':'ผู้จำหน่าย'} <span class="page-title-meta">· ${list.length} รายชื่อ</span></h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>

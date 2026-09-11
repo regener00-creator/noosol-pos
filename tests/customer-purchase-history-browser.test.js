@@ -67,7 +67,7 @@ let browser;
   await page.locator('.customer-tier-regular').first().waitFor();
   await page.locator('[data-customer-loyalty-balance="1"]').filter({hasText:'25 แต้ม'}).waitFor();
   assert.equal(await page.locator('.contact-summary-table tbody tr').count(),10);
-  assert.deepEqual(await page.locator('.contact-summary-table thead th').evaluateAll(nodes=>nodes.map(node=>node.textContent.replace(/[▲▼]/g,'').trim())),['รหัสผู้ติดต่อ','ชื่อ','เบอร์โทร','ไลน์','แต้มคงเหลือ','ระดับลูกค้า','ยอดเฉลี่ยต่อเดือน','']);
+  assert.deepEqual(await page.locator('.contact-summary-table thead th').evaluateAll(nodes=>nodes.map(node=>node.textContent.replace(/[▲▼]/g,'').trim())),['รหัสผู้ติดต่อ','ชื่อ','เบอร์โทร','ไลน์','แต้มคงเหลือ','ระดับลูกค้า','ยอดซื้อเฉลี่ยต่อเดือน','']);
   const firstCustomerCells=await page.locator('.contact-summary-table tbody tr').first().locator('td').allTextContents();
   assert.deepEqual(firstCustomerCells.slice(0,7),['001','ลูกค้าชื่อเหมือนกัน','0812345678','line-1','25 แต้ม','ลูกค้าประจำ','10,000.00 บาท']);
   assert.equal(await page.locator('.contact-summary-table tbody tr').first().locator('td').nth(1).evaluate(cell=>getComputedStyle(cell).textAlign),'center');
