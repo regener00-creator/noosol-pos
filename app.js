@@ -4568,8 +4568,7 @@ function renderSidebar(){
     if(!visibleItems.length) return;
     if(g.section) html += `<div class="navsection">${g.section}</div>`;
     visibleItems.forEach(([tab,label,svg])=>{
-      const labelHtml=g.section==='ขาย'?`<span class="sales-nav-label">${label}</span>`:label;
-      html += `<button class="navbtn ${currentTab===tab?'active':''}" data-tab="${tab}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${svg}</svg>${labelHtml}</button>`;
+      html += `<button class="navbtn ${currentTab===tab?'active':''}" data-tab="${tab}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${svg}</svg>${label}</button>`;
     });
   });
   html += `<div class="sidebar-logout-wrap"><button class="logout-btn sidebar-logout-btn" id="logoutBtn">ออกจากระบบ</button></div>`;
