@@ -16,7 +16,12 @@ const server=http.createServer((req,res)=>{
 let browser;
 (async()=>{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-  const executablePath=[process.env.PEPOS_BROWSER_EXECUTABLE,'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'].find(p=>p&&fs.existsSync(p))||chromium.executablePath();
+  const executablePath=[
+    process.env.PEPOS_BROWSER_EXECUTABLE,
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+  ].find(p=>p&&fs.existsSync(p))||chromium.executablePath();
   browser=await chromium.launch({headless:true,executablePath});
   const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
   page.on('pageerror',e=>errors.push(e.message));
@@ -110,8 +115,13 @@ let browser;
   assert.equal(await page.locator('.contact-summary-table tbody tr').count(),2);
   assert.equal(await page.locator('.customer-tier').count(),0);
   await page.locator('#newContactBtn').click();
-  assert.equal(await page.locator('#c_type_supplier').isChecked(),true);
-  assert.equal(await page.locator('#c_type_customer').isChecked(),false);
+  assert.equal(await page.locator('#c_type_supplier').count(),0);
+  assert.equal(await page.locator('#c_type_customer').count(),0);
+  assert.equal(await page.locator('#c_fixed_type').inputValue(),'supplier');
+  assert.equal(await page.locator('#c_taxid_label').textContent(),'เลขผู้เสียภาษี');
+  await page.locator('#c_name').fill('ผู้จำหน่ายใหม่');
+  await page.locator('#saveContactBtn').click();
+  assert.deepEqual(await page.evaluate(()=>contacts.find(contact=>contact.name==='ผู้จำหน่ายใหม่')?.types),['supplier']);
   assert.deepEqual(errors,[]);
   console.log('Customer purchase history browser checks passed (navigation, tiers, periods, paging, errors, focus, shared contacts)');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});

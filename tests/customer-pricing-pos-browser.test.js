@@ -124,7 +124,12 @@ const browserExecutable = [
   assert.equal(await page.locator('.pos-customer-create-modal').count(),1);
   assert.equal(await page.locator('#posCustomerCreateTitle').textContent(),'สร้างรายชื่อผู้ติดต่อ');
   assert.deepEqual(await page.evaluate(()=>({currentTab,editingContactId})),{currentTab:'checkout',editingContactId:null});
-  assert.equal(await page.locator('#c_type_customer').isChecked(),true);
+  assert.equal(await page.locator('#c_type_customer').count(),0);
+  assert.equal(await page.locator('#c_type_supplier').count(),0);
+  assert.equal(await page.locator('#c_fixed_type').inputValue(),'customer');
+  assert.equal(await page.locator('#c_taxid_label').textContent(),'เลขผู้เสียภาษี');
+  await page.locator('input[name="c_entity"][value="individual"]').check();
+  assert.equal(await page.locator('#c_taxid_label').textContent(),'เลขบัตรประชาชน');
   await page.locator('#c_name').fill('ยังไม่บันทึก');
   await page.locator('#cancelPOSCustomerCreateBtn').click();
   assert.equal(await page.locator('.pos-customer-create-modal').count(),0);
@@ -138,6 +143,7 @@ const browserExecutable = [
   assert.equal(await page.locator('.pos-customer-create-modal').count(),0);
   assert.equal(await page.evaluate(()=>currentTab),'checkout');
   assert.equal(await page.evaluate(()=>saleMember?.name),'ลูกค้าใหม่');
+  assert.deepEqual(await page.evaluate(()=>contacts.find(contact=>contact.name==='ลูกค้าใหม่')?.types),['customer']);
   assert.equal(await page.locator('#openCustomerPickerBtn strong').textContent(),'ลูกค้าใหม่');
 
   await page.evaluate(() => {

@@ -2911,10 +2911,11 @@ function openPOSCustomerCreateModal(){
   overlay.className='modal-overlay pos-customer-create-overlay';
   overlay.innerHTML=`<div class="modal pos-customer-create-modal" role="dialog" aria-modal="true" aria-labelledby="posCustomerCreateTitle">
     <div class="modal-head"><div><h3 id="posCustomerCreateTitle">สร้างรายชื่อผู้ติดต่อ</h3><div class="sub">เพิ่มลูกค้าใหม่โดยไม่ต้องออกจากหน้า POS</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div>
-    <div class="pos-customer-create-body">${contactEditorFieldsHtml(emptyCustomerContactDraft())}</div>
+    <div class="pos-customer-create-body">${contactEditorFieldsHtml(emptyCustomerContactDraft(),'customer')}</div>
     <div class="pos-customer-create-actions"><button class="btn ghost" id="cancelPOSCustomerCreateBtn" type="button">ปิดหน้าต่าง</button><button class="btn primary" id="savePOSCustomerCreateBtn" type="button">บันทึกแล้วปิด</button></div>
   </div>`;
   document.body.appendChild(overlay);
+  bindContactTaxIdLabel(overlay);
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').addEventListener('click',close);
   overlay.querySelector('#cancelPOSCustomerCreateBtn').addEventListener('click',close);
@@ -11110,13 +11111,18 @@ function sellQuotationAtPos(id){
 function emptyCustomerContactDraft(){
   return {name:'',entity:'juristic',types:['customer'],email:'',line:'',phone:'',taxId:'',creditDays:'',address:'',note:'',customerPrices:[]};
 }
-function contactEditorFieldsHtml(c){
-  const chk = t => c.types.includes(t)?'checked':'';
-  return `<div class="contact-editor-grid">
-          <div class="contact-editor-field"><label>ประเภท</label><div class="cradio">
+function contactEditorFieldsHtml(c,fixedType=''){
+  const normalizedFixedType=['customer','supplier'].includes(fixedType)?fixedType:'';
+  const chk = t => (c.types||[]).includes(t)?'checked':'';
+  const isJuristic=c.entity!=='individual';
+  const typeField=normalizedFixedType
+    ? `<input type="hidden" id="c_fixed_type" value="${normalizedFixedType}">`
+    : `<div class="contact-editor-field"><label>ประเภท</label><div class="cradio">
             <label><input type="checkbox" id="c_type_customer" ${chk('customer')}> ลูกค้า</label>
             <label><input type="checkbox" id="c_type_supplier" ${chk('supplier')}> ผู้จำหน่าย</label>
-          </div></div>
+          </div></div>`;
+  return `<div class="contact-editor-grid">
+          ${typeField}
           <div class="contact-editor-field"><label>ประเภทผู้ติดต่อ</label><div class="cradio">
             <label><input type="radio" name="c_entity" value="juristic" ${c.entity==='juristic'?'checked':''}> นิติบุคคล</label>
             <label><input type="radio" name="c_entity" value="individual" ${c.entity==='individual'?'checked':''}> บุคคลธรรมดา</label>
@@ -11124,7 +11130,7 @@ function contactEditorFieldsHtml(c){
           <div class="contact-editor-field"><label>รหัสผู้ติดต่อ</label><input id="c_code" value="${escapeHtml(c.code||'')}" placeholder="เช่น C001 (ไม่บังคับ)"></div>
           <div class="contact-editor-field"><label>เครดิต</label><input id="c_credit" type="number" min="0" value="${escapeHtml(c.creditDays||'')}" placeholder="0 วัน"></div>
           <div class="contact-editor-field"><label>ชื่อ-นามสกุล <span class="req">*</span></label><input id="c_name" value="${escapeHtml(c.name||'')}" placeholder="กรอกชื่อ-นามสกุล"></div>
-          <div class="contact-editor-field"><label>เลขบัตรประชาชน</label><input id="c_taxid" value="${escapeHtml(c.taxId||'')}" placeholder="เลข 13 หลัก (ไม่บังคับ)"></div>
+          <div class="contact-editor-field"><label id="c_taxid_label">${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'}</label><input id="c_taxid" value="${escapeHtml(c.taxId||'')}" placeholder="${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'} 13 หลัก (ไม่บังคับ)"></div>
           <div class="contact-editor-field contact-editor-wide"><label>ที่อยู่</label><textarea id="c_address" rows="3">${escapeHtml(c.address||'')}</textarea></div>
           <div class="contact-editor-contact-row contact-editor-wide">
             <div class="contact-editor-field"><label>อีเมล์</label><input id="c_email" type="email" value="${escapeHtml(c.email||'')}"></div>
@@ -11134,15 +11140,30 @@ function contactEditorFieldsHtml(c){
           <div class="contact-editor-field contact-editor-wide"><label>เพิ่มเติม</label><textarea id="c_note" rows="3">${escapeHtml(c.note||'')}</textarea></div>
       </div>`;
 }
+function bindContactTaxIdLabel(root=document){
+  const label=root.querySelector('#c_taxid_label');
+  const input=root.querySelector('#c_taxid');
+  const radios=[...root.querySelectorAll('input[name="c_entity"]')];
+  if(!label||!input||!radios.length) return;
+  const update=()=>{
+    const isJuristic=radios.find(radio=>radio.checked)?.value!=='individual';
+    const text=isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน';
+    label.textContent=text;
+    input.placeholder=`${text} 13 หลัก (ไม่บังคับ)`;
+  };
+  radios.forEach(radio=>radio.addEventListener('change',update));
+  update();
+}
 function renderContactForm(){
   const isNew = editingContactId==='new';
   const c = isNew ? emptyCustomerContactDraft() : contacts.find(x=>x.id===editingContactId);
   if(isNew&&currentTab==='contacts') c.types=['supplier'];
+  const fixedType=isNew?(currentTab==='customers'?'customer':'supplier'):'';
   return `
     <div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › ${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</div><h1>${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</h1></div>
       <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelContactBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveContactBtn">บันทึกแล้วปิด</button></div>
     </div>
-    <div class="panel contact-editor-panel">${contactEditorFieldsHtml(c)}</div>`;
+    <div class="panel contact-editor-panel">${contactEditorFieldsHtml(c,fixedType)}</div>`;
 }
 
 function renderCustomerPricingForm(){
@@ -14164,6 +14185,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(cancelContactBtn) cancelContactBtn.addEventListener('click', ()=>{ editingContactId=null; render(); });
   const saveContactBtn = document.getElementById('saveContactBtn');
   if(saveContactBtn) saveContactBtn.addEventListener('click', saveContact);
+  bindContactTaxIdLabel(document);
   const cancelCustomerPricingBtn=document.getElementById('cancelCustomerPricingBtn');
   if(cancelCustomerPricingBtn) cancelCustomerPricingBtn.addEventListener('click',()=>{ editingCustomerPriceContactId=null; render(); });
   const saveCustomerPricingBtn=document.getElementById('saveCustomerPricingBtn');
@@ -16733,9 +16755,10 @@ function saveContactEditorData(contactId=editingContactId){
   const g = id => document.getElementById(id);
   const name = g('c_name').value.trim();
   if(!name){ showToast('กรุณากรอกชื่อ-นามสกุล'); g('c_name').focus(); return null; }
-  const types = [];
-  if(g('c_type_customer').checked) types.push('customer');
-  if(g('c_type_supplier').checked) types.push('supplier');
+  const fixedType=g('c_fixed_type')?.value||'';
+  const types = ['customer','supplier'].includes(fixedType)?[fixedType]:[];
+  if(!fixedType&&g('c_type_customer')?.checked) types.push('customer');
+  if(!fixedType&&g('c_type_supplier')?.checked) types.push('supplier');
   if(types.length===0){ showToast('กรุณาเลือกประเภท (ลูกค้า หรือ ผู้จำหน่าย)'); return null; }
   const code = g('c_code').value.trim();
   if(code){
