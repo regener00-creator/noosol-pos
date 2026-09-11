@@ -2350,9 +2350,11 @@
   .loyalty-membership-dates span,.loyalty-membership-dates strong{display:block;font-weight:700;line-height:1.45;}
   .loyalty-membership-dates span{color:var(--text-muted);font-size:13px;margin-bottom:2px;}
   .customer-tier-overview{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;width:100%;}
-  .customer-tier-choice{min-height:70px;border:1px solid var(--border);border-radius:12px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--text-muted);background:#f7f5f3;opacity:.64;font-weight:600;}
+  .customer-tier-choice{min-height:92px;border:1px solid var(--border);border-radius:12px;padding:10px 6px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:var(--text-muted);background:#f7f5f3;opacity:.64;font-weight:600;text-align:center;}
   .customer-tier-choice.is-current{opacity:1;border-width:2px;font-weight:800;box-shadow:0 5px 14px #4f40381a;}
   .customer-tier-choice strong{font-size:11px;font-weight:800;}
+  .customer-tier-current-average{display:flex;flex-direction:column;align-items:center;font-size:10px;line-height:1.35;font-weight:500;}
+  .customer-tier-current-average b{font-size:11px;font-weight:800;white-space:nowrap;}
   .customer-tier-choice-general.is-current{border-color:#6d5a4f;background:#eee9e5;color:#56473e;}
   .customer-tier-choice-regular.is-current{border-color:#58a475;background:#e2f3e8;color:#247745;}
   .customer-tier-choice-special.is-current{border-color:#d2a840;background:#fff0c7;color:#885d10;}

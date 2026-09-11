@@ -11027,7 +11027,8 @@ function customerTierOverviewHtml(state,id){
   ];
   const choices=tiers.map(tier=>{
     const active=tier.key===current?.key;
-    return `<div class="customer-tier-choice customer-tier-choice-${tier.key}${active?' is-current':''}"${active?' aria-current="true"':''}><span>${tier.label}</span>${active?'<strong>✓ ระดับนี้</strong>':''}</div>`;
+    const averageHtml=active?`<small class="customer-tier-current-average">ยอดซื้อเฉลี่ย <b>${fmtMoney(current.average)} บาท</b></small>`:'';
+    return `<div class="customer-tier-choice customer-tier-choice-${tier.key}${active?' is-current':''}"${active?' aria-current="true"':''}><span>${tier.label}</span>${averageHtml}${active?'<strong>✓ ระดับนี้</strong>':''}</div>`;
   }).join('');
   const status=current?'':`<small class="customer-tier-overview-status">${state?.loading?'กำลังคำนวณระดับ…':state?.error?'ยังคำนวณระดับไม่ได้':'—'}</small>`;
   return `<div class="customer-tier-overview">${choices}</div>${status}`;
