@@ -14,7 +14,7 @@ const PAGE_CODE_GROUPS={
   "reports":{"tabs":["rproduct","rbill","rprofit","rtax","rinventory","inventorymovement","lowstock","expiry"],"functions":["renderRProduct","renderRBill","renderRProfit","renderRTax","renderRInventory","renderInventoryMovement","renderLowStock","renderExpiry"]},
   "documents":{"tabs":["cashbill","taxinvoice","quotation","purchaseorder","productreturn","goodsreceipt","productexchange"],"functions":["renderCashBills","renderCashBillLookup","renderTaxInvoices","renderTaxInvoiceOrderLookup","renderStandaloneTaxInvoiceForm","renderTaxInvoiceForm","renderQuotation","renderQuotationForm","renderPurchaseOrder","renderPOForm","renderShortageOrderForm","renderProductReturnForm","renderProductReturn","renderGoodsReceipt","renderProductExchange","renderProductExchangeForm"]},
   "settings":{"tabs":["settingsbusiness","settingssystem","settingsuser","settingsusers","auditlog","warehouse"],"functions":["renderBusinessSettings","renderSystemSettings","renderUserSettings","renderSystemUsers","renderAddSystemUser","renderAuditLog","renderWarehouse","renderWarehouseForm"]},
-  "catalog":{"tabs":["products","contacts","promotions"],"functions":["renderProducts","renderProductForm","renderContacts","renderContactForm","renderCustomerPricingForm","renderPromotions","renderPromotionForm"]}
+  "catalog":{"tabs":["products","contacts","customers","promotions"],"functions":["renderProducts","renderProductForm","renderContacts","renderContactForm","renderCustomerPurchaseHistory","renderCustomerPricingForm","renderPromotions","renderPromotionForm"]}
 };
 const pageCodeLoads=new Map();
 function pageCodeGroup(tab){ return Object.keys(PAGE_CODE_GROUPS).find(group=>PAGE_CODE_GROUPS[group].tabs.includes(tab)); }
@@ -434,7 +434,7 @@ const PAGE_PERMISSION_OPTIONS=[
   ['rinventory','รายงานสินค้าคงเหลือ'],['lowstock','สินค้าใกล้หมด'],['expiry','สินค้าใกล้หมดอายุ'],
   ['rproduct','รายงานสินค้า'],['rbill','รายงานบิล'],['cashbill','บิลเงินสด'],['inspectionlists','ตรวจนับและปรับสต๊อก'],
   ['purchaseorder','สั่งซื้อสินค้า'],['productreturn','ใบคืนสินค้า'],
-  ['productexchange','เปลี่ยนสินค้า'],['contacts','สมุดรายชื่อ'],['salesreps','ผู้แทน'],
+  ['productexchange','เปลี่ยนสินค้า'],['contacts','ผู้จำหน่าย / ลูกค้า'],['salesreps','ผู้แทน'],
   ['taxinvoice','ใบกำกับภาษีเต็มรูปแบบ'],['quotation','ใบเสนอราคา'],['barcodeprint','พิมพ์ป้ายราคา'],
   ['promotions','โปรโมชั่น'],['warehouse','คลังสินค้า / สาขา'],['transfer','โอนย้ายสต๊อก'],
   ['rprofit','รายงานกำไร'],['rtax','รายงานภาษี']
@@ -445,6 +445,8 @@ function permissionsForPage(pageKey,warehouseId=activeWarehouseId,rows=pagePermi
   return warehouseRows.length?warehouseRows:pageRows.filter(row=>row.warehouse_id==null&&row.warehouseId==null);
 }
 function canPerformPageAction(action='view',pageKey=currentTab,user=loggedInUser(),rows=pagePermissionRows){
+  // Both contact views retain the existing database permission key.
+  if(pageKey==='customers') pageKey='contacts';
   if(user?.owner===true||Number(user?.level)===1) return true;
   // Unknown/future staff levels must fail closed.  Previously Level 3/4
   // bypassed the permission matrix and received every action implicitly.
@@ -4519,8 +4521,9 @@ const NAV = [
     ['barcodeprint','พิมพ์ป้ายราคา','<path d="M3 5h2v14H3zM7 5h1v14H7zM10 5h3v14h-3zM15 5h1v14h-1zM18 5h3v14h-3z"/>'],
   ]},
   {section:'สมุดรายชื่อ', items:[
-    ['contacts','ลูกค้า / ผู้จำหน่าย','<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>'],
+    ['contacts','ผู้จำหน่าย','<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>'],
     ['representativehistory','ผู้แทน','<path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 7v5l3 2"/>'],
+    ['customers','ลูกค้า','<circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/>'],
   ]},
   {section:'เอกสารขาย', items:[
     ['cashbill','บิลเงินสด','<path d="M5 3h14v18l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M8 8h8M8 12h8M8 16h5"/>'],
@@ -10792,14 +10795,129 @@ function renderExpiry(){
   `;
 }
 
+let customerHistoryView=null;
+let customerPurchaseState=null;
+function customerTierFromPurchases(yearTotal,elapsedMonths){
+  const months=Math.min(12,Math.max(1,Number(elapsedMonths)||1));
+  const total=Math.max(0,Number(yearTotal)||0);
+  // Compare unrounded totals, not a displayed/rounded monthly average.
+  const key=total>=50000*months?'special':total>=10000*months?'regular':'general';
+  return {key,label:{special:'ลูกค้าพิเศษ',regular:'ลูกค้าประจำ',general:'ลูกค้าทั่วไป'}[key],average:total/months};
+}
+function customerPurchaseLoad(ids,view=null){
+  const today=currentDateStr();
+  const params={p_customer_ids:ids.map(String),p_year:Number(view?.year||today.slice(0,4)),p_month:view?.mode==='month'?Number(view.month):null,p_page:view?.page||1,p_include_bills:!!view,p_warehouse_id:Number(activeWarehouseId)||null};
+  const key=JSON.stringify([currentProfile?.id,activeWarehouseId,pagePermissionRows,today,params]);
+  if(customerPurchaseState?.key===key&&Date.now()-customerPurchaseState.loadedAt<60000) return customerPurchaseState;
+  const state={key,loading:ids.length>0,data:ids.length?null:{summaries:[]},error:'',loadedAt:Date.now()};
+  customerPurchaseState=state;
+  if(!ids.length) return state;
+  Promise.resolve().then(async()=>{
+    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),20000);
+    try{
+      if(!sb||!canPerformPageAction('view','contacts')) throw new Error('ไม่สามารถอ่านประวัติการซื้อได้');
+      const {data,error}=await sb.rpc('get_customer_purchase_history',params).abortSignal(controller.signal);
+      if(error) throw error;
+      if(!data||!Array.isArray(data.summaries)) throw new Error('ข้อมูลประวัติการซื้อไม่ครบถ้วน');
+      state.data=data;
+    }catch(error){
+      console.warn('Customer purchase history failed',error?.code||error?.message);
+      state.error='โหลดประวัติการซื้อไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อหรือสิทธิ์ แล้วกดรีเฟรชยอดซื้อ';
+    }finally{
+      clearTimeout(timeout);
+      state.loading=false; state.loadedAt=Date.now();
+      // An earlier request must never replace another customer's/current user's view.
+      if(customerPurchaseState===state&&currentTab==='customers'&&!editingContactId&&!editingCustomerPriceContactId){
+        const focused=document.activeElement,focusId=focused?.id;
+        const start=focused?.selectionStart,end=focused?.selectionEnd;
+        const fields=[...document.querySelectorAll('#search,#customerHistoryYear,#customerHistoryMonth')].map(input=>[input.id,input.value]);
+        render();
+        fields.forEach(([id,value])=>{const input=document.getElementById(id);if(input) input.value=value;});
+        const input=focusId&&document.getElementById(focusId);
+        if(input){input.focus({preventScroll:true});if(input.type!=='number'&&Number.isInteger(start)&&input.setSelectionRange) input.setSelectionRange(start,end);}
+      }
+    }
+  });
+  return state;
+}
+function customerPurchaseNotice(state){
+  const message=state?.error||'ยอดซื้อสุทธิไม่รวมบิลยกเลิก · นับเฉพาะบิลที่ผูกกับลูกค้ารายนี้ และคลังที่บัญชีมีสิทธิ์ดู';
+  return `<p class="customer-purchase-notice ${state?.error?'customer-purchase-error':''}" role="${state?.error?'alert':'status'}">${escapeHtml(message)}</p>`;
+}
+function customerTierHtml(state,id){
+  const summary=state?.data?.summaries?.find(row=>String(row.customerId)===String(id));
+  if(!summary) return `<span class="muted">${state?.loading?'กำลังโหลด…':state?.error?'ยังคำนวณไม่ได้':'—'}</span>`;
+  const tier=customerTierFromPurchases(summary.currentYearTotal,state.data.elapsedMonths);
+  return `<span class="customer-tier customer-tier-${tier.key}">${tier.label}</span><small class="customer-tier-average">เฉลี่ย ${fmtMoney(tier.average)} บาท/เดือน</small>`;
+}
+function renderCustomerPurchaseHistory(){
+  const view=customerHistoryView;
+  const customer=customersList().find(c=>String(c.id)===String(view?.id));
+  if(!customer) return '<div class="empty">ไม่พบลูกค้า <button class="btn ghost" id="closeCustomerHistory">ย้อนกลับ</button></div>';
+  const state=customerPurchaseLoad([customer.id],view),data=state.data;
+  const summary=data?.summaries?.[0];
+  const bills=data?.bills||[];
+  const money=value=>summary?`${fmtMoney(value)} บาท`:'—';
+  const page=data?.page||view.page;
+  const totalPages=Math.max(1,Math.ceil(Number(data?.totalBills||0)/10));
+  return `<div class="rpt customer-purchases-page">
+    <div class="pagehead"><h1>${escapeHtml(customer.name)} <span class="page-title-meta">· ประวัติการซื้อ</span></h1><div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="closeCustomerHistory">ย้อนกลับ</button><button class="btn primary" id="refreshCustomerPurchases">รีเฟรชยอดซื้อ</button></div></div>
+    <div class="customer-purchase-cards">
+      <section><span>ยอดซื้อสุทธิสะสมทั้งหมด</span><strong>${money(summary?.lifetimeTotal)}</strong></section>
+      <section><span>ยอดซื้อสุทธิ${view.mode==='month'?'เดือน '+String(view.month).padStart(2,'0')+'/':'ปี '}${view.year}</span><strong>${money(summary?.periodTotal)}</strong><small>${summary?`${summary.periodBills} บิลสำเร็จ`:''}</small></section>
+      <section><span>ระดับปัจจุบัน</span><div>${customerTierHtml(state,customer.id)}</div><small>${data?`ยอดซื้อปี ${data.currentYear} ${fmtMoney(summary?.currentYearTotal||0)} ÷ ${data.elapsedMonths} เดือน`:''}</small></section>
+    </div>
+    <div class="customer-purchase-filters">
+      <label>แสดงประวัติ<select id="customerHistoryMode"><option value="month" ${view.mode==='month'?'selected':''}>รายเดือน</option><option value="year" ${view.mode==='year'?'selected':''}>รายปี</option></select></label>
+      <label>ปี (ค.ศ.)<input id="customerHistoryYear" type="number" min="1900" max="9998" step="1" value="${view.year}"></label>
+      ${view.mode==='month'?`<label>เดือน<select id="customerHistoryMonth">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${Number(view.month)===i+1?'selected':''}>${new Intl.DateTimeFormat('th-TH',{month:'long'}).format(new Date(2026,i,1))}</option>`).join('')}</select></label>`:''}
+      <button class="btn primary" id="applyCustomerHistory">แสดงผล</button><span>${data?data.totalBills+' บิล':''}</span>
+    </div>
+    ${customerPurchaseNotice(state)}
+    <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue customer-purchase-table"><thead><tr><th>วันที่</th><th>เลขที่บิล</th><th>สินค้าที่ซื้อ</th><th>ยอดบิล</th><th>สถานะ</th></tr></thead><tbody>
+      ${bills.map(bill=>`<tr><td>${escapeHtml(fmtDateShort(bill.date))}</td><td class="mono">${escapeHtml(bill.ref||bill.id)}</td><td class="customer-purchase-items"><details><summary>ดูสินค้า ${Array.isArray(bill.items)?bill.items.length:0} รายการ</summary>${(Array.isArray(bill.items)?bill.items:[]).map(item=>`<div><b>${escapeHtml(item.name||'-')}</b><span>${escapeHtml(item.qty)} ${escapeHtml(item.unit||'')} × ${fmtMoney(item.price||0)} บาท</span></div>`).join('')}</details></td><td class="mono">${fmtMoney(bill.total)}</td><td>${bill.status==='void'?'<span class="customer-void">ยกเลิก · ไม่นับยอดซื้อ</span>':'สำเร็จ'}</td></tr>`).join('')||`<tr><td colspan="5" class="customer-purchase-empty">${state.loading?'กำลังโหลดประวัติการซื้อ…':state.error?'ยังไม่สามารถแสดงข้อมูลได้':'ไม่มีบิลในช่วงที่เลือก'}</td></tr>`}
+    </tbody></table></div>${data?pagerHtml(page,totalPages,'customerhistorypage'):''}
+  </div>`;
+}
+function attachCustomerPurchaseEvents(){
+  document.querySelectorAll('.navbtn').forEach(button=>{
+    if(button.dataset.customerHistoryReset) return;
+    button.dataset.customerHistoryReset='1';
+    button.addEventListener('click',()=>{customerHistoryView=null;customerPurchaseState=null;contactPage=1;},{capture:true});
+  });
+  document.querySelectorAll('[data-customer-history]').forEach(button=>button.addEventListener('click',()=>{
+    const today=currentDateStr();
+    customerHistoryView={id:button.dataset.customerHistory,mode:'month',year:Number(today.slice(0,4)),month:Number(today.slice(5,7)),page:1};
+    customerPurchaseState=null; render();
+  }));
+  const close=document.getElementById('closeCustomerHistory');
+  if(close) close.onclick=()=>{customerHistoryView=null;customerPurchaseState=null;render();};
+  const refresh=document.getElementById('refreshCustomerPurchases');
+  if(refresh) refresh.onclick=()=>{customerPurchaseState=null;render();};
+  const apply=document.getElementById('applyCustomerHistory');
+  const mode=document.getElementById('customerHistoryMode');
+  const applyFilters=()=>{
+    const year=Number(document.getElementById('customerHistoryYear')?.value);
+    if(!Number.isInteger(year)||year<1900||year>9998){showToast('กรุณากรอกปี ค.ศ. ให้ถูกต้อง');return;}
+    Object.assign(customerHistoryView,{mode:mode.value,year,month:Number(document.getElementById('customerHistoryMonth')?.value)||customerHistoryView.month,page:1});
+    customerPurchaseState=null;render();
+  };
+  if(apply) apply.onclick=applyFilters;
+  if(mode) mode.onchange=applyFilters;
+  document.querySelectorAll('[data-customerhistorypage]').forEach(button=>button.onclick=()=>{
+    const value=button.dataset.customerhistorypage,current=customerPurchaseState?.data?.page||customerHistoryView.page;
+    customerHistoryView.page=value==='prev'?Math.max(1,current-1):value==='next'?current+1:Number(value);
+    customerPurchaseState=null;render();
+  });
+}
 function renderContacts(){
   if(editingCustomerPriceContactId!==null) return renderCustomerPricingForm();
   if(editingContactId!==null) return renderContactForm();
+  const isCustomers=currentTab==='customers';
+  if(isCustomers&&customerHistoryView) return renderCustomerPurchaseHistory();
   const q = searchQuery.trim();
   let list = contacts.filter(c=>{
-    if(contactFilter==='customer' && !c.types.includes('customer')) return false;
-    if(contactFilter==='supplier' && !c.types.includes('supplier')) return false;
-    if(contactFilter==='both' && !(c.types.includes('customer')&&c.types.includes('supplier'))) return false;
+    if(!c.types.includes(isCustomers?'customer':'supplier')) return false;
     if(q){ const ql=q.toLowerCase(); return c.name.toLowerCase().includes(ql) || (c.contactName||'').toLowerCase().includes(ql) || (c.phone||'').includes(q) || (c.code||'').toLowerCase().includes(ql); }
     return true;
   });
@@ -10828,27 +10946,25 @@ function renderContacts(){
   contactPage=Math.min(Math.max(1,contactPage),totalPages);
   const pageStart=(contactPage-1)*CONTACTS_PER_PAGE;
   const pageList=list.slice(pageStart,pageStart+CONTACTS_PER_PAGE);
+  const purchaseState=isCustomers?customerPurchaseLoad(pageList.map(c=>c.id)):null;
   const sortArrow = key => contactSort.key===key ? (contactSort.dir===1?' ▲':' ▼') : '';
   const th = (key,label) => `<th class="sortable" data-sort="${key}">${label}<span class="sortarrow">${sortArrow(key)}</span></th>`;
-  const tab=(key,label,dot)=>`<button class="ct-tab ${contactFilter===key?'active':''}" data-cfilter="${key}">${dot?`<span class="ct-dot ${dot}"></span>`:''}${label}</button>`;
   return `<div class="rpt">
-    <div class="pagehead"><div><h1>สมุดรายชื่อ <span class="page-title-meta">· ${list.length} รายชื่อ</span></h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadContactTemplateBtn">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
+    <div class="pagehead"><div><h1>${isCustomers?'ลูกค้า':'ผู้จำหน่าย'} <span class="page-title-meta">· ${list.length} รายชื่อ</span></h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="downloadContactTemplateBtn">ดาวน์โหลดคู่มือนำเข้า</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
     <div class="ct-tabs">
-      ${tab('all','แสดงทั้งหมด','')}
-      ${tab('customer','ลูกค้า','cust')}
-      ${tab('supplier','ผู้จำหน่าย','supp')}
-      ${tab('both','ผู้จำหน่าย/ลูกค้า','both')}
+      ${isCustomers?'<button class="btn ghost" id="refreshCustomerPurchases">รีเฟรชยอดซื้อ</button>':''}
       <div class="toolbar"><div class="searchbar"><input id="search" placeholder="ค้นหาจากรหัสผู้ติดต่อ / ชื่อ / ผู้ติดต่อ / เบอร์" value="${escapeHtml(searchQuery)}"></div></div>
     </div>
+    ${isCustomers?customerPurchaseNotice(purchaseState):''}
     <div class="doc-list-wrap seamless-table-wrap">
-    <table class="grid-table doc-head-blue contact-summary-table"><thead><tr>${th('code','รหัสผู้ติดต่อ')}${th('name','รายชื่อ')}<th>ชื่อผู้ติดต่อ</th><th>เบอร์ติดต่อ</th><th>อีเมล</th>${th('type','ประเภท')}<th></th></tr></thead>
+    <table class="grid-table doc-head-blue contact-summary-table"><thead><tr>${th('code','รหัสผู้ติดต่อ')}${th('name','รายชื่อ')}<th>ชื่อผู้ติดต่อ</th><th>เบอร์ติดต่อ</th><th>อีเมล</th>${isCustomers?'<th>ระดับลูกค้า</th>':th('type','ประเภท')}<th></th></tr></thead>
     <tbody>${pageList.map(c=>`<tr>
       <td class="mono">${escapeHtml(c.code||'-')}</td>
-      <td style="text-align:left;">${escapeHtml(c.name)}</td>
+      <td style="text-align:left;">${isCustomers?`<button class="customer-history-link" data-customer-history="${c.id}" title="ดูประวัติการซื้อ">${escapeHtml(c.name)}</button>`:escapeHtml(c.name)}</td>
       <td>${escapeHtml(c.contactName||'-')}</td>
       <td class="mono">${escapeHtml(c.phone||'-')}</td>
       <td>${escapeHtml(c.email||'-')}</td>
-      <td style="white-space:nowrap;">${typeBadge(c)}</td>
+      <td style="white-space:nowrap;">${isCustomers?customerTierHtml(purchaseState,c.id):typeBadge(c)}</td>
       <td style="text-align:center;"><div class="history-actions contact-action-icons"><button class="history-icon-btn" data-act="editcontact" data-id="${c.id}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button>${c.types.includes('customer')?`<button class="history-icon-btn customer-price-action" data-act="customerprice" data-id="${c.id}" title="ราคาพิเศษ" aria-label="ราคาพิเศษ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 13 11 22l-9-9V4h9l9 9z"/><circle cx="7.5" cy="9.5" r="1.5"/></svg></button>`:''}<button class="history-icon-btn danger" data-act="deletecontact" data-id="${c.id}" title="ลบ" aria-label="ลบ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td>
     </tr>`).join('')||`<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายชื่อในกลุ่มนี้</td></tr>`}</tbody></table>
     </div>${pagerHtml(contactPage,totalPages,'contactpage')}</div>`;
@@ -10924,6 +11040,7 @@ function contactEditorFieldsHtml(c){
 function renderContactForm(){
   const isNew = editingContactId==='new';
   const c = isNew ? emptyCustomerContactDraft() : contacts.find(x=>x.id===editingContactId);
+  if(isNew&&currentTab==='contacts') c.types=['supplier'];
   return `
     <div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › ${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</div><h1>${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</h1></div>
       <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelContactBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveContactBtn">บันทึกแล้วปิด</button></div>
@@ -12553,7 +12670,7 @@ const RENDERERS = {
   dashboard: renderDashboard, checkout: renderCheckout, notes: renderNotes, cashshift: renderCashShift, cashbill: ()=>renderCashBills(), taxinvoice: ()=>renderTaxInvoices(), quotation: ()=>renderQuotation(), invoice: renderInvoice,
   creditnote: renderCreditNote, history: renderHistory, purchaseorder: ()=>renderPurchaseOrder(), productreturn: ()=>renderProductReturn(), goodsreceipt: ()=>renderGoodsReceipt(), productexchange: ()=>renderProductExchange(),
   products: ()=>renderProducts(), stockcontrol: renderStockControl, barcodeprint: renderBarcodePrint, warehouse: ()=>renderWarehouse(), transfer: renderTransfer, lowstock: ()=>renderLowStock(), expiry: ()=>renderExpiry(), promotions: ()=>renderPromotions(),
-  contacts: ()=>renderContacts(), salesreps: renderSalesRepresentatives, representativehistory: renderRepresentativeHistoryOverview, rproduct: ()=>renderRProduct(), rbill: ()=>renderRBill(), rprofit: ()=>renderRProfit(), rtax: ()=>renderRTax(),
+  contacts: ()=>renderContacts(), customers: ()=>renderContacts(), salesreps: renderSalesRepresentatives, representativehistory: renderRepresentativeHistoryOverview, rproduct: ()=>renderRProduct(), rbill: ()=>renderRBill(), rprofit: ()=>renderRProfit(), rtax: ()=>renderRTax(),
   inventorymovement: ()=>renderInventoryMovement(), rinventory: ()=>renderRInventory(), settingsbusiness: ()=>renderBusinessSettings(), settingsuser: ()=>renderUserSettings(), settingsusers: ()=>renderSystemUsers(), auditlog: ()=>renderAuditLog(), settingssystem: ()=>renderSystemSettings(),
 };
 
@@ -13360,7 +13477,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     searchEl.addEventListener('input',e=>{
       searchQuery=e.target.value;
       productPage=1;
-      if(currentTab==='contacts') contactPage=1;
+      if(['contacts','customers'].includes(currentTab)) contactPage=1;
       if(currentTab!=='checkout'){
         if(e.isComposing) return;
         clearTimeout(listSearchRenderTimer);
@@ -13918,6 +14035,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     el.addEventListener('click', ()=>openStockCheckModal(Number(el.dataset.id)));
   });
   // --- contacts ---
+  attachCustomerPurchaseEvents();
   document.querySelectorAll('[data-cfilter]').forEach(el=>{
     el.addEventListener('click', ()=>{ contactFilter=el.dataset.cfilter; contactPage=1; searchQuery=''; render(); });
   });
@@ -14273,10 +14391,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   document.querySelectorAll('.grid-table th.sortable').forEach(el=>{
     el.addEventListener('click', ()=>{
       const key = el.dataset.sort;
-      const sortState = currentTab==='contacts' ? contactSort : productSort;
+      const sortState = ['contacts','customers'].includes(currentTab) ? contactSort : productSort;
       if(sortState.key===key) sortState.dir *= -1;
       else { sortState.key = key; sortState.dir = 1; }
-      if(currentTab==='contacts') contactPage=1;
+      if(['contacts','customers'].includes(currentTab)) contactPage=1;
       render();
     });
   });

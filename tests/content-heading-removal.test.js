@@ -28,7 +28,7 @@ for (const inlineTitle of [
   'สั่งซื้อสินค้า <span class="page-title-meta">บันทึกรายการสินค้าที่ต้องแจ้งสั่งกับผู้แทน · ${allDocs.length} รายการ',
   'ใบรับสินค้า <span class="page-title-meta">บันทึกและตรวจสอบการรับสินค้าเข้าคลัง · ${allDocs.length} รายการ',
   'เปลี่ยนสินค้า <span class="page-title-meta">ติดตามสินค้าที่ส่งไปเปลี่ยนและสินค้าที่ได้รับกลับ · ${allDocs.length} รายการ',
-  'สมุดรายชื่อ <span class="page-title-meta">· ${list.length} รายชื่อ',
+  '${isCustomers?\'ลูกค้า\':\'ผู้จำหน่าย\'} <span class="page-title-meta">· ${list.length} รายชื่อ',
   'รายงานการเคลื่อนไหว <span class="page-title-meta">· ${groups.length} บิล · ${rows.length} รายการเคลื่อนไหว',
   'บิลเงินสด <span class="page-title-meta">เอกสารรับเงินกระดาษ A4 · ${docs.length} รายการ',
   'ใบกำกับภาษีเต็มรูปแบบ <span class="page-title-meta">สร้างเอกสารใหม่ หรือ ออกเอกสารจากออเดอร์ย้อนหลัง · ${allItems.length} รายการ',

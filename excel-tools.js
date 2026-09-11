@@ -121,9 +121,10 @@ async function importContactsFromExcel(file){
 
 async function exportContactsToExcel(){
   try{ await ensureXlsxLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบส่งออก Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
-  if(!contacts.length){ showToast('ยังไม่มีข้อมูลให้ส่งออก'); return; }
+  const selectedContacts=contacts.filter(c=>c.types?.includes(currentTab==='customers'?'customer':'supplier'));
+  if(!selectedContacts.length){ showToast('ยังไม่มีข้อมูลให้ส่งออก'); return; }
   const typeLabel=c=>{ const isCust=c.types?.includes('customer'),isSupp=c.types?.includes('supplier'); if(isCust&&isSupp) return 'ทั้งคู่'; if(isSupp) return 'ผู้จำหน่าย'; return 'ลูกค้า'; };
-  const rows=contacts.map(c=>({
+  const rows=selectedContacts.map(c=>({
     'รหัสอ้างอิงระบบ':c.id,
     'รหัสผู้ติดต่อ':c.code||'',
     'ประเภทผู้ติดต่อ':c.entity==='individual'?'บุคคลธรรมดา':'นิติบุคคล',
