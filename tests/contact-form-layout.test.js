@@ -26,8 +26,8 @@ assert.doesNotMatch(form, /c_postcode|c_contactname|c_bank|c_bankname|c_bankacc|
 assert.match(source, /openPOSCustomerCreateModal\(\)[\s\S]*contactEditorFieldsHtml\(emptyCustomerContactDraft\(\),'customer'\)/);
 assert.match(source, /function renderContactForm\(\)[\s\S]*fixedType=isNew\?\(currentTab==='customers'\?'customer':'supplier'\):''[\s\S]*contactEditorFieldsHtml\(c,fixedType\)/);
 assert.match(save, /const fixedType=g\('c_fixed_type'\)\?\.value\|\|'';[\s\S]*\['customer','supplier'\]\.includes\(fixedType\)\?\[fixedType\]:\[\]/);
-assert.match(source, /function automaticContactCode\(type,recordId\)[\s\S]*type==='supplier'\?'S':type==='customer'\?'C'/);
-assert.match(save, /recordId=contactId==='new'\?generateClientRecordId\(contacts\)[\s\S]*automaticType=fixedType\|\|\(types\.length===1\?types\[0\]:''\)[\s\S]*automaticContactCode\(automaticType,recordId\)/);
+assert.match(source, /function automaticContactCode\(records=\[\]\)[\s\S]*\/\^C\(\\d\+\)\$\/[\s\S]*`C\$\{String\(next\)\.padStart\(4,'0'\)\}`/);
+assert.match(save, /recordId=contactId==='new'\?generateClientRecordId\(contacts\)[\s\S]*enteredCode\|\|existing\?\.code\|\|automaticContactCode\(contacts\)/);
 assert.match(save, /creditDays: g\('c_credit'\)\?/);
 assert.match(save, /line: g\('c_line'\)\.value\.trim\(\)/);
 assert.match(save, /phone: formatPhoneValue\(g\('c_phone'\)\.value\)/);

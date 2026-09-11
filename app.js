@@ -11235,12 +11235,26 @@ function emptyCustomerContactDraft(type='customer'){
   const normalizedType=type==='supplier'?'supplier':'customer';
   return {name:'',entity:normalizedType==='customer'?'individual':'juristic',types:[normalizedType],email:'',line:'',phone:'',taxId:'',creditDays:'',address:'',note:'',customerPrices:[]};
 }
-function automaticContactCode(type,recordId){
-  const prefix=type==='supplier'?'S':type==='customer'?'C':'';
-  const numericId=Number(recordId);
-  return prefix&&Number.isSafeInteger(numericId)&&numericId>0
-    ?`${prefix}-${numericId.toString(36).toUpperCase()}`
-    :'';
+function automaticContactCode(records=[]){
+  let latest=0;
+  const used=new Set();
+  (records||[]).forEach(contact=>{
+    const code=String(contact?.code||'').trim().toUpperCase();
+    if(!code) return;
+    used.add(code);
+    const match=/^C(\d+)$/.exec(code);
+    if(match){
+      const sequence=Number(match[1]);
+      if(Number.isSafeInteger(sequence)&&sequence>latest) latest=sequence;
+    }
+  });
+  let next=latest+1;
+  let code=`C${String(next).padStart(4,'0')}`;
+  while(used.has(code)){
+    next+=1;
+    code=`C${String(next).padStart(4,'0')}`;
+  }
+  return code;
 }
 function contactEditorFieldsHtml(c,fixedType=''){
   const normalizedFixedType=['customer','supplier'].includes(fixedType)?fixedType:'';
@@ -16892,10 +16906,7 @@ function saveContactEditorData(contactId=editingContactId){
   const recordId=contactId==='new'?generateClientRecordId(contacts):existing?.id;
   const codeInput=g('c_code');
   const enteredCode=codeInput?.value.trim()||'';
-  const automaticType=fixedType||(types.length===1?types[0]:'');
-  const code=codeInput
-    ?(enteredCode||existing?.code||automaticContactCode(automaticType,recordId))
-    :(existing?.code||automaticContactCode('customer',recordId));
+  const code=enteredCode||existing?.code||automaticContactCode(contacts);
   if(code){
     const dup = contacts.find(x=>x.id!==contactId && String(x.code||'').trim().toLowerCase()===code.toLowerCase());
     if(dup){ showToast(`รหัสผู้ติดต่อ "${code}" ถูกใช้แล้วโดย "${dup.name}"`); codeInput?.focus(); return null; }
