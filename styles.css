@@ -2318,6 +2318,7 @@
   .representative-note-detail-empty{align-items:center;justify-content:center;padding:32px;text-align:center;}
   .customer-purchase-history-action{color:#1570A6;border-color:#A8D9F0;background:#F3FBFF;}
   .customer-purchase-history-action:hover{color:#0E5F91;border-color:#2699D0;background:#E5F6FF;}
+  .customer-loyalty-table-balance{white-space:nowrap;font-weight:600;}
   .customer-tier{display:inline-flex;padding:6px 12px;border-radius:20px;font-weight:700;font-size:13px;background:#eee9e5;color:#56473e;}
   .customer-tier-regular{background:#e2f3e8;color:#247745;}
   .customer-tier-special{background:#fff0c7;color:#885d10;}

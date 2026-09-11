@@ -10843,6 +10843,7 @@ function loadCustomerLoyalty(ids,force=false){
       clearTimeout(timer);state.loading=false;state.loadedAt=Date.now();
       if(customerLoyaltyState===state){
         refreshCustomerLoyaltyPanel();
+        refreshCustomerLoyaltyTable();
         clearTimeout(customerLoyaltyExpiryTimer);
         const expiry=Math.min(...(state.data||[]).map(row=>new Date(row.expiresAt).getTime()));
         if(Number.isFinite(expiry)) customerLoyaltyExpiryTimer=setTimeout(()=>{customerLoyaltyState=null;refreshCustomerLoyaltyPanel();},Math.max(100,Math.min(3600000,expiry-Date.now()+100)));
@@ -10868,6 +10869,18 @@ function refreshCustomerLoyaltyPanel(){
   const readOnly=host.dataset.readonly==='true';
   const customer=readOnly?customersList().find(c=>String(c.id)===String(customerHistoryView?.id)):activeSaleCustomer();
   host.innerHTML=customerLoyaltyPanelHtml(customer,readOnly);bindCustomerLoyaltyEvents();
+}
+function customerLoyaltyBalanceHtml(state,id){
+  const account=state?.data?.find(row=>String(row.customerId)===String(id));
+  const text=account?`${Number(account.balance)||0} แต้ม`:state?.loading?'กำลังโหลด…':state?.error?'อ่านแต้มไม่ได้':'—';
+  return `<span class="customer-loyalty-table-balance ${state?.error?'customer-purchase-error':''}" data-customer-loyalty-balance="${escapeHtml(id)}">${escapeHtml(text)}</span>`;
+}
+function refreshCustomerLoyaltyTable(){
+  document.querySelectorAll('[data-customer-loyalty-balance]').forEach(host=>{
+    const account=customerLoyaltyState?.data?.find(row=>String(row.customerId)===String(host.dataset.customerLoyaltyBalance));
+    host.textContent=account?`${Number(account.balance)||0} แต้ม`:customerLoyaltyState?.loading?'กำลังโหลด…':customerLoyaltyState?.error?'อ่านแต้มไม่ได้':'—';
+    host.classList.toggle('customer-purchase-error',!!customerLoyaltyState?.error);
+  });
 }
 function bindCustomerLoyaltyEvents(){
   document.querySelectorAll('[data-refresh-loyalty]').forEach(button=>button.onclick=()=>{customerLoyaltyState=null;refreshCustomerLoyaltyPanel();});
@@ -10945,6 +10958,17 @@ function customerTierHtml(state,id){
   const tier=customerTierFromPurchases(summary.currentYearTotal,state.data.elapsedMonths);
   return `<span class="customer-tier customer-tier-${tier.key}">${tier.label}</span><small class="customer-tier-average">เฉลี่ย ${fmtMoney(tier.average)} บาท/เดือน</small>`;
 }
+function customerTierOnlyHtml(state,id){
+  const summary=state?.data?.summaries?.find(row=>String(row.customerId)===String(id));
+  if(!summary) return `<span class="muted">${state?.loading?'กำลังโหลด…':state?.error?'ยังคำนวณไม่ได้':'—'}</span>`;
+  const tier=customerTierFromPurchases(summary.currentYearTotal,state.data.elapsedMonths);
+  return `<span class="customer-tier customer-tier-${tier.key}">${tier.label}</span>`;
+}
+function customerMonthlyAverageHtml(state,id){
+  const summary=state?.data?.summaries?.find(row=>String(row.customerId)===String(id));
+  if(!summary) return `<span class="muted">${state?.loading?'กำลังโหลด…':state?.error?'ยังคำนวณไม่ได้':'—'}</span>`;
+  return `${fmtMoney(customerTierFromPurchases(summary.currentYearTotal,state.data.elapsedMonths).average)} บาท/เดือน`;
+}
 function renderCustomerPurchaseHistory(){
   const view=customerHistoryView;
   const customer=customersList().find(c=>String(c.id)===String(view?.id));
@@ -10990,7 +11014,7 @@ function attachCustomerPurchaseEvents(){
   const close=document.getElementById('closeCustomerHistory');
   if(close) close.onclick=()=>{customerHistoryView=null;customerPurchaseState=null;render();};
   const refresh=document.getElementById('refreshCustomerPurchases');
-  if(refresh) refresh.onclick=()=>{customerPurchaseState=null;render();};
+  if(refresh) refresh.onclick=()=>{customerPurchaseState=null;customerLoyaltyState=null;render();};
   const apply=document.getElementById('applyCustomerHistory');
   const mode=document.getElementById('customerHistoryMode');
   const applyFilters=()=>{
@@ -11044,8 +11068,12 @@ function renderContacts(){
   const pageStart=(contactPage-1)*CONTACTS_PER_PAGE;
   const pageList=list.slice(pageStart,pageStart+CONTACTS_PER_PAGE);
   const purchaseState=isCustomers?customerPurchaseLoad(pageList.map(c=>c.id)):null;
+  const loyaltyState=isCustomers?(pageList.length?loadCustomerLoyalty(pageList.map(c=>c.id)):{loading:false,data:[],error:''}):null;
   const sortArrow = key => contactSort.key===key ? (contactSort.dir===1?' ▲':' ▼') : '';
   const th = (key,label) => `<th class="sortable" data-sort="${key}">${label}<span class="sortarrow">${sortArrow(key)}</span></th>`;
+  const tableHead=isCustomers
+    ?`${th('code','รหัสผู้ติดต่อ')}${th('name','ชื่อ')}<th>เบอร์โทร</th><th>ไลน์</th><th>แต้มคงเหลือ</th><th>ระดับลูกค้า</th><th>ยอดเฉลี่ยต่อเดือน</th><th></th>`
+    :`${th('code','รหัสผู้ติดต่อ')}${th('name','รายชื่อ')}<th>ชื่อผู้ติดต่อ</th><th>เบอร์ติดต่อ</th><th>อีเมล</th>${th('type','ประเภท')}<th></th>`;
   return `<div class="rpt">
     <div class="pagehead"><div><h1>${isCustomers?'ลูกค้า':'ผู้จำหน่าย'} <span class="page-title-meta">· ${list.length} รายชื่อ</span></h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
     <div class="ct-tabs">
@@ -11054,16 +11082,13 @@ function renderContacts(){
     </div>
     ${isCustomers?customerPurchaseNotice(purchaseState):''}
     <div class="doc-list-wrap seamless-table-wrap">
-    <table class="grid-table doc-head-blue contact-summary-table"><thead><tr>${th('code','รหัสผู้ติดต่อ')}${th('name','รายชื่อ')}<th>ชื่อผู้ติดต่อ</th><th>เบอร์ติดต่อ</th><th>อีเมล</th>${isCustomers?'<th>ระดับลูกค้า</th>':th('type','ประเภท')}<th></th></tr></thead>
+    <table class="grid-table doc-head-blue contact-summary-table"><thead><tr>${tableHead}</tr></thead>
     <tbody>${pageList.map(c=>`<tr>
       <td class="mono">${escapeHtml(c.code||'-')}</td>
       <td style="text-align:left;">${escapeHtml(c.name)}</td>
-      <td>${escapeHtml(c.contactName||'-')}</td>
-      <td class="mono">${escapeHtml(c.phone||'-')}</td>
-      <td>${escapeHtml(c.email||'-')}</td>
-      <td style="white-space:nowrap;">${isCustomers?customerTierHtml(purchaseState,c.id):typeBadge(c)}</td>
+      ${isCustomers?`<td class="mono">${escapeHtml(c.phone||'-')}</td><td>${escapeHtml(c.line||'-')}</td><td>${customerLoyaltyBalanceHtml(loyaltyState,c.id)}</td><td style="white-space:nowrap;">${customerTierOnlyHtml(purchaseState,c.id)}</td><td class="mono">${customerMonthlyAverageHtml(purchaseState,c.id)}</td>`:`<td>${escapeHtml(c.contactName||'-')}</td><td class="mono">${escapeHtml(c.phone||'-')}</td><td>${escapeHtml(c.email||'-')}</td><td style="white-space:nowrap;">${typeBadge(c)}</td>`}
       <td style="text-align:center;"><div class="history-actions contact-action-icons">${isCustomers?`<button class="history-icon-btn customer-purchase-history-action" data-customer-history="${c.id}" title="ประวัติการซื้อ" aria-label="ดูประวัติการซื้อ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11v8"/><path d="M5 3v18l2-1.5L9 21l2-1.5L13 21l2-1.5"/><path d="M8 8h5M8 12h3"/><circle cx="17" cy="16" r="4"/><path d="M17 14v2l1.4 1"/></svg></button>`:''}<button class="history-icon-btn" data-act="editcontact" data-id="${c.id}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button>${c.types.includes('customer')?`<button class="history-icon-btn customer-price-action" data-act="customerprice" data-id="${c.id}" title="ราคาพิเศษ" aria-label="ราคาพิเศษ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 13 11 22l-9-9V4h9l9 9z"/><circle cx="7.5" cy="9.5" r="1.5"/></svg></button>`:''}<button class="history-icon-btn danger" data-act="deletecontact" data-id="${c.id}" title="ลบ" aria-label="ลบ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td>
-    </tr>`).join('')||`<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายชื่อในกลุ่มนี้</td></tr>`}</tbody></table>
+    </tr>`).join('')||`<tr><td colspan="${isCustomers?8:7}" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายชื่อในกลุ่มนี้</td></tr>`}</tbody></table>
     </div>${pagerHtml(contactPage,totalPages,'contactpage')}</div>`;
 }
 
