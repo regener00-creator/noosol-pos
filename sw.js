@@ -1,6 +1,6 @@
 const ASSET_VERSION='__PEPOS_ASSET_VERSION__';
 const CACHE_NAME=`pepos-mobile-${ASSET_VERSION}`;
-const APP_SHELL=['/','/index.html',`/styles.css?v=${ASSET_VERSION}`,`/app.js?v=${ASSET_VERSION}`,'/manifest.webmanifest','/sapuri-app-icon-192.png','/sapuri-app-icon-512.png','/sapuri-pharmacy-logo.png','/sapuri-brand-logo.png','/line-seed-sans-th-regular.woff2','/line-seed-sans-th-bold.woff2','/line-seed-sans-th-extra-bold.woff2'];
+const APP_SHELL=['/','/index.html',`/styles.css?v=${ASSET_VERSION}`,`/app.js?v=${ASSET_VERSION}`,'/manifest.webmanifest','/sapuri-app-icon-192.png','/sapuri-app-icon-512.png','/sapuri-pharmacy-logo.png','/sapuri-brand-logo.png'];
 const TRUSTED_CDN_HOSTS=new Set(['cdn.jsdelivr.net']);
 
 function fetchAndPrepareCacheUpdate(request,cacheKey=request){

@@ -1,6 +1,3 @@
-@font-face{font-family:'LINE Seed Sans TH';src:url('/line-seed-sans-th-regular.woff2') format('woff2');font-style:normal;font-weight:400;font-display:swap;}
-@font-face{font-family:'LINE Seed Sans TH';src:url('/line-seed-sans-th-bold.woff2') format('woff2');font-style:normal;font-weight:700;font-display:swap;}
-@font-face{font-family:'LINE Seed Sans TH';src:url('/line-seed-sans-th-extra-bold.woff2') format('woff2');font-style:normal;font-weight:800;font-display:swap;}
 :root{
     --bg:#F7F5F3; --surface:#FFFFFF; --border:#E2DBD7;
     --sidebar:#4F4038; --sidebar-hover:#3F332C;
@@ -30,7 +27,7 @@
   .sidebar-logout-btn{width:100%;border:1px solid rgba(255,255,255,.22);background:transparent;color:#F7F0ED;border-radius:8px;padding:9px 10px;font:600 13px 'Sarabun',sans-serif;cursor:pointer;text-align:center;}
   .sidebar-logout-btn:hover{border-color:var(--danger);color:#fff;background:var(--danger);}
   .navsection{font-size:10.5px;color:#E3D4CF;text-transform:uppercase;letter-spacing:.06em;padding:12px 10px 4px;}
-  .navbtn{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;background:transparent;border:none;color:#F7F0ED;font-family:'LINE Seed Sans TH','Sarabun',sans-serif;font-size:13.5px;cursor:pointer;text-align:right;width:100%;transition:background .15s;}
+  .navbtn{display:flex;align-items:center;gap:9px;padding:8px 10px;border-radius:8px;background:transparent;border:none;color:#F7F0ED;font-family:inherit;font-size:13.5px;cursor:pointer;text-align:right;width:100%;transition:background .15s;}
   .navbtn:hover{background:var(--sidebar-hover);}
   .navbtn.active{background:var(--sidebar-hover)!important;color:#fff!important;font-weight:700;}
   .navbtn[data-tab="dashboard"],.navbtn[data-tab="checkout"]{background:#fff;color:var(--primary);font-weight:700;}
