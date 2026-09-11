@@ -45,7 +45,7 @@ const browserExecutable = [
     document.getElementById('main').innerHTML=renderContacts(); attachEvents();
   });
   assert.equal(await page.locator('[data-act="customerprice"]').count(),1);
-  assert.equal(await page.locator('[data-act="editcontact"] + [data-act="customerprice"]').count(),1);
+  assert.equal(await page.locator('[data-act="customerprice"] + [data-act="editcontact"]').count(),1);
   await page.locator('[data-act="customerprice"]').click();
   assert.equal(await page.locator('#saveCustomerPricingBtn').count(),1);
   assert.equal(await page.locator('#c_default_document').count(),0);
@@ -127,12 +127,14 @@ const browserExecutable = [
   assert.equal(await page.locator('#c_type_customer').count(),0);
   assert.equal(await page.locator('#c_type_supplier').count(),0);
   assert.equal(await page.locator('#c_fixed_type').inputValue(),'customer');
-  assert.equal(await page.locator('#c_taxid_label').textContent(),'เลขผู้เสียภาษี');
-  const customerIdentityLayout=await page.locator('#c_code,#c_name,#c_taxid,#c_credit').evaluateAll(inputs=>inputs.map(input=>({left:Math.round(input.getBoundingClientRect().left),top:Math.round(input.getBoundingClientRect().top)})));
+  assert.equal(await page.locator('input[name="c_entity"][value="individual"]').isChecked(),true);
+  assert.equal(await page.locator('#c_taxid_label').textContent(),'เลขบัตรประชาชน');
+  assert.equal(await page.locator('#c_code').isEditable(),false);
+  assert.equal(await page.locator('#c_code').getAttribute('placeholder'),'ระบบจะสร้างให้อัตโนมัติ');
+  assert.equal(await page.locator('#c_credit').count(),0);
+  const customerIdentityLayout=await page.locator('#c_code,#c_name,#c_taxid').evaluateAll(inputs=>inputs.map(input=>({left:Math.round(input.getBoundingClientRect().left),top:Math.round(input.getBoundingClientRect().top)})));
   assert.equal(new Set(customerIdentityLayout.map(item=>item.top)).size,1);
   assert.deepEqual(customerIdentityLayout.map(item=>item.left),[...customerIdentityLayout].sort((a,b)=>a.left-b.left).map(item=>item.left));
-  await page.locator('input[name="c_entity"][value="individual"]').check();
-  assert.equal(await page.locator('#c_taxid_label').textContent(),'เลขบัตรประชาชน');
   await page.locator('#c_name').fill('ยังไม่บันทึก');
   await page.locator('#cancelPOSCustomerCreateBtn').click();
   assert.equal(await page.locator('.pos-customer-create-modal').count(),0);
@@ -147,6 +149,9 @@ const browserExecutable = [
   assert.equal(await page.evaluate(()=>currentTab),'checkout');
   assert.equal(await page.evaluate(()=>saleMember?.name),'ลูกค้าใหม่');
   assert.deepEqual(await page.evaluate(()=>contacts.find(contact=>contact.name==='ลูกค้าใหม่')?.types),['customer']);
+  assert.match(await page.evaluate(()=>contacts.find(contact=>contact.name==='ลูกค้าใหม่')?.code),/^C-[0-9A-Z]+$/);
+  assert.equal(await page.evaluate(()=>contacts.find(contact=>contact.name==='ลูกค้าใหม่')?.entity),'individual');
+  assert.equal(await page.evaluate(()=>contacts.find(contact=>contact.name==='ลูกค้าใหม่')?.creditDays),'');
   assert.equal(await page.locator('#openCustomerPickerBtn strong').textContent(),'ลูกค้าใหม่');
 
   await page.evaluate(() => {

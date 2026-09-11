@@ -10949,14 +10949,8 @@ function customerPurchaseLoad(ids,view=null){
   return state;
 }
 function customerPurchaseNotice(state){
-  const message=state?.error||'ยอดซื้อสุทธิไม่รวมบิลยกเลิก · นับเฉพาะบิลที่ผูกกับลูกค้ารายนี้ และคลังที่บัญชีมีสิทธิ์ดู';
-  return `<p class="customer-purchase-notice ${state?.error?'customer-purchase-error':''}" role="${state?.error?'alert':'status'}">${escapeHtml(message)}</p>`;
-}
-function customerTierHtml(state,id){
-  const summary=state?.data?.summaries?.find(row=>String(row.customerId)===String(id));
-  if(!summary) return `<span class="muted">${state?.loading?'กำลังโหลด…':state?.error?'ยังคำนวณไม่ได้':'—'}</span>`;
-  const tier=customerTierFromPurchases(summary.currentYearTotal,state.data.elapsedMonths);
-  return `<span class="customer-tier customer-tier-${tier.key}">${tier.label}</span><small class="customer-tier-average">เฉลี่ย ${fmtMoney(tier.average)} บาท/เดือน</small>`;
+  if(!state?.error) return '';
+  return `<p class="customer-purchase-notice customer-purchase-error" role="alert">${escapeHtml(state.error)}</p>`;
 }
 function customerTierOnlyHtml(state,id){
   const summary=state?.data?.summaries?.find(row=>String(row.customerId)===String(id));
@@ -10977,16 +10971,16 @@ function renderCustomerPurchaseHistory(){
   const summary=data?.summaries?.[0];
   const bills=data?.bills||[];
   const money=value=>summary?`${fmtMoney(value)} บาท`:'—';
+  const monthlyAverage=summary?`${fmtMoney(customerTierFromPurchases(summary.currentYearTotal,data.elapsedMonths).average)} บาท`:'—';
   const page=data?.page||view.page;
   const totalPages=Math.max(1,Math.ceil(Number(data?.totalBills||0)/10));
   return `<div class="rpt customer-purchases-page">
     <div class="pagehead"><h1>${escapeHtml(customer.name)} <span class="page-title-meta">· ประวัติการซื้อ</span></h1><div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="closeCustomerHistory">ย้อนกลับ</button><button class="btn primary" id="refreshCustomerPurchases">รีเฟรชยอดซื้อ</button></div></div>
     <div class="customer-purchase-cards">
-      <section><span>ยอดซื้อสุทธิสะสมทั้งหมด</span><strong>${money(summary?.lifetimeTotal)}</strong></section>
-      <section><span>ยอดซื้อสุทธิ${view.mode==='month'?'เดือน '+String(view.month).padStart(2,'0')+'/':'ปี '}${view.year}</span><strong>${money(summary?.periodTotal)}</strong><small>${summary?`${summary.periodBills} บิลสำเร็จ`:''}</small></section>
-      <section><span>ระดับปัจจุบัน</span><div>${customerTierHtml(state,customer.id)}</div><small>${data?`ยอดซื้อปี ${data.currentYear} ${fmtMoney(summary?.currentYearTotal||0)} ÷ ${data.elapsedMonths} เดือน`:''}</small></section>
+      <section class="customer-purchase-summary-card"><div class="customer-purchase-summary-row"><span>ยอดซื้อทั้งหมด</span><strong>${money(summary?.lifetimeTotal)}</strong></div><div class="customer-purchase-summary-row"><span>${view.mode==='month'?'ยอดซื้อต่อเดือน':'ยอดซื้อต่อปี'}</span><strong>${money(summary?.periodTotal)}</strong><small>${summary?`${view.mode==='month'?String(view.month).padStart(2,'0')+'/':''}${view.year} · ${summary.periodBills} บิลสำเร็จ`:''}</small></div><div class="customer-purchase-summary-row"><span>ยอดเฉลี่ย</span><strong>${monthlyAverage}</strong><small>${summary?'ต่อเดือน':''}</small></div></section>
+      <section class="customer-purchase-loyalty-card"><div id="customerLoyaltyPanel" data-readonly="true">${customerLoyaltyPanelHtml(customer,true)}</div></section>
+      <section><span>ระดับปัจจุบัน</span><div>${customerTierOnlyHtml(state,customer.id)}</div></section>
     </div>
-    <div id="customerLoyaltyPanel" data-readonly="true">${customerLoyaltyPanelHtml(customer,true)}</div>
     <div class="customer-purchase-filters">
       <label>แสดงประวัติ<select id="customerHistoryMode"><option value="month" ${view.mode==='month'?'selected':''}>รายเดือน</option><option value="year" ${view.mode==='year'?'selected':''}>รายปี</option></select></label>
       <label>ปี (ค.ศ.)<input id="customerHistoryYear" type="number" min="1900" max="9998" step="1" value="${view.year}"></label>
@@ -11133,13 +11127,15 @@ function sellQuotationAtPos(id){
   render();
 }
 
-function emptyCustomerContactDraft(){
-  return {name:'',entity:'juristic',types:['customer'],email:'',line:'',phone:'',taxId:'',creditDays:'',address:'',note:'',customerPrices:[]};
+function emptyCustomerContactDraft(type='customer'){
+  const normalizedType=type==='supplier'?'supplier':'customer';
+  return {name:'',entity:normalizedType==='customer'?'individual':'juristic',types:[normalizedType],email:'',line:'',phone:'',taxId:'',creditDays:'',address:'',note:'',customerPrices:[]};
 }
 function contactEditorFieldsHtml(c,fixedType=''){
   const normalizedFixedType=['customer','supplier'].includes(fixedType)?fixedType:'';
   const chk = t => (c.types||[]).includes(t)?'checked':'';
   const isJuristic=c.entity!=='individual';
+  const isNewCustomer=normalizedFixedType==='customer'&&!c.id;
   const typeField=normalizedFixedType
     ? `<input type="hidden" id="c_fixed_type" value="${normalizedFixedType}">`
     : `<div class="contact-editor-field"><label>ประเภท</label><div class="cradio">
@@ -11152,11 +11148,11 @@ function contactEditorFieldsHtml(c,fixedType=''){
             <label><input type="radio" name="c_entity" value="juristic" ${c.entity==='juristic'?'checked':''}> นิติบุคคล</label>
             <label><input type="radio" name="c_entity" value="individual" ${c.entity==='individual'?'checked':''}> บุคคลธรรมดา</label>
           </div></div>
-          <div class="contact-editor-identity-row contact-editor-wide">
-            <div class="contact-editor-field"><label>รหัสผู้ติดต่อ</label><input id="c_code" value="${escapeHtml(c.code||'')}" placeholder="เช่น C001 (ไม่บังคับ)"></div>
+          <div class="contact-editor-identity-row contact-editor-wide ${isNewCustomer?'contact-editor-identity-row-new-customer':''}">
+            <div class="contact-editor-field"><label>รหัสผู้ติดต่อ</label><input id="c_code" value="${escapeHtml(c.code||'')}" ${isNewCustomer?'readonly placeholder="ระบบจะสร้างให้อัตโนมัติ"':'placeholder="เช่น C001 (ไม่บังคับ)"'}></div>
             <div class="contact-editor-field"><label>ชื่อ-นามสกุล <span class="req">*</span></label><input id="c_name" value="${escapeHtml(c.name||'')}" placeholder="กรอกชื่อ-นามสกุล"></div>
             <div class="contact-editor-field"><label id="c_taxid_label">${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'}</label><input id="c_taxid" value="${escapeHtml(c.taxId||'')}" placeholder="${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'} 13 หลัก (ไม่บังคับ)"></div>
-            <div class="contact-editor-field"><label>เครดิต</label><input id="c_credit" type="number" min="0" value="${escapeHtml(c.creditDays||'')}" placeholder="0 วัน"></div>
+            ${isNewCustomer?'':`<div class="contact-editor-field"><label>เครดิต</label><input id="c_credit" type="number" min="0" value="${escapeHtml(c.creditDays||'')}" placeholder="0 วัน"></div>`}
           </div>
           <div class="contact-editor-field contact-editor-wide"><label>ที่อยู่</label><textarea id="c_address" rows="3">${escapeHtml(c.address||'')}</textarea></div>
           <div class="contact-editor-contact-row contact-editor-wide">
@@ -11183,9 +11179,8 @@ function bindContactTaxIdLabel(root=document){
 }
 function renderContactForm(){
   const isNew = editingContactId==='new';
-  const c = isNew ? emptyCustomerContactDraft() : contacts.find(x=>x.id===editingContactId);
-  if(isNew&&currentTab==='contacts') c.types=['supplier'];
   const fixedType=isNew?(currentTab==='customers'?'customer':'supplier'):'';
+  const c = isNew ? emptyCustomerContactDraft(fixedType) : contacts.find(x=>x.id===editingContactId);
   return `
     <div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › ${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</div><h1>${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</h1></div>
       <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelContactBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveContactBtn">บันทึกแล้วปิด</button></div>
@@ -16781,19 +16776,21 @@ function saveContactEditorData(contactId=editingContactId){
   if(!fixedType&&g('c_type_customer')?.checked) types.push('customer');
   if(!fixedType&&g('c_type_supplier')?.checked) types.push('supplier');
   if(types.length===0){ showToast('กรุณาเลือกประเภท (ลูกค้า หรือ ผู้จำหน่าย)'); return null; }
-  const code = g('c_code').value.trim();
+  const existing=contactId==='new'?null:contacts.find(x=>x.id===contactId);
+  const recordId=contactId==='new'?generateClientRecordId(contacts):existing?.id;
+  const enteredCode=g('c_code')?.value.trim()||'';
+  const code=enteredCode||(contactId==='new'&&fixedType==='customer'?`C-${Number(recordId).toString(36).toUpperCase()}`:'');
   if(code){
     const dup = contacts.find(x=>x.id!==contactId && String(x.code||'').trim().toLowerCase()===code.toLowerCase());
     if(dup){ showToast(`รหัสผู้ติดต่อ "${code}" ถูกใช้แล้วโดย "${dup.name}"`); g('c_code').focus(); return null; }
   }
   const entityEl = document.querySelector('input[name="c_entity"]:checked');
-  const existing=contactId==='new'?null:contacts.find(x=>x.id===contactId);
   const data = {
     name, types,
     entity: entityEl?entityEl.value:'juristic',
     code,
     taxId: g('c_taxid').value.trim(),
-    creditDays: parseInt(g('c_credit').value)||'',
+    creditDays: g('c_credit')?(parseInt(g('c_credit').value)||''):(existing?.creditDays||''),
     address: g('c_address').value.trim(),
     email: g('c_email').value.trim(),
     line: g('c_line').value.trim(),
@@ -16808,7 +16805,7 @@ function saveContactEditorData(contactId=editingContactId){
   }
   let savedContact=existing;
   if(contactId==='new'){
-    savedContact={id:generateClientRecordId(contacts), ...data, customerPrices:[]};
+    savedContact={id:recordId, ...data, customerPrices:[]};
     contacts.push(savedContact);
     showToast(`เพิ่มรายชื่อ "${name}" แล้ว`);
   } else {
