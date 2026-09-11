@@ -2,9 +2,11 @@
 -- Copy the actual deployed query into pg_temp and use isolated fixture tables.
 begin;
 select set_config('request.jwt.claim.sub',(select id::text from public.profiles where owner=true limit 1),true);
-create temporary table customer_test_contacts(id bigint,type text,name text);
+create temporary table customer_test_contacts(id bigint,type text,name text,data jsonb,created_at timestamptz);
 create temporary table customer_test_sales(id text,ref text,sale_date date,status text,total numeric,data jsonb);
-insert into customer_test_contacts values(1,'customer','Same name'),(2,'customer','Same name');
+insert into customer_test_contacts values
+  (1,'customer','Same name','{}',current_timestamp),
+  (2,'customer','Same name','{}',current_timestamp);
 insert into customer_test_sales
 select 'B'||n,'B'||n,(current_timestamp at time zone 'Asia/Bangkok')::date,'done',7500,
   jsonb_build_object('customerId','1','items',jsonb_build_array(jsonb_build_object('name','Decolgen','qty',1,'unit','box','price',7500)))
@@ -28,7 +30,8 @@ declare result jsonb; y int:=extract(year from current_timestamp at time zone 'A
 begin
   result:=pg_temp.customer_purchase_query_test(array['1'],y,m,1,true,1);
   assert (result->'summaries'->0->>'lifetimeTotal')::numeric=95000,'Lifetime excludes void/hold/other customer';
-  assert (result->'summaries'->0->>'currentYearTotal')::numeric=90000,'Current year excludes prior year';
+  assert (result->'summaries'->0->>'membershipCycleTotal')::numeric=90000,'Membership cycle excludes pre-registration sale';
+  assert (result->'summaries'->0->>'membershipElapsedMonths')::int=1,'Registration month is membership month one';
   assert (result->'summaries'->0->>'periodTotal')::numeric=90000,'Monthly total';
   assert (result->'summaries'->0->>'periodBills')::int=12,'Completed bill count';
   assert (result->>'totalBills')::int=13,'Void appears in history, held bill does not';
@@ -37,10 +40,10 @@ begin
   assert jsonb_array_length(result->'bills')=3,'Remaining page';
   result:=pg_temp.customer_purchase_query_test(array['1'],y-1,null,1,true,1);
   assert (result->'summaries'->0->>'periodTotal')::numeric=5000,'Legacy member.id remains linked';
-  assert (result->'summaries'->0->>'currentYearTotal')::numeric=90000,'Past-year filter does not change current tier';
+  assert (result->'summaries'->0->>'membershipCycleTotal')::numeric=90000,'Calendar history filter does not change membership tier';
   result:=pg_temp.customer_purchase_query_test(array['1','2'],y,null,1,false,1);
   assert jsonb_array_length(result->'summaries')=2,'Batch summaries';
-  assert (result->'summaries'->1->>'currentYearTotal')::numeric=450000,'Same-name customers stay separate';
+  assert (result->'summaries'->1->>'membershipCycleTotal')::numeric=450000,'Same-name customers stay separate';
   assert jsonb_array_length(result->'bills')=0,'List summary does not load bills';
   result:=pg_temp.customer_purchase_query_test(array['1'],y-2,null,999,true,1);
   assert (result->>'totalBills')::int=0 and (result->>'page')::int=1,'Empty period and page bounds';

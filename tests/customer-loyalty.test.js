@@ -6,7 +6,7 @@ const vm=require('node:vm');
 const root=path.join(__dirname,'..');
 const source=fs.readFileSync(path.join(root,'app.js'),'utf8');
 const sql=fs.readFileSync(path.join(root,'supabase/migrations',fs.readdirSync(path.join(root,'supabase/migrations')).find(n=>n.endsWith('_customer_loyalty_points.sql'))),'utf8');
-const tierSql=fs.readFileSync(path.join(root,'supabase/migrations',fs.readdirSync(path.join(root,'supabase/migrations')).find(n=>n.endsWith('_allow_pos_customer_tier_summary.sql'))),'utf8');
+const tierSql=fs.readFileSync(path.join(root,'supabase/migrations',fs.readdirSync(path.join(root,'supabase/migrations')).find(n=>n.endsWith('_customer_membership_tier_cycles.sql'))),'utf8');
 const fn=name=>source.match(new RegExp(`^function ${name}\\([^\\n]*\\)\\{[\\s\\S]*?^\\}`,'m'))[0];
 test('points cap, minimum, integer currency discount and customer isolation',()=>{
   const ctx=vm.createContext({saleLoyaltySelection:{customerId:1,points:100},activeSaleCustomer:()=>({id:1}),applyPromotions:()=>({}),cart:[],saleDiscount:0,cartTaxSummary:()=>({total:1000})});
@@ -44,9 +44,12 @@ test('expiry warning uses calendar month thresholds and loyalty anniversary stay
   assert.equal(ctx.customerLoyaltyExpiryFromJoinedAt('2024-02-29T00:00:00+07:00','2025-01-01'),'2025-02-28');
 });
 test('POS tier progress RPC exposes only a selected customer summary to authorized sellers',()=>{
-  assert.match(tierSql,/get_pos_customer_tier_progress\([\s\S]*security invoker/);
-  assert.match(tierSql,/access\.warehouse_id = p_warehouse_id[\s\S]*access\.can_sell/);
-  assert.match(tierSql,/currentYearTotal[\s\S]*v_total/);
-  assert.doesNotMatch(tierSql,/'items'|'lifetimeTotal'|'periodTotal'/);
-  assert.match(tierSql,/revoke all on function public\.get_pos_customer_tier_progress\(text,bigint\) from public,anon/);
+  const posTierSql=tierSql.slice(tierSql.indexOf('create or replace function public.get_pos_customer_tier_progress'));
+  assert.match(posTierSql,/get_pos_customer_tier_progress\([\s\S]*security invoker/);
+  assert.match(posTierSql,/access\.warehouse_id = p_warehouse_id[\s\S]*access\.can_sell/);
+  assert.match(posTierSql,/membershipCycleTotal[\s\S]*v_total/);
+  assert.match(posTierSql,/membershipElapsedMonths[\s\S]*v_elapsed_months/);
+  assert.match(posTierSql,/loyaltyJoinedAt[\s\S]*v_period_start[\s\S]*v_period_end/);
+  assert.doesNotMatch(posTierSql,/'items'|'lifetimeTotal'|'periodTotal'/);
+  assert.match(posTierSql,/revoke all on function public\.get_pos_customer_tier_progress\(text,bigint\) from public,anon/);
 });

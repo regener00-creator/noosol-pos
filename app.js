@@ -10808,16 +10808,16 @@ function renderExpiry(){
 
 let customerHistoryView=null;
 let customerPurchaseState=null;
-function customerTierFromPurchases(yearTotal,elapsedMonths){
+function customerTierFromPurchases(cycleTotal,elapsedMonths){
   const months=Math.min(12,Math.max(1,Number(elapsedMonths)||1));
-  const total=Math.max(0,Number(yearTotal)||0);
+  const total=Math.max(0,Number(cycleTotal)||0);
   // Compare unrounded totals, not a displayed/rounded monthly average.
   const key=total>=50000*months?'special':total>=10000*months?'regular':'general';
   return {key,label:{special:'ลูกค้าพิเศษ',regular:'ลูกค้าประจำ',general:'ลูกค้าทั่วไป'}[key],average:total/months};
 }
-function customerTierProgress(yearTotal,elapsedMonths){
+function customerTierProgress(cycleTotal,elapsedMonths){
   const months=Math.min(12,Math.max(1,Number(elapsedMonths)||1));
-  const total=Math.max(0,Number(yearTotal)||0);
+  const total=Math.max(0,Number(cycleTotal)||0);
   const tier=customerTierFromPurchases(total,months);
   const next=tier.key==='general'?{label:'ลูกค้าประจำ',target:10000*months}:tier.key==='regular'?{label:'ลูกค้าพิเศษ',target:50000*months}:null;
   if(!next) return {tier,remaining:0,percent:100,nextLabel:''};
@@ -11030,12 +11030,12 @@ function customerPurchaseNotice(state){
 function customerTierOnlyHtml(state,id){
   const summary=state?.data?.summaries?.find(row=>String(row.customerId)===String(id));
   if(!summary) return `<span class="muted">${state?.loading?'กำลังโหลด…':state?.error?'ยังคำนวณไม่ได้':'—'}</span>`;
-  const tier=customerTierFromPurchases(summary.currentYearTotal,state.data.elapsedMonths);
+  const tier=customerTierFromPurchases(summary.membershipCycleTotal,summary.membershipElapsedMonths);
   return `<span class="customer-tier customer-tier-${tier.key}">${tier.label}</span>`;
 }
 function customerTierOverviewHtml(state,id){
   const summary=state?.data?.summaries?.find(row=>String(row.customerId)===String(id));
-  const current=summary?customerTierFromPurchases(summary.currentYearTotal,state.data.elapsedMonths):null;
+  const current=summary?customerTierFromPurchases(summary.membershipCycleTotal,summary.membershipElapsedMonths):null;
   const tiers=[
     {key:'general',label:'ลูกค้าทั่วไป'},
     {key:'regular',label:'ลูกค้าประจำ'},
@@ -11051,7 +11051,7 @@ function customerTierOverviewHtml(state,id){
 function customerTierProgressHtml(state,id,context='history'){
   const summary=state?.data?.summaries?.find(row=>String(row.customerId)===String(id));
   if(!summary) return `<div class="customer-tier-progress-status ${state?.error?'is-error':''}">${state?.loading?'กำลังคำนวณความคืบหน้า…':state?.error?'คำนวณความคืบหน้าไม่ได้':'—'}</div>`;
-  const progress=customerTierProgress(summary.currentYearTotal,state.data.elapsedMonths);
+  const progress=customerTierProgress(summary.membershipCycleTotal,summary.membershipElapsedMonths);
   const message=progress.nextLabel?`ซื้ออีก ${fmtMoney(progress.remaining)} บาท ถึง${progress.nextLabel}`:'ถึงระดับสูงสุดแล้ว';
   const label=context==='pos'?progress.tier.label:'ความคืบหน้าสู่ระดับถัดไป';
   return `<div class="customer-tier-progress customer-tier-progress-${context}"><div class="customer-tier-progress-head"><span>${label}</span><strong>${message}</strong></div><div class="customer-tier-progress-track" role="progressbar" aria-label="${escapeHtml(label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(progress.percent)}"><span style="width:${progress.percent.toFixed(2)}%"></span></div></div>`;
@@ -11059,7 +11059,7 @@ function customerTierProgressHtml(state,id,context='history'){
 function customerMonthlyAverageHtml(state,id){
   const summary=state?.data?.summaries?.find(row=>String(row.customerId)===String(id));
   if(!summary) return `<span class="muted">${state?.loading?'กำลังโหลด…':state?.error?'ยังคำนวณไม่ได้':'—'}</span>`;
-  return `${fmtMoney(customerTierFromPurchases(summary.currentYearTotal,state.data.elapsedMonths).average)} บาท`;
+  return `${fmtMoney(customerTierFromPurchases(summary.membershipCycleTotal,summary.membershipElapsedMonths).average)} บาท`;
 }
 function renderCustomerPurchaseHistory(){
   const view=customerHistoryView;
@@ -11069,7 +11069,7 @@ function renderCustomerPurchaseHistory(){
   const summary=data?.summaries?.[0];
   const bills=data?.bills||[];
   const money=value=>summary?`${fmtMoney(value)} บาท`:'—';
-  const monthlyAverage=summary?`${fmtMoney(customerTierFromPurchases(summary.currentYearTotal,data.elapsedMonths).average)} บาท`:'—';
+  const monthlyAverage=summary?`${fmtMoney(customerTierFromPurchases(summary.membershipCycleTotal,summary.membershipElapsedMonths).average)} บาท`:'—';
   const page=data?.page||view.page;
   const totalPages=Math.max(1,Math.ceil(Number(data?.totalBills||0)/10));
   return `<div class="rpt customer-purchases-page">
