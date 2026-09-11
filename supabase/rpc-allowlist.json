@@ -12,6 +12,7 @@
     "export_store_inventory_backup()",
     "get_central_audit_log_page(integer,timestamptz,text,text,text,text,text,boolean)",
     "get_customer_purchase_history(text[],integer,integer,integer,boolean,bigint)",
+    "get_customer_loyalty(text[],bigint)",
     "get_owner_database_health()",
     "get_notes_page(text,timestamptz,uuid,integer)",
     "get_representative_note_cards(bigint[],text,integer)",

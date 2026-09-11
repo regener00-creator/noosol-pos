@@ -2865,6 +2865,7 @@ function openPOSCustomerPicker(){
   const close=()=>overlay.remove();
   const choose=customer=>{
     saleMember=customer?customerSaleSnapshot(customer):null;
+    saleLoyaltySelection=null;customerLoyaltyState=null;
     refreshCartCustomerPrices();
     close();
     render();
@@ -2922,6 +2923,7 @@ function openPOSCustomerCreateModal(){
     const customer=saveContactEditorData('new');
     if(!customer) return;
     saleMember=customerSaleSnapshot(customer);
+    saleLoyaltySelection=null;customerLoyaltyState=null;
     refreshCartCustomerPrices();
     close();
     render();
@@ -3337,6 +3339,9 @@ function formatSaleRefDisplay(ref){
 }
 let saleRef = nextSaleRef();
 let saleDiscount = 0; // บาท
+let saleLoyaltySelection=null;
+let customerLoyaltyState=null;
+let customerLoyaltyExpiryTimer=null;
 let saleMember = null; // ชื่อสมาชิก
 const VAT_RATE = 0.07;
 const VAT_REGISTERED_LABEL = 'จดภาษีมูลค่าเพิ่มแล้ว';
@@ -3442,7 +3447,8 @@ function taxSummaryRowsHtml(tax,{purchase=false}={}){
 function cartTaxSummary(promoResult=applyPromotions(cart),discount=saleDiscount,settings=businessSettings){
   const registered=isBusinessVatRegistered(settings);
   const lines=promoResult.lines.map(line=>({amount:Number(line.promoLineTotal)||0,vatMode:line.custom?(registered?'incl':'none'):effectiveProductVatMode(products.find(product=>product.id===line.pid),settings)}));
-  return calculateSaleTaxSummary(lines,discount,registered);
+  const points=arguments.length<2&&typeof effectiveLoyaltyRedemption==='function'?effectiveLoyaltyRedemption(promoResult):0;
+  return calculateSaleTaxSummary(lines,Number(discount)+points,registered);
 }
 function saleTaxSummary(sale){
   const registered=sale?.vatRegistered===true;
@@ -3827,7 +3833,7 @@ function savePendingCheckoutRequest(context){
   return context;
 }
 function checkoutUiSnapshot(payMethod,options={}){
-  return cloudClean({cart,saleDiscount,saleMember,saleSourceQuotationId,pendingQty,activeWarehouseId,payMethod:payMethod||'เงินสด',options});
+  return cloudClean({cart,saleDiscount,saleMember,saleLoyaltySelection,saleSourceQuotationId,pendingQty,activeWarehouseId,payMethod:payMethod||'เงินสด',options});
 }
 function restorePendingCheckoutUi(context){
   const snapshot=context?.uiSnapshot;
@@ -3835,6 +3841,7 @@ function restorePendingCheckoutUi(context){
   cart=JSON.parse(JSON.stringify(snapshot.cart));
   saleDiscount=Number(snapshot.saleDiscount)||0;
   saleMember=snapshot.saleMember||null;
+  saleLoyaltySelection=snapshot.saleLoyaltySelection||null;
   saleSourceQuotationId=snapshot.saleSourceQuotationId||null;
   pendingQty=Math.max(1,Number(snapshot.pendingQty)||1);
   return true;
@@ -5929,6 +5936,7 @@ function printCashShiftSummary(shiftId){
 
 function renderCheckout(){
   const selectedCustomer=activeSaleCustomer();
+  if(!selectedCustomer||!cart.length) saleLoyaltySelection=null;
   const shiftBanner=currentCashShift
     ?`<div class="cash-shift-topbar-action open"><span><strong>${escapeHtml(currentCashShift.shiftNo)} เปิดอยู่</strong> : เงินตั้งต้น ${fmtMoney(currentCashShift.openingCash)} บาท · ${escapeHtml(currentCashShift.openedByName)}</span><button class="btn ghost small" data-open-cash-shift>สรุปชำระ</button></div>`
     :`<div class="cash-shift-topbar-action"><button class="btn primary small" data-open-cash-shift>เปิดระบบชำระ</button></div>`;
@@ -6042,6 +6050,7 @@ function renderCheckout(){
             <span><strong>${escapeHtml(selectedCustomer?.name||'ลูกค้าทั่วไป')}</strong><small>${selectedCustomer?'กดเพื่อเปลี่ยนลูกค้า':'กดเพื่อเลือกลูกค้า'}</small></span>
           </button>
         </div>
+        <div id="customerLoyaltyPanel">${customerLoyaltyPanelHtml(selectedCustomer)}</div>
         <div class="pos-actions">
           <button class="pos-action ${showFavorites?'on':''}" id="favBtn"><span class="pa-ic">⭐</span> สินค้าโปรด</button>
           <button class="pos-action" id="priceCheckBtn"><span class="pa-ic">🔍</span> เช็คราคา</button>
@@ -6071,6 +6080,7 @@ function recalcPOSCartDOM(){
   const beforeLabel=document.getElementById('posBeforeVatLabel'),vatLabel=document.getElementById('posVatLabel');
   if(beforeLabel) beforeLabel.textContent=registered?'มูลค่าก่อน VAT':'มูลค่าสินค้า';
   if(vatLabel) vatLabel.textContent=registered?'ภาษีมูลค่าเพิ่ม 7%':'ไม่คิด VAT (กิจการยังไม่จด VAT)';
+  refreshCustomerLoyaltyPanel();
 }
 
 function renderSearchResults(){
@@ -10804,6 +10814,90 @@ function customerTierFromPurchases(yearTotal,elapsedMonths){
   const key=total>=50000*months?'special':total>=10000*months?'regular':'general';
   return {key,label:{special:'ลูกค้าพิเศษ',regular:'ลูกค้าประจำ',general:'ลูกค้าทั่วไป'}[key],average:total/months};
 }
+function loyaltyRedemptionLimit(total,balance){
+  return Number(total)>=1000?Math.max(0,Math.min(Math.floor(Number(total)||0),Math.floor(Number(balance)||0))):0;
+}
+function effectiveLoyaltyRedemption(promoResult=applyPromotions(cart)){
+  if(typeof saleLoyaltySelection==='undefined'||!saleLoyaltySelection) return 0;
+  const customer=activeSaleCustomer();
+  if(String(customer?.id)!==String(saleLoyaltySelection.customerId)) return 0;
+  const total=cartTaxSummary(promoResult,saleDiscount).total;
+  return Math.min(Number(saleLoyaltySelection.points)||0,loyaltyRedemptionLimit(total,saleLoyaltySelection.points));
+}
+function loadCustomerLoyalty(ids,force=false){
+  const key=JSON.stringify([currentProfile?.id,activeWarehouseId,ids.map(String)]);
+  const now=Date.now(),previous=customerLoyaltyState;
+  const expired=previous?.data?.some(row=>new Date(row.expiresAt).getTime()<=now);
+  if(!force&&previous?.key===key&&!expired&&(previous.loading||now-previous.loadedAt<30000)) return previous;
+  const state={key,loading:true,data:null,error:'',loadedAt:now};customerLoyaltyState=state;
+  state.promise=Promise.resolve().then(async()=>{
+    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+    try{
+      const {data,error}=await sb.rpc('get_customer_loyalty',{p_customer_ids:ids.map(String),p_warehouse_id:Number(activeWarehouseId)||null}).abortSignal(controller.signal);
+      if(error) throw error;
+      if(!Array.isArray(data)||data.length!==ids.length) throw new Error('Incomplete loyalty response');
+      state.data=data;
+    }catch(error){state.error='อ่านแต้มไม่สำเร็จ กรุณากดรีเฟรชแต้ม';console.warn('loyalty read',error?.code||error?.message);}
+    finally{
+      clearTimeout(timer);state.loading=false;state.loadedAt=Date.now();
+      if(customerLoyaltyState===state){
+        refreshCustomerLoyaltyPanel();
+        clearTimeout(customerLoyaltyExpiryTimer);
+        const expiry=Math.min(...(state.data||[]).map(row=>new Date(row.expiresAt).getTime()));
+        if(Number.isFinite(expiry)) customerLoyaltyExpiryTimer=setTimeout(()=>{customerLoyaltyState=null;refreshCustomerLoyaltyPanel();},Math.max(100,Math.min(3600000,expiry-Date.now()+100)));
+      }
+    }
+    return state;
+  });
+  return state;
+}
+function customerLoyaltyPanelHtml(customer,readOnly=false){
+  if(!customer?.id) return '';
+  const state=loadCustomerLoyalty([customer.id]),account=state.data?.[0];
+  const redeemed=readOnly?0:effectiveLoyaltyRedemption();
+  const eligible=!readOnly&&cartTaxSummary(applyPromotions(cart),saleDiscount).total>=1000;
+  return `<div class="loyalty-panel" data-loyalty-customer="${escapeHtml(customer.id)}" data-loyalty-readonly="${readOnly?'true':'false'}">
+    <div class="loyalty-panel-head"><strong>แต้มสะสม</strong><button class="btn ghost small" data-refresh-loyalty type="button">รีเฟรชแต้ม</button></div>
+    ${account?`<b class="loyalty-balance">${escapeHtml(account.balance)} แต้ม</b><small>สมัคร ${escapeHtml(fmtDateShort(account.joinedOn))} · หมดอายุ ${escapeHtml(fmtDateShort(account.expiresOn))}</small>${Number(account.adjustmentDue)>0?`<small class="loyalty-error">มีแต้มรอหักคืน ${escapeHtml(account.adjustmentDue)} แต้มจากบิลยกเลิก แต้มที่ได้รับใหม่จะชดเชยส่วนนี้ก่อน</small>`:''}`:`<small class="${state.error?'loyalty-error':''}" role="status">${state.error||'กำลังอ่านแต้ม…'}</small>`}
+    ${readOnly?'':`<div class="loyalty-redeem-row"><button class="btn ghost small" data-redeem-loyalty type="button" ${!account||!eligible||Number(account.balance)<=0?'disabled':''}>ใช้แต้มเป็นส่วนลด</button>${saleLoyaltySelection?'<button class="btn ghost small" data-clear-loyalty type="button">ยกเลิกใช้แต้ม</button>':''}</div><small>${redeemed?`ใช้ ${redeemed} แต้ม ลด ${fmtMoney(redeemed)} บาท (รวมในส่วนลดแล้ว)`:'ใช้แต้มได้เมื่อยอดหลังส่วนลดอื่นถึง 1,000 บาท'}</small>`}
+  </div>`;
+}
+function refreshCustomerLoyaltyPanel(){
+  const host=document.getElementById('customerLoyaltyPanel');if(!host) return;
+  const readOnly=host.dataset.readonly==='true';
+  const customer=readOnly?customersList().find(c=>String(c.id)===String(customerHistoryView?.id)):activeSaleCustomer();
+  host.innerHTML=customerLoyaltyPanelHtml(customer,readOnly);bindCustomerLoyaltyEvents();
+}
+function bindCustomerLoyaltyEvents(){
+  document.querySelectorAll('[data-refresh-loyalty]').forEach(button=>button.onclick=()=>{customerLoyaltyState=null;refreshCustomerLoyaltyPanel();});
+  document.querySelectorAll('[data-clear-loyalty]').forEach(button=>button.onclick=()=>{saleLoyaltySelection=null;render();});
+  document.querySelectorAll('[data-redeem-loyalty]').forEach(button=>button.onclick=openLoyaltyRedemption);
+}
+async function openLoyaltyRedemption(){
+  const customer=activeSaleCustomer();if(!customer?.id) return;
+  const state=loadCustomerLoyalty([customer.id],true);await state.promise;
+  if(String(activeSaleCustomer()?.id)!==String(customer.id)||currentTab!=='checkout') return;
+  const account=state.data?.[0];if(!account){showToast(state.error,'danger-top');return;}
+  const limit=loyaltyRedemptionLimit(cartTaxSummary(applyPromotions(cart),saleDiscount).total,account.balance);
+  if(!limit){showToast('ยอดซื้อต้องถึง 1,000 บาท และมีแต้มคงเหลือก่อนใช้แต้ม','warning-top');return;}
+  const overlay=document.createElement('div');overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal loyalty-modal" role="dialog" aria-modal="true" aria-labelledby="loyaltyRedeemTitle"><div class="modal-head"><h3 id="loyaltyRedeemTitle">ใช้แต้มเป็นส่วนลด</h3><button class="modal-close" aria-label="ปิด">×</button></div><div class="loyalty-modal-body"><p>${escapeHtml(customer.name)} · ใช้ได้สูงสุด ${limit} แต้ม</p><label for="loyaltyPointsInput">จำนวนแต้ม (1 แต้ม = 1 บาท)</label><input id="loyaltyPointsInput" type="number" min="0" max="${limit}" step="1" value="${Math.min(limit,Number(saleLoyaltySelection?.points)||0)}"><small>แต้มหมดอายุ ${escapeHtml(fmtDateShort(account.expiresOn))}</small><div class="form-final-actions" style="display:flex;gap:8px;justify-content:flex-end;"><button class="btn ghost" id="loyaltyUseMax">ใช้สูงสุด</button><button class="btn primary" id="loyaltyApply">ยืนยัน</button></div></div></div>`;
+  document.body.appendChild(overlay);const input=overlay.querySelector('#loyaltyPointsInput');
+  overlay.querySelector('.modal-close').onclick=()=>overlay.remove();
+  overlay.querySelector('#loyaltyUseMax').onclick=()=>{input.value=limit;};
+  overlay.querySelector('#loyaltyApply').onclick=()=>{
+    const points=Number(input.value);
+    if(!Number.isInteger(points)||points<0||points>limit){showToast(`กรอกจำนวนเต็มตั้งแต่ 0 ถึง ${limit} แต้ม`,'warning-top');return;}
+    if(String(activeSaleCustomer()?.id)!==String(customer.id)){overlay.remove();return;}
+    saleLoyaltySelection=points?{customerId:customer.id,points,periodStart:account.periodStart}:null;
+    overlay.remove();render();
+  };
+  input.focus();input.select();
+}
+function saleLoyaltySummaryHtml(sale){
+  const points=sale?.loyalty;if(!points) return '';
+  return `<div class="sale-loyalty-summary"><div>ได้รับ ${escapeHtml(points.earned)} แต้ม · ใช้ ${escapeHtml(points.redeemed)} แต้ม</div><div>แต้มคงเหลือหลังบิลนี้ ${escapeHtml(points.balanceAfter)} แต้ม</div><div>หมดอายุ ${escapeHtml(fmtDateShort(points.expiresOn))}</div></div>`;
+}
 function customerPurchaseLoad(ids,view=null){
   const today=currentDateStr();
   const params={p_customer_ids:ids.map(String),p_year:Number(view?.year||today.slice(0,4)),p_month:view?.mode==='month'?Number(view.month):null,p_page:view?.page||1,p_include_bills:!!view,p_warehouse_id:Number(activeWarehouseId)||null};
@@ -10867,6 +10961,7 @@ function renderCustomerPurchaseHistory(){
       <section><span>ยอดซื้อสุทธิ${view.mode==='month'?'เดือน '+String(view.month).padStart(2,'0')+'/':'ปี '}${view.year}</span><strong>${money(summary?.periodTotal)}</strong><small>${summary?`${summary.periodBills} บิลสำเร็จ`:''}</small></section>
       <section><span>ระดับปัจจุบัน</span><div>${customerTierHtml(state,customer.id)}</div><small>${data?`ยอดซื้อปี ${data.currentYear} ${fmtMoney(summary?.currentYearTotal||0)} ÷ ${data.elapsedMonths} เดือน`:''}</small></section>
     </div>
+    <div id="customerLoyaltyPanel" data-readonly="true">${customerLoyaltyPanelHtml(customer,true)}</div>
     <div class="customer-purchase-filters">
       <label>แสดงประวัติ<select id="customerHistoryMode"><option value="month" ${view.mode==='month'?'selected':''}>รายเดือน</option><option value="year" ${view.mode==='year'?'selected':''}>รายปี</option></select></label>
       <label>ปี (ค.ศ.)<input id="customerHistoryYear" type="number" min="1900" max="9998" step="1" value="${view.year}"></label>
@@ -10880,6 +10975,7 @@ function renderCustomerPurchaseHistory(){
   </div>`;
 }
 function attachCustomerPurchaseEvents(){
+  bindCustomerLoyaltyEvents();
   document.querySelectorAll('.navbtn').forEach(button=>{
     if(button.dataset.customerHistoryReset) return;
     button.dataset.customerHistoryReset='1';
@@ -11002,6 +11098,7 @@ function sellQuotationAtPos(id){
   const customer=customersList().find(item=>String(item.id)===String(quotation.customerInfo?.id));
   saleMember=customer?customerSaleSnapshot(customer):{...(quotation.customerInfo||{}),name:quotation.customer||quotation.customerInfo?.name||'',defaultDocument:customerDefaultDocument(quotation.customerInfo)};
   cart=nextCart;
+  saleLoyaltySelection=null;customerLoyaltyState=null;
   saleDiscount=Number(quotation.discount)||0;
   saleSourceQuotationId=quotation.id;
   currentTab='checkout';
@@ -14036,6 +14133,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   // --- contacts ---
   attachCustomerPurchaseEvents();
+  bindCustomerLoyaltyEvents();
   document.querySelectorAll('[data-cfilter]').forEach(el=>{
     el.addEventListener('click', ()=>{ contactFilter=el.dataset.cfilter; contactPage=1; searchQuery=''; render(); });
   });
@@ -16948,6 +17046,7 @@ async function resumeHold(billId){
     cart=JSON.parse(JSON.stringify(bill.cartSnapshot||[]));
     saleDiscount=bill.discount||0;
     saleMember=bill.member||null;
+    saleLoyaltySelection=null;customerLoyaltyState=null;
     saleSourceQuotationId=bill.sourceQuotationId||null;
     saleRef=bill.ref;
     const idx=salesHistory.indexOf(bill);
@@ -18289,6 +18388,12 @@ function printShortReceipt(saleId,historical=false){
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>พิมพ์ - ${escapeHtml(receiptNo)}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>@page{size:80mm auto;margin:0}*{box-sizing:border-box}body{margin:0;background:#F0F0F0;color:#111;font-family:'Sarabun',sans-serif}.bar{position:sticky;top:0;z-index:5;background:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px #0002}.bar button{border:0;border-radius:7px;background:#4F4038;color:#fff;padding:8px 15px;font-family:inherit;font-weight:600}.receipt{position:relative;width:80mm;min-height:250mm;margin:12px auto;background:#fff;padding:24mm 8mm 15mm;box-shadow:0 4px 20px #0002}.copy-label{text-align:center;color:#4F4038;font-weight:700;font-size:10pt;margin-bottom:2mm}.center{text-align:center}.store{font-size:11pt;line-height:1.35}.store h2{font-size:14pt;margin:0 0 2px}.rule{border-top:1px solid #111;margin:7mm 0 4mm}.dash{border-top:1px dashed #111;margin:4mm 0}.title{font-weight:700;font-size:12pt}.meta{display:grid;grid-template-columns:25mm 1fr;gap:1mm;font-size:10pt;margin-top:4mm}.meta b{font-weight:600}.item{display:grid;grid-template-columns:minmax(0,1fr) 19mm;gap:2mm;align-items:start;padding:2mm 0;font-size:9.5pt}.item b{display:block;font-weight:500}.item small{display:block}.receipt-promo-tag{color:#4F4038;font-weight:600;}.item strong{text-align:right;font-weight:500}.summary{font-size:10pt}.summary>div{display:flex;justify-content:space-between;padding:1mm 0}.summary .total{font-size:12pt;font-weight:700;border-top:1px solid #111;border-bottom:3px double #111;padding:2mm 0}.vat{font-size:14pt;font-weight:700;margin:5mm 0}.footer{font-size:9pt}@media print{body{background:#fff}.bar{display:none}.receipt{margin:0;box-shadow:none;width:80mm;min-height:0}}</style></head><body><div class="bar"><span>ตัวอย่างใบเสร็จ 80 มม.</span><button onclick="window.print()">พิมพ์</button></div><div class="receipt"><div class="center store"><h2>${escapeHtml(businessDocumentName(receiptBusiness,STORE_INFO.name,{registered}))}</h2><div>${escapeHtml(receiptBusiness.address||STORE_INFO.address)}</div>${(receiptBusiness.taxId||STORE_INFO.taxId)?`<br><div><b>เลขผู้เสียภาษี</b> ${escapeHtml(receiptBusiness.taxId||STORE_INFO.taxId)}</div>`:''}${(receiptBusiness.website||STORE_INFO.website)?`<div><b>เว็บไซต์</b> ${escapeHtml(receiptBusiness.website||STORE_INFO.website)}</div>`:''}</div><div class="rule"></div><div class="title">${registered?'ใบกำกับภาษีอย่างย่อ/ใบเสร็จรับเงิน':'ใบเสร็จรับเงิน'}</div><div>${escapeHtml(receiptNo)}</div><div class="dash"></div><div class="meta"><b>พนักงานขาย</b><span>${escapeHtml(sale.cashier||loggedInUser()?.firstName||'')}</span><b>วันที่</b><span>${fmtDateShort(sale.date)} ${escapeHtml((sale.time||'').slice(11))}</span><b>ชำระโดย</b><span>${escapeHtml(sale.payMethod||'-')}</span></div><div class="rule"></div>${rows}<div class="dash"></div><div class="summary"><div><b>จำนวนรวม</b><b>${itemCount}</b></div><div><span>จำนวนเงินหลังหักส่วนลด</span><b>${fmtMoney(afterDiscount)}</b></div>${registered?`<div><span>ราคาไม่รวมภาษีมูลค่าเพิ่ม</span><b>${fmtMoney(beforeVat)}</b></div><div><span>ภาษีมูลค่าเพิ่ม 7%</span><b>${fmtMoney(vat)}</b></div>`:''}${sale.fee?`<div><span>ค่าธรรมเนียมบัตร</span><b>${fmtMoney(sale.fee)}</b></div>`:''}<div class="total"><span>รวมทั้งสิ้น</span><b>${fmtMoney(sale.total)}</b></div></div>${registered?'<div class="center vat">VAT INCLUDED</div>':''}<div class="dash"></div><div class="center footer">ขอบคุณที่ใช้บริการ${businessPrimaryPhone(receiptBusiness)?`<br>${escapeHtml(businessPrimaryPhone(receiptBusiness))}`:''}</div></div></body></html>`);
   win.document.close();
   const receiptFooter=win.document.querySelector('.footer');
+  if(receiptFooter&&sale.loyalty){
+    const loyalty=win.document.createElement('div');
+    loyalty.style.cssText='font-size:9pt;text-align:center;margin:3mm 0';
+    loyalty.innerHTML=saleLoyaltySummaryHtml(sale);
+    receiptFooter.before(loyalty);
+  }
   if(receiptFooter&&receiptBusiness.line){
     const line=win.document.createElement('div');
     line.textContent=`LINE ${receiptBusiness.line}`;
@@ -18330,7 +18435,8 @@ async function doCheckout(payMethod,options={}){
     items.push({lineKey:String(idx+1),productId:l.pid||null,warehouseId:Number(activeWarehouseId)||null,name:l.name,qty:l.qty,baseQty:(Number(l.qty)||0)*(Number(l.factor)||1),price:Number(l.price)||0,regularPrice:Number(l.regularPrice??l.price)||0,priceSource:l.priceSource||'standard',customerPriceRuleId:l.customerPriceRuleId||null,sourceQuotationId:l.sourceQuotationId||null,cost:costSnapshot.cost,costTotal:costSnapshot.costTotal,costSource:costSnapshot.costSource,unit:l.unit,factor:l.factor||0,custom:!!l.custom,
       promoId:promoLine.promoId||null,promoName:promoLine.promoName||'',lineTotal,lineTotalGross,vatMode,promoFreeQty:promoLine.promoFreeQty||0,dispensingLabel:normalizeDispensingLabel(l.dispensingLabel)});
   });
-  const itemTaxSummary=calculateSaleTaxSummary(items.map(item=>({amount:item.lineTotal,vatMode:item.vatMode})),saleDiscount,vatRegistered);
+  const loyaltyRedeemed=effectiveLoyaltyRedemption(promoResult);
+  const itemTaxSummary=calculateSaleTaxSummary(items.map(item=>({amount:item.lineTotal,vatMode:item.vatMode})),Number(saleDiscount)+loyaltyRedeemed,vatRegistered);
   const fee = Math.max(0,Number(options.fee)||0);
   const feeTaxSummary=calculateSaleTaxSummary(fee?[{amount:fee,vatMode:vatRegistered?'incl':'none'}]:[],0,vatRegistered);
   const roundMoney=value=>Math.round((Number(value)||0)*100)/100;
@@ -18341,6 +18447,8 @@ async function doCheckout(payMethod,options={}){
   const selectedCustomer=activeSaleCustomer();
   const saleDraft={warehouseId:Number(activeWarehouseId)||null,warehouseName:activeWarehouse()?.name||'',cashier:loggedInUser()?.firstName||employees[0],member:saleMember,customerId:selectedCustomer?.id||saleMember?.id||null,customerName:selectedCustomer?.name||saleMember?.name||'',defaultDocument:customerDefaultDocument(selectedCustomer||saleMember),sourceQuotationId:saleSourceQuotationId||null,status:'done',payMethod:payMethod||'เงินสด',items,medicineLabelSize,discount,vat:taxSummary.vat,vatRegistered,taxSummary,businessSnapshot:businessDocumentSnapshot(),fee,costTotal,grossProfit:roundMoney(taxSummary.beforeVat-costTotal),cashReceived:options.cashReceived||0,cashChange:options.cashChange||0,total:grand};
   checkoutInFlight=true;
+  saleDraft.loyaltyRedeemed=loyaltyRedeemed;
+  saleDraft.loyaltyPeriodStart=loyaltyRedeemed?saleLoyaltySelection?.periodStart:null;
   const checkoutButton=document.getElementById('checkoutBtn');
   if(checkoutButton){ checkoutButton.disabled=true; checkoutButton.textContent='กำลังบันทึก...'; }
   let completedSale;
@@ -18368,11 +18476,13 @@ async function doCheckout(payMethod,options={}){
     const definitiveFailure=!!String(error?.code||'').trim()||message.includes('cash shift required')||message.includes('is inactive');
     if(definitiveFailure) clearCheckoutRequestId(requestContext?.id||'');
     else restorePendingCheckoutUi(requestContext);
+    const loyaltyFailure=definitiveFailure&&message.includes('LOYALTY_');
+    if(loyaltyFailure){saleLoyaltySelection=null;customerLoyaltyState=null;}
     if(message.includes('cash shift required')){ currentCashShift=null; currentTab='cashshift'; await loadCashShiftsFromSupabase(); }
     checkoutInFlight=false;
     render();
     const checkoutErrorMessage=message.includes('cash shift required')?'ระบบชำระถูกปิดไปแล้ว กรุณาเปิดระบบใหม่':message.includes('is inactive')?'มีสินค้าถูกปิดใช้งาน กรุณารีเฟรชและลบสินค้านั้นออกจากบิล':lowerMessage.includes('customer special price')?'ราคาพิเศษของลูกค้ายังไม่ตรงกับข้อมูลบนระบบ กรุณาเปิดสมุดรายชื่อแล้วบันทึกราคาพิเศษอีกครั้ง':lowerMessage.includes('product price changed')?'ราคาสินค้าเปลี่ยนแล้ว กรุณาล้างรายการเดิมและยิงสินค้าใหม่':lowerMessage.includes('payload')?'มีคำขอชำระเดิมค้างอยู่ ระบบจะไม่สร้างคำขอใหม่ กรุณาตรวจสอบบิลเดิม':definitiveFailure?(message||'ระบบปฏิเสธรายการ กรุณาตรวจข้อมูลแล้วลองใหม่'):'ยังไม่ได้รับการยืนยันจากระบบ กรุณากดชำระซ้ำ ระบบจะใช้คำขอเดิมและไม่สร้างบิลซ้ำ';
-    showToast(checkoutErrorMessage,'danger-top');
+    showToast(loyaltyFailure?'ใช้แต้มไม่สำเร็จ ยอดแต้มอาจเปลี่ยนหรือหมดอายุ กรุณาตรวจแต้มและเลือกใหม่อีกครั้ง':checkoutErrorMessage,'danger-top');
     return;
   }
   const existingSaleIndex=salesHistory.findIndex(sale=>sale.id===completedSale.id);
@@ -18382,6 +18492,7 @@ async function doCheckout(payMethod,options={}){
     if(quotation){ quotation.status='ขายแล้ว'; quotation.saleId=completedSale.id; quotation.soldAt=auditNow(); persistQuotations(); }
   }
   cart = []; saleDiscount = 0; saleMember = null; saleSourceQuotationId=null; pendingQty = 1;
+  saleLoyaltySelection=null;customerLoyaltyState=null;customerPurchaseState=null;
   saleRef = nextSaleRef();
   checkoutInFlight=false;
   const pendingLotQty=(completedSale.items||[]).flatMap(item=>item.lotAllocations||[]).filter(allocation=>allocation.pendingLot).reduce((sum,allocation)=>sum+(Number(allocation.baseQty)||0),0);

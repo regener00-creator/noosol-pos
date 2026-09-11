@@ -2360,3 +2360,14 @@
     .representative-products-selected>div{grid-template-columns:repeat(2,minmax(0,1fr));}
   }
   @media(max-width:620px){.representative-history-filter-minimal,.representative-profile-panel,.representative-editor-grid,.representative-products-selected>div,.representative-note-inline-fields{grid-template-columns:1fr;}.representative-history-search,.representative-editor-note{grid-column:auto;}.representative-history-search-row{grid-template-columns:minmax(0,1fr) auto;}.representative-activity-grid,.representative-activity-timeline,.representative-groups-grid,.representative-activity-items-editor-head,.representative-managed-product-selection-grid{grid-template-columns:1fr;}.representative-activity-wide,.representative-activity-product-picker,.representative-activity-item-condition{grid-column:auto;}.representative-activity-items-editor{padding:9px;}.representative-profile-field,.representative-profile-field:nth-child(2n),.representative-profile-field:nth-child(3n){border-right:0;border-bottom:1px solid var(--border);}.representative-profile-field:last-child{border-bottom:0;}}
+/* Customer anniversary points: compact in POS, shared with customer history. */
+.loyalty-panel{border:1px solid #dcd4cd;background:#faf8f5;border-radius:12px;padding:12px 14px;margin:8px 0;color:#4f4038}
+.loyalty-panel-head,.loyalty-redeem-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.loyalty-panel small{display:block;color:#7b7069;margin-top:6px;line-height:1.5}
+.loyalty-balance{display:block;font-size:23px;margin:4px 0}
+.loyalty-redeem-row{justify-content:flex-start;margin-top:10px}
+.loyalty-panel .loyalty-error{color:#b42318}
+.loyalty-modal{width:min(460px,calc(100vw - 24px))}
+.loyalty-modal-body{padding:20px;display:grid;gap:14px}
+.loyalty-modal-body input{width:100%;font-size:22px;min-height:48px}
+.sale-loyalty-summary{font-size:13px;line-height:1.6}
