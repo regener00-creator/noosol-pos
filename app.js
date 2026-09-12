@@ -3661,6 +3661,7 @@ let taxInvoiceAddingCustomer = false;
 let editingQuotationId=null;
 let standaloneTaxInvoices=[];
 let cashBillLookupOpen=false;
+let cashBillOrderNumberDraft='';
 const TAX_INVOICE_STORAGE_KEY='pharmacy_pos_standalone_tax_invoices_v1';
 try{ const savedTaxDocs=JSON.parse(localStorage.getItem(TAX_INVOICE_STORAGE_KEY)||'null'); if(Array.isArray(savedTaxDocs)) standaloneTaxInvoices=savedTaxDocs; }catch(error){ console.warn('ไม่สามารถโหลดใบกำกับภาษีที่สร้างใหม่ได้',error); }
 function persistStandaloneTaxInvoices(){ persistWorkspaceData(); }
@@ -6184,7 +6185,7 @@ function renderHistory(){
     <div class="sales-history-table-wrap">
     <table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-bill"><col class="ht-customer"><col class="ht-time"><col class="ht-items"><col class="ht-total"><col class="ht-pay"><col class="ht-status"><col class="ht-actions"></colgroup><thead><tr><th>วันที่</th><th>เลขที่บิล</th><th>ลูกค้า</th><th>เวลา</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th><th>สถานะ</th><th></th></tr></thead>
     <tbody>${pageRows.length? pageRows.map(s=>`<tr>
-      <td>${fmtDate(s.date)}</td><td class="mono">${escapeHtml(s.ref||s.id)}</td>
+      <td>${fmtDate(s.date)}</td><td class="mono">${escapeHtml(s.ref||s.id)}${currentTab==='cashbill'?` <button class="history-icon-btn" type="button" data-copy-bill="${escapeHtml(s.ref||s.id)}" title="คัดลอกเลขบิล" aria-label="คัดลอกเลขบิล ${escapeHtml(s.ref||s.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></svg></button>`:''}</td>
       <td>${escapeHtml(saleHistoryCustomerDisplay(s))}</td>
       <td>${saleHistoryTimeDisplay(s.time)}</td>
       <td class="history-items-cell">${salesHistoryItemsPreview(s.items)}</td>
@@ -6202,14 +6203,14 @@ function renderPOSSalesHistoryModal(){
   posSalesHistoryOnDemandState=state;
   const unavailable=state.status==='loading'||state.status==='error'||(state.status==='truncated'&&state.blocking);
   const content=unavailable?onDemandStateHtml(state):`${state.status==='truncated'?onDemandStateHtml(state):''}${renderHistory()}`;
-  return `<div class="modal-overlay pos-sales-history-overlay"><section class="modal pos-sales-history-modal" role="dialog" aria-modal="true" aria-labelledby="posSalesHistoryTitle"><div class="modal-head"><div><h3 id="posSalesHistoryTitle">ประวัติการขาย</h3><div class="sub">ดูรายการขายโดยไม่ออกจากหน้า POS</div></div><button class="modal-close" id="closePOSSalesHistoryBtn" type="button" aria-label="ปิด">×</button></div><div class="pos-sales-history-body">${content}</div><div class="pos-sales-history-actions"><button class="btn primary" id="closePOSSalesHistoryBottomBtn" type="button">ปิด</button></div></section></div>`;
+  return `<div class="modal-overlay pos-sales-history-overlay"><section class="modal pos-sales-history-modal" role="dialog" aria-modal="true" aria-labelledby="posSalesHistoryTitle"><div class="modal-head"><div><h3 id="posSalesHistoryTitle">ประวัติการขาย</h3><div class="sub">${currentTab==='cashbill'?'คัดลอกเลขบิล แล้วปิดหน้าต่างเพื่อกลับไปสร้างบิลเงินสด':'ดูรายการขายโดยไม่ออกจากหน้า POS'}</div></div><button class="modal-close" id="closePOSSalesHistoryBtn" type="button" aria-label="ปิด">×</button></div><div class="pos-sales-history-body">${content}</div><div class="pos-sales-history-actions"><button class="btn primary" id="closePOSSalesHistoryBottomBtn" type="button">ปิด</button></div></section></div>`;
 }
 
 function renderCashBillLookup(){
   return `<div class="pagehead"><div><div class="breadcrumb">บิลเงินสด › สร้างบิลเงินสด</div><h1>สร้างบิลเงินสด</h1></div><div class="form-final-actions"><button class="btn ghost" id="closeCashBillLookupBtn">ปิดหน้าต่าง</button></div></div>
-    <div class="po-head"><div class="po-head-left"><div class="crow"><label>เลขออเดอร์ / เลขที่บิล <span class="req">*</span></label><div class="po-supplier-pick"><input id="cash_bill_order_number" placeholder="กรอกเลขออเดอร์ เลขที่บิล หรือเลขที่ใบเสร็จ" autocomplete="off"><button class="btn primary" id="searchCashBillOrderBtn" type="button">ค้นหาออเดอร์</button></div></div><div class="po-addr" style="margin-top:12px;">เลือกได้เฉพาะรายการที่ชำระเงินเรียบร้อยแล้ว ระบบจะใช้รายการและยอดขายเดิม</div></div>
+    <div class="po-head"><div class="po-head-left"><div class="crow"><label>เลขออเดอร์ / เลขที่บิล <span class="req">*</span></label><div class="po-supplier-pick"><input id="cash_bill_order_number" value="${escapeHtml(cashBillOrderNumberDraft)}" placeholder="กรอกเลขออเดอร์ เลขที่บิล หรือเลขที่ใบเสร็จ" autocomplete="off"><button class="btn ghost" id="searchCashBillOrderBtn" type="button">ค้นหาออเดอร์</button><button class="btn primary" id="continueCashBillOrderBtn" type="button">ดำเนินการต่อ</button></div></div><div class="po-addr" style="margin-top:12px;">เลือกได้เฉพาะรายการที่ชำระเงินเรียบร้อยแล้ว ระบบจะใช้รายการและยอดขายเดิม</div></div>
       <div class="po-head-right"><div class="po-total-label">ขั้นตอนการออกบิลเงินสด</div><div style="line-height:1.8;color:var(--text-muted);font-size:13px;margin-top:8px;">1. กรอกเลขออเดอร์<br>2. กรอกข้อมูลผู้ซื้อ (ถ้ามี)<br>3. พิมพ์เอกสาร A4</div></div></div>
-    <div class="panel" style="border-color:#DDCEC8;background:#FAF6F4;color:var(--primary-dark);">บิลเงินสดเป็นเอกสารรับเงิน ไม่ใช่ใบกำกับภาษี และการสร้างเอกสารจะไม่เพิ่มยอดขายหรือตัดสต๊อกซ้ำ</div>`;
+    <div class="panel" style="border-color:#DDCEC8;background:#FAF6F4;color:var(--primary-dark);">บิลเงินสดเป็นเอกสารรับเงิน ไม่ใช่ใบกำกับภาษี และการสร้างเอกสารจะไม่เพิ่มยอดขายหรือตัดสต๊อกซ้ำ</div>${posSalesHistoryModalOpen?renderPOSSalesHistoryModal():''}`;
 }
 
 function renderCashBills(){
@@ -12935,10 +12936,10 @@ function ensureOnDemandDataForTab(tab){
     documentsNeeded.forEach(item=>tasks.push(loadDocumentTableFromSupabase(item.table,item)));
     const job=Promise.all(tasks).then(()=>{
       onDemandTabJobs.delete(key); onDemandTabErrors.delete(key);
-      if(currentProfile&&(currentTab===tab||(tab==='history'&&currentTab==='checkout'&&posSalesHistoryModalOpen))) render();
+      if(currentProfile&&(currentTab===tab||(tab==='history'&&posSalesHistoryModalOpen&&(currentTab==='checkout'||currentTab==='cashbill')))) render();
     }).catch(error=>{
       onDemandTabJobs.delete(key); onDemandTabErrors.set(key,error);
-      if(currentProfile&&(currentTab===tab||(tab==='history'&&currentTab==='checkout'&&posSalesHistoryModalOpen))) render();
+      if(currentProfile&&(currentTab===tab||(tab==='history'&&posSalesHistoryModalOpen&&(currentTab==='checkout'||currentTab==='cashbill')))) render();
     });
     onDemandTabJobs.set(key,job);
   }
@@ -12997,7 +12998,7 @@ function render(){
   if(mobileMode) currentTab='mobiletools';
   else if(currentTab==='mobiletools') currentTab='dashboard';
   if(currentTab==='purchaseorder2') currentTab='purchaseorder';
-  if(currentTab!=='checkout') posSalesHistoryModalOpen=false;
+  if(currentTab!=='checkout'&&!(currentTab==='cashbill'&&cashBillLookupOpen)) posSalesHistoryModalOpen=false;
   if(!canAccessTab(currentTab)){
     currentTab='dashboard';
     addingSystemUser=false; editingSystemUserId=null;
@@ -14253,10 +14254,13 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   }));
   const histBtn = document.getElementById('histBtn');
   if(histBtn) histBtn.addEventListener('click', ()=>{ posSalesHistoryModalOpen=true; render(); });
-  const closePOSSalesHistory=()=>{ posSalesHistoryModalOpen=false; render(); };
+  const closePOSSalesHistory=()=>{ posSalesHistoryModalOpen=false; render(); document.getElementById(currentTab==='cashbill'?'cash_bill_order_number':'histBtn')?.focus(); };
   document.getElementById('closePOSSalesHistoryBtn')?.addEventListener('click',closePOSSalesHistory);
   document.getElementById('closePOSSalesHistoryBottomBtn')?.addEventListener('click',closePOSSalesHistory);
   document.querySelector('.pos-sales-history-overlay')?.addEventListener('mousedown',event=>{ if(event.target===event.currentTarget) closePOSSalesHistory(); });
+  document.querySelector('.pos-sales-history-overlay')?.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){ event.preventDefault(); event.stopPropagation(); closePOSSalesHistory(); }
+  });
   // --- footer buttons ---
   const clearBillBtn = document.getElementById('clearBillBtn');
   if(clearBillBtn) clearBillBtn.addEventListener('click', clearBill);
@@ -14276,12 +14280,24 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const newTaxInvoiceBtn=document.getElementById('newTaxInvoiceBtn');
   if(newTaxInvoiceBtn) newTaxInvoiceBtn.addEventListener('click',openNewTaxInvoiceForm);
   const newCashBillBtn=document.getElementById('newCashBillBtn');
-  if(newCashBillBtn) newCashBillBtn.addEventListener('click',()=>{ cashBillLookupOpen=true; render(); });
+  if(newCashBillBtn) newCashBillBtn.addEventListener('click',()=>{ cashBillLookupOpen=true; cashBillOrderNumberDraft=''; render(); });
   const closeCashBillLookupBtn=document.getElementById('closeCashBillLookupBtn');
   if(closeCashBillLookupBtn) closeCashBillLookupBtn.addEventListener('click',()=>{ cashBillLookupOpen=false; render(); });
   const searchCashBillOrderBtn=document.getElementById('searchCashBillOrderBtn');
-  if(searchCashBillOrderBtn) searchCashBillOrderBtn.addEventListener('click',searchCashBillOrder);
+  if(searchCashBillOrderBtn) searchCashBillOrderBtn.addEventListener('click',()=>{ posSalesHistoryModalOpen=true; render(); document.getElementById('closePOSSalesHistoryBtn')?.focus(); });
+  document.getElementById('continueCashBillOrderBtn')?.addEventListener('click',searchCashBillOrder);
+  document.querySelectorAll('[data-copy-bill]').forEach(button=>button.addEventListener('click',async()=>{
+    const number=button.dataset.copyBill;
+    try{
+      await navigator.clipboard.writeText(number);
+      cashBillOrderNumberDraft=number;
+      const input=document.getElementById('cash_bill_order_number');
+      if(input) input.value=number;
+      showToast('คัดลอกเลขบิลแล้ว');
+    }catch(error){ showToast('คัดลอกไม่สำเร็จ กรุณาลากเลือกเลขบิลแล้วคัดลอกเอง','danger'); }
+  }));
   const cashBillOrderNumber=document.getElementById('cash_bill_order_number');
+  cashBillOrderNumber?.addEventListener('input',()=>{ cashBillOrderNumberDraft=cashBillOrderNumber.value; });
   if(cashBillOrderNumber) cashBillOrderNumber.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); searchCashBillOrder(); } });
   document.querySelectorAll('[data-cashbill-edit]').forEach(button=>button.addEventListener('click',()=>openA4CashReceiptModal(button.dataset.cashbillEdit)));
   document.querySelectorAll('[data-cashbill-print]').forEach(button=>button.addEventListener('click',()=>printA4CashReceipt(button.dataset.cashbillPrint)));
