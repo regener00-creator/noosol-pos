@@ -6545,7 +6545,7 @@ function renderQuotationForm(){
   const subtotal=tax.subtotal,total=tax.total;
   return `<div class="pagehead"><div><div class="breadcrumb">ใบเสนอราคา › สร้างใบเสนอราคา</div><h1>ใบเสนอราคา</h1><div class="sub mono">${escapeHtml(draft.number||'')}</div></div></div>
     <div class="po-head"><div class="po-head-left">
-      <div class="crow tax-customer-picker-row"><div class="po-supplier-pick">${documentPartyFieldHtml('tax_customer_select',draft.customerId,'customer')}<button class="btn ghost small" id="addTaxCustomerBtn" type="button">+ เพิ่มลูกค้า</button></div></div>
+      <div class="crow tax-customer-picker-row"><div class="po-supplier-pick">${documentPartyFieldHtml('tax_customer_select',draft.customerId,'customer')}</div></div>
       <div class="po-supplier-edit tax-customer-details" style="margin-top:10px;">${taxInvoiceAddingCustomer?'<div class="po-supplier-edit-title"><span>เพิ่มลูกค้าใหม่</span><span style="font-size:11px;color:var(--text-muted);font-weight:400;">บันทึกแล้วจะเพิ่มในสมุดรายชื่อทันที</span></div>':''}<div class="po-supplier-edit-grid">
         <div><label>ชื่อลูกค้า/บริษัท *</label><input id="tax_form_customer_name" value="${escapeHtml(draft.name||'')}"></div><div><label>เลขผู้เสียภาษี *</label><input id="tax_form_customer_taxid" value="${escapeHtml(draft.taxId||'')}" maxlength="13"></div>
         <div><label>สถานประกอบการ</label><input id="tax_form_customer_branch" value="${escapeHtml(draft.branch||'')}" placeholder="เช่น สำนักงานใหญ่ หรือ สาขา..."></div><div><label>เลขที่สาขา</label><input id="tax_form_customer_branch_no" value="${escapeHtml(draft.branchNo||'')}" maxlength="5"></div>
@@ -6695,7 +6695,7 @@ function renderPOForm(kind='po'){
   const docLabel=docLabelText(kind);
   if(kind==='gr'&&!Number(po.warehouseId)) po.warehouseId=goodsReceiptWarehouseId(po);
   const supplierObj = suppliersList().find(s=>s.name===po.supplier);
-  const canEditSupplierInline=kind!=='gr'||loggedInUser()?.owner===true;
+  const canEditSupplierInline=kind!=='gr';
   const discount = po.discount||0;
   const tax = calculatePurchaseTaxSummary(po.items,discount,po.taxMode);
   const dueDate = addDaysToDate(po.date,po.credit||0);
