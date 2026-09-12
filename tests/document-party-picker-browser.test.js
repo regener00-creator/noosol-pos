@@ -79,6 +79,16 @@ let browser;
   });
   const customerTrigger=page.locator('[data-party-field="tax_customer_select"]');
   assert.equal(await page.locator('select#tax_customer_select').count(),0);
+  assert.equal(await page.locator('#po_due').count(),0,'quotation form has no due-date field');
+  assert.ok(!(await page.locator('.po-head-right').innerText()).includes('ครบกำหนด'));
+  const quotationHeader=await page.locator('.po-head-right').evaluate(header=>({
+    dateBottom:header.querySelector('.crow').getBoundingClientRect().bottom,
+    totalTop:header.querySelector('.po-total-label').getBoundingClientRect().top
+  }));
+  assert.ok(quotationHeader.dateBottom<=quotationHeader.totalTop,'quotation date appears above total');
+  await page.locator('#po_date').fill('12/09/2026');
+  await page.locator('#po_date').press('Tab');
+  assert.equal(await page.evaluate(()=>taxInvoiceDraft.date),'2026-09-12');
   await page.locator('#po_note').fill('หมายเหตุใบเสนอราคา');
   await customerTrigger.click();
   assert.equal(await page.locator('.document-party-item').count(),2,'only customer contacts are offered');
@@ -121,6 +131,7 @@ let browser;
   await page.locator('#saveQuotationBtn').press('Enter');
   assert.equal(await page.evaluate(()=>quotations.find(q=>q.id==='QT-TEST')?.customerInfo.line),'saved.line');
   await page.evaluate(()=>openQuotationForm('QT-TEST'));
+  assert.equal(await page.locator('#po_due').count(),0,'due date stays hidden when editing');
   assert.equal(await page.locator('#tax_form_customer_line').inputValue(),'saved.line');
   assert.equal(await page.locator('input[name="quotation_customer_entity"][value="individual"]').isChecked(),true);
   await page.evaluate(()=>{
