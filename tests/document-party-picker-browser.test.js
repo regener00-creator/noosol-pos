@@ -154,6 +154,32 @@ let browser;
     assert.ok(dimensions.buttons.every(right=>right<=dimensions.right),JSON.stringify({width,...dimensions}));
   }
   if(process.env.PEPOS_QUOTATION_LIST_SCREENSHOT) await page.locator('#main').screenshot({path:process.env.PEPOS_QUOTATION_LIST_SCREENSHOT});
+  // POS customer/member picker: three names per desktop row, including search results.
+  await page.evaluate(()=>{
+    contacts=Array.from({length:7},(_,index)=>({id:index+1,name:'ลูกค้าทดสอบ '+(index+1),types:['customer'],phone:'0891234567',customerPrices:index===0?[{id:'test-rule',productId:99,unit:'ชิ้น',price:8}]:[]}));
+    saleMember=null;cart=[];openPOSCustomerPicker();
+  });
+  for(const width of [1440,1024]){
+    await page.setViewportSize({width,height:950});
+    const layout=await page.locator('#posCustomerPickerRows').evaluate(grid=>({
+      tops:[...grid.children].map(item=>Math.round(item.getBoundingClientRect().top)),
+      width:grid.clientWidth,scrollWidth:grid.scrollWidth
+    }));
+    assert.equal(layout.tops[0],layout.tops[1]);assert.equal(layout.tops[1],layout.tops[2]);
+    assert.ok(layout.tops[3]>layout.tops[2],'fourth customer starts next row');
+    assert.ok(layout.scrollWidth<=layout.width+1,'customer grid does not overflow');
+  }
+  await page.locator('#posCustomerPickerSearch').fill('ทดสอบ 2');
+  assert.equal(await page.locator('[data-pos-customer-index]:visible').count(),1);
+  await page.locator('#posCustomerPickerSearch').fill('ไม่มีชื่อนี้');
+  assert.equal(await page.locator('[data-pos-customer-index]:visible').count(),0);
+  assert.equal(await page.locator('#posCustomerPickerNoResults').isVisible(),true);
+  await page.locator('#posCustomerPickerSearch').fill('');
+  assert.equal(await page.locator('[data-pos-customer-index]:visible').count(),7);
+  assert.equal(await page.locator('#posCustomerPickerNoResults').isVisible(),false);
+  await page.locator('[data-pos-customer-index="1"]').click();
+  assert.equal(await page.evaluate(()=>saleMember?.id),2);
+  assert.equal(await page.locator('.pos-customer-picker-modal').count(),0);
   assert.deepEqual(errors,[]);
   console.log('Document party pickers passed: five forms, customer details, two columns, search, selection, draft retention, close/focus, locked exchange, no return editor');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});
