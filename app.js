@@ -3551,34 +3551,20 @@ function canIssueTaxInvoiceForSale(sale){
 let favorites = []; // {pid,unit} — สินค้าโปรดหนึ่งหน่วยต่อหนึ่งสินค้า
 let showFavorites = true;  // แสดงแถบสินค้าโปรดใต้บิลหรือไม่
 
-let quotations = [
-  {id:'QT-0021', customer:'คลินิกหมอสมศักดิ์', date:'2026-08-01', items:[{name:'พาราเซตามอล 500mg',qty:20,price:14},{name:'อม็อกซีซิลลิน 500mg',qty:15,price:33}], total:775, status:'รอตอบรับ'},
-  {id:'QT-0020', customer:'ร้านสะดวกซื้อ ป.เจริญ', date:'2026-07-29', items:[{name:'เจลแอลกอฮอล์ล้างมือ',qty:10,price:38}], total:380, status:'ตอบรับแล้ว'},
-];
+// Production starts empty; demo documents must never enter the durable outbox.
+let quotations = [];
 let saleSourceQuotationId=null;
 const QUOTATION_STORAGE_KEY='pharmacy_pos_quotations_v1';
 try{ const savedQuotations=JSON.parse(localStorage.getItem(QUOTATION_STORAGE_KEY)||'null'); if(Array.isArray(savedQuotations)) quotations=savedQuotations; }catch(error){ console.warn('ไม่สามารถโหลดใบเสนอราคาได้',error); }
 function persistQuotations(){ persistWorkspaceData(); }
 let quotationCounter=maxArrayValue(quotations,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
-let invoicesAR = [ // เอกสารขายเชื่อ (ลูกหนี้)
-  {id:'IV-0088', customer:'คลินิกหมอสมศักดิ์', date:'2026-07-20', dueDate:'2026-08-19', total:2400, paid:false},
-  {id:'IV-0087', customer:'ร้านสะดวกซื้อ ป.เจริญ', date:'2026-07-10', dueDate:'2026-08-09', total:1150, paid:true},
-];
-let creditNotes = [
-  {id:'CN-0005', ref:'INV-1039', customer:'ลูกค้าทั่วไป', date:'2026-08-01', reason:'สินค้าชำรุด', items:[{name:'ยาแก้ไอ น้ำดำ',qty:1,price:32}], total:32},
-];
-let purchaseOrders = [
-  {id:'PO-0031', supplier:'คุณอรทัย พรหมมา', date:'2026-07-28', credit:0, items:[{name:'พาราเซตามอล 500mg',qty:200,unit:'แผง',price:12},{name:'อม็อกซีซิลลิน 500mg',qty:100,unit:'แผง',price:30}], total:0, status:'รอสั่งของ', note:''},
-  {id:'PO-0030', supplier:'คุณณัฐวุฒิ แสงทอง', date:'2026-07-15', credit:0, items:[{name:'วิตามินซี 1000mg',qty:30,unit:'กระปุก',price:100}], total:0, status:'สั่งแล้ว', note:''},
-];
-let goodsReceipts = [
-  {id:'GR-0030', po:'PO-0030', supplier:'บ. เซ็นทรัลฟาร์มา จำกัด', date:'2026-07-18', items:[{name:'วิตามินซี 1000mg',qty:30,price:100}], total:3000, status:'รับสินค้าแล้ว', stockApplied:true, stockAppliedAt:'2026-07-18'},
-];
+let invoicesAR = []; // เอกสารขายเชื่อ (ลูกหนี้)
+let creditNotes = [];
+let purchaseOrders = [];
+let goodsReceipts = [];
 let productExchanges = [];
 let productReturns = [];
-let transfers = [
-  {id:'TR-0009', from:'สาขาหลัก (ถ.สุขุมวิท)', to:'สาขา 2 (ตลาดนัดเช้า)', date:'2026-07-30', items:[{name:'เจลแอลกอฮอล์ล้างมือ',qty:10}]},
-];
+let transfers = [];
 const TRANSFER_STORAGE_KEY='pharmacy_pos_transfers_v1';
 try{ const savedTransfers=JSON.parse(localStorage.getItem(TRANSFER_STORAGE_KEY)||'null'); if(Array.isArray(savedTransfers)) transfers=savedTransfers; }catch(error){ console.warn('ไม่สามารถโหลดรายการโอนสินค้าได้',error); }
 function persistTransfers(){ persistWorkspaceData(); }
@@ -6885,7 +6871,9 @@ function saveQuotation(){
   const taxSummary=calculateDocumentTaxSummary(itemsWithVat,discount,vatRegistered,businessSettings);
   const total=taxSummary.total;
   const old=editingQuotationId!=='new'?quotations.find(doc=>doc.id===editingQuotationId):null;
-  const record={id:d.number,date:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),customer:d.name,customerInfo:{id:d.customerId||'',name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items:itemsWithVat,discount,total,vatRegistered,taxSummary,businessSnapshot:old?.businessSnapshot||businessDocumentSnapshot(),note:d.note||'',status:old?.status||'รอตอบรับ'};
+  // Keep the revision and immutable provenance when rebuilding an edited document.
+  // Losing _revision turns an update into a duplicate create (expected revision 0).
+  const record={...old,id:d.number,date:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),customer:d.name,customerInfo:{id:d.customerId||'',name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items:itemsWithVat,discount,total,vatRegistered,taxSummary,businessSnapshot:old?.businessSnapshot||businessDocumentSnapshot(),note:d.note||'',status:old?.status||'รอตอบรับ'};
   Object.assign(record.customerInfo,{entity:d.entity||'individual',line:d.line||'',types:d.contactTypes||['customer']});
   if(editingQuotationId==='new'){ quotations.unshift(record); }else{ const index=quotations.findIndex(doc=>doc.id===editingQuotationId); if(index>-1) quotations[index]=record; }
   persistQuotations(); editingQuotationId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; showToast(`กำลังเก็บและซิงก์ใบเสนอราคา ${record.id} กรุณาตรวจสถานะซิงก์`); render();
