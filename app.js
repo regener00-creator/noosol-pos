@@ -11277,12 +11277,13 @@ function sellQuotationAtPos(id){
   if(cart.length&&!confirm('มีสินค้าอยู่ในหน้า POS ต้องการแทนที่ด้วยรายการจากใบเสนอราคานี้หรือไม่?')) return;
   if(quotation.saleId&&!confirm(`ใบเสนอราคานี้เคยขายแล้วในบิล ${quotation.saleId}\nต้องการนำไปขายซ้ำหรือไม่?`)) return;
   const nextCart=[];
-  for(const item of quotation.items||[]){
-    const product=products.find(row=>Number(row.id)===Number(item.productId||item.pid))||products.find(row=>row.name===item.name);
+  for(const [sourceQuotationLineIndex,item] of (quotation.items||[]).entries()){
+    const storedProductId=item.productId||item.pid;
+    const product=storedProductId?products.find(row=>Number(row.id)===Number(storedProductId)):products.find(row=>row.name===item.name);
     if(!product||!isProductActive(product)){ showToast(`สินค้า “${item.name||'-'}” ไม่มีอยู่หรือถูกปิดใช้งาน จึงยังนำใบเสนอราคาไปขายไม่ได้`,'danger-top'); return; }
     const option=productUnitOptions(product).find(row=>row.name===item.unit);
     if(!option){ showToast(`หน่วย ${item.unit||'-'} ของ “${product.name}” ไม่ตรงกับข้อมูลสินค้าปัจจุบัน`,'danger-top'); return; }
-    nextCart.push({lineId:lineCounter++,pid:product.id,name:product.name,unit:option.name,unitName:option.name,price:Number(item.price)||0,regularPrice:Number(option.price)||0,cost:option.cost,factor:option.factor,qty:Number(item.qty)||1,priceSource:'quotation',customerPriceRuleId:null,sourceQuotationId:quotation.id});
+    nextCart.push({lineId:lineCounter++,pid:product.id,name:product.name,unit:option.name,unitName:option.name,price:Number(item.price)||0,regularPrice:Number(option.price)||0,cost:option.cost,factor:option.factor,qty:Number(item.qty)||1,priceSource:'quotation',customerPriceRuleId:null,sourceQuotationId:quotation.id,sourceQuotationLineIndex});
   }
   if(!nextCart.length){ showToast('ใบเสนอราคานี้ไม่มีรายการสินค้าที่ขายได้','danger-top'); return; }
   const customer=customersList().find(item=>String(item.id)===String(quotation.customerInfo?.id));
@@ -18688,7 +18689,7 @@ async function doCheckout(payMethod,options={}){
     const lineTotal=promoLine.promoId?promoLine.promoLineTotal:l.price*l.qty;
     const vatMode=l.custom?(vatRegistered?'incl':'none'):effectiveProductVatMode(p);
     const lineTotalGross=grossAmountForVatMode(lineTotal,vatMode,vatRegistered);
-    items.push({lineKey:String(idx+1),productId:l.pid||null,warehouseId:Number(activeWarehouseId)||null,name:l.name,qty:l.qty,baseQty:(Number(l.qty)||0)*(Number(l.factor)||1),price:Number(l.price)||0,regularPrice:Number(l.regularPrice??l.price)||0,priceSource:l.priceSource||'standard',customerPriceRuleId:l.customerPriceRuleId||null,sourceQuotationId:l.sourceQuotationId||null,cost:costSnapshot.cost,costTotal:costSnapshot.costTotal,costSource:costSnapshot.costSource,unit:l.unit,factor:l.factor||0,custom:!!l.custom,
+    items.push({lineKey:String(idx+1),productId:l.pid||null,warehouseId:Number(activeWarehouseId)||null,name:l.name,qty:l.qty,baseQty:(Number(l.qty)||0)*(Number(l.factor)||1),price:Number(l.price)||0,regularPrice:Number(l.regularPrice??l.price)||0,priceSource:l.priceSource||'standard',customerPriceRuleId:l.customerPriceRuleId||null,sourceQuotationId:l.sourceQuotationId||null,sourceQuotationLineIndex:l.sourceQuotationLineIndex??null,cost:costSnapshot.cost,costTotal:costSnapshot.costTotal,costSource:costSnapshot.costSource,unit:l.unit,factor:l.factor||0,custom:!!l.custom,
       promoId:promoLine.promoId||null,promoName:promoLine.promoName||'',lineTotal,lineTotalGross,vatMode,promoFreeQty:promoLine.promoFreeQty||0,dispensingLabel:normalizeDispensingLabel(l.dispensingLabel)});
   });
   const loyaltyRedeemed=effectiveLoyaltyRedemption(promoResult);
@@ -18711,7 +18712,7 @@ async function doCheckout(payMethod,options={}){
   let requestContext=null;
   let checkoutPayload=null;
   try{
-    const rpcItems=items.map(item=>({lineKey:item.lineKey,productId:item.productId,warehouseId:item.warehouseId,qty:item.qty,factor:item.factor||1,baseQty:item.baseQty,custom:item.custom,name:item.name,price:item.price,regularPrice:item.regularPrice,priceSource:item.priceSource,customerPriceRuleId:item.customerPriceRuleId,sourceQuotationId:item.sourceQuotationId,cost:item.cost,costTotal:item.costTotal,costSource:item.costSource,unit:item.unit,promoId:item.promoId,promoName:item.promoName,lineTotal:item.lineTotal,lineTotalGross:item.lineTotalGross,vatMode:item.vatMode,promoFreeQty:item.promoFreeQty,dispensingLabel:item.dispensingLabel}));
+    const rpcItems=items.map(item=>({lineKey:item.lineKey,productId:item.productId,warehouseId:item.warehouseId,qty:item.qty,factor:item.factor||1,baseQty:item.baseQty,custom:item.custom,name:item.name,price:item.price,regularPrice:item.regularPrice,priceSource:item.priceSource,customerPriceRuleId:item.customerPriceRuleId,sourceQuotationId:item.sourceQuotationId,sourceQuotationLineIndex:item.sourceQuotationLineIndex,cost:item.cost,costTotal:item.costTotal,costSource:item.costSource,unit:item.unit,promoId:item.promoId,promoName:item.promoName,lineTotal:item.lineTotal,lineTotalGross:item.lineTotalGross,vatMode:item.vatMode,promoFreeQty:item.promoFreeQty,dispensingLabel:item.dispensingLabel}));
     const currentCheckoutPayload={warehouseId:Number(activeWarehouseId),sale:saleDraft,items:rpcItems};
     requestContext=await checkoutRequestContext(currentCheckoutPayload,checkoutUiSnapshot(payMethod,options));
     checkoutPayload=requestContext.payload||currentCheckoutPayload;
@@ -18737,7 +18738,7 @@ async function doCheckout(payMethod,options={}){
     if(message.includes('cash shift required')){ currentCashShift=null; currentTab='cashshift'; await loadCashShiftsFromSupabase(); }
     checkoutInFlight=false;
     render();
-    const checkoutErrorMessage=message.includes('cash shift required')?'ระบบชำระถูกปิดไปแล้ว กรุณาเปิดระบบใหม่':message.includes('is inactive')?'มีสินค้าถูกปิดใช้งาน กรุณารีเฟรชและลบสินค้านั้นออกจากบิล':lowerMessage.includes('customer special price')?'ราคาพิเศษของลูกค้ายังไม่ตรงกับข้อมูลบนระบบ กรุณาเปิดสมุดรายชื่อแล้วบันทึกราคาพิเศษอีกครั้ง':lowerMessage.includes('product price changed')?'ราคาสินค้าเปลี่ยนแล้ว กรุณาล้างรายการเดิมและยิงสินค้าใหม่':lowerMessage.includes('payload')?'มีคำขอชำระเดิมค้างอยู่ ระบบจะไม่สร้างคำขอใหม่ กรุณาตรวจสอบบิลเดิม':definitiveFailure?(message||'ระบบปฏิเสธรายการ กรุณาตรวจข้อมูลแล้วลองใหม่'):'ยังไม่ได้รับการยืนยันจากระบบ กรุณากดชำระซ้ำ ระบบจะใช้คำขอเดิมและไม่สร้างบิลซ้ำ';
+    const checkoutErrorMessage=message.includes('cash shift required')?'ระบบชำระถูกปิดไปแล้ว กรุณาเปิดระบบใหม่':message.includes('is inactive')?'มีสินค้าถูกปิดใช้งาน กรุณารีเฟรชและลบสินค้านั้นออกจากบิล':lowerMessage.includes('quotation')?'ข้อมูลใบเสนอราคาไม่ตรงกับรายการชำระ กรุณาโหลดข้อมูลล่าสุดแล้วเปิดใบเสนอราคาไปยัง POS อีกครั้ง โดยใช้ลูกค้าและราคาตามใบเสนอราคา':lowerMessage.includes('customer special price')?'ราคาพิเศษของลูกค้ายังไม่ตรงกับข้อมูลบนระบบ กรุณาเปิดสมุดรายชื่อแล้วบันทึกราคาพิเศษอีกครั้ง':lowerMessage.includes('product price changed')?'ราคาสินค้าเปลี่ยนแล้ว กรุณาล้างรายการเดิมและยิงสินค้าใหม่':lowerMessage.includes('payload')?'มีคำขอชำระเดิมค้างอยู่ ระบบจะไม่สร้างคำขอใหม่ กรุณาตรวจสอบบิลเดิม':definitiveFailure?(message||'ระบบปฏิเสธรายการ กรุณาตรวจข้อมูลแล้วลองใหม่'):'ยังไม่ได้รับการยืนยันจากระบบ กรุณากดชำระซ้ำ ระบบจะใช้คำขอเดิมและไม่สร้างบิลซ้ำ';
     showToast(loyaltyFailure?'ใช้แต้มไม่สำเร็จ ยอดแต้มอาจเปลี่ยนหรือหมดอายุ กรุณาตรวจแต้มและเลือกใหม่อีกครั้ง':checkoutErrorMessage,'danger-top');
     return;
   }
