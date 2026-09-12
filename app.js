@@ -6619,6 +6619,56 @@ function poUnitOptions(p){
   return productUnitOptions(p);
 }
 
+function documentPartyFieldHtml(id,value,kind='supplier',disabled=false){
+  const title=kind==='representative'?'เลือกผู้แทน':'เลือกผู้จำหน่าย';
+  return `<input type="hidden" id="${id}" value="${escapeHtml(value||'')}" ${disabled?'disabled':''}><button class="document-party-trigger" type="button" data-document-party="${kind}" data-party-field="${id}" aria-haspopup="dialog" aria-label="${title}" ${disabled?'disabled':''}><span>${escapeHtml(value||title)}</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button>`;
+}
+function openDocumentPartyPicker(trigger){
+  const field=document.getElementById(trigger.dataset.partyField);
+  if(!field||field.disabled||trigger.disabled||document.querySelector('.document-party-overlay')) return;
+  const isRepresentative=trigger.dataset.documentParty==='representative';
+  const title=isRepresentative?'เลือกผู้แทน':'เลือกผู้จำหน่าย';
+  const records=isRepresentative?salesRepresentatives:suppliersList();
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay document-party-overlay';
+  overlay.innerHTML=`<div class="modal document-party-modal" role="dialog" aria-modal="true" aria-labelledby="documentPartyTitle"><div class="modal-head"><h3 id="documentPartyTitle">${title}</h3><button class="modal-close" type="button" aria-label="ปิด">×</button></div><div class="document-party-search"><input type="search" aria-label="ค้นหารายชื่อ" placeholder="ค้นหาชื่อ รหัส เบอร์โทร ไลน์ หรือบริษัท" autocomplete="off"></div><div class="document-party-list"></div><div class="document-party-footer"><span role="status" aria-live="polite"></span><button class="btn ghost" type="button" data-party-clear>ล้างการเลือก</button><button class="btn primary" type="button" data-party-close>ปิด</button></div></div>`;
+  document.body.appendChild(overlay);
+  const search=overlay.querySelector('input'),list=overlay.querySelector('.document-party-list'),status=overlay.querySelector('[role="status"]');
+  const close=()=>{overlay.remove();if(trigger.isConnected) trigger.focus();};
+  const choose=value=>{
+    field.value=value;
+    trigger.querySelector('span').textContent=value||title;
+    close();
+    field.dispatchEvent(new Event('change',{bubbles:true}));
+    document.querySelector(`[data-party-field="${field.id}"]`)?.focus();
+  };
+  const renderRows=()=>{
+    const words=search.value.trim().toLocaleLowerCase('th').split(/\s+/).filter(Boolean);
+    const matches=records.map((record,index)=>({record,index})).filter(({record})=>{
+      const text=[record.name,record.code,record.phone,record.line,record.company,record.contactName,record.taxId].filter(Boolean).join(' ').toLocaleLowerCase('th');
+      return words.every(word=>text.includes(word));
+    });
+    status.textContent=`${matches.length} รายการ`;
+    list.innerHTML=matches.map(({record,index})=>`<button type="button" class="document-party-item ${record.name===field.value?'selected':''}" data-party-index="${index}" aria-pressed="${record.name===field.value}"><span><strong>${escapeHtml(record.name||'-')}</strong><small>${escapeHtml([record.code,record.company,record.phone,record.line].filter(Boolean).join(' · '))}</small></span><span aria-hidden="true">${record.name===field.value?'✓':''}</span></button>`).join('')||`<div class="document-party-empty">${records.length?'ไม่พบรายชื่อที่ค้นหา':'ยังไม่มีรายชื่อ'}</div>`;
+  };
+  search.addEventListener('input',renderRows);
+  list.addEventListener('click',event=>{const row=event.target.closest('[data-party-index]');if(row) choose(records[Number(row.dataset.partyIndex)].name);});
+  overlay.querySelector('.modal-close').onclick=close;
+  overlay.querySelector('[data-party-close]').onclick=close;
+  overlay.querySelector('[data-party-clear]').onclick=()=>choose('');
+  overlay.addEventListener('mousedown',event=>{if(event.target===overlay) close();});
+  overlay.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close();}
+    if(event.key==='Tab'){
+      const focusable=[...overlay.querySelectorAll('button,input')].filter(el=>!el.disabled&&el.getClientRects().length);
+      const first=focusable[0],last=focusable.at(-1);
+      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+      else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+    }
+  });
+  renderRows();
+  search.focus();
+}
 function renderPOForm(kind='po'){
   const styled=isSupplierStyleDoc(kind);
   const editingId=docEditingId(kind);
@@ -6650,8 +6700,8 @@ function renderPOForm(kind='po'){
     <div class="pagehead"><div><div class="breadcrumb">${escapeHtml(docLabel)} › ${escapeHtml(isNew?'สร้าง'+docLabel:'แก้ไข'+docLabel)}</div><h1>${escapeHtml(po.id)}</h1></div></div>
     <div class="po-head">
       <div class="po-head-left">
-        <div class="crow"><label>ชื่อผู้จำหน่าย <span class="req">*</span></label>
-          <div class="po-supplier-pick"><select id="po_supplier"><option value="">เลือกผู้จำหน่าย</option>${suppliersList().map(s=>`<option value="${escapeHtml(s.name)}" ${po.supplier===s.name?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}</select>${canEditSupplierInline?`<button class="btn ghost small" id="editPOSupplierBtn" type="button" ${supplierObj?'':'disabled'}>${poSupplierEditorOpen?'ปิด':'แก้ไขข้อมูล'}</button>`:''}</div></div>
+        <div class="crow"><label>ผู้จำหน่าย <span class="req">*</span></label>
+          <div class="po-supplier-pick">${documentPartyFieldHtml('po_supplier',po.supplier)}${canEditSupplierInline?`<button class="btn ghost small" id="editPOSupplierBtn" type="button" ${supplierObj?'':'disabled'}>${poSupplierEditorOpen?'ปิด':'แก้ไขข้อมูล'}</button>`:''}</div></div>
         ${kind==='gr'?`<div class="crow"><label>รับเข้าคลัง / สาขา <span class="req">*</span></label><select id="po_warehouse" ${po.stockApplied===true?'disabled':''}><option value="">เลือกคลัง / สาขา</option>${accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${Number(po.warehouseId)===Number(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>`:''}
         ${canEditSupplierInline&&supplierObj&&poSupplierEditorOpen?poSupplierEditorHtml(supplierObj):''}
         <div class="crow"><label>ที่อยู่</label><div class="po-addr">${supplierObj?escapeHtml(supplierObj.address||'-'):'(เลือกผู้จำหน่ายเพื่อแสดงที่อยู่)'}</div></div>
@@ -6793,7 +6843,7 @@ function renderShortageOrderForm(po,isNew){
       <div class="shortage-form-main">
         <div class="shortage-form-controls">
           <div class="shortage-date-field"><label>วันที่สั่ง <span class="req">*</span></label>${dmyDateFieldHtml('po_date',po.date||TODAY_STR)}</div>
-          <div class="shortage-rep-field"><label>ชื่อผู้แทน <span class="req">*</span></label><select id="po_supplier"><option value="">เลือกผู้แทน</option>${salesRepresentatives.map(rep=>`<option value="${escapeHtml(rep.name)}" ${po.supplier===rep.name?'selected':''}>${escapeHtml(rep.name)}</option>`).join('')}</select></div>
+          <div class="shortage-rep-field"><label>ชื่อผู้แทน <span class="req">*</span></label>${documentPartyFieldHtml('po_supplier',po.supplier,'representative')}</div>
           <button class="btn ghost small" id="newPORepBtn" type="button">+ เพิ่ม</button>
           <button class="btn primary" id="shortageManagedProductsBtn" type="button" ${representative?'':'disabled'}>สินค้าที่ดูแล</button>
         </div>
@@ -6816,7 +6866,7 @@ function renderProductReturnForm(po,isNew){
   return `<div class="pagehead"><div><div class="breadcrumb">ใบคืนสินค้า › ${isNew?'สร้างใบคืนสินค้า':'แก้ไขใบคืนสินค้า'}</div><h1>${escapeHtml(po.id)}</h1></div></div>
     <div class="po-head">
       <div class="po-head-left">
-        <div class="crow"><label>ชื่อผู้จำหน่าย <span class="req">*</span></label><div class="po-supplier-pick"><select id="po_supplier"><option value="">เลือกผู้จำหน่าย</option>${suppliersList().map(s=>`<option value="${escapeHtml(s.name)}" ${po.supplier===s.name?'selected':''}>${escapeHtml(s.name)}</option>`).join('')}</select><button class="btn ghost small" id="editPOSupplierBtn" type="button" ${supplierObj?'':'disabled'}>${poSupplierEditorOpen?'ปิด':'แก้ไขข้อมูล'}</button></div></div>
+        <div class="crow"><label>ผู้จำหน่าย <span class="req">*</span></label><div class="po-supplier-pick">${documentPartyFieldHtml('po_supplier',po.supplier)}<button class="btn ghost small" id="editPOSupplierBtn" type="button" ${supplierObj?'':'disabled'}>${poSupplierEditorOpen?'ปิด':'แก้ไขข้อมูล'}</button></div></div>
         <div class="crow"><label>คืนจากคลัง / สาขา <span class="req">*</span></label><select id="po_warehouse" ${locked?'disabled':''}><option value="">เลือกคลัง / สาขา</option>${accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${Number(po.warehouseId)===Number(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>
         ${supplierObj&&poSupplierEditorOpen?poSupplierEditorHtml(supplierObj):''}
         <div class="crow"><label>ที่อยู่</label><div class="po-addr">${supplierObj?escapeHtml(supplierObj.address||'-'):'(เลือกผู้จำหน่ายเพื่อแสดงที่อยู่)'}</div></div>
@@ -7099,10 +7149,9 @@ function renderProductExchangeForm(){
   const outgoingLocked=draft.outgoingApplied===true;
   const incomingLocked=draft.incomingApplied===true;
   const received=incomingLocked||draft.status==='รับสินค้ากลับแล้ว';
-  const suppliers=suppliersList();
   return `<div class="product-exchange-form"><div class="pagehead"><div><div class="breadcrumb">ซื้อ › เปลี่ยนสินค้า</div><h1>${escapeHtml(draft.id)}</h1></div><div class="form-final-actions product-exchange-form-actions"><button class="btn ghost" id="cancelProductExchangeBtn">ยกเลิก</button><button class="btn primary" id="saveProductExchangeBtn" ${received?'disabled':''}>บันทึกเอกสาร</button></div></div>
     <div class="product-exchange-status-note">สถานะ: <b>${escapeHtml(draft.status||'ร่าง')}</b>${received?' · ปิดการรับกลับและลงสต๊อกแล้ว รายการถูกล็อกเพื่อป้องกันการบันทึกซ้ำ':''}</div>
-    <div class="panel product-exchange-meta"><label>วันที่เอกสาร<input id="productExchangeDate" class="dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(draft.date||TODAY_STR))}" ${received?'disabled':''}></label><label>ผู้จำหน่าย<select id="productExchangeSupplier" ${received?'disabled':''}><option value="">เลือกผู้จำหน่าย</option>${suppliers.map(item=>`<option value="${escapeHtml(item.name)}" ${item.name===draft.supplier?'selected':''}>${escapeHtml(item.name)}</option>`).join('')}</select></label><label>คลัง / สาขา<select id="productExchangeWarehouse" ${outgoingLocked?'disabled':''}>${accessibleWarehouses().map(item=>`<option value="${item.id}" ${Number(item.id)===Number(draft.warehouseId)?'selected':''}>${escapeHtml(item.name)}</option>`).join('')}</select></label><label>เลขที่เอกสาร<input value="${escapeHtml(draft.id)}" readonly></label><label class="product-exchange-note">หมายเหตุ<textarea id="productExchangeNote" rows="2" ${received?'disabled':''} placeholder="รายละเอียดเพิ่มเติม">${escapeHtml(draft.note||'')}</textarea></label></div>
+    <div class="panel product-exchange-meta"><label>วันที่เอกสาร<input id="productExchangeDate" class="dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(draft.date||TODAY_STR))}" ${received?'disabled':''}></label><label>ผู้จำหน่าย${documentPartyFieldHtml('productExchangeSupplier',draft.supplier,'supplier',received)}</label><label>คลัง / สาขา<select id="productExchangeWarehouse" ${outgoingLocked?'disabled':''}>${accessibleWarehouses().map(item=>`<option value="${item.id}" ${Number(item.id)===Number(draft.warehouseId)?'selected':''}>${escapeHtml(item.name)}</option>`).join('')}</select></label><label>เลขที่เอกสาร<input value="${escapeHtml(draft.id)}" readonly></label><label class="product-exchange-note">หมายเหตุ<textarea id="productExchangeNote" rows="2" ${received?'disabled':''} placeholder="รายละเอียดเพิ่มเติม">${escapeHtml(draft.note||'')}</textarea></label></div>
     ${productExchangeSectionHtml('outgoing','สินค้าที่ส่งไปเปลี่ยน','ตัดออกจากสต๊อกเมื่อยืนยัน “ส่งไปเปลี่ยนแล้ว”',draft.outgoingItems,outgoingLocked)}
     ${productExchangeSectionHtml('incoming','สินค้าที่ได้รับกลับ','รับคืนไม่ครบหรือรับเป็นสินค้าคนละตัวได้ · ระบบเพิ่มเฉพาะรายการและจำนวนที่ระบุ',draft.incomingItems,incomingLocked)}
     ${outgoingLocked?productExchangeReconciliationHtml(draft):''}
@@ -15201,6 +15250,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     rows.appendChild(div.firstElementChild); bindPOItemEvents();
   });
   const poSupplier = document.getElementById('po_supplier');
+  document.querySelectorAll('[data-document-party]').forEach(trigger=>trigger.addEventListener('click',()=>openDocumentPartyPicker(trigger)));
   if(poSupplier) poSupplier.addEventListener('change', ()=>{ syncPOFromDOM(); poSupplierEditorOpen=false; poRepresentativeEditorId=null; render(); });
   const poWarehouse=document.getElementById('po_warehouse');
   if(poWarehouse) poWarehouse.addEventListener('change',()=>{

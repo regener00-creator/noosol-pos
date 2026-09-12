@@ -852,6 +852,22 @@
   .po-addr{font-size:13px;color:var(--text);padding-top:7px;}
   .po-supplier-pick{display:flex;gap:7px;align-items:center;}
   .po-supplier-pick select{flex:1;min-width:0;}
+  .document-party-trigger{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-width:0;min-height:44px;padding:10px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface,#fff);color:var(--text);font:inherit;text-align:left;cursor:pointer;}
+  .document-party-trigger span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .document-party-trigger svg{flex:none;}
+  .document-party-trigger:disabled{opacity:.55;cursor:default;}
+  .po-supplier-pick .document-party-trigger{flex:1;}
+  .document-party-modal{width:min(720px,calc(100vw - 32px));max-height:85vh;display:flex;flex-direction:column;}
+  .document-party-search{padding:16px 20px;}
+  .document-party-search input{width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;font:inherit;}
+  .document-party-list{overflow:auto;min-height:100px;padding:0 20px 16px;}
+  .document-party-item{display:flex;justify-content:space-between;align-items:center;gap:16px;width:100%;padding:14px;margin-bottom:8px;border:1px solid var(--border);border-radius:12px;background:var(--panel,#fff);color:var(--text);font:inherit;text-align:left;cursor:pointer;}
+  .document-party-item.selected,.document-party-item:hover{background:var(--surface);border-color:var(--primary);}
+  .document-party-item>span:first-child{min-width:0;overflow-wrap:anywhere;}
+  .document-party-item small{display:block;margin-top:5px;color:var(--text-muted);}
+  .document-party-footer{display:flex;align-items:center;gap:10px;padding:14px 20px;border-top:1px solid var(--border);}
+  .document-party-footer>span{flex:1;color:var(--text-muted);}
+  .document-party-empty{padding:30px;text-align:center;color:var(--text-muted);}
   .tax-customer-picker-row{grid-template-columns:1fr!important;}
   .tax-customer-picker-row>.po-supplier-pick{grid-column:1/-1;width:100%;}
   .tax-customer-picker-row #tax_customer_select,.tax-customer-picker-row #addTaxCustomerBtn{height:37px;}
