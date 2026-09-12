@@ -6413,10 +6413,14 @@ function syncTaxInvoiceDraftFromDOM(){
   taxInvoiceDraft.name=get('tax_form_customer_name').trim();
   taxInvoiceDraft.taxId=get('tax_form_customer_taxid').trim();
   taxInvoiceDraft.address=get('tax_form_customer_address').trim();
-  taxInvoiceDraft.branch=get('tax_form_customer_branch').trim()||'สำนักงานใหญ่';
-  taxInvoiceDraft.branchNo=get('tax_form_customer_branch_no').trim();
+  if(document.getElementById('tax_form_customer_branch')) taxInvoiceDraft.branch=get('tax_form_customer_branch').trim()||'สำนักงานใหญ่';
+  if(document.getElementById('tax_form_customer_branch_no')) taxInvoiceDraft.branchNo=get('tax_form_customer_branch_no').trim();
   taxInvoiceDraft.phone=get('tax_form_customer_phone').trim();
   taxInvoiceDraft.email=get('tax_form_customer_email').trim();
+  if(currentTab==='quotation'){
+    taxInvoiceDraft.line=get('tax_form_customer_line').trim();
+    taxInvoiceDraft.entity=document.querySelector('input[name="quotation_customer_entity"]:checked')?.value||'individual';
+  }
   const note=document.getElementById('tax_form_note'); if(note) taxInvoiceDraft.note=note.value;
 }
 
@@ -6534,11 +6538,15 @@ function openQuotationForm(id){
   const rawBranch=customer.branch;
   const branchText=rawBranch==='head'?'สำนักงานใหญ่':rawBranch==='branch'?'สาขา':(rawBranch||'สำนักงานใหญ่');
   taxInvoiceDraft={id:doc.id,number:doc.id,date:doc.date||TODAY_STR,credit:doc.credit||0,dueDate:doc.dueDate||addDaysToDate(doc.date||TODAY_STR,doc.credit||0),customerId:customer.id||'',name:customer.name||doc.customer||'',taxId:customer.taxId||'',address:customer.address||'',branch:branchText,branchNo:customer.branchNo||'',phone:customer.phone||'',email:customer.email||'',items:JSON.parse(JSON.stringify(doc.items||[])),discount:doc.discount||0,note:doc.note||''};
+  const linkedCustomer=customersList().find(item=>String(item.id)===String(customer.id));
+  Object.assign(taxInvoiceDraft,{entity:customer.entity||linkedCustomer?.entity||'individual',line:customer.line??linkedCustomer?.line??'',contactTypes:customer.types||linkedCustomer?.types||['customer']});
   currentTab='quotation'; render();
 }
 
 function renderQuotationForm(){
   const draft=taxInvoiceDraft||{};
+  const isJuristic=draft.entity==='juristic';
+  const customerTypes=draft.contactTypes||['customer'];
   const items=draft.items||[];
   const registered=isBusinessVatRegistered(),discount=Number(draft.discount)||0;
   const tax=calculateDocumentTaxSummary(items,discount,registered,businessSettings);
@@ -6546,12 +6554,22 @@ function renderQuotationForm(){
   return `<div class="pagehead"><div><div class="breadcrumb">ใบเสนอราคา › สร้างใบเสนอราคา</div><h1>ใบเสนอราคา</h1><div class="sub mono">${escapeHtml(draft.number||'')}</div></div></div>
     <div class="po-head"><div class="po-head-left">
       <div class="crow tax-customer-picker-row"><div class="po-supplier-pick">${documentPartyFieldHtml('tax_customer_select',draft.customerId,'customer')}</div></div>
-      <div class="po-supplier-edit tax-customer-details" style="margin-top:10px;">${taxInvoiceAddingCustomer?'<div class="po-supplier-edit-title"><span>เพิ่มลูกค้าใหม่</span><span style="font-size:11px;color:var(--text-muted);font-weight:400;">บันทึกแล้วจะเพิ่มในสมุดรายชื่อทันที</span></div>':''}<div class="po-supplier-edit-grid">
-        <div><label>ชื่อลูกค้า/บริษัท *</label><input id="tax_form_customer_name" value="${escapeHtml(draft.name||'')}"></div><div><label>เลขผู้เสียภาษี *</label><input id="tax_form_customer_taxid" value="${escapeHtml(draft.taxId||'')}" maxlength="13"></div>
-        <div><label>สถานประกอบการ</label><input id="tax_form_customer_branch" value="${escapeHtml(draft.branch||'')}" placeholder="เช่น สำนักงานใหญ่ หรือ สาขา..."></div><div><label>เลขที่สาขา</label><input id="tax_form_customer_branch_no" value="${escapeHtml(draft.branchNo||'')}" maxlength="5"></div>
-        <div class="wide"><label>ที่อยู่ *</label><textarea id="tax_form_customer_address" rows="2">${escapeHtml(draft.address||'')}</textarea></div><div><label>เบอร์โทรศัพท์</label><input id="tax_form_customer_phone" class="phone-input" value="${escapeHtml(draft.phone||'')}"></div><div><label>อีเมล</label><input id="tax_form_customer_email" type="email" value="${escapeHtml(draft.email||'')}"></div>
-      </div>${taxInvoiceAddingCustomer?'<div class="po-supplier-edit-actions"><button class="btn ghost small" id="cancelTaxCustomerBtn" type="button">ยกเลิก</button><button class="btn primary small" id="saveTaxCustomerBtn" type="button">บันทึกเข้ารายชื่อลูกค้า</button></div>':''}</div></div>
-      <div class="po-head-right"><div class="po-total-label">จำนวนเงินรวมทั้งสิ้น</div><div class="po-total-amt mono">${fmtMoney(total)}</div><div class="crow"><label>วันที่</label>${dmyDateFieldHtml('po_date',draft.date||TODAY_STR)}</div><div class="crow"><label>เครดิต (วัน)</label><input id="po_credit" type="number" min="0" value="${draft.credit||0}"></div><div class="crow"><label>ครบกำหนด</label>${dmyDateFieldHtml('po_due',addDaysToDate(draft.date||TODAY_STR,draft.credit||0),{readonly:true,extraClass:'due-readonly'})}</div></div>
+      <div class="tax-customer-details contact-editor-grid" style="margin-top:18px;">
+        <div class="contact-editor-field"><label>ประเภท</label><div class="cradio"><label><input type="checkbox" disabled ${customerTypes.includes('customer')?'checked':''}> ลูกค้า</label><label><input type="checkbox" disabled ${customerTypes.includes('supplier')?'checked':''}> ผู้จำหน่าย</label></div></div>
+        <div class="contact-editor-field"><label>ประเภทผู้ติดต่อ</label><div class="cradio"><label><input type="radio" name="quotation_customer_entity" value="juristic" ${isJuristic?'checked':''}> นิติบุคคล</label><label><input type="radio" name="quotation_customer_entity" value="individual" ${!isJuristic?'checked':''}> บุคคลธรรมดา</label></div></div>
+        <div class="contact-editor-identity-row contact-editor-identity-row-customer-edit contact-editor-wide">
+          <div class="contact-editor-field"><label for="tax_form_customer_name">ชื่อ-นามสกุล <span class="req">*</span></label><input id="tax_form_customer_name" value="${escapeHtml(draft.name||'')}"></div>
+          <div class="contact-editor-field"><label id="quotation_customer_taxid_label" for="tax_form_customer_taxid">${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'}</label><input id="tax_form_customer_taxid" value="${escapeHtml(draft.taxId||'')}" maxlength="13" inputmode="numeric" placeholder="${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'} 13 หลัก (ไม่บังคับ)"></div>
+          <div class="contact-editor-field"><label for="po_credit">เครดิต</label><input id="po_credit" type="number" min="0" value="${escapeHtml(draft.credit||'')}" placeholder="0 วัน"></div>
+        </div>
+        <div class="contact-editor-field contact-editor-wide"><label for="tax_form_customer_address">ที่อยู่</label><textarea id="tax_form_customer_address" rows="3">${escapeHtml(draft.address||'')}</textarea></div>
+        <div class="contact-editor-contact-row contact-editor-wide">
+          <div class="contact-editor-field"><label for="tax_form_customer_email">อีเมล์</label><input id="tax_form_customer_email" type="email" value="${escapeHtml(draft.email||'')}"></div>
+          <div class="contact-editor-field"><label for="tax_form_customer_line">ไลน์</label><input id="tax_form_customer_line" value="${escapeHtml(draft.line||'')}"></div>
+          <div class="contact-editor-field"><label for="tax_form_customer_phone">เบอร์โทร</label><input id="tax_form_customer_phone" class="phone-input" value="${escapeHtml(draft.phone||'')}"></div>
+        </div>
+      </div></div>
+      <div class="po-head-right"><div class="po-total-label">จำนวนเงินรวมทั้งสิ้น</div><div class="po-total-amt mono">${fmtMoney(total)}</div><div class="crow"><label>วันที่</label>${dmyDateFieldHtml('po_date',draft.date||TODAY_STR)}</div><div class="crow"><label>ครบกำหนด</label>${dmyDateFieldHtml('po_due',addDaysToDate(draft.date||TODAY_STR,draft.credit||0),{readonly:true,extraClass:'due-readonly'})}</div></div>
     </div>
     ${documentProductScannerHtml()}
     <table class="grid-table po-items document-centered-items"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคาต่อหน่วย</th><th class="mono">ราคารวม</th><th></th></tr></thead><tbody id="poItemRows">${items.map((item,index)=>poItemRowHtml(item,index)).join('')}</tbody></table><button class="btn ghost small" id="addTaxInvoiceItemBtn" style="margin-top:8px;">+ เพิ่มแถวรายการ</button>
@@ -6563,8 +6581,6 @@ function saveQuotation(){
   syncPOFromDOM(); syncTaxInvoiceDraftFromDOM();
   const d=taxInvoiceDraft,items=(d.items||[]).filter(item=>item.name&&Number(item.qty)>0);
   if(!d.name){ showToast('กรุณากรอกชื่อลูกค้า'); return; }
-  if(!d.taxId){ showToast('กรุณากรอกเลขผู้เสียภาษี'); return; }
-  if(!d.address){ showToast('กรุณากรอกที่อยู่ลูกค้า'); return; }
   if(!items.length){ showToast('กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ'); return; }
   if(items.some(item=>!products.some(product=>product.name===item.name))){ showToast('กรุณาเลือกสินค้าจากผลการค้นหา'); return; }
   const discount=Number(d.discount)||0,vatRegistered=isBusinessVatRegistered();
@@ -6573,6 +6589,7 @@ function saveQuotation(){
   const total=taxSummary.total;
   const old=editingQuotationId!=='new'?quotations.find(doc=>doc.id===editingQuotationId):null;
   const record={id:d.number,date:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),customer:d.name,customerInfo:{id:d.customerId||'',name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items:itemsWithVat,discount,total,vatRegistered,taxSummary,businessSnapshot:old?.businessSnapshot||businessDocumentSnapshot(),note:d.note||'',status:old?.status||'รอตอบรับ'};
+  Object.assign(record.customerInfo,{entity:d.entity||'individual',line:d.line||'',types:d.contactTypes||['customer']});
   if(editingQuotationId==='new'){ quotations.unshift(record); }else{ const index=quotations.findIndex(doc=>doc.id===editingQuotationId); if(index>-1) quotations[index]=record; }
   persistQuotations(); editingQuotationId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; showToast(`บันทึกใบเสนอราคา ${record.id} แล้ว`); render();
 }
@@ -14337,10 +14354,16 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     const customer=customersList().find(c=>String(c.id)===String(taxCustomerSelect.value));
     if(customer) Object.assign(taxInvoiceDraft,{customerId:customer.id,name:customer.name||'',taxId:customer.taxId||'',address:customer.address||'',phone:customer.phone||'',email:customer.email||'',branch:'สำนักงานใหญ่',branchNo:''});
     else Object.assign(taxInvoiceDraft,{customerId:'',name:'',taxId:'',address:'',phone:'',email:'',branch:'สำนักงานใหญ่',branchNo:''});
+    if(currentTab==='quotation') Object.assign(taxInvoiceDraft,{entity:customer?.entity||'individual',line:customer?.line||'',contactTypes:customer?.types||['customer'],credit:Math.max(0,parseInt(customer?.creditDays)||0)});
     taxInvoiceAddingCustomer=false;
     render();
   });
   // --- product list -> form ---
+  document.querySelectorAll('input[name="quotation_customer_entity"]').forEach(radio=>radio.addEventListener('change',()=>{
+    const text=radio.value==='juristic'?'เลขผู้เสียภาษี':'เลขบัตรประชาชน';
+    document.getElementById('quotation_customer_taxid_label').textContent=text;
+    document.getElementById('tax_form_customer_taxid').placeholder=`${text} 13 หลัก (ไม่บังคับ)`;
+  }));
   const newProductBtn = document.getElementById('newProductBtn');
   if(newProductBtn) newProductBtn.addEventListener('click', ()=>{ editingProductId='new'; searchQuery=''; render(); });
   const importProductsBtn = document.getElementById('importProductsBtn');

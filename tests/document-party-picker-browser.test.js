@@ -72,7 +72,7 @@ let browser;
   await page.evaluate(()=>{productExchangeDraft.incomingApplied=true;render();});
   assert.equal(await page.locator('[data-party-field="productExchangeSupplier"]').isDisabled(),true);
   await page.evaluate(()=>{
-    contacts.push({id:3,name:'ลูกค้าเท่านั้น',code:'C0003',types:['customer'],address:'ที่อยู่ลูกค้า',taxId:'1234567890123',phone:'0891234567',email:'customer@example.com'});
+    contacts.push({id:3,name:'ลูกค้าเท่านั้น',code:'C0003',types:['customer'],entity:'individual',creditDays:14,line:'customer.line',address:'ที่อยู่ลูกค้า',taxId:'1234567890123',phone:'0891234567',email:'customer@example.com'});
     currentTab='quotation';editingQuotationId='new';
     taxInvoiceDraft={number:'QT-TEST',date:TODAY_STR,items:[],customerId:'',name:'',credit:0};
     render();
@@ -87,16 +87,42 @@ let browser;
   await page.getByRole('searchbox',{name:'ค้นหารายชื่อ'}).fill('C0003');
   await page.locator('.document-party-item').click();
   assert.equal(await page.locator('#tax_customer_select').inputValue(),'3','same-name customers selected by ID');
-  for(const [field,value] of Object.entries({name:'ลูกค้าเท่านั้น',address:'ที่อยู่ลูกค้า',taxid:'1234567890123',phone:'0891234567',email:'customer@example.com'})){
+  for(const [field,value] of Object.entries({name:'ลูกค้าเท่านั้น',address:'ที่อยู่ลูกค้า',taxid:'1234567890123',phone:'0891234567',email:'customer@example.com',line:'customer.line'})){
     assert.equal(await page.locator('#tax_form_customer_'+field).inputValue(),value);
   }
   assert.equal(await page.locator('#po_note').inputValue(),'หมายเหตุใบเสนอราคา');
+  assert.equal(await page.locator('#po_credit').count(),1);
+  assert.equal(await page.locator('#po_credit').inputValue(),'14');
+  assert.equal(await page.locator('#tax_form_customer_branch').count(),0);
+  assert.equal(await page.locator('#tax_form_customer_branch_no').count(),0);
+  assert.equal(await page.locator('#addTaxCustomerBtn').count(),0);
+  assert.equal(await page.locator('#quotation_customer_taxid_label').innerText(),'เลขบัตรประชาชน');
+  await page.locator('input[name="quotation_customer_entity"][value="juristic"]').check();
+  assert.equal(await page.locator('#quotation_customer_taxid_label').innerText(),'เลขผู้เสียภาษี');
+  await page.locator('#addTaxInvoiceItemBtn').click();
+  assert.equal(await page.locator('input[name="quotation_customer_entity"][value="juristic"]').isChecked(),true);
+  assert.equal(await page.locator('#tax_form_customer_line').inputValue(),'customer.line');
+  if(process.env.PEPOS_TEST_SCREENSHOT) await page.locator('.po-head').screenshot({path:process.env.PEPOS_TEST_SCREENSHOT});
   await customerTrigger.click();
   assert.equal(await page.locator('.document-party-item.selected').count(),1);
   await page.locator('[data-party-clear]').click();
   assert.equal(await page.locator('#tax_customer_select').inputValue(),'');
   assert.equal(await page.locator('#tax_form_customer_name').inputValue(),'');
   assert.equal(await page.locator('#po_note').inputValue(),'หมายเหตุใบเสนอราคา');
+  // Save/reopen an individual without optional identity/address; keep the new snapshot fields.
+  await page.evaluate(()=>{
+    products=[{id:99,name:'สินค้าทดสอบ',price:10,unit:'ชิ้น'}];
+    taxInvoiceDraft.items=[{name:'สินค้าทดสอบ',qty:1,unit:'ชิ้น',price:10}];
+    persistQuotations=()=>{};
+    render();
+  });
+  await page.locator('#tax_form_customer_name').fill('ลูกค้าทดสอบ');
+  await page.locator('#tax_form_customer_line').fill('saved.line');
+  await page.locator('#saveQuotationBtn').press('Enter');
+  assert.equal(await page.evaluate(()=>quotations.find(q=>q.id==='QT-TEST')?.customerInfo.line),'saved.line');
+  await page.evaluate(()=>openQuotationForm('QT-TEST'));
+  assert.equal(await page.locator('#tax_form_customer_line').inputValue(),'saved.line');
+  assert.equal(await page.locator('input[name="quotation_customer_entity"][value="individual"]').isChecked(),true);
   assert.deepEqual(errors,[]);
   console.log('Document party pickers passed: five forms, customer details, two columns, search, selection, draft retention, close/focus, locked exchange, no return editor');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});
