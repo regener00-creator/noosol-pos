@@ -6545,7 +6545,7 @@ function renderQuotationForm(){
   const subtotal=tax.subtotal,total=tax.total;
   return `<div class="pagehead"><div><div class="breadcrumb">ใบเสนอราคา › สร้างใบเสนอราคา</div><h1>ใบเสนอราคา</h1><div class="sub mono">${escapeHtml(draft.number||'')}</div></div></div>
     <div class="po-head"><div class="po-head-left">
-      <div class="crow tax-customer-picker-row"><div class="po-supplier-pick"><select id="tax_customer_select"><option value="">เลือกข้อมูลลูกค้าสำหรับออกเอกสาร</option>${customersList().map(c=>`<option value="${c.id}" ${String(draft.customerId)===String(c.id)||draft.name===c.name?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select><button class="btn ghost small" id="addTaxCustomerBtn" type="button">+ เพิ่มลูกค้า</button></div></div>
+      <div class="crow tax-customer-picker-row"><div class="po-supplier-pick">${documentPartyFieldHtml('tax_customer_select',draft.customerId,'customer')}<button class="btn ghost small" id="addTaxCustomerBtn" type="button">+ เพิ่มลูกค้า</button></div></div>
       <div class="po-supplier-edit tax-customer-details" style="margin-top:10px;">${taxInvoiceAddingCustomer?'<div class="po-supplier-edit-title"><span>เพิ่มลูกค้าใหม่</span><span style="font-size:11px;color:var(--text-muted);font-weight:400;">บันทึกแล้วจะเพิ่มในสมุดรายชื่อทันที</span></div>':''}<div class="po-supplier-edit-grid">
         <div><label>ชื่อลูกค้า/บริษัท *</label><input id="tax_form_customer_name" value="${escapeHtml(draft.name||'')}"></div><div><label>เลขผู้เสียภาษี *</label><input id="tax_form_customer_taxid" value="${escapeHtml(draft.taxId||'')}" maxlength="13"></div>
         <div><label>สถานประกอบการ</label><input id="tax_form_customer_branch" value="${escapeHtml(draft.branch||'')}" placeholder="เช่น สำนักงานใหญ่ หรือ สาขา..."></div><div><label>เลขที่สาขา</label><input id="tax_form_customer_branch_no" value="${escapeHtml(draft.branchNo||'')}" maxlength="5"></div>
@@ -6621,15 +6621,18 @@ function poUnitOptions(p){
 }
 
 function documentPartyFieldHtml(id,value,kind='supplier',disabled=false){
-  const title=kind==='representative'?'เลือกผู้แทน':'เลือกผู้จำหน่าย';
-  return `<input type="hidden" id="${id}" value="${escapeHtml(value||'')}" ${disabled?'disabled':''}><button class="document-party-trigger" type="button" data-document-party="${kind}" data-party-field="${id}" aria-haspopup="dialog" aria-label="${title}" ${disabled?'disabled':''}><span>${escapeHtml(value||title)}</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button>`;
+  const title=kind==='representative'?'เลือกผู้แทน':kind==='customer'?'เลือกลูกค้า':'เลือกผู้จำหน่าย';
+  const label=kind==='customer'?(customersList().find(c=>String(c.id)===String(value))?.name||title):(value||title);
+  return `<input type="hidden" id="${id}" value="${escapeHtml(value||'')}" ${disabled?'disabled':''}><button class="document-party-trigger" type="button" data-document-party="${kind}" data-party-field="${id}" aria-haspopup="dialog" aria-label="${title}" ${disabled?'disabled':''}><span>${escapeHtml(label)}</span><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button>`;
 }
 function openDocumentPartyPicker(trigger){
   const field=document.getElementById(trigger.dataset.partyField);
   if(!field||field.disabled||trigger.disabled||document.querySelector('.document-party-overlay')) return;
   const isRepresentative=trigger.dataset.documentParty==='representative';
-  const title=isRepresentative?'เลือกผู้แทน':'เลือกผู้จำหน่าย';
-  const records=isRepresentative?salesRepresentatives:suppliersList();
+  const isCustomer=trigger.dataset.documentParty==='customer';
+  const title=isRepresentative?'เลือกผู้แทน':isCustomer?'เลือกลูกค้า':'เลือกผู้จำหน่าย';
+  const records=isRepresentative?salesRepresentatives:isCustomer?customersList():suppliersList();
+  const recordValue=record=>String(isCustomer?record.id:record.name);
   const overlay=document.createElement('div');
   overlay.className='modal-overlay document-party-overlay';
   overlay.innerHTML=`<div class="modal document-party-modal" role="dialog" aria-modal="true" aria-labelledby="documentPartyTitle"><div class="modal-head"><h3 id="documentPartyTitle">${title}</h3><button class="modal-close" type="button" aria-label="ปิด">×</button></div><div class="document-party-search"><input type="search" aria-label="ค้นหารายชื่อ" placeholder="ค้นหาชื่อ รหัส เบอร์โทร ไลน์ หรือบริษัท" autocomplete="off"></div><div class="document-party-list"></div><div class="document-party-footer"><span role="status" aria-live="polite"></span><button class="btn ghost" type="button" data-party-clear>ล้างการเลือก</button><button class="btn primary" type="button" data-party-close>ปิด</button></div></div>`;
@@ -6638,7 +6641,7 @@ function openDocumentPartyPicker(trigger){
   const close=()=>{overlay.remove();if(trigger.isConnected) trigger.focus();};
   const choose=value=>{
     field.value=value;
-    trigger.querySelector('span').textContent=value||title;
+    trigger.querySelector('span').textContent=records.find(record=>recordValue(record)===value)?.name||title;
     close();
     field.dispatchEvent(new Event('change',{bubbles:true}));
     document.querySelector(`[data-party-field="${field.id}"]`)?.focus();
@@ -6650,10 +6653,10 @@ function openDocumentPartyPicker(trigger){
       return words.every(word=>text.includes(word));
     });
     status.textContent=`${matches.length} รายการ`;
-    list.innerHTML=matches.map(({record,index})=>`<button type="button" class="document-party-item ${record.name===field.value?'selected':''}" data-party-index="${index}" aria-pressed="${record.name===field.value}"><span><strong>${escapeHtml(record.name||'-')}</strong><small>${escapeHtml([record.code,record.company,record.phone,record.line].filter(Boolean).join(' · '))}</small></span><span aria-hidden="true">${record.name===field.value?'✓':''}</span></button>`).join('')||`<div class="document-party-empty">${records.length?'ไม่พบรายชื่อที่ค้นหา':'ยังไม่มีรายชื่อ'}</div>`;
+    list.innerHTML=matches.map(({record,index})=>`<button type="button" class="document-party-item ${recordValue(record)===field.value?'selected':''}" data-party-index="${index}" aria-pressed="${recordValue(record)===field.value}"><span><strong>${escapeHtml(record.name||'-')}</strong><small>${escapeHtml([record.code,record.company,record.phone,record.line].filter(Boolean).join(' · '))}</small></span><span aria-hidden="true">${recordValue(record)===field.value?'✓':''}</span></button>`).join('')||`<div class="document-party-empty">${records.length?'ไม่พบรายชื่อที่ค้นหา':'ยังไม่มีรายชื่อ'}</div>`;
   };
   search.addEventListener('input',renderRows);
-  list.addEventListener('click',event=>{const row=event.target.closest('[data-party-index]');if(row) choose(records[Number(row.dataset.partyIndex)].name);});
+  list.addEventListener('click',event=>{const row=event.target.closest('[data-party-index]');if(row) choose(recordValue(records[Number(row.dataset.partyIndex)]));});
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('[data-party-close]').onclick=close;
   overlay.querySelector('[data-party-clear]').onclick=()=>choose('');
@@ -6867,9 +6870,8 @@ function renderProductReturnForm(po,isNew){
   return `<div class="pagehead"><div><div class="breadcrumb">ใบคืนสินค้า › ${isNew?'สร้างใบคืนสินค้า':'แก้ไขใบคืนสินค้า'}</div><h1>${escapeHtml(po.id)}</h1></div></div>
     <div class="po-head">
       <div class="po-head-left">
-        <div class="crow"><label>ผู้จำหน่าย <span class="req">*</span></label><div class="po-supplier-pick">${documentPartyFieldHtml('po_supplier',po.supplier)}<button class="btn ghost small" id="editPOSupplierBtn" type="button" ${supplierObj?'':'disabled'}>${poSupplierEditorOpen?'ปิด':'แก้ไขข้อมูล'}</button></div></div>
+        <div class="crow"><label>ผู้จำหน่าย <span class="req">*</span></label><div class="po-supplier-pick">${documentPartyFieldHtml('po_supplier',po.supplier)}</div></div>
         <div class="crow"><label>คืนจากคลัง / สาขา <span class="req">*</span></label><select id="po_warehouse" ${locked?'disabled':''}><option value="">เลือกคลัง / สาขา</option>${accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${Number(po.warehouseId)===Number(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>
-        ${supplierObj&&poSupplierEditorOpen?poSupplierEditorHtml(supplierObj):''}
         <div class="crow"><label>ที่อยู่</label><div class="po-addr">${supplierObj?escapeHtml(supplierObj.address||'-'):'(เลือกผู้จำหน่ายเพื่อแสดงที่อยู่)'}</div></div>
         <div class="crow"><label>เลขผู้เสียภาษี</label><div class="po-addr mono">${supplierObj?escapeHtml(supplierObj.taxId||'-'):'-'}</div></div>
       </div>

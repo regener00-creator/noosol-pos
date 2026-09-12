@@ -61,6 +61,7 @@ let browser;
     assert.equal(await page.locator('.document-party-overlay').count(),0);
     assert.equal(await trigger.evaluate(el=>el===document.activeElement),true);
     if(tab==='purchaseorder') assert.equal(await page.locator('#shortageManagedProductsBtn').isEnabled(),true);
+    if(tab==='productreturn') assert.equal(await page.locator('#editPOSupplierBtn').count(),0);
     if(tab==='goodsreceipt'||tab==='productreturn'){
       assert.match(await page.locator('.po-head-left').innerText(),/ที่อยู่ทดสอบ/);
       assert.doesNotMatch(await page.locator('.po-head-left').innerText(),/ชื่อผู้จำหน่าย/);
@@ -70,6 +71,32 @@ let browser;
   }
   await page.evaluate(()=>{productExchangeDraft.incomingApplied=true;render();});
   assert.equal(await page.locator('[data-party-field="productExchangeSupplier"]').isDisabled(),true);
+  await page.evaluate(()=>{
+    contacts.push({id:3,name:'ลูกค้าเท่านั้น',code:'C0003',types:['customer'],address:'ที่อยู่ลูกค้า',taxId:'1234567890123',phone:'0891234567',email:'customer@example.com'});
+    currentTab='quotation';editingQuotationId='new';
+    taxInvoiceDraft={number:'QT-TEST',date:TODAY_STR,items:[],customerId:'',name:'',credit:0};
+    render();
+  });
+  const customerTrigger=page.locator('[data-party-field="tax_customer_select"]');
+  assert.equal(await page.locator('select#tax_customer_select').count(),0);
+  await page.locator('#po_note').fill('หมายเหตุใบเสนอราคา');
+  await customerTrigger.click();
+  assert.equal(await page.locator('.document-party-item').count(),2,'only customer contacts are offered');
+  const positions=await page.locator('.document-party-item').evaluateAll(rows=>rows.map(row=>row.getBoundingClientRect().top));
+  assert.equal(positions[0],positions[1],'two customers per row');
+  await page.getByRole('searchbox',{name:'ค้นหารายชื่อ'}).fill('C0003');
+  await page.locator('.document-party-item').click();
+  assert.equal(await page.locator('#tax_customer_select').inputValue(),'3','same-name customers selected by ID');
+  for(const [field,value] of Object.entries({name:'ลูกค้าเท่านั้น',address:'ที่อยู่ลูกค้า',taxid:'1234567890123',phone:'0891234567',email:'customer@example.com'})){
+    assert.equal(await page.locator('#tax_form_customer_'+field).inputValue(),value);
+  }
+  assert.equal(await page.locator('#po_note').inputValue(),'หมายเหตุใบเสนอราคา');
+  await customerTrigger.click();
+  assert.equal(await page.locator('.document-party-item.selected').count(),1);
+  await page.locator('[data-party-clear]').click();
+  assert.equal(await page.locator('#tax_customer_select').inputValue(),'');
+  assert.equal(await page.locator('#tax_form_customer_name').inputValue(),'');
+  assert.equal(await page.locator('#po_note').inputValue(),'หมายเหตุใบเสนอราคา');
   assert.deepEqual(errors,[]);
-  console.log('Document party pickers passed: four forms, search, selection, draft retention, close/focus, locked exchange');
+  console.log('Document party pickers passed: five forms, customer details, two columns, search, selection, draft retention, close/focus, locked exchange, no return editor');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});
