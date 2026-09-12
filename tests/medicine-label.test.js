@@ -100,7 +100,7 @@ assert.equal(context.printMedicineLabels('SALE-1'), true);
 assert.match(printHtml, /@page\{size:80mm 50mm;margin:0\}/);
 assert.match(printHtml, /ตัวอย่างฉลากยา 80 × 50 มม\. \(แนะนำ\) · 1 ใบ/);
 assert.match(printHtml, /Paracetamol 500 mg/);
-assert.match(printHtml, /sapuri-pharmacy-logo\.png/);
+assert.match(printHtml, /sapuri-pharmacy-logo\.webp/);
 assert.match(printHtml, /class="medicine-label-brand-logo"/);
 assert.match(printHtml, /\.medicine-label-brand\{display:contents\}/);
 assert.match(printHtml, /grid-row:1\/3;align-self:center/);

@@ -6,7 +6,7 @@ const vm = require('node:vm');
 const { chromium } = require('playwright');
 
 const html = require("./load-app-source")();
-const logoData = `data:image/png;base64,${fs.readFileSync(path.join(__dirname, '..', 'sapuri-pharmacy-logo.png')).toString('base64')}`;
+const logoData = `data:image/webp;base64,${fs.readFileSync(path.join(__dirname, '..', 'sapuri-pharmacy-logo.webp')).toString('base64')}`;
 const helpersStart = html.indexOf("const MEDICINE_LABEL_SIZE_STORAGE_KEY=");
 const helpersEnd = html.indexOf('function isProductActive(', helpersStart);
 const printStart = html.indexOf('function medicineLabelContentLength(');
@@ -80,7 +80,7 @@ const browserExecutable = [
   for (const size of ['80x50','60x40']) {
     const page = await browser.newPage({viewport:{width:700,height:500},deviceScaleFactor:2});
     await page.route('https://fonts.googleapis.com/**', route => route.abort());
-    const labelHtml=renderLabel(size).replace('sapuri-pharmacy-logo.png',logoData);
+    const labelHtml=renderLabel(size).replace('sapuri-pharmacy-logo.webp',logoData);
     assert.match(labelHtml, /class="medicine-label-value">52<\/b><span>วัน<\/span>/, `${size} ต้องแสดงระยะเวลา 52 วัน`);
     assert.match(labelHtml, /<i class="is-checked"><\/i>ทุก 30 นาที/, `${size} ต้องถมดำช่องทุก 30 นาทีบนกระดาษ`);
     await page.setContent(labelHtml, {waitUntil:'domcontentloaded'});

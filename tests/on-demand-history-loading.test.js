@@ -32,11 +32,11 @@ assert.match(documentLoader, /fetchBoundedRows\(buildQuery/,
   'normal document reads must use bounded server-side pages');
 assert.match(documentLoader, /data->>date/,
   'document report windows must be filtered by their stored date on the server');
-assert.match(documentLoader, /const snapshot=new Map\(syncedTableRows\[table\]\|\|\[\]\)/,
+assert.match(documentLoader, /mergeWorkspaceRemoteRows\(table/,
   'partial document hydration must preserve the observed-id sync snapshot');
 
 const syncLoader = section('async function syncCoreDataToSupabase(){', '// Stock never travels through product metadata sync.');
-assert.match(syncLoader, /if\(documentLoadStates\[table\]\?\.loaded\) await syncRevisionedDocuments/,
+assert.match(syncLoader, /if\(documentLoadStates\[table\]\?\.loaded\|\|pendingDocumentTables\.has\(table\)\) await syncRevisionedDocuments/,
   'unopened document tables must never be compared with empty local arrays');
 
 const backup = section('async function storeBackupDataSnapshot(){', 'function storeBackupFileName(){');

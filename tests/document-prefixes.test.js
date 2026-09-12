@@ -9,7 +9,6 @@ const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '202
 
 for (const [key, value] of [
   ['cashBill','CB'],
-  ['purchaseOrder','PO'],
   ['inspection','CHECK'],
   ['stockAdjustment','SC'],
   ['cashShift','CS'],
@@ -19,8 +18,8 @@ for (const [key, value] of [
 }
 
 assert.match(html, /saved\.id=generateInspectionListId\(\)/);
-assert.match(html, /\{key:'shortage',label:'จดสั่งสินค้า'\}/, 'รหัส SH ต้องระบุว่าใช้กับหน้าจดสั่งสินค้า');
-assert.match(html, /\{key:'purchaseOrder',label:'ใบสั่งซื้อสินค้า'\}/, 'ใบสั่งซื้อสินค้าต้องมีช่องตั้งค่ารหัส PO แยกจากจดสั่งสินค้า');
+assert.match(html, /\{key:'shortage',label:'สั่งซื้อสินค้า'\}/);
+assert.doesNotMatch(html, /key:'purchaseOrder'/, 'obsolete purchase-order prefix setting must be removed');
 assert.match(html, /function generateInspectionListId\(\)/);
 assert.match(html, /function nextA4CashReceiptNumber\(\)[\s\S]{0,260}documentPrefixes\.cashBill/);
 assert.match(html, /number:old\.number\|\|nextA4CashReceiptNumber\(\)/);

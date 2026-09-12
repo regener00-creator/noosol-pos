@@ -39,7 +39,7 @@ assert.match(coreLoad, /loadProductRowsFromSupabase\(\)/);
 assert.doesNotMatch(coreLoad, /from\('products'\)\.select\('\*'\)/, 'normal core load must use the product manifest cache');
 assert.match(coreLoad, /products=prodRows\|\|\[\]/, 'normalized product objects must be assigned without a second mapping pass');
 assert.match(coreLoad, /seedProductSyncSnapshot\(products,productDirtyOperations\)/, 'dirty products must not be seeded as synchronized');
-assert.match(coreLoad, /if\(productDirtyOperations\.size\) scheduleSupabaseCoreSync\(\)/, 'dirty products recovered on boot must retry upload');
+assert.match(coreLoad, /if\(productDirtyOperations\.size\|\|currentWorkspacePendingChanges\(\)\.length\) scheduleSupabaseCoreSync\(\)/, 'dirty products and documents recovered on boot must retry upload');
 assert.doesNotMatch(coreLoad, /products=\(prodRows\|\|\[\]\)\.map\(rowToProduct\)/, 'double mapping strips JSON-only barcode metadata');
 
 const contactImportStart = html.indexOf('async function importContactsFromExcel(');

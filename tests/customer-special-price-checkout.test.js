@@ -12,8 +12,9 @@ const migration = fs.readFileSync(
 );
 
 assert.match(app, /async function persistCustomerPricingImmediately\(contact\)/);
-assert.match(app, /updateRevisionedRows\('contacts',\[contact\],contactToRow\)/);
-assert.match(app, /insertRevisionedRows\('contacts',\[contact\],contactToRow\)/);
+assert.match(app, /updateRevisionedRows\('contacts',sent,contactToRow,acknowledge\)/);
+assert.match(app, /insertRevisionedRows\('contacts',sent,contactToRow,acknowledge\)/);
+assert.match(app, /const sent=cloneSyncRecords\(\[contact\]\);\s*await ensureWorkspaceRecoveryDurable\(\)/);
 assert.doesNotMatch(app, /sb\.from\('contacts'\)\.upsert\(row,\{onConflict:'id'\}\)/);
 assert.match(app, /await persistCustomerPricingImmediately\(customer\)/);
 assert.match(app, /save_customer_pricing/);

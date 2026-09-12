@@ -17,17 +17,17 @@ assert.match(index, /\/app\.js\?v=__PEPOS_ASSET_VERSION__/);
 assert.match(index, /\/manifest\.webmanifest\?v=__PEPOS_ASSET_VERSION__/);
 assert.match(
   worker,
-  /const APP_SHELL=\[[^\]]*'\/sapuri-pharmacy-logo\.png'[^\]]*\];/s,
+  /const APP_SHELL=\[[^\]]*'\/sapuri-pharmacy-logo\.webp'[^\]]*\];/s,
   'medicine-label printing must have its logo available offline'
 );
 assert.match(
   worker,
-  /const APP_SHELL=\[[^\]]*'\/sapuri-brand-logo\.png'[^\]]*\];/s,
+  /const APP_SHELL=\[[^\]]*'\/sapuri-brand-logo\.webp'[^\]]*\];/s,
   'SAPURI brand logo must be available offline'
 );
 assert.match(worker, /'\/sapuri-app-icon-192\.png'/);
 assert.match(worker, /'\/sapuri-app-icon-512\.png'/);
-assert.match(worker, /keys\.filter\(key=>key!==CACHE_NAME\)\.map\(key=>caches\.delete\(key\)\)/);
+assert.match(worker, /key\.startsWith\('pepos-mobile-'\)&&key!==CACHE_NAME/,'do not delete another applications cache');
 assert.match(worker, /request\.mode==='navigate'/);
 assert.match(worker, /\.catch\(\(\)=>caches\.match\('\/index\.html'\)\)/);
 assert.ok((worker.match(/event\.waitUntil\(/g) || []).length >= 3, 'ทุก cache.put ระหว่าง fetch ต้องต่ออายุ service worker lifecycle');

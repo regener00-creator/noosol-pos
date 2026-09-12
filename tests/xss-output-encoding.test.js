@@ -133,7 +133,7 @@ test('supplier editor and purchase item rows encode stored values', () => {
     escapeHtml,
     products: [{id: 1, name: textPayload, unit: attributePayload, cost: 1, units: []}],
     poPurchaseUnitOptions: product => [{name: product.unit, cost: 1, factor: 1}],
-    currentTab: 'purchaseorder2',
+    currentTab: 'gr',
     activePurchaseDraft: () => ({stockApplied: false}),
     fmtMoney: value => String(Number(value) || 0),
   };
@@ -183,7 +183,7 @@ test('printPO encodes document, supplier, and item fields before document.write'
   vm.createContext(context);
   const printSource = sourceBetween('function printPO(', '// แปลงตัวเลขเป็นข้อความภาษาไทย');
   vm.runInContext(`${printSource}\nthis.printPO=printPO;`, context);
-  context.printPO(document.id, 'po2');
+  context.printPO(document.id, 'gr');
   assertPayloadEncoded(written, 'printPO');
 });
 

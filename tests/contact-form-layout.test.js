@@ -26,8 +26,9 @@ assert.doesNotMatch(form, /c_postcode|c_contactname|c_bank|c_bankname|c_bankacc|
 assert.match(source, /openPOSCustomerCreateModal\(\)[\s\S]*contactEditorFieldsHtml\(emptyCustomerContactDraft\(\),'customer'\)/);
 assert.match(source, /function renderContactForm\(\)[\s\S]*fixedType=isNew\?\(currentTab==='customers'\?'customer':'supplier'\):''[\s\S]*contactEditorFieldsHtml\(c,fixedType\)/);
 assert.match(save, /const fixedType=g\('c_fixed_type'\)\?\.value\|\|'';[\s\S]*\['customer','supplier'\]\.includes\(fixedType\)\?\[fixedType\]:\[\]/);
-assert.match(source, /function automaticContactCode\(records=\[\]\)[\s\S]*\/\^C\(\\d\+\)\$\/[\s\S]*`C\$\{String\(next\)\.padStart\(4,'0'\)\}`/);
-assert.match(save, /recordId=contactId==='new'\?generateClientRecordId\(contacts\)[\s\S]*enteredCode\|\|existing\?\.code\|\|automaticContactCode\(contacts\)/);
+assert.doesNotMatch(source, /function automaticContactCode\(/,'codes must not use device-local max + 1');
+assert.match(save, /enteredCode\|\|existing\?\.code\|\|''/);
+assert.match(save, /_autoCode:true/,'database assigns the code after a durable insert');
 assert.match(save, /creditDays: g\('c_credit'\)\?/);
 assert.match(save, /line: g\('c_line'\)\.value\.trim\(\)/);
 assert.match(save, /phone: formatPhoneValue\(g\('c_phone'\)\.value\)/);

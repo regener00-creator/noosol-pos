@@ -46,8 +46,9 @@ const checkoutEnd = html.indexOf('async function clearLocalStoreCachesForReset()
 assert.ok(checkoutStart >= 0 && checkoutEnd > checkoutStart, 'checkout request helpers must exist');
 const checkoutSource = html.slice(checkoutStart, checkoutEnd);
 const checkoutSubmission = section('async function doCheckout(', '// คลิกช่องตัวเลข');
-assert.match(checkoutSubmission, /definitiveFailure=!!String\(error\?\.code\|\|''\)\.trim\(\)/,
+assert.match(checkoutSubmission, /definitiveFailure=\/\^\[0-9A-Z\]\{5\}\$\//,
   'database-declined checkout must release its request id for a corrected payload');
+assert.doesNotMatch(checkoutSubmission, /definitiveFailure=!!String/,'transport error codes must not clear an ambiguous checkout');
 assert.match(checkoutSubmission, /else restorePendingCheckoutUi\(requestContext\)/,
   'network-ambiguous checkout must retain and restore its exact request payload');
 let uuidCounter = 0;
@@ -57,6 +58,7 @@ const checkoutSandbox = {
   pendingCheckoutContextMemory: null,
   PENDING_CHECKOUT_REQUEST_KEY: 'pending-checkout-test',
   activeWarehouseId: 1,
+  currentProfile:{id:'test'},
   sessionStorage: {
     getItem: key => sessionValues.has(key) ? sessionValues.get(key) : null,
     setItem: (key, value) => sessionValues.set(key, value),
@@ -74,6 +76,12 @@ const checkoutSandbox = {
 };
 vm.createContext(checkoutSandbox);
 vm.runInContext(`${checkoutSource}; this.checkoutRequestContext=checkoutRequestContext; this.clearCheckoutRequestId=clearCheckoutRequestId;`, checkoutSandbox);
+let durableCheckout=null,completedCheckout='';
+checkoutSandbox.updateDurableCheckout=async({draft=null,legacy=null,completedId=''}={})=>{
+  if(completedId){durableCheckout=null;completedCheckout=completedId;return null;}
+  if(!draft) return durableCheckout;
+  durableCheckout=durableCheckout||(legacy?.id!==completedCheckout&&legacy)||draft;return durableCheckout;
+};
 
 const csvStart = html.indexOf('function csvSpreadsheetText(');
 const csvEnd = html.indexOf('function exportRProductExcel(', csvStart);
@@ -91,7 +99,7 @@ async function run() {
   assert.equal(retryAfterUiChange.id, first.id, 'a changed cart must not receive a new request id while the outcome is unresolved');
   assert.equal(retryAfterUiChange.payloadMismatch, true);
   assert.deepEqual(JSON.parse(JSON.stringify(retryAfterUiChange.payload)), firstPayload, 'retry must retain the original atomic checkout payload');
-  checkoutSandbox.clearCheckoutRequestId(first.id);
+  await checkoutSandbox.clearCheckoutRequestId(first.id);
   assert.equal(localValues.has('pending-checkout-test'), false, 'acknowledged checkout must clear durable request state');
   const afterAcknowledgement = await checkoutSandbox.checkoutRequestContext(changedPayload, {cart:[{pid:2}]});
   assert.notEqual(afterAcknowledgement.id, first.id, 'only an acknowledged/cleared request may receive a new id');

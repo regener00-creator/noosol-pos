@@ -13,7 +13,7 @@ const tick=()=>new Promise(resolve=>setImmediate(resolve));
 const toRow=item=>({id:item.id,name:item.name,data:item.data,revision:item._revision});
 function context(extra={}){
   return vm.createContext({console,Map,Set,JSON,Date,Math,Promise,
-    syncedTableRows:{},tableSnapshot:(rows,fn)=>new Map(rows.map(item=>[String(item.id),JSON.stringify(fn(item))])),
+    syncedTableRows:{},workspaceRecoveryEntries:new Map(),ensureWorkspaceRecoveryDurable:async()=>true,tableSnapshot:(rows,fn)=>new Map(rows.map(item=>[String(item.id),JSON.stringify(fn(item))])),
     generateProductCreateToken:()=> 'test-token',noteCoreSyncFailure:()=>false,SYNC_TABLE_LABELS:{},...extra});
 }
 function loadSync(ctx){
@@ -30,6 +30,7 @@ test('master edits made during a delayed acknowledgement are sent on the next sy
   ctx.syncedTableRows.contacts=new Map([['1',JSON.stringify({...toRow(ctx.items[0]),name:'old'})]]);
   loadSync(ctx);
   const first=vm.runInContext("upsertAndPrune('contacts',items,toRow)",ctx);
+  await tick();
   ctx.items[0].name='second';ctx.items[0].data.phone='222';release();await first;
   await vm.runInContext("upsertAndPrune('contacts',items,toRow)",ctx);
   assert.deepEqual(sent.map(rows=>rows[0].name),['first','second']);

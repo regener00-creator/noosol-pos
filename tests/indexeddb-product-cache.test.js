@@ -14,7 +14,8 @@ assert.match(html,/if\(productRowsPersisted\) await saveProductManifestCache\(/,
 assert.match(html,/await loadProductCacheFromIndexedDB\(\)/,'cache must hydrate before the authenticated core load');
 assert.match(html,/function localWorkspaceSnapshot\(\)[\s\S]*?delete snapshot\.products/);
 assert.match(html,/const PRODUCT_CACHE_WORKSPACE_STORE='workspace'/);
-assert.match(html,/transaction\.objectStore\(PRODUCT_CACHE_WORKSPACE_STORE\)\.put\(\{key:'current',value:snapshot/);
+assert.match(html,/const row=\{key:'current',value:\{\.\.\.snapshot,_outboxVersion:1\}[\s\S]*store\.put\(row\)/);
+assert.match(html,/key:`user:\$\{snapshot\._recoveryActorId\}`/);
 assert.doesNotMatch(html,/function workspacePersistencePayload\(\)/,'workspace cache must not stringify the whole snapshot on the main thread');
 assert.doesNotMatch(html,/safeLocalStorageSet\(PRODUCT_MANIFEST_STORAGE_KEY/,'product manifest must not be written back to localStorage');
 assert.match(html,/function workspaceSnapshot\(\)[\s\S]*?return \{warehouses,products,/,'downloadable backups must still include products');

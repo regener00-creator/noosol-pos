@@ -115,7 +115,7 @@ const browserExecutable = [
   assert.equal(await page.evaluate(()=>currentTab),'checkout');
   await page.locator('#openCustomerPickerBtn').click();
   assert.equal(await page.locator('.pos-customer-picker-modal').count(),1);
-  await page.locator('#posCustomerPickerSearch').fill('081234');
+  await page.locator('#posCustomerPickerSearch').fill('089999');
   assert.equal(await page.locator('[data-pos-customer-index]:visible').count(),1);
   await page.locator('[data-pos-customer-general]').click();
   assert.equal(await page.evaluate(()=>cart[0].price),180);
@@ -150,7 +150,8 @@ const browserExecutable = [
   assert.equal(await page.evaluate(()=>currentTab),'checkout');
   assert.equal(await page.evaluate(()=>saleMember?.name),'ลูกค้าใหม่');
   assert.deepEqual(await page.evaluate(()=>contacts.find(contact=>contact.name==='ลูกค้าใหม่')?.types),['customer']);
-  assert.match(await page.evaluate(()=>contacts.find(contact=>contact.name==='ลูกค้าใหม่')?.code),/^C-[0-9A-Z]+$/);
+  assert.equal(await page.evaluate(()=>contacts.find(contact=>contact.name==='ลูกค้าใหม่')?._autoCode),true,'new contact waits for the central code allocator');
+  assert.equal(await page.evaluate(()=>contacts.find(contact=>contact.name==='ลูกค้าใหม่')?.code),'');
   assert.equal(await page.evaluate(()=>contacts.find(contact=>contact.name==='ลูกค้าใหม่')?.entity),'individual');
   assert.equal(await page.evaluate(()=>contacts.find(contact=>contact.name==='ลูกค้าใหม่')?.creditDays),'');
   assert.equal(await page.locator('#openCustomerPickerBtn strong').textContent(),'ลูกค้าใหม่');

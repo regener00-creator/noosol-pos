@@ -15,8 +15,8 @@ const staticDeployFiles = [
   'manifest.webmanifest',
   'sapuri-app-icon-192.png',
   'sapuri-app-icon-512.png',
-  'sapuri-pharmacy-logo.png',
-  'sapuri-brand-logo.png',
+  'sapuri-pharmacy-logo.webp',
+  'sapuri-brand-logo.webp',
 ]
 
 function addVersionInput(hash, content) {

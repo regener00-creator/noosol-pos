@@ -1039,7 +1039,7 @@
   .doc-list thead tr{background:#4F4038;}
   .doc-list thead th{background:#4F4038;color:#fff;border:1px solid #4F4038;font-size:12.5px;}
   .po-doc-list{table-layout:fixed;}
-  .po2-doc-list{table-layout:fixed;}
+  .supplier-doc-list{table-layout:fixed;}
   .doc-sort-btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;width:100%;border:none;background:transparent;color:#fff;font-family:inherit;font-size:12.5px;font-weight:600;cursor:pointer;padding:0;white-space:nowrap;}
   .doc-sort-btn:hover{color:#F7F0ED;}
   .doc-sort-arrow{font-size:10px;min-width:10px;opacity:.75;}
@@ -1393,6 +1393,8 @@
   .pos-customer-picker-search{padding:14px 18px 10px}.pos-customer-picker-search input{width:100%;min-height:46px;border:1px solid var(--border);border-radius:10px;padding:10px 13px;font:inherit;background:#fff;color:var(--text)}
   .pos-customer-picker-search input:focus{outline:2px solid color-mix(in srgb,var(--primary) 25%,transparent);border-color:var(--primary)}
   .pos-customer-picker-list{padding:2px 18px 18px;overflow-y:auto;display:grid;gap:8px}
+  .picker-pagination{display:flex;flex-wrap:wrap;align-items:center;justify-content:flex-end;gap:8px;padding-top:10px;font-size:13px;color:var(--text-muted)}
+  .sync-recovery-panel{padding:0 20px 14px}.sync-recovery-list{max-height:260px;overflow:auto;margin-top:10px}.sync-recovery-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}.sync-recovery-row span{min-width:0;overflow-wrap:anywhere}.sync-recovery-row button{flex-shrink:0}
   .pos-customer-create-modal{width:min(980px,94vw);max-height:90vh}
   .pos-customer-create-modal .modal-head{padding:20px 22px 14px;border-bottom:1px solid var(--border)}
   .pos-customer-create-modal .modal-head h3{font-size:21px}.pos-customer-create-modal .modal-head .sub{margin-top:4px;font-size:12px;color:var(--text-muted)}
@@ -1759,7 +1761,6 @@
   .history-icon-btn[data-act="editsalesrep"],
   .history-icon-btn[data-doc-action="edit"][data-kind="ret"],
   .gr-edit-btn,
-  .po2-edit-btn,
   .shortage-edit-btn,
   .doc-menu-btn,
   .warehouse-edit-btn,
@@ -1773,7 +1774,6 @@
   .history-icon-btn[data-act="editsalesrep"]:hover,
   .history-icon-btn[data-doc-action="edit"][data-kind="ret"]:hover,
   .gr-edit-btn:hover,
-  .po2-edit-btn:hover,
   .shortage-edit-btn:hover,
   .doc-menu-btn:hover,
   .doc-menu-btn.open,

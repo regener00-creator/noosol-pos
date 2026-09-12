@@ -236,6 +236,7 @@ function openSyncDetailsModal(){
   overlay.innerHTML=`<section class="modal sync-detail-modal" role="dialog" aria-modal="true" aria-labelledby="syncDetailTitle">
     <div class="modal-head"><div><h3 id="syncDetailTitle">รายละเอียดการซิงก์</h3><div class="sync-detail-summary">${navigator.onLine?'เชื่อมต่ออินเทอร์เน็ตแล้ว':'อุปกรณ์ออฟไลน์'}${syncUiErrorCount?` · ล้มเหลวสะสม ${syncUiErrorCount} รอบ`:''}</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div>
     <div class="sync-detail-local">${localRows.length?`<div class="sync-detail-section-title">สาเหตุล่าสุดบนเครื่องนี้</div>${syncDetailRowsHtml(localRows)}`:''}</div>
+    <div class="sync-recovery-panel"></div>
     <div class="sync-detail-section-title sync-detail-history-title">ประวัติล่าสุดจากเซิร์ฟเวอร์</div>
     <div class="sync-detail-list"><div class="sync-detail-loading">กำลังโหลดรายละเอียด…</div></div>
     <div class="sync-detail-note">ตัวเลขบนปุ่มคือจำนวนรอบที่ซิงก์ล้มเหลว ไม่ใช่จำนวนรายการข้อมูล</div>
@@ -243,6 +244,7 @@ function openSyncDetailsModal(){
   </section>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
+  renderWorkspaceRecoveryPanel(overlay.querySelector('.sync-recovery-panel'));
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('.sync-detail-close').onclick=close;
   overlay.onclick=async event=>{
@@ -273,6 +275,7 @@ function openSyncDetailsModal(){
   };
   const list=overlay.querySelector('.sync-detail-list');
   const refresh=async()=>{
+    renderWorkspaceRecoveryPanel(overlay.querySelector('.sync-recovery-panel'));
     list.innerHTML='<div class="sync-detail-loading">กำลังโหลดรายละเอียด…</div>';
     try{
       const rows=await loadSyncEventDetails();
@@ -288,6 +291,7 @@ function openSyncDetailsModal(){
     button.disabled=true; button.textContent='กำลังซิงก์…';
     // Explicit user retry is allowed; automatic retries leave conflicts paused.
     updateProductMetadataInChunks.paused?.clear();
+    syncRevisionedDocuments.paused?.clear();
     await syncCoreDataToSupabase();
     if(!overlay.isConnected) return;
     const summary=overlay.querySelector('.sync-detail-summary');
@@ -365,14 +369,57 @@ async function resolveOwnSyncEventsThrough(through){
 }
 function readPendingStockOperations(){ try{ const rows=JSON.parse(localStorage.getItem(PENDING_STOCK_OPERATIONS_KEY)||'{}'); return rows&&typeof rows==='object'?rows:{}; }catch(_error){ return {}; } }
 function writePendingStockOperations(rows){ try{ localStorage.setItem(PENDING_STOCK_OPERATIONS_KEY,JSON.stringify(rows||{})); return true; }catch(_error){ return false; } }
+async function beginDurableOperation(operation,payloadHash){
+  const actorId=String(currentProfile?.id||'');
+  if(!actorId) throw new Error('กรุณาเข้าสู่ระบบก่อนบันทึกรายการ');
+  const key=`operation:${actorId}:${payloadHash}`;
+  const legacy=readPendingStockOperations()[payloadHash];
+  try{
+    const db=await openProductCacheDb();
+    const transaction=db.transaction(PRODUCT_CACHE_META_STORE,'readwrite');
+    const done=idbTransactionDone(transaction),store=transaction.objectStore(PRODUCT_CACHE_META_STORE);
+    const legacyCompletion=store.get(`legacy-completed:${actorId}:${payloadHash}`);
+    const request=store.get(key);
+    let saved;
+    request.onsuccess=()=>{
+      try{
+        saved=request.result?.value;
+        if(!saved){
+          const legacyUsable=legacy?.requestId&&legacyCompletion.result?.value!==legacy.requestId&&(!legacy.actorId||legacy.actorId===actorId);
+          const requestId=legacyUsable?legacy.requestId:null;
+          saved={requestId:requestId||globalThis.crypto.randomUUID(),actorId,operation,payloadHash,createdAt:new Date().toISOString()};
+          store.put({key,value:saved});
+        }
+      }catch(_error){ try{ transaction.abort(); }catch(_){} }
+    };
+    await done;
+    if(!saved?.requestId) throw new Error('ไม่พบรหัสป้องกันรายการซ้ำ');
+    return {...saved,key};
+  }catch(cause){
+    const error=new Error('ยังไม่ได้ส่งรายการ: เก็บรหัสป้องกันรายการซ้ำลงเครื่องไม่ได้ กรุณาตรวจพื้นที่ว่างหรืออนุญาตการเก็บข้อมูลของเว็บไซต์');
+    error.code='LOCAL_STORAGE_UNAVAILABLE'; error.cause=cause;
+    rememberSyncUiError(error,{operation});
+    throw error;
+  }
+}
+async function finishDurableOperation(request){
+  try{
+    const db=await openProductCacheDb(),transaction=db.transaction(PRODUCT_CACHE_META_STORE,'readwrite');
+    const done=idbTransactionDone(transaction);
+    const legacy=readPendingStockOperations();
+    if(legacy[request.payloadHash]?.requestId) transaction.objectStore(PRODUCT_CACHE_META_STORE).put({key:`legacy-completed:${request.actorId}:${request.payloadHash}`,value:legacy[request.payloadHash].requestId});
+    transaction.objectStore(PRODUCT_CACHE_META_STORE).delete(request.key);
+    await done;
+    delete legacy[request.payloadHash]; writePendingStockOperations(legacy);
+  }catch(error){
+    // Keeping the token is safe: a retry retrieves the committed server result.
+    console.warn('เก็บรหัสรายการไว้เพื่อตรวจสอบซ้ำ',error);
+    showToast('บันทึกบนเซิร์ฟเวอร์แล้ว แต่เครื่องยังล้างรหัสรอตรวจสอบไม่ได้ กรุณาตรวจพื้นที่ว่างก่อนทำรายการเดิมอีกครั้ง','warning-top');
+  }
+}
 async function runStockOperation(operation,args={}){
   const payload=cloudClean(args||{}),payloadHash=await sha256Hex({operation,payload});
-  const pending=readPendingStockOperations();
-  const saved=pending[payloadHash];
-  const requestId=saved?.requestId||globalThis.crypto?.randomUUID?.();
-  if(!requestId) throw new Error('อุปกรณ์นี้ไม่สามารถสร้างรหัสรายการที่ปลอดภัยได้');
-  pending[payloadHash]={requestId,operation,payloadHash,createdAt:saved?.createdAt||new Date().toISOString(),attempts:(Number(saved?.attempts)||0)+1};
-  writePendingStockOperations(pending);
+  const request=await beginDurableOperation(operation,payloadHash),requestId=request.requestId;
   setSyncUiState('syncing');
   const {data,error}=await sb.rpc('run_stock_operation',{p_request_id:requestId,p_operation:operation,p_args:payload});
   if(error){
@@ -380,7 +427,7 @@ async function runStockOperation(operation,args={}){
     reportClientEvent({operation,recordId:String(payload.receiptId||payload.returnId||payload.exchangeId||payload.saleId||payload.productId||''),errorCode:error.code||'',message:error.message||'Stock operation failed',context:{payloadHash}});
     throw error;
   }
-  const latest=readPendingStockOperations(); delete latest[payloadHash]; writePendingStockOperations(latest);
+  await finishDurableOperation(request);
   setSyncUiState('synced',0);
   return data;
 }
@@ -854,6 +901,12 @@ let productCacheDirtyFingerprint=null;
 let productCacheWriteChain=Promise.resolve();
 let productDirtyOperations=new Map();
 let legacyWorkspaceProducts=null;
+let workspaceRecoveryEntries=new Map();
+let workspaceRecoveryActorId='';
+let workspaceCacheSaveFailed=false;
+let workspaceRecoveryLoadedActor='';
+let workspaceOutboxVersions=new Map();
+const WORKSPACE_DOCUMENT_CACHE_LIMIT=100;
 function readProductManifestCache(){
   const cached=cachedProductManifest;
   if(!cached||cached.version!==PRODUCT_MANIFEST_VERSION) return null;
@@ -1225,7 +1278,9 @@ function syncAcknowledgement(table,localArray,toRow){
     if(live){
       live._revision=Number(item._revision)||Number(live._revision)||0;
       if(item._clientCreateToken) live._clientCreateToken=item._clientCreateToken;
+      if(table==='contacts'&&item.code&&!live.code){ live.code=item.code; delete live._autoCode; }
     }
+    if(typeof workspaceRecoveryEntries!=='undefined') workspaceRecoveryEntries.delete(`${table}:${item.id}`);
     snapshot.set(String(item.id),JSON.stringify(toRow(item)));
     if(table==='products'&&typeof persistProductChangesToIndexedDB==='function') persistProductChangesToIndexedDB({updatedIds:[item.id]});
     else if(typeof scheduleWorkspaceCacheWrite==='function'){
@@ -1415,12 +1470,18 @@ async function insertRevisionedRows(table,items,toRow,onAcknowledged=()=>{}){
         const remote=remoteById.get(String(item.id));
         if(!remote||String(remote.data?._clientCreateToken||'')!==String(item._clientCreateToken||'')) return revisionConflictError(table,item.id);
         item._revision=Number(remote.revision)||1;
+        if(table==='contacts'&&remote.data?.code){ item.code=remote.data.code; delete item._autoCode; }
         onAcknowledged(item);
       }
       continue;
     }
     const revisionById=new Map((data||[]).map(row=>[String(row.id),Number(row.revision)||1]));
-    batch.forEach(item=>{ item._revision=revisionById.get(String(item.id))||1; onAcknowledged(item); });
+    const remoteById=new Map((data||[]).map(row=>[String(row.id),row]));
+    batch.forEach(item=>{
+      item._revision=revisionById.get(String(item.id))||1;
+      if(table==='contacts'&&remoteById.get(String(item.id))?.data?.code){ item.code=remoteById.get(String(item.id)).data.code; delete item._autoCode; }
+      onAcknowledged(item);
+    });
   }
   return null;
 }
@@ -1469,6 +1530,7 @@ async function upsertAndPrune(table,localArray,toRow){
   });
   changedLive.forEach(item=>{ if(!(Number(item._revision)||0)&&!item._clientCreateToken) item._clientCreateToken=generateProductCreateToken(); });
   const changed=cloneSyncRecords(changedLive);
+  if(changed.length||[...previous.keys()].some(id=>!current.has(id))) await ensureWorkspaceRecoveryDurable();
   const acknowledge=syncAcknowledgement(table,localArray,toRow);
   const deleted=[...previous.keys()].filter(id=>!current.has(id));
   if(!changed.length&&!deleted.length) return true;
@@ -1479,8 +1541,9 @@ async function upsertAndPrune(table,localArray,toRow){
     if(error){ console.warn('sync '+table,error); return noteCoreSyncFailure(error,{operation:'upsert_rows',tableName:table,fallbackMessage:`ซิงก์ ${SYNC_TABLE_LABELS[table]||table} ไม่สำเร็จ`}); }
   }
   if(deleted.length){
-    const error=await deleteRevisionedRows(table,deleted,previous,id=>syncedTableRows[table].delete(id));
+    const error=await deleteRevisionedRows(table,deleted,previous,id=>{ syncedTableRows[table].delete(id); workspaceRecoveryEntries.delete(`${table}:${id}`); });
     if(error){ console.warn('sync delete '+table,error); return noteCoreSyncFailure(error,{operation:'delete_rows',tableName:table,fallbackMessage:`ลบข้อมูล ${SYNC_TABLE_LABELS[table]||table} จากเซิร์ฟเวอร์ไม่สำเร็จ`}); }
+    await ensureWorkspaceRecoveryDurable();
   }
   return true;
 }
@@ -1599,7 +1662,6 @@ const DOC_TABLES = [
   ['purchase_orders', ()=>purchaseOrders, v=>{purchaseOrders=v;}],
   ['goods_receipts', ()=>goodsReceipts, v=>{goodsReceipts=v;}],
   ['product_exchanges', ()=>productExchanges, v=>{productExchanges=v;}],
-  ['purchase_orders_full', ()=>purchaseOrdersFull, v=>{purchaseOrdersFull=v;}],
   ['product_returns', ()=>productReturns, v=>{productReturns=v;}],
   ['transfers', ()=>transfers, v=>{transfers=v;}],
   ['standalone_tax_invoices', ()=>standaloneTaxInvoices, v=>{standaloneTaxInvoices=v;}],
@@ -1658,18 +1720,14 @@ async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full
       let incoming=(result.data||[]).map(rowToDoc);
       if(table==='goods_receipts') incoming=normalizeGoodsReceiptDocuments(incoming);
       const [,getArr,setArr]=entry;
-      const next=full||!state.loaded?incoming:mergeRowsById(getArr(),incoming);
+      const next=mergeWorkspaceRemoteRows(table,getArr(),incoming,docToRow,{replace:full||!state.loaded});
       setArr(next);
       // A partial snapshot contains only rows actually observed by this
       // browser. Merge newly observed ids into the snapshot instead of
       // replacing it, otherwise a locally deleted row could disappear from
       // change tracking while another date window is loading.
-      if(full) seedTableSnapshot(table,next,docToRow);
-      else{
-        const snapshot=new Map(syncedTableRows[table]||[]);
-        incoming.forEach(doc=>snapshot.set(String(doc.id),JSON.stringify(docToRow(doc))));
-        syncedTableRows[table]=snapshot;
-      }
+      // mergeWorkspaceRemoteRows retains the original revision baseline of
+      // unsent records, including deletions, instead of acknowledging them.
       state.loaded=true;
       state.full=!!full;
       state.recent=state.recent||!!recent||(!normalizedRange&&!full);
@@ -1706,6 +1764,7 @@ async function syncCoreDataToSupabase(){
     const syncAttemptStartedAt=new Date().toISOString();
     try{
       coreSyncFailureDetail=null;
+      if(currentWorkspacePendingChanges().length) await ensureWorkspaceRecoveryDurable();
       let pendingProductFailure=null;
       if(loggedInUser()?.owner===true){
         if(!await syncWarehousesIncrementally()) throw new Error('ซิงก์คลังสินค้าไม่สำเร็จ');
@@ -1716,10 +1775,11 @@ async function syncCoreDataToSupabase(){
         }
         if(!await upsertAndPrune('contacts',contacts,contactToRow)) throw new Error('ซิงก์สมุดรายชื่อไม่สำเร็จ');
         if(!await upsertAndPrune('sales_representatives',salesRepresentatives,salesRepToRow)) throw new Error('ซิงก์รายชื่อผู้แทนไม่สำเร็จ');
+        const pendingDocumentTables=new Set(currentWorkspacePendingChanges().map(entry=>entry.table));
         for(const [table,getArr] of DOC_TABLES){
           // Unopened document tables are intentionally absent from memory.
           // Never compare an empty/unloaded array with the remote table.
-          if(documentLoadStates[table]?.loaded) await syncRevisionedDocuments(table,getArr());
+          if(documentLoadStates[table]?.loaded||pendingDocumentTables.has(table)) await syncRevisionedDocuments(table,getArr());
         }
       }
       if(!await syncInspectionListsToSupabase()) throw new Error('ซิงก์รายการตรวจสินค้าไม่สำเร็จ');
@@ -1933,19 +1993,17 @@ async function loadCoreDataFromSupabase(){
       console.warn('load core inventory failed');
       return;
     }
-    contacts=(contactRows||[]).map(rowToContact);
-    salesRepresentatives=(repRows||[]).map(rowToSalesRep);
+    contacts=mergeWorkspaceRemoteRows('contacts',contacts,(contactRows||[]).map(rowToContact),contactToRow,{replace:true});
+    salesRepresentatives=mergeWorkspaceRemoteRows('sales_representatives',salesRepresentatives,(repRows||[]).map(rowToSalesRep),salesRepToRow,{replace:true});
     refreshCategoryBrandUnitLists();
     // Seed the change-detection cache to match what we just loaded, so the
     // next debounced sync doesn't immediately re-upload everything again
     // merely because it hasn't "seen" this exact snapshot before.
     seedTableSnapshot('warehouses',warehouses,warehouseToRow);
     seedProductSyncSnapshot(products,productDirtyOperations);
-    seedTableSnapshot('contacts',contacts,contactToRow);
-    seedTableSnapshot('sales_representatives',salesRepresentatives,salesRepToRow);
     nextWarehouseId=maxArrayValue(warehouses,w=>(Number(w.id)||0)+1,1);
     refreshDataCounters();
-    if(productDirtyOperations.size) scheduleSupabaseCoreSync();
+    if(productDirtyOperations.size||currentWorkspacePendingChanges().length) scheduleSupabaseCoreSync();
   }catch(e){ console.warn('load core data failed',e); }
 }
 
@@ -2119,6 +2177,7 @@ async function loadCashShiftsFromSupabase(){
   }
 }
 async function loadWorkspaceFromSupabase(){
+  await loadWorkspaceRecoveryForUser();
   await adoptRemoteMaintenanceEpoch();
   await Promise.all([
     loadCoreDataFromSupabase(),loadSalesHistoryFromSupabase(),loadBusinessSettingsFromSupabase(),
@@ -2371,14 +2430,14 @@ try{ const savedContacts=JSON.parse(localStorage.getItem(CONTACTS_STORAGE_KEY)||
 function persistContacts(){ persistWorkspaceData(); }
 async function persistCustomerPricingImmediately(contact){
   if(!currentProfile||!contact) return true;
-  const error=(Number(contact._revision)||0)>0
-    ?await updateRevisionedRows('contacts',[contact],contactToRow)
-    :await insertRevisionedRows('contacts',[contact],contactToRow);
+  if(!Number(contact._revision)&&!contact._clientCreateToken) contact._clientCreateToken=generateProductCreateToken();
+  const sent=cloneSyncRecords([contact]);
+  await ensureWorkspaceRecoveryDurable();
+  const acknowledge=syncAcknowledgement('contacts',contacts,contactToRow);
+  const error=(Number(sent[0]._revision)||0)>0
+    ?await updateRevisionedRows('contacts',sent,contactToRow,acknowledge)
+    :await insertRevisionedRows('contacts',sent,contactToRow,acknowledge);
   if(error) throw error;
-  const row=contactToRow(contact);
-  const snapshot=syncedTableRows.contacts||new Map();
-  snapshot.set(String(row.id),JSON.stringify(row));
-  syncedTableRows.contacts=snapshot;
   return true;
 }
 let contactFilter = 'all'; // all | customer | supplier | both
@@ -2542,7 +2601,7 @@ const POS_SMALLEST_UNIT_COMMAND='PEPOS-CMD-SMALLEST';
 let posSmallestUnitOnce=false;
 let lineCounter = 1;
 const MEDICINE_LABEL_SIZE_STORAGE_KEY='pepos_medicine_label_size';
-const MEDICINE_LABEL_LOGO_PATH='sapuri-pharmacy-logo.png';
+const MEDICINE_LABEL_LOGO_PATH='sapuri-pharmacy-logo.webp';
 const MEDICINE_LABEL_SIZES={
   '80x50':{width:80,height:50,label:'80 × 50 มม. (แนะนำ)'},
   '60x40':{width:60,height:40,label:'60 × 40 มม. (กะทัดรัด)'},
@@ -2562,23 +2621,25 @@ const MEDICINE_LABEL_MEAL_OPTIONS=[
 ];
 async function saveRevisionedDocument(table,doc,{remove=false,expectedRevision=null}={}){
   const row=docToRow(doc),revision=expectedRevision===null?row.revision:Number(expectedRevision)||0;
+  const recoveryKey=`${table}:${row.id}`;
+  const live=workspaceRecoveryTables().find(([name])=>name===table)?.[1]().find(item=>String(item.id)===String(row.id));
+  const detached=!remove&&(!live||JSON.stringify(docToRow(live))!==JSON.stringify(row));
+  workspaceRecoveryEntries.set(recoveryKey,{table,id:String(row.id),baseline:syncedTableRows[table]?.get(String(row.id))||null,record:remove?null:structuredClone(doc),detached});
+  await ensureWorkspaceRecoveryDurable();
   const requestPayload={table,id:String(row.id||''),data:row.data,revision,remove:!!remove};
   const payloadHash=await sha256Hex({operation:'save_revisioned_document',...requestPayload});
-  const pending=readPendingStockOperations(),saved=pending[payloadHash];
-  const requestId=saved?.requestId||globalThis.crypto?.randomUUID?.();
-  if(!requestId) throw new Error('ไม่สามารถสร้างรหัสรายการที่ปลอดภัยได้');
-  pending[payloadHash]={requestId,operation:'save_revisioned_document',payloadHash,createdAt:saved?.createdAt||new Date().toISOString(),attempts:(Number(saved?.attempts)||0)+1};
-  writePendingStockOperations(pending);
+  const request=await beginDurableOperation('save_revisioned_document',payloadHash),requestId=request.requestId;
   const {data,error}=await sb.rpc('save_revisioned_document',{p_request_id:requestId,p_table:table,p_id:String(row.id||''),p_data:row.data,p_expected_revision:revision,p_delete:!!remove});
   if(error){
     reportClientEvent({operation:'save_revisioned_document',tableName:table,recordId:String(row.id||''),errorCode:error.code||'',message:error.message||'Document sync failed',context:{expectedRevision:revision,payloadHash}});
-    if(String(error.message||'').includes('REVISION_CONFLICT')||String(error.code||'')==='40001'){
+    if(String(error.message||'').includes('REVISION_CONFLICT')||['40001','PT409'].includes(String(error.code||''))){
       const conflict=new Error('เอกสารนี้ถูกแก้ไขจากอีกเครื่องแล้ว กรุณาโหลดข้อมูลล่าสุดก่อนบันทึกอีกครั้ง'); conflict.code='REVISION_CONFLICT'; throw conflict;
     }
     throw error;
   }
-  const latest=readPendingStockOperations(); delete latest[payloadHash]; writePendingStockOperations(latest);
+  await finishDurableOperation(request);
   if(!remove&&doc) doc._revision=Number(data?.revision)||revision||1;
+  workspaceRecoveryEntries.delete(recoveryKey);
   return data;
 }
 async function syncRevisionedDocuments(table,localArray){
@@ -2587,11 +2648,22 @@ async function syncRevisionedDocuments(table,localArray){
   const changed=cloneSyncRecords((localArray||[]).filter(doc=>previous.get(String(doc.id))!==JSON.stringify(docToRow(doc))));
   const acknowledge=syncAcknowledgement(table,localArray,docToRow);
   const deleted=[...previous.keys()].filter(id=>!current.has(id));
-  for(const doc of changed){ await saveRevisionedDocument(table,doc); acknowledge(doc); }
+  const paused=syncRevisionedDocuments.paused||(syncRevisionedDocuments.paused=new Map());
+  for(const doc of changed){
+    const key=`${table}:${doc.id}`,fingerprint=JSON.stringify(docToRow(doc));
+    if(paused.get(key)===fingerprint){ const error=new Error('เอกสารนี้รอตรวจสอบข้อมูลที่ชนกัน การแก้ไขยังเก็บไว้ในเครื่อง'); error.code='REVISION_CONFLICT'; error.syncPaused=true; throw error; }
+    try{ await saveRevisionedDocument(table,doc); acknowledge(doc); paused.delete(key); }
+    catch(error){ if(error.code==='REVISION_CONFLICT') paused.set(key,fingerprint); throw error; }
+  }
   for(const id of deleted){
     const previousRow=JSON.parse(previous.get(String(id))||'{}');
-    await saveRevisionedDocument(table,{id,_revision:Number(previousRow.revision)||0},{remove:true,expectedRevision:Number(previousRow.revision)||0});
+    const key=`${table}:${id}`,fingerprint=`delete:${previousRow.revision}`;
+    if(paused.get(key)===fingerprint){ const error=new Error('รายการลบนี้รอตรวจสอบข้อมูลที่ชนกัน'); error.code='REVISION_CONFLICT'; error.syncPaused=true; throw error; }
+    try{ await saveRevisionedDocument(table,{id,_revision:Number(previousRow.revision)||0},{remove:true,expectedRevision:Number(previousRow.revision)||0}); paused.delete(key); }
+    catch(error){ if(error.code==='REVISION_CONFLICT') paused.set(key,fingerprint); throw error; }
     syncedTableRows[table].delete(id);
+    workspaceRecoveryEntries.delete(`${table}:${id}`);
+    await ensureWorkspaceRecoveryDurable();
   }
   return true;
 }
@@ -2838,7 +2910,10 @@ function refreshCartCustomerPrices(){
 function openPOSCustomerPicker(){
   const customers=customersList();
   const selected=activeSaleCustomer();
-  const rows=customers.map((customer,index)=>{
+  const pageSize=60;
+  let page=1;
+  const indexed=customers.map((customer,index)=>({customer,index,text:`${customer.name||''} ${customer.code||''} ${customer.phone||''} ${customer.taxId||''}`.normalize('NFKC').toLowerCase(),digits:[customer.phone,customer.taxId].map(value=>String(value||'').replace(/\D/g,''))}));
+  const rowHtml=({customer,index})=>{
     const ruleCount=normalizedCustomerPriceRules(customer).length;
     const active=String(customer.id)===String(selected?.id);
     return `<button class="pos-customer-picker-item ${active?'active':''}" type="button" data-pos-customer-index="${index}">
@@ -2846,7 +2921,7 @@ function openPOSCustomerPicker(){
       <span class="pos-customer-picker-meta">${ruleCount?`<b>${ruleCount} ราคาพิเศษ</b>`:''}</span>
       <span class="pos-customer-picker-check">${active?'✓':''}</span>
     </button>`;
-  }).join('');
+  };
   const overlay=document.createElement('div');
   overlay.className='modal-overlay pos-customer-picker-overlay';
   overlay.innerHTML=`<div class="modal pos-customer-picker-modal" role="dialog" aria-modal="true" aria-labelledby="posCustomerPickerTitle">
@@ -2857,8 +2932,9 @@ function openPOSCustomerPicker(){
         <span class="pos-customer-picker-main"><strong>ลูกค้าทั่วไป</strong><small>ไม่ใช้ราคาพิเศษของสมาชิก</small></span>
         <span class="pos-customer-picker-check">${selected?'':'✓'}</span>
       </button>
-      <div id="posCustomerPickerRows">${rows||'<div class="pos-customer-picker-empty">ยังไม่มีรายชื่อลูกค้าในสมุดรายชื่อ</div>'}</div>
+      <div id="posCustomerPickerRows"></div>
       <div class="pos-customer-picker-empty" id="posCustomerPickerNoResults" hidden>ไม่พบลูกค้าที่ค้นหา</div>
+      <div class="picker-pagination" id="posCustomerPickerPager" aria-live="polite"></div>
     </div>
   </div>`;
   document.body.appendChild(overlay);
@@ -2877,20 +2953,28 @@ function openPOSCustomerPicker(){
   });
   overlay.addEventListener('mousedown',event=>{ if(event.target===overlay) close(); });
   overlay.querySelector('[data-pos-customer-general]').addEventListener('click',()=>choose(null));
-  overlay.querySelectorAll('[data-pos-customer-index]').forEach(button=>button.addEventListener('click',()=>choose(customers[Number(button.dataset.posCustomerIndex)])));
+  overlay.querySelector('#posCustomerPickerRows').addEventListener('click',event=>{
+    const button=event.target.closest('[data-pos-customer-index]');
+    if(button) choose(customers[Number(button.dataset.posCustomerIndex)]);
+  });
   const search=overlay.querySelector('#posCustomerPickerSearch');
   const noResults=overlay.querySelector('#posCustomerPickerNoResults');
-  search.addEventListener('input',()=>{
-    const query=search.value.trim().toLowerCase();
-    let visible=0;
-    overlay.querySelectorAll('[data-pos-customer-index]').forEach(button=>{
-      const customer=customers[Number(button.dataset.posCustomerIndex)];
-      const haystack=`${customer?.name||''} ${customer?.phone||''} ${customer?.taxId||''}`.toLowerCase();
-      button.hidden=!!query&&!haystack.includes(query);
-      if(!button.hidden) visible++;
-    });
-    noResults.hidden=!query||visible>0;
+  const renderRows=()=>{
+    const query=search.value.normalize('NFKC').trim().toLowerCase();
+    const digits=/^[\d\s()+-]+$/.test(query)?query.replace(/\D/g,''):'';
+    const matches=indexed.filter(entry=>!query||entry.text.includes(query)||(digits&&entry.digits.some(value=>value.includes(digits))));
+    const pages=Math.max(1,Math.ceil(matches.length/pageSize));
+    page=Math.min(page,pages);
+    overlay.querySelector('#posCustomerPickerRows').innerHTML=matches.slice((page-1)*pageSize,page*pageSize).map(rowHtml).join('');
+    noResults.hidden=matches.length>0;
+    overlay.querySelector('#posCustomerPickerPager').innerHTML=`<span>${matches.length} รายชื่อ · หน้า ${page} / ${pages}</span>${pages>1?`<button class="btn ghost" type="button" data-customer-page="-1" ${page===1?'disabled':''}>ก่อนหน้า</button><button class="btn ghost" type="button" data-customer-page="1" ${page===pages?'disabled':''}>ถัดไป</button>`:''}`;
+  };
+  search.addEventListener('input',()=>{ page=1; renderRows(); });
+  overlay.querySelector('#posCustomerPickerPager').addEventListener('click',event=>{
+    const button=event.target.closest('[data-customer-page]');
+    if(button&&!button.disabled){ page+=Number(button.dataset.customerPage); renderRows(); overlay.querySelector('.pos-customer-picker-list').scrollTop=0; }
   });
+  renderRows();
   requestAnimationFrame(()=>search.focus());
 }
 function generateClientRecordId(records=[]){
@@ -3299,15 +3383,14 @@ async function updateSaleDocumentMetadata(saleId,metadata){
 }
 const weekSales = [ {d:'28 ก.ค.',v:420}, {d:'29 ก.ค.',v:580}, {d:'30 ก.ค.',v:310}, {d:'31 ก.ค.',v:490}, {d:'1 ส.ค.',v:670}, {d:'2 ส.ค.',v:174}, {d:'3 ส.ค.',v:96} ];
 let TODAY_STR = currentDateStr();
-const DEFAULT_DOCUMENT_PREFIXES={sale:'RE',cashBill:'CB',taxInvoice:'INV',quotation:'QT',shortage:'SH',purchaseOrder:'PO',productReturn:'RT',goodsReceipt:'RI',productExchange:'EX',transfer:'TF',inspection:'CHECK',stockAdjustment:'SC',cashShift:'CS',warehouse:'WH'};
+const DEFAULT_DOCUMENT_PREFIXES={sale:'RE',cashBill:'CB',taxInvoice:'INV',quotation:'QT',shortage:'SH',productReturn:'RT',goodsReceipt:'RI',productExchange:'EX',transfer:'TF',inspection:'CHECK',stockAdjustment:'SC',cashShift:'CS',warehouse:'WH'};
 let documentPrefixes={...DEFAULT_DOCUMENT_PREFIXES};
 const DOCUMENT_PREFIX_FIELDS=[
   {key:'sale',label:'ใบเสร็จจาก POS / ประวัติการขาย'},
   {key:'cashBill',label:'บิลเงินสด A4'},
   {key:'taxInvoice',label:'ใบกำกับภาษีเต็มรูปแบบ'},
   {key:'quotation',label:'ใบเสนอราคา'},
-  {key:'shortage',label:'จดสั่งสินค้า'},
-  {key:'purchaseOrder',label:'ใบสั่งซื้อสินค้า'},
+  {key:'shortage',label:'สั่งซื้อสินค้า'},
   {key:'productReturn',label:'ใบคืนสินค้า'},
   {key:'goodsReceipt',label:'ใบรับสินค้า'},
   {key:'productExchange',label:'เปลี่ยนสินค้า'},
@@ -3492,7 +3575,6 @@ let goodsReceipts = [
   {id:'GR-0030', po:'PO-0030', supplier:'บ. เซ็นทรัลฟาร์มา จำกัด', date:'2026-07-18', items:[{name:'วิตามินซี 1000mg',qty:30,price:100}], total:3000, status:'รับสินค้าแล้ว', stockApplied:true, stockAppliedAt:'2026-07-18'},
 ];
 let productExchanges = [];
-let purchaseOrdersFull = [];
 let productReturns = [];
 let transfers = [
   {id:'TR-0009', from:'สาขาหลัก (ถ.สุขุมวิท)', to:'สาขา 2 (ตลาดนัดเช้า)', date:'2026-07-30', items:[{name:'เจลแอลกอฮอล์ล้างมือ',qty:10}]},
@@ -3629,7 +3711,7 @@ let priceLabelTemplateSyncPromise=Promise.resolve();
 let priceLabelCustomTextCounter=0;
 let priceLabelNamedTemplateCounter=0;
 // เลขหน้าสำหรับตารางเอกสารต่างๆ (แสดงหน้าละ 10 รายการ)
-let docListPage = { po:1, po2:1, ret:1, gr:1, exchange:1, cashbill:1, taxinvoice:1, quotation:1 };
+let docListPage = { po:1, ret:1, gr:1, exchange:1, cashbill:1, taxinvoice:1, quotation:1 };
 const DOC_LIST_PAGE_SIZE = 10;
 let lowStockSort = { stock:{key:'name',dir:1}, expiry:{key:'expiry',dir:1} };
 // สถานะตัวกรองหน้าประวัติการขาย (ค่าเริ่มต้น = แสดงเฉพาะวันนี้)
@@ -3642,15 +3724,13 @@ let inventoryMovementSearchQuery = '';
 let inventoryMovementExpandedBills = new Set();
 let expandedDocumentItemLists = new Set();
 const INVENTORY_MOVEMENT_PAGE_SIZE = 10;
-let poCounter = 32, grCounter = 31, po2Counter = 1, returnCounter = 1, productExchangeCounter = 1;
+let poCounter = 32, grCounter = 31, returnCounter = 1, productExchangeCounter = 1;
 let editingPOId = null; // null=list, 'new', หรือ id ของ PO
 let poDraft = null; // ร่าง PO ที่กำลังแก้ (เก็บค่าไว้ระหว่าง re-render)
 let poSupplierEditorOpen = false; // แก้ข้อมูลผู้จำหน่ายจากหน้า PO
 let poRepresentativeEditorId = null; // null=ปิด, 'new'=เพิ่มใหม่, หรือ id ผู้แทนที่กำลังแก้
 let editingGRId = null; // null=list, 'new', หรือ id ของใบรับสินค้า
 let grDraft = null;
-let editingPO2Id = null; // null=list, 'new', หรือ id ของใบสั่งซื้อสินค้า
-let po2Draft = null;
 let editingReturnId = null; // null=list, 'new', หรือ id ของใบคืนสินค้า
 let returnDraft = null;
 let editingProductExchangeId = null; // null=list, 'new', หรือ id ของเอกสารเปลี่ยนสินค้า
@@ -3667,7 +3747,7 @@ try{ const savedTaxDocs=JSON.parse(localStorage.getItem(TAX_INVOICE_STORAGE_KEY)
 function persistStandaloneTaxInvoices(){ persistWorkspaceData(); }
 let standaloneTaxInvoiceCounter=maxArrayValue(standaloneTaxInvoices,doc=>(Number(String(doc.number||'').slice(-4))||0)+1,1);
 let openDocMenu = null;
-let documentSort = {po:{key:'date',dir:-1},gr:{key:'date',dir:-1},po2:{key:'date',dir:-1},ret:{key:'date',dir:-1},exchange:{key:'date',dir:-1}};
+let documentSort = {po:{key:'date',dir:-1},gr:{key:'date',dir:-1},ret:{key:'date',dir:-1},exchange:{key:'date',dir:-1}};
 // ข้อมูลร้าน (หัวเอกสาร)
 const STORE_INFO = {
   name: '',
@@ -3734,7 +3814,8 @@ window.addEventListener('beforeunload',event=>{
   const hasUnsavedBusiness=currentTab==='settingsbusiness'&&businessSettingsDirty;
   const hasUnsavedNote=currentTab==='notes'&&noteDraftDirty;
   const hasUnsavedRepresentativeNote=isRepresentativeHistoryScreen()&&representativeActivityDraftDirty;
-  if(!hasUnsavedBusiness&&!hasUnsavedNote&&!hasUnsavedRepresentativeNote) return;
+  const hasPendingSync=!!currentProfile&&(workspaceCacheSaveFailed||currentWorkspacePendingChanges().length>0||productDirtyOperations.size>0);
+  if(!hasUnsavedBusiness&&!hasUnsavedNote&&!hasUnsavedRepresentativeNote&&!hasPendingSync) return;
   event.preventDefault();
   event.returnValue='';
 });
@@ -3851,21 +3932,47 @@ function restorePendingCheckoutUi(context){
 async function checkoutRequestContext(payload,uiSnapshot=null){
   const payloadHash=await sha256Hex(payload);
   const saved=readPendingCheckoutRequest();
-  if(saved) return {...saved,currentPayloadHash:payloadHash,payloadMismatch:saved.payloadHash!==payloadHash};
-  const context={id:crypto.randomUUID(),payloadHash,payload:cloudClean(payload),uiSnapshot:uiSnapshot||null,warehouseId:Number(payload?.warehouseId)||null,createdAt:new Date().toISOString()};
+  const draft={id:crypto.randomUUID(),actorId:String(currentProfile?.id||''),payloadHash,payload:cloudClean(payload),uiSnapshot:uiSnapshot||null,warehouseId:Number(payload?.warehouseId)||null,createdAt:new Date().toISOString()};
+  const context=await updateDurableCheckout({draft,legacy:saved});
   savePendingCheckoutRequest(context);
-  return {...context,currentPayloadHash:payloadHash,payloadMismatch:false};
+  return {...context,currentPayloadHash:payloadHash,payloadMismatch:context.payloadHash!==payloadHash};
 }
-function clearCheckoutRequestId(requestId=''){
+async function updateDurableCheckout({draft=null,legacy=null,completedId=''}={}){
+  const actor=String(currentProfile?.id||'');
+  if(!actor) throw new Error('กรุณาเข้าสู่ระบบก่อนชำระ');
+  try{
+    const db=await openProductCacheDb(),transaction=db.transaction(PRODUCT_CACHE_META_STORE,'readwrite');
+    const done=idbTransactionDone(transaction),store=transaction.objectStore(PRODUCT_CACHE_META_STORE),key=`checkout:${actor}`,request=store.get(key);
+    let context=null;
+    request.onsuccess=()=>{
+      try{
+        const previous=request.result?.value;
+        if(completedId){
+          if(!previous?.id||previous.id===completedId) store.put({key,value:{completedId}});
+          return;
+        }
+        if(!draft){ context=previous?.id?previous:null; return; }
+        const usableLegacy=legacy?.id&&legacy.id!==previous?.completedId&&(!legacy.actorId||legacy.actorId===actor);
+        context=previous?.id?previous:usableLegacy?{...legacy,actorId:actor}:draft;
+        store.put({key,value:context});
+      }catch(_error){try{transaction.abort();}catch(_){} }
+    };
+    await done;
+    return context;
+  }catch(cause){const error=new Error('ยังไม่ได้ส่งการชำระ: เก็บข้อมูลป้องกันบิลซ้ำลงเครื่องไม่ได้ กรุณาตรวจพื้นที่ว่าง');error.code='LOCAL_STORAGE_UNAVAILABLE';error.cause=cause;throw error;}
+}
+async function clearCheckoutRequestId(requestId=''){
   try{
     if(requestId){
       const saved=readPendingCheckoutRequest();
       if(saved?.id!==requestId) return;
     }
+    if(!requestId) return;
+    await updateDurableCheckout({completedId:requestId});
     pendingCheckoutContextMemory=null;
     localStorage.removeItem(PENDING_CHECKOUT_REQUEST_KEY);
     sessionStorage.removeItem(PENDING_CHECKOUT_REQUEST_KEY);
-  }catch(error){}
+  }catch(error){showToast('รายการได้รับคำตอบแล้ว แต่เครื่องยังล้างข้อมูลรอตรวจสอบไม่ได้ กรุณาตรวจพื้นที่ว่าง','warning-top');}
 }
 async function clearLocalStoreCachesForReset(){
   try{
@@ -3873,6 +3980,8 @@ async function clearLocalStoreCachesForReset(){
     Object.keys(sessionStorage).filter(key=>key.startsWith('pepos_')||key.startsWith('pharmacy_pos_')).forEach(key=>sessionStorage.removeItem(key));
   }catch(error){ console.warn('ล้างแคชหลังรีเซ็ตไม่สำเร็จ',error); }
   await clearProductIndexedCache();
+  clearTimeout(workspacePersistTimer);
+  workspaceRecoveryEntries=new Map(); workspaceOutboxVersions=new Map(); workspaceRecoveryLoadedActor=''; workspaceRecoveryActorId=''; workspaceCacheSaveFailed=false;
   pendingCheckoutContextMemory=null;
   workspaceCachePendingSnapshot=null;
 }
@@ -3928,13 +4037,167 @@ function normalizeInspectionLists(value){
   });
 }
 function workspaceSnapshot(){
-  return {warehouses,products,contacts,salesRepresentatives,salesHistory,quotations,invoicesAR,creditNotes,purchaseOrders,goodsReceipts,productExchanges,purchaseOrdersFull,productReturns,transfers,standaloneTaxInvoices,promotions,favorites,inspectionLists,currentUserProfile,documentPrefixes,businessSettings};
+  return {warehouses,products,contacts,salesRepresentatives,salesHistory,quotations,invoicesAR,creditNotes,purchaseOrders,goodsReceipts,productExchanges,productReturns,transfers,standaloneTaxInvoices,promotions,favorites,inspectionLists,currentUserProfile,documentPrefixes,businessSettings};
 }
 function localWorkspaceSnapshot(){
   const snapshot=workspaceSnapshot();
   delete snapshot.products;
   delete snapshot.salesHistory;
-  return snapshot;
+  const pending=currentWorkspacePendingChanges();
+  snapshot._recoveryActorId=String(currentProfile?.id||workspaceRecoveryActorId||'');
+  snapshot._pendingWorkspaceChanges=cloneSyncRecords(pending);
+  // History is a disposable cache; unsent edits/deletions are never evicted.
+  DOC_TABLES.forEach(([table,getRows])=>{
+    const rows=getRows(),key=Object.keys(snapshot).find(key=>snapshot[key]===rows);
+    if(!key) return;
+    const pendingIds=new Set(pending.filter(entry=>entry.table===table).map(entry=>entry.id));
+    snapshot[key]=rows.filter((row,index)=>index<WORKSPACE_DOCUMENT_CACHE_LIMIT||pendingIds.has(String(row.id)));
+  });
+  return structuredClone(snapshot);
+}
+function workspaceRecoveryTables(){
+  return [
+    ['contacts',()=>contacts,rows=>{contacts=rows;},contactToRow],
+    ['sales_representatives',()=>salesRepresentatives,rows=>{salesRepresentatives=rows;},salesRepToRow],
+    ...DOC_TABLES.map(([table,getRows,setRows])=>[table,getRows,setRows,docToRow]),
+  ];
+}
+function renderWorkspaceRecoveryPanel(panel){
+  if(!panel) return;
+  const entries=currentWorkspacePendingChanges();
+  const labels={contacts:'ลูกค้า / ผู้จำหน่าย',sales_representatives:'ผู้แทน',quotations:'ใบเสนอราคา',purchase_orders:'สั่งซื้อสินค้า',goods_receipts:'รับเข้าสินค้า',product_returns:'คืนสินค้า'};
+  panel.innerHTML=`<div class="sync-detail-section-title">งานรอซิงก์ ${entries.length} รายการ${workspaceCacheSaveFailed?' · ยังเก็บลงเครื่องไม่สำเร็จ':''}</div>${entries.length?`<button class="btn ghost" type="button" data-export-recovery>ดาวน์โหลดสำเนางานรอซิงก์</button><div class="sync-recovery-list">${entries.map((entry,index)=>`<div class="sync-recovery-row"><span>${escapeHtml(labels[entry.table]||entry.table)} · ${escapeHtml(entry.record?.name||entry.record?.id||entry.id)}${entry.record?'':' · รอลบ'}</span><button class="btn ghost" type="button" data-discard-recovery="${index}">ใช้ข้อมูลเซิร์ฟเวอร์</button></div>`).join('')}</div>`:'<div class="sync-detail-note">ไม่มีงานค้างของสมุดรายชื่อหรือเอกสาร</div>'}`;
+  panel.querySelector('[data-export-recovery]')?.addEventListener('click',()=>{
+    const blob=new Blob([JSON.stringify({format:'SAPURI-pending-work',createdAt:new Date().toISOString(),changes:entries},null,2)],{type:'application/json;charset=utf-8'});
+    const url=URL.createObjectURL(blob),link=document.createElement('a');
+    link.href=url; link.download=`SAPURI-pending-work-${currentDateStr()}.json`; link.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+  });
+  panel.querySelectorAll('[data-discard-recovery]').forEach(button=>button.onclick=async()=>{
+    const entry=entries[Number(button.dataset.discardRecovery)];
+    if(!confirm('ใช้ข้อมูลเซิร์ฟเวอร์แทนงานที่แก้ค้างในเครื่องรายการนี้หรือไม่? แนะนำให้ดาวน์โหลดสำเนางานก่อน ข้อมูลสต๊อกจะไม่เปลี่ยน')) return;
+    button.disabled=true;
+    try{ await discardWorkspaceRecovery(entry); renderWorkspaceRecoveryPanel(panel); }
+    catch(error){ showToast(error.message,'danger-top'); button.disabled=false; }
+  });
+}
+async function discardWorkspaceRecovery(entry){
+  const requestedFingerprint=JSON.stringify(entry);
+  const config=workspaceRecoveryTables().find(([table])=>table===entry.table);
+  if(!config) throw new Error('ไม่พบรายการที่ต้องการตรวจสอบ');
+  const [table,getRows,setRows,toRow]=config;
+  const {data,error}=await sb.from(table).select('*').eq('id',entry.id).maybeSingle();
+  if(error) throw error;
+  const latest=currentWorkspacePendingChanges().find(item=>item.table===table&&item.id===entry.id);
+  if(JSON.stringify(latest)!==requestedFingerprint) throw new Error('ข้อมูลรายการนี้เปลี่ยนระหว่างตรวจสอบ กรุณาเปิดรายละเอียดอีกครั้ง');
+  const fromRow=table==='contacts'?rowToContact:table==='sales_representatives'?rowToSalesRep:rowToDoc;
+  const remote=data?fromRow(data):null,previousRows=getRows(),previousBaseline=syncedTableRows[table];
+  const key=`${table}:${entry.id}`,previousEntries=new Map(workspaceRecoveryEntries);
+  setRows([...previousRows.filter(row=>String(row.id)!==entry.id),...(remote?[remote]:[])]);
+  const baseline=new Map(previousBaseline||[]);
+  if(remote) baseline.set(entry.id,JSON.stringify(toRow(remote))); else baseline.delete(entry.id);
+  syncedTableRows[table]=baseline; workspaceRecoveryEntries.delete(key);
+  try{ await ensureWorkspaceRecoveryDurable(); }
+  catch(error){ setRows(previousRows); syncedTableRows[table]=previousBaseline; workspaceRecoveryEntries=previousEntries; workspaceCachePendingSnapshot=localWorkspaceSnapshot(); throw error; }
+  syncRevisionedDocuments.paused?.delete(key);
+  showToast('ใช้ข้อมูลล่าสุดจากเซิร์ฟเวอร์แล้ว');
+}
+function currentWorkspacePendingChanges(){
+  const actor=String(currentProfile?.id||'');
+  if(actor&&workspaceRecoveryActorId&&workspaceRecoveryActorId!==actor) return [];
+  const pending=new Map(workspaceRecoveryEntries);
+  workspaceRecoveryTables().forEach(([table,getRows,_setRows,toRow])=>{
+    const baseline=syncedTableRows[table];
+    if(!baseline) return;
+    const rows=getRows(),ids=new Set(rows.map(row=>String(row.id)));
+    rows.forEach(row=>{
+      const id=String(row.id),key=`${table}:${id}`,previous=baseline.get(id)||null;
+      if(pending.get(key)?.legacy||pending.get(key)?.detached) return;
+      if(previous===JSON.stringify(toRow(row))) pending.delete(key);
+      else pending.set(key,{table,id,baseline:previous,record:row});
+    });
+    baseline.forEach((previous,id)=>{ if(!ids.has(String(id))&&!pending.get(`${table}:${id}`)?.detached) pending.set(`${table}:${id}`,{table,id:String(id),baseline:previous,record:null}); });
+  });
+  workspaceRecoveryEntries=pending;
+  return [...pending.values()];
+}
+function mergeWorkspaceRemoteRows(table,current,incoming,toRow,{replace=false}={}){
+  const pending=currentWorkspacePendingChanges().filter(entry=>entry.table===table);
+  const next=new Map((replace?[]:current).map(row=>[String(row.id),row]));
+  const baseline=new Map(replace?[]:(syncedTableRows[table]||[]));
+  const incomingById=new Map(incoming.map(row=>[String(row.id),row]));
+  incoming.forEach(row=>{ next.set(String(row.id),row); baseline.set(String(row.id),JSON.stringify(toRow(row))); });
+  pending.forEach(entry=>{
+    const remote=incomingById.get(entry.id);
+    if(entry.legacy&&remote&&entry.record){
+      const stripRevision=row=>{ const value={...toRow(row)}; delete value.revision; return value; };
+      if(JSON.stringify(stripRevision(entry.record))===JSON.stringify(stripRevision(remote))){ workspaceRecoveryEntries.delete(`${table}:${entry.id}`); return; }
+    }
+    if(entry.record) next.set(entry.id,entry.record); else next.delete(entry.id);
+    delete entry.detached;
+    if(entry.baseline) baseline.set(entry.id,entry.baseline); else baseline.delete(entry.id);
+  });
+  syncedTableRows[table]=baseline;
+  return [...next.values()];
+}
+async function ensureWorkspaceRecoveryDurable(){
+  workspaceCachePendingSnapshot=localWorkspaceSnapshot();
+  clearTimeout(workspacePersistTimer);
+  const saved=await flushWorkspaceCacheToIndexedDB();
+  if(!saved){
+    const error=new Error('ยังไม่ได้ส่งข้อมูล: บันทึกสำเนากู้คืนลงเครื่องไม่สำเร็จ กรุณาตรวจพื้นที่ว่าง อย่าเพิ่งปิดหน้านี้');
+    error.code='LOCAL_STORAGE_UNAVAILABLE';
+    throw error;
+  }
+  return true;
+}
+async function loadWorkspaceRecoveryForUser(){
+  const actor=String(currentProfile?.id||'');
+  if(!actor||workspaceRecoveryLoadedActor===actor) return;
+  const db=await openProductCacheDb(),transaction=db.transaction(PRODUCT_CACHE_WORKSPACE_STORE,'readonly');
+  const done=idbTransactionDone(transaction);
+  const stored=await idbRequest(transaction.objectStore(PRODUCT_CACHE_WORKSPACE_STORE).getAll());
+  await done;
+  const row=stored.find(item=>item.key===`user:${actor}`);
+  const pending=stored.filter(item=>item.key.startsWith(`pending:${actor}:`));
+  workspaceOutboxVersions=new Map(pending.map(item=>[item.key,item.version]));
+  if(row?.value) applyWorkspaceData({...row.value,...(row.value._outboxVersion?{_pendingWorkspaceChanges:pending.map(item=>item.value)}:{})});
+  else if(workspaceRecoveryActorId&&workspaceRecoveryActorId!==actor){
+    workspaceRecoveryEntries=new Map();
+    workspaceRecoveryTables().forEach(([table,_getRows,setRows])=>{ setRows([]); delete syncedTableRows[table]; });
+  }
+  workspaceRecoveryActorId=actor;
+  workspaceRecoveryLoadedActor=actor;
+  const checkout=await updateDurableCheckout();
+  if(checkout) savePendingCheckoutRequest(checkout);
+}
+async function writeWorkspaceOutbox(transaction,store,snapshot){
+  const actor=String(snapshot._recoveryActorId||'');
+  if(!actor) return;
+  const prefix=`pending:${actor}:`,request=store.getAll();
+  const nextVersions=new Map(workspaceOutboxVersions);
+  await new Promise((resolve,reject)=>{
+    request.onerror=()=>reject(request.error);
+    request.onsuccess=()=>{
+      try{
+        const stored=new Map(request.result.filter(row=>row.key.startsWith(prefix)).map(row=>[row.key,row]));
+        const pending=new Map((snapshot._pendingWorkspaceChanges||[]).map(entry=>[`${prefix}${entry.table}:${entry.id}`,entry]));
+        for(const [key,value] of pending){
+          const previous=stored.get(key);
+          if(previous&&JSON.stringify(previous.value)===JSON.stringify(value)){ nextVersions.set(key,previous.version); continue; }
+          if(previous?.version!==workspaceOutboxVersions.get(key)) throw new Error('งานรอซิงก์รายการนี้เปลี่ยนจากอีกแท็บ กรุณาดาวน์โหลดสำเนางานและตรวจสอบก่อน อย่าเพิ่งปิดหน้านี้');
+          const version=globalThis.crypto.randomUUID();store.put({key,value,version});nextVersions.set(key,version);
+        }
+        for(const [key,version] of workspaceOutboxVersions){
+          if(!key.startsWith(prefix)||pending.has(key)) continue;
+          // Never erase another tab's newer work when acknowledging our own.
+          if(stored.get(key)?.version===version) store.delete(key);
+          nextVersions.delete(key);
+        }
+        resolve();
+      }catch(error){try{transaction.abort();}catch(_){} reject(error);}
+    };
+  });
+  return nextVersions;
 }
 function refreshDataCounters(){
   nextWarehouseId=maxArrayValue(warehouses,w=>(Number(w.id)||0)+1,1);
@@ -3944,13 +4207,17 @@ function refreshDataCounters(){
   poCounter=maxArrayValue(purchaseOrders,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
   grCounter=maxArrayValue(goodsReceipts,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
   productExchangeCounter=maxArrayValue(productExchanges,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
-  po2Counter=maxArrayValue(purchaseOrdersFull,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
   returnCounter=maxArrayValue(productReturns,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
   standaloneTaxInvoiceCounter=maxArrayValue(standaloneTaxInvoices,doc=>(Number(String(doc.number||'').slice(-4))||0)+1,1);
   transferCounter=maxArrayValue(transfers,t=>(Number(String(t.id||'').slice(-4))||0)+1,1);
 }
 function applyWorkspaceData(saved){
   if(!saved||typeof saved!=='object') return false;
+  const validTables=new Set(workspaceRecoveryTables().map(([table])=>table));
+  workspaceRecoveryActorId=String(saved._recoveryActorId||'');
+  workspaceRecoveryEntries=new Map((Array.isArray(saved._pendingWorkspaceChanges)?saved._pendingWorkspaceChanges:[])
+    .filter(entry=>entry&&validTables.has(entry.table)&&entry.id&&(entry.record===null||typeof entry.record==='object'))
+    .map(entry=>[`${entry.table}:${entry.id}`,{...entry,id:String(entry.id)}]));
   if(Array.isArray(saved.warehouses)) warehouses=saved.warehouses;
   if(Array.isArray(saved.products)) products=saved.products;
   if(Array.isArray(saved.contacts)) contacts=saved.contacts;
@@ -3961,7 +4228,6 @@ function applyWorkspaceData(saved){
   if(Array.isArray(saved.purchaseOrders)) purchaseOrders=saved.purchaseOrders;
   if(Array.isArray(saved.goodsReceipts)) goodsReceipts=normalizeGoodsReceiptDocuments(saved.goodsReceipts);
   if(Array.isArray(saved.productExchanges)) productExchanges=saved.productExchanges;
-  if(Array.isArray(saved.purchaseOrdersFull)) purchaseOrdersFull=saved.purchaseOrdersFull;
   if(Array.isArray(saved.productReturns)) productReturns=saved.productReturns;
   if(Array.isArray(saved.transfers)) transfers=saved.transfers;
   if(Array.isArray(saved.standaloneTaxInvoices)) standaloneTaxInvoices=saved.standaloneTaxInvoices;
@@ -3977,6 +4243,22 @@ function applyWorkspaceData(saved){
   if(saved.businessSettings&&typeof saved.businessSettings==='object'){
     applyBusinessSettings(saved.businessSettings);
   }
+  workspaceRecoveryTables().forEach(([table,getRows,setRows,toRow])=>{
+    const baseline=new Map(getRows().map(row=>[String(row.id),JSON.stringify(toRow(row))]));
+    if(!Array.isArray(saved._pendingWorkspaceChanges)){
+      // Legacy caches have no baseline: reconcile rather than discard edits.
+      getRows().forEach(row=>workspaceRecoveryEntries.set(`${table}:${row.id}`,{table,id:String(row.id),baseline:Number(row._revision)?JSON.stringify(toRow(row)):null,record:row,legacy:true}));
+    }
+    workspaceRecoveryEntries.forEach(entry=>{ if(entry.table!==table) return; if(entry.baseline) baseline.set(entry.id,entry.baseline); else baseline.delete(entry.id); });
+    syncedTableRows[table]=baseline;
+    const restored=new Map(getRows().map(row=>[String(row.id),row]));
+    workspaceRecoveryEntries.forEach(entry=>{
+      if(entry.table!==table) return;
+      if(entry.record) restored.set(entry.id,entry.record); else restored.delete(entry.id);
+      delete entry.detached;
+    });
+    setRows([...restored.values()]);
+  });
   rebuildProductLookupMaps();
   refreshDataCounters();
   saleRef=nextSaleRef();
@@ -4006,11 +4288,27 @@ function flushWorkspaceCacheToIndexedDB(){
       const db=await openProductCacheDb();
       const transaction=db.transaction(PRODUCT_CACHE_WORKSPACE_STORE,'readwrite');
       const done=idbTransactionDone(transaction);
-      transaction.objectStore(PRODUCT_CACHE_WORKSPACE_STORE).put({key:'current',value:snapshot,savedAt:new Date().toISOString()});
+      const store=transaction.objectStore(PRODUCT_CACHE_WORKSPACE_STORE);
+      // Attach a rejection handler immediately: quota/abort may reject before
+      // the outbox read callback returns, but must not escape as an unhandled error.
+      done.catch(()=>{});
+      const versions=await writeWorkspaceOutbox(transaction,store,snapshot);
+      const row={key:'current',value:{...snapshot,_outboxVersion:1},savedAt:new Date().toISOString()};
+      store.put(row);
+      if(snapshot._recoveryActorId) store.put({...row,key:`user:${snapshot._recoveryActorId}`});
       await done;
-      localStorage.removeItem(WORKSPACE_STORAGE_KEY);
+      if(versions) workspaceOutboxVersions=versions;
+      workspaceCacheSaveFailed=false;
+      try{ localStorage.removeItem(WORKSPACE_STORAGE_KEY); }catch(_error){}
       return true;
-    }catch(error){ console.warn('บันทึกแคชข้อมูลระบบลง IndexedDB ไม่สำเร็จ',error); return false; }
+    }catch(error){
+      workspaceCacheSaveFailed=true;
+      if(!workspaceCachePendingSnapshot) workspaceCachePendingSnapshot=snapshot;
+      console.warn('บันทึกแคชข้อมูลระบบลง IndexedDB ไม่สำเร็จ',error);
+      rememberSyncUiError(error,{operation:'local_recovery',fallbackMessage:'เก็บข้อมูลลงเครื่องไม่สำเร็จ อย่าเพิ่งปิดหน้านี้'});
+      if(typeof showToast==='function') showToast('เก็บข้อมูลลงเครื่องไม่สำเร็จ กรุณาตรวจพื้นที่ว่าง อย่าเพิ่งปิดหน้านี้','danger-top');
+      return false;
+    }
   };
   workspaceCacheWritePromise=workspaceCacheWritePromise.then(write,write);
   return workspaceCacheWritePromise;
@@ -4026,7 +4324,7 @@ function persistWorkspaceData(options={}){
   scheduleWorkspaceCacheWrite();
   let productCachePromise=Promise.resolve(true);
   if(productChanges) productCachePromise=persistProductChangesToIndexedDB(productChanges);
-  [WAREHOUSE_STORAGE_KEY,CONTACTS_STORAGE_KEY,SALES_STORAGE_KEY,QUOTATION_STORAGE_KEY,TRANSFER_STORAGE_KEY,TAX_INVOICE_STORAGE_KEY,PROMOTIONS_STORAGE_KEY].forEach(key=>localStorage.removeItem(key));
+  try{ [WAREHOUSE_STORAGE_KEY,CONTACTS_STORAGE_KEY,SALES_STORAGE_KEY,QUOTATION_STORAGE_KEY,TRANSFER_STORAGE_KEY,TAX_INVOICE_STORAGE_KEY,PROMOTIONS_STORAGE_KEY].forEach(key=>localStorage.removeItem(key)); }catch(_error){}
   if(productChanges){
     // Never send a new product/token before its local recovery copy is durable.
     // Otherwise an ambiguous network success followed by a close/reload would
@@ -4051,7 +4349,7 @@ loadWorkspaceData();
 
 function loggedInUser(){ return currentProfile; }
 function isLevel2User(user=loggedInUser()){ return Number(user?.level)===2; }
-const LEVEL2_HIDDEN_TABS=new Set(['settingssystem','settingsbusiness','rprofit','rtax','warehouse','transfer','stockcontrol','barcodeprint','promotions','purchaseorder','productexchange','contacts','salesreps','representativehistory','taxinvoice','quotation','purchaseorder2','productreturn']);
+const LEVEL2_HIDDEN_TABS=new Set(['settingssystem','settingsbusiness','rprofit','rtax','warehouse','transfer','stockcontrol','barcodeprint','promotions','purchaseorder','productexchange','contacts','salesreps','representativehistory','taxinvoice','quotation','productreturn']);
 const ALL_WAREHOUSES_TABS=new Set(['dashboard','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','rprofit','rtax','auditlog','representativehistory']);
 function canAccessTab(tab,user=loggedInUser()){
   if(!user) return false;
@@ -4176,6 +4474,10 @@ async function loginSystem(event){
   checkOwnerDatabaseHealth();
 }
 async function logoutSystem(){
+  if(currentWorkspacePendingChanges().length||workspaceCacheSaveFailed||productDirtyOperations.size){
+    showToast('ยังมีข้อมูลรอซิงก์ กรุณาตรวจรายละเอียดการซิงก์ก่อนออกจากระบบ','danger-top');
+    openSyncDetailsModal(); return false;
+  }
   const pendingRequest=readPendingCheckoutRequest();
   if(pendingRequest){
     restorePendingCheckoutUi(pendingRequest);
@@ -4233,14 +4535,14 @@ function pagerHtml(current, total, attr){
     ${btn('»',total,current===total,'','หน้าสุดท้าย')}
   </div>`;
 }
-// ---------- ตัวช่วยจัดการเอกสารตามประเภท (po=สั่งของขาด, gr=ใบรับสินค้า, po2=สั่งซื้อสินค้า, ret=คืนสินค้า) ----------
-function isSupplierStyleDoc(kind){ return kind==='gr'||kind==='po2'||kind==='ret'; }
-function docList(kind){ return kind==='gr'?goodsReceipts:kind==='po2'?purchaseOrdersFull:kind==='ret'?productReturns:purchaseOrders; }
-function docEditingId(kind){ return kind==='gr'?editingGRId:kind==='po2'?editingPO2Id:kind==='ret'?editingReturnId:editingPOId; }
-function setDocEditingId(kind,val){ if(kind==='gr') editingGRId=val; else if(kind==='po2') editingPO2Id=val; else if(kind==='ret') editingReturnId=val; else editingPOId=val; }
-function docDraft(kind){ return kind==='gr'?grDraft:kind==='po2'?po2Draft:kind==='ret'?returnDraft:poDraft; }
-function setDocDraft(kind,val){ if(kind==='gr') grDraft=val; else if(kind==='po2') po2Draft=val; else if(kind==='ret') returnDraft=val; else poDraft=val; }
-function docPrefix(kind){ return kind==='gr'?documentPrefixes.goodsReceipt:kind==='po2'?documentPrefixes.purchaseOrder:kind==='ret'?documentPrefixes.productReturn:documentPrefixes.shortage; }
+// ---------- ตัวช่วยจัดการเอกสารตามประเภท (po=สั่งซื้อสินค้า, gr=ใบรับสินค้า, ret=คืนสินค้า) ----------
+function isSupplierStyleDoc(kind){ return kind==='gr'||kind==='ret'; }
+function docList(kind){ return kind==='gr'?goodsReceipts:kind==='ret'?productReturns:purchaseOrders; }
+function docEditingId(kind){ return kind==='gr'?editingGRId:kind==='ret'?editingReturnId:editingPOId; }
+function setDocEditingId(kind,val){ if(kind==='gr') editingGRId=val; else if(kind==='ret') editingReturnId=val; else editingPOId=val; }
+function docDraft(kind){ return kind==='gr'?grDraft:kind==='ret'?returnDraft:poDraft; }
+function setDocDraft(kind,val){ if(kind==='gr') grDraft=val; else if(kind==='ret') returnDraft=val; else poDraft=val; }
+function docPrefix(kind){ return kind==='gr'?documentPrefixes.goodsReceipt:kind==='ret'?documentPrefixes.productReturn:documentPrefixes.shortage; }
 // ---------- ตัวช่วยออกเลขที่เอกสารแบบรีเซ็ตรายวัน/รายปี (ฝังวันที่ในเลขที่เอกสารเสมอ ปลอดภัยแม้รีเซ็ต) ----------
 function docNumberParts(prefix,value){
   const re=new RegExp('^'+prefix+'(\\d{4})(\\d{2})(\\d{2})(\\d{4})$');
@@ -4263,8 +4565,8 @@ function nextYearlySeq(prefix, values){
 function buildDocNumber(prefix, seq){ return `${prefix}${TODAY_STR.replace(/-/g,'')}${String(seq).padStart(4,'0')}`; }
 function docCounter(kind){ const list=docList(kind); return nextDailySeq(docPrefix(kind), list.map(d=>d.id)); }
 function bumpDocCounter(kind){ /* ไม่ต้องทำอะไร: เลขคำนวณสดจากรายการเอกสารเสมอ (รีเซ็ตรายวันอัตโนมัติ) */ }
-function docLabelText(kind){ return kind==='gr'?'ใบรับสินค้า':kind==='po2'?'ใบสั่งซื้อสินค้า':kind==='ret'?'ใบคืนสินค้า':'สั่งซื้อสินค้า'; }
-function docDefaultStatus(kind){ return kind==='gr'?'รอรับสินค้า':kind==='po2'?'รอสั่งซื้อ':kind==='ret'?'รอรับคืน':'รอสั่งของ'; }
+function docLabelText(kind){ return kind==='gr'?'ใบรับสินค้า':kind==='ret'?'ใบคืนสินค้า':'สั่งซื้อสินค้า'; }
+function docDefaultStatus(kind){ return kind==='gr'?'รอรับสินค้า':kind==='ret'?'รอรับคืน':'รอสั่งของ'; }
 const GOODS_RECEIPT_STATUSES=['รอรับสินค้า','รับสินค้าแล้ว','ชำระเรียบร้อย'];
 function goodsReceiptWarehouseId(doc,warehouseList,productList){
   const warehouseRows=Array.isArray(warehouseList)?warehouseList:(typeof warehouses!=='undefined'&&Array.isArray(warehouses)?warehouses:[]);
@@ -4402,7 +4704,7 @@ function applyProductExchangeLocally(doc,plan){
     });
   }
 }
-function currentDocKind(){ if(currentTab==='goodsreceipt') return 'gr'; if(currentTab==='purchaseorder2') return 'po2'; if(currentTab==='productreturn') return 'ret'; return 'po'; }
+function currentDocKind(){ if(currentTab==='goodsreceipt') return 'gr'; if(currentTab==='productreturn') return 'ret'; return 'po'; }
 function daysFromToday(dateStr){
   const parse=s=>{ const [y,m,d]=String(s).slice(0,10).split('-').map(Number); return new Date(y,m-1,d); };
   return Math.ceil((parse(dateStr)-parse(TODAY_STR))/86400000);
@@ -4418,11 +4720,6 @@ function documentStatusControl(kind,doc){
     const status=['รอสั่งของ','สั่งแล้ว','เรียบร้อย'].includes(doc.status)?doc.status:'รอสั่งของ';
     const cls=status==='เรียบร้อย'?'po-complete':status==='สั่งแล้ว'?'po-done':'po-pending';
     return `<select class="doc-status-select ${cls}" data-status-kind="po" data-id="${escapeHtml(doc.id)}"><option value="รอสั่งของ" ${status==='รอสั่งของ'?'selected':''}>รอสั่งของ</option><option value="สั่งแล้ว" ${status==='สั่งแล้ว'?'selected':''}>สั่งแล้ว</option><option value="เรียบร้อย" ${status==='เรียบร้อย'?'selected':''}>เรียบร้อย</option></select>`;
-  }
-  if(kind==='po2'){
-    const status=['รอสั่งซื้อ','สั่งซื้อแล้ว','ได้รับสินค้าแล้ว'].includes(doc.status)?doc.status:'รอสั่งซื้อ';
-    const cls=status==='ได้รับสินค้าแล้ว'?'po-complete':status==='สั่งซื้อแล้ว'?'po-done':'po-pending';
-    return `<select class="doc-status-select ${cls}" data-status-kind="po2" data-id="${escapeHtml(doc.id)}"><option value="รอสั่งซื้อ" ${status==='รอสั่งซื้อ'?'selected':''}>รอสั่งซื้อ</option><option value="สั่งซื้อแล้ว" ${status==='สั่งซื้อแล้ว'?'selected':''}>สั่งซื้อแล้ว</option><option value="ได้รับสินค้าแล้ว" ${status==='ได้รับสินค้าแล้ว'?'selected':''}>ได้รับสินค้าแล้ว</option></select>`;
   }
   if(kind==='ret'){
     const status=doc.status==='คืนเรียบร้อย'?'คืนเรียบร้อย':'รอรับคืน';
@@ -4489,7 +4786,7 @@ function documentActionMenu(kind,id){
 }
 function documentBulkToolbar(kind){
   const canPrint=kind!=='ret'&&kind!=='po'&&kind!=='quotation';
-  const canDelete=['po','quotation','po2','ret'].includes(kind);
+  const canDelete=['po','quotation','ret'].includes(kind);
   return `<div class="doc-bulkbar" id="docBulkbar" data-kind="${kind}" hidden>
     <div class="doc-selected-pill"><span>เลือก <b id="docSelectedCount">0</b> รายการ</span><button class="doc-selected-clear" id="docSelectedClear" title="ยกเลิกการเลือก">×</button></div>
     <span class="doc-bulk-divider"></span>
@@ -4576,7 +4873,7 @@ function renderSidebar(){
   html += `<div class="sidebar-logout-wrap"><button class="logout-btn sidebar-logout-btn" id="logoutBtn">ออกจากระบบ</button></div>`;
   document.getElementById('sidebar').innerHTML = html;
   document.getElementById('logoutBtn')?.addEventListener('click',logoutSystem);
-  document.querySelectorAll('.navbtn').forEach(btn=>{ btn.addEventListener('click', ()=>{ if(currentTab==='settingsbusiness'&&businessSettingsDirty&&!confirm('มีข้อมูลธุรกิจที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')) return; if(currentTab==='notes'&&noteDraftDirty&&!confirm('มีโน้ตที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')) return; if(isRepresentativeHistoryScreen()&&representativeActivityDraftDirty&&!confirm('มี NOTE ผู้แทนที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')) return; businessSettingsDirty=false; noteDraftDirty=false; representativeActivityDraftDirty=false; currentTab = btn.dataset.tab; if(currentTab!=='checkout') posSmallestUnitOnce=false; searchQuery=''; editingPOId=null; poDraft=null; editingGRId=null; grDraft=null; editingPO2Id=null; po2Draft=null; editingReturnId=null; returnDraft=null; editingProductExchangeId=null; productExchangeDraft=null; editingTaxInvoiceSaleId=null; editingQuotationId=null; cashBillLookupOpen=false; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; openDocMenu=null; poSupplierEditorOpen=false; poRepresentativeEditorId=null; editingContactId=null; editingCustomerPriceContactId=null; editingSalesRepresentativeId=null; representativeHistoryContext=null; representativeActivityDraft=null; resetRepresentativeActivityLoad(); editingPromotionId=null; editingProductId=null; editingInspectionListId=null; inspectionListDraft=null; inspectionListSearchQuery=''; inspectionListCatFilter={wh:'',category:'',brand:''}; inspectionListPage=1; addingSystemUser=false; editingSystemUserId=null; addingWarehouse=false; editingWarehouseId=null; editingTransferId=null; transferDraft=null; rproductFilter.applied=false; rbillFilter.applied=false; rprofitFilter.applied=false; render(); }); });
+  document.querySelectorAll('.navbtn').forEach(btn=>{ btn.addEventListener('click', ()=>{ if(currentTab==='settingsbusiness'&&businessSettingsDirty&&!confirm('มีข้อมูลธุรกิจที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')) return; if(currentTab==='notes'&&noteDraftDirty&&!confirm('มีโน้ตที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')) return; if(isRepresentativeHistoryScreen()&&representativeActivityDraftDirty&&!confirm('มี NOTE ผู้แทนที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?')) return; businessSettingsDirty=false; noteDraftDirty=false; representativeActivityDraftDirty=false; currentTab = btn.dataset.tab; if(currentTab!=='checkout') posSmallestUnitOnce=false; searchQuery=''; editingPOId=null; poDraft=null; editingGRId=null; grDraft=null; editingReturnId=null; returnDraft=null; editingProductExchangeId=null; productExchangeDraft=null; editingTaxInvoiceSaleId=null; editingQuotationId=null; cashBillLookupOpen=false; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; openDocMenu=null; poSupplierEditorOpen=false; poRepresentativeEditorId=null; editingContactId=null; editingCustomerPriceContactId=null; editingSalesRepresentativeId=null; representativeHistoryContext=null; representativeActivityDraft=null; resetRepresentativeActivityLoad(); editingPromotionId=null; editingProductId=null; editingInspectionListId=null; inspectionListDraft=null; inspectionListSearchQuery=''; inspectionListCatFilter={wh:'',category:'',brand:''}; inspectionListPage=1; addingSystemUser=false; editingSystemUserId=null; addingWarehouse=false; editingWarehouseId=null; editingTransferId=null; transferDraft=null; rproductFilter.applied=false; rbillFilter.applied=false; rprofitFilter.applied=false; render(); }); });
 }
 
 // ---------- Page renderers ----------
@@ -6591,7 +6888,7 @@ function saveQuotation(){
   const record={id:d.number,date:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),customer:d.name,customerInfo:{id:d.customerId||'',name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items:itemsWithVat,discount,total,vatRegistered,taxSummary,businessSnapshot:old?.businessSnapshot||businessDocumentSnapshot(),note:d.note||'',status:old?.status||'รอตอบรับ'};
   Object.assign(record.customerInfo,{entity:d.entity||'individual',line:d.line||'',types:d.contactTypes||['customer']});
   if(editingQuotationId==='new'){ quotations.unshift(record); }else{ const index=quotations.findIndex(doc=>doc.id===editingQuotationId); if(index>-1) quotations[index]=record; }
-  persistQuotations(); editingQuotationId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; showToast(`บันทึกใบเสนอราคา ${record.id} แล้ว`); render();
+  persistQuotations(); editingQuotationId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; showToast(`กำลังเก็บและซิงก์ใบเสนอราคา ${record.id} กรุณาตรวจสถานะซิงก์`); render();
 }
 
 function deleteQuotation(id){
@@ -6741,7 +7038,7 @@ function renderPOForm(kind='po'){
     </div>
 
     ${documentProductScannerHtml()}
-    <table class="grid-table po-items ${kind==='gr'?'goods-receipt-items':kind==='po2'?'document-centered-items':''}"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคาต่อหน่วย</th>${kind==='gr'?'<th>เลข Lot</th><th>วันหมดอายุ</th>':''}<th class="mono">ราคารวม</th><th></th></tr></thead>
+    <table class="grid-table po-items ${kind==='gr'?'goods-receipt-items':''}"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคาต่อหน่วย</th>${kind==='gr'?'<th>เลข Lot</th><th>วันหมดอายุ</th>':''}<th class="mono">ราคารวม</th><th></th></tr></thead>
     <tbody id="poItemRows">${po.items.map((it,i)=>poItemRowHtml(it,i)).join('')}</tbody></table>
     <button class="btn ghost small" id="addPOItemBtn" style="margin-top:8px;">+ เพิ่มแถวรายการ</button>
 
@@ -7050,7 +7347,7 @@ function renderProductReturn(){
   return `<div class="pagehead"><div><h1>ใบคืนสินค้า <span class="page-title-meta">บันทึกการคืนสินค้าให้ผู้จำหน่าย · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newReturnBtn">+ สร้างใบคืนสินค้า</button></div>
   ${documentBulkToolbar('ret')}
   <div class="doc-list-wrap">
-  <table class="grid-table doc-list po2-doc-list"><colgroup><col style="width:42px"><col style="width:130px"><col style="width:180px"><col style="width:220px"><col style="width:360px"><col style="width:150px"><col style="width:110px"></colgroup><thead><tr><th style="width:42px;"><input class="doc-check" type="checkbox" aria-label="เลือกทั้งหมด"></th><th>${documentSortHeader('ret','date','วันที่')}</th><th>${documentSortHeader('ret','id','เลขที่เอกสาร')}</th><th>${documentSortHeader('ret','supplier','ชื่อผู้จำหน่าย')}</th><th>รายการ</th><th>${documentSortHeader('ret','status','สถานะ')}</th><th></th></tr></thead>
+  <table class="grid-table doc-list supplier-doc-list"><colgroup><col style="width:42px"><col style="width:130px"><col style="width:180px"><col style="width:220px"><col style="width:360px"><col style="width:150px"><col style="width:110px"></colgroup><thead><tr><th style="width:42px;"><input class="doc-check" type="checkbox" aria-label="เลือกทั้งหมด"></th><th>${documentSortHeader('ret','date','วันที่')}</th><th>${documentSortHeader('ret','id','เลขที่เอกสาร')}</th><th>${documentSortHeader('ret','supplier','ชื่อผู้จำหน่าย')}</th><th>รายการ</th><th>${documentSortHeader('ret','status','สถานะ')}</th><th></th></tr></thead>
   <tbody>${pageDocs.map(doc=>{
     const posted=documentHasPostedStock('ret',doc);
     const deleteButton=posted?'':`<button class="history-icon-btn danger" data-doc-action="delete" data-kind="ret" data-id="${escapeHtml(doc.id)}" title="ลบ" aria-label="ลบ ${escapeHtml(doc.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`;
@@ -7070,7 +7367,7 @@ function renderGoodsReceipt(){
   return `<div class="pagehead"><div><h1>ใบรับสินค้า <span class="page-title-meta">บันทึกและตรวจสอบการรับสินค้าเข้าคลัง · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newGRBtn">+ สร้างใบรับสินค้า</button></div>
   ${documentBulkToolbar('gr')}
   <div class="doc-list-wrap">
-  <table class="grid-table doc-list po2-doc-list"><colgroup><col style="width:42px"><col style="width:120px"><col style="width:160px"><col style="width:180px"><col style="width:240px"><col style="width:180px"><col style="width:120px"><col style="width:110px"><col style="width:130px"><col style="width:126px"></colgroup><thead><tr><th style="width:42px;"><input class="doc-check" type="checkbox" aria-label="เลือกทั้งหมด"></th><th>${documentSortHeader('gr','date','วันที่')}</th><th>${documentSortHeader('gr','id','เลขที่เอกสาร')}</th><th>${documentSortHeader('gr','supplier','ชื่อผู้จำหน่าย')}</th><th>รายการ</th><th>สาขา</th><th>${documentSortHeader('gr','due','วันครบกำหนด')}</th><th class="mono">${documentSortHeader('gr','total','ยอดรวม')}</th><th>${documentSortHeader('gr','status','สถานะ')}</th><th style="width:126px;"></th></tr></thead>
+  <table class="grid-table doc-list supplier-doc-list"><colgroup><col style="width:42px"><col style="width:120px"><col style="width:160px"><col style="width:180px"><col style="width:240px"><col style="width:180px"><col style="width:120px"><col style="width:110px"><col style="width:130px"><col style="width:126px"></colgroup><thead><tr><th style="width:42px;"><input class="doc-check" type="checkbox" aria-label="เลือกทั้งหมด"></th><th>${documentSortHeader('gr','date','วันที่')}</th><th>${documentSortHeader('gr','id','เลขที่เอกสาร')}</th><th>${documentSortHeader('gr','supplier','ชื่อผู้จำหน่าย')}</th><th>รายการ</th><th>สาขา</th><th>${documentSortHeader('gr','due','วันครบกำหนด')}</th><th class="mono">${documentSortHeader('gr','total','ยอดรวม')}</th><th>${documentSortHeader('gr','status','สถานะ')}</th><th style="width:126px;"></th></tr></thead>
   <tbody>${pageDocs.map(g=>{
     const posted=documentHasPostedStock('gr',g);
     const canManage=canManageGoodsReceipt(g);
@@ -9589,7 +9886,7 @@ function renderMobileTools(){
     <nav class="mobile-tools-tabs" aria-label="เมนูมือถือ"><button type="button" class="mobile-tools-tab ${mobileToolMode==='price'?'active':''}" data-mobile-tool="price">เช็คราคา</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='inventory'?'active':''}" data-mobile-tool="inventory">ตรวจและแก้ไขสต๊อก</button></nav>
     <div class="mobile-tools-tab-brand">P R A N C - H I B E S</div>
     ${mobileToolMode==='price'?`<section class="mobile-tool-panel"><div class="mobile-scan-row mobile-scan-row-camera-left"><button type="button" class="mobile-camera-btn" id="mobilePriceCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button><input id="mobilePriceInput" class="mobile-scan-input" value="${escapeHtml(mobilePriceQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"></div><div class="mobile-camera-slot" id="mobilePriceCameraSlot"></div><div id="mobilePriceResult">${mobilePriceResultHtml()}</div></section>`:`<div class="mobile-inventory-workflow"><div class="mobile-inventory-steps" role="tablist" aria-label="ขั้นตอนตรวจและแก้ไขสต๊อก"><button type="button" class="mobile-inventory-step ${mobileInventoryStep==='inspection'?'active':''}" data-mobile-inventory-step="inspection" role="tab" aria-selected="${mobileInventoryStep==='inspection'}"><span class="mobile-inventory-step-number">1</span><span>ตรวจนับ</span></button><button type="button" class="mobile-inventory-step ${mobileInventoryStep==='stock'?'active':''}" data-mobile-inventory-step="stock" role="tab" aria-selected="${mobileInventoryStep==='stock'}"><span class="mobile-inventory-step-number">2</span><span>สรุปและยืนยัน</span></button></div>${mobileInventoryStep==='inspection'?renderMobileInspectionPanel(lists):renderMobileStockEditPanel(lists)}</div>`}
-    <header class="mobile-tools-head"><div class="mobile-tools-actions"><button type="button" class="mobile-tools-logout" id="mobileToolsLogout">ออกจากระบบ</button><button type="button" class="mobile-tools-refresh" id="mobileToolsRefresh" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล" ${mobileIsOnline()?'':'disabled'}><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg></button></div><div class="mobile-tools-brand"><div><h1>SAPURI</h1><span>${escapeHtml(user?.firstName||user?.username||'ผู้ใช้งาน')}</span><span class="mobile-tools-context" id="mobileDataStatus" data-state="${mobileStatus.state}" aria-live="polite">${escapeHtml(mobileStatus.text)}</span></div><div class="mobile-tools-logo"><img src="/sapuri-brand-logo.png" alt="SAPURI"></div></div></header>
+    <header class="mobile-tools-head"><div class="mobile-tools-actions"><button type="button" class="mobile-tools-logout" id="mobileToolsLogout">ออกจากระบบ</button><button type="button" class="mobile-tools-refresh" id="mobileToolsRefresh" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล" ${mobileIsOnline()?'':'disabled'}><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg></button></div><div class="mobile-tools-brand"><div><h1>SAPURI</h1><span>${escapeHtml(user?.firstName||user?.username||'ผู้ใช้งาน')}</span><span class="mobile-tools-context" id="mobileDataStatus" data-state="${mobileStatus.state}" aria-live="polite">${escapeHtml(mobileStatus.text)}</span></div><div class="mobile-tools-logo"><img src="/sapuri-brand-logo.webp" alt="SAPURI"></div></div></header>
   </main>`;
 }
 function mobileHandlePriceCode(code){
@@ -11302,27 +11599,6 @@ function emptyCustomerContactDraft(type='customer'){
   const normalizedType=type==='supplier'?'supplier':'customer';
   return {name:'',entity:normalizedType==='customer'?'individual':'juristic',types:[normalizedType],email:'',line:'',phone:'',taxId:'',creditDays:'',address:'',note:'',customerPrices:[]};
 }
-function automaticContactCode(records=[]){
-  let latest=0;
-  const used=new Set();
-  (records||[]).forEach(contact=>{
-    const code=String(contact?.code||'').trim().toUpperCase();
-    if(!code) return;
-    used.add(code);
-    const match=/^C(\d+)$/.exec(code);
-    if(match){
-      const sequence=Number(match[1]);
-      if(Number.isSafeInteger(sequence)&&sequence>latest) latest=sequence;
-    }
-  });
-  let next=latest+1;
-  let code=`C${String(next).padStart(4,'0')}`;
-  while(used.has(code)){
-    next+=1;
-    code=`C${String(next).padStart(4,'0')}`;
-  }
-  return code;
-}
 function contactEditorFieldsHtml(c,fixedType=''){
   const normalizedFixedType=['customer','supplier'].includes(fixedType)?fixedType:'';
   const chk = t => (c.types||[]).includes(t)?'checked':'';
@@ -13017,7 +13293,6 @@ function render(){
   document.title=standaloneAppWindow?'':'SAPURI';
   if(mobileMode) currentTab='mobiletools';
   else if(currentTab==='mobiletools') currentTab='dashboard';
-  if(currentTab==='purchaseorder2') currentTab='purchaseorder';
   if(currentTab!=='checkout'&&!(currentTab==='cashbill'&&cashBillLookupOpen)) posSalesHistoryModalOpen=false;
   if(!canAccessTab(currentTab)){
     currentTab='dashboard';
@@ -14994,7 +15269,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     });
   });
   // --- เปลี่ยนหน้าสำหรับตารางเอกสาร (สั่งของขาด/สั่งซื้อสินค้า/รับเข้าสินค้า/ใบกำกับภาษี/ใบเสนอราคา) ---
-  [['docpage-po','po'],['docpage-po2','po2'],['docpage-ret','ret'],['docpage-gr','gr'],['docpage-exchange','exchange'],['docpage-cashbill','cashbill'],['docpage-taxinvoice','taxinvoice'],['docpage-quotation','quotation']].forEach(([attr,key])=>{
+  [['docpage-po','po'],['docpage-ret','ret'],['docpage-gr','gr'],['docpage-exchange','exchange'],['docpage-cashbill','cashbill'],['docpage-taxinvoice','taxinvoice'],['docpage-quotation','quotation']].forEach(([attr,key])=>{
     document.querySelectorAll(`[data-${attr}]`).forEach(el=>{
       el.addEventListener('click', ()=>{
         const v=el.dataset[attr.replace(/-([a-z])/g,(m,c)=>c.toUpperCase())];
@@ -15356,7 +15631,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   }
   document.querySelectorAll('[data-doc-action]').forEach(btn=>{ btn.addEventListener('click', async e=>{ e.stopPropagation(); await handleDocumentAction(btn.dataset.kind,btn.dataset.id,btn.dataset.docAction); }); });
   document.querySelectorAll('[data-doc-sort]').forEach(btn=>{ btn.addEventListener('click', ()=>{ const [kind,key]=btn.dataset.docSort.split(':'); const sort=documentSort[kind]; if(sort.key===key) sort.dir*=-1; else documentSort[kind]={key,dir:['date','due','total','elapsed'].includes(key)?-1:1}; render(); }); });
-  document.querySelectorAll('.doc-status-select').forEach(sel=>{ sel.addEventListener('change', ()=>{ const k=sel.dataset.statusKind; if(k==='po'){ const doc=purchaseOrders.find(x=>x.id===sel.dataset.id); if(doc){ doc.status=sel.value; persistWorkspaceData(); showToast(`เปลี่ยนสถานะเป็น “${sel.value}” แล้ว`); render(); } }else if(k==='po2'){ const doc=purchaseOrdersFull.find(x=>x.id===sel.dataset.id); if(doc){ doc.status=sel.value; persistWorkspaceData(); showToast(`เปลี่ยนสถานะเป็น “${sel.value}” แล้ว`); render(); } }else if(k==='ret'){ changeProductReturnStatus(sel.dataset.id,sel.value); }else if(k==='gr'){ if(sel.value==='ชำระเรียบร้อย'){ const doc=goodsReceipts.find(x=>x.id===sel.dataset.id); if(doc?.stockApplied===true) openGoodsReceiptPayment(sel.dataset.id); else changeGoodsReceiptStatus(sel.dataset.id,sel.value); }else changeGoodsReceiptStatus(sel.dataset.id,sel.value); } }); });
+  document.querySelectorAll('.doc-status-select').forEach(sel=>{ sel.addEventListener('change', ()=>{ const k=sel.dataset.statusKind; if(k==='po'){ const doc=purchaseOrders.find(x=>x.id===sel.dataset.id); if(doc){ doc.status=sel.value; persistWorkspaceData(); showToast(`เปลี่ยนสถานะเป็น “${sel.value}” แล้ว`); render(); } }else if(k==='ret'){ changeProductReturnStatus(sel.dataset.id,sel.value); }else if(k==='gr'){ if(sel.value==='ชำระเรียบร้อย'){ const doc=goodsReceipts.find(x=>x.id===sel.dataset.id); if(doc?.stockApplied===true) openGoodsReceiptPayment(sel.dataset.id); else changeGoodsReceiptStatus(sel.dataset.id,sel.value); }else changeGoodsReceiptStatus(sel.dataset.id,sel.value); } }); });
   document.querySelectorAll('.doc-list thead .doc-check').forEach(box=>{ box.addEventListener('change', ()=>{ document.querySelectorAll('.doc-list tbody .doc-check').forEach(rowBox=>rowBox.checked=box.checked); updateDocumentSelectionUI(); }); });
   document.querySelectorAll('.doc-list tbody .doc-check').forEach(box=>{ box.addEventListener('change', updateDocumentSelectionUI); });
   const docSelectedClear=document.getElementById('docSelectedClear');
@@ -15665,7 +15940,7 @@ function deleteSelectedDocuments(kind,ids){
     return;
   }
 
-  if(kind==='po2'||kind==='ret'){
+  if(kind==='ret'){
     const list=docList(kind);
     const selected=list.filter(doc=>ids.includes(doc.id));
     if(!selected.length) return;
@@ -15819,7 +16094,7 @@ function addDocumentScannedProduct(productId,unitName){
     existing.qty=(Number(existing.qty)||0)+1;
   }else{
     const saleUnit=productUnitOptions(product).find(option=>option.name===unit);
-    const item={productId:product.id,name:product.name,qty:1,unit,price:(currentTab==='goodsreceipt'||currentTab==='purchaseorder2'||currentTab==='productreturn')?'':(currentTab==='taxinvoice'||currentTab==='quotation')?(saleUnit?.price??product.price):0,...(currentTab==='goodsreceipt'?{lineId:String(Date.now()),warehouseId:Number(draft.warehouseId)||0}:currentTab==='productreturn'?{lineId:String(Date.now()),warehouseId:Number(draft.warehouseId)||0,lotId:null,lotNumber:'',expiry:''}:{})};
+    const item={productId:product.id,name:product.name,qty:1,unit,price:(currentTab==='goodsreceipt'||currentTab==='productreturn')?'':(currentTab==='taxinvoice'||currentTab==='quotation')?(saleUnit?.price??product.price):0,...(currentTab==='goodsreceipt'?{lineId:String(Date.now()),warehouseId:Number(draft.warehouseId)||0}:currentTab==='productreturn'?{lineId:String(Date.now()),warehouseId:Number(draft.warehouseId)||0,lotId:null,lotNumber:'',expiry:''}:{})};
     const blank=draft.items.find(row=>!row.name);
     if(blank) Object.assign(blank,item); else draft.items.push(item);
   }
@@ -15959,7 +16234,7 @@ function syncPOFromDOM(){
   const warehouse=document.getElementById('po_warehouse'); if(warehouse) draft.warehouseId=Number(warehouse.value)||0;
   const d=document.getElementById('po_date'); if(d){ const iso=dmyToISO(d.value); if(iso) draft.date=iso; }
   const c=document.getElementById('po_credit'); if(c) draft.credit=parseInt(c.value)||0;
-  if(currentTab==='goodsreceipt'||currentTab==='purchaseorder2') draft.dueDate=addDaysToDate(draft.date,draft.credit||0); else { draft.credit=0; draft.dueDate=''; draft.discount=0; }
+  if(currentTab==='goodsreceipt') draft.dueDate=addDaysToDate(draft.date,draft.credit||0); else { draft.credit=0; draft.dueDate=''; draft.discount=0; }
   const disc=document.getElementById('po_discount'); if(disc) draft.discount=parseFloat(disc.value)||0;
   const taxMode=document.getElementById('po_tax_mode'); if(taxMode) draft.taxMode=taxMode.value;
   const taxNo=document.getElementById('po_supplier_tax_invoice_no'); if(taxNo) draft.supplierTaxInvoiceNo=taxNo.value.trim();
@@ -16068,7 +16343,7 @@ async function handleDocumentAction(kind,id,action){
     if(kind==='gr'&&documentHasPostedStock(kind,doc)){ showToast('ใบรับสินค้านี้รับเข้าสต๊อกแล้ว จึงแก้ไขเอกสารไม่ได้','danger-top'); render(); return; }
     setDocEditingId(kind,id); setDocDraft(kind,null);
     if(kind==='po') poRepresentativeEditorId=null;
-    currentTab = kind==='gr'?'goodsreceipt':kind==='po2'?'purchaseorder2':kind==='ret'?'productreturn':'purchaseorder';
+    currentTab = kind==='gr'?'goodsreceipt':kind==='ret'?'productreturn':'purchaseorder';
     render(); return;
   }
   if(action==='print'){ printPO(id,kind); render(); return; }
@@ -16208,7 +16483,7 @@ function printPO(poId,kind='po'){
   </style></head><body><div class="screenbar"><span>ตัวอย่างเอกสาร A4</span><button onclick="window.print()">พิมพ์เอกสาร</button></div>${pages}</body></html>`);
   win.document.close();
   standardizePrintPreview(win);
-  if(kind==='po2'||kind==='gr') setupA4DocumentPreview(win,{number:docs.map(doc=>doc.id).join(', '),label:titleText,pageSelector:'.a4-page'});
+  if(kind==='gr') setupA4DocumentPreview(win,{number:docs.map(doc=>doc.id).join(', '),label:titleText,pageSelector:'.a4-page'});
 }
 // แปลงตัวเลขเป็นข้อความภาษาไทย (บาท/สตางค์)
 function bahtText(num){
@@ -16290,6 +16565,11 @@ async function storeBackupDataSnapshot(){
   // the exported file can always restore the complete store.
   await Promise.all([loadAllSalesForBackup(),loadAllDocumentsForBackup()]);
   const data=cloudClean(workspaceSnapshot());
+  // Read-only backup compatibility: the retired purchase-order screen and
+  // synchronizer are gone, but historic records must remain restorable.
+  const legacy=await fetchAllRows(()=>sb.from('purchase_orders_full').select('*').order('id'));
+  if(legacy.error) throw legacy.error;
+  data.purchaseOrdersFull=(legacy.data||[]).map(rowToDoc);
   delete data.cart;
   delete data.saleDiscount;
   delete data.saleMember;
@@ -16995,7 +17275,7 @@ function saveContactEditorData(contactId=editingContactId){
   const recordId=contactId==='new'?generateClientRecordId(contacts):existing?.id;
   const codeInput=g('c_code');
   const enteredCode=codeInput?.value.trim()||'';
-  const code=enteredCode||existing?.code||automaticContactCode(contacts);
+  const code=enteredCode||existing?.code||'';
   if(code){
     const dup = contacts.find(x=>x.id!==contactId && String(x.code||'').trim().toLowerCase()===code.toLowerCase());
     if(dup){ showToast(`รหัสผู้ติดต่อ "${code}" ถูกใช้แล้วโดย "${dup.name}"`); codeInput?.focus(); return null; }
@@ -17005,6 +17285,7 @@ function saveContactEditorData(contactId=editingContactId){
     name, types,
     entity: entityEl?entityEl.value:'juristic',
     code,
+    ...(!code?{_autoCode:true}:{}),
     taxId: g('c_taxid').value.trim(),
     creditDays: g('c_credit')?(parseInt(g('c_credit').value)||''):(existing?.creditDays||''),
     address: g('c_address').value.trim(),
@@ -17023,10 +17304,10 @@ function saveContactEditorData(contactId=editingContactId){
   if(contactId==='new'){
     savedContact={id:recordId, ...data, customerPrices:[],loyaltyJoinedAt:new Date().toISOString()};
     contacts.push(savedContact);
-    showToast(`เพิ่มรายชื่อ "${name}" แล้ว`);
+    showToast(`กำลังบันทึก "${name}" ระบบจะสร้างรหัสเมื่อซิงก์สำเร็จ`);
   } else {
     Object.assign(savedContact, data);
-    showToast(`บันทึก "${name}" แล้ว`);
+    showToast(`กำลังเก็บและซิงก์ "${name}" กรุณาตรวจสถานะซิงก์`);
   }
   persistContacts();
   return savedContact;
@@ -17189,7 +17470,7 @@ function productDeletionLocalBlockers(productId){
   add('ประวัติการขาย',valueReferencesProduct(salesHistory,id));
   add('เอกสารสินค้า',[
     quotations,invoicesAR,creditNotes,purchaseOrders,goodsReceipts,productExchanges,
-    purchaseOrdersFull,productReturns,transfers,standaloneTaxInvoices,
+    productReturns,transfers,standaloneTaxInvoices,
   ].some(list=>valueReferencesProduct(list,id)));
   add('รายการตรวจสินค้า',valueReferencesProduct(inspectionLists,id));
   add('โปรโมชั่น',valueReferencesProduct(promotions,id));
@@ -18721,7 +19002,7 @@ async function doCheckout(payMethod,options={}){
     if(error) throw error;
     completedSale={...(data?.sale||{}),cashShiftId};
     if(!completedSale?.id) throw new Error('completed sale was not returned');
-    clearCheckoutRequestId(requestContext.id);
+    await clearCheckoutRequestId(requestContext.id);
   }catch(error){
     console.warn('complete sale',error);
     const message=String(error?.message||'');
@@ -18730,15 +19011,15 @@ async function doCheckout(payMethod,options={}){
     // transaction failure, so the payload may be corrected with a new id.
     // Fetch/network failures have no database code and remain ambiguous: keep
     // the durable request and exact payload so a retry can never double-sell.
-    const definitiveFailure=!!String(error?.code||'').trim()||message.includes('cash shift required')||message.includes('is inactive');
-    if(definitiveFailure) clearCheckoutRequestId(requestContext?.id||'');
+    const definitiveFailure=/^[0-9A-Z]{5}$/.test(String(error?.code||''))||['PGRST202','PGRST301','PGRST302'].includes(String(error?.code||''))||message.includes('cash shift required')||message.includes('is inactive');
+    if(definitiveFailure) await clearCheckoutRequestId(requestContext?.id||'');
     else restorePendingCheckoutUi(requestContext);
     const loyaltyFailure=definitiveFailure&&message.includes('LOYALTY_');
     if(loyaltyFailure){saleLoyaltySelection=null;customerLoyaltyState=null;}
     if(message.includes('cash shift required')){ currentCashShift=null; currentTab='cashshift'; await loadCashShiftsFromSupabase(); }
     checkoutInFlight=false;
     render();
-    const checkoutErrorMessage=message.includes('cash shift required')?'ระบบชำระถูกปิดไปแล้ว กรุณาเปิดระบบใหม่':message.includes('is inactive')?'มีสินค้าถูกปิดใช้งาน กรุณารีเฟรชและลบสินค้านั้นออกจากบิล':lowerMessage.includes('quotation')?'ข้อมูลใบเสนอราคาไม่ตรงกับรายการชำระ กรุณาโหลดข้อมูลล่าสุดแล้วเปิดใบเสนอราคาไปยัง POS อีกครั้ง โดยใช้ลูกค้าและราคาตามใบเสนอราคา':lowerMessage.includes('customer special price')?'ราคาพิเศษของลูกค้ายังไม่ตรงกับข้อมูลบนระบบ กรุณาเปิดสมุดรายชื่อแล้วบันทึกราคาพิเศษอีกครั้ง':lowerMessage.includes('product price changed')?'ราคาสินค้าเปลี่ยนแล้ว กรุณาล้างรายการเดิมและยิงสินค้าใหม่':lowerMessage.includes('payload')?'มีคำขอชำระเดิมค้างอยู่ ระบบจะไม่สร้างคำขอใหม่ กรุณาตรวจสอบบิลเดิม':definitiveFailure?(message||'ระบบปฏิเสธรายการ กรุณาตรวจข้อมูลแล้วลองใหม่'):'ยังไม่ได้รับการยืนยันจากระบบ กรุณากดชำระซ้ำ ระบบจะใช้คำขอเดิมและไม่สร้างบิลซ้ำ';
+const checkoutErrorMessage=error?.code==='LOCAL_STORAGE_UNAVAILABLE'?message:message.includes('cash shift required')?'ระบบชำระถูกปิดไปแล้ว กรุณาเปิดระบบใหม่':message.includes('is inactive')?'มีสินค้าถูกปิดใช้งาน กรุณารีเฟรชและลบสินค้านั้นออกจากบิล':lowerMessage.includes('quotation')?'ข้อมูลใบเสนอราคาไม่ตรงกับรายการชำระ กรุณาโหลดข้อมูลล่าสุดแล้วเปิดใบเสนอราคาไปยัง POS อีกครั้ง โดยใช้ลูกค้าและราคาตามใบเสนอราคา':lowerMessage.includes('customer special price')?'ราคาพิเศษของลูกค้ายังไม่ตรงกับข้อมูลบนระบบ กรุณาเปิดสมุดรายชื่อแล้วบันทึกราคาพิเศษอีกครั้ง':lowerMessage.includes('product price changed')?'ราคาสินค้าเปลี่ยนแล้ว กรุณาล้างรายการเดิมและยิงสินค้าใหม่':lowerMessage.includes('payload')?'มีคำขอชำระเดิมค้างอยู่ ระบบจะไม่สร้างคำขอใหม่ กรุณาตรวจสอบบิลเดิม':definitiveFailure?(message||'ระบบปฏิเสธรายการ กรุณาตรวจข้อมูลแล้วลองใหม่'):'ยังไม่ได้รับการยืนยันจากระบบ กรุณากดชำระซ้ำ ระบบจะใช้คำขอเดิมและไม่สร้างบิลซ้ำ';
     showToast(loyaltyFailure?'ใช้แต้มไม่สำเร็จ ยอดแต้มอาจเปลี่ยนหรือหมดอายุ กรุณาตรวจแต้มและเลือกใหม่อีกครั้ง':checkoutErrorMessage,'danger-top');
     return;
   }

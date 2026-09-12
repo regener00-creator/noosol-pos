@@ -3,3 +3,5 @@ public/
 .env
 .env.local
 .DS_Store
+outputs/
+supabase/.temp/
