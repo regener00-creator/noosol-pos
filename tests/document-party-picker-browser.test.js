@@ -123,6 +123,26 @@ let browser;
   await page.evaluate(()=>openQuotationForm('QT-TEST'));
   assert.equal(await page.locator('#tax_form_customer_line').inputValue(),'saved.line');
   assert.equal(await page.locator('input[name="quotation_customer_entity"][value="individual"]').isChecked(),true);
+  await page.evaluate(()=>{
+    editingQuotationId=null;
+    quotations=[{id:'QT202609120001',date:TODAY_STR,customer:'ลูกค้าชื่อยาว'.repeat(12),items:[{name:'LongProductName'.repeat(12),qty:1}],total:123456.78}];
+    render();
+  });
+  await page.locator('.quotation-summary-table tbody .doc-check').check();
+  assert.equal(await page.locator('#docBulkbar').isVisible(),true);
+  assert.equal(await page.locator('#docBulkPrint').count(),0);
+  assert.equal(await page.locator('[data-print-quotation]').count(),1,'per-document print stays available');
+  for(const width of [1440,1280,1024]){
+    await page.setViewportSize({width,height:950});
+    const dimensions=await page.locator('.quotation-summary-table').evaluate(table=>{
+      const host=table.parentElement;
+      return {scroll:host.scrollWidth,client:host.clientWidth,right:table.getBoundingClientRect().right,viewport:innerWidth,buttons:[...table.querySelectorAll('.history-icon-btn')].map(button=>button.getBoundingClientRect().right)};
+    });
+    assert.ok(dimensions.scroll<=dimensions.client+1,JSON.stringify({width,...dimensions}));
+    assert.ok(dimensions.right<=dimensions.viewport,JSON.stringify({width,...dimensions}));
+    assert.ok(dimensions.buttons.every(right=>right<=dimensions.right),JSON.stringify({width,...dimensions}));
+  }
+  if(process.env.PEPOS_QUOTATION_LIST_SCREENSHOT) await page.locator('#main').screenshot({path:process.env.PEPOS_QUOTATION_LIST_SCREENSHOT});
   assert.deepEqual(errors,[]);
   console.log('Document party pickers passed: five forms, customer details, two columns, search, selection, draft retention, close/focus, locked exchange, no return editor');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});
