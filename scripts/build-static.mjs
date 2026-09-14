@@ -86,7 +86,7 @@ export async function prepareTextAssets({ appSource, excelToolsSource = '', styl
   // Do not mix its shared state with newer page code; reload the app instead.
   const versionedPageCodes = Object.fromEntries(Object.entries(pageCodes).map(([name, code]) => {
     const group = name.slice(5, -3)
-    return [name, `(()=>{if(APP_ASSET_VERSION!==${JSON.stringify(assetVersion)})return;\n${code}\nObject.assign(window,{${groups[group].functions.join(',')}});})();\n`]
+    return [name, `(()=>{(window.__pageCodeVersions||={})[${JSON.stringify(group)}]=${JSON.stringify(assetVersion)};if(APP_ASSET_VERSION!==${JSON.stringify(assetVersion)})return;\n${code}\nObject.assign(window,{${groups[group].functions.join(',')}});})();\n`]
   }))
 
   return {

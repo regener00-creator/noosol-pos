@@ -1717,8 +1717,9 @@
   .form-bottom-actions{display:flex;justify-content:flex-end;gap:10px;border-top:1px solid var(--border);padding-top:16px;margin-top:20px;}
   .form-bottom-actions .btn{min-width:150px;}
   .transfer-card{padding:22px;border-color:#E5DCD8;}
-  .transfer-meta{display:grid;grid-template-columns:minmax(360px,650px) 1fr;gap:34px;align-items:start;}
-  .transfer-meta-fields{display:grid;grid-template-columns:125px minmax(230px,1fr);gap:10px 12px;align-items:center;}
+  .transfer-meta{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:24px;align-items:start;}
+  .transfer-meta-fields{display:grid;grid-template-columns:auto minmax(150px,1fr) auto minmax(180px,1fr);gap:10px 12px;align-items:center;}
+  @media(max-width:900px){.transfer-meta{grid-template-columns:1fr;}.transfer-meta-fields{grid-template-columns:auto minmax(0,1fr);}}
   .transfer-meta-fields label{font-size:13px;font-weight:600;}
   .transfer-meta-fields input,.transfer-meta-fields select{width:100%;padding:9px 11px;border:1px solid #DCE4E3;border-radius:8px;background:#fff;color:var(--text);font-family:inherit;font-size:13px;}
   .transfer-meta-fields .dmy-field,.transfer-meta-fields .dmy-input{width:100%;min-width:0;}
@@ -1747,8 +1748,6 @@
   .transfer-notes label{display:block;font-size:13px;font-weight:600;margin-bottom:7px;}
   .transfer-notes textarea{width:100%;min-height:105px;padding:9px 11px;border:1px solid #DCE4E3;border-radius:8px;background:#fff;color:var(--text);font-family:inherit;font-size:13px;resize:vertical;}
   .transfer-notes textarea:focus{outline:2px solid #DAC9C2;outline-offset:0;border-color:#B99C90;}
-  .transfer-doc-actions{display:flex;gap:10px;justify-content:flex-end;margin-bottom:6px;}
-  .transfer-doc-actions .btn{min-width:100px;}
   .transfer-list-actions{display:flex;justify-content:flex-end;gap:7px;white-space:nowrap;}
   .grid-table.transfer-summary-table tbody td{text-align:center;}
   .transfer-summary-table .transfer-list-actions{justify-content:center;}

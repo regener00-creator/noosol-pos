@@ -6,8 +6,9 @@ function section(start,end){const a=source.indexOf(start),b=source.indexOf(end,a
 const toRow=row=>({id:row.id,name:row.name,revision:row._revision||0,data:row.data||{}});
 function setup(){
   const ctx=vm.createContext({Map,Set,JSON,Object,String,Array,Number,structuredClone,Error,console,
-    currentProfile:{id:'a'},workspaceRecoveryActorId:'a',workspaceRecoveryEntries:new Map(),syncedTableRows:{},contacts:[],salesRepresentatives:[],docs:[],contactToRow:toRow,salesRepToRow:toRow,docToRow:toRow});
+    currentProfile:{id:'a'},workspaceRecoveryActorId:'a',workspaceRecoveryEntries:new Map(),syncedTableRows:{},contacts:[],salesRepresentatives:[],inspectionLists:[],inspectionListToRow:toRow,docs:[],contactToRow:toRow,salesRepToRow:toRow,docToRow:toRow});
   ctx.DOC_TABLES=[['quotations',()=>ctx.docs,rows=>ctx.docs=rows]];
+  vm.runInContext(section('function canonicalProductInsertValue(','function productInsertMetadataRow('),ctx);
   vm.runInContext(section('function workspaceRecoveryTables(','function renderWorkspaceRecoveryPanel(')+section('function currentWorkspacePendingChanges(','async function ensureWorkspaceRecoveryDurable('),ctx);
   return ctx;
 }
@@ -27,6 +28,20 @@ test('remote refresh preserves pending creates, edits and deletions and their or
   assert.equal(restored.contacts.find(row=>row.id===1).name,'unsent');
   assert.equal(restored.contacts.some(row=>row.id===2),false);
 });
+test('legacy inspection cache accepts equivalent server fields but retains a real local edit',()=>{
+  const c=setup();
+  c.inspectionListToRow=list=>({id:list.id,revision:list._revision,data:Object.fromEntries(Object.entries(list).filter(([key])=>!['id','_revision'].includes(key)))});
+  c.inspectionCompletionMatches=()=>false;
+  const local={id:'C1',_revision:1,name:'same',items:[{pid:10,unit:'box'}]},remote={items:[{unit:'box',pid:10}],name:'same',id:'C1',_revision:1,warehouseId:1};
+  c.inspectionLists=[local];c.workspaceRecoveryEntries.set('inspection_lists:C1',{table:'inspection_lists',id:'C1',record:local,baseline:JSON.stringify(c.inspectionListToRow(local)),legacy:true});
+  c.inspectionLists=c.mergeWorkspaceRemoteRows('inspection_lists',c.inspectionLists,[remote],c.inspectionListToRow,{replace:true});
+  assert.equal(c.inspectionLists[0].warehouseId,1);assert.equal(c.currentWorkspacePendingChanges().length,0);
+  const changed={...local,name:'unsent edit'};
+  c.workspaceRecoveryEntries.set('inspection_lists:C1',{table:'inspection_lists',id:'C1',record:changed,baseline:JSON.stringify(c.inspectionListToRow(local)),legacy:true});
+  c.inspectionLists=c.mergeWorkspaceRemoteRows('inspection_lists',c.inspectionLists,[remote],c.inspectionListToRow,{replace:true});
+  assert.equal(c.inspectionLists[0].name,'unsent edit');assert.equal(c.currentWorkspacePendingChanges().length,1);
+});
+
 test('detached document draft cannot be replaced by its old list row before the durable write',()=>{
   const c=setup(),old={id:'Q1',name:'old',_revision:1};c.docs=[old];c.syncedTableRows.quotations=new Map([['Q1',JSON.stringify(toRow(old))]]);
   c.workspaceRecoveryEntries.set('quotations:Q1',{table:'quotations',id:'Q1',baseline:JSON.stringify(toRow(old)),record:{...old,name:'draft'},detached:true});

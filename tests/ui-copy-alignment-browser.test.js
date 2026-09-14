@@ -16,7 +16,7 @@ let browser;
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const executablePath=[process.env.PEPOS_BROWSER_EXECUTABLE,'C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(p=>p&&fs.existsSync(p))||chromium.executablePath();
   browser=await chromium.launch({headless:true,executablePath});
-  const page=await browser.newPage({viewport:{width:1440,height:950}});
+  const page=await browser.newPage({viewport:{width:1440,height:950},serviceWorkers:'block'});
   page.setDefaultTimeout(7000);
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.route('https://**',route=>route.fulfill({contentType:'text/javascript',body:''}));
@@ -24,6 +24,7 @@ let browser;
   await page.evaluate(async()=>{
     await ensurePageCodeLoaded('purchaseorder');
     renderLoginState=()=>true;renderSidebar=()=>{};ensureOnDemandDataForTab=()=>({status:'ready'});
+    isMobileDeviceMode=()=>false;canAccessTab=()=>true;
     document.querySelectorAll('.login-screen,.warehouse-choice-screen').forEach(el=>el.style.display='none');
     document.getElementById('appRoot').hidden=false;
     currentProfile={id:'test',owner:true,level:1};warehouses=[{id:1,name:'Test'}];activeWarehouseId=1;

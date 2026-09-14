@@ -27,7 +27,12 @@ function ensurePageCodeLoaded(tab){
     const script=document.createElement('script');
     script.src=`/page-${group}.js${APP_ASSET_VERSION?`?v=${encodeURIComponent(APP_ASSET_VERSION)}`:''}`;
     script.async=true;
-    script.onload=()=>pageCodeReady(group)?resolve(true):reject(new Error('โหลดส่วนประกอบหน้านี้ไม่ครบ กรุณาโหลดโปรแกรมใหม่'));
+    script.onload=()=>{
+      if(pageCodeReady(group)){ resolve(true); return; }
+      script.remove();
+      const changed=window.__pageCodeVersions?.[group]&&window.__pageCodeVersions[group]!==APP_ASSET_VERSION;
+      reject(new Error(changed?'มีโปรแกรมเวอร์ชันใหม่ กรุณาบันทึกงานแล้วโหลดโปรแกรมใหม่เพื่อเปิดหน้านี้':'โหลดส่วนประกอบหน้านี้ไม่ครบ กรุณาโหลดโปรแกรมใหม่'));
+    };
     script.onerror=()=>{ script.remove(); reject(new Error('โหลดหน้านี้ไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่')); };
     document.head.appendChild(script);
   }).catch(error=>{ pageCodeLoads.delete(group); throw error; });
@@ -45,7 +50,14 @@ function showPageCodeLoading(tab,mainElement){
     if(currentTab!==tab||mainElement.pageCodeOwner!==owner) return;
     mainElement.innerHTML=`<div class="hint" role="alert">${escapeHtml(error.message)} <button class="btn" id="retryPageCodeBtn" type="button">ลองใหม่</button> <button class="btn ghost" id="reloadPageCodeBtn" type="button">โหลดโปรแกรมใหม่</button></div>`;
     mainElement.querySelector('#retryPageCodeBtn').onclick=()=>render();
-    mainElement.querySelector('#reloadPageCodeBtn').onclick=()=>location.reload();
+    mainElement.querySelector('#reloadPageCodeBtn').onclick=async()=>{
+      if(currentProfile){
+        if(!confirm('บันทึกงานในแบบฟอร์มแล้วหรือยัง? การโหลดใหม่จะปิดแบบฟอร์มที่ยังไม่ได้บันทึก แต่ระบบจะเก็บสำเนางานรอซิงก์ไว้')) return;
+        try{ await ensureWorkspaceRecoveryDurable(); }
+        catch(error){ showToast(error.message,'danger'); return; }
+      }
+      location.reload();
+    };
   });
   return true;
 }
@@ -1891,18 +1903,53 @@ async function loadDocumentPrefixesFromSupabase(){
 // Each list is its own row so two devices can add/edit different lists without
 // replacing the entire shared array in settings.
 function inspectionListToRow(list){ return {id:list.id,data:additionalData(list,['id','_revision']),revision:Number(list._revision)||0}; }
+function rowToInspectionList(row){ return normalizeInspectionLists([{...(row.data||{}),id:row.id,_revision:Number(row.revision)||1}])[0]; }
+function inspectionCompletionMatches(local,remote){
+  // Only acknowledge the very same completed count; never overwrite an edit
+  // to the name, products, units, owner or warehouse to silence a conflict.
+  if(!local.stockAdjustedAt||!remote.stockAdjustedAt||Date.parse(local.stockAdjustedAt)!==Date.parse(remote.stockAdjustedAt)) return false;
+  if(local.stockAdjustmentDocumentNo&&local.stockAdjustmentDocumentNo!==remote.stockAdjustmentDocumentNo) return false;
+  if(local.warehouseId&&Number(local.warehouseId)!==Number(remote.warehouseId)) return false;
+  const identity=list=>({id:String(list.id),name:list.name,items:list.items,createdAt:list.createdAt,createdBy:list.createdBy,token:list._clientCreateToken||'',stockAdjustedBy:list.stockAdjustedBy});
+  return JSON.stringify(canonicalProductInsertValue(identity(local)))===JSON.stringify(canonicalProductInsertValue(identity(remote)));
+}
+async function reconcileCompletedInspectionLists(){
+  const baseline=syncedTableRows.inspection_lists||new Map();
+  const candidates=inspectionLists.filter(list=>list.stockAdjustedAt&&baseline.get(String(list.id))!==JSON.stringify(inspectionListToRow(list)));
+  for(let offset=0;offset<candidates.length;offset+=100){
+    const {data,error}=await sb.from('inspection_lists').select('*').in('id',candidates.slice(offset,offset+100).map(list=>list.id));
+    if(error) throw error;
+    for(const row of data||[]){
+      const remote=rowToInspectionList(row),local=inspectionLists.find(list=>String(list.id)===String(remote.id));
+      if(!local||!inspectionCompletionMatches(local,remote)) continue;
+      const index=inspectionLists.indexOf(local);
+      inspectionLists[index]=remote;
+      syncAcknowledgement('inspection_lists',inspectionLists,inspectionListToRow)(remote);
+    }
+  }
+}
 async function syncInspectionListsToSupabase(){
   if(!currentProfile) return false;
-  try{ return await upsertAndPrune('inspection_lists',inspectionLists,inspectionListToRow); }
-  catch(e){ console.warn('sync inspection lists failed',e); return noteCoreSyncFailure(e,{operation:'sync_inspection_lists',tableName:'inspection_lists',fallbackMessage:'ซิงก์รายการตรวจสินค้าไม่สำเร็จ'}); }
+  syncInspectionListsToSupabase.requested=true;
+  if(syncInspectionListsToSupabase.busy) return syncInspectionListsToSupabase.busy;
+  const work=Promise.resolve().then(async()=>{
+    do{
+      syncInspectionListsToSupabase.requested=false;
+      await reconcileCompletedInspectionLists();
+      if(!await upsertAndPrune('inspection_lists',inspectionLists,inspectionListToRow)) return false;
+    }while(syncInspectionListsToSupabase.requested);
+    return true;
+  }).catch(e=>{ console.warn('sync inspection lists failed',e); return noteCoreSyncFailure(e,{operation:'sync_inspection_lists',tableName:'inspection_lists',fallbackMessage:'ซิงก์รายการตรวจสินค้าไม่สำเร็จ'}); })
+    .finally(()=>{ syncInspectionListsToSupabase.busy=null; });
+  syncInspectionListsToSupabase.busy=work;
+  return work;
 }
 async function loadInspectionListsFromSupabase(){
   try{
     const {data,error}=await fetchAllRows(()=>sb.from('inspection_lists').select('*').order('id'));
     if(error){ console.warn('load inspection lists',error); return; }
     if((data||[]).length){
-      inspectionLists=normalizeInspectionLists(data.map(row=>({...(row.data||{}),id:row.id,_revision:Number(row.revision)||1})));
-      seedTableSnapshot('inspection_lists',inspectionLists,inspectionListToRow);
+      inspectionLists=mergeWorkspaceRemoteRows('inspection_lists',inspectionLists,data.map(rowToInspectionList),inspectionListToRow,{replace:true});
     }else{
       // One-time migration from the former settings-array storage.
       const {data:legacy}=await sb.from('settings').select('value').eq('key','inspection_lists').maybeSingle();
@@ -4009,6 +4056,7 @@ function normalizeInspectionLists(value){
       seen.add(item.pid); return true;
     });
     return {
+      ...list,
       ...(list._clientCreateToken?{_clientCreateToken:String(list._clientCreateToken)}:{}),
       _revision:Number(list._revision)||0,
       id:String(list.id||`${documentPrefixes.inspection}-${String(index+1).padStart(4,'0')}`),
@@ -4027,6 +4075,7 @@ function workspaceSnapshot(){
 }
 function localWorkspaceSnapshot(){
   const snapshot=workspaceSnapshot();
+  snapshot._inspectionRecoveryVersion=1;
   delete snapshot.products;
   delete snapshot.salesHistory;
   const pending=currentWorkspacePendingChanges();
@@ -4045,6 +4094,7 @@ function workspaceRecoveryTables(){
   return [
     ['contacts',()=>contacts,rows=>{contacts=rows;},contactToRow],
     ['sales_representatives',()=>salesRepresentatives,rows=>{salesRepresentatives=rows;},salesRepToRow],
+    ['inspection_lists',()=>inspectionLists,rows=>{inspectionLists=rows;},inspectionListToRow],
     ...DOC_TABLES.map(([table,getRows,setRows])=>[table,getRows,setRows,docToRow]),
   ];
 }
@@ -4075,7 +4125,7 @@ async function discardWorkspaceRecovery(entry){
   if(error) throw error;
   const latest=currentWorkspacePendingChanges().find(item=>item.table===table&&item.id===entry.id);
   if(JSON.stringify(latest)!==requestedFingerprint) throw new Error('ข้อมูลรายการนี้เปลี่ยนระหว่างตรวจสอบ กรุณาเปิดรายละเอียดอีกครั้ง');
-  const fromRow=table==='contacts'?rowToContact:table==='sales_representatives'?rowToSalesRep:rowToDoc;
+  const fromRow=table==='contacts'?rowToContact:table==='sales_representatives'?rowToSalesRep:table==='inspection_lists'?rowToInspectionList:rowToDoc;
   const remote=data?fromRow(data):null,previousRows=getRows(),previousBaseline=syncedTableRows[table];
   const key=`${table}:${entry.id}`,previousEntries=new Map(workspaceRecoveryEntries);
   setRows([...previousRows.filter(row=>String(row.id)!==entry.id),...(remote?[remote]:[])]);
@@ -4115,8 +4165,16 @@ function mergeWorkspaceRemoteRows(table,current,incoming,toRow,{replace=false}={
   pending.forEach(entry=>{
     const remote=incomingById.get(entry.id);
     if(entry.legacy&&remote&&entry.record){
-      const stripRevision=row=>{ const value={...toRow(row)}; delete value.revision; return value; };
-      if(JSON.stringify(stripRevision(entry.record))===JSON.stringify(stripRevision(remote))){ workspaceRecoveryEntries.delete(`${table}:${entry.id}`); return; }
+      const stripRevision=row=>{
+        const value={...toRow(row)}; delete value.revision;
+        if(table==='inspection_lists'){
+          value.data={...value.data};
+          // Older cache normalization dropped these two server fields.
+          for(const key of ['warehouseId','stockAdjustmentDocumentNo']) if(!Object.hasOwn(entry.record,key)) delete value.data[key];
+        }
+        return canonicalProductInsertValue(value);
+      };
+      if(JSON.stringify(stripRevision(entry.record))===JSON.stringify(stripRevision(remote))||(table==='inspection_lists'&&inspectionCompletionMatches(entry.record,remote))){ workspaceRecoveryEntries.delete(`${table}:${entry.id}`); return; }
     }
     if(entry.record) next.set(entry.id,entry.record); else next.delete(entry.id);
     delete entry.detached;
@@ -4231,7 +4289,7 @@ function applyWorkspaceData(saved){
   }
   workspaceRecoveryTables().forEach(([table,getRows,setRows,toRow])=>{
     const baseline=new Map(getRows().map(row=>[String(row.id),JSON.stringify(toRow(row))]));
-    if(!Array.isArray(saved._pendingWorkspaceChanges)){
+    if(!Array.isArray(saved._pendingWorkspaceChanges)||(table==='inspection_lists'&&saved._inspectionRecoveryVersion!==1)){
       // Legacy caches have no baseline: reconcile rather than discard edits.
       getRows().forEach(row=>workspaceRecoveryEntries.set(`${table}:${row.id}`,{table,id:String(row.id),baseline:Number(row._revision)?JSON.stringify(toRow(row)):null,record:row,legacy:true}));
     }
@@ -6810,7 +6868,7 @@ function openNewQuotationForm(){
   editingQuotationId='new'; taxInvoiceAddingCustomer=false;
   const prefix=documentPrefixes.quotation;
   const number=buildDocNumber(prefix, nextDailySeq(prefix, quotations.map(q=>q.id)));
-  taxInvoiceDraft={id:number,number,date:TODAY_STR,credit:0,dueDate:TODAY_STR,customerId:'',name:'',taxId:'',address:'',branch:'สำนักงานใหญ่',branchNo:'',phone:'',email:'',items:Array.from({length:3},()=>({name:'',qty:1,unit:'',price:''})),discount:0,note:''};
+  taxInvoiceDraft={id:number,number,date:TODAY_STR,credit:0,dueDate:TODAY_STR,customerId:'',name:'',taxId:'',address:'',branch:'สำนักงานใหญ่',branchNo:'',phone:'',email:'',items:[{name:'',qty:1,unit:'',price:''}],discount:0,note:''};
   currentTab='quotation'; render();
 }
 
@@ -6983,7 +7041,7 @@ function renderPOForm(kind='po'){
   if(!draft){
     const list=docList(kind);
     draft=isNew
-      ? {id:docPrefix(kind)+TODAY_STR.replace(/-/g,'')+String(docCounter(kind)).padStart(4,'0'), supplier:'', date:TODAY_STR, credit:0, dueDate:TODAY_STR, items:Array.from({length:3},()=>({name:'',qty:1,unit:'',price:''})), note:'', discount:0, taxMode:'incl', supplierTaxInvoiceNo:'', supplierTaxInvoiceDate:'', ...((kind==='gr'||kind==='ret')?{warehouseId:Number(activeWarehouseId)||0}:{})}
+      ? {id:docPrefix(kind)+TODAY_STR.replace(/-/g,'')+String(docCounter(kind)).padStart(4,'0'), supplier:'', date:TODAY_STR, credit:0, dueDate:TODAY_STR, items:[{name:'',qty:1,unit:'',price:''}], note:'', discount:0, taxMode:'incl', supplierTaxInvoiceNo:'', supplierTaxInvoiceDate:'', ...((kind==='gr'||kind==='ret')?{warehouseId:Number(activeWarehouseId)||0}:{})}
       : JSON.parse(JSON.stringify(list.find(x=>x.id===editingId)));
     if(!draft.discount) draft.discount=0;
     if(draft.credit===undefined) draft.credit=0;
@@ -7434,10 +7492,10 @@ function productExchangeSectionHtml(side,title,subtitle,items,locked){
   const rows=(items||[]).map((raw,index)=>{
     const item=normalizeProductExchangeItem(raw); if(!item) return '';
     const product=products.find(entry=>Number(entry.id)===Number(item.pid));
-    return `<tr data-product-exchange-row="${side}" data-index="${index}"><td class="mono">${escapeHtml(product?.sku||'-')}</td><td class="mono">${escapeHtml(item.barcode||product?.barcode||'-')}</td><td class="product-exchange-name">${escapeHtml(product?.name||item.name||'-')}</td><td><input class="product-exchange-qty" type="number" min="0.01" step="any" value="${item.qty}" ${locked?'disabled':''}></td><td><select class="product-exchange-unit" ${locked?'disabled':''}>${productExchangeUnitOptionsHtml(product,item.unit,locked)}</select></td><td>${side==='incoming'?`<input class="product-exchange-lot" value="${escapeHtml(item.lotNumber||'')}" placeholder="ไม่ระบุ" ${locked?'disabled':''}>`:'<span style="color:var(--text-muted);">ระบบตัด FEFO</span>'}</td><td><input class="product-exchange-expiry dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(item.expiry))}" ${locked?'disabled':''}></td><td class="mono">${productExchangeItemBaseQty(item)} ${escapeHtml(product?.unit||'')}</td><td>${locked?'':`<button type="button" class="product-exchange-delete" data-product-exchange-remove="${side}:${index}" title="ลบ">⌫</button>`}</td></tr>`;
+    return `<tr data-product-exchange-row="${side}" data-index="${index}"><td class="mono">${escapeHtml(product?.sku||'-')}</td><td class="mono">${escapeHtml(item.barcode||product?.barcode||'-')}</td><td class="product-exchange-name">${escapeHtml(product?.name||item.name||'-')}</td><td><input class="product-exchange-qty" type="number" min="0.01" step="any" value="${item.qty}" ${locked?'disabled':''}></td><td><select class="product-exchange-unit" ${locked?'disabled':''}>${productExchangeUnitOptionsHtml(product,item.unit,locked)}</select></td><td>${side==='incoming'?`<input class="product-exchange-lot" value="${escapeHtml(item.lotNumber||'')}" placeholder="ไม่ระบุ" ${locked?'disabled':''}>`:'<span style="color:var(--text-muted);">ระบบตัด FEFO</span>'}</td><td><input class="product-exchange-expiry dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(item.expiry))}" ${locked?'disabled':''}></td><td class="mono">${productExchangeItemBaseQty(item)} ${escapeHtml(product?.unit||'')}</td><td>${locked?'':`<button type="button" class="product-exchange-delete" data-product-exchange-remove="${side}:${index}" title="ลบ" aria-label="ลบรายการสินค้า"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`}</td></tr>`;
   }).join('');
   return `<section class="product-exchange-section ${locked?'product-exchange-locked':''}" data-product-exchange-side="${side}"><div class="product-exchange-section-head"><div><h2>${title} <span>• ${subtitle}</span></h2></div>${side==='incoming'&&!locked?'<button type="button" class="btn ghost" id="copyExchangeOutgoingBtn">คัดลอกจากสินค้าที่ส่งไป</button>':''}</div>
-    ${locked?'':`<div class="product-exchange-scan-wrap"><div class="product-exchange-scan-row"><input id="productExchangeScan_${side}" data-product-exchange-scan="${side}" autocomplete="off" placeholder="ค้นหา / ยิงบาร์โค้ด / รหัสสินค้า"><button type="button" class="btn ghost" data-product-exchange-add-first="${side}">เพิ่มสินค้า</button></div><div class="product-exchange-results" id="productExchangeResults_${side}" hidden></div></div>`}
+    ${locked?'':`<div class="product-exchange-scan-wrap"><div class="product-exchange-scan-row"><input id="productExchangeScan_${side}" data-product-exchange-scan="${side}" autocomplete="off" placeholder="ค้นหา / ยิงบาร์โค้ด / รหัสสินค้า"></div><div class="product-exchange-results" id="productExchangeResults_${side}" hidden></div></div>`}
     <div class="product-exchange-table-wrap"><table class="grid-table product-exchange-table"><colgroup><col style="width:115px"><col style="width:165px"><col><col style="width:110px"><col style="width:140px"><col style="width:150px"><col style="width:160px"><col style="width:145px"><col style="width:58px"></colgroup><thead><tr><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>สินค้า</th><th>จำนวน</th><th>หน่วย</th><th>เลข Lot</th><th>วันหมดอายุ</th><th>เทียบหน่วยหลัก</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="9" class="product-exchange-empty">ยังไม่มีสินค้าในรายการ</td></tr>'}</tbody></table></div></section>`;
 }
 function productExchangeReconciliationHtml(doc){
@@ -8447,7 +8505,7 @@ function transferUnitOptions(product){
 function activeTransferDraft(){
   if(transferDraft) return transferDraft;
   if(editingTransferId==='new'){
-    transferDraft={id:transferDocumentNumber(),date:TODAY_STR,transferor:`${currentUserProfile.firstName} ${currentUserProfile.lastName}`.trim(),fromId:Number(activeWarehouseId)||'',toId:'',items:[blankTransferItem(),blankTransferItem(),blankTransferItem()],note:'',internalNote:''};
+    transferDraft={id:transferDocumentNumber(),date:TODAY_STR,transferor:`${currentUserProfile.firstName} ${currentUserProfile.lastName}`.trim(),fromId:Number(activeWarehouseId)||'',toId:'',items:[blankTransferItem()],note:'',internalNote:''};
   }else{
     const old=transfers.find(t=>t.id===editingTransferId);
     if(old){ transferDraft=JSON.parse(JSON.stringify(old)); transferDraft.fromId=transferDraft.fromId||warehouses.find(w=>w.name===old.from)?.id||''; transferDraft.toId=transferDraft.toId||warehouses.find(w=>w.name===old.to)?.id||''; transferDraft.transferor=transferDraft.transferor||`${currentUserProfile.firstName} ${currentUserProfile.lastName}`.trim(); transferDraft.items=(transferDraft.items||[]).map(item=>({...item,lineId:item.lineId||transferLineCounter++,productId:item.productId||products.find(p=>p.name===item.name)?.id||'',unit:item.unit||products.find(p=>p.name===item.name)?.unit||'',cost:Number(item.cost)||0})); }
@@ -8467,15 +8525,31 @@ function transferItemRowHtml(item,index){
   </tr>`;
 }
 
+const selectedTransferIds=new Set();
 function renderTransfer(){
   if(editingTransferId!==null) return renderTransferForm();
-  return `<div class="rpt"><div class="pagehead"><div><h1>โอนสินค้าระหว่างคลัง</h1></div><button class="btn primary" id="newTransferBtn">+ สร้างรายการโอน</button></div>
-  <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue transfer-summary-table"><thead><tr><th>เลขที่</th><th>วันที่</th><th>จากคลัง</th><th>ไปคลัง</th><th>รายการ</th><th>สถานะ</th><th></th></tr></thead>
+  const eligible=new Set(transfers.filter(t=>!documentHasPostedStock('transfer',t)).map(t=>String(t.id)));
+  for(const id of selectedTransferIds) if(!eligible.has(id)) selectedTransferIds.delete(id);
+  return `<div class="rpt"><div class="pagehead"><div><h1>โอนสินค้าระหว่างคลัง</h1></div><div class="transfer-list-actions"><button class="btn ghost danger" id="deleteSelectedTransfersBtn" ${selectedTransferIds.size?'':'disabled'}>ลบที่เลือก (${selectedTransferIds.size})</button><button class="btn primary" id="newTransferBtn">+ สร้างรายการโอน</button></div></div>
+  <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue transfer-summary-table"><thead><tr><th><input type="checkbox" id="selectAllTransfers" aria-label="เลือกใบโอนที่ยังไม่ลงสต๊อกทั้งหมด" ${eligible.size?'':'disabled'} ${eligible.size&&selectedTransferIds.size===eligible.size?'checked':''}></th><th>เลขที่</th><th>วันที่</th><th>จากคลัง</th><th>ไปคลัง</th><th>รายการ</th><th>สถานะ</th><th></th></tr></thead>
   <tbody>${transfers.map(t=>{
     const cancelled=t.status==='ยกเลิก';
     const stockAction=documentHasPostedStock('transfer',t)?'':(cancelled?`<button class="history-icon-btn danger" data-delete-transfer="${escapeHtml(t.id)}" title="ลบออกจากระบบถาวร" aria-label="ลบรายการโอน ${escapeHtml(t.id)} ออกจากระบบถาวร"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`:`<button class="history-icon-btn danger" data-cancel-transfer="${escapeHtml(t.id)}" title="ยกเลิกรายการ" aria-label="ยกเลิกรายการ ${escapeHtml(t.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`);
-    return `<tr><td class="mono">${escapeHtml(t.id)}</td><td>${escapeHtml(fmtDate(t.date))}</td><td>${escapeHtml(t.from)}</td><td>${escapeHtml(t.to)}</td><td>${expandableDocumentItemsPreview('transfer',t.id,t.items)}</td><td><span class="badge ${cancelled?'danger':'ok'}">${cancelled?'ยกเลิก':'บันทึกแล้ว'}</span></td><td class="num"><div class="transfer-list-actions"><button class="history-icon-btn" data-edit-transfer="${escapeHtml(t.id)}" title="เปิดรายการ" aria-label="เปิดรายการ ${escapeHtml(t.id)}" ${cancelled?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button>${stockAction}</div></td></tr>${expandableDocumentItemsDetailRow('transfer',t.id,t.items,7)}`;
-  }).join('')||'<tr><td colspan="7" style="padding:30px;text-align:center;color:var(--text-muted);">ยังไม่มีรายการโอนสินค้า</td></tr>'}</tbody></table></div></div>`;
+    return `<tr><td><input type="checkbox" data-select-transfer="${escapeHtml(t.id)}" aria-label="เลือก ${escapeHtml(t.id)}" ${documentHasPostedStock('transfer',t)?'disabled title="ลงสต๊อกแล้ว ไม่สามารถลบได้"':''} ${selectedTransferIds.has(String(t.id))?'checked':''}></td><td class="mono">${escapeHtml(t.id)}</td><td>${escapeHtml(fmtDate(t.date))}</td><td>${escapeHtml(t.from)}</td><td>${escapeHtml(t.to)}</td><td>${expandableDocumentItemsPreview('transfer',t.id,t.items)}</td><td><span class="badge ${cancelled?'danger':'ok'}">${cancelled?'ยกเลิก':'บันทึกแล้ว'}</span></td><td class="num"><div class="transfer-list-actions"><button class="history-icon-btn" data-edit-transfer="${escapeHtml(t.id)}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(t.id)}" ${cancelled?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn" data-print-transfer="${escapeHtml(t.id)}" title="พิมพ์เอกสาร" aria-label="พิมพ์ใบโอน ${escapeHtml(t.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg></button>${stockAction}</div></td></tr>${expandableDocumentItemsDetailRow('transfer',t.id,t.items,8)}`;
+  }).join('')||'<tr><td colspan="8" style="padding:30px;text-align:center;color:var(--text-muted);">ยังไม่มีรายการโอนสินค้า</td></tr>'}</tbody></table></div></div>`;
+}
+async function deleteSelectedTransfers(){
+  const selected=transfers.filter(t=>selectedTransferIds.has(String(t.id)));
+  if(!selected.length) return false;
+  if(selected.some(t=>documentHasPostedStock('transfer',t))){ showToast('ใบโอนที่ลงสต๊อกแล้วไม่สามารถลบได้','danger'); return false; }
+  if(!confirm(`ต้องการลบใบโอนที่เลือก ${selected.length} รายการหรือไม่? เฉพาะเอกสารที่ยังไม่ลงสต๊อกเท่านั้น`)) return false;
+  const previous=transfers;
+  transfers=transfers.filter(t=>!selectedTransferIds.has(String(t.id)));
+  try{ await ensureWorkspaceRecoveryDurable(); }
+  catch(error){ transfers=previous; showToast(error.message,'danger'); return false; }
+  selectedTransferIds.clear(); persistTransfers(); render();
+  showToast(`ลบใบโอน ${selected.length} รายการแล้ว กำลังรอซิงก์`);
+  return true;
 }
 
 function stockControlAnomalyRows(productList=products,lotRows=inventoryLotRows,warehouseId=activeWarehouseId){
@@ -10908,12 +10982,11 @@ function renderTransferForm(){
   return `<div class="transfer-form">
     <div class="pagehead"><div><div class="breadcrumb">คลัง & สินค้า › โอนสินค้าระหว่างคลัง › สร้างใบโอนสินค้า</div><h1>สร้างใบโอนสินค้า</h1><div class="sub mono">${escapeHtml(draft.id)}</div></div></div>
     <div class="panel transfer-card">
-      <div class="transfer-doc-actions"><button class="btn ghost small" id="printTransferFormBtn">พิมพ์</button></div>
       <div class="transfer-meta">
         <div class="transfer-meta-fields">
           <label for="transfer_date">วันที่</label>${dmyDateFieldHtml('transfer_date',draft.date)}
-          <label for="transfer_by">ผู้ขอโอน</label><input id="transfer_by" value="${escapeHtml(draft.transferor||'')}">
           <label for="transfer_from">คลังต้นทาง *</label><select id="transfer_from"><option value="">กรุณาระบุคลังต้นทาง</option>${warehouses.map(w=>`<option value="${w.id}" ${Number(draft.fromId)===Number(w.id)?'selected':''}>${escapeHtml(w.name)}</option>`).join('')}</select>
+          <label for="transfer_by">ผู้ขอโอน</label><input id="transfer_by" value="${escapeHtml(draft.transferor||'')}">
           <label for="transfer_to">คลังปลายทาง *</label><select id="transfer_to"><option value="">กรุณาระบุคลังปลายทาง</option>${warehouses.map(w=>`<option value="${w.id}" ${Number(draft.toId)===Number(w.id)?'selected':''}>${escapeHtml(w.name)}</option>`).join('')}</select>
         </div>
         <div class="transfer-count"><span>จำนวนสินค้ารวม</span><b id="transferTotalQty">${totalQty.toLocaleString('th-TH')}</b></div>
@@ -13540,12 +13613,6 @@ function bindProductExchangeScanners(){
     });
     input.addEventListener('blur',()=>setTimeout(()=>{ const box=document.getElementById(`productExchangeResults_${side}`); if(box) box.hidden=true; },140));
   });
-  document.querySelectorAll('[data-product-exchange-add-first]').forEach(button=>button.addEventListener('click',()=>{
-    const side=button.dataset.productExchangeAddFirst,input=document.getElementById(`productExchangeScan_${side}`);
-    const exact=exactProductExchangeMatch(input?.value);
-    if(exact) addProductExchangeItem(side,exact.product.id,exact.unit);
-    else{ const first=productExchangeSearchMatches(input?.value)[0]; if(first) addProductExchangeItem(side,first.id); else showToast('กรุณาค้นหาหรือยิงบาร์โค้ดสินค้า'); }
-  }));
 }
 function validateProductExchangeDraft(draft,forStatus='ร่าง'){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(String(draft.date||''))||dmyToISO(isoToDMY(draft.date))!==draft.date){ showToast('กรุณากรอกวันที่เอกสารเป็น วัน/เดือน/ปี'); document.getElementById('productExchangeDate')?.focus(); return false; }
@@ -15565,7 +15632,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     }
     syncPOFromDOM();
     draft.warehouseId=next;
-    draft.items=Array.from({length:3},()=>({name:'',qty:1,unit:'',price:''}));
+    draft.items=[{name:'',qty:1,unit:'',price:''}];
     render();
   });
   const newPORepBtn=document.getElementById('newPORepBtn');
@@ -15637,6 +15704,19 @@ document.querySelectorAll('.line-qty').forEach(el=>{
 
   const newTransferBtn = document.getElementById('newTransferBtn');
   if(newTransferBtn) newTransferBtn.addEventListener('click', ()=>{ editingTransferId='new'; transferDraft=null; render(); });
+  document.querySelectorAll('[data-print-transfer]').forEach(btn=>btn.addEventListener('click',()=>printTransfer(btn.dataset.printTransfer)));
+  document.querySelectorAll('[data-select-transfer]').forEach(box=>box.addEventListener('change',()=>{
+    const id=box.dataset.selectTransfer,doc=transfers.find(t=>String(t.id)===id);
+    if(doc&&!documentHasPostedStock('transfer',doc)&&box.checked) selectedTransferIds.add(id); else selectedTransferIds.delete(id);
+    render();
+  }));
+  const selectAllTransfers=document.getElementById('selectAllTransfers');
+  if(selectAllTransfers){
+    const eligible=transfers.filter(t=>!documentHasPostedStock('transfer',t));
+    selectAllTransfers.indeterminate=selectedTransferIds.size>0&&selectedTransferIds.size<eligible.length;
+    selectAllTransfers.addEventListener('change',()=>{ selectedTransferIds.clear(); if(selectAllTransfers.checked) eligible.forEach(t=>selectedTransferIds.add(String(t.id))); render(); });
+  }
+  document.getElementById('deleteSelectedTransfersBtn')?.addEventListener('click',deleteSelectedTransfers);
   document.querySelectorAll('[data-edit-transfer]').forEach(btn=>{ btn.addEventListener('click',()=>{ editingTransferId=btn.dataset.editTransfer; transferDraft=null; render(); }); });
   document.querySelectorAll('[data-cancel-transfer]').forEach(btn=>{ btn.addEventListener('click',()=>cancelTransfer(btn.dataset.cancelTransfer)); });
   document.querySelectorAll('[data-delete-transfer]').forEach(btn=>{ btn.addEventListener('click',()=>deleteCancelledTransfer(btn.dataset.deleteTransfer)); });
@@ -15649,8 +15729,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(transferFrom) transferFrom.addEventListener('change',()=>{ syncTransferFromDOM(); render(); });
   const transferTo=document.getElementById('transfer_to');
   if(transferTo) transferTo.addEventListener('change',syncTransferFromDOM);
-  const printTransferFormBtn=document.getElementById('printTransferFormBtn');
-  if(printTransferFormBtn) printTransferFormBtn.addEventListener('click',async()=>{ const id=await saveTransfer(true); if(id) printTransfer(id); });
   bindTransferItemEvents();
 }
 
@@ -15748,7 +15826,7 @@ function syncTransferFromDOM(){
   if(rows.length){
     draft.items=rows.map(row=>{
       const rawName=row.querySelector('.transfer-product')?.value.trim()||'';
-      let product=products.find(p=>p.name===rawName)||products.find(p=>p.barcode===rawName||(p.units||[]).some(u=>u.barcode===rawName));
+      const product=rawName?(products.find(p=>p.name===rawName)||products.find(p=>p.barcode===rawName||(p.units||[]).some(u=>u.barcode===rawName))):null;
       const scannedUnit=product?(product.barcode===rawName?product.unit:(product.units||[]).find(u=>u.barcode===rawName)?.sub):'';
       const selectedUnit=row.querySelector('.transfer-unit')?.value||scannedUnit||product?.unit||'';
       const unitInfo=transferUnitOptions(product).find(u=>u.name===selectedUnit);
@@ -15770,7 +15848,7 @@ function bindTransferItemEvents(){
   document.querySelectorAll('#transferItemRows tr').forEach(row=>{
     row.querySelectorAll('.transfer-qty').forEach(input=>input.addEventListener('input',recalculateTransferDom));
     const productInput=row.querySelector('.transfer-product');
-    if(productInput) productInput.addEventListener('change',()=>{ syncTransferFromDOM(); const draft=activeTransferDraft(); const item=draft.items.find(x=>x.lineId===Number(row.dataset.transferLine)); const product=products.find(p=>p.name===item?.name)||products.find(p=>p.barcode===productInput.value||(p.units||[]).some(u=>u.barcode===productInput.value)); if(product&&item){ const scanned=(product.units||[]).find(u=>u.barcode===productInput.value); item.productId=product.id; item.name=product.name; item.unit=scanned?.sub||product.unit; item.cost=transferUnitOptions(product).find(u=>u.name===item.unit)?.cost||0; } render(); });
+    if(productInput) productInput.addEventListener('change',()=>{ syncTransferFromDOM(); render(); });
     const unitSelect=row.querySelector('.transfer-unit');
     if(unitSelect) unitSelect.addEventListener('change',()=>{ syncTransferFromDOM(); const draft=activeTransferDraft(); const item=draft.items.find(x=>x.lineId===Number(row.dataset.transferLine)); const product=products.find(p=>p.id===Number(item?.productId)); if(item&&product) item.cost=transferUnitOptions(product).find(u=>u.name===item.unit)?.cost||0; render(); });
     const remove=row.querySelector('.transfer-remove');

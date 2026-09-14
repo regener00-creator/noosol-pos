@@ -113,6 +113,7 @@ let browser;
   await other.goto('about:blank');await other.addScriptTag({content:'const APP_ASSET_VERSION="old-release";'});
   await other.addScriptTag({content:fs.readFileSync(path.join(publicRoot,'page-reports.js'),'utf8')});
   assert.equal(await other.evaluate(()=>typeof window.renderRInventory),'undefined');
+  assert.notEqual(await other.evaluate(()=>window.__pageCodeVersions.reports),'old-release','mismatched chunk reports its release without installing incompatible code');
   assert.deepEqual(errors,[]);
   console.log(`built page chunks browser test passed: ${tabs.length} routes, lazy requests, retry, navigation race, version guard, incremental IndexedDB writes`);
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});

@@ -1,6 +1,8 @@
 const ASSET_VERSION='__PEPOS_ASSET_VERSION__';
 const CACHE_NAME=`pepos-mobile-${ASSET_VERSION}`;
+const PAGE_ASSETS=['reports','documents','settings','catalog'].map(group=>`/page-${group}.js?v=${ASSET_VERSION}`);
 const APP_SHELL=['/','/index.html',`/styles.css?v=${ASSET_VERSION}`,`/app.js?v=${ASSET_VERSION}`,'/manifest.webmanifest','/sapuri-app-icon-192.png','/sapuri-app-icon-512.png','/sapuri-pharmacy-logo.webp','/sapuri-brand-logo.webp'];
+APP_SHELL.push(...PAGE_ASSETS);
 const TRUSTED_CDN_HOSTS=new Set(['cdn.jsdelivr.net']);
 const MAX_RUNTIME_CACHE_ENTRIES=80;
 function isCacheableAsset(url){
@@ -14,9 +16,10 @@ async function trimRuntimeCache(cache){
 }
 
 function fetchAndPrepareCacheUpdate(request,cacheKey=request){
+  const version=new URL(typeof request==='string'?request:request.url,self.location.origin).searchParams.get('v');
   return fetch(request).then(response=>({
     response,
-    cacheUpdate:response.ok
+    cacheUpdate:response.ok&&(!version||version===ASSET_VERSION)
       ?caches.open(CACHE_NAME).then(async cache=>{ await cache.put(cacheKey,response.clone()); await trimRuntimeCache(cache); })
       :Promise.resolve(),
   }));
@@ -27,7 +30,8 @@ self.addEventListener('install',event=>{
 });
 
 self.addEventListener('activate',event=>{
-  event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('pepos-mobile-')&&key!==CACHE_NAME).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));
+  // Keep two previous releases for tabs still running their matching app code.
+  event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('pepos-mobile-')&&key!==CACHE_NAME).slice(0,-2).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));
 });
 
 self.addEventListener('fetch',event=>{
@@ -50,6 +54,14 @@ self.addEventListener('fetch',event=>{
     return;
   }
   if(!isCacheableAsset(url)) return;
+  if(url.searchParams.has('v')){
+    const cacheFirst=caches.match(request).then(cached=>cached
+      ?{response:cached,cacheUpdate:Promise.resolve()}
+      :fetchAndPrepareCacheUpdate(request));
+    event.waitUntil(cacheFirst.then(result=>result.cacheUpdate).catch(()=>undefined));
+    event.respondWith(cacheFirst.then(result=>result.response));
+    return;
+  }
   const network=fetchAndPrepareCacheUpdate(request);
   event.waitUntil(network.then(result=>result.cacheUpdate).catch(()=>undefined));
   event.respondWith(network.then(result=>result.response).catch(()=>caches.match(request)));
