@@ -2928,10 +2928,6 @@ function openPOSCustomerPicker(){
     <div class="modal-head"><div><h3 id="posCustomerPickerTitle">เลือกสมาชิก</h3></div><div class="pos-customer-picker-head-actions"><button class="btn primary" id="addPOSCustomerBtn" type="button">เพิ่มลูกค้า</button><button class="modal-close" type="button" aria-label="ปิด">×</button></div></div>
     <div class="pos-customer-picker-search"><input id="posCustomerPickerSearch" type="search" placeholder="ค้นหาชื่อ-เบอร์โทร" autocomplete="off"></div>
     <div class="pos-customer-picker-list">
-      <button class="pos-customer-picker-item general ${selected?'':'active'}" type="button" data-pos-customer-general>
-        <span class="pos-customer-picker-main"><strong>ลูกค้าทั่วไป</strong><small>ไม่ใช้ราคาพิเศษของสมาชิก</small></span>
-        <span class="pos-customer-picker-check">${selected?'':'✓'}</span>
-      </button>
       <div id="posCustomerPickerRows"></div>
       <div class="pos-customer-picker-empty" id="posCustomerPickerNoResults" hidden>ไม่พบลูกค้าที่ค้นหา</div>
       <div class="picker-pagination" id="posCustomerPickerPager" aria-live="polite"></div>
@@ -2952,8 +2948,8 @@ function openPOSCustomerPicker(){
     openPOSCustomerCreateModal();
   });
   overlay.addEventListener('mousedown',event=>{ if(event.target===overlay) close(); });
-  overlay.querySelector('[data-pos-customer-general]').addEventListener('click',()=>choose(null));
   overlay.querySelector('#posCustomerPickerRows').addEventListener('click',event=>{
+    if(event.target.closest('[data-pos-customer-general]')){ choose(null); return; }
     const button=event.target.closest('[data-pos-customer-index]');
     if(button) choose(customers[Number(button.dataset.posCustomerIndex)]);
   });
@@ -2965,7 +2961,11 @@ function openPOSCustomerPicker(){
     const matches=indexed.filter(entry=>!query||entry.text.includes(query)||(digits&&entry.digits.some(value=>value.includes(digits))));
     const pages=Math.max(1,Math.ceil(matches.length/pageSize));
     page=Math.min(page,pages);
-    overlay.querySelector('#posCustomerPickerRows').innerHTML=matches.slice((page-1)*pageSize,page*pageSize).map(rowHtml).join('');
+    overlay.querySelector('#posCustomerPickerRows').innerHTML=`<button class="pos-customer-picker-item ${selected?'':'active'}" type="button" data-pos-customer-general>
+      <span class="pos-customer-picker-main"><strong>ลูกค้าทั่วไป</strong><small>ไม่ใช้ราคาพิเศษของสมาชิก</small></span>
+      <span class="pos-customer-picker-meta"></span>
+      <span class="pos-customer-picker-check">${selected?'':'✓'}</span>
+    </button>`+matches.slice((page-1)*pageSize,page*pageSize).map(rowHtml).join('');
     noResults.hidden=matches.length>0;
     overlay.querySelector('#posCustomerPickerPager').innerHTML=`<span>${matches.length} รายชื่อ · หน้า ${page} / ${pages}</span>${pages>1?`<button class="btn ghost" type="button" data-customer-page="-1" ${page===1?'disabled':''}>ก่อนหน้า</button><button class="btn ghost" type="button" data-customer-page="1" ${page===pages?'disabled':''}>ถัดไป</button>`:''}`;
   };

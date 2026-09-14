@@ -163,8 +163,13 @@ let browser;
     await page.setViewportSize({width,height:950});
     const layout=await page.locator('#posCustomerPickerRows').evaluate(grid=>({
       tops:[...grid.children].map(item=>Math.round(item.getBoundingClientRect().top)),
+      sizes:[...grid.children].map(item=>({width:item.getBoundingClientRect().width,height:item.getBoundingClientRect().height})),
+      generalFirst:grid.firstElementChild.hasAttribute('data-pos-customer-general'),
       width:grid.clientWidth,scrollWidth:grid.scrollWidth
     }));
+    assert.equal(layout.generalFirst,true,'general customer is the first card inside the same grid');
+    assert.ok(Math.abs(layout.sizes[0].width-layout.sizes[1].width)<1);
+    assert.equal(layout.sizes[0].height,layout.sizes[1].height,'general customer has the same card height');
     assert.equal(layout.tops[0],layout.tops[1]);assert.equal(layout.tops[1],layout.tops[2]);
     assert.ok(layout.tops[3]>layout.tops[2],'fourth customer starts next row');
     assert.ok(layout.scrollWidth<=layout.width+1,'customer grid does not overflow');
@@ -174,11 +179,19 @@ let browser;
   await page.locator('#posCustomerPickerSearch').fill('ไม่มีชื่อนี้');
   assert.equal(await page.locator('[data-pos-customer-index]:visible').count(),0);
   assert.equal(await page.locator('#posCustomerPickerNoResults').isVisible(),true);
+  assert.equal(await page.locator('#posCustomerPickerRows > [data-pos-customer-general]').count(),1);
   await page.locator('#posCustomerPickerSearch').fill('');
   assert.equal(await page.locator('[data-pos-customer-index]:visible').count(),7);
   assert.equal(await page.locator('#posCustomerPickerNoResults').isVisible(),false);
+  fs.mkdirSync(path.join(root,'outputs'),{recursive:true});
+  await page.locator('.pos-customer-picker-modal').screenshot({path:path.join(root,'outputs/member-picker-general-first.png')});
   await page.locator('[data-pos-customer-index="1"]').click();
   assert.equal(await page.evaluate(()=>saleMember?.id),2);
+  assert.equal(await page.locator('.pos-customer-picker-modal').count(),0);
+  await page.evaluate(()=>openPOSCustomerPicker());
+  await page.locator('#posCustomerPickerSearch').fill('ไม่มีชื่อนี้');
+  await page.locator('[data-pos-customer-general] strong').click();
+  assert.equal(await page.evaluate(()=>saleMember),null,'general customer still clears the selected member after filtering');
   assert.equal(await page.locator('.pos-customer-picker-modal').count(),0);
   assert.deepEqual(errors,[]);
   console.log('Document party pickers passed: five forms, customer details, two columns, search, selection, draft retention, close/focus, locked exchange, no return editor');
