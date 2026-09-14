@@ -18,8 +18,10 @@ assert.match(form, /contact-editor-identity-row-customer-new[\s\S]*contact-edito
 assert.match(form, /isNewCustomer\?'':`<div class="contact-editor-field"><label>เครดิต<\/label>/);
 assert.match(source, /emptyCustomerContactDraft\(type='customer'\)[\s\S]*normalizedType==='customer'\?'individual':'juristic'/);
 assert.match(form, /contact-editor-wide"><label>ที่อยู่<\/label>/);
-assert.match(form, /<label>อีเมล์<\/label>[\s\S]*<label>ไลน์<\/label>[\s\S]*<label>เบอร์โทร<\/label>/);
-assert.match(form, /id="c_phone" class="phone-input" inputmode="numeric" autocomplete="tel" maxlength="12"[\s\S]*formatPhoneValue\(c\.phone\|\|''\)[\s\S]*placeholder="xxx-xxx-xxxx"/);
+assert.match(form, /<label>อีเมล์<\/label>[\s\S]*<label>ไลน์<\/label>[\s\S]*<label>เบอร์โทร[\s\S]*data-customer-phone-required/);
+assert.match(form, /requiresCustomerPhone=normalizedFixedType==='customer'\|\|contactIncludesCustomer\(c\)/);
+assert.match(form, /id="c_phone" class="phone-input" inputmode="numeric" autocomplete="tel" maxlength="12"[\s\S]*formatPhoneValue\(c\.phone\|\|''\)[\s\S]*placeholder="xxx-xxx-xxxx"[\s\S]*requiresCustomerPhone\?'required'/);
+assert.match(form, /function bindContactCustomerPhoneRequirement\([\s\S]*phone\.required=required[\s\S]*marker\.hidden=!required/);
 assert.match(form, /contact-editor-wide"><label>เพิ่มเติม<\/label>/);
 assert.doesNotMatch(form, /รหัสไปรษณีย์|<label>ชื่อผู้ติดต่อ<\/label>|ข้อมูลธนาคาร|<label>ธนาคาร<\/label>|ชื่อบัญชี|เลขที่บัญชี|ประเภทบัญชี/);
 assert.doesNotMatch(form, /c_postcode|c_contactname|c_bank|c_bankname|c_bankacc|c_acctype/);
@@ -31,7 +33,10 @@ assert.match(save, /enteredCode\|\|existing\?\.code\|\|''/);
 assert.match(save, /_autoCode:true/,'database assigns the code after a durable insert');
 assert.match(save, /creditDays: g\('c_credit'\)\?/);
 assert.match(save, /line: g\('c_line'\)\.value\.trim\(\)/);
-assert.match(save, /phone: formatPhoneValue\(g\('c_phone'\)\.value\)/);
+assert.match(save, /types\.includes\('customer'\)&&!normalizedPhoneDigits\(phone\)[\s\S]*กรุณากรอกเบอร์โทรลูกค้า/);
+assert.match(save, /duplicateCustomerPhone\(phone,existing\?\.id\)[\s\S]*ถูกใช้แล้วโดยลูกค้า/);
+assert.match(save, /phone,/);
+assert.match(save, /async function saveContactFromEditor[\s\S]*await persistContactImmediately\(savedContact\)[\s\S]*isDuplicateCustomerPhoneError/);
 assert.doesNotMatch(save, /g\('c_postcode'\)|g\('c_contactname'\)|g\('c_bank'\)|g\('c_bankname'\)|g\('c_bankacc'\)/);
 
 console.log('contact form layout tests passed');

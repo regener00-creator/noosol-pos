@@ -1474,6 +1474,10 @@ async function insertRevisionedRows(table,items,toRow,onAcknowledged=()=>{}){
     const rows=batch.map(item=>{ const {revision,...row}=toRow(item); return row; });
     const {data,error}=await sb.from(table).insert(rows).select('id,revision,data');
     if(error){
+      // A unique violation is a definitive rejection, not an ambiguous network
+      // response. Preserve its stable Postgres code so the editor can explain
+      // a duplicate customer phone instead of mislabelling it as a revision conflict.
+      if(String(error.code||'')==='23505') return error;
       const ids=rows.map(row=>row.id);
       const verification=await sb.from(table).select('id,revision,data').in('id',ids);
       if(verification.error) return error;
@@ -2417,6 +2421,17 @@ function formatPhoneValue(raw){
   if(digits.length>3) return digits.slice(0,3)+'-'+digits.slice(3);
   return digits;
 }
+function normalizedPhoneDigits(raw){ return String(raw||'').replace(/\D/g,''); }
+function contactIncludesCustomer(contact){ return Array.isArray(contact?.types)&&contact.types.includes('customer'); }
+function duplicateCustomerPhone(phone,excludedId=null){
+  const digits=normalizedPhoneDigits(phone);
+  if(!digits) return null;
+  return contacts.find(contact=>contactIncludesCustomer(contact)&&String(contact.id)!==String(excludedId)&&normalizedPhoneDigits(contact.phone)===digits)||null;
+}
+function isDuplicateCustomerPhoneError(error){
+  const detail=[error?.message,error?.details,error?.hint,error?.constraint].filter(Boolean).join(' ');
+  return String(error?.code||'')==='23505'&&/contacts_customer_phone_unique|phone/i.test(detail);
+}
 function showToast(msg, variant){
   const t = document.getElementById('toast');
   t.textContent = msg;
@@ -2475,7 +2490,7 @@ let contacts=[];
 const CONTACTS_STORAGE_KEY='pharmacy_pos_contacts_v1';
 try{ const savedContacts=JSON.parse(localStorage.getItem(CONTACTS_STORAGE_KEY)||'null'); if(Array.isArray(savedContacts)) contacts=savedContacts; }catch(error){ console.warn('ไม่สามารถโหลดสมุดรายชื่อได้',error); }
 function persistContacts(){ persistWorkspaceData(); }
-async function persistCustomerPricingImmediately(contact){
+async function persistContactImmediately(contact){
   if(!currentProfile||!contact) return true;
   if(!Number(contact._revision)&&!contact._clientCreateToken) contact._clientCreateToken=generateProductCreateToken();
   const sent=cloneSyncRecords([contact]);
@@ -3047,12 +3062,13 @@ function openPOSCustomerCreateModal(){
   </div>`;
   document.body.appendChild(overlay);
   bindContactTaxIdLabel(overlay);
+  bindContactCustomerPhoneRequirement(overlay);
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').addEventListener('click',close);
   overlay.querySelector('#cancelPOSCustomerCreateBtn').addEventListener('click',close);
   overlay.addEventListener('mousedown',event=>{ if(event.target===overlay) close(); });
-  overlay.querySelector('#savePOSCustomerCreateBtn').addEventListener('click',()=>{
-    const customer=saveContactEditorData('new');
+  overlay.querySelector('#savePOSCustomerCreateBtn').addEventListener('click',async()=>{
+    const customer=await saveContactFromEditor('new',overlay.querySelector('#savePOSCustomerCreateBtn'));
     if(!customer) return;
     saleMember=customerSaleSnapshot(customer);
     saleLoyaltySelection=null;customerLoyaltyState=null;
@@ -11649,6 +11665,7 @@ function contactEditorFieldsHtml(c,fixedType=''){
   const chk = t => (c.types||[]).includes(t)?'checked':'';
   const isJuristic=c.entity!=='individual';
   const isNewCustomer=normalizedFixedType==='customer'&&!c.id;
+  const requiresCustomerPhone=normalizedFixedType==='customer'||contactIncludesCustomer(c);
   const hideCode=normalizedFixedType==='customer'||currentTab==='customers';
   const typeField=normalizedFixedType
     ? `<input type="hidden" id="c_fixed_type" value="${normalizedFixedType}">`
@@ -11672,10 +11689,23 @@ function contactEditorFieldsHtml(c,fixedType=''){
           <div class="contact-editor-contact-row contact-editor-wide">
             <div class="contact-editor-field"><label>อีเมล์</label><input id="c_email" type="email" value="${escapeHtml(c.email||'')}"></div>
             <div class="contact-editor-field"><label>ไลน์</label><input id="c_line" value="${escapeHtml(c.line||'')}" placeholder="LINE ID"></div>
-            <div class="contact-editor-field"><label>เบอร์โทร</label><input id="c_phone" class="phone-input" inputmode="numeric" autocomplete="tel" maxlength="12" value="${escapeHtml(formatPhoneValue(c.phone||''))}" placeholder="xxx-xxx-xxxx"></div>
+            <div class="contact-editor-field"><label>เบอร์โทร <span class="req" data-customer-phone-required ${requiresCustomerPhone?'':'hidden'}>*</span></label><input id="c_phone" class="phone-input" inputmode="numeric" autocomplete="tel" maxlength="12" value="${escapeHtml(formatPhoneValue(c.phone||''))}" placeholder="xxx-xxx-xxxx" ${requiresCustomerPhone?'required':''}></div>
           </div>
           <div class="contact-editor-field contact-editor-wide"><label>เพิ่มเติม</label><textarea id="c_note" rows="3">${escapeHtml(c.note||'')}</textarea></div>
       </div>`;
+}
+function bindContactCustomerPhoneRequirement(root=document){
+  const phone=root.querySelector('#c_phone');
+  const marker=root.querySelector('[data-customer-phone-required]');
+  if(!phone) return;
+  const update=()=>{
+    const fixedType=root.querySelector('#c_fixed_type')?.value||'';
+    const required=fixedType==='customer'||!!root.querySelector('#c_type_customer')?.checked;
+    phone.required=required;
+    if(marker) marker.hidden=!required;
+  };
+  root.querySelector('#c_type_customer')?.addEventListener('change',update);
+  update();
 }
 function bindContactTaxIdLabel(root=document){
   const label=root.querySelector('#c_taxid_label');
@@ -14730,6 +14760,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const saveContactBtn = document.getElementById('saveContactBtn');
   if(saveContactBtn) saveContactBtn.addEventListener('click', saveContact);
   bindContactTaxIdLabel(document);
+  bindContactCustomerPhoneRequirement(document);
   const cancelCustomerPricingBtn=document.getElementById('cancelCustomerPricingBtn');
   if(cancelCustomerPricingBtn) cancelCustomerPricingBtn.addEventListener('click',()=>{ editingCustomerPriceContactId=null; render(); });
   const saveCustomerPricingBtn=document.getElementById('saveCustomerPricingBtn');
@@ -17308,6 +17339,15 @@ function saveContactEditorData(contactId=editingContactId){
   if(!fixedType&&g('c_type_supplier')?.checked) types.push('supplier');
   if(types.length===0){ showToast('กรุณาเลือกประเภท (ลูกค้า หรือ ผู้จำหน่าย)'); return null; }
   const existing=contactId==='new'?null:contacts.find(x=>x.id===contactId);
+  const phoneInput=g('c_phone');
+  const phone=formatPhoneValue(phoneInput?.value||'');
+  if(types.includes('customer')&&!normalizedPhoneDigits(phone)){
+    showToast('กรุณากรอกเบอร์โทรลูกค้า','danger-top'); phoneInput?.focus(); return null;
+  }
+  const duplicatePhone=types.includes('customer')?duplicateCustomerPhone(phone,existing?.id):null;
+  if(duplicatePhone){
+    showToast(`เบอร์โทร ${phone} ถูกใช้แล้วโดยลูกค้า “${duplicatePhone.name||'-'}”`,'danger-top'); phoneInput?.focus(); return null;
+  }
   const recordId=contactId==='new'?generateClientRecordId(contacts):existing?.id;
   const codeInput=g('c_code');
   const enteredCode=codeInput?.value.trim()||'';
@@ -17327,7 +17367,7 @@ function saveContactEditorData(contactId=editingContactId){
     address: g('c_address').value.trim(),
     email: g('c_email').value.trim(),
     line: g('c_line').value.trim(),
-    phone: formatPhoneValue(g('c_phone').value),
+    phone,
     note: g('c_note').value.trim(),
     defaultDocument:'short_receipt',
   };
@@ -17348,8 +17388,32 @@ function saveContactEditorData(contactId=editingContactId){
   persistContacts();
   return savedContact;
 }
-function saveContact(){
-  const savedContact=saveContactEditorData(editingContactId);
+async function saveContactFromEditor(contactId=editingContactId,saveButton=null){
+  const previousContacts=cloneSyncRecords(contacts);
+  const originalButtonText=saveButton?.textContent||'';
+  const savedContact=saveContactEditorData(contactId);
+  if(!savedContact) return null;
+  if(saveButton){ saveButton.disabled=true; saveButton.textContent='กำลังบันทึก...'; }
+  try{
+    await persistContactImmediately(savedContact);
+    showToast(`บันทึก “${savedContact.name}” แล้ว`);
+    return savedContact;
+  }catch(error){
+    contacts=previousContacts;
+    persistContacts();
+    console.warn('save contact',error);
+    if(isDuplicateCustomerPhoneError(error)) showToast(`เบอร์โทร ${savedContact.phone||''} มีลูกค้ารายอื่นใช้งานแล้ว`,'danger-top');
+    else{
+      rememberSyncUiError(error,{operation:'save_contact',tableName:'contacts',recordId:savedContact.id,fallbackMessage:'บันทึกลูกค้าไม่สำเร็จ'});
+      showToast('บันทึกลูกค้าขึ้นระบบไม่สำเร็จ กรุณาตรวจการเชื่อมต่อแล้วลองอีกครั้ง','danger-top');
+    }
+    if(saveButton){ saveButton.disabled=false; saveButton.textContent=originalButtonText; }
+    return null;
+  }
+}
+async function saveContact(){
+  const saveButton=document.getElementById('saveContactBtn');
+  const savedContact=await saveContactFromEditor(editingContactId,saveButton);
   if(!savedContact) return;
   editingContactId = null;
   render();
@@ -17365,7 +17429,7 @@ async function saveCustomerPricing(){
   const saveButton=document.getElementById('saveCustomerPricingBtn');
   if(saveButton){ saveButton.disabled=true; saveButton.textContent='กำลังบันทึก...'; }
   try{
-    await persistCustomerPricingImmediately(customer);
+    await persistContactImmediately(customer);
     editingCustomerPriceContactId=null;
     showToast(`บันทึกราคาพิเศษของ “${customer.name}” แล้ว`);
     render();

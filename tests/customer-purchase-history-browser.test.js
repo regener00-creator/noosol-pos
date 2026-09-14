@@ -36,7 +36,7 @@ let browser;
   await page.evaluate(async()=>{
     await ensurePageCodeLoaded('customers');
     document.querySelectorAll('.login-screen').forEach(el=>el.style.display='none');
-    renderLoginState=()=>true;persistContacts=()=>{};
+    renderLoginState=()=>true;persistContacts=()=>{};persistContactImmediately=async()=>true;
     currentProfile={id:'test-owner',owner:true,level:1,firstName:'ทดสอบ'};
     activeWarehouseId=1;warehouses=[{id:1,name:'คลังทดสอบ'}];
     currentDateStr=()=> '2026-09-11';

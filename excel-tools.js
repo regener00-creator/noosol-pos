@@ -31,6 +31,7 @@ async function importContactsFromExcel(file){
   const toUpdate=[];
   const skipped=[];
   const seenInFile=new Set(); // guard against two rows in the same file matching the same existing contact
+  const stagedCustomerPhones=new Set();
 
   sourceRows.forEach((row,index)=>{
     const line=index+2;
@@ -48,7 +49,7 @@ async function importContactsFromExcel(file){
       postcode:String(productImportValue(row,['รหัสไปรษณีย์','postcode'])).trim(),
       contactName:String(productImportValue(row,['ชื่อผู้ติดต่อ','contactname'])).trim(),
       email:String(productImportValue(row,['อีเมล','email'])).trim(),
-      phone:String(productImportValue(row,['เบอร์มือถือ','เบอร์โทร','phone'])).trim(),
+      phone:formatPhoneValue(productImportValue(row,['เบอร์มือถือ','เบอร์โทร','phone'])),
       bank:String(productImportValue(row,['ธนาคาร','bank'])).trim(),
       bankName:String(productImportValue(row,['ชื่อบัญชี','bankname'])).trim(),
       bankAcc:String(productImportValue(row,['เลขที่บัญชี','bankacc'])).trim(),
@@ -63,6 +64,17 @@ async function importContactsFromExcel(file){
     if(existing){
       if(seenInFile.has(existing.id)){ skipped.push(`แถว ${line}: ซ้ำกับแถวก่อนหน้าในไฟล์เดียวกัน (${name})`); return; }
       seenInFile.add(existing.id);
+    }
+    if(data.types.includes('customer')){
+      const phoneDigits=normalizedPhoneDigits(data.phone);
+      if(!phoneDigits){ skipped.push(`แถว ${line}: ลูกค้าไม่มีเบอร์โทร (${name})`); return; }
+      const duplicate=duplicateCustomerPhone(data.phone,existing?.id);
+      if(duplicate||stagedCustomerPhones.has(phoneDigits)){
+        skipped.push(`แถว ${line}: เบอร์โทรลูกค้าซ้ำ (${data.phone})`); return;
+      }
+      stagedCustomerPhones.add(phoneDigits);
+    }
+    if(existing){
       toUpdate.push({existing,data});
     }else{
       toCreate.push(data);

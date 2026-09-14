@@ -37,7 +37,7 @@ const browserExecutable = [
   await page.waitForFunction(() => typeof renderContactForm==='function'&&typeof renderCheckout==='function');
   await page.evaluate(() => {
     document.querySelectorAll('.login-screen').forEach(screen=>{screen.style.display='none';});
-    renderLoginState=()=>true; renderSidebar=()=>{}; persistContacts=()=>{}; persistQuotations=()=>{};
+    renderLoginState=()=>true; renderSidebar=()=>{}; persistContacts=()=>{}; persistContactImmediately=async()=>true; persistQuotations=()=>{};
     currentProfile={id:'owner-customer-price',owner:true,level:1,firstName:'เจ้าของ'};
     products=[{id:101,sku:'D-001',name:'Decolgen',category:'ยา',brand:'ทั่วไป',unit:'ซอง',barcode:'SACHET-101',price:8,cost:5,stock:100,units:[{sub:'กล่อง',factor:25,price:180,cost:110,barcode:'BOX-101'}],extraBarcodes:[],vendorBarcodes:[],active:true}];
     contacts=[{id:7,name:'ลูกค้า A',types:['customer'],entity:'individual',phone:'0812345678',line:'old.line',postcode:'10110',contactName:'ข้อมูลเดิม',bank:'ธนาคารเดิม',bankName:'ชื่อเดิม',bankAcc:'123',accType:'saving',defaultDocument:'cash_bill',customerPrices:[{id:'a-box',productId:101,unit:'กล่อง',price:160}]}];
@@ -73,6 +73,7 @@ const browserExecutable = [
   assert.equal(await page.locator('#c_postcode,#c_contactname,#c_bank,#c_bankname,#c_bankacc,[name="c_acctype"]').count(),0);
   assert.equal(await page.locator('#c_line').inputValue(),'old.line');
   assert.equal(await page.locator('#c_phone').inputValue(),'081-234-5678','เบอร์เดิมที่ไม่มีขีดต้องจัดรูปแบบเมื่อเปิดหน้าแก้ไขลูกค้า');
+  assert.equal(await page.locator('#c_phone').getAttribute('required'),'','ลูกค้าต้องกรอกเบอร์โทร');
   await page.locator('#c_line').fill('new.line');
   await page.locator('#c_phone').fill('0899999999');
   assert.equal(await page.locator('#c_phone').inputValue(),'089-999-9999','ช่องลูกค้าต้องจัดรูปแบบขณะกรอก');
@@ -144,8 +145,14 @@ const browserExecutable = [
   await page.locator('#openCustomerPickerBtn').click();
   await page.locator('#addPOSCustomerBtn').click();
   await page.locator('#c_name').fill('ลูกค้าใหม่');
+  await page.locator('#savePOSCustomerCreateBtn').click();
+  assert.equal(await page.locator('.pos-customer-create-modal').count(),1,'ไม่มีเบอร์โทรต้องยังไม่บันทึกลูกค้า');
+  await page.locator('#c_phone').fill('0899999999');
+  await page.locator('#savePOSCustomerCreateBtn').click();
+  assert.equal(await page.locator('.pos-customer-create-modal').count(),1,'เบอร์โทรซ้ำแม้กรอกรูปแบบไม่มีขีดต้องยังไม่บันทึก');
   await page.locator('#c_phone').fill('0891112222');
   await page.locator('#savePOSCustomerCreateBtn').click();
+  await page.waitForSelector('.pos-customer-create-modal',{state:'detached'});
   assert.equal(await page.locator('.pos-customer-create-modal').count(),0);
   assert.equal(await page.evaluate(()=>currentTab),'checkout');
   assert.equal(await page.evaluate(()=>saleMember?.name),'ลูกค้าใหม่');
