@@ -59,7 +59,7 @@ let browser;
     document.querySelectorAll('.login-screen,.warehouse-choice-screen').forEach(screen=>{screen.style.display='none';});
   });
 
-  assert.equal(await page.locator('.notes-page-head h1').textContent(), 'NOTE');
+  assert.equal(await page.locator('.notes-page-head h1').textContent(), 'NOTE • พื้นที่จดบันทึกสำหรับร้าน');
   assert.equal(await page.locator('#noteTitle').inputValue(), 'โน้ตทดสอบ');
   assert.equal(await page.locator('#noteHiddenFromLevel2').isChecked(), true);
   assert.equal(await page.locator('[data-note-command]').count(), 3);

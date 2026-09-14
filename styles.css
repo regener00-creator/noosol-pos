@@ -358,7 +358,7 @@
   .history-table .ht-pay{width:100px;}
   .history-table .ht-status{width:90px;}
   .history-table .ht-actions{width:140px;}
-  .history-table thead th{background:#4F4038;color:#fff;}
+  .history-table thead th{background:#4F4038;color:#fff;text-align:center;}
   /* ประวัติการขาย: ล็อกหัวหน้าไว้และให้เลื่อนเฉพาะข้อมูลในตาราง */
   .main.sales-history-main{overflow-y:hidden;}
   .sales-history-page{height:100%;min-height:0;display:flex;flex-direction:column;}
@@ -2097,9 +2097,9 @@
   .cash-shift-status.open{background:#e6f6ea;color:#23753a;}.cash-shift-status::before{content:'';width:8px;height:8px;border-radius:50%;background:currentColor;}
   .cash-shift-open-card{max-width:560px;margin:32px auto;padding:28px;border:1px solid var(--border);border-radius:14px;background:var(--surface);text-align:center;}
   .cash-shift-open-card h3{font-size:22px;margin:0 0 7px;}.cash-shift-open-card p{margin:0 0 22px;color:var(--text-muted);}
-  .cash-shift-money-field{display:block;text-align:left;margin:0 auto 18px;max-width:330px;font-weight:700;}.cash-shift-money-field span{display:block;margin-bottom:7px;}
+  .cash-shift-money-field{display:block;text-align:center;margin:0 auto 18px;max-width:330px;font-weight:700;}.cash-shift-money-field span{display:block;margin-bottom:7px;}
   .cash-shift-money-field input,.cash-shift-close-form input,.cash-shift-close-form textarea{width:100%;border:1px solid var(--border);border-radius:9px;padding:11px 12px;font:inherit;background:#fff;color:var(--text);}
-  .cash-shift-money-field input{font-size:22px;text-align:right;font-family:monospace;}
+  .cash-shift-money-field input{font-size:22px;text-align:center;font-family:monospace;}
   .cash-shift-summary-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:14px 0;}
   .cash-shift-stat{padding:15px;border:1px solid var(--border);border-radius:11px;background:var(--surface);}.cash-shift-stat span{display:block;color:var(--text-muted);font-size:12px;margin-bottom:4px;}.cash-shift-stat b{font-size:20px;}.cash-shift-stat.primary b{color:var(--primary);}.cash-shift-stat.warn b{color:#b86b00;}.cash-shift-stat.danger b{color:var(--danger);}
   .cash-shift-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px;padding:14px 16px;border:1px solid var(--border);border-radius:11px;background:#f8fafc;}.cash-shift-meta span{display:block;color:var(--text-muted);font-size:12px;}.cash-shift-meta b{display:block;margin-top:3px;}
@@ -2113,7 +2113,7 @@
   .notes-page{max-width:1320px;margin:0 auto;}
   .notes-page-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;}
   .notes-page-head h1{margin:0;color:#2B2016;font-size:30px;line-height:1.2;}
-  .notes-page-head p{margin:5px 0 0;color:var(--text-muted);}
+  .notes-page-subtitle{font-size:16px;font-weight:400;color:var(--text-muted);}
   .note-activity-context{display:block;margin-top:4px;color:#1570A6;font-size:11px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .note-load-error{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;}
   .notes-layout{display:grid;grid-template-columns:minmax(270px,340px) minmax(0,1fr);gap:16px;align-items:stretch;}
