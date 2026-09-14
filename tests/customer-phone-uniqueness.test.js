@@ -13,7 +13,7 @@ assert.match(helpers, /String\(contact\.id\)!==String\(excludedId\)/, 'editing a
 
 const insertStart = source.indexOf('async function insertRevisionedRows(');
 const insertEnd = source.indexOf('async function updateRevisionedRows(', insertStart);
-assert.match(source.slice(insertStart, insertEnd), /error\.code\|\|''\)==='23505'\) return error/, 'unique violations retain their stable database error code');
+assert.match(source.slice(insertStart, insertEnd), /remote\.data\?\._clientCreateToken[\s\S]*return error/, 'real collisions retain their database error after verifying the attempted ID');
 
 const migration = fs.readFileSync(path.join(__dirname, '..', 'supabase', 'migrations', '20260914041658_unique_customer_phone.sql'), 'utf8');
 assert.match(migration, /create unique index if not exists contacts_customer_phone_unique/i);

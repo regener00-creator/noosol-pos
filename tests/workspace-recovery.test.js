@@ -87,7 +87,7 @@ test('a repeated document revision conflict is paused until the payload changes'
 });
 test('contact acknowledgement copies the central code without losing edits made in flight',()=>{
   const c=setup();c.contacts=[{id:1,name:'new edit',code:'',_autoCode:true}];
-  vm.runInContext(section('function syncAcknowledgement(','async function upsertRowsInChunks('),c);
+  vm.runInContext(section('function cloneSyncRecords(','async function upsertRowsInChunks('),c);
   const mapper=row=>({...toRow(row),data:{code:row.code}});
   c.syncAcknowledgement('contacts',c.contacts,mapper)({id:1,name:'sent name',code:'C0101',_revision:1});
   assert.equal(c.contacts[0].code,'C0101');assert.equal(c.contacts[0]._autoCode,undefined);assert.equal(c.contacts[0].name,'new edit');

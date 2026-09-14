@@ -133,7 +133,7 @@ function rememberSyncUiError(error,{operation='sync_core_data',tableName='',reco
   syncUiLastError={
     operation:String(operation||'sync_core_data'),
     table_name:String(tableName||''),
-    record_id:String(recordId||''),
+    record_id:String(recordId||error?.recordId||error?.productId||''),
     error_code:String(error?.code||''),
     message:String(error?.message||fallbackMessage),
     occurred_at:new Date().toISOString(),
@@ -143,7 +143,7 @@ function rememberSyncUiError(error,{operation='sync_core_data',tableName='',reco
   return syncUiLastError;
 }
 function noteCoreSyncFailure(error,{operation='sync_core_data',tableName='',recordId='',fallbackMessage='ซิงก์ข้อมูลไม่สำเร็จ'}={}){
-  coreSyncFailureDetail={error,operation,tableName,recordId,fallbackMessage};
+  coreSyncFailureDetail={error,operation,tableName,recordId:recordId||error?.recordId||error?.productId||'',fallbackMessage};
   return false;
 }
 const SYNC_TABLE_LABELS={warehouses:'คลังสินค้า',products:'สินค้า',contacts:'สมุดรายชื่อ',sales_representatives:'ผู้แทนจำหน่าย',inspection_lists:'รายการตรวจสินค้า',promotions:'โปรโมชั่น',inventory_balances:'ยอดสต๊อก',inventory_lots:'LOT สินค้า'};
@@ -170,6 +170,7 @@ function syncEventTime(value){
 }
 function syncConflictProductId(row={}){
   row=row||{};
+  if(row.table_name&&row.table_name!=='products') return 0;
   const code=String(row.error_code||'').toUpperCase(),message=String(row.message||'');
   if(code!=='REVISION_CONFLICT'&&!message.includes('ถูกแก้ไขจากอีกเครื่อง')) return 0;
   const explicit=String(row.record_id||'').trim();
@@ -292,7 +293,11 @@ function openSyncDetailsModal(){
     try{
       const rows=await loadSyncEventDetails();
       if(!overlay.isConnected) return;
-      list.innerHTML=syncDetailRowsHtml(rows);
+      const device=currentDeviceId();
+      const localOpen=rows.filter(row=>row.status!=='resolved'&&row.device_id===device);
+      const otherOpen=rows.filter(row=>row.status!=='resolved'&&row.device_id!==device);
+      const resolved=rows.filter(row=>row.status==='resolved');
+      list.innerHTML=`<div class="sync-detail-section-title">รายการยังเปิดบนเครื่องนี้ (${localOpen.length})</div>${syncDetailRowsHtml(localOpen)}${otherOpen.length?`<details><summary>รายการยังเปิดจากเครื่องอื่น (${otherOpen.length}) — ไม่ใช่งานค้างบนเครื่องนี้</summary>${syncDetailRowsHtml(otherOpen)}</details>`:''}${resolved.length?`<details><summary>ประวัติที่แก้ไขแล้ว (${resolved.length})</summary>${syncDetailRowsHtml(resolved)}</details>`:''}`;
     }catch(error){
       if(!overlay.isConnected) return;
       list.innerHTML=`<div class="sync-detail-load-error">โหลดประวัติจากเซิร์ฟเวอร์ไม่ได้<br><span>${escapeHtml(syncEventCause({message:error?.message,error_code:error?.code}))}</span></div>`;
@@ -304,6 +309,7 @@ function openSyncDetailsModal(){
     // Explicit user retry is allowed; automatic retries leave conflicts paused.
     updateProductMetadataInChunks.paused?.clear();
     syncRevisionedDocuments.paused?.clear();
+    upsertAndPrune.paused?.clear();
     await syncCoreDataToSupabase();
     if(!overlay.isConnected) return;
     const summary=overlay.querySelector('.sync-detail-summary');
@@ -793,7 +799,7 @@ function contactToRow(c){
 }
 function rowToContact(row){
   const types=row.type==='both'?['customer','supplier']:[row.type==='supplier'?'supplier':'customer'];
-  return { ...(row.data||{}), id:row.id, name:row.name, phone:row.phone||'', types, loyaltyJoinedAt:row.data?.loyaltyJoinedAt||row.created_at||'', _revision:Number(row.revision)||1 };
+  return { ...(row.data||{}), id:row.id, name:row.name, phone:row.phone||'', types, ...(types.includes('customer')?{loyaltyJoinedAt:row.data?.loyaltyJoinedAt||row.created_at||''}:{}), _revision:Number(row.revision)||1 };
 }
 function salesRepToRow(r){ return { id:r.id, name:r.name||'', data:additionalData(r,['id','name','_revision']), revision:Number(r._revision)||0 }; }
 function rowToSalesRep(row){ return { ...(row.data||{}), id:row.id, name:row.name, _revision:Number(row.revision)||1 }; }
@@ -1281,12 +1287,23 @@ async function refreshDocumentInventory(document){
   return false;
 }
 function cloneSyncRecords(records){ return JSON.parse(JSON.stringify(records||[])); }
+function revisionedLiveRows(table,fallback){
+  return typeof workspaceRecoveryTables==='function'?workspaceRecoveryTables().find(([name])=>name===table)?.[1]()||fallback:fallback;
+}
+function withRevisionedTableLock(table,work){
+  const locks=withRevisionedTableLock.pending||(withRevisionedTableLock.pending=new Map());
+  const previous=locks.get(table)||Promise.resolve();
+  const next=previous.catch(()=>{}).then(work);
+  locks.set(table,next);
+  const release=()=>{ if(locks.get(table)===next) locks.delete(table); };
+  next.then(release,release);
+  return next;
+}
 function syncAcknowledgement(table,localArray,toRow){
   // Only detached payloads acknowledged by the server become the baseline.
-  const snapshot=new Map(syncedTableRows[table]||[]);
-  syncedTableRows[table]=snapshot;
   return item=>{
-    const live=localArray.find(row=>String(row.id)===String(item.id));
+    const snapshot=syncedTableRows[table]||(syncedTableRows[table]=new Map());
+    const live=revisionedLiveRows(table,localArray).find(row=>String(row.id)===String(item.id));
     if(live){
       live._revision=Number(item._revision)||Number(live._revision)||0;
       if(item._clientCreateToken) live._clientCreateToken=item._clientCreateToken;
@@ -1462,10 +1479,27 @@ async function updateProductMetadataInChunks(productRows,onAcknowledged=()=>{}){
   return firstConflict;
 }
 function revisionConflictError(table,id){
-  const error=new Error(`${SYNC_TABLE_LABELS[table]||table} รายการ ${id} ถูกแก้ไขจากอีกเครื่องแล้ว กรุณาโหลดข้อมูลล่าสุด`);
+  const error=new Error(`${SYNC_TABLE_LABELS[table]||table} รายการ ${id} มีข้อมูลหรือเวอร์ชันต่างจากเซิร์ฟเวอร์ เก็บงานไว้ในเครื่องแล้ว กรุณาตรวจเทียบก่อนเลือกข้อมูล`);
   error.code='REVISION_CONFLICT';
   error.recordId=id;
   return error;
+}
+function revisionedRecordFromRow(table,row){
+  if(table==='contacts') return rowToContact(row);
+  if(table==='sales_representatives') return rowToSalesRep(row);
+  if(table==='inspection_lists') return rowToInspectionList(row);
+  if(typeof DOC_TABLES!=='undefined'&&DOC_TABLES.some(([name])=>name===table)) return rowToDoc(row);
+  throw new Error('ไม่รองรับการตรวจเทียบตาราง '+table);
+}
+function revisionedContentMatches(table,local,remote,toRow,remoteSource=null){
+  const content=record=>{
+    const row=toRow(record); delete row.revision;
+    if(table==='contacts'&&remoteSource&&!Object.hasOwn(local,'loyaltyJoinedAt')&&!Object.hasOwn(remoteSource.data||{},'loyaltyJoinedAt')){
+      row.data={...row.data}; delete row.data.loyaltyJoinedAt;
+    }
+    return canonicalProductInsertValue(row);
+  };
+  return JSON.stringify(content(local))===JSON.stringify(content(remote));
 }
 async function insertRevisionedRows(table,items,toRow,onAcknowledged=()=>{}){
   for(let index=0;index<items.length;index+=100){
@@ -1474,17 +1508,19 @@ async function insertRevisionedRows(table,items,toRow,onAcknowledged=()=>{}){
     const rows=batch.map(item=>{ const {revision,...row}=toRow(item); return row; });
     const {data,error}=await sb.from(table).insert(rows).select('id,revision,data');
     if(error){
-      // A unique violation is a definitive rejection, not an ambiguous network
-      // response. Preserve its stable Postgres code so the editor can explain
-      // a duplicate customer phone instead of mislabelling it as a revision conflict.
-      if(String(error.code||'')==='23505') return error;
+      // A retry may hit either the ID or phone index of our own committed row.
+      // Verify ownership/content first; real collisions retain the original code.
       const ids=rows.map(row=>row.id);
-      const verification=await sb.from(table).select('id,revision,data').in('id',ids);
+      const verification=await sb.from(table).select('*').in('id',ids);
       if(verification.error) return error;
       const remoteById=new Map((verification.data||[]).map(row=>[String(row.id),row]));
       for(const item of batch){
         const remote=remoteById.get(String(item.id));
-        if(!remote||String(remote.data?._clientCreateToken||'')!==String(item._clientCreateToken||'')) return revisionConflictError(table,item.id);
+        if(!remote||String(remote.data?._clientCreateToken||'')!==String(item._clientCreateToken||'')) return error;
+        const remoteRecord=revisionedRecordFromRow(table,remote);
+        const comparable={...item};
+        if(table==='contacts'&&remote.data?.code&&!comparable.code){ comparable.code=remote.data.code; delete comparable._autoCode; }
+        if(!revisionedContentMatches(table,comparable,remoteRecord,toRow,remote)) return String(error.code||'')==='23505'&&/contacts_customer_phone_unique/.test([error.message,error.details,error.constraint].join(' '))?error:revisionConflictError(table,item.id);
         item._revision=Number(remote.revision)||1;
         if(table==='contacts'&&remote.data?.code){ item.code=remote.data.code; delete item._autoCode; }
         onAcknowledged(item);
@@ -1504,9 +1540,14 @@ async function insertRevisionedRows(table,items,toRow,onAcknowledged=()=>{}){
 async function updateRevisionedRows(table,items,toRow,onAcknowledged=()=>{}){
   for(let index=0;index<items.length;index+=12){
     const batch=items.slice(index,index+12);
-    const results=await Promise.all(batch.map(item=>{
+    const results=await Promise.all(batch.map(async item=>{
       const row=toRow(item),{id,revision,...changes}=row;
-      return sb.from(table).update(changes).eq('id',id).eq('revision',revision).select('id,revision').maybeSingle();
+      const result=await sb.from(table).update(changes).eq('id',id).eq('revision',revision).select('id,revision').maybeSingle();
+      if(result.error||result.data) return result;
+      const remote=await sb.from(table).select('*').eq('id',id).maybeSingle();
+      if(remote.error) return remote;
+      if(remote.data&&revisionedContentMatches(table,item,revisionedRecordFromRow(table,remote.data),toRow,remote.data)) return {data:remote.data,error:null};
+      return result;
     }));
     results.forEach((result,index)=>{
       if(result.error||!result.data) return;
@@ -1529,7 +1570,14 @@ async function deleteRevisionedRows(table,deletedIds,previous,onAcknowledged=()=
     if(!revision) return revisionConflictError(table,id);
     const {data,error}=await sb.from(table).delete().eq('id',id).eq('revision',revision).select('id');
     if(error) return error;
-    if(!(data||[]).length) return revisionConflictError(table,id);
+    if(!(data||[]).length){
+      // These master tables are SELECT-visible to authenticated users. A
+      // successful authoritative read can distinguish already deleted from
+      // a changed revision; never retry with the newer revision automatically.
+      const remote=await sb.from(table).select('id,revision').eq('id',id).maybeSingle();
+      if(remote.error) return remote.error;
+      if(remote.data||!['contacts','sales_representatives'].includes(table)) return revisionConflictError(table,id);
+    }
     onAcknowledged(String(id));
   }
   return null;
@@ -1538,9 +1586,17 @@ async function deleteRevisionedRows(table,deletedIds,previous,onAcknowledged=()=
 // are derived from that same baseline, never by comparing against every remote
 // id, so a stale device cannot delete records created by another device.
 async function upsertAndPrune(table,localArray,toRow){
+  return withRevisionedTableLock(table,async()=>{
+  localArray=revisionedLiveRows(table,localArray);
+  // Old caches must be compared, not treated as edits to every contact.
+  if(typeof reconcileLegacyWorkspaceRows==='function'){
+    await reconcileLegacyWorkspaceRows(table,localArray,toRow);
+    localArray=revisionedLiveRows(table,localArray);
+  }
   const previous=syncedTableRows[table]||new Map();
   const current=tableSnapshot(localArray,toRow);
   const changedLive=(localArray||[]).filter(item=>{
+    if(workspaceRecoveryEntries.get(`${table}:${item.id}`)?.legacy) return false;
     const row=toRow(item);
     return previous.get(String(row.id))!==JSON.stringify(row);
   });
@@ -1549,19 +1605,40 @@ async function upsertAndPrune(table,localArray,toRow){
   if(changed.length||[...previous.keys()].some(id=>!current.has(id))) await ensureWorkspaceRecoveryDurable();
   const acknowledge=syncAcknowledgement(table,localArray,toRow);
   const deleted=[...previous.keys()].filter(id=>!current.has(id));
-  if(!changed.length&&!deleted.length) return true;
-  if(changed.length){
-    const inserts=changed.filter(item=>(Number(item._revision)||0)===0);
-    const updates=changed.filter(item=>(Number(item._revision)||0)>0);
-    const error=(inserts.length?await insertRevisionedRows(table,inserts,toRow,acknowledge):null)||(updates.length?await updateRevisionedRows(table,updates,toRow,acknowledge):null);
-    if(error){ console.warn('sync '+table,error); return noteCoreSyncFailure(error,{operation:'upsert_rows',tableName:table,fallbackMessage:`ซิงก์ ${SYNC_TABLE_LABELS[table]||table} ไม่สำเร็จ`}); }
+  const paused=upsertAndPrune.paused||(upsertAndPrune.paused=new Map());
+  const work=[...changed.map(item=>({id:String(item.id),item})),...deleted.map(id=>({id,remove:true}))];
+  // Unknown legacy edits are retained for review, never silently called synced.
+  for(const entry of workspaceRecoveryEntries.values()) if(entry.table===table&&entry.legacy&&!work.some(row=>row.id===entry.id)) work.push({id:entry.id,legacy:entry});
+  let failure=null;
+  const fail=(error,job)=>{
+    error.recordId=job.id;
+    if(!failure||failure.error.syncPaused&&!error.syncPaused) failure={error,operation:job.remove?'delete_rows':'upsert_rows',tableName:table,recordId:job.id};
+  };
+  for(let offset=0;offset<work.length;offset+=12){
+    await Promise.all(work.slice(offset,offset+12).map(async job=>{
+      const key=`${table}:${job.id}`,fingerprint=JSON.stringify(job.remove?{remove:true,baseline:previous.get(job.id)}:job.legacy||toRow(job.item));
+      if(paused.get(key)?.fingerprint===fingerprint){ fail(Object.assign(new Error(paused.get(key).message),{code:paused.get(key).code,syncPaused:true}),job); return; }
+      let error;
+      try{
+        if(job.legacy) error=revisionConflictError(table,job.id);
+        else if(job.remove){
+          const deleted=[job.id];
+          error=await deleteRevisionedRows(table,deleted,previous,id=>{ syncedTableRows[table].delete(id); workspaceRecoveryEntries.delete(`${table}:${id}`); });
+        }else{
+          const inserts=Number(job.item._revision)?[]:[job.item],updates=Number(job.item._revision)?[job.item]:[];
+          error=(inserts.length?await insertRevisionedRows(table,inserts,toRow,acknowledge):null)||(updates.length?await updateRevisionedRows(table,updates,toRow,acknowledge):null);
+        }
+      }catch(cause){ error=cause; }
+      if(error){
+        if(['REVISION_CONFLICT','23505'].includes(String(error.code))) paused.set(key,{fingerprint,code:error.code,message:error.message});
+        fail(error,job);
+      }else paused.delete(key);
+    }));
   }
-  if(deleted.length){
-    const error=await deleteRevisionedRows(table,deleted,previous,id=>{ syncedTableRows[table].delete(id); workspaceRecoveryEntries.delete(`${table}:${id}`); });
-    if(error){ console.warn('sync delete '+table,error); return noteCoreSyncFailure(error,{operation:'delete_rows',tableName:table,fallbackMessage:`ลบข้อมูล ${SYNC_TABLE_LABELS[table]||table} จากเซิร์ฟเวอร์ไม่สำเร็จ`}); }
-    await ensureWorkspaceRecoveryDurable();
-  }
+  if(work.length) await ensureWorkspaceRecoveryDurable();
+  if(failure) return noteCoreSyncFailure(failure.error,failure);
   return true;
+  });
 }
 async function syncWarehousesIncrementally(){
   const table='warehouses';
@@ -1781,27 +1858,39 @@ async function syncCoreDataToSupabase(){
     try{
       coreSyncFailureDetail=null;
       if(currentWorkspacePendingChanges().length) await ensureWorkspaceRecoveryDurable();
-      let pendingProductFailure=null;
+      const failures=[];
+      const run=async(task,tableName,operation='sync_core_data')=>{
+        coreSyncFailureDetail=null;
+        try{
+          if(await task()===false) failures.push(coreSyncFailureDetail||{error:new Error(`ซิงก์ ${SYNC_TABLE_LABELS[tableName]||tableName} ไม่สำเร็จ`),tableName,operation});
+        }catch(error){ failures.push(coreSyncFailureDetail||{error,tableName,operation,recordId:error?.recordId||''}); }
+      };
       if(loggedInUser()?.owner===true){
-        if(!await syncWarehousesIncrementally()) throw new Error('ซิงก์คลังสินค้าไม่สำเร็จ');
-        if(!await syncProductsIncrementally()){
-          if(coreSyncFailureDetail?.error?.code!=='REVISION_CONFLICT') throw new Error('ซิงก์สินค้าไม่สำเร็จ');
-          pendingProductFailure=coreSyncFailureDetail;
-          coreSyncFailureDetail=null;
-        }
-        if(!await upsertAndPrune('contacts',contacts,contactToRow)) throw new Error('ซิงก์สมุดรายชื่อไม่สำเร็จ');
-        if(!await upsertAndPrune('sales_representatives',salesRepresentatives,salesRepToRow)) throw new Error('ซิงก์รายชื่อผู้แทนไม่สำเร็จ');
+        await run(()=>syncWarehousesIncrementally(),'warehouses');
+        await run(()=>syncProductsIncrementally(),'products','update_products');
+        await run(()=>upsertAndPrune('contacts',contacts,contactToRow),'contacts','upsert_rows');
+        await run(()=>upsertAndPrune('sales_representatives',salesRepresentatives,salesRepToRow),'sales_representatives','upsert_rows');
         const pendingDocumentTables=new Set(currentWorkspacePendingChanges().map(entry=>entry.table));
         for(const [table,getArr] of DOC_TABLES){
           // Unopened document tables are intentionally absent from memory.
           // Never compare an empty/unloaded array with the remote table.
-          if(documentLoadStates[table]?.loaded||pendingDocumentTables.has(table)) await syncRevisionedDocuments(table,getArr());
+          if(documentLoadStates[table]?.loaded||pendingDocumentTables.has(table)) await run(()=>syncRevisionedDocuments(table,getArr()),table,'save_revisioned_document');
         }
       }
-      if(!await syncInspectionListsToSupabase()) throw new Error('ซิงก์รายการตรวจสินค้าไม่สำเร็จ');
-      if(pendingProductFailure){ coreSyncFailureDetail=pendingProductFailure; throw pendingProductFailure.error; }
-      await resolveOwnSyncEventsThrough(syncAttemptStartedAt);
-      setSyncUiState('synced',0);
+      await run(()=>syncInspectionListsToSupabase(),'inspection_lists','upsert_rows');
+      if(failures.length){
+        for(const detail of failures){
+          const latest=rememberSyncUiError(detail.error,detail);
+          if(!detail.error?.syncPaused) reportClientEvent({operation:latest.operation,tableName:latest.table_name,recordId:latest.record_id,errorCode:latest.error_code,message:latest.message,context:{tab:currentTab}});
+        }
+      }else if(currentWorkspacePendingChanges().length){
+        const error=Object.assign(new Error('ยังมีงานในเครื่องรอตรวจเทียบ กรุณาเปิดรายละเอียดการซิงก์'),{code:'PENDING_RECOVERY',syncPaused:true});
+        rememberSyncUiError(error,{operation:'local_recovery'});
+      }else{
+        await resolveOwnSyncEventsThrough(syncAttemptStartedAt);
+        syncUiLastError=null;
+        setSyncUiState('synced',0);
+      }
       flushPendingClientEvents();
     }catch(e){
       console.warn('sync core data failed',e);
@@ -2492,15 +2581,23 @@ try{ const savedContacts=JSON.parse(localStorage.getItem(CONTACTS_STORAGE_KEY)||
 function persistContacts(){ persistWorkspaceData(); }
 async function persistContactImmediately(contact){
   if(!currentProfile||!contact) return true;
-  if(!Number(contact._revision)&&!contact._clientCreateToken) contact._clientCreateToken=generateProductCreateToken();
-  const sent=cloneSyncRecords([contact]);
+  return withRevisionedTableLock('contacts',async()=>{
+  // A queued background save may already have acknowledged this exact draft.
+  const live=contacts.find(row=>String(row.id)===String(contact.id));
+  if(!live) throw new Error('รายชื่อนี้ถูกนำออกจากเครื่องระหว่างบันทึก');
+  if(syncedTableRows.contacts?.get(String(live.id))===JSON.stringify(contactToRow(live))&&!workspaceRecoveryEntries.has(`contacts:${live.id}`)) return true;
+  if(!Number(live._revision)&&!live._clientCreateToken) live._clientCreateToken=generateProductCreateToken();
+  const sent=cloneSyncRecords([live]);
   await ensureWorkspaceRecoveryDurable();
   const acknowledge=syncAcknowledgement('contacts',contacts,contactToRow);
   const error=(Number(sent[0]._revision)||0)>0
     ?await updateRevisionedRows('contacts',sent,contactToRow,acknowledge)
     :await insertRevisionedRows('contacts',sent,contactToRow,acknowledge);
   if(error) throw error;
+  upsertAndPrune.paused?.delete(`contacts:${live.id}`);
+  await ensureWorkspaceRecoveryDurable();
   return true;
+  });
 }
 let contactFilter = 'all'; // all | customer | supplier | both
 let contactPage = 1;
@@ -4124,6 +4221,12 @@ function renderWorkspaceRecoveryPanel(panel){
     const url=URL.createObjectURL(blob),link=document.createElement('a');
     link.href=url; link.download=`SAPURI-pending-work-${currentDateStr()}.json`; link.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
   });
+  panel.querySelectorAll('[data-discard-recovery]').forEach(button=>{
+    const compare=document.createElement('button');
+    compare.className='btn ghost'; compare.type='button'; compare.textContent='ตรวจเทียบ';
+    compare.onclick=()=>openWorkspaceRecoveryComparison(entries[Number(button.dataset.discardRecovery)]);
+    button.before(compare);
+  });
   panel.querySelectorAll('[data-discard-recovery]').forEach(button=>button.onclick=async()=>{
     const entry=entries[Number(button.dataset.discardRecovery)];
     if(!confirm('ใช้ข้อมูลเซิร์ฟเวอร์แทนงานที่แก้ค้างในเครื่องรายการนี้หรือไม่? แนะนำให้ดาวน์โหลดสำเนางานก่อน ข้อมูลสต๊อกจะไม่เปลี่ยน')) return;
@@ -4131,6 +4234,30 @@ function renderWorkspaceRecoveryPanel(panel){
     try{ await discardWorkspaceRecovery(entry); renderWorkspaceRecoveryPanel(panel); }
     catch(error){ showToast(error.message,'danger-top'); button.disabled=false; }
   });
+}
+async function openWorkspaceRecoveryComparison(entry){
+  const config=workspaceRecoveryTables().find(([table])=>table===entry.table);
+  if(!config) return;
+  try{
+    const {data,error}=await sb.from(entry.table).select('*').eq('id',entry.id).maybeSingle();
+    if(error) throw error;
+    const remote=data?revisionedRecordFromRow(entry.table,data):null;
+    const local=entry.record?config[3](entry.record):null,server=remote?config[3](remote):null;
+    const flatten=(value,prefix='',out={})=>{
+      if(value&&typeof value==='object'&&!Array.isArray(value)) for(const [key,item] of Object.entries(value)) flatten(item,prefix?`${prefix}.${key}`:key,out);
+      else out[prefix]=value;
+      return out;
+    };
+    const left=flatten(local),right=flatten(server);
+    const keys=[...new Set([...Object.keys(left),...Object.keys(right)])].filter(key=>JSON.stringify(canonicalProductInsertValue(left[key]))!==JSON.stringify(canonicalProductInsertValue(right[key])));
+    const labels={name:'ชื่อ',phone:'เบอร์โทร',type:'ประเภท',revision:'เวอร์ชัน','data.code':'รหัส','data.address':'ที่อยู่','data.note':'หมายเหตุ','data.customerPrices':'ราคาพิเศษ','data.loyaltyJoinedAt':'วันที่เริ่มสมาชิก'};
+    const display=value=>escapeHtml(value===undefined?'ไม่มีข้อมูล':value===null?'ไม่มีรายการ':typeof value==='object'?JSON.stringify(value):String(value));
+    const overlay=document.createElement('div'); overlay.className='modal-overlay';
+    overlay.innerHTML=`<section class="modal" role="dialog" aria-modal="true" aria-label="ตรวจเทียบงานค้าง"><div class="modal-head"><h3>ตรวจเทียบ: ${escapeHtml(entry.record?.name||entry.id)}</h3><button class="modal-close" type="button" aria-label="ปิด">×</button></div><div style="padding:20px;max-height:65vh;overflow:auto"><p>แสดงความต่างเท่านั้น หน้านี้ไม่เปลี่ยนข้อมูลหรือจำนวนสต๊อก</p>${!local?'<p>เครื่องนี้มีคำสั่งรอลบรายการ</p>':''}${!server?'<p>ไม่พบรายการบนเซิร์ฟเวอร์ที่บัญชีนี้อ่านได้</p>':''}${keys.length?`<table class="table"><thead><tr><th>ข้อมูล</th><th>ในเครื่อง</th><th>เซิร์ฟเวอร์</th></tr></thead><tbody>${keys.map(key=>`<tr><td>${escapeHtml(labels[key]||key)}</td><td style="overflow-wrap:anywhere">${display(left[key])}</td><td style="overflow-wrap:anywhere">${display(right[key])}</td></tr>`).join('')}</tbody></table>`:'<p>ข้อมูลตรงกัน ไม่พบความแตกต่าง</p>'}</div></section>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('.modal-close').onclick=()=>overlay.remove();
+    overlay.onclick=event=>{ if(event.target===overlay) overlay.remove(); };
+  }catch(error){ showToast(error.message||'ตรวจเทียบไม่สำเร็จ','danger-top'); }
 }
 async function discardWorkspaceRecovery(entry){
   const requestedFingerprint=JSON.stringify(entry);
@@ -4183,6 +4310,10 @@ function mergeWorkspaceRemoteRows(table,current,incoming,toRow,{replace=false}={
     if(entry.legacy&&remote&&entry.record){
       const stripRevision=row=>{
         const value={...toRow(row)}; delete value.revision;
+        if(table==='contacts'&&Array.isArray(row.types)&&!row.types.includes('customer')){
+          // Older clients synthesized a customer-only loyalty date for suppliers.
+          value.data={...value.data}; delete value.data.loyaltyJoinedAt;
+        }
         if(table==='inspection_lists'){
           value.data={...value.data};
           // Older cache normalization dropped these two server fields.
@@ -4198,6 +4329,21 @@ function mergeWorkspaceRemoteRows(table,current,incoming,toRow,{replace=false}={
   });
   syncedTableRows[table]=baseline;
   return [...next.values()];
+}
+async function reconcileLegacyWorkspaceRows(table,current,toRow){
+  const entries=[...workspaceRecoveryEntries.values()].filter(entry=>entry.table===table&&entry.legacy&&entry.record&&upsertAndPrune.paused?.get(`${table}:${entry.id}`)?.fingerprint!==JSON.stringify(entry));
+  if(!entries.length) return;
+  // Reading master rows is safe. Only exact content matches are acknowledged;
+  // unknown edits and pending deletions keep their original revision baseline.
+  for(let offset=0;offset<entries.length;offset+=100){
+    const {data,error}=await sb.from(table).select('*').in('id',entries.slice(offset,offset+100).map(entry=>entry.id));
+    if(error) throw error;
+    const config=workspaceRecoveryTables().find(([name])=>name===table);
+    if(!config) continue;
+    const next=mergeWorkspaceRemoteRows(table,config[1](),(data||[]).map(row=>revisionedRecordFromRow(table,row)),toRow);
+    config[2](next);
+  }
+  await ensureWorkspaceRecoveryDurable();
 }
 async function ensureWorkspaceRecoveryDurable(){
   workspaceCachePendingSnapshot=localWorkspaceSnapshot();
@@ -8551,7 +8697,6 @@ function renderTransfer(){
     return `<tr><td class="mono">${escapeHtml(t.id)}</td><td>${escapeHtml(fmtDate(t.date))}</td><td>${escapeHtml(t.from)}</td><td>${escapeHtml(t.to)}</td><td>${expandableDocumentItemsPreview('transfer',t.id,t.items)}</td><td><span class="badge ${cancelled?'danger':'ok'}">${cancelled?'ยกเลิก':'บันทึกแล้ว'}</span></td><td class="num"><div class="transfer-list-actions"><button class="history-icon-btn" data-edit-transfer="${escapeHtml(t.id)}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(t.id)}" ${cancelled?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn" data-print-transfer="${escapeHtml(t.id)}" title="พิมพ์เอกสาร" aria-label="พิมพ์ใบโอน ${escapeHtml(t.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg></button>${stockAction}</div></td></tr>${expandableDocumentItemsDetailRow('transfer',t.id,t.items,7)}`;
   }).join('')||'<tr><td colspan="7" style="padding:30px;text-align:center;color:var(--text-muted);">ยังไม่มีรายการโอนสินค้า</td></tr>'}</tbody></table></div></div>`;
 }
-
 function stockControlAnomalyRows(productList=products,lotRows=inventoryLotRows,warehouseId=activeWarehouseId){
   const targetWarehouse=Number(warehouseId);
   const lotTotals=new Map();
@@ -17389,23 +17534,38 @@ function saveContactEditorData(contactId=editingContactId){
   return savedContact;
 }
 async function saveContactFromEditor(contactId=editingContactId,saveButton=null){
-  const previousContacts=cloneSyncRecords(contacts);
+  const previousContact=contacts.find(row=>String(row.id)===String(contactId));
+  const before=previousContact?cloneSyncRecords([previousContact])[0]:null;
+  const previousRecovery=workspaceRecoveryEntries.get(`contacts:${contactId}`);
+  const beforeRecovery=previousRecovery?structuredClone(previousRecovery):null;
   const originalButtonText=saveButton?.textContent||'';
   const savedContact=saveContactEditorData(contactId);
   if(!savedContact) return null;
+  const fingerprint=record=>{ const copy={...record}; delete copy._revision; delete copy._clientCreateToken; return JSON.stringify(canonicalProductInsertValue(copy)); };
+  const savedFingerprint=fingerprint(savedContact);
   if(saveButton){ saveButton.disabled=true; saveButton.textContent='กำลังบันทึก...'; }
   try{
     await persistContactImmediately(savedContact);
     showToast(`บันทึก “${savedContact.name}” แล้ว`);
     return savedContact;
   }catch(error){
-    contacts=previousContacts;
-    persistContacts();
     console.warn('save contact',error);
-    if(isDuplicateCustomerPhoneError(error)) showToast(`เบอร์โทร ${savedContact.phone||''} มีลูกค้ารายอื่นใช้งานแล้ว`,'danger-top');
+    if(isDuplicateCustomerPhoneError(error)){
+      // A definitive phone rejection can roll back this draft only. Network
+      // failures keep their durable copy; never restore a stale entire array.
+      if(contacts.find(row=>row.id===savedContact.id)===savedContact&&fingerprint(savedContact)===savedFingerprint){
+        contacts=contacts.filter(row=>row!==savedContact);
+        if(before) contacts.push(before);
+        workspaceRecoveryEntries.delete(`contacts:${savedContact.id}`);
+        if(beforeRecovery) workspaceRecoveryEntries.set(`contacts:${savedContact.id}`,beforeRecovery);
+        upsertAndPrune.paused?.delete(`contacts:${savedContact.id}`);
+        persistContacts();
+      }
+      showToast(`เบอร์โทร ${savedContact.phone||''} มีลูกค้ารายอื่นใช้งานแล้ว`,'danger-top');
+    }
     else{
       rememberSyncUiError(error,{operation:'save_contact',tableName:'contacts',recordId:savedContact.id,fallbackMessage:'บันทึกลูกค้าไม่สำเร็จ'});
-      showToast('บันทึกลูกค้าขึ้นระบบไม่สำเร็จ กรุณาตรวจการเชื่อมต่อแล้วลองอีกครั้ง','danger-top');
+      showToast('ยังซิงก์รายชื่อไม่สำเร็จ เก็บงานไว้ในเครื่องแล้ว กรุณาเปิดรายละเอียดการซิงก์','danger-top');
     }
     if(saveButton){ saveButton.disabled=false; saveButton.textContent=originalButtonText; }
     return null;

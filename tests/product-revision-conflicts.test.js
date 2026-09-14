@@ -92,7 +92,7 @@ test('product conflict does not block other tables or emit duplicate events on p
     upsertAndPrune:async table=>{calls.push(table);return true;},syncRevisionedDocuments:async table=>{calls.push(table);},
     syncInspectionListsToSupabase:async()=>{calls.push('inspection_lists');return true;},
     resolveOwnSyncEventsThrough:async()=>{throw new Error('must not close unresolved conflict');},
-    rememberSyncUiError:()=>({}),reportClientEvent:x=>reports.push(x),showToast:()=>{}});
+    rememberSyncUiError:()=>({}),reportClientEvent:x=>reports.push(x),flushPendingClientEvents:()=>{},showToast:()=>{}});
   const start=source.indexOf('async function syncCoreDataToSupabase(');
   vm.runInContext(source.slice(start,source.indexOf('// Stock never travels',start)),ctx);
   await ctx.syncCoreDataToSupabase();await ctx.syncCoreDataToSupabase();

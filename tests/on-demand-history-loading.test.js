@@ -36,7 +36,7 @@ assert.match(documentLoader, /mergeWorkspaceRemoteRows\(table/,
   'partial document hydration must preserve the observed-id sync snapshot');
 
 const syncLoader = section('async function syncCoreDataToSupabase(){', '// Stock never travels through product metadata sync.');
-assert.match(syncLoader, /if\(documentLoadStates\[table\]\?\.loaded\|\|pendingDocumentTables\.has\(table\)\) await syncRevisionedDocuments/,
+assert.match(syncLoader, /if\(documentLoadStates\[table\]\?\.loaded\|\|pendingDocumentTables\.has\(table\)\) await run\(\(\)=>syncRevisionedDocuments/,
   'unopened document tables must never be compared with empty local arrays');
 
 const backup = section('async function storeBackupDataSnapshot(){', 'function storeBackupFileName(){');
