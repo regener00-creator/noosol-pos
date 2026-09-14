@@ -16,6 +16,7 @@ let browser;
   browser=await chromium.launch({headless:true,executablePath});
   const page=await browser.newPage({viewport:{width:1440,height:1000},serviceWorkers:'block'}),errors=[];
   page.setDefaultTimeout(15000);page.on('pageerror',e=>errors.push(e.message));
+  await page.addInitScript({content:`(()=>{const query=new Proxy({}, {get(_target,key){return key==='then'?(resolve=>resolve({data:[],error:null})):(()=>query);}});window.supabase={createClient:()=>new Proxy({auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})}},{get:(target,key)=>key in target?target[key]:(()=>query)})};})();`});
   await page.route('https://**',route=>route.fulfill({body:'',contentType:'text/javascript'}));
   await page.goto('http://127.0.0.1:'+server.address().port,{waitUntil:'domcontentloaded'});
   await page.evaluate(()=>{
@@ -61,14 +62,12 @@ let browser;
   assert.equal(await page.locator('[data-edit-transfer="T1"]').getAttribute('title'),'แก้ไข');
   assert.equal(await page.locator('[data-edit-transfer="T1"] + [data-print-transfer="T1"]').count(),1);
   await page.locator('[data-print-transfer="T1"]').click();assert.deepEqual(await page.evaluate(()=>window.printed),['T1']);
-  assert.equal(await page.locator('[data-select-transfer="POSTED"]').isDisabled(),true);
-  await page.locator('#selectAllTransfers').check();
-  assert.equal(await page.locator('[data-select-transfer]:checked').count(),2);
+  assert.equal(await page.locator('#selectAllTransfers,[data-select-transfer],#deleteSelectedTransfersBtn').count(),0);
+  assert.deepEqual(await page.locator('.transfer-summary-table thead th').allTextContents(),['เลขที่','วันที่','จากคลัง','ไปคลัง','รายการ','สถานะ','']);
+  assert.equal(await page.locator('[data-cancel-transfer]').count(),2,'unposted transfers retain individual cancel actions');
+  assert.equal(await page.locator('[data-cancel-transfer="POSTED"],[data-delete-transfer="POSTED"]').count(),0,'posted transfer cannot be cancelled or deleted');
   await page.screenshot({path:path.join(root,'outputs/transfer-list.png')});
-  page.once('dialog',d=>d.dismiss());await page.locator('#deleteSelectedTransfersBtn').click();
-  assert.equal(await page.evaluate(()=>transfers.length),3);
-  page.once('dialog',d=>d.accept());await page.locator('#deleteSelectedTransfersBtn').click();
-  assert.deepEqual(await page.evaluate(()=>transfers.map(t=>t.id)),['POSTED']);
+  assert.equal(await page.locator('[data-delete-transfer]').count(),0,'only a cancelled unposted transfer may expose its individual delete button');
   for(const tab of ['purchaseorder','goodsreceipt','productreturn']){
     const count=await page.evaluate(tab=>{
       currentTab=tab;editingPOId=editingGRId=editingReturnId='new';poDraft=grDraft=returnDraft=null;render();return activePurchaseDraft().items.length;
@@ -87,5 +86,5 @@ let browser;
   assert.equal(await page.evaluate(()=>productExchangeSectionHtml('outgoing','ส่ง','',[{pid:3,qty:1,unit:'กล่อง'}],false).includes('aria-label="ลบรายการสินค้า"><svg')),true);
   await page.screenshot({path:path.join(root,'outputs/exchange-controls.png')});
   assert.deepEqual(errors,[]);
-  console.log('Transfer UI passed: empty-barcode regression, one initial row, layout, print without posting, protected bulk delete, exchange controls');
+  console.log('Transfer UI passed: form, printing, no bulk selection, posted deletion protection, exchange controls');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});

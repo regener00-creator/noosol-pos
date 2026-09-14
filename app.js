@@ -8525,31 +8525,15 @@ function transferItemRowHtml(item,index){
   </tr>`;
 }
 
-const selectedTransferIds=new Set();
 function renderTransfer(){
   if(editingTransferId!==null) return renderTransferForm();
-  const eligible=new Set(transfers.filter(t=>!documentHasPostedStock('transfer',t)).map(t=>String(t.id)));
-  for(const id of selectedTransferIds) if(!eligible.has(id)) selectedTransferIds.delete(id);
-  return `<div class="rpt"><div class="pagehead"><div><h1>โอนสินค้าระหว่างคลัง</h1></div><div class="transfer-list-actions"><button class="btn ghost danger" id="deleteSelectedTransfersBtn" ${selectedTransferIds.size?'':'disabled'}>ลบที่เลือก (${selectedTransferIds.size})</button><button class="btn primary" id="newTransferBtn">+ สร้างรายการโอน</button></div></div>
-  <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue transfer-summary-table"><thead><tr><th><input type="checkbox" id="selectAllTransfers" aria-label="เลือกใบโอนที่ยังไม่ลงสต๊อกทั้งหมด" ${eligible.size?'':'disabled'} ${eligible.size&&selectedTransferIds.size===eligible.size?'checked':''}></th><th>เลขที่</th><th>วันที่</th><th>จากคลัง</th><th>ไปคลัง</th><th>รายการ</th><th>สถานะ</th><th></th></tr></thead>
+  return `<div class="rpt"><div class="pagehead"><div><h1>โอนสินค้าระหว่างคลัง</h1></div><div class="transfer-list-actions"><button class="btn primary" id="newTransferBtn">+ สร้างรายการโอน</button></div></div>
+  <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue transfer-summary-table"><thead><tr><th>เลขที่</th><th>วันที่</th><th>จากคลัง</th><th>ไปคลัง</th><th>รายการ</th><th>สถานะ</th><th></th></tr></thead>
   <tbody>${transfers.map(t=>{
     const cancelled=t.status==='ยกเลิก';
     const stockAction=documentHasPostedStock('transfer',t)?'':(cancelled?`<button class="history-icon-btn danger" data-delete-transfer="${escapeHtml(t.id)}" title="ลบออกจากระบบถาวร" aria-label="ลบรายการโอน ${escapeHtml(t.id)} ออกจากระบบถาวร"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`:`<button class="history-icon-btn danger" data-cancel-transfer="${escapeHtml(t.id)}" title="ยกเลิกรายการ" aria-label="ยกเลิกรายการ ${escapeHtml(t.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`);
-    return `<tr><td><input type="checkbox" data-select-transfer="${escapeHtml(t.id)}" aria-label="เลือก ${escapeHtml(t.id)}" ${documentHasPostedStock('transfer',t)?'disabled title="ลงสต๊อกแล้ว ไม่สามารถลบได้"':''} ${selectedTransferIds.has(String(t.id))?'checked':''}></td><td class="mono">${escapeHtml(t.id)}</td><td>${escapeHtml(fmtDate(t.date))}</td><td>${escapeHtml(t.from)}</td><td>${escapeHtml(t.to)}</td><td>${expandableDocumentItemsPreview('transfer',t.id,t.items)}</td><td><span class="badge ${cancelled?'danger':'ok'}">${cancelled?'ยกเลิก':'บันทึกแล้ว'}</span></td><td class="num"><div class="transfer-list-actions"><button class="history-icon-btn" data-edit-transfer="${escapeHtml(t.id)}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(t.id)}" ${cancelled?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn" data-print-transfer="${escapeHtml(t.id)}" title="พิมพ์เอกสาร" aria-label="พิมพ์ใบโอน ${escapeHtml(t.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg></button>${stockAction}</div></td></tr>${expandableDocumentItemsDetailRow('transfer',t.id,t.items,8)}`;
-  }).join('')||'<tr><td colspan="8" style="padding:30px;text-align:center;color:var(--text-muted);">ยังไม่มีรายการโอนสินค้า</td></tr>'}</tbody></table></div></div>`;
-}
-async function deleteSelectedTransfers(){
-  const selected=transfers.filter(t=>selectedTransferIds.has(String(t.id)));
-  if(!selected.length) return false;
-  if(selected.some(t=>documentHasPostedStock('transfer',t))){ showToast('ใบโอนที่ลงสต๊อกแล้วไม่สามารถลบได้','danger'); return false; }
-  if(!confirm(`ต้องการลบใบโอนที่เลือก ${selected.length} รายการหรือไม่? เฉพาะเอกสารที่ยังไม่ลงสต๊อกเท่านั้น`)) return false;
-  const previous=transfers;
-  transfers=transfers.filter(t=>!selectedTransferIds.has(String(t.id)));
-  try{ await ensureWorkspaceRecoveryDurable(); }
-  catch(error){ transfers=previous; showToast(error.message,'danger'); return false; }
-  selectedTransferIds.clear(); persistTransfers(); render();
-  showToast(`ลบใบโอน ${selected.length} รายการแล้ว กำลังรอซิงก์`);
-  return true;
+    return `<tr><td class="mono">${escapeHtml(t.id)}</td><td>${escapeHtml(fmtDate(t.date))}</td><td>${escapeHtml(t.from)}</td><td>${escapeHtml(t.to)}</td><td>${expandableDocumentItemsPreview('transfer',t.id,t.items)}</td><td><span class="badge ${cancelled?'danger':'ok'}">${cancelled?'ยกเลิก':'บันทึกแล้ว'}</span></td><td class="num"><div class="transfer-list-actions"><button class="history-icon-btn" data-edit-transfer="${escapeHtml(t.id)}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(t.id)}" ${cancelled?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn" data-print-transfer="${escapeHtml(t.id)}" title="พิมพ์เอกสาร" aria-label="พิมพ์ใบโอน ${escapeHtml(t.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/></svg></button>${stockAction}</div></td></tr>${expandableDocumentItemsDetailRow('transfer',t.id,t.items,7)}`;
+  }).join('')||'<tr><td colspan="7" style="padding:30px;text-align:center;color:var(--text-muted);">ยังไม่มีรายการโอนสินค้า</td></tr>'}</tbody></table></div></div>`;
 }
 
 function stockControlAnomalyRows(productList=products,lotRows=inventoryLotRows,warehouseId=activeWarehouseId){
@@ -15705,18 +15689,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const newTransferBtn = document.getElementById('newTransferBtn');
   if(newTransferBtn) newTransferBtn.addEventListener('click', ()=>{ editingTransferId='new'; transferDraft=null; render(); });
   document.querySelectorAll('[data-print-transfer]').forEach(btn=>btn.addEventListener('click',()=>printTransfer(btn.dataset.printTransfer)));
-  document.querySelectorAll('[data-select-transfer]').forEach(box=>box.addEventListener('change',()=>{
-    const id=box.dataset.selectTransfer,doc=transfers.find(t=>String(t.id)===id);
-    if(doc&&!documentHasPostedStock('transfer',doc)&&box.checked) selectedTransferIds.add(id); else selectedTransferIds.delete(id);
-    render();
-  }));
-  const selectAllTransfers=document.getElementById('selectAllTransfers');
-  if(selectAllTransfers){
-    const eligible=transfers.filter(t=>!documentHasPostedStock('transfer',t));
-    selectAllTransfers.indeterminate=selectedTransferIds.size>0&&selectedTransferIds.size<eligible.length;
-    selectAllTransfers.addEventListener('change',()=>{ selectedTransferIds.clear(); if(selectAllTransfers.checked) eligible.forEach(t=>selectedTransferIds.add(String(t.id))); render(); });
-  }
-  document.getElementById('deleteSelectedTransfersBtn')?.addEventListener('click',deleteSelectedTransfers);
   document.querySelectorAll('[data-edit-transfer]').forEach(btn=>{ btn.addEventListener('click',()=>{ editingTransferId=btn.dataset.editTransfer; transferDraft=null; render(); }); });
   document.querySelectorAll('[data-cancel-transfer]').forEach(btn=>{ btn.addEventListener('click',()=>cancelTransfer(btn.dataset.cancelTransfer)); });
   document.querySelectorAll('[data-delete-transfer]').forEach(btn=>{ btn.addEventListener('click',()=>deleteCancelledTransfer(btn.dataset.deleteTransfer)); });
