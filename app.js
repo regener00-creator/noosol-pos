@@ -13,7 +13,7 @@ const APP_ASSET_VERSION=new URL(document.currentScript?.src||location.href).sear
 const PAGE_CODE_GROUPS={
   "reports":{"tabs":["rproduct","rbill","rprofit","rtax","rinventory","inventorymovement","lowstock","expiry"],"functions":["renderRProduct","renderRBill","renderRProfit","renderRTax","renderRInventory","renderInventoryMovement","renderLowStock","renderExpiry"]},
   "documents":{"tabs":["cashbill","taxinvoice","quotation","purchaseorder","productreturn","goodsreceipt","productexchange"],"functions":["renderCashBills","renderCashBillLookup","renderTaxInvoices","renderTaxInvoiceOrderLookup","renderStandaloneTaxInvoiceForm","renderTaxInvoiceForm","renderQuotation","renderQuotationForm","renderPurchaseOrder","renderPOForm","renderShortageOrderForm","renderProductReturnForm","renderProductReturn","renderGoodsReceipt","renderProductExchange","renderProductExchangeForm"]},
-  "settings":{"tabs":["settingsbusiness","settingssystem","settingsuser","settingsusers","auditlog","warehouse"],"functions":["renderBusinessSettings","renderSystemSettings","renderUserSettings","renderSystemUsers","renderAddSystemUser","renderAuditLog","renderWarehouse","renderWarehouseForm"]},
+  "settings":{"tabs":["settingsbusiness","settingssystem","settingsuser","settingsusers","settingsprinter","auditlog","warehouse"],"functions":["renderBusinessSettings","renderSystemSettings","renderReceiptPrinterSettings","renderUserSettings","renderSystemUsers","renderAddSystemUser","renderAuditLog","renderWarehouse","renderWarehouseForm"]},
   "catalog":{"tabs":["products","contacts","customers","promotions"],"functions":["renderProducts","renderProductForm","renderContacts","renderContactForm","renderCustomerPurchaseHistory","renderCustomerPricingForm","renderPromotions","renderPromotionForm"]}
 };
 const pageCodeLoads=new Map();
@@ -2423,9 +2423,9 @@ function allocateReadableProductSku(reservedSkus=[],startAt=1){
   do{ sku='P'+String(sequence++).padStart(4,'0'); }while(used.has(sku.toLowerCase()));
   return {sku,nextSequence:sequence};
 }
-function standardizePrintPreview(win){
+function standardizePrintPreview(win,{trackPrint=true}={}){
   const doc=win?.document; if(!doc) return;
-  if(!win.__peposPrintTracked){
+  if(trackPrint&&!win.__peposPrintTracked){
     const nativePrint=win.print.bind(win);
     win.print=()=>{ void recordPrintEvent(currentTab,doc.title||'',{title:doc.title||'',source:'print-preview'}); return nativePrint(); };
     win.__peposPrintTracked=true;
@@ -4556,11 +4556,13 @@ loadWorkspaceData();
 function loggedInUser(){ return currentProfile; }
 function isLevel2User(user=loggedInUser()){ return Number(user?.level)===2; }
 const LEVEL2_HIDDEN_TABS=new Set(['settingssystem','settingsbusiness','rprofit','rtax','warehouse','transfer','stockcontrol','barcodeprint','promotions','purchaseorder','productexchange','contacts','salesreps','representativehistory','taxinvoice','quotation','productreturn']);
-const ALL_WAREHOUSES_TABS=new Set(['dashboard','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','rprofit','rtax','auditlog','representativehistory']);
+const ALL_WAREHOUSES_TABS=new Set(['dashboard','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','rprofit','rtax','auditlog','representativehistory','settingsprinter']);
 function canAccessTab(tab,user=loggedInUser()){
   if(!user) return false;
   if(isAllWarehousesMode()&&!ALL_WAREHOUSES_TABS.has(tab)) return false;
   if((tab==='settingsusers'||tab==='auditlog')&&user.owner!==true) return false;
+  // Device-only receipt layout: staff who can open POS may configure their own printer.
+  if(tab==='settingsprinter') return canPerformPageAction('view','checkout',user);
   if(tab==='stockcontrol') return canPerformPageAction('view','inspectionlists',user);
   if(tab==='representativehistory'&&Number(user.level)===2){
     return canPerformPageAction('view','salesreps',user)&&canPerformPageAction('view','notes',user);
@@ -5056,6 +5058,7 @@ const NAV = [
     ['settingsbusiness','ตั้งค่าธุรกิจ','<path d="M4 21v-9l8-5 8 5v9"/><path d="M9 21v-6h6v6"/>'],
     ['warehouse','ตั้งค่าคลังสินค้า','<path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/>'],
     ['settingsusers','ตั้งค่าผู้ใช้งาน','<path d="M15 19a6 6 0 0 0-12 0"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M16 11h6"/>'],
+    ['settingsprinter','ตั้งค่าเครื่องพิมพ์ใบเสร็จ','<path d="M7 8V3h10v5M7 17H5a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v7H7z"/>'],
     ['settingssystem','ตั้งค่าระบบ','<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>'],
     ['auditlog','AUDIT LOG','<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/><path d="M8 4V2M16 4V2"/>'],
   ]},
@@ -13096,6 +13099,103 @@ function printPosSmallestUnitCommandBarcode(){
   standardizePrintPreview(win);
 }
 
+// Kept outside workspace snapshots/sync: each browser profile owns its printer layout.
+const RECEIPT_PRINTER_STORAGE_KEY='pepos_receipt_printer_v1';
+const RECEIPT_PRINTER_DEFAULTS=Object.freeze({paperWidth:80,marginTop:24,marginBottom:15,marginLeft:8,marginRight:8});
+function normalizeReceiptPrinterSettings(value){
+  const source=value&&typeof value==='object'?value:{};
+  const result={paperWidth:Number(source.paperWidth)===58?58:80};
+  for(const key of ['marginTop','marginBottom','marginLeft','marginRight']){
+    const raw=source[key],number=Number(raw),max=key==='marginLeft'||key==='marginRight'?10:30;
+    result[key]=raw!==null&&raw!==undefined&&raw!==''&&Number.isFinite(number)?Math.round(Math.max(0,Math.min(max,number))*10)/10:RECEIPT_PRINTER_DEFAULTS[key];
+  }
+  return result;
+}
+function readReceiptPrinterSettings(){
+  try{ return normalizeReceiptPrinterSettings(JSON.parse(localStorage.getItem(RECEIPT_PRINTER_STORAGE_KEY)||'null')); }
+  catch{ return {...RECEIPT_PRINTER_DEFAULTS}; }
+}
+function receiptPrinterLayoutCss(settings=readReceiptPrinterSettings()){
+  const s=normalizeReceiptPrinterSettings(settings),narrow=s.paperWidth===58;
+  return `@page{size:auto;margin:0}
+    .receipt{box-sizing:border-box;width:${s.paperWidth}mm;padding:${s.marginTop}mm ${s.marginRight}mm ${s.marginBottom}mm ${s.marginLeft}mm;overflow-wrap:anywhere}
+    .receipt .meta{grid-template-columns:${narrow?18:25}mm minmax(0,1fr)}
+    .receipt .item{grid-template-columns:minmax(0,1fr) ${narrow?16:19}mm}
+    .receipt .summary>div{gap:2mm}.receipt .summary>div>b{flex-shrink:0}
+    ${narrow?'.receipt .store{font-size:9pt}.receipt .store h2{font-size:12pt}.receipt .title,.receipt .summary .total{font-size:10pt}.receipt .meta,.receipt .item,.receipt .summary,.receipt .footer{font-size:8pt}':''}
+    @media print{html,body{margin:0;padding:0;background:#fff}.receipt{width:${s.paperWidth}mm;margin:0;min-height:0;box-shadow:none}.bar{display:none!important}}`;
+}
+function applyReceiptPrinterLayout(win,settings=readReceiptPrinterSettings()){
+  const style=win.document.createElement('style');
+  style.id='receiptPrinterLayout';
+  style.textContent=receiptPrinterLayoutCss(settings);
+  win.document.getElementById(style.id)?.remove();
+  win.document.head.appendChild(style);
+}
+function receiptPrinterTestHtml(settings,{toolbar=false}={}){
+  const s=normalizeReceiptPrinterSettings(settings);
+  return `<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>ทดลองพิมพ์ใบเสร็จ — ไม่ใช่รายการขาย</title><style>
+    *{box-sizing:border-box}body{margin:0;background:#eee9e6;color:#111;font-family:Sarabun,Tahoma,sans-serif}
+    .receipt{margin:12px auto;background:#fff;box-shadow:0 2px 8px #0002}.center{text-align:center}.store{font-size:11pt;line-height:1.35}.store h2{font-size:14pt;margin:0 0 2px}.title{font-size:12pt;font-weight:700}.meta{display:grid;gap:1mm;font-size:10pt;margin-top:4mm}.dash{border-top:1px dashed #111;margin:4mm 0}.item{display:grid;gap:2mm;padding:2mm 0;font-size:9.5pt;align-items:start}.item b{font-weight:500}.item small{display:block}.item strong{text-align:right;font-weight:500}.summary{font-size:10pt}.summary>div{display:flex;justify-content:space-between;padding:1mm 0}.summary .total{font-size:12pt;font-weight:700;border-top:1px solid #111;border-bottom:3px double #111;padding:2mm 0}.footer{font-size:9pt;line-height:1.6}.bar{background:#fff;padding:10px}
+    ${receiptPrinterLayoutCss(s)}</style></head><body>${toolbar?'<div class="bar"><button onclick="window.print()">พิมพ์</button></div>':''}
+    <div class="receipt"><div class="center store"><h2>ทดสอบเครื่องพิมพ์</h2><div>ภาษาไทย / English / 0123456789</div></div><div class="dash"></div>
+    <div class="center title">ใบเสร็จตัวอย่าง ${s.paperWidth} มม.</div><div class="center footer">ไม่ใช่หลักฐานการซื้อขาย</div>
+    <div class="meta"><b>เลขที่</b><span>TEST-0001</span><b>ชำระโดย</b><span>เงินสด (ตัวอย่าง)</span></div><div class="dash"></div>
+    <div class="item"><div><b>สินค้าตัวอย่างชื่อยาว สำหรับตรวจสอบการตัดบรรทัด</b><small>2 กล่อง × 125.00</small></div><strong>250.00</strong></div>
+    <div class="item"><div><b>สินค้าตัวอย่างรายการที่สอง</b><small>1 ชิ้น × 50.00</small></div><strong>50.00</strong></div>
+    <div class="dash"></div><div class="summary"><div><span>จำนวนเงินหลังหักส่วนลด</span><b>300.00</b></div><div class="total"><span>รวมทั้งสิ้น</span><b>300.00</b></div></div>
+    <div class="dash"></div><div class="center footer">ทดลองพิมพ์เท่านั้น<br>ไม่บันทึกยอดขายและไม่ตัดสต๊อก<br>โทร 02-000-0000<br>LINE @example</div></div></body></html>`;
+}
+function printReceiptPrinterTest(settings){
+  const win=window.open('','_blank');
+  if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างทดลองพิมพ์ กรุณาอนุญาตป๊อปอัป','warning-top'); return false; }
+  win.document.write(receiptPrinterTestHtml(settings,{toolbar:true}));
+  win.document.close();
+  // A sample is not a bill and must not create a sale or a print-event record.
+  standardizePrintPreview(win,{trackPrint:false});
+  setTimeout(()=>{ if(!win.closed) win.print(); },350);
+  return true;
+}
+function renderReceiptPrinterSettings(){
+  const settings=readReceiptPrinterSettings();
+  const field=(key,label,max)=>`<label class="receipt-printer-field" for="printer_${key}"><span>${label} (มม.)</span><input id="printer_${key}" name="${key}" type="number" min="0" max="${max}" step="0.1" required value="${settings[key]}"></label>`;
+  return `<div class="settings-page receipt-printer-page"><div class="receipt-printer-heading"><h2>ตั้งค่าเครื่องพิมพ์ใบเสร็จ</h2><span class="receipt-printer-badge">เฉพาะเครื่องนี้</span></div>
+    <p class="hint">ใช้กับใบเสร็จอย่างย่อเท่านั้น จำค่าในเบราว์เซอร์นี้ ไม่เปลี่ยนเครื่องอื่น บิล A4 หรือฉลากยา</p>
+    <div class="receipt-printer-grid"><form class="settings-section" id="receiptPrinterForm">
+      <h2>กระดาษและระยะขอบ</h2><label class="receipt-printer-field" for="printer_paperWidth"><span>ความกว้างกระดาษ</span><select id="printer_paperWidth" name="paperWidth"><option value="80" ${settings.paperWidth===80?'selected':''}>80 มม.</option><option value="58" ${settings.paperWidth===58?'selected':''}>58 มม.</option></select></label>
+      <div class="receipt-printer-margins">${field('marginTop','ขอบบน',30)}${field('marginBottom','ขอบล่าง',30)}${field('marginLeft','ขอบซ้าย',10)}${field('marginRight','ขอบขวา',10)}</div>
+      <div class="receipt-printer-actions"><button type="submit" class="btn primary">บันทึก</button><button type="button" class="btn" id="testReceiptPrinterBtn">ทดลองพิมพ์</button><button type="button" class="btn" id="resetReceiptPrinterBtn">คืนค่าเริ่มต้น</button></div>
+      <p id="receiptPrinterStatus" class="receipt-printer-status" role="status">ค่าที่ใช้กับใบเสร็จบนเครื่องนี้</p>
+      <div class="receipt-printer-help"><strong>พิมพ์ผ่านเบราว์เซอร์</strong><p>เลือกเครื่องพิมพ์และขนาดกระดาษให้ตรงกันในหน้าต่างพิมพ์ ตั้งมาตราส่วน 100% ปิดหัวกระดาษ/ท้ายกระดาษ และเลือกไม่มีระยะขอบ</p><p>ตอนนี้ยังมีหน้าต่างยืนยันการพิมพ์ การพิมพ์ทันทีโดยไม่ถามต้องตั้งค่าร่วมกับเครื่องพิมพ์จริงเพิ่มเติม</p><p>ทดลองพิมพ์ใช้ค่าที่กรอกอยู่ กดบันทึกเพื่อนำไปใช้กับใบเสร็จจริง หากล้างข้อมูลเบราว์เซอร์หรือเปลี่ยนเบราว์เซอร์ ต้องตั้งค่าใหม่</p></div>
+    </form><section class="settings-section receipt-printer-preview"><h2>ตัวอย่างใบเสร็จ</h2><iframe id="receiptPrinterPreview" title="ตัวอย่างขนาดใบเสร็จ ไม่ใช่รายการขาย" sandbox=""></iframe></section></div></div>`;
+}
+function attachReceiptPrinterEvents(){
+  const form=document.getElementById('receiptPrinterForm'); if(!form) return;
+  const status=document.getElementById('receiptPrinterStatus');
+  const values=()=>Object.fromEntries(new FormData(form).entries());
+  const preview=()=>{ document.getElementById('receiptPrinterPreview').srcdoc=receiptPrinterTestHtml(values()); };
+  const announce=(text,error=false)=>{ status.textContent=text; status.classList.toggle('is-error',error); };
+  form.addEventListener('input',()=>{ preview(); announce('มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก'); });
+  form.addEventListener('change',()=>{ preview(); announce('มีการเปลี่ยนแปลงที่ยังไม่ได้บันทึก'); });
+  form.addEventListener('submit',event=>{
+    event.preventDefault(); if(!form.reportValidity()) return;
+    try{
+      localStorage.setItem(RECEIPT_PRINTER_STORAGE_KEY,JSON.stringify(normalizeReceiptPrinterSettings(values())));
+      announce('บันทึกแล้ว ใช้กับใบเสร็จอย่างย่อบนเครื่องนี้');
+      showToast('บันทึกการตั้งค่าเครื่องพิมพ์แล้ว');
+    }catch{ announce('บันทึกไม่สำเร็จ เบราว์เซอร์ไม่อนุญาตให้เก็บข้อมูลหรือพื้นที่เต็ม',true); }
+  });
+  document.getElementById('testReceiptPrinterBtn').onclick=()=>{
+    if(!form.reportValidity()) return;
+    if(printReceiptPrinterTest(values())) announce('เปิดทดลองพิมพ์แล้ว กรุณาตรวจผลจากเครื่องพิมพ์จริง');
+  };
+  document.getElementById('resetReceiptPrinterBtn').onclick=()=>{
+    for(const [key,value] of Object.entries(RECEIPT_PRINTER_DEFAULTS)) form.elements.namedItem(key).value=value;
+    preview(); announce('คืนค่าเริ่มต้นแล้ว กดบันทึกเพื่อยืนยัน');
+  };
+  preview();
+}
+
 function renderSystemSettings(){
   return `<div class="settings-page">
     <div class="settings-section"><h2>รหัสนำหน้าเอกสาร</h2><div class="hint">กำหนดตัวอักษรนำหน้าหมายเลขเอกสาร ใช้ตัวอักษรอังกฤษหรือตัวเลขได้สูงสุด 8 ตัว และมีผลกับเอกสารที่สร้างใหม่เท่านั้น</div>
@@ -13499,7 +13599,7 @@ const RENDERERS = {
   creditnote: renderCreditNote, history: renderHistory, purchaseorder: ()=>renderPurchaseOrder(), productreturn: ()=>renderProductReturn(), goodsreceipt: ()=>renderGoodsReceipt(), productexchange: ()=>renderProductExchange(),
   products: ()=>renderProducts(), stockcontrol: renderStockControl, barcodeprint: renderBarcodePrint, warehouse: ()=>renderWarehouse(), transfer: renderTransfer, lowstock: ()=>renderLowStock(), expiry: ()=>renderExpiry(), promotions: ()=>renderPromotions(),
   contacts: ()=>renderContacts(), customers: ()=>renderContacts(), salesreps: renderSalesRepresentatives, representativehistory: renderRepresentativeHistoryOverview, rproduct: ()=>renderRProduct(), rbill: ()=>renderRBill(), rprofit: ()=>renderRProfit(), rtax: ()=>renderRTax(),
-  inventorymovement: ()=>renderInventoryMovement(), rinventory: ()=>renderRInventory(), settingsbusiness: ()=>renderBusinessSettings(), settingsuser: ()=>renderUserSettings(), settingsusers: ()=>renderSystemUsers(), auditlog: ()=>renderAuditLog(), settingssystem: ()=>renderSystemSettings(),
+  inventorymovement: ()=>renderInventoryMovement(), rinventory: ()=>renderRInventory(), settingsbusiness: ()=>renderBusinessSettings(), settingsuser: ()=>renderUserSettings(), settingsusers: ()=>renderSystemUsers(), settingsprinter: ()=>renderReceiptPrinterSettings(), auditlog: ()=>renderAuditLog(), settingssystem: ()=>renderSystemSettings(),
 };
 
 function render(){
@@ -13876,6 +13976,7 @@ function bindPasswordVisibilityToggles(root=document){
 }
 
 function attachEvents(){
+  attachReceiptPrinterEvents();
   if(currentTab==='mobiletools'){
     prepareMobileScanSound();
     prepareMobileScanErrorSound();
@@ -19187,6 +19288,7 @@ function printShortReceipt(saleId,historical=false){
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>พิมพ์ - ${escapeHtml(receiptNo)}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>@page{size:80mm auto;margin:0}*{box-sizing:border-box}body{margin:0;background:#F0F0F0;color:#111;font-family:'Sarabun',sans-serif}.bar{position:sticky;top:0;z-index:5;background:#fff;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;box-shadow:0 2px 8px #0002}.bar button{border:0;border-radius:7px;background:#4F4038;color:#fff;padding:8px 15px;font-family:inherit;font-weight:600}.receipt{position:relative;width:80mm;min-height:250mm;margin:12px auto;background:#fff;padding:24mm 8mm 15mm;box-shadow:0 4px 20px #0002}.copy-label{text-align:center;color:#4F4038;font-weight:700;font-size:10pt;margin-bottom:2mm}.center{text-align:center}.store{font-size:11pt;line-height:1.35}.store h2{font-size:14pt;margin:0 0 2px}.rule{border-top:1px solid #111;margin:7mm 0 4mm}.dash{border-top:1px dashed #111;margin:4mm 0}.title{font-weight:700;font-size:12pt}.meta{display:grid;grid-template-columns:25mm 1fr;gap:1mm;font-size:10pt;margin-top:4mm}.meta b{font-weight:600}.item{display:grid;grid-template-columns:minmax(0,1fr) 19mm;gap:2mm;align-items:start;padding:2mm 0;font-size:9.5pt}.item b{display:block;font-weight:500}.item small{display:block}.receipt-promo-tag{color:#4F4038;font-weight:600;}.item strong{text-align:right;font-weight:500}.summary{font-size:10pt}.summary>div{display:flex;justify-content:space-between;padding:1mm 0}.summary .total{font-size:12pt;font-weight:700;border-top:1px solid #111;border-bottom:3px double #111;padding:2mm 0}.vat{font-size:14pt;font-weight:700;margin:5mm 0}.footer{font-size:9pt}@media print{body{background:#fff}.bar{display:none}.receipt{margin:0;box-shadow:none;width:80mm;min-height:0}}</style></head><body><div class="bar"><span>ตัวอย่างใบเสร็จ 80 มม.</span><button onclick="window.print()">พิมพ์</button></div><div class="receipt"><div class="center store"><h2>${escapeHtml(businessDocumentName(receiptBusiness,STORE_INFO.name,{registered}))}</h2><div>${escapeHtml(receiptBusiness.address||STORE_INFO.address)}</div>${(receiptBusiness.taxId||STORE_INFO.taxId)?`<br><div><b>เลขผู้เสียภาษี</b> ${escapeHtml(receiptBusiness.taxId||STORE_INFO.taxId)}</div>`:''}${(receiptBusiness.website||STORE_INFO.website)?`<div><b>เว็บไซต์</b> ${escapeHtml(receiptBusiness.website||STORE_INFO.website)}</div>`:''}</div><div class="rule"></div><div class="title">${registered?'ใบกำกับภาษีอย่างย่อ/ใบเสร็จรับเงิน':'ใบเสร็จรับเงิน'}</div><div>${escapeHtml(receiptNo)}</div><div class="dash"></div><div class="meta"><b>พนักงานขาย</b><span>${escapeHtml(sale.cashier||loggedInUser()?.firstName||'')}</span><b>วันที่</b><span>${fmtDateShort(sale.date)} ${escapeHtml((sale.time||'').slice(11))}</span><b>ชำระโดย</b><span>${escapeHtml(sale.payMethod||'-')}</span></div><div class="rule"></div>${rows}<div class="dash"></div><div class="summary"><div><b>จำนวนรวม</b><b>${itemCount}</b></div><div><span>จำนวนเงินหลังหักส่วนลด</span><b>${fmtMoney(afterDiscount)}</b></div>${registered?`<div><span>ราคาไม่รวมภาษีมูลค่าเพิ่ม</span><b>${fmtMoney(beforeVat)}</b></div><div><span>ภาษีมูลค่าเพิ่ม 7%</span><b>${fmtMoney(vat)}</b></div>`:''}${sale.fee?`<div><span>ค่าธรรมเนียมบัตร</span><b>${fmtMoney(sale.fee)}</b></div>`:''}<div class="total"><span>รวมทั้งสิ้น</span><b>${fmtMoney(sale.total)}</b></div></div>${registered?'<div class="center vat">VAT INCLUDED</div>':''}<div class="dash"></div><div class="center footer">ขอบคุณที่ใช้บริการ${businessPrimaryPhone(receiptBusiness)?`<br>${escapeHtml(businessPrimaryPhone(receiptBusiness))}`:''}</div></div></body></html>`);
   win.document.close();
   const receiptFooter=win.document.querySelector('.footer');
+  applyReceiptPrinterLayout(win);
   if(receiptFooter&&sale.loyalty){
     const loyalty=win.document.createElement('div');
     loyalty.style.cssText='font-size:9pt;text-align:center;margin:3mm 0';

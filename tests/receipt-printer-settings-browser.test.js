@@ -1,0 +1,124 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const http=require('node:http');
+const path=require('node:path');
+const {chromium}=require('playwright');
+const root=path.resolve(__dirname,process.env.PEPOS_TEST_BUILT?'../public':'..');
+const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8'};
+const server=http.createServer((req,res)=>{
+  const file=path.resolve(root,new URL(req.url,'http://localhost').pathname.replace(/^\//,'')||'index.html');
+  if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile()) return res.writeHead(404).end();
+  res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream'});fs.createReadStream(file).pipe(res);
+});
+let browser;
+(async()=>{
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const executablePath=[process.env.PEPOS_BROWSER_EXECUTABLE,'C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(file=>file&&fs.existsSync(file))||chromium.executablePath();
+  browser=await chromium.launch({headless:true,executablePath});
+  const context=await browser.newContext({viewport:{width:1440,height:1050}});
+  await context.addInitScript(()=>{window.__printCalls=0;window.print=()=>{window.__printCalls++;};});
+  await context.route('https://**/*',route=>{
+    if(route.request().url().includes('/npm/@supabase/')) return route.fulfill({contentType:'text/javascript',body:`(()=>{const query=new Proxy({}, {get(t,p){if(p==='then')return resolve=>resolve({data:null,error:null});return ()=>query;}});window.supabase={createClient:()=>new Proxy({auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})}},{get(t,p){return p in t?t[p]:()=>query;}})};})();`});
+    return route.fulfill({contentType:'text/css',body:''});
+  });
+  const page=await context.newPage(),errors=[];
+  page.on('pageerror',error=>errors.push(error.message));
+  const openSettings=async()=>{
+    await page.waitForFunction(()=>typeof render==='function');
+    await page.waitForFunction(()=>systemHasOwner!==null);
+    await page.evaluate(()=>{
+      systemHasOwner=true;
+      currentProfile={id:'printer-test-owner',owner:true,level:1,firstName:'ทดสอบ'};
+      warehouses=[{id:1,name:'คลังทดสอบ',active:true}];activeWarehouseId=1;allWarehousesMode=false;
+      currentTab='settingsprinter';
+      recordPrintEvent=async()=>{window.__printEvents=(window.__printEvents||0)+1;};
+      updateSaleDocumentMetadata=async()=>{window.__saleWrites=(window.__saleWrites||0)+1;};
+      render();
+    });
+    await page.locator('#receiptPrinterForm').waitFor();
+  };
+  const url=`http://127.0.0.1:${server.address().port}/`;
+  await page.goto(url,{waitUntil:'domcontentloaded'});await openSettings();
+  assert.equal(await page.locator('[data-tab="settingsusers"] + [data-tab="settingsprinter"]').count(),1);
+  assert.equal(await page.locator('#printer_paperWidth').inputValue(),'80');
+  await page.locator('#printer_paperWidth').selectOption('58');
+  for(const [key,value] of Object.entries({marginTop:'3',marginBottom:'4',marginLeft:'2',marginRight:'2'})) await page.locator('#printer_'+key).fill(value);
+  const preview=page.frameLocator('#receiptPrinterPreview').locator('.receipt');
+  await preview.waitFor();
+  const width=await preview.evaluate(el=>el.getBoundingClientRect().width);
+  assert.ok(Math.abs(width-58*96/25.4)<1,'inline preview uses 58 mm');
+  await page.locator('#receiptPrinterForm button[type="submit"]').click();
+  assert.match(await page.locator('#receiptPrinterStatus').textContent(),/บันทึกแล้ว/);
+  const saved=await page.evaluate(()=>localStorage.getItem('pepos_receipt_printer_v1'));
+  await page.reload({waitUntil:'domcontentloaded'});await openSettings();
+  assert.equal(await page.locator('#printer_paperWidth').inputValue(),'58');
+  assert.equal(await page.locator('#printer_marginTop').inputValue(),'3','survives browser reload');
+  await page.locator('#printer_marginLeft').fill('99');
+  await page.locator('#receiptPrinterForm button[type="submit"]').click();
+  assert.equal(await page.evaluate(()=>localStorage.getItem('pepos_receipt_printer_v1')),saved,'invalid margins cannot save');
+  await page.locator('#printer_marginLeft').fill('2');
+  const snapshot=await page.evaluate(()=>JSON.stringify({salesHistory,cart,products,inventoryLotRows,pagePermissionRows}));
+  const popupPromise=context.waitForEvent('page');
+  await page.locator('#testReceiptPrinterBtn').click();
+  const popup=await popupPromise;
+  await popup.waitForFunction(()=>window.__printCalls===1);
+  assert.match(await popup.locator('.receipt').innerText(),/ไม่ใช่หลักฐานการซื้อขาย/);
+  assert.equal(await popup.getByRole('button',{name:'ย้อนกลับ',exact:true}).count(),1);
+  await popup.getByRole('button',{name:'พิมพ์',exact:true}).click();
+  assert.equal(await popup.evaluate(()=>window.__printCalls),2);
+  await popup.emulateMedia({media:'print'});
+  const printed=await popup.locator('.receipt').evaluate(el=>({width:el.getBoundingClientRect().width,padding:getComputedStyle(el).paddingLeft,overflow:el.scrollWidth>el.clientWidth}));
+  assert.ok(Math.abs(printed.width-58*96/25.4)<1&&!printed.overflow);
+  assert.equal(await popup.locator('.print-preview-topbar').isVisible(),false);
+  assert.equal(await page.evaluate(()=>window.__printEvents||0),0,'test printing never writes print events');
+  assert.equal(await page.evaluate(()=>window.__saleWrites||0),0,'test printing never writes sale metadata');
+  assert.equal(await page.evaluate(()=>JSON.stringify({salesHistory,cart,products,inventoryLotRows,pagePermissionRows})),snapshot,'test printing leaves business data intact');
+  await popup.close();
+  await page.evaluate(()=>{window.__nativeOpen=window.open;window.open=()=>null;});
+  await page.locator('#testReceiptPrinterBtn').click();
+  await page.evaluate(()=>{window.open=window.__nativeOpen;});
+  await page.locator('#resetReceiptPrinterBtn').click();
+  assert.equal(await page.locator('#printer_paperWidth').inputValue(),'80');
+  assert.equal(await page.evaluate(()=>localStorage.getItem('pepos_receipt_printer_v1')),saved,'reset is not saved until confirmed');
+  // Printer settings follow POS access, not the owner-only user-administration permission.
+  assert.deepEqual(await page.evaluate(()=>{
+    const staff={owner:false,level:2};
+    pagePermissionRows=[{page_key:'checkout',can_view:true}];
+    const allowed=canAccessTab('settingsprinter',staff);
+    pagePermissionRows=[{page_key:'checkout',can_view:false}];
+    const denied=canAccessTab('settingsprinter',staff);
+    pagePermissionRows=[];allWarehousesMode=true;
+    const all=canAccessTab('settingsprinter');allWarehousesMode=false;
+    return [allowed,denied,all];
+  }),[true,false,true]);
+  await page.evaluate(()=>{window.__setItem=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='pepos_receipt_printer_v1') throw new Error('storage full');return window.__setItem.call(this,key,value);};});
+  await page.locator('#receiptPrinterForm button[type="submit"]').click();
+  assert.match(await page.locator('#receiptPrinterStatus').textContent(),/บันทึกไม่สำเร็จ/);
+  await page.evaluate(()=>{Storage.prototype.setItem=window.__setItem;});
+  // A real historical receipt still records its print, but uses the saved device paper size.
+  const receiptPromise=context.waitForEvent('page');
+  await page.evaluate(()=>{
+    salesHistory=[{id:'printer-sale',date:'2026-09-15',time:'2026-09-15T10:00:00',total:300,vatRegistered:false,payMethod:'เงินสด',cashier:'ทดสอบ',items:[{name:'สินค้าทดสอบชื่อยาว',unit:'กล่อง',qty:2,price:150,lineTotal:300,vatMode:'none'}]}];
+    printShortReceipt('printer-sale',true);
+  });
+  const receipt=await receiptPromise;
+  await receipt.waitForFunction(()=>window.__printCalls===1);
+  await receipt.emulateMedia({media:'print'});
+  assert.ok(Math.abs((await receipt.locator('.receipt').boundingBox()).width-58*96/25.4)<1);
+  assert.equal(await page.evaluate(()=>window.__saleWrites),1);
+  assert.equal(await page.evaluate(()=>window.__printEvents),1);
+  await receipt.close();
+  for(const width of [1440,1024,700]){
+    await page.setViewportSize({width,height:1050});
+    assert.equal(await page.locator('.receipt-printer-page').evaluate(el=>el.scrollWidth>el.clientWidth),false,`settings fit at ${width}px`);
+  }
+  await page.setViewportSize({width:1440,height:1050});
+  if(process.env.PEPOS_TEST_SCREENSHOT) await page.screenshot({path:process.env.PEPOS_TEST_SCREENSHOT,fullPage:true});
+  const isolated=await browser.newContext();
+  await isolated.route('https://**/*',route=>route.abort());
+  const other=await isolated.newPage();await other.goto(url,{waitUntil:'domcontentloaded'});
+  assert.equal(await other.evaluate(()=>localStorage.getItem('pepos_receipt_printer_v1')),null,'separate browser profiles do not inherit settings');
+  await isolated.close();
+  assert.deepEqual(errors,[]);
+  console.log('receipt printer settings browser tests passed');
+})().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();await new Promise(resolve=>server.close(resolve));});

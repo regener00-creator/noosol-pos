@@ -78,6 +78,6 @@ assert.doesNotMatch(html,/sb\.rpc\('(adjust_inventory_stock|set_inventory_stock|
 assert.match(html,/runStockOperation\('post_inventory_count_adjustment_with_shortages'/);
 assert.match(html,/warehouseId:Number\(activeWarehouseId\)\|\|null/,'บิลขายต้องบันทึกคลังที่ใช้งาน');
 assert.match(html,/คลัง: \$\{isAllWarehousesMode\(\)\?'ทุกคลัง'/);
-assert.match(html,/const ALL_WAREHOUSES_TABS=new Set\(\['dashboard','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','rprofit','rtax','auditlog','representativehistory'\]\)/);
+assert.match(html,/const ALL_WAREHOUSES_TABS=new Set\(\['dashboard','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','rprofit','rtax','auditlog','representativehistory','settingsprinter'\]\)/);
 
 console.log('warehouse inventory tests passed');

@@ -2462,3 +2462,22 @@
 .loyalty-modal-body{padding:20px;display:grid;gap:14px}
 .loyalty-modal-body input{width:100%;font-size:22px;min-height:48px}
 .sale-loyalty-summary{font-size:13px;line-height:1.6}
+.receipt-printer-page{max-width:1180px}
+.receipt-printer-heading{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px}
+.receipt-printer-heading h2{margin:0;font-size:22px}
+.receipt-printer-badge{padding:5px 12px;background:var(--primary-soft);color:var(--primary);border-radius:20px;font-size:12px;font-weight:600}
+.receipt-printer-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(330px,.8fr);gap:20px;margin-top:20px;align-items:start}
+.receipt-printer-grid .settings-section{margin:0;min-width:0;padding:22px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius)}
+.receipt-printer-grid .settings-section h2{margin-bottom:18px}
+.receipt-printer-field{display:flex;flex-direction:column;gap:8px;font-size:14px;font-weight:600;margin-bottom:16px}
+.receipt-printer-field input,.receipt-printer-field select{width:100%;min-width:0;height:44px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--text);font:inherit}
+.receipt-printer-field input:focus,.receipt-printer-field select:focus{outline:2px solid var(--accent);outline-offset:2px}
+.receipt-printer-margins{display:grid;grid-template-columns:1fr 1fr;gap:0 16px}
+.receipt-printer-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+.receipt-printer-actions .btn{min-height:42px}
+.receipt-printer-status{font-size:13px;line-height:1.5;color:var(--text-muted);min-height:20px}
+.receipt-printer-status.is-error{color:var(--danger)}
+.receipt-printer-help{padding:16px;background:var(--primary-soft);border-radius:10px;font-size:13px;line-height:1.7}
+.receipt-printer-help p{margin:8px 0 0;color:var(--text-muted)}
+.receipt-printer-preview iframe{display:block;width:100%;height:650px;border:1px solid var(--border);border-radius:10px;background:var(--primary-soft)}
+@media(max-width:900px){.receipt-printer-grid{grid-template-columns:1fr}.receipt-printer-preview iframe{height:580px}}

@@ -2,7 +2,7 @@ const fs=require('fs');
 const path=require('path');
 const source = require("./load-app-source")();
 
-if(!source.includes('function standardizePrintPreview(win)')) throw new Error('missing shared print preview topbar');
+if(!source.includes('function standardizePrintPreview(win,{trackPrint=true}={})')) throw new Error('missing shared print preview topbar');
 if(!source.includes("backButton.textContent='ย้อนกลับ'")) throw new Error('missing back button');
 if(!source.includes("newPrintButton.textContent='พิมพ์'")) throw new Error('missing print button');
 if(source.includes('class="preview-doc-number"')) throw new Error('document number still appears on the print topbar');
