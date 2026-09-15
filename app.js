@@ -6570,9 +6570,9 @@ function renderCheckout(){
           <div class="sumrow grand"><span>ยอดชำระ</span><span class="mono" id="posGrandValue">${fmtMoney(grand)}</span></div>
         </div>
         <div class="pos-footer">
+          <button class="pos-fbtn pay" id="checkoutBtn" ${cart.length===0||!currentCashShift||checkoutInFlight?'disabled':''}>[F2] เก็บเงิน</button>
           <button class="pos-fbtn hold" id="holdBtn">พักออเดอร์</button>
           <button class="pos-fbtn danger" id="clearBillBtn" title="ยกเลิกออเดอร์นี้" aria-label="ยกเลิกออเดอร์"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></button>
-          <button class="pos-fbtn pay" id="checkoutBtn" ${cart.length===0||!currentCashShift||checkoutInFlight?'disabled':''}>[F2] เก็บเงิน</button>
         </div>
         ${promoHints.length?`<div class="pos-promo-hints">${promoHints.map(h=>`<div class="pos-promo-hint"><div class="pos-promo-hint-head">💡 ${escapeHtml(h.name)} - ${escapeHtml(h.unit)}</div><div class="pos-promo-hint-body"><div><span>ชื่อโปร:</span> ${escapeHtml(h.promoName)}</div><div><span>ผลลัพธ์:</span> ${escapeHtml(h.note)}</div><div class="pos-promo-hint-nudge">ซื้อเพิ่มอีก ${h.needMore} ${escapeHtml(h.unit)} เพื่อรับสิทธิ์โปรโมชั่นนี้</div></div></div>`).join('')}</div>`:''}
       </div>
@@ -18674,15 +18674,14 @@ function openStockEditCategoryPicker(filter){
 function openManageFavModal(){
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
-  overlay.innerHTML=`<div class="modal" style="width:560px;max-height:82vh;display:flex;flex-direction:column;">
+  overlay.innerHTML=`<div class="modal fav-manage-modal">
     <div class="modal-head"><h3>จัดการสินค้าโปรด</h3><button class="modal-close">×</button></div>
-    <div class="modal-sub">ค้นหาสินค้า เลือกหน่วย หรือลากก้อนสินค้าเพื่อจัดลำดับ</div>
     <div class="fav-add-box">
       <input type="text" id="favAddSearch" placeholder="ค้นหาชื่อ / รหัส / บาร์โค้ด เพื่อเพิ่ม" autocomplete="off">
       <div id="favAddResults" class="fav-add-results" hidden></div>
     </div>
-    <div class="manage-list" id="favManageList" style="flex:1;">${favManageListHtml()}</div>
-    <div style="padding:12px 16px;border-top:1px solid var(--border);text-align:left;"><button class="btn primary" id="favSaveBtn">เสร็จสิ้น</button></div>
+    <div class="manage-list" id="favManageList">${favManageListHtml()}</div>
+    <div class="fav-manage-footer"><button class="btn primary" id="favSaveBtn">เสร็จสิ้น</button></div>
   </div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();

@@ -1447,7 +1447,7 @@
   .fav-card .fav-price{font-size:13.5px;color:var(--primary);font-weight:600;}
   .fav-empty{color:var(--text-muted);font-size:13px;padding:8px 0;}
   .sumdiscount{display:flex;align-items:center;gap:10px;}
-  .pos-footer{display:grid;grid-template-columns:minmax(0,1fr) 44px minmax(0,1.6fr);gap:8px;}
+  .pos-footer{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr) 44px;gap:8px;}
   .pos-footer .pos-fbtn.pay{font-size:16px;}
   .pos-fbtn{min-width:0;min-height:50px;padding:12px 6px;border-radius:10px;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--surface);white-space:nowrap;}
   .pos-fbtn.danger{color:var(--danger);border-color:var(--danger-soft);background:var(--danger-soft);display:flex;align-items:center;justify-content:center;}
@@ -1632,6 +1632,10 @@
   .sale-medicine-label-summary{display:block;margin-top:4px;color:var(--primary);font-size:11px;font-weight:600;}
   @media (max-width:720px){.medicine-label-grid{grid-template-columns:1fr;}.medicine-label-field.wide{grid-column:auto;}.medicine-label-dose-fields{grid-column:auto;grid-template-columns:1fr;}.medicine-label-option-group{grid-column:auto;}.medicine-label-unit-add{grid-template-columns:1fr;}.medicine-label-unit-row{grid-template-columns:1fr;}.medicine-label-unit-row-actions{justify-content:flex-end;}.medicine-label-warning-preset-add{grid-template-columns:1fr;}.medicine-label-warning-preset-row{grid-template-columns:1fr;}.medicine-label-warning-preset-row-actions{justify-content:flex-end;}}
   .fav-check{display:flex;align-items:center;gap:9px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px;font-size:13.5px;cursor:pointer;}
+  .fav-manage-modal{width:min(1100px,94vw);max-width:94vw;height:min(780px,88vh);max-height:88vh;}
+  .fav-manage-modal>.modal-head,.fav-manage-modal>.fav-add-box,.fav-manage-footer{flex:0 0 auto;}
+  .fav-manage-modal>.manage-list{flex:1;min-height:0;padding:0 20px 18px;}
+  .fav-manage-footer{padding:14px 20px;border-top:1px solid var(--border);text-align:left;}
   .fav-add-box{position:relative;padding:0 16px 12px;}
   .fav-add-box input{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13.5px;background:var(--surface);}
   .fav-add-results{position:absolute;left:16px;right:16px;top:calc(100% - 6px);background:var(--surface);border:1px solid var(--primary);border-radius:8px;box-shadow:0 8px 22px rgba(0,0,0,.14);max-height:240px;overflow-y:auto;z-index:20;}

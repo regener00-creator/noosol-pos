@@ -53,6 +53,15 @@ let browser;
   });
 
   const rows = page.locator('.fav-manage-row');
+  const modal=page.locator('.fav-manage-modal');
+  const desktopBox=await modal.boundingBox();
+  assert.ok(desktopBox.width>=1000&&desktopBox.height>=650,'favorite manager must be wider and taller on desktop');
+  assert.equal(await modal.locator('.modal-sub').count(),0,'old instructions must be removed');
+  await page.setViewportSize({width:390,height:844});
+  const mobileBox=await modal.boundingBox();
+  assert.ok(mobileBox.x>=0&&mobileBox.x+mobileBox.width<=390&&mobileBox.y>=0&&mobileBox.y+mobileBox.height<=844,'large modal still fits a small screen');
+  await page.setViewportSize({width:1200,height:800});
+  if(process.env.PEPOS_TEST_SCREENSHOT) await page.screenshot({path:process.env.PEPOS_TEST_SCREENSHOT});
   assert.equal(await rows.count(), 3);
   assert.equal(await page.locator('[data-fav-move]').count(), 0, 'arrow position controls must be removed');
   assert.equal(await rows.first().getAttribute('draggable'), 'true');

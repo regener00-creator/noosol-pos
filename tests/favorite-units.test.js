@@ -63,7 +63,8 @@ assert.match(html,/addToCart\(pid, consumePosSaleUnit\(product,el\.dataset\.unit
 assert.match(html,/\$\{escapeHtml\(item\.unit\)\} - \$\{fmtFavoritePrice\(item\.price\)\}/);
 assert.match(html,/data-fav-result-unit/);
 assert.match(html,/draggable="true"[^>]*data-fav-drag-index/);
-assert.match(html,/ลากก้อนสินค้าเพื่อจัดลำดับ/);
+assert.doesNotMatch(html,/ค้นหาสินค้า เลือกหน่วย หรือลากก้อนสินค้าเพื่อจัดลำดับ/);
+assert.match(html,/class="modal fav-manage-modal"/);
 assert.match(html,/addEventListener\('dragstart'/);
 assert.match(html,/addEventListener\('dragover'/);
 assert.match(html,/addEventListener\('dragend'/);

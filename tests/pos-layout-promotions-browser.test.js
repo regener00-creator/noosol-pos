@@ -53,6 +53,7 @@ let browser;
     });
     assert.ok(Math.abs(layout.hold.top-layout.pay.top)<1&&Math.abs(layout.clear.top-layout.pay.top)<1,`three footer actions share one row at ${width}px`);
     assert.ok(layout.pay.width>layout.hold.width&&layout.pay.width>layout.clear.width,'checkout is the largest button');
+    assert.ok(layout.pay.right<layout.hold.right&&layout.hold.right<layout.clear.right,'checkout, hold and delete are ordered from left to right');
     assert.deepEqual(layout.columns,[['center','center'],['center','center'],['center','center']]);
     assert.ok(layout.nameWidth>150,`name must have usable space at ${width}px: ${layout.nameWidth}`);
   }
