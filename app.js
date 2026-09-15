@@ -6449,6 +6449,7 @@ function renderCheckout(){
   const promoResult=applyPromotions(cart);
   const taxSummary=cartTaxSummary(promoResult);
   const promoHints=getPromotionUpsellHints(cart);
+  const pendingPromoLineIds=new Set(promoHints.filter(hint=>hint.qualifiedSets===0).map(hint=>hint.lineId));
   if(cart.length===0){
     rowsHtml = `<tr><td colspan="8" class="pos-empty">ไม่พบรายการสินค้า — ค้นหาหรือสแกนบาร์โค้ดเพื่อเพิ่ม</td></tr>`;
   } else {
@@ -6493,7 +6494,7 @@ function renderCheckout(){
         : linkedPromo
         ? `<span title="${escapeHtml(promotionValueLabel(linkedPromo))}">${fmtMoney(displayUnitPrice)}<br><small class="pos-promo-tag promo-pending">🏷 ${escapeHtml(linkedPromo.name)}</small></span>`
         : fmtMoney(displayUnitPrice);
-      rowsHtml += `<tr>
+      rowsHtml += `<tr${pendingPromoLineIds.has(line.lineId)?' class="pos-promo-pending-row"':''}>
         <td class="mono">${String(idx+1).padStart(3,'0')}</td>
         <td class="mono">${escapeHtml(productBarcodeForUnit(p,line.unit)||'-')}</td>
         <td><div class="pos-item-name-line"><div class="pos-item-name-content">${itemNameHtml}</div><button class="pos-med-label-btn ${dispensingLabel?'active':''}" type="button" data-medicine-label-line="${line.lineId}" title="${dispensingLabel?'แก้ไขฉลากยา':'จัดทำฉลากยา'}">ฉลากยา</button></div>${dispensingLabel?`<small class="pos-med-label-summary">${escapeHtml(medicineLabelSummary(dispensingLabel))}</small>`:''}</td>
@@ -12108,7 +12109,7 @@ function getPromotionUpsellHints(lines){
       if(bundleQty>0){
         const remainder=qty%bundleQty;
         if(remainder>0){
-          hints.push({lineId:line.lineId,name:line.name,unit:line.unit,promoName:promo.name,needMore:bundleQty-remainder,note:promotionValueLabel(promo)});
+          hints.push({lineId:line.lineId,name:line.name,unit:line.unit,promoName:promo.name,needMore:bundleQty-remainder,qualifiedSets:Math.floor(qty/bundleQty),note:promotionValueLabel(promo)});
         }
       }
       return;
@@ -12120,7 +12121,7 @@ function getPromotionUpsellHints(lines){
       if(buyQty>0){
         const remainder=qty%buyQty;
         if(remainder>0){
-          hints.push({lineId:line.lineId,name:line.name,unit:line.unit,promoName:bgdPromo.name,needMore:buyQty-remainder,note:promotionValueLabel(bgdPromo)});
+          hints.push({lineId:line.lineId,name:line.name,unit:line.unit,promoName:bgdPromo.name,needMore:buyQty-remainder,qualifiedSets:Math.floor(qty/buyQty),note:promotionValueLabel(bgdPromo)});
         }
       }
     }
