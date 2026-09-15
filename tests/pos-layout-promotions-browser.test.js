@@ -39,11 +39,11 @@ let browser;
     render();
   });
   const pending=()=>page.locator('.pos-promo-pending-row');
-  assert.equal(await pending().count(),1,'quantity below first bundle must be red');
-  const colors=await pending().evaluate(row=>[row.cells[0],row.cells[1],row.querySelector('.pos-item-name-content'),row.cells[3],row.querySelector('.line-unit'),row.querySelector('.line-qty'),row.cells[6]].map(el=>getComputedStyle(el).color));
+  assert.equal(await pending().count(),1,'quantity below first bundle must be blue');
+  const colors=await pending().evaluate(row=>[row.cells[0],row.cells[1],row.querySelector('.pos-item-name-content'),row.cells[3],row.querySelector('.pos-promo-tag'),row.querySelector('.line-unit'),row.querySelector('.line-qty'),row.cells[6]].map(el=>getComputedStyle(el).color));
   assert.equal(new Set(colors).size,1,'all product data including quantity and unit must share the warning color');
-  const [red,green,blue]=colors[0].match(/\d+/g).map(Number);
-  assert.ok(red>green*2&&red>blue*2,'pending color must be red in the active theme');
+  assert.equal(colors[0],'rgb(22, 133, 192)','pending color must be blue in the active theme');
+  assert.equal(await page.locator('#holdBtn').textContent(),'พัก');
   for(const width of [1920,1440,1280]){
     await page.setViewportSize({width,height:1000});
     const layout=await page.evaluate(()=>{
@@ -53,6 +53,7 @@ let browser;
     });
     assert.ok(Math.abs(layout.hold.top-layout.pay.top)<1&&Math.abs(layout.clear.top-layout.pay.top)<1,`three footer actions share one row at ${width}px`);
     assert.ok(layout.pay.width>layout.hold.width&&layout.pay.width>layout.clear.width,'checkout is the largest button');
+    assert.ok(Math.abs(layout.hold.width-layout.clear.width)<1&&Math.abs(layout.hold.height-layout.clear.height)<1,'hold and trash buttons have equal dimensions');
     assert.ok(layout.pay.right<layout.hold.right&&layout.hold.right<layout.clear.right,'checkout, hold and delete are ordered from left to right');
     assert.deepEqual(layout.columns,[['center','center'],['center','center'],['center','center']]);
     assert.ok(layout.nameWidth>150,`name must have usable space at ${width}px: ${layout.nameWidth}`);
@@ -86,6 +87,33 @@ let browser;
   }
   await page.evaluate(()=>{cart[0].priceSource='standard';promotions[0].active=false;render();});
   assert.equal(await pending().count(),0,'inactive promotions do not warn');
+  await page.evaluate(()=>{
+    window.__holdCalls=[];
+    window.__holdSnapshot=()=>JSON.stringify({cart,saleRef,saleDiscount,saleMember,saleSourceQuotationId,pendingQty,salesHistory,holdOrderInFlight});
+    salesHistory=[];saleDiscount=3;pendingQty=2;saleSourceQuotationId='QT-TEST';
+    sb.rpc=async(name,args)=>{
+      if(name!=='save_held_sale') throw new Error('Unexpected RPC: '+name);
+      window.__holdCalls.push(args.p_sale);
+      return {data:{sale:{...args.p_sale,id:'HELD-'+window.__holdCalls.length}},error:null};
+    };
+  });
+  const beforeCancel=await page.evaluate(()=>window.__holdSnapshot());
+  page.once('dialog',dialog=>dialog.dismiss());
+  await page.locator('#holdBtn').click();
+  assert.equal(await page.evaluate(()=>window.__holdSnapshot()),beforeCancel,'Cancel must preserve cart, reference, discounts, history and other sale state');
+  assert.equal(await page.evaluate(()=>window.__holdCalls.length),0,'Cancel must not send a save request');
+  page.once('dialog',dialog=>dialog.accept('  ลูกค้าเสื้อแดง  '));
+  await page.locator('#holdBtn').click();
+  await page.waitForFunction(()=>salesHistory.length===1&&!holdOrderInFlight);
+  assert.equal(await page.evaluate(()=>window.__holdCalls.length),1,'OK saves exactly once');
+  assert.equal(await page.evaluate(()=>salesHistory[0].name),'ลูกค้าเสื้อแดง');
+  assert.equal(await page.evaluate(()=>cart.length),0);
+  await page.evaluate(()=>{cart=JSON.parse(JSON.stringify(salesHistory[0].cartSnapshot));render();});
+  page.once('dialog',dialog=>dialog.accept(''));
+  await page.locator('#holdBtn').click();
+  await page.waitForFunction(()=>salesHistory.length===2&&!holdOrderInFlight);
+  assert.equal(await page.evaluate(()=>salesHistory[0].name),'(ไม่มีชื่อ)','explicit OK with an empty name remains allowed');
+  assert.equal(await page.evaluate(()=>window.__holdCalls.length),2);
   assert.deepEqual(errors,[]);
-  console.log('POS footer, centered columns and promotion warnings browser tests passed');
+  console.log('POS footer, blue promotion warnings and hold cancellation browser tests passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});

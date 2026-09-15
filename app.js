@@ -6571,7 +6571,7 @@ function renderCheckout(){
         </div>
         <div class="pos-footer">
           <button class="pos-fbtn pay" id="checkoutBtn" ${cart.length===0||!currentCashShift||checkoutInFlight?'disabled':''}>[F2] เก็บเงิน</button>
-          <button class="pos-fbtn hold" id="holdBtn">พักออเดอร์</button>
+          <button class="pos-fbtn hold" id="holdBtn" title="พักออเดอร์" aria-label="พักออเดอร์">พัก</button>
           <button class="pos-fbtn danger" id="clearBillBtn" title="ยกเลิกออเดอร์นี้" aria-label="ยกเลิกออเดอร์"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M10 11v6M14 11v6"/></svg></button>
         </div>
         ${promoHints.length?`<div class="pos-promo-hints">${promoHints.map(h=>`<div class="pos-promo-hint"><div class="pos-promo-hint-head">💡 ${escapeHtml(h.name)} - ${escapeHtml(h.unit)}</div><div class="pos-promo-hint-body"><div><span>ชื่อโปร:</span> ${escapeHtml(h.promoName)}</div><div><span>ผลลัพธ์:</span> ${escapeHtml(h.note)}</div><div class="pos-promo-hint-nudge">ซื้อเพิ่มอีก ${h.needMore} ${escapeHtml(h.unit)} เพื่อรับสิทธิ์โปรโมชั่นนี้</div></div></div>`).join('')}</div>`:''}
@@ -17812,7 +17812,9 @@ let holdOrderInFlight=false;
 async function holdOrder(){
   if(cart.length===0){ showToast('ยังไม่มีสินค้าในบิล'); return; }
   if(holdOrderInFlight){ showToast('กำลังพักออเดอร์ กรุณารอสักครู่'); return; }
-  const name = (prompt('ตั้งชื่อออเดอร์ที่พักไว้ (เช่น "ลูกค้าเสื้อแดง"):')||'').trim();
+  const enteredName=prompt('ตั้งชื่อออเดอร์ที่พักไว้ (เช่น "ลูกค้าเสื้อแดง"):');
+  if(enteredName===null) return;
+  const name=enteredName.trim();
   const items = cart.map(l=>{const p=products.find(x=>x.id===l.pid);const savedCost=l.custom?(Number(l.price)||0):(Number(l.cost)||0);return {productId:l.pid||null,warehouseId:Number(activeWarehouseId)||null,name:l.name,qty:l.qty,price:l.price,cost:savedCost,costTotal:savedCost*Number(l.qty||0),unit:l.unit,factor:l.factor||0,custom:!!l.custom};});
   const subtotal = items.reduce((a,it)=>a+it.price*it.qty,0);
   const heldSale={id:'',ref:saleRef,name:name||'(ไม่มีชื่อ)',date:TODAY_STR,time:TODAY_STR+' '+nowTimeStr(),warehouseId:Number(activeWarehouseId)||null,warehouseName:activeWarehouse()?.name||'',cashier:loggedInUser()?.firstName||employees[0],member:saleMember,sourceQuotationId:saleSourceQuotationId||null,status:'hold',items,discount:saleDiscount,vat:0,total:subtotal,cartSnapshot:JSON.parse(JSON.stringify(cart))};
