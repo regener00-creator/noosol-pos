@@ -4,7 +4,7 @@ const http = require('node:http');
 const path = require('node:path');
 const { chromium } = require('playwright');
 
-const root = path.join(__dirname, '..');
+const root = path.resolve(__dirname, process.env.PEPOS_TEST_BUILT ? '../public' : '..');
 const types = {'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.webmanifest':'application/manifest+json','.png':'image/png','.svg':'image/svg+xml'};
 const server = http.createServer((request, response) => {
   const pathname = decodeURIComponent(new URL(request.url, 'http://127.0.0.1').pathname);
@@ -54,11 +54,20 @@ let browser;
 
   const rows = page.locator('.fav-manage-row');
   const modal=page.locator('.fav-manage-modal');
+  const assertFinishOnRight=async()=>{
+    const gap=await page.locator('#favSaveBtn').evaluate(button=>{
+      const footer=button.closest('.fav-manage-footer');
+      return footer.getBoundingClientRect().right-parseFloat(getComputedStyle(footer).paddingRight)-button.getBoundingClientRect().right;
+    });
+    assert.ok(Math.abs(gap)<1,'finish button must align with the right edge of the footer content');
+  };
   const desktopBox=await modal.boundingBox();
+  await assertFinishOnRight();
   assert.ok(desktopBox.width>=1000&&desktopBox.height>=650,'favorite manager must be wider and taller on desktop');
   assert.equal(await modal.locator('.modal-sub').count(),0,'old instructions must be removed');
   await page.setViewportSize({width:390,height:844});
   const mobileBox=await modal.boundingBox();
+  await assertFinishOnRight();
   assert.ok(mobileBox.x>=0&&mobileBox.x+mobileBox.width<=390&&mobileBox.y>=0&&mobileBox.y+mobileBox.height<=844,'large modal still fits a small screen');
   await page.setViewportSize({width:1200,height:800});
   if(process.env.PEPOS_TEST_SCREENSHOT) await page.screenshot({path:process.env.PEPOS_TEST_SCREENSHOT});
