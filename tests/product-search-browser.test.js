@@ -70,6 +70,10 @@ const browserExecutable = [
   });
 
   const search=page.locator('.product-list-search #search');
+  const assertNoBrowserSuggestions=async()=>{
+    assert.deepEqual(await search.evaluate(input=>({autocomplete:input.autocomplete,autocorrect:input.getAttribute('autocorrect'),autocapitalize:input.getAttribute('autocapitalize'),spellcheck:input.spellcheck})),{autocomplete:'off',autocorrect:'off',autocapitalize:'off',spellcheck:false},'product search must disable browser history suggestions and automatic text corrections');
+  };
+  await assertNoBrowserSuggestions();
   await search.focus();
   await page.keyboard.type('Decolgen', {delay:20});
   await page.waitForTimeout(220);
@@ -193,6 +197,7 @@ const browserExecutable = [
     render();
   },productFixtures);
   assert.equal(await page.locator('.prodtable .prod-unit-select').inputValue(),'กล่อง','เปิดหน้าใหม่ต้องจำหน่วยจากที่เก็บถาวร ไม่ใช่ตัวแปรในหน้าเดิม');
+  await assertNoBrowserSuggestions();
   assert.equal(await page.evaluate(()=>products.find(p=>p.id===9103).unit),'แผง','ค่าการแสดงผลต้องไม่แก้หน่วยหลัก');
   await page.evaluate(()=>{searchQuery='Decolgen';render();});
   assert.equal(await page.locator('.prodtable .prod-unit-select').inputValue(),'กล่อง','แต่ละสินค้าจำหน่วยแยกกัน');

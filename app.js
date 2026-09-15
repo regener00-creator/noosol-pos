@@ -8204,7 +8204,7 @@ function renderProducts(){
         <div class="product-group-brands">${brandHtml}</div>
       </div>
       <div class="searchbar product-list-search">
-        <input id="search" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" value="${escapeHtml(searchQuery)}">
+        <input id="search" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" value="${escapeHtml(searchQuery)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
         <div class="product-review-filters" role="group" aria-label="กรองสินค้าตามสี">
           ${[['all','ทั้งหมด'],['complete','สีเขียว'],['pending','สีเหลือง']].map(([value,label])=>`<button type="button" class="product-review-filter" data-product-review-filter="${value}" aria-pressed="${productReviewFilter===value}" title="${value==='complete'?'ข้อมูลครบถ้วน':value==='pending'?'กำลังแก้ไข / รอข้อมูล':'ทุกสี รวมสินค้าที่ยังไม่ได้ทำสี'}"><span class="product-review-filter-dot" aria-hidden="true"></span>${label}</button>`).join('')}
         </div>
