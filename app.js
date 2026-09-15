@@ -18475,10 +18475,9 @@ function favManageListHtml(){
     const p=products.find(x=>Number(x.id)===id);
     if(!p) return '';
     const selectedUnit=favoriteSelectedUnit(entry,p);
-    const selectedOption=productUnitOptions(p).find(option=>option.name===selectedUnit)||productUnitOptions(p)[0];
     return `<div class="fav-manage-row" draggable="true" tabindex="0" data-fav-drag-index="${i}" data-fav-product-id="${id}" aria-label="${escapeHtml(p.name)} คลิกค้างแล้วลากเพื่อจัดลำดับ">
       <span class="fav-drag-handle" aria-hidden="true">⠿</span>
-      <div class="fav-manage-info"><span class="fav-manage-name">${escapeHtml(p.name)}</span><select class="fav-manage-unit" data-fav-unit-change="${i}" aria-label="หน่วยสินค้าโปรด ${escapeHtml(p.name)}">${favoriteUnitOptionsHtml(p,selectedUnit)}</select><span class="fav-manage-price mono">${fmtMoney(selectedOption?.price||0)}</span></div>
+      <div class="fav-manage-info"><span class="fav-manage-name">${escapeHtml(p.name)}</span><select class="fav-manage-unit" data-fav-unit-change="${i}" aria-label="หน่วยสินค้าโปรด ${escapeHtml(p.name)}">${favoriteUnitOptionsHtml(p,selectedUnit)}</select></div>
       <div class="fav-manage-actions">
         <button class="icon-btn danger" data-fav-remove="${i}" title="ลบออกจากสินค้าโปรด">×</button>
       </div>

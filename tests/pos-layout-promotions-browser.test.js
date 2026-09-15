@@ -44,6 +44,7 @@ let browser;
   assert.equal(new Set(colors).size,1,'all product data including quantity and unit must share the warning color');
   assert.equal(colors[0],'rgb(22, 133, 192)','pending color must be blue in the active theme');
   assert.equal(await page.locator('#holdBtn').textContent(),'พัก');
+  assert.deepEqual(await page.locator('#holdBtn').evaluate(el=>{const style=getComputedStyle(el);return [style.borderTopWidth,style.borderRightWidth,style.borderBottomWidth,style.borderLeftWidth];}),['0px','0px','0px','0px'],'hold button has no border');
   for(const width of [1920,1440,1280]){
     await page.setViewportSize({width,height:1000});
     const layout=await page.evaluate(()=>{

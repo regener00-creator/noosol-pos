@@ -63,6 +63,8 @@ let browser;
   await page.setViewportSize({width:1200,height:800});
   if(process.env.PEPOS_TEST_SCREENSHOT) await page.screenshot({path:process.env.PEPOS_TEST_SCREENSHOT});
   assert.equal(await rows.count(), 3);
+  assert.equal(await rows.locator('.fav-manage-price').count(),0,'do not repeat the price after the unit selector');
+  assert.deepEqual(await rows.locator('select option:checked').allTextContents(),['กล่อง · 100.00','กล่อง · 200.00','กล่อง · 300.00'],'unit selectors retain their prices');
   assert.equal(await page.locator('[data-fav-move]').count(), 0, 'arrow position controls must be removed');
   assert.equal(await rows.first().getAttribute('draggable'), 'true');
   assert.equal(await rows.first().evaluate(element=>getComputedStyle(element).cursor), 'grab');
