@@ -5029,7 +5029,7 @@ const NAV = [
     ['productreturn','ใบคืนสินค้า','<path d="M3 7h13a5 5 0 0 1 0 10H8"/><path d="M8 13l-4 4 4 4"/><path d="M4 17h12"/>'],
   ]},
   {section:'คลัง & สินค้า', items:[
-    ['products','รายการสินค้า','<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/>'],
+    ['products','PRODUCT','<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/>'],
     ['stockcontrol','ตรวจนับ / ปรับสต๊อก','<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h5M8 16h4"/><path d="M15 15l2 2 4-5"/>'],
     ['transfer','โอนสินค้าระหว่างคลัง','<path d="M7 16l-4-4 4-4"/><path d="M3 12h13"/><path d="M17 8l4 4-4 4"/><path d="M21 12H8"/>'],
     ['barcodeprint','พิมพ์ป้ายราคา','<path d="M3 5h2v14H3zM7 5h1v14H7zM10 5h3v14h-3zM15 5h1v14h-1zM18 5h3v14h-3z"/>'],
