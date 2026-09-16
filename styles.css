@@ -1866,6 +1866,9 @@
   .mobile-install-notice-text span{display:block;font-size:11.5px;color:#8B6B32;line-height:1.35;}
   .mobile-install-btn{border:0;border-radius:10px;background:var(--primary);color:#fff;padding:10px 12px;font:600 13px 'Sarabun',sans-serif;cursor:pointer;white-space:nowrap;flex-shrink:0;}
   .mobile-tools-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;background:#EEE8E5;border-radius:14px;padding:5px;margin-bottom:0;position:sticky;top:0;z-index:7;}
+  .mobile-tools-tabs.has-product-action{grid-template-columns:repeat(2,minmax(0,1fr)) 46px;}
+  .mobile-product-add{width:46px;min-height:50px;border:0;border-radius:10px;background:var(--primary);color:#fff;font:500 28px/1 'Sarabun',sans-serif;cursor:pointer;}
+  .mobile-product-add:focus-visible{outline:2px solid var(--primary);outline-offset:3px;}
   .mobile-tools-tab{min-height:50px;border:0;border-radius:10px;background:transparent;color:var(--text-muted);font:600 15px 'Sarabun',sans-serif;cursor:pointer;}
   .mobile-tools-tab.active{background:#fff;color:var(--primary);box-shadow:0 2px 8px #2B242214;}
   .mobile-tools-tab-brand{margin:7px 0 12px;text-align:center;color:var(--text-muted);font:600 9px/1.2 'Sarabun',sans-serif;letter-spacing:.08em;}

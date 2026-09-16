@@ -66,6 +66,23 @@ let browser;
     };
     render();
   });
+  for(const width of [320,390,430]){
+    await page.setViewportSize({width,height:844});
+    const buttons=page.locator('.mobile-tools-tabs > button');
+    assert.deepEqual(await buttons.allTextContents(),['เช็คราคา','ตรวจแก้สต๊อก','+']);
+    const boxes=await buttons.evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};}));
+    assert.ok(boxes.every(b=>b.y===boxes[0].y&&b.height===boxes[0].height),'all three buttons share a row and height');
+    assert.ok(boxes[2].x>boxes[1].x&&boxes[2].x+boxes[2].width<=width,'plus is last and fits narrow screens');
+    assert.ok(boxes[2].width>=44,'plus remains touch-friendly');
+    assert.equal(await page.locator('#mobileNewProduct').getAttribute('aria-label'),'เพิ่มสินค้า');
+  }
+  if(process.env.PEPOS_TEST_SCREENSHOT)await page.screenshot({path:process.env.PEPOS_TEST_SCREENSHOT.replace(/\.png$/,'-nav.png'),fullPage:true});
+  await page.locator('[data-mobile-tool="inventory"]').click();
+  assert.equal(await page.locator('.mobile-tools-tabs #mobileNewProduct').count(),1,'owner can also add while viewing inventory');
+  await page.locator('#mobileNewProduct').click();await page.locator('#f_name').waitFor();
+  await page.locator('#cancelProductBtn').click();
+  assert.equal(await page.locator('[data-mobile-tool="inventory"]').getAttribute('class'),'mobile-tools-tab active');
+  await page.locator('[data-mobile-tool="price"]').click();
   await page.locator('#mobileNewProduct').click();
   await page.locator('#f_name').waitFor();
   assert.equal(await page.locator('#extraBarcodeRows,#vendorBarcodeRows,#deleteProductBtn').count(),0,'mobile omits extra/vendor barcode and delete controls');
