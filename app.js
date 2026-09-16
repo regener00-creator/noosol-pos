@@ -9344,6 +9344,11 @@ function mobileSelectPriceProduct(product,unitName=''){
 function canEditMobilePrice(user=loggedInUser()){
   return user?.owner===true&&Number(user?.level)===1;
 }
+function mobileProductEditSignature(product){
+  // Compare catalog values, not JSON key order or stock-only revisions.
+  // The sync write still checks the latest acknowledged server revision.
+  return canonicalProductInsertSignature(productMetadataToRow(product));
+}
 function captureMobileProductDraft(){
   const editor=mobileProductEditor,form=document.getElementById('mobileProductEditor');
   if(!editor||!form||form.dataset.editorToken!==editor.token) return;
@@ -9373,14 +9378,16 @@ async function openMobileProductEditor(productId='new',barcode=''){
       if(productDirtyOperations.has(String(productId))) throw new Error('สินค้านี้มีข้อมูลรอซิงก์ กรุณาซิงก์ให้สำเร็จก่อนแก้ไขต่อ');
       const local=products.find(item=>Number(item.id)===Number(productId));
       product={...rowToProduct(data),stock:Number(local?.stock)||0,expiry:local?.expiry||''};
-      if(local) Object.assign(local,product); else products.push(product);
+      // This is a clean record (dirty entries are refused above). Replace it
+      // so fields removed remotely cannot survive in the old cached object.
+      if(local) products[products.indexOf(local)]=product; else products.push(product);
       (syncedTableRows.products||=new Map()).set(String(product.id),JSON.stringify(productMetadataToRow(product)));
       rebuildProductLookupMaps();
       await persistProductChangesToIndexedDB({updatedIds:[product.id]});
     }
     if(!canEditMobilePrice()||currentTab!=='mobiletools') return;
     const draft=product?JSON.parse(JSON.stringify(product)):{name:'',sku:'',category:'',brand:'ทั่วไป',unit:'',barcode:String(barcode||'').trim(),price:'',cost:'',stock:0,desc:'',active:true,multiunit:true,units:[],vat:'incl'};
-    mobileProductEditor={token:generateProductCreateToken(),draft,baseline:product?JSON.stringify(productMetadataToRow(product)):null,changed:false,saving:false};
+    mobileProductEditor={token:generateProductCreateToken(),draft,baseline:product?mobileProductEditSignature(product):null,changed:false,saving:false};
     editingProductId=product?product.id:'new';
     refreshCategoryBrandUnitLists();
     render();
@@ -17866,7 +17873,7 @@ async function saveProduct(){
     if(mobileEditor.saving||!canEditMobilePrice()||!mobileRequireOnline('บันทึกสินค้า')) return;
     captureMobileProductDraft();
     const current=products.find(product=>product.id===editingProductId);
-    if(editingProductId!=='new'&&(!current||JSON.stringify(productMetadataToRow(current))!==mobileEditor.baseline)){
+    if(editingProductId!=='new'&&(!current||mobileProductEditSignature(current)!==mobileEditor.baseline)){
       showToast('ข้อมูลสินค้านี้เปลี่ยนระหว่างแก้ไข กรุณาออกแล้วเปิดใหม่เพื่อตรวจข้อมูลล่าสุด','danger-top'); return;
     }
     const invalid=document.querySelector('#mobileProductEditor input[type="number"]:invalid');
@@ -17976,7 +17983,7 @@ async function saveProduct(){
     // Keep the same identity/token on a cache or network retry: never create twice.
     editingProductId=savedProductId;
     const savedProduct=products.find(product=>product.id===savedProductId);
-    mobileEditor.baseline=JSON.stringify(productMetadataToRow(savedProduct));
+    mobileEditor.baseline=mobileProductEditSignature(savedProduct);
     mobileEditor.draft.sku=savedProduct.sku;
     g('f_sku').value=savedProduct.sku;
   }

@@ -52,7 +52,8 @@ let browser;
           }
           const rows=[...window.remoteProducts.values()].filter(r=>filters.every(fn=>fn(r)));
           if(action==='update') rows.forEach(row=>{Object.assign(row,structuredClone(payload),{revision:row.revision+1});window.writes.push({action,row:structuredClone(row)});});
-          return {data:rows.map(row=>columns==='*'?structuredClone(row):Object.fromEntries(columns.split(',').map(k=>[k,row[k]]))),error:null};
+          // JSON object key order from the database need not match the local cache.
+          return {data:rows.map(row=>columns==='*'?canonicalProductInsertValue(structuredClone(row)):Object.fromEntries(columns.split(',').map(k=>[k,row[k]]))),error:null};
         }).then(resolve,reject);},async maybeSingle(){const r=await q;return {...r,data:r.data?.[0]||null};}};
       return q;
     };
@@ -136,7 +137,7 @@ let browser;
   await page.locator('#cancelProductBtn').click();
   assert.equal(await page.locator('#mobileProductEditor').count(),0);
   // Edit an existing product through the actual result button.
-  await page.evaluate(()=>{mobileSelectPriceProduct(products.find(p=>p.id===9101));render();});
+  await page.evaluate(()=>{const p=products.find(p=>p.id===9101);p.dataReviewedAt='stale-local-only';mobileSelectPriceProduct(p);render();});
   for(const width of [320,390,430]){
     await page.setViewportSize({width,height:844});
     assert.equal(await page.locator('#mobileEditProduct').count(),1);
@@ -152,6 +153,8 @@ let browser;
   if(process.env.PEPOS_TEST_SCREENSHOT)await page.screenshot({path:process.env.PEPOS_TEST_SCREENSHOT.replace(/\.png$/,'-result.png'),fullPage:true});
   await page.locator('#mobileEditProduct').click();
   await page.locator('#f_name').waitFor();
+  assert.equal(await page.evaluate(()=>mobileProductEditSignature(products.find(p=>p.id===9101))===mobileProductEditor.baseline),true,'opening an unchanged database row must not immediately conflict');
+  assert.equal(await page.evaluate(()=>Object.hasOwn(products.find(p=>p.id===9101),'dataReviewedAt')),false,'fields removed remotely must not survive opening the clean record');
   assert.equal(await page.locator('#f_unit').isDisabled(),true);
   await page.locator('#f_name').fill('แก้ชื่อจากมือถือ');
   await page.locator('#f_price').fill('110');
@@ -160,6 +163,14 @@ let browser;
   assert.ok(await page.evaluate(()=>window.notices.at(-1).includes('สินค้าอื่นแล้ว')),'duplicate barcode blocked');
   await page.locator('#f_barcode').fill('8850000000001');
   await page.locator('#unitRows .u_price').fill('950');
+  await page.evaluate(()=>{
+    const index=products.findIndex(p=>p.id===9101);
+    // A harmless refresh can reorder nested JSON keys while the form is open.
+    const reverse=value=>Array.isArray(value)?value.map(reverse):value&&typeof value==='object'?Object.fromEntries(Object.entries(value).reverse().map(([k,v])=>[k,reverse(v)])):value;
+    products[index]=reverse(products[index]);rebuildProductLookupMaps();
+    const remote=window.remoteProducts.get(9101);remote.revision++;
+    products[index]._revision=remote.revision;
+  });
   await page.locator('#saveProductBtn').click();
   await page.waitForFunction(()=>!mobileProductEditor&&productDirtyOperations.size===0);
   const updated=await page.evaluate(()=>window.remoteProducts.get(9101));
@@ -169,10 +180,21 @@ let browser;
   assert.deepEqual(updated.data.vendorBarcodes,[{vendor:'ผู้จำหน่าย',code:'VENDOR-A'}]);
   assert.equal(updated.data.units[0].price,950);
   assert.equal(updated.data.dataReviewStatus,'pending');
+  assert.equal(Object.hasOwn(updated.data,'dataReviewedAt'),false,'saving must not restore remotely removed metadata');
   assert.equal(await page.evaluate(()=>warehouseStock(9101,1)),25,'catalog edit leaves stock unchanged');
   // Same row is shown correctly by desktop renderer (including hidden barcodes).
   const desktop=await page.evaluate(()=>{editingProductId=9101;return renderProductForm();});
   assert.ok(desktop.includes('แก้ชื่อจากมือถือ')&&desktop.includes('OLD-A')&&desktop.includes('VENDOR-A'));
+  // A real local metadata update is still blocked, keeping the draft intact.
+  await page.locator('#mobileEditProduct').click();await page.locator('#f_name').waitFor();
+  await page.locator('#f_price').fill('120');
+  const writesBeforeConflict=await page.evaluate(()=>window.writes.length);
+  await page.evaluate(()=>{products.find(p=>p.id===9101).price=130;});
+  await page.locator('#saveProductBtn').click();
+  assert.ok(await page.evaluate(()=>window.notices.at(-1).includes('เปลี่ยนระหว่างแก้ไข')));
+  assert.equal(await page.locator('#f_price').inputValue(),'120','real conflicts preserve the typed draft');
+  assert.equal(await page.evaluate(()=>window.writes.length),writesBeforeConflict,'real conflict never writes');
+  page.once('dialog',dialog=>dialog.accept());await page.locator('#cancelProductBtn').click();
   // Unsaved form cannot silently disappear on cancel or base-unit change.
   await page.locator('#mobileEditProduct').click();await page.locator('#f_name').waitFor();
   await page.locator('#f_name').fill('ยังไม่บันทึก');
