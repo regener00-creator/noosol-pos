@@ -137,6 +137,19 @@ let browser;
   assert.equal(await page.locator('#mobileProductEditor').count(),0);
   // Edit an existing product through the actual result button.
   await page.evaluate(()=>{mobileSelectPriceProduct(products.find(p=>p.id===9101));render();});
+  for(const width of [320,390,430]){
+    await page.setViewportSize({width,height:844});
+    assert.equal(await page.locator('#mobileEditProduct').count(),1);
+    const editBox=await page.locator('#mobileEditProduct').boundingBox();
+    const fieldsBox=await page.locator('.mobile-price-edit-grid').boundingBox();
+    const colorsBox=await page.locator('.mobile-price-review-colors').boundingBox();
+    assert.ok(editBox.y>=fieldsBox.y+fieldsBox.height,'edit action follows the product fields');
+    assert.ok(editBox.y+editBox.height<=colorsBox.y,'edit action is above the review colors');
+    assert.equal(await page.locator('#mobileEditProduct').evaluate(el=>el.nextElementSibling.classList.contains('mobile-price-review-colors')),true);
+  }
+  await page.setViewportSize({width:390,height:844});
+  await page.locator('#mobilePriceSaveChanges').scrollIntoViewIfNeeded();
+  if(process.env.PEPOS_TEST_SCREENSHOT)await page.screenshot({path:process.env.PEPOS_TEST_SCREENSHOT.replace(/\.png$/,'-result.png'),fullPage:true});
   await page.locator('#mobileEditProduct').click();
   await page.locator('#f_name').waitFor();
   assert.equal(await page.locator('#f_unit').isDisabled(),true);
