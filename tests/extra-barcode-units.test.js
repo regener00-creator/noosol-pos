@@ -40,7 +40,7 @@ assert.equal(sandbox.extraBarcodeUnitForCode(legacy, 'LEGACY'), 'ขวด', '�
 const rowHtml = sandbox.extraBarcodeRowHtml({code: 'OLD-BOX', unit: 'กล่อง'}, ['เม็ด', 'กล่อง'], 'เม็ด');
 assert.ok(rowHtml.indexOf('class="eb_unit"') < rowHtml.indexOf('class="eb_code"'), 'ช่องหน่วยต้องอยู่ก่อนช่องบาร์โค้ดเพิ่มเติม');
 
-const formStart = html.indexOf('function renderProductForm()');
+const formStart = html.indexOf('function renderProductForm(');
 const formEnd = html.indexOf('function renderWarehouse()', formStart);
 const formSource = html.slice(formStart, formEnd);
 const productPricingPanelStart = formSource.indexOf('<div class="panel product-pricing-panel ');

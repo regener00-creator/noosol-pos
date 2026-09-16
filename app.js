@@ -3777,6 +3777,8 @@ let mobilePriceQuery = '';
 let mobilePriceProductId = null;
 let mobilePriceUnitName = '';
 let mobilePriceLotId = null;
+let mobileProductEditor = null;
+let mobileProductOpening = false;
 let mobileDataStatusState = 'online';
 let mobileDataStatusMessage = '';
 let mobileLastRefreshAt = 0;
@@ -3804,6 +3806,8 @@ let mobileScanDecodePromises={success:null,error:null};
 let mobileScanSoundUnlockAttached=false;
 let mobileCameraSession=null;
 function prepareMobileLandingPage(){
+  mobileProductEditor=null;
+  editingProductId=null;
   mobileToolMode='price';
   mobileInventoryStep='inspection';
   mobilePriceQuery=''; mobilePriceProductId=null; mobilePriceUnitName=''; mobilePriceLotId=null;
@@ -8476,6 +8480,11 @@ function productBaseUnitChangeBlockers(productId){
   return blockers;
 }
 function openProductBaseUnitChangeModal(){
+  if(mobileProductEditor){
+    if(!canEditMobilePrice()||mobileProductEditor.saving||!mobileRequireOnline('เปลี่ยนหน่วยหลัก')) return;
+    if(mobileProductEditor.changed){ showToast('กรุณาบันทึกข้อมูลสินค้าที่แก้ไขก่อน แล้วเปิดมาเปลี่ยนหน่วยหลัก','danger-top'); return; }
+    if(productDirtyOperations.has(String(editingProductId))){ showToast('กรุณารอให้สินค้านี้ซิงก์สำเร็จก่อนเปลี่ยนหน่วยหลัก','danger-top'); return; }
+  }
   if(editingProductId==='new'||editingProductId===null) return;
   const product=products.find(item=>Number(item.id)===Number(editingProductId));
   if(!product) return;
@@ -8485,6 +8494,7 @@ function openProductBaseUnitChangeModal(){
     return;
   }
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
+  if(mobileProductEditor) overlay.classList.add('mobile-base-unit-overlay');
   overlay.innerHTML=`<div class="modal" style="width:720px;max-height:92vh;"><div class="modal-head"><h3>เปลี่ยนหน่วยหลัก</h3><button class="modal-close" type="button">×</button></div><div class="modal-sub">${escapeHtml(product.name)} · หน่วยเดิม <b>${escapeHtml(product.unit||'-')}</b></div><form id="baseUnitChangeForm" style="overflow-y:auto;"><div style="padding:0 18px 18px;"><div style="padding:11px 13px;border:1px solid #F0D39D;border-radius:9px;background:#FFF8E8;color:#7B5716;font-size:12.5px;margin-bottom:14px;">บิลและเอกสารที่ลงสต๊อกแล้วจะคงข้อมูลเดิม ระบบจะแปลงเฉพาะสต๊อกปัจจุบันของทุกคลัง</div><div class="formgrid3"><div class="field"><label>หน่วยเล็กสุดใหม่ <span class="req">*</span></label><input id="baseUnitNewName" list="baseUnitNameList" autocomplete="off" placeholder="เช่น เม็ด"><datalist id="baseUnitNameList">${units.filter(unit=>unit!==product.unit).map(unit=>`<option value="${escapeHtml(unit)}">`).join('')}</datalist></div><div class="field"><label>1 ${escapeHtml(product.unit)} เท่ากับกี่หน่วยใหม่ <span class="req">*</span></label><input id="baseUnitConversion" type="number" min="0.000001" max="1000000" step="any" value="1"></div><div class="field"><label>บาร์โค้ดหน่วยใหม่</label><input id="baseUnitNewBarcode" autocomplete="off" placeholder="เว้นว่างได้"></div><div class="field"><label>ราคาขายต่อหน่วยใหม่ <span class="req">*</span></label><input id="baseUnitNewPrice" type="number" min="0" step="0.01" value="${Number(product.price)||0}"></div><div class="field"><label>ทุนต่อหน่วยใหม่ <span class="req">*</span></label><input id="baseUnitNewCost" type="number" min="0" step="0.01" value="${Number(product.cost)||0}"></div><div class="field"><label>บาร์โค้ดเดิม</label><input value="${escapeHtml(product.barcode||'-')}" disabled><small style="color:var(--text-muted);">จะย้ายไปผูกกับหน่วย ${escapeHtml(product.unit)}</small></div></div><div style="font-size:13px;font-weight:700;margin:18px 0 8px;">ตัวอย่างสต๊อกหลังเปลี่ยน</div><div id="baseUnitStockPreview"></div></div><div class="payment-actions" style="padding:14px 18px;border-top:1px solid var(--border);"><button class="btn ghost" type="button" id="cancelBaseUnitChange">ยกเลิก</button><button class="btn primary" type="submit" id="confirmBaseUnitChange">ยืนยันเปลี่ยนหน่วยหลัก</button></div></form></div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
@@ -8538,6 +8548,11 @@ function openProductBaseUnitChangeModal(){
       Object.assign(product,change.product);
       (data?.balances||[]).forEach(balance=>updateInventoryBalanceLocal(product.id,balance.warehouseId,balance.stock,balance.expiry));
       applyActiveWarehouseInventory();
+      if(mobileProductEditor){
+        // Read the committed revision so a subsequent mobile edit is not stale.
+        const {data:latest,error}=await sb.from('products').select('*').eq('id',product.id).maybeSingle();
+        if(!error&&latest) Object.assign(product,rowToProduct(latest),{stock:product.stock,expiry:product.expiry});
+      }
       addUnitIfNew(change.newUnit); addUnitIfNew(change.oldUnit);
       refreshCategoryBrandUnitLists();
       const dirtyOperation=productDirtyOperations.get(String(product.id));
@@ -8548,6 +8563,10 @@ function openProductBaseUnitChangeModal(){
       else seedProductSyncSnapshot(products,productDirtyOperations);
       persistWorkspaceData();
       close();
+      if(mobileProductEditor){
+        mobileProductEditor=null; editingProductId=null;
+        mobileSelectPriceProduct(product,change.newUnit);
+      }
       showToast(`เปลี่ยนหน่วยหลักเป็น ${change.newUnit} และแปลงสต๊อกทุกคลังแล้ว`);
       render();
     }catch(error){
@@ -8559,14 +8578,15 @@ function openProductBaseUnitChangeModal(){
 }
 
 
-function renderProductForm(){
+function renderProductForm(options={}){
+  const mobile=options.mobile===true;
   const isNew = editingProductId==='new';
   const canViewCost=!isLevel2User();
-  const p = isNew ? {name:'',sku:'',category:'',unit:'',barcode:'',price:'',cost:'',stock:'',threshold:5,expiry:'',wh:1,type:'stock',desc:'',active:true} : products.find(x=>x.id===editingProductId);
+  const p = mobile?mobileProductEditor.draft:(isNew ? {name:'',sku:'',category:'',unit:'',barcode:'',price:'',cost:'',stock:'',threshold:5,expiry:'',wh:1,type:'stock',desc:'',active:true} : products.find(x=>x.id===editingProductId));
   const mainUnitSelect=comboSelect('f_unit', units, p.unit, 'ระบุหน่วยสินค้า');
   const renderedMainUnitSelect=isNew?mainUnitSelect:mainUnitSelect.replace('<select ','<select disabled ');
   return `
-    <div class="pagehead"><div><div class="breadcrumb">รายการสินค้า › ${isNew?'เพิ่มสินค้า':'แก้ไขสินค้า'}</div></div></div>
+    ${mobile?`<div class="mobile-product-heading"><h1>${isNew?'เพิ่มสินค้า':'แก้ไขสินค้า'}</h1><span>ข้อมูลสินค้าใช้ร่วมกับหน้าคอม</span></div>`:`<div class="pagehead"><div><div class="breadcrumb">รายการสินค้า › ${isNew?'เพิ่มสินค้า':'แก้ไขสินค้า'}</div></div></div>`}
 
     <div class="panel product-status-panel ${isProductActive(p)?'':'inactive'}"><div class="paneltoggle"><div><h3>สถานะสินค้า</h3><div class="psub" style="margin:0;">ปิดใช้งานเมื่อไม่ต้องการขายหรือเลือกสินค้านี้ในเอกสารใหม่ รายงานและประวัติเดิมยังคงอยู่</div></div><label class="switch" title="เปิดหรือปิดใช้งานสินค้า"><input type="checkbox" id="f_active" ${isProductActive(p)?'checked':''}><span class="slider"></span></label></div></div>
 
@@ -8600,14 +8620,14 @@ function renderProductForm(){
         ${isNew?'':'<button class="btn primary small product-base-unit-action" type="button" id="changeBaseUnitBtn" title="เปลี่ยนหน่วยหลัก" aria-label="เปลี่ยนหน่วยหลัก"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></svg></button>'}
       </div>
       <div class="paneltoggle product-extra-unit-toggle"><div><h3 style="font-size:14px;">หน่วยสินค้าเพิ่มเติม <span class="psub" style="font-weight:400;">• ตัวอย่าง: 1 กล่อง = 10 แผง, 1 ลัง = 10 กล่อง</span></h3></div>
-      <label class="switch"><input type="checkbox" id="f_multiunit" ${(isNew?true:p.multiunit)?'checked':''}><span class="slider"></span></label></div>
-      <div id="multiunitBody" style="${(isNew?true:p.multiunit)?'':'display:none;'}margin-top:14px;">
+      <label class="switch"><input type="checkbox" id="f_multiunit" ${(isNew&&!mobile?true:p.multiunit)?'checked':''}><span class="slider"></span></label></div>
+      <div id="multiunitBody" style="${(isNew&&!mobile?true:p.multiunit)?'':'display:none;'}margin-top:14px;">
         <div id="unitRows">${(()=>{ const rawRows=(p.units&&p.units.length?p.units:[{sub:'',per:'',base:'',price:'',cost:'',barcode:''}]); const rows=computeUnitRowsWithStock(rawRows, p.unit, Number(p.stock)||0); const names=rows.map(r=>r.sub); return rows.map(u=>unitRowHtml(u, p.unit, names)).join(''); })()}</div>
         <button class="btn ghost small" id="addUnitBtn" style="margin-top:8px;">+ เพิ่มหน่วยสินค้า</button>
       </div>
     </div>
 
-    <div class="barcode-cols">
+    ${mobile?'':`<div class="barcode-cols">
     <div class="panel"><div class="paneltoggle"><div><h3>บาร์โค้ดเพิ่มเติม <span class="psub" style="font-weight:400;">• เผื่อสินค้าเปลี่ยนเลขบาร์โค้ดในล็อตใหม่ — ยิงเลขไหนก็เจอสินค้าตัวเดียวกัน</span></h3></div>
       <label class="switch"><input type="checkbox" id="f_extrabc_toggle" ${(p.extraBarcodes&&p.extraBarcodes.length)?'checked':''}><span class="slider"></span></label></div>
       <div id="extraBcBody" style="${(p.extraBarcodes&&p.extraBarcodes.length)?'':'display:none;'}margin-top:14px;">
@@ -8623,10 +8643,10 @@ function renderProductForm(){
         <button class="btn ghost small" id="addVendorBarcodeBtn" style="margin-top:8px;">+ เพิ่มบาร์โค้ดผู้จำหน่าย</button>
       </div>
     </div>
-    </div>
+    </div>`}
 
-    <div class="product-form-actions form-final-actions">
-      ${!isNew&&loggedInUser()?.owner===true&&Number(loggedInUser()?.level)===1?'<button class="btn product-delete-btn" id="deleteProductBtn" type="button">ลบสินค้า</button>':''}
+    <div class="product-form-actions ${mobile?'mobile-product-form-actions':'form-final-actions'}">
+      ${!mobile&&!isNew&&loggedInUser()?.owner===true&&Number(loggedInUser()?.level)===1?'<button class="btn product-delete-btn" id="deleteProductBtn" type="button">ลบสินค้า</button>':''}
       <button class="btn ghost" id="cancelProductBtn">ยกเลิก</button>
       <button class="btn primary" id="saveProductBtn">บันทึก</button>
     </div>
@@ -9324,6 +9344,120 @@ function mobileSelectPriceProduct(product,unitName=''){
 function canEditMobilePrice(user=loggedInUser()){
   return user?.owner===true&&Number(user?.level)===1;
 }
+function captureMobileProductDraft(){
+  const editor=mobileProductEditor,form=document.getElementById('mobileProductEditor');
+  if(!editor||!form||form.dataset.editorToken!==editor.token) return;
+  for(const key of ['name','sku','category','brand','unit','barcode','price','cost','desc','vat']){
+    const field=form.querySelector('#f_'+key);
+    if(field) editor.draft[key]=field.value;
+  }
+  editor.draft.active=!!form.querySelector('#f_active')?.checked;
+  editor.draft.multiunit=!!form.querySelector('#f_multiunit')?.checked;
+  // Keep incomplete unit rows too, so a reconnect/re-render cannot discard typing.
+  editor.draft.units=collectUnitRowsFromDOM();
+}
+async function openMobileProductEditor(productId='new',barcode=''){
+  if(!canEditMobilePrice()||mobileProductOpening||mobileProductEditor) return;
+  if(!mobileRequireOnline('เพิ่มหรือแก้ไขสินค้า')) return;
+  mobileProductOpening=true;
+  closeMobileCameraScanner();
+  try{
+    if(mobileRefreshPromise) await mobileRefreshPromise;
+    await ensurePageCodeLoaded('products');
+    let product=null;
+    if(productId!=='new'){
+      if(productDirtyOperations.has(String(productId))) throw new Error('สินค้านี้มีข้อมูลรอซิงก์ กรุณาซิงก์ให้สำเร็จก่อนแก้ไขต่อ');
+      const {data,error}=await sb.from('products').select('*').eq('id',Number(productId)).maybeSingle();
+      if(error) throw error;
+      if(!data) throw new Error('ไม่พบสินค้านี้บนเซิร์ฟเวอร์ กรุณารีเฟรชข้อมูล');
+      if(productDirtyOperations.has(String(productId))) throw new Error('สินค้านี้มีข้อมูลรอซิงก์ กรุณาซิงก์ให้สำเร็จก่อนแก้ไขต่อ');
+      const local=products.find(item=>Number(item.id)===Number(productId));
+      product={...rowToProduct(data),stock:Number(local?.stock)||0,expiry:local?.expiry||''};
+      if(local) Object.assign(local,product); else products.push(product);
+      (syncedTableRows.products||=new Map()).set(String(product.id),JSON.stringify(productMetadataToRow(product)));
+      rebuildProductLookupMaps();
+      await persistProductChangesToIndexedDB({updatedIds:[product.id]});
+    }
+    if(!canEditMobilePrice()||currentTab!=='mobiletools') return;
+    const draft=product?JSON.parse(JSON.stringify(product)):{name:'',sku:'',category:'',brand:'ทั่วไป',unit:'',barcode:String(barcode||'').trim(),price:'',cost:'',stock:0,desc:'',active:true,multiunit:true,units:[],vat:'incl'};
+    mobileProductEditor={token:generateProductCreateToken(),draft,baseline:product?JSON.stringify(productMetadataToRow(product)):null,changed:false,saving:false};
+    editingProductId=product?product.id:'new';
+    refreshCategoryBrandUnitLists();
+    render();
+    document.getElementById('main')?.scrollTo(0,0);
+  }catch(error){
+    showToast(error?.message||'เปิดข้อมูลสินค้าไม่สำเร็จ','danger-top');
+  }finally{ mobileProductOpening=false; }
+}
+function closeMobileProductEditor(){
+  if(!mobileProductEditor||mobileProductEditor.saving) return false;
+  if(mobileProductEditor.changed&&!confirm('ออกจากหน้านี้โดยไม่บันทึกการแก้ไขใช่หรือไม่?')) return false;
+  mobileProductEditor=null; editingProductId=null; render();
+  return true;
+}
+async function openMobileBaseUnitChange(){
+  if(!mobileProductEditor||!canEditMobilePrice()||mobileProductEditor.saving) return;
+  if(mobileProductEditor.changed){ showToast('กรุณาบันทึกข้อมูลสินค้าที่แก้ไขก่อน แล้วเปิดมาเปลี่ยนหน่วยหลัก','danger-top'); return; }
+  if(!mobileRequireOnline('เปลี่ยนหน่วยหลัก')) return;
+  const editor=mobileProductEditor,productId=editingProductId;
+  editor.saving=true;
+  try{
+    const loaded=await loadInventoryBalancesFromSupabase({warehouseIds:warehouses.map(row=>Number(row.id)),productIds:[Number(productId)]});
+    if(loaded===false) throw new Error('โหลดสต๊อกล่าสุดไม่สำเร็จ กรุณาลองอีกครั้ง');
+    if(editor!==mobileProductEditor) return;
+    editor.saving=false;
+    openProductBaseUnitChangeModal();
+  }catch(error){ showToast(error?.message||'โหลดสต๊อกล่าสุดไม่สำเร็จ','danger-top'); }
+  finally{ editor.saving=false; }
+}
+function mobileProductValidationError(data,existing){
+  if(!Number.isFinite(data.price)||data.price<0||!Number.isFinite(data.cost)||data.cost<0) return 'ราคาขายและราคาทุนต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป';
+  const names=new Set([data.unit]);
+  for(const row of data.units){
+    if(!row.sub||names.has(row.sub)) return 'ชื่อหน่วยสินค้าเพิ่มเติมต้องไม่ซ้ำกันหรือซ้ำกับหน่วยหลัก';
+    names.add(row.sub);
+    if(!Number.isFinite(row.factor)||row.factor<=0||!Number.isFinite(row.per)||row.per<=0) return 'กรุณาระบุอัตราแปลงหน่วยให้มากกว่า 0 และไม่อ้างอิงหน่วยวนกลับกัน';
+    if(!Number.isFinite(row.price)||row.price<0||!Number.isFinite(row.cost)||row.cost<0) return 'ราคาของหน่วยสินค้าเพิ่มเติมต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป';
+  }
+  if(extraBarcodeEntries(existing||{}).some(entry=>!names.has(entry.unit||data.unit))) return 'หน่วยนี้มีบาร์โค้ดเพิ่มเติมผูกอยู่ กรุณาจัดการบาร์โค้ดบนคอมก่อนลบหน่วย';
+  const ownCodes=new Map();
+  const entries=[{code:data.barcode,unit:data.unit},...data.units.map(row=>({code:row.barcode,unit:row.sub})),...extraBarcodeEntries(existing||{})];
+  for(const entry of entries){
+    const code=String(entry.code||'').trim().toLowerCase();
+    if(!code) continue;
+    if(ownCodes.has(code)&&ownCodes.get(code)!==entry.unit) return 'บาร์โค้ดเดียวกันไม่สามารถใช้กับคนละหน่วยได้';
+    ownCodes.set(code,entry.unit);
+  }
+  const conflict=barcodePrintBarcodeOwners().find(owner=>Number(owner.pid)!==Number(existing?.id)&&ownCodes.has(String(owner.code||'').trim().toLowerCase()));
+  if(conflict) return `บาร์โค้ด ${conflict.code} มีอยู่ในสินค้าอื่นแล้ว`;
+  if(data.sku&&products.some(product=>Number(product.id)!==Number(existing?.id)&&String(product.sku||'').trim().toLowerCase()===data.sku.toLowerCase())) return 'รหัสสินค้า (SKU) นี้มีอยู่แล้ว';
+  return '';
+}
+function attachMobileProductEditorEvents(){
+  const form=document.getElementById('mobileProductEditor');
+  if(!form||!mobileProductEditor) return;
+  const markChanged=()=>{ if(mobileProductEditor){ captureMobileProductDraft(); mobileProductEditor.changed=true; } };
+  form.addEventListener('input',markChanged);
+  form.addEventListener('change',()=>setTimeout(markChanged,0));
+  form.addEventListener('click',event=>{ if(event.target.closest('#addUnitBtn,.u_del')) markChanged(); });
+  form.querySelectorAll('input[type="number"]').forEach(input=>{ input.inputMode='decimal'; input.min='0'; input.step='any'; });
+  form.querySelectorAll('input:not([type="checkbox"]),textarea').forEach(input=>input.autocomplete='off');
+  decorateMobileProductUnitRows();
+}
+function decorateMobileProductUnitRows(){
+  const form=document.getElementById('mobileProductEditor');
+  if(!form) return;
+  // Unit-row fields need visible labels on the stacked phone layout.
+  form.querySelectorAll('.unitrow').forEach(row=>{
+    for(const [selector,label] of [['.u_price','ราคาขาย'],['.u_cost','ราคาทุน'],['.u_barcode','บาร์โค้ดประจำหน่วย']]){
+      const input=row.querySelector(selector);
+      if(!input||input.type==='hidden'||input.closest('.mobile-unit-field')) continue;
+      if(input.type==='number'){ input.inputMode='decimal'; input.min='0'; input.step='any'; }
+      const wrap=document.createElement('label'); wrap.className='mobile-unit-field'; wrap.textContent=label;
+      input.before(wrap); wrap.appendChild(input);
+    }
+  });
+}
 function mobilePriceEditPayload(product,unitName,values,warehouseId,lotId=null){
   if(!product) return {error:'ไม่พบสินค้าที่ต้องการแก้ไข'};
   const selected=inspectionListUnitOptions(product).find(option=>option.name===unitName)||inspectionListUnitOptions(product)[0];
@@ -9381,7 +9515,7 @@ function mobilePriceResultHtml(){
   if(!product){
     const matches=mobilePriceMatches(mobilePriceQuery);
     if(!String(mobilePriceQuery||'').trim()) return '<div class="mobile-empty">ยิงบาร์โค้ด หรือพิมพ์ชื่อ/รหัสสินค้าเพื่อเริ่มเช็คราคา</div>';
-    if(!matches.length) return `<div class="mobile-empty">ไม่พบสินค้า “${escapeHtml(mobilePriceQuery)}”</div>`;
+    if(!matches.length) return `<div class="mobile-empty">ไม่พบสินค้า “${escapeHtml(mobilePriceQuery)}”${canEditMobilePrice()?'<button type="button" class="btn primary mobile-create-from-code" id="mobileCreateProductFromCode">+ เพิ่มสินค้าจากบาร์โค้ดนี้</button>':''}</div>`;
     return `<div class="mobile-search-results">${matches.map(entry=>`<button type="button" class="mobile-search-result" data-mobile-price-product="${entry.id}"><b>${escapeHtml(entry.name)}</b><span>รหัส ${escapeHtml(entry.sku||'-')} · บาร์โค้ด ${escapeHtml(entry.barcode||'-')}</span></button>`).join('')}</div>`;
   }
   const options=inspectionListUnitOptions(product);
@@ -9401,6 +9535,7 @@ function mobilePriceResultHtml(){
       : 'วันหมดอายุจะเปลี่ยนเฉพาะ Lot ที่เลือก และระบบจะเก็บประวัติการแก้ไข';
   return `<article class="mobile-result-card">
     <div class="mobile-result-name">${escapeHtml(product.name)}</div>
+    ${canEdit?'<button type="button" class="btn ghost mobile-edit-product" id="mobileEditProduct">แก้ไขสินค้า / หน่วยหลัก</button>':''}
     ${canEdit?`<div class="mobile-price-stock-readonly mobile-metric primary"><span>คงเหลือ</span><b id="mobilePriceStock">${inspectionListAmount(selectedStock)} ${escapeHtml(selected?.name||product.unit)}</b></div><div class="mobile-price-edit-grid">
       <div class="mobile-price-edit-field"><label for="mobilePriceEditSale">ราคาขาย</label><input id="mobilePriceEditSale" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.price)||0}"></div>
       <div class="mobile-price-edit-field"><label for="mobilePriceEditCost">ทุน</label><input id="mobilePriceEditCost" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.cost)||0}"></div>
@@ -10050,6 +10185,7 @@ async function confirmMobileStockEditChanges(){
   return true;
 }
 async function refreshMobileToolsData(button,options={}){
+  if(mobileProductEditor||mobileProductOpening) return false;
   if(mobileRefreshPromise) return mobileRefreshPromise;
   if(!mobileRequireOnline('รีเฟรชข้อมูล')) return false;
   if(button){ button.disabled=true; button.classList.add('loading'); }
@@ -10085,6 +10221,9 @@ async function refreshMobileToolsData(button,options={}){
 function renderMobileTools(){
   const user=loggedInUser();
   const mobileStatus=mobileDataStatusDetails();
+  if(mobileProductEditor&&canEditMobilePrice()){
+    return `<main class="mobile-tools-page mobile-product-page"><fieldset class="mobile-product-editor" id="mobileProductEditor" data-editor-token="${escapeHtml(mobileProductEditor.token)}" ${mobileProductEditor.saving?'disabled':''}>${renderProductForm({mobile:true})}</fieldset></main>`;
+  }
   if(mobileToolMode==='inspection'||mobileToolMode==='stock'){
     mobileInventoryStep=mobileToolMode==='stock'?'stock':'inspection';
     mobileToolMode='inventory';
@@ -10096,6 +10235,7 @@ function renderMobileTools(){
     ${mobileInstallNoticeHtml()}
     <nav class="mobile-tools-tabs" aria-label="เมนูมือถือ"><button type="button" class="mobile-tools-tab ${mobileToolMode==='price'?'active':''}" data-mobile-tool="price">เช็คราคา</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='inventory'?'active':''}" data-mobile-tool="inventory">ตรวจและแก้ไขสต๊อก</button></nav>
     <div class="mobile-tools-tab-brand">P R A N C - H I B E S</div>
+    ${mobileToolMode==='price'&&canEditMobilePrice()?`<div class="mobile-product-toolbar"><button type="button" class="btn primary" id="mobileNewProduct">+ เพิ่มสินค้า</button>${productDirtyOperations.size?`<button type="button" class="btn ghost" id="mobileProductSyncDetails">สินค้ารอซิงก์ ${productDirtyOperations.size} รายการ</button>`:''}</div>`:''}
     ${mobileToolMode==='price'?`<section class="mobile-tool-panel"><div class="mobile-scan-row mobile-scan-row-camera-left"><button type="button" class="mobile-camera-btn" id="mobilePriceCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button><input id="mobilePriceInput" class="mobile-scan-input" value="${escapeHtml(mobilePriceQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"></div><div class="mobile-camera-slot" id="mobilePriceCameraSlot"></div><div id="mobilePriceResult">${mobilePriceResultHtml()}</div></section>`:`<div class="mobile-inventory-workflow"><div class="mobile-inventory-steps" role="tablist" aria-label="ขั้นตอนตรวจและแก้ไขสต๊อก"><button type="button" class="mobile-inventory-step ${mobileInventoryStep==='inspection'?'active':''}" data-mobile-inventory-step="inspection" role="tab" aria-selected="${mobileInventoryStep==='inspection'}"><span class="mobile-inventory-step-number">1</span><span>ตรวจนับ</span></button><button type="button" class="mobile-inventory-step ${mobileInventoryStep==='stock'?'active':''}" data-mobile-inventory-step="stock" role="tab" aria-selected="${mobileInventoryStep==='stock'}"><span class="mobile-inventory-step-number">2</span><span>สรุปและยืนยัน</span></button></div>${mobileInventoryStep==='inspection'?renderMobileInspectionPanel(lists):renderMobileStockEditPanel(lists)}</div>`}
     <header class="mobile-tools-head"><div class="mobile-tools-actions"><button type="button" class="mobile-tools-logout" id="mobileToolsLogout">ออกจากระบบ</button><button type="button" class="mobile-tools-refresh" id="mobileToolsRefresh" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล" ${mobileIsOnline()?'':'disabled'}><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg></button></div><div class="mobile-tools-brand"><div><h1>SAPURI</h1><span>${escapeHtml(user?.firstName||user?.username||'ผู้ใช้งาน')}</span><span class="mobile-tools-context" id="mobileDataStatus" data-state="${mobileStatus.state}" aria-live="polite">${escapeHtml(mobileStatus.text)}</span></div><div class="mobile-tools-logo"><img src="/sapuri-brand-logo.webp" alt="SAPURI"></div></div></header>
   </main>`;
@@ -13603,6 +13743,7 @@ const RENDERERS = {
 };
 
 function render(){
+  captureMobileProductDraft();
   scheduleProductReviewRefresh();
   if(!renderLoginState()){ closeMobileCameraScanner(); return; }
   TODAY_STR=currentDateStr();
@@ -13659,6 +13800,7 @@ function render(){
   prepareScrollableTables(mainElement);
   attachEvents();
   syncTopbarFormActions();
+  attachMobileProductEditorEvents();
   attachOnDemandStateEvents(onDemandState);
   if(posSalesHistoryOnDemandState) attachOnDemandStateEvents(posSalesHistoryOnDemandState);
   requestAnimationFrame(()=>refreshScrollableTableHeights(mainElement));
@@ -13741,6 +13883,8 @@ function checkNegativeStockToast(pid){
   if(totalInCart > p.stock) showToast('สินค้าติดลบ', 'danger-top');
 }
 function attachMobilePriceResultEvents(){
+  document.getElementById('mobileEditProduct')?.addEventListener('click',()=>openMobileProductEditor(mobilePriceProductId));
+  document.getElementById('mobileCreateProductFromCode')?.addEventListener('click',()=>openMobileProductEditor('new',mobilePriceQuery));
   document.querySelectorAll('[data-mobile-price-product]').forEach(button=>button.addEventListener('click',()=>{
     const product=products.find(entry=>Number(entry.id)===Number(button.dataset.mobilePriceProduct));
     if(product){ mobileSelectPriceProduct(product); render(); if(!mobileCameraSession) setTimeout(()=>document.getElementById('mobilePriceInput')?.select(),0); }
@@ -14070,6 +14214,8 @@ function attachEvents(){
     if(confirm('ยืนยันการออกจากระบบใช่หรือไม่?')){ closeMobileCameraScanner(); logoutSystem(); }
   });
   const mobileToolsRefresh=document.getElementById('mobileToolsRefresh');
+  document.getElementById('mobileNewProduct')?.addEventListener('click',()=>openMobileProductEditor());
+  document.getElementById('mobileProductSyncDetails')?.addEventListener('click',openSyncDetailsModal);
   if(mobileToolsRefresh) mobileToolsRefresh.addEventListener('click',()=>refreshMobileToolsData(mobileToolsRefresh));
   document.getElementById('mobileInstallApp')?.addEventListener('click',requestMobilePwaInstall);
   document.querySelectorAll('[data-mobile-tool]').forEach(button=>button.addEventListener('click',()=>{
@@ -15719,9 +15865,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     });
   });
   const cancelProductBtn = document.getElementById('cancelProductBtn');
-  if(cancelProductBtn) cancelProductBtn.addEventListener('click', ()=>{ editingProductId=null; render(); });
+  if(cancelProductBtn) cancelProductBtn.addEventListener('click', ()=>{ if(mobileProductEditor){ closeMobileProductEditor(); return; } editingProductId=null; render(); });
   const changeBaseUnitBtn=document.getElementById('changeBaseUnitBtn');
-  if(changeBaseUnitBtn) changeBaseUnitBtn.addEventListener('click',openProductBaseUnitChangeModal);
+  if(changeBaseUnitBtn) changeBaseUnitBtn.addEventListener('click',()=>mobileProductEditor?openMobileBaseUnitChange():openProductBaseUnitChangeModal());
   // toggle sections
   [['f_multiunit','multiunitBody'],['f_extrabc_toggle','extraBcBody'],['f_vendorbc_toggle','vendorBcBody']].forEach(([tog,body])=>{
     const t=document.getElementById(tog);
@@ -16174,6 +16320,7 @@ function printTransfer(id){
 }
 
 function bindUnitRowEvents(){
+  decorateMobileProductUnitRows();
   // ลบแถว
   document.querySelectorAll('#unitRows .u_del').forEach(b=>{
     b.onclick = ()=>{
@@ -17714,6 +17861,17 @@ function deleteContact(id){
 
 
 async function saveProduct(){
+  const mobileEditor=mobileProductEditor;
+  if(mobileEditor){
+    if(mobileEditor.saving||!canEditMobilePrice()||!mobileRequireOnline('บันทึกสินค้า')) return;
+    captureMobileProductDraft();
+    const current=products.find(product=>product.id===editingProductId);
+    if(editingProductId!=='new'&&(!current||JSON.stringify(productMetadataToRow(current))!==mobileEditor.baseline)){
+      showToast('ข้อมูลสินค้านี้เปลี่ยนระหว่างแก้ไข กรุณาออกแล้วเปิดใหม่เพื่อตรวจข้อมูลล่าสุด','danger-top'); return;
+    }
+    const invalid=document.querySelector('#mobileProductEditor input[type="number"]:invalid');
+    if(invalid){ showToast('กรุณากรอกราคาและอัตราแปลงเป็นตัวเลขที่ถูกต้อง','danger-top'); invalid.focus(); return; }
+  }
   const g = id => document.getElementById(id);
   const name = g('f_name').value.trim();
   const unit = g('f_unit').value.trim();
@@ -17736,7 +17894,7 @@ async function saveProduct(){
     barcode: r.barcode,
   }));
   const validBarcodeUnits=new Set([mainUnitName,...units.map(item=>item.sub)].filter(Boolean));
-  const extraBarcodeRows=Array.from(document.querySelectorAll('#extraBarcodeRows .bcrow')).map(row=>{
+  const extraBarcodeRows=mobileEditor?extraBarcodeEntries(mobileEditor.draft):Array.from(document.querySelectorAll('#extraBarcodeRows .bcrow')).map(row=>{
     const requestedUnit=String(row.querySelector('.eb_unit')?.value||'').trim();
     return {
       unit:validBarcodeUnits.has(requestedUnit)?requestedUnit:mainUnitName,
@@ -17763,7 +17921,7 @@ async function saveProduct(){
     barcode: g('f_barcode').value.trim(),
     extraBarcodes: extraBarcodeRows.map(item=>item.code),
     extraBarcodeUnits: extraBarcodeRows.map(item=>item.unit),
-    vendorBarcodes: Array.from(document.querySelectorAll('#vendorBarcodeRows .bcrow')).map(r=>({vendor:r.querySelector('.vb_vendor').value, code:r.querySelector('.vb_code').value.trim()})).filter(v=>v.code),
+    vendorBarcodes: mobileEditor?(mobileEditor.draft.vendorBarcodes||[]).map(row=>({...row})):Array.from(document.querySelectorAll('#vendorBarcodeRows .bcrow')).map(r=>({vendor:r.querySelector('.vb_vendor').value, code:r.querySelector('.vb_code').value.trim()})).filter(v=>v.code),
     wh: existing?.wh||Number(activeWarehouseId),
     desc: g('f_desc').value.trim(),
     // Product metadata never changes stock. New products start at zero and
@@ -17779,6 +17937,17 @@ async function saveProduct(){
     showToast('สินค้านี้อยู่ในบิลที่กำลังเปิด กรุณาลบออกจากบิลก่อนปิดใช้งาน','danger');
     return;
   }
+  if(mobileEditor){
+    const error=mobileProductValidationError(data,existing);
+    if(error){ showToast(error,'danger-top'); return; }
+    if(multiunit&&collectUnitRowsFromDOM().some(row=>!row.sub&&(row.per||row.price||row.cost||row.barcode))){
+      showToast('กรุณาเลือกชื่อหน่วยสินค้าเพิ่มเติมให้ครบ','danger-top'); return;
+    }
+    mobileEditor.saving=true;
+    g('mobileProductEditor').disabled=true;
+    g('saveProductBtn').textContent='กำลังบันทึก...';
+  }
+  try{
   let savedProductId=null;
   let productChangeType='update';
   if(editingProductId==='new'){
@@ -17794,14 +17963,22 @@ async function saveProduct(){
     products.push({id,...data,sku,_clientCreateToken:generateProductCreateToken()});
     savedProductId=id;
     productChangeType='insert';
-    showToast(`เพิ่มสินค้า "${name}" แล้ว`);
+    if(!mobileEditor) showToast(`เพิ่มสินค้า "${name}" แล้ว`);
   } else {
     const p = products.find(x=>x.id===editingProductId);
     savedProductId=p.id;
     const catalogExpiry=p._catalogExpiry;
     Object.assign(p, data);
     p._catalogExpiry=catalogExpiry;
-    showToast(`บันทึกการแก้ไข "${name}" แล้ว`);
+    if(!mobileEditor) showToast(`บันทึกการแก้ไข "${name}" แล้ว`);
+  }
+  if(mobileEditor){
+    // Keep the same identity/token on a cache or network retry: never create twice.
+    editingProductId=savedProductId;
+    const savedProduct=products.find(product=>product.id===savedProductId);
+    mobileEditor.baseline=JSON.stringify(productMetadataToRow(savedProduct));
+    mobileEditor.draft.sku=savedProduct.sku;
+    g('f_sku').value=savedProduct.sku;
   }
   if(data.active===false){
     favorites=normalizeFavorites(favorites.filter(entry=>favoriteProductId(entry)!==Number(savedProductId)),products);
@@ -17810,8 +17987,31 @@ async function saveProduct(){
   rebuildProductLookupMaps();
   const cached=await persistWorkspaceData({productChanges:productChangeType==='insert'?{insertedIds:[savedProductId]}:{updatedIds:[savedProductId]}});
   if(!cached){ showToast('บันทึกข้อมูลแล้ว แต่เก็บสำเนาสินค้าในเครื่องไม่สำเร็จ กรุณาอย่าเพิ่งปิดหน้านี้','danger-top'); return; }
+  if(mobileEditor){
+    const savedProduct=products.find(product=>product.id===savedProductId);
+    mobileProductEditor=null;
+    mobileSelectPriceProduct(savedProduct,savedProduct.unit);
+    setMobileDataStatus('syncing','บันทึกในเครื่องแล้ว · กำลังซิงก์');
+  }
   editingProductId = null;
   render();
+  if(mobileEditor){
+    await syncCoreDataToSupabase();
+    const pending=productDirtyOperations.has(String(savedProductId));
+    setMobileDataStatus(pending?'error':'online',pending?'สินค้ายังรอซิงก์':'บันทึกและซิงก์สินค้าแล้ว');
+    showToast(pending?'เก็บข้อมูลในเครื่องแล้ว แต่ยังรอซิงก์ กรุณาตรวจรายละเอียดก่อนปิดแอป':'บันทึกและซิงก์สินค้าแล้ว',pending?'danger-top':undefined);
+    if(currentTab==='mobiletools'&&!mobileProductEditor) render();
+  }
+  }catch(error){
+    if(!mobileEditor) throw error;
+    showToast(error?.message||'บันทึกสินค้าไม่สำเร็จ กรุณาลองอีกครั้ง','danger-top');
+  }finally{
+    if(mobileEditor&&mobileProductEditor===mobileEditor){
+      mobileEditor.saving=false;
+      const form=g('mobileProductEditor'); if(form) form.disabled=false;
+      const button=g('saveProductBtn'); if(button) button.textContent='บันทึก';
+    }
+  }
 }
 
 function valueReferencesProduct(value,productId){
@@ -19482,6 +19682,7 @@ if('serviceWorker' in navigator){
 }
 
 function refreshMobileToolsOnResume(){
+  if(mobileProductEditor||mobileProductOpening) return false;
   if(document.visibilityState==='hidden'||currentTab!=='mobiletools'||!loggedInUser()||!mobileIsOnline()) return false;
   if(Date.now()-mobileLastRefreshAt<30000) return false;
   refreshMobileToolsData(null,{silent:true});

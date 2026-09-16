@@ -1806,6 +1806,37 @@
   }
   /* หน้ามือถือแยกจากหน้าเดสก์ท็อป: แสดงเฉพาะเช็คราคาและรายการตรวจสินค้า */
   .mobile-tools-page{max-width:760px;margin:0 auto;padding:20px;min-height:100%;}
+  .mobile-product-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px;}
+  .mobile-product-toolbar .btn,.mobile-edit-product,.mobile-create-from-code{min-height:44px;}
+  .mobile-edit-product{width:100%;margin:10px 0 14px;}
+  .mobile-create-from-code{display:block;margin:14px auto 0;white-space:normal;}
+  .mobile-product-editor{border:0;margin:0;padding:0;min-width:0;}
+  .mobile-product-heading{margin:4px 0 18px;}
+  .mobile-product-heading h1{font-size:23px;margin:0 0 4px;}
+  .mobile-product-heading span{font-size:13px;color:var(--text-muted);}
+  .mobile-product-editor .panel{padding:16px;margin-bottom:14px;border-radius:14px;}
+  .mobile-product-editor .product-category-grid,.mobile-product-editor .product-identity-grid,.mobile-product-editor .prodrow,.mobile-product-editor .product-main-unit-grid{grid-template-columns:minmax(0,1fr);gap:14px;}
+  .mobile-product-editor .field input:not([type="checkbox"]),.mobile-product-editor .field select,.mobile-product-editor .field textarea,.mobile-product-editor .unitrow input,.mobile-product-editor .unitrow select{width:100%;min-width:0;min-height:46px;font-size:16px;box-sizing:border-box;}
+  .mobile-product-editor .product-base-unit-action{width:100%;height:44px;margin:0;gap:8px;justify-content:center;}
+  .mobile-product-editor .product-base-unit-action:after{content:'เปลี่ยนหน่วยหลัก';font-size:14px;}
+  .mobile-product-editor .product-extra-unit-toggle .psub{display:none;}
+  .mobile-product-editor .product-pricing-panel .unitrow{grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;padding:14px 12px;margin:0 0 12px;background:#F8F5F3;border:1px solid var(--border);border-radius:12px;}
+  .mobile-product-editor .unitrow-eq{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-column:1/-1;gap:8px;}
+  .mobile-product-editor .unitrow-eq .u_eq{display:block;}
+  .mobile-product-editor .product-pricing-panel .unitrow-eq .u_per{grid-column:1/3;width:100%!important;}
+  .mobile-product-editor .product-pricing-panel .unitrow-eq .u_base{grid-column:3;min-width:86px;width:100%;}
+  .mobile-unit-field{display:flex;flex-direction:column;gap:5px;font-size:12px;font-weight:600;color:var(--text-muted);min-width:0;}
+  .mobile-unit-field:has(.u_barcode){grid-column:1/-1;}
+  .mobile-product-editor .product-pricing-panel .unitrow .u_del{grid-column:2;justify-self:end;width:44px;height:44px;font-size:22px;}
+  .mobile-product-editor #addUnitBtn{min-height:44px;width:100%;}
+  .mobile-product-form-actions{position:sticky;bottom:0;z-index:10;display:grid;grid-template-columns:1fr 1.6fr;gap:12px;margin:14px 0 0;padding:12px 0 max(12px,env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--border);}
+  .mobile-product-form-actions .btn{min-height:48px;font-size:16px;}
+  .mobile-base-unit-overlay{padding:12px;}
+  .mobile-base-unit-overlay .modal{width:100%!important;max-width:560px;max-height:92dvh!important;}
+  .mobile-base-unit-overlay .formgrid3{grid-template-columns:minmax(0,1fr);}
+  .mobile-base-unit-overlay input{font-size:16px;min-height:46px;}
+  .mobile-base-unit-overlay .payment-actions{position:sticky;bottom:0;background:#fff;gap:10px;}
+  .mobile-base-unit-overlay .payment-actions .btn{min-height:46px;white-space:normal;}
   .mobile-tools-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:16px;}
   .mobile-tools-brand{display:flex;align-items:center;gap:10px;min-width:0;}
   .mobile-tools-brand>div:first-child{min-width:0;text-align:right;}
