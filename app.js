@@ -159,6 +159,7 @@ function syncEventCause(row={}){
   if(/(jwt|401|refresh token|not authenticated)/.test(text)) return 'การเข้าสู่ระบบหมดอายุ กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่';
   if(/(42501|permission denied|row-level security|rls)/.test(text)) return 'บัญชีนี้ไม่มีสิทธิ์อ่านหรือบันทึกข้อมูลส่วนนี้';
   if(/(revision_conflict|40001|ถูกแก้ไขจากอีกเครื่อง)/.test(text)) return 'ข้อมูลในเครื่องต่างจากเซิร์ฟเวอร์ การแก้ไขยังเก็บไว้ในเครื่อง กรุณาตรวจสอบก่อนโหลดข้อมูลล่าสุด';
+  if(/บาร์โค้ด.*มีอยู่ในสินค้าอื่น|duplicate_product_barcode|product_barcode_unique/.test(text)) return 'บาร์โค้ดซ้ำกับสินค้าอื่น กรุณาแก้หรือนำบาร์โค้ดที่ซ้ำออกก่อนบันทึกใหม่';
   if(/(23505|duplicate key|already exists)/.test(text)) return 'มีรหัสข้อมูลซ้ำกับรายการที่มีอยู่แล้ว';
   if(/(23503|foreign key)/.test(text)) return 'ไม่พบข้อมูลที่รายการนี้อ้างอิงอยู่';
   return message;
@@ -1394,6 +1395,13 @@ function productInsertCollisionError(id){
   error.productId=id;
   return error;
 }
+function productBarcodeConstraintError(error){
+  if(String(error?.code)!=='23505'||!/product_barcode_unique|duplicate_product_barcode/i.test([error.message,error.hint,error.constraint].join(' '))) return null;
+  let detail={};try{detail=JSON.parse(error.details||'{}');}catch{}
+  return Object.assign(new Error(error.message||'บาร์โค้ดซ้ำกับสินค้าอื่น กรุณาแก้บาร์โค้ดก่อนบันทึกใหม่'),{
+    code:'DUPLICATE_PRODUCT_BARCODE',productId:detail.productId,recordId:detail.productId,
+  });
+}
 async function verifyProductInsertChunk(table,rows){
   const ids=(rows||[]).map(row=>row.id);
   const {data,error}=await sb.from(table).select('id,sku,name,category,brand,product_type,warehouse_id,cost,price,unit,data').in('id',ids);
@@ -1426,13 +1434,19 @@ async function insertRowsInChunks(table,rows){
     let pending=rows.slice(i,i+200),lastError=null;
     for(const row of pending){
       const saved=paused.get(String(row.id));
-      if(saved?.fingerprint===canonicalProductInsertSignature(row)) return Object.assign(new Error(saved.message),{code:'REVISION_CONFLICT',productId:row.id,recordId:row.id,syncPaused:true});
+      if(saved?.fingerprint===canonicalProductInsertSignature(row)) return Object.assign(new Error(saved.message),{code:saved.code||'REVISION_CONFLICT',productId:row.id,recordId:row.id,syncPaused:true});
     }
     for(let attempt=0;attempt<3&&pending.length;attempt++){
       const {error}=await sb.from(table).insert(pending);
       if(!error){ pending.forEach(row=>paused.delete(String(row.id))); pending=[]; break; }
       lastError=error;
       if(table!=='products') return error;
+      const duplicate=productBarcodeConstraintError(error);
+      if(duplicate){
+        const row=pending.find(row=>String(row.id)===String(duplicate.productId));
+        if(row) paused.set(String(row.id),{fingerprint:canonicalProductInsertSignature(row),code:duplicate.code,message:duplicate.message});
+        return duplicate;
+      }
       const verification=await verifyProductInsertChunk(table,pending);
       if(verification.error){
         if(verification.error.code==='REVISION_CONFLICT'){
@@ -1463,8 +1477,18 @@ async function updateProductMetadataInChunks(productRows,onAcknowledged=()=>{}){
       const row=productMetadataToRow(product),{id,revision,...changes}=row;
       const key=String(id),fingerprint=stable(row);
       if(paused.get(key)===fingerprint) return {data:null,paused:true};
+      const saved=paused.get(key);
+      if(saved?.fingerprint===fingerprint) return {data:null,error:Object.assign(new Error(saved.message),{code:saved.code,productId:id,recordId:id,syncPaused:true})};
+      const checkBarcodeError=result=>{
+        if(!result.error) return result;
+        const duplicate=productBarcodeConstraintError(result.error);
+        if(!duplicate) return result;
+        duplicate.productId=id; duplicate.recordId=id;
+        paused.set(key,{fingerprint,code:duplicate.code,message:duplicate.message});
+        return {...result,error:duplicate};
+      };
       const result=await sb.from('products').update(changes).eq('id',id).eq('revision',revision).select('id,revision').maybeSingle();
-      if(result.error||result.data){ if(result.data) paused.delete(key); return result; }
+      if(result.error||result.data){ if(result.data) paused.delete(key); return checkBarcodeError(result); }
       const remote=await sb.from('products').select('*').eq('id',id).maybeSingle();
       if(remote.error) return remote;
       if(remote.data){
@@ -1482,7 +1506,7 @@ async function updateProductMetadataInChunks(productRows,onAcknowledged=()=>{}){
         // catalog fields still match our known baseline, then use CAS again.
         if(previous&&content(previous)===content(canonical)){
           const retried=await sb.from('products').update(changes).eq('id',id).eq('revision',remote.data.revision).select('id,revision').maybeSingle();
-          if(retried.error||retried.data){ if(retried.data) paused.delete(key); return retried; }
+          if(retried.error||retried.data){ if(retried.data) paused.delete(key); return checkBarcodeError(retried); }
         }
       }
       paused.set(key,fingerprint);
@@ -10605,6 +10629,41 @@ function barcodePrintBarcodeOwners(){
   return owners;
 }
 
+function productBarcodeCodes(product){
+  const codes=[product?.barcode,...extraBarcodeEntries(product).map(item=>item.code),
+    ...(product?.vendorBarcodes||[]).map(item=>item?.code),...(product?.units||[]).map(item=>item?.barcode)];
+  return [...new Set(codes.map(code=>String(code??'').trim().toLowerCase()).filter(Boolean))].sort();
+}
+function productBarcodeConflictMessage(code,owner){
+  return `บาร์โค้ด ${code} มีอยู่ในสินค้าอื่นแล้ว${owner?.name?`: ${owner.name}${owner.sku?` (${owner.sku})`:''}`:''} กรุณาใช้บาร์โค้ดอื่น`;
+}
+function productBarcodeValidationError(product,existingId=null){
+  const codes=new Set(productBarcodeCodes(product));
+  const conflict=barcodePrintBarcodeOwners().find(owner=>String(owner.pid)!==String(existingId)&&codes.has(String(owner.code).trim().toLowerCase()));
+  return conflict?productBarcodeConflictMessage(conflict.code,products.find(item=>String(item.id)===String(conflict.pid))):'';
+}
+async function loadServerBarcodeOwners(codes){
+  const unique=[...new Set(codes)];
+  if(!unique.length) return [];
+  if(!navigator.onLine) throw new Error('กรุณาเชื่อมต่ออินเทอร์เน็ตเพื่อตรวจบาร์โค้ดซ้ำก่อนบันทึกสินค้า');
+  const owners=[];
+  for(let offset=0;offset<unique.length;offset+=1000){
+    const {data,error}=await sb.rpc('find_product_barcode_owners',{p_codes:unique.slice(offset,offset+1000)});
+    if(error) throw new Error('ตรวจบาร์โค้ดกับเซิร์ฟเวอร์ไม่สำเร็จ ยังไม่ได้บันทึกสินค้า กรุณาลองใหม่');
+    owners.push(...(data||[]));
+  }
+  return owners;
+}
+async function assertProductBarcodesAvailable(product,existing=null){
+  const localError=productBarcodeValidationError(product,existing?.id);
+  if(localError) throw new Error(localError);
+  const codes=productBarcodeCodes(product);
+  if(existing&&JSON.stringify(codes)===JSON.stringify(productBarcodeCodes(existing))) return;
+  const owners=await loadServerBarcodeOwners(codes);
+  const conflict=owners.find(owner=>String(owner.product_id)!==String(existing?.id));
+  if(conflict) throw new Error(productBarcodeConflictMessage(conflict.barcode,conflict));
+}
+
 function generateInternalBarcode(product,unitName){
   const options=barcodePrintUnitOptions(product);
   const optionIndex=Math.max(0,options.findIndex(option=>option.name===unitName));
@@ -15672,6 +15731,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
           showToast(`บาร์โค้ด ${requested} ถูกใช้กับ ${conflictProduct?.name||'สินค้าอื่น'} แล้ว`,'danger-top');
           return;
         }
+        const draft={...p,barcode:unitRow?p.barcode:requested,units:(p.units||[]).map(item=>item===unitRow?{...item,barcode:requested}:item)};
+        try{ await assertProductBarcodesAvailable(draft,p); }
+        catch(error){ el.value=previous; showToast(error.message,'danger-top'); return; }
         if(unitRow) unitRow.barcode=requested;
         else p.barcode=requested;
       } else if(field==='name'){
@@ -17904,6 +17966,7 @@ function deleteContact(id){
 
 
 async function saveProduct(){
+  if(saveProduct.saving) return;
   const mobileEditor=mobileProductEditor;
   if(mobileEditor){
     if(mobileEditor.saving||!canEditMobilePrice()||!mobileRequireOnline('บันทึกสินค้า')) return;
@@ -17980,6 +18043,8 @@ async function saveProduct(){
     showToast('สินค้านี้อยู่ในบิลที่กำลังเปิด กรุณาลบออกจากบิลก่อนปิดใช้งาน','danger');
     return;
   }
+  const barcodeError=productBarcodeValidationError(data,existing?.id);
+  if(barcodeError){ showToast(barcodeError,'danger-top'); return; }
   if(mobileEditor){
     const error=mobileProductValidationError(data,existing);
     if(error){ showToast(error,'danger-top'); return; }
@@ -17990,7 +18055,20 @@ async function saveProduct(){
     g('mobileProductEditor').disabled=true;
     g('saveProductBtn').textContent='กำลังบันทึก...';
   }
+  saveProduct.saving=true;
+  const saveButton=g('saveProductBtn');
+  const saveTarget=editingProductId;
+  const expectedMetadata=existing?mobileProductEditSignature(existing):'';
+  if(saveButton) saveButton.disabled=true;
   try{
+  await assertProductBarcodesAvailable(data,existing);
+  // A slow preflight must never save into a different form after Cancel/navigation.
+  if(!saveButton?.isConnected||editingProductId!==saveTarget||mobileProductEditor!==mobileEditor) return;
+  if(existing&&mobileProductEditSignature(products.find(product=>product.id===saveTarget))!==expectedMetadata){
+    showToast('ข้อมูลสินค้านี้เปลี่ยนระหว่างตรวจสอบ กรุณาเปิดใหม่เพื่อตรวจข้อมูลล่าสุด','danger-top'); return;
+  }
+  const latestBarcodeError=productBarcodeValidationError(data,existing?.id);
+  if(latestBarcodeError){ showToast(latestBarcodeError,'danger-top'); return; }
   let savedProductId=null;
   let productChangeType='update';
   if(editingProductId==='new'){
@@ -18047,9 +18125,10 @@ async function saveProduct(){
     if(currentTab==='mobiletools'&&!mobileProductEditor) render();
   }
   }catch(error){
-    if(!mobileEditor) throw error;
     showToast(error?.message||'บันทึกสินค้าไม่สำเร็จ กรุณาลองอีกครั้ง','danger-top');
   }finally{
+    saveProduct.saving=false;
+    if(saveButton?.isConnected) saveButton.disabled=false;
     if(mobileEditor&&mobileProductEditor===mobileEditor){
       mobileEditor.saving=false;
       const form=g('mobileProductEditor'); if(form) form.disabled=false;

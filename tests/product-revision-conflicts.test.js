@@ -5,7 +5,8 @@ const vm=require('node:vm');
 const path=require('node:path');
 const source=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
 const start=source.indexOf('async function updateProductMetadataInChunks(');
-const code=source.slice(start,source.indexOf('function revisionConflictError(',start));
+const barcodeHelperStart=source.indexOf('function productBarcodeConstraintError(');
+const code=source.slice(barcodeHelperStart,source.indexOf('async function verifyProductInsertChunk(',barcodeHelperStart))+source.slice(start,source.indexOf('function revisionConflictError(',start));
 const toRow=p=>({id:p.id,name:p.name,price:p.price,data:p.data||{},revision:p._revision});
 function setup(remoteRows,baseline=[]){
   const remote=new Map(remoteRows.map(r=>[r.id,structuredClone(r)]));

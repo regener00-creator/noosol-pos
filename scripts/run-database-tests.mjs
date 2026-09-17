@@ -10,6 +10,7 @@ const directory=await fs.mkdtemp(path.join(os.tmpdir(),'pepos-isolated-pg-'));
 const probe=net.createServer(); await new Promise(resolve=>probe.listen(0,'127.0.0.1',resolve));
 const port=probe.address().port; await new Promise(resolve=>probe.close(resolve));
 const postgres=new EmbeddedPostgres({databaseDir:directory,port,user:'postgres',password:'isolated-test-only',persistent:true,
+  initdbFlags:['--encoding=UTF8','--locale=C'],
   postgresFlags:['-h','127.0.0.1'],onLog:()=>{},onError:()=>{}});
 let client;
 try{
@@ -47,6 +48,8 @@ try{
   console.log('All baseline and migration SQL applied to isolated PostgreSQL');
   const suite=await import('../tests/database-integrity.mjs');
   await suite.run({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
+  const barcodeSuite=await import('../tests/product-barcode-integrity.mjs');
+  await barcodeSuite.run({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
 }finally{
   await client?.end(); await postgres.stop();
   // Only remove the exact newly-created test cluster, never an env-provided path.

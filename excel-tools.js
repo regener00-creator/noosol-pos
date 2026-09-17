@@ -489,9 +489,7 @@ async function importProductsFromExcel(file){
   products.forEach(p=>{ const s=String(p.sku||'').trim().toLowerCase(); if(s) skuOwner.set(s,p.id); });
   const barcodeOwner=new Map();
   products.forEach(p=>{
-    [p.barcode,...(p.extraBarcodes||[]),...(p.vendorBarcodes||[]).map(v=>v.code),...(p.units||[]).map(u=>u.barcode)]
-      .map(c=>String(c||'').trim().toLowerCase()).filter(Boolean)
-      .forEach(c=>barcodeOwner.set(c,p.id));
+    productBarcodeCodes(p).forEach(c=>barcodeOwner.set(c,p.id));
   });
 
   const toCreate=[];
@@ -602,6 +600,19 @@ async function importProductsFromExcel(file){
       normalizedRowBarcodes.forEach(code=>barcodeOwner.set(code,id));
     }
   });
+
+  // A different device may have added a barcode since this client last loaded.
+  // Check before changing any local catalog, supplier or inventory data.
+  try{
+    const candidates=[...toCreate,...toUpdate.map(({existing,data})=>({...data,id:existing.id}))];
+    const remoteOwners=await loadServerBarcodeOwners(candidates.flatMap(productBarcodeCodes));
+    for(const collection of [toCreate,toUpdate]) for(let i=collection.length-1;i>=0;i--){
+      const entry=collection[i],product=entry.data||entry,id=entry.existing?.id??entry.id;
+      const codes=new Set(productBarcodeCodes(product));
+      const conflict=remoteOwners.find(owner=>String(owner.product_id)!==String(id)&&codes.has(owner.barcode));
+      if(conflict){ skipped.push(`${product.name}: ${productBarcodeConflictMessage(conflict.barcode,conflict)}`); collection.splice(i,1); }
+    }
+  }catch(error){ showToast(error.message,'danger-top'); return; }
 
   if(!toCreate.length&&!toUpdate.length){
     alert(`ไม่สามารถนำเข้าสินค้าได้\n\n${skipped.slice(0,8).join('\n')}${skipped.length>8?`\nและอีก ${skipped.length-8} รายการ`:''}`);
