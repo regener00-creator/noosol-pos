@@ -3,6 +3,7 @@ const fs=require('node:fs');
 const http=require('node:http');
 const path=require('node:path');
 const {chromium}=require('playwright');
+const {installIsolatedBrowser,waitForIsolatedBootstrap}=require('./isolated-browser');
 const root=path.join(__dirname,'..');
 const server=http.createServer((req,res)=>{
   const file=path.resolve(root,'.'+(req.url==='/'?'/index.html':new URL(req.url,'http://localhost').pathname));
@@ -19,14 +20,10 @@ let browser;
   page.setDefaultTimeout(7000);
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   // Block every external request: this test can NEVER create a real sale.
-  await page.route('https://**',route=>route.fulfill({contentType:'text/javascript',body:''}));
-  await page.route('https://cdn.jsdelivr.net/npm/@supabase/**',route=>route.fulfill({contentType:'text/javascript',body:`
-    (()=>{const query=new Proxy({},{get(_t,p){if(p==='then')return resolve=>resolve({data:null,error:null});return ()=>query;}});
-      window.supabase={createClient:()=>new Proxy({auth:{getSession:async()=>{window.testAuthStarted=true;return {data:{session:null}};},onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})}},{get(t,p){return p in t?t[p]:()=>query;}})};})();
-  `}));
+  await installIsolatedBrowser(page);
   await page.goto('http://127.0.0.1:'+server.address().port,{waitUntil:'domcontentloaded'});
   // Let bootstrap finish its IndexedDB/auth work before injecting test state.
-  await page.waitForFunction(()=>window.testAuthStarted===true);
+  await waitForIsolatedBootstrap(page);
   await page.evaluate(async()=>{
     await ensurePageCodeLoaded('quotation');await ensurePageCodeLoaded('checkout');
     renderLoginState=()=>true;renderSidebar=()=>{};ensureOnDemandDataForTab=()=>({status:'ready'});

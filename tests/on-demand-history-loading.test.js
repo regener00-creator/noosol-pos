@@ -40,10 +40,8 @@ assert.match(syncLoader, /if\(documentLoadStates\[table\]\?\.loaded\|\|pendingDo
   'unopened document tables must never be compared with empty local arrays');
 
 const backup = section('async function storeBackupDataSnapshot(){', 'function storeBackupFileName(){');
-assert.match(backup, /loadAllSalesForBackup\(\)/,
-  'backup must fully hydrate sales before taking its snapshot');
-assert.match(backup, /loadAllDocumentsForBackup\(\)/,
-  'backup must fully hydrate documents before taking its snapshot');
+assert.match(backup, /sb\.rpc\('export_store_backup'\)/,'backup uses one consistent server snapshot');
+assert.doesNotMatch(backup, /workspaceSnapshot\(|loadAllSalesForBackup\(|loadAllDocumentsForBackup\(/,'backup must not mix client caches and separately fetched history');
 
 assert.match(source, /loadCompleteSalesRangeBtn/,
   'truncated report windows must offer an explicit complete-range load');

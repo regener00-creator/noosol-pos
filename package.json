@@ -5,7 +5,8 @@
   "description": "Static regression tests for the PEPOS single-page application",
   "scripts": {
     "build": "node tests/check-inline-js.js && node tests/run-node-tests.js && node scripts/build-static.mjs",
-    "test": "pnpm run test:static && pnpm run test:browser",
+    "test": "pnpm run test:static && pnpm run test:database && pnpm run test:browser",
+    "test:database": "node scripts/run-database-tests.mjs",
     "test:static": "node tests/check-inline-js.js && node tests/run-node-tests.js",
     "test:browser": "node tests/run-browser-tests.js",
     "check:migrations": "node scripts/check-migration-parity.mjs",
@@ -13,7 +14,9 @@
   },
   "devDependencies": {
     "@supabase/supabase-js": "2.111.0",
+    "embedded-postgres": "17.6.0-beta.15",
     "esbuild": "0.28.2",
+    "pg": "8.16.3",
     "playwright": "1.62.1"
   },
   "engines": {

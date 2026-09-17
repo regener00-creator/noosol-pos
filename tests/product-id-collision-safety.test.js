@@ -119,28 +119,23 @@ async function run() {
     [{error:{code:'23505',message:'duplicate key'}}],
     [{data:[{...rowA,name:'server P0',data:{...rowA.data,name:'server P0',stock:999}}],error:null}],
   );
-  assert.equal(await metadataDrift.sandbox.insertRowsInChunks('products',[rowA]),null,'same token may safely finish a later local metadata edit');
-  assert.equal(metadataDrift.updateCalls.length,1);
-  assert.deepEqual(metadataDrift.updateCalls[0].filters,[
-    {kind:'eq',column:'id',value:rowA.id},
-    {kind:'contains',column:'data',value:{_clientCreateToken:tokenA}},
-  ],'metadata retry update must be guarded by id and creation token');
-  assert.ok(!Object.hasOwn(metadataDrift.updateCalls[0].changes,'stock'),'retry reconciliation must never overwrite stock');
-  assert.ok(!Object.hasOwn(metadataDrift.updateCalls[0].changes.data,'stock'),'stock must also be removed from JSON metadata');
+  assert.equal((await metadataDrift.sandbox.insertRowsInChunks('products',[rowA]))?.code,'REVISION_CONFLICT','same token is identity, not permission to overwrite newer metadata');
+  assert.equal(metadataDrift.updateCalls.length,0,'no metadata or stock is written on ambiguous create retry');
+  assert.equal((await metadataDrift.sandbox.insertRowsInChunks('products',[rowA]))?.syncPaused,true,'unchanged conflict pauses without deleting the draft');
 
   const metadataUpdateFailure=createSyncSandbox(
     [{error:{code:'23505',message:'duplicate key'}}],
     [{data:[{...rowA,name:'server P0',data:{...rowA.data,name:'server P0'}}],error:null}],
     [{error:{code:'NETWORK',message:'metadata update ambiguous'}}],
   );
-  assert.equal((await metadataUpdateFailure.sandbox.insertRowsInChunks('products',[rowA]))?.code,'NETWORK','failed metadata reconciliation must keep the product dirty');
+  assert.equal((await metadataUpdateFailure.sandbox.insertRowsInChunks('products',[rowA]))?.code,'REVISION_CONFLICT','metadata reconciliation must keep the product dirty without trying an update');
 
   const metadataGuardLostRace=createSyncSandbox(
     [{error:{code:'23505',message:'duplicate key'}}],
     [{data:[{...rowA,name:'server P0',data:{...rowA.data,name:'server P0'}}],error:null}],
     [{data:[],error:null}],
   );
-  assert.equal((await metadataGuardLostRace.sandbox.insertRowsInChunks('products',[rowA]))?.code,'PRODUCT_ID_COLLISION','zero guarded rows means identity changed and must fail closed');
+  assert.equal((await metadataGuardLostRace.sandbox.insertRowsInChunks('products',[rowA]))?.code,'REVISION_CONFLICT','metadata drift fails closed without any update');
 
   const partialRetry=createSyncSandbox(
     [{error:{code:'23505',message:'duplicate key'}},{error:null}],

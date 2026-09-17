@@ -3,6 +3,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const http=require('node:http');
 const {chromium}=require('playwright');
+const {installIsolatedBrowser,waitForIsolatedBootstrap}=require('./isolated-browser');
 const root=path.join(__dirname,'..');
 const server=http.createServer((req,res)=>{
   const pathname=new URL(req.url,'http://localhost').pathname;
@@ -19,8 +20,9 @@ let browser;
   const page=await browser.newPage({viewport:{width:1440,height:950}});
   page.setDefaultTimeout(7000);
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.route('https://**',route=>route.fulfill({contentType:'text/javascript',body:''}));
+  await installIsolatedBrowser(page);
   await page.goto('http://127.0.0.1:'+server.address().port,{waitUntil:'domcontentloaded'});
+  await waitForIsolatedBootstrap(page);
   await page.evaluate(async()=>{
     await ensurePageCodeLoaded('cashbill');
     renderLoginState=()=>true;renderSidebar=()=>{};

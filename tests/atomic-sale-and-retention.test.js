@@ -63,8 +63,8 @@ assert.match(protectionMigration, /create trigger protect_posted_document_delete
 assert.match(protectionMigration, /create trigger protect_posted_document_delete before delete on public\.product_exchanges/);
 assert.match(protectionMigration, /create trigger protect_posted_document_delete before delete on public\.transfers/);
 
-assert.match(html, /const STORE_BACKUP_VERSION=2/);
-assert.match(html, /sb\.rpc\('export_store_inventory_backup'/);
+assert.match(html, /const STORE_BACKUP_VERSION=3/);
+assert.match(html, /sb\.rpc\('export_store_backup'/);
 assert.match(html, /sb\.rpc\('restore_store_backup_atomic'/);
 assert.doesNotMatch(html, /sb\.rpc\('restore_store_inventory_backup'/);
 assert.match(html, /inventoryBackup\.lots/);
