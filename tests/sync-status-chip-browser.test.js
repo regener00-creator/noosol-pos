@@ -18,7 +18,7 @@ let browser;
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const executablePath=[process.env.PEPOS_BROWSER_EXECUTABLE,'C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(p=>p&&fs.existsSync(p))||chromium.executablePath();
   browser=await chromium.launch({headless:true,executablePath});
-  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
+  const page=await browser.newPage({viewport:{width:1440,height:1000},hasTouch:true}),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   await installIsolatedBrowser(page);
   await page.goto(`http://127.0.0.1:${server.address().port}`,{waitUntil:'domcontentloaded'});
@@ -49,12 +49,17 @@ let browser;
     assert.equal(await chip.getAttribute('title'),'กดเพื่อดูรายละเอียดการซิงก์');
     await chip.click();
     await dialog.waitFor({state:'visible'});
+    const desktopBounds=await dialog.boundingBox();
+    assert.ok(desktopBounds.width>=1000&&desktopBounds.height>=800,'sync modal must override the smaller generic modal dimensions');
+    await page.mouse.click(2,2);
+    await page.mouse.click(1438,998);
+    assert.equal(await dialog.isVisible(),true,'clicking the backdrop must not close sync details');
     assert.match(await dialog.innerText(),/งานรอซิงก์ 1 รายการ/);
     await page.locator('.sync-detail-list details').waitFor();
     assert.match(await page.locator('.sync-detail-list').innerText(),/รายการยังเปิดจากเครื่องอื่น/);
     assert.equal(await page.evaluate(()=>window.testSyncCalls),0,'opening details must not start or retry a sync');
     assert.equal(await page.evaluate(()=>window.testPending.length),1,'opening details must not discard pending work');
-    await dialog.locator('.sync-detail-close').click();
+    await dialog.locator(state==='synced'?'.modal-close':'.sync-detail-close').click();
     await dialog.waitFor({state:'detached'});
   }
   await page.evaluate(()=>{
@@ -67,9 +72,39 @@ let browser;
   await dialog.getByRole('button',{name:'ลองซิงก์ใหม่',exact:true}).click();
   await page.waitForFunction(()=>document.querySelector('.sync-detail-summary')?.textContent==='ซิงก์ล่าสุดสำเร็จแล้ว');
   assert.equal(await page.evaluate(()=>window.testSyncCalls),1,'only the explicit retry button starts syncing');
-  await page.setViewportSize({width:390,height:844});
-  assert.equal(await dialog.evaluate(el=>el.getBoundingClientRect().width<=window.innerWidth),true);
   await dialog.locator('.sync-detail-close').click();
+  await page.evaluate(()=>{
+    window.testPending=Array.from({length:91},(_,i)=>({table:'contacts',id:'fixture-'+i,record:{name:'รายการข้อมูลทดสอบที่ต้องเก็บไว้ '+(i+1)}}));
+    syncUiLastError={table_name:'contacts',error_code:'REVISION_CONFLICT',record_id:'fixture-1',local:true,message:'รายการนี้ถูกแก้ไขจากอีกเครื่อง กรุณาตรวจเทียบข้อมูลก่อนดำเนินการ',occurred_at:new Date().toISOString()};
+  });
+  await chip.click();
+  await dialog.waitFor({state:'visible'});
+  if(process.argv.includes('--screenshots')){
+    fs.mkdirSync(path.join(root,'.tmp'),{recursive:true});
+    await page.screenshot({path:path.join(root,'.tmp','sync-modal-ui-20260917-desktop.png')});
+  }
+  for(const viewport of [{width:390,height:844},{width:768,height:1024},{width:844,height:390}]){
+    await page.setViewportSize(viewport);
+    await page.touchscreen.tap(2,2);
+    assert.equal(await dialog.isVisible(),true,'tapping outside on small screens must not dismiss details');
+    const bounds=await dialog.boundingBox();
+    assert.ok(bounds.x>=0&&bounds.y>=0&&bounds.x+bounds.width<=viewport.width&&bounds.y+bounds.height<=viewport.height,'modal fits the viewport');
+    for(const selector of ['.modal-close','.sync-detail-close','.sync-detail-retry']){
+      const button=await dialog.locator(selector).boundingBox();
+      assert.ok(button.y>=bounds.y&&button.y+button.height<=bounds.y+bounds.height,'close and retry buttons stay in view');
+    }
+    assert.equal(await dialog.locator('.sync-detail-body').evaluate(el=>el.scrollHeight>el.clientHeight),true,'long content scrolls within the modal');
+    await dialog.locator('.sync-detail-body').evaluate(el=>{el.scrollTop=el.scrollHeight;});
+    assert.equal(await dialog.locator('.sync-detail-body').evaluate(el=>el.scrollTop>0),true);
+    assert.equal(await page.evaluate(()=>window.testPending.length),91);
+    assert.equal(await page.evaluate(()=>window.testSyncCalls),1);
+    if(viewport.width===390&&process.argv.includes('--screenshots')){
+      await dialog.locator('.sync-detail-body').evaluate(el=>{el.scrollTop=0;});
+      await page.screenshot({path:path.join(root,'.tmp','sync-modal-ui-20260917-mobile.png')});
+    }
+  }
+  await dialog.locator('.modal-close').click();
+  await dialog.waitFor({state:'detached'});
   await page.setViewportSize({width:1440,height:1000});
   await page.evaluate(()=>{
     window.testPending=[];
@@ -81,5 +116,5 @@ let browser;
   assert.match(await dialog.innerText(),/โหลดประวัติจากเซิร์ฟเวอร์ไม่ได้/);
   assert.equal(await page.evaluate(()=>window.testSyncCalls),1);
   assert.deepEqual(errors,[]);
-  console.log('sync status chip browser: all states open details, keyboard/retry/history failure/mobile passed; no implicit sync or discarded work');
+  console.log('sync status chip browser: all states, enlarged modal, persistent backdrop, both close buttons, mobile/tablet/landscape scrolling, keyboard/retry/history failure passed; no implicit sync or discarded work');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.close();});

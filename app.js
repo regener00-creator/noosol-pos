@@ -249,11 +249,13 @@ function openSyncDetailsModal(){
   const localRows=syncUiLastError?[syncUiLastError]:[];
   overlay.innerHTML=`<section class="modal sync-detail-modal" role="dialog" aria-modal="true" aria-labelledby="syncDetailTitle">
     <div class="modal-head"><div><h3 id="syncDetailTitle">รายละเอียดการซิงก์</h3><div class="sync-detail-summary">${navigator.onLine?'เชื่อมต่ออินเทอร์เน็ตแล้ว':'อุปกรณ์ออฟไลน์'}${syncUiErrorCount?` · ล้มเหลวสะสม ${syncUiErrorCount} รอบ`:''}</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div>
+    <div class="sync-detail-body">
     <div class="sync-detail-local">${localRows.length?`<div class="sync-detail-section-title">สาเหตุล่าสุดบนเครื่องนี้</div>${syncDetailRowsHtml(localRows)}`:''}</div>
     <div class="sync-recovery-panel"></div>
     <div class="sync-detail-section-title sync-detail-history-title">ประวัติล่าสุดจากเซิร์ฟเวอร์</div>
     <div class="sync-detail-list"><div class="sync-detail-loading">กำลังโหลดรายละเอียด…</div></div>
     <div class="sync-detail-note">ตัวเลขบนปุ่มคือจำนวนรอบที่ซิงก์ล้มเหลว ไม่ใช่จำนวนรายการข้อมูล</div>
+    </div>
     <div class="sync-detail-actions"><button class="btn ghost sync-detail-close" type="button">ปิด</button><button class="btn primary sync-detail-retry" type="button">ลองซิงก์ใหม่</button></div>
   </section>`;
   document.body.appendChild(overlay);
@@ -262,7 +264,7 @@ function openSyncDetailsModal(){
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('.sync-detail-close').onclick=close;
   overlay.onclick=async event=>{
-    if(event.target===overlay){ close(); return; }
+    if(event.target===overlay) return;
     const resolveButton=event.target.closest?.('.sync-event-resolve');
     if(resolveButton&&!resolveButton.disabled){
       resolveButton.disabled=true; resolveButton.textContent='กำลังปิด…';
