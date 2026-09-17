@@ -126,7 +126,7 @@ function renderSyncStatusChip(){
   const state=navigator.onLine?syncUiState:'offline';
   const labels={synced:'ซิงก์แล้ว',syncing:'กำลังซิงก์…',error:`ซิงก์ไม่สำเร็จ${syncUiErrorCount?` (${syncUiErrorCount})`:''}`,offline:'ออฟไลน์'};
   chip.dataset.state=state; chip.textContent=labels[state]||labels.synced;
-  chip.title=state==='error'?'กดเพื่อดูสาเหตุและลองซิงก์ใหม่':state==='offline'?'กดเพื่อดูรายละเอียดการเชื่อมต่อ':'กดเพื่อลองซิงก์อีกครั้ง';
+  chip.title='กดเพื่อดูรายละเอียดการซิงก์';
 }
 function setSyncUiState(state,errorCount=syncUiErrorCount){ syncUiState=state; syncUiErrorCount=Math.max(0,Number(errorCount)||0); renderSyncStatusChip(); }
 function rememberSyncUiError(error,{operation='sync_core_data',tableName='',recordId='',fallbackMessage='ซิงก์ข้อมูลไม่สำเร็จ'}={}){
@@ -13921,10 +13921,7 @@ function syncTopbarFormActions(){
   if(!main) return;
   renderSyncStatusChip();
   const syncChip=document.getElementById('syncStatusChip');
-  if(syncChip) syncChip.onclick=()=>{
-    if(syncUiState==='error'||syncUiErrorCount>0||!navigator.onLine){ openSyncDetailsModal(); return; }
-    setSyncUiState('syncing'); syncCoreDataToSupabase();
-  };
+  if(syncChip) syncChip.onclick=()=>openSyncDetailsModal();
   const moveToTopbar=node=>{ if(node&&node!==slot&&!slot.contains(node)) slot.appendChild(node); };
   [...main.querySelectorAll('.form-final-actions')].forEach(moveToTopbar);
   [...main.querySelectorAll('.pagehead')].forEach(pagehead=>{
