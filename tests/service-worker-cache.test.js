@@ -27,6 +27,7 @@ assert.match(
 );
 assert.match(worker, /'\/sapuri-app-icon-192\.png'/);
 assert.match(worker, /'\/sapuri-app-icon-512\.png'/);
+assert.match(worker, /vendor\\\/zxing-browser\\\.min\\\.js/,'iPad barcode fallback must be cacheable after its first load');
 assert.match(worker, /key\.startsWith\('pepos-mobile-'\)&&key!==CACHE_NAME/,'do not delete another applications cache');
 assert.match(worker, /request\.mode==='navigate'/);
 assert.match(worker, /\.catch\(\(\)=>caches\.match\('\/index\.html'\)\)/);

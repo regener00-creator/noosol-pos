@@ -3882,6 +3882,7 @@ let mobileScanDecodedSounds={success:null,error:null};
 let mobileScanDecodePromises={success:null,error:null};
 let mobileScanSoundUnlockAttached=false;
 let mobileCameraSession=null;
+let mobileZxingLoadPromise=null;
 function prepareMobileLandingPage(){
   mobileProductEditor=null;
   editingProductId=null;
@@ -9328,16 +9329,28 @@ function renderInspectionLists(){ return editingInspectionListId===null?renderIn
 // ---------- โหมดมือถือ / เครื่องยิงบาร์โค้ดแบบมีจอ ----------
 function isMobileDeviceMode(){ return window.matchMedia('(max-width: 960px)').matches; }
 function isStandalonePwa(){ return window.matchMedia('(display-mode: standalone)').matches||window.navigator.standalone===true; }
+function isAppleMobileBrowser(){
+  const agent=String(navigator.userAgent||'');
+  return /iPad|iPhone|iPod/i.test(agent)||(navigator.platform==='MacIntel'&&Number(navigator.maxTouchPoints)>1);
+}
 function mobileInstallNoticeHtml(){
   if(isStandalonePwa()) return '';
-  return `<div class="mobile-install-notice"><div class="mobile-install-notice-text"><b>เปิดแบบแอป เพื่อตัดแถบเบราว์เซอร์สีดำ</b><span>ติดตั้งผ่าน Chrome แล้วกล้องและ PWA จะทำงานได้ครบ</span></div><button type="button" class="mobile-install-btn" id="mobileInstallApp">${deferredPwaInstallPrompt?'ติดตั้งแอป':'เปิดใน Chrome'}</button></div>`;
+  const apple=isAppleMobileBrowser();
+  return `<div class="mobile-install-notice"><div class="mobile-install-notice-text"><b>เปิดแบบแอป เพื่อตัดแถบเบราว์เซอร์สีดำ</b><span>${apple?'บน iPhone/iPad ให้เปิดด้วย Safari แล้วเพิ่มไปยังหน้าจอโฮม':'ติดตั้งผ่าน Chrome แล้วกล้องและ PWA จะทำงานได้ครบ'}</span></div><button type="button" class="mobile-install-btn" id="mobileInstallApp">${deferredPwaInstallPrompt?'ติดตั้งแอป':apple?'ดูวิธีติดตั้ง':'เปิดใน Chrome'}</button></div>`;
 }
 function openMobileBrowserHelp(options={}){
   document.querySelector('.mobile-browser-help')?.remove();
   const android=/Android/i.test(navigator.userAgent||'');
+  const apple=isAppleMobileBrowser();
+  const cameraTitle=apple?'อนุญาตกล้องบน iPad':'กล้องถูกบล็อกโดยเบราว์เซอร์นี้';
+  const installText=apple?'บน iPad ต้องติดตั้งจาก Safari เพื่อให้ PWA และสิทธิ์กล้องทำงานถูกต้อง':'ต้องเปิดหน้านี้ด้วย Chrome ก่อน จึงจะติดตั้ง PWA และเอาแถบเบราว์เซอร์บน–ล่างออกได้';
+  const cameraText=apple?'PWA รองรับกล้องแล้ว กดเปิดกล้องอีกครั้งและเลือก “อนุญาต” เมื่อ iPad ถามสิทธิ์':'เบราว์เซอร์ภายในแอปมักไม่ส่งสิทธิ์กล้องให้เว็บไซต์';
+  const steps=apple
+    ?'<li>เปิดเว็บไซต์นี้ใน Safari โดยตรง</li><li>กดปุ่มกล้อง แล้วเลือก “อนุญาต” เมื่อ iPad ถาม</li><li>เมื่อต้องการติดตั้ง ให้กดปุ่มแชร์ใน Safari แล้วเลือก “เพิ่มไปยังหน้าจอโฮม”</li>'
+    :'<li>กด “เปิดใน Chrome” ด้านล่าง</li><li>ถ้ากล้องเคยถูกปฏิเสธ ให้กดรูปกุญแจข้างที่อยู่ แล้วอนุญาต Camera</li><li>ใน Chrome กดเมนู ⋮ แล้วเลือก “ติดตั้งแอป” หรือ “เพิ่มไปยังหน้าจอหลัก”</li>';
   const overlay=document.createElement('div');
   overlay.className='mobile-browser-help';
-  overlay.innerHTML=`<div class="mobile-browser-help-card"><h3>${options.cameraBlocked?'กล้องถูกบล็อกโดยเบราว์เซอร์นี้':'ติดตั้ง PEPOS'}</h3><p>${options.cameraBlocked?'จากภาพเป็นการเปิดผ่านเบราว์เซอร์ภายในแอป ซึ่งมักไม่ส่งสิทธิ์กล้องให้เว็บไซต์':'ต้องเปิดหน้านี้ด้วย Chrome ก่อน จึงจะติดตั้ง PWA และเอาแถบเบราว์เซอร์บน–ล่างออกได้'}</p><ol class="mobile-browser-help-steps"><li>กด “เปิดใน Chrome” ด้านล่าง</li><li>ถ้ากล้องเคยถูกปฏิเสธ ให้กดรูปกุญแจข้างที่อยู่ แล้วอนุญาต Camera</li><li>ใน Chrome กดเมนู ⋮ แล้วเลือก “ติดตั้งแอป” หรือ “เพิ่มไปยังหน้าจอหลัก”</li></ol><div class="mobile-browser-help-actions"><button type="button" class="mobile-browser-help-close">ปิด</button><button type="button" class="mobile-open-chrome">${android?'เปิดใน Chrome':'เปิดในเบราว์เซอร์หลัก'}</button></div></div>`;
+  overlay.innerHTML=`<div class="mobile-browser-help-card"><h3>${options.cameraBlocked?cameraTitle:'ติดตั้ง PEPOS'}</h3><p>${options.cameraBlocked?cameraText:installText}</p><ol class="mobile-browser-help-steps">${steps}</ol><div class="mobile-browser-help-actions"><button type="button" class="mobile-browser-help-close">ปิด</button><button type="button" class="mobile-open-chrome">${android?'เปิดใน Chrome':apple?'เปิดใน Safari':'เปิดในเบราว์เซอร์หลัก'}</button></div></div>`;
   document.body.appendChild(overlay);
   overlay.querySelector('.mobile-browser-help-close').addEventListener('click',()=>overlay.remove());
   overlay.querySelector('.mobile-open-chrome').addEventListener('click',()=>{
@@ -10382,6 +10395,7 @@ function closeMobileCameraScanner(){
   if(!session) return false;
   mobileCameraSession=null;
   session.closed=true;
+  try{ session.decoderControls?.stop?.(); }catch(_error){}
   if(session.stream) session.stream.getTracks().forEach(track=>track.stop());
   session.element.remove();
   const button=document.getElementById(session.buttonId);
@@ -10402,13 +10416,25 @@ function restoreMobileCameraScanner(){
   if(button) button.setAttribute('aria-pressed','true');
   return true;
 }
+function ensureMobileZxingLoaded(){
+  if(window.ZXingBrowser?.BrowserMultiFormatReader) return Promise.resolve(window.ZXingBrowser);
+  if(mobileZxingLoadPromise) return mobileZxingLoadPromise;
+  mobileZxingLoadPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    script.src=`/vendor/zxing-browser.min.js${APP_ASSET_VERSION?`?v=${encodeURIComponent(APP_ASSET_VERSION)}`:''}`;
+    script.async=true;
+    script.onload=()=>window.ZXingBrowser?.BrowserMultiFormatReader?resolve(window.ZXingBrowser):reject(new Error('ZXing ไม่พร้อมใช้งาน'));
+    script.onerror=()=>reject(new Error('โหลดตัวอ่านบาร์โค้ดสำหรับ iPad ไม่สำเร็จ'));
+    document.head.appendChild(script);
+  }).catch(error=>{ mobileZxingLoadPromise=null; throw error; });
+  return mobileZxingLoadPromise;
+}
 async function openMobileCameraScanner(onCode,options={}){
   const continuous=options.continuous===true;
   const hostId=String(options.hostId||'');
   const buttonId=String(options.buttonId||'');
   const fixedMessage=hostId==='mobilePriceCameraSlot'?'P R A N C - H I B E S':'';
   if(!navigator.mediaDevices?.getUserMedia){ playMobileScanErrorSound(); showToast('อุปกรณ์นี้ไม่รองรับการเปิดกล้อง กรุณาใช้เครื่องยิงหรือพิมพ์บาร์โค้ด','danger-top'); return false; }
-  if(!('BarcodeDetector' in window)){ playMobileScanErrorSound(); showToast('เบราว์เซอร์นี้ยังสแกนด้วยกล้องไม่ได้ กรุณาเปิดใน Chrome','danger-top'); openMobileBrowserHelp({cameraBlocked:true}); return false; }
   const host=document.getElementById(hostId);
   if(!host){ playMobileScanErrorSound(); showToast('ไม่พบกรอบสำหรับเปิดกล้อง กรุณารีเฟรชแล้วลองใหม่','danger-top'); return false; }
   closeMobileCameraScanner();
@@ -10418,7 +10444,7 @@ async function openMobileCameraScanner(onCode,options={}){
   host.replaceChildren(camera);
   const video=camera.querySelector('video');
   const message=camera.querySelector('.mobile-camera-message');
-  const session={element:camera,hostId,buttonId,video,message,stream:null,closed:false,scanErrorNotified:false};
+  const session={element:camera,hostId,buttonId,video,message,stream:null,decoderControls:null,closed:false,scanErrorNotified:false};
   mobileCameraSession=session;
   const button=document.getElementById(buttonId);
   if(button) button.setAttribute('aria-pressed','true');
@@ -10426,11 +10452,40 @@ async function openMobileCameraScanner(onCode,options={}){
   camera.scrollIntoView({behavior:'smooth',block:'nearest'});
   let busy=false,lastValue='',lastValueSeenAt=0,nextDetectionAt=0;
   try{
+    const nativeDetectorAvailable='BarcodeDetector' in window;
+    const zxing=nativeDetectorAvailable?null:await ensureMobileZxingLoaded();
     session.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
     if(session.closed||mobileCameraSession!==session){ session.stream.getTracks().forEach(track=>track.stop()); return false; }
     video.srcObject=session.stream;
     await video.play();
     message.textContent=fixedMessage||(continuous?'สแกนต่อเนื่อง — ยิงได้หลายสินค้า กด × เมื่อต้องการปิด':'พร้อมสแกน — ถือกล้องให้นิ่ง');
+    const handleValue=(rawValue,controls=null)=>{
+      const value=String(rawValue||'').trim();
+      const now=Date.now();
+      if(!value){ if(lastValue&&now-lastValueSeenAt>700) lastValue=''; return false; }
+      lastValueSeenAt=now;
+      if(now<nextDetectionAt||value===lastValue) return false;
+      if(!continuous){ controls?.stop?.(); closeMobileCameraScanner(); onCode(value); return true; }
+      lastValue=value;
+      nextDetectionAt=now+650;
+      const accepted=onCode(value)!==false;
+      if(navigator.vibrate) navigator.vibrate(accepted?80:[40,50,40]);
+      message.textContent=fixedMessage||(accepted?`สแกนแล้ว: ${value} — ยิงสินค้าชิ้นถัดไปได้เลย`:`ยังไม่เพิ่ม: ${value} — เลื่อนไปยิงสินค้าชิ้นอื่นได้เลย`);
+      return true;
+    };
+    if(!nativeDetectorAvailable){
+      const reader=new zxing.BrowserMultiFormatReader(undefined,{delayBetweenScanAttempts:100,delayBetweenScanSuccess:250});
+      session.decoderControls=await reader.decodeFromVideoElement(video,(result,error,controls)=>{
+        if(session.closed||mobileCameraSession!==session){ controls?.stop?.(); return; }
+        if(result) handleValue(typeof result.getText==='function'?result.getText():result.text,controls);
+        else if(lastValue&&Date.now()-lastValueSeenAt>700) lastValue='';
+        if(error&&!/NotFoundException|ChecksumException|FormatException/.test(String(error.name||error.constructor?.name||''))&&!session.scanErrorNotified){
+          session.scanErrorNotified=true;
+          console.warn('ตัวอ่านบาร์โค้ดสำรองมีปัญหา',error);
+        }
+      });
+      return true;
+    }
     const desiredFormats=['code_128','ean_13','ean_8','upc_a','upc_e','code_39','itf','codabar','qr_code'];
     const supportedFormats=typeof BarcodeDetector.getSupportedFormats==='function'?await BarcodeDetector.getSupportedFormats():desiredFormats;
     const formats=desiredFormats.filter(format=>supportedFormats.includes(format));
@@ -10441,21 +10496,7 @@ async function openMobileCameraScanner(onCode,options={}){
         busy=true;
         try{
           const codes=await detector.detect(video);
-          const value=String(codes?.[0]?.rawValue||'').trim();
-          const now=Date.now();
-          if(!value){
-            if(lastValue&&now-lastValueSeenAt>700) lastValue='';
-          }else{
-            lastValueSeenAt=now;
-            if(now>=nextDetectionAt&&value!==lastValue){
-              if(!continuous){ closeMobileCameraScanner(); onCode(value); return; }
-              lastValue=value;
-              nextDetectionAt=now+650;
-              const accepted=onCode(value)!==false;
-              if(navigator.vibrate) navigator.vibrate(accepted?80:[40,50,40]);
-              message.textContent=fixedMessage||(accepted?`สแกนแล้ว: ${value} — ยิงสินค้าชิ้นถัดไปได้เลย`:`ยังไม่เพิ่ม: ${value} — เลื่อนไปยิงสินค้าชิ้นอื่นได้เลย`);
-            }
-          }
+          if(handleValue(codes?.[0]?.rawValue)&&!continuous) return;
         }catch(error){
           console.warn('สแกนบาร์โค้ดจากกล้องไม่สำเร็จ',error);
           if(!session.scanErrorNotified){ session.scanErrorNotified=true; playMobileScanErrorSound(); }
@@ -10471,7 +10512,8 @@ async function openMobileCameraScanner(onCode,options={}){
     else if(session.stream) session.stream.getTracks().forEach(track=>track.stop());
     console.warn('เปิดกล้องมือถือไม่สำเร็จ',error?.name||error,error?.message||'');
     playMobileScanErrorSound();
-    showToast('กล้องถูกบล็อก กรุณาเปิดหน้านี้ใน Chrome และอนุญาต Camera','danger-top');
+    const permissionBlocked=['NotAllowedError','SecurityError','PermissionDeniedError'].includes(String(error?.name||''));
+    showToast(permissionBlocked?'กล้องยังไม่ได้รับอนุญาต กรุณาอนุญาต Camera แล้วลองใหม่':'เปิดตัวอ่านบาร์โค้ดไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่','danger-top');
     openMobileBrowserHelp({cameraBlocked:true,errorName:error?.name||''});
     return false;
   }

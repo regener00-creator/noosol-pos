@@ -7,7 +7,7 @@ const TRUSTED_CDN_HOSTS=new Set(['cdn.jsdelivr.net']);
 const MAX_RUNTIME_CACHE_ENTRIES=80;
 function isCacheableAsset(url){
   if(url.origin!==self.location.origin) return TRUSTED_CDN_HOSTS.has(url.hostname)&&/^\/npm\/(?:@supabase\/supabase-js|xlsx|jsbarcode)@\d/.test(url.pathname);
-  return /^\/(?:app\.js|styles\.css|page-[a-z]+\.js|excel-tools\.js|manifest\.webmanifest|sapuri-[a-z0-9-]+\.(?:png|webp)|fonts\/[a-zA-Z0-9_.-]+\.(?:woff2?|ttf)|sounds\/[a-zA-Z0-9_.-]+\.(?:mp3|wav))$/.test(url.pathname);
+  return /^\/(?:app\.js|styles\.css|page-[a-z]+\.js|excel-tools\.js|vendor\/zxing-browser\.min\.js|manifest\.webmanifest|sapuri-[a-z0-9-]+\.(?:png|webp)|fonts\/[a-zA-Z0-9_.-]+\.(?:woff2?|ttf)|sounds\/[a-zA-Z0-9_.-]+\.(?:mp3|wav))$/.test(url.pathname);
 }
 async function trimRuntimeCache(cache){
   const protectedUrls=new Set(APP_SHELL.map(path=>new URL(path,self.location.origin).href));

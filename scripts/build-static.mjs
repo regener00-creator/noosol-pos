@@ -10,6 +10,7 @@ export const ASSET_VERSION_TOKEN = '__PEPOS_ASSET_VERSION__'
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
 const projectRoot = resolve(scriptDirectory, '..')
 const outputDirectory = resolve(projectRoot, 'public')
+const zxingSourceFile = resolve(projectRoot, 'node_modules', '@zxing', 'browser', 'umd', 'zxing-browser.min.js')
 
 const staticDeployFiles = [
   'manifest.webmanifest',
@@ -105,12 +106,13 @@ export async function buildStatic() {
     throw new Error('Refusing to write outside the project directory')
   }
 
-  const [appSource, excelToolsSource, stylesSource, indexTemplate, workerTemplate, ...staticContents] = await Promise.all([
+  const [appSource, excelToolsSource, stylesSource, indexTemplate, workerTemplate, zxingContent, ...staticContents] = await Promise.all([
     readFile(join(projectRoot, 'app.js'), 'utf8'),
     readFile(join(projectRoot, 'excel-tools.js'), 'utf8'),
     readFile(join(projectRoot, 'styles.css'), 'utf8'),
     readFile(join(projectRoot, 'index.html'), 'utf8'),
     readFile(join(projectRoot, 'sw.js'), 'utf8'),
+    readFile(zxingSourceFile),
     ...staticDeployFiles.map(name => readFile(join(projectRoot, name))),
   ])
   const prepared = await prepareTextAssets({
@@ -124,6 +126,7 @@ export async function buildStatic() {
 
   await rm(outputDirectory, { recursive: true, force: true })
   await mkdir(outputDirectory, { recursive: true })
+  await mkdir(join(outputDirectory, 'vendor'), { recursive: true })
   await Promise.all([
     writeFile(join(outputDirectory, 'app.js'), prepared.appCode),
     writeFile(join(outputDirectory, 'excel-tools.js'), prepared.excelToolsCode),
@@ -131,12 +134,13 @@ export async function buildStatic() {
     writeFile(join(outputDirectory, 'styles.css'), prepared.stylesCode),
     writeFile(join(outputDirectory, 'index.html'), prepared.indexHtml),
     writeFile(join(outputDirectory, 'sw.js'), prepared.workerCode),
+    copyFile(zxingSourceFile, join(outputDirectory, 'vendor', 'zxing-browser.min.js')),
     ...staticDeployFiles.map(name => copyFile(join(projectRoot, name), join(outputDirectory, name))),
   ])
 
   const jsSaving = Math.round((1 - prepared.appCode.length / appSource.length) * 100)
   const cssSaving = Math.round((1 - prepared.stylesCode.length / stylesSource.length) * 100)
-  console.log(`Prepared ${staticDeployFiles.length + 5 + Object.keys(prepared.pageCodes).length} public files (asset ${prepared.assetVersion}; initial JS -${jsSaving}%; CSS -${cssSaving}%)`)
+  console.log(`Prepared ${staticDeployFiles.length + 6 + Object.keys(prepared.pageCodes).length} public files (asset ${prepared.assetVersion}; initial JS -${jsSaving}%; CSS -${cssSaving}%)`)
 }
 
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : ''
