@@ -4652,6 +4652,13 @@ function canAccessTab(tab,user=loggedInUser()){
   }
   return canPerformPageAction('view',tab,user);
 }
+function focusLoginFieldIfIdle(id){
+  setTimeout(()=>{
+    const active=document.activeElement;
+    if(active?.closest?.('#loginForm,#ownerSetupForm')) return;
+    document.getElementById(id)?.focus();
+  },0);
+}
 function renderLoginState(){
   const user=loggedInUser();
   const hasUsers=systemHasOwner!==false; // default to "yes" until proven otherwise, avoids a flash of the setup screen
@@ -4665,8 +4672,8 @@ function renderLoginState(){
   if(loginScreen) loginScreen.style.display=hasUsers&&!user?'flex':'none';
   if(warehouseChoiceScreen) warehouseChoiceScreen.style.display=hasUsers&&!!user&&!warehouseReady?'flex':'none';
   if(appRoot) appRoot.hidden=!warehouseReady;
-  if(!hasUsers){ setTimeout(()=>document.getElementById('setupOwnerId')?.focus(),0); return false; }
-  if(!user){ setTimeout(()=>document.getElementById('loginUserId')?.focus(),0); return false; }
+  if(!hasUsers){ focusLoginFieldIfIdle('setupOwnerId'); return false; }
+  if(!user){ focusLoginFieldIfIdle('loginUserId'); return false; }
   if(!warehouseReady){
     const select=document.getElementById('warehouseChoiceSelect');
     if(select){
@@ -19825,6 +19832,7 @@ let mobileViewportResizeTimer=null;
 window.addEventListener('resize',()=>{
   clearTimeout(mobileViewportResizeTimer);
   mobileViewportResizeTimer=setTimeout(()=>{
+    if(!loggedInUser()) return;
     const mobileMode=isMobileDeviceMode();
     if(mobileMode!==document.body.classList.contains('mobile-device-mode')) render();
     else refreshScrollableTableHeights();

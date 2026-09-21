@@ -18,6 +18,8 @@ assert.match(html, /<meta name="apple-mobile-web-app-title" content="SAPURI">/);
 assert.match(html, /<span>SAPURI POS<\/span>/);
 assert.doesNotMatch(html, /ร้านยา POS/);
 assert.match(app, /document\.title=standaloneAppWindow\?'':'SAPURI'/);
+assert.match(app, /if\(active\?\.closest\?\.\('#loginForm,#ownerSetupForm'\)\) return;/, 'หน้า login ต้องไม่แย่ง focus จากช่องที่ผู้ใช้กำลังพิมพ์');
+assert.match(app, /if\(!loggedInUser\(\)\) return;\s*const mobileMode=isMobileDeviceMode\(\);/, 'การ resize จากคีย์บอร์ดมือถือขณะ login ต้องไม่ render หน้าใหม่');
 assert.match(css, /\.login-brand \.brand-logo-frame img\{[^}]*object-fit:cover[^}]*transform:translate\(-50%,-50%\)/, 'โลโก้ต้องจัดกึ่งกลางและไม่ยืดรูป');
 assert.match(buildScript, /'sapuri-brand-logo\.webp'/, 'ขั้นตอน build ต้องนำโลโก้ใหม่ไปใช้งานจริง');
 assert.ok(fs.statSync(path.join(root, 'sapuri-brand-logo.webp')).size > 0, 'ต้องมีไฟล์โลโก้ SAPURI ใหม่');
