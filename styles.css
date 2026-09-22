@@ -2478,10 +2478,13 @@
 .loyalty-panel-head{align-items:flex-start;flex-wrap:nowrap}
 .loyalty-panel-head>button{flex:0 0 auto}
 .loyalty-redeem-row{align-items:center;flex-wrap:wrap}
-.loyalty-panel-title{display:flex;flex:1;min-width:0;flex-direction:column;align-items:flex-start;gap:2px}
-.loyalty-panel-title span{color:#7b7069;font-size:12px;font-weight:500}
+.loyalty-panel-title{flex:1;min-width:0}
 .loyalty-panel small{display:block;color:#7b7069;margin-top:6px;line-height:1.5}
 .loyalty-balance{display:block;font-size:23px;margin:4px 0}
+.loyalty-account-summary{display:flex;align-items:baseline;gap:5px;flex-wrap:wrap;margin:4px 0}
+.loyalty-account-summary .loyalty-balance{display:inline;margin:0}
+.loyalty-account-summary .loyalty-expiry-date{display:inline;margin:0}
+.loyalty-points-rule{font-size:12px;font-weight:500}
 .loyalty-expiry-date strong{font-weight:800;color:var(--text,#302822)}
 .loyalty-expiry-warning{padding:7px 10px;border-radius:9px;font-weight:700;text-align:center}
 .loyalty-expiry-warning.is-warning{background:#fff4cf;color:#7a5600}

@@ -11760,13 +11760,14 @@ function customerLoyaltyPanelHtml(customer,readOnly=false){
     const expiryWarningHtml=expiryWarning?`<small class="loyalty-expiry-warning is-${expiryWarning.level}" role="alert">⚠ แต้มจะหมดอายุภายใน ${expiryWarning.months} เดือน</small>`:'';
     accountHtml=readOnly
       ?`${balanceHtml}<div class="loyalty-membership-dates"><div><span>สมัคร</span><strong>${escapeHtml(fmtDateShort(account.joinedOn))}</strong></div><div><span>หมดอายุ</span><strong>${escapeHtml(fmtDateShort(account.expiresOn))}</strong></div></div>${adjustmentHtml}`
-      :`${balanceHtml}<small class="loyalty-expiry-date">หมดอายุ <strong>${escapeHtml(fmtDateShort(account.expiresOn))}</strong></small>${expiryWarningHtml}${adjustmentHtml}`;
+      :`<div class="loyalty-account-summary">${balanceHtml}<small class="loyalty-expiry-date">/ หมดอายุ <strong>${escapeHtml(fmtDateShort(account.expiresOn))}</strong></small></div>${expiryWarningHtml}${adjustmentHtml}`;
   }
   const redeemedSummary=redeemed?`<small>ใช้ ${redeemed} แต้ม ลด ${fmtMoney(redeemed)} บาท (รวมในส่วนลดแล้ว)</small>`:'';
   const redeemHtml=readOnly?'':`<div class="loyalty-redeem-row"><button class="btn primary small loyalty-redeem-button" data-redeem-loyalty type="button" ${!account||!eligible||Number(account.balance)<=0?'disabled':''}>ใช้แต้มเป็นส่วนลด</button><button class="btn ghost small loyalty-customer-history-button" data-customer-history="${escapeHtml(customer.id)}" type="button">ประวัติลูกค้า</button>${saleLoyaltySelection?'<button class="btn ghost small" data-clear-loyalty type="button">ยกเลิกใช้แต้ม</button>':''}</div>${redeemedSummary}`;
-  const titleHtml=readOnly?'<strong>แต้มสะสม</strong>':'<div class="loyalty-panel-title"><strong>แต้มสะสม</strong><span>• 100 บาท = 1 แต้ม / ใช้แต้มได้เมื่อยอดถึง 1,000 บาท</span></div>';
+  const titleHtml=readOnly?'<strong>แต้มสะสม</strong>':'<div class="loyalty-panel-title"><strong>แต้มสะสม</strong></div>';
+  const pointsRuleHtml=readOnly?'':'<small class="loyalty-points-rule">• 100 บาท = 1 แต้ม / ใช้แต้มได้เมื่อยอดถึง 1,000 บาท</small>';
   const tierProgressHtml=readOnly?'':customerTierProgressHtml(tierState,customer.id,'pos');
-  return `<div class="loyalty-panel${readOnly?' customer-history-loyalty-panel':''}" data-loyalty-customer="${escapeHtml(customer.id)}" data-loyalty-readonly="${readOnly?'true':'false'}"><div class="loyalty-panel-head">${titleHtml}<button class="btn ghost small" data-refresh-loyalty type="button">รีเฟรชแต้ม</button></div>${accountHtml}${tierProgressHtml}${redeemHtml}</div>`;
+  return `<div class="loyalty-panel${readOnly?' customer-history-loyalty-panel':''}" data-loyalty-customer="${escapeHtml(customer.id)}" data-loyalty-readonly="${readOnly?'true':'false'}"><div class="loyalty-panel-head">${titleHtml}<button class="btn ghost small" data-refresh-loyalty type="button">รีเฟรชแต้ม</button></div>${accountHtml}${pointsRuleHtml}${tierProgressHtml}${redeemHtml}</div>`;
 }
 function loyaltyExpiryWarning(expiresOn,today=currentDateStr()){
   const parse=value=>{const match=String(value||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return match?{year:Number(match[1]),month:Number(match[2]),day:Number(match[3])}:null;};
