@@ -12020,7 +12020,7 @@ function refreshCustomerHistoryDisplay(){
   attachCustomerPurchaseEvents();
   requestAnimationFrame(()=>refreshScrollableTableHeights(host));
 }
-function openCustomerPurchaseHistory(customerId){
+async function openCustomerPurchaseHistory(customerId){
   const today=currentDateStr(),originTab=currentTab;
   customerHistoryView={id:customerId,mode:'month',year:Number(today.slice(0,4)),month:Number(today.slice(5,7)),page:1,originTab:originTab==='checkout'?'checkout':'customers'};
   customerPurchaseState=null;
@@ -12029,9 +12029,21 @@ function openCustomerPurchaseHistory(customerId){
     posCustomerHistoryModalOpen=true;
     const overlay=document.createElement('div');
     overlay.className='modal-overlay pos-customer-history-overlay';
-    overlay.innerHTML='<div class="modal pos-customer-history-modal" role="dialog" aria-modal="true" aria-label="ประวัติลูกค้า"><div id="posCustomerHistoryContent"></div></div>';
+    overlay.innerHTML='<div class="modal pos-customer-history-modal" role="dialog" aria-modal="true" aria-label="ประวัติลูกค้า"><div id="posCustomerHistoryContent"><div class="hint" role="status">กำลังโหลดประวัติลูกค้า...</div></div></div>';
     document.body.appendChild(overlay);
-    refreshCustomerHistoryDisplay();
+    try{
+      // Production extracts customer-history rendering into the catalog chunk.
+      // Wait for it before rendering so POS never leaves an empty modal behind.
+      await ensurePageCodeLoaded('customers');
+      if(!overlay.isConnected||currentTab!=='checkout'||String(customerHistoryView?.id)!==String(customerId)) return;
+      refreshCustomerHistoryDisplay();
+    }catch(error){
+      if(!overlay.isConnected) return;
+      const host=overlay.querySelector('#posCustomerHistoryContent');
+      host.innerHTML=`<div class="empty" role="alert">${escapeHtml(error?.message||'เปิดประวัติลูกค้าไม่สำเร็จ')}<div class="form-final-actions"><button class="btn ghost" id="closeCustomerHistoryLoad" type="button">ปิด</button><button class="btn primary" id="retryCustomerHistoryLoad" type="button">ลองใหม่</button></div></div>`;
+      host.querySelector('#closeCustomerHistoryLoad').onclick=()=>{ posCustomerHistoryModalOpen=false; customerHistoryView=null; overlay.remove(); refreshCustomerLoyaltyPanel(); };
+      host.querySelector('#retryCustomerHistoryLoad').onclick=()=>{ overlay.remove(); openCustomerPurchaseHistory(customerId); };
+    }
     return;
   }
   posCustomerHistoryModalOpen=false;render();
