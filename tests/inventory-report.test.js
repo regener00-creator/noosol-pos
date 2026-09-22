@@ -40,7 +40,7 @@ context.stockReportSort={key:'stock',dir:1};assert.deepEqual(ids(),[3,2,1]);
 context.stockReportSort.dir=-1;assert.deepEqual(ids(),[1,2,3]);
 assert.doesNotMatch(context.stockReportHeadersHtml(),/<input|<select/,'column headers only offer sorting');
 let headers=context.stockReportHeadersHtml(true);
-assert.equal(headers,'<tr><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>สินค้า</th><th>ขาย</th><th>ทุน</th><th>คงเหลือ</th></tr>');
+assert.equal(headers,'<tr><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>สินค้า</th><th class="c">ขาย</th><th class="c">ทุน</th><th class="c">คงเหลือ</th></tr>');
 let rows=context.stockReportRowsHtml();
 assert.match(rows,/>0001<\/td>.*>001234567890<\/td>.*>Alpha<\/td>/);
 assert.match(rows,/<td class="stock-report-price">5<\/td>/);
