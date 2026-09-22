@@ -19121,7 +19121,7 @@ function openStockReportCategoryPicker(catf, onDone){
       <button class="btn ghost small" id="srPickNoneBtn">ไม่เลือกเลย</button>
     </div>
     <div class="manage-list" id="srPickList" style="flex:1;">${matches.map(p=>`<label class="fav-check"><input type="checkbox" data-pid="${p.id}" ${alreadyIn(p.id)?'checked disabled':''}> <span>${escapeHtml(p.name)}</span> <span class="mono" style="margin-right:auto;color:var(--text-muted);font-size:12px;">${alreadyIn(p.id)?'อยู่ในรายงานแล้ว':stockInLargestUnit({...p,stock:reportStock(p.id,warehouseValue)})}</span></label>`).join('')}</div>
-    <div style="padding:12px 16px;border-top:1px solid var(--border);text-align:left;display:flex;gap:8px;"><button class="btn ghost" id="srPickCancelBtn">ยกเลิก</button><button class="btn primary" id="srPickAddBtn">เพิ่มที่เลือก</button></div>
+    <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;"><button class="btn ghost" id="srPickCancelBtn">ยกเลิก</button><button class="btn primary" id="srPickAddBtn">เพิ่มที่เลือก</button></div>
   </div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
