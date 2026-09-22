@@ -12183,7 +12183,7 @@ function bindContactTaxIdLabel(root=document){
 }
 function renderContactForm(){
   const isNew = editingContactId==='new';
-  const fixedType=isNew?(currentTab==='customers'?'customer':'supplier'):'';
+  const fixedType=currentTab==='customers'?'customer':'supplier';
   const c = isNew ? emptyCustomerContactDraft(fixedType) : contacts.find(x=>x.id===editingContactId);
   return `
     <div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › ${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</div><h1>${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</h1></div>
@@ -17883,12 +17883,15 @@ function saveContactEditorData(contactId=editingContactId){
   const g = id => document.getElementById(id);
   const name = g('c_name').value.trim();
   if(!name){ showToast('กรุณากรอกชื่อ-นามสกุล'); g('c_name').focus(); return null; }
+  const existing=contactId==='new'?null:contacts.find(x=>x.id===contactId);
   const fixedType=g('c_fixed_type')?.value||'';
-  const types = ['customer','supplier'].includes(fixedType)?[fixedType]:[];
+  const validTypes=['customer','supplier'];
+  const types = validTypes.includes(fixedType)
+    ? [...new Set([...(existing?.types||[]).filter(type=>validTypes.includes(type)),fixedType])]
+    : [];
   if(!fixedType&&g('c_type_customer')?.checked) types.push('customer');
   if(!fixedType&&g('c_type_supplier')?.checked) types.push('supplier');
   if(types.length===0){ showToast('กรุณาเลือกประเภท (ลูกค้า หรือ ผู้จำหน่าย)'); return null; }
-  const existing=contactId==='new'?null:contacts.find(x=>x.id===contactId);
   const phoneInput=g('c_phone');
   const phone=formatPhoneValue(phoneInput?.value||'');
   if(types.includes('customer')&&!normalizedPhoneDigits(phone)){

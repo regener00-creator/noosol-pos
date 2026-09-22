@@ -28,8 +28,8 @@ assert.match(form, /contact-editor-wide"><label>เพิ่มเติม<\/la
 assert.doesNotMatch(form, /รหัสไปรษณีย์|<label>ชื่อผู้ติดต่อ<\/label>|ข้อมูลธนาคาร|<label>ธนาคาร<\/label>|ชื่อบัญชี|เลขที่บัญชี|ประเภทบัญชี/);
 assert.doesNotMatch(form, /c_postcode|c_contactname|c_bank|c_bankname|c_bankacc|c_acctype/);
 assert.match(source, /openPOSCustomerCreateModal\(\)[\s\S]*contactEditorFieldsHtml\(emptyCustomerContactDraft\(\),'customer'\)/);
-assert.match(source, /function renderContactForm\(\)[\s\S]*fixedType=isNew\?\(currentTab==='customers'\?'customer':'supplier'\):''[\s\S]*contactEditorFieldsHtml\(c,fixedType\)/);
-assert.match(save, /const fixedType=g\('c_fixed_type'\)\?\.value\|\|'';[\s\S]*\['customer','supplier'\]\.includes\(fixedType\)\?\[fixedType\]:\[\]/);
+assert.match(source, /function renderContactForm\(\)[\s\S]*fixedType=currentTab==='customers'\?'customer':'supplier'[\s\S]*contactEditorFieldsHtml\(c,fixedType\)/);
+assert.match(save, /const existing=contactId==='new'\?null:contacts\.find[\s\S]*const validTypes=\['customer','supplier'\][\s\S]*existing\?\.types[\s\S]*fixedType/);
 assert.doesNotMatch(source, /function automaticContactCode\(/,'codes must not use device-local max + 1');
 assert.match(save, /enteredCode\|\|existing\?\.code\|\|''/);
 assert.match(save, /_autoCode:true/,'database assigns the code after a durable insert');
