@@ -44,14 +44,14 @@ begin
   assert (pg_temp.customer_loyalty_snapshot(1,now())->>'balance')::int=0,'No retroactive rewards';
   original:=jsonb_build_object('customerId','1','total',10000,'discount',0,'fee',0,'loyalty',jsonb_build_object('earned',999999));
   sale:=pg_temp.finalize_sale_loyalty(original);
-  assert (sale->'loyalty'->>'earned')::int=200,'Server ignores spoofed ledger';
+  assert (sale->'loyalty'->>'earned')::int=100,'Server ignores spoofed ledger';
   insert into loyalty_test_sales values('EARN','done',sale);
-  assert (pg_temp.customer_loyalty_snapshot(1,now())->>'balance')::int=200,'Earned balance';
+  assert (pg_temp.customer_loyalty_snapshot(1,now())->>'balance')::int=100,'Earned balance';
   original:=jsonb_build_object('customerId','1','total',900,'discount',100,'fee',0,'loyaltyRedeemed',100,'loyaltyPeriodStart',expected);
   sale:=pg_temp.finalize_sale_loyalty(original);
-  assert (sale->'loyalty'->>'earned')::int=18 and (sale->'loyalty'->>'redeemed')::int=100,'1000 minus 100 pays 900 earns 18';
+  assert (sale->'loyalty'->>'earned')::int=9 and (sale->'loyalty'->>'redeemed')::int=100,'1000 minus 100 pays 900 earns 9';
   insert into loyalty_test_sales values('REDEEM','done',sale);
-  assert (pg_temp.customer_loyalty_snapshot(1,now())->>'balance')::int=118,'Remaining balance';
+  assert (pg_temp.customer_loyalty_snapshot(1,now())->>'balance')::int=9,'Remaining balance';
   assert (pg_temp.customer_loyalty_snapshot(2,now())->>'balance')::int=0,'Other customer isolated';
   foreach code in array array['LOYALTY_INSUFFICIENT_POINTS','LOYALTY_MINIMUM_1000','LOYALTY_CYCLE_CHANGED','LOYALTY_INVALID_POINTS','LOYALTY_DISCOUNT_MISMATCH'] loop
     sale:=case code
@@ -65,11 +65,11 @@ begin
     exception when others then if sqlerrm<>code then raise; end if; end;
   end loop;
   update loyalty_test_sales set status='void' where id='REDEEM';
-  assert (pg_temp.customer_loyalty_snapshot(1,now())->>'balance')::int=200,'Void restores redemption/removes earning';
+  assert (pg_temp.customer_loyalty_snapshot(1,now())->>'balance')::int=100,'Void restores redemption/removes earning';
   update loyalty_test_sales set status='done' where id='REDEEM';
   update loyalty_test_sales set status='void' where id='EARN';
   state:=pg_temp.customer_loyalty_snapshot(1,now());
-  assert (state->>'balance')::int=0 and (state->>'adjustmentDue')::int=82,'Spent earnings voided: deficit';
+  assert (state->>'balance')::int=0 and (state->>'adjustmentDue')::int=91,'Spent earnings voided: deficit';
   state:=pg_temp.customer_loyalty_snapshot(1,(state->>'expiresAt')::timestamptz);
   assert (state->>'balance')::int=0 and (state->>'adjustmentDue')::int=0,'Old cycle expires';
   update loyalty_test_sales set status='void' where id='REDEEM';

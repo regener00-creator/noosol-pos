@@ -11764,7 +11764,7 @@ function customerLoyaltyPanelHtml(customer,readOnly=false){
   }
   const redeemedSummary=redeemed?`<small>ใช้ ${redeemed} แต้ม ลด ${fmtMoney(redeemed)} บาท (รวมในส่วนลดแล้ว)</small>`:'';
   const redeemHtml=readOnly?'':`<div class="loyalty-redeem-row"><button class="btn primary small loyalty-redeem-button" data-redeem-loyalty type="button" ${!account||!eligible||Number(account.balance)<=0?'disabled':''}>ใช้แต้มเป็นส่วนลด</button><button class="btn ghost small loyalty-customer-history-button" data-customer-history="${escapeHtml(customer.id)}" type="button">ประวัติลูกค้า</button>${saleLoyaltySelection?'<button class="btn ghost small" data-clear-loyalty type="button">ยกเลิกใช้แต้ม</button>':''}</div>${redeemedSummary}`;
-  const titleHtml=readOnly?'<strong>แต้มสะสม</strong>':'<div class="loyalty-panel-title"><strong>แต้มสะสม</strong><span>• จะใช้แต้มได้เมื่อยอดถึง 1,000 บาท</span></div>';
+  const titleHtml=readOnly?'<strong>แต้มสะสม</strong>':'<div class="loyalty-panel-title"><strong>แต้มสะสม</strong><span>• ทุกยอดสุทธิ 100 บาท = 1 แต้ม • ใช้แต้มได้เมื่อยอดถึง 1,000 บาท</span></div>';
   const tierProgressHtml=readOnly?'':customerTierProgressHtml(tierState,customer.id,'pos');
   return `<div class="loyalty-panel${readOnly?' customer-history-loyalty-panel':''}" data-loyalty-customer="${escapeHtml(customer.id)}" data-loyalty-readonly="${readOnly?'true':'false'}"><div class="loyalty-panel-head">${titleHtml}<button class="btn ghost small" data-refresh-loyalty type="button">รีเฟรชแต้ม</button></div>${accountHtml}${tierProgressHtml}${redeemHtml}</div>`;
 }

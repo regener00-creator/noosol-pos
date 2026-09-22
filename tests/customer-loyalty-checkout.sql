@@ -16,8 +16,8 @@ begin
   end if;
   select (value->>'balance')::numeric,value->>'periodStart' into base_balance,cycle
     from jsonb_array_elements(public.get_customer_loyalty(array[customer_id::text],warehouse_id));
-  sale:=jsonb_build_object('customerId',customer_id::text,'total',5000,'discount',0,'fee',0,'vat',0,'costTotal',5000,'cashReceived',5000,'cashChange',0,'payMethod','เงินสด');
-  items:='[{"lineKey":"1","custom":true,"name":"Rollback-only loyalty integration test","qty":1,"unit":"รายการ","price":5000,"lineTotal":5000,"lineTotalGross":5000}]';
+  sale:=jsonb_build_object('customerId',customer_id::text,'total',10000,'discount',0,'fee',0,'vat',0,'costTotal',10000,'cashReceived',10000,'cashChange',0,'payMethod','เงินสด');
+  items:='[{"lineKey":"1","custom":true,"name":"Rollback-only loyalty integration test","qty":1,"unit":"รายการ","price":10000,"lineTotal":10000,"lineTotalGross":10000}]';
   result:=public.complete_sale(first_id,'TESTLOY',warehouse_id,sale,items,null);
   assert (result->'sale'->'loyalty'->>'earned')::int=100,'Complete sale earns server points';
   retried:=public.complete_sale(first_id,'TESTLOY',warehouse_id,sale,items,null);
@@ -27,8 +27,8 @@ begin
   sale:=sale||jsonb_build_object('total',900,'discount',100,'cashReceived',900,'costTotal',1000,'loyaltyRedeemed',100,'loyaltyPeriodStart',cycle);
   items:='[{"lineKey":"1","custom":true,"name":"Rollback-only redemption test","qty":1,"unit":"รายการ","price":1000,"lineTotal":1000,"lineTotalGross":1000}]';
   result:=public.complete_sale(second_id,'TESTLOY',warehouse_id,sale,items,null);
-  assert (result->'sale'->>'total')::numeric=900 and (result->'sale'->'loyalty'->>'earned')::int=18,'Complete sale redeems and earns on net';
-  assert (select (value->>'balance')::numeric from jsonb_array_elements(public.get_customer_loyalty(array[customer_id::text],warehouse_id)))=base_balance+18,'Post-sale balance';
+  assert (result->'sale'->>'total')::numeric=900 and (result->'sale'->'loyalty'->>'earned')::int=9,'Complete sale redeems and earns on net';
+  assert (select (value->>'balance')::numeric from jsonb_array_elements(public.get_customer_loyalty(array[customer_id::text],warehouse_id)))=base_balance+9,'Post-sale balance';
   begin
     perform public.complete_sale(failed_id,'TESTLOY',warehouse_id,sale||'{"loyaltyPeriodStart":"2000-01-01"}',items,null);
     raise exception 'Expired cycle unexpectedly accepted';
