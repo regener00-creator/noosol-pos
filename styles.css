@@ -1228,12 +1228,9 @@
   .stock-report-table .stock-report-sort .sortarrow{color:inherit;}
   .stock-report-table-scroll .stock-report-table thead{position:sticky;top:0;z-index:5;}
   .stock-report-table-scroll .stock-report-table thead th{position:static;}
-  .stock-report-table .stock-report-header-filter{display:block;width:100%;min-width:150px;max-width:320px;margin-top:8px;padding:7px 9px;border:1px solid #FFFFFF66;border-radius:6px;background:#fff;color:var(--text);font:400 12px 'Sarabun',sans-serif;}
-  .stock-report-table .stock-report-filter-hint{display:block;font-size:11px;font-weight:400;margin-top:5px;}
   .stock-report-table .stock-report-name{min-width:180px;}
   .stock-report-table .stock-report-code{min-width:115px;overflow-wrap:anywhere;}
   .stock-report-table .stock-report-price{min-width:100px;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums;}
-  .stock-report-table .stock-report-price small{display:block;color:var(--text-muted);font-size:11px;}
   .stock-report-table .stock-report-stock{min-width:160px;text-align:center;font-variant-numeric:tabular-nums;}
   .stock-report-table .stock-report-warehouse{text-align:center;}
   .stock-report-table .stock-report-warehouse small{display:block;font-size:11px;font-weight:400;}

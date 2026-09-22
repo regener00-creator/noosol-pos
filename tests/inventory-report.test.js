@@ -5,7 +5,7 @@ const product={id:1,sku:'0001',barcode:'001234567890',name:'Alpha',unit:'เม�
 const balances={1:237,2:0,3:-12};
 const context={
   stockReportItems:[{pid:1,name:'Old name',unit:'เม็ด'},{pid:2,name:'Beta',unit:'ขวด'},{pid:3,name:'Gamma',unit:'เม็ด'}],
-  stockReportColumns:{price:true,cost:true},stockReportTableFilter:{name:'',stock:'all'},stockReportSort:{key:'name',dir:1},
+  stockReportColumns:{price:true,cost:true},stockReportSort:{key:'name',dir:1},
   stockReportCatFilter:{wh:'1',category:'',brand:''},activeWarehouseId:1,
   products:[product,{id:2,name:'Beta',unit:'ขวด',price:50,cost:30},{id:3,name:'Gamma',unit:'เม็ด',price:10,cost:3}],
   categories:[],brands:[],
@@ -13,10 +13,11 @@ const context={
   accessibleWarehouses:()=>[{id:1,name:'สาขา A'},{id:2,name:'สาขา B'}],
   warehouseStock:(pid,wid)=>wid===1?balances[pid]:3,
   reportStock:(pid,wh)=>balances[pid]+(wh==='all'?3:0),
-  fmtMoney:value=>(Number(value)||0).toFixed(2),productUnitCost:p=>p.cost,
+  productUnitCost:p=>p.cost,
   escapeHtml:value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')
 };
 vm.createContext(context);
+vm.runInContext(source.match(/^function fmtFavoritePrice\([^\n]*\)\{[\s\S]*?^\}/m)[0],context);
 vm.runInContext(source.slice(source.indexOf('function stockReportProductMatchesFilter('),source.indexOf('function renderBusinessSettings(')),context);
 
 assert.equal(context.stockReportProductMatchesFilter({wh:2,category:'ยา',brand:'A'},{wh:'1',category:'',brand:''}),true,'warehouse selects balance, never hides catalogue products');
@@ -37,20 +38,16 @@ const ids=()=>Array.from(context.stockReportSortedItems(),row=>row.pid);
 assert.deepEqual(ids(),[1,2,3],'uses live product names');
 context.stockReportSort={key:'stock',dir:1};assert.deepEqual(ids(),[3,2,1]);
 context.stockReportSort.dir=-1;assert.deepEqual(ids(),[1,2,3]);
-context.stockReportTableFilter.name=' ALP ';assert.deepEqual(ids(),[1]);
-context.stockReportTableFilter.name='';
-for(const [mode,expected] of [['positive',[1]],['zero',[2]],['negative',[3]]]){
-  context.stockReportTableFilter.stock=mode;assert.deepEqual(ids(),expected);
-}
-context.stockReportTableFilter={name:'Beta',stock:'positive'};assert.deepEqual(ids(),[],'filters intersect');
-assert.match(context.stockReportRowsHtml(),/colspan="7".*ไม่พบสินค้าตามตัวกรอง/);
-context.stockReportTableFilter={name:'',stock:'all'};
+assert.doesNotMatch(context.stockReportHeadersHtml(),/<input|<select/,'column headers only offer sorting');
 let headers=context.stockReportHeadersHtml(true);
 assert.equal(headers,'<tr><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>สินค้า</th><th>ขาย</th><th>ทุน</th><th>คงเหลือ</th></tr>');
 let rows=context.stockReportRowsHtml();
 assert.match(rows,/>0001<\/td>.*>001234567890<\/td>.*>Alpha<\/td>/);
-assert.match(rows,/>5.00<small>บาท \/ เม็ด<\/small>/);
-assert.match(rows,/>2.00<small>บาท \/ เม็ด<\/small>/);
+assert.match(rows,/<td class="stock-report-price">5<\/td>/);
+assert.match(rows,/<td class="stock-report-price">2<\/td>/);
+product.price=240;product.cost=120.50;
+assert.match(context.stockReportProductCellsHtml({pid:1}),/<td class="stock-report-price">240<\/td><td class="stock-report-price">120.5<\/td>/);
+assert.doesNotMatch(context.stockReportProductCellsHtml({pid:1}),/บาท \/|<small>/);
 assert.match(rows,/>2 กล่อง 3 แผง 7 เม็ด<\/td>/);
 assert.doesNotMatch(context.stockReportRowsHtml(true),/data-sr-remove/,'print omits interactive controls');
 context.stockReportColumns.price=false;context.stockReportColumns.cost=false;
@@ -66,9 +63,7 @@ rows=context.stockReportRowsHtml();headers=context.stockReportHeadersHtml();
 assert.match(headers,/colspan="2"/);assert.match(headers,/คลังที่ 1.*สาขา A.*คลังที่ 2.*สาขา B/);
 assert.match(rows,/>2 กล่อง 3 แผง 7 เม็ด<\/td><td[^>]*>3 เม็ด<\/td>/,'shows per-warehouse balances');
 assert.doesNotMatch(rows,/>2 กล่อง 4 แผง<\/td>/,'does not replace each warehouse with total');
-context.stockReportTableFilter.stock='positive';assert.deepEqual(ids(),[1,2],'all-warehouse filter uses total');
-context.stockReportTableFilter.name='<script>';assert.match(context.stockReportHeadersHtml(),/value="&lt;script>"/);
-assert.deepEqual(context.stockReportItems.map(row=>row.pid),[1,2,3],'filtering and sorting never mutate selections');
-assert.match(source,/const rowsHtml=stockReportRowsHtml\(true\)/,'print shares current filtered rows');
+assert.deepEqual(context.stockReportItems.map(row=>row.pid),[1,2,3],'sorting never mutates selections');
+assert.match(source,/const rowsHtml=stockReportRowsHtml\(true\)/,'print shares current rows');
 assert.match(source,/stockReportHeadersHtml\(true\)/,'print shares visible columns');
-console.log('inventory report tests passed: columns, filters, sorting, permissions, warehouse balances, largest units and fractions');
+console.log('inventory report tests passed: columns, compact prices, sorting, permissions, warehouse balances, largest units and fractions');

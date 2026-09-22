@@ -30,7 +30,7 @@ let browser;
       activeWarehouseId=1;warehouses=[{id:1,name:'คลังทดสอบ A',active:true},{id:2,name:'คลังทดสอบ B',active:true}];
       categories=['ยา'];brands=['ทดสอบ'];
       products=[
-        {id:101,sku:'0001',barcode:'0012345678901',name:'Alpha ยาทดสอบ',unit:'เม็ด',price:5,cost:2,stock:237,active:true,units:[{sub:'กล่อง',factor:100},{sub:'แผง',factor:10}]},
+        {id:101,sku:'0001',barcode:'0012345678901',name:'Alpha ยาทดสอบ',unit:'เม็ด',price:240,cost:120.5,stock:237,active:true,units:[{sub:'กล่อง',factor:100},{sub:'แผง',factor:10}]},
         {id:102,sku:'0002',barcode:'0012345678902',name:'Beta สินค้าหมด',unit:'ขวด',price:50,cost:30,stock:0,active:true,units:[]},
         {id:103,sku:'0003',barcode:'0012345678903',name:'Gamma ยอดติดลบ',unit:'กล่อง',price:100,cost:60,stock:-1.27,active:true,units:[{sub:'เม็ด',factor:.01},{sub:'แผง',factor:.1}]},
         {id:104,sku:'0004',barcode:'0012345678904',name:'Delta สแกนเพิ่ม',unit:'ขวด',price:70,cost:40,stock:3,active:true,units:[]}
@@ -38,7 +38,7 @@ let browser;
       inventoryBalanceRows=products.flatMap(p=>[{product_id:p.id,warehouse_id:1,stock:p.stock},{product_id:p.id,warehouse_id:2,stock:3}]);
       rebuildInventoryBalanceMap();
       stockReportItems=products.slice(0,3).map(p=>({pid:p.id,name:p.name,unit:p.unit,wh:'1'}));
-      stockReportCatFilter={wh:'1',category:'',brand:''};stockReportTableFilter={name:'',stock:'all'};stockReportSort={key:'name',dir:1};
+      stockReportCatFilter={wh:'1',category:'',brand:''};stockReportSort={key:'name',dir:1};
       currentTab='rinventory';render();
     });
   };
@@ -50,13 +50,9 @@ let browser;
   assert.equal(await page.locator('[data-sr-row="101"] .stock-report-stock').innerText(),'2 กล่อง 3 แผง 7 เม็ด');
   assert.equal(await page.locator('[data-sr-row="103"] .stock-report-stock').innerText(),'-1 กล่อง -2 แผง -7 เม็ด');
   assert.match(await page.locator('[data-sr-row="101"]').innerText(),/0012345678901/);
-  await page.locator('#srNameFilter').fill('alp');assert.deepEqual(await rowIds(),[101]);
-  assert.equal(await page.locator('#srNameFilter').evaluate(el=>document.activeElement===el),true,'typing filter retains focus');
-  await page.locator('#srNameFilter').fill('');
-  await page.locator('#srStockFilter').selectOption('zero');assert.deepEqual(await rowIds(),[102]);
-  await page.locator('#srStockFilter').selectOption('negative');assert.deepEqual(await rowIds(),[103]);
-  await page.locator('#srStockFilter').selectOption('positive');assert.deepEqual(await rowIds(),[101]);
-  await page.locator('#srStockFilter').selectOption('all');
+  assert.equal(await page.locator('.stock-report-table thead input,.stock-report-table thead select').count(),0);
+  assert.deepEqual(await page.locator('[data-sr-row="101"] .stock-report-price').allTextContents(),['240','120.5']);
+  assert.equal(await page.locator('.stock-report-price small').count(),0);
   await page.locator('[data-srsort="stock"]').click();assert.deepEqual(await rowIds(),[103,102,101]);
   await page.locator('[data-srsort="stock"]').click();assert.deepEqual(await rowIds(),[101,102,103]);
   await page.locator('[data-srsort="name"]').click();assert.deepEqual(await rowIds(),[101,102,103]);
@@ -70,13 +66,14 @@ let browser;
   await page.locator('#srInput').fill('0012345678904');await page.locator('#srInput').press('Enter');
   assert.deepEqual(await rowIds(),[101,102,104,103]);
   await page.locator('[data-sr-remove="104"]').click();assert.deepEqual(await rowIds(),[101,102,103]);
-  await page.locator('#srNameFilter').fill('missing');assert.match(await page.locator('#srTbody').innerText(),/ไม่พบสินค้าตามตัวกรอง/);
-  await page.locator('#srNameFilter').fill('Alpha');await page.locator('#srShowCost').uncheck();
+  await page.locator('#srShowCost').uncheck();
   const popupPromise=page.waitForEvent('popup');await page.locator('#printStockReportBtn').click();const popup=await popupPromise;
   await popup.waitForLoadState('domcontentloaded');
   assert.deepEqual(await popup.locator('table thead th').allTextContents(),['รหัสสินค้า','บาร์โค้ด','สินค้า','ขาย','คงเหลือ']);
-  assert.equal(await popup.locator('tbody tr').count(),1);assert.match(await popup.locator('tbody').innerText(),/2 กล่อง 3 แผง 7 เม็ด/);await popup.close();
-  await page.locator('#srNameFilter').fill('');await page.locator('#srShowCost').check();
+  assert.equal(await popup.locator('tbody tr').count(),3);assert.match(await popup.locator('tbody').innerText(),/2 กล่อง 3 แผง 7 เม็ด/);
+  assert.equal(await popup.locator('[data-sr-row="101"] .stock-report-price').innerText(),'240');
+  assert.equal(await popup.locator('.stock-report-price small').count(),0);await popup.close();
+  await page.locator('#srShowCost').check();
   if(process.env.PEPOS_SCREENSHOT_DIR){
     fs.mkdirSync(process.env.PEPOS_SCREENSHOT_DIR,{recursive:true});
     await page.screenshot({path:path.join(process.env.PEPOS_SCREENSHOT_DIR,'inventory-desktop.png'),fullPage:true});
@@ -92,6 +89,6 @@ let browser;
   assert.equal(await page.locator('#srShowCost').count(),0);
   assert.equal((await headers()).includes('ทุน'),false);
   assert.deepEqual(errors,[]);
-  console.log('Inventory browser checks passed: columns, scan/remove, live filters, sorting, remembered toggles, printing, multiple warehouses, tablet scrolling, staff costs');
+  console.log('Inventory browser checks passed: compact prices, no header filters, scan/remove, sorting, remembered toggles, printing, multiple warehouses, tablet scrolling, staff costs');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.close();});
 
