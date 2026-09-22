@@ -52,4 +52,7 @@ const history=app.slice(app.indexOf('function renderCustomerPurchaseHistory('),a
 assert.match(history,/value="month"/);assert.match(history,/value="year"/);
 assert.doesNotMatch(history,/value="day"|value="range"/);
 assert.doesNotMatch(history,/salesHistory\.filter/,'Do not calculate totals from truncated sales cache');
+assert.equal((history.match(/<th class="customer-purchase-centered">/g)||[]).length,4,'Date, bill number, total, and status headings must be centered');
+assert.equal((history.match(/<td class="(?:mono )?customer-purchase-centered">/g)||[]).length,4,'Date, bill number, total, and status values must be centered');
+assert.match(fs.readFileSync(path.join(root,'styles.css'),'utf8'),/\.customer-purchase-table \.customer-purchase-centered\{text-align:center;vertical-align:middle;\}/);
 console.log('Customer purchase history and tier boundary tests passed');
