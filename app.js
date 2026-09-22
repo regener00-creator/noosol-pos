@@ -3836,6 +3836,13 @@ let stockReportItems = [];
 let stockReportCatFilter = { wh:'', category:'', brand:'' };
 // การเรียงลำดับตารางในหน้ารายงานสินค้าคงเหลือ
 let stockReportSort = { key:'name', dir:1 };
+let stockReportTableFilter = { name:'', stock:'all' };
+const STOCK_REPORT_COLUMNS_KEY='sapuri_stock_report_columns_v1';
+let stockReportColumns = { price:true, cost:true };
+try{
+  const saved=JSON.parse(localStorage.getItem(STOCK_REPORT_COLUMNS_KEY)||'null');
+  if(saved) stockReportColumns={price:saved.price!==false,cost:saved.cost!==false};
+}catch(error){}
 // ชุดสินค้าที่บันทึกไว้สำหรับเปิดดูราคา/ทุน/คงเหลือล่าสุดซ้ำได้
 let inspectionLists = [];
 let editingInspectionListId = null; // null=หน้ารวม, 'new'=สร้างใหม่, ค่าอื่น=แก้ไขรายการเดิม
@@ -13315,6 +13322,43 @@ function stockReportSelectedItemsHtml(){
   if(!stockReportItems.length) return '';
   return `<div class="stock-report-selected-products"><span class="stock-report-selected-label">สินค้าที่เลือก ${stockReportItems.length} รายการ</span><div class="stock-report-selected-list">${stockReportItems.map(row=>`<span class="stock-report-product-chip">${escapeHtml(row.name)}<button type="button" data-sr-chip-remove="${row.pid}" aria-label="ลบ ${escapeHtml(row.name)}">×</button></span>`).join('')}</div><button type="button" class="stock-report-clear-products" id="srClearSelected">ล้างทั้งหมด</button></div>`;
 }
+function stockReportVisibleColumns(){
+  return {price:stockReportColumns.price,cost:stockReportColumns.cost&&!isLevel2User()};
+}
+function stockReportQuantityText(product,stock){
+  const quantity=Number(stock);
+  if(!Number.isFinite(quantity)) return '-';
+  const units=[{name:product?.unit||'หน่วย',factor:1},...(product?.units||[]).map(unit=>({name:unit.sub,factor:Number(unit.factor)}))]
+    .filter(unit=>unit.name&&Number.isFinite(unit.factor)&&unit.factor>0)
+    .sort((a,b)=>b.factor-a.factor);
+  const round=value=>Math.round(value*1e6)/1e6;
+  const format=value=>value.toLocaleString('th-TH',{maximumFractionDigits:6});
+  let remaining=round(Math.abs(quantity));
+  if(!remaining) return `0 ${product?.unit||'หน่วย'}`;
+  const parts=[];
+  units.forEach((unit,index)=>{
+    const ratio=round(remaining/unit.factor);
+    const amount=index===units.length-1?ratio:Math.floor(ratio);
+    if(amount>0){
+      parts.push(`${quantity<0?'-':''}${format(amount)} ${unit.name}`);
+      remaining=round(Math.max(0,remaining-amount*unit.factor));
+    }
+  });
+  return parts.join(' ');
+}
+function stockReportProductCellsHtml(row){
+  const product=products.find(item=>item.id===row.pid),columns=stockReportVisibleColumns();
+  const priceCell=key=>`<td class="stock-report-price">${product?`${fmtMoney(key==='price'?product.price:productUnitCost(product,product.unit,1))}<small>บาท / ${escapeHtml(product.unit||'หน่วย')}</small>`:'-'}</td>`;
+  return `<td class="mono stock-report-code">${escapeHtml(product?.sku||'-')}</td><td class="mono stock-report-code">${escapeHtml(product?.barcode||'-')}</td><td class="stock-report-name">${escapeHtml(product?.name||row.name)}</td>${columns.price?priceCell('price'):''}${columns.cost?priceCell('cost'):''}`;
+}
+function stockReportHeadersHtml(forPrint=false){
+  const all=String(stockReportCatFilter.wh||(isAllWarehousesMode()?'all':activeWarehouseId))==='all';
+  const columns=stockReportVisibleColumns(),reportWarehouses=all?accessibleWarehouses():[];
+  const rowSpan=all?' rowspan="2"':'';
+  const nameFilter=forPrint?'':`<input id="srNameFilter" class="stock-report-header-filter" aria-label="กรองสินค้า" placeholder="กรองชื่อสินค้า..." value="${escapeHtml(stockReportTableFilter.name)}" autocomplete="off">`;
+  const stockFilter=forPrint?'':`<select id="srStockFilter" class="stock-report-header-filter" aria-label="กรองคงเหลือ${all?'รวมทุกคลัง':''}">${[['all','คงเหลือทั้งหมด'],['positive','มีสินค้า (> 0)'],['zero','หมด (0)'],['negative','ติดลบ (< 0)']].map(([value,label])=>`<option value="${value}" ${stockReportTableFilter.stock===value?'selected':''}>${label}</option>`).join('')}</select>${all?'<small class="stock-report-filter-hint">กรองและเรียงตามยอดรวมทุกคลัง</small>':''}`;
+  return `<tr><th${rowSpan}>รหัสสินค้า</th><th${rowSpan}>บาร์โค้ด</th><th${rowSpan}>${forPrint?'สินค้า':stockReportTh('name','สินค้า')}${nameFilter}</th>${columns.price?`<th${rowSpan}>ขาย</th>`:''}${columns.cost?`<th${rowSpan}>ทุน</th>`:''}<th${all?` colspan="${reportWarehouses.length}"`:''}>${forPrint?'คงเหลือ':stockReportTh('stock','คงเหลือ')}${stockFilter}</th>${forPrint?'':`<th${rowSpan} class="stock-report-action"></th>`}</tr>${all?`<tr>${reportWarehouses.map((warehouse,index)=>`<th class="stock-report-warehouse" title="${escapeHtml(warehouse.name)}">คลังที่ ${index+1}<small>${escapeHtml(warehouse.name)}</small></th>`).join('')}</tr>`:''}`;
+}
 function renderRInventory(){
   const catf=stockReportCatFilter;
   const selectedWarehouseValue=String(catf.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
@@ -13322,9 +13366,6 @@ function renderRInventory(){
   // หมวดย่อยจะแสดงเฉพาะที่มีสินค้าจริงอยู่ในหมวดหลักที่เลือกไว้ (ถ้ายังไม่เลือกหมวดหลัก จะโชว์หมวดย่อยทั้งหมด)
   const brandOptions = brands.filter(brand=>products.some(product=>(!catf.category||product.category===catf.category)&&product.brand===brand));
   const matchCount = products.filter(product=>stockReportProductMatchesFilter(product,catf)&&(catf.wh||catf.category||catf.brand)).length;
-  const warehouseHeaders=selectedWarehouseValue==='all'
-    ? accessibleWarehouses().map((warehouse,index)=>`<th class="num" title="${escapeHtml(warehouse.name)}">คลังที่ ${index+1}</th>`).join('')
-    : stockReportTh('stock','จำนวนคงเหลือ',true);
   return `<div class="rpt">
   <div class="pagehead topbar-action-source"><div></div><div style="display:flex;gap:8px;"><button class="btn ghost" id="resetStockReportBtn">รีเซ็ตข้อมูล</button><button class="btn primary" id="printStockReportBtn">พิมพ์รายงาน</button></div></div>
   <div class="inventory-report-section">
@@ -13339,28 +13380,33 @@ function renderRInventory(){
       <input id="srInput" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." style="width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;" autocomplete="off">
       <div id="srResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div>
     </div>
-    <table class="grid-table doc-head-blue"><thead><tr>${stockReportTh('name','สินค้า')}${warehouseHeaders}<th style="width:40px;"></th></tr></thead>
-    <tbody id="srTbody">${stockReportRowsHtml()}</tbody></table>
+    <div class="stock-report-column-controls"><span>แสดงคอลัมน์</span><label><input id="srShowPrice" type="checkbox" ${stockReportColumns.price?'checked':''}> ขาย</label>${!isLevel2User()?`<label><input id="srShowCost" type="checkbox" ${stockReportColumns.cost?'checked':''}> ทุน</label>`:''}</div>
+    <div class="stock-report-table-scroll app-table-scroll-region"><table class="grid-table doc-head-blue stock-report-table"><thead>${stockReportHeadersHtml()}</thead>
+    <tbody id="srTbody">${stockReportRowsHtml()}</tbody></table></div>
   </div>
   </div>`;
 }
 
-function stockReportTh(key, label, center){
+function stockReportTh(key, label){
   const s=stockReportSort;
-  const arrow = s.key===key ? (s.dir===1?' ▲':' ▼') : '';
-  return `<th class="sr-sortable ${center?'num':''}" data-srsort="${key}">${label}<span class="sortarrow">${arrow}</span></th>`;
+  const arrow = s.key===key ? (s.dir===1?'▲':'▼') : '↕';
+  return `<button type="button" class="stock-report-sort" data-srsort="${key}" aria-label="เรียงตาม${label}">${label}<span class="sortarrow" aria-hidden="true">${arrow}</span></button>`;
 }
 
 function stockReportSortedItems(){
   const s=stockReportSort;
+  const warehouseValue=String(stockReportCatFilter.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
+  const productMap=new Map(products.map(product=>[product.id,product]));
+  const query=stockReportTableFilter.name.trim().toLocaleLowerCase('th');
   const keyVal=(row,key)=>{
-    const p=products.find(x=>x.id===row.pid);
-    const warehouseValue=String(row.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
     if(key==='stock') return reportStock(row.pid,warehouseValue);
-    if(key==='expiry') return reportExpiry(row.pid,warehouseValue)||'';
-    return row.name;
+    return productMap.get(row.pid)?.name||row.name;
   };
-  return [...stockReportItems].sort((a,b)=>{
+  return stockReportItems.filter(row=>{
+    if(query&&!String(keyVal(row,'name')).toLocaleLowerCase('th').includes(query)) return false;
+    const stock=keyVal(row,'stock');
+    return stockReportTableFilter.stock==='positive'?stock>0:stockReportTableFilter.stock==='zero'?stock===0:stockReportTableFilter.stock==='negative'?stock<0:true;
+  }).sort((a,b)=>{
     const av=keyVal(a,s.key), bv=keyVal(b,s.key);
     if(typeof av==='number' && typeof bv==='number') return (av-bv)*s.dir;
     return String(av).localeCompare(String(bv),'th')*s.dir;
@@ -13375,27 +13421,20 @@ function stockReportExpiryBreakdownHtml(productId){
   return accessibleWarehouses().map(warehouse=>{const expiry=warehouseExpiry(productId,warehouse.id);return `<div>${escapeHtml(warehouse.name)} · ${expiry?fmtDateShort(expiry):'-'}</div>`;}).join('');
 }
 
-function stockReportRowsHtml(){
+function stockReportRowsHtml(forPrint=false){
   const sorted=stockReportSortedItems();
   const selectedWarehouseValue=String(stockReportCatFilter.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
   const reportWarehouses=selectedWarehouseValue==='all'?accessibleWarehouses():[];
+  const columns=stockReportVisibleColumns();
+  const columnCount=3+Number(columns.price)+Number(columns.cost)+(selectedWarehouseValue==='all'?reportWarehouses.length:1)+(forPrint?0:1);
   return sorted.length
     ? sorted.map(row=>{
         const p=products.find(x=>x.id===row.pid);
-        const warehouseValue=String(row.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
-        if(warehouseValue==='all'){
-          const warehouseCells=reportWarehouses.map(warehouse=>{
-            const stockVal=warehouseStock(row.pid,warehouse.id);
-            const stockDisplay=p?stockInLargestUnit({...p,stock:stockVal}):`${stockVal} ${row.unit}`;
-            return `<td class="mono num ${stockVal<0?'stock-negative':''}" style="text-align:center;">${escapeHtml(stockDisplay)}</td>`;
-          }).join('');
-          return `<tr><td>${escapeHtml(row.name)}</td>${warehouseCells}<td class="num"><button class="history-icon-btn danger" data-sr-remove="${escapeHtml(row.pid)}" title="ลบ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td></tr>`;
-        }
-        const stockVal=reportStock(row.pid,warehouseValue);
-        const stockDisplay = p ? stockInLargestUnit({...p,stock:stockVal}) : `${stockVal} ${row.unit}`;
-        return `<tr><td>${escapeHtml(row.name)}</td><td class="mono num ${stockVal<0?'stock-negative':''}" style="text-align:center;">${escapeHtml(stockDisplay)}</td><td class="num"><button class="history-icon-btn danger" data-sr-remove="${escapeHtml(row.pid)}" title="ลบ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td></tr>`;
+        const stockCell=stockVal=>`<td class="stock-report-stock ${stockVal<0?'stock-negative':''}">${escapeHtml(stockReportQuantityText(p||{unit:row.unit},stockVal))}</td>`;
+        const stockCells=selectedWarehouseValue==='all'?reportWarehouses.map(warehouse=>stockCell(warehouseStock(row.pid,warehouse.id))).join(''):stockCell(reportStock(row.pid,selectedWarehouseValue));
+        return `<tr data-sr-row="${escapeHtml(row.pid)}">${stockReportProductCellsHtml(row)}${stockCells}${forPrint?'':`<td class="stock-report-action"><button class="history-icon-btn danger" data-sr-remove="${escapeHtml(row.pid)}" title="ลบ" aria-label="ลบ ${escapeHtml(p?.name||row.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td>`}</tr>`;
       }).join('')
-    : `<tr><td colspan="${selectedWarehouseValue==='all'?reportWarehouses.length+2:3}" style="text-align:center;color:var(--text-muted);padding:20px;">ยังไม่มีรายการ — ค้นหาหรือสแกนบาร์โค้ดด้านบนเพื่อเพิ่ม</td></tr>`;
+    : `<tr><td colspan="${columnCount}" style="text-align:center;color:var(--text-muted);padding:20px;">${stockReportItems.length?'ไม่พบสินค้าตามตัวกรอง':'ยังไม่มีรายการ — ค้นหาหรือสแกนบาร์โค้ดด้านบนเพื่อเพิ่ม'}</td></tr>`;
 }
 
 function renderBusinessSettings(){
@@ -14929,6 +14968,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     if(!stockReportItems.length){ showToast('ยังไม่มีข้อมูลให้รีเซ็ต'); return; }
     if(!confirm('ต้องการล้างรายการทั้งหมดในรายงานนี้ใช่หรือไม่?')) return;
     stockReportItems=[]; stockReportCatFilter={wh:'', category:'', brand:''};
+    stockReportTableFilter={name:'',stock:'all'};
     showToast('รีเซ็ตข้อมูลแล้ว'); render();
   });
   // ค้นหา/สแกนสินค้าเพื่อเพิ่มลงรายงานสินค้าคงเหลือ (หน้า inline ไม่ใช่ modal)
@@ -14949,6 +14989,15 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       });
     };
     refreshSrTable();
+    document.getElementById('srNameFilter')?.addEventListener('input',event=>{ stockReportTableFilter.name=event.target.value; refreshSrTable(); });
+    document.getElementById('srStockFilter')?.addEventListener('change',event=>{ stockReportTableFilter.stock=event.target.value; refreshSrTable(); });
+    [['srShowPrice','price'],['srShowCost','cost']].forEach(([id,key])=>{
+      document.getElementById(id)?.addEventListener('change',event=>{
+        stockReportColumns[key]=event.target.checked;
+        try{ localStorage.setItem(STOCK_REPORT_COLUMNS_KEY,JSON.stringify(stockReportColumns)); }catch(error){}
+        render();
+      });
+    });
     if(srSelectedWrap) srSelectedWrap.addEventListener('click', event=>{
       const removeButton=event.target.closest('[data-sr-chip-remove]');
       if(removeButton){
@@ -19470,6 +19519,7 @@ function printStockAlertReport(kind){
 
 function printStockReport(){
   if(!stockReportItems.length){ showToast('ยังไม่มีรายการในรายงาน'); return; }
+  if(!stockReportSortedItems().length){ showToast('ไม่พบสินค้าตามตัวกรอง'); return; }
   const thDate=d=>{ const dt=new Date(d); return dt.getDate()+' '+['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][dt.getMonth()]+' '+dt.getFullYear(); };
   const today=new Date(TODAY_STR);
   const selectedWarehouseValue=String(stockReportCatFilter.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
@@ -19478,24 +19528,7 @@ function printStockReport(){
   const warehouseSummary=selectedWarehouseValue==='all'
     ? reportWarehouses.map((warehouse,index)=>`<div>คลัง ${index+1} : ${escapeHtml(warehouse.name)}</div>`).join('')
     : `<div>คลัง : ${escapeHtml(selectedWarehouseName)}</div>`;
-  const stockHeaders=selectedWarehouseValue==='all'
-    ? reportWarehouses.map((warehouse,index)=>`<th class="c" title="${escapeHtml(warehouse.name)}">คลังที่ ${index+1}</th>`).join('')
-    : '<th class="c">จำนวนคงเหลือ</th>';
-  const rowsHtml=stockReportSortedItems().map(row=>{
-    const p=products.find(x=>x.id===row.pid);
-    const warehouseValue=String(row.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
-    if(warehouseValue==='all'){
-      const warehouseCells=reportWarehouses.map(warehouse=>{
-        const stockQty=warehouseStock(row.pid,warehouse.id);
-        const stockDisplay=p?stockInLargestUnit({...p,stock:stockQty}):`${stockQty} ${row.unit||''}`.trim();
-        return `<td class="c">${escapeHtml(stockDisplay)}</td>`;
-      }).join('');
-      return `<tr><td class="pd-name">${escapeHtml(row.name)}</td>${warehouseCells}</tr>`;
-    }
-    const stockQty = p ? reportStock(p.id,warehouseValue) : row.stock;
-    const stockDisplay=p?stockInLargestUnit({...p,stock:stockQty}):`${stockQty} ${row.unit||''}`.trim();
-    return `<tr><td class="pd-name">${escapeHtml(row.name)}</td><td class="c">${escapeHtml(stockDisplay)}</td></tr>`;
-  }).join('');
+  const rowsHtml=stockReportRowsHtml(true);
   const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร'); return; }
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>รายงานสินค้าคงเหลือ</title>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -19528,7 +19561,8 @@ function printStockReport(){
     <h1>รายงานสินค้าคงเหลือ</h1>
     <div class="warehouse">${warehouseSummary}</div>
     <div class="meta">ณ วันที่ ${thDate(today)}</div>
-    <table><thead><tr><th style="width:${selectedWarehouseValue==='all'?'52':'68'}%;">สินค้า</th>${stockHeaders}</tr></thead><tbody>${rowsHtml}</tbody></table>
+    <style>.stock-report-price,.stock-report-stock{text-align:center}.stock-report-price small,.stock-report-warehouse small{display:block;font-size:10px;font-weight:400}.stock-report-code{overflow-wrap:anywhere}.stock-report-name{min-width:90px}.stock-negative{color:#b42318}tr{break-inside:avoid}</style>
+    <table><thead>${stockReportHeadersHtml(true)}</thead><tbody>${rowsHtml}</tbody></table>
   </div>
   </body></html>`);
   win.document.close();
