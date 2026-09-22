@@ -11762,7 +11762,7 @@ function customerLoyaltyPanelHtml(customer,readOnly=false){
       :`${balanceHtml}<small class="loyalty-expiry-date">หมดอายุ <strong>${escapeHtml(fmtDateShort(account.expiresOn))}</strong></small>${expiryWarningHtml}${adjustmentHtml}`;
   }
   const redeemedSummary=redeemed?`<small>ใช้ ${redeemed} แต้ม ลด ${fmtMoney(redeemed)} บาท (รวมในส่วนลดแล้ว)</small>`:'';
-  const redeemHtml=readOnly?'':`<div class="loyalty-redeem-row"><button class="btn primary small loyalty-redeem-button" data-redeem-loyalty type="button" ${!account||!eligible||Number(account.balance)<=0?'disabled':''}>ใช้แต้มเป็นส่วนลด</button>${saleLoyaltySelection?'<button class="btn ghost small" data-clear-loyalty type="button">ยกเลิกใช้แต้ม</button>':''}</div>${redeemedSummary}`;
+  const redeemHtml=readOnly?'':`<div class="loyalty-redeem-row"><button class="btn primary small loyalty-redeem-button" data-redeem-loyalty type="button" ${!account||!eligible||Number(account.balance)<=0?'disabled':''}>ใช้แต้มเป็นส่วนลด</button><button class="btn ghost small loyalty-customer-history-button" data-customer-history="${escapeHtml(customer.id)}" type="button">ประวัติลูกค้า</button>${saleLoyaltySelection?'<button class="btn ghost small" data-clear-loyalty type="button">ยกเลิกใช้แต้ม</button>':''}</div>${redeemedSummary}`;
   const titleHtml=readOnly?'<strong>แต้มสะสม</strong>':'<div class="loyalty-panel-title"><strong>แต้มสะสม</strong><span>• จะใช้แต้มได้เมื่อยอดถึง 1,000 บาท</span></div>';
   const tierProgressHtml=readOnly?'':customerTierProgressHtml(tierState,customer.id,'pos');
   return `<div class="loyalty-panel${readOnly?' customer-history-loyalty-panel':''}" data-loyalty-customer="${escapeHtml(customer.id)}" data-loyalty-readonly="${readOnly?'true':'false'}"><div class="loyalty-panel-head">${titleHtml}<button class="btn ghost small" data-refresh-loyalty type="button">รีเฟรชแต้ม</button></div>${accountHtml}${tierProgressHtml}${redeemHtml}</div>`;
@@ -11837,6 +11837,7 @@ function bindCustomerLoyaltyEvents(){
   document.querySelectorAll('[data-refresh-loyalty]').forEach(button=>button.onclick=()=>{customerLoyaltyState=null;refreshCustomerLoyaltyPanel();});
   document.querySelectorAll('[data-clear-loyalty]').forEach(button=>button.onclick=()=>{saleLoyaltySelection=null;render();});
   document.querySelectorAll('[data-redeem-loyalty]').forEach(button=>button.onclick=openLoyaltyRedemption);
+  document.querySelectorAll('[data-customer-history]').forEach(button=>button.onclick=()=>openCustomerPurchaseHistory(button.dataset.customerHistory));
 }
 async function openLoyaltyRedemption(){
   const customer=activeSaleCustomer();if(!customer?.id) return;
@@ -11980,13 +11981,8 @@ function attachCustomerPurchaseEvents(){
     button.dataset.customerHistoryReset='1';
     button.addEventListener('click',()=>{customerHistoryView=null;customerPurchaseState=null;contactPage=1;},{capture:true});
   });
-  document.querySelectorAll('[data-customer-history]').forEach(button=>button.addEventListener('click',()=>{
-    const today=currentDateStr();
-    customerHistoryView={id:button.dataset.customerHistory,mode:'month',year:Number(today.slice(0,4)),month:Number(today.slice(5,7)),page:1};
-    customerPurchaseState=null; render();
-  }));
   const close=document.getElementById('closeCustomerHistory');
-  if(close) close.onclick=()=>{customerHistoryView=null;customerPurchaseState=null;render();};
+  if(close) close.onclick=()=>{const originTab=customerHistoryView?.originTab;customerHistoryView=null;customerPurchaseState=null;if(originTab==='checkout') currentTab='checkout';render();};
   const refresh=document.getElementById('refreshCustomerPurchases');
   if(refresh) refresh.onclick=()=>{customerPurchaseState=null;customerLoyaltyState=null;render();};
   const apply=document.getElementById('applyCustomerHistory');
@@ -12004,6 +12000,12 @@ function attachCustomerPurchaseEvents(){
     customerHistoryView.page=value==='prev'?Math.max(1,current-1):value==='next'?current+1:Number(value);
     customerPurchaseState=null;render();
   });
+}
+function openCustomerPurchaseHistory(customerId){
+  const today=currentDateStr(),originTab=currentTab;
+  customerHistoryView={id:customerId,mode:'month',year:Number(today.slice(0,4)),month:Number(today.slice(5,7)),page:1,originTab:originTab==='checkout'?'checkout':'customers'};
+  if(originTab==='checkout') currentTab='customers';
+  customerPurchaseState=null;render();
 }
 function renderContacts(){
   if(editingCustomerPriceContactId!==null) return renderCustomerPricingForm();

@@ -40,6 +40,7 @@ let browser;
     window.loyaltyRpc=async(name,p)=>{
       if(name==='get_customer_loyalty')return window.failRead?{error:{message:'offline'}}:{data:[{customerId:'1',balance:200,joinedOn:'2025-12-03',periodStart:'2025-12-03',expiresOn:'2026-12-03',expiresAt:'2026-12-02T17:00:00Z'}]};
       if(name==='get_pos_customer_tier_progress')return {error:null,data:{asOf:'2026-09-11',summaries:[{customerId:'1',membershipCycleTotal:90000,membershipElapsedMonths:10,membershipPeriodStart:'2025-12-03',membershipPeriodEnd:'2026-12-03'}]}};
+      if(name==='get_customer_purchase_history')return {error:null,data:{asOf:'2026-09-11',summaries:[{customerId:'1',lifetimeTotal:90000,membershipCycleTotal:90000,membershipElapsedMonths:10,periodTotal:1000,periodBills:1}],totalBills:1,page:1,bills:[{id:'SALE-1',ref:'RE-1',date:'2026-09-11',status:'done',total:1000,items:[{name:'Decolgen',qty:1,unit:'กล่อง',price:1000}]}]}};
       if(name==='complete_sale'){
         window.requests.push(p);
         if(window.ambiguous)return {error:{message:'Failed to fetch'}};
@@ -54,6 +55,13 @@ let browser;
   assert.equal(await page.locator('.loyalty-panel-title').innerText(),'แต้มสะสม\n• จะใช้แต้มได้เมื่อยอดถึง 1,000 บาท');
   assert.equal(await page.getByText('ใช้แต้มได้เมื่อยอดหลังส่วนลดอื่นถึง 1,000 บาท',{exact:true}).count(),0);
   assert.deepEqual(await page.locator('[data-redeem-loyalty]').evaluate(button=>({background:getComputedStyle(button).backgroundColor,color:getComputedStyle(button).color})),{background:'rgb(79, 64, 56)',color:'rgb(255, 255, 255)'});
+  assert.deepEqual(await page.locator('.loyalty-redeem-row button').allTextContents(),['ใช้แต้มเป็นส่วนลด','ประวัติลูกค้า']);
+  await page.locator('[data-customer-history="1"]').click();
+  await page.locator('.customer-purchases-page').waitFor();
+  assert.deepEqual(await page.evaluate(()=>({currentTab,originTab:customerHistoryView?.originTab,cartCount:cart.length,customerId:saleMember?.id})),{currentTab:'customers',originTab:'checkout',cartCount:1,customerId:1});
+  await page.locator('#closeCustomerHistory').click();
+  await page.locator('#checkoutBtn').waitFor();
+  assert.deepEqual(await page.evaluate(()=>({currentTab,cartCount:cart.length,customerId:saleMember?.id})),{currentTab:'checkout',cartCount:1,customerId:1});
   assert.match(await page.locator('#customerLoyaltyPanel').innerText(),/หมดอายุ 03-12-2026[\s\S]*แต้มจะหมดอายุภายใน 3 เดือน/);
   assert.equal(await page.getByText(/สมัคร 03-12-2025/).count(),0,'POS must show expiry without joined date');
   await page.locator('.customer-tier-progress-pos').waitFor();
