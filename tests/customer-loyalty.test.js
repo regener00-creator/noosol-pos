@@ -34,7 +34,7 @@ test('points persist with ambiguous retry, not a separately charged payment',()=
   assert.match(fn('restorePendingCheckoutUi'),/snapshot.saleLoyaltySelection/);
   assert.match(source,/Number\(saleDiscount\)\+loyaltyRedeemed,vatRegistered/);
   assert.match(source,/saleDraft.loyaltyPeriodStart=loyaltyRedeemed\?saleLoyaltySelection\?\.periodStart:null/);
-  assert.match(source,/ทุกยอดสุทธิ 100 บาท = 1 แต้ม/);
+  assert.match(source,/• 100 บาท = 1 แต้ม \/ ใช้แต้มได้เมื่อยอดถึง 1,000 บาท/);
 });
 test('expiry warning uses calendar month thresholds and loyalty anniversary stays anchored',()=>{
   const ctx=vm.createContext({currentDateStr:()=> '2026-09-11',Date,Intl});

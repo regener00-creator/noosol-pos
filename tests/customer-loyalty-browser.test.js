@@ -52,7 +52,7 @@ let browser;
     render();
   });
   await page.getByText('200 แต้ม',{exact:true}).waitFor();
-  assert.equal(await page.locator('.loyalty-panel-title').innerText(),'แต้มสะสม\n• ทุกยอดสุทธิ 100 บาท = 1 แต้ม • ใช้แต้มได้เมื่อยอดถึง 1,000 บาท');
+  assert.equal(await page.locator('.loyalty-panel-title').innerText(),'แต้มสะสม\n• 100 บาท = 1 แต้ม / ใช้แต้มได้เมื่อยอดถึง 1,000 บาท');
   assert.equal(await page.getByText('ใช้แต้มได้เมื่อยอดหลังส่วนลดอื่นถึง 1,000 บาท',{exact:true}).count(),0);
   assert.deepEqual(await page.locator('[data-redeem-loyalty]').evaluate(button=>({background:getComputedStyle(button).backgroundColor,color:getComputedStyle(button).color})),{background:'rgb(79, 64, 56)',color:'rgb(255, 255, 255)'});
   assert.deepEqual(await page.locator('.loyalty-redeem-row button').allTextContents(),['ใช้แต้มเป็นส่วนลด','ประวัติลูกค้า']);
