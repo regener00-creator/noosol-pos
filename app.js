@@ -3837,10 +3837,10 @@ let stockReportCatFilter = { wh:'', category:'', brand:'' };
 // การเรียงลำดับตารางในหน้ารายงานสินค้าคงเหลือ
 let stockReportSort = { key:'name', dir:1 };
 const STOCK_REPORT_COLUMNS_KEY='sapuri_stock_report_columns_v1';
-let stockReportColumns = { price:true, cost:true };
+let stockReportColumns = { sku:true, barcode:true, price:true, cost:true };
 try{
   const saved=JSON.parse(localStorage.getItem(STOCK_REPORT_COLUMNS_KEY)||'null');
-  if(saved) stockReportColumns={price:saved.price!==false,cost:saved.cost!==false};
+  if(saved) stockReportColumns={sku:saved.sku!==false,barcode:saved.barcode!==false,price:saved.price!==false,cost:saved.cost!==false};
 }catch(error){}
 // ชุดสินค้าที่บันทึกไว้สำหรับเปิดดูราคา/ทุน/คงเหลือล่าสุดซ้ำได้
 let inspectionLists = [];
@@ -13322,7 +13322,7 @@ function stockReportSelectedItemsHtml(){
   return `<div class="stock-report-selected-products"><span class="stock-report-selected-label">สินค้าที่เลือก ${stockReportItems.length} รายการ</span><div class="stock-report-selected-list">${stockReportItems.map(row=>`<span class="stock-report-product-chip">${escapeHtml(row.name)}<button type="button" data-sr-chip-remove="${row.pid}" aria-label="ลบ ${escapeHtml(row.name)}">×</button></span>`).join('')}</div><button type="button" class="stock-report-clear-products" id="srClearSelected">ล้างทั้งหมด</button></div>`;
 }
 function stockReportVisibleColumns(){
-  return {price:stockReportColumns.price,cost:stockReportColumns.cost&&!isLevel2User()};
+  return {sku:stockReportColumns.sku!==false,barcode:stockReportColumns.barcode!==false,price:stockReportColumns.price,cost:stockReportColumns.cost&&!isLevel2User()};
 }
 function stockReportQuantityText(product,stock){
   const quantity=Number(stock);
@@ -13348,13 +13348,13 @@ function stockReportQuantityText(product,stock){
 function stockReportProductCellsHtml(row){
   const product=products.find(item=>item.id===row.pid),columns=stockReportVisibleColumns();
   const priceCell=key=>`<td class="stock-report-price">${product?fmtFavoritePrice(key==='price'?product.price:productUnitCost(product,product.unit,1)):'-'}</td>`;
-  return `<td class="mono stock-report-code">${escapeHtml(product?.sku||'-')}</td><td class="mono stock-report-code">${escapeHtml(product?.barcode||'-')}</td><td class="stock-report-name">${escapeHtml(product?.name||row.name)}</td>${columns.price?priceCell('price'):''}${columns.cost?priceCell('cost'):''}`;
+  return `${columns.sku?`<td class="mono stock-report-code">${escapeHtml(product?.sku||'-')}</td>`:''}${columns.barcode?`<td class="mono stock-report-code">${escapeHtml(product?.barcode||'-')}</td>`:''}<td class="stock-report-name">${escapeHtml(product?.name||row.name)}</td>${columns.price?priceCell('price'):''}${columns.cost?priceCell('cost'):''}`;
 }
 function stockReportHeadersHtml(forPrint=false){
   const all=String(stockReportCatFilter.wh||(isAllWarehousesMode()?'all':activeWarehouseId))==='all';
   const columns=stockReportVisibleColumns(),reportWarehouses=all?accessibleWarehouses():[];
   const rowSpan=all?' rowspan="2"':'';
-  return `<tr><th${rowSpan}>รหัสสินค้า</th><th${rowSpan}>บาร์โค้ด</th><th${rowSpan}>${forPrint?'สินค้า':stockReportTh('name','สินค้า')}</th>${columns.price?`<th${rowSpan}>ขาย</th>`:''}${columns.cost?`<th${rowSpan}>ทุน</th>`:''}<th${all?` colspan="${reportWarehouses.length}"`:''}>${forPrint?'คงเหลือ':stockReportTh('stock','คงเหลือ')}</th>${forPrint?'':`<th${rowSpan} class="stock-report-action"></th>`}</tr>${all?`<tr>${reportWarehouses.map((warehouse,index)=>`<th class="stock-report-warehouse" title="${escapeHtml(warehouse.name)}">คลังที่ ${index+1}<small>${escapeHtml(warehouse.name)}</small></th>`).join('')}</tr>`:''}`;
+  return `<tr>${columns.sku?`<th${rowSpan}>รหัสสินค้า</th>`:''}${columns.barcode?`<th${rowSpan}>บาร์โค้ด</th>`:''}<th${rowSpan}>${forPrint?'สินค้า':stockReportTh('name','สินค้า')}</th>${columns.price?`<th${rowSpan}>ขาย</th>`:''}${columns.cost?`<th${rowSpan}>ทุน</th>`:''}<th${all?` colspan="${reportWarehouses.length}"`:''}>${forPrint?'คงเหลือ':stockReportTh('stock','คงเหลือ')}</th>${forPrint?'':`<th${rowSpan} class="stock-report-action"></th>`}</tr>${all?`<tr>${reportWarehouses.map((warehouse,index)=>`<th class="stock-report-warehouse" title="${escapeHtml(warehouse.name)}">คลังที่ ${index+1}<small>${escapeHtml(warehouse.name)}</small></th>`).join('')}</tr>`:''}`;
 }
 function renderRInventory(){
   const catf=stockReportCatFilter;
@@ -13366,18 +13366,18 @@ function renderRInventory(){
   return `<div class="rpt">
   <div class="pagehead topbar-action-source"><div></div><div style="display:flex;gap:8px;"><button class="btn ghost" id="resetStockReportBtn">รีเซ็ตข้อมูล</button><button class="btn primary" id="printStockReportBtn">พิมพ์รายงาน</button></div></div>
   <div class="inventory-report-section">
-    <div class="rpt-filters" style="margin-bottom:14px;">
+    <div class="rpt-filters stock-report-filters" style="margin-bottom:14px;">
       <div class="rpf-item"><select id="srWarehouseSelect" class="rpt-select"><option value="all" ${selectedWarehouseValue==='all'?'selected':''}>ทุกคลัง</option>${accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(warehouse.id)===selectedWarehouseValue?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>
       <div class="rpf-item"><select id="srCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${catf.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></div>
       <div class="rpf-item"><select id="srBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(b=>`<option value="${escapeHtml(b)}" ${catf.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select></div>
       <button class="btn ghost" id="srAddByCategoryBtn" ${(catf.wh||catf.category||catf.brand)?'':'disabled'}>เลือกสินค้าในตัวกรองนี้${(catf.wh||catf.category||catf.brand)?` (${matchCount})`:''}</button>
+      <div class="stock-report-column-controls"><span>แสดงคอลัมน์</span><label><input id="srShowSku" type="checkbox" ${stockReportColumns.sku!==false?'checked':''}> รหัสสินค้า</label><label><input id="srShowBarcode" type="checkbox" ${stockReportColumns.barcode!==false?'checked':''}> บาร์โค้ด</label><label><input id="srShowPrice" type="checkbox" ${stockReportColumns.price?'checked':''}> ขาย</label>${!isLevel2User()?`<label><input id="srShowCost" type="checkbox" ${stockReportColumns.cost?'checked':''}> ทุน</label>`:''}</div>
     </div>
     <div id="stockReportSelectedWrap">${stockReportSelectedItemsHtml()}</div>
     <div style="position:relative;margin-bottom:14px;">
       <input id="srInput" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." style="width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;" autocomplete="off">
       <div id="srResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div>
     </div>
-    <div class="stock-report-column-controls"><span>แสดงคอลัมน์</span><label><input id="srShowPrice" type="checkbox" ${stockReportColumns.price?'checked':''}> ขาย</label>${!isLevel2User()?`<label><input id="srShowCost" type="checkbox" ${stockReportColumns.cost?'checked':''}> ทุน</label>`:''}</div>
     <div class="stock-report-table-scroll app-table-scroll-region"><table class="grid-table doc-head-blue stock-report-table"><thead>${stockReportHeadersHtml()}</thead>
     <tbody id="srTbody">${stockReportRowsHtml()}</tbody></table></div>
   </div>
@@ -13418,7 +13418,7 @@ function stockReportRowsHtml(forPrint=false){
   const selectedWarehouseValue=String(stockReportCatFilter.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
   const reportWarehouses=selectedWarehouseValue==='all'?accessibleWarehouses():[];
   const columns=stockReportVisibleColumns();
-  const columnCount=3+Number(columns.price)+Number(columns.cost)+(selectedWarehouseValue==='all'?reportWarehouses.length:1)+(forPrint?0:1);
+  const columnCount=1+Number(columns.sku)+Number(columns.barcode)+Number(columns.price)+Number(columns.cost)+(selectedWarehouseValue==='all'?reportWarehouses.length:1)+(forPrint?0:1);
   return sorted.length
     ? sorted.map(row=>{
         const p=products.find(x=>x.id===row.pid);
@@ -14980,7 +14980,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       });
     };
     refreshSrTable();
-    [['srShowPrice','price'],['srShowCost','cost']].forEach(([id,key])=>{
+    [['srShowSku','sku'],['srShowBarcode','barcode'],['srShowPrice','price'],['srShowCost','cost']].forEach(([id,key])=>{
       document.getElementById(id)?.addEventListener('change',event=>{
         stockReportColumns[key]=event.target.checked;
         try{ localStorage.setItem(STOCK_REPORT_COLUMNS_KEY,JSON.stringify(stockReportColumns)); }catch(error){}

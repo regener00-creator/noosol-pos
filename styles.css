@@ -1218,8 +1218,8 @@
   .stock-report-product-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #D9CAC4;border-radius:18px;background:var(--primary-soft);color:var(--primary-dark);padding:4px 8px 4px 10px;font:500 12px 'Sarabun',sans-serif;}
   .stock-report-product-chip button{border:0;background:transparent;color:inherit;padding:0;cursor:pointer;font-size:16px;line-height:1;}
   .stock-report-clear-products{border:0;background:transparent;color:var(--danger);font:600 12px 'Sarabun',sans-serif;cursor:pointer;white-space:nowrap;padding:5px 2px;}
-  .stock-report-column-controls{display:flex;align-items:center;gap:18px;margin:0 0 12px;font-size:13px;color:var(--text-muted);}
-  .stock-report-column-controls label{display:inline-flex;align-items:center;gap:6px;color:var(--text);cursor:pointer;}
+  .stock-report-column-controls{display:flex;align-items:center;gap:10px;margin-left:auto;font-size:12px;color:var(--text-muted);white-space:nowrap;}
+  .stock-report-column-controls label{display:inline-flex;align-items:center;gap:4px;color:var(--text);cursor:pointer;}
   .stock-report-column-controls input{accent-color:var(--primary);width:16px;height:16px;}
   .stock-report-table-scroll{max-width:100%;overflow-x:auto;}
   .stock-report-table{min-width:800px;}
