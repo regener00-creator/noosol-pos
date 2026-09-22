@@ -6649,7 +6649,7 @@ function renderCheckout(){
             <span><strong>${escapeHtml(selectedCustomer?.name||'ลูกค้าทั่วไป')}</strong><small>${selectedCustomer?'กดเพื่อเปลี่ยนลูกค้า':'กดเพื่อเลือกลูกค้า'}</small></span>
           </button>
         </div>
-        <div id="customerLoyaltyPanel">${customerLoyaltyPanelHtml(selectedCustomer)}</div>
+        <div id="customerLoyaltyPanel" data-customer-loyalty-host>${customerLoyaltyPanelHtml(selectedCustomer)}</div>
         <div class="pos-actions">
           <button class="pos-action ${showFavorites?'on':''}" id="favBtn"><span class="pa-ic">⭐</span> สินค้าโปรด</button>
           <button class="pos-action" id="priceCheckBtn"><span class="pa-ic">🔍</span> เช็คราคา</button>
@@ -11689,6 +11689,7 @@ function renderExpiry(){
 }
 
 let customerHistoryView=null;
+let posCustomerHistoryModalOpen=false;
 let customerPurchaseState=null;
 function customerTierFromPurchases(cycleTotal,elapsedMonths){
   const months=Math.min(12,Math.max(1,Number(elapsedMonths)||1));
@@ -11746,7 +11747,7 @@ function loadCustomerLoyalty(ids,force=false){
 function customerLoyaltyPanelHtml(customer,readOnly=false){
   if(!customer?.id) return '';
   const state=loadCustomerLoyalty([customer.id]),account=state.data?.[0];
-  const tierState=readOnly?null:customerPurchaseLoad([customer.id]);
+  const tierState=readOnly||posCustomerHistoryModalOpen?null:customerPurchaseLoad([customer.id]);
   const redeemed=readOnly?0:effectiveLoyaltyRedemption();
   const eligible=!readOnly&&cartTaxSummary(applyPromotions(cart),saleDiscount).total>=1000;
   const adjustmentHtml=Number(account?.adjustmentDue)>0
@@ -11806,10 +11807,13 @@ function customerLoyaltyExpiryFromJoinedAt(joinedAt,today=currentDateStr()){
   return anniversary(joined.year+years+1);
 }
 function refreshCustomerLoyaltyPanel(){
-  const host=document.getElementById('customerLoyaltyPanel');if(!host) return;
-  const readOnly=host.dataset.readonly==='true';
-  const customer=readOnly?customersList().find(c=>String(c.id)===String(customerHistoryView?.id)):activeSaleCustomer();
-  host.innerHTML=customerLoyaltyPanelHtml(customer,readOnly);bindCustomerLoyaltyEvents();
+  const hosts=[...document.querySelectorAll('[data-customer-loyalty-host]')];if(!hosts.length) return;
+  hosts.forEach(host=>{
+    const readOnly=host.dataset.readonly==='true';
+    const customer=readOnly?customersList().find(c=>String(c.id)===String(customerHistoryView?.id)):activeSaleCustomer();
+    host.innerHTML=customerLoyaltyPanelHtml(customer,readOnly);
+  });
+  bindCustomerLoyaltyEvents();
 }
 function customerLoyaltyBalanceHtml(state,id){
   const account=state?.data?.find(row=>String(row.customerId)===String(id));
@@ -11891,7 +11895,9 @@ function customerPurchaseLoad(ids,view=null){
       clearTimeout(timeout);
       state.loading=false; state.loadedAt=Date.now();
       // An earlier request must never replace another customer's/current user's view.
-      if(customerPurchaseState===state&&currentTab==='customers'&&!editingContactId&&!editingCustomerPriceContactId){
+      if(customerPurchaseState===state&&view&&posCustomerHistoryModalOpen&&document.getElementById('posCustomerHistoryContent')){
+        refreshCustomerHistoryDisplay();
+      }else if(customerPurchaseState===state&&currentTab==='customers'&&!editingContactId&&!editingCustomerPriceContactId){
         const focused=document.activeElement,focusId=focused?.id;
         const start=focused?.selectionStart,end=focused?.selectionEnd;
         const fields=[...document.querySelectorAll('#search,#customerHistoryYear,#customerHistoryMonth')].map(input=>[input.id,input.value]);
@@ -11959,7 +11965,7 @@ function renderCustomerPurchaseHistory(){
     <div class="pagehead"><h1>${escapeHtml(customer.name)} <span class="page-title-meta">· ประวัติการซื้อ</span></h1><div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="closeCustomerHistory">ย้อนกลับ</button><button class="btn primary" id="refreshCustomerPurchases">รีเฟรชยอดซื้อ</button></div></div>
     <div class="customer-purchase-cards">
       <section class="customer-purchase-summary-card"><div class="customer-purchase-summary-row"><span>ยอดซื้อทั้งหมด</span><strong>${money(summary?.lifetimeTotal)}</strong></div><div class="customer-purchase-summary-row"><span>${view.mode==='month'?'ยอดซื้อเดือนนี้':'ยอดซื้อต่อปี'}</span><strong>${money(summary?.periodTotal)}</strong><small>${summary?`${view.mode==='month'?String(view.month).padStart(2,'0')+'/':''}${view.year} · ${summary.periodBills} บิลสำเร็จ`:''}</small></div><div class="customer-purchase-summary-row"><span>ยอดเฉลี่ย</span><strong>${monthlyAverage}</strong><small>${summary?'ต่อเดือน':''}</small></div></section>
-      <section class="customer-purchase-loyalty-card"><div id="customerLoyaltyPanel" data-readonly="true">${customerLoyaltyPanelHtml(customer,true)}</div></section>
+      <section class="customer-purchase-loyalty-card"><div id="${posCustomerHistoryModalOpen?'posCustomerHistoryLoyaltyPanel':'customerLoyaltyPanel'}" data-customer-loyalty-host data-readonly="true">${customerLoyaltyPanelHtml(customer,true)}</div></section>
       <section class="customer-purchase-tier-card"><span>ระดับปัจจุบัน</span><div>${customerTierOverviewHtml(state,customer.id)}</div></section>
     </div>
     <div class="customer-purchase-filters">
@@ -11982,30 +11988,53 @@ function attachCustomerPurchaseEvents(){
     button.addEventListener('click',()=>{customerHistoryView=null;customerPurchaseState=null;contactPage=1;},{capture:true});
   });
   const close=document.getElementById('closeCustomerHistory');
-  if(close) close.onclick=()=>{const originTab=customerHistoryView?.originTab;customerHistoryView=null;customerPurchaseState=null;if(originTab==='checkout') currentTab='checkout';render();};
+  if(close) close.onclick=()=>{
+    const overlay=close.closest('.pos-customer-history-overlay');
+    customerHistoryView=null;customerPurchaseState=null;
+    if(overlay){posCustomerHistoryModalOpen=false;overlay.remove();render();return;}
+    render();
+  };
   const refresh=document.getElementById('refreshCustomerPurchases');
-  if(refresh) refresh.onclick=()=>{customerPurchaseState=null;customerLoyaltyState=null;render();};
+  if(refresh) refresh.onclick=()=>{customerPurchaseState=null;customerLoyaltyState=null;refreshCustomerHistoryDisplay();};
   const apply=document.getElementById('applyCustomerHistory');
   const mode=document.getElementById('customerHistoryMode');
   const applyFilters=()=>{
     const year=Number(document.getElementById('customerHistoryYear')?.value);
     if(!Number.isInteger(year)||year<1900||year>9998){showToast('กรุณากรอกปี ค.ศ. ให้ถูกต้อง');return;}
     Object.assign(customerHistoryView,{mode:mode.value,year,month:Number(document.getElementById('customerHistoryMonth')?.value)||customerHistoryView.month,page:1});
-    customerPurchaseState=null;render();
+    customerPurchaseState=null;refreshCustomerHistoryDisplay();
   };
   if(apply) apply.onclick=applyFilters;
   if(mode) mode.onchange=applyFilters;
   document.querySelectorAll('[data-customerhistorypage]').forEach(button=>button.onclick=()=>{
     const value=button.dataset.customerhistorypage,current=customerPurchaseState?.data?.page||customerHistoryView.page;
     customerHistoryView.page=value==='prev'?Math.max(1,current-1):value==='next'?current+1:Number(value);
-    customerPurchaseState=null;render();
+    customerPurchaseState=null;refreshCustomerHistoryDisplay();
   });
+}
+function refreshCustomerHistoryDisplay(){
+  const host=document.getElementById('posCustomerHistoryContent');
+  if(!host){render();return;}
+  host.innerHTML=renderCustomerPurchaseHistory();
+  prepareScrollableTables(host);
+  attachCustomerPurchaseEvents();
+  requestAnimationFrame(()=>refreshScrollableTableHeights(host));
 }
 function openCustomerPurchaseHistory(customerId){
   const today=currentDateStr(),originTab=currentTab;
   customerHistoryView={id:customerId,mode:'month',year:Number(today.slice(0,4)),month:Number(today.slice(5,7)),page:1,originTab:originTab==='checkout'?'checkout':'customers'};
-  if(originTab==='checkout') currentTab='customers';
-  customerPurchaseState=null;render();
+  customerPurchaseState=null;
+  if(originTab==='checkout'){
+    document.querySelector('.pos-customer-history-overlay')?.remove();
+    posCustomerHistoryModalOpen=true;
+    const overlay=document.createElement('div');
+    overlay.className='modal-overlay pos-customer-history-overlay';
+    overlay.innerHTML='<div class="modal pos-customer-history-modal" role="dialog" aria-modal="true" aria-label="ประวัติลูกค้า"><div id="posCustomerHistoryContent"></div></div>';
+    document.body.appendChild(overlay);
+    refreshCustomerHistoryDisplay();
+    return;
+  }
+  posCustomerHistoryModalOpen=false;render();
 }
 function renderContacts(){
   if(editingCustomerPriceContactId!==null) return renderCustomerPricingForm();
@@ -12187,9 +12216,10 @@ function renderContactForm(){
   const isNew = editingContactId==='new';
   const fixedType=currentTab==='customers'?'customer':'supplier';
   const c = isNew ? emptyCustomerContactDraft(fixedType) : contacts.find(x=>x.id===editingContactId);
+  const saveLabel=isNew?'บันทึกแล้วปิด':'บันทึก';
   return `
     <div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › ${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</div><h1>${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</h1></div>
-      <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelContactBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveContactBtn">บันทึกแล้วปิด</button></div>
+      <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelContactBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveContactBtn">${saveLabel}</button></div>
     </div>
     <div class="panel contact-editor-panel">${contactEditorFieldsHtml(c,fixedType)}</div>`;
 }
