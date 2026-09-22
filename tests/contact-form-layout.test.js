@@ -10,7 +10,9 @@ const save = source.slice(saveStart, saveEnd);
 
 assert.ok(formStart >= 0 && formEnd > formStart, 'contact editor form must exist');
 assert.match(form, /normalizedFixedType=[\s\S]*c_fixed_type[\s\S]*<label>ประเภท<\/label>[\s\S]*<label>ประเภทผู้ติดต่อ<\/label>/);
-assert.match(form, /contact-editor-identity-row[\s\S]*<label>รหัสผู้ติดต่อ<\/label>[\s\S]*<label>ชื่อ-นามสกุล[\s\S]*c_taxid_label[\s\S]*เลขผู้เสียภาษี[\s\S]*เลขบัตรประชาชน[\s\S]*<label>เครดิต<\/label>/);
+assert.match(form, /const taxIdField=[\s\S]*c_taxid_label[\s\S]*เลขผู้เสียภาษี[\s\S]*เลขบัตรประชาชน/);
+assert.match(form, /const phoneField=[\s\S]*<label>เบอร์โทร[\s\S]*data-customer-phone-required/);
+assert.match(form, /contact-editor-identity-row[\s\S]*<label>รหัสผู้ติดต่อ<\/label>[\s\S]*<label>ชื่อ-นามสกุล[\s\S]*\$\{hideCode\?phoneField:taxIdField\}[\s\S]*<label>เครดิต<\/label>/);
 assert.match(form, /hideCode=normalizedFixedType==='customer'\|\|currentTab==='customers'/);
 assert.match(form, /\$\{hideCode\?'':`<div class="contact-editor-field"><label>รหัสผู้ติดต่อ<\/label>/);
 assert.match(form, /id="c_code"[\s\S]*placeholder="ระบบสร้างให้อัตโนมัติเมื่อบันทึก"/);
@@ -18,7 +20,7 @@ assert.match(form, /contact-editor-identity-row-customer-new[\s\S]*contact-edito
 assert.match(form, /isNewCustomer\?'':`<div class="contact-editor-field"><label>เครดิต<\/label>/);
 assert.match(source, /emptyCustomerContactDraft\(type='customer'\)[\s\S]*normalizedType==='customer'\?'individual':'juristic'/);
 assert.match(form, /contact-editor-wide"><label>ที่อยู่<\/label>/);
-assert.match(form, /<label>อีเมล์<\/label>[\s\S]*<label>ไลน์<\/label>[\s\S]*<label>เบอร์โทร[\s\S]*data-customer-phone-required/);
+assert.match(form, /<label>อีเมล์<\/label>[\s\S]*<label>ไลน์<\/label>[\s\S]*\$\{hideCode\?taxIdField:phoneField\}/);
 assert.match(form, /requiresCustomerPhone=normalizedFixedType==='customer'\|\|contactIncludesCustomer\(c\)/);
 assert.match(form, /id="c_phone" class="phone-input" inputmode="numeric" autocomplete="tel" maxlength="12"[\s\S]*formatPhoneValue\(c\.phone\|\|''\)[\s\S]*placeholder="xxx-xxx-xxxx"[\s\S]*requiresCustomerPhone\?'required'/);
 assert.match(form, /function bindContactCustomerPhoneRequirement\([\s\S]*phone\.required=required[\s\S]*marker\.hidden=!required/);

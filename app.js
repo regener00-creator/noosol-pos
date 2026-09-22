@@ -12131,6 +12131,8 @@ function contactEditorFieldsHtml(c,fixedType=''){
             <label><input type="checkbox" id="c_type_customer" ${chk('customer')}> ลูกค้า</label>
             <label><input type="checkbox" id="c_type_supplier" ${chk('supplier')}> ผู้จำหน่าย</label>
           </div></div>`;
+  const taxIdField=`<div class="contact-editor-field"><label id="c_taxid_label">${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'}</label><input id="c_taxid" value="${escapeHtml(c.taxId||'')}" placeholder="${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'} 13 หลัก (ไม่บังคับ)"></div>`;
+  const phoneField=`<div class="contact-editor-field"><label>เบอร์โทร <span class="req" data-customer-phone-required ${requiresCustomerPhone?'':'hidden'}>*</span></label><input id="c_phone" class="phone-input" inputmode="numeric" autocomplete="tel" maxlength="12" value="${escapeHtml(formatPhoneValue(c.phone||''))}" placeholder="xxx-xxx-xxxx" ${requiresCustomerPhone?'required':''}></div>`;
   return `<div class="contact-editor-grid">
           ${typeField}
           <div class="contact-editor-field"><label>ประเภทผู้ติดต่อ</label><div class="cradio">
@@ -12140,14 +12142,14 @@ function contactEditorFieldsHtml(c,fixedType=''){
           <div class="contact-editor-identity-row contact-editor-wide ${hideCode?(isNewCustomer?'contact-editor-identity-row-customer-new':'contact-editor-identity-row-customer-edit'):''}">
             ${hideCode?'':`<div class="contact-editor-field"><label>รหัสผู้ติดต่อ</label><input id="c_code" value="${escapeHtml(c.code||'')}" placeholder="ระบบสร้างให้อัตโนมัติเมื่อบันทึก"></div>`}
             <div class="contact-editor-field"><label>ชื่อ-นามสกุล <span class="req">*</span></label><input id="c_name" value="${escapeHtml(c.name||'')}" placeholder="กรอกชื่อ-นามสกุล"></div>
-            <div class="contact-editor-field"><label id="c_taxid_label">${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'}</label><input id="c_taxid" value="${escapeHtml(c.taxId||'')}" placeholder="${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'} 13 หลัก (ไม่บังคับ)"></div>
+            ${hideCode?phoneField:taxIdField}
             ${isNewCustomer?'':`<div class="contact-editor-field"><label>เครดิต</label><input id="c_credit" type="number" min="0" value="${escapeHtml(c.creditDays||'')}" placeholder="0 วัน"></div>`}
           </div>
           <div class="contact-editor-field contact-editor-wide"><label>ที่อยู่</label><textarea id="c_address" rows="3">${escapeHtml(c.address||'')}</textarea></div>
           <div class="contact-editor-contact-row contact-editor-wide">
             <div class="contact-editor-field"><label>อีเมล์</label><input id="c_email" type="email" value="${escapeHtml(c.email||'')}"></div>
             <div class="contact-editor-field"><label>ไลน์</label><input id="c_line" value="${escapeHtml(c.line||'')}" placeholder="LINE ID"></div>
-            <div class="contact-editor-field"><label>เบอร์โทร <span class="req" data-customer-phone-required ${requiresCustomerPhone?'':'hidden'}>*</span></label><input id="c_phone" class="phone-input" inputmode="numeric" autocomplete="tel" maxlength="12" value="${escapeHtml(formatPhoneValue(c.phone||''))}" placeholder="xxx-xxx-xxxx" ${requiresCustomerPhone?'required':''}></div>
+            ${hideCode?taxIdField:phoneField}
           </div>
           <div class="contact-editor-field contact-editor-wide"><label>เพิ่มเติม</label><textarea id="c_note" rows="3">${escapeHtml(c.note||'')}</textarea></div>
       </div>`;
