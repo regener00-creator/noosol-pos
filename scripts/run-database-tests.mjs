@@ -46,6 +46,8 @@ try{
     }
   }
   console.log('All baseline and migration SQL applied to isolated PostgreSQL');
+  const returnsSuite=await import('../tests/customer-returns-database.mjs');
+  await returnsSuite.run({client});
   const suite=await import('../tests/database-integrity.mjs');
   await suite.run({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
   const barcodeSuite=await import('../tests/product-barcode-integrity.mjs');

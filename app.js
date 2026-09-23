@@ -3773,6 +3773,7 @@ function cartTaxSummary(promoResult=applyPromotions(cart),discount=saleDiscount,
 }
 function saleTaxSummary(sale){
   const registered=sale?.vatRegistered===true;
+  if(sale?.customerReturn&&sale.taxSummary) return {...sale.taxSummary,registered};
   if(sale?.taxSummary){
     if(registered) return {...sale.taxSummary,registered:true};
     const safeTotal=Math.max(0,Number(sale.taxSummary.total)||Number(sale.total)||0);
@@ -3783,7 +3784,7 @@ function saleTaxSummary(sale){
   return {registered,subtotal:total+(Number(sale?.discount)||0),discount:Number(sale?.discount)||0,beforeVat:registered?Math.max(0,total-vat):total,vat,total};
 }
 function canIssueTaxInvoiceForSale(sale){
-  return !!sale&&sale.status==='done'&&isBusinessVatRegistered()&&sale.vatRegistered===true;
+  return !!sale&&sale.status==='done'&&!sale.customerReturn&&!(sale.customerReturnLog||[]).length&&isBusinessVatRegistered()&&sale.vatRegistered===true;
 }
 let favorites = []; // {pid,unit} — สินค้าโปรดหนึ่งหน่วยต่อหนึ่งสินค้า
 let showFavorites = true;  // แสดงแถบสินค้าโปรดใต้บิลหรือไม่
@@ -6426,7 +6427,8 @@ function cashShiftSummary(shift,sales=salesHistory){
   const payment=name=>payments[name]||(payments[name]={sales:0,refunds:0,net:0,saleCount:0,refundCount:0});
   let grossSales=0,refunds=0,saleCount=0,refundCount=0;
   (sales||[]).forEach(sale=>{
-    const amount=Math.max(0,Number(sale.total)||0),method=sale.payMethod||'ไม่ระบุ';
+    const amount=Math.abs(Number(sale.total)||0),method=sale.payMethod||'ไม่ระบุ';
+    if(sale.customerReturn){if(String(sale.cashShiftId||'')===String(shift?.id||'')&&shift?.id){const row=payment(method);row.refunds+=amount;row.refundCount++;refunds+=amount;refundCount++;}return;}
     if(String(sale.cashShiftId||'')===String(shift?.id||'')){ const row=payment(method); row.sales+=amount; row.saleCount++; grossSales+=amount; saleCount++; }
     if(String(sale.voidShiftId||'')===String(shift?.id||'')){ const row=payment(method); row.refunds+=amount; row.refundCount++; refunds+=amount; refundCount++; }
   });
@@ -6794,8 +6796,8 @@ function renderHistory(){
       <td class="history-items-cell">${salesHistoryItemsPreview(s.items)}</td>
       <td class="mono num">${fmtMoney(s.total)}</td>
       <td>${escapeHtml(s.payMethod||'-')}</td>
-      <td>${statusBadge(s.status)}</td>
-      <td class="num"><div class="history-actions"><button class="history-icon-btn" data-sale-view="${escapeHtml(s.id)}" title="ดูรายละเอียด" aria-label="ดูรายละเอียด ${escapeHtml(s.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>${s.status==='hold'?`<button class="btn primary small" data-act="resumehold" data-id="${escapeHtml(s.id)}">ทำต่อ</button>`:''}${s.status==='hold'&&canDeleteHeld?`<button class="history-icon-btn danger" data-delete-sale="${escapeHtml(s.id)}" title="ลบบิลพัก" aria-label="ลบบิลพัก ${escapeHtml(s.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`:s.status==='done'&&canVoidCompleted?`<button class="history-icon-btn danger" data-void-sale="${escapeHtml(s.id)}" title="ยกเลิกบิลและคืนสต๊อก" aria-label="ยกเลิกบิล ${escapeHtml(s.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l16 16M20 4L4 20"/></svg></button>`:''}</div></td>
+      <td>${s.customerReturn?'<span class="st-badge cancel">คืนสินค้า</span>':statusBadge(s.status)}</td>
+      <td class="num"><div class="history-actions"><button class="history-icon-btn" data-sale-view="${escapeHtml(s.id)}" title="ดูรายละเอียด" aria-label="ดูรายละเอียด ${escapeHtml(s.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>${currentProfile?.owner&&customerReturnAvailable(s)?`<button class="btn ghost small" data-customer-return="${escapeHtml(s.id)}" data-return-kind="return">คืน</button><button class="btn ghost small" data-customer-return="${escapeHtml(s.id)}" data-return-kind="exchange">เปลี่ยน</button>`:''}${s.status==='hold'?`<button class="btn primary small" data-act="resumehold" data-id="${escapeHtml(s.id)}">ทำต่อ</button>`:''}${s.status==='hold'&&canDeleteHeld?`<button class="history-icon-btn danger" data-delete-sale="${escapeHtml(s.id)}" title="ลบบิลพัก" aria-label="ลบบิลพัก ${escapeHtml(s.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`:s.status==='done'&&canVoidCompleted&&!s.customerReturn&&!s.customerExchange&&!(s.customerReturnLog||[]).length?`<button class="history-icon-btn danger" data-void-sale="${escapeHtml(s.id)}" title="ยกเลิกบิลและคืนสต๊อก" aria-label="ยกเลิกบิล ${escapeHtml(s.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 4l16 16M20 4L4 20"/></svg></button>`:''}</div></td>
     </tr>`).join('') : `<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายการขายในช่วงเวลาที่เลือก</td></tr>`}</tbody></table>
     </div>
     ${pager}
@@ -7846,7 +7848,10 @@ function collectInventoryMovements(source){
   };
   sales.filter(sale=>sale?.status==='done').forEach(sale=>{
     const rawTime=String(sale.time||''),time=(rawTime.includes(' ')?rawTime.slice(11,16):rawTime.slice(0,5))||'-';
-    (sale.items||[]).forEach(item=>add({date:sale.date,type:'ขาย',bill:sale.ref||sale.id,time,direction:'ออก'},item));
+    (sale.items||[]).forEach(item=>{
+      if(sale.customerReturn){if(item.restock&&item.tracksStock!==false)add({date:sale.date,type:'รับคืนจากลูกค้า',bill:sale.ref||sale.id,time,direction:'เข้า',warehouseId:sale.warehouseId},{...item,qty:Math.abs(Number(item.qty))});}
+      else add({date:sale.date,type:'ขาย',bill:sale.ref||sale.id,time,direction:'ออก'},item);
+    });
   });
   receipts.filter(doc=>doc?.stockApplied===true).forEach(doc=>{
     (doc.items||[]).forEach(item=>add({date:doc.date,type:'รับเข้าสินค้า',bill:doc.id,time:'-',direction:'เข้า',warehouseId:doc.warehouseId},item));
@@ -7987,7 +7992,7 @@ function renderInventoryMovement(){
       ${filter.period==='month'?`<div class="rpf-item"><input type="month" id="movementMonth" value="${filter.month||TODAY_STR.slice(0,7)}" class="rpt-select"></div>`:''}
       ${filter.period==='year'?`<div class="rpf-item"><select id="movementYear" class="rpt-select">${(()=>{const currentYear=Number(TODAY_STR.slice(0,4));let options='';for(let year=currentYear;year>=currentYear-6;year--) options+=`<option value="${year}" ${String(filter.year||currentYear)===String(year)?'selected':''}>${year}</option>`;return options;})()}</select></div>`:''}
       <div class="rpf-item"><select id="movementWarehouse" class="rpt-select"><option value="all" ${selectedWarehouse==='all'?'selected':''}>ทุกคลัง</option>${accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(warehouse.id)===selectedWarehouse?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>
-      <div class="rpf-item"><select id="movementType" class="rpt-select"><option value="type:all" ${primaryFilter==='type:all'?'selected':''}>รายการทั้งหมด</option>${['ขาย','รับเข้าสินค้า','เปลี่ยนสินค้า','คืนสินค้า','โอนสินค้า'].map(type=>`<option value="type:${type}" ${primaryFilter===`type:${type}`?'selected':''}>${type}</option>`).join('')}<option class="movement-filter-divider" disabled>────────────</option><option value="direction:all" ${primaryFilter==='direction:all'?'selected':''}>เข้า-ออกทั้งหมด</option>${['เข้า','ออก','เปลี่ยน'].map(direction=>`<option value="direction:${direction}" ${primaryFilter===`direction:${direction}`?'selected':''}>${direction}</option>`).join('')}</select></div>
+      <div class="rpf-item"><select id="movementType" class="rpt-select"><option value="type:all" ${primaryFilter==='type:all'?'selected':''}>รายการทั้งหมด</option>${['ขาย','รับเข้าสินค้า','เปลี่ยนสินค้า','คืนสินค้า','รับคืนจากลูกค้า','โอนสินค้า'].map(type=>`<option value="type:${type}" ${primaryFilter===`type:${type}`?'selected':''}>${type}</option>`).join('')}<option class="movement-filter-divider" disabled>────────────</option><option value="direction:all" ${primaryFilter==='direction:all'?'selected':''}>เข้า-ออกทั้งหมด</option>${['เข้า','ออก','เปลี่ยน'].map(direction=>`<option value="direction:${direction}" ${primaryFilter===`direction:${direction}`?'selected':''}>${direction}</option>`).join('')}</select></div>
       <button class="btn ghost rpf-apply" id="movementApplyBtn">แสดงผล</button>
     </div>
     <div class="rpt-filters">
@@ -12712,7 +12717,7 @@ function exportRProductExcel(){
       const itUnit=it.unit||p.unit||'';
       const rowKey=it.name+'|'+itUnit;
       if(!byDate[d][rowKey]) byDate[d][rowKey]={name:it.name, unit:itUnit, qty:0, val:0};
-      byDate[d][rowKey].qty+=it.qty; byDate[d][rowKey].val+=(it.lineTotal!==undefined?it.lineTotal:it.qty*it.price);
+      byDate[d][rowKey].qty+=it.qty; byDate[d][rowKey].val+=(it.reportLineTotal??(it.lineTotal!==undefined?it.lineTotal:it.qty*it.price));
     });
   });
   const dateKeys=Object.keys(byDate).filter(d=>Object.keys(byDate[d]).length).sort();
@@ -12748,7 +12753,7 @@ function printRProduct(){
       const itUnit=it.unit||p.unit||'';
       const rowKey=it.name+'|'+itUnit;
       if(!byDate[d][rowKey]) byDate[d][rowKey]={name:it.name, unit:itUnit, qty:0, val:0};
-      byDate[d][rowKey].qty+=it.qty; byDate[d][rowKey].val+=(it.lineTotal!==undefined?it.lineTotal:it.qty*it.price);
+      byDate[d][rowKey].qty+=it.qty; byDate[d][rowKey].val+=(it.reportLineTotal??(it.lineTotal!==undefined?it.lineTotal:it.qty*it.price));
     });
   });
   const dateKeys=Object.keys(byDate).filter(d=>Object.keys(byDate[d]).length).sort((a,b)=>a.localeCompare(b));
@@ -12849,7 +12854,7 @@ function renderRProduct(){
       const itUnit=it.unit||p.unit||'';
       const rowKey=it.name+'|'+itUnit;
       if(!byDate[d][rowKey]) byDate[d][rowKey]={name:it.name, unit:itUnit, qty:0, val:0};
-      byDate[d][rowKey].qty+=it.qty; byDate[d][rowKey].val+=(it.lineTotal!==undefined?it.lineTotal:it.qty*it.price);
+      byDate[d][rowKey].qty+=it.qty; byDate[d][rowKey].val+=(it.reportLineTotal??(it.lineTotal!==undefined?it.lineTotal:it.qty*it.price));
     });
   });
   const dateKeys=Object.keys(byDate).filter(d=>Object.keys(byDate[d]).length).sort((a,b)=>a.localeCompare(b));
@@ -13209,7 +13214,7 @@ function rprofitCollect(){
     });
     const subtotal=prepared.reduce((sum,item)=>sum+item.gross,0);
     const discount=Number(s.discount)||0;
-    const ratio=subtotal>0?Math.max(0,subtotal-discount)/subtotal:0;
+    const ratio=s.customerReturn?1:subtotal>0?Math.max(0,subtotal-discount)/subtotal:0;
     const items=prepared.map(item=>{
       const net=item.beforeVat*ratio;
       return {name:item.source.name,qty:item.qty,unit:item.source.unit||'-',price:item.price,cost:item.cost,net,costTotal:item.costTotal,profit:net-item.costTotal};
@@ -15287,6 +15292,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   document.querySelectorAll('[data-sale-view]').forEach(btn=>{ btn.addEventListener('click',e=>{ e.stopPropagation(); openSaleHistoryDetail(btn.dataset.saleView); }); });
   document.querySelectorAll('[data-delete-sale]').forEach(btn=>{ btn.addEventListener('click',e=>{ e.stopPropagation(); deleteSaleHistory(btn.dataset.deleteSale); }); });
+  document.querySelectorAll('[data-customer-return]').forEach(button=>button.onclick=()=>openCustomerReturn(button.dataset.customerReturn,button.dataset.returnKind));
   document.querySelectorAll('[data-void-sale]').forEach(btn=>{ btn.addEventListener('click',e=>{ e.stopPropagation(); voidSaleHistory(btn.dataset.voidSale); }); });
   document.querySelectorAll('[data-tax-sale]').forEach(btn=>{ btn.addEventListener('click',()=>startTaxInvoiceForm(btn.dataset.taxSale)); });
   document.querySelectorAll('[data-tax-doc]').forEach(btn=>{ btn.addEventListener('click',()=>startStandaloneTaxInvoiceForm(btn.dataset.taxDoc)); });
@@ -18603,14 +18609,125 @@ async function openSaleLotCorrection(id){
   renderForm();
 }
 
+function customerReturnAvailable(sale){
+  return sale?.status==='done'&&!sale.customerReturn&&(sale.items||[]).some((item,index)=>Number(item.qty)>Number(sale.customerReturnQuantities?.[index]||0));
+}
+function customerReturnRefund(sale,requests){
+  const gross=(sale.items||[]).map(item=>Number(item.lineTotalGross??item.lineTotal??(Number(item.price)*Number(item.qty)))||0);
+  const subtotal=gross.reduce((sum,value)=>sum+value,0),ratio=subtotal>0?Math.max(0,subtotal-(Number(sale.discount)||0))/subtotal:0;
+  const cents=value=>Math.round((value+Number.EPSILON)*100);
+  let before=0;
+  const entitlements=gross.map(value=>{const amount=cents((before+value)*ratio)-cents(before*ratio);before+=value;return amount;});
+  return (requests||[]).reduce((sum,request)=>{
+    const item=sale.items?.[request.itemIndex],sold=Number(item?.qty)||0,old=Number(sale.customerReturnQuantities?.[request.itemIndex]||0),qty=Number(request.qty)||0;
+    return sum+(sold>0?Math.round(entitlements[request.itemIndex]*(old+qty)/sold)-Math.round(entitlements[request.itemIndex]*old/sold):0);
+  },0)/100;
+}
+function customerExchangePayload(lines,method){
+  const registered=isBusinessVatRegistered();
+  const items=lines.map((line,index)=>{
+    const product=products.find(p=>Number(p.id)===Number(line.productId));
+    const option=productUnitOptions(product).find(unit=>unit.name===line.unit)||productUnitOptions(product)[0];
+    const qty=Number(line.qty)||0,price=Number(option.price)||0,cost=Number(option.cost)||0,vatMode=effectiveProductVatMode(product),amount=qty*price;
+    return {lineKey:String(index+1),productId:product.id,name:product.name,qty,unit:option.name,factor:option.factor,price,cost,costTotal:qty*cost,vatMode,lineTotal:amount,lineTotalGross:grossAmountForVatMode(amount,vatMode,registered)};
+  });
+  const tax=calculateSaleTaxSummary(items.map(item=>({amount:item.lineTotal,vatMode:item.vatMode})),0,registered);
+  const round=value=>Math.round(value*100)/100;
+  const total=round(tax.total);
+  return {items,sale:{total,discount:0,fee:0,vat:round(tax.vat),costTotal:items.reduce((sum,item)=>sum+item.costTotal,0),payMethod:method,cashReceived:method==='เงินสด'?total:0,cashChange:0}};
+}
+async function openCustomerReturn(saleId,kind='return'){
+  if(currentProfile?.owner!==true){showToast('เฉพาะเจ้าของร้านเท่านั้นที่คืนหรือเปลี่ยนสินค้าได้','danger-top');return;}
+  if(!currentCashShift){showToast('กรุณาเปิดระบบชำระก่อนคืนหรือเปลี่ยนสินค้า','danger-top');return;}
+  let sale;
+  try{
+    const {data,error}=await sb.from('sales').select('*').eq('id',saleId).single();
+    if(error) throw error;
+    sale=rowToSale(data);salesHistory=mergeSalesRows(salesHistory,[sale]);
+  }catch(error){showToast('โหลดบิลล่าสุดไม่สำเร็จ กรุณาลองใหม่','danger-top');return;}
+  if(!customerReturnAvailable(sale)){showToast('บิลนี้ไม่มีสินค้าที่รับคืนได้แล้ว','danger-top');return;}
+  if(sale.fullTaxInvoice){showToast('บิลนี้มีใบกำกับภาษีเต็มรูปแบบ ต้องจัดการเอกสารภาษีก่อนรับคืน','danger-top');return;}
+  if(isAllWarehousesMode()||Number(sale.warehouseId)!==Number(activeWarehouseId)){showToast('กรุณาเลือกคลังเดียวกับบิลเดิม','danger-top');return;}
+  const title=kind==='exchange'?'เปลี่ยนสินค้า':'คืนสินค้า',lines=[];
+  const overlay=document.createElement('div');overlay.className='modal-overlay customer-return-overlay';
+  overlay.innerHTML=`<div class="modal customer-return-modal" role="dialog" aria-modal="true" aria-labelledby="customerReturnTitle"><div class="modal-head"><div><h3 id="customerReturnTitle">${title}</h3><div class="sub">บิลเดิม ${escapeHtml(sale.ref||sale.id)} · ${escapeHtml(fmtDate(sale.date))}</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div><form id="customerReturnForm"><div class="customer-return-body"><h4>สินค้าที่รับคืน</h4><div class="customer-return-table"><table class="grid-table"><thead><tr><th>สินค้า</th><th>คืนได้</th><th>จำนวนคืน</th><th>การจัดการสินค้า</th></tr></thead><tbody>${sale.items.map((item,index)=>{
+    const available=Math.max(0,Number(item.qty)-Number(sale.customerReturnQuantities?.[index]||0));
+    return `<tr><td>${escapeHtml(item.name)}<small>${escapeHtml(item.unit)} · ราคาคืนหลังส่วนลด</small></td><td>${escapeHtml(available)}</td><td><input type="number" min="0" max="${available}" step="any" value="0" data-customer-return-qty="${index}" aria-label="จำนวนคืน ${escapeHtml(item.name)}" ${available?'':'disabled'}></td><td><select data-customer-return-stock="${index}" aria-label="การจัดการ ${escapeHtml(item.name)}" ${available?'':'disabled'}><option value="true">นำกลับเข้าสต๊อกขาย</option><option value="false">ไม่นำกลับเข้าสต๊อกขาย / ชำรุด</option></select></td></tr>`;
+  }).join('')}</tbody></table></div><p class="hint">คืนตามราคาที่จ่ายจริงหลังส่วนลด ไม่รวมค่าธรรมเนียม เลือกนำกลับเข้าสต๊อกเฉพาะสินค้าที่ตรวจแล้วว่าขายต่อได้</p>${kind==='exchange'?'<section class="customer-exchange-section"><h4>สินค้าใหม่ที่ลูกค้าเลือก</h4><input id="customerExchangeSearch" type="search" placeholder="ค้นหาชื่อ / รหัส / สแกนบาร์โค้ด" autocomplete="off" aria-label="ค้นหาสินค้าใหม่"><div id="customerExchangeResults"></div><div id="customerExchangeLines"></div></section>':''}<label class="customer-return-reason">เหตุผล<input id="customerReturnReason" required maxlength="500" placeholder="ระบุเหตุผลการคืนหรือเปลี่ยนสินค้า"></label><div class="customer-return-summary"><div><span>ยอดสินค้ารับคืน</span><b id="customerReturnAmount">0.00</b></div>${kind==='exchange'?'<div><span>ยอดสินค้าใหม่</span><b id="customerExchangeAmount">0.00</b></div>':''}<div class="customer-return-settlement"><span id="customerSettlementLabel">ยอดคืนเงิน</span><b id="customerSettlementAmount">0.00</b></div></div><label class="customer-return-payment"><span id="customerReturnPaymentLabel">วิธีคืนเงิน</span><select id="customerReturnPayment">${['เงินสด','โอนธนาคาร','บัตรเครดิต','ออนไลน์'].map(method=>`<option ${method===sale.payMethod?'selected':''}>${method}</option>`).join('')}</select></label><div id="customerReturnError" role="alert"></div></div><div class="payment-actions"><button type="button" class="btn ghost" id="cancelCustomerReturn">ยกเลิก</button><button type="submit" class="btn primary" id="submitCustomerReturn" disabled>ยืนยัน${title}</button></div></form></div>`;
+  document.body.appendChild(overlay);
+  let busy=false,committed=false;
+  const close=()=>{if(!busy)overlay.remove();};
+  overlay.querySelector('.modal-close').onclick=close;overlay.querySelector('#cancelCustomerReturn').onclick=close;
+  const form=overlay.querySelector('form'),submit=overlay.querySelector('#submitCustomerReturn'),methodNode=overlay.querySelector('#customerReturnPayment'),errorNode=overlay.querySelector('#customerReturnError');
+  const returns=()=>[...overlay.querySelectorAll('[data-customer-return-qty]')].map(input=>({itemIndex:Number(input.dataset.customerReturnQty),qty:Number(input.value),restock:overlay.querySelector(`[data-customer-return-stock="${input.dataset.customerReturnQty}"]`).value==='true'})).filter(item=>item.qty>0);
+  const refresh=()=>{
+    const refund=customerReturnRefund(sale,returns()),replacement=customerExchangePayload(lines,methodNode.value),difference=Math.round((replacement.sale.total-refund)*100)/100;
+    overlay.querySelector('#customerReturnAmount').textContent=fmtMoney(refund);
+    const newAmount=overlay.querySelector('#customerExchangeAmount');if(newAmount)newAmount.textContent=fmtMoney(replacement.sale.total);
+    overlay.querySelector('#customerSettlementLabel').textContent=difference>0?'รับเงินเพิ่ม':difference<0?'คืนเงินให้ลูกค้า':'ไม่ต้องรับหรือคืนเงิน';
+    overlay.querySelector('#customerSettlementAmount').textContent=fmtMoney(Math.abs(difference));
+    overlay.querySelector('#customerReturnPaymentLabel').textContent=difference>0?'วิธีรับเงินเพิ่ม':difference<0?'วิธีคืนเงิน':'ช่องทางบันทึกการหักกลบยอด';
+    submit.disabled=busy||!returns().length||(kind==='exchange'&&!lines.length)||lines.some(line=>!(Number(line.qty)>0));
+    return {refund,replacement,difference};
+  };
+  const renderLines=()=>{
+    const host=overlay.querySelector('#customerExchangeLines');if(!host)return;
+    host.innerHTML=lines.map((line,index)=>{const product=products.find(p=>Number(p.id)===Number(line.productId));return `<div class="customer-exchange-line"><b>${escapeHtml(product.name)}</b><input type="number" min="0.000001" step="any" value="${line.qty}" data-exchange-qty="${index}" aria-label="จำนวน ${escapeHtml(product.name)}"><select data-exchange-unit="${index}" aria-label="หน่วย ${escapeHtml(product.name)}">${productUnitOptions(product).map(unit=>`<option value="${escapeHtml(unit.name)}" ${unit.name===line.unit?'selected':''}>${escapeHtml(unit.name)} · ${fmtMoney(grossAmountForVatMode(unit.price,effectiveProductVatMode(product),isBusinessVatRegistered()))}</option>`).join('')}</select><button class="btn ghost small" type="button" data-exchange-remove="${index}" aria-label="นำ ${escapeHtml(product.name)} ออก">ลบ</button></div>`;}).join('');
+    host.querySelectorAll('[data-exchange-qty]').forEach(input=>input.oninput=()=>{lines[Number(input.dataset.exchangeQty)].qty=input.value;refresh();});
+    host.querySelectorAll('[data-exchange-unit]').forEach(select=>select.onchange=()=>{lines[Number(select.dataset.exchangeUnit)].unit=select.value;refresh();});
+    host.querySelectorAll('[data-exchange-remove]').forEach(button=>button.onclick=()=>{lines.splice(Number(button.dataset.exchangeRemove),1);renderLines();});
+    refresh();
+  };
+  const search=overlay.querySelector('#customerExchangeSearch'),results=overlay.querySelector('#customerExchangeResults');
+  if(search){
+    search.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();const first=results.querySelector('button');if(first)first.click();}};
+    search.oninput=()=>{
+      const query=search.value.trim().toLowerCase();
+      const matches=query?products.filter(p=>p.active!==false&&(String(p.name).toLowerCase().includes(query)||String(p.sku||'').toLowerCase().includes(query)||matchesBarcode(p,query))).slice(0,20):[];
+      results.innerHTML=matches.map(p=>`<button type="button" data-exchange-product="${p.id}">${escapeHtml(p.name)} <small>${escapeHtml(p.sku||'')}</small></button>`).join('');
+      results.querySelectorAll('[data-exchange-product]').forEach(button=>button.onclick=()=>{const product=products.find(p=>Number(p.id)===Number(button.dataset.exchangeProduct));const exact=findProductByExactCode(search.value.trim());const unit=exact?.product?.id===product.id&&exact.unitName?exact.unitName:product.unit;const found=lines.find(line=>line.productId===product.id&&line.unit===unit);if(found)found.qty=Number(found.qty)+1;else lines.push({productId:product.id,qty:1,unit});search.value='';results.innerHTML='';renderLines();search.focus();});
+    };
+  }
+  overlay.querySelectorAll('[data-customer-return-qty]').forEach(input=>input.addEventListener('input',refresh));methodNode.onchange=refresh;
+  form.onsubmit=async event=>{
+    event.preventDefault();if(busy||committed||!form.reportValidity())return;
+    const totals=refresh();if(submit.disabled)return;
+    const reason=overlay.querySelector('#customerReturnReason').value.trim();if(!reason)return;
+    busy=true;submit.disabled=true;submit.textContent='กำลังบันทึก…';errorNode.textContent='';
+    const controls=[...form.querySelectorAll('input,select,button')];controls.forEach(control=>control.disabled=true);
+    try{
+      const result=await runStockOperation('customer_return',{saleId:sale.id,warehouseId:Number(activeWarehouseId),kind,reason,payMethod:methodNode.value,returns:returns(),expectedRefund:totals.refund,replacement:totals.replacement});
+      committed=true;salesHistory=mergeSalesRows(salesHistory,[result.sale,result.returnSale,result.replacementSale].filter(Boolean));
+      customerLoyaltyState=null;customerPurchaseState=null;
+      try{await refreshDocumentInventory({items:[...(result.returnSale.items||[]),...(result.replacementSale?.items||[])],warehouseId:Number(activeWarehouseId)});}catch(error){console.warn('refresh returned inventory',error);}
+      busy=false;overlay.remove();render();
+      showCustomerReturnResult(result.returnSale,result.replacementSale);
+    }catch(error){busy=false;controls.forEach(control=>control.disabled=false);submit.textContent=`ยืนยัน${title}`;errorNode.textContent=error?.message||'บันทึกไม่สำเร็จ กรุณาลองใหม่';refresh();}
+  };
+  refresh();
+}
+function showCustomerReturnResult(returnSale,replacementSale=null){
+  const difference=Number(returnSale.settlement)||0,label=difference>0?'รับเงินเพิ่ม':difference<0?'คืนเงินให้ลูกค้า':'ไม่ต้องรับหรือคืนเงิน';
+  const overlay=document.createElement('div');overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal" style="width:460px"><div class="modal-head"><h3>บันทึก${returnSale.returnKind==='exchange'?'เปลี่ยน':'คืน'}สินค้าแล้ว</h3><button class="modal-close" aria-label="ปิด">×</button></div><div class="customer-return-body"><p>${escapeHtml(returnSale.ref)} · อ้างอิง ${escapeHtml(returnSale.sourceSaleRef||returnSale.sourceSaleId)}</p><div class="customer-return-settlement"><span>${label}</span><strong>${fmtMoney(Math.abs(difference))} บาท</strong></div><p>${escapeHtml(returnSale.payMethod||'')}</p></div><div class="payment-actions"><button class="btn ghost" id="closeReturnResult">ปิด</button><button class="btn primary" id="printReturnResult">พิมพ์เอกสาร</button></div></div>`;
+  document.body.appendChild(overlay);const close=()=>overlay.remove();overlay.querySelector('.modal-close').onclick=close;overlay.querySelector('#closeReturnResult').onclick=close;overlay.querySelector('#printReturnResult').onclick=()=>printCustomerReturn(returnSale,replacementSale);
+}
+function printCustomerReturn(returnSale,replacementSale=null,existingWindow=null){
+  const win=existingWindow||window.open('','_blank');if(!win){showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร');return;}
+  const difference=Number(returnSale.settlement)||0,title=returnSale.returnKind==='exchange'?'ใบเปลี่ยนสินค้า':'ใบรับคืนสินค้า';
+  const rows=items=>(items||[]).map(item=>`<tr><td>${escapeHtml(item.name)}</td><td>${Math.abs(Number(item.qty)||0)} ${escapeHtml(item.unit||'')}</td><td>${fmtMoney(Math.abs(Number(item.lineTotalGross??item.lineTotal)||0))}</td></tr>`).join('');
+  win.document.write(`<!doctype html><html lang="th"><head><meta charset="utf-8"><title>${title} ${escapeHtml(returnSale.ref)}</title><style>@page{size:A4;margin:15mm}body{font-family:Tahoma,sans-serif;color:#302923;font-size:13px;max-width:800px;margin:24px auto}h1{text-align:center}table{width:100%;border-collapse:collapse;margin:16px 0}th,td{padding:10px;border-bottom:1px solid #ddd;text-align:left}td:last-child,th:last-child{text-align:right}.summary{font-size:18px;font-weight:bold;padding:20px 0}.toolbar{text-align:right}@media print{.toolbar{display:none}}</style></head><body><div class="toolbar"><button onclick="window.print()">พิมพ์</button></div><h1>${title}</h1><h3>${escapeHtml(returnSale.businessSnapshot?.name||businessSettings.name||STORE_INFO.name)}</h3><p>เลขที่ ${escapeHtml(returnSale.ref)} · วันที่ ${escapeHtml(fmtDate(returnSale.date))}</p><p>อ้างอิงบิล ${escapeHtml(returnSale.sourceSaleRef||returnSale.sourceSaleId)}</p><p>เหตุผล ${escapeHtml(returnSale.reason||'-')}</p><h3>สินค้าที่รับคืน</h3><table><thead><tr><th>สินค้า</th><th>จำนวน</th><th>ยอดคืนหลังส่วนลด</th></tr></thead><tbody>${rows(returnSale.items)}</tbody></table><p>รวมรับคืน ${fmtMoney(Math.abs(Number(returnSale.total)))} บาท</p>${replacementSale?`<h3>สินค้าใหม่ · ${escapeHtml(replacementSale.ref)}</h3><table><thead><tr><th>สินค้า</th><th>จำนวน</th><th>รวม</th></tr></thead><tbody>${rows(replacementSale.items)}</tbody></table><p>รวมสินค้าใหม่ ${fmtMoney(replacementSale.total)} บาท</p>`:''}<div class="summary">${difference>0?'รับเงินเพิ่ม':difference<0?'คืนเงินให้ลูกค้า':'ไม่ต้องรับหรือคืนเงิน'} ${fmtMoney(Math.abs(difference))} บาท</div><p>ช่องทาง ${escapeHtml(returnSale.payMethod||'-')} · ผู้ดำเนินการ ${escapeHtml(returnSale.cashier||'-')}</p></body></html>`);
+  win.document.close();standardizePrintPreview(win);recordPrintEvent('customer_return',returnSale.id);
+}
+
 function openSaleHistoryDetail(id){
   const sale=salesHistory.find(item=>item.id===id); if(!sale) return;
   const tax=saleTaxSummary(sale),subtotal=tax.subtotal;
-  const canIssue=sale.status==='done';
+  const canIssue=sale.status==='done'&&!sale.customerReturn;
   const canIssueTax=canIssueTaxInvoiceForSale(sale)||!!sale.fullTaxInvoice;
   const canDeleteHeld=sale.status==='hold'&&!isLevel2User();
-  const canVoidCompleted=sale.status==='done'&&currentProfile?.owner===true;
-  const canCorrectLots=!!currentProfile?.owner&&canIssue&&(sale.items||[]).some(item=>Number(item?.productId)&&saleLotCorrectionAllocations(item).length);
+  const canVoidCompleted=sale.status==='done'&&currentProfile?.owner===true&&!sale.customerReturn&&!sale.customerExchange&&!(sale.customerReturnLog||[]).length;
+  const canCorrectLots=!!currentProfile?.owner&&canIssue&&!(sale.customerReturnLog||[]).length&&(sale.items||[]).some(item=>Number(item?.productId)&&saleLotCorrectionAllocations(item).length);
   const canPrintMedicineLabels=canIssue&&medicineLabelsForSale(sale).length>0;
   const correctionLog=Array.isArray(sale.lotCorrectionLog)?sale.lotCorrectionLog:[];
   const correctionLogHtml=correctionLog.length?`<div class="sale-lot-correction-log"><h4>ประวัติแก้ไข LOT (${correctionLog.length})</h4>${correctionLog.slice().reverse().map(log=>{ const qty=Number(log.quantity)>0?log.quantity:log.quantityBase,unit=log.unit||'หน่วยหลัก'; return `<div class="sale-lot-correction-log-item"><b>${escapeHtml(log.productName||'-')} ×${escapeHtml(inventoryMovementRound(qty))} ${escapeHtml(unit)}</b><br>${escapeHtml(log.fromLot?.lotNumber||'ไม่ระบุเลข LOT')} → ${escapeHtml(log.toLot?.lotNumber||'ไม่ระบุเลข LOT')} · ${escapeHtml(auditDisplay(log.at))}${log.reason?`<br>หมายเหตุ: ${escapeHtml(log.reason)}`:''}</div>`; }).join('')}</div>`:'';
@@ -18621,11 +18738,13 @@ function openSaleHistoryDetail(id){
     <div class="sale-detail-summary"><div><span>รวมสินค้า</span><b>${fmtMoney(subtotal)} บาท</b></div>${sale.discount?`<div><span>ส่วนลด</span><b>- ${fmtMoney(sale.discount)} บาท</b></div>`:''}${sale.fee?`<div><span>ค่าธรรมเนียม</span><b>${fmtMoney(sale.fee)} บาท</b></div>`:''}<div class="grand"><span>ยอดสุทธิ</span><b>${fmtMoney(sale.total)} บาท</b></div>${sale.cashReceived?`<div><span>รับเงิน</span><b>${fmtMoney(sale.cashReceived)} บาท</b></div><div><span>เงินทอน</span><b>${fmtMoney(sale.cashChange||0)} บาท</b></div>`:''}</div>
     ${canCorrectLots?`<div class="sale-lot-correction-panel"><div><h4>LOT ที่ขายไม่ตรงกับระบบ?</h4><p>ย้ายการตัดไปยัง LOT ที่ขายจริง โดยยอดขายและสต๊อกรวมไม่เปลี่ยน</p></div><button class="btn ghost" id="correctSaleLotBtn">แก้ไข LOT ที่ขาย</button></div>`:''}${correctionLogHtml}
     <div class="history-doc-panel"><h4>ออกเอกสารย้อนหลัง</h4><p>${canIssue?'ใช้ข้อมูลและวันที่ขายเดิม การพิมพ์เอกสารจะไม่ตัดสต็อกหรือเพิ่มยอดขายซ้ำ':'ออกเอกสารได้เฉพาะรายการที่ชำระเงินเรียบร้อยแล้ว'}</p><div class="history-doc-buttons">${canPrintMedicineLabels?`<button id="historyMedicineLabelsBtn">Rx พิมพ์ฉลากยา (${medicineLabelsForSale(sale).length})</button>`:''}<button id="historyShortReceiptBtn" ${canIssue?'':'disabled'}>🧾 ใบเสร็จอย่างย่อ</button><button id="historyTaxInvoiceBtn" ${canIssueTax?'':'disabled'}>${sale.fullTaxInvoice?'📄 เปิดใบกำกับภาษี':'📄 ออกใบกำกับภาษีย้อนหลัง'}</button></div></div>
-    <div class="payment-actions"><button class="btn ghost" id="closeSaleDetailBtn">ปิด</button>${canDeleteHeld?`<button class="btn" id="deleteSaleDetailBtn" style="background:var(--danger);color:#fff;">ลบบิลพัก</button>`:canVoidCompleted?`<button class="btn" id="voidSaleDetailBtn" style="background:var(--danger);color:#fff;">ยกเลิกบิลและคืนสต๊อก</button>`:''}</div></div>`;
+    ${(sale.customerReturnLog||[]).length?`<div class="customer-return-history"><h4>ประวัติคืน / เปลี่ยน</h4>${sale.customerReturnLog.map(log=>`<p>${escapeHtml(log.ref)} · ${log.kind==='exchange'?'เปลี่ยน':'คืน'} · ยอดรับคืน ${fmtMoney(log.refund)} · ${escapeHtml(log.reason||'')}</p>`).join('')}</div>`:''}<div class="payment-actions"><button class="btn ghost" id="closeSaleDetailBtn">ปิด</button>${sale.customerReturn?'<button class="btn primary" id="printCustomerReturnDetail">พิมพ์ใบคืน / เปลี่ยน</button>':''}${currentProfile?.owner&&customerReturnAvailable(sale)?'<button class="btn ghost" id="returnSaleDetailBtn">คืน</button><button class="btn primary" id="exchangeSaleDetailBtn">เปลี่ยน</button>':''}${canDeleteHeld?`<button class="btn" id="deleteSaleDetailBtn" style="background:var(--danger);color:#fff;">ลบบิลพัก</button>`:canVoidCompleted?`<button class="btn" id="voidSaleDetailBtn" style="background:var(--danger);color:#fff;">ยกเลิกบิลและคืนสต๊อก</button>`:''}</div></div>`;
   document.body.appendChild(overlay);
   const close=()=>{ overlay.remove(); render(); };
   overlay.querySelector('.modal-close').onclick=close; overlay.querySelector('#closeSaleDetailBtn').onclick=close;
   const deleteDetailBtn=overlay.querySelector('#deleteSaleDetailBtn'); if(deleteDetailBtn) deleteDetailBtn.onclick=()=>deleteSaleHistory(id,close);
+  ['return','exchange'].forEach(kind=>{const button=overlay.querySelector(kind==='return'?'#returnSaleDetailBtn':'#exchangeSaleDetailBtn');if(button)button.onclick=()=>{close();openCustomerReturn(id,kind);};});
+  const printReturn=overlay.querySelector('#printCustomerReturnDetail');if(printReturn)printReturn.onclick=async()=>{const printWindow=window.open('','_blank');if(!printWindow){showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร');return;}let replacement=salesHistory.find(row=>row.id===sale.replacementSaleId);if(!replacement&&sale.replacementSaleId){const {data,error}=await sb.from('sales').select('*').eq('id',sale.replacementSaleId).single();if(error){printWindow.close();showToast('โหลดสินค้าใหม่ไม่สำเร็จ กรุณาลองใหม่','danger-top');return;}replacement=rowToSale(data);}printCustomerReturn(sale,replacement,printWindow);};
   const voidDetailBtn=overlay.querySelector('#voidSaleDetailBtn'); if(voidDetailBtn) voidDetailBtn.onclick=()=>voidSaleHistory(id,close);
   const correctLotBtn=overlay.querySelector('#correctSaleLotBtn'); if(correctLotBtn) correctLotBtn.onclick=()=>{ close(); openSaleLotCorrection(id); };
   const historyMedicineLabelsBtn=overlay.querySelector('#historyMedicineLabelsBtn'); if(historyMedicineLabelsBtn) historyMedicineLabelsBtn.onclick=()=>printMedicineLabels(id);

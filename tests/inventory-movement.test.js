@@ -94,7 +94,7 @@ const movementRenderEnd=html.indexOf('function buildGroupTree()',movementRenderS
 const movementRender=html.slice(movementRenderStart,movementRenderEnd);
 assert.doesNotMatch(movementRender, /id="movementBill"|placeholder="ค้นหาเลขบิล"/);
 assert.doesNotMatch(movementRender, /id="movementDirection"/);
-assert.match(movementRender, /\['ขาย','รับเข้าสินค้า','เปลี่ยนสินค้า','คืนสินค้า','โอนสินค้า'\][\s\S]*movement-filter-divider[\s\S]*value="direction:all"[\s\S]*เข้า-ออกทั้งหมด[\s\S]*\['เข้า','ออก','เปลี่ยน'\]/);
+assert.match(movementRender, /\['ขาย','รับเข้าสินค้า','เปลี่ยนสินค้า','คืนสินค้า','รับคืนจากลูกค้า','โอนสินค้า'\][\s\S]*movement-filter-divider[\s\S]*value="direction:all"[\s\S]*เข้า-ออกทั้งหมด[\s\S]*\['เข้า','ออก','เปลี่ยน'\]/);
 assert.match(html, /inventoryMovementFilter\.type=kind==='type'\?value:'all'[\s\S]*inventoryMovementFilter\.direction=kind==='direction'\?value:'all'/);
 assert.match(html, /id="movementCategory"/);
 assert.match(html, /id="movementBrand"/);
