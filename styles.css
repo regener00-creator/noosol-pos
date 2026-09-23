@@ -2551,6 +2551,9 @@
 .customer-return-table{overflow:auto}
 .customer-return-table table{min-width:650px;width:100%}
 .customer-return-table td:first-child{min-width:210px}
+.customer-return-table th:nth-child(n+2),.customer-return-table td:nth-child(n+2){text-align:center}
+.customer-return-table input,.customer-return-table select{text-align:center}
+.customer-return-table select{text-align-last:center}
 .customer-return-table small{display:block;color:var(--text-muted);margin-top:4px}
 .customer-return-table input{width:90px}
 .customer-return-body input,.customer-return-body select{padding:9px 11px;border:1px solid var(--border);border-radius:8px;font:inherit;background:#fff;max-width:100%}
