@@ -9649,7 +9649,7 @@ function mobilePriceResultHtml(){
     : editableLots.length>1&&!selectedLot
       ? 'สินค้านี้มีหลาย Lot กรุณาเลือก Lot ที่ต้องการแก้วันหมดอายุ'
       : 'วันหมดอายุจะเปลี่ยนเฉพาะ Lot ที่เลือก และระบบจะเก็บประวัติการแก้ไข';
-  return `<article class="mobile-result-card">
+  return `<article class="mobile-result-card" data-review-status="${productDataReviewStatus(product)||'normal'}">
     <div class="mobile-result-name">${escapeHtml(product.name)}</div>
     ${canEdit?`<div class="mobile-price-stock-readonly mobile-metric primary"><span>คงเหลือ</span><b id="mobilePriceStock">${inspectionListAmount(selectedStock)} ${escapeHtml(selected?.name||product.unit)}</b></div><div class="mobile-price-edit-grid">
       <div class="mobile-price-edit-field"><label for="mobilePriceEditSale">ราคาขาย</label><input id="mobilePriceEditSale" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.price)||0}"></div>
@@ -14184,6 +14184,8 @@ function attachMobilePriceResultEvents(){
       document.querySelectorAll('[data-mobile-review-status]').forEach(option=>{
         option.setAttribute('aria-pressed',String(option===button));
       });
+      const card=button.closest('.mobile-result-card');
+      if(card) card.dataset.reviewStatus=button.dataset.mobileReviewStatus;
       const status=document.getElementById('mobilePriceEditStatus');
       if(status) status.textContent='เลือกสีแล้ว — กดบันทึกการแก้ไขเพื่อซิงก์กับคอม';
     });
