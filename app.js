@@ -19815,28 +19815,24 @@ function openPostPaymentModal(saleId){
   overlay.innerHTML=`<div class="modal" style="width:430px;"><div class="modal-head"><h3>ชำระเงินสำเร็จ</h3><button class="modal-close">×</button></div><div id="afterPayContent"></div></div>`;
   document.body.appendChild(overlay);
   const content=overlay.querySelector('#afterPayContent');
-  let receiptPrintStarted=false;
   let activeKeyHandler=null;
   const stopKeyHandler=()=>{ if(activeKeyHandler){ document.removeEventListener('keydown',activeKeyHandler); activeKeyHandler=null; } };
   const close=()=>{ stopKeyHandler(); overlay.remove(); setTimeout(()=>document.getElementById('search')?.focus(),0); };
-  const requestClose=()=>{
-    if(!receiptPrintStarted){ showToast(`กรุณาเปิด${documentLabel}ก่อนเริ่มออเดอร์ใหม่`,'warning-top'); return; }
-    close();
-  };
-  overlay.querySelector('.modal-close').onclick=requestClose;
-  const renderRequiredReceipt=()=>{
+  overlay.querySelector('.modal-close').onclick=close;
+  const renderPaymentActions=()=>{
     stopKeyHandler();
-    content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">✓</div><div class="after-pay-heading">รับชำระ ${fmtMoney(sale.total)} บาทแล้ว</div><div class="after-pay-sub">${escapeHtml(sale.payMethod||'เงินสด')} · ${escapeHtml(sale.ref||sale.id)}</div></div><div class="after-pay-options">${medicineLabelCount?`<button class="after-pay-choice" id="printMedicineLabelsBtn"><span>Rx</span> พิมพ์ฉลากยา ${medicineLabelCount} ใบ</button>`:''}<button class="after-pay-choice new-order" id="finishAndPrintReceiptBtn"><span>🖨</span> ${escapeHtml(documentLabel)}</button></div>`;
+    content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">✓</div><div class="after-pay-heading">รับชำระ ${fmtMoney(sale.total)} บาทแล้ว</div><div class="after-pay-sub">${escapeHtml(sale.payMethod||'เงินสด')} · ${escapeHtml(sale.ref||sale.id)}</div></div><div class="after-pay-options">${medicineLabelCount?`<button class="after-pay-choice" id="printMedicineLabelsBtn"><span>Rx</span> พิมพ์ฉลากยา ${medicineLabelCount} ใบ</button>`:''}<div class="after-pay-actions"><button type="button" class="after-pay-choice" id="closePostPaymentBtn">ปิด</button><button type="button" class="after-pay-choice new-order" id="finishAndPrintReceiptBtn"><span>🖨</span> ${escapeHtml(documentLabel)}</button></div></div>`;
     const printMedicineButton=content.querySelector('#printMedicineLabelsBtn'); if(printMedicineButton) printMedicineButton.onclick=()=>printMedicineLabels(saleId);
+    content.querySelector('#closePostPaymentBtn').onclick=close;
     const finishAndPrintButton=content.querySelector('#finishAndPrintReceiptBtn');
     finishAndPrintButton.onclick=()=>{
       if(!printShortReceipt(saleId)) return;
-      receiptPrintStarted=true; close();
+      close();
     };
-    activeKeyHandler=e=>{ if(e.key==='Enter'){ e.preventDefault(); finishAndPrintButton.click(); } };
+    activeKeyHandler=e=>{ if(e.key==='Escape'){ e.preventDefault(); close(); }else if(e.key==='Enter'&&!e.target?.closest?.('button')){ e.preventDefault(); finishAndPrintButton.click(); } };
     document.addEventListener('keydown',activeKeyHandler);
   };
-  renderRequiredReceipt();
+  renderPaymentActions();
 }
 
 function printShortReceipt(saleId,historical=false){

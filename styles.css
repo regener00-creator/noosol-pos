@@ -1563,6 +1563,7 @@
   .after-pay-heading{text-align:center;font-size:21px;font-weight:700;margin-bottom:4px;}.after-pay-sub{text-align:center;color:var(--text-muted);margin-bottom:17px;}
   .after-pay-options{display:flex;flex-direction:column;gap:10px;padding:4px 18px 20px;}.after-pay-choice{position:relative;display:flex;align-items:center;justify-content:center;gap:13px;width:100%;padding:15px 17px;border:1px solid var(--border);border-radius:10px;background:var(--surface);font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;text-align:center;}.after-pay-choice:hover{border-color:var(--primary);background:var(--primary-soft);color:var(--primary);}.after-pay-choice span{position:absolute;left:25px;font-size:23px;}
   .after-pay-choice.new-order{background:var(--primary);border-color:var(--primary);color:#fff;}.after-pay-choice.new-order:hover{background:var(--primary-dark);border-color:var(--primary-dark);color:#fff;}
+  .after-pay-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;}.after-pay-actions .after-pay-choice{padding:15px 10px;gap:8px;}.after-pay-actions .after-pay-choice span{position:static;font-size:20px;}
   .pos-item-name-line{display:flex;align-items:center;gap:8px;min-width:0;}
   .pos-item-name-content{min-width:0;flex:1;overflow-wrap:anywhere;}
   .pos-med-label-btn{flex-shrink:0;border:1px solid var(--border);border-radius:999px;background:#fff;color:var(--text-muted);padding:3px 8px;font:600 10.5px 'Sarabun',sans-serif;cursor:pointer;}
