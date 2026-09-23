@@ -2556,6 +2556,9 @@
 .customer-return-body input,.customer-return-body select{padding:9px 11px;border:1px solid var(--border);border-radius:8px;font:inherit;background:#fff;max-width:100%}
 .customer-return-reason,.customer-return-payment{display:flex;gap:12px;align-items:center;margin:16px 0}
 .customer-return-reason input{flex:1;min-width:0}
+.customer-return-fields{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin:16px 0}
+.customer-return-fields>label{margin:0}
+.customer-return-fields .customer-return-reason{flex:1 1 300px}
 .customer-return-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:20px 0}
 .customer-return-summary>div{padding:14px;background:#f6f1ef;border-radius:10px;display:flex;flex-direction:column;gap:7px}
 .customer-return-settlement{display:flex;gap:12px;justify-content:space-between;font-size:18px;font-weight:600}
