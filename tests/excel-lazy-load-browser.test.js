@@ -51,17 +51,73 @@ const executable=['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','
   assert.match(download.suggestedFilename(),/รายการสินค้า.*\.xlsx$/);
   const chunks=[];
   for await(const chunk of await download.createReadStream()) chunks.push(chunk);
-  const writer=require('xlsx-js-style');
-  const saved=writer.read(Buffer.concat(chunks),{type:'buffer',cellStyles:true}).Sheets['สินค้า'];
-  assert.equal(saved.C1.v,'สถานะสินค้า');
-  assert.equal(saved.C2.v,'สีปกติ - ยังไม่กำหนดสถานะ');
-  assert.equal(saved.A2.s.patternType,'none');
-  assert.equal(saved.A3.s.fgColor.rgb,'FFF8E1');
-  assert.equal(saved.A4.s.fgColor.rgb,'EFF9F1');
-  assert.equal(saved.I2.v,'000123','download must retain barcode leading zeroes');
+  const writer=require('exceljs');
+  const loaded=new writer.Workbook();
+  await loaded.xlsx.load(Buffer.concat(chunks));
+  const saved=loaded.getWorksheet('สินค้า');
+  assert.equal(saved.getCell('C1').value,'สถานะสินค้า');
+  assert.equal(saved.getCell('C2').value,'สีปกติ - ยังไม่กำหนดสถานะ');
+  assert.equal(saved.getCell('C3').dataValidation.type,'list');
+  assert.equal(saved.getCell('A3').fill.pattern,'none');
+  assert.deepEqual(saved.conditionalFormattings[0].rules.map(rule=>rule.style.fill.fgColor.argb),['FFFFF8E1','FFEFF9F1']);
+  assert.equal(saved.getCell('I2').value,'000123','download must retain barcode leading zeroes');
   assert.equal(await page.evaluate(()=>window.XLSX.existingReader),true,'styled writer must not replace the import reader');
   await page.evaluate(()=>ensureProductExcelWriterLoaded());
   assert.equal(writerRequests,1,'repeat exports reuse the writer');
+  // Feed rows from the actual downloaded workbook through the real import pipeline.
+  // All remote/storage boundaries are stubbed; no live catalog or stock is touched.
+  const headers=saved.getRow(1).values.slice(1);
+  const exportedRows=[];
+  for(let row=2;row<=4;row++) exportedRows.push(Object.fromEntries(headers.map((header,index)=>[header,saved.getCell(row,index+1).value??''])));
+  await page.evaluate(rows=>{
+    window.importRows=rows;window.importAlerts=[];window.persistedStatuses=[];window.allowImport=true;
+    window.XLSX={read:()=>({SheetNames:['สินค้า'],Sheets:{สินค้า:{}}}),utils:{sheet_to_json:()=>structuredClone(window.importRows)}};
+    ensureXlsxLoaded=async()=>{};
+    loadWarehouseInventoryFromSupabase=async()=>true;
+    loadServerBarcodeOwners=async()=>[];
+    applyImportedInventoryTargets=async()=>{};
+    persistWorkspaceData=async()=>{window.persistedStatuses.push(products.map(product=>productDataReviewStatus(product)));return true;};
+    syncCoreDataToSupabase=async()=>{syncUiState='synced';};
+    currentPharmacistName=()=> 'ผู้ทดสอบ';
+    render=()=>{};
+    window.alert=message=>window.importAlerts.push(message);
+    window.confirm=()=>window.allowImport;
+    window.runImport=()=>importProductsFromExcel({arrayBuffer:async()=>new ArrayBuffer(0)});
+  },exportedRows);
+  await page.evaluate(async()=>{
+    window.importRows[0]['สถานะสินค้า']='สีเขียว - ข้อมูลครบถ้วน';
+    window.importRows[1]['สถานะสินค้า']='สีปกติ - ยังไม่กำหนดสถานะ';
+    window.importRows[2]['สถานะสินค้า']='สีเหลือง - กำลังแก้ไข / รอข้อมูล';
+    await window.runImport();
+  });
+  assert.deepEqual(await page.evaluate(()=>products.map(product=>productDataReviewStatus(product))),['complete','','pending']);
+  assert.equal(await page.evaluate(()=>products[0].dataReviewedBy),'ผู้ทดสอบ');
+  assert.deepEqual(await page.evaluate(()=>window.persistedStatuses.at(-1)),['complete','','pending']);
+  await page.evaluate(async()=>{
+    delete window.importRows[0]['สถานะสินค้า'];
+    window.importRows[1]['สถานะสินค้า']='';
+    window.importRows[2]['สถานะสินค้า']='สีแดง';
+    await window.runImport();
+  });
+  assert.deepEqual(await page.evaluate(()=>products.map(product=>productDataReviewStatus(product))),['complete','','pending'],'legacy/blank/invalid statuses must not reset existing data');
+  await page.evaluate(async()=>{
+    window.importRows=window.importRows.slice(2);
+    await window.runImport();
+  });
+  assert.match(await page.evaluate(()=>window.importAlerts.at(-1)),/สถานะสินค้าไม่ถูกต้อง/);
+  await page.evaluate(async()=>{
+    window.importRows[0]['สถานะสินค้า']='สีเขียว';
+    window.allowImport=false;
+    await window.runImport();
+  });
+  assert.equal(await page.evaluate(()=>productDataReviewStatus(products[2])),'pending','cancel must not apply staged status');
+  await page.evaluate(async()=>{
+    window.allowImport=true;
+    window.importRows[0]['รหัสอ้างอิงระบบ (ห้ามแก้)']='';
+    window.importRows[0]['รหัสสินค้า']='NEW-STATUS';
+    await window.runImport();
+  });
+  assert.equal(await page.evaluate(()=>productDataReviewStatus(products.find(product=>product.sku==='NEW-STATUS'))),'complete','new products also receive imported status');
   assert.deepEqual(errors,[]);
   console.log('Excel lazy-load browser tests passed');
 })().catch(error=>{ console.error(error); process.exitCode=1; }).finally(async()=>{ await browser?.close(); server.close(); });

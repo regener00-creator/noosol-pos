@@ -368,7 +368,7 @@ function productImportDate(value){
 // Keep the styled writer isolated from the existing XLSX import/read library.
 let productExcelWriterLoadPromise=null;
 function ensureProductExcelWriterLoaded(){
-  if(window.ProductExcelWriter?.writeFile) return Promise.resolve(window.ProductExcelWriter);
+  if(window.ProductExcelWriter?.Workbook) return Promise.resolve(window.ProductExcelWriter);
   if(productExcelWriterLoadPromise) return productExcelWriterLoadPromise;
   productExcelWriterLoadPromise=new Promise((resolve,reject)=>{
     const script=document.createElement('script');
@@ -378,7 +378,7 @@ function ensureProductExcelWriterLoaded(){
     script.async=true;
     script.onload=()=>{
       clearTimeout(timeout);
-      if(window.ProductExcelWriter?.writeFile) resolve(window.ProductExcelWriter);
+      if(window.ProductExcelWriter?.Workbook) resolve(window.ProductExcelWriter);
       else fail();
     };
     script.onerror=fail;
@@ -469,19 +469,53 @@ function productExcelReviewPresentation(product){
   if(status==='complete') return {label:'สีเขียว - ข้อมูลครบถ้วน',fill:'EFF9F1'};
   return {label:'สีปกติ - ยังไม่กำหนดสถานะ',fill:null};
 }
-function styleProductExcelSheet(sheet,productRows,writer){
-  const range=writer.utils.decode_range(sheet['!ref']);
-  for(let row=0;row<=productRows.length;row++){
-    const fill=row===0?'EEE9E5':productExcelReviewPresentation(productRows[row-1]).fill;
-    const style={font:{name:'Tahoma',sz:11,color:{rgb:'222222'},bold:row===0},alignment:{vertical:'center'}};
-    if(fill) style.fill={patternType:'solid',fgColor:{rgb:fill}};
-    for(let col=range.s.c;col<=range.e.c;col++){
-      const address=writer.utils.encode_cell({r:row,c:col});
-      // Include empty cells so the colour spans the entire exported row.
-      const cell=sheet[address]||(sheet[address]={t:'s',v:''});
-      cell.s=style;
-    }
+function createProductExcelWorkbook(rows,writer){
+  const workbook=new writer.Workbook();
+  const sheet=workbook.addWorksheet('สินค้า',{views:[{state:'frozen',ySplit:1}]});
+  const headers=Object.keys(rows[0]);
+  sheet.columns=headers.map(header=>({header,key:header,width:productExcelColumnWidth(header).wch}));
+  sheet.addRows(rows);
+  sheet.autoFilter={from:{row:1,column:1},to:{row:rows.length+1,column:headers.length}};
+  sheet.eachRow((row,number)=>row.eachCell({includeEmpty:true},cell=>{
+    cell.font={name:'Tahoma',size:11,color:{argb:'FF222222'},bold:number===1};
+    cell.alignment={vertical:'middle'};
+    // Never bake the old status colour into a cell: changing back to normal must clear it.
+    if(number===1) cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEEE9E5'}};
+  }));
+  const statusColumn=sheet.getColumn('สถานะสินค้า').letter;
+  const options=['','pending','complete'].map(dataReviewStatus=>productExcelReviewPresentation({dataReviewStatus}));
+  for(let row=2;row<=rows.length+1;row++){
+    sheet.getCell(`${statusColumn}${row}`).dataValidation={
+      type:'list',allowBlank:true,formulae:[`"${options.map(option=>option.label).join(',')}"`],
+      showErrorMessage:true,errorStyle:'stop',errorTitle:'สถานะสินค้าไม่ถูกต้อง',
+      error:'กรุณาเลือกสีปกติ สีเหลือง หรือสีเขียวจากรายการ',
+      showInputMessage:true,promptTitle:'สถานะสินค้า',prompt:'เลือกสถานะเพื่อเปลี่ยนสีทั้งแถว ช่องว่างจะคงสถานะเดิมเมื่อนำเข้า',
+    };
   }
+  sheet.addConditionalFormatting({
+    ref:`A2:${sheet.getColumn(headers.length).letter}${rows.length+1}`,
+    rules:options.filter(option=>option.fill).map((option,index)=>({
+      type:'expression',priority:index+1,formulae:[`$${statusColumn}2="${option.label}"`],
+      style:{fill:{type:'pattern',pattern:'solid',fgColor:{argb:`FF${option.fill}`}}},
+    })),
+  });
+  return workbook;
+}
+function parseProductImportReviewStatus(value){
+  const text=String(value??'').trim().toLowerCase();
+  if(!text) return undefined; // Old files / blank cells preserve the server-backed status.
+  const choices=[['normal','สีปกติ',''],['pending','สีเหลือง','pending'],['complete','สีเขียว','complete']];
+  for(const [code,colour,status] of choices){
+    if([code,colour,productExcelReviewPresentation({dataReviewStatus:status}).label].includes(text)) return status;
+  }
+  throw new Error('สถานะสินค้าไม่ถูกต้อง กรุณาเลือกสีปกติ สีเหลือง หรือสีเขียว');
+}
+function productImportReviewFields(status,existing,changedAt,changedBy){
+  if(status===undefined||status===productDataReviewStatus(existing)) return {};
+  return {
+    dataReviewStatus:status,dataReviewUpdatedAt:status?changedAt:'',dataReviewUpdatedBy:status?changedBy:'',
+    dataReviewedAt:status==='complete'?changedAt:'',dataReviewedBy:status==='complete'?changedBy:'',
+  };
 }
 async function applyImportedInventoryTargets(targets){
   const grouped=new Map();
@@ -543,6 +577,9 @@ async function importProductsFromExcel(file){
   let stagedNextProductSkuNumber=nextProductSkuNumber;
   sourceRows.forEach((row,index)=>{
     const line=index+2;
+    let reviewStatus;
+    try{ reviewStatus=parseProductImportReviewStatus(productImportValue(row,['สถานะสินค้า','dataReviewStatus'])); }
+    catch(error){ skipped.push(`แถว ${line}: ${error.message}`); return; }
     const name=String(productImportValue(row,['ชื่อสินค้า','สินค้า','name'])).trim();
     const unit=String(productImportValue(row,['หน่วยหลัก','หน่วย','unit'])).trim();
     const priceRaw=productImportValue(row,['ราคาขาย (หน่วยหลัก)','ราคาขาย','ขาย','price']);
@@ -615,6 +652,7 @@ async function importProductsFromExcel(file){
     stagedNextProductSkuNumber=Math.max(stagedNextProductSkuNumber,productSkuSequenceNumber(finalSku)+1);
     const data={
       name,sku:finalSku,barcode,category,brand,unit,price,
+      ...productImportReviewFields(reviewStatus,existing,new Date().toISOString(),currentPharmacistName()||String(loggedInUser()?.username||'').trim()),
       cost:productImportNumber(productImportValue(row,['ราคาทุน (หน่วยหลัก)','ราคาทุน','ทุน','cost']),existing?.cost||0),
       vat:parseProductVatMode(productImportValue(row,['ภาษีมูลค่าเพิ่ม','vat']),existing?.vat||'incl'),
       stock:productImportNumber(productImportValue(row,['จำนวนคงเหลือ (หน่วยหลัก)','จำนวนคงเหลือ','คงเหลือ','stock']),existing?.stock||0),
@@ -661,7 +699,8 @@ async function importProductsFromExcel(file){
     alert(`ไม่สามารถนำเข้าสินค้าได้\n\n${skipped.slice(0,8).join('\n')}${skipped.length>8?`\nและอีก ${skipped.length-8} รายการ`:''}`);
     return;
   }
-  const confirmation=`พบข้อมูล ${sourceRows.length} แถว\nจะเพิ่มสินค้าใหม่ ${toCreate.length} รายการ\nจะอัปเดตสินค้าเดิม ${toUpdate.length} รายการ${skipped.length?`\nข้าม ${skipped.length} รายการที่ข้อมูลไม่ครบหรือซ้ำ`:''}\n\nยืนยันนำเข้าหรือไม่?`;
+  const statusChanges=toUpdate.filter(({data})=>Object.hasOwn(data,'dataReviewStatus')).length;
+  const confirmation=`พบข้อมูล ${sourceRows.length} แถว\nจะเพิ่มสินค้าใหม่ ${toCreate.length} รายการ\nจะอัปเดตสินค้าเดิม ${toUpdate.length} รายการ\nเปลี่ยนสถานะสีสินค้าเดิม ${statusChanges} รายการ${skipped.length?`\nข้าม ${skipped.length} รายการ\n${skipped.slice(0,6).join('\n')}${skipped.length>6?'\n...':''}`:''}\n\nยืนยันนำเข้าหรือไม่?`;
   if(!confirm(confirmation)) return;
   const importStockTargets=[
     ...toCreate.map(product=>({productId:product.id,warehouseId:Number(product.wh)||Number(activeWarehouseId),expectedStock:0,targetStock:Number(product.stock)||0,unitName:product.unit,expiry:product.expiry||''})),
@@ -731,12 +770,13 @@ async function exportProductsToExcel(){
   try{ writer=await ensureProductExcelWriterLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบส่งออก Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
   const counts=productExcelColumnCounts(products);
   const rows=products.map(product=>productToExcelRow(product,counts));
-  const sheet=writer.utils.json_to_sheet(rows);
-  sheet['!cols']=Object.keys(rows[0]).map(productExcelColumnWidth);
-  sheet['!autofilter']={ref:sheet['!ref']};
-  styleProductExcelSheet(sheet,products,writer);
-  const workbook=writer.utils.book_new();
-  writer.utils.book_append_sheet(workbook,sheet,'สินค้า');
-  writer.writeFile(workbook,`PEPOS-รายการสินค้า-${TODAY_STR}.xlsx`,{compression:true});
+  const workbook=createProductExcelWorkbook(rows,writer);
+  const buffer=await workbook.xlsx.writeBuffer();
+  const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+  const link=document.createElement('a');
+  link.href=url;link.download=`PEPOS-รายการสินค้า-${TODAY_STR}.xlsx`;
+  document.body.appendChild(link);
+  link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
   showToast(`ส่งออกรายการสินค้า ${rows.length} รายการแล้ว`);
 }

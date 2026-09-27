@@ -69,13 +69,13 @@ const importStart = html.indexOf('async function importProductsFromExcel(', help
 const exportStart = html.indexOf('function exportProductsToExcel(', importStart);
 const exportEnd = html.indexOf('function saveProduct(', exportStart);
 assert.match(html.slice(exportStart, exportEnd), /productToExcelRow\(/, 'export must use the shared row schema');
-assert.match(html.slice(exportStart, exportEnd), /sheet\['!autofilter'\]=\{ref:sheet\['!ref'\]\}/, 'export must enable Excel header filters');
+assert.match(html.slice(helperStart, helperEnd), /sheet.autoFilter=/, 'export must enable Excel header filters');
 assert.match(html.slice(importStart, exportStart), /parseProductVatMode\(/, 'import must preserve the product VAT mode');
 assert.doesNotMatch(html.slice(importStart, exportStart), /scanDefaultUnit/, 'import must ignore the retired barcode scan unit override');
 assert.match(html.slice(importStart, exportStart), /'ราคาขาย \(หน่วยหลัก\)'[^]*'ราคาขาย'/, 'import must accept both the clearer and legacy headers');
 
-// Round-trip the actual XLSX bytes; assigning .s alone is not proof of saved colours.
-const writer=require('xlsx-js-style');
+// Round-trip native Excel dropdowns and conditional formatting, not baked-in colours.
+const writer=require('exceljs');
 const colourProducts=[
   products[0],
   {...products[0],dataReviewStatus:'pending',dataReviewedAt:'2026-09-01'},
@@ -87,23 +87,49 @@ assert.deepEqual(colourRows.map(row=>row['สถานะสินค้า']),[
   'สีปกติ - ยังไม่กำหนดสถานะ','สีเหลือง - กำลังแก้ไข / รอข้อมูล',
   'สีเขียว - ข้อมูลครบถ้วน','สีเขียว - ข้อมูลครบถ้วน',
 ]);
-const sheet=writer.utils.json_to_sheet(colourRows);
-sheet['!autofilter']={ref:sheet['!ref']};
-sandbox.styleProductExcelSheet(sheet,colourProducts,writer);
-const book=writer.utils.book_new();
-writer.utils.book_append_sheet(book,sheet,'สินค้า');
-const saved=writer.read(writer.write(book,{type:'buffer',bookType:'xlsx',compression:true}),{type:'buffer',cellStyles:true}).Sheets['สินค้า'];
-assert.equal(saved.A2.s.patternType,'none','normal rows stay unfilled');
-for(const [rowNumber,fill] of [[3,'FFF8E1'],[4,'EFF9F1'],[5,'EFF9F1']]){
-  for(let col=0;col<headers.length;col++){
-    assert.equal(saved[writer.utils.encode_cell({r:rowNumber-1,c:col})].s.fgColor.rgb,fill,'fill survives across the entire row, including blanks');
+require('node:test')('product workbook retains dropdowns, live row colour rules and exact values',async()=>{
+  const book=sandbox.createProductExcelWorkbook(colourRows,writer);
+  const loaded=new writer.Workbook();
+  await loaded.xlsx.load(await book.xlsx.writeBuffer());
+  const saved=loaded.getWorksheet('สินค้า');
+  assert.equal(saved.getCell('B2').value,'สินค้าทดสอบ');
+  assert.equal(saved.getCell(2,headers.indexOf('บาร์โค้ดหลัก')+1).value,'0000123400012');
+  assert.equal(saved.getCell(2,headers.length).value,'9007199254740001');
+  assert.equal(typeof saved.getCell(2,headers.indexOf('ราคาขาย (หน่วยหลัก)')+1).value,'number');
+  assert.ok(saved.autoFilter);
+  for(let row=2;row<=5;row++){
+    const validation=saved.getCell(`C${row}`).dataValidation;
+    assert.equal(validation.type,'list');
+    assert.equal(validation.errorStyle,'stop');
+    assert.ok(validation.formulae[0].includes('สีเขียว - ข้อมูลครบถ้วน'));
+    for(let col=1;col<=headers.length;col++) assert.equal(saved.getCell(row,col).fill?.pattern,'none','no permanent colour may survive changing status');
   }
+  const cf=saved.conditionalFormattings[0];
+  assert.equal(cf.ref,`A2:${saved.getColumn(headers.length).letter}5`);
+  assert.deepEqual(cf.rules.map(rule=>rule.formulae[0]),['$C2="สีเหลือง - กำลังแก้ไข / รอข้อมูล"','$C2="สีเขียว - ข้อมูลครบถ้วน"']);
+  assert.deepEqual(cf.rules.map(rule=>rule.style.fill.fgColor.argb),['FFFFF8E1','FFEFF9F1']);
+  // Exercise every transition against the saved relative-row rule, including middle and last rows.
+  for(let row=2;row<=5;row++) for(const [value,expected] of [['สีเขียว - ข้อมูลครบถ้วน','FFEFF9F1'],['สีเหลือง - กำลังแก้ไข / รอข้อมูล','FFFFF8E1'],['สีปกติ - ยังไม่กำหนดสถานะ',undefined]]){
+    saved.getCell(row,3).value=value;
+    const active=cf.rules.find(rule=>rule.formulae[0]===`$C2="${value}"`);
+    assert.equal(active?.style.fill.fgColor.argb,expected);
+  }
+});
+for(const [text,status] of [['สีปกติ',''],['normal',''],['สีเหลือง','pending'],['pending','pending'],['สีเขียว','complete'],[' COMPLETE ','complete']]){
+  assert.equal(sandbox.parseProductImportReviewStatus(text),status);
 }
-assert.equal(saved.B2.v,'สินค้าทดสอบ');
-assert.equal(saved[writer.utils.encode_cell({r:1,c:headers.indexOf('บาร์โค้ดหลัก')})].v,'0000123400012');
-assert.equal(saved[writer.utils.encode_cell({r:1,c:headers.length-1})].v,'9007199254740001');
-assert.equal(saved[writer.utils.encode_cell({r:1,c:headers.indexOf('ราคาขาย (หน่วยหลัก)')})].t,'n');
-assert.equal(saved['!autofilter'].ref,sheet['!ref']);
+for(const product of colourProducts) assert.equal(sandbox.parseProductImportReviewStatus(sandbox.productToExcelRow(product,counts)['สถานะสินค้า']),sandbox.productDataReviewStatus(product));
+assert.equal(sandbox.parseProductImportReviewStatus(''),undefined);
+assert.throws(()=>sandbox.parseProductImportReviewStatus('สีแดง'),/สถานะสินค้าไม่ถูกต้อง/);
+const reviewed={dataReviewStatus:'complete',dataReviewedAt:'old',dataReviewedBy:'old-user'};
+for(const status of ['', 'pending', 'complete', undefined]){
+  const changes=sandbox.productImportReviewFields(status,reviewed,'new-date','new-user');
+  const result={...reviewed,...changes};
+  assert.equal(sandbox.productDataReviewStatus(result),status===undefined?'complete':status);
+  if(status===''||status==='pending') assert.equal(result.dataReviewedAt,'');
+  else assert.equal(result.dataReviewedAt,'old','unchanged status must preserve review attribution');
+}
+assert.equal(sandbox.productImportReviewFields('complete',{},'new-date','new-user').dataReviewedBy,'new-user');
 assert.equal(Object.hasOwn(products[0],'dataReviewStatus'),false,'export must not mutate source status');
 assert.match(html.slice(exportStart,exportEnd),/ensureProductExcelWriterLoaded\(/);
 assert.doesNotMatch(html.slice(exportStart,exportEnd),/await ensureXlsxLoaded\(/,'product export must not download two writers');

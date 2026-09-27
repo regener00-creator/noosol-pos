@@ -103,7 +103,7 @@ export async function prepareTextAssets({ appSource, excelToolsSource = '', styl
 
 export async function buildProductExcelWriter() {
   const result = await build({
-    stdin: { contents: 'import XLSX from "xlsx-js-style"; window.ProductExcelWriter=XLSX;', resolveDir: projectRoot },
+    stdin: { contents: 'import ExcelJS from "exceljs"; window.ProductExcelWriter=ExcelJS;', resolveDir: projectRoot },
     bundle: true, write: false, platform: 'browser', format: 'iife',
     target: 'es2020', minify: true, legalComments: 'inline',
   })
