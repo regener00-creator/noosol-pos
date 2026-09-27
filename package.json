@@ -24,6 +24,7 @@
   },
   "packageManager": "pnpm@11.19.0",
   "dependencies": {
-    "@zxing/browser": "0.2.1"
+    "@zxing/browser": "0.2.1",
+    "xlsx-js-style": "1.2.0"
   }
 }

@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto'
 import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { transform } from 'esbuild'
+import { build, transform } from 'esbuild'
 import { Script } from 'node:vm'
 
 export const ASSET_VERSION_TOKEN = '__PEPOS_ASSET_VERSION__'
@@ -101,6 +101,15 @@ export async function prepareTextAssets({ appSource, excelToolsSource = '', styl
   }
 }
 
+export async function buildProductExcelWriter() {
+  const result = await build({
+    stdin: { contents: 'import XLSX from "xlsx-js-style"; window.ProductExcelWriter=XLSX;', resolveDir: projectRoot },
+    bundle: true, write: false, platform: 'browser', format: 'iife',
+    target: 'es2020', minify: true, legalComments: 'inline',
+  })
+  return result.outputFiles[0].text
+}
+
 export async function buildStatic() {
   if (!outputDirectory.startsWith(`${projectRoot}${sep}`)) {
     throw new Error('Refusing to write outside the project directory')
@@ -115,13 +124,14 @@ export async function buildStatic() {
     readFile(zxingSourceFile),
     ...staticDeployFiles.map(name => readFile(join(projectRoot, name))),
   ])
+  const productExcelWriter = await buildProductExcelWriter()
   const prepared = await prepareTextAssets({
     appSource,
     excelToolsSource,
     stylesSource,
     indexTemplate,
     workerTemplate,
-    versionInputs: staticContents,
+    versionInputs: [...staticContents, productExcelWriter],
   })
 
   await rm(outputDirectory, { recursive: true, force: true })
@@ -130,6 +140,7 @@ export async function buildStatic() {
   await Promise.all([
     writeFile(join(outputDirectory, 'app.js'), prepared.appCode),
     writeFile(join(outputDirectory, 'excel-tools.js'), prepared.excelToolsCode),
+    writeFile(join(outputDirectory, 'vendor', 'product-excel-writer.js'), productExcelWriter),
     ...Object.entries(prepared.pageCodes).map(([name, code]) => writeFile(join(outputDirectory, name), code)),
     writeFile(join(outputDirectory, 'styles.css'), prepared.stylesCode),
     writeFile(join(outputDirectory, 'index.html'), prepared.indexHtml),
@@ -140,7 +151,7 @@ export async function buildStatic() {
 
   const jsSaving = Math.round((1 - prepared.appCode.length / appSource.length) * 100)
   const cssSaving = Math.round((1 - prepared.stylesCode.length / stylesSource.length) * 100)
-  console.log(`Prepared ${staticDeployFiles.length + 6 + Object.keys(prepared.pageCodes).length} public files (asset ${prepared.assetVersion}; initial JS -${jsSaving}%; CSS -${cssSaving}%)`)
+  console.log(`Prepared ${staticDeployFiles.length + 7 + Object.keys(prepared.pageCodes).length} public files (asset ${prepared.assetVersion}; initial JS -${jsSaving}%; CSS -${cssSaving}%)`)
 }
 
 const invokedPath = process.argv[1] ? resolve(process.argv[1]) : ''

@@ -365,6 +365,27 @@ function productImportDate(value){
   if(match) return `${match[3]}-${match[2].padStart(2,'0')}-${match[1].padStart(2,'0')}`;
   return '';
 }
+// Keep the styled writer isolated from the existing XLSX import/read library.
+let productExcelWriterLoadPromise=null;
+function ensureProductExcelWriterLoaded(){
+  if(window.ProductExcelWriter?.writeFile) return Promise.resolve(window.ProductExcelWriter);
+  if(productExcelWriterLoadPromise) return productExcelWriterLoadPromise;
+  productExcelWriterLoadPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');
+    const timeout=setTimeout(()=>fail(),30000);
+    const fail=()=>{ clearTimeout(timeout); script.remove(); reject(new Error('โหลดระบบส่งออก Excel สีไม่สำเร็จ กรุณาลองใหม่')); };
+    script.src=`/vendor/product-excel-writer.js${APP_ASSET_VERSION?`?v=${encodeURIComponent(APP_ASSET_VERSION)}`:''}`;
+    script.async=true;
+    script.onload=()=>{
+      clearTimeout(timeout);
+      if(window.ProductExcelWriter?.writeFile) resolve(window.ProductExcelWriter);
+      else fail();
+    };
+    script.onerror=fail;
+    document.head.appendChild(script);
+  }).catch(error=>{ productExcelWriterLoadPromise=null; throw error; });
+  return productExcelWriterLoadPromise;
+}
 const PRODUCT_EXCEL_MIN_REPEAT_COLUMNS=2;
 const PRODUCT_EXCEL_MAX_REPEAT_COLUMNS=10;
 function productExcelColumnCounts(productRows=[]){
@@ -377,7 +398,7 @@ function productExcelColumnCounts(productRows=[]){
   };
 }
 function productExcelHeaders(counts){
-  const headers=['รหัสสินค้า','ชื่อสินค้า','หมวดสินค้า','ยี่ห้อ / หมวดย่อย','หน่วยหลัก','ราคาขาย (หน่วยหลัก)','ราคาทุน (หน่วยหลัก)','บาร์โค้ดหลัก','ภาษีมูลค่าเพิ่ม','คลังสินค้า','จำนวนคงเหลือ (หน่วยหลัก)','วันหมดอายุ','รายละเอียด'];
+  const headers=['รหัสสินค้า','ชื่อสินค้า','สถานะสินค้า','หมวดสินค้า','ยี่ห้อ / หมวดย่อย','หน่วยหลัก','ราคาขาย (หน่วยหลัก)','ราคาทุน (หน่วยหลัก)','บาร์โค้ดหลัก','ภาษีมูลค่าเพิ่ม','คลังสินค้า','จำนวนคงเหลือ (หน่วยหลัก)','วันหมดอายุ','รายละเอียด'];
   for(let number=1;number<=counts.units;number++){
     headers.push(`หน่วยเพิ่มเติม ${number}`,`จำนวนบรรจุ ${number}`,`เทียบกับหน่วย ${number}`,`ราคาขายหน่วยเพิ่มเติม ${number}`,`ราคาทุนหน่วยเพิ่มเติม ${number}`,`บาร์โค้ดหน่วยเพิ่มเติม ${number}`);
   }
@@ -387,6 +408,7 @@ function productExcelHeaders(counts){
   return headers;
 }
 function productExcelColumnWidth(header){
+  if(header==='สถานะสินค้า') return {wch:42};
   if(header==='ชื่อสินค้า'||header==='รายละเอียด') return {wch:34};
   if(/บาร์โค้ด|รหัสอ้างอิงระบบ|ชื่อผู้จำหน่าย/.test(header)) return {wch:24};
   if(/หมวด|หน่วย|ราคา|จำนวน|ภาษี|คลัง/.test(header)) return {wch:20};
@@ -402,6 +424,7 @@ function productToExcelRow(product,counts,warehouseRows=warehouses){
   const values={
     'รหัสสินค้า':product.sku||'',
     'ชื่อสินค้า':product.name||'',
+    'สถานะสินค้า':productExcelReviewPresentation(product).label,
     'หมวดสินค้า':product.category||'',
     'ยี่ห้อ / หมวดย่อย':product.brand||'',
     'หน่วยหลัก':product.unit||'',
@@ -439,6 +462,26 @@ function productToExcelRow(product,counts,warehouseRows=warehouses){
   const row={};
   productExcelHeaders(counts).forEach(header=>{ row[header]=values[header]??''; });
   return row;
+}
+function productExcelReviewPresentation(product){
+  const status=productDataReviewStatus(product);
+  if(status==='pending') return {label:'สีเหลือง - กำลังแก้ไข / รอข้อมูล',fill:'FFF8E1'};
+  if(status==='complete') return {label:'สีเขียว - ข้อมูลครบถ้วน',fill:'EFF9F1'};
+  return {label:'สีปกติ - ยังไม่กำหนดสถานะ',fill:null};
+}
+function styleProductExcelSheet(sheet,productRows,writer){
+  const range=writer.utils.decode_range(sheet['!ref']);
+  for(let row=0;row<=productRows.length;row++){
+    const fill=row===0?'EEE9E5':productExcelReviewPresentation(productRows[row-1]).fill;
+    const style={font:{name:'Tahoma',sz:11,color:{rgb:'222222'},bold:row===0},alignment:{vertical:'center'}};
+    if(fill) style.fill={patternType:'solid',fgColor:{rgb:fill}};
+    for(let col=range.s.c;col<=range.e.c;col++){
+      const address=writer.utils.encode_cell({r:row,c:col});
+      // Include empty cells so the colour spans the entire exported row.
+      const cell=sheet[address]||(sheet[address]={t:'s',v:''});
+      cell.s=style;
+    }
+  }
 }
 async function applyImportedInventoryTargets(targets){
   const grouped=new Map();
@@ -683,15 +726,17 @@ async function importProductsFromExcel(file){
 }
 
 async function exportProductsToExcel(){
-  try{ await ensureXlsxLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบส่งออก Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
   if(!products.length){ showToast('ยังไม่มีข้อมูลให้ส่งออก'); return; }
+  let writer;
+  try{ writer=await ensureProductExcelWriterLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบส่งออก Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
   const counts=productExcelColumnCounts(products);
   const rows=products.map(product=>productToExcelRow(product,counts));
-  const sheet=XLSX.utils.json_to_sheet(rows);
+  const sheet=writer.utils.json_to_sheet(rows);
   sheet['!cols']=Object.keys(rows[0]).map(productExcelColumnWidth);
   sheet['!autofilter']={ref:sheet['!ref']};
-  const workbook=XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook,sheet,'สินค้า');
-  XLSX.writeFile(workbook,`PEPOS-รายการสินค้า-${TODAY_STR}.xlsx`);
+  styleProductExcelSheet(sheet,products,writer);
+  const workbook=writer.utils.book_new();
+  writer.utils.book_append_sheet(workbook,sheet,'สินค้า');
+  writer.writeFile(workbook,`PEPOS-รายการสินค้า-${TODAY_STR}.xlsx`,{compression:true});
   showToast(`ส่งออกรายการสินค้า ${rows.length} รายการแล้ว`);
 }

@@ -15,6 +15,7 @@ const sandbox = {
   productVatModeLabel: value => value === 'excl' ? 'ราคายังไม่รวม VAT' : value === 'none' ? 'ไม่มี VAT' : 'ราคารวม VAT แล้ว',
 };
 vm.createContext(sandbox);
+vm.runInContext(html.match(/^function productDataReviewStatus\(product\)\{[\s\S]*?^\}/m)[0],sandbox);
 vm.runInContext(`${html.slice(helperStart, helperEnd)}; this.productExcelColumnCounts=productExcelColumnCounts; this.productExcelHeaders=productExcelHeaders; this.productExcelColumnWidth=productExcelColumnWidth; this.productToExcelRow=productToExcelRow;`, sandbox);
 
 const products = [{
@@ -44,7 +45,7 @@ assert.deepEqual(JSON.parse(JSON.stringify(counts)), {extraBarcodes: 2, vendors:
 const headers = Array.from(sandbox.productExcelHeaders(counts));
 const row = sandbox.productToExcelRow(products[0], counts, sandbox.warehouses);
 assert.deepEqual(Object.keys(row), headers, 'export row must use the exact shared template column order');
-assert.deepEqual(headers.slice(0,13), ['รหัสสินค้า','ชื่อสินค้า','หมวดสินค้า','ยี่ห้อ / หมวดย่อย','หน่วยหลัก','ราคาขาย (หน่วยหลัก)','ราคาทุน (หน่วยหลัก)','บาร์โค้ดหลัก','ภาษีมูลค่าเพิ่ม','คลังสินค้า','จำนวนคงเหลือ (หน่วยหลัก)','วันหมดอายุ','รายละเอียด'], 'ข้อมูลพื้นฐานต้องเรียงอยู่ด้านหน้าก่อนข้อมูลเสริม');
+assert.deepEqual(headers.slice(0,14), ['รหัสสินค้า','ชื่อสินค้า','สถานะสินค้า','หมวดสินค้า','ยี่ห้อ / หมวดย่อย','หน่วยหลัก','ราคาขาย (หน่วยหลัก)','ราคาทุน (หน่วยหลัก)','บาร์โค้ดหลัก','ภาษีมูลค่าเพิ่ม','คลังสินค้า','จำนวนคงเหลือ (หน่วยหลัก)','วันหมดอายุ','รายละเอียด'], 'ข้อมูลพื้นฐานต้องเรียงอยู่ด้านหน้าก่อนข้อมูลเสริม');
 assert.ok(headers.indexOf('หน่วยเพิ่มเติม 1') < headers.indexOf('บาร์โค้ดสำรอง 1'), 'หน่วยเพิ่มเติมต้องอยู่ก่อนกลุ่มบาร์โค้ดสำรอง');
 assert.ok(headers.indexOf('บาร์โค้ดสำรอง 1') < headers.indexOf('ชื่อผู้จำหน่าย 1'), 'บาร์โค้ดสำรองต้องอยู่ก่อนกลุ่มผู้จำหน่าย');
 assert.equal(headers.at(-1), 'รหัสอ้างอิงระบบ (ห้ามแก้)', 'รหัสภายในต้องย้ายไปท้ายสุดและระบุว่าไม่ควรแก้');
@@ -73,4 +74,37 @@ assert.match(html.slice(importStart, exportStart), /parseProductVatMode\(/, 'imp
 assert.doesNotMatch(html.slice(importStart, exportStart), /scanDefaultUnit/, 'import must ignore the retired barcode scan unit override');
 assert.match(html.slice(importStart, exportStart), /'ราคาขาย \(หน่วยหลัก\)'[^]*'ราคาขาย'/, 'import must accept both the clearer and legacy headers');
 
+// Round-trip the actual XLSX bytes; assigning .s alone is not proof of saved colours.
+const writer=require('xlsx-js-style');
+const colourProducts=[
+  products[0],
+  {...products[0],dataReviewStatus:'pending',dataReviewedAt:'2026-09-01'},
+  {...products[0],dataReviewStatus:'complete'},
+  {...products[0],dataReviewedAt:'2026-09-01'},
+];
+const colourRows=colourProducts.map(product=>sandbox.productToExcelRow(product,counts));
+assert.deepEqual(colourRows.map(row=>row['สถานะสินค้า']),[
+  'สีปกติ - ยังไม่กำหนดสถานะ','สีเหลือง - กำลังแก้ไข / รอข้อมูล',
+  'สีเขียว - ข้อมูลครบถ้วน','สีเขียว - ข้อมูลครบถ้วน',
+]);
+const sheet=writer.utils.json_to_sheet(colourRows);
+sheet['!autofilter']={ref:sheet['!ref']};
+sandbox.styleProductExcelSheet(sheet,colourProducts,writer);
+const book=writer.utils.book_new();
+writer.utils.book_append_sheet(book,sheet,'สินค้า');
+const saved=writer.read(writer.write(book,{type:'buffer',bookType:'xlsx',compression:true}),{type:'buffer',cellStyles:true}).Sheets['สินค้า'];
+assert.equal(saved.A2.s.patternType,'none','normal rows stay unfilled');
+for(const [rowNumber,fill] of [[3,'FFF8E1'],[4,'EFF9F1'],[5,'EFF9F1']]){
+  for(let col=0;col<headers.length;col++){
+    assert.equal(saved[writer.utils.encode_cell({r:rowNumber-1,c:col})].s.fgColor.rgb,fill,'fill survives across the entire row, including blanks');
+  }
+}
+assert.equal(saved.B2.v,'สินค้าทดสอบ');
+assert.equal(saved[writer.utils.encode_cell({r:1,c:headers.indexOf('บาร์โค้ดหลัก')})].v,'0000123400012');
+assert.equal(saved[writer.utils.encode_cell({r:1,c:headers.length-1})].v,'9007199254740001');
+assert.equal(saved[writer.utils.encode_cell({r:1,c:headers.indexOf('ราคาขาย (หน่วยหลัก)')})].t,'n');
+assert.equal(saved['!autofilter'].ref,sheet['!ref']);
+assert.equal(Object.hasOwn(products[0],'dataReviewStatus'),false,'export must not mutate source status');
+assert.match(html.slice(exportStart,exportEnd),/ensureProductExcelWriterLoaded\(/);
+assert.doesNotMatch(html.slice(exportStart,exportEnd),/await ensureXlsxLoaded\(/,'product export must not download two writers');
 console.log('product Excel tests passed');
