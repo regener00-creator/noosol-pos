@@ -59,7 +59,7 @@ const executable=['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','
   assert.equal(saved.getCell('C2').value,'สีปกติ - ยังไม่กำหนดสถานะ');
   assert.equal(saved.getCell('C3').dataValidation.type,'list');
   assert.equal(saved.getCell('A3').fill.pattern,'none');
-  assert.deepEqual(saved.conditionalFormattings[0].rules.map(rule=>rule.style.fill.fgColor.argb),['FFFFF8E1','FFEFF9F1']);
+  assert.deepEqual(saved.conditionalFormattings[0].rules.map(rule=>rule.style.fill.bgColor.argb),['FFFFF8E1','FFEFF9F1']);
   assert.equal(saved.getCell('I2').value,'000123','download must retain barcode leading zeroes');
   assert.equal(await page.evaluate(()=>window.XLSX.existingReader),true,'styled writer must not replace the import reader');
   await page.evaluate(()=>ensureProductExcelWriterLoaded());

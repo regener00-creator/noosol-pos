@@ -89,8 +89,19 @@ assert.deepEqual(colourRows.map(row=>row['สถานะสินค้า']),[
 ]);
 require('node:test')('product workbook retains dropdowns, live row colour rules and exact values',async()=>{
   const book=sandbox.createProductExcelWorkbook(colourRows,writer);
+  const bytes=await book.xlsx.writeBuffer();
+  // Inspect the actual OOXML, not only ExcelJS's interpretation of its own output.
+  const JSZip=require('node:module').createRequire(require.resolve('exceljs'))('jszip');
+  const archive=await JSZip.loadAsync(bytes);
+  const styles=await archive.file('xl/styles.xml').async('string');
+  const differentialStyles=styles.match(/<dxfs\b[^>]*>([\s\S]*?)<\/dxfs>/)?.[1];
+  assert.ok(differentialStyles,'native conditional-format styles must be present');
+  assert.match(differentialStyles,/<bgColor rgb="FFFFF8E1"\s*\/>/);
+  assert.match(differentialStyles,/<bgColor rgb="FFEFF9F1"\s*\/>/);
+  assert.doesNotMatch(differentialStyles,/<fgColor\b/);
+  assert.match(styles,/<fgColor rgb="FFEEE9E5"\s*\/>/,'ordinary header fill must remain unchanged');
   const loaded=new writer.Workbook();
-  await loaded.xlsx.load(await book.xlsx.writeBuffer());
+  await loaded.xlsx.load(bytes);
   const saved=loaded.getWorksheet('สินค้า');
   assert.equal(saved.getCell('B2').value,'สินค้าทดสอบ');
   assert.equal(saved.getCell(2,headers.indexOf('บาร์โค้ดหลัก')+1).value,'0000123400012');
@@ -107,12 +118,13 @@ require('node:test')('product workbook retains dropdowns, live row colour rules 
   const cf=saved.conditionalFormattings[0];
   assert.equal(cf.ref,`A2:${saved.getColumn(headers.length).letter}5`);
   assert.deepEqual(cf.rules.map(rule=>rule.formulae[0]),['$C2="สีเหลือง - กำลังแก้ไข / รอข้อมูล"','$C2="สีเขียว - ข้อมูลครบถ้วน"']);
-  assert.deepEqual(cf.rules.map(rule=>rule.style.fill.fgColor.argb),['FFFFF8E1','FFEFF9F1']);
+  assert.deepEqual(cf.rules.map(rule=>rule.style.fill.bgColor.argb),['FFFFF8E1','FFEFF9F1'],'conditional-format DXFs must encode background colours for Excel');
+  assert.ok(cf.rules.every(rule=>!rule.style.fill.fgColor),'do not regress to ordinary cell foreground fills');
   // Exercise every transition against the saved relative-row rule, including middle and last rows.
   for(let row=2;row<=5;row++) for(const [value,expected] of [['สีเขียว - ข้อมูลครบถ้วน','FFEFF9F1'],['สีเหลือง - กำลังแก้ไข / รอข้อมูล','FFFFF8E1'],['สีปกติ - ยังไม่กำหนดสถานะ',undefined]]){
     saved.getCell(row,3).value=value;
     const active=cf.rules.find(rule=>rule.formulae[0]===`$C2="${value}"`);
-    assert.equal(active?.style.fill.fgColor.argb,expected);
+    assert.equal(active?.style.fill.bgColor.argb,expected);
   }
 });
 for(const [text,status] of [['สีปกติ',''],['normal',''],['สีเหลือง','pending'],['pending','pending'],['สีเขียว','complete'],[' COMPLETE ','complete']]){

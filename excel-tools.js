@@ -496,7 +496,8 @@ function createProductExcelWorkbook(rows,writer){
     ref:`A2:${sheet.getColumn(headers.length).letter}${rows.length+1}`,
     rules:options.filter(option=>option.fill).map((option,index)=>({
       type:'expression',priority:index+1,formulae:[`$${statusColumn}2="${option.label}"`],
-      style:{fill:{type:'pattern',pattern:'solid',fgColor:{argb:`FF${option.fill}`}}},
+      // Excel conditional-format DXFs use bgColor for the background, unlike normal cell fills.
+      style:{fill:{type:'pattern',pattern:'solid',bgColor:{argb:`FF${option.fill}`}}},
     })),
   });
   return workbook;
