@@ -17,6 +17,7 @@
     "get_pos_customer_tier_progress(text,bigint)",
     "get_customer_loyalty(text[],bigint)",
     "get_owner_database_health()",
+    "get_product_unit_edit_status(bigint)",
     "get_notes_page(text,timestamptz,uuid,integer)",
     "get_representative_note_cards(bigint[],text,integer)",
     "get_representative_note_metadata(bigint[],uuid[])",
@@ -39,6 +40,7 @@
     "save_representative_note(uuid,timestamptz,text,text,bigint,date,jsonb)",
     "save_representative_products(bigint,jsonb)",
     "save_revisioned_document(uuid,text,text,jsonb,bigint,boolean)",
+    "save_unused_product_unit(bigint,bigint,jsonb)",
     "update_sale_document_metadata(text,jsonb)"
   ]
 }

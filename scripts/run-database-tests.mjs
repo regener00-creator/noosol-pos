@@ -52,6 +52,12 @@ try{
   await suite.run({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
   const barcodeSuite=await import('../tests/product-barcode-integrity.mjs');
   await barcodeSuite.run({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
+  const unusedUnitSuite=await import('../tests/unused-product-unit-database.mjs');
+  await unusedUnitSuite.run({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
+}catch(error){
+  // Surface the actual failure even if the platform is slow to stop Postgres.
+  console.error(error);
+  throw error;
 }finally{
   await client?.end(); await postgres.stop();
   // Only remove the exact newly-created test cluster, never an env-provided path.

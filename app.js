@@ -8512,6 +8512,63 @@ function computeUnitRowsWithStock(rows, mainUnit, mainStock){
   return copies;
 }
 
+function unusedProductUnitLocalBlockers(product){
+  if(!product) return ['ไม่พบสินค้า'];
+  const blockers=productDeletionLocalBlockers(product.id);
+  if(Number(product.stock)!==0&&Number.isFinite(Number(product.stock))) blockers.push('จำนวนคงเหลือสินค้า');
+  if(product.unitChangeHistory?.length) blockers.push('ประวัติเปลี่ยนหน่วยหลัก');
+  if(productDirtyOperations.has(String(product.id))) blockers.push('สินค้ายังรอซิงก์');
+  return blockers;
+}
+async function refreshUnusedProductUnitAccess(){
+  const select=document.getElementById('f_unit');
+  const action=document.getElementById('changeBaseUnitBtn');
+  const hint=document.getElementById('directUnitEditHint');
+  const id=editingProductId;
+  if(!select||id==='new'||id===null) return;
+  const product=products.find(p=>p.id===id);
+  select.disabled=true;
+  delete select.dataset.directUnitEdit;
+  if(action){ action.hidden=false; action.style.display=''; }
+  if(!canEditMobilePrice()||!product) return;
+  const blockers=unusedProductUnitLocalBlockers(product);
+  if(blockers.length){ if(hint) hint.textContent='ใช้ปุ่มเปลี่ยนหน่วยหลัก: '+blockers.join(', '); return; }
+  if(!sb||navigator.onLine===false){ if(hint) hint.textContent='เชื่อมต่ออินเทอร์เน็ตเพื่อตรวจว่าแก้หน่วยได้หรือไม่'; return; }
+  if(hint) hint.textContent='กำลังตรวจประวัติการใช้สินค้า...';
+  const revision=Number(product._revision)||0;
+  try{
+    const {data,error}=await sb.rpc('get_product_unit_edit_status',{p_product_id:Number(id)});
+    if(!select.isConnected||editingProductId!==id) return;
+    if(error||!data) throw error||new Error('ตรวจสอบไม่สำเร็จ');
+    const current=products.find(p=>p.id===id);
+    if(Number(data.revision)!==revision||Number(current?._revision)!==revision||data.unit!==current?.unit){
+      if(hint) hint.textContent='โหลดข้อมูลล่าสุดก่อนแก้หน่วยหลัก'; return;
+    }
+    const local=unusedProductUnitLocalBlockers(current);
+    if(data.canEdit===true&&!local.length){
+      select.disabled=false;
+      select.dataset.directUnitEdit=String(id);
+      select.dataset.previousUnit=select.value;
+      if(action){ action.hidden=true; action.style.display='none'; }
+      if(hint) hint.textContent='ยังไม่เคยใช้งาน แก้หน่วยหลักได้โดยตรง';
+    }else if(hint) hint.textContent='ใช้ปุ่มเปลี่ยนหน่วยหลัก: '+[...(data.blockers||[]),...local].join(', ');
+  }catch(_error){
+    if(select.isConnected&&editingProductId===id&&hint) hint.textContent='ตรวจประวัติไม่ได้ ยังไม่อนุญาตให้แก้หน่วยโดยตรง';
+  }
+}
+function remapUnusedProductUnitInputs(select){
+  if(!select.dataset.directUnitEdit) return;
+  const previous=select.dataset.previousUnit,newUnit=select.value;
+  if(!newUnit||newUnit.startsWith('__')||previous===newUnit) return;
+  // This corrects the label, not the quantity represented by each unit.
+  document.querySelectorAll('#unitRows .u_base,#extraBarcodeRows .eb_unit').forEach(control=>{
+    for(const option of control.options) if(option.value===previous){ option.value=newUnit; option.textContent=newUnit; }
+  });
+  if(mobileProductEditor){
+    mobileProductEditor.draft.extraBarcodeUnits=(mobileProductEditor.draft.extraBarcodeUnits||[]).map(unit=>unit===previous?newUnit:unit);
+  }
+  select.dataset.previousUnit=newUnit;
+}
 function baseUnitChangeRound(value){ return Math.round((Number(value)||0)*1000000)/1000000; }
 function buildProductBaseUnitChange(product,options={}){
   if(!product) return {error:'ไม่พบสินค้า'};
@@ -8716,6 +8773,7 @@ function renderProductForm(options={}){
         <div class="field"><label>เลขบาร์โค้ด</label><input id="f_barcode" value="${escapeHtml(p.barcode)}"></div>
         ${isNew?'':'<button class="btn primary small product-base-unit-action" type="button" id="changeBaseUnitBtn" title="เปลี่ยนหน่วยหลัก" aria-label="เปลี่ยนหน่วยหลัก"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></svg></button>'}
       </div>
+      ${isNew?'':'<small id="directUnitEditHint" style="display:block;margin-top:8px;color:var(--text-muted)"></small>'}
       <div class="paneltoggle product-extra-unit-toggle"><div><h3 style="font-size:14px;">หน่วยสินค้าเพิ่มเติม <span class="psub" style="font-weight:400;">• ตัวอย่าง: 1 กล่อง = 10 แผง, 1 ลัง = 10 กล่อง</span></h3></div>
       <label class="switch"><input type="checkbox" id="f_multiunit" ${(isNew&&!mobile?true:p.multiunit)?'checked':''}><span class="slider"></span></label></div>
       <div id="multiunitBody" style="${(isNew&&!mobile?true:p.multiunit)?'':'display:none;'}margin-top:14px;">
@@ -16137,6 +16195,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(cancelProductBtn) cancelProductBtn.addEventListener('click', ()=>{ if(mobileProductEditor){ closeMobileProductEditor(); return; } editingProductId=null; render(); });
   const changeBaseUnitBtn=document.getElementById('changeBaseUnitBtn');
   if(changeBaseUnitBtn) changeBaseUnitBtn.addEventListener('click',()=>mobileProductEditor?openMobileBaseUnitChange():openProductBaseUnitChangeModal());
+  refreshUnusedProductUnitAccess();
   // toggle sections
   [['f_multiunit','multiunitBody'],['f_extrabc_toggle','extraBcBody'],['f_vendorbc_toggle','vendorBcBody']].forEach(([tog,body])=>{
     const t=document.getElementById(tog);
@@ -16174,6 +16233,8 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   bindBcDelete();
   const mainUnitControl=document.getElementById('f_unit');
   if(mainUnitControl) mainUnitControl.addEventListener('change',()=>setTimeout(()=>{
+    if(!mainUnitControl.isConnected) return;
+    remapUnusedProductUnitInputs(mainUnitControl);
     refreshUnitRows();
     refreshExtraBarcodeUnitOptions();
   },0));
@@ -18113,6 +18174,8 @@ function deleteContact(id){
 
 async function saveProduct(){
   if(saveProduct.saving) return;
+  const unitInput=document.getElementById('f_unit');
+  if(unitInput) remapUnusedProductUnitInputs(unitInput);
   const mobileEditor=mobileProductEditor;
   if(mobileEditor){
     if(mobileEditor.saving||!canEditMobilePrice()||!mobileRequireOnline('บันทึกสินค้า')) return;
@@ -18154,9 +18217,19 @@ async function saveProduct(){
     };
   }).filter(item=>item.code);
   const existing = (editingProductId!=='new') ? products.find(x=>x.id===editingProductId) : null;
-  if(existing&&unit!==String(existing.unit||'').trim()){
+  const directUnitChange=!!existing&&unit!==String(existing.unit||'').trim();
+  if(directUnitChange&&(!canEditMobilePrice()||g('f_unit').dataset.directUnitEdit!==String(existing.id))){
     showToast('กรุณาใช้ปุ่ม “เปลี่ยนหน่วยหลัก” เพื่อแปลงสต๊อกทุกคลังอย่างถูกต้อง','danger');
     return;
+  }
+  if(directUnitChange){
+    const blockers=unusedProductUnitLocalBlockers(existing);
+    if(!sb||navigator.onLine===false||coreSyncInFlight||blockers.length){
+      showToast(blockers.length?'แก้หน่วยโดยตรงไม่ได้: '+blockers.join(', '):'กรุณาเชื่อมต่ออินเทอร์เน็ตและรอซิงก์เสร็จก่อนแก้หน่วยหลัก','danger-top'); return;
+    }
+    if(units.some(row=>row.sub===unit||!Number.isFinite(row.factor)||row.factor<=0)){
+      showToast('หน่วยหลักซ้ำกับหน่วยเพิ่มเติม หรืออัตราแปลงไม่ถูกต้อง กรุณาตรวจหน่วยสินค้า','danger-top'); return;
+    }
   }
   const hasOpening = g('f_openingtoggle') && g('f_openingtoggle').checked;
   // เก็บค่าเดิมไว้เพื่อให้ข้อมูลเก่าที่เคยบันทึกไม่สูญหาย แม้รายงานจะใช้เกณฑ์รวมที่ผู้ใช้เลือกแทนแล้ว
@@ -18192,7 +18265,7 @@ async function saveProduct(){
   const barcodeError=productBarcodeValidationError(data,existing?.id);
   if(barcodeError){ showToast(barcodeError,'danger-top'); return; }
   if(mobileEditor){
-    const error=mobileProductValidationError(data,existing);
+    const error=mobileProductValidationError(data,directUnitChange?{...existing,extraBarcodes:data.extraBarcodes,extraBarcodeUnits:data.extraBarcodeUnits,unit:data.unit}:existing);
     if(error){ showToast(error,'danger-top'); return; }
     if(multiunit&&collectUnitRowsFromDOM().some(row=>!row.sub&&(row.per||row.price||row.cost||row.barcode))){
       showToast('กรุณาเลือกชื่อหน่วยสินค้าเพิ่มเติมให้ครบ','danger-top'); return;
@@ -18215,9 +18288,21 @@ async function saveProduct(){
   }
   const latestBarcodeError=productBarcodeValidationError(data,existing?.id);
   if(latestBarcodeError){ showToast(latestBarcodeError,'danger-top'); return; }
+  let directUnitSavedProduct=null;
+  if(directUnitChange){
+    const blockers=unusedProductUnitLocalBlockers(existing);
+    if(blockers.length||coreSyncInFlight) throw new Error('ข้อมูลกำลังใช้งานหรือรอซิงก์ กรุณาตรวจสอบอีกครั้ง');
+    const {data:result,error}=await sb.rpc('save_unused_product_unit',{
+      p_product_id:Number(existing.id),p_expected_revision:Number(existing._revision)||0,
+      p_record:productMetadataToRow({...existing,...data}),
+    });
+    if(error) throw new Error(error.message||'แก้หน่วยหลักไม่สำเร็จ กรุณาโหลดข้อมูลล่าสุดก่อนลองอีกครั้ง');
+    if(!result?.product||Number(result.product.id)!==Number(existing.id)) throw new Error('ไม่ได้รับผลยืนยัน กรุณาโหลดข้อมูลล่าสุดก่อนลองอีกครั้ง');
+    directUnitSavedProduct=rowToProduct(result.product);
+  }
   let savedProductId=null;
   let productChangeType='update';
-  if(editingProductId==='new'){
+  if(saveTarget==='new'){
     const id=generateClientProductId();
     let sku=data.sku;
     if(!sku){
@@ -18232,14 +18317,16 @@ async function saveProduct(){
     productChangeType='insert';
     if(!mobileEditor) showToast(`เพิ่มสินค้า "${name}" แล้ว`);
   } else {
-    const p = products.find(x=>x.id===editingProductId);
+    let p = products.find(x=>x.id===saveTarget);
+    if(!p&&directUnitSavedProduct){ p=directUnitSavedProduct; products.push(p); }
+    if(!p) throw new Error('ไม่พบสินค้า กรุณาโหลดข้อมูลล่าสุด');
     savedProductId=p.id;
     const catalogExpiry=p._catalogExpiry;
-    Object.assign(p, data);
+    Object.assign(p, directUnitSavedProduct||data);
     p._catalogExpiry=catalogExpiry;
     if(!mobileEditor) showToast(`บันทึกการแก้ไข "${name}" แล้ว`);
   }
-  if(mobileEditor){
+  if(mobileEditor&&mobileProductEditor===mobileEditor&&editingProductId===saveTarget&&saveButton?.isConnected){
     // Keep the same identity/token on a cache or network retry: never create twice.
     editingProductId=savedProductId;
     const savedProduct=products.find(product=>product.id===savedProductId);
@@ -18252,8 +18339,18 @@ async function saveProduct(){
     syncFavoritesToSupabase();
   }
   rebuildProductLookupMaps();
-  const cached=await persistWorkspaceData({productChanges:productChangeType==='insert'?{insertedIds:[savedProductId]}:{updatedIds:[savedProductId]}});
+  let cached;
+  if(directUnitSavedProduct){
+    // Already committed atomically on the server: never enqueue an ordinary
+    // metadata write that could later bypass the unused-product recheck.
+    (syncedTableRows.products||=new Map()).set(String(savedProductId),JSON.stringify(productMetadataToRow(products.find(p=>p.id===savedProductId))));
+    cached=await persistProductChangesToIndexedDB({updatedIds:[savedProductId]});
+    persistWorkspaceData();
+  }else cached=await persistWorkspaceData({productChanges:productChangeType==='insert'?{insertedIds:[savedProductId]}:{updatedIds:[savedProductId]}});
   if(!cached){ showToast('บันทึกข้อมูลแล้ว แต่เก็บสำเนาสินค้าในเครื่องไม่สำเร็จ กรุณาอย่าเพิ่งปิดหน้านี้','danger-top'); return; }
+  // A server commit must update the cache even after navigation, but must not
+  // close or overwrite the editor that the user opened while it was pending.
+  if(!saveButton?.isConnected||mobileProductEditor!==mobileEditor||(editingProductId!==saveTarget&&editingProductId!==savedProductId)) return;
   if(mobileEditor){
     const savedProduct=products.find(product=>product.id===savedProductId);
     mobileProductEditor=null;
