@@ -18198,6 +18198,22 @@ async function saveProduct(){
   // multi-unit rows
   const multiunit = g('f_multiunit') && g('f_multiunit').checked;
   const mainUnitName = unit;
+  // Validate before filtering: otherwise a partially entered row is silently lost.
+  // Read input strings so an explicitly entered zero also counts as entered data.
+  if(multiunit){
+    const unitRows=Array.from(document.querySelectorAll('#unitRows .unitrow'));
+    const incompleteIndex=unitRows.findIndex(row=>{
+      const sub=String(row.querySelector('.u_sub')?.value||'').trim();
+      const hasValues=Array.from(row.querySelectorAll('.u_per,.u_price,.u_cost,.u_barcode')).some(input=>input.value.trim()!=='');
+      const base=String(row.querySelector('.u_base')?.value||'').trim();
+      return sub.startsWith('__')||(!sub&&(hasValues||(base&&base!==mainUnitName)));
+    });
+    if(incompleteIndex>=0){
+      showToast(`กรุณาระบุหน่วยเพิ่มเติมแถวที่ ${incompleteIndex+1} ก่อนบันทึก`,'danger-top');
+      unitRows[incompleteIndex].querySelector('.u_sub')?.focus();
+      return;
+    }
+  }
   const rawRows = multiunit ? collectUnitRowsFromDOM().filter(u=>u.sub) : [];
   const units = rawRows.map(r=>({
     sub: r.sub,
@@ -18267,9 +18283,6 @@ async function saveProduct(){
   if(mobileEditor){
     const error=mobileProductValidationError(data,directUnitChange?{...existing,extraBarcodes:data.extraBarcodes,extraBarcodeUnits:data.extraBarcodeUnits,unit:data.unit}:existing);
     if(error){ showToast(error,'danger-top'); return; }
-    if(multiunit&&collectUnitRowsFromDOM().some(row=>!row.sub&&(row.per||row.price||row.cost||row.barcode))){
-      showToast('กรุณาเลือกชื่อหน่วยสินค้าเพิ่มเติมให้ครบ','danger-top'); return;
-    }
     mobileEditor.saving=true;
     g('mobileProductEditor').disabled=true;
     g('saveProductBtn').textContent='กำลังบันทึก...';

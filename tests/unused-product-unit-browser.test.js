@@ -60,6 +60,50 @@ let browser;
     };
     window.openUnitForm();
   });
+  // Additional-unit rows must be validated before unnamed rows are filtered out.
+  for(const mobile of [false,true]){
+    await page.setViewportSize(mobile?{width:390,height:844}:{width:1440,height:1000});
+    for(const [field,value] of [['.u_per','12'],['.u_price','0'],['.u_cost','25'],['.u_barcode','DRAFT-BC']]){
+      await page.evaluate(mobile=>{
+        window.openUnitForm(mobile);
+        document.getElementById('unitRows').innerHTML=unitRowHtml({},'กล่อง',[]);
+        bindUnitRowEvents();window.toasts=[];window.preflights=0;
+        assertProductBarcodesAvailable=async()=>{window.preflights++;throw new Error('TEST_PREFLIGHT');};
+      },mobile);
+      await page.locator('#unitRows '+field).fill(value);
+      await page.locator('#saveProductBtn').click();
+      assert.match(await page.evaluate(()=>window.toasts.at(-1)),/ระบุหน่วยเพิ่มเติมแถวที่ 1/);
+      assert.equal(await page.locator('#unitRows '+field).inputValue(),value,'validation preserves the entered value');
+      assert.equal(await page.locator('#unitRows .u_sub').evaluate(el=>el===document.activeElement),true,'focus the missing unit');
+      assert.equal(await page.evaluate(()=>window.preflights),0,'invalid row must not reach any save preflight');
+      assert.equal(await page.evaluate(()=>products[0].units[0].sub),'ลัง','invalid draft must not mutate stored data');
+      assert.equal(await page.evaluate(()=>productDirtyOperations.size),0,'invalid draft must not queue a sync');
+    }
+    // A populated second row cannot hide behind a valid first row.
+    await page.evaluate(mobile=>{
+      window.openUnitForm(mobile);window.toasts=[];window.preflights=0;
+      document.getElementById('unitRows').insertAdjacentHTML('beforeend',unitRowHtml({price:50},'กล่อง',['ลัง']));
+      bindUnitRowEvents();
+    },mobile);
+    await page.locator('#saveProductBtn').click();
+    assert.match(await page.evaluate(()=>window.toasts.at(-1)),/ระบุหน่วยเพิ่มเติมแถวที่ 2/);
+    assert.equal(await page.evaluate(()=>window.preflights),0);
+    await page.locator('#unitRows .u_sub').nth(1).selectOption('Pcs');
+    await page.waitForFunction(()=>document.querySelectorAll('#unitRows .u_sub')[1].value==='Pcs');
+    await page.locator('#saveProductBtn').click();
+    await page.waitForFunction(()=>!saveProduct.saving);
+    assert.equal(await page.evaluate(()=>window.preflights),1,'selecting the missing unit allows save to proceed');
+    // A completely empty placeholder is optional; deleting a partial row also unblocks save.
+    await page.evaluate(mobile=>{
+      window.openUnitForm(mobile);window.preflights=0;
+      document.getElementById('unitRows').innerHTML=unitRowHtml({barcode:'REMOVE-ME'},'กล่อง',[]);bindUnitRowEvents();
+    },mobile);
+    await page.locator('#unitRows .u_del').click();
+    await page.locator('#saveProductBtn').click();await page.waitForFunction(()=>!saveProduct.saving);
+    assert.equal(await page.evaluate(()=>window.preflights),1,'empty default row must not block save');
+  }
+  await page.setViewportSize({width:1440,height:1000});
+  await page.evaluate(()=>{assertProductBarcodesAvailable=async()=>{};window.openUnitForm();});
   const unit=page.locator('#f_unit');
   await page.waitForFunction(()=>!document.getElementById('f_unit').disabled);
   assert.equal(await page.locator('#changeBaseUnitBtn').isVisible(),false,'unused products have one correction path, no competing conversion button');
