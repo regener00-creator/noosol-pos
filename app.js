@@ -10747,15 +10747,28 @@ function barcodePrintBarcodeOwners(){
   return owners;
 }
 
+function productBarcodeFields(product){
+  return [
+    {code:product?.barcode,label:`หน่วยหลัก${product?.unit?` (${product.unit})`:''}`},
+    ...(product?.units||[]).map((item,index)=>({code:item?.barcode,label:`หน่วยเพิ่มเติมแถวที่ ${index+1}${item?.sub?` (${item.sub})`:''}`})),
+    ...extraBarcodeEntries(product).map((item,index)=>({code:item.code,label:`บาร์โค้ดเพิ่มเติมแถวที่ ${index+1}`})),
+    ...(product?.vendorBarcodes||[]).map((item,index)=>({code:item?.code,label:`บาร์โค้ดผู้จำหน่ายแถวที่ ${index+1}`})),
+  ].map(item=>({...item,code:String(item.code??'').trim()})).filter(item=>item.code);
+}
 function productBarcodeCodes(product){
-  const codes=[product?.barcode,...extraBarcodeEntries(product).map(item=>item.code),
-    ...(product?.vendorBarcodes||[]).map(item=>item?.code),...(product?.units||[]).map(item=>item?.barcode)];
-  return [...new Set(codes.map(code=>String(code??'').trim().toLowerCase()).filter(Boolean))].sort();
+  return [...new Set(productBarcodeFields(product).map(item=>item.code.toLowerCase()))].sort();
 }
 function productBarcodeConflictMessage(code,owner){
   return `บาร์โค้ด ${code} มีอยู่ในสินค้าอื่นแล้ว${owner?.name?`: ${owner.name}${owner.sku?` (${owner.sku})`:''}`:''} กรุณาใช้บาร์โค้ดอื่น`;
 }
 function productBarcodeValidationError(product,existingId=null){
+  // Check the raw fields before deduplicating codes for the cross-product lookup.
+  const seen=new Map();
+  for(const field of productBarcodeFields(product)){
+    const key=field.code.toLowerCase();
+    if(seen.has(key)) return `บาร์โค้ด ${field.code} ซ้ำกันระหว่าง ${seen.get(key)} กับ ${field.label} กรุณาแก้ไขหรือลบเลขที่ซ้ำก่อนบันทึก`;
+    seen.set(key,field.label);
+  }
   const codes=new Set(productBarcodeCodes(product));
   const conflict=barcodePrintBarcodeOwners().find(owner=>String(owner.pid)!==String(existingId)&&codes.has(String(owner.code).trim().toLowerCase()));
   return conflict?productBarcodeConflictMessage(conflict.code,products.find(item=>String(item.id)===String(conflict.pid))):'';

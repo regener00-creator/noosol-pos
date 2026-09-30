@@ -31,6 +31,28 @@ test('server preflight blocks a stale client and fails closed without mutating d
   await ctx.assertProductBarcodesAvailable({...ctx.products[0],price:999},ctx.products[0]);
   assert.equal(ctx.products.length,1);
 });
+test('duplicates within one product are blocked across all barcode fields before deduplication',async()=>{
+  const {ctx,calls}=setup();
+  const fields=[
+    {barcode:' Same '},
+    {units:[{sub:'case',barcode:'SAME'}]},
+    {extraBarcodes:['same']},
+    {vendorBarcodes:[{code:'same'}]},
+  ];
+  for(let a=0;a<fields.length;a++) for(let b=a+1;b<fields.length;b++){
+    assert.match(ctx.productBarcodeValidationError({...fields[a],...fields[b]},1),/ซ้ำกันระหว่าง/);
+  }
+  for(const product of [
+    {units:[{sub:'case',barcode:'same'},{sub:'pack',barcode:'SAME'}]},
+    {extraBarcodes:['same',{code:' Same ',unit:'box'}]},
+    {vendorBarcodes:[{code:'same'},{code:'same'}]},
+  ]) assert.match(ctx.productBarcodeValidationError(product,1),/ซ้ำกันระหว่าง/);
+  const duplicate={...ctx.products[0],units:[{sub:'case',barcode:'000123'}]};
+  assert.match(ctx.productBarcodeValidationError(duplicate,1),/หน่วยหลัก \(box\).*หน่วยเพิ่มเติมแถวที่ 1 \(case\)/);
+  await assert.rejects(ctx.assertProductBarcodesAvailable(duplicate,duplicate),/ซ้ำกันระหว่าง/);
+  assert.equal(calls.length,0,'unchanged legacy duplicates cannot bypass validation or reach the server');
+  assert.equal(ctx.productBarcodeValidationError({barcode:'001',units:[{barcode:'1'},{barcode:' '}],extraBarcodes:['','  '],vendorBarcodes:[{code:''}]}),'','blank fields remain optional and leading zeroes remain significant');
+});
 test('remote preflight checks batches and own product identity correctly',async()=>{
   const {ctx,calls}=setup();
   await ctx.loadServerBarcodeOwners(Array.from({length:2201},(_,i)=>String(i)));
