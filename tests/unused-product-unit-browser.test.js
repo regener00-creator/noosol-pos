@@ -3,6 +3,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const http=require('node:http');
 const {chromium}=require('playwright');
+const {installIsolatedBrowser,waitForIsolatedBootstrap}=require('./isolated-browser');
 const root=path.join(__dirname,'..',process.env.PEPOS_TEST_BUILT==='1'?'public':'');
 const server=http.createServer((req,res)=>{
   const file=path.join(root,new URL(req.url,'http://localhost').pathname.replace(/^\//,'')||'index.html');
@@ -17,13 +18,9 @@ let browser;
   browser=await chromium.launch({headless:true,executablePath,args:process.env.PEPOS_VERIFY_CDP?['--remote-debugging-port='+process.env.PEPOS_VERIFY_CDP]:[]});
   const page=await browser.newPage({viewport:{width:1440,height:1000}});
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.addInitScript(()=>{
-    const query=new Proxy({}, {get(t,p){if(p==='then')return resolve=>resolve({data:null,error:null});return ()=>query;}});
-    window.supabase={createClient:()=>new Proxy({auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})}},{get(t,p){return p in t?t[p]:()=>query;}})};
-  });
-  await page.route('https://**/*',route=>route.fulfill({body:'',contentType:'text/plain'}));
+  await installIsolatedBrowser(page);
   await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:'domcontentloaded'});
-  await page.waitForFunction(()=>typeof refreshUnusedProductUnitAccess==='function');
+  await waitForIsolatedBootstrap(page);
   await page.evaluate(()=>ensurePageCodeLoaded('products'));
   await page.evaluate(()=>{
     document.querySelectorAll('.login-screen').forEach(el=>el.style.display='none');
@@ -55,7 +52,7 @@ let browser;
     };
     window.openUnitForm=(mobile=false)=>{
       const p=products[0];editingProductId=p.id;currentTab=mobile?'mobiletools':'products';
-      mobileProductEditor=mobile?{draft:structuredClone(p),baseline:mobileProductEditSignature(p),changed:false,saving:false}:null;
+      mobileProductEditor=mobile?{token:'test-unit-editor',draft:structuredClone(p),baseline:mobileProductEditSignature(p),changed:false,saving:false}:null;
       document.getElementById('main').innerHTML=mobile?renderMobileTools():renderProductForm();attachEvents();
     };
     window.openUnitForm();
@@ -89,7 +86,18 @@ let browser;
     assert.match(await page.evaluate(()=>window.toasts.at(-1)),/ระบุหน่วยเพิ่มเติมแถวที่ 2/);
     assert.equal(await page.evaluate(()=>window.preflights),0);
     await page.locator('#unitRows .u_sub').nth(1).selectOption('Pcs');
-    await page.waitForFunction(()=>document.querySelectorAll('#unitRows .u_sub')[1].value==='Pcs');
+    await page.waitForFunction(()=>Array.from(document.querySelector('#unitRows .u_base').options).some(option=>option.value==='Pcs'));
+    for(const quantity of ['', '0', '-1']){
+      await page.locator('#unitRows .u_per').nth(1).fill(quantity);
+      await page.locator('#saveProductBtn').click();
+      assert.match(await page.evaluate(()=>window.toasts.at(-1)),mobile&&quantity==='-1'?/อัตราแปลงเป็นตัวเลขที่ถูกต้อง|จำนวนต่อหน่วย.*แถวที่ 2.*มากกว่า 0/:/จำนวนต่อหน่วย.*แถวที่ 2.*มากกว่า 0/);
+      assert.equal(await page.locator('#unitRows .u_per').nth(1).evaluate(el=>el===document.activeElement),true);
+      assert.equal(await page.locator('#unitRows .u_per').nth(1).inputValue(),quantity,'quantity validation preserves the draft');
+      assert.equal(await page.evaluate(()=>window.preflights),0,'invalid conversion quantity cannot reach save preflight');
+      assert.equal(await page.evaluate(()=>products[0].units.length),1,'invalid second row never mutates the product');
+      assert.equal(await page.evaluate(()=>productDirtyOperations.size),0);
+    }
+    await page.locator('#unitRows .u_per').nth(1).fill('12');
     await page.locator('#saveProductBtn').click();
     await page.waitForFunction(()=>!saveProduct.saving);
     assert.equal(await page.evaluate(()=>window.preflights),1,'selecting the missing unit allows save to proceed');

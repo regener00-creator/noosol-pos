@@ -18226,6 +18226,17 @@ async function saveProduct(){
       unitRows[incompleteIndex].querySelector('.u_sub')?.focus();
       return;
     }
+    const invalidQuantityIndex=unitRows.findIndex(row=>{
+      if(!String(row.querySelector('.u_sub')?.value||'').trim()) return false;
+      const input=row.querySelector('.u_per');
+      const quantity=Number(input?.value);
+      return !input?.value.trim()||!Number.isFinite(quantity)||quantity<=0;
+    });
+    if(invalidQuantityIndex>=0){
+      showToast(`กรุณากรอกจำนวนต่อหน่วยของหน่วยเพิ่มเติมแถวที่ ${invalidQuantityIndex+1} ให้มากกว่า 0 ก่อนบันทึก`,'danger-top');
+      unitRows[invalidQuantityIndex].querySelector('.u_per')?.focus();
+      return;
+    }
   }
   const rawRows = multiunit ? collectUnitRowsFromDOM().filter(u=>u.sub) : [];
   const units = rawRows.map(r=>({
