@@ -3,7 +3,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 const {test}=require('node:test');
-const source=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+const source=require('../scripts/app-source.cjs').readApplicationSource();
 const ctx=vm.createContext({});
 for(const [start,end] of [
   ['const PRODUCT_DUPLICATE_DATA_KEYS=','function rowToProduct('],

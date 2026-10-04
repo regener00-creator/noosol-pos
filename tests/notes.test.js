@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.join(__dirname, '..');
-const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+const app = require('../scripts/app-source.cjs').readApplicationSource();
 const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
 const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260901162858_shared_notes.sql'), 'utf8');
 const indexMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260901163154_notes_fk_indexes.sql'), 'utf8');

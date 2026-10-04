@@ -3,7 +3,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 const {test}=require('node:test');
-const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+const app=require('../scripts/app-source.cjs').readApplicationSource();
 const sell=app.slice(app.indexOf('function sellQuotationAtPos('),app.indexOf('function emptyCustomerContactDraft('));
 function context(items){
   const ctx={quotations:[{id:'Q-TEST',customer:'Test',customerInfo:{id:8},items,discount:5}],cart:[],lineCounter:1,

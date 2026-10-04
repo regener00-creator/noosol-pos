@@ -3,7 +3,7 @@ const {test}=require('node:test');
 const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
-const app=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+const app=require('../scripts/app-source.cjs').readApplicationSource();
 const source=app.slice(app.indexOf('function ensureMobileZxingLoaded('),app.indexOf('function inspectionListLocalDateKey('));
 function scanner(){
   const message={textContent:''},frames=[],accepted=[],vibrations=[];

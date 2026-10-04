@@ -3,7 +3,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 const root=path.join(__dirname,'..');
-const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
+const app=require('../scripts/app-source.cjs').readApplicationSource();
 const file=fs.readdirSync(path.join(root,'supabase/migrations')).find(name=>name.endsWith('_customer_membership_tier_cycles.sql'));
 const sql=fs.readFileSync(path.join(root,'supabase/migrations',file),'utf8');
 const context=vm.createContext({});

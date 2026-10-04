@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
-const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+const app = require('../scripts/app-source.cjs').readApplicationSource();
 const migrationName = fs.readdirSync(path.join(root, 'supabase', 'migrations'))
   .find((name) => name.endsWith('_bounded_retention_and_event_dedupe.sql'));
 

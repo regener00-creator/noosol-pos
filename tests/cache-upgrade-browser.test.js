@@ -3,7 +3,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const http=require('node:http');
 const {chromium}=require('playwright');
-const source=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+const source=require('../scripts/app-source.cjs').readApplicationSource();
 const start=source.indexOf('function openProductCacheDb(');
 const code=source.slice(start,source.indexOf('async function loadProductCacheFromIndexedDB(',start));
 const server=http.createServer((_req,res)=>res.writeHead(200,{'Content-Type':'text/html'}).end('<!doctype html><title>Cache upgrade test</title><main>Cache test</main>'));

@@ -1,5 +1,7 @@
 node_modules/
 public/
+# Generated development bundle; authoritative code lives in src/.
+/app.js
 .env
 .env.local
 .DS_Store

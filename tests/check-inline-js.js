@@ -6,7 +6,7 @@ const { spawnSync } = require('node:child_process');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)];
 const inline = scripts.map(match => match[1]).filter(source => source.trim()).join('\n');
-const appSource = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+const appSource = require('../scripts/app-source.cjs').readApplicationSource();
 const tempFile = path.join(os.tmpdir(), `pepos-inline-${process.pid}.js`);
 fs.writeFileSync(tempFile, `${inline}\n${appSource}`, 'utf8');
 const result = spawnSync(process.execPath, ['--check', tempFile], { encoding: 'utf8' });

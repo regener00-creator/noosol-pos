@@ -4,6 +4,7 @@ import { dirname, join, resolve, sep } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { build, transform } from 'esbuild'
 import { Script } from 'node:vm'
+import applicationSources from './app-source.cjs'
 
 export const ASSET_VERSION_TOKEN = '__PEPOS_ASSET_VERSION__'
 
@@ -120,7 +121,7 @@ export async function buildStatic() {
   }
 
   const [appSource, excelToolsSource, stylesSource, indexTemplate, workerTemplate, zxingContent, ...staticContents] = await Promise.all([
-    readFile(join(projectRoot, 'app.js'), 'utf8'),
+    Promise.resolve(applicationSources.readApplicationSource()),
     readFile(join(projectRoot, 'excel-tools.js'), 'utf8'),
     readFile(join(projectRoot, 'styles.css'), 'utf8'),
     readFile(join(projectRoot, 'index.html'), 'utf8'),

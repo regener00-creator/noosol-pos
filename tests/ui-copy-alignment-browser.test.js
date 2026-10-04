@@ -61,7 +61,7 @@ let browser;
   assert.ok(!(await page.locator('.pos-customer-picker-modal').textContent()).includes('เลือกลูกค้าเพื่อใช้ราคาพิเศษ'));
   await page.locator('#posCustomerPickerSearch').fill('081234');
   assert.match(await page.locator('.pos-customer-picker-modal').textContent(),/ลูกค้าทดสอบ/);
-  const source=fs.readFileSync(path.join(root,'app.js'),'utf8');
+  const source=require('../scripts/app-source.cjs').readApplicationSource();
   assert.ok(!source.includes('เว้นว่างช่องใดช่องหนึ่งหรือทั้งคู่ได้ = ไม่จำกัดช่วงเวลานั้น'));
   assert.ok(!source.includes('โปรโมชั่นจะมีผลเฉพาะตอนขายด้วยหน่วยนี้เท่านั้น'));
   assert.deepEqual(errors,[]);

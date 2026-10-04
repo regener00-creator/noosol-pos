@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
 const root=path.join(__dirname,'..');
-const source=fs.readFileSync(path.join(root,'app.js'),'utf8');
+const source=require('../scripts/app-source.cjs').readApplicationSource();
 const sql=fs.readFileSync(path.join(root,'supabase/migrations',fs.readdirSync(path.join(root,'supabase/migrations')).find(n=>n.endsWith('_customer_loyalty_points.sql'))),'utf8');
 const rateSql=fs.readFileSync(path.join(root,'supabase/migrations',fs.readdirSync(path.join(root,'supabase/migrations')).find(n=>n.endsWith('_customer_loyalty_rate_100_baht.sql'))),'utf8');
 const tierSql=fs.readFileSync(path.join(root,'supabase/migrations',fs.readdirSync(path.join(root,'supabase/migrations')).find(n=>n.endsWith('_customer_membership_tier_cycles.sql'))),'utf8');

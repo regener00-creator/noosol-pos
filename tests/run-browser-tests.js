@@ -1,6 +1,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { spawnSync } = require('node:child_process');
+require('../scripts/app-source.cjs').writeDevelopmentApp();
 
 const tests = fs.readdirSync(__dirname)
   .filter((name) => name.endsWith('-browser.test.js'))

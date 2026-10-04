@@ -5,7 +5,7 @@ const path = require('node:path');
 const root = path.join(__dirname, '..');
 const html = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
 const css = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
-const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+const app = require('../scripts/app-source.cjs').readApplicationSource();
 const buildScript = fs.readFileSync(path.join(root, 'scripts', 'build-static.mjs'), 'utf8');
 
 assert.match(html, /id="recoverOwnerPasswordBtn"[^>]*class="[^"]*login-recover|class="[^"]*login-recover[^"]*"[^>]*id="recoverOwnerPasswordBtn"/, 'ปุ่มลืมรหัสผ่านต้องมีคลาสจัดตำแหน่งเฉพาะ');

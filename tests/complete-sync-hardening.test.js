@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const vm=require('node:vm');
-const source=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
+const source=require('../scripts/app-source.cjs').readApplicationSource();
 function section(start,end){const from=source.indexOf(start),to=source.indexOf(end,from+start.length);assert.ok(from>=0&&to>from);return source.slice(from,to);}
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 test('unchanged conflicts stay paused after reload, per user, without losing drafts',async()=>{

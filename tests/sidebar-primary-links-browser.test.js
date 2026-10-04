@@ -3,7 +3,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const {chromium}=require('playwright');
 const root=path.resolve(__dirname,'..');
-const source=fs.readFileSync(path.join(root,'app.js'),'utf8');
+const source=require('../scripts/app-source.cjs').readApplicationSource();
 const nav=source.slice(source.indexOf('const NAV = ['),source.indexOf('let sidebarRenderSignature='));
 const groups=new Function(`${nav};return NAV;`)();
 const links=groups.flatMap(group=>group.items).filter(([tab])=>['dashboard','checkout','products'].includes(tab));

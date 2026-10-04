@@ -4,7 +4,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const root = path.join(__dirname, '..');
-const app = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+const app = require('../scripts/app-source.cjs').readApplicationSource();
 const styles = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
 const migration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260901083020_security_reliability_hardening.sql'), 'utf8');
 

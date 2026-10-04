@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const root=path.resolve(__dirname,'..');
-const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
+const app=require('../scripts/app-source.cjs').readApplicationSource();
 const allowlist=JSON.parse(fs.readFileSync(path.join(root,'supabase','rpc-allowlist.json'),'utf8'));
 const migrationName=fs.readdirSync(path.join(root,'supabase','migrations')).find(name=>name.endsWith('_optimize_rpc_and_representative_history.sql'));
 assert.ok(migrationName,'ต้องมี Migration สำหรับ RPC allowlist');

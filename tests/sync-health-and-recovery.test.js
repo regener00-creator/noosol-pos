@@ -3,7 +3,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 
 const root=path.resolve(__dirname,'..');
-const app=fs.readFileSync(path.join(root,'app.js'),'utf8');
+const app=require('../scripts/app-source.cjs').readApplicationSource();
 const admin=fs.readFileSync(path.join(root,'supabase','functions','admin-users','index.ts'),'utf8');
 const migration=fs.readFileSync(path.join(root,'supabase','migrations','20260907072135_optimize_client_sync_and_health_alerts.sql'),'utf8');
 

@@ -9,7 +9,7 @@ const root = path.join(__dirname, '..');
 
 test('build minifies app assets and injects one matching content version', async () => {
   const buildModule = await import(pathToFileURL(path.join(root, 'scripts', 'build-static.mjs')).href);
-  const appSource = fs.readFileSync(path.join(root, 'app.js'), 'utf8');
+  const appSource = require('../scripts/app-source.cjs').readApplicationSource();
   const stylesSource = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
   const indexTemplate = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const workerTemplate = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');

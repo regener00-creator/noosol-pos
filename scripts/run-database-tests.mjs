@@ -11,9 +11,11 @@ const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const directory=await fs.mkdtemp(path.join(os.tmpdir(),'pepos-isolated-pg-'));
 const probe=net.createServer(); await new Promise(resolve=>probe.listen(0,'127.0.0.1',resolve));
 const port=probe.address().port; await new Promise(resolve=>probe.close(resolve));
+const postgresLogs=[];
+const rememberLog=message=>{ postgresLogs.push(String(message)); if(postgresLogs.length>20) postgresLogs.shift(); };
 const postgres=new EmbeddedPostgres({databaseDir:directory,port,user:'postgres',password:'isolated-test-only',persistent:true,
   initdbFlags:['--encoding=UTF8','--locale=C'],
-  postgresFlags:['-h','127.0.0.1'],onLog:()=>{},onError:()=>{}});
+  postgresFlags:['-h','127.0.0.1'],onLog:rememberLog,onError:rememberLog});
 let client;
 try{
   await postgres.initialise(); await postgres.start();
@@ -60,8 +62,8 @@ try{
   await catalogSuite.run({client});
 }catch(error){
   // Surface the actual failure even if the platform is slow to stop Postgres.
-  console.error(error);
-  throw error;
+  console.error(error||postgresLogs.join('\n'));
+  throw error||new Error('Isolated PostgreSQL failed to start: '+postgresLogs.join('\n'));
 }finally{
   await client?.end();
   if(process.platform==='win32'&&postgres.process){
@@ -70,7 +72,10 @@ try{
     const running=postgres.process;
     const pgCtl=path.join(path.dirname(running.spawnfile),'pg_ctl.exe');
     if(!directory.startsWith(path.join(os.tmpdir(),'pepos-isolated-pg-'))) throw new Error('Unsafe test cluster path');
-    await promisify(execFile)(pgCtl,['stop','-D',directory,'-m','fast','-w','-t','15'],{windowsHide:true,timeout:20000});
+    // A failed start has no PID file; do not mask its diagnostic with pg_ctl's
+    // "server not running" error. Any process that created a cluster PID is stopped.
+    if(await fs.access(path.join(directory,'postmaster.pid')).then(()=>true,()=>false))
+      await promisify(execFile)(pgCtl,['stop','-D',directory,'-m','fast','-w','-t','15'],{windowsHide:true,timeout:20000});
     if(running.exitCode===null) await new Promise(resolve=>running.once('exit',resolve));
     postgres.process=undefined;
   }else await postgres.stop();

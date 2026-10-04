@@ -1,6 +1,7 @@
 // Deterministic, network-isolated setup for UI tests. A test can never write
 // real Supabase data; wait for auth bootstrap before installing fixture state.
 async function installIsolatedBrowser(page){
+  require('../scripts/app-source.cjs').writeDevelopmentApp();
   await page.addInitScript(()=>{
     if(window.top!==window) return;
     Object.defineProperty(navigator,'serviceWorker',{configurable:true,value:{register:async()=>({}),getRegistrations:async()=>[]}});
