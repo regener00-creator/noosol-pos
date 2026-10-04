@@ -1891,9 +1891,6 @@ async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full
   documentLoadPromises.set(requestKey,promise);
   return promise;
 }
-async function loadAllDocumentsForBackup(){
-  await Promise.all(DOC_TABLES.map(([table])=>loadDocumentTableFromSupabase(table,{full:true})));
-}
 async function syncCoreDataToSupabase(){
   if(!currentProfile) return;
   if(await adoptRemoteMaintenanceEpoch()){
@@ -2314,7 +2311,6 @@ async function loadSalesHistoryFromSupabase(options={}){
   salesLoadPromises.set(requestKey,promise);
   return promise;
 }
-async function loadAllSalesForBackup(){ return loadSalesHistoryFromSupabase({full:true,includeHolds:true}); }
 async function findSaleByIdentifier(identifier){
   const raw=String(identifier||'').trim();
   if(!raw) return null;
@@ -2718,6 +2714,9 @@ let productReviewRefreshInFlight=false;
 let productReviewRefreshAt=0;
 let productReviewRefreshTimer=null;
 let productReviewRefreshDelay=15000;
+let productReviewSignature=null;
+let productReviewSignatureProfile=null;
+let productReviewManifestCheckedAt=0;
 function scheduleProductReviewRefresh(){
   clearTimeout(productReviewRefreshTimer);
   productReviewRefreshTimer=null;
@@ -2738,6 +2737,19 @@ async function refreshProductReviewColors(){
   productReviewRefreshAt=Date.now();
   const profileId=currentProfile.id;
   try{
+    // Missing RPC during a rolling deployment falls back to the existing manifest.
+    let signature=null;
+    if(typeof sb!=='undefined'&&typeof sb?.rpc==='function'){
+      try{
+        const result=await sb.rpc('get_product_catalog_signature');
+        if(!result.error&&typeof result.data==='string') signature=result.data;
+      }catch(error){ /* Full manifest remains the compatibility/safety path. */ }
+    }
+    if(currentProfile?.id!==profileId||!canRefreshProductReviewColors()) return false;
+    if(signature&&signature===productReviewSignature&&productReviewSignatureProfile===profileId&&productDirtyOperations.size===0&&Date.now()-productReviewManifestCheckedAt<300000){
+      productReviewRefreshDelay=Math.min(60000,productReviewRefreshDelay*2);
+      return true;
+    }
     // Compare compact id/revision pairs so price/unit changes are received
     // even when the review color stays the same. Fetch full rows only on change.
     const {data,error}=await fetchProductRevisionManifest();
@@ -2747,7 +2759,10 @@ async function refreshProductReviewColors(){
     const localById=new Map(products.map(p=>[String(p.id),p]));
     const changedIds=(data||[]).filter(row=>!productDirtyOperations.has(String(row.id))&&(!localById.has(String(row.id))||Number(localById.get(String(row.id))._revision)!==Number(row.revision))).map(row=>row.id);
     const deletedIds=products.filter(p=>!revisions.has(String(p.id))&&!productDirtyOperations.has(String(p.id))).map(p=>p.id);
-    if(!changedIds.length&&!deletedIds.length){ productReviewRefreshDelay=Math.min(60000,productReviewRefreshDelay*2); return true; }
+    const rememberSignature=()=>{
+      if(productDirtyOperations.size===0){ productReviewSignature=signature; productReviewSignatureProfile=profileId; productReviewManifestCheckedAt=Date.now(); }
+    };
+    if(!changedIds.length&&!deletedIds.length){ rememberSignature(); productReviewRefreshDelay=Math.min(60000,productReviewRefreshDelay*2); return true; }
     const result=await fetchProductRowsByIds(changedIds);
     if(result.error) throw result.error;
     if(currentProfile?.id!==profileId||!canRefreshProductReviewColors()) return false;
@@ -2788,6 +2803,7 @@ async function refreshProductReviewColors(){
     if(scroller) scroller.scrollTop=scrollTop;
     if(searchFocused) restoreSearchInputFocus(selectionStart,selectionEnd);
     await persistProductChangesToIndexedDB({updatedIds,deletedIds:removedIds});
+    rememberSignature();
     return true;
   }catch(error){
     console.warn('refresh product review colors failed',error);
@@ -3524,7 +3540,11 @@ function openMedicineLabelEditor(lineId){
 function productUnitOptions(p){
   // คืน list ของหน่วยที่เลือกได้: หน่วยหลัก + หน่วยรองที่ตั้งไว้ (label = ชื่อหน่วยล้วน)
   const opts=[{name:p.unit, label:p.unit, price:p.price, cost:productUnitCost(p,p.unit,1), factor:1, barcode:p.barcode||''}];
-  (p.units||[]).forEach(u=>{ if(u.sub) opts.push({name:u.sub, label:u.sub, price:u.price||p.price*(u.factor||1), cost:productUnitCost(p,u.sub,u.factor||1), factor:u.factor||1, barcode:u.barcode||''}); });
+  (p.units||[]).forEach(u=>{
+    // Never invent a 1:1 conversion for corrupt legacy data. Explicit zero prices are valid.
+    const factor=Number(u.factor);
+    if(u.sub&&u.sub!==p.unit&&Number.isFinite(factor)&&factor>0&&!opts.some(option=>option.name===u.sub)) opts.push({name:u.sub,label:u.sub,price:u.price??p.price*factor,cost:productUnitCost(p,u.sub,factor),factor,barcode:u.barcode||''});
+  });
   return opts;
 }
 function productBarcodeForUnit(product,unitName){
@@ -8228,6 +8248,8 @@ function renderProducts(){
   if(editingProductId!==null) return renderProductForm();
   const {tree, catCounts, brCounts} = buildGroupTree();
   const q = searchQuery.trim();
+  const needle=q.toLowerCase();
+  const compareNames=new Intl.Collator('th').compare;
   const level2=isLevel2User();
   const canViewCost=!level2;
   const canOpenProductEditor=!level2;
@@ -8239,7 +8261,6 @@ function renderProducts(){
   let filtered = (selectedGroup||q||productReviewFilterUsed) ? products.filter(p=>{
     if(productReviewFilter!=='all'&&productDataReviewStatus(p)!==productReviewFilter) return false;
     if(q){
-      const needle=q.toLowerCase();
       return String(p.name||'').toLowerCase().includes(needle)||matchesBarcode(p,q)||String(p.sku||'').toLowerCase().includes(needle);
     }
     if(selectedGroup?.cat && (String(p.category||'').trim()||'ไม่ทราบหมวดหมู่')!==selectedGroup.cat) return false;
@@ -8281,8 +8302,8 @@ function renderProducts(){
     else if(sk==='cost'){ va=a.cost||a.openingCost||0; vb=b.cost||b.openingCost||0; }
     else if(sk==='stock'){ va=a.stock; vb=b.stock; }
     else if(sk==='expiry'){ va=a.expiry?new Date(a.expiry).getTime():Infinity; vb=b.expiry?new Date(b.expiry).getTime():Infinity; }
-    else if(sk==='name'){ va=a.name; vb=b.name; return va.localeCompare(vb,'th')*sdir; }
-    else { va=a.sku||''; vb=b.sku||''; return va.localeCompare(vb,'th')*sdir; }
+    else if(sk==='name'){ va=a.name; vb=b.name; return compareNames(va,vb)*sdir; }
+    else { va=a.sku||''; vb=b.sku||''; return compareNames(va,vb)*sdir; }
     return (va<vb?-1:va>vb?1:0)*sdir;
   });
 
@@ -8452,11 +8473,11 @@ function unitRowHtml(u, mainUnit, siblingNames){
     <div class="unitrow-eq">1
       <select class="u_sub combo-select" data-combo="1"><option value="">ระบุหน่วย</option>${units.map(x=>`<option value="${escapeHtml(x)}" ${u.sub===x?'selected':''}>${escapeHtml(x)}</option>`).join('')}<option value="__add__">+ เพิ่มใหม่...</option><option value="__manage__">🗑 จัดการ / ลบชื่อ...</option></select>
       <span class="u_eq">=</span>
-      <input class="u_per" type="number" value="${escapeHtml(u.per||u.factor||'')}" placeholder="จำนวน" title="จำนวนต่อ 1 หน่วยนี้" style="width:80px;">
+      <input class="u_per" type="number" value="${escapeHtml(u.per??u.factor??'')}" placeholder="จำนวน" title="จำนวนต่อ 1 หน่วยนี้" style="width:80px;">
       <select class="u_base">${baseOpts.map(b=>`<option value="${escapeHtml(b)}" ${curBase===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select>
     </div>
-    <input class="u_price" type="number" value="${escapeHtml(u.price||'')}" placeholder="ขาย">
-    ${isLevel2User()?`<input class="u_cost" type="hidden" value="${escapeHtml(u.cost||'')}">`:`<input class="u_cost" type="number" value="${escapeHtml(u.cost||'')}" placeholder="ทุน">`}
+    <input class="u_price" type="number" value="${escapeHtml(u.price??'')}" placeholder="ขาย">
+    ${isLevel2User()?`<input class="u_cost" type="hidden" value="${escapeHtml(u.cost??'')}">`:`<input class="u_cost" type="number" value="${escapeHtml(u.cost??'')}" placeholder="ทุน">`}
     <input class="u_stock" type="hidden" value="${escapeHtml(u.stock===''||u.stock===undefined||u.stock===null?'':(Math.round(u.stock*100)/100))}" readonly>
     <input class="u_barcode" value="${escapeHtml(u.barcode||'')}" placeholder="เลขบาร์โค้ด">
     <button class="u_del" title="ลบ">×</button>
@@ -8464,13 +8485,14 @@ function unitRowHtml(u, mainUnit, siblingNames){
 }
 
 // อ่านค่าแถวหน่วยจาก DOM ปัจจุบัน
-function collectUnitRowsFromDOM(){
+function collectUnitRowsFromDOM({preserveInput=false}={}){
+  const number=input=>preserveInput?input.value:(Number(input.value)||0);
   return Array.from(document.querySelectorAll('#unitRows .unitrow')).map(r=>({
     sub: r.querySelector('.u_sub').value,
-    per: parseFloat(r.querySelector('.u_per').value)||0,
+    per: number(r.querySelector('.u_per')),
     base: r.querySelector('.u_base').value,
-    price: parseFloat(r.querySelector('.u_price').value)||0,
-    cost: parseFloat(r.querySelector('.u_cost').value)||0,
+    price: number(r.querySelector('.u_price')),
+    cost: number(r.querySelector('.u_cost')),
     stock: parseFloat(r.querySelector('.u_stock')?.value)||0,
     barcode: r.querySelector('.u_barcode').value.trim(),
   }));
@@ -8481,7 +8503,7 @@ function refreshUnitRows(){
   const rowsEl = document.getElementById('unitRows'); if(!rowsEl) return;
   const mainUnit = (document.getElementById('f_unit')||{}).value || 'หน่วยหลัก';
   const mainStock = Number(document.getElementById('f_stock')?.value)||0;
-  const rawData = collectUnitRowsFromDOM();
+  const rawData = collectUnitRowsFromDOM({preserveInput:true});
   const data = computeUnitRowsWithStock(rawData, mainUnit, mainStock);
   const names = data.map(d=>d.sub);
   rowsEl.innerHTML = data.map(u=>unitRowHtml(u, mainUnit, names)).join('');
@@ -9526,7 +9548,7 @@ function captureMobileProductDraft(){
   editor.draft.active=!!form.querySelector('#f_active')?.checked;
   editor.draft.multiunit=!!form.querySelector('#f_multiunit')?.checked;
   // Keep incomplete unit rows too, so a reconnect/re-render cannot discard typing.
-  editor.draft.units=collectUnitRowsFromDOM();
+  editor.draft.units=collectUnitRowsFromDOM({preserveInput:true});
 }
 async function openMobileProductEditor(productId='new',barcode=''){
   if(!canEditMobilePrice()||mobileProductOpening||mobileProductEditor) return;
@@ -9585,13 +9607,11 @@ async function openMobileBaseUnitChange(){
   finally{ editor.saving=false; }
 }
 function mobileProductValidationError(data,existing){
-  if(!Number.isFinite(data.price)||data.price<0||!Number.isFinite(data.cost)||data.cost<0) return 'ราคาขายและราคาทุนต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป';
+  const structureError=productStructureValidationError(data);
+  if(structureError) return structureError;
   const names=new Set([data.unit]);
   for(const row of data.units){
-    if(!row.sub||names.has(row.sub)) return 'ชื่อหน่วยสินค้าเพิ่มเติมต้องไม่ซ้ำกันหรือซ้ำกับหน่วยหลัก';
     names.add(row.sub);
-    if(!Number.isFinite(row.factor)||row.factor<=0||!Number.isFinite(row.per)||row.per<=0) return 'กรุณาระบุอัตราแปลงหน่วยให้มากกว่า 0 และไม่อ้างอิงหน่วยวนกลับกัน';
-    if(!Number.isFinite(row.price)||row.price<0||!Number.isFinite(row.cost)||row.cost<0) return 'ราคาของหน่วยสินค้าเพิ่มเติมต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป';
   }
   if(extraBarcodeEntries(existing||{}).some(entry=>!names.has(entry.unit||data.unit))) return 'หน่วยนี้มีบาร์โค้ดเพิ่มเติมผูกอยู่ กรุณาจัดการบาร์โค้ดบนคอมก่อนลบหน่วย';
   const ownCodes=new Map();
@@ -14124,7 +14144,17 @@ function render(){
   preserveMobileCameraScanner();
   const onDemandNotice=onDemandState.status==='truncated'?onDemandStateHtml(onDemandState):'';
   posSalesHistoryOnDemandState=null;
+  const focusedProductSearch=currentTab==='products'&&editingProductId===null&&document.activeElement?.matches('.product-list-search #search')?document.activeElement:null;
+  const retainedSelection=focusedProductSearch?[focusedProductSearch.selectionStart,focusedProductSearch.selectionEnd]:null;
   mainElement.innerHTML = onDemandNotice+(RENDERERS[currentTab]||renderDashboard)();
+  if(focusedProductSearch){
+    const replacement=mainElement.querySelector('.product-list-search #search');
+    if(replacement){
+      focusedProductSearch.value=searchQuery;
+      replacement.replaceWith(focusedProductSearch);
+      restoreSearchInputFocus(...retainedSelection);
+    }
+  }
   applyCashShiftOverdueUi(mainElement);
   restoreMobileCameraScanner();
   prepareScrollableTables(mainElement);
@@ -14843,11 +14873,13 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     });
   });
   const searchEl = document.getElementById('search');
-  if(searchEl){
-    const productSearchStartingValue=String(searchEl.value||'').trim();
+  if(searchEl) searchEl.dataset.startingValue=String(searchEl.value||'').trim();
+  if(searchEl&&!searchEl.dataset.searchBound){
+    searchEl.dataset.searchBound='1';
     searchEl.addEventListener('keydown',e=>{
       if(currentTab!=='products'||e.isComposing) return;
       if(e.key==='Enter'){
+        const productSearchStartingValue=searchEl.dataset.startingValue||'';
         const currentValue=String(searchEl.value||'').trim();
         const knownSuffix=[...exactProductCodeMap.keys()]
           .filter(code=>String(code).length>=4&&currentValue.endsWith(String(code)))
@@ -14864,10 +14896,8 @@ document.querySelectorAll('.line-qty').forEach(el=>{
         selectProductListUnitByExactCode(scannerValue);
         searchEl.value=scannerValue;
         render();
-        requestAnimationFrame(()=>{
-          const nextSearch=document.getElementById('search');
-          if(nextSearch){ nextSearch.focus({preventScroll:true}); nextSearch.select(); }
-        });
+        const nextSearch=document.getElementById('search');
+        if(nextSearch){ nextSearch.focus({preventScroll:true}); nextSearch.select(); }
         return;
       }
     });
@@ -16219,7 +16249,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(addUnitBtn) addUnitBtn.addEventListener('click', ()=>{
     const mainUnit=(document.getElementById('f_unit')||{}).value||'หน่วยหลัก';
     const mainStock=Number(document.getElementById('f_stock')?.value)||0;
-    const rawData=collectUnitRowsFromDOM();
+    const rawData=collectUnitRowsFromDOM({preserveInput:true});
     rawData.push({sub:'',per:'',base:mainUnit,price:'',cost:'',barcode:''});
     const data=computeUnitRowsWithStock(rawData,mainUnit,mainStock);
     const names=data.map(d=>d.sub);
@@ -16669,7 +16699,7 @@ function bindUnitRowEvents(){
     b.onclick = ()=>{
       const mainUnit=(document.getElementById('f_unit')||{}).value||'หน่วยหลัก';
       const mainStock=Number(document.getElementById('f_stock')?.value)||0;
-      let rawData=collectUnitRowsFromDOM();
+      let rawData=collectUnitRowsFromDOM({preserveInput:true});
       const idx=[...document.querySelectorAll('#unitRows .unitrow')].indexOf(b.closest('.unitrow'));
       rawData.splice(idx,1);
       if(rawData.length===0) rawData=[{sub:'',per:'',base:mainUnit,price:'',cost:'',barcode:''}];
@@ -16682,7 +16712,7 @@ function bindUnitRowEvents(){
   });
   // เปลี่ยนชื่อหน่วย → รีเฟรช base dropdown ของแถวอื่น (แต่ปล่อยให้ combo-select "เพิ่มใหม่/จัดการ" ทำงานก่อน)
   document.querySelectorAll('#unitRows .u_sub').forEach(sel=>{
-    sel.addEventListener('change', ()=>{ setTimeout(refreshUnitRows, 0); });
+    sel.onchange=()=>{ setTimeout(()=>{ if(sel.isConnected) refreshUnitRows(); },0); };
   });
 }
 function bindUnitDelete(){ bindUnitRowEvents(); }
@@ -18206,7 +18236,7 @@ async function saveProduct(){
   const price = parseFloat(g('f_price').value);
   if(!name){ showToast('กรุณากรอกชื่อสินค้า'); g('f_name').focus(); return; }
   if(!unit){ showToast('กรุณากรอกหน่วยสินค้า'); g('f_unit').focus(); return; }
-  if(isNaN(price)){ showToast('กรุณากรอกราคาขาย'); g('f_price').focus(); return; }
+  if(!Number.isFinite(price)||price<0){ showToast('กรุณากรอกราคาขายตั้งแต่ 0 ขึ้นไป'); g('f_price').focus(); return; }
   const gv = id => { const el=g(id); return el?el.value:''; };
   // multi-unit rows
   const multiunit = g('f_multiunit') && g('f_multiunit').checked;
@@ -18302,6 +18332,8 @@ async function saveProduct(){
     showToast('สินค้านี้อยู่ในบิลที่กำลังเปิด กรุณาลบออกจากบิลก่อนปิดใช้งาน','danger');
     return;
   }
+  const structureError=productStructureValidationError(data);
+  if(structureError){ showToast(structureError,'danger-top'); return; }
   const barcodeError=productBarcodeValidationError(data,existing?.id);
   if(barcodeError){ showToast(barcodeError,'danger-top'); return; }
   if(mobileEditor){

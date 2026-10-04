@@ -109,5 +109,22 @@ let browser;
     assert.equal(await page.evaluate(()=>products.length),2);assert.equal(await page.evaluate(()=>confirmCalls),0);
     assert.match(await page.evaluate(()=>importAlerts.at(-1)),/ไม่สามารถนำเข้า/);
   }
+  for(const invalid of [
+    {'ราคาขาย':''},{'ราคาขาย':-1},{'ราคาทุน':-1},
+    {'หน่วยเพิ่มเติม 1':'ลัง','จำนวนบรรจุ 1':''},
+    {'หน่วยเพิ่มเติม 1':'ลัง','จำนวนบรรจุ 1':0},
+    {'หน่วยเพิ่มเติม 1':'กล่อง','จำนวนบรรจุ 1':10},
+    {'หน่วยเพิ่มเติม 1':'ลัง','จำนวนบรรจุ 1':10,'เทียบกับหน่วย 1':'ไม่มีหน่วยนี้'},
+    {'จำนวนบรรจุ 1':10},{'ราคาขายหน่วยเพิ่มเติม 1':0},{'ราคาทุน':'invalid'},
+    {'หน่วยเพิ่มเติม 1':'ลัง','จำนวนบรรจุ 1':10,'ราคาขายหน่วยเพิ่มเติม 1':'invalid'},
+  ]){
+    await page.evaluate(async invalid=>{
+      window.importRows=[{'ชื่อสินค้า':'Invalid Excel','หน่วยหลัก':'กล่อง','ราคาขาย':100,...invalid}];
+      await importProductsFromExcel({arrayBuffer:async()=>new ArrayBuffer(0)});
+    },invalid);
+    assert.equal(await page.evaluate(()=>confirmCalls),0,'invalid import must not reach confirmation');
+    assert.match(await page.evaluate(()=>importAlerts.at(-1)),/แถว 2/,'show source row of invalid data');
+    assert.equal(await page.evaluate(()=>products.length),2);
+  }
   assert.deepEqual(errors,[]);console.log('Product barcode browser: all barcode sources, stale cache, failed check, cancel, valid save and import passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});

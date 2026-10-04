@@ -27,7 +27,7 @@ begin
   end if;
   insert into public.products(id,name,unit,price,cost,product_type,data)
     values(v_product,'Quotation rollback fixture','เม็ด',180,10,'stock',
-      '{"active":true,"type":"stock","unit":"เม็ด","price":180,"cost":10,"vat":"none","units":[{"sub":"กล่อง","factor":10,"price":1800,"cost":100}]}');
+      '{"active":true,"type":"stock","unit":"เม็ด","price":180,"cost":10,"vat":"none","units":[{"sub":"กล่อง","base":"เม็ด","per":10,"factor":10,"price":1800,"cost":100}]}');
   perform public.set_inventory_stock(v_product,v_warehouse,100);
   v_quote := jsonb_build_object('customer','Quotation test','customerInfo',jsonb_build_object('name','Quotation test'),
     'items',jsonb_build_array(jsonb_build_object('productId',v_product,'name','Quotation rollback fixture','unit','เม็ด','qty',2,'price',160)));

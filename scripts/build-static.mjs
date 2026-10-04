@@ -9,6 +9,7 @@ export const ASSET_VERSION_TOKEN = '__PEPOS_ASSET_VERSION__'
 
 const scriptDirectory = dirname(fileURLToPath(import.meta.url))
 const projectRoot = resolve(scriptDirectory, '..')
+const productDomainSource = await readFile(join(projectRoot, 'product-domain.js'), 'utf8')
 const outputDirectory = resolve(projectRoot, 'public')
 const zxingSourceFile = resolve(projectRoot, 'node_modules', '@zxing', 'browser', 'umd', 'zxing-browser.min.js')
 
@@ -37,6 +38,9 @@ function renderVersionedTemplate(template, assetVersion, name) {
 }
 
 export async function prepareTextAssets({ appSource, excelToolsSource = '', stylesSource, indexTemplate, workerTemplate, versionInputs = [] }) {
+  // One deployment request; separate source files without a second cache/version boundary.
+  appSource = productDomainSource + '\n' + appSource
+  indexTemplate = indexTemplate.replace(/<script src="\/product-domain\.js[^\"]*" defer><\/script>\s*/, '')
   const groups = JSON.parse(appSource.match(/const PAGE_CODE_GROUPS=(\{[\s\S]*?\n\});/)?.[1] || '{}')
   const pageSources = {}
   const extractedNames = new Set()

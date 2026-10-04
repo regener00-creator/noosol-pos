@@ -4,6 +4,8 @@ import os from 'node:os';
 import net from 'node:net';
 import {fileURLToPath} from 'node:url';
 import EmbeddedPostgres from 'embedded-postgres';
+import {execFile} from 'node:child_process';
+import {promisify} from 'node:util';
 
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const directory=await fs.mkdtemp(path.join(os.tmpdir(),'pepos-isolated-pg-'));
@@ -54,12 +56,24 @@ try{
   await barcodeSuite.run({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
   const unusedUnitSuite=await import('../tests/unused-product-unit-database.mjs');
   await unusedUnitSuite.run({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
+  const catalogSuite=await import('../tests/catalog-validation-database.mjs');
+  await catalogSuite.run({client});
 }catch(error){
   // Surface the actual failure even if the platform is slow to stop Postgres.
   console.error(error);
   throw error;
 }finally{
-  await client?.end(); await postgres.stop();
+  await client?.end();
+  if(process.platform==='win32'&&postgres.process){
+    // The library's taskkill can hang under restricted Windows shells. Use the
+    // bundled pg_ctl and the exact temporary cluster created by this invocation.
+    const running=postgres.process;
+    const pgCtl=path.join(path.dirname(running.spawnfile),'pg_ctl.exe');
+    if(!directory.startsWith(path.join(os.tmpdir(),'pepos-isolated-pg-'))) throw new Error('Unsafe test cluster path');
+    await promisify(execFile)(pgCtl,['stop','-D',directory,'-m','fast','-w','-t','15'],{windowsHide:true,timeout:20000});
+    if(running.exitCode===null) await new Promise(resolve=>running.once('exit',resolve));
+    postgres.process=undefined;
+  }else await postgres.stop();
   // Only remove the exact newly-created test cluster, never an env-provided path.
   if(directory.startsWith(path.join(os.tmpdir(),'pepos-isolated-pg-'))) await fs.rm(directory,{recursive:true,force:true,maxRetries:8,retryDelay:250});
 }

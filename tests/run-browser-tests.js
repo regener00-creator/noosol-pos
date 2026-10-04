@@ -7,6 +7,10 @@ const tests = fs.readdirSync(__dirname)
   .sort();
 
 let failed = false;
+if(process.platform==='win32'&&!process.env.PEPOS_BROWSER_EXECUTABLE){
+  const executable=['C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(file=>fs.existsSync(file));
+  if(executable) process.env.PEPOS_BROWSER_EXECUTABLE=executable;
+}
 for (const test of tests) {
   const result = spawnSync(process.execPath, [path.join(__dirname, test)], { stdio: 'inherit' });
   if ((result.status ?? 1) !== 0) failed = true;

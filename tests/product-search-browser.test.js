@@ -43,6 +43,7 @@ const browserExecutable = [
   await page.route('https://**/*', route => route.fulfill({body:'',contentType:'text/plain'}));
   await page.goto(`http://127.0.0.1:${server.address().port}/`, {waitUntil:'domcontentloaded',timeout:15000});
   await page.waitForFunction(() => typeof renderProducts === 'function' && typeof attachEvents === 'function');
+  await page.evaluate(()=>window.peposBootstrapReady);
   assert.equal(await page.evaluate(()=>!!sb?.auth),true,'isolated database client is installed before testing search');
   await page.evaluate(() => {
     document.querySelectorAll('.login-screen').forEach(screen => { screen.style.display='none'; });
@@ -75,9 +76,11 @@ const browserExecutable = [
   };
   await assertNoBrowserSuggestions();
   await search.focus();
+  await page.evaluate(()=>window.originalProductSearch=document.getElementById('search'));
   await page.keyboard.type('Decolgen', {delay:20});
   await page.waitForTimeout(220);
   assert.equal(await search.inputValue(), 'Decolgen', 'ช่องค้นหาต้องรับตัวอักษรต่อเนื่องได้ครบ');
+  assert.equal(await page.evaluate(()=>document.getElementById('search')===window.originalProductSearch),true,'filtering retains the active search node and its IME/scanner focus');
   assert.equal(await page.evaluate(() => document.activeElement?.id), 'search', 'ช่องค้นหาต้องคงโฟกัสหลังกรองข้อมูล');
   assert.equal(await page.locator('.prodtable tbody tr').count(), 1, 'ผลการค้นหาต้องเหลือสินค้าที่ตรงกันหนึ่งรายการ');
   assert.equal(await page.locator('.prodtable .prod-inline-name').inputValue(), 'Decolgen prin (4 tablets)');

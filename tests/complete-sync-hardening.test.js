@@ -70,3 +70,16 @@ test('unavailable SDK does not crash before login fallback and bootstrap is awai
   assert.match(source,/sb\?\.auth\.onAuthStateChange/);
   assert.match(source,/window\.peposBootstrapReady=\(async function bootstrapAuth/);
 });
+
+test('unchanged catalog signature avoids manifests but reconciles pending work and periodic checks',async()=>{
+  const ctx=refreshContext();let calls=0,signature='a';
+  ctx.sb={rpc:async()=>({data:signature})};
+  ctx.fetchProductRevisionManifest=async()=>{calls++;return {data:[{id:1,revision:1}]};};
+  const refresh=async()=>{vm.runInContext('productReviewRefreshAt=0',ctx);return ctx.refreshProductReviewColors();};
+  await refresh();await refresh();assert.equal(calls,1);
+  signature='b';await refresh();assert.equal(calls,2);
+  ctx.productDirtyOperations.set('1','update');await refresh();assert.equal(calls,3);
+  ctx.productDirtyOperations.clear();vm.runInContext('productReviewManifestCheckedAt=0',ctx);
+  await refresh();assert.equal(calls,4);
+  ctx.sb.rpc=async()=>({error:{code:'PGRST202'}});await refresh();assert.equal(calls,5,'old servers use the existing safe manifest path');
+});

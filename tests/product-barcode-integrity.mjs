@@ -5,13 +5,13 @@ export async function run({client,connect}){
   await q("select set_config('request.jwt.claim.sub',$1,false)",[owner]);
   const insert=(id,data,peer=client)=>peer.query('insert into public.products(id,name,sku,unit,data) values($1,$2,$3,$4,$5)',[id,'Barcode test '+id,'BC-'+id,'box',data]);
   const duplicate=error=>error.code==='23505'&&error.hint==='DUPLICATE_PRODUCT_BARCODE';
-  await insert(80001,{barcode:'  000123  ',units:[{sub:'case',barcode:'CASE-BC'}],extraBarcodes:['EXTRA-BC',{code:'OBJECT-BC',unit:'box'}],vendorBarcodes:[{code:'VENDOR-BC'}],active:false});
+  await insert(80001,{barcode:'  000123  ',units:[{sub:'case',base:'box',per:10,factor:10,barcode:'CASE-BC'}],extraBarcodes:['EXTRA-BC',{code:'OBJECT-BC',unit:'box'}],vendorBarcodes:[{code:'VENDOR-BC'}],active:false});
   const claims=await q('select barcode from private.product_barcode_claims where product_id=80001 order by barcode');
   assert.deepEqual(claims.rows.map(r=>r.barcode),['000123','case-bc','extra-bc','object-bc','vendor-bc']);
   for(const barcode of ['000123',' case-bc ','EXTRA-BC','OBJECT-BC','VENDOR-BC','\u2003CaSe-Bc\u2003']){
     await assert.rejects(insert(80002,{barcode}),duplicate,'main barcodes conflict with every barcode source, even inactive products');
   }
-  for(const data of [{units:[{barcode:'000123'}]},{extraBarcodes:['000123']},{extraBarcodes:[{code:'000123'}]},{vendorBarcodes:[{code:'000123'}]}]){
+  for(const data of [{units:[{sub:'case',base:'box',per:10,factor:10,barcode:'000123'}]},{extraBarcodes:['000123']},{extraBarcodes:[{code:'000123'}]},{vendorBarcodes:[{code:'000123'}]}]){
     await assert.rejects(insert(80002,data),duplicate);
   }
   await insert(80002,{barcode:'123'}); // leading zero is significant
@@ -35,9 +35,9 @@ export async function run({client,connect}){
   const peers=await Promise.all(Array.from({length:10},()=>connect()));
   try{
     await Promise.all(peers.map(async peer=>{await peer.query("select set_config('request.jwt.claim.sub',$1,false)",[owner]);await peer.query('set role authenticated');}));
-    const results=await Promise.allSettled(peers.map((peer,i)=>insert(81000+i,i%2?{units:[{barcode:'RACE-BC'}]}:{barcode:'race-bc'},peer)));
+    const results=await Promise.allSettled(peers.map((peer,i)=>insert(81000+i,i%2?{units:[{sub:'case',base:'box',per:10,factor:10,barcode:'RACE-BC'}]}:{barcode:'race-bc'},peer)));
     assert.equal(results.filter(r=>r.status==='fulfilled').length,1,'only one of ten simultaneous inserts succeeds');
-    assert.ok(results.filter(r=>r.status==='rejected').every(r=>duplicate(r.reason)));
+    assert.ok(results.filter(r=>r.status==='rejected').every(r=>duplicate(r.reason)),JSON.stringify(results.filter(r=>r.status==='rejected').map(r=>({code:r.reason.code,hint:r.reason.hint,message:r.reason.message}))));
     assert.equal((await q("select count(*)::int n from private.product_barcode_claims where barcode='race-bc'")).rows[0].n,1);
   }finally{await Promise.all(peers.map(peer=>peer.end()));}
   // Claims are derived, not a new backup table. Restore must rebuild them and

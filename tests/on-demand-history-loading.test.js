@@ -17,7 +17,7 @@ assert.doesNotMatch(coreLoader, /DOC_TABLES\.map/,
 assert.doesNotMatch(coreLoader, /sb\.from\('sales'\)/,
   'login core loader must not fetch the complete sales table');
 
-const salesLoader = section('async function loadSalesHistoryFromSupabase(options={}){', 'async function loadAllSalesForBackup');
+const salesLoader = section('async function loadSalesHistoryFromSupabase(options={}){', 'async function findSaleByIdentifier');
 assert.match(salesLoader, /\.gte\('sale_date',range\.from\)\.lte\('sale_date',range\.to\)/,
   'sales windows must be filtered by date on the server');
 assert.match(salesLoader, /fetchBoundedRows\(buildRangeQuery/,
@@ -27,7 +27,7 @@ assert.match(salesLoader, /\.eq\('status','hold'\)/,
 assert.match(salesLoader, /\.eq\('status','done'\)[\s\S]*\.limit\(8\)/,
   'dashboard must retain a small latest-completed-sales query outside the month window');
 
-const documentLoader = section('async function loadDocumentTableFromSupabase(', 'async function loadAllDocumentsForBackup');
+const documentLoader = section('async function loadDocumentTableFromSupabase(', 'async function syncCoreDataToSupabase');
 assert.match(documentLoader, /fetchBoundedRows\(buildQuery/,
   'normal document reads must use bounded server-side pages');
 assert.match(documentLoader, /data->>date/,

@@ -4,6 +4,7 @@ const path=require('node:path');
 const vm=require('node:vm');
 const source=fs.readFileSync(path.join(__dirname,'..','app.js'),'utf8');
 const ctx=vm.createContext({products:[],barcodePrintBarcodeOwners:()=>[],extraBarcodeEntries:p=>(p.extraBarcodes||[]).map((code,i)=>({code,unit:p.extraBarcodeUnits?.[i]||p.unit}))});
+vm.runInContext(fs.readFileSync(path.join(__dirname,'..','product-domain.js'),'utf8'),ctx);
 const start=source.indexOf('function mobileProductValidationError(');
 vm.runInContext(source.slice(start,source.indexOf('function attachMobileProductEditorEvents(',start)),ctx);
 const product={name:'A',sku:'A-1',unit:'กล่อง',price:100,cost:50,barcode:'BASE',units:[{sub:'ลัง',per:10,factor:10,price:950,cost:450,barcode:'CASE'}]};

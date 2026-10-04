@@ -1,0 +1,28 @@
+name: Weekly isolated integrity and restore checks
+on:
+  schedule:
+    - cron: '17 20 * * 6'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: isolated-integrity
+  cancel-in-progress: false
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      # Creates an ephemeral Postgres cluster. Never connects to Production,
+      # requires no store credentials, and verifies complete export/restore.
+      - run: pnpm run test:static
+      - run: pnpm run test:database

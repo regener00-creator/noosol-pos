@@ -348,8 +348,13 @@ function productImportValue(row,aliases){
   return '';
 }
 function productImportNumber(value,fallback=0){
-  const number=Number(String(value??'').replace(/,/g,'').trim());
+  const text=String(value??'').replace(/,/g,'').trim();
+  if(!text) return fallback;
+  const number=Number(text);
   return Number.isFinite(number)?number:fallback;
+}
+function productImportMoney(value,fallback=0){
+  return String(value??'').trim()===''?fallback:productImportNumber(value,NaN);
 }
 function productImportDate(value){
   if(value===null||value===undefined||value==='') return '';
@@ -591,6 +596,7 @@ async function importProductsFromExcel(file){
     const extraBarcodeUnits=[];
     const vendorBarcodes=[];
     const rawUnitRows=[];
+    let unitImportError='';
     for(let number=1;number<=10;number++){
       const extraAliases=[`บาร์โค้ดสำรอง ${number}`,`บาร์โค้ดสำรอง${number}`,`บาร์โค้ดเพิ่มเติม ${number}`,`บาร์โค้ดเพิ่มเติม${number}`,`extrabarcode${number}`];
       if(number===1) extraAliases.push('บาร์โค้ดสำรอง','บาร์โค้ดเพิ่มเติม','extrabarcode');
@@ -611,15 +617,19 @@ async function importProductsFromExcel(file){
       const unitAliases=[`หน่วยเพิ่มเติม ${number}`,`หน่วยเพิ่มเติม${number}`,`หน่วยย่อย ${number}`,`additionalunit${number}`];
       if(number===1) unitAliases.push('หน่วยเพิ่มเติม','หน่วยย่อย','additionalunit');
       const sub=String(productImportValue(row,unitAliases)).trim();
-      if(sub){
-        const per=productImportNumber(productImportValue(row,[`จำนวนบรรจุ ${number}`,`จำนวนบรรจุ${number}`,`จำนวนต่อหน่วย ${number}`,`จำนวนต่อหน่วย${number}`,`บรรจุ ${number}`,`per${number}`]),0);
+      {
+        let hasUnitValues=false;
+        const unitValue=aliases=>{const value=productImportValue(row,aliases);hasUnitValues=hasUnitValues||String(value??'').trim()!=='';return value;};
+        const per=productImportNumber(unitValue([`จำนวนบรรจุ ${number}`,`จำนวนบรรจุ${number}`,`จำนวนต่อหน่วย ${number}`,`จำนวนต่อหน่วย${number}`,`บรรจุ ${number}`,`per${number}`]),0);
         const base=String(productImportValue(row,[`เทียบกับหน่วย ${number}`,`เทียบกับหน่วย${number}`,`อ้างอิงหน่วย ${number}`,`อ้างอิงหน่วย${number}`,`หน่วยฐาน ${number}`,`baseunit${number}`])).trim()||unit;
-        const unitPrice=productImportNumber(productImportValue(row,[`ราคาขายหน่วยเพิ่มเติม ${number}`,`ราคาขายหน่วยเพิ่มเติม${number}`,`ราคาขายหน่วย ${number}`,`ราคาขายหน่วย${number}`,`unitprice${number}`]),0);
-        const unitCost=productImportNumber(productImportValue(row,[`ราคาทุนหน่วยเพิ่มเติม ${number}`,`ราคาทุนหน่วยเพิ่มเติม${number}`,`ราคาทุนหน่วย ${number}`,`ราคาทุนหน่วย${number}`,`unitcost${number}`]),0);
-        const unitBarcode=String(productImportValue(row,[`บาร์โค้ดหน่วยเพิ่มเติม ${number}`,`บาร์โค้ดหน่วยเพิ่มเติม${number}`,`บาร์โค้ดหน่วย ${number}`,`บาร์โค้ดหน่วย${number}`,`unitbarcode${number}`])).trim();
-        if(per>0) rawUnitRows.push({sub,per,base,price:unitPrice,cost:unitCost,barcode:unitBarcode});
+        const unitPrice=productImportMoney(unitValue([`ราคาขายหน่วยเพิ่มเติม ${number}`,`ราคาขายหน่วยเพิ่มเติม${number}`,`ราคาขายหน่วย ${number}`,`ราคาขายหน่วย${number}`,`unitprice${number}`]),0);
+        const unitCost=productImportMoney(unitValue([`ราคาทุนหน่วยเพิ่มเติม ${number}`,`ราคาทุนหน่วยเพิ่มเติม${number}`,`ราคาทุนหน่วย ${number}`,`ราคาทุนหน่วย${number}`,`unitcost${number}`]),0);
+        const unitBarcode=String(unitValue([`บาร์โค้ดหน่วยเพิ่มเติม ${number}`,`บาร์โค้ดหน่วยเพิ่มเติม${number}`,`บาร์โค้ดหน่วย ${number}`,`บาร์โค้ดหน่วย${number}`,`unitbarcode${number}`])).trim();
+        if(sub) rawUnitRows.push({sub,per,base,price:unitPrice,cost:unitCost,barcode:unitBarcode});
+        else if(hasUnitValues||base!==unit) unitImportError=`กรุณาระบุหน่วยเพิ่มเติมลำดับที่ ${number}`;
       }
     }
+    if(unitImportError){ skipped.push(`แถว ${line}: ${unitImportError}`); return; }
     if(!name||!unit||!Number.isFinite(price)){ skipped.push(`แถว ${line}: ชื่อสินค้า หน่วย หรือราคาขายไม่ครบ`); return; }
 
     let existing=null;
@@ -654,7 +664,7 @@ async function importProductsFromExcel(file){
     const data={
       name,sku:finalSku,barcode,category,brand,unit,price,
       ...productImportReviewFields(reviewStatus,existing,new Date().toISOString(),currentPharmacistName()||String(loggedInUser()?.username||'').trim()),
-      cost:productImportNumber(productImportValue(row,['ราคาทุน (หน่วยหลัก)','ราคาทุน','ทุน','cost']),existing?.cost||0),
+      cost:productImportMoney(productImportValue(row,['ราคาทุน (หน่วยหลัก)','ราคาทุน','ทุน','cost']),existing?.cost||0),
       vat:parseProductVatMode(productImportValue(row,['ภาษีมูลค่าเพิ่ม','vat']),existing?.vat||'incl'),
       stock:productImportNumber(productImportValue(row,['จำนวนคงเหลือ (หน่วยหลัก)','จำนวนคงเหลือ','คงเหลือ','stock']),existing?.stock||0),
       expiry:productImportDate(productImportValue(row,['วันหมดอายุ','expiry','expiredate']))||existing?.expiry||'',
@@ -663,6 +673,8 @@ async function importProductsFromExcel(file){
       extraBarcodes,extraBarcodeUnits,vendorBarcodes,multiunit:productUnits.length>0,units:productUnits,
     };
 
+    const structureError=productStructureValidationError(data);
+    if(structureError){ skipped.push(`แถว ${line}: ${structureError}`); return; }
     if(existing){
       seenInFile.add(existing.id);
       skuOwner.set(finalSku.toLowerCase(),existing.id);

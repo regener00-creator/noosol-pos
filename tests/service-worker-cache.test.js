@@ -7,7 +7,7 @@ const index = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const assetToken = '__PEPOS_ASSET_VERSION__';
 
 assert.equal((worker.match(new RegExp(assetToken, 'g')) || []).length, 1, 'service worker must define the build token once');
-assert.equal((index.match(new RegExp(assetToken, 'g')) || []).length, 3, 'HTML must version app.js, styles.css, and the install manifest');
+assert.equal((index.match(new RegExp(assetToken, 'g')) || []).length, 4, 'HTML must version the domain source, app.js, styles.css, and the install manifest; build bundles domain source into app.js');
 assert.match(worker, /const ASSET_VERSION='__PEPOS_ASSET_VERSION__';/);
 assert.match(worker, /const CACHE_NAME=`pepos-mobile-\$\{ASSET_VERSION\}`;/);
 assert.match(worker, /`\/styles\.css\?v=\$\{ASSET_VERSION\}`/);

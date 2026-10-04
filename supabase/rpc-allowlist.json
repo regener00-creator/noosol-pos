@@ -3,6 +3,7 @@
     "has_any_owner()"
   ],
   "authenticated": [
+    "get_product_catalog_signature()",
     "apply_inventory_transfer(text)",
     "can_current_user_page(text,bigint,text)",
     "close_cash_shift(uuid,numeric,text)",

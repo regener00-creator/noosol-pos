@@ -60,6 +60,21 @@ let browser;
   // Additional-unit rows must be validated before unnamed rows are filtered out.
   for(const mobile of [false,true]){
     await page.setViewportSize(mobile?{width:390,height:844}:{width:1440,height:1000});
+    // Settle the application's responsive transition before replacing its form.
+    await page.waitForFunction(()=>isMobileDeviceMode()===document.body.classList.contains('mobile-device-mode'));
+    for(const invalid of ['negative-price','negative-cost','duplicate-unit']){
+      await page.evaluate(({mobile,invalid})=>{
+        window.openUnitForm(mobile);window.toasts=[];window.preflights=0;
+        assertProductBarcodesAvailable=async()=>{window.preflights++;throw new Error('TEST_PREFLIGHT');};
+        if(invalid==='negative-price') document.getElementById('f_price').value='-1';
+        if(invalid==='negative-cost') document.getElementById('f_cost').value='-1';
+        if(invalid==='duplicate-unit') document.querySelector('#unitRows .u_sub').value='กล่อง';
+      },{mobile,invalid});
+      await page.locator('#saveProductBtn').click();
+      assert.equal(await page.evaluate(()=>window.preflights),0,invalid+' rejected before any network/write');
+      assert.ok(await page.evaluate(()=>window.toasts.length)>0);
+      assert.equal(await page.evaluate(()=>productDirtyOperations.size),0);
+    }
     for(const [field,value] of [['.u_per','12'],['.u_price','0'],['.u_cost','25'],['.u_barcode','DRAFT-BC']]){
       await page.evaluate(mobile=>{
         window.openUnitForm(mobile);
@@ -68,10 +83,13 @@ let browser;
         assertProductBarcodesAvailable=async()=>{window.preflights++;throw new Error('TEST_PREFLIGHT');};
       },mobile);
       await page.locator('#unitRows '+field).fill(value);
+      await page.evaluate(()=>refreshUnitRows());
+      assert.equal(await page.locator('#unitRows '+field).inputValue(),value,'row refresh preserves explicit zero and incomplete input');
       await page.locator('#saveProductBtn').click();
-      assert.match(await page.evaluate(()=>window.toasts.at(-1)),/ระบุหน่วยเพิ่มเติมแถวที่ 1/);
+      const context=JSON.stringify(await page.evaluate(({mobile,field})=>({mobile,field,toasts:window.toasts,focus:document.activeElement?.outerHTML,rows:collectUnitRowsFromDOM()}),{mobile,field}));
+      assert.match(await page.evaluate(()=>window.toasts.at(-1)),/ระบุหน่วยเพิ่มเติมแถวที่ 1/,context);
       assert.equal(await page.locator('#unitRows '+field).inputValue(),value,'validation preserves the entered value');
-      assert.equal(await page.locator('#unitRows .u_sub').evaluate(el=>el===document.activeElement),true,'focus the missing unit');
+      assert.equal(await page.locator('#unitRows .u_sub').evaluate(el=>el===document.activeElement),true,'focus the missing unit: '+context);
       assert.equal(await page.evaluate(()=>window.preflights),0,'invalid row must not reach any save preflight');
       assert.equal(await page.evaluate(()=>products[0].units[0].sub),'ลัง','invalid draft must not mutate stored data');
       assert.equal(await page.evaluate(()=>productDirtyOperations.size),0,'invalid draft must not queue a sync');
@@ -111,6 +129,7 @@ let browser;
     assert.equal(await page.evaluate(()=>window.preflights),1,'empty default row must not block save');
   }
   await page.setViewportSize({width:1440,height:1000});
+  await page.waitForFunction(()=>isMobileDeviceMode()===document.body.classList.contains('mobile-device-mode'));
   await page.evaluate(()=>{assertProductBarcodesAvailable=async()=>{};window.openUnitForm();});
   const unit=page.locator('#f_unit');
   await page.waitForFunction(()=>!document.getElementById('f_unit').disabled);

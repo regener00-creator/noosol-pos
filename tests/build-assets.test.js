@@ -31,6 +31,8 @@ test('build minifies app assets and injects one matching content version', async
 
   assert.doesNotMatch(built.appCode, /updateContactEntityLabels/, 'removed contact fields must not leave an obsolete inline handler in the deploy bundle');
   assert.doesNotThrow(() => new vm.Script(built.appCode), 'minified JavaScript must remain syntactically valid');
+  assert.match(built.appCode,/function productStructureValidationError\(/,'shared product rules are bundled before the app');
+  assert.doesNotMatch(built.indexHtml,/src="\/product-domain\.js/,'production must not request an unbundled source file');
   assert.equal(Object.keys(built.pageCodes).length,4);
   for(const [file,code] of Object.entries(built.pageCodes)){
     assert.doesNotThrow(()=>new vm.Script(code),`${file} parses`);

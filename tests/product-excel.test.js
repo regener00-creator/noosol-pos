@@ -17,6 +17,10 @@ const sandbox = {
 vm.createContext(sandbox);
 vm.runInContext(html.match(/^function productDataReviewStatus\(product\)\{[\s\S]*?^\}/m)[0],sandbox);
 vm.runInContext(`${html.slice(helperStart, helperEnd)}; this.productExcelColumnCounts=productExcelColumnCounts; this.productExcelHeaders=productExcelHeaders; this.productExcelColumnWidth=productExcelColumnWidth; this.productToExcelRow=productToExcelRow;`, sandbox);
+vm.runInContext(html.match(/^function productImportNumber\([^]*?^\}/m)[0],sandbox);
+assert.ok(Number.isNaN(sandbox.productImportNumber('',NaN)),'missing required price must not become zero');
+assert.equal(sandbox.productImportNumber('',25),25,'blank optional numbers preserve their fallback');
+assert.equal(sandbox.productImportNumber('0',25),0,'explicit zero remains zero');
 
 const products = [{
   id: 9007199254740001,
