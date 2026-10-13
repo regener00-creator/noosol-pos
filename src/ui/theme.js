@@ -2,7 +2,6 @@
 function applySapuriTheme(value, persist=false){
   const theme=value==='classic'?'classic':'mac';
   document.documentElement.dataset.sapuriTheme=theme;
-  document.querySelector('.topbar-center-brand')?.setAttribute('aria-label',theme==='mac'?'SAPURI':'PRANC-HIBES');
   document.querySelectorAll('[data-sapuri-theme-choice]').forEach(button=>{
     button.setAttribute('aria-pressed',String(button.dataset.sapuriThemeChoice===theme));
   });

@@ -33,6 +33,18 @@ let browser;
   await page.locator('.stat').first().waitFor();
   assert.equal(await page.locator('[data-sapuri-theme-choice="mac"]').getAttribute('aria-pressed'),'true');
   assert.equal(await page.locator('.navbtn.active').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(90, 63, 50)');
+  const assertTopbar=async()=>{
+    const brand=page.locator('.topbar-center-brand');
+    assert.equal(await brand.innerText(),'P R A N C - H I B E S');
+    assert.equal(await brand.getAttribute('aria-label'),'PRANC-HIBES');
+    assert.ok(await brand.evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>0));
+    assert.equal(await brand.evaluate(el=>getComputedStyle(el,'::after').content),'none','no CSS text may replace the real title');
+  };
+  await assertTopbar();
+  assert.deepEqual(await page.evaluate(()=>{
+    const style=getComputedStyle(document.documentElement);
+    return ['--primary','--bg','--surface','--sidebar','--border','--text','--text-muted'].map(key=>style.getPropertyValue(key).trim());
+  }),['#5A3F32','#F8F6F2','#FFFFFF','#E9DED3','#D8CBBE','#2E241F','#6F6259']);
   const output=path.resolve(__dirname,'../outputs');fs.mkdirSync(output,{recursive:true});
   await page.screenshot({path:path.join(output,'sapuri-mac-dashboard.png'),fullPage:true});
   await page.evaluate(()=>{
@@ -43,8 +55,10 @@ let browser;
   await page.screenshot({path:path.join(output,'sapuri-mac-note.png'),fullPage:true});
   await page.locator('#noteTitle').fill('โน้ตที่ยังไม่บันทึก');
   await page.locator('[data-sapuri-theme-choice="classic"]').click();
+  await assertTopbar();
   assert.equal(await page.locator('#noteTitle').inputValue(),'โน้ตที่ยังไม่บันทึก');
   await page.locator('[data-sapuri-theme-choice="mac"]').click();
+  await assertTopbar();
   await page.evaluate(()=>{
     currentTab='checkout';currentCashShift={id:'theme-shift',shiftNo:'ทดสอบ',openingCash:0,openedByName:'ทดสอบ'};
     products=[{id:101,name:'สินค้าตัวอย่างสำหรับตรวจหน้าตา',sku:'DEMO',unit:'กล่อง',price:180,cost:100,active:true,stock:10,units:[]}];
