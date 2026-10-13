@@ -8,7 +8,7 @@
 @media screen{
   html[data-sapuri-theme="mac"]{
     --bg:#F8F6F2;--surface:#FFFFFF;--border:#D8CBBE;
-    --sidebar:#5A3F32;--sidebar-hover:#3E291F;
+    --sidebar:#4F4038;--sidebar-hover:#3E291F;
     --primary:#5A3F32;--primary-dark:#3E291F;--primary-soft:#E9DED3;
     --accent:#9B7660;--accent-soft:#F6EEE5;--info:#706157;--info-soft:#F1ECE6;
     --text:#2E241F;--text-muted:#6F6259;--radius:16px;

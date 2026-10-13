@@ -33,7 +33,14 @@ let browser;
   await page.locator('.stat').first().waitFor();
   assert.equal(await page.locator('[data-sapuri-theme-choice="mac"]').getAttribute('aria-pressed'),'true');
   assert.equal(await page.locator('.navbtn.active').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(62, 41, 31)');
-  assert.equal(await page.locator('.sidebar').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(90, 63, 50)');
+  assert.equal(await page.locator('.sidebar').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(79, 64, 56)');
+  assert.equal(await page.evaluate(()=>{
+    const table=document.createElement('table');table.className='doc-head-blue';
+    table.innerHTML='<thead><tr><th>วันที่</th></tr></thead>';
+    document.getElementById('main').append(table);
+    const matches=getComputedStyle(document.querySelector('.sidebar')).backgroundColor===getComputedStyle(table.querySelector('th')).backgroundColor;
+    table.remove();return matches;
+  }),true,'sidebar must match the brown document header exactly');
   assert.equal(await page.locator('.navbtn[data-tab="products"]').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
   const assertTopbar=async()=>{
     const brand=page.locator('.topbar-center-brand');
@@ -46,7 +53,7 @@ let browser;
   assert.deepEqual(await page.evaluate(()=>{
     const style=getComputedStyle(document.documentElement);
     return ['--primary','--bg','--surface','--sidebar','--border','--text','--text-muted'].map(key=>style.getPropertyValue(key).trim());
-  }),['#5A3F32','#F8F6F2','#FFFFFF','#5A3F32','#D8CBBE','#2E241F','#6F6259']);
+  }),['#5A3F32','#F8F6F2','#FFFFFF','#4F4038','#D8CBBE','#2E241F','#6F6259']);
   // Compare color placement independently of the palette or Mac geometry.
   // With identical tokens, both themes must paint the same component states.
   const colorRoles=await page.evaluate(()=>{
