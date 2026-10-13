@@ -32,7 +32,9 @@ let browser;
   });
   await page.locator('.stat').first().waitFor();
   assert.equal(await page.locator('[data-sapuri-theme-choice="mac"]').getAttribute('aria-pressed'),'true');
-  assert.equal(await page.locator('.navbtn.active').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(90, 63, 50)');
+  assert.equal(await page.locator('.navbtn.active').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(62, 41, 31)');
+  assert.equal(await page.locator('.sidebar').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(90, 63, 50)');
+  assert.equal(await page.locator('.navbtn[data-tab="products"]').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
   const assertTopbar=async()=>{
     const brand=page.locator('.topbar-center-brand');
     assert.equal(await brand.innerText(),'P R A N C - H I B E S');
@@ -44,7 +46,32 @@ let browser;
   assert.deepEqual(await page.evaluate(()=>{
     const style=getComputedStyle(document.documentElement);
     return ['--primary','--bg','--surface','--sidebar','--border','--text','--text-muted'].map(key=>style.getPropertyValue(key).trim());
-  }),['#5A3F32','#F8F6F2','#FFFFFF','#E9DED3','#D8CBBE','#2E241F','#6F6259']);
+  }),['#5A3F32','#F8F6F2','#FFFFFF','#5A3F32','#D8CBBE','#2E241F','#6F6259']);
+  // Compare color placement independently of the palette or Mac geometry.
+  // With identical tokens, both themes must paint the same component states.
+  const colorRoles=await page.evaluate(()=>{
+    const root=document.documentElement;
+    const fixture=document.createElement('div');fixture.id='themeColorRoles';
+    fixture.innerHTML='<style>*{transition:none!important}</style><button class="btn primary">Save</button><button class="btn ghost">Cancel</button><button class="btn danger">Delete</button><div class="field"><input><select><option>Unit</option></select><textarea></textarea></div><table class="grid-table"><thead><tr><th>Title</th></tr></thead><tbody><tr><td>Value</td></tr></tbody></table><div class="modal-overlay" style="position:static"><div class="modal">Dialog</div></div>';
+    document.getElementById('main').append(fixture);
+    const selectors=['.sidebar','.sidebar-user','.sidebar-user-text b','.sidebar-user-text span','.navsection','.navbtn.active','.navbtn[data-tab="products"]','.navbtn[data-tab="notes"]','.sidebar-logout-btn','.topbar','.topbar-center-brand','.main','.stat','.login-screen','.login-card','.login-field input','#themeColorRoles .btn.primary','#themeColorRoles .btn.ghost','#themeColorRoles .btn.danger','#themeColorRoles input','#themeColorRoles select','#themeColorRoles textarea','#themeColorRoles th','#themeColorRoles td','#themeColorRoles .modal-overlay'];
+    const capture=()=>Object.fromEntries(selectors.map(selector=>{
+      const element=document.querySelector(selector);
+      if(!element)throw new Error('Missing color fixture: '+selector);
+      const style=getComputedStyle(element);
+      return [selector,[style.backgroundColor,style.backgroundImage,style.color,style.borderTopColor]];
+    }));
+    applySapuriTheme('classic');
+    const classic=capture(),style=getComputedStyle(root);
+    const tokens=['bg','surface','border','sidebar','sidebar-hover','primary','primary-dark','primary-soft','accent','accent-soft','info','info-soft','text','text-muted'];
+    const values=tokens.map(name=>style.getPropertyValue('--'+name));
+    applySapuriTheme('mac');
+    tokens.forEach((name,index)=>root.style.setProperty('--'+name,values[index]));
+    const mac=capture();
+    tokens.forEach(name=>root.style.removeProperty('--'+name));fixture.remove();
+    return {classic,mac};
+  });
+  assert.deepEqual(colorRoles.mac,colorRoles.classic,'Mac must preserve Classic color placement across shared components');
   const output=path.resolve(__dirname,'../outputs');fs.mkdirSync(output,{recursive:true});
   await page.screenshot({path:path.join(output,'sapuri-mac-dashboard.png'),fullPage:true});
   await page.evaluate(()=>{
