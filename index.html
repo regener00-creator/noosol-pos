@@ -15,6 +15,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&family=Sarabun:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css?v=__PEPOS_ASSET_VERSION__">
+<link rel="stylesheet" href="/sapuri-mac.css?v=__PEPOS_ASSET_VERSION__">
+<script>
+// Apply before first paint; a full/blocked browser store must not block login.
+(()=>{let theme='mac';try{if(localStorage.getItem('sapuri_ui_theme_v1')==='classic')theme='classic';}catch(_){}document.documentElement.dataset.sapuriTheme=theme;})();
+</script>
 </head>
 <body>
 <div class="login-screen" id="ownerSetupScreen" style="display:none;">

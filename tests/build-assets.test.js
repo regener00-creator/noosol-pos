@@ -10,7 +10,7 @@ const root = path.join(__dirname, '..');
 test('build minifies app assets and injects one matching content version', async () => {
   const buildModule = await import(pathToFileURL(path.join(root, 'scripts', 'build-static.mjs')).href);
   const appSource = require('../scripts/app-source.cjs').readApplicationSource();
-  const stylesSource = fs.readFileSync(path.join(root, 'styles.css'), 'utf8');
+  const stylesSource = ['styles.css','sapuri-mac.css'].map(file=>fs.readFileSync(path.join(root,file),'utf8')).join('\n');
   const indexTemplate = fs.readFileSync(path.join(root, 'index.html'), 'utf8');
   const workerTemplate = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
   const input = { appSource, stylesSource, indexTemplate, workerTemplate, versionInputs: [Buffer.from('static-assets-v1')] };
@@ -21,6 +21,10 @@ test('build minifies app assets and injects one matching content version', async
   assert.match(built.assetVersion, /^[a-f0-9]{16}$/);
   assert.doesNotMatch(built.indexHtml, /__PEPOS_ASSET_VERSION__/);
   assert.doesNotMatch(built.workerCode, /__PEPOS_ASSET_VERSION__/);
+  assert.doesNotMatch(built.indexHtml,/href="\/sapuri-mac\.css/,'production bundles both themes into its existing CSS request');
+  assert.match(built.stylesCode,/data-sapuri-theme=mac/,'production retains the opt-in theme selectors');
+  const themeChange=await buildModule.prepareTextAssets({...input,stylesSource:stylesSource.replace('--primary:#5A3F32','--primary:#5A3F33')});
+  assert.notEqual(themeChange.assetVersion,built.assetVersion,'theme changes rotate the shared offline cache version');
 
   const htmlAppVersion = built.indexHtml.match(/\/app\.js\?v=([a-f0-9]{16})/)?.[1];
   const htmlCssVersion = built.indexHtml.match(/\/styles\.css\?v=([a-f0-9]{16})/)?.[1];

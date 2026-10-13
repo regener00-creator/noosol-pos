@@ -42,6 +42,7 @@ export async function prepareTextAssets({ appSource, excelToolsSource = '', styl
   // One deployment request; separate source files without a second cache/version boundary.
   appSource = productDomainSource + '\n' + appSource
   indexTemplate = indexTemplate.replace(/<script src="\/product-domain\.js[^\"]*" defer><\/script>\s*/, '')
+  indexTemplate = indexTemplate.replace(/<link rel="stylesheet" href="\/sapuri-mac\.css[^\"]*">\s*/, '')
   const groups = JSON.parse(appSource.match(/const PAGE_CODE_GROUPS=(\{[\s\S]*?\n\});/)?.[1] || '{}')
   const pageSources = {}
   const extractedNames = new Set()
@@ -123,7 +124,7 @@ export async function buildStatic() {
   const [appSource, excelToolsSource, stylesSource, indexTemplate, workerTemplate, zxingContent, ...staticContents] = await Promise.all([
     Promise.resolve(applicationSources.readApplicationSource()),
     readFile(join(projectRoot, 'excel-tools.js'), 'utf8'),
-    readFile(join(projectRoot, 'styles.css'), 'utf8'),
+    Promise.all(['styles.css','sapuri-mac.css'].map(name=>readFile(join(projectRoot,name),'utf8'))).then(parts=>parts.join('\n')),
     readFile(join(projectRoot, 'index.html'), 'utf8'),
     readFile(join(projectRoot, 'sw.js'), 'utf8'),
     readFile(zxingSourceFile),

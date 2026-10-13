@@ -114,7 +114,7 @@ const browserExecutable = [
     const button=element.getBoundingClientRect();
     return {sameCenter:Math.abs(barcode.top+barcode.height/2-button.top-button.height/2)<3,afterBarcode:button.left>barcode.right,background:getComputedStyle(element).backgroundColor};
   });
-  assert.deepEqual(desktopBaseUnitAction,{sameCenter:true,afterBarcode:true,background:'rgb(79, 64, 56)'},'ปุ่มเปลี่ยนหน่วยหลักต้องอยู่ต่อจากเลขบาร์โค้ดและเป็นสีน้ำตาล');
+  assert.deepEqual(desktopBaseUnitAction,{sameCenter:true,afterBarcode:true,background:'rgb(90, 63, 50)'},'ปุ่มเปลี่ยนหน่วยหลักต้องอยู่ต่อจากเลขบาร์โค้ดและเป็นสีน้ำตาล SAPURI Mac');
   await page.evaluate(()=>{document.querySelector('#multiunitBody').style.display='block';});
   const alignedUnitFields=await page.evaluate(()=>{
     const rect=selector=>document.querySelector(selector).getBoundingClientRect();

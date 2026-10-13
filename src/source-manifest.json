@@ -22,6 +22,7 @@
   "src/auth/session.js",
   "src/documents/helpers.js",
   "src/ui/sidebar.js",
+  "src/ui/theme.js",
   "src/notes/editor.js",
   "src/representatives/history.js",
   "src/dashboard/overview.js",

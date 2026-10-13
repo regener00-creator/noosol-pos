@@ -56,3 +56,9 @@ pnpm run check:migrations
 Workflow `Supabase Migration Parity` จะตรวจ GitHub เทียบกับฐานข้อมูลทุกวันและเมื่อ Migration บน `main` เปลี่ยน หากตั้ง Repository secret ชื่อ `SUPABASE_DB_URL` เป็น connection string ของฐานข้อมูล Supabase แล้ว กรณีที่เลข Migration สองฝั่งไม่ตรงกัน Workflow จะล้มเหลวและแจ้งเลขที่ขาดอย่างชัดเจน
 
 รายการ RPC ที่ browser เรียกได้ถูกกำหนดไว้ใน `supabase/rpc-allowlist.json` และมี regression test ป้องกันไม่ให้แอปเพิ่ม RPC โดยไม่ประกาศสิทธิ์ก่อน
+
+### SAPURI Mac / แบบเดิม
+
+เลือกธีมได้จากแถบซ้ายใต้ข้อมูลผู้ใช้ ค่าเริ่มต้นคือ SAPURI Mac และจำเฉพาะเบราว์เซอร์นี้ใน `sapuri_ui_theme_v1` ไม่ซิงก์ไปเครื่องอื่น ไม่เปลี่ยนข้อมูลร้าน และไม่ render หน้าหรือทิ้ง draft เมื่อสลับธีม
+
+`styles.css` เก็บหน้าตาเดิม ส่วน `sapuri-mac.css` เป็นส่วนเสริมที่จำกัดด้วย `data-sapuri-theme="mac"` และ `@media screen` เพื่อไม่เปลี่ยนงานพิมพ์ Build จะรวม CSS ทั้งสองไว้ในไฟล์เดียวและรวมใน asset version เดิม ทดสอบเฉพาะธีมด้วย `node tests/sapuri-theme-browser.test.js` หรือกำหนด `PEPOS_TEST_BUILT=1` เพื่อทดสอบชุดเผยแพร่ที่ build แล้ว
