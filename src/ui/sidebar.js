@@ -58,7 +58,7 @@ function renderSidebar(){
   const signature=JSON.stringify([user?.id,user?.level,user?.owner,currentTab,isAllWarehousesMode(),user?.pagePermissions||[],user?.warehouseIds||[]]);
   if(signature===sidebarRenderSignature&&document.getElementById('sidebar')?.children.length) return;
   sidebarRenderSignature=signature;
-  let html = `<div class="sapuri-mac-brand"><img src="/sapuri-app-icon-192.png" alt="" width="38" height="38"><div><strong>SAPURI</strong><span>WORKSPACE</span></div></div><div class="brand sidebar-user"><div class="sidebar-user-text"><b>${escapeHtml(user?.firstName||user?.username||'')}</b><span>${escapeHtml(systemUserLevelLabel(user?.level))}</span></div></div>`;
+  let html = `<div class="brand sidebar-user"><div class="sidebar-user-text"><b>${escapeHtml(user?.firstName||user?.username||'')}</b><span>${escapeHtml(systemUserLevelLabel(user?.level))}</span></div></div>`;
   NAV.forEach(g=>{
     const visibleItems=g.items.filter(([tab])=>canAccessTab(tab));
     if(!visibleItems.length) return;
