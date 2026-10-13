@@ -57,8 +57,8 @@ Workflow `Supabase Migration Parity` จะตรวจ GitHub เทียบ�
 
 รายการ RPC ที่ browser เรียกได้ถูกกำหนดไว้ใน `supabase/rpc-allowlist.json` และมี regression test ป้องกันไม่ให้แอปเพิ่ม RPC โดยไม่ประกาศสิทธิ์ก่อน
 
-### SAPURI Mac / แบบเดิม
+### MAC / DEFAULT
 
-เลือกธีมได้จากแถบซ้ายใต้ข้อมูลผู้ใช้ ค่าเริ่มต้นคือ SAPURI Mac และจำเฉพาะเบราว์เซอร์นี้ใน `sapuri_ui_theme_v1` ไม่ซิงก์ไปเครื่องอื่น ไม่เปลี่ยนข้อมูลร้าน และไม่ render หน้าหรือทิ้ง draft เมื่อสลับธีม
+เลือกธีม MAC หรือ DEFAULT ได้ในหน้าตั้งค่าระบบ หัวข้อรูปแบบหน้าตา ค่าเริ่มต้นคือ MAC (DEFAULT คือหน้าตาแบบเดิม) และจำเฉพาะเบราว์เซอร์นี้ใน `sapuri_ui_theme_v1` ไม่ซิงก์ไปเครื่องอื่น ไม่เปลี่ยนข้อมูลร้าน และไม่ render หน้าหรือทิ้ง draft เมื่อสลับธีม
 
 `styles.css` เก็บหน้าตาเดิม ส่วน `sapuri-mac.css` เป็นส่วนเสริมที่จำกัดด้วย `data-sapuri-theme="mac"` และ `@media screen` เพื่อไม่เปลี่ยนงานพิมพ์ Build จะรวม CSS ทั้งสองไว้ในไฟล์เดียวและรวมใน asset version เดิม ทดสอบเฉพาะธีมด้วย `node tests/sapuri-theme-browser.test.js` หรือกำหนด `PEPOS_TEST_BUILT=1` เพื่อทดสอบชุดเผยแพร่ที่ build แล้ว

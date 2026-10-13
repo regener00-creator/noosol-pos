@@ -154,6 +154,13 @@ function attachReceiptPrinterEvents(){
 
 function renderSystemSettings(){
   return `<div class="settings-page">
+    <div class="settings-section"><h2>รูปแบบหน้าตา</h2>
+      <div class="sapuri-theme-picker" role="group" aria-label="รูปแบบหน้าตา">
+        <button type="button" data-sapuri-theme-choice="mac" aria-pressed="${document.documentElement.dataset.sapuriTheme==='mac'}">MAC</button>
+        <button type="button" data-sapuri-theme-choice="classic" aria-pressed="${document.documentElement.dataset.sapuriTheme!=='mac'}">DEFAULT</button>
+      </div>
+      <div class="hint">เปลี่ยนทันทีและจำรูปแบบไว้เฉพาะเบราว์เซอร์นี้</div>
+    </div>
     <div class="settings-section"><h2>รหัสนำหน้าเอกสาร</h2><div class="hint">กำหนดตัวอักษรนำหน้าหมายเลขเอกสาร ใช้ตัวอักษรอังกฤษหรือตัวเลขได้สูงสุด 8 ตัว และมีผลกับเอกสารที่สร้างใหม่เท่านั้น</div>
       <div class="document-prefix-grid">
         ${DOCUMENT_PREFIX_FIELDS.map(field=>`<div class="document-prefix-field"><label for="doc_prefix_${field.key}">${escapeHtml(field.label)}</label><input id="doc_prefix_${field.key}" maxlength="8" autocomplete="off" value="${escapeHtml(documentPrefixes[field.key])}" aria-label="รหัสนำหน้า ${escapeHtml(field.label)}"></div>`).join('')}

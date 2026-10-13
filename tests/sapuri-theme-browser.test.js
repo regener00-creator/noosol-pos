@@ -31,7 +31,7 @@ let browser;
     currentTab='dashboard';render();
   });
   await page.locator('.stat').first().waitFor();
-  assert.equal(await page.locator('[data-sapuri-theme-choice="mac"]').getAttribute('aria-pressed'),'true');
+  assert.equal(await page.locator('[data-sapuri-theme-choice]').count(),0,'theme controls must not appear on the Dashboard or sidebar');
   assert.equal(await page.locator('.navbtn.active').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(62, 41, 31)');
   assert.equal(await page.locator('.sidebar').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(79, 64, 56)');
   assert.equal(await page.evaluate(()=>{
@@ -88,10 +88,10 @@ let browser;
   await page.locator('#noteTitle').waitFor();
   await page.screenshot({path:path.join(output,'sapuri-mac-note.png'),fullPage:true});
   await page.locator('#noteTitle').fill('โน้ตที่ยังไม่บันทึก');
-  await page.locator('[data-sapuri-theme-choice="classic"]').click();
+  await page.evaluate(()=>applySapuriTheme('classic'));
   await assertTopbar();
   assert.equal(await page.locator('#noteTitle').inputValue(),'โน้ตที่ยังไม่บันทึก');
-  await page.locator('[data-sapuri-theme-choice="mac"]').click();
+  await page.evaluate(()=>applySapuriTheme('mac'));
   await assertTopbar();
   await page.evaluate(()=>{
     currentTab='checkout';currentCashShift={id:'theme-shift',shiftNo:'ทดสอบ',openingCash:0,openedByName:'ทดสอบ'};
@@ -105,6 +105,22 @@ let browser;
     assert.ok(await page.locator('.pos-action').evaluateAll(buttons=>buttons.every(button=>button.scrollWidth<=button.clientWidth)),`POS action labels fit ${width}px`);
   }
   await page.screenshot({path:path.join(output,'sapuri-mac-pos.png'),fullPage:true});
+  await page.locator('.navbtn[data-tab="settingssystem"]').click();
+  const macButton=page.getByRole('button',{name:'MAC',exact:true});
+  const defaultButton=page.getByRole('button',{name:'DEFAULT',exact:true});
+  await macButton.waitFor();
+  assert.equal(await page.locator('.sidebar [data-sapuri-theme-choice]').count(),0);
+  assert.equal(await page.locator('.settings-page [data-sapuri-theme-choice]').count(),2);
+  assert.equal(await macButton.getAttribute('aria-pressed'),'true');
+  await page.locator('[id^="doc_prefix_"]').first().fill('DRAFT');
+  await defaultButton.click();
+  assert.equal(await defaultButton.getAttribute('aria-pressed'),'true');
+  assert.equal(await macButton.getAttribute('aria-pressed'),'false');
+  assert.equal(await page.locator('[id^="doc_prefix_"]').first().inputValue(),'DRAFT','switching preserves unsaved settings');
+  await macButton.click();
+  assert.equal(await macButton.getAttribute('aria-pressed'),'true');
+  assert.equal(await page.evaluate(()=>localStorage.getItem('sapuri_ui_theme_v1')),'mac');
+  await page.screenshot({path:path.join(output,'sapuri-theme-settings.png'),fullPage:true});
   await page.evaluate(()=>{
     cart=[{productId:99,name:'บิลที่ยังไม่บันทึก',qty:2,price:12}];
     noteDraft={title:'ยังไม่บันทึก',contentHtml:'เก็บไว้'};
