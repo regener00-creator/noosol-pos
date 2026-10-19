@@ -18,6 +18,7 @@ const sandbox = {
   cart:[{pid:10}], saleDiscount:4, saleMember:{id:1}, pendingQty:8,
   stockReportItems:[{pid:10}], stockEditItems:[10], stockEditRowUnitSel:{10:'กล่อง'}, stockEditDraftStocks:{10:5},
   stockEditSourceInspectionListId:'CHECK-1', stockEditSourcePending:true, stockEditPage:3,
+  stockControlAnomalySelectedIds:new Set([10]),
   inspectionListDraft:{id:'CHECK-1'}, editingInspectionListId:'CHECK-1',
   stockReportCatFilter:{wh:'',category:'',brand:''}, inventoryMovementFilter:{warehouse:'',page:1},
   rproductFilter:{wh:''}, rbillFilter:{wh:''}, rprofitFilter:{wh:''},
@@ -62,6 +63,7 @@ assert.equal(products[0].stock,4);
 assert.equal(products[0].expiry,'2029-02-03');
 assert.equal(sandbox.cart.length,0,'เปลี่ยนคลังต้องล้างบิลค้าง');
 assert.equal(sandbox.stockEditItems.length,0,'เปลี่ยนคลังต้องล้างรายการแก้สต๊อกที่ค้าง');
+assert.equal(sandbox.stockControlAnomalySelectedIds.size,0,'เปลี่ยนคลังต้องล้างรายการผิดปกติที่เลือก');
 assert.equal(sandbox.inspectionListDraft,null,'เปลี่ยนคลังต้องล้างร่างตรวจสินค้าที่ค้าง');
 
 sandbox.updateInventoryBalanceLocal(10,1,20);

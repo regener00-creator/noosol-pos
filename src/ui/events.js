@@ -107,6 +107,20 @@ function attachEvents(){
     render();
   }));
   document.querySelectorAll('[data-stock-control-review]').forEach(button=>button.addEventListener('click',()=>stockControlOpenAdjustmentForProduct(button.dataset.stockControlReview)));
+  if(document.getElementById('stockControlAnomalySelectAll')){
+    syncStockControlAnomalySelectionControls();
+    document.getElementById('stockControlAnomalySelectAll').addEventListener('change',event=>{
+      stockControlAnomalySelectedIds=new Set(event.target.checked?stockControlAnomalyProductIds():[]);
+      syncStockControlAnomalySelectionControls();
+    });
+    document.querySelectorAll('[data-stock-control-anomaly-select]').forEach(input=>input.addEventListener('change',()=>{
+      const id=Number(input.dataset.stockControlAnomalySelect);
+      if(input.checked) stockControlAnomalySelectedIds.add(id); else stockControlAnomalySelectedIds.delete(id);
+      syncStockControlAnomalySelectionControls();
+    }));
+    document.getElementById('stockControlReviewAll')?.addEventListener('click',()=>stockControlOpenAdjustmentsForProducts(stockControlAnomalyProductIds()));
+    document.getElementById('stockControlReviewSelected')?.addEventListener('click',()=>stockControlOpenAdjustmentsForProducts(stockControlAnomalyProductIds().filter(id=>stockControlAnomalySelectedIds.has(id))));
+  }
   document.querySelectorAll('[data-stock-control-import-list]').forEach(button=>button.addEventListener('click',()=>stockEditImportInspectionList(button.dataset.stockControlImportList,true)));
   document.getElementById('mobileToolsLogout')?.addEventListener('click',()=>{
     if(confirm('ยืนยันการออกจากระบบใช่หรือไม่?')){ closeMobileCameraScanner(); logoutSystem(); }

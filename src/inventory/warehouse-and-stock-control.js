@@ -99,24 +99,60 @@ function stockControlAnomalyRows(productList=products,lotRows=inventoryLotRows,w
 }
 
 function stockControlOpenAdjustmentForProduct(id){
-  const product=products.find(entry=>entry.id===Number(id));
-  if(!product) return false;
-  if(!stockEditItems.includes(product.id)) stockEditItems.unshift(product.id);
-  if(stockEditRequiresReconciliation(product)) stockEditDraftStocks[product.id]=Number(product.stock)||0;
+  return stockControlOpenAdjustmentsForProducts([id]);
+}
+
+function stockControlOpenAdjustmentsForProducts(ids){
+  const productMap=new Map(products.map(product=>[product.id,product]));
+  const selectedProducts=[...new Set(ids.map(Number))].map(id=>productMap.get(id)).filter(Boolean);
+  if(!selectedProducts.length) return false;
+  const selectedIds=new Set(selectedProducts.map(product=>product.id));
+  stockEditItems=[...selectedIds,...stockEditItems.filter(id=>!selectedIds.has(id))];
+  selectedProducts.forEach(product=>{
+    if(!Object.prototype.hasOwnProperty.call(stockEditDraftStocks,product.id)&&stockEditRequiresReconciliation(product)){
+      stockEditDraftStocks[product.id]=Number(product.stock)||0;
+    }
+  });
   stockEditPage=1;
   stockControlMode='adjust';
+  stockControlAnomalySelectedIds.clear();
   render();
-  setTimeout(()=>document.querySelector(`[data-stock-edit-amount="${product.id}"]`)?.focus(),30);
+  setTimeout(()=>document.querySelector(`[data-stock-edit-amount="${selectedProducts[0].id}"]`)?.focus(),30);
   return true;
+}
+
+function stockControlAnomalyProductIds(anomalies=stockControlAnomalyRows()){
+  return [...new Set(anomalies.map(row=>Number(row.product.id)))];
+}
+
+function syncStockControlAnomalySelectionControls(){
+  const ids=stockControlAnomalyProductIds();
+  stockControlAnomalySelectedIds=new Set(ids.filter(id=>stockControlAnomalySelectedIds.has(id)));
+  document.querySelectorAll('[data-stock-control-anomaly-select]').forEach(input=>{
+    input.checked=stockControlAnomalySelectedIds.has(Number(input.dataset.stockControlAnomalySelect));
+  });
+  const selectAll=document.getElementById('stockControlAnomalySelectAll');
+  if(selectAll){
+    selectAll.checked=ids.length>0&&stockControlAnomalySelectedIds.size===ids.length;
+    selectAll.indeterminate=stockControlAnomalySelectedIds.size>0&&stockControlAnomalySelectedIds.size<ids.length;
+  }
+  const button=document.getElementById('stockControlReviewSelected');
+  if(button){
+    button.disabled=stockControlAnomalySelectedIds.size===0;
+    button.textContent=`เปิดตรวจนับที่เลือก (${stockControlAnomalySelectedIds.size})`;
+  }
 }
 
 function renderStockControlAnomalies(){
   const anomalies=stockControlAnomalyRows();
+  const productIds=stockControlAnomalyProductIds(anomalies);
+  stockControlAnomalySelectedIds=new Set(productIds.filter(id=>stockControlAnomalySelectedIds.has(id)));
   const negativeCount=anomalies.filter(row=>row.type==='ยอดติดลบ').length;
   const mismatchCount=anomalies.filter(row=>row.type==='ยอดไม่ตรงกับ LOT').length;
   const expiredCount=anomalies.filter(row=>row.type==='LOT หมดอายุยังมีสินค้า').length;
   return `<div class="rpt"><div class="stock-control-anomaly-summary"><div class="stock-control-anomaly-card"><span>ยอดติดลบ</span><b>${negativeCount}</b></div><div class="stock-control-anomaly-card"><span>ยอดไม่ตรงกับ LOT</span><b>${mismatchCount}</b></div><div class="stock-control-anomaly-card"><span>LOT หมดอายุยังมีสินค้า</span><b>${expiredCount}</b></div></div>
-    <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue"><thead><tr><th>รหัสสินค้า</th><th>สินค้า</th><th>ประเภท</th><th>รายละเอียด</th><th>คงเหลือ</th><th></th></tr></thead><tbody>${anomalies.map(row=>`<tr><td class="mono" style="text-align:center;">${escapeHtml(row.product.sku||'-')}</td><td>${escapeHtml(row.product.name)}</td><td style="text-align:center;"><span class="stock-control-anomaly-type">${escapeHtml(row.type)}</span></td><td>${escapeHtml(row.detail)}</td><td class="mono" style="text-align:center;">${inspectionListAmount(row.balance)} ${escapeHtml(row.product.unit||'')}</td><td style="text-align:center;"><button class="btn ghost small" data-stock-control-review="${row.product.id}">เปิดตรวจนับ</button></td></tr>`).join('')||'<tr><td colspan="6" style="padding:34px;text-align:center;color:var(--text-muted);">ไม่พบความผิดปกติของสต๊อกในคลังนี้</td></tr>'}</tbody></table></div>
+    ${productIds.length?`<div class="stock-control-anomaly-actions"><button type="button" class="btn ghost" id="stockControlReviewAll">เปิดตรวจนับทั้งหมด (${productIds.length})</button><button type="button" class="btn primary" id="stockControlReviewSelected" ${stockControlAnomalySelectedIds.size?'':'disabled'}>เปิดตรวจนับที่เลือก (${stockControlAnomalySelectedIds.size})</button></div>`:''}
+    <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue"><thead><tr><th class="stock-control-anomaly-check"><input type="checkbox" id="stockControlAnomalySelectAll" aria-label="เลือกสินค้าผิดปกติทั้งหมด" ${productIds.length?'':'disabled'} ${productIds.length&&stockControlAnomalySelectedIds.size===productIds.length?'checked':''}></th><th>รหัสสินค้า</th><th>สินค้า</th><th>ประเภท</th><th>รายละเอียด</th><th>คงเหลือ</th><th></th></tr></thead><tbody>${anomalies.map(row=>`<tr><td class="stock-control-anomaly-check"><input type="checkbox" data-stock-control-anomaly-select="${row.product.id}" aria-label="เลือก ${escapeHtml(row.product.name)} · ${escapeHtml(row.type)}" ${stockControlAnomalySelectedIds.has(Number(row.product.id))?'checked':''}></td><td class="mono" style="text-align:center;">${escapeHtml(row.product.sku||'-')}</td><td>${escapeHtml(row.product.name)}</td><td style="text-align:center;"><span class="stock-control-anomaly-type">${escapeHtml(row.type)}</span></td><td>${escapeHtml(row.detail)}</td><td class="mono" style="text-align:center;">${inspectionListAmount(row.balance)} ${escapeHtml(row.product.unit||'')}</td><td style="text-align:center;"><button class="btn ghost small" data-stock-control-review="${row.product.id}">เปิดตรวจนับ</button></td></tr>`).join('')||'<tr><td colspan="7" style="padding:34px;text-align:center;color:var(--text-muted);">ไม่พบความผิดปกติของสต๊อกในคลังนี้</td></tr>'}</tbody></table></div>
   </div>`;
 }
 

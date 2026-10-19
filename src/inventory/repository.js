@@ -274,6 +274,7 @@ function resetWarehouseScopedUiState(reportWarehouseValue){
   stockReportCatFilter={wh:reportWarehouseValue,category:'',brand:''};
   stockEditItems=[]; stockEditRowUnitSel={}; stockEditDraftStocks={}; stockEditSourceInspectionListId=null; stockEditSourcePending=false; stockEditPage=1;
   stockEditLotSelections={}; stockEditNewLotNumbers={}; stockEditNewLotExpiries={}; stockEditPosting=false; stockControlMode='count';
+  stockControlAnomalySelectedIds.clear();
   stockLotReallocationSearch=''; stockLotReallocationPage=1;
   inspectionListDraft=null; editingInspectionListId=null;
   if(typeof resetInventoryReportWarehouseFilters==='function') resetInventoryReportWarehouseFilters();

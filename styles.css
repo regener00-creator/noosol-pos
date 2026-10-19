@@ -2103,6 +2103,9 @@
   .stock-control-anomaly-card span{display:block;color:var(--text-muted);font-size:12px;margin-bottom:4px;}
   .stock-control-anomaly-card b{font-size:24px;color:var(--primary);}
   .stock-control-anomaly-type{display:inline-flex;padding:4px 8px;border-radius:999px;background:#FFF1E8;color:#A95420;font-size:12px;font-weight:700;}
+  .stock-control-anomaly-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+  .stock-control-anomaly-check{width:44px;text-align:center;}
+  .stock-control-anomaly-check input{width:18px;height:18px;vertical-align:middle;cursor:pointer;accent-color:var(--primary);}
   .stock-lot-reallocation-search{margin-bottom:14px;}
   .stock-lot-reallocation-search input{width:100%;height:46px;border:1px solid #D8CDC8;border-radius:10px;background:#fff;padding:0 14px;font:14px 'Sarabun',sans-serif;}
   .stock-lot-reallocation-modal{width:min(900px,96vw);max-height:92vh;}

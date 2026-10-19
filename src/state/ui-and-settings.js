@@ -107,6 +107,7 @@ let stockEditNewLotNumbers = {};
 let stockEditNewLotExpiries = {};
 let stockEditPosting = false;
 let stockControlMode = 'count';
+let stockControlAnomalySelectedIds = new Set();
 const STOCK_EDIT_PAGE_SIZE = 10;
 let stockLotReallocationSearch = '';
 let stockLotReallocationPage = 1;

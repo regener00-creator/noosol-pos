@@ -87,6 +87,28 @@ assert.equal(anomalyRows.filter(row => row.type === 'ยอดติดลบ').
 assert.equal(anomalyRows.filter(row => row.type === 'ยอดไม่ตรงกับ LOT').length, 1);
 assert.equal(anomalyRows.filter(row => row.type === 'LOT หมดอายุยังมีสินค้า').length, 1);
 
+const openStart=html.indexOf('function stockControlOpenAdjustmentForProduct(');
+const openEnd=html.indexOf('function renderStockControlAnomalies(',openStart);
+const openContext={
+  products:[{id:1,stock:-2},{id:2,stock:5},{id:3,stock:4}],
+  stockEditItems:[3,1],stockEditDraftStocks:{1:0,3:8},
+  stockEditPage:4,stockControlMode:'anomalies',stockControlAnomalySelectedIds:new Set([1,2]),
+  stockEditRequiresReconciliation:()=>true,
+  render:()=>{},setTimeout:()=>{},
+};
+vm.createContext(openContext);
+vm.runInContext(html.slice(openStart,openEnd),openContext);
+assert.equal(openContext.stockControlOpenAdjustmentsForProducts([1,'2',1,999]),true);
+assert.deepEqual(Array.from(openContext.stockEditItems),[1,2,3],'open unique valid products and retain the existing list');
+assert.deepEqual({...openContext.stockEditDraftStocks},{1:0,2:5,3:8},'preserve counted quantities, including zero');
+assert.equal(openContext.stockEditPage,1);
+assert.equal(openContext.stockControlMode,'adjust');
+assert.equal(openContext.stockControlAnomalySelectedIds.size,0);
+assert.equal(openContext.stockControlOpenAdjustmentsForProducts([999]),false);
+assert.equal(openContext.stockControlOpenAdjustmentForProduct(3),true);
+assert.deepEqual(Array.from(openContext.stockEditItems),[3,1,2]);
+assert.deepEqual(Array.from(openContext.stockControlAnomalyProductIds(anomalyRows.concat(anomalyRows))),[1,2,3]);
+
 const payloadStart = html.indexOf('function stockEditAdjustmentLines(');
 const payloadEnd = html.indexOf('async function confirmStockEditChanges(', payloadStart);
 assert.ok(payloadStart >= 0 && payloadEnd > payloadStart);
