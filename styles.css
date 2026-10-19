@@ -2150,7 +2150,7 @@
   .cash-shift-topbar-action{display:flex;align-items:center;gap:9px;white-space:nowrap;color:#714b00;font-size:13px;}
   .cash-shift-topbar-action.open{color:#246b36;}
   .cash-shift-topbar-action.open.overdue{color:#b42318;}
-  .cash-shift-overdue{margin:0 0 14px;}
+  .cash-shift-overdue{margin:0 0 14px;text-align:center;}
   .cash-shift-topbar-action strong{font-weight:700;}.cash-shift-topbar-action .btn{padding:7px 12px;}
   .cash-shift-page{max-width:1180px;margin:0 auto;}.cash-shift-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:16px;}
   .cash-shift-heading h2{margin:0 0 4px;font-size:23px;}.cash-shift-heading p{margin:0;color:var(--text-muted);}
