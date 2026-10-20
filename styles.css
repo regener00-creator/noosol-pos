@@ -914,6 +914,7 @@
   .goods-receipt-items th:nth-child(6),.goods-receipt-items td:nth-child(6),
   .goods-receipt-items th:nth-child(7),.goods-receipt-items td:nth-child(7){text-align:center!important;vertical-align:middle;}
   .goods-receipt-items .poi_qty,.goods-receipt-items .poi_price{text-align:center!important;border-radius:8px;}
+  .goods-receipt-items .poi_lot,.goods-receipt-items .poi_expiry{text-align:center;}
   .goods-receipt-items .poi_unit{text-align:center;text-align-last:center;border-radius:8px;}
   .goods-receipt-items .poi_del{border-radius:8px;}
   /* เอกสารเปลี่ยนสินค้า: ใช้ class เฉพาะหน้า ไม่กระทบตารางเอกสารอื่น */
