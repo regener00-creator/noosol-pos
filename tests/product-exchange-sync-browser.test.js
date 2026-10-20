@@ -40,13 +40,22 @@ let browser;
     window.exchangeCalls=[];
     window.configureExchangeTest=legacy=>{
       const doc={id:legacy?'EX-LEGACY':'EX-NEW',date:'2026-10-20',supplier:'บริษัททดสอบ',warehouseId:1,note:'',
-        status:legacy?'ส่งไปเปลี่ยนแล้ว':'ร่าง',outgoingApplied:legacy,incomingApplied:false,
+        status:legacy?'ส่งไปเปลี่ยนแล้ว':'ร่าง',outgoingApplied:!!legacy,incomingApplied:false,
+        ...(legacy?{outgoingAppliedAt:'2026-10-20 06:36:24.594092+00'}:{}),
         outgoingItems:[normalizeProductExchangeItem({pid:1,lineId:1,qty:2,unit:'กล่อง'})],incomingItems:[]};
       window.exchangeRemote={id:doc.id,revision:4,created_by:'test',data:structuredClone(doc)};
       productExchanges=[{...structuredClone(doc),...(legacy?{}:{_revision:4})}];
       productExchangeDraft=null;editingProductExchangeId=doc.id;currentTab='productexchange';
       syncedTableRows.product_exchanges=tableSnapshot(productExchanges,docToRow);
       workspaceRecoveryEntries.clear();exchangeCalls=[];
+      if(legacy==='missing-baseline'){
+        // Restore the pre-outbox cache and fetch the server row exactly as a
+        // reload does. Incoming edits must survive without an old baseline.
+        productExchanges[0].incomingItems=[normalizeProductExchangeItem({pid:1,lineId:2,qty:2,unit:'กล่อง',expiry:'2028-02-02'})];
+        applyWorkspaceData({_recoveryActorId:'test',productExchanges:structuredClone(productExchanges)});
+        productExchanges=mergeWorkspaceRemoteRows('product_exchanges',productExchanges,[rowToDoc(exchangeRemote)],docToRow);
+        if(syncedTableRows.product_exchanges.has(doc.id))throw new Error('Expected a missing legacy baseline');
+      }
       render();
     };
     sb.from=table=>{
@@ -73,14 +82,16 @@ let browser;
       throw new Error('Unexpected RPC '+name);
     };
   });
-  for(const legacy of [true,false]){
+  for(const legacy of [true,'missing-baseline',false]){
     await page.evaluate(legacy=>configureExchangeTest(legacy),legacy);
     if(!legacy){
       await page.locator('#confirmExchangeSentBtn').click();
       await page.waitForFunction(()=>productExchangeDraft.outgoingApplied&&!productExchangeStatusInFlight);
       assert.equal(await page.evaluate(()=>productExchangeDraft._revision),6);
     }
-    await page.locator('#copyExchangeOutgoingBtn').click();
+    if(legacy==='missing-baseline'){
+      assert.equal(await page.locator('[data-product-exchange-row="incoming"] .product-exchange-expiry').inputValue(),'02/02/2028');
+    }else await page.locator('#copyExchangeOutgoingBtn').click();
     await page.locator('[data-product-exchange-row="incoming"] .product-exchange-lot').fill('LOT-RETURN');
     await page.locator('[data-product-exchange-row="incoming"] .product-exchange-expiry').fill('20/10/2027');
     await page.locator('#confirmExchangeReceivedBtn').click();
@@ -95,7 +106,7 @@ let browser;
     assert.equal(await page.locator('#saveProductExchangeBtn').isDisabled(),true);
   }
   assert.deepEqual(errors,[]);
-  console.log('Product exchange browser: legacy recovery and send → receive passed');
+  console.log('Product exchange browser: baseline-free cache reload, legacy recovery and send → receive passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
   if(browser)await browser.close();
   await new Promise(resolve=>server.close(resolve));

@@ -8,14 +8,27 @@ async function recoverProductExchangeRevision(doc){
   const table='product_exchanges',key=String(doc.id);
   const baselineText=syncedTableRows[table]?.get(key);
   const baseline=baselineText?JSON.parse(baselineText):null;
-  // Older stock responses contained only data, losing the row's revision.
-  // Rebase only when the server still matches that exact acknowledged data.
-  if(!baseline||Number(baseline.revision)>0||baseline.data?.outgoingApplied!==true) return;
+  // Older stock responses lost the revision; legacy outboxes can also lack
+  // their acknowledged baseline entirely after a reload.
   const {data,error}=await sb.from(table).select('*').eq('id',doc.id).maybeSingle();
   if(error) throw error;
   const comparable=value=>JSON.stringify(stableJsonValue(cloudClean(docToRow(value).data)));
   const remote=data?rowToDoc(data):null;
-  if(!remote||comparable(baseline.data)!==comparable(remote)){
+  const baselineMatches=remote&&baseline?.data?.outgoingApplied===true&&comparable(baseline.data)===comparable(remote);
+  // Without a usable baseline, accept only the very same posted shipment with
+  // no receipt work on the server. All fields except the new local receipt
+  // lines must match, including the server-issued outgoing transaction time.
+  const shipmentData=value=>{
+    const {incomingItems,unreturnedItems,...shipment}=value;
+    return comparable(shipment);
+  };
+  const untouchedReceiptMatches=remote&&doc.status==='ส่งไปเปลี่ยนแล้ว'&&remote.status===doc.status&&
+    doc.incomingApplied===false&&remote.incomingApplied===false&&
+    typeof doc.outgoingAppliedAt==='string'&&doc.outgoingAppliedAt.length>0&&
+    Array.isArray(remote.incomingItems)&&remote.incomingItems.length===0&&
+    (remote.unreturnedItems===undefined||Array.isArray(remote.unreturnedItems)&&remote.unreturnedItems.length===0)&&
+    shipmentData(doc)===shipmentData(remote);
+  if(!baselineMatches&&!untouchedReceiptMatches){
     const conflict=new Error('เอกสารเปลี่ยนสินค้าบนเซิร์ฟเวอร์เปลี่ยนแล้ว กรุณาตรวจเทียบงานรอซิงก์ก่อนบันทึก');
     conflict.code='REVISION_CONFLICT'; conflict.recordId=key; throw conflict;
   }
@@ -24,7 +37,7 @@ async function recoverProductExchangeRevision(doc){
   if(typeof productExchangeDraft!=='undefined'&&productExchangeDraft?.id===doc.id&&!Number(productExchangeDraft._revision)){
     productExchangeDraft._revision=remote._revision;
   }
-  syncedTableRows[table].set(key,JSON.stringify(docToRow(remote)));
+  (syncedTableRows[table]||=new Map()).set(key,JSON.stringify(docToRow(remote)));
   const pending=workspaceRecoveryEntries.get(`${table}:${key}`);
   if(pending) pending.baseline=JSON.stringify(docToRow(remote));
 }

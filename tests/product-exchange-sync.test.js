@@ -11,7 +11,7 @@ function section(start,end){
 const copy=value=>JSON.parse(JSON.stringify(value));
 function setup(){
   const sent={id:'EX1',date:'2026-10-20',supplier:'Supplier',warehouseId:1,note:'',
-    status:'ส่งไปเปลี่ยนแล้ว',outgoingApplied:true,incomingApplied:false,
+    status:'ส่งไปเปลี่ยนแล้ว',outgoingApplied:true,incomingApplied:false,outgoingAppliedAt:'2026-10-20 06:36:24.594092+00',
     outgoingItems:[{pid:1,lineId:1,qty:2,factor:1,unit:'box'}],incomingItems:[]};
   let remote={id:'EX1',revision:4,created_by:'owner',data:copy(sent)};
   const calls=[],errors=[],messages=[];
@@ -75,6 +75,43 @@ test('old sent document recovers missing revision and receives on the same docum
   assert.equal(s.ctx.productExchangeDraft._revision,6);
   assert.equal(s.ctx.productExchangeDraft.incomingApplied,true);
   assert.equal(s.remote.data.incomingItems.length,1);
+});
+test('legacy outbox without a baseline recovers the same sent transaction and keeps receipt edits',async()=>{
+  const s=setup();
+  s.ctx.syncedTableRows.product_exchanges.delete('EX1');
+  s.ctx.workspaceRecoveryEntries.set('product_exchanges:EX1',{table:'product_exchanges',id:'EX1',baseline:null,record:copy(s.ctx.productExchangeDraft),legacy:true});
+  await s.ctx.changeProductExchangeStatus('รับสินค้ากลับแล้ว');
+  assert.equal(s.errors.length,0);
+  assert.equal(s.calls[0].args.p_expected_revision,4);
+  assert.equal(s.remote.data.incomingItems[0].expiry,'2027-10-20');
+  assert.equal(s.remote.data.incomingApplied,true);
+  assert.equal(s.calls.filter(c=>c.name==='stock').length,1);
+});
+test('missing revision with an existing positive baseline recovers before receipt',async()=>{
+  const s=setup();
+  s.ctx.syncedTableRows.product_exchanges.set('EX1',JSON.stringify({...s.remote}));
+  await s.ctx.changeProductExchangeStatus('รับสินค้ากลับแล้ว');
+  assert.equal(s.errors.length,0);
+  assert.equal(s.calls[0].args.p_expected_revision,4);
+});
+for(const mutation of ['note','incomingItems','outgoingAppliedAt','incomingApplied']){
+  test(`baseline-free recovery does not overwrite remote ${mutation} changes`,async()=>{
+    const s=setup();s.ctx.syncedTableRows.product_exchanges.delete('EX1');
+    const values={note:'remote edit',incomingItems:[{pid:2,qty:3}],outgoingAppliedAt:'2026-10-20 07:00:00+00',incomingApplied:true};
+    s.remote={...s.remote,data:{...s.remote.data,[mutation]:values[mutation]}};
+    await s.ctx.changeProductExchangeStatus('รับสินค้ากลับแล้ว');
+    assert.equal(s.errors.length,1);
+    assert.equal(s.calls.length,0);
+    assert.deepEqual(s.remote.data[mutation],values[mutation]);
+    assert.equal(s.ctx.productExchangeDraft.incomingItems.length,1);
+  });
+}
+test('baseline-free recovery requires a matching server-issued outgoing timestamp',async()=>{
+  const s=setup();s.ctx.syncedTableRows.product_exchanges.delete('EX1');
+  delete s.ctx.productExchangeDraft.outgoingAppliedAt;
+  await s.ctx.changeProductExchangeStatus('รับสินค้ากลับแล้ว');
+  assert.equal(s.errors.length,1);
+  assert.equal(s.calls.filter(c=>c.name==='stock').length,0);
 });
 test('background sync repairs old cache without discarding incoming edits',async()=>{
   const s=setup();
