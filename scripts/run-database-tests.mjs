@@ -50,6 +50,9 @@ try{
     }
   }
   console.log('All baseline and migration SQL applied to isolated PostgreSQL');
+  const exchangeSuite=await import('../tests/product-exchange-database.mjs');
+  await exchangeSuite.run({client});
+  if(!process.argv.includes('--exchange-only')){
   const returnsSuite=await import('../tests/customer-returns-database.mjs');
   await returnsSuite.run({client});
   const suite=await import('../tests/database-integrity.mjs');
@@ -60,6 +63,7 @@ try{
   await unusedUnitSuite.run({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
   const catalogSuite=await import('../tests/catalog-validation-database.mjs');
   await catalogSuite.run({client});
+  }
 }catch(error){
   // Surface the actual failure even if the platform is slow to stop Postgres.
   console.error(error||postgresLogs.join('\n'));
