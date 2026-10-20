@@ -857,10 +857,11 @@
   .po-head{display:grid;grid-template-columns:1.4fr 1fr;gap:24px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;margin-bottom:16px;}
   .po-head .crow{grid-template-columns:120px 1fr;margin-bottom:10px;}
   .po-head select,.po-head input{padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13.5px;width:100%;}
-  .goods-receipt-tax-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,1.5fr) minmax(112px,1fr);gap:12px;margin-bottom:14px;}
+  .po-head-left:has(>.goods-receipt-tax-row){display:flex;flex-direction:column;min-width:0;}
+  .goods-receipt-tax-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,1.5fr) minmax(112px,1fr);gap:12px;margin-top:auto;margin-bottom:10px;}
   .po-head .goods-receipt-tax-row>.crow{display:flex;flex-direction:column;min-width:0;gap:6px;margin-bottom:0;}
   .goods-receipt-tax-row>.crow>label{padding-top:0;flex:1;}
-  .goods-receipt-tax-row input,.goods-receipt-tax-row select{min-width:0;height:38px;}
+  .goods-receipt-tax-row input,.goods-receipt-tax-row select{min-width:0;height:37px;}
   @media(max-width:1200px){.po-head:has(.goods-receipt-tax-row){grid-template-columns:1fr;}}
   @media(max-width:600px){.goods-receipt-tax-row{grid-template-columns:1fr;}}
   .po-addr{font-size:13px;color:var(--text);padding-top:7px;}
