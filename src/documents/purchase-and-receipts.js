@@ -288,11 +288,13 @@ function renderProductReturnForm(po,isNew){
     <div class="po-head">
       <div class="po-head-left">
         <div class="crow"><label>ผู้จำหน่าย <span class="req">*</span></label><div class="po-supplier-pick">${documentPartyFieldHtml('po_supplier',po.supplier)}</div></div>
-        <div class="crow"><label>คืนจากคลัง / สาขา <span class="req">*</span></label><select id="po_warehouse" ${locked?'disabled':''}><option value="">เลือกคลัง / สาขา</option>${accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${Number(po.warehouseId)===Number(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>
         <div class="crow"><label>ที่อยู่</label><div class="po-addr">${supplierObj?escapeHtml(supplierObj.address||'-'):'(เลือกผู้จำหน่ายเพื่อแสดงที่อยู่)'}</div></div>
         <div class="crow"><label>เลขผู้เสียภาษี</label><div class="po-addr mono">${supplierObj?escapeHtml(supplierObj.taxId||'-'):'-'}</div></div>
       </div>
-      <div class="po-head-right"><div class="crow"><label>วันที่</label>${dmyDateFieldHtml('po_date',po.date||TODAY_STR)}</div></div>
+      <div class="po-head-right">
+        <div class="crow"><label>คืนจากคลัง / สาขา <span class="req">*</span></label><select id="po_warehouse" ${locked?'disabled':''}><option value="">เลือกคลัง / สาขา</option>${accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${Number(po.warehouseId)===Number(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>
+        <div class="crow"><label>วันที่</label>${dmyDateFieldHtml('po_date',po.date||TODAY_STR)}</div>
+      </div>
     </div>
     ${documentProductScannerHtml()}
     <table class="grid-table po-items product-return-items document-centered-items"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th>Lot ที่คืน</th><th>วันหมดอายุ</th><th style="width:48px;"></th></tr></thead><tbody id="poItemRows">${po.items.map((it,i)=>productReturnItemRowHtml(it,i,po.warehouseId,locked)).join('')}</tbody></table>
