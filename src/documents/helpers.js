@@ -22,7 +22,7 @@ function pagerHtml(current, total, attr){
     ${btn('»',total,current===total,'','หน้าสุดท้าย')}
   </div>`;
 }
-// ---------- ตัวช่วยจัดการเอกสารตามประเภท (po=สั่งซื้อสินค้า, gr=ใบรับสินค้า, ret=คืนสินค้า) ----------
+// ---------- ตัวช่วยจัดการเอกสารตามประเภท (po=จดสั่งสินค้า, gr=ใบรับสินค้า, ret=คืนสินค้า) ----------
 function isSupplierStyleDoc(kind){ return kind==='gr'||kind==='ret'; }
 function docList(kind){ return kind==='gr'?goodsReceipts:kind==='ret'?productReturns:purchaseOrders; }
 function docEditingId(kind){ return kind==='gr'?editingGRId:kind==='ret'?editingReturnId:editingPOId; }
@@ -52,7 +52,7 @@ function nextYearlySeq(prefix, values){
 function buildDocNumber(prefix, seq){ return `${prefix}${TODAY_STR.replace(/-/g,'')}${String(seq).padStart(4,'0')}`; }
 function docCounter(kind){ const list=docList(kind); return nextDailySeq(docPrefix(kind), list.map(d=>d.id)); }
 function bumpDocCounter(kind){ /* ไม่ต้องทำอะไร: เลขคำนวณสดจากรายการเอกสารเสมอ (รีเซ็ตรายวันอัตโนมัติ) */ }
-function docLabelText(kind){ return kind==='gr'?'ใบรับสินค้า':kind==='ret'?'ใบคืนสินค้า':'สั่งซื้อสินค้า'; }
+function docLabelText(kind){ return kind==='gr'?'ใบรับสินค้า':kind==='ret'?'ใบคืนสินค้า':'จดสั่งสินค้า'; }
 function docDefaultStatus(kind){ return kind==='gr'?'รอรับสินค้า':kind==='ret'?'รอรับคืน':'รอสั่งของ'; }
 const GOODS_RECEIPT_STATUSES=['รอรับสินค้า','รับสินค้าแล้ว','ชำระเรียบร้อย'];
 function goodsReceiptWarehouseId(doc,warehouseList,productList){

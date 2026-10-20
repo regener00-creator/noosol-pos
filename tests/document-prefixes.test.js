@@ -18,7 +18,7 @@ for (const [key, value] of [
 }
 
 assert.match(html, /saved\.id=generateInspectionListId\(\)/);
-assert.match(html, /\{key:'shortage',label:'สั่งซื้อสินค้า'\}/);
+assert.match(html, /\{key:'shortage',label:'จดสั่งสินค้า'\}/);
 assert.doesNotMatch(html, /key:'purchaseOrder'/, 'obsolete purchase-order prefix setting must be removed');
 assert.match(html, /function generateInspectionListId\(\)/);
 assert.match(html, /function nextA4CashReceiptNumber\(\)[\s\S]{0,260}documentPrefixes\.cashBill/);

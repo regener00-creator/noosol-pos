@@ -21,10 +21,10 @@ assert.match(source, /\.shortage-form-grid \.shortage-date-field \.dmy-input\{[^
 assert.match(source, /\.shortage-form-grid \.shortage-date-field \.dmy-native\{[^}]*width:30px/, 'ปุ่มปฏิทินต้องไม่ซ้อนทับพื้นที่พิมพ์วันที่');
 assert.match(form, /วันที่สั่ง[\s\S]*ชื่อผู้แทน[\s\S]*id="newPORepBtn"[\s\S]*id="shortageManagedProductsBtn"/);
 assert.match(form, /class="btn primary" id="shortageManagedProductsBtn"/, 'ปุ่มสินค้าที่ดูแลต้องใช้สีเดียวกับปุ่มบันทึกเอกสาร');
-assert.doesNotMatch(form, /createPurchaseOrderFromShortageBtn|สร้างใบสั่งซื้อจากรายการนี้/, 'หน้าสั่งซื้อสินค้าต้องเป็นระบบเดียวและไม่มีขั้นตอนแปลงเอกสารซ้ำ');
-assert.match(form, /สั่งซื้อสินค้า ›/);
+assert.doesNotMatch(form, /createPurchaseOrderFromShortageBtn|สร้างใบสั่งซื้อจากรายการนี้/, 'หน้าจดสั่งสินค้าต้องเป็นระบบเดียวและไม่มีขั้นตอนแปลงเอกสารซ้ำ');
+assert.match(form, /จดสั่งสินค้า ›/);
 assert.match(form, /shortage-note-field[\s\S]*หมายเหตุ/);
-assert.doesNotMatch(form, /id="editPORepBtn"/, 'หน้าสั่งซื้อสินค้าต้องไม่มีปุ่มแก้ไขข้างชื่อผู้แทน');
+assert.doesNotMatch(form, /id="editPORepBtn"/, 'หน้าจดสั่งสินค้าต้องไม่มีปุ่มแก้ไขข้างชื่อผู้แทน');
 assert.match(source, /from\('sales_representative_products'\)[\s\S]{0,220}\.eq\('representative_id',Number\(representative\.id\)\)/);
 assert.match(source, /data-shortage-managed-product=/);
 assert.match(source, /addDocumentScannedProduct\(product\.id,product\.unit\)/);
@@ -35,7 +35,7 @@ for(const kind of ['po','ret','quotation']) assert.doesNotMatch(toolbar(kind),/i
 assert.match(toolbar('gr'),/id="docBulkPrint"/,'หน้ารับเข้าสินค้ายังคงมีปุ่มพิมพ์หลายรายการ');
 assert.match(printSource, /ข้อมูลผู้แทน[\s\S]*ชื่อ <b>[\s\S]*บริษัท <b>/, 'เอกสารพิมพ์ต้องแสดงเฉพาะชื่อและบริษัทของผู้แทน');
 assert.doesNotMatch(printSource, /เบอร์โทร \$\{escapeHtml\(supplier\?\.phone|ไลน์ \$\{escapeHtml\(supplier\?\.line|supplier\?\.note/, 'เอกสารพิมพ์ต้องไม่แสดงเบอร์โทร ไลน์ หรือข้อมูลเพิ่มเติมของผู้แทน');
-assert.doesNotMatch(printSource, /<b>หมายเหตุ:<\/b>/, 'เอกสารสั่งซื้อสินค้าต้องไม่มีหมายเหตุท้ายกระดาษ');
-assert.doesNotMatch(printSource, /styled\?'ผู้ขาย':'ผู้แทน'|styled\?'ผู้รับสินค้า':'ผู้อนุมัติ'/, 'เอกสารสั่งซื้อสินค้าต้องไม่มีช่องลงชื่อผู้แทนและผู้อนุมัติ');
+assert.doesNotMatch(printSource, /<b>หมายเหตุ:<\/b>/, 'เอกสารจดสั่งสินค้าต้องไม่มีหมายเหตุท้ายกระดาษ');
+assert.doesNotMatch(printSource, /styled\?'ผู้ขาย':'ผู้แทน'|styled\?'ผู้รับสินค้า':'ผู้อนุมัติ'/, 'เอกสารจดสั่งสินค้าต้องไม่มีช่องลงชื่อผู้แทนและผู้อนุมัติ');
 
 console.log('shortage managed products tests passed');

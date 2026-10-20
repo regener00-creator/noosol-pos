@@ -11,7 +11,7 @@ const navSource=html.slice(html.indexOf('const NAV = ['),html.indexOf('function 
 const historyNavIndex = navSource.indexOf("['history','ประวัติการขาย / ใบเสร็จ'");
 const promotionsNavIndex = navSource.indexOf("['promotions','โปรโมชั่น'");
 const purchaseSectionIndex = navSource.indexOf("{section:'ซื้อ & รับสินค้า'");
-const purchaseOrderNavIndex = navSource.indexOf("['purchaseorder','สั่งซื้อสินค้า'");
+const purchaseOrderNavIndex = navSource.indexOf("['purchaseorder','จดสั่งสินค้า'");
 const goodsReceiptNavIndex = navSource.indexOf("['goodsreceipt','รับเข้าสินค้า'");
 const productReturnNavIndex = navSource.indexOf("['productreturn','ใบคืนสินค้า'");
 const salesDocumentsSectionIndex = navSource.indexOf("{section:'เอกสารขาย'");
@@ -29,7 +29,7 @@ assert.ok(historyNavIndex >= 0 && promotionsNavIndex > historyNavIndex && purcha
 assert.ok(purchaseOrderNavIndex > purchaseSectionIndex && goodsReceiptNavIndex > purchaseOrderNavIndex && productReturnNavIndex > goodsReceiptNavIndex && productReturnNavIndex < salesDocumentsSectionIndex, 'สั่งซื้อ รับ และคืนสินค้าต้องอยู่ในหมวดซื้อ & รับสินค้า');
 assert.doesNotMatch(navSource, /purchaseorder2|ใบสั่งซื้อสินค้า/, 'ต้องถอดหน้าใบสั่งซื้อสินค้าเดิมออกจากเมนู');
 const permissionSource=html.slice(html.indexOf('const PAGE_PERMISSION_OPTIONS=['),html.indexOf('function permissionsForPage'));
-assert.match(permissionSource, /\['purchaseorder','สั่งซื้อสินค้า'\]/, 'หน้าสั่งซื้อสินค้าต้องยังตั้งค่าสิทธิ์ได้');
+assert.match(permissionSource, /\['purchaseorder','จดสั่งสินค้า'\]/, 'หน้าสั่งซื้อสินค้าต้องยังตั้งค่าสิทธิ์ได้');
 assert.doesNotMatch(permissionSource, /purchaseorder2|ใบสั่งซื้อสินค้า/, 'หน้าที่ถอดออกต้องไม่ค้างอยู่ในการตั้งค่าสิทธิ์');
 const rendererSource=html.slice(html.indexOf('const RENDERERS = {'),html.indexOf('function render(){'));
 assert.doesNotMatch(rendererSource, /purchaseorder2|renderPurchaseOrder2/, 'หน้าที่ถอดออกต้องไม่มีเส้นทางเปิดใช้งาน');

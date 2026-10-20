@@ -208,7 +208,7 @@ function workspaceRecoveryTables(){
 function renderWorkspaceRecoveryPanel(panel){
   if(!panel) return;
   const entries=currentWorkspacePendingChanges();
-  const labels={contacts:'ลูกค้า / ผู้จำหน่าย',sales_representatives:'ผู้แทน',quotations:'ใบเสนอราคา',purchase_orders:'สั่งซื้อสินค้า',goods_receipts:'รับเข้าสินค้า',product_returns:'คืนสินค้า'};
+  const labels={contacts:'ลูกค้า / ผู้จำหน่าย',sales_representatives:'ผู้แทน',quotations:'ใบเสนอราคา',purchase_orders:'จดสั่งสินค้า',goods_receipts:'รับเข้าสินค้า',product_returns:'คืนสินค้า'};
   panel.innerHTML=`<div class="sync-detail-section-title">งานรอซิงก์ ${entries.length} รายการ${workspaceCacheSaveFailed?' · ยังเก็บลงเครื่องไม่สำเร็จ':''}</div>${entries.length?`<button class="btn ghost" type="button" data-export-recovery>ดาวน์โหลดสำเนางานรอซิงก์</button><div class="sync-recovery-list">${entries.map((entry,index)=>`<div class="sync-recovery-row"><span>${escapeHtml(labels[entry.table]||entry.table)} · ${escapeHtml(entry.record?.name||entry.record?.id||entry.id)}${entry.record?'':' · รอลบ'}</span><button class="btn ghost" type="button" data-discard-recovery="${index}">ใช้ข้อมูลเซิร์ฟเวอร์</button></div>`).join('')}</div>`:'<div class="sync-detail-note">ไม่มีงานค้างของสมุดรายชื่อหรือเอกสาร</div>'}`;
   panel.querySelector('[data-export-recovery]')?.addEventListener('click',()=>{
     const blob=new Blob([JSON.stringify({format:'SAPURI-pending-work',createdAt:new Date().toISOString(),changes:entries},null,2)],{type:'application/json;charset=utf-8'});

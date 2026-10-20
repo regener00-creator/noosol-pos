@@ -19,7 +19,7 @@ const DOCUMENT_PREFIX_FIELDS=[
   {key:'cashBill',label:'บิลเงินสด A4'},
   {key:'taxInvoice',label:'ใบกำกับภาษีเต็มรูปแบบ'},
   {key:'quotation',label:'ใบเสนอราคา'},
-  {key:'shortage',label:'สั่งซื้อสินค้า'},
+  {key:'shortage',label:'จดสั่งสินค้า'},
   {key:'productReturn',label:'ใบคืนสินค้า'},
   {key:'goodsReceipt',label:'ใบรับสินค้า'},
   {key:'productExchange',label:'เปลี่ยนสินค้า'},

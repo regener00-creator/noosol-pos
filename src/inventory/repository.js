@@ -37,7 +37,7 @@ const PAGE_PERMISSION_OPTIONS=[
   ['goodsreceipt','ใบรับสินค้า'],['products','รายการสินค้า'],['inventorymovement','รายงานการเคลื่อนไหว'],
   ['rinventory','รายงานสินค้าคงเหลือ'],['lowstock','สินค้าใกล้หมด'],['expiry','สินค้าใกล้หมดอายุ'],
   ['rproduct','รายงานสินค้า'],['rbill','รายงานบิล'],['cashbill','บิลเงินสด'],['inspectionlists','ตรวจนับและปรับสต๊อก'],
-  ['purchaseorder','สั่งซื้อสินค้า'],['productreturn','ใบคืนสินค้า'],
+  ['purchaseorder','จดสั่งสินค้า'],['productreturn','ใบคืนสินค้า'],
   ['productexchange','เปลี่ยนสินค้า'],['contacts','ผู้จำหน่าย / ลูกค้า'],['salesreps','ผู้แทน'],
   ['taxinvoice','ใบกำกับภาษีเต็มรูปแบบ'],['quotation','ใบเสนอราคา'],['barcodeprint','พิมพ์ป้ายราคา'],
   ['promotions','โปรโมชั่น'],['warehouse','คลังสินค้า / สาขา'],['transfer','โอนย้ายสต๊อก'],

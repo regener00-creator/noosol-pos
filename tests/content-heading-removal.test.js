@@ -25,7 +25,7 @@ for (const description of [
 }
 
 for (const inlineTitle of [
-  'สั่งซื้อสินค้า <span class="page-title-meta">บันทึกรายการสินค้าที่ต้องแจ้งสั่งกับผู้แทน · ${allDocs.length} รายการ',
+  'จดสั่งสินค้า <span class="page-title-meta">บันทึกรายการสินค้าที่ต้องแจ้งสั่งกับผู้แทน · ${allDocs.length} รายการ',
   'ใบรับสินค้า <span class="page-title-meta">บันทึกและตรวจสอบการรับสินค้าเข้าคลัง · ${allDocs.length} รายการ',
   'เปลี่ยนสินค้า <span class="page-title-meta">ติดตามสินค้าที่ส่งไปเปลี่ยนและสินค้าที่ได้รับกลับ · ${allDocs.length} รายการ',
   '${isCustomers?\'ลูกค้า\':\'ผู้จำหน่าย\'} <span class="page-title-meta">· ${list.length} รายชื่อ',

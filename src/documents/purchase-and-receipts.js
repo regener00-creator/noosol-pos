@@ -18,14 +18,14 @@ function renderPurchaseOrder(){
   if(docListPage.po<1) docListPage.po=1;
   const start=(docListPage.po-1)*DOC_LIST_PAGE_SIZE;
   const pageDocs=allDocs.slice(start,start+DOC_LIST_PAGE_SIZE);
-  return `<div class="pagehead"><div><h1>สั่งซื้อสินค้า <span class="page-title-meta">บันทึกรายการสินค้าที่ต้องแจ้งสั่งกับผู้แทน · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newPOBtn">+ สร้างรายการสั่งซื้อ</button></div>
+  return `<div class="pagehead"><div><h1>จดสั่งสินค้า <span class="page-title-meta">บันทึกรายการสินค้าที่ต้องแจ้งสั่งกับผู้แทน · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newPOBtn">+ สร้างรายการสั่งซื้อ</button></div>
   ${documentBulkToolbar('po')}
   <div class="doc-list-wrap">
   <table class="grid-table doc-list po-doc-list"><colgroup><col style="width:42px"><col style="width:100px"><col style="width:130px"><col style="width:170px"><col style="width:340px"><col style="width:130px"><col style="width:130px"><col style="width:90px"><col style="width:100px"></colgroup><thead><tr><th style="width:42px;"><input class="doc-check" type="checkbox" aria-label="เลือกทั้งหมด"></th><th>${documentSortHeader('po','date','วันที่สั่ง')}</th><th>${documentSortHeader('po','supplier','ชื่อผู้แทน')}</th><th>ข้อมูลติดต่อ</th><th>รายการสั่งของ</th><th>หมายเหตุ</th><th>${documentSortHeader('po','status','สถานะ')}</th><th>${documentSortHeader('po','elapsed','ผ่านมาแล้ว')}</th><th style="width:100px;"></th></tr></thead>
   <tbody>${pageDocs.map(po=>`<tr>
     <td style="text-align:center;"><input class="doc-check" type="checkbox" value="${escapeHtml(po.id)}" aria-label="เลือก ${escapeHtml(po.id)}"></td><td style="text-align:center;">${escapeHtml(fmtDate(po.date))}</td><td style="text-align:center;">${escapeHtml(po.supplier)}</td><td style="text-align:center;">${shortageRepresentativeContact(po.supplier)}</td>
     <td>${shortageAllItems(po.items,po.id)}</td><td>${escapeHtml(po.note||'-')}</td><td style="text-align:center;">${documentStatusControl('po',po)}</td><td style="text-align:center;"><span class="elapsed-days">${elapsedDaysSince(po.date)} วัน</span></td>
-    <td style="text-align:center;"><div class="history-actions shortage-row-actions"><button class="shortage-edit-btn" data-act="editpo" data-id="${escapeHtml(po.id)}" title="แก้ไขรายการ" aria-label="แก้ไข ${escapeHtml(po.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn" data-act="printpo" data-id="${escapeHtml(po.id)}" title="พิมพ์เอกสาร" aria-label="พิมพ์ ${escapeHtml(po.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg></button></div></td></tr>${expandableDocumentItemsDetailRow('shortage',po.id,po.items,9)}`).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px;">ยังไม่มีรายการสั่งซื้อสินค้า</td></tr>'}</tbody></table>
+    <td style="text-align:center;"><div class="history-actions shortage-row-actions"><button class="shortage-edit-btn" data-act="editpo" data-id="${escapeHtml(po.id)}" title="แก้ไขรายการ" aria-label="แก้ไข ${escapeHtml(po.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn" data-act="printpo" data-id="${escapeHtml(po.id)}" title="พิมพ์เอกสาร" aria-label="พิมพ์ ${escapeHtml(po.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg></button></div></td></tr>${expandableDocumentItemsDetailRow('shortage',po.id,po.items,9)}`).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px;">ยังไม่มีรายการจดสั่งสินค้า</td></tr>'}</tbody></table>
   </div>
   ${pagerHtml(docListPage.po, totalPages, 'docpage-po')}`;
 }
@@ -257,7 +257,7 @@ async function openShortageManagedProductsModal(){
 
 function renderShortageOrderForm(po,isNew){
   const representative=salesRepresentatives.find(rep=>rep.name===po.supplier);
-  return `<div class="pagehead"><div><div class="breadcrumb">สั่งซื้อสินค้า › ${isNew?'สร้างรายการ':'แก้ไขรายการ'}</div><h1>${escapeHtml(po.id)}</h1></div></div>
+  return `<div class="pagehead"><div><div class="breadcrumb">จดสั่งสินค้า › ${isNew?'สร้างรายการ':'แก้ไขรายการ'}</div><h1>${escapeHtml(po.id)}</h1></div></div>
     <div class="panel"><div class="shortage-form-grid">
       <div class="shortage-form-main">
         <div class="shortage-form-controls">

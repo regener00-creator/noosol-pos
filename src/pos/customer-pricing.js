@@ -170,7 +170,7 @@ function openPOSCustomerCreateModal(){
   overlay.innerHTML=`<div class="modal pos-customer-create-modal" role="dialog" aria-modal="true" aria-labelledby="posCustomerCreateTitle">
     <div class="modal-head"><div><h3 id="posCustomerCreateTitle">สร้างรายชื่อผู้ติดต่อ</h3><div class="sub">เพิ่มลูกค้าใหม่โดยไม่ต้องออกจากหน้า POS</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div>
     <div class="pos-customer-create-body">${contactEditorFieldsHtml(emptyCustomerContactDraft(),'customer')}</div>
-    <div class="pos-customer-create-actions"><button class="btn ghost" id="cancelPOSCustomerCreateBtn" type="button">ปิดหน้าต่าง</button><button class="btn primary" id="savePOSCustomerCreateBtn" type="button">บันทึกแล้วปิด</button></div>
+    <div class="pos-customer-create-actions"><button class="btn ghost" id="cancelPOSCustomerCreateBtn" type="button">ปิดหน้าต่าง</button><button class="btn primary" id="savePOSCustomerCreateBtn" type="button">บันทึก</button></div>
   </div>`;
   document.body.appendChild(overlay);
   bindContactTaxIdLabel(overlay);

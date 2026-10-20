@@ -224,7 +224,7 @@ function documentActivityItems(doc){
 function representativeDocumentActivities(context=representativeHistoryContext){
   if(!context) return [];
   const sources=[
-    {key:'purchase_orders',label:'สั่งซื้อสินค้า',type:'purchase_order',rows:purchaseOrders},
+    {key:'purchase_orders',label:'จดสั่งสินค้า',type:'purchase_order',rows:purchaseOrders},
     {key:'goods_receipts',label:'ใบรับสินค้า',type:'goods_receipt',rows:goodsReceipts},
     {key:'product_returns',label:'ใบคืนสินค้า',type:'product_return',rows:productReturns}
   ];
