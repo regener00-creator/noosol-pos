@@ -86,6 +86,7 @@ test('successful rows leave dirty queue even while another product stays conflic
 test('product conflict does not block other tables or emit duplicate events on paused retry',async()=>{
   const calls=[],reports=[];
   const ctx=vm.createContext({console:{warn(){}},Date,Error,
+    offlinePosMode:()=>false,offlinePendingSales:()=>[],offlineSyncRunning:false,
     currentProfile:{id:'owner'},currentTab:'products',coreSyncInFlight:false,coreSyncPending:false,coreSyncFailureDetail:null,currentWorkspacePendingChanges:()=>[],ensureWorkspaceRecoveryDurable:async()=>true,
     adoptRemoteMaintenanceEpoch:async()=>false,setSyncUiState:()=>{},loggedInUser:()=>({owner:true}),syncWarehousesIncrementally:async()=>true,
     contacts:[],contactToRow:x=>x,salesRepresentatives:[],salesRepToRow:x=>x,DOC_TABLES:[['quotations',()=>[]]],documentLoadStates:{quotations:{loaded:true}},

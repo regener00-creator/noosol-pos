@@ -13,6 +13,7 @@ const projectRoot = resolve(scriptDirectory, '..')
 const productDomainSource = await readFile(join(projectRoot, 'product-domain.js'), 'utf8')
 const outputDirectory = resolve(projectRoot, 'public')
 const zxingSourceFile = resolve(projectRoot, 'node_modules', '@zxing', 'browser', 'umd', 'zxing-browser.min.js')
+const supabaseSourceFile = resolve(projectRoot, 'node_modules', '@supabase', 'supabase-js', 'dist', 'umd', 'supabase.js')
 
 const staticDeployFiles = [
   'manifest.webmanifest',
@@ -125,7 +126,7 @@ export async function buildStatic() {
     Promise.resolve(applicationSources.readApplicationSource()),
     readFile(join(projectRoot, 'excel-tools.js'), 'utf8'),
     Promise.all(['styles.css','sapuri-mac.css'].map(name=>readFile(join(projectRoot,name),'utf8'))).then(parts=>parts.join('\n')),
-    readFile(join(projectRoot, 'index.html'), 'utf8'),
+    readFile(join(projectRoot, 'index.html'), 'utf8').then(html=>html.replace('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.111.0/dist/umd/supabase.min.js','/vendor/supabase.js?v=__PEPOS_ASSET_VERSION__')),
     readFile(join(projectRoot, 'sw.js'), 'utf8'),
     readFile(zxingSourceFile),
     ...staticDeployFiles.map(name => readFile(join(projectRoot, name))),
@@ -137,7 +138,7 @@ export async function buildStatic() {
     stylesSource,
     indexTemplate,
     workerTemplate,
-    versionInputs: [...staticContents, productExcelWriter],
+    versionInputs: [...staticContents, productExcelWriter, await readFile(supabaseSourceFile)],
   })
 
   await rm(outputDirectory, { recursive: true, force: true })
@@ -152,6 +153,7 @@ export async function buildStatic() {
     writeFile(join(outputDirectory, 'index.html'), prepared.indexHtml),
     writeFile(join(outputDirectory, 'sw.js'), prepared.workerCode),
     copyFile(zxingSourceFile, join(outputDirectory, 'vendor', 'zxing-browser.min.js')),
+    copyFile(supabaseSourceFile, join(outputDirectory, 'vendor', 'supabase.js')),
     ...staticDeployFiles.map(name => copyFile(join(projectRoot, name), join(outputDirectory, name))),
   ])
 

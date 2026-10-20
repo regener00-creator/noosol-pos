@@ -71,7 +71,8 @@ function isAllWarehousesMode(){ return allWarehousesMode===true; }
 function reportWarehouseIds(){ return accessibleWarehouses().map(warehouse=>Number(warehouse.id)).filter(Boolean); }
 function activeWarehouse(){ return (warehouses||[]).find(warehouse=>Number(warehouse.id)===Number(activeWarehouseId))||null; }
 function warehouseStock(productId,warehouseId=activeWarehouseId){
-  return Number(inventoryBalanceMap.get(inventoryBalanceKey(productId,warehouseId))?.stock)||0;
+  return (Number(inventoryBalanceMap.get(inventoryBalanceKey(productId,warehouseId))?.stock)||0)
+    -(typeof offlinePendingStock==='function'?offlinePendingStock(productId,warehouseId):0);
 }
 function warehouseExpiry(productId,warehouseId=activeWarehouseId){
   return inventoryBalanceMap.get(inventoryBalanceKey(productId,warehouseId))?.expiry||'';
@@ -264,7 +265,11 @@ function selectActiveWarehouse(warehouseId){
   try{ localStorage.setItem(activeWarehouseStorageKey(),String(activeWarehouseId)); }catch(error){}
   applyActiveWarehouseInventory();
   resetWarehouseScopedUiState(String(activeWarehouseId));
-  loadWarehouseInventoryFromSupabase([activeWarehouseId]).then(()=>render()).catch(error=>console.warn('load selected warehouse inventory',error));
+  if(offlinePosMode()){
+    showToast('ออฟไลน์: เปิดระบบชำระสำหรับคลังที่เลือกก่อนขาย','warning-top');
+    return true;
+  }
+  loadWarehouseInventoryFromSupabase([activeWarehouseId]).then(async()=>{await loadCashShiftsFromSupabase();await saveOfflinePosSnapshot();render();}).catch(error=>console.warn('load selected warehouse inventory',error));
   return true;
 }
 function resetWarehouseScopedUiState(reportWarehouseValue){

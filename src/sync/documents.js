@@ -135,6 +135,7 @@ async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full
 }
 async function syncCoreDataToSupabase(){
   if(!currentProfile) return;
+  if(offlinePosMode()||offlinePendingSales().length||offlineSyncRunning) return;
   if(await adoptRemoteMaintenanceEpoch()){
     await loadCoreDataFromSupabase(); await loadSalesHistoryFromSupabase(); await loadCashShiftsFromSupabase(); await loadInspectionListsFromSupabase(); await loadPromotionsFromSupabase(); await loadFavoritesFromSupabase();
     render(); return;

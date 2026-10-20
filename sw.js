@@ -3,9 +3,11 @@ const CACHE_NAME=`pepos-mobile-${ASSET_VERSION}`;
 const PAGE_ASSETS=['reports','documents','settings','catalog'].map(group=>`/page-${group}.js?v=${ASSET_VERSION}`);
 const APP_SHELL=['/','/index.html',`/styles.css?v=${ASSET_VERSION}`,`/app.js?v=${ASSET_VERSION}`,'/manifest.webmanifest','/sapuri-app-icon-192.png','/sapuri-app-icon-512.png','/sapuri-pharmacy-logo.webp','/sapuri-brand-logo.webp'];
 APP_SHELL.push(...PAGE_ASSETS);
+APP_SHELL.push(`/vendor/supabase.js?v=${ASSET_VERSION}`);
 const TRUSTED_CDN_HOSTS=new Set(['cdn.jsdelivr.net']);
 const MAX_RUNTIME_CACHE_ENTRIES=80;
 function isCacheableAsset(url){
+  if(url.origin===self.location.origin&&url.pathname==='/vendor/supabase.js') return true;
   if(url.origin!==self.location.origin) return TRUSTED_CDN_HOSTS.has(url.hostname)&&/^\/npm\/(?:@supabase\/supabase-js|xlsx|jsbarcode)@\d/.test(url.pathname);
   return /^\/(?:app\.js|styles\.css|page-[a-z]+\.js|excel-tools\.js|vendor\/zxing-browser\.min\.js|vendor\/product-excel-writer\.js|manifest\.webmanifest|sapuri-[a-z0-9-]+\.(?:png|webp)|fonts\/[a-zA-Z0-9_.-]+\.(?:woff2?|ttf)|sounds\/[a-zA-Z0-9_.-]+\.(?:mp3|wav))$/.test(url.pathname);
 }

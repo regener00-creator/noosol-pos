@@ -23,6 +23,10 @@ const sandbox = {
   stockReportCatFilter:{wh:'',category:'',brand:''}, inventoryMovementFilter:{warehouse:'',page:1},
   rproductFilter:{wh:''}, rbillFilter:{wh:''}, rprofitFilter:{wh:''},
   isMobileDeviceMode:()=>false,
+  offlinePosMode:()=>false,
+  render:()=>{},
+  saveOfflinePosSnapshot:async()=>{},
+  loadCashShiftsFromSupabase:async()=>{},
   sessionStorage:{
     getItem:key=>session.get(key) ?? null,
     setItem:(key,value)=>session.set(key,String(value)),

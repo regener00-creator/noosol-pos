@@ -94,6 +94,7 @@ function onDemandRequestKey(tab,requests){
   return `${tab}:${JSON.stringify({sales:requests.sales?.range||null,holds:!!requests.sales?.includeHolds,recent:!!requests.sales?.includeRecent,documents:requests.documents.map(item=>[item.table,item.range?.from||'',item.range?.to||'',!!item.recent])})}`;
 }
 function ensureOnDemandDataForTab(tab){
+  if(offlinePosMode()) return {status:'ready'};
   const requests=dataRequestsForTab(tab);
   const salesNeeded=!!requests.sales&&!salesRequestLoaded(requests.sales);
   const documentsNeeded=requests.documents.filter(item=>!documentRequestLoaded(item.table,item));
@@ -216,7 +217,7 @@ function render(){
   posSalesHistoryOnDemandState=null;
   const focusedProductSearch=currentTab==='products'&&editingProductId===null&&document.activeElement?.matches('.product-list-search #search')?document.activeElement:null;
   const retainedSelection=focusedProductSearch?[focusedProductSearch.selectionStart,focusedProductSearch.selectionEnd]:null;
-  mainElement.innerHTML = onDemandNotice+(RENDERERS[currentTab]||renderDashboard)();
+  mainElement.innerHTML = `<div id="offlinePosBanner">${offlinePosBanner()}</div>`+onDemandNotice+(RENDERERS[currentTab]||renderDashboard)();
   if(focusedProductSearch){
     const replacement=mainElement.querySelector('.product-list-search #search');
     if(replacement){

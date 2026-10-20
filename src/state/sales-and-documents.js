@@ -3,6 +3,11 @@ const SALES_STORAGE_KEY="pharmacy_pos_sales_history_v1";
 async function updateSaleDocumentMetadata(saleId,metadata){
   const id=String(saleId||'').trim();
   if(!id) throw new Error('ไม่พบรหัสรายการขาย');
+  const offline=offlineSales.find(row=>row.localSale.id===id&&!row.completedSale);
+  if(offline){
+    await editOfflineSales(rows=>rows.map(row=>row.id===offline.id?{...row,localSale:{...row.localSale,...metadata}}:row));
+    return salesHistory.find(row=>row.id===id);
+  }
   const {data,error}=await sb.rpc('update_sale_document_metadata',{p_sale_id:id,p_metadata:metadata});
   if(error) throw error;
   const index=salesHistory.findIndex(item=>String(item.id)===id);

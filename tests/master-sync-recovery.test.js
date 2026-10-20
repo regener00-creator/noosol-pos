@@ -187,6 +187,7 @@ test('network failure preserves the user draft and its recovery entry',async()=>
 test('core sync continues representatives, documents and counts after a contacts failure',async()=>{
   const calls=[];
   const c=vm.createContext({console,Date,Error,SYNC_TABLE_LABELS:{},currentProfile:{owner:true},currentTab:'contacts',
+    offlinePosMode:()=>false,offlinePendingSales:()=>[],offlineSyncRunning:false,
     coreSyncInFlight:false,coreSyncPending:false,coreSyncFailureDetail:null,currentWorkspacePendingChanges:()=>[],
     adoptRemoteMaintenanceEpoch:async()=>false,loggedInUser:()=>({owner:true}),setSyncUiState:()=>{},
     syncWarehousesIncrementally:async()=>true,syncProductsIncrementally:async()=>true,

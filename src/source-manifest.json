@@ -20,6 +20,7 @@
   "src/state/sales-and-documents.js",
   "src/state/ui-and-settings.js",
   "src/sync/workspace-outbox.js",
+  "src/pos/offline.js",
   "src/auth/session.js",
   "src/documents/helpers.js",
   "src/ui/sidebar.js",

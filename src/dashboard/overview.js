@@ -151,9 +151,14 @@ async function openCashShift(event){
   if(!Number.isFinite(openingCash)||openingCash<0){ showToast('กรุณาระบุเงินทอนตั้งต้นให้ถูกต้อง','danger-top'); return; }
   cashShiftBusy=true; render();
   try{
+    if(offlinePosMode()){
+      await openOfflineCashShift(openingCash);
+      currentTab='checkout';showToast('เปิดระบบชำระออฟไลน์แล้ว');return;
+    }
     const {data,error}=await sb.rpc('open_cash_shift',{p_warehouse_id:Number(activeWarehouseId),p_opening_cash:openingCash});
     if(error) throw error;
     currentCashShift=normalizeCashShiftRow(data); cashShifts=[currentCashShift,...cashShifts.filter(shift=>shift.id!==currentCashShift.id)];
+    void saveOfflinePosSnapshot().catch(()=>{});
     cashShiftCloseDraft={countedCash:'',reason:''}; showToast(`เปิดระบบชำระ ${currentCashShift.shiftNo} แล้ว`); currentTab='checkout';
   }catch(error){
     const message=String(error?.message||'');
@@ -163,6 +168,9 @@ async function openCashShift(event){
 }
 async function closeCashShift(event){
   event?.preventDefault(); if(cashShiftBusy||!currentCashShift) return;
+  if(offlinePosMode()||offlinePendingSales().length||offlineSyncRunning){
+    showToast('กรุณาต่ออินเทอร์เน็ตและรอส่งบิลให้ครบก่อนปิดระบบชำระ','warning-top');return;
+  }
   const countedCash=Number(cashShiftCloseDraft.countedCash),reason=String(cashShiftCloseDraft.reason||'').trim(),summary=cashShiftSummary(currentCashShift);
   if(!Number.isFinite(countedCash)||countedCash<0){ showToast('กรุณาระบุเงินสดที่นับจริงให้ถูกต้อง','danger-top'); return; }
   const variance=Math.round((countedCash-summary.expectedCash)*100)/100;
@@ -174,6 +182,7 @@ async function closeCashShift(event){
     const {data,error}=await sb.rpc('close_cash_shift',{p_shift_id:closingId,p_counted_cash:countedCash,p_close_reason:reason||null});
     if(error) throw error;
     const closed=normalizeCashShiftRow(data); cashShifts=[closed,...cashShifts.filter(shift=>shift.id!==closingId)]; currentCashShift=null;
+    void saveOfflinePosSnapshot().catch(()=>{});
     cashShiftCloseDraft={countedCash:'',reason:''}; showToast(`ปิดระบบ ${closed.shiftNo} เรียบร้อยแล้ว สามารถพิมพ์สรุปได้จากประวัติกะ`);
   }catch(error){
     const message=String(error?.message||'');

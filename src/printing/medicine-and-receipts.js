@@ -184,6 +184,9 @@ function printShortReceipt(saleId,historical=false){
   standardizePrintPreview(win);
   const receiptTitleEl=win.document.querySelector('.title');
   if(receiptTitleEl) receiptTitleEl.style.textAlign='center';
+  if(sale.offlinePending&&receiptTitleEl){
+    const pending=win.document.createElement('div');pending.textContent='รับชำระแล้ว · บิลออฟไลน์รอซิงก์';pending.style.textAlign='center';receiptTitleEl.after(pending);
+  }
   const receiptNumberEl=win.document.querySelector('.title + div');
   if(receiptNumberEl) receiptNumberEl.style.textAlign='center';
   sale.shortReceiptMeta=sale.shortReceiptMeta||{number:receiptNo,saleDate:sale.date,issuedAt:auditNow(),printLog:[]};

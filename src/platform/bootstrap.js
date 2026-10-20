@@ -107,6 +107,7 @@ function refreshMobileToolsOnResume(){
 }
 window.addEventListener('online',()=>{
   setSyncUiState('syncing');
+  void syncOfflineSales();
   if(loggedInUser()){ flushPendingClientEvents(); syncCoreDataToSupabase(); }
   setMobileDataStatus('online','กลับมาออนไลน์แล้ว');
   if(currentTab==='mobiletools'){ render(); refreshMobileToolsOnResume(); }
@@ -115,7 +116,9 @@ window.addEventListener('offline',()=>{
   setSyncUiState('offline');
   setMobileDataStatus('offline');
   if(currentTab==='mobiletools') render();
+  const banner=document.getElementById('offlinePosBanner');if(banner) banner.innerHTML=offlinePosBanner();
 });
+window.addEventListener('focus',()=>{void syncOfflineSales();});
 window.addEventListener('focus',refreshMobileToolsOnResume);
 // Only active product lists query review colors; other pages and hidden tabs do no work.
 window.addEventListener('focus',()=>{ void refreshProductReviewColors(); scheduleProductReviewRefresh(); });
@@ -142,6 +145,13 @@ window.peposBootstrapReady=(async function bootstrapAuth(){
   }
   await loadProductCacheFromIndexedDB();
   if(productCacheStartupBlocked) return;
+  try{if(navigator.onLine&&await resumeOfflineQueue()){void syncOfflineSales();return;}}
+  catch(error){console.warn('restore pending offline receipts',error);}
+  if(!navigator.onLine){
+    try{await enterOfflinePos({restore:true});}
+    catch(error){const el=document.getElementById('loginError');if(el) el.textContent=error.message;}
+    renderLoginState();return;
+  }
   try{
     const { data:ownerCheck, error:ownerErr } = await sb.rpc('has_any_owner');
     systemHasOwner = ownerErr ? true : !!ownerCheck; // default to "true" (login screen) if the check itself fails
@@ -149,6 +159,7 @@ window.peposBootstrapReady=(async function bootstrapAuth(){
   try{ await loadCurrentProfile(); }catch(e){ currentProfile=null; }
   if(currentProfile&&isMobileDeviceMode()) prepareMobileLandingPage();
   if(currentProfile){ try{ await loadWorkspaceFromSupabase(); }catch(e){ console.warn('load core data on boot failed',e); } }
+  if(currentProfile){try{await loadOfflineSales();await saveOfflinePosSnapshot();}catch(e){console.warn('offline cache',e);}void syncOfflineSales();}
   render();
   if(currentProfile){ flushPendingClientEvents(); await enforceOwnerRecoverySetup(); checkOwnerDatabaseHealth(); }
 })();

@@ -115,6 +115,10 @@ async function clearCheckoutRequestId(requestId=''){
   }catch(error){showToast('รายการได้รับคำตอบแล้ว แต่เครื่องยังล้างข้อมูลรอตรวจสอบไม่ได้ กรุณาตรวจพื้นที่ว่าง','warning-top');}
 }
 async function clearLocalStoreCachesForReset(){
+  const cacheDb=await openProductCacheDb();
+  const cachedMeta=await idbRequest(cacheDb.transaction(PRODUCT_CACHE_META_STORE).objectStore(PRODUCT_CACHE_META_STORE).getAll());
+  if(cachedMeta.some(row=>row.key.startsWith('offline-pos-v1:sales:')&&row.value?.some(sale=>!sale.completedSale)))
+    throw new Error('เครื่องนี้มีบิลขายรอซิงก์ กรุณาส่งบิลให้ครบก่อนล้างข้อมูล');
   try{
     Object.keys(localStorage).filter(key=>key.startsWith('pharmacy_pos_')||key.startsWith('pepos_')||key.startsWith('pos2_')).forEach(key=>localStorage.removeItem(key));
     Object.keys(sessionStorage).filter(key=>key.startsWith('pepos_')||key.startsWith('pharmacy_pos_')).forEach(key=>sessionStorage.removeItem(key));

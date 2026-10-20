@@ -166,6 +166,7 @@ async function loadFavoritesFromSupabase(){
 }
 
 async function loadCoreDataFromSupabase(){
+  offlineSnapshotReady=false;
   try{
     await adoptRemoteMaintenanceEpoch();
     const [{data:whRows,error:whErr},{data:prodRows,error:prodErr},{data:contactRows,error:contactErr},{data:repRows,error:repErr},{data:accessRows,error:accessErr},{data:permissionRows,error:permissionErr}]=await Promise.all([
@@ -227,5 +228,7 @@ async function loadCoreDataFromSupabase(){
     nextWarehouseId=maxArrayValue(warehouses,w=>(Number(w.id)||0)+1,1);
     refreshDataCounters();
     if(productDirtyOperations.size||currentWorkspacePendingChanges().length) scheduleSupabaseCoreSync();
+    offlineSnapshotReady=true;
+    void saveOfflinePosSnapshot().catch(()=>{});
   }catch(e){ console.warn('load core data failed',e); }
 }

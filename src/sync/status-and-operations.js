@@ -16,6 +16,7 @@ function renderSyncStatusChip(){
   const state=navigator.onLine?syncUiState:'offline';
   const labels={synced:'ซิงก์แล้ว',syncing:'กำลังซิงก์…',error:`ซิงก์ไม่สำเร็จ${syncUiErrorCount?` (${syncUiErrorCount})`:''}`,offline:'ออฟไลน์'};
   chip.dataset.state=state; chip.textContent=labels[state]||labels.synced;
+  if(typeof offlinePendingSales==='function'&&offlinePendingSales().length) chip.textContent+=` · รอส่ง ${offlinePendingSales().length} บิล`;
   chip.title='กดเพื่อดูรายละเอียดการซิงก์';
 }
 function setSyncUiState(state,errorCount=syncUiErrorCount){ syncUiState=state; syncUiErrorCount=Math.max(0,Number(errorCount)||0); renderSyncStatusChip(); }

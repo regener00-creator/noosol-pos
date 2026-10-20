@@ -4,6 +4,10 @@ async function doCheckout(payMethod,options={}){
   if(cart.length===0) return;
   if(checkoutInFlight){ showToast('กำลังบันทึกการชำระเงิน กรุณารอสักครู่','warning-top'); return; }
   if(!currentCashShift){ showToast('กรุณาเปิดระบบชำระก่อนรับชำระเงิน','danger-top'); currentTab='cashshift'; render(); return; }
+  if(offlineSyncRunning){showToast('กำลังส่งบิลค้าง กรุณารอสักครู่','warning-top');return;}
+  if(offlinePosMode()&&(saleLoyaltySelection||saleSourceQuotationId)){
+    showToast('การใช้แต้มและขายจากใบเสนอราคาต้องเชื่อมต่ออินเทอร์เน็ต','warning-top');return;
+  }
   const cashShiftId=currentCashShift.id;
   const promoResult=applyPromotions(cart);
   const vatRegistered=isBusinessVatRegistered();
@@ -32,6 +36,10 @@ async function doCheckout(payMethod,options={}){
   checkoutInFlight=true;
   saleDraft.loyaltyRedeemed=loyaltyRedeemed;
   saleDraft.loyaltyPeriodStart=loyaltyRedeemed?saleLoyaltySelection?.periodStart:null;
+  if(offlinePosMode()){
+    saleDraft.offlineOccurredAt=new Date().toISOString();
+    if(!currentCashShift.offline) saleDraft.offlineCashShiftId=currentCashShift.id;
+  }
   const checkoutButton=document.getElementById('checkoutBtn');
   if(checkoutButton){ checkoutButton.disabled=true; checkoutButton.textContent='กำลังบันทึก...'; }
   let completedSale;
@@ -43,11 +51,16 @@ async function doCheckout(payMethod,options={}){
     requestContext=await checkoutRequestContext(currentCheckoutPayload,checkoutUiSnapshot(payMethod,options));
     checkoutPayload=requestContext.payload||currentCheckoutPayload;
     if(requestContext.payloadMismatch&&requestContext.payload) restorePendingCheckoutUi(requestContext);
+    const alreadyQueued=offlineSales.find(row=>row.id===requestContext.id);
+    if(offlinePosMode()||alreadyQueued){
+      completedSale=alreadyQueued?.completedSale||await queueOfflineSale(requestContext);
+    }else{
     const {data,error}=await sb.rpc('complete_sale',{p_request_id:requestContext.id,p_ref_prefix:documentPrefixes.sale,p_warehouse_id:Number(checkoutPayload.warehouseId),p_sale:checkoutPayload.sale,p_items:checkoutPayload.items,p_payload_hash:requestContext.payloadHash});
     if(error) throw error;
     completedSale={...(data?.sale||{}),cashShiftId};
     if(!completedSale?.id) throw new Error('completed sale was not returned');
     await clearCheckoutRequestId(requestContext.id);
+    }
   }catch(error){
     console.warn('complete sale',error);
     const message=String(error?.message||'');
@@ -81,8 +94,8 @@ const checkoutErrorMessage=error?.code==='LOCAL_STORAGE_UNAVAILABLE'?message:mes
   const pendingLotQty=(completedSale.items||[]).flatMap(item=>item.lotAllocations||[]).filter(allocation=>allocation.pendingLot).reduce((sum,allocation)=>sum+(Number(allocation.baseQty)||0),0);
   const completedTotal=Number(completedSale.total)||grand;
   const completedPayMethod=completedSale.payMethod||checkoutPayload?.sale?.payMethod||payMethod||'เงินสด';
-  showToast(pendingLotQty>0?`ชำระเงินสำเร็จ · มี ${inventoryMovementRound(pendingLotQty)} หน่วยหลักรอจัด LOT และสต๊อกอาจติดลบ`:`ชำระเงินสำเร็จ (${completedPayMethod}) ${fmtMoney(completedTotal)} บาท`,pendingLotQty>0?'warning-top':undefined);
+  showToast(completedSale.offlinePending?'รับชำระและเก็บบิลในเครื่องแล้ว · รอซิงก์เมื่อมีอินเทอร์เน็ต':pendingLotQty>0?`ชำระเงินสำเร็จ · มี ${inventoryMovementRound(pendingLotQty)} หน่วยหลักรอจัด LOT และสต๊อกอาจติดลบ`:`ชำระเงินสำเร็จ (${completedPayMethod}) ${fmtMoney(completedTotal)} บาท`,pendingLotQty>0?'warning-top':undefined);
   render();
   setTimeout(()=>openPostPaymentModal(completedSale.id),0);
-  refreshDocumentInventory(completedSale);
+  if(!completedSale.offlinePending) refreshDocumentInventory(completedSale);
 }

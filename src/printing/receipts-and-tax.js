@@ -8,7 +8,7 @@ function auditDisplay(value){
 }
 function shortReceiptNumber(sale){
   const prefix=documentPrefixes.sale;
-  return sale.shortReceiptMeta?.number || sale.ref || buildDocNumber(prefix, nextDailySeq(prefix, salesHistory.map(s=>s.ref).filter(Boolean)));
+  return sale.shortReceiptMeta?.number || sale.offlineRef || sale.ref || buildDocNumber(prefix, nextDailySeq(prefix, salesHistory.map(s=>s.ref).filter(Boolean)));
 }
 function nextA4CashReceiptNumber(){
   const prefix=documentPrefixes.cashBill;
@@ -127,6 +127,7 @@ function printA4CashReceipt(saleId,previewWindow=null){
 
 function openFullTaxInvoiceModal(saleId){
   const sale=salesHistory.find(item=>item.id===saleId); if(!sale||sale.status!=='done') return;
+  if(sale.offlinePending){showToast('กรุณารอซิงก์บิลก่อนออกใบกำกับภาษีเต็มรูปแบบ','warning-top');return;}
   if(!sale.fullTaxInvoice&&!canIssueTaxInvoiceForSale(sale)){ showToast('รายการขายนี้ออกใบกำกับภาษีไม่ได้','danger'); return; }
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   const shell=document.createElement('div'); shell.className='modal'; shell.style.cssText='width:700px;max-height:92vh;'; overlay.appendChild(shell); document.body.appendChild(overlay);

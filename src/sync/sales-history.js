@@ -152,6 +152,7 @@ function normalizeCashShiftRow(row){
   };
 }
 async function loadCashShiftsFromSupabase(){
+  if(offlinePosMode()) return !!currentCashShift;
   if(!currentProfile||!activeWarehouseId||isAllWarehousesMode()){
     cashShifts=[]; currentCashShift=null; return false;
   }
@@ -160,6 +161,7 @@ async function loadCashShiftsFromSupabase(){
     if(error) throw error;
     cashShifts=(data||[]).map(normalizeCashShiftRow).filter(Boolean);
     currentCashShift=cashShifts.find(shift=>shift.status==='open'&&shift.openedBy===String(currentProfile.id))||null;
+    void saveOfflinePosSnapshot().catch(()=>{});
     return true;
   }catch(error){
     console.warn('load cash shifts failed',error);
@@ -167,6 +169,7 @@ async function loadCashShiftsFromSupabase(){
   }
 }
 async function loadWorkspaceFromSupabase(){
+  if(offlinePosMode()) return;
   await loadWorkspaceRecoveryForUser();
   await adoptRemoteMaintenanceEpoch();
   await Promise.all([
@@ -174,5 +177,6 @@ async function loadWorkspaceFromSupabase(){
     loadDocumentPrefixesFromSupabase(),loadInspectionListsFromSupabase(),loadPromotionsFromSupabase(),loadFavoritesFromSupabase()
   ]);
   await loadCashShiftsFromSupabase();
+  await saveOfflinePosSnapshot().catch(()=>{});
   mobileLastRefreshAt=Date.now();
 }

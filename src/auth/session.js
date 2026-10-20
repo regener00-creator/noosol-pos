@@ -112,11 +112,21 @@ async function loginSystem(event){
   const error=document.getElementById('loginError');
   const submitBtn=document.querySelector('.login-submit');
   if(!username||!password){ if(error) error.textContent='กรุณากรอก ID และ Password'; return; }
+  if(!navigator.onLine){
+    if(submitBtn) submitBtn.disabled=true;
+    try{await enterOfflinePos({username,password});if(error) error.textContent='';}
+    catch(e){if(error) error.textContent=e.message;}
+    finally{if(submitBtn) submitBtn.disabled=false;}
+    return;
+  }
+  if(offlinePendingSales().length&&offlinePosAccount?.username!==username){
+    if(error) error.textContent='กรุณาใช้บัญชีเดิมเพื่อส่งบิลรอซิงก์ก่อนเปลี่ยนผู้ใช้งาน';return;
+  }
   if(submitBtn) submitBtn.disabled=true;
   const { error:authError } = await sb.auth.signInWithPassword({ email:noosolAuthEmail(username), password });
   if(authError){
     if(submitBtn) submitBtn.disabled=false;
-    if(error) error.textContent='ID หรือ Password ไม่ถูกต้อง';
+    if(error) error.textContent=authError.status===0?'เชื่อมต่อระบบไม่ได้ กรุณาตรวจอินเทอร์เน็ต':'ID หรือ Password ไม่ถูกต้อง';
     return;
   }
   await loadCurrentProfile();
@@ -126,14 +136,24 @@ async function loginSystem(event){
     if(error) error.textContent='ไม่พบข้อมูลผู้ใช้งานนี้ในระบบ กรุณาติดต่อเจ้าของร้าน';
     return;
   }
+  offlinePosActive=false;
   if(isMobileDeviceMode()) prepareMobileLandingPage();
   if(error) error.textContent='';
+  if(offlineSales.length&&offlinePosAccount?.actorId===String(currentProfile.id)){
+    await rememberOfflineLogin(username,password);
+    await enterOfflinePos({username,restore:true});
+    void syncOfflineSales();return;
+  }
   await loadWorkspaceFromSupabase();
+  try{await rememberOfflineLogin(username,password);await saveOfflinePosSnapshot();await loadOfflineSales();}
+  catch(e){showToast('เข้าใช้งานได้ แต่ยังเตรียมโหมดออฟไลน์ไม่สำเร็จ กรุณาตรวจพื้นที่ว่าง','warning-top');}
+  void syncOfflineSales();
   render();
   await enforceOwnerRecoverySetup();
   checkOwnerDatabaseHealth();
 }
 async function logoutSystem(){
+  if(offlinePendingSales().length||offlineSyncRunning){openOfflineSalesPanel();return false;}
   if(currentWorkspacePendingChanges().length||workspaceCacheSaveFailed||productDirtyOperations.size){
     showToast('ยังมีข้อมูลรอซิงก์ กรุณาตรวจรายละเอียดการซิงก์ก่อนออกจากระบบ','danger-top');
     openSyncDetailsModal(); return false;
@@ -146,6 +166,8 @@ async function logoutSystem(){
     return false;
   }
   clearActiveWarehouseSelection();
+  localStorage.removeItem(OFFLINE_SESSION_KEY);
+  offlinePosActive=false;offlinePosAccount=null;offlineSales=[];
   await sb.auth.signOut();
   currentProfile=null;
   clearLoadedHistoryMemory();
