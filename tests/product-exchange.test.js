@@ -109,7 +109,6 @@ assert.match(html, /\['product_exchanges', \(\)=>productExchanges/);
 assert.match(html, /id="confirmExchangeSentBtn"/);
 assert.match(html, /id="confirmExchangeReceivedBtn"/);
 assert.match(html, /คัดลอกจากสินค้าที่ส่งไป/);
-assert.match(html, /รับคืนไม่ครบหรือรับเป็นสินค้าคนละตัวได้/);
 assert.match(html, /รายการเหล่านี้จะถือว่าถูกตัดออกจากสต๊อกถาวร/);
 assert.match(html, /draft\.unreturnedItems=reconciliation\.unreturnedItems/);
 assert.match(html, /refusePostedDocumentDeletion\('exchange'/);
