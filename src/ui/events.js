@@ -420,9 +420,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   // เปลี่ยนหน่วยของบรรทัดในบิล
   document.querySelectorAll('.line-unit').forEach(el=>{
     el.addEventListener('change', ()=>{
-      const l=cart.find(x=>x.lineId==el.dataset.line); if(!l) return;
-      const p=products.find(x=>x.id===l.pid); const opt=productUnitOptions(p).find(o=>o.name===el.value);
-      if(opt){ l.unit=opt.name; l.unitName=opt.name; l.cost=opt.cost; l.factor=opt.factor; l.priceSource='standard'; applySalePriceToLine(l,p,opt.name,{preserveQuotation:false}); render(); }
+      setPosCartLineUnit(el.dataset.line,el.value);
     });
   });
   const searchEl = document.getElementById('search');

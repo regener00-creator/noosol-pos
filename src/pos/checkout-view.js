@@ -20,7 +20,7 @@ function renderCheckout(){
       const displayLineTotal=grossAmountForVatMode(lt,lineVatMode,taxSummary.registered);
       if(line.autoFreeFromPromo){
         // บรรทัดของแถมอัตโนมัติจากโปรฯ "ซื้อสินค้า A แถมสินค้า B" - ลบ/แก้ไขเองไม่ได้ ต้องลดจำนวนสินค้าหลัก (A) ก่อนถึงจะหายไปเอง
-        rowsHtml += `<tr class="pos-autofree-row">
+        rowsHtml += `<tr class="pos-autofree-row" data-pos-cart-line="${line.lineId}">
           <td class="mono">${String(idx+1).padStart(3,'0')}</td>
           <td class="mono">${escapeHtml(productBarcodeForUnit(p,line.unit)||'-')}</td>
           <td>🎁 ${escapeHtml(line.name)}<br><small class="pos-promo-tag promo-active">ของแถม — ${escapeHtml(line.autoFreePromoName||'')}</small></td>
@@ -36,7 +36,7 @@ function renderCheckout(){
       const unitCell = line.custom
         ? `<input class="custom-line-input custom-line-unit" data-custom-unit data-line="${line.lineId}" value="${escapeHtml(line.unit)}" list="inlineCustomUnits" placeholder="หน่วย">`
         : opts.length>1
-        ? `<select class="line-unit" data-line="${line.lineId}">${opts.map(o=>`<option value="${escapeHtml(o.name)}" ${o.name===line.unit?'selected':''}>${escapeHtml(o.label)}</option>`).join('')}</select>`
+        ? `<select class="line-unit" data-line="${line.lineId}" title="Caps Lock: เปลี่ยนหน่วย">${opts.map(o=>`<option value="${escapeHtml(o.name)}" ${o.name===line.unit?'selected':''}>${escapeHtml(o.label)}</option>`).join('')}</select>`
         : escapeHtml(line.unit);
       const linkedPromo=(!line.custom && line.pid)?findMatchingPromotion(line):null;
       const displayUnitPrice=grossAmountForVatMode(line.price,lineVatMode,taxSummary.registered);
@@ -53,7 +53,7 @@ function renderCheckout(){
         : linkedPromo
         ? `<span title="${escapeHtml(promotionValueLabel(linkedPromo))}">${fmtMoney(displayUnitPrice)}<br><small class="pos-promo-tag promo-pending">🏷 ${escapeHtml(linkedPromo.name)}</small></span>`
         : fmtMoney(displayUnitPrice);
-      rowsHtml += `<tr${pendingPromoLineIds.has(line.lineId)?' class="pos-promo-pending-row"':''}>
+      rowsHtml += `<tr data-pos-cart-line="${line.lineId}"${pendingPromoLineIds.has(line.lineId)?' class="pos-promo-pending-row"':''}>
         <td class="mono">${String(idx+1).padStart(3,'0')}</td>
         <td class="mono">${escapeHtml(productBarcodeForUnit(p,line.unit)||'-')}</td>
         <td><div class="pos-item-name-line"><div class="pos-item-name-content">${itemNameHtml}</div><button class="pos-med-label-btn ${dispensingLabel?'active':''}" type="button" data-medicine-label-line="${line.lineId}" title="${dispensingLabel?'แก้ไขฉลากยา':'จัดทำฉลากยา'}">ฉลากยา</button></div>${dispensingLabel?`<small class="pos-med-label-summary">${escapeHtml(medicineLabelSummary(dispensingLabel))}</small>`:''}</td>

@@ -208,6 +208,7 @@ function addToCart(pid, unitName, qty){
     applySalePriceToLine(line,p,unit,{preserveQuotation:false});
     cart.push(line);
   }
+  posActiveLineId=existing?.lineId??cart[cart.length-1]?.lineId??null;
 }
 function addCustomCartLine(name,price,unit,qty){
   name=String(name||'').trim(); unit=String(unit||'ชิ้น').trim()||'ชิ้น'; price=Number(price)||0; qty=Number(qty)||1;
@@ -215,11 +216,13 @@ function addCustomCartLine(name,price,unit,qty){
   const existing=cart.find(line=>line.custom&&line.name===name&&line.unit===unit&&Number(line.price)===price);
   if(existing) existing.qty+=qty;
   else cart.push({lineId:lineCounter++,pid:null,name,unit,unitName:unit,price,cost:price,factor:0,qty,custom:true});
+  posActiveLineId=existing?.lineId??cart[cart.length-1]?.lineId??null;
   return true;
 }
 function addBlankCustomCartLine(){
   const lineId=lineCounter++;
   cart.push({lineId,pid:null,name:'',unit:'',unitName:'',price:'',cost:'',factor:0,qty:1,custom:true});
+  posActiveLineId=lineId;
   render();
   setTimeout(()=>document.querySelector(`.custom-line-name[data-line="${lineId}"]`)?.focus(),0);
 }

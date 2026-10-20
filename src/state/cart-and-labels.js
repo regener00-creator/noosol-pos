@@ -2,6 +2,7 @@ let cart = []; // แต่ละบิลเป็น array ของบรร�
 let pendingQty = 1; // จำนวนที่ล็อกไว้ล่วงหน้า (พิมพ์ *10 ในช่องค้นหา)
 const POS_SMALLEST_UNIT_COMMAND='PEPOS-CMD-SMALLEST';
 let posSmallestUnitOnce=false;
+let posActiveLineId=null;
 let lineCounter = 1;
 const MEDICINE_LABEL_SIZE_STORAGE_KEY='pepos_medicine_label_size';
 const MEDICINE_LABEL_LOGO_PATH='sapuri-pharmacy-logo.webp';

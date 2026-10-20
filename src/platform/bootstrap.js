@@ -9,11 +9,32 @@ document.addEventListener('mouseup', e=>{
 document.addEventListener('click', ()=>{
   if(openDocMenu){ openDocMenu=null; render(); }
 });
+document.addEventListener('pointerdown',event=>{
+  const row=event.target.closest?.('[data-pos-cart-line]');
+  if(row&&currentTab==='checkout') posActiveLineId=row.dataset.posCartLine;
+  if(!event.target.closest?.('#posUnitCycleMenu')) closePosUnitCycleMenu();
+});
+document.addEventListener('focusin',event=>{
+  const row=event.target.closest?.('[data-pos-cart-line]');
+  if(row&&currentTab==='checkout') posActiveLineId=row.dataset.posCartLine;
+});
+window.addEventListener('resize',closePosUnitCycleMenu);
+document.addEventListener('scroll',event=>{if(!event.target.closest?.('#posUnitCycleMenu')) closePosUnitCycleMenu();},true);
 // F2 = เก็บเงิน (ลัดขั้นตอนแทนการเอื้อมมือไปคลิกปุ่ม) เฉพาะตอนอยู่หน้า POS และมีสินค้าในบิลแล้วเท่านั้น
 document.addEventListener('keydown', e=>{
   if(currentTab==='checkout'&&!document.querySelector('.modal-overlay')){
     const target=e.target;
     const typing=target?.matches?.('input,textarea,select,[contenteditable="true"]');
+    if(e.key==='CapsLock'&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&!e.isComposing&&(!typing||target?.id==='search'||target?.matches?.('.line-unit,.line-qty'))){
+      e.preventDefault();
+      if(!e.repeat) cyclePosCartLineUnit(target);
+      return;
+    }
+    if(e.key==='Escape'&&closePosUnitCycleMenu()){
+      e.preventDefault();
+      return;
+    }
+    if(e.key==='Enter') closePosUnitCycleMenu();
     if(e.key==='Home'&&!e.repeat&&(!typing||target?.id==='search')){
       e.preventDefault();
       setPosSmallestUnitOnce(!posSmallestUnitOnce);
@@ -28,6 +49,7 @@ document.addEventListener('keydown', e=>{
   if(e.key==='F2' && currentTab==='checkout'){
     e.preventDefault();
     if(e.repeat||document.querySelector('.modal-overlay')) return;
+    closePosUnitCycleMenu();
     const btn=document.getElementById('checkoutBtn');
     if(btn && !btn.disabled) btn.click();
   }
