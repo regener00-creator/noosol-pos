@@ -117,7 +117,7 @@ function renderPOForm(kind='po'){
 
   return `
     <div class="pagehead"><div><div class="breadcrumb">${escapeHtml(docLabel)} › ${escapeHtml(isNew?'สร้าง'+docLabel:'แก้ไข'+docLabel)}</div><h1>${escapeHtml(po.id)}</h1></div></div>
-    <div class="po-head">
+    <div class="po-head ${kind==='gr'?'supplier-document-head':''}">
       <div class="po-head-left">
         <div class="crow"><label>ผู้จำหน่าย <span class="req">*</span></label>
           <div class="po-supplier-pick">${documentPartyFieldHtml('po_supplier',po.supplier)}${canEditSupplierInline?`<button class="btn ghost small" id="editPOSupplierBtn" type="button" ${supplierObj?'':'disabled'}>${poSupplierEditorOpen?'ปิด':'แก้ไขข้อมูล'}</button>`:''}</div></div>
@@ -285,7 +285,7 @@ function renderProductReturnForm(po,isNew){
   if(!Number(po.warehouseId)) po.warehouseId=Number(activeWarehouseId)||0;
   const locked=po.stockApplied===true;
   return `<div class="pagehead"><div><div class="breadcrumb">ใบคืนสินค้า › ${isNew?'สร้างใบคืนสินค้า':'แก้ไขใบคืนสินค้า'}</div><h1>${escapeHtml(po.id)}</h1></div></div>
-    <div class="po-head">
+    <div class="po-head supplier-document-head">
       <div class="po-head-left">
         <div class="crow"><label>ผู้จำหน่าย <span class="req">*</span></label><div class="po-supplier-pick">${documentPartyFieldHtml('po_supplier',po.supplier)}</div></div>
         <div class="crow"><label>ที่อยู่</label><div class="po-addr">${supplierObj?escapeHtml(supplierObj.address||'-'):'(เลือกผู้จำหน่ายเพื่อแสดงที่อยู่)'}</div></div>
