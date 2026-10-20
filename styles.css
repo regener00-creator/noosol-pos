@@ -927,7 +927,8 @@
   .product-exchange-section{border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:visible;}
   .product-exchange-section-head{display:flex;align-items:center;flex-wrap:wrap;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border);}
   .product-exchange-section-head h2{margin:0;font-size:18px;flex-shrink:0;white-space:nowrap;}
-  .product-exchange-section-head>.btn{margin-left:auto;flex-shrink:0;}
+  .product-exchange-section-head>.btn{flex-shrink:0;}
+  .product-exchange-section-head>#copyExchangeOutgoingBtn{margin-left:auto;}
   .product-exchange-scan-wrap{position:relative;flex:1;min-width:180px;max-width:480px;}
   .product-exchange-scan-row{display:flex;gap:10px;}
   .product-exchange-scan-row input{flex:1;min-width:0;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font:inherit;}

@@ -17,7 +17,7 @@ function renderProductExchange(){
 function productExchangeUnitOptionsHtml(product,selectedUnit,locked){
   return productUnitOptions(product).map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selectedUnit?'selected':''}>${escapeHtml(option.name)}</option>`).join('');
 }
-function productExchangeSectionHtml(side,title,items,locked){
+function productExchangeSectionHtml(side,title,items,locked,canConfirm){
   const rows=(items||[]).map((raw,index)=>{
     const item=normalizeProductExchangeItem(raw); if(!item) return '';
     const product=products.find(entry=>Number(entry.id)===Number(item.pid));
@@ -25,6 +25,7 @@ function productExchangeSectionHtml(side,title,items,locked){
   }).join('');
   return `<section class="product-exchange-section ${locked?'product-exchange-locked':''}" data-product-exchange-side="${side}"><div class="product-exchange-section-head"><h2>${title}</h2>
     ${locked?'':`<div class="product-exchange-scan-wrap"><div class="product-exchange-scan-row"><input id="productExchangeScan_${side}" data-product-exchange-scan="${side}" autocomplete="off" placeholder="ค้นหา / ยิงบาร์โค้ด / รหัสสินค้า"></div><div class="product-exchange-results" id="productExchangeResults_${side}" hidden></div></div>`}
+    ${canConfirm?(side==='outgoing'?'<button type="button" class="btn ghost" id="confirmExchangeSentBtn">ยืนยันส่งไปเปลี่ยน</button>':'<button type="button" class="btn primary" id="confirmExchangeReceivedBtn">ยืนยันรับสินค้ากลับ</button>'):''}
     ${side==='incoming'&&!locked?'<button type="button" class="btn ghost" id="copyExchangeOutgoingBtn">คัดลอกจากสินค้าที่ส่งไป</button>':''}</div>
     <div class="product-exchange-table-wrap"><table class="grid-table product-exchange-table"><colgroup><col style="width:115px"><col style="width:165px"><col><col style="width:110px"><col style="width:140px"><col style="width:150px"><col style="width:160px"><col style="width:145px"><col style="width:58px"></colgroup><thead><tr><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>สินค้า</th><th>จำนวน</th><th>หน่วย</th><th>เลข Lot</th><th>วันหมดอายุ</th><th>เทียบหน่วยหลัก</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="9" class="product-exchange-empty">ยังไม่มีสินค้าในรายการ</td></tr>'}</tbody></table></div></section>`;
 }
@@ -42,7 +43,7 @@ function renderProductExchangeForm(){
   const outgoingLocked=draft.outgoingApplied===true;
   const incomingLocked=draft.incomingApplied===true;
   const received=incomingLocked||draft.status==='รับสินค้ากลับแล้ว';
-  return `<div class="product-exchange-form"><div class="pagehead"><div><div class="breadcrumb">ซื้อ › เปลี่ยนสินค้า</div><h1>${escapeHtml(draft.id)}</h1></div><div class="form-final-actions product-exchange-form-actions"><button class="btn ghost" id="cancelProductExchangeBtn">ยกเลิก</button><button class="btn primary" id="saveProductExchangeBtn" ${received?'disabled':''}>บันทึกเอกสาร</button></div></div>
+  return `<div class="product-exchange-form"><div class="pagehead"><div><div class="breadcrumb">ซื้อ › เปลี่ยนสินค้า</div><h1>${escapeHtml(draft.id)}</h1></div><div class="form-final-actions product-exchange-form-actions"><button class="btn ghost" id="cancelProductExchangeBtn">ย้อนกลับ</button><button class="btn primary" id="saveProductExchangeBtn" ${received?'disabled':''}>บันทึกเอกสาร</button></div></div>
     <div class="product-exchange-status-note">สถานะ: <b>${escapeHtml(draft.status||'ร่าง')}</b>${received?' · ปิดการรับกลับและลงสต๊อกแล้ว รายการถูกล็อกเพื่อป้องกันการบันทึกซ้ำ':''}</div>
     <div class="panel product-exchange-meta">
       <label>วันที่เอกสาร<input id="productExchangeDate" class="dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(draft.date||TODAY_STR))}" ${received?'disabled':''}></label>
@@ -51,10 +52,9 @@ function renderProductExchangeForm(){
       <label>คลัง / สาขา<select id="productExchangeWarehouse" ${outgoingLocked?'disabled':''}>${accessibleWarehouses().map(item=>`<option value="${item.id}" ${Number(item.id)===Number(draft.warehouseId)?'selected':''}>${escapeHtml(item.name)}</option>`).join('')}</select></label>
       <label class="product-exchange-note">หมายเหตุ<textarea id="productExchangeNote" rows="2" ${received?'disabled':''} placeholder="รายละเอียดเพิ่มเติม">${escapeHtml(draft.note||'')}</textarea></label>
     </div>
-    ${productExchangeSectionHtml('outgoing','สินค้าที่ส่งเปลี่ยน',draft.outgoingItems,outgoingLocked)}
-    ${productExchangeSectionHtml('incoming','สินค้าที่ได้รับกลับ',draft.incomingItems,incomingLocked)}
+    ${productExchangeSectionHtml('outgoing','สินค้าที่ส่งเปลี่ยน',draft.outgoingItems,outgoingLocked,!received&&!outgoingLocked)}
+    ${productExchangeSectionHtml('incoming','สินค้าที่ได้รับกลับ',draft.incomingItems,incomingLocked,!received)}
     ${outgoingLocked?productExchangeReconciliationHtml(draft):''}
     <div class="product-exchange-summary"><span>ส่งไป <b>${draft.outgoingItems.length}</b> รายการ</span><span>รับกลับ <b>${draft.incomingItems.length}</b> รายการ</span>${outgoingLocked?`<span>ไม่ได้รับคืน <b>${productExchangeReconciliation(draft).unreturnedItems.length}</b> รายการ</span>`:''}</div>
-    ${received?'':`<div class="form-bottom-actions" style="display:flex;justify-content:flex-end;gap:10px;">${outgoingLocked?'':'<button class="btn ghost" id="confirmExchangeSentBtn">ยืนยันส่งไปเปลี่ยนแล้ว</button>'}<button class="btn primary" id="confirmExchangeReceivedBtn">ยืนยันรับสินค้ากลับแล้ว</button></div>`}
   </div>`;
 }
