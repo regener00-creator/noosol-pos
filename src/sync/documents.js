@@ -3,6 +3,31 @@ let coreSyncInFlight=false, coreSyncPending=false;
 // reporting columns needed for these yet.
 function docToRow(doc){ const {createdByUserId,_revision,...data}=doc||{}; return {id:doc?.id,data,revision:Number(_revision)||0}; }
 function rowToDoc(row){ return { ...(row.data||{}), id:row.id, _revision:Number(row.revision)||1, ...(row.created_by?{createdByUserId:String(row.created_by)}:{}) }; }
+async function recoverProductExchangeRevision(doc){
+  if(Number(doc?._revision)>0||doc?.outgoingApplied!==true) return;
+  const table='product_exchanges',key=String(doc.id);
+  const baselineText=syncedTableRows[table]?.get(key);
+  const baseline=baselineText?JSON.parse(baselineText):null;
+  // Older stock responses contained only data, losing the row's revision.
+  // Rebase only when the server still matches that exact acknowledged data.
+  if(!baseline||Number(baseline.revision)>0||baseline.data?.outgoingApplied!==true) return;
+  const {data,error}=await sb.from(table).select('*').eq('id',doc.id).maybeSingle();
+  if(error) throw error;
+  const comparable=value=>JSON.stringify(stableJsonValue(cloudClean(docToRow(value).data)));
+  const remote=data?rowToDoc(data):null;
+  if(!remote||comparable(baseline.data)!==comparable(remote)){
+    const conflict=new Error('เอกสารเปลี่ยนสินค้าบนเซิร์ฟเวอร์เปลี่ยนแล้ว กรุณาตรวจเทียบงานรอซิงก์ก่อนบันทึก');
+    conflict.code='REVISION_CONFLICT'; conflict.recordId=key; throw conflict;
+  }
+  doc._revision=remote._revision;
+  if(remote.createdByUserId) doc.createdByUserId=remote.createdByUserId;
+  if(typeof productExchangeDraft!=='undefined'&&productExchangeDraft?.id===doc.id&&!Number(productExchangeDraft._revision)){
+    productExchangeDraft._revision=remote._revision;
+  }
+  syncedTableRows[table].set(key,JSON.stringify(docToRow(remote)));
+  const pending=workspaceRecoveryEntries.get(`${table}:${key}`);
+  if(pending) pending.baseline=JSON.stringify(docToRow(remote));
+}
 const DOC_TABLES = [
   ['quotations', ()=>quotations, v=>{quotations=v;}],
   ['invoices_ar', ()=>invoicesAR, v=>{invoicesAR=v;}],

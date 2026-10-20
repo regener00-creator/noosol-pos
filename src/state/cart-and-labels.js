@@ -24,6 +24,7 @@ const MEDICINE_LABEL_MEAL_OPTIONS=[
   {value:'empty_stomach',label:'ขณะท้องว่าง'},
 ];
 async function saveRevisionedDocument(table,doc,{remove=false,expectedRevision=null}={}){
+  if(table==='product_exchanges'&&!remove&&expectedRevision===null) await recoverProductExchangeRevision(doc);
   const row=docToRow(doc),revision=expectedRevision===null?row.revision:Number(expectedRevision)||0;
   const recoveryKey=`${table}:${row.id}`;
   const live=workspaceRecoveryTables().find(([name])=>name===table)?.[1]().find(item=>String(item.id)===String(row.id));
@@ -47,10 +48,20 @@ async function saveRevisionedDocument(table,doc,{remove=false,expectedRevision=n
   }
   await finishDurableOperation(request);
   if(!remove&&doc) doc._revision=Number(data?.revision)||revision||1;
+  if(table==='product_exchanges'&&!remove&&typeof productExchangeDraft!=='undefined'&&productExchangeDraft?.id===doc?.id&&
+      (!Number(productExchangeDraft._revision)||Number(productExchangeDraft._revision)===revision)){
+    productExchangeDraft._revision=doc._revision;
+  }
   workspaceRecoveryEntries.delete(recoveryKey);
   return data;
 }
-async function syncRevisionedDocuments(table,localArray){
+async function syncRevisionedDocuments(table,localArray,exchangeLockHeld=false){
+  if(table==='product_exchanges'&&!exchangeLockHeld){
+    return withRevisionedTableLock(table,()=>syncRevisionedDocuments(table,revisionedLiveRows(table,localArray),true));
+  }
+  if(table==='product_exchanges'){
+    for(const doc of localArray||[]) await recoverProductExchangeRevision(doc);
+  }
   const previous=syncedTableRows[table]||new Map();
   const current=tableSnapshot(localArray,docToRow);
   const changed=cloneSyncRecords((localArray||[]).filter(doc=>previous.get(String(doc.id))!==JSON.stringify(docToRow(doc))));

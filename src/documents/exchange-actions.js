@@ -127,7 +127,9 @@ async function refreshProductExchangeProducts(doc){
   seedProductSyncSnapshot(products,productDirtyOperations);
   await persistProductsToIndexedDB(products,true);
 }
+let productExchangeStatusInFlight=false;
 async function changeProductExchangeStatus(status){
+  if(productExchangeStatusInFlight) return;
   syncProductExchangeFromDOM();
   const draft=activeProductExchangeDraft(),plan=productExchangeTransitionPlan(draft,status);
   if(!plan.allowed){ showToast('ไม่สามารถย้อนสถานะเอกสารที่ลงสต๊อกแล้ว'); render(); return; }
@@ -144,24 +146,49 @@ async function changeProductExchangeStatus(status){
   if(plan.applyOutgoing) (draft.outgoingItems||[]).forEach(item=>required.set(Number(item.pid),(required.get(Number(item.pid))||0)+productExchangeItemBaseQty(item)));
   for(const [pid,qty] of required){ const product=products.find(item=>Number(item.id)===pid); if(!product||warehouseStock(pid,draft.warehouseId)<qty){ showToast(`สต๊อกไม่พอสำหรับ ${product?.name||'สินค้าที่เลือก'}`,'danger'); return; } }
   const savedId=saveProductExchange(false); if(!savedId) return;
-  const buttons=[document.getElementById('confirmExchangeSentBtn'),document.getElementById('confirmExchangeReceivedBtn')].filter(Boolean);
+  productExchangeStatusInFlight=true;
+  const buttons=['confirmExchangeSentBtn','confirmExchangeReceivedBtn','saveProductExchangeBtn'].map(id=>document.getElementById(id)).filter(Boolean);
   buttons.forEach(button=>button.disabled=true);
   try{
-    const doc=productExchanges.find(item=>item.id===savedId);
-    await saveRevisionedDocument('product_exchanges',doc);
-    const data=await runStockOperation('apply_product_exchange_status',{exchangeId:doc.id,nextStatus:status});
-    const remoteDoc=data?.exchange||doc;
-    await refreshProductExchangeProducts(remoteDoc);
-    const index=productExchanges.findIndex(item=>item.id===doc.id);
-    if(index>=0) productExchanges[index]=remoteDoc;
-    productExchangeDraft=JSON.parse(JSON.stringify(remoteDoc));
-    seedTableSnapshot('product_exchanges',productExchanges,docToRow);
-    persistWorkspaceData();
+    const remoteDoc=await withRevisionedTableLock('product_exchanges',async()=>{
+      const doc=productExchanges.find(item=>item.id===savedId);
+      await saveRevisionedDocument('product_exchanges',doc);
+      syncAcknowledgement('product_exchanges',productExchanges,docToRow)(doc);
+      const data=await runStockOperation('apply_product_exchange_status',{exchangeId:doc.id,nextStatus:status});
+      // A committed stock result must be retained even if the subsequent read fails.
+      let posted=data?.exchange;
+      if(!posted) throw new Error('ไม่ได้รับข้อมูลเอกสารหลังยืนยัน กรุณาตรวจสอบข้อมูลล่าสุด');
+      const accept=remote=>{
+        const index=productExchanges.findIndex(item=>item.id===doc.id);
+        if(index>=0) productExchanges[index]=remote;
+        productExchangeDraft=JSON.parse(JSON.stringify(remote));
+        syncAcknowledgement('product_exchanges',productExchanges,docToRow)(remote);
+        persistWorkspaceData();
+      };
+      accept(posted);
+      try{
+        const result=await sb.from('product_exchanges').select('*').eq('id',doc.id).single();
+        if(result.error) throw result.error;
+        posted=rowToDoc(result.data);
+        accept(posted);
+      }catch(error){
+        console.warn('โหลดเวอร์ชันเอกสารเปลี่ยนสินค้าหลังยืนยันไม่สำเร็จ',error);
+        showToast('ยืนยันรายการแล้ว แต่โหลดข้อมูลล่าสุดไม่สำเร็จ ระบบจะตรวจเทียบก่อนบันทึกครั้งต่อไป','warning-top');
+      }
+      return posted;
+    });
+    try{ await refreshProductExchangeProducts(remoteDoc); }
+    catch(error){
+      console.warn('โหลดสต๊อกหลังยืนยันเปลี่ยนสินค้าไม่สำเร็จ',error);
+      showToast('ยืนยันรายการแล้ว แต่โหลดสต๊อกล่าสุดไม่สำเร็จ กรุณารีเฟรชข้อมูล','warning-top');
+    }
     showToast(status==='รับสินค้ากลับแล้ว'?'รับสินค้ากลับและเพิ่มสต๊อกเรียบร้อย':'ส่งสินค้าไปเปลี่ยนและตัดสต๊อกเรียบร้อย');
     render();
   }catch(error){
     console.error('เปลี่ยนสถานะเอกสารเปลี่ยนสินค้าไม่สำเร็จ',error);
     showToast(error?.message||'บันทึกสถานะและสต๊อกไม่สำเร็จ กรุณาลองอีกครั้ง','danger');
     buttons.forEach(button=>button.disabled=false);
+  }finally{
+    productExchangeStatusInFlight=false;
   }
 }
