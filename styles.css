@@ -919,10 +919,11 @@
   .goods-receipt-items .poi_del{border-radius:8px;}
   /* เอกสารเปลี่ยนสินค้า: ใช้ class เฉพาะหน้า ไม่กระทบตารางเอกสารอื่น */
   .product-exchange-form{display:flex;flex-direction:column;gap:18px;}
-  .product-exchange-meta{display:grid;grid-template-columns:1.1fr 1.3fr 1fr 1fr;gap:14px;}
-  .product-exchange-meta label{display:flex;flex-direction:column;gap:6px;font-size:13px;font-weight:600;color:var(--text-muted);}
+  .product-exchange-meta{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.3fr);gap:14px;}
+  .product-exchange-meta label{display:flex;flex-direction:column;min-width:0;gap:6px;font-size:13px;font-weight:600;color:var(--text-muted);}
   .product-exchange-meta input,.product-exchange-meta select,.product-exchange-meta textarea{width:100%;min-width:0;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font:inherit;color:var(--text);}
-  .product-exchange-meta .product-exchange-note{grid-column:1/-1;}
+  .product-exchange-meta .product-exchange-note{grid-column:3;grid-row:1/span 2;}
+  .product-exchange-meta .product-exchange-note textarea{flex:1;min-height:100px;resize:vertical;}
   .product-exchange-section{border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:visible;}
   .product-exchange-section-head{display:flex;align-items:center;flex-wrap:wrap;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border);}
   .product-exchange-section-head h2{margin:0;font-size:18px;flex-shrink:0;white-space:nowrap;}
@@ -956,7 +957,7 @@
   .product-exchange-list-items b{color:var(--text-muted);}
   .history-actions.product-exchange-actions,.history-actions.contact-action-icons,.history-actions.sales-representative-actions,.history-actions.product-return-actions{justify-content:center;}
   .product-exchange-form-actions{display:flex;align-items:center;gap:14px;}
-  @media(max-width:1100px){.product-exchange-meta{grid-template-columns:1fr 1fr;}}
+  @media(max-width:700px){.product-exchange-meta{grid-template-columns:minmax(0,1fr) minmax(0,1fr);}.product-exchange-meta .product-exchange-note{grid-column:1/-1;grid-row:3;}}
   /* ตารางรายการในหน้าสร้างเอกสาร: จัดตัวเลข/หน่วย/ปุ่มให้อยู่กลางและใช้มุมโค้งชุดเดียว */
   .document-centered-items,.shortage-document-items{border-radius:12px;overflow:clip;clip-path:inset(0 round 12px);}
   .document-centered-items th:nth-child(1),.document-centered-items td:nth-child(1),
