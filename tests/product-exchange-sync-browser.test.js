@@ -85,15 +85,38 @@ let browser;
   for(const legacy of [true,'missing-baseline',false]){
     await page.evaluate(legacy=>configureExchangeTest(legacy),legacy);
     if(!legacy){
+      const colors=await page.evaluate(()=>({
+        sent:getComputedStyle(document.getElementById('confirmExchangeSentBtn')).backgroundColor,
+        received:getComputedStyle(document.getElementById('confirmExchangeReceivedBtn')).backgroundColor
+      }));
+      assert.notEqual(colors.sent,colors.received);
       await page.locator('#confirmExchangeSentBtn').click();
       await page.waitForFunction(()=>productExchangeDraft.outgoingApplied&&!productExchangeStatusInFlight);
       assert.equal(await page.evaluate(()=>productExchangeDraft._revision),6);
+      const after=await page.evaluate(()=>({
+        sent:getComputedStyle(document.getElementById('confirmExchangeSentBtn')).backgroundColor,
+        received:getComputedStyle(document.getElementById('confirmExchangeReceivedBtn')).backgroundColor
+      }));
+      assert.equal(after.sent,colors.received);
+      assert.equal(after.received,colors.sent);
     }
+    assert.equal(await page.locator('#confirmExchangeSentBtn').isDisabled(),true);
     if(legacy==='missing-baseline'){
       assert.equal(await page.locator('[data-product-exchange-row="incoming"] .product-exchange-expiry').inputValue(),'02/02/2028');
     }else await page.locator('#copyExchangeOutgoingBtn').click();
     await page.locator('[data-product-exchange-row="incoming"] .product-exchange-lot').fill('LOT-RETURN');
     await page.locator('[data-product-exchange-row="incoming"] .product-exchange-expiry').fill('20/10/2027');
+    if(!legacy){
+      // A failed receipt must not re-enable the already completed send step.
+      await page.evaluate(()=>{
+        const original=sb.rpc;
+        sb.rpc=async(...args)=>{sb.rpc=original;return {error:{message:'Test save failure',code:'TEST'}};};
+      });
+      await page.locator('#confirmExchangeReceivedBtn').click();
+      await page.waitForFunction(()=>!productExchangeStatusInFlight);
+      assert.equal(await page.locator('#confirmExchangeSentBtn').isDisabled(),true);
+      assert.equal(await page.locator('#confirmExchangeReceivedBtn').isEnabled(),true);
+    }
     await page.locator('#confirmExchangeReceivedBtn').click();
     await page.waitForFunction(()=>productExchangeDraft.incomingApplied&&!productExchangeStatusInFlight);
     const result=await page.evaluate(()=>({draft:productExchangeDraft,remote:exchangeRemote,calls:exchangeCalls}));

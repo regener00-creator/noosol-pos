@@ -147,7 +147,7 @@ async function changeProductExchangeStatus(status){
   for(const [pid,qty] of required){ const product=products.find(item=>Number(item.id)===pid); if(!product||warehouseStock(pid,draft.warehouseId)<qty){ showToast(`สต๊อกไม่พอสำหรับ ${product?.name||'สินค้าที่เลือก'}`,'danger'); return; } }
   const savedId=saveProductExchange(false); if(!savedId) return;
   productExchangeStatusInFlight=true;
-  const buttons=['confirmExchangeSentBtn','confirmExchangeReceivedBtn','saveProductExchangeBtn'].map(id=>document.getElementById(id)).filter(Boolean);
+  const buttons=['confirmExchangeSentBtn','confirmExchangeReceivedBtn','saveProductExchangeBtn'].map(id=>document.getElementById(id)).filter(button=>button&&!button.disabled);
   buttons.forEach(button=>button.disabled=true);
   try{
     const remoteDoc=await withRevisionedTableLock('product_exchanges',async()=>{
