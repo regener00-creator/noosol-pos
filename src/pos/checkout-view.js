@@ -122,9 +122,9 @@ function renderCheckout(){
           <button class="pos-action" id="histBtn"><span class="pa-ic">🧾</span> ประวัติการขาย</button>
         </div>
         <div class="pos-summary">
-          <div class="sumrow"><span>รวมทั้งหมด</span><span class="mono" id="posSubtotalValue">${fmtMoney(subtotal)}</span></div>
+          <div class="sumrow"><span>รวมสินค้า</span><span class="mono" id="posSubtotalValue">${fmtMoney(subtotal)}</span></div>
           <div class="sumrow"><span>ส่วนลด</span><span class="sumdiscount"><button class="btn ghost small" id="editDiscountBtn">✎ ส่วนลด</button> <span class="mono" id="posDiscountValue">${fmtMoney(discount)}</span></span></div>
-          <div class="sumrow"><span id="posBeforeVatLabel">${registered?'มูลค่าก่อน VAT':'มูลค่าสินค้า'}</span><span class="mono" id="posBeforeVatValue">${fmtMoney(beforeVat)}</span></div>
+          ${registered?`<div class="sumrow"><span id="posBeforeVatLabel">มูลค่าก่อน VAT</span><span class="mono" id="posBeforeVatValue">${fmtMoney(beforeVat)}</span></div>`:''}
           <div class="sumrow"><span id="posVatLabel">${registered?'ภาษีมูลค่าเพิ่ม 7%':'ไม่คิด VAT (กิจการยังไม่จด VAT)'}</span><span class="mono" id="posVatValue">${fmtMoney(vat)}</span></div>
           <div class="sumrow grand"><span>ยอดชำระ</span><span class="mono" id="posGrandValue">${fmtMoney(grand)}</span></div>
         </div>
@@ -143,7 +143,7 @@ function recalcPOSCartDOM(){
   const set=(id,value)=>{ const el=document.getElementById(id); if(el) el.textContent=fmtMoney(value); };
   set('posSubtotalValue',subtotal); set('posDiscountValue',discount); set('posBeforeVatValue',beforeVat); set('posVatValue',vat); set('posGrandValue',grand);
   const beforeLabel=document.getElementById('posBeforeVatLabel'),vatLabel=document.getElementById('posVatLabel');
-  if(beforeLabel) beforeLabel.textContent=registered?'มูลค่าก่อน VAT':'มูลค่าสินค้า';
+  if(beforeLabel) beforeLabel.closest('.sumrow').hidden=!registered;
   if(vatLabel) vatLabel.textContent=registered?'ภาษีมูลค่าเพิ่ม 7%':'ไม่คิด VAT (กิจการยังไม่จด VAT)';
   refreshCustomerLoyaltyPanel();
 }
