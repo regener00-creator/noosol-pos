@@ -71,6 +71,21 @@ function readReceiptPrinterSettings(){
   try{ return normalizeReceiptPrinterSettings(JSON.parse(localStorage.getItem(RECEIPT_PRINTER_STORAGE_KEY)||'null')); }
   catch{ return {...RECEIPT_PRINTER_DEFAULTS}; }
 }
+function applyReceiptPrinterSetupLink(){
+  const url=new URL(window.location.href),paper=url.searchParams.get('sapuriPaper'),setupId=url.searchParams.get('sapuriSetup');
+  if(!['58','80'].includes(paper)||!/^\w{32}$/.test(setupId||'')) return;
+  try{
+    const marker='pepos_receipt_printer_setup_v1';
+    if(localStorage.getItem(marker)!==setupId){
+      const settings=readReceiptPrinterSettings();
+      settings.paperWidth=Number(paper);
+      localStorage.setItem(RECEIPT_PRINTER_STORAGE_KEY,JSON.stringify(settings));
+      localStorage.setItem(marker,setupId);
+    }
+    url.searchParams.delete('sapuriPaper');url.searchParams.delete('sapuriSetup');
+    window.history.replaceState(window.history.state,'',url.href);
+  }catch(error){ console.warn('apply receipt printer setup',error); }
+}
 function receiptPrinterLayoutCss(settings=readReceiptPrinterSettings()){
   const s=normalizeReceiptPrinterSettings(settings),narrow=s.paperWidth===58;
   return `@page{size:auto;margin:0}
