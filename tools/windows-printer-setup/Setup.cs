@@ -152,26 +152,52 @@ namespace SapuriSetup {
       string url="http://127.0.0.1:"+((IPEndPoint)listener.LocalEndpoint).Port+"/"+token+"/test";
       string label=WebUtility.HtmlEncode(p.Printer),paper=WebUtility.HtmlEncode(p.Paper.Name);
       string html="<!doctype html><html lang='th'><meta charset='utf-8'><title>SAPURI SETUP TEST</title><style>@page{size:auto;margin:0}body{margin:0;color:#000;font:600 12px Tahoma,sans-serif}.receipt{box-sizing:border-box;width:"+p.Width+"mm;padding:5mm 6mm}h1{font-size:18px}p{line-height:1.7;overflow-wrap:anywhere}</style><div class='receipt'><h1>SAPURI POS</h1><p>ทดสอบพิมพ์อัตโนมัติ<br>ไม่ใช่ใบเสร็จขาย</p><p>เครื่องพิมพ์: "+label+"<br>กระดาษ: "+paper+"</p><p>ภาษาไทย / English<br>0123456789<br>ทดสอบตัวอักษรเล็กใต้สินค้า</p><hr><p>ไม่บันทึกยอดขายหรือตัดสต๊อก</p></div><script>addEventListener('afterprint',()=>{fetch('/"+token+"/done',{method:'POST',keepalive:true}).finally(()=>window.close())},{once:true});addEventListener('load',()=>setTimeout(()=>window.print(),500));</script></html>";
-      DateTime end=DateTime.UtcNow.AddSeconds(45);bool served=false;
       try{
         Launch(p,url);
-        while(DateTime.UtcNow<end){
-          var accept=listener.AcceptTcpClientAsync();var limit=Task.Delay((int)Math.Max(1,(end-DateTime.UtcNow).TotalMilliseconds));
-          if(await Task.WhenAny(accept,limit)!=accept)break;
-          using(var client=await accept){
-            client.ReceiveTimeout=2000;client.SendTimeout=2000;
+        await WaitForPrint(listener,token,html,TimeSpan.FromSeconds(45),Log);
+      }finally{listener.Stop();}
+    }
+    internal static async Task WaitForPrint(TcpListener listener,string token,string html,TimeSpan timeout,Action<string> log){
+      DateTime end=DateTime.UtcNow.Add(timeout);bool requested=false;
+      while(DateTime.UtcNow<end){
+        var accept=listener.AcceptTcpClientAsync();var limit=Task.Delay((int)Math.Max(1,(end-DateTime.UtcNow).TotalMilliseconds));
+        if(await Task.WhenAny(accept,limit)!=accept){
+          // Observe the pending accept when the owner stops the listener.
+          FinishPendingAccept(accept);
+          break;
+        }
+        using(var client=await accept){
+          client.ReceiveTimeout=client.SendTimeout=(int)Math.Max(1,Math.Min(2000,(end-DateTime.UtcNow).TotalMilliseconds));
+          bool done=false;
+          try{
             using(var stream=client.GetStream())using(var reader=new StreamReader(stream,Encoding.ASCII,false,1024,true)){
-              string line=reader.ReadLine()??"";string header;int count=0;while(!String.IsNullOrEmpty(header=reader.ReadLine())){if(++count>80)throw new IOException("คำขอทดสอบไม่ถูกต้อง");}
-              bool test=line=="GET /"+token+"/test HTTP/1.1";bool done=served&&line=="POST /"+token+"/done HTTP/1.1";
+              // Chrome may open then abandon speculative connections. EOF is not
+              // an HTTP request, and a reset must not stop the whole test server.
+              string line=reader.ReadLine();if(String.IsNullOrEmpty(line))continue;
+              string header;int count=0;
+              do{header=reader.ReadLine();if(++count>80)break;}while(header!=null&&header.Length>0);
+              if(header==null||count>80)continue;
+              bool test=line=="GET /"+token+"/test HTTP/1.1";
+              done=requested&&line=="POST /"+token+"/done HTTP/1.1";
+              if(test)requested=true;
               byte[] body=Encoding.UTF8.GetBytes(test?html:done?"ok":"not found");
               byte[] head=Encoding.ASCII.GetBytes("HTTP/1.1 "+(test||done?"200 OK":"404 Not Found")+"\r\nContent-Type: text/html; charset=utf-8\r\nCache-Control: no-store\r\nConnection: close\r\nContent-Length: "+body.Length+"\r\n\r\n");
               stream.Write(head,0,head.Length);stream.Write(body,0,body.Length);stream.Flush();
-              if(done)return;if(test)served=true;
             }
-          }
+          }catch(IOException ex){log("Print test connection closed; continuing: "+ex.Message);}
+          catch(SocketException ex){log("Print test connection reset; continuing: "+ex.Message);}
+          // Receipt of afterprint is sufficient even if Chrome closes before
+          // reading our acknowledgement. Physical output is confirmed in the UI.
+          if(done)return;
         }
-        throw new InvalidOperationException("ยังไม่ได้รับผลจาก Chrome ภายใน 45 วินาที — ตรวจหน้าต่าง Chrome และคิวเครื่องพิมพ์ก่อนกดลองใหม่ เพื่อหลีกเลี่ยงพิมพ์ซ้ำ");
-      }finally{listener.Stop();}
+      }
+      throw new InvalidOperationException("ยังไม่ได้รับผลทดสอบพิมพ์จาก Chrome — ปิดหน้าทดสอบ 127.0.0.1 ที่ค้าง ตรวจคิวเครื่องพิมพ์ว่ามีงานออกแล้วหรือไม่ แล้วกดพิมพ์ทดสอบ / ลองใหม่ ไม่ต้องตั้งค่าใหม่ทั้งหมด");
+    }
+    static void FinishPendingAccept(Task<TcpClient> accept){
+      accept.ContinueWith(t=>{
+        if(t.Status==TaskStatus.RanToCompletion)t.Result.Dispose();
+        else if(t.IsFaulted){var ignored=t.Exception;}
+      });
     }
   }
   class SetupForm:Form {
@@ -180,7 +206,7 @@ namespace SapuriSetup {
     ListView steps=new ListView();TextBox detail=new TextBox(); Label stateLabel=new Label(); bool busy,configured;int failed=-1;Plan current;
     readonly string[] names={"ตรวจ Google Chrome","ตรวจเครื่องพิมพ์และกระดาษ","ตั้งค่า Chrome สำหรับ SAPURI","สร้างและตรวจไอคอนบนเดสก์ท็อป","ส่งใบทดสอบจาก Chrome","ยืนยันกระดาษที่พิมพ์จริง"};
     public SetupForm(Engine e,bool testMode){
-      engine=e;testing=testMode;Text="SAPURI POS — ตั้งค่าพิมพ์อัตโนมัติ"+(testing?" [ทดสอบ]":"");
+      engine=e;testing=testMode;Text="SAPURI POS — ตั้งค่าพิมพ์อัตโนมัติ 2.1"+(testing?" [ทดสอบ]":"");
       // Windows bitmap scaling keeps this small .NET Framework utility usable at high display scales.
       AutoScaleMode=AutoScaleMode.None;
       Font=new Font("Tahoma",10);Size=new Size(900,810);MinimumSize=new Size(760,720);StartPosition=FormStartPosition.CenterScreen;
@@ -216,6 +242,7 @@ namespace SapuriSetup {
     void Status(int step,string message,Color color){if(InvokeRequired){Invoke(new Action(()=>Status(step,message,color)));return;}steps.Items[step].SubItems[1].Text=message;steps.Items[step].ForeColor=color;engine.Log(names[step]+": "+message);}
     void ShowFailure(int step,Exception ex){failed=step;Status(step,"ติดขัด — ดูวิธีแก้ด้านล่าง",Color.Firebrick);detail.Text=ex.Message;
       if(ex is UnauthorizedAccessException || ex is ManagementException)detail.Text="Windows ไม่อนุญาตให้อ่านหรือบันทึกค่าที่ขั้นตอนนี้ — ใช้บัญชี Windows ที่จะขายสินค้า และให้ผู้ดูแลตรวจสิทธิ์เครื่องพิมพ์/โฟลเดอร์ จากนั้นกดลองใหม่\r\nรายละเอียด: "+ex.Message;
+      else if(step==4 && (ex is IOException || ex is SocketException))detail.Text="การเชื่อมต่อหน้าทดสอบพิมพ์ภายในเครื่องขัดข้อง — ปิดหน้าทดสอบ 127.0.0.1 ที่ค้าง ตรวจคิวพิมพ์ก่อนกดพิมพ์ทดสอบ / ลองใหม่ ไม่ต้องล้างข้อมูลหรือตั้งค่าใหม่ทั้งหมด\r\nรายละเอียด: "+ex.Message;
       else if(ex is IOException)detail.Text="ไฟล์หรือบริการกำลังถูกใช้งาน หรือพื้นที่ไม่พอ — ปิดชุดตั้งค่าหน้าต่างอื่น ตรวจพื้นที่ว่างและสิทธิ์โฟลเดอร์ แล้วกดลองใหม่\r\nรายละเอียด: "+ex.Message;
       stateLabel.Text="ติดขัดที่: "+names[step];setup.Text="ลองตั้งค่าอีกครั้ง";engine.Log(ex.ToString());}
     void LoadPapers(){try{papers.Items.Clear();if(printers.SelectedItem==null)return;int width=widths.SelectedIndex==1?58:80;var list=Engine.Papers((string)printers.SelectedItem).Where(p=>p.Fits(width)).OrderBy(p=>Math.Abs(p.Height*0.254-210)).ToList();papers.Items.AddRange(list.Cast<object>().ToArray());if(papers.Items.Count>0)papers.SelectedIndex=0;else detail.Text="ไดรเวอร์นี้ไม่มีกระดาษที่ตรงกับความกว้างที่เลือก — ลองเปลี่ยน 58/80 มม. หรือติดตั้งไดรเวอร์จากผู้ผลิต";}catch(Exception ex){ShowFailure(1,ex);}}

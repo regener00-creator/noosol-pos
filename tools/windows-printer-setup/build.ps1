@@ -1,7 +1,7 @@
 param([switch]$Testing)
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
-$output = Join-Path $repoRoot 'outputs/SAPURI-POS-Setup'
+$output = Join-Path $repoRoot 'outputs/SAPURI-POS-Setup-v2.1'
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 $iconPath = Join-Path $output 'sapuri.ico'
 & (Join-Path $PSScriptRoot 'build-icon.ps1') -Source (Join-Path $repoRoot 'sapuri-app-icon-512.png') -Destination $iconPath
@@ -17,9 +17,9 @@ if(-not $Testing){
   $exePath=Join-Path $output $name
   $checksumPath=Join-Path $output 'SHA256.txt'
   ((Get-FileHash -LiteralPath $exePath -Algorithm SHA256).Hash+'  '+$name) | Set-Content -LiteralPath $checksumPath -Encoding ascii
-  $zipPath=Join-Path $repoRoot 'outputs/SAPURI-POS-Setup-Windows-v2.zip'
+  $zipPath=Join-Path $repoRoot 'outputs/SAPURI-POS-Setup-Windows-v2.1.zip'
   Compress-Archive -LiteralPath @($exePath,(Join-Path $output 'README-th.txt'),$checksumPath) -DestinationPath $zipPath -Force
-  ((Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash+'  SAPURI-POS-Setup-Windows-v2.zip') | Set-Content -LiteralPath ($zipPath+'.sha256.txt') -Encoding ascii
+  ((Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash+'  SAPURI-POS-Setup-Windows-v2.1.zip') | Set-Content -LiteralPath ($zipPath+'.sha256.txt') -Encoding ascii
   Get-Item $zipPath | Select-Object FullName,Length
 }
 Get-Item (Join-Path $output $name) | Select-Object FullName,Length

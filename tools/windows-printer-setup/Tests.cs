@@ -2,14 +2,53 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
+using System.Net.Sockets;
+using System.Text;
+using System.Threading.Tasks;
 namespace SapuriSetup {
   static class Tests {
     static int count;
     static void Check(bool ok,string message){if(!ok)throw new Exception(message);count++;}
     static void Fails(Action action,string expected){try{action();}catch(Exception ex){Check(ex.Message.Contains(expected),"Wrong error: "+ex.Message);return;}throw new Exception("Expected failure: "+expected);}
+    static string Request(int port,string request){
+      using(var client=new TcpClient("127.0.0.1",port)){
+        client.ReceiveTimeout=5000;client.SendTimeout=5000;
+        using(var stream=client.GetStream()){
+          byte[] bytes=Encoding.ASCII.GetBytes(request);stream.Write(bytes,0,bytes.Length);
+          using(var reader=new StreamReader(stream))return reader.ReadToEnd();
+        }
+      }
+    }
+    static void TestConnections(){
+      var listener=new TcpListener(IPAddress.Loopback,0);listener.Start();
+      string token=Guid.NewGuid().ToString("N"),html="receipt-"+new string('x',512*1024);
+      int port=((IPEndPoint)listener.LocalEndpoint).Port;
+      var server=Task.Run(()=>Engine.WaitForPrint(listener,token,html,TimeSpan.FromSeconds(15),s=>{}));
+      try{
+        // Empty speculative connection; then EOF halfway through HTTP headers.
+        using(var empty=new TcpClient("127.0.0.1",port)){}
+        using(var partial=new TcpClient("127.0.0.1",port)){
+          byte[] bytes=Encoding.ASCII.GetBytes("GET /"+token+"/test HTTP/1.1\r\nHost: localhost\r\n");partial.GetStream().Write(bytes,0,bytes.Length);
+        }
+        // Abort while the server is responding, reproducing the user's error.
+        using(var reset=new TcpClient("127.0.0.1",port)){
+          reset.LingerState=new LingerOption(true,0);
+          byte[] bytes=Encoding.ASCII.GetBytes("GET /"+token+"/test HTTP/1.1\r\nHost: localhost\r\n\r\n");reset.GetStream().Write(bytes,0,bytes.Length);
+        }
+        Check(Request(port,"GET /"+token+"/test HTTP/1.1\r\nHost: localhost\r\n\r\n").EndsWith(html),"Test page survives empty, truncated and reset connections");
+        Check(Request(port,"POST /wrong/done HTTP/1.1\r\nContent-Length: 0\r\n\r\n").StartsWith("HTTP/1.1 404"),"Unrelated requests cannot complete print test");
+        Check(!server.IsCompleted,"Server continues waiting for genuine completion");
+        Check(Request(port,"POST /"+token+"/done HTTP/1.1\r\nContent-Length: 0\r\n\r\n").EndsWith("ok"),"Completion acknowledged after recovered connection");
+        server.GetAwaiter().GetResult();Check(true,"Recovered print session finishes successfully");
+      }finally{listener.Stop();}
+      var idle=new TcpListener(IPAddress.Loopback,0);idle.Start();
+      try{Fails(()=>Engine.WaitForPrint(idle,"idle","test",TimeSpan.FromMilliseconds(100),s=>{}).GetAwaiter().GetResult(),"ยังไม่ได้รับผลทดสอบพิมพ์จาก Chrome");}finally{idle.Stop();}
+    }
     public static void Run(string folder){
       Directory.CreateDirectory(folder);
       try{
+        TestConnections();
         string root=Path.Combine(folder,"isolated-"+Guid.NewGuid().ToString("N")),desktop=Path.Combine(root,"Desktop");Directory.CreateDirectory(desktop);
         string pinned=Path.Combine(root,"TaskBar");Directory.CreateDirectory(pinned);
         var e=new Engine(Path.Combine(root,"Local","SAPURI POS"),desktop,Path.Combine(root,"Assets"),pinned);
