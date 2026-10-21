@@ -29,7 +29,7 @@ namespace SapuriSetup {
           Application.Run(new SetupForm(new Engine(Path.Combine(root,"Install"),Path.Combine(root,"Desktop")),true)); return;
         }
 #endif
-        Application.Run(new SetupForm(new Engine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"SAPURI POS"),Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory)),false));
+        Application.Run(new SetupForm(new Engine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"SAPURI POS"),Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),"SAPURI POS","Assets"),Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),@"Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar")),false));
       } catch(Exception ex) { MessageBox.Show("เปิดชุดตั้งค่าไม่ได้\n"+ex.Message,"SAPURI POS",MessageBoxButtons.OK,MessageBoxIcon.Error); }
     }
   }
@@ -43,12 +43,13 @@ namespace SapuriSetup {
   }
   class Engine {
     public const string Site="https://pepo-pharmacy.vercel.app/";
-    public readonly string Root,Desktop;
+    public readonly string Root,Desktop,Assets,Pinned;
+    public string IconPath {get{return Path.Combine(Assets,"sapuri-v2.ico");}}
     public string Profile {get{return Path.Combine(Root,"Chrome");}}
     public string Shortcut {get{return Path.Combine(Desktop,"SAPURI POS.lnk");}}
     public string LogPath {get{return Path.Combine(Root,"setup.log");}}
     static readonly JavaScriptSerializer Json=new JavaScriptSerializer{MaxJsonLength=32*1024*1024};
-    public Engine(string root,string desktop){Root=Path.GetFullPath(root);Desktop=desktop;}
+    public Engine(string root,string desktop,string assets=null,string pinned=null){Root=Path.GetFullPath(root);Desktop=desktop;Assets=assets??Path.Combine(Root,"Assets");Pinned=pinned;}
     public static Dictionary<string,object> Obj(params object[] pairs){var d=new Dictionary<string,object>();for(int i=0;i<pairs.Length;i+=2)d[(string)pairs[i]]=pairs[i+1];return d;}
     public static string Serialize(object v){return Json.Serialize(v);}
     public static Dictionary<string,object> Parse(string text){return Json.Deserialize<Dictionary<string,object>>(text);}
@@ -89,7 +90,7 @@ namespace SapuriSetup {
       return false;
     }
     public static string Quote(string value){if(value.Contains("\"")||value.Contains("\r")||value.Contains("\n"))throw new InvalidOperationException("เส้นทางมีอักขระที่ไม่รองรับ");return "\""+value+"\"";}
-    public string Args(string url){return "--user-data-dir="+Quote(Profile)+" --kiosk-printing --no-first-run --no-default-browser-check --app="+Quote(url);}
+    public string Args(string url){return "--user-data-dir="+Quote(Profile)+" --profile-directory=\"Default\" --kiosk-printing --no-first-run --no-default-browser-check --app="+Quote(url);}
     public static string Url(Plan p){return Site+"?sapuriPaper="+p.Width+"&sapuriSetup="+p.Id;}
     public void CheckShortcut(){
       if(String.IsNullOrWhiteSpace(Desktop)||!Directory.Exists(Desktop))throw new InvalidOperationException("ไม่พบโฟลเดอร์เดสก์ท็อป — เปิด Desktop/OneDrive ให้พร้อมแล้วลองใหม่");
@@ -127,12 +128,22 @@ namespace SapuriSetup {
       }
     }
     public void SaveShortcut(Plan p){
-      CheckShortcut();string icon=Path.Combine(Root,"sapuri.ico");
+      CheckShortcut();Directory.CreateDirectory(Assets);string icon=IconPath;
       using(var input=Assembly.GetExecutingAssembly().GetManifestResourceStream("sapuri.ico"))using(var output=File.Create(icon)){input.CopyTo(output);}
       if(File.Exists(Shortcut))File.Copy(Shortcut,Path.Combine(Root,"shortcut-backup-"+DateTime.UtcNow.ToString("yyyyMMddHHmmssfff")+".lnk"));
       dynamic shell=Activator.CreateInstance(Type.GetTypeFromProgID("WScript.Shell"));dynamic link=shell.CreateShortcut(Shortcut);
       link.TargetPath=p.Chrome;link.Arguments=Args(Url(p));link.WorkingDirectory=Root;link.IconLocation=icon+",0";link.Description="SAPURI POS — พิมพ์ใบเสร็จอัตโนมัติ";link.Save();
+      ShellIdentity.Apply(Shortcut,Quote(p.Chrome)+" "+Args(Url(p)),icon+",0");
       dynamic read=shell.CreateShortcut(Shortcut);if((string)read.TargetPath!=p.Chrome||(string)read.Arguments!=Args(Url(p)))throw new InvalidOperationException("ตรวจสอบไอคอนไม่ผ่าน — ตรวจสิทธิ์ Desktop/OneDrive แล้วกดลองใหม่");
+      // Repair only existing SAPURI pins that use this exact profile and site.
+      // Pinning a new app remains a user action; never change ordinary Chrome pins.
+      if(!String.IsNullOrEmpty(Pinned)&&Directory.Exists(Pinned))foreach(string path in Directory.GetFiles(Pinned,"*.lnk")){
+        dynamic pin=shell.CreateShortcut(path);string args=Convert.ToString(pin.Arguments);
+        if(!String.Equals(Convert.ToString(pin.TargetPath),p.Chrome,StringComparison.OrdinalIgnoreCase)||args.IndexOf(Quote(Profile),StringComparison.OrdinalIgnoreCase)<0||args.IndexOf(Site,StringComparison.OrdinalIgnoreCase)<0)continue;
+        File.Copy(path,Path.Combine(Root,"pin-backup-"+Guid.NewGuid().ToString("N")+".lnk"));
+        pin.Arguments=Args(Url(p));pin.IconLocation=icon+",0";pin.Description="SAPURI POS — พิมพ์ใบเสร็จอัตโนมัติ";pin.Save();
+        ShellIdentity.Apply(path,Quote(p.Chrome)+" "+Args(Url(p)),icon+",0");
+      }
     }
     public void Launch(Plan p,string url){Process.Start(new ProcessStartInfo(p.Chrome,Args(url)){UseShellExecute=true,WindowStyle=ProcessWindowStyle.Normal});}
     public async Task TestPrint(Plan p){
@@ -227,7 +238,7 @@ namespace SapuriSetup {
         Status(0,"กำลังตรวจ…",Color.DarkOrange);plan.Chrome=await Task.Run(()=>Engine.FindChrome());Status(0,"พร้อม",Color.DarkGreen);
         step=1;Status(1,"กำลังตรวจ…",Color.DarkOrange);await Task.Run(()=>Engine.ValidatePrinter(plan));Status(1,plan.Printer+" / "+plan.Width+" มม.",Color.DarkGreen);
         step=2;Status(2,"กำลังบันทึก…",Color.DarkOrange);await Task.Run(()=>engine.SaveProfile(plan));Status(2,"บันทึกและตรวจสอบแล้ว",Color.DarkGreen);
-        step=3;Status(3,"กำลังสร้าง…",Color.DarkOrange);engine.SaveShortcut(plan);Status(3,"พร้อม — SAPURI POS",Color.DarkGreen);
+        step=3;Status(3,"กำลังสร้าง…",Color.DarkOrange);engine.SaveShortcut(plan);Status(3,"พร้อม — รองรับการปักหมุด Taskbar",Color.DarkGreen);
         current=plan;configured=true;setup.Text="ตั้งค่าอีกครั้ง";detail.Text="ตั้งค่าเสร็จแล้ว กำลังส่งใบทดสอบหนึ่งใบ\r\nเมื่อกระดาษออก ให้ตรวจความชัดและขนาด แล้วกดยืนยัน";
       }catch(Exception ex){ShowFailure(step,ex);}finally{busy=false;RefreshButtons();}
       if(configured)await PrintTest();
