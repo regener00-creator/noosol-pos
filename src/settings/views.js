@@ -75,6 +75,12 @@ function receiptPrinterLayoutCss(settings=readReceiptPrinterSettings()){
   const s=normalizeReceiptPrinterSettings(settings),narrow=s.paperWidth===58;
   return `@page{size:auto;margin:0}
     .receipt{box-sizing:border-box;width:${s.paperWidth}mm;padding:${s.marginTop}mm ${s.marginRight}mm ${s.marginBottom}mm ${s.marginLeft}mm;overflow-wrap:anywhere}
+    .receipt,.receipt *{color:#000}
+    .receipt{font-weight:600}
+    .receipt .item b,.receipt .item strong{font-weight:600}
+    .receipt .item small{display:block;font-size:${narrow?8:9}pt;font-weight:600;line-height:1.5}
+    .receipt .item .receipt-promo-tag{font-weight:700}
+    .receipt .rule,.receipt .dash,.receipt .summary .total{border-color:#000}
     .receipt .meta{grid-template-columns:${narrow?18:25}mm minmax(0,1fr)}
     .receipt .item{grid-template-columns:minmax(0,1fr) ${narrow?16:19}mm}
     .receipt .summary>div{gap:2mm}.receipt .summary>div>b{flex-shrink:0}
