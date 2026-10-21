@@ -196,6 +196,9 @@ function printShortReceipt(saleId,historical=false){
     console.warn('log short receipt print',error);
     showToast('พิมพ์ใบเสร็จได้ แต่บันทึกประวัติการพิมพ์ไม่สำเร็จ','danger-top');
   });
+  win.addEventListener('afterprint',()=>{
+    setTimeout(()=>{ win.close(); window.focus(); },0);
+  },{once:true});
   setTimeout(()=>win.print(),350);
   return true;
 }
