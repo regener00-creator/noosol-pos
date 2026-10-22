@@ -37,7 +37,6 @@ function openQuotationForm(id){
 function renderQuotationForm(){
   const draft=taxInvoiceDraft||{};
   const isJuristic=draft.entity==='juristic';
-  const customerTypes=draft.contactTypes||['customer'];
   const items=draft.items||[];
   const registered=isBusinessVatRegistered(),discount=Number(draft.discount)||0;
   const tax=calculateDocumentTaxSummary(items,discount,registered,businessSettings);
@@ -46,7 +45,6 @@ function renderQuotationForm(){
     <div class="po-head"><div class="po-head-left">
       <div class="crow tax-customer-picker-row"><div class="po-supplier-pick">${documentPartyFieldHtml('tax_customer_select',draft.customerId,'customer')}</div></div>
       <div class="tax-customer-details contact-editor-grid" style="margin-top:18px;">
-        <div class="contact-editor-field"><label>ประเภท</label><div class="cradio"><label><input type="checkbox" disabled ${customerTypes.includes('customer')?'checked':''}> ลูกค้า</label><label><input type="checkbox" disabled ${customerTypes.includes('supplier')?'checked':''}> ผู้จำหน่าย</label></div></div>
         <div class="contact-editor-field"><label>ประเภทผู้ติดต่อ</label><div class="cradio"><label><input type="radio" name="quotation_customer_entity" value="juristic" ${isJuristic?'checked':''}> นิติบุคคล</label><label><input type="radio" name="quotation_customer_entity" value="individual" ${!isJuristic?'checked':''}> บุคคลธรรมดา</label></div></div>
         <div class="contact-editor-identity-row contact-editor-identity-row-customer-edit contact-editor-wide">
           <div class="contact-editor-field"><label for="tax_form_customer_name">ชื่อ-นามสกุล <span class="req">*</span></label><input id="tax_form_customer_name" value="${escapeHtml(draft.name||'')}"></div>
