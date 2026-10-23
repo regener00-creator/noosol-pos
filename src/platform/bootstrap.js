@@ -2,7 +2,9 @@ applyReceiptPrinterSetupLink();
 
 // คลิกช่องตัวเลขครั้งเดียวแล้วเลือกค่าทั้งหมด เพื่อพิมพ์ค่าใหม่ทับได้ทันที
 document.addEventListener('focusin', e=>{
-  if(e.target.matches && e.target.matches('input[type="number"]')) setTimeout(()=>e.target.select(),0);
+  if(e.target.matches && e.target.matches('input[type="number"]')) setTimeout(()=>{
+    if(document.activeElement===e.target&&e.target.isConnected) e.target.select();
+  },0);
 });
 document.addEventListener('mouseup', e=>{
   if(e.target.matches && e.target.matches('input[type="number"]')){ e.preventDefault(); e.target.select(); }

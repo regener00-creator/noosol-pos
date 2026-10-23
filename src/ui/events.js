@@ -373,7 +373,6 @@ function attachEvents(){
       refreshMobileStockLotControl(product.id);
       refreshMobileStockConfirmButton();
     });
-    input.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); input.blur(); } });
   });
   document.getElementById('mobileConfirmStockEdit')?.addEventListener('click',confirmMobileStockEditChanges);
   bindPasswordVisibilityToggles();
@@ -867,7 +866,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   document.querySelectorAll('[data-stock-edit-amount]').forEach(input=>{
     input.addEventListener('focus',()=>input.select());
     input.addEventListener('keydown',event=>{
-      if(event.key==='Enter'){ event.preventDefault(); input.blur(); }
       if(event.key==='Escape'){
         event.preventDefault();
         delete stockEditDraftStocks[Number(input.dataset.stockEditAmount)];
@@ -1485,9 +1483,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   // แก้ไขข้อมูลสินค้าแบบอินไลน์ในหน้ารายการสินค้า (รหัส/ชื่อ/ราคา/ทุน/วันหมดอายุของคลังที่ใช้งาน)
   document.querySelectorAll('.prod-inline-edit').forEach(el=>{
-    if(el.classList.contains('prod-inline-barcode')){
-      el.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); el.blur(); } });
-    }
     el.addEventListener('change', async ()=>{
       const pid=Number(el.dataset.pid);
       const field=el.dataset.field;

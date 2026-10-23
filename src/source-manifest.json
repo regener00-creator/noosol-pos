@@ -25,6 +25,7 @@
   "src/documents/helpers.js",
   "src/ui/sidebar.js",
   "src/ui/theme.js",
+  "src/ui/keyboard-navigation.js",
   "src/notes/editor.js",
   "src/representatives/history.js",
   "src/dashboard/overview.js",
