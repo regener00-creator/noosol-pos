@@ -23,7 +23,7 @@ test('build minifies app assets and injects one matching content version', async
   assert.doesNotMatch(built.workerCode, /__PEPOS_ASSET_VERSION__/);
   assert.doesNotMatch(built.indexHtml,/href="\/sapuri-mac\.css/,'production bundles both themes into its existing CSS request');
   assert.match(built.stylesCode,/data-sapuri-theme=mac/,'production retains the opt-in theme selectors');
-  const themeChange=await buildModule.prepareTextAssets({...input,stylesSource:stylesSource.replace('--primary:#5A3F32','--primary:#5A3F33')});
+  const themeChange=await buildModule.prepareTextAssets({...input,stylesSource:stylesSource.replace('--radius:16px','--radius:17px')});
   assert.notEqual(themeChange.assetVersion,built.assetVersion,'theme changes rotate the shared offline cache version');
 
   const htmlAppVersion = built.indexHtml.match(/\/app\.js\?v=([a-f0-9]{16})/)?.[1];

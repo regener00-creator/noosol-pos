@@ -21,8 +21,22 @@ let browser;
   await installIsolatedBrowser(page);
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   const url=`http://127.0.0.1:${server.address().port}/`;
+  const assertSameFontSizes=async label=>{
+    const differences=await page.evaluate(()=>{
+      const nodes=[...document.querySelectorAll('body,body *')];
+      applySapuriTheme('classic');
+      const sizes=nodes.map(node=>getComputedStyle(node).fontSize);
+      applySapuriTheme('mac');
+      return nodes.flatMap((node,index)=>getComputedStyle(node).fontSize===sizes[index]?[]:[{
+        element:node.tagName,id:node.id,classes:node.getAttribute('class'),
+        default:sizes[index],mac:getComputedStyle(node).fontSize
+      }]);
+    });
+    assert.deepEqual(differences,[],label+': every element keeps DEFAULT font size');
+  };
   await page.goto(url);await waitForIsolatedBootstrap(page);
   assert.equal(await page.evaluate(()=>document.documentElement.dataset.sapuriTheme),'mac');
+  await assertSameFontSizes('Login');
   await page.evaluate(()=>document.fonts.load('400 16px "Google Sans"','SAPURI ภาษาไทย 123'));
   assert.equal(await page.evaluate(()=>document.fonts.check('400 16px "Google Sans"','SAPURI ภาษาไทย 123')),true);
   assert.match(await page.locator('body').evaluate(el=>getComputedStyle(el).fontFamily),/^"Google Sans"/);
@@ -48,7 +62,7 @@ let browser;
   });
   await page.locator('.stat').first().waitFor();
   assert.equal(await page.locator('[data-sapuri-theme-choice]').count(),0,'theme controls must not appear on the Dashboard or sidebar');
-  assert.equal(await page.locator('.navbtn.active').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(62, 41, 31)');
+  assert.equal(await page.locator('.navbtn.active').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(63, 51, 44)');
   assert.equal(await page.locator('.sidebar').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(79, 64, 56)');
   assert.equal(await page.evaluate(()=>{
     const table=document.createElement('table');table.className='doc-head-blue';
@@ -69,11 +83,10 @@ let browser;
   assert.deepEqual(await page.evaluate(()=>{
     const style=getComputedStyle(document.documentElement);
     return ['--primary','--bg','--surface','--sidebar','--border','--text','--text-muted'].map(key=>style.getPropertyValue(key).trim());
-  }),['#5A3F32','#F8F6F2','#FFFFFF','#4F4038','#D8CBBE','#2E241F','#6F6259']);
-  // Compare color placement independently of the palette or Mac geometry.
-  // With identical tokens, both themes must paint the same component states.
+  }),['#4F4038','#F7F5F3','#FFFFFF','#4F4038','#E2DBD7','#2B2422','#756B67']);
+  await assertSameFontSizes('Dashboard');
+  // Both themes must now use the same palette without overriding any tokens.
   const colorRoles=await page.evaluate(()=>{
-    const root=document.documentElement;
     const fixture=document.createElement('div');fixture.id='themeColorRoles';
     fixture.innerHTML='<style>*{transition:none!important}</style><button class="btn primary">Save</button><button class="btn ghost">Cancel</button><button class="btn danger">Delete</button><div class="field"><input><select><option>Unit</option></select><textarea></textarea></div><table class="grid-table"><thead><tr><th>Title</th></tr></thead><tbody><tr><td>Value</td></tr></tbody></table><div class="modal-overlay" style="position:static"><div class="modal">Dialog</div></div>';
     document.getElementById('main').append(fixture);
@@ -85,13 +98,10 @@ let browser;
       return [selector,[style.backgroundColor,style.backgroundImage,style.color,style.borderTopColor]];
     }));
     applySapuriTheme('classic');
-    const classic=capture(),style=getComputedStyle(root);
-    const tokens=['bg','surface','border','sidebar','sidebar-hover','primary','primary-dark','primary-soft','accent','accent-soft','info','info-soft','text','text-muted'];
-    const values=tokens.map(name=>style.getPropertyValue('--'+name));
+    const classic=capture();
     applySapuriTheme('mac');
-    tokens.forEach((name,index)=>root.style.setProperty('--'+name,values[index]));
     const mac=capture();
-    tokens.forEach(name=>root.style.removeProperty('--'+name));fixture.remove();
+    fixture.remove();
     return {classic,mac};
   });
   assert.deepEqual(colorRoles.mac,colorRoles.classic,'Mac must preserve Classic color placement across shared components');
@@ -102,6 +112,7 @@ let browser;
     editingNoteId='theme-note';noteDraft=noteDraftFromRow(notes[0]);currentTab='notes';render();
   });
   await page.locator('#noteTitle').waitFor();
+  await assertSameFontSizes('NOTE');
   assert.match(await page.locator('#noteTitle').evaluate(el=>getComputedStyle(el).fontFamily),/^"Google Sans"/);
   await page.screenshot({path:path.join(output,'sapuri-mac-note.png'),fullPage:true});
   await page.locator('#noteTitle').fill('โน้ตที่ยังไม่บันทึก');
@@ -119,6 +130,7 @@ let browser;
   await page.locator('#checkoutBtn').waitFor();
   for(const width of [1024,1280,1440]){
     await page.setViewportSize({width,height:960});
+    await assertSameFontSizes(`POS ${width}px`);
     assert.ok(await page.locator('.pos-action').evaluateAll(buttons=>buttons.every(button=>button.scrollWidth<=button.clientWidth)),`POS action labels fit ${width}px`);
   }
   await page.screenshot({path:path.join(output,'sapuri-mac-pos.png'),fullPage:true});
@@ -126,6 +138,7 @@ let browser;
   const macButton=page.getByRole('button',{name:'MAC',exact:true});
   const defaultButton=page.getByRole('button',{name:'DEFAULT',exact:true});
   await macButton.waitFor();
+  await assertSameFontSizes('Settings');
   assert.equal(await page.locator('.sidebar [data-sapuri-theme-choice]').count(),0);
   assert.equal(await page.locator('.settings-page [data-sapuri-theme-choice]').count(),2);
   assert.equal(await macButton.getAttribute('aria-pressed'),'true');
@@ -160,6 +173,7 @@ let browser;
   await page.emulateMedia({media:'screen'});
   for(const width of [390,768,1024,1440]){
     await page.setViewportSize({width,height:900});
+    await assertSameFontSizes(`Login ${width}px`);
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true,`login fits ${width}px`);
   }
   assert.deepEqual(errors,[]);
