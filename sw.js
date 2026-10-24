@@ -3,6 +3,7 @@ const CACHE_NAME=`pepos-mobile-${ASSET_VERSION}`;
 const PAGE_ASSETS=['reports','documents','settings','catalog'].map(group=>`/page-${group}.js?v=${ASSET_VERSION}`);
 const APP_SHELL=['/','/index.html',`/styles.css?v=${ASSET_VERSION}`,`/app.js?v=${ASSET_VERSION}`,'/manifest.webmanifest','/sapuri-app-icon-192.png','/sapuri-app-icon-512.png','/sapuri-pharmacy-logo.webp','/sapuri-brand-logo.webp'];
 APP_SHELL.push(...PAGE_ASSETS);
+APP_SHELL.push('/fonts/google-sans-variable-v1.woff2','/fonts/google-sans-italic-variable-v1.woff2');
 APP_SHELL.push(`/vendor/supabase.js?v=${ASSET_VERSION}`);
 const TRUSTED_CDN_HOSTS=new Set(['cdn.jsdelivr.net']);
 const MAX_RUNTIME_CACHE_ENTRIES=80;

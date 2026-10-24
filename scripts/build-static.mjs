@@ -21,6 +21,9 @@ const staticDeployFiles = [
   'sapuri-app-icon-512.png',
   'sapuri-pharmacy-logo.webp',
   'sapuri-brand-logo.webp',
+  'fonts/google-sans-variable-v1.woff2',
+  'fonts/google-sans-italic-variable-v1.woff2',
+  'fonts/Google-Sans-OFL.txt',
 ]
 
 function addVersionInput(hash, content) {
@@ -144,6 +147,7 @@ export async function buildStatic() {
   await rm(outputDirectory, { recursive: true, force: true })
   await mkdir(outputDirectory, { recursive: true })
   await mkdir(join(outputDirectory, 'vendor'), { recursive: true })
+  await mkdir(join(outputDirectory, 'fonts'), { recursive: true })
   await Promise.all([
     writeFile(join(outputDirectory, 'app.js'), prepared.appCode),
     writeFile(join(outputDirectory, 'excel-tools.js'), prepared.excelToolsCode),

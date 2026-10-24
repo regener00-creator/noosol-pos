@@ -54,6 +54,13 @@ let browser;
   assert.equal(await page.evaluate(()=>currentProfile?.username),'shell-test');
   assert.equal(await page.locator('#appRoot').isVisible(),true);
   await page.evaluate(async()=>{
+    applySapuriTheme('mac');
+    for(const style of ['400','italic 600']){
+      const loaded=await document.fonts.load(`${style} 16px "Google Sans"`,'SAPURI ภาษาไทย 123');
+      if(!loaded.length||loaded.some(font=>font.status!=='loaded')) throw new Error('Google Sans must load offline');
+    }
+  });
+  await page.evaluate(async()=>{
     cart=[{pid:1,name:'Offline item',unit:'box',factor:1,qty:1,price:100,regularPrice:100,cost:40}];
     await doCheckout('เงินสด',{cashReceived:100,cashChange:0});
   });
