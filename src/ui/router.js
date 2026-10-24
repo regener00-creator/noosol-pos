@@ -47,6 +47,21 @@ function prepareScrollableTables(mainElement=document.getElementById('main')){
   });
   requestAnimationFrame(()=>refreshScrollableTableHeights(mainElement));
 }
+function refreshProductListResults(){
+  if(currentTab!=='products'||editingProductId!==null) return false;
+  const pane=document.querySelector('.product-list-page .table-pane');
+  if(!pane) return false;
+  const scroll=pane.querySelector('.product-table-scroll'),top=scroll?.scrollTop||0,left=scroll?.scrollLeft||0;
+  const template=document.createElement('template');
+  template.innerHTML=renderProducts({resultsOnly:true});
+  const replacement=template.content.firstElementChild;
+  pane.replaceWith(replacement);
+  attachProductResultEvents(replacement);
+  prepareScrollableTables();
+  const next=replacement.querySelector('.product-table-scroll');
+  if(next){next.scrollTop=top;next.scrollLeft=left;}
+  return true;
+}
 
 const TAB_DOCUMENT_TABLES={
   quotation:['quotations'],invoice:['invoices_ar'],creditnote:['credit_notes'],purchaseorder:['purchase_orders'],
@@ -93,8 +108,16 @@ function dataRequestsForTab(tab){
 function onDemandRequestKey(tab,requests){
   return `${tab}:${JSON.stringify({sales:requests.sales?.range||null,holds:!!requests.sales?.includeHolds,recent:!!requests.sales?.includeRecent,documents:requests.documents.map(item=>[item.table,item.range?.from||'',item.range?.to||'',!!item.recent])})}`;
 }
+function editingDocumentForm(tab=currentTab){
+  return ({quotation:editingQuotationId,purchaseorder:editingPOId,goodsreceipt:editingGRId,
+    productreturn:editingReturnId,productexchange:editingProductExchangeId,transfer:editingTransferId,
+    taxinvoice:editingTaxInvoiceSaleId})[tab]!=null;
+}
 function ensureOnDemandDataForTab(tab){
   if(offlinePosMode()) return {status:'ready'};
+  // Opening/editing a draft must never replace its DOM with a cache refresh.
+  // The list refreshes after the user saves or closes the form.
+  if(editingDocumentForm(tab)) return {status:'ready'};
   const requests=dataRequestsForTab(tab);
   const salesNeeded=!!requests.sales&&!salesRequestLoaded(requests.sales);
   const documentsNeeded=requests.documents.filter(item=>!documentRequestLoaded(item.table,item));
@@ -161,20 +184,20 @@ const RENDERERS = {
   mobiletools: renderMobileTools,
   dashboard: renderDashboard, checkout: renderCheckout, notes: renderNotes, cashshift: renderCashShift, cashbill: ()=>renderCashBills(), taxinvoice: ()=>renderTaxInvoices(), quotation: ()=>renderQuotation(), invoice: renderInvoice,
   creditnote: renderCreditNote, history: renderHistory, purchaseorder: ()=>renderPurchaseOrder(), productreturn: ()=>renderProductReturn(), goodsreceipt: ()=>renderGoodsReceipt(), productexchange: ()=>renderProductExchange(),
-  products: ()=>renderProducts(), stockcontrol: renderStockControl, barcodeprint: renderBarcodePrint, warehouse: ()=>renderWarehouse(), transfer: renderTransfer, lowstock: ()=>renderLowStock(), expiry: ()=>renderExpiry(), promotions: ()=>renderPromotions(),
-  contacts: ()=>renderContacts(), customers: ()=>renderContacts(), salesreps: renderSalesRepresentatives, representativehistory: renderRepresentativeHistoryOverview, rproduct: ()=>renderRProduct(), rbill: ()=>renderRBill(), rprofit: ()=>renderRProfit(), rtax: ()=>renderRTax(),
+  products: ()=>renderProducts(), stockcontrol: ()=>renderStockControl(), barcodeprint: ()=>renderBarcodePrint(), warehouse: ()=>renderWarehouse(), transfer: ()=>renderTransfer(), lowstock: ()=>renderLowStock(), expiry: ()=>renderExpiry(), promotions: ()=>renderPromotions(),
+  contacts: ()=>renderContacts(), customers: ()=>renderContacts(), salesreps: renderSalesRepresentatives, representativehistory: ()=>renderRepresentativeHistoryOverview(), rproduct: ()=>renderRProduct(), rbill: ()=>renderRBill(), rprofit: ()=>renderRProfit(), rtax: ()=>renderRTax(),
   inventorymovement: ()=>renderInventoryMovement(), rinventory: ()=>renderRInventory(), settingsbusiness: ()=>renderBusinessSettings(), settingsuser: ()=>renderUserSettings(), settingsusers: ()=>renderSystemUsers(), settingsprinter: ()=>renderReceiptPrinterSettings(), auditlog: ()=>renderAuditLog(), settingssystem: ()=>renderSystemSettings(),
 };
 
 let salesViewRefreshTimer=null;
 function scheduleSalesViewRefresh(){
   clearTimeout(salesViewRefreshTimer);
-  if(!currentProfile||!ON_DEMAND_AGGREGATE_TABS.has(currentTab)||offlinePosMode()||document.visibilityState==='hidden') return;
+  if(!currentProfile||(!ON_DEMAND_AGGREGATE_TABS.has(currentTab)&&!TAB_DOCUMENT_TABLES[currentTab])||editingDocumentForm()||offlinePosMode()||document.visibilityState==='hidden') return;
   salesViewRefreshTimer=setTimeout(()=>{
     const typing=document.activeElement?.matches('input,select,textarea,[contenteditable="true"]');
     if(!typing&&!document.querySelector('.modal-overlay')&&currentProfile&&document.visibilityState!=='hidden'&&!offlinePosMode()){
-      const request=dataRequestsForTab(currentTab).sales;
-      if(request&&!salesRequestLoaded(request)){ render(); return; }
+      const requests=dataRequestsForTab(currentTab);
+      if((requests.sales&&!salesRequestLoaded(requests.sales))||requests.documents.some(item=>!documentRequestLoaded(item.table,item))){ render(); return; }
     }
     scheduleSalesViewRefresh();
   },SALES_CACHE_TTL_MS);

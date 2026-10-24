@@ -81,6 +81,8 @@ let browser;
   await page.locator('#first').fill('commit');await page.keyboard.press('Enter');assert.equal(await focused(),'second','resolve focus after synchronous form render');
   // Real modal with actual form validation and event bindings, not a synthetic submit.
   await page.evaluate(()=>{document.getElementById('keyboardFixture').innerHTML='';openCustomItemModal();});
+  // Wait for the modal's scheduled initial focus before simulating typing.
+  await page.waitForFunction(()=>document.activeElement?.id==='custom_item_name');
   await page.locator('#custom_item_name').fill('รายการทดสอบ');await page.keyboard.press('Enter');assert.equal(await focused(),'custom_item_price');
   await page.locator('#custom_item_price').fill('25');await page.keyboard.press('Enter');assert.equal(await focused(),'custom_item_unit');
   await page.keyboard.press('Enter');assert.equal(await focused(),'custom_item_qty');

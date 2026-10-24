@@ -43,7 +43,7 @@ assert.match(html, /id="openFactoryResetBtn"/);
 assert.match(html, /id="storeResetPassword"/);
 assert.match(html, /id="storeResetPhrase"/);
 assert.match(html, /action:'reset-store',mode,password,phrase/);
-assert.match(html, /async function adoptRemoteMaintenanceEpoch\(\)/);
+assert.match(html, /async function adoptRemoteMaintenanceEpoch\(context=captureWorkspaceRead\(\)\)/);
 assert.match(html, /clearLocalStoreCachesForReset\(\)/);
 assert.match(html, /window\.location\.reload\(\)/);
 assert.match(html, /OWNER_BOOTSTRAP_TOKEN_STORAGE_KEY/);

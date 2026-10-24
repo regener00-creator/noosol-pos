@@ -40,7 +40,7 @@ assert.ok(settingsBusinessNavIndex >= 0 && warehouseNavIndex > settingsBusinessN
 assert.ok(auditLogNavIndex > systemSettingsNavIndex, 'AUDIT LOG ต้องอยู่ล่างสุดของกลุ่มตั้งค่า');
 assert.doesNotMatch(html, /\['stockadjust','ปรับเป็นศูนย์'/);
 assert.match(html, /LEVEL2_HIDDEN_TABS[^\n]+stockcontrol/);
-assert.match(html, /stockcontrol:\s*renderStockControl/);
+assert.match(html, /stockcontrol:\s*\(\)=>renderStockControl\(\)/);
 assert.doesNotMatch(html, /stockedit:\s*renderStockEdit/);
 assert.match(html, /data-stock-edit-amount="\$\{p\.id\}"/);
 assert.match(html, /data-stock-edit-remove="\$\{p\.id\}"/);

@@ -34,8 +34,10 @@ function applyBusinessSettings(value){
   STORE_INFO.branch=businessTaxBranchLabel(businessSettings);
 }
 async function loadBusinessSettingsFromSupabase(){
+  const context=captureWorkspaceRead();
   try{
     const {data,error}=await sb.from('settings').select('value').eq('key','business').maybeSingle();
+    if(!isWorkspaceReadCurrent(context)) return;
     if(error){ console.warn('load business settings',error); return; }
     if(data&&data.value&&typeof data.value==='object'){
       applyBusinessSettings(data.value);
@@ -61,8 +63,10 @@ async function syncDocumentPrefixesToSupabase(){
   }catch(e){ console.warn('sync document prefixes failed',e); }
 }
 async function loadDocumentPrefixesFromSupabase(){
+  const context=captureWorkspaceRead();
   try{
     const {data,error}=await sb.from('settings').select('value').eq('key','document_prefixes').maybeSingle();
+    if(!isWorkspaceReadCurrent(context)) return;
     if(error){ console.warn('load document prefixes',error); return; }
     if(data&&data.value&&typeof data.value==='object'){
       Object.keys(DEFAULT_DOCUMENT_PREFIXES).forEach(key=>{
@@ -121,14 +125,17 @@ async function syncInspectionListsToSupabase(){
   return work;
 }
 async function loadInspectionListsFromSupabase(){
+  const context=captureWorkspaceRead();
   try{
     const {data,error}=await fetchAllRows(()=>sb.from('inspection_lists').select('*').order('id'));
+    if(!isWorkspaceReadCurrent(context)) return;
     if(error){ console.warn('load inspection lists',error); return; }
     if((data||[]).length){
       inspectionLists=mergeWorkspaceRemoteRows('inspection_lists',inspectionLists,data.map(rowToInspectionList),inspectionListToRow,{replace:true});
     }else{
       // One-time migration from the former settings-array storage.
       const {data:legacy}=await sb.from('settings').select('value').eq('key','inspection_lists').maybeSingle();
+      if(!isWorkspaceReadCurrent(context)) return;
       if(legacy&&Array.isArray(legacy.value)&&legacy.value.length) inspectionLists=normalizeInspectionLists(legacy.value);
       seedTableSnapshot('inspection_lists',[],inspectionListToRow);
       if(inspectionLists.length) await syncInspectionListsToSupabase();
@@ -157,8 +164,10 @@ async function syncFavoritesToSupabase(){
 }
 async function loadFavoritesFromSupabase(){
   if(!currentProfile) return;
+  const context=captureWorkspaceRead();
   try{
     const {data,error}=await fetchAllRows(()=>sb.from('favorites').select('product_id,unit,position,created_at').order('position').order('created_at'));
+    if(!isWorkspaceReadCurrent(context)) return;
     if(error){ console.warn('load favorites',error); return; }
     favorites=normalizeFavorites((data||[]).map(row=>({pid:row.product_id,unit:row.unit})));
     lastSyncedSnapshot.favorites=JSON.stringify(favorites);
@@ -166,9 +175,11 @@ async function loadFavoritesFromSupabase(){
 }
 
 async function loadCoreDataFromSupabase(){
+  const context=captureWorkspaceRead();
   offlineSnapshotReady=false;
   try{
-    await adoptRemoteMaintenanceEpoch();
+    await adoptRemoteMaintenanceEpoch(context);
+    if(!isWorkspaceReadCurrent(context)) return false;
     const [{data:whRows,error:whErr},{data:prodRows,error:prodErr},{data:contactRows,error:contactErr},{data:repRows,error:repErr},{data:accessRows,error:accessErr},{data:permissionRows,error:permissionErr}]=await Promise.all([
       fetchAllRows(()=>sb.from('warehouses').select('*').order('id')),
       loadProductRowsFromSupabase(),
@@ -177,6 +188,7 @@ async function loadCoreDataFromSupabase(){
       fetchAllRows(()=>sb.from('profile_warehouse_access').select('*').eq('user_id',currentProfile.id).order('warehouse_id')),
       fetchAllRows(()=>sb.from('profile_page_permissions').select('*').eq('user_id',currentProfile.id).order('page_key')),
     ]);
+    if(!isWorkspaceReadCurrent(context)) return false;
     // Keep the current app usable during the short rolling-deploy window before
     // the page-permission migration reaches Supabase. Every other core table is
     // still mandatory; only this newly introduced table has a legacy fallback.
@@ -188,6 +200,7 @@ async function loadCoreDataFromSupabase(){
       const presenceChecks=[];
       for(const [table] of DOC_TABLES) presenceChecks.push(sb.from(table).select('id').limit(1));
       const presenceResults=await Promise.all(presenceChecks);
+      if(!isWorkspaceReadCurrent(context)) return false;
       const presenceError=presenceResults.find(result=>result.error)?.error;
       if(presenceError){ console.warn('check remote document presence',presenceError); return; }
       remoteDocumentsExist=presenceResults.some(result=>(result.data||[]).length>0);
@@ -217,6 +230,7 @@ async function loadCoreDataFromSupabase(){
       console.warn('load core inventory failed');
       return;
     }
+    if(!isWorkspaceReadCurrent(context)) return false;
     contacts=mergeWorkspaceRemoteRows('contacts',contacts,(contactRows||[]).map(rowToContact),contactToRow,{replace:true});
     salesRepresentatives=mergeWorkspaceRemoteRows('sales_representatives',salesRepresentatives,(repRows||[]).map(rowToSalesRep),salesRepToRow,{replace:true});
     refreshCategoryBrandUnitLists();

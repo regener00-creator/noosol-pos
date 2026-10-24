@@ -13,7 +13,7 @@ function section(startMarker, endMarker) {
   return html.slice(start, end);
 }
 
-const inlineProductEdit = section("document.querySelectorAll('.prod-inline-edit')", "document.querySelectorAll('.prod-unit-select')");
+const inlineProductEdit = section("root.querySelectorAll('.prod-inline-edit')", "root.querySelectorAll('.prod-unit-select')");
 assert.match(inlineProductEdit, /await persistWorkspaceData\(\{productChanges:\{updatedIds:\[pid\]\}\}\)/);
 
 const markPaid = section("document.querySelectorAll('[data-act=\"markpaid\"]')", "document.querySelectorAll('[data-act=\"receivepo\"]')");

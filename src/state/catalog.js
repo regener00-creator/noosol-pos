@@ -77,8 +77,10 @@ async function syncPromotionsToSupabase(){
 }
 async function loadPromotionsFromSupabase(){
   if(!currentProfile) return;
+  const context=captureWorkspaceRead();
   try{
     const {data,error}=await fetchAllRows(()=>sb.from('promotions').select('*').order('id'));
+    if(!isWorkspaceReadCurrent(context)) return;
     if(error){ console.warn('load promotions',error); return; }
     if((data||[]).length){
       promotions=data.map(row=>({...(row.data||{}),id:row.id,_revision:Number(row.revision)||1}));

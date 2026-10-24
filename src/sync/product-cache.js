@@ -153,16 +153,19 @@ async function loadProductCacheFromIndexedDB(){
   }
 }
 async function saveProductManifestCache(){
+  const context=captureWorkspaceRead();
   const manifest={
     version:PRODUCT_MANIFEST_VERSION,
     savedAt:new Date().toISOString(),
   };
   try{
     const db=await openProductCacheDb();
+    if(!isWorkspaceReadCurrent(context)) return false;
     const transaction=db.transaction(PRODUCT_CACHE_META_STORE,'readwrite');
     const transactionDone=idbTransactionDone(transaction);
     transaction.objectStore(PRODUCT_CACHE_META_STORE).put({key:PRODUCT_CACHE_MANIFEST_KEY,value:manifest});
     await transactionDone;
+    if(!isWorkspaceReadCurrent(context)) return false;
     cachedProductManifest=manifest;
     localStorage.removeItem(PRODUCT_MANIFEST_STORAGE_KEY);
     localStorage.removeItem('pepos_product_manifest_v4');
@@ -170,12 +173,14 @@ async function saveProductManifestCache(){
   }catch(error){ console.warn('ไม่สามารถบันทึกสารบัญแคชสินค้าใน IndexedDB ได้',error); return false; }
 }
 function persistProductsToIndexedDB(productRows=products,removeMissing=true,dirtyOperations=productDirtyOperations){
+  const context=captureWorkspaceRead();
   const offlineActor=typeof currentProfile!=='undefined'?String(currentProfile?.id||''):'';
   const rows=JSON.parse(JSON.stringify(Array.isArray(productRows)?productRows:[]));
   const dirtyValue=productDirtyOperationsValue(dirtyOperations);
   const write=async()=>{
     try{
       const db=await openProductCacheDb();
+      if(!isWorkspaceReadCurrent(context)) return false;
       const nextFingerprints=new Map(rows.map(product=>[String(product.id),JSON.stringify(product)]));
       const changed=rows.filter(product=>productCacheFingerprints.get(String(product.id))!==nextFingerprints.get(String(product.id)));
       const deleted=removeMissing?[...productCacheFingerprints.keys()].filter(id=>!nextFingerprints.has(id)):[];
@@ -190,6 +195,7 @@ function persistProductsToIndexedDB(productRows=products,removeMissing=true,dirt
         transaction.objectStore(PRODUCT_CACHE_META_STORE).put({key:PRODUCT_CACHE_DIRTY_KEY,value:dirtyValue});
       }catch(error){transaction.abort();throw error;}
       await transactionDone;
+      if(!isWorkspaceReadCurrent(context)) return false;
       productCacheFingerprints=nextFingerprints;
       productCacheDirtyFingerprint=JSON.stringify(dirtyValue);
       indexedProductCacheReady=rows.length>0;
@@ -203,6 +209,7 @@ function persistProductsToIndexedDB(productRows=products,removeMissing=true,dirt
   return productCacheWriteChain;
 }
 function persistProductChangesToIndexedDB(changes={},dirtyOperations=productDirtyOperations){
+  const context=captureWorkspaceRead();
   const offlineActor=typeof currentProfile!=='undefined'?String(currentProfile?.id||''):'';
   const changedIds=new Set([...(changes.insertedIds||[]),...(changes.updatedIds||[])].map(String));
   const deletedIds=[...(changes.deletedIds||[])].map(String);
@@ -212,12 +219,14 @@ function persistProductChangesToIndexedDB(changes={},dirtyOperations=productDirt
   const dirtyFingerprint=JSON.stringify(dirtyValue);
   const write=async()=>{
     try{
+      if(!isWorkspaceReadCurrent(context)) return false;
       // Compare inside the queue: an earlier write may already have saved this
       // acknowledgement. Never skip the dirty-state write after a failed write.
       const changedRows=rows.filter(product=>productCacheFingerprints.get(String(product.id))!==rowFingerprints.get(String(product.id)));
       const removedIds=deletedIds.filter(id=>productCacheFingerprints.has(id));
       if(!changedRows.length&&!removedIds.length&&productCacheDirtyFingerprint===dirtyFingerprint) return true;
       const db=await openProductCacheDb();
+      if(!isWorkspaceReadCurrent(context)) return false;
       const transaction=db.transaction([PRODUCT_CACHE_PRODUCTS_STORE,PRODUCT_CACHE_META_STORE,OFFLINE_PRODUCTS_STORE],'readwrite');
       const transactionDone=idbTransactionDone(transaction);
       transactionDone.catch(()=>{});
@@ -229,6 +238,7 @@ function persistProductChangesToIndexedDB(changes={},dirtyOperations=productDirt
         transaction.objectStore(PRODUCT_CACHE_META_STORE).put({key:PRODUCT_CACHE_DIRTY_KEY,value:dirtyValue});
       }catch(error){transaction.abort();throw error;}
       await transactionDone;
+      if(!isWorkspaceReadCurrent(context)) return false;
       changedRows.forEach(product=>productCacheFingerprints.set(String(product.id),rowFingerprints.get(String(product.id))));
       removedIds.forEach(id=>productCacheFingerprints.delete(id));
       productCacheDirtyFingerprint=dirtyFingerprint;
@@ -334,10 +344,12 @@ function reconcileProductDirtyOperationsWithChanges(changes){
   }
 }
 async function loadProductRowsFromSupabase(){
+  const context=captureWorkspaceRead();
   // Identity sequence values are not commit order. Reconcile authoritative
   // id/revision pairs on every refresh, then download only changed full rows.
   // This also repairs old cursors and caches that outlived log retention.
   const manifest=await fetchProductRevisionManifest();
+  if(!isWorkspaceReadCurrent(context)) return {data:null,error:null,stale:true};
   if(manifest.error) return {data:null,error:manifest.error};
   const remoteIds=new Set(manifest.data.map(row=>String(row.id)));
   reconcileProductDirtyOperationsWithRemoteIds([...remoteIds]);
@@ -350,6 +362,7 @@ async function loadProductRowsFromSupabase(){
   }).map(row=>row.id);
   const deletedIds=products.filter(product=>!remoteIds.has(String(product.id))&&!productDirtyOperations.has(String(product.id))).map(product=>product.id);
   const {data:changedRows,error}=await fetchProductRowsByIds(changedIds);
+  if(!isWorkspaceReadCurrent(context)) return {data:null,error:null,stale:true};
   if(error) return {data:null,error};
   const fetchedIds=new Set((changedRows||[]).map(row=>String(row.id)));
   changedIds.filter(id=>!fetchedIds.has(String(id))).forEach(id=>deletedIds.push(id));
@@ -359,7 +372,9 @@ async function loadProductRowsFromSupabase(){
   loadedProducts=mergeRemoteProductsWithDirtyLocal(loadedProducts);
   products=loadedProducts;
   const productRowsPersisted=await persistProductChangesToIndexedDB({updatedIds:changedIds,deletedIds});
+  if(!isWorkspaceReadCurrent(context)) return {data:null,error:null,stale:true};
   if(productRowsPersisted) await saveProductManifestCache();
+  if(!isWorkspaceReadCurrent(context)) return {data:null,error:null,stale:true};
   return {data:loadedProducts,error:null};
 }
 

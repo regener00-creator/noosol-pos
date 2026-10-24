@@ -67,7 +67,7 @@ assert.match(html, /function representativeNoteWorkspaceHtml\(/);
 assert.match(html, /data-representative-card-open=/);
 assert.match(html, /data-product-representative-history=/);
 assert.match(html, /\['representativehistory','ผู้แทน'/);
-assert.match(html, /representativehistory: renderRepresentativeHistoryOverview/);
+assert.match(html, /representativehistory: \(\)=>renderRepresentativeHistoryOverview\(\)/);
 const navSource = html.slice(html.indexOf('const NAV = ['),html.indexOf('function renderSidebar()'));
 const contactsNavIndex = navSource.indexOf("['contacts','ผู้จำหน่าย'");
 const representativeNavIndex = navSource.indexOf("['representativehistory','ผู้แทน'");

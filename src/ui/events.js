@@ -1,3 +1,136 @@
+function attachProductResultEvents(root=document){
+  root.querySelectorAll('[data-act="editproduct"]').forEach(el=>{
+    el.addEventListener('click', ()=>{ if(isLevel2User()) return; editingProductId=Number(el.dataset.id); render(); });
+  });
+  root.querySelectorAll('[data-product-representative-history]').forEach(el=>{
+    el.addEventListener('click',()=>{ if(isLevel2User()) return; openRepresentativeHistory({productId:Number(el.dataset.productRepresentativeHistory),originTab:'products'}); });
+  });
+  root.querySelectorAll('[data-act="stockcheck"]').forEach(el=>{
+    el.addEventListener('click', ()=>openStockCheckModal(Number(el.dataset.id)));
+  });
+
+  root.querySelectorAll('[data-cycle-product-review-status]').forEach(button=>{
+    button.addEventListener('click',async()=>{
+      const pid=Number(button.dataset.cycleProductReviewStatus);
+      const product=products.find(item=>Number(item.id)===pid);
+      if(!product) return;
+      const trackedFields=['dataReviewStatus','dataReviewUpdatedAt','dataReviewUpdatedBy','dataReviewedAt','dataReviewedBy'];
+      const previousValues=Object.fromEntries(trackedFields.map(field=>[field,product[field]]));
+      const currentStatus=productDataReviewStatus(product);
+      const requestedStatus=currentStatus==='pending'?'complete':currentStatus==='complete'?'':'pending';
+      const shouldClear=requestedStatus==='';
+      button.disabled=true;
+      if(shouldClear){
+        trackedFields.forEach(field=>{ delete product[field]; });
+      }else{
+        const changedAt=new Date().toISOString();
+        const changedBy=currentPharmacistName()||String(loggedInUser()?.username||'').trim();
+        product.dataReviewStatus=requestedStatus;
+        product.dataReviewUpdatedAt=changedAt;
+        product.dataReviewUpdatedBy=changedBy;
+        if(requestedStatus==='complete'){
+          product.dataReviewedAt=changedAt;
+          product.dataReviewedBy=changedBy;
+        }else{
+          delete product.dataReviewedAt;
+          delete product.dataReviewedBy;
+        }
+      }
+      const cached=await persistWorkspaceData({productChanges:{updatedIds:[pid]}});
+      if(!cached){
+        trackedFields.forEach(field=>{
+          if(previousValues[field]===undefined) delete product[field];
+          else product[field]=previousValues[field];
+        });
+        showToast('บันทึกสถานะตรวจข้อมูลไม่สำเร็จ กรุณาลองใหม่','danger-top');
+        render();
+        return;
+      }
+      showToast(shouldClear?'ล้างสถานะตรวจข้อมูลแล้ว':requestedStatus==='pending'?'ทำเครื่องหมายว่ากำลังแก้ไข / รอข้อมูลแล้ว':'ทำเครื่องหมายว่าข้อมูลครบถ้วนแล้ว');
+      render();
+    });
+  });
+  // แก้ไขข้อมูลสินค้าแบบอินไลน์ในหน้ารายการสินค้า (รหัส/ชื่อ/ราคา/ทุน/วันหมดอายุของคลังที่ใช้งาน)
+  root.querySelectorAll('.prod-inline-edit').forEach(el=>{
+    el.addEventListener('change', async ()=>{
+      const pid=Number(el.dataset.pid);
+      const field=el.dataset.field;
+      const p=products.find(x=>x.id===pid); if(!p) return;
+      if(field==='price'||field==='cost'){
+        const v=parseFloat(el.value);
+        const val=isNaN(v)?0:v;
+        const unit=el.dataset.unit;
+        if(!unit || unit===p.unit){ p[field]=val; }
+        else{ const u=(p.units||[]).find(x=>x.sub===unit); if(u) u[field]=val; }
+      } else if(field==='sku'){
+        const v=el.value.trim();
+        if(v && products.some(x=>x.id!==pid && (x.sku||'').toLowerCase()===v.toLowerCase())){
+          showToast('รหัสสินค้านี้ถูกใช้แล้ว กรุณาใช้รหัสอื่น');
+          el.value=p.sku||'';
+          return;
+        }
+        p.sku=v;
+      } else if(field==='barcode'){
+        const unit=String(el.dataset.unit||p.unit||'');
+        const unitRow=unit===String(p.unit||'')?null:(p.units||[]).find(item=>String(item.sub||'')===unit);
+        if(unit!==String(p.unit||'')&&!unitRow){
+          showToast('ไม่พบหน่วยสินค้าที่เลือก กรุณาเลือกหน่วยใหม่','danger-top');
+          render();
+          return;
+        }
+        const previous=String(unitRow?unitRow.barcode||'':p.barcode||'').trim();
+        const requested=el.value.trim();
+        const conflict=requested&&barcodePrintBarcodeOwners().find(owner=>
+          String(owner.code||'').toLowerCase()===requested.toLowerCase()&&
+          !(Number(owner.pid)===pid&&owner.kind==='unit'&&String(owner.unit||'')===unit)
+        );
+        if(conflict){
+          const conflictProduct=products.find(item=>Number(item.id)===Number(conflict.pid));
+          el.value=previous;
+          showToast(`บาร์โค้ด ${requested} ถูกใช้กับ ${conflictProduct?.name||'สินค้าอื่น'} แล้ว`,'danger-top');
+          return;
+        }
+        const draft={...p,barcode:unitRow?p.barcode:requested,units:(p.units||[]).map(item=>item===unitRow?{...item,barcode:requested}:item)};
+        try{ await assertProductBarcodesAvailable(draft,p); }
+        catch(error){ el.value=previous; showToast(error.message,'danger-top'); return; }
+        if(unitRow) unitRow.barcode=requested;
+        else p.barcode=requested;
+      } else if(field==='name'){
+        const v=el.value.trim();
+        if(v) p.name=v; else el.value=p.name;
+      }
+      rebuildProductLookupMaps();
+      const cached=await persistWorkspaceData({productChanges:{updatedIds:[pid]}});
+      if(!cached){ showToast('บันทึกข้อมูลแล้ว แต่เก็บสำเนาในเครื่องไม่สำเร็จ กรุณาอย่าเพิ่งปิดหน้านี้','danger-top'); return; }
+      showToast('บันทึกการแก้ไขแล้ว');
+      render();
+    });
+  });
+  root.querySelectorAll('.prod-unit-select').forEach(el=>{
+    el.addEventListener('change', ()=>{
+      const pid=Number(el.dataset.pid);
+      rememberProductListUnit(products.find(product=>Number(product.id)===pid),el.value);
+      render();
+    });
+  });
+
+  root.querySelectorAll('[data-product-lots]').forEach(button=>button.addEventListener('click',event=>{
+    event.stopPropagation();
+    openProductLotDetails(Number(button.dataset.productLots),Number(button.dataset.lotWarehouse)||activeWarehouseId);
+  }));
+
+  root.querySelectorAll('.prodtable th.sortable').forEach(el=>el.addEventListener('click',()=>{
+    const key=el.dataset.sort;
+    if(productSort.key===key) productSort.dir*=-1;else{productSort.key=key;productSort.dir=1;}
+    if(!refreshProductListResults()) render();
+  }));
+  root.querySelectorAll('[data-page]').forEach(el=>el.addEventListener('click',()=>{
+    const value=el.dataset.page;
+    productPage=value==='prev'?Math.max(1,productPage-1):value==='next'?productPage+1:Number(value);
+    if(!refreshProductListResults()) render();
+  }));
+}
+
 function bindPasswordVisibilityToggles(root=document){
   root.querySelectorAll('[data-toggle-password]').forEach(button=>{
     if(button.dataset.passwordToggleBound==='1') return;
@@ -18,6 +151,7 @@ function bindPasswordVisibilityToggles(root=document){
 }
 
 function attachEvents(){
+  attachProductResultEvents();
   attachReceiptPrinterEvents();
   if(currentTab==='mobiletools'){
     prepareMobileScanSound();
@@ -463,7 +597,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
           if(currentTab!==searchTab||document.getElementById('search')!==searchEl) return;
           const selectionStart=searchEl.selectionStart,selectionEnd=searchEl.selectionEnd;
           if(searchTab==='products') selectProductListUnitByExactCode(searchQuery);
-          render();
+          if(searchTab!=='products'||!refreshProductListResults()) render();
           restoreSearchInputFocus(selectionStart,selectionEnd);
         },120);
         return;
@@ -1028,15 +1162,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   const exportProductsBtn = document.getElementById('exportProductsBtn');
   if(exportProductsBtn) exportProductsBtn.addEventListener('click',()=>invokeExcelTool('exportProductsToExcel'));
-  document.querySelectorAll('[data-act="editproduct"]').forEach(el=>{
-    el.addEventListener('click', ()=>{ if(isLevel2User()) return; editingProductId=Number(el.dataset.id); render(); });
-  });
-  document.querySelectorAll('[data-product-representative-history]').forEach(el=>{
-    el.addEventListener('click',()=>{ if(isLevel2User()) return; openRepresentativeHistory({productId:Number(el.dataset.productRepresentativeHistory),originTab:'products'}); });
-  });
-  document.querySelectorAll('[data-act="stockcheck"]').forEach(el=>{
-    el.addEventListener('click', ()=>openStockCheckModal(Number(el.dataset.id)));
-  });
   // --- contacts ---
   attachCustomerPurchaseEvents();
   bindCustomerLoyaltyEvents();
@@ -1390,7 +1515,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     });
   });
   // --- sort headers ---
-  document.querySelectorAll('.grid-table th.sortable').forEach(el=>{
+  document.querySelectorAll('.grid-table:not(.prodtable) th.sortable').forEach(el=>{
     el.addEventListener('click', ()=>{
       const key = el.dataset.sort;
       const sortState = ['contacts','customers'].includes(currentTab) ? contactSort : productSort;
@@ -1420,15 +1545,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     restore();
     requestAnimationFrame(restore);
   }
-  document.querySelectorAll('[data-page]').forEach(el=>{
-    el.addEventListener('click', ()=>{
-      const v=el.dataset.page;
-      if(v==='prev'){ if(productPage>1) productPage--; }
-      else if(v==='next'){ productPage++; }
-      else { productPage=Number(v); }
-      renderKeepScroll();
-    });
-  });
   document.querySelectorAll('[data-contactpage]').forEach(el=>{
     el.addEventListener('click',()=>{
       const v=el.dataset.contactpage;
@@ -1440,110 +1556,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   // ช่องวันที่แบบ วัน/เดือน/ปี — ใช้ตัวจัดรูปแบบร่วมกันทั้งหน้าปกติและ popup
   bindDmyDateFields();
-  document.querySelectorAll('[data-cycle-product-review-status]').forEach(button=>{
-    button.addEventListener('click',async()=>{
-      const pid=Number(button.dataset.cycleProductReviewStatus);
-      const product=products.find(item=>Number(item.id)===pid);
-      if(!product) return;
-      const trackedFields=['dataReviewStatus','dataReviewUpdatedAt','dataReviewUpdatedBy','dataReviewedAt','dataReviewedBy'];
-      const previousValues=Object.fromEntries(trackedFields.map(field=>[field,product[field]]));
-      const currentStatus=productDataReviewStatus(product);
-      const requestedStatus=currentStatus==='pending'?'complete':currentStatus==='complete'?'':'pending';
-      const shouldClear=requestedStatus==='';
-      button.disabled=true;
-      if(shouldClear){
-        trackedFields.forEach(field=>{ delete product[field]; });
-      }else{
-        const changedAt=new Date().toISOString();
-        const changedBy=currentPharmacistName()||String(loggedInUser()?.username||'').trim();
-        product.dataReviewStatus=requestedStatus;
-        product.dataReviewUpdatedAt=changedAt;
-        product.dataReviewUpdatedBy=changedBy;
-        if(requestedStatus==='complete'){
-          product.dataReviewedAt=changedAt;
-          product.dataReviewedBy=changedBy;
-        }else{
-          delete product.dataReviewedAt;
-          delete product.dataReviewedBy;
-        }
-      }
-      const cached=await persistWorkspaceData({productChanges:{updatedIds:[pid]}});
-      if(!cached){
-        trackedFields.forEach(field=>{
-          if(previousValues[field]===undefined) delete product[field];
-          else product[field]=previousValues[field];
-        });
-        showToast('บันทึกสถานะตรวจข้อมูลไม่สำเร็จ กรุณาลองใหม่','danger-top');
-        render();
-        return;
-      }
-      showToast(shouldClear?'ล้างสถานะตรวจข้อมูลแล้ว':requestedStatus==='pending'?'ทำเครื่องหมายว่ากำลังแก้ไข / รอข้อมูลแล้ว':'ทำเครื่องหมายว่าข้อมูลครบถ้วนแล้ว');
-      render();
-    });
-  });
-  // แก้ไขข้อมูลสินค้าแบบอินไลน์ในหน้ารายการสินค้า (รหัส/ชื่อ/ราคา/ทุน/วันหมดอายุของคลังที่ใช้งาน)
-  document.querySelectorAll('.prod-inline-edit').forEach(el=>{
-    el.addEventListener('change', async ()=>{
-      const pid=Number(el.dataset.pid);
-      const field=el.dataset.field;
-      const p=products.find(x=>x.id===pid); if(!p) return;
-      if(field==='price'||field==='cost'){
-        const v=parseFloat(el.value);
-        const val=isNaN(v)?0:v;
-        const unit=el.dataset.unit;
-        if(!unit || unit===p.unit){ p[field]=val; }
-        else{ const u=(p.units||[]).find(x=>x.sub===unit); if(u) u[field]=val; }
-      } else if(field==='sku'){
-        const v=el.value.trim();
-        if(v && products.some(x=>x.id!==pid && (x.sku||'').toLowerCase()===v.toLowerCase())){
-          showToast('รหัสสินค้านี้ถูกใช้แล้ว กรุณาใช้รหัสอื่น');
-          el.value=p.sku||'';
-          return;
-        }
-        p.sku=v;
-      } else if(field==='barcode'){
-        const unit=String(el.dataset.unit||p.unit||'');
-        const unitRow=unit===String(p.unit||'')?null:(p.units||[]).find(item=>String(item.sub||'')===unit);
-        if(unit!==String(p.unit||'')&&!unitRow){
-          showToast('ไม่พบหน่วยสินค้าที่เลือก กรุณาเลือกหน่วยใหม่','danger-top');
-          render();
-          return;
-        }
-        const previous=String(unitRow?unitRow.barcode||'':p.barcode||'').trim();
-        const requested=el.value.trim();
-        const conflict=requested&&barcodePrintBarcodeOwners().find(owner=>
-          String(owner.code||'').toLowerCase()===requested.toLowerCase()&&
-          !(Number(owner.pid)===pid&&owner.kind==='unit'&&String(owner.unit||'')===unit)
-        );
-        if(conflict){
-          const conflictProduct=products.find(item=>Number(item.id)===Number(conflict.pid));
-          el.value=previous;
-          showToast(`บาร์โค้ด ${requested} ถูกใช้กับ ${conflictProduct?.name||'สินค้าอื่น'} แล้ว`,'danger-top');
-          return;
-        }
-        const draft={...p,barcode:unitRow?p.barcode:requested,units:(p.units||[]).map(item=>item===unitRow?{...item,barcode:requested}:item)};
-        try{ await assertProductBarcodesAvailable(draft,p); }
-        catch(error){ el.value=previous; showToast(error.message,'danger-top'); return; }
-        if(unitRow) unitRow.barcode=requested;
-        else p.barcode=requested;
-      } else if(field==='name'){
-        const v=el.value.trim();
-        if(v) p.name=v; else el.value=p.name;
-      }
-      rebuildProductLookupMaps();
-      const cached=await persistWorkspaceData({productChanges:{updatedIds:[pid]}});
-      if(!cached){ showToast('บันทึกข้อมูลแล้ว แต่เก็บสำเนาในเครื่องไม่สำเร็จ กรุณาอย่าเพิ่งปิดหน้านี้','danger-top'); return; }
-      showToast('บันทึกการแก้ไขแล้ว');
-      render();
-    });
-  });
-  document.querySelectorAll('.prod-unit-select').forEach(el=>{
-    el.addEventListener('change', ()=>{
-      const pid=Number(el.dataset.pid);
-      rememberProductListUnit(products.find(product=>Number(product.id)===pid),el.value);
-      render();
-    });
-  });
   // คลิกที่กล่องช่องเดือนแล้วเปิดปฏิทินได้เลย ไม่ต้องเล็งไปที่ไอคอนเล็กๆ (ช่องวันที่ใช้พฤติกรรมเดิม)
   document.querySelectorAll('input[type="month"].rpt-select').forEach(el=>{
     el.addEventListener('click', ()=>{ if(typeof el.showPicker==='function'){ try{ el.showPicker(); }catch(error){} } });
@@ -1657,10 +1669,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       });
     });
   });
-  document.querySelectorAll('[data-product-lots]').forEach(button=>button.addEventListener('click',event=>{
-    event.stopPropagation();
-    openProductLotDetails(Number(button.dataset.productLots),Number(button.dataset.lotWarehouse)||activeWarehouseId);
-  }));
   // --- ตัวกรองหน้ารายการงานเคลื่อนไหว ---
   const movementPeriod=document.getElementById('movementPeriod');
   if(movementPeriod) movementPeriod.addEventListener('change',()=>{ inventoryMovementFilter.period=movementPeriod.value; inventoryMovementFilter.page=1; render(); });

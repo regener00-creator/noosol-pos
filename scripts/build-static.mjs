@@ -21,6 +21,7 @@ const staticDeployFiles = [
   'sapuri-app-icon-512.png',
   'sapuri-pharmacy-logo.webp',
   'sapuri-brand-logo.webp',
+  'sapuri-brand-screen.webp',
   'fonts/google-sans-variable-v2.woff2',
   'fonts/google-sans-italic-variable-v2.woff2',
   'fonts/Google-Sans-OFL.txt',
@@ -53,7 +54,7 @@ export async function prepareTextAssets({ appSource, excelToolsSource = '', styl
   for (const [group, config] of Object.entries(groups)) {
     if (!/^[a-z]+$/.test(group)) throw new Error('Invalid page chunk name')
     pageSources[`page-${group}.js`] = config.functions.map(name => {
-      if (!/^render[A-Za-z]+$/.test(name) || extractedNames.has(name)) throw new Error(`Invalid/duplicate lazy function ${name}`)
+      if (!/^[A-Za-z][A-Za-z0-9]+$/.test(name) || extractedNames.has(name)) throw new Error(`Invalid/duplicate lazy function ${name}`)
       const declaration = appSource.match(new RegExp(`^function ${name}\\([^\\n]*\\)\\{[\\s\\S]*?^\\}`, 'm'))?.[0]
       if (!declaration) throw new Error(`Missing lazy function ${name}`)
       // Fail the build if source formatting no longer gives a complete function.

@@ -182,7 +182,7 @@ assert.match(printHtml, /@page\{size:50mm 30mm;margin:0\}/);
 assert.match(printHtml, /ป้ายราคา 50 × 30 มม\. แนวนอน/);
 assert.doesNotMatch(printHtml, /promotion|ป้ายโปรโมชั่น/);
 
-assert.match(html, /barcodeprint:\s*renderBarcodePrint/);
+assert.match(html, /barcodeprint:\s*\(\)=>renderBarcodePrint\(\)/);
 assert.match(html, /LEVEL2_HIDDEN_TABS[^\n]+barcodeprint/);
 assert.match(html, /id="savePrintBarcodeBtn"/);
 assert.match(html, /id="barcodePrintAddMissingBtn"/);

@@ -25,6 +25,7 @@ const SALES_QUERY_MAX_ROWS=5000;
 const salesLoadState={loaded:false,full:false,holds:false,recent:false,ranges:[],truncatedRanges:[],holdsTruncated:false};
 const salesLoadPromises=new Map();
 const SALES_CACHE_TTL_MS=60000;
+const SALES_MEMORY_ROW_LIMIT=10000;
 let workspaceReadGeneration=0;
 const salesFreshRequests=[];
 function captureWorkspaceRead(){ return {actor:String(currentProfile?.id||''),generation:workspaceReadGeneration}; }
@@ -61,6 +62,21 @@ function mergeSalesRows(current,incoming){
     const dateCompare=String(b.date||'').localeCompare(String(a.date||''));
     return dateCompare||String(b.time||b.id||'').localeCompare(String(a.time||a.id||''));
   });
+}
+function trimSalesHistoryCache(protectedIds,request){
+  if(salesHistory.length<=SALES_MEMORY_ROW_LIMIT) return;
+  const protectedRow=row=>protectedIds.has(String(row.id))||row.offlinePending||row.status==='hold';
+  let budget=Math.max(0,SALES_MEMORY_ROW_LIMIT-salesHistory.filter(protectedRow).length);
+  const retained=salesHistory.filter(row=>protectedRow(row)||budget-->0);
+  if(retained.length===salesHistory.length) return;
+  salesHistory=retained;
+  // Eviction is only in RAM. Invalidate coverage so revisiting an older
+  // window fetches it again instead of displaying incomplete report totals.
+  salesLoadState.ranges=request.range?[request.range]:[];
+  salesLoadState.truncatedRanges=salesLoadState.truncatedRanges.filter(range=>request.range&&range.from===request.range.from&&range.to===request.range.to);
+  const latest=salesFreshRequests.at(-1);
+  salesFreshRequests.length=0;
+  if(latest) salesFreshRequests.push(latest);
 }
 async function loadSalesHistoryFromSupabase(options={}){
   const context=captureWorkspaceRead();
@@ -125,6 +141,7 @@ async function loadSalesHistoryFromSupabase(options={}){
         if(holdsTruncated) salesLoadState.holdsTruncated=true;
       }
       invoiceCounter=maxArrayValue(salesHistory,s=>(Number(String(s.id||'').replace(/\D/g,''))||0)+1,1000);
+      trimSalesHistoryCache(new Set([...incoming,...locallyChanged].map(row=>String(row.id))),request);
       if(typeof saleRef!=='undefined'&&!cart.length) saleRef=nextSaleRef();
       return true;
     }catch(error){
@@ -197,13 +214,20 @@ async function loadCashShiftsFromSupabase(){
 }
 async function loadWorkspaceFromSupabase(){
   if(offlinePosMode()) return;
+  const context=captureWorkspaceRead();
   await loadWorkspaceRecoveryForUser();
-  await adoptRemoteMaintenanceEpoch();
+  if(!isWorkspaceReadCurrent(context)) return;
+  await adoptRemoteMaintenanceEpoch(context);
+  if(!isWorkspaceReadCurrent(context)) return;
+  // A maintenance reset intentionally starts a fresh generation.
+  const refreshedContext=captureWorkspaceRead();
   await Promise.all([
     loadCoreDataFromSupabase(),loadSalesHistoryFromSupabase(),loadBusinessSettingsFromSupabase(),
     loadDocumentPrefixesFromSupabase(),loadInspectionListsFromSupabase(),loadPromotionsFromSupabase(),loadFavoritesFromSupabase()
   ]);
+  if(!isWorkspaceReadCurrent(refreshedContext)) return;
   await loadCashShiftsFromSupabase();
+  if(!isWorkspaceReadCurrent(refreshedContext)) return;
   await saveOfflinePosSnapshot().catch(()=>{});
   mobileLastRefreshAt=Date.now();
 }

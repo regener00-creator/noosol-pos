@@ -152,7 +152,12 @@ function renderSearchResults(){
   const q = searchQuery.trim();
   if(!q) return '';
   const ql = q.toLowerCase();
-  const matches = activeProducts().filter(p=>p.name.toLowerCase().includes(ql)||matchesBarcode(p,q)||(p.sku||'').toLowerCase().includes(ql)).slice(0,8);
+  const matches=[];
+  for(const p of products){
+    if(!isProductActive(p)) continue;
+    if(productSearchText(p).includes(ql)||matchesBarcode(p,q)) matches.push(p);
+    if(matches.length===8) break;
+  }
   if(matches.length===0) return `<div class="pos-results"><div class="pos-noresult">ไม่พบสินค้า "${escapeHtml(q)}"</div></div>`;
   return `<div class="pos-results">${matches.map(p=>{
     const outLabel=p.stock<0?' · สต็อกติดลบ':(p.stock===0?' · หมดสต็อก':'');

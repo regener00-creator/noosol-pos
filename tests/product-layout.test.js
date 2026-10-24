@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const html = require("./load-app-source")();
-const start = html.indexOf('function renderProducts()');
+const start = html.indexOf('function renderProducts(');
 const end = html.indexOf('function comboSelectorFor(', start);
 assert.ok(start >= 0 && end > start, 'ไม่พบฟังก์ชัน renderProducts');
 
@@ -12,7 +12,7 @@ const pageIndex = source.indexOf('<div class="product-list-page">');
 const actionsIndex = source.indexOf('<div class="product-list-actions form-final-actions">');
 const groupIndex = source.indexOf('<div class="tree-pane">');
 const searchIndex = source.search(/<div class="searchbar product-list-search">\s*<input id="search"/);
-const tableIndex = source.indexOf('<div class="table-pane">');
+const tableIndex = source.indexOf('${resultsHtml}', searchIndex);
 
 assert.ok(actionsIndex >= 0, 'ไม่พบกลุ่มปุ่มสำหรับย้ายขึ้น topbar');
 assert.ok(groupIndex > actionsIndex, 'กลุ่มปุ่มต้องอยู่ก่อนเนื้อหาหน้าสินค้าเพื่อให้ระบบย้ายขึ้น topbar');
@@ -44,7 +44,7 @@ assert.match(source, /const representativeHistoryButton=productHasManagedReprese
 assert.match(source, /title="ผู้แทนที่ดูแลสินค้าและ NOTE"/, 'ปุ่มผู้แทนในรายการสินค้าต้องสื่อว่าดึงจากสินค้าที่ดูแลของผู้แทน');
 assert.match(html, /function loadRepresentativeManagedProductIndex[\s\S]*from\('sales_representative_products'\)\.select\('representative_id,product_id'\)/, 'หน้ารายการสินค้าต้องโหลดดัชนีสินค้าที่ผู้แทนดูแลจากฐานข้อมูลจริง');
 assert.match(source, /representativeIndexStale[\s\S]*loadRepresentativeManagedProductIndex\(\)/, 'หน้ารายการสินค้าต้องโหลดดัชนีเมื่อยังไม่มีข้อมูลหรือข้อมูลเก่า');
-assert.match(html, /document\.querySelectorAll\('\[data-cycle-product-review-status\]'\)[^]*currentStatus==='pending'\?'complete':currentStatus==='complete'\?'':'pending'[^]*product\.dataReviewStatus=requestedStatus;[^]*persistWorkspaceData\(\{productChanges:\{updatedIds:\[pid\]\}\}\)/, 'ปุ่มสถานะเดียวต้องวนปกติไปเหลือง ไปเขียว แล้วกลับปกติ พร้อมบันทึกและซิงก์');
+assert.match(html, /root\.querySelectorAll\('\[data-cycle-product-review-status\]'\)[^]*currentStatus==='pending'\?'complete':currentStatus==='complete'\?'':'pending'[^]*product\.dataReviewStatus=requestedStatus;[^]*persistWorkspaceData\(\{productChanges:\{updatedIds:\[pid\]\}\}\)/, 'ปุ่มสถานะเดียวต้องวนปกติไปเหลือง ไปเขียว แล้วกลับปกติ พร้อมบันทึกและซิงก์');
 assert.match(html, /\.product-review-pending-row>td\{background:#FFF8E1;color:#956500;\}/, 'แถวที่กำลังแก้ไขหรือรอข้อมูลต้องแสดงพื้นและตัวอักษรสีเหลือง');
 assert.match(html, /\.product-reviewed-row>td\{background:#EFF9F1;color:#237A3A;\}/, 'แถวที่ตรวจข้อมูลครบแล้วต้องแสดงพื้นและตัวอักษรสีเขียว');
 assert.match(source, /placeholder="ค้นหาจาก ชื่อ \/ รหัส \/ บาร์โค้ด"/, 'ยังต้องค้นหาด้วยบาร์โค้ดได้');

@@ -37,7 +37,13 @@ test('build minifies app assets and injects one matching content version', async
   assert.doesNotThrow(() => new vm.Script(built.appCode), 'minified JavaScript must remain syntactically valid');
   assert.match(built.appCode,/function productStructureValidationError\(/,'shared product rules are bundled before the app');
   assert.doesNotMatch(built.indexHtml,/src="\/product-domain\.js/,'production must not request an unbundled source file');
-  assert.equal(Object.keys(built.pageCodes).length,4);
+  assert.equal(Object.keys(built.pageCodes).length,7);
+  for(const [file,fn] of [['page-labels.js','openPriceLabelDesigner'],['page-inventory.js','renderStockControl'],['page-representatives.js','renderRepresentativeHistory']]){
+    assert.ok(!built.appCode.includes('function '+fn+'('),fn+' stays out of the initial bundle');
+    assert.ok(built.pageCodes[file].includes('function '+fn+'('),fn+' exists in its lazy bundle');
+  }
+  assert.ok(fs.statSync(path.join(root,'sapuri-brand-screen.webp')).size<20000,'screen logo stays small');
+  assert.ok(fs.statSync(path.join(root,'sapuri-brand-logo.webp')).size>600000,'original artwork remains available');
   for(const [file,code] of Object.entries(built.pageCodes)){
     assert.doesNotThrow(()=>new vm.Script(code),`${file} parses`);
     assert.ok(code.includes(built.assetVersion),`${file} rejects a mismatched app version`);

@@ -1,6 +1,6 @@
-function renderProducts(){
+function renderProducts({resultsOnly=false}={}){
   if(editingProductId!==null) return renderProductForm();
-  const {tree, catCounts, brCounts} = buildGroupTree();
+  const {tree, catCounts, brCounts} = resultsOnly?{tree:{},catCounts:{},brCounts:{}}:buildGroupTree();
   const q = searchQuery.trim();
   const needle=q.toLowerCase();
   const compareNames=new Intl.Collator('th').compare;
@@ -72,20 +72,7 @@ function renderProducts(){
 
   let pager = pagerHtml(productPage, totalPages, 'page');
 
-  return `<div class="product-list-page">
-    <div class="product-list-actions form-final-actions"><button class="btn ghost" id="exportProductsBtn">ส่งออก Excel</button><button class="btn ghost" id="importProductsBtn">นำเข้า Excel</button><input id="productImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newProductBtn">+ เพิ่มสินค้า</button></div>
-    <div class="prodsplit">
-      <div class="tree-pane">
-        <div class="product-group-header"><span class="product-group-title">กลุ่มสินค้า</span><span class="product-group-separator">:</span><div class="product-group-categories">${categoryHtml}</div></div>
-        <div class="product-group-brands">${brandHtml}</div>
-      </div>
-      <div class="searchbar product-list-search">
-        <input id="search" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" value="${escapeHtml(searchQuery)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-        <div class="product-review-filters" role="group" aria-label="กรองสินค้าตามสี">
-          ${[['all','ทั้งหมด'],['complete','สีเขียว'],['pending','สีเหลือง']].map(([value,label])=>`<button type="button" class="product-review-filter" data-product-review-filter="${value}" aria-pressed="${productReviewFilter===value}" title="${value==='complete'?'ข้อมูลครบถ้วน':value==='pending'?'กำลังแก้ไข / รอข้อมูล':'ทุกสี รวมสินค้าที่ยังไม่ได้ทำสี'}"><span class="product-review-filter-dot" aria-hidden="true"></span>${label}</button>`).join('')}
-        </div>
-      </div>
-      <div class="table-pane">
+  const resultsHtml=`      <div class="table-pane">
         <div class="table-scroll product-table-scroll">
         <table class="grid-table doc-head-blue prodtable"><colgroup><col class="col-sku"><col class="col-barcode"><col class="col-name"><col class="col-price">${canViewCost?'<col class="col-cost">':''}<col class="col-unit"><col class="col-stock"><col class="col-lots">${canOpenProductEditor?'<col class="col-edit">':''}</colgroup><thead><tr>${th('sku','รหัสสินค้า')}<th>บาร์โค้ด</th>${th('name','สินค้า')}${th('price','ขาย','mono num')}${canViewCost?th('cost','ทุน','mono num'):''}<th>หน่วย</th>${th('stock','คงเหลือ','mono num')}<th>Lot</th>${canOpenProductEditor?'<th></th>':''}</tr></thead>
         <tbody>${pageRows.map(p=>{
@@ -111,6 +98,22 @@ function renderProducts(){
         </div>
         ${pager}
       </div>
+`;
+  if(resultsOnly) return resultsHtml;
+  return `<div class="product-list-page">
+    <div class="product-list-actions form-final-actions"><button class="btn ghost" id="exportProductsBtn">ส่งออก Excel</button><button class="btn ghost" id="importProductsBtn">นำเข้า Excel</button><input id="productImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newProductBtn">+ เพิ่มสินค้า</button></div>
+    <div class="prodsplit">
+      <div class="tree-pane">
+        <div class="product-group-header"><span class="product-group-title">กลุ่มสินค้า</span><span class="product-group-separator">:</span><div class="product-group-categories">${categoryHtml}</div></div>
+        <div class="product-group-brands">${brandHtml}</div>
+      </div>
+      <div class="searchbar product-list-search">
+        <input id="search" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" value="${escapeHtml(searchQuery)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+        <div class="product-review-filters" role="group" aria-label="กรองสินค้าตามสี">
+          ${[['all','ทั้งหมด'],['complete','สีเขียว'],['pending','สีเหลือง']].map(([value,label])=>`<button type="button" class="product-review-filter" data-product-review-filter="${value}" aria-pressed="${productReviewFilter===value}" title="${value==='complete'?'ข้อมูลครบถ้วน':value==='pending'?'กำลังแก้ไข / รอข้อมูล':'ทุกสี รวมสินค้าที่ยังไม่ได้ทำสี'}"><span class="product-review-filter-dot" aria-hidden="true"></span>${label}</button>`).join('')}
+        </div>
+      </div>
+      ${resultsHtml}
     </div></div>`;
 }
 

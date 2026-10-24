@@ -54,10 +54,14 @@ const DOC_TABLES = [
 ];
 const DOCUMENT_QUERY_PAGE_SIZE=250;
 const DOCUMENT_QUERY_MAX_ROWS=1000;
+const DOCUMENT_CACHE_TTL_MS=60000;
+const DOCUMENT_MEMORY_ROW_LIMIT=2500;
+const documentFreshRequests=new Map();
 const documentLoadStates=Object.fromEntries(DOC_TABLES.map(([table])=>[table,{loaded:false,full:false,recent:false,ranges:[],recentTruncated:false,truncatedRanges:[]}]));
 const documentLoadPromises=new Map();
 function documentTableEntry(table){ return DOC_TABLES.find(([name])=>name===table)||null; }
 function resetDocumentLoadStates(){
+  documentFreshRequests.clear();
   Object.values(documentLoadStates).forEach(state=>{ state.loaded=false; state.full=false; state.recent=false; state.ranges=[]; state.recentTruncated=false; state.truncatedRanges=[]; });
   documentLoadPromises.clear();
   DOC_TABLES.forEach(([table])=>{ delete syncedTableRows[table]; });
@@ -70,6 +74,9 @@ function mergeRowsById(current,incoming){
 function documentRequestLoaded(table,{range=null,recent=false,full=false}={}){
   const state=documentLoadStates[table];
   if(!state) return true;
+  const fresh=(documentFreshRequests.get(table)||[]).some(item=>isWorkspaceReadCurrent(item.context)&&Date.now()-item.at<DOCUMENT_CACHE_TTL_MS&&
+    (item.full||(!full&&(!range||item.range&&item.range.from<=range.from&&item.range.to>=range.to)&&(!recent||item.recent))));
+  if(!fresh) return false;
   if(state.full) return true;
   if(full) return false;
   if(range) return rangeCoveredBy(state.ranges,range);
@@ -81,15 +88,16 @@ function documentRequestTruncated(table,{range=null,recent=false}={}){
   if(range&&rangeOverlapsAny(state.truncatedRanges,range)) return true;
   return !!recent&&state.recentTruncated;
 }
-async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full=false}={}){
+async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full=false,force=false}={}){
   const context=captureWorkspaceRead();
   const entry=documentTableEntry(table),state=documentLoadStates[table];
   if(!entry||!state) return false;
   const normalizedRange=range?serverDateRange(range.from,range.to):null;
   const request={range:normalizedRange,recent:!!recent,full:!!full};
-  if(documentRequestLoaded(table,request)) return true;
+  if(!force&&documentRequestLoaded(table,request)) return true;
   const requestKey=`${context.actor}:${context.generation}:${table}:${full?'full':normalizedRange?`${normalizedRange.from}:${normalizedRange.to}`:'recent'}`;
   if(documentLoadPromises.has(requestKey)) return documentLoadPromises.get(requestKey);
+  const initialRows=new Map(entry[1]().map(row=>[String(row.id),row]));
   const promise=(async()=>{
     try{
       const buildQuery=()=>{
@@ -108,8 +116,36 @@ async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full
       let incoming=(result.data||[]).map(rowToDoc);
       if(table==='goods_receipts') incoming=normalizeGoodsReceiptDocuments(incoming);
       const [,getArr,setArr]=entry;
-      const next=mergeWorkspaceRemoteRows(table,getArr(),incoming,docToRow,{replace:full||!state.loaded});
-      setArr(next);
+      const current=getArr(),pendingIds=new Set(currentWorkspacePendingChanges().filter(item=>item.table===table).map(item=>String(item.id)));
+      const incomingById=new Map(incoming.map(row=>[String(row.id),row]));
+      const protectedIds=new Set();
+      current.forEach(row=>{
+        const id=String(row.id),remote=incomingById.get(id);
+        if(initialRows.get(id)!==row||Number(row._revision)>Number(remote?._revision||0)&&remote){
+          protectedIds.add(id);
+          if(!pendingIds.has(id)) incomingById.set(id,row);
+        }
+      });
+      incoming=[...incomingById.values()];
+      let next=mergeWorkspaceRemoteRows(table,current,incoming,docToRow,{replace:full||!state.loaded});
+      if(!result.truncated){
+        next=next.filter(row=>{
+          const id=String(row.id),date=String(row.date||row.saleDate||'');
+          const inScope=full||!normalizedRange||(date>=normalizedRange.from&&date<=normalizedRange.to);
+          if(!inScope||incomingById.has(id)||pendingIds.has(id)||protectedIds.has(id)) return true;
+          syncedTableRows[table]?.delete(id);
+          return false;
+        });
+      }
+      const keepIds=new Set([...incomingById.keys(),...pendingIds,...protectedIds]);
+      let budget=Math.max(0,DOCUMENT_MEMORY_ROW_LIMIT-next.filter(row=>keepIds.has(String(row.id))).length);
+      const trimmed=next.filter(row=>{
+        if(keepIds.has(String(row.id))||budget-->0) return true;
+        syncedTableRows[table]?.delete(String(row.id));
+        return false;
+      });
+      const evicted=trimmed.length<next.length;
+      setArr(trimmed);
       // A partial snapshot contains only rows actually observed by this
       // browser. Merge newly observed ids into the snapshot instead of
       // replacing it, otherwise a locally deleted row could disappear from
@@ -119,9 +155,16 @@ async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full
       state.loaded=true;
       state.full=!!full;
       state.recent=state.recent||!!recent||(!normalizedRange&&!full);
+      const fresh=documentFreshRequests.get(table)||[];
+      if(evicted){ fresh.length=0;state.ranges=[];state.truncatedRanges=[]; }
+      fresh.push({...request,context,at:Date.now()});
+      documentFreshRequests.set(table,fresh.slice(-12));
       if(normalizedRange) state.ranges=rememberLoadedRange(state.ranges,normalizedRange);
       if(full){ state.recentTruncated=false; state.truncatedRanges=[]; }
-      else if(result.truncated){
+      else if(!result.truncated){
+        if(normalizedRange) state.truncatedRanges=state.truncatedRanges.filter(item=>!(normalizedRange.from<=item.from&&normalizedRange.to>=item.to));
+        else if(recent) state.recentTruncated=false;
+      }else if(result.truncated){
         if(normalizedRange) state.truncatedRanges=rememberLoadedRange(state.truncatedRanges,normalizedRange);
         else if(recent) state.recentTruncated=true;
       }

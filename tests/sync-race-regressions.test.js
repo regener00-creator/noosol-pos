@@ -85,6 +85,7 @@ function productLoaderContext(){
   let remote=[{id:1,name:'old',revision:1},{id:2,name:'old',revision:1}];
   const fetched=[];
   const ctx=context({products:remote.map(row=>({...row,_revision:row.revision})),productDirtyOperations:new Map(),indexedProductCacheReady:true,
+    captureWorkspaceRead:()=>({actor:'test',generation:0}),isWorkspaceReadCurrent:()=>true,
     readProductManifestCache:()=>({version:6}),fetchProductRevisionManifest:async()=>({data:remote.map(({id,revision})=>({id,revision})),error:null}),
     fetchProductRowsByIds:async ids=>{fetched.push([...ids]);return {data:remote.filter(row=>ids.includes(row.id)),error:null};},
     rowToProduct:row=>({...row,_revision:row.revision}),persistProductChangesToIndexedDB:async()=>true,saveProductManifestCache:async()=>true,

@@ -13,6 +13,16 @@ function isProductDataReviewed(product){
 function activeProducts(productList=products){
   return (productList||[]).filter(isProductActive);
 }
+const productSearchTextCache=new WeakMap();
+function productSearchText(product){
+  const name=String(product.name||''),sku=String(product.sku||'');
+  let cached=productSearchTextCache.get(product);
+  if(!cached||cached.name!==name||cached.sku!==sku){
+    cached={name,sku,text:name.toLowerCase()+'\n'+sku.toLowerCase()};
+    productSearchTextCache.set(product,cached);
+  }
+  return cached.text;
+}
 function productUnitCost(p,unitName,fallbackFactor){
   if(!p) return 0;
   const mainCost=Number(p.cost!==undefined&&p.cost!==''?p.cost:p.openingCost)||0;

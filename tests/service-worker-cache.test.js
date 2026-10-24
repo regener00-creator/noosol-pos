@@ -22,7 +22,7 @@ assert.match(
 );
 assert.match(
   worker,
-  /const APP_SHELL=\[[^\]]*'\/sapuri-brand-logo\.webp'[^\]]*\];/s,
+  /const APP_SHELL=\[[^\]]*'\/sapuri-brand-screen\.webp'[^\]]*\];/s,
   'SAPURI brand logo must be available offline'
 );
 assert.match(worker, /'\/sapuri-app-icon-192\.png'/);

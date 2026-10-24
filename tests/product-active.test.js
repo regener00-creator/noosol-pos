@@ -28,7 +28,7 @@ assert.deepEqual(Array.from(sandbox.activeProducts().map(product=>product.id)),[
 assert(html.includes('id="f_active"'));
 assert(html.includes("active: g('f_active') ? g('f_active').checked"));
 assert(/function documentProductPool\(\)\{\r?\n  return activeProducts\(\);/.test(html));
-assert(html.includes('const matches = activeProducts().filter'));
+assert.match(html,/if\(!isProductActive\(p\)\) continue;/);
 assert(html.includes('product-status-badge">ปิดใช้งาน'));
 assert(migration.includes('prevent_inactive_product_sale_item'));
 assert(migration.includes("product.data ->> 'active'"));

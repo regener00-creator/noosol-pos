@@ -67,10 +67,10 @@ test('a refresh started before cancellation cannot restore the cancelled bill',a
 });
 
 test('periodic history refresh defers while typing or a modal is open and never refreshes POS',()=>{
-  const router=read('src/ui/router.js');let callback,renders=0,typing=false,modal=false,offline=false;
+  const router=read('src/ui/router.js');let callback,renders=0,typing=false,modal=false,offline=false,editing=false;
   const c=vm.createContext({currentProfile:{id:'owner'},currentTab:'history',SALES_CACHE_TTL_MS:60000,
     ON_DEMAND_AGGREGATE_TABS:new Set(['history']),clearTimeout:()=>{callback=null;},setTimeout:fn=>{callback=fn;return 1;},
-    offlinePosMode:()=>offline,salesRequestLoaded:()=>false,dataRequestsForTab:()=>({sales:{range:options}}),render:()=>renders++,
+    editingDocumentForm:()=>editing,TAB_DOCUMENT_TABLES:{quotation:["quotations"]},offlinePosMode:()=>offline,salesRequestLoaded:()=>false,dataRequestsForTab:()=>({sales:{range:options},documents:[]}),render:()=>renders++,
     document:{visibilityState:'visible',activeElement:{matches:()=>typing},querySelector:()=>modal}});
   vm.runInContext(router.slice(router.indexOf('let salesViewRefreshTimer='),router.indexOf('\nfunction render(){')),c);
   c.scheduleSalesViewRefresh();typing=true;callback();assert.equal(renders,0);
@@ -78,5 +78,6 @@ test('periodic history refresh defers while typing or a modal is open and never 
   modal=false;callback();assert.equal(renders,1);
   c.currentTab='checkout';c.scheduleSalesViewRefresh();assert.equal(callback,null);
   c.currentTab='history';offline=true;c.scheduleSalesViewRefresh();assert.equal(callback,null);
-  offline=false;c.document.visibilityState='hidden';c.scheduleSalesViewRefresh();assert.equal(callback,null);
+  offline=false;c.currentTab='quotation';editing=true;c.scheduleSalesViewRefresh();assert.equal(callback,null,'document forms do not refresh under an unsaved draft');
+  editing=false;c.document.visibilityState='hidden';c.scheduleSalesViewRefresh();assert.equal(callback,null);
 });

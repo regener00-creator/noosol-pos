@@ -141,15 +141,18 @@ function clearRemoteResetSensitiveMemory(){
   businessSettingsDirty=false;
   businessSettingsSyncState='local';
 }
-async function adoptRemoteMaintenanceEpoch(){
+async function adoptRemoteMaintenanceEpoch(context=captureWorkspaceRead()){
   if(!currentProfile) return false;
   try{
     const {data,error}=await sb.from('settings').select('value').eq('key','maintenance_epoch').maybeSingle();
     if(error) throw error;
+    if(!isWorkspaceReadCurrent(context)) return false;
     const remoteEpoch=String(data?.value?.epoch||'');
     if(!remoteEpoch||remoteEpoch===maintenanceEpoch) return false;
     await clearLocalStoreCachesForReset();
+    if(!isWorkspaceReadCurrent(context)) return false;
     clearRemoteResetSensitiveMemory();
+    context.generation=workspaceReadGeneration;
     maintenanceEpoch=remoteEpoch;
     localStorage.setItem(MAINTENANCE_EPOCH_STORAGE_KEY,remoteEpoch);
     return true;
