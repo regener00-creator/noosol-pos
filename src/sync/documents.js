@@ -82,12 +82,13 @@ function documentRequestTruncated(table,{range=null,recent=false}={}){
   return !!recent&&state.recentTruncated;
 }
 async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full=false}={}){
+  const context=captureWorkspaceRead();
   const entry=documentTableEntry(table),state=documentLoadStates[table];
   if(!entry||!state) return false;
   const normalizedRange=range?serverDateRange(range.from,range.to):null;
   const request={range:normalizedRange,recent:!!recent,full:!!full};
   if(documentRequestLoaded(table,request)) return true;
-  const requestKey=`${table}:${full?'full':normalizedRange?`${normalizedRange.from}:${normalizedRange.to}`:'recent'}`;
+  const requestKey=`${context.actor}:${context.generation}:${table}:${full?'full':normalizedRange?`${normalizedRange.from}:${normalizedRange.to}`:'recent'}`;
   if(documentLoadPromises.has(requestKey)) return documentLoadPromises.get(requestKey);
   const promise=(async()=>{
     try{
@@ -102,6 +103,7 @@ async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full
       const result=full
         ?await fetchAllRows(buildQuery)
         :await fetchBoundedRows(buildQuery,{pageSize:DOCUMENT_QUERY_PAGE_SIZE,maxRows:DOCUMENT_QUERY_MAX_ROWS});
+      if(!isWorkspaceReadCurrent(context)) return false;
       if(result.error) throw result.error;
       let incoming=(result.data||[]).map(rowToDoc);
       if(table==='goods_receipts') incoming=normalizeGoodsReceiptDocuments(incoming);
@@ -126,9 +128,10 @@ async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full
       refreshDataCounters();
       return true;
     }catch(error){
+      if(!isWorkspaceReadCurrent(context)) return false;
       console.warn(`load ${table}`,error);
       throw error;
-    }finally{ documentLoadPromises.delete(requestKey); }
+    }finally{ if(isWorkspaceReadCurrent(context)) documentLoadPromises.delete(requestKey); }
   })();
   documentLoadPromises.set(requestKey,promise);
   return promise;

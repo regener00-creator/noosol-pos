@@ -9,7 +9,8 @@
 const PRODUCT_MANIFEST_STORAGE_KEY='pepos_product_manifest_v6';
 const PRODUCT_MANIFEST_VERSION=6;
 const PRODUCT_CACHE_DB_NAME='pepos-product-cache';
-const PRODUCT_CACHE_DB_VERSION=2;
+const PRODUCT_CACHE_DB_VERSION=3;
+const OFFLINE_PRODUCTS_STORE='offline-products';
 const PRODUCT_CACHE_PRODUCTS_STORE='products';
 const PRODUCT_CACHE_META_STORE='meta';
 const PRODUCT_CACHE_WORKSPACE_STORE='workspace';
@@ -93,6 +94,10 @@ function openProductCacheDb(){
       if(!db.objectStoreNames.contains(PRODUCT_CACHE_PRODUCTS_STORE)) db.createObjectStore(PRODUCT_CACHE_PRODUCTS_STORE,{keyPath:'id'});
       if(!db.objectStoreNames.contains(PRODUCT_CACHE_META_STORE)) db.createObjectStore(PRODUCT_CACHE_META_STORE,{keyPath:'key'});
       if(!db.objectStoreNames.contains(PRODUCT_CACHE_WORKSPACE_STORE)) db.createObjectStore(PRODUCT_CACHE_WORKSPACE_STORE,{keyPath:'key'});
+      if(!db.objectStoreNames.contains(OFFLINE_PRODUCTS_STORE)){
+        const store=db.createObjectStore(OFFLINE_PRODUCTS_STORE,{keyPath:['actorId','id']});
+        store.createIndex('actorId','actorId');
+      }
     };
     request.onsuccess=()=>{
       clearTimeout(timer);
@@ -165,6 +170,7 @@ async function saveProductManifestCache(){
   }catch(error){ console.warn('ไม่สามารถบันทึกสารบัญแคชสินค้าใน IndexedDB ได้',error); return false; }
 }
 function persistProductsToIndexedDB(productRows=products,removeMissing=true,dirtyOperations=productDirtyOperations){
+  const offlineActor=typeof currentProfile!=='undefined'?String(currentProfile?.id||''):'';
   const rows=JSON.parse(JSON.stringify(Array.isArray(productRows)?productRows:[]));
   const dirtyValue=productDirtyOperationsValue(dirtyOperations);
   const write=async()=>{
@@ -173,12 +179,16 @@ function persistProductsToIndexedDB(productRows=products,removeMissing=true,dirt
       const nextFingerprints=new Map(rows.map(product=>[String(product.id),JSON.stringify(product)]));
       const changed=rows.filter(product=>productCacheFingerprints.get(String(product.id))!==nextFingerprints.get(String(product.id)));
       const deleted=removeMissing?[...productCacheFingerprints.keys()].filter(id=>!nextFingerprints.has(id)):[];
-      const transaction=db.transaction([PRODUCT_CACHE_PRODUCTS_STORE,PRODUCT_CACHE_META_STORE],'readwrite');
+      const transaction=db.transaction([PRODUCT_CACHE_PRODUCTS_STORE,PRODUCT_CACHE_META_STORE,OFFLINE_PRODUCTS_STORE],'readwrite');
       const transactionDone=idbTransactionDone(transaction);
+      transactionDone.catch(()=>{}); // A synchronous put failure also aborts.
       const store=transaction.objectStore(PRODUCT_CACHE_PRODUCTS_STORE);
-      changed.forEach(product=>store.put(product));
-      deleted.forEach(id=>store.delete(Number.isFinite(Number(id))?Number(id):id));
-      transaction.objectStore(PRODUCT_CACHE_META_STORE).put({key:PRODUCT_CACHE_DIRTY_KEY,value:dirtyValue});
+      try{
+        changed.forEach(product=>store.put(product));
+        deleted.forEach(id=>store.delete(Number.isFinite(Number(id))?Number(id):id));
+        writeOfflineProductChanges(transaction,changed,deleted,offlineActor);
+        transaction.objectStore(PRODUCT_CACHE_META_STORE).put({key:PRODUCT_CACHE_DIRTY_KEY,value:dirtyValue});
+      }catch(error){transaction.abort();throw error;}
       await transactionDone;
       productCacheFingerprints=nextFingerprints;
       productCacheDirtyFingerprint=JSON.stringify(dirtyValue);
@@ -193,6 +203,7 @@ function persistProductsToIndexedDB(productRows=products,removeMissing=true,dirt
   return productCacheWriteChain;
 }
 function persistProductChangesToIndexedDB(changes={},dirtyOperations=productDirtyOperations){
+  const offlineActor=typeof currentProfile!=='undefined'?String(currentProfile?.id||''):'';
   const changedIds=new Set([...(changes.insertedIds||[]),...(changes.updatedIds||[])].map(String));
   const deletedIds=[...(changes.deletedIds||[])].map(String);
   const rows=JSON.parse(JSON.stringify((products||[]).filter(product=>changedIds.has(String(product.id)))));
@@ -207,12 +218,16 @@ function persistProductChangesToIndexedDB(changes={},dirtyOperations=productDirt
       const removedIds=deletedIds.filter(id=>productCacheFingerprints.has(id));
       if(!changedRows.length&&!removedIds.length&&productCacheDirtyFingerprint===dirtyFingerprint) return true;
       const db=await openProductCacheDb();
-      const transaction=db.transaction([PRODUCT_CACHE_PRODUCTS_STORE,PRODUCT_CACHE_META_STORE],'readwrite');
+      const transaction=db.transaction([PRODUCT_CACHE_PRODUCTS_STORE,PRODUCT_CACHE_META_STORE,OFFLINE_PRODUCTS_STORE],'readwrite');
       const transactionDone=idbTransactionDone(transaction);
+      transactionDone.catch(()=>{});
       const store=transaction.objectStore(PRODUCT_CACHE_PRODUCTS_STORE);
-      changedRows.forEach(product=>store.put(product));
-      removedIds.forEach(id=>store.delete(Number.isFinite(Number(id))?Number(id):id));
-      transaction.objectStore(PRODUCT_CACHE_META_STORE).put({key:PRODUCT_CACHE_DIRTY_KEY,value:dirtyValue});
+      try{
+        changedRows.forEach(product=>store.put(product));
+        removedIds.forEach(id=>store.delete(Number.isFinite(Number(id))?Number(id):id));
+        writeOfflineProductChanges(transaction,changedRows,removedIds,offlineActor);
+        transaction.objectStore(PRODUCT_CACHE_META_STORE).put({key:PRODUCT_CACHE_DIRTY_KEY,value:dirtyValue});
+      }catch(error){transaction.abort();throw error;}
       await transactionDone;
       changedRows.forEach(product=>productCacheFingerprints.set(String(product.id),rowFingerprints.get(String(product.id))));
       removedIds.forEach(id=>productCacheFingerprints.delete(id));
@@ -227,7 +242,14 @@ function persistProductChangesToIndexedDB(changes={},dirtyOperations=productDirt
   productCacheWriteChain=productCacheWriteChain.then(write,write);
   return productCacheWriteChain;
 }
+function writeOfflineProductChanges(transaction,rows,deletedIds,actorId){
+  if(!actorId) return;
+  const store=transaction.objectStore(OFFLINE_PRODUCTS_STORE);
+  rows.forEach(product=>store.put({actorId,id:String(product.id),product}));
+  deletedIds.forEach(id=>store.delete([actorId,String(id)]));
+}
 async function clearProductIndexedCache(){
+  if(typeof offlineCatalogPreparedActors!=='undefined') offlineCatalogPreparedActors.clear();
   try{
     const db=productCacheDbPromise?await productCacheDbPromise:null;
     db?.close();

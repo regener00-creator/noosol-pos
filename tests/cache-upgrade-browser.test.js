@@ -10,11 +10,12 @@ const server=http.createServer((_req,res)=>res.writeHead(200,{'Content-Type':'te
 const executable=['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe'].find(fs.existsSync)||chromium.executablePath();
 let browser;
 async function install(page,version){
+  const opening=version<3?code.replace(/\s*if\(!db\.objectStoreNames\.contains\(OFFLINE_PRODUCTS_STORE\)\)\{[\s\S]*?\n      \}/,''):code;
   await page.addScriptTag({content:`let productCacheDbPromise=null;
     const PRODUCT_CACHE_DB_NAME='pepos-upgrade-regression',PRODUCT_CACHE_DB_VERSION=${version};
-    const PRODUCT_CACHE_PRODUCTS_STORE='products',PRODUCT_CACHE_META_STORE='meta',PRODUCT_CACHE_WORKSPACE_STORE='workspace';
+    const PRODUCT_CACHE_PRODUCTS_STORE='products',PRODUCT_CACHE_META_STORE='meta',PRODUCT_CACHE_WORKSPACE_STORE='workspace',OFFLINE_PRODUCTS_STORE='offline-products';
     const notices=[];function showToast(message){notices.push(message);}
-    ${code}
+    ${opening}
     window.cacheResult='pending';openProductCacheDb().then(db=>{window.cacheResult='ready';window.cacheConnection=db;},error=>{window.cacheResult=error.message;});`});
 }
 (async()=>{
@@ -33,9 +34,21 @@ async function install(page,version){
   await old.evaluate(()=>window.oldConnection.close());
   await next.waitForFunction(()=>window.cacheResult==='ready');
   assert.equal(await next.evaluate(()=>window.cacheConnection.version),2);
+  assert.equal(await next.evaluate(()=>window.cacheConnection.objectStoreNames.contains('offline-products')),false);
+  await next.evaluate(()=>new Promise((resolve,reject)=>{
+    const tx=cacheConnection.transaction('meta','readwrite');
+    tx.objectStore('meta').put({key:'offline-pos-v1:sales:cashier',value:[{id:'pending-uuid',payload:{total:100}}]});
+    tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);
+  }));
   const latest=await context.newPage();await latest.goto(url);await install(latest,3);
   await latest.waitForFunction(()=>window.cacheResult==='ready');
   assert.equal(await latest.evaluate(()=>window.cacheConnection.version),3);
+  assert.deepEqual(await latest.evaluate(()=>new Promise((resolve,reject)=>{
+    const tx=cacheConnection.transaction(['meta','offline-products']);
+    const request=tx.objectStore('meta').get('offline-pos-v1:sales:cashier');
+    request.onsuccess=()=>resolve({pending:request.result.value[0].id,index:tx.objectStore('offline-products').indexNames.contains('actorId')});
+    request.onerror=()=>reject(request.error);
+  })),{pending:'pending-uuid',index:true});
   assert.equal(await next.evaluate(()=>productCacheDbPromise),null,'versionchange must release the older app connection');
   console.log('cache upgrade browser tests passed (blocked upgrade and automatic versionchange close)');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});

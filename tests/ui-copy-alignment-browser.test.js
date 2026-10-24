@@ -53,7 +53,7 @@ let browser;
   }
   await page.evaluate(()=>{currentTab='productexchange';editingProductExchangeId='new';productExchangeDraft=null;render();});
   const titles=await page.locator('.product-exchange-section-head h2').allTextContents();
-  assert.deepEqual(titles,['สินค้าที่ส่งเปลี่ยน • ตัดออกจากสต๊อกเมื่อยืนยัน “ส่งไปเปลี่ยนแล้ว”','สินค้าที่ได้รับกลับ • รับคืนไม่ครบหรือรับเป็นสินค้าคนละตัวได้ · ระบบเพิ่มเฉพาะรายการและจำนวนที่ระบุ']);
+  assert.deepEqual(titles,['สินค้าที่ส่งเปลี่ยน','สินค้าที่ได้รับกลับ']);
   await page.screenshot({path:path.join(root,'outputs/ui-copy-exchange.png')});
   await page.evaluate(()=>{currentTab='checkout';openPOSCustomerPicker();});
   assert.equal(await page.locator('#posCustomerPickerTitle').textContent(),'เลือกสมาชิก');

@@ -2,7 +2,8 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
 import net from 'node:net';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {createRequire} from 'node:module';
 import EmbeddedPostgres from 'embedded-postgres';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
@@ -17,8 +18,17 @@ const postgres=new EmbeddedPostgres({databaseDir:directory,port,user:'postgres',
   initdbFlags:['--encoding=UTF8','--locale=C'],
   postgresFlags:['-h','127.0.0.1'],onLog:rememberLog,onError:rememberLog});
 let client;
+let windowsPgCtl;
 try{
-  await postgres.initialise(); await postgres.start();
+  await postgres.initialise();
+  if(process.platform==='win32'){
+    // pg_ctl manages the Windows child token and startup/stop timeouts; directly
+    // spawning postgres from an elevated terminal is rejected by PostgreSQL.
+    const requirePostgres=createRequire(import.meta.resolve('embedded-postgres'));
+    const binaries=await import(pathToFileURL(requirePostgres.resolve('@embedded-postgres/windows-x64')).href);
+    windowsPgCtl=path.join(path.dirname(binaries.postgres),'pg_ctl.exe');
+    await promisify(execFile)(windowsPgCtl,['start','-D',directory,'-l',path.join(directory,'server.log'),'-o',`-h 127.0.0.1 -p ${port}`,'-w','-t','20'],{windowsHide:true,timeout:25000});
+  }else await postgres.start();
   client=postgres.getPgClient('postgres','127.0.0.1'); await client.connect();
   await client.query(`
     create role anon; create role authenticated; create role service_role bypassrls;
@@ -70,22 +80,15 @@ try{
   }
 }catch(error){
   // Surface the actual failure even if the platform is slow to stop Postgres.
+  if(windowsPgCtl) console.error(await fs.readFile(path.join(directory,'server.log'),'utf8').catch(()=>''));
   console.error(error||postgresLogs.join('\n'));
   throw error||new Error('Isolated PostgreSQL failed to start: '+postgresLogs.join('\n'));
 }finally{
   await client?.end();
-  if(process.platform==='win32'&&postgres.process){
-    // The library's taskkill can hang under restricted Windows shells. Use the
-    // bundled pg_ctl and the exact temporary cluster created by this invocation.
-    const running=postgres.process;
-    const pgCtl=path.join(path.dirname(running.spawnfile),'pg_ctl.exe');
+  if(windowsPgCtl){
     if(!directory.startsWith(path.join(os.tmpdir(),'pepos-isolated-pg-'))) throw new Error('Unsafe test cluster path');
-    // A failed start has no PID file; do not mask its diagnostic with pg_ctl's
-    // "server not running" error. Any process that created a cluster PID is stopped.
     if(await fs.access(path.join(directory,'postmaster.pid')).then(()=>true,()=>false))
-      await promisify(execFile)(pgCtl,['stop','-D',directory,'-m','fast','-w','-t','15'],{windowsHide:true,timeout:20000});
-    if(running.exitCode===null) await new Promise(resolve=>running.once('exit',resolve));
-    postgres.process=undefined;
+      await promisify(execFile)(windowsPgCtl,['stop','-D',directory,'-m','fast','-w','-t','15'],{windowsHide:true,timeout:20000});
   }else await postgres.stop();
   // Only remove the exact newly-created test cluster, never an env-provided path.
   if(directory.startsWith(path.join(os.tmpdir(),'pepos-isolated-pg-'))) await fs.rm(directory,{recursive:true,force:true,maxRetries:8,retryDelay:250});

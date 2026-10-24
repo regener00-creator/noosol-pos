@@ -9,7 +9,7 @@ assert.match(html,/db\.createObjectStore\(PRODUCT_CACHE_PRODUCTS_STORE,\{keyPath
 assert.match(html,/async function loadProductCacheFromIndexedDB\(\)/);
 assert.match(html,/function persistProductsToIndexedDB\(/);
 assert.match(html,/const PRODUCT_CACHE_DIRTY_KEY='product-dirty-operations-v1'/);
-assert.match(html,/transaction=db\.transaction\(\[PRODUCT_CACHE_PRODUCTS_STORE,PRODUCT_CACHE_META_STORE\],'readwrite'\)/,'product row and dirty state must share one transaction');
+assert.match(html,/transaction=db\.transaction\(\[PRODUCT_CACHE_PRODUCTS_STORE,PRODUCT_CACHE_META_STORE,OFFLINE_PRODUCTS_STORE\],'readwrite'\)/,'product row, offline row and dirty state must share one transaction');
 assert.match(html,/if\(productRowsPersisted\) await saveProductManifestCache\(/,'change cursor must advance only after product rows are durable');
 assert.match(html,/await loadProductCacheFromIndexedDB\(\)/,'cache must hydrate before the authenticated core load');
 assert.match(html,/function localWorkspaceSnapshot\(\)[\s\S]*?delete snapshot\.products/);

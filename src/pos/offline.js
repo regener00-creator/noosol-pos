@@ -10,6 +10,9 @@ let offlineSyncMessage='';
 let offlineSnapshotReady=false;
 let offlineSyncRetryTimer=null;
 let offlineInventorySettledIds=new Set();
+const offlineCatalogPreparedActors=new Set();
+const offlineSnapshotJobs=new Map();
+let offlineSnapshotSavedAt='';
 function offlinePosMode(){ return offlinePosActive||!navigator.onLine; }
 async function offlineStoreRead(key){
   const db=await openProductCacheDb();
@@ -32,21 +35,58 @@ async function rememberOfflineLogin(username,password){
   await offlineStoreWrite(`${OFFLINE_POS_KEY}:account:${username}`,offlinePosAccount);
   localStorage.setItem(OFFLINE_SESSION_KEY,username);
 }
-async function saveOfflinePosSnapshot(){
+async function saveOfflinePosSnapshot({refreshProducts=false}={}){
   if(!currentProfile||offlinePosActive||!navigator.onLine||!indexedProductCacheReady||!offlineSnapshotReady) return false;
   const actor=String(currentProfile.id);
-  const snapshot=structuredClone({
-    actorId:actor,profile:currentProfile,warehouses,products,contacts,promotions,favorites,
-    warehouseAccessRows,pagePermissionRows,inventoryBalanceRows,inventoryLotRows,
-    businessSettings,documentPrefixes,currentCashShift,cashShifts,activeWarehouseId,
-    settledCheckoutIds:[...offlineInventorySettledIds],savedAt:new Date().toISOString()
-  });
-  await offlineStoreWrite(`${OFFLINE_POS_KEY}:snapshot:${actor}`,snapshot);
-  return true;
+  const context=captureWorkspaceRead();
+  const existing=offlineSnapshotJobs.get(actor);
+  if(existing&&isWorkspaceReadCurrent(existing.context)){
+    existing.refreshProducts ||= refreshProducts;
+    return existing.promise;
+  }
+  const job={context,refreshProducts};
+  job.promise=new Promise((resolve,reject)=>setTimeout(async()=>{
+    if(offlineSnapshotJobs.get(actor)===job) offlineSnapshotJobs.delete(actor);
+    try{
+      await productCacheWriteChain;
+      const db=await openProductCacheDb();
+      if(!isWorkspaceReadCurrent(context)||offlinePosActive||!offlineSnapshotReady) return resolve(false);
+      const replaceProducts=job.refreshProducts||!offlineCatalogPreparedActors.has(actor);
+      const snapshot=structuredClone({
+        format:2,actorId:actor,profile:currentProfile,warehouses,contacts,promotions,favorites,
+        warehouseAccessRows,pagePermissionRows,inventoryBalanceRows,inventoryLotRows,
+        businessSettings,documentPrefixes,currentCashShift,cashShifts,activeWarehouseId,
+        settledCheckoutIds:[...offlineInventorySettledIds],savedAt:new Date().toISOString()
+      });
+      const tx=db.transaction([PRODUCT_CACHE_META_STORE,OFFLINE_PRODUCTS_STORE],'readwrite'),done=idbTransactionDone(tx);
+      done.catch(()=>{});
+      try{
+        tx.objectStore(PRODUCT_CACHE_META_STORE).put({key:`${OFFLINE_POS_KEY}:snapshot:${actor}`,value:snapshot});
+        if(replaceProducts){
+          const rows=structuredClone(products),store=tx.objectStore(OFFLINE_PRODUCTS_STORE);
+          const keys=store.index('actorId').getAllKeys(actor);
+          keys.onsuccess=()=>{
+            try{
+              keys.result.forEach(key=>store.delete(key));
+              rows.forEach(product=>store.put({actorId:actor,id:String(product.id),product}));
+            }catch(error){tx.abort();}
+          };
+        }
+      }catch(error){tx.abort();throw error;}
+      await done;
+      offlineCatalogPreparedActors.add(actor);
+      if(isWorkspaceReadCurrent(context)) offlineSnapshotSavedAt=snapshot.savedAt;
+      resolve(true);
+    }catch(error){reject(error);}
+  },25));
+  offlineSnapshotJobs.set(actor,job);
+  return job.promise;
 }
 async function loadOfflineSales(){
   if(!currentProfile){offlineSales=[];return;}
+  const context=captureWorkspaceRead();
   const rows=await offlineStoreRead(`${OFFLINE_POS_KEY}:sales:${currentProfile.id}`);
+  if(!isWorkspaceReadCurrent(context)) return;
   offlineSales=Array.isArray(rows)?rows:[];
   mergeOfflineSalesIntoHistory();
   renderSyncStatusChip();
@@ -64,9 +104,16 @@ async function enterOfflinePos({username='',password='',restore=false}={}){
   if(restore&&localStorage.getItem(OFFLINE_SESSION_KEY)!==username) return false;
   const snapshot=await offlineStoreRead(`${OFFLINE_POS_KEY}:snapshot:${account.actorId}`);
   if(!snapshot||snapshot.actorId!==account.actorId) throw new Error('ยังไม่มีข้อมูลพร้อมขายในเครื่อง กรุณาต่ออินเทอร์เน็ตเพื่อเตรียมข้อมูลก่อน');
+  let offlineProducts=snapshot.products;
+  if(snapshot.format===2){
+    const db=await openProductCacheDb();
+    offlineProducts=(await idbRequest(db.transaction(OFFLINE_PRODUCTS_STORE).objectStore(OFFLINE_PRODUCTS_STORE).index('actorId').getAll(account.actorId))).map(row=>row.product);
+  }
+  if(!Array.isArray(offlineProducts)) throw new Error('ข้อมูลสินค้าออฟไลน์ยังไม่พร้อม กรุณาเชื่อมต่ออินเทอร์เน็ต');
+  offlineSnapshotSavedAt=snapshot.savedAt||'';
   offlinePosAccount=account;offlinePosActive=true;systemHasOwner=true;
   currentProfile=snapshot.profile;
-  warehouses=snapshot.warehouses;products=snapshot.products;contacts=snapshot.contacts;
+  warehouses=snapshot.warehouses;products=offlineProducts;contacts=snapshot.contacts;
   promotions=snapshot.promotions;favorites=snapshot.favorites;
   warehouseAccessRows=snapshot.warehouseAccessRows;pagePermissionRows=snapshot.pagePermissionRows;
   inventoryBalanceRows=snapshot.inventoryBalanceRows;inventoryLotRows=snapshot.inventoryLotRows;
@@ -93,6 +140,12 @@ async function resumeOfflineQueue(){
   return enterOfflinePos({username,restore:true});
 }
 function offlinePendingSales(){return offlineSales.filter(row=>!row.completedSale);}
+function offlineSaleNeedsReview(error){
+  // A missing/unknown response may have committed: retain the exact UUID and
+  // retry it. Only definite business/validation failures pause automatically.
+  const code=String(error?.code||'');
+  return ['P0001','PT409','REVISION_CONFLICT','42501'].includes(code)||/^(22|23)[0-9A-Z]{3}$/.test(code);
+}
 function offlinePendingStock(productId,warehouseId){
   return offlineSales.filter(row=>!offlineInventorySettledIds.has(row.id)&&Number(row.payload.warehouseId)===Number(warehouseId))
     .reduce((total,row)=>total+row.payload.items.filter(item=>!item.custom&&Number(item.productId)===Number(productId))
@@ -156,7 +209,7 @@ async function ensureOfflineShiftOnServer(shift,actor){
 function offlinePosBanner(){
   if(!offlinePosMode()&&!offlinePendingSales().length&&!offlineSyncMessage) return '';
   const pending=offlinePendingSales();
-  return `<div class="notice" role="status"><b>${offlinePosMode()?'ขายออฟไลน์ · ใช้ข้อมูลล่าสุดที่เก็บในเครื่อง':'บิลขายจากเครื่อง'}</b> · รอซิงก์ ${pending.length} บิล${offlineSyncMessage?`<br>${escapeHtml(offlineSyncMessage)} <button class="btn ghost" type="button" onclick="reauthenticateOfflineSales()">เข้าสู่ระบบเพื่อซิงก์</button>`:''}${pending.length?'<button class="btn ghost" type="button" onclick="openOfflineSalesPanel()">ดูบิลรอซิงก์</button>':''}</div>`;
+  return `<div class="notice" role="status"><b>${offlinePosMode()?'ขายออฟไลน์ · ใช้ข้อมูลล่าสุดที่เก็บในเครื่อง':'บิลขายจากเครื่อง'}</b> · รอซิงก์ ${pending.length} บิล${offlineSnapshotSavedAt?` · สำรองข้อมูล ${escapeHtml(new Date(offlineSnapshotSavedAt).toLocaleString('th-TH'))}`:''}${offlineSyncMessage?`<br>${escapeHtml(offlineSyncMessage)} <button class="btn ghost" type="button" onclick="reauthenticateOfflineSales()">เข้าสู่ระบบเพื่อซิงก์</button>`:''}${pending.length?'<button class="btn ghost" type="button" onclick="openOfflineSalesPanel()">ดูบิลรอซิงก์</button>':''}</div>`;
 }
 function reauthenticateOfflineSales(){
   const username=offlinePosAccount?.username||currentProfile?.username;
@@ -176,55 +229,66 @@ function reauthenticateOfflineSales(){
 }
 function openOfflineSalesPanel(){
   const overlay=document.createElement('div');overlay.className='modal-overlay';
-  overlay.innerHTML=`<section class="modal" role="dialog" aria-modal="true" aria-label="บิลรอซิงก์"><div class="modal-head"><h3>บิลรอซิงก์ ${offlinePendingSales().length} บิล</h3><button class="modal-close" type="button">×</button></div><div style="padding:18px;max-height:65vh;overflow:auto">${offlinePendingSales().map(row=>`<p><b>${escapeHtml(row.localSale.ref)}</b><br>${fmtMoney(row.localSale.total)} บาท · ${escapeHtml(row.localSale.date)}<br>${escapeHtml(row.error||'บันทึกในเครื่องแล้ว รอส่งเมื่อเชื่อมต่อได้')}</p>`).join('')}<p>เปิดโปรแกรมไว้เมื่ออินเทอร์เน็ตกลับมา ระบบจะส่งบิลให้อัตโนมัติ</p><button class="btn primary" type="button" data-retry>ลองซิงก์อีกครั้ง</button> <button class="btn ghost" type="button" data-export>ดาวน์โหลดสำเนาบิล</button></div></section>`;
+  overlay.innerHTML=`<section class="modal" role="dialog" aria-modal="true" aria-label="บิลรอซิงก์"><div class="modal-head"><h3>บิลรอซิงก์ ${offlinePendingSales().length} บิล</h3><button class="modal-close" type="button">×</button></div><div style="padding:18px;max-height:65vh;overflow:auto">${offlinePendingSales().map(row=>`<p><b>${escapeHtml(row.localSale.ref)}</b><br>${fmtMoney(row.localSale.total)} บาท · ${escapeHtml(row.localSale.date)}<br><b>${row.needsReview?'ต้องตรวจข้อมูล · หยุดส่งซ้ำอัตโนมัติ':'รอเชื่อมต่อ / รอยืนยันจากระบบ'}</b><br>${escapeHtml(row.error||'บันทึกในเครื่องแล้ว รอส่งเมื่อเชื่อมต่อได้')}${row.needsReview?`<br><button class="btn ghost" type="button" data-retry-sale="${escapeHtml(row.id)}">ลองส่งบิลนี้อีกครั้ง</button>`:''}</p>`).join('')}<p>บิลที่ต้องตรวจข้อมูลจะเก็บไว้ในเครื่อง โดยไม่ขวางการส่งบิลอื่น</p><button class="btn primary" type="button" data-retry>ลองซิงก์อีกครั้ง</button> <button class="btn ghost" type="button" data-export>ดาวน์โหลดสำเนาบิล</button></div></section>`;
   document.body.appendChild(overlay);overlay.querySelector('.modal-close').onclick=()=>overlay.remove();
   overlay.querySelector('[data-retry]').onclick=()=>{overlay.remove();void syncOfflineSales();};
+  overlay.querySelectorAll('[data-retry-sale]').forEach(button=>{button.onclick=()=>{overlay.remove();void syncOfflineSales({retryBlockedId:button.dataset.retrySale});};});
   overlay.querySelector('[data-export]').onclick=()=>{
     const blob=new Blob([JSON.stringify({format:'SAPURI-offline-sales',sales:offlinePendingSales()},null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`SAPURI-offline-sales-${currentDateStr()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
 }
-async function syncOfflineSales(){
+async function syncOfflineSales({retryBlockedId=null}={}){
   if(offlineSyncRunning||!navigator.onLine||!currentProfile||checkoutInFlight) return;
   offlineSyncRunning=true;
   clearTimeout(offlineSyncRetryTimer);
   const actor=String(currentProfile.id);
+  const context=captureWorkspaceRead();
   try{
     await loadOfflineSales();
+    if(String(currentProfile?.id)!==actor) return;
+    if(retryBlockedId) await editOfflineSales(rows=>rows.map(row=>row.id===retryBlockedId&&!row.completedSale?{...row,needsReview:false}:row));
     if(!offlineSales.length&&!offlinePosActive) return;
     const {data,error}=await sb.auth.getUser();
     if(error||data?.user?.id!==actor) throw new Error('กรุณาเข้าสู่ระบบออนไลน์ด้วยบัญชีเดิมเพื่อส่งบิลค้าง');
     // Fetch current privileges before any upload; cached permissions only
     // govern local use. All server RPCs still check current permissions.
     const {data:profile,error:profileError}=await sb.from('profiles').select('*').eq('id',actor).single();
+    if(String(currentProfile?.id)!==actor) return;
     if(profileError||!profile) throw new Error('ตรวจสอบสิทธิ์ผู้ขายไม่สำเร็จ กรุณาเข้าสู่ระบบอีกครั้ง');
     currentProfile=mapProfileRow(profile);
     offlineSyncMessage='';
     if(!offlineSales.length) await ensureOfflineShiftOnServer(currentCashShift,actor);
-    for(const row of offlinePendingSales()){
+    for(const row of offlinePendingSales().filter(item=>!item.needsReview)){
       if(!navigator.onLine||String(currentProfile?.id)!==actor) break;
       try{
         await ensureOfflineShiftOnServer(row.shift,actor);
+        if(!isWorkspaceReadCurrent(context)) return;
         const {data:result,error:postError}=await sb.rpc('complete_sale',{
           p_request_id:row.id,p_ref_prefix:row.refPrefix,p_warehouse_id:Number(row.payload.warehouseId),
           p_sale:row.payload.sale,p_items:row.payload.items,p_payload_hash:row.payloadHash
         });
+        if(!isWorkspaceReadCurrent(context)) return;
         if(postError) throw postError;
         if(!result?.sale?.id) throw new Error('ยังไม่ได้รับเลขบิลจากระบบ');
         await editOfflineSales(rows=>rows.map(item=>item.id===row.id?{...item,completedSale:result.sale,error:''}:item));
       }catch(error){
+        if(!isWorkspaceReadCurrent(context)) return;
         const message=String(error?.message||'เชื่อมต่อไม่สำเร็จ');
-        await editOfflineSales(rows=>rows.map(item=>item.id===row.id?{...item,error:message}:item));
+        const needsReview=offlineSaleNeedsReview(error);
+        await editOfflineSales(rows=>rows.map(item=>item.id===row.id?{...item,error:message,errorCode:String(error?.code||''),needsReview}:item));
         offlineSyncMessage='มีบิลยังส่งไม่สำเร็จ ข้อมูลยังอยู่ในเครื่อง กดดูบิลรอซิงก์เพื่อตรวจสอบ';
-        break;
+        if(!needsReview) break;
       }
     }
+    if(!isWorkspaceReadCurrent(context)) return;
     if(!offlinePendingSales().length){
       // Refresh authoritative inventory before removing the local stock overlay.
       const previousSettled=offlineInventorySettledIds;
       offlineInventorySettledIds=new Set(offlineSales.filter(row=>row.completedSale).map(row=>row.id));
       offlinePosActive=false;
       await loadWorkspaceFromSupabase();
+      if(!isWorkspaceReadCurrent(context)) return;
       if(!offlineSnapshotReady){offlineInventorySettledIds=previousSettled;offlinePosActive=true;throw new Error('ส่งบิลแล้ว กำลังรอโหลดข้อมูลสต๊อกล่าสุด');}
       const settledWarehouses=new Set([Number(activeWarehouseId),...offlineSales.map(row=>Number(row.payload.warehouseId))]);
       for(const warehouseId of settledWarehouses)
@@ -237,13 +301,14 @@ async function syncOfflineSales(){
       applyActiveWarehouseInventory();
     }
   }catch(error){
+    if(!isWorkspaceReadCurrent(context)) return;
     offlineSyncMessage=String(error?.message||'ยังเชื่อมต่อระบบไม่ได้ บิลยังอยู่ในเครื่อง');
   }finally{
     offlineSyncRunning=false;renderSyncStatusChip();
     // Never replace a payment dialog or typed cart while the background sends.
     const banner=document.getElementById('offlinePosBanner');
     if(banner) banner.innerHTML=offlinePosBanner();
-    if(navigator.onLine&&(offlinePendingSales().length||offlinePosActive))
+    if(isWorkspaceReadCurrent(context)&&navigator.onLine&&(offlinePendingSales().some(row=>!row.needsReview)||(!offlinePendingSales().length&&offlinePosActive)))
       offlineSyncRetryTimer=setTimeout(()=>{void syncOfflineSales();},30000);
   }
 }

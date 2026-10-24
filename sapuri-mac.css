@@ -5,8 +5,8 @@
 .sapuri-theme-picker button[aria-pressed="true"]{background:var(--primary);color:#fff;box-shadow:0 1px 4px #00000016;}
 .sapuri-theme-picker button:focus-visible{outline:2px solid currentColor;outline-offset:2px;}
 @media screen{
-  @font-face{font-family:"Google Sans";src:url('/fonts/google-sans-variable-v1.woff2') format('woff2');font-style:normal;font-weight:400 700;font-display:swap;}
-  @font-face{font-family:"Google Sans";src:url('/fonts/google-sans-italic-variable-v1.woff2') format('woff2');font-style:italic;font-weight:400 700;font-display:swap;}
+  @font-face{font-family:"Google Sans";src:url('/fonts/google-sans-variable-v2.woff2') format('woff2');font-style:normal;font-weight:400 700;font-display:swap;}
+  @font-face{font-family:"Google Sans";src:url('/fonts/google-sans-italic-variable-v2.woff2') format('woff2');font-style:italic;font-weight:400 700;font-display:swap;}
   html[data-sapuri-theme="mac"]{
     /* Inherit DEFAULT's palette and font sizes from styles.css. */
     --radius:16px;

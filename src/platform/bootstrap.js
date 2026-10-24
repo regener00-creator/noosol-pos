@@ -85,6 +85,7 @@ window.addEventListener('resize',()=>{
     else refreshScrollableTableHeights();
   },180);
 });
+document.addEventListener('visibilitychange',()=>scheduleSalesViewRefresh());
 
 window.addEventListener('beforeinstallprompt',event=>{
   event.preventDefault();

@@ -83,7 +83,11 @@ let browser;
   });
   assert.equal(await page.locator('.product-exchange-delete svg').count(),2);
   // Test generated rows directly too, independent of exchange draft field aliases.
-  assert.equal(await page.evaluate(()=>productExchangeSectionHtml('outgoing','ส่ง','',[{pid:3,qty:1,unit:'กล่อง'}],false).includes('aria-label="ลบรายการสินค้า"><svg')),true);
+  assert.equal(await page.evaluate(()=>{
+    const content=document.createElement('div');
+    content.innerHTML=productExchangeSectionHtml('outgoing','ส่ง',[{pid:3,qty:1,unit:'กล่อง'}],false,false,false);
+    return !!content.querySelector('button[aria-label="ลบรายการสินค้า"] svg');
+  }),true);
   await page.screenshot({path:path.join(root,'outputs/exchange-controls.png')});
   assert.deepEqual(errors,[]);
   console.log('Transfer UI passed: form, printing, no bulk selection, posted deletion protection, exchange controls');

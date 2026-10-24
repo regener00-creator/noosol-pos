@@ -229,6 +229,6 @@ async function loadCoreDataFromSupabase(){
     refreshDataCounters();
     if(productDirtyOperations.size||currentWorkspacePendingChanges().length) scheduleSupabaseCoreSync();
     offlineSnapshotReady=true;
-    void saveOfflinePosSnapshot().catch(()=>{});
+    await saveOfflinePosSnapshot({refreshProducts:true});
   }catch(e){ console.warn('load core data failed',e); }
 }

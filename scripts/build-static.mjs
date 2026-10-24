@@ -21,8 +21,8 @@ const staticDeployFiles = [
   'sapuri-app-icon-512.png',
   'sapuri-pharmacy-logo.webp',
   'sapuri-brand-logo.webp',
-  'fonts/google-sans-variable-v1.woff2',
-  'fonts/google-sans-italic-variable-v1.woff2',
+  'fonts/google-sans-variable-v2.woff2',
+  'fonts/google-sans-italic-variable-v2.woff2',
   'fonts/Google-Sans-OFL.txt',
 ]
 

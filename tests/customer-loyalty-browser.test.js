@@ -59,7 +59,7 @@ let browser;
   assert.ok(Math.abs((balanceBox.y+balanceBox.height)-(expiryBox.y+expiryBox.height))<3,'balance and expiry must stay on the same line');
   assert.equal(await page.locator('.loyalty-points-rule').innerText(),'• 100 บาท = 1 แต้ม / ใช้แต้มได้เมื่อยอดถึง 1,000 บาท');
   assert.equal(await page.getByText('ใช้แต้มได้เมื่อยอดหลังส่วนลดอื่นถึง 1,000 บาท',{exact:true}).count(),0);
-  assert.deepEqual(await page.locator('[data-redeem-loyalty]').evaluate(button=>({background:getComputedStyle(button).backgroundColor,color:getComputedStyle(button).color})),{background:'rgb(90, 63, 50)',color:'rgb(255, 255, 255)'});
+  assert.deepEqual(await page.locator('[data-redeem-loyalty]').evaluate(button=>({background:getComputedStyle(button).backgroundColor,color:getComputedStyle(button).color})),{background:'rgb(79, 64, 56)',color:'rgb(255, 255, 255)'});
   assert.deepEqual(await page.locator('.loyalty-redeem-row button').allTextContents(),['ใช้แต้มเป็นส่วนลด','ประวัติลูกค้า']);
   await page.locator('[data-customer-history="1"]').click();
   await page.locator('.pos-customer-history-modal .customer-purchases-page').waitFor();

@@ -107,13 +107,16 @@ function ensureOnDemandDataForTab(tab){
   }
   if(onDemandTabErrors.has(key)) return {status:'error',key,tab,requests,error:onDemandTabErrors.get(key)};
   if(!onDemandTabJobs.has(key)){
+    const context=captureWorkspaceRead();
     const tasks=[];
     if(salesNeeded) tasks.push(loadSalesHistoryFromSupabase({from:requests.sales.range.from,to:requests.sales.range.to,includeHolds:requests.sales.includeHolds,includeRecent:requests.sales.includeRecent}));
     documentsNeeded.forEach(item=>tasks.push(loadDocumentTableFromSupabase(item.table,item)));
     const job=Promise.all(tasks).then(()=>{
+      if(!isWorkspaceReadCurrent(context)||onDemandTabJobs.get(key)!==job) return;
       onDemandTabJobs.delete(key); onDemandTabErrors.delete(key);
       if(currentProfile&&(currentTab===tab||(tab==='history'&&posSalesHistoryModalOpen&&(currentTab==='checkout'||currentTab==='cashbill')))) render();
     }).catch(error=>{
+      if(!isWorkspaceReadCurrent(context)||onDemandTabJobs.get(key)!==job) return;
       onDemandTabJobs.delete(key); onDemandTabErrors.set(key,error);
       if(currentProfile&&(currentTab===tab||(tab==='history'&&posSalesHistoryModalOpen&&(currentTab==='checkout'||currentTab==='cashbill')))) render();
     });
@@ -163,7 +166,21 @@ const RENDERERS = {
   inventorymovement: ()=>renderInventoryMovement(), rinventory: ()=>renderRInventory(), settingsbusiness: ()=>renderBusinessSettings(), settingsuser: ()=>renderUserSettings(), settingsusers: ()=>renderSystemUsers(), settingsprinter: ()=>renderReceiptPrinterSettings(), auditlog: ()=>renderAuditLog(), settingssystem: ()=>renderSystemSettings(),
 };
 
+let salesViewRefreshTimer=null;
+function scheduleSalesViewRefresh(){
+  clearTimeout(salesViewRefreshTimer);
+  if(!currentProfile||!ON_DEMAND_AGGREGATE_TABS.has(currentTab)||offlinePosMode()||document.visibilityState==='hidden') return;
+  salesViewRefreshTimer=setTimeout(()=>{
+    const typing=document.activeElement?.matches('input,select,textarea,[contenteditable="true"]');
+    if(!typing&&!document.querySelector('.modal-overlay')&&currentProfile&&document.visibilityState!=='hidden'&&!offlinePosMode()){
+      const request=dataRequestsForTab(currentTab).sales;
+      if(request&&!salesRequestLoaded(request)){ render(); return; }
+    }
+    scheduleSalesViewRefresh();
+  },SALES_CACHE_TTL_MS);
+}
 function render(){
+  scheduleSalesViewRefresh();
   captureMobileProductDraft();
   scheduleProductReviewRefresh();
   if(!renderLoginState()){ closeMobileCameraScanner(); return; }

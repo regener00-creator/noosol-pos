@@ -77,6 +77,7 @@ let browser;
   assert.equal(await page.locator('.shortage-form-grid > .shortage-form-main').count(), 1);
   assert.equal(await page.locator('.shortage-form-grid > .shortage-rep-summary').count(), 1);
   assert.equal(await page.locator('#editPORepBtn').count(), 0, 'edit representative button must be removed from the shortage form');
+  await page.evaluate(()=>document.fonts.ready);
   const mainBox = await page.locator('.shortage-form-main').boundingBox();
   const summaryBox = await page.locator('.shortage-rep-summary').boundingBox();
   assert.ok(mainBox && summaryBox && mainBox.x < summaryBox.x, 'form fields must be on the left and representative information on the right');

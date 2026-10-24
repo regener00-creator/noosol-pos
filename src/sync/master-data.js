@@ -39,7 +39,10 @@ async function refreshDocumentInventory(document){
   const scope={productIds,warehouseIds:warehouseIds.length?warehouseIds:inventoryScopeWarehouseIds(),force:true};
   try{
     const results=await Promise.all([loadInventoryBalancesFromSupabase(scope),loadInventoryLotsFromSupabase(scope)]);
-    if(results.every(Boolean)) return true;
+    if(results.every(Boolean)){
+      await saveOfflinePosSnapshot();
+      return true;
+    }
   }catch(error){ console.warn('refresh document inventory',error); }
   // The stock transaction has already committed. A read failure must not tell
   // the cashier that the sale/return failed or invite a duplicate transaction.
