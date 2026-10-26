@@ -31,7 +31,7 @@ const browserExecutable = [
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('https://cdn.jsdelivr.net/npm/xlsx@*/**', route => route.fulfill({contentType:'text/javascript',body:'window.XLSX={};'}));
-  await page.route('https://cdn.jsdelivr.net/npm/@supabase/**', route => route.fulfill({contentType:'text/javascript',body:`
+  await page.route(url=>url.pathname==='/vendor/supabase.js'||(url.hostname==='cdn.jsdelivr.net'&&url.pathname.startsWith('/npm/@supabase/')), route => route.fulfill({contentType:'text/javascript',body:`
     (()=>{
       const query=new Proxy({}, {get(_target,property){
         if(property==='then') return resolve=>resolve({data:null,error:null});
@@ -97,7 +97,7 @@ const browserExecutable = [
   assert.equal(await page.locator('[data-category-edit="sub"][data-name="ยาคุม"]').count(),1);
   assert.equal(await page.locator('[data-category-edit="sub"][data-name="BLACKMORES"]').count(),1);
   await page.locator('[data-category-filter="อาหารเสริม"]').click();
-  assert.equal(await page.locator('[data-category-edit="sub"][data-name="ยาคุม"]').count(),0);
+  assert.equal(await page.locator('[data-category-edit="sub"][data-name="ยาคุม"]').isVisible(),false);
   assert.equal(await page.locator('[data-category-edit="sub"][data-name="BLACKMORES"]').count(),1);
   await page.locator('[data-category-edit="main"][data-name="ยา"]').click();
   assert.equal(await page.evaluate(()=>productCategoryFilter),'อาหารเสริม','edit icon must not change the filter');
@@ -115,11 +115,25 @@ const browserExecutable = [
   assert.deepEqual(await page.evaluate(()=>testCategoryStore.subcategories.find(row=>row.name==='วิตามิน').categories),['อาหารเสริม']);
   assert.equal(await page.locator('[data-category-filter="อาหารเสริม"]').getAttribute('aria-pressed'),'true');
   await page.locator('[data-category-filter="เครื่องสำอาง"]').click();
-  assert.equal(await page.locator('.product-category-grid-list').nth(1).locator('.manage-item').count(),1,'empty group still shows General');
+  assert.equal(await page.locator('.product-category-grid-list').nth(1).locator('.manage-item:visible').count(),1,'empty group still shows General');
   assert.equal(await page.locator('.product-category-grid-list').nth(1).getByText('ทั่วไป',{exact:true}).count(),1);
   await page.locator('[data-category-filter="ยา"]').focus();
   await page.keyboard.press('Enter');
   assert.equal(await page.locator('[data-category-filter="ยา"]').getAttribute('aria-pressed'),'true');
+  await page.locator('[data-category-filter="อาหารเสริม"]').dblclick();
+  assert.equal(await page.locator('#categorySettingsName').inputValue(),'อาหารเสริม','double-click on an unselected main card opens its editor');
+  assert.equal(await page.locator('#categorySettingsForm').count(),1);
+  await page.locator('#cancelCategorySettings').click();
+  await page.locator('[data-category-filter="อาหารเสริม"]').dblclick();
+  assert.equal(await page.locator('#categorySettingsName').inputValue(),'อาหารเสริม','selected card also supports double-click');
+  await page.locator('#cancelCategorySettings').click();
+  await page.locator('[data-category-card="sub"]').filter({has:page.locator('[data-category-edit="sub"][data-name="BLACKMORES"]')}).dblclick({position:{x:30,y:65}});
+  assert.equal(await page.locator('#categorySettingsName').inputValue(),'BLACKMORES');
+  assert.equal(await page.locator('[name="categoryParent"][value="ยา"]').isChecked(),true);
+  await page.locator('#cancelCategorySettings').click();
+  await page.getByText('ทั่วไป',{exact:true}).dblclick();
+  assert.equal(await page.locator('#categorySettingsForm').count(),0,'built-in General is not editable');
+  await page.locator('[data-category-filter="ยา"]').click();
   await page.screenshot({path:path.join(os.tmpdir(),'sapuri-category-filter.png'),fullPage:true});
   await page.locator('[data-category-filter=""]').click();
   assert.equal(await page.locator('[data-category-edit="sub"][data-name="ยาคุม"]').count(),1);
