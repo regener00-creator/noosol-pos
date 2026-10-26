@@ -131,9 +131,29 @@ const browserExecutable = [
   assert.equal(await page.locator('#categorySettingsName').inputValue(),'BLACKMORES');
   assert.equal(await page.locator('[name="categoryParent"][value="ยา"]').isChecked(),true);
   await page.locator('#cancelCategorySettings').click();
-  await page.getByText('ทั่วไป',{exact:true}).dblclick();
+  await page.locator('[data-subcategory-select="ทั่วไป"]').dblclick();
   assert.equal(await page.locator('#categorySettingsForm').count(),0,'built-in General is not editable');
   await page.locator('[data-category-filter="ยา"]').click();
+  await page.locator('[data-subcategory-select="BLACKMORES"]').click();
+  assert.equal(await page.locator('[data-subcategory-select="BLACKMORES"]').getAttribute('aria-pressed'),'true');
+  await page.waitForFunction(()=>{
+    const card=document.querySelector('[data-subcategory-select="BLACKMORES"]').closest('.manage-item');
+    const icon=getComputedStyle(card.querySelector('.icon-btn'));
+    return icon.color==='rgb(255, 255, 255)'&&icon.backgroundColor==='rgba(0, 0, 0, 0)';
+  });
+  const subColors=await page.locator('[data-subcategory-select="BLACKMORES"]').evaluate(button=>{
+    const card=button.closest('.manage-item'),icon=card.querySelector('.icon-btn');
+    return {background:getComputedStyle(card).backgroundColor,text:getComputedStyle(card.querySelector('span')).color,icon:getComputedStyle(icon).color,iconBackground:getComputedStyle(icon).backgroundColor};
+  });
+  assert.deepEqual(subColors,{background:'rgb(79, 64, 56)',text:'rgb(255, 255, 255)',icon:'rgb(255, 255, 255)',iconBackground:'rgba(0, 0, 0, 0)'});
+  assert.equal(await page.locator('[data-category-filter="ยา"]').getAttribute('aria-pressed'),'true','subcategory selection leaves main filter selected');
+  await page.locator('[data-subcategory-select="ยาคุม"]').click();
+  assert.equal(await page.locator('[data-subcategory-select="BLACKMORES"]').getAttribute('aria-pressed'),'false');
+  assert.equal(await page.locator('[data-subcategory-select="ยาคุม"]').getAttribute('aria-pressed'),'true');
+  await page.locator('[data-category-filter="อาหารเสริม"]').click();
+  assert.equal(await page.locator('[data-subcategory-select][aria-pressed="true"]').count(),0,'changing main category clears subcategory selection');
+  await page.locator('[data-category-filter="ยา"]').click();
+  await page.locator('[data-subcategory-select="BLACKMORES"]').click();
   await page.screenshot({path:path.join(os.tmpdir(),'sapuri-category-filter.png'),fullPage:true});
   await page.locator('[data-category-filter=""]').click();
   assert.equal(await page.locator('[data-category-edit="sub"][data-name="ยาคุม"]').count(),1);
