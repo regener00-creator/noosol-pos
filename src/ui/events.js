@@ -151,6 +151,8 @@ function bindPasswordVisibilityToggles(root=document){
 }
 
 function attachEvents(){
+  attachProductCategorySelectEvents();
+  attachProductCategorySettingsEvents();
   attachProductResultEvents();
   attachReceiptPrinterEvents();
   if(currentTab==='mobiletools'){

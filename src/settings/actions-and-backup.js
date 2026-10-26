@@ -163,7 +163,7 @@ async function restoreStoreBackup(file){
     maintenanceEpoch=String(result?.epoch||'');
     if(maintenanceEpoch) localStorage.setItem(MAINTENANCE_EPOCH_STORAGE_KEY,maintenanceEpoch);
     await Promise.all([
-      loadCoreDataFromSupabase(),loadSalesHistoryFromSupabase(),loadBusinessSettingsFromSupabase(),
+      loadCoreDataFromSupabase(),loadSalesHistoryFromSupabase(),loadBusinessSettingsFromSupabase(),loadProductCategorySettingsFromSupabase(),
       loadDocumentPrefixesFromSupabase(),loadInspectionListsFromSupabase(),loadPromotionsFromSupabase(),loadFavoritesFromSupabase()
     ]);
     await loadCashShiftsFromSupabase();

@@ -55,7 +55,7 @@ async function saveOfflinePosSnapshot({refreshProducts=false}={}){
       const snapshot=structuredClone({
         format:2,actorId:actor,profile:currentProfile,warehouses,contacts,promotions,favorites,
         warehouseAccessRows,pagePermissionRows,inventoryBalanceRows,inventoryLotRows,
-        businessSettings,documentPrefixes,currentCashShift,cashShifts,activeWarehouseId,
+        businessSettings,documentPrefixes,productCategorySettings,currentCashShift,cashShifts,activeWarehouseId,
         settledCheckoutIds:[...offlineInventorySettledIds],savedAt:new Date().toISOString()
       });
       const tx=db.transaction([PRODUCT_CACHE_META_STORE,OFFLINE_PRODUCTS_STORE],'readwrite'),done=idbTransactionDone(tx);
@@ -118,6 +118,7 @@ async function enterOfflinePos({username='',password='',restore=false}={}){
   warehouseAccessRows=snapshot.warehouseAccessRows;pagePermissionRows=snapshot.pagePermissionRows;
   inventoryBalanceRows=snapshot.inventoryBalanceRows;inventoryLotRows=snapshot.inventoryLotRows;
   offlineInventorySettledIds=new Set(snapshot.settledCheckoutIds||[]);
+  productCategorySettings=normalizeProductCategorySettings(snapshot.productCategorySettings);
   documentPrefixes=snapshot.documentPrefixes;applyBusinessSettings(snapshot.businessSettings);
   activeWarehouseId=Number(snapshot.activeWarehouseId)||Number(accessibleWarehouses()[0]?.id)||0;allWarehousesMode=false;
   currentCashShift=snapshot.currentCashShift;cashShifts=snapshot.cashShifts||[];

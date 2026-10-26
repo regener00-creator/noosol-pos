@@ -99,6 +99,7 @@ test('product and sales-representative edit forms encode input and textarea valu
     loggedInUser: () => ({owner: true, level: 1}),
   };
   vm.createContext(productContext);
+  vm.runInContext(fs.readFileSync("src/products/category-settings.js","utf8"),productContext);
   const productSource = sourceBetween('function renderProductForm(', 'function renderWarehouse(');
   vm.runInContext(`${productSource}\nthis.renderProductForm=renderProductForm;`, productContext);
   assertPayloadEncoded(productContext.renderProductForm(), 'renderProductForm');

@@ -137,6 +137,8 @@ function clearRemoteResetSensitiveMemory(){
   notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false; noteSearchQuery=''; notePageCursor=null;
   cashShifts=[]; currentCashShift=null; cashShiftCloseDraft={countedCash:'',reason:''};
   documentPrefixes={...DEFAULT_DOCUMENT_PREFIXES};
+  productCategorySettings={categories:[],subcategories:[]};
+  productCategorySettingsLoaded=false; productCategorySettingsLoading=false; productCategorySettingsError='';
   businessSettings={...DEFAULT_BUSINESS_SETTINGS};
   businessSettingsDirty=false;
   businessSettingsSyncState='local';
@@ -185,7 +187,7 @@ function normalizeInspectionLists(value){
   });
 }
 function workspaceSnapshot(){
-  return {warehouses,products,contacts,salesRepresentatives,salesHistory,quotations,invoicesAR,creditNotes,purchaseOrders,goodsReceipts,productExchanges,productReturns,transfers,standaloneTaxInvoices,promotions,favorites,inspectionLists,currentUserProfile,documentPrefixes,businessSettings};
+  return {warehouses,products,contacts,salesRepresentatives,salesHistory,quotations,invoicesAR,creditNotes,purchaseOrders,goodsReceipts,productExchanges,productReturns,transfers,standaloneTaxInvoices,promotions,favorites,inspectionLists,currentUserProfile,documentPrefixes,businessSettings,productCategorySettings};
 }
 function localWorkspaceSnapshot(){
   const snapshot=workspaceSnapshot();
@@ -448,6 +450,7 @@ function applyWorkspaceData(saved){
   }
   if(Array.isArray(saved.inspectionLists)) inspectionLists=normalizeInspectionLists(saved.inspectionLists);
   if(saved.currentUserProfile&&typeof saved.currentUserProfile==='object') currentUserProfile={...currentUserProfile,...saved.currentUserProfile};
+  if(saved.productCategorySettings) productCategorySettings=normalizeProductCategorySettings(saved.productCategorySettings);
   if(saved.businessSettings&&typeof saved.businessSettings==='object'){
     applyBusinessSettings(saved.businessSettings);
   }

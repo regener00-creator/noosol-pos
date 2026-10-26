@@ -186,7 +186,7 @@ const RENDERERS = {
   creditnote: renderCreditNote, history: renderHistory, purchaseorder: ()=>renderPurchaseOrder(), productreturn: ()=>renderProductReturn(), goodsreceipt: ()=>renderGoodsReceipt(), productexchange: ()=>renderProductExchange(),
   products: ()=>renderProducts(), stockcontrol: ()=>renderStockControl(), barcodeprint: ()=>renderBarcodePrint(), warehouse: ()=>renderWarehouse(), transfer: ()=>renderTransfer(), lowstock: ()=>renderLowStock(), expiry: ()=>renderExpiry(), promotions: ()=>renderPromotions(),
   contacts: ()=>renderContacts(), customers: ()=>renderContacts(), salesreps: renderSalesRepresentatives, representativehistory: ()=>renderRepresentativeHistoryOverview(), rproduct: ()=>renderRProduct(), rbill: ()=>renderRBill(), rprofit: ()=>renderRProfit(), rtax: ()=>renderRTax(),
-  inventorymovement: ()=>renderInventoryMovement(), rinventory: ()=>renderRInventory(), settingsbusiness: ()=>renderBusinessSettings(), settingsuser: ()=>renderUserSettings(), settingsusers: ()=>renderSystemUsers(), settingsprinter: ()=>renderReceiptPrinterSettings(), auditlog: ()=>renderAuditLog(), settingssystem: ()=>renderSystemSettings(),
+  inventorymovement: ()=>renderInventoryMovement(), rinventory: ()=>renderRInventory(), settingscategories: ()=>renderProductCategorySettings(), settingsbusiness: ()=>renderBusinessSettings(), settingsuser: ()=>renderUserSettings(), settingsusers: ()=>renderSystemUsers(), settingsprinter: ()=>renderReceiptPrinterSettings(), auditlog: ()=>renderAuditLog(), settingssystem: ()=>renderSystemSettings(),
 };
 
 let salesViewRefreshTimer=null;

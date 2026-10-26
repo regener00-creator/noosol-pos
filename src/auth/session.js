@@ -6,6 +6,7 @@ function canAccessTab(tab,user=loggedInUser()){
   if(!user) return false;
   if(isAllWarehousesMode()&&!ALL_WAREHOUSES_TABS.has(tab)) return false;
   if((tab==='settingsusers'||tab==='auditlog')&&user.owner!==true) return false;
+  if(tab==='settingscategories'&&user.owner!==true) return false;
   // Device-only receipt layout: staff who can open POS may configure their own printer.
   if(tab==='settingsprinter') return canPerformPageAction('view','checkout',user);
   if(tab==='stockcontrol') return canPerformPageAction('view','inspectionlists',user);

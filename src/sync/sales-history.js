@@ -222,7 +222,7 @@ async function loadWorkspaceFromSupabase(){
   // A maintenance reset intentionally starts a fresh generation.
   const refreshedContext=captureWorkspaceRead();
   await Promise.all([
-    loadCoreDataFromSupabase(),loadSalesHistoryFromSupabase(),loadBusinessSettingsFromSupabase(),
+    loadCoreDataFromSupabase(),loadSalesHistoryFromSupabase(),loadBusinessSettingsFromSupabase(),loadProductCategorySettingsFromSupabase(),
     loadDocumentPrefixesFromSupabase(),loadInspectionListsFromSupabase(),loadPromotionsFromSupabase(),loadFavoritesFromSupabase()
   ]);
   if(!isWorkspaceReadCurrent(refreshedContext)) return;

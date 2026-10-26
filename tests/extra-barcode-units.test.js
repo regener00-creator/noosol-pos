@@ -58,7 +58,7 @@ assert.match(formSource, /extraBarcodeRowHtml\(entry,extraBarcodeAvailableUnits\
 assert.doesNotMatch(formSource, /<h3>ประเภทสินค้า<\/h3>/, 'ต้องไม่แสดงก้อนประเภทสินค้า');
 assert.doesNotMatch(formSource, /id=["']f_wh["']/, 'ต้องไม่แสดงคลังที่แก้ไขไม่ได้');
 assert.doesNotMatch(formSource, /id=["']f_expiry["']/, 'วันหมดอายุต้องจัดการในแต่ละ LOT');
-assert.match(formSource, /<label>ยี่ห้อ\/แบรนด์<\/label>/, 'ต้องใช้ชื่อยี่ห้อ/แบรนด์');
+assert.match(formSource, /<label for="f_brand">หมวดสินค้าย่อย<\/label>/, 'ต้องแสดงชื่อหมวดสินค้าย่อย');
 assert.doesNotMatch(formSource, /<h3>หน่วยและราคา<\/h3>/, 'ต้องไม่แสดงหัวข้อหน่วยและราคา');
 assert.doesNotMatch(formSource, /กำหนดหน่วยหลัก ราคาขาย ทุน และจำนวนคงเหลือ รวมถึงหน่วยขายเพิ่มเติมของสินค้านี้/, 'ต้องไม่แสดงคำอธิบายก้อนหน่วยและราคา');
 assert.doesNotMatch(formSource, /หน่วยสินค้าหลัก: <b/, 'ต้องไม่แสดงคำอธิบายหน่วยหลักซ้ำเหนือรายการหน่วยเพิ่มเติม');

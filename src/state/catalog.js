@@ -111,6 +111,9 @@ function addBrandIfNew(b){ b=(b||'').trim(); if(b && !brands.includes(b)) brands
 // เติม categories/units/brands ให้ครบตามข้อมูลสินค้าจริงที่มีอยู่ (จำเป็นหลังโหลดสินค้าจำนวนมากจาก Supabase
 // ซึ่งไม่ได้ผ่านฟอร์ม "เพิ่มสินค้า" ทีละรายการที่จะเรียก addCategoryIfNew/addUnitIfNew/addBrandIfNew ให้เองตามปกติ)
 function refreshCategoryBrandUnitLists(){
+  const configured=effectiveProductCategorySettings();
+  categories=['ไม่ทราบหมวดหมู่',...configured.categories];
+  brands=['ทั่วไป',...configured.subcategories.map(row=>row.name)];
   products.forEach(p=>{ addCategoryIfNew(p.category); addBrandIfNew(p.brand); addUnitIfNew(p.unit); });
 }
 let productTypes = [ ['stock','สินค้านับสต็อก'], ['nostock','สินค้าไม่นับสต็อก'] ];

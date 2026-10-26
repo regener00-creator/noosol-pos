@@ -219,9 +219,11 @@ function renderInventoryMovement(){
 }
 
 function buildGroupTree(){
-  const tree = {}; // cat -> Set(brand)
-  const catCounts = {}; // cat -> count
-  const brCounts = {}; // "cat|||brand" -> count
+  const tree = Object.create(null); // cat -> Set(brand)
+  const catCounts = Object.create(null); // cat -> count
+  const brCounts = Object.create(null); // "cat|||brand" -> count
+  const configured=effectiveProductCategorySettings();
+  configured.categories.forEach(cat=>{ tree[cat]=new Set(productSubcategoryNames(cat,configured)); });
   products.forEach(p=>{
     const cat = String(p.category||'').trim() || 'ไม่ทราบหมวดหมู่';
     const brand = p.brand || 'ทั่วไป';

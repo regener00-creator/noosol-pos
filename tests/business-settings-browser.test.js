@@ -51,6 +51,8 @@ const browserExecutable = [
   await page.waitForTimeout(500);
   await page.evaluate(() => {
     currentProfile={id:'browser-test',level:1,owner:true,firstName:'ทดสอบ'};
+    systemHasOwner=true;
+    warehouses=[{id:1,name:'คลังทดสอบ',active:true}]; activeWarehouseId=1;
     businessSettings={...DEFAULT_BUSINESS_SETTINGS,name:'ร้าน <ทดสอบ>',line:'@NOOSOL',vat:'ยังไม่จดภาษีมูลค่าเพิ่ม',branch:'head'};
     currentTab='settingsbusiness';
     document.getElementById('main').innerHTML=renderBusinessSettings();
@@ -90,7 +92,7 @@ const browserExecutable = [
   assert.equal(await page.locator('text=ประเภทสินค้า').count(),0);
   assert.equal(await page.locator('#f_wh').count(),0);
   assert.equal(await page.locator('#f_expiry').count(),0);
-  assert.equal(await page.locator('label', {hasText:'ยี่ห้อ/แบรนด์'}).count(),1);
+  assert.equal(await page.locator('label', {hasText:'หมวดสินค้าย่อย'}).count(),1);
   assert.equal(await page.locator('h3', {hasText:'หน่วยและราคา'}).count(),0);
   assert.equal(await page.getByText('กำหนดหน่วยหลัก ราคาขาย ทุน และจำนวนคงเหลือ รวมถึงหน่วยขายเพิ่มเติมของสินค้านี้', {exact:true}).count(),0);
   assert.equal(await page.locator('#f_stock').isVisible(),false);

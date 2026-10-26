@@ -41,7 +41,7 @@ function renderProducts({resultsOnly=false}={}){
   let brandHtml='<div class="product-group-empty">เลือกกลุ่มสินค้าหลักเพื่อแสดงหมวดสินค้าย่อย</div>';
   if(activeCategory){
     const activeBrands=[...tree[activeCategory]].sort((a,b)=>a.localeCompare(b,'th'));
-    const visibleBrands=activeBrands.filter(brand=>brand!=='ทั่วไป'||activeBrands.length>1);
+    const visibleBrands=activeBrands;
     brandHtml=visibleBrands.length?visibleBrands.map(brand=>{
       const active=selectedGroup?.brand===brand;
       return `<button type="button" class="product-group-brand ${active?'active':''}" data-product-category="${escapeHtml(activeCategory)}" data-product-brand="${escapeHtml(brand)}"><span>${escapeHtml(brand)}</span><span class="product-group-brand-count">${brCounts[activeCategory+'|||'+brand]||0}</span></button>`;
@@ -517,6 +517,7 @@ function renderProductForm(options={}){
   const canViewCost=!isLevel2User();
   const p = mobile?mobileProductEditor.draft:(isNew ? {name:'',sku:'',category:'',unit:'',barcode:'',price:'',cost:'',stock:'',threshold:5,expiry:'',wh:1,type:'stock',desc:'',active:true} : products.find(x=>x.id===editingProductId));
   const mainUnitSelect=comboSelect('f_unit', units, p.unit, 'ระบุหน่วยสินค้า');
+  const categorySelects=productCategorySelects(p);
   const renderedMainUnitSelect=isNew?mainUnitSelect:mainUnitSelect.replace('<select ','<select disabled ');
   return `
     ${mobile?`<div class="mobile-product-heading"><h1>${isNew?'เพิ่มสินค้า':'แก้ไขสินค้า'}</h1><span>ข้อมูลสินค้าใช้ร่วมกับหน้าคอม</span></div>`:`<div class="pagehead"><div><div class="breadcrumb">รายการสินค้า › ${isNew?'เพิ่มสินค้า':'แก้ไขสินค้า'}</div></div></div>`}
@@ -525,8 +526,8 @@ function renderProductForm(options={}){
 
     <div class="panel"><h3 class="prodform-gap">หมวดสินค้า</h3>
       <div class="prodrow r3 product-category-grid">
-        <div class="field"><label>หมวดสินค้าหลัก</label>${comboSelect('f_category', categories, p.category, 'ระบุหมวดสินค้า')}</div>
-        <div class="field"><label>ยี่ห้อ/แบรนด์</label>${comboSelect('f_brand', brands, p.brand||'ทั่วไป', 'ระบุยี่ห้อ/แบรนด์')}</div>
+        <div class="field"><label for="f_category">หมวดสินค้าหลัก *</label>${categorySelects.main}</div>
+        <div class="field"><label for="f_brand">หมวดสินค้าย่อย</label>${categorySelects.sub}</div>
         <div class="field"><label>ภาษีมูลค่าเพิ่ม (VAT)</label>${isBusinessVatRegistered()?`<select id="f_vat"><option value="incl" ${(p.vat||'incl')==='incl'?'selected':''}>VAT 7% — ราคาขายรวม VAT แล้ว</option><option value="excl" ${p.vat==='excl'?'selected':''}>VAT 7% — ราคาขายยังไม่รวม VAT</option><option value="none" ${p.vat==='none'?'selected':''}>ยกเว้น VAT</option></select>`:`<input id="f_vat" type="hidden" value="${normalizeProductVatMode(p.vat)}"><input value="ไม่คิด VAT — กิจการยังไม่จด VAT" readonly>`}</div>
       </div>
     </div>

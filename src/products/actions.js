@@ -18,6 +18,9 @@ async function saveProduct(){
   const unit = g('f_unit').value.trim();
   const price = parseFloat(g('f_price').value);
   if(!name){ showToast('กรุณากรอกชื่อสินค้า'); g('f_name').focus(); return; }
+  const category=categoryName(g('f_category')?.value),brand=categoryName(g('f_brand')?.value)||'ทั่วไป';
+  const categoryError=productCategoryValidationError(category,brand);
+  if(categoryError){ showToast(categoryError,'danger-top'); g('f_category')?.focus(); return; }
   if(!unit){ showToast('กรุณากรอกหน่วยสินค้า'); g('f_unit').focus(); return; }
   if(!Number.isFinite(price)||price<0){ showToast('กรุณากรอกราคาขายตั้งแต่ 0 ขึ้นไป'); g('f_price').focus(); return; }
   const gv = id => { const el=g(id); return el?el.value:''; };
@@ -94,8 +97,8 @@ async function saveProduct(){
     active: g('f_active') ? g('f_active').checked : existing?.active!==false,
     cost: parseFloat(gv('f_cost'))||0,
     sku: g('f_sku').value.trim(),
-    category: g('f_category').value,
-    brand: (g('f_brand')&&g('f_brand').value) || 'ทั่วไป',
+    category,
+    brand,
     barcode: g('f_barcode').value.trim(),
     extraBarcodes: extraBarcodeRows.map(item=>item.code),
     extraBarcodeUnits: extraBarcodeRows.map(item=>item.unit),
