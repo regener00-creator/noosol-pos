@@ -1878,7 +1878,7 @@
   .mobile-tools-page{max-width:760px;margin:0 auto;padding:20px;min-height:100%;}
   .mobile-product-toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 12px;}
   .mobile-product-toolbar .btn,.mobile-edit-product,.mobile-create-from-code{min-height:44px;}
-  .mobile-edit-product{width:100%;margin:10px 0 14px;}
+  .btn.ghost.mobile-edit-product{width:100%;margin:10px 0 14px;background:#fff;}
   .mobile-create-from-code{display:block;margin:14px auto 0;white-space:normal;}
   .mobile-product-editor{border:0;margin:0;padding:0;min-width:0;}
   .mobile-product-heading{margin:4px 0 18px;}

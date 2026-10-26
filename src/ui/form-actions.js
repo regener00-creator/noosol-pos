@@ -70,6 +70,10 @@ function checkNegativeStockToast(pid){
   if(totalInCart > p.stock) showToast('สินค้าติดลบ', 'danger-top');
 }
 function attachMobilePriceResultEvents(){
+  const markQuickEditDirty=()=>{
+    const button=document.getElementById('mobilePriceSaveChanges');
+    if(button){ button.hidden=false; button.disabled=!mobileIsOnline(); }
+  };
   document.getElementById('mobileEditProduct')?.addEventListener('click',()=>openMobileProductEditor(mobilePriceProductId));
   document.getElementById('mobileCreateProductFromCode')?.addEventListener('click',()=>openMobileProductEditor('new',mobilePriceQuery));
   document.querySelectorAll('[data-mobile-price-product]').forEach(button=>button.addEventListener('click',()=>{
@@ -109,6 +113,9 @@ function attachMobilePriceResultEvents(){
       : 'สินค้านี้มีหลาย Lot กรุณาเลือก Lot ที่ต้องการแก้วันหมดอายุ';
   });
   document.getElementById('mobilePriceSaveChanges')?.addEventListener('click',saveMobilePriceChanges);
+  ['mobilePriceEditSale','mobilePriceEditCost','mobilePriceEditExpiry'].forEach(id=>{
+    document.getElementById(id)?.addEventListener('input',markQuickEditDirty);
+  });
   document.querySelectorAll('[data-mobile-review-status]').forEach(button=>{
     button.addEventListener('click',()=>{
       if(!canEditMobilePrice()) return;
@@ -117,6 +124,7 @@ function attachMobilePriceResultEvents(){
       });
       const card=button.closest('.mobile-result-card');
       if(card) card.dataset.reviewStatus=button.dataset.mobileReviewStatus;
+      markQuickEditDirty();
       const status=document.getElementById('mobilePriceEditStatus');
       if(status) status.textContent='เลือกสีแล้ว — กดบันทึกการแก้ไขเพื่อซิงก์กับคอม';
     });

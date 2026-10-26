@@ -314,11 +314,11 @@ function mobilePriceResultHtml(){
       <div class="mobile-price-lot-hint" id="mobilePriceLotHint">${escapeHtml(lotHint)}</div>
     </div>
     ${conversionHtml}
-    <button type="button" class="btn ghost mobile-edit-product" id="mobileEditProduct">แก้ไขสินค้า / หน่วยหลัก</button>
+    <button type="button" class="btn ghost mobile-edit-product" id="mobileEditProduct">แก้ไขสินค้า</button>
     <div class="mobile-price-review-colors" role="group" aria-label="สีสถานะสินค้า">
       ${[['normal','สีปกติ'],['pending','สีเหลือง'],['complete','สีเขียว']].map(([value,label])=>`<button type="button" class="product-review-filter" data-mobile-review-status="${value}" aria-pressed="${(productDataReviewStatus(product)||'normal')===value}"><span class="product-review-filter-dot" aria-hidden="true"></span>${label}</button>`).join('')}
     </div>
-    <button type="button" class="mobile-price-edit-save" id="mobilePriceSaveChanges" ${mobileIsOnline()?'':'disabled'}>${mobileIsOnline()?'บันทึกการแก้ไข':'ออฟไลน์ — ยังบันทึกไม่ได้'}</button><div class="mobile-price-edit-status" id="mobilePriceEditStatus"></div>`:`<div class="mobile-metrics">
+    <button type="button" class="mobile-price-edit-save" id="mobilePriceSaveChanges" ${mobileIsOnline()?'':'disabled'} hidden>${mobileIsOnline()?'บันทึกการแก้ไข':'ออฟไลน์ — ยังบันทึกไม่ได้'}</button><div class="mobile-price-edit-status" id="mobilePriceEditStatus"></div>`:`<div class="mobile-metrics">
       <div class="mobile-metric primary"><span>คงเหลือ</span><b id="mobilePriceStock">${inspectionListAmount(selectedStock)} ${escapeHtml(selected?.name||product.unit)}</b></div>
       <div class="mobile-metric"><span>ราคาขาย</span><b id="mobilePriceSale">${fmtMoney(selected?.price||0)} บาท</b></div>
       ${canViewCost?`<div class="mobile-metric"><span>ทุน</span><b id="mobilePriceCost">${fmtMoney(selected?.cost||0)} บาท</b></div>`:''}
@@ -385,6 +385,7 @@ async function saveMobilePriceChanges(){
     mobileLastRefreshAt=Date.now();
     setMobileDataStatus('online','บันทึกแล้ว');
     showToast('บันทึกข้อมูลสินค้าเรียบร้อยแล้ว');
+    if(button) button.hidden=true;
     return true;
   }catch(error){
     console.warn('บันทึกข้อมูลสินค้าจากมือถือไม่สำเร็จ',error);
