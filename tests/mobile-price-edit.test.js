@@ -17,7 +17,7 @@ assert.match(html, /id="mobilePriceSaveChanges"/);
 assert.match(html, /id="mobilePriceSaveChanges"[^>]*hidden/);
 assert.match(html, /id="mobileEditProduct">แก้ไขสินค้า<\/button>/);
 assert.doesNotMatch(html, /แก้ไขสินค้า \/ หน่วยหลัก/);
-assert.match(html, /\.btn\.ghost\.mobile-edit-product\{width:100%;margin:10px 0 14px;background:var\(--primary\);border-color:var\(--primary\);color:#fff;\}/);
+assert.match(html, /\.btn\.ghost\.mobile-edit-product\{width:100%;margin:10px 0 14px;background:var\(--accent\);border-color:var\(--accent\);color:#fff;\}/);
 assert.match(html, /\['mobilePriceEditSale','mobilePriceEditCost','mobilePriceEditExpiry'\]/);
 assert.match(html, /addEventListener\('input',markQuickEditDirty\)/);
 assert.match(html, /const saved=await saveMobilePriceChanges\(\)/);

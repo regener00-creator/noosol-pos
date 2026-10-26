@@ -149,7 +149,7 @@ let browser;
     assert.ok(editBox.y+editBox.height<=colorsBox.y,'edit action is above the review colors');
     assert.equal(await page.locator('#mobileEditProduct').evaluate(el=>el.nextElementSibling.classList.contains('mobile-price-review-colors')),true);
     assert.equal(await page.locator('#mobileEditProduct').textContent(),'แก้ไขสินค้า');
-    assert.equal(await page.locator('#mobileEditProduct').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(79, 64, 56)');
+    assert.equal(await page.locator('#mobileEditProduct').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(155, 119, 99)');
   }
   await page.setViewportSize({width:390,height:844});
   assert.equal(await page.locator('#mobilePriceSaveChanges').isHidden(),true,'quick-save stays hidden until a quick field changes');
