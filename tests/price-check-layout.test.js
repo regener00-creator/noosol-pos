@@ -18,5 +18,8 @@ const stockIndex = priceCheck.indexOf('<span>คงเหลือ</span>');
 assert.ok(skuIndex >= 0 && unitIndex > skuIndex && saleIndex > unitIndex && costIndex > saleIndex && expiryIndex > costIndex && stockIndex > expiryIndex);
 assert.doesNotMatch(priceCheck, /<span>บาร์โค้ด<\/span>/);
 assert.match(priceCheck, /pc-grid-placeholder/);
+assert.match(priceCheck, /unit-conversion-list pc-unit-conversions/);
+assert.match(priceCheck, /ขนาดบรรจุ/);
+assert.match(priceCheck, /productUnitConversionRows\(p\)/);
 
 console.log('price check layout tests passed');

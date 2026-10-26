@@ -90,6 +90,7 @@ let browser;
   assert.equal(await page.locator('#f_stock').getAttribute('type'),'hidden','stock cannot be edited here');
   assert.equal(await page.locator('#topbarFormActions #saveProductBtn').count(),0,'save remains visible on mobile, not hidden desktop topbar');
   await page.locator('#f_name').fill('สินค้ามือถือใหม่');
+  await page.locator('#f_category').selectOption('ยา');
   await page.locator('#f_unit').selectOption('กล่อง');
   await page.locator('#f_price').fill('125');
   await page.locator('#f_cost').fill('75');
@@ -239,7 +240,7 @@ let browser;
   // New product with failed network keeps its id and creation token in durable recovery.
   await page.evaluate(()=>{window.failWrites=true;});
   await page.locator('#mobileNewProduct').click();await page.locator('#f_name').waitFor();
-  await page.locator('#f_name').fill('สินค้าเครือข่ายหลุด');await page.locator('#f_unit').selectOption('กล่อง');await page.locator('#f_price').fill('99');
+  await page.locator('#f_name').fill('สินค้าเครือข่ายหลุด');await page.locator('#f_category').selectOption('ยา');await page.locator('#f_unit').selectOption('กล่อง');await page.locator('#f_price').fill('99');
   await page.locator('#saveProductBtn').click();
   await page.waitForFunction(()=>!mobileProductEditor&&products.some(p=>p.name==='สินค้าเครือข่ายหลุด'));
   const queued=await page.evaluate(async()=>{const p=products.find(p=>p.name==='สินค้าเครือข่ายหลุด');const db=await openProductCacheDb();const tx=db.transaction(PRODUCT_CACHE_PRODUCTS_STORE,'readonly');const cached=await idbRequest(tx.objectStore(PRODUCT_CACHE_PRODUCTS_STORE).get(p.id));return {id:p.id,token:p._clientCreateToken,cachedToken:cached._clientCreateToken};});
@@ -249,7 +250,7 @@ let browser;
   assert.equal(await page.evaluate(id=>window.writes.filter(w=>w.action==='insert'&&w.row.id===id).length,queued.id),1);
   // Failed durable storage can be retried without allocating a second product or losing its SKU.
   await page.locator('#mobileNewProduct').click();await page.locator('#f_name').waitFor();
-  await page.locator('#f_name').fill('สินค้าลองบันทึกอีกครั้ง');await page.locator('#f_unit').selectOption('กล่อง');await page.locator('#f_price').fill('45');
+  await page.locator('#f_name').fill('สินค้าลองบันทึกอีกครั้ง');await page.locator('#f_category').selectOption('ยา');await page.locator('#f_unit').selectOption('กล่อง');await page.locator('#f_price').fill('45');
   await page.evaluate(()=>{window.realPersistProducts=persistProductChangesToIndexedDB;persistProductChangesToIndexedDB=async()=>false;});
   await page.locator('#saveProductBtn').click();
   await page.waitForFunction(()=>mobileProductEditor&&!mobileProductEditor.saving&&typeof editingProductId==='number');

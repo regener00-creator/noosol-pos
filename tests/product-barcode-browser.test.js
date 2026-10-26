@@ -37,7 +37,7 @@ let browser;
     };
     rebuildProductLookupMaps();refreshCategoryBrandUnitLists();editingProductId='new';render();
   });
-  await page.locator('#f_name').fill('สินค้าใหม่');await page.locator('#f_unit').selectOption('กล่อง');await page.locator('#f_price').fill('120');
+  await page.locator('#f_name').fill('สินค้าใหม่');await page.locator('#f_category').selectOption('ยา');await page.locator('#f_unit').selectOption('กล่อง');await page.locator('#f_price').fill('120');
   for(const code of ['MAIN','CASE','EXTRA','VENDOR','REMOTE']){
     await page.locator('#f_barcode').fill(code);await page.locator('#saveProductBtn').click();
     await page.waitForFunction(()=>!saveProduct.saving);
@@ -57,7 +57,7 @@ let browser;
       render();
     },mode);
     await page.locator('#f_name').fill('ตรวจบาร์โค้ดซ้ำ');await page.locator('#f_price').fill('100');
-    if(mode==='new')await page.locator('#f_unit').selectOption('กล่อง');
+    if(mode==='new'){await page.locator('#f_category').selectOption('ยา');await page.locator('#f_unit').selectOption('กล่อง');}
     if(!await page.locator('#f_multiunit').isChecked())await page.locator('label').filter({has:page.locator('#f_multiunit')}).click();
     await page.locator('#unitRows .u_sub').selectOption('ลัง');
     await page.waitForFunction(()=>document.querySelector('#unitRows .u_sub').value==='ลัง');
@@ -75,7 +75,7 @@ let browser;
   }
   await page.setViewportSize({width:1440,height:1000});
   await page.evaluate(()=>{mobileProductEditor=null;currentTab='products';editingProductId='new';render();});
-  await page.locator('#f_name').fill('สินค้าใหม่');await page.locator('#f_unit').selectOption('กล่อง');await page.locator('#f_price').fill('120');
+  await page.locator('#f_name').fill('สินค้าใหม่');await page.locator('#f_category').selectOption('ยา');await page.locator('#f_unit').selectOption('กล่อง');await page.locator('#f_price').fill('120');
   await page.evaluate(()=>window.failPreflight=true);
   await page.locator('#f_barcode').fill('NEW');await page.locator('#saveProductBtn').click();await page.waitForFunction(()=>!saveProduct.saving);
   assert.match(await page.evaluate(()=>notices.at(-1)),/ยังไม่ได้บันทึก/);assert.equal(await page.evaluate(()=>persistCalls),0);
@@ -85,7 +85,7 @@ let browser;
   await page.locator('#cancelProductBtn').click();await page.evaluate(()=>window.resolvePreflight());await page.waitForFunction(()=>!saveProduct.saving);
   assert.equal(await page.evaluate(()=>products.length),1);assert.equal(await page.evaluate(()=>persistCalls),0);
   await page.evaluate(()=>{window.delayPreflight=false;editingProductId='new';render();});
-  await page.locator('#f_name').fill('สินค้าไม่ซ้ำ');await page.locator('#f_unit').selectOption('กล่อง');await page.locator('#f_price').fill('120');await page.locator('#f_barcode').fill('UNIQUE');
+  await page.locator('#f_name').fill('สินค้าไม่ซ้ำ');await page.locator('#f_category').selectOption('ยา');await page.locator('#f_unit').selectOption('กล่อง');await page.locator('#f_price').fill('120');await page.locator('#f_barcode').fill('UNIQUE');
   await page.locator('#unitRows .u_sub').selectOption('ลัง');
   await page.waitForFunction(()=>document.querySelector('#unitRows .u_sub').value==='ลัง');
   await page.locator('#unitRows .u_per').fill('10');await page.locator('#unitRows .u_price').fill('1000');

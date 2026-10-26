@@ -8,6 +8,24 @@ function productUnitOptions(p){
   });
   return opts;
 }
+function productUnitConversionRows(product){
+  if(!product) return [];
+  const levels=productUnitOptions(product)
+    .map(option=>({name:String(option.name||'').trim(),factor:Number(option.factor)}))
+    .filter(option=>option.name&&Number.isFinite(option.factor)&&option.factor>0)
+    .sort((a,b)=>a.factor-b.factor||a.name.localeCompare(b.name,'th'))
+    .filter((option,index,rows)=>index===0||Math.abs(option.factor-rows[index-1].factor)>Math.max(1,option.factor)*1e-9);
+  return levels.slice(1).map((larger,index)=>{
+    const smaller=levels[index];
+    const quantity=Math.round((larger.factor/smaller.factor)*1000000)/1000000;
+    return {largerUnit:larger.name,smallerUnit:smaller.name,quantity};
+  }).filter(row=>Number.isFinite(row.quantity)&&row.quantity>1);
+}
+function productUnitConversionAmount(value){
+  const amount=Number(value);
+  if(!Number.isFinite(amount)) return '';
+  return amount.toLocaleString('th-TH',{maximumFractionDigits:6});
+}
 function productBarcodeForUnit(product,unitName){
   if(!product) return '';
   if(!unitName||unitName===product.unit) return String(product.barcode||'').trim();

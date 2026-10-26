@@ -14,6 +14,8 @@ assert.match(html, /id="mobilePriceEditCost"/);
 assert.match(html, /id="mobilePriceLot"/);
 assert.match(html, /id="mobilePriceEditExpiry"/);
 assert.match(html, /id="mobilePriceSaveChanges"/);
+assert.match(html, /unit-conversion-list mobile-unit-conversions/);
+assert.match(html, /productUnitConversionRows\(product\)/);
 assert.doesNotMatch(html, /แก้ไขเฉพาะคลัง:/);
 assert.doesNotMatch(html, /ยิงบาร์โค้ด พิมพ์รหัส หรือใช้กล้องมือถือ โดยไม่เพิ่มสินค้าเข้าบิล/);
 assert.doesNotMatch(html, /เครื่องยิงบาร์โค้ดที่ส่ง Enter อัตโนมัติใช้งานได้ทันที/);

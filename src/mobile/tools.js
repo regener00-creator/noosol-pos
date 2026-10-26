@@ -291,6 +291,8 @@ function mobilePriceResultHtml(){
   const selectedStock=stockUnitAmountFromBase(warehouseStock(product.id,activeWarehouseId),selected?.factor||1);
   const canViewCost=loggedInUser()?.owner===true;
   const canEdit=canEditMobilePrice();
+  const conversionRows=productUnitConversionRows(product);
+  const conversionHtml=conversionRows.length?`<div class="unit-conversion-list mobile-unit-conversions" aria-label="ขนาดบรรจุ"><span class="unit-conversion-title">ขนาดบรรจุ</span>${conversionRows.map(row=>`<div class="unit-conversion-row"><b>1 ${escapeHtml(row.largerUnit)}</b><span>=</span><b>${escapeHtml(productUnitConversionAmount(row.quantity))} ${escapeHtml(row.smallerUnit)}</b></div>`).join('')}</div>`:'';
   const expiry=warehouseExpiry(product.id,activeWarehouseId)||'';
   const editableLots=canEdit?mobileEditableLots(product.id,activeWarehouseId):[];
   let selectedLot=editableLots.find(lot=>Number(lot.id)===Number(mobilePriceLotId))||null;
@@ -303,6 +305,7 @@ function mobilePriceResultHtml(){
       : 'วันหมดอายุจะเปลี่ยนเฉพาะ Lot ที่เลือก และระบบจะเก็บประวัติการแก้ไข';
   return `<article class="mobile-result-card" data-review-status="${productDataReviewStatus(product)||'normal'}">
     <div class="mobile-result-name">${escapeHtml(product.name)}</div>
+    ${conversionHtml}
     ${canEdit?`<div class="mobile-price-stock-readonly mobile-metric primary"><span>คงเหลือ</span><b id="mobilePriceStock">${inspectionListAmount(selectedStock)} ${escapeHtml(selected?.name||product.unit)}</b></div><div class="mobile-price-edit-grid">
       <div class="mobile-price-edit-field"><label for="mobilePriceEditSale">ราคาขาย</label><input id="mobilePriceEditSale" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.price)||0}"></div>
       <div class="mobile-price-edit-field"><label for="mobilePriceEditCost">ทุน</label><input id="mobilePriceEditCost" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.cost)||0}"></div>
