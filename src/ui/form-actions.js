@@ -117,16 +117,23 @@ function attachMobilePriceResultEvents(){
     document.getElementById(id)?.addEventListener('input',markQuickEditDirty);
   });
   document.querySelectorAll('[data-mobile-review-status]').forEach(button=>{
-    button.addEventListener('click',()=>{
-      if(!canEditMobilePrice()) return;
-      document.querySelectorAll('[data-mobile-review-status]').forEach(option=>{
+    button.addEventListener('click',async()=>{
+      if(!canEditMobilePrice()||button.disabled) return;
+      const options=[...document.querySelectorAll('[data-mobile-review-status]')];
+      const previous=options.find(option=>option.getAttribute('aria-pressed')==='true');
+      if(previous===button) return;
+      options.forEach(option=>{
         option.setAttribute('aria-pressed',String(option===button));
       });
       const card=button.closest('.mobile-result-card');
       if(card) card.dataset.reviewStatus=button.dataset.mobileReviewStatus;
-      markQuickEditDirty();
       const status=document.getElementById('mobilePriceEditStatus');
-      if(status) status.textContent='เลือกสีแล้ว — กดบันทึกการแก้ไขเพื่อซิงก์กับคอม';
+      if(status) status.textContent='กำลังบันทึกสี...';
+      const saved=await saveMobilePriceChanges();
+      if(!saved&&button.isConnected){
+        options.forEach(option=>option.setAttribute('aria-pressed',String(option===previous)));
+        if(card?.isConnected) card.dataset.reviewStatus=previous?.dataset.mobileReviewStatus||'normal';
+      }
     });
   });
 }
