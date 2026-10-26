@@ -166,7 +166,7 @@ function openPriceCheckModal(){
   const pcUnitSel={}; // per-product manually-chosen unit override, scoped to this modal session
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
-  overlay.innerHTML=`<div class="modal" style="width:480px;max-height:82vh;">
+  overlay.innerHTML=`<div class="modal price-check-modal">
     <div class="modal-head"><h3>เช็คราคาสินค้า</h3><button class="modal-close">×</button></div>
     <div style="padding:12px 16px;"><input id="pcInput" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." style="width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;"></div>
     <div class="manage-list" id="pcResult"></div>

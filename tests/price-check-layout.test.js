@@ -8,6 +8,7 @@ const end = html.indexOf('function printStockAlertReport(', start);
 assert.ok(start >= 0 && end > start, 'ไม่พบหน้าต่างเช็คราคาบนคอม');
 
 const priceCheck = html.slice(start, end);
+assert.match(priceCheck, /class="modal price-check-modal"/);
 const skuIndex = priceCheck.indexOf('<span>รหัส</span>');
 const unitIndex = priceCheck.indexOf('<span>หน่วย</span>');
 const saleIndex = priceCheck.indexOf('<span>ขาย</span>');
@@ -24,5 +25,7 @@ assert.doesNotMatch(priceCheck, /พิมพ์ชื่อ \/ รหัส \/ 
 assert.doesNotMatch(priceCheck, /เริ่มพิมพ์เพื่อค้นหา/);
 assert.doesNotMatch(priceCheck, /ขนาดบรรจุ/);
 assert.ok(priceCheck.indexOf('${conversionHtml}',stockIndex)>stockIndex,'อัตราแปลงหน่วยต้องอยู่ใต้แถววันหมดอายุและคงเหลือ');
+assert.match(html, /\.price-check-modal #pcResult\{display:grid;grid-template-columns:repeat\(2,minmax\(0,1fr\)\);gap:8px;\}/);
+assert.match(html, /@media \(max-width:760px\)[\s\S]*\.price-check-modal #pcResult\{grid-template-columns:1fr;\}/);
 
 console.log('price check layout tests passed');
