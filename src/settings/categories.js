@@ -7,10 +7,10 @@ function renderProductCategorySettings(){
     ${productCategorySettingsError?`<p role="alert" class="hint">${escapeHtml(productCategorySettingsError)}</p>`:''}
     ${productCategorySettingsLoading?'<p role="status">กำลังโหลดหมวดสินค้า...</p>':''}
     <div class="panel"><div class="paneltoggle"><h3>หมวดสินค้าหลัก</h3><button type="button" class="btn primary" data-category-edit="main" data-name="" ${ready?'':'disabled'}>+ เพิ่มหมวดหลัก</button></div>
-      <div class="manage-list">${settings.categories.map(name=>`<div class="manage-item"><span>${escapeHtml(name)}</span>${buttons('main',name)}</div>`).join('')||'<p class="hint">ยังไม่มีหมวดหลัก กดเพิ่มหมวดหลักเพื่อเริ่มใช้งาน</p>'}</div></div>
+      <div class="manage-list product-category-grid-list">${settings.categories.map(name=>`<div class="manage-item"><span>${escapeHtml(name)}</span>${buttons('main',name)}</div>`).join('')||'<p class="hint">ยังไม่มีหมวดหลัก กดเพิ่มหมวดหลักเพื่อเริ่มใช้งาน</p>'}</div></div>
     <div class="panel"><div class="paneltoggle"><h3>หมวดสินค้าย่อย</h3><button type="button" class="btn primary" data-category-edit="sub" data-name="" ${ready&&settings.categories.length?'':'disabled'}>+ เพิ่มหมวดย่อย</button></div>
       <p class="hint">เลือกหมวดหลักที่ต้องการให้ใช้หมวดย่อยนี้ได้มากกว่าหนึ่งหมวด เช่น BLACKMORES ใช้ได้ทั้งยาและอาหารเสริม</p>
-      <div class="manage-list"><div class="manage-item"><span><b>ทั่วไป</b><br><small>มีในทุกหมวดหลักโดยอัตโนมัติ</small></span></div>${settings.subcategories.map(row=>`<div class="manage-item"><span><b>${escapeHtml(row.name)}</b><br><small>${escapeHtml(row.categories.join(' · ')||'ยังไม่ได้เลือกหมวดหลัก')}</small></span>${buttons('sub',row.name)}</div>`).join('')}</div>
+      <div class="manage-list product-category-grid-list"><div class="manage-item"><span><b>ทั่วไป</b><br><small>มีในทุกหมวดหลักโดยอัตโนมัติ</small></span></div>${settings.subcategories.map(row=>`<div class="manage-item"><span><b>${escapeHtml(row.name)}</b><br><small>${escapeHtml(row.categories.join(' · ')||'ยังไม่ได้เลือกหมวดหลัก')}</small></span>${buttons('sub',row.name)}</div>`).join('')}</div>
     </div>`;
 }
 function categorySettingsInUse(kind,name,cat=null){
