@@ -168,9 +168,8 @@ function openPriceCheckModal(){
   overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:480px;max-height:82vh;">
     <div class="modal-head"><h3>เช็คราคาสินค้า</h3><button class="modal-close">×</button></div>
-    <div class="modal-sub">พิมพ์ชื่อ / รหัส / ยิงบาร์โค้ด เพื่อดูข้อมูลสินค้า (ไม่เพิ่มลงบิล)</div>
-    <div style="padding:0 16px 12px;"><input id="pcInput" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." style="width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;"></div>
-    <div class="manage-list" id="pcResult"><div class="fav-empty" style="padding:16px;">เริ่มพิมพ์เพื่อค้นหา...</div></div>
+    <div style="padding:12px 16px;"><input id="pcInput" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." style="width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;"></div>
+    <div class="manage-list" id="pcResult"></div>
   </div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
@@ -180,13 +179,13 @@ function openPriceCheckModal(){
   const result=overlay.querySelector('#pcResult');
   const doSearch=()=>{
     const q=input.value.trim();
-    if(!q){ result.innerHTML=`<div class="fav-empty" style="padding:16px;">เริ่มพิมพ์เพื่อค้นหา...</div>`; return; }
+    if(!q){ result.innerHTML=''; return; }
     const ql=q.toLowerCase();
     const matches=activeProducts().filter(p=>p.name.toLowerCase().includes(ql)||matchesBarcode(p,q)||(p.sku||'').toLowerCase().includes(ql)).slice(0,10);
     if(matches.length===0){ result.innerHTML=`<div class="fav-empty" style="padding:16px;">ไม่พบสินค้า "${escapeHtml(q)}"</div>`; return; }
     result.innerHTML=matches.map(p=>{
       const conversionRows=productUnitConversionRows(p);
-      const conversionHtml=conversionRows.length?`<div class="unit-conversion-list pc-unit-conversions" aria-label="ขนาดบรรจุ"><span class="unit-conversion-title">ขนาดบรรจุ</span>${conversionRows.map(row=>`<div class="unit-conversion-row"><b>1 ${escapeHtml(row.largerUnit)}</b><span>=</span><b>${escapeHtml(productUnitConversionAmount(row.quantity))} ${escapeHtml(row.smallerUnit)}</b></div>`).join('')}</div>`:'';
+      const conversionHtml=conversionRows.length?`<div class="unit-conversion-list pc-unit-conversions" aria-label="อัตราแปลงหน่วย">${conversionRows.map(row=>`<div class="unit-conversion-row"><b>1 ${escapeHtml(row.largerUnit)}</b><span>=</span><b>${escapeHtml(productUnitConversionAmount(row.quantity))} ${escapeHtml(row.smallerUnit)}</b></div>`).join('')}</div>`:'';
       const unitOpts=[{sub:p.unit, price:p.price, cost:p.cost||0, barcode:p.barcode||''}, ...((p.units||[]).map(u=>({sub:u.sub, price:u.price||0, cost:u.cost||0, barcode:u.barcode||''})))];
       // ถ้าคำค้นตรงกับบาร์โค้ดของหน่วยเสริม (เช่น กล่อง/ลัง) ให้เลือกหน่วยนั้นเป็นค่าเริ่มต้น เว้นแต่ผู้ใช้เคยเลือกหน่วยเองไว้แล้วในการ์ดนี้
       const subUnit=(p.units||[]).find(u=>(u.barcode||'').includes(q));
@@ -198,7 +197,6 @@ function openPriceCheckModal(){
         : `<b class="mono">${escapeHtml(unitInfo.sub)}</b>`;
       return `<div class="pc-item">
         <div class="pc-name">${escapeHtml(p.name)}</div>
-        ${conversionHtml}
         <div class="pc-grid">
           <div><span>รหัส</span><b class="mono">${escapeHtml(p.sku||'-')}</b></div>
           <div><span>หน่วย</span>${unitFieldHtml}</div>
@@ -207,6 +205,7 @@ function openPriceCheckModal(){
           <div><span>วันหมดอายุ</span><b class="mono">${fmtDateShort(p.expiry)}</b></div>
           <div><span>คงเหลือ</span><b class="mono">${escapeHtml(stockInLargestUnit(p))}</b></div>
         </div>
+        ${conversionHtml}
       </div>`;
     }).join('');
     result.querySelectorAll('.pc-unit-select').forEach(sel=>{

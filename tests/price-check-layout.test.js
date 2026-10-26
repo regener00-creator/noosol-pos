@@ -19,7 +19,10 @@ assert.ok(skuIndex >= 0 && unitIndex > skuIndex && saleIndex > unitIndex && cost
 assert.doesNotMatch(priceCheck, /<span>บาร์โค้ด<\/span>/);
 assert.match(priceCheck, /pc-grid-placeholder/);
 assert.match(priceCheck, /unit-conversion-list pc-unit-conversions/);
-assert.match(priceCheck, /ขนาดบรรจุ/);
 assert.match(priceCheck, /productUnitConversionRows\(p\)/);
+assert.doesNotMatch(priceCheck, /พิมพ์ชื่อ \/ รหัส \/ ยิงบาร์โค้ด เพื่อดูข้อมูลสินค้า/);
+assert.doesNotMatch(priceCheck, /เริ่มพิมพ์เพื่อค้นหา/);
+assert.doesNotMatch(priceCheck, /ขนาดบรรจุ/);
+assert.ok(priceCheck.indexOf('${conversionHtml}',stockIndex)>stockIndex,'อัตราแปลงหน่วยต้องอยู่ใต้แถววันหมดอายุและคงเหลือ');
 
 console.log('price check layout tests passed');

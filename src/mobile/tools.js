@@ -292,7 +292,7 @@ function mobilePriceResultHtml(){
   const canViewCost=loggedInUser()?.owner===true;
   const canEdit=canEditMobilePrice();
   const conversionRows=productUnitConversionRows(product);
-  const conversionHtml=conversionRows.length?`<div class="unit-conversion-list mobile-unit-conversions" aria-label="ขนาดบรรจุ"><span class="unit-conversion-title">ขนาดบรรจุ</span>${conversionRows.map(row=>`<div class="unit-conversion-row"><b>1 ${escapeHtml(row.largerUnit)}</b><span>=</span><b>${escapeHtml(productUnitConversionAmount(row.quantity))} ${escapeHtml(row.smallerUnit)}</b></div>`).join('')}</div>`:'';
+  const conversionHtml=conversionRows.length?`<div class="unit-conversion-list mobile-unit-conversions" aria-label="อัตราแปลงหน่วย">${conversionRows.map(row=>`<div class="unit-conversion-row"><b>1 ${escapeHtml(row.largerUnit)}</b><span>=</span><b>${escapeHtml(productUnitConversionAmount(row.quantity))} ${escapeHtml(row.smallerUnit)}</b></div>`).join('')}</div>`:'';
   const expiry=warehouseExpiry(product.id,activeWarehouseId)||'';
   const editableLots=canEdit?mobileEditableLots(product.id,activeWarehouseId):[];
   let selectedLot=editableLots.find(lot=>Number(lot.id)===Number(mobilePriceLotId))||null;
@@ -305,7 +305,6 @@ function mobilePriceResultHtml(){
       : 'วันหมดอายุจะเปลี่ยนเฉพาะ Lot ที่เลือก และระบบจะเก็บประวัติการแก้ไข';
   return `<article class="mobile-result-card" data-review-status="${productDataReviewStatus(product)||'normal'}">
     <div class="mobile-result-name">${escapeHtml(product.name)}</div>
-    ${conversionHtml}
     ${canEdit?`<div class="mobile-price-stock-readonly mobile-metric primary"><span>คงเหลือ</span><b id="mobilePriceStock">${inspectionListAmount(selectedStock)} ${escapeHtml(selected?.name||product.unit)}</b></div><div class="mobile-price-edit-grid">
       <div class="mobile-price-edit-field"><label for="mobilePriceEditSale">ราคาขาย</label><input id="mobilePriceEditSale" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.price)||0}"></div>
       <div class="mobile-price-edit-field"><label for="mobilePriceEditCost">ทุน</label><input id="mobilePriceEditCost" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.cost)||0}"></div>
@@ -314,6 +313,7 @@ function mobilePriceResultHtml(){
       <div class="mobile-price-edit-field" style="grid-column:1/-1;"><label for="mobilePriceEditExpiry">วันหมดอายุของ Lot ที่เลือก</label><input id="mobilePriceEditExpiry" class="mobile-price-edit-input dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(selectedLotExpiry))}" ${selectedLot?'':'disabled'}></div>
       <div class="mobile-price-lot-hint" id="mobilePriceLotHint">${escapeHtml(lotHint)}</div>
     </div>
+    ${conversionHtml}
     <button type="button" class="btn ghost mobile-edit-product" id="mobileEditProduct">แก้ไขสินค้า / หน่วยหลัก</button>
     <div class="mobile-price-review-colors" role="group" aria-label="สีสถานะสินค้า">
       ${[['normal','สีปกติ'],['pending','สีเหลือง'],['complete','สีเขียว']].map(([value,label])=>`<button type="button" class="product-review-filter" data-mobile-review-status="${value}" aria-pressed="${(productDataReviewStatus(product)||'normal')===value}"><span class="product-review-filter-dot" aria-hidden="true"></span>${label}</button>`).join('')}
@@ -324,7 +324,7 @@ function mobilePriceResultHtml(){
       ${canViewCost?`<div class="mobile-metric"><span>ทุน</span><b id="mobilePriceCost">${fmtMoney(selected?.cost||0)} บาท</b></div>`:''}
       ${options.length>1?`<select class="mobile-unit-select" id="mobilePriceUnit">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>หน่วย: ${escapeHtml(option.name)}</option>`).join('')}</select>`:`<div class="mobile-unit-select" style="display:flex;align-items:center;">หน่วย: ${escapeHtml(selected?.name||product.unit)}</div>`}
       <div class="mobile-metric"><span>วันหมดอายุ</span><b>${escapeHtml(fmtDateShort(expiry))}</b></div>
-    </div>`}
+    </div>${conversionHtml}`}
   </article>`;
 }
 async function saveMobilePriceChanges(){
