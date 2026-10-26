@@ -284,6 +284,8 @@
   .product-category-filter-card .product-category-card-actions{z-index:1;}
   .product-category-card-actions{position:absolute;top:10px;right:10px;display:flex;gap:4px;}
   .product-category-card-actions .icon-btn{width:26px;height:26px;}
+  .product-category-filter-card.is-selected .product-category-card-actions .icon-btn{color:#fff;background:transparent;border-color:transparent;}
+  .product-category-filter-card.is-selected .product-category-card-actions .icon-btn:focus-visible{outline:2px solid #fff;outline-offset:1px;}
   .panel .product-category-section-title{font-size:20px;font-weight:700;}
   .product-category-grid-list>.hint{grid-column:1/-1;}
   @media(max-width:1000px){.product-category-grid-list{grid-template-columns:repeat(3,minmax(0,1fr));}}
