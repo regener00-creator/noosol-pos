@@ -1494,6 +1494,11 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     btn.addEventListener('click',()=>deleteSystemUser(btn.dataset.deleteSystemUser));
   });
   // --- product groups ---
+  document.getElementById('productCategorySettingsBtn')?.addEventListener('click',()=>{
+    if(!canAccessTab('settingscategories')) return;
+    currentTab='settingscategories';
+    render();
+  });
   document.querySelectorAll('[data-product-review-filter]').forEach(btn=>{
     btn.addEventListener('click',()=>{
       productReviewFilter=btn.dataset.productReviewFilter;

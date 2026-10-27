@@ -43,7 +43,6 @@ const NAV = [
     ['inventorymovement','รายงานความเคลื่อนไหว','<path d="M4 7h12"/><path d="M13 4l3 3-3 3"/><path d="M20 17H8"/><path d="M11 14l-3 3 3 3"/>'],
   ]},
   {section:'ตั้งค่า', items:[
-    ['settingscategories','ตั้งค่าหมวดสินค้า','<path d="M3 5h7l2 3h9v12H3z"/>'],
     ['settingsbusiness','ตั้งค่าธุรกิจ','<path d="M4 21v-9l8-5 8 5v9"/><path d="M9 21v-6h6v6"/>'],
     ['warehouse','ตั้งค่าคลังสินค้า','<path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/>'],
     ['settingsusers','ตั้งค่าผู้ใช้งาน','<path d="M15 19a6 6 0 0 0-12 0"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M16 11h6"/>'],
