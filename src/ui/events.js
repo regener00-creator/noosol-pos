@@ -151,6 +151,8 @@ function bindPasswordVisibilityToggles(root=document){
 }
 
 function attachEvents(){
+  if(currentTab==='usage') attachUsageGuideEvents();
+  document.querySelectorAll('[data-open-usage-guide]').forEach(button=>button.addEventListener('click',()=>{currentTab='usage';render();}));
   attachProductCategorySelectEvents();
   attachProductCategorySettingsEvents();
   attachProductResultEvents();

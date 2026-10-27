@@ -1,6 +1,7 @@
 // ---------- Sidebar ----------
 const NAV = [
   {section:'ทั่วไป', items:[
+    ['usage','การใช้งาน','<path d="M4 3h12a3 3 0 0 1 3 3v15H7a3 3 0 0 1-3-3z"/><path d="M4 17h15M8 7h7M8 11h5"/>'],
     ['dashboard','DASHBOARD','<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>'],
     ['notes','NOTE','<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/>'],
   ]},
