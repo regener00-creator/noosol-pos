@@ -115,6 +115,44 @@ let browser;
   await page.waitForFunction(()=>salesHistory.length===2&&!holdOrderInFlight);
   assert.equal(await page.evaluate(()=>salesHistory[0].name),'(ไม่มีชื่อ)','explicit OK with an empty name remains allowed');
   assert.equal(await page.evaluate(()=>window.__holdCalls.length),2);
+  await page.evaluate(()=>{
+    promotions[0].active=true;
+    const main={lineId:2,pid:1,name:products[0].name,unit:'แผง',qty:2,price:20,cost:10,factor:1,priceSource:'standard'};
+    cart=[{lineId:1,custom:true,name:'ก่อนสินค้าเข้าโปร',unit:'ชิ้น',qty:1,price:10,factor:1},main,{lineId:3,custom:true,name:'หลังสินค้าเข้าโปร',unit:'ชิ้น',qty:1,price:15,factor:1}];
+    saleSourceQuotationId=null;saleDiscount=0;saleMember=null;pendingQty=1;
+    render();
+  });
+  const giftRow=page.locator('.pos-autofree-row');
+  assert.equal(await giftRow.locator('td').first().textContent(),'003','gift immediately follows sale item 002');
+  const giftBarcodeStyle=await giftRow.locator('td').nth(1).evaluate(cell=>{const style=getComputedStyle(cell);return {weight:style.fontWeight,align:style.textAlign,padding:style.padding};});
+  const mainBarcodeStyle=await page.locator('[data-pos-cart-line="2"] td').nth(1).evaluate(cell=>{const style=getComputedStyle(cell);return {weight:style.fontWeight,align:style.textAlign,padding:style.padding};});
+  assert.deepEqual(giftBarcodeStyle,mainBarcodeStyle,'free gift barcode uses the same weight, alignment and padding as ordinary rows');
+  const deleteInset=await page.locator('[data-pos-cart-line="2"] .pos-del').evaluate(button=>button.closest('td').getBoundingClientRect().right-button.getBoundingClientRect().right);
+  assert.ok(deleteInset>=12,'delete button has breathing room from the right edge');
+  await page.evaluate(async()=>{
+    readPendingCheckoutRequest=()=>null;offlinePosMode=()=>false;
+    checkoutRequestContext=async payload=>({id:'receipt-order-test',payload,payloadHash:'test'});
+    clearCheckoutRequestId=async()=>{};refreshDocumentInventory=()=>{};openPostPaymentModal=()=>{};
+    updateSaleDocumentMetadata=async()=>{};
+    sb.rpc=async(name,args)=>{
+      if(name!=='complete_sale') throw new Error('Unexpected RPC: '+name);
+      return {data:{sale:{...args.p_sale,id:'RECEIPT-ORDER',ref:'RE-ORDER',date:TODAY_STR,time:'2026-10-27T10:00:00'}},error:null};
+    };
+    await doCheckout('เงินสด');
+  });
+  assert.deepEqual(await page.evaluate(()=>salesHistory.find(sale=>sale.id==='RECEIPT-ORDER').items.map(item=>item.lineKey)),['1','2','3','4'],'checkout preserves display sequence in the saved receipt');
+  const receiptRows=await page.evaluate(()=>{
+    const printDocument=document.implementation.createHTMLDocument('receipt test');
+    window.open=()=>({document:printDocument,addEventListener(){},print(){}});
+    standardizePrintPreview=()=>{};applyReceiptPrinterLayout=()=>{};
+    printShortReceipt('RECEIPT-ORDER');
+    return Array.from(printDocument.querySelectorAll('.item'),row=>({name:row.querySelector('b').textContent,amount:row.querySelector('strong').textContent}));
+  });
+  assert.equal(receiptRows.length,4);
+  assert.equal(receiptRows[0].name,'ก่อนสินค้าเข้าโปร');
+  assert.equal(receiptRows[1].name,receiptRows[2].name,'receipt gift is printed directly below its qualifying product');
+  assert.equal(receiptRows[2].amount,'0.00');
+  assert.equal(receiptRows[3].name,'หลังสินค้าเข้าโปร');
   assert.deepEqual(errors,[]);
   console.log('POS footer, blue promotion warnings and hold cancellation browser tests passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});

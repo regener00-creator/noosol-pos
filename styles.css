@@ -525,8 +525,8 @@
   .pos-table .pt-unit{width:112px;}
   .pos-table .pt-qty{width:82px;}
   .pos-table .pt-total{width:112px;}
-  .pos-table .pt-del{width:44px;}
-  .pos-del-cell{text-align:center;}
+  .pos-table .pt-del{width:64px;}
+  .pos-table .pos-del-cell{text-align:center;padding-left:12px;padding-right:12px;}
   .pos-table td,.pos-table th{overflow:hidden;text-overflow:ellipsis;}
   .pos-table td:nth-child(3){white-space:normal;overflow:visible;text-align:left;}
   .pos-table th:nth-child(3){text-align:left;}
@@ -542,7 +542,6 @@
   .pos-free-row td{background:#F0F9EE;color:#2E8B3D;font-size:12.5px;padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle;}
   .pos-free-row td:nth-child(2){text-align:left;font-weight:600;}
   .pos-autofree-row td{background:#F0F9EE;border-bottom:1px solid var(--border);vertical-align:middle;}
-  .pos-autofree-row td:nth-child(2){text-align:left;font-weight:600;}
   .pos-table td.num, .pos-table td.mono.num{text-align:center;}
   .line-unit{max-width:100%;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:12.5px;background:var(--surface);cursor:pointer;text-align:center;text-align-last:center;}
   .line-unit-cell{text-align:center;}
