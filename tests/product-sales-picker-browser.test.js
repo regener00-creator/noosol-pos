@@ -55,8 +55,8 @@ const browserExecutable = [
     document.getElementById('appRoot').style.display='';
     currentProfile={id:'sales-picker-test',owner:true,level:1};
     warehouses=[{id:1,name:'คลังทดสอบ',active:true}];activeWarehouseId=1;
-    products=Array.from({length:9},(_,i)=>({id:i+1,name:'สินค้ารายงาน '+(i+1),sku:'P'+(i+1),category:i===8?'อาหารเสริม':'ยา',brand:i%2?'ย่อย B':'ย่อย A',unit:'กล่อง',price:(i+1)*10,active:true,units:[]}));
-    categories=['ยา','อาหารเสริม'];brands=['ย่อย A','ย่อย B'];
+    products=Array.from({length:9},(_,i)=>({id:i+1,name:'สินค้ารายงาน '+(i+1),sku:'P'+(i+1),category:i===8?'อาหารเสริม':'ยา',brand:i===8?'อาหารเสริมเฉพาะ':(i%2?'ย่อย B':'ย่อย A'),unit:'กล่อง',price:(i+1)*10,active:true,units:[]}));
+    categories=['ยา','อาหารเสริม'];brands=['ย่อย A','ย่อย B','อาหารเสริมเฉพาะ'];
     salesHistory=[{id:'SALE-TEST',date:TODAY_STR,status:'done',warehouseId:1,items:products.map(p=>({name:p.name,unit:p.unit,qty:1,price:p.price,lineTotal:p.price}))}];
     rproductFilter={period:'today',wh:'1',scope:'all',category:'',brand:'',products:[],applied:false};
     currentTab='rproduct';
@@ -65,6 +65,7 @@ const browserExecutable = [
   await page.locator('#rpf_scope').selectOption('category');
   assert.equal(await page.locator('#rpPickCategoryBtn').isDisabled(),true);
   await page.locator('#rpf_category').selectOption('ยา');
+  assert.deepEqual(await page.locator('#rpf_category_brand option').allTextContents(),['หมวดสินค้าย่อย: ทั้งหมด','ทั่วไป','ย่อย A','ย่อย B'],'main category exposes only its own subcategories');
   assert.equal(await page.locator('#rpPickCategoryBtn').isEnabled(),true);
   await page.locator('#rpPickCategoryBtn').click();
   const cards=page.locator('#rproductPickList>.fav-check');
@@ -94,11 +95,14 @@ const browserExecutable = [
   await page.locator('#rpPickCategoryBtn').click();await cards.first().locator('input').check();await page.locator('#rproductPickAddBtn').click();
   await page.locator('#rpf_category').selectOption('อาหารเสริม');
   assert.deepEqual(await page.evaluate(()=>rproductFilter.products),[],'changing category clears stale selected products');
+  assert.deepEqual(await page.locator('#rpf_category_brand option').allTextContents(),['หมวดสินค้าย่อย: ทั้งหมด','ทั่วไป','อาหารเสริมเฉพาะ']);
   await page.locator('#rpPickCategoryBtn').click();assert.equal(await cards.count(),1);await page.locator('#rproductPickCancelBtn').click();
+  await page.locator('#rpf_category').selectOption('ยา');await page.locator('#rpf_category_brand').selectOption('ย่อย B');
+  await page.locator('#rpPickCategoryBtn').click();assert.equal(await cards.count(),4,'subcategory narrows products inside the selected main category');await page.locator('#rproductPickCancelBtn').click();
   await page.locator('#rpf_scope').selectOption('brand');await page.locator('#rpf_brand').selectOption('ย่อย A');
-  await page.locator('#rpPickCategoryBtn').click();assert.equal(await cards.count(),5,'subcategory can span main categories');
+  await page.locator('#rpPickCategoryBtn').click();assert.equal(await cards.count(),4,'standalone subcategory scope still works');
   await page.locator('#rproductPickAllBtn').click();await page.locator('#rproductPickAddBtn').click();
-  assert.equal(await page.evaluate(()=>rproductFilter.products.length),5);
+  assert.equal(await page.evaluate(()=>rproductFilter.products.length),4);
   await page.locator('#rpf_scope').selectOption('all');assert.deepEqual(await page.evaluate(()=>rproductFilter.products),[]);
   await page.screenshot({path:path.join(os.tmpdir(),'sapuri-product-sales-picker.png')});
   assert.deepEqual(errors,[]);

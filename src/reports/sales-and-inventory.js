@@ -31,6 +31,7 @@ function exportRProductExcel(){
       const p=prodByName[it.name]||{};
       if(f.wh!=='all' && String(saleWarehouseForReport(s,it,p))!==String(f.wh)) return;
       if(f.scope==='category' && f.category && (p.category||'')!==f.category) return;
+      if(f.scope==='category' && f.brand && (p.brand||'ทั่วไป')!==f.brand) return;
       if(f.scope==='brand' && f.brand && (p.brand||'')!==f.brand) return;
       if(f.scope!=='all' && f.products && f.products.length && !f.products.includes(it.name)) return;
       if(!byDate[d]) byDate[d]={};
@@ -67,6 +68,7 @@ function printRProduct(){
       const p=prodByName[it.name]||{};
       if(f.wh!=='all' && String(saleWarehouseForReport(s,it,p))!==String(f.wh)) return;
       if(f.scope==='category' && f.category && (p.category||'')!==f.category) return;
+      if(f.scope==='category' && f.brand && (p.brand||'ทั่วไป')!==f.brand) return;
       if(f.scope==='brand' && f.brand && (p.brand||'')!==f.brand) return;
       if(f.scope!=='all' && f.products && f.products.length && !f.products.includes(it.name)) return;
       if(!byDate[d]) byDate[d]={};
@@ -168,6 +170,7 @@ function renderRProduct(){
       const p=prodByName[it.name]||{};
       if(f.wh!=='all' && String(saleWarehouseForReport(s,it,p))!==String(f.wh)) return;
       if(f.scope==='category' && f.category && (p.category||'')!==f.category) return;
+      if(f.scope==='category' && f.brand && (p.brand||'ทั่วไป')!==f.brand) return;
       if(f.scope==='brand' && f.brand && (p.brand||'')!==f.brand) return;
       if(f.scope!=='all' && f.products && f.products.length && !f.products.includes(it.name)) return;
       if(!byDate[d]) byDate[d]={};
@@ -186,6 +189,7 @@ function renderRProduct(){
   // ตัวเลือกสินค้าตาม scope
   const catList=categories.slice();
   const brandList=brands.slice();
+  const categoryBrandList=f.scope==='category'&&f.category?productSubcategoryNames(f.category):[];
   const productNames=products.map(p=>p.name);
   const categoryScope=f.scope==='category'||f.scope==='brand';
   const categoryProductCount=categoryScope?rproductCategoryProducts(f).length:0;
@@ -227,6 +231,7 @@ function renderRProduct(){
         </select>
       </div>
       ${f.scope==='category'?`<div class="rpf-item"><select id="rpf_category" class="rpt-select"><option value="">— เลือกหมวดหลัก —</option>${catList.map(c=>`<option value="${escapeHtml(c)}" ${f.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></div>`:''}
+      ${f.scope==='category'&&f.category?`<div class="rpf-item"><select id="rpf_category_brand" class="rpt-select" aria-label="หมวดสินค้าย่อยของ ${escapeHtml(f.category)}"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${categoryBrandList.map(brand=>`<option value="${escapeHtml(brand)}" ${f.brand===brand?'selected':''}>${escapeHtml(brand)}</option>`).join('')}</select></div>`:''}
       ${f.scope==='brand'?`<div class="rpf-item"><select id="rpf_brand" class="rpt-select"><option value="">— เลือกหมวดย่อย —</option>${brandList.map(b=>`<option value="${escapeHtml(b)}" ${f.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select></div>`:''}
       ${categoryScope?`<button type="button" class="btn ghost" id="rpPickCategoryBtn" ${categoryProductCount?'':'disabled'}>เลือกสินค้าในหมวดนี้${categoryProductCount?` (${categoryProductCount})`:''}</button>`:''}
       ${f.scope==='product'?`<div class="rpf-item rpf-prodsearch">
