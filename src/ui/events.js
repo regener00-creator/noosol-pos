@@ -1422,8 +1422,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const rpYear=document.getElementById('rpf_year'); if(rpYear) rpYear.addEventListener('change',()=>{ rproductFilter.year=rpYear.value; render(); });
   const rpWh=document.getElementById('rpf_wh'); if(rpWh) rpWh.addEventListener('change',()=>{ rproductFilter.wh=rpWh.value; });
   const rpScope=document.getElementById('rpf_scope'); if(rpScope) rpScope.addEventListener('change',()=>{ rproductFilter.scope=rpScope.value; rproductFilter.category=''; rproductFilter.brand=''; rproductFilter.products=[]; render(); });
-  const rpCat=document.getElementById('rpf_category'); if(rpCat) rpCat.addEventListener('change',()=>{ rproductFilter.category=rpCat.value; });
-  const rpBrand=document.getElementById('rpf_brand'); if(rpBrand) rpBrand.addEventListener('change',()=>{ rproductFilter.brand=rpBrand.value; });
+  document.getElementById('rpPickCategoryBtn')?.addEventListener('click',openRProductCategoryPicker);
+  const rpCat=document.getElementById('rpf_category'); if(rpCat) rpCat.addEventListener('change',()=>{ rproductFilter.category=rpCat.value; rproductFilter.products=[]; render(); });
+  const rpBrand=document.getElementById('rpf_brand'); if(rpBrand) rpBrand.addEventListener('change',()=>{ rproductFilter.brand=rpBrand.value; rproductFilter.products=[]; render(); });
   // ค้นหาสินค้าแบบพิมพ์/สแกน/รหัส (เลือกได้หลายตัว — เลือกแล้วลงในเอกสารเลย)
   const rpProdSearch=document.getElementById('rpf_product_search');
   const rpProdResults=document.getElementById('rpf_product_results');

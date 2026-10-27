@@ -204,3 +204,31 @@ function openStockEditCategoryPicker(filter){
     render();
   };
 }
+function rproductCategoryProducts(filter=rproductFilter){
+  if(filter.scope==='category'&&filter.category) return products.filter(product=>product.category===filter.category);
+  if(filter.scope==='brand'&&filter.brand) return products.filter(product=>product.brand===filter.brand);
+  return [];
+}
+function openRProductCategoryPicker(){
+  const matches=rproductCategoryProducts();
+  if(!matches.length){showToast('ไม่พบสินค้าในหมวดที่เลือก');return;}
+  const selected=new Set(rproductFilter.products||[]);
+  const overlay=document.createElement('div');overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal rproduct-category-modal" style="max-height:82vh;display:flex;flex-direction:column;"><div class="modal-head"><h3>เลือกสินค้าในหมวดนี้</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div><div class="modal-sub">${escapeHtml(rproductFilter.scope==='category'?rproductFilter.category:rproductFilter.brand)} · พบ ${matches.length} รายการ</div><div style="padding:0 16px 8px;display:flex;gap:14px;"><button type="button" class="btn ghost small" id="rproductPickAllBtn">เลือกทั้งหมด</button><button type="button" class="btn ghost small" id="rproductPickNoneBtn">ไม่เลือกเลย</button></div><div class="manage-list" id="rproductPickList" style="flex:1;">${matches.map(product=>`<label class="fav-check"><input type="checkbox" data-pid="${product.id}" ${selected.has(product.name)?'checked disabled':''}><span>${escapeHtml(product.name)}</span><span class="mono" style="color:var(--text-muted);font-size:12px;">${selected.has(product.name)?'เลือกไว้แล้ว':escapeHtml(product.sku||'-')}</span></label>`).join('')}</div><div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;"><button type="button" class="btn ghost" id="rproductPickCancelBtn">ยกเลิก</button><button type="button" class="btn primary" id="rproductPickAddBtn">เพิ่มที่เลือก</button></div></div>`;
+  document.body.appendChild(overlay);
+  const close=()=>overlay.remove();
+  const checkboxes=()=>Array.from(overlay.querySelectorAll('#rproductPickList input:not(:disabled)'));
+  overlay.querySelector('.modal-close').onclick=close;
+  overlay.querySelector('#rproductPickCancelBtn').onclick=close;
+  overlay.querySelector('#rproductPickAllBtn').onclick=()=>checkboxes().forEach(input=>input.checked=true);
+  overlay.querySelector('#rproductPickNoneBtn').onclick=()=>checkboxes().forEach(input=>input.checked=false);
+  overlay.querySelector('#rproductPickAddBtn').onclick=()=>{
+    let added=0;
+    checkboxes().filter(input=>input.checked).forEach(input=>{
+      const product=matches.find(item=>Number(item.id)===Number(input.dataset.pid));
+      if(product&&!selected.has(product.name)){selected.add(product.name);added++;}
+    });
+    rproductFilter.products=[...selected];
+    close();showToast(added?`เพิ่มสินค้า ${added} รายการแล้ว`:'ไม่ได้เลือกสินค้าเพิ่ม');render();
+  };
+}

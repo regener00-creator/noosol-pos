@@ -32,7 +32,7 @@ function exportRProductExcel(){
       if(f.wh!=='all' && String(saleWarehouseForReport(s,it,p))!==String(f.wh)) return;
       if(f.scope==='category' && f.category && (p.category||'')!==f.category) return;
       if(f.scope==='brand' && f.brand && (p.brand||'')!==f.brand) return;
-      if(f.scope==='product' && f.products && f.products.length && !f.products.includes(it.name)) return;
+      if(f.scope!=='all' && f.products && f.products.length && !f.products.includes(it.name)) return;
       if(!byDate[d]) byDate[d]={};
       const itUnit=it.unit||p.unit||'';
       const rowKey=it.name+'|'+itUnit;
@@ -68,7 +68,7 @@ function printRProduct(){
       if(f.wh!=='all' && String(saleWarehouseForReport(s,it,p))!==String(f.wh)) return;
       if(f.scope==='category' && f.category && (p.category||'')!==f.category) return;
       if(f.scope==='brand' && f.brand && (p.brand||'')!==f.brand) return;
-      if(f.scope==='product' && f.products && f.products.length && !f.products.includes(it.name)) return;
+      if(f.scope!=='all' && f.products && f.products.length && !f.products.includes(it.name)) return;
       if(!byDate[d]) byDate[d]={};
       const itUnit=it.unit||p.unit||'';
       const rowKey=it.name+'|'+itUnit;
@@ -169,7 +169,7 @@ function renderRProduct(){
       if(f.wh!=='all' && String(saleWarehouseForReport(s,it,p))!==String(f.wh)) return;
       if(f.scope==='category' && f.category && (p.category||'')!==f.category) return;
       if(f.scope==='brand' && f.brand && (p.brand||'')!==f.brand) return;
-      if(f.scope==='product' && f.products && f.products.length && !f.products.includes(it.name)) return;
+      if(f.scope!=='all' && f.products && f.products.length && !f.products.includes(it.name)) return;
       if(!byDate[d]) byDate[d]={};
       const itUnit=it.unit||p.unit||'';
       const rowKey=it.name+'|'+itUnit;
@@ -187,6 +187,8 @@ function renderRProduct(){
   const catList=categories.slice();
   const brandList=brands.slice();
   const productNames=products.map(p=>p.name);
+  const categoryScope=f.scope==='category'||f.scope==='brand';
+  const categoryProductCount=categoryScope?rproductCategoryProducts(f).length:0;
 
   return `<div class="rpt rpt-page-scroll">
     <div class="rpt-head">
@@ -226,6 +228,7 @@ function renderRProduct(){
       </div>
       ${f.scope==='category'?`<div class="rpf-item"><select id="rpf_category" class="rpt-select"><option value="">— เลือกหมวดหลัก —</option>${catList.map(c=>`<option value="${escapeHtml(c)}" ${f.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></div>`:''}
       ${f.scope==='brand'?`<div class="rpf-item"><select id="rpf_brand" class="rpt-select"><option value="">— เลือกหมวดย่อย —</option>${brandList.map(b=>`<option value="${escapeHtml(b)}" ${f.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select></div>`:''}
+      ${categoryScope?`<button type="button" class="btn ghost" id="rpPickCategoryBtn" ${categoryProductCount?'':'disabled'}>เลือกสินค้าในหมวดนี้${categoryProductCount?` (${categoryProductCount})`:''}</button>`:''}
       ${f.scope==='product'?`<div class="rpf-item rpf-prodsearch">
         <input type="text" id="rpf_product_search" class="rpt-select" placeholder="พิมพ์ชื่อ / สแกนบาร์โค้ด / รหัสสินค้า (เลือกได้หลายตัว)" autocomplete="off">
         <div id="rpf_product_results" class="rpf-results"></div>
@@ -233,6 +236,7 @@ function renderRProduct(){
       <button class="btn ghost rpf-apply" id="rpApplyBtn">แสดงผล</button>
     </div>
 
+    ${categoryScope&&f.products?.length?`<div class="stock-report-selected-products"><span class="stock-report-selected-label">สินค้าที่เลือก ${f.products.length} รายการ</span><div class="stock-report-selected-list">${f.products.map(name=>`<span class="stock-report-product-chip">${escapeHtml(name)}<button type="button" class="rpt-row-x" data-name="${escapeHtml(name)}" aria-label="ลบ ${escapeHtml(name)} ออกจากตัวกรอง">×</button></span>`).join('')}</div><button type="button" class="stock-report-clear-products" id="rpClearProductsBtn">ล้างที่เลือก</button></div>`:''}
     <div class="rpt-body">
       <div class="rpt-meta">
         <div class="rpt-biz">${escapeHtml(businessSettings.name||STORE_INFO.name)}</div>
@@ -258,7 +262,7 @@ function renderRProduct(){
             <colgroup><col class="col-name"><col class="col-qty"><col class="col-unit"><col class="col-price"></colgroup>
             <tbody>
               ${dayRows.map(r=>`<tr>
-                <td class="rpt-pname">${(f.scope==='product'&&f.products&&f.products.length)?`<button class="rpt-row-x" data-name="${escapeHtml(r.name)}" title="เอาออก">×</button> `:''}${escapeHtml(r.name)}</td>
+                <td class="rpt-pname">${(f.scope!=='all'&&f.products&&f.products.length)?`<button class="rpt-row-x" data-name="${escapeHtml(r.name)}" title="เอาออก">×</button> `:''}${escapeHtml(r.name)}</td>
                 <td class="mono" style="text-align:right;">${r.qty.toFixed(2)}</td>
                 <td>${escapeHtml(r.unit||'-')}</td>
                 <td class="mono" style="text-align:right;">${fmtMoney(r.val)}</td>
