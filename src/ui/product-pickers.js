@@ -180,7 +180,7 @@ function openStockEditCategoryPicker(filter){
   const alreadyIn=id=>stockEditItems.includes(id);
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
-  overlay.innerHTML=`<div class="modal" style="width:480px;max-height:82vh;display:flex;flex-direction:column;">
+  overlay.innerHTML=`<div class="modal stock-edit-category-modal" style="max-height:82vh;display:flex;flex-direction:column;">
     <div class="modal-head"><h3>เลือกสินค้าในหมวดนี้</h3><button class="modal-close" aria-label="ปิด">×</button></div>
     <div class="modal-sub">${escapeHtml(filter.category||'ทุกหมวดหลัก')}${filter.brand?` · ${escapeHtml(filter.brand)}`:''} · พบ ${matches.length} รายการ</div>
     <div style="padding:0 16px 8px;display:flex;gap:14px;"><button class="btn ghost small" id="stockEditPickAllBtn">เลือกทั้งหมด</button><button class="btn ghost small" id="stockEditPickNoneBtn">ไม่เลือกเลย</button></div>
