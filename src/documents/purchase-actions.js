@@ -250,9 +250,18 @@ function bindDocumentProductScanner(){
   input.addEventListener('blur',()=>setTimeout(()=>{ box.hidden=true; },140));
 }
 
+function updateShortageItemCodes(row){
+  const name=row.querySelector('.poi_name')?.value||'';
+  const linked=products.find(product=>Number(product.id)===Number(row.dataset.productId));
+  const product=linked?.name===name?linked:products.find(product=>product.name===name);
+  const sku=row.querySelector('.shortage-item-sku'),barcode=row.querySelector('.shortage-item-barcode');
+  if(sku) sku.textContent=product?.sku||'-';
+  if(barcode) barcode.textContent=productBarcodeForUnit(product,row.querySelector('.poi_unit')?.value||product?.unit)||'-';
+}
 function bindPOItemEvents(){
   document.querySelectorAll('#poItemRows .po-item-row').forEach(row=>{
-    const unitSel=row.querySelector('.poi_unit'); if(unitSel) unitSel.addEventListener('change', ()=>{ recalcPORow(row); if(currentTab==='productreturn'){ syncPOFromDOM(); render(); } });
+    if(currentTab==='purchaseorder') row.querySelector('.poi_name')?.addEventListener('input',()=>updateShortageItemCodes(row));
+    const unitSel=row.querySelector('.poi_unit'); if(unitSel) unitSel.addEventListener('change', ()=>{ recalcPORow(row); if(currentTab==='purchaseorder') updateShortageItemCodes(row); if(currentTab==='productreturn'){ syncPOFromDOM(); render(); } });
     ['.poi_qty','.poi_price'].forEach(sel=>{ const el=row.querySelector(sel); if(el) el.addEventListener('input', ()=>recalcPORow(row)); });
     const returnLot=row.querySelector('.poi_return_lot'); if(returnLot) returnLot.addEventListener('change',()=>{ syncPOFromDOM(); render(); });
     row.querySelector('.poi_del').addEventListener('click', ()=>{ syncPOFromDOM(); if((currentTab==='taxinvoice'||currentTab==='quotation')&&typeof syncTaxInvoiceDraftFromDOM==='function') syncTaxInvoiceDraftFromDOM(); const draft=activePurchaseDraft(); draft.items.splice([...document.querySelectorAll('#poItemRows .po-item-row')].indexOf(row),1); if(draft.items.length===0) draft.items=[{name:'',qty:1,unit:'',price:''}]; render(); });

@@ -275,7 +275,7 @@ function renderShortageOrderForm(po,isNew){
     </div></div>
     ${documentProductScannerHtml()}
     <div class="shortage-section-title">รายการที่สั่ง</div>
-    <table class="grid-table po-items shortage-document-items"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th style="width:48px;"></th></tr></thead><tbody id="poItemRows">${po.items.map((it,i)=>shortageItemRowHtml(it,i)).join('')}</tbody></table>
+    <table class="grid-table po-items shortage-document-items"><colgroup><col style="width:60px"><col style="width:125px"><col style="width:175px"><col><col style="width:110px"><col style="width:130px"><col style="width:48px"></colgroup><thead><tr><th>ลำดับ</th><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th></th></tr></thead><tbody id="poItemRows">${po.items.map((it,i)=>shortageItemRowHtml(it,i)).join('')}</tbody></table>
     <button class="btn ghost small" id="addPOItemBtn" style="margin-top:8px;">+ เพิ่มแถวรายการ</button>
     <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePOBtn">บันทึกเอกสาร</button></div>`;
 }
@@ -304,9 +304,11 @@ function renderProductReturnForm(po,isNew){
 }
 
 function shortageItemRowHtml(it,i){
-  const product=products.find(p=>p.name===it.name);
+  const product=products.find(p=>Number(p.id)===Number(it.productId))||products.find(p=>p.name===it.name);
   const options=product?poPurchaseUnitOptions(product):[];
-  return `<tr class="po-item-row" data-i="${escapeHtml(i)}"><td class="mono">${i+1}</td><td><input class="poi_name" value="${escapeHtml(it.name||'')}" placeholder="สแกน/ค้นหาสินค้าจากช่องด้านบน หรือพิมพ์แก้ไขชื่อเอง" autocomplete="off"></td><td><input class="poi_qty mono" type="number" min="0" value="${escapeHtml(it.qty||0)}" style="width:90px;text-align:right;"></td><td><select class="poi_unit" style="min-width:100px;" ${product?'':'disabled'}>${product?options.map(u=>`<option value="${escapeHtml(u.name)}" ${it.unit===u.name?'selected':''}>${escapeHtml(u.name)}</option>`).join(''):'<option value="">เลือกสินค้า</option>'}</select></td><td class="num"><button class="poi_del" title="ลบ">×</button></td></tr>`;
+  const unit=options.find(option=>option.name===it.unit)?.name||options[0]?.name||product?.unit||'';
+  const barcode=productBarcodeForUnit(product,unit)||'-';
+  return `<tr class="po-item-row" data-i="${escapeHtml(i)}" data-product-id="${escapeHtml(product?.id||'')}"><td class="mono">${i+1}</td><td class="mono shortage-item-sku">${escapeHtml(product?.sku||'-')}</td><td class="mono shortage-item-barcode">${escapeHtml(barcode)}</td><td><input class="poi_name" value="${escapeHtml(it.name||'')}" placeholder="สแกน/ค้นหาสินค้าจากช่องด้านบน หรือพิมพ์แก้ไขชื่อเอง" autocomplete="off"></td><td><input class="poi_qty mono" type="number" min="0" value="${escapeHtml(it.qty||0)}" style="width:90px;text-align:right;"></td><td><select class="poi_unit" style="min-width:100px;" ${product?'':'disabled'}>${product?options.map(u=>`<option value="${escapeHtml(u.name)}" ${it.unit===u.name?'selected':''}>${escapeHtml(u.name)}</option>`).join(''):'<option value="">เลือกสินค้า</option>'}</select></td><td class="num"><button class="poi_del" title="ลบ">×</button></td></tr>`;
 }
 
 function poItemRowHtml(it,i){

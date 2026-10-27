@@ -1001,8 +1001,11 @@
   .document-centered-items .poi_unit{text-align:center;text-align-last:center;border-radius:8px;}
   .document-centered-items .poi_del{display:block;margin:0 auto;border-radius:8px;}
   .shortage-document-items th:nth-child(1),.shortage-document-items td:nth-child(1),
+  .shortage-document-items th:nth-child(2),.shortage-document-items td:nth-child(2),
   .shortage-document-items th:nth-child(3),.shortage-document-items td:nth-child(3),
-  .shortage-document-items th:nth-child(4),.shortage-document-items td:nth-child(4){text-align:center!important;vertical-align:middle;}
+  .shortage-document-items th:nth-child(5),.shortage-document-items td:nth-child(5),
+  .shortage-document-items th:nth-child(6),.shortage-document-items td:nth-child(6),
+  .shortage-document-items th:nth-child(7),.shortage-document-items td:nth-child(7){text-align:center!important;vertical-align:middle;}
   .shortage-document-items .poi_qty{text-align:center!important;border-radius:8px;}
   .shortage-document-items .poi_unit{text-align:center;text-align-last:center;border-radius:8px;}
   .shortage-document-items .poi_del{border-radius:8px;}
@@ -2640,3 +2643,6 @@
 #stockEditPickList>.fav-check>span,#inspectionPickList>.fav-check>span,#movementPickList>.fav-check>span,#srPickList>.fav-check>span,#barcodePickList>.fav-check>span,#rproductPickList>.fav-check>span{min-width:0;overflow-wrap:anywhere;}
 #stockEditPickList>.fav-check>span:last-child,#inspectionPickList>.fav-check>span:last-child,#movementPickList>.fav-check>span:last-child,#srPickList>.fav-check>span:last-child,#barcodePickList>.fav-check>span:last-child,#rproductPickList>.fav-check>span:last-child{grid-column:2;}
 @media(max-width:600px){#stockEditPickList,#inspectionPickList,#movementPickList,#srPickList,#barcodePickList,#rproductPickList{grid-template-columns:minmax(0,1fr);}}
+
+.shortage-document-items{table-layout:fixed;min-width:1000px;width:100%;}
+.shortage-document-items .shortage-item-sku,.shortage-document-items .shortage-item-barcode{overflow-wrap:anywhere;}
