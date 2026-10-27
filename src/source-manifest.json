@@ -52,7 +52,6 @@
   "src/reports/sales-and-inventory.js",
   "src/settings/views.js",
   "src/settings/categories.js",
-  "src/help/usage.js",
   "src/ui/router.js",
   "src/ui/form-actions.js",
   "src/documents/exchange-actions.js",

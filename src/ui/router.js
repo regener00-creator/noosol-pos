@@ -181,7 +181,6 @@ function attachOnDemandStateEvents(state){
 }
 
 const RENDERERS = {
-  usage: ()=>renderUsageGuide(),
   mobiletools: renderMobileTools,
   dashboard: renderDashboard, checkout: renderCheckout, notes: renderNotes, cashshift: renderCashShift, cashbill: ()=>renderCashBills(), taxinvoice: ()=>renderTaxInvoices(), quotation: ()=>renderQuotation(), invoice: renderInvoice,
   creditnote: renderCreditNote, history: renderHistory, purchaseorder: ()=>renderPurchaseOrder(), productreturn: ()=>renderProductReturn(), goodsreceipt: ()=>renderGoodsReceipt(), productexchange: ()=>renderProductExchange(),
@@ -213,7 +212,7 @@ function render(){
   document.body.classList.toggle('mobile-device-mode',mobileMode);
   const standaloneAppWindow=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator?.standalone===true;
   document.title=standaloneAppWindow?'':'SAPURI';
-  if(mobileMode&&currentTab!=='usage') currentTab='mobiletools';
+  if(mobileMode) currentTab='mobiletools';
   else if(currentTab==='mobiletools') currentTab='dashboard';
   if(currentTab!=='checkout'&&!(currentTab==='cashbill'&&cashBillLookupOpen)) posSalesHistoryModalOpen=false;
   if(!canAccessTab(currentTab)){

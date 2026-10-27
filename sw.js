@@ -1,6 +1,6 @@
 const ASSET_VERSION='__PEPOS_ASSET_VERSION__';
 const CACHE_NAME=`pepos-mobile-${ASSET_VERSION}`;
-const PAGE_ASSETS=['reports','documents','settings','catalog','labels','inventory','representatives','guide'].map(group=>`/page-${group}.js?v=${ASSET_VERSION}`);
+const PAGE_ASSETS=['reports','documents','settings','catalog','labels','inventory','representatives'].map(group=>`/page-${group}.js?v=${ASSET_VERSION}`);
 const APP_SHELL=['/','/index.html',`/styles.css?v=${ASSET_VERSION}`,`/app.js?v=${ASSET_VERSION}`,'/manifest.webmanifest','/sapuri-app-icon-192.png','/sapuri-app-icon-512.png','/sapuri-pharmacy-logo.webp','/sapuri-brand-screen.webp'];
 APP_SHELL.push(...PAGE_ASSETS);
 APP_SHELL.push('/fonts/google-sans-variable-v2.woff2','/fonts/google-sans-italic-variable-v2.woff2');

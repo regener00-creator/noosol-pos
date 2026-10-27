@@ -10,7 +10,7 @@ const serviceWorker = fs.readFileSync(path.join(root, 'sw.js'), 'utf8');
 const vercelConfig = fs.readFileSync(path.join(root, 'vercel.json'), 'utf8');
 
 assert.match(html, /mobiletools:\s*renderMobileTools/);
-assert.match(html, /if\(mobileMode&&currentTab!=='usage'\) currentTab='mobiletools'/);
+assert.match(html, /if\(mobileMode\) currentTab='mobiletools'/);
 assert.match(html, /body\.mobile-device-mode \.sidebar,body\.mobile-device-mode \.topbar\{display:none!important/);
 assert.match(html, /data-mobile-tool="price"/);
 assert.match(html, /data-mobile-tool="inventory"/);
