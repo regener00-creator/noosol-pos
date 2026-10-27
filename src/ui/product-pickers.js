@@ -25,7 +25,7 @@ function openInspectionListCategoryPicker(filter){
   const alreadyIn=id=>inspectionListDraft.items.some(item=>Number(item.pid)===Number(id));
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
-  overlay.innerHTML=`<div class="modal" style="width:520px;max-height:82vh;display:flex;flex-direction:column;">
+  overlay.innerHTML=`<div class="modal inspection-category-modal" style="max-height:82vh;display:flex;flex-direction:column;">
     <div class="modal-head"><h3>เลือกสินค้าเข้ารายการตรวจ</h3><button class="modal-close" aria-label="ปิด">×</button></div>
     <div class="modal-sub">${filter.wh?`${escapeHtml(whName(Number(filter.wh)))} · `:''}${escapeHtml(filter.category||'ทุกหมวดหลัก')}${filter.brand?` · ${escapeHtml(filter.brand)}`:''} · พบ ${matches.length} รายการ</div>
     <div style="padding:0 16px 8px;display:flex;gap:14px;"><button class="btn ghost small" id="inspectionPickAllBtn">เลือกทั้งหมด</button><button class="btn ghost small" id="inspectionPickNoneBtn">ไม่เลือกเลย</button></div>
