@@ -55,7 +55,7 @@ function openInventoryMovementCategoryPicker(filter){
   const alreadySelected=id=>(filter.products||[]).some(productId=>Number(productId)===Number(id));
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
-  overlay.innerHTML=`<div class="modal" style="width:500px;max-height:82vh;display:flex;flex-direction:column;">
+  overlay.innerHTML=`<div class="modal movement-category-modal" style="max-height:82vh;display:flex;flex-direction:column;">
     <div class="modal-head"><h3>เลือกสินค้าสำหรับรายงาน</h3><button class="modal-close" aria-label="ปิด">×</button></div>
     <div class="modal-sub">${escapeHtml(filter.category||'ทุกหมวดหลัก')}${filter.brand?` · ${escapeHtml(filter.brand)}`:''} · พบ ${matches.length} รายการ</div>
     <div style="padding:0 16px 8px;display:flex;gap:14px;"><button class="btn ghost small" id="movementPickAll">เลือกทั้งหมด</button><button class="btn ghost small" id="movementPickNone">ไม่เลือกเลย</button></div>
