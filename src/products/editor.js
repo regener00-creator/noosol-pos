@@ -101,7 +101,7 @@ function renderProducts({resultsOnly=false}={}){
 `;
   if(resultsOnly) return resultsHtml;
   return `<div class="product-list-page">
-    <div class="product-list-actions form-final-actions"><button class="btn ghost" id="exportProductsBtn">ส่งออก Excel</button><button class="btn ghost" id="importProductsBtn">นำเข้า Excel</button><input id="productImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newProductBtn">+ เพิ่มสินค้า</button></div>
+    <div class="product-list-actions form-final-actions"><button class="btn ghost" id="exportProductsBtn">ส่งออก Excel</button><button class="btn ghost" id="importProductsBtn">นำเข้า Excel</button>${canAccessTab('settingscategories')?'<button type="button" class="btn ghost" id="productCategorySettingsBtn">ตั้งค่าหมวดสินค้า</button>':''}<input id="productImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newProductBtn">+ เพิ่มสินค้า</button></div>
     <div class="prodsplit">
       <div class="tree-pane">
         <div class="product-group-header"><span class="product-group-title">กลุ่มสินค้า</span><span class="product-group-separator">:</span><div class="product-group-categories">${categoryHtml}</div></div>
@@ -109,9 +109,8 @@ function renderProducts({resultsOnly=false}={}){
       </div>
       <div class="searchbar product-list-search">
         <input id="search" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" value="${escapeHtml(searchQuery)}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
-        <div class="product-review-filters" role="group" aria-label="กรองสินค้าและตั้งค่าหมวดสินค้า">
+        <div class="product-review-filters" role="group" aria-label="กรองสินค้าตามสี">
           ${[['all','ทั้งหมด'],['complete','สีเขียว'],['pending','สีเหลือง']].map(([value,label])=>`<button type="button" class="product-review-filter" data-product-review-filter="${value}" aria-pressed="${productReviewFilter===value}" title="${value==='complete'?'ข้อมูลครบถ้วน':value==='pending'?'กำลังแก้ไข / รอข้อมูล':'ทุกสี รวมสินค้าที่ยังไม่ได้ทำสี'}"><span class="product-review-filter-dot" aria-hidden="true"></span>${label}</button>`).join('')}
-          ${canAccessTab('settingscategories')?'<button type="button" class="product-review-filter" id="productCategorySettingsBtn">ตั้งค่าหมวดสินค้า</button>':''}
         </div>
       </div>
       ${resultsHtml}

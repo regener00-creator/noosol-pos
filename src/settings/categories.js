@@ -7,7 +7,7 @@ function renderProductCategorySettings(){
   const subSelect=name=>`<button type="button" class="product-category-filter-toggle" data-subcategory-select="${escapeHtml(name)}" aria-label="เลือกหมวดย่อย ${escapeHtml(name)}" aria-pressed="${selectedProductSubcategory===name}"></button>`;
   const ready=productCategorySettingsLoaded&&!productCategorySettingsLoading&&!productCategorySettingsError;
   const buttons=(kind,name)=>`<div class="product-category-card-actions"><button type="button" class="icon-btn" data-category-edit="${kind}" data-name="${escapeHtml(name)}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(name)}" ${ready?'':'disabled'}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button type="button" class="icon-btn" data-category-delete="${kind}" data-name="${escapeHtml(name)}" title="ลบ" aria-label="ลบ ${escapeHtml(name)}" ${ready?'':'disabled'}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg></button></div>`;
-  return `<div class="pagehead" style="justify-content:flex-end"><button type="button" class="btn ghost" id="reloadProductCategories" ${productCategorySettingsLoading?'disabled':''}>โหลดข้อมูลล่าสุด</button></div>
+  return `<div class="pagehead" style="justify-content:flex-end"><button type="button" class="btn ghost" id="backToProductsFromCategories">ย้อนกลับ</button><button type="button" class="btn ghost" id="reloadProductCategories" ${productCategorySettingsLoading?'disabled':''}>โหลดข้อมูลล่าสุด</button></div>
     ${productCategorySettingsError?`<p role="alert" class="hint">${escapeHtml(productCategorySettingsError)}</p>`:''}
     ${productCategorySettingsLoading?'<p role="status">กำลังโหลดหมวดสินค้า...</p>':''}
     <div class="panel"><div class="paneltoggle"><h3 class="product-category-section-title">หมวดสินค้าหลัก</h3><div class="product-category-heading-actions"><button type="button" class="btn ${productCategoryFilter?'ghost':'primary'}" data-category-filter="" aria-pressed="${!productCategoryFilter}">ทั้งหมด</button><button type="button" class="btn primary" data-category-edit="main" data-name="" ${ready?'':'disabled'}>+ เพิ่มหมวดหลัก</button></div></div>
@@ -29,6 +29,11 @@ function categorySettingsInUse(kind,name,cat=null){
 function attachProductCategorySettingsEvents(){
   if(currentTab!=='settingscategories'){ productCategoryFilter=''; selectedProductSubcategory=''; return; }
   if(currentProfile?.owner!==true) return;
+  document.getElementById('backToProductsFromCategories')?.addEventListener('click',()=>{
+    currentTab='products';
+    editingProductId=null;
+    render();
+  });
   document.querySelectorAll('[data-category-filter]').forEach(button=>button.addEventListener('click',()=>{
     productCategoryFilter=button.dataset.categoryFilter;
     selectedProductSubcategory='';
