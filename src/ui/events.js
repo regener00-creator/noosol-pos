@@ -1946,6 +1946,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   bindProductExchangeScanners();
   document.querySelectorAll('[data-act="editpo"]').forEach(el=>{ el.addEventListener('click', ()=>{ editingPOId=el.dataset.id; poDraft=null; poSupplierEditorOpen=false; poRepresentativeEditorId=null; render(); }); });
   document.querySelectorAll('[data-act="printpo"]').forEach(el=>{ el.addEventListener('click', ()=>printPO(el.dataset.id)); });
+  document.querySelectorAll('[data-act="deletepo"]').forEach(el=>{ el.addEventListener('click', ()=>deleteShortageOrders([el.dataset.id])); });
   const cancelPOBtn = document.getElementById('cancelPOBtn');
   if(cancelPOBtn) cancelPOBtn.addEventListener('click', ()=>{ const kind=currentDocKind(); setDocEditingId(kind,null); setDocDraft(kind,null); poSupplierEditorOpen=false; poRepresentativeEditorId=null; render(); });
   const savePOBtn = document.getElementById('savePOBtn');

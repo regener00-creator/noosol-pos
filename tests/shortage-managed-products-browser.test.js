@@ -68,6 +68,7 @@ let browser;
     poDraft={id:'SH202609060001',supplier:'PEPO',date:'2026-09-06',credit:0,dueDate:'',items:[{name:'',qty:1,unit:'',price:''}],note:'',discount:0,taxMode:'none'};
     render=()=>{
       document.getElementById('main').innerHTML=editingPOId===null?renderPurchaseOrder():renderPOForm();
+      prepareScrollableTables();
       attachEvents();
     };
     render();
@@ -126,10 +127,22 @@ let browser;
     poDraft=null;
     render();
   });
-  assert.deepEqual(await page.locator('.shortage-row-actions button').evaluateAll(buttons=>buttons.map(button=>button.dataset.act)), ['editpo','printpo'], 'ไอคอนพิมพ์ต้องอยู่ถัดจากไอคอนแก้ไข');
+  assert.deepEqual(await page.locator('.shortage-row-actions button').evaluateAll(buttons=>buttons.map(button=>button.dataset.act)), ['editpo','printpo','deletepo'], 'ไอคอนแก้ไข พิมพ์ และลบต้องเรียงตามลำดับ');
   await page.locator('.po-doc-list tbody .doc-check').check();
   assert.equal(await page.locator('#docBulkPrint').count(),0,'แถบจัดการรายการที่เลือกต้องไม่มีปุ่มพิมพ์');
   assert.equal(await page.locator('#docBulkDelete').count(),1,'ยังต้องเลือกลบหลายรายการได้');
+  await page.evaluate(()=>{
+    purchaseOrders.push({...purchaseOrders[0],id:'SH-KEEP'});
+    window.deletePersistCalls=0;persistWorkspaceData=()=>{window.deletePersistCalls++;};render();
+  });
+  const trash=page.locator('[data-act="deletepo"][data-id="SH202609060001"]');
+  page.once('dialog',dialog=>dialog.dismiss());await trash.click();
+  assert.equal(await page.evaluate(()=>purchaseOrders.length),2,'Cancel retains both documents');
+  assert.equal(await page.evaluate(()=>window.deletePersistCalls),0,'Cancel does not persist any deletion');
+  await page.locator('.doc-check[value="SH-KEEP"]').check();
+  page.once('dialog',dialog=>dialog.accept());await trash.click();
+  assert.deepEqual(await page.evaluate(()=>purchaseOrders.map(doc=>doc.id)),['SH-KEEP'],'row trash deletes only its own document regardless of checked rows');
+  assert.equal(await page.evaluate(()=>window.deletePersistCalls),1);
   assert.deepEqual(errors, [], `พบ JavaScript error: ${errors.join(' | ')}`);
   console.log('shortage managed products browser tests passed');
 })().catch(error=>{ console.error(error); process.exitCode=1; }).finally(async()=>{
