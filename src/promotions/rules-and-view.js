@@ -170,6 +170,7 @@ function applyPromotions(lines){
 // ทำงานทุกครั้งก่อน render: ลบของแถมเดิมออกก่อนเสมอ แล้วคำนวณใหม่ทั้งหมดตามสินค้า A ที่มีอยู่จริงในตะกร้าขณะนั้น (กันข้อมูลเก่าค้าง)
 function reconcileAutoFreeLines(){
   cart = cart.filter(l=>!l.autoFreeFromPromo);
+  const giftsByBuyLine = new Map();
   const promos = promotions.filter(p=>p.scope==='buygetdiff' && isPromotionLiveToday(p));
   promos.forEach(promo=>{
     const buyLine = cart.find(l=>l.pid===promo.bgdBuyProductId && l.unit===promo.bgdBuyUnit && !l.custom && l.priceSource!=='customer' && l.priceSource!=='quotation');
@@ -190,8 +191,10 @@ function reconcileAutoFreeLines(){
       factor=u?.factor||1;
       cost=productUnitCost(p,unit,factor);
     }
-    cart.push({lineId:lineCounter++,pid:promo.bgdGetProductId,name:p.name,unit,unitName:unit,price:0,cost,factor,qty:freeQty,autoFreeFromPromo:promo.id,autoFreePromoName:promo.name});
+    if(!giftsByBuyLine.has(buyLine)) giftsByBuyLine.set(buyLine,[]);
+    giftsByBuyLine.get(buyLine).push({lineId:lineCounter++,pid:promo.bgdGetProductId,name:p.name,unit,unitName:unit,price:0,cost,factor,qty:freeQty,autoFreeFromPromo:promo.id,autoFreePromoName:promo.name});
   });
+  cart = cart.flatMap(line=>[line,...(giftsByBuyLine.get(line)||[])]);
 }
 
 // หาโปรฯ ที่ "เกือบเข้าเงื่อนไข" ต่อบรรทัดในตะกร้า (ยังไม่ครบจำนวนขั้นต่ำ) เพื่อเตือนพนักงานให้ชวนลูกค้าซื้อเพิ่ม
