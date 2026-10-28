@@ -405,7 +405,7 @@
   .prodtable .col-name{width:420px;}
   .prodtable .col-price{width:100px;}
   .prodtable .col-cost{width:100px;}
-  .prodtable .col-unit{width:110px;}
+  .prodtable .col-unit{width:180px;}
   .prodtable .col-stock{width:170px;}
   .prodtable .col-lots{width:105px;}
   .prodtable .col-expiry{width:130px;}
@@ -420,7 +420,7 @@
   .prod-inline-expiry{min-width:104px;font-variant-numeric:tabular-nums;}
   .prod-inline-name{text-align:left;}
   .prod-inline-edit.no-spin::-webkit-outer-spin-button,.prod-inline-edit.no-spin::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
-  .prod-unit-select{width:100%;max-width:100px;font-size:12.5px;color:var(--text-muted);border:1px solid transparent;background:transparent;text-align:center;padding:5px 6px;cursor:pointer;border-radius:6px;}
+  .prod-unit-select{width:100%;max-width:170px;font-size:12.5px;color:var(--text-muted);border:1px solid transparent;background:transparent;text-align:center;padding:5px 6px;cursor:pointer;border-radius:6px;}
   .prod-unit-select:hover{color:var(--primary);border-color:var(--border);background:var(--surface);}
   .prod-unit-select:focus{outline:none;border-color:var(--primary);background:var(--surface);}
   .prod-unit-fixed{font-size:12.5px;color:var(--text-muted);}

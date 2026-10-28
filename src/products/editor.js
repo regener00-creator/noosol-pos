@@ -76,7 +76,7 @@ function renderProducts({resultsOnly=false}={}){
         <div class="table-scroll product-table-scroll">
         <table class="grid-table doc-head-blue prodtable"><colgroup><col class="col-sku"><col class="col-barcode"><col class="col-name"><col class="col-price">${canViewCost?'<col class="col-cost">':''}<col class="col-unit"><col class="col-stock"><col class="col-lots">${canOpenProductEditor?'<col class="col-edit">':''}</colgroup><thead><tr>${th('sku','รหัสสินค้า')}<th>บาร์โค้ด</th>${th('name','สินค้า')}${th('price','ขาย','mono num')}${canViewCost?th('cost','ทุน','mono num'):''}<th>หน่วย</th>${th('stock','คงเหลือ','mono num')}<th>Lot</th>${canOpenProductEditor?'<th></th>':''}</tr></thead>
         <tbody>${pageRows.map(p=>{
-          const unitOpts=[{sub:p.unit, price:p.price, cost:p.cost||p.openingCost||0, barcode:p.barcode||''}, ...((p.units||[]).map(u=>({sub:u.sub, price:u.price, cost:u.cost||0, barcode:u.barcode||''})))];
+          const unitOpts=[{sub:p.unit, factor:1, price:p.price, cost:p.cost||p.openingCost||0, barcode:p.barcode||''}, ...((p.units||[]).map(u=>({sub:u.sub, factor:Number(u.factor), price:u.price, cost:u.cost||0, barcode:u.barcode||''})))];
           const selUnit=productListUnitPreference(p)||prodRowUnitSel[p.id]||p.unit;
           const selOpt=unitOpts.find(u=>u.sub===selUnit)||unitOpts[0];
           const dataReviewStatus=productDataReviewStatus(p);
@@ -88,8 +88,10 @@ function renderProducts({resultsOnly=false}={}){
           const reviewStatusIcon=dataPending
             ?'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'
             :dataReviewed?'<circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/>':'<circle cx="12" cy="12" r="9"/><path d="M8 12h8"/>';
+          const unitLabels=new Map(productUnitConversionRows(p).map(row=>[row.largerUnit,`${row.largerUnit} = ${productUnitConversionAmount(row.quantity)} ${row.smallerUnit}`]));
+          const sortedUnitOpts=unitOpts.slice().sort((a,b)=>(Number.isFinite(a.factor)&&a.factor>0?a.factor:Infinity)-(Number.isFinite(b.factor)&&b.factor>0?b.factor:Infinity));
           const unitSelectHtml = unitOpts.length>1
-            ? `<select class="prod-unit-select" data-pid="${p.id}">${unitOpts.map(u=>`<option value="${escapeHtml(u.sub)}" ${u.sub===selOpt.sub?'selected':''}>${escapeHtml(u.sub)}</option>`).join('')}</select>`
+            ? `<select class="prod-unit-select" data-pid="${p.id}">${sortedUnitOpts.map(u=>`<option value="${escapeHtml(u.sub)}" ${u.sub===selOpt.sub?'selected':''}>${escapeHtml(unitLabels.get(u.sub)||u.sub)}</option>`).join('')}</select>`
             : `<span class="prod-unit-fixed">${escapeHtml(p.unit)}</span>`;
           const lotCount=inventoryLotCount(p.id,activeWarehouseId);
           const representativeHistoryButton=productHasManagedRepresentative(p.id)?`<button class="icon-btn representative-history-action" data-product-representative-history="${p.id}" title="ผู้แทนที่ดูแลสินค้าและ NOTE" aria-label="เปิดผู้แทนที่ดูแล ${escapeHtml(p.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 7v5l3 2"/></svg></button>`:'';
