@@ -12,7 +12,7 @@ function syncProductExchangeFromDOM(){
     const next=rows.map((row,index)=>normalizeProductExchangeItem({
       ...(source[index]||{}),qty:row.querySelector('.product-exchange-qty')?.value,
       unit:row.querySelector('.product-exchange-unit')?.value,
-      lotNumber:row.querySelector('.product-exchange-lot')?.value||'',
+      lotNumber:(row.querySelector('.product-exchange-lot')?.value||'').toUpperCase(),
       expiry:(()=>{ const text=row.querySelector('.product-exchange-expiry')?.value||''; return text?dmyToISO(text)||text:''; })()
     })).filter(Boolean);
     if(side==='outgoing') draft.outgoingItems=next; else draft.incomingItems=next;

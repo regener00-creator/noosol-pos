@@ -418,7 +418,7 @@ async function openProductLotDetails(productId,warehouseId=activeWarehouseId){
     const changes=[];
     for(const rowElement of overlay.querySelectorAll('[data-lot-row]')){
       const lot=rows.find(item=>Number(item.id)===Number(rowElement.dataset.lotRow)); if(!lot) continue;
-      const lotNumber=rowElement.querySelector('.lot-edit-number')?.value.trim()||'';
+      const lotNumber=rowElement.querySelector('.lot-edit-number')?.value.trim().toUpperCase()||'';
       const expiryText=rowElement.querySelector('.lot-edit-expiry')?.value.trim()||'';
       const expiry=expiryText?dmyToISO(expiryText):'';
       if(expiryText&&!expiry){ showToast(`วันหมดอายุของ Lot ${lot.internal_code} ไม่ถูกต้อง`,'danger-top'); return; }

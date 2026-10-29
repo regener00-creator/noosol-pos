@@ -52,7 +52,7 @@ assert.equal(existingLotLine.selectedLotId, 102);
 assert.equal(existingLotLine.lotNumber, '');
 
 context.stockEditLotSelections[10] = 'new';
-context.stockEditNewLotNumbers[10] = 'LOT-C';
+context.stockEditNewLotNumbers[10] = 'lOt-c';
 context.stockEditNewLotExpiries[10] = '2029-07-05';
 assert.equal(context.stockEditMobileLotSelectionsReady(increaseChange), true);
 const newLotHtml = context.mobileStockEditLotHtml(product);

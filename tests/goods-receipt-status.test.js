@@ -41,8 +41,8 @@ vm.runInContext(html.slice(normalizeItemsStart, normalizeItemsEnd), context);
 const normalizedForBranch = context.normalizeGoodsReceiptItems([{productId:10,name:'ยา A',qty:1,unit:'กล่อง'}], 2)[0];
 assert.equal(normalizedForBranch.productId, 10);
 assert.equal(normalizedForBranch.warehouseId, 2, 'รายการรับสินค้าต้องผูกกับสาขาที่เลือก ไม่ใช่สาขาเดิมของสินค้า');
-const normalizedLot = context.normalizeGoodsReceiptItems([{productId:10,name:'ยา A',qty:1,unit:'กล่อง',lotNumber:'A001',expiry:'2027-07-05'}], 2)[0];
-assert.equal(normalizedLot.lotNumber, 'A001');
+const normalizedLot = context.normalizeGoodsReceiptItems([{productId:10,name:'ยา A',qty:1,unit:'กล่อง',lotNumber:' nB100m ',expiry:'2027-07-05'}], 2)[0];
+assert.equal(normalizedLot.lotNumber, 'NB100M');
 assert.equal(normalizedLot.expiry, '2027-07-05');
 assert.ok(normalizedLot.lineId, 'รายการรับสินค้าต้องมี lineId เพื่อป้องกันการสร้าง Lot ซ้ำ');
 

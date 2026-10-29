@@ -372,7 +372,7 @@ function normalizeGoodsReceiptItems(items,targetWarehouseId=0){
     const product=products.find(p=>p.id===Number(item.productId))||products.find(p=>p.name===item.name);
     const unitInfo=poPurchaseUnitOptions(product).find(option=>option.name===item.unit);
     const warehouseId=Number(targetWarehouseId)||Number(item.warehouseId)||Number(product?.wh)||0;
-    return {...item,lineId:String(item.lineId||index+1),productId:product?.id||item.productId||'',warehouseId,stockFactor:Number(item.stockFactor)||(unitInfo?.factor||1),lotNumber:String(item.lotNumber||'').trim(),expiry:String(item.expiry||'')};
+    return {...item,lineId:String(item.lineId||index+1),productId:product?.id||item.productId||'',warehouseId,stockFactor:Number(item.stockFactor)||(unitInfo?.factor||1),lotNumber:String(item.lotNumber||'').trim().toUpperCase(),expiry:String(item.expiry||'')};
   });
 }
 

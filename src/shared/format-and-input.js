@@ -145,6 +145,24 @@ function dmyDateFieldHtml(id, isoValue, opts){
     <input type="date" class="dmy-native" data-target="${id}" value="${isoValue||''}" tabindex="-1" aria-hidden="true">`}
   </span>`;
 }
+function bindLotNumberInputs(){
+  if(document.documentElement.dataset.lotNumberInputsBound==='1') return;
+  document.documentElement.dataset.lotNumberInputsBound='1';
+  const selector='.poi_lot,.product-exchange-lot,.lot-edit-number,[data-stock-edit-new-lot],[data-mobile-stock-new-lot]';
+  const normalize=event=>{
+    const input=event.target;
+    if(!input?.matches?.(selector)||input.disabled||input.readOnly||event.isComposing) return;
+    const value=input.value,upper=value.toUpperCase();
+    if(value===upper) return;
+    const start=input.selectionStart,end=input.selectionEnd,direction=input.selectionDirection;
+    input.value=upper;
+    if(start!==null&&end!==null) input.setSelectionRange(value.slice(0,start).toUpperCase().length,value.slice(0,end).toUpperCase().length,direction);
+    if(event.type!=='input') input.dispatchEvent(new Event('input',{bubbles:true}));
+  };
+  // Capture first so draft listeners receive the uppercase value.
+  ['input','change','compositionend'].forEach(type=>document.addEventListener(type,normalize,true));
+}
+
 function bindDmyDateFields(){
   if(document.documentElement.dataset.dmyDateFieldsBound==='1') return;
   document.documentElement.dataset.dmyDateFieldsBound='1';

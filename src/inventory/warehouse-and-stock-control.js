@@ -435,7 +435,7 @@ function stockEditAdjustmentLines(changes=stockEditPendingChanges()){
       targetStock:Number(newStock),
       unitName:stockEditRowUnitSel[product.id]||product.unit||'',
       selectedLotId:Number.isFinite(selectedLotId)?selectedLotId:null,
-      lotNumber:selection==='new'?(stockEditNewLotNumbers[product.id]||''):'',
+      lotNumber:selection==='new'?String(stockEditNewLotNumbers[product.id]||'').toUpperCase():'',
       expiry:selection==='new'?(stockEditNewLotExpiries[product.id]||product.expiry||''):''
     };
   });

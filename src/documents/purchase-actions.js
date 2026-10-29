@@ -381,7 +381,7 @@ function syncPOFromDOM(){
       ...(currentTab==='goodsreceipt'?{
         lineId:String(draft.items?.[index]?.lineId||index+1),
         warehouseId:Number(draft.warehouseId)||0,
-        lotNumber:r.querySelector('.poi_lot')?.value.trim()||'',
+        lotNumber:r.querySelector('.poi_lot')?.value.trim().toUpperCase()||'',
         expiry:(()=>{ const raw=r.querySelector('.poi_expiry')?.value.trim()||''; return raw?(dmyToISO(raw)||raw):''; })()
       }:currentTab==='productreturn'?(()=>{
         const lotSelect=r.querySelector('.poi_return_lot');
