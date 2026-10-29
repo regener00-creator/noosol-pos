@@ -32,11 +32,12 @@ function renderCheckout(){
         </tr>`;
         return;
       }
-      const opts = p?productUnitOptions(p):[];
+      const opts = p?productUnitOptions(p).slice().sort((a,b)=>a.factor-b.factor):[];
+      const unitLabels=new Map(productUnitConversionRows(p).map(row=>[row.largerUnit,`${row.largerUnit} = ${productUnitConversionAmount(row.quantity)} ${row.smallerUnit}`]));
       const unitCell = line.custom
         ? `<input class="custom-line-input custom-line-unit" data-custom-unit data-line="${line.lineId}" value="${escapeHtml(line.unit)}" list="inlineCustomUnits" placeholder="หน่วย">`
         : opts.length>1
-        ? `<select class="line-unit" data-line="${line.lineId}" title="Caps Lock: เปลี่ยนหน่วย">${opts.map(o=>`<option value="${escapeHtml(o.name)}" ${o.name===line.unit?'selected':''}>${escapeHtml(o.label)}</option>`).join('')}</select>`
+        ? `<select class="line-unit" data-line="${line.lineId}" title="Caps Lock: เปลี่ยนหน่วย">${opts.map(o=>`<option value="${escapeHtml(o.name)}" ${o.name===line.unit?'selected':''}>${escapeHtml(unitLabels.get(o.name)||o.label)}</option>`).join('')}</select>`
         : escapeHtml(line.unit);
       const linkedPromo=(!line.custom && line.pid)?findMatchingPromotion(line):null;
       const displayUnitPrice=grossAmountForVatMode(line.price,lineVatMode,taxSummary.registered);
