@@ -41,25 +41,25 @@ function renderQuotationForm(){
   const registered=isBusinessVatRegistered(),discount=Number(draft.discount)||0;
   const tax=calculateDocumentTaxSummary(items,discount,registered,businessSettings);
   const subtotal=tax.subtotal,total=tax.total;
-  return `<div class="pagehead"><div><div class="breadcrumb">ใบเสนอราคา › สร้างใบเสนอราคา</div><h1>ใบเสนอราคา</h1><div class="sub mono">${escapeHtml(draft.number||'')}</div></div></div>
-    <div class="po-head"><div class="po-head-left">
-      <div class="crow tax-customer-picker-row"><div class="po-supplier-pick">${documentPartyFieldHtml('tax_customer_select',draft.customerId,'customer')}</div></div>
-      <div class="tax-customer-details contact-editor-grid" style="margin-top:18px;">
-        <div class="contact-editor-field"><label>ประเภทผู้ติดต่อ</label><div class="cradio"><label><input type="radio" name="quotation_customer_entity" value="juristic" ${isJuristic?'checked':''}> นิติบุคคล</label><label><input type="radio" name="quotation_customer_entity" value="individual" ${!isJuristic?'checked':''}> บุคคลธรรมดา</label></div></div>
-        <div class="contact-editor-identity-row contact-editor-identity-row-customer-edit contact-editor-wide">
-          <div class="contact-editor-field"><label for="tax_form_customer_name">ชื่อ-นามสกุล <span class="req">*</span></label><input id="tax_form_customer_name" value="${escapeHtml(draft.name||'')}"></div>
-          <div class="contact-editor-field"><label id="quotation_customer_taxid_label" for="tax_form_customer_taxid">${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'}</label><input id="tax_form_customer_taxid" value="${escapeHtml(draft.taxId||'')}" maxlength="13" inputmode="numeric" placeholder="${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'} 13 หลัก (ไม่บังคับ)"></div>
-          <div class="contact-editor-field"><label for="po_credit">เครดิต</label><input id="po_credit" type="number" min="0" value="${escapeHtml(draft.credit||'')}" placeholder="0 วัน"></div>
-        </div>
-        <div class="contact-editor-field contact-editor-wide"><label for="tax_form_customer_address">ที่อยู่</label><textarea id="tax_form_customer_address" rows="3">${escapeHtml(draft.address||'')}</textarea></div>
-        <div class="contact-editor-contact-row contact-editor-wide">
-          <div class="contact-editor-field"><label for="tax_form_customer_email">อีเมล์</label><input id="tax_form_customer_email" type="email" value="${escapeHtml(draft.email||'')}"></div>
-          <div class="contact-editor-field"><label for="tax_form_customer_line">ไลน์</label><input id="tax_form_customer_line" value="${escapeHtml(draft.line||'')}"></div>
-          <div class="contact-editor-field"><label for="tax_form_customer_phone">เบอร์โทร</label><input id="tax_form_customer_phone" class="phone-input" value="${escapeHtml(draft.phone||'')}"></div>
-        </div>
-      </div></div>
-      <div class="po-head-right"><div class="crow"><label>วันที่</label>${dmyDateFieldHtml('po_date',draft.date||TODAY_STR)}</div><div class="po-total-label">จำนวนเงินรวมทั้งสิ้น</div><div class="po-total-amt mono">${fmtMoney(total)}</div></div>
-    </div>
+  return `<div class="pagehead"><div><div class="breadcrumb">ใบเสนอราคา › สร้างใบเสนอราคา</div><h1>${escapeHtml(draft.number||'ใบเสนอราคา')}</h1></div></div>
+    <div class="po-head supplier-document-head quotation-document-head"><div class="po-head-left">
+      <div class="crow quotation-customer-picker"><label>ลูกค้า</label><div class="po-supplier-pick">${documentPartyFieldHtml('tax_customer_select',draft.customerId,'customer')}</div></div>
+      <div class="quotation-identity-row">
+        <div class="contact-editor-field"><label for="tax_form_customer_name">ชื่อ-นามสกุล <span class="req">*</span></label><input id="tax_form_customer_name" value="${escapeHtml(draft.name||'')}"></div>
+        <div class="contact-editor-field"><label id="quotation_customer_taxid_label" for="tax_form_customer_taxid">${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'}</label><input id="tax_form_customer_taxid" value="${escapeHtml(draft.taxId||'')}" maxlength="13" inputmode="numeric" placeholder="${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'} 13 หลัก (ไม่บังคับ)"></div>
+      </div>
+      <div class="crow quotation-address-row"><label for="tax_form_customer_address">ที่อยู่</label><textarea id="tax_form_customer_address" rows="2">${escapeHtml(draft.address||'')}</textarea></div>
+      <div class="quotation-contact-row">
+        <div class="contact-editor-field"><label for="tax_form_customer_email">อีเมล์</label><input id="tax_form_customer_email" type="email" value="${escapeHtml(draft.email||'')}"></div>
+        <div class="contact-editor-field"><label for="tax_form_customer_line">ไลน์</label><input id="tax_form_customer_line" value="${escapeHtml(draft.line||'')}"></div>
+        <div class="contact-editor-field"><label for="tax_form_customer_phone">เบอร์โทร</label><input id="tax_form_customer_phone" class="phone-input" value="${escapeHtml(draft.phone||'')}"></div>
+      </div>
+    </div><div class="po-head-right">
+      <div class="po-total-label">จำนวนเงินรวมทั้งสิ้น</div><div class="po-total-amt mono">${fmtMoney(total)}</div>
+      <div class="crow"><label>วันที่</label>${dmyDateFieldHtml('po_date',draft.date||TODAY_STR)}</div>
+      <div class="crow"><label for="po_credit">เครดิต (วัน)</label><input id="po_credit" type="number" min="0" value="${escapeHtml(draft.credit||'')}" placeholder="0 วัน"></div>
+      <div class="crow quotation-entity-row"><label>ประเภทผู้ติดต่อ</label><div class="cradio"><label><input type="radio" name="quotation_customer_entity" value="juristic" ${isJuristic?'checked':''}> นิติบุคคล</label><label><input type="radio" name="quotation_customer_entity" value="individual" ${!isJuristic?'checked':''}> บุคคลธรรมดา</label></div></div>
+    </div></div>
     ${documentProductScannerHtml()}
     <table class="grid-table po-items document-centered-items"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคาต่อหน่วย</th><th class="mono">ราคารวม</th><th></th></tr></thead><tbody id="poItemRows">${items.map((item,index)=>poItemRowHtml(item,index)).join('')}</tbody></table><button class="btn ghost small" id="addTaxInvoiceItemBtn" style="margin-top:8px;">+ เพิ่มแถวรายการ</button>
     <div class="po-foot"><div class="po-foot-left"><div class="crow"><label>หมายเหตุ</label><textarea id="po_note" rows="3">${escapeHtml(draft.note||'')}</textarea></div><div style="margin-top:10px;color:var(--text-muted);font-size:12px;">ใบเสนอราคาไม่ตัดสต็อกและไม่เพิ่มยอดขาย POS โดยอัตโนมัติ</div></div>
