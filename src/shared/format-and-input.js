@@ -145,6 +145,13 @@ function dmyDateFieldHtml(id, isoValue, opts){
     <input type="date" class="dmy-native" data-target="${id}" value="${isoValue||''}" tabindex="-1" aria-hidden="true">`}
   </span>`;
 }
+function formatGoodsReceiptDiscount(value){
+  const cleaned=String(value??'').replace(/,/g,'').replace(/[^0-9.]/g,'');
+  const [whole,...fraction]=cleaned.split('.');
+  const integer=whole.replace(/^0+(?=\d)/,'').replace(/\B(?=(\d{3})+(?!\d))/g,',');
+  return integer+(fraction.length?'.'+fraction.join('').slice(0,2):'');
+}
+
 function bindLotNumberInputs(){
   if(document.documentElement.dataset.lotNumberInputsBound==='1') return;
   document.documentElement.dataset.lotNumberInputsBound='1';

@@ -78,6 +78,39 @@ let browser;
   });
   assert.equal(await page.evaluate(()=>savePO(true)),'RI-SUMMARY-TEST');
   assert.deepEqual(await page.evaluate(()=>({discount:window.savedReceipt.discount,total:window.savedReceipt.total,tax:window.savedReceipt.taxSummary})),{discount:100,total:963,tax:{registered:true,subtotal:1000,discount:100,beforeVat:900,vat:63,total:963,discountBeforeVat:true}});
+  await page.locator('.poi_price').fill('208366.5');
+  await page.locator('#po_discount').fill('2083');
+  assert.equal(await page.locator('#po_discount').inputValue(),'2,083');
+  assert.equal(await page.evaluate(()=>grDraft.discount),2083);
+  await page.locator('#po_discount').press('End');await page.keyboard.type('.67');
+  assert.equal(await page.locator('#po_discount').inputValue(),'2,083.67');
+  await assertTotals({subtotal:'208,366.50',vat:'14,439.80',beforeVat:'206,282.83',total:'220,722.63'});
+  await page.locator('#po_discount').press('Tab');
+  assert.equal(await page.locator('#po_discount').inputValue(),'2,083.67');
+  await page.evaluate(()=>savePO(true));assert.equal(await page.evaluate(()=>window.savedReceipt.discount),2083.67);
+  const checkPrint=async(values)=>{
+    const [preview]=await Promise.all([page.waitForEvent('popup'),page.evaluate(()=>printPO('RI-SUMMARY-TEST','gr'))]);
+    await preview.locator('.goods-receipt-print-totals').waitFor();
+    const labels=await preview.locator('.goods-receipt-print-totals > div > span').allTextContents();
+    assert.deepEqual(labels,['ยอดรวมสินค้า ก่อน VAT','ส่วนลด','ยอดหลังหักส่วนลด ก่อน VAT',labels[3],'ยอดชำระสุทธิ']);
+    assert.ok(['VAT','VAT 7%'].includes(labels[3]));
+    assert.deepEqual(await preview.locator('.goods-receipt-print-totals b').allTextContents(),values.map(value=>value+' บาท'));
+    await preview.evaluate(()=>{window.print=()=>{window.testPrintCalled=true;};});
+    await preview.locator('#confirmDocumentPrint').click();
+    assert.equal(await preview.locator('.goods-receipt-print-totals').count(),2,'original and copy both keep five lines');
+    await preview.screenshot({path:require('node:path').join(require('node:os').tmpdir(),'sapuri-receipt-print-five-lines.png'),fullPage:true});
+    await preview.close();
+  };
+  await checkPrint(['208,366.50','2,083.67','206,282.83','14,439.80','220,722.63']);
+  for(const [mode,price,discount,values] of [
+    ['incl','1070','100',['1,000.00','100.00','900.00','63.00','963.00']],
+    ['none','1000','100',['1,000.00','100.00','900.00','0.00','900.00']],
+    ['excl','1000','0',['1,000.00','0.00','1,000.00','70.00','1,070.00']]
+  ]){
+    await page.locator('#po_tax_mode').selectOption(mode);await page.locator('.poi_price').fill(price);
+    await page.locator('#po_discount').fill(discount);await page.locator('#po_discount').press('Tab');
+    await page.evaluate(()=>savePO(true));await checkPrint(values);
+  }
   assert.deepEqual(errors,[]);
   console.log('Goods receipt live summary: screenshot amount, price/quantity edits, free item, discount, VAT included/excluded/none and deletion passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();await new Promise(resolve=>server.close(resolve));});

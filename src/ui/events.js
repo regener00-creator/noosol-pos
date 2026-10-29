@@ -2011,7 +2011,18 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const savePOSupplierEditBtn = document.getElementById('savePOSupplierEditBtn');
   if(savePOSupplierEditBtn) savePOSupplierEditBtn.addEventListener('click', savePOSupplierFromPO);
   const poDiscount = document.getElementById('po_discount');
-  if(poDiscount) poDiscount.addEventListener('change', ()=>{ syncPOFromDOM(); render(); });
+  if(poDiscount){
+    if(currentTab==='goodsreceipt') poDiscount.addEventListener('input',()=>{
+      const position=poDiscount.selectionStart??poDiscount.value.length;
+      const before=poDiscount.value.slice(0,position).replace(/,/g,'').length;
+      poDiscount.value=formatGoodsReceiptDiscount(poDiscount.value);
+      let caret=0,count=0;
+      while(caret<poDiscount.value.length&&count<before){ if(poDiscount.value[caret]!==',') count++; caret++; }
+      poDiscount.setSelectionRange(caret,caret);
+      recalcPurchaseTotalsDOM();
+    });
+    poDiscount.addEventListener('change',()=>{syncPOFromDOM();render();});
+  }
   const poTaxMode=document.getElementById('po_tax_mode');
   if(poTaxMode) poTaxMode.addEventListener('change',()=>{ syncPOFromDOM(); render(); });
   document.querySelectorAll('[data-doc-menu]').forEach(btn=>{ btn.addEventListener('click', e=>{ e.stopPropagation(); openDocMenu=openDocMenu===btn.dataset.docMenu?null:btn.dataset.docMenu; render(); }); });

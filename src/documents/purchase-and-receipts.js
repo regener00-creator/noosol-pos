@@ -151,7 +151,7 @@ function renderPOForm(kind='po'){
       </div>
       <div class="po-foot-right">
         <div class="sumrow"><span>${kind==='gr'?'ยอดรวมสินค้า ก่อน VAT':'รวมเป็นเงิน'}</span><span class="mono" data-po-summary="subtotal">${fmtMoney(tax.subtotal)}</span></div>
-        <div class="sumrow"><span>ส่วนลด</span><span class="sumdiscount"><input id="po_discount" type="number" ${kind==='gr'?'min="0" step="0.01" aria-label="ส่วนลดก่อน VAT"':''} value="${escapeHtml(discount)}" style="width:90px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;text-align:right;"></span></div>
+        <div class="sumrow"><span>ส่วนลด</span><span class="sumdiscount"><input id="po_discount" ${kind==='gr'?'type="text" inputmode="decimal" autocomplete="off" aria-label="ส่วนลดก่อน VAT"':'type="number"'} value="${escapeHtml(kind==='gr'?formatGoodsReceiptDiscount(discount):discount)}" style="width:90px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;text-align:right;"></span></div>
         <div data-po-tax-summary>${kind==='gr'?goodsReceiptTaxRowsHtml(tax):taxSummaryRowsHtml(tax,{purchase:true})}</div>
         <div class="sumrow grand"><span>${kind==='gr'?'ยอดชำระสุทธิ':'จำนวนเงินรวมทั้งสิ้น'}</span><span class="mono" data-po-summary="total">${fmtMoney(tax.total)}</span></div>
       </div>

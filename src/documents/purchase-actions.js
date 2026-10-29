@@ -332,9 +332,12 @@ function recalcPORow(row){
   const priceEl=row.querySelector('.poi_price');
   const price=priceEl?(parseFloat(priceEl.value)||0):0;
   const totalEl=row.querySelector('.poi_total'); if(totalEl) totalEl.textContent=fmtMoney(qty*price);
-  // อัปเดตยอดสรุปแบบเบาๆ โดยไม่ re-render ทั้งหน้า
+  recalcPurchaseTotalsDOM();
+}
+function recalcPurchaseTotalsDOM(){
+  // Update totals without replacing the inputs being edited.
   syncPOFromDOM();
-  const draft=activePurchaseDraft();
+  const draft=activePurchaseDraft(); if(!draft) return;
   const tax=currentTab==='goodsreceipt'?calculateGoodsReceiptTaxSummary(draft.items,draft.discount||0,draft.taxMode||'incl'):calculatePurchaseTaxSummary(draft.items,draft.discount||0,draft.taxMode||'incl');
   const amtEl=document.querySelector('.po-total-amt'); if(amtEl) amtEl.textContent=fmtMoney(tax.total);
   const subtotal=document.querySelector('[data-po-summary="subtotal"]'); if(subtotal) subtotal.textContent=fmtMoney(tax.subtotal);
@@ -347,7 +350,7 @@ function syncPOFromDOM(){
     const date=document.getElementById('po_date'); if(date){ const iso=dmyToISO(date.value); if(iso) draft.date=iso; }
     const credit=document.getElementById('po_credit'); if(credit) draft.credit=parseInt(credit.value)||0;
     draft.dueDate=addDaysToDate(draft.date,draft.credit||0);
-    const discount=document.getElementById('po_discount'); if(discount) draft.discount=parseFloat(discount.value)||0;
+    const discount=document.getElementById('po_discount'); if(discount) draft.discount=parseFloat(discount.value.replace(/,/g,''))||0;
     const note=document.getElementById('po_note'); if(note) draft.note=note.value;
     const rows=document.querySelectorAll('#poItemRows .po-item-row');
     if(rows.length) draft.items=Array.from(rows).map(row=>{
@@ -362,7 +365,7 @@ function syncPOFromDOM(){
   const d=document.getElementById('po_date'); if(d){ const iso=dmyToISO(d.value); if(iso) draft.date=iso; }
   const c=document.getElementById('po_credit'); if(c) draft.credit=parseInt(c.value)||0;
   if(currentTab==='goodsreceipt') draft.dueDate=addDaysToDate(draft.date,draft.credit||0); else { draft.credit=0; draft.dueDate=''; draft.discount=0; }
-  const disc=document.getElementById('po_discount'); if(disc) draft.discount=parseFloat(disc.value)||0;
+  const disc=document.getElementById('po_discount'); if(disc) draft.discount=parseFloat(disc.value.replace(/,/g,''))||0;
   const taxMode=document.getElementById('po_tax_mode'); if(taxMode) draft.taxMode=taxMode.value;
   const taxNo=document.getElementById('po_supplier_tax_invoice_no'); if(taxNo) draft.supplierTaxInvoiceNo=taxNo.value.trim();
   const taxDate=document.getElementById('po_supplier_tax_invoice_date');
