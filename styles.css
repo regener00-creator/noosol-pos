@@ -2662,8 +2662,9 @@
 .quotation-document-head .quotation-contact-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
 .quotation-document-head .contact-editor-field{gap:5px;}
 .quotation-document-head .contact-editor-field>label{color:var(--text);font-weight:700;}
-.quotation-document-head .contact-editor-field>input{height:37px;padding:8px 11px;border-radius:7px;font-size:13.5px;}
-.quotation-document-head .quotation-address-row textarea{width:100%;min-height:52px;resize:vertical;padding:8px 11px;border:1px solid var(--border);border-radius:7px;font-family:inherit;font-size:13.5px;}
+.quotation-document-head .contact-editor-field>input{height:28px;padding:4px 0 0;border:0;border-radius:0;background:transparent;box-shadow:none;color:var(--text);font-size:13px;}
+.quotation-document-head .quotation-address-row textarea{width:100%;min-height:36px;resize:vertical;padding:7px 0 0;border:0;border-radius:0;background:transparent;box-shadow:none;color:var(--text);font-family:inherit;font-size:13px;}
+.quotation-document-head .quotation-detail-input:focus{outline:none;box-shadow:none;border-bottom:1px solid var(--primary);}
 .quotation-document-head .cradio{padding-top:7px;gap:10px;row-gap:8px;}
 .quotation-document-head .cradio input{width:auto;padding:0;flex:none;}
 @media(max-width:600px){.quotation-document-head .crow{grid-template-columns:1fr;gap:6px;}.quotation-document-head .quotation-identity-row,.quotation-document-head .quotation-contact-row{grid-template-columns:1fr;}.quotation-document-head .po-head-left{min-width:0;}}

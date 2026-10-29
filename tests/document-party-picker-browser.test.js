@@ -84,10 +84,13 @@ let browser;
   assert.equal(await page.locator('#po_due').count(),0,'quotation form has no due-date field');
   assert.ok(!(await page.locator('.po-head-right').innerText()).includes('ครบกำหนด'));
   const quotationHeader=await page.locator('.po-head-right').evaluate(header=>({
-    dateTop:header.querySelector('.crow').getBoundingClientRect().top,
-    totalBottom:header.querySelector('.po-total-amt').getBoundingClientRect().bottom
+    entityBottom:header.querySelector('.quotation-entity-row').getBoundingClientRect().bottom,
+    dateTop:header.querySelector('#po_date').getBoundingClientRect().top,
+    creditBottom:header.querySelector('#po_credit').getBoundingClientRect().bottom,
+    totalTop:header.querySelector('.po-total-label').getBoundingClientRect().top
   }));
-  assert.ok(quotationHeader.totalBottom<=quotationHeader.dateTop,'quotation total appears above date like goods receipt');
+  assert.ok(quotationHeader.entityBottom<=quotationHeader.dateTop,'quotation contact type appears above date');
+  assert.ok(quotationHeader.creditBottom<=quotationHeader.totalTop,'quotation total appears below credit');
   await page.locator('#po_date').fill('12/09/2026');
   await page.locator('#po_date').press('Tab');
   assert.equal(await page.evaluate(()=>taxInvoiceDraft.date),'2026-09-12');
