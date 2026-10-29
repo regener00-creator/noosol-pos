@@ -186,14 +186,16 @@ function openPriceCheckModal(){
     result.innerHTML=matches.map(p=>{
       const conversionRows=productUnitConversionRows(p);
       const conversionHtml=conversionRows.length?`<div class="unit-conversion-list pc-unit-conversions" aria-label="อัตราแปลงหน่วย">${conversionRows.map(row=>`<div class="unit-conversion-row"><b>1 ${escapeHtml(row.largerUnit)}</b><span>=</span><b>${escapeHtml(productUnitConversionAmount(row.quantity))} ${escapeHtml(row.smallerUnit)}</b></div>`).join('')}</div>`:'';
-      const unitOpts=[{sub:p.unit, price:p.price, cost:p.cost||0, barcode:p.barcode||''}, ...((p.units||[]).map(u=>({sub:u.sub, price:u.price||0, cost:u.cost||0, barcode:u.barcode||''})))];
+      const unitOpts=[{sub:p.unit, factor:1, price:p.price, cost:p.cost||0, barcode:p.barcode||''}, ...((p.units||[]).map(u=>({sub:u.sub, factor:Number(u.factor), price:u.price||0, cost:u.cost||0, barcode:u.barcode||''})))];
+      const unitLabels=new Map(conversionRows.map(row=>[row.largerUnit,`${row.largerUnit} = ${productUnitConversionAmount(row.quantity)} ${row.smallerUnit}`]));
+      const sortedUnitOpts=unitOpts.slice().sort((a,b)=>(Number.isFinite(a.factor)&&a.factor>0?a.factor:Infinity)-(Number.isFinite(b.factor)&&b.factor>0?b.factor:Infinity));
       // ถ้าคำค้นตรงกับบาร์โค้ดของหน่วยเสริม (เช่น กล่อง/ลัง) ให้เลือกหน่วยนั้นเป็นค่าเริ่มต้น เว้นแต่ผู้ใช้เคยเลือกหน่วยเองไว้แล้วในการ์ดนี้
       const subUnit=(p.units||[]).find(u=>(u.barcode||'').includes(q));
       const defaultUnit=subUnit?subUnit.sub:(extraBarcodeUnitForCode(p,q)||p.unit);
       const selUnit=pcUnitSel[p.id]||defaultUnit;
       const unitInfo=unitOpts.find(u=>u.sub===selUnit)||unitOpts[0];
       const unitFieldHtml=unitOpts.length>1
-        ? `<select class="pc-unit-select" data-pid="${p.id}">${unitOpts.map(u=>`<option value="${escapeHtml(u.sub)}" ${u.sub===unitInfo.sub?'selected':''}>${escapeHtml(u.sub)}</option>`).join('')}</select>`
+        ? `<select class="pc-unit-select" data-pid="${p.id}">${sortedUnitOpts.map(u=>`<option value="${escapeHtml(u.sub)}" ${u.sub===unitInfo.sub?'selected':''}>${escapeHtml(unitLabels.get(u.sub)||u.sub)}</option>`).join('')}</select>`
         : `<b class="mono">${escapeHtml(unitInfo.sub)}</b>`;
       return `<div class="pc-item">
         <div class="pc-name">${escapeHtml(p.name)}</div>
