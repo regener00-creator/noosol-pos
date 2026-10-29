@@ -1007,7 +1007,7 @@
   .shortage-document-items th:nth-child(6),.shortage-document-items td:nth-child(6),
   .shortage-document-items th:nth-child(7),.shortage-document-items td:nth-child(7){text-align:center!important;vertical-align:middle;}
   .shortage-document-items .poi_qty{text-align:center!important;border-radius:8px;}
-  .shortage-document-items .poi_unit{text-align:center;text-align-last:center;border-radius:8px;}
+  .shortage-document-items .poi_unit{width:100%;text-align:center;text-align-last:center;border-radius:8px;}
   .shortage-document-items .poi_del{border-radius:8px;}
   .po-foot{display:grid;grid-template-columns:1fr 340px;gap:24px;margin-top:18px;align-items:start;}
   .po-foot-right .sumrow{padding:9px 0;border-bottom:1px solid var(--border);font-size:13.5px;}
@@ -2644,9 +2644,9 @@
 #stockEditPickList>.fav-check>span:last-child,#inspectionPickList>.fav-check>span:last-child,#movementPickList>.fav-check>span:last-child,#srPickList>.fav-check>span:last-child,#barcodePickList>.fav-check>span:last-child,#rproductPickList>.fav-check>span:last-child{grid-column:2;}
 @media(max-width:600px){#stockEditPickList,#inspectionPickList,#movementPickList,#srPickList,#barcodePickList,#rproductPickList{grid-template-columns:minmax(0,1fr);}}
 
-.shortage-document-items{table-layout:fixed;min-width:1000px;width:100%;}
-.shortage-document-items.shortage-show-sale,.shortage-document-items.shortage-show-cost{min-width:1100px;}
-.shortage-document-items.shortage-show-sale.shortage-show-cost{min-width:1200px;}
+.shortage-document-items{table-layout:fixed;min-width:1050px;width:100%;}
+.shortage-document-items.shortage-show-sale,.shortage-document-items.shortage-show-cost{min-width:1150px;}
+.shortage-document-items.shortage-show-sale.shortage-show-cost{min-width:1250px;}
 .shortage-document-items:not(.shortage-show-sale) .shortage-item-sale,.shortage-document-items:not(.shortage-show-cost) .shortage-item-cost{display:none;}
 .shortage-document-items th,.shortage-document-items td{text-align:center;vertical-align:middle;}
 .shortage-document-items th:nth-child(4),.shortage-document-items td:nth-child(4){text-align:left;}

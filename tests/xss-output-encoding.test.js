@@ -142,7 +142,7 @@ test('supplier editor and purchase item rows encode stored values', () => {
     fmtMoney: value => String(Number(value) || 0),
   };
   vm.createContext(rowContext);
-  vm.runInContext(sourceBetween('function productBarcodeForUnit(', 'function smallestProductUnitName('), rowContext);
+  vm.runInContext(sourceBetween('function productUnitConversionRows(', 'function smallestProductUnitName('), rowContext);
   const rowSource = sourceBetween('function shortageCostText(', 'function productReturnItemRowHtml(');
   vm.runInContext(`${rowSource}\nthis.shortageItemRowHtml=shortageItemRowHtml;this.poItemRowHtml=poItemRowHtml;`, rowContext);
   assertPayloadEncoded(rowContext.shortageItemRowHtml({name: textPayload, qty: 1, unit: attributePayload}, 0), 'shortageItemRowHtml');
