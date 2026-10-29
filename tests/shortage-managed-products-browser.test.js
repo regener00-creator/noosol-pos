@@ -121,7 +121,7 @@ let browser;
   assert.deepEqual(await page.locator('#poItemRows .poi_name').evaluateAll(inputs=>inputs.map(input=>input.value)), ['ยา A','ยา B']);
   await page.locator('#closeShortageManagedProductsBtn').click();
   assert.equal(await page.locator('.shortage-managed-products-modal').count(), 0);
-  assert.deepEqual(await page.locator('.shortage-document-items th').allTextContents(),['ลำดับ','รหัสสินค้า','บาร์โค้ด','ชื่อสินค้า','ขาย','ทุน','จำนวน','หน่วย','']);
+  assert.deepEqual(await page.locator('.shortage-document-items th').allTextContents(),['ลำดับ','รหัสสินค้า','บาร์โค้ด','รายการ','ขาย','ทุน','จำนวน','หน่วย','']);
   const firstRow=()=>page.locator('#poItemRows .po-item-row').first();
   assert.equal(await firstRow().locator('.shortage-item-sale').innerText(),'100.00');
   assert.equal(await firstRow().locator('.shortage-item-cost').innerText(),'50.00');
