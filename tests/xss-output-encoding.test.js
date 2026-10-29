@@ -136,13 +136,14 @@ test('supplier editor and purchase item rows encode stored values', () => {
     poPurchaseUnitOptions: product => [{name: product.unit, cost: 1, factor: 1}],
     productUnitOptions: product => [{name: product.unit, price: 2, factor: 1}],
     loggedInUser: () => ({owner:true}),
+    shortagePriceColumns:{secret:false},
     currentTab: 'gr',
     activePurchaseDraft: () => ({stockApplied: false}),
     fmtMoney: value => String(Number(value) || 0),
   };
   vm.createContext(rowContext);
   vm.runInContext(sourceBetween('function productBarcodeForUnit(', 'function smallestProductUnitName('), rowContext);
-  const rowSource = sourceBetween('function shortageItemRowHtml(', 'function productReturnItemRowHtml(');
+  const rowSource = sourceBetween('function shortageCostText(', 'function productReturnItemRowHtml(');
   vm.runInContext(`${rowSource}\nthis.shortageItemRowHtml=shortageItemRowHtml;this.poItemRowHtml=poItemRowHtml;`, rowContext);
   assertPayloadEncoded(rowContext.shortageItemRowHtml({name: textPayload, qty: 1, unit: attributePayload}, 0), 'shortageItemRowHtml');
   assertPayloadEncoded(rowContext.poItemRowHtml({productId: 1, name: textPayload, qty: 1, unit: attributePayload, price: 1}, 0), 'poItemRowHtml');

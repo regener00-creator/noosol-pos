@@ -1950,9 +1950,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   document.querySelectorAll('[data-act="deletepo"]').forEach(el=>{ el.addEventListener('click', ()=>deleteShortageOrders([el.dataset.id])); });
   document.querySelectorAll('[data-shortage-price-column]').forEach(input=>input.addEventListener('change',()=>{
     const column=input.dataset.shortagePriceColumn;
-    if(!['sale','cost'].includes(column)) return;
+    if(!['sale','cost','secret'].includes(column)||(column==='secret'&&loggedInUser()?.owner!==true)) return;
     shortagePriceColumns[column]=input.checked;
-    document.querySelector('.shortage-document-items')?.classList.toggle('shortage-show-'+column,input.checked);
+    if(column==='secret') document.querySelectorAll('#poItemRows .po-item-row').forEach(updateShortageItemCodes);
+    else document.querySelector('.shortage-document-items')?.classList.toggle('shortage-show-'+column,input.checked);
     safeLocalStorageSet(SHORTAGE_COLUMNS_STORAGE_KEY,JSON.stringify(shortagePriceColumns),'การแสดงคอลัมน์จดสั่งสินค้า');
   }));
   const cancelPOBtn = document.getElementById('cancelPOBtn');

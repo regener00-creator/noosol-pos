@@ -275,7 +275,7 @@ function renderShortageOrderForm(po,isNew){
       <aside class="shortage-rep-summary"><label>ข้อมูลผู้แทน</label><div class="shortage-rep-info">${representative?`<div><small>เบอร์โทร</small><b class="mono">${escapeHtml(representative.phone||'-')}</b></div><div><small>ไลน์</small><b>${escapeHtml(representative.line||'-')}</b></div><div><small>บริษัท</small><b>${escapeHtml(representative.company||'-')}</b></div><div class="wide"><small>ข้อมูลเพิ่มเติม</small><b>${escapeHtml(representative.note||'-')}</b></div>`:'<div class="wide shortage-rep-empty">เลือกผู้แทนเพื่อแสดงข้อมูลติดต่อ</div>'}</div></aside>
     </div></div>
     ${documentProductScannerHtml()}
-    <div class="shortage-section-head"><div class="shortage-section-title">รายการที่สั่ง</div><div class="shortage-column-toggles" aria-label="แสดงคอลัมน์ราคา"><label><input type="checkbox" data-shortage-price-column="sale" ${shortagePriceColumns.sale?'checked':''}> แสดงขาย</label>${canViewCost?`<label><input type="checkbox" data-shortage-price-column="cost" ${shortagePriceColumns.cost?'checked':''}> แสดงทุน</label>`:''}</div></div>
+    <div class="shortage-section-head"><div class="shortage-section-title">รายการที่สั่ง</div><div class="shortage-column-toggles" aria-label="แสดงคอลัมน์ราคา"><label><input type="checkbox" data-shortage-price-column="sale" ${shortagePriceColumns.sale?'checked':''}> แสดงขาย</label>${canViewCost?`<label><input type="checkbox" data-shortage-price-column="cost" ${shortagePriceColumns.cost?'checked':''}> แสดงทุน</label><label><input type="checkbox" data-shortage-price-column="secret" ${shortagePriceColumns.secret?'checked':''}> โค้ดลับ</label>`:''}</div></div>
     <table class="grid-table po-items shortage-document-items ${shortagePriceColumns.sale?'shortage-show-sale':''} ${canViewCost&&shortagePriceColumns.cost?'shortage-show-cost':''}"><colgroup><col style="width:60px"><col style="width:125px"><col style="width:175px"><col><col class="shortage-item-sale" style="width:100px">${canViewCost?'<col class="shortage-item-cost" style="width:100px">':''}<col style="width:110px"><col style="width:130px"><col style="width:48px"></colgroup><thead><tr><th>ลำดับ</th><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>ชื่อสินค้า</th><th class="shortage-item-sale">ขาย</th>${canViewCost?'<th class="shortage-item-cost">ทุน</th>':''}<th class="mono">จำนวน</th><th>หน่วย</th><th></th></tr></thead><tbody id="poItemRows">${po.items.map((it,i)=>shortageItemRowHtml(it,i)).join('')}</tbody></table>
     <button class="btn ghost small" id="addPOItemBtn" style="margin-top:8px;">+ เพิ่มแถวรายการ</button>
     <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePOBtn">บันทึกเอกสาร</button></div>`;
@@ -304,6 +304,14 @@ function renderProductReturnForm(po,isNew){
     <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePOBtn">บันทึกเอกสาร</button></div>`;
 }
 
+function shortageCostText(value){
+  if(!shortagePriceColumns.secret) return fmtMoney(value);
+  const amount=Number(value);
+  if(!Number.isFinite(amount)) return '-';
+  const digits='SPRANCHIBE';
+  return amount.toLocaleString('en-US',{useGrouping:false,maximumFractionDigits:2}).replace(/[0-9]/g,digit=>digits[Number(digit)]);
+}
+
 function shortageItemRowHtml(it,i){
   const product=products.find(p=>Number(p.id)===Number(it.productId))||products.find(p=>p.name===it.name);
   const options=product?poPurchaseUnitOptions(product):[];
@@ -312,7 +320,7 @@ function shortageItemRowHtml(it,i){
   const saleOption=product?productUnitOptions(product).find(option=>option.name===unit):null;
   const costOption=options.find(option=>option.name===unit);
   const canViewCost=loggedInUser()?.owner===true;
-  return `<tr class="po-item-row" data-i="${escapeHtml(i)}" data-product-id="${escapeHtml(product?.id||'')}"><td class="mono">${i+1}</td><td class="mono shortage-item-sku">${escapeHtml(product?.sku||'-')}</td><td class="mono shortage-item-barcode">${escapeHtml(barcode)}</td><td><input class="poi_name" value="${escapeHtml(it.name||'')}" placeholder="สแกน/ค้นหาสินค้าจากช่องด้านบน หรือพิมพ์แก้ไขชื่อเอง" autocomplete="off"></td><td class="mono shortage-item-sale">${saleOption?fmtMoney(saleOption.price):'-'}</td>${canViewCost?`<td class="mono shortage-item-cost">${costOption?fmtMoney(costOption.cost):'-'}</td>`:''}<td><input class="poi_qty mono" type="number" min="0" value="${escapeHtml(it.qty||0)}" style="width:90px;text-align:right;"></td><td><select class="poi_unit" style="min-width:100px;" ${product?'':'disabled'}>${product?options.map(u=>`<option value="${escapeHtml(u.name)}" ${it.unit===u.name?'selected':''}>${escapeHtml(u.name)}</option>`).join(''):'<option value="">เลือกสินค้า</option>'}</select></td><td class="num"><button class="poi_del" title="ลบ">×</button></td></tr>`;
+  return `<tr class="po-item-row" data-i="${escapeHtml(i)}" data-product-id="${escapeHtml(product?.id||'')}"><td class="mono">${i+1}</td><td class="mono shortage-item-sku">${escapeHtml(product?.sku||'-')}</td><td class="mono shortage-item-barcode">${escapeHtml(barcode)}</td><td><input class="poi_name" value="${escapeHtml(it.name||'')}" placeholder="สแกน/ค้นหาสินค้าจากช่องด้านบน หรือพิมพ์แก้ไขชื่อเอง" autocomplete="off"></td><td class="mono shortage-item-sale">${saleOption?fmtMoney(saleOption.price):'-'}</td>${canViewCost?`<td class="mono shortage-item-cost">${costOption?shortageCostText(costOption.cost):'-'}</td>`:''}<td><input class="poi_qty mono" type="number" min="0" value="${escapeHtml(it.qty||0)}" style="width:90px;text-align:right;"></td><td><select class="poi_unit" style="min-width:100px;" ${product?'':'disabled'}>${product?options.map(u=>`<option value="${escapeHtml(u.name)}" ${it.unit===u.name?'selected':''}>${escapeHtml(u.name)}</option>`).join(''):'<option value="">เลือกสินค้า</option>'}</select></td><td class="num"><button class="poi_del" title="ลบ">×</button></td></tr>`;
 }
 
 function poItemRowHtml(it,i){

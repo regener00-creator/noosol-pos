@@ -262,7 +262,7 @@ function updateShortageItemCodes(row){
   const saleOption=product?productUnitOptions(product).find(option=>option.name===unit):null;
   const costOption=product?poPurchaseUnitOptions(product).find(option=>option.name===unit):null;
   if(sale) sale.textContent=saleOption?fmtMoney(saleOption.price):'-';
-  if(cost) cost.textContent=loggedInUser()?.owner===true&&costOption?fmtMoney(costOption.cost):'-';
+  if(cost) cost.textContent=loggedInUser()?.owner===true&&costOption?shortageCostText(costOption.cost):'-';
 }
 function bindPOItemEvents(){
   document.querySelectorAll('#poItemRows .po-item-row').forEach(row=>{
