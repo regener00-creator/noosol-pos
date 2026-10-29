@@ -134,6 +134,8 @@ test('supplier editor and purchase item rows encode stored values', () => {
     escapeHtml,
     products: [{id: 1, name: textPayload, sku: attributePayload, barcode: textPayload, unit: attributePayload, cost: 1, units: []}],
     poPurchaseUnitOptions: product => [{name: product.unit, cost: 1, factor: 1}],
+    productUnitOptions: product => [{name: product.unit, price: 2, factor: 1}],
+    loggedInUser: () => ({owner:true}),
     currentTab: 'gr',
     activePurchaseDraft: () => ({stockApplied: false}),
     fmtMoney: value => String(Number(value) || 0),

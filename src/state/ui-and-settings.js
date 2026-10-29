@@ -153,6 +153,9 @@ let expandedDocumentItemLists = new Set();
 const INVENTORY_MOVEMENT_PAGE_SIZE = 10;
 let poCounter = 32, grCounter = 31, returnCounter = 1, productExchangeCounter = 1;
 let editingPOId = null; // null=list, 'new', หรือ id ของ PO
+const SHORTAGE_COLUMNS_STORAGE_KEY='pepos_shortage_price_columns';
+let shortagePriceColumns={sale:true,cost:true};
+try{ const saved=JSON.parse(localStorage.getItem(SHORTAGE_COLUMNS_STORAGE_KEY)||'null'); if(saved) shortagePriceColumns={sale:saved.sale!==false,cost:saved.cost!==false}; }catch{}
 let poDraft = null; // ร่าง PO ที่กำลังแก้ (เก็บค่าไว้ระหว่าง re-render)
 let poSupplierEditorOpen = false; // แก้ข้อมูลผู้จำหน่ายจากหน้า PO
 let poRepresentativeEditorId = null; // null=ปิด, 'new'=เพิ่มใหม่, หรือ id ผู้แทนที่กำลังแก้

@@ -55,6 +55,7 @@ let browser;
   await page.waitForFunction(() => typeof openShortageManagedProductsModal === 'function');
   await page.evaluate(() => {
     document.querySelectorAll('.login-screen').forEach(screen=>{ screen.style.display='none'; });
+    currentProfile={id:'shortage-test-owner',owner:true,level:1,firstName:'ทดสอบ'};
     products=[
       {id:101,name:'ยา A',sku:'A-101',barcode:'885000101',unit:'กล่อง',price:100,cost:50,stock:10,units:[],extraBarcodes:[],vendorBarcodes:[],active:true},
       {id:102,name:'ยา B',sku:'B-102',barcode:'885000102',unit:'ขวด',price:200,cost:100,stock:10,units:[],extraBarcodes:[],vendorBarcodes:[],active:true},
@@ -120,6 +121,43 @@ let browser;
   assert.deepEqual(await page.locator('#poItemRows .poi_name').evaluateAll(inputs=>inputs.map(input=>input.value)), ['ยา A','ยา B']);
   await page.locator('#closeShortageManagedProductsBtn').click();
   assert.equal(await page.locator('.shortage-managed-products-modal').count(), 0);
+  assert.deepEqual(await page.locator('.shortage-document-items th').allTextContents(),['ลำดับ','รหัสสินค้า','บาร์โค้ด','ชื่อสินค้า','ขาย','ทุน','จำนวน','หน่วย','']);
+  const firstRow=()=>page.locator('#poItemRows .po-item-row').first();
+  assert.equal(await firstRow().locator('.shortage-item-sale').innerText(),'100.00');
+  assert.equal(await firstRow().locator('.shortage-item-cost').innerText(),'50.00');
+  await page.evaluate(()=>{syncPOFromDOM();products[0].units=[{sub:'แพ็ก',factor:2,price:180,cost:90,barcode:'PACK-101'}];render();});
+  await firstRow().locator('.poi_unit').selectOption('แพ็ก');
+  assert.equal(await firstRow().locator('.shortage-item-sale').innerText(),'180.00');
+  assert.equal(await firstRow().locator('.shortage-item-cost').innerText(),'90.00');
+  assert.equal(await firstRow().locator('.shortage-item-barcode').innerText(),'PACK-101');
+  await firstRow().locator('.poi_qty').fill('7');
+  await page.locator('#po_note').fill('ยังไม่บันทึก');
+  await page.locator('[data-shortage-price-column="sale"]').uncheck();
+  assert.equal(await firstRow().locator('.shortage-item-sale').isVisible(),false);
+  assert.equal(await firstRow().locator('.shortage-item-cost').isVisible(),true);
+  await page.locator('[data-shortage-price-column="cost"]').uncheck();
+  assert.equal(await firstRow().locator('.shortage-item-cost').isVisible(),false);
+  assert.equal(await firstRow().locator('.poi_qty').inputValue(),'7');
+  assert.equal(await page.locator('#po_note').inputValue(),'ยังไม่บันทึก');
+  assert.deepEqual(await page.evaluate(()=>JSON.parse(localStorage.getItem(SHORTAGE_COLUMNS_STORAGE_KEY))),{sale:false,cost:false});
+  await page.evaluate(()=>{syncPOFromDOM();render();});
+  assert.equal(await firstRow().locator('.shortage-item-sale').isVisible(),false);
+  assert.equal(await firstRow().locator('.shortage-item-cost').isVisible(),false);
+  await page.locator('[data-shortage-price-column="sale"]').check();
+  await page.locator('[data-shortage-price-column="cost"]').check();
+  assert.equal(await firstRow().locator('.shortage-item-sale').isVisible(),true);
+  assert.equal(await firstRow().locator('.shortage-item-cost').isVisible(),true);
+  assert.equal(await firstRow().locator('.poi_qty').inputValue(),'7');
+  await page.locator('#addPOItemBtn').click();
+  assert.equal(await page.locator('#poItemRows .po-item-row').last().locator('.shortage-item-sale').innerText(),'-');
+  assert.equal(await page.locator('#poItemRows .po-item-row').last().locator('.shortage-item-cost').innerText(),'-');
+  await firstRow().locator('.poi_name').fill('ชื่อกรอกเอง');
+  assert.equal(await firstRow().locator('.shortage-item-sale').innerText(),'-');
+  assert.equal(await firstRow().locator('.shortage-item-cost').innerText(),'-');
+  await page.evaluate(()=>{currentProfile={id:'shortage-staff',owner:false,level:2};render();});
+  assert.equal(await page.locator('[data-shortage-price-column="cost"]').count(),0);
+  assert.equal(await page.locator('.shortage-item-cost').count(),0);
+  await page.evaluate(()=>{currentProfile={id:'shortage-test-owner',owner:true,level:1};});
   assert.equal(await page.locator('#createPurchaseOrderFromShortageBtn').count(), 0, 'หน้าสั่งซื้อสินค้าต้องไม่มีปุ่มสร้างเอกสารซ้ำ');
   await page.evaluate(()=>{
     purchaseOrders=[{id:'SH202609060001',supplier:'PEPO',date:'2026-09-06',items:[{productId:101,name:'ยา A',qty:2,unit:'กล่อง'}],note:'',status:'รอสั่งของ'}];

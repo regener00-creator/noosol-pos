@@ -256,7 +256,13 @@ function updateShortageItemCodes(row){
   const product=linked?.name===name?linked:products.find(product=>product.name===name);
   const sku=row.querySelector('.shortage-item-sku'),barcode=row.querySelector('.shortage-item-barcode');
   if(sku) sku.textContent=product?.sku||'-';
-  if(barcode) barcode.textContent=productBarcodeForUnit(product,row.querySelector('.poi_unit')?.value||product?.unit)||'-';
+  const unit=row.querySelector('.poi_unit')?.value||product?.unit;
+  if(barcode) barcode.textContent=productBarcodeForUnit(product,unit)||'-';
+  const sale=row.querySelector('.shortage-item-sale'),cost=row.querySelector('.shortage-item-cost');
+  const saleOption=product?productUnitOptions(product).find(option=>option.name===unit):null;
+  const costOption=product?poPurchaseUnitOptions(product).find(option=>option.name===unit):null;
+  if(sale) sale.textContent=saleOption?fmtMoney(saleOption.price):'-';
+  if(cost) cost.textContent=loggedInUser()?.owner===true&&costOption?fmtMoney(costOption.cost):'-';
 }
 function bindPOItemEvents(){
   document.querySelectorAll('#poItemRows .po-item-row').forEach(row=>{
