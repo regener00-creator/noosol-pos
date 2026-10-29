@@ -112,7 +112,7 @@ function renderPOForm(kind='po'){
   const supplierObj = suppliersList().find(s=>s.name===po.supplier);
   const canEditSupplierInline=kind!=='gr';
   const discount = po.discount||0;
-  const tax = calculatePurchaseTaxSummary(po.items,discount,po.taxMode);
+  const tax = kind==='gr'?calculateGoodsReceiptTaxSummary(po.items,discount,po.taxMode):calculatePurchaseTaxSummary(po.items,discount,po.taxMode);
   const dueDate = addDaysToDate(po.date,po.credit||0);
 
   return `
@@ -150,10 +150,10 @@ function renderPOForm(kind='po'){
         <div class="crow"><label>หมายเหตุ</label><textarea id="po_note" rows="3">${escapeHtml(po.note||'')}</textarea></div>
       </div>
       <div class="po-foot-right">
-        <div class="sumrow"><span>รวมเป็นเงิน</span><span class="mono" data-po-summary="subtotal">${fmtMoney(tax.subtotal)}</span></div>
-        <div class="sumrow"><span>ส่วนลด</span><span class="sumdiscount"><input id="po_discount" type="number" value="${escapeHtml(discount)}" style="width:90px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;text-align:right;"></span></div>
-        <div data-po-tax-summary>${taxSummaryRowsHtml(tax,{purchase:true})}</div>
-        <div class="sumrow grand"><span>จำนวนเงินรวมทั้งสิ้น</span><span class="mono" data-po-summary="total">${fmtMoney(tax.total)}</span></div>
+        <div class="sumrow"><span>${kind==='gr'?'ยอดรวมสินค้า ก่อน VAT':'รวมเป็นเงิน'}</span><span class="mono" data-po-summary="subtotal">${fmtMoney(tax.subtotal)}</span></div>
+        <div class="sumrow"><span>ส่วนลด</span><span class="sumdiscount"><input id="po_discount" type="number" ${kind==='gr'?'min="0" step="0.01" aria-label="ส่วนลดก่อน VAT"':''} value="${escapeHtml(discount)}" style="width:90px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;text-align:right;"></span></div>
+        <div data-po-tax-summary>${kind==='gr'?goodsReceiptTaxRowsHtml(tax):taxSummaryRowsHtml(tax,{purchase:true})}</div>
+        <div class="sumrow grand"><span>${kind==='gr'?'ยอดชำระสุทธิ':'จำนวนเงินรวมทั้งสิ้น'}</span><span class="mono" data-po-summary="total">${fmtMoney(tax.total)}</span></div>
       </div>
     </div>
     <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePOBtn">บันทึกเอกสาร</button></div>`;

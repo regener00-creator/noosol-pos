@@ -66,6 +66,19 @@ assert.equal(result.beforeVat,107);
 assert.equal(result.vat,0);
 assert.equal(result.total,107);
 
+for(const [taxMode,price] of [['excl',1000],['incl',1070]]){
+  result=context.calculateGoodsReceiptTaxSummary([{qty:1,price}],100,taxMode);
+  assert.deepEqual(JSON.parse(JSON.stringify(result)),{registered:true,subtotal:1000,discount:100,beforeVat:900,vat:63,total:963,discountBeforeVat:true});
+}
+result=context.calculateGoodsReceiptTaxSummary([{qty:1,price:1000}],100,'none');
+assert.equal(result.total,900);assert.equal(result.vat,0);
+result=context.calculateGoodsReceiptTaxSummary([{qty:1,price:208366.50}],2083.67,'excl');
+assert.equal(result.beforeVat,206282.83);assert.equal(result.vat,14439.80);assert.equal(result.total,220722.63);
+result=context.calculateGoodsReceiptTaxSummary([{qty:1,price:100}],200,'excl');
+assert.equal(result.discount,100);assert.equal(result.total,0);
+result=context.calculateGoodsReceiptTaxSummary([{qty:1,price:0.08}],0,'incl');
+assert.equal(result.total,0.08);assert.equal(result.beforeVat+result.vat,0.08);
+
 assert.equal(context.saleTaxSummary({total:107,vat:7}).registered,false, 'legacy sale without explicit flag must not be treated as VAT sale');
 assert.equal(context.saleTaxSummary({total:107,vat:7}).vat,0);
 

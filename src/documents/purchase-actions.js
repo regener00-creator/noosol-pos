@@ -335,11 +335,11 @@ function recalcPORow(row){
   // อัปเดตยอดสรุปแบบเบาๆ โดยไม่ re-render ทั้งหน้า
   syncPOFromDOM();
   const draft=activePurchaseDraft();
-  const tax=calculatePurchaseTaxSummary(draft.items,draft.discount||0,draft.taxMode||'incl');
+  const tax=currentTab==='goodsreceipt'?calculateGoodsReceiptTaxSummary(draft.items,draft.discount||0,draft.taxMode||'incl'):calculatePurchaseTaxSummary(draft.items,draft.discount||0,draft.taxMode||'incl');
   const amtEl=document.querySelector('.po-total-amt'); if(amtEl) amtEl.textContent=fmtMoney(tax.total);
   const subtotal=document.querySelector('[data-po-summary="subtotal"]'); if(subtotal) subtotal.textContent=fmtMoney(tax.subtotal);
   const total=document.querySelector('[data-po-summary="total"]'); if(total) total.textContent=fmtMoney(tax.total);
-  const taxRows=document.querySelector('[data-po-tax-summary]'); if(taxRows) taxRows.innerHTML=taxSummaryRowsHtml(tax,{purchase:true});
+  const taxRows=document.querySelector('[data-po-tax-summary]'); if(taxRows) taxRows.innerHTML=currentTab==='goodsreceipt'?goodsReceiptTaxRowsHtml(tax):taxSummaryRowsHtml(tax,{purchase:true});
 }
 function syncPOFromDOM(){
   const draft=activePurchaseDraft(); if(!draft) return;
@@ -416,7 +416,7 @@ async function savePO(silent=false){
   if(styled&&draft.supplierTaxInvoiceDate&&!/^\d{4}-\d{2}-\d{2}$/.test(draft.supplierTaxInvoiceDate)){ showToast('กรุณากรอกวันที่ใบกำกับภาษีเป็น วัน/เดือน/ปี'); document.getElementById('po_supplier_tax_invoice_date')?.focus(); return false; }
   if(kind==='gr'&&items.some(item=>item.expiry&&!/^\d{4}-\d{2}-\d{2}$/.test(item.expiry))){ showToast('กรุณากรอกวันหมดอายุเป็น วัน/เดือน/ปี เช่น 05/07/2027'); return false; }
   if(kind==='ret'&&items.some(item=>!Number(item.lotId))){ showToast('กรุณาเลือก Lot ที่คืนให้ครบทุกสินค้า'); return false; }
-  const tax=styled?calculatePurchaseTaxSummary(items,draft.discount||0,draft.taxMode||'incl'):calculatePurchaseTaxSummary([],0,'none');
+  const tax=kind==='gr'?calculateGoodsReceiptTaxSummary(items,draft.discount||0,draft.taxMode||'incl'):styled?calculatePurchaseTaxSummary(items,draft.discount||0,draft.taxMode||'incl'):calculatePurchaseTaxSummary([],0,'none');
   const old=editingId!=='new'?list.find(x=>x.id===editingId):null;
   const savedItems=(kind==='gr'||kind==='ret')?normalizeGoodsReceiptItems(items,draft.warehouseId):items;
   if(kind==='gr'&&old?.stockApplied===true){ showToast('ใบรับสินค้านี้รับเข้าสต๊อกแล้ว จึงแก้ไขเอกสารไม่ได้ กรุณาพิมพ์หรือดูจากรายการเดิม','danger-top'); return false; }

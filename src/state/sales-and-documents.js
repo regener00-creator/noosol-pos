@@ -158,6 +158,19 @@ function calculatePurchaseTaxSummary(items,requestedDiscount=0,taxMode='incl'){
   const mode=normalizeProductVatMode(taxMode);
   return calculateSaleTaxSummary((items||[]).map(item=>({amount:(Number(item?.qty)||0)*(Number(item?.price)||0),vatMode:mode})),requestedDiscount,mode!=='none');
 }
+function calculateGoodsReceiptTaxSummary(items,requestedDiscount=0,taxMode='incl'){
+  const base=calculatePurchaseTaxSummary(items,0,taxMode);
+  const round=value=>Math.round((Number(value)||0)*100)/100;
+  const subtotal=base.beforeVat;
+  const discount=Math.min(Math.max(0,round(requestedDiscount)),subtotal);
+  const beforeVat=round(subtotal-discount);
+  const vat=discount>0?(base.registered?round(beforeVat*VAT_RATE):0):base.vat;
+  const total=discount>0?round(beforeVat+vat):base.total;
+  return {...base,subtotal,discount,beforeVat,vat,total,discountBeforeVat:true};
+}
+function goodsReceiptTaxRowsHtml(tax){
+  return `<div class="sumrow"><span>ยอดหลังหักส่วนลด ก่อน VAT</span><span class="mono">${fmtMoney(tax.beforeVat)}</span></div><div class="sumrow"><span>VAT${tax.registered?' 7%':''}</span><span class="mono">${fmtMoney(tax.vat)}</span></div>`;
+}
 function taxSummaryRowsHtml(tax,{purchase=false}={}){
   if(!tax.registered) return `<div class="sumrow"><span>${purchase?'ไม่มี VAT':'ไม่คิด VAT (กิจการยังไม่จด VAT)'}</span><span class="mono">0.00</span></div><div class="sumrow"><span>มูลค่าสินค้า</span><span class="mono">${fmtMoney(tax.beforeVat)}</span></div>`;
   return `<div class="sumrow"><span>ภาษีมูลค่าเพิ่ม 7%</span><span class="mono">${fmtMoney(tax.vat)}</span></div><div class="sumrow"><span>มูลค่าก่อนภาษีมูลค่าเพิ่ม</span><span class="mono">${fmtMoney(tax.beforeVat)}</span></div>`;
