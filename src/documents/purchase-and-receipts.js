@@ -18,7 +18,7 @@ function renderPurchaseOrder(){
   if(docListPage.po<1) docListPage.po=1;
   const start=(docListPage.po-1)*DOC_LIST_PAGE_SIZE;
   const pageDocs=allDocs.slice(start,start+DOC_LIST_PAGE_SIZE);
-  return `<div class="pagehead"><div><h1>จดสั่งสินค้า <span class="page-title-meta">บันทึกรายการสินค้าที่ต้องแจ้งสั่งกับผู้แทน · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newPOBtn">+ สร้างรายการสั่งซื้อ</button></div>
+  return `<div class="pagehead"><div><h1>จดสั่งสินค้า <span class="page-title-meta">บันทึกรายการสินค้าที่ต้องแจ้งสั่งกับผู้แทน · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newPOBtn">+ สร้างรายการจดสั่งสินค้า</button></div>
   ${documentBulkToolbar('po')}
   <div class="doc-list-wrap">
   <table class="grid-table doc-list po-doc-list"><colgroup><col style="width:42px"><col style="width:100px"><col style="width:130px"><col style="width:170px"><col style="width:340px"><col style="width:130px"><col style="width:130px"><col style="width:90px"><col style="width:144px"></colgroup><thead><tr><th style="width:42px;"><input class="doc-check" type="checkbox" aria-label="เลือกทั้งหมด"></th><th>${documentSortHeader('po','date','วันที่สั่ง')}</th><th>${documentSortHeader('po','supplier','ชื่อผู้แทน')}</th><th>ข้อมูลติดต่อ</th><th>รายการสั่งของ</th><th>หมายเหตุ</th><th>${documentSortHeader('po','status','สถานะ')}</th><th>${documentSortHeader('po','elapsed','ผ่านมาแล้ว')}</th><th style="width:144px;"></th></tr></thead>
@@ -260,7 +260,7 @@ async function openShortageManagedProductsModal(){
 function renderShortageOrderForm(po,isNew){
   const canViewCost=loggedInUser()?.owner===true;
   const representative=salesRepresentatives.find(rep=>rep.name===po.supplier);
-  return `<div class="pagehead"><div><div class="breadcrumb">จดสั่งสินค้า › ${isNew?'สร้างรายการ':'แก้ไขรายการ'}</div><h1>${escapeHtml(po.id)}</h1></div></div>
+  return `<div class="pagehead"><div><div class="breadcrumb">จดสั่งสินค้า › ${isNew?'สร้างรายการจดสั่งสินค้า':'แก้ไขรายการ'}</div><h1>${escapeHtml(po.id)}</h1></div></div>
     <div class="panel"><div class="shortage-form-grid">
       <div class="shortage-form-main">
         <div class="shortage-form-controls">

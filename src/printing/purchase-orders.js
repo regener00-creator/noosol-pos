@@ -61,6 +61,8 @@ function setupA4DocumentPreview(win,{number,label,pageSelector}){
 function printPO(poId,kind='po'){
   const styled=isSupplierStyleDoc(kind);
   const titleText=docLabelText(kind);
+  const showShortageSale=!styled&&shortagePriceColumns.sale;
+  const showShortageCost=!styled&&loggedInUser()?.owner===true&&shortagePriceColumns.cost;
   const ids=Array.isArray(poId)?poId:[poId];
   const list=docList(kind);
   const docs=ids.map(id=>list.find(x=>x.id===id)).filter(Boolean); if(!docs.length) return;
@@ -68,14 +70,22 @@ function printPO(poId,kind='po'){
     const tax=po.taxSummary||calculatePurchaseTaxSummary(po.items,po.discount||0,po.taxMode||'incl');
     const business=po.businessSnapshot||businessSettings;
     const supplier=styled?suppliersList().find(s=>s.name===po.supplier):salesRepresentatives.find(rep=>rep.name===po.supplier);
-    const rows=po.items.map((it,i)=>styled?`<tr><td class="c">${i+1}</td><td>${escapeHtml(it.name)}</td><td class="r">${escapeHtml(it.qty)}</td><td>${escapeHtml(it.unit||'')}</td><td class="r">${fmtMoney(it.price)}</td><td class="r">${fmtMoney(it.qty*it.price)}</td></tr>`:`<tr><td class="c">${i+1}</td><td>${escapeHtml(it.name)}</td><td class="r">${escapeHtml(it.qty)}</td><td>${escapeHtml(it.unit||'')}</td></tr>`).join('');
+    const rows=po.items.map((it,i)=>{
+      if(styled) return `<tr><td class="c">${i+1}</td><td>${escapeHtml(it.name)}</td><td class="r">${escapeHtml(it.qty)}</td><td>${escapeHtml(it.unit||'')}</td><td class="r">${fmtMoney(it.price)}</td><td class="r">${fmtMoney(it.qty*it.price)}</td></tr>`;
+      const product=products.find(p=>Number(p.id)===Number(it.productId))||products.find(p=>p.name===it.name);
+      const options=product?poPurchaseUnitOptions(product):[];
+      const unit=options.find(option=>option.name===it.unit)?.name||options[0]?.name||product?.unit||it.unit||'';
+      const saleOption=product?productUnitOptions(product).find(option=>option.name===unit):null;
+      const costOption=options.find(option=>option.name===unit);
+      return `<tr><td class="c">${i+1}</td><td>${escapeHtml(product?.sku||'-')}</td><td>${escapeHtml(productBarcodeForUnit(product,unit)||'-')}</td><td>${escapeHtml(it.name)}</td>${showShortageSale?`<td class="r">${saleOption?fmtMoney(saleOption.price):'-'}</td>`:''}${showShortageCost?`<td class="r">${costOption?escapeHtml(shortageCostText(costOption.cost)):'-'}</td>`:''}<td class="r">${escapeHtml(it.qty)}</td><td>${escapeHtml(unit)}</td></tr>`;
+    }).join('');
     return `<section class="a4-page">
       <section class="header">
         <div class="business"><b style="font-size:13px;">${escapeHtml(businessDocumentName(business,STORE_INFO.name))}</b><br>${escapeHtml(business.address||STORE_INFO.address)}${(business.taxId||STORE_INFO.taxId)?`<br>เลขประจำตัวผู้เสียภาษี ${escapeHtml(business.taxId||STORE_INFO.taxId)}`:''}${businessPrimaryPhone(business)?`<br>เบอร์ติดต่อ ${escapeHtml(businessPrimaryPhone(business))}`:''}${(business.website||STORE_INFO.website)?`<br>${escapeHtml(business.website||STORE_INFO.website)}`:''}</div>
         <div class="title-block"><div class="title">${escapeHtml(titleText)}</div><div class="docmeta"><span>เลขที่</span><span>${escapeHtml(po.id)}</span><span>${styled?'วันที่':'วันที่สั่ง'}</span><span>${escapeHtml(fmtDateShort(po.date))}</span>${styled?`<span>ครบกำหนด</span><span>${escapeHtml(fmtDateShort(documentDueDate(po)))}</span>`:''}<span>ผู้สั่งซื้อ</span><span>${escapeHtml(loggedInUser()?.firstName||employees[0])}</span></div></div>
       </section>
       <section class="customer"><div class="lbl">${styled?'ผู้จำหน่าย':'ข้อมูลผู้แทน'}</div><div>${styled?`<b>${escapeHtml(po.supplier)}</b>`:`ชื่อ <b>${escapeHtml(po.supplier)}</b>`}</div><div>${styled?`${escapeHtml(supplier?.address||'-')}${supplier?.taxId?`<br>เลขประจำตัวผู้เสียภาษี ${escapeHtml(supplier.taxId)}`:''}`:`บริษัท <b>${escapeHtml(supplier?.company||'-')}</b>`}</div></section>
-      <table class="items"><thead><tr><th class="c">#</th><th>รายละเอียด</th><th class="r">จำนวน</th><th>หน่วย</th>${styled?'<th class="r">ราคาต่อหน่วย</th><th class="r">ยอดรวม</th>':''}</tr></thead><tbody>${rows}</tbody></table>
+      <table class="items${styled?'':' shortage-print-items'}"><thead><tr>${styled?'<th class="c">#</th><th>รายละเอียด</th><th class="r">จำนวน</th><th>หน่วย</th><th class="r">ราคาต่อหน่วย</th><th class="r">ยอดรวม</th>':`<th class="c">ลำดับ</th><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>ชื่อสินค้า</th>${showShortageSale?'<th class="r">ขาย</th>':''}${showShortageCost?'<th class="r">ทุน</th>':''}<th class="r">จำนวน</th><th>หน่วย</th>`}</tr></thead><tbody>${rows}</tbody></table>
       ${styled?`<section class="totals"><div><span class="lbl">รวมเป็นเงิน</span><b>${fmtMoney(tax.subtotal)} บาท</b></div>${po.discount?`<div><span class="lbl">ส่วนลด</span><b>${fmtMoney(po.discount)} บาท</b></div>`:''}${tax.registered?`<div><span class="lbl">ภาษีมูลค่าเพิ่ม 7%</span><b>${fmtMoney(tax.vat)} บาท</b></div><div class="last-sub"><span class="lbl">มูลค่าก่อนภาษีมูลค่าเพิ่ม</span><b>${fmtMoney(tax.beforeVat)} บาท</b></div>`:`<div class="last-sub"><span class="lbl">ไม่มี VAT</span><b>0.00 บาท</b></div>`}<div class="grand"><span>จำนวนเงินรวมทั้งสิ้น</span><b>${fmtMoney(tax.total)} บาท</b></div></section><div class="words">(${bahtText(tax.total)})</div><div class="signheads"><span>ในนาม ${escapeHtml(po.supplier)}</span><span>ในนาม ${escapeHtml(business.name||STORE_INFO.name)}</span></div><div class="signlines"><div>ผู้ขาย · วันที่</div><div>ผู้รับสินค้า · วันที่</div></div>`:''}
     </section>`;
   }).join('');
@@ -87,6 +97,7 @@ function printPO(poId,kind='po'){
     .header{display:grid;grid-template-columns:1.15fr 1fr;gap:14mm;margin-top:2mm}.business{font-size:11.5px;line-height:1.6}.title-block{text-align:right}.title{color:#4F4038;font-size:22px;font-weight:700;margin-bottom:8px}.docmeta{display:inline-grid;grid-template-columns:auto auto;gap:4px 14px;text-align:left;font-size:12px}.docmeta span:nth-child(odd){color:#4F4038;font-weight:600}
     .customer{margin:9mm 0 5mm}.customer .lbl{color:#4F4038;font-weight:600;font-size:12px;margin-bottom:2px}.customer div{font-size:12px;line-height:1.5}
     table.items{width:100%;border-collapse:collapse;font-size:12px;margin-top:2mm}table.items th{background:#4F4038;color:#fff;padding:7px 8px;text-align:left;font-weight:600}table.items th.r,table.items td.r{text-align:right}table.items th.c,table.items td.c{text-align:center;width:9mm}table.items td{padding:7px 8px;border-bottom:1px solid #e4e8ec}
+    table.shortage-print-items{table-layout:fixed;font-size:11px}table.shortage-print-items th,table.shortage-print-items td{padding:6px 4px;overflow-wrap:anywhere}table.shortage-print-items th{white-space:nowrap}table.shortage-print-items th.c{width:6%}table.shortage-print-items th:nth-child(2){width:12%}table.shortage-print-items th:nth-child(3){width:18%}table.shortage-print-items th.r{width:10%}table.shortage-print-items th:last-child{width:9%}
     .totals{width:82mm;margin:6mm 0 0 auto;font-size:12.5px}.totals div{display:flex;justify-content:space-between;padding:4px 0}.totals .lbl{color:#4F4038}.totals .last-sub{border-bottom:1px solid #4F4038;padding-bottom:6px}.totals .grand{font-weight:700;margin-top:2px;padding-top:6px}
     .words{font-size:12px;margin-top:8mm;text-align:right}
     .signheads{position:absolute;left:18mm;right:18mm;bottom:30mm;display:flex;justify-content:space-between;font-size:12px}.signheads span{width:60mm;text-align:center}
