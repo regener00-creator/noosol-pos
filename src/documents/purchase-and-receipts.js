@@ -150,10 +150,10 @@ function renderPOForm(kind='po'){
         <div class="crow"><label>หมายเหตุ</label><textarea id="po_note" rows="3">${escapeHtml(po.note||'')}</textarea></div>
       </div>
       <div class="po-foot-right">
-        <div class="sumrow"><span>รวมเป็นเงิน</span><span class="mono">${fmtMoney(tax.subtotal)}</span></div>
+        <div class="sumrow"><span>รวมเป็นเงิน</span><span class="mono" data-po-summary="subtotal">${fmtMoney(tax.subtotal)}</span></div>
         <div class="sumrow"><span>ส่วนลด</span><span class="sumdiscount"><input id="po_discount" type="number" value="${escapeHtml(discount)}" style="width:90px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;text-align:right;"></span></div>
-        ${taxSummaryRowsHtml(tax,{purchase:true})}
-        <div class="sumrow grand"><span>จำนวนเงินรวมทั้งสิ้น</span><span class="mono">${fmtMoney(tax.total)}</span></div>
+        <div data-po-tax-summary>${taxSummaryRowsHtml(tax,{purchase:true})}</div>
+        <div class="sumrow grand"><span>จำนวนเงินรวมทั้งสิ้น</span><span class="mono" data-po-summary="total">${fmtMoney(tax.total)}</span></div>
       </div>
     </div>
     <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePOBtn">บันทึกเอกสาร</button></div>`;

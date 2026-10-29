@@ -1,0 +1,63 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const http=require('node:http');
+const {chromium}=require('playwright');
+const {installIsolatedBrowser,waitForIsolatedBootstrap}=require('./isolated-browser');
+const root=path.resolve(__dirname,process.env.PEPOS_TEST_BUILT?'../public':'..');
+const server=http.createServer((req,res)=>{
+  const file=path.resolve(root,new URL(req.url,'http://localhost').pathname.slice(1)||'index.html');
+  if(!file.startsWith(root+path.sep)||!fs.existsSync(file)||!fs.statSync(file).isFile())return res.writeHead(404).end();
+  res.writeHead(200,{'Content-Type':({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8','.png':'image/png','.webp':'image/webp'})[path.extname(file)]||'application/octet-stream'});
+  fs.createReadStream(file).pipe(res);
+});
+let browser;
+(async()=>{
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const executablePath=[process.env.PEPOS_BROWSER_EXECUTABLE,'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(file=>file&&fs.existsSync(file))||chromium.executablePath();
+  browser=await chromium.launch({headless:true,executablePath});
+  const page=await browser.newPage({viewport:{width:1600,height:1000}});
+  await installIsolatedBrowser(page);
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(`http://127.0.0.1:${server.address().port}/`);await waitForIsolatedBootstrap(page);
+
+  await page.evaluate(()=>{
+    currentProfile={id:'receipt-summary-test',owner:true,level:1,firstName:'ทดสอบ'};
+    warehouses=[{id:1,name:'คลังทดสอบ',active:true}];activeWarehouseId=1;
+    renderLoginState=()=>true;ensureOnDemandDataForTab=()=>({status:'ready'});isMobileDeviceMode=()=>false;
+    document.querySelectorAll('.login-screen,.warehouse-choice-screen').forEach(el=>el.style.display='none');
+    products=[{id:101,name:'สินค้า A',sku:'A',unit:'กระปุก',price:600,cost:500,stock:0,active:true,units:[]},{id:102,name:'ของแถม',sku:'B',unit:'กระปุก',price:0,cost:0,stock:0,active:true,units:[]}];
+    contacts=[];currentTab='goodsreceipt';editingGRId='new';
+    grDraft={id:'RI-SUMMARY-TEST',supplier:'',date:TODAY_STR,warehouseId:1,credit:0,taxMode:'incl',discount:0,note:'',items:[{productId:101,name:'สินค้า A',qty:62,unit:'กระปุก',price:0},{productId:102,name:'ของแถม',qty:1,unit:'กระปุก',price:0}]};
+    render=()=>{document.getElementById('main').innerHTML=renderPOForm('gr');prepareScrollableTables();attachEvents();};render();
+  });
+  const assertTotals=async({subtotal,vat,beforeVat,total})=>{
+    assert.equal(await page.locator('[data-po-summary="subtotal"]').innerText(),subtotal);
+    assert.equal(await page.locator('[data-po-summary="total"]').innerText(),total);
+    assert.equal(await page.locator('.po-total-amt').innerText(),total);
+    assert.deepEqual(await page.locator('[data-po-tax-summary] .mono').allTextContents(),[vat,beforeVat]);
+  };
+  await page.locator('.poi_price').first().fill('579.5');
+  await assertTotals({subtotal:'35,929.00',vat:'2,350.50',beforeVat:'33,578.50',total:'35,929.00'});
+  assert.equal(await page.evaluate(()=>grDraft.items[0].qty*grDraft.items[0].price),35929,'draft and visible summary agree');
+  await page.evaluate(()=>{window.activeReceiptPrice=document.querySelector('.poi_price');});
+  await page.locator('.poi_price').first().fill('107');
+  await page.locator('.poi_qty').first().fill('3');
+  await assertTotals({subtotal:'321.00',vat:'21.00',beforeVat:'300.00',total:'321.00'});
+  assert.equal(await page.evaluate(()=>window.activeReceiptPrice===document.querySelector('.poi_price')),true,'editing a row must preserve input nodes');
+  await page.locator('#po_discount').fill('107');await page.locator('#po_discount').press('Tab');
+  await assertTotals({subtotal:'321.00',vat:'14.00',beforeVat:'200.00',total:'214.00'});
+  await page.locator('#po_discount').fill('0');await page.locator('#po_discount').press('Tab');
+  await page.locator('#po_tax_mode').selectOption('excl');await page.locator('.poi_price').first().fill('100');
+  await assertTotals({subtotal:'321.00',vat:'21.00',beforeVat:'300.00',total:'321.00'});
+  await page.locator('#po_tax_mode').selectOption('none');
+  await assertTotals({subtotal:'300.00',vat:'0.00',beforeVat:'300.00',total:'300.00'});
+  await page.locator('.poi_price').nth(1).fill('10');
+  await assertTotals({subtotal:'310.00',vat:'0.00',beforeVat:'310.00',total:'310.00'});
+  await page.locator('.poi_del').first().click();
+  await assertTotals({subtotal:'10.00',vat:'0.00',beforeVat:'10.00',total:'10.00'});
+  await page.locator('.poi_qty').fill('2');
+  await assertTotals({subtotal:'20.00',vat:'0.00',beforeVat:'20.00',total:'20.00'});
+  assert.deepEqual(errors,[]);
+  console.log('Goods receipt live summary: screenshot amount, price/quantity edits, free item, discount, VAT included/excluded/none and deletion passed');
+})().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();await new Promise(resolve=>server.close(resolve));});

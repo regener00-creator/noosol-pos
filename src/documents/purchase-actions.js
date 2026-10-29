@@ -337,6 +337,9 @@ function recalcPORow(row){
   const draft=activePurchaseDraft();
   const tax=calculatePurchaseTaxSummary(draft.items,draft.discount||0,draft.taxMode||'incl');
   const amtEl=document.querySelector('.po-total-amt'); if(amtEl) amtEl.textContent=fmtMoney(tax.total);
+  const subtotal=document.querySelector('[data-po-summary="subtotal"]'); if(subtotal) subtotal.textContent=fmtMoney(tax.subtotal);
+  const total=document.querySelector('[data-po-summary="total"]'); if(total) total.textContent=fmtMoney(tax.total);
+  const taxRows=document.querySelector('[data-po-tax-summary]'); if(taxRows) taxRows.innerHTML=taxSummaryRowsHtml(tax,{purchase:true});
 }
 function syncPOFromDOM(){
   const draft=activePurchaseDraft(); if(!draft) return;
