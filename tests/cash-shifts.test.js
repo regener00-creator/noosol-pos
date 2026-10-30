@@ -83,6 +83,13 @@ assert.equal(summary.saleCount, 2);
 assert.equal(summary.refundCount, 1);
 assert.equal(summary.payments['เงินสด'].net, 150);
 assert.equal(summary.payments['โอนธนาคาร'].net, 300);
+const refunds=context.cashShiftSummary(shift,[
+  {cashShiftId:'shift-1',voidShiftId:'shift-1',payMethod:'โอนธนาคาร',voidRefundMethod:'เงินสด',total:200},
+  {cashShiftId:'another',voidShiftId:'shift-1',payMethod:'เงินสด',voidRefundMethod:'โอนธนาคาร',total:100},
+]);
+assert.equal(refunds.cashRefunds,200);
+assert.equal(refunds.expectedCash,800);
+assert.equal(refunds.payments['โอนธนาคาร'].refunds,100);
 
 const overdueStart = html.indexOf('function cashShiftOverdueInfo(');
 const overdueEnd = html.indexOf('function cashShiftOverdueNotice(', overdueStart);

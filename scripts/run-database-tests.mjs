@@ -68,6 +68,8 @@ try{
   if(!process.argv.includes('--exchange-only')){
   const returnsSuite=await import('../tests/customer-returns-database.mjs');
   await returnsSuite.run({client});
+  const voidRefundSuite=await import('../tests/void-refund-database.mjs');
+  await voidRefundSuite.run({client});
   const suite=await import('../tests/database-integrity.mjs');
   await suite.run({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
   const barcodeSuite=await import('../tests/product-barcode-integrity.mjs');

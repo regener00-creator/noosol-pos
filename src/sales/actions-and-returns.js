@@ -97,6 +97,7 @@ function openVoidSaleReasonModal(sale,onVoided){
       <div class="void-sale-body">
         <div class="void-sale-summary"><span>ยอดที่ยกเลิก</span><strong>${fmtMoney(sale.total)} บาท</strong><span>วิธีชำระ</span><b>${escapeHtml(sale.payMethod||'-')}</b></div>
         ${receiptMeta?`<div class="void-sale-receipt-note"><b>ออกใบเสร็จอย่างย่อแล้ว</b><span>${escapeHtml(shortReceiptNumber(sale))} · พิมพ์ ${receiptMeta.printLog?.length||0} ครั้ง</span><small>ระบบจะเก็บใบเสร็จเดิมไว้เป็นประวัติ และเปลี่ยนบิลนี้เป็นสถานะยกเลิก</small></div>`:''}
+        <label class="void-sale-reason" for="voidSaleRefundMethod"><span>ช่องทางการคืนเงินลูกค้า <b>*</b></span><select id="voidSaleRefundMethod" required><option value="">เลือกช่องทางการคืนเงิน</option>${['เงินสด','โอนธนาคาร','บัตรเครดิต','ออนไลน์'].map(method=>`<option value="${method}" ${method===sale.payMethod?'selected':''}>${method}</option>`).join('')}</select></label>
         <label class="void-sale-reason" for="voidSaleReason"><span>เหตุผลการยกเลิกบิล <b>*</b></span><textarea id="voidSaleReason" rows="4" maxlength="500" placeholder="เช่น ขายผิดรายการ หรือลูกค้าคืนสินค้า" required></textarea></label>
         <div class="void-sale-warning">เมื่อยืนยัน ระบบจะคืนสินค้าเข้า LOT เดิม บันทึกยอดคืนในกะปัจจุบัน และเก็บผู้ดำเนินการพร้อมเหตุผลไว้ตรวจสอบ</div>
       </div>
@@ -106,18 +107,21 @@ function openVoidSaleReasonModal(sale,onVoided){
   document.body.appendChild(overlay);
   const form=overlay.querySelector('#voidSaleForm');
   const reasonInput=overlay.querySelector('#voidSaleReason');
+  const refundInput=overlay.querySelector('#voidSaleRefundMethod');
   const submit=overlay.querySelector('#confirmVoidSaleBtn');
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('#cancelVoidSaleBtn').onclick=close;
-  overlay.addEventListener('click',event=>{ if(event.target===overlay) close(); });
   form.onsubmit=async event=>{
     event.preventDefault();
+    if(submit.disabled) return;
+    const refundMethod=refundInput.value;
+    if(!refundMethod){ showToast('กรุณาเลือกช่องทางการคืนเงินลูกค้า','danger-top'); refundInput.focus(); return; }
     const reason=reasonInput.value.trim();
     if(!reason){ showToast('กรุณาระบุเหตุผลที่ยกเลิกบิล','danger-top'); reasonInput.focus(); return; }
     submit.disabled=true; submit.textContent='กำลังยกเลิกบิล...';
     try{
-      const data=await runStockOperation('void_sale',{saleId:sale.id,reason});
+      const data=await runStockOperation('void_sale',{saleId:sale.id,reason,refundMethod});
       const index=salesHistory.findIndex(item=>item.id===sale.id);
       if(index>=0) salesHistory[index]={...salesHistory[index],...(data?.sale||{}),id:sale.id,status:'void',voidShiftId:currentCashShift.id};
       await refreshDocumentInventory(data?.sale||sale);

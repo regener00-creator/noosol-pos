@@ -1129,6 +1129,7 @@
   .void-sale-receipt-note small{font-size:12px;line-height:1.5;}
   .void-sale-reason{display:grid;gap:7px;font-size:13px;font-weight:700;color:var(--text);}
   .void-sale-reason b{color:var(--danger);}
+  .void-sale-reason select{width:100%;padding:12px 13px;border:1px solid var(--border);border-radius:10px;font:inherit;font-weight:400;color:var(--text);background:var(--surface);box-sizing:border-box;}
   .void-sale-reason textarea{width:100%;min-height:104px;resize:vertical;border:1px solid var(--border);border-radius:10px;padding:12px 13px;font:inherit;font-weight:400;color:var(--text);background:var(--surface);box-sizing:border-box;}
   .void-sale-reason textarea:focus{outline:none;border-color:#2497D3;box-shadow:0 0 0 3px rgba(36,151,211,.12);}
   .void-sale-warning{font-size:12px;line-height:1.6;color:var(--text-muted);}

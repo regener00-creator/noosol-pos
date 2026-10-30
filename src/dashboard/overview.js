@@ -79,7 +79,7 @@ function cashShiftSummary(shift,sales=salesHistory){
     const amount=Math.abs(Number(sale.total)||0),method=sale.payMethod||'ไม่ระบุ';
     if(sale.customerReturn){if(String(sale.cashShiftId||'')===String(shift?.id||'')&&shift?.id){const row=payment(method);row.refunds+=amount;row.refundCount++;refunds+=amount;refundCount++;}return;}
     if(String(sale.cashShiftId||'')===String(shift?.id||'')){ const row=payment(method); row.sales+=amount; row.saleCount++; grossSales+=amount; saleCount++; }
-    if(String(sale.voidShiftId||'')===String(shift?.id||'')){ const row=payment(method); row.refunds+=amount; row.refundCount++; refunds+=amount; refundCount++; }
+    if(String(sale.voidShiftId||'')===String(shift?.id||'')){ const row=payment(sale.voidRefundMethod||method); row.refunds+=amount; row.refundCount++; refunds+=amount; refundCount++; }
   });
   Object.values(payments).forEach(row=>{ row.net=Math.round((row.sales-row.refunds)*100)/100; });
   const cash=payments['เงินสด']||{sales:0,refunds:0},openingCash=Number(shift?.openingCash)||0;
