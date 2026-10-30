@@ -7,6 +7,7 @@ let rbillFilter = { period:'today', from:'', to:'', month:'', year:'', wh:'all',
 // ตัวกรองหน้ารายงานกำไร / ขาดทุน
 let rprofitFilter = { period:'today', from:'', to:'', month:'', year:'', wh:'all', pay:'all', applied:false };
 let rtaxMonth=TODAY_STR.slice(0,7);
+let voidReportFilter={from:`${TODAY_STR.slice(0,7)}-01`,to:TODAY_STR,warehouse:'all',method:'all',search:'',page:1};
 // ตัวกรองหน้าสินค้าใกล้หมด/ใกล้หมดอายุ
 const LOW_STOCK_FILTER_STORAGE_KEY='pharmacy_pos_low_stock_filter_v1';
 const EXPIRY_DAYS_FILTER_STORAGE_KEY='pharmacy_pos_expiry_days_filter_v1';

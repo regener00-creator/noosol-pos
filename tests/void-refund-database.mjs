@@ -19,6 +19,7 @@ export async function run({client}){
     const transfer=await makeSale('โอนธนาคาร',2),cash=await makeSale('เงินสด');
     const request=randomUUID(),first=await call(transfer,'เงินสด',request);
     assert.equal(first.sale.voidRefundMethod,'เงินสด');assert.equal(first.sale.payMethod,'โอนธนาคาร');
+    assert.equal(first.sale.voidedByName,'void-owner');
     assert.equal(await stock(),99);
     assert.deepEqual(await call(transfer,'เงินสด',request),first);
     assert.equal((await call(transfer,'บัตรเครดิต')).sale.voidRefundMethod,'เงินสด','another request cannot change an already recorded refund');

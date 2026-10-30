@@ -50,6 +50,7 @@
   "src/contacts/editor.js",
   "src/promotions/rules-and-view.js",
   "src/reports/sales-and-inventory.js",
+  "src/reports/void-sales.js",
   "src/settings/paper.js",
   "src/settings/views.js",
   "src/settings/categories.js",

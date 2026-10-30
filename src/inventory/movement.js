@@ -45,23 +45,29 @@ function collectInventoryMovements(source){
   const rows=[];
   let order=0;
   const add=(meta,item)=>{
-    if(item?.custom) return;
+    if(item?.custom||item?.tracksStock===false) return;
     const product=inventoryMovementProduct(item,productList);
-    if(!product) return;
+    if(!product&&!Number(item?.productId??item?.pid)) return;
     const qty=inventoryMovementRound(item?.qty);
     if(qty<=0) return;
-    const warehouseId=meta.warehouseId??item?.warehouseId??product.wh;
+    const warehouseId=meta.warehouseId??item?.warehouseId??product?.wh;
     rows.push({
       date:String(meta.date||'').slice(0,10),type:meta.type||'-',bill:meta.bill||'-',time:meta.time||'-',
-      productId:Number(product.id),productName:String(item?.name||product.name||'-'),qty,unit:String(item?.unit||product.unit||''),
+      productId:Number(item?.productId??item?.pid??product?.id),productName:String(item?.name||product?.name||'-'),qty,unit:String(item?.unit||product?.unit||''),
       direction:meta.direction||'-',warehouseId:Number(warehouseId)||0,warehouse:inventoryMovementWarehouseName(warehouseId,warehouseList,meta.warehouseName),order:order++
     });
   };
-  sales.filter(sale=>sale?.status==='done').forEach(sale=>{
+  sales.filter(sale=>sale?.status==='done'||sale?.status==='void').forEach(sale=>{
     const rawTime=String(sale.time||''),time=(rawTime.includes(' ')?rawTime.slice(11,16):rawTime.slice(0,5))||'-';
     (sale.items||[]).forEach(item=>{
       if(sale.customerReturn){if(item.restock&&item.tracksStock!==false)add({date:sale.date,type:'รับคืนจากลูกค้า',bill:sale.ref||sale.id,time,direction:'เข้า',warehouseId:sale.warehouseId},{...item,qty:Math.abs(Number(item.qty))});}
-      else add({date:sale.date,type:'ขาย',bill:sale.ref||sale.id,time,direction:'ออก'},item);
+      else{
+        add({date:sale.date,type:'ขาย',bill:sale.ref||sale.id,time,direction:'ออก',warehouseId:sale.warehouseId},item);
+        if(sale.status==='void'){
+          const cancelled=saleVoidDateTime(sale);
+          if(cancelled.date) add({date:cancelled.date,time:cancelled.time,type:'คืนสต๊อกจากยกเลิกบิล',bill:sale.ref||sale.id,direction:'เข้า',warehouseId:sale.warehouseId},item);
+        }
+      }
     });
   });
   receipts.filter(doc=>doc?.stockApplied===true).forEach(doc=>{
@@ -203,7 +209,7 @@ function renderInventoryMovement(){
       ${filter.period==='month'?`<div class="rpf-item"><input type="month" id="movementMonth" value="${filter.month||TODAY_STR.slice(0,7)}" class="rpt-select"></div>`:''}
       ${filter.period==='year'?`<div class="rpf-item"><select id="movementYear" class="rpt-select">${(()=>{const currentYear=Number(TODAY_STR.slice(0,4));let options='';for(let year=currentYear;year>=currentYear-6;year--) options+=`<option value="${year}" ${String(filter.year||currentYear)===String(year)?'selected':''}>${year}</option>`;return options;})()}</select></div>`:''}
       <div class="rpf-item"><select id="movementWarehouse" class="rpt-select"><option value="all" ${selectedWarehouse==='all'?'selected':''}>ทุกคลัง</option>${accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(warehouse.id)===selectedWarehouse?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>
-      <div class="rpf-item"><select id="movementType" class="rpt-select"><option value="type:all" ${primaryFilter==='type:all'?'selected':''}>รายการทั้งหมด</option>${['ขาย','รับเข้าสินค้า','เปลี่ยนสินค้า','คืนสินค้า','รับคืนจากลูกค้า','โอนสินค้า'].map(type=>`<option value="type:${type}" ${primaryFilter===`type:${type}`?'selected':''}>${type}</option>`).join('')}<option class="movement-filter-divider" disabled>────────────</option><option value="direction:all" ${primaryFilter==='direction:all'?'selected':''}>เข้า-ออกทั้งหมด</option>${['เข้า','ออก','เปลี่ยน'].map(direction=>`<option value="direction:${direction}" ${primaryFilter===`direction:${direction}`?'selected':''}>${direction}</option>`).join('')}</select></div>
+      <div class="rpf-item"><select id="movementType" class="rpt-select"><option value="type:all" ${primaryFilter==='type:all'?'selected':''}>รายการทั้งหมด</option>${['ขาย','คืนสต๊อกจากยกเลิกบิล','รับเข้าสินค้า','เปลี่ยนสินค้า','คืนสินค้า','รับคืนจากลูกค้า','โอนสินค้า'].map(type=>`<option value="type:${type}" ${primaryFilter===`type:${type}`?'selected':''}>${type}</option>`).join('')}<option class="movement-filter-divider" disabled>────────────</option><option value="direction:all" ${primaryFilter==='direction:all'?'selected':''}>เข้า-ออกทั้งหมด</option>${['เข้า','ออก','เปลี่ยน'].map(direction=>`<option value="direction:${direction}" ${primaryFilter===`direction:${direction}`?'selected':''}>${direction}</option>`).join('')}</select></div>
       <button class="btn ghost rpf-apply" id="movementApplyBtn">แสดงผล</button>
     </div>
     <div class="rpt-filters">

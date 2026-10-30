@@ -69,7 +69,7 @@ const TAB_DOCUMENT_TABLES={
   productreturn:['product_returns'],transfer:['transfers'],taxinvoice:['standalone_tax_invoices'],
   rtax:['goods_receipts'],
 };
-const ON_DEMAND_AGGREGATE_TABS=new Set(['dashboard','history','rproduct','rbill','rprofit','rtax','inventorymovement']);
+const ON_DEMAND_AGGREGATE_TABS=new Set(['dashboard','history','rproduct','rbill','rvoid','rprofit','rtax','inventorymovement']);
 const onDemandTabJobs=new Map();
 const onDemandTabErrors=new Map();
 function localIsoDaysAgo(days){
@@ -90,6 +90,7 @@ function salesRangeForTab(tab){
   if(tab==='rbill'&&rbillFilter.applied) return serverDateRange(rbillPeriodRange().from,rbillPeriodRange().to);
   if(tab==='rprofit'&&rprofitFilter.applied) return serverDateRange(rprofitPeriodRange().from,rprofitPeriodRange().to);
   if(tab==='rtax') return monthServerRange(rtaxMonth);
+  if(tab==='rvoid') return voidReportRange();
   if(tab==='inventorymovement') return serverDateRange(inventoryMovementDateRange().from,inventoryMovementDateRange().to);
   if(tab==='cashbill'||tab==='taxinvoice') return serverDateRange(localIsoDaysAgo(365),TODAY_STR);
   return null;
@@ -98,6 +99,8 @@ function dataRequestsForTab(tab){
   const requests={sales:null,documents:[]};
   const salesRange=salesRangeForTab(tab);
   if(salesRange) requests.sales={range:salesRange,includeHolds:tab==='checkout',includeRecent:tab==='dashboard'};
+  if(requests.sales&&['rvoid','inventorymovement'].includes(tab)) requests.sales.includeVoids=true;
+  if(tab==='rvoid') requests.sales.voidsOnly=true;
   (TAB_DOCUMENT_TABLES[tab]||[]).forEach(table=>requests.documents.push({table,recent:true,range:null}));
   if(tab==='inventorymovement'){
     const range=serverDateRange(inventoryMovementDateRange().from,inventoryMovementDateRange().to);
@@ -132,7 +135,7 @@ function ensureOnDemandDataForTab(tab){
   if(!onDemandTabJobs.has(key)){
     const context=captureWorkspaceRead();
     const tasks=[];
-    if(salesNeeded) tasks.push(loadSalesHistoryFromSupabase({from:requests.sales.range.from,to:requests.sales.range.to,includeHolds:requests.sales.includeHolds,includeRecent:requests.sales.includeRecent}));
+    if(salesNeeded) tasks.push(loadSalesHistoryFromSupabase({from:requests.sales.range.from,to:requests.sales.range.to,includeHolds:requests.sales.includeHolds,includeRecent:requests.sales.includeRecent,includeVoids:requests.sales.includeVoids,voidsOnly:requests.sales.voidsOnly}));
     documentsNeeded.forEach(item=>tasks.push(loadDocumentTableFromSupabase(item.table,item)));
     const job=Promise.all(tasks).then(()=>{
       if(!isWorkspaceReadCurrent(context)||onDemandTabJobs.get(key)!==job) return;
@@ -175,12 +178,13 @@ function attachOnDemandStateEvents(state){
   document.getElementById('loadCompleteSalesRangeBtn')?.addEventListener('click',async()=>{
     const button=document.getElementById('loadCompleteSalesRangeBtn'); if(button){ button.disabled=true; button.textContent='กำลังโหลด…'; }
     const range=state.requests.sales?.range;
-    try{ await loadSalesHistoryFromSupabase({from:range.from,to:range.to,includeHolds:state.requests.sales.includeHolds,completeRange:true}); render(); }
+    try{ await loadSalesHistoryFromSupabase({from:range.from,to:range.to,includeHolds:state.requests.sales.includeHolds,includeRecent:state.requests.sales.includeRecent,includeVoids:state.requests.sales.includeVoids,voidsOnly:state.requests.sales.voidsOnly,completeRange:true}); render(); }
     catch(error){ onDemandTabErrors.set(state.key,error); render(); }
   });
 }
 
 const RENDERERS = {
+  rvoid: ()=>renderVoidReport(),
   mobiletools: renderMobileTools,
   dashboard: renderDashboard, checkout: renderCheckout, notes: renderNotes, cashshift: renderCashShift, cashbill: ()=>renderCashBills(), taxinvoice: ()=>renderTaxInvoices(), quotation: ()=>renderQuotation(), invoice: renderInvoice,
   creditnote: renderCreditNote, history: renderHistory, purchaseorder: ()=>renderPurchaseOrder(), productreturn: ()=>renderProductReturn(), goodsreceipt: ()=>renderGoodsReceipt(), productexchange: ()=>renderProductExchange(),

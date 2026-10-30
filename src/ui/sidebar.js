@@ -38,6 +38,7 @@ const NAV = [
     ['expiry','สินค้าใกล้หมดอายุ','<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M8 3.9 6.5 2.5M16 3.9l1.5-1.4"/>'],
     ['rproduct','ยอดขายตามสินค้า','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>'],
     ['rbill','ยอดขายตามบิล','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>'],
+    ['rvoid','รายงานบิลยกเลิก','<path d="M5 3h14v18H5zM9 8l6 6M15 8l-6 6M9 18h6"/>'],
     ['rprofit','กำไร / ขาดทุน','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/><path d="M7 8h12"/>'],
     ['rtax','รายงานภาษี','<path d="M5 3h14v18H5z"/><path d="M8 7h8M8 11h8M8 15h4"/>'],
     ['inventorymovement','รายงานความเคลื่อนไหว','<path d="M4 7h12"/><path d="M13 4l3 3-3 3"/><path d="M20 17H8"/><path d="M11 14l-3 3 3 3"/>'],

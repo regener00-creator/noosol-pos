@@ -1,0 +1,47 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),http=require('node:http');
+const {chromium}=require('playwright');
+const {installIsolatedBrowser,waitForIsolatedBootstrap}=require('./isolated-browser');
+const root=path.resolve(__dirname,process.env.PEPOS_TEST_BUILT?'../public':'..');
+const server=http.createServer((req,res)=>{const file=path.join(root,new URL(req.url,'http://localhost').pathname==='/'?'index.html':new URL(req.url,'http://localhost').pathname);if(!file.startsWith(root+path.sep)||!fs.existsSync(file))return res.writeHead(404).end();res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');fs.createReadStream(file).pipe(res);});
+let browser;
+(async()=>{
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const executablePath=[process.env.PEPOS_BROWSER_EXECUTABLE,'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(p=>p&&fs.existsSync(p))||chromium.executablePath();
+  browser=await chromium.launch({headless:true,executablePath});const page=await browser.newPage({viewport:{width:1440,height:1000},timezoneId:'America/Los_Angeles'}),errors=[];
+  await installIsolatedBrowser(page);page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('http://127.0.0.1:'+server.address().port);await waitForIsolatedBootstrap(page);
+  await page.evaluate(async()=>{
+    currentProfile={id:'owner',owner:true,level:1,firstName:'เจ้าของ'};activeWarehouseId=1;
+    warehouses=[{id:1,name:'คลังหนึ่ง'},{id:2,name:'คลังสอง'}];products=[{id:1,name:'ยาเดิม',unit:'แผง',wh:1}];
+    renderLoginState=()=>true;ensureOnDemandDataForTab=()=>({status:'ready'});document.querySelectorAll('.login-screen').forEach(el=>el.style.display='none');
+    window.reportWrites=0;runStockOperation=async()=>{window.reportWrites++;throw new Error('report must be read only');};
+    salesHistory=Array.from({length:51},(_,n)=>({id:'cancel-'+n,ref:'RE-'+n,status:'void',date:'2026-09-01',time:'2026-09-01 10:00',warehouseId:1,total:100,discount:0,fee:0,payMethod:'โอนธนาคาร',voidRefundMethod:'เงินสด',voidedAt:'2026-10-29T18:30:00Z',voidedByName:'เจ้าของ',voidReason:n===0?'<img src=x onerror="window.xss=true">':'ขายผิด',items:[{productId:1,name:'ยาเดิม',unit:'แผง',qty:1,price:100,tracksStock:true}]}));
+    salesHistory.push({...salesHistory[0],id:'done',status:'done'},{...salesHistory[0],id:'other',ref:'OTHER',warehouseId:2,total:20,voidRefundMethod:null});
+    Object.assign(voidReportFilter,{from:'2026-10-30',to:'2026-10-30',warehouse:'all',method:'all',search:'',page:1});
+    currentTab='rvoid';await ensurePageCodeLoaded(currentTab);render();
+  });
+  assert.ok(await page.getByRole('heading',{name:'รายงานบิลยกเลิก',exact:true}).isVisible());
+  assert.match(await page.locator('.void-report-summary').innerText(),/52 บิล[\s\S]*5,120.00/);
+  assert.equal(await page.locator('[data-void-report-detail]').count(),50);
+  if(process.env.PEPOS_CAPTURE_REPORT){await fs.promises.mkdir(path.resolve(__dirname,'../outputs'),{recursive:true});await page.screenshot({path:path.resolve(__dirname,'../outputs/void-report.png')});}
+  await page.locator('#voidReportNext').click();assert.equal(await page.locator('[data-void-report-detail]').count(),2);
+  await page.locator('#voidReportWarehouse').selectOption('1');await page.locator('#voidReportFilters button[type=submit]').click();
+  assert.match(await page.locator('.void-report-summary').innerText(),/51 บิล/);
+  await page.locator('#voidReportSearch').fill('RE-0');await page.locator('#voidReportFilters button[type=submit]').click();
+  assert.equal(await page.locator('[data-void-report-detail]').count(),1);
+  assert.equal(await page.locator('.void-report-reason img').count(),0);
+  await page.locator('[data-void-report-detail]').click();
+  assert.match(await page.locator('.modal-overlay .void-sale-receipt-note').innerText(),/ยกเลิกบิลแล้ว[\s\S]*30-10-2026[\s\S]*เจ้าของ[\s\S]*เงินสด/);
+  assert.equal(await page.locator('#voidSaleDetailBtn').count(),0);
+  await page.locator('#closeSaleDetailBtn').click();assert.ok(await page.locator('#voidReportFilters').isVisible());
+  await page.locator('#voidReportMethod').selectOption('บัตรเครดิต');await page.locator('#voidReportFilters button[type=submit]').click();assert.match(await page.locator('.void-report-table').innerText(),/ไม่พบบิลยกเลิก/);
+  await page.evaluate(async()=>{currentTab='inventorymovement';Object.assign(inventoryMovementFilter,{period:'range',from:'2026-10-30',to:'2026-10-30',warehouse:'1',type:'all',direction:'all',products:[]});await ensurePageCodeLoaded(currentTab);render();});
+  assert.match(await page.locator('.movement-report-page').innerText(),/คืนสต๊อกจากยกเลิกบิล/);
+  await page.locator('#movementType').selectOption('type:คืนสต๊อกจากยกเลิกบิล');await page.locator('#movementApplyBtn').click();
+  assert.ok(await page.locator('[data-movement-group]').count()>0);
+  await page.locator('[data-movement-group]').first().click();assert.match(await page.locator('.movement-report-page').innerText(),/ยาเดิม/);
+  await page.evaluate(()=>{currentTab='rvoid';voidReportFilter.method='all';voidReportFilter.search='';render();});
+  await page.setViewportSize({width:390,height:844});assert.ok(await page.locator('#voidReportFilters').isVisible());
+  assert.equal(await page.evaluate(()=>window.reportWrites),0);assert.equal(await page.evaluate(()=>!!window.xss),false);assert.deepEqual(errors,[]);
+  console.log('void report browser: lazy page, filters, totals, pagination, details, movements, mobile and no writes passed');
+})().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});

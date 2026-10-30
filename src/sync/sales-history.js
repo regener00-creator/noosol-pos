@@ -28,11 +28,13 @@ const SALES_CACHE_TTL_MS=60000;
 const SALES_MEMORY_ROW_LIMIT=10000;
 let workspaceReadGeneration=0;
 const salesFreshRequests=[];
+let voidSalesTruncatedRanges=[];
 function captureWorkspaceRead(){ return {actor:String(currentProfile?.id||''),generation:workspaceReadGeneration}; }
 function isWorkspaceReadCurrent(context){ return context.actor===String(currentProfile?.id||'')&&context.generation===workspaceReadGeneration; }
 function resetSalesLoadState(){
   workspaceReadGeneration++;
   salesFreshRequests.length=0;
+  voidSalesTruncatedRanges=[];
   salesLoadState.loaded=false; salesLoadState.full=false; salesLoadState.holds=false; salesLoadState.recent=false; salesLoadState.ranges=[]; salesLoadState.truncatedRanges=[]; salesLoadState.holdsTruncated=false;
   salesLoadPromises.clear();
 }
@@ -42,18 +44,18 @@ function clearLoadedHistoryMemory(){
   resetSalesLoadState(); resetDocumentLoadStates();
   onDemandTabErrors.clear(); onDemandTabJobs.clear();
 }
-function salesRequestLoaded({range=null,includeHolds=false,includeRecent=false,full=false}={}){
+function salesRequestLoaded({range=null,includeHolds=false,includeRecent=false,includeVoids=false,voidsOnly=false,full=false}={}){
   const fresh=salesFreshRequests.some(item=>isWorkspaceReadCurrent(item.context)&&Date.now()-item.at<SALES_CACHE_TTL_MS&&
     (item.full||(!full&&(!range||item.range&&item.range.from<=range.from&&item.range.to>=range.to)))&&
-    (!includeHolds||item.includeHolds)&&(!includeRecent||item.includeRecent));
+    (!includeHolds||item.includeHolds)&&(!includeRecent||item.includeRecent)&&(!includeVoids||item.includeVoids||item.full)&&(!item.voidsOnly||voidsOnly));
   if(!fresh) return false;
   if(salesLoadState.full) return true;
   if(full) return false;
   return (!range||rangeCoveredBy(salesLoadState.ranges,range))&&(!includeHolds||salesLoadState.holds)&&(!includeRecent||salesLoadState.recent);
 }
-function salesRequestTruncated({range=null,includeHolds=false}={}){
+function salesRequestTruncated({range=null,includeHolds=false,includeVoids=false,voidsOnly=false}={}){
   if(salesLoadState.full) return false;
-  return !!(range&&rangeOverlapsAny(salesLoadState.truncatedRanges,range))||!!(includeHolds&&salesLoadState.holdsTruncated);
+  return !!(!voidsOnly&&range&&rangeOverlapsAny(salesLoadState.truncatedRanges,range))||!!(includeHolds&&salesLoadState.holdsTruncated)||!!(includeVoids&&range&&rangeOverlapsAny(voidSalesTruncatedRanges,range));
 }
 function mergeSalesRows(current,incoming){
   const rows=new Map((current||[]).map(sale=>[String(sale.id),sale]));
@@ -84,11 +86,13 @@ async function loadSalesHistoryFromSupabase(options={}){
   const range=options.full?null:serverDateRange(options.from||defaultRange?.from,options.to||defaultRange?.to);
   const includeHolds=options.includeHolds!==false;
   const includeRecent=options.includeRecent!==false;
+  const includeVoids=options.includeVoids===true;
+  const voidsOnly=includeVoids&&options.voidsOnly===true&&!options.full;
   const full=options.full===true;
   const completeRange=options.completeRange===true&&!!range;
-  const request={range,includeHolds,includeRecent,full};
+  const request={range,includeHolds,includeRecent,includeVoids,voidsOnly,full};
   if(!options.force&&!completeRange&&salesRequestLoaded(request)) return true;
-  const requestKey=`${context.actor}:${context.generation}:`+(full?'full':`${completeRange?'complete:':''}${range?.from||''}:${range?.to||''}:${includeHolds?'holds':'sales'}:${includeRecent?'recent':'range-only'}`);
+  const requestKey=`${context.actor}:${context.generation}:`+(full?'full':`${completeRange?'complete:':''}${range?.from||''}:${range?.to||''}:${includeHolds?'holds':'sales'}:${includeRecent?'recent':'range-only'}:${includeVoids?'voids':''}:${voidsOnly?'only':''}`);
   if(salesLoadPromises.has(requestKey)) return salesLoadPromises.get(requestKey);
   const initialRows=new Map(salesHistory.map(sale=>[String(sale.id),sale]));
   const promise=(async()=>{
@@ -98,12 +102,37 @@ async function loadSalesHistoryFromSupabase(options={}){
         if(range) query=query.gte('sale_date',range.from).lte('sale_date',range.to);
         return query;
       };
-      const result=full||completeRange
+      const result=voidsOnly?{data:[],error:null}:full||completeRange
         ?await fetchAllRows(buildRangeQuery)
         :await fetchBoundedRows(buildRangeQuery,{pageSize:SALES_QUERY_PAGE_SIZE,maxRows:SALES_QUERY_MAX_ROWS});
       if(!isWorkspaceReadCurrent(context)) return false;
       if(result.error) throw result.error;
       let rows=result.data||[];
+      let voidsTruncated=false;
+      if(includeVoids&&!full){
+        // Fetch by cancellation time as well as sale date: old bills can be
+        // cancelled today. A one-day margin covers stored timezone offsets;
+        // each report then filters the exact Bangkok calendar date.
+        const shiftDay=(value,days)=>{const date=new Date(value+'T00:00:00Z');date.setUTCDate(date.getUTCDate()+days);return date.toISOString().slice(0,10);};
+        const voidQuery=()=>sb.from('sales').select('*').eq('status','void')
+          .gte('data->>voidedAt',shiftDay(range.from,-1)).lt('data->>voidedAt',shiftDay(range.to,2))
+          .order('id',{ascending:true});
+        const voidResult=completeRange?await fetchAllRows(voidQuery):await fetchBoundedRows(voidQuery,{pageSize:SALES_QUERY_PAGE_SIZE,maxRows:SALES_QUERY_MAX_ROWS});
+        if(!isWorkspaceReadCurrent(context)) return false;
+        if(voidResult.error) throw voidResult.error;
+        rows=mergeRowsById(rows,voidResult.data||[]);
+        voidsTruncated=!!voidResult.truncated;
+        result.truncated=!!(result.truncated||voidResult.truncated);
+        const actorIds=[...new Set(rows.filter(row=>row.status==='void').map(row=>row.data?.voidedBy).filter(id=>/^[0-9a-f-]{36}$/i.test(String(id))))];
+        const names=new Map();
+        for(let start=0;start<actorIds.length;start+=100){
+          const actors=await sb.from('profiles').select('id,first_name,last_name,username').in('id',actorIds.slice(start,start+100));
+          if(!isWorkspaceReadCurrent(context)) return false;
+          if(actors.error) throw actors.error;
+          (actors.data||[]).forEach(actor=>names.set(actor.id,[actor.first_name,actor.last_name].filter(Boolean).join(' ')||actor.username));
+        }
+        rows=rows.map(row=>names.has(row.data?.voidedBy)?{...row,data:{...row.data,voidedByName:row.data.voidedByName||names.get(row.data.voidedBy)}}:row);
+      }
       let holdsTruncated=false;
       if(includeRecent&&!full){
         const {data:recentRows,error:recentError}=await sb.from('sales').select('*').eq('status','done').order('sale_date',{ascending:false}).order('sale_time',{ascending:false}).limit(8);
@@ -124,8 +153,10 @@ async function loadSalesHistoryFromSupabase(options={}){
       // and released holds. Always retain receipts still pending locally.
       const locallyChanged=salesHistory.filter(sale=>sale.offlinePending||initialRows.get(String(sale.id))!==sale);
       const remaining=salesHistory.filter(sale=>
-        (!full&&!(range&&!result.truncated&&sale.date>=range.from&&sale.date<=range.to)&&!(includeHolds&&!holdsTruncated&&sale.status==='hold')));
+        (!full&&!(range&&!voidsOnly&&!result.truncated&&sale.date>=range.from&&sale.date<=range.to)&&!(includeHolds&&!holdsTruncated&&sale.status==='hold')));
       salesHistory=mergeSalesRows(mergeSalesRows(remaining,incoming),locallyChanged);
+      if(full) voidSalesTruncatedRanges=[];
+      else if(includeVoids) voidSalesTruncatedRanges=voidsTruncated?rememberLoadedRange(voidSalesTruncatedRanges,range):forgetLoadedRange(voidSalesTruncatedRanges,range);
       salesLoadState.loaded=true;
       salesLoadState.full=full;
       if(includeRecent) salesLoadState.recent=true;
@@ -135,9 +166,9 @@ async function loadSalesHistoryFromSupabase(options={}){
       if(range) salesLoadState.ranges=rememberLoadedRange(salesLoadState.ranges,range);
       if(full){ salesLoadState.holds=true; salesLoadState.recent=true; }
       if(full){ salesLoadState.truncatedRanges=[]; salesLoadState.holdsTruncated=false; }
-      else if(completeRange){ salesLoadState.truncatedRanges=forgetLoadedRange(salesLoadState.truncatedRanges,range); }
+      else if(completeRange&&!voidsOnly){ salesLoadState.truncatedRanges=forgetLoadedRange(salesLoadState.truncatedRanges,range); }
       else{
-        if(result.truncated&&range) salesLoadState.truncatedRanges=rememberLoadedRange(salesLoadState.truncatedRanges,range);
+        if(result.truncated&&range&&!voidsOnly) salesLoadState.truncatedRanges=rememberLoadedRange(salesLoadState.truncatedRanges,range);
         if(holdsTruncated) salesLoadState.holdsTruncated=true;
       }
       invoiceCounter=maxArrayValue(salesHistory,s=>(Number(String(s.id||'').replace(/\D/g,''))||0)+1,1000);
