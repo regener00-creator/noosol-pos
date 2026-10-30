@@ -95,8 +95,9 @@ function allocateReadableProductSku(reservedSkus=[],startAt=1){
   do{ sku='P'+String(sequence++).padStart(4,'0'); }while(used.has(sku.toLowerCase()));
   return {sku,nextSequence:sequence};
 }
-function standardizePrintPreview(win,{trackPrint=true}={}){
+function standardizePrintPreview(win,{trackPrint=true,applyPaperSettings=true}={}){
   const doc=win?.document; if(!doc) return;
+  if(applyPaperSettings) applyA4PaperLayout(win);
   if(trackPrint&&!win.__peposPrintTracked){
     const nativePrint=win.print.bind(win);
     win.print=()=>{ void recordPrintEvent(currentTab,doc.title||'',{title:doc.title||'',source:'print-preview'}); return nativePrint(); };

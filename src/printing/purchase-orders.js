@@ -56,6 +56,7 @@ function setupA4DocumentPreview(win,{number,label,pageSelector}){
   };
   doc.getElementById('closeDocumentPreview').onclick=()=>win.close();
   doc.getElementById('confirmDocumentPrint').onclick=()=>{ if(rebuildPages()) win.print(); };
+  applyA4PaperLayout(win);
 }
 
 function printPO(poId,kind='po'){

@@ -136,17 +136,18 @@ function printReceiptPrinterTest(settings){
 function renderReceiptPrinterSettings(){
   const settings=readReceiptPrinterSettings();
   const field=(key,label,max)=>`<label class="receipt-printer-field" for="printer_${key}"><span>${label} (มม.)</span><input id="printer_${key}" name="${key}" type="number" min="0" max="${max}" step="0.1" required value="${settings[key]}"></label>`;
-  return `<div class="settings-page receipt-printer-page"><div class="receipt-printer-heading"><h2>ตั้งค่าเครื่องพิมพ์ใบเสร็จ</h2><span class="receipt-printer-badge">เฉพาะเครื่องนี้</span></div>
-    <p class="hint">ใช้กับใบเสร็จอย่างย่อเท่านั้น จำค่าในเบราว์เซอร์นี้ ไม่เปลี่ยนเครื่องอื่น บิล A4 หรือฉลากยา</p>
+  return `<div class="settings-page receipt-printer-page"><div class="receipt-printer-heading"><h2>ตั้งค่าหน้ากระดาษ</h2><span class="receipt-printer-badge">เฉพาะเครื่องนี้</span></div>
+    <p class="hint">ตั้งค่ากระดาษใบเสร็จอย่างย่อและ A4 จำค่าเฉพาะเบราว์เซอร์นี้</p>
     <div class="receipt-printer-grid"><form class="settings-section" id="receiptPrinterForm">
-      <h2>กระดาษและระยะขอบ</h2><label class="receipt-printer-field" for="printer_paperWidth"><span>ความกว้างกระดาษ</span><select id="printer_paperWidth" name="paperWidth"><option value="80" ${settings.paperWidth===80?'selected':''}>80 มม.</option><option value="58" ${settings.paperWidth===58?'selected':''}>58 มม.</option></select></label>
+      <h2>กระดาษใบเสร็จอย่างย่อ</h2><label class="receipt-printer-field" for="printer_paperWidth"><span>ความกว้างกระดาษ</span><select id="printer_paperWidth" name="paperWidth"><option value="80" ${settings.paperWidth===80?'selected':''}>80 มม.</option><option value="58" ${settings.paperWidth===58?'selected':''}>58 มม.</option></select></label>
       <div class="receipt-printer-margins">${field('marginTop','ขอบบน',30)}${field('marginBottom','ขอบล่าง',30)}${field('marginLeft','ขอบซ้าย',10)}${field('marginRight','ขอบขวา',10)}</div>
       <div class="receipt-printer-actions"><button type="submit" class="btn primary">บันทึก</button><button type="button" class="btn" id="testReceiptPrinterBtn">ทดลองพิมพ์</button><button type="button" class="btn" id="resetReceiptPrinterBtn">คืนค่าเริ่มต้น</button></div>
       <p id="receiptPrinterStatus" class="receipt-printer-status" role="status">ค่าที่ใช้กับใบเสร็จบนเครื่องนี้</p>
       <div class="receipt-printer-help"><strong>พิมพ์ผ่านเบราว์เซอร์</strong><p>เลือกเครื่องพิมพ์และขนาดกระดาษให้ตรงกันในหน้าต่างพิมพ์ ตั้งมาตราส่วน 100% ปิดหัวกระดาษ/ท้ายกระดาษ และเลือกไม่มีระยะขอบ</p><p>ตอนนี้ยังมีหน้าต่างยืนยันการพิมพ์ การพิมพ์ทันทีโดยไม่ถามต้องตั้งค่าร่วมกับเครื่องพิมพ์จริงเพิ่มเติม</p><p>ทดลองพิมพ์ใช้ค่าที่กรอกอยู่ กดบันทึกเพื่อนำไปใช้กับใบเสร็จจริง หากล้างข้อมูลเบราว์เซอร์หรือเปลี่ยนเบราว์เซอร์ ต้องตั้งค่าใหม่</p></div>
-    </form><section class="settings-section receipt-printer-preview"><h2>ตัวอย่างใบเสร็จ</h2><iframe id="receiptPrinterPreview" title="ตัวอย่างขนาดใบเสร็จ ไม่ใช่รายการขาย" sandbox=""></iframe></section></div></div>`;
+    </form><section class="settings-section receipt-printer-preview"><h2>ตัวอย่างใบเสร็จ</h2><iframe id="receiptPrinterPreview" title="ตัวอย่างขนาดใบเสร็จ ไม่ใช่รายการขาย" sandbox=""></iframe></section></div>${renderA4PaperSettings()}</div>`;
 }
 function attachReceiptPrinterEvents(){
+  attachA4PaperEvents();
   const form=document.getElementById('receiptPrinterForm'); if(!form) return;
   const status=document.getElementById('receiptPrinterStatus');
   const values=()=>Object.fromEntries(new FormData(form).entries());
