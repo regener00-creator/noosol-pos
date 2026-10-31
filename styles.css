@@ -162,10 +162,9 @@
   .dashboard-calendar-day.is-today{background:var(--primary-soft);box-shadow:inset 0 0 0 2px var(--primary);}
   .dashboard-calendar-day.is-future{background:var(--bg);color:var(--text-muted);}
   .dashboard-calendar-day time{display:inline-block;font-size:16px;font-weight:700;margin-bottom:10px;}
-  .dashboard-calendar-day dl{margin:0;display:grid;gap:7px;font-size:12px;}
-  .dashboard-calendar-day dl>div{display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;}
-  .dashboard-calendar-day dt{color:var(--text-muted);}.dashboard-calendar-day dd{margin:0;font-weight:600;overflow-wrap:anywhere;}
-  .dashboard-day-orders{border-top:1px solid var(--border);padding-top:7px;margin-top:2px;}
+  .dashboard-day-summary{font-size:12px;line-height:1.8;overflow-wrap:anywhere;}
+  .dashboard-day-piece,.dashboard-day-summary [data-day-profit]{display:inline-block;max-width:100%;}
+  .dashboard-day-summary [data-day-orders],.dashboard-day-summary [data-day-sales],.dashboard-day-summary [data-day-profit]{font-weight:600;}
   @media(max-width:800px){.statrow.dashboard-summary-row{grid-template-columns:1fr;}.dashboard-summary-card{padding:18px;}.dashboard-calendar{padding:12px;}}
   .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;}
   .panel h3{margin:0 0 3px 0;font-size:14px;font-weight:600;}
