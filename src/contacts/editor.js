@@ -65,16 +65,17 @@ function renderContacts(){
     </div>${pagerHtml(contactPage,totalPages,'contactpage')}</div>`;
 }
 
-function customerPriceRowHtml(rule={},index=0){
+function customerPriceRowHtml(rule={},index=0,allowAddToSale=false){
   const product=products.find(item=>Number(item.id)===Number(rule.productId));
   if(!product) return '';
   const options=productUnitOptions(product);
   const unitLabels=new Map(productUnitConversionRows(product).map(row=>[row.largerUnit,`${row.largerUnit} = ${productUnitConversionAmount(row.quantity)} ${row.smallerUnit}`]));
   const selectedUnit=options.some(option=>option.name===rule.unit)?rule.unit:(options[0]?.name||product.unit||'');
   const selectedOption=options.find(option=>option.name===selectedUnit)||options[0];
+  const nameHtml=allowAddToSale?`<button class="customer-price-add-to-sale" data-add-special-price type="button" aria-label="เพิ่ม ${escapeHtml(product.name)} ลงรายการขาย">${escapeHtml(product.name)}</button>`:`<b>${escapeHtml(product.name)}</b>`;
   return `<tr class="customer-price-row" data-customer-price-row data-product-id="${escapeHtml(product.id)}">
     <td class="mono customer-price-barcode">${escapeHtml(productBarcodeForUnit(product,selectedUnit)||'-')}</td>
-    <td class="customer-price-product-name"><input type="hidden" class="customer-price-id" value="${escapeHtml(rule.id||'')}"><input type="hidden" class="customer-price-product-id" value="${escapeHtml(product.id)}"><b>${escapeHtml(product.name)}</b><small>${escapeHtml(product.sku||'-')}</small></td>
+    <td class="customer-price-product-name"><input type="hidden" class="customer-price-id" value="${escapeHtml(rule.id||'')}"><input type="hidden" class="customer-price-product-id" value="${escapeHtml(product.id)}">${nameHtml}<small>${escapeHtml(product.sku||'-')}</small></td>
     <td><select class="customer-price-unit" aria-label="หน่วย ${escapeHtml(product.name)}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selectedUnit?'selected':''}>${escapeHtml(unitLabels.get(option.name)||option.name)}</option>`).join('')}</select></td>
     <td><input class="customer-price-value mono" type="number" min="0" step="0.01" value="${Number.isFinite(Number(rule.price))?escapeHtml(rule.price):''}" placeholder="0.00" aria-label="ราคาพิเศษ ${escapeHtml(product.name)}"></td>
     <td><input class="customer-price-cost mono" value="${escapeHtml(fmtMoney(selectedOption?.cost||0))}" readonly tabindex="-1" aria-label="ทุน ${escapeHtml(product.name)}"></td>
@@ -187,7 +188,7 @@ function renderContactForm(){
     <div class="panel contact-editor-panel">${contactEditorFieldsHtml(c,fixedType)}</div>`;
 }
 
-function renderCustomerPricingForm(customerId=editingCustomerPriceContactId){
+function renderCustomerPricingForm(customerId=editingCustomerPriceContactId,allowAddToSale=false){
   const customer=contacts.find(contact=>Number(contact.id)===Number(customerId));
   if(!customer) return '<div class="empty">ไม่พบข้อมูลลูกค้า</div>';
   const customerPrices=normalizedCustomerPriceRules(customer);
@@ -198,7 +199,7 @@ function renderCustomerPricingForm(customerId=editingCustomerPriceContactId){
     <div class="panel customer-pricing-panel">
       <div class="customer-pricing-heading"><div><h3>รายการสินค้า</h3><p>ค้นหาหรือยิงบาร์โค้ดเพื่อเพิ่มสินค้า ราคานี้จะไม่ซ้อนโปรโมชั่นทั่วไป และไม่มีผลกับราคาหน้าร้านหรือตัวเลขในบิลเก่า</p></div></div>
       <div class="customer-price-search-wrap"><div class="customer-price-search"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg></span><input id="customerPriceSearch" placeholder="ค้นหาสินค้า / รหัส / สแกนบาร์โค้ด" autocomplete="off"></div><div class="customer-price-search-results" id="customerPriceSearchResults" hidden></div></div>
-      <div class="customer-price-table-wrap"><table class="grid-table customer-price-table"><colgroup><col class="customer-price-col-barcode"><col class="customer-price-col-name"><col class="customer-price-col-unit"><col class="customer-price-col-price"><col class="customer-price-col-cost"><col class="customer-price-col-action"></colgroup><thead><tr><th>บาร์โค้ดสินค้า</th><th>ชื่อ</th><th>หน่วย</th><th>ราคาพิเศษ</th><th>ทุน</th><th></th></tr></thead><tbody id="customerPriceRows">${customerPrices.map(customerPriceRowHtml).join('')||'<tr class="customer-price-empty"><td colspan="6">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>'}</tbody></table></div>
+      <div class="customer-price-table-wrap"><table class="grid-table customer-price-table"><colgroup><col class="customer-price-col-barcode"><col class="customer-price-col-name"><col class="customer-price-col-unit"><col class="customer-price-col-price"><col class="customer-price-col-cost"><col class="customer-price-col-action"></colgroup><thead><tr><th>บาร์โค้ดสินค้า</th><th>ชื่อ</th><th>หน่วย</th><th>ราคาพิเศษ</th><th>ทุน</th><th></th></tr></thead><tbody id="customerPriceRows">${customerPrices.map((rule,index)=>customerPriceRowHtml(rule,index,allowAddToSale)).join('')||'<tr class="customer-price-empty"><td colspan="6">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>'}</tbody></table></div>
     </div>
   </div>`;
 }

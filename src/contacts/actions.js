@@ -205,7 +205,7 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
     const existing=[...customerPriceRows.querySelectorAll('[data-customer-price-row]')].find(row=>Number(row.querySelector('.customer-price-product-id')?.value||row.dataset.productId)===Number(product.id)&&row.querySelector('.customer-price-unit')?.value===selectedUnit);
     if(existing){ showToast(`มีราคาพิเศษ “${product.name}” หน่วย ${selectedUnit} อยู่แล้ว`); existing.querySelector('.customer-price-value')?.focus(); return; }
     customerPriceRows.querySelector('.customer-price-empty')?.remove();
-    customerPriceRows.insertAdjacentHTML('beforeend',customerPriceRowHtml({productId:product.id,unit:selectedUnit,price:''},customerPriceRows.querySelectorAll('[data-customer-price-row]').length));
+    customerPriceRows.insertAdjacentHTML('beforeend',customerPriceRowHtml({productId:product.id,unit:selectedUnit,price:''},customerPriceRows.querySelectorAll('[data-customer-price-row]').length,root.matches?.('.pos-customer-pricing-overlay')));
     bindCustomerPriceRows();
     customerPriceRows.querySelector('[data-customer-price-row]:last-child .customer-price-value')?.focus();
     if(customerPriceSearch) customerPriceSearch.value='';
