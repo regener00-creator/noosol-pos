@@ -731,7 +731,7 @@
   .inspection-list-remove{width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;border:1px solid transparent;border-radius:7px;background:transparent;color:var(--danger);cursor:pointer;}
   .inspection-list-remove:hover{border-color:#F1B8B3;background:#FFF6F5;}
   .inspection-list-remove svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
-  @media (max-width:1100px){.inspection-list-editor-toolbar{flex-wrap:wrap}.inspection-list-name-field{flex-basis:100%}.inspection-list-editor-toolbar .inspection-list-editor-filters{width:100%;overflow-x:auto;padding-bottom:2px}}
+  @media (max-width:1100px){.inspection-list-editor-toolbar{flex-wrap:wrap}.inspection-list-name-field{flex-basis:100%}.inspection-list-editor-toolbar .inspection-list-editor-filters{width:calc(100% + 8px);overflow-x:auto;padding:4px;margin-left:-4px;margin-right:-4px}}
   @media (max-width:720px){.inspection-list-table-wrap{max-height:none}}
   /* หน้าพิมพ์บาร์โค้ดเอง: scoped เพื่อไม่กระทบตารางและช่องกรอกหน้าอื่น */
   .main.barcode-print-main{overflow-y:hidden;}
@@ -1037,6 +1037,8 @@
   .doc-scanner{display:flex;align-items:center;background:var(--surface);border:1.5px solid var(--primary);border-radius:10px;overflow:hidden;box-shadow:0 3px 12px rgba(20,97,90,.08);}
   .doc-scanner-icon{padding:0 13px;color:var(--primary);display:flex;align-items:center;border-left:1px solid var(--border);}
   .doc-scanner input{flex:1;border:none;outline:none;padding:12px 14px;font-family:inherit;font-size:14px;background:transparent;}
+  /* Keep focus rings inside the shared, clipped scanner/search shells. */
+  html body :is(.pos-search,.doc-scanner,.customer-price-search) input:focus{outline-offset:-4px;}
   .doc-scanner-hint{font-size:11.5px;color:var(--text-muted);margin-top:5px;}
   .doc-scan-results{position:absolute;z-index:45;top:48px;right:0;left:0;background:var(--surface);border:1px solid var(--primary);border-radius:9px;box-shadow:0 10px 24px rgba(0,0,0,.14);max-height:300px;overflow-y:auto;}
   .doc-scan-result{display:flex;justify-content:space-between;align-items:center;width:100%;padding:10px 13px;border:none;border-bottom:1px solid var(--border);background:var(--surface);font-family:inherit;text-align:right;cursor:pointer;color:var(--text);}
@@ -1659,7 +1661,7 @@
   .medicine-label-option-group legend{padding:0 5px;font-size:12.5px;font-weight:700;}
   .medicine-label-options{display:flex;flex-wrap:wrap;gap:8px 13px;}
   .medicine-label-meal-group{grid-column:1/-1;}
-  .medicine-label-meal-row{align-items:center;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;padding-bottom:2px;}
+  .medicine-label-meal-row{align-items:center;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;padding:4px;margin-left:-4px;margin-right:-4px;}
   .medicine-label-meal-row-secondary{margin-top:9px;padding-top:9px;border-top:1px solid var(--border);}
   .medicine-label-or{flex:0 0 auto;color:var(--text-muted);font-size:12px;}
   .medicine-label-option{display:inline-flex;align-items:center;gap:6px;font-size:13px;cursor:pointer;white-space:nowrap;}
