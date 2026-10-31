@@ -1,36 +1,41 @@
+function dashboardSalesSummary(sales){
+  return sales.reduce((summary,sale)=>{
+    summary.total+=Number(sale.total)||0;
+    if(!sale.customerReturn)summary.orders++;
+    if(sale.grossProfit!=null&&sale.costTotal!=null){summary.profit+=Number(sale.grossProfit)||0;}
+    else summary.profitComplete=false;
+    return summary;
+  },{total:0,profit:0,orders:0,profitComplete:true});
+}
+function dashboardProfitHtml(summary){
+  if(!summary.profitComplete)return '<span class="dashboard-profit-unknown" title="บางบิลยังไม่มีข้อมูลต้นทุนครบ">—</span>';
+  return `<span class="${summary.profit<0?'dashboard-loss':'dashboard-profit'}">${summary.profit<0?'-':''}${fmtMoney(Math.abs(summary.profit))}</span>`;
+}
+function renderDashboardCalendar(monthSales,canViewProfit){
+  const [year,month]=TODAY_STR.slice(0,7).split('-').map(Number);
+  const firstDay=new Date(year,month-1,1),days=new Date(year,month,0).getDate();
+  const monthLabel=firstDay.toLocaleDateString('th-TH-u-ca-gregory',{month:'long',year:'numeric'});
+  const byDay=new Map();
+  monthSales.forEach(sale=>{const date=String(sale.date||'').slice(0,10);if(!byDay.has(date))byDay.set(date,[]);byDay.get(date).push(sale);});
+  const cells=Array.from({length:Math.ceil((firstDay.getDay()+days)/7)*7},(_,index)=>{
+    const day=index-firstDay.getDay()+1;
+    if(day<1||day>days)return '<div class="dashboard-calendar-blank" aria-hidden="true"></div>';
+    const date=`${TODAY_STR.slice(0,7)}-${String(day).padStart(2,'0')}`;
+    const summary=dashboardSalesSummary(byDay.get(date)||[]);
+    return `<div class="dashboard-calendar-day ${date===TODAY_STR?'is-today':''} ${date>TODAY_STR?'is-future':''}" data-dashboard-date="${date}"><time datetime="${date}" ${date===TODAY_STR?'aria-current="date"':''}>${day}</time><dl><div><dt>ยอดขาย</dt><dd data-day-sales>${summary.total<0?'-':''}${fmtMoney(Math.abs(summary.total))}</dd></div>${canViewProfit?`<div><dt>กำไร</dt><dd data-day-profit>${dashboardProfitHtml(summary)}</dd></div>`:''}<div class="dashboard-day-orders"><dt>ออเดอร์</dt><dd data-day-orders>${summary.orders.toLocaleString('th-TH')}</dd></div></dl></div>`;
+  }).join('');
+  return `<section class="panel dashboard-calendar"><header><h3>ปฏิทินยอดขาย</h3><span>${escapeHtml(monthLabel)}</span></header><div class="dashboard-calendar-scroll"><div class="dashboard-calendar-grid">${['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'].map(day=>`<div class="dashboard-weekday">${day}</div>`).join('')}${cells}</div></div></section>`;
+}
 function renderDashboard(){
   const completedSales = salesHistory.filter(s=>s.status==='done').filter(s=>isAllWarehousesMode()||(s.items||[]).some(item=>String(saleWarehouseForReport(s,item,products.find(product=>Number(product.id)===Number(item.productId))||products.find(product=>product.name===item.name)||{}))===String(activeWarehouseId)));
   const todaySales = completedSales.filter(s=>(s.date||'').slice(0,10)===TODAY_STR);
   const monthKey = TODAY_STR.slice(0,7);
   const monthSales = completedSales.filter(s=>(s.date||'').slice(0,7)===monthKey);
-  const todayTotal = todaySales.reduce((sum,s)=>sum+(Number(s.total)||0),0);
-  const monthTotal = monthSales.reduce((sum,s)=>sum+(Number(s.total)||0),0);
-  const hasProfitData = s=>Object.prototype.hasOwnProperty.call(s,'grossProfit') && Object.prototype.hasOwnProperty.call(s,'costTotal');
-  const todayProfit = todaySales.filter(hasProfitData).reduce((sum,s)=>sum+(Number(s.grossProfit)||0),0);
-  const monthProfit = monthSales.filter(hasProfitData).reduce((sum,s)=>sum+(Number(s.grossProfit)||0),0);
+  const todaySummary=dashboardSalesSummary(todaySales),monthSummary=dashboardSalesSummary(monthSales);
   const canViewProfit = !isLevel2User();
-  const maxV = Math.max(...weekSales.map(x=>x.v));
-  const itemCounts = {};
-  monthSales.forEach(s=>(s.items||[]).filter(it=>!it.custom).forEach(it=>{ itemCounts[it.name]=(itemCounts[it.name]||0)+(Number(it.qty)||0); }));
-  const topItems = Object.entries(itemCounts).sort((a,b)=>b[1]-a[1]).slice(0,10);
-  const colors=['var(--primary)','var(--accent)','var(--info)','var(--danger)'];
   return `
-    <div class="statrow" style="grid-template-columns:repeat(${canViewProfit?4:2},minmax(0,1fr));${canViewProfit?'':'max-width:520px;'}">
-      <div class="stat"><div class="stat-heading"><div class="sicon teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></div><div class="slabel">ยอดขายวันนี้</div></div><div class="sval">${fmtMoney(todayTotal)}</div></div>
-      ${canViewProfit?`
-      <div class="stat"><div class="stat-heading"><div class="sicon blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 18V9m6 9V5m6 13v-7m4 7H2"/></svg></div><div class="slabel">กำไรวันนี้</div></div><div class="sval" style="color:${todayProfit>=0?'#2D7D3D':'var(--danger)'};">${todayProfit<0?'-':''}${fmtMoney(Math.abs(todayProfit))}</div></div>`:''}
-      <div class="stat"><div class="stat-heading"><div class="sicon amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="13" rx="2"/></svg></div><div class="slabel">ยอดขายเดือนนี้</div></div><div class="sval">${fmtMoney(monthTotal)}</div></div>
-      ${canViewProfit?`
-      <div class="stat"><div class="stat-heading"><div class="sicon teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7H14a3.5 3.5 0 0 1 0 7H6"/></svg></div><div class="slabel">กำไรเดือนนี้</div></div><div class="sval" style="color:${monthProfit>=0?'#2D7D3D':'var(--danger)'};">${monthProfit<0?'-':''}${fmtMoney(Math.abs(monthProfit))}</div></div>`:''}
-    </div>
-    <div class="grid2col dashboard-grid2col">
-      <div class="panel"><h3>ยอดขาย 7 วันล่าสุด</h3>
-        <div class="barchart">${weekSales.map((w,i)=>`<div class="barcol"><span class="bval">${w.v}</span><div class="bar ${i===weekSales.length-1?'today':''}" style="height:${Math.max(8,w.v/maxV*120)}px"></div><span class="blabel">${w.d}</span></div>`).join('')}</div>
-      </div>
-      <div class="panel"><h3>สินค้าขายดี เดือนนี้</h3>
-        <div class="dashboard-top-products"><div>${topItems.slice(0,5).map(([name,val],i)=>`<div class="legenditem"><span class="swatch" style="background:${colors[i%colors.length]}"></span><span class="lname">${escapeHtml(name)}</span><span class="lval">${val.toLocaleString('th-TH',{maximumFractionDigits:2})}</span></div>`).join('')}</div><div>${topItems.slice(5,10).map(([name,val],i)=>`<div class="legenditem"><span class="swatch" style="background:${colors[(i+5)%colors.length]}"></span><span class="lname">${escapeHtml(name)}</span><span class="lval">${val.toLocaleString('th-TH',{maximumFractionDigits:2})}</span></div>`).join('')}</div></div>
-      </div>
-    </div>
+    <div class="statrow dashboard-summary-row">${[['today','วันนี้',todaySummary],['month','เดือนนี้',monthSummary]].map(([period,label,summary])=>`<section class="stat dashboard-summary-card" data-dashboard-period="${period}"><div><div class="slabel">ยอดขาย${label}</div><div class="sval" data-summary-sales>${summary.total<0?'-':''}${fmtMoney(Math.abs(summary.total))}</div></div>${canViewProfit?`<div><div class="slabel">กำไร${label}</div><div class="sval" data-summary-profit>${dashboardProfitHtml(summary)}</div></div>`:''}</section>`).join('')}</div>
+    ${renderDashboardCalendar(monthSales,canViewProfit)}
     <div class="panel">
       <div class="seamless-table-wrap"><table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-bill"><col class="ht-time"><col class="ht-items"><col class="ht-total"><col class="ht-pay"></colgroup><thead><tr><th>วันที่</th><th>เลขที่บิล</th><th>เวลา</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th></tr></thead>
       <tbody>${completedSales.length?completedSales.slice(0,8).map(s=>`<tr><td>${escapeHtml(fmtDate(s.date))}</td><td class="mono">${escapeHtml(s.ref||s.id)}</td><td>${escapeHtml(saleHistoryTimeDisplay(s.time))}</td><td class="history-items-cell">${salesHistoryItemsPreview(s.items)}</td><td class="mono num">${fmtMoney(s.total)}</td><td>${escapeHtml(s.payMethod||'-')}</td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">ยังไม่มีรายการขาย</td></tr>`}</tbody></table></div>

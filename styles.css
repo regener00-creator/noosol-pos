@@ -146,23 +146,30 @@
   .grid2col{display:grid;grid-template-columns:1.6fr 1fr;gap:14px;margin-bottom:14px;align-items:stretch;}
   .grid2col.grid2col-even{grid-template-columns:1fr 1fr;}
   .grid2col.align-top{align-items:start;}
-  .dashboard-grid2col{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .statrow.dashboard-summary-row{grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;}
+  .dashboard-summary-card{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;padding:22px 24px;}
+  .dashboard-summary-card>div+div{border-left:1px solid var(--border);padding-left:24px;}
+  .dashboard-summary-card .slabel{font-size:14px;margin-bottom:10px;}
+  .dashboard-summary-card .sval{font-size:26px;overflow-wrap:anywhere;}
+  .dashboard-profit{color:#2D7D3D;}.dashboard-loss{color:var(--danger);}.dashboard-profit-unknown{color:var(--text-muted);}
+  .dashboard-calendar header{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:2px 0 18px;}
+  .dashboard-calendar header h3{font-size:18px;}.dashboard-calendar header>span{font-size:16px;font-weight:600;color:var(--primary);}
+  .dashboard-calendar-scroll{overflow-x:auto;}
+  .dashboard-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:1px;background:var(--border);border:1px solid var(--border);border-radius:12px;overflow:hidden;min-width:770px;}
+  .dashboard-weekday{background:var(--primary);color:#fff;text-align:center;padding:12px 4px;font-weight:600;}
+  .dashboard-calendar-day,.dashboard-calendar-blank{background:var(--surface);padding:12px;min-width:0;}
+  .dashboard-calendar-blank{background:var(--bg);}
+  .dashboard-calendar-day.is-today{background:var(--primary-soft);box-shadow:inset 0 0 0 2px var(--primary);}
+  .dashboard-calendar-day.is-future{background:var(--bg);color:var(--text-muted);}
+  .dashboard-calendar-day time{display:inline-block;font-size:16px;font-weight:700;margin-bottom:10px;}
+  .dashboard-calendar-day dl{margin:0;display:grid;gap:7px;font-size:12px;}
+  .dashboard-calendar-day dl>div{display:flex;justify-content:space-between;gap:6px;flex-wrap:wrap;}
+  .dashboard-calendar-day dt{color:var(--text-muted);}.dashboard-calendar-day dd{margin:0;font-weight:600;overflow-wrap:anywhere;}
+  .dashboard-day-orders{border-top:1px solid var(--border);padding-top:7px;margin-top:2px;}
+  @media(max-width:800px){.statrow.dashboard-summary-row{grid-template-columns:1fr;}.dashboard-summary-card{padding:18px;}.dashboard-calendar{padding:12px;}}
   .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;}
   .panel h3{margin:0 0 3px 0;font-size:14px;font-weight:600;}
   .panel .psub{font-size:11.5px;color:var(--text-muted);margin-bottom:12px;}
-  .barchart{display:flex;align-items:flex-end;gap:12px;height:150px;padding-top:10px;}
-  .barcol{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end;}
-  .bar{width:100%;max-width:32px;border-radius:6px 6px 2px 2px;background:linear-gradient(180deg,var(--primary) 0%,var(--primary-dark) 100%);}
-  .bar.today{background:linear-gradient(180deg,var(--accent) 0%,#C98420 100%);}
-  .barcol .blabel{font-size:10.5px;color:var(--text-muted);}
-  .barcol .bval{font-size:10px;font-family:inherit;color:var(--text-muted);}
-  .legenditem{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border);}
-  .legenditem:last-child{border-bottom:none;}
-  .legenditem .swatch{width:9px;height:9px;border-radius:3px;flex-shrink:0;}
-  .legenditem .lname{font-size:12.5px;flex:1;}
-  .legenditem .lval{font-family:inherit;font-size:12px;color:var(--text-muted);}
-  .dashboard-top-products{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px;}
-  .dashboard-top-products>div{min-width:0;}
   table{width:100%;border-collapse:collapse;background:var(--surface);border-radius:var(--radius);overflow:clip;border:0;}
   th{text-align:right;font-size:11.5px;color:var(--text-muted);font-weight:600;padding:10px 13px;border-bottom:1px solid var(--border);background:#F6F1EF;}
   td{padding:10px 13px;font-size:13px;border-bottom:1px solid var(--border);}

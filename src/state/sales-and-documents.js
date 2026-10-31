@@ -15,7 +15,6 @@ async function updateSaleDocumentMetadata(saleId,metadata){
   salesHistory[index]={...salesHistory[index],...(data?.sale||data||{}),id};
   return salesHistory[index];
 }
-const weekSales = [ {d:'28 ก.ค.',v:420}, {d:'29 ก.ค.',v:580}, {d:'30 ก.ค.',v:310}, {d:'31 ก.ค.',v:490}, {d:'1 ส.ค.',v:670}, {d:'2 ส.ค.',v:174}, {d:'3 ส.ค.',v:96} ];
 let TODAY_STR = currentDateStr();
 const DEFAULT_DOCUMENT_PREFIXES={sale:'RE',cashBill:'CB',taxInvoice:'INV',quotation:'QT',shortage:'SH',productReturn:'RT',goodsReceipt:'RI',productExchange:'EX',transfer:'TF',inspection:'CHECK',stockAdjustment:'SC',cashShift:'CS',warehouse:'WH'};
 let documentPrefixes={...DEFAULT_DOCUMENT_PREFIXES};

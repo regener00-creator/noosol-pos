@@ -215,7 +215,7 @@ test('critical render and payment paths retain output encoding and atomic RPC gu
 
 test('report search results, dashboard summaries, and system-user action attributes encode stored values', () => {
   const dashboardSource = sourceBetween('function renderDashboard(', 'function matchesBarcode(');
-  assert.match(dashboardSource, /<span class="lname">\$\{escapeHtml\(name\)\}<\/span>/);
+  assert.doesNotMatch(dashboardSource, /dashboard-top-products|weekSales/);
   assert.match(dashboardSource, /\$\{escapeHtml\(s\.ref\|\|s\.id\)\}/);
   assert.match(dashboardSource, /\$\{escapeHtml\(s\.payMethod\|\|'-'\)\}/);
 
