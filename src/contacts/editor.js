@@ -187,8 +187,8 @@ function renderContactForm(){
     <div class="panel contact-editor-panel">${contactEditorFieldsHtml(c,fixedType)}</div>`;
 }
 
-function renderCustomerPricingForm(){
-  const customer=contacts.find(contact=>Number(contact.id)===Number(editingCustomerPriceContactId));
+function renderCustomerPricingForm(customerId=editingCustomerPriceContactId){
+  const customer=contacts.find(contact=>Number(contact.id)===Number(customerId));
   if(!customer) return '<div class="empty">ไม่พบข้อมูลลูกค้า</div>';
   const customerPrices=normalizedCustomerPriceRules(customer);
   return `<div class="rpt customer-pricing-page">

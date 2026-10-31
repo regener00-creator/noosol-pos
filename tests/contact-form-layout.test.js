@@ -2,10 +2,10 @@ const assert = require('node:assert/strict');
 const source = require('./load-app-source')();
 
 const formStart = source.indexOf('function contactEditorFieldsHtml(c,fixedType=\'\')');
-const formEnd = source.indexOf('function renderCustomerPricingForm()', formStart);
+const formEnd = source.indexOf('function renderCustomerPricingForm(', formStart);
 const form = source.slice(formStart, formEnd);
 const saveStart = source.indexOf('function saveContactEditorData(');
-const saveEnd = source.indexOf('async function saveCustomerPricing()', saveStart);
+const saveEnd = source.indexOf('async function saveCustomerPricing(', saveStart);
 const save = source.slice(saveStart, saveEnd);
 
 assert.ok(formStart >= 0 && formEnd > formStart, 'contact editor form must exist');

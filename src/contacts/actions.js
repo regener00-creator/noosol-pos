@@ -1,7 +1,7 @@
-function collectCustomerPriceRules(){
+function collectCustomerPriceRules(root=document){
   const rules=[];
   const duplicateKeys=new Set();
-  for(const row of document.querySelectorAll('[data-customer-price-row]')){
+  for(const row of root.querySelectorAll('[data-customer-price-row]')){
     const productId=Number(row.querySelector('.customer-price-product-id')?.value||row.dataset.productId);
     const unit=String(row.querySelector('.customer-price-unit')?.value||'').trim();
     const priceText=String(row.querySelector('.customer-price-value')?.value||'').trim();
@@ -126,20 +126,22 @@ async function saveContact(){
   render();
 }
 
-async function saveCustomerPricing(){
-  const customer=contacts.find(contact=>Number(contact.id)===Number(editingCustomerPriceContactId));
+async function saveCustomerPricing({root=document,customerId=editingCustomerPriceContactId,onSaved}={}){
+  if(!canPerformPageAction('edit','customers')){showToast('ไม่มีสิทธิ์แก้ไขราคาพิเศษ','danger-top');return;}
+  const saveButton=root.querySelector('#saveCustomerPricingBtn');
+  if(saveButton?.disabled) return;
+  const customer=contacts.find(contact=>Number(contact.id)===Number(customerId));
   if(!customer){ showToast('ไม่พบข้อมูลลูกค้า','danger-top'); return; }
-  const customerPrices=collectCustomerPriceRules();
+  const customerPrices=collectCustomerPriceRules(root);
   if(customerPrices===null) return;
   customer.customerPrices=customerPrices;
   persistContacts();
-  const saveButton=document.getElementById('saveCustomerPricingBtn');
   if(saveButton){ saveButton.disabled=true; saveButton.textContent='กำลังบันทึก...'; }
   try{
     await persistContactImmediately(customer);
-    editingCustomerPriceContactId=null;
     showToast(`บันทึกราคาพิเศษของ “${customer.name}” แล้ว`);
-    render();
+    if(onSaved){if(saveButton)saveButton.disabled=false;onSaved(customer);}
+    else{editingCustomerPriceContactId=null;render();}
   }catch(error){
     console.warn('save customer pricing',error);
     rememberSyncUiError(error,{operation:'save_customer_pricing',tableName:'contacts',recordId:customer.id,fallbackMessage:'บันทึกราคาพิเศษไม่สำเร็จ'});
@@ -155,4 +157,84 @@ function deleteContact(id){
   persistContacts();
   showToast(`ลบรายชื่อ "${contact.name}" แล้ว`);
   render();
+}
+
+function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPriceContactId,onClose=()=>{editingCustomerPriceContactId=null;render();},onSaved}={}){
+  const cancelCustomerPricingBtn=root.querySelector('#cancelCustomerPricingBtn');
+  if(cancelCustomerPricingBtn) cancelCustomerPricingBtn.addEventListener('click',onClose);
+  const saveCustomerPricingBtn=root.querySelector('#saveCustomerPricingBtn');
+  if(saveCustomerPricingBtn) saveCustomerPricingBtn.addEventListener('click',()=>saveCustomerPricing({root,customerId,onSaved}));
+  const customerPriceRows=root.querySelector('#customerPriceRows');
+  const bindCustomerPriceRows=()=>root.querySelectorAll('[data-customer-price-row]').forEach(row=>{
+    const unitSelect=row.querySelector('.customer-price-unit');
+    if(unitSelect){
+      unitSelect.dataset.previousUnit=unitSelect.value;
+      unitSelect.onchange=()=>{
+        const productId=Number(row.querySelector('.customer-price-product-id')?.value||row.dataset.productId);
+        const duplicate=[...root.querySelectorAll('[data-customer-price-row]')].find(other=>other!==row&&Number(other.querySelector('.customer-price-product-id')?.value||other.dataset.productId)===productId&&other.querySelector('.customer-price-unit')?.value===unitSelect.value);
+        if(duplicate){ showToast('สินค้านี้มีราคาพิเศษของหน่วยที่เลือกอยู่แล้ว','danger-top'); unitSelect.value=unitSelect.dataset.previousUnit; return; }
+        const product=products.find(item=>Number(item.id)===productId);
+        const option=productUnitOptions(product).find(item=>item.name===unitSelect.value);
+        row.querySelector('.customer-price-barcode').textContent=productBarcodeForUnit(product,unitSelect.value)||'-';
+        row.querySelector('.customer-price-cost').value=fmtMoney(option?.cost||0);
+        unitSelect.dataset.previousUnit=unitSelect.value;
+      };
+    }
+    const remove=row.querySelector('.customer-price-remove');
+    if(remove) remove.onclick=()=>{
+      row.remove();
+      if(customerPriceRows&&!customerPriceRows.querySelector('[data-customer-price-row]')) customerPriceRows.innerHTML='<tr class="customer-price-empty"><td colspan="6">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>';
+    };
+  });
+  const customerPriceSearch=root.querySelector('#customerPriceSearch');
+  const customerPriceSearchResults=root.querySelector('#customerPriceSearchResults');
+  const customerPriceMatches=query=>{
+    const text=String(query||'').trim(),lower=text.toLowerCase();
+    if(!text) return [];
+    const exact=findProductByExactCode(text);
+    const matches=activeProducts().filter(product=>product.name.toLowerCase().includes(lower)||(product.sku||'').toLowerCase().includes(lower)||matchesBarcode(product,text)).slice(0,8);
+    if(exact?.product){
+      const filtered=matches.filter(product=>Number(product.id)!==Number(exact.product.id));
+      return [{product:exact.product,unit:exact.unitName||exact.product.unit},...filtered.map(product=>({product,unit:product.unit}))].slice(0,8);
+    }
+    return matches.map(product=>({product,unit:product.unit}));
+  };
+  const addCustomerPriceProduct=(product,unit)=>{
+    if(!product||!customerPriceRows) return;
+    const selectedUnit=productUnitOptions(product).some(option=>option.name===unit)?unit:product.unit;
+    const existing=[...customerPriceRows.querySelectorAll('[data-customer-price-row]')].find(row=>Number(row.querySelector('.customer-price-product-id')?.value||row.dataset.productId)===Number(product.id)&&row.querySelector('.customer-price-unit')?.value===selectedUnit);
+    if(existing){ showToast(`มีราคาพิเศษ “${product.name}” หน่วย ${selectedUnit} อยู่แล้ว`); existing.querySelector('.customer-price-value')?.focus(); return; }
+    customerPriceRows.querySelector('.customer-price-empty')?.remove();
+    customerPriceRows.insertAdjacentHTML('beforeend',customerPriceRowHtml({productId:product.id,unit:selectedUnit,price:''},customerPriceRows.querySelectorAll('[data-customer-price-row]').length));
+    bindCustomerPriceRows();
+    customerPriceRows.querySelector('[data-customer-price-row]:last-child .customer-price-value')?.focus();
+    if(customerPriceSearch) customerPriceSearch.value='';
+    if(customerPriceSearchResults){ customerPriceSearchResults.hidden=true; customerPriceSearchResults.innerHTML=''; }
+  };
+  const renderCustomerPriceSearchResults=()=>{
+    if(!customerPriceSearch||!customerPriceSearchResults) return [];
+    const query=customerPriceSearch.value.trim();
+    const matches=customerPriceMatches(query);
+    if(!query){ customerPriceSearchResults.hidden=true; customerPriceSearchResults.innerHTML=''; return matches; }
+    customerPriceSearchResults.innerHTML=matches.length?matches.map(({product,unit})=>`<button class="customer-price-search-result" type="button" data-customer-price-product="${escapeHtml(product.id)}" data-customer-price-unit="${escapeHtml(unit)}"><span><b>${escapeHtml(product.name)}</b><small>${escapeHtml(productBarcodeForUnit(product,unit)||product.sku||'-')} · ${escapeHtml(unit)}</small></span><strong class="mono">${fmtMoney(regularProductUnitPrice(product,unit))}</strong></button>`).join(''):'<div class="customer-price-search-empty">ไม่พบสินค้า</div>';
+    customerPriceSearchResults.hidden=false;
+    customerPriceSearchResults.querySelectorAll('[data-customer-price-product]').forEach(button=>button.addEventListener('mousedown',event=>{
+      event.preventDefault();
+      addCustomerPriceProduct(products.find(product=>Number(product.id)===Number(button.dataset.customerPriceProduct)),button.dataset.customerPriceUnit);
+    }));
+    return matches;
+  };
+  if(customerPriceSearch){
+    customerPriceSearch.addEventListener('input',renderCustomerPriceSearchResults);
+    customerPriceSearch.addEventListener('keydown',event=>{
+      if(event.key!=='Enter') return;
+      event.preventDefault();
+      const matches=customerPriceMatches(customerPriceSearch.value);
+      if(matches.length) addCustomerPriceProduct(matches[0].product,matches[0].unit);
+      else showToast('ไม่พบสินค้าที่ค้นหา','danger-top');
+    });
+    customerPriceSearch.addEventListener('blur',()=>setTimeout(()=>{ if(customerPriceSearchResults) customerPriceSearchResults.hidden=true; },120));
+    customerPriceSearch.addEventListener('focus',renderCustomerPriceSearchResults);
+  }
+  bindCustomerPriceRows();
 }

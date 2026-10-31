@@ -1590,6 +1590,11 @@
   .customer-price-row .customer-price-cost{background:var(--bg);color:var(--text-muted);cursor:default}
   .customer-price-remove{width:40px;height:40px;font-size:20px}
   .customer-price-empty td{text-align:center!important;color:var(--text-muted);padding:24px}
+  .pos-customer-pricing-modal{width:min(1200px,96vw);max-width:1200px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden}
+  .pos-customer-pricing-body{padding:16px 20px;overflow:auto;min-height:0}
+  .pos-customer-pricing-body .customer-pricing-panel{margin:0}
+  .pos-customer-pricing-actions{padding:14px 20px;border-top:1px solid var(--border)}
+  .pos-customer-pricing-actions .form-final-actions{justify-content:flex-end}
   @media(max-width:760px){.customer-pricing-heading{display:grid}}
   .paymethod{position:relative;display:flex;align-items:center;justify-content:center;gap:12px;padding:15px 18px;border:1px solid var(--border);background:var(--surface);border-radius:10px;font-family:inherit;font-size:15px;font-weight:500;cursor:pointer;text-align:center;}
   .paymethod>span{position:absolute;left:26px;}

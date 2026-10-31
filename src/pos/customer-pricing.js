@@ -91,6 +91,44 @@ function refreshCartCustomerPrices(){
     if(product) applySalePriceToLine(line,product,line.unit);
   });
 }
+async function openPOSCustomerPricing(customerId){
+  if(currentTab!=='checkout'||!canAccessTab('customers')||String(activeSaleCustomer()?.id)!==String(customerId)) return;
+  const customer=contacts.find(item=>String(item.id)===String(customerId));if(!customer) return;
+  document.querySelector('.pos-customer-pricing-overlay')?.remove();
+  const context=captureWorkspaceRead(),overlay=document.createElement('div');
+  overlay.className='modal-overlay pos-customer-pricing-overlay';
+  overlay.innerHTML=`<div class="modal pos-customer-pricing-modal" role="dialog" aria-modal="true" aria-labelledby="posCustomerPricingTitle"><div class="modal-head"><h3 id="posCustomerPricingTitle">ราคาพิเศษสำหรับลูกค้ารายนี้ · ${escapeHtml(customer.name)}</h3><button class="modal-close" type="button" aria-label="ปิดราคาพิเศษ">×</button></div><div class="pos-customer-pricing-body"><div role="status">กำลังโหลดราคาพิเศษ...</div></div><div class="pos-customer-pricing-actions"></div></div>`;
+  document.body.appendChild(overlay);
+  const close=()=>{if(overlay.querySelector('#saveCustomerPricingBtn')?.disabled)return;overlay.remove();document.querySelector('[data-customer-special-prices]')?.focus();};
+  overlay.querySelector('.modal-close').onclick=close;
+  try{
+    await ensurePageCodeLoaded('customers');
+    if(!overlay.isConnected) return;
+    if(!isWorkspaceReadCurrent(context)||currentTab!=='checkout'||String(activeSaleCustomer()?.id)!==String(customerId)){overlay.remove();return;}
+    const host=overlay.querySelector('.pos-customer-pricing-body');
+    host.innerHTML=renderCustomerPricingForm(customerId);
+    const actions=host.querySelector('.form-final-actions');
+    overlay.querySelector('.pos-customer-pricing-actions').append(actions);
+    host.querySelector('.pagehead').remove();
+    overlay.querySelector('#cancelCustomerPricingBtn').textContent='ปิด';
+    if(canPerformPageAction('edit','customers')){
+      attachCustomerPricingEvents(overlay,{customerId,onClose:close,onSaved:()=>{
+        close();
+        if(isWorkspaceReadCurrent(context)&&currentTab==='checkout'){refreshCartCustomerPrices();render();}
+      }});
+    }else{
+      host.querySelectorAll('input,select').forEach(input=>input.disabled=true);
+      host.querySelectorAll('.customer-price-remove,.customer-price-search-wrap').forEach(node=>node.remove());
+      overlay.querySelector('#saveCustomerPricingBtn').remove();
+      overlay.querySelector('#cancelCustomerPricingBtn').onclick=close;
+    }
+    overlay.querySelector('#customerPriceSearch:not(:disabled)')?.focus();
+  }catch(error){
+    if(!overlay.isConnected)return;
+    overlay.querySelector('.pos-customer-pricing-body').innerHTML=`<div role="alert">${escapeHtml(error?.message||'โหลดราคาพิเศษไม่สำเร็จ')}</div><button class="btn ghost" type="button" data-retry-customer-prices>ลองใหม่</button>`;
+    overlay.querySelector('[data-retry-customer-prices]').onclick=()=>{close();openPOSCustomerPricing(customerId);};
+  }
+}
 function openPOSCustomerPicker(){
   const customers=customersList();
   const selected=activeSaleCustomer();

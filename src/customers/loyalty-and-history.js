@@ -73,7 +73,7 @@ function customerLoyaltyPanelHtml(customer,readOnly=false){
       :`<div class="loyalty-account-summary">${balanceHtml}<small class="loyalty-expiry-date">/ หมดอายุ <strong>${escapeHtml(fmtDateShort(account.expiresOn))}</strong></small></div>${expiryWarningHtml}${adjustmentHtml}`;
   }
   const redeemedSummary=redeemed?`<small>ใช้ ${redeemed} แต้ม ลด ${fmtMoney(redeemed)} บาท (รวมในส่วนลดแล้ว)</small>`:'';
-  const redeemHtml=readOnly?'':`<div class="loyalty-redeem-row"><button class="btn primary small loyalty-redeem-button" data-redeem-loyalty type="button" ${!account||!eligible||Number(account.balance)<=0?'disabled':''}>ใช้แต้มเป็นส่วนลด</button><button class="btn ghost small loyalty-customer-history-button" data-customer-history="${escapeHtml(customer.id)}" type="button">ประวัติลูกค้า</button>${saleLoyaltySelection?'<button class="btn ghost small" data-clear-loyalty type="button">ยกเลิกใช้แต้ม</button>':''}</div>${redeemedSummary}`;
+  const redeemHtml=readOnly?'':`<div class="loyalty-redeem-row"><button class="btn primary small loyalty-redeem-button" data-redeem-loyalty type="button" ${!account||!eligible||Number(account.balance)<=0?'disabled':''}>ใช้แต้มเป็นส่วนลด</button><button class="btn ghost small loyalty-customer-history-button" data-customer-history="${escapeHtml(customer.id)}" type="button">ประวัติลูกค้า</button>${canAccessTab('customers')?`<button class="btn ghost small" data-customer-special-prices="${escapeHtml(customer.id)}" type="button">ราคาพิเศษ</button>`:''}${saleLoyaltySelection?'<button class="btn ghost small" data-clear-loyalty type="button">ยกเลิกใช้แต้ม</button>':''}</div>${redeemedSummary}`;
   const titleHtml=readOnly?'<strong>แต้มสะสม</strong>':'<div class="loyalty-panel-title"><strong>แต้มสะสม</strong></div>';
   const pointsRuleHtml=readOnly?'':'<small class="loyalty-points-rule">• 100 บาท = 1 แต้ม / ใช้แต้มได้เมื่อยอดถึง 1,000 บาท</small>';
   const tierProgressHtml=readOnly?'':customerTierProgressHtml(tierState,customer.id,'pos');
@@ -153,6 +153,7 @@ function bindCustomerLoyaltyEvents(){
   document.querySelectorAll('[data-clear-loyalty]').forEach(button=>button.onclick=()=>{saleLoyaltySelection=null;render();});
   document.querySelectorAll('[data-redeem-loyalty]').forEach(button=>button.onclick=openLoyaltyRedemption);
   document.querySelectorAll('[data-customer-history]').forEach(button=>button.onclick=()=>openCustomerPurchaseHistory(button.dataset.customerHistory));
+  document.querySelectorAll('[data-customer-special-prices]').forEach(button=>button.onclick=()=>openPOSCustomerPricing(button.dataset.customerSpecialPrices));
 }
 async function openLoyaltyRedemption(){
   const customer=activeSaleCustomer();if(!customer?.id) return;
