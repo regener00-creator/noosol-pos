@@ -134,6 +134,12 @@ async function saveCustomerPricing({root=document,customerId=editingCustomerPric
   if(!customer){ showToast('ไม่พบข้อมูลลูกค้า','danger-top'); return; }
   const customerPrices=collectCustomerPriceRules(root);
   if(customerPrices===null) return;
+  const belowCost=customerPrices.flatMap(rule=>{
+    const product=products.find(item=>Number(item.id)===Number(rule.productId));
+    const cost=Number(productUnitOptions(product).find(option=>option.name===rule.unit)?.cost)||0;
+    return rule.price<cost?[`${product.name} (${rule.unit}) — ราคาพิเศษ ${fmtMoney(rule.price)} บาท / ทุน ${fmtMoney(cost)} บาท`]:[];
+  });
+  if(belowCost.length&&!confirm(`ราคาพิเศษต่ำกว่าทุน ${belowCost.length} รายการ อาจทำให้ขายขาดทุน\n\n${belowCost.join('\n')}\n\nยืนยันบันทึกราคาพิเศษนี้หรือไม่?`)) return;
   customer.customerPrices=customerPrices;
   persistContacts();
   if(saveButton){ saveButton.disabled=true; saveButton.textContent='กำลังบันทึก...'; }
@@ -201,6 +207,8 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
     }
     const remove=row.querySelector('.customer-price-remove');
     if(remove) remove.onclick=()=>{
+      const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
+      if(!confirm(`ยืนยันลบ “${product?.name||'สินค้า'}” หน่วย ${unitSelect.value} ออกจากรายการราคาพิเศษหรือไม่?`)) return;
       row.remove();
       if(customerPriceRows&&!customerPriceRows.querySelector('[data-customer-price-row]')) customerPriceRows.innerHTML='<tr class="customer-price-empty"><td colspan="7">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>';
     };
