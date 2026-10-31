@@ -36,7 +36,7 @@ assert.match(productPersistence, /markProductChangesDirty\(productChanges\)/);
 assert.match(productPersistence, /persistProductChangesToIndexedDB\(productChanges\)/);
 assert.doesNotMatch(html, /setTimeout\([^\n]*persistProductsToIndexedDB[^\n]*1200/);
 
-const manifestLoad = section('async function loadProductRowsFromSupabase(){', '// Content-hash guard:');
+const manifestLoad = section('async function loadProductRowsFromSupabase({checkSignature=false,force=false}={}){', '// Content-hash guard:');
 assert.match(manifestLoad, /mergeRemoteProductsWithDirtyLocal/);
 assert.match(manifestLoad, /if\(productRowsPersisted\) await saveProductManifestCache\(/);
 assert.match(manifestLoad, /fetchProductRevisionManifest\(\)/);

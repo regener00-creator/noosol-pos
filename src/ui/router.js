@@ -194,13 +194,18 @@ function ensureOnDemandDataForTab(tab,{background=false}={}){
   if(!onDemandTabJobs.has(key)){
     const context=captureWorkspaceRead();
     const scope=salesViewScope();
-    const tasks=[];
-    if(salesNeeded) tasks.push(loadSalesHistoryFromSupabase({from:requests.sales.range.from,to:requests.sales.range.to,includeHolds:requests.sales.includeHolds,includeRecent:requests.sales.includeRecent,includeVoids:requests.sales.includeVoids,voidsOnly:requests.sales.voidsOnly}));
-    documentsNeeded.forEach(item=>tasks.push(loadDocumentTableFromSupabase(item.table,item)));
+    const displayedView=document.getElementById('main')?.renderedDataView;
+    const tasks=[],readStatuses=[];
+    if(salesNeeded){
+      const readStatus={};readStatuses.push(readStatus);
+      tasks.push(loadSalesHistoryFromSupabase({from:requests.sales.range.from,to:requests.sales.range.to,includeHolds:requests.sales.includeHolds,includeRecent:requests.sales.includeRecent,includeVoids:requests.sales.includeVoids,voidsOnly:requests.sales.voidsOnly,readStatus}));
+    }
+    documentsNeeded.forEach(item=>{const readStatus={};readStatuses.push(readStatus);tasks.push(loadDocumentTableFromSupabase(item.table,{...item,readStatus}));});
     const job=Promise.all(tasks).then(()=>{
       if(!isWorkspaceReadCurrent(context)||onDemandTabJobs.get(key)!==job) return;
       onDemandTabJobs.delete(key); onDemandTabErrors.delete(key);
       if(job.background){
+        if(!pendingSalesViewRefresh&&readStatuses.every(status=>status.unchanged===true)&&displayedView?.tab===tab&&displayedView.date===TODAY_STR&&document.getElementById('main')?.renderedDataView===displayedView) return;
         pendingSalesViewRefresh={context,scope,tab,key};
         applyPendingSalesViewRefresh();
         return;
@@ -304,6 +309,7 @@ function scheduleSalesViewRefresh(){
   salesViewRefreshTimer=setTimeout(()=>{
     if(salesViewIdle()){
       TODAY_STR=currentDateStr();
+      if(currentTab==='dashboard') refreshDashboardCalendarIfStale();
       applyPendingSalesViewRefresh();
       const requests=dataRequestsForTab(currentTab);
       if((requests.sales&&!salesRequestLoaded(requests.sales))||requests.documents.some(item=>!documentRequestLoaded(item.table,item))) ensureOnDemandDataForTab(currentTab,{background:true});

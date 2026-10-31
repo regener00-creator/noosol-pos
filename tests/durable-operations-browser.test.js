@@ -17,7 +17,7 @@ let browser;
     const PRODUCT_CACHE_DB_NAME='durable-operation-test',PRODUCT_CACHE_DB_VERSION=3,PRODUCT_CACHE_META_STORE='meta',PRODUCT_CACHE_PRODUCTS_STORE='products',PRODUCT_CACHE_WORKSPACE_STORE='workspace',OFFLINE_PRODUCTS_STORE='offline-products',PENDING_STOCK_OPERATIONS_KEY='legacy';
     const cloudClean=x=>x,sha256Hex=async x=>JSON.stringify(x),rememberSyncUiError=()=>{},reportClientEvent=()=>{},setSyncUiState=()=>{},showToast=()=>{};
     const sb={rpc:async()=>({data:{ok:true},error:null})};
-    let workspaceOutboxVersions=new Map(),workspaceCachePendingSnapshot=null,workspaceCacheWritePromise=Promise.resolve(true),workspaceCacheSaveFailed=false,workspaceRecoveryLoadedActor='',workspaceRecoveryActorId='',workspaceRecoveryEntries=new Map();
+    let workspaceOutboxVersions=new Map(),workspaceCachePendingSnapshot=null,workspaceSnapshotRequested=false,workspaceCacheWritePromise=Promise.resolve(true),workspaceCacheSaveFailed=false,workspaceRecoveryLoadedActor='',workspaceRecoveryActorId='',workspaceRecoveryEntries=new Map();
     const WORKSPACE_STORAGE_KEY='workspace';
     const applyWorkspaceData=value=>window.recovered=value,workspaceRecoveryTables=()=>[];
     const customersList=()=>window.testCustomers,activeSaleCustomer=()=>null,normalizedCustomerPriceRules=()=>[],escapeHtml=s=>String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;');

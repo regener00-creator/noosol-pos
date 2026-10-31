@@ -1,5 +1,16 @@
 let dashboardCalendarMonth='';
 let dashboardCalendarLoad=null;
+const dashboardCalendarCache=new Map();
+const DASHBOARD_CALENDAR_TTL_MS=60000;
+function dashboardCalendarCacheKey(month){
+  const context=captureWorkspaceRead();
+  return `${context.actor}:${context.generation}:${dashboardCalendarScope()}:${month}`;
+}
+function refreshDashboardCalendarIfStale(){
+  const state=dashboardCalendarLoad;
+  if(currentTab!=='dashboard'||!state||state.month!==dashboardSelectedMonth()||state.loading||Date.now()-state.checkedAt<DASHBOARD_CALENDAR_TTL_MS) return;
+  state.loading=true;void loadDashboardCalendar(state);
+}
 function dashboardCalendarBounds(){
   const current=TODAY_STR.slice(0,7),[year,month]=current.split('-').map(Number),first=new Date(year,month-12,1);
   return {first:`${first.getFullYear()}-${String(first.getMonth()+1).padStart(2,'0')}`,current};
@@ -25,8 +36,12 @@ function dashboardSalesSummary(sales,summary={total:0,profit:0,orders:0,profitCo
 }
 async function loadDashboardCalendar(state){
   if(dashboardCalendarLoad!==state||!isWorkspaceReadCurrent(state.context)||state.scope!==dashboardCalendarScope())return;
+  const before=state.loaded?JSON.stringify([...state.daily]):null,previousError=state.error;
   try{
     if(offlinePosMode())throw new Error('กรุณาเชื่อมต่ออินเทอร์เน็ตเพื่อดูยอดย้อนหลัง');
+    const signature=await readVisibleDataSignature('sales');
+    if(dashboardCalendarLoad!==state||!isWorkspaceReadCurrent(state.context)||state.scope!==dashboardCalendarScope())return;
+    if(signature&&state.loaded&&state.signature===signature){state.checkedAt=Date.now();state.error='';return;}
     const range=monthServerRange(state.month),daily=new Map();let cursor=null;
     // Stream one month in stable ID pages, retaining only daily summaries.
     while(true){
@@ -46,11 +61,15 @@ async function loadDashboardCalendar(state){
       if(rows.length<500)break;
       const next=String(rows.at(-1).id);if(next===cursor)throw new Error('โหลดข้อมูลเดือนนี้ไม่ครบ กรุณาลองใหม่');cursor=next;
     }
-    state.daily=daily;state.loaded=true;
+    state.daily=daily;state.loaded=true;state.error='';state.signature=signature;state.checkedAt=Date.now();
+    const key=dashboardCalendarCacheKey(state.month);
+    dashboardCalendarCache.delete(key);dashboardCalendarCache.set(key,state);
+    while(dashboardCalendarCache.size>12) dashboardCalendarCache.delete(dashboardCalendarCache.keys().next().value);
   }catch(error){state.error=error?.message||'โหลดข้อมูลเดือนนี้ไม่สำเร็จ';}
   finally{
     state.loading=false;
-    if(dashboardCalendarLoad===state&&isWorkspaceReadCurrent(state.context)&&state.scope===dashboardCalendarScope()&&currentTab==='dashboard')render();
+    if(dashboardCalendarLoad===state&&isWorkspaceReadCurrent(state.context)&&state.scope===dashboardCalendarScope()&&currentTab==='dashboard'&&
+      (before===null||before!==JSON.stringify([...state.daily])||previousError!==state.error))render();
   }
 }
 function attachDashboardCalendarEvents(){
@@ -65,7 +84,7 @@ function attachDashboardCalendarEvents(){
     dashboardCalendarMonth='';dashboardCalendarLoad=null;render();
     requestAnimationFrame(()=>document.querySelector('.dashboard-calendar-day.is-today')?.scrollIntoView({block:'nearest',inline:'center'}));
   });
-  document.getElementById('retryDashboardCalendar')?.addEventListener('click',()=>{dashboardCalendarLoad=null;render();});
+  document.getElementById('retryDashboardCalendar')?.addEventListener('click',()=>{dashboardCalendarCache.delete(dashboardCalendarCacheKey(dashboardSelectedMonth()));dashboardCalendarLoad=null;render();});
 }
 function dashboardProfitHtml(summary){
   if(!summary.profitComplete)return '<span class="dashboard-profit-unknown" title="บางบิลยังไม่มีข้อมูลต้นทุนครบ">—</span>';
@@ -81,8 +100,10 @@ function renderDashboardCalendar(monthSales,canViewProfit){
   if(monthKey!==TODAY_STR.slice(0,7)){
     const state=dashboardCalendarLoad;
     if(!state||state.month!==monthKey||state.scope!==dashboardCalendarScope()||!isWorkspaceReadCurrent(state.context)){
-      historical=dashboardCalendarLoad={month:monthKey,scope:dashboardCalendarScope(),context:captureWorkspaceRead(),loading:true,loaded:false,error:'',daily:new Map()};
-      setTimeout(()=>loadDashboardCalendar(historical),0);
+      const cached=dashboardCalendarCache.get(dashboardCalendarCacheKey(monthKey));
+      historical=dashboardCalendarLoad=cached||{month:monthKey,scope:dashboardCalendarScope(),context:captureWorkspaceRead(),loaded:false,error:'',daily:new Map()};
+      historical.loading=!historical.loaded||Date.now()-historical.checkedAt>=DASHBOARD_CALENDAR_TTL_MS;
+      if(historical.loading) setTimeout(()=>loadDashboardCalendar(historical),0);
     }else historical=state;
   }
   const cells=Array.from({length:Math.ceil((firstDay.getDay()+days)/7)*7},(_,index)=>{
@@ -92,7 +113,7 @@ function renderDashboardCalendar(monthSales,canViewProfit){
     const summary=historical?historical.daily.get(date)||dashboardSalesSummary([]):dashboardSalesSummary(byDay.get(date)||[]);
     return `<div class="dashboard-calendar-day ${date===TODAY_STR?'is-today':''} ${date>TODAY_STR?'is-future':''}" data-dashboard-date="${date}"><time datetime="${date}" ${date===TODAY_STR?'aria-current="date"':''}>${day}</time><div class="dashboard-day-summary"><span class="dashboard-day-piece"><span class="dashboard-bill-space" aria-hidden="true">| บิล: <span>${summary.orders.toLocaleString('th-TH')}</span></span><span class="dashboard-bill-label">| บิล: <span data-day-orders>${summary.orders.toLocaleString('th-TH')}</span></span></span><span class="dashboard-day-piece dashboard-day-sales">ขาย <span data-day-sales aria-label="ยอดขาย">${summary.total<0?'-':''}${fmtMoney(Math.abs(summary.total))}</span></span>${canViewProfit?`<span class="dashboard-day-separator" aria-hidden="true">|</span><span data-day-profit aria-label="กำไร">${dashboardProfitHtml(summary)}</span>`:''}</div></div>`;
   }).join('');
-  const content=historical?.loading?'<p class="dashboard-calendar-feedback" role="status">กำลังโหลดข้อมูลเดือนนี้...</p>':historical?.error?`<div class="dashboard-calendar-feedback" role="alert">${escapeHtml(historical.error)} <button class="btn ghost" id="retryDashboardCalendar">ลองใหม่</button></div>`:`<div class="dashboard-calendar-scroll" tabindex="0" role="region" aria-label="ปฏิทินยอดขายรายวัน เลื่อนแนวนอนเพื่อดูทุกวัน"><div class="dashboard-calendar-grid">${['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'].map(day=>`<div class="dashboard-weekday">${day}</div>`).join('')}${cells}</div></div>`;
+  const content=historical?.loading&&!historical.loaded?'<p class="dashboard-calendar-feedback" role="status">กำลังโหลดข้อมูลเดือนนี้...</p>':historical?.error?`<div class="dashboard-calendar-feedback" role="alert">${escapeHtml(historical.error)} <button class="btn ghost" id="retryDashboardCalendar">ลองใหม่</button></div>`:`<div class="dashboard-calendar-scroll" tabindex="0" role="region" aria-label="ปฏิทินยอดขายรายวัน เลื่อนแนวนอนเพื่อดูทุกวัน"><div class="dashboard-calendar-grid">${['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'].map(day=>`<div class="dashboard-weekday">${day}</div>`).join('')}${cells}</div></div>`;
   return `<section class="panel dashboard-calendar"><header><h3>ปฏิทินยอดขาย</h3><div class="dashboard-calendar-navigation"><button type="button" class="btn ghost" id="dashboardCalendarToday">ปัจจุบัน</button><button type="button" class="btn ghost" data-dashboard-month-step="-1" aria-label="เดือนก่อนหน้า" title="เดือนก่อนหน้า" ${monthKey===bounds.first?'disabled':''}>‹</button><span aria-live="polite">${escapeHtml(monthLabel)}</span><button type="button" class="btn ghost" data-dashboard-month-step="1" aria-label="เดือนถัดไป" title="เดือนถัดไป" ${monthKey===bounds.current?'disabled':''}>›</button></div></header>${content}</section>`;
 }
 function dashboardBestSellers(sales){

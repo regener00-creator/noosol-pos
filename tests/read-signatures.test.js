@@ -46,3 +46,15 @@ test('concurrent expired requests share the same signature and body request',asy
   const f=fixture();await Promise.all([f.c.loadSalesHistoryFromSupabase(options),f.c.loadSalesHistoryFromSupabase(options)]);
   assert.equal(f.checks(),1);assert.equal(f.reads(),1);
 });
+
+test('unchanged status reaches every joined reader; changed bodies are never marked unchanged',async()=>{
+  const f=fixture();await f.c.loadSalesHistoryFromSupabase(options);f.advance();
+  const first={},second={};await Promise.all([
+    f.c.loadSalesHistoryFromSupabase({...options,readStatus:first}),
+    f.c.loadSalesHistoryFromSupabase({...options,readStatus:second})]);
+  assert.equal(first.unchanged,true);assert.equal(second.unchanged,true);
+  f.signature('b');f.advance();const changed={};await f.c.loadSalesHistoryFromSupabase({...options,readStatus:changed});
+  assert.equal(changed.unchanged,false);
+  await f.c.loadDocumentTableFromSupabase('quotations',{recent:true});f.advance();
+  const doc={};await f.c.loadDocumentTableFromSupabase('quotations',{recent:true,readStatus:doc});assert.equal(doc.unchanged,true);
+});

@@ -97,7 +97,7 @@ let browser;
     assert.deepEqual(await preview.locator('.goods-receipt-print-totals b').allTextContents(),values.map(value=>value+' บาท'));
     await preview.evaluate(()=>{window.print=()=>{window.testPrintCalled=true;};});
     await preview.locator('#confirmDocumentPrint').click();
-    assert.equal(await preview.locator('.goods-receipt-print-totals').count(),2,'original and copy both keep five lines');
+    assert.equal(await preview.locator('.goods-receipt-print-totals').count(),1,'a single original keeps five lines without an extra copy');
     await preview.screenshot({path:require('node:path').join(require('node:os').tmpdir(),'sapuri-receipt-print-five-lines.png'),fullPage:true});
     await preview.close();
   };

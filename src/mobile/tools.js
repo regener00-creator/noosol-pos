@@ -1056,12 +1056,14 @@ async function refreshMobileToolsData(button,options={}){
     try{
       const {error:connectionError}=await sb.from('warehouses').select('id').limit(1);
       if(connectionError) throw connectionError;
-      const {data:latestProducts,error:productError}=await loadProductRowsFromSupabase();
+      const {data:latestProducts,error:productError,unchanged}=await loadProductRowsFromSupabase({checkSignature:true,force:!options.silent});
       if(productError) throw productError;
       if(!stillCurrent()) return false;
       products=latestProducts||products;
-      rebuildProductLookupMaps();
-      seedProductSyncSnapshot(products,productDirtyOperations);
+      if(!unchanged){
+        rebuildProductLookupMaps();
+        seedProductSyncSnapshot(products,productDirtyOperations);
+      }
       const scope={warehouseIds:[warehouseId],productIds:priceProductId?[Number(priceProductId)]:[]};
       const reads=mode==='price'
         ? (priceProductId?[loadInventoryBalancesFromSupabase(scope),loadInventoryLotsFromSupabase(scope)]:[])
@@ -1069,7 +1071,7 @@ async function refreshMobileToolsData(button,options={}){
       const readResults=await Promise.all(reads);
       if(readResults.some(result=>result===false)) throw new Error('โหลดสต๊อกล่าสุดไม่สำเร็จ');
       if(!stillCurrent()) return false;
-      refreshCategoryBrandUnitLists();
+      if(!unchanged) refreshCategoryBrandUnitLists();
       mobileLastRefreshAt=Date.now();
       setMobileDataStatus('online',options.silent?'ออนไลน์':'รีเฟรชแล้ว');
       if(!options.silent) showToast('รีเฟรชข้อมูลล่าสุดแล้ว');

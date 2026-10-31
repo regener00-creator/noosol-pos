@@ -24,7 +24,7 @@ assert.doesNotMatch(
 );
 
 const persistSection = section('function persistWorkspaceData(options={}){', 'function schedulePersistWorkspaceData(){');
-assert.match(persistSection,/workspaceCachePendingSnapshot=localWorkspaceSnapshot\(\)/,'workspace persistence must queue a structured IndexedDB snapshot');
+assert.match(persistSection,/workspaceSnapshotRequested=true/,'workspace persistence coalesces snapshot preparation before IndexedDB writes');
 assert.doesNotMatch(persistSection,/JSON\.stringify\(localWorkspaceSnapshot\(\)\)/,'workspace persistence must not synchronously stringify the complete snapshot');
 assert.match(persistSection,/if\(productChanges\) productCachePromise=persistProductChangesToIndexedDB\(productChanges\)/,'product mutations must persist only changed rows immediately');
 assert.match(persistSection,/productCachePromise\.then\(saved=>\{ if\(saved\) scheduleSupabaseCoreSync\(\); \}\)/,'product network sync must wait for its incremental cache write');

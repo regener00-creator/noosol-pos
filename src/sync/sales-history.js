@@ -93,7 +93,7 @@ async function loadSalesHistoryFromSupabase(options={}){
   const request={range,includeHolds,includeRecent,includeVoids,voidsOnly,full};
   if(!options.force&&!completeRange&&salesRequestLoaded(request)) return true;
   const requestKey=`${context.actor}:${context.generation}:`+(full?'full':`${completeRange?'complete:':''}${range?.from||''}:${range?.to||''}:${includeHolds?'holds':'sales'}:${includeRecent?'recent':'range-only'}:${includeVoids?'voids':''}:${voidsOnly?'only':''}`);
-  if(salesLoadPromises.has(requestKey)) return salesLoadPromises.get(requestKey);
+  if(salesLoadPromises.has(requestKey)) return dataReadWithStatus(salesLoadPromises.get(requestKey),options.readStatus);
   const initialRows=new Map(salesHistory.map(sale=>[String(sale.id),sale]));
   const promise=(async()=>{
     try{
@@ -101,7 +101,7 @@ async function loadSalesHistoryFromSupabase(options={}){
       // the next refresh, never acknowledged by a newer signature afterward.
       const signature=await readVisibleDataSignature('sales');
       if(!isWorkspaceReadCurrent(context)) return false;
-      if(!options.force&&!completeRange&&reuseDataReadSignature(requestKey,signature,salesFreshRequests)) return true;
+      if(!options.force&&!completeRange&&reuseDataReadSignature(requestKey,signature,salesFreshRequests)){promise.unchanged=true;return true;}
       const buildRangeQuery=()=>{
         let query=sb.from('sales').select('*').order('sale_date',{ascending:false}).order('sale_time',{ascending:false});
         if(range) query=query.gte('sale_date',range.from).lte('sale_date',range.to);
@@ -189,7 +189,7 @@ async function loadSalesHistoryFromSupabase(options={}){
     }finally{ salesLoadPromises.delete(requestKey); }
   })();
   salesLoadPromises.set(requestKey,promise);
-  return promise;
+  return dataReadWithStatus(promise,options.readStatus);
 }
 async function findSaleByIdentifier(identifier){
   const context=captureWorkspaceRead();

@@ -167,6 +167,7 @@ async function logoutSystem(){
     render();
     return false;
   }
+  if(!await flushWorkspaceCacheToIndexedDB()) return false;
   clearActiveWarehouseSelection();
   localStorage.removeItem(OFFLINE_SESSION_KEY);
   offlinePosActive=false;offlinePosAccount=null;offlineSales=[];

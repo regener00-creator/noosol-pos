@@ -110,7 +110,7 @@ let browser;
   await page.evaluate(()=>{currentProfile={id:'calendar-owner',owner:true,level:1};render();});await page.waitForSelector('[data-dashboard-date="2026-09-21"]');
   await next.click();assert.equal(await day.locator('[data-day-sales]').innerText(),'230.00');
   // A late response from an abandoned month cannot replace the newly selected month.
-  await page.evaluate(()=>{window.calendarHold=true;});await previous.click();await page.waitForFunction(()=>!!window.calendarDeferred);
+  await page.evaluate(()=>{dashboardCalendarCache.clear();window.calendarHold=true;});await previous.click();await page.waitForFunction(()=>!!window.calendarDeferred);
   await next.click();await page.evaluate(()=>{window.calendarHold=false;window.calendarDeferred();window.calendarDeferred=null;});
   assert.equal(await day.locator('[data-day-sales]').innerText(),'230.00');
   await page.evaluate(()=>{window.calendarFail=true;});await previous.click();await page.waitForSelector('#retryDashboardCalendar');

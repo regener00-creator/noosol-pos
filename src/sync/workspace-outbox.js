@@ -9,6 +9,7 @@ const OWNER_BOOTSTRAP_TOKEN_STORAGE_KEY='pepos_owner_bootstrap_token_v1';
 let maintenanceEpoch=localStorage.getItem(MAINTENANCE_EPOCH_STORAGE_KEY)||'';
 let workspacePersistTimer=null;
 let workspaceCachePendingSnapshot=null;
+let workspaceSnapshotRequested=false;
 let workspaceCacheWritePromise=Promise.resolve(true);
 let checkoutInFlight=false;
 let pendingCheckoutContextMemory=null;
@@ -128,6 +129,7 @@ async function clearLocalStoreCachesForReset(){
   workspaceRecoveryEntries=new Map(); workspaceOutboxVersions=new Map(); workspaceRecoveryLoadedActor=''; workspaceRecoveryActorId=''; workspaceCacheSaveFailed=false;
   pendingCheckoutContextMemory=null;
   workspaceCachePendingSnapshot=null;
+  workspaceSnapshotRequested=false;
 }
 function clearRemoteResetSensitiveMemory(){
   clearLoadedHistoryMemory();
@@ -352,6 +354,7 @@ async function reconcileLegacyWorkspaceRows(table,current,toRow){
 }
 async function ensureWorkspaceRecoveryDurable(){
   workspaceCachePendingSnapshot=localWorkspaceSnapshot();
+  workspaceSnapshotRequested=false;
   clearTimeout(workspacePersistTimer);
   const saved=await flushWorkspaceCacheToIndexedDB();
   if(!saved){
@@ -492,6 +495,10 @@ function loadWorkspaceData(){
   catch(error){ console.warn('ไม่สามารถโหลดข้อมูลระบบที่บันทึกไว้ได้',error); }
 }
 function flushWorkspaceCacheToIndexedDB(){
+  if(workspaceSnapshotRequested){
+    workspaceCachePendingSnapshot=localWorkspaceSnapshot();
+    workspaceSnapshotRequested=false;
+  }
   const snapshot=workspaceCachePendingSnapshot;
   workspaceCachePendingSnapshot=null;
   if(!snapshot) return workspaceCacheWritePromise;
@@ -532,7 +539,7 @@ function scheduleWorkspaceCacheWrite(){
 function persistWorkspaceData(options={}){
   const productChanges=options?.productChanges||null;
   if(productChanges) markProductChangesDirty(productChanges);
-  workspaceCachePendingSnapshot=localWorkspaceSnapshot();
+  workspaceSnapshotRequested=true;
   scheduleWorkspaceCacheWrite();
   let productCachePromise=Promise.resolve(true);
   if(productChanges) productCachePromise=persistProductChangesToIndexedDB(productChanges);
@@ -546,7 +553,7 @@ function persistWorkspaceData(options={}){
   return productCachePromise;
 }
 function schedulePersistWorkspaceData(){
-  workspaceCachePendingSnapshot=localWorkspaceSnapshot();
+  workspaceSnapshotRequested=true;
   scheduleWorkspaceCacheWrite();
   scheduleSupabaseCoreSync();
 }

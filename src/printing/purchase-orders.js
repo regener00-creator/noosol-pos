@@ -1,22 +1,15 @@
 function setupA4DocumentPreview(win,{number,label,pageSelector}){
   const doc=win.document;
-  const originalPages=[...doc.querySelectorAll(pageSelector)].map(page=>page.cloneNode(true));
-  if(!originalPages.length) return;
+  if(!doc.querySelector(pageSelector)) return;
   const style=doc.createElement('style');
   style.textContent=`
     *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
-    body{padding-top:66px!important;padding-right:285px!important;background:#F0F0F0!important}
+    body{padding-top:66px!important;padding-right:0!important;background:#F0F0F0!important}
     .toolbar{position:fixed!important;top:0!important;left:0!important;right:0!important;z-index:30!important;height:66px!important;margin:0!important;padding:10px 18px!important;background:#fff!important;border-bottom:1px solid #dce3e8!important;box-shadow:none!important;display:flex!important;align-items:center!important;gap:14px!important}
     .preview-actions{display:flex;align-items:center;gap:10px;margin-left:auto}
     .preview-actions button{height:42px;min-width:142px;border-radius:6px;font:600 15px Sarabun;cursor:pointer}
     .preview-actions .close-preview{background:#fff!important;color:#6d7882!important;border:1px solid #bfc9d2!important}
     .preview-actions .confirm-preview-print{background:#4F4038!important;color:#fff!important;border:1px solid #4F4038!important}
-    .document-print-sidebar{position:fixed;top:66px;right:0;bottom:0;z-index:25;width:285px;padding:20px 22px;background:#fff;border-left:1px solid #dce3e8;color:#1f2933}
-    .document-print-sidebar h3{margin:0 0 14px;font-size:17px}
-    .document-print-options{display:flex;align-items:center;gap:18px}
-    .document-print-options label{display:flex;align-items:center;gap:7px;font-weight:600;white-space:nowrap}
-    .document-print-options input[type=checkbox]{width:18px;height:18px;accent-color:#4F4038}
-    .document-print-options input[type=number]{width:62px;height:38px;padding:6px 8px;border:1px solid #ccd5dd;border-radius:7px;font:600 14px Sarabun}
     ${pageSelector}{width:210mm!important;min-height:297mm!important;height:auto!important;margin:12px auto!important;padding:16mm 18mm!important;background:#fff!important;box-shadow:0 4px 20px #0002!important;page-break-after:always!important}
     ${pageSelector}:last-child{page-break-after:auto!important}
     .business{padding-top:50px!important}.business b{color:#4F4038!important;font-weight:700!important}
@@ -39,23 +32,8 @@ function setupA4DocumentPreview(win,{number,label,pageSelector}){
     toolbar.className='toolbar';
     toolbar.innerHTML=`<div class="preview-actions"><button type="button" class="close-preview" id="closeDocumentPreview">ย้อนกลับ</button><button type="button" class="confirm-preview-print" id="confirmDocumentPrint">พิมพ์</button></div>`;
   }
-  const sidebar=doc.createElement('aside');
-  sidebar.className='document-print-sidebar';
-  sidebar.innerHTML=`<h3>${escapeHtml(label)}</h3><div class="document-print-options"><label><input id="documentOriginalOption" type="checkbox" checked> ต้นฉบับ</label><label><input id="documentCopyOption" type="checkbox" checked> สำเนา</label><input id="documentCopyCount" type="number" min="1" max="20" value="1" aria-label="จำนวนสำเนา"></div>`;
-  doc.body.appendChild(sidebar);
-  const rebuildPages=()=>{
-    const includeOriginal=doc.getElementById('documentOriginalOption').checked;
-    const includeCopy=doc.getElementById('documentCopyOption').checked;
-    const copyCount=Math.max(1,Math.min(20,Number(doc.getElementById('documentCopyCount').value)||1));
-    if(!includeOriginal&&!includeCopy){ win.alert('กรุณาเลือกต้นฉบับหรือสำเนาอย่างน้อย 1 รายการ'); return false; }
-    doc.querySelectorAll(pageSelector).forEach(page=>page.remove());
-    const appendPages=text=>originalPages.forEach(template=>{ const page=template.cloneNode(true); setPageLabel(page,text); doc.body.appendChild(page); });
-    if(includeOriginal) appendPages('ต้นฉบับ');
-    if(includeCopy) for(let i=0;i<copyCount;i++) appendPages('สำเนา');
-    return true;
-  };
   doc.getElementById('closeDocumentPreview').onclick=()=>win.close();
-  doc.getElementById('confirmDocumentPrint').onclick=()=>{ if(rebuildPages()) win.print(); };
+  doc.getElementById('confirmDocumentPrint').onclick=()=>win.print();
   applyA4PaperLayout(win);
 }
 

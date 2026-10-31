@@ -26,21 +26,26 @@ let browser;
  await sample.getByRole('button',{name:'พิมพ์',exact:true}).click();assert.equal(await sample.evaluate(()=>printCalls),1);
  assert.equal(await page.evaluate(()=>window.saleWrites||0),0);assert.equal(await page.evaluate(()=>localStorage.getItem('pepos_receipt_printer_v1')),null);
  await sample.close();
- // Real quotation renderer, including its separate original/copy preview stylesheet.
+ // Real quotation renderer prints one original; explicit multi-document selection remains supported.
  const quotationPromise=context.waitForEvent('page');
  await page.evaluate(async()=>{await ensurePageCodeLoaded('quotation');quotations=[{id:'QT-TEST',date:'2026-10-30',customer:{name:'ลูกค้าทดสอบ'},items:[{name:'สินค้าทดสอบ',qty:1,price:100,lineTotal:100,unit:'กล่อง'}],total:100}];printQuotation('QT-TEST');});
  const quote=await quotationPromise;await quote.waitForLoadState();assert.equal(await quote.locator('.a4-configured-page').count(),1);
  assert.ok(Math.abs((await quote.locator('.page').boundingBox()).width-297*96/25.4)<1);
- await quote.locator('#confirmDocumentPrint').click();assert.equal(await quote.locator('.a4-configured-page').count(),2,'copies retain configured layout');
+ assert.equal(await quote.locator('#documentCopyOption,#documentCopyCount').count(),0);await quote.locator('#confirmDocumentPrint').click();assert.equal(await quote.locator('.a4-configured-page').count(),1,'printing retains a single configured original');
  await quote.emulateMedia({media:'print'});
  const pdf=await quote.pdf({preferCSSPageSize:true});const pdfText=pdf.toString('latin1');
- assert.equal((pdfText.match(/\/Type\s*\/Page\b/g)||[]).length,2,'one physical A4 page per copy, no extra blank pages');
+ assert.equal((pdfText.match(/\/Type\s*\/Page\b/g)||[]).length,1,'one physical A4 page, no generated copies or blank pages');
  assert.match(pdfText,/\/MediaBox\s*\[0 0 84[12][.\d]* 59[45][.\d]*\]/,'landscape A4 dimensions');
  await quote.close();
+ const bulkPromise=context.waitForEvent('page');
+ await page.evaluate(()=>{quotations.push({...quotations[0],id:'QT-SECOND'});printQuotation(['QT-TEST','QT-SECOND']);});
+ const bulk=await bulkPromise;await bulk.waitForLoadState();
+ for(let i=0;i<2;i++){await bulk.locator('#confirmDocumentPrint').click();assert.equal(await bulk.locator('.a4-configured-page').count(),2,'two selected documents, no automatic copy or repeated-click duplication');}
+ await bulk.close();
  const taxPromise=context.waitForEvent('page');
  await page.evaluate(()=>{persistStandaloneTaxInvoices=()=>{};standaloneTaxInvoices=[{number:'TAX-TEST',saleDate:'2026-10-30',customer:{name:'ทดสอบ'},items:[{name:'สินค้า',qty:1,price:100,lineTotal:100,unit:'ชิ้น'}],total:100}];printFullTaxInvoice('TAX-TEST');});
- const tax=await taxPromise;await tax.waitForLoadState();await tax.locator('#confirmTaxPrint').click();assert.equal(await tax.locator('.a4-configured-page').count(),2);
- const taxPdf=await tax.pdf({preferCSSPageSize:true});assert.equal((taxPdf.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length,2,'tax invoice copies use the same page settings');await tax.close();
+ const tax=await taxPromise;await tax.waitForLoadState();assert.equal(await tax.locator('#printCopyOption,#printCopyCount').count(),0);await tax.locator('#confirmTaxPrint').click();assert.equal(await tax.locator('.a4-configured-page').count(),1);
+ const taxPdf=await tax.pdf({preferCSSPageSize:true});assert.equal((taxPdf.toString('latin1').match(/\/Type\s*\/Page\b/g)||[]).length,1,'tax invoice uses one configured page');await tax.close();
  // Body-based reports keep their landscape default in auto mode. Rolls are untouched.
  assert.deepEqual(await page.evaluate(()=>{
   const iframe=document.createElement('iframe');document.body.appendChild(iframe);const win=iframe.contentWindow;
@@ -53,5 +58,5 @@ let browser;
  await page.locator('#a4PaperForm button[type=submit]').click();assert.match(await page.locator('#a4PaperStatus').innerText(),/บันทึกไม่สำเร็จ/);await page.evaluate(()=>{Storage.prototype.setItem=window.originalSet;});
  for(const width of [1440,700]){await page.setViewportSize({width,height:1050});assert.equal(await page.locator('.receipt-printer-page').evaluate(el=>el.scrollWidth>el.clientWidth),false);}
  await page.setViewportSize({width:1440,height:1050});fs.mkdirSync(path.join(root,'outputs'),{recursive:true});await page.locator('.a4-paper-settings').screenshot({path:path.join(root,'outputs/a4-paper-settings.png')});
- assert.deepEqual(errors,[]);console.log('A4 settings: save/reload, validation, unsaved sample, receipt isolation, quotation/copies/PDF paper size, landscape reports, reset, storage failure, responsive layout passed');
+ assert.deepEqual(errors,[]);console.log('A4 settings: save/reload, validation, unsaved sample, receipt isolation, quotation/single-original/PDF paper size, landscape reports, reset, storage failure, responsive layout passed');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});

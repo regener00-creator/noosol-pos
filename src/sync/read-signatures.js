@@ -1,6 +1,10 @@
 // Signatures are only hints for already-loaded request windows. Never use a
 // signature alone as proof of loaded coverage, and never persist it to disk.
 const dataReadSignatures=new Map();
+function dataReadWithStatus(promise,status){
+  if(!status) return promise;
+  return promise.then(result=>{status.unchanged=result===true&&promise.unchanged===true;return result;});
+}
 const dataSignatureJobs=new Map();
 let dataSignatureUnavailableUntil=0;
 async function readVisibleDataSignature(table){

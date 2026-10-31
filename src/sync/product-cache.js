@@ -343,8 +343,22 @@ function reconcileProductDirtyOperationsWithChanges(changes){
     if(operation==='delete') productDirtyOperations.delete(id);
   }
 }
-async function loadProductRowsFromSupabase(){
+let productReadSignature=null;
+async function loadProductRowsFromSupabase({checkSignature=false,force=false}={}){
   const context=captureWorkspaceRead();
+  let signature=null;
+  if(checkSignature){
+    try{
+      const result=await sb.rpc('get_product_catalog_signature');
+      if(!result.error&&typeof result.data==='string'&&result.data) signature=result.data;
+    }catch(_error){ /* Older/offline servers retain the manifest fallback. */ }
+    if(!isWorkspaceReadCurrent(context)) return {data:null,error:null,stale:true};
+    const cached=productReadSignature;
+    if(!force&&signature&&indexedProductCacheReady&&readProductManifestCache()&&productDirtyOperations.size===0&&
+      cached?.signature===signature&&cached.products===products&&isWorkspaceReadCurrent(cached.context)&&Date.now()-cached.at<300000){
+      return {data:products,error:null,unchanged:true};
+    }
+  }
   // Identity sequence values are not commit order. Reconcile authoritative
   // id/revision pairs on every refresh, then download only changed full rows.
   // This also repairs old cursors and caches that outlived log retention.
@@ -375,6 +389,9 @@ async function loadProductRowsFromSupabase(){
   if(!isWorkspaceReadCurrent(context)) return {data:null,error:null,stale:true};
   if(productRowsPersisted) await saveProductManifestCache();
   if(!isWorkspaceReadCurrent(context)) return {data:null,error:null,stale:true};
+  // Capture the signature from BEFORE the read, so concurrent commits are
+  // detected on the next refresh. Never certify a failed local-cache write.
+  productReadSignature=productRowsPersisted&&signature?{signature,products:loadedProducts,context,at:Date.now()}:null;
   return {data:loadedProducts,error:null};
 }
 

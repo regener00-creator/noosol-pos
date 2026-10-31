@@ -191,6 +191,7 @@ const browserExecutable = [
   assert.equal(await page.locator('#topbarFormActions .cash-shift-topbar-action').count(),1,'ระบบต้องลบสถานะระบบชำระที่ซ้ำใน TOPBAR');
   await page.screenshot({path:path.join(os.tmpdir(),'pepos-checkout-regressions-browser.png'),fullPage:true});
 
+  page.once('dialog',async dialog=>{assert.match(dialog.message(),/ราคาขายต่ำกว่าทุน/);await dialog.accept();});
   await page.keyboard.press('F2');
   assert.equal(await page.locator('.checkout-pay-modal').count(),1,'F2 ต้องเปิดหน้าต่างเก็บเงิน');
   assert.match(await page.locator('[data-method="cash"]').innerText(),/\[F4\] เงินสด/);

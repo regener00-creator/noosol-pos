@@ -88,7 +88,7 @@ function documentRequestTruncated(table,{range=null,recent=false}={}){
   if(range&&rangeOverlapsAny(state.truncatedRanges,range)) return true;
   return !!recent&&state.recentTruncated;
 }
-async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full=false,force=false}={}){
+async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full=false,force=false,readStatus=null}={}){
   const context=captureWorkspaceRead();
   const entry=documentTableEntry(table),state=documentLoadStates[table];
   if(!entry||!state) return false;
@@ -96,13 +96,13 @@ async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full
   const request={range:normalizedRange,recent:!!recent,full:!!full};
   if(!force&&documentRequestLoaded(table,request)) return true;
   const requestKey=`${context.actor}:${context.generation}:${table}:${full?'full':normalizedRange?`${normalizedRange.from}:${normalizedRange.to}`:'recent'}`;
-  if(documentLoadPromises.has(requestKey)) return documentLoadPromises.get(requestKey);
+  if(documentLoadPromises.has(requestKey)) return dataReadWithStatus(documentLoadPromises.get(requestKey),readStatus);
   const initialRows=new Map(entry[1]().map(row=>[String(row.id),row]));
   const promise=(async()=>{
     try{
       const signature=await readVisibleDataSignature(table);
       if(!isWorkspaceReadCurrent(context)) return false;
-      if(!force&&reuseDataReadSignature(requestKey,signature,documentFreshRequests.get(table)||[])) return true;
+      if(!force&&reuseDataReadSignature(requestKey,signature,documentFreshRequests.get(table)||[])){promise.unchanged=true;return true;}
       const buildQuery=()=>{
         let query=sb.from(table).select('*').order('id',{ascending:false});
         // These generic document tables keep their business date in data.date.
@@ -182,7 +182,7 @@ async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full
     }finally{ if(isWorkspaceReadCurrent(context)) documentLoadPromises.delete(requestKey); }
   })();
   documentLoadPromises.set(requestKey,promise);
-  return promise;
+  return dataReadWithStatus(promise,readStatus);
 }
 async function syncCoreDataToSupabase(){
   if(!currentProfile) return;

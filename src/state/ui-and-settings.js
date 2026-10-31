@@ -242,6 +242,7 @@ let representativeNotesCursor=null;
 let representativeNoteMetadata=new Map();
 let representativeNoteTotals=new Map();
 window.addEventListener('beforeunload',event=>{
+  void flushWorkspaceCacheToIndexedDB();
   const hasUnsavedBusiness=currentTab==='settingsbusiness'&&businessSettingsDirty;
   const hasUnsavedNote=currentTab==='notes'&&noteDraftDirty;
   const hasUnsavedRepresentativeNote=isRepresentativeHistoryScreen()&&representativeActivityDraftDirty;
