@@ -221,7 +221,7 @@ function addToCart(pid, unitName, qty){
   posActiveLineId=existing?.lineId??cart[cart.length-1]?.lineId??null;
 }
 function addCustomCartLine(name,price,unit,qty){
-  name=String(name||'').trim(); unit=String(unit||'ชิ้น').trim()||'ชิ้น'; price=Number(price)||0; qty=Number(qty)||1;
+  name=String(name||'').trim(); unit=String(unit||'Pcs').trim()||'Pcs'; price=Number(price)||0; qty=Number(qty)||1;
   if(!name||price<0||qty<=0) return false;
   const existing=cart.find(line=>line.custom&&line.name===name&&line.unit===unit&&Number(line.price)===price);
   if(existing) existing.qty+=qty;
@@ -231,7 +231,7 @@ function addCustomCartLine(name,price,unit,qty){
 }
 function addBlankCustomCartLine(){
   const lineId=lineCounter++;
-  cart.push({lineId,pid:null,name:'',unit:'',unitName:'',price:'',cost:'',factor:0,qty:1,custom:true});
+  cart.push({lineId,pid:null,name:'',unit:'Pcs',unitName:'Pcs',price:'',cost:'',factor:0,qty:1,custom:true});
   posActiveLineId=lineId;
   render();
   setTimeout(()=>document.querySelector(`.custom-line-name[data-line="${lineId}"]`)?.focus(),0);
