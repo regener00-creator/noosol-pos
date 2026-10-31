@@ -16,10 +16,10 @@ test('cancellation time uses Bangkok day for PostgreSQL and ISO timestamps',()=>
   assert.equal(c.saleVoidDateTime({voidedAt:'2026-10-30 01:30:00'}).time,'01:30');
   assert.equal(c.saleVoidDateTime({voidedAt:'bad'}).date,'');assert.equal(c.saleVoidDateTime({}).date,'');
 });
-test('report filters cancellation date, permission, refund method and search; deduped source retained',()=>{
+test('report filters cancellation date, permission and search; obsolete refund filter cannot hide bills',()=>{
   const c=context();c.salesHistory=[cancelled,{...cancelled,id:'other-wh',warehouseId:2},{...cancelled,id:'done',status:'done'},{...cancelled,id:'old',voidedAt:'2026-09-01T01:00:00Z'}];
   assert.deepEqual(Array.from(c.voidReportRows(),s=>s.id),['OLD']);
-  c.voidReportFilter.method='โอนธนาคาร';assert.equal(c.voidReportRows().length,0);
+  c.voidReportFilter.method='โอนธนาคาร';assert.equal(c.voidReportRows().length,1);
   c.voidReportFilter.method='เงินสด';c.voidReportFilter.search='ผิดรายการ';assert.equal(c.voidReportRows().length,1);
 });
 test('void movement keeps sale outflow and cancellation inflow on their own dates, including retired products',()=>{

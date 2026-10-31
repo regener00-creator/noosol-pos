@@ -23,7 +23,6 @@ function voidReportRows(){
     if(sale.status!=='void'||!allowed.has(Number(sale.warehouseId))) return false;
     const date=at.date;
     return !!date&&date>=range.from&&date<=range.to&&(f.warehouse==='all'||String(sale.warehouseId)===f.warehouse)&&
-      (f.method==='all'||(sale.voidRefundMethod||sale.payMethod)===f.method)&&
       (!search||[sale.ref,sale.id,sale.voidReason,saleVoidActor(sale),...(sale.items||[]).map(item=>item.name)].some(value=>String(value||'').toLowerCase().includes(search)));
   }).sort((a,b)=>b.at.stamp-a.at.stamp||String(a.sale.id).localeCompare(String(b.sale.id))).map(row=>row.sale);
 }
@@ -31,12 +30,11 @@ function renderVoidReport(){
   const f=voidReportFilter,rows=voidReportRows(),pages=Math.max(1,Math.ceil(rows.length/50));
   f.page=Math.min(pages,Math.max(1,f.page));
   const visible=rows.slice((f.page-1)*50,f.page*50),range=voidReportRange();
-  return `<div class="rpt void-report-page"><div class="pagehead"><h1>รายงานบิลยกเลิก</h1></div><div class="void-report-actions">${canPerformPageAction('print','rvoid')?'<button class="btn ghost" id="voidReportPrint">พิมพ์รายงาน</button>':''}${canPerformPageAction('export','rvoid')?'<button class="btn primary" id="voidReportExcel">ส่งออก Excel</button>':''}</div>
-    <form id="voidReportFilters" class="rpt-filters"><label class="rpf-item">วันที่ยกเลิก${dmyDateFieldHtml('voidReportFrom',range.from)}</label><label class="rpf-item">ถึง${dmyDateFieldHtml('voidReportTo',range.to)}</label>
-    <label class="rpf-item">คลังสินค้า<select id="voidReportWarehouse" class="rpt-select"><option value="all">ทุกคลังที่มีสิทธิ์</option>${accessibleWarehouses().map(w=>`<option value="${w.id}" ${String(w.id)===f.warehouse?'selected':''}>${escapeHtml(w.name)}</option>`).join('')}</select></label>
-    <label class="rpf-item">ช่องทางคืนเงิน<select id="voidReportMethod" class="rpt-select"><option value="all">ทุกช่องทาง</option>${['เงินสด','โอนธนาคาร','บัตรเครดิต','ออนไลน์'].map(m=>`<option ${m===f.method?'selected':''}>${m}</option>`).join('')}</select></label>
-    <label class="rpf-item void-report-search">ค้นหา<input id="voidReportSearch" class="rpt-select" value="${escapeHtml(f.search)}" placeholder="เลขบิล สินค้า ผู้ยกเลิก หรือเหตุผล"></label><button class="btn primary" type="submit">แสดงผล</button></form>
-    <div class="void-report-summary"><div>บิลยกเลิก <b>${rows.length} บิล</b></div><div>ยอดคืนรวม <b>${fmtMoney(rows.reduce((sum,sale)=>sum+(Number(sale.total)||0),0))} บาท</b></div></div>
+  return `<div class="rpt void-report-page"><div class="pagehead"><h1>รายงานบิลยกเลิก</h1></div><div class="rpt-head-actions">${canPerformPageAction('print','rvoid')?'<button class="btn ghost" id="voidReportPrint">พิมพ์รายงาน</button>':''}${canPerformPageAction('export','rvoid')?'<button class="btn primary" id="voidReportExcel">ส่งออก Excel</button>':''}</div>
+    <form id="voidReportFilters" class="rpt-filters"><div class="rpf-item rpf-range"><label for="voidReportFrom">วันที่ยกเลิก</label>${dmyDateFieldHtml('voidReportFrom',range.from)}<label for="voidReportTo" class="void-report-to">ถึง</label>${dmyDateFieldHtml('voidReportTo',range.to)}</div>
+    <div class="rpf-item"><select id="voidReportWarehouse" class="rpt-select" aria-label="คลังสินค้า"><option value="all">ทุกคลังที่มีสิทธิ์</option>${accessibleWarehouses().map(w=>`<option value="${w.id}" ${String(w.id)===f.warehouse?'selected':''}>${escapeHtml(w.name)}</option>`).join('')}</select></div>
+    <div class="void-report-summary">บิลยกเลิก <b>${rows.length} บิล</b></div>
+    <div class="rpf-item void-report-search"><input id="voidReportSearch" class="rpt-select" aria-label="ค้นหาบิลยกเลิก" value="${escapeHtml(f.search)}" placeholder="เลขบิล สินค้า ผู้ยกเลิก หรือเหตุผล"></div><button class="btn ghost rpf-apply" type="submit">แสดงผล</button></form>
     <div class="table-wrap"><table class="void-report-table"><thead><tr><th>วันที่ / เวลายกเลิก</th><th>เลขบิล</th><th>วันที่ขาย</th><th>คลังสินค้า</th><th>ผู้ยกเลิก</th><th>เหตุผล</th><th>ยอดคืน</th><th>ช่องทางคืนเงิน</th><th></th></tr></thead><tbody>${visible.map(sale=>{const at=saleVoidDateTime(sale);return `<tr><td>${fmtDate(at.date)}<br>${at.time}</td><td class="mono">${escapeHtml(sale.ref||sale.id)}</td><td>${fmtDate(sale.date)}</td><td>${escapeHtml(whName(Number(sale.warehouseId)))}</td><td>${escapeHtml(saleVoidActor(sale))}</td><td class="void-report-reason">${escapeHtml(sale.voidReason||'ไม่ระบุ')}</td><td class="num">${fmtMoney(sale.total)}</td><td>${escapeHtml(sale.voidRefundMethod||sale.payMethod||'ไม่ระบุ')}${!sale.voidRefundMethod?'<small class="void-report-legacy">อ้างอิงช่องทางชำระเดิม</small>':''}</td><td><button class="btn ghost small" data-void-report-detail="${escapeHtml(sale.id)}">ดูรายละเอียด</button></td></tr>`;}).join('')||'<tr><td colspan="9" class="empty">ไม่พบบิลยกเลิกในช่วงวันที่เลือก</td></tr>'}</tbody></table></div>
     <div class="void-report-pagination"><button class="btn ghost" id="voidReportPrev" ${f.page<=1?'disabled':''}>ก่อนหน้า</button><span>หน้า ${f.page} / ${pages}</span><button class="btn ghost" id="voidReportNext" ${f.page>=pages?'disabled':''}>ถัดไป</button></div></div>`;
 }
@@ -51,7 +49,7 @@ function attachVoidReportEvents(){
     event.preventDefault();
     const from=dmyToISO(document.getElementById('voidReportFrom').value),to=dmyToISO(document.getElementById('voidReportTo').value);
     if(!from||!to||from>to){showToast('กรุณาระบุช่วงวันที่ให้ถูกต้อง','danger-top');return;}
-    Object.assign(voidReportFilter,{from,to,warehouse:document.getElementById('voidReportWarehouse').value,method:document.getElementById('voidReportMethod').value,search:document.getElementById('voidReportSearch').value,page:1});render();
+    Object.assign(voidReportFilter,{from,to,warehouse:document.getElementById('voidReportWarehouse').value,search:document.getElementById('voidReportSearch').value,page:1});render();
   });
   for(const [id,step] of [['voidReportPrev',-1],['voidReportNext',1]]) document.getElementById(id)?.addEventListener('click',()=>{voidReportFilter.page+=step;render();});
   document.querySelectorAll('[data-void-report-detail]').forEach(button=>button.addEventListener('click',()=>openSaleHistoryDetail(button.dataset.voidReportDetail)));
@@ -61,7 +59,7 @@ function voidReportOutputSnapshot(action){
   if(ensureOnDemandDataForTab('rvoid').status!=='ready'){showToast('กรุณาโหลดข้อมูลรายงานให้ครบก่อน','danger-top');return null;}
   const f=voidReportFilter,range=voidReportRange();
   return {context:captureWorkspaceRead(),title:'รายงานบิลยกเลิก',business:businessSettings.name||STORE_INFO.name,range:{...range},
-    filters:`คลังสินค้า: ${f.warehouse==='all'?'ทุกคลังที่มีสิทธิ์':whName(Number(f.warehouse))} · ช่องทางคืนเงิน: ${f.method==='all'?'ทุกช่องทาง':f.method}${f.search?` · ค้นหา: ${f.search}`:''}`,
+    filters:`คลังสินค้า: ${f.warehouse==='all'?'ทุกคลังที่มีสิทธิ์':whName(Number(f.warehouse))}${f.search?` · ค้นหา: ${f.search}`:''}`,
     headers:['วันที่ / เวลายกเลิก','เลขบิล','วันที่ขาย','คลังสินค้า','ผู้ยกเลิก','เหตุผล','ยอดคืน (บาท)','ช่องทางคืนเงิน'],
     rows:voidReportRows().map(sale=>{const at=saleVoidDateTime(sale);return [`${fmtDate(at.date)} ${at.time}`,String(sale.ref||sale.id),fmtDate(sale.date),whName(Number(sale.warehouseId)),saleVoidActor(sale),String(sale.voidReason||'ไม่ระบุ'),Number(sale.total)||0,`${sale.voidRefundMethod||sale.payMethod||'ไม่ระบุ'}${sale.voidRefundMethod?'':' (อ้างอิงช่องทางชำระเดิม)'}`];})};
 }
