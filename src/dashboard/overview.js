@@ -108,7 +108,7 @@ function dashboardBestSellers(sales){
     entry.quantity+=sale.customerReturn?-Math.abs(quantity):quantity;
     totals.set(key,entry);
   }));
-  return [...totals.values()].filter(item=>item.quantity>0).sort((a,b)=>b.quantity-a.quantity||a.name.localeCompare(b.name,'th')).slice(0,9).map(item=>({...item,quantityText:stockReportQuantityText(catalog.get(item.id)||{unit:item.unit},item.quantity)}));
+  return [...totals.values()].filter(item=>item.quantity>0).sort((a,b)=>b.quantity-a.quantity||a.name.localeCompare(b.name,'th')).slice(0,5).map(item=>({...item,quantityText:stockReportQuantityText(catalog.get(item.id)||{unit:item.unit},item.quantity)}));
 }
 function renderDashboard(){
   const completedSales = salesHistory.filter(s=>s.status==='done').filter(dashboardSaleInWarehouse);
@@ -117,7 +117,7 @@ function renderDashboard(){
   const monthSummary=dashboardSalesSummary(monthSales),bestSellers=dashboardBestSellers(monthSales);
   const canViewProfit = !isLevel2User();
   return `
-    <div class="statrow dashboard-summary-row"><section class="stat dashboard-summary-card" data-dashboard-period="month"><div><div class="slabel">ยอดขายเดือนนี้</div><div class="sval" data-summary-sales>${monthSummary.total<0?'-':''}${fmtMoney(Math.abs(monthSummary.total))}</div></div>${canViewProfit?`<div><div class="slabel">กำไรเดือนนี้</div><div class="sval" data-summary-profit>${dashboardProfitHtml(monthSummary)}</div></div>`:''}</section><section class="stat dashboard-top-products"><header><h3>สินค้าขายดี</h3></header><div class="dashboard-best-sellers">${bestSellers.map((item,index)=>`<div class="dashboard-best-seller"><span class="dashboard-best-rank" aria-label="อันดับ ${index+1}">${['🏆','🥈','🥉'][index]||index+1}</span><div><b title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</b><span class="dashboard-best-quantity">${escapeHtml(item.quantityText)}</span></div></div>`).join('')||'<p class="dashboard-best-empty">ยังไม่มีรายการขายสินค้าเดือนนี้</p>'}</div></section></div>
+    <div class="statrow dashboard-summary-row"><section class="stat dashboard-summary-card" data-dashboard-period="month"><div><div class="slabel">ยอดขายเดือนนี้</div><div class="sval" data-summary-sales>${monthSummary.total<0?'-':''}${fmtMoney(Math.abs(monthSummary.total))}</div></div>${canViewProfit?`<div><div class="slabel">กำไรเดือนนี้</div><div class="sval" data-summary-profit>${dashboardProfitHtml(monthSummary)}</div></div>`:''}</section><section class="stat dashboard-top-products"><header><h3>สินค้าขายดี</h3></header><div class="dashboard-best-sellers">${bestSellers.map((item,index)=>`<div class="dashboard-best-seller">${index<3?`<span class="dashboard-best-rank" aria-label="อันดับ ${index+1}">${['🏆','🥈','🥉'][index]}</span>`:''}<div><b title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</b><span class="dashboard-best-quantity">${escapeHtml(item.quantityText)}</span></div></div>`).join('')||'<p class="dashboard-best-empty">ยังไม่มีรายการขายสินค้าเดือนนี้</p>'}</div></section></div>
     ${renderDashboardCalendar(monthSales,canViewProfit)}
     <div class="panel">
       <div class="seamless-table-wrap"><table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-bill"><col class="ht-time"><col class="ht-items"><col class="ht-total"><col class="ht-pay"></colgroup><thead><tr><th>วันที่</th><th>เลขที่บิล</th><th>เวลา</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th></tr></thead>
