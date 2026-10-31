@@ -1,4 +1,14 @@
 // ===== ระบบโปรโมชั่น: ฟังก์ชันจัดการฟอร์ม =====
+function promoSubcategoryOptions(category,selected='',settings=effectiveProductCategorySettings()){
+  const names=category?productSubcategoryNames(category,settings):[];
+  return '<option value="">-- ทุกหมวดย่อย --</option>'+names.map(name=>`<option value="${escapeHtml(name)}" ${name===selected?'selected':''}>${escapeHtml(name)}</option>`).join('');
+}
+function updatePromoSubcategoryOptions(){
+  const main=document.getElementById('promo_category'),sub=document.getElementById('promo_brand');
+  if(!main||!sub) return;
+  sub.innerHTML=promoSubcategoryOptions(main.value,sub.value);
+  sub.disabled=!main.value;
+}
 // ค้นหาสินค้าแบบพิมพ์ค้นหา (เหมือนช่องสแกน/ค้นหาสินค้าในเอกสารอื่น) สำหรับเลือกสินค้าเข้าโปรโมชั่น
 function renderPromoProductResults(query){
   const box=document.getElementById('promoProductResults');
@@ -183,7 +193,7 @@ function promoCategoryItemPool(){
 // เปิด modal เลือกสินค้าแบบติ๊กหลายตัว (checkbox) จากหมวดหมู่/แบรนด์ที่เลือกไว้
 function openPromoItemPicker(){
   const category=document.getElementById('promo_category')?.value||'';
-  if(!category){ showToast('กรุณาเลือกหมวดหมู่ก่อน'); return; }
+  if(!category){ showToast('กรุณาเลือกหมวดหลักก่อน'); return; }
   const brand=document.getElementById('promo_brand')?.value||'';
   const pool=promoCategoryItemPool();
   const alreadySelected=new Set((currentPromoDraftItems||[]).map(it=>it.productId));
@@ -272,7 +282,7 @@ function savePromotion(){
       if(!unit){ showToast('กรุณาเลือกหน่วยที่ร่วมโปรโมชั่น'); return; }
     } else {
       category=(g('promo_category')?.value||'').trim();
-      if(!category){ showToast('กรุณาเลือกหมวดหมู่'); return; }
+      if(!category){ showToast('กรุณาเลือกหมวดหลัก'); return; }
       brand=(g('promo_brand')?.value||'').trim();
       categoryMode='select';
       items=(currentPromoDraftItems||[]).map(it=>({productId:it.productId,unit:it.unit}));

@@ -1305,11 +1305,12 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     const el=document.getElementById(id);
     if(!el) return;
     el.addEventListener('change', ()=>{
+      if(id==='promo_category') updatePromoSubcategoryOptions();
       if(currentPromoDraftItems && currentPromoDraftItems.length){
         currentPromoDraftItems=[];
         const listWrap=document.getElementById('promoCategoryItemsList');
         if(listWrap){ listWrap.innerHTML=renderPromoCategoryItemsList(currentPromoDraftItems); bindPromoCategoryItemListEvents(); }
-        showToast('เปลี่ยนหมวดหมู่/แบรนด์แล้ว — กรุณาเลือกสินค้าใหม่');
+        showToast('เปลี่ยนหมวดหลัก/หมวดย่อยแล้ว — กรุณาเลือกสินค้าใหม่');
       }
     });
   });

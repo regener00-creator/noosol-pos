@@ -165,6 +165,49 @@ let browser;
   assert.deepEqual(await page.evaluate(()=>({unit:cart.at(-1).unit,unitName:cart.at(-1).unitName})),{unit:'Pcs',unitName:'Pcs'});
   await page.locator('[data-custom-unit]').last().fill('กล่อง');
   assert.equal(await page.evaluate(()=>cart.at(-1).unit),'กล่อง','the default remains editable');
+  await page.evaluate(async()=>{
+    await ensurePageCodeLoaded('promotions');
+    products=[
+      {id:101,name:'ยาทดสอบ',category:'ยา',brand:'ยาเฉพาะ',active:true,unit:'Pcs',price:20},
+      {id:102,name:'อาหารทดสอบ',category:'อาหารเสริม',brand:'อาหารเฉพาะ',active:true,unit:'Pcs',price:30},
+    ];
+    productCategorySettings={categories:['ยา','อาหารเสริม','หมวดว่าง'],subcategories:[
+      {name:'ยาเฉพาะ',categories:['ยา']},{name:'อาหารเฉพาะ',categories:['อาหารเสริม']},
+      {name:'ร่วมกัน',categories:['ยา','อาหารเสริม']},{name:'ยังไม่มีสินค้า',categories:['ยา']},
+    ]};
+    promotions=[];editingPromotionId='new';promoDraftItemsSyncedFor=undefined;currentTab='promotions';
+    document.getElementById('main').innerHTML=renderPromotionForm();attachEvents();
+  });
+  await page.locator('input[name="promo_scope"][value="category"]').check();
+  assert.equal(await page.locator('#promo_brand').isDisabled(),true);
+  const subOptions=()=>page.locator('#promo_brand option').evaluateAll(nodes=>nodes.map(node=>node.value));
+  await page.locator('#promo_category').selectOption('ยา');
+  assert.deepEqual(await subOptions(),['','ทั่วไป','ยาเฉพาะ','ร่วมกัน','ยังไม่มีสินค้า']);
+  await page.locator('#promo_brand').selectOption('ยาเฉพาะ');
+  await page.locator('#openPromoItemPickerBtn').click();
+  assert.deepEqual(await page.locator('.promo-picker-row input').evaluateAll(nodes=>nodes.map(node=>node.dataset.pid)),['101']);
+  await page.locator('.promo-picker-row input').check();
+  await page.locator('#promoPickerAddBtn').click();
+  assert.equal(await page.evaluate(()=>currentPromoDraftItems.length),1);
+  await page.locator('#promo_category').selectOption('อาหารเสริม');
+  assert.deepEqual(await subOptions(),['','ทั่วไป','อาหารเฉพาะ','ร่วมกัน']);
+  assert.equal(await page.locator('#promo_brand').inputValue(),'','invalid subcategory resets');
+  assert.equal(await page.evaluate(()=>currentPromoDraftItems.length),0,'old category items are cleared');
+  await page.locator('#promo_brand').selectOption('ร่วมกัน');
+  await page.locator('#promo_category').selectOption('ยา');
+  assert.equal(await page.locator('#promo_brand').inputValue(),'ร่วมกัน','shared subcategory remains selected');
+  await page.locator('#promo_category').selectOption('หมวดว่าง');
+  assert.deepEqual(await subOptions(),['','ทั่วไป'],'configured categories without products remain available');
+  await page.evaluate(()=>{
+    promotions=[{id:99,name:'เดิม',scope:'category',category:'ยา',brand:'ยาเฉพาะ',items:[],type:'discount'}];
+    editingPromotionId=99;promoDraftItemsSyncedFor=undefined;
+    document.getElementById('main').innerHTML=renderPromotionForm();attachEvents();
+  });
+  assert.equal(await page.locator('#promo_brand').inputValue(),'ยาเฉพาะ','editing preserves the saved subcategory');
+  const fields=await page.locator('.promo-category-field').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().top));
+  assert.equal(fields[0],fields[1],'main and subcategory share a row');
+  assert.equal(await page.locator('#promo_scope_category').getByText('สินค้าในหมวด/แบรนด์นี้',{exact:false}).count(),0);
+  assert.equal(await page.locator('#promoCategoryItemsList').innerText(),'');
   assert.deepEqual(errors,[]);
   console.log('POS footer, blue promotion warnings and hold cancellation browser tests passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});

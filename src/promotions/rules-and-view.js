@@ -256,7 +256,7 @@ function renderPromotions(){
 
 // แสดงรายการสินค้าที่เจาะจงเลือกไว้ในโหมด "หมวดหมู่/แบรนด์ - เจาะจงเลือกสินค้า" พร้อม dropdown หน่วยแยกต่อตัว
 function renderPromoCategoryItemsList(items){
-  if(!items.length) return '<div style="font-size:12.5px;color:var(--text-muted);padding:8px 0;">ยังไม่ได้เลือกสินค้า — กดปุ่ม "เลือกสินค้า" ด้านบน</div>';
+  if(!items.length) return '';
   return items.map((it,idx)=>{
     const p=products.find(x=>x.id===it.productId);
     if(!p) return '';
@@ -278,6 +278,7 @@ function renderPromotionForm(){
   const isNew=editingPromotionId==='new';
   const promo=isNew?{name:'',active:true,startDate:'',endDate:'',scope:'product',productId:null,category:'',brand:'',categoryMode:'all',items:[],unit:'',type:'discount',discountMode:'percent',discountValue:'',bundleQty:'',bundlePrice:'',bgdBuyProductId:null,bgdBuyUnit:'',bgdBuyQty:'',bgdGetProductId:null,bgdGetUnit:'',bgdGetQty:''}:promotions.find(x=>x.id===editingPromotionId);
   if(!promo) return '<div class="panel">ไม่พบโปรโมชั่น</div>';
+  const categorySettings=effectiveProductCategorySettings();
   if(promoDraftItemsSyncedFor!==editingPromotionId){
     currentPromoDraftItems=(promo.items||[]).map(it=>({...it}));
     promoDraftItemsSyncedFor=editingPromotionId;
@@ -380,7 +381,7 @@ function renderPromotionForm(){
         <div class="cform">
           <div class="crow"><label>ผูกกับ</label><div class="cradio">
             <label><input type="radio" name="promo_scope" value="product" ${promo.scope==='product'?'checked':''}> สินค้ารายตัว</label>
-            <label><input type="radio" name="promo_scope" value="category" ${promo.scope==='category'?'checked':''}> หมวดหมู่ / แบรนด์</label>
+            <label><input type="radio" name="promo_scope" value="category" ${promo.scope==='category'?'checked':''}> หมวดหลัก / หมวดย่อย</label>
           </div></div>
           <div id="promo_scope_product" class="crow" style="display:${promo.scope==='product'?'block':'none'};">
             <label>เลือกสินค้า <span class="req">*</span></label>
@@ -394,11 +395,12 @@ function renderPromotionForm(){
             </div>
           </div>
           <div id="promo_scope_category" class="crow" style="display:${promo.scope==='category'?'block':'none'};">
-            <label>หมวดหมู่ <span class="req">*</span></label>
-            <select id="promo_category" class="promo-select"><option value="">-- เลือกหมวดหมู่ --</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${promo.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select>
-            <label style="margin-top:10px;">แบรนด์ (ไม่บังคับ)</label>
-            <select id="promo_brand" class="promo-select"><option value="">-- ทุกแบรนด์ในหมวดนี้ --</option>${brands.map(b=>`<option value="${escapeHtml(b)}" ${promo.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select>
-            <label style="margin-top:10px;">สินค้าในหมวด/แบรนด์นี้ <span class="req">*</span></label>
+            <div class="promo-category-fields">
+              <div class="promo-category-field"><label for="promo_category">หมวดหลัก <span class="req">*</span></label>
+                <select id="promo_category" class="promo-select"><option value="">-- เลือกหมวดหลัก --</option>${categorySettings.categories.map(c=>`<option value="${escapeHtml(c)}" ${promo.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></div>
+              <div class="promo-category-field"><label for="promo_brand">หมวดย่อย</label>
+                <select id="promo_brand" class="promo-select" ${promo.category?'':'disabled'}>${promoSubcategoryOptions(promo.category,promo.brand,categorySettings)}</select></div>
+            </div>
             <button type="button" class="btn ghost" id="openPromoItemPickerBtn" style="width:100%;justify-content:center;">📦 เลือกสินค้า</button>
             <div id="promoCategoryItemsList" class="promo-item-list">${renderPromoCategoryItemsList(currentPromoDraftItems||[])}</div>
           </div>
