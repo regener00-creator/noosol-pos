@@ -119,7 +119,7 @@ let browser;
   await page.waitForFunction(()=>{const today=document.querySelector('.dashboard-calendar-day.is-today')?.getBoundingClientRect(),box=document.querySelector('.dashboard-calendar-scroll')?.getBoundingClientRect();return today&&box&&today.left>=box.left&&today.right<=box.right;});
   assert.equal(await next.isDisabled(),true);
   assert.equal(await day.locator('[aria-current="date"]').innerText(),'31');
-  assert.match(await day.innerText(),/บิล :\s*2/);assert.match(await day.innerText(),/ขาย\s*230.00/);
+  assert.match(await day.innerText(),/บิล:\s*2/);assert.doesNotMatch(await day.innerText(),/ขาย/);assert.equal(await day.locator('[data-day-sales]').innerText(),'230.00');
   // Restore or date-rollover state is clamped too, not just button clicks.
   await page.evaluate(()=>{dashboardCalendarMonth='2027-01';render();});
   assert.equal(await day.count(),1);
