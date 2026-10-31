@@ -151,6 +151,7 @@ function bindPasswordVisibilityToggles(root=document){
 }
 
 function attachEvents(){
+  attachKnowledgeEvents();
   attachVoidReportEvents();
   bindLotNumberInputs();
   attachProductCategorySelectEvents();

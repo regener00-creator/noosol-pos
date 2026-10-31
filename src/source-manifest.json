@@ -28,6 +28,7 @@
   "src/ui/theme.js",
   "src/ui/keyboard-navigation.js",
   "src/notes/editor.js",
+  "src/notes/knowledge.js",
   "src/representatives/history.js",
   "src/dashboard/overview.js",
   "src/pos/checkout-view.js",

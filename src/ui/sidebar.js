@@ -3,6 +3,7 @@ const NAV = [
   {section:'ทั่วไป', items:[
     ['dashboard','DASHBOARD','<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>'],
     ['notes','NOTE','<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h8M8 17h5"/>'],
+    ['knowledge','สิ่งควรรู้','<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7v1"/>'],
   ]},
   {section:'ขาย', items:[
     ['checkout','POS','<circle cx="9" cy="20" r="1.4"/><circle cx="18" cy="20" r="1.4"/><path d="M2 3h3l2.4 12.2a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 7H6"/>'],

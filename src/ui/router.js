@@ -184,6 +184,7 @@ function attachOnDemandStateEvents(state){
 }
 
 const RENDERERS = {
+  knowledge: renderKnowledge,
   rvoid: ()=>renderVoidReport(),
   mobiletools: renderMobileTools,
   dashboard: renderDashboard, checkout: renderCheckout, notes: renderNotes, cashshift: renderCashShift, cashbill: ()=>renderCashBills(), taxinvoice: ()=>renderTaxInvoices(), quotation: ()=>renderQuotation(), invoice: renderInvoice,

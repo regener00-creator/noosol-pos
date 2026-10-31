@@ -4,6 +4,7 @@ const LEVEL2_HIDDEN_TABS=new Set(['settingssystem','settingsbusiness','rprofit',
 const ALL_WAREHOUSES_TABS=new Set(['dashboard','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','rvoid','rprofit','rtax','auditlog','representativehistory','settingsprinter']);
 function canAccessTab(tab,user=loggedInUser()){
   if(!user) return false;
+  if(tab==='knowledge') return true;
   if(isAllWarehousesMode()&&!ALL_WAREHOUSES_TABS.has(tab)) return false;
   if((tab==='settingsusers'||tab==='auditlog')&&user.owner!==true) return false;
   if(tab==='settingscategories'&&user.owner!==true) return false;
