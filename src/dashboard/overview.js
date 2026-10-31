@@ -1,33 +1,90 @@
-function dashboardSalesSummary(sales){
+let dashboardCalendarMonth='';
+let dashboardCalendarLoad=null;
+function dashboardSelectedMonth(){return dashboardCalendarMonth||TODAY_STR.slice(0,7);}
+function dashboardCalendarScope(){return `${isAllWarehousesMode()?'all':activeWarehouseId}`;}
+function dashboardSaleInWarehouse(sale){
+  if(isAllWarehousesMode())return true;
+  if(sale.warehouseId!=null)return String(sale.warehouseId)===String(activeWarehouseId);
+  return (sale.items||[]).some(item=>String(saleWarehouseForReport(sale,item,products.find(product=>Number(product.id)===Number(item.productId))||products.find(product=>product.name===item.name)||{}))===String(activeWarehouseId));
+}
+function dashboardSalesSummary(sales,summary={total:0,profit:0,orders:0,profitComplete:true}){
   return sales.reduce((summary,sale)=>{
     summary.total+=Number(sale.total)||0;
     if(!sale.customerReturn)summary.orders++;
     if(sale.grossProfit!=null&&sale.costTotal!=null){summary.profit+=Number(sale.grossProfit)||0;}
     else summary.profitComplete=false;
     return summary;
-  },{total:0,profit:0,orders:0,profitComplete:true});
+  },summary);
+}
+async function loadDashboardCalendar(state){
+  if(dashboardCalendarLoad!==state||!isWorkspaceReadCurrent(state.context)||state.scope!==dashboardCalendarScope())return;
+  try{
+    if(offlinePosMode())throw new Error('กรุณาเชื่อมต่ออินเทอร์เน็ตเพื่อดูยอดย้อนหลัง');
+    const range=monthServerRange(state.month),daily=new Map();let cursor=null;
+    // Stream one month in stable ID pages, retaining only daily summaries.
+    while(true){
+      let query=sb.from('sales').select('id,sale_date,total,gross_profit,cost_total,warehouseId:data->>warehouseId,customerReturn:data->customerReturn,items:data->items,storedTotal:data->total,storedProfit:data->grossProfit,storedCost:data->costTotal')
+        .eq('status','done').gte('sale_date',range.from).lte('sale_date',range.to).order('id',{ascending:true}).limit(500);
+      if(cursor!==null)query=query.gt('id',cursor);
+      const {data,error}=await query;
+      if(dashboardCalendarLoad!==state||!isWorkspaceReadCurrent(state.context)||state.scope!==dashboardCalendarScope())return;
+      if(error)throw error;
+      const rows=data||[];
+      for(const row of rows){
+        const sale={warehouseId:row.warehouseId,items:row.items,customerReturn:row.customerReturn,total:row.storedTotal??row.total,grossProfit:row.storedProfit??row.gross_profit,costTotal:row.storedCost??row.cost_total};
+        if(!dashboardSaleInWarehouse(sale))continue;
+        const date=String(row.sale_date||'').slice(0,10);
+        daily.set(date,dashboardSalesSummary([sale],daily.get(date)));
+      }
+      if(rows.length<500)break;
+      const next=String(rows.at(-1).id);if(next===cursor)throw new Error('โหลดข้อมูลเดือนนี้ไม่ครบ กรุณาลองใหม่');cursor=next;
+    }
+    state.daily=daily;state.loaded=true;
+  }catch(error){state.error=error?.message||'โหลดข้อมูลเดือนนี้ไม่สำเร็จ';}
+  finally{
+    state.loading=false;
+    if(dashboardCalendarLoad===state&&isWorkspaceReadCurrent(state.context)&&state.scope===dashboardCalendarScope()&&currentTab==='dashboard')render();
+  }
+}
+function attachDashboardCalendarEvents(){
+  if(currentTab!=='dashboard')return;
+  document.querySelectorAll('[data-dashboard-month-step]').forEach(button=>button.onclick=()=>{
+    const [year,month]=dashboardSelectedMonth().split('-').map(Number),next=new Date(year,month-1+Number(button.dataset.dashboardMonthStep),1);
+    if(next.getFullYear()<1900||next.getFullYear()>9999)return;
+    dashboardCalendarMonth=`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}`;dashboardCalendarLoad=null;render();
+  });
+  document.getElementById('retryDashboardCalendar')?.addEventListener('click',()=>{dashboardCalendarLoad=null;render();});
 }
 function dashboardProfitHtml(summary){
   if(!summary.profitComplete)return '<span class="dashboard-profit-unknown" title="บางบิลยังไม่มีข้อมูลต้นทุนครบ">—</span>';
   return `<span class="${summary.profit<0?'dashboard-loss':'dashboard-profit'}">${summary.profit<0?'-':''}${fmtMoney(Math.abs(summary.profit))}</span>`;
 }
 function renderDashboardCalendar(monthSales,canViewProfit){
-  const [year,month]=TODAY_STR.slice(0,7).split('-').map(Number);
+  const monthKey=dashboardSelectedMonth(),[year,month]=monthKey.split('-').map(Number);
   const firstDay=new Date(year,month-1,1),days=new Date(year,month,0).getDate();
   const monthLabel=firstDay.toLocaleDateString('th-TH-u-ca-gregory',{month:'long',year:'numeric'});
   const byDay=new Map();
   monthSales.forEach(sale=>{const date=String(sale.date||'').slice(0,10);if(!byDay.has(date))byDay.set(date,[]);byDay.get(date).push(sale);});
+  let historical=null;
+  if(monthKey!==TODAY_STR.slice(0,7)){
+    const state=dashboardCalendarLoad;
+    if(!state||state.month!==monthKey||state.scope!==dashboardCalendarScope()||!isWorkspaceReadCurrent(state.context)){
+      historical=dashboardCalendarLoad={month:monthKey,scope:dashboardCalendarScope(),context:captureWorkspaceRead(),loading:true,loaded:false,error:'',daily:new Map()};
+      setTimeout(()=>loadDashboardCalendar(historical),0);
+    }else historical=state;
+  }
   const cells=Array.from({length:Math.ceil((firstDay.getDay()+days)/7)*7},(_,index)=>{
     const day=index-firstDay.getDay()+1;
     if(day<1||day>days)return '<div class="dashboard-calendar-blank" aria-hidden="true"></div>';
-    const date=`${TODAY_STR.slice(0,7)}-${String(day).padStart(2,'0')}`;
-    const summary=dashboardSalesSummary(byDay.get(date)||[]);
+    const date=`${monthKey}-${String(day).padStart(2,'0')}`;
+    const summary=historical?historical.daily.get(date)||dashboardSalesSummary([]):dashboardSalesSummary(byDay.get(date)||[]);
     return `<div class="dashboard-calendar-day ${date===TODAY_STR?'is-today':''} ${date>TODAY_STR?'is-future':''}" data-dashboard-date="${date}"><time datetime="${date}" ${date===TODAY_STR?'aria-current="date"':''}>${day}</time><div class="dashboard-day-summary"><span class="dashboard-day-piece">ออเดอร์ : <span data-day-orders>${summary.orders.toLocaleString('th-TH')}</span></span> | <span class="dashboard-day-piece">ยอดขาย <span data-day-sales>${summary.total<0?'-':''}${fmtMoney(Math.abs(summary.total))}</span></span>${canViewProfit?` | <span data-day-profit aria-label="กำไร">${dashboardProfitHtml(summary)}</span>`:''}</div></div>`;
   }).join('');
-  return `<section class="panel dashboard-calendar"><header><h3>ปฏิทินยอดขาย</h3><span>${escapeHtml(monthLabel)}</span></header><div class="dashboard-calendar-scroll"><div class="dashboard-calendar-grid">${['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'].map(day=>`<div class="dashboard-weekday">${day}</div>`).join('')}${cells}</div></div></section>`;
+  const content=historical?.loading?'<p class="dashboard-calendar-feedback" role="status">กำลังโหลดข้อมูลเดือนนี้...</p>':historical?.error?`<div class="dashboard-calendar-feedback" role="alert">${escapeHtml(historical.error)} <button class="btn ghost" id="retryDashboardCalendar">ลองใหม่</button></div>`:`<div class="dashboard-calendar-scroll" tabindex="0" role="region" aria-label="ปฏิทินยอดขายรายวัน เลื่อนแนวนอนเพื่อดูทุกวัน"><div class="dashboard-calendar-grid">${['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'].map(day=>`<div class="dashboard-weekday">${day}</div>`).join('')}${cells}</div></div>`;
+  return `<section class="panel dashboard-calendar"><header><h3>ปฏิทินยอดขาย</h3><div class="dashboard-calendar-navigation"><button type="button" class="btn ghost" data-dashboard-month-step="-1" aria-label="เดือนก่อนหน้า" title="เดือนก่อนหน้า">‹</button><span aria-live="polite">${escapeHtml(monthLabel)}</span><button type="button" class="btn ghost" data-dashboard-month-step="1" aria-label="เดือนถัดไป" title="เดือนถัดไป">›</button></div></header>${content}</section>`;
 }
 function renderDashboard(){
-  const completedSales = salesHistory.filter(s=>s.status==='done').filter(s=>isAllWarehousesMode()||(s.items||[]).some(item=>String(saleWarehouseForReport(s,item,products.find(product=>Number(product.id)===Number(item.productId))||products.find(product=>product.name===item.name)||{}))===String(activeWarehouseId)));
+  const completedSales = salesHistory.filter(s=>s.status==='done').filter(dashboardSaleInWarehouse);
   const todaySales = completedSales.filter(s=>(s.date||'').slice(0,10)===TODAY_STR);
   const monthKey = TODAY_STR.slice(0,7);
   const monthSales = completedSales.filter(s=>(s.date||'').slice(0,7)===monthKey);

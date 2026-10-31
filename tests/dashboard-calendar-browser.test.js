@@ -47,11 +47,51 @@ let browser;
   assert.equal(await page.locator('[data-dashboard-date]').count(),29);assert.equal(await page.locator('[data-dashboard-date="2024-02-29"] [data-day-orders]').innerText(),'0');
   await page.evaluate(()=>{currentDateStr=()=> '2025-02-28';render();});assert.equal(await page.locator('[data-dashboard-date]').count(),28);
   await page.evaluate(()=>{currentDateStr=()=> '2026-10-31';salesHistory=window.calendarFixture;render();});
+  // Historical data must come from the server, without replacing the current cards/history.
+  await page.evaluate(()=>{
+    window.calendarQueries=[];window.calendarFail=false;window.calendarDeferred=null;
+    window.calendarRows=Array.from({length:1001},(_,i)=>({id:String(i).padStart(5,'0'),sale_date:'2026-09-21',status:'done',warehouseId:'1',total:2,gross_profit:1,cost_total:1}));
+    window.calendarRows.push({id:'zz',sale_date:'2026-09-21',status:'done',warehouseId:'2',total:999,gross_profit:99,cost_total:900});
+    sb.from=table=>{
+      if(table!=='sales')throw new Error('Unexpected query '+table);
+      const filters={},q={select(){return q;},eq(k,v){filters[k]=v;return q;},gte(k,v){filters.from=v;return q;},lte(k,v){filters.to=v;return q;},order(){return q;},limit(v){filters.limit=v;return q;},gt(k,v){filters.cursor=v;return q;},then(resolve){
+        window.calendarQueries.push({...filters});
+        const result=()=>window.calendarFail?{error:{message:'ทดสอบโหลดไม่สำเร็จ'}}:{data:window.calendarRows.filter(row=>row.status===filters.status&&row.sale_date>=filters.from&&row.sale_date<=filters.to&&(!filters.cursor||row.id>filters.cursor)).slice(0,filters.limit),error:null};
+        if(window.calendarHold)window.calendarDeferred=()=>resolve(result());else resolve(result());
+      }};return q;
+    };
+  });
+  const previous=page.getByRole('button',{name:'เดือนก่อนหน้า'}),next=page.getByRole('button',{name:'เดือนถัดไป'});
+  await previous.click();await page.waitForSelector('[data-dashboard-date="2026-09-21"]');
+  assert.equal(await page.locator('[data-dashboard-date="2026-09-21"] [data-day-sales]').innerText(),'2,002.00');
+  assert.equal(await page.locator('[data-dashboard-date="2026-09-21"] [data-day-orders]').innerText(),'1,001');
+  assert.equal(await month.locator('[data-summary-sales]').innerText(),'330.00');
+  assert.deepEqual(await page.evaluate(()=>window.calendarQueries.map(q=>q.cursor||null)),[null,'00499','00999']);
+  assert.equal(await page.evaluate(()=>salesHistory.length),8,'historical rows stay out of the shared current-month history');
+  await page.evaluate(()=>{allWarehousesMode=true;render();});await page.waitForSelector('[data-dashboard-date="2026-09-21"]');
+  assert.equal(await page.locator('[data-dashboard-date="2026-09-21"] [data-day-sales]').innerText(),'3,001.00');
+  await page.evaluate(()=>{allWarehousesMode=false;currentProfile={id:'calendar-staff',level:2};render();});await page.waitForSelector('[data-dashboard-date="2026-09-21"]');
+  assert.equal(await page.locator('[data-day-profit]').count(),0);
+  await page.evaluate(()=>{currentProfile={id:'calendar-owner',owner:true,level:1};render();});await page.waitForSelector('[data-dashboard-date="2026-09-21"]');
+  await next.click();assert.equal(await day.locator('[data-day-sales]').innerText(),'230.00');
+  // A late response from an abandoned month cannot replace the newly selected month.
+  await page.evaluate(()=>{window.calendarHold=true;});await previous.click();await page.waitForFunction(()=>!!window.calendarDeferred);
+  await next.click();await page.evaluate(()=>{window.calendarHold=false;window.calendarDeferred();window.calendarDeferred=null;});
+  assert.equal(await day.locator('[data-day-sales]').innerText(),'230.00');
+  await page.evaluate(()=>{window.calendarFail=true;});await previous.click();await page.waitForSelector('#retryDashboardCalendar');
+  assert.equal(await page.locator('[data-dashboard-date]').count(),0,'an error is not displayed as zero sales');
+  await page.evaluate(()=>{window.calendarFail=false;});await page.locator('#retryDashboardCalendar').click();await page.waitForSelector('[data-dashboard-date="2026-09-21"]');
+  assert.equal(await page.locator('[data-dashboard-date="2026-09-21"] [data-day-sales]').innerText(),'2,002.00');
+  await page.evaluate(()=>{dashboardCalendarMonth='2026-01';dashboardCalendarLoad=null;render();});
+  await previous.click();await page.waitForSelector('[data-dashboard-date="2025-12-31"]');
+  await next.click();await page.waitForSelector('[data-dashboard-date="2026-01-31"]');
+  await page.evaluate(()=>{dashboardCalendarMonth='';dashboardCalendarLoad=null;render();});
   for(const width of [1600,1000,600]){
     await page.setViewportSize({width,height:1100});
     assert.equal(await page.locator('.dashboard-calendar').evaluate(el=>el.scrollWidth<=el.clientWidth),true,`calendar stays contained at ${width}`);
+    assert.equal(await day.evaluate(el=>{const a=el.querySelector('time').getBoundingClientRect(),b=el.querySelector('.dashboard-day-summary').getBoundingClientRect();return Math.abs((a.top+a.bottom)/2-(b.top+b.bottom)/2)<2;}),true,'day number and summary share one row');
   }
   await page.setViewportSize({width:1600,height:1100});
   fs.mkdirSync(path.resolve(__dirname,'../outputs'),{recursive:true});await page.screenshot({path:path.resolve(__dirname,'../outputs/dashboard-calendar.png')});
-  assert.deepEqual(errors,[]);console.log('Dashboard calendar: grouped cards, daily totals/profit/count, voids/holds/returns, warehouse scope, permissions, missing cost, leap years and responsive layout passed');
+  assert.deepEqual(errors,[]);console.log('Dashboard calendar: totals, permissions, month navigation, 1001-row paging, stale requests, retry, year boundary, leap years and one-row responsive layout passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});
