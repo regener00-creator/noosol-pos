@@ -176,10 +176,11 @@
   .dashboard-calendar-day.is-future{background:var(--bg);color:var(--text-muted);}
   .dashboard-calendar-day{display:flex;align-items:center;gap:12px;}
   .dashboard-calendar-day time{display:inline-block;font-size:16px;font-weight:700;min-width:22px;flex-shrink:0;}
-  .dashboard-day-summary{flex:1;text-align:center;font-size:12px;line-height:1.8;white-space:nowrap;}
-  .dashboard-day-sales{margin-left:24px;}
-  .dashboard-day-separator::before,.dashboard-day-separator::after{content:' ';white-space:pre;}
-  .dashboard-day-piece,.dashboard-day-summary [data-day-profit]{display:inline-block;max-width:100%;}
+  .dashboard-day-summary{flex:1;display:grid;grid-template-columns:max-content max-content max-content var(--dashboard-money-width);justify-content:center;align-items:center;column-gap:5px;text-align:center;font-size:12px;line-height:1.8;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .dashboard-day-summary:not(:has([data-day-profit])){grid-template-columns:max-content max-content;}
+  .dashboard-day-orders{display:inline-grid;grid-template-columns:auto var(--dashboard-order-width);column-gap:3px;}
+  .dashboard-day-sales{display:inline-grid;grid-template-columns:auto var(--dashboard-money-width);column-gap:4px;margin-left:24px;}
+  .dashboard-day-summary [data-day-orders],.dashboard-day-summary [data-day-sales],.dashboard-day-summary [data-day-profit]{text-align:right;}
   .dashboard-day-summary [data-day-orders],.dashboard-day-summary [data-day-sales],.dashboard-day-summary [data-day-profit]{font-weight:700;}
   @media(max-width:800px){.statrow.dashboard-summary-row{grid-template-columns:1fr;}.dashboard-summary-card{padding:18px;}.dashboard-calendar{padding:12px;}}
   .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px 18px;margin-bottom:14px;}

@@ -35,6 +35,7 @@ let browser;
   const day=page.locator('[data-dashboard-date="2026-10-31"]');
   assert.equal(await day.locator('[data-day-sales]').innerText(),'230.00');assert.equal(await day.locator('[data-day-profit]').innerText(),'25.00');assert.equal(await day.locator('[data-day-orders]').innerText(),'2');
   assert.equal(await day.locator('[aria-current="date"]').count(),1);
+  assert.equal(await day.locator('.dashboard-day-separator').count(),1,'only the separator between sales and profit remains');
   assert.equal(await page.locator('[data-dashboard-date="2026-10-02"] [data-day-sales]').innerText(),'0.00');
   assert.equal(await page.locator('[data-dashboard-date="2026-10-01"]').evaluate(el=>[...el.parentElement.children].indexOf(el)),11,'October starts on Thursday');
   await page.evaluate(()=>{allWarehousesMode=true;render();});
@@ -133,6 +134,10 @@ let browser;
     assert.equal(await page.locator('.dashboard-calendar').evaluate(el=>el.scrollWidth<=el.clientWidth),true,`calendar stays contained at ${width}`);
     assert.equal(await day.evaluate(el=>{const a=el.querySelector('time').getBoundingClientRect(),b=el.querySelector('.dashboard-day-summary').getBoundingClientRect();return Math.abs((a.top+a.bottom)/2-(b.top+b.bottom)/2)<2;}),true,'day number and summary share one row');
     assert.equal(await day.locator('.dashboard-day-summary').evaluate(el=>getComputedStyle(el).textAlign),'center','daily summary is centered');
+    for(const selector of ['[data-day-orders]','[data-day-sales]','[data-day-profit]']){
+      const a=await day.locator(selector).boundingBox(),b=await page.locator('[data-dashboard-date="2026-10-24"]').locator(selector).boundingBox();
+      assert.ok(Math.abs(a.x-b.x)<1&&Math.abs(a.width-b.width)<1,`${selector} keeps the same column for zero and nonzero amounts`);
+    }
   }
   await page.setViewportSize({width:1600,height:1100});
   fs.mkdirSync(path.resolve(__dirname,'../outputs'),{recursive:true});await page.screenshot({path:path.resolve(__dirname,'../outputs/dashboard-calendar.png')});
