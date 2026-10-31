@@ -39,12 +39,10 @@ function selectPromoProduct(productId){
   if(searchInput) searchInput.value=p.name;
   if(box){ box.innerHTML=''; box.hidden=true; }
   updatePromoUnitOptions();
-  // อัปเดตข้อความ "เลือกแล้ว: ..." โดยไม่ต้อง render ทั้งฟอร์มใหม่ (กันเสีย focus)
-  const fieldWrap=document.getElementById('promo_product_field_wrap');
-  if(fieldWrap){
-    let hint=fieldWrap.querySelector('.promo-selected-hint');
-    if(!hint){ hint=document.createElement('div'); hint.className='promo-selected-hint'; hint.style.cssText='font-size:12px;color:var(--text-muted);margin-top:6px;'; fieldWrap.appendChild(hint); }
-    hint.innerHTML=`เลือกแล้ว: <b style="color:var(--text);">${escapeHtml(p.name)}</b> (${escapeHtml(p.sku||'-')})`;
+  const selectedBox=document.getElementById('promoSelectedProductBox');
+  if(selectedBox){
+    selectedBox.hidden=false;
+    selectedBox.querySelector('.promo-selected-hint').innerHTML=`<b>${escapeHtml(p.name)}</b> (${escapeHtml(p.sku||'-')})`;
   }
 }
 function bindPromoProductSearch(){
@@ -55,6 +53,9 @@ function bindPromoProductSearch(){
     // ถ้าผู้ใช้แก้ข้อความ ให้ล้างค่าที่เลือกไว้เดิม (ป้องกันเก็บ pid เก่ากับชื่อใหม่ไม่ตรงกัน)
     const hidden=document.getElementById('promo_product_id');
     if(hidden) hidden.value='';
+    const selectedBox=document.getElementById('promoSelectedProductBox');
+    if(selectedBox) selectedBox.hidden=true;
+    updatePromoUnitOptions();
     renderPromoProductResults(input.value);
   });
   input.addEventListener('focus',()=>{ if(input.value.trim()) renderPromoProductResults(input.value); });

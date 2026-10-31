@@ -314,12 +314,14 @@ function renderPromotionForm(){
           <h3>ข้อมูลโปรโมชั่น</h3>
           <div class="cform">
             <div class="crow"><label>ชื่อโปรโมชั่น <span class="req">*</span></label><input id="promo_name" value="${escapeHtml(promo.name||'')}" placeholder="เช่น ลดราคาวิตามินซี 10%"></div>
-            <div class="crow"><label>สถานะ</label><div class="cradio">
+            <div class="promo-info-row">
+            <div class="promo-category-field"><label>สถานะ</label><div class="cradio">
               <label><input type="radio" name="promo_active" value="1" ${promo.active?'checked':''}> เปิดใช้งาน</label>
               <label><input type="radio" name="promo_active" value="0" ${!promo.active?'checked':''}> ปิดใช้งาน</label>
             </div></div>
-            <div class="crow"><label>วันเริ่มโปรโมชั่น</label>${dmyDateFieldHtml('promo_start',promo.startDate)}</div>
-            <div class="crow"><label>วันสิ้นสุดโปรโมชั่น</label>${dmyDateFieldHtml('promo_end',promo.endDate)}</div>
+            <div class="promo-category-field"><label for="promo_start">วันเริ่มโปรโมชั่น</label>${dmyDateFieldHtml('promo_start',promo.startDate)}</div>
+            <div class="promo-category-field"><label for="promo_end">วันสิ้นสุดโปรโมชั่น</label>${dmyDateFieldHtml('promo_end',promo.endDate)}</div>
+            </div>
           </div>
         </div>
         <div class="panel" style="margin-top:16px;">
@@ -331,11 +333,13 @@ function renderPromotionForm(){
               <label><input type="radio" name="promo_type" value="buygetdiff" ${promo.type==='buygetdiff'?'checked':''}> ซื้อและแถม</label>
             </div></div>
             <div id="promo_fields_discount" class="promo-fields-group" style="display:${promo.type==='discount'?'flex':'none'};">
-              <div class="crow"><label>รูปแบบส่วนลด</label><div class="cradio">
+              <div class="promo-discount-row">
+              <div class="promo-category-field"><label>รูปแบบส่วนลด</label><div class="cradio">
                 <label><input type="radio" name="promo_discount_mode" value="percent" ${promo.discountMode!=='amount'?'checked':''}> ลดเป็น %</label>
                 <label><input type="radio" name="promo_discount_mode" value="amount" ${promo.discountMode==='amount'?'checked':''}> ลดเป็นจำนวนเงิน</label>
               </div></div>
-              <div class="crow"><label>มูลค่าส่วนลด <span class="req">*</span></label><input id="promo_discount_value" type="number" min="0" step="0.01" value="${promo.discountValue||''}" placeholder="เช่น 10"></div>
+              <div class="promo-category-field"><label for="promo_discount_value">มูลค่าส่วนลด <span class="req">*</span></label><input id="promo_discount_value" type="number" min="0" step="0.01" value="${promo.discountValue||''}" placeholder="เช่น 10"></div>
+              </div>
             </div>
             <div id="promo_fields_bundle" class="promo-fields-group" style="display:${promo.type==='bundle'?'flex':'none'};">
               <div class="crow"><label>ซื้อครบจำนวน (ชิ้น) <span class="req">*</span></label><input id="promo_bundle_qty" type="number" min="1" step="1" value="${promo.bundleQty||''}" placeholder="เช่น 3"></div>
@@ -392,12 +396,14 @@ function renderPromotionForm(){
                 <div class="doc-scanner"><span class="doc-scanner-icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></span><input id="promo_product_search" placeholder="ค้นหาชื่อสินค้า / รหัส / บาร์โค้ด" autocomplete="off" value="${selectedProduct?escapeHtml(selectedProduct.name):''}"></div>
                 <div class="doc-scan-results" id="promoProductResults" hidden></div>
               </div>
-              ${selectedProduct?`<div class="promo-selected-hint" style="font-size:12px;color:var(--text-muted);margin-top:6px;">เลือกแล้ว: <b style="color:var(--text);">${escapeHtml(selectedProduct.name)}</b> (${escapeHtml(selectedProduct.sku||'-')})</div>`:''}
             </div>
             </div>
             <div id="promo_scope_product_unit" class="promo-category-field"><label for="promo_unit">หน่วยที่ร่วมโปรโมชั่น <span class="req">*</span></label>
               <select id="promo_unit" class="promo-select">${selectedProduct?unitOptionsForProduct(selectedProduct):'<option value="">เลือกสินค้าก่อน</option>'}</select>
             </div>
+            </div>
+            <div id="promoSelectedProductBox" class="promo-selected-box" ${selectedProduct?'':'hidden'}>
+              <h4>สินค้าที่เลือกแล้ว</h4><div class="promo-selected-hint">${selectedProduct?`<b>${escapeHtml(selectedProduct.name)}</b> (${escapeHtml(selectedProduct.sku||'-')})`:''}</div>
             </div>
           </div>
           <div id="promo_scope_category" class="crow" style="display:${promo.scope==='category'?'block':'none'};">
@@ -408,7 +414,7 @@ function renderPromotionForm(){
                 <select id="promo_brand" class="promo-select" ${promo.category?'':'disabled'}>${promoSubcategoryOptions(promo.category,promo.brand,categorySettings)}</select></div>
             </div>
             <button type="button" class="btn ghost" id="openPromoItemPickerBtn" style="width:100%;justify-content:center;">📦 เลือกสินค้า</button>
-            <div id="promoCategoryItemsList" class="promo-item-list">${renderPromoCategoryItemsList(currentPromoDraftItems||[])}</div>
+            <div class="promo-selected-box"><h4>สินค้าที่เลือกแล้ว</h4><div id="promoCategoryItemsList" class="promo-item-list">${renderPromoCategoryItemsList(currentPromoDraftItems||[])}</div></div>
           </div>
         </div>
       </div>
