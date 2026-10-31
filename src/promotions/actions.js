@@ -312,10 +312,10 @@ function savePromotion(){
     }
   }
   const data={name,active,startDate,endDate,scope,productId,category,brand,categoryMode,items,unit,type,
-    discountMode:'percent',discountValue:'',bundleQty:'',bundlePrice:'',
+    discountMode:'amount',discountValue:'',bundleQty:'',bundlePrice:'',
     bgdBuyProductId,bgdBuyUnit,bgdBuyQty,bgdGetProductId,bgdGetUnit,bgdGetQty};
   if(type==='discount'){
-    data.discountMode=document.querySelector('input[name="promo_discount_mode"]:checked')?.value||'percent';
+    data.discountMode=document.querySelector('input[name="promo_discount_mode"]:checked')?.value||'amount';
     data.discountValue=parseFloat(g('promo_discount_value')?.value)||0;
     if(data.discountValue<=0){ showToast('กรุณากรอกมูลค่าส่วนลดให้ถูกต้อง'); return; }
     if(data.discountMode==='percent' && data.discountValue>100){ showToast('ส่วนลดเป็น % ต้องไม่เกิน 100'); return; }

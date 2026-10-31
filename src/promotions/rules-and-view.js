@@ -276,7 +276,7 @@ function renderPromoCategoryItemsList(items){
 }
 function renderPromotionForm(){
   const isNew=editingPromotionId==='new';
-  const promo=isNew?{name:'',active:true,startDate:'',endDate:'',scope:'product',productId:null,category:'',brand:'',categoryMode:'all',items:[],unit:'',type:'discount',discountMode:'percent',discountValue:'',bundleQty:'',bundlePrice:'',bgdBuyProductId:null,bgdBuyUnit:'',bgdBuyQty:'',bgdGetProductId:null,bgdGetUnit:'',bgdGetQty:''}:promotions.find(x=>x.id===editingPromotionId);
+  const promo=isNew?{name:'',active:true,startDate:'',endDate:'',scope:'product',productId:null,category:'',brand:'',categoryMode:'all',items:[],unit:'',type:'discount',discountMode:'amount',discountValue:'',bundleQty:'',bundlePrice:'',bgdBuyProductId:null,bgdBuyUnit:'',bgdBuyQty:'',bgdGetProductId:null,bgdGetUnit:'',bgdGetQty:''}:promotions.find(x=>x.id===editingPromotionId);
   if(!promo) return '<div class="panel">ไม่พบโปรโมชั่น</div>';
   const categorySettings=effectiveProductCategorySettings();
   if(promoDraftItemsSyncedFor!==editingPromotionId){
@@ -335,8 +335,8 @@ function renderPromotionForm(){
             <div id="promo_fields_discount" class="promo-fields-group" style="display:${promo.type==='discount'?'flex':'none'};">
               <div class="promo-discount-row">
               <div class="promo-category-field"><label>รูปแบบส่วนลด</label><div class="cradio">
-                <label><input type="radio" name="promo_discount_mode" value="percent" ${promo.discountMode!=='amount'?'checked':''}> ลดเป็น %</label>
                 <label><input type="radio" name="promo_discount_mode" value="amount" ${promo.discountMode==='amount'?'checked':''}> ลดเป็นจำนวนเงิน</label>
+                <label><input type="radio" name="promo_discount_mode" value="percent" ${promo.discountMode!=='amount'?'checked':''}> ลดเป็น %</label>
               </div></div>
               <div class="promo-category-field"><label for="promo_discount_value">มูลค่าส่วนลด <span class="req">*</span></label><input id="promo_discount_value" type="number" min="0" step="0.01" value="${promo.discountValue||''}" placeholder="เช่น 10"></div>
               </div>
