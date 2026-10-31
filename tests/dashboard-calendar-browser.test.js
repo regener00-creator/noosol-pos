@@ -62,6 +62,7 @@ let browser;
     };
   });
   const previous=page.getByRole('button',{name:'เดือนก่อนหน้า'}),next=page.getByRole('button',{name:'เดือนถัดไป'});
+  assert.equal(await next.isDisabled(),true,'future months cannot be selected');
   await previous.click();await page.waitForSelector('[data-dashboard-date="2026-09-21"]');
   assert.equal(await page.locator('[data-dashboard-date="2026-09-21"] [data-day-sales]').innerText(),'2,002.00');
   assert.equal(await page.locator('[data-dashboard-date="2026-09-21"] [data-day-orders]').innerText(),'1,001');
@@ -85,7 +86,25 @@ let browser;
   await page.evaluate(()=>{dashboardCalendarMonth='2026-01';dashboardCalendarLoad=null;render();});
   await previous.click();await page.waitForSelector('[data-dashboard-date="2025-12-31"]');
   await next.click();await page.waitForSelector('[data-dashboard-date="2026-01-31"]');
-  await page.evaluate(()=>{dashboardCalendarMonth='';dashboardCalendarLoad=null;render();});
+  // Exactly twelve selectable months, including the current month.
+  await previous.click();await previous.click();await page.waitForSelector('[data-dashboard-date="2025-11-01"]');
+  assert.equal(await previous.isDisabled(),true,'November 2025 is the oldest month in October 2026');
+  const requestsAtBoundary=await page.evaluate(()=>window.calendarQueries.length);
+  await previous.evaluate(button=>button.onclick());
+  assert.equal(await page.evaluate(()=>window.calendarQueries.length),requestsAtBoundary,'boundary guard prevents an older query');
+  await page.getByRole('button',{name:'ปัจจุบัน',exact:true}).click();
+  await page.waitForFunction(()=>{const today=document.querySelector('.dashboard-calendar-day.is-today')?.getBoundingClientRect(),box=document.querySelector('.dashboard-calendar-scroll')?.getBoundingClientRect();return today&&box&&today.left>=box.left&&today.right<=box.right;});
+  assert.equal(await next.isDisabled(),true);
+  assert.equal(await day.locator('[aria-current="date"]').innerText(),'31');
+  assert.match(await day.innerText(),/บิล :\s*2/);assert.match(await day.innerText(),/ขาย\s*230.00/);
+  // Restore or date-rollover state is clamped too, not just button clicks.
+  await page.evaluate(()=>{dashboardCalendarMonth='2027-01';render();});
+  assert.equal(await day.count(),1);
+  await page.evaluate(()=>{dashboardCalendarMonth='2025-01';render();});await page.waitForSelector('[data-dashboard-date="2025-11-01"]');
+  assert.equal(await previous.isDisabled(),true);
+  await page.evaluate(()=>{currentDateStr=()=> '2026-11-01';render();});await page.waitForSelector('[data-dashboard-date="2025-12-01"]');
+  assert.equal(await previous.isDisabled(),true,'oldest allowed month moves forward with the date');
+  await page.evaluate(()=>{currentDateStr=()=> '2026-10-31';dashboardCalendarMonth='';dashboardCalendarLoad=null;render();});
   for(const width of [1600,1000,600]){
     await page.setViewportSize({width,height:1100});
     assert.equal(await page.locator('.dashboard-calendar').evaluate(el=>el.scrollWidth<=el.clientWidth),true,`calendar stays contained at ${width}`);
@@ -93,5 +112,5 @@ let browser;
   }
   await page.setViewportSize({width:1600,height:1100});
   fs.mkdirSync(path.resolve(__dirname,'../outputs'),{recursive:true});await page.screenshot({path:path.resolve(__dirname,'../outputs/dashboard-calendar.png')});
-  assert.deepEqual(errors,[]);console.log('Dashboard calendar: totals, permissions, month navigation, 1001-row paging, stale requests, retry, year boundary, leap years and one-row responsive layout passed');
+  assert.deepEqual(errors,[]);console.log('Dashboard calendar: totals, permissions, 12-month bounds, Today navigation, paging, stale requests, retry, year boundary, leap years and one-row responsive layout passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});

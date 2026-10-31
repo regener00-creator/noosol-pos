@@ -1,6 +1,13 @@
 let dashboardCalendarMonth='';
 let dashboardCalendarLoad=null;
-function dashboardSelectedMonth(){return dashboardCalendarMonth||TODAY_STR.slice(0,7);}
+function dashboardCalendarBounds(){
+  const current=TODAY_STR.slice(0,7),[year,month]=current.split('-').map(Number),first=new Date(year,month-12,1);
+  return {first:`${first.getFullYear()}-${String(first.getMonth()+1).padStart(2,'0')}`,current};
+}
+function dashboardSelectedMonth(){
+  const {first,current}=dashboardCalendarBounds(),selected=dashboardCalendarMonth||current;
+  return selected<first?first:selected>current?current:selected;
+}
 function dashboardCalendarScope(){return `${isAllWarehousesMode()?'all':activeWarehouseId}`;}
 function dashboardSaleInWarehouse(sale){
   if(isAllWarehousesMode())return true;
@@ -50,8 +57,13 @@ function attachDashboardCalendarEvents(){
   if(currentTab!=='dashboard')return;
   document.querySelectorAll('[data-dashboard-month-step]').forEach(button=>button.onclick=()=>{
     const [year,month]=dashboardSelectedMonth().split('-').map(Number),next=new Date(year,month-1+Number(button.dataset.dashboardMonthStep),1);
-    if(next.getFullYear()<1900||next.getFullYear()>9999)return;
-    dashboardCalendarMonth=`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}`;dashboardCalendarLoad=null;render();
+    const nextMonth=`${next.getFullYear()}-${String(next.getMonth()+1).padStart(2,'0')}`,{first,current}=dashboardCalendarBounds();
+    if(nextMonth<first||nextMonth>current)return;
+    dashboardCalendarMonth=nextMonth;dashboardCalendarLoad=null;render();
+  });
+  document.getElementById('dashboardCalendarToday')?.addEventListener('click',()=>{
+    dashboardCalendarMonth='';dashboardCalendarLoad=null;render();
+    requestAnimationFrame(()=>document.querySelector('.dashboard-calendar-day.is-today')?.scrollIntoView({block:'nearest',inline:'center'}));
   });
   document.getElementById('retryDashboardCalendar')?.addEventListener('click',()=>{dashboardCalendarLoad=null;render();});
 }
@@ -60,7 +72,7 @@ function dashboardProfitHtml(summary){
   return `<span class="${summary.profit<0?'dashboard-loss':'dashboard-profit'}">${summary.profit<0?'-':''}${fmtMoney(Math.abs(summary.profit))}</span>`;
 }
 function renderDashboardCalendar(monthSales,canViewProfit){
-  const monthKey=dashboardSelectedMonth(),[year,month]=monthKey.split('-').map(Number);
+  const monthKey=dashboardSelectedMonth(),[year,month]=monthKey.split('-').map(Number),bounds=dashboardCalendarBounds();
   const firstDay=new Date(year,month-1,1),days=new Date(year,month,0).getDate();
   const monthLabel=firstDay.toLocaleDateString('th-TH-u-ca-gregory',{month:'long',year:'numeric'});
   const byDay=new Map();
@@ -78,10 +90,10 @@ function renderDashboardCalendar(monthSales,canViewProfit){
     if(day<1||day>days)return '<div class="dashboard-calendar-blank" aria-hidden="true"></div>';
     const date=`${monthKey}-${String(day).padStart(2,'0')}`;
     const summary=historical?historical.daily.get(date)||dashboardSalesSummary([]):dashboardSalesSummary(byDay.get(date)||[]);
-    return `<div class="dashboard-calendar-day ${date===TODAY_STR?'is-today':''} ${date>TODAY_STR?'is-future':''}" data-dashboard-date="${date}"><time datetime="${date}" ${date===TODAY_STR?'aria-current="date"':''}>${day}</time><div class="dashboard-day-summary"><span class="dashboard-day-piece">ออเดอร์ : <span data-day-orders>${summary.orders.toLocaleString('th-TH')}</span></span> | <span class="dashboard-day-piece">ยอดขาย <span data-day-sales>${summary.total<0?'-':''}${fmtMoney(Math.abs(summary.total))}</span></span>${canViewProfit?` | <span data-day-profit aria-label="กำไร">${dashboardProfitHtml(summary)}</span>`:''}</div></div>`;
+    return `<div class="dashboard-calendar-day ${date===TODAY_STR?'is-today':''} ${date>TODAY_STR?'is-future':''}" data-dashboard-date="${date}"><time datetime="${date}" ${date===TODAY_STR?'aria-current="date"':''}>${day}</time><div class="dashboard-day-summary"><span class="dashboard-day-piece">บิล : <span data-day-orders>${summary.orders.toLocaleString('th-TH')}</span></span><span class="dashboard-day-separator" aria-hidden="true">|</span><span class="dashboard-day-piece">ขาย <span data-day-sales>${summary.total<0?'-':''}${fmtMoney(Math.abs(summary.total))}</span></span>${canViewProfit?`<span class="dashboard-day-separator" aria-hidden="true">|</span><span data-day-profit aria-label="กำไร">${dashboardProfitHtml(summary)}</span>`:''}</div></div>`;
   }).join('');
   const content=historical?.loading?'<p class="dashboard-calendar-feedback" role="status">กำลังโหลดข้อมูลเดือนนี้...</p>':historical?.error?`<div class="dashboard-calendar-feedback" role="alert">${escapeHtml(historical.error)} <button class="btn ghost" id="retryDashboardCalendar">ลองใหม่</button></div>`:`<div class="dashboard-calendar-scroll" tabindex="0" role="region" aria-label="ปฏิทินยอดขายรายวัน เลื่อนแนวนอนเพื่อดูทุกวัน"><div class="dashboard-calendar-grid">${['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'].map(day=>`<div class="dashboard-weekday">${day}</div>`).join('')}${cells}</div></div>`;
-  return `<section class="panel dashboard-calendar"><header><h3>ปฏิทินยอดขาย</h3><div class="dashboard-calendar-navigation"><button type="button" class="btn ghost" data-dashboard-month-step="-1" aria-label="เดือนก่อนหน้า" title="เดือนก่อนหน้า">‹</button><span aria-live="polite">${escapeHtml(monthLabel)}</span><button type="button" class="btn ghost" data-dashboard-month-step="1" aria-label="เดือนถัดไป" title="เดือนถัดไป">›</button></div></header>${content}</section>`;
+  return `<section class="panel dashboard-calendar"><header><h3>ปฏิทินยอดขาย</h3><div class="dashboard-calendar-navigation"><button type="button" class="btn ghost" id="dashboardCalendarToday">ปัจจุบัน</button><button type="button" class="btn ghost" data-dashboard-month-step="-1" aria-label="เดือนก่อนหน้า" title="เดือนก่อนหน้า" ${monthKey===bounds.first?'disabled':''}>‹</button><span aria-live="polite">${escapeHtml(monthLabel)}</span><button type="button" class="btn ghost" data-dashboard-month-step="1" aria-label="เดือนถัดไป" title="เดือนถัดไป" ${monthKey===bounds.current?'disabled':''}>›</button></div></header>${content}</section>`;
 }
 function renderDashboard(){
   const completedSales = salesHistory.filter(s=>s.status==='done').filter(dashboardSaleInWarehouse);
