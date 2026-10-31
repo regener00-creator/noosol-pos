@@ -217,7 +217,7 @@ test('report search results, dashboard summaries, and system-user action attribu
   const dashboardSource = sourceBetween('function renderDashboard(', 'function matchesBarcode(');
   assert.doesNotMatch(dashboardSource, /weekSales/);
   assert.match(dashboardSource, /escapeHtml\(item\.name\)/);
-  assert.match(dashboardSource, /escapeHtml\(item\.unit\)/);
+  assert.match(dashboardSource, /escapeHtml\(item\.quantityText\)/);
   assert.match(dashboardSource, /\$\{escapeHtml\(s\.ref\|\|s\.id\)\}/);
   assert.match(dashboardSource, /\$\{escapeHtml\(s\.payMethod\|\|'-'\)\}/);
 

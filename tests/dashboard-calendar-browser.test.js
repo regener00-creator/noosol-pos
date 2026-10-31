@@ -35,6 +35,7 @@ let browser;
   const day=page.locator('[data-dashboard-date="2026-10-31"]');
   assert.equal(await day.locator('[data-day-sales]').innerText(),'230.00');assert.equal(await day.locator('[data-day-profit]').innerText(),'25.00');assert.equal(await day.locator('[data-day-orders]').innerText(),'2');
   assert.equal(await day.locator('[aria-current="date"]').count(),1);
+  assert.match(await day.locator('.dashboard-bill-label').innerText(),/^\| บิล: 2$/);
   assert.equal(await day.locator('.dashboard-day-separator').count(),1,'only the separator between sales and profit remains');
   assert.equal(await page.locator('[data-dashboard-date="2026-10-02"] [data-day-sales]').innerText(),'0.00');
   assert.equal(await page.locator('[data-dashboard-date="2026-10-01"]').evaluate(el=>[...el.parentElement.children].indexOf(el)),11,'October starts on Thursday');
@@ -71,7 +72,14 @@ let browser;
   assert.ok((await month.boundingBox()).x<(await page.locator('.dashboard-top-products').boundingBox()).x,'month summary is on the left');
   fs.mkdirSync(path.resolve(__dirname,'../outputs'),{recursive:true});await page.screenshot({path:path.resolve(__dirname,'../outputs/dashboard-best-sellers.png')});
   await page.evaluate(()=>{products[1].unit='เม็ด';products[1].units=[{sub:'Pcs',factor:10},{sub:'กล่อง',factor:100}];render();});
-  assert.match(await page.locator('.dashboard-best-seller').first().innerText(),/สินค้า 2\s*200 เม็ด/,'historical units are converted when the base unit changes');
+  assert.match(await page.locator('.dashboard-best-seller').first().innerText(),/สินค้า 2\s*2 กล่อง/,'historical units are converted when the base unit changes');
+  await page.evaluate(()=>{
+    products=[{id:2,name:'สินค้าหลายหน่วย',unit:'ซอง',units:[{sub:'กล่อง',factor:125},{sub:'ลัง',factor:1000}],wh:1}];
+    salesHistory=[{...window.calendarFixture[0],items:[{productId:2,qty:1265,unit:'ซอง',factor:1}]}];render();
+  });
+  assert.equal(await page.locator('.dashboard-best-quantity').innerText(),'1 ลัง 2 กล่อง 15 ซอง');
+  assert.equal(await page.locator('.dashboard-best-quantity').evaluate(el=>getComputedStyle(el).fontWeight),'700');
+  assert.ok(await page.locator('.dashboard-best-rank').evaluate(el=>el.getBoundingClientRect().left-el.parentElement.getBoundingClientRect().left<15),'rank sits at the left edge');
   await page.evaluate(()=>{products=window.originalCalendarProducts;salesHistory=window.calendarFixture;render();});
   // Historical data must come from the server, without replacing the current cards/history.
   await page.evaluate(()=>{
