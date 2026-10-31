@@ -65,6 +65,10 @@ function renderContacts(){
     </div>${pagerHtml(contactPage,totalPages,'contactpage')}</div>`;
 }
 
+function customerPriceComparison(price,regularPrice){
+  if(String(price??'').trim()===''||!Number.isFinite(Number(price))||Number(price)<0) return '';
+  return Number(price)<Number(regularPrice)?'below-regular':Number(price)>Number(regularPrice)?'above-regular':'';
+}
 function customerPriceRowHtml(rule={},index=0,allowAddToSale=false){
   const product=products.find(item=>Number(item.id)===Number(rule.productId));
   if(!product) return '';
@@ -77,7 +81,7 @@ function customerPriceRowHtml(rule={},index=0,allowAddToSale=false){
     <td class="mono customer-price-barcode">${escapeHtml(productBarcodeForUnit(product,selectedUnit)||'-')}</td>
     <td class="customer-price-product-name"><input type="hidden" class="customer-price-id" value="${escapeHtml(rule.id||'')}"><input type="hidden" class="customer-price-product-id" value="${escapeHtml(product.id)}">${nameHtml}<small>${escapeHtml(product.sku||'-')}</small></td>
     <td><select class="customer-price-unit" aria-label="หน่วย ${escapeHtml(product.name)}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selectedUnit?'selected':''}>${escapeHtml(unitLabels.get(option.name)||option.name)}</option>`).join('')}</select></td>
-    <td><input class="customer-price-value mono" type="number" min="0" step="0.01" value="${Number.isFinite(Number(rule.price))?escapeHtml(rule.price):''}" placeholder="0.00" aria-label="ราคาพิเศษ ${escapeHtml(product.name)}"></td>
+    <td><input class="customer-price-value mono ${customerPriceComparison(rule.price,selectedOption?.price||0)}" type="number" min="0" step="0.01" value="${Number.isFinite(Number(rule.price))?escapeHtml(rule.price):''}" placeholder="0.00" aria-label="ราคาพิเศษ ${escapeHtml(product.name)}"></td>
     <td><input class="customer-price-regular mono" value="${escapeHtml(fmtMoney(selectedOption?.price||0))}" readonly tabindex="-1" aria-label="ราคาปกติ ${escapeHtml(product.name)}"></td>
     <td><input class="customer-price-cost mono" value="${escapeHtml(fmtMoney(selectedOption?.cost||0))}" readonly tabindex="-1" aria-label="ทุน ${escapeHtml(product.name)}"></td>
     <td><button class="history-icon-btn danger customer-price-remove" type="button" title="ลบราคาพิเศษ" aria-label="ลบราคาพิเศษ ${escapeHtml(product.name)}">×</button></td>

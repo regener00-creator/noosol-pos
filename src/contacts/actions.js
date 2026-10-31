@@ -167,6 +167,23 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
   const customerPriceRows=root.querySelector('#customerPriceRows');
   const bindCustomerPriceRows=()=>root.querySelectorAll('[data-customer-price-row]').forEach(row=>{
     const unitSelect=row.querySelector('.customer-price-unit');
+    const priceInput=row.querySelector('.customer-price-value');
+    const updatePriceComparison=()=>{
+      const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
+      const comparison=customerPriceComparison(priceInput.value,regularProductUnitPrice(product,unitSelect.value));
+      priceInput.classList.toggle('below-regular',comparison==='below-regular');
+      priceInput.classList.toggle('above-regular',comparison==='above-regular');
+    };
+    priceInput.oninput=updatePriceComparison;
+    // Keep repeated Enter presses in editable prices, away from delete/add-sale buttons.
+    priceInput.onkeydown=event=>{
+      if(event.key!=='Enter'||event.isComposing||event.keyCode===229||event.ctrlKey||event.altKey||event.metaKey||event.shiftKey) return;
+      event.preventDefault();
+      if(event.repeat) return;
+      const inputs=[...root.querySelectorAll('.customer-price-value:not(:disabled)')];
+      const next=inputs[inputs.indexOf(priceInput)+1]||root.querySelector('#customerPriceSearch');
+      next?.focus();
+    };
     if(unitSelect){
       unitSelect.dataset.previousUnit=unitSelect.value;
       unitSelect.onchange=()=>{
@@ -179,6 +196,7 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
         row.querySelector('.customer-price-regular').value=fmtMoney(option?.price||0);
         row.querySelector('.customer-price-cost').value=fmtMoney(option?.cost||0);
         unitSelect.dataset.previousUnit=unitSelect.value;
+        updatePriceComparison();
       };
     }
     const remove=row.querySelector('.customer-price-remove');

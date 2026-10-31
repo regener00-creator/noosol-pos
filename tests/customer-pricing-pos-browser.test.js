@@ -58,10 +58,25 @@ const browserExecutable = [
   assert.equal(await page.locator('.customer-price-cost').getAttribute('readonly'),'');
   assert.equal(await page.locator('.customer-price-regular').inputValue(),'180.00');
   assert.equal(await page.locator('.customer-price-regular').getAttribute('readonly'),'');
+  const price=page.locator('.customer-price-value');
+  const priceColor=()=>price.evaluate(input=>getComputedStyle(input).color);
+  assert.equal(await priceColor(),'rgb(21, 128, 61)','saved discounted price is green');
+  for(const selector of ['.customer-price-value','.customer-price-regular','.customer-price-cost']){
+    assert.equal(await page.locator(selector).evaluate(input=>getComputedStyle(input).textAlign),'center');
+  }
+  assert.deepEqual(await page.locator('.customer-price-table th').evaluateAll(headers=>headers.slice(3,6).map(header=>getComputedStyle(header).textAlign)),['center','center','center']);
+  await price.fill('181');assert.equal(await priceColor(),'rgb(220, 38, 38)');
+  await price.fill('180');const neutralColor=await priceColor();
+  assert.notEqual(neutralColor,'rgb(21, 128, 61)');assert.notEqual(neutralColor,'rgb(220, 38, 38)');
+  await price.fill('');assert.equal(await priceColor(),neutralColor,'blank is neutral');
+  await price.fill('0');assert.equal(await priceColor(),'rgb(21, 128, 61)','zero is a valid discount');
+  await price.fill('160');
   await page.locator('.customer-price-unit').selectOption('ซอง');
+  assert.equal(await priceColor(),'rgb(220, 38, 38)','changing units recalculates comparison');
   assert.equal(await page.locator('.customer-price-regular').inputValue(),'8.00');
   assert.equal(await page.locator('.customer-price-value').inputValue(),'160','changing unit does not overwrite the special price');
   await page.locator('.customer-price-unit').selectOption('กล่อง');
+  assert.equal(await priceColor(),'rgb(21, 128, 61)');
   assert.equal(await page.locator('.customer-price-regular').inputValue(),'180.00');
   await page.locator('.customer-price-value').fill('155');
   await page.locator('#customerPriceSearch').fill('SACHET-101');
@@ -71,6 +86,13 @@ const browserExecutable = [
   assert.equal(await page.locator('[data-customer-price-row]').last().locator('.customer-price-unit option:checked').textContent(),'ซอง');
   assert.equal(await page.locator('[data-customer-price-row]').last().locator('.customer-price-cost').inputValue(),'5.00');
   await page.locator('[data-customer-price-row]').last().locator('.customer-price-value').fill('7');
+  await page.locator('.customer-price-value').first().focus();
+  await page.keyboard.press('Enter');
+  assert.equal(await page.locator('.customer-price-value').last().evaluate(input=>input===document.activeElement),true);
+  await page.keyboard.press('Enter');
+  assert.equal(await page.locator('#customerPriceSearch').evaluate(input=>input===document.activeElement),true);
+  await page.keyboard.press('Enter');await page.keyboard.press('Enter');
+  assert.equal(await page.locator('[data-customer-price-row]').count(),2,'repeated Enter must not delete rows');
   await page.locator('#saveCustomerPricingBtn').click();
   assert.equal(await page.evaluate(()=>contacts[0].customerPrices[0].price),155);
   assert.equal(await page.evaluate(()=>contacts[0].customerPrices[1].price),7);
