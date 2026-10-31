@@ -40,6 +40,7 @@ let browser;
   });
   const pending=()=>page.locator('.pos-promo-pending-row');
   assert.equal(await pending().count(),1,'quantity below first bundle must be blue');
+  assert.equal(await page.locator('[data-line-total]').first().evaluate(el=>getComputedStyle(el).fontWeight),'700','each POS line total is bold');
   const colors=await pending().evaluate(row=>[row.cells[0],row.cells[1],row.querySelector('.pos-item-name-content'),row.cells[3],row.querySelector('.pos-promo-tag'),row.querySelector('.line-unit'),row.querySelector('.line-qty'),row.cells[6]].map(el=>getComputedStyle(el).color));
   assert.equal(new Set(colors).size,1,'all product data including quantity and unit must share the warning color');
   assert.equal(colors[0],'rgb(22, 133, 192)','pending color must be blue in the active theme');

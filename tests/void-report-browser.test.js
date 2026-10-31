@@ -5,10 +5,12 @@ const root=path.resolve(__dirname,process.env.PEPOS_TEST_BUILT?'../public':'..')
 const server=http.createServer((req,res)=>{const file=path.join(root,new URL(req.url,'http://localhost').pathname==='/'?'index.html':new URL(req.url,'http://localhost').pathname);if(!file.startsWith(root+path.sep)||!fs.existsSync(file))return res.writeHead(404).end();res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');fs.createReadStream(file).pipe(res);});
 let browser;
 (async()=>{
+  const writerCode=await (await import('../scripts/build-static.mjs')).buildProductExcelWriter();
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   const executablePath=[process.env.PEPOS_BROWSER_EXECUTABLE,'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(p=>p&&fs.existsSync(p))||chromium.executablePath();
   browser=await chromium.launch({headless:true,executablePath});const page=await browser.newPage({viewport:{width:1440,height:1000},timezoneId:'America/Los_Angeles'}),errors=[];
   await installIsolatedBrowser(page);page.on('pageerror',e=>errors.push(e.message));
+  await page.route('**/vendor/product-excel-writer.js*',route=>route.fulfill({contentType:'text/javascript',body:writerCode}));
   await page.goto('http://127.0.0.1:'+server.address().port);await waitForIsolatedBootstrap(page);
   await page.evaluate(async()=>{
     currentProfile={id:'owner',owner:true,level:1,firstName:'เจ้าของ'};activeWarehouseId=1;
@@ -23,6 +25,18 @@ let browser;
   assert.ok(await page.getByRole('heading',{name:'รายงานบิลยกเลิก',exact:true}).isVisible());
   assert.match(await page.locator('.void-report-summary').innerText(),/52 บิล[\s\S]*5,120.00/);
   assert.equal(await page.locator('[data-void-report-detail]').count(),50);
+  assert.equal(await page.locator('.void-report-reason').first().evaluate(el=>getComputedStyle(el).textAlign),'center');
+  assert.equal(await page.locator('#voidReportSearch').evaluate(el=>getComputedStyle(el).textAlign),'center');
+  assert.equal(await page.locator('.void-report-actions #voidReportPrint').count(),1,'print stays beside Excel in the centered report actions');
+  const previewPromise=page.waitForEvent('popup');await page.locator('#voidReportPrint').click();const preview=await previewPromise;await preview.waitForLoadState('domcontentloaded');
+  assert.equal(await preview.locator('tbody tr').count(),52,'print includes every filtered page');
+  assert.match(await preview.locator('.page').innerText(),/5,120.00/);assert.equal(await preview.locator('tbody img').count(),0);
+  assert.equal(await preview.locator('tbody td').first().evaluate(el=>getComputedStyle(el).textAlign),'center');await preview.close();
+  const downloadPromise=page.waitForEvent('download');await page.locator('#voidReportExcel').click();const download=await downloadPromise;
+  assert.match(download.suggestedFilename(),/\.xlsx$/);
+  const ExcelJS=require('exceljs'),book=new ExcelJS.Workbook();await book.xlsx.load(await fs.promises.readFile(await download.path()));
+  const sheet=book.getWorksheet('บิลยกเลิก');assert.equal(sheet.rowCount,59);assert.equal(sheet.getCell('G59').value,5120);assert.equal(sheet.getCell('G7').type,ExcelJS.ValueType.Number);assert.equal(sheet.getCell('F7').alignment.horizontal,'center');
+  assert.equal(sheet.getCell('F7').value,'<img src=x onerror="window.xss=true">');
   if(process.env.PEPOS_CAPTURE_REPORT){await fs.promises.mkdir(path.resolve(__dirname,'../outputs'),{recursive:true});await page.screenshot({path:path.resolve(__dirname,'../outputs/void-report.png')});}
   await page.locator('#voidReportNext').click();assert.equal(await page.locator('[data-void-report-detail]').count(),2);
   await page.locator('#voidReportWarehouse').selectOption('1');await page.locator('#voidReportFilters button[type=submit]').click();
@@ -30,6 +44,7 @@ let browser;
   await page.locator('#voidReportSearch').fill('RE-0');await page.locator('#voidReportFilters button[type=submit]').click();
   assert.equal(await page.locator('[data-void-report-detail]').count(),1);
   assert.equal(await page.locator('.void-report-reason img').count(),0);
+  const filteredPreviewPromise=page.waitForEvent('popup');await page.locator('#voidReportPrint').click();const filteredPreview=await filteredPreviewPromise;await filteredPreview.waitForLoadState('domcontentloaded');assert.equal(await filteredPreview.locator('tbody tr').count(),1);await filteredPreview.close();
   await page.locator('[data-void-report-detail]').click();
   assert.match(await page.locator('.modal-overlay .void-sale-receipt-note').innerText(),/ยกเลิกบิลแล้ว[\s\S]*30-10-2026[\s\S]*เจ้าของ[\s\S]*เงินสด/);
   assert.equal(await page.locator('#voidSaleDetailBtn').count(),0);

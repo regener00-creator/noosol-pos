@@ -31,7 +31,7 @@ function renderVoidReport(){
   const f=voidReportFilter,rows=voidReportRows(),pages=Math.max(1,Math.ceil(rows.length/50));
   f.page=Math.min(pages,Math.max(1,f.page));
   const visible=rows.slice((f.page-1)*50,f.page*50),range=voidReportRange();
-  return `<div class="rpt void-report-page"><div class="pagehead"><h1>รายงานบิลยกเลิก</h1></div>
+  return `<div class="rpt void-report-page"><div class="pagehead"><h1>รายงานบิลยกเลิก</h1></div><div class="void-report-actions">${canPerformPageAction('print','rvoid')?'<button class="btn ghost" id="voidReportPrint">พิมพ์รายงาน</button>':''}${canPerformPageAction('export','rvoid')?'<button class="btn primary" id="voidReportExcel">ส่งออก Excel</button>':''}</div>
     <form id="voidReportFilters" class="rpt-filters"><label class="rpf-item">วันที่ยกเลิก${dmyDateFieldHtml('voidReportFrom',range.from)}</label><label class="rpf-item">ถึง${dmyDateFieldHtml('voidReportTo',range.to)}</label>
     <label class="rpf-item">คลังสินค้า<select id="voidReportWarehouse" class="rpt-select"><option value="all">ทุกคลังที่มีสิทธิ์</option>${accessibleWarehouses().map(w=>`<option value="${w.id}" ${String(w.id)===f.warehouse?'selected':''}>${escapeHtml(w.name)}</option>`).join('')}</select></label>
     <label class="rpf-item">ช่องทางคืนเงิน<select id="voidReportMethod" class="rpt-select"><option value="all">ทุกช่องทาง</option>${['เงินสด','โอนธนาคาร','บัตรเครดิต','ออนไลน์'].map(m=>`<option ${m===f.method?'selected':''}>${m}</option>`).join('')}</select></label>
@@ -41,6 +41,12 @@ function renderVoidReport(){
     <div class="void-report-pagination"><button class="btn ghost" id="voidReportPrev" ${f.page<=1?'disabled':''}>ก่อนหน้า</button><span>หน้า ${f.page} / ${pages}</span><button class="btn ghost" id="voidReportNext" ${f.page>=pages?'disabled':''}>ถัดไป</button></div></div>`;
 }
 function attachVoidReportEvents(){
+  document.getElementById('voidReportPrint')?.addEventListener('click',printVoidReport);
+  document.getElementById('voidReportExcel')?.addEventListener('click',async event=>{
+    const snapshot=voidReportOutputSnapshot('export');if(!snapshot) return;
+    const button=event.currentTarget;button.disabled=true;
+    try{await invokeExcelTool('exportVoidReportToExcel',snapshot);}finally{button.disabled=false;}
+  });
   document.getElementById('voidReportFilters')?.addEventListener('submit',event=>{
     event.preventDefault();
     const from=dmyToISO(document.getElementById('voidReportFrom').value),to=dmyToISO(document.getElementById('voidReportTo').value);
@@ -49,4 +55,21 @@ function attachVoidReportEvents(){
   });
   for(const [id,step] of [['voidReportPrev',-1],['voidReportNext',1]]) document.getElementById(id)?.addEventListener('click',()=>{voidReportFilter.page+=step;render();});
   document.querySelectorAll('[data-void-report-detail]').forEach(button=>button.addEventListener('click',()=>openSaleHistoryDetail(button.dataset.voidReportDetail)));
+}
+function voidReportOutputSnapshot(action){
+  if(!canAccessTab('rvoid')||!canPerformPageAction(action,'rvoid')){showToast('ไม่มีสิทธิ์ดำเนินการนี้','danger-top');return null;}
+  if(ensureOnDemandDataForTab('rvoid').status!=='ready'){showToast('กรุณาโหลดข้อมูลรายงานให้ครบก่อน','danger-top');return null;}
+  const f=voidReportFilter,range=voidReportRange();
+  return {context:captureWorkspaceRead(),title:'รายงานบิลยกเลิก',business:businessSettings.name||STORE_INFO.name,range:{...range},
+    filters:`คลังสินค้า: ${f.warehouse==='all'?'ทุกคลังที่มีสิทธิ์':whName(Number(f.warehouse))} · ช่องทางคืนเงิน: ${f.method==='all'?'ทุกช่องทาง':f.method}${f.search?` · ค้นหา: ${f.search}`:''}`,
+    headers:['วันที่ / เวลายกเลิก','เลขบิล','วันที่ขาย','คลังสินค้า','ผู้ยกเลิก','เหตุผล','ยอดคืน (บาท)','ช่องทางคืนเงิน'],
+    rows:voidReportRows().map(sale=>{const at=saleVoidDateTime(sale);return [`${fmtDate(at.date)} ${at.time}`,String(sale.ref||sale.id),fmtDate(sale.date),whName(Number(sale.warehouseId)),saleVoidActor(sale),String(sale.voidReason||'ไม่ระบุ'),Number(sale.total)||0,`${sale.voidRefundMethod||sale.payMethod||'ไม่ระบุ'}${sale.voidRefundMethod?'':' (อ้างอิงช่องทางชำระเดิม)'}`];})};
+}
+function printVoidReport(){
+  const report=voidReportOutputSnapshot('print');if(!report) return;
+  const win=window.open('','_blank');if(!win){showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร');return;}
+  const total=report.rows.reduce((sum,row)=>sum+row[6],0);
+  win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${escapeHtml(report.title)}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>@page{size:A4 landscape;margin:12mm}*{box-sizing:border-box}body{margin:0;background:#eee;font:12px 'Sarabun',sans-serif;text-align:center;color:#292421}.toolbar{padding:12px;background:white}.toolbar button{padding:10px 20px;cursor:pointer}.page{width:297mm;min-height:210mm;background:white;margin:12px auto;padding:12mm}h1{font-size:22px}table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:16px}th,td{text-align:center;vertical-align:middle;padding:8px 5px;border:1px solid #ddd;overflow-wrap:anywhere;white-space:pre-wrap}th{background:#eee}thead{display:table-header-group}tr{break-inside:avoid}th:nth-child(6){width:22%}p{overflow-wrap:anywhere}@media print{body{background:white}.toolbar{display:none}.page{width:auto;min-height:0;margin:0;padding:0}}</style></head><body><div class="toolbar"><button onclick="window.print()">พิมพ์รายงาน</button></div><main class="page"><h1>${escapeHtml(report.title)}</h1><h2>${escapeHtml(report.business)}</h2><p>วันที่ยกเลิก ${fmtDate(report.range.from)} ถึง ${fmtDate(report.range.to)}</p><p>${escapeHtml(report.filters)}</p><p>บิลยกเลิก ${report.rows.length} บิล · ยอดคืนรวม ${fmtMoney(total)} บาท</p><table><thead><tr>${report.headers.map(label=>`<th>${escapeHtml(label)}</th>`).join('')}</tr></thead><tbody>${report.rows.map(row=>`<tr>${row.map((value,index)=>`<td>${index===6?fmtMoney(value):escapeHtml(value)}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="8">ไม่พบบิลยกเลิกในช่วงวันที่เลือก</td></tr>'}</tbody></table></main></body></html>`);
+  win.document.close();standardizePrintPreview(win,{trackPrint:false});
 }

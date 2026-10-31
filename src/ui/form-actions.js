@@ -53,7 +53,7 @@ function syncTopbarFormActions(){
     [...pagehead.children].slice(1).filter(node=>node.matches?.('button')||node.querySelector?.('button')).forEach(moveToTopbar);
   });
   [...main.querySelectorAll('.rpt-head-actions')].forEach(moveToTopbar);
-  [...main.querySelectorAll('button.btn')].filter(button=>button.textContent.trim()==='พิมพ์รายงาน').forEach(moveToTopbar);
+  [...main.querySelectorAll('button.btn')].filter(button=>button.textContent.trim()==='พิมพ์รายงาน'&&!button.closest('.void-report-actions')).forEach(moveToTopbar);
   const freshCashShiftActions=[...main.querySelectorAll('.cash-shift-topbar-action')];
   if(freshCashShiftActions.length){
     [...slot.querySelectorAll('.cash-shift-topbar-action')].forEach(node=>node.remove());

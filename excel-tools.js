@@ -1,4 +1,29 @@
 // Excel import/export feature bundle. Loaded only when an Excel action is used.
+function createVoidReportWorkbook(report,writer){
+  const book=new writer.Workbook(),sheet=book.addWorksheet('บิลยกเลิก');
+  sheet.columns=[22,24,16,24,24,50,18,36].map(width=>({width}));
+  for(const text of [report.title,report.business,`วันที่ยกเลิก ${fmtDate(report.range.from)} ถึง ${fmtDate(report.range.to)}`,report.filters,`บิลยกเลิก ${report.rows.length} บิล · ยอดคืนรวม ${fmtMoney(report.rows.reduce((sum,row)=>sum+row[6],0))} บาท`]){
+    const row=sheet.addRow([String(text||'')]);sheet.mergeCells(row.number,1,row.number,8);row.height=28;
+  }
+  sheet.addRow(report.headers);
+  report.rows.forEach(values=>{const row=sheet.addRow(values.map((value,index)=>index===6?Number(value):String(value??'')));row.height=Math.max(44,Math.min(409,12+16*Math.max(...values.map((value,index)=>String(value??'').split('\n').reduce((lines,line)=>lines+Math.max(1,Math.ceil(line.length/Math.max(8,sheet.columns[index].width-4))),0)))));row.getCell(7).numFmt='#,##0.00';});
+  const totalRow=sheet.addRow(['ยอดคืนรวม','','','','','',report.rows.reduce((sum,row)=>sum+row[6],0),'']);totalRow.getCell(7).numFmt='#,##0.00';
+  sheet.eachRow(row=>row.eachCell({includeEmpty:true},cell=>{cell.font={name:'Sarabun',size:11};cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};}));
+  [1,6,totalRow.number].forEach(number=>sheet.getRow(number).eachCell({includeEmpty:true},cell=>{cell.font={name:'Sarabun',size:number===1?16:11,bold:true};}));
+  sheet.getRow(6).eachCell(cell=>{cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF4F4038'}};cell.font={name:'Sarabun',bold:true,color:{argb:'FFFFFFFF'}};});
+  sheet.autoFilter='A6:H6';sheet.views=[{state:'frozen',ySplit:6}];
+  sheet.pageSetup={paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,printTitlesRow:'1:6'};
+  return book;
+}
+async function exportVoidReportToExcel(report){
+  if(!canPerformPageAction('export','rvoid')){showToast('ไม่มีสิทธิ์ส่งออกข้อมูล','danger-top');return;}
+  const writer=await ensureProductExcelWriterLoaded(),book=createVoidReportWorkbook(report,writer);
+  const buffer=await book.xlsx.writeBuffer();
+  if(!isWorkspaceReadCurrent(report.context)) return;
+  const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})),link=document.createElement('a');
+  link.href=url;link.download=`SAPURI-บิลยกเลิก-${report.range.from}-${report.range.to}.xlsx`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+  showToast(`ส่งออกบิลยกเลิก ${report.rows.length} รายการแล้ว`);
+}
 function contactImportTypes(value){
   const text=String(value||'').trim().toLowerCase();
   const types=[];
