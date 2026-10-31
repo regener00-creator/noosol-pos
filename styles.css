@@ -1582,8 +1582,8 @@
   .customer-price-search-result span{display:grid;gap:2px;min-width:0}.customer-price-search-result b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.customer-price-search-result small{font-size:11px;color:var(--text-muted)}.customer-price-search-result>strong{color:var(--primary);white-space:nowrap}
   .customer-price-search-empty{padding:18px;text-align:center;color:var(--text-muted)}
   .customer-price-table-wrap{overflow-x:auto;border-radius:10px;background:#fff}
-  .customer-price-table{min-width:850px;table-layout:fixed;margin:0}
-  .customer-price-table .customer-price-col-barcode{width:170px}.customer-price-table .customer-price-col-name{width:auto}.customer-price-table .customer-price-col-unit{width:140px}.customer-price-table .customer-price-col-price{width:150px}.customer-price-table .customer-price-col-cost{width:140px}.customer-price-table .customer-price-col-action{width:60px}
+  .customer-price-table{min-width:930px;table-layout:fixed;margin:0}
+  .customer-price-table .customer-price-col-barcode{width:170px}.customer-price-table .customer-price-col-name{width:auto}.customer-price-table .customer-price-col-unit{width:220px}.customer-price-table .customer-price-col-price{width:150px}.customer-price-table .customer-price-col-cost{width:140px}.customer-price-table .customer-price-col-action{width:60px}
   .customer-price-table thead th{background:var(--primary);color:#fff;text-align:center}.customer-price-table td{text-align:center;vertical-align:middle}
   .customer-price-product-name{text-align:left!important}.customer-price-product-name b{display:block;font-size:13.5px}.customer-price-product-name small{display:block;margin-top:3px;color:var(--text-muted);font-size:11px}
   .customer-price-row select,.customer-price-row input{width:100%;min-height:40px;border:1px solid var(--border);border-radius:8px;padding:7px 9px;background:#fff;font:inherit}

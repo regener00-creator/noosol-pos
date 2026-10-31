@@ -53,6 +53,7 @@ const browserExecutable = [
   assert.equal(await page.locator('.customer-price-product-name b').textContent(),'Decolgen');
   assert.equal(await page.locator('.customer-price-barcode').textContent(),'BOX-101');
   assert.equal(await page.locator('.customer-price-unit').inputValue(),'กล่อง');
+  assert.equal(await page.locator('.customer-price-unit option:checked').textContent(),'กล่อง = 25 ซอง');
   assert.equal(await page.locator('.customer-price-cost').inputValue(),'110.00');
   assert.equal(await page.locator('.customer-price-cost').getAttribute('readonly'),'');
   await page.locator('.customer-price-value').fill('155');
@@ -60,6 +61,7 @@ const browserExecutable = [
   await page.locator('#customerPriceSearch').press('Enter');
   assert.equal(await page.locator('[data-customer-price-row]').count(),2);
   assert.equal(await page.locator('[data-customer-price-row]').last().locator('.customer-price-unit').inputValue(),'ซอง');
+  assert.equal(await page.locator('[data-customer-price-row]').last().locator('.customer-price-unit option:checked').textContent(),'ซอง');
   assert.equal(await page.locator('[data-customer-price-row]').last().locator('.customer-price-cost').inputValue(),'5.00');
   await page.locator('[data-customer-price-row]').last().locator('.customer-price-value').fill('7');
   await page.locator('#saveCustomerPricingBtn').click();

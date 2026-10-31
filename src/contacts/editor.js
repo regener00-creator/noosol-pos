@@ -69,12 +69,13 @@ function customerPriceRowHtml(rule={},index=0){
   const product=products.find(item=>Number(item.id)===Number(rule.productId));
   if(!product) return '';
   const options=productUnitOptions(product);
+  const unitLabels=new Map(productUnitConversionRows(product).map(row=>[row.largerUnit,`${row.largerUnit} = ${productUnitConversionAmount(row.quantity)} ${row.smallerUnit}`]));
   const selectedUnit=options.some(option=>option.name===rule.unit)?rule.unit:(options[0]?.name||product.unit||'');
   const selectedOption=options.find(option=>option.name===selectedUnit)||options[0];
   return `<tr class="customer-price-row" data-customer-price-row data-product-id="${escapeHtml(product.id)}">
     <td class="mono customer-price-barcode">${escapeHtml(productBarcodeForUnit(product,selectedUnit)||'-')}</td>
     <td class="customer-price-product-name"><input type="hidden" class="customer-price-id" value="${escapeHtml(rule.id||'')}"><input type="hidden" class="customer-price-product-id" value="${escapeHtml(product.id)}"><b>${escapeHtml(product.name)}</b><small>${escapeHtml(product.sku||'-')}</small></td>
-    <td><select class="customer-price-unit" aria-label="หน่วย ${escapeHtml(product.name)}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selectedUnit?'selected':''}>${escapeHtml(option.name)}</option>`).join('')}</select></td>
+    <td><select class="customer-price-unit" aria-label="หน่วย ${escapeHtml(product.name)}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selectedUnit?'selected':''}>${escapeHtml(unitLabels.get(option.name)||option.name)}</option>`).join('')}</select></td>
     <td><input class="customer-price-value mono" type="number" min="0" step="0.01" value="${Number.isFinite(Number(rule.price))?escapeHtml(rule.price):''}" placeholder="0.00" aria-label="ราคาพิเศษ ${escapeHtml(product.name)}"></td>
     <td><input class="customer-price-cost mono" value="${escapeHtml(fmtMoney(selectedOption?.cost||0))}" readonly tabindex="-1" aria-label="ทุน ${escapeHtml(product.name)}"></td>
     <td><button class="history-icon-btn danger customer-price-remove" type="button" title="ลบราคาพิเศษ" aria-label="ลบราคาพิเศษ ${escapeHtml(product.name)}">×</button></td>
