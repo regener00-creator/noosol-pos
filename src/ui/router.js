@@ -116,7 +116,7 @@ function editingDocumentForm(tab=currentTab){
     productreturn:editingReturnId,productexchange:editingProductExchangeId,transfer:editingTransferId,
     taxinvoice:editingTaxInvoiceSaleId})[tab]!=null;
 }
-function ensureOnDemandDataForTab(tab){
+function ensureOnDemandDataForTab(tab,{background=false}={}){
   if(offlinePosMode()) return {status:'ready'};
   // Opening/editing a draft must never replace its DOM with a cache refresh.
   // The list refreshes after the user saves or closes the form.
@@ -131,22 +131,38 @@ function ensureOnDemandDataForTab(tab){
     if(truncatedSales||truncatedDocuments.length) return {status:'truncated',key,tab,requests,truncatedSales,truncatedDocuments,blocking:ON_DEMAND_AGGREGATE_TABS.has(tab)||tab==='checkout'};
     return {status:'ready',key,tab,requests};
   }
-  if(onDemandTabErrors.has(key)) return {status:'error',key,tab,requests,error:onDemandTabErrors.get(key)};
+  if(!background&&onDemandTabErrors.has(key)) return {status:'error',key,tab,requests,error:onDemandTabErrors.get(key)};
   if(!onDemandTabJobs.has(key)){
     const context=captureWorkspaceRead();
+    const scope=salesViewScope();
     const tasks=[];
     if(salesNeeded) tasks.push(loadSalesHistoryFromSupabase({from:requests.sales.range.from,to:requests.sales.range.to,includeHolds:requests.sales.includeHolds,includeRecent:requests.sales.includeRecent,includeVoids:requests.sales.includeVoids,voidsOnly:requests.sales.voidsOnly}));
     documentsNeeded.forEach(item=>tasks.push(loadDocumentTableFromSupabase(item.table,item)));
     const job=Promise.all(tasks).then(()=>{
       if(!isWorkspaceReadCurrent(context)||onDemandTabJobs.get(key)!==job) return;
       onDemandTabJobs.delete(key); onDemandTabErrors.delete(key);
+      if(job.background){
+        pendingSalesViewRefresh={context,scope,tab,key};
+        applyPendingSalesViewRefresh();
+        return;
+      }
       if(currentProfile&&(currentTab===tab||(tab==='history'&&posSalesHistoryModalOpen&&(currentTab==='checkout'||currentTab==='cashbill')))) render();
     }).catch(error=>{
       if(!isWorkspaceReadCurrent(context)||onDemandTabJobs.get(key)!==job) return;
+      const alreadyFailed=onDemandTabErrors.has(key);
       onDemandTabJobs.delete(key); onDemandTabErrors.set(key,error);
+      if(job.background){
+        if(!alreadyFailed&&currentTab===tab&&scope===salesViewScope()) showToast('อัปเดตข้อมูลล่าสุดไม่สำเร็จ กำลังแสดงข้อมูลเดิม ระบบจะลองใหม่อัตโนมัติ','warning-top');
+        return;
+      }
       if(currentProfile&&(currentTab===tab||(tab==='history'&&posSalesHistoryModalOpen&&(currentTab==='checkout'||currentTab==='cashbill')))) render();
     });
+    job.background=background;
     onDemandTabJobs.set(key,job);
+  }else if(!background){
+    // A user navigation may join a timer request that is already in flight.
+    // Its loading screen still needs the normal completion render.
+    onDemandTabJobs.get(key).background=false;
   }
   return {status:'loading',key,tab,requests};
 }
@@ -195,14 +211,44 @@ const RENDERERS = {
 };
 
 let salesViewRefreshTimer=null;
+let pendingSalesViewRefresh=null;
+function salesViewScope(){return `${isAllWarehousesMode()?'all':activeWarehouseId}`;}
+function salesViewIdle(){
+  return !!currentProfile&&document.visibilityState!=='hidden'&&!offlinePosMode()&&!editingDocumentForm()&&
+    !document.activeElement?.matches('input,select,textarea,[contenteditable="true"]')&&!document.querySelector('.modal-overlay')&&!openDocMenu;
+}
+function applyPendingSalesViewRefresh(){
+  const pending=pendingSalesViewRefresh;
+  if(!pending)return;
+  const requests=dataRequestsForTab(currentTab);
+  if(!isWorkspaceReadCurrent(pending.context)||pending.tab!==currentTab||pending.scope!==salesViewScope()||pending.key!==onDemandRequestKey(currentTab,requests)){
+    pendingSalesViewRefresh=null;return;
+  }
+  if(!salesViewIdle())return;
+  if(requests.sales&&!salesRequestLoaded(requests.sales)||requests.documents.some(item=>!documentRequestLoaded(item.table,item)))return;
+  const main=document.getElementById('main');
+  const truncated=!!requests.sales&&salesRequestTruncated(requests.sales)||requests.documents.some(item=>documentRequestTruncated(item.table,item));
+  const html=(RENDERERS[currentTab]||renderDashboard)();
+  pendingSalesViewRefresh=null;
+  // Preserve the DOM entirely when a background fetch returns the same visible data.
+  if(!truncated&&main.renderedDataView?.tab===currentTab&&main.renderedDataView.date===TODAY_STR&&main.renderedDataView.html===html)return;
+  const scrollTop=main.scrollTop,scrollLeft=main.scrollLeft;
+  const selector=`.dashboard-calendar-scroll,.dashboard-best-sellers,${APP_TABLE_SCROLL_HOST_SELECTOR}`;
+  const scrolls=[...main.querySelectorAll(selector)].map(el=>({top:el.scrollTop,left:el.scrollLeft}));
+  render();
+  refreshScrollableTableHeights(main);
+  main.scrollTop=scrollTop;main.scrollLeft=scrollLeft;
+  main.querySelectorAll(selector).forEach((el,index)=>{if(scrolls[index]){el.scrollTop=scrolls[index].top;el.scrollLeft=scrolls[index].left;}});
+}
 function scheduleSalesViewRefresh(){
   clearTimeout(salesViewRefreshTimer);
   if(!currentProfile||(!ON_DEMAND_AGGREGATE_TABS.has(currentTab)&&!TAB_DOCUMENT_TABLES[currentTab])||editingDocumentForm()||offlinePosMode()||document.visibilityState==='hidden') return;
   salesViewRefreshTimer=setTimeout(()=>{
-    const typing=document.activeElement?.matches('input,select,textarea,[contenteditable="true"]');
-    if(!typing&&!document.querySelector('.modal-overlay')&&currentProfile&&document.visibilityState!=='hidden'&&!offlinePosMode()){
+    if(salesViewIdle()){
+      TODAY_STR=currentDateStr();
+      applyPendingSalesViewRefresh();
       const requests=dataRequestsForTab(currentTab);
-      if((requests.sales&&!salesRequestLoaded(requests.sales))||requests.documents.some(item=>!documentRequestLoaded(item.table,item))){ render(); return; }
+      if((requests.sales&&!salesRequestLoaded(requests.sales))||requests.documents.some(item=>!documentRequestLoaded(item.table,item))) ensureOnDemandDataForTab(currentTab,{background:true});
     }
     scheduleSalesViewRefresh();
   },SALES_CACHE_TTL_MS);
@@ -246,10 +292,11 @@ function render(){
   mainElement.classList.toggle('product-list-main',currentTab==='products'&&editingProductId===null);
   mainElement.classList.toggle('barcode-print-main',currentTab==='barcodeprint');
   mainElement.classList.toggle('sales-history-main',currentTab==='history');
-  if(showPageCodeLoading(currentTab,mainElement)) return;
+  if(showPageCodeLoading(currentTab,mainElement)){mainElement.renderedDataView=null;return;}
   mainElement.pageCodeOwner=null;
   const onDemandState=ensureOnDemandDataForTab(currentTab);
   if(onDemandState.status==='loading'||onDemandState.status==='error'||(onDemandState.status==='truncated'&&onDemandState.blocking)){
+    mainElement.renderedDataView=null;
     preserveMobileCameraScanner();
     mainElement.innerHTML=onDemandStateHtml(onDemandState);
     restoreMobileCameraScanner();
@@ -262,7 +309,9 @@ function render(){
   posSalesHistoryOnDemandState=null;
   const focusedProductSearch=currentTab==='products'&&editingProductId===null&&document.activeElement?.matches('.product-list-search #search')?document.activeElement:null;
   const retainedSelection=focusedProductSearch?[focusedProductSearch.selectionStart,focusedProductSearch.selectionEnd]:null;
-  mainElement.innerHTML = `<div id="offlinePosBanner">${offlinePosBanner()}</div>`+onDemandNotice+(RENDERERS[currentTab]||renderDashboard)();
+  const viewHtml=(RENDERERS[currentTab]||renderDashboard)();
+  mainElement.renderedDataView={tab:currentTab,date:TODAY_STR,html:viewHtml};
+  mainElement.innerHTML = `<div id="offlinePosBanner">${offlinePosBanner()}</div>`+onDemandNotice+viewHtml;
   if(focusedProductSearch){
     const replacement=mainElement.querySelector('.product-list-search #search');
     if(replacement){
