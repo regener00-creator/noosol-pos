@@ -69,7 +69,13 @@ const browserExecutable = [
   await price.fill('180');const neutralColor=await priceColor();
   assert.notEqual(neutralColor,'rgb(21, 128, 61)');assert.notEqual(neutralColor,'rgb(220, 38, 38)');
   await price.fill('');assert.equal(await priceColor(),neutralColor,'blank is neutral');
-  await price.fill('0');assert.equal(await priceColor(),'rgb(21, 128, 61)','zero is a valid discount');
+  await price.fill('0');assert.equal(await priceColor(),'rgb(220, 38, 38)','zero below positive cost is red');
+  await price.fill('109.99');assert.equal(await priceColor(),'rgb(220, 38, 38)','below unit cost is red even below regular price');
+  await price.fill('110');assert.equal(await priceColor(),'rgb(21, 128, 61)','equal to cost and below regular price is green');
+  await page.locator('.customer-price-unit').selectOption('ซอง');
+  await price.fill('5');assert.equal(await priceColor(),'rgb(21, 128, 61)');
+  await page.locator('.customer-price-unit').selectOption('กล่อง');
+  assert.equal(await priceColor(),'rgb(220, 38, 38)','changing unit also compares its cost');
   await price.fill('160');
   await page.locator('.customer-price-unit').selectOption('ซอง');
   assert.equal(await priceColor(),'rgb(220, 38, 38)','changing units recalculates comparison');

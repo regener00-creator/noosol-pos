@@ -82,6 +82,7 @@ let browser;
   await modal.locator('.customer-price-remove').first().click();
   assert.equal(await modal.locator('[data-customer-price-row]').count(),2);
   await modal.locator('.customer-price-value').first().fill('99');
+  assert.equal(await modal.locator('.customer-price-value').first().evaluate(input=>getComputedStyle(input).color),'rgb(220, 38, 38)');
   let belowCostWarning='';
   page.once('dialog',async dialog=>{belowCostWarning=dialog.message();await dialog.dismiss();});
   await modal.locator('#saveCustomerPricingBtn').click();
@@ -92,6 +93,9 @@ let browser;
   await modal.locator('#saveCustomerPricingBtn').click();await modal.waitFor({state:'detached'});
   assert.equal(await page.evaluate(()=>window.contactSaves.length),2);
   assert.equal(await page.evaluate(()=>contacts[0].customerPrices[0].price),99,'explicit confirmation permits below-cost price');
+  await trigger.click();await modal.locator('#customerPriceSearch').waitFor();
+  assert.equal(await modal.locator('.customer-price-value').first().evaluate(input=>getComputedStyle(input).color),'rgb(220, 38, 38)','saved below-cost price stays red when reopened');
+  await modal.locator('#cancelCustomerPricingBtn').click();
   // View-only access may inspect prices but cannot edit or save through the popup.
   await page.evaluate(()=>{window.failPriceSave=false;currentProfile={id:'viewer',level:2};pagePermissionRows=[{page_key:'contacts',warehouse_id:1,can_view:true,can_edit:false}];canAccessTab=()=>true;render();});
   await trigger.click();await modal.locator('.customer-price-unit').first().waitFor();

@@ -176,9 +176,11 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
     const priceInput=row.querySelector('.customer-price-value');
     const updatePriceComparison=()=>{
       const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
-      const comparison=customerPriceComparison(priceInput.value,regularProductUnitPrice(product,unitSelect.value));
+      const option=productUnitOptions(product).find(item=>item.name===unitSelect.value);
+      const comparison=customerPriceComparison(priceInput.value,option?.price||0,option?.cost||0);
       priceInput.classList.toggle('below-regular',comparison==='below-regular');
       priceInput.classList.toggle('above-regular',comparison==='above-regular');
+      priceInput.classList.toggle('below-cost',comparison==='below-cost');
     };
     priceInput.oninput=updatePriceComparison;
     // Keep repeated Enter presses in editable prices, away from delete/add-sale buttons.

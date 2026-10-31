@@ -1590,7 +1590,7 @@
   .customer-price-row .customer-price-regular,.customer-price-row .customer-price-cost{background:var(--bg);color:var(--text-muted);cursor:default}
   .customer-price-row .customer-price-value,.customer-price-row .customer-price-regular,.customer-price-row .customer-price-cost{text-align:center;}
   .customer-price-row .customer-price-value.below-regular{color:#15803d;}
-  .customer-price-row .customer-price-value.above-regular{color:#dc2626;}
+  .customer-price-row .customer-price-value.above-regular,.customer-price-row .customer-price-value.below-cost{color:#dc2626;}
   .customer-price-remove{width:40px;height:40px;font-size:20px}
   .customer-price-empty td{text-align:center!important;color:var(--text-muted);padding:24px}
   .pos-customer-pricing-modal{width:min(1600px,96vw);max-width:1600px;height:min(900px,94vh);max-height:94vh;display:flex;flex-direction:column;overflow:hidden;font-size:16px}
