@@ -1137,7 +1137,7 @@
   .void-report-summary{display:flex;align-items:center;gap:8px;white-space:nowrap;padding:9px 0;margin-left:auto;flex-shrink:0;}
   .void-report-search{flex:0 1 280px;min-width:180px}.void-report-search input{width:100%;min-width:0;box-sizing:border-box}.void-report-page .table-wrap{overflow-x:auto}
   .void-report-table{width:100%;min-width:1080px}.void-report-table td,.void-report-table th{padding:12px;text-align:center}.void-report-table .void-report-reason{max-width:280px;white-space:pre-wrap;overflow-wrap:anywhere;text-align:center}
-  .void-report-page{text-align:center}.void-report-page .pagehead{justify-content:flex-start;text-align:left}.void-report-page .rpt-filters{justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}
+  .void-report-page{text-align:center}.void-report-page .pagehead{justify-content:flex-start;text-align:left}.void-report-page .rpt-filters{justify-content:flex-start;flex-wrap:nowrap;overflow-x:auto;padding:4px;margin-left:-4px;margin-right:-4px}
   .void-report-page .rpf-range,.void-report-page .rpf-apply{flex-shrink:0;white-space:nowrap}
   .void-report-page .rpf-item{justify-content:center}.void-report-page input,.void-report-page select{text-align:center;text-align-last:center}.void-report-page input::placeholder{text-align:center}
   .void-report-to{color:var(--text-muted)}

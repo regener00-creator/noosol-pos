@@ -32,6 +32,12 @@ let browser;
   assert.equal(await page.locator('#topbarFormActions #voidReportPrint').count(),1);
   assert.equal(await page.locator('#topbarFormActions #voidReportExcel').count(),1);
   assert.equal(await page.locator('#voidReportFilters .rpf-range .dmy-field').count(),2);
+  for(const selector of ['#voidReportFrom','#voidReportTo','#voidReportWarehouse','#voidReportSearch']){
+    await page.locator(selector).focus();
+    const bounds=await page.locator(selector).evaluate(el=>{const field=el.getBoundingClientRect(),form=el.closest('form').getBoundingClientRect(),style=getComputedStyle(el);return {top:field.top-form.top,bottom:form.bottom-field.bottom,ring:Math.max(0,parseFloat(style.outlineWidth)+parseFloat(style.outlineOffset)),scrollTop:el.closest('form').scrollTop};});
+    assert.ok(bounds.top>=Math.max(4,bounds.ring)&&bounds.bottom>=Math.max(4,bounds.ring),'focused control must leave room for its whole outline');
+    assert.equal(bounds.scrollTop,0,'focusing filters must not scroll the row vertically');
+  }
   const previewPromise=page.waitForEvent('popup');await page.locator('#voidReportPrint').click();const preview=await previewPromise;await preview.waitForLoadState('domcontentloaded');
   assert.equal(await preview.locator('tbody tr').count(),52,'print includes every filtered page');
   assert.match(await preview.locator('.page').innerText(),/5,120.00/);assert.equal(await preview.locator('tbody img').count(),0);
