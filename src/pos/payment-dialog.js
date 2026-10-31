@@ -9,6 +9,19 @@ function paymentQrMarkup(seed){
   return `<div class="qr-grid" aria-label="QR Code">${html}</div>`;
 }
 
+function confirmPOSBelowCostPrices(){
+  const belowCost=applyPromotions(cart).lines.flatMap(line=>{
+    if(line.custom||Number(line.qty)<=0) return [];
+    const product=products.find(item=>Number(item.id)===Number(line.pid));
+    if(!product) return [];
+    const cost=productUnitCost(product,line.unit,line.factor);
+    const price=Number(line.promoLineTotal)/Number(line.qty);
+    return Number.isFinite(price)&&price+1e-9<cost
+      ?[`${line.name} (${line.unit}) — ราคาขาย ${fmtMoney(price)} บาท / ทุน ${fmtMoney(cost)} บาท`]:[];
+  });
+  return !belowCost.length||confirm(`ราคาขายต่ำกว่าทุน ${belowCost.length} รายการ อาจทำให้ขายขาดทุน\nราคาต่อหน่วยหลังโปรโมชั่น ก่อนส่วนลดท้ายบิล\n\n${belowCost.join('\n')}\n\nยืนยันดำเนินการเก็บเงินต่อหรือไม่?`);
+}
+
 function openPaymentModal(){
   if(cart.length===0) return;
   if(checkoutInFlight){ showToast('กำลังบันทึกการชำระเงิน กรุณารอสักครู่','warning-top'); return; }
@@ -24,6 +37,7 @@ function openPaymentModal(){
     document.querySelector(`${field}[data-line="${invalid.lineId}"]`)?.focus();
     return;
   }
+  if(!confirmPOSBelowCostPrices()) return;
   const grand=cartTaxSummary().total;
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal checkout-pay-modal"><div class="modal-head"><h3 id="checkoutPayTitle">เลือกวิธีชำระเงิน</h3><button class="modal-close">×</button></div><div id="checkoutPayContent"></div></div>`;
