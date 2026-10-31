@@ -384,7 +384,8 @@ function renderPromotionForm(){
             <label><input type="radio" name="promo_scope" value="category" ${promo.scope==='category'?'checked':''}> หมวดหลัก / หมวดย่อย</label>
           </div></div>
           <div id="promo_scope_product" class="crow" style="display:${promo.scope==='product'?'block':'none'};">
-            <label>เลือกสินค้า <span class="req">*</span></label>
+            <div class="promo-product-fields">
+            <div class="promo-category-field"><label for="promo_product_search">เลือกสินค้า <span class="req">*</span></label>
             <div id="promo_product_field_wrap">
               <input type="hidden" id="promo_product_id" value="${promo.productId||''}">
               <div class="doc-scanner-wrap" style="margin:0;">
@@ -392,6 +393,11 @@ function renderPromotionForm(){
                 <div class="doc-scan-results" id="promoProductResults" hidden></div>
               </div>
               ${selectedProduct?`<div class="promo-selected-hint" style="font-size:12px;color:var(--text-muted);margin-top:6px;">เลือกแล้ว: <b style="color:var(--text);">${escapeHtml(selectedProduct.name)}</b> (${escapeHtml(selectedProduct.sku||'-')})</div>`:''}
+            </div>
+            </div>
+            <div id="promo_scope_product_unit" class="promo-category-field"><label for="promo_unit">หน่วยที่ร่วมโปรโมชั่น <span class="req">*</span></label>
+              <select id="promo_unit" class="promo-select">${selectedProduct?unitOptionsForProduct(selectedProduct):'<option value="">เลือกสินค้าก่อน</option>'}</select>
+            </div>
             </div>
           </div>
           <div id="promo_scope_category" class="crow" style="display:${promo.scope==='category'?'block':'none'};">
@@ -403,9 +409,6 @@ function renderPromotionForm(){
             </div>
             <button type="button" class="btn ghost" id="openPromoItemPickerBtn" style="width:100%;justify-content:center;">📦 เลือกสินค้า</button>
             <div id="promoCategoryItemsList" class="promo-item-list">${renderPromoCategoryItemsList(currentPromoDraftItems||[])}</div>
-          </div>
-          <div id="promo_scope_product_unit" class="crow" style="display:${promo.scope==='product'?'block':'none'};"><label>หน่วยที่ร่วมโปรโมชั่น <span class="req">*</span></label>
-            <select id="promo_unit" class="promo-select">${selectedProduct?unitOptionsForProduct(selectedProduct):'<option value="">เลือกสินค้าก่อน</option>'}</select>
           </div>
         </div>
       </div>

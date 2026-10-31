@@ -170,6 +170,8 @@ let browser;
     products=[
       {id:101,name:'ยาทดสอบ',category:'ยา',brand:'ยาเฉพาะ',active:true,unit:'Pcs',price:20},
       {id:102,name:'อาหารทดสอบ',category:'อาหารเสริม',brand:'อาหารเฉพาะ',active:true,unit:'Pcs',price:30},
+      {id:103,name:'Second medicine',category:'ยา',brand:'ยาเฉพาะ',barcode:'885103',active:true,unit:'Pcs',price:30},
+      {id:104,name:'Third medicine',category:'ยา',brand:'ยาเฉพาะ',active:true,unit:'Pcs',price:40,units:[{sub:'กล่อง',factor:10,barcode:'885104'}]},
     ];
     productCategorySettings={categories:['ยา','อาหารเสริม','หมวดว่าง'],subcategories:[
       {name:'ยาเฉพาะ',categories:['ยา']},{name:'อาหารเฉพาะ',categories:['อาหารเสริม']},
@@ -178,6 +180,8 @@ let browser;
     promotions=[];editingPromotionId='new';promoDraftItemsSyncedFor=undefined;currentTab='promotions';
     document.getElementById('main').innerHTML=renderPromotionForm();attachEvents();
   });
+  const productFields=await page.locator('.promo-product-fields>.promo-category-field').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().top));
+  assert.equal(productFields[0],productFields[1],'single product and unit share a row');
   await page.locator('input[name="promo_scope"][value="category"]').check();
   assert.equal(await page.locator('#promo_brand').isDisabled(),true);
   const subOptions=()=>page.locator('#promo_brand option').evaluateAll(nodes=>nodes.map(node=>node.value));
@@ -185,10 +189,24 @@ let browser;
   assert.deepEqual(await subOptions(),['','ทั่วไป','ยาเฉพาะ','ร่วมกัน','ยังไม่มีสินค้า']);
   await page.locator('#promo_brand').selectOption('ยาเฉพาะ');
   await page.locator('#openPromoItemPickerBtn').click();
-  assert.deepEqual(await page.locator('.promo-picker-row input').evaluateAll(nodes=>nodes.map(node=>node.dataset.pid)),['101']);
-  await page.locator('.promo-picker-row input').check();
+  assert.deepEqual(await page.locator('.promo-picker-row input').evaluateAll(nodes=>nodes.map(node=>node.dataset.pid)),['101','103','104']);
+  const pickerTops=await page.locator('.promo-picker-row').evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().top));
+  assert.equal(new Set(pickerTops).size,1,'three products share a row');
+  await page.locator('.promo-picker-row input').first().check();
+  const pickerSearch=page.locator('#promoPickerSearch');
+  await pickerSearch.fill(' SECOND ');
+  assert.equal(await page.locator('.promo-picker-row:visible').count(),1);
+  await page.locator('#promoPickAllBtn').click();
+  await pickerSearch.fill('885104');
+  assert.equal(await page.locator('.promo-picker-row:visible input').getAttribute('data-pid'),'104','unit barcode finds product');
+  await page.locator('.promo-picker-row:visible input').check();
+  await pickerSearch.fill('885103');
+  await page.locator('#promoPickNoneBtn').click();
+  await pickerSearch.fill('missing product');
+  assert.equal(await page.locator('.promo-picker-empty').isVisible(),true);
+  assert.equal(await page.locator('.promo-picker-row:visible').count(),0);
   await page.locator('#promoPickerAddBtn').click();
-  assert.equal(await page.evaluate(()=>currentPromoDraftItems.length),1);
+  assert.deepEqual(await page.evaluate(()=>currentPromoDraftItems.map(item=>item.productId)),[101,104],'search and bulk actions retain selections outside current results');
   await page.locator('#promo_category').selectOption('อาหารเสริม');
   assert.deepEqual(await subOptions(),['','ทั่วไป','อาหารเฉพาะ','ร่วมกัน']);
   assert.equal(await page.locator('#promo_brand').inputValue(),'','invalid subcategory resets');

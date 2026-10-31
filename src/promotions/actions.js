@@ -202,16 +202,25 @@ function openPromoItemPicker(){
   overlay.innerHTML=`<div class="modal promo-item-picker-modal">
     <div class="modal-head"><h3>เลือกสินค้าในหมวดนี้</h3><button class="modal-close" aria-label="ปิด">×</button></div>
     <div class="promo-picker-sub">${escapeHtml(category)}${brand?` › ${escapeHtml(brand)}`:''} · พบ ${pool.length} รายการ</div>
-    <div class="promo-picker-toolbar"><button type="button" class="btn ghost small" id="promoPickAllBtn">เลือกทั้งหมด</button><button type="button" class="btn ghost small" id="promoPickNoneBtn">ไม่เลือกเลย</button></div>
-    <div class="promo-picker-list" id="promoPickerList">${pool.map(p=>`<label class="promo-picker-row"><input type="checkbox" data-pid="${p.id}" ${checkedIds.has(p.id)?'checked':''}><span>${escapeHtml(p.name)}</span></label>`).join('')||'<div class="promo-picker-empty">ไม่พบสินค้าในหมวด/แบรนด์นี้</div>'}</div>
+    <div class="promo-picker-search"><input type="search" id="promoPickerSearch" placeholder="ค้นหาชื่อสินค้าหรือบาร์โค้ด" aria-label="ค้นหาชื่อสินค้าหรือบาร์โค้ด" autocomplete="off"></div>
+    <div class="promo-picker-toolbar"><button type="button" class="btn ghost small" id="promoPickAllBtn">เลือกทั้งหมดที่แสดง</button><button type="button" class="btn ghost small" id="promoPickNoneBtn">ไม่เลือกที่แสดง</button></div>
+    <div class="promo-picker-list" id="promoPickerList">${pool.map(p=>`<label class="promo-picker-row"><input type="checkbox" data-pid="${p.id}" ${checkedIds.has(p.id)?'checked':''}><span>${escapeHtml(p.name)}</span></label>`).join('')}<div class="promo-picker-empty" ${pool.length?'hidden':''}>ไม่พบสินค้า</div></div>
     <div class="promo-picker-actions"><button type="button" class="btn ghost" id="promoPickerCancelBtn">ยกเลิก</button><button type="button" class="btn primary" id="promoPickerAddBtn">เพิ่มที่เลือก</button></div>
   </div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('#promoPickerCancelBtn').onclick=close;
-  overlay.querySelector('#promoPickAllBtn').onclick=()=>overlay.querySelectorAll('.promo-picker-row input[type="checkbox"]').forEach(cb=>cb.checked=true);
-  overlay.querySelector('#promoPickNoneBtn').onclick=()=>overlay.querySelectorAll('.promo-picker-row input[type="checkbox"]').forEach(cb=>cb.checked=false);
+  const rows=Array.from(overlay.querySelectorAll('.promo-picker-row'));
+  const searchTexts=pool.map(p=>[p.name,...productBarcodeCodes(p)].join(' ').toLowerCase());
+  overlay.querySelector('#promoPickerSearch').addEventListener('input',event=>{
+    const query=event.target.value.trim().toLowerCase();
+    rows.forEach((row,index)=>{row.hidden=!searchTexts[index].includes(query);});
+    overlay.querySelector('.promo-picker-empty').hidden=rows.some(row=>!row.hidden);
+  });
+  const selectVisible=checked=>rows.filter(row=>!row.hidden).forEach(row=>{row.querySelector('input').checked=checked;});
+  overlay.querySelector('#promoPickAllBtn').onclick=()=>selectVisible(true);
+  overlay.querySelector('#promoPickNoneBtn').onclick=()=>selectVisible(false);
   overlay.querySelector('#promoPickerAddBtn').onclick=()=>{
     const checked=Array.from(overlay.querySelectorAll('.promo-picker-row input[type="checkbox"]:checked')).map(cb=>Number(cb.dataset.pid));
     if(!currentPromoDraftItems) currentPromoDraftItems=[];
