@@ -906,6 +906,7 @@
   .promotion-form-layout .promo-category-fields{margin-bottom:20px;}
   .promotion-form-layout .promo-selected-box{margin-top:24px;}
   .promotion-form-layout .promo-type-panel{margin-top:24px;}
+  .promotion-form-layout .crow>.promo-inline-label{font-size:inherit;color:var(--text);}
   .promo-item-row{display:grid;grid-template-columns:1fr 130px 30px;gap:8px;align-items:center;padding:7px 9px;border:1px solid var(--border);border-radius:8px;background:var(--surface);}
   .promo-item-row-name{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
   .promo-item-unit{padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;font-size:12px;background:var(--surface);}

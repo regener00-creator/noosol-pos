@@ -313,7 +313,7 @@ function renderPromotionForm(){
         <div class="panel">
           <h3>ข้อมูลโปรโมชั่น</h3>
           <div class="cform">
-            <div class="crow"><label>ชื่อโปรโมชั่น <span class="req">*</span></label><input id="promo_name" value="${escapeHtml(promo.name||'')}" placeholder="เช่น ลดราคาวิตามินซี 10%"></div>
+            <div class="crow"><label class="promo-inline-label" for="promo_name">ชื่อโปรโมชั่น: <span class="req">*</span></label><input id="promo_name" value="${escapeHtml(promo.name||'')}" placeholder="เช่น ลดราคาวิตามินซี 10%"></div>
             <div class="promo-info-row">
             <div class="promo-category-field"><label>สถานะ</label><div class="cradio">
               <label><input type="radio" name="promo_active" value="1" ${promo.active?'checked':''}> เปิดใช้งาน</label>
@@ -327,7 +327,7 @@ function renderPromotionForm(){
         <div class="panel promo-type-panel">
           <h3>ประเภทโปรโมชั่น</h3>
           <div class="cform">
-            <div class="crow"><label>ประเภท</label><div class="cradio">
+            <div class="crow"><label class="promo-inline-label">ประเภท:</label><div class="cradio">
               <label><input type="radio" name="promo_type" value="discount" ${promo.type==='discount'?'checked':''}> ลดราคา</label>
               <label><input type="radio" name="promo_type" value="bundle" ${promo.type==='bundle'?'checked':''}> ราคาพิเศษเมื่อซื้อครบจำนวน</label>
               <label><input type="radio" name="promo_type" value="buygetdiff" ${promo.type==='buygetdiff'?'checked':''}> ซื้อและแถม</label>
@@ -383,7 +383,7 @@ function renderPromotionForm(){
       <div class="panel" id="promo_left_panel" style="display:${promo.type==='buygetdiff'?'none':'block'};">
         <h3>สินค้าที่เข้าร่วมโปรโมชั่น</h3>
         <div class="cform">
-          <div class="crow"><label>ผูกกับ</label><div class="cradio">
+          <div class="crow"><label class="promo-inline-label">ผูกกับ:</label><div class="cradio">
             <label><input type="radio" name="promo_scope" value="product" ${promo.scope==='product'?'checked':''}> สินค้ารายตัว</label>
             <label><input type="radio" name="promo_scope" value="category" ${promo.scope==='category'?'checked':''}> หมวดหลัก / หมวดย่อย</label>
           </div></div>
