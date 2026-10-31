@@ -10,16 +10,22 @@ function paymentQrMarkup(seed){
 }
 
 function confirmPOSBelowCostPrices(){
-  const belowCost=applyPromotions(cart).lines.flatMap(line=>{
+  const promoResult=applyPromotions(cart);
+  const taxSummary=cartTaxSummary(promoResult);
+  // Use the payable subtotal so bill discounts (including redeemed points) are
+  // shared proportionally across all lines, including custom items and VAT.
+  const remainingRatio=taxSummary.subtotal>0?Math.max(0,Math.min(1,taxSummary.total/taxSummary.subtotal)):1;
+  const belowCost=promoResult.lines.flatMap(line=>{
     if(line.custom||Number(line.qty)<=0) return [];
     const product=products.find(item=>Number(item.id)===Number(line.pid));
     if(!product) return [];
     const cost=productUnitCost(product,line.unit,line.factor);
-    const price=Number(line.promoLineTotal)/Number(line.qty);
+    const price=Number(line.promoLineTotal)*remainingRatio/Number(line.qty);
     return Number.isFinite(price)&&price+1e-9<cost
-      ?[`${line.name} (${line.unit}) — ราคาขาย ${fmtMoney(price)} บาท / ทุน ${fmtMoney(cost)} บาท`]:[];
+      ?[`${line.name} (${line.unit}) — ราคาขายสุทธิ ${fmtMoney(price)} บาท / ทุน ${fmtMoney(cost)} บาท`]:[];
   });
-  return !belowCost.length||confirm(`ราคาขายต่ำกว่าทุน ${belowCost.length} รายการ อาจทำให้ขายขาดทุน\nราคาต่อหน่วยหลังโปรโมชั่น ก่อนส่วนลดท้ายบิล\n\n${belowCost.join('\n')}\n\nยืนยันดำเนินการเก็บเงินต่อหรือไม่?`);
+  const discountNote=taxSummary.discount>0?`\nส่วนลดท้ายบิลรวม ${fmtMoney(taxSummary.discount)} บาท (รวมส่วนลดจากแต้ม) กระจายตามยอดแต่ละรายการ`:'';
+  return !belowCost.length||confirm(`ราคาขายต่ำกว่าทุน ${belowCost.length} รายการ อาจทำให้ขายขาดทุน\nราคาสุทธิต่อหน่วยหลังโปรโมชั่นและส่วนลดท้ายบิล${discountNote}\n\n${belowCost.join('\n')}\n\nยืนยันดำเนินการเก็บเงินต่อหรือไม่?`);
 }
 
 function openPaymentModal(){

@@ -59,6 +59,46 @@ let browser;
   dismiss();await page.locator('#checkoutBtn').click();assert.match(warning,/ซอง.*0.00.*4.00/);
   await page.evaluate(()=>{cart=[];addCustomCartLine('บริการ',1,'Pcs',1);render();});
   await page.locator('#checkoutBtn').click();assert.equal(await modal.count(),1);await modal.locator('.modal-close').click();
+  // Distribute the bill discount across quantities and all lines, not just product lines.
+  await page.evaluate(()=>{cart=[];addToCart(1,'กล่อง',2);addCustomCartLine('บริการ',40,'Pcs',1);saleDiscount=200;render();});
+  dismiss();await page.locator('#checkoutBtn').click();
+  assert.match(warning,/ส่วนลดท้ายบิลรวม 200.00/);
+  assert.match(warning,/กล่อง.*90.00.*100.00/,'400 baht bill less 200: each 180-baht box nets 90');
+  assert.equal(await modal.count(),0);assert.equal(await page.evaluate(()=>saleDiscount),200);
+  assert.equal(await page.evaluate(()=>window.checkoutCalls.length),4,'cancel does not submit payment');
+  page.once('dialog',dialog=>dialog.accept());await page.locator('#checkoutBtn').click();
+  assert.equal(await modal.count(),1);await modal.locator('.modal-close').click();
+  // Discounting to exactly cost is allowed without warning; one satang below warns.
+  await page.evaluate(()=>{cart=[];addToCart(1,'กล่อง',2);cart[0].price=120;saleDiscount=40;render();});
+  await page.locator('#checkoutBtn').click();assert.equal(await modal.count(),1);await modal.locator('.modal-close').click();
+  await page.evaluate(()=>{saleDiscount=40.02;render();});
+  dismiss();await page.locator('#search').focus();await page.keyboard.press('F2');
+  assert.match(warning,/กล่อง.*99.99.*100.00/);assert.equal(await modal.count(),0);
+  await page.evaluate(()=>{saleDiscount=999;render();});
+  dismiss();await page.locator('#checkoutBtn').click();
+  assert.match(warning,/ส่วนลดท้ายบิลรวม 240.00/,'discount is capped at subtotal');assert.match(warning,/กล่อง.*0.00.*100.00/);
+  // Promotions are applied before spreading the bill discount.
+  await page.evaluate(()=>{
+    cart=[];addToCart(1,'กล่อง',2);addCustomCartLine('บริการ',30,'Pcs',1);saleDiscount=90;
+    promotions=[{id:1,name:'ลดราคา',active:true,type:'discount',scope:'product',productId:1,unit:'กล่อง',discountMode:'percent',discountValue:25}];render();
+  });
+  dismiss();await page.locator('#checkoutBtn').click();assert.match(warning,/กล่อง.*94.50.*100.00/);
+  // VAT-exclusive prices use the same payable-bill ratio as the checkout total.
+  await page.evaluate(()=>{
+    promotions=[];businessSettings.vat=VAT_REGISTERED_LABEL;businessSettings.vatRegistrationDate='';products[0].vat='excl';
+    cart=[];addToCart(1,'กล่อง',1);cart[0].price=120;saleDiscount=21.4;render();
+  });
+  await page.locator('#checkoutBtn').click();assert.equal(await modal.count(),1);await modal.locator('.modal-close').click();
+  await page.evaluate(()=>{saleDiscount=32.1;render();});
+  dismiss();await page.locator('#checkoutBtn').click();assert.match(warning,/กล่อง.*90.00.*100.00/);
+  await page.evaluate(()=>{
+    businessSettings.vat='';cart=[];addToCart(1,'กล่อง',10);cart[0].price=120;saleDiscount=100;render();
+    contacts=[{id:7,name:'สมาชิก',types:['customer']}];saleMember=customerSaleSnapshot(contacts[0]);
+    saleLoyaltySelection={customerId:7,points:200};
+  });
+  dismiss();await page.locator('#checkoutBtn').click();
+  assert.match(warning,/ส่วนลดท้ายบิลรวม 300.00/,'includes valid redeemed points with the bill discount');
+  assert.match(warning,/กล่อง.*90.00.*100.00/);
   assert.deepEqual(errors,[]);
-  console.log('POS below-cost warning: button/F2, cancel, all payment methods, unit cost, promotions, quotation, equality and custom items passed');
+  console.log('POS below-cost warning: button/F2, cancel, all payment methods, unit cost, promotions, quotation, equality, custom items and proportional bill discounts passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});
