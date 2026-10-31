@@ -176,6 +176,7 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
         const product=products.find(item=>Number(item.id)===productId);
         const option=productUnitOptions(product).find(item=>item.name===unitSelect.value);
         row.querySelector('.customer-price-barcode').textContent=productBarcodeForUnit(product,unitSelect.value)||'-';
+        row.querySelector('.customer-price-regular').value=fmtMoney(option?.price||0);
         row.querySelector('.customer-price-cost').value=fmtMoney(option?.cost||0);
         unitSelect.dataset.previousUnit=unitSelect.value;
       };
@@ -183,7 +184,7 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
     const remove=row.querySelector('.customer-price-remove');
     if(remove) remove.onclick=()=>{
       row.remove();
-      if(customerPriceRows&&!customerPriceRows.querySelector('[data-customer-price-row]')) customerPriceRows.innerHTML='<tr class="customer-price-empty"><td colspan="6">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>';
+      if(customerPriceRows&&!customerPriceRows.querySelector('[data-customer-price-row]')) customerPriceRows.innerHTML='<tr class="customer-price-empty"><td colspan="7">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>';
     };
   });
   const customerPriceSearch=root.querySelector('#customerPriceSearch');

@@ -25,6 +25,7 @@ let browser;
   await trigger.click();await modal.locator('#customerPriceSearch').waitFor();
   assert.match(await modal.innerText(),/ราคาพิเศษสำหรับลูกค้ารายนี้ · ลูกค้า A/);
   assert.equal(await modal.locator('.customer-price-unit option:checked').textContent(),'กล่อง = 25 ซอง');
+  assert.equal(await modal.locator('.customer-price-regular').inputValue(),'180.00');
   assert.equal(await page.evaluate(()=>currentTab),'checkout');
   await modal.locator('.customer-price-value').fill('150');
   await modal.locator('#cancelCustomerPricingBtn').click();
