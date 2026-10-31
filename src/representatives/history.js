@@ -319,11 +319,12 @@ async function loadRepresentativeManagedProductIndex({force=false}={}){
       const {data,error}=await fetchAllRows(()=>sb.from('sales_representative_products').select('representative_id,product_id').order('product_id'));
       if(error) throw error;
       if(requestToken!==representativeManagedProductIndexToken||String(currentProfile?.id||'')!==profileId) return false;
+      const previousProductHtml=currentTab==='products'&&editingProductId===null?renderProducts():null;
       representativeManagedProductIndexRows=(data||[]).map(row=>({representativeId:Number(row.representative_id),productId:Number(row.product_id)})).filter(row=>row.representativeId&&row.productId);
       rebuildRepresentativeManagedProductIds();
       representativeManagedProductIndexLoaded=true;
       representativeManagedProductIndexLoadedAt=Date.now();
-      if(currentTab==='products'&&editingProductId===null) render();
+      if(previousProductHtml!==null) refreshProductListFromBackground(previousProductHtml);
       return true;
     }catch(error){
       console.warn('load representative managed product index',error);

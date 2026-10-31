@@ -10,6 +10,17 @@ function mobileInstallNoticeHtml(){
   const apple=isAppleMobileBrowser();
   return `<div class="mobile-install-notice"><div class="mobile-install-notice-text"><b>เปิดแบบแอป เพื่อตัดแถบเบราว์เซอร์สีดำ</b><span>${apple?'บน iPhone/iPad ให้เปิดด้วย Safari แล้วเพิ่มไปยังหน้าจอโฮม':'ติดตั้งผ่าน Chrome แล้วกล้องและ PWA จะทำงานได้ครบ'}</span></div><button type="button" class="mobile-install-btn" id="mobileInstallApp">${deferredPwaInstallPrompt?'ติดตั้งแอป':apple?'ดูวิธีติดตั้ง':'เปิดใน Chrome'}</button></div>`;
 }
+function updateMobileInstallNotice(){
+  const page=document.querySelector('.mobile-tools-page:not(.mobile-product-page)');
+  if(!page||currentTab!=='mobiletools') return;
+  const current=page.querySelector('.mobile-install-notice');
+  const template=document.createElement('template');template.innerHTML=mobileInstallNoticeHtml();
+  const replacement=template.content.firstElementChild;
+  if(current?.isEqualNode(replacement)) return;
+  if(current){if(replacement)current.replaceWith(replacement);else current.remove();}
+  else if(replacement)page.prepend(replacement);
+  replacement?.querySelector('#mobileInstallApp')?.addEventListener('click',requestMobilePwaInstall);
+}
 function openMobileBrowserHelp(options={}){
   document.querySelector('.mobile-browser-help')?.remove();
   const android=/Android/i.test(navigator.userAgent||'');
@@ -38,7 +49,7 @@ async function requestMobilePwaInstall(){
   const choice=await deferredPwaInstallPrompt.userChoice;
   deferredPwaInstallPrompt=null;
   if(choice?.outcome==='accepted') showToast('กำลังติดตั้ง PEPOS');
-  render();
+  updateMobileInstallNotice();
   return choice?.outcome==='accepted';
 }
 function mobileProductMatches(product,query){
@@ -956,10 +967,63 @@ async function confirmMobileStockEditChanges(){
   render();
   return true;
 }
+let pendingMobileToolsRefresh=null;
+let mobileToolsPaintTimer=null;
+function mobileToolsRefreshBusy(){
+  const focused=document.activeElement;
+  const quickSave=document.getElementById('mobilePriceSaveChanges');
+  return !!(mobileProductEditor||mobileProductOpening||mobileCameraSession||mobileDataStatusState==='saving'||
+    mobileInspectionCreating||mobileInspectionAddingToSaved||stockEditPosting||Object.keys(stockEditDraftStocks).length||
+    (quickSave&&!quickSave.hidden)||document.querySelector('.modal-overlay')||
+    (focused?.matches('input,select,textarea,[contenteditable="true"]')&&focused.id!=='mobilePriceInput'));
+}
+function applyPendingMobileToolsRefresh(){
+  clearTimeout(mobileToolsPaintTimer);mobileToolsPaintTimer=null;
+  const pending=pendingMobileToolsRefresh;
+  if(!pending) return;
+  if(!isWorkspaceReadCurrent(pending.context)||activeWarehouseId!==pending.warehouseId||currentTab!=='mobiletools'||!pending.page.isConnected){
+    pendingMobileToolsRefresh=null;return;
+  }
+  if(document.visibilityState==='hidden'||mobileToolsRefreshBusy()){
+    mobileToolsPaintTimer=setTimeout(applyPendingMobileToolsRefresh,1000);return;
+  }
+  const previous=document.createElement('template'),next=document.createElement('template');
+  previous.innerHTML=pending.html;next.innerHTML=renderMobileTools();
+  pendingMobileToolsRefresh=null;
+  const selector=mobileToolMode==='price'?'#mobilePriceResult':'.mobile-inventory-workflow';
+  const before=previous.content.querySelector(selector),after=next.content.querySelector(selector);
+  const current=pending.page.querySelector(selector);
+  if(!current||!after||before?.isEqualNode(after)) return;
+  if(mobileToolMode==='price'){
+    current.replaceWith(after);attachMobilePriceResultEvents();
+  }else{
+    const main=document.getElementById('main'),top=main.scrollTop,left=main.scrollLeft;
+    const windowX=window.scrollX,windowY=window.scrollY;
+    render();refreshScrollableTableHeights(main);
+    main.scrollTop=top;main.scrollLeft=left;window.scrollTo(windowX,windowY);
+  }
+}
+function updateMobileToolsConnectionUi(){
+  if(currentTab!=='mobiletools'||mobileProductEditor||mobileProductOpening||mobileDataStatusState==='saving') return;
+  // Update connection-dependent controls in place, preserving typed values,
+  // the camera and unsaved inspection/price drafts.
+  const next=document.createElement('template');next.innerHTML=renderMobileTools();
+  for(const id of ['mobileToolsRefresh','mobilePriceSaveChanges','mobileSaveInspectionDraft','mobileInspectionAddSave','mobileDeleteInspectionList','mobileConfirmStockEdit']){
+    const button=document.getElementById(id),replacement=next.content.querySelector(`#${id}`);
+    if(!button||!replacement) continue;
+    button.disabled=replacement.disabled;
+    if(id!=='mobileToolsRefresh'&&id!=='mobileDeleteInspectionList') button.textContent=replacement.textContent;
+  }
+}
 async function refreshMobileToolsData(button,options={}){
   if(mobileProductEditor||mobileProductOpening) return false;
   if(mobileRefreshPromise) return mobileRefreshPromise;
+  if(options.silent&&mobileToolsRefreshBusy()) return false;
   if(!mobileRequireOnline('รีเฟรชข้อมูล')) return false;
+  const context=captureWorkspaceRead(),warehouseId=activeWarehouseId;
+  const stillCurrent=()=>isWorkspaceReadCurrent(context)&&activeWarehouseId===warehouseId;
+  const page=document.querySelector('.mobile-tools-page');
+  const html=renderMobileTools();
   if(button){ button.disabled=true; button.classList.add('loading'); }
   setMobileDataStatus('syncing');
   mobileRefreshPromise=(async()=>{
@@ -968,18 +1032,26 @@ async function refreshMobileToolsData(button,options={}){
       if(connectionError) throw connectionError;
       const {data:latestProducts,error:productError}=await loadProductRowsFromSupabase();
       if(productError) throw productError;
+      if(!stillCurrent()) return false;
       products=latestProducts||products;
       rebuildProductLookupMaps();
       seedProductSyncSnapshot(products,productDirtyOperations);
       await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase(),loadInspectionListsFromSupabase()]);
+      if(!stillCurrent()) return false;
       refreshCategoryBrandUnitLists();
       mobileLastRefreshAt=Date.now();
       setMobileDataStatus('online',options.silent?'ออนไลน์':'รีเฟรชแล้ว');
       if(!options.silent) showToast('รีเฟรชข้อมูลล่าสุดแล้ว');
-      render();
+      if(currentTab==='mobiletools'&&page?.isConnected){
+        // Keep the earliest displayed snapshot if another refresh completes
+        // while the user still has an unfinished edit.
+        if(!pendingMobileToolsRefresh||pendingMobileToolsRefresh.page!==page) pendingMobileToolsRefresh={context,warehouseId,page,html};
+        applyPendingMobileToolsRefresh();
+      }
       return true;
     }catch(error){
       console.warn('รีเฟรชข้อมูลมือถือไม่สำเร็จ',error);
+      if(!stillCurrent()) return false;
       setMobileDataStatus(mobileIsOnline()?'error':'offline','รีเฟรชไม่สำเร็จ');
       if(!options.silent) showToast('รีเฟรชข้อมูลไม่สำเร็จ กรุณาลองใหม่','danger-top');
       return false;

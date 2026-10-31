@@ -1,3 +1,19 @@
+function attachProductGroupEvents(root=document){
+  root.querySelectorAll('.product-group-category').forEach(el=>{
+    el.addEventListener('click',()=>{
+      selectedGroup={cat:el.dataset.productCategory};
+      productPage=1;
+      render();
+    });
+  });
+  root.querySelectorAll('.product-group-brand').forEach(el=>{
+    el.addEventListener('click',()=>{
+      selectedGroup={cat:el.dataset.productCategory,brand:el.dataset.productBrand};
+      productPage=1;
+      render();
+    });
+  });
+}
 function attachProductResultEvents(root=document){
   root.querySelectorAll('[data-act="editproduct"]').forEach(el=>{
     el.addEventListener('click', ()=>{ if(isLevel2User()) return; editingProductId=Number(el.dataset.id); render(); });
@@ -1437,20 +1453,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       render();
     });
   });
-  document.querySelectorAll('.product-group-category').forEach(el=>{
-    el.addEventListener('click',()=>{
-      selectedGroup={cat:el.dataset.productCategory};
-      productPage=1;
-      render();
-    });
-  });
-  document.querySelectorAll('.product-group-brand').forEach(el=>{
-    el.addEventListener('click',()=>{
-      selectedGroup={cat:el.dataset.productCategory,brand:el.dataset.productBrand};
-      productPage=1;
-      render();
-    });
-  });
+  attachProductGroupEvents();
   // --- sort headers ---
   document.querySelectorAll('.grid-table:not(.prodtable) th.sortable').forEach(el=>{
     el.addEventListener('click', ()=>{

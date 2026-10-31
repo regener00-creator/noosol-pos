@@ -38,6 +38,8 @@ test('a conflicting document never blocks unrelated documents or retries unchang
 function refreshContext(){
   const ctx=vm.createContext({Map,Set,Number,String,Date,Boolean,Math,console,Promise,
     currentProfile:{id:'owner'},currentTab:'products',editingProductId:null,coreSyncInFlight:false,
+    openDocMenu:null,activeWarehouseId:1,captureWorkspaceRead:()=>({}),isWorkspaceReadCurrent:()=>true,
+    renderProducts:()=>'',refreshProductListFromBackground:()=>{},
     document:{visibilityState:'visible',activeElement:null,querySelector:()=>null},navigator:{onLine:true},
     productDirtyOperations:new Map(),products:[{id:1,name:'old',_revision:1,stock:5,expiry:''}],syncedTableRows:{products:new Map([['1','old']])},
     fetchProductRevisionManifest:async()=>({data:[{id:2,revision:1}],error:null}),

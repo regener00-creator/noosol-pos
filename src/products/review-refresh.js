@@ -25,6 +25,7 @@ function scheduleProductReviewRefresh(){
 function canRefreshProductReviewColors(){
   const focused=document.activeElement;
   return Boolean(currentProfile)&&currentTab==='products'&&editingProductId===null&&document.visibilityState!=='hidden'&&navigator.onLine!==false&&!coreSyncInFlight&&
+    !document.querySelector('.modal-overlay')&&!openDocMenu&&
     !(focused?.matches('input,textarea,select,[contenteditable="true"]')&&focused.id!=='search');
 }
 async function refreshProductReviewColors(){
@@ -32,6 +33,9 @@ async function refreshProductReviewColors(){
   productReviewRefreshInFlight=true;
   productReviewRefreshAt=Date.now();
   const profileId=currentProfile.id;
+  const context=captureWorkspaceRead();
+  const warehouseId=activeWarehouseId;
+  const stillCurrent=()=>isWorkspaceReadCurrent(context)&&activeWarehouseId===warehouseId&&currentProfile?.id===profileId&&canRefreshProductReviewColors();
   try{
     // Missing RPC during a rolling deployment falls back to the existing manifest.
     let signature=null;
@@ -41,7 +45,7 @@ async function refreshProductReviewColors(){
         if(!result.error&&typeof result.data==='string') signature=result.data;
       }catch(error){ /* Full manifest remains the compatibility/safety path. */ }
     }
-    if(currentProfile?.id!==profileId||!canRefreshProductReviewColors()) return false;
+    if(!stillCurrent()) return false;
     if(signature&&signature===productReviewSignature&&productReviewSignatureProfile===profileId&&productDirtyOperations.size===0&&Date.now()-productReviewManifestCheckedAt<300000){
       productReviewRefreshDelay=Math.min(60000,productReviewRefreshDelay*2);
       return true;
@@ -50,7 +54,7 @@ async function refreshProductReviewColors(){
     // even when the review color stays the same. Fetch full rows only on change.
     const {data,error}=await fetchProductRevisionManifest();
     if(error) throw error;
-    if(currentProfile?.id!==profileId||!canRefreshProductReviewColors()) return false;
+    if(!stillCurrent()) return false;
     const revisions=new Map((data||[]).map(row=>[String(row.id),Number(row.revision)]));
     const localById=new Map(products.map(p=>[String(p.id),p]));
     const changedIds=(data||[]).filter(row=>!productDirtyOperations.has(String(row.id))&&(!localById.has(String(row.id))||Number(localById.get(String(row.id))._revision)!==Number(row.revision))).map(row=>row.id);
@@ -61,7 +65,8 @@ async function refreshProductReviewColors(){
     if(!changedIds.length&&!deletedIds.length){ rememberSignature(); productReviewRefreshDelay=Math.min(60000,productReviewRefreshDelay*2); return true; }
     const result=await fetchProductRowsByIds(changedIds);
     if(result.error) throw result.error;
-    if(currentProfile?.id!==profileId||!canRefreshProductReviewColors()) return false;
+    if(!stillCurrent()) return false;
+    const previousHtml=renderProducts();
     const byId=new Map(products.map((p,index)=>[String(p.id),index]));
     const updatedIds=[];
     for(const row of result.data||[]){
@@ -90,14 +95,7 @@ async function refreshProductReviewColors(){
     if(!updatedIds.length&&!removedIds.length) return true;
     productReviewRefreshDelay=15000;
     rebuildProductLookupMaps();
-    const focused=document.activeElement;
-    const searchFocused=focused?.id==='search';
-    const selectionStart=focused?.selectionStart,selectionEnd=focused?.selectionEnd;
-    const scrollTop=document.querySelector('.product-table-scroll')?.scrollTop||0;
-    render();
-    const scroller=document.querySelector('.product-table-scroll');
-    if(scroller) scroller.scrollTop=scrollTop;
-    if(searchFocused) restoreSearchInputFocus(selectionStart,selectionEnd);
+    refreshProductListFromBackground(previousHtml);
     await persistProductChangesToIndexedDB({updatedIds,deletedIds:removedIds});
     rememberSignature();
     return true;
@@ -105,7 +103,12 @@ async function refreshProductReviewColors(){
     console.warn('refresh product review colors failed',error);
     productReviewRefreshDelay=Math.min(60000,productReviewRefreshDelay*2);
     return false;
-  }finally{ productReviewRefreshInFlight=false; }
+  }finally{
+    productReviewRefreshInFlight=false;
+    // A focus-triggered fetch must also restart the delay from its completion;
+    // otherwise the old timer fires inside the throttle and skips a full cycle.
+    scheduleProductReviewRefresh();
+  }
 }
 // จำหน่วยที่เลือกไว้ต่อสินค้าแต่ละตัว ในหน้ารายการสินค้า (สำหรับสลับดูราคา/ทุนตามหน่วย)
 let prodRowUnitSel = {};

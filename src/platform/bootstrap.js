@@ -91,12 +91,12 @@ document.addEventListener('visibilitychange',()=>scheduleSalesViewRefresh());
 window.addEventListener('beforeinstallprompt',event=>{
   event.preventDefault();
   deferredPwaInstallPrompt=event;
-  if(currentTab==='mobiletools'&&loggedInUser()) render();
+  if(currentTab==='mobiletools'&&loggedInUser()) updateMobileInstallNotice();
 });
 window.addEventListener('appinstalled',()=>{
   deferredPwaInstallPrompt=null;
   showToast('ติดตั้ง PEPOS เรียบร้อยแล้ว');
-  if(currentTab==='mobiletools'&&loggedInUser()) render();
+  if(currentTab==='mobiletools'&&loggedInUser()) updateMobileInstallNotice();
 });
 
 if('serviceWorker' in navigator){
@@ -104,7 +104,8 @@ if('serviceWorker' in navigator){
 }
 
 function refreshMobileToolsOnResume(){
-  if(mobileProductEditor||mobileProductOpening) return false;
+  applyPendingMobileToolsRefresh();
+  if(mobileToolsRefreshBusy()) return false;
   if(document.visibilityState==='hidden'||currentTab!=='mobiletools'||!loggedInUser()||!mobileIsOnline()) return false;
   if(Date.now()-mobileLastRefreshAt<30000) return false;
   refreshMobileToolsData(null,{silent:true});
@@ -115,12 +116,12 @@ window.addEventListener('online',()=>{
   void syncOfflineSales();
   if(loggedInUser()){ flushPendingClientEvents(); syncCoreDataToSupabase(); }
   setMobileDataStatus('online','กลับมาออนไลน์แล้ว');
-  if(currentTab==='mobiletools'){ render(); refreshMobileToolsOnResume(); }
+  if(currentTab==='mobiletools'){ updateMobileToolsConnectionUi(); refreshMobileToolsOnResume(); }
 });
 window.addEventListener('offline',()=>{
   setSyncUiState('offline');
   setMobileDataStatus('offline');
-  if(currentTab==='mobiletools') render();
+  if(currentTab==='mobiletools') updateMobileToolsConnectionUi();
   const banner=document.getElementById('offlinePosBanner');if(banner) banner.innerHTML=offlinePosBanner();
 });
 window.addEventListener('focus',()=>{void syncOfflineSales();});

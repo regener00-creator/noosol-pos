@@ -47,17 +47,54 @@ function prepareScrollableTables(mainElement=document.getElementById('main')){
   });
   requestAnimationFrame(()=>refreshScrollableTableHeights(mainElement));
 }
-function refreshProductListResults(){
+let pendingProductListRefresh=null;
+let productListPaintTimer=null;
+function refreshProductListFromBackground(previousHtml){
+  const page=document.querySelector('.product-list-page');
+  if(!page||currentTab!=='products'||editingProductId!==null) return;
+  if(!pendingProductListRefresh||pendingProductListRefresh.page!==page){
+    pendingProductListRefresh={page,previousHtml,context:captureWorkspaceRead(),warehouseId:activeWarehouseId};
+  }
+  applyPendingProductListRefresh();
+}
+function applyPendingProductListRefresh(){
+  clearTimeout(productListPaintTimer);productListPaintTimer=null;
+  const pending=pendingProductListRefresh;
+  if(!pending) return;
+  if(!pending.page.isConnected||!isWorkspaceReadCurrent(pending.context)||activeWarehouseId!==pending.warehouseId||currentTab!=='products'||editingProductId!==null){
+    pendingProductListRefresh=null;return;
+  }
+  if(!canRefreshProductReviewColors()){
+    productListPaintTimer=setTimeout(applyPendingProductListRefresh,1000);return;
+  }
+  const previous=document.createElement('template'),next=document.createElement('template');
+  previous.innerHTML=pending.previousHtml;
+  next.innerHTML=renderProducts();
+  pendingProductListRefresh=null;
+  // Keep the search, filters and actions mounted. A revision-only change or an
+  // update outside the visible results must not replace the current table.
+  for(const selector of ['.tree-pane','.table-pane']){
+    const before=previous.content.querySelector(selector),after=next.content.querySelector(selector);
+    const current=document.querySelector(`.product-list-page ${selector}`);
+    if(!current||!after||before?.isEqualNode(after)) continue;
+    if(selector==='.table-pane') refreshProductListResults(after);
+    else {current.replaceWith(after);attachProductGroupEvents(after);}
+  }
+}
+function refreshProductListResults(replacement=null){
   if(currentTab!=='products'||editingProductId!==null) return false;
   const pane=document.querySelector('.product-list-page .table-pane');
   if(!pane) return false;
   const scroll=pane.querySelector('.product-table-scroll'),top=scroll?.scrollTop||0,left=scroll?.scrollLeft||0;
-  const template=document.createElement('template');
-  template.innerHTML=renderProducts({resultsOnly:true});
-  const replacement=template.content.firstElementChild;
+  if(!replacement){
+    const template=document.createElement('template');
+    template.innerHTML=renderProducts({resultsOnly:true});
+    replacement=template.content.firstElementChild;
+  }
   pane.replaceWith(replacement);
   attachProductResultEvents(replacement);
   prepareScrollableTables();
+  refreshScrollableTableHeights(replacement);
   const next=replacement.querySelector('.product-table-scroll');
   if(next){next.scrollTop=top;next.scrollLeft=left;}
   return true;
