@@ -308,7 +308,7 @@ function renderPromotionForm(){
   };
   return `<div class="pagehead"><div><div class="breadcrumb">โปรโมชั่น › ${isNew?'สร้างโปรโมชั่น':'แก้ไขโปรโมชั่น'}</div><h1>${isNew?'สร้างโปรโมชั่น':'แก้ไขโปรโมชั่น'}</h1></div>
     <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelPromotionBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePromotionBtn">บันทึก</button></div></div>
-    <div class="grid2col grid2col-even align-top">
+    <div class="grid2col grid2col-even align-top promotion-form-layout">
       <div>
         <div class="panel">
           <h3>ข้อมูลโปรโมชั่น</h3>
@@ -324,7 +324,7 @@ function renderPromotionForm(){
             </div>
           </div>
         </div>
-        <div class="panel" style="margin-top:16px;">
+        <div class="panel promo-type-panel">
           <h3>ประเภทโปรโมชั่น</h3>
           <div class="cform">
             <div class="crow"><label>ประเภท</label><div class="cradio">
