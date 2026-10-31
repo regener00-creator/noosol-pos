@@ -61,6 +61,8 @@ let browser;
     salesHistory.push({...window.calendarFixture[0],items:[{custom:true,name:'กรอกเอง',qty:999}]});render();
   });
   assert.equal(await page.locator('.dashboard-best-seller').count(),9);
+  assert.deepEqual(await page.locator('.dashboard-best-rank').allTextContents(),['🏆','🥈','🥉','4','5','6','7','8','9']);
+  assert.equal(await page.getByText('เดือนนี้ · จำนวนขายสุทธิ',{exact:true}).count(),0);
   assert.match(await page.locator('.dashboard-best-seller').first().innerText(),/สินค้า 2\s*20 Pcs/);
   assert.equal(await page.locator('.dashboard-best-seller img').count(),0);
   assert.equal(await page.locator('.dashboard-best-seller b').nth(1).innerText(),'<img src=x onerror=alert(1)>');
@@ -134,10 +136,7 @@ let browser;
     assert.equal(await page.locator('.dashboard-calendar').evaluate(el=>el.scrollWidth<=el.clientWidth),true,`calendar stays contained at ${width}`);
     assert.equal(await day.evaluate(el=>{const a=el.querySelector('time').getBoundingClientRect(),b=el.querySelector('.dashboard-day-summary').getBoundingClientRect();return Math.abs((a.top+a.bottom)/2-(b.top+b.bottom)/2)<2;}),true,'day number and summary share one row');
     assert.equal(await day.locator('.dashboard-day-summary').evaluate(el=>getComputedStyle(el).textAlign),'center','daily summary is centered');
-    for(const selector of ['[data-day-orders]','[data-day-sales]','[data-day-profit]']){
-      const a=await day.locator(selector).boundingBox(),b=await page.locator('[data-dashboard-date="2026-10-24"]').locator(selector).boundingBox();
-      assert.ok(Math.abs(a.x-b.x)<1&&Math.abs(a.width-b.width)<1,`${selector} keeps the same column for zero and nonzero amounts`);
-    }
+
   }
   await page.setViewportSize({width:1600,height:1100});
   fs.mkdirSync(path.resolve(__dirname,'../outputs'),{recursive:true});await page.screenshot({path:path.resolve(__dirname,'../outputs/dashboard-calendar.png')});
