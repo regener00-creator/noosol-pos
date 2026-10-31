@@ -11,7 +11,7 @@ function fixture(){
   const c=vm.createContext({console,Date:class extends Date{static now(){return now;}},Map,Set,Number,String,JSON,Promise,
     TODAY_STR:'2026-10-24',salesHistory:[],cart:[],currentProfile:{id:'owner'},sb:{from:()=>query},
     maxArrayValue:()=>1000,DOC_TABLES:[],resetDocumentLoadStates:()=>{},onDemandTabErrors:new Map(),onDemandTabJobs:new Map()});
-  vm.runInContext(read('src/data/pagination.js')+'\n'+read('src/sync/sales-history.js'),c);
+  vm.runInContext(read('src/sync/read-signatures.js')+'\n'+read('src/data/pagination.js')+'\n'+read('src/sync/sales-history.js'),c);
   c.fetchBoundedRows=async()=>{calls++;return {data:structuredClone(rows),error:null};};
   return {c,setRows:value=>rows=value,advance:ms=>now+=ms,calls:()=>calls};
 }
@@ -26,10 +26,10 @@ test('history reuses fresh requests, then refreshes another device bill after TT
 test('an old response cannot repopulate history or remove the next user request',async()=>{
   const {c}=fixture();let oldResolve,newResolve;
   c.fetchBoundedRows=()=>new Promise(resolve=>oldResolve=resolve);
-  const old=c.loadSalesHistoryFromSupabase(options);
+  const old=c.loadSalesHistoryFromSupabase(options);await Promise.resolve();
   c.clearLoadedHistoryMemory();c.currentProfile={id:'cashier'};
   c.fetchBoundedRows=()=>new Promise(resolve=>newResolve=resolve);
-  const next=c.loadSalesHistoryFromSupabase(options);
+  const next=c.loadSalesHistoryFromSupabase(options);await Promise.resolve();
   oldResolve({data:[{id:'PRIVATE'}]});assert.equal(await old,false);
   assert.equal(c.salesHistory.length,0);
   assert.equal(vm.runInContext('salesLoadPromises.size',c),1);
@@ -39,14 +39,14 @@ test('an old response cannot repopulate history or remove the next user request'
 test('logout and re-login to same account still invalidates in-flight responses',async()=>{
   const {c}=fixture();let finish;
   c.fetchBoundedRows=()=>new Promise(resolve=>finish=resolve);
-  const job=c.loadSalesHistoryFromSupabase(options);c.clearLoadedHistoryMemory();
+  const job=c.loadSalesHistoryFromSupabase(options);await Promise.resolve();c.clearLoadedHistoryMemory();
   finish({error:{message:'old request denied'}});
   assert.equal(await job,false);assert.equal(c.salesHistory.length,0);
 });
 test('forced refresh preserves newly posted and offline receipts during the read',async()=>{
   const {c}=fixture();await c.loadSalesHistoryFromSupabase(options);
   let finish;c.fetchBoundedRows=()=>new Promise(resolve=>finish=resolve);
-  const job=c.loadSalesHistoryFromSupabase({...options,force:true});
+  const job=c.loadSalesHistoryFromSupabase({...options,force:true});await Promise.resolve();
   c.salesHistory.push({id:'NEW',date:'2026-10-24'},{id:'OFF',date:'2026-10-24',offlinePending:true});
   finish({data:[]});await job;
   assert.deepEqual(Array.from(c.salesHistory,s=>s.id).sort(),['NEW','OFF']);
@@ -60,7 +60,7 @@ test('refreshing another window cannot renew a stale window',async()=>{
 test('a refresh started before cancellation cannot restore the cancelled bill',async()=>{
   const {c}=fixture();await c.loadSalesHistoryFromSupabase(options);
   let finish;c.fetchBoundedRows=()=>new Promise(resolve=>finish=resolve);
-  const job=c.loadSalesHistoryFromSupabase({...options,force:true});
+  const job=c.loadSalesHistoryFromSupabase({...options,force:true});await Promise.resolve();
   c.salesHistory[0]={...c.salesHistory[0],status:'void'};
   finish({data:[{id:'A',sale_date:'2026-10-24',status:'done',total:100}]});await job;
   assert.equal(c.salesHistory[0].status,'void');
@@ -73,7 +73,7 @@ test('periodic history refresh defers while typing or a modal is open and never 
     editingDocumentForm:()=>editing,TAB_DOCUMENT_TABLES:{quotation:["quotations"]},offlinePosMode:()=>offline,salesRequestLoaded:()=>false,dataRequestsForTab:()=>({sales:{range:options},documents:[]}),openDocMenu:null,currentDateStr:()=> '2026-10-31',
     ensureOnDemandDataForTab:(_tab,opts)=>{assert.equal(opts.background,true);refreshes++;},
     document:{visibilityState:'visible',activeElement:{matches:()=>typing},querySelector:()=>modal}});
-  vm.runInContext(router.slice(router.indexOf('let salesViewRefreshTimer='),router.indexOf('\nfunction render(){')),c);
+  vm.runInContext(router.slice(router.indexOf('let salesViewRefreshTimer='),router.indexOf('\nfunction render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){')),c);
   c.scheduleSalesViewRefresh();typing=true;callback();assert.equal(refreshes,0);
   typing=false;modal=true;callback();assert.equal(refreshes,0);
   modal=false;callback();assert.equal(refreshes,1);

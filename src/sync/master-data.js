@@ -501,9 +501,14 @@ async function prepareProductInsertCandidatesForSync(previous){
   }
   return true;
 }
-async function syncProductsIncrementally(){
+async function syncProductsIncrementally({dirtyOnly=false}={}){
   const table='products';
   const previous=syncedTableRows[table]||new Map();
+  const actor=typeof currentProfile==='undefined'?'':String(currentProfile?.id||'');
+  const lastCheck=syncProductsIncrementally.fullCheck;
+  // All product editors record dirty ids. Retain a periodic full comparison
+  // for legacy/import paths instead of serializing the catalog on every save.
+  if(dirtyOnly&&syncedTableRows[table]&&productDirtyOperations.size===0&&lastCheck?.actor===actor&&lastCheck.baseline===previous&&Date.now()-lastCheck.at<300000) return true;
   if(!await prepareProductInsertCandidatesForSync(previous)) return false;
   const current=tableSnapshot(products,productMetadataToRow);
   const dirtyAtStart=new Map(productDirtyOperations);
@@ -549,5 +554,6 @@ async function syncProductsIncrementally(){
   }
   if(changed.length) await persistProductChangesToIndexedDB({updatedIds:changed.map(product=>product.id)});
   if(productUpdateError) return noteCoreSyncFailure(productUpdateError,{operation:'update_products',tableName:table,recordId:productUpdateError.productId||'',fallbackMessage:'มีสินค้ารอตรวจสอบข้อมูลที่ขัดแย้ง'});
+  syncProductsIncrementally.fullCheck={at:Date.now(),actor,baseline:syncedTableRows[table]};
   return true;
 }

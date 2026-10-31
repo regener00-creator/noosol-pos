@@ -87,7 +87,7 @@ test('product conflict does not block other tables or emit duplicate events on p
   const calls=[],reports=[];
   const ctx=vm.createContext({console:{warn(){}},Date,Error,
     offlinePosMode:()=>false,offlinePendingSales:()=>[],offlineSyncRunning:false,
-    currentProfile:{id:'owner'},currentTab:'products',coreSyncInFlight:false,coreSyncPending:false,coreSyncFailureDetail:null,currentWorkspacePendingChanges:()=>[],ensureWorkspaceRecoveryDurable:async()=>true,
+    currentProfile:{id:'owner'},currentTab:'products',coreSyncInFlight:false,coreSyncPending:false,coreSyncFailureDetail:null,syncedTableRows:{},currentWorkspacePendingChanges:()=>['contacts','sales_representatives','quotations','inspection_lists'].map(table=>({table})),ensureWorkspaceRecoveryDurable:async()=>true,
     adoptRemoteMaintenanceEpoch:async()=>false,setSyncUiState:()=>{},loggedInUser:()=>({owner:true}),syncWarehousesIncrementally:async()=>true,
     contacts:[],contactToRow:x=>x,salesRepresentatives:[],salesRepToRow:x=>x,DOC_TABLES:[['quotations',()=>[]]],documentLoadStates:{quotations:{loaded:true}},
     syncProductsIncrementally:async()=>{ctx.coreSyncFailureDetail={error:{code:'REVISION_CONFLICT',syncPaused:reports.length>0},operation:'update_products'};return false;},

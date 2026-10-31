@@ -6,7 +6,7 @@ function fixture(){
     salesHistory:[],cart:[],TODAY_STR:'2026-10-24',onDemandTabErrors:new Map(),onDemandTabJobs:new Map(),
     syncedTableRows:{},workspaceRecoveryEntries:new Map(),refreshDataCounters:()=>{},maxArrayValue:()=>1,
     quotations:[],invoicesAR:[],creditNotes:[],purchaseOrders:[],goodsReceipts:[],productExchanges:[],productReturns:[],transfers:[],standaloneTaxInvoices:[]});
-  vm.runInContext(read('data/pagination.js')+read('sync/sales-history.js')+read('sync/documents.js'),c);
+  vm.runInContext(read('sync/read-signatures.js')+read('data/pagination.js')+read('sync/sales-history.js')+read('sync/documents.js'),c);
   const outbox=read('sync/workspace-outbox.js');
   vm.runInContext(outbox.slice(outbox.indexOf('function mergeWorkspaceRemoteRows('),outbox.indexOf('async function reconcileLegacyWorkspaceRows(')),c);
   c.currentWorkspacePendingChanges=()=>{
@@ -34,7 +34,7 @@ test('document refresh preserves a pending deletion and rejects responses after 
   const f=fixture();f.rows([{id:'Q1',data:{}}]);await f.c.loadDocumentTableFromSupabase('quotations',{recent:true});
   f.c.quotations=[];f.advance();await f.c.loadDocumentTableFromSupabase('quotations',{recent:true});assert.equal(f.c.quotations.length,0);
   let finish;f.c.fetchBoundedRows=()=>new Promise(resolve=>finish=resolve);
-  const job=f.c.loadDocumentTableFromSupabase('quotations',{recent:true,force:true});
+  const job=f.c.loadDocumentTableFromSupabase('quotations',{recent:true,force:true});await Promise.resolve();
   f.c.clearLoadedHistoryMemory();f.c.currentProfile={id:'other'};
   finish({data:[{id:'OLD',data:{}}]});assert.equal(await job,false);assert.equal(f.c.quotations.length,0);
 });

@@ -113,6 +113,7 @@ function mobileSelectPriceProduct(product,unitName=''){
   mobilePriceUnitName=selected?.name||product.unit;
   mobilePriceLotId=null;
   mobilePriceQuery=selected?.barcode||product.barcode||product.sku||product.name;
+  if(currentTab==='mobiletools') queueMicrotask(()=>{void refreshMobilePriceStock(product.id);});
   return true;
 }
 function canEditMobilePrice(user=loggedInUser()){
@@ -969,6 +970,30 @@ async function confirmMobileStockEditChanges(){
 }
 let pendingMobileToolsRefresh=null;
 let mobileToolsPaintTimer=null;
+const mobilePriceStockReads=new Map();
+async function refreshMobilePriceStock(productId){
+  if(currentTab!=='mobiletools'||mobileToolMode!=='price'||Number(mobilePriceProductId)!==Number(productId)||!mobileIsOnline()||mobileToolsRefreshBusy()) return false;
+  const context=captureWorkspaceRead(),warehouseId=activeWarehouseId;
+  const key=`${context.actor}:${context.generation}:${warehouseId}:${productId}`;
+  const previous=mobilePriceStockReads.get(key);
+  if(previous?.promise) return previous.promise;
+  if(previous?.at&&Date.now()-previous.at<30000) return true;
+  const page=document.querySelector('.mobile-tools-page'),html=renderMobileTools();
+  const request={warehouseIds:[warehouseId],productIds:[Number(productId)]};
+  const entry={at:0,promise:null};
+  entry.promise=Promise.all([loadInventoryBalancesFromSupabase(request),loadInventoryLotsFromSupabase(request)]).then(results=>{
+    if(!isWorkspaceReadCurrent(context)||warehouseId!==activeWarehouseId||results.some(result=>result===false)) return false;
+    entry.at=Date.now();
+    if(page?.isConnected&&currentTab==='mobiletools'&&Number(mobilePriceProductId)===Number(productId)){
+      if(!pendingMobileToolsRefresh||pendingMobileToolsRefresh.page!==page) pendingMobileToolsRefresh={context,warehouseId,page,html};
+      applyPendingMobileToolsRefresh();
+    }
+    return true;
+  }).catch(error=>{console.warn('refresh mobile product stock',error);return false;}).finally(()=>{entry.promise=null;});
+  mobilePriceStockReads.set(key,entry);
+  while(mobilePriceStockReads.size>100) mobilePriceStockReads.delete(mobilePriceStockReads.keys().next().value);
+  return entry.promise;
+}
 function mobileToolsRefreshBusy(){
   const focused=document.activeElement;
   const quickSave=document.getElementById('mobilePriceSaveChanges');
@@ -999,7 +1024,7 @@ function applyPendingMobileToolsRefresh(){
   }else{
     const main=document.getElementById('main'),top=main.scrollTop,left=main.scrollLeft;
     const windowX=window.scrollX,windowY=window.scrollY;
-    render();refreshScrollableTableHeights(main);
+    render({immediateLayout:true});
     main.scrollTop=top;main.scrollLeft=left;window.scrollTo(windowX,windowY);
   }
 }
@@ -1021,6 +1046,7 @@ async function refreshMobileToolsData(button,options={}){
   if(options.silent&&mobileToolsRefreshBusy()) return false;
   if(!mobileRequireOnline('รีเฟรชข้อมูล')) return false;
   const context=captureWorkspaceRead(),warehouseId=activeWarehouseId;
+  const mode=mobileToolMode,priceProductId=mobilePriceProductId;
   const stillCurrent=()=>isWorkspaceReadCurrent(context)&&activeWarehouseId===warehouseId;
   const page=document.querySelector('.mobile-tools-page');
   const html=renderMobileTools();
@@ -1036,7 +1062,12 @@ async function refreshMobileToolsData(button,options={}){
       products=latestProducts||products;
       rebuildProductLookupMaps();
       seedProductSyncSnapshot(products,productDirtyOperations);
-      await Promise.all([loadInventoryBalancesFromSupabase(),loadInventoryLotsFromSupabase(),loadInspectionListsFromSupabase()]);
+      const scope={warehouseIds:[warehouseId],productIds:priceProductId?[Number(priceProductId)]:[]};
+      const reads=mode==='price'
+        ? (priceProductId?[loadInventoryBalancesFromSupabase(scope),loadInventoryLotsFromSupabase(scope)]:[])
+        : [loadInventoryBalancesFromSupabase({warehouseIds:[warehouseId]}),loadInventoryLotsFromSupabase({warehouseIds:[warehouseId]}),loadInspectionListsFromSupabase()];
+      const readResults=await Promise.all(reads);
+      if(readResults.some(result=>result===false)) throw new Error('โหลดสต๊อกล่าสุดไม่สำเร็จ');
       if(!stillCurrent()) return false;
       refreshCategoryBrandUnitLists();
       mobileLastRefreshAt=Date.now();

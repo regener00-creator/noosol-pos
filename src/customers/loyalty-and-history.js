@@ -326,7 +326,7 @@ function attachCustomerPurchaseEvents(){
 }
 function refreshCustomerHistoryDisplay(){
   const host=document.getElementById('posCustomerHistoryContent');
-  if(!host){render();return;}
+  if(!host){if(!refreshContactListResults())render();return;}
   host.innerHTML=renderCustomerPurchaseHistory();
   prepareScrollableTables(host);
   attachCustomerPurchaseEvents();

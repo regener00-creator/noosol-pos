@@ -284,11 +284,12 @@ async function discardWorkspaceRecovery(entry){
   upsertAndPrune.paused?.delete(key);
   showToast('ใช้ข้อมูลล่าสุดจากเซิร์ฟเวอร์แล้ว');
 }
-function currentWorkspacePendingChanges(){
+function currentWorkspacePendingChanges({tables=null}={}){
   const actor=String(currentProfile?.id||'');
   if(actor&&workspaceRecoveryActorId&&workspaceRecoveryActorId!==actor) return [];
   const pending=new Map(workspaceRecoveryEntries);
   workspaceRecoveryTables().forEach(([table,getRows,_setRows,toRow])=>{
+    if(tables&&!tables.includes(table)) return;
     const baseline=syncedTableRows[table];
     if(!baseline) return;
     const rows=getRows(),ids=new Set(rows.map(row=>String(row.id)));
@@ -304,7 +305,7 @@ function currentWorkspacePendingChanges(){
   return [...pending.values()];
 }
 function mergeWorkspaceRemoteRows(table,current,incoming,toRow,{replace=false}={}){
-  const pending=currentWorkspacePendingChanges().filter(entry=>entry.table===table);
+  const pending=currentWorkspacePendingChanges({tables:[table]}).filter(entry=>entry.table===table);
   const next=new Map((replace?[]:current).map(row=>[String(row.id),row]));
   const baseline=new Map(replace?[]:(syncedTableRows[table]||[]));
   const incomingById=new Map(incoming.map(row=>[String(row.id),row]));

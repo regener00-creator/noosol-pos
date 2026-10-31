@@ -1,4 +1,4 @@
-function renderContacts(){
+function renderContacts({resultsOnly=false}={}){
   if(editingCustomerPriceContactId!==null) return renderCustomerPricingForm();
   if(editingContactId!==null) return renderContactForm();
   const isCustomers=currentTab==='customers';
@@ -47,12 +47,7 @@ function renderContacts(){
   const tableHead=isCustomers
     ?`${th('name','ชื่อ')}<th>เบอร์โทร</th><th>ไลน์</th><th>แต้มคงเหลือ</th><th>ระดับลูกค้า</th><th>ยอดซื้อเฉลี่ยต่อเดือน</th>${th('loyaltyExpiry','วันหมดอายุแต้ม')}<th></th>`
     :`${th('code','รหัสผู้ติดต่อ')}${th('name','รายชื่อ')}<th>ชื่อผู้ติดต่อ</th><th>เบอร์ติดต่อ</th><th>อีเมล</th>${th('type','ประเภท')}<th></th>`;
-  return `<div class="rpt">
-    <div class="pagehead"><div><h1>${isCustomers?'ลูกค้า':'ผู้จำหน่าย'} <span class="page-title-meta">· ${list.length} รายชื่อ</span></h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
-    <div class="ct-tabs">
-      ${isCustomers?'<button class="btn ghost" id="refreshCustomerPurchases">รีเฟรชยอดซื้อ</button>':''}
-      <div class="toolbar"><div class="searchbar"><input id="search" placeholder="${isCustomers?'ค้นหาจากชื่อ / เบอร์โทร / ไลน์':'ค้นหาจากรหัสผู้ติดต่อ / ชื่อ / ผู้ติดต่อ / เบอร์'}" value="${escapeHtml(searchQuery)}"></div></div>
-    </div>
+  const resultsHtml=`<div id="contactListResults" data-count="${list.length}">
     ${isCustomers?customerPurchaseNotice(purchaseState):''}
     <div class="doc-list-wrap seamless-table-wrap">
     <table class="grid-table doc-head-blue contact-summary-table"><thead><tr>${tableHead}</tr></thead>
@@ -63,6 +58,14 @@ function renderContacts(){
       <td style="text-align:center;"><div class="history-actions contact-action-icons">${isCustomers?`<button class="history-icon-btn customer-purchase-history-action" data-customer-history="${c.id}" title="ประวัติการซื้อ" aria-label="ดูประวัติการซื้อ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11v8"/><path d="M5 3v18l2-1.5L9 21l2-1.5L13 21l2-1.5"/><path d="M8 8h5M8 12h3"/><circle cx="17" cy="16" r="4"/><path d="M17 14v2l1.4 1"/></svg></button>`:''}${c.types.includes('customer')?`<button class="history-icon-btn customer-price-action" data-act="customerprice" data-id="${c.id}" title="ราคาพิเศษ" aria-label="ราคาพิเศษ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 13 11 22l-9-9V4h9l9 9z"/><circle cx="7.5" cy="9.5" r="1.5"/></svg></button>`:''}<button class="history-icon-btn" data-act="editcontact" data-id="${c.id}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn danger" data-act="deletecontact" data-id="${c.id}" title="ลบ" aria-label="ลบ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td>
     </tr>`).join('')||`<tr><td colspan="${isCustomers?8:7}" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายชื่อในกลุ่มนี้</td></tr>`}</tbody></table>
     </div>${pagerHtml(contactPage,totalPages,'contactpage')}</div>`;
+  if(resultsOnly) return resultsHtml;
+  return `<div class="rpt">
+    <div class="pagehead"><div><h1>${isCustomers?'ลูกค้า':'ผู้จำหน่าย'} <span class="page-title-meta">· <span id="contactListCount">${list.length}</span> รายชื่อ</span></h1></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">+ สร้างใหม่</button></div></div>
+    <div class="ct-tabs">
+      ${isCustomers?'<button class="btn ghost" id="refreshCustomerPurchases">รีเฟรชยอดซื้อ</button>':''}
+      <div class="toolbar"><div class="searchbar"><input id="search" placeholder="${isCustomers?'ค้นหาจากชื่อ / เบอร์โทร / ไลน์':'ค้นหาจากรหัสผู้ติดต่อ / ชื่อ / ผู้ติดต่อ / เบอร์'}" value="${escapeHtml(searchQuery)}"></div></div>
+    </div>
+    ${resultsHtml}</div>`;
 }
 
 function customerPriceComparison(price,regularPrice,cost){

@@ -100,6 +100,9 @@ async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full
   const initialRows=new Map(entry[1]().map(row=>[String(row.id),row]));
   const promise=(async()=>{
     try{
+      const signature=await readVisibleDataSignature(table);
+      if(!isWorkspaceReadCurrent(context)) return false;
+      if(!force&&reuseDataReadSignature(requestKey,signature,documentFreshRequests.get(table)||[])) return true;
       const buildQuery=()=>{
         let query=sb.from(table).select('*').order('id',{ascending:false});
         // These generic document tables keep their business date in data.date.
@@ -116,7 +119,7 @@ async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full
       let incoming=(result.data||[]).map(rowToDoc);
       if(table==='goods_receipts') incoming=normalizeGoodsReceiptDocuments(incoming);
       const [,getArr,setArr]=entry;
-      const current=getArr(),pendingIds=new Set(currentWorkspacePendingChanges().filter(item=>item.table===table).map(item=>String(item.id)));
+      const current=getArr(),pendingIds=new Set(currentWorkspacePendingChanges({tables:[table]}).filter(item=>item.table===table).map(item=>String(item.id)));
       const incomingById=new Map(incoming.map(row=>[String(row.id),row]));
       const protectedIds=new Set();
       current.forEach(row=>{
@@ -157,7 +160,9 @@ async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full
       state.recent=state.recent||!!recent||(!normalizedRange&&!full);
       const fresh=documentFreshRequests.get(table)||[];
       if(evicted){ fresh.length=0;state.ranges=[];state.truncatedRanges=[]; }
-      fresh.push({...request,context,at:Date.now()});
+      const freshMarker={...request,context,at:Date.now()};
+      fresh.push(freshMarker);
+      rememberDataReadSignature(requestKey,signature,freshMarker);
       documentFreshRequests.set(table,fresh.slice(-12));
       if(normalizedRange) state.ranges=rememberLoadedRange(state.ranges,normalizedRange);
       if(full){ state.recentTruncated=false; state.truncatedRanges=[]; }
@@ -182,19 +187,22 @@ async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full
 async function syncCoreDataToSupabase(){
   if(!currentProfile) return;
   if(offlinePosMode()||offlinePendingSales().length||offlineSyncRunning) return;
+  if(coreSyncInFlight){ coreSyncPending=true; return; }
+  coreSyncInFlight=true;
+  try{
   if(await adoptRemoteMaintenanceEpoch()){
     await loadCoreDataFromSupabase(); await loadSalesHistoryFromSupabase(); await loadCashShiftsFromSupabase(); await loadInspectionListsFromSupabase(); await loadPromotionsFromSupabase(); await loadFavoritesFromSupabase();
     render(); return;
   }
-  if(coreSyncInFlight){ coreSyncPending=true; return; }
-  coreSyncInFlight=true;
   setSyncUiState('syncing');
   do{
     coreSyncPending=false;
     const syncAttemptStartedAt=new Date().toISOString();
     try{
       coreSyncFailureDetail=null;
-      if(currentWorkspacePendingChanges().length) await ensureWorkspaceRecoveryDurable();
+      // Scan once to select work. Each writer still durably captures its own
+      // current payload before sending, so edits made during awaits stay safe.
+      const pendingTables=new Set(currentWorkspacePendingChanges().map(entry=>entry.table));
       const failures=[];
       const run=async(task,tableName,operation='sync_core_data')=>{
         coreSyncFailureDetail=null;
@@ -204,17 +212,16 @@ async function syncCoreDataToSupabase(){
       };
       if(loggedInUser()?.owner===true){
         await run(()=>syncWarehousesIncrementally(),'warehouses');
-        await run(()=>syncProductsIncrementally(),'products','update_products');
-        await run(()=>upsertAndPrune('contacts',contacts,contactToRow),'contacts','upsert_rows');
-        await run(()=>upsertAndPrune('sales_representatives',salesRepresentatives,salesRepToRow),'sales_representatives','upsert_rows');
-        const pendingDocumentTables=new Set(currentWorkspacePendingChanges().map(entry=>entry.table));
+        await run(()=>syncProductsIncrementally({dirtyOnly:true}),'products','update_products');
+        if(pendingTables.has('contacts')||!syncedTableRows.contacts) await run(()=>upsertAndPrune('contacts',contacts,contactToRow),'contacts','upsert_rows');
+        if(pendingTables.has('sales_representatives')||!syncedTableRows.sales_representatives) await run(()=>upsertAndPrune('sales_representatives',salesRepresentatives,salesRepToRow),'sales_representatives','upsert_rows');
         for(const [table,getArr] of DOC_TABLES){
           // Unopened document tables are intentionally absent from memory.
           // Never compare an empty/unloaded array with the remote table.
-          if(documentLoadStates[table]?.loaded||pendingDocumentTables.has(table)) await run(()=>syncRevisionedDocuments(table,getArr()),table,'save_revisioned_document');
+          if(pendingTables.has(table)) await run(()=>syncRevisionedDocuments(table,getArr()),table,'save_revisioned_document');
         }
       }
-      await run(()=>syncInspectionListsToSupabase(),'inspection_lists','upsert_rows');
+      if(pendingTables.has('inspection_lists')||!syncedTableRows.inspection_lists) await run(()=>syncInspectionListsToSupabase(),'inspection_lists','upsert_rows');
       if(failures.length){
         for(const detail of failures){
           const latest=rememberSyncUiError(detail.error,detail);
@@ -237,7 +244,7 @@ async function syncCoreDataToSupabase(){
       if(e?.code==='REVISION_CONFLICT'&&!e.syncPaused) showToast(e.message,'danger-top');
     }
   }while(coreSyncPending);
-  coreSyncInFlight=false;
+  }finally{ coreSyncInFlight=false; }
 }
 
 // Stock never travels through product metadata sync. It is written atomically

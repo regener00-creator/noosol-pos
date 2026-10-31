@@ -1,0 +1,96 @@
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),http=require('node:http');
+const {chromium}=require('playwright');
+const {installIsolatedBrowser,waitForIsolatedBootstrap}=require('./isolated-browser');
+const root=path.resolve(__dirname,'../public');
+const server=http.createServer((req,res)=>{
+  const file=path.resolve(root,new URL(req.url,'http://localhost').pathname.slice(1)||'index.html');
+  if(!file.startsWith(root+path.sep)||!fs.existsSync(file))return res.writeHead(404).end();
+  res.setHeader('Content-Type',file.endsWith('.js')?'text/javascript':file.endsWith('.css')?'text/css':'text/html');fs.createReadStream(file).pipe(res);
+});
+let browser;
+(async()=>{
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  browser=await chromium.launch({headless:true,executablePath:process.env.PEPOS_BROWSER_EXECUTABLE||'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
+  const page=await browser.newPage({viewport:{width:1600,height:900}}),errors=[];
+  await installIsolatedBrowser(page);page.on('pageerror',error=>errors.push(error.message));
+  await page.goto('http://127.0.0.1:'+server.address().port);await waitForIsolatedBootstrap(page);
+  await page.evaluate(()=>{
+    currentProfile={id:'perf-owner',owner:true,level:1};activeWarehouseId=1;warehouses=[{id:1,name:'Test',active:true}];
+    renderLoginState=()=>true;isMobileDeviceMode=()=>false;currentDateStr=()=> '2026-10-31';
+    document.querySelectorAll('.login-screen,.warehouse-choice-screen').forEach(el=>el.style.display='none');
+    salesRequestLoaded=()=>true;salesRequestTruncated=()=>false;
+    products=[1,2].map(id=>({id,sku:String(id),name:`Product ${id}`,unit:'Pcs',price:100,cost:60,units:[],active:true}));
+    salesHistory=[{id:'A',date:'2026-10-31',status:'done',warehouseId:1,total:100,costTotal:60,items:[]}];
+    currentTab='dashboard';render();
+  });
+  await page.waitForTimeout(100);
+  const work=await page.evaluate(async()=>{
+    document.activeElement?.blur();let views=0,layouts=0,promotions=0;
+    const oldView=RENDERERS.dashboard,oldLayout=refreshScrollableTableHeights,oldPromo=reconcileAutoFreeLines;
+    RENDERERS.dashboard=()=>{views++;return oldView();};
+    refreshScrollableTableHeights=(...args)=>{layouts++;return oldLayout(...args);};
+    reconcileAutoFreeLines=()=>{promotions++;return oldPromo();};
+    salesHistory[0].total=150;
+    pendingSalesViewRefresh={context:captureWorkspaceRead(),scope:salesViewScope(),tab:'dashboard',key:onDemandRequestKey('dashboard',dataRequestsForTab('dashboard'))};
+    applyPendingSalesViewRefresh();await new Promise(resolve=>requestAnimationFrame(resolve));
+    return {views,layouts,promotions};
+  });
+  assert.deepEqual(work,{views:1,layouts:1,promotions:0},'one view calculation, one layout, no POS promotion work on dashboard');
+  assert.equal(await page.locator('[data-summary-sales]').innerText(),'150.00');
+  await page.evaluate(()=>{
+    customerPurchaseLoad=()=>({loading:false,data:{summaries:[]}});loadCustomerLoyalty=()=>({loading:false,data:[]});
+    contacts=Array.from({length:32},(_,i)=>({id:i+1,code:`C${i+1}`,name:`Customer ${String(i+1).padStart(2,'0')}`,phone:'0812345678',types:['customer','supplier']}));
+    currentTab='customers';searchQuery='';editingContactId=null;editingCustomerPriceContactId=null;customerHistoryView=null;render();
+  });
+  await page.waitForSelector('#contactListResults');
+  await page.evaluate(()=>{window.originalSearch=document.getElementById('search');window.originalHead=document.querySelector('.pagehead');});
+  await page.locator('#search').fill('Customer 12');
+  await page.waitForFunction(()=>document.getElementById('contactListCount')?.textContent==='1');
+  assert.equal(await page.locator('.contact-summary-table tbody tr').count(),1);
+  assert.equal(await page.evaluate(()=>window.originalSearch===document.activeElement&&window.originalHead.isConnected),true);
+  await page.locator('[data-act="editcontact"]').click();
+  assert.equal(await page.evaluate(()=>editingContactId),12,'partial results retain edit action');
+  await page.evaluate(()=>{editingContactId=null;currentTab='contacts';searchQuery='';render();});
+  await page.waitForSelector('#contactListResults');
+  await page.evaluate(()=>{window.originalSearch=document.getElementById('search');window.originalHead=document.querySelector('.pagehead');});
+  await page.locator('[data-contactpage="next"]').click();
+  assert.equal(await page.evaluate(()=>contactPage),2);
+  await page.locator('.contact-summary-table th[data-sort="name"]').click();
+  assert.equal(await page.evaluate(()=>contactPage),1);assert.equal(await page.evaluate(()=>window.originalHead.isConnected),true);
+  await page.locator('#search').fill('Customer 09');await page.waitForFunction(()=>document.getElementById('contactListCount')?.textContent==='1');
+  assert.equal(await page.evaluate(()=>window.originalSearch===document.activeElement),true,'supplier search preserves input');
+  await page.evaluate(()=>{
+    isMobileDeviceMode=()=>true;currentTab='mobiletools';mobileToolMode='price';mobilePriceProductId=null;
+    window.stockReads=[];window.inspectionReads=0;
+    loadProductRowsFromSupabase=async()=>({data:products});
+    loadInventoryBalancesFromSupabase=async scope=>{window.stockReads.push({kind:'balance',...scope});return true;};
+    loadInventoryLotsFromSupabase=async scope=>{window.stockReads.push({kind:'lot',...scope});return true;};
+    loadInspectionListsFromSupabase=async()=>{window.inspectionReads++;return true;};render();
+  });
+  await page.waitForTimeout(100);
+  await page.evaluate(()=>refreshMobileToolsData(null,{silent:true}));
+  assert.deepEqual(await page.evaluate(()=>window.stockReads),[],'price search without a selected item needs no stock read');
+  assert.equal(await page.evaluate(()=>window.inspectionReads),0);
+  await page.evaluate(()=>{mobileSelectPriceProduct(products[0]);render();});
+  await page.waitForFunction(()=>window.stockReads.length===2);
+  assert.deepEqual(await page.evaluate(()=>window.stockReads.map(row=>row.productIds)),[[1],[1]]);
+  await page.evaluate(()=>refreshMobilePriceStock(1));assert.equal(await page.evaluate(()=>window.stockReads.length),2,'same item stock requests reuse a short-lived result');
+  await page.locator('[data-mobile-tool="inventory"]').click();
+  await page.waitForFunction(()=>window.inspectionReads===1);
+  assert.deepEqual(await page.evaluate(()=>window.stockReads.slice(2).map(row=>row.warehouseIds)),[[1],[1]],'inventory loads only selected warehouse');
+  await page.locator('[data-mobile-tool="price"]').click();
+  await page.evaluate(()=>{
+    window.previousProductLoader=loadProductRowsFromSupabase;
+    loadProductRowsFromSupabase=()=>new Promise(resolve=>{window.finishPriceRead=()=>{
+      loadProductRowsFromSupabase=window.previousProductLoader;resolve({data:products});
+    };});
+    void refreshMobileToolsData(null,{silent:true});
+  });
+  await page.waitForFunction(()=>typeof window.finishPriceRead==='function');
+  await page.locator('[data-mobile-tool="inventory"]').click();
+  await page.evaluate(()=>window.finishPriceRead());
+  await page.waitForFunction(()=>window.inspectionReads===2);
+  assert.equal(await page.evaluate(()=>window.stockReads.length),6,'switching modes during an existing refresh still loads inventory');
+  assert.deepEqual(errors,[]);
+  console.log('Performance: dashboard 2→1 view / 3→1 layout, no off-page promotions, stable customer/supplier search and actions, scoped mobile stock passed');
+})().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});

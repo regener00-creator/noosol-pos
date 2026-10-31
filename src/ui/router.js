@@ -19,8 +19,15 @@ function scrollableTableFooterReserve(host,mainElement){
   return Math.min(110,Math.ceil(control.getBoundingClientRect().height+(parseFloat(style.marginTop)||0)+(parseFloat(style.marginBottom)||0)+20));
 }
 
+const tableLayoutFrames=new WeakMap();
+function scheduleScrollableTableHeights(mainElement=document.getElementById('main')){
+  if(!mainElement||tableLayoutFrames.has(mainElement)) return;
+  tableLayoutFrames.set(mainElement,requestAnimationFrame(()=>refreshScrollableTableHeights(mainElement)));
+}
 function refreshScrollableTableHeights(mainElement=document.getElementById('main')){
   if(!mainElement) return;
+  const pendingFrame=tableLayoutFrames.get(mainElement);
+  if(pendingFrame!==undefined){cancelAnimationFrame(pendingFrame);tableLayoutFrames.delete(mainElement);}
   const mainRect=mainElement.getBoundingClientRect();
   const maxForMain=Math.max(220,Math.floor(mainElement.clientHeight-28));
   mainElement.querySelectorAll('.app-table-scroll-region').forEach(host=>{
@@ -45,7 +52,7 @@ function prepareScrollableTables(mainElement=document.getElementById('main')){
       host.classList.add('app-table-scroll-region');
     }
   });
-  requestAnimationFrame(()=>refreshScrollableTableHeights(mainElement));
+  scheduleScrollableTableHeights(mainElement);
 }
 let pendingProductListRefresh=null;
 let productListPaintTimer=null;
@@ -94,12 +101,27 @@ function refreshProductListResults(replacement=null){
   pane.replaceWith(replacement);
   attachProductResultEvents(replacement);
   prepareScrollableTables();
-  refreshScrollableTableHeights(replacement);
+  refreshScrollableTableHeights();
   const next=replacement.querySelector('.product-table-scroll');
   if(next){next.scrollTop=top;next.scrollLeft=left;}
   return true;
 }
 
+function refreshContactListResults(){
+  if(!['customers','contacts'].includes(currentTab)||editingContactId!==null||editingCustomerPriceContactId!==null||customerHistoryView) return false;
+  const current=document.getElementById('contactListResults');
+  if(!current) return false;
+  const main=document.getElementById('main'),scroll=current.querySelector('.doc-list-wrap');
+  const top=scroll?.scrollTop||0,left=scroll?.scrollLeft||0,mainTop=main.scrollTop;
+  const template=document.createElement('template');template.innerHTML=renderContacts({resultsOnly:true});
+  const replacement=template.content.firstElementChild;
+  current.replaceWith(replacement);
+  const count=document.getElementById('contactListCount');if(count)count.textContent=replacement.dataset.count;
+  attachContactListEvents(replacement);prepareScrollableTables(main);refreshScrollableTableHeights(main);
+  const next=replacement.querySelector('.doc-list-wrap');if(next){next.scrollTop=top;next.scrollLeft=left;}
+  main.scrollTop=mainTop;
+  return true;
+}
 const TAB_DOCUMENT_TABLES={
   quotation:['quotations'],invoice:['invoices_ar'],creditnote:['credit_notes'],purchaseorder:['purchase_orders'],
   goodsreceipt:['goods_receipts'],productexchange:['product_exchanges'],
@@ -272,8 +294,7 @@ function applyPendingSalesViewRefresh(){
   const scrollTop=main.scrollTop,scrollLeft=main.scrollLeft;
   const selector=`.dashboard-calendar-scroll,.dashboard-best-sellers,${APP_TABLE_SCROLL_HOST_SELECTOR}`;
   const scrolls=[...main.querySelectorAll(selector)].map(el=>({top:el.scrollTop,left:el.scrollLeft}));
-  render();
-  refreshScrollableTableHeights(main);
+  render({viewHtml:html,immediateLayout:true});
   main.scrollTop=scrollTop;main.scrollLeft=scrollLeft;
   main.querySelectorAll(selector).forEach((el,index)=>{if(scrolls[index]){el.scrollTop=scrolls[index].top;el.scrollLeft=scrolls[index].left;}});
 }
@@ -290,7 +311,7 @@ function scheduleSalesViewRefresh(){
     scheduleSalesViewRefresh();
   },SALES_CACHE_TTL_MS);
 }
-function render(){
+function render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){
   scheduleSalesViewRefresh();
   captureMobileProductDraft();
   scheduleProductReviewRefresh();
@@ -310,7 +331,7 @@ function render(){
     editingTransferId=null; transferDraft=null;
   }
   if(isLevel2User()&&currentTab==='products'&&editingProductId!==null&&editingProductId!=='new') editingProductId=null;
-  reconcileAutoFreeLines();
+  if(currentTab==='checkout') reconcileAutoFreeLines();
   if(mobileMode){ document.getElementById('sidebar').innerHTML=''; sidebarRenderSignature=''; }
   else renderSidebar();
   // เคลียร์ปุ่มเก่าที่ topbar ก่อนสร้าง HTML ใหม่และผูก event listener เสมอ
@@ -346,7 +367,7 @@ function render(){
   posSalesHistoryOnDemandState=null;
   const focusedProductSearch=currentTab==='products'&&editingProductId===null&&document.activeElement?.matches('.product-list-search #search')?document.activeElement:null;
   const retainedSelection=focusedProductSearch?[focusedProductSearch.selectionStart,focusedProductSearch.selectionEnd]:null;
-  const viewHtml=(RENDERERS[currentTab]||renderDashboard)();
+  const viewHtml=preparedViewHtml??(RENDERERS[currentTab]||renderDashboard)();
   mainElement.renderedDataView={tab:currentTab,date:TODAY_STR,html:viewHtml};
   mainElement.innerHTML = `<div id="offlinePosBanner">${offlinePosBanner()}</div>`+onDemandNotice+viewHtml;
   if(focusedProductSearch){
@@ -365,7 +386,8 @@ function render(){
   attachMobileProductEditorEvents();
   attachOnDemandStateEvents(onDemandState);
   if(posSalesHistoryOnDemandState) attachOnDemandStateEvents(posSalesHistoryOnDemandState);
-  requestAnimationFrame(()=>refreshScrollableTableHeights(mainElement));
+  if(immediateLayout) refreshScrollableTableHeights(mainElement);
+  else scheduleScrollableTableHeights(mainElement);
   renderLoginState();
   if(currentTab==='mobiletools'&&mobileToolMode==='price'&&!mobileCameraSession) setTimeout(()=>document.getElementById('mobilePriceInput')?.focus(),60);
 }

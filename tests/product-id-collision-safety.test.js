@@ -169,7 +169,7 @@ async function run() {
   assert.equal((await verificationFailure.sandbox.insertRowsInChunks('products',[rowA]))?.code,'NETWORK','verification failure must remain dirty and fail closed');
   assert.equal(verificationFailure.insertCalls.length,1);
 
-  const insertPreparationSource = section('async function prepareProductInsertCandidatesForSync(', 'async function syncProductsIncrementally(){');
+  const insertPreparationSource = section('async function prepareProductInsertCandidatesForSync(', 'async function syncProductsIncrementally({dirtyOnly=false}={}){');
   const legacyProduct={id:generatedId+2,name:'legacy cached product'};
   const preparationSnapshots=[];
   const preparationSandbox={
@@ -198,7 +198,7 @@ async function run() {
   assert.deepEqual(preparationSnapshots.map(snapshot=>snapshot.operation),['insert','insert']);
   assert.deepEqual(preparationSnapshots.map(snapshot=>snapshot.changes.updatedIds),[[legacyProduct.id],[legacyProduct.id]]);
 
-  const productSync = section('async function syncProductsIncrementally(){', 'let coreSyncInFlight=');
+  const productSync = section('async function syncProductsIncrementally({dirtyOnly=false}={}){', 'let coreSyncInFlight=');
   assert.match(productSync, /insertRowsInChunks\(table,inserted\.map\(productToRow\)\)/);
   assert.doesNotMatch(productSync, /upsertRowsInChunks\(table,inserted/);
   assert.match(insertPreparationSource, /implicitInsertCandidates[\s\S]*!productDirtyOperations\.has\(id\)&&!previous\.has\(id\)/, 'legacy rows classified as new must use the same insert predicate before network sync');

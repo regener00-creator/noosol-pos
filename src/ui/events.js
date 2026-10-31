@@ -1,3 +1,29 @@
+function attachContactListEvents(root=document){
+  root.querySelectorAll('[data-act="editcontact"]').forEach(el=>{
+    el.addEventListener('click', ()=>{ editingCustomerPriceContactId=null; editingContactId=Number(el.dataset.id); render(); });
+  });
+  root.querySelectorAll('[data-act="customerprice"]').forEach(el=>{
+    el.addEventListener('click', ()=>{ editingContactId=null; editingCustomerPriceContactId=Number(el.dataset.id); render(); });
+  });
+  root.querySelectorAll('[data-act="deletecontact"]').forEach(el=>{
+    el.addEventListener('click', ()=>deleteContact(Number(el.dataset.id)));
+  });
+  root.querySelectorAll('[data-contactpage]').forEach(el=>{
+    el.addEventListener('click',()=>{
+      const v=el.dataset.contactpage;
+      if(v==='prev'){ if(contactPage>1) contactPage--; }
+      else if(v==='next'){ contactPage++; }
+      else { contactPage=Number(v); }
+      if(!refreshContactListResults()) renderKeepScroll();
+    });
+  });
+  root.querySelectorAll('[data-customer-history]').forEach(button=>button.onclick=()=>openCustomerPurchaseHistory(button.dataset.customerHistory));
+  root.querySelectorAll('.contact-summary-table th.sortable').forEach(el=>el.addEventListener('click',()=>{
+    const key=el.dataset.sort;
+    if(contactSort.key===key)contactSort.dir*=-1;else {contactSort.key=key;contactSort.dir=1;}
+    contactPage=1;if(!refreshContactListResults())renderKeepScroll();
+  }));
+}
 function attachProductGroupEvents(root=document){
   root.querySelectorAll('.product-group-category').forEach(el=>{
     el.addEventListener('click',()=>{
@@ -286,12 +312,21 @@ function attachEvents(){
   document.getElementById('mobileProductSyncDetails')?.addEventListener('click',openSyncDetailsModal);
   if(mobileToolsRefresh) mobileToolsRefresh.addEventListener('click',()=>refreshMobileToolsData(mobileToolsRefresh));
   document.getElementById('mobileInstallApp')?.addEventListener('click',requestMobilePwaInstall);
-  document.querySelectorAll('[data-mobile-tool]').forEach(button=>button.addEventListener('click',()=>{
+  document.querySelectorAll('[data-mobile-tool]').forEach(button=>button.addEventListener('click',async()=>{
     mobileToolMode=button.dataset.mobileTool;
     mobilePriceQuery=''; mobilePriceProductId=null; mobilePriceLotId=null;
     mobileInspectionQuery=''; mobileInspectionLastProductId=null; mobileInspectionVisibleCount=25;
     mobileStockQuery=''; mobileStockLastProductId=null;
     render();
+    if(mobileToolMode==='inventory'){
+      const page=document.querySelector('.mobile-tools-page');
+      // A price-mode refresh has a narrower scope; let it finish before
+      // requesting the inventory data needed by this newly opened view.
+      if(mobileRefreshPromise) await mobileRefreshPromise;
+      if(currentTab==='mobiletools'&&mobileToolMode==='inventory'&&page?.isConnected){
+        void refreshMobileToolsData(null,{silent:true});
+      }
+    }
   }));
   document.querySelectorAll('[data-mobile-inventory-step]').forEach(button=>button.addEventListener('click',()=>{
     mobileInventoryStep=button.dataset.mobileInventoryStep==='stock'?'stock':'inspection';
@@ -619,7 +654,8 @@ document.querySelectorAll('.line-qty').forEach(el=>{
           if(currentTab!==searchTab||document.getElementById('search')!==searchEl) return;
           const selectionStart=searchEl.selectionStart,selectionEnd=searchEl.selectionEnd;
           if(searchTab==='products') selectProductListUnitByExactCode(searchQuery);
-          if(searchTab!=='products'||!refreshProductListResults()) render();
+          const refreshed=searchTab==='products'?refreshProductListResults():['contacts','customers'].includes(searchTab)?refreshContactListResults():false;
+          if(!refreshed) render();
           restoreSearchInputFocus(selectionStart,selectionEnd);
         },120);
         return;
@@ -1202,15 +1238,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   const exportContactsBtn = document.getElementById('exportContactsBtn');
   if(exportContactsBtn) exportContactsBtn.addEventListener('click',()=>invokeExcelTool('exportContactsToExcel'));
-  document.querySelectorAll('[data-act="editcontact"]').forEach(el=>{
-    el.addEventListener('click', ()=>{ editingCustomerPriceContactId=null; editingContactId=Number(el.dataset.id); render(); });
-  });
-  document.querySelectorAll('[data-act="customerprice"]').forEach(el=>{
-    el.addEventListener('click', ()=>{ editingContactId=null; editingCustomerPriceContactId=Number(el.dataset.id); render(); });
-  });
-  document.querySelectorAll('[data-act="deletecontact"]').forEach(el=>{
-    el.addEventListener('click', ()=>deleteContact(Number(el.dataset.id)));
-  });
+  attachContactListEvents();
   const cancelContactBtn = document.getElementById('cancelContactBtn');
   if(cancelContactBtn) cancelContactBtn.addEventListener('click', ()=>{ editingContactId=null; render(); });
   const saveContactBtn = document.getElementById('saveContactBtn');
@@ -1455,7 +1483,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   attachProductGroupEvents();
   // --- sort headers ---
-  document.querySelectorAll('.grid-table:not(.prodtable) th.sortable').forEach(el=>{
+  document.querySelectorAll('.grid-table:not(.prodtable):not(.contact-summary-table) th.sortable').forEach(el=>{
     el.addEventListener('click', ()=>{
       const key = el.dataset.sort;
       const sortState = ['contacts','customers'].includes(currentTab) ? contactSort : productSort;
@@ -1485,15 +1513,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     restore();
     requestAnimationFrame(restore);
   }
-  document.querySelectorAll('[data-contactpage]').forEach(el=>{
-    el.addEventListener('click',()=>{
-      const v=el.dataset.contactpage;
-      if(v==='prev'){ if(contactPage>1) contactPage--; }
-      else if(v==='next'){ contactPage++; }
-      else { contactPage=Number(v); }
-      renderKeepScroll();
-    });
-  });
   // ช่องวันที่แบบ วัน/เดือน/ปี — ใช้ตัวจัดรูปแบบร่วมกันทั้งหน้าปกติและ popup
   bindDmyDateFields();
   // คลิกที่กล่องช่องเดือนแล้วเปิดปฏิทินได้เลย ไม่ต้องเล็งไปที่ไอคอนเล็กๆ (ช่องวันที่ใช้พฤติกรรมเดิม)

@@ -31,7 +31,7 @@ assert.doesNotMatch(navSource, /purchaseorder2|ใบสั่งซื้อส
 const permissionSource=html.slice(html.indexOf('const PAGE_PERMISSION_OPTIONS=['),html.indexOf('function permissionsForPage'));
 assert.match(permissionSource, /\['purchaseorder','จดสั่งสินค้า'\]/, 'หน้าสั่งซื้อสินค้าต้องยังตั้งค่าสิทธิ์ได้');
 assert.doesNotMatch(permissionSource, /purchaseorder2|ใบสั่งซื้อสินค้า/, 'หน้าที่ถอดออกต้องไม่ค้างอยู่ในการตั้งค่าสิทธิ์');
-const rendererSource=html.slice(html.indexOf('const RENDERERS = {'),html.indexOf('function render(){'));
+const rendererSource=html.slice(html.indexOf('const RENDERERS = {'),html.indexOf('function render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){'));
 assert.doesNotMatch(rendererSource, /purchaseorder2|renderPurchaseOrder2/, 'หน้าที่ถอดออกต้องไม่มีเส้นทางเปิดใช้งาน');
 assert.doesNotMatch(html, /function renderPurchaseOrder2\(/, 'ต้องลบตัวสร้างหน้าใบสั่งซื้อสินค้าเดิม');
 assert.ok(salesDocumentsSectionIndex >= 0 && cashBillNavIndex > salesDocumentsSectionIndex, 'บิลเงินสดต้องอยู่ในหมวดเอกสารขาย');

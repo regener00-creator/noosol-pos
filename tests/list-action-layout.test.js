@@ -18,7 +18,7 @@ assert.match(html, /\.product-exchange-form-actions\{display:flex;align-items:ce
 assert.match(html, /const CONTACTS_PER_PAGE = 10;/, 'สมุดรายชื่อต้องแสดงหน้าละ 10 รายการ');
 assert.match(html, /const pageList=list\.slice\(pageStart,pageStart\+CONTACTS_PER_PAGE\);/, 'สมุดรายชื่อต้องตัดข้อมูลตามหน้าปัจจุบัน');
 assert.match(html, /pagerHtml\(contactPage,totalPages,'contactpage'\)/, 'สมุดรายชื่อต้องมีแถบเปลี่ยนหน้า');
-assert.match(html, /document\.querySelectorAll\('\[data-contactpage\]'\)/, 'ปุ่มเปลี่ยนหน้าสมุดรายชื่อต้องทำงาน');
+assert.match(html, /root\.querySelectorAll\('\[data-contactpage\]'\)/, 'ปุ่มเปลี่ยนหน้าสมุดรายชื่อต้องทำงาน');
 
 assert.match(
   html,

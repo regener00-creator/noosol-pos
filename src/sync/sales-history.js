@@ -97,6 +97,11 @@ async function loadSalesHistoryFromSupabase(options={}){
   const initialRows=new Map(salesHistory.map(sale=>[String(sale.id),sale]));
   const promise=(async()=>{
     try{
+      // Read BEFORE the body: a commit during pagination must be noticed on
+      // the next refresh, never acknowledged by a newer signature afterward.
+      const signature=await readVisibleDataSignature('sales');
+      if(!isWorkspaceReadCurrent(context)) return false;
+      if(!options.force&&!completeRange&&reuseDataReadSignature(requestKey,signature,salesFreshRequests)) return true;
       const buildRangeQuery=()=>{
         let query=sb.from('sales').select('*').order('sale_date',{ascending:false}).order('sale_time',{ascending:false});
         if(range) query=query.gte('sale_date',range.from).lte('sale_date',range.to);
@@ -161,7 +166,9 @@ async function loadSalesHistoryFromSupabase(options={}){
       salesLoadState.full=full;
       if(includeRecent) salesLoadState.recent=true;
       if(includeHolds){ salesLoadState.holds=true; salesLoadState.holdsTruncated=holdsTruncated; }
-      salesFreshRequests.push({...request,context,at:Date.now()});
+      const freshMarker={...request,context,at:Date.now()};
+      salesFreshRequests.push(freshMarker);
+      rememberDataReadSignature(requestKey,signature,freshMarker);
       while(salesFreshRequests.length>20) salesFreshRequests.shift();
       if(range) salesLoadState.ranges=rememberLoadedRange(salesLoadState.ranges,range);
       if(full){ salesLoadState.holds=true; salesLoadState.recent=true; }

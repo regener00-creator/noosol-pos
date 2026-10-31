@@ -43,14 +43,14 @@ for (const [renderName, nextName] of [
   );
 }
 
-const renderStart = html.indexOf('function render(){');
+const renderStart = html.indexOf('function render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){');
 const renderEnd = html.indexOf('function storeResetConfig(', renderStart);
 const renderSource = html.slice(renderStart, renderEnd);
 const htmlIndex = renderSource.indexOf('mainElement.innerHTML');
 const prepareIndex = renderSource.indexOf('prepareScrollableTables(mainElement)');
 const attachIndex = renderSource.indexOf('attachEvents();');
 assert.ok(htmlIndex >= 0 && htmlIndex < prepareIndex && prepareIndex < attachIndex, 'ต้องสร้างกรอบตารางหลังเขียน HTML และก่อนผูก event');
-assert.match(renderSource, /requestAnimationFrame\(\(\)=>refreshScrollableTableHeights\(mainElement\)\)/, 'ต้องคำนวณความสูงใหม่หลังย้ายปุ่มขึ้น topbar');
+assert.match(renderSource, /scheduleScrollableTableHeights\(mainElement\)/, 'ต้องคำนวณความสูงใหม่หลังย้ายปุ่มขึ้น topbar');
 
 assert.match(html, /else refreshScrollableTableHeights\(\);/, 'ต้องปรับความสูงตารางเมื่อขนาดหน้าต่างเปลี่ยน');
 

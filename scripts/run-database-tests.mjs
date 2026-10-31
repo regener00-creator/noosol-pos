@@ -67,6 +67,8 @@ try{
   await exchangeSuite.run({client});
   if(!process.argv.includes('--exchange-only')){
   const returnsSuite=await import('../tests/customer-returns-database.mjs');
+  const signatureSuite=await import('../tests/read-signature-database.mjs');
+  await signatureSuite.run({client});
   await returnsSuite.run({client});
   const voidRefundSuite=await import('../tests/void-refund-database.mjs');
   await voidRefundSuite.run({client});

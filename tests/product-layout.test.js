@@ -60,7 +60,7 @@ assert.match(html, /searchQuery=scannerValue;[^]*selectProductListUnitByExactCod
 assert.match(html, /if\(searchTab===['"]products['"]\) selectProductListUnitByExactCode\(searchQuery\);/, 'การพิมพ์บาร์โค้ดตรงเองต้องเลือกหน่วยได้เช่นกัน');
 assert.match(html, /searchQuery=scannerValue;[^]*searchEl\.value=scannerValue;[^]*nextSearch\.select\(\);/, 'บาร์โค้ดใหม่ต้องแทนข้อความค้นหาเดิมและพร้อมรับการยิงครั้งถัดไป');
 
-const renderStart = html.indexOf('function render(){');
+const renderStart = html.indexOf('function render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){');
 const renderEnd = html.indexOf('function syncTopbarFormActions()', renderStart);
 const renderSource = html.slice(renderStart, renderEnd);
 const clearTopbarIndex = renderSource.indexOf("topbarFormActionsSlot.innerHTML=''");

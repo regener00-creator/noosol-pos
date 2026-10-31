@@ -6,6 +6,7 @@
   "src/data/pagination.js",
   "src/sync/product-cache.js",
   "src/sync/master-data.js",
+  "src/sync/read-signatures.js",
   "src/sync/documents.js",
   "src/sync/settings-and-favorites.js",
   "src/sync/sales-history.js",

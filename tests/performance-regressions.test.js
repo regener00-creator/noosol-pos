@@ -16,7 +16,7 @@ function section(startMarker, endMarker) {
   return html.slice(start, end);
 }
 
-const renderSection = section('function render(){', 'function syncTopbarFormActions(');
+const renderSection = section('function render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){', 'function syncTopbarFormActions(');
 assert.doesNotMatch(
   renderSection,
   /schedulePersistWorkspaceData\s*\(/,

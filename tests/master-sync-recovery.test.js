@@ -188,7 +188,7 @@ test('core sync continues representatives, documents and counts after a contacts
   const calls=[];
   const c=vm.createContext({console,Date,Error,SYNC_TABLE_LABELS:{},currentProfile:{owner:true},currentTab:'contacts',
     offlinePosMode:()=>false,offlinePendingSales:()=>[],offlineSyncRunning:false,
-    coreSyncInFlight:false,coreSyncPending:false,coreSyncFailureDetail:null,currentWorkspacePendingChanges:()=>[],
+    coreSyncInFlight:false,coreSyncPending:false,coreSyncFailureDetail:null,syncedTableRows:{},currentWorkspacePendingChanges:()=>['contacts','sales_representatives','quotations','inspection_lists'].map(table=>({table})),
     adoptRemoteMaintenanceEpoch:async()=>false,loggedInUser:()=>({owner:true}),setSyncUiState:()=>{},
     syncWarehousesIncrementally:async()=>true,syncProductsIncrementally:async()=>true,
     contacts:[],contactToRow:x=>x,salesRepresentatives:[],salesRepToRow:x=>x,
@@ -198,4 +198,30 @@ test('core sync continues representatives, documents and counts after a contacts
     resolveOwnSyncEventsThrough:async()=>assert.fail('must not close a genuine unresolved conflict')});
   vm.runInContext(section('async function syncCoreDataToSupabase(','// Stock never travels'),c);
   await c.syncCoreDataToSupabase();assert.deepEqual(calls,['contacts','sales_representatives','quotations','inspection_lists']);
+});
+
+test('clean core sync skips unchanged tables and shares the maintenance check',async()=>{
+  let release,epochReads=0,scans=0;
+  const writes=[],c=vm.createContext({console,Date,Error,currentProfile:{id:'owner',owner:true},currentTab:'dashboard',
+    offlinePosMode:()=>false,offlinePendingSales:()=>[],offlineSyncRunning:false,coreSyncInFlight:false,coreSyncPending:false,
+    coreSyncFailureDetail:null,syncUiLastError:null,syncedTableRows:{contacts:new Map(),sales_representatives:new Map(),inspection_lists:new Map()},
+    currentWorkspacePendingChanges:()=>{scans++;return [];},
+    adoptRemoteMaintenanceEpoch:()=>{epochReads++;return new Promise(resolve=>{release=()=>resolve(false);});},
+    loggedInUser:()=>({owner:true}),setSyncUiState:()=>{},syncWarehousesIncrementally:async()=>true,syncProductsIncrementally:async()=>true,
+    contacts:[],contactToRow:x=>x,salesRepresentatives:[],salesRepToRow:x=>x,
+    upsertAndPrune:async table=>{writes.push(table);},DOC_TABLES:[['quotations',()=>[]]],documentLoadStates:{quotations:{loaded:true}},
+    syncRevisionedDocuments:async table=>{writes.push(table);},syncInspectionListsToSupabase:async()=>{writes.push('inspection_lists');},
+    resolveOwnSyncEventsThrough:async()=>{},flushPendingClientEvents:()=>{}});
+  vm.runInContext(section('async function syncCoreDataToSupabase(','// Stock never travels'),c);
+  const first=c.syncCoreDataToSupabase();await c.syncCoreDataToSupabase();
+  assert.equal(epochReads,1);release();await first;
+  assert.deepEqual(writes,[]);assert.equal(scans,2);assert.equal(c.coreSyncInFlight,false);
+});
+
+test('scoped pending scan preserves other tables and detects current edits',()=>{
+  const {c,add}=setup();add(1).name='pending contact';
+  c.workspaceRecoveryEntries.set('quotations:Q1',{table:'quotations',id:'Q1',record:{id:'Q1'}});
+  const pending=c.currentWorkspacePendingChanges({tables:['contacts']});
+  assert.equal(pending.find(row=>row.table==='contacts').record.name,'pending contact');
+  assert.equal(pending.some(row=>row.table==='quotations'&&row.id==='Q1'),true);
 });
