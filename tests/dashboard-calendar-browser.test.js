@@ -136,6 +136,8 @@ let browser;
     assert.equal(await page.locator('.dashboard-calendar').evaluate(el=>el.scrollWidth<=el.clientWidth),true,`calendar stays contained at ${width}`);
     assert.equal(await day.evaluate(el=>{const a=el.querySelector('time').getBoundingClientRect(),b=el.querySelector('.dashboard-day-summary').getBoundingClientRect();return Math.abs((a.top+a.bottom)/2-(b.top+b.bottom)/2)<2;}),true,'day number and summary share one row');
     assert.equal(await day.locator('.dashboard-day-summary').evaluate(el=>getComputedStyle(el).textAlign),'center','daily summary is centered');
+    const bill=await day.locator('.dashboard-bill-label').boundingBox(),zeroBill=await page.locator('[data-dashboard-date="2026-10-24"] .dashboard-bill-label').boundingBox();
+    assert.ok(Math.abs(bill.x-zeroBill.x)<1,'bill labels align for zero and nonzero days');
 
   }
   await page.setViewportSize({width:1600,height:1100});
