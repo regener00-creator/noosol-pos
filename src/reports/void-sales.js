@@ -31,7 +31,7 @@ function renderVoidReport(){
   f.page=Math.min(pages,Math.max(1,f.page));
   const visible=rows.slice((f.page-1)*50,f.page*50),range=voidReportRange();
   return `<div class="rpt void-report-page"><div class="pagehead"><h1>รายงานบิลยกเลิก</h1></div><div class="rpt-head-actions">${canPerformPageAction('print','rvoid')?'<button class="btn ghost" id="voidReportPrint">พิมพ์รายงาน</button>':''}${canPerformPageAction('export','rvoid')?'<button class="btn primary" id="voidReportExcel">ส่งออก Excel</button>':''}</div>
-    <form id="voidReportFilters" class="rpt-filters"><div class="rpf-item rpf-range"><label for="voidReportFrom">วันที่ยกเลิก</label>${dmyDateFieldHtml('voidReportFrom',range.from)}<label for="voidReportTo" class="void-report-to">ถึง</label>${dmyDateFieldHtml('voidReportTo',range.to)}</div>
+    <form id="voidReportFilters" class="rpt-filters"><div class="rpf-item rpf-range">${dmyDateFieldHtml('voidReportFrom',range.from)}<label for="voidReportTo" class="void-report-to">ถึง</label>${dmyDateFieldHtml('voidReportTo',range.to)}</div>
     <div class="rpf-item"><select id="voidReportWarehouse" class="rpt-select" aria-label="คลังสินค้า"><option value="all">ทุกคลังที่มีสิทธิ์</option>${accessibleWarehouses().map(w=>`<option value="${w.id}" ${String(w.id)===f.warehouse?'selected':''}>${escapeHtml(w.name)}</option>`).join('')}</select></div>
     <div class="void-report-summary">บิลยกเลิก <b>${rows.length} บิล</b></div>
     <div class="rpf-item void-report-search"><input id="voidReportSearch" class="rpt-select" aria-label="ค้นหาบิลยกเลิก" value="${escapeHtml(f.search)}" placeholder="เลขบิล สินค้า ผู้ยกเลิก หรือเหตุผล"></div><button class="btn ghost rpf-apply" type="submit">แสดงผล</button></form>
