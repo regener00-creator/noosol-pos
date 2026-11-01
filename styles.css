@@ -898,6 +898,7 @@
   .promo-selected-box{margin-top:16px;padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);}
   .promo-selected-box h4{margin:0 0 10px;font-size:14px;text-align:center;}
   .promo-selected-box .promo-selected-hint{font-size:13px;overflow-wrap:anywhere;}
+  .promo-selected-box .promo-selected-hint,.promo-selected-box .promo-item-row-name{text-align:center;}
   .promo-category-field{min-width:0;}
   .promo-category-field>label{display:block;padding-top:0;margin-bottom:6px;}
   .promo-category-field>.promo-select{min-width:0;}
