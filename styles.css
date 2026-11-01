@@ -431,6 +431,7 @@
   .dashboard-recent-scroll th:nth-child(5),.dashboard-recent-scroll td:nth-child(5),
   .dashboard-recent-scroll th:nth-child(6),.dashboard-recent-scroll td:nth-child(6){padding-left:4px;padding-right:4px;overflow-wrap:anywhere;}
   .dashboard-recent-scroll td:nth-child(3),.dashboard-recent-scroll td:nth-child(5){white-space:nowrap;}
+  .dashboard-recent-scroll .history-table th:nth-child(-n+2),.dashboard-recent-scroll .history-table td:nth-child(-n+2){text-align:left;}
   @media(max-width:900px){.dashboard-recent-sales{grid-template-columns:1fr;}}
   .history-table thead th{background:#4F4038;color:#fff;text-align:center;}
   /* ประวัติการขาย: ล็อกหัวหน้าไว้และให้เลื่อนเฉพาะข้อมูลในตาราง */
