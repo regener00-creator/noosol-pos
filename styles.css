@@ -420,10 +420,11 @@
   .dashboard-recent-scroll .history-table{min-width:580px;margin:0;}
   .dashboard-recent-scroll .ht-date{width:16%;}
   .dashboard-recent-scroll tbody td:first-child{white-space:nowrap;}
-  .dashboard-recent-scroll .ht-bill{width:23%;}
-  .dashboard-recent-scroll .ht-time{width:10%;}
-  .dashboard-recent-scroll .ht-total{width:14%;}
-  .dashboard-recent-scroll .ht-pay{width:13%;}
+  .dashboard-recent-scroll .ht-bill{width:20%;}
+  .dashboard-recent-scroll .ht-time{width:8%;}
+  .dashboard-recent-scroll .ht-total{width:11%;}
+  .dashboard-recent-scroll .ht-pay{width:10%;}
+  .dashboard-recent-scroll .ht-items{width:35%;}
   .dashboard-recent-scroll th,.dashboard-recent-scroll td{padding:12px 8px;}
   @media(max-width:900px){.dashboard-recent-sales{grid-template-columns:1fr;}}
   .history-table thead th{background:#4F4038;color:#fff;text-align:center;}
