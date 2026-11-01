@@ -149,6 +149,18 @@ let browser;
 
   }
   await page.setViewportSize({width:1600,height:1100});
-  fs.mkdirSync(path.resolve(__dirname,'../outputs'),{recursive:true});await page.screenshot({path:path.resolve(__dirname,'../outputs/dashboard-calendar.png')});
+  await page.evaluate(()=>{
+    salesHistory=Array.from({length:18},(_,index)=>({...window.calendarFixture[0],id:`recent-${index+1}`,ref:`RE-${index+1}`}));
+    salesHistory.unshift({...window.calendarFixture[0],id:'excluded-void',status:'void'},{...window.calendarFixture[0],id:'excluded-other',warehouseId:2});
+    render();
+  });
+  const recent=page.locator('.dashboard-recent-panel');
+  assert.equal(await recent.count(),2);
+  assert.equal(await recent.nth(0).locator('tbody tr').count(),8);
+  assert.equal(await recent.nth(1).locator('tbody tr').count(),8);
+  assert.deepEqual(await page.locator('.dashboard-recent-sales tbody td:nth-child(2)').allTextContents(),Array.from({length:16},(_,i)=>`RE-${i+1}`),'latest sixteen stay in order, with no duplicates or out-of-scope sales');
+  const left=await recent.nth(0).boundingBox(),right=await recent.nth(1).boundingBox();
+  assert.equal(left.y,right.y);assert.ok(right.x>left.x,'recent lists share a desktop row');
+  fs.mkdirSync(path.resolve(__dirname,'../outputs'),{recursive:true});await page.screenshot({path:path.resolve(__dirname,'../outputs/dashboard-calendar.png'),fullPage:true});
   assert.deepEqual(errors,[]);console.log('Dashboard calendar: totals, permissions, 12-month bounds, Today navigation, paging, stale requests, retry, year boundary, leap years and one-row responsive layout passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});

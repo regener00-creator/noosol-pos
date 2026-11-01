@@ -414,6 +414,18 @@
   .history-table .ht-pay{width:100px;}
   .history-table .ht-status{width:90px;}
   .history-table .ht-actions{width:140px;}
+  .dashboard-recent-sales{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start;}
+  .dashboard-recent-panel{min-width:0;}
+  .dashboard-recent-scroll{overflow-x:auto;border-radius:var(--radius);}
+  .dashboard-recent-scroll .history-table{min-width:580px;margin:0;}
+  .dashboard-recent-scroll .ht-date{width:16%;}
+  .dashboard-recent-scroll tbody td:first-child{white-space:nowrap;}
+  .dashboard-recent-scroll .ht-bill{width:23%;}
+  .dashboard-recent-scroll .ht-time{width:10%;}
+  .dashboard-recent-scroll .ht-total{width:14%;}
+  .dashboard-recent-scroll .ht-pay{width:13%;}
+  .dashboard-recent-scroll th,.dashboard-recent-scroll td{padding:12px 8px;}
+  @media(max-width:900px){.dashboard-recent-sales{grid-template-columns:1fr;}}
   .history-table thead th{background:#4F4038;color:#fff;text-align:center;}
   /* ประวัติการขาย: ล็อกหัวหน้าไว้และให้เลื่อนเฉพาะข้อมูลในตาราง */
   .main.sales-history-main{overflow-y:hidden;}
@@ -898,7 +910,7 @@
   .promo-selected-box{margin-top:16px;padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);}
   .promo-selected-box h4{margin:0 0 10px;font-size:14px;text-align:center;}
   .promo-selected-box .promo-selected-hint{font-size:13px;overflow-wrap:anywhere;}
-  .promo-selected-box .promo-selected-hint,.promo-selected-box .promo-item-row-name{text-align:center;}
+  .promo-selected-box .promo-selected-hint,.promo-selected-box .promo-item-row-name{text-align:left;}
   .promo-category-field{min-width:0;}
   .promo-category-field>label{display:block;padding-top:0;margin-bottom:6px;}
   .promo-category-field>.promo-select{min-width:0;}
