@@ -161,6 +161,18 @@ let browser;
   assert.deepEqual(await page.locator('.dashboard-recent-sales tbody td:nth-child(2)').allTextContents(),Array.from({length:16},(_,i)=>`RE-${i+1}`),'latest sixteen stay in order, with no duplicates or out-of-scope sales');
   const left=await recent.nth(0).boundingBox(),right=await recent.nth(1).boundingBox();
   assert.equal(left.y,right.y);assert.ok(right.x>left.x,'recent lists share a desktop row');
+  await page.evaluate(()=>{
+    salesHistory=salesHistory.filter(sale=>sale.status==='done'&&sale.warehouseId===1);
+    salesHistory[0].items=Array.from({length:5},(_,i)=>({name:`สินค้าชื่อยาวสำหรับตรวจการแสดงผล ${i+1}`,qty:i+1}));
+    salesHistory[1].items=salesHistory[0].items.slice(0,3);
+    salesHistory[2].items=salesHistory[0].items.slice(0,4);
+    render();
+  });
+  const previewRows=recent.first().locator('tbody tr');
+  assert.equal(await previewRows.nth(0).locator('.dashboard-recent-item').count(),3);
+  assert.equal(await previewRows.nth(0).locator('.dashboard-recent-more').innerText(),'+2');
+  assert.equal(await previewRows.nth(1).locator('.dashboard-recent-more').count(),0);
+  assert.equal(await previewRows.nth(2).locator('.dashboard-recent-more').innerText(),'+1');
   fs.mkdirSync(path.resolve(__dirname,'../outputs'),{recursive:true});await page.screenshot({path:path.resolve(__dirname,'../outputs/dashboard-calendar.png'),fullPage:true});
   assert.deepEqual(errors,[]);console.log('Dashboard calendar: totals, permissions, 12-month bounds, Today navigation, paging, stale requests, retry, year boundary, leap years and one-row responsive layout passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});
