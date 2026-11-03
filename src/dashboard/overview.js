@@ -36,14 +36,15 @@ function dashboardSalesSummary(sales,summary={total:0,profit:0,orders:0,profitCo
 }
 async function loadDashboardCalendar(state){
   if(dashboardCalendarLoad!==state||!isWorkspaceReadCurrent(state.context)||state.scope!==dashboardCalendarScope())return;
-  const before=state.loaded?JSON.stringify([...state.daily]):null,previousError=state.error;
+  const snapshot=()=>JSON.stringify([[...state.daily],[...(state.bestSellerTotals||new Map())]]);
+  const before=state.loaded?snapshot():null,previousError=state.error;
   try{
     if(offlinePosMode())throw new Error('กรุณาเชื่อมต่ออินเทอร์เน็ตเพื่อดูยอดย้อนหลัง');
     const signature=await readVisibleDataSignature('sales');
     if(dashboardCalendarLoad!==state||!isWorkspaceReadCurrent(state.context)||state.scope!==dashboardCalendarScope())return;
     if(signature&&state.loaded&&state.signature===signature){state.checkedAt=Date.now();state.error='';return;}
-    const range=monthServerRange(state.month),daily=new Map();let cursor=null;
-    // Stream one month in stable ID pages, retaining only daily summaries.
+    const range=monthServerRange(state.month),daily=new Map(),bestSellerTotals=new Map(),catalog=new Map(products.map(product=>[String(product.id),product]));let cursor=null;
+    // Stream one month in stable ID pages, retaining only daily and product summaries.
     while(true){
       let query=sb.from('sales').select('id,sale_date,total,gross_profit,cost_total,warehouseId:data->>warehouseId,customerReturn:data->customerReturn,items:data->items,storedTotal:data->total,storedProfit:data->grossProfit,storedCost:data->costTotal')
         .eq('status','done').gte('sale_date',range.from).lte('sale_date',range.to).order('id',{ascending:true}).limit(500);
@@ -57,11 +58,12 @@ async function loadDashboardCalendar(state){
         if(!dashboardSaleInWarehouse(sale))continue;
         const date=String(row.sale_date||'').slice(0,10);
         daily.set(date,dashboardSalesSummary([sale],daily.get(date)));
+        dashboardAccumulateBestSellers([sale],bestSellerTotals,catalog);
       }
       if(rows.length<500)break;
       const next=String(rows.at(-1).id);if(next===cursor)throw new Error('โหลดข้อมูลเดือนนี้ไม่ครบ กรุณาลองใหม่');cursor=next;
     }
-    state.daily=daily;state.loaded=true;state.error='';state.signature=signature;state.checkedAt=Date.now();
+    state.daily=daily;state.bestSellerTotals=bestSellerTotals;state.loaded=true;state.error='';state.signature=signature;state.checkedAt=Date.now();
     const key=dashboardCalendarCacheKey(state.month);
     dashboardCalendarCache.delete(key);dashboardCalendarCache.set(key,state);
     while(dashboardCalendarCache.size>12) dashboardCalendarCache.delete(dashboardCalendarCache.keys().next().value);
@@ -69,7 +71,7 @@ async function loadDashboardCalendar(state){
   finally{
     state.loading=false;
     if(dashboardCalendarLoad===state&&isWorkspaceReadCurrent(state.context)&&state.scope===dashboardCalendarScope()&&currentTab==='dashboard'&&
-      (before===null||before!==JSON.stringify([...state.daily])||previousError!==state.error))render();
+      (before===null||before!==snapshot()||previousError!==state.error))render();
   }
 }
 function attachDashboardCalendarEvents(){
@@ -116,8 +118,7 @@ function renderDashboardCalendar(monthSales,canViewProfit){
   const content=historical?.loading&&!historical.loaded?'<p class="dashboard-calendar-feedback" role="status">กำลังโหลดข้อมูลเดือนนี้...</p>':historical?.error?`<div class="dashboard-calendar-feedback" role="alert">${escapeHtml(historical.error)} <button class="btn ghost" id="retryDashboardCalendar">ลองใหม่</button></div>`:`<div class="dashboard-calendar-scroll" tabindex="0" role="region" aria-label="ปฏิทินยอดขายรายวัน เลื่อนแนวนอนเพื่อดูทุกวัน"><div class="dashboard-calendar-grid">${['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'].map(day=>`<div class="dashboard-weekday">${day}</div>`).join('')}${cells}</div></div>`;
   return `<section class="panel dashboard-calendar"><header><h3>ปฏิทินยอดขาย</h3><div class="dashboard-calendar-navigation"><button type="button" class="btn ghost" id="dashboardCalendarToday">ปัจจุบัน</button><button type="button" class="btn ghost" data-dashboard-month-step="-1" aria-label="เดือนก่อนหน้า" title="เดือนก่อนหน้า" ${monthKey===bounds.first?'disabled':''}>‹</button><span aria-live="polite">${escapeHtml(monthLabel)}</span><button type="button" class="btn ghost" data-dashboard-month-step="1" aria-label="เดือนถัดไป" title="เดือนถัดไป" ${monthKey===bounds.current?'disabled':''}>›</button></div></header>${content}</section>`;
 }
-function dashboardBestSellers(sales){
-  const catalog=new Map(products.map(product=>[String(product.id),product])),totals=new Map();
+function dashboardAccumulateBestSellers(sales,totals=new Map(),catalog=new Map(products.map(product=>[String(product.id),product]))){
   sales.forEach(sale=>(sale.items||[]).forEach(item=>{
     if(item.custom||item.productId==null)return;
     const product=catalog.get(String(item.productId));
@@ -129,14 +130,23 @@ function dashboardBestSellers(sales){
     entry.quantity+=sale.customerReturn?-Math.abs(quantity):quantity;
     totals.set(key,entry);
   }));
+  return totals;
+}
+function dashboardBestSellers(sales,totals=dashboardAccumulateBestSellers(sales)){
+  const catalog=new Map(products.map(product=>[String(product.id),product]));
   return [...totals.values()].filter(item=>item.quantity>0).sort((a,b)=>b.quantity-a.quantity||a.name.localeCompare(b.name,'th')).slice(0,5).map(item=>({...item,quantityText:stockReportQuantityText(catalog.get(item.id)||{unit:item.unit},item.quantity)}));
 }
 function renderDashboard(){
   const completedSales = salesHistory.filter(s=>s.status==='done').filter(dashboardSaleInWarehouse);
   const monthKey = TODAY_STR.slice(0,7);
   const monthSales = completedSales.filter(s=>(s.date||'').slice(0,7)===monthKey);
-  const monthSummary=dashboardSalesSummary(monthSales),bestSellers=dashboardBestSellers(monthSales);
+  const monthSummary=dashboardSalesSummary(monthSales);
   const canViewProfit = !isLevel2User();
+  // Initialize the selected month's shared load before rendering its product ranking.
+  const calendarHtml=renderDashboardCalendar(monthSales,canViewProfit);
+  const historical=dashboardSelectedMonth()!==monthKey?dashboardCalendarLoad:null;
+  const bestSellers=historical?dashboardBestSellers([],historical.bestSellerTotals||new Map()):dashboardBestSellers(monthSales);
+  const bestSellerFeedback=historical?.error?'<p class="dashboard-best-empty" role="alert">โหลดสินค้าขายดีไม่สำเร็จ กรุณากดลองใหม่ที่ปฏิทินยอดขาย</p>':historical&&!historical.loaded?'<p class="dashboard-best-empty" role="status">กำลังโหลดสินค้าขายดี...</p>':'';
   const recentSales=completedSales.slice(0,16);
   const recentItems=items=>{
     const list=Array.isArray(items)?items:[];
@@ -149,8 +159,8 @@ function renderDashboard(){
       <tbody>${rows.length?rows.map(s=>`<tr><td>${escapeHtml(fmtDate(s.date))}</td><td class="mono">${escapeHtml(s.ref||s.id)}</td><td>${escapeHtml(saleHistoryTimeDisplay(s.time))}</td><td class="history-items-cell">${recentItems(s.items)}</td><td class="mono num">${fmtMoney(s.total)}</td><td>${escapeHtml(s.payMethod||'-')}</td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">${index===0?'ยังไม่มีรายการขาย':'ยังไม่มีรายการเพิ่มเติม'}</td></tr>`}</tbody></table></div>
     </section>`).join('');
   return `
-    <div class="statrow dashboard-summary-row"><section class="stat dashboard-summary-card" data-dashboard-period="month"><div><div class="slabel">ยอดขายเดือนนี้</div><div class="sval" data-summary-sales>${monthSummary.total<0?'-':''}${fmtMoney(Math.abs(monthSummary.total))}</div></div>${canViewProfit?`<div><div class="slabel">กำไรเดือนนี้</div><div class="sval" data-summary-profit>${dashboardProfitHtml(monthSummary)}</div></div>`:''}</section><section class="stat dashboard-top-products"><header><h3>สินค้าขายดี</h3></header><div class="dashboard-best-sellers">${bestSellers.map((item,index)=>`<div class="dashboard-best-seller">${index<3?`<span class="dashboard-best-rank" aria-label="อันดับ ${index+1}">${['🏆','🥈','🥉'][index]}</span>`:''}<div><b title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</b><span class="dashboard-best-quantity">${escapeHtml(item.quantityText)}</span></div></div>`).join('')||'<p class="dashboard-best-empty">ยังไม่มีรายการขายสินค้าเดือนนี้</p>'}</div></section></div>
-    ${renderDashboardCalendar(monthSales,canViewProfit)}
+    <div class="statrow dashboard-summary-row"><section class="stat dashboard-summary-card" data-dashboard-period="month"><div><div class="slabel">ยอดขายเดือนนี้</div><div class="sval" data-summary-sales>${monthSummary.total<0?'-':''}${fmtMoney(Math.abs(monthSummary.total))}</div></div>${canViewProfit?`<div><div class="slabel">กำไรเดือนนี้</div><div class="sval" data-summary-profit>${dashboardProfitHtml(monthSummary)}</div></div>`:''}</section><section class="stat dashboard-top-products"><header><h3>สินค้าขายดี</h3></header><div class="dashboard-best-sellers">${bestSellerFeedback||bestSellers.map((item,index)=>`<div class="dashboard-best-seller">${index<3?`<span class="dashboard-best-rank" aria-label="อันดับ ${index+1}">${['🏆','🥈','🥉'][index]}</span>`:''}<div><b title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</b><span class="dashboard-best-quantity">${escapeHtml(item.quantityText)}</span></div></div>`).join('')||'<p class="dashboard-best-empty">ยังไม่มีรายการขายสินค้าในเดือนที่เลือก</p>'}</div></section></div>
+    ${calendarHtml}
     <div class="dashboard-recent-sales">${recentTables}</div>`;
 }
 

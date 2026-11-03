@@ -42,11 +42,11 @@ let browser;
   });
   assert.equal(await page.locator('[data-summary-sales]').innerText(),'170.00');
   await page.evaluate(()=>{
-    window.calendarReads=0;window.signature='A';window.historicalTotal=100;
+    window.calendarReads=0;window.signature='A';window.historicalTotal=100;window.historicalProduct=1;
     readVisibleDataSignature=async()=>window.signature;
     sb.from=()=>{
       let from='';const q=new Proxy({}, {get:(_t,key)=>key==='then'?resolve=>{
-        window.calendarReads++;resolve({data:[{id:'H',sale_date:from,total:window.historicalTotal,gross_profit:30,cost_total:70,warehouseId:1}]});
+        window.calendarReads++;resolve({data:[{id:'H',sale_date:from,total:window.historicalTotal,gross_profit:30,cost_total:70,warehouseId:1,items:[{productId:window.historicalProduct,qty:7,unit:'Pcs',factor:1}]}]});
       }:key==='gte'?(_key,value)=>{from=value;return q;}:()=>q});return q;
     };
   });
@@ -56,6 +56,7 @@ let browser;
   }
   assert.equal(await page.evaluate(()=>window.calendarReads),2,'revisiting September uses its cached daily totals');
   assert.equal(await page.locator('[data-dashboard-date="2026-09-01"] [data-day-sales]').innerText(),'100.00');
+  assert.match(await page.locator('.dashboard-best-seller').innerText(),/Product 1\s*7 Pcs/,'cached month retains its ranking');
   const retained=await page.evaluate(async()=>{
     const first=document.getElementById('main').firstElementChild;
     dashboardCalendarLoad.checkedAt=0;refreshDashboardCalendarIfStale();
@@ -66,9 +67,14 @@ let browser;
   await page.waitForFunction(()=>dashboardCalendarLoad?.loaded&&!dashboardCalendarLoad.loading);
   assert.equal(await page.locator('[data-dashboard-date="2026-09-01"] [data-day-sales]').innerText(),'200.00');
   assert.equal(await page.evaluate(()=>window.calendarReads),3);
+  await page.evaluate(()=>{window.signature='C';window.historicalProduct=2;dashboardCalendarLoad.checkedAt=0;refreshDashboardCalendarIfStale();});
+  await page.waitForFunction(()=>dashboardCalendarLoad?.loaded&&!dashboardCalendarLoad.loading);
+  assert.equal(await page.locator('[data-dashboard-date="2026-09-01"] [data-day-sales]').innerText(),'200.00');
+  assert.match(await page.locator('.dashboard-best-seller').innerText(),/Product 2\s*7 Pcs/,'ranking refreshes even when daily totals are unchanged');
+  assert.equal(await page.evaluate(()=>window.calendarReads),4);
   await page.evaluate(()=>{currentProfile={id:'another-owner',owner:true,level:1};render();});
   await page.waitForFunction(()=>dashboardCalendarLoad?.loaded&&!dashboardCalendarLoad.loading);
-  assert.equal(await page.evaluate(()=>window.calendarReads),4,'new actor cannot reuse another actor cache');
+  assert.equal(await page.evaluate(()=>window.calendarReads),5,'new actor cannot reuse another actor cache');
   assert.deepEqual(errors,[]);
   console.log('Follow-up performance: unchanged reports compute zero views, changed totals paint, historical cache reuses months and revalidates changes/account passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});

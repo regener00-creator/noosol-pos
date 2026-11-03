@@ -81,11 +81,12 @@ let browser;
   assert.equal(await page.locator('.dashboard-best-quantity').evaluate(el=>getComputedStyle(el).fontWeight),'700');
   assert.ok(await page.locator('.dashboard-best-rank').evaluate(el=>el.getBoundingClientRect().left-el.parentElement.getBoundingClientRect().left<15),'rank sits at the left edge');
   await page.evaluate(()=>{products=window.originalCalendarProducts;salesHistory=window.calendarFixture;render();});
-  // Historical data must come from the server, without replacing the current cards/history.
+  // Historical rankings share the paged calendar load, without replacing current cards/history.
   await page.evaluate(()=>{
     window.calendarQueries=[];window.calendarFail=false;window.calendarDeferred=null;
-    window.calendarRows=Array.from({length:1001},(_,i)=>({id:String(i).padStart(5,'0'),sale_date:'2026-09-21',status:'done',warehouseId:'1',total:2,gross_profit:1,cost_total:1}));
-    window.calendarRows.push({id:'zz',sale_date:'2026-09-21',status:'done',warehouseId:'2',total:999,gross_profit:99,cost_total:900});
+    window.calendarRows=Array.from({length:1001},(_,i)=>({id:String(i).padStart(5,'0'),sale_date:'2026-09-21',status:'done',warehouseId:'1',total:2,gross_profit:1,cost_total:1,items:[{productId:1,name:'สินค้าทดสอบ',qty:1,unit:'Pcs',factor:1}]}));
+    window.calendarRows.push({id:'zy',sale_date:'2026-09-21',status:'done',warehouseId:'1',total:-2,gross_profit:-1,cost_total:-1,customerReturn:true,items:[{productId:1,qty:3,unit:'Pcs',factor:1}]});
+    window.calendarRows.push({id:'zz',sale_date:'2026-09-21',status:'done',warehouseId:'2',total:999,gross_profit:99,cost_total:900,items:[{productId:1,qty:9999,unit:'Pcs',factor:1}]});
     sb.from=table=>{
       if(table!=='sales')throw new Error('Unexpected query '+table);
       const filters={},q={select(){return q;},eq(k,v){filters[k]=v;return q;},gte(k,v){filters.from=v;return q;},lte(k,v){filters.to=v;return q;},order(){return q;},limit(v){filters.limit=v;return q;},gt(k,v){filters.cursor=v;return q;},then(resolve){
@@ -98,27 +99,36 @@ let browser;
   const previous=page.getByRole('button',{name:'เดือนก่อนหน้า'}),next=page.getByRole('button',{name:'เดือนถัดไป'});
   assert.equal(await next.isDisabled(),true,'future months cannot be selected');
   await previous.click();await page.waitForSelector('[data-dashboard-date="2026-09-21"]');
-  assert.equal(await page.locator('[data-dashboard-date="2026-09-21"] [data-day-sales]').innerText(),'2,002.00');
+  assert.equal(await page.locator('[data-dashboard-date="2026-09-21"] [data-day-sales]').innerText(),'2,000.00');
   assert.equal(await page.locator('[data-dashboard-date="2026-09-21"] [data-day-orders]').innerText(),'1,001');
   assert.equal(await month.locator('[data-summary-sales]').innerText(),'330.00');
+  assert.equal(await page.locator('.dashboard-best-quantity').innerText(),'998 Pcs','historical ranking includes every page and subtracts returns');
   assert.deepEqual(await page.evaluate(()=>window.calendarQueries.map(q=>q.cursor||null)),[null,'00499','00999']);
   assert.equal(await page.evaluate(()=>salesHistory.length),8,'historical rows stay out of the shared current-month history');
   await page.evaluate(()=>{allWarehousesMode=true;render();});await page.waitForSelector('[data-dashboard-date="2026-09-21"]');
-  assert.equal(await page.locator('[data-dashboard-date="2026-09-21"] [data-day-sales]').innerText(),'3,001.00');
+  assert.equal(await page.locator('[data-dashboard-date="2026-09-21"] [data-day-sales]').innerText(),'2,999.00');
+  assert.equal(await page.locator('.dashboard-best-quantity').innerText(),'10,997 Pcs','all-warehouse ranking includes the other warehouse');
   await page.evaluate(()=>{allWarehousesMode=false;currentProfile={id:'calendar-staff',level:2};render();});await page.waitForSelector('[data-dashboard-date="2026-09-21"]');
   assert.equal(await page.locator('[data-day-profit]').count(),0);
   await page.evaluate(()=>{currentProfile={id:'calendar-owner',owner:true,level:1};render();});await page.waitForSelector('[data-dashboard-date="2026-09-21"]');
   await next.click();assert.equal(await day.locator('[data-day-sales]').innerText(),'230.00');
+  assert.equal(await page.locator('.dashboard-best-quantity').innerText(),'2 Pcs','current month ranking returns immediately');
   // A late response from an abandoned month cannot replace the newly selected month.
   await page.evaluate(()=>{dashboardCalendarCache.clear();window.calendarHold=true;});await previous.click();await page.waitForFunction(()=>!!window.calendarDeferred);
+  assert.equal(await page.locator('.dashboard-best-seller').count(),0,'current-month products are hidden while loading another month');
+  assert.match(await page.locator('.dashboard-best-sellers').innerText(),/กำลังโหลด/);
   await next.click();await page.evaluate(()=>{window.calendarHold=false;window.calendarDeferred();window.calendarDeferred=null;});
   assert.equal(await day.locator('[data-day-sales]').innerText(),'230.00');
+  assert.equal(await page.locator('.dashboard-best-quantity').innerText(),'2 Pcs','late results cannot replace current ranking');
   await page.evaluate(()=>{window.calendarFail=true;});await previous.click();await page.waitForSelector('#retryDashboardCalendar');
   assert.equal(await page.locator('[data-dashboard-date]').count(),0,'an error is not displayed as zero sales');
+  assert.equal(await page.locator('.dashboard-best-seller').count(),0);
+  assert.match(await page.locator('.dashboard-best-sellers').innerText(),/โหลดสินค้าขายดีไม่สำเร็จ/);
   await page.evaluate(()=>{window.calendarFail=false;});await page.locator('#retryDashboardCalendar').click();await page.waitForSelector('[data-dashboard-date="2026-09-21"]');
-  assert.equal(await page.locator('[data-dashboard-date="2026-09-21"] [data-day-sales]').innerText(),'2,002.00');
+  assert.equal(await page.locator('[data-dashboard-date="2026-09-21"] [data-day-sales]').innerText(),'2,000.00');
   await page.evaluate(()=>{dashboardCalendarMonth='2026-01';dashboardCalendarLoad=null;render();});
   await previous.click();await page.waitForSelector('[data-dashboard-date="2025-12-31"]');
+  assert.match(await page.locator('.dashboard-best-sellers').innerText(),/ยังไม่มีรายการขายสินค้าในเดือนที่เลือก/);
   await next.click();await page.waitForSelector('[data-dashboard-date="2026-01-31"]');
   // Exactly twelve selectable months, including the current month.
   await previous.click();await previous.click();await page.waitForSelector('[data-dashboard-date="2025-11-01"]');
