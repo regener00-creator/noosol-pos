@@ -98,6 +98,7 @@ function allocateReadableProductSku(reservedSkus=[],startAt=1){
 function standardizePrintPreview(win,{trackPrint=true,applyPaperSettings=true}={}){
   const doc=win?.document; if(!doc) return;
   if(applyPaperSettings) applyA4PaperLayout(win);
+  if(typeof attachDirectPrinter==='function') attachDirectPrinter(win);
   if(trackPrint&&!win.__peposPrintTracked){
     const nativePrint=win.print.bind(win);
     win.print=()=>{ void recordPrintEvent(currentTab,doc.title||'',{title:doc.title||'',source:'print-preview'}); return nativePrint(); };

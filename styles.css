@@ -2800,3 +2800,13 @@
 .quotation-document-head .cradio{padding-top:7px;gap:10px;row-gap:8px;}
 .quotation-document-head .cradio input{width:auto;padding:0;flex:none;}
 @media(max-width:600px){.quotation-document-head .crow{grid-template-columns:1fr;gap:6px;}.quotation-document-head .quotation-identity-row,.quotation-document-head .quotation-contact-row{grid-template-columns:1fr;}.quotation-document-head .po-head-left{min-width:0;}}
+
+/* Per-computer printer destinations. */
+.direct-printer-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:18px 0}
+.direct-printer-card{border:1px solid #ddd4cf;border-radius:12px;padding:18px;min-width:0}
+.direct-printer-card h3{font-size:18px;margin:0 0 16px;color:#4f4038}
+.direct-printer-card label{display:block;font-weight:600;margin-bottom:8px}
+.direct-printer-card select{width:100%;min-width:0;padding:10px;border:1px solid #d7d0ca;border-radius:8px;background:#fff}
+.direct-printer-card [role=status]{font-size:13px;overflow-wrap:anywhere}
+#directPrinterConnection.is-error{color:#a12315}
+@media(max-width:1000px){.direct-printer-cards{grid-template-columns:1fr}}

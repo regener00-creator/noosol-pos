@@ -1,7 +1,7 @@
 param([switch]$Testing)
 $ErrorActionPreference = 'Stop'
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
-$output = Join-Path $repoRoot 'outputs/SAPURI-POS-Setup-v2.1'
+$output = Join-Path $repoRoot 'outputs/SAPURI-POS-Setup-v3.0'
 New-Item -ItemType Directory -Path $output -Force | Out-Null
 $iconPath = Join-Path $output 'sapuri.ico'
 & (Join-Path $PSScriptRoot 'build-icon.ps1') -Source (Join-Path $repoRoot 'sapuri-app-icon-512.png') -Destination $iconPath
@@ -14,12 +14,14 @@ $argsList+=(Join-Path $PSScriptRoot 'ShellIdentity.cs')
 if($LASTEXITCODE -ne 0){throw 'Compilation failed'}
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'README-th.txt') -Destination $output -Force
 if(-not $Testing){
+  & (Join-Path $repoRoot 'tools/windows-print-bridge/build.ps1')
   $exePath=Join-Path $output $name
   $checksumPath=Join-Path $output 'SHA256.txt'
   ((Get-FileHash -LiteralPath $exePath -Algorithm SHA256).Hash+'  '+$name) | Set-Content -LiteralPath $checksumPath -Encoding ascii
-  $zipPath=Join-Path $repoRoot 'outputs/SAPURI-POS-Setup-Windows-v2.1.zip'
-  Compress-Archive -LiteralPath @($exePath,(Join-Path $output 'README-th.txt'),$checksumPath) -DestinationPath $zipPath -Force
-  ((Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash+'  SAPURI-POS-Setup-Windows-v2.1.zip') | Set-Content -LiteralPath ($zipPath+'.sha256.txt') -Encoding ascii
+  Get-ChildItem -LiteralPath (Join-Path $output 'PrintBridge') -File | ForEach-Object { ((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash+'  PrintBridge/'+$_.Name) } | Add-Content -LiteralPath $checksumPath -Encoding ascii
+  $zipPath=Join-Path $repoRoot 'outputs/SAPURI-POS-Setup-Windows-v3.0.zip'
+  Compress-Archive -LiteralPath @($exePath,(Join-Path $output 'PrintBridge'),(Join-Path $output 'README-th.txt'),$checksumPath) -DestinationPath $zipPath -Force
+  ((Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash+'  SAPURI-POS-Setup-Windows-v3.0.zip') | Set-Content -LiteralPath ($zipPath+'.sha256.txt') -Encoding ascii
   Get-Item $zipPath | Select-Object FullName,Length
 }
 Get-Item (Join-Path $output $name) | Select-Object FullName,Length

@@ -22,6 +22,7 @@ namespace SapuriSetup {
     [STAThread] static void Main(string[] args) {
       Application.EnableVisualStyles(); Application.SetCompatibleTextRenderingDefault(false);
       try {
+        if(args.Length==1 && args[0]=="--install-print-bridge") { Engine.InstallPrintBridge(); return; }
 #if SETUP_TESTING
         if(args.Length==2 && args[0]=="--self-test") { Tests.Run(args[1]); return; }
         if(args.Length==2 && args[0]=="--test-folder") {
@@ -30,7 +31,7 @@ namespace SapuriSetup {
         }
 #endif
         Application.Run(new SetupForm(new Engine(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"SAPURI POS"),Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),"SAPURI POS","Assets"),Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),@"Microsoft\Internet Explorer\Quick Launch\User Pinned\TaskBar")),false));
-      } catch(Exception ex) { MessageBox.Show("เปิดชุดตั้งค่าไม่ได้\n"+ex.Message,"SAPURI POS",MessageBoxButtons.OK,MessageBoxIcon.Error); }
+      } catch(Exception ex) { Environment.ExitCode=1; MessageBox.Show("เปิดชุดตั้งค่าไม่ได้\n"+ex.Message,"SAPURI POS",MessageBoxButtons.OK,MessageBoxIcon.Error); }
     }
   }
   class PaperChoice {
@@ -42,6 +43,13 @@ namespace SapuriSetup {
     public string Printer,Chrome,Id; public int Width; public PaperChoice Paper;
   }
   class Engine {
+    public static void InstallPrintBridge(){
+      string file=Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location),"PrintBridge","SAPURI-Print.exe");
+      if(!File.Exists(file))throw new InvalidOperationException("ไม่พบตัวช่วยพิมพ์ กรุณาแตกไฟล์ ZIP ทั้งชุดก่อนเปิดชุดตั้งค่า");
+      using(var process=Process.Start(new ProcessStartInfo(file,"--install"){UseShellExecute=false,CreateNoWindow=true,WindowStyle=ProcessWindowStyle.Hidden})){
+        if(!process.WaitForExit(45000)||process.ExitCode!=0)throw new InvalidOperationException("ติดตั้งตัวช่วยพิมพ์ไม่สำเร็จ ตรวจหน้าต่างแจ้งสาเหตุแล้วกดลองใหม่");
+      }
+    }
     public const string Site="https://pepo-pharmacy.vercel.app/";
     public readonly string Root,Desktop,Assets,Pinned;
     public string IconPath {get{return Path.Combine(Assets,"sapuri-v2.ico");}}
@@ -206,7 +214,7 @@ namespace SapuriSetup {
     ListView steps=new ListView();TextBox detail=new TextBox(); Label stateLabel=new Label(); bool busy,configured;int failed=-1;Plan current;
     readonly string[] names={"ตรวจ Google Chrome","ตรวจเครื่องพิมพ์และกระดาษ","ตั้งค่า Chrome สำหรับ SAPURI","สร้างและตรวจไอคอนบนเดสก์ท็อป","ส่งใบทดสอบจาก Chrome","ยืนยันกระดาษที่พิมพ์จริง"};
     public SetupForm(Engine e,bool testMode){
-      engine=e;testing=testMode;Text="SAPURI POS — ตั้งค่าพิมพ์อัตโนมัติ 2.1"+(testing?" [ทดสอบ]":"");
+      engine=e;testing=testMode;Text="SAPURI POS — ตั้งค่าการพิมพ์ 3.0"+(testing?" [ทดสอบ]":"");
       // Windows bitmap scaling keeps this small .NET Framework utility usable at high display scales.
       AutoScaleMode=AutoScaleMode.None;
       Font=new Font("Tahoma",10);Size=new Size(900,810);MinimumSize=new Size(760,720);StartPosition=FormStartPosition.CenterScreen;
@@ -224,7 +232,10 @@ namespace SapuriSetup {
       stateLabel.Dock=DockStyle.Fill;stateLabel.Text="เลือกเครื่องพิมพ์และกระดาษ แล้วกดตั้งค่า";panel.Controls.Add(stateLabel,0,4);
       detail.Multiline=true;detail.ReadOnly=true;detail.ScrollBars=ScrollBars.Vertical;detail.Dock=DockStyle.Fill;detail.BackColor=Color.White;detail.Text="ข้อมูลและวิธีแก้ปัญหาจะแสดงที่นี่\r\nงาน A4 หรือบันทึก PDF ให้เปิดจาก Chrome ปกติ";panel.Controls.Add(detail,0,5);
       var confirm=new FlowLayoutPanel{Dock=DockStyle.Fill};Configure(test,"พิมพ์ทดสอบ / ลองใหม่",220);Configure(yes,"กระดาษออกถูกต้อง",190);Configure(no,"ไม่ออก / ไม่ถูกต้อง",190);confirm.Controls.AddRange(new Control[]{test,yes,no});panel.Controls.Add(confirm,0,6);
-      var bottom=new FlowLayoutPanel{Dock=DockStyle.Fill};Configure(open,"เปิด SAPURI POS",200);Configure(logs,"บันทึกปัญหา…",160);bottom.Controls.AddRange(new Control[]{open,logs});panel.Controls.Add(bottom,0,7);
+      var bottom=new FlowLayoutPanel{Dock=DockStyle.Fill};Configure(open,"เปิด SAPURI POS",160);Configure(logs,"บันทึกปัญหา…",140);
+      var bridgeUpdate=new Button();Configure(bridgeUpdate,"อัปเดตตัวช่วยพิมพ์",190);
+      bridgeUpdate.Click+=async(s,a)=>{bridgeUpdate.Enabled=false;try{if(!testing)await Task.Run(()=>Engine.InstallPrintBridge());detail.Text="ติดตั้งตัวช่วยแล้ว เปิด SAPURI > ตั้งค่าการพิมพ์ > เชื่อมต่อตัวช่วยพิมพ์ แล้วเลือกเครื่องใบเสร็จ A4 และบาร์โค้ด\r\nอัปเดตตัวช่วยได้โดยไม่ต้องปิด SAPURI หรือตั้งค่าไอคอนใหม่";}catch(Exception ex){detail.Text=ex.Message;}finally{bridgeUpdate.Enabled=true;}};
+      bottom.Controls.AddRange(new Control[]{open,logs,bridgeUpdate});panel.Controls.Add(bottom,0,7);
       test.Enabled=yes.Enabled=no.Enabled=open.Enabled=false;
       printers.SelectedIndexChanged+=(s,a)=>{if(!busy){configured=false;LoadPapers();RefreshButtons();}};
       widths.SelectedIndexChanged+=(s,a)=>{if(!busy){configured=false;LoadPapers();RefreshButtons();}};
@@ -265,7 +276,7 @@ namespace SapuriSetup {
         Status(0,"กำลังตรวจ…",Color.DarkOrange);plan.Chrome=await Task.Run(()=>Engine.FindChrome());Status(0,"พร้อม",Color.DarkGreen);
         step=1;Status(1,"กำลังตรวจ…",Color.DarkOrange);await Task.Run(()=>Engine.ValidatePrinter(plan));Status(1,plan.Printer+" / "+plan.Width+" มม.",Color.DarkGreen);
         step=2;Status(2,"กำลังบันทึก…",Color.DarkOrange);await Task.Run(()=>engine.SaveProfile(plan));Status(2,"บันทึกและตรวจสอบแล้ว",Color.DarkGreen);
-        step=3;Status(3,"กำลังสร้าง…",Color.DarkOrange);engine.SaveShortcut(plan);Status(3,"พร้อม — รองรับการปักหมุด Taskbar",Color.DarkGreen);
+        step=3;Status(3,"กำลังสร้างไอคอนและตัวช่วยพิมพ์…",Color.DarkOrange);engine.SaveShortcut(plan);if(!testing)await Task.Run(()=>Engine.InstallPrintBridge());Status(3,"พร้อม — Taskbar และตัวช่วยพิมพ์",Color.DarkGreen);
         current=plan;configured=true;setup.Text="ตั้งค่าอีกครั้ง";detail.Text="ตั้งค่าเสร็จแล้ว กำลังส่งใบทดสอบหนึ่งใบ\r\nเมื่อกระดาษออก ให้ตรวจความชัดและขนาด แล้วกดยืนยัน";
       }catch(Exception ex){ShowFailure(step,ex);}finally{busy=false;RefreshButtons();}
       if(configured)await PrintTest();

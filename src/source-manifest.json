@@ -11,6 +11,7 @@
   "src/sync/settings-and-favorites.js",
   "src/sync/sales-history.js",
   "src/shared/format-and-input.js",
+  "src/printing/direct-printer.js",
   "src/state/catalog.js",
   "src/products/category-settings.js",
   "src/products/review-refresh.js",

@@ -459,6 +459,7 @@ function barcodePrintRowsHtml(entries=barcodePrintPagination().rows){
 }
 
 function renderBarcodePrint(){
+  const defaultSize=typeof readBarcodePaperSize==='function'?readBarcodePaperSize():'50x30';
   const filter=barcodePrintCatFilter;
   const brandOptions=filter.category?brands.filter(brand=>products.some(product=>product.category===filter.category&&product.brand===brand)):brands.slice();
   const filteredCount=products.filter(product=>(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand)&&(filter.category||filter.brand)).length;
@@ -466,13 +467,13 @@ function renderBarcodePrint(){
   const pagination=barcodePrintPagination();
   barcodePrintPage=pagination.currentPage;
   return `<div class="rpt barcode-print-page">
-    <div class="pagehead"><div><h1>พิมพ์ป้ายราคา <span class="page-title-meta">ค่าเริ่มต้นเป็นป้ายแนวนอน 50 × 30 มม. หากสินค้ายังไม่มีบาร์โค้ด ระบบจะสร้าง Code 128 ภายในและบันทึกให้กับหน่วยที่เลือกเมื่อสั่งพิมพ์</span></h1></div><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="openPriceLabelDesignerBtn">ออกแบบป้ายราคา</button><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length?'':'disabled'}>ล้างรายการ</button><button class="btn primary" id="savePrintBarcodeBtn" ${barcodePrintItems.length?'':'disabled'}>บันทึกและพิมพ์ป้ายราคา (${barcodePrintItems.length})</button></div></div>
+    <div class="pagehead"><div><h1>พิมพ์ป้ายราคา <span class="page-title-meta">ค่าเริ่มต้นเป็นป้ายแนวนอน ${defaultSize.replace('x',' × ')} มม. หากสินค้ายังไม่มีบาร์โค้ด ระบบจะสร้าง Code 128 ภายในและบันทึกให้กับหน่วยที่เลือกเมื่อสั่งพิมพ์</span></h1></div><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="openPriceLabelDesignerBtn">ออกแบบป้ายราคา</button><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length?'':'disabled'}>ล้างรายการ</button><button class="btn primary" id="savePrintBarcodeBtn" ${barcodePrintItems.length?'':'disabled'}>บันทึกและพิมพ์ป้ายราคา (${barcodePrintItems.length})</button></div></div>
     <div class="rpt-filters" style="margin-bottom:14px;">
       <div class="rpf-item"><select id="barcodePrintCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(category=>`<option value="${escapeHtml(category)}" ${filter.category===category?'selected':''}>${escapeHtml(category)}</option>`).join('')}</select></div>
       <div class="rpf-item"><select id="barcodePrintBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(brand=>`<option value="${escapeHtml(brand)}" ${filter.brand===brand?'selected':''}>${escapeHtml(brand)}</option>`).join('')}</select></div>
       <button class="btn ghost" id="barcodePrintAddCategoryBtn" ${(filter.category||filter.brand)?'':'disabled'}>เลือกสินค้าในหมวดนี้${(filter.category||filter.brand)?` (${filteredCount})`:''}</button>
       <button class="btn ghost" id="barcodePrintAddMissingBtn">สินค้าที่ต้องสร้างบาร์โค้ด (${missingCount})</button>
-      <div class="rpf-item"><select id="barcodePrintLabelSize" class="rpt-select" aria-label="ขนาดป้ายราคา"><option value="50x30" ${barcodePrintLabelSize==='50x30'?'selected':''}>ป้ายราคา 50 × 30 มม. (ค่าเริ่มต้น)</option><option value="80x50" ${barcodePrintLabelSize==='80x50'?'selected':''}>ป้ายราคา 80 × 50 มม.</option><option value="60x40" ${barcodePrintLabelSize==='60x40'?'selected':''}>ป้ายราคา 60 × 40 มม.</option><option value="40x30" ${barcodePrintLabelSize==='40x30'?'selected':''}>ป้ายราคา 40 × 30 มม.</option></select></div>
+      <div class="rpf-item"><select id="barcodePrintLabelSize" class="rpt-select" aria-label="ขนาดป้ายราคา"><option value="50x30" ${barcodePrintLabelSize==='50x30'?'selected':''}>ป้ายราคา 50 × 30 มม.${defaultSize==='50x30'?' (ค่าเริ่มต้น)':''}</option><option value="80x50" ${barcodePrintLabelSize==='80x50'?'selected':''}>ป้ายราคา 80 × 50 มม.${defaultSize==='80x50'?' (ค่าเริ่มต้น)':''}</option><option value="60x40" ${barcodePrintLabelSize==='60x40'?'selected':''}>ป้ายราคา 60 × 40 มม.${defaultSize==='60x40'?' (ค่าเริ่มต้น)':''}</option><option value="40x30" ${barcodePrintLabelSize==='40x30'?'selected':''}>ป้ายราคา 40 × 30 มม.${defaultSize==='40x30'?' (ค่าเริ่มต้น)':''}</option></select></div>
     </div>
     <div class="barcode-print-search-wrap">
       <input id="barcodePrintSearch" class="barcode-print-search" value="${escapeHtml(barcodePrintSearchQuery)}" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด..." autocomplete="off">

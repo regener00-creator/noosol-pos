@@ -54,7 +54,7 @@ function renderA4PaperSettings(){
     <label class="receipt-printer-field" for="a4_orientation"><span>แนวกระดาษ</span><select id="a4_orientation" name="orientation">${[['auto','ตามรูปแบบเอกสาร'],['portrait','แนวตั้ง'],['landscape','แนวนอน']].map(([value,label])=>`<option value="${value}" ${s.orientation===value?'selected':''}>${label}</option>`).join('')}</select></label>
     <div class="receipt-printer-margins">${fields}</div><div class="receipt-printer-actions"><button class="btn primary" type="submit">บันทึก A4</button><button class="btn" type="button" id="testA4PaperBtn">ทดลองพิมพ์ A4</button><button class="btn" type="button" id="resetA4PaperBtn">คืนค่าเริ่มต้น</button></div>
     <p id="a4PaperStatus" class="receipt-printer-status" role="status">${readA4PaperSettings()?'ใช้ค่า A4 ที่บันทึกไว้บนเครื่องนี้':'ยังใช้ระยะขอบเดิมของแต่ละเอกสาร กดบันทึกเพื่อใช้ค่า A4 นี้'}</p>
-    <div class="receipt-printer-help">เลือกกระดาษ A4 และมาตราส่วน 100% ในหน้าต่างพิมพ์ ปิดหัวกระดาษ/ท้ายกระดาษ และใช้ระยะขอบตามโปรแกรม<br>ทดลองพิมพ์ใช้ค่าที่กรอกอยู่ บันทึกแล้วจึงมีผลกับหน้าพิมพ์ที่เปิดใหม่<br>“ตามรูปแบบเอกสาร” จะคงแนวตั้งหรือแนวนอนของเอกสารนั้น ตัวอย่างนี้แสดงแนวตั้ง</div>
+    <div class="receipt-printer-help">เมื่อเชื่อมต่อตัวช่วย จะส่งไปเครื่อง A4 ที่บันทึกไว้ด้านบนโดยใช้ขนาดจริงและระยะขอบตามโปรแกรม<br>ทดลองพิมพ์ใช้ค่าที่กรอกอยู่ บันทึกแล้วจึงมีผลกับหน้าพิมพ์ที่เปิดใหม่<br>“ตามรูปแบบเอกสาร” จะคงแนวตั้งหรือแนวนอนของเอกสารนั้น ตัวอย่างนี้แสดงแนวตั้ง</div>
     </form><section class="settings-section receipt-printer-preview"><h2>ตัวอย่าง A4</h2><iframe id="a4PaperPreview" title="ตัวอย่างหน้ากระดาษ A4" sandbox=""></iframe></section></div>`;
 }
 function attachA4PaperEvents(){

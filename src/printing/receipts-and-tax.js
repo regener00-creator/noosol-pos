@@ -202,6 +202,7 @@ function printFullTaxInvoice(saleId){
   const toolbar=win.document.querySelector('.toolbar');
   toolbar.innerHTML='<div class="preview-actions"><button type="button" class="close-preview" id="closeTaxPreview">ย้อนกลับ</button><button type="button" id="confirmTaxPrint">พิมพ์</button></div>';
   win.document.getElementById('closeTaxPreview').onclick=()=>win.close();
+  attachDirectPrinter(win);
   win.document.getElementById('confirmTaxPrint').onclick=()=>win.print();
   invoice.printLog.push({at:auditNow(),mode:'print'});
   if(standaloneDoc) persistStandaloneTaxInvoices();
