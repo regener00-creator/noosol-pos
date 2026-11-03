@@ -446,7 +446,9 @@ function barcodePrintRowsHtml(entries=barcodePrintPagination().rows){
     const options=barcodePrintMissingUnitOptions(product);
     const selected=options.find(option=>option.name===item.unit);
     if(!selected) return '';
-    const unitSelect=`<select class="barcode-print-unit-select" data-barcode-print-unit="${index}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected.name?'selected':''}>${escapeHtml(option.name)}</option>`).join('')}</select>`;
+    const unitSelect=options.length===1
+      ?`<span class="barcode-print-unit-label">${escapeHtml(selected.name)}</span>`
+      :`<select class="barcode-print-unit-select" data-barcode-print-unit="${index}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected.name?'selected':''}>${escapeHtml(option.name)}</option>`).join('')}</select>`;
     return `<tr data-barcode-print-row="${index}">
       <td class="mono" style="text-align:center;">${escapeHtml(product.sku||'-')}</td>
       <td>${escapeHtml(product.name)}${selected.barcode?'':`<br><span class="barcode-print-missing">หน่วยนี้ยังไม่มีบาร์โค้ด</span>`}</td>

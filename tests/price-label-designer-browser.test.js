@@ -194,13 +194,19 @@ const browserExecutable = [
   await page.setViewportSize({width:1280,height:900});
   await page.locator('#barcodePrintSearch').fill('MIXED');
   await page.locator('#barcodePrintSearch').press('Enter');
-  assert.deepEqual(await page.locator('[data-barcode-print-unit="1"] option').allTextContents(),['แผง']);
+  assert.equal(await page.locator('[data-barcode-print-row="1"] select').count(),0,'One printable unit is plain text without a dropdown');
+  assert.equal(await page.locator('[data-barcode-print-row="1"] .barcode-print-unit-label').textContent(),'แผง');
+  await page.evaluate(()=>{
+    products.find(product=>product.id===9103).units.push({sub:'ลัง',barcode:''});
+    render();
+  });
+  assert.deepEqual(await page.locator('[data-barcode-print-unit="1"] option').allTextContents(),['แผง','ลัง']);
   await page.locator('[data-barcode-print-unit="1"]').evaluate(select=>{
     select.add(new Option('กล่อง','กล่อง')); select.value='กล่อง';
     select.dispatchEvent(new Event('change',{bubbles:true}));
   });
   assert.equal(await page.locator('[data-barcode-print-unit="1"]').inputValue(),'แผง','A forged or stale unit cannot select an existing barcode');
-  assert.deepEqual(await page.locator('[data-barcode-print-unit="1"] option').allTextContents(),['แผง']);
+  assert.deepEqual(await page.locator('[data-barcode-print-unit="1"] option').allTextContents(),['แผง','ลัง']);
   await page.evaluate(()=>{
     products.find(product=>product.id===9103).units[0].barcode='CREATED-ELSEWHERE';
     render();
