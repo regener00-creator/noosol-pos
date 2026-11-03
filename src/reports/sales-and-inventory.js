@@ -689,7 +689,7 @@ function stockReportHeadersHtml(forPrint=false){
   const columns=stockReportVisibleColumns(),reportWarehouses=all?accessibleWarehouses():[];
   const rowSpan=all?' rowspan="2"':'';
   const center=forPrint?' class="c"':'';
-  return `<tr>${columns.sku?`<th${rowSpan}>รหัสสินค้า</th>`:''}${columns.barcode?`<th${rowSpan}>บาร์โค้ด</th>`:''}<th${rowSpan}>${forPrint?'สินค้า':stockReportTh('name','สินค้า')}</th>${columns.price?`<th${rowSpan}${center}>ขาย</th>`:''}${columns.cost?`<th${rowSpan}${center}>ทุน</th>`:''}<th${all?` colspan="${reportWarehouses.length}"`:''}${center}>${forPrint?'คงเหลือ':stockReportTh('stock','คงเหลือ')}</th>${forPrint?'':`<th${rowSpan} class="stock-report-action"></th>`}</tr>${all?`<tr>${reportWarehouses.map((warehouse,index)=>`<th class="stock-report-warehouse${forPrint?' c':''}" title="${escapeHtml(warehouse.name)}">คลังที่ ${index+1}<small>${escapeHtml(warehouse.name)}</small></th>`).join('')}</tr>`:''}`;
+  return `<tr>${columns.sku?`<th${rowSpan}${center}>รหัสสินค้า</th>`:''}${columns.barcode?`<th${rowSpan}${center}>บาร์โค้ด</th>`:''}<th${rowSpan}>${forPrint?'สินค้า':stockReportTh('name','สินค้า')}</th>${columns.price?`<th${rowSpan}${center}>ขาย</th>`:''}${columns.cost?`<th${rowSpan}${center}>ทุน</th>`:''}<th${all?` colspan="${reportWarehouses.length}"`:''}${center}>${forPrint?'คงเหลือ':stockReportTh('stock','คงเหลือ')}</th>${forPrint?'':`<th${rowSpan} class="stock-report-action"></th>`}</tr>${all?`<tr>${reportWarehouses.map((warehouse,index)=>`<th class="stock-report-warehouse${forPrint?' c':''}" title="${escapeHtml(warehouse.name)}">คลังที่ ${index+1}<small>${escapeHtml(warehouse.name)}</small></th>`).join('')}</tr>`:''}`;
 }
 function renderRInventory(){
   const catf=stockReportCatFilter;
