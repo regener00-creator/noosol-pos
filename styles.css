@@ -796,6 +796,22 @@
   .barcode-print-page{height:100%;min-height:0;min-width:0;display:flex;flex-direction:column;}
   .barcode-print-page .pagehead{flex:0 0 auto;margin-bottom:10px;}
   .barcode-print-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .barcode-reprint-modal{width:560px;max-height:90dvh;}
+  .barcode-reprint-form{display:flex;flex-direction:column;gap:12px;padding:16px;overflow:auto;}
+  .barcode-reprint-form label{display:flex;flex-direction:column;gap:6px;font-weight:600;min-width:0;}
+  .barcode-reprint-form input,.barcode-reprint-form select{width:100%;min-width:0;box-sizing:border-box;}
+  .barcode-reprint-form [hidden]{display:none!important;}
+  .barcode-reprint-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px;}
+  .barcode-reprint-results{max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:10px;flex-shrink:0;}
+  .barcode-reprint-result{display:flex;flex-direction:column;gap:4px;width:100%;padding:10px 12px;background:var(--surface);color:var(--text);border:0;border-bottom:1px solid var(--border);font:inherit;text-align:left;cursor:pointer;}
+  .barcode-reprint-result:hover,.barcode-reprint-result:focus-visible{background:var(--bg);}
+  .barcode-reprint-result span,.barcode-reprint-hint{color:var(--text-muted);font-size:13px;}
+  .barcode-reprint-selected{font-weight:600;overflow-wrap:anywhere;}
+  .barcode-reprint-form p{margin:0;}
+  .barcode-reprint-results p{padding:12px;}
+  .barcode-reprint-error{color:#b42318;font-size:14px;}
+  .barcode-reprint-error:empty{display:none;}
+  .barcode-reprint-actions{display:flex;justify-content:flex-end;gap:12px;}
   .barcode-print-page .rpt-filters{flex:0 0 auto;margin-bottom:10px;}
   .barcode-print-search-wrap{position:relative;flex:0 0 auto;margin-bottom:10px;}
   .barcode-print-search{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit;font-size:14px;}

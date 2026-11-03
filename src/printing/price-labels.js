@@ -472,7 +472,7 @@ function renderBarcodePrint(){
   const pagination=barcodePrintPagination();
   barcodePrintPage=pagination.currentPage;
   return `<div class="rpt barcode-print-page">
-    <div class="pagehead"><div><h1>พิมพ์ป้ายราคา <span class="page-title-meta">ค่าเริ่มต้นเป็นป้ายแนวนอน ${defaultSize.replace('x',' × ')} มม. หากสินค้ายังไม่มีบาร์โค้ด ระบบจะสร้าง Code 128 ภายในและบันทึกให้กับหน่วยที่เลือกเมื่อสั่งพิมพ์</span></h1></div><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="openPriceLabelDesignerBtn">ออกแบบป้ายราคา</button><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length?'':'disabled'}>ล้างรายการ</button><button class="btn primary" id="savePrintBarcodeBtn" ${barcodePrintItems.length?'':'disabled'}>บันทึกและพิมพ์ป้ายราคา (${barcodePrintItems.length})</button></div></div>
+    <div class="pagehead"><div><h1>พิมพ์ป้ายราคา <span class="page-title-meta">ค่าเริ่มต้นเป็นป้ายแนวนอน ${defaultSize.replace('x',' × ')} มม. หากสินค้ายังไม่มีบาร์โค้ด ระบบจะสร้าง Code 128 ภายในและบันทึกให้กับหน่วยที่เลือกเมื่อสั่งพิมพ์</span></h1></div><div class="barcode-print-actions form-final-actions"><button class="btn primary" id="openBarcodeReprintBtn">พิมพ์ป้ายเดิมซ้ำ</button><button class="btn ghost" id="openPriceLabelDesignerBtn">ออกแบบป้ายราคา</button><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length?'':'disabled'}>ล้างรายการ</button><button class="btn primary" id="savePrintBarcodeBtn" ${barcodePrintItems.length?'':'disabled'}>บันทึกและพิมพ์ป้ายราคา (${barcodePrintItems.length})</button></div></div>
     <div class="rpt-filters" style="margin-bottom:14px;">
       <div class="rpf-item"><select id="barcodePrintCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(category=>`<option value="${escapeHtml(category)}" ${filter.category===category?'selected':''}>${escapeHtml(category)}</option>`).join('')}</select></div>
       <div class="rpf-item"><select id="barcodePrintBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(brand=>`<option value="${escapeHtml(brand)}" ${filter.brand===brand?'selected':''}>${escapeHtml(brand)}</option>`).join('')}</select></div>
@@ -494,7 +494,124 @@ function renderBarcodePrint(){
   </div>`;
 }
 
-function writeBarcodePrintWindow(printWindow,items=barcodePrintItems,labelSize=barcodePrintLabelSize){
+function openBarcodeReprintDialog(){
+  if(document.getElementById('barcodeReprintDialog')) return;
+  const context=captureWorkspaceRead();
+  const opener=document.activeElement;
+  let productId=null;
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal barcode-reprint-modal" id="barcodeReprintDialog" role="dialog" aria-modal="true" aria-labelledby="barcodeReprintTitle">
+    <div class="modal-head"><h3 id="barcodeReprintTitle">พิมพ์ป้ายเดิมซ้ำ</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div>
+    <form id="barcodeReprintForm" class="barcode-reprint-form">
+      <label for="barcodeReprintSearch">สินค้า</label>
+      <input id="barcodeReprintSearch" class="barcode-print-search" placeholder="ค้นหาชื่อ / รหัสสินค้า / บาร์โค้ด" autocomplete="off" aria-controls="barcodeReprintResults">
+      <div id="barcodeReprintResults" class="barcode-reprint-results" hidden></div>
+      <p id="barcodeReprintSelected" class="barcode-reprint-selected">เลือกสินค้าที่มีบาร์โค้ดแล้ว</p>
+      <div class="barcode-reprint-fields">
+        <label>หน่วย<select id="barcodeReprintUnit" class="rpt-select" disabled aria-label="หน่วยสินค้า"></select><span id="barcodeReprintSingleUnit" class="barcode-print-unit-label" hidden></span></label>
+        <label>จำนวนป้าย<input id="barcodeReprintQty" class="barcode-print-qty-input" type="number" min="1" max="500" step="1" value="1" required></label>
+      </div>
+      <label>บาร์โค้ดเดิม<input id="barcodeReprintCode" class="barcode-print-code-input" readonly></label>
+      <label>ขนาดป้าย<select id="barcodeReprintSize" class="rpt-select">${Object.keys(BARCODE_PRINT_LABEL_DIMENSIONS).map(size=>`<option value="${size}" ${size===barcodePrintLabelSize?'selected':''}>${size.replace('x',' × ')} มม.</option>`).join('')}</select></label>
+      <p class="barcode-reprint-hint">ใช้บาร์โค้ดเดิมของหน่วยที่เลือก ไม่ออกเลขใหม่</p>
+      <p id="barcodeReprintError" class="barcode-reprint-error" role="alert"></p>
+      <div class="barcode-reprint-actions"><button type="button" class="btn ghost" id="barcodeReprintClose">ปิด</button><button type="submit" class="btn primary" id="barcodeReprintSubmit" disabled>พิมพ์ป้ายเดิมซ้ำ</button></div>
+    </form>
+  </div>`;
+  document.body.appendChild(overlay);
+  const get=id=>overlay.querySelector('#'+id);
+  const search=get('barcodeReprintSearch');
+  const results=get('barcodeReprintResults');
+  const unit=get('barcodeReprintUnit');
+  const code=get('barcodeReprintCode');
+  const error=get('barcodeReprintError');
+  const submit=get('barcodeReprintSubmit');
+  const close=()=>{ overlay.remove(); if(opener?.isConnected) opener.focus(); };
+  overlay.querySelector('.modal-close').onclick=close;
+  get('barcodeReprintClose').onclick=close;
+  const updateUnit=()=>{
+    const product=products.find(entry=>entry.id===productId);
+    const option=barcodeReprintUnitOptions(product).find(entry=>entry.name===unit.value);
+    code.value=option?.barcode||'';
+    submit.disabled=!option;
+    error.textContent='';
+  };
+  const selectProduct=id=>{
+    const product=products.find(entry=>entry.id===Number(id));
+    const options=barcodeReprintUnitOptions(product);
+    if(!options.length){ error.textContent='สินค้านี้ไม่มีหน่วยที่มีบาร์โค้ดแล้ว'; return; }
+    productId=product.id;
+    search.value=product.name;
+    results.hidden=true;
+    get('barcodeReprintSelected').textContent=`${product.sku||'-'} · ${product.name}`;
+    unit.innerHTML=options.map(option=>`<option value="${escapeHtml(option.name)}">${escapeHtml(option.name)}</option>`).join('');
+    unit.disabled=false;
+    unit.hidden=options.length===1;
+    const single=get('barcodeReprintSingleUnit');
+    single.hidden=options.length!==1;
+    single.textContent=options[0].name;
+    updateUnit();
+  };
+  const showResults=()=>{
+    productId=null;
+    submit.disabled=true;
+    unit.innerHTML=''; unit.disabled=true; unit.hidden=false;
+    get('barcodeReprintSingleUnit').hidden=true;
+    get('barcodeReprintSelected').textContent='เลือกสินค้าที่มีบาร์โค้ดแล้ว';
+    code.value=''; error.textContent='';
+    const query=search.value.trim();
+    if(!query){results.hidden=true;return;}
+    const matches=products.filter(product=>barcodeReprintUnitOptions(product).length&&barcodePrintMatchesQuery(product,query)).slice(0,15);
+    results.innerHTML=matches.length?matches.map(product=>`<button type="button" class="barcode-reprint-result" data-reprint-product="${product.id}"><b>${escapeHtml(product.name)}</b><span>${escapeHtml(product.sku||'-')}</span></button>`).join(''):'<p>ไม่พบสินค้าที่มีบาร์โค้ด</p>';
+    results.hidden=false;
+  };
+  search.addEventListener('input',showResults);
+  search.addEventListener('keydown',event=>{
+    if(event.key==='Enter'){
+      event.preventDefault();
+      if(!results.hidden){
+        const exact=products.find(product=>barcodeReprintUnitOptions(product).length&&(String(product.sku||'')===search.value.trim()||matchesBarcode(product,search.value.trim())));
+        const id=exact?.id||results.querySelector('[data-reprint-product]')?.dataset.reprintProduct;
+        if(id) selectProduct(id);
+      }
+    }
+  });
+  results.addEventListener('click',event=>{
+    const button=event.target.closest('[data-reprint-product]');
+    if(button) selectProduct(button.dataset.reprintProduct);
+  });
+  unit.addEventListener('change',updateUnit);
+  get('barcodeReprintForm').addEventListener('submit',event=>{
+    event.preventDefault();
+    let printWindow;
+    try{
+      if(!isWorkspaceReadCurrent(context)) throw new Error('ข้อมูลผู้ใช้เปลี่ยน กรุณาปิดแล้วเปิดหน้าพิมพ์ซ้ำอีกครั้ง');
+      const item=barcodeReprintItem(productId,unit.value,get('barcodeReprintQty').value);
+      // Never print a different code silently if the catalog changed in the meantime.
+      if(item.barcode!==code.value) { updateUnit(); throw new Error('บาร์โค้ดสินค้ามีการเปลี่ยนแปลง กรุณาตรวจเลขก่อนกดพิมพ์อีกครั้ง'); }
+      printWindow=window.open('','_blank');
+      if(!printWindow) throw new Error('เบราว์เซอร์บล็อกหน้าพิมพ์ กรุณาอนุญาต Pop-up แล้วลองใหม่');
+      writeBarcodePrintWindow(printWindow,[item],get('barcodeReprintSize').value,{trackPrint:false});
+      error.textContent='';
+      showToast(`เตรียมพิมพ์บาร์โค้ดเดิม ${item.qty} ดวงแล้ว`);
+    }catch(caught){
+      if(printWindow&&!printWindow.closed) printWindow.close();
+      error.textContent=caught?.message||'เปิดหน้าพิมพ์ไม่สำเร็จ กรุณาลองใหม่';
+    }
+  });
+  overlay.addEventListener('keydown',event=>{
+    if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close();return;}
+    if(event.key!=='Tab') return;
+    const focusable=[...overlay.querySelectorAll('button,input,select')].filter(element=>!element.disabled&&element.getClientRects().length);
+    const first=focusable[0],last=focusable[focusable.length-1];
+    if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+    else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+  });
+  search.focus();
+}
+
+function writeBarcodePrintWindow(printWindow,items=barcodePrintItems,labelSize=barcodePrintLabelSize,{trackPrint=true}={}){
   if(!printWindow) return false;
   const [width,height]=BARCODE_PRINT_LABEL_DIMENSIONS[labelSize]||BARCODE_PRINT_LABEL_DIMENSIONS['80x50'];
   const labels=[];
@@ -506,14 +623,21 @@ function writeBarcodePrintWindow(printWindow,items=barcodePrintItems,labelSize=b
     for(let count=0;count<Number(item.qty);count++) labels.push(regularLabel);
   });
   const printFontStyle=`<style>@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap');body,.toolbar button,.label{font-family:'Noto Sans Thai',Tahoma,sans-serif}</style>`;
-  if(labels.length) labels[0]=printFontStyle+labels[0];
+
   printWindow.document.open();
-  printWindow.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>พิมพ์ป้ายราคา ${labels.length} ดวง</title><style>@page{size:${width}mm ${height}mm;margin:0}*{box-sizing:border-box}body{margin:0;background:#e9edf0;color:#111;font-family:'Noto Sans Thai',Tahoma,sans-serif}.toolbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#fff;box-shadow:0 2px 8px #0002;font-size:13px}.toolbar button{border:0;border-radius:7px;background:#4F4038;color:#fff;padding:8px 16px;font:600 13px 'Noto Sans Thai',Tahoma,sans-serif;cursor:pointer}.label{width:${width}mm;height:${height}mm;margin:10px auto;padding:0;background:#fff;overflow:hidden;page-break-after:always;break-after:page}.label:last-child{page-break-after:auto;break-after:auto}.barcode-label-svg{display:block;width:100%;height:100%}.price-label-print-element{-webkit-print-color-adjust:exact;print-color-adjust:exact}@media print{body{background:#fff}.toolbar{display:none}.label{margin:0;box-shadow:none}}</style></head><body><div class="toolbar"><span>ป้ายราคา ${width} × ${height} มม. แนวนอน · ทั้งหมด ${labels.length} ดวง</span><button onclick="window.print()">พิมพ์</button></div>${labels.join('')}</body></html>`);
+  printWindow.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>พิมพ์ป้ายราคา ${labels.length} ดวง</title><style>@page{size:${width}mm ${height}mm;margin:0}*{box-sizing:border-box}body{margin:0;background:#e9edf0;color:#111;font-family:'Noto Sans Thai',Tahoma,sans-serif}.toolbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#fff;box-shadow:0 2px 8px #0002;font-size:13px}.toolbar button{border:0;border-radius:7px;background:#4F4038;color:#fff;padding:8px 16px;font:600 13px 'Noto Sans Thai',Tahoma,sans-serif;cursor:pointer}.label{width:${width}mm;height:${height}mm;margin:10px auto;padding:0;background:#fff;overflow:hidden;page-break-after:always;break-after:page}.label:last-child{page-break-after:auto;break-after:auto}.barcode-label-svg{display:block;width:100%;height:100%}.price-label-print-element{-webkit-print-color-adjust:exact;print-color-adjust:exact}@media print{body{background:#fff}.toolbar{display:none}.label{margin:0;box-shadow:none}}</style>${printFontStyle}</head><body><div class="toolbar"><span>ป้ายราคา ${width} × ${height} มม. แนวนอน · ทั้งหมด ${labels.length} ดวง</span><button onclick="window.print()">พิมพ์</button></div>${labels.join('')}</body></html>`);
   printWindow.document.close();
-  if(typeof standardizePrintPreview==='function') standardizePrintPreview(printWindow);
-  const printNow=()=>{ try{ printWindow.focus(); printWindow.print(); }catch(error){} };
-  if(printWindow.document.fonts?.ready?.then) printWindow.document.fonts.ready.then(()=>printNow()).catch(()=>setTimeout(printNow,450));
-  else setTimeout(printNow,450);
+  const preparePreview=()=>{
+    if(printWindow.closed) return;
+    if(typeof standardizePrintPreview==='function') standardizePrintPreview(printWindow,{trackPrint});
+    const printNow=()=>{ try{ if(!printWindow.closed){printWindow.focus(); printWindow.print();} }catch(error){} };
+    if(printWindow.document.fonts?.ready?.then) printWindow.document.fonts.ready.then(printNow).catch(()=>setTimeout(printNow,450));
+    else setTimeout(printNow,450);
+  };
+  // document.write may pause at the font stylesheet. Wait for all labels to be
+  // parsed before opening the print dialog or replacing the preview toolbar.
+  if(printWindow.document.readyState==='loading'&&printWindow.document.addEventListener) printWindow.document.addEventListener('DOMContentLoaded',preparePreview,{once:true});
+  else preparePreview();
   return true;
 }
 

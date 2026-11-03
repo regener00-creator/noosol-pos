@@ -212,6 +212,62 @@ const browserExecutable = [
     render();
   });
   assert.deepEqual(await page.evaluate(()=>barcodePrintItems.map(item=>item.pid)),[9102],'A unit assigned a barcode after selection is removed');
+
+  // Reprints use existing unit codes without changing products or allocating numbers.
+  await page.context().route('https://fonts.googleapis.com/**',route=>route.fulfill({contentType:'text/css',body:''}));
+  await page.context().addInitScript(()=>{window.print=()=>{};});
+  const beforeReprint=await page.evaluate(()=>{
+    window.reprintRpcCalls=0;
+    sb.rpc=async()=>{window.reprintRpcCalls++;throw new Error('Reprint must not call RPC');};
+    return JSON.stringify({products,barcodePrintItems});
+  });
+  await page.locator('#openBarcodeReprintBtn').click();
+  assert.equal(await page.locator('#barcodeReprintSubmit').isDisabled(),true);
+  await page.locator('#barcodeReprintSearch').fill('EMPTY');
+  assert.equal(await page.locator('[data-reprint-product]').count(),0,'A product without a barcode cannot be reprinted');
+  await page.locator('#barcodeReprintSearch').fill('FULL');
+  await page.locator('#barcodeReprintSearch').press('Enter');
+  assert.equal(await page.locator('#barcodeReprintCode').inputValue(),'FULL-001');
+  assert.equal(await page.locator('#barcodeReprintCode').getAttribute('readonly'),'');
+  assert.equal(await page.locator('#barcodeReprintUnit').isVisible(),false);
+  assert.equal(await page.locator('#barcodeReprintSingleUnit').textContent(),'กล่อง');
+  await page.locator('#barcodeReprintQty').fill('3');
+  const [printed]=await Promise.all([page.waitForEvent('popup'),page.locator('#barcodeReprintSubmit').click()]);
+  await printed.waitForSelector('.label');
+  assert.equal(await printed.locator('.label').count(),3);
+  assert.match(await printed.locator('body').textContent(),/FULL-001/);
+  await printed.close();
+  await page.locator('#barcodeReprintSearch').fill('MIXED');
+  assert.equal(await page.locator('#barcodeReprintSubmit').isDisabled(),true,'Typing a new search clears the previous product selection');
+  await page.locator('[data-reprint-product="9103"]').click();
+  assert.deepEqual(await page.locator('#barcodeReprintUnit option').allTextContents(),['กล่อง','แผง']);
+  await page.locator('#barcodeReprintUnit').selectOption('แผง');
+  assert.equal(await page.locator('#barcodeReprintCode').inputValue(),'CREATED-ELSEWHERE');
+  await page.locator('#barcodeReprintQty').fill('0');
+  assert.equal(await page.locator('#barcodeReprintQty').evaluate(element=>element.checkValidity()),false);
+  await page.locator('#barcodeReprintQty').fill('2');
+  await page.locator('#barcodeReprintSize').selectOption('40x30');
+  for(const width of [1280,390]){
+    await page.setViewportSize({width,height:900});
+    const layout=await page.locator('#barcodeReprintDialog').evaluate(element=>({left:element.getBoundingClientRect().left,right:element.getBoundingClientRect().right,width:innerWidth,scroll:element.querySelector('form').scrollWidth,client:element.querySelector('form').clientWidth}));
+    assert.ok(layout.left>=0&&layout.right<=layout.width&&layout.scroll<=layout.client+1,'Reprint dialog fits desktop and mobile');
+    assert.equal(await page.locator('#barcodeReprintSubmit').isVisible(),true);
+  }
+  const [subunitPrint]=await Promise.all([page.waitForEvent('popup'),page.locator('#barcodeReprintSubmit').click()]);
+  await subunitPrint.waitForSelector('.label');
+  assert.equal(await subunitPrint.locator('.label').count(),2);
+  assert.match(await subunitPrint.locator('body').textContent(),/CREATED-ELSEWHERE/);
+  assert.match(await subunitPrint.locator('head').textContent(),/@page\{size:40mm 30mm/);
+  await subunitPrint.getByRole('button',{name:'พิมพ์',exact:true}).click();
+  await subunitPrint.close();
+  assert.equal(await page.evaluate(()=>window.reprintRpcCalls),0,'Reprinting never calls the allocator or any RPC');
+  assert.equal(await page.evaluate(()=>JSON.stringify({products,barcodePrintItems})),beforeReprint,'Reprinting never mutates the product or new-label queue');
+  await page.evaluate(()=>{products.find(product=>product.id===9103).units[0].barcode='CHANGED';});
+  await page.locator('#barcodeReprintSubmit').click();
+  assert.match(await page.locator('#barcodeReprintError').textContent(),/มีการเปลี่ยนแปลง/);
+  assert.equal(await page.locator('#barcodeReprintCode').inputValue(),'CHANGED');
+  await page.locator('#barcodeReprintClose').click();
+  assert.equal(await page.locator('#barcodeReprintDialog').count(),0);
   assert.deepEqual(errors, []);
   console.log('price label designer browser tests passed');
 })().catch(error => {

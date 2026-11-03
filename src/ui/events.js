@@ -910,6 +910,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const barcodePrintSearch=document.getElementById('barcodePrintSearch');
   const barcodePrintResults=document.getElementById('barcodePrintResults');
   const openPriceLabelDesignerBtn=document.getElementById('openPriceLabelDesignerBtn');
+  const openBarcodeReprintBtn=document.getElementById('openBarcodeReprintBtn');
   const clearBarcodePrintBtn=document.getElementById('clearBarcodePrintBtn');
   const savePrintBarcodeBtn=document.getElementById('savePrintBarcodeBtn');
   if(barcodePrintCategorySelect) barcodePrintCategorySelect.addEventListener('change',()=>{ barcodePrintCatFilter.category=barcodePrintCategorySelect.value; barcodePrintCatFilter.brand=''; render(); });
@@ -918,6 +919,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(barcodePrintAddMissingBtn) barcodePrintAddMissingBtn.addEventListener('click',()=>openBarcodePrintCategoryPicker({category:'',brand:''},true));
   if(barcodePrintLabelSizeSelect) barcodePrintLabelSizeSelect.addEventListener('change',()=>{ barcodePrintLabelSize=barcodePrintLabelSizeSelect.value; });
   if(openPriceLabelDesignerBtn) openPriceLabelDesignerBtn.addEventListener('click',()=>openPriceLabelDesigner(barcodePrintLabelSize));
+  if(openBarcodeReprintBtn) openBarcodeReprintBtn.addEventListener('click',openBarcodeReprintDialog);
   if(clearBarcodePrintBtn) clearBarcodePrintBtn.addEventListener('click',()=>{
     if(!confirm('ต้องการล้างรายการพิมพ์ป้ายราคาทั้งหมดใช่หรือไม่?')) return;
     barcodePrintItems=[]; barcodePrintRequest=null; barcodePrintSearchQuery=''; barcodePrintCatFilter={category:'',brand:''}; barcodePrintPage=1; render();

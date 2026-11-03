@@ -44,6 +44,20 @@ function barcodePrintNeedsBarcode(product){
   return barcodePrintMissingUnitOptions(product).length>0;
 }
 
+function barcodeReprintUnitOptions(product){
+  return isProductActive(product)?barcodePrintUnitOptions(product).filter(option=>option.barcode):[];
+}
+
+function barcodeReprintItem(productId,unitName,quantity){
+  const product=products.find(entry=>entry.id===Number(productId));
+  const option=barcodeReprintUnitOptions(product).find(entry=>entry.name===unitName);
+  if(!option) throw new Error('ไม่พบหน่วยสินค้าที่มีบาร์โค้ด กรุณาเลือกสินค้าและหน่วยอีกครั้ง');
+  const qty=Number(quantity);
+  if(!Number.isInteger(qty)||qty<1||qty>500) throw new Error('จำนวนป้ายต้องเป็นจำนวนเต็ม 1–500');
+  code128BValues(option.barcode);
+  return {pid:product.id,unit:option.name,barcode:option.barcode,qty};
+}
+
 let barcodePrintSavePending=false;
 let barcodePrintRequest=null;
 function barcodePrintRequestPayload(items=barcodePrintItems){
