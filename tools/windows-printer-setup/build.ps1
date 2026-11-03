@@ -13,14 +13,18 @@ $argsList+=(Join-Path $PSScriptRoot 'ShellIdentity.cs')
 & $compiler @argsList
 if($LASTEXITCODE -ne 0){throw 'Compilation failed'}
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'README-th.txt') -Destination $output -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'G80-Wireless-Guide-th.txt') -Destination $output -Force
 if(-not $Testing){
   & (Join-Path $repoRoot 'tools/windows-print-bridge/build.ps1')
   $exePath=Join-Path $output $name
   $checksumPath=Join-Path $output 'SHA256.txt'
   ((Get-FileHash -LiteralPath $exePath -Algorithm SHA256).Hash+'  '+$name) | Set-Content -LiteralPath $checksumPath -Encoding ascii
   Get-ChildItem -LiteralPath (Join-Path $output 'PrintBridge') -File | ForEach-Object { ((Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash+'  PrintBridge/'+$_.Name) } | Add-Content -LiteralPath $checksumPath -Encoding ascii
+  foreach($document in @('README-th.txt','G80-Wireless-Guide-th.txt')){
+    ((Get-FileHash -LiteralPath (Join-Path $output $document) -Algorithm SHA256).Hash+'  '+$document) | Add-Content -LiteralPath $checksumPath -Encoding ascii
+  }
   $zipPath=Join-Path $repoRoot 'outputs/SAPURI-POS-Setup-Windows-v3.0.zip'
-  Compress-Archive -LiteralPath @($exePath,(Join-Path $output 'PrintBridge'),(Join-Path $output 'README-th.txt'),$checksumPath) -DestinationPath $zipPath -Force
+  Compress-Archive -LiteralPath @($exePath,(Join-Path $output 'PrintBridge'),(Join-Path $output 'README-th.txt'),(Join-Path $output 'G80-Wireless-Guide-th.txt'),$checksumPath) -DestinationPath $zipPath -Force
   ((Get-FileHash -LiteralPath $zipPath -Algorithm SHA256).Hash+'  SAPURI-POS-Setup-Windows-v3.0.zip') | Set-Content -LiteralPath ($zipPath+'.sha256.txt') -Encoding ascii
   Get-Item $zipPath | Select-Object FullName,Length
 }
