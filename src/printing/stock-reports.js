@@ -56,7 +56,7 @@ function printStockReport(){
     ? reportWarehouses.map((warehouse,index)=>`<div>คลัง ${index+1} : ${escapeHtml(warehouse.name)}</div>`).join('')
     : `<div>คลัง : ${escapeHtml(selectedWarehouseName)}</div>`;
   const rowsHtml=stockReportRowsHtml(true);
-  const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร'); return; }
+  const win=window.open('','_blank','popup,width=1100,height=850'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร'); return; }
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>รายงานสินค้าคงเหลือ</title>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
@@ -92,6 +92,10 @@ function printStockReport(){
     <table><thead>${stockReportHeadersHtml(true)}</thead><tbody>${rowsHtml}</tbody></table>
   </div>
   </body></html>`);
+  // App-mode Chrome can leave a new browser window behind the POS window.
+  // Bring the preview forward again after its resources finish loading.
+  win.addEventListener('load',()=>{if(!win.closed)win.focus();},{once:true});
   win.document.close();
   standardizePrintPreview(win);
+  win.focus();
 }
