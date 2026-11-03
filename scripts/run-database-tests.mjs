@@ -19,16 +19,25 @@ const postgres=new EmbeddedPostgres({databaseDir:directory,port,user:'postgres',
   postgresFlags:['-h','127.0.0.1'],onLog:rememberLog,onError:rememberLog});
 let client;
 let windowsPgCtl;
+let windowsBinaryDirectory;
 try{
-  await postgres.initialise();
   if(process.platform==='win32'){
-    // pg_ctl manages the Windows child token and startup/stop timeouts; directly
-    // spawning postgres from an elevated terminal is rejected by PostgreSQL.
+    // PostgreSQL's restricted-token relaunch cannot resolve non-ASCII install
+    // paths. Keep the disposable native binaries outside a Thai workspace path.
     const requirePostgres=createRequire(import.meta.resolve('embedded-postgres'));
     const binaries=await import(pathToFileURL(requirePostgres.resolve('@embedded-postgres/windows-x64')).href);
-    windowsPgCtl=path.join(path.dirname(binaries.postgres),'pg_ctl.exe');
+    windowsBinaryDirectory=await fs.mkdtemp(path.join(os.tmpdir(),'pepos-pg-binaries-'));
+    await fs.cp(path.dirname(path.dirname(binaries.postgres)),windowsBinaryDirectory,{recursive:true});
+    const initdb=path.join(windowsBinaryDirectory,'bin','initdb.exe');
+    const passwordFile=path.join(windowsBinaryDirectory,'test-password.txt');
+    await fs.writeFile(passwordFile,'isolated-test-only\n');
+    await promisify(execFile)(initdb,['-D',directory,'-U','postgres','--auth=scram-sha-256',`--pwfile=${passwordFile}`,'--encoding=UTF8','--locale=C'],{windowsHide:true,timeout:30000});
+    await fs.unlink(passwordFile);
+    // pg_ctl manages the Windows child token and startup/stop timeouts; directly
+    // spawning postgres from an elevated terminal is rejected by PostgreSQL.
+    windowsPgCtl=path.join(windowsBinaryDirectory,'bin','pg_ctl.exe');
     await promisify(execFile)(windowsPgCtl,['start','-D',directory,'-l',path.join(directory,'server.log'),'-o',`-h 127.0.0.1 -p ${port}`,'-w','-t','20'],{windowsHide:true,timeout:25000});
-  }else await postgres.start();
+  }else {await postgres.initialise();await postgres.start();}
   client=postgres.getPgClient('postgres','127.0.0.1'); await client.connect();
   await client.query(`
     create role anon; create role authenticated; create role service_role bypassrls;
@@ -80,6 +89,8 @@ try{
   await unusedUnitSuite.run({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
   const catalogSuite=await import('../tests/catalog-validation-database.mjs');
   await catalogSuite.run({client});
+  const internalBarcodeSuite=await import('../tests/internal-barcode-database.mjs');
+  await internalBarcodeSuite.run({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
   }
   }
 }catch(error){
@@ -96,4 +107,5 @@ try{
   }else await postgres.stop();
   // Only remove the exact newly-created test cluster, never an env-provided path.
   if(directory.startsWith(path.join(os.tmpdir(),'pepos-isolated-pg-'))) await fs.rm(directory,{recursive:true,force:true,maxRetries:8,retryDelay:250});
+  if(windowsBinaryDirectory?.startsWith(path.join(os.tmpdir(),'pepos-pg-binaries-'))) await fs.rm(windowsBinaryDirectory,{recursive:true,force:true,maxRetries:8,retryDelay:250});
 }

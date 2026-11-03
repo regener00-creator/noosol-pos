@@ -920,7 +920,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(openPriceLabelDesignerBtn) openPriceLabelDesignerBtn.addEventListener('click',()=>openPriceLabelDesigner(barcodePrintLabelSize));
   if(clearBarcodePrintBtn) clearBarcodePrintBtn.addEventListener('click',()=>{
     if(!confirm('ต้องการล้างรายการพิมพ์ป้ายราคาทั้งหมดใช่หรือไม่?')) return;
-    barcodePrintItems=[]; barcodePrintSearchQuery=''; barcodePrintCatFilter={category:'',brand:''}; barcodePrintPage=1; render();
+    barcodePrintItems=[]; barcodePrintRequest=null; barcodePrintSearchQuery=''; barcodePrintCatFilter={category:'',brand:''}; barcodePrintPage=1; render();
   });
   if(barcodePrintSearch&&barcodePrintResults){
     const addProduct=product=>{
@@ -966,7 +966,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     const option=barcodePrintMissingUnitOptions(product).find(entry=>entry.name===select.value);
     if(!option){ showToast('หน่วยนี้มีบาร์โค้ดแล้วหรือไม่พร้อมใช้งาน'); render(); return; }
     item.unit=option.name;
-    item.barcode=generateInternalBarcode(product,item.unit);
+    item.barcode='';
     render();
   }));
   document.querySelectorAll('[data-barcode-print-code]').forEach(input=>{
@@ -987,7 +987,8 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     render();
   }));
   if(savePrintBarcodeBtn) savePrintBarcodeBtn.addEventListener('click',async ()=>{
-    const errors=barcodePrintValidation(barcodePrintItems);
+    if(barcodePrintSavePending) return;
+    const errors=barcodePrintIsRetry()?[]:barcodePrintValidation(barcodePrintItems);
     document.querySelectorAll('.barcode-print-code-input').forEach(input=>input.classList.remove('invalid'));
     if(errors.length){
       errors.forEach(error=>document.querySelector(`[data-barcode-print-code="${error.index}"]`)?.classList.add('invalid'));

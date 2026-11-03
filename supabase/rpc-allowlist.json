@@ -3,6 +3,7 @@
     "has_any_owner()"
   ],
   "authenticated": [
+    "assign_price_label_barcodes(uuid,jsonb)",
     "get_product_catalog_signature()",
     "apply_inventory_transfer(text)",
     "can_current_user_page(text,bigint,text)",

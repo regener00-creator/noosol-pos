@@ -233,7 +233,7 @@ function priceLabelDesignerSample(){
     name:product?.name||'Decolgen prin (4 tablets)',
     unit:item?.unit||option?.name||'กล่อง',
     price:fmtMoney(option?.price||180),
-    code:item?.barcode||'8851824336354',
+    code:item?.barcode||'P00000000000',
   };
 }
 
@@ -453,7 +453,7 @@ function barcodePrintRowsHtml(entries=barcodePrintPagination().rows){
       <td class="mono" style="text-align:center;">${escapeHtml(product.sku||'-')}</td>
       <td>${escapeHtml(product.name)}${selected.barcode?'':`<br><span class="barcode-print-missing">หน่วยนี้ยังไม่มีบาร์โค้ด</span>`}</td>
       <td style="text-align:center;">${unitSelect}</td>
-      <td><input class="barcode-print-code-input" data-barcode-print-code="${index}" value="${escapeHtml(item.barcode)}" maxlength="48" autocomplete="off" aria-label="บาร์โค้ด ${escapeHtml(product.name)}"></td>
+      <td><input class="barcode-print-code-input" data-barcode-print-code="${index}" value="${escapeHtml(item.barcode)}" placeholder="ออกเลขอัตโนมัติเมื่อพิมพ์" maxlength="48" autocomplete="off" aria-label="บาร์โค้ด ${escapeHtml(product.name)}"></td>
       <td class="mono" style="text-align:center;">${fmtMoney(selected.price)}</td>
       <td style="text-align:center;"><input type="number" min="1" max="500" step="1" class="barcode-print-qty-input" data-barcode-print-qty="${index}" value="${Number(item.qty)||1}" aria-label="จำนวนฉลาก ${escapeHtml(product.name)}"></td>
       <td style="text-align:center;"><button class="barcode-print-remove" data-barcode-print-remove="${index}" title="ลบ ${escapeHtml(product.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(product.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td>
@@ -518,7 +518,8 @@ function writeBarcodePrintWindow(printWindow,items=barcodePrintItems,labelSize=b
 }
 
 async function saveBarcodePrintItems(printWindow){
-  const errors=barcodePrintValidation(barcodePrintItems);
+  if(barcodePrintSavePending){ if(printWindow&&!printWindow.closed) printWindow.close(); return false; }
+  const errors=barcodePrintIsRetry()?[]:barcodePrintValidation(barcodePrintItems);
   document.querySelectorAll('.barcode-print-code-input').forEach(input=>input.classList.remove('invalid'));
   if(errors.length){
     errors.forEach(error=>document.querySelector(`[data-barcode-print-code="${error.index}"]`)?.classList.add('invalid'));
@@ -526,35 +527,60 @@ async function saveBarcodePrintItems(printWindow){
     alert(`ยังไม่สามารถบันทึกและพิมพ์ได้\n\n${errors.slice(0,8).map(error=>error.message).join('\n')}${errors.length>8?`\nและอีก ${errors.length-8} จุด`:''}`);
     return false;
   }
-  const snapshot=barcodePrintItems.map(item=>({...item,barcode:String(item.barcode).trim(),qty:Number(item.qty)}));
-  const previousBarcodes=[];
-  const changedProductIds=new Set();
-  snapshot.forEach(item=>{
-    const product=products.find(entry=>entry.id===item.pid);
-    if(!product) return;
-    const target=item.unit===product.unit?product:(product.units||[]).find(entry=>entry.sub===item.unit);
-    if(target){ previousBarcodes.push({target,previous:target.barcode,assigned:item.barcode}); target.barcode=item.barcode; }
-    changedProductIds.add(product.id);
-    item.barcode=String(item.barcode).trim();
-  });
-  barcodePrintItems=snapshot.map(item=>({...item}));
-  rebuildProductLookupMaps();
-  let cached=false;
+  const snapshot=barcodePrintRequestPayload();
+  const context=captureWorkspaceRead();
+  const before=new Map(snapshot.map(item=>{
+    const product=products.find(product=>product.id===item.pid);
+    return [item.pid,product?JSON.stringify(productMetadataToRow(product)):''];
+  }));
+  const labelSize=barcodePrintLabelSize;
   barcodePrintSavePending=true;
-  try{ cached=await persistWorkspaceData({productChanges:{updatedIds:[...changedProductIds]}}); }
-  catch(error){ console.error('Unable to save label barcodes',error); }
-  finally{ barcodePrintSavePending=false; }
-  if(!cached){
-    previousBarcodes.forEach(({target,previous,assigned})=>{ if(target.barcode===assigned) target.barcode=previous; });
+  try{
+    if(!navigator.onLine) throw new Error('กรุณาเชื่อมต่ออินเทอร์เน็ตก่อนออกเลขบาร์โค้ดและพิมพ์');
+    if(snapshot.some(item=>productDirtyOperations.has(String(item.pid)))) throw new Error('สินค้ามีข้อมูลรอซิงก์ กรุณารอให้ซิงก์เสร็จก่อนพิมพ์');
+    if(!barcodePrintIsRetry()) barcodePrintRequest={actor:currentProfile.id,key:JSON.stringify(snapshot),id:crypto.randomUUID()};
+    const {data,error}=await sb.rpc('assign_price_label_barcodes',{p_request_id:barcodePrintRequest.id,p_items:snapshot});
+    if(error) throw error;
+    if(!isWorkspaceReadCurrent(context)) throw new Error('บัญชีผู้ใช้งานเปลี่ยน กรุณาโหลดข้อมูลล่าสุด');
+    if(!Array.isArray(data?.items)||!Array.isArray(data?.products)||data.items.length!==snapshot.length) throw new Error('รับผลบันทึกบาร์โค้ดไม่ครบ กรุณาลองใหม่');
+    data.items.forEach((item,index)=>{
+      const requested=snapshot[index];
+      if(item.pid!==requested.pid||item.unit!==requested.unit||item.qty!==requested.qty||
+        (requested.barcode?item.barcode!==requested.barcode:!/^P\d{11}$/.test(item.barcode))) throw new Error('ผลการออกเลขบาร์โค้ดไม่ตรงกับรายการ กรุณาลองใหม่');
+    });
+    for(const row of data.products){
+      const local=products.find(product=>product.id===row.id);
+      if(!local||!before.has(row.id)) continue;
+      const saved=rowToProduct(row);
+      if(Number(local._revision)>Number(saved._revision)) continue;
+      if(!productDirtyOperations.has(String(row.id))&&JSON.stringify(productMetadataToRow(local))===before.get(row.id)){
+        Object.assign(local,saved,{stock:local.stock,expiry:local.expiry});
+      }else{
+        // Preserve edits made while the request was in flight, acknowledging
+        // only the server-assigned barcode and the new revision.
+        for(const item of data.items.filter(item=>item.pid===row.id)){
+          const target=local.unit===item.unit?local:(local.units||[]).find(unit=>unit.sub===item.unit);
+          if(target) target.barcode=item.barcode;
+        }
+        local._revision=saved._revision;
+      }
+      (syncedTableRows.products||=new Map()).set(String(row.id),JSON.stringify(productMetadataToRow(saved)));
+    }
     rebuildProductLookupMaps();
+    const cached=await persistProductChangesToIndexedDB({updatedIds:data.products.map(row=>row.id)});
+    if(!isWorkspaceReadCurrent(context)) throw new Error('บัญชีผู้ใช้งานเปลี่ยน กรุณาโหลดข้อมูลล่าสุด');
+    // Codes are already committed centrally. A local cache failure must never
+    // undo them or return their numbers to the generator.
+    writeBarcodePrintWindow(printWindow,data.items,labelSize);
+    barcodePrintRequest=null;
+    showToast(cached?`เตรียมพิมพ์ป้ายราคา ${data.items.reduce((sum,item)=>sum+Number(item.qty),0)} ดวงแล้ว`:'บันทึกบาร์โค้ดส่วนกลางแล้ว แต่เก็บสำเนาในเครื่องไม่สำเร็จ กรุณาโหลดข้อมูลล่าสุด');
+    return true;
+  }catch(error){
     if(printWindow&&!printWindow.closed) printWindow.close();
-    showToast('เก็บข้อมูลบาร์โค้ดในเครื่องไม่สำเร็จ กรุณาลองใหม่','danger-top');
-    render();
+    showToast(error?.message||'ยังยืนยันการออกเลขไม่ได้ กรุณาลองใหม่ ระบบจะไม่ออกเลขซ้ำ','danger-top');
     return false;
+  }finally{
+    barcodePrintSavePending=false;
+    if(isWorkspaceReadCurrent(context)){ reconcileBarcodePrintItems(); render(); }
   }
-  reconcileBarcodePrintItems();
-  writeBarcodePrintWindow(printWindow,snapshot,barcodePrintLabelSize);
-  showToast(`เตรียมพิมพ์ป้ายราคา ${snapshot.reduce((sum,item)=>sum+Number(item.qty),0)} ดวงแล้ว`);
-  render();
-  return true;
 }

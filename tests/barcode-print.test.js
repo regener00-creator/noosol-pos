@@ -2,6 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const {randomUUID}=require('node:crypto');
 
 const html = require("./load-app-source")();
 const start = html.indexOf('const CODE128_PATTERNS=');
@@ -17,6 +18,13 @@ let persistOptions = null;
 let renderCount = 0;
 const context = {
   products,
+  currentProfile:{id:'owner-test'},
+  navigator:{onLine:true},
+  crypto:{randomUUID},
+  productDirtyOperations:new Map(),
+  syncedTableRows:{},
+  captureWorkspaceRead:()=>({actor:'owner-test'}),
+  isWorkspaceReadCurrent:()=>true,
   isProductActive: product => Boolean(product)&&product.active!==false,
   barcodePrintItems: [],
   barcodePrintCatFilter: {category:'',brand:''},
@@ -41,6 +49,7 @@ const context = {
   matchesBarcode: (product, query) => product.barcode === query || (product.units || []).some(unit => unit.barcode === query),
   extraBarcodeEntries: product => (product.extraBarcodes || []).map((code, index) => ({code, unit:(product.extraBarcodeUnits || [])[index] || product.unit})),
   persistWorkspaceData: async options => { persistCount++; persistOptions=options; return true; },
+  persistProductChangesToIndexedDB:async options=>{persistCount++;persistOptions=options;return true;},
   rebuildProductLookupMaps: () => {},
   syncBusinessSettingsToSupabase: async () => true,
   showToast: () => {},
@@ -52,7 +61,25 @@ const context = {
 context.isPromotionLiveToday = promo => promo.active !== false && (!promo.startDate || context.TODAY_STR >= promo.startDate) && (!promo.endDate || context.TODAY_STR <= promo.endDate);
 context.findMatchingPromotion = line => context.promotions.find(promo => context.isPromotionLiveToday(promo) && promo.scope === 'product' && Number(promo.productId) === Number(line.pid) && promo.unit === line.unit) || null;
 vm.createContext(context);
+vm.runInContext(fs.readFileSync(path.join(__dirname,'../src/data/record-mappers.js'),'utf8'),context);
 vm.runInContext(html.slice(start, end), context);
+const requests=new Map();
+const rpcCalls=[];
+let nextNumber=0;
+context.sb={rpc:async(name,args)=>{
+  assert.equal(name,'assign_price_label_barcodes');
+  rpcCalls.push(args);
+  if(requests.has(args.p_request_id)) return {data:requests.get(args.p_request_id),error:null};
+  const items=args.p_items.map(item=>({...item,barcode:item.barcode||'P'+String(nextNumber++).padStart(11,'0')}));
+  const rows=items.map(item=>{
+    const product=JSON.parse(JSON.stringify(products.find(product=>product.id===item.pid)));
+    if(item.unit===product.unit) product.barcode=item.barcode;
+    else product.units.find(unit=>unit.sub===item.unit).barcode=item.barcode;
+    product._revision=(product._revision||0)+1;
+    return context.productMetadataToRow(product);
+  });
+  const data={items,products:rows}; requests.set(args.p_request_id,data);return {data,error:null};
+}};
 
 async function run(){
 assert.deepEqual(Array.from(context.code128BValues('123456')), [104,17,18,19,20,21,22,16,106]);
@@ -65,7 +92,7 @@ assert.match(svg, /aria-label="บาร์โค้ด ABC-123"/);
 
 const firstItem = context.createBarcodePrintItem(products[0]);
 assert.equal(firstItem.unit, 'กล่อง');
-assert.equal(firstItem.barcode, 'PEPOS000000100');
+assert.equal(firstItem.barcode, '', 'ไม่คาดเดาเลขส่วนกลางก่อนบันทึกและพิมพ์');
 assert.equal(firstItem.qty, 1);
 context.barcodePrintItems.push(firstItem);
 assert.equal(context.barcodePrintAddProduct(products[0]), false);
@@ -130,7 +157,7 @@ assert.equal(products[0].barcode, 'NEW-001');
 assert.equal(context.barcodePrintItems.length,0,'หลังบันทึกไม่เหลือหน่วยที่สร้างบาร์โค้ดแล้วในคิว');
 assert.deepEqual(Array.from(context.barcodePrintAvailableProducts()),[],'สินค้าที่สร้างบาร์โค้ดครบแล้วไม่ปรากฏให้เลือกอีก');
 assert.equal(persistCount, 1);
-assert.deepEqual(JSON.parse(JSON.stringify(persistOptions)),{productChanges:{updatedIds:[1]}});
+assert.deepEqual(JSON.parse(JSON.stringify(persistOptions)),{updatedIds:[1]});
 assert.equal(renderCount, 1);
 
 let printHtml = '';
@@ -241,26 +268,43 @@ assert.match(html, /\.barcode-print-table-wrap\{[^}]*flex:1;[^}]*overflow-y:hidd
 assert.match(html, /classList\.toggle\('barcode-print-main',currentTab==='barcodeprint'\)/);
 assert.match(html, /@page\{size:\$\{width\}mm \$\{height\}mm;margin:0\}/);
 
-// A failed save must remain retryable under the new missing-unit guard.
+// A lost response must retry the same central job, never issue a second number.
 const retryProduct={id:5,unit:'กล่อง',barcode:'',units:[]};
 products.push(retryProduct);
-context.barcodePrintItems=[{pid:5,unit:'กล่อง',barcode:'RETRY-005',qty:1}];
-context.persistWorkspaceData=async()=>{
+context.barcodePrintItems=[{pid:5,unit:'กล่อง',barcode:'',qty:1}];
+const originalRpc=context.sb.rpc;
+context.sb.rpc=async(name,args)=>{
+  await originalRpc(name,args);
   context.renderBarcodePrint();
   assert.equal(context.barcodePrintItems.length,1,'การวาดหน้าระหว่างรอบันทึกต้องไม่ล้างคิวก่อนทราบผล');
-  return false;
+  return {data:null,error:{message:'response lost'}};
 };
 assert.equal(await context.saveBarcodePrintItems(null),false);
 assert.equal(retryProduct.barcode,'');
 assert.equal(context.barcodePrintValidation().length,0);
-assert.equal(context.barcodePrintItems[0].barcode,'RETRY-005');
+assert.equal(context.barcodePrintItems[0].barcode,'');
 assert.equal(context.barcodePrintValidation([]).length,1,'ไม่เปิดงานพิมพ์ว่าง');
-context.persistWorkspaceData=async()=>true;
+context.sb.rpc=originalRpc;
 printHtml='';
 assert.equal(await context.saveBarcodePrintItems(printWindow),true);
-assert.equal(retryProduct.barcode,'RETRY-005');
-assert.match(printHtml,/RETRY-005/,'ยังสร้างหน้าพิมพ์จากรายการที่เพิ่งบันทึกแม้เอาออกจากคิวแล้ว');
+assert.equal(retryProduct.barcode,'P00000000000');
+assert.equal(rpcCalls.at(-1).p_request_id,rpcCalls.at(-2).p_request_id);
+assert.match(printHtml,/P00000000000/,'ยังสร้างหน้าพิมพ์จากรายการที่เพิ่งบันทึกแม้เอาออกจากคิวแล้ว');
 assert.equal(context.barcodePrintItems.length,0);
+products.push({id:6,unit:'กล่อง',barcode:'',units:[]});
+context.barcodePrintItems=[{pid:6,unit:'กล่อง',barcode:'',qty:1}];
+context.navigator.onLine=false;
+const callCount=rpcCalls.length;
+assert.equal(await context.saveBarcodePrintItems(null),false);
+assert.equal(rpcCalls.length,callCount,'offline must not allocate local numbers');
+context.navigator.onLine=true;
+context.productDirtyOperations.set('6','update');
+assert.equal(await context.saveBarcodePrintItems(null),false);
+assert.equal(rpcCalls.length,callCount,'unsynced product edits are not overwritten');
+context.productDirtyOperations.clear();
+context.persistProductChangesToIndexedDB=async()=>false;
+assert.equal(await context.saveBarcodePrintItems(printWindow),true,'central commit remains valid when local cache fails');
+assert.equal(products.at(-1).barcode,'P00000000001');
 
 console.log('barcode print tests passed');
 }

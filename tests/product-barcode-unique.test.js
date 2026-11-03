@@ -8,7 +8,7 @@ const part=(a,b)=>source.slice(source.indexOf(a),source.indexOf(b,source.indexOf
 function setup(){
   const calls=[];
   const ctx=vm.createContext({products:[{id:1,name:'Existing',sku:'P1',unit:'box',barcode:'000123',active:false,units:[{barcode:'CASE',sub:'case'}],extraBarcodes:['EXTRA',{code:'LEGACY',unit:'box'}],vendorBarcodes:[{code:'VENDOR'}]}],navigator:{onLine:true},sb:{rpc:async(name,args)=>{calls.push({name,args});return {data:[],error:null};}}});
-  vm.runInContext(part('function extraBarcodeEntries(','function extraBarcodeAvailableUnits(')+part('function barcodePrintBarcodeOwners(','function generateInternalBarcode('),ctx);
+  vm.runInContext(part('function extraBarcodeEntries(','function extraBarcodeAvailableUnits(')+part('function barcodePrintBarcodeOwners(','function createBarcodePrintItem('),ctx);
   return {ctx,calls};
 }
 test('all barcode sources share one normalized namespace; leading zeroes and blank codes are safe',()=>{

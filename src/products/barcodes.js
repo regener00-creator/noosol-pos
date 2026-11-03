@@ -45,8 +45,15 @@ function barcodePrintNeedsBarcode(product){
 }
 
 let barcodePrintSavePending=false;
+let barcodePrintRequest=null;
+function barcodePrintRequestPayload(items=barcodePrintItems){
+  return items.map(item=>({pid:Number(item.pid),unit:item.unit,barcode:String(item.barcode||'').trim(),qty:Number(item.qty)}));
+}
+function barcodePrintIsRetry(items=barcodePrintItems){
+  return barcodePrintRequest?.actor===currentProfile?.id&&barcodePrintRequest?.key===JSON.stringify(barcodePrintRequestPayload(items));
+}
 function reconcileBarcodePrintItems(){
-  if(barcodePrintSavePending) return;
+  if(barcodePrintSavePending||barcodePrintIsRetry()) return;
   const byId=new Map(products.map(product=>[product.id,product]));
   barcodePrintItems=barcodePrintItems.filter(item=>{
     const product=byId.get(item.pid);
@@ -120,22 +127,10 @@ async function assertProductBarcodesAvailable(product,existing=null){
   if(conflict) throw new Error(productBarcodeConflictMessage(conflict.barcode,conflict));
 }
 
-function generateInternalBarcode(product,unitName){
-  const options=barcodePrintUnitOptions(product);
-  const optionIndex=Math.max(0,options.findIndex(option=>option.name===unitName));
-  const stem=`PEPOS${String(Number(product?.id)||0).padStart(7,'0')}${String(optionIndex).padStart(2,'0')}`;
-  const used=new Set(barcodePrintBarcodeOwners().map(owner=>owner.code));
-  barcodePrintItems.forEach(item=>{ if(item.barcode) used.add(String(item.barcode).trim()); });
-  if(!used.has(stem)) return stem;
-  let suffix=1;
-  while(used.has(`${stem}-${suffix}`)) suffix++;
-  return `${stem}-${suffix}`;
-}
-
 function createBarcodePrintItem(product){
   const selected=barcodePrintMissingUnitOptions(product)[0];
   if(!selected) return null;
-  return {pid:product.id,unit:selected.name,barcode:generateInternalBarcode(product,selected.name),qty:1};
+  return {pid:product.id,unit:selected.name,barcode:'',qty:1};
 }
 
 function barcodePrintAddProduct(product){
@@ -167,8 +162,12 @@ function barcodePrintValidation(items=barcodePrintItems){
     const option=barcodePrintUnitOptions(product).find(entry=>entry.name===item.unit);
     if(!option){ errors.push({index,message:`แถว ${row}: ไม่พบหน่วยสินค้าที่เลือก`}); return; }
     if(option.barcode){ errors.push({index,message:`แถว ${row}: หน่วย ${item.unit} มีบาร์โค้ดแล้ว กรุณาเลือกเฉพาะหน่วยที่ยังไม่มีบาร์โค้ด`}); return; }
-    try{ code128BValues(code); }catch(error){ errors.push({index,message:`แถว ${row}: ${error.message}`}); return; }
+    if(code){
+      try{ code128BValues(code); }catch(error){ errors.push({index,message:`แถว ${row}: ${error.message}`}); return; }
+      if(code.length>48){ errors.push({index,message:`แถว ${row}: บาร์โค้ดยาวเกิน 48 ตัว`}); return; }
+    }
     if(!Number.isInteger(Number(item.qty))||Number(item.qty)<1||Number(item.qty)>500){ errors.push({index,message:`แถว ${row}: จำนวนฉลากต้องเป็น 1–500`}); }
+    if(!code) return; // The server issues an unused P + 11 digits at print time.
     const currentKey=barcodePrintTargetKey(item.pid,item.unit);
     const conflict=owners.find(owner=>owner.code===code&&(owner.kind!=='unit'||barcodePrintTargetKey(owner.pid,owner.unit)!==currentKey));
     if(conflict){
