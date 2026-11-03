@@ -88,7 +88,7 @@ function printStockReport(){
     <h1>รายงานสินค้าคงเหลือ</h1>
     <div class="warehouse">${warehouseSummary}</div>
     <div class="meta">ณ วันที่ ${thDate(today)}</div>
-    <style>.stock-report-price,.stock-report-stock{text-align:center}.stock-report-warehouse small{display:block;font-size:10px;font-weight:400}.stock-report-code{overflow-wrap:anywhere}.stock-report-name{min-width:90px}.stock-negative{color:#b42318}tr{break-inside:avoid}</style>
+    <style>.stock-report-price,.stock-report-stock{text-align:center}.stock-report-warehouse small{display:block;font-size:10px;font-weight:400}.stock-report-code{overflow-wrap:anywhere;text-align:center}.stock-report-name{min-width:90px}.stock-negative{color:#b42318}tr{break-inside:avoid}</style>
     <table><thead>${stockReportHeadersHtml(true)}</thead><tbody>${rowsHtml}</tbody></table>
   </div>
   </body></html>`);
