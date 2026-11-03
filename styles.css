@@ -1362,7 +1362,7 @@
   .stock-report-table-scroll .stock-report-table thead{position:sticky;top:0;z-index:5;}
   .stock-report-table-scroll .stock-report-table thead th{position:static;}
   .stock-report-table .stock-report-name{min-width:180px;}
-  .stock-report-table .stock-report-code{min-width:115px;overflow-wrap:anywhere;}
+  .stock-report-table .stock-report-code{min-width:115px;overflow-wrap:anywhere;text-align:center;}
   .stock-report-table .stock-report-price{min-width:100px;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums;}
   .stock-report-table .stock-report-stock{min-width:160px;text-align:center;font-variant-numeric:tabular-nums;}
   .stock-report-table .stock-report-warehouse{text-align:center;}
