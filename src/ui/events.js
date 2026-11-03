@@ -963,9 +963,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     const index=Number(select.dataset.barcodePrintUnit);
     const item=barcodePrintItems[index];
     const product=products.find(entry=>entry.id===item?.pid); if(!item||!product) return;
-    item.unit=select.value;
-    const option=barcodePrintUnitOptions(product).find(entry=>entry.name===item.unit);
-    item.barcode=option?.barcode||generateInternalBarcode(product,item.unit);
+    const option=barcodePrintMissingUnitOptions(product).find(entry=>entry.name===select.value);
+    if(!option){ showToast('หน่วยนี้มีบาร์โค้ดแล้วหรือไม่พร้อมใช้งาน'); render(); return; }
+    item.unit=option.name;
+    item.barcode=generateInternalBarcode(product,item.unit);
     render();
   }));
   document.querySelectorAll('[data-barcode-print-code]').forEach(input=>{

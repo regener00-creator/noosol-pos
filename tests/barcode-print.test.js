@@ -80,10 +80,31 @@ assert.deepEqual(Array.from(context.barcodePrintAvailableProducts(),product=>pro
 assert.equal(context.barcodePrintAddProduct(products[3]),false,'ไม่เพิ่มสินค้าที่เลิกใช้');
 assert.equal(context.barcodePrintAddProduct(mixedUnitProduct),true);
 assert.equal(context.barcodePrintItems[1].unit,'แผง','เลือกหน่วยที่ยังไม่มีบาร์โค้ดเป็นค่าเริ่มต้น');
+assert.deepEqual(Array.from(context.barcodePrintMissingUnitOptions(mixedUnitProduct),option=>option.name),['แผง']);
+assert.equal(context.createBarcodePrintItem(products[1]),null,'ไม่สร้างรายการจากหน่วยที่มีบาร์โค้ดครบแล้ว');
+for(const code of ['MAIN-003','REPLACEMENT-003']){
+  assert.match(context.barcodePrintValidation([{pid:3,unit:'กล่อง',barcode:code,qty:1}])[0].message,/มีบาร์โค้ดแล้ว/,'ห้ามพิมพ์รหัสเดิมหรือเขียนทับรหัสเดิม');
+}
 context.barcodePrintItems.pop();
 mixedUnitProduct.units[0].barcode='SUB-003';
 assert.equal(context.barcodePrintNeedsBarcode(mixedUnitProduct),false);
 products.splice(2);
+
+const pendingItem=context.barcodePrintItems[0];
+context.barcodePrintItems.push({pid:2,unit:'ขวด',barcode:'OLD-002',qty:1});
+const rowsBefore=context.barcodePrintRowsHtml();
+assert.doesNotMatch(rowsBefore,/>ลัง<\/option>/,'หน่วยที่มีบาร์โค้ดแล้วไม่อยู่ใน dropdown');
+assert.doesNotMatch(rowsBefore,/OLD-002/,'รายการเก่าที่มีบาร์โค้ดแล้วไม่แสดงเป็นแถวพิมพ์');
+context.reconcileBarcodePrintItems();
+assert.deepEqual(Array.from(context.barcodePrintItems),[pendingItem],'เอาเฉพาะรายการเดิมที่มีบาร์โค้ดแล้วออก');
+const queueBeforeBlockedSave=context.barcodePrintItems;
+context.barcodePrintItems=[{pid:2,unit:'ขวด',barcode:'REPLACEMENT',qty:1}];
+let rejectedWindowClosed=false;
+assert.equal(await context.saveBarcodePrintItems({closed:false,close(){rejectedWindowClosed=true;}}),false);
+assert.equal(rejectedWindowClosed,true);
+assert.equal(products[1].barcode,'OLD-002');
+assert.equal(persistCount,0,'ต้องปฏิเสธก่อนบันทึกข้อมูล');
+context.barcodePrintItems=queueBeforeBlockedSave;
 
 const paginationItems = Array.from({length: 15}, (_, index) => ({pid:index + 1}));
 const secondPage = context.barcodePrintPagination(paginationItems, 2, 7);
@@ -106,6 +127,7 @@ context.barcodePrintItems[0].qty = 2;
 context.barcodePrintItems.splice(1, 1);
 assert.equal(await context.saveBarcodePrintItems(null), true);
 assert.equal(products[0].barcode, 'NEW-001');
+assert.equal(context.barcodePrintItems.length,0,'หลังบันทึกไม่เหลือหน่วยที่สร้างบาร์โค้ดแล้วในคิว');
 assert.deepEqual(Array.from(context.barcodePrintAvailableProducts()),[],'สินค้าที่สร้างบาร์โค้ดครบแล้วไม่ปรากฏให้เลือกอีก');
 assert.equal(persistCount, 1);
 assert.deepEqual(JSON.parse(JSON.stringify(persistOptions)),{productChanges:{updatedIds:[1]}});
@@ -218,6 +240,27 @@ assert.match(html, /\.main\.barcode-print-main\{overflow-y:hidden;\}/);
 assert.match(html, /\.barcode-print-table-wrap\{[^}]*flex:1;[^}]*overflow-y:hidden;/);
 assert.match(html, /classList\.toggle\('barcode-print-main',currentTab==='barcodeprint'\)/);
 assert.match(html, /@page\{size:\$\{width\}mm \$\{height\}mm;margin:0\}/);
+
+// A failed save must remain retryable under the new missing-unit guard.
+const retryProduct={id:5,unit:'กล่อง',barcode:'',units:[]};
+products.push(retryProduct);
+context.barcodePrintItems=[{pid:5,unit:'กล่อง',barcode:'RETRY-005',qty:1}];
+context.persistWorkspaceData=async()=>{
+  context.renderBarcodePrint();
+  assert.equal(context.barcodePrintItems.length,1,'การวาดหน้าระหว่างรอบันทึกต้องไม่ล้างคิวก่อนทราบผล');
+  return false;
+};
+assert.equal(await context.saveBarcodePrintItems(null),false);
+assert.equal(retryProduct.barcode,'');
+assert.equal(context.barcodePrintValidation().length,0);
+assert.equal(context.barcodePrintItems[0].barcode,'RETRY-005');
+assert.equal(context.barcodePrintValidation([]).length,1,'ไม่เปิดงานพิมพ์ว่าง');
+context.persistWorkspaceData=async()=>true;
+printHtml='';
+assert.equal(await context.saveBarcodePrintItems(printWindow),true);
+assert.equal(retryProduct.barcode,'RETRY-005');
+assert.match(printHtml,/RETRY-005/,'ยังสร้างหน้าพิมพ์จากรายการที่เพิ่งบันทึกแม้เอาออกจากคิวแล้ว');
+assert.equal(context.barcodePrintItems.length,0);
 
 console.log('barcode print tests passed');
 }

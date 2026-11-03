@@ -150,13 +150,14 @@ const browserExecutable = [
       {id:9104,sku:'INACTIVE',name:'ทดสอบเลิกใช้',category:'ยา',brand:'แบรนด์',unit:'กล่อง',barcode:'',active:false,units:[]},
     ];
     categories=['ยา']; brands=['แบรนด์'];
-    barcodePrintItems=[];
+    barcodePrintItems=[{pid:9101,unit:'กล่อง',barcode:'FULL-001',qty:1}];
     barcodePrintCatFilter={category:'',brand:''};
     barcodePrintSearchQuery='';
     // Keep this fixture isolated from login and remote-data routing.
     render=()=>{main.innerHTML=renderBarcodePrint();attachEvents();};
     render();
   });
+  assert.equal(await page.locator('[data-barcode-print-row]').count(),0,'Old queued barcoded units are removed on render');
   await page.locator('#barcodePrintSearch').fill('ทดสอบ');
   assert.equal(await page.locator('[data-barcode-print-result]').count(),2);
   await page.locator('#barcodePrintSearch').fill('FULL');
@@ -189,6 +190,22 @@ const browserExecutable = [
   await page.locator('#barcodePickCancelBtn').click();
   await page.locator('#barcodePrintAddMissingBtn').click();
   assert.equal(await page.locator('#barcodePickList input').count(),2);
+  await page.locator('#barcodePickCancelBtn').click();
+  await page.setViewportSize({width:1280,height:900});
+  await page.locator('#barcodePrintSearch').fill('MIXED');
+  await page.locator('#barcodePrintSearch').press('Enter');
+  assert.deepEqual(await page.locator('[data-barcode-print-unit="1"] option').allTextContents(),['แผง']);
+  await page.locator('[data-barcode-print-unit="1"]').evaluate(select=>{
+    select.add(new Option('กล่อง','กล่อง')); select.value='กล่อง';
+    select.dispatchEvent(new Event('change',{bubbles:true}));
+  });
+  assert.equal(await page.locator('[data-barcode-print-unit="1"]').inputValue(),'แผง','A forged or stale unit cannot select an existing barcode');
+  assert.deepEqual(await page.locator('[data-barcode-print-unit="1"] option').allTextContents(),['แผง']);
+  await page.evaluate(()=>{
+    products.find(product=>product.id===9103).units[0].barcode='CREATED-ELSEWHERE';
+    render();
+  });
+  assert.deepEqual(await page.evaluate(()=>barcodePrintItems.map(item=>item.pid)),[9102],'A unit assigned a barcode after selection is removed');
   assert.deepEqual(errors, []);
   console.log('price label designer browser tests passed');
 })().catch(error => {

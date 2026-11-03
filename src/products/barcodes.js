@@ -36,8 +36,22 @@ function barcodePrintUnitOptions(product){
   ];
 }
 
+function barcodePrintMissingUnitOptions(product){
+  return isProductActive(product)?barcodePrintUnitOptions(product).filter(option=>!option.barcode):[];
+}
+
 function barcodePrintNeedsBarcode(product){
-  return isProductActive(product)&&barcodePrintUnitOptions(product).some(option=>!option.barcode);
+  return barcodePrintMissingUnitOptions(product).length>0;
+}
+
+let barcodePrintSavePending=false;
+function reconcileBarcodePrintItems(){
+  if(barcodePrintSavePending) return;
+  const byId=new Map(products.map(product=>[product.id,product]));
+  barcodePrintItems=barcodePrintItems.filter(item=>{
+    const product=byId.get(item.pid);
+    return barcodePrintMissingUnitOptions(product).some(option=>option.name===item.unit);
+  });
 }
 
 function barcodePrintAvailableProducts(filter={}){
@@ -119,9 +133,9 @@ function generateInternalBarcode(product,unitName){
 }
 
 function createBarcodePrintItem(product){
-  const options=barcodePrintUnitOptions(product);
-  const selected=options.find(option=>!option.barcode)||options[0];
-  return {pid:product.id,unit:selected.name,barcode:selected.barcode||generateInternalBarcode(product,selected.name),qty:1};
+  const selected=barcodePrintMissingUnitOptions(product)[0];
+  if(!selected) return null;
+  return {pid:product.id,unit:selected.name,barcode:generateInternalBarcode(product,selected.name),qty:1};
 }
 
 function barcodePrintAddProduct(product){
@@ -140,6 +154,7 @@ function barcodePrintMatchesQuery(product,query){
 }
 
 function barcodePrintValidation(items=barcodePrintItems){
+  if(!items.length) return [{index:-1,message:'กรุณาเลือกหน่วยสินค้าที่ยังไม่มีบาร์โค้ดก่อนพิมพ์'}];
   const owners=barcodePrintBarcodeOwners();
   const queueCodes=new Map();
   const errors=[];
@@ -148,8 +163,10 @@ function barcodePrintValidation(items=barcodePrintItems){
     const code=String(item.barcode||'').trim();
     const row=index+1;
     if(!product){ errors.push({index,message:`แถว ${row}: ไม่พบสินค้า`}); return; }
+    if(!isProductActive(product)){ errors.push({index,message:`แถว ${row}: สินค้านี้เลิกใช้งานแล้ว`}); return; }
     const option=barcodePrintUnitOptions(product).find(entry=>entry.name===item.unit);
     if(!option){ errors.push({index,message:`แถว ${row}: ไม่พบหน่วยสินค้าที่เลือก`}); return; }
+    if(option.barcode){ errors.push({index,message:`แถว ${row}: หน่วย ${item.unit} มีบาร์โค้ดแล้ว กรุณาเลือกเฉพาะหน่วยที่ยังไม่มีบาร์โค้ด`}); return; }
     try{ code128BValues(code); }catch(error){ errors.push({index,message:`แถว ${row}: ${error.message}`}); return; }
     if(!Number.isInteger(Number(item.qty))||Number(item.qty)<1||Number(item.qty)>500){ errors.push({index,message:`แถว ${row}: จำนวนฉลากต้องเป็น 1–500`}); }
     const currentKey=barcodePrintTargetKey(item.pid,item.unit);

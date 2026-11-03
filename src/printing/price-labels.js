@@ -443,8 +443,9 @@ function barcodePrintRowsHtml(entries=barcodePrintPagination().rows){
   return entries.map(({item,index})=>{
     const product=products.find(entry=>entry.id===item.pid);
     if(!product) return '';
-    const options=barcodePrintUnitOptions(product);
-    const selected=options.find(option=>option.name===item.unit)||options[0];
+    const options=barcodePrintMissingUnitOptions(product);
+    const selected=options.find(option=>option.name===item.unit);
+    if(!selected) return '';
     const unitSelect=`<select class="barcode-print-unit-select" data-barcode-print-unit="${index}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected.name?'selected':''}>${escapeHtml(option.name)}</option>`).join('')}</select>`;
     return `<tr data-barcode-print-row="${index}">
       <td class="mono" style="text-align:center;">${escapeHtml(product.sku||'-')}</td>
@@ -459,6 +460,7 @@ function barcodePrintRowsHtml(entries=barcodePrintPagination().rows){
 }
 
 function renderBarcodePrint(){
+  reconcileBarcodePrintItems();
   const defaultSize=typeof readBarcodePaperSize==='function'?readBarcodePaperSize():'50x30';
   const filter=barcodePrintCatFilter;
   const available=barcodePrintAvailableProducts();
@@ -523,22 +525,32 @@ async function saveBarcodePrintItems(printWindow){
     return false;
   }
   const snapshot=barcodePrintItems.map(item=>({...item,barcode:String(item.barcode).trim(),qty:Number(item.qty)}));
+  const previousBarcodes=[];
   const changedProductIds=new Set();
   snapshot.forEach(item=>{
     const product=products.find(entry=>entry.id===item.pid);
     if(!product) return;
-    if(item.unit===product.unit) product.barcode=item.barcode;
-    else{
-      const unit=(product.units||[]).find(entry=>entry.sub===item.unit);
-      if(unit) unit.barcode=item.barcode;
-    }
+    const target=item.unit===product.unit?product:(product.units||[]).find(entry=>entry.sub===item.unit);
+    if(target){ previousBarcodes.push({target,previous:target.barcode,assigned:item.barcode}); target.barcode=item.barcode; }
     changedProductIds.add(product.id);
     item.barcode=String(item.barcode).trim();
   });
   barcodePrintItems=snapshot.map(item=>({...item}));
   rebuildProductLookupMaps();
-  const cached=await persistWorkspaceData({productChanges:{updatedIds:[...changedProductIds]}});
-  if(!cached){ if(printWindow&&!printWindow.closed) printWindow.close(); showToast('เก็บข้อมูลบาร์โค้ดในเครื่องไม่สำเร็จ กรุณาลองใหม่','danger-top'); return false; }
+  let cached=false;
+  barcodePrintSavePending=true;
+  try{ cached=await persistWorkspaceData({productChanges:{updatedIds:[...changedProductIds]}}); }
+  catch(error){ console.error('Unable to save label barcodes',error); }
+  finally{ barcodePrintSavePending=false; }
+  if(!cached){
+    previousBarcodes.forEach(({target,previous,assigned})=>{ if(target.barcode===assigned) target.barcode=previous; });
+    rebuildProductLookupMaps();
+    if(printWindow&&!printWindow.closed) printWindow.close();
+    showToast('เก็บข้อมูลบาร์โค้ดในเครื่องไม่สำเร็จ กรุณาลองใหม่','danger-top');
+    render();
+    return false;
+  }
+  reconcileBarcodePrintItems();
   writeBarcodePrintWindow(printWindow,snapshot,barcodePrintLabelSize);
   showToast(`เตรียมพิมพ์ป้ายราคา ${snapshot.reduce((sum,item)=>sum+Number(item.qty),0)} ดวงแล้ว`);
   render();
