@@ -925,7 +925,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(barcodePrintSearch&&barcodePrintResults){
     const addProduct=product=>{
       const added=barcodePrintAddProduct(product);
-      showToast(added?`เพิ่ม “${product.name}” ในรายการแล้ว`:'สินค้านี้อยู่ในรายการแล้ว');
+      showToast(added?`เพิ่ม “${product.name}” ในรายการแล้ว`:barcodePrintNeedsBarcode(product)?'สินค้านี้อยู่ในรายการแล้ว':'สินค้านี้ไม่มีหน่วยที่ต้องสร้างบาร์โค้ด');
       barcodePrintSearchQuery='';
       render();
       setTimeout(()=>document.getElementById('barcodePrintSearch')?.focus(),0);
@@ -934,7 +934,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       barcodePrintSearchQuery=query;
       const value=String(query||'').trim();
       if(!value){ barcodePrintResults.hidden=true; barcodePrintResults.innerHTML=''; return; }
-      const matches=products.filter(product=>barcodePrintMatchesQuery(product,value)).slice(0,15);
+      const matches=barcodePrintAvailableProducts(barcodePrintCatFilter).filter(product=>barcodePrintMatchesQuery(product,value)).slice(0,15);
       if(!matches.length){ barcodePrintResults.innerHTML='<div class="fav-add-noresult">ไม่พบสินค้า</div>'; barcodePrintResults.hidden=false; return; }
       barcodePrintResults.innerHTML=matches.map(product=>{
         const missing=barcodePrintUnitOptions(product).filter(option=>!option.barcode).length;
@@ -953,7 +953,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       if(event.key!=='Enter') return;
       event.preventDefault();
       const value=barcodePrintSearch.value.trim(); if(!value) return;
-      const exact=products.find(product=>String(product.sku||'')===value||barcodePrintBarcodeOwners().some(owner=>owner.pid===product.id&&owner.code===value));
+      const exact=barcodePrintAvailableProducts(barcodePrintCatFilter).find(product=>String(product.sku||'')===value||matchesBarcode(product,value));
       if(exact){ addProduct(exact); return; }
       const first=barcodePrintResults.querySelector('[data-barcode-print-result]');
       if(first) addProduct(products.find(product=>product.id===Number(first.dataset.barcodePrintResult)));

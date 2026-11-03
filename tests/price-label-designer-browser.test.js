@@ -139,6 +139,56 @@ const browserExecutable = [
   assert.equal(await page.locator('[data-price-label-reverse]').isChecked(),true);
   await page.locator('[data-price-label-tab]').filter({hasText:'ข้อความ 1'}).click();
   assert.equal(await page.locator('[data-price-label-custom-value]').inputValue(),'SALE -15%');
+
+  await page.locator('.price-label-designer-modal .modal-close').click();
+  await page.evaluate(() => {
+    currentTab='barcodeprint';
+    products=[
+      {id:9101,sku:'FULL',name:'ทดสอบครบแล้ว',category:'ยา',brand:'แบรนด์',unit:'กล่อง',barcode:'FULL-001',units:[]},
+      {id:9102,sku:'EMPTY',name:'ทดสอบไม่มีบาร์โค้ด',category:'ยา',brand:'แบรนด์',unit:'กล่อง',barcode:'',units:[]},
+      {id:9103,sku:'MIXED',name:'ทดสอบขาดบางหน่วย',category:'ยา',brand:'แบรนด์',unit:'กล่อง',barcode:'MAIN-003',units:[{sub:'แผง',barcode:''}]},
+      {id:9104,sku:'INACTIVE',name:'ทดสอบเลิกใช้',category:'ยา',brand:'แบรนด์',unit:'กล่อง',barcode:'',active:false,units:[]},
+    ];
+    categories=['ยา']; brands=['แบรนด์'];
+    barcodePrintItems=[];
+    barcodePrintCatFilter={category:'',brand:''};
+    barcodePrintSearchQuery='';
+    // Keep this fixture isolated from login and remote-data routing.
+    render=()=>{main.innerHTML=renderBarcodePrint();attachEvents();};
+    render();
+  });
+  await page.locator('#barcodePrintSearch').fill('ทดสอบ');
+  assert.equal(await page.locator('[data-barcode-print-result]').count(),2);
+  await page.locator('#barcodePrintSearch').fill('FULL');
+  await page.locator('#barcodePrintSearch').press('Enter');
+  assert.equal(await page.evaluate(()=>barcodePrintItems.length),0,'Enter must not bypass the missing-barcode filter');
+  await page.locator('#barcodePrintSearch').fill('EMPTY');
+  await page.locator('#barcodePrintSearch').press('Enter');
+  assert.deepEqual(await page.evaluate(()=>barcodePrintItems.map(item=>item.pid)),[9102]);
+  await page.locator('#barcodePrintCategorySelect').selectOption('ยา');
+  assert.match(await page.locator('#barcodePrintAddCategoryBtn').textContent(),/\(2\)/);
+  await page.locator('#barcodePrintAddCategoryBtn').click();
+  assert.equal(await page.locator('#barcodePickList input').count(),2);
+  await page.locator('#barcodePickAllBtn').click();
+  assert.equal(await page.locator('#barcodePickList input:checked').count(),2);
+  await page.locator('#barcodePickNoneBtn').click();
+  assert.equal(await page.locator('#barcodePickList input:checked').count(),1,'Clear preserves the disabled item already in the queue');
+  await page.addStyleTag({content:'.btn{transition:none!important}'});
+  await page.mouse.move(0,0);
+  for(const width of [1280,390]){
+    await page.setViewportSize({width,height:900});
+    const buttons=await page.evaluate(()=>{
+      const all=document.getElementById('barcodePickAllBtn');
+      const none=document.getElementById('barcodePickNoneBtn');
+      return {all:all.getBoundingClientRect().x,none:none.getBoundingClientRect().x,background:getComputedStyle(all).backgroundColor,color:getComputedStyle(all).color};
+    });
+    assert.ok(buttons.none<buttons.all,'ไม่เลือกเลย must be left of เลือกทั้งหมด');
+    assert.equal(buttons.background,'rgb(79, 64, 56)');
+    assert.equal(buttons.color,'rgb(255, 255, 255)');
+  }
+  await page.locator('#barcodePickCancelBtn').click();
+  await page.locator('#barcodePrintAddMissingBtn').click();
+  assert.equal(await page.locator('#barcodePickList input').count(),2);
   assert.deepEqual(errors, []);
   console.log('price label designer browser tests passed');
 })().catch(error => {

@@ -28,7 +28,7 @@ function openInspectionListCategoryPicker(filter){
   overlay.innerHTML=`<div class="modal inspection-category-modal" style="max-height:82vh;display:flex;flex-direction:column;">
     <div class="modal-head"><h3>เลือกสินค้าเข้ารายการตรวจ</h3><button class="modal-close" aria-label="ปิด">×</button></div>
     <div class="modal-sub">${filter.wh?`${escapeHtml(whName(Number(filter.wh)))} · `:''}${escapeHtml(filter.category||'ทุกหมวดหลัก')}${filter.brand?` · ${escapeHtml(filter.brand)}`:''} · พบ ${matches.length} รายการ</div>
-    <div style="padding:0 16px 8px;display:flex;justify-content:flex-end;gap:14px;"><button class="btn ghost small" id="inspectionPickAllBtn">เลือกทั้งหมด</button><button class="btn ghost small" id="inspectionPickNoneBtn">ไม่เลือกเลย</button></div>
+    <div style="padding:0 16px 8px;display:flex;justify-content:flex-end;gap:14px;"><button class="btn ghost small" id="inspectionPickNoneBtn">ไม่เลือกเลย</button><button class="btn primary small" id="inspectionPickAllBtn">เลือกทั้งหมด</button></div>
     <div class="manage-list" id="inspectionPickList" style="flex:1;">${matches.map(product=>`<label class="fav-check"><input type="checkbox" data-pid="${product.id}" ${alreadyIn(product.id)?'checked disabled':''}> <span>${escapeHtml(product.name)}</span> <span class="mono" style="margin-right:auto;color:var(--text-muted);font-size:12px;">${alreadyIn(product.id)?'อยู่ในรายการแล้ว':`ขาย ${fmtMoney(product.price)} · ${escapeHtml(stockInLargestUnit(product))}`}</span></label>`).join('')}</div>
     <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;"><button class="btn ghost" id="inspectionPickCancelBtn">ยกเลิก</button><button class="btn primary" id="inspectionPickAddBtn">เพิ่มที่เลือก</button></div>
   </div>`;
@@ -58,7 +58,7 @@ function openInventoryMovementCategoryPicker(filter){
   overlay.innerHTML=`<div class="modal movement-category-modal" style="max-height:82vh;display:flex;flex-direction:column;">
     <div class="modal-head"><h3>เลือกสินค้าสำหรับรายงาน</h3><button class="modal-close" aria-label="ปิด">×</button></div>
     <div class="modal-sub">${escapeHtml(filter.category||'ทุกหมวดหลัก')}${filter.brand?` · ${escapeHtml(filter.brand)}`:''} · พบ ${matches.length} รายการ</div>
-    <div style="padding:0 16px 8px;display:flex;justify-content:flex-end;gap:14px;"><button class="btn ghost small" id="movementPickAll">เลือกทั้งหมด</button><button class="btn ghost small" id="movementPickNone">ไม่เลือกเลย</button></div>
+    <div style="padding:0 16px 8px;display:flex;justify-content:flex-end;gap:14px;"><button class="btn ghost small" id="movementPickNone">ไม่เลือกเลย</button><button class="btn primary small" id="movementPickAll">เลือกทั้งหมด</button></div>
     <div class="manage-list" id="movementPickList" style="flex:1;">${matches.map(product=>`<label class="fav-check"><input type="checkbox" data-movement-pid="${product.id}" ${alreadySelected(product.id)?'checked disabled':''}><span>${escapeHtml(product.name)}</span><span class="mono" style="margin-right:auto;color:var(--text-muted);font-size:12px;">${alreadySelected(product.id)?'เลือกไว้แล้ว':escapeHtml(product.sku||'-')}</span></label>`).join('')}</div>
     <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;"><button class="btn ghost" id="movementPickCancel">ยกเลิก</button><button class="btn primary" id="movementPickAdd">เพิ่มที่เลือก</button></div>
   </div>`;
@@ -88,8 +88,8 @@ function openStockReportCategoryPicker(catf, onDone){
     <div class="modal-head"><h3>เลือกสินค้าในหมวดนี้</h3><button class="modal-close">×</button></div>
     <div class="modal-sub">${warehouseValue==='all'?'ทุกคลัง':escapeHtml(warehouses.find(warehouse=>String(warehouse.id)===warehouseValue)?.name||'คลังที่เลือก')} · ${escapeHtml(catf.category||'ทุกหมวดหลัก')}${catf.brand?` · ${escapeHtml(catf.brand)}`:''} · พบ ${matches.length} รายการ</div>
     <div style="padding:0 16px 8px;display:flex;justify-content:flex-end;gap:14px;">
-      <button class="btn ghost small" id="srPickAllBtn">เลือกทั้งหมด</button>
       <button class="btn ghost small" id="srPickNoneBtn">ไม่เลือกเลย</button>
+      <button class="btn primary small" id="srPickAllBtn">เลือกทั้งหมด</button>
     </div>
     <div class="manage-list" id="srPickList" style="flex:1;">${matches.map(p=>`<label class="fav-check"><input type="checkbox" data-pid="${p.id}" ${alreadyIn(p.id)?'checked disabled':''}> <span>${escapeHtml(p.name)}</span> <span class="mono" style="margin-right:auto;color:var(--text-muted);font-size:12px;">${alreadyIn(p.id)?'อยู่ในรายงานแล้ว':stockInLargestUnit({...p,stock:reportStock(p.id,warehouseValue)})}</span></label>`).join('')}</div>
     <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;"><button class="btn ghost" id="srPickCancelBtn">ยกเลิก</button><button class="btn primary" id="srPickAddBtn">เพิ่มที่เลือก</button></div>
@@ -117,15 +117,15 @@ function openStockReportCategoryPicker(catf, onDone){
 }
 
 function openBarcodePrintCategoryPicker(filter,missingOnly=false){
-  const matches=activeProducts().filter(product=>(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand)&&(!missingOnly||barcodePrintUnitOptions(product).some(option=>!option.barcode)));
-  if(!matches.length){ showToast(missingOnly?'ไม่พบสินค้าที่ไม่มีบาร์โค้ด':'ไม่พบสินค้าในหมวดที่เลือก'); return; }
+  const matches=barcodePrintAvailableProducts(filter);
+  if(!matches.length){ showToast('ไม่พบสินค้าที่ไม่มีบาร์โค้ดในหมวดที่เลือก'); return; }
   const alreadyIn=id=>Boolean(barcodePrintFindProductItem(id));
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal barcode-category-modal" style="max-height:82vh;display:flex;flex-direction:column;">
     <div class="modal-head"><h3>${missingOnly?'สินค้าที่ไม่มีบาร์โค้ด':'เลือกสินค้าในหมวดนี้'}</h3><button class="modal-close" aria-label="ปิด">×</button></div>
     <div class="modal-sub">${missingOnly?'รวมทุกหมวด':`${escapeHtml(filter.category||'ทุกหมวดหลัก')}${filter.brand?` · ${escapeHtml(filter.brand)}`:''}`} · พบ ${matches.length} รายการ</div>
-    <div style="padding:0 16px 8px;display:flex;justify-content:flex-end;gap:14px;"><button class="btn ghost small" id="barcodePickAllBtn">เลือกทั้งหมด</button><button class="btn ghost small" id="barcodePickNoneBtn">ไม่เลือกเลย</button></div>
+    <div style="padding:0 16px 8px;display:flex;justify-content:flex-end;gap:14px;"><button class="btn ghost small" id="barcodePickNoneBtn">ไม่เลือกเลย</button><button class="btn primary small" id="barcodePickAllBtn">เลือกทั้งหมด</button></div>
     <div class="manage-list" id="barcodePickList" style="flex:1;">${matches.map(product=>{
       const missingUnits=barcodePrintUnitOptions(product).filter(option=>!option.barcode).map(option=>option.name);
       return `<label class="fav-check"><input type="checkbox" data-pid="${product.id}" ${alreadyIn(product.id)?'checked disabled':''}> <span>${escapeHtml(product.name)}</span> <span class="mono" style="margin-right:auto;color:var(--text-muted);font-size:12px;">${alreadyIn(product.id)?'อยู่ในรายการแล้ว':missingUnits.length?`ไม่มี: ${escapeHtml(missingUnits.join(', '))}`:'มีบาร์โค้ดแล้ว'}</span></label>`;
@@ -183,7 +183,7 @@ function openStockEditCategoryPicker(filter){
   overlay.innerHTML=`<div class="modal stock-edit-category-modal" style="max-height:82vh;display:flex;flex-direction:column;">
     <div class="modal-head"><h3>เลือกสินค้าในหมวดนี้</h3><button class="modal-close" aria-label="ปิด">×</button></div>
     <div class="modal-sub">${escapeHtml(filter.category||'ทุกหมวดหลัก')}${filter.brand?` · ${escapeHtml(filter.brand)}`:''} · พบ ${matches.length} รายการ</div>
-    <div style="padding:0 16px 8px;display:flex;justify-content:flex-end;gap:14px;"><button class="btn ghost small" id="stockEditPickAllBtn">เลือกทั้งหมด</button><button class="btn ghost small" id="stockEditPickNoneBtn">ไม่เลือกเลย</button></div>
+    <div style="padding:0 16px 8px;display:flex;justify-content:flex-end;gap:14px;"><button class="btn ghost small" id="stockEditPickNoneBtn">ไม่เลือกเลย</button><button class="btn primary small" id="stockEditPickAllBtn">เลือกทั้งหมด</button></div>
     <div class="manage-list" id="stockEditPickList" style="flex:1;">${matches.map(p=>`<label class="fav-check"><input type="checkbox" data-pid="${p.id}" ${alreadyIn(p.id)?'checked disabled':''}> <span>${escapeHtml(p.name)}</span> <span class="mono" style="margin-right:auto;color:var(--text-muted);font-size:12px;">${alreadyIn(p.id)?'อยู่ในรายการแล้ว':escapeHtml(stockInLargestUnit(p))}</span></label>`).join('')}</div>
     <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;"><button class="btn ghost" id="stockEditPickCancelBtn">ยกเลิก</button><button class="btn primary" id="stockEditPickAddBtn">เพิ่มที่เลือก</button></div>
   </div>`;
@@ -215,7 +215,7 @@ function openRProductCategoryPicker(){
   const selected=new Set(rproductFilter.products||[]);
   const overlay=document.createElement('div');overlay.className='modal-overlay';
   const scopeLabel=rproductFilter.scope==='category'?[rproductFilter.category,rproductFilter.brand].filter(Boolean).join(' / '):rproductFilter.brand;
-  overlay.innerHTML=`<div class="modal rproduct-category-modal" style="max-height:82vh;display:flex;flex-direction:column;"><div class="modal-head"><h3>เลือกสินค้าในหมวดนี้</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div><div class="modal-sub">${escapeHtml(scopeLabel)} · พบ ${matches.length} รายการ</div><div style="padding:0 16px 8px;display:flex;justify-content:flex-end;gap:14px;"><button type="button" class="btn ghost small" id="rproductPickAllBtn">เลือกทั้งหมด</button><button type="button" class="btn ghost small" id="rproductPickNoneBtn">ไม่เลือกเลย</button></div><div class="manage-list" id="rproductPickList" style="flex:1;">${matches.map(product=>`<label class="fav-check"><input type="checkbox" data-pid="${product.id}" ${selected.has(product.name)?'checked disabled':''}><span>${escapeHtml(product.name)}</span><span class="mono" style="color:var(--text-muted);font-size:12px;">${selected.has(product.name)?'เลือกไว้แล้ว':escapeHtml(product.sku||'-')}</span></label>`).join('')}</div><div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;"><button type="button" class="btn ghost" id="rproductPickCancelBtn">ยกเลิก</button><button type="button" class="btn primary" id="rproductPickAddBtn">เพิ่มที่เลือก</button></div></div>`;
+  overlay.innerHTML=`<div class="modal rproduct-category-modal" style="max-height:82vh;display:flex;flex-direction:column;"><div class="modal-head"><h3>เลือกสินค้าในหมวดนี้</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div><div class="modal-sub">${escapeHtml(scopeLabel)} · พบ ${matches.length} รายการ</div><div style="padding:0 16px 8px;display:flex;justify-content:flex-end;gap:14px;"><button type="button" class="btn ghost small" id="rproductPickNoneBtn">ไม่เลือกเลย</button><button type="button" class="btn primary small" id="rproductPickAllBtn">เลือกทั้งหมด</button></div><div class="manage-list" id="rproductPickList" style="flex:1;">${matches.map(product=>`<label class="fav-check"><input type="checkbox" data-pid="${product.id}" ${selected.has(product.name)?'checked disabled':''}><span>${escapeHtml(product.name)}</span><span class="mono" style="color:var(--text-muted);font-size:12px;">${selected.has(product.name)?'เลือกไว้แล้ว':escapeHtml(product.sku||'-')}</span></label>`).join('')}</div><div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;"><button type="button" class="btn ghost" id="rproductPickCancelBtn">ยกเลิก</button><button type="button" class="btn primary" id="rproductPickAddBtn">เพิ่มที่เลือก</button></div></div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
   const checkboxes=()=>Array.from(overlay.querySelectorAll('#rproductPickList input:not(:disabled)'));

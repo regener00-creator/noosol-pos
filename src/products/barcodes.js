@@ -31,9 +31,17 @@ function code128BSvg(text,height=44){
 function barcodePrintUnitOptions(product){
   if(!product) return [];
   return [
-    {name:product.unit||'ชิ้น',barcode:String(product.barcode||''),price:Number(product.price)||0,isMain:true,index:0},
-    ...(product.units||[]).filter(unit=>unit.sub).map((unit,index)=>({name:unit.sub,barcode:String(unit.barcode||''),price:Number(unit.price)||0,isMain:false,index:index+1}))
+    {name:product.unit||'ชิ้น',barcode:String(product.barcode||'').trim(),price:Number(product.price)||0,isMain:true,index:0},
+    ...(product.units||[]).filter(unit=>unit.sub).map((unit,index)=>({name:unit.sub,barcode:String(unit.barcode||'').trim(),price:Number(unit.price)||0,isMain:false,index:index+1}))
   ];
+}
+
+function barcodePrintNeedsBarcode(product){
+  return isProductActive(product)&&barcodePrintUnitOptions(product).some(option=>!option.barcode);
+}
+
+function barcodePrintAvailableProducts(filter={}){
+  return products.filter(product=>barcodePrintNeedsBarcode(product)&&(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand));
 }
 
 function barcodePrintFindProductItem(productId){ return barcodePrintItems.find(item=>item.pid===Number(productId)); }
@@ -117,7 +125,7 @@ function createBarcodePrintItem(product){
 }
 
 function barcodePrintAddProduct(product){
-  if(!product) return false;
+  if(!barcodePrintNeedsBarcode(product)) return false;
   if(barcodePrintFindProductItem(product.id)) return false;
   barcodePrintItems.push(createBarcodePrintItem(product));
   barcodePrintPage=Math.max(1,Math.ceil(barcodePrintItems.length/BARCODE_PRINT_PAGE_SIZE));

@@ -17,6 +17,7 @@ let persistOptions = null;
 let renderCount = 0;
 const context = {
   products,
+  isProductActive: product => Boolean(product)&&product.active!==false,
   barcodePrintItems: [],
   barcodePrintCatFilter: {category:'',brand:''},
   barcodePrintSearchQuery: '',
@@ -68,8 +69,21 @@ assert.equal(firstItem.barcode, 'PEPOS000000100');
 assert.equal(firstItem.qty, 1);
 context.barcodePrintItems.push(firstItem);
 assert.equal(context.barcodePrintAddProduct(products[0]), false);
-assert.equal(context.barcodePrintAddProduct(products[1]), true);
-assert.equal(context.barcodePrintItems[1].barcode, 'OLD-002');
+assert.equal(context.barcodePrintAddProduct(products[1]), false, 'สินค้าที่มีบาร์โค้ดครบแล้วต้องเพิ่มเข้าคิวไม่ได้');
+assert.equal(context.barcodePrintAddProduct(null), false);
+assert.deepEqual(Array.from(context.barcodePrintAvailableProducts(),product=>product.id),[1]);
+assert.deepEqual(Array.from(context.barcodePrintAvailableProducts({category:'อื่น'})),[]);
+assert.deepEqual(Array.from(context.barcodePrintAvailableProducts({brand:'อื่น'})),[]);
+const mixedUnitProduct={id:3,sku:'P-003',name:'สินค้ามีบาร์โค้ดเฉพาะหน่วยหลัก',unit:'กล่อง',barcode:'MAIN-003',units:[{sub:'แผง',barcode:'  ',price:10}]};
+products.push(mixedUnitProduct,{id:4,name:'เลิกใช้',unit:'ชิ้น',barcode:'',active:false});
+assert.deepEqual(Array.from(context.barcodePrintAvailableProducts(),product=>product.id),[1,3]);
+assert.equal(context.barcodePrintAddProduct(products[3]),false,'ไม่เพิ่มสินค้าที่เลิกใช้');
+assert.equal(context.barcodePrintAddProduct(mixedUnitProduct),true);
+assert.equal(context.barcodePrintItems[1].unit,'แผง','เลือกหน่วยที่ยังไม่มีบาร์โค้ดเป็นค่าเริ่มต้น');
+context.barcodePrintItems.pop();
+mixedUnitProduct.units[0].barcode='SUB-003';
+assert.equal(context.barcodePrintNeedsBarcode(mixedUnitProduct),false);
+products.splice(2);
 
 const paginationItems = Array.from({length: 15}, (_, index) => ({pid:index + 1}));
 const secondPage = context.barcodePrintPagination(paginationItems, 2, 7);
@@ -92,6 +106,7 @@ context.barcodePrintItems[0].qty = 2;
 context.barcodePrintItems.splice(1, 1);
 assert.equal(await context.saveBarcodePrintItems(null), true);
 assert.equal(products[0].barcode, 'NEW-001');
+assert.deepEqual(Array.from(context.barcodePrintAvailableProducts()),[],'สินค้าที่สร้างบาร์โค้ดครบแล้วไม่ปรากฏให้เลือกอีก');
 assert.equal(persistCount, 1);
 assert.deepEqual(JSON.parse(JSON.stringify(persistOptions)),{productChanges:{updatedIds:[1]}});
 assert.equal(renderCount, 1);

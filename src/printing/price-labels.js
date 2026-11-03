@@ -461,9 +461,10 @@ function barcodePrintRowsHtml(entries=barcodePrintPagination().rows){
 function renderBarcodePrint(){
   const defaultSize=typeof readBarcodePaperSize==='function'?readBarcodePaperSize():'50x30';
   const filter=barcodePrintCatFilter;
-  const brandOptions=filter.category?brands.filter(brand=>products.some(product=>product.category===filter.category&&product.brand===brand)):brands.slice();
-  const filteredCount=products.filter(product=>(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand)&&(filter.category||filter.brand)).length;
-  const missingCount=products.filter(product=>barcodePrintUnitOptions(product).some(option=>!option.barcode)).length;
+  const available=barcodePrintAvailableProducts();
+  const brandOptions=brands.filter(brand=>available.some(product=>(!filter.category||product.category===filter.category)&&product.brand===brand));
+  const filteredCount=available.filter(product=>(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand)).length;
+  const missingCount=available.length;
   const pagination=barcodePrintPagination();
   barcodePrintPage=pagination.currentPage;
   return `<div class="rpt barcode-print-page">

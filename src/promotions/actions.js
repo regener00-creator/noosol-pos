@@ -204,7 +204,7 @@ function openPromoItemPicker(){
     <div class="modal-head"><h3>เลือกสินค้าในหมวดนี้</h3><button class="modal-close" aria-label="ปิด">×</button></div>
     <div class="promo-picker-sub">${escapeHtml(category)}${brand?` › ${escapeHtml(brand)}`:''} · พบ ${pool.length} รายการ</div>
     <div class="promo-picker-search"><input type="search" id="promoPickerSearch" placeholder="ค้นหาชื่อสินค้าหรือบาร์โค้ด" aria-label="ค้นหาชื่อสินค้าหรือบาร์โค้ด" autocomplete="off"></div>
-    <div class="promo-picker-toolbar"><button type="button" class="btn ghost small" id="promoPickAllBtn">เลือกทั้งหมดที่แสดง</button><button type="button" class="btn ghost small" id="promoPickNoneBtn">ไม่เลือกที่แสดง</button></div>
+    <div class="promo-picker-toolbar"><button type="button" class="btn ghost small" id="promoPickNoneBtn">ไม่เลือกที่แสดง</button><button type="button" class="btn primary small" id="promoPickAllBtn">เลือกทั้งหมดที่แสดง</button></div>
     <div class="promo-picker-list" id="promoPickerList">${pool.map(p=>`<label class="promo-picker-row"><input type="checkbox" data-pid="${p.id}" ${checkedIds.has(p.id)?'checked':''}><span>${escapeHtml(p.name)}</span></label>`).join('')}<div class="promo-picker-empty" ${pool.length?'hidden':''}>ไม่พบสินค้า</div></div>
     <div class="promo-picker-actions"><button type="button" class="btn ghost" id="promoPickerCancelBtn">ยกเลิก</button><button type="button" class="btn primary" id="promoPickerAddBtn">เพิ่มที่เลือก</button></div>
   </div>`;
