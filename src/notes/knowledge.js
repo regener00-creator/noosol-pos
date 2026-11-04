@@ -37,7 +37,9 @@ function renderKnowledge(){
   if(!state.loaded&&!state.loading&&!state.error)setTimeout(loadKnowledgeArticles,0);
   const selected=state.articles.find(article=>article.id===state.selectedId);
   const cards=state.articles.map((article,index)=>`<button type="button" class="note-list-item ${article.id===state.selectedId?'active':''}" data-knowledge-index="${index}"><span class="note-list-title">${escapeHtml(article.title)}</span></button>`).join('');
-  return `<div class="notes-page knowledge-page"><div class="pagehead"><h1>สิ่งควรรู้</h1><div class="knowledge-actions"><button class="btn ghost" id="reloadKnowledge" ${state.loading?'disabled':''}>โหลดข้อมูลล่าสุด</button>${owner?`<button class="btn primary" id="addKnowledge" ${!state.loaded||state.loading||state.error?'disabled':''}>+ เพิ่มหัวข้อ</button>`:''}</div></div>
+  return `<div class="notes-page knowledge-page"><div class="pagehead">
+    <div class="knowledge-heading"><h1>สิ่งควรรู้</h1>${owner?`<button class="btn primary" id="addKnowledge" ${!state.loaded||state.loading||state.error?'disabled':''}>+ เพิ่มหัวข้อ</button>`:''}</div>
+    <button class="btn ghost" id="reloadKnowledge" ${state.loading?'disabled':''}>โหลดข้อมูลล่าสุด</button></div>
     ${state.error?`<div class="knowledge-error" role="alert">${escapeHtml(state.error)} · กดโหลดข้อมูลล่าสุดเพื่อลองอีกครั้ง</div>`:''}
     ${state.loading?'<p role="status">กำลังโหลดสิ่งควรรู้...</p>':''}
     <div class="knowledge-layout"><aside class="knowledge-list"><input id="knowledgeSearch" placeholder="ค้นหาหัวข้อหรือข้อความ" aria-label="ค้นหาสิ่งควรรู้" value="${escapeHtml(state.search)}"><div class="knowledge-list-items">${cards}</div><p id="knowledgeEmptySearch" hidden>ไม่พบหัวข้อ</p></aside>

@@ -2646,6 +2646,7 @@
   .customer-purchase-items span{color:var(--text-muted);font-size:13px;}
 .customer-purchase-empty{text-align:center;padding:30px!important;color:var(--text-muted);}
 .knowledge-page .pagehead{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+.knowledge-heading{display:flex;align-items:center;gap:12px;}
 .knowledge-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;}
 .knowledge-layout{display:grid;grid-template-columns:minmax(240px,1fr) minmax(0,3fr);gap:20px;align-items:start;}
 .knowledge-list,.knowledge-detail{border:1px solid var(--border);border-radius:16px;background:var(--surface);min-width:0;}
