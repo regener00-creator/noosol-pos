@@ -124,6 +124,22 @@ let browser;
   assert.equal(await page.locator('#posUnitCycleMenu').count(),0);
   await page.locator('#search').focus();
   await page.keyboard.press('Home');assert.equal(await page.evaluate(()=>posSmallestUnitOnce),true,'Home shortcut is preserved');
+  const ids=()=>page.evaluate(()=>cart.map(line=>line.lineId));
+  const beforeDelete=await ids();
+  await thirdRow.locator('.line-qty').focus();
+  await page.keyboard.press('Delete');
+  assert.deepEqual(await ids(),beforeDelete,'Delete in an editable quantity does not remove a product');
+  await thirdRow.locator('.pos-item-name-content').click();
+  for(const accept of [false,true]){
+    let message='';
+    page.once('dialog',async dialog=>{
+      message=dialog.message();
+      if(accept) await dialog.accept(); else await dialog.dismiss();
+    });
+    await page.keyboard.press('Delete');
+    assert.match(message,/ลบรายการที่ 3 “สินค้ารายการที่สาม”/);
+    assert.deepEqual(await ids(),accept?beforeDelete.slice(0,2):beforeDelete);
+  }
   assert.deepEqual(errors,[]);
   console.log('Caps Lock: unit cycle, popup, price/cost/factor/barcode, quantity, selected/latest/merged line, customer prices, modal/input/page guards and Home passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();await new Promise(resolve=>server.close(resolve));});

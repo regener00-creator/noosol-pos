@@ -52,6 +52,23 @@ document.addEventListener('keydown', e=>{
     if(e.defaultPrevented) return;
     const target=e.target;
     const typing=target?.matches?.('input,textarea,select,[contenteditable="true"]');
+    if(e.key==='Delete'&&!e.repeat&&!e.isComposing&&!e.ctrlKey&&!e.shiftKey&&!e.altKey&&!e.metaKey){
+      const row=target.closest?.('[data-pos-cart-line]');
+      const emptySearch=target.id==='search'&&!target.value;
+      if(!row&&target!==document.body&&!emptySearch) return;
+      if((typing||target.isContentEditable)&&!emptySearch&&!target.matches('.line-unit')) return;
+      const lineId=row?.dataset.posCartLine??posActiveLineId;
+      const index=cart.findIndex(line=>String(line.lineId)===String(lineId));
+      if(index<0||cart[index].autoFreeFromPromo) return;
+      const remove=document.querySelector(`.pos-table [data-act="removeline"][data-line="${CSS.escape(String(lineId))}"]`);
+      if(!remove||remove.disabled) return;
+      e.preventDefault();
+      if(confirm(`ลบรายการที่ ${index+1} “${cart[index].name||'รายการกรอกเอง'}” ออกจากบิลนี้หรือไม่?`)){
+        remove.click();
+        posActiveLineId=null;
+      }
+      return;
+    }
     if(e.key==='CapsLock'&&!e.ctrlKey&&!e.altKey&&!e.metaKey&&!e.isComposing&&(!typing||target?.id==='search'||target?.matches?.('.line-unit,.line-qty'))){
       e.preventDefault();
       if(!e.repeat) cyclePosCartLineUnit(target);
