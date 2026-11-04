@@ -99,6 +99,20 @@ let browser;
     await page.keyboard.press(key);assert.ok(await focusIs('#search'));
   }
   await page.keyboard.press('Shift+Tab');assert.ok(await focusIs('.pos-table tr:last-child .line-qty'));
+  await page.keyboard.press('Shift+Tab');assert.ok(await focusIs('.pos-table tr:first-child .line-qty'));
+  await page.keyboard.press('Shift+Tab');assert.ok(await focusIs('.pos-table tr:first-child .line-unit'));
+  await page.keyboard.press('Shift+Tab');assert.ok(await focusIs('#search'));
+  await page.keyboard.press('Shift+Tab');assert.ok(await focusIs('.pos-table tr:last-child .line-qty'));
+  await page.evaluate(()=>{
+    products.push({...products[0],id:103,name:'สินค้ารายการที่สาม'});
+    addToCart(103,'ซอง',1);render();
+  });
+  const thirdRow=page.locator('.pos-table [data-pos-cart-line]').nth(2);
+  await thirdRow.locator('.line-unit').focus();await page.keyboard.press('CapsLock');
+  assert.equal(await thirdRow.locator('.line-unit').inputValue(),'กล่อง');
+  await page.keyboard.press('Enter');
+  assert.ok(await thirdRow.locator('.line-qty').evaluate(el=>el===document.activeElement));
+  assert.equal(await page.locator('#posUnitCycleMenu').count(),0);
   await page.locator('#search').focus();
   await page.keyboard.press('Home');assert.equal(await page.evaluate(()=>posSmallestUnitOnce),true,'Home shortcut is preserved');
   assert.deepEqual(errors,[]);

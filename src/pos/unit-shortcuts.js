@@ -23,10 +23,13 @@ function navigatePosCartFields(event){
 
   const fields=[...document.querySelectorAll('.pos-table :is(.line-unit,.custom-line-unit,.line-qty):enabled')];
   const step=event.shiftKey?-1:1;
-  const index=fields.indexOf(target);
+  // Caps Lock keeps the scanner focused while its unit menu is open.
+  const confirmingUnit=target===search&&event.key==='Enter'&&!event.shiftKey;
+  const anchor=confirmingUnit?document.querySelector('.line-unit.pos-unit-cycle-target')||target:target;
+  const index=fields.indexOf(anchor);
   const lineFields=fields.filter(field=>field.dataset.line===String(row?.dataset.posCartLine??posActiveLineId));
   const entryFields=target!==search&&lineFields.length?lineFields:fields;
-  const next=index<0?entryFields.at(step<0?-1:0):fields.at(index+step);
+  const next=index<0?entryFields.at(step<0?-1:0):fields[index+step];
   event.preventDefault();
   closePosUnitCycleMenu();
   // Blurring a changed quantity commits it and can rebuild the entire cart.
