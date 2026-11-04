@@ -2655,7 +2655,8 @@
 .topic-movable{position:relative;padding-right:38px;user-select:none;-webkit-touch-callout:none;}
 .topic-grip{position:absolute;right:4px;top:50%;width:28px;height:30px;transform:translateY(-50%);cursor:grab;touch-action:none;}
 .topic-grip::after{content:'';position:absolute;inset:7px 8px;background:radial-gradient(circle,var(--text-muted) 1.4px,transparent 1.6px) center/5px 5px;}
-.note-list-item.topic-lifting{opacity:.65;cursor:grabbing;}
+.note-list-item.topic-lifting{opacity:.7;z-index:1;pointer-events:none;transform:translateY(var(--topic-offset,0px));transition:none;box-shadow:0 3px 10px #503f3833;}
+.note-list-item.topic-lifting *{pointer-events:none;}
 .note-list-item.topic-before{box-shadow:inset 0 3px var(--primary);}
 .note-list-item.topic-after{box-shadow:inset 0 -3px var(--primary);}
 .knowledge-list-items [hidden]{display:none;}

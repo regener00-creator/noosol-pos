@@ -11,7 +11,7 @@ let browser;
 (async()=>{
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
   browser=await chromium.launch({headless:true,executablePath:process.env.PEPOS_BROWSER_EXECUTABLE||'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'});
-  const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];
+  const page=await browser.newPage({viewport:{width:1440,height:1000},hasTouch:true}),errors=[];
   await installIsolatedBrowser(page);page.on('pageerror',error=>errors.push(error.message));
   await page.goto('http://127.0.0.1:'+server.address().port);await waitForIsolatedBootstrap(page);
   await page.evaluate(()=>{
@@ -80,10 +80,23 @@ let browser;
   await page.setViewportSize({width:1440,height:1000});
   const cards=page.locator('[data-knowledge-index]');
   const original=await cards.allTextContents();
-  await require('./drag-topic.cjs')(page,cards.first(),cards.last());
+  await require('./drag-topic.cjs')(page,cards.first(),cards.last(),true);
   await page.waitForFunction(title=>document.querySelector('[data-knowledge-index]').textContent===title,original[1]);
   await page.locator('#reloadKnowledge').click();await page.locator('#editKnowledge:not([disabled])').waitFor();
   assert.deepEqual(await cards.allTextContents(),original.reverse());
+  const touch=await page.context().newCDPSession(page);
+  const bounds=await cards.first().locator('.note-list-title').boundingBox();
+  const dest=await cards.last().boundingBox();
+  const start={x:bounds.x+bounds.width/2,y:bounds.y+bounds.height/2};
+  const end={x:dest.x+dest.width/2,y:dest.y+dest.height/2};
+  const send=(type,points)=>touch.send('Input.dispatchTouchEvent',{type,touchPoints:points});
+  await send('touchStart',[start]);
+  await page.locator('.topic-lifting').waitFor({timeout:2000});
+  await send('touchMove',[{x:start.x,y:start.y+12}]);
+  await send('touchMove',[end]);
+  await send('touchEnd',[]);
+  await page.waitForFunction(title=>document.querySelector('[data-knowledge-index]').textContent===title,original[1],{timeout:3000});
+  original.reverse();
   fs.mkdirSync(path.resolve(__dirname,'../outputs'),{recursive:true});await page.screenshot({path:path.resolve(__dirname,'../outputs/knowledge-page.png')});
   // A staff account can read but cannot open the editor or write.
   await page.evaluate(()=>{currentProfile={id:'knowledge-staff',owner:false,level:2};render();});
