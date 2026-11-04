@@ -44,6 +44,14 @@ let browser;
   assert.deepEqual(await page.locator('[data-knowledge-index]').allTextContents(),['ตั้งค่าเครื่องพิมพ์ใบเสร็จอย่างย่อ','POS - เทคนิคต่างๆ']);
   assert.match(await page.locator('.knowledge-content').innerText(),/SAPURI-POS-Setup-Windows-v2.1.rar/);
   await page.locator('[data-knowledge-index="1"]').click();assert.match(await page.locator('.knowledge-content').innerText(),/CAPLOCK/);
+  const tip='กด Ctrl ครั้งเดียวเพื่อกลับไปช่องค้นหาสินค้า';
+  assert.ok((await page.locator('.knowledge-content').innerText()).includes(tip));
+  await page.evaluate(()=>{
+    window.knowledgeStored={articles:getKnowledgeState().articles.map(article=>article.id==='pos-tips'
+      ?{...article,content:'เทคนิคของร้าน',contentHtml:'<b>เทคนิคของร้าน</b>'}:article)};
+  });
+  await page.locator('#reloadKnowledge').click();await page.locator('.knowledge-content b').waitFor();
+  assert.equal(await page.locator('.knowledge-content').innerText(),tip+'\nเทคนิคของร้าน');
   await page.locator('#knowledgeSearch').fill('VOZY');assert.equal(await page.locator('[data-knowledge-index]:visible').count(),1);
   await page.locator('#knowledgeSearch').fill('');
   await page.locator('#addKnowledge').click();

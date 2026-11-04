@@ -1,6 +1,7 @@
+const POS_SEARCH_TIP='กด Ctrl ครั้งเดียวเพื่อกลับไปช่องค้นหาสินค้า';
 const KNOWLEDGE_DEFAULT_ARTICLES=[
   {id:'receipt-printer',title:'ตั้งค่าเครื่องพิมพ์ใบเสร็จอย่างย่อ',content:'การตั้งค่าเครื่องพิมพ์ใบเสร็จอย่างย่อ สำหรับเครื่องพิมพ์ใบเสร็จ ยี่ห้อ VOZY G80\nโหลด SAPURI-POS-Setup-Windows-v2.1.rar มาติดตั้ง ในนั้นจะมีวิธีบอกการติดตั้งอยู่\nจำเป็นจะต้องทำเพื่อทำให้เครื่องพิมพ์ใบเสร็จอย่างย่อ สามารถใช้งานแบบ ไร้สายได้'},
-  {id:'pos-tips',title:'POS - เทคนิคต่างๆ',content:'การกดปุ่ม CAPLOCK จะช่วยให้เปลี่ยนหน่วยได้อย่างรวดเร็ว\nหากตัวหนังสือเป็นสีฟ้าจะเป็นการบ่งบอกว่าสินค้านั้นมีโปรโมชั่น\nหลังจากกดปุ่มพัก จะเป็นพักการจ่ายเงินของคนนั้น\nเราสามารถทำต่อได้โดยการกดปุ่ม ประวัติการขาย แล้วเลือกทำต่อของออเดอร์คนๆนั้น\nรายการกรอกเอง เอาไว้ใช้เมื่อทำการ จ่ายยาชุด หรือว่า สินค้าอื่นๆ ที่ไม่ได้อยู่ในระบบ'}
+  {id:'pos-tips',title:'POS - เทคนิคต่างๆ',content:POS_SEARCH_TIP+'\nการกดปุ่ม CAPLOCK จะช่วยให้เปลี่ยนหน่วยได้อย่างรวดเร็ว\nหากตัวหนังสือเป็นสีฟ้าจะเป็นการบ่งบอกว่าสินค้านั้นมีโปรโมชั่น\nหลังจากกดปุ่มพัก จะเป็นพักการจ่ายเงินของคนนั้น\nเราสามารถทำต่อได้โดยการกดปุ่ม ประวัติการขาย แล้วเลือกทำต่อของออเดอร์คนๆนั้น\nรายการกรอกเอง เอาไว้ใช้เมื่อทำการ จ่ายยาชุด หรือว่า สินค้าอื่นๆ ที่ไม่ได้อยู่ในระบบ'}
 ];
 let knowledgeState=null;
 function getKnowledgeState(){
@@ -12,8 +13,16 @@ function getKnowledgeState(){
 function knowledgeArticlesFromValue(value){
   if(value==null) return KNOWLEDGE_DEFAULT_ARTICLES.map(article=>({...article}));
   if(!Array.isArray(value.articles)) throw new Error('รูปแบบข้อมูลสิ่งควรรู้ไม่ถูกต้อง');
-  return value.articles.map(article=>({id:String(article.id),title:String(article.title||''),content:String(article.content||''),
+  const articles=value.articles.map(article=>({id:String(article.id),title:String(article.title||''),content:String(article.content||''),
     ...(typeof article.contentHtml==='string'?{contentHtml:sanitizeNoteHtml(article.contentHtml)}:{})}));
+  if(!value.posSearchTipAdded){
+    const article=articles.find(item=>item.id==='pos-tips')||articles.find(item=>item.title.trim()==='POS - เทคนิคต่างๆ');
+    if(article&&!article.content.includes(POS_SEARCH_TIP)){
+      article.content=[POS_SEARCH_TIP,article.content].filter(Boolean).join('\n');
+      if(article.contentHtml!==undefined) article.contentHtml=escapeHtml(POS_SEARCH_TIP)+'<br>'+article.contentHtml;
+    }
+  }
+  return articles;
 }
 function knowledgeContentHtml(article){
   return article?.contentHtml??escapeHtml(article?.content||'').replace(/\r?\n/g,'<br>');
@@ -47,7 +56,7 @@ function renderKnowledge(){
 }
 async function persistKnowledgeArticles(articles,state){
   if(loggedInUser()?.owner!==true||!isWorkspaceReadCurrent(state.context))throw new Error('ไม่มีสิทธิ์แก้ไขสิ่งควรรู้');
-  const value={articles};
+  const value={articles,posSearchTipAdded:true};
   if(new Blob([JSON.stringify(value)]).size>900000)throw new Error('ข้อมูลสิ่งควรรู้มีขนาดใหญ่เกินไป กรุณาลดข้อความก่อนบันทึก');
   const {error}=await sb.rpc('owner_save_knowledge_articles',{p_expected:JSON.parse(state.snapshot),p_value:value});
   if(error)throw error;
