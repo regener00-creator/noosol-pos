@@ -143,11 +143,20 @@ function renderDashboard(){
   const completedSales = salesHistory.filter(s=>s.status==='done').filter(dashboardSaleInWarehouse);
   const monthKey = TODAY_STR.slice(0,7);
   const monthSales = completedSales.filter(s=>(s.date||'').slice(0,7)===monthKey);
-  const monthSummary=dashboardSalesSummary(monthSales);
   const canViewProfit = !isLevel2User();
-  // Initialize the selected month's shared load before rendering its product ranking.
+  // The cards and product ranking share the calendar's selected month and warehouse.
   const calendarHtml=renderDashboardCalendar(monthSales,canViewProfit);
   const historical=dashboardSelectedMonth()!==monthKey?dashboardCalendarLoad:null;
+  const monthSummary=dashboardSalesSummary(historical?[]:monthSales);
+  if(historical?.loaded){
+    for(const day of historical.daily.values()){
+      monthSummary.total+=day.total;
+      monthSummary.profit+=day.profit;
+      if(!day.profitComplete)monthSummary.profitComplete=false;
+    }
+  }
+  const periodLabel=historical?new Date(historical.month+'-01T12:00:00').toLocaleDateString('th-TH-u-ca-gregory',{month:'long',year:'numeric'}):'เดือนนี้';
+  const summaryPending=historical?.error?'—':historical&&!historical.loaded?'…':'';
   const bestSellers=historical?dashboardBestSellers([],historical.bestSellerTotals||new Map()):dashboardBestSellers(monthSales);
   const bestSellerFeedback=historical?.error?'<p class="dashboard-best-empty" role="alert">โหลดสินค้าขายดีไม่สำเร็จ กรุณากดลองใหม่ที่ปฏิทินยอดขาย</p>':historical&&!historical.loaded?'<p class="dashboard-best-empty" role="status">กำลังโหลดสินค้าขายดี...</p>':'';
   const recentSales=completedSales.slice(0,16);
@@ -162,7 +171,7 @@ function renderDashboard(){
       <tbody>${rows.length?rows.map(s=>`<tr><td>${escapeHtml(fmtDate(s.date))}</td><td class="mono">${escapeHtml(s.ref||s.id)}</td><td>${escapeHtml(saleHistoryTimeDisplay(s.time))}</td><td class="history-items-cell">${recentItems(s.items)}</td><td class="mono num">${fmtMoney(s.total)}</td><td>${escapeHtml(s.payMethod||'-')}</td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">${index===0?'ยังไม่มีรายการขาย':'ยังไม่มีรายการเพิ่มเติม'}</td></tr>`}</tbody></table></div>
     </section>`).join('');
   return `
-    <div class="statrow dashboard-summary-row"><section class="stat dashboard-summary-card" data-dashboard-period="month"><div><div class="slabel">ยอดขายเดือนนี้</div><div class="sval" data-summary-sales>${monthSummary.total<0?'-':''}${fmtMoney(Math.abs(monthSummary.total))}</div></div>${canViewProfit?`<div><div class="slabel">กำไรเดือนนี้</div><div class="sval" data-summary-profit>${dashboardProfitHtml(monthSummary)}</div></div>`:''}</section><section class="stat dashboard-top-products"><header><h3>สินค้าขายดี</h3></header><div class="dashboard-best-sellers">${bestSellerFeedback||bestSellers.map((item,index)=>`<div class="dashboard-best-seller">${index<3?`<span class="dashboard-best-rank" aria-label="อันดับ ${index+1}">${['🏆','🥈','🥉'][index]}</span>`:''}<div><b title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</b><span class="dashboard-best-quantity">${escapeHtml(item.quantityText)}</span></div></div>`).join('')||'<p class="dashboard-best-empty">ยังไม่มีรายการขายสินค้าในเดือนที่เลือก</p>'}</div></section></div>
+    <div class="statrow dashboard-summary-row"><section class="stat dashboard-summary-card" data-dashboard-period="month"><div><div class="slabel">ยอดขาย${periodLabel}</div><div class="sval" data-summary-sales>${summaryPending||fmtMoney(monthSummary.total)}</div></div>${canViewProfit?`<div><div class="slabel">กำไร${periodLabel}</div><div class="sval" data-summary-profit>${summaryPending||dashboardProfitHtml(monthSummary)}</div></div>`:''}</section><section class="stat dashboard-top-products"><header><h3>สินค้าขายดี</h3></header><div class="dashboard-best-sellers">${bestSellerFeedback||bestSellers.map((item,index)=>`<div class="dashboard-best-seller">${index<3?`<span class="dashboard-best-rank" aria-label="อันดับ ${index+1}">${['🏆','🥈','🥉'][index]}</span>`:''}<div><b title="${escapeHtml(item.name)}">${escapeHtml(item.name)}</b><span class="dashboard-best-quantity">${escapeHtml(item.quantityText)}</span></div></div>`).join('')||'<p class="dashboard-best-empty">ยังไม่มีรายการขายสินค้าในเดือนที่เลือก</p>'}</div></section></div>
     ${calendarHtml}
     <div class="dashboard-recent-sales">${recentTables}</div>`;
 }
