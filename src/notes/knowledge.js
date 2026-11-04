@@ -45,14 +45,9 @@ function renderKnowledge(){
 }
 async function persistKnowledgeArticles(articles,state){
   if(loggedInUser()?.owner!==true||!isWorkspaceReadCurrent(state.context))throw new Error('ไม่มีสิทธิ์แก้ไขสิ่งควรรู้');
-  // Re-read before writing so a stale page does not overwrite changes from another device.
-  const latest=await sb.from('settings').select('value').eq('key','knowledge_articles').maybeSingle();
-  if(latest.error)throw latest.error;
-  if(!isWorkspaceReadCurrent(state.context))throw new Error('บัญชีผู้ใช้เปลี่ยนแล้ว กรุณาเปิดหน้านี้ใหม่');
-  if(JSON.stringify(stableJsonValue(latest.data?.value??null))!==state.snapshot)throw new Error('ข้อมูลถูกแก้ไขจากเครื่องอื่นแล้ว กรุณาคัดลอกข้อความที่แก้ไขไว้ แล้วโหลดข้อมูลล่าสุด');
   const value={articles};
   if(new Blob([JSON.stringify(value)]).size>900000)throw new Error('ข้อมูลสิ่งควรรู้มีขนาดใหญ่เกินไป กรุณาลดข้อความก่อนบันทึก');
-  const {error}=await sb.rpc('owner_set_setting',{p_key:'knowledge_articles',p_value:value});
+  const {error}=await sb.rpc('owner_save_knowledge_articles',{p_expected:JSON.parse(state.snapshot),p_value:value});
   if(error)throw error;
   if(!isWorkspaceReadCurrent(state.context))return false;
   state.articles=articles;state.snapshot=JSON.stringify(stableJsonValue(value));return true;
@@ -94,6 +89,19 @@ function attachKnowledgeEvents(){
   if(currentTab!=='knowledge')return;
   const state=getKnowledgeState();
   document.getElementById('reloadKnowledge')?.addEventListener('click',loadKnowledgeArticles);
+  if(loggedInUser()?.owner===true&&state.loaded&&!state.loading&&!state.error){
+    bindTopicReorder(document.querySelector('.knowledge-list-items'),'[data-knowledge-index]',async(source,target)=>{
+      const articles=state.articles.slice();
+      const [moved]=articles.splice(Number(source.dataset.knowledgeIndex),1);
+      articles.splice(Number(target.dataset.knowledgeIndex),0,moved);
+      state.loading=true;
+      render();
+      try{
+        await persistKnowledgeArticles(articles,state);
+      }catch(error){showToast(error?.message||'บันทึกลำดับไม่สำเร็จ','danger-top');}
+      finally{state.loading=false;if(currentTab==='knowledge'&&isWorkspaceReadCurrent(state.context))render();}
+    });
+  }
   document.getElementById('addKnowledge')?.addEventListener('click',()=>openKnowledgeEditor());
   document.getElementById('editKnowledge')?.addEventListener('click',()=>openKnowledgeEditor(state.articles.find(article=>article.id===state.selectedId)));
   document.querySelectorAll('[data-knowledge-index]').forEach(button=>button.onclick=()=>{state.selectedId=state.articles[Number(button.dataset.knowledgeIndex)].id;render();});

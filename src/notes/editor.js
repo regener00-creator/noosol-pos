@@ -66,7 +66,6 @@ function canDeleteNote(note){
   return !!note&&(loggedInUser()?.owner===true||(String(note.createdBy)===String(currentProfile?.id)&&canPerformPageAction('delete','notes')));
 }
 function isStandaloneNote(note){ return !!note&&!note.activityType&&!note.representativeId; }
-function sortNotes(){ notes.sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||''))); }
 async function loadNotes({append=false,reset=false}={}){
   if(notesLoading||!sb||!currentProfile) return;
   if(reset){ notes=[]; notesLoaded=false; notesHasMore=false; notePageCursor=null; }
@@ -90,7 +89,6 @@ async function loadNotes({append=false,reset=false}={}){
       rows.forEach(note=>merged.set(note.id,note));
       notes=[...merged.values()];
     }else notes=rows;
-    sortNotes();
     notesLoaded=true;
     notesHasMore=fetched.length>NOTE_PAGE_SIZE;
     const last=rows.at(-1);
@@ -211,8 +209,7 @@ async function saveNote(event){
     if(!result.data) throw new Error('โน้ตนี้ถูกแก้ไขหรือลบจากอีกเครื่อง กรุณาโหลดหน้า NOTE ใหม่');
     const saved=mapNoteRow(result.data);
     const index=notes.findIndex(note=>note.id===saved.id);
-    if(index>=0) notes[index]=saved; else notes.push(saved);
-    sortNotes();
+    if(index>=0) notes[index]=saved; else notes.unshift(saved);
     editingNoteId=saved.id;
     noteDraft=noteDraftFromRow(saved);
     noteDraftDirty=false;
@@ -245,6 +242,34 @@ async function deleteSelectedNote(){
 }
 function attachNoteEvents(){
   if(currentTab!=='notes') return;
+  const list=document.querySelector('.note-list-panel');
+  if(loggedInUser()?.owner===true&&!notesLoading){
+    bindTopicReorder(list,'[data-note-id]',async(source,target)=>{
+      if(list.dataset.savingOrder)return;
+      list.dataset.savingOrder='true';
+      const sourceId=source.dataset.noteId,targetId=target.dataset.noteId;
+      const after=Boolean(source.compareDocumentPosition(target)&Node.DOCUMENT_POSITION_FOLLOWING);
+      const context=captureWorkspaceRead();
+      try{
+        const {error}=await sb.rpc('owner_move_note',{p_source:sourceId,p_target:targetId,p_after:after});
+        if(error)throw error;
+        if(!isWorkspaceReadCurrent(context))return;
+        const from=notes.findIndex(note=>note.id===sourceId),to=notes.findIndex(note=>note.id===targetId);
+        if(from<0||to<0)return;
+        const [moved]=notes.splice(from,1);
+        const destination=notes.findIndex(note=>note.id===targetId);
+        notes.splice(destination+Number(after),0,moved);
+        const last=notes.filter(isStandaloneNote).at(-1);
+        notePageCursor={updatedAt:last.updatedAt,id:last.id};
+        if(currentTab==='notes'){
+          const buttons=[...document.querySelectorAll('[data-note-id]')];
+          const a=buttons.find(el=>el.dataset.noteId===sourceId),b=buttons.find(el=>el.dataset.noteId===targetId);
+          if(a&&b){if(after)b.after(a);else b.before(a);}
+        }
+      }catch(error){showToast(error?.message||'บันทึกลำดับไม่สำเร็จ','danger-top');}
+      finally{delete list.dataset.savingOrder;}
+    });
+  }
   document.getElementById('addNoteBtn')?.addEventListener('click',startNewNote);
   document.getElementById('emptyAddNoteBtn')?.addEventListener('click',startNewNote);
   document.getElementById('retryNotesBtn')?.addEventListener('click',()=>{ noteLoadError=''; notesLoaded=false; loadNotes(); });

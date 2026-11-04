@@ -69,6 +69,8 @@ try{
     }
   }
   console.log('All baseline and migration SQL applied to isolated PostgreSQL');
+  const noteOrderSuite=await import('../tests/note-order-database.mjs');
+  await noteOrderSuite.run({client});
   const offlineSuite=await import('../tests/offline-sales-database.mjs');
   await offlineSuite.run({client});
   if(!process.argv.includes('--offline-only')){

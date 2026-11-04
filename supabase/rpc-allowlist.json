@@ -28,6 +28,8 @@
     "has_any_owner()",
     "open_cash_shift(bigint,numeric)",
     "owner_delete_warehouse(bigint)",
+    "owner_move_note(uuid,uuid,boolean)",
+    "owner_save_knowledge_articles(jsonb,jsonb)",
     "owner_resolve_sync_event(uuid)",
     "owner_set_setting(text,jsonb)",
     "owner_update_mobile_product_details_revisioned(bigint,bigint,bigint,bigint,jsonb,numeric,numeric,date)",

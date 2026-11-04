@@ -66,6 +66,18 @@ let browser;
   assert.equal(await page.locator('[data-note-color]').count(), 8);
   assert.equal(await page.locator('.note-list-item').count(),1);
   assert.doesNotMatch(await page.locator('.note-list-panel').textContent(),/NOTE ผู้แทนที่ต้องไม่แสดง/);
+  await page.evaluate(()=>{
+    notes.push({...notes[0],id:'note-2',title:'second'});
+    document.getElementById('main').innerHTML=renderNotes();attachNoteEvents();
+    const original=sb.rpc;
+    sb.rpc=(name,args)=>name==='owner_move_note'?(window.lastNoteMove=args,Promise.resolve({error:null})):original.call(sb,name,args);
+  });
+  await page.locator('#noteTitle').fill('draft');
+  await require('./drag-topic.cjs')(page,page.locator('[data-note-id="note-2"]'),page.locator('[data-note-id="note-1"]'));
+  await page.waitForFunction(()=>document.querySelector('[data-note-id]').dataset.noteId==='note-2');
+  assert.deepEqual(await page.evaluate(()=>window.lastNoteMove),{p_source:'note-2',p_target:'note-1',p_after:false});
+  assert.equal(await page.locator('#noteTitle').inputValue(),'draft');
+  page.once('dialog',dialog=>dialog.accept());
 
   await page.locator('#addNoteBtn').click();
   await page.locator('#noteTitle').fill('หลายรูปแบบ');
@@ -110,6 +122,7 @@ let browser;
     return {hiddenToggle:document.querySelectorAll('#noteHiddenFromLevel2').length,editable:document.getElementById('noteContentEditor').contentEditable,canDelete:!!document.getElementById('deleteNoteBtn')};
   });
   assert.deepEqual(level2State,{hiddenToggle:0,editable:'true',canDelete:true});
+  assert.equal(await page.locator('.topic-grip').count(),0);
   assert.deepEqual(errors, []);
 })().catch(error => {
   console.error(error);

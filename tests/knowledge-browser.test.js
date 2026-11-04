@@ -22,8 +22,9 @@ let browser;
     const originalFrom=sb.from;
     sb.from=table=>table==='settings'?{select:()=>({eq:()=>({maybeSingle:async()=>({data:window.knowledgeStored===null?null:{value:window.knowledgeStored},error:window.knowledgeFail?{message:'ทดสอบออฟไลน์'}:null})})})}:originalFrom(table);
     sb.rpc=async(name,args)=>{
-      if(name==='owner_set_setting'){
+      if(name==='owner_save_knowledge_articles'){
         if(window.knowledgeFail)return {error:{message:'ทดสอบออฟไลน์'}};
+        if(JSON.stringify(stableJsonValue(args.p_expected))!==JSON.stringify(stableJsonValue(window.knowledgeStored)))return {error:{message:'ข้อมูลถูกแก้ไขจากเครื่องอื่น'}};
         const assertOwner=currentProfile.owner===true;
         if(!assertOwner)return {error:{message:'owner access required'}};
         window.knowledgeStored=stableJsonValue(args.p_value);window.knowledgeWrites.push(args);return {data:{value:window.knowledgeStored},error:null};
@@ -77,10 +78,18 @@ let browser;
   await page.setViewportSize({width:600,height:900});
   assert.equal(await page.locator('.knowledge-layout').evaluate(el=>el.scrollWidth<=el.clientWidth),true);
   await page.setViewportSize({width:1440,height:1000});
+  const cards=page.locator('[data-knowledge-index]');
+  const original=await cards.allTextContents();
+  await require('./drag-topic.cjs')(page,cards.first(),cards.last());
+  await page.waitForFunction(title=>document.querySelector('[data-knowledge-index]').textContent===title,original[1]);
+  await page.locator('#reloadKnowledge').click();await page.locator('#editKnowledge:not([disabled])').waitFor();
+  assert.deepEqual(await cards.allTextContents(),original.reverse());
   fs.mkdirSync(path.resolve(__dirname,'../outputs'),{recursive:true});await page.screenshot({path:path.resolve(__dirname,'../outputs/knowledge-page.png')});
   // A staff account can read but cannot open the editor or write.
   await page.evaluate(()=>{currentProfile={id:'knowledge-staff',owner:false,level:2};render();});
   await page.locator('.knowledge-detail h2').waitFor();
+  assert.deepEqual(await cards.allTextContents(),original);
+  assert.equal(await page.locator('.topic-grip').count(),0);
   assert.equal(await page.locator('#addKnowledge,#editKnowledge,#deleteKnowledge').count(),0);
   await page.evaluate(()=>openKnowledgeEditor());assert.equal(await page.locator('.knowledge-editor-overlay').count(),0);
   assert.deepEqual(errors,[]);console.log('Knowledge: menu, seed text, search, create/edit/reload, XSS, errors/conflict, delete, responsive and read-only staff passed');
