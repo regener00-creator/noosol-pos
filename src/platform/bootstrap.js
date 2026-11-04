@@ -22,6 +22,28 @@ document.addEventListener('focusin',event=>{
   if(row&&currentTab==='checkout') posActiveLineId=row.dataset.posCartLine;
 });
 window.addEventListener('resize',closePosUnitCycleMenu);
+let posCtrlTapSearch=null;
+function cancelPosCtrlTap(){ posCtrlTapSearch=null; }
+window.addEventListener('blur',cancelPosCtrlTap);
+document.addEventListener('pointerdown',cancelPosCtrlTap,true);
+document.addEventListener('wheel',cancelPosCtrlTap,{capture:true,passive:true});
+document.addEventListener('keydown',event=>{
+  if(event.key==='Control'&&event.repeat) return;
+  cancelPosCtrlTap();
+  if(event.key==='Control'&&!event.shiftKey&&!event.altKey&&!event.metaKey&&!event.isComposing&&
+    currentTab==='checkout'&&!document.querySelector('.modal-overlay')){
+    posCtrlTapSearch=document.querySelector('#main #search');
+  }
+},true);
+document.addEventListener('keyup',event=>{
+  const search=posCtrlTapSearch;
+  cancelPosCtrlTap();
+  if(event.key!=='Control'||!search?.isConnected||currentTab!=='checkout'||document.querySelector('.modal-overlay')) return;
+  closePosUnitCycleMenu();
+  // Committing an edited quantity on blur can replace the search input.
+  if(document.activeElement!==search) document.activeElement?.blur();
+  if(currentTab==='checkout'&&!document.querySelector('.modal-overlay')) document.querySelector('#main #search')?.focus();
+},true);
 document.addEventListener('scroll',event=>{if(!event.target.closest?.('#posUnitCycleMenu')) closePosUnitCycleMenu();},true);
 // F2 = เก็บเงิน (ลัดขั้นตอนแทนการเอื้อมมือไปคลิกปุ่ม) เฉพาะตอนอยู่หน้า POS และมีสินค้าในบิลแล้วเท่านั้น
 document.addEventListener('keydown', e=>{
