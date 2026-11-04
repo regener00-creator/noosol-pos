@@ -25,7 +25,7 @@ function navigatePosCartFields(event){
   const step=event.shiftKey?-1:1;
   const index=fields.indexOf(target);
   const lineFields=fields.filter(field=>field.dataset.line===String(row?.dataset.posCartLine??posActiveLineId));
-  const entryFields=lineFields.length?lineFields:fields;
+  const entryFields=target!==search&&lineFields.length?lineFields:fields;
   const next=index<0?entryFields.at(step<0?-1:0):fields.at(index+step);
   event.preventDefault();
   closePosUnitCycleMenu();
