@@ -127,6 +127,26 @@ let browser;
   const ids=()=>page.evaluate(()=>cart.map(line=>line.lineId));
   const beforeDelete=await ids();
   const thirdQuantity=thirdRow.locator('.line-qty');
+  const cellPosition=()=>page.evaluate(()=>{
+    const cell=document.activeElement.closest('td');
+    return cell&&[cell.parentElement.sectionRowIndex,cell.cellIndex];
+  });
+  await thirdQuantity.fill('4');
+  await page.keyboard.press('Control+ArrowUp');
+  assert.deepEqual(await cellPosition(),[1,5]);
+  assert.equal(await page.evaluate(()=>cart[2].qty),4,'moving commits the edited quantity');
+  await page.keyboard.press('Control+ArrowLeft');
+  assert.deepEqual(await cellPosition(),[1,4],'a fixed unit remains a navigable column');
+  await page.keyboard.press('Control+ArrowDown');
+  assert.ok(await thirdRow.locator('.line-unit').evaluate(el=>el===document.activeElement));
+  await page.keyboard.press('Control+ArrowRight');
+  assert.ok(await thirdQuantity.evaluate(el=>el===document.activeElement));
+  await page.keyboard.press('Control+ArrowDown');
+  assert.deepEqual(await cellPosition(),[2,5],'bottom edge stays in the current cell');
+  await thirdRow.locator('td').nth(1).click();
+  await page.keyboard.press('Control+ArrowUp');
+  assert.deepEqual(await cellPosition(),[1,1],'navigation can start from a clicked barcode');
+  await thirdQuantity.fill('1');
   await thirdQuantity.focus();
   for(const [key,qty] of [['ArrowUp',2],['ArrowUp',3],['ArrowDown',2],['ArrowDown',1],['ArrowDown',1]]){
     await page.keyboard.press(key);

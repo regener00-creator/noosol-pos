@@ -14,7 +14,11 @@ document.addEventListener('click', ()=>{
 });
 document.addEventListener('pointerdown',event=>{
   const row=event.target.closest?.('[data-pos-cart-line]');
-  if(row&&currentTab==='checkout') posActiveLineId=row.dataset.posCartLine;
+  if(row&&currentTab==='checkout'){
+    posActiveLineId=row.dataset.posCartLine;
+    const cell=event.target.closest('td');
+    if(cell&&!event.target.closest('input,select,button')) cell.tabIndex=-1;
+  }
   if(!event.target.closest?.('#posUnitCycleMenu')) closePosUnitCycleMenu();
 });
 document.addEventListener('focusin',event=>{
@@ -48,6 +52,7 @@ document.addEventListener('scroll',event=>{if(!event.target.closest?.('#posUnitC
 // F2 = เก็บเงิน (ลัดขั้นตอนแทนการเอื้อมมือไปคลิกปุ่ม) เฉพาะตอนอยู่หน้า POS และมีสินค้าในบิลแล้วเท่านั้น
 document.addEventListener('keydown', e=>{
   if(currentTab==='checkout'&&!document.querySelector('.modal-overlay')){
+    navigatePosCartArrows(e);
     navigatePosCartFields(e);
     if(e.defaultPrevented) return;
     const target=e.target;

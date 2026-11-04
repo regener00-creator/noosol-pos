@@ -24,6 +24,29 @@ function setPosCartLineUnit(lineId,unitName){
   return true;
 }
 
+function navigatePosCartArrows(event){
+  if(!event.ctrlKey||event.shiftKey||event.altKey||event.metaKey||event.isComposing||event.defaultPrevented) return;
+  const vertical=event.key==='ArrowUp'||event.key==='ArrowDown';
+  if(!vertical&&event.key!=='ArrowLeft'&&event.key!=='ArrowRight') return;
+  const cell=event.target.closest?.('.pos-table [data-pos-cart-line] > td');
+  if(!cell) return;
+  event.preventDefault();
+  closePosUnitCycleMenu();
+  const row=cell.parentElement;
+  const step=event.key==='ArrowUp'||event.key==='ArrowLeft'?-1:1;
+  const rows=[...row.parentElement.querySelectorAll('tr[data-pos-cart-line]')];
+  const nextRow=vertical?rows[rows.indexOf(row)+step]:row;
+  const column=vertical?cell.cellIndex:cell.cellIndex+step;
+  if(!nextRow?.cells[column]) return;
+  const lineId=nextRow.dataset.posCartLine;
+  // Committing the quantity can replace every cell, so resolve the destination after blur.
+  if(event.target.matches('.line-qty')) event.target.blur();
+  const next=document.querySelector(`.pos-table [data-pos-cart-line="${CSS.escape(lineId)}"]`)?.cells[column];
+  if(!next) return;
+  next.tabIndex=-1;
+  (next.querySelector('input:enabled,select:enabled,button:enabled')||next).focus();
+}
+
 function navigatePosCartFields(event){
   if(!['Tab','Enter'].includes(event.key)||event.defaultPrevented||event.isComposing||event.ctrlKey||event.altKey||event.metaKey) return;
   const search=document.querySelector('#main #search');
