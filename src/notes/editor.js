@@ -123,6 +123,16 @@ function startNewNote(){
   render();
   setTimeout(()=>document.getElementById('noteTitle')?.focus(),0);
 }
+function renderNoteToolbar(canEdit){
+  return `<div class="note-toolbar" role="toolbar" aria-label="จัดรูปแบบข้อความ">
+      <button type="button" data-note-command="bold" title="ตัวหนา" aria-label="ตัวหนา" ${canEdit?'':'disabled'}><b>B</b></button>
+      <button type="button" data-note-command="underline" title="ขีดเส้นใต้" aria-label="ขีดเส้นใต้" ${canEdit?'':'disabled'}><u>U</u></button>
+      <button type="button" data-note-command="strikeThrough" title="ขีดฆ่า" aria-label="ขีดฆ่า" ${canEdit?'':'disabled'}><s>S</s></button>
+      <span class="note-toolbar-divider"></span>
+      <span class="note-color-label">สีข้อความ</span>
+      <span class="note-color-list">${NOTE_COLORS.map(([color,label])=>`<button type="button" class="note-color-swatch" data-note-color="${color}" style="--note-color:${color}" title="${escapeHtml(label)}" aria-label="สี${escapeHtml(label)}" ${canEdit?'':'disabled'}></button>`).join('')}</span>
+    </div>`;
+}
 function renderNotes(){
   if(!notesLoaded&&!notesLoading&&!noteLoadError) setTimeout(()=>loadNotes(),0);
   const standaloneNotes=notes.filter(isStandaloneNote);
@@ -152,14 +162,7 @@ function renderNotes(){
       <label for="noteTitle">ชื่อโน้ต</label>
       <input id="noteTitle" maxlength="160" autocomplete="off" value="${escapeHtml(draft.title)}" ${canEdit?'':'readonly'} placeholder="ตั้งชื่อโน้ต">
     </div>
-    <div class="note-toolbar" role="toolbar" aria-label="จัดรูปแบบข้อความ">
-      <button type="button" data-note-command="bold" title="ตัวหนา" aria-label="ตัวหนา" ${canEdit?'':'disabled'}><b>B</b></button>
-      <button type="button" data-note-command="underline" title="ขีดเส้นใต้" aria-label="ขีดเส้นใต้" ${canEdit?'':'disabled'}><u>U</u></button>
-      <button type="button" data-note-command="strikeThrough" title="ขีดฆ่า" aria-label="ขีดฆ่า" ${canEdit?'':'disabled'}><s>S</s></button>
-      <span class="note-toolbar-divider"></span>
-      <span class="note-color-label">สีข้อความ</span>
-      <span class="note-color-list">${NOTE_COLORS.map(([color,label])=>`<button type="button" class="note-color-swatch" data-note-color="${color}" style="--note-color:${color}" title="${escapeHtml(label)}" aria-label="สี${escapeHtml(label)}" ${canEdit?'':'disabled'}></button>`).join('')}</span>
-    </div>
+    ${renderNoteToolbar(canEdit)}
     <div id="noteContentEditor" class="note-content-editor ${canEdit?'':'readonly'}" contenteditable="${canEdit?'true':'false'}" role="textbox" aria-multiline="true" data-placeholder="เขียนข้อความที่นี่…">${sanitizeNoteHtml(draft.contentHtml)}</div>
     ${loggedInUser()?.owner===true?`<label class="note-visibility-option"><input id="noteHiddenFromLevel2" type="checkbox" ${draft.hiddenFromLevel2?'checked':''} ${canEdit?'':'disabled'}><span><b>ซ่อนโน้ตนี้จาก LEVEL 2</b><small>ผู้ใช้งาน LEVEL 2 จะไม่สามารถเห็นโน้ตนี้ได้</small></span></label>`:''}
     <div class="note-editor-footer">
@@ -262,6 +265,9 @@ function attachNoteEvents(){
   document.getElementById('noteTitle')?.addEventListener('input',markDirty);
   document.getElementById('noteHiddenFromLevel2')?.addEventListener('change',markDirty);
   const editor=document.getElementById('noteContentEditor');
+  if(editor) attachNoteFormatting(editor.closest('form'),editor,markDirty);
+}
+function attachNoteFormatting(root,editor,markDirty=()=>{}){
   editor?.addEventListener('input',markDirty);
   editor?.addEventListener('paste',event=>{
     event.preventDefault();
@@ -269,15 +275,15 @@ function attachNoteEvents(){
     const plain=event.clipboardData?.getData('text/plain')||'';
     const safe=html?sanitizeNoteHtml(html):escapeHtml(plain).replace(/\r?\n/g,'<br>');
     document.execCommand('insertHTML',false,safe);
-    noteDraftDirty=true;
+    markDirty();
   });
-  document.querySelectorAll('[data-note-command]').forEach(button=>{
+  root.querySelectorAll('[data-note-command]').forEach(button=>{
     button.addEventListener('mousedown',event=>event.preventDefault());
-    button.addEventListener('click',()=>{ if(button.disabled||!editor) return; document.execCommand(button.dataset.noteCommand,false,null); editor.focus(); noteDraftDirty=true; });
+    button.addEventListener('click',()=>{ if(button.disabled||!editor) return; editor.focus(); document.execCommand(button.dataset.noteCommand,false,null); markDirty(); });
   });
-  document.querySelectorAll('[data-note-color]').forEach(button=>{
+  root.querySelectorAll('[data-note-color]').forEach(button=>{
     button.addEventListener('mousedown',event=>event.preventDefault());
-    button.addEventListener('click',()=>{ if(button.disabled||!editor) return; document.execCommand('foreColor',false,button.dataset.noteColor); editor.focus(); noteDraftDirty=true; });
+    button.addEventListener('click',()=>{ if(button.disabled||!editor) return; editor.focus(); document.execCommand('foreColor',false,button.dataset.noteColor); markDirty(); });
   });
 }
 

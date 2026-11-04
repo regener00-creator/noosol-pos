@@ -12,7 +12,11 @@ function getKnowledgeState(){
 function knowledgeArticlesFromValue(value){
   if(value==null) return KNOWLEDGE_DEFAULT_ARTICLES.map(article=>({...article}));
   if(!Array.isArray(value.articles)) throw new Error('รูปแบบข้อมูลสิ่งควรรู้ไม่ถูกต้อง');
-  return value.articles.map(article=>({id:String(article.id),title:String(article.title||''),content:String(article.content||'')}));
+  return value.articles.map(article=>({id:String(article.id),title:String(article.title||''),content:String(article.content||''),
+    ...(typeof article.contentHtml==='string'?{contentHtml:sanitizeNoteHtml(article.contentHtml)}:{})}));
+}
+function knowledgeContentHtml(article){
+  return article?.contentHtml??escapeHtml(article?.content||'').replace(/\r?\n/g,'<br>');
 }
 async function loadKnowledgeArticles(){
   const state=getKnowledgeState();if(state.loading||!currentProfile) return;
@@ -37,7 +41,7 @@ function renderKnowledge(){
     ${state.error?`<div class="knowledge-error" role="alert">${escapeHtml(state.error)} · กดโหลดข้อมูลล่าสุดเพื่อลองอีกครั้ง</div>`:''}
     ${state.loading?'<p role="status">กำลังโหลดสิ่งควรรู้...</p>':''}
     <div class="knowledge-layout"><aside class="knowledge-list"><input id="knowledgeSearch" placeholder="ค้นหาหัวข้อหรือข้อความ" aria-label="ค้นหาสิ่งควรรู้" value="${escapeHtml(state.search)}"><div class="knowledge-list-items">${cards}</div><p id="knowledgeEmptySearch" hidden>ไม่พบหัวข้อ</p></aside>
-    <article class="knowledge-detail">${selected?`<header><h2>${escapeHtml(selected.title)}</h2>${owner?`<div class="knowledge-actions"><button class="btn danger" id="deleteKnowledge" ${state.loading||state.error?'disabled':''}>ลบหัวข้อ</button><button class="btn ghost" id="editKnowledge" ${state.loading||state.error?'disabled':''}>แก้ไข</button></div>`:''}</header><div class="knowledge-content">${escapeHtml(selected.content)}</div>`:`<div class="knowledge-empty">${state.loaded?'ยังไม่มีหัวข้อ':'เลือกหัวข้อที่ต้องการอ่าน'}</div>`}</article></div></div>`;
+    <article class="knowledge-detail">${selected?`<header><h2>${escapeHtml(selected.title)}</h2>${owner?`<div class="knowledge-actions"><button class="btn danger" id="deleteKnowledge" ${state.loading||state.error?'disabled':''}>ลบหัวข้อ</button><button class="btn ghost" id="editKnowledge" ${state.loading||state.error?'disabled':''}>แก้ไข</button></div>`:''}</header><div class="knowledge-content">${knowledgeContentHtml(selected)}</div>`:`<div class="knowledge-empty">${state.loaded?'ยังไม่มีหัวข้อ':'เลือกหัวข้อที่ต้องการอ่าน'}</div>`}</article></div></div>`;
 }
 async function persistKnowledgeArticles(articles,state){
   if(loggedInUser()?.owner!==true||!isWorkspaceReadCurrent(state.context))throw new Error('ไม่มีสิทธิ์แก้ไขสิ่งควรรู้');
@@ -57,19 +61,24 @@ function openKnowledgeEditor(article=null){
   const state=getKnowledgeState();
   if(loggedInUser()?.owner!==true||!state.loaded||state.loading||state.error)return;
   const overlay=document.createElement('div');overlay.className='modal-overlay knowledge-editor-overlay';
-  overlay.innerHTML=`<div class="modal knowledge-editor-modal" role="dialog" aria-modal="true" aria-labelledby="knowledgeEditorTitle"><div class="modal-head"><h3 id="knowledgeEditorTitle">${article?'แก้ไขหัวข้อ':'เพิ่มหัวข้อ'}สิ่งควรรู้</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div><form id="knowledgeEditorForm"><label for="knowledgeTitle">หัวข้อ</label><input id="knowledgeTitle" maxlength="160" required value="${escapeHtml(article?.title||'')}"><label for="knowledgeContent">เนื้อหา</label><textarea id="knowledgeContent" rows="14" maxlength="40000">${escapeHtml(article?.content||'')}</textarea><p id="knowledgeFeedback" role="alert"></p><div class="knowledge-actions"><button class="btn ghost" type="button" id="cancelKnowledge">ยกเลิก</button><button class="btn primary" type="submit">บันทึก</button></div></form></div>`;
+  overlay.innerHTML=`<div class="modal knowledge-editor-modal" role="dialog" aria-modal="true" aria-labelledby="knowledgeEditorTitle"><div class="modal-head"><h3 id="knowledgeEditorTitle">${article?'แก้ไขหัวข้อ':'เพิ่มหัวข้อ'}สิ่งควรรู้</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div><form id="knowledgeEditorForm"><label for="knowledgeTitle">หัวข้อ</label><input id="knowledgeTitle" maxlength="160" required value="${escapeHtml(article?.title||'')}"><span id="knowledgeContentLabel">เนื้อหา</span><div>${renderNoteToolbar(true)}<div id="knowledgeContent" class="note-content-editor" contenteditable="true" role="textbox" aria-multiline="true" aria-labelledby="knowledgeContentLabel" data-placeholder="เขียนข้อความที่นี่…">${knowledgeContentHtml(article)}</div></div><p id="knowledgeFeedback" role="alert"></p><div class="knowledge-actions"><button class="btn ghost" type="button" id="cancelKnowledge">ยกเลิก</button><button class="btn primary" type="submit">บันทึก</button></div></form></div>`;
   document.body.appendChild(overlay);
   const title=overlay.querySelector('#knowledgeTitle'),content=overlay.querySelector('#knowledgeContent');
+  attachNoteFormatting(overlay,content);
+  content.addEventListener('drop',event=>event.preventDefault());
+  const initialHtml=content.innerHTML;
   let saving=false;
-  const dirty=()=>title.value!==(article?.title||'')||content.value!==(article?.content||'');
+  const dirty=()=>title.value!==(article?.title||'')||content.innerHTML!==initialHtml;
   overlay.knowledgeHasUnsavedChanges=()=>saving||dirty();
   const close=()=>{if(!saving&&(!dirty()||confirm('มีข้อมูลที่ยังไม่ได้บันทึก ต้องการปิดหรือไม่?')))overlay.remove();};
   overlay.querySelector('.modal-close').onclick=close;overlay.querySelector('#cancelKnowledge').onclick=close;
   overlay.querySelector('form').onsubmit=async event=>{
     event.preventDefault();if(saving)return;
     if(!title.value.trim()){title.focus();return;}
-    saving=true;overlay.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=true);
-    const next={id:article?.id||crypto.randomUUID(),title:title.value.trim(),content:content.value};
+    const plainText=content.innerText;
+    if(plainText.length>40000){overlay.querySelector('#knowledgeFeedback').textContent='เนื้อหาต้องไม่เกิน 40,000 ตัวอักษร';return;}
+    saving=true;content.contentEditable='false';overlay.querySelectorAll('button,input').forEach(el=>el.disabled=true);
+    const next={id:article?.id||crypto.randomUUID(),title:title.value.trim(),content:plainText,contentHtml:sanitizeNoteHtml(content.innerHTML)};
     const articles=article?state.articles.map(item=>item.id===article.id?next:item):[...state.articles,next];
     try{
       if(await persistKnowledgeArticles(articles,state)){
@@ -77,7 +86,7 @@ function openKnowledgeEditor(article=null){
       }
       overlay.remove();if(currentTab==='knowledge')render();
     }catch(error){overlay.querySelector('#knowledgeFeedback').textContent=error?.message||'บันทึกไม่สำเร็จ';}
-    finally{saving=false;overlay.querySelectorAll('button,input,textarea').forEach(el=>el.disabled=false);}
+    finally{saving=false;content.contentEditable='true';overlay.querySelectorAll('button,input').forEach(el=>el.disabled=false);}
   };
   title.focus();
 }
