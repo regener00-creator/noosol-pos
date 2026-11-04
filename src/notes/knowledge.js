@@ -52,7 +52,10 @@ function renderKnowledge(){
     ${state.error?`<div class="knowledge-error" role="alert">${escapeHtml(state.error)} · กดโหลดข้อมูลล่าสุดเพื่อลองอีกครั้ง</div>`:''}
     ${state.loading?'<p role="status">กำลังโหลดสิ่งควรรู้...</p>':''}
     <div class="knowledge-layout"><aside class="knowledge-list"><input id="knowledgeSearch" placeholder="ค้นหาหัวข้อหรือข้อความ" aria-label="ค้นหาสิ่งควรรู้" value="${escapeHtml(state.search)}"><div class="knowledge-list-items">${cards}</div><p id="knowledgeEmptySearch" hidden>ไม่พบหัวข้อ</p></aside>
-    <article class="knowledge-detail">${selected?`<header><h2>${escapeHtml(selected.title)}</h2>${owner?`<div class="knowledge-actions"><button class="btn danger" id="deleteKnowledge" ${state.loading||state.error?'disabled':''}>ลบหัวข้อ</button><button class="btn ghost" id="editKnowledge" ${state.loading||state.error?'disabled':''}>แก้ไข</button></div>`:''}</header><div class="knowledge-content">${knowledgeContentHtml(selected)}</div>`:`<div class="knowledge-empty">${state.loaded?'ยังไม่มีหัวข้อ':'เลือกหัวข้อที่ต้องการอ่าน'}</div>`}</article></div></div>`;
+    <article class="knowledge-detail">${selected?`<header><h2>${escapeHtml(selected.title)}</h2>${owner?`<div class="knowledge-actions">
+      <button class="btn primary" id="editKnowledge" ${state.loading||state.error?'disabled':''}>แก้ไข</button>
+      <button class="icon-btn danger" id="deleteKnowledge" title="ลบหัวข้อ" aria-label="ลบหัวข้อ" ${state.loading||state.error?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>
+    </div>`:''}</header><div class="knowledge-content">${knowledgeContentHtml(selected)}</div>`:`<div class="knowledge-empty">${state.loaded?'ยังไม่มีหัวข้อ':'เลือกหัวข้อที่ต้องการอ่าน'}</div>`}</article></div></div>`;
 }
 async function persistKnowledgeArticles(articles,state){
   if(loggedInUser()?.owner!==true||!isWorkspaceReadCurrent(state.context))throw new Error('ไม่มีสิทธิ์แก้ไขสิ่งควรรู้');
