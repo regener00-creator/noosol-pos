@@ -126,20 +126,32 @@ let browser;
   await page.keyboard.press('Home');assert.equal(await page.evaluate(()=>posSmallestUnitOnce),true,'Home shortcut is preserved');
   const ids=()=>page.evaluate(()=>cart.map(line=>line.lineId));
   const beforeDelete=await ids();
-  await thirdRow.locator('.line-qty').focus();
-  await page.keyboard.press('Delete');
-  assert.deepEqual(await ids(),beforeDelete,'Delete in an editable quantity does not remove a product');
-  await thirdRow.locator('.pos-item-name-content').click();
-  for(const accept of [false,true]){
+  const thirdQuantity=thirdRow.locator('.line-qty');
+  async function checkRemoval(trigger,accept){
     let message='';
     page.once('dialog',async dialog=>{
       message=dialog.message();
       if(accept) await dialog.accept(); else await dialog.dismiss();
     });
-    await page.keyboard.press('Delete');
+    await trigger();
     assert.match(message,/ลบรายการที่ 3 “สินค้ารายการที่สาม”/);
     assert.deepEqual(await ids(),accept?beforeDelete.slice(0,2):beforeDelete);
   }
+  const pressDelete=()=>page.keyboard.press('Delete');
+  const clickTrash=()=>thirdRow.locator('.pos-del').click();
+  await thirdQuantity.fill('12');
+  await checkRemoval(pressDelete,false);
+  assert.equal(await thirdQuantity.inputValue(),'12');
+  await checkRemoval(clickTrash,false);
+  assert.equal(await thirdQuantity.inputValue(),'12');
+  await thirdQuantity.press('Tab');
+  const firstQuantity=page.locator('.line-qty').first();
+  await firstQuantity.fill('9');
+  await checkRemoval(clickTrash,true);
+  assert.equal(await page.evaluate(()=>cart[0].qty),9);
+  await page.evaluate(()=>{addToCart(103,'ซอง',1);render();});
+  await thirdQuantity.focus();
+  await checkRemoval(pressDelete,true);
   assert.deepEqual(errors,[]);
   console.log('Caps Lock: unit cycle, popup, price/cost/factor/barcode, quantity, selected/latest/merged line, customer prices, modal/input/page guards and Home passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();await new Promise(resolve=>server.close(resolve));});

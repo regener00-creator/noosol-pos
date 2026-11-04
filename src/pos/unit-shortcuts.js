@@ -1,3 +1,15 @@
+function confirmPosCartLineRemoval(lineId){
+  const index=cart.findIndex(line=>String(line.lineId)===String(lineId));
+  if(index<0||cart[index].autoFreeFromPromo) return;
+  const line=cart[index];
+  if(!confirm(`ลบรายการที่ ${index+1} “${line.name||'รายการกรอกเอง'}” ออกจากบิลนี้หรือไม่?`)) return;
+  const quantity=document.activeElement;
+  if(quantity?.matches('.line-qty')&&quantity.dataset.line!==String(lineId)) quantity.blur();
+  cart=cart.filter(item=>item.lineId!==line.lineId);
+  posActiveLineId=null;
+  render();
+}
+
 function setPosCartLineUnit(lineId,unitName){
   const line=cart.find(item=>String(item.lineId)===String(lineId));
   if(!line||line.custom||line.autoFreeFromPromo) return false;

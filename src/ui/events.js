@@ -605,7 +605,11 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(getLine()?.custom) el.addEventListener('input',updateCustomLive);
   el.addEventListener('change', commit);
 });
-  document.querySelectorAll('[data-act="removeline"]').forEach(el=>{ el.addEventListener('click', ()=>{ const target=cart.find(x=>x.lineId==el.dataset.line); if(target?.autoFreeFromPromo){ showToast('เป็นของแถม — ลดจำนวนสินค้าหลักเพื่อเอาออก'); return; } cart=cart.filter(x=>x.lineId!=el.dataset.line); render(); }); });
+  document.querySelectorAll('[data-act="removeline"]').forEach(button=>{
+    // Keep a pending quantity edit from rebuilding the row before the click fires.
+    button.addEventListener('mousedown',event=>{ if(event.button===0&&document.activeElement?.matches('.line-qty')) event.preventDefault(); });
+    button.addEventListener('click',()=>confirmPosCartLineRemoval(button.dataset.line));
+  });
   // เปลี่ยนหน่วยของบรรทัดในบิล
   document.querySelectorAll('.line-unit').forEach(el=>{
     el.addEventListener('change', ()=>{
