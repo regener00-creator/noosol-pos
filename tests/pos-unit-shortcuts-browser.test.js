@@ -77,6 +77,24 @@ let browser;
   await page.keyboard.press('CapsLock');assert.deepEqual(await line(),beforeModal,'other pages cannot change POS units');
   await page.evaluate(()=>{currentTab='checkout';cart=[];render();});
   await page.locator('#search').focus();await page.keyboard.press('CapsLock');assert.equal(await page.locator('#posUnitCycleMenu').count(),0);
+  const focusIs=selector=>page.evaluate(selector=>document.activeElement.matches(selector),selector);
+  for(const key of ['Tab','Enter']){
+    await page.keyboard.press(key);
+    assert.ok(await focusIs('#search'),'empty cart keeps the scanner ready');
+  }
+  await page.locator('#search').fill('CASE-101');await page.keyboard.press('Enter');
+  assert.equal(await page.evaluate(()=>cart.length),1,'Enter still scans a product');
+  await page.keyboard.press('Tab');assert.ok(await focusIs('.line-unit'));
+  await page.keyboard.press('ArrowUp');assert.ok(await focusIs('.line-unit'),'unit change preserves focus after render');
+  await page.keyboard.press('Enter');assert.ok(await focusIs('.line-qty'));
+  await page.locator('.line-qty').fill('7');await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(()=>cart[0].qty),7);assert.ok(await focusIs('.line-unit'));
+  await page.evaluate(()=>{products[1].units=[];addToCart(102,'ขวด',1);render();});
+  await page.locator('#search').focus();await page.keyboard.press('Enter');
+  assert.ok(await focusIs('.pos-table tr:last-child .line-qty'),'fixed unit is skipped');
+  await page.keyboard.press('Enter');assert.ok(await focusIs('.pos-table tr:first-child .line-unit'));
+  await page.keyboard.press('Shift+Tab');assert.ok(await focusIs('.pos-table tr:last-child .line-qty'));
+  await page.locator('#search').focus();
   await page.keyboard.press('Home');assert.equal(await page.evaluate(()=>posSmallestUnitOnce),true,'Home shortcut is preserved');
   assert.deepEqual(errors,[]);
   console.log('Caps Lock: unit cycle, popup, price/cost/factor/barcode, quantity, selected/latest/merged line, customer prices, modal/input/page guards and Home passed');

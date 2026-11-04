@@ -604,13 +604,15 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   };
   if(getLine()?.custom) el.addEventListener('input',updateCustomLive);
   el.addEventListener('change', commit);
-  el.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); commit(); const s=document.getElementById('search'); if(s) s.focus(); } });
 });
   document.querySelectorAll('[data-act="removeline"]').forEach(el=>{ el.addEventListener('click', ()=>{ const target=cart.find(x=>x.lineId==el.dataset.line); if(target?.autoFreeFromPromo){ showToast('เป็นของแถม — ลดจำนวนสินค้าหลักเพื่อเอาออก'); return; } cart=cart.filter(x=>x.lineId!=el.dataset.line); render(); }); });
   // เปลี่ยนหน่วยของบรรทัดในบิล
   document.querySelectorAll('.line-unit').forEach(el=>{
     el.addEventListener('change', ()=>{
-      setPosCartLineUnit(el.dataset.line,el.value);
+      const restoreFocus=document.activeElement===el;
+      if(setPosCartLineUnit(el.dataset.line,el.value)&&restoreFocus){
+        document.querySelector(`.line-unit[data-line="${CSS.escape(el.dataset.line)}"]`)?.focus();
+      }
     });
   });
   const searchEl = document.getElementById('search');

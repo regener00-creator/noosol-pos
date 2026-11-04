@@ -12,6 +12,33 @@ function setPosCartLineUnit(lineId,unitName){
   return true;
 }
 
+function navigatePosCartFields(event){
+  if(!['Tab','Enter'].includes(event.key)||event.defaultPrevented||event.isComposing||event.ctrlKey||event.altKey||event.metaKey) return;
+  const search=document.querySelector('#main #search');
+  const target=event.target;
+  if(!search||!target.isConnected) return;
+  const row=target.closest?.('[data-pos-cart-line]');
+  if(target!==search&&target!==document.body&&!row) return;
+  if(event.key==='Enter'&&(target===search&&search.value.trim()||target.closest?.('button'))) return;
+
+  const fields=[...document.querySelectorAll('.pos-table :is(.line-unit,.custom-line-unit,.line-qty):enabled')];
+  const step=event.shiftKey?-1:1;
+  const index=fields.indexOf(target);
+  const lineFields=fields.filter(field=>field.dataset.line===String(row?.dataset.posCartLine??posActiveLineId));
+  const entryFields=lineFields.length?lineFields:fields;
+  const next=index<0?entryFields.at(step<0?-1:0):fields[(index+step+fields.length)%fields.length];
+  event.preventDefault();
+  closePosUnitCycleMenu();
+  // Blurring a changed quantity commits it and can rebuild the entire cart.
+  if(target.matches?.('.line-qty')) target.blur();
+  let destination=next;
+  if(next&&!next.isConnected){
+    const updatedRow=document.querySelector(`[data-pos-cart-line="${CSS.escape(next.dataset.line)}"]`);
+    destination=updatedRow?.querySelector(next.matches('.line-qty')?'.line-qty':'.line-unit,.custom-line-unit');
+  }
+  (destination||document.getElementById('search'))?.focus();
+}
+
 function closePosUnitCycleMenu(){
   const menu=document.getElementById('posUnitCycleMenu');
   if(!menu) return false;
