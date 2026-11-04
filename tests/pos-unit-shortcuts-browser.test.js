@@ -127,6 +127,13 @@ let browser;
   const ids=()=>page.evaluate(()=>cart.map(line=>line.lineId));
   const beforeDelete=await ids();
   const thirdQuantity=thirdRow.locator('.line-qty');
+  await thirdQuantity.focus();
+  for(const [key,qty] of [['ArrowUp',2],['ArrowUp',3],['ArrowDown',2],['ArrowDown',1],['ArrowDown',1]]){
+    await page.keyboard.press(key);
+    assert.ok(await thirdQuantity.evaluate(el=>el===document.activeElement),'arrow keys keep focus on the same cart line');
+    assert.equal(await thirdQuantity.inputValue(),String(qty));
+    assert.equal(await page.evaluate(()=>cart[2].qty),qty);
+  }
   async function checkRemoval(trigger,accept){
     let message='';
     page.once('dialog',async dialog=>{

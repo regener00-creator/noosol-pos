@@ -600,7 +600,11 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       const total=document.querySelector(`[data-line-total="${l.lineId}"]`);
       if(total) total.textContent=fmtMoney((Number(l.price)||0)*v);
       recalcPOSCartDOM();
-    } else render();
+    } else {
+      const restoreFocus=document.activeElement===el;
+      render();
+      if(restoreFocus) document.querySelector(`.pos-table .line-qty[data-line="${CSS.escape(el.dataset.line)}"]`)?.focus({preventScroll:true});
+    }
   };
   if(getLine()?.custom) el.addEventListener('input',updateCustomLive);
   el.addEventListener('change', commit);
