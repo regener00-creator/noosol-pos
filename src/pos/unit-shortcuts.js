@@ -89,7 +89,7 @@ function navigatePosCartFields(event){
   if(target!==search&&target!==document.body&&!row) return;
   if(event.key==='Enter'&&(target===search&&search.value.trim()||target.closest?.('button'))) return;
 
-  const fields=[...document.querySelectorAll('.pos-table :is(.line-unit,.custom-line-unit,.line-qty):enabled')];
+  const fields=[...document.querySelectorAll('.pos-table :is(.line-unit,.custom-line-price,.custom-line-unit,.line-qty):enabled')];
   const step=event.shiftKey?-1:1;
   // Caps Lock keeps the scanner focused while its unit menu is open.
   const confirmingUnit=target===search&&event.key==='Enter'&&!event.shiftKey;
@@ -105,7 +105,8 @@ function navigatePosCartFields(event){
   let destination=next;
   if(next&&!next.isConnected){
     const updatedRow=document.querySelector(`[data-pos-cart-line="${CSS.escape(next.dataset.line)}"]`);
-    destination=updatedRow?.querySelector(next.matches('.line-qty')?'.line-qty':'.line-unit,.custom-line-unit');
+    const fieldClass=['line-unit','custom-line-price','custom-line-unit','line-qty'].find(name=>next.classList.contains(name));
+    destination=updatedRow?.querySelector('.'+fieldClass);
   }
   (destination||document.getElementById('search'))?.focus();
 }
