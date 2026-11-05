@@ -174,7 +174,7 @@
   .dashboard-weekday{background:var(--primary);color:#fff;text-align:center;padding:12px 4px;font-weight:600;}
   .dashboard-calendar-day,.dashboard-calendar-blank{background:var(--surface);padding:12px;min-width:0;}
   .dashboard-calendar-blank{background:var(--bg);}
-  .dashboard-calendar-day.is-future{background:var(--bg);color:var(--text-muted);}
+  .dashboard-calendar-day.is-future{color:var(--text-muted);}
   .dashboard-weekday:nth-child(7n+6),.dashboard-weekday:nth-child(7n){background:#86523E;}
   .dashboard-calendar-day:nth-child(7n+6),.dashboard-calendar-day:nth-child(7n){background:#FFF2E6;}
   .dashboard-calendar-day:nth-child(7n+6) time,.dashboard-calendar-day:nth-child(7n) time{color:#934329;}
