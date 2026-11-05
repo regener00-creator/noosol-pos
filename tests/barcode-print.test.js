@@ -257,6 +257,15 @@ assert.match(printHtml, /@page\{size:50mm 30mm;margin:0\}/);
 assert.match(printHtml, /ป้ายราคา 50 × 30 มม\. แนวนอน/);
 assert.doesNotMatch(printHtml, /promotion|ป้ายโปรโมชั่น/);
 
+for(const qty of [1,36,37,72]){
+  printHtml='';
+  context.writeBarcodePrintWindow(printWindow,[{pid:1,unit:'กล่อง',barcode:'NEW-001',qty}],'a4-50x30');
+  assert.match(printHtml,/@page\{size:A4 portrait;margin:0\}/);
+  assert.equal((printHtml.match(/<section class="label"/g)||[]).length,qty);
+  assert.equal((printHtml.match(/<section class="label-sheet"/g)||[]).length,Math.ceil(qty/36));
+  assert.equal((printHtml.match(/class="label-cut-cell"/g)||[]).length,Math.ceil(qty/36)*36);
+}
+
 assert.match(html, /barcodeprint:\s*\(\)=>renderBarcodePrint\(\)/);
 assert.match(html, /LEVEL2_HIDDEN_TABS[^\n]+barcodeprint/);
 assert.match(html, /id="savePrintBarcodeBtn"/);

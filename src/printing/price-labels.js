@@ -238,6 +238,7 @@ function priceLabelDesignerSample(){
 }
 
 function openPriceLabelDesigner(labelSize=barcodePrintLabelSize){
+  if(labelSize==='a4-50x30')labelSize='50x30';
   const validSize=BARCODE_PRINT_LABEL_DIMENSIONS[labelSize]?labelSize:'80x50';
   const [widthMm,heightMm]=BARCODE_PRINT_LABEL_DIMENSIONS[validSize];
   const barcodeMinimum=priceLabelBarcodeMinimum(validSize);
@@ -486,7 +487,7 @@ function renderBarcodePrint(){
       <div class="rpf-item"><select id="barcodePrintBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(brand=>`<option value="${escapeHtml(brand)}" ${filter.brand===brand?'selected':''}>${escapeHtml(brand)}</option>`).join('')}</select></div>
       <button class="btn ghost" id="barcodePrintAddCategoryBtn" ${(filter.category||filter.brand)?'':'disabled'}>เลือกสินค้าในหมวดนี้${(filter.category||filter.brand)?` (${filteredCount})`:''}</button>
       <button class="btn ghost" id="barcodePrintAddMissingBtn">สินค้าที่ต้องสร้างบาร์โค้ด (${missingCount})</button>
-      <div class="rpf-item"><select id="barcodePrintLabelSize" class="rpt-select" aria-label="ขนาดป้ายราคา"><option value="50x30" ${barcodePrintLabelSize==='50x30'?'selected':''}>ป้ายราคา 50 × 30 มม.${defaultSize==='50x30'?' (ค่าเริ่มต้น)':''}</option><option value="80x50" ${barcodePrintLabelSize==='80x50'?'selected':''}>ป้ายราคา 80 × 50 มม.${defaultSize==='80x50'?' (ค่าเริ่มต้น)':''}</option><option value="60x40" ${barcodePrintLabelSize==='60x40'?'selected':''}>ป้ายราคา 60 × 40 มม.${defaultSize==='60x40'?' (ค่าเริ่มต้น)':''}</option><option value="40x30" ${barcodePrintLabelSize==='40x30'?'selected':''}>ป้ายราคา 40 × 30 มม.${defaultSize==='40x30'?' (ค่าเริ่มต้น)':''}</option></select></div>
+      <div class="rpf-item"><select id="barcodePrintLabelSize" class="rpt-select" aria-label="ขนาดป้ายราคา"><option value="a4-50x30" ${barcodePrintLabelSize==='a4-50x30'?'selected':''}>A4 · 50 × 30 มม. · 36 ป้าย/แผ่น</option><option value="50x30" ${barcodePrintLabelSize==='50x30'?'selected':''}>ป้ายราคา 50 × 30 มม.${defaultSize==='50x30'?' (ค่าเริ่มต้น)':''}</option><option value="80x50" ${barcodePrintLabelSize==='80x50'?'selected':''}>ป้ายราคา 80 × 50 มม.${defaultSize==='80x50'?' (ค่าเริ่มต้น)':''}</option><option value="60x40" ${barcodePrintLabelSize==='60x40'?'selected':''}>ป้ายราคา 60 × 40 มม.${defaultSize==='60x40'?' (ค่าเริ่มต้น)':''}</option><option value="40x30" ${barcodePrintLabelSize==='40x30'?'selected':''}>ป้ายราคา 40 × 30 มม.${defaultSize==='40x30'?' (ค่าเริ่มต้น)':''}</option></select></div>
     </div>
     <div class="barcode-print-search-wrap">
       <input id="barcodePrintSearch" class="barcode-print-search" value="${escapeHtml(barcodePrintSearchQuery)}" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด..." autocomplete="off">
@@ -521,7 +522,7 @@ function openBarcodeReprintDialog(){
         <label>จำนวนป้าย<input id="barcodeReprintQty" class="barcode-print-qty-input" type="number" min="1" max="500" step="1" value="1" required></label>
       </div>
       <label>บาร์โค้ดเดิม<input id="barcodeReprintCode" class="barcode-print-code-input" readonly></label>
-      <label>ขนาดป้าย<select id="barcodeReprintSize" class="rpt-select">${Object.keys(BARCODE_PRINT_LABEL_DIMENSIONS).map(size=>`<option value="${size}" ${size===barcodePrintLabelSize?'selected':''}>${size.replace('x',' × ')} มม.</option>`).join('')}</select></label>
+      <label>ขนาดป้าย<select id="barcodeReprintSize" class="rpt-select"><option value="a4-50x30" ${barcodePrintLabelSize==='a4-50x30'?'selected':''}>A4 · 50 × 30 มม. · 36 ป้าย/แผ่น</option>${Object.keys(BARCODE_PRINT_LABEL_DIMENSIONS).map(size=>`<option value="${size}" ${size===barcodePrintLabelSize?'selected':''}>${size.replace('x',' × ')} มม.</option>`).join('')}</select></label>
       <p class="barcode-reprint-hint">ใช้บาร์โค้ดเดิมของหน่วยที่เลือก ไม่ออกเลขใหม่</p>
       <p id="barcodeReprintError" class="barcode-reprint-error" role="alert"></p>
       <div class="barcode-reprint-actions"><button type="button" class="btn ghost" id="barcodeReprintClose">ปิด</button><button type="submit" class="btn primary" id="barcodeReprintSubmit" disabled>พิมพ์ป้ายเดิมซ้ำ</button></div>
@@ -621,6 +622,8 @@ function openBarcodeReprintDialog(){
 
 function writeBarcodePrintWindow(printWindow,items=barcodePrintItems,labelSize=barcodePrintLabelSize,{trackPrint=true}={}){
   if(!printWindow) return false;
+  const a4=labelSize==='a4-50x30';
+  if(a4)labelSize='50x30';
   const [width,height]=BARCODE_PRINT_LABEL_DIMENSIONS[labelSize]||BARCODE_PRINT_LABEL_DIMENSIONS['80x50'];
   const labels=[];
   items.forEach(item=>{
@@ -631,13 +634,24 @@ function writeBarcodePrintWindow(printWindow,items=barcodePrintItems,labelSize=b
     for(let count=0;count<Number(item.qty);count++) labels.push(regularLabel);
   });
   const printFontStyle=`<style>@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap');body,.toolbar button,.label{font-family:'Noto Sans Thai',Tahoma,sans-serif}</style>`;
+  let content=labels.join(''),sheetStyle='';
+  if(a4){
+    const sheets=[];
+    for(let offset=0;offset<labels.length;offset+=36){
+      const cells=Array.from({length:36},(_,index)=>`<div class="label-cut-cell">${labels[offset+index]||''}</div>`).join('');
+      sheets.push(`<section class="label-sheet">${cells}</section>`);
+    }
+    content='<p class="label-print-help">A4 แนวตั้ง · 4 ช่อง × 9 แถว · ป้าย 50 × 30 มม. · พิมพ์ขนาดจริง 100% แล้วตัดตามเส้น</p>'+sheets.join('');
+    sheetStyle=`.label-sheet{display:grid;grid-template-columns:repeat(4,50mm);grid-template-rows:repeat(9,30mm);width:210mm;height:297mm;padding:13.5mm 5mm;margin:10px auto;background:#fff;break-inside:avoid;page-break-after:always;break-after:page}.label-sheet:last-child{page-break-after:auto;break-after:auto}.label-cut-cell{position:relative;width:50mm;height:30mm}.label-cut-cell::after{content:"";position:absolute;inset:0;border:.1mm solid #aaa;pointer-events:none}.label-sheet .label{margin:0;page-break-after:auto;break-after:auto}.label-print-help{margin:12px;text-align:center;font-size:13px}@media print{.label-sheet{margin:0}.label-print-help{display:none}}`;
+  }
+  const pageSize=a4?'A4 portrait':`${width}mm ${height}mm`;
 
   printWindow.document.open();
-  printWindow.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>พิมพ์ป้ายราคา ${labels.length} ดวง</title><style>@page{size:${width}mm ${height}mm;margin:0}*{box-sizing:border-box}body{margin:0;background:#e9edf0;color:#111;font-family:'Noto Sans Thai',Tahoma,sans-serif}.toolbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#fff;box-shadow:0 2px 8px #0002;font-size:13px}.toolbar button{border:0;border-radius:7px;background:#4F4038;color:#fff;padding:8px 16px;font:600 13px 'Noto Sans Thai',Tahoma,sans-serif;cursor:pointer}.label{width:${width}mm;height:${height}mm;margin:10px auto;padding:0;background:#fff;overflow:hidden;page-break-after:always;break-after:page}.label:last-child{page-break-after:auto;break-after:auto}.barcode-label-svg{display:block;width:100%;height:100%}.price-label-print-element{-webkit-print-color-adjust:exact;print-color-adjust:exact}@media print{body{background:#fff}.toolbar{display:none}.label{margin:0;box-shadow:none}}</style>${printFontStyle}</head><body><div class="toolbar"><span>ป้ายราคา ${width} × ${height} มม. แนวนอน · ทั้งหมด ${labels.length} ดวง</span><button onclick="window.print()">พิมพ์</button></div>${labels.join('')}</body></html>`);
+  printWindow.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>พิมพ์ป้ายราคา ${labels.length} ดวง</title><style>@page{size:${pageSize};margin:0}*{box-sizing:border-box}body{margin:0;background:#e9edf0;color:#111;font-family:'Noto Sans Thai',Tahoma,sans-serif}.toolbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#fff;box-shadow:0 2px 8px #0002;font-size:13px}.toolbar button{border:0;border-radius:7px;background:#4F4038;color:#fff;padding:8px 16px;font:600 13px 'Noto Sans Thai',Tahoma,sans-serif;cursor:pointer}.label{width:${width}mm;height:${height}mm;margin:10px auto;padding:0;background:#fff;overflow:hidden;page-break-after:always;break-after:page}.label:last-child{page-break-after:auto;break-after:auto}.barcode-label-svg{display:block;width:100%;height:100%}.price-label-print-element{-webkit-print-color-adjust:exact;print-color-adjust:exact}@media print{body{background:#fff}.toolbar{display:none}.label{margin:0;box-shadow:none}}${sheetStyle}</style>${printFontStyle}</head><body><div class="toolbar"><span>ป้ายราคา ${width} × ${height} มม. แนวนอน · ทั้งหมด ${labels.length} ดวง</span><button onclick="window.print()">พิมพ์</button></div>${content}</body></html>`);
   printWindow.document.close();
   const preparePreview=()=>{
     if(printWindow.closed) return;
-    if(typeof standardizePrintPreview==='function') standardizePrintPreview(printWindow,{trackPrint});
+    if(typeof standardizePrintPreview==='function') standardizePrintPreview(printWindow,{trackPrint,applyPaperSettings:!a4});
     const printNow=()=>{ try{ if(!printWindow.closed){printWindow.focus(); printWindow.print();} }catch(error){} };
     if(printWindow.document.fonts?.ready?.then) printWindow.document.fonts.ready.then(printNow).catch(()=>setTimeout(printNow,450));
     else setTimeout(printNow,450);

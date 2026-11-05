@@ -48,6 +48,9 @@ const browserExecutable = [
     products=[{id:9001,sku:'P-9001',name:'Decolgen prin (4 tablets)',unit:'กล่อง',barcode:'8851824336354',price:180,units:[],extraBarcodes:[],vendorBarcodes:[]}];
     barcodePrintItems=[{pid:9001,unit:'กล่อง',barcode:'8851824336354',qty:1}];
     barcodePrintLabelSize='50x30';
+    // Keep background data sync from changing fixtures while PDF pagination is checked.
+    clearTimeout(supabaseCoreSyncTimer);
+    scheduleSupabaseCoreSync=()=>{};
     businessSettings={...businessSettings,priceLabelTemplates:{},priceLabelTemplateLibraries:{}};
     main.innerHTML=renderBarcodePrint();
     attachEvents();
@@ -55,6 +58,7 @@ const browserExecutable = [
 
   assert.equal(await page.locator('#barcodePrintLabelType').count(),0);
   assert.equal(await page.locator('#barcodePrintLabelSize').inputValue(),'50x30');
+  await page.locator('#barcodePrintLabelSize').selectOption('a4-50x30');
   assert.match(await page.locator('.page-title-meta').textContent(),/50 × 30 มม\./);
   assert.equal(await page.locator('#openPriceLabelDesignerBtn').isVisible(), true);
   await page.locator('#openPriceLabelDesignerBtn').click();
@@ -244,8 +248,9 @@ const browserExecutable = [
   await page.context().route('https://fonts.googleapis.com/**',route=>route.fulfill({contentType:'text/css',body:''}));
   await page.context().addInitScript(()=>{window.print=()=>{};});
   const beforeReprint=await page.evaluate(()=>{
-    window.reprintRpcCalls=0;
-    sb.rpc=async()=>{window.reprintRpcCalls++;throw new Error('Reprint must not call RPC');};
+    localStorage.setItem(A4_PAPER_STORAGE_KEY,JSON.stringify({orientation:'landscape',marginTop:40,marginBottom:40,marginLeft:40,marginRight:40}));
+    window.reprintRpcCalls=[];
+    sb.rpc=async(name)=>{window.reprintRpcCalls.push(name);throw new Error('Reprint must not call RPC');};
     return JSON.stringify({products,barcodePrintItems});
   });
   await page.locator('#openBarcodeReprintBtn').click();
@@ -258,10 +263,33 @@ const browserExecutable = [
   assert.equal(await page.locator('#barcodeReprintCode').getAttribute('readonly'),'');
   assert.equal(await page.locator('#barcodeReprintUnit').isVisible(),false);
   assert.equal(await page.locator('#barcodeReprintSingleUnit').textContent(),'กล่อง');
-  await page.locator('#barcodeReprintQty').fill('3');
+  assert.equal(await page.locator('#barcodeReprintSize').inputValue(),'a4-50x30');
+  await page.locator('#barcodeReprintQty').fill('37');
   const [printed]=await Promise.all([page.waitForEvent('popup'),page.locator('#barcodeReprintSubmit').click()]);
   await printed.waitForSelector('.label');
-  assert.equal(await printed.locator('.label').count(),3);
+  assert.equal(await printed.locator('.label').count(),37);
+  assert.equal(await printed.locator('.label-sheet').count(),2);
+  assert.equal(await printed.locator('.label-cut-cell').count(),72);
+  assert.equal(await printed.locator('.label-sheet').nth(0).locator('.label').count(),36);
+  assert.equal(await printed.locator('.label-sheet').nth(1).locator('.label').count(),1);
+  assert.equal(await printed.locator('[data-price-label-element="unit"]').count(),0,'Uses the saved 50 × 30 template visibility');
+  assert.match(await printed.locator('body').textContent(),/SALE -15%/);
+  const geometry=await printed.locator('.label-sheet').first().evaluate(sheet=>{
+    const cells=Array.from(sheet.querySelectorAll('.label-cut-cell')).map(cell=>{const r=cell.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};});
+    return {cells,cut:getComputedStyle(sheet.querySelector('.label-cut-cell'),'::after').borderTopStyle};
+  });
+  assert.ok(Math.abs(geometry.cells[0].w-50*96/25.4)<0.1);
+  assert.ok(Math.abs(geometry.cells[0].h-30*96/25.4)<0.1);
+  assert.equal(new Set(geometry.cells.map(cell=>cell.x)).size,4);
+  assert.equal(new Set(geometry.cells.map(cell=>cell.y)).size,9);
+  assert.equal(geometry.cut,'solid');
+  const route=await printed.evaluate(()=>opener.directPrinterLayout(document));
+  assert.equal(route.kind,'a4','A4 labels use the configured A4 printer');
+  assert.equal(route.width,210);
+  assert.equal(route.height,297);
+  assert.equal(await printed.locator('#a4PaperLayout').count(),0,'Report margin preferences must not resize the 50 × 30 label grid');
+  const pdf=await printed.pdf({preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false});
+  assert.equal((pdf.toString('latin1').match(/\/Type \/Page\b/g)||[]).length,2,'37 labels produce two physical A4 pages without extra blank pages');
   assert.match(await printed.locator('body').textContent(),/FULL-001/);
   await printed.close();
   await page.locator('#barcodeReprintSearch').fill('MIXED');
@@ -287,7 +315,7 @@ const browserExecutable = [
   assert.match(await subunitPrint.locator('head').textContent(),/@page\{size:40mm 30mm/);
   await subunitPrint.getByRole('button',{name:'พิมพ์',exact:true}).click();
   await subunitPrint.close();
-  assert.equal(await page.evaluate(()=>window.reprintRpcCalls),0,'Reprinting never calls the allocator or any RPC');
+  assert.deepEqual(await page.evaluate(()=>window.reprintRpcCalls),[],'Reprinting never calls the allocator or any RPC');
   assert.equal(await page.evaluate(()=>JSON.stringify({products,barcodePrintItems})),beforeReprint,'Reprinting never mutates the product or new-label queue');
   await page.evaluate(()=>{products.find(product=>product.id===9103).units[0].barcode='CHANGED';});
   await page.locator('#barcodeReprintSubmit').click();
