@@ -46,6 +46,7 @@
     "save_revisioned_document(uuid,text,text,jsonb,bigint,boolean)",
     "save_unused_product_unit(bigint,bigint,jsonb)",
     "update_sale_document_metadata(text,jsonb)",
-    "get_visible_data_signature(text)"
+    "get_visible_data_signature(text)",
+    "system_issued_label_codes()"
   ]
 }
