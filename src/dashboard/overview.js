@@ -111,14 +111,15 @@ function renderDashboardCalendar(monthSales,canViewProfit){
       if(historical.loading) setTimeout(()=>loadDashboardCalendar(historical),0);
     }else historical=state;
   }
-  const cells=Array.from({length:Math.ceil((firstDay.getDay()+days)/7)*7},(_,index)=>{
-    const day=index-firstDay.getDay()+1;
+  const firstWeekday=(firstDay.getDay()+6)%7;
+  const cells=Array.from({length:Math.ceil((firstWeekday+days)/7)*7},(_,index)=>{
+    const day=index-firstWeekday+1;
     if(day<1||day>days)return '<div class="dashboard-calendar-blank" aria-hidden="true"></div>';
     const date=`${monthKey}-${String(day).padStart(2,'0')}`;
     const summary=historical?historical.daily.get(date)||dashboardSalesSummary([]):dashboardSalesSummary(byDay.get(date)||[]);
     return `<div class="dashboard-calendar-day ${date===TODAY_STR?'is-today':''} ${date>TODAY_STR?'is-future':''}" data-dashboard-date="${date}"><time datetime="${date}" ${date===TODAY_STR?'aria-current="date"':''}>${day}</time><div class="dashboard-day-summary"><span class="dashboard-day-piece"><span class="dashboard-bill-space" aria-hidden="true">| บิล: <span>${summary.orders.toLocaleString('th-TH')}</span></span><span class="dashboard-bill-label">| บิล: <span data-day-orders>${summary.orders.toLocaleString('th-TH')}</span></span></span><span class="dashboard-day-piece dashboard-day-sales">ขาย <span data-day-sales aria-label="ยอดขาย">${formatDashboardDayAmount(summary.total)}</span></span>${canViewProfit?`<span class="dashboard-day-separator" aria-hidden="true">|</span><span data-day-profit aria-label="กำไร">${dashboardProfitHtml(summary,formatDashboardDayAmount)}</span>`:''}</div></div>`;
   }).join('');
-  const content=historical?.loading&&!historical.loaded?'<p class="dashboard-calendar-feedback" role="status">กำลังโหลดข้อมูลเดือนนี้...</p>':historical?.error?`<div class="dashboard-calendar-feedback" role="alert">${escapeHtml(historical.error)} <button class="btn ghost" id="retryDashboardCalendar">ลองใหม่</button></div>`:`<div class="dashboard-calendar-scroll" tabindex="0" role="region" aria-label="ปฏิทินยอดขายรายวัน เลื่อนแนวนอนเพื่อดูทุกวัน"><div class="dashboard-calendar-grid">${['อาทิตย์','จันทร์','อังคาร','พุธ','พฤหัสบดี','ศุกร์','เสาร์'].map(day=>`<div class="dashboard-weekday">${day}</div>`).join('')}${cells}</div></div>`;
+  const content=historical?.loading&&!historical.loaded?'<p class="dashboard-calendar-feedback" role="status">กำลังโหลดข้อมูลเดือนนี้...</p>':historical?.error?`<div class="dashboard-calendar-feedback" role="alert">${escapeHtml(historical.error)} <button class="btn ghost" id="retryDashboardCalendar">ลองใหม่</button></div>`:`<div class="dashboard-calendar-scroll" tabindex="0" role="region" aria-label="ปฏิทินยอดขายรายวัน เลื่อนแนวนอนเพื่อดูทุกวัน"><div class="dashboard-calendar-grid">${['จันทร์','อังคาร','พุธ','พฤหัส','ศุกร์','เสาร์','อาทิตย์'].map(day=>`<div class="dashboard-weekday">${day}</div>`).join('')}${cells}</div></div>`;
   return `<section class="panel dashboard-calendar"><header><h3>ปฏิทินยอดขาย</h3><div class="dashboard-calendar-navigation"><button type="button" class="btn ghost" id="dashboardCalendarToday">ปัจจุบัน</button><button type="button" class="btn ghost" data-dashboard-month-step="-1" aria-label="เดือนก่อนหน้า" title="เดือนก่อนหน้า" ${monthKey===bounds.first?'disabled':''}>‹</button><span aria-live="polite">${escapeHtml(monthLabel)}</span><button type="button" class="btn ghost" data-dashboard-month-step="1" aria-label="เดือนถัดไป" title="เดือนถัดไป" ${monthKey===bounds.current?'disabled':''}>›</button></div></header>${content}</section>`;
 }
 function dashboardAccumulateBestSellers(sales,totals=new Map(),catalog=new Map(products.map(product=>[String(product.id),product]))){

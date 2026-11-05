@@ -38,7 +38,7 @@ let browser;
   assert.match(await day.locator('.dashboard-bill-label').innerText(),/^\| บิล: 2$/);
   assert.equal(await day.locator('.dashboard-day-separator').count(),1,'only the separator between sales and profit remains');
   assert.equal(await page.locator('[data-dashboard-date="2026-10-02"] [data-day-sales]').innerText(),'0');
-  assert.equal(await page.locator('[data-dashboard-date="2026-10-01"]').evaluate(el=>[...el.parentElement.children].indexOf(el)),11,'October starts on Thursday');
+  assert.equal(await page.locator('[data-dashboard-date="2026-10-01"]').evaluate(el=>[...el.parentElement.children].indexOf(el)),10,'October starts on Thursday in a Monday-first calendar');
   await page.evaluate(()=>{allWarehousesMode=true;render();});
   assert.equal(await month.locator('[data-summary-sales]').innerText(),'1,107.00');assert.equal(await day.locator('[data-day-orders]').innerText(),'3');
   await page.evaluate(()=>{allWarehousesMode=false;currentProfile={id:'calendar-staff',level:2,owner:false};render();});
