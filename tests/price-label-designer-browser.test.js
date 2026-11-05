@@ -61,6 +61,15 @@ const browserExecutable = [
   assert.equal(await page.locator('.price-label-designer-modal').isVisible(), true);
   assert.equal(await page.locator('[data-price-label-tab]').count(), 5);
   assert.equal(await page.locator('.price-label-design-element').count(), 5);
+  for(const field of ['name','unit','price','barcode','code']){
+    await page.locator(`[data-price-label-toggle="${field}"]`).uncheck();
+    assert.equal(await page.locator(`#priceLabelDesignerCanvas [data-price-label-element="${field}"]`).count(),0);
+  }
+  assert.equal(await page.locator('.price-label-design-element').count(),0);
+  for(const field of ['name','unit','price','barcode','code']){
+    await page.locator(`[data-price-label-toggle="${field}"]`).check();
+    assert.equal(await page.locator(`#priceLabelDesignerCanvas [data-price-label-element="${field}"]`).isVisible(),true);
+  }
   assert.match(await page.locator('.price-label-safety-note').textContent(), /24 × 6 มม\./);
   assert.match(await page.locator('.price-label-safety-note').textContent(), /32 × 8 มม\./);
   const ratio = await page.locator('#priceLabelDesignerCanvas').evaluate(element => {
@@ -90,6 +99,10 @@ const browserExecutable = [
   await page.locator('[data-price-label-reverse]').evaluate(element => { element.checked=true; element.dispatchEvent(new Event('change',{bubbles:true})); });
   await page.locator('#addPriceLabelCustomTextBtn').click();
   assert.equal(await page.locator('[data-price-label-tab]').count(), 6);
+  const customToggle=page.locator('[data-price-label-toggle^="custom:"]');
+  await customToggle.uncheck();
+  assert.equal(await page.locator('#priceLabelDesignerCanvas [data-price-label-element^="custom:"]').count(),0);
+  await customToggle.check();
   await page.locator('[data-price-label-custom-value]').fill('SALE -15%');
   await page.locator('[data-price-label-custom-value]').press('Tab');
   await page.locator('[data-price-label-color][value="#e60012"]').evaluate(element => { element.checked=true; element.dispatchEvent(new Event('change',{bubbles:true})); });
@@ -102,6 +115,12 @@ const browserExecutable = [
   assert.ok((await page.locator('.price-label-barcode-limit').getAttribute('class')).includes('warning'));
   await page.locator('[data-price-label-tab="unit"]').click();
   await page.locator('[data-price-label-visible]').uncheck();
+  assert.equal(await page.locator('[data-price-label-toggle="unit"]').isChecked(),false);
+  assert.equal(await page.locator('#priceLabelDesignerCanvas [data-price-label-element="unit"]').count(),0);
+  await page.locator('[data-price-label-toggle="unit"]').check();
+  assert.equal(await page.locator('[data-price-label-visible]').isChecked(),true);
+  await page.locator('[data-price-label-toggle="unit"]').uncheck();
+  assert.equal(await page.locator('[data-price-label-visible]').isChecked(),false);
   assert.ok((await page.locator('[data-price-label-tab="unit"]').getAttribute('class')).includes('off'));
   await page.locator('#priceLabelTemplateNameInput').fill('แม่แบบแดง');
   await page.locator('#saveAsNewPriceLabelTemplateBtn').click();
@@ -122,6 +141,12 @@ const browserExecutable = [
   assert.equal(saved.elements.price.color,'#000000');
   assert.equal(saved.elements.price.reverse,true);
   assert.equal(saved.elements.unit.visible,false);
+  const printedFields=await page.evaluate(()=>{
+    const markup=priceLabelRegularHtml({unit:'กล่อง',barcode:'8851824336354'},products[0],{price:180},'50x30');
+    const root=document.createElement('div');root.innerHTML=markup;
+    return [...root.querySelectorAll('[data-price-label-element]')].map(el=>el.dataset.priceLabelElement);
+  });
+  assert.deepEqual(printedFields,['name','price','barcode','code'],'printing omits the same field hidden in the designer');
   assert.ok(saved.elements.barcode.width>=48);
   assert.equal(saved.customTexts.length,1);
   assert.equal(saved.customTexts[0].text,'SALE -15%');
@@ -133,6 +158,8 @@ const browserExecutable = [
 
   await page.locator('#openPriceLabelDesignerBtn').click();
   assert.equal(await page.locator('#savedPriceLabelTemplateSelect option').count(),2);
+  assert.equal(await page.locator('[data-price-label-toggle="unit"]').isChecked(),false);
+  assert.equal(await page.locator('#priceLabelDesignerCanvas [data-price-label-element="unit"]').count(),0);
   await page.locator('[data-price-label-tab="price"]').click();
   assert.equal(await page.locator('[data-price-label-field="x"]').inputValue(),'7');
   assert.equal(await page.locator('[data-price-label-color][value="#000000"]').isChecked(),true);

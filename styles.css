@@ -865,12 +865,15 @@
   .price-label-design-element[data-price-label-element="barcode"]{display:flex;align-items:center;justify-content:flex-start;}
   .price-label-design-element .barcode-label-svg{display:block;width:100%;height:100%;}
   .price-label-design-element.selected{z-index:3;outline:2px solid #2A91D0;outline-offset:1px;background-color:#E9F6FF22;}
-  .price-label-design-element.hidden-element{display:none;}
   .price-label-resize-handle{position:absolute;right:0;bottom:0;display:none;width:13px;height:13px;border:2px solid #fff;border-radius:3px;background:#2A91D0;cursor:nwse-resize;box-shadow:0 0 0 1px #2A91D0;}
   .price-label-design-element.selected .price-label-resize-handle{display:block;}
   .price-label-safety-note{display:flex;align-items:flex-start;gap:8px;margin-top:12px;padding:9px 11px;border:1px solid #EAD29E;border-radius:9px;background:#FFF8E8;color:#775514;font-size:12px;line-height:1.4;}
   .price-label-designer-panel{min-height:0;overflow-y:auto;padding:16px;border-left:1px solid var(--border);background:#fff;}
   .price-label-element-tabs{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:15px;}
+  .price-label-element-help{margin:0 0 10px;color:var(--text-muted);font-size:12px;}
+  .price-label-element-choice{display:flex;align-items:center;gap:7px;min-width:0;}
+  .price-label-element-choice>input{width:18px;height:18px;margin:0;flex-shrink:0;accent-color:var(--primary);cursor:pointer;}
+  .price-label-element-choice>.price-label-element-tab{flex:1;min-width:0;}
   .price-label-element-tab{min-height:38px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);font:600 12px 'Sarabun',sans-serif;cursor:pointer;}
   .price-label-element-tab.active{border-color:var(--primary);background:var(--primary-soft);color:var(--primary);}
   .price-label-element-tab.off{color:#98A1A9;text-decoration:line-through;}
