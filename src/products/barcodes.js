@@ -61,13 +61,16 @@ function barcodeReprintItem(productId,unitName,quantity){
 let barcodePrintSavePending=false;
 let barcodePrintRequest=null;
 let barcodePrintMode='new';
+let barcodePrintShowMenu=true;
 let barcodePrintOtherQueue=null;
 let barcodeReprintContext=null;
 function barcodePrintSelectableUnitOptions(product){
   return barcodePrintMode==='reprint'?barcodeReprintUnitOptions(product):barcodePrintMissingUnitOptions(product);
 }
 function setBarcodePrintMode(mode){
-  if(!['new','reprint'].includes(mode)||barcodePrintSavePending||mode===barcodePrintMode) return;
+  if(!['new','reprint'].includes(mode)||barcodePrintSavePending) return;
+  barcodePrintShowMenu=false;
+  if(mode===barcodePrintMode){render();return;}
   const previous={items:barcodePrintItems,request:barcodePrintRequest,context:captureWorkspaceRead()};
   const restored=barcodePrintOtherQueue&&isWorkspaceReadCurrent(barcodePrintOtherQueue.context)?barcodePrintOtherQueue:null;
   barcodePrintItems=restored?.items||[];

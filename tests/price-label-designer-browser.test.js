@@ -52,10 +52,21 @@ const browserExecutable = [
     clearTimeout(supabaseCoreSyncTimer);
     scheduleSupabaseCoreSync=()=>{};
     businessSettings={...businessSettings,priceLabelTemplates:{},priceLabelTemplateLibraries:{}};
-    main.innerHTML=renderBarcodePrint();
-    attachEvents();
+    render=()=>{main.innerHTML=renderBarcodePrint();attachEvents();};
+    render();
   });
 
+  assert.equal(await page.locator('[data-barcode-print-mode]').count(),2);
+  assert.equal(await page.locator('#barcodePrintSearch').count(),0);
+  for(const width of [1280,390]){
+    await page.setViewportSize({width,height:900});
+    const cards=await page.locator('.barcode-print-mode-card').evaluateAll(elements=>elements.map(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,viewport:innerWidth};}));
+    assert.ok(cards.every(card=>card.left>=0&&card.right<=card.viewport));
+    assert.equal(cards[0].top===cards[1].top,width===1280,'Two columns on desktop, stacked on mobile');
+  }
+  await page.setViewportSize({width:1280,height:900});
+  await page.locator('[data-barcode-print-mode="new"]').click();
+  assert.match(await page.locator('.barcode-print-page h1').textContent(),/พิมพ์ป้ายราคาใหม่/);
   assert.equal(await page.locator('#barcodePrintLabelType').count(),0);
   assert.equal(await page.locator('#barcodePrintLabelSize').inputValue(),'50x30');
   await page.locator('#barcodePrintLabelSize').selectOption('a4-50x30');
@@ -253,9 +264,10 @@ const browserExecutable = [
     sb.rpc=async(name)=>{window.reprintRpcCalls.push(name);throw new Error('Reprint must not call RPC');};
     return JSON.stringify({products,barcodePrintItems});
   });
-  await page.locator('#openBarcodeReprintBtn').click();
+  await page.locator('#barcodePrintMenuBtn').click();
+  await page.locator('[data-barcode-print-mode="reprint"]').click();
   assert.equal(await page.locator('#openBarcodeReprintBtn').count(),0);
-  assert.equal(await page.locator('#barcodePrintNewModeBtn').isVisible(),true);
+  assert.equal(await page.locator('#barcodePrintMenuBtn').isVisible(),true);
   assert.equal(await page.locator('#savePrintBarcodeBtn').isDisabled(),true);
   await page.locator('#barcodePrintSearch').fill('EMPTY');
   assert.equal(await page.locator('[data-barcode-print-result]').count(),0);
@@ -321,14 +333,20 @@ const browserExecutable = [
   assert.match(await subunitPrint.locator('head').textContent(),/@page\{size:40mm 30mm/);
   await subunitPrint.close();
   assert.deepEqual(await page.evaluate(()=>window.reprintRpcCalls),[],'Batch reprinting never calls the allocator or any RPC');
-  await page.locator('#barcodePrintNewModeBtn').click();
+  await page.locator('#barcodePrintMenuBtn').click();
+  await page.locator('[data-barcode-print-mode="new"]').click();
   assert.equal(await page.evaluate(()=>JSON.stringify({products,barcodePrintItems})),beforeReprint,'Switching back restores the new-label queue and leaves products untouched');
-  await page.locator('#openBarcodeReprintBtn').click();
+  await page.locator('#barcodePrintMenuBtn').click();
+  await page.locator('[data-barcode-print-mode="reprint"]').click();
   assert.equal(await page.locator('[data-barcode-print-code="0"]').inputValue(),'CREATED-ELSEWHERE','Reprint queue is retained');
   await page.evaluate(()=>{products.find(product=>product.id===9103).units[0].barcode='CHANGED';});
   await page.locator('#savePrintBarcodeBtn').click();
   assert.match(await page.locator('#toast').textContent(),/มีการเปลี่ยนแปลง/);
   assert.equal(await page.locator('[data-barcode-print-code="0"]').inputValue(),'CHANGED');
+  await page.evaluate(()=>{renderSidebar();document.querySelector('.navbtn[data-tab="barcodeprint"]').click();});
+  assert.equal(await page.locator('[data-barcode-print-mode]').count(),2,'Opening the sidebar item always returns to the two choices');
+  await page.locator('[data-barcode-print-mode="reprint"]').click();
+  assert.equal(await page.locator('[data-barcode-print-code="0"]').inputValue(),'CHANGED','Reopening the same mode keeps its queue');
   assert.deepEqual(errors, []);
   console.log('price label designer browser tests passed');
 })().catch(error => {
