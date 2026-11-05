@@ -273,6 +273,9 @@ const browserExecutable = [
   assert.equal(await page.locator('#openBarcodeReprintBtn').count(),0);
   assert.equal(await page.locator('#barcodePrintMenuBtn').isVisible(),true);
   assert.equal(await page.locator('#savePrintBarcodeBtn').isDisabled(),true);
+  assert.equal(await page.locator('#barcodePrintLabelSize').inputValue(),'50x30','New-label default does not overwrite repeat default');
+  await page.locator('#barcodePrintLabelSize').selectOption('a4-50x30');
+  await page.locator('#savePriceLabelDefaultBtn').click();
   await page.locator('#barcodePrintSearch').fill('EMPTY');
   assert.equal(await page.locator('[data-barcode-print-result]').count(),0);
   await page.locator('#barcodePrintSearch').fill('FULL');
@@ -364,10 +367,11 @@ const browserExecutable = [
   await page.locator('#savePriceLabelDefaultBtn').click();
   await page.locator('#barcodePrintMenuBtn').click();
   await page.locator('[data-barcode-print-mode="new"]').click();
-  assert.equal(await page.locator('#barcodePrintLabelSize').inputValue(),'60x40','Default saved from reprint applies to new labels');
+  assert.equal(await page.locator('#barcodePrintLabelSize').inputValue(),'a4-50x30','Default saved from reprint leaves new-label default unchanged');
   await page.reload();
   await page.waitForFunction(()=>typeof readPriceLabelDefaultSize==='function');
-  assert.equal(await page.evaluate(()=>readPriceLabelDefaultSize()),'60x40','Default persists after reload');
+  assert.equal(await page.evaluate(()=>readPriceLabelDefaultSize('new')),'a4-50x30','New default persists after reload');
+  assert.equal(await page.evaluate(()=>readPriceLabelDefaultSize('reprint')),'60x40','Repeat default persists independently after reload');
   assert.deepEqual(errors, []);
   console.log('price label designer browser tests passed');
 })().catch(error => {

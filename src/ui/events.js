@@ -931,7 +931,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(barcodePrintAddMissingBtn) barcodePrintAddMissingBtn.addEventListener('click',()=>openBarcodePrintCategoryPicker({category:'',brand:''},true));
   if(barcodePrintLabelSizeSelect) barcodePrintLabelSizeSelect.addEventListener('change',()=>{ barcodePrintLabelSize=barcodePrintLabelSizeSelect.value; });
   document.getElementById('savePriceLabelDefaultBtn')?.addEventListener('click',()=>{
-    try{savePriceLabelDefaultSize(barcodePrintLabelSize);render();showToast('ตั้งเป็นค่าเริ่มต้นสำหรับพิมพ์ใหม่และพิมพ์ซ้ำบนเครื่องนี้แล้ว');}
+    try{savePriceLabelDefaultSize(barcodePrintLabelSize,barcodePrintMode);render();showToast(`ตั้งเป็นค่าเริ่มต้นสำหรับ${barcodePrintMode==='reprint'?'พิมพ์ป้ายราคาซ้ำ':'พิมพ์ป้ายราคาใหม่'}บนเครื่องนี้แล้ว`);}
     catch{showToast('บันทึกค่าเริ่มต้นไม่สำเร็จ กรุณาตรวจพื้นที่เบราว์เซอร์','error');}
   });
   if(openPriceLabelDesignerBtn) openPriceLabelDesignerBtn.addEventListener('click',()=>openPriceLabelDesigner(barcodePrintLabelSize));

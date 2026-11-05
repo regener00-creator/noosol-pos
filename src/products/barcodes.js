@@ -88,7 +88,7 @@ function barcodePrintSelectableUnitOptions(product){
 function setBarcodePrintMode(mode){
   if(!['new','reprint'].includes(mode)||barcodePrintSavePending) return;
   barcodePrintShowMenu=false;
-  barcodePrintLabelSize=typeof readPriceLabelDefaultSize==='function'?readPriceLabelDefaultSize():barcodePrintLabelSize;
+  barcodePrintLabelSize=typeof readPriceLabelDefaultSize==='function'?readPriceLabelDefaultSize(mode):barcodePrintLabelSize;
   if(mode===barcodePrintMode){if(mode==='reprint')loadSystemIssuedLabelCodes();else render();return;}
   const previous={items:barcodePrintItems,request:barcodePrintRequest,context:captureWorkspaceRead()};
   const restored=barcodePrintOtherQueue&&isWorkspaceReadCurrent(barcodePrintOtherQueue.context)?barcodePrintOtherQueue:null;

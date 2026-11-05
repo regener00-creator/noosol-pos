@@ -56,7 +56,13 @@ let browser;
     await page.locator(`[data-direct-printer="${kind}"] button[type="submit"]`).click();
     await page.waitForFunction(({kind,printer})=>document.querySelector(`[data-direct-printer="${kind}"] [data-printer-status]`).textContent==='บันทึกแล้ว: '+printer,{kind,printer});
   }
-  await page.locator('#barcodePaperSize').selectOption('60x40');await page.locator('#barcodePaperForm button').click();
+  await page.evaluate(()=>{localStorage.setItem(PRICE_LABEL_DEFAULT_SIZE_KEY,'80x50');});
+  await open();
+  assert.equal(await page.locator('#barcodePaperSize').inputValue(),'80x50','Existing shared preference is retained for new labels');
+  assert.equal(await page.locator('#barcodeReprintPaperSize').inputValue(),'80x50','Existing shared preference is retained for reprints');
+  await page.locator('#barcodePaperSize').selectOption('60x40');
+  await page.locator('#barcodeReprintPaperSize').selectOption('40x30');
+  await page.locator('#barcodePaperForm button').click();
   const test=async kind=>{
     const opened=context.waitForEvent('page');await page.locator(`[data-test-direct="${kind}"]`).click();const popup=await opened;
     await popup.waitForFunction(()=>document.querySelector('[data-direct-print-status]')?.textContent.startsWith('ส่งงานไปยัง'));
@@ -70,6 +76,7 @@ let browser;
   assert.equal(await page.evaluate(()=>readPriceLabelDefaultSize()),'a4-50x30');
   const rollTest=await test('barcode');assert.equal(rollTest.width,60);assert.equal(rollTest.height,40,'A4 label default must not corrupt dedicated roll-printer test dimensions');
   await page.reload();await open();assert.equal(await page.locator('#barcodePaperSize').inputValue(),'a4-50x30');
+  assert.equal(await page.locator('#barcodeReprintPaperSize').inputValue(),'40x30','Separate repeat default survives saving new default and reloading');
   await page.locator('#barcodePaperSize').selectOption('60x40');await page.locator('#barcodePaperForm button').click();
   await page.locator('#directPrinter_a4').selectOption('Office New');await page.locator('[data-direct-printer="a4"] button[type="submit"]').click();
   await page.waitForFunction(()=>document.querySelector('[data-direct-printer="a4"] [data-printer-status]').textContent==='บันทึกแล้ว: Office New');

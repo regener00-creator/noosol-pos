@@ -478,7 +478,7 @@ function renderBarcodePrint(){
     </div></section>`;
   if(barcodePrintMode==='reprint'&&(!barcodeIssuedState?.ready||!isWorkspaceReadCurrent(barcodeIssuedState.context))) return `<section class="rpt"><div class="pagehead"><h1>พิมพ์ป้ายราคาซ้ำ</h1><button class="btn ghost" id="barcodePrintMenuBtn">ย้อนกลับ</button></div><p role="status">${barcodeIssuedState?.loading?'กำลังตรวจประวัติการจ่ายบาร์โค้ด…':escapeHtml(barcodeIssuedState?.error||'กรุณาโหลดประวัติการจ่ายบาร์โค้ด')}</p>${barcodeIssuedState?.loading?'':'<button class="btn primary" id="barcodeIssuedRetryBtn">ลองใหม่</button>'}</section>`;
   reconcileBarcodePrintItems();
-  const defaultSize=typeof readPriceLabelDefaultSize==='function'?readPriceLabelDefaultSize():'50x30';
+  const defaultSize=typeof readPriceLabelDefaultSize==='function'?readPriceLabelDefaultSize(barcodePrintMode):'50x30';
   const filter=barcodePrintCatFilter;
   const available=barcodePrintAvailableProducts();
   const brandOptions=brands.filter(brand=>available.some(product=>(!filter.category||product.category===filter.category)&&product.brand===brand));
