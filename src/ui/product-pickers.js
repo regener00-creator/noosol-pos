@@ -117,17 +117,18 @@ function openStockReportCategoryPicker(catf, onDone){
 }
 
 function openBarcodePrintCategoryPicker(filter,missingOnly=false){
+  const reprint=barcodePrintMode==='reprint';
   const matches=barcodePrintAvailableProducts(filter);
-  if(!matches.length){ showToast('ไม่พบสินค้าที่ไม่มีบาร์โค้ดในหมวดที่เลือก'); return; }
+  if(!matches.length){ showToast('ไม่พบสินค้าที่เลือกได้ในหมวดนี้'); return; }
   const alreadyIn=id=>Boolean(barcodePrintFindProductItem(id));
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal barcode-category-modal" style="max-height:82vh;display:flex;flex-direction:column;">
-    <div class="modal-head"><h3>${missingOnly?'สินค้าที่ไม่มีบาร์โค้ด':'เลือกสินค้าในหมวดนี้'}</h3><button class="modal-close" aria-label="ปิด">×</button></div>
+    <div class="modal-head"><h3>${missingOnly?(reprint?'สินค้าที่มีบาร์โค้ดแล้ว':'สินค้าที่ไม่มีบาร์โค้ด'):'เลือกสินค้าในหมวดนี้'}</h3><button class="modal-close" aria-label="ปิด">×</button></div>
     <div class="modal-sub">${missingOnly?'รวมทุกหมวด':`${escapeHtml(filter.category||'ทุกหมวดหลัก')}${filter.brand?` · ${escapeHtml(filter.brand)}`:''}`} · พบ ${matches.length} รายการ</div>
     <div style="padding:0 16px 8px;display:flex;justify-content:flex-end;gap:14px;"><button class="btn ghost small" id="barcodePickNoneBtn">ไม่เลือกเลย</button><button class="btn primary small" id="barcodePickAllBtn">เลือกทั้งหมด</button></div>
     <div class="manage-list" id="barcodePickList" style="flex:1;">${matches.map(product=>{
-      const missingUnits=barcodePrintUnitOptions(product).filter(option=>!option.barcode).map(option=>option.name);
+      const missingUnits=reprint?[]:barcodePrintMissingUnitOptions(product).map(option=>option.name);
       return `<label class="fav-check"><input type="checkbox" data-pid="${product.id}" ${alreadyIn(product.id)?'checked disabled':''}> <span>${escapeHtml(product.name)}</span> <span class="mono" style="margin-right:auto;color:var(--text-muted);font-size:12px;">${alreadyIn(product.id)?'อยู่ในรายการแล้ว':missingUnits.length?`ไม่มี: ${escapeHtml(missingUnits.join(', '))}`:'มีบาร์โค้ดแล้ว'}</span></label>`;
     }).join('')}</div>
     <div style="padding:12px 16px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;"><button class="btn ghost" id="barcodePickCancelBtn">ยกเลิก</button><button class="btn primary" id="barcodePickAddBtn">เพิ่มที่เลือก</button></div>

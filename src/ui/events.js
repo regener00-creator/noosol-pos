@@ -932,6 +932,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(barcodePrintLabelSizeSelect) barcodePrintLabelSizeSelect.addEventListener('change',()=>{ barcodePrintLabelSize=barcodePrintLabelSizeSelect.value; });
   if(openPriceLabelDesignerBtn) openPriceLabelDesignerBtn.addEventListener('click',()=>openPriceLabelDesigner(barcodePrintLabelSize));
   if(openBarcodeReprintBtn) openBarcodeReprintBtn.addEventListener('click',openBarcodeReprintDialog);
+  document.getElementById('barcodePrintNewModeBtn')?.addEventListener('click',()=>setBarcodePrintMode('new'));
   if(clearBarcodePrintBtn) clearBarcodePrintBtn.addEventListener('click',()=>{
     if(!confirm('ต้องการล้างรายการพิมพ์ป้ายราคาทั้งหมดใช่หรือไม่?')) return;
     barcodePrintItems=[]; barcodePrintRequest=null; barcodePrintSearchQuery=''; barcodePrintCatFilter={category:'',brand:''}; barcodePrintPage=1; render();
@@ -939,7 +940,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(barcodePrintSearch&&barcodePrintResults){
     const addProduct=product=>{
       const added=barcodePrintAddProduct(product);
-      showToast(added?`เพิ่ม “${product.name}” ในรายการแล้ว`:barcodePrintNeedsBarcode(product)?'สินค้านี้อยู่ในรายการแล้ว':'สินค้านี้ไม่มีหน่วยที่ต้องสร้างบาร์โค้ด');
+      showToast(added?`เพิ่ม “${product.name}” ในรายการแล้ว`:barcodePrintSelectableUnitOptions(product).length?'สินค้านี้อยู่ในรายการแล้ว':'ไม่มีหน่วยที่เลือกได้ในโหมดนี้');
       barcodePrintSearchQuery='';
       render();
       setTimeout(()=>document.getElementById('barcodePrintSearch')?.focus(),0);
@@ -951,7 +952,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       const matches=barcodePrintAvailableProducts(barcodePrintCatFilter).filter(product=>barcodePrintMatchesQuery(product,value)).slice(0,15);
       if(!matches.length){ barcodePrintResults.innerHTML='<div class="fav-add-noresult">ไม่พบสินค้า</div>'; barcodePrintResults.hidden=false; return; }
       barcodePrintResults.innerHTML=matches.map(product=>{
-        const missing=barcodePrintUnitOptions(product).filter(option=>!option.barcode).length;
+        const missing=barcodePrintMode==='reprint'?0:barcodePrintMissingUnitOptions(product).length;
         return `<div class="fav-add-result" data-barcode-print-result="${product.id}"><b>${escapeHtml(product.name)}</b><span>${escapeHtml(product.sku||'-')} · ${missing?`ไม่มีบาร์โค้ด ${missing} หน่วย`:'มีบาร์โค้ดแล้ว'}${barcodePrintFindProductItem(product.id)?' · อยู่ในรายการแล้ว':''}</span></div>`;
       }).join('');
       barcodePrintResults.hidden=false;
@@ -977,15 +978,15 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     const index=Number(select.dataset.barcodePrintUnit);
     const item=barcodePrintItems[index];
     const product=products.find(entry=>entry.id===item?.pid); if(!item||!product) return;
-    const option=barcodePrintMissingUnitOptions(product).find(entry=>entry.name===select.value);
+    const option=barcodePrintSelectableUnitOptions(product).find(entry=>entry.name===select.value);
     if(!option){ showToast('หน่วยนี้มีบาร์โค้ดแล้วหรือไม่พร้อมใช้งาน'); render(); return; }
     item.unit=option.name;
-    item.barcode='';
+    item.barcode=option.barcode;
     render();
   }));
   document.querySelectorAll('[data-barcode-print-code]').forEach(input=>{
     input.addEventListener('focus',()=>input.select());
-    input.addEventListener('input',()=>{ const item=barcodePrintItems[Number(input.dataset.barcodePrintCode)]; if(item){ item.barcode=input.value; input.classList.remove('invalid'); } });
+    input.addEventListener('input',()=>{ const item=barcodePrintItems[Number(input.dataset.barcodePrintCode)]; if(item&&barcodePrintMode!=='reprint'){ item.barcode=input.value; input.classList.remove('invalid'); } });
   });
   document.querySelectorAll('[data-barcode-print-qty]').forEach(input=>{
     input.addEventListener('focus',()=>input.select());
@@ -1002,6 +1003,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   }));
   if(savePrintBarcodeBtn) savePrintBarcodeBtn.addEventListener('click',async ()=>{
     if(barcodePrintSavePending) return;
+    if(barcodePrintMode==='reprint'){printBarcodeReprintItems();return;}
     const errors=barcodePrintIsRetry()?[]:barcodePrintValidation(barcodePrintItems);
     document.querySelectorAll('.barcode-print-code-input').forEach(input=>input.classList.remove('invalid'));
     if(errors.length){

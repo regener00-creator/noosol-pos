@@ -60,10 +60,29 @@ function barcodeReprintItem(productId,unitName,quantity){
 
 let barcodePrintSavePending=false;
 let barcodePrintRequest=null;
+let barcodePrintMode='new';
+let barcodePrintOtherQueue=null;
+let barcodeReprintContext=null;
+function barcodePrintSelectableUnitOptions(product){
+  return barcodePrintMode==='reprint'?barcodeReprintUnitOptions(product):barcodePrintMissingUnitOptions(product);
+}
+function setBarcodePrintMode(mode){
+  if(!['new','reprint'].includes(mode)||barcodePrintSavePending||mode===barcodePrintMode) return;
+  const previous={items:barcodePrintItems,request:barcodePrintRequest,context:captureWorkspaceRead()};
+  const restored=barcodePrintOtherQueue&&isWorkspaceReadCurrent(barcodePrintOtherQueue.context)?barcodePrintOtherQueue:null;
+  barcodePrintItems=restored?.items||[];
+  barcodePrintRequest=restored?.request||null;
+  barcodePrintOtherQueue=previous;
+  barcodePrintMode=mode;
+  barcodeReprintContext=captureWorkspaceRead();
+  barcodePrintSearchQuery=''; barcodePrintCatFilter={category:'',brand:''}; barcodePrintPage=1;
+  render();
+}
 function barcodePrintRequestPayload(items=barcodePrintItems){
   return items.map(item=>({pid:Number(item.pid),unit:item.unit,barcode:String(item.barcode||'').trim(),qty:Number(item.qty)}));
 }
 function barcodePrintIsRetry(items=barcodePrintItems){
+  if(barcodePrintMode==='reprint') return false;
   return barcodePrintRequest?.actor===currentProfile?.id&&barcodePrintRequest?.key===JSON.stringify(barcodePrintRequestPayload(items));
 }
 function reconcileBarcodePrintItems(){
@@ -71,12 +90,12 @@ function reconcileBarcodePrintItems(){
   const byId=new Map(products.map(product=>[product.id,product]));
   barcodePrintItems=barcodePrintItems.filter(item=>{
     const product=byId.get(item.pid);
-    return barcodePrintMissingUnitOptions(product).some(option=>option.name===item.unit);
+    return barcodePrintSelectableUnitOptions(product).some(option=>option.name===item.unit);
   });
 }
 
 function barcodePrintAvailableProducts(filter={}){
-  return products.filter(product=>barcodePrintNeedsBarcode(product)&&(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand));
+  return products.filter(product=>barcodePrintSelectableUnitOptions(product).length&&(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand));
 }
 
 function barcodePrintFindProductItem(productId){ return barcodePrintItems.find(item=>item.pid===Number(productId)); }
@@ -142,13 +161,13 @@ async function assertProductBarcodesAvailable(product,existing=null){
 }
 
 function createBarcodePrintItem(product){
-  const selected=barcodePrintMissingUnitOptions(product)[0];
+  const selected=barcodePrintSelectableUnitOptions(product)[0];
   if(!selected) return null;
-  return {pid:product.id,unit:selected.name,barcode:'',qty:1};
+  return {pid:product.id,unit:selected.name,barcode:selected.barcode,qty:1};
 }
 
 function barcodePrintAddProduct(product){
-  if(!barcodePrintNeedsBarcode(product)) return false;
+  if(!barcodePrintSelectableUnitOptions(product).length) return false;
   if(barcodePrintFindProductItem(product.id)) return false;
   barcodePrintItems.push(createBarcodePrintItem(product));
   barcodePrintPage=Math.max(1,Math.ceil(barcodePrintItems.length/BARCODE_PRINT_PAGE_SIZE));
