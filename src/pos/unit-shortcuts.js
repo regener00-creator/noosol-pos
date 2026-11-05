@@ -56,13 +56,15 @@ function setPosCartLineUnit(lineId,unitName){
 }
 
 function navigatePosCartArrows(event){
-  if(!event.ctrlKey||event.shiftKey||event.altKey||event.metaKey||event.isComposing||event.defaultPrevented) return;
+  if(event.shiftKey||event.altKey||event.metaKey||event.isComposing||event.defaultPrevented) return;
   const vertical=event.key==='ArrowUp'||event.key==='ArrowDown';
   if(!vertical&&event.key!=='ArrowLeft'&&event.key!=='ArrowRight') return;
   const cell=event.target.closest?.('.pos-table [data-pos-cart-line] > td');
   if(!cell) return;
+  if(!event.ctrlKey&&cell.cellIndex!==4&&cell.cellIndex!==5) return;
   event.preventDefault();
   closePosUnitCycleMenu();
+  if(!event.ctrlKey&&(cell.cellIndex===4&&event.key==='ArrowLeft'||cell.cellIndex===5&&event.key==='ArrowRight')) return;
   const row=cell.parentElement;
   const step=event.key==='ArrowUp'||event.key==='ArrowLeft'?-1:1;
   const rows=[...row.parentElement.querySelectorAll('tr[data-pos-cart-line]')];

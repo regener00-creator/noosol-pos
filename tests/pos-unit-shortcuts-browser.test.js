@@ -147,13 +147,27 @@ let browser;
   await page.keyboard.press('Control+ArrowUp');
   assert.deepEqual(await cellPosition(),[1,1],'navigation can start from a clicked barcode');
   await thirdQuantity.fill('1');
+  await page.keyboard.press('Tab');
   await thirdQuantity.focus();
-  for(const [key,qty] of [['ArrowUp',2],['ArrowUp',3],['ArrowDown',2],['ArrowDown',1],['ArrowDown',1]]){
+  const unitsBeforeArrows=await page.evaluate(()=>cart.map(line=>line.unit));
+  for(const [key,position] of [
+    ['ArrowRight',[2,5]],['ArrowUp',[1,5]],['ArrowUp',[0,5]],['ArrowUp',[0,5]],
+    ['ArrowLeft',[0,4]],['ArrowLeft',[0,4]],['ArrowUp',[0,4]],
+    ['ArrowDown',[1,4]],['ArrowDown',[2,4]],['ArrowDown',[2,4]],
+    ['ArrowRight',[2,5]],['ArrowLeft',[2,4]],['ArrowUp',[1,4]],
+    ['ArrowRight',[1,5]],['ArrowDown',[2,5]],['ArrowDown',[2,5]]
+  ]){
     await page.keyboard.press(key);
-    assert.ok(await thirdQuantity.evaluate(el=>el===document.activeElement),'arrow keys keep focus on the same cart line');
-    assert.equal(await thirdQuantity.inputValue(),String(qty));
-    assert.equal(await page.evaluate(()=>cart[2].qty),qty);
+    assert.deepEqual(await cellPosition(),position,'plain arrows navigate only unit and quantity cells');
+    assert.equal(await page.evaluate(()=>cart[2].qty),1,'navigation never increments or decrements quantity');
+    assert.deepEqual(await page.evaluate(()=>cart.map(line=>line.unit)),unitsBeforeArrows,'navigation never changes units');
   }
+  await thirdQuantity.fill('6');
+  await page.keyboard.press('ArrowUp');
+  assert.deepEqual(await cellPosition(),[1,5]);
+  assert.equal(await page.evaluate(()=>cart[2].qty),6,'moving up commits the typed quantity across a rerender');
+  await page.keyboard.press('ArrowDown');
+  assert.ok(await thirdQuantity.evaluate(el=>el===document.activeElement));
   async function checkRemoval(trigger,accept){
     let message='';
     page.once('dialog',async dialog=>{
