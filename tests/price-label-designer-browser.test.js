@@ -261,7 +261,9 @@ const browserExecutable = [
   const beforeReprint=await page.evaluate(()=>{
     localStorage.setItem(A4_PAPER_STORAGE_KEY,JSON.stringify({orientation:'landscape',marginTop:40,marginBottom:40,marginLeft:40,marginRight:40}));
     window.reprintRpcCalls=[];
-    sb.rpc=async(name)=>{window.reprintRpcCalls.push(name);throw new Error('Reprint must not call RPC');};
+    window.issuedFixture=[{pid:9101,barcode:'FULL-001'},{pid:9103,barcode:'CREATED-ELSEWHERE'},{pid:9103,barcode:'CHANGED'}];
+    sb.rpc=async(name)=>{if(name==='system_issued_label_codes') return {data:window.issuedFixture,error:null};window.reprintRpcCalls.push(name);throw new Error('Reprint must not call a write RPC');};
+    products.push({id:9105,sku:'MANUAL',name:'Imported internal-looking barcode',category:'ยา',brand:'แบรนด์',unit:'กล่อง',barcode:'P00000000099',units:[]});
     return JSON.stringify({products,barcodePrintItems});
   });
   await page.locator('#barcodePrintMenuBtn').click();
@@ -286,8 +288,7 @@ const browserExecutable = [
   await page.locator('#barcodePickAllBtn').click();
   await page.locator('#barcodePickAddBtn').click();
   assert.equal(await page.locator('[data-barcode-print-row]').count(),2);
-  assert.deepEqual(await page.locator('[data-barcode-print-unit="1"] option').allTextContents(),['กล่อง','แผง']);
-  await page.locator('[data-barcode-print-unit="1"]').selectOption('แผง');
+  assert.equal(await page.locator('[data-barcode-print-unit="1"]').count(),0,'Manufacturer barcode unit is excluded');
   assert.equal(await page.locator('[data-barcode-print-code="1"]').inputValue(),'CREATED-ELSEWHERE');
   await page.locator('[data-barcode-print-qty="0"]').fill('35');
   await page.locator('[data-barcode-print-qty="1"]').fill('2');
@@ -347,6 +348,16 @@ const browserExecutable = [
   assert.equal(await page.locator('[data-barcode-print-mode]').count(),2,'Opening the sidebar item always returns to the two choices');
   await page.locator('[data-barcode-print-mode="reprint"]').click();
   assert.equal(await page.locator('[data-barcode-print-code="0"]').inputValue(),'CHANGED','Reopening the same mode keeps its queue');
+  await page.locator('#barcodePrintMenuBtn').click();
+  await page.evaluate(()=>{
+    const original=sb.rpc;let fail=true;
+    sb.rpc=async(...args)=>{if(args[0]==='system_issued_label_codes'&&fail){fail=false;return {data:null,error:{message:'offline'}};}return original(...args);};
+  });
+  await page.locator('[data-barcode-print-mode="reprint"]').click();
+  await page.locator('#barcodeIssuedRetryBtn').waitFor();
+  assert.equal(await page.locator('#barcodePrintSearch').count(),0,'History errors never fall back to all barcodes');
+  await page.locator('#barcodeIssuedRetryBtn').click();
+  assert.equal(await page.locator('[data-barcode-print-code="0"]').inputValue(),'CHANGED','Retry preserves the queue');
   assert.deepEqual(errors, []);
   console.log('price label designer browser tests passed');
 })().catch(error => {

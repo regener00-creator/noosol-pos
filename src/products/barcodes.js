@@ -45,7 +45,8 @@ function barcodePrintNeedsBarcode(product){
 }
 
 function barcodeReprintUnitOptions(product){
-  return isProductActive(product)?barcodePrintUnitOptions(product).filter(option=>option.barcode):[];
+  if(!isProductActive(product)||!barcodeIssuedState?.ready||!isWorkspaceReadCurrent(barcodeIssuedState.context)) return [];
+  return barcodePrintUnitOptions(product).filter(option=>barcodeIssuedState.codes.has(JSON.stringify([Number(product.id),option.barcode])));
 }
 
 function barcodeReprintItem(productId,unitName,quantity){
@@ -64,13 +65,30 @@ let barcodePrintMode='new';
 let barcodePrintShowMenu=true;
 let barcodePrintOtherQueue=null;
 let barcodeReprintContext=null;
+let barcodeIssuedState=null;
+async function loadSystemIssuedLabelCodes(){
+  const state={context:captureWorkspaceRead(),ready:false,loading:true,error:'',codes:new Set()};
+  barcodeIssuedState=state;
+  render();
+  try{
+    const {data,error}=await sb.rpc('system_issued_label_codes');
+    if(error) throw error;
+    if(!Array.isArray(data)) throw new Error('ข้อมูลประวัติบาร์โค้ดไม่ถูกต้อง');
+    state.codes=new Set(data.map(item=>JSON.stringify([Number(item.pid),String(item.barcode)])));
+    state.ready=true;
+  }catch(error){state.error='โหลดประวัติการจ่ายบาร์โค้ดไม่สำเร็จ กรุณาตรวจการเชื่อมต่อแล้วลองใหม่';}
+  finally{
+    state.loading=false;
+    if(barcodeIssuedState===state&&isWorkspaceReadCurrent(state.context)&&currentTab==='barcodeprint') render();
+  }
+}
 function barcodePrintSelectableUnitOptions(product){
   return barcodePrintMode==='reprint'?barcodeReprintUnitOptions(product):barcodePrintMissingUnitOptions(product);
 }
 function setBarcodePrintMode(mode){
   if(!['new','reprint'].includes(mode)||barcodePrintSavePending) return;
   barcodePrintShowMenu=false;
-  if(mode===barcodePrintMode){render();return;}
+  if(mode===barcodePrintMode){if(mode==='reprint')loadSystemIssuedLabelCodes();else render();return;}
   const previous={items:barcodePrintItems,request:barcodePrintRequest,context:captureWorkspaceRead()};
   const restored=barcodePrintOtherQueue&&isWorkspaceReadCurrent(barcodePrintOtherQueue.context)?barcodePrintOtherQueue:null;
   barcodePrintItems=restored?.items||[];
@@ -79,7 +97,7 @@ function setBarcodePrintMode(mode){
   barcodePrintMode=mode;
   barcodeReprintContext=captureWorkspaceRead();
   barcodePrintSearchQuery=''; barcodePrintCatFilter={category:'',brand:''}; barcodePrintPage=1;
-  render();
+  if(mode==='reprint') loadSystemIssuedLabelCodes(); else render();
 }
 function barcodePrintRequestPayload(items=barcodePrintItems){
   return items.map(item=>({pid:Number(item.pid),unit:item.unit,barcode:String(item.barcode||'').trim(),qty:Number(item.qty)}));

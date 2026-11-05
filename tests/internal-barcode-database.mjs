@@ -35,6 +35,12 @@ export async function run({client,connect}){
   assert.equal(sub.items[0].barcode,'P00000000004');
   assert.equal(sub.products[0].data.barcode,'BOX-EXISTING');
   assert.equal(sub.products[0].data.units[0].barcode,'P00000000004');
+  await insert(88005);
+  await issue(client,[{...item(88005),barcode:'MANUAL-LABEL'}]);
+  const issued=(await client.query('select public.system_issued_label_codes() codes')).rows[0].codes;
+  assert.ok(issued.some(row=>row.pid===88004&&row.barcode==='P00000000004'),'Includes automatically issued subunit code');
+  assert.ok(!issued.some(row=>row.pid===88003),'Imported P-prefixed codes are excluded');
+  assert.ok(!issued.some(row=>row.pid===88005),'Manually supplied codes in label requests are excluded');
 
   const peers=await Promise.all(Array.from({length:8},()=>connect()));
   try{
@@ -56,9 +62,11 @@ export async function run({client,connect}){
     assert.equal(new Set(sameRequest.map(result=>result.items[0].barcode)).size,1);
     await peers[0].query("select set_config('request.jwt.claim.sub',$1,false)",[staff]);
     await assert.rejects(issue(peers[0],[item(88201)]),/owner access/);
+    await assert.rejects(peers[0].query('select public.system_issued_label_codes()'),/owner access/);
     await assert.rejects(peers[0].query("select nextval('private.internal_barcode_number')"),/permission denied/);
     await assert.rejects(peers[0].query('delete from private.internal_barcode_history'),/permission denied/);
     await peers[0].query('set role anon');
+    await assert.rejects(peers[0].query('select public.system_issued_label_codes()'),/permission denied/);
     await assert.rejects(issue(peers[0],[item(88201)]),/permission denied/);
   }finally{await Promise.all(peers.map(peer=>peer.end()));}
 

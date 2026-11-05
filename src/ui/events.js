@@ -933,6 +933,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(openPriceLabelDesignerBtn) openPriceLabelDesignerBtn.addEventListener('click',()=>openPriceLabelDesigner(barcodePrintLabelSize));
   if(openBarcodeReprintBtn) openBarcodeReprintBtn.addEventListener('click',openBarcodeReprintDialog);
   document.querySelectorAll('[data-barcode-print-mode]').forEach(button=>button.addEventListener('click',()=>setBarcodePrintMode(button.dataset.barcodePrintMode)));
+  document.getElementById('barcodeIssuedRetryBtn')?.addEventListener('click',loadSystemIssuedLabelCodes);
   document.getElementById('barcodePrintMenuBtn')?.addEventListener('click',()=>{if(!barcodePrintSavePending){barcodePrintShowMenu=true;render();}});
   if(clearBarcodePrintBtn) clearBarcodePrintBtn.addEventListener('click',()=>{
     if(!confirm('ต้องการล้างรายการพิมพ์ป้ายราคาทั้งหมดใช่หรือไม่?')) return;
