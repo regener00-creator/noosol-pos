@@ -174,8 +174,11 @@
   .dashboard-weekday{background:var(--primary);color:#fff;text-align:center;padding:12px 4px;font-weight:600;}
   .dashboard-calendar-day,.dashboard-calendar-blank{background:var(--surface);padding:12px;min-width:0;}
   .dashboard-calendar-blank{background:var(--bg);}
-  .dashboard-calendar-day.is-today{background:var(--primary-soft);box-shadow:inset 0 0 0 2px var(--primary);}
   .dashboard-calendar-day.is-future{background:var(--bg);color:var(--text-muted);}
+  .dashboard-weekday:nth-child(7n+6),.dashboard-weekday:nth-child(7n){background:#86523E;}
+  .dashboard-calendar-day:nth-child(7n+6),.dashboard-calendar-day:nth-child(7n){background:#FFF2E6;}
+  .dashboard-calendar-day:nth-child(7n+6) time,.dashboard-calendar-day:nth-child(7n) time{color:#934329;}
+  .dashboard-calendar-day.is-today{background:var(--primary-soft);box-shadow:inset 0 0 0 2px var(--primary);}
   .dashboard-calendar-day{display:flex;align-items:center;gap:12px;}
   .dashboard-calendar-day time{display:inline-block;font-size:16px;font-weight:700;min-width:22px;flex-shrink:0;}
   .dashboard-day-summary{position:relative;flex:1;text-align:center;font-size:12px;line-height:1.8;white-space:nowrap;}
