@@ -1,3 +1,34 @@
+function navigatePosSearchResults(event){
+  if(event.defaultPrevented||event.isComposing||event.ctrlKey||event.altKey||event.metaKey||
+    !['ArrowDown','ArrowUp','Tab','Enter','Escape'].includes(event.key)) return false;
+  const search=document.querySelector('#main #search');
+  const selected=event.target.closest?.('.pos-results .pos-result[data-act="add"]');
+  if(!search||!search.value.trim()||event.target!==search&&!selected) return false;
+  if(event.key==='Enter'){
+    if(!selected)return false;
+    event.preventDefault();
+    if(!event.repeat)addProductFromPOSAction(selected,{focusCart:true});
+    return true;
+  }
+  event.preventDefault();
+  closePosUnitCycleMenu();
+  if(event.key==='Escape'){
+    searchQuery='';search.value='';
+    refreshPOSSearchResults();
+    search.focus();
+    return true;
+  }
+  // Flush a pending search before focusing a result so the debounce cannot remove it.
+  if(posSearchRenderTimer!==null)refreshPOSSearchResults();
+  const results=[...document.querySelectorAll('.pos-results .pos-result[data-act="add"]:not(.disabled)')];
+  const step=event.key==='ArrowUp'||event.key==='Tab'&&event.shiftKey?-1:1;
+  const index=results.indexOf(selected);
+  const next=index<0?results.at(step<0?-1:0):results[index+step];
+  (next||search).focus({preventScroll:true});
+  (next||search).scrollIntoView({block:'nearest',inline:'nearest'});
+  return true;
+}
+
 function confirmPosCartLineRemoval(lineId){
   const index=cart.findIndex(line=>String(line.lineId)===String(lineId));
   if(index<0||cart[index].autoFreeFromPromo) return;

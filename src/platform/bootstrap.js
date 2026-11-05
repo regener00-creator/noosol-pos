@@ -52,6 +52,7 @@ document.addEventListener('scroll',event=>{if(!event.target.closest?.('#posUnitC
 // F2 = เก็บเงิน (ลัดขั้นตอนแทนการเอื้อมมือไปคลิกปุ่ม) เฉพาะตอนอยู่หน้า POS และมีสินค้าในบิลแล้วเท่านั้น
 document.addEventListener('keydown', e=>{
   if(currentTab==='checkout'&&!document.querySelector('.modal-overlay')){
+    if(navigatePosSearchResults(e))return;
     navigatePosCartArrows(e);
     navigatePosCartFields(e);
     if(e.defaultPrevented) return;

@@ -162,7 +162,7 @@ function renderSearchResults(){
   if(matches.length===0) return `<div class="pos-results"><div class="pos-noresult">ไม่พบสินค้า "${escapeHtml(q)}"</div></div>`;
   return `<div class="pos-results">${matches.map(p=>{
     const outLabel=p.stock<0?' · สต็อกติดลบ':(p.stock===0?' · หมดสต็อก':'');
-    return `<div class="pos-result" data-act="add" data-id="${escapeHtml(p.id)}">
+    return `<div class="pos-result" role="button" tabindex="-1" data-act="add" data-id="${escapeHtml(p.id)}">
       <div><div class="pr-name">${escapeHtml(p.name)}</div><div class="pr-meta">${escapeHtml(p.sku||'')} · คงเหลือ <span class="${p.stock<0?'stock-negative':''}">${escapeHtml(p.stock)}</span> ${escapeHtml(p.unit||'')}</div></div>
       <div class="pr-price mono">${fmtMoney(p.price)}${escapeHtml(outLabel)}</div>
     </div>`;

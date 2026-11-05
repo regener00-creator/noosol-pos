@@ -1878,6 +1878,7 @@
   .pos-result{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);cursor:pointer;}
   .pos-result:last-child{border-bottom:none;}
   .pos-result:hover{background:var(--primary-soft);}
+  .pos-result:focus{background:var(--primary-soft);outline:2px solid var(--primary);outline-offset:-2px;}
   .pos-result.disabled{opacity:.45;cursor:not-allowed;}
   .pos-result .pr-name{font-size:14px;font-weight:500;}
   .pos-result .pr-meta{font-size:11.5px;color:var(--text-muted);}

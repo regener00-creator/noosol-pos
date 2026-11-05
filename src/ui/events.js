@@ -674,6 +674,8 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       posSearchRenderTimer=setTimeout(refreshPOSSearchResults,60);
     });
     if(currentTab==='checkout') searchEl.addEventListener('keydown', e=>{
+      if(e.isComposing||document.querySelector('.modal-overlay'))return;
+      if(navigatePosSearchResults(e))return;
       if(e.key==='Enter'){
         const q=searchQuery.trim(); if(!q) return;
         if(isPosSmallestUnitCommand(q)){

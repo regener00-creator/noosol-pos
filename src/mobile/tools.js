@@ -529,24 +529,31 @@ function mobileInspectionDraftRowsHtml(){
 }
 let posSearchRenderTimer=null;
 let listSearchRenderTimer=null;
-function addProductFromPOSAction(el){
+function addProductFromPOSAction(el,{focusCart=false}={}){
   const pid=Number(el.dataset.id);
   const product=products.find(item=>Number(item.id)===pid);
   addToCart(pid, consumePosSaleUnit(product,el.dataset.unit||null), pendingQty);
   checkNegativeStockToast(pid);
   pendingQty=1;
   if(currentTab==='checkout') searchQuery='';
+  const lineId=posActiveLineId;
   render();
+  if(focusCart){
+    const row=document.querySelector(`[data-pos-cart-line="${CSS.escape(String(lineId))}"]`);
+    const field=row?.querySelector('.line-unit:enabled,.line-qty:enabled');
+    if(field){field.focus();return;}
+  }
   document.getElementById('search')?.focus();
 }
 function bindPOSAddActions(root=document){
   root.querySelectorAll('[data-act="add"]').forEach(element=>element.addEventListener('click',()=>addProductFromPOSAction(element)));
 }
 function refreshPOSSearchResults(){
+  clearTimeout(posSearchRenderTimer);
+  posSearchRenderTimer=null;
   const searchRow=document.querySelector('.pos-searchrow');
   if(!searchRow||currentTab!=='checkout') return;
-  const previous=searchRow.nextElementSibling;
-  if(previous?.classList?.contains('pos-results')) previous.remove();
+  document.querySelector('#main .pos-results')?.remove();
   if(!searchQuery.trim()) return;
   searchRow.insertAdjacentHTML('afterend',renderSearchResults());
   const results=searchRow.nextElementSibling;

@@ -179,6 +179,61 @@ let browser;
   await page.evaluate(()=>{addToCart(103,'ซอง',1);render();});
   await thirdQuantity.focus();
   await checkRemoval(pressDelete,true);
+  await page.evaluate(()=>{
+    products=[
+      {id:201,name:'RON Alpha',sku:'RON-A',unit:'แผง',price:20,cost:10,stock:100,active:true,units:[{sub:'กล่อง',factor:10,price:190,cost:100}]},
+      {id:202,name:'RON Beta',sku:'RON-B',unit:'ขวด',price:30,cost:15,stock:100,active:true,units:[]},
+      {id:203,name:'RON Gamma',sku:'RON-C',unit:'แผง',price:40,cost:20,stock:100,active:true,units:[]}
+    ];
+    cart=[];saleMember=null;promotions=[];pendingQty=1;searchQuery='';posSmallestUnitOnce=false;render();
+  });
+  const search=page.locator('#search');
+  const result=id=>page.locator(`.pos-result[data-id="${id}"]`);
+  // A keystroke immediately after input must use the new results, even during debounce.
+  await search.evaluate(el=>{
+    el.value='RON';el.dispatchEvent(new Event('input',{bubbles:true}));el.focus();
+    el.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));
+  });
+  assert.ok(await focusIs('.pos-result[data-id="201"]'));
+  assert.ok(await result(201).evaluate(el=>getComputedStyle(el).outlineStyle==='solid'));
+  await page.keyboard.press('ArrowDown');assert.ok(await focusIs('.pos-result[data-id="202"]'));
+  await page.keyboard.press('ArrowUp');assert.ok(await focusIs('.pos-result[data-id="201"]'));
+  await page.keyboard.press('Tab');assert.ok(await focusIs('.pos-result[data-id="202"]'));
+  await page.keyboard.press('Shift+Tab');assert.ok(await focusIs('.pos-result[data-id="201"]'));
+  await page.keyboard.press('Enter');
+  assert.equal(await page.evaluate(()=>cart[0].pid),201);
+  assert.ok(await focusIs('.line-unit'));
+  assert.equal(await search.inputValue(),'');
+  assert.equal(await page.locator('.pos-results').count(),0);
+  await page.keyboard.press('Enter');assert.ok(await focusIs('.line-qty'));
+  await page.keyboard.press('Tab');assert.ok(await focusIs('#search'));
+  await page.keyboard.press('Tab');assert.ok(await focusIs('.line-unit'),'empty search still enters cart fields');
+  await search.fill('RON');await page.keyboard.press('Tab');await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  assert.deepEqual(await page.evaluate(()=>cart.map(x=>x.pid)),[201,202]);
+  assert.ok(await focusIs('.pos-table tr:last-child .line-qty'),'fixed unit goes directly to quantity');
+  await search.fill('RON');await page.keyboard.press('Tab');await page.keyboard.press('Enter');
+  assert.equal(await page.evaluate(()=>cart[0].qty),2);
+  assert.ok(await focusIs('.pos-table tr:first-child .line-unit'),'merging an earlier line focuses that line');
+  await search.fill('RON');await page.keyboard.press('Shift+Tab');
+  assert.ok(await focusIs('.pos-result[data-id="203"]'));
+  await page.keyboard.press('Escape');
+  assert.ok(await focusIs('#search'));assert.equal(await search.inputValue(),'');
+  assert.equal(await page.locator('.pos-results').count(),0);
+  await search.fill('NOT-A-MATCH');await page.keyboard.press('Tab');
+  assert.ok(await focusIs('#search'));assert.equal(await page.evaluate(()=>cart.length),2);
+  await search.fill('RON');
+  await search.evaluate(el=>el.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',isComposing:true,bubbles:true,cancelable:true})));
+  assert.equal(await page.evaluate(()=>cart[0].qty),2,'IME confirmation does not add a product');
+  await page.keyboard.press('Escape');
+  await search.fill('*3');await page.keyboard.press('Enter');
+  await page.keyboard.press('Home');
+  await search.fill('RON');await page.keyboard.press('Tab');await page.keyboard.press('Tab');
+  assert.equal(await page.locator('.pos-results').count(),1,'smallest-unit status cannot leave duplicate result lists');
+  await page.keyboard.press('Enter');
+  assert.equal(await page.evaluate(()=>cart[1].qty),4,'selected product uses the preset quantity');
+  assert.equal(await page.evaluate(()=>posSmallestUnitOnce),false);
+  assert.ok(await focusIs('.pos-table tr:last-child .line-qty'));
   assert.deepEqual(errors,[]);
   console.log('Caps Lock: unit cycle, popup, price/cost/factor/barcode, quantity, selected/latest/merged line, customer prices, modal/input/page guards and Home passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();await new Promise(resolve=>server.close(resolve));});
