@@ -117,7 +117,7 @@ const STOCK_LOT_REALLOCATION_PAGE_SIZE = 10;
 let barcodePrintItems = [];
 let barcodePrintCatFilter = { category:'', brand:'' };
 let barcodePrintSearchQuery = '';
-let barcodePrintLabelSize = typeof readBarcodePaperSize==='function'?readBarcodePaperSize():'50x30';
+let barcodePrintLabelSize = typeof readPriceLabelDefaultSize==='function'?readPriceLabelDefaultSize():'50x30';
 let barcodePrintPage = 1;
 const BARCODE_PRINT_PAGE_SIZE = 10;
 const BARCODE_PRINT_LABEL_DIMENSIONS={

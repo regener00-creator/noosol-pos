@@ -2,6 +2,16 @@
 const DIRECT_PRINTER_KEY='pepos_direct_printer_v1';
 const DIRECT_PRINTER_TOKEN_KEY='pepos_direct_printer_token_v1';
 const BARCODE_PAPER_KEY='pepos_barcode_paper_v1';
+const PRICE_LABEL_DEFAULT_SIZE_KEY='pepos_price_label_default_size_v1';
+function readPriceLabelDefaultSize(){
+  try{const size=localStorage.getItem(PRICE_LABEL_DEFAULT_SIZE_KEY);if(['a4-50x30','50x30','80x50','60x40','40x30'].includes(size))return size;}catch{}
+  return readBarcodePaperSize();
+}
+function savePriceLabelDefaultSize(size){
+  if(!['a4-50x30','50x30','80x50','60x40','40x30'].includes(size))throw new Error('ขนาดป้ายไม่ถูกต้อง');
+  localStorage.setItem(PRICE_LABEL_DEFAULT_SIZE_KEY,size);
+  if(size!=='a4-50x30')localStorage.setItem(BARCODE_PAPER_KEY,size);
+}
 const DIRECT_PRINTER_TYPES=Object.freeze({receipt:'ใบเสร็จอย่างย่อ',a4:'เอกสาร A4',barcode:'บาร์โค้ด / ป้ายราคา'});
 function directPrinterEnabled(){
   try{return localStorage.getItem(DIRECT_PRINTER_KEY)==='enabled';}catch{return false;}
@@ -104,8 +114,8 @@ function renderDirectPrinterSettings(){
   return `<section class="settings-section"><h2>เครื่องพิมพ์ประจำเครื่องนี้</h2><p>เลือกเครื่องแยกตามประเภท กดพิมพ์แล้วส่งไปเครื่องที่บันทึกไว้โดยอัตโนมัติ</p><div class="receipt-printer-actions"><button class="btn primary" type="button" id="connectDirectPrinter">เชื่อมต่อตัวช่วยพิมพ์</button><button class="btn" type="button" id="refreshDirectPrinters">โหลดเครื่องพิมพ์ใหม่</button><a class="btn" href="https://github.com/regener00-creator/noosol-pos/releases/download/printing-v3.0/SAPURI-POS-Setup-Windows-v3.0.zip" target="_blank" rel="noopener">ดาวน์โหลดชุดตั้งค่า Windows</a></div><p id="directPrinterConnection" role="status">กำลังตรวจตัวช่วยพิมพ์…</p><div class="direct-printer-cards">${Object.entries(DIRECT_PRINTER_TYPES).map(([kind,label])=>`<form class="direct-printer-card" data-direct-printer="${kind}"><h3>${label}</h3><label for="directPrinter_${kind}">เครื่องพิมพ์</label><select id="directPrinter_${kind}" name="printer" required disabled><option value="">เชื่อมต่อตัวช่วยเพื่อโหลดเครื่องพิมพ์</option></select><div class="receipt-printer-actions"><button class="btn primary" type="submit" disabled>บันทึกเครื่องพิมพ์</button><button class="btn" type="button" data-test-direct="${kind}" disabled>ทดลองพิมพ์</button></div><p data-printer-status role="status">ยังไม่เชื่อมต่อ</p></form>`).join('')}</div><p class="hint">ครั้งแรกติดตั้งตัวช่วย แล้วกดเชื่อมต่อ หาก Chrome ถาม ให้เปิด SAPURI Print และอนุญาตการเชื่อมต่อในเครื่อง ค่าจะจำแยกแต่ละคอมและบัญชี Windows</p></section>`;
 }
 function renderBarcodePaperSettings(){
-  const selected=readBarcodePaperSize();
-  return `<section class="settings-section"><h2>กระดาษบาร์โค้ด / ป้ายราคา</h2><form id="barcodePaperForm"><label class="receipt-printer-field" for="barcodePaperSize"><span>ขนาดป้ายเริ่มต้น</span><select id="barcodePaperSize" name="size">${['50x30','80x50','60x40','40x30'].map(size=>`<option value="${size}" ${selected===size?'selected':''}>${size.replace('x',' × ')} มม.</option>`).join('')}</select></label><button class="btn primary" type="submit">บันทึกขนาดป้าย</button><p id="barcodePaperStatus" role="status">ใช้เป็นค่าเริ่มต้นในหน้าพิมพ์ป้ายราคา เปลี่ยนขนาดเฉพาะงานได้ก่อนพิมพ์</p></form></section>`;
+  const selected=readPriceLabelDefaultSize();
+  return `<section class="settings-section"><h2>กระดาษบาร์โค้ด / ป้ายราคา</h2><form id="barcodePaperForm"><label class="receipt-printer-field" for="barcodePaperSize"><span>ขนาดป้ายเริ่มต้น</span><select id="barcodePaperSize" name="size">${['a4-50x30','50x30','80x50','60x40','40x30'].map(size=>`<option value="${size}" ${selected===size?'selected':''}>${size==='a4-50x30'?'A4 · 50 × 30 มม. · 36 ป้าย/แผ่น':size.replace('x',' × ')+' มม.'}</option>`).join('')}</select></label><button class="btn primary" type="submit">บันทึกขนาดป้าย</button><p id="barcodePaperStatus" role="status">ใช้เป็นค่าเริ่มต้นทั้งพิมพ์ป้ายราคาใหม่และพิมพ์ป้ายราคาซ้ำบนเครื่องนี้</p></form></section>`;
 }
 function readBarcodePaperSize(){try{const size=localStorage.getItem(BARCODE_PAPER_KEY);return ['50x30','80x50','60x40','40x30'].includes(size)?size:'50x30';}catch{return '50x30';}}
 function directPrinterTest(kind){
@@ -164,6 +174,6 @@ function attachDirectPrinterSettings(){
     };
   });
   const barcodeForm=document.getElementById('barcodePaperForm');
-  if(barcodeForm)barcodeForm.onsubmit=event=>{event.preventDefault();try{localStorage.setItem(BARCODE_PAPER_KEY,barcodeForm.elements.size.value);barcodePrintLabelSize=readBarcodePaperSize();document.getElementById('barcodePaperStatus').textContent='บันทึกขนาดป้ายบนเครื่องนี้แล้ว';}catch{document.getElementById('barcodePaperStatus').textContent='บันทึกไม่สำเร็จ กรุณาตรวจพื้นที่เบราว์เซอร์';}};
+  if(barcodeForm)barcodeForm.onsubmit=event=>{event.preventDefault();try{savePriceLabelDefaultSize(barcodeForm.elements.size.value);barcodePrintLabelSize=readPriceLabelDefaultSize();document.getElementById('barcodePaperStatus').textContent='บันทึกขนาดป้ายบนเครื่องนี้แล้ว';}catch{document.getElementById('barcodePaperStatus').textContent='บันทึกไม่สำเร็จ กรุณาตรวจพื้นที่เบราว์เซอร์';}};
   if(localStorage.getItem(DIRECT_PRINTER_TOKEN_KEY))void load();else announce('ยังไม่เชื่อมต่อ · ติดตั้งตัวช่วยแล้วกดเชื่อมต่อครั้งแรก');
 }

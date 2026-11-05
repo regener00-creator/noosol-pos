@@ -70,6 +70,8 @@ const browserExecutable = [
   assert.equal(await page.locator('#barcodePrintLabelType').count(),0);
   assert.equal(await page.locator('#barcodePrintLabelSize').inputValue(),'50x30');
   await page.locator('#barcodePrintLabelSize').selectOption('a4-50x30');
+  await page.locator('#savePriceLabelDefaultBtn').click();
+  assert.equal(await page.evaluate(()=>readPriceLabelDefaultSize()),'a4-50x30');
   assert.match(await page.locator('.page-title-meta').textContent(),/50 × 30 มม\./);
   assert.equal(await page.locator('#openPriceLabelDesignerBtn').isVisible(), true);
   await page.locator('#openPriceLabelDesignerBtn').click();
@@ -358,6 +360,14 @@ const browserExecutable = [
   assert.equal(await page.locator('#barcodePrintSearch').count(),0,'History errors never fall back to all barcodes');
   await page.locator('#barcodeIssuedRetryBtn').click();
   assert.equal(await page.locator('[data-barcode-print-code="0"]').inputValue(),'CHANGED','Retry preserves the queue');
+  await page.locator('#barcodePrintLabelSize').selectOption('60x40');
+  await page.locator('#savePriceLabelDefaultBtn').click();
+  await page.locator('#barcodePrintMenuBtn').click();
+  await page.locator('[data-barcode-print-mode="new"]').click();
+  assert.equal(await page.locator('#barcodePrintLabelSize').inputValue(),'60x40','Default saved from reprint applies to new labels');
+  await page.reload();
+  await page.waitForFunction(()=>typeof readPriceLabelDefaultSize==='function');
+  assert.equal(await page.evaluate(()=>readPriceLabelDefaultSize()),'60x40','Default persists after reload');
   assert.deepEqual(errors, []);
   console.log('price label designer browser tests passed');
 })().catch(error => {
