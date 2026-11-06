@@ -825,7 +825,7 @@
   .barcode-reprint-error:empty{display:none;}
   .barcode-reprint-actions{display:flex;justify-content:flex-end;gap:12px;}
   .barcode-print-page .rpt-filters{flex:0 0 auto;margin-bottom:10px;}
-  .barcode-print-search-wrap{position:relative;flex:0 0 auto;margin-bottom:10px;}
+  .barcode-print-search-wrap{position:relative;flex:1 1 280px;min-width:0;}
   .barcode-print-search{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit;font-size:14px;}
   .barcode-print-search:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,153,209,.12);}
   .barcode-print-table-wrap{flex:1;min-height:0;max-height:none;overflow-x:auto;overflow-y:hidden;border-radius:var(--radius);}
