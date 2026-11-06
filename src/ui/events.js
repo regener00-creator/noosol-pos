@@ -1475,7 +1475,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     const button=event.currentTarget;button.disabled=true;
     try{await invokeExcelTool('exportTaxReportToExcel',snapshot);}finally{button.disabled=false;}
   });
-  document.getElementById('taxReportPrintBtn')?.addEventListener('click',printTaxReport);
+  document.getElementById('taxReportPrintBtn')?.addEventListener('click',()=>printTaxReport(document.getElementById('taxReportPrintType')?.value));
   for(const key of ['sales','purchases']){
     document.querySelectorAll(`[data-rtax-${key}-page]`).forEach(button=>button.addEventListener('click',()=>{
       const value=button.getAttribute(`data-rtax-${key}-page`);
