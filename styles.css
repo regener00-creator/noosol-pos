@@ -2665,6 +2665,16 @@
 .knowledge-heading{display:flex;align-items:center;gap:12px;}
 .knowledge-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;}
 .knowledge-detail header .knowledge-actions{align-items:center;}
+.product-import-modal{width:min(1100px,96vw);max-width:1100px;max-height:92vh;display:flex;flex-direction:column;}
+.product-import-body{padding:0 24px 16px;overflow:auto;min-height:0;}
+.product-import-stock-option{display:flex;align-items:center;gap:10px;font-weight:700;}
+.product-import-table-wrap{overflow:auto;}
+.product-import-table-wrap table{width:100%;min-width:620px;}
+.product-import-table-wrap th,.product-import-table-wrap td{padding:12px;vertical-align:top;}
+.product-import-detail{white-space:pre-wrap;overflow-wrap:anywhere;min-width:260px;}
+.product-import-pages,.product-import-footer{display:flex;align-items:center;justify-content:flex-end;gap:12px;}
+.product-import-pages{margin-top:12px;}
+.product-import-footer{padding:16px 24px;border-top:1px solid var(--border);}
 .knowledge-layout{display:grid;grid-template-columns:minmax(240px,1fr) minmax(0,3fr);gap:20px;align-items:start;}
 .knowledge-list,.knowledge-detail{border:1px solid var(--border);border-radius:16px;background:var(--surface);min-width:0;}
 .knowledge-list{padding:16px;display:grid;gap:16px;}

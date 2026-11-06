@@ -47,7 +47,7 @@ const productImportStart = html.indexOf('async function importProductsFromExcel(
 const productImportEnd = html.indexOf('function exportProductsToExcel(', productImportStart);
 assert.doesNotMatch(html.slice(contactImportStart, productImportStart), /setProductStockOnSupabase/);
 assert.doesNotMatch(html.slice(productImportStart, productImportEnd), /setProductStockOnSupabase/);
-assert.match(html.slice(productImportStart, productImportEnd), /applyImportedInventoryTargets\(importStockTargets\)/);
+assert.match(html.slice(productImportStart, productImportEnd), /applyImportedInventoryTargets\(importStockTargets\.filter\(target=>syncedIds\.has\(target\.productId\)\)/);
 assert.match(html, /post_inventory_count_adjustment_with_shortages/);
 
 const dateStart = html.indexOf('function currentLocalDate(');

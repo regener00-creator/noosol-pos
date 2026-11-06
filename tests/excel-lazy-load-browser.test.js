@@ -37,6 +37,8 @@ const executable=['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','
   assert.equal(writerRequests,0,'styled writer must not load at startup or when merely opening Excel tools');
   await page.evaluate(()=>{
     window.XLSX={existingReader:true};
+    currentProfile={id:'excel-test-owner',owner:true,level:1};
+    warehouses=[{id:1,name:'คลังทดสอบ',active:true}];activeWarehouseId=1;
     products=[
       {id:1,sku:'001',name:'สินค้าปกติ',barcode:'000123',price:10,unit:'กล่อง'},
       {id:2,sku:'002',name:'สินค้ารอข้อมูล',dataReviewStatus:'pending',price:20,unit:'กล่อง'},
@@ -77,11 +79,16 @@ const executable=['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','
     loadServerBarcodeOwners=async()=>[];
     applyImportedInventoryTargets=async()=>{};
     persistWorkspaceData=async()=>{window.persistedStatuses.push(products.map(product=>productDataReviewStatus(product)));return true;};
-    syncCoreDataToSupabase=async()=>{syncUiState='synced';};
+    syncCoreDataToSupabase=async()=>{syncUiState='synced';seedTableSnapshot('products',products,productMetadataToRow);};
     currentPharmacistName=()=> 'ผู้ทดสอบ';
     render=()=>{};
     window.alert=message=>window.importAlerts.push(message);
     window.confirm=()=>window.allowImport;
+    showProductImportDialog=async(entries,skipped,{result=false}={})=>{
+      if(result) return null;
+      if(skipped.length) window.importAlerts.push(skipped.map(row=>row.detail).join('\n'));
+      return window.allowImport&&entries.length?{adjustStock:false}:null;
+    };
     window.runImport=()=>importProductsFromExcel({arrayBuffer:async()=>new ArrayBuffer(0)});
   },exportedRows);
   await page.evaluate(async()=>{

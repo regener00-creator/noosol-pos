@@ -1,0 +1,206 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const http=require('node:http');
+const {execFileSync}=require('node:child_process');
+const {createRequire}=require('node:module');
+const root=path.resolve(__dirname,'..');
+const localRequire=createRequire(path.join(root,'package.json'));
+const {chromium}=localRequire('playwright');
+const Excel=localRequire('exceljs');
+const {installIsolatedBrowser,waitForIsolatedBootstrap}=require(path.join(root,'tests/isolated-browser'));
+const results=[];
+const server=http.createServer((req,res)=>{
+  const file=path.resolve(root,'public','.'+new URL(req.url,'http://localhost').pathname);
+  const target=file===path.join(root,'public')?path.join(file,'index.html'):file;
+  if(!target.startsWith(path.join(root,'public'))||!fs.existsSync(target)) return res.writeHead(404).end();
+  res.setHeader('Content-Type',target.endsWith('.js')?'text/javascript':target.endsWith('.css')?'text/css':'text/html');
+  fs.createReadStream(target).pipe(res);
+});
+let browser,page;
+const baseProduct={id:9007199254740001,sku:'00123',name:'ยาทดสอบ',unit:'ซอง',price:15.25,cost:8.5,barcode:'0001234500001',vat:'incl',category:'ยา',brand:'ทั่วไป',wh:1,stock:20,expiry:'2027-12-31',desc:'รายละเอียดเดิม',active:true,type:'stock',dataReviewStatus:'pending',extraBarcodes:['0001234590001'],extraBarcodeUnits:['กล่อง'],vendorBarcodes:[{vendor:'บริษัททดสอบ',code:'0001234580001'}],multiunit:true,units:[{sub:'กล่อง',per:10,base:'ซอง',factor:10,price:140,cost:80,barcode:'0001234500010'},{sub:'ลัง',per:12,base:'กล่อง',factor:120,price:1500,cost:900,barcode:'0001234500120'}]};
+async function fixture(rows=[baseProduct]){
+  await page.evaluate(rows=>{
+    products=structuredClone(rows); window.auditOriginal=structuredClone(rows);
+    currentProfile={id:'test-owner',owner:true,level:1,firstName:'ทดสอบ'};
+    warehouses=[{id:1,name:'คลังทดสอบ',active:true},{id:2,name:'อีกคลัง',active:true}];activeWarehouseId=1;allWarehousesMode=false;
+    contacts=[];categories=['ยา'];brands=['ทั่วไป'];units=['ซอง','กล่อง','ลัง'];nextProductSkuNumber=100001;
+    inventoryBalanceRows=rows.map(p=>({product_id:p.id,warehouse_id:1,stock:p.stock||0,expiry:p.expiry||''}));rebuildInventoryBalanceMap();
+    loadWarehouseInventoryFromSupabase=async()=>true;
+    loadServerBarcodeOwners=async()=>[];
+    window.auditMessages=[];window.auditSaves=[];window.auditStocks=[];window.auditAllows=true;
+    persistWorkspaceData=async options=>{auditSaves.push({options,products:structuredClone(products)});return true;};
+    persistContacts=()=>{};
+    window.auditSyncMode='success';window.auditStockFail=false;window.auditStockFailAfter=Infinity;
+    syncUiLastError=null;
+    syncedTableRows.products=new Map();
+    syncCoreDataToSupabase=async()=>{
+      const saved=window.auditSyncMode==='pending'?[]:window.auditSyncMode==='partial'?products.slice(0,1):products;
+      seedTableSnapshot('products',saved,productMetadataToRow);
+      syncUiState=saved.length===products.length?'synced':'error';
+      if(syncUiState==='error') syncUiLastError={message:'ทดสอบซิงก์ไม่สำเร็จ'};
+    };
+    runStockOperation=async(name,args)=>{
+      auditStocks.push({name,args});
+      if(auditStockFail||auditStocks.length>auditStockFailAfter)throw new Error('ทดสอบปรับสต๊อกไม่สำเร็จ');
+      if(args.lines.some(l=>warehouseStock(l.productId,args.warehouseId)!==l.expectedStock))throw new Error('สต๊อกเปลี่ยนระหว่างตรวจรายการ');
+      return {balances:args.lines.map(l=>({productId:l.productId,warehouseId:args.warehouseId,stock:l.targetStock}))};
+    };
+    currentPharmacistName=()=> 'ทดสอบ';
+    window.confirm=message=>{auditMessages.push({type:'confirm',message});return auditAllows;};
+    window.alert=message=>auditMessages.push({type:'alert',message});
+    showToast=message=>auditMessages.push({type:'toast',message});
+    renderLoginState=()=>true;ensureOnDemandDataForTab=()=>({status:'ready'});isMobileDeviceMode=()=>false;
+    document.querySelectorAll('.login-screen,.warehouse-choice-screen').forEach(el=>el.style.display='none');
+    currentTab='products';rebuildProductLookupMaps();render();
+  },rows);
+}
+async function exported(){
+  // Chrome throttles repeated automated downloads; each scenario still uses the real export button.
+  await new Promise(resolve=>setTimeout(resolve,1200));
+  const pending=page.waitForEvent('download');
+  await page.locator('#exportProductsBtn').click();
+  const download=await pending,parts=[];
+  for await(const chunk of await download.createReadStream())parts.push(chunk);
+  const book=new Excel.Workbook();await book.xlsx.load(Buffer.concat(parts));return book;
+}
+function cell(book,row,name){const sheet=book.worksheets[0];return sheet.getCell(row,sheet.getRow(1).values.indexOf(name));}
+async function imported(book,{stock=false,cancel=false,beforeConfirm=null,inspect=null}={}){
+  const buffer=await book.xlsx.writeBuffer();
+  await page.evaluate(()=>{window.auditDone=false;const original=window.importProductsFromExcel;window.importProductsFromExcel=async file=>{try{return await original(file);}finally{auditDone=true;window.importProductsFromExcel=original;}};});
+  await page.locator('#productImportFile').setInputFiles({name:'edited.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from(buffer)});
+  await page.locator('#productImportConfirm').waitFor();
+  assert.equal(await page.locator('#productImportStock').isChecked(),false);
+  if(stock) await page.locator('#productImportStock').check();
+  const preview=await page.locator('.product-import-body').innerText();
+  if(inspect) await inspect(preview);
+  if(beforeConfirm) await beforeConfirm();
+  if(cancel||await page.locator('#productImportConfirm').isDisabled()){
+    await page.locator('#productImportCancel').click();
+  }else{
+    await page.locator('#productImportConfirm').click();
+    await page.waitForFunction(()=>window.auditDone||document.querySelector('#productImportTitle')?.textContent==='ผลการนำเข้าสินค้า');
+    if(await page.locator('#productImportTitle').count()){
+      var report=await page.locator('.product-import-body').innerText();
+      await page.locator('#productImportCancel').click();
+    }
+  }
+  await page.waitForFunction(()=>auditDone);
+  return {...await page.evaluate(()=>({products:JSON.parse(JSON.stringify(products)),messages:auditMessages,saves:auditSaves,stocks:auditStocks})),preview,report};
+}
+async function scenario(name,work){if(process.argv[2]&&!new RegExp(process.argv[2]).test(name))return;try{const details=await work();results.push({name,result:'PASS',details});}catch(error){results.push({name,result:'FAIL',error:error.message});}console.log(JSON.stringify(results.at(-1)));}
+(async()=>{
+  execFileSync(process.execPath,[path.join(root,'scripts/build-static.mjs')],{cwd:root,stdio:'pipe'});
+  const readerFile=path.join(root,'outputs/product-excel-audit/xlsx.full.min.js');
+  if(!fs.existsSync(readerFile)){
+    const response=await fetch('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
+    if(!response.ok)throw new Error('Cannot load pinned XLSX reader for round-trip test');
+    fs.mkdirSync(path.dirname(readerFile),{recursive:true});fs.writeFileSync(readerFile,await response.text());
+  }
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const executablePath=process.env.PEPOS_BROWSER_EXECUTABLE||(process.platform==='win32'?['C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(fs.existsSync):undefined);
+  browser=await chromium.launch({headless:true,executablePath});
+  page=await browser.newPage();await installIsolatedBrowser(page);
+  await page.route('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(root,'outputs/product-excel-audit/xlsx.full.min.js'),'utf8')}));
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await page.goto(`http://127.0.0.1:${server.address().port}/`);await waitForIsolatedBootstrap(page);
+  await page.evaluate(()=>ensurePageCodeLoaded('products'));
+  await scenario('Unedited real XLSX round trip preserves complete catalog fields',async()=>{
+    await fixture();const out=await imported(await exported());
+    assert.equal(out.saves.length,1);
+    for(const key of ['id','sku','name','unit','price','cost','barcode','vat','category','brand','desc','units','extraBarcodes','extraBarcodeUnits','vendorBarcodes','dataReviewStatus'])assert.deepEqual(out.products[0][key],baseProduct[key],key);
+    assert.equal(out.stocks.length,0);assert.match(out.report,/สำเร็จ 1 รายการ/);
+  });
+  await scenario('Price edit on old export leaves newer stock intact by default',async()=>{
+    await fixture();const book=await exported();cell(book,2,'ราคาขาย (หน่วยหลัก)').value=22;
+    await page.evaluate(()=>{inventoryBalanceRows[0].stock=17;rebuildInventoryBalanceMap();products[0].stock=17;});
+    const out=await imported(book);assert.equal(out.stocks.length,0);assert.equal(out.products[0].price,22);assert.match(out.preview,/15.25 → 22/);
+  });
+  await scenario('Stock requires opt-in and shows current warehouse quantities',async()=>{
+    await fixture();const book=await exported();cell(book,2,'จำนวนคงเหลือ (หน่วยหลัก)').value=25;
+    const out=await imported(book,{stock:true});assert.match(out.preview,/คลังทดสอบ · 20 → 25/);assert.equal(out.stocks[0].args.lines[0].targetStock,25);assert.match(out.report,/ปรับสต๊อกแล้ว/);
+    cell(book,2,'จำนวนคงเหลือ (หน่วยหลัก)').value=0;
+    assert.equal((await imported(book,{stock:true})).stocks.at(-1).args.lines[0].targetStock,0);
+  });
+  await scenario('Blank stock preserves the selected warehouse balance',async()=>{
+    await fixture();const book=await exported();cell(book,2,'คลังสินค้า').value='อีกคลัง';cell(book,2,'จำนวนคงเหลือ (หน่วยหลัก)').value='';
+    await page.evaluate(()=>{inventoryBalanceRows.push({product_id:products[0].id,warehouse_id:2,stock:8});rebuildInventoryBalanceMap();});
+    const out=await imported(book,{stock:true});assert.equal(out.stocks.length,0);assert.match(out.preview,/คงสต๊อกเดิม/);
+  });
+  await scenario('Invalid warehouse is reported with source row and no fallback',async()=>{
+    await fixture();const book=await exported();cell(book,2,'คลังสินค้า').value='สะกดผิด';
+    const out=await imported(book,{stock:true});assert.equal(out.saves.length,0);assert.equal(out.stocks.length,0);assert.match(out.preview,/แถว 2.*ยาทดสอบ.*ไม่พบคลัง/);
+  });
+  await scenario('Server barcode conflict identifies the Excel row and product',async()=>{
+    await fixture();const book=await exported();
+    await page.evaluate(()=>{loadServerBarcodeOwners=async()=>[{product_id:123,barcode:products[0].barcode,product_name:'สินค้าอื่น'}];});
+    const out=await imported(book);assert.equal(out.saves.length,0);assert.match(out.preview,/แถว 2: ยาทดสอบ/);
+  });
+  await scenario('Invalid quantity blocks stock but allows metadata-only import',async()=>{
+    await fixture();const book=await exported();cell(book,2,'จำนวนคงเหลือ (หน่วยหลัก)').value='สิบ';
+    const rejected=await imported(book,{stock:true});assert.equal(rejected.saves.length,0);assert.match(rejected.preview,/จำนวนคงเหลือต้องเป็นตัวเลข/);
+    const accepted=await imported(book);assert.equal(accepted.saves.length,1);assert.equal(accepted.stocks.length,0);
+  });
+  await scenario('Legacy expiry edits are explicitly reported as display-only',async()=>{
+    await fixture();const book=await exported();cell(book,2,'วันหมดอายุ (สำหรับดูข้อมูล)').value='31/12/2028';
+    cell(book,1,'วันหมดอายุ (สำหรับดูข้อมูล)').value='วันหมดอายุ';
+    const out=await imported(book);assert.match(out.preview,/ค่าที่แก้ในไฟล์จะไม่ถูกบันทึก/);assert.match(out.report,/แก้ไขผ่าน LOT/);assert.equal(out.products[0].expiry,baseProduct.expiry);assert.equal(out.stocks.length,0);
+  });
+  await scenario('More than ten units, extra and supplier barcodes survive a real file round trip',async()=>{
+    const p={...baseProduct,units:Array.from({length:11},(_,i)=>({sub:'แพ็ก'+i,per:i+2,base:'ซอง',factor:i+2,price:0,cost:0,barcode:'UNIT-'+i})),extraBarcodes:Array.from({length:11},(_,i)=>'EXTRA-'+i),extraBarcodeUnits:Array(11).fill('ซอง'),vendorBarcodes:Array.from({length:11},(_,i)=>({vendor:'บริษัท'+i,code:'VENDOR-'+i}))};
+    await fixture([p]);const out=await imported(await exported());
+    for(const key of ['units','extraBarcodes','extraBarcodeUnits','vendorBarcodes'])assert.deepEqual(out.products[0][key],p[key]);
+  });
+  await scenario('New product, exact large ID, leading zeros and reimport without duplication',async()=>{
+    await fixture();const book=await exported();book.worksheets[0].addRow(['','สินค้าใหม่','สีเหลือง','ยา','ทั่วไป','Pcs',20,10,'0000000000002','ราคารวม VAT แล้ว','คลังทดสอบ',0]);
+    const out=await imported(book);assert.equal(out.products.length,2);assert.equal(out.products[0].id,baseProduct.id);assert.equal(out.products[0].barcode,baseProduct.barcode);assert.ok(out.products[1].sku);assert.equal(out.products[1].dataReviewStatus,'pending');
+    assert.equal((await imported(await exported())).products.length,2);
+  });
+  await scenario('Summary paginates all rows and reports every rejected row',async()=>{
+    const rows=Array.from({length:60},(_,i)=>({...baseProduct,id:i+1,sku:'S'+i,name:'สินค้า'+i,barcode:'B'+i,units:[],extraBarcodes:[],extraBarcodeUnits:[],vendorBarcodes:[]}));
+    await fixture(rows);const book=await exported();cell(book,61,'ราคาขาย (หน่วยหลัก)').value=-1;
+    const out=await imported(book,{cancel:true,inspect:async()=>{
+      assert.equal(await page.locator('#productImportRows tr').count(),50);
+      await page.locator('#productImportNext').click();assert.equal(await page.locator('#productImportRows tr').count(),10);
+      assert.match(await page.locator('#productImportRows').innerText(),/แถว 61/);
+      await page.screenshot({path:path.join(root,'outputs/product-excel-audit/preview.png'),fullPage:true});
+    }});assert.equal(out.saves.length,0);
+  });
+  await scenario('Partial sync reports each row separately and stocks only acknowledged products',async()=>{
+    const other={...baseProduct,id:2,sku:'TWO',name:'สินค้าสอง',barcode:'TWO',units:[],extraBarcodes:[],extraBarcodeUnits:[],vendorBarcodes:[]};
+    await fixture([baseProduct,other]);const book=await exported();cell(book,2,'จำนวนคงเหลือ (หน่วยหลัก)').value=21;cell(book,3,'จำนวนคงเหลือ (หน่วยหลัก)').value=22;
+    await page.evaluate(()=>auditSyncMode='partial');const out=await imported(book,{stock:true});
+    assert.match(out.report,/สำเร็จ 1 รายการ · รอซิงก์ 1 รายการ/);assert.equal(out.stocks[0].args.lines.length,1);assert.equal(out.stocks[0].args.lines[0].productId,baseProduct.id);
+  });
+  await scenario('Stock operation failure is not reported as total success',async()=>{
+    await fixture();const book=await exported();cell(book,2,'จำนวนคงเหลือ (หน่วยหลัก)').value=21;
+    await page.evaluate(()=>auditStockFail=true);const out=await imported(book,{stock:true});
+    assert.match(out.report,/ไม่สำเร็จ 1 รายการ/);assert.match(out.report,/บันทึกข้อมูลสินค้าบนเซิร์ฟเวอร์แล้ว/);assert.match(out.report,/ทดสอบปรับสต๊อกไม่สำเร็จ/);
+  });
+  await scenario('Stock change while preview is open is rejected by expected balance check',async()=>{
+    await fixture();const book=await exported();cell(book,2,'จำนวนคงเหลือ (หน่วยหลัก)').value=25;
+    const out=await imported(book,{stock:true,beforeConfirm:()=>page.evaluate(()=>{inventoryBalanceRows[0].stock=19;rebuildInventoryBalanceMap();})});
+    assert.match(out.report,/สต๊อกเปลี่ยนระหว่างตรวจรายการ/);assert.equal(out.stocks[0].args.lines[0].expectedStock,20);
+  });
+  await scenario('Catalog change during preview requires a fresh review',async()=>{
+    await fixture();const out=await imported(await exported(),{beforeConfirm:()=>page.evaluate(()=>{products[0].name='แก้จากอีกเครื่อง';})});
+    assert.equal(out.saves.length,0);assert.match(out.messages.at(-1).message,/ข้อมูลสินค้าเปลี่ยน/);
+  });
+  await scenario('Offline sync and local save failures report actionable results',async()=>{
+    await fixture();const book=await exported();cell(book,2,'ราคาขาย (หน่วยหลัก)').value=99;
+    await page.evaluate(()=>auditSyncMode='pending');
+    const pending=await imported(book);assert.match(pending.report,/รอซิงก์ 1 รายการ/);assert.equal(pending.stocks.length,0);
+    await fixture();await page.evaluate(()=>{persistWorkspaceData=async()=>false;});
+    const failed=await imported(book);assert.match(failed.report,/ไม่สำเร็จ 1 รายการ/);assert.match(failed.report,/อย่าเพิ่งปิดโปรแกรม/);
+  });
+  await scenario('Partial stock batch failure reports the first 500 rows as applied',async()=>{
+    const rows=Array.from({length:501},(_,i)=>({...baseProduct,id:i+1,sku:'B'+i,name:'สินค้า'+i,barcode:'B'+i,units:[],extraBarcodes:[],extraBarcodeUnits:[],vendorBarcodes:[]}));
+    await fixture(rows);const book=await exported();
+    for(let row=2;row<=502;row++)cell(book,row,'จำนวนคงเหลือ (หน่วยหลัก)').value=21;
+    await page.evaluate(()=>auditStockFailAfter=1);
+    const out=await imported(book,{stock:true});
+    assert.equal(out.stocks.length,2);assert.match(out.report,/สำเร็จ 500 รายการ · รอซิงก์ 0 รายการ · ไม่สำเร็จ 1 รายการ/);
+  });
+  assert.deepEqual(errors,[]);
+  assert.equal(results.filter(row=>row.result!=='PASS').length,0,JSON.stringify(results.filter(row=>row.result!=='PASS')));
+})().catch(error=>{results.push({name:'harness',result:'ERROR',error:error.stack});console.error(error);process.exitCode=1;}).finally(async()=>{fs.writeFileSync(path.join(root,'outputs/product-excel-audit/results.json'),JSON.stringify(results,null,2));await browser?.close();await new Promise(resolve=>server.close(resolve));});

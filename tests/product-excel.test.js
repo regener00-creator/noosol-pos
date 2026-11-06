@@ -49,7 +49,7 @@ assert.deepEqual(JSON.parse(JSON.stringify(counts)), {extraBarcodes: 2, vendors:
 const headers = Array.from(sandbox.productExcelHeaders(counts));
 const row = sandbox.productToExcelRow(products[0], counts, sandbox.warehouses);
 assert.deepEqual(Object.keys(row), headers, 'export row must use the exact shared template column order');
-assert.deepEqual(headers.slice(0,14), ['รหัสสินค้า','ชื่อสินค้า','สถานะสินค้า','หมวดสินค้า','ยี่ห้อ / หมวดย่อย','หน่วยหลัก','ราคาขาย (หน่วยหลัก)','ราคาทุน (หน่วยหลัก)','บาร์โค้ดหลัก','ภาษีมูลค่าเพิ่ม','คลังสินค้า','จำนวนคงเหลือ (หน่วยหลัก)','วันหมดอายุ','รายละเอียด'], 'ข้อมูลพื้นฐานต้องเรียงอยู่ด้านหน้าก่อนข้อมูลเสริม');
+assert.deepEqual(headers.slice(0,14), ['รหัสสินค้า','ชื่อสินค้า','สถานะสินค้า','หมวดสินค้า','ยี่ห้อ / หมวดย่อย','หน่วยหลัก','ราคาขาย (หน่วยหลัก)','ราคาทุน (หน่วยหลัก)','บาร์โค้ดหลัก','ภาษีมูลค่าเพิ่ม','คลังสินค้า','จำนวนคงเหลือ (หน่วยหลัก)','วันหมดอายุ (สำหรับดูข้อมูล)','รายละเอียด'], 'ข้อมูลพื้นฐานต้องเรียงอยู่ด้านหน้าก่อนข้อมูลเสริม');
 assert.ok(headers.indexOf('หน่วยเพิ่มเติม 1') < headers.indexOf('บาร์โค้ดสำรอง 1'), 'หน่วยเพิ่มเติมต้องอยู่ก่อนกลุ่มบาร์โค้ดสำรอง');
 assert.ok(headers.indexOf('บาร์โค้ดสำรอง 1') < headers.indexOf('ชื่อผู้จำหน่าย 1'), 'บาร์โค้ดสำรองต้องอยู่ก่อนกลุ่มผู้จำหน่าย');
 assert.equal(headers.at(-1), 'รหัสอ้างอิงระบบ (ห้ามแก้)', 'รหัสภายในต้องย้ายไปท้ายสุดและระบุว่าไม่ควรแก้');
