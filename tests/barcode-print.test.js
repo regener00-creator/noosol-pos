@@ -286,7 +286,10 @@ assert.match(html, /barcodePrintLabelSize = typeof readPriceLabelDefaultSize==='
 assert.doesNotMatch(html, /id="barcodePrintLabelType"/);
 assert.doesNotMatch(html, /barcodePrintPromotionDetails|barcodePrintPromotionForItem/);
 assert.doesNotMatch(html, /รูปแบบ: ป้ายโปรโมชั่น|ป้ายโปรโมชั่นจะดึงเงื่อนไข/);
-assert.match(html, /value="50x30"[^>]*>ป้ายราคา 50 × 30 มม\./);
+const labelPage=context.renderBarcodePrint();
+assert.match(labelPage, /id="openPriceLabelSettingsBtn"[^>]*aria-label="ตั้งค่าขนาดป้ายเริ่มต้น"/);
+assert.doesNotMatch(labelPage, /id="barcodePrintLabelSize"|id="savePriceLabelDefaultBtn"/);
+assert.ok(labelPage.indexOf('id="barcodePrintSearch"')<labelPage.indexOf('id="openPriceLabelSettingsBtn"'),'Paper settings follow the search field');
 assert.match(html, /data-barcode-print-page/);
 assert.match(html, /BARCODE_PRINT_PAGE_SIZE = 10/);
 assert.match(html, /\.main\.barcode-print-main\{overflow-y:hidden;\}/);
