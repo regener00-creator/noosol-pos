@@ -68,8 +68,16 @@ const browserExecutable = [
   await page.locator('[data-barcode-print-mode="new"]').click();
   assert.match(await page.locator('.barcode-print-page h1').textContent(),/พิมพ์ป้ายราคาใหม่/);
   assert.equal(await page.locator('#barcodePrintLabelType').count(),0);
-  assert.equal(await page.locator('#barcodePrintLabelSize').inputValue(),'50x30');
-  await page.locator('#barcodePrintLabelSize').selectOption('a4-50x30');
+  assert.equal(await page.evaluate(()=>barcodePrintLabelSize),'50x30');
+  assert.equal(await page.locator('#barcodePrintLabelSize').count(),0,'Paper sizes are hidden until settings opens');
+  await page.locator('#openPriceLabelSettingsBtn').click();
+  assert.equal(await page.locator('#priceLabelSettingsDialog input[type="radio"]').count(),5);
+  await page.locator('input[name="priceLabelPaperSize"][value="80x50"]').check();
+  await page.locator('#cancelPriceLabelSettingsBtn').click();
+  assert.equal(await page.evaluate(()=>barcodePrintLabelSize),'50x30','Cancel leaves the active paper size unchanged');
+
+  await page.locator('#openPriceLabelSettingsBtn').click();
+  await page.locator('input[name="priceLabelPaperSize"][value="a4-50x30"]').check();
   await page.locator('#savePriceLabelDefaultBtn').click();
   assert.equal(await page.evaluate(()=>readPriceLabelDefaultSize()),'a4-50x30');
   assert.match(await page.locator('.page-title-meta').textContent(),/50 × 30 มม\./);
@@ -276,8 +284,9 @@ const browserExecutable = [
   assert.equal(await page.locator('#openBarcodeReprintBtn').count(),0);
   assert.equal(await page.locator('#barcodePrintMenuBtn').isVisible(),true);
   assert.equal(await page.locator('#savePrintBarcodeBtn').isDisabled(),true);
-  assert.equal(await page.locator('#barcodePrintLabelSize').inputValue(),'50x30','New-label default does not overwrite repeat default');
-  await page.locator('#barcodePrintLabelSize').selectOption('a4-50x30');
+  assert.equal(await page.evaluate(()=>barcodePrintLabelSize),'50x30','New-label default does not overwrite repeat default');
+  await page.locator('#openPriceLabelSettingsBtn').click();
+  await page.locator('input[name="priceLabelPaperSize"][value="a4-50x30"]').check();
   await page.locator('#savePriceLabelDefaultBtn').click();
   await page.locator('#barcodePrintSearch').fill('EMPTY');
   assert.equal(await page.locator('[data-barcode-print-result]').count(),0);
@@ -336,7 +345,9 @@ const browserExecutable = [
   await page.locator('#savePrintBarcodeBtn').click();
   assert.match(await page.locator('#toast').textContent(),/จำนวนป้าย/);
   await page.locator('[data-barcode-print-qty="0"]').fill('2');
-  await page.locator('#barcodePrintLabelSize').selectOption('40x30');
+  await page.locator('#openPriceLabelSettingsBtn').click();
+  await page.locator('input[name="priceLabelPaperSize"][value="40x30"]').check();
+  await page.locator('#savePriceLabelDefaultBtn').click();
   const [subunitPrint]=await Promise.all([page.waitForEvent('popup'),page.locator('#savePrintBarcodeBtn').click()]);
   await subunitPrint.waitForSelector('.label');
   assert.equal(await subunitPrint.locator('.label').count(),2);
@@ -368,11 +379,12 @@ const browserExecutable = [
   assert.equal(await page.locator('#barcodePrintSearch').count(),0,'History errors never fall back to all barcodes');
   await page.locator('#barcodeIssuedRetryBtn').click();
   assert.equal(await page.locator('[data-barcode-print-code="0"]').inputValue(),'CHANGED','Retry preserves the queue');
-  await page.locator('#barcodePrintLabelSize').selectOption('60x40');
+  await page.locator('#openPriceLabelSettingsBtn').click();
+  await page.locator('input[name="priceLabelPaperSize"][value="60x40"]').check();
   await page.locator('#savePriceLabelDefaultBtn').click();
   await page.locator('#barcodePrintMenuBtn').click();
   await page.locator('[data-barcode-print-mode="new"]').click();
-  assert.equal(await page.locator('#barcodePrintLabelSize').inputValue(),'a4-50x30','Default saved from reprint leaves new-label default unchanged');
+  assert.equal(await page.evaluate(()=>barcodePrintLabelSize),'a4-50x30','Default saved from reprint leaves new-label default unchanged');
   await page.reload();
   await page.waitForFunction(()=>typeof readPriceLabelDefaultSize==='function');
   assert.equal(await page.evaluate(()=>readPriceLabelDefaultSize('new')),'a4-50x30','New default persists after reload');

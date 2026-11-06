@@ -826,6 +826,13 @@
   .barcode-reprint-actions{display:flex;justify-content:flex-end;gap:12px;}
   .barcode-print-page .rpt-filters{flex:0 0 auto;margin-bottom:10px;}
   .barcode-print-search-wrap{position:relative;flex:1 1 280px;min-width:0;}
+  .barcode-print-settings{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;padding:10px;}
+  .barcode-print-settings svg{width:22px;height:22px;}
+  .price-label-settings-modal{width:min(560px,94vw);}
+  .price-label-size-options{display:grid;gap:12px;padding:20px;}
+  .price-label-size-options label{display:flex;align-items:center;gap:12px;padding:14px;border:1px solid var(--border);border-radius:10px;cursor:pointer;}
+  .price-label-size-options label:has(input:checked){border-color:var(--primary);background:var(--surface);}
+  .price-label-settings-actions{display:flex;justify-content:flex-end;gap:10px;padding:0 20px 20px;}
   .barcode-print-search{width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit;font-size:14px;}
   .barcode-print-search:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,153,209,.12);}
   .barcode-print-table-wrap{flex:1;min-height:0;max-height:none;overflow-x:auto;overflow-y:hidden;border-radius:var(--radius);}

@@ -919,7 +919,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const barcodePrintBrandSelect=document.getElementById('barcodePrintBrandSelect');
   const barcodePrintAddCategoryBtn=document.getElementById('barcodePrintAddCategoryBtn');
   const barcodePrintAddMissingBtn=document.getElementById('barcodePrintAddMissingBtn');
-  const barcodePrintLabelSizeSelect=document.getElementById('barcodePrintLabelSize');
   const barcodePrintSearch=document.getElementById('barcodePrintSearch');
   const barcodePrintResults=document.getElementById('barcodePrintResults');
   const openPriceLabelDesignerBtn=document.getElementById('openPriceLabelDesignerBtn');
@@ -930,11 +929,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(barcodePrintBrandSelect) barcodePrintBrandSelect.addEventListener('change',()=>{ barcodePrintCatFilter.brand=barcodePrintBrandSelect.value; render(); });
   if(barcodePrintAddCategoryBtn) barcodePrintAddCategoryBtn.addEventListener('click',()=>openBarcodePrintCategoryPicker(barcodePrintCatFilter,false));
   if(barcodePrintAddMissingBtn) barcodePrintAddMissingBtn.addEventListener('click',()=>openBarcodePrintCategoryPicker({category:'',brand:''},true));
-  if(barcodePrintLabelSizeSelect) barcodePrintLabelSizeSelect.addEventListener('change',()=>{ barcodePrintLabelSize=barcodePrintLabelSizeSelect.value; });
-  document.getElementById('savePriceLabelDefaultBtn')?.addEventListener('click',()=>{
-    try{savePriceLabelDefaultSize(barcodePrintLabelSize,barcodePrintMode);render();showToast(`ตั้งเป็นค่าเริ่มต้นสำหรับ${barcodePrintMode==='reprint'?'พิมพ์ป้ายราคาซ้ำ':'พิมพ์ป้ายราคาใหม่'}บนเครื่องนี้แล้ว`);}
-    catch{showToast('บันทึกค่าเริ่มต้นไม่สำเร็จ กรุณาตรวจพื้นที่เบราว์เซอร์','error');}
-  });
+  document.getElementById('openPriceLabelSettingsBtn')?.addEventListener('click',openPriceLabelSettings);
   if(openPriceLabelDesignerBtn) openPriceLabelDesignerBtn.addEventListener('click',()=>openPriceLabelDesigner(barcodePrintLabelSize));
   if(openBarcodeReprintBtn) openBarcodeReprintBtn.addEventListener('click',openBarcodeReprintDialog);
   document.querySelectorAll('[data-barcode-print-mode]').forEach(button=>button.addEventListener('click',()=>setBarcodePrintMode(button.dataset.barcodePrintMode)));
