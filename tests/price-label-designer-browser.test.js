@@ -80,7 +80,8 @@ const browserExecutable = [
   await page.locator('input[name="priceLabelPaperSize"][value="a4-50x30"]').check();
   await page.locator('#savePriceLabelDefaultBtn').click();
   assert.equal(await page.evaluate(()=>readPriceLabelDefaultSize()),'a4-50x30');
-  assert.match(await page.locator('.page-title-meta').textContent(),/50 × 30 มม\./);
+  assert.equal(await page.locator('.page-title-meta').count(),0);
+  assert.equal(await page.locator('.barcode-print-page h1').evaluate(el=>getComputedStyle(el).textAlign),'center');
   assert.equal(await page.locator('#openPriceLabelDesignerBtn').isVisible(), true);
   await page.locator('#openPriceLabelDesignerBtn').click();
   assert.equal(await page.locator('.price-label-designer-modal').isVisible(), true);

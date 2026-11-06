@@ -481,16 +481,15 @@ function barcodePrintRowsHtml(entries=barcodePrintPagination().rows){
 }
 
 function renderBarcodePrint(){
-  if(barcodePrintShowMenu) return `<section class="rpt barcode-print-menu"><div class="pagehead"><h1>พิมพ์ป้ายราคา</h1></div>
+  if(barcodePrintShowMenu) return `<section class="rpt barcode-print-menu">
     <div class="barcode-print-mode-grid">
       <button type="button" class="barcode-print-mode-card" data-barcode-print-mode="new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 3h10l6 6v12H4zM14 3v6h6M8 15h8M12 11v8"/></svg><strong>พิมพ์ป้ายราคาใหม่</strong><span>เลือกสินค้าและหน่วยที่ยังไม่มีบาร์โค้ด</span></button>
       <button type="button" class="barcode-print-mode-card" data-barcode-print-mode="reprint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M7 8V3h10v5M7 17H3V8h18v9h-4M7 14h10v7H7zM17 11h1"/></svg><strong>พิมพ์ป้ายราคาซ้ำ</strong><span>เลือกเฉพาะบาร์โค้ดที่ระบบเคยจ่ายให้</span></button>
       <button type="button" class="barcode-print-mode-card" data-barcode-print-mode="promotion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 4h18v16H3zM7 8h10M7 12h10M7 16h6"/></svg><strong>ป้ายโปรโมชั่น</strong><span>สร้างข้อความเองได้ ไม่ต้องเลือกสินค้า</span></button>
     </div></section>`;
   if(promotionPrintActive)return renderPromotionLabelPrint();
-  if(barcodePrintMode==='reprint'&&(!barcodeIssuedState?.ready||!isWorkspaceReadCurrent(barcodeIssuedState.context))) return `<section class="rpt"><div class="pagehead"><h1>พิมพ์ป้ายราคาซ้ำ</h1><button class="btn ghost" id="barcodePrintMenuBtn">ย้อนกลับ</button></div><p role="status">${barcodeIssuedState?.loading?'กำลังตรวจประวัติการจ่ายบาร์โค้ด…':escapeHtml(barcodeIssuedState?.error||'กรุณาโหลดประวัติการจ่ายบาร์โค้ด')}</p>${barcodeIssuedState?.loading?'':'<button class="btn primary" id="barcodeIssuedRetryBtn">ลองใหม่</button>'}</section>`;
+  if(barcodePrintMode==='reprint'&&(!barcodeIssuedState?.ready||!isWorkspaceReadCurrent(barcodeIssuedState.context))) return `<section class="rpt"><div class="pagehead label-print-pagehead"><h1>พิมพ์ป้ายราคาซ้ำ</h1><button class="btn ghost" id="barcodePrintMenuBtn">ย้อนกลับ</button></div><p role="status">${barcodeIssuedState?.loading?'กำลังตรวจประวัติการจ่ายบาร์โค้ด…':escapeHtml(barcodeIssuedState?.error||'กรุณาโหลดประวัติการจ่ายบาร์โค้ด')}</p>${barcodeIssuedState?.loading?'':'<button class="btn primary" id="barcodeIssuedRetryBtn">ลองใหม่</button>'}</section>`;
   reconcileBarcodePrintItems();
-  const defaultSize=typeof readPriceLabelDefaultSize==='function'?readPriceLabelDefaultSize(barcodePrintMode):'50x30';
   const filter=barcodePrintCatFilter;
   const available=barcodePrintAvailableProducts();
   const brandOptions=brands.filter(brand=>available.some(product=>(!filter.category||product.category===filter.category)&&product.brand===brand));
@@ -500,7 +499,7 @@ function renderBarcodePrint(){
   const pagination=barcodePrintPagination();
   barcodePrintPage=pagination.currentPage;
   return `<div class="rpt barcode-print-page">
-    <div class="pagehead"><div><h1>${reprint?'พิมพ์ป้ายราคาซ้ำ':'พิมพ์ป้ายราคาใหม่'} <span class="page-title-meta">ค่าเริ่มต้น: ${defaultSize==='a4-50x30'?'A4 · 50 × 30 มม. · 36 ป้าย/แผ่น':defaultSize.replace('x',' × ')+' มม. แนวนอน'} ${reprint?'เลือกเฉพาะบาร์โค้ดที่ระบบเคยจ่ายให้ ใช้เลขเดิม ไม่ออกเลขใหม่':'หากสินค้ายังไม่มีบาร์โค้ด ระบบจะสร้าง Code 128 ภายในและบันทึกให้กับหน่วยที่เลือกเมื่อสั่งพิมพ์'}</span></h1></div><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="barcodePrintMenuBtn">ย้อนกลับ</button><button class="btn ghost" id="openPriceLabelDesignerBtn">ออกแบบป้ายราคา</button><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length?'':'disabled'}>ล้างรายการ</button><button class="btn primary" id="savePrintBarcodeBtn" ${barcodePrintItems.length?'':'disabled'}>${reprint?'พิมพ์ป้ายเดิมซ้ำ':'บันทึกและพิมพ์ป้ายราคา'} (${barcodePrintItems.length})</button></div></div>
+    <div class="pagehead label-print-pagehead"><h1>${reprint?'พิมพ์ป้ายราคาซ้ำ':'พิมพ์ป้ายราคาใหม่'}</h1><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="barcodePrintMenuBtn">ย้อนกลับ</button><button class="btn ghost" id="openPriceLabelDesignerBtn">ออกแบบป้ายราคา</button><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length?'':'disabled'}>ล้างรายการ</button><button class="btn primary" id="savePrintBarcodeBtn" ${barcodePrintItems.length?'':'disabled'}>${reprint?'พิมพ์ป้ายเดิมซ้ำ':'บันทึกและพิมพ์ป้ายราคา'} (${barcodePrintItems.length})</button></div></div>
     <div class="rpt-filters" style="margin-bottom:14px;">
       <div class="rpf-item"><select id="barcodePrintCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(category=>`<option value="${escapeHtml(category)}" ${filter.category===category?'selected':''}>${escapeHtml(category)}</option>`).join('')}</select></div>
       <div class="rpf-item"><select id="barcodePrintBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(brand=>`<option value="${escapeHtml(brand)}" ${filter.brand===brand?'selected':''}>${escapeHtml(brand)}</option>`).join('')}</select></div>

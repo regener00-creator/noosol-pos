@@ -798,6 +798,8 @@
   /* หน้าพิมพ์บาร์โค้ดเอง: scoped เพื่อไม่กระทบตารางและช่องกรอกหน้าอื่น */
   .main.barcode-print-main{overflow-y:hidden;}
   .barcode-print-page{height:100%;min-height:0;min-width:0;display:flex;flex-direction:column;}
+  .pagehead.label-print-pagehead{flex-wrap:wrap;justify-content:center;gap:12px;}
+  .pagehead.label-print-pagehead h1{flex:0 0 100%;text-align:center;}
   .barcode-print-page .pagehead{flex:0 0 auto;margin-bottom:10px;}
   .barcode-print-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
   .barcode-print-mode-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;max-width:1100px;margin:24px auto;width:100%;}
