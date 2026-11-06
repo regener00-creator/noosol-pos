@@ -649,13 +649,38 @@ function collectTaxReport(month=rtaxMonth){
   return {registered,effectiveDate,saleRows,purchaseRows,outputBefore,outputVat,outputTotal,inputBefore,inputVat,inputTotal,netVat};
 }
 
-function taxReportExportSnapshot(){
-  if(!canAccessTab('rtax')||!canPerformPageAction('export','rtax')){showToast('ไม่มีสิทธิ์ส่งออกข้อมูล','danger-top');return null;}
-  if(ensureOnDemandDataForTab('rtax').status!=='ready'){showToast('กรุณาโหลดข้อมูลรายงานให้ครบก่อนส่งออก','danger-top');return null;}
+function taxReportOutputSnapshot(action='export'){
+  if(!canAccessTab('rtax')||!canPerformPageAction(action,'rtax')){showToast('ไม่มีสิทธิ์ดำเนินการนี้','danger-top');return null;}
+  if(ensureOnDemandDataForTab('rtax').status!=='ready'){showToast('กรุณาโหลดข้อมูลรายงานให้ครบก่อน','danger-top');return null;}
   const report=collectTaxReport();
-  return {context:captureWorkspaceRead(),month:rtaxMonth,business:businessSettings.name||STORE_INFO.name,
+  return {context:captureWorkspaceRead(),month:rtaxMonth,business:businessSettings.name||STORE_INFO.name,registered:report.registered,effectiveDate:report.effectiveDate,
     sales:report.saleRows.map(({doc,tax})=>[fmtDateShort(doc.date),String(doc.ref||doc.id),doc.warehouseName||warehouses.find(w=>Number(w.id)===Number(doc.warehouseId))?.name||'-',tax.beforeVat,tax.vat,tax.total]),
     purchases:report.purchaseRows.map(({doc,tax,claimable})=>[doc.supplierTaxInvoiceDate?fmtDateShort(doc.supplierTaxInvoiceDate):'-',String(doc.supplierTaxInvoiceNo||'-'),doc.supplier||'-',String(doc.id),claimable?'ข้อมูลครบ':'รอเลขที่/วันที่ใบกำกับ',tax.beforeVat,claimable?tax.vat:0,tax.total])};
+}
+
+function printTaxReport(){
+  const report=taxReportOutputSnapshot('print');if(!report) return;
+  const win=window.open('','_blank');
+  if(!win){showToast('เบราว์เซอร์บล็อกหน้าพิมพ์ กรุณาอนุญาต Pop-up แล้วลองใหม่');return;}
+  const sections=[
+    {key:'sales',title:'ภาษีขาย',rows:report.sales,numeric:3,headers:['วันที่','เลขที่บิล','คลังสินค้า','มูลค่าก่อน VAT','VAT','ยอดรวม']},
+    {key:'purchases',title:'ภาษีซื้อ',rows:report.purchases,numeric:5,headers:['วันที่ใบกำกับ','เลขที่ใบกำกับผู้จำหน่าย','ผู้จำหน่าย','เอกสารรับเข้า','สถานะ','มูลค่าก่อน VAT','VAT','ยอดรวม']}
+  ];
+  const sectionHtml=sections.map(section=>{
+    const eligible=section.key==='purchases'?section.rows.filter(row=>row[4]==='ข้อมูลครบ'):section.rows;
+    const totals=[0,1,2].map(offset=>eligible.reduce((sum,row)=>sum+(Number(row[section.numeric+offset])||0),0));
+    return `<section class="tax-print-section" data-tax-print="${section.key}"><h1>รายงาน${section.title}</h1><h2>${escapeHtml(report.business)}</h2><p>เดือน ${escapeHtml(report.month)} · ทั้งหมด ${section.rows.length} รายการ${report.effectiveDate?` · เริ่มจด VAT ${escapeHtml(fmtDateShort(report.effectiveDate))}`:''}</p>${!report.registered?'<p class="notice">กิจการยังไม่ได้ตั้งค่าเป็นจดภาษีมูลค่าเพิ่ม รายงานนี้แสดงเพื่อเตรียมข้อมูลเท่านั้น</p>':''}
+      <table><thead><tr>${section.headers.map(header=>`<th>${escapeHtml(header)}</th>`).join('')}</tr></thead><tbody>${section.rows.map(row=>`<tr>${row.map((value,index)=>`<td>${index>=section.numeric?fmtMoney(value):escapeHtml(value)}</td>`).join('')}</tr>`).join('')||`<tr><td colspan="${section.headers.length}">ไม่มีรายการในเดือนนี้</td></tr>`}</tbody><tfoot><tr><th colspan="${section.numeric}">${section.key==='purchases'?'รวมรายการที่ข้อมูลครบทั้งเดือน':'รวมทั้งเดือน'}</th>${totals.map(total=>`<th>${fmtMoney(total)}</th>`).join('')}</tr></tfoot></table></section>`;
+  }).join('');
+  win.document.open();
+  win.document.write(`<!doctype html><html lang="th"><head><meta charset="UTF-8"><title>รายงานภาษี ${escapeHtml(report.month)}</title><style>
+    @page{size:A4 landscape;margin:12mm}*{box-sizing:border-box}body{margin:0;background:#eee;color:#292421;font:12px Tahoma,sans-serif;text-align:center}.toolbar{padding:12px;background:#fff}.toolbar button{padding:9px 18px;cursor:pointer}.page{width:297mm;max-width:calc(100% - 24px);margin:12px auto;background:#fff;padding:12mm}h1{font-size:22px;margin:0 0 10px}h2{font-size:17px;margin:0 0 10px}p{overflow-wrap:anywhere}.tax-print-section+.tax-print-section{margin-top:24px;padding-top:24px;border-top:1px solid #ddd}table{width:100%;border-collapse:collapse;table-layout:fixed;margin-top:16px}th,td{text-align:center;vertical-align:middle;padding:8px 5px;border:1px solid #ddd;overflow-wrap:anywhere;white-space:pre-wrap}thead th{background:#eee}thead{display:table-header-group}tfoot{display:table-row-group;font-weight:bold}tr{break-inside:avoid;page-break-inside:avoid}.notice{color:#855d12}
+    @media print{body{background:#fff}.toolbar{display:none}.page{width:auto;max-width:none;margin:0;padding:0}.tax-print-section+.tax-print-section{break-before:page;page-break-before:always;margin:0;padding:0;border:0}}
+  </style></head><body><div class="toolbar"><button onclick="window.print()">พิมพ์รายงาน</button></div><main class="page">${sectionHtml}</main></body></html>`);
+  win.document.close();
+  const prepare=()=>{if(!win.closed) standardizePrintPreview(win,{trackPrint:false});};
+  if(win.document.readyState==='loading') win.document.addEventListener('DOMContentLoaded',prepare,{once:true});
+  else prepare();
 }
 
 function renderRTax(){
@@ -663,7 +688,7 @@ function renderRTax(){
   const salesPage=taxReportPagination(saleRows,'sales');
   const purchasesPage=taxReportPagination(purchaseRows,'purchases');
   return `<div class="rpt tax-report">
-    ${canPerformPageAction('export','rtax')?'<div class="rpt-head-actions tax-report-export"><button class="btn primary" id="taxReportExcelBtn">ส่งออก Excel ทั้งเดือน</button></div>':''}
+    <div class="rpt-head-actions tax-report-export">${canPerformPageAction('print','rtax')?'<button class="btn ghost" id="taxReportPrintBtn">พิมพ์รายงานทั้งเดือน</button>':''}${canPerformPageAction('export','rtax')?'<button class="btn primary" id="taxReportExcelBtn">ส่งออก Excel ทั้งเดือน</button>':''}</div>
     ${registered?'':`<div class="panel" style="margin-bottom:14px;color:var(--danger);">กิจการยังไม่ได้ตั้งค่าเป็น “จดภาษีมูลค่าเพิ่มแล้ว” รายงานนี้จะแสดงเพื่อเตรียมข้อมูลเท่านั้น และจะไม่ถือว่ามีภาษีซื้อที่นำไปใช้ได้</div>`}
     <div class="rpt-filters"><div class="rpf-item"><input type="month" id="rtax_month" value="${escapeHtml(rtaxMonth)}" class="rpt-select"></div>${effectiveDate?`<div class="rpf-item" style="color:var(--text-muted);">เริ่มจด VAT ${fmtDateShort(effectiveDate)}</div>`:''}</div>
     <div class="panel tax-report-summary"><div><small>ภาษีขาย</small><h2 class="mono">${fmtMoney(outputVat)}</h2></div><div><small>ภาษีซื้อที่ใช้ได้</small><h2 class="mono">${fmtMoney(inputVat)}</h2></div><div><small>${netVat>=0?'ภาษีที่ต้องชำระ':'ภาษีซื้อคงเหลือ'}</small><h2 class="mono" style="color:${netVat>=0?'var(--danger)':'#2D7D3D'};">${fmtMoney(Math.abs(netVat))}</h2></div><div><small>เอกสารที่ข้อมูลภาษีซื้อไม่ครบ</small><h2 class="mono">${purchaseRows.filter(row=>!row.claimable).length}</h2></div></div>
