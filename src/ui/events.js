@@ -1466,7 +1466,14 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const rprofitPay=document.getElementById('rprofit_pay'); if(rprofitPay) rprofitPay.addEventListener('change',()=>{rprofitFilter.pay=rprofitPay.value;});
   const rprofitApply=document.getElementById('rprofitApplyBtn'); if(rprofitApply) rprofitApply.addEventListener('click',()=>{rprofitFilter.applied=true;render();});
   const rprofitPrint=document.getElementById('rprofitPrintBtn'); if(rprofitPrint) rprofitPrint.addEventListener('click',printRProfit);
-  const rtaxMonthInput=document.getElementById('rtax_month'); if(rtaxMonthInput) rtaxMonthInput.addEventListener('change',()=>{rtaxMonth=rtaxMonthInput.value||TODAY_STR.slice(0,7);render();});
+  const rtaxMonthInput=document.getElementById('rtax_month'); if(rtaxMonthInput) rtaxMonthInput.addEventListener('change',()=>{rtaxMonth=rtaxMonthInput.value||TODAY_STR.slice(0,7);rtaxPages={sales:1,purchases:1};render();});
+  for(const key of ['sales','purchases']){
+    document.querySelectorAll(`[data-rtax-${key}-page]`).forEach(button=>button.addEventListener('click',()=>{
+      const value=button.getAttribute(`data-rtax-${key}-page`);
+      rtaxPages[key]=value==='prev'?Math.max(1,rtaxPages[key]-1):value==='next'?rtaxPages[key]+1:Math.max(1,Number(value)||1);
+      render();
+    }));
+  }
   const signatureFile=document.getElementById('set_signature_file');
   if(signatureFile) signatureFile.addEventListener('change',()=>{ currentUserProfile.signatureName=signatureFile.files?.[0]?.name||''; const label=document.getElementById('signatureFileName'); if(label) label.textContent=currentUserProfile.signatureName||'ยังไม่ได้เลือกไฟล์'; });
   const addSystemUserBtn=document.getElementById('addSystemUserBtn');
