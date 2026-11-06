@@ -278,7 +278,7 @@ context.pagerHtml=()=>'';
 assert.match(context.renderBarcodePrint(), /data-barcode-print-mode="new"/);
 assert.match(context.renderBarcodePrint(), /data-barcode-print-mode="reprint"/);
 context.setBarcodePrintMode('new');
-assert.match(context.renderBarcodePrint(), /<h1>พิมพ์ป้ายราคาใหม่<\/h1>/);
+assert.doesNotMatch(context.renderBarcodePrint(), /<h1>/);
 context.readPriceLabelDefaultSize=()=> '60x40';
 assert.doesNotMatch(context.renderBarcodePrint(), /ค่าเริ่มต้น:|page-title-meta/);
 assert.doesNotMatch(html, /class="barcode-print-help"/);

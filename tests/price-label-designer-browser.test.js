@@ -66,7 +66,7 @@ const browserExecutable = [
   }
   await page.setViewportSize({width:1280,height:900});
   await page.locator('[data-barcode-print-mode="new"]').click();
-  assert.match(await page.locator('.barcode-print-page h1').textContent(),/พิมพ์ป้ายราคาใหม่/);
+  assert.equal(await page.locator('.barcode-print-page h1').count(),0);
   assert.equal(await page.locator('#barcodePrintLabelType').count(),0);
   assert.equal(await page.evaluate(()=>barcodePrintLabelSize),'50x30');
   assert.equal(await page.locator('#barcodePrintLabelSize').count(),0,'Paper sizes are hidden until settings opens');
@@ -81,7 +81,7 @@ const browserExecutable = [
   await page.locator('#savePriceLabelDefaultBtn').click();
   assert.equal(await page.evaluate(()=>readPriceLabelDefaultSize()),'a4-50x30');
   assert.equal(await page.locator('.page-title-meta').count(),0);
-  assert.equal(await page.locator('.barcode-print-page h1').evaluate(el=>getComputedStyle(el).textAlign),'center');
+  assert.equal(await page.locator('.barcode-print-page h1').count(),0);
   assert.equal(await page.locator('#openPriceLabelDesignerBtn').isVisible(), true);
   await page.locator('#openPriceLabelDesignerBtn').click();
   assert.equal(await page.locator('.price-label-designer-modal').isVisible(), true);
