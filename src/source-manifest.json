@@ -48,6 +48,7 @@
   "src/inventory/inspection-actions.js",
   "src/products/barcodes.js",
   "src/printing/price-labels.js",
+  "src/printing/promotion-labels.js",
   "src/inventory/stock-edit-and-transfer-view.js",
   "src/reports/stock-alerts.js",
   "src/customers/loyalty-and-history.js",

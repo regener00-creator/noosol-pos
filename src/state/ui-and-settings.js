@@ -121,6 +121,7 @@ let barcodePrintLabelSize = typeof readPriceLabelDefaultSize==='function'?readPr
 let barcodePrintPage = 1;
 const BARCODE_PRINT_PAGE_SIZE = 10;
 const BARCODE_PRINT_LABEL_DIMENSIONS={
+  'a4-poster':[210,297],
   '80x50':[80,50],
   '60x40':[60,40],
   '50x30':[50,30],

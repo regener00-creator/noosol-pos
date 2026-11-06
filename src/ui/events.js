@@ -914,6 +914,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     srInput.addEventListener('blur', ()=>setTimeout(()=>{ srResults.hidden=true; },150));
   }
   // --- หน้าพิมพ์ป้ายราคา: เลือกสินค้า กำหนดรหัส/หน่วย/จำนวนป้าย แล้วบันทึกพร้อมพิมพ์ ---
+  if(document.getElementById('promotionLabelSize'))attachPromotionLabelEvents();
   const barcodePrintCategorySelect=document.getElementById('barcodePrintCategorySelect');
   const barcodePrintBrandSelect=document.getElementById('barcodePrintBrandSelect');
   const barcodePrintAddCategoryBtn=document.getElementById('barcodePrintAddCategoryBtn');

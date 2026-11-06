@@ -56,7 +56,7 @@ const browserExecutable = [
     render();
   });
 
-  assert.equal(await page.locator('[data-barcode-print-mode]').count(),2);
+  assert.equal(await page.locator('[data-barcode-print-mode]').count(),3);
   assert.equal(await page.locator('#barcodePrintSearch').count(),0);
   for(const width of [1280,390]){
     await page.setViewportSize({width,height:900});
@@ -355,7 +355,7 @@ const browserExecutable = [
   assert.match(await page.locator('#toast').textContent(),/มีการเปลี่ยนแปลง/);
   assert.equal(await page.locator('[data-barcode-print-code="0"]').inputValue(),'CHANGED');
   await page.evaluate(()=>{renderSidebar();document.querySelector('.navbtn[data-tab="barcodeprint"]').click();});
-  assert.equal(await page.locator('[data-barcode-print-mode]').count(),2,'Opening the sidebar item always returns to the two choices');
+  assert.equal(await page.locator('[data-barcode-print-mode]').count(),3,'Opening the sidebar item always returns to the three choices');
   await page.locator('[data-barcode-print-mode="reprint"]').click();
   assert.equal(await page.locator('[data-barcode-print-code="0"]').inputValue(),'CHANGED','Reopening the same mode keeps its queue');
   await page.locator('#barcodePrintMenuBtn').click();
