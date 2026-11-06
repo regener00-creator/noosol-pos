@@ -74,6 +74,18 @@ let browser;
   assert.equal(await page.locator('#productBarcodeHistory').count(),0,'late response cannot reopen history');
   await page.evaluate(()=>{currentProfile.owner=false;editingProductId=1;render();});
   assert.equal(await page.locator('#productBarcodeHistoryBtn').count(),0,'history restricted to owner');
+  await page.evaluate(async()=>{
+    currentProfile.owner=true;historyDelay=false;historyCodes=[{pid:1,barcode:'P00000000010'}];invalidateProductIssuedBarcodeHistory();
+    products.push({...structuredClone(products[0]),id:3,sku:'MANUAL',barcode:'P00000000099'});
+    editingProductId=3;render();await refreshProductBarcodeHistoryButton();
+  });
+  assert.equal(await page.locator('#productBarcodeHistoryBtn').count(),0,'manual P-prefixed barcode is not issuance history');
+  await page.evaluate(async()=>{editingProductId=1;render();await refreshProductBarcodeHistoryButton();});
+  assert.equal(await page.locator('#productBarcodeHistoryBtn').count(),1,'history still available after the current barcode was changed');
+  await page.evaluate(async()=>{historyCodes.push({pid:3,barcode:'P00000000099'});invalidateProductIssuedBarcodeHistory();editingProductId=3;render();await refreshProductBarcodeHistoryButton();});
+  assert.equal(await page.locator('#productBarcodeHistoryBtn').count(),1,'new issued history appears after cache invalidation');
+  await page.evaluate(async()=>{historyFailure=true;invalidateProductIssuedBarcodeHistory();render();await refreshProductBarcodeHistoryButton();});
+  assert.equal(await page.locator('#productBarcodeHistoryBtn').count(),0,'failed history lookup never shows an unverified button');
   assert.deepEqual(errors,[]);
   console.log('Product barcode history browser passed: restore main/subunit, cancel, save, duplicate, remote conflict, retry, empty, navigation and permissions');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();await new Promise(resolve=>server.close(resolve));});

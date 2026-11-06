@@ -513,6 +513,31 @@ function openProductBaseUnitChangeModal(){
 }
 
 
+let productIssuedHistoryCache=null;
+function invalidateProductIssuedBarcodeHistory(){productIssuedHistoryCache=null;}
+async function refreshProductBarcodeHistoryButton(){
+  const host=document.getElementById('productBarcodeHistoryMount');
+  if(!host||!loggedInUser()?.owner||!sb)return;
+  const productId=editingProductId,context=captureWorkspaceRead();
+  let state=productIssuedHistoryCache;
+  if(!state||!isWorkspaceReadCurrent(state.context)||Date.now()-state.createdAt>30000){
+    state={context,createdAt:Date.now()};
+    productIssuedHistoryCache=state;
+    state.promise=(async()=>{
+      if(navigator.onLine===false)throw new Error('offline');
+      const {data,error}=await sb.rpc('system_issued_label_codes');
+      if(error||!Array.isArray(data))throw new Error('history unavailable');
+      return new Set(data.filter(entry=>typeof entry.barcode==='string'&&/^P\d{11}$/.test(entry.barcode)).map(entry=>String(entry.pid)));
+    })();
+  }
+  try{
+    const ids=await state.promise;
+    if(!host.isConnected||document.getElementById('productBarcodeHistoryMount')!==host||editingProductId!==productId||!loggedInUser()?.owner||!isWorkspaceReadCurrent(context))return;
+    if(!ids.has(String(productId)))return;
+    host.innerHTML='<button type="button" class="btn ghost small" id="productBarcodeHistoryBtn" style="margin-top:12px;">ประวัติบาร์โค้ดที่ระบบออกให้</button>';
+    host.querySelector('button').onclick=openProductBarcodeHistory;
+  }catch(error){if(productIssuedHistoryCache===state)productIssuedHistoryCache=null;}
+}
 function productBarcodeRestoreTargets(){
   const targets=[{name:String(document.getElementById('f_unit')?.value||'').trim(),input:document.getElementById('f_barcode')}];
   if(document.getElementById('f_multiunit')?.checked){
@@ -622,7 +647,7 @@ function renderProductForm(options={}){
         ${isNew?'':'<button class="btn primary small product-base-unit-action" type="button" id="changeBaseUnitBtn" title="เปลี่ยนหน่วยหลัก" aria-label="เปลี่ยนหน่วยหลัก"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></svg></button>'}
       </div>
       ${isNew?'':'<small id="directUnitEditHint" style="display:block;margin-top:8px;color:var(--text-muted)"></small>'}
-      ${!isNew&&loggedInUser()?.owner?'<button type="button" class="btn ghost small" id="productBarcodeHistoryBtn" style="margin-top:12px;">ประวัติบาร์โค้ดที่ระบบออกให้</button>':''}
+      ${!isNew&&loggedInUser()?.owner?'<div id="productBarcodeHistoryMount"></div>':''}
       <div class="paneltoggle product-extra-unit-toggle"><div><h3 style="font-size:14px;">หน่วยสินค้าเพิ่มเติม <span class="psub" style="font-weight:400;">• ตัวอย่าง: 1 กล่อง = 10 แผง, 1 ลัง = 10 กล่อง</span></h3></div>
       <label class="switch"><input type="checkbox" id="f_multiunit" ${(isNew&&!mobile?true:p.multiunit)?'checked':''}><span class="slider"></span></label></div>
       <div id="multiunitBody" style="${(isNew&&!mobile?true:p.multiunit)?'':'display:none;'}margin-top:14px;">

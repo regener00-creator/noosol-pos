@@ -1850,8 +1850,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     });
   }
   const saveProductBtn = document.getElementById('saveProductBtn');
-  const productBarcodeHistoryBtn=document.getElementById('productBarcodeHistoryBtn');
-  if(productBarcodeHistoryBtn) productBarcodeHistoryBtn.addEventListener('click',openProductBarcodeHistory);
+  if(document.getElementById('productBarcodeHistoryMount'))void refreshProductBarcodeHistoryButton();
   if(saveProductBtn) saveProductBtn.addEventListener('click', saveProduct);
   const deleteProductBtn = document.getElementById('deleteProductBtn');
   if(deleteProductBtn) deleteProductBtn.addEventListener('click', deleteUnusedProduct);

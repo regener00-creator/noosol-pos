@@ -645,6 +645,7 @@ async function saveBarcodePrintItems(printWindow){
       }
       (syncedTableRows.products||=new Map()).set(String(row.id),JSON.stringify(productMetadataToRow(saved)));
     }
+    if(typeof invalidateProductIssuedBarcodeHistory==='function')invalidateProductIssuedBarcodeHistory();
     rebuildProductLookupMaps();
     const cached=await persistProductChangesToIndexedDB({updatedIds:data.products.map(row=>row.id)});
     if(!isWorkspaceReadCurrent(context)) throw new Error('บัญชีผู้ใช้งานเปลี่ยน กรุณาโหลดข้อมูลล่าสุด');
