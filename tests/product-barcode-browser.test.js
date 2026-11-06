@@ -102,6 +102,7 @@ let browser;
     ensureXlsxLoaded=async()=>{};loadWarehouseInventoryFromSupabase=async()=>true;
     window.importRows=[];window.importAlerts=[];window.confirmCalls=0;
     window.XLSX={read:()=>({SheetNames:['Products'],Sheets:{Products:{}}}),utils:{sheet_to_json:()=>window.importRows}};
+    showProductImportDialog=async(_entries,skipped)=>{window.importAlerts.push('ไม่สามารถนำเข้า\n'+skipped.map(row=>row.detail).join('\n'));return null;};
     window.alert=message=>window.importAlerts.push(message);window.confirm=()=>{window.confirmCalls++;return false;};
   });
   for(const code of ['MAIN','CASE','EXTRA','VENDOR','REMOTE']){

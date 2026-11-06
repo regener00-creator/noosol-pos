@@ -26,7 +26,7 @@ const browserExecutable = [
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   assert.ok(browserExecutable, 'ไม่พบ Chrome หรือ Edge สำหรับทดสอบตัวออกแบบป้ายราคา');
   browser = await chromium.launch({headless:true,executablePath:browserExecutable});
-  const page = await browser.newPage({viewport:{width:1280,height:900}});
+  const page = await browser.newPage({viewport:{width:1280,height:900},serviceWorkers:'block'});
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('https://fonts.googleapis.com/**', route => route.fulfill({contentType:'text/css',body:''}));
@@ -78,6 +78,8 @@ const browserExecutable = [
   assert.equal(await page.locator('.price-label-designer-modal').isVisible(), true);
   assert.equal(await page.locator('[data-price-label-tab]').count(), 5);
   assert.equal(await page.locator('.price-label-design-element').count(), 5);
+  assert.match(await page.locator('#priceLabelDesignerCanvas').evaluate(element=>getComputedStyle(element).fontFamily),/^"?Google Sans/);
+  assert.equal(await page.evaluate(async()=>{await Promise.race([document.fonts.load('16px "Google Sans"'),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Google Sans font load timeout')),10000))]);return document.fonts.check('16px "Google Sans"');}),true);
   for(const field of ['name','unit','price','barcode','code']){
     await page.locator(`[data-price-label-toggle="${field}"]`).uncheck();
     assert.equal(await page.locator(`#priceLabelDesignerCanvas [data-price-label-element="${field}"]`).count(),0);
@@ -262,6 +264,7 @@ const browserExecutable = [
   await page.context().addInitScript(()=>{window.print=()=>{};});
   const beforeReprint=await page.evaluate(()=>{
     localStorage.setItem(A4_PAPER_STORAGE_KEY,JSON.stringify({orientation:'landscape',marginTop:40,marginBottom:40,marginLeft:40,marginRight:40}));
+    const nativeOpen=window.open.bind(window);window.open=(...args)=>{const popup=nativeOpen(...args);if(popup)popup.print=()=>{};return popup;};
     window.reprintRpcCalls=[];
     window.issuedFixture=[{pid:9101,barcode:'FULL-001'},{pid:9103,barcode:'CREATED-ELSEWHERE'},{pid:9103,barcode:'CHANGED'}];
     sb.rpc=async(name)=>{if(name==='system_issued_label_codes') return {data:window.issuedFixture,error:null};window.reprintRpcCalls.push(name);throw new Error('Reprint must not call a write RPC');};
@@ -299,6 +302,8 @@ const browserExecutable = [
   await page.locator('[data-barcode-print-qty="1"]').fill('2');
   const [printed]=await Promise.all([page.waitForEvent('popup'),page.locator('#savePrintBarcodeBtn').click()]);
   await printed.waitForSelector('.label');
+  assert.match(await printed.locator('.label').first().evaluate(element=>getComputedStyle(element).fontFamily),/^"?Google Sans/);
+  assert.equal(await printed.evaluate(async()=>{await Promise.race([document.fonts.load('16px "Google Sans"'),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Google Sans font load timeout')),10000))]);return document.fonts.check('16px "Google Sans"');}),true);
   assert.equal(await printed.locator('.label').count(),37);
   assert.equal(await printed.locator('.label-sheet').count(),2);
   assert.equal(await printed.locator('.label-cut-cell').count(),72);

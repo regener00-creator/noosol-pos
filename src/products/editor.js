@@ -513,6 +513,72 @@ function openProductBaseUnitChangeModal(){
 }
 
 
+function productBarcodeRestoreTargets(){
+  const targets=[{name:String(document.getElementById('f_unit')?.value||'').trim(),input:document.getElementById('f_barcode')}];
+  if(document.getElementById('f_multiunit')?.checked){
+    document.querySelectorAll('#unitRows .unitrow').forEach(row=>targets.push({name:String(row.querySelector('.u_sub')?.value||'').trim(),input:row.querySelector('.u_barcode')}));
+  }
+  return targets.filter(target=>target.name&&!target.name.startsWith('__')&&target.input?.isConnected);
+}
+function productBarcodeRestoreDraft(target,code){
+  const targets=productBarcodeRestoreTargets();
+  const value=entry=>entry.input===target.input?code:entry.input.value.trim();
+  const extra=mobileProductEditor?extraBarcodeEntries(mobileProductEditor.draft):Array.from(document.querySelectorAll('#extraBarcodeRows .eb_code')).map(input=>({code:input.value.trim()}));
+  const vendors=mobileProductEditor?mobileProductEditor.draft.vendorBarcodes||[]:Array.from(document.querySelectorAll('#vendorBarcodeRows .vb_code')).map(input=>({code:input.value.trim()}));
+  return {unit:targets[0]?.name,barcode:value(targets[0]),units:targets.slice(1).map(entry=>({sub:entry.name,barcode:value(entry)})),extraBarcodes:extra.map(entry=>entry.code),vendorBarcodes:vendors};
+}
+async function openProductBarcodeHistory(){
+  if(!loggedInUser()?.owner||editingProductId==='new'||saveProduct.saving||document.getElementById('productBarcodeHistory')) return;
+  const product=products.find(entry=>entry.id===editingProductId),anchor=document.getElementById('f_barcode');
+  if(!product||!anchor) return;
+  const context=captureWorkspaceRead(),editor=mobileProductEditor;
+  const overlay=document.createElement('div');
+  overlay.id='productBarcodeHistory';overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal product-barcode-history-modal" role="dialog" aria-modal="true" aria-labelledby="productBarcodeHistoryTitle"><div class="modal-head"><h3 id="productBarcodeHistoryTitle">ประวัติบาร์โค้ดที่ระบบออกให้</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div><div class="product-barcode-history-body"><p>${escapeHtml(product.name)}</p><p>เลือกหน่วยและเลขเดิมที่จะนำกลับมาใช้ แล้วกดบันทึกในหน้าแก้ไขสินค้า</p><label>หน่วยที่จะใช้บาร์โค้ด<select id="productBarcodeHistoryUnit"></select></label><div id="productBarcodeHistoryStatus" role="status">กำลังโหลดประวัติ…</div><div id="productBarcodeHistoryRows"></div><button type="button" class="btn ghost" id="productBarcodeHistoryRetry" hidden>ลองใหม่</button></div></div>`;
+  document.body.appendChild(overlay);
+  const close=()=>{overlay.remove();if(anchor.isConnected)anchor.focus();};
+  overlay.querySelector('.modal-close').onclick=close;
+  overlay.addEventListener('keydown',event=>{if(event.key==='Escape'){event.stopPropagation();close();}});
+  overlay.querySelector('.modal-close').focus();
+  const current=()=>overlay.isConnected&&anchor.isConnected&&document.getElementById('f_barcode')===anchor&&editingProductId===product.id&&mobileProductEditor===editor&&isWorkspaceReadCurrent(context)&&loggedInUser()?.owner;
+  const select=overlay.querySelector('#productBarcodeHistoryUnit'),status=overlay.querySelector('#productBarcodeHistoryStatus'),rows=overlay.querySelector('#productBarcodeHistoryRows'),retry=overlay.querySelector('#productBarcodeHistoryRetry');
+  const targets=productBarcodeRestoreTargets();
+  select.innerHTML=targets.map((target,index)=>`<option value="${index}">${escapeHtml(target.name)} · ปัจจุบัน ${escapeHtml(target.input.value||'ไม่มีบาร์โค้ด')}</option>`).join('');
+  let busy=false;
+  const load=async()=>{
+    rows.innerHTML='';retry.hidden=true;status.textContent='กำลังโหลดประวัติ…';
+    try{
+      if(!sb||navigator.onLine===false)throw new Error('กรุณาเชื่อมต่ออินเทอร์เน็ตเพื่อดูประวัติบาร์โค้ด');
+      const {data,error}=await sb.rpc('system_issued_label_codes');
+      if(error)throw new Error('โหลดประวัติบาร์โค้ดไม่สำเร็จ กรุณาลองใหม่');
+      if(!Array.isArray(data))throw new Error('ข้อมูลประวัติบาร์โค้ดไม่ถูกต้อง');
+      if(!current()){close();return;}
+      const codes=[...new Set(data.filter(entry=>String(entry.pid)===String(product.id)&&typeof entry.barcode==='string'&&/^P\d{11}$/.test(entry.barcode)).map(entry=>entry.barcode))].sort();
+      status.textContent=codes.length?`พบ ${codes.length} เลข`:'ยังไม่มีประวัติเลขบาร์โค้ดที่ระบบออกให้สินค้านี้';
+      rows.innerHTML=codes.map((code,index)=>`<div class="product-barcode-history-row"><strong>${escapeHtml(code)}</strong><button type="button" class="btn primary small" data-restore-code="${index}">นำเลขนี้กลับมาใช้</button></div>`).join('');
+      rows.querySelectorAll('[data-restore-code]').forEach(button=>button.onclick=async()=>{
+        if(busy||!current())return;
+        const target=targets[Number(select.value)],code=codes[Number(button.dataset.restoreCode)];
+        if(!target?.input.isConnected||!productBarcodeRestoreTargets().some(entry=>entry.input===target.input&&entry.name===target.name)){status.textContent='หน่วยสินค้าเปลี่ยน กรุณาปิดและเปิดประวัติใหม่';return;}
+        const draft=productBarcodeRestoreDraft(target,code),before=JSON.stringify(productBarcodeRestoreDraft(target,target.input.value.trim()));
+        busy=true;button.disabled=true;select.disabled=true;
+        try{
+          await assertProductBarcodesAvailable(draft,product);
+          if(!current())return;
+          if(before!==JSON.stringify(productBarcodeRestoreDraft(target,target.input.value.trim())))throw new Error('ข้อมูลบาร์โค้ดเปลี่ยนระหว่างตรวจสอบ กรุณาตรวจใหม่');
+          if(target.input.value.trim()&&target.input.value.trim()!==code&&!confirm(`เปลี่ยนบาร์โค้ดหน่วย ${target.name} จาก ${target.input.value.trim()} เป็น ${code} ใช่หรือไม่?`))return;
+          target.input.value=code;
+          target.input.dispatchEvent(new Event('input',{bubbles:true}));
+          target.input.dispatchEvent(new Event('change',{bubbles:true}));
+          close();target.input.focus();showToast('ใส่บาร์โค้ดเดิมแล้ว กรุณากดบันทึกสินค้าเพื่อยืนยัน');
+        }catch(error){if(current())status.textContent=error.message||'ตรวจสอบบาร์โค้ดไม่สำเร็จ';}
+        finally{busy=false;button.disabled=false;select.disabled=false;}
+      });
+    }catch(error){if(current()){status.textContent=error.message;retry.hidden=false;}}
+  };
+  retry.onclick=load;await load();
+}
+
 function renderProductForm(options={}){
   const mobile=options.mobile===true;
   const isNew = editingProductId==='new';
@@ -556,6 +622,7 @@ function renderProductForm(options={}){
         ${isNew?'':'<button class="btn primary small product-base-unit-action" type="button" id="changeBaseUnitBtn" title="เปลี่ยนหน่วยหลัก" aria-label="เปลี่ยนหน่วยหลัก"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></svg></button>'}
       </div>
       ${isNew?'':'<small id="directUnitEditHint" style="display:block;margin-top:8px;color:var(--text-muted)"></small>'}
+      ${!isNew&&loggedInUser()?.owner?'<button type="button" class="btn ghost small" id="productBarcodeHistoryBtn" style="margin-top:12px;">ประวัติบาร์โค้ดที่ระบบออกให้</button>':''}
       <div class="paneltoggle product-extra-unit-toggle"><div><h3 style="font-size:14px;">หน่วยสินค้าเพิ่มเติม <span class="psub" style="font-weight:400;">• ตัวอย่าง: 1 กล่อง = 10 แผง, 1 ลัง = 10 กล่อง</span></h3></div>
       <label class="switch"><input type="checkbox" id="f_multiunit" ${(isNew&&!mobile?true:p.multiunit)?'checked':''}><span class="slider"></span></label></div>
       <div id="multiunitBody" style="${(isNew&&!mobile?true:p.multiunit)?'':'display:none;'}margin-top:14px;">

@@ -24,17 +24,28 @@ export async function run({client,connect}){
   await insert(88002);
   assert.equal((await issue(client,[item(88002)])).items[0].barcode,'P00000000001');
   await client.query("update public.products set data=data-'barcode' where id=88002");
-  await assert.rejects(client.query("update public.products set data=data||'{\"barcode\":\"P00000000001\"}' where id=88002"),/ถูกใช้แล้ว/);
+  await client.query("update public.products set data=data||'{\"barcode\":\"P00000000001\"}' where id=88002");
+  assert.equal((await client.query('select data->>\'barcode\' code from public.products where id=88002')).rows[0].code,'P00000000001','owner restores a proven system-issued code to its original product');
+  await client.query("update public.products set data=data-'barcode' where id=88002");
   assert.equal((await issue(client,[item(88002)])).items[0].barcode,'P00000000002');
 
   // Manually/imported internal-format codes are permanently reserved too.
   await insert(88003,{barcode:'p00000000003'});
+  await client.query("update public.products set data=data-'barcode' where id=88003");
+  await assert.rejects(client.query("update public.products set data=data||'{\"barcode\":\"p00000000003\"}' where id=88003"),/ถูกใช้แล้ว/,'manual codes do not become recoverable system history');
   await client.query('delete from public.products where id=88003');
   await insert(88004,{barcode:'BOX-EXISTING',units:[{sub:'pack',base:'box',per:2,factor:2,barcode:''}]});
   const sub=await issue(client,[{pid:88004,unit:'pack',barcode:'',qty:2}]);
   assert.equal(sub.items[0].barcode,'P00000000004');
   assert.equal(sub.products[0].data.barcode,'BOX-EXISTING');
   assert.equal(sub.products[0].data.units[0].barcode,'P00000000004');
+  await client.query("update public.products set data=jsonb_set(data,'{units,0,barcode}','\"WRONG\"') where id=88004");
+  await client.query("select set_config('request.jwt.claim.sub',$1,false)",[staff]);
+  await assert.rejects(client.query("update public.products set data=jsonb_set(data,'{units,0,barcode}','\"P00000000004\"') where id=88004"),/ถูกใช้แล้ว/,'staff cannot restore retired system codes');
+  await client.query("select set_config('request.jwt.claim.sub',$1,false)",[owner]);
+  await client.query("update public.products set data=jsonb_set(data,'{units,0,barcode}','\"P00000000004\"') where id=88004");
+  assert.equal((await client.query("select data#>>'{units,0,barcode}' code from public.products where id=88004")).rows[0].code,'P00000000004');
+  await assert.rejects(client.query("update public.products set data=jsonb_set(data,'{barcode}','\"P00000000001\"') where id=88004"),/ถูกใช้แล้ว/,'restoration never transfers ownership between products');
   await insert(88005);
   await issue(client,[{...item(88005),barcode:'MANUAL-LABEL'}]);
   const issued=(await client.query('select public.system_issued_label_codes() codes')).rows[0].codes;

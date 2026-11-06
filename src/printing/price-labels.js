@@ -548,7 +548,8 @@ function writeBarcodePrintWindow(printWindow,items=barcodePrintItems,labelSize=b
     const regularLabel=priceLabelRegularHtml(item,product,option,labelSize);
     for(let count=0;count<Number(item.qty);count++) labels.push(regularLabel);
   });
-  const printFontStyle=`<style>@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700;800&display=swap');body,.toolbar button,.label{font-family:'Noto Sans Thai',Tahoma,sans-serif}</style>`;
+  const fontBase=typeof location==='undefined'?'':location.origin;
+  const printFontStyle=`<style>@font-face{font-family:'Google Sans';src:url('${fontBase}/fonts/google-sans-variable-v2.woff2') format('woff2');font-style:normal;font-weight:400 700}@font-face{font-family:'Google Sans';src:url('${fontBase}/fonts/google-sans-italic-variable-v2.woff2') format('woff2');font-style:italic;font-weight:400 700}body,.toolbar button,.label{font-family:'Google Sans','Noto Sans Thai',Tahoma,sans-serif}</style>`;
   let content=labels.join(''),sheetStyle='';
   if(a4){
     const sheets=[];
@@ -564,17 +565,34 @@ function writeBarcodePrintWindow(printWindow,items=barcodePrintItems,labelSize=b
   printWindow.document.open();
   printWindow.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>พิมพ์ป้ายราคา ${labels.length} ดวง</title><style>@page{size:${pageSize};margin:0}*{box-sizing:border-box}body{margin:0;background:#e9edf0;color:#111;font-family:'Noto Sans Thai',Tahoma,sans-serif}.toolbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;background:#fff;box-shadow:0 2px 8px #0002;font-size:13px}.toolbar button{border:0;border-radius:7px;background:#4F4038;color:#fff;padding:8px 16px;font:600 13px 'Noto Sans Thai',Tahoma,sans-serif;cursor:pointer}.label{width:${width}mm;height:${height}mm;margin:10px auto;padding:0;background:#fff;overflow:hidden;page-break-after:always;break-after:page}.label:last-child{page-break-after:auto;break-after:auto}.barcode-label-svg{display:block;width:100%;height:100%}.price-label-print-element{-webkit-print-color-adjust:exact;print-color-adjust:exact}@media print{body{background:#fff}.toolbar{display:none}.label{margin:0;box-shadow:none}}${sheetStyle}</style>${printFontStyle}</head><body><div class="toolbar"><span>ป้ายราคา ${width} × ${height} มม. แนวนอน · ทั้งหมด ${labels.length} ดวง</span><button onclick="window.print()">พิมพ์</button></div>${content}</body></html>`);
   printWindow.document.close();
-  const preparePreview=()=>{
+  const preparePreview=async()=>{
     if(printWindow.closed) return;
+    // Reuse the app's loaded font faces so document.write popups can render
+    // immediately even when Chromium stalls their separate font requests.
+    if(document.fonts?.load&&printWindow.document.fonts?.add){
+      try{
+        await document.fonts.load('16px "Google Sans"');
+        if(printWindow.closed)return;
+        const faces=[...document.fonts].filter(face=>face.family.replace(/["']/g,'')==='Google Sans'&&face.status==='loaded');
+        if(faces.length){
+          for(const sheet of printWindow.document.styleSheets){
+            for(let index=sheet.cssRules.length-1;index>=0;index--){
+              const rule=sheet.cssRules[index];
+              if(rule.type===5&&rule.style.fontFamily.replace(/["']/g,'')==='Google Sans')sheet.deleteRule(index);
+            }
+          }
+          [...printWindow.document.fonts].filter(face=>face.family.replace(/["']/g,'')==='Google Sans').forEach(face=>printWindow.document.fonts.delete(face));
+          faces.forEach(face=>printWindow.document.fonts.add(face));
+        }
+      }catch(error){console.warn('price label font load',error);}
+    }
     if(typeof standardizePrintPreview==='function') standardizePrintPreview(printWindow,{trackPrint,applyPaperSettings:!a4});
     const printNow=()=>{ try{ if(!printWindow.closed){printWindow.focus(); printWindow.print();} }catch(error){} };
     if(printWindow.document.fonts?.ready?.then) printWindow.document.fonts.ready.then(printNow).catch(()=>setTimeout(printNow,450));
     else setTimeout(printNow,450);
   };
-  // document.write may pause at the font stylesheet. Wait for all labels to be
-  // parsed before opening the print dialog or replacing the preview toolbar.
-  if(printWindow.document.readyState==='loading'&&printWindow.document.addEventListener) printWindow.document.addEventListener('DOMContentLoaded',preparePreview,{once:true});
-  else preparePreview();
+  // All label markup and font rules are written synchronously before this call.
+  void preparePreview();
   return true;
 }
 

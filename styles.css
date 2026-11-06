@@ -868,7 +868,7 @@
   .price-label-canvas-pane{min-width:0;overflow:auto;padding:18px;background:#E9EDF0;}
   .price-label-canvas-help{margin:0 0 12px;color:#5F6E79;font-size:12.5px;}
   .price-label-canvas-shell{display:flex;min-height:460px;align-items:center;justify-content:center;padding:22px;border:1px dashed #C9BDB8;border-radius:14px;background:#F5F2F0;}
-  .price-label-canvas{position:relative;width:min(100%,760px);overflow:hidden;background:#fff;box-shadow:0 8px 28px #28333C24;font-family:'Noto Sans Thai',Tahoma,sans-serif;touch-action:none;}
+  .price-label-canvas{position:relative;width:min(100%,760px);overflow:hidden;background:#fff;box-shadow:0 8px 28px #28333C24;font-family:'Google Sans','Noto Sans Thai',Tahoma,sans-serif;touch-action:none;}
   .price-label-design-element{position:absolute;display:block;overflow:hidden;cursor:move;user-select:none;touch-action:none;line-height:1.08;}
   .price-label-design-element[data-price-label-element="barcode"]{display:flex;align-items:center;justify-content:flex-start;}
   .price-label-design-element .barcode-label-svg{display:block;width:100%;height:100%;}
@@ -2666,6 +2666,10 @@
 .knowledge-actions{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;}
 .knowledge-detail header .knowledge-actions{align-items:center;}
 .product-import-modal{width:min(1100px,96vw);max-width:1100px;max-height:92vh;display:flex;flex-direction:column;}
+.product-barcode-history-modal{width:min(760px,96vw);max-height:90vh;display:flex;flex-direction:column;}
+.product-barcode-history-body{padding:0 24px 24px;overflow:auto;}
+.product-barcode-history-body label{display:grid;gap:8px;margin:16px 0;}
+.product-barcode-history-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;}
 .product-import-body{padding:0 24px 16px;overflow:auto;min-height:0;}
 .product-import-stock-option{display:flex;align-items:center;gap:10px;font-weight:700;}
 .product-import-table-wrap{overflow:auto;}
@@ -2861,3 +2865,6 @@
 .direct-printer-card [role=status]{font-size:13px;overflow-wrap:anywhere}
 #directPrinterConnection.is-error{color:#a12315}
 @media(max-width:1000px){.direct-printer-cards{grid-template-columns:1fr}}
+
+@font-face{font-family:'Google Sans';src:url('/fonts/google-sans-variable-v2.woff2') format('woff2');font-style:normal;font-weight:400 700;font-display:swap;}
+@font-face{font-family:'Google Sans';src:url('/fonts/google-sans-italic-variable-v2.woff2') format('woff2');font-style:italic;font-weight:400 700;font-display:swap;}
