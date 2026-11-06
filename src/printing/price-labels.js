@@ -214,7 +214,7 @@ function priceLabelElementStyle(element,key,renderScale=1){
 
 function priceLabelRegularHtml(item,product,option,labelSize='80x50'){
   const template=getPriceLabelTemplate(labelSize);
-  const values={name:product?.name||'',unit:item?.unit||option?.name||'',price:fmtMoney(option?.price||0),code:item?.barcode||''};
+  const values={name:product?.name||'',unit:item?.unit||option?.name||'',price:fmtMoney(option?.price||0).replace(/\.00$/,''),code:item?.barcode||''};
   const elements=Object.entries(template.elements).map(([key,element])=>{
     if(!element.visible) return '';
     const content=key==='barcode'?code128BSvg(values.code,40):escapeHtml(values[key]||'');
@@ -232,7 +232,7 @@ function priceLabelDesignerSample(){
   return {
     name:product?.name||'Decolgen prin (4 tablets)',
     unit:item?.unit||option?.name||'กล่อง',
-    price:fmtMoney(option?.price||180),
+    price:fmtMoney(option?.price??180).replace(/\.00$/,''),
     code:item?.barcode||'P00000000000',
   };
 }
