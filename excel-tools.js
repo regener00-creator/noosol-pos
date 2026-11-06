@@ -1,11 +1,12 @@
 // Excel import/export feature bundle. Loaded only when an Excel action is used.
 function createTaxReportWorkbook(report,writer){
+  if(!['sales','purchases'].includes(report.type)) throw new Error('กรุณาเลือกรายงานที่ต้องการส่งออก');
   const book=new writer.Workbook();
   const definitions=[
-    {name:'ภาษีขาย',rows:report.sales,headers:['วันที่','เลขที่บิล','คลังสินค้า','มูลค่าก่อน VAT','VAT','ยอดรวม'],widths:[16,26,24,20,18,20],numeric:4},
-    {name:'ภาษีซื้อ',rows:report.purchases,headers:['วันที่ใบกำกับ','เลขที่ใบกำกับผู้จำหน่าย','ผู้จำหน่าย','เอกสารรับเข้า','สถานะ','มูลค่าก่อน VAT','VAT','ยอดรวม'],widths:[16,28,32,26,30,20,18,20],numeric:6}
+    {key:'sales',name:'ภาษีขาย',rows:report.sales,headers:['วันที่','เลขที่บิล','คลังสินค้า','มูลค่าก่อน VAT','VAT','ยอดรวม'],widths:[16,26,24,20,18,20],numeric:4},
+    {key:'purchases',name:'ภาษีซื้อ',rows:report.purchases,headers:['วันที่ใบกำกับ','เลขที่ใบกำกับผู้จำหน่าย','ผู้จำหน่าย','เอกสารรับเข้า','สถานะ','มูลค่าก่อน VAT','VAT','ยอดรวม'],widths:[16,28,32,26,30,20,18,20],numeric:6}
   ];
-  for(const def of definitions){
+  for(const def of definitions.filter(def=>def.key===report.type)){
     const sheet=book.addWorksheet(def.name),columns=def.headers.length;
     sheet.columns=def.widths.map(width=>({width}));
     for(const text of [`รายงาน${def.name}`,report.business,`เดือน ${report.month} · ทั้งหมด ${def.rows.length} รายการ`]){
@@ -32,13 +33,14 @@ function createTaxReportWorkbook(report,writer){
   return book;
 }
 async function exportTaxReportToExcel(report){
-  if(!canPerformPageAction('export','rtax')||!isWorkspaceReadCurrent(report.context)) return;
+  if(!['sales','purchases'].includes(report.type)||!canPerformPageAction('export','rtax')||!isWorkspaceReadCurrent(report.context)) return;
   const writer=await ensureProductExcelWriterLoaded(),book=createTaxReportWorkbook(report,writer);
   const buffer=await book.xlsx.writeBuffer();
   if(!isWorkspaceReadCurrent(report.context)) return;
   const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})),link=document.createElement('a');
-  link.href=url;link.download=`SAPURI-รายงานภาษี-${report.month}.xlsx`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
-  showToast(`ส่งออกภาษีขาย ${report.sales.length} รายการ และภาษีซื้อ ${report.purchases.length} รายการแล้ว`);
+  const title=report.type==='sales'?'ภาษีขาย':'ภาษีซื้อ';
+  link.href=url;link.download=`SAPURI-รายงาน${title}-${report.month}.xlsx`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+  showToast(`ส่งออก${title} ${report[report.type].length} รายการแล้ว`);
 }
 
 function createVoidReportWorkbook(report,writer){

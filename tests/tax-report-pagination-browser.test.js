@@ -57,12 +57,19 @@ let browser;
   assert.equal(await purchases.locator('tbody tr').count(),2);
   assert.equal(await sales.locator('tbody tr').count(),3);
   assert.deepEqual(await page.locator('.tax-report tfoot').allTextContents(),totals,'pagination must not change monthly tax totals');
-  const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#taxReportExcelBtn').click()]);
-  assert.equal(download.suggestedFilename(),'SAPURI-รายงานภาษี-2026-11.xlsx');
-  const book=new ExcelJS.Workbook();await book.xlsx.readFile(await download.path());
-  assert.equal(book.getWorksheet('ภาษีขาย').rowCount,28,'download includes 23 sales plus headings and total, not only the current 3');
-  assert.equal(book.getWorksheet('ภาษีซื้อ').rowCount,17,'download includes 12 purchases plus headings and total');
-  assert.match(book.getWorksheet('ภาษีขาย').getCell('B27').value,/SALE-23/);
+  for(const [type,name,count,total] of [['sales','ภาษีขาย',23,2461],['purchases','ภาษีซื้อ',12,1284]]){
+    await page.locator('#taxReportExcelType').selectOption(type);
+    const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#taxReportExcelBtn').click()]);
+    assert.equal(download.suggestedFilename(),'SAPURI-รายงาน'+name+'-2026-11.xlsx');
+    const book=new ExcelJS.Workbook();await book.xlsx.readFile(await download.path());
+    assert.deepEqual(book.worksheets.map(sheet=>sheet.name),[name],'export contains only the selected report');
+    const sheet=book.worksheets[0];
+    assert.equal(sheet.rowCount,count+5,'download includes every monthly row even from the last page');
+    assert.equal(sheet.getRow(count+5).getCell(sheet.columnCount).result,total);
+    assert.doesNotMatch(JSON.stringify(sheet.model),/OTHER-MONTH|OTHER-PURCHASE|OTHER-TAX/);
+    assert.equal(await sales.locator('tbody tr').count(),3,'export preserves the current sales page');
+    assert.equal(await purchases.locator('tbody tr').count(),2,'export preserves the current purchase page');
+  }
   for(const [type,count,total,other] of [['sales',23,'2,461.00','purchases'],['purchases',12,'1,284.00','sales']]){
     await page.locator('#taxReportPrintType').selectOption(type);
     const [preview]=await Promise.all([page.waitForEvent('popup'),page.locator('#taxReportPrintBtn').click()]);

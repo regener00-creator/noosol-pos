@@ -1471,7 +1471,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const rprofitPrint=document.getElementById('rprofitPrintBtn'); if(rprofitPrint) rprofitPrint.addEventListener('click',printRProfit);
   const rtaxMonthInput=document.getElementById('rtax_month'); if(rtaxMonthInput) rtaxMonthInput.addEventListener('change',()=>{rtaxMonth=rtaxMonthInput.value||TODAY_STR.slice(0,7);rtaxPages={sales:1,purchases:1};render();});
   document.getElementById('taxReportExcelBtn')?.addEventListener('click',async event=>{
+    const type=document.getElementById('taxReportExcelType')?.value;
+    if(!['sales','purchases'].includes(type)) return;
     const snapshot=taxReportOutputSnapshot('export');if(!snapshot) return;
+    snapshot.type=type;
     const button=event.currentTarget;button.disabled=true;
     try{await invokeExcelTool('exportTaxReportToExcel',snapshot);}finally{button.disabled=false;}
   });
