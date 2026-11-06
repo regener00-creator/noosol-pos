@@ -210,7 +210,7 @@ function ensureOnDemandDataForTab(tab,{background=false}={}){
         applyPendingSalesViewRefresh();
         return;
       }
-      if(currentProfile&&(currentTab===tab||(tab==='history'&&posSalesHistoryModalOpen&&(currentTab==='checkout'||currentTab==='cashbill')))) render();
+      if(currentProfile&&(currentTab===tab||(tab==='history'&&posSalesHistoryModalOpen&&(currentTab==='checkout'||currentTab==='cashbill'||(currentTab==='taxinvoice'&&editingTaxInvoiceSaleId==='lookup'))))) render();
     }).catch(error=>{
       if(!isWorkspaceReadCurrent(context)||onDemandTabJobs.get(key)!==job) return;
       const alreadyFailed=onDemandTabErrors.has(key);
@@ -219,7 +219,7 @@ function ensureOnDemandDataForTab(tab,{background=false}={}){
         if(!alreadyFailed&&currentTab===tab&&scope===salesViewScope()) showToast('อัปเดตข้อมูลล่าสุดไม่สำเร็จ กำลังแสดงข้อมูลเดิม ระบบจะลองใหม่อัตโนมัติ','warning-top');
         return;
       }
-      if(currentProfile&&(currentTab===tab||(tab==='history'&&posSalesHistoryModalOpen&&(currentTab==='checkout'||currentTab==='cashbill')))) render();
+      if(currentProfile&&(currentTab===tab||(tab==='history'&&posSalesHistoryModalOpen&&(currentTab==='checkout'||currentTab==='cashbill'||(currentTab==='taxinvoice'&&editingTaxInvoiceSaleId==='lookup'))))) render();
     });
     job.background=background;
     onDemandTabJobs.set(key,job);
@@ -329,7 +329,7 @@ function render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){
   document.title=standaloneAppWindow?'':'SAPURI';
   if(mobileMode) currentTab='mobiletools';
   else if(currentTab==='mobiletools') currentTab='dashboard';
-  if(currentTab!=='checkout'&&!(currentTab==='cashbill'&&cashBillLookupOpen)) posSalesHistoryModalOpen=false;
+  if(currentTab!=='checkout'&&!(currentTab==='cashbill'&&cashBillLookupOpen)&&!(currentTab==='taxinvoice'&&editingTaxInvoiceSaleId==='lookup')) posSalesHistoryModalOpen=false;
   if(!canAccessTab(currentTab)){
     currentTab='dashboard';
     addingSystemUser=false; editingSystemUserId=null;

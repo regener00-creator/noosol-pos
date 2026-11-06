@@ -175,6 +175,7 @@ let editingQuotationId=null;
 let standaloneTaxInvoices=[];
 let cashBillLookupOpen=false;
 let cashBillOrderNumberDraft='';
+let taxInvoiceOrderNumberDraft='';
 const TAX_INVOICE_STORAGE_KEY='pharmacy_pos_standalone_tax_invoices_v1';
 try{ const savedTaxDocs=JSON.parse(localStorage.getItem(TAX_INVOICE_STORAGE_KEY)||'null'); if(Array.isArray(savedTaxDocs)) standaloneTaxInvoices=savedTaxDocs; }catch(error){ console.warn('ไม่สามารถโหลดใบกำกับภาษีที่สร้างใหม่ได้',error); }
 function persistStandaloneTaxInvoices(){ persistWorkspaceData(); }

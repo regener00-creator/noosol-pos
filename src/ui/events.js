@@ -1136,7 +1136,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   }));
   const histBtn = document.getElementById('histBtn');
   if(histBtn) histBtn.addEventListener('click', ()=>{ posSalesHistoryModalOpen=true; render(); });
-  const closePOSSalesHistory=()=>{ posSalesHistoryModalOpen=false; render(); document.getElementById(currentTab==='cashbill'?'cash_bill_order_number':'histBtn')?.focus(); };
+  const closePOSSalesHistory=()=>{ posSalesHistoryModalOpen=false; render(); document.getElementById(currentTab==='cashbill'?'cash_bill_order_number':currentTab==='taxinvoice'?'tax_order_number':'histBtn')?.focus(); };
   document.getElementById('closePOSSalesHistoryBtn')?.addEventListener('click',closePOSSalesHistory);
   document.getElementById('closePOSSalesHistoryBottomBtn')?.addEventListener('click',closePOSSalesHistory);
   document.querySelector('.pos-sales-history-overlay')?.addEventListener('mousedown',event=>{ if(event.target===event.currentTarget) closePOSSalesHistory(); });
@@ -1173,8 +1173,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     const number=button.dataset.copyBill;
     try{
       await navigator.clipboard.writeText(number);
-      cashBillOrderNumberDraft=number;
-      const input=document.getElementById('cash_bill_order_number');
+      if(currentTab==='taxinvoice') taxInvoiceOrderNumberDraft=number;
+      else cashBillOrderNumberDraft=number;
+      const input=document.getElementById(currentTab==='taxinvoice'?'tax_order_number':'cash_bill_order_number');
       if(input) input.value=number;
       showToast('คัดลอกเลขบิลแล้ว');
     }catch(error){ showToast('คัดลอกไม่สำเร็จ กรุณาลากเลือกเลขบิลแล้วคัดลอกเอง','danger'); }
@@ -1196,8 +1197,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const saveTaxCustomerBtn=document.getElementById('saveTaxCustomerBtn');
   if(saveTaxCustomerBtn) saveTaxCustomerBtn.addEventListener('click',saveTaxInvoiceCustomer);
   const searchTaxInvoiceOrderBtn=document.getElementById('searchTaxInvoiceOrderBtn');
-  if(searchTaxInvoiceOrderBtn) searchTaxInvoiceOrderBtn.addEventListener('click',searchTaxInvoiceOrder);
+  if(searchTaxInvoiceOrderBtn) searchTaxInvoiceOrderBtn.addEventListener('click',()=>{posSalesHistoryModalOpen=true;render();document.getElementById('closePOSSalesHistoryBtn')?.focus();});
+  document.getElementById('continueTaxInvoiceOrderBtn')?.addEventListener('click',searchTaxInvoiceOrder);
   const taxOrderNumber=document.getElementById('tax_order_number');
+  taxOrderNumber?.addEventListener('input',()=>{taxInvoiceOrderNumberDraft=taxOrderNumber.value;});
   if(taxOrderNumber) taxOrderNumber.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); searchTaxInvoiceOrder(); } });
   const saveTaxInvoiceFormBtn=document.getElementById('saveTaxInvoiceFormBtn');
   if(saveTaxInvoiceFormBtn) saveTaxInvoiceFormBtn.addEventListener('click',saveTaxInvoiceForm);
@@ -1467,6 +1470,11 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const rprofitApply=document.getElementById('rprofitApplyBtn'); if(rprofitApply) rprofitApply.addEventListener('click',()=>{rprofitFilter.applied=true;render();});
   const rprofitPrint=document.getElementById('rprofitPrintBtn'); if(rprofitPrint) rprofitPrint.addEventListener('click',printRProfit);
   const rtaxMonthInput=document.getElementById('rtax_month'); if(rtaxMonthInput) rtaxMonthInput.addEventListener('change',()=>{rtaxMonth=rtaxMonthInput.value||TODAY_STR.slice(0,7);rtaxPages={sales:1,purchases:1};render();});
+  document.getElementById('taxReportExcelBtn')?.addEventListener('click',async event=>{
+    const snapshot=taxReportExportSnapshot();if(!snapshot) return;
+    const button=event.currentTarget;button.disabled=true;
+    try{await invokeExcelTool('exportTaxReportToExcel',snapshot);}finally{button.disabled=false;}
+  });
   for(const key of ['sales','purchases']){
     document.querySelectorAll(`[data-rtax-${key}-page]`).forEach(button=>button.addEventListener('click',()=>{
       const value=button.getAttribute(`data-rtax-${key}-page`);

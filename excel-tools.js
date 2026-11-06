@@ -1,4 +1,46 @@
 // Excel import/export feature bundle. Loaded only when an Excel action is used.
+function createTaxReportWorkbook(report,writer){
+  const book=new writer.Workbook();
+  const definitions=[
+    {name:'ภาษีขาย',rows:report.sales,headers:['วันที่','เลขที่บิล','คลังสินค้า','มูลค่าก่อน VAT','VAT','ยอดรวม'],widths:[16,26,24,20,18,20],numeric:4},
+    {name:'ภาษีซื้อ',rows:report.purchases,headers:['วันที่ใบกำกับ','เลขที่ใบกำกับผู้จำหน่าย','ผู้จำหน่าย','เอกสารรับเข้า','สถานะ','มูลค่าก่อน VAT','VAT','ยอดรวม'],widths:[16,28,32,26,30,20,18,20],numeric:6}
+  ];
+  for(const def of definitions){
+    const sheet=book.addWorksheet(def.name),columns=def.headers.length;
+    sheet.columns=def.widths.map(width=>({width}));
+    for(const text of [`รายงาน${def.name}`,report.business,`เดือน ${report.month} · ทั้งหมด ${def.rows.length} รายการ`]){
+      const row=sheet.addRow([String(text||'')]);sheet.mergeCells(row.number,1,row.number,columns);row.height=26;
+    }
+    sheet.addRow(def.headers);
+    def.rows.forEach(values=>{const row=sheet.addRow(values.map((value,index)=>index+1>=def.numeric?Number(value)||0:String(value??'')));row.height=32;});
+    const totals=sheet.addRow([def.name==='ภาษีซื้อ'?'รวมรายการที่ข้อมูลครบทั้งเดือน':'รวมทั้งเดือน']);
+    sheet.mergeCells(totals.number,1,totals.number,def.numeric-1);
+    for(let column=def.numeric;column<=columns;column++){
+      const eligible=def.name==='ภาษีซื้อ'?def.rows.filter(row=>row[4]==='ข้อมูลครบ'):def.rows;
+      const result=eligible.reduce((sum,row)=>sum+(Number(row[column-1])||0),0);
+      const letter=String.fromCharCode(64+column),last=4+def.rows.length;
+      totals.getCell(column).value=def.rows.length?{formula:def.name==='ภาษีซื้อ'?`SUMIF(E5:E${last},"ข้อมูลครบ",${letter}5:${letter}${last})`:`SUM(${letter}5:${letter}${last})`,result}:0;
+      sheet.getColumn(column).numFmt='#,##0.00';
+    }
+    sheet.eachRow(row=>row.eachCell({includeEmpty:true},cell=>{cell.font={name:'Sarabun',size:11};cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};}));
+    for(const number of [1,4,totals.number]) sheet.getRow(number).eachCell(cell=>{cell.font={name:'Sarabun',size:number===1?16:11,bold:true};});
+    sheet.getRow(4).eachCell(cell=>{cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF4F4038'}};cell.font={name:'Sarabun',size:11,bold:true,color:{argb:'FFFFFFFF'}};});
+    sheet.autoFilter={from:{row:4,column:1},to:{row:4,column:columns}};
+    sheet.views=[{state:'frozen',ySplit:4}];
+    sheet.pageSetup={paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,printTitlesRow:'1:4'};
+  }
+  return book;
+}
+async function exportTaxReportToExcel(report){
+  if(!canPerformPageAction('export','rtax')||!isWorkspaceReadCurrent(report.context)) return;
+  const writer=await ensureProductExcelWriterLoaded(),book=createTaxReportWorkbook(report,writer);
+  const buffer=await book.xlsx.writeBuffer();
+  if(!isWorkspaceReadCurrent(report.context)) return;
+  const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})),link=document.createElement('a');
+  link.href=url;link.download=`SAPURI-รายงานภาษี-${report.month}.xlsx`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+  showToast(`ส่งออกภาษีขาย ${report.sales.length} รายการ และภาษีซื้อ ${report.purchases.length} รายการแล้ว`);
+}
+
 function createVoidReportWorkbook(report,writer){
   const book=new writer.Workbook(),sheet=book.addWorksheet('บิลยกเลิก');
   sheet.columns=[22,24,16,24,24,50,18,36].map(width=>({width}));

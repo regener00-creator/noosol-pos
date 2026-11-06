@@ -92,22 +92,22 @@ function openNewTaxInvoiceForm(){
   editingTaxInvoiceSaleId='manual-new';
   taxInvoiceAddingCustomer=false;
   const number=nextFullTaxInvoiceNumber();
-  taxInvoiceDraft={id:number,number,date:TODAY_STR,credit:0,dueDate:TODAY_STR,customerId:'',name:'',taxId:'',address:'',branch:'สำนักงานใหญ่',branchNo:'',phone:'',email:'',items:Array.from({length:3},()=>({name:'',qty:1,unit:'',price:''})),discount:0,note:''};
+  taxInvoiceDraft={id:number,number,date:TODAY_STR,credit:0,dueDate:TODAY_STR,customerId:'',name:'',taxId:'',address:'',branch:'สำนักงานใหญ่',branchNo:'',phone:'',email:'',items:[{name:'',qty:1,unit:'',price:''}],discount:0,note:''};
   currentTab='taxinvoice';
   render();
 }
 
 function openHistoricalTaxInvoiceForm(){
   if(!isBusinessVatRegistered()){ showToast('กิจการยังไม่จด VAT จึงออกใบกำกับภาษีย้อนหลังไม่ได้','danger'); return; }
-  editingTaxInvoiceSaleId='lookup'; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; currentTab='taxinvoice'; render();
+  editingTaxInvoiceSaleId='lookup'; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; taxInvoiceOrderNumberDraft=''; currentTab='taxinvoice'; render();
 }
 
 function renderTaxInvoiceOrderLookup(){
   return `<div class="pagehead"><div><div class="breadcrumb">ใบกำกับภาษีเต็มรูปแบบ › สร้างใบกำกับภาษี</div><h1>สร้างใบกำกับภาษีเต็มรูปแบบ</h1></div><div class="form-final-actions"><button class="btn ghost" id="cancelTaxInvoiceFormBtn">ปิดหน้าต่าง</button></div></div>
-    <div class="po-head"><div class="po-head-left"><div class="crow"><label>เลขออเดอร์ / เลขที่บิล <span class="req">*</span></label><div class="po-supplier-pick"><input id="tax_order_number" placeholder="เช่น SR12345-1043, INV-1043 หรือเลขที่ใบเสร็จ" autocomplete="off"><button class="btn primary" id="searchTaxInvoiceOrderBtn" type="button">ค้นหาออเดอร์</button></div></div><div class="po-addr" style="margin-top:12px;">กรอกเลขออเดอร์จากประวัติการขาย ระบบจะดึงข้อมูลรายการเดิมมาให้อัตโนมัติ</div></div>
+    <div class="po-head"><div class="po-head-left"><div class="crow"><label>เลขออเดอร์ / เลขที่บิล <span class="req">*</span></label><div class="po-supplier-pick"><input id="tax_order_number" value="${escapeHtml(taxInvoiceOrderNumberDraft)}" placeholder="เช่น SR12345-1043, INV-1043 หรือเลขที่ใบเสร็จ" autocomplete="off"><button class="btn ghost" id="searchTaxInvoiceOrderBtn" type="button">ค้นหาออเดอร์</button><button class="btn primary" id="continueTaxInvoiceOrderBtn" type="button">ดำเนินการต่อ</button></div></div><div class="po-addr" style="margin-top:12px;">กรอกเลขออเดอร์จากประวัติการขาย ระบบจะดึงข้อมูลรายการเดิมมาให้อัตโนมัติ</div></div>
       <div class="po-head-right"><div class="po-total-label">ขั้นตอนการออกเอกสารย้อนหลัง</div><div style="line-height:1.8;color:var(--text-muted);font-size:13px;margin-top:8px;">1. กรอกเลขออเดอร์<br>2. ตรวจสอบและกรอกข้อมูลลูกค้า<br>3. บันทึกแล้วพิมพ์เอกสาร</div></div></div>
     <div class="doc-scanner-wrap"><div class="doc-scanner-hint" style="font-size:13px;color:var(--primary-dark);">🔎 ค้นหาได้จากเลขออเดอร์ เลขที่บิล หรือเลขที่ใบเสร็จอย่างย่อ</div></div>
-    <table class="grid-table po-items document-centered-items"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคาต่อหน่วย</th><th class="mono">ราคารวม</th></tr></thead><tbody><tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">กรอกเลขออเดอร์ด้านบนเพื่อแสดงรายการขายย้อนหลัง</td></tr></tbody></table>`;
+    <table class="grid-table po-items document-centered-items"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคาต่อหน่วย</th><th class="mono">ราคารวม</th></tr></thead><tbody><tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">กรอกเลขออเดอร์ด้านบนเพื่อแสดงรายการขายย้อนหลัง</td></tr></tbody></table>${posSalesHistoryModalOpen?renderPOSSalesHistoryModal():''}`;
 }
 
 async function searchTaxInvoiceOrder(){
@@ -122,6 +122,17 @@ async function searchTaxInvoiceOrder(){
   if(!canIssueTaxInvoiceForSale(sale)&&!sale.fullTaxInvoice){ showToast('รายการขายนี้เกิดขึ้นขณะที่กิจการยังไม่จด VAT จึงออกใบกำกับภาษีไม่ได้','danger'); return; }
   if(sale.fullTaxInvoice) showToast('ออเดอร์นี้เคยออกใบกำกับภาษีแล้ว กำลังเปิดเอกสารเดิม');
   startTaxInvoiceForm(sale.id);
+}
+
+function taxInvoiceCustomerFieldsHtml(draft,lockAttr){
+  return `<div class="po-supplier-edit-grid tax-invoice-customer-grid">
+    <div class="tax-customer-name"><label>ชื่อลูกค้า *</label><input id="tax_form_customer_name" value="${escapeHtml(draft.name||'')}" ${lockAttr}></div>
+    <div class="tax-customer-taxid"><label>เลขผู้เสียภาษี *</label><input id="tax_form_customer_taxid" value="${escapeHtml(draft.taxId||'')}" maxlength="13" ${lockAttr}></div>
+    <div class="tax-customer-branch"><label>สถานประกอบการ</label><input id="tax_form_customer_branch" value="${escapeHtml(draft.branch||'')}" placeholder="เช่น สำนักงานใหญ่ หรือ สาขา" ${lockAttr}></div>
+    <div class="tax-customer-branchno"><label>สาขา</label><input id="tax_form_customer_branch_no" value="${escapeHtml(draft.branchNo||'')}" maxlength="5" ${lockAttr}></div>
+    <div class="tax-customer-phone"><label>เบอร์โทร</label><input id="tax_form_customer_phone" class="phone-input" value="${escapeHtml(draft.phone||'')}" ${lockAttr}></div>
+    <div class="tax-customer-address"><label>ที่อยู่ *</label><textarea id="tax_form_customer_address" rows="2" ${lockAttr}>${escapeHtml(draft.address||'')}</textarea></div>
+  </div>`;
 }
 
 function startStandaloneTaxInvoiceForm(number){
@@ -146,14 +157,10 @@ function renderStandaloneTaxInvoiceForm(){
   const subtotal=tax.subtotal,total=tax.total;
   const lockAttr=locked?'readonly':'';
   return `<div class="pagehead"><div><div class="breadcrumb">ใบกำกับภาษีเต็มรูปแบบ › ${locked?'ดูเอกสาร':'สร้างใบกำกับภาษี'}</div><h1>${draft.number}</h1></div>${locked?`<div class="form-final-actions" style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn ghost" id="cancelTaxInvoiceFormBtn">ปิดหน้าต่าง</button><button class="btn primary" id="printStandaloneTaxInvoiceBtn">🖨 พิมพ์</button></div>`:''}</div>
-    <div class="po-head"><div class="po-head-left">
+    <div class="po-head tax-invoice-head"><div class="po-head-left">
       <div class="crow tax-customer-picker-row"><div class="po-supplier-pick"><select id="tax_customer_select" ${locked?'disabled':''}><option value="">เลือกข้อมูลลูกค้าสำหรับออกเอกสาร</option>${customersList().map(c=>`<option value="${c.id}" ${String(draft.customerId)===String(c.id)||draft.name===c.name?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select>${locked?'':'<button class="btn ghost small" id="addTaxCustomerBtn" type="button">+ เพิ่มลูกค้า</button>'}</div></div>
-      <div class="po-supplier-edit tax-customer-details" style="margin-top:10px;">${taxInvoiceAddingCustomer?'<div class="po-supplier-edit-title"><span>เพิ่มลูกค้าใหม่</span><span style="font-size:11px;color:var(--text-muted);font-weight:400;">บันทึกแล้วจะเพิ่มในสมุดรายชื่อทันที</span></div>':''}<div class="po-supplier-edit-grid">
-        <div><label>ชื่อลูกค้า/บริษัท *</label><input id="tax_form_customer_name" value="${escapeHtml(draft.name||'')}" ${lockAttr}></div><div><label>เลขผู้เสียภาษี *</label><input id="tax_form_customer_taxid" value="${escapeHtml(draft.taxId||'')}" maxlength="13" ${lockAttr}></div>
-        <div><label>สถานประกอบการ</label><input id="tax_form_customer_branch" value="${escapeHtml(draft.branch||'')}" placeholder="เช่น สำนักงานใหญ่ หรือ สาขา..." ${lockAttr}></div><div><label>เลขที่สาขา</label><input id="tax_form_customer_branch_no" value="${escapeHtml(draft.branchNo||'')}" maxlength="5" ${lockAttr}></div>
-        <div class="wide"><label>ที่อยู่ *</label><textarea id="tax_form_customer_address" rows="2" ${lockAttr}>${escapeHtml(draft.address||'')}</textarea></div><div><label>เบอร์โทรศัพท์</label><input id="tax_form_customer_phone" class="phone-input" value="${escapeHtml(draft.phone||'')}" ${lockAttr}></div><div><label>อีเมล</label><input id="tax_form_customer_email" type="email" value="${escapeHtml(draft.email||'')}" ${lockAttr}></div>
-      </div>${!locked&&taxInvoiceAddingCustomer?'<div class="po-supplier-edit-actions"><button class="btn ghost small" id="cancelTaxCustomerBtn" type="button">ยกเลิก</button><button class="btn primary small" id="saveTaxCustomerBtn" type="button">บันทึกเข้ารายชื่อลูกค้า</button></div>':''}</div></div>
-      <div class="po-head-right"><div class="po-total-label">จำนวนเงินรวมทั้งสิ้น</div><div class="po-total-amt mono">${fmtMoney(total)}</div><div class="crow"><label>วันที่</label>${dmyDateFieldHtml('po_date',draft.date,locked?{readonly:true,extraClass:'due-readonly'}:{})}</div><div class="crow"><label>เครดิต (วัน)</label><input id="po_credit" type="number" min="0" value="${draft.credit||0}" ${locked?'readonly class="due-readonly"':''}></div><div class="crow"><label>ครบกำหนด</label>${dmyDateFieldHtml('po_due',addDaysToDate(draft.date,draft.credit||0),{readonly:true,extraClass:'due-readonly'})}</div></div>
+      <div class="po-supplier-edit tax-customer-details" style="margin-top:10px;">${taxInvoiceAddingCustomer?'<div class="po-supplier-edit-title"><span>เพิ่มลูกค้าใหม่</span><span style="font-size:11px;color:var(--text-muted);font-weight:400;">บันทึกแล้วจะเพิ่มในสมุดรายชื่อทันที</span></div>':''}${taxInvoiceCustomerFieldsHtml(draft,lockAttr)}${!locked&&taxInvoiceAddingCustomer?'<div class="po-supplier-edit-actions"><button class="btn ghost small" id="cancelTaxCustomerBtn" type="button">ยกเลิก</button><button class="btn primary small" id="saveTaxCustomerBtn" type="button">บันทึกเข้ารายชื่อลูกค้า</button></div>':''}</div></div>
+      <div class="po-head-right"><div class="po-total-label">จำนวนเงินรวมทั้งสิ้น</div><div class="po-total-amt mono">${fmtMoney(total)}</div><div class="tax-invoice-dates"><div class="crow"><label>วันที่</label>${dmyDateFieldHtml('po_date',draft.date,locked?{readonly:true,extraClass:'due-readonly'}:{})}</div><div class="crow"><label>เครดิต (วัน)</label><input id="po_credit" type="number" min="0" value="${draft.credit||0}" ${locked?'readonly class="due-readonly"':''}></div><div class="crow"><label>ครบกำหนด</label>${dmyDateFieldHtml('po_due',addDaysToDate(draft.date,draft.credit||0),{readonly:true,extraClass:'due-readonly'})}</div></div></div>
     </div>
     ${locked?'<div class="doc-scanner-wrap"><div class="doc-scanner-hint" style="font-size:13px;color:var(--primary-dark);">🔒 เอกสารถูกล็อกแล้ว</div></div>':documentProductScannerHtml()}
     <table class="grid-table po-items document-centered-items"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคาต่อหน่วย</th><th class="mono">ราคารวม</th>${locked?'':'<th></th>'}</tr></thead><tbody id="poItemRows">${locked?items.map((item,index)=>`<tr><td class="mono">${index+1}</td><td>${escapeHtml(item.name)}</td><td class="mono num">${item.qty}</td><td>${escapeHtml(item.unit||'-')}</td><td class="mono num">${fmtMoney(item.price)}</td><td class="mono num">${fmtMoney(item.qty*item.price)}</td></tr>`).join(''):items.map((item,index)=>poItemRowHtml(item,index)).join('')}</tbody></table>${locked?'':'<button class="btn ghost small" id="addTaxInvoiceItemBtn" style="margin-top:8px;">+ เพิ่มแถวรายการ</button>'}
@@ -208,7 +215,7 @@ function syncTaxInvoiceDraftFromDOM(){
   if(document.getElementById('tax_form_customer_branch')) taxInvoiceDraft.branch=get('tax_form_customer_branch').trim()||'สำนักงานใหญ่';
   if(document.getElementById('tax_form_customer_branch_no')) taxInvoiceDraft.branchNo=get('tax_form_customer_branch_no').trim();
   taxInvoiceDraft.phone=get('tax_form_customer_phone').trim();
-  taxInvoiceDraft.email=get('tax_form_customer_email').trim();
+  if(document.getElementById('tax_form_customer_email')) taxInvoiceDraft.email=get('tax_form_customer_email').trim();
   if(currentTab==='quotation'){
     taxInvoiceDraft.line=get('tax_form_customer_line').trim();
     taxInvoiceDraft.entity=document.querySelector('input[name="quotation_customer_entity"]:checked')?.value||'individual';
@@ -259,12 +266,7 @@ function renderTaxInvoiceForm(){
     <div class="po-head">
       <div class="po-head-left">
         <div class="crow tax-customer-picker-row"><div class="po-supplier-pick"><select id="tax_customer_select" ${locked?'disabled':''}><option value="">เลือกข้อมูลลูกค้าสำหรับออกเอกสาร</option>${customersList().map(c=>`<option value="${c.id}" ${String(draft.customerId)===String(c.id)?'selected':''}>${escapeHtml(c.name)}</option>`).join('')}</select>${locked?'':'<button class="btn ghost small" id="addTaxCustomerBtn" type="button">+ เพิ่มลูกค้า</button>'}</div></div>
-        <div class="po-supplier-edit tax-customer-details" style="margin-top:10px;">${taxInvoiceAddingCustomer?'<div class="po-supplier-edit-title"><span>เพิ่มลูกค้าใหม่</span><span style="font-size:11px;color:var(--text-muted);font-weight:400;">บันทึกแล้วจะเพิ่มในสมุดรายชื่อทันที</span></div>':''}<div class="po-supplier-edit-grid">
-          <div><label>ชื่อลูกค้า/บริษัท *</label><input id="tax_form_customer_name" value="${escapeHtml(draft.name||'')}" ${lockAttr}></div><div><label>เลขผู้เสียภาษี *</label><input id="tax_form_customer_taxid" value="${escapeHtml(draft.taxId||'')}" maxlength="13" ${lockAttr}></div>
-          <div><label>สถานประกอบการ</label><input id="tax_form_customer_branch" value="${escapeHtml(draft.branch||'')}" placeholder="เช่น สำนักงานใหญ่ หรือ สาขา..." ${lockAttr}></div><div><label>เลขที่สาขา</label><input id="tax_form_customer_branch_no" value="${escapeHtml(draft.branchNo||'')}" maxlength="5" ${lockAttr}></div>
-          <div class="wide"><label>ที่อยู่ *</label><textarea id="tax_form_customer_address" rows="2" ${lockAttr}>${escapeHtml(draft.address||'')}</textarea></div>
-          <div><label>เบอร์โทรศัพท์</label><input id="tax_form_customer_phone" class="phone-input" value="${escapeHtml(draft.phone||'')}" ${lockAttr}></div><div><label>อีเมล</label><input id="tax_form_customer_email" type="email" value="${escapeHtml(draft.email||'')}" ${lockAttr}></div>
-        </div>${!locked&&taxInvoiceAddingCustomer?'<div class="po-supplier-edit-actions"><button class="btn ghost small" id="cancelTaxCustomerBtn" type="button">ยกเลิก</button><button class="btn primary small" id="saveTaxCustomerBtn" type="button">บันทึกเข้ารายชื่อลูกค้า</button></div>':''}</div>
+        <div class="po-supplier-edit tax-customer-details" style="margin-top:10px;">${taxInvoiceAddingCustomer?'<div class="po-supplier-edit-title"><span>เพิ่มลูกค้าใหม่</span><span style="font-size:11px;color:var(--text-muted);font-weight:400;">บันทึกแล้วจะเพิ่มในสมุดรายชื่อทันที</span></div>':''}${taxInvoiceCustomerFieldsHtml(draft,lockAttr)}${!locked&&taxInvoiceAddingCustomer?'<div class="po-supplier-edit-actions"><button class="btn ghost small" id="cancelTaxCustomerBtn" type="button">ยกเลิก</button><button class="btn primary small" id="saveTaxCustomerBtn" type="button">บันทึกเข้ารายชื่อลูกค้า</button></div>':''}</div>
       </div>
       <div class="po-head-right"><div class="po-total-label">จำนวนเงินรวมทั้งสิ้น</div><div class="po-total-amt mono">${fmtMoney(total)}</div>
         <div class="crow"><label>วันที่</label>${dmyDateFieldHtml('sale_date_view',sale.date,{readonly:true,extraClass:'due-readonly'})}</div>

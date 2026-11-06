@@ -3,6 +3,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const http=require('node:http');
 const {chromium}=require('playwright');
+const ExcelJS=require('exceljs');
 const root=path.join(__dirname,'..'),assets=process.argv.includes('--built')?path.join(root,'public'):root;
 const server=http.createServer((req,res)=>{
   const file=path.resolve(assets,'.'+(req.url.split('?')[0]==='/'?'/index.html':req.url.split('?')[0]));
@@ -28,6 +29,7 @@ let browser;
     document.querySelectorAll('.login-screen').forEach(el=>el.style.display='none');
     currentProfile={id:'test-owner',owner:true,level:1};
     currentTab='rtax';rtaxMonth='2026-11';rtaxPages={sales:1,purchases:1};
+    ensureOnDemandDataForTab=()=>({status:'ready'});
     businessSettings={...businessSettings,vat:VAT_REGISTERED_LABEL,vatRegistrationDate:''};
     warehouses=[{id:1,name:'คลังทดสอบ'}];
     const taxSummary={registered:true,beforeVat:100,vat:7,total:107};
@@ -53,6 +55,12 @@ let browser;
   assert.equal(await purchases.locator('tbody tr').count(),2);
   assert.equal(await sales.locator('tbody tr').count(),3);
   assert.deepEqual(await page.locator('.tax-report tfoot').allTextContents(),totals,'pagination must not change monthly tax totals');
+  const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#taxReportExcelBtn').click()]);
+  assert.equal(download.suggestedFilename(),'SAPURI-รายงานภาษี-2026-11.xlsx');
+  const book=new ExcelJS.Workbook();await book.xlsx.readFile(await download.path());
+  assert.equal(book.getWorksheet('ภาษีขาย').rowCount,28,'download includes 23 sales plus headings and total, not only the current 3');
+  assert.equal(book.getWorksheet('ภาษีซื้อ').rowCount,17,'download includes 12 purchases plus headings and total');
+  assert.match(book.getWorksheet('ภาษีขาย').getCell('B27').value,/SALE-23/);
   for(const width of [1920,390]){
     await page.setViewportSize({width,height:1000});
     assert.ok(await page.locator('.tax-report th,.tax-report td,.tax-report-summary h2,.tax-report-summary small').evaluateAll(elements=>elements.every(el=>getComputedStyle(el).textAlign==='center')),'all headings, values and totals centered');
