@@ -21,7 +21,7 @@ let browser,page;
 const baseProduct={id:9007199254740001,sku:'00123',name:'ยาทดสอบ',unit:'ซอง',price:15.25,cost:8.5,barcode:'0001234500001',vat:'incl',category:'ยา',brand:'ทั่วไป',wh:1,stock:20,expiry:'2027-12-31',desc:'รายละเอียดเดิม',active:true,type:'stock',dataReviewStatus:'pending',extraBarcodes:['0001234590001'],extraBarcodeUnits:['กล่อง'],vendorBarcodes:[{vendor:'บริษัททดสอบ',code:'0001234580001'}],multiunit:true,units:[{sub:'กล่อง',per:10,base:'ซอง',factor:10,price:140,cost:80,barcode:'0001234500010'},{sub:'ลัง',per:12,base:'กล่อง',factor:120,price:1500,cost:900,barcode:'0001234500120'}]};
 async function fixture(rows=[baseProduct]){
   await page.evaluate(rows=>{
-    products=structuredClone(rows); window.auditOriginal=structuredClone(rows);
+    products=structuredClone(rows); otherWarehouseProducts=[]; window.auditOriginal=structuredClone(rows);
     currentProfile={id:'test-owner',owner:true,level:1,firstName:'ทดสอบ'};
     warehouses=[{id:1,name:'คลังทดสอบ',active:true},{id:2,name:'อีกคลัง',active:true}];activeWarehouseId=1;allWarehousesMode=false;
     contacts=[];categories=['ยา'];brands=['ทั่วไป'];units=['ซอง','กล่อง','ลัง'];nextProductSkuNumber=100001;
@@ -123,9 +123,33 @@ async function scenario(name,work){if(process.argv[2]&&!new RegExp(process.argv[
     assert.equal((await imported(book,{stock:true})).stocks.at(-1).args.lines[0].targetStock,0);
   });
   await scenario('Blank stock preserves the selected warehouse balance',async()=>{
-    await fixture();const book=await exported();cell(book,2,'คลังสินค้า').value='อีกคลัง';cell(book,2,'จำนวนคงเหลือ (หน่วยหลัก)').value='';
-    await page.evaluate(()=>{inventoryBalanceRows.push({product_id:products[0].id,warehouse_id:2,stock:8});rebuildInventoryBalanceMap();});
+    await fixture();const book=await exported();cell(book,2,'จำนวนคงเหลือ (หน่วยหลัก)').value='';
     const out=await imported(book,{stock:true});assert.equal(out.stocks.length,0);assert.match(out.preview,/คงสต๊อกเดิม/);
+  });
+  await scenario('Cross-store Excel copies catalog into destination and preserves both stores on repeat',async()=>{
+    const source={...baseProduct,units:baseProduct.units.map((u,i)=>i===1?{...u,barcode:'P00000000010'}:u)};
+    await fixture([source]);const book=await exported();
+    await page.evaluate(()=>{activeWarehouseId=2;setWarehouseProductCatalog(completeProductCatalog());render();});
+    const out=await imported(book,{stock:true});
+    assert.match(out.preview,/เพิ่มใหม่ 1 · อัปเดต 0 · ข้าม 0/);assert.match(out.preview,/เพิ่มสินค้าใหม่ใน อีกคลัง/);
+    assert.match(out.preview,/เว้นบาร์โค้ดที่ระบบออกให้ร้านต้นทาง/);assert.match(out.report,/สำเร็จ 1 รายการ/);
+    const copy=out.products[0];assert.notEqual(copy.id,source.id);assert.equal(copy.wh,2);
+    for(const key of ['sku','barcode','price','cost','name','extraBarcodes','vendorBarcodes'])assert.deepEqual(copy[key],source[key],key);
+    assert.equal(copy.units[0].barcode,source.units[0].barcode);assert.equal(copy.units[1].barcode,'');
+    assert.equal(copy.stock,0);assert.equal(copy.expiry,'');assert.equal(out.stocks.length,0);
+    await page.evaluate(()=>{products[0].price=72;products[0].cost=42;});
+    for(const sku of [source.sku,'DIFFERENT-SKU']){
+      cell(book,2,'รหัสสินค้า').value=sku;
+      const repeat=await imported(book,{stock:true});assert.match(repeat.preview,/เพิ่มใหม่ 0 · อัปเดต 0 · ข้าม 1/);
+      assert.equal(repeat.products.length,1);assert.equal(repeat.products[0].price,72);assert.equal(repeat.products[0].cost,42);assert.equal(repeat.saves.length,1);
+    }
+    assert.deepEqual(await page.evaluate(()=>otherWarehouseProducts),[source]);
+  });
+  await scenario('Cross-store preview supports a 2934-row catalog',async()=>{
+    const rows=Array.from({length:2934},(_,i)=>({...baseProduct,id:i+1,sku:'SKU'+i,barcode:'000'+i,units:[],multiunit:false,extraBarcodes:[],extraBarcodeUnits:[],vendorBarcodes:[]}));
+    await fixture(rows);const book=await exported();
+    await page.evaluate(()=>{activeWarehouseId=2;setWarehouseProductCatalog(completeProductCatalog());render();});
+    const out=await imported(book,{cancel:true});assert.match(out.preview,/เพิ่มใหม่ 2934 · อัปเดต 0 · ข้าม 0/);assert.equal(out.saves.length,0);
   });
   await scenario('Invalid warehouse is reported with source row and no fallback',async()=>{
     await fixture();const book=await exported();cell(book,2,'คลังสินค้า').value='สะกดผิด';
