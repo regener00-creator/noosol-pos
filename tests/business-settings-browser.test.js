@@ -68,9 +68,19 @@ const browserExecutable = [
   assert.equal(await page.locator('#businessTaxBranchRow').isHidden(), true);
   assert.equal(await page.locator('#topbarFormActions #saveBusinessSettingsBtn').count(), 1);
   assert.equal(await page.locator('#main #saveBusinessSettingsBtn').count(), 0);
+  const officePhone=page.locator('#set_business_office');
+  await page.getByLabel('เบอร์หลักบนเอกสาร:').selectOption({label:'เบอร์สำนักงาน'});
+  await officePhone.fill('021234567');
+  const officeValue=await officePhone.inputValue();
+  await page.getByLabel('เบอร์หลักบนเอกสาร:').selectOption({label:'เบอร์มือถือ'});
+  assert.equal(await officePhone.isHidden(),true);
+  await page.getByLabel('เบอร์หลักบนเอกสาร:').selectOption({label:'เบอร์สำนักงาน'});
+  assert.equal(await officePhone.inputValue(),officeValue);
 
   await page.locator('#set_business_vat').selectOption('จดภาษีมูลค่าเพิ่มแล้ว');
   assert.equal(await page.locator('#businessVatDateRow').isVisible(), true);
+  const fieldTops=await page.locator('[for="set_business_type"],[for="set_business_vat"],[for="set_business_vat_date"]').evaluateAll(labels=>labels.map(label=>label.getBoundingClientRect().top));
+  assert.equal(new Set(fieldTops).size,1,'Business type, VAT status and start date share one desktop row');
   assert.equal(await page.locator('#businessTaxBranchRow').isVisible(), true);
   await page.locator('#set_business_vat_date').fill('06092026');
   assert.equal(await page.locator('#set_business_vat_date').inputValue(), '06/09/2026', 'ช่องวันที่ต้องเติมเครื่องหมาย / ระหว่างพิมพ์ตัวเลขให้อัตโนมัติ');

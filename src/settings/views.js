@@ -7,11 +7,9 @@ function renderBusinessSettings(){
   return `<div class="settings-page business-settings-page" id="businessSettingsForm">
     <div class="pagehead topbar-action-source"><div></div><div class="form-final-actions"><button class="btn primary" id="saveBusinessSettingsBtn">บันทึกข้อมูลธุรกิจ</button></div></div>
     <div class="settings-section">
-      <div class="business-form-row">
+      <div class="business-form-row three-fields">
         <div class="settings-row"><label for="set_business_type">ประเภทธุรกิจ:</label><select id="set_business_type"><option ${b.type==='บริษัท'?'selected':''}>บริษัท</option><option ${b.type==='บุคคลธรรมดา'?'selected':''}>บุคคลธรรมดา</option><option ${b.type==='ห้างหุ้นส่วน'?'selected':''}>ห้างหุ้นส่วน</option></select></div>
         <div class="settings-row"><label for="set_business_vat">จดภาษีมูลค่าเพิ่ม:</label><select id="set_business_vat"><option ${b.vat==='จดภาษีมูลค่าเพิ่มแล้ว'?'selected':''}>จดภาษีมูลค่าเพิ่มแล้ว</option><option ${b.vat==='ยังไม่จดภาษีมูลค่าเพิ่ม'?'selected':''}>ยังไม่จดภาษีมูลค่าเพิ่ม</option></select></div>
-      </div>
-      <div class="business-form-row">
         <div class="settings-row" id="businessVatDateRow" ${vatSelected?'':'hidden'}><label for="set_business_vat_date">วันที่เริ่มจด VAT ตาม ภ.พ.20:</label><div><input id="set_business_vat_date" class="dmy-input" value="${escapeHtml(isoToDMY(b.vatRegistrationDate))}" placeholder="วว/ดด/ปปปป" inputmode="numeric" maxlength="10" autocomplete="off"><small class="business-field-hint">ระบบจะเริ่มคิด VAT และอนุญาตให้ออกใบกำกับภาษีตั้งแต่วันที่นี้</small></div></div>
       </div>
       <div class="hint">หากเลือก “ยังไม่จดภาษีมูลค่าเพิ่ม” ระบบจะไม่คิด VAT และไม่ออกใบกำกับภาษีสำหรับรายการขายใหม่ โดยจะเก็บค่าภาษีของสินค้าเดิมไว้ใช้เมื่อจด VAT ในอนาคต</div>
@@ -31,7 +29,10 @@ function renderBusinessSettings(){
     </div>
     <div class="settings-section"><h2>ข้อมูลติดต่อ</h2><div class="hint">ข้อมูลใช้สำหรับการออกเอกสาร</div>
       <div class="business-form-row">
-        <div class="settings-row"><label for="set_business_document_phone">เบอร์หลักบนเอกสาร:</label><select id="set_business_document_phone"><option value="mobile" ${b.documentPhone!=='office'?'selected':''}>เบอร์มือถือ</option>${b.officePhone?`<option value="office" ${b.documentPhone==='office'?'selected':''}>${escapeHtml(b.officePhone)}</option>`:''}</select></div>
+        <div class="settings-row"><label for="set_business_document_phone">เบอร์หลักบนเอกสาร:</label>
+          <select id="set_business_document_phone"><option value="mobile" ${b.documentPhone!=='office'?'selected':''}>เบอร์มือถือ</option><option value="office" ${b.documentPhone==='office'?'selected':''}>เบอร์สำนักงาน</option></select>
+          <input id="set_business_office" class="phone-input" value="${escapeHtml(b.officePhone||'')}" inputmode="tel" autocomplete="tel" aria-label="เบอร์สำนักงาน" placeholder="กรอกเบอร์สำนักงาน" ${b.documentPhone==='office'?'':'hidden'}>
+        </div>
         <div class="settings-row"><label for="set_business_mobile">เบอร์มือถือ:</label><input id="set_business_mobile" class="phone-input" value="${escapeHtml(b.mobile)}" inputmode="tel" autocomplete="tel"></div>
       </div>
       <div class="business-form-row">
