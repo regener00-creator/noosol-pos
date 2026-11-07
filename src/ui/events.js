@@ -148,7 +148,7 @@ function attachProductResultEvents(root=document){
       render();
     });
   });
-  root.querySelectorAll('.prod-unit-select').forEach(el=>{
+  root.querySelectorAll('.prod-unit-select[data-pid]').forEach(el=>{
     el.addEventListener('change', ()=>{
       const pid=Number(el.dataset.pid);
       rememberProductListUnit(products.find(product=>Number(product.id)===pid),el.value);
