@@ -74,7 +74,7 @@ function attachMobilePriceResultEvents(){
   document.getElementById('mobileCreateProductFromCode')?.addEventListener('click',()=>openMobileProductEditor('new',mobilePriceQuery));
   document.querySelectorAll('[data-mobile-price-product]').forEach(button=>button.addEventListener('click',()=>{
     const product=products.find(entry=>Number(entry.id)===Number(button.dataset.mobilePriceProduct));
-    if(product){ mobileSelectPriceProduct(product); render(); if(!mobileCameraSession) setTimeout(()=>document.getElementById('mobilePriceInput')?.select(),0); }
+    if(product){ mobileSelectPriceProduct(product,button.dataset.unit); render(); if(!mobileCameraSession) setTimeout(()=>document.getElementById('mobilePriceInput')?.select(),0); }
   }));
   document.getElementById('mobilePriceUnit')?.addEventListener('change',event=>{
     mobilePriceUnitName=event.target.value;

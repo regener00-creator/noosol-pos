@@ -12,6 +12,55 @@ const server=http.createServer((req,res)=>{
   res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css','.woff2':'font/woff2'}[path.extname(file)]||'application/octet-stream'));fs.createReadStream(file).pipe(res);
 });
 let browser;
+async function verifyInspectionAndPriceLabels(page){
+  await page.evaluate(async()=>{
+    await ensurePageCodeLoaded('mobiletools');
+    await ensurePageCodeLoaded('stockcontrol');
+    refreshMobilePriceStock=async()=>{};
+    const rows=completeProductCatalog();
+    // Reproduce a foreign label left in the additional barcodes by a past import.
+    rows.find(p=>p.id===14).extraBarcodes=[];
+    for(const [id,foreign] of [[11,'BP'],[12,'AP']]){
+      const p=rows.find(row=>row.id===id);
+      p.extraBarcodes=[foreign+'00000000001'];p.extraBarcodeUnits=['กล่อง'];
+    }
+    setWarehouseProductCatalog(rows);
+  });
+  const screens=[
+    ['price','#mobilePriceInput','[data-mobile-price-product]'],
+    ['draft','#mobileInspectionInput','[data-mobile-draft-add]'],
+    ['saved','#mobileInspectionAddInput','[data-mobile-inspection-add-result]'],
+    ['desktop','#inspectionListSearch','[data-inspection-result]']
+  ];
+  for(const [store,id,own,foreign] of [[1,11,'AP','BP'],[2,12,'BP','AP']]){
+    await page.evaluate(store=>selectActiveWarehouse(store),store);
+    for(const [screen,field,result] of screens){
+      await page.setViewportSize({width:screen==='desktop'?1280:390,height:844});
+      for(const [prefix,tap] of [[foreign,false],['P',false],[own,false],[own,true]]){
+        await page.evaluate(({screen,store})=>{
+          isMobileDeviceMode=()=>screen!=='desktop';
+          currentTab=screen==='desktop'?'stockcontrol':'mobiletools';
+          stockControlMode='count';mobileToolMode=screen==='price'?'price':'inventory';mobileInventoryStep='inspection';
+          mobilePriceQuery='';mobilePriceProductId=null;mobileInspectionQuery='';
+          mobileInspectionCreating=screen==='draft';mobileInspectionAddingToSaved=screen==='saved';
+          mobileInspectionSavedAddQuery='';mobileInspectionSavedAddItems=[];
+          inspectionLists=[{id:'label-test',name:'Test',warehouseId:store,items:[]}];
+          mobileInspectionOpenedListId=mobileInspectionListId='label-test';
+          openInspectionListEditor('new',false);render();
+        },{screen,store});
+        const input=page.locator(field),choice=page.locator(result);
+        await input.fill(prefix+'00000000001');
+        assert.equal(await choice.count(),prefix===own?1:0,`${screen}: matches for ${prefix} in store ${store}`);
+        if(tap) await choice.click();else await input.press('Enter');
+        const selected=await page.evaluate(screen=>{
+          if(screen==='price') return mobilePriceProductId?{pid:mobilePriceProductId,unit:mobilePriceUnitName}:null;
+          return (screen==='saved'?mobileInspectionSavedAddItems[0]:inspectionListDraft.items[0])||null;
+        },screen);
+        assert.deepEqual(selected,prefix===own?{pid:id,unit:'กล่อง'}:null,`${screen}: ${prefix}, tap=${tap}, store ${store}`);
+      }
+    }
+  }
+}
 (async()=>{
   execFileSync(process.execPath,[path.join(root,'scripts/build-static.mjs')],{cwd:root,stdio:'pipe'});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -87,6 +136,7 @@ let browser;
     await search.fill(ownCode);await search.press('Enter');
     assert.deepEqual(await scanPage.evaluate(()=>cart.map(l=>[l.pid,l.unit,l.factor])),[[id,'กล่อง',factor]]);
   }
+  await verifyInspectionAndPriceLabels(scanPage);
   await scanPage.close();
   await page.evaluate(()=>{searchQuery='Decolgen';render();});
   const regularRowHeight=await page.locator('.prodtable tbody tr').first().evaluate(el=>el.getBoundingClientRect().height);

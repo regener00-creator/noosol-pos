@@ -409,7 +409,7 @@ function attachEvents(){
   document.getElementById('mobileInspectionAddCamera')?.addEventListener('click',()=>{ unlockMobileScanSound(); openMobileCameraScanner(mobileHandleInspectionCode,{continuous:true,hostId:'mobileInspectionAddCameraSlot',buttonId:'mobileInspectionAddCamera'}); });
   document.querySelectorAll('[data-mobile-inspection-add-result]').forEach(button=>button.addEventListener('click',()=>{
     const product=products.find(entry=>Number(entry.id)===Number(button.dataset.mobileInspectionAddResult));
-    if(product) addProductToMobileInspectionSavedDraft(product);
+    if(product) addProductToMobileInspectionSavedDraft(product,button.dataset.unit);
   }));
   document.querySelectorAll('[data-mobile-inspection-add-remove]').forEach(button=>button.addEventListener('click',()=>{
     mobileInspectionSavedAddItems.splice(Number(button.dataset.mobileInspectionAddRemove),1);
@@ -437,7 +437,7 @@ function attachEvents(){
   document.getElementById('mobileSaveInspectionDraft')?.addEventListener('click',saveMobileInspectionDraft);
   document.querySelectorAll('[data-mobile-draft-add]').forEach(button=>button.addEventListener('click',()=>{
     const product=products.find(entry=>Number(entry.id)===Number(button.dataset.mobileDraftAdd));
-    if(product) addProductToMobileInspectionDraft(product);
+    if(product) addProductToMobileInspectionDraft(product,button.dataset.unit);
   }));
   document.querySelectorAll('[data-mobile-draft-remove]').forEach(button=>button.addEventListener('click',()=>{
     if(!inspectionListDraft) return;
@@ -782,14 +782,13 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       inspectionListSearchQuery=query;
       const value=String(query||'').trim();
       if(!value){ inspectionListResults.hidden=true; inspectionListResults.innerHTML=''; return; }
-      const lower=value.toLowerCase();
-      const matches=activeProducts().filter(product=>(product.name.toLowerCase().includes(lower)||(product.sku||'').toLowerCase().includes(lower)||matchesBarcode(product,value))).slice(0,15);
+      const matches=productScanMatches(value,15);
       if(!matches.length){ inspectionListResults.innerHTML='<div class="fav-add-noresult">ไม่พบสินค้า</div>'; inspectionListResults.hidden=false; return; }
-      inspectionListResults.innerHTML=matches.map(product=>`<div class="fav-add-result" data-inspection-result="${product.id}"><b>${escapeHtml(product.name)}</b><span>${escapeHtml(product.sku||'-')} · คงเหลือ ${escapeHtml(stockInLargestUnit(product))}${inspectionListDraft?.items.some(item=>Number(item.pid)===Number(product.id))?' · อยู่ในรายการแล้ว':''}</span></div>`).join('');
+      inspectionListResults.innerHTML=matches.map(({product,unitName})=>`<div class="fav-add-result" data-inspection-result="${product.id}" data-unit="${escapeHtml(unitName)}"><b>${escapeHtml(product.name)}</b><span>${escapeHtml(product.sku||'-')} · คงเหลือ ${escapeHtml(stockInLargestUnit(product))}${inspectionListDraft?.items.some(item=>Number(item.pid)===Number(product.id))?' · อยู่ในรายการแล้ว':''}</span></div>`).join('');
       inspectionListResults.hidden=false;
       inspectionListResults.querySelectorAll('[data-inspection-result]').forEach(row=>{
         row.addEventListener('mousedown',event=>event.preventDefault());
-        row.addEventListener('click',()=>addProduct(products.find(product=>product.id===Number(row.dataset.inspectionResult))));
+        row.addEventListener('click',()=>addProduct(products.find(product=>product.id===Number(row.dataset.inspectionResult)),row.dataset.unit));
       });
     };
     inspectionListSearch.addEventListener('input',()=>showResults(inspectionListSearch.value));
@@ -799,10 +798,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       if(event.key!=='Enter') return;
       event.preventDefault();
       const value=inspectionListSearch.value.trim(); if(!value) return;
-      const exact=findProductByExactCode(value);
-      if(exact){ addProduct(exact.product,exact.unitName); return; }
-      const first=inspectionListResults.querySelector('[data-inspection-result]');
-      if(first) addProduct(products.find(product=>product.id===Number(first.dataset.inspectionResult)));
+      const match=productScanMatches(value,1)[0];
+      if(match) addProduct(match.product,match.unitName);
+      else showToast('ไม่พบสินค้าในร้านที่เลือก','danger-top');
     });
   }
   document.querySelectorAll('[data-inspection-unit]').forEach(select=>select.addEventListener('change',()=>{

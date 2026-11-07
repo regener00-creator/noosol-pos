@@ -355,7 +355,7 @@ setImmediate(()=>{
 });
 
 const functionStart = html.indexOf('function mobileProductMatches(');
-const functionEnd = html.indexOf('function mobilePriceMatches(', functionStart);
+const functionEnd = html.indexOf('function productScanMatches(', functionStart);
 assert.ok(functionStart >= 0 && functionEnd > functionStart, 'ไม่พบฟังก์ชันค้นหาสินค้าสำหรับมือถือ');
 const context = {
   matchesBarcode(product, query) {
