@@ -89,20 +89,14 @@ let browser;
     await medicine.click();
     const general=page.locator('[data-combined-brand="ทั่วไป"]');
     await general.click();
-    const field=page.getByRole('combobox',{name:'ค้นหาตาม'});
-    await field.selectOption('name');
+    assert.equal(await page.getByRole('combobox',{name:'ค้นหาตาม'}).count(),0);
     await search.fill('decol');
     assert.match(await rows.innerText(),/Decolgen/);
-    await field.selectOption('barcode');
-    assert.match(await rows.innerText(),/ไม่พบสินค้า/);
     for(const code of ['0044','alt-019','vendor-007']){
       await search.fill(code);
       assert.equal(await rows.count(),1);
       assert.match(await rows.innerText(),/Decolgen/);
     }
-    await field.selectOption('name');
-    assert.match(await rows.innerText(),/ไม่พบสินค้า/);
-    await field.selectOption('all');
     await search.fill('SKU12');
     assert.match(await rows.innerText(),/Decolgen/);
     await search.fill('');
@@ -176,7 +170,7 @@ let browser;
   }
   await assertUsesPageWidth();
   await page.evaluate(()=>{
-    const more=Array.from({length:51},(_,i)=>({...products.find(p=>p.id===11),id:301+i,name:'Pagination '+String(i).padStart(2,'0'),barcode:'page'+i,extraBarcodes:[],units:[]}));
+    const more=Array.from({length:51},(_,i)=>({...products.find(p=>p.id===11),id:301+i,name:'Pagination '+String(i).padStart(2,'0'),barcode:String(51-i),extraBarcodes:[],units:[]}));
     setWarehouseProductCatalog([...completeProductCatalog(),...more]);render();
   });
   async function checkPagination(){
@@ -201,6 +195,18 @@ let browser;
     assert.match(await rows.first().innerText(),/Pagination 40/);
     await pager.getByTitle('หน้าแรก').click();
     assert.ok(await pager.getByTitle('หน้าแรก').isDisabled());
+    await pager.getByTitle('หน้าสุดท้าย').click();
+    const barcode=page.getByRole('button',{name:'บาร์โค้ด',exact:true});
+    const name=page.getByRole('button',{name:'สินค้า',exact:true});
+    await barcode.click();
+    assert.ok(await pager.getByTitle('หน้าแรก').isDisabled());
+    assert.deepEqual(await rows.locator('td:first-child').allTextContents(),Array.from({length:10},(_,i)=>String(i+1)));
+    await barcode.click();
+    assert.equal(await rows.first().locator('td:first-child').innerText(),'51');
+    await name.click();
+    assert.equal(await rows.first().locator('td:nth-child(2)').innerText(),'Pagination 00');
+    await name.click();
+    assert.equal(await rows.first().locator('td:nth-child(2)').innerText(),'Pagination 50');
     await page.locator('[data-combined-search]').fill('Pagination 50');
     assert.equal(await pager.locator('button').count(),0);
     assert.equal(await rows.count(),1);

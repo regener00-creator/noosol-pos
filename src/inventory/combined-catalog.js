@@ -44,7 +44,7 @@ function renderCombinedCatalog(stockOnly){
   return `<section class="rpt combined-catalog" aria-label="${stockOnly?'สินค้าคงเหลือ':'ราคาสินค้า'}" data-combined-stock="${stockOnly}">
     <div class="tree-pane"><div class="product-group-header"><span class="product-group-title">กลุ่มสินค้า</span><span class="product-group-separator">:</span><div class="product-group-categories" data-combined-categories role="group" aria-label="หมวดหลัก"></div></div>
     <div class="product-group-brands" data-combined-brands role="group" aria-label="หมวดย่อย"></div></div>
-    <div class="product-list-search combined-search-group"><select class="rpt-select" data-combined-search-field aria-label="ค้นหาตาม"><option value="all">ค้นหาทุกช่อง</option><option value="barcode">บาร์โค้ด</option><option value="name">ชื่อสินค้า</option></select><input data-combined-search placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" aria-label="ค้นหาสินค้า">
+    <div class="product-list-search combined-search-group"><input data-combined-search placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" aria-label="ค้นหาสินค้า">
     <div class="product-review-filters combined-legend" role="group" aria-label="กรองสินค้าตามร้าน">${['','พระยาสุเรนทร์','พรชัย'].map(shop=>`<button type="button" class="product-review-filter" data-exclusive-shop="${shop}" aria-pressed="false"><span class="product-review-filter-dot" aria-hidden="true"></span>${shop||'ทั้งหมด'}</button>`).join('')}</div></div>
     <div class="seamless-table-wrap" data-combined-results></div><div data-combined-pager></div></section>`;
 }
@@ -151,7 +151,6 @@ function attachCombinedCatalog(page){
   const rows=combinedCatalogRows(products);
   const categories=page.querySelector('[data-combined-categories]'),brands=page.querySelector('[data-combined-brands]');
   const search=page.querySelector('[data-combined-search]');
-  const searchField=page.querySelector('[data-combined-search-field]');
   const stockOnly=page.dataset.combinedStock==='true';
   const storeButtons=page.querySelectorAll('[data-exclusive-shop]');
   const shopNames=new Map(shops.map(shop=>[Number(shop.id),shop.name]));
@@ -182,17 +181,26 @@ function attachCombinedCatalog(page){
     categories.innerHTML=buttons(categoryNames,'category',category,catCounts);
     brands.innerHTML=category?buttons([...tree[category]].sort((a,b)=>a.localeCompare(b,'th')),'brand',brand,brandCounts):'<div class="product-group-empty">เลือกกลุ่มสินค้าหลักเพื่อแสดงหมวดสินค้าย่อย</div>';
   }
-  let pageNo=1;
+  let pageNo=1,sortField='',sortDirection=1;
+  const compare=new Intl.Collator('th',{numeric:true}).compare;
   const pager=page.querySelector('[data-combined-pager]');
   const results=page.querySelector('[data-combined-results]');
   const barcodeMatches=(option,term)=>[...option.shops.values()].some(({unit})=>String(unit.barcode||'').toLowerCase().includes(term));
   function matchesSearch(row,term){
     if(!term)return true;
-    const field=searchField.value;
     return row.members.some(({product,barcodes})=>
-      (field!=='barcode'&&String(product.name||'').toLowerCase().includes(term))||
-      (field!=='name'&&barcodes.some(code=>code.includes(term)))||
-      (field==='all'&&String(product.sku||'').toLowerCase().includes(term)));
+      String(product.name||'').toLowerCase().includes(term)||barcodes.some(code=>code.includes(term))||
+      String(product.sku||'').toLowerCase().includes(term));
+  }
+  function displayedUnit(row,term){
+    const preferred=readCombinedValue(combinedUnitPreferenceKey(row.members[0].product.id));
+    return row.options.find(item=>item.name===preferred)||(term&&row.options.find(item=>barcodeMatches(item,term)))||row.options[0];
+  }
+  function sortHeader(field,label){
+    const active=field===sortField;
+    const order=sortDirection===1?'ascending':'descending';
+    const arrow=active?(sortDirection===1?'▲':'▼'):'↕';
+    return `<th class="${field==='barcode'?'combined-barcode':''}"${active?` aria-sort="${order}"`:''}><button type="button" class="doc-sort-btn" data-combined-sort="${field}">${label}<span aria-hidden="true">${arrow}</span></button></th>`;
   }
   function describeValues(option,getValue){
     const values=shops.filter(shop=>option.shops.has(Number(shop.id))).map(shop=>({shop,value:getValue(option.shops.get(Number(shop.id)))}));
@@ -205,14 +213,31 @@ function attachCombinedCatalog(page){
     const term=search.value.trim().toLowerCase();
     const matches=rows.filter(row=>(!shopFilter||exclusiveShop(row)===shopFilter)&&row.members.some(({product})=>(!category||category===mainCategory(product))&&(!brand||brand===subCategory(product)))&&
       matchesSearch(row,term));
+    const unitByRow=new Map();
+    if(sortField==='name')matches.sort((a,b)=>sortDirection*compare(a.name,b.name));
+    if(sortField==='barcode'){
+      const codes=new Map();
+      for(const row of matches){
+        const option=displayedUnit(row,term);
+        unitByRow.set(row,option);
+        codes.set(row,[...option.shops.values()].map(({unit})=>String(unit.barcode||'').trim()).filter(Boolean));
+      }
+      matches.sort((a,b)=>{
+        const left=codes.get(a),right=codes.get(b);
+        if(!left.length||!right.length)return Number(!left.length)-Number(!right.length);
+        for(let i=0;i<Math.min(left.length,right.length);i++){
+          const difference=compare(left[i],right[i]);
+          if(difference)return sortDirection*difference;
+        }
+        return sortDirection*(left.length-right.length);
+      });
+    }
     const pages=Math.max(1,Math.ceil(matches.length/pageSize));
     pageNo=Math.min(pageNo,pages);
     const headers=shops.map(shop=>stockOnly?`<th>คงเหลือ · ${escapeHtml(shop.name)}</th>`:`<th>ราคาขาย · ${escapeHtml(shop.name)}</th><th>ทุน · ${escapeHtml(shop.name)}</th>`).join('');
     const body=matches.slice((pageNo-1)*pageSize,pageNo*pageSize).map(row=>{
       const id=row.members[0].product.id;
-      const preferred=readCombinedValue(combinedUnitPreferenceKey(id));
-      const option=row.options.find(item=>item.name===preferred)||
-        (term&&searchField.value!=='name'&&row.options.find(item=>barcodeMatches(item,term)))||row.options[0];
+      const option=unitByRow.get(row)||displayedUnit(row,term);
       const control=row.options.length===1?`<span class="prod-unit-fixed">${escapeHtml(option.name)}</span>`:
         `<select class="prod-unit-select" data-combined-unit="${id}" aria-label="หน่วยของ ${escapeHtml(row.name)}">${row.options.map(item=>`<option value="${escapeHtml(item.name)}" ${item===option?'selected':''}>${escapeHtml(describeValues(item,entry=>entry.label))}</option>`).join('')}</select>`;
       const cells=shops.map(shop=>{
@@ -225,7 +250,7 @@ function attachCombinedCatalog(page){
       return `<tr class="${color}"><td class="combined-barcode">${escapeHtml(describeValues(option,entry=>String(entry.unit.barcode||'—')))}</td><td>${escapeHtml(row.name)}</td><td><div class="combined-unit-cell">${control}</div></td>${cells}</tr>`;
     }).join('');
     const columns=3+shops.length*(stockOnly?1:2);
-    results.innerHTML=`<table class="grid-table doc-head-blue"><thead><tr><th class="combined-barcode">บาร์โค้ด</th><th>สินค้า</th><th>หน่วย</th>${headers}</tr></thead><tbody>${body||`<tr><td colspan="${columns}">ไม่พบสินค้า</td></tr>`}</tbody></table>`;
+    results.innerHTML=`<table class="grid-table doc-head-blue"><thead><tr>${sortHeader('barcode','บาร์โค้ด')}${sortHeader('name','สินค้า')}<th>หน่วย</th>${headers}</tr></thead><tbody>${body||`<tr><td colspan="${columns}">ไม่พบสินค้า</td></tr>`}</tbody></table>`;
     pager.innerHTML=pagerHtml(pageNo,pages,'combined-page');
   }
   for(const [host,kind] of [[categories,'category'],[brands,'brand']]){
@@ -241,9 +266,13 @@ function attachCombinedCatalog(page){
     };
   }
   search.oninput=()=>{pageNo=1;draw();};
-  searchField.onchange=()=>{
-    search.placeholder={all:'ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด',barcode:'พิมพ์หรือสแกนบาร์โค้ด',name:'ค้นหาชื่อสินค้า'}[searchField.value];
-    pageNo=1;draw();search.focus();
+  results.onclick=event=>{
+    const button=event.target.closest('[data-combined-sort]');
+    if(!button)return;
+    const field=button.dataset.combinedSort;
+    sortDirection=sortField===field?-sortDirection:1;
+    sortField=field;pageNo=1;draw();
+    results.querySelector(`[data-combined-sort="${field}"]`).focus({preventScroll:true});
   };
   storeButtons.forEach(button=>button.onclick=()=>{
     const shop=button.dataset.exclusiveShop;
