@@ -55,12 +55,13 @@ async function fixture(rows=[baseProduct]){
     currentTab='products';rebuildProductLookupMaps();render();
   },rows);
 }
-async function exported(){
+async function exported(expectedFilename){
   // Chrome throttles repeated automated downloads; each scenario still uses the real export button.
   await new Promise(resolve=>setTimeout(resolve,1200));
   const pending=page.waitForEvent('download');
   await page.locator('#exportProductsBtn').click();
   const download=await pending,parts=[];
+  if(expectedFilename)assert.equal(download.suggestedFilename(),expectedFilename);
   for await(const chunk of await download.createReadStream())parts.push(chunk);
   const book=new Excel.Workbook();await book.xlsx.load(Buffer.concat(parts));return book;
 }
@@ -105,6 +106,21 @@ async function scenario(name,work){if(process.argv[2]&&!new RegExp(process.argv[
   const errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.goto(`http://127.0.0.1:${server.address().port}/`);await waitForIsolatedBootstrap(page);
   await page.evaluate(()=>ensurePageCodeLoaded('products'));
+  await scenario('Export filename identifies the selected warehouse in both stores',async()=>{
+    await fixture();
+    const names=['พระยาสุเรนทร์','พรชัย'];
+    const date=await page.evaluate(names=>{
+      warehouses.forEach((w,i)=>{w.name=names[i];});
+      setWarehouseProductCatalog([products[0],{...products[0],id:2,wh:2,name:'สินค้าพรชัย'}]);
+      return TODAY_STR;
+    },names);
+    for(const [i,name] of names.entries()){
+      await page.evaluate(id=>{activeWarehouseId=id;setWarehouseProductCatalog(completeProductCatalog());render();},i+1);
+      const book=await exported(`PEPOS-รายการสินค้า-${name}-${date}.xlsx`);
+      assert.equal(cell(book,2,'คลังสินค้า').value,name);
+      assert.equal(cell(book,2,'ชื่อสินค้า').value,i===0?baseProduct.name:'สินค้าพรชัย');
+    }
+  });
   await scenario('Unedited real XLSX round trip preserves complete catalog fields',async()=>{
     await fixture();const out=await imported(await exported());
     assert.equal(out.saves.length,1);

@@ -1007,15 +1007,19 @@ async function performProductExcelImport(file){
 
 async function exportProductsToExcel(){
   if(!products.length){ showToast('ยังไม่มีข้อมูลให้ส่งออก'); return; }
+  const warehouseId=activeWarehouseId;
   let writer;
   try{ writer=await ensureProductExcelWriterLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบส่งออก Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
+  if(warehouseId!==activeWarehouseId)return;
+  const warehouseName=isAllWarehousesMode()?'คลังรวม':String(activeWarehouse()?.name||'').trim()||`คลัง-${warehouseId}`;
+  const filenameWarehouse=warehouseName.replace(/[<>:"/\\|?*\x00-\x1F]+/g,'-');
   const counts=productExcelColumnCounts(products);
   const rows=products.map(product=>productToExcelRow(product,counts));
   const workbook=createProductExcelWorkbook(rows,writer);
   const buffer=await workbook.xlsx.writeBuffer();
   const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
   const link=document.createElement('a');
-  link.href=url;link.download=`PEPOS-รายการสินค้า-${TODAY_STR}.xlsx`;
+  link.href=url;link.download=`PEPOS-รายการสินค้า-${filenameWarehouse}-${TODAY_STR}.xlsx`;
   document.body.appendChild(link);
   link.click();link.remove();
   setTimeout(()=>URL.revokeObjectURL(url),30000);
