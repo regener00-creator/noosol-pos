@@ -60,18 +60,39 @@ let browser;
   }
   await assertUsesPageWidth();
   await page.evaluate(()=>{
-    const more=Array.from({length:11},(_,i)=>({...products.find(p=>p.id===11),id:301+i,name:'Pagination '+String(i).padStart(2,'0'),barcode:'page'+i}));
+    const more=Array.from({length:51},(_,i)=>({...products.find(p=>p.id===11),id:301+i,name:'Pagination '+String(i).padStart(2,'0'),barcode:'page'+i}));
     setWarehouseProductCatalog([...completeProductCatalog(),...more]);render();
   });
-  await page.locator('[data-combined-search]').fill('Pagination');
-  assert.equal(await page.locator('[data-combined-results] tbody tr').count(),10);
-  await page.locator('[data-combined-next]').click();
-  assert.equal(await page.locator('[data-combined-results] tbody tr').count(),1);
-  assert.match(await page.locator('[data-combined-results] tbody').innerText(),/Pagination 10/);
+  async function checkPagination(){
+    await page.locator('[data-combined-search]').fill('Pagination');
+    const pager=page.locator('[data-combined-pager]'),rows=page.locator('[data-combined-results] tbody tr');
+    assert.equal(await rows.count(),10);
+    assert.deepEqual(await pager.locator('button').allTextContents(),['«','‹','1','2','3','4','5','›','»']);
+    assert.ok(await pager.getByTitle('ก่อนหน้า').isDisabled());
+    await pager.getByTitle('ถัดไป').click();
+    assert.match(await rows.first().innerText(),/Pagination 10/);
+    await pager.getByRole('button',{name:'4',exact:true}).click();
+    assert.match(await rows.first().innerText(),/Pagination 30/);
+    await pager.getByTitle('หน้าสุดท้าย').click();
+    assert.ok(await pager.getByTitle('ถัดไป').isDisabled());
+    assert.equal(await rows.count(),1);
+    assert.match(await rows.first().innerText(),/Pagination 50/);
+    await pager.getByTitle('ก่อนหน้า').click();
+    assert.match(await rows.first().innerText(),/Pagination 40/);
+    await pager.getByTitle('หน้าแรก').click();
+    assert.ok(await pager.getByTitle('หน้าแรก').isDisabled());
+    await page.locator('[data-combined-search]').fill('Pagination 50');
+    assert.equal(await pager.locator('button').count(),0);
+    assert.equal(await rows.count(),1);
+  }
+  await checkPagination();
   await page.locator('.navbtn[data-tab="rinventory"]').click();
+  await checkPagination();
+  await page.locator('[data-combined-search]').fill('0001');
   const stock=page.locator('[data-combined-results] tr').filter({hasText:'0001'});
   assert.deepEqual(await stock.locator('td').allTextContents(),['0001','Decolgen','ซอง','0','17']);
   await assertUsesPageWidth();
+  await page.locator('[data-combined-search]').fill('0022');
   assert.deepEqual(await page.locator('[data-combined-results] tr').filter({hasText:'0022'}).locator('td').allTextContents(),['0022','พรชัยเท่านั้น','ซอง','—','0']);
   await page.evaluate(()=>{selectActiveWarehouse(2);currentTab='transfer';render();});
   assert.equal(await page.locator('.navbtn[data-tab="transfer"]').count(),0);assert.notEqual(await page.evaluate(()=>currentTab),'transfer');

@@ -17,10 +17,10 @@ function renderCombinedCatalog(stockOnly){
     return '<section class="rpt"><p role="status">กำลังตรวจยอดคงเหลือของแต่ละคลัง</p><button type="button" class="btn ghost" id="combinedReloadBalances">โหลดสินค้าคงเหลือ</button></section>';
   }
   const heading=stockOnly?'สินค้าคงเหลือ':'PRODUCT';
-  return `<section class="rpt combined-catalog" data-combined-stock="${stockOnly}"><div class="pagehead"><h1>${heading} · คลังรวม</h1></div>
+  return `<section class="rpt combined-catalog" data-combined-stock="${stockOnly}"><div class="pagehead"><h1>${heading} · คลังรวม</h1><span data-combined-count aria-live="polite"></span></div>
     <div class="rpt-filters"><select class="rpt-select" data-combined-category aria-label="หมวดหลัก"></select><select class="rpt-select" data-combined-brand aria-label="หมวดย่อย"></select><input data-combined-search class="barcode-print-search" placeholder="ค้นหาชื่อสินค้า หรือบาร์โค้ด" aria-label="ค้นหาสินค้า"></div>
     ${stockOnly?'':'<div class="combined-legend"><span>สีส้ม · เฉพาะพรชัย</span><span>สีม่วง · เฉพาะพระยาสุเรนทร์</span></div>'}
-    <div class="seamless-table-wrap" data-combined-results></div><div class="combined-pager"><button class="btn ghost small" data-combined-prev>ก่อนหน้า</button><span data-combined-count></span><button class="btn ghost small" data-combined-next>ถัดไป</button></div></section>`;
+    <div class="seamless-table-wrap" data-combined-results></div><div data-combined-pager></div></section>`;
 }
 function attachCombinedCatalog(page){
   const shops=accessibleWarehouses().slice().sort((a,b)=>a.id-b.id);
@@ -28,7 +28,7 @@ function attachCombinedCatalog(page){
   const cat=page.querySelector('[data-combined-category]'),brand=page.querySelector('[data-combined-brand]');
   const search=page.querySelector('[data-combined-search]');
   const stockOnly=page.dataset.combinedStock==='true';
-  const pageSize=stockOnly?50:10;
+  const pageSize=10;
   const options=(values,title)=>`<option value="">${title}: ทั้งหมด</option>`+[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'th')).map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
   const configured=effectiveProductCategorySettings();
   cat.innerHTML=options(configured.categories,'หมวดหลัก');
@@ -38,7 +38,7 @@ function attachCombinedCatalog(page){
   };
   updateBrands();
   let pageNo=1;
-  const prev=page.querySelector('[data-combined-prev]'),next=page.querySelector('[data-combined-next]');
+  const pager=page.querySelector('[data-combined-pager]');
   function draw(){
     const term=search.value.trim().toLowerCase();
     const matches=rows.filter(row=>[...row.shops.values()].some(({product})=>(!cat.value||cat.value===product.category)&&(!brand.value||brand.value===product.brand)&&(!term||product.name.toLowerCase().includes(term)||row.code.toLowerCase().includes(term))));
@@ -58,10 +58,17 @@ function attachCombinedCatalog(page){
     const columns=(stockOnly?3:2)+shops.length*(stockOnly?1:2);
     page.querySelector('[data-combined-results]').innerHTML=`<table class="grid-table doc-head-blue"><thead><tr>${stockOnly?'<th>บาร์โค้ด</th>':''}<th>สินค้า</th><th>หน่วย</th>${headers}</tr></thead><tbody>${body||`<tr><td colspan="${columns}">ไม่พบสินค้า</td></tr>`}</tbody></table>`;
     page.querySelector('[data-combined-count]').textContent=`${matches.length} รายการ · หน้า ${pageNo} / ${pages}`;
-    prev.disabled=pageNo<=1;next.disabled=pageNo>=pages;
+    pager.innerHTML=pagerHtml(pageNo,pages,'combined-page');
   }
   cat.onchange=()=>{updateBrands();pageNo=1;draw();};
   brand.onchange=search.oninput=()=>{pageNo=1;draw();};
-  prev.onclick=()=>{pageNo--;draw();};next.onclick=()=>{pageNo++;draw();};
+  pager.onclick=event=>{
+    const button=event.target.closest('[data-combined-page]');
+    if(!button||button.disabled)return;
+    const value=button.dataset.combinedPage;
+    pageNo=value==='prev'?pageNo-1:value==='next'?pageNo+1:Number(value);
+    draw();
+    (pager.querySelector(`[data-combined-page="${value}"]:not(:disabled)`)||pager.querySelector('.active'))?.focus({preventScroll:true});
+  };
   draw();
 }
