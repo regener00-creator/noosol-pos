@@ -386,6 +386,38 @@ const browserExecutable = [
   await page.locator('#barcodePrintMenuBtn').click();
   await page.locator('[data-barcode-print-mode="new"]').click();
   assert.equal(await page.evaluate(()=>barcodePrintLabelSize),'a4-50x30','Default saved from reprint leaves new-label default unchanged');
+  for(const [store,letter] of [[1,'A'],[2,'B']]){
+    const codes=await page.evaluate(async({store,letter})=>{
+      activeWarehouseId=store;allWarehousesMode=false;
+      const code='P00000000010',newCode=letter+'P00000000001';
+      products=[{id:9500+store,wh:store,name:'Legacy label',category:'ยา',unit:'แผง',barcode:'',price:20,active:true,
+        units:[{sub:'กล่อง',base:'แผง',per:5,factor:5,price:100,barcode:''}],extraBarcodes:[code],extraBarcodeUnits:['กล่อง']}];
+      rebuildProductLookupMaps();
+      const scan=findProductByExactCode(code);
+      if(scan?.product.id!==9500+store||scan.unitName!=='กล่อง') throw Error('Legacy scan lost its store or unit');
+      if(createBarcodePrintItem(products[0]).barcode!=='') throw Error('New-label field must be empty before printing');
+      products[0].units[0].barcode=newCode;rebuildProductLookupMaps();
+      window.issuedFixture=[{pid:9500+store,barcode:code},{pid:9500+store,barcode:newCode}];
+      sb.rpc=async(name,args)=>{
+        if(name!=='system_issued_label_codes'||args.p_warehouse_id!==store) throw Error('Unexpected RPC when reprinting');
+        return {data:window.issuedFixture};
+      };
+      setBarcodePrintMode('reprint');
+      await loadSystemIssuedLabelCodes();
+      barcodePrintItems=[];barcodePrintAddProduct(products[0]);render();
+      return {code,newCode};
+    },{store,letter});
+    const picker=page.locator('[data-barcode-print-unit="0"]');
+    await picker.selectOption(codes.code);
+    assert.equal(await page.locator('[data-barcode-print-code="0"]').inputValue(),codes.code);
+    const [legacy]=await Promise.all([page.waitForEvent('popup'),page.locator('#savePrintBarcodeBtn').click()]);
+    await legacy.locator('.label').first().waitFor();
+    assert.equal(await legacy.locator('.barcode-label-svg').first().getAttribute('aria-label'),'บาร์โค้ด '+codes.code);
+    await legacy.close();
+    await picker.selectOption(codes.newCode);
+    assert.equal(await page.locator('[data-barcode-print-code="0"]').inputValue(),codes.newCode);
+    await page.evaluate(()=>{setBarcodePrintMode('new');});
+  }
   await page.reload();
   await page.waitForFunction(()=>typeof readPriceLabelDefaultSize==='function');
   assert.equal(await page.evaluate(()=>readPriceLabelDefaultSize('new')),'a4-50x30','New default persists after reload');

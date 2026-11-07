@@ -26,6 +26,7 @@ const context = {
   productDirtyOperations:new Map(),
   syncedTableRows:{},
   captureWorkspaceRead:()=>({actor:'owner-test'}),
+  captureStoreView:()=>({actor:'owner-test',store:1}),isStoreViewCurrent:()=>true,
   isWorkspaceReadCurrent:()=>true,
   isProductActive: product => Boolean(product)&&product.active!==false,
   barcodePrintItems: [],
@@ -72,7 +73,7 @@ context.sb={rpc:async(name,args)=>{
   assert.equal(name,'assign_price_label_barcodes');
   rpcCalls.push(args);
   if(requests.has(args.p_request_id)) return {data:requests.get(args.p_request_id),error:null};
-  const items=args.p_items.map(item=>({...item,barcode:item.barcode||'P'+String(nextNumber++).padStart(11,'0')}));
+  const items=args.p_items.map(item=>({...item,barcode:item.barcode||'AP'+String(++nextNumber).padStart(11,'0')}));
   const rows=items.map(item=>{
     const product=JSON.parse(JSON.stringify(products.find(product=>product.id===item.pid)));
     if(item.unit===product.unit) product.barcode=item.barcode;
@@ -318,9 +319,9 @@ assert.equal(context.barcodePrintValidation([]).length,1,'ไม่เปิด�
 context.sb.rpc=originalRpc;
 printHtml='';
 assert.equal(await context.saveBarcodePrintItems(printWindow),true);
-assert.equal(retryProduct.barcode,'P00000000000');
+assert.equal(retryProduct.barcode,'AP00000000001');
 assert.equal(rpcCalls.at(-1).p_request_id,rpcCalls.at(-2).p_request_id);
-assert.match(printHtml,/P00000000000/,'ยังสร้างหน้าพิมพ์จากรายการที่เพิ่งบันทึกแม้เอาออกจากคิวแล้ว');
+assert.match(printHtml,/AP00000000001/,'ยังสร้างหน้าพิมพ์จากรายการที่เพิ่งบันทึกแม้เอาออกจากคิวแล้ว');
 assert.equal(context.barcodePrintItems.length,0);
 products.push({id:6,unit:'กล่อง',barcode:'',units:[]});
 context.barcodePrintItems=[{pid:6,unit:'กล่อง',barcode:'',qty:1}];
@@ -335,7 +336,7 @@ assert.equal(rpcCalls.length,callCount,'unsynced product edits are not overwritt
 context.productDirtyOperations.clear();
 context.persistProductChangesToIndexedDB=async()=>false;
 assert.equal(await context.saveBarcodePrintItems(printWindow),true,'central commit remains valid when local cache fails');
-assert.equal(products.at(-1).barcode,'P00000000001');
+assert.equal(products.at(-1).barcode,'AP00000000002');
 
 console.log('barcode print tests passed');
 }

@@ -44,14 +44,27 @@ function barcodePrintNeedsBarcode(product){
   return barcodePrintMissingUnitOptions(product).length>0;
 }
 
+function systemLabelCode(code,warehouseId){
+  if(typeof code!=='string'||!/^(?:[AB]|W[0-9]+-)?P[0-9]{11}$/.test(code)) return false;
+  if(!warehouseId||code.startsWith('P')) return true;
+  const prefix=warehouseId===1?'AP':warehouseId===2?'BP':'W'+warehouseId+'-P';
+  return code.startsWith(prefix);
+}
 function barcodeReprintUnitOptions(product){
-  if(!isProductActive(product)||!barcodeIssuedState?.ready||!isWorkspaceReadCurrent(barcodeIssuedState.context)) return [];
-  return barcodePrintUnitOptions(product).filter(option=>barcodeIssuedState.codes.has(JSON.stringify([Number(product.id),option.barcode])));
+  if(!isProductActive(product)||!barcodeIssuedState?.ready||!isStoreViewCurrent(barcodeIssuedState.context)) return [];
+  const units=barcodePrintUnitOptions(product);
+  const candidates=[...units];
+  for(const alias of extraBarcodeEntries(product)){
+    const unit=units.find(entry=>entry.name===alias.unit);
+    if(unit) candidates.push({...unit,barcode:alias.code});
+  }
+  return candidates.filter(option=>barcodeIssuedState.codes.has(JSON.stringify([Number(product.id),option.barcode])));
 }
 
-function barcodeReprintItem(productId,unitName,quantity){
+function barcodeReprintItem(productId,unitName,quantity,code){
   const product=products.find(entry=>entry.id===Number(productId));
-  const option=barcodeReprintUnitOptions(product).find(entry=>entry.name===unitName);
+  const units=barcodeReprintUnitOptions(product).filter(entry=>entry.name===unitName);
+  const option=units.find(entry=>entry.barcode===code)||units[0];
   if(!option) throw new Error('ไม่พบหน่วยสินค้าที่มีบาร์โค้ด กรุณาเลือกสินค้าและหน่วยอีกครั้ง');
   const qty=Number(quantity);
   if(!Number.isInteger(qty)||qty<1||qty>500) throw new Error('จำนวนป้ายต้องเป็นจำนวนเต็ม 1–500');
@@ -67,11 +80,11 @@ let barcodePrintOtherQueue=null;
 let barcodeReprintContext=null;
 let barcodeIssuedState=null;
 async function loadSystemIssuedLabelCodes(){
-  const state={context:captureWorkspaceRead(),ready:false,loading:true,error:'',codes:new Set()};
+  const state={context:captureStoreView(),ready:false,loading:true,error:'',codes:new Set()};
   barcodeIssuedState=state;
   render();
   try{
-    const {data,error}=await sb.rpc('system_issued_label_codes');
+    const {data,error}=await sb.rpc('system_issued_label_codes',{p_warehouse_id:state.context.store});
     if(error) throw error;
     if(!Array.isArray(data)) throw new Error('ข้อมูลประวัติบาร์โค้ดไม่ถูกต้อง');
     state.codes=new Set(data.map(item=>JSON.stringify([Number(item.pid),String(item.barcode)])));
@@ -79,7 +92,7 @@ async function loadSystemIssuedLabelCodes(){
   }catch(error){state.error='โหลดประวัติการจ่ายบาร์โค้ดไม่สำเร็จ กรุณาตรวจการเชื่อมต่อแล้วลองใหม่';}
   finally{
     state.loading=false;
-    if(barcodeIssuedState===state&&isWorkspaceReadCurrent(state.context)&&currentTab==='barcodeprint') render();
+    if(barcodeIssuedState===state&&isStoreViewCurrent(state.context)&&currentTab==='barcodeprint') render();
   }
 }
 function barcodePrintSelectableUnitOptions(product){
@@ -92,13 +105,13 @@ function setBarcodePrintMode(mode){
   barcodePrintShowMenu=false;
   barcodePrintLabelSize=typeof readPriceLabelDefaultSize==='function'?readPriceLabelDefaultSize(mode):barcodePrintLabelSize;
   if(mode===barcodePrintMode){if(mode==='reprint')loadSystemIssuedLabelCodes();else render();return;}
-  const previous={items:barcodePrintItems,request:barcodePrintRequest,context:captureWorkspaceRead()};
-  const restored=barcodePrintOtherQueue&&isWorkspaceReadCurrent(barcodePrintOtherQueue.context)?barcodePrintOtherQueue:null;
+  const previous={items:barcodePrintItems,request:barcodePrintRequest,context:captureStoreView()};
+  const restored=barcodePrintOtherQueue&&isStoreViewCurrent(barcodePrintOtherQueue.context)?barcodePrintOtherQueue:null;
   barcodePrintItems=restored?.items||[];
   barcodePrintRequest=restored?.request||null;
   barcodePrintOtherQueue=previous;
   barcodePrintMode=mode;
-  barcodeReprintContext=captureWorkspaceRead();
+  barcodeReprintContext=captureStoreView();
   barcodePrintSearchQuery=''; barcodePrintCatFilter={category:'',brand:''}; barcodePrintPage=1;
   if(mode==='reprint') loadSystemIssuedLabelCodes(); else render();
 }
@@ -224,7 +237,7 @@ function barcodePrintValidation(items=barcodePrintItems){
       if(code.length>48){ errors.push({index,message:`แถว ${row}: บาร์โค้ดยาวเกิน 48 ตัว`}); return; }
     }
     if(!Number.isInteger(Number(item.qty))||Number(item.qty)<1||Number(item.qty)>500){ errors.push({index,message:`แถว ${row}: จำนวนฉลากต้องเป็น 1–500`}); }
-    if(!code) return; // The server issues an unused P + 11 digits at print time.
+    if(!code) return; // The server assigns the selected store's barcode at print time.
     const currentKey=barcodePrintTargetKey(item.pid,item.unit);
     const conflict=owners.find(owner=>owner.code===code&&(owner.kind!=='unit'||barcodePrintTargetKey(owner.pid,owner.unit)!==currentKey));
     if(conflict){

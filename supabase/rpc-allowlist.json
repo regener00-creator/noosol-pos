@@ -51,6 +51,8 @@
     "update_sale_document_metadata(text,jsonb)",
     "get_visible_data_signature(text)",
     "system_issued_label_codes()",
+    "system_issued_label_codes(bigint)",
+    "assign_price_label_barcodes(bigint,uuid,jsonb)",
     "find_store_sale(bigint,text)",
     "reserve_shop_document_number(bigint,text,uuid)",
     "update_store_label_settings(bigint,jsonb,text)",

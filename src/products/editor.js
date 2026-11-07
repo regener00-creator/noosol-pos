@@ -509,21 +509,21 @@ function invalidateProductIssuedBarcodeHistory(){productIssuedHistoryCache=null;
 async function refreshProductBarcodeHistoryButton(){
   const host=document.getElementById('productBarcodeHistoryMount');
   if(!host||!loggedInUser()?.owner||!sb)return;
-  const productId=editingProductId,context=captureWorkspaceRead();
+  const productId=editingProductId,context=captureStoreView();
   let state=productIssuedHistoryCache;
-  if(!state||!isWorkspaceReadCurrent(state.context)||Date.now()-state.createdAt>30000){
+  if(!state||!isStoreViewCurrent(state.context)||Date.now()-state.createdAt>30000){
     state={context,createdAt:Date.now()};
     productIssuedHistoryCache=state;
     state.promise=(async()=>{
       if(navigator.onLine===false)throw new Error('offline');
-      const {data,error}=await sb.rpc('system_issued_label_codes');
+      const {data,error}=await sb.rpc('system_issued_label_codes',{p_warehouse_id:context.store});
       if(error||!Array.isArray(data))throw new Error('history unavailable');
-      return new Set(data.filter(entry=>typeof entry.barcode==='string'&&/^P\d{11}$/.test(entry.barcode)).map(entry=>String(entry.pid)));
+      return new Set(data.filter(entry=>systemLabelCode(entry.barcode)).map(entry=>String(entry.pid)));
     })();
   }
   try{
     const ids=await state.promise;
-    if(!host.isConnected||document.getElementById('productBarcodeHistoryMount')!==host||editingProductId!==productId||!loggedInUser()?.owner||!isWorkspaceReadCurrent(context))return;
+    if(!host.isConnected||document.getElementById('productBarcodeHistoryMount')!==host||editingProductId!==productId||!loggedInUser()?.owner||!isStoreViewCurrent(context))return;
     if(!ids.has(String(productId)))return;
     host.innerHTML='<button type="button" class="btn ghost small" id="productBarcodeHistoryBtn" style="margin-top:12px;">ประวัติบาร์โค้ดที่ระบบออกให้</button>';
     host.querySelector('button').onclick=openProductBarcodeHistory;
@@ -536,18 +536,18 @@ function productBarcodeRestoreTargets(){
   }
   return targets.filter(target=>target.name&&!target.name.startsWith('__')&&target.input?.isConnected);
 }
-function productBarcodeRestoreDraft(target,code){
+function productBarcodeRestoreDraft(target,code,moveAlias=false){
   const targets=productBarcodeRestoreTargets();
   const value=entry=>entry.input===target.input?code:entry.input.value.trim();
   const extra=mobileProductEditor?extraBarcodeEntries(mobileProductEditor.draft):Array.from(document.querySelectorAll('#extraBarcodeRows .eb_code')).map(input=>({code:input.value.trim()}));
   const vendors=mobileProductEditor?mobileProductEditor.draft.vendorBarcodes||[]:Array.from(document.querySelectorAll('#vendorBarcodeRows .vb_code')).map(input=>({code:input.value.trim()}));
-  return {unit:targets[0]?.name,barcode:value(targets[0]),units:targets.slice(1).map(entry=>({sub:entry.name,barcode:value(entry)})),extraBarcodes:extra.map(entry=>entry.code),vendorBarcodes:vendors};
+  return {unit:targets[0]?.name,barcode:value(targets[0]),units:targets.slice(1).map(entry=>({sub:entry.name,barcode:value(entry)})),extraBarcodes:extra.map(entry=>entry.code).filter(value=>!moveAlias||value.toUpperCase()!==code.toUpperCase()),vendorBarcodes:vendors};
 }
 async function openProductBarcodeHistory(){
   if(!loggedInUser()?.owner||editingProductId==='new'||saveProduct.saving||document.getElementById('productBarcodeHistory')) return;
   const product=products.find(entry=>entry.id===editingProductId),anchor=document.getElementById('f_barcode');
   if(!product||!anchor) return;
-  const context=captureWorkspaceRead(),editor=mobileProductEditor;
+  const context=captureStoreView(),editor=mobileProductEditor;
   const overlay=document.createElement('div');
   overlay.id='productBarcodeHistory';overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal product-barcode-history-modal" role="dialog" aria-modal="true" aria-labelledby="productBarcodeHistoryTitle"><div class="modal-head"><h3 id="productBarcodeHistoryTitle">ประวัติบาร์โค้ดที่ระบบออกให้</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div><div class="product-barcode-history-body"><p>${escapeHtml(product.name)}</p><p>เลือกหน่วยและเลขเดิมที่จะนำกลับมาใช้ แล้วกดบันทึกในหน้าแก้ไขสินค้า</p><label>หน่วยที่จะใช้บาร์โค้ด<select id="productBarcodeHistoryUnit"></select></label><div id="productBarcodeHistoryStatus" role="status">กำลังโหลดประวัติ…</div><div id="productBarcodeHistoryRows"></div><button type="button" class="btn ghost" id="productBarcodeHistoryRetry" hidden>ลองใหม่</button></div></div>`;
@@ -556,7 +556,7 @@ async function openProductBarcodeHistory(){
   overlay.querySelector('.modal-close').onclick=close;
   overlay.addEventListener('keydown',event=>{if(event.key==='Escape'){event.stopPropagation();close();}});
   overlay.querySelector('.modal-close').focus();
-  const current=()=>overlay.isConnected&&anchor.isConnected&&document.getElementById('f_barcode')===anchor&&editingProductId===product.id&&mobileProductEditor===editor&&isWorkspaceReadCurrent(context)&&loggedInUser()?.owner;
+  const current=()=>overlay.isConnected&&anchor.isConnected&&document.getElementById('f_barcode')===anchor&&editingProductId===product.id&&mobileProductEditor===editor&&isStoreViewCurrent(context)&&loggedInUser()?.owner;
   const select=overlay.querySelector('#productBarcodeHistoryUnit'),status=overlay.querySelector('#productBarcodeHistoryStatus'),rows=overlay.querySelector('#productBarcodeHistoryRows'),retry=overlay.querySelector('#productBarcodeHistoryRetry');
   const targets=productBarcodeRestoreTargets();
   select.innerHTML=targets.map((target,index)=>`<option value="${index}">${escapeHtml(target.name)} · ปัจจุบัน ${escapeHtml(target.input.value||'ไม่มีบาร์โค้ด')}</option>`).join('');
@@ -565,24 +565,38 @@ async function openProductBarcodeHistory(){
     rows.innerHTML='';retry.hidden=true;status.textContent='กำลังโหลดประวัติ…';
     try{
       if(!sb||navigator.onLine===false)throw new Error('กรุณาเชื่อมต่ออินเทอร์เน็ตเพื่อดูประวัติบาร์โค้ด');
-      const {data,error}=await sb.rpc('system_issued_label_codes');
+      const {data,error}=await sb.rpc('system_issued_label_codes',{p_warehouse_id:context.store});
       if(error)throw new Error('โหลดประวัติบาร์โค้ดไม่สำเร็จ กรุณาลองใหม่');
       if(!Array.isArray(data))throw new Error('ข้อมูลประวัติบาร์โค้ดไม่ถูกต้อง');
       if(!current()){close();return;}
-      const codes=[...new Set(data.filter(entry=>String(entry.pid)===String(product.id)&&typeof entry.barcode==='string'&&/^P\d{11}$/.test(entry.barcode)).map(entry=>entry.barcode))].sort();
+      const codes=[...new Set(data.filter(entry=>String(entry.pid)===String(product.id)&&systemLabelCode(entry.barcode)).map(entry=>entry.barcode))].sort();
       status.textContent=codes.length?`พบ ${codes.length} เลข`:'ยังไม่มีประวัติเลขบาร์โค้ดที่ระบบออกให้สินค้านี้';
       rows.innerHTML=codes.map((code,index)=>`<div class="product-barcode-history-row"><strong>${escapeHtml(code)}</strong><button type="button" class="btn primary small" data-restore-code="${index}">นำเลขนี้กลับมาใช้</button></div>`).join('');
       rows.querySelectorAll('[data-restore-code]').forEach(button=>button.onclick=async()=>{
         if(busy||!current())return;
         const target=targets[Number(select.value)],code=codes[Number(button.dataset.restoreCode)];
         if(!target?.input.isConnected||!productBarcodeRestoreTargets().some(entry=>entry.input===target.input&&entry.name===target.name)){status.textContent='หน่วยสินค้าเปลี่ยน กรุณาปิดและเปิดประวัติใหม่';return;}
-        const draft=productBarcodeRestoreDraft(target,code),before=JSON.stringify(productBarcodeRestoreDraft(target,target.input.value.trim()));
+        const original=productBarcodeRestoreDraft(target,code);
+        const moveAlias=original.extraBarcodes.some(value=>value.toUpperCase()===code.toUpperCase());
+        const draft=moveAlias?productBarcodeRestoreDraft(target,code,true):original,before=JSON.stringify(productBarcodeRestoreDraft(target,target.input.value.trim()));
         busy=true;button.disabled=true;select.disabled=true;
         try{
           await assertProductBarcodesAvailable(draft,product);
           if(!current())return;
           if(before!==JSON.stringify(productBarcodeRestoreDraft(target,target.input.value.trim())))throw new Error('ข้อมูลบาร์โค้ดเปลี่ยนระหว่างตรวจสอบ กรุณาตรวจใหม่');
           if(target.input.value.trim()&&target.input.value.trim()!==code&&!confirm(`เปลี่ยนบาร์โค้ดหน่วย ${target.name} จาก ${target.input.value.trim()} เป็น ${code} ใช่หรือไม่?`))return;
+          if(moveAlias){
+            if(!confirm(`ย้าย ${code} จากบาร์โค้ดเพิ่มเติมไปเป็นบาร์โค้ดของหน่วย ${target.name} หรือไม่?`))return;
+            if(mobileProductEditor){
+              const keep=extraBarcodeEntries(mobileProductEditor.draft).filter(entry=>entry.code.toUpperCase()!==code.toUpperCase());
+              mobileProductEditor.draft.extraBarcodes=keep.map(entry=>entry.code);
+              mobileProductEditor.draft.extraBarcodeUnits=keep.map(entry=>entry.unit);
+            }else{
+              for(const input of document.querySelectorAll('#extraBarcodeRows .eb_code')){
+                if(input.value.trim().toUpperCase()===code.toUpperCase())input.closest('.bcrow').remove();
+              }
+            }
+          }
           target.input.value=code;
           target.input.dispatchEvent(new Event('input',{bubbles:true}));
           target.input.dispatchEvent(new Event('change',{bubbles:true}));
