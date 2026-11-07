@@ -119,8 +119,9 @@ async function enterOfflinePos({username='',password='',restore=false}={}){
   inventoryBalanceRows=snapshot.inventoryBalanceRows;inventoryLotRows=snapshot.inventoryLotRows;
   offlineInventorySettledIds=new Set(snapshot.settledCheckoutIds||[]);
   productCategoriesByStore=snapshot.productCategoriesByStore||(snapshot.productCategorySettings?{1:normalizeProductCategorySettings(snapshot.productCategorySettings)}:{});
-  documentPrefixesByStore=snapshot.documentPrefixesByStore||(snapshot.documentPrefixes?{1:snapshot.documentPrefixes}:{});applyBusinessSettings(snapshot.businessSettings);
-  warehouseBusinessProfiles=snapshot.warehouseBusinessProfiles||{};
+  documentPrefixesByStore=snapshot.documentPrefixesByStore||(snapshot.documentPrefixes?{1:snapshot.documentPrefixes}:{});applyBusinessSettings(accessibleWarehouses().some(w=>Number(w.id)===1)?snapshot.businessSettings:null);
+  const allowedStores=new Set(accessibleWarehouses().map(w=>Number(w.id)));
+  warehouseBusinessProfiles=Object.fromEntries(Object.entries(snapshot.warehouseBusinessProfiles||{}).filter(([id])=>allowedStores.has(Number(id))));
   activeWarehouseId=Number(snapshot.activeWarehouseId)||Number(accessibleWarehouses()[0]?.id)||0;allWarehousesMode=false;setWarehouseProductCatalog(offlineProducts);
   resetStoreCategoryView();selectDocumentPrefixes();
   currentCashShift=snapshot.currentCashShift;cashShifts=snapshot.cashShifts||[];
@@ -142,7 +143,9 @@ async function resumeOfflineQueue(){
   if(!Array.isArray(rows)||!rows.length) return false;
   return enterOfflinePos({username,restore:true});
 }
-function offlinePendingSales(){return offlineSales.filter(row=>!row.completedSale);}
+function offlinePendingSales(warehouseId=null){
+  return offlineSales.filter(row=>!row.completedSale&&(warehouseId===null||Number(row.payload?.warehouseId||row.localSale?.warehouseId||1)===warehouseId));
+}
 function offlineSaleNeedsReview(error){
   // A missing/unknown response may have committed: retain the exact UUID and
   // retry it. Only definite business/validation failures pause automatically.
@@ -210,9 +213,9 @@ async function ensureOfflineShiftOnServer(shift,actor){
   }
 }
 function offlinePosBanner(){
-  if(!offlinePosMode()&&!offlinePendingSales().length&&!offlineSyncMessage) return '';
-  const pending=offlinePendingSales();
-  return `<div class="notice" role="status"><b>${offlinePosMode()?'ขายออฟไลน์ · ใช้ข้อมูลล่าสุดที่เก็บในเครื่อง':'บิลขายจากเครื่อง'}</b> · รอซิงก์ ${pending.length} บิล${offlineSnapshotSavedAt?` · สำรองข้อมูล ${escapeHtml(new Date(offlineSnapshotSavedAt).toLocaleString('th-TH'))}`:''}${offlineSyncMessage?`<br>${escapeHtml(offlineSyncMessage)} <button class="btn ghost" type="button" onclick="reauthenticateOfflineSales()">เข้าสู่ระบบเพื่อซิงก์</button>`:''}${pending.length?'<button class="btn ghost" type="button" onclick="openOfflineSalesPanel()">ดูบิลรอซิงก์</button>':''}</div>`;
+  const pending=offlinePendingSales(activeWarehouseId);
+  if(!offlinePosMode()&&!pending.length) return '';
+  return `<div class="notice" role="status"><b>${offlinePosMode()?'ขายออฟไลน์ · ใช้ข้อมูลล่าสุดที่เก็บในเครื่อง':'บิลขายจากเครื่อง'}</b> · รอซิงก์ ${pending.length} บิล${offlineSnapshotSavedAt?` · สำรองข้อมูล ${escapeHtml(new Date(offlineSnapshotSavedAt).toLocaleString('th-TH'))}`:''}${offlineSyncMessage&&pending.length?`<br>${escapeHtml(offlineSyncMessage)} <button class="btn ghost" type="button" onclick="reauthenticateOfflineSales()">เข้าสู่ระบบเพื่อซิงก์</button>`:''}${pending.length?'<button class="btn ghost" type="button" onclick="openOfflineSalesPanel()">ดูบิลรอซิงก์</button>':''}</div>`;
 }
 function reauthenticateOfflineSales(){
   const username=offlinePosAccount?.username||currentProfile?.username;
@@ -231,13 +234,14 @@ function reauthenticateOfflineSales(){
   };
 }
 function openOfflineSalesPanel(){
+  const pending=offlinePendingSales(activeWarehouseId);
   const overlay=document.createElement('div');overlay.className='modal-overlay';
-  overlay.innerHTML=`<section class="modal" role="dialog" aria-modal="true" aria-label="บิลรอซิงก์"><div class="modal-head"><h3>บิลรอซิงก์ ${offlinePendingSales().length} บิล</h3><button class="modal-close" type="button">×</button></div><div style="padding:18px;max-height:65vh;overflow:auto">${offlinePendingSales().map(row=>`<p><b>${escapeHtml(row.localSale.ref)}</b><br>${fmtMoney(row.localSale.total)} บาท · ${escapeHtml(row.localSale.date)}<br><b>${row.needsReview?'ต้องตรวจข้อมูล · หยุดส่งซ้ำอัตโนมัติ':'รอเชื่อมต่อ / รอยืนยันจากระบบ'}</b><br>${escapeHtml(row.error||'บันทึกในเครื่องแล้ว รอส่งเมื่อเชื่อมต่อได้')}${row.needsReview?`<br><button class="btn ghost" type="button" data-retry-sale="${escapeHtml(row.id)}">ลองส่งบิลนี้อีกครั้ง</button>`:''}</p>`).join('')}<p>บิลที่ต้องตรวจข้อมูลจะเก็บไว้ในเครื่อง โดยไม่ขวางการส่งบิลอื่น</p><button class="btn primary" type="button" data-retry>ลองซิงก์อีกครั้ง</button> <button class="btn ghost" type="button" data-export>ดาวน์โหลดสำเนาบิล</button></div></section>`;
+  overlay.innerHTML=`<section class="modal" role="dialog" aria-modal="true" aria-label="บิลรอซิงก์"><div class="modal-head"><h3>บิลรอซิงก์ ${pending.length} บิล</h3><button class="modal-close" type="button">×</button></div><div style="padding:18px;max-height:65vh;overflow:auto">${pending.map(row=>`<p><b>${escapeHtml(row.localSale.ref)}</b><br>${fmtMoney(row.localSale.total)} บาท · ${escapeHtml(row.localSale.date)}<br><b>${row.needsReview?'ต้องตรวจข้อมูล · หยุดส่งซ้ำอัตโนมัติ':'รอเชื่อมต่อ / รอยืนยันจากระบบ'}</b><br>${escapeHtml(row.error||'บันทึกในเครื่องแล้ว รอส่งเมื่อเชื่อมต่อได้')}${row.needsReview?`<br><button class="btn ghost" type="button" data-retry-sale="${escapeHtml(row.id)}">ลองส่งบิลนี้อีกครั้ง</button>`:''}</p>`).join('')}<p>บิลที่ต้องตรวจข้อมูลจะเก็บไว้ในเครื่อง โดยไม่ขวางการส่งบิลอื่น</p><button class="btn primary" type="button" data-retry>ลองซิงก์อีกครั้ง</button> <button class="btn ghost" type="button" data-export>ดาวน์โหลดสำเนาบิล</button></div></section>`;
   document.body.appendChild(overlay);overlay.querySelector('.modal-close').onclick=()=>overlay.remove();
   overlay.querySelector('[data-retry]').onclick=()=>{overlay.remove();void syncOfflineSales();};
   overlay.querySelectorAll('[data-retry-sale]').forEach(button=>{button.onclick=()=>{overlay.remove();void syncOfflineSales({retryBlockedId:button.dataset.retrySale});};});
   overlay.querySelector('[data-export]').onclick=()=>{
-    const blob=new Blob([JSON.stringify({format:'SAPURI-offline-sales',sales:offlinePendingSales()},null,2)],{type:'application/json'});
+    const blob=new Blob([JSON.stringify({format:'SAPURI-offline-sales',warehouseId:activeWarehouseId,sales:pending},null,2)],{type:'application/json'});
     const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`SAPURI-offline-sales-${currentDateStr()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
   };
 }

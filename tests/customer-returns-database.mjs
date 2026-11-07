@@ -63,11 +63,11 @@ export async function run({client}){
     const penny=(await q('select public.complete_sale($1,\'TEST\',8100,$2,$3,null) result',[randomUUID(),{total:.01,discount:.02,fee:0,vat:0,costTotal:.03,cashReceived:.01,cashChange:0,payMethod:'เงินสด'},JSON.stringify(pennyItems)])).rows[0].result.sale;
     const pennyReturn=await call(args(penny,1,.01,{returns:[0,1,2].map(itemIndex=>({itemIndex,qty:1,restock:false}))}));
     assert.equal(pennyReturn.returnSale.total,-.01);
-    await q(`insert into public.settings(key,value) values('business','{"vat":"จดภาษีมูลค่าเพิ่มแล้ว"}') on conflict(key) do update set value=excluded.value`);
+    await q(`insert into public.settings(key,value) values('business-warehouse:8100','{"vat":"จดภาษีมูลค่าเพิ่มแล้ว"}') on conflict(key) do update set value=excluded.value`);
     const vat=(await q('select public.complete_sale($1,\'TEST\',8100,$2,$3,null) result',[randomUUID(),{total:107,discount:0,fee:0,vat:7,costTotal:107,cashReceived:107,cashChange:0,payMethod:'เงินสด'},JSON.stringify([{lineKey:'1',custom:true,name:'VAT',unit:'item',qty:1,price:107,lineTotal:107,lineTotalGross:107}])])).rows[0].result.sale;
     const vatReturn=await call(args(vat,1,107,{returns:[{itemIndex:0,qty:1,restock:false}]}));
     assert.equal(vatReturn.returnSale.vat,-7);assert.equal(vatReturn.returnSale.taxSummary.beforeVat,-100);
-    await q(`delete from public.settings where key='business'`);
+    await q(`delete from public.settings where key='business-warehouse:8100'`);
     assert.equal((await q("select has_function_privilege('authenticated','private.process_customer_return(uuid,jsonb)','execute') allowed")).rows[0].allowed,false);
     const shift=(await q('select id from public.cash_shifts where warehouse_id=8100 and status=\'open\'')).rows[0].id;
     const totals=(await q(`select sum(case when data->>'customerReturn'='true' then -total else 0 end)::float refunds,

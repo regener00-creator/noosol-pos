@@ -12,7 +12,7 @@ const session = new Map();
 const persistent = new Map();
 const products = [{id:10,wh:2,name:'ยา A',stock:99,expiry:'2028-01-01'}];
 const sandbox = {
-  document:{querySelector:()=>null},resetStoreCategoryView:()=>{},normalizeProductCategorySettings:()=>({categories:[],subcategories:[]}),favorites:[],normalizeFavorites:items=>items,lastSyncedSnapshot:{},
+  document:{querySelector:()=>null},salesHistory:[],documentInActiveStore:()=>true,resetStoreSalesCache:()=>{},selectStoreSyncStatus:()=>{},refreshCategoryBrandUnitLists:()=>{},loadBusinessSettingsFromSupabase:async()=>{},resetStoreCategoryView:()=>{},normalizeProductCategorySettings:()=>({categories:[],subcategories:[]}),favorites:[],normalizeFavorites:items=>items,lastSyncedSnapshot:{},
   loadProductCategorySettingsFromSupabase:async()=>true,loadFavoritesFromSupabase:async()=>{},
   selectDocumentPrefixes(){},loadDocumentPrefixesFromSupabase:async()=>{},auditLogRequestToken:0,
   clearTimeout,customerLoyaltyExpiryTimer:null,

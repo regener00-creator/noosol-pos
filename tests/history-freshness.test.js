@@ -11,6 +11,8 @@ function fixture(){
   const c=vm.createContext({console,Date:class extends Date{static now(){return now;}},Map,Set,Number,String,JSON,Promise,
     TODAY_STR:'2026-10-24',salesHistory:[],cart:[],currentProfile:{id:'owner'},sb:{from:()=>query},
     maxArrayValue:()=>1000,DOC_TABLES:[],resetDocumentLoadStates:()=>{},onDemandTabErrors:new Map(),onDemandTabJobs:new Map()});
+  c.captureStoreView=()=>({...c.captureWorkspaceRead(),store:1,combined:false,view:0});
+  c.isStoreViewCurrent=context=>c.isWorkspaceReadCurrent(context);
   vm.runInContext(read('src/sync/read-signatures.js')+'\n'+read('src/data/pagination.js')+'\n'+read('src/sync/sales-history.js'),c);
   c.fetchBoundedRows=async()=>{calls++;return {data:structuredClone(rows),error:null};};
   return {c,setRows:value=>rows=value,advance:ms=>now+=ms,calls:()=>calls};

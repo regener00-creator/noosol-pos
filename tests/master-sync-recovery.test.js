@@ -188,13 +188,13 @@ test('core sync continues representatives, documents and counts after a contacts
   const calls=[];
   const c=vm.createContext({console,Date,Error,SYNC_TABLE_LABELS:{},currentProfile:{owner:true},currentTab:'contacts',
     offlinePosMode:()=>false,offlinePendingSales:()=>[],offlineSyncRunning:false,
-    coreSyncInFlight:false,coreSyncPending:false,coreSyncFailureDetail:null,syncedTableRows:{},currentWorkspacePendingChanges:()=>['contacts','sales_representatives','quotations','inspection_lists'].map(table=>({table})),
+    captureStoreView:()=>({store:1}),isStoreViewCurrent:()=>true,coreSyncInFlight:false,coreSyncPending:false,coreSyncFailureDetail:null,syncedTableRows:{},currentWorkspacePendingChanges:()=>['contacts','sales_representatives','quotations','inspection_lists'].map(table=>({table})),
     adoptRemoteMaintenanceEpoch:async()=>false,loggedInUser:()=>({owner:true}),setSyncUiState:()=>{},
     syncWarehousesIncrementally:async()=>true,syncProductsIncrementally:async()=>true,
     contacts:[],contactToRow:x=>x,salesRepresentatives:[],salesRepToRow:x=>x,
     upsertAndPrune:async table=>{calls.push(table);if(table==='contacts'){c.coreSyncFailureDetail={error:{code:'REVISION_CONFLICT'},tableName:table};return false;}return true;},
     DOC_TABLES:[['quotations',()=>[]]],documentLoadStates:{quotations:{loaded:true}},syncRevisionedDocuments:async table=>{calls.push(table);},
-    syncInspectionListsToSupabase:async()=>{calls.push('inspection_lists');return true;},rememberSyncUiError:()=>({}),reportClientEvent:()=>{},flushPendingClientEvents:()=>{},
+    syncInspectionListsToSupabase:async()=>{calls.push('inspection_lists');return true;},rememberSyncUiError:()=>({warehouse_id:1}),reportClientEvent:()=>{},flushPendingClientEvents:()=>{},
     resolveOwnSyncEventsThrough:async()=>assert.fail('must not close a genuine unresolved conflict')});
   vm.runInContext(section('async function syncCoreDataToSupabase(','// Stock never travels'),c);
   await c.syncCoreDataToSupabase();assert.deepEqual(calls,['contacts','sales_representatives','quotations','inspection_lists']);
@@ -203,7 +203,7 @@ test('core sync continues representatives, documents and counts after a contacts
 test('clean core sync skips unchanged tables and shares the maintenance check',async()=>{
   let release,epochReads=0,scans=0;
   const writes=[],c=vm.createContext({console,Date,Error,currentProfile:{id:'owner',owner:true},currentTab:'dashboard',
-    offlinePosMode:()=>false,offlinePendingSales:()=>[],offlineSyncRunning:false,coreSyncInFlight:false,coreSyncPending:false,
+    offlinePosMode:()=>false,offlinePendingSales:()=>[],offlineSyncRunning:false,captureStoreView:()=>({store:1}),isStoreViewCurrent:()=>true,coreSyncInFlight:false,coreSyncPending:false,
     coreSyncFailureDetail:null,syncUiLastError:null,syncedTableRows:{contacts:new Map(),sales_representatives:new Map(),inspection_lists:new Map()},
     currentWorkspacePendingChanges:()=>{scans++;return [];},
     adoptRemoteMaintenanceEpoch:()=>{epochReads++;return new Promise(resolve=>{release=()=>resolve(false);});},

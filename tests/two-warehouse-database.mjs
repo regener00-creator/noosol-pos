@@ -92,6 +92,25 @@ export async function run({client}){
     await assert.rejects(q("select public.complete_sale($1,'STORE',8510,$2,$3,null)",[randomUUID(),redemption,JSON.stringify(custom)]),/LOYALTY_INSUFFICIENT_POINTS/);
     await q('rollback to cross_shop_points');
     assert.equal(second.businessSnapshot.name,'B');assert.equal(Number(second.vat),7.85);assert.equal(Number(first.vat),0);
+    // The same operator can access both stores, but a receipt lookup must match the selected one.
+    for(const [shop,own,foreign] of [[shops[0],first,second],[shops[1],second,first]]){
+      assert.equal((await q('select id from public.find_store_sale($1,$2)',[shop.id,own.ref])).rows[0].id,own.id);
+      assert.equal((await q('select id from public.find_store_sale($1,$2)',[shop.id,foreign.ref])).rowCount,0);
+      await q('select public.update_store_label_settings($1,$2,null)',[shop.id,{medicineLabelDoseUnits:[shop.name]}]);
+      await q('select public.update_store_label_settings($1,$2,$3)',[shop.id,{promotionLabelTemplates:{title:shop.name}},'a4-poster']);
+      await q('select public.owner_set_setting($1,$2)',['business-warehouse:'+shop.id,{name:shop.name}]);
+    }
+    await q("insert into public.warehouses(id,name) values(1,'Primary') on conflict do nothing");
+    await q("insert into public.settings(key,value) values('business',$1) on conflict(key) do update set value=excluded.value",[{name:'legacy-primary',medicineLabelDoseUnits:['primary']}]);
+    await q('select public.update_store_label_settings(1,$1,null)',[{medicineLabelWarningPresets:['primary-warning']}]);
+    assert.equal((await q("select value->>'name' as name from public.settings where key='business'")).rows[0].name,'legacy-primary');
+    const event=async shop=>(await q("select public.report_client_event('store-device','error','sync','test',null,null,null,'same error',$1) id",[{warehouseId:shop}])).rows[0].id;
+    const eventA=await event(8510),eventB=await event(8520);
+    assert.notEqual(eventA,eventB);
+    assert.equal(await event(8520),eventB);
+    await q("select public.resolve_store_sync_events(8510,'store-device',clock_timestamp())");
+    assert.equal((await q('select status from public.sync_events where id=$1',[eventB])).rows[0].status,'open');
+    assert.equal((await q('select public.owner_resolve_store_sync_event(8510,$1) ok',[eventB])).rows[0].ok,false);
     await verifyOwnerTools(q,owner,shops);
     await q('savepoint wrong_store');await assert.rejects(sell(shops[0],8520),/unavailable/);await q('rollback to wrong_store');
     await q("select public.owner_set_setting('business-warehouse:8510',$1)",[{name:'Changed'}]);
@@ -107,6 +126,11 @@ export async function run({client}){
     await q('savepoint foreign_preference');
     await assert.rejects(q("insert into public.combined_catalog_unit_preferences values($1,8520,'Box')",[owner]),/row-level security/);
     await q('rollback to foreign_preference');
+    assert.equal((await q("select key from public.settings where key='business'")).rowCount,0);
+    assert.equal((await q('select * from public.sync_events where id=$1',[eventB])).rowCount,0);
+    assert.equal((await q('select * from public.product_change_log where product_id=8520')).rowCount,0);
+    assert.ok((await q('select * from public.product_change_log where product_id=8510')).rowCount>0);
+    assert.equal((await q('select id from public.find_store_sale(8520,$1)',[second.id])).rowCount,0);
     assert.deepEqual((await q('select id from public.sales_representatives where id in (8510,8520)')).rows.map(r=>Number(r.id)),[8510]);
     assert.equal((await q('select * from public.notes where representative_id=8520')).rowCount,0);
     assert.equal((await q('select * from public.sales_representative_products where representative_id=8520')).rowCount,0);
@@ -132,6 +156,12 @@ async function verifyOwnerTools(q,owner,[a,b]){
     assert.ok(log.totalCount>0);assert.ok(log.rows.every(row=>Number(row.warehouse_id)===shop.id));
   }
   const first=await snapshot(a),other=await snapshot(b);
+  for(const [backup,shop] of [[first,a],[other,b]]){
+    const labels=backup.data.tables['public.settings'].find(r=>r.key==='business-warehouse:'+shop.id).value;
+    assert.deepEqual(labels.medicineLabelDoseUnits,[shop.name]);
+    assert.equal(labels.promotionLabelTemplates['a4-poster'].title,shop.name);
+    assert.ok(!backup.data.tables['public.settings'].some(r=>r.key==='business'));
+  }
   assert.deepEqual(first.data.tables['public.products'].map(p=>Number(p.id)),[a.id]);
   assert.deepEqual(other.data.tables['public.contacts'].map(c=>Number(c.id)),[b.id]);
   await q('savepoint scope_mismatch');

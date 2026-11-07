@@ -130,7 +130,7 @@ function priceLabelTemplateKeys(kind){
 }
 function getPriceLabelTemplateLibrary(labelSize='80x50',kind='price'){
   const validSize=BARCODE_PRINT_LABEL_DIMENSIONS[labelSize]?labelSize:'80x50';
-  const settings=typeof businessSettings==='object'&&businessSettings?businessSettings:{};
+  const settings=storeLabelSettings();
   const key=priceLabelTemplateKeys(kind)[1];
   const libraries=settings[key]&&typeof settings[key]==='object'?settings[key]:{};
   return normalizePriceLabelTemplateLibrary(libraries[validSize],validSize);
@@ -141,17 +141,13 @@ function persistPriceLabelTemplateState(labelSize,template,library,kind='price')
   const normalized=normalizePriceLabelTemplate(template,validSize);
   const normalizedLibrary=normalizePriceLabelTemplateLibrary(library,validSize);
   const [templateKey,libraryKey]=priceLabelTemplateKeys(kind);
-  const previousTemplates=businessSettings?.[templateKey]&&typeof businessSettings[templateKey]==='object'?businessSettings[templateKey]:{};
-  const previousLibraries=businessSettings?.[libraryKey]&&typeof businessSettings[libraryKey]==='object'?businessSettings[libraryKey]:{};
-  businessSettings={...businessSettings,[templateKey]:{...previousTemplates,[validSize]:normalized},[libraryKey]:{...previousLibraries,[validSize]:normalizedLibrary}};
-  if(typeof persistWorkspaceData==='function') persistWorkspaceData();
-  if(typeof syncBusinessSettingsToSupabase==='function') priceLabelTemplateSyncPromise=priceLabelTemplateSyncPromise.then(()=>syncBusinessSettingsToSupabase(),()=>syncBusinessSettingsToSupabase());
+  saveStoreLabelSettings({[templateKey]:normalized,[libraryKey]:normalizedLibrary},validSize);
   return {template:normalized,library:normalizedLibrary};
 }
 
 function getPriceLabelTemplate(labelSize='80x50',kind='price'){
   const validSize=BARCODE_PRINT_LABEL_DIMENSIONS[labelSize]?labelSize:'80x50';
-  const settings=typeof businessSettings==='object'&&businessSettings?businessSettings:{};
+  const settings=storeLabelSettings();
   const library=getPriceLabelTemplateLibrary(validSize,kind);
   const active=library.templates.find(entry=>entry.id===library.activeId);
   if(active) return normalizePriceLabelTemplate(active.template,validSize);

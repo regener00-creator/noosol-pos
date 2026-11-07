@@ -34,6 +34,7 @@ let browser;
   await page.evaluate(()=>{
     document.querySelectorAll('.login-screen').forEach(el=>el.remove());
     render=()=>{};renderLoginState=()=>true;
+    activeWarehouseId=1;allWarehousesMode=false;
     currentProfile={id:'sync-test-owner',owner:true,level:1};
     currentDeviceId=()=> 'sync-test-device';
     adoptRemoteMaintenanceEpoch=async()=>false;syncWarehousesIncrementally=async()=>true;syncProductsIncrementally=async()=>true;syncInspectionListsToSupabase=async()=>true;

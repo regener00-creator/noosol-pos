@@ -6,6 +6,24 @@ let syncUiState=navigator.onLine?'synced':'offline';
 let syncUiErrorCount=0;
 let syncUiLastError=null;
 let coreSyncFailureDetail=null;
+const syncStatusByStore=new Map();
+function selectStoreSyncStatus(){
+  const previous=syncStatusByStore.get(currentProfile?.id+':'+activeWarehouseId);
+  syncUiLastError=previous?.last||null;
+  setSyncUiState(previous?.state||'synced',previous?.count||0);
+  document.querySelector('.sync-detail-overlay')?.remove();
+}
+function syncRecordStore(table,id,fallback){
+  if(table==='products') return Number(completeProductCatalog().find(p=>String(p.id)===String(id))?.wh||fallback);
+  const entry=workspaceRecoveryTables().find(([name])=>name===table);
+  if(entry&&id){
+    const row=entry[1]().find(item=>String(item.id)===String(id));
+    if(row) return Number(row.warehouseId)||1;
+    const baseline=syncedTableRows[table]?.get(String(id));
+    if(baseline) return pendingEntryStore({baseline});
+  }
+  return fallback;
+}
 function currentDeviceId(){
   let id=''; try{ id=localStorage.getItem(DEVICE_ID_STORAGE_KEY)||''; }catch(_error){}
   if(!id){ id=globalThis.crypto?.randomUUID?.()||`device-${Date.now()}-${Math.random().toString(36).slice(2)}`; try{ localStorage.setItem(DEVICE_ID_STORAGE_KEY,id); }catch(_error){} }
@@ -16,12 +34,15 @@ function renderSyncStatusChip(){
   const state=navigator.onLine?syncUiState:'offline';
   const labels={synced:'ซิงก์แล้ว',syncing:'กำลังซิงก์…',error:`ซิงก์ไม่สำเร็จ${syncUiErrorCount?` (${syncUiErrorCount})`:''}`,offline:'ออฟไลน์'};
   chip.dataset.state=state; chip.textContent=labels[state]||labels.synced;
-  if(typeof offlinePendingSales==='function'&&offlinePendingSales().length) chip.textContent+=` · รอส่ง ${offlinePendingSales().length} บิล`;
+  const pendingCount=typeof offlinePendingSales==='function'&&!isAllWarehousesMode()?offlinePendingSales(activeWarehouseId).length:0;
+  if(pendingCount) chip.textContent+=` · รอส่ง ${pendingCount} บิล`;
   chip.title='กดเพื่อดูรายละเอียดการซิงก์';
 }
-function setSyncUiState(state,errorCount=syncUiErrorCount){ syncUiState=state; syncUiErrorCount=Math.max(0,Number(errorCount)||0); renderSyncStatusChip(); }
-function rememberSyncUiError(error,{operation='sync_core_data',tableName='',recordId='',fallbackMessage='ซิงก์ข้อมูลไม่สำเร็จ'}={}){
-  syncUiLastError={
+function setSyncUiState(state,errorCount=syncUiErrorCount){ syncUiState=state; syncUiErrorCount=Math.max(0,Number(errorCount)||0); syncStatusByStore.set(currentProfile?.id+':'+activeWarehouseId,{state,count:syncUiErrorCount,last:syncUiLastError}); renderSyncStatusChip(); }
+function rememberSyncUiError(error,{operation='sync_core_data',tableName='',recordId='',fallbackMessage='ซิงก์ข้อมูลไม่สำเร็จ',warehouseId=activeWarehouseId}={}){
+  const store=syncRecordStore(tableName,recordId||error?.productId,warehouseId)||1;
+  const last={
+    warehouse_id:store,
     operation:String(operation||'sync_core_data'),
     table_name:String(tableName||''),
     record_id:String(recordId||error?.recordId||error?.productId||''),
@@ -30,8 +51,12 @@ function rememberSyncUiError(error,{operation='sync_core_data',tableName='',reco
     occurred_at:new Date().toISOString(),
     local:true,
   };
-  setSyncUiState(navigator.onLine?'error':'offline',syncUiErrorCount+(error?.syncPaused?0:1));
-  return syncUiLastError;
+  const key=currentProfile?.id+':'+store;
+  const count=(syncStatusByStore.get(key)?.count||0)+(error?.syncPaused?0:1);
+  const state=navigator.onLine?'error':'offline';
+  syncStatusByStore.set(key,{last,state,count});
+  if(store===activeWarehouseId){syncUiLastError=last;setSyncUiState(state,count);}
+  return last;
 }
 function noteCoreSyncFailure(error,{operation='sync_core_data',tableName='',recordId='',fallbackMessage='ซิงก์ข้อมูลไม่สำเร็จ'}={}){
   coreSyncFailureDetail={error,operation,tableName,recordId:recordId||error?.recordId||error?.productId||'',fallbackMessage};
@@ -90,11 +115,13 @@ function syncDetailRowsHtml(rows=[]){
   }).join('');
 }
 async function loadLatestConflictedProduct(productId,eventId=''){
+  const context=captureStoreView();
   const id=Number(productId)||0;
   const current=(products||[]).find(product=>Number(product.id)===id);
   if(!id||!current) throw new Error('ไม่พบสินค้าที่ต้องการโหลดในเครื่องนี้');
   if(!confirm(`โหลดข้อมูลล่าสุดของ “${current.name||current.sku||id}” จากเซิร์ฟเวอร์หรือไม่?\n\nข้อมูลที่แก้ไขค้างอยู่ในเครื่องสำหรับสินค้านี้จะถูกแทนที่ แต่สต๊อกและ LOT จะไม่ถูกแก้ไข`)) return false;
   const {data,error}=await sb.from('products').select('*').eq('id',id).maybeSingle();
+  if(!isStoreViewCurrent(context)) return false;
   if(error) throw error;
   if(!data&&!confirm('สินค้านี้ถูกลบบนเซิร์ฟเวอร์แล้ว ต้องการทิ้งการแก้ไขที่ค้างในเครื่องและนำออกจากรายการในเครื่องหรือไม่?')) return false;
   const normalizedRemote=data?rowToProduct(data):null;
@@ -115,30 +142,32 @@ async function loadLatestConflictedProduct(productId,eventId=''){
   if(Number(syncConflictProductId(syncUiLastError))===id) syncUiLastError=null;
   setSyncUiState('syncing');
   await syncCoreDataToSupabase();
-  if(eventId) await resolveSyncEventAsOwner(eventId);
+  if(eventId&&isStoreViewCurrent(context)) await resolveSyncEventAsOwner(eventId);
   render();
   return true;
 }
 async function resolveSyncEventAsOwner(eventId){
   if(!eventId||!currentProfile?.owner) return false;
-  const {data,error}=await sb.rpc('owner_resolve_sync_event',{p_event_id:eventId});
+  const {data,error}=await sb.rpc('owner_resolve_store_sync_event',{p_warehouse_id:activeWarehouseId,p_event_id:eventId});
   if(error) throw error;
   return data===true;
 }
 async function loadSyncEventDetails(){
-  if(!sb||!currentProfile) return [];
+  if(!sb||!currentProfile||!activeWarehouseId||isAllWarehousesMode()) return [];
+  const context=captureStoreView();
   const {data,error}=await sb.from('sync_events')
     .select('id,device_id,severity,category,operation,table_name,record_id,error_code,message,status,first_occurred_at,occurred_at,resolved_at,occurrence_count')
+    .eq('warehouse_id',context.store)
     .order('occurred_at',{ascending:false})
     .limit(30);
   if(error) throw error;
-  return Array.isArray(data)?data:[];
+  return isStoreViewCurrent(context)&&Array.isArray(data)?data:[];
 }
 function openSyncDetailsModal(){
   document.querySelector('.sync-detail-overlay')?.remove();
   const overlay=document.createElement('div');
   overlay.className='modal-overlay sync-detail-overlay';
-  const localRows=syncUiLastError?[syncUiLastError]:[];
+  const localRows=syncUiLastError?.warehouse_id===activeWarehouseId&&!isAllWarehousesMode()?[syncUiLastError]:[];
   overlay.innerHTML=`<section class="modal sync-detail-modal" role="dialog" aria-modal="true" aria-labelledby="syncDetailTitle">
     <div class="modal-head"><div><h3 id="syncDetailTitle">รายละเอียดการซิงก์</h3><div class="sync-detail-summary">${navigator.onLine?'เชื่อมต่ออินเทอร์เน็ตแล้ว':'อุปกรณ์ออฟไลน์'}${syncUiErrorCount?` · ล้มเหลวสะสม ${syncUiErrorCount} รอบ`:''}</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div>
     <div class="sync-detail-body">
@@ -254,7 +283,7 @@ async function flushPendingClientEvents(){
     const attempted=new Set();
     let allSaved=true;
     while(navigator.onLine){
-      const event=readPendingClientEvents().find(row=>!attempted.has(row.id));
+      const event=readPendingClientEvents().find(row=>!attempted.has(row.id)&&(!row.actorId||row.actorId===currentProfile?.id)&&accessibleWarehouses().some(w=>Number(w.id)===Number(row.context?.warehouseId||1)));
       if(!event) break;
       attempted.add(event.id);
       try{
@@ -269,14 +298,15 @@ async function flushPendingClientEvents(){
 }
 async function reportClientEvent({severity='error',category='sync',operation,tableName='',recordId='',errorCode='',message,context={}}){
   if(!operation||!message) return false;
-  const event={id:globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`,severity,category,operation:String(operation),tableName:String(tableName||''),recordId:String(recordId||''),errorCode:String(errorCode||''),message:String(message).slice(0,1000),context:cloudClean(context||{}),createdAt:new Date().toISOString()};
+  const store=syncRecordStore(tableName,recordId,Number(context.warehouseId)||activeWarehouseId)||1;
+  const event={actorId:currentProfile?.id,id:globalThis.crypto?.randomUUID?.()||`${Date.now()}-${Math.random()}`,severity,category,operation:String(operation),tableName:String(tableName||''),recordId:String(recordId||''),errorCode:String(errorCode||''),message:String(message).slice(0,1000),context:cloudClean({...context,warehouseId:store}),createdAt:new Date().toISOString()};
   if(!enqueuePendingClientEvent(event)){ console.warn('ไม่สามารถเก็บ Error เพื่อส่งซ้ำได้'); return false; }
   return flushPendingClientEvents();
 }
-async function resolveOwnSyncEventsThrough(through){
+async function resolveOwnSyncEventsThrough(through,warehouseId=activeWarehouseId){
   if(!currentProfile) return;
   try{
-    const {error}=await sb.rpc('resolve_own_sync_events',{p_device_id:currentDeviceId(),p_through:through||new Date().toISOString()});
+    const {error}=await sb.rpc('resolve_store_sync_events',{p_warehouse_id:warehouseId,p_device_id:currentDeviceId(),p_through:through||new Date().toISOString()});
     if(error&&!['PGRST202','42883'].includes(String(error.code||''))) console.warn('resolve sync events failed',error);
   }
   catch(_error){ /* compatible with the short rollout window before the RPC exists */ }
@@ -332,17 +362,18 @@ async function finishDurableOperation(request){
   }
 }
 async function runStockOperation(operation,args={}){
+  const context=captureStoreView();
   const payload=cloudClean(args||{}),payloadHash=await sha256Hex({operation,payload});
   const request=await beginDurableOperation(operation,payloadHash),requestId=request.requestId;
   setSyncUiState('syncing');
   const {data,error}=await sb.rpc('run_stock_operation',{p_request_id:requestId,p_operation:operation,p_args:payload});
   if(error){
-    rememberSyncUiError(error,{operation,recordId:String(payload.receiptId||payload.returnId||payload.exchangeId||payload.saleId||payload.productId||''),fallbackMessage:'บันทึกการเปลี่ยนแปลงสต๊อกไม่สำเร็จ'});
-    reportClientEvent({operation,recordId:String(payload.receiptId||payload.returnId||payload.exchangeId||payload.saleId||payload.productId||''),errorCode:error.code||'',message:error.message||'Stock operation failed',context:{payloadHash}});
+    rememberSyncUiError(error,{operation,warehouseId:context.store,recordId:String(payload.receiptId||payload.returnId||payload.exchangeId||payload.saleId||payload.productId||''),fallbackMessage:'บันทึกการเปลี่ยนแปลงสต๊อกไม่สำเร็จ'});
+    reportClientEvent({operation,recordId:String(payload.receiptId||payload.returnId||payload.exchangeId||payload.saleId||payload.productId||''),errorCode:error.code||'',message:error.message||'Stock operation failed',context:{payloadHash,warehouseId:context.store}});
     throw error;
   }
   await finishDurableOperation(request);
-  setSyncUiState('synced',0);
+  if(isStoreViewCurrent(context)) setSyncUiState('synced',0);
   return data;
 }
 async function recordPrintEvent(documentType,documentId='',metadata={}){

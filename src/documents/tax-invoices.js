@@ -190,7 +190,7 @@ function saveStandaloneTaxInvoice(){
 }
 
 function startTaxInvoiceForm(saleId){
-  const sale=salesHistory.find(item=>item.id===saleId); if(!sale||sale.status!=='done') return;
+  const sale=salesHistory.find(item=>item.id===saleId); if(!sale||!documentInActiveStore(sale)||sale.status!=='done') return;
   if(!sale.fullTaxInvoice&&!canIssueTaxInvoiceForSale(sale)){ showToast('รายการขายนี้ออกใบกำกับภาษีไม่ได้','danger'); return; }
   const member=sale.member&&typeof sale.member==='object'?sale.member:{};
   const memberName=typeof sale.member==='string'?sale.member:member.name;

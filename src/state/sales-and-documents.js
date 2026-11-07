@@ -69,14 +69,14 @@ const VAT_RATE = 0.07;
 const VAT_REGISTERED_LABEL = 'จดภาษีมูลค่าเพิ่มแล้ว';
 function warehouseBusinessSettings(warehouseId=isAllWarehousesMode()?0:activeWarehouseId){
   const id=Number(warehouseId);
+  if(id>1)return {name:whName(id),vat:'ยังไม่จดภาษีมูลค่าเพิ่ม',branch:'none',documentPhone:'mobile',...warehouseBusinessProfiles[id]};
   if(warehouseBusinessProfiles[id])return warehouseBusinessProfiles[id];
-  if(id===2)return {name:whName(id),vat:'ยังไม่จดภาษีมูลค่าเพิ่ม',branch:'none',documentPhone:'mobile'};
   return businessSettings;
 }
 function documentBusinessSettings(document){
   const snapshot=document?.businessSnapshot;
   if(snapshot && Object.hasOwn(snapshot,'line')) return snapshot;
-  const issuer=warehouseBusinessSettings(document?.warehouseId||0);
+  const issuer=warehouseBusinessSettings(document?.warehouseId||1);
   return snapshot?{...snapshot,line:issuer.line||''}:issuer;
 }
 function isBusinessVatRegistered(settings=warehouseBusinessSettings()){

@@ -1,31 +1,35 @@
-// ----- Business settings sync -----
-// Single object (not a list), stored as one row in the generic key/value
-// `settings` table (key='business') that was already part of the original
-// schema but never actually used until now. Uses the same lastSyncedSnapshot
-// content-hash guard as upsertAndPrune() so an unrelated render doesn't
-// re-upload it needlessly.
-async function syncBusinessSettingsToSupabase(){
-  if(!currentProfile){ businessSettingsSyncState='local'; return false; }
-  const snapshot=JSON.stringify(businessSettings);
-  if(lastSyncedSnapshot.business_settings===snapshot){ businessSettingsSyncState='synced'; return true; }
-  businessSettingsSyncState='syncing';
-  businessSettingsSyncError='';
-  try{
-    const {error}=await sb.rpc('owner_set_setting',{p_key:'business',p_value:businessSettings});
-    if(error) throw error;
-    lastSyncedSnapshot.business_settings=snapshot;
-    businessSettingsSyncState='synced';
-    businessSettingsLastSyncedAt=new Date().toISOString();
-    return true;
-  }catch(e){
-    console.warn('sync business settings failed',e);
-    businessSettingsSyncState='error';
-    businessSettingsSyncError=e?.message||'เชื่อมต่อ Supabase ไม่สำเร็จ';
-    return false;
+// Legacy primary-store settings stay in "business" so old backups still restore.
+function storeLabelSettings(){
+  if(isAllWarehousesMode()) return {};
+  return activeWarehouseId>1?(warehouseBusinessProfiles[activeWarehouseId]||{}):businessSettings;
+}
+let labelSettingsSave=Promise.resolve();
+function saveStoreLabelSettings(patch,size=null){
+  if(isAllWarehousesMode()) return;
+  const store=Number(activeWarehouseId)||1;
+  const previous=storeLabelSettings();
+  const next={...previous};
+  for(const [key,value] of Object.entries(patch)){
+    next[key]=size?{...previous[key],[size]:value}:value;
   }
+  if(store===1) businessSettings=next;
+  else warehouseBusinessProfiles={...warehouseBusinessProfiles,[store]:next};
+  persistWorkspaceData();
+  if(!activeWarehouseId||!currentProfile) return;
+  const context=captureWorkspaceRead();
+  const save=async()=>{
+    if(!isWorkspaceReadCurrent(context)) return;
+    try{
+      const {error}=await sb.rpc('update_store_label_settings',{p_warehouse_id:store,p_patch:patch,p_size:size});
+      if(error) throw error;
+    }catch(error){
+      if(isWorkspaceReadCurrent(context)) showToast('บันทึกการตั้งค่าฉลากของ '+whName(store)+' ไม่สำเร็จ: '+error.message,'danger-top');
+    }
+  };
+  labelSettingsSave=labelSettingsSave.then(save,save);
 }
 function applyBusinessSettings(value){
-  businessSettings={...businessSettings,...(value&&typeof value==='object'?value:{})};
+  businessSettings={...DEFAULT_BUSINESS_SETTINGS,...(value||{})};
   STORE_INFO.name=String(businessSettings.name||'');
   STORE_INFO.address=String(businessSettings.address||'');
   STORE_INFO.taxId=String(businessSettings.taxId||'');
@@ -34,29 +38,25 @@ function applyBusinessSettings(value){
   STORE_INFO.branch=businessTaxBranchLabel(businessSettings);
 }
 async function loadBusinessSettingsFromSupabase(){
-  const context=captureWorkspaceRead();
-  try{
-    const cachedProfiles=warehouseBusinessProfiles;
-    const {data:rows,error}=await sb.from('settings').select('key,value').or('key.eq.business,key.like.business-warehouse:%');
-    if(!isWorkspaceReadCurrent(context)) return;
-    if(error){ console.warn('load business settings',error); return; }
-    const data=rows?.find(row=>row.key==='business');
-    if(cachedProfiles===warehouseBusinessProfiles){
-      warehouseBusinessProfiles=Object.fromEntries((rows||[])
-        .filter(row=>/^business-warehouse:\d+$/.test(row.key)&&row.value)
-        .map(row=>[row.key.split(':')[1],row.value]));
-    }
-    if(data&&data.value&&typeof data.value==='object'){
-      applyBusinessSettings(data.value);
-      lastSyncedSnapshot.business_settings=JSON.stringify(businessSettings);
-      businessSettingsSyncState='synced';
-      businessSettingsLastSyncedAt=new Date().toISOString();
-    }else{
-      await syncBusinessSettingsToSupabase(); // first time ever: seed Supabase from whatever's local right now
-    }
-  }catch(e){ console.warn('load business settings failed',e); }
+  const context=captureStoreView();
+  if(!context.store||context.combined) return;
+  await labelSettingsSave;
+  if(!isStoreViewCurrent(context)) return;
+  const profileKey='business-warehouse:'+context.store;
+  const before=warehouseBusinessProfiles[context.store];
+  const legacyBefore=businessSettings;
+  const keys=context.store===1?[profileKey,'business']:[profileKey];
+  const {data,error}=await sb.from('settings').select('key,value').in('key',keys);
+  if(!isStoreViewCurrent(context)) return;
+  if(error){console.warn('load business settings',error);return;}
+  if(context.store===1&&legacyBefore===businessSettings) applyBusinessSettings(data?.find(row=>row.key==='business')?.value);
+  if(before===warehouseBusinessProfiles[context.store]){
+    const profile=data?.find(row=>row.key===profileKey)?.value;
+    warehouseBusinessProfiles={...warehouseBusinessProfiles,[context.store]:profile};
+  }
+  businessSettingsSyncState='synced';
+  businessSettingsLastSyncedAt=new Date().toISOString();
 }
-
 // ----- Document number prefixes sync -----
 // Another single object, same settings(key,value) table as business settings.
 async function loadDocumentPrefixesFromSupabase(){
@@ -221,6 +221,9 @@ async function loadCoreDataFromSupabase(){
     setWarehouseProductCatalog(prodRows||[]);
     rebuildProductLookupMaps();
     warehouseAccessRows=accessRows||[];
+    const visibleStores=new Set(accessibleWarehouses().map(w=>Number(w.id)));
+    warehouseBusinessProfiles=Object.fromEntries(Object.entries(warehouseBusinessProfiles).filter(([id])=>visibleStores.has(Number(id))));
+    if(!visibleStores.has(1)) applyBusinessSettings(null);
     pagePermissionRows=permissionTablePending?[]:(permissionRows||[]);
     inventoryBalanceRows=[];
     inventoryLotRows=[];
@@ -230,7 +233,7 @@ async function loadCoreDataFromSupabase(){
     restoreActiveWarehouseSelection();
     applyStoreCategoryView();
     selectDocumentPrefixes();
-    await Promise.all([loadProductCategorySettingsFromSupabase(),loadFavoritesFromSupabase(),loadDocumentPrefixesFromSupabase()]);
+    await Promise.all([loadBusinessSettingsFromSupabase(),loadProductCategorySettingsFromSupabase(),loadFavoritesFromSupabase(),loadDocumentPrefixesFromSupabase()]);
     if(!isWorkspaceReadCurrent(context)) return false;
     if(!await loadWarehouseInventoryFromSupabase(inventoryScopeWarehouseIds(),{force:true})){
       console.warn('load core inventory failed');

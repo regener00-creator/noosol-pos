@@ -38,11 +38,11 @@ async function saveRevisionedDocument(table,doc,{remove=false,expectedRevision=n
   if(error){
     if(String(error.message||'').includes('REVISION_CONFLICT')||['40001','PT409'].includes(String(error.code||''))){
       const conflict=new Error('เอกสารนี้ถูกแก้ไขจากอีกเครื่องแล้ว กรุณาโหลดข้อมูลล่าสุดก่อนบันทึกอีกครั้ง'); conflict.code='REVISION_CONFLICT'; conflict.recordId=String(row.id||'');
-      reportClientEvent({operation:'save_revisioned_document',tableName:table,recordId:conflict.recordId,errorCode:conflict.code,message:conflict.message,context:{expectedRevision:revision,payloadHash}});
+      reportClientEvent({operation:'save_revisioned_document',tableName:table,recordId:conflict.recordId,errorCode:conflict.code,message:conflict.message,context:{expectedRevision:revision,payloadHash,warehouseId:Number(doc.warehouseId)||1}});
       conflict.syncEventReported=true;
       throw conflict;
     }
-    reportClientEvent({operation:'save_revisioned_document',tableName:table,recordId:String(row.id||''),errorCode:error.code||'',message:error.message||'Document sync failed',context:{expectedRevision:revision,payloadHash}});
+    reportClientEvent({operation:'save_revisioned_document',tableName:table,recordId:String(row.id||''),errorCode:error.code||'',message:error.message||'Document sync failed',context:{expectedRevision:revision,payloadHash,warehouseId:Number(doc.warehouseId)||1}});
     error.syncEventReported=true;
     throw error;
   }
@@ -96,8 +96,6 @@ const MEDICINE_LABEL_DURATION_OPTIONS=[
 ];
 const MEDICINE_LABEL_WARNING_PRESETS=['อาจทำให้ง่วง ห้ามขับรถหรือใช้เครื่องจักร','รับประทานยานี้ติดต่อกันจนหมด','เขย่าขวดก่อนใช้','เก็บยาในตู้เย็น ห้ามแช่แข็ง'];
 let medicineLabelSize=(()=>{ try{ const saved=localStorage.getItem(MEDICINE_LABEL_SIZE_STORAGE_KEY); return MEDICINE_LABEL_SIZES[saved]?saved:'80x50'; }catch(_error){ return '80x50'; } })();
-let medicineLabelDoseUnitSyncPromise=Promise.resolve();
-let medicineLabelWarningPresetSyncPromise=Promise.resolve();
 function normalizeMedicineLabelDoseUnits(values){
   const result=[],seen=new Set();
   (Array.isArray(values)?values:[]).forEach(value=>{
@@ -108,15 +106,13 @@ function normalizeMedicineLabelDoseUnits(values){
   return result;
 }
 function getMedicineLabelDoseUnits(){
-  const saved=normalizeMedicineLabelDoseUnits(businessSettings?.medicineLabelDoseUnits);
+  const saved=normalizeMedicineLabelDoseUnits(storeLabelSettings().medicineLabelDoseUnits);
   return saved.length?saved:[...MEDICINE_LABEL_DOSE_UNITS];
 }
 function saveMedicineLabelDoseUnits(values){
   const normalized=normalizeMedicineLabelDoseUnits(values);
   if(!normalized.length) return getMedicineLabelDoseUnits();
-  businessSettings={...businessSettings,medicineLabelDoseUnits:normalized};
-  persistWorkspaceData();
-  medicineLabelDoseUnitSyncPromise=medicineLabelDoseUnitSyncPromise.then(()=>syncBusinessSettingsToSupabase(),()=>syncBusinessSettingsToSupabase());
+  saveStoreLabelSettings({medicineLabelDoseUnits:normalized});
   return [...normalized];
 }
 function normalizeMedicineLabelWarningPresets(values){
@@ -129,15 +125,13 @@ function normalizeMedicineLabelWarningPresets(values){
   return result;
 }
 function getMedicineLabelWarningPresets(){
-  return Array.isArray(businessSettings?.medicineLabelWarningPresets)
-    ?normalizeMedicineLabelWarningPresets(businessSettings.medicineLabelWarningPresets)
+  return Array.isArray(storeLabelSettings().medicineLabelWarningPresets)
+    ?normalizeMedicineLabelWarningPresets(storeLabelSettings().medicineLabelWarningPresets)
     :[...MEDICINE_LABEL_WARNING_PRESETS];
 }
 function saveMedicineLabelWarningPresets(values){
   const normalized=normalizeMedicineLabelWarningPresets(values);
-  businessSettings={...businessSettings,medicineLabelWarningPresets:normalized};
-  persistWorkspaceData();
-  medicineLabelWarningPresetSyncPromise=medicineLabelWarningPresetSyncPromise.then(()=>syncBusinessSettingsToSupabase(),()=>syncBusinessSettingsToSupabase());
+  saveStoreLabelSettings({medicineLabelWarningPresets:normalized});
   return [...normalized];
 }
 function medicineLabelMemberName(member=saleMember){

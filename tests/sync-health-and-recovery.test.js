@@ -12,7 +12,7 @@ assert.match(app,/async function flushPendingClientEvents\(\)/);
 assert.match(app,/window\.addEventListener\('online',[\s\S]*flushPendingClientEvents\(\)/);
 assert.match(app,/from\('products'\)\.select\('id,revision'\)/);
 assert.match(app,/fetchProductRevisionManifest\(\)/);
-assert.match(app,/owner_resolve_sync_event/);
+assert.match(app,/owner_resolve_store_sync_event/);
 assert.match(app,/get_owner_database_health/);
 assert.match(app,/id="recoveryNewPassword"[^>]*type="password"/);
 assert.match(app,/async function enforceOwnerRecoverySetup\(\)/);

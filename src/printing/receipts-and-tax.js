@@ -54,7 +54,7 @@ function a4CashReceiptCustomer(sale){
 }
 
 function openA4CashReceiptModal(saleId){
-  const sale=salesHistory.find(item=>item.id===saleId); if(!sale||sale.status!=='done') return;
+  const sale=salesHistory.find(item=>item.id===saleId); if(!sale||!documentInActiveStore(sale)||sale.status!=='done') return;
   const customer=a4CashReceiptCustomer(sale),meta=sale.cashReceiptA4Meta||{};
   const documentNumber=meta.number||nextA4CashReceiptNumber();
   const overlay=document.createElement('div'); overlay.className='modal-overlay';

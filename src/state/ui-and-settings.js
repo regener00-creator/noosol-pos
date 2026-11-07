@@ -137,7 +137,6 @@ const PRICE_LABEL_ELEMENT_META={
 };
 const PRICE_LABEL_TEXT_COLORS=['#000000','#e60012'];
 const PRICE_LABEL_PRESET_LABELS={left:'ชิดซ้าย / เว้นด้านขวา',full:'เต็มพื้นที่',center:'เน้นราคากึ่งกลาง',custom:'กำหนดเอง'};
-let priceLabelTemplateSyncPromise=Promise.resolve();
 let priceLabelCustomTextCounter=0;
 let priceLabelNamedTemplateCounter=0;
 // เลขหน้าสำหรับตารางเอกสารต่างๆ (แสดงหน้าละ 10 รายการ)

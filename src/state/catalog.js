@@ -134,7 +134,8 @@ function customersList(){ return storeContacts().filter(c=>c.types.includes('cus
 function suppliersList(){ return storeContacts().filter(c=>c.types.includes('supplier')); }
 let employees = [ 'เภสัชกรหญิงมานี', 'พนักงานขายสมชาย' ];
 let categories = [ 'ไม่ทราบหมวดหมู่' ]; // 'ไม่ทราบหมวดหมู่' is a real fallback the app relies on (products with no category); the rest fill in from actual product data via refreshCategoryBrandUnitLists()
-let units = [ 'แผง', 'ซอง', 'ขวด', 'กระปุก', 'กล่อง', 'ห่อ', 'ชิ้น', 'โหล', 'แพ็ค', 'ลัง', 'หลอด', 'ม้วน', 'กระป๋อง', 'ถุง' ];
+const defaultProductUnits = [ 'แผง', 'ซอง', 'ขวด', 'กระปุก', 'กล่อง', 'ห่อ', 'ชิ้น', 'โหล', 'แพ็ค', 'ลัง', 'หลอด', 'ม้วน', 'กระป๋อง', 'ถุง', 'Pcs' ];
+let units=[...defaultProductUnits];
 function addUnitIfNew(u){ u=(u||'').trim(); if(u && !units.includes(u)) units.push(u); return u; }
 function addCategoryIfNew(c){ c=(c||'').trim(); if(c && !categories.includes(c)) categories.push(c); return c; }
 let brands = [ 'ทั่วไป' ]; // 'ทั่วไป' is a real fallback the app relies on (products with no brand); the rest fill in from actual product data via refreshCategoryBrandUnitLists()
@@ -145,6 +146,12 @@ function refreshCategoryBrandUnitLists(){
   const configured=effectiveProductCategorySettings();
   categories=['ไม่ทราบหมวดหมู่',...configured.categories];
   brands=['ทั่วไป',...configured.subcategories.map(row=>row.name)];
-  products.forEach(p=>{ addCategoryIfNew(p.category); addBrandIfNew(p.brand); addUnitIfNew(p.unit); });
+  units=[...defaultProductUnits];
+  for(const product of products){
+    addCategoryIfNew(product.category);
+    addBrandIfNew(product.brand);
+    addUnitIfNew(product.unit);
+    for(const conversion of product.units||[]) addUnitIfNew(conversion.sub);
+  }
 }
 let productTypes = [ ['stock','สินค้านับสต็อก'], ['nostock','สินค้าไม่นับสต็อก'] ];

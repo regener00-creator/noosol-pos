@@ -286,6 +286,35 @@ let browser;
   await second.close();
   await page.evaluate(()=>{selectActiveWarehouse(2);currentTab='transfer';render();});
   assert.equal(await page.locator('.navbtn[data-tab="transfer"]').count(),0);assert.notEqual(await page.evaluate(()=>currentTab),'transfer');
+  const isolation=await page.evaluate(async()=>{
+    const originalRpc=sb.rpc;
+    const originalLoad=loadBusinessSettingsFromSupabase;
+    loadBusinessSettingsFromSupabase=async()=>{};
+    const writes=[];
+    sb.rpc=async(name,args)=>{
+      if(name==='update_store_label_settings') writes.push([args.p_warehouse_id,args.p_patch]);
+      return {data:[],error:null};
+    };
+    try{
+      selectActiveWarehouse(1);
+      addUnitIfNew('เฉพาะร้านหนึ่ง');
+      saveMedicineLabelDoseUnits(['หน่วยพระยาสุเรนทร์']);
+      saveMedicineLabelWarningPresets(['คำเตือนพระยาสุเรนทร์']);
+      selectActiveWarehouse(2);
+      const leakedUnit=units.includes('เฉพาะร้านหนึ่ง');
+      const inheritedDose=getMedicineLabelDoseUnits().includes('หน่วยพระยาสุเรนทร์');
+      saveMedicineLabelDoseUnits(['หน่วยพรชัย']);
+      saveMedicineLabelWarningPresets(['คำเตือนพรชัย']);
+      salesHistory=[{id:'primary-only',warehouseId:1,status:'done'}];
+      const leakedBill=await findSaleByIdentifier('primary-only');
+      const pending2=pendingEntryStore({record:null,baseline:JSON.stringify({warehouse_id:2})});
+      const secondWarning=getMedicineLabelWarningPresets();
+      selectActiveWarehouse(1);
+      await labelSettingsSave;
+      return {leakedUnit,inheritedDose,leakedBill,pending2,secondWarning,primary:getMedicineLabelDoseUnits(),shops:writes.map(w=>w[0])};
+    }finally{sb.rpc=originalRpc;loadBusinessSettingsFromSupabase=originalLoad;}
+  });
+  assert.deepEqual(isolation,{leakedUnit:false,inheritedDose:false,leakedBill:null,pending2:2,secondWarning:['คำเตือนพรชัย'],primary:['หน่วยพระยาสุเรนทร์'],shops:[1,1,2,2]});
   const switchResult=await page.evaluate(async()=>{
     await ensurePageCodeLoaded('notes');
     const original=sb.from.bind(sb);

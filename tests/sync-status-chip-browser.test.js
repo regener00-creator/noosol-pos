@@ -28,6 +28,7 @@ let browser;
     document.getElementById('appRoot').hidden=false;
     document.getElementById('main').innerHTML='';
     render=()=>{};renderLoginState=()=>true;
+    activeWarehouseId=1;allWarehousesMode=false;
     currentProfile={id:'sync-chip-owner',owner:true,level:1};
     currentDeviceId=()=> 'sync-chip-device';
     syncUiLastError=null;
@@ -75,7 +76,7 @@ let browser;
   await dialog.locator('.sync-detail-close').click();
   await page.evaluate(()=>{
     window.testPending=Array.from({length:91},(_,i)=>({table:'contacts',id:'fixture-'+i,record:{name:'รายการข้อมูลทดสอบที่ต้องเก็บไว้ '+(i+1)}}));
-    syncUiLastError={table_name:'contacts',error_code:'REVISION_CONFLICT',record_id:'fixture-1',local:true,message:'รายการนี้ถูกแก้ไขจากอีกเครื่อง กรุณาตรวจเทียบข้อมูลก่อนดำเนินการ',occurred_at:new Date().toISOString()};
+    syncUiLastError={warehouse_id:1,table_name:'contacts',error_code:'REVISION_CONFLICT',record_id:'fixture-1',local:true,message:'รายการนี้ถูกแก้ไขจากอีกเครื่อง กรุณาตรวจเทียบข้อมูลก่อนดำเนินการ',occurred_at:new Date().toISOString()};
   });
   await chip.click();
   await dialog.waitFor({state:'visible'});

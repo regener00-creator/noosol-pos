@@ -197,6 +197,7 @@ async function syncCoreDataToSupabase(){
   setSyncUiState('syncing');
   do{
     coreSyncPending=false;
+    const syncStore=captureStoreView();
     const syncAttemptStartedAt=new Date().toISOString();
     try{
       coreSyncFailureDetail=null;
@@ -222,16 +223,20 @@ async function syncCoreDataToSupabase(){
         }
       }
       if(pendingTables.has('inspection_lists')||!syncedTableRows.inspection_lists) await run(()=>syncInspectionListsToSupabase(),'inspection_lists','upsert_rows');
-      if(failures.length){
-        for(const detail of failures){
-          const latest=rememberSyncUiError(detail.error,detail);
-          if(!detail.error?.syncPaused&&!detail.error?.syncEventReported) reportClientEvent({operation:latest.operation,tableName:latest.table_name,recordId:latest.record_id,errorCode:latest.error_code,message:latest.message,context:{tab:currentTab}});
-        }
-      }else if(currentWorkspacePendingChanges().length){
+      let storeFailed=false;
+      for(const detail of failures){
+        const latest=rememberSyncUiError(detail.error,{...detail,warehouseId:syncStore.store});
+        if(latest.warehouse_id===syncStore.store) storeFailed=true;
+        if(!detail.error?.syncPaused&&!detail.error?.syncEventReported) reportClientEvent({operation:latest.operation,tableName:latest.table_name,recordId:latest.record_id,errorCode:latest.error_code,message:latest.message,context:{tab:currentTab,warehouseId:latest.warehouse_id}});
+      }
+      if(!storeFailed&&currentWorkspacePendingChanges().some(entry=>pendingEntryStore(entry)===syncStore.store)){
         const error=Object.assign(new Error('ยังมีงานในเครื่องรอตรวจเทียบ กรุณาเปิดรายละเอียดการซิงก์'),{code:'PENDING_RECOVERY',syncPaused:true});
-        rememberSyncUiError(error,{operation:'local_recovery'});
-      }else{
-        await resolveOwnSyncEventsThrough(syncAttemptStartedAt);
+        rememberSyncUiError(error,{operation:'local_recovery',warehouseId:syncStore.store});
+        storeFailed=true;
+      }
+      if(!storeFailed&&syncStore.store&&!syncStore.combined){
+        await resolveOwnSyncEventsThrough(syncAttemptStartedAt,syncStore.store);
+        if(!isStoreViewCurrent(syncStore)) continue;
         syncUiLastError=null;
         setSyncUiState('synced',0);
       }
@@ -239,8 +244,8 @@ async function syncCoreDataToSupabase(){
     }catch(e){
       console.warn('sync core data failed',e);
       const detail=coreSyncFailureDetail||{error:e,operation:'sync_core_data',tableName:'',recordId:'',fallbackMessage:'ซิงก์ข้อมูลไม่สำเร็จ'};
-      const latest=rememberSyncUiError(detail.error||e,detail);
-      if(!detail.error?.syncPaused&&!detail.error?.syncEventReported) reportClientEvent({operation:latest.operation,tableName:latest.table_name,recordId:latest.record_id,errorCode:latest.error_code,message:latest.message,context:{tab:currentTab}});
+      const latest=rememberSyncUiError(detail.error||e,{...detail,warehouseId:syncStore.store});
+      if(!detail.error?.syncPaused&&!detail.error?.syncEventReported) reportClientEvent({operation:latest.operation,tableName:latest.table_name,recordId:latest.record_id,errorCode:latest.error_code,message:latest.message,context:{tab:currentTab,warehouseId:latest.warehouse_id}});
       if(e?.code==='REVISION_CONFLICT'&&!e.syncPaused) showToast(e.message,'danger-top');
     }
   }while(coreSyncPending);

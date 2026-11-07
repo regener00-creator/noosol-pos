@@ -64,9 +64,9 @@ assert.doesNotMatch(migration, /\bcluster\s+public\.products/i);
 assert.doesNotMatch(migration, /delete\s+from\s+public\.products/i);
 assert.doesNotMatch(migration, /drop\s+index[^;]*idx_products_name/i);
 
-assert.match(app, /sb\.rpc\('resolve_own_sync_events',\{p_device_id:currentDeviceId\(\),p_through:/,
+assert.match(app, /sb\.rpc\('resolve_store_sync_events',\{p_warehouse_id:warehouseId,p_device_id:currentDeviceId\(\),p_through:/,
   'a successful device sync must close its older open sync events');
-assert.match(app, /await resolveOwnSyncEventsThrough\(syncAttemptStartedAt\);[\s\S]{0,100}setSyncUiState\('synced',0\)/,
+assert.match(app, /await resolveOwnSyncEventsThrough\(syncAttemptStartedAt,syncStore.store\);[\s\S]{0,180}setSyncUiState\('synced',0\)/,
   'sync events must resolve only after the full sync attempt succeeds');
 
 console.log('bounded retention and event dedupe tests passed');

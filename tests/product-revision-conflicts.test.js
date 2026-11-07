@@ -87,14 +87,14 @@ test('product conflict does not block other tables or emit duplicate events on p
   const calls=[],reports=[];
   const ctx=vm.createContext({console:{warn(){}},Date,Error,
     offlinePosMode:()=>false,offlinePendingSales:()=>[],offlineSyncRunning:false,
-    currentProfile:{id:'owner'},currentTab:'products',coreSyncInFlight:false,coreSyncPending:false,coreSyncFailureDetail:null,syncedTableRows:{},currentWorkspacePendingChanges:()=>['contacts','sales_representatives','quotations','inspection_lists'].map(table=>({table})),ensureWorkspaceRecoveryDurable:async()=>true,
+    currentProfile:{id:'owner'},currentTab:'products',captureStoreView:()=>({store:1}),isStoreViewCurrent:()=>true,coreSyncInFlight:false,coreSyncPending:false,coreSyncFailureDetail:null,syncedTableRows:{},currentWorkspacePendingChanges:()=>['contacts','sales_representatives','quotations','inspection_lists'].map(table=>({table})),ensureWorkspaceRecoveryDurable:async()=>true,
     adoptRemoteMaintenanceEpoch:async()=>false,setSyncUiState:()=>{},loggedInUser:()=>({owner:true}),syncWarehousesIncrementally:async()=>true,
     contacts:[],contactToRow:x=>x,salesRepresentatives:[],salesRepToRow:x=>x,DOC_TABLES:[['quotations',()=>[]]],documentLoadStates:{quotations:{loaded:true}},
     syncProductsIncrementally:async()=>{ctx.coreSyncFailureDetail={error:{code:'REVISION_CONFLICT',syncPaused:reports.length>0},operation:'update_products'};return false;},
     upsertAndPrune:async table=>{calls.push(table);return true;},syncRevisionedDocuments:async table=>{calls.push(table);},
     syncInspectionListsToSupabase:async()=>{calls.push('inspection_lists');return true;},
     resolveOwnSyncEventsThrough:async()=>{throw new Error('must not close unresolved conflict');},
-    rememberSyncUiError:()=>({}),reportClientEvent:x=>reports.push(x),flushPendingClientEvents:()=>{},showToast:()=>{}});
+    rememberSyncUiError:()=>({warehouse_id:1}),reportClientEvent:x=>reports.push(x),flushPendingClientEvents:()=>{},showToast:()=>{}});
   const start=source.indexOf('async function syncCoreDataToSupabase(');
   vm.runInContext(source.slice(start,source.indexOf('// Stock never travels',start)),ctx);
   await ctx.syncCoreDataToSupabase();await ctx.syncCoreDataToSupabase();

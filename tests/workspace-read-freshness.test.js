@@ -6,6 +6,8 @@ function fixture(){
     salesHistory:[],cart:[],TODAY_STR:'2026-10-24',onDemandTabErrors:new Map(),onDemandTabJobs:new Map(),
     syncedTableRows:{},workspaceRecoveryEntries:new Map(),refreshDataCounters:()=>{},maxArrayValue:()=>1,
     quotations:[],invoicesAR:[],creditNotes:[],purchaseOrders:[],goodsReceipts:[],productExchanges:[],productReturns:[],transfers:[],standaloneTaxInvoices:[]});
+  c.captureStoreView=()=>({...c.captureWorkspaceRead(),store:1,combined:false,view:0});
+  c.isStoreViewCurrent=context=>c.isWorkspaceReadCurrent(context);
   vm.runInContext(read('sync/read-signatures.js')+read('data/pagination.js')+read('sync/sales-history.js')+read('sync/documents.js'),c);
   const outbox=read('sync/workspace-outbox.js');
   vm.runInContext(outbox.slice(outbox.indexOf('function mergeWorkspaceRemoteRows('),outbox.indexOf('async function reconcileLegacyWorkspaceRows(')),c);

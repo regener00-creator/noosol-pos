@@ -4,6 +4,8 @@ function context(){
   const c=vm.createContext({console,Date,Intl,Map,Set,Number,String,JSON,Promise,TODAY_STR:'2026-10-30',salesHistory:[],cart:[],currentProfile:{id:'owner'},
     voidReportFilter:{from:'2026-10-30',to:'2026-10-30',warehouse:'all',method:'all',search:'',page:1},reportWarehouseIds:()=>[1],
     maxArrayValue:()=>1000,DOC_TABLES:[],resetDocumentLoadStates:()=>{},onDemandTabErrors:new Map(),onDemandTabJobs:new Map()});
+  c.captureStoreView=()=>({...c.captureWorkspaceRead(),store:1,combined:false,view:0});
+  c.isStoreViewCurrent=context=>c.isWorkspaceReadCurrent(context);
   vm.runInContext(read('src/sync/read-signatures.js')+'\n'+read('src/data/pagination.js')+'\n'+read('src/sync/sales-history.js')+'\n'+read('src/reports/void-sales.js')+'\n'+read('src/inventory/movement.js'),c);
   const documents=read('src/sync/documents.js');vm.runInContext(documents.slice(documents.indexOf('function mergeRowsById('),documents.indexOf('\n}',documents.indexOf('function mergeRowsById('))+2),c);
   return c;

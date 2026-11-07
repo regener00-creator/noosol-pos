@@ -17,7 +17,7 @@ function rowToSale(row){
     cashReceived:Number(row.cash_received)||0,cashChange:Number(row.cash_change)||0,total:Number(row.total)||0,
     cashShiftId:row.cash_shift_id||'',voidShiftId:row.void_shift_id||'',
   };
-  return {...fallback,...(row.data||{}),id:row.id};
+  return {...fallback,...(row.data||{}),id:row.id,warehouseId:Number(row.data?.warehouseId||row.data?.fromId||row.data?.items?.[0]?.warehouseId)||1};
 }
 
 const SALES_QUERY_PAGE_SIZE=500;
@@ -33,6 +33,9 @@ function captureWorkspaceRead(){ return {actor:String(currentProfile?.id||''),ge
 function isWorkspaceReadCurrent(context){ return context.actor===String(currentProfile?.id||'')&&context.generation===workspaceReadGeneration; }
 function resetSalesLoadState(){
   workspaceReadGeneration++;
+  resetStoreSalesCache();
+}
+function resetStoreSalesCache(){
   salesFreshRequests.length=0;
   voidSalesTruncatedRanges=[];
   salesLoadState.loaded=false; salesLoadState.full=false; salesLoadState.holds=false; salesLoadState.recent=false; salesLoadState.ranges=[]; salesLoadState.truncatedRanges=[]; salesLoadState.holdsTruncated=false;
@@ -45,7 +48,9 @@ function clearLoadedHistoryMemory(){
   onDemandTabErrors.clear(); onDemandTabJobs.clear();
 }
 function salesRequestLoaded({range=null,includeHolds=false,includeRecent=false,includeVoids=false,voidsOnly=false,full=false}={}){
-  const fresh=salesFreshRequests.some(item=>isWorkspaceReadCurrent(item.context)&&Date.now()-item.at<SALES_CACHE_TTL_MS&&
+  const view=captureStoreView();
+  if(!view.store||view.combined) return true;
+  const fresh=salesFreshRequests.some(item=>isStoreViewCurrent(item.context)&&Date.now()-item.at<SALES_CACHE_TTL_MS&&
     (item.full||(!full&&(!range||item.range&&item.range.from<=range.from&&item.range.to>=range.to)))&&
     (!includeHolds||item.includeHolds)&&(!includeRecent||item.includeRecent)&&(!includeVoids||item.includeVoids||item.full)&&(!item.voidsOnly||voidsOnly));
   if(!fresh) return false;
@@ -81,7 +86,9 @@ function trimSalesHistoryCache(protectedIds,request){
   if(latest) salesFreshRequests.push(latest);
 }
 async function loadSalesHistoryFromSupabase(options={}){
-  const context=captureWorkspaceRead();
+  const context=captureStoreView();
+  if(!context.store||context.combined) return true;
+  const storeSales=()=>sb.from('sales').select('*').eq('sale_store_id',context.store);
   const defaultRange=serverDateRange(`${TODAY_STR.slice(0,7)}-01`,TODAY_STR);
   const range=options.full?null:serverDateRange(options.from||defaultRange?.from,options.to||defaultRange?.to);
   const includeHolds=options.includeHolds!==false;
@@ -92,7 +99,7 @@ async function loadSalesHistoryFromSupabase(options={}){
   const completeRange=options.completeRange===true&&!!range;
   const request={range,includeHolds,includeRecent,includeVoids,voidsOnly,full};
   if(!options.force&&!completeRange&&salesRequestLoaded(request)) return true;
-  const requestKey=`${context.actor}:${context.generation}:`+(full?'full':`${completeRange?'complete:':''}${range?.from||''}:${range?.to||''}:${includeHolds?'holds':'sales'}:${includeRecent?'recent':'range-only'}:${includeVoids?'voids':''}:${voidsOnly?'only':''}`);
+  const requestKey=`${context.actor}:${context.generation}:${context.store}:${context.view}:`+(full?'full':`${completeRange?'complete:':''}${range?.from||''}:${range?.to||''}:${includeHolds?'holds':'sales'}:${includeRecent?'recent':'range-only'}:${includeVoids?'voids':''}:${voidsOnly?'only':''}`);
   if(salesLoadPromises.has(requestKey)) return dataReadWithStatus(salesLoadPromises.get(requestKey),options.readStatus);
   const initialRows=new Map(salesHistory.map(sale=>[String(sale.id),sale]));
   const promise=(async()=>{
@@ -100,17 +107,17 @@ async function loadSalesHistoryFromSupabase(options={}){
       // Read BEFORE the body: a commit during pagination must be noticed on
       // the next refresh, never acknowledged by a newer signature afterward.
       const signature=await readVisibleDataSignature('sales');
-      if(!isWorkspaceReadCurrent(context)) return false;
+      if(!isStoreViewCurrent(context)) return false;
       if(!options.force&&!completeRange&&reuseDataReadSignature(requestKey,signature,salesFreshRequests)){promise.unchanged=true;return true;}
       const buildRangeQuery=()=>{
-        let query=sb.from('sales').select('*').order('sale_date',{ascending:false}).order('sale_time',{ascending:false});
+        let query=storeSales().order('sale_date',{ascending:false}).order('sale_time',{ascending:false});
         if(range) query=query.gte('sale_date',range.from).lte('sale_date',range.to);
         return query;
       };
       const result=voidsOnly?{data:[],error:null}:full||completeRange
         ?await fetchAllRows(buildRangeQuery)
         :await fetchBoundedRows(buildRangeQuery,{pageSize:SALES_QUERY_PAGE_SIZE,maxRows:SALES_QUERY_MAX_ROWS});
-      if(!isWorkspaceReadCurrent(context)) return false;
+      if(!isStoreViewCurrent(context)) return false;
       if(result.error) throw result.error;
       let rows=result.data||[];
       let voidsTruncated=false;
@@ -119,11 +126,11 @@ async function loadSalesHistoryFromSupabase(options={}){
         // cancelled today. A one-day margin covers stored timezone offsets;
         // each report then filters the exact Bangkok calendar date.
         const shiftDay=(value,days)=>{const date=new Date(value+'T00:00:00Z');date.setUTCDate(date.getUTCDate()+days);return date.toISOString().slice(0,10);};
-        const voidQuery=()=>sb.from('sales').select('*').eq('status','void')
+        const voidQuery=()=>storeSales().eq('status','void')
           .gte('data->>voidedAt',shiftDay(range.from,-1)).lt('data->>voidedAt',shiftDay(range.to,2))
           .order('id',{ascending:true});
         const voidResult=completeRange?await fetchAllRows(voidQuery):await fetchBoundedRows(voidQuery,{pageSize:SALES_QUERY_PAGE_SIZE,maxRows:SALES_QUERY_MAX_ROWS});
-        if(!isWorkspaceReadCurrent(context)) return false;
+        if(!isStoreViewCurrent(context)) return false;
         if(voidResult.error) throw voidResult.error;
         rows=mergeRowsById(rows,voidResult.data||[]);
         voidsTruncated=!!voidResult.truncated;
@@ -132,7 +139,7 @@ async function loadSalesHistoryFromSupabase(options={}){
         const names=new Map();
         for(let start=0;start<actorIds.length;start+=100){
           const actors=await sb.from('profiles').select('id,first_name,last_name,username').in('id',actorIds.slice(start,start+100));
-          if(!isWorkspaceReadCurrent(context)) return false;
+          if(!isStoreViewCurrent(context)) return false;
           if(actors.error) throw actors.error;
           (actors.data||[]).forEach(actor=>names.set(actor.id,[actor.first_name,actor.last_name].filter(Boolean).join(' ')||actor.username));
         }
@@ -140,15 +147,15 @@ async function loadSalesHistoryFromSupabase(options={}){
       }
       let holdsTruncated=false;
       if(includeRecent&&!full){
-        const {data:recentRows,error:recentError}=await sb.from('sales').select('*').eq('status','done').order('sale_date',{ascending:false}).order('sale_time',{ascending:false}).limit(8);
-        if(!isWorkspaceReadCurrent(context)) return false;
+        const {data:recentRows,error:recentError}=await storeSales().eq('status','done').order('sale_date',{ascending:false}).order('sale_time',{ascending:false}).limit(8);
+        if(!isStoreViewCurrent(context)) return false;
         if(recentError) throw recentError;
         rows=mergeRowsById(rows,recentRows||[]);
       }
       if(includeHolds&&!full){
-        const heldQuery=()=>sb.from('sales').select('*').eq('status','hold').order('sale_date',{ascending:false}).order('sale_time',{ascending:false});
+        const heldQuery=()=>storeSales().eq('status','hold').order('sale_date',{ascending:false}).order('sale_time',{ascending:false});
         const heldResult=completeRange?await fetchAllRows(heldQuery):await fetchBoundedRows(heldQuery,{pageSize:250,maxRows:1000});
-        if(!isWorkspaceReadCurrent(context)) return false;
+        if(!isStoreViewCurrent(context)) return false;
         if(heldResult.error) throw heldResult.error;
         rows=mergeRowsById(rows,heldResult.data||[]);
         holdsTruncated=!!heldResult.truncated;
@@ -183,7 +190,7 @@ async function loadSalesHistoryFromSupabase(options={}){
       if(typeof saleRef!=='undefined'&&!cart.length) saleRef=nextSaleRef();
       return true;
     }catch(error){
-      if(!isWorkspaceReadCurrent(context)) return false;
+      if(!isStoreViewCurrent(context)) return false;
       console.warn('load sales failed',error);
       throw error;
     }finally{ salesLoadPromises.delete(requestKey); }
@@ -192,28 +199,22 @@ async function loadSalesHistoryFromSupabase(options={}){
   return dataReadWithStatus(promise,options.readStatus);
 }
 async function findSaleByIdentifier(identifier){
-  const context=captureWorkspaceRead();
+  const context=captureStoreView();
   const raw=String(identifier||'').trim();
-  if(!raw) return null;
+  if(!raw||!context.store||context.combined) return null;
   const needle=raw.toLowerCase();
-  const local=salesHistory.find(item=>[item.id,item.ref,item.shortReceiptMeta?.number,item.cashReceiptA4Meta?.number].some(value=>String(value||'').trim().toLowerCase()===needle));
+  const local=salesHistory.find(sale=>documentInActiveStore(sale)&&[sale.id,sale.ref,sale.shortReceiptMeta?.number,sale.cashReceiptA4Meta?.number]
+    .some(value=>String(value||'').trim().toLowerCase()===needle));
   if(local) return local;
-  const candidates=[
-    ['id',raw],['id',raw.toUpperCase()],['ref',raw],['ref',raw.toUpperCase()],
-    ['data->shortReceiptMeta->>number',raw],['data->cashReceiptA4Meta->>number',raw],
-  ];
-  for(const [column,value] of candidates){
-    const {data,error}=await sb.from('sales').select('*').eq(column,value).limit(1);
-    if(!isWorkspaceReadCurrent(context)) return null;
-    if(error) throw error;
-    if(data?.[0]){
-      const sale=rowToSale(data[0]);
-      salesHistory=mergeSalesRows(salesHistory,[sale]);
-      salesLoadState.loaded=true;
-      return sale;
-    }
-  }
-  return null;
+  const {data,error}=await sb.rpc('find_store_sale',{p_warehouse_id:context.store,p_identifier:raw});
+  if(!isStoreViewCurrent(context)) return null;
+  if(error) throw error;
+  if(!data?.length) return null;
+  const sale=rowToSale(data[0]);
+  if(!documentInActiveStore(sale)) return null;
+  salesHistory=mergeSalesRows(salesHistory,[sale]);
+  salesLoadState.loaded=true;
+  return sale;
 }
 
 function normalizeCashShiftRow(row){
@@ -260,7 +261,7 @@ async function loadWorkspaceFromSupabase(){
   // A maintenance reset intentionally starts a fresh generation.
   const refreshedContext=captureWorkspaceRead();
   await Promise.all([
-    loadCoreDataFromSupabase(),loadSalesHistoryFromSupabase(),loadBusinessSettingsFromSupabase(),
+    loadCoreDataFromSupabase(),loadSalesHistoryFromSupabase(),
     loadInspectionListsFromSupabase(),loadPromotionsFromSupabase()
   ]);
   if(!isWorkspaceReadCurrent(refreshedContext)) return;

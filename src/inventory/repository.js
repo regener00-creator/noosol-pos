@@ -295,13 +295,17 @@ function resetWarehouseScopedUiState(reportWarehouseValue){
   storeResetMode=null;
   document.querySelector('.product-category-editor-overlay')?.remove();
   resetStoreCategoryView();
+  refreshCategoryBrandUnitLists();
   selectDocumentPrefixes();
+  selectStoreSyncStatus();
+  salesHistory=salesHistory.filter(documentInActiveStore);
+  resetStoreSalesCache();
   auditLogRequestToken++;auditLogRows=[];auditLogLoaded=false;auditLogLoading=false;auditLogTotal=0;auditLogPage=1;
   document.querySelector('.knowledge-editor-overlay')?.remove();
   favorites=normalizeFavorites(favorites.filter(entry=>productById(favoriteProductId(entry))));
   lastSyncedSnapshot.favorites='';
   if(currentProfile&&!offlinePosMode()){
-    Promise.all([loadProductCategorySettingsFromSupabase(),loadFavoritesFromSupabase(),loadDocumentPrefixesFromSupabase()]).then(()=>render());
+    Promise.all([loadBusinessSettingsFromSupabase(),loadProductCategorySettingsFromSupabase(),loadFavoritesFromSupabase(),loadDocumentPrefixesFromSupabase()]).then(()=>render());
   }
   cart=[]; saleDiscount=0; saleMember=null; saleSourceQuotationId=null; pendingQty=1;
   cashShifts=[]; currentCashShift=null; cashShiftCloseDraft={countedCash:'',reason:''};

@@ -17,6 +17,8 @@ let persistCount = 0;
 let persistOptions = null;
 let renderCount = 0;
 const context = {
+  storeLabelSettings:()=>context.businessSettings,
+  saveStoreLabelSettings:(patch,size)=>{for(const [key,value] of Object.entries(patch)) context.businessSettings[key]={...context.businessSettings[key],[size]:value};context.persistWorkspaceData();},
   products,
   currentProfile:{id:'owner-test'},
   navigator:{onLine:true},

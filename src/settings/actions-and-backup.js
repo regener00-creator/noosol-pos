@@ -30,7 +30,7 @@ async function saveBusinessSettings(){
     const {error}=await sb.rpc('owner_set_setting',{p_key:`business-warehouse:${warehouseId}`,p_value:profile});
     if(error)throw error;
     if(!isWorkspaceReadCurrent(context))return;
-    warehouseBusinessProfiles={...warehouseBusinessProfiles,[warehouseId]:profile};
+    warehouseBusinessProfiles={...warehouseBusinessProfiles,[warehouseId]:{...warehouseBusinessProfiles[warehouseId],...profile}};
     persistWorkspaceData();
     if(form.isConnected && activeWarehouseId===warehouseId){
       businessSettingsDirty=false;

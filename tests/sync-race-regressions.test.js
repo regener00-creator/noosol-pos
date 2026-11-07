@@ -111,7 +111,7 @@ test('empty manifest removes old clean cache but preserves pending edits',async(
 });
 function storage(){const values=new Map();return {get length(){return values.size;},key:i=>[...values.keys()][i]||null,getItem:k=>values.get(k)||null,setItem:(k,v)=>values.set(k,String(v)),removeItem:k=>values.delete(k)};}
 function eventContext(localStorage,rpc){
-  const ctx=context({localStorage,PENDING_CLIENT_EVENTS_KEY:'events',MAX_PENDING_CLIENT_EVENTS:100,currentProfile:{id:'test'},navigator:{onLine:true},sb:{rpc},cloudClean:value=>value,currentDeviceId:()=> 'test'});
+  const ctx=context({localStorage,PENDING_CLIENT_EVENTS_KEY:'events',MAX_PENDING_CLIENT_EVENTS:100,activeWarehouseId:1,syncRecordStore:(_t,_id,store)=>store,accessibleWarehouses:()=>[{id:1}],currentProfile:{id:'test'},navigator:{onLine:true},sb:{rpc},cloudClean:value=>value,currentDeviceId:()=> 'test'});
   vm.runInContext(section('function readPendingClientEvents(','async function resolveOwnSyncEventsThrough('),ctx);return ctx;
 }
 test('an event appended during a network request survives acknowledgement and is sent',async()=>{
