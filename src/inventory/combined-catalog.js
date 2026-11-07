@@ -44,7 +44,7 @@ function renderCombinedCatalog(stockOnly){
   const heading=stockOnly?'สินค้าคงเหลือ':'PRODUCT';
   return `<section class="rpt combined-catalog" data-combined-stock="${stockOnly}"><div class="pagehead"><h1>${heading} · คลังรวม</h1><span data-combined-count aria-live="polite"></span></div>
     <div class="rpt-filters"><select class="rpt-select" data-combined-category aria-label="หมวดหลัก"></select><select class="rpt-select" data-combined-brand aria-label="หมวดย่อย"></select><div class="combined-search-group"><input data-combined-search class="barcode-print-search" placeholder="ค้นหาชื่อสินค้า หรือบาร์โค้ด" aria-label="ค้นหาสินค้า">
-    ${stockOnly?'':'<div class="combined-legend"><span>สีส้ม · เฉพาะพรชัย</span><span>สีม่วง · เฉพาะพระยาสุเรนทร์</span></div>'}</div></div>
+    ${stockOnly?'':'<div class="combined-legend"><span class="legend-phonchai" title="สีส้ม · เฉพาะพรชัย">พรชัย</span><span class="legend-phraya" title="สีม่วง · เฉพาะพระยาสุเรนทร์">พระยาสุเรนทร์</span></div>'}</div></div>
     <div class="seamless-table-wrap" data-combined-results></div><div data-combined-pager></div></section>`;
 }
 // A manual unit choice belongs to this user's combined view, across both pages.

@@ -2923,7 +2923,10 @@
 .combined-catalog .pager{margin-top:10px}
 .combined-catalog .combined-amount{text-align:center}
 .combined-unit-cell{min-height:32px;display:flex;align-items:center;justify-content:center}
-.combined-catalog .only-phonchai td,.combined-legend span:first-child{background:#fff0da}
-.combined-catalog .only-phraya td,.combined-legend span:last-child{background:#f2e8fa}
+.combined-catalog .only-phonchai td{background:#fff0da}
+.combined-catalog .only-phraya td{background:#f2e8fa}
 .combined-legend{display:flex;align-items:center;gap:12px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
-.combined-legend span{padding:5px 10px;border-radius:6px;white-space:nowrap}
+.combined-legend span{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.combined-legend span::before{content:"";width:12px;height:12px;border-radius:50%;background:var(--legend-dot)}
+.combined-legend .legend-phonchai{--legend-dot:#e58a27}
+.combined-legend .legend-phraya{--legend-dot:#9559bd}
