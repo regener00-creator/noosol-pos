@@ -1049,7 +1049,20 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     stockEditItems=[]; stockEditRowUnitSel={}; stockEditDraftStocks={}; stockEditSearchQuery=''; stockEditCatFilter={category:'',brand:''}; stockEditPage=1; stockEditSourceInspectionListId=null; stockEditSourcePending=false; stockEditLotSelections={}; stockEditNewLotNumbers={}; stockEditNewLotExpiries={}; render();
   });
   if(stockEditInput&&stockEditResults){
-    const addProduct=p=>{
+    const searchMatches=(q,limit)=>{
+      if(systemLabelCode(q.toUpperCase())) return inventoryLabelMatches(q);
+      const exact=findProductByExactCode(q);
+      const matches=exact?[{...exact,barcode:q}]:[];
+      for(const product of products){
+        if(matches.length>=limit) break;
+        if(product!==exact?.product&&stockEditMatchesQuery(product,q)){
+          matches.push({product,unitName:stockEditRowUnitSel[product.id]||product.unit,barcode:product.barcode});
+        }
+      }
+      return matches;
+    };
+    const addProduct=(p,unitName)=>{
+      stockEditRowUnitSel[p.id]=unitName;
       if(stockEditItems.includes(p.id)){ showToast('สินค้านี้อยู่ในรายการแล้ว'); }
       else { stockEditItems.unshift(p.id); stockEditPage=1; }
       stockEditSearchQuery='';
@@ -1060,20 +1073,14 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       stockEditSearchQuery=query;
       const q=String(query||'').trim();
       if(!q){ stockEditResults.hidden=true; stockEditResults.innerHTML=''; return; }
-      const matches=products.filter(p=>stockEditMatchesQuery(p,q)).slice(0,15);
+      const matches=searchMatches(q,15);
       if(!matches.length){ stockEditResults.innerHTML='<div class="fav-add-noresult">ไม่พบสินค้า</div>'; stockEditResults.hidden=false; return; }
-      stockEditResults.innerHTML=matches.map(p=>`<div class="fav-add-result" data-stock-edit-result="${p.id}"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.sku||'-')} · ${escapeHtml(p.barcode||'ไม่มีบาร์โค้ด')} · คงเหลือ ${escapeHtml(stockInLargestUnit(p))}${stockEditItems.includes(p.id)?' · อยู่ในรายการแล้ว':''}</span></div>`).join('');
+      stockEditResults.innerHTML=matches.map(({product:p,unitName,barcode})=>`<div class="fav-add-result" data-stock-edit-result="${p.id}" data-unit="${escapeHtml(unitName)}"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.sku||'-')} · ${escapeHtml(barcode||'ไม่มีบาร์โค้ด')} · ${escapeHtml(unitName)} · คงเหลือ ${escapeHtml(stockInLargestUnit(p))}${stockEditItems.includes(p.id)?' · อยู่ในรายการแล้ว':''}</span></div>`).join('');
       stockEditResults.hidden=false;
       stockEditResults.querySelectorAll('[data-stock-edit-result]').forEach(row=>{
         row.addEventListener('mousedown',event=>event.preventDefault());
-        row.addEventListener('click',()=>{ const p=products.find(x=>x.id===Number(row.dataset.stockEditResult)); if(p) addProduct(p); });
+        row.addEventListener('click',()=>{ const p=products.find(x=>x.id===Number(row.dataset.stockEditResult)); if(p) addProduct(p,row.dataset.unit); });
       });
-    };
-    const tryExact=query=>{
-      const q=String(query||'').trim();
-      const exact=products.find(p=>String(p.sku||'')===q||matchesBarcode(p,q));
-      if(exact){ addProduct(exact); return true; }
-      return false;
     };
     stockEditInput.addEventListener('input',()=>showResults(stockEditInput.value));
     stockEditInput.addEventListener('focus',()=>{ if(stockEditInput.value.trim()) showResults(stockEditInput.value); });
@@ -1082,9 +1089,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       if(event.key!=='Enter') return;
       event.preventDefault();
       const q=stockEditInput.value.trim(); if(!q) return;
-      if(tryExact(q)) return;
-      const first=stockEditResults.querySelector('[data-stock-edit-result]');
-      if(first){ const p=products.find(x=>x.id===Number(first.dataset.stockEditResult)); if(p) addProduct(p); }
+      const [match]=searchMatches(q,1);
+      if(match) addProduct(match.product,match.unitName);
+      else { showToast('ไม่พบสินค้าในร้านที่เลือก','danger-top');stockEditInput.select(); }
     });
   }
   document.querySelectorAll('[data-stock-edit-unit]').forEach(select=>select.addEventListener('change',()=>{ stockEditRowUnitSel[Number(select.dataset.stockEditUnit)]=select.value; render(); }));

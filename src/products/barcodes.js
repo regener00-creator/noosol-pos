@@ -55,6 +55,12 @@ function findStoreLabelMatch(code){
   if(!systemLabelCode(normalized,Number(activeWarehouseId))) return null;
   return findProductByExactCode(code)||findProductByExactCode(normalized);
 }
+function inventoryLabelMatches(code){
+  // Inventory documents accept only current shop labels. The old P series is retired.
+  if(code.toUpperCase().startsWith('P')) return [];
+  const match=findStoreLabelMatch(code);
+  return match?[{...match,barcode:code}]:[];
+}
 function barcodeReprintUnitOptions(product){
   if(!isProductActive(product)||!barcodeIssuedState?.ready||!isStoreViewCurrent(barcodeIssuedState.context)) return [];
   const units=barcodePrintUnitOptions(product);
