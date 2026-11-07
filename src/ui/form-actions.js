@@ -5,21 +5,17 @@ function storeResetConfig(mode=storeResetMode){
     impact:'เมื่อเสร็จแล้วโปรแกรมจะออกจากระบบ และกลับไปหน้าสร้าง ID เจ้าของร้านคนแรกใหม่'
   };
   return {
-    title:'ล้างเอกสารและสต๊อก',phrase:'ล้างเอกสารและสต๊อก',button:'ยืนยันล้างเอกสารและสต๊อก',
+    title:'ล้างเอกสารและสต๊อก · '+(activeWarehouse()?.name||''),phrase:'ล้างเอกสารและสต๊อก',button:'ยืนยันล้างเอกสารและสต๊อก',
     description:'ล้างบิล เอกสาร ประวัติการเคลื่อนไหว LOT และยอดคงเหลือทั้งหมด',
-    impact:'รายการสินค้า ลูกค้า ผู้ใช้งาน คลัง โปรโมชั่น และการตั้งค่าร้านจะยังอยู่ โดยสต๊อกสินค้าทุกคลังจะเป็นศูนย์'
+    impact:'ยอดคงเหลือในร้านที่เลือกจะเป็นศูนย์ ข้อมูลของร้านอื่นจะคงเดิม'
   };
 }
 
 function renderStoreMaintenanceSection(){
-  if(loggedInUser()?.owner!==true) return '';
-  return `<div class="settings-section"><h2>บำรุงรักษาและรีเซ็ตข้อมูล</h2><div class="hint">ใช้เมื่อต้องการเริ่มเอกสารใหม่หรือเตรียมโปรแกรมสำหรับร้านใหม่ การทำรายการนี้ไม่สามารถย้อนกลับได้หากไม่มีไฟล์สำรอง</div>
-    <div class="store-maintenance-grid">
-      <div class="store-maintenance-card"><h3>ล้างเอกสารและสต๊อก</h3><p>เก็บข้อมูลสินค้า ลูกค้า คลัง ผู้ใช้งาน โปรโมชั่น และการตั้งค่าร้านไว้ แต่ล้างเอกสาร LOT และสต๊อกทั้งหมด</p><button class="btn reset-keep-products" id="openDocumentResetBtn" type="button">ล้างเอกสารและสต๊อก</button></div>
-      <div class="store-maintenance-card"><h3>คืนค่าโรงงาน</h3><p>ล้างข้อมูลและผู้ใช้งานทั้งหมด หลังจากนั้นโปรแกรมจะให้สร้าง ID เจ้าของร้านคนแรกใหม่</p><button class="btn reset-danger" id="openFactoryResetBtn" type="button">คืนค่าโรงงาน</button></div>
-    </div>
-    <div class="backup-note backup-warning"><strong>สำคัญ:</strong> ดาวน์โหลดไฟล์สำรองก่อนทุกครั้ง และปิดโปรแกรมในเครื่องอื่นก่อนเริ่มรีเซ็ต ระบบจะป้องกันเครื่องเก่านำข้อมูลก่อนรีเซ็ตกลับเข้ามาอัตโนมัติ</div>
-  </div>`;
+  if(!loggedInUser()?.owner)return '';
+  if(isAllWarehousesMode())return '<div class="settings-section"><h2>คืนค่าโรงงานทั้งระบบ</h2><p>ลบข้อมูลทุกคลังและบัญชีผู้ใช้ทั้งหมด</p><button class="btn danger" id="openFactoryResetBtn">คืนค่าโรงงานทั้งระบบ</button></div>';
+  const name=escapeHtml(activeWarehouse()?.name||'');
+  return `<div class="settings-section"><h2>ล้างเอกสารและสต๊อก · ${name}</h2><p>ล้างเฉพาะเอกสาร LOT และยอดคงเหลือของร้าน ${name} โดยเก็บสินค้าและรายชื่อผู้ติดต่อไว้</p><button class="btn reset-keep-products" id="openDocumentResetBtn">ล้างเอกสารและสต๊อก</button></div>`;
 }
 
 function renderStoreResetDialog(){
@@ -32,7 +28,7 @@ function renderStoreResetDialog(){
       <div class="store-reset-impact"><strong>ผลที่จะเกิดขึ้น:</strong><br>${escapeHtml(config.impact)}</div>
       <label class="store-reset-field">รหัสผ่านเจ้าของร้าน<input id="storeResetPassword" type="password" autocomplete="current-password" required></label>
       <label class="store-reset-field">พิมพ์คำว่า “${escapeHtml(config.phrase)}” เพื่อยืนยัน<input id="storeResetPhrase" type="text" autocomplete="off" required></label>
-      <label class="store-reset-confirm"><input id="storeResetBackupConfirmed" type="checkbox" required><span>ฉันดาวน์โหลดไฟล์สำรองแล้ว และเข้าใจว่าข้อมูลที่ล้างจะกู้คืนไม่ได้หากไม่มีไฟล์สำรอง</span></label>
+      <label class="store-reset-confirm"><input id="storeResetBackupConfirmed" type="checkbox" required><span>${storeResetMode==='factory'?'ฉันสำรองข้อมูลแยกครบทุกคลังแล้ว และเข้าใจว่าการคืนค่าโรงงานจะลบข้อมูลทุกคลังและบัญชีผู้ใช้ทั้งหมด':'ฉันสำรองข้อมูลของร้านที่เลือกแล้ว และเข้าใจว่าข้อมูลที่ล้างต้องใช้ไฟล์สำรองของร้านนี้เพื่อกู้คืน'}</span></label>
       <div class="store-reset-actions"><button class="btn ghost" id="cancelStoreResetBtn" type="button">ยกเลิก</button><button class="btn reset-danger" id="confirmStoreResetBtn" type="submit">${escapeHtml(config.button)}</button></div>
     </form>
   </div>`;

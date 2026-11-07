@@ -18,6 +18,11 @@ async function updateSaleDocumentMetadata(saleId,metadata){
 let TODAY_STR = currentDateStr();
 const DEFAULT_DOCUMENT_PREFIXES={sale:'RE',cashBill:'CB',taxInvoice:'INV',quotation:'QT',shortage:'SH',productReturn:'RT',goodsReceipt:'RI',productExchange:'EX',transfer:'TF',inspection:'CHECK',stockAdjustment:'SC',cashShift:'CS',warehouse:'WH'};
 let documentPrefixes={...DEFAULT_DOCUMENT_PREFIXES};
+let documentPrefixesByStore={};
+function storeToolKey(key,id){return Number(id)===1?key:key+':'+Number(id);}
+function selectDocumentPrefixes(){
+  documentPrefixes={...DEFAULT_DOCUMENT_PREFIXES,...documentPrefixesByStore[activeWarehouseId]};
+}
 const DOCUMENT_PREFIX_FIELDS=[
   {key:'sale',label:'ใบเสร็จจาก POS / ประวัติการขาย'},
   {key:'cashBill',label:'บิลเงินสด A4'},

@@ -75,7 +75,7 @@ function canPerformPageAction(action='view',pageKey=currentTab,user=loggedInUser
   const column={view:'can_view',create:'can_create',edit:'can_edit',delete:'can_delete',print:'can_print',export:'can_export'}[action]||'can_view';
   return matches.some(row=>row[column]===true||row[column.replace('can_','can')]===true);
 }
-function canUseAllWarehousesMode(){ return currentProfile?.owner===true&&accessibleWarehouses().length>1&&!isMobileDeviceMode(); }
+function canUseAllWarehousesMode(){ return currentProfile?.owner===true&&accessibleWarehouses().length>0&&!isMobileDeviceMode(); }
 function isAllWarehousesMode(){ return allWarehousesMode===true; }
 function reportingWarehouses(){
   return accessibleWarehouses().filter(warehouse=>!activeWarehouseId||isAllWarehousesMode()||Number(warehouse.id)===Number(activeWarehouseId));
@@ -292,12 +292,16 @@ function selectActiveWarehouse(warehouseId){
 function resetWarehouseScopedUiState(reportWarehouseValue){
   storeViewGeneration++;
   notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false; noteSearchQuery=''; notePageCursor=null;
+  storeResetMode=null;
   document.querySelector('.product-category-editor-overlay')?.remove();
   resetStoreCategoryView();
+  selectDocumentPrefixes();
+  auditLogRequestToken++;auditLogRows=[];auditLogLoaded=false;auditLogLoading=false;auditLogTotal=0;auditLogPage=1;
+  document.querySelector('.knowledge-editor-overlay')?.remove();
   favorites=normalizeFavorites(favorites.filter(entry=>productById(favoriteProductId(entry))));
   lastSyncedSnapshot.favorites='';
   if(currentProfile&&!offlinePosMode()){
-    Promise.all([loadProductCategorySettingsFromSupabase(),loadFavoritesFromSupabase()]).then(()=>render());
+    Promise.all([loadProductCategorySettingsFromSupabase(),loadFavoritesFromSupabase(),loadDocumentPrefixesFromSupabase()]).then(()=>render());
   }
   cart=[]; saleDiscount=0; saleMember=null; saleSourceQuotationId=null; pendingQty=1;
   cashShifts=[]; currentCashShift=null; cashShiftCloseDraft={countedCash:'',reason:''};

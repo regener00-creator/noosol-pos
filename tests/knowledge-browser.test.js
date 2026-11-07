@@ -120,5 +120,14 @@ let browser;
   assert.equal(await page.locator('.topic-grip').count(),0);
   assert.equal(await page.locator('#addKnowledge,#editKnowledge,#deleteKnowledge').count(),0);
   await page.evaluate(()=>openKnowledgeEditor());assert.equal(await page.locator('.knowledge-editor-overlay').count(),0);
+  const scoped=await page.evaluate(async()=>{
+    const results={};
+    activeWarehouseId=2;
+    sb.from=()=>({select:()=>({eq:(_,key)=>({maybeSingle:async()=>({data:key==='knowledge_articles'?{value:knowledgeStored}:null})})})});
+    await loadKnowledgeArticles();results.second=getKnowledgeState().articles.length;
+    activeWarehouseId=1;await loadKnowledgeArticles();results.original=getKnowledgeState().articles.length;
+    return results;
+  });
+  assert.equal(scoped.second,0);assert.ok(scoped.original>0);
   assert.deepEqual(errors,[]);console.log('Knowledge: menu, seed text, search, create/edit/reload, XSS, errors/conflict, delete, responsive and read-only staff passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});

@@ -44,6 +44,20 @@ export async function run({client,connect}){
     insert into public.inventory_count_adjustment_lines(adjustment_id,product_id,system_stock,counted_stock,difference,unit_name,selected_lot_id)
       select a.id,1,9,10,1,'box',l.id from public.inventory_count_adjustments a cross join public.inventory_lots l;`);
   const original=await backup();
+  await q('begin');
+  try{
+    await q("insert into public.warehouses(id,name) values(7251,'Second shop')");
+    await q("insert into public.products(id,name,sku,warehouse_id,unit,price,data) values(7251,'Other product','B-7251',7251,'box',99,'{}')");
+    const legacy=(await backup()),snapshot=async id=>(await q('select public.export_store_backup($1) b',[id])).rows[0].b;
+    const other=await snapshot(7251);
+    await q("update public.products set price=19 where id=1");
+    await q('select public.restore_store_backup_atomic(1,$1)',[legacy]);
+    assert.deepEqual((await snapshot(7251)).data,other.data);
+    assert.equal(Number((await q('select price from public.products where id=1')).rows[0].price),100);
+    await q('savepoint legacy_wrong');
+    await assert.rejects(q('select public.restore_store_backup_atomic(7251,$1)',[legacy]),/คนละคลัง/);
+    await q('rollback to legacy_wrong');
+  }finally{await q('rollback');}
   assert.equal(original.version,3);
   assert.equal(original.manifest['public.products'].scope,'replace');
   assert.equal(original.manifest['public.audit_logs'].scope,'merge');
@@ -103,8 +117,10 @@ export async function run({client,connect}){
     assert.equal(writes.filter(r=>r.rowCount===1).length,1,'exactly one of ten stale concurrent writers wins');
     await assert.rejects(peers[0].query("select public.owner_update_mobile_product_details(1,1,null,'{}',1,1,null)"),/permission denied/);
     await peers[1].query("select set_config('request.jwt.claim.sub',$1,false)",[staff]);
-    await assert.rejects(peers[1].query('select public.export_store_backup()'),/owner access required/);
-    await assert.rejects(peers[1].query('select public.restore_store_backup_atomic($1)',[original]),/owner access required/);
+    await assert.rejects(peers[1].query('select public.export_store_backup()'),/permission denied/);
+    await assert.rejects(peers[1].query('select public.restore_store_backup_atomic($1)',[original]),/permission denied/);
+    await assert.rejects(peers[1].query('select public.export_store_backup(1)'),/owner access required/);
+    await assert.rejects(peers[1].query('select public.restore_store_backup_atomic(1,$1)',[original]),/owner access required/);
   }finally{await Promise.all(peers.map(p=>p.end()));}
   console.log('DB: ten concurrent writers, old RPC blocked, staff backup/restore access denied');
   // Existing transaction/idempotency coverage now runs reproducibly off Production.

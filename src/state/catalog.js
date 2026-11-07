@@ -107,8 +107,14 @@ async function loadPromotionsFromSupabase(){
       promotions=data.map(row=>({...(row.data||{}),id:row.id,_revision:Number(row.revision)||1}));
       seedTableSnapshot('promotions',promotions,promotionToRow);
     }else{
+      const previous=syncedTableRows.promotions;
+      const unsent=promotions.filter(p=>{
+        const before=previous?.get(String(p.id));
+        return before?before!==JSON.stringify(promotionToRow(p)):!Number(p._revision);
+      });
       seedTableSnapshot('promotions',[],promotionToRow);
-      if(promotions.length) await syncPromotionsToSupabase();
+      promotions=unsent;
+      if(promotions.length)await syncPromotionsToSupabase();
     }
   }catch(error){ console.warn('load promotions failed',error); }
 }

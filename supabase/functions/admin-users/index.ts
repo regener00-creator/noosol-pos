@@ -306,6 +306,10 @@ Deno.serve(async (req) => {
       const phrase = String(body.phrase || '').trim()
       const expectedPhrase = mode === 'factory' ? 'คืนค่าโรงงาน' : 'ล้างเอกสารและสต๊อก'
       if (!['documents', 'factory'].includes(mode)) return json({ error: 'รูปแบบการรีเซ็ตไม่ถูกต้อง' }, 400)
+      const warehouseId = Number(body.warehouseId)
+      if (mode === 'factory' ? body.allWarehouses !== true : body.allWarehouses !== false || !Number.isSafeInteger(warehouseId) || warehouseId <= 0) {
+        return json({ error: 'เลือกร้านสำหรับล้างเอกสาร หรือเลือกคลังรวมสำหรับคืนค่าโรงงาน' }, 400)
+      }
       if (phrase !== expectedPhrase) return json({ error: `กรุณาพิมพ์ “${expectedPhrase}” ให้ถูกต้อง` }, 400)
       if (!password || !caller.email || !(await verifyCurrentPassword(url, caller.email, password))) {
         return json({ error: 'รหัสผ่านเจ้าของร้านไม่ถูกต้อง' }, 403)
@@ -321,12 +325,9 @@ Deno.serve(async (req) => {
         if (bootstrapError) return json({ error: bootstrapError.message }, 400)
       }
 
-      const confirmation = mode === 'factory' ? 'CONFIRM_FACTORY_RESET' : 'CONFIRM_DOCUMENT_RESET'
-      const { data: resetResult, error: resetError } = await admin.rpc('admin_reset_store_data', {
-        p_mode: mode,
-        p_actor_id: caller.id,
-        p_confirmation: confirmation,
-      })
+      const { data: resetResult, error: resetError } = mode === 'factory'
+        ? await admin.rpc('admin_reset_store_data', { p_mode: mode, p_actor_id: caller.id, p_confirmation: 'CONFIRM_FACTORY_RESET_ALL' })
+        : await admin.rpc('admin_reset_shop_documents', { p_actor_id: caller.id, p_warehouse_id: warehouseId, p_confirmation: 'CONFIRM_DOCUMENT_RESET' })
       if (resetError) return json({ error: resetError.message }, 400)
 
       if (mode === 'factory') {

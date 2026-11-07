@@ -3,7 +3,7 @@ function renderWarehouse(){
   return `<div class="rpt"><div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="newWarehouseBtn">+ เพิ่มคลังสินค้า</button></div>
     <div class="warehouse-name-table"><table><thead><tr><th>ชื่อคลังสินค้า</th><th style="width:112px;"></th></tr></thead><tbody>
       ${warehouses.map(w=>`<tr><td class="warehouse-name-cell">${escapeHtml(w.name)}</td><td class="warehouse-action-cell"><button class="warehouse-edit-btn" type="button" data-edit-warehouse="${w.id}" title="แก้ไขข้อมูลคลังสินค้า" aria-label="แก้ไขคลังสินค้า ${escapeHtml(w.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="warehouse-delete-btn" type="button" data-delete-warehouse="${w.id}" title="ลบคลังสินค้า" aria-label="ลบคลังสินค้า ${escapeHtml(w.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td></tr>`).join('')||'<tr><td colspan="2" style="padding:30px;text-align:center;color:var(--text-muted);">ยังไม่มีคลังสินค้า</td></tr>'}
-    </tbody></table></div></div>`;
+    </tbody></table></div>${renderStoreMaintenanceSection()}${renderStoreResetDialog()}</div>`;
 }
 
 function renderWarehouseForm(){

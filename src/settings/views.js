@@ -234,13 +234,14 @@ function storeBackupSummary(data=workspaceSnapshot()){
 
 function renderStoreBackupSection(){
   if(loggedInUser()?.owner!==true) return '';
-  const summary=storeBackupSummary();
-  const lastRaw=localStorage.getItem(STORE_BACKUP_LAST_KEY)||'';
+  const shop=activeWarehouse();
+  if(!shop||isAllWarehousesMode())return '';
+  const lastRaw=localStorage.getItem(STORE_BACKUP_LAST_KEY+':'+shop.id)||(shop.id===1?localStorage.getItem(STORE_BACKUP_LAST_KEY):'')||'';
   const lastDate=lastRaw?new Date(lastRaw):null;
   const lastText=lastDate&&!Number.isNaN(lastDate.getTime())?lastDate.toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}):'ยังไม่เคยดาวน์โหลดไฟล์สำรองจากเครื่องนี้';
-  return `<div class="settings-section"><h2>สำรองข้อมูลร้าน</h2><div class="hint">ไฟล์สำรองดึงข้อมูลที่บันทึกบนเซิร์ฟเวอร์ ณ เวลาเดียวกัน ครอบคลุมสินค้า สต๊อกและ LOT กะขาย เอกสาร ลูกค้า ผู้จำหน่าย ผู้แทน สินค้าที่ดูแล NOTE ประวัติ และการตั้งค่าร้าน</div>
-      <div class="backup-summary"><div class="backup-summary-item"><b>${summary.products}</b><span>รายการสินค้า</span></div><div class="backup-summary-item"><b>${summary.contacts}</b><span>รายชื่อที่เกี่ยวข้อง</span></div><div class="backup-summary-item"><b>${summary.promotions}</b><span>โปรโมชั่น</span></div><div class="backup-summary-item"><b>${summary.documents}</b><span>เอกสารและรายการขาย</span></div></div>
-      <div class="backup-note">สำรองล่าสุดจากอุปกรณ์นี้: <strong>${escapeHtml(lastText)}</strong><br>ไฟล์สำรองไม่รวมบัญชีผู้ใช้งานและรหัสผ่าน ซึ่งจัดเก็บแยกในระบบยืนยันตัวตน<br>งานรอซิงก์บนเครื่องนี้แนบแยกไว้เพื่อตรวจสอบ ไม่ถูกนำเข้าขณะกู้คืน กรุณาซิงก์ทุกเครื่องให้สำเร็จก่อนสำรองหรือกู้คืน</div>
+  return `<div class="settings-section"><h2>สำรองข้อมูลร้าน ${escapeHtml(shop.name)}</h2><div class="hint">ไฟล์สำรองดึงข้อมูลที่บันทึกบนเซิร์ฟเวอร์ ณ เวลาเดียวกัน ครอบคลุมสินค้า สต๊อกและ LOT กะขาย เอกสาร ลูกค้า ผู้จำหน่าย ผู้แทน สินค้าที่ดูแล NOTE ประวัติ และการตั้งค่าร้าน</div>
+
+      <div class="backup-note">สำรองล่าสุดจากอุปกรณ์นี้: <strong>${escapeHtml(lastText)}</strong><br>ไฟล์สำรองไม่รวมบัญชีผู้ใช้งานและรหัสผ่าน ซึ่งจัดเก็บแยกในระบบยืนยันตัวตน<br>ไฟล์นี้รวมข้อมูลที่บันทึกบนเซิร์ฟเวอร์ของร้านที่เลือก กรุณาซิงก์ทุกเครื่องให้สำเร็จก่อนสำรองหรือกู้คืน</div>
       <div class="backup-grid">
         <div class="backup-card"><div class="backup-icon">↓</div><h3>ดาวน์โหลดไฟล์สำรอง</h3><p>ระบบจะบันทึกข้อมูลล่าสุดจากร้านเป็นไฟล์ JSON ลงในอุปกรณ์ แนะนำให้สำรองอย่างน้อยสัปดาห์ละ 1 ครั้ง</p><button class="btn primary" id="downloadStoreBackupBtn">ดาวน์โหลดไฟล์สำรอง</button></div>
         <div class="backup-card restore"><div class="backup-icon">↑</div><h3>กู้คืนจากไฟล์สำรอง</h3><p>เลือกไฟล์ที่ดาวน์โหลดจากระบบนี้ ข้อมูลในร้านจะถูกแทนที่ด้วยข้อมูลจากวันที่สำรอง</p><button class="btn ghost" id="restoreStoreBackupBtn">เลือกไฟล์เพื่อกู้คืน</button><input id="restoreStoreBackupFile" type="file" accept="application/json,.json" hidden></div>
@@ -295,6 +296,7 @@ async function loadAuditLogsFromSupabase(force=false,direction='first'){
   auditLogError='';
   try{
     const {data,error}=await sb.rpc('get_central_audit_log_page',{
+      p_warehouse_id:activeWarehouseId,
       p_limit:AUDIT_LOG_PAGE_SIZE,
       p_cursor_time:cursorRow?.occurred_at||null,
       p_cursor_key:cursorRow?.event_key||null,

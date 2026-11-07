@@ -14,6 +14,7 @@ const products = [{id:10,wh:2,name:'ยา A',stock:99,expiry:'2028-01-01'}];
 const sandbox = {
   document:{querySelector:()=>null},resetStoreCategoryView:()=>{},normalizeProductCategorySettings:()=>({categories:[],subcategories:[]}),favorites:[],normalizeFavorites:items=>items,lastSyncedSnapshot:{},
   loadProductCategorySettingsFromSupabase:async()=>true,loadFavoritesFromSupabase:async()=>{},
+  selectDocumentPrefixes(){},loadDocumentPrefixesFromSupabase:async()=>{},auditLogRequestToken:0,
   clearTimeout,customerLoyaltyExpiryTimer:null,
   currentProfile: {id:'owner-1',owner:true},
   warehouses: [{id:1,name:'สำนักงานใหญ่'},{id:2,name:'สาขา'}],
@@ -87,6 +88,6 @@ assert.doesNotMatch(html,/sb\.rpc\('(adjust_inventory_stock|set_inventory_stock|
 assert.match(html,/runStockOperation\('post_inventory_count_adjustment_with_shortages'/);
 assert.match(html,/warehouseId:Number\(activeWarehouseId\)\|\|null/,'บิลขายต้องบันทึกคลังที่ใช้งาน');
 assert.match(html,/คลัง: \$\{isAllWarehousesMode\(\)\?'คลังรวม'/);
-assert.match(html,/const ALL_WAREHOUSES_TABS=new Set\(\['products','rinventory'\]\)/);
+assert.match(html,/const ALL_WAREHOUSES_TABS=new Set\(\['products','rinventory','warehouse'\]\)/);
 
 console.log('warehouse inventory tests passed');

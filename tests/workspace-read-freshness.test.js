@@ -114,9 +114,10 @@ test('successful complete refresh clears a former truncated warning',async()=>{
 test('maintenance response from a previous session cannot clear current data',async()=>{
   const {c}=fixture();const source=read('sync/workspace-outbox.js');
   vm.runInContext(source.slice(source.indexOf('async function adoptRemoteMaintenanceEpoch('),source.indexOf('function normalizeInspectionLists(')),c);
-  let finish,clears=0;c.sb={from:()=>({select:()=>({eq:()=>({maybeSingle:()=>new Promise(resolve=>finish=resolve)})})})};
+  c.activeWarehouseId=1;
+  let finish,clears=0;c.sb={from:()=>({select:()=>({in:()=>new Promise(resolve=>finish=resolve)})})};
   c.clearLocalStoreCachesForReset=async()=>{clears++;};c.maintenanceEpoch='old';
-  const job=c.adoptRemoteMaintenanceEpoch();c.clearLoadedHistoryMemory();finish({data:{value:{epoch:'new'}}});
+  const job=c.adoptRemoteMaintenanceEpoch();c.clearLoadedHistoryMemory();finish({data:[{key:'maintenance_epoch',value:{epoch:'new'}}]});
   assert.equal(await job,false);assert.equal(clears,0);
 });
 
@@ -134,11 +135,27 @@ test('POS search stops at eight active results and cached names follow edits',()
 test('a real maintenance reset advances only its own read context',async()=>{
   const {c}=fixture();const source=read('sync/workspace-outbox.js');
   vm.runInContext(source.slice(source.indexOf('async function adoptRemoteMaintenanceEpoch('),source.indexOf('function normalizeInspectionLists(')),c);
-  c.sb={from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:{value:{epoch:'new'}}})})})})};
+  c.activeWarehouseId=1;c.sb={from:()=>({select:()=>({in:async()=>({data:[{key:'maintenance_epoch',value:{epoch:'new'}}]})})})};
   c.clearLocalStoreCachesForReset=async()=>{};c.clearRemoteResetSensitiveMemory=()=>c.clearLoadedHistoryMemory();
   c.maintenanceEpoch='old';c.MAINTENANCE_EPOCH_STORAGE_KEY='epoch';c.localStorage={setItem:()=>{}};
   const context=c.captureWorkspaceRead(),other=c.captureWorkspaceRead();
   assert.equal(await c.adoptRemoteMaintenanceEpoch(context),true);
   assert.equal(c.isWorkspaceReadCurrent(context),true);assert.equal(c.isWorkspaceReadCurrent(other),false);
   assert.equal(c.maintenanceEpoch,'new');
+});
+test('shop restore refreshes acknowledged rows without dropping pending work or other stores',async()=>{
+  const {c}=fixture(),source=read('sync/workspace-outbox.js');
+  vm.runInContext(source.slice(source.indexOf('async function adoptRemoteMaintenanceEpoch('),source.indexOf('function normalizeInspectionLists(')),c);
+  const memory=new Map();
+  c.activeWarehouseId=1;c.maintenanceEpoch='';c.MAINTENANCE_EPOCH_STORAGE_KEY='epoch';
+  c.localStorage={getItem:k=>memory.get(k),setItem:(k,v)=>memory.set(k,v)};
+  c.sb={from:()=>({select:()=>({in:async()=>({data:[{key:'shop_maintenance:1',value:{epoch:'restored'}}]})})})};
+  c.quotations=[{id:'old',warehouseId:1},{id:'pending',warehouseId:1},{id:'other',warehouseId:2}];
+  c.salesHistory=[{warehouseId:1},{warehouseId:2}];
+  c.workspaceRecoveryTables=()=>[['quotations',()=>c.quotations,r=>{c.quotations=r;}]];
+  c.currentWorkspacePendingChanges=()=>[{table:'quotations',id:'pending'}];
+  c.resetLoadedInventoryScopes=()=>{};
+  assert.equal(await c.adoptRemoteMaintenanceEpoch(),true);
+  assert.deepEqual(c.quotations.map(q=>q.id),['pending','other']);assert.equal(c.salesHistory[0].warehouseId,2);
+  assert.equal(await c.adoptRemoteMaintenanceEpoch(),false);
 });

@@ -261,7 +261,7 @@ async function loadWorkspaceFromSupabase(){
   const refreshedContext=captureWorkspaceRead();
   await Promise.all([
     loadCoreDataFromSupabase(),loadSalesHistoryFromSupabase(),loadBusinessSettingsFromSupabase(),
-    loadDocumentPrefixesFromSupabase(),loadInspectionListsFromSupabase(),loadPromotionsFromSupabase()
+    loadInspectionListsFromSupabase(),loadPromotionsFromSupabase()
   ]);
   if(!isWorkspaceReadCurrent(refreshedContext)) return;
   await loadCashShiftsFromSupabase();

@@ -59,31 +59,17 @@ async function loadBusinessSettingsFromSupabase(){
 
 // ----- Document number prefixes sync -----
 // Another single object, same settings(key,value) table as business settings.
-async function syncDocumentPrefixesToSupabase(){
-  if(!currentProfile) return;
-  const snapshot=JSON.stringify(documentPrefixes);
-  if(lastSyncedSnapshot.document_prefixes===snapshot) return;
-  try{
-    const {error}=await sb.rpc('owner_set_setting',{p_key:'document_prefixes',p_value:documentPrefixes});
-    if(error){ console.warn('sync document prefixes',error); return; }
-    lastSyncedSnapshot.document_prefixes=snapshot;
-  }catch(e){ console.warn('sync document prefixes failed',e); }
-}
 async function loadDocumentPrefixesFromSupabase(){
-  const context=captureWorkspaceRead();
+  if(!currentProfile||!activeWarehouseId||isAllWarehousesMode())return;
+  const context=captureStoreView();
+  const before=documentPrefixesByStore[context.store];
   try{
-    const {data,error}=await sb.from('settings').select('value').eq('key','document_prefixes').maybeSingle();
-    if(!isWorkspaceReadCurrent(context)) return;
-    if(error){ console.warn('load document prefixes',error); return; }
-    if(data&&data.value&&typeof data.value==='object'){
-      Object.keys(DEFAULT_DOCUMENT_PREFIXES).forEach(key=>{
-        documentPrefixes[key]=normalizeDocumentPrefix(data.value[key],DEFAULT_DOCUMENT_PREFIXES[key]);
-      });
-      lastSyncedSnapshot.document_prefixes=JSON.stringify(documentPrefixes);
-    }else{
-      await syncDocumentPrefixesToSupabase(); // first time ever: seed Supabase from whatever's local right now
-    }
-  }catch(e){ console.warn('load document prefixes failed',e); }
+    const {data,error}=await sb.from('settings').select('value').eq('key',storeToolKey('document_prefixes',context.store)).maybeSingle();
+    if(!isStoreViewCurrent(context)||documentPrefixesByStore[context.store]!==before)return;
+    if(error)throw error;
+    documentPrefixesByStore[context.store]=Object.fromEntries(Object.entries(DEFAULT_DOCUMENT_PREFIXES).map(([key,fallback])=>[key,normalizeDocumentPrefix(data?.value?.[key],fallback)]));
+    selectDocumentPrefixes();
+  }catch(e){console.warn('load document prefixes failed',e);}
 }
 
 // ----- Saved product inspection lists sync -----
@@ -137,15 +123,18 @@ async function loadInspectionListsFromSupabase(){
     const {data,error}=await fetchAllRows(()=>sb.from('inspection_lists').select('*').order('id'));
     if(!isWorkspaceReadCurrent(context)) return;
     if(error){ console.warn('load inspection lists',error); return; }
-    if((data||[]).length){
+    if((data||[]).length||maintenanceHasStoreSnapshot()){
       inspectionLists=mergeWorkspaceRemoteRows('inspection_lists',inspectionLists,data.map(rowToInspectionList),inspectionListToRow,{replace:true});
     }else{
       // One-time migration from the former settings-array storage.
       const {data:legacy}=await sb.from('settings').select('value').eq('key','inspection_lists').maybeSingle();
       if(!isWorkspaceReadCurrent(context)) return;
-      if(legacy&&Array.isArray(legacy.value)&&legacy.value.length) inspectionLists=normalizeInspectionLists(legacy.value);
-      seedTableSnapshot('inspection_lists',[],inspectionListToRow);
-      if(inspectionLists.length) await syncInspectionListsToSupabase();
+      const migrated=Array.isArray(legacy?.value)?normalizeInspectionLists(legacy.value):[];
+      inspectionLists=mergeWorkspaceRemoteRows('inspection_lists',inspectionLists,[],inspectionListToRow,{replace:true});
+      if(migrated.length){
+        for(const list of migrated)if(!inspectionLists.some(item=>item.id===list.id))inspectionLists.push(list);
+        await syncInspectionListsToSupabase();
+      }
     }
     refreshDataCounters();
   }catch(e){ console.warn('load inspection lists failed',e); }
@@ -240,7 +229,8 @@ async function loadCoreDataFromSupabase(){
     rebuildInventoryLotMap();
     restoreActiveWarehouseSelection();
     applyStoreCategoryView();
-    await Promise.all([loadProductCategorySettingsFromSupabase(),loadFavoritesFromSupabase()]);
+    selectDocumentPrefixes();
+    await Promise.all([loadProductCategorySettingsFromSupabase(),loadFavoritesFromSupabase(),loadDocumentPrefixesFromSupabase()]);
     if(!isWorkspaceReadCurrent(context)) return false;
     if(!await loadWarehouseInventoryFromSupabase(inventoryScopeWarehouseIds(),{force:true})){
       console.warn('load core inventory failed');

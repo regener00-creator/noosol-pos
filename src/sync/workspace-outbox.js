@@ -2,7 +2,7 @@ const WORKSPACE_STORAGE_KEY='pharmacy_pos_workspace_v1';
 const RESET_BACKUP_KEY='pos2_reset_backup_v1';
 const STORE_BACKUP_LAST_KEY='pepos_store_backup_last_v1';
 const STORE_BACKUP_FORMAT='pepos-pharmacy-store-backup';
-const STORE_BACKUP_VERSION=3;
+const STORE_BACKUP_VERSION=4;
 const PENDING_CHECKOUT_REQUEST_KEY='pepos_pending_checkout_request_v2';
 const MAINTENANCE_EPOCH_STORAGE_KEY='pepos_maintenance_epoch_v1';
 const OWNER_BOOTSTRAP_TOKEN_STORAGE_KEY='pepos_owner_bootstrap_token_v1';
@@ -138,7 +138,7 @@ function clearRemoteResetSensitiveMemory(){
   resetRepresentativeManagedProductIndex();
   notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false; noteSearchQuery=''; notePageCursor=null;
   cashShifts=[]; currentCashShift=null; cashShiftCloseDraft={countedCash:'',reason:''};
-  documentPrefixes={...DEFAULT_DOCUMENT_PREFIXES};
+  documentPrefixesByStore={}; documentPrefixes={...DEFAULT_DOCUMENT_PREFIXES};
   productCategoriesByStore={};
   productCategorySettings={categories:[],subcategories:[]};
   productCategorySettingsLoaded=false; productCategorySettingsLoading=false; productCategorySettingsError='';
@@ -147,14 +147,35 @@ function clearRemoteResetSensitiveMemory(){
   businessSettingsDirty=false;
   businessSettingsSyncState='local';
 }
+function maintenanceHasStoreSnapshot(){
+  return Boolean(localStorage.getItem(MAINTENANCE_EPOCH_STORAGE_KEY+':'+currentProfile?.id+':'+activeWarehouseId));
+}
 async function adoptRemoteMaintenanceEpoch(context=captureWorkspaceRead()){
   if(!currentProfile) return false;
   try{
-    const {data,error}=await sb.from('settings').select('value').eq('key','maintenance_epoch').maybeSingle();
+    const store=activeWarehouseId,shopKey='shop_maintenance:'+store;
+    const {data,error}=await sb.from('settings').select('key,value').in('key',['maintenance_epoch',shopKey]);
     if(error) throw error;
     if(!isWorkspaceReadCurrent(context)) return false;
-    const remoteEpoch=String(data?.value?.epoch||'');
-    if(!remoteEpoch||remoteEpoch===maintenanceEpoch) return false;
+    const remoteEpoch=String(data?.find(row=>row.key==='maintenance_epoch')?.value?.epoch||'');
+    if(!remoteEpoch||remoteEpoch===maintenanceEpoch){
+      const epoch=data?.find(row=>row.key===shopKey)?.value?.epoch;
+      const deviceKey=MAINTENANCE_EPOCH_STORAGE_KEY+':'+currentProfile.id+':'+store;
+      if(!store||store!==activeWarehouseId||!epoch||localStorage.getItem(deviceKey)===epoch)return false;
+      // Discard acknowledged snapshots for this shop only. Preserve every pending edit.
+      const pending=new Set(currentWorkspacePendingChanges().map(entry=>entry.table+':'+entry.id));
+      for(const [table,getRows,setRows] of workspaceRecoveryTables()){
+        setRows(getRows().filter(row=>{
+          if(Number(row.warehouseId||1)!==store||pending.has(table+':'+row.id))return true;
+          syncedTableRows[table]?.delete(String(row.id));return false;
+        }));
+      }
+      salesHistory=salesHistory.filter(sale=>Number(sale.warehouseId||1)!==store);
+      resetSalesLoadState();resetDocumentLoadStates();resetLoadedInventoryScopes();
+      context.generation=workspaceReadGeneration;
+      localStorage.setItem(deviceKey,epoch);
+      return true;
+    }
     await clearLocalStoreCachesForReset();
     if(!isWorkspaceReadCurrent(context)) return false;
     clearRemoteResetSensitiveMemory();
@@ -191,7 +212,7 @@ function normalizeInspectionLists(value){
   });
 }
 function workspaceSnapshot(){
-  return {warehouses,products:completeProductCatalog(),contacts,salesRepresentatives,salesHistory,quotations,invoicesAR,creditNotes,purchaseOrders,goodsReceipts,productExchanges,productReturns,transfers,standaloneTaxInvoices,promotions,favorites,inspectionLists,currentUserProfile,documentPrefixes,businessSettings,warehouseBusinessProfiles,productCategoriesByStore};
+  return {warehouses,products:completeProductCatalog(),contacts,salesRepresentatives,salesHistory,quotations,invoicesAR,creditNotes,purchaseOrders,goodsReceipts,productExchanges,productReturns,transfers,standaloneTaxInvoices,promotions,favorites,inspectionLists,currentUserProfile,documentPrefixesByStore,businessSettings,warehouseBusinessProfiles,productCategoriesByStore};
 }
 function localWorkspaceSnapshot(){
   const snapshot=workspaceSnapshot();
@@ -449,13 +470,8 @@ function applyWorkspaceData(saved){
   if(Array.isArray(saved.standaloneTaxInvoices)) standaloneTaxInvoices=saved.standaloneTaxInvoices;
   if(Array.isArray(saved.promotions)) promotions=saved.promotions;
   if(Array.isArray(saved.favorites)) favorites=normalizeFavorites(saved.favorites,products);
-  if(saved.documentPrefixes&&typeof saved.documentPrefixes==='object'){
-    Object.keys(DEFAULT_DOCUMENT_PREFIXES).forEach(key=>{
-      documentPrefixes[key]=normalizeDocumentPrefix(saved.documentPrefixes[key],DEFAULT_DOCUMENT_PREFIXES[key]);
-    });
-  }
-  if(Array.isArray(saved.inspectionLists)) inspectionLists=normalizeInspectionLists(saved.inspectionLists);
-  if(saved.currentUserProfile&&typeof saved.currentUserProfile==='object') currentUserProfile={...currentUserProfile,...saved.currentUserProfile};
+  documentPrefixesByStore=saved.documentPrefixesByStore||(saved.documentPrefixes?{1:saved.documentPrefixes}:{});
+  selectDocumentPrefixes();
   productCategoriesByStore=saved.productCategoriesByStore||(saved.productCategorySettings?{1:normalizeProductCategorySettings(saved.productCategorySettings)}:{});
   applyStoreCategoryView();
   warehouseBusinessProfiles=saved.warehouseBusinessProfiles||{};

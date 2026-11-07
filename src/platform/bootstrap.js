@@ -115,7 +115,7 @@ sb?.auth.onAuthStateChange((event)=>{
   // Capture any queued snapshot while the old actor and arrays still exist.
   if(event==='SIGNED_OUT') void flushWorkspaceCacheToIndexedDB();
   if(event==='SIGNED_OUT'){document.querySelector('.knowledge-editor-overlay')?.remove();knowledgeState=null;}
-  if(event==='SIGNED_OUT'){ document.querySelector('.owner-recovery-setup-overlay')?.remove(); ownerRecoverySetupRequired=false; clearActiveWarehouseSelection(); productCategoriesByStore={}; currentProfile=null; clearLoadedHistoryMemory(); resetRepresentativeManagedProductIndex(); notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; noteSearchQuery=''; notePageCursor=null; editingNoteId=null; noteDraft=null; noteDraftDirty=false; activeWarehouseId=0; allWarehousesMode=false; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); inventoryLotRows=[]; inventoryLotMap=new Map(); resetLoadedInventoryScopes(); renderLoginState(); }
+  if(event==='SIGNED_OUT'){ document.querySelector('.owner-recovery-setup-overlay')?.remove(); ownerRecoverySetupRequired=false; clearActiveWarehouseSelection(); productCategoriesByStore={}; documentPrefixesByStore={}; currentProfile=null; clearLoadedHistoryMemory(); resetRepresentativeManagedProductIndex(); notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; noteSearchQuery=''; notePageCursor=null; editingNoteId=null; noteDraft=null; noteDraftDirty=false; activeWarehouseId=0; allWarehousesMode=false; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); inventoryLotRows=[]; inventoryLotMap=new Map(); resetLoadedInventoryScopes(); renderLoginState(); }
 });
 
 let mobileViewportResizeTimer=null;

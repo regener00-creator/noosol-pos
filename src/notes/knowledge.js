@@ -5,8 +5,8 @@ const KNOWLEDGE_DEFAULT_ARTICLES=[
 ];
 let knowledgeState=null;
 function getKnowledgeState(){
-  if(!knowledgeState||!isWorkspaceReadCurrent(knowledgeState.context)){
-    knowledgeState={context:captureWorkspaceRead(),articles:[],loaded:false,loading:false,error:'',selectedId:'',search:'',snapshot:null};
+  if(!knowledgeState||!isStoreViewCurrent(knowledgeState.context)){
+    knowledgeState={context:captureStoreView(),articles:[],loaded:false,loading:false,error:'',selectedId:'',search:'',snapshot:null};
   }
   return knowledgeState;
 }
@@ -32,14 +32,14 @@ async function loadKnowledgeArticles(){
   state.loading=true;state.error='';
   if(currentTab==='knowledge') render();
   try{
-    const {data,error}=await sb.from('settings').select('value').eq('key','knowledge_articles').maybeSingle();
-    if(!isWorkspaceReadCurrent(state.context))return;
+    const {data,error}=await sb.from('settings').select('value').eq('key',storeToolKey('knowledge_articles',state.context.store)).maybeSingle();
+    if(!isStoreViewCurrent(state.context))return;
     if(error)throw error;
-    state.articles=knowledgeArticlesFromValue(data?.value);
+    state.articles=data?.value==null&&Number(state.context.store)!==1?[]:knowledgeArticlesFromValue(data?.value);
     state.snapshot=JSON.stringify(stableJsonValue(data?.value??null));state.loaded=true;
     if(!state.articles.some(article=>article.id===state.selectedId))state.selectedId=state.articles[0]?.id||'';
-  }catch(error){if(isWorkspaceReadCurrent(state.context))state.error=error?.message||'โหลดสิ่งควรรู้ไม่สำเร็จ';}
-  finally{state.loading=false;if(isWorkspaceReadCurrent(state.context)&&currentTab==='knowledge')render();}
+  }catch(error){if(isStoreViewCurrent(state.context))state.error=error?.message||'โหลดสิ่งควรรู้ไม่สำเร็จ';}
+  finally{state.loading=false;if(isStoreViewCurrent(state.context)&&currentTab==='knowledge')render();}
 }
 function renderKnowledge(){
   const state=getKnowledgeState(),owner=loggedInUser()?.owner===true;
@@ -58,12 +58,12 @@ function renderKnowledge(){
     </div>`:''}</header><div class="knowledge-content">${knowledgeContentHtml(selected)}</div>`:`<div class="knowledge-empty">${state.loaded?'ยังไม่มีหัวข้อ':'เลือกหัวข้อที่ต้องการอ่าน'}</div>`}</article></div></div>`;
 }
 async function persistKnowledgeArticles(articles,state){
-  if(loggedInUser()?.owner!==true||!isWorkspaceReadCurrent(state.context))throw new Error('ไม่มีสิทธิ์แก้ไขสิ่งควรรู้');
+  if(loggedInUser()?.owner!==true||!isStoreViewCurrent(state.context))throw new Error('ไม่มีสิทธิ์แก้ไขสิ่งควรรู้');
   const value={articles,posSearchTipAdded:true};
   if(new Blob([JSON.stringify(value)]).size>900000)throw new Error('ข้อมูลสิ่งควรรู้มีขนาดใหญ่เกินไป กรุณาลดข้อความก่อนบันทึก');
-  const {error}=await sb.rpc('owner_save_knowledge_articles',{p_expected:JSON.parse(state.snapshot),p_value:value});
+  const {error}=await sb.rpc('owner_save_knowledge_articles',{p_warehouse_id:state.context.store,p_expected:JSON.parse(state.snapshot),p_value:value});
   if(error)throw error;
-  if(!isWorkspaceReadCurrent(state.context))return false;
+  if(!isStoreViewCurrent(state.context))return false;
   state.articles=articles;state.snapshot=JSON.stringify(stableJsonValue(value));return true;
 }
 function openKnowledgeEditor(article=null){
@@ -113,7 +113,7 @@ function attachKnowledgeEvents(){
       try{
         await persistKnowledgeArticles(articles,state);
       }catch(error){showToast(error?.message||'บันทึกลำดับไม่สำเร็จ','danger-top');}
-      finally{state.loading=false;if(currentTab==='knowledge'&&isWorkspaceReadCurrent(state.context))render();}
+      finally{state.loading=false;if(currentTab==='knowledge'&&isStoreViewCurrent(state.context))render();}
     });
   }
   document.getElementById('addKnowledge')?.addEventListener('click',()=>openKnowledgeEditor());

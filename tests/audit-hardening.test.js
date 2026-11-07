@@ -19,7 +19,7 @@ test('contact code allocation is central, unique, and does not truncate long seq
 });
 test('old purchase-order runtime is gone but read-only historical backup stays',()=>{
   assert.doesNotMatch(app,/\bpo2\b|\bpurchaseorder2\b|let purchaseOrdersFull/);
-  assert.match(app,/sb\.rpc\('export_store_backup'\)/);
+  assert.match(app,/sb\.rpc\('export_store_backup',\{p_warehouse_id:context.store\}\)/);
   const migrations=path.join(root,'supabase/migrations');
   const backupSql=fs.readFileSync(path.join(migrations,fs.readdirSync(migrations).find(name=>name.endsWith('_complete_backups_and_revision_safety.sql'))),'utf8');
   assert.match(backupSql,/'public.purchase_orders_full'/,'historical table is part of the complete server snapshot');

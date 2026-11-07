@@ -44,7 +44,10 @@ async function saveBusinessSettings(){
   }finally{if(button)button.disabled=false;}
 }
 
-function saveDocumentPrefixes(){
+async function saveDocumentPrefixes(){
+  if(!activeWarehouseId||isAllWarehousesMode()||!loggedInUser()?.owner)return;
+  const context=captureStoreView();
+  if(!documentPrefixesByStore[context.store]){showToast('กรุณาโหลดรหัสนำหน้าเอกสารของร้านนี้ก่อนบันทึก');return;}
   const next={};
   const used=new Map();
   for(const field of DOCUMENT_PREFIX_FIELDS){
@@ -63,61 +66,75 @@ function saveDocumentPrefixes(){
     used.set(value,field.label);
     next[field.key]=value;
   }
-  documentPrefixes={...next};
+  try{
+    const {error}=await sb.rpc('owner_set_setting',{p_key:storeToolKey('document_prefixes',context.store),p_value:next});
+    if(error)throw error;
+  }catch(error){showToast(error.message||'บันทึกรหัสนำหน้าไม่สำเร็จ','danger');return;}
+  if(!isStoreViewCurrent(context))return;
+  documentPrefixesByStore[context.store]=next;selectDocumentPrefixes();
   saleRef=nextSaleRef();
   persistWorkspaceData();
-  syncDocumentPrefixesToSupabase();
   showToast('บันทึกรหัสนำหน้าเอกสารแล้ว เอกสารใหม่จะใช้รหัสที่ตั้งไว้');
   render();
 }
 
 async function storeBackupDataSnapshot(){
-  // The entire store comes from one server-side MVCC snapshot, never stale
-  // device caches or the currently loaded/paginated history windows.
-  const {data:payload,error}=await sb.rpc('export_store_backup');
-  if(error) throw error;
-  validateStoreBackupPayload(payload);
+  const context=captureStoreView();
+  if(!context.store||context.combined)throw new Error('กรุณาเลือกร้านที่จะสำรอง');
+  const {data:payload,error}=await sb.rpc('export_store_backup',{p_warehouse_id:context.store});
+  if(error)throw error;
+  if(!isStoreViewCurrent(context))throw new Error('เปลี่ยนคลังระหว่างดาวน์โหลด กรุณาเลือกไฟล์อีกครั้ง');
+  validateStoreBackupPayload(payload,context.store);
   return payload;
 }
-
-function storeBackupFileName(){
+function storeBackupFileName(name){
   const now=new Date(),pad=value=>String(value).padStart(2,'0');
-  return `PEPOS-backup-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.json`;
+  const shop=String(name).replace(/[<>:"/\\|?*\x00-\x1f]/g,'-');
+  return `PEPOS-backup-${shop}-${now.getFullYear()}${pad(now.getMonth()+1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.json`;
 }
-
+function pendingWorkForShop(id){
+  const workspace=currentWorkspacePendingChanges().filter(entry=>{
+    const row=entry.record;
+    let baseline=null;
+    if(entry.baseline){try{baseline=JSON.parse(entry.baseline);}catch{return false;}}
+    const shopOf=value=>Number(value?.warehouse_id||value?.warehouseId||value?.data?.warehouseId||1);
+    return (row||baseline)&&(!row||shopOf(row)===id)&&(!baseline||shopOf(baseline)===id);
+  });
+  const products=completeProductCatalog().filter(p=>Number(p.wh||1)===id&&productDirtyOperations.has(String(p.id)));
+  const productIds=new Set(products.map(p=>String(p.id)));
+  const productOperations=[...productDirtyOperations].filter(([pid])=>{
+    if(productIds.has(String(pid)))return true;
+    const previous=syncedTableRows.products?.get(String(pid));
+    return previous&&Number(JSON.parse(previous).warehouse_id||1)===id;
+  });
+  return {workspace,products,productOperations};
+}
+function requireSyncedShop(id){
+  const pending=pendingWorkForShop(id);
+  if(pending.workspace.length||pending.productOperations.length||offlinePendingSales().some(s=>Number(s.payload?.warehouseId)===id)||Number(readPendingCheckoutRequest()?.payload?.warehouseId)===id)
+    throw new Error('ร้านนี้มีงานรอซิงก์ กรุณาซิงก์ให้สำเร็จก่อนล้างหรือกู้คืนข้อมูล');
+}
 async function downloadStoreBackup(){
-  if(loggedInUser()?.owner!==true){ showToast('เฉพาะเจ้าของร้านเท่านั้นที่สามารถสำรองข้อมูลได้'); return; }
+  if(loggedInUser()?.owner!==true||!activeWarehouseId||isAllWarehousesMode())return;
   const button=document.getElementById('downloadStoreBackupBtn');
-  const oldLabel=button?.textContent||'ดาวน์โหลดไฟล์สำรอง';
-  if(button){ button.disabled=true; button.textContent='กำลังเตรียมไฟล์...'; }
+  if(button){button.disabled=true;button.textContent='กำลังเตรียมไฟล์...';}
   try{
     const payload=await storeBackupDataSnapshot();
-    const createdAt=payload.createdAt;
-    // Unsent work is preserved separately and is never applied by restore.
-    payload.pendingDeviceWork={workspace:cloneSyncRecords(currentWorkspacePendingChanges()),products:completeProductCatalog().filter(p=>productDirtyOperations.has(String(p.id))),productOperations:[...productDirtyOperations]};
-    const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});
-    const url=URL.createObjectURL(blob);
-    const link=document.createElement('a');
-    link.href=url;
-    link.download=storeBackupFileName();
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(()=>URL.revokeObjectURL(url),1000);
-    localStorage.setItem(STORE_BACKUP_LAST_KEY,createdAt);
-    showToast('ดาวน์โหลดไฟล์สำรองข้อมูลร้านแล้ว');
-    render();
-  }catch(error){
-    console.error('สำรองข้อมูลร้านไม่สำเร็จ',error);
-    showToast('สร้างไฟล์สำรองไม่สำเร็จ กรุณาลองอีกครั้ง','danger');
-    if(button){ button.disabled=false; button.textContent=oldLabel; }
-  }
+    payload.pendingDeviceWork=pendingWorkForShop(Number(payload.warehouseId));
+    const url=URL.createObjectURL(new Blob([JSON.stringify(payload)],{type:'application/json;charset=utf-8'}));
+    const link=document.createElement('a');link.href=url;link.download=storeBackupFileName(payload.warehouseName);
+    document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
+    localStorage.setItem(STORE_BACKUP_LAST_KEY+':'+payload.warehouseId,payload.createdAt);
+    showToast('ดาวน์โหลดไฟล์สำรองของ '+payload.warehouseName+' แล้ว');render();
+  }catch(error){showToast(error.message||'สร้างไฟล์สำรองไม่สำเร็จ','danger');if(button){button.disabled=false;button.textContent='ดาวน์โหลดไฟล์สำรอง';}}
 }
 
 async function submitStoreReset(event){
   event?.preventDefault();
   if(loggedInUser()?.owner!==true||!storeResetMode){ showToast('เฉพาะเจ้าของร้านเท่านั้นที่สามารถรีเซ็ตข้อมูลได้','danger'); return; }
   const mode=storeResetMode,config=storeResetConfig(mode);
+  if(mode==='factory'?!isAllWarehousesMode():!activeWarehouseId||isAllWarehousesMode())return;
+  const context=captureStoreView();
   const password=document.getElementById('storeResetPassword')?.value||'';
   const phrase=(document.getElementById('storeResetPhrase')?.value||'').trim();
   const backupConfirmed=document.getElementById('storeResetBackupConfirmed')?.checked===true;
@@ -127,10 +144,11 @@ async function submitStoreReset(event){
   const button=document.getElementById('confirmStoreResetBtn');
   if(button){ button.disabled=true; button.textContent='กำลังรีเซ็ตข้อมูล...'; }
   try{
-    const response=await callEdgeFunction('admin-users',{action:'reset-store',mode,password,phrase});
+    if(mode==='documents')requireSyncedShop(context.store);
+    const response=await callEdgeFunction('admin-users',{action:'reset-store',mode,password,phrase,warehouseId:mode==='documents'?context.store:null,allWarehouses:context.combined});
     const bootstrapToken=String(response?.reset?.bootstrapToken||'');
     if(mode==='factory'&&!bootstrapToken) throw new Error('ระบบไม่ได้รับกุญแจตั้งค่าเจ้าของร้าน กรุณาติดต่อผู้ดูแลระบบก่อนปิดหน้านี้');
-    await clearLocalStoreCachesForReset();
+    if(mode==='factory')await clearLocalStoreCachesForReset();
     if(bootstrapToken) localStorage.setItem(OWNER_BOOTSTRAP_TOKEN_STORAGE_KEY,bootstrapToken);
     storeResetMode=null;
     if(mode==='factory'){
@@ -147,59 +165,36 @@ async function submitStoreReset(event){
   }
 }
 
-function validateStoreBackupPayload(payload){
-  if(!payload||typeof payload!=='object'||payload.format!==STORE_BACKUP_FORMAT) throw new Error('ไฟล์นี้ไม่ใช่ไฟล์สำรองของ PEPOS');
-  if(Number(payload.version)!==STORE_BACKUP_VERSION) throw new Error('ต้องใช้ไฟล์สำรองครบถ้วนเวอร์ชัน 3 ไฟล์เก่าไม่ครอบคลุมกะ NOTE และสต๊อกนอก LOT กรุณาเก็บไฟล์เดิมไว้และติดต่อผู้ดูแลหากต้องกู้คืน');
-  const data=payload.data;
-  if(!data||typeof data!=='object') throw new Error('ไม่พบข้อมูลร้านในไฟล์สำรอง');
-  const required=['public.products','public.warehouses','public.contacts','public.sales','public.sale_items','public.cash_shifts','public.inventory_balances','public.inventory_lots','public.inventory_lot_movements','public.notes','public.representative_activity_items','public.sales_representative_products','public.profile_warehouse_access','public.profile_page_permissions','private.operation_ledger'];
-  if(!data.tables||!payload.manifest||required.some(key=>!Array.isArray(data.tables[key]))) throw new Error('ข้อมูลในไฟล์สำรองไม่ครบถ้วน');
-  if(Object.entries(data.tables).some(([key,rows])=>!Array.isArray(rows)||Number(payload.manifest[key]?.rows)!==rows.length||!/^[a-f0-9]{32}$/.test(payload.manifest[key]?.md5||''))) throw new Error('รายการตรวจสอบไฟล์สำรองไม่ครบถ้วน');
-  return cloudClean(data);
+function validateStoreBackupPayload(payload,warehouseId=activeWarehouseId){
+  if(payload?.format!==STORE_BACKUP_FORMAT||![3,STORE_BACKUP_VERSION].includes(payload.version)||!payload.data?.tables||!payload.manifest) throw new Error('ไฟล์สำรองไม่ถูกต้องหรือเก่าเกินกว่าที่รองรับ');
+  if(payload.version===3?Number(warehouseId)!==1:Number(payload.warehouseId)!==Number(warehouseId))throw new Error('ไฟล์สำรองเป็นของคนละร้าน');
+  for(const key of ['public.products','public.sales','public.contacts','public.notes','public.inventory_lots']){
+    if(!Array.isArray(payload.data.tables[key]))throw new Error('ข้อมูลในไฟล์สำรองไม่ครบถ้วน');
+  }
+  for(const [key,rows] of Object.entries(payload.data.tables)){
+    if(!Array.isArray(rows)||Number(payload.manifest[key]?.rows)!==rows.length||!/^[a-f0-9]{32}$/.test(payload.manifest[key]?.md5||''))throw new Error('รายการตรวจสอบไฟล์สำรองไม่ครบถ้วน');
+  }
+  return payload.data;
 }
-
 async function restoreStoreBackup(file){
-  if(loggedInUser()?.owner!==true){ showToast('เฉพาะเจ้าของร้านเท่านั้นที่สามารถกู้คืนข้อมูลได้'); return; }
-  if(!file||file.size>100*1024*1024){ showToast('ไฟล์สำรองมีขนาดใหญ่เกินไป','danger'); return; }
-  let payload,data;
+  if(!loggedInUser()?.owner||!activeWarehouseId||isAllWarehousesMode())return;
+  const context=captureStoreView(),shop=activeWarehouse()?.name;
   try{
-    payload=JSON.parse(await file.text());
-    data=validateStoreBackupPayload(payload);
-  }catch(error){
-    console.error('ตรวจไฟล์สำรองไม่สำเร็จ',error);
-    showToast(error.message||'อ่านไฟล์สำรองไม่สำเร็จ','danger');
-    return;
-  }
-  const summary=storeBackupSummary(data);
-  const backupDate=new Date(payload.createdAt||'');
-  const dateText=!Number.isNaN(backupDate.getTime())?backupDate.toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}):'ไม่ระบุเวลา';
-  const warning=`ยืนยันกู้คืนข้อมูลร้านจากไฟล์สำรองหรือไม่?\n\nวันที่สำรอง: ${dateText}\nสินค้า: ${summary.products} รายการ\nLOT: ${summary.lots} รายการ\nการเคลื่อนไหวสต๊อก: ${summary.movements} รายการ\nรายชื่อ: ${summary.contacts} รายการ\nโปรโมชั่น: ${summary.promotions} รายการ\nเอกสารและรายการขาย: ${summary.documents} รายการ\nกะขาย: ${summary.shifts} รายการ\nNOTE: ${summary.notes} รายการ\n\nข้อมูลปัจจุบันในร้านจะถูกแทนที่ด้วยข้อมูลจากไฟล์นี้ ประวัติ AUDIT LOG และการพิมพ์เดิมจะไม่ถูกลบ\nงานรอซิงก์ที่แนบในไฟล์ไม่ถูกนำเข้าขณะกู้คืน กรุณาหยุดใช้งานและซิงก์ทุกเครื่องให้เรียบร้อยก่อนดำเนินการ`;
-  if(!confirm(warning)) return;
-  try{ localStorage.setItem(RESET_BACKUP_KEY,JSON.stringify(workspaceSnapshot())); }catch(error){ console.warn('ไม่สามารถเก็บข้อมูลก่อนกู้คืนไว้ในอุปกรณ์ได้',error); }
-  const button=document.getElementById('restoreStoreBackupBtn');
-  if(button){ button.disabled=true; button.textContent='กำลังกู้คืนข้อมูล...'; }
-  try{
-    const {data:result,error}=await sb.rpc('restore_store_backup_atomic',{p_backup:payload});
-    if(error) throw error;
-    await clearLocalStoreCachesForReset();
-    clearRemoteResetSensitiveMemory();
-    maintenanceEpoch=String(result?.epoch||'');
-    if(maintenanceEpoch) localStorage.setItem(MAINTENANCE_EPOCH_STORAGE_KEY,maintenanceEpoch);
-    await Promise.all([
-      loadCoreDataFromSupabase(),loadSalesHistoryFromSupabase(),loadBusinessSettingsFromSupabase(),
-      loadDocumentPrefixesFromSupabase(),loadInspectionListsFromSupabase(),loadPromotionsFromSupabase()
-    ]);
-    await loadCashShiftsFromSupabase();
-    refreshDataCounters();
-    persistWorkspaceData();
-    currentTab='settingssystem';
-    showToast('กู้คืนข้อมูลร้านสำเร็จ');
-    render();
-  }catch(error){
-    console.error('กู้คืนข้อมูลร้านไม่สำเร็จ',error);
-    showToast('กู้คืนข้อมูลไม่สำเร็จ กรุณาลองใหม่หรือติดต่อผู้ดูแล','danger');
-    render();
-  }
+    if(!file||file.size>100*1024*1024)throw new Error('ไฟล์สำรองมีขนาดใหญ่เกินไป');
+    const payload=JSON.parse(await file.text());
+    validateStoreBackupPayload(payload,context.store);
+    if(!isStoreViewCurrent(context))return;
+    requireSyncedShop(context.store);
+    const origin=payload.version===3?'ไฟล์เดิมเวอร์ชัน 3 · ใช้เฉพาะข้อมูลพระยาสุเรนทร์':payload.warehouseName;
+    const summary=storeBackupSummary(payload.data);
+    const counts=payload.version===4?`\nสินค้า ${summary.products} · เอกสาร ${summary.documents} · LOT ${summary.lots} · NOTE ${summary.notes}`:'';
+    if(!confirm(`กู้คืนร้าน ${shop} จากไฟล์ของ ${origin} วันที่ ${new Date(payload.createdAt).toLocaleString('th-TH')} หรือไม่?${counts}\n\nข้อมูลร้าน ${shop} จะถูกแทนที่ กรุณาซิงก์และหยุดใช้งานร้านนี้ทุกเครื่องก่อนยืนยัน`))return;
+    const button=document.getElementById('restoreStoreBackupBtn');if(button)button.disabled=true;
+    const {data,error}=await sb.rpc('restore_store_backup_atomic',{p_warehouse_id:context.store,p_backup:payload});
+    if(error)throw error;
+    if(!data?.verified||Number(data.warehouseId)!==Number(context.store))throw new Error('ยืนยันผลกู้คืนไม่ได้ กรุณาตรวจข้อมูลก่อนลองใหม่');
+    showToast('กู้คืนข้อมูลร้าน '+shop+' แล้ว');window.location.reload();
+  }catch(error){showToast(error.message||'กู้คืนข้อมูลไม่สำเร็จ','danger');render();}
 }
 
 async function saveUserSettings(){

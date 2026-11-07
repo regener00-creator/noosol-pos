@@ -39,8 +39,8 @@ const syncLoader = section('async function syncCoreDataToSupabase(){', '// Stock
 assert.match(syncLoader, /if\(pendingTables\.has\(table\)\) await run\(\(\)=>syncRevisionedDocuments/,
   'unopened document tables must never be compared with empty local arrays');
 
-const backup = section('async function storeBackupDataSnapshot(){', 'function storeBackupFileName(){');
-assert.match(backup, /sb\.rpc\('export_store_backup'\)/,'backup uses one consistent server snapshot');
+const backup = section('async function storeBackupDataSnapshot(){', 'function storeBackupFileName(name){');
+assert.match(backup, /sb\.rpc\('export_store_backup',\{p_warehouse_id:context.store\}\)/,'backup uses one consistent selected-store server snapshot');
 assert.doesNotMatch(backup, /workspaceSnapshot\(|loadAllSalesForBackup\(|loadAllDocumentsForBackup\(/,'backup must not mix client caches and separately fetched history');
 
 assert.match(source, /loadCompleteSalesRangeBtn/,

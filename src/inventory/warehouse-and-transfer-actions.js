@@ -1,4 +1,5 @@
 async function saveWarehouse(){
+  if(!isAllWarehousesMode()||!loggedInUser()?.owner)return;
   const get=id=>(document.getElementById(id)?.value||'').trim();
   const name=get('wh_name'),purpose=get('wh_purpose');
   if(!name){ showToast('กรุณากรอกชื่อคลังสินค้า'); document.getElementById('wh_name')?.focus(); return; }
@@ -10,7 +11,7 @@ async function saveWarehouse(){
   const requestedId=existing?.id??null;
   const nextData={
     ...data,
-    code:data.code||existing?.code||(requestedId?`${documentPrefixes.warehouse}-${String(requestedId).padStart(3,'0')}`:''),
+    code:data.code||existing?.code||'',
   };
   const buttons=['saveWarehouseBtn','saveWarehouseBottomBtn'].map(id=>document.getElementById(id)).filter(Boolean);
   buttons.forEach(button=>{ button.disabled=true; });
@@ -45,6 +46,7 @@ async function saveWarehouse(){
 }
 
 async function deleteWarehouse(id){
+  if(!isAllWarehousesMode()||!loggedInUser()?.owner)return;
   const warehouse=warehouses.find(w=>w.id===id); if(!warehouse) return;
   const productCount=inventoryBalanceRows.filter(row=>Number(row.warehouse_id)===Number(id)&&Number(row.stock)!==0).length;
   const transferCount=transfers.filter(doc=>doc.status!=='ยกเลิก'&&(Number(doc.fromId)===id||Number(doc.toId)===id||doc.from===warehouse.name||doc.to===warehouse.name)).length;

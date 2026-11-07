@@ -60,7 +60,9 @@ export async function run({client}){
       const reps=await q('select representative_id from public.get_representative_page(p_warehouse_id=>$1)',[s.id]);
       assert.deepEqual(reps.rows.map(r=>Number(r.representative_id)),[s.id]);
       await q('update public.inventory_balances set stock=10 where warehouse_id=$1',[s.id]);
+      await q("select public.owner_set_setting($1,$2)",['document_prefixes:'+s.id,{sale:s.name+'RE',cashShift:s.name+'CS'}]);
       await q('select public.open_cash_shift($1,500)',[s.id]);
+      assert.ok((await q('select shift_no from public.cash_shifts where warehouse_id=$1',[s.id])).rows[0].shift_no.startsWith(s.name+'CS'));
       assert.equal(Number((await q('select product_id from public.find_product_barcode_owners($1,$2)',[['001234'],s.id])).rows[0].product_id),s.id);
     }
     async function sell(s,pid,memberId=s.id){
@@ -76,6 +78,7 @@ export async function run({client}){
     assert.deepEqual(await balances(8520),[['8520',0]]);
     await q('savepoint wrong_member');await assert.rejects(sell(shops[1],8520,8510),/LOYALTY_CUSTOMER_NOT_FOUND/);await q('rollback to wrong_member');
     const second=await sell(shops[1],8520);
+    assert.ok(first.ref.startsWith('ARE'));assert.ok(second.ref.startsWith('BRE'));
     assert.deepEqual(await balances(8520),[['8520',1]]);
     assert.deepEqual(await balances(8510),[['8510',1]]);
     await q('savepoint duplicate_member');await assert.rejects(q("insert into public.contacts(id,warehouse_id,type,name,phone,data) values(8599,8510,'customer','Duplicate','080-777-7777','{}')"),/contacts_customer_phone_unique/);await q('rollback to duplicate_member');
@@ -89,6 +92,7 @@ export async function run({client}){
     await assert.rejects(q("select public.complete_sale($1,'STORE',8510,$2,$3,null)",[randomUUID(),redemption,JSON.stringify(custom)]),/LOYALTY_INSUFFICIENT_POINTS/);
     await q('rollback to cross_shop_points');
     assert.equal(second.businessSnapshot.name,'B');assert.equal(Number(second.vat),7.85);assert.equal(Number(first.vat),0);
+    await verifyOwnerTools(q,owner,shops);
     await q('savepoint wrong_store');await assert.rejects(sell(shops[0],8520),/unavailable/);await q('rollback to wrong_store');
     await q("select public.owner_set_setting('business-warehouse:8510',$1)",[{name:'Changed'}]);
     assert.equal((await q("select data->'businessSnapshot'->>'name' name from public.sales where id=$1",[first.id])).rows[0].name,'A');
@@ -117,4 +121,46 @@ export async function run({client}){
     assert.equal((await q("select key from public.settings where key='business-warehouse:8520' ")).rowCount,0);
     console.log('Two stores: independent barcodes, prices, costs, stock, receipt snapshots and staff visibility verified');
   }finally{await q('rollback');}
+}
+async function verifyOwnerTools(q,owner,[a,b]){
+  const snapshot=async shop=>(await q('select public.export_store_backup($1) b',[shop.id])).rows[0].b;
+  for(const shop of [a,b]){
+    await q('select public.owner_save_knowledge_articles($1,null,$2)',[shop.id,{articles:[{title:shop.name}]}]);
+    await q('select public.owner_set_setting($1,$2)',['document_prefixes:'+shop.id,{cashShift:shop.name+'CS'}]);
+    assert.equal((await q("select private.configured_document_prefix($1,'cashShift','CS') p",[shop.id])).rows[0].p,shop.name+'CS');
+    const log=(await q('select public.get_central_audit_log_page(p_warehouse_id=>$1,p_search=>$2,p_include_total=>true) p',[shop.id,'knowledge_articles'])).rows[0].p;
+    assert.ok(log.totalCount>0);assert.ok(log.rows.every(row=>Number(row.warehouse_id)===shop.id));
+  }
+  const first=await snapshot(a),other=await snapshot(b);
+  assert.deepEqual(first.data.tables['public.products'].map(p=>Number(p.id)),[a.id]);
+  assert.deepEqual(other.data.tables['public.contacts'].map(c=>Number(c.id)),[b.id]);
+  await q('savepoint scope_mismatch');
+  await assert.rejects(q('select public.restore_store_backup_atomic($1,$2)',[b.id,first]),/คนละคลัง/);
+  await q('rollback to scope_mismatch');
+  const mixed=structuredClone(first);
+  mixed.data.tables['public.products'][0].warehouse_id=b.id;
+  mixed.manifest['public.products'].md5=(await q('select md5($1::jsonb::text) hash',[JSON.stringify(mixed.data.tables['public.products'])])).rows[0].hash;
+  await q('savepoint mixed_backup');
+  await assert.rejects(q('select public.restore_store_backup_atomic($1,$2)',[a.id,mixed]),/ไม่ได้อยู่ในคลังนี้/);
+  await q('rollback to mixed_backup');
+  await q('savepoint document_wipe');
+  await q("select public.admin_reset_shop_documents($1,$2,'CONFIRM_DOCUMENT_RESET')",[owner,a.id]);
+  const cleared=await snapshot(a);
+  assert.equal(cleared.data.tables['public.sales'].length,0);assert.equal(cleared.data.tables['public.inventory_lots'].length,0);
+  assert.equal(cleared.data.tables['public.products'].length,1);
+  assert.deepEqual((await snapshot(b)).data,other.data);
+  await q('select public.restore_store_backup_atomic($1,$2)',[a.id,first]);
+  const restored=await snapshot(a);
+  for(const [t,rows] of Object.entries(first.data.tables)){
+    if(t!=='public.audit_logs')assert.deepEqual(restored.data.tables[t],rows,t);
+  }
+  assert.deepEqual((await snapshot(b)).data,other.data);
+  await q('rollback to document_wipe');
+  await q('savepoint factory');
+  await q("insert into public.notes(title,standalone_warehouse_id) values('Factory fixture',$1)",[a.id]);
+  await q("select public.admin_reset_store_data('factory',$1,'CONFIRM_FACTORY_RESET_ALL')",[owner]);
+  assert.equal((await q('select 1 from public.warehouses')).rowCount,0);
+  assert.equal((await q('select 1 from public.notes')).rowCount,0);
+  await q('rollback to factory');
+  console.log('Store owner tools: independent knowledge, document numbers, audit counts, scoped backup/restore and document reset passed');
 }
