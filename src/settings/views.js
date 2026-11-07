@@ -7,30 +7,37 @@ function renderBusinessSettings(){
   return `<div class="settings-page business-settings-page" id="businessSettingsForm">
     <div class="pagehead topbar-action-source"><div></div><div class="form-final-actions"><button class="btn primary" id="saveBusinessSettingsBtn">บันทึกข้อมูลธุรกิจ</button></div></div>
     <div class="settings-section">
-      <div class="settings-row"><label>ประเภทธุรกิจ:</label><select id="set_business_type"><option ${b.type==='บริษัท'?'selected':''}>บริษัท</option><option ${b.type==='บุคคลธรรมดา'?'selected':''}>บุคคลธรรมดา</option><option ${b.type==='ห้างหุ้นส่วน'?'selected':''}>ห้างหุ้นส่วน</option></select></div>
-      <div class="settings-row"><label>จดภาษีมูลค่าเพิ่ม:</label><select id="set_business_vat"><option ${b.vat==='จดภาษีมูลค่าเพิ่มแล้ว'?'selected':''}>จดภาษีมูลค่าเพิ่มแล้ว</option><option ${b.vat==='ยังไม่จดภาษีมูลค่าเพิ่ม'?'selected':''}>ยังไม่จดภาษีมูลค่าเพิ่ม</option></select></div>
-      <div class="settings-row" id="businessVatDateRow" ${vatSelected?'':'hidden'}><label>วันที่เริ่มจด VAT ตาม ภ.พ.20:</label><div><input id="set_business_vat_date" class="dmy-input" value="${escapeHtml(isoToDMY(b.vatRegistrationDate))}" placeholder="วว/ดด/ปปปป" inputmode="numeric" maxlength="10" autocomplete="off"><small class="business-field-hint">ระบบจะเริ่มคิด VAT และอนุญาตให้ออกใบกำกับภาษีตั้งแต่วันที่นี้</small></div></div>
+      <div class="business-form-row">
+        <div class="settings-row"><label for="set_business_type">ประเภทธุรกิจ:</label><select id="set_business_type"><option ${b.type==='บริษัท'?'selected':''}>บริษัท</option><option ${b.type==='บุคคลธรรมดา'?'selected':''}>บุคคลธรรมดา</option><option ${b.type==='ห้างหุ้นส่วน'?'selected':''}>ห้างหุ้นส่วน</option></select></div>
+        <div class="settings-row"><label for="set_business_vat">จดภาษีมูลค่าเพิ่ม:</label><select id="set_business_vat"><option ${b.vat==='จดภาษีมูลค่าเพิ่มแล้ว'?'selected':''}>จดภาษีมูลค่าเพิ่มแล้ว</option><option ${b.vat==='ยังไม่จดภาษีมูลค่าเพิ่ม'?'selected':''}>ยังไม่จดภาษีมูลค่าเพิ่ม</option></select></div>
+      </div>
+      <div class="business-form-row">
+        <div class="settings-row" id="businessVatDateRow" ${vatSelected?'':'hidden'}><label for="set_business_vat_date">วันที่เริ่มจด VAT ตาม ภ.พ.20:</label><div><input id="set_business_vat_date" class="dmy-input" value="${escapeHtml(isoToDMY(b.vatRegistrationDate))}" placeholder="วว/ดด/ปปปป" inputmode="numeric" maxlength="10" autocomplete="off"><small class="business-field-hint">ระบบจะเริ่มคิด VAT และอนุญาตให้ออกใบกำกับภาษีตั้งแต่วันที่นี้</small></div></div>
+      </div>
       <div class="hint">หากเลือก “ยังไม่จดภาษีมูลค่าเพิ่ม” ระบบจะไม่คิด VAT และไม่ออกใบกำกับภาษีสำหรับรายการขายใหม่ โดยจะเก็บค่าภาษีของสินค้าเดิมไว้ใช้เมื่อจด VAT ในอนาคต</div>
     </div>
     <div class="settings-section"><h2>รายละเอียดธุรกิจ</h2><div class="hint">ข้อมูลใช้สำหรับการออกเอกสาร</div>
-      <div class="settings-row"><label>ชื่อธุรกิจ:</label><input id="set_business_name" value="${escapeHtml(b.name)}" autocomplete="organization"></div>
-      <div class="settings-row"><label>ที่อยู่:</label><textarea id="set_business_address" rows="4" autocomplete="street-address">${escapeHtml(b.address)}</textarea></div>
-      <div class="settings-row"><label>เลขประจำตัวผู้เสียภาษี:</label><div><input id="set_business_tax" value="${escapeHtml(b.taxId)}" inputmode="numeric" maxlength="13" autocomplete="off"><small class="business-field-hint" id="businessTaxIdHint">${escapeHtml(businessTypeTaxIdHint(b.type))}</small></div></div>
-      <div class="settings-row" id="businessTaxBranchRow" ${vatSelected?'':'hidden'}><label>สำนักงาน/สาขาตาม ภ.พ.20:</label><div class="settings-radio settings-radio-inline"><label><input type="radio" name="set_branch" value="none" ${branch==='none'?'checked':''}> ยังไม่ระบุ</label><label><input type="radio" name="set_branch" value="head" ${branch==='head'?'checked':''}> สำนักงานใหญ่</label><label><input type="radio" name="set_branch" value="branch" ${branch==='branch'?'checked':''}> สาขา</label></div></div>
+      <div class="business-form-row three-fields">
+        <div class="settings-row"><label for="set_business_name">ชื่อธุรกิจ:</label><input id="set_business_name" value="${escapeHtml(b.name)}" autocomplete="organization"></div>
+        <div class="settings-row"><label for="set_business_tax">เลขประจำตัวผู้เสียภาษี:</label><div><input id="set_business_tax" value="${escapeHtml(b.taxId)}" inputmode="numeric" maxlength="13" autocomplete="off"><small class="business-field-hint" id="businessTaxIdHint">${escapeHtml(businessTypeTaxIdHint(b.type))}</small></div></div>
+        <div class="settings-row" id="businessTaxBranchRow" ${vatSelected?'':'hidden'}><label id="businessOfficeLabel">สำนักงาน/สาขาตาม ภ.พ.20:</label><div class="settings-radio settings-radio-inline" role="group" aria-labelledby="businessOfficeLabel"><label><input type="radio" name="set_branch" value="none" ${branch==='none'?'checked':''}> ยังไม่ระบุ</label><label><input type="radio" name="set_branch" value="head" ${branch==='head'?'checked':''}> สำนักงานใหญ่</label><label><input type="radio" name="set_branch" value="branch" ${branch==='branch'?'checked':''}> สาขา</label></div></div>
+      </div>
+      <div class="settings-row"><label for="set_business_address">ที่อยู่:</label><textarea id="set_business_address" rows="4" autocomplete="street-address">${escapeHtml(b.address)}</textarea></div>
       <div class="business-tax-note" id="businessTaxBranchNote" ${vatSelected?'':'hidden'}>ข้อมูลนี้เป็นสาขาทางภาษีตาม ภ.พ.20 และแยกจากคลังสินค้าที่เลือกใช้งานใน TOPBAR</div>
-      <div id="businessBranchFields" ${vatSelected&&branch==='branch'?'':'hidden'}>
-        <div class="settings-row"><label>รหัสสาขา:</label><div><input id="set_business_branch_code" value="${escapeHtml(b.branchCode||'')}" placeholder="เช่น 00001" inputmode="numeric" maxlength="5" autocomplete="off"><small class="business-field-hint">รหัสสาขา 5 หลักตามเอกสาร ภ.พ.20</small></div></div>
-        <div class="settings-row"><label>ชื่อสาขา:</label><input id="set_business_branch_name" value="${escapeHtml(b.branchName||'')}" placeholder="กรอกชื่อสาขา" maxlength="120"></div>
+      <div class="business-form-row" id="businessBranchFields" ${vatSelected&&branch==='branch'?'':'hidden'}>
+        <div class="settings-row"><label for="set_business_branch_code">รหัสสาขา:</label><div><input id="set_business_branch_code" value="${escapeHtml(b.branchCode||'')}" placeholder="เช่น 00001" inputmode="numeric" maxlength="5" autocomplete="off"><small class="business-field-hint">รหัสสาขา 5 หลักตามเอกสาร ภ.พ.20</small></div></div>
+        <div class="settings-row"><label for="set_business_branch_name">ชื่อสาขา:</label><input id="set_business_branch_name" value="${escapeHtml(b.branchName||'')}" placeholder="กรอกชื่อสาขา" maxlength="120"></div>
       </div>
     </div>
-
     <div class="settings-section"><h2>ข้อมูลติดต่อ</h2><div class="hint">ข้อมูลใช้สำหรับการออกเอกสาร</div>
-      <div class="settings-row"><label>เบอร์สำนักงาน:</label><input id="set_business_office" class="phone-input" value="${escapeHtml(b.officePhone)}" inputmode="tel" autocomplete="tel"></div>
-      <div class="settings-row"><label>เบอร์มือถือ:</label><input id="set_business_mobile" class="phone-input" value="${escapeHtml(b.mobile)}" inputmode="tel" autocomplete="tel"></div>
-      <div class="settings-row"><label>เบอร์หลักบนเอกสาร:</label><select id="set_business_document_phone"><option value="mobile" ${b.documentPhone!=='office'?'selected':''}>เบอร์มือถือ</option><option value="office" ${b.documentPhone==='office'?'selected':''}>เบอร์สำนักงาน</option></select></div>
-      <div class="settings-row"><label>เบอร์โทรสาร:</label><input id="set_business_fax" class="phone-input" value="${escapeHtml(b.fax)}" inputmode="tel"></div>
-      <div class="settings-row"><label>LINE:</label><input id="set_business_line" value="${escapeHtml(b.line||'')}" autocomplete="off" placeholder="เช่น @NOOSOL"></div>
-      <div class="settings-row"><label>เว็บไซต์:</label><input id="set_business_website" value="${escapeHtml(b.website)}" inputmode="url" autocomplete="url" placeholder="เช่น www.noosol.com"></div>
+      <div class="business-form-row">
+        <div class="settings-row"><label for="set_business_document_phone">เบอร์หลักบนเอกสาร:</label><select id="set_business_document_phone"><option value="mobile" ${b.documentPhone!=='office'?'selected':''}>เบอร์มือถือ</option>${b.officePhone?`<option value="office" ${b.documentPhone==='office'?'selected':''}>${escapeHtml(b.officePhone)}</option>`:''}</select></div>
+        <div class="settings-row"><label for="set_business_mobile">เบอร์มือถือ:</label><input id="set_business_mobile" class="phone-input" value="${escapeHtml(b.mobile)}" inputmode="tel" autocomplete="tel"></div>
+      </div>
+      <div class="business-form-row">
+        <div class="settings-row"><label for="set_business_line">LINE:</label><input id="set_business_line" value="${escapeHtml(b.line||'')}" autocomplete="off" placeholder="เช่น @NOOSOL"></div>
+        <div class="settings-row"><label for="set_business_website">เว็บไซต์:</label><input id="set_business_website" value="${escapeHtml(b.website)}" inputmode="url" autocomplete="url" placeholder="เช่น www.noosol.com"></div>
+      </div>
       <div class="business-sync-status" id="businessSyncStatus" data-state="${escapeHtml(statusState)}">${escapeHtml(statusText)}</div>
     </div></div>`;
 }

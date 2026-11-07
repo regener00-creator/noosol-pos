@@ -1528,8 +1528,14 @@
   .settings-radio label{display:flex;gap:7px;align-items:center;cursor:pointer;}
   .settings-actions{display:flex;justify-content:flex-end;margin-top:18px;}
   .business-settings-page .settings-section{overflow:visible;}
+  .business-form-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 18px;}
+  .business-form-row.three-fields{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .business-settings-page .settings-row{min-width:0;grid-template-columns:minmax(0,1fr);gap:6px;align-content:start;}
+  .business-settings-page .settings-row>label{padding-top:0;}
+  .business-settings-page .settings-radio-inline input{width:auto;}
+  @media(max-width:760px){.business-form-row,.business-form-row.three-fields{grid-template-columns:minmax(0,1fr);}}
   .business-settings-page [hidden]{display:none!important;}
-  .business-settings-page .business-tax-note{margin:-4px 0 18px 240px;padding:12px 14px;border:1px solid #DDCCC5;border-radius:10px;background:#F5EFEC;color:#664A42;line-height:1.6;}
+  .business-settings-page .business-tax-note{margin:0 0 18px;padding:12px 14px;border:1px solid #DDCCC5;border-radius:10px;background:#F5EFEC;color:#664A42;line-height:1.6;}
   .business-settings-page .business-field-hint{display:block;margin-top:6px;color:var(--text-muted);font-size:12px;line-height:1.5;}
   .business-settings-page .business-sync-status{display:flex;align-items:center;gap:8px;margin-top:12px;padding:11px 14px;border-radius:10px;background:#F4F7F9;color:var(--text-muted);font-size:13px;}
   .business-settings-page .business-sync-status:before{content:"";width:9px;height:9px;border-radius:50%;background:#9AA5B1;flex:0 0 auto;}
