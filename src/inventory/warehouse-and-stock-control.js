@@ -222,12 +222,14 @@ function stockLotReallocationDifferenceHtml(value){
 }
 
 function stockLotReallocationRows(){
-  const needle=stockLotReallocationSearch.trim().toLowerCase();
+  const query=stockLotReallocationSearch.trim(),needle=query.toLowerCase();
+  const isLabel=systemLabelCode(query.toUpperCase());
+  const labelProduct=isLabel?findStoreLabelMatch(query)?.product:null;
   return products.map(product=>{
     const lots=activeInventoryLotsForProduct(product.id,activeWarehouseId);
     const groups=groupInventoryLotDetailRows(lots);
     return {product,lots,groups,total:groups.reduce((sum,group)=>sum+Number(group.quantityBase||0),0)};
-  }).filter(row=>row.groups.length>=2&&(!needle||String(row.product.name||'').toLowerCase().includes(needle)||String(row.product.sku||'').toLowerCase().includes(needle)||matchesBarcode(row.product,needle)))
+  }).filter(row=>row.groups.length>=2&&(isLabel?row.product===labelProduct:!needle||String(row.product.name||'').toLowerCase().includes(needle)||String(row.product.sku||'').toLowerCase().includes(needle)||matchesBarcode(row.product,query)))
     .sort((a,b)=>String(a.product.name||'').localeCompare(String(b.product.name||''),'th'));
 }
 
@@ -247,7 +249,7 @@ function renderStockLotReallocation(){
   </div>`;
 }
 
-async function openStockLotReallocation(productId){
+async function openStockLotReallocation(productId,requestedUnit){
   if(currentProfile?.owner!==true){ showToast('เฉพาะเจ้าของร้าน Level 1 เท่านั้น','danger-top'); return; }
   if(isAllWarehousesMode()){ showToast('กรุณาเลือกคลังที่ต้องการปรับจาก TOPBAR ก่อน','danger-top'); return; }
   const product=products.find(item=>Number(item.id)===Number(productId));
@@ -327,6 +329,10 @@ async function openStockLotReallocation(productId){
     refresh();
   });
   overlay.querySelectorAll('[data-stock-lot-group]').forEach(input=>input.addEventListener('input',refresh));
+  if(requestedUnit&&unitOptions.some(option=>option.name===requestedUnit)&&unitSelect.value!==requestedUnit){
+    unitSelect.value=requestedUnit;
+    unitSelect.dispatchEvent(new Event('change'));
+  }
   confirmButton.onclick=async()=>{
     const summary=stockLotReallocationSummary(groups,readTargets(),selectedUnit.factor);
     if(!summary.balanced||summary.changedCount<2){ showToast('ยอดรวมใหม่ต้องเท่ากับยอดเดิม และต้องมีอย่างน้อย 2 LOT ที่เปลี่ยน','danger-top'); return; }

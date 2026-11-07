@@ -380,7 +380,8 @@ function representativeProductsEditorMatches(){
   if(!editor) return [];
   const needle=normalizedActivityName(editor.search);
   if(!needle) return [];
-  const matches=products.filter(product=>normalizedActivityName(`${product.name||''} ${product.sku||''} ${product.barcode||''}`).includes(needle));
+  if(systemLabelCode(editor.search.trim().toUpperCase())) return inventoryLabelMatches(editor.search.trim()).map(match=>match.product);
+  const matches=products.filter(product=>normalizedActivityName([product.name,product.sku,...productBarcodeCodes(product)].join(' ')).includes(needle));
   return matches.sort((a,b)=>{
     const searchRank=product=>{
       const sku=normalizedActivityName(product.sku),barcode=normalizedActivityName(product.barcode),name=normalizedActivityName(product.name);
@@ -881,6 +882,11 @@ function attachRepresentativeHistoryEvents(){
     drawRepresentativeProductsEditor();
   });
   document.getElementById('representativeProductsSearch')?.addEventListener('keydown',event=>{
+    if(event.key==='Enter'){
+      event.preventDefault();
+      document.querySelector('#representativeProductsDropdown [data-add-representative-product]:not(:disabled)')?.click();
+      return;
+    }
     if(event.key!=='Escape'||!representativeProductsEditor?.search) return;
     event.preventDefault();
     representativeProductsEditor.search='';

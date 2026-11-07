@@ -59,18 +59,18 @@ function mobileProductMatches(product,query){
   return String(product?.name||'').toLowerCase().includes(q)||String(product?.sku||'').toLowerCase().includes(q)||matchesBarcode(product,String(query||'').trim());
 }
 // Price lookup and inventory counts use the same product and unit for taps and scans.
-function productScanMatches(query,limit=8){
+function productScanMatches(query,limit=8,eligible=()=>true){
   const code=String(query||'').trim();
   if(!code) return [];
   if(systemLabelCode(code.toUpperCase())){
     const label=findStoreLabelMatch(code);
-    return label?[{...label,barcode:code}]:[];
+    return label&&eligible(label.product)?[{...label,barcode:code}]:[];
   }
   const exact=findProductByExactCode(code);
-  const matches=exact?[{...exact,barcode:code}]:[];
+  const matches=exact&&eligible(exact.product)?[{...exact,barcode:code}]:[];
   for(const product of products){
     if(matches.length>=limit) break;
-    if(product!==exact?.product&&mobileProductMatches(product,code)){
+    if(product!==exact?.product&&eligible(product)&&mobileProductMatches(product,code)){
       matches.push({product,unitName:product.unit,barcode:product.barcode});
     }
   }

@@ -731,8 +731,9 @@ function stockReportQuantityText(product,stock){
 }
 function stockReportProductCellsHtml(row){
   const product=products.find(item=>item.id===row.pid),columns=stockReportVisibleColumns();
-  const priceCell=key=>`<td class="stock-report-price">${product?fmtFavoritePrice(key==='price'?product.price:productUnitCost(product,product.unit,1)):'-'}</td>`;
-  return `${columns.sku?`<td class="mono stock-report-code">${escapeHtml(product?.sku||'-')}</td>`:''}${columns.barcode?`<td class="mono stock-report-code">${escapeHtml(product?.barcode||'-')}</td>`:''}<td class="stock-report-name">${escapeHtml(product?.name||row.name)}</td>${columns.price?priceCell('price'):''}${columns.cost?priceCell('cost'):''}`;
+  const option=row.scanUnit&&product?productUnitOptions(product).find(unit=>unit.name===row.scanUnit):null;
+  const priceCell=key=>`<td class="stock-report-price">${product?fmtFavoritePrice(option?option[key]:key==='price'?product.price:productUnitCost(product,product.unit,1)):'-'}</td>`;
+  return `${columns.sku?`<td class="mono stock-report-code">${escapeHtml(product?.sku||'-')}</td>`:''}${columns.barcode?`<td class="mono stock-report-code">${escapeHtml(option?row.scanBarcode:product?.barcode||'-')}</td>`:''}<td class="stock-report-name">${escapeHtml(product?.name||row.name)}${option?' · '+escapeHtml(option.name):''}</td>${columns.price?priceCell('price'):''}${columns.cost?priceCell('cost'):''}`;
 }
 function stockReportHeadersHtml(forPrint=false){
   const all=String(stockReportCatFilter.wh||(isAllWarehousesMode()?'all':activeWarehouseId))==='all';
@@ -807,7 +808,8 @@ function stockReportRowsHtml(forPrint=false){
   return sorted.length
     ? sorted.map(row=>{
         const p=products.find(x=>x.id===row.pid);
-        const stockCell=stockVal=>`<td class="stock-report-stock ${stockVal<0?'stock-negative':''}">${escapeHtml(stockReportQuantityText(p||{unit:row.unit},stockVal))}</td>`;
+        const option=row.scanUnit&&p?productUnitOptions(p).find(unit=>unit.name===row.scanUnit):null;
+        const stockCell=stockVal=>`<td class="stock-report-stock ${stockVal<0?'stock-negative':''}">${escapeHtml(option?inspectionListAmount(stockUnitAmountFromBase(stockVal,option.factor))+' '+option.name:stockReportQuantityText(p||{unit:row.unit},stockVal))}</td>`;
         const stockCells=selectedWarehouseValue==='all'?reportWarehouses.map(warehouse=>stockCell(warehouseStock(row.pid,warehouse.id))).join(''):stockCell(reportStock(row.pid,selectedWarehouseValue));
         return `<tr data-sr-row="${escapeHtml(row.pid)}">${stockReportProductCellsHtml(row)}${stockCells}${forPrint?'':`<td class="stock-report-action"><button class="history-icon-btn danger" data-sr-remove="${escapeHtml(row.pid)}" title="ลบ" aria-label="ลบ ${escapeHtml(p?.name||row.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td>`}</tr>`;
       }).join('')

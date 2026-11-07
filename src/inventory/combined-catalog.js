@@ -188,13 +188,23 @@ function attachCombinedCatalog(page){
   const pager=page.querySelector('[data-combined-pager]');
   const results=page.querySelector('[data-combined-results]');
   const barcodeMatches=(option,term)=>[...option.shops.values()].some(({unit})=>String(unit.barcode||'').toLowerCase().includes(term));
+  function labelUnit(row,term){
+    const code=term.toUpperCase();
+    for(const {product} of row.members){
+      const unit=shopLabelUnit(product,code);
+      if(unit) return unit;
+    }
+    return null;
+  }
   function matchesSearch(row,term){
     if(!term)return true;
+    if(systemLabelCode(term.toUpperCase()))return Boolean(labelUnit(row,term));
     return row.members.some(({product,barcodes})=>
       String(product.name||'').toLowerCase().includes(term)||barcodes.some(code=>code.includes(term))||
       String(product.sku||'').toLowerCase().includes(term));
   }
   function displayedUnit(row,term){
+    if(systemLabelCode(term.toUpperCase())) return row.options.find(option=>option.name===labelUnit(row,term));
     const preferred=readCombinedValue(combinedUnitPreferenceKey(row.members[0].product.id));
     return row.options.find(item=>item.name===preferred)||(term&&row.options.find(item=>barcodeMatches(item,term)))||row.options[0];
   }

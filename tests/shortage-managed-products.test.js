@@ -27,7 +27,7 @@ assert.match(form, /shortage-note-field[\s\S]*หมายเหตุ/);
 assert.doesNotMatch(form, /id="editPORepBtn"/, 'หน้าจดสั่งสินค้าต้องไม่มีปุ่มแก้ไขข้างชื่อผู้แทน');
 assert.match(source, /from\('sales_representative_products'\)[\s\S]{0,220}\.eq\('representative_id',Number\(representative\.id\)\)/);
 assert.match(source, /data-shortage-managed-product=/);
-assert.match(source, /addDocumentScannedProduct\(product\.id,product\.unit\)/);
+assert.match(source, /addDocumentScannedProduct\(product\.id,button\.dataset\.unit\)/);
 assert.doesNotMatch(source, /function createPurchaseOrderFromShortage\(\)/);
 assert.match(listSource, /data-act="editpo"[\s\S]*data-act="printpo"/, 'ไอคอนพิมพ์ต้องอยู่หลังไอคอนแก้ไขในแต่ละเอกสาร');
 const toolbar=require('node:vm').runInNewContext(`(${toolbarSource})`);

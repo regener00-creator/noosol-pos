@@ -220,17 +220,7 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
   });
   const customerPriceSearch=root.querySelector('#customerPriceSearch');
   const customerPriceSearchResults=root.querySelector('#customerPriceSearchResults');
-  const customerPriceMatches=query=>{
-    const text=String(query||'').trim(),lower=text.toLowerCase();
-    if(!text) return [];
-    const exact=findProductByExactCode(text);
-    const matches=activeProducts().filter(product=>product.name.toLowerCase().includes(lower)||(product.sku||'').toLowerCase().includes(lower)||matchesBarcode(product,text)).slice(0,8);
-    if(exact?.product){
-      const filtered=matches.filter(product=>Number(product.id)!==Number(exact.product.id));
-      return [{product:exact.product,unit:exact.unitName||exact.product.unit},...filtered.map(product=>({product,unit:product.unit}))].slice(0,8);
-    }
-    return matches.map(product=>({product,unit:product.unit}));
-  };
+  const customerPriceMatches=query=>productScanMatches(query).map(({product,unitName})=>({product,unit:unitName}));
   const addCustomerPriceProduct=(product,unit)=>{
     if(!product||!customerPriceRows) return;
     const selectedUnit=productUnitOptions(product).some(option=>option.name===unit)?unit:product.unit;
@@ -250,10 +240,10 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
     if(!query){ customerPriceSearchResults.hidden=true; customerPriceSearchResults.innerHTML=''; return matches; }
     customerPriceSearchResults.innerHTML=matches.length?matches.map(({product,unit})=>`<button class="customer-price-search-result" type="button" data-customer-price-product="${escapeHtml(product.id)}" data-customer-price-unit="${escapeHtml(unit)}"><span><b>${escapeHtml(product.name)}</b><small>${escapeHtml(productBarcodeForUnit(product,unit)||product.sku||'-')} · ${escapeHtml(unit)}</small></span><strong class="mono">${fmtMoney(regularProductUnitPrice(product,unit))}</strong></button>`).join(''):'<div class="customer-price-search-empty">ไม่พบสินค้า</div>';
     customerPriceSearchResults.hidden=false;
-    customerPriceSearchResults.querySelectorAll('[data-customer-price-product]').forEach(button=>button.addEventListener('mousedown',event=>{
-      event.preventDefault();
-      addCustomerPriceProduct(products.find(product=>Number(product.id)===Number(button.dataset.customerPriceProduct)),button.dataset.customerPriceUnit);
-    }));
+    customerPriceSearchResults.querySelectorAll('[data-customer-price-product]').forEach(button=>{
+      button.onmousedown=event=>event.preventDefault();
+      button.onclick=()=>addCustomerPriceProduct(products.find(product=>Number(product.id)===Number(button.dataset.customerPriceProduct)),button.dataset.customerPriceUnit);
+    });
     return matches;
   };
   if(customerPriceSearch){

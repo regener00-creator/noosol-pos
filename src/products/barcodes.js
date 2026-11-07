@@ -50,10 +50,27 @@ function systemLabelCode(code,warehouseId){
   const prefix=warehouseId===1?'AP':warehouseId===2?'BP':'W'+warehouseId+'-P';
   return code.startsWith(prefix);
 }
+function shopLabelUnit(product,normalized){
+  if(!product||product.active===false||normalized.startsWith('P')||!systemLabelCode(normalized,Number(product.wh)||1)) return null;
+  const units=productUnitOptions(product);
+  const unit=units.find(option=>String(option.barcode||'').toUpperCase()===normalized);
+  if(unit) return unit.name;
+  const alias=extraBarcodeEntries(product).find(entry=>entry.code.toUpperCase()===normalized);
+  return alias&&units.some(option=>option.name===alias.unit)?alias.unit:null;
+}
 function findStoreLabelMatch(code){
-  const normalized=code.toUpperCase();
-  if(!systemLabelCode(normalized,Number(activeWarehouseId))) return null;
-  return findProductByExactCode(code)||findProductByExactCode(normalized);
+  const normalized=code.toUpperCase(),store=Number(activeWarehouseId);
+  if(!store||normalized.startsWith('P')||!systemLabelCode(normalized,store)) return null;
+  const indexed=findProductByExactCode(normalized);
+  if(!indexed) return null;
+  const unitName=shopLabelUnit(indexed.product,normalized);
+  if(unitName) return {product:indexed.product,unitName};
+  // A SKU in the index may equal a label belonging to another product.
+  for(const product of products){
+    const unit=shopLabelUnit(product,normalized);
+    if(unit) return {product,unitName:unit};
+  }
+  return null;
 }
 function inventoryLabelMatches(code){
   // Inventory documents accept only current shop labels. The old P series is retired.
@@ -69,7 +86,11 @@ function barcodeReprintUnitOptions(product){
     const unit=units.find(entry=>entry.name===alias.unit);
     if(unit) candidates.push({...unit,barcode:alias.code});
   }
-  return candidates.filter(option=>barcodeIssuedState.codes.has(JSON.stringify([Number(product.id),option.barcode])));
+  return candidates.filter(option=>{
+    const code=String(option.barcode||'').toUpperCase();
+    if(systemLabelCode(code)&&(code.startsWith('P')||!systemLabelCode(code,barcodeIssuedState.context.store))) return false;
+    return barcodeIssuedState.codes.has(JSON.stringify([Number(product.id),option.barcode]));
+  });
 }
 
 function barcodeReprintItem(productId,unitName,quantity,code){
@@ -124,7 +145,8 @@ function setBarcodePrintMode(mode){
   barcodePrintMode=mode;
   barcodeReprintContext=captureStoreView();
   barcodePrintSearchQuery=''; barcodePrintCatFilter={category:'',brand:''}; barcodePrintPage=1;
-  if(mode==='reprint') loadSystemIssuedLabelCodes(); else render();
+  if(mode==='reprint') return loadSystemIssuedLabelCodes();
+  render();
 }
 function barcodePrintRequestPayload(items=barcodePrintItems){
   return items.map(item=>({pid:Number(item.pid),unit:item.unit,barcode:String(item.barcode||'').trim(),qty:Number(item.qty)}));
@@ -208,16 +230,24 @@ async function assertProductBarcodesAvailable(product,existing=null){
   if(conflict) throw new Error(productBarcodeConflictMessage(conflict.barcode,conflict));
 }
 
-function createBarcodePrintItem(product){
-  const selected=barcodePrintSelectableUnitOptions(product)[0];
+function createBarcodePrintItem(product,scan=null){
+  const options=barcodePrintSelectableUnitOptions(product);
+  const selected=scan?options.find(option=>option.name===scan.unitName&&option.barcode.toUpperCase()===scan.barcode.toUpperCase()):options[0];
   if(!selected) return null;
   return {pid:product.id,unit:selected.name,barcode:selected.barcode,qty:1};
 }
 
-function barcodePrintAddProduct(product){
-  if(!barcodePrintSelectableUnitOptions(product).length) return false;
-  if(barcodePrintFindProductItem(product.id)) return false;
-  barcodePrintItems.push(createBarcodePrintItem(product));
+function barcodePrintAddProduct(product,scan=null){
+  if(!product) return false;
+  const item=createBarcodePrintItem(product,scan);
+  if(!item) return false;
+  const existing=barcodePrintFindProductItem(product.id);
+  if(existing){
+    if(!scan) return false;
+    Object.assign(existing,{unit:item.unit,barcode:item.barcode});
+    return true;
+  }
+  barcodePrintItems.push(item);
   barcodePrintPage=Math.max(1,Math.ceil(barcodePrintItems.length/BARCODE_PRINT_PAGE_SIZE));
   return true;
 }

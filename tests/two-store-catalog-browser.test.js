@@ -183,6 +183,7 @@ async function verifyInspectionAndPriceLabels(page){
   }
   await verifyInspectionAndPriceLabels(scanPage);
   await verifyPurchaseAndStockLabels(scanPage);
+  await require('./shop-label-destinations.cjs')(scanPage);
   await scanPage.close();
   await page.evaluate(()=>{searchQuery='Decolgen';render();});
   const regularRowHeight=await page.locator('.prodtable tbody tr').first().evaluate(el=>el.getBoundingClientRect().height);

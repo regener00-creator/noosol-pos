@@ -19,28 +19,6 @@ function syncProductExchangeFromDOM(){
   });
   draft.updatedAt=new Date().toISOString();
 }
-function productExchangeSearchMatches(query){
-  const draft=activeProductExchangeDraft(),q=String(query||'').trim().toLowerCase();
-  if(!q) return [];
-  return activeProducts().filter(product=>{
-    const codes=[product.barcode,product.sku,...(product.extraBarcodes||[]),...(product.vendorBarcodes||[]).map(item=>item?.code),...(product.units||[]).map(unit=>unit.barcode)].filter(Boolean);
-    return String(product.name||'').toLowerCase().includes(q)||codes.some(code=>String(code).toLowerCase().includes(q));
-  }).slice(0,12);
-}
-function exactProductExchangeMatch(query){
-  const draft=activeProductExchangeDraft(),q=String(query||'').trim().toLowerCase();
-  if(!q) return null;
-  for(const product of activeProducts()){
-    for(const option of productUnitOptions(product)){
-      if(option.barcode&&String(option.barcode).toLowerCase()===q) return {product,unit:option.name};
-    }
-    if(String(product.sku||'').toLowerCase()===q) return {product,unit:product.unit};
-    const extra=extraBarcodeEntries(product).find(item=>String(item.code).toLowerCase()===q);
-    if(extra) return {product,unit:extraBarcodeAvailableUnits(product).includes(extra.unit)?extra.unit:product.unit};
-    if((product.vendorBarcodes||[]).some(item=>String(item?.code||'').toLowerCase()===q)) return {product,unit:product.unit};
-  }
-  return null;
-}
 function addProductExchangeItem(side,productId,unitName){
   syncProductExchangeFromDOM();
   const draft=activeProductExchangeDraft(),product=products.find(entry=>Number(entry.id)===Number(productId));
@@ -55,13 +33,13 @@ function addProductExchangeItem(side,productId,unitName){
 }
 function renderProductExchangeSearchResults(side,query){
   const box=document.getElementById(`productExchangeResults_${side}`); if(!box) return;
-  const matches=productExchangeSearchMatches(query);
+  const matches=productScanMatches(query,12);
   if(!String(query||'').trim()){ box.hidden=true; box.innerHTML=''; return; }
-  box.innerHTML=matches.length?matches.map(product=>`<button type="button" class="product-exchange-result" data-product-exchange-result="${side}:${product.id}"><span><b>${escapeHtml(product.name)}</b><small>${escapeHtml(product.sku||'-')} · ${escapeHtml(product.barcode||'ไม่มีบาร์โค้ด')}</small></span><small>${escapeHtml(stockInLargestUnit({...product,stock:warehouseStock(product.id,activeProductExchangeDraft().warehouseId)}))}</small></button>`).join(''):'<div class="product-exchange-empty">ไม่พบสินค้าในคลังที่เลือก</div>';
+  box.innerHTML=matches.length?matches.map(({product,unitName,barcode})=>`<button type="button" class="product-exchange-result" data-product-exchange-result="${side}:${product.id}" data-unit="${escapeHtml(unitName)}"><span><b>${escapeHtml(product.name)}</b><small>${escapeHtml(product.sku||'-')} · ${escapeHtml(barcode||'ไม่มีบาร์โค้ด')} · ${escapeHtml(unitName)}</small></span><small>${escapeHtml(stockInLargestUnit({...product,stock:warehouseStock(product.id,activeProductExchangeDraft().warehouseId)}))}</small></button>`).join(''):'<div class="product-exchange-empty">ไม่พบสินค้าในคลังที่เลือก</div>';
   box.hidden=false;
   box.querySelectorAll('[data-product-exchange-result]').forEach(button=>{
     button.addEventListener('mousedown',event=>event.preventDefault());
-    button.addEventListener('click',()=>{ const [,id]=button.dataset.productExchangeResult.split(':'); addProductExchangeItem(side,Number(id)); });
+    button.addEventListener('click',()=>{ const [,id]=button.dataset.productExchangeResult.split(':'); addProductExchangeItem(side,Number(id),button.dataset.unit); });
   });
 }
 function bindProductExchangeScanners(){
@@ -73,12 +51,9 @@ function bindProductExchangeScanners(){
       if(event.key==='Escape'){ input.value=''; renderProductExchangeSearchResults(side,''); return; }
       if(event.key!=='Enter') return;
       event.preventDefault();
-      const exact=exactProductExchangeMatch(input.value);
-      if(exact) addProductExchangeItem(side,exact.product.id,exact.unit);
-      else{
-        const first=productExchangeSearchMatches(input.value)[0];
-        if(first) addProductExchangeItem(side,first.id); else showToast('ไม่พบสินค้าในคลังที่เลือก');
-      }
+      const [match]=productScanMatches(input.value,1);
+      if(match) addProductExchangeItem(side,match.product.id,match.unitName);
+      else showToast('ไม่พบสินค้าในคลังที่เลือก');
     });
     input.addEventListener('blur',()=>setTimeout(()=>{ const box=document.getElementById(`productExchangeResults_${side}`); if(box) box.hidden=true; },140));
   });

@@ -104,11 +104,9 @@ function openManageFavModal(){
   const renderResults=(q)=>{
     q=(q||'').trim();
     if(!q){ resultsEl.hidden=true; resultsEl.innerHTML=''; return; }
-    const ql=q.toLowerCase();
-    const matches=activeProducts().filter(p=> !favoriteHasProduct(p.id) && ( p.name.toLowerCase().includes(ql) || (p.sku||'').toLowerCase().includes(ql) || matchesBarcode(p,q) )).slice(0,20);
+    const matches=productScanMatches(q,20,p=>!favoriteHasProduct(p.id));
     if(!matches.length){ resultsEl.innerHTML='<div class="fav-add-noresult">ไม่พบสินค้า หรือเพิ่มไว้ครบแล้ว</div>'; resultsEl.hidden=false; return; }
-    resultsEl.innerHTML=matches.map(p=>{
-      const exactUnit=productUnitOptions(p).find(option=>option.barcode&&option.barcode===q)?.name||extraBarcodeUnitForCode(p,q)||p.unit;
+    resultsEl.innerHTML=matches.map(({product:p,unitName:exactUnit})=>{
       return `<div class="fav-unit-result" data-fav-result="${p.id}"><div class="fav-unit-result-info"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.sku||'-')}</span></div><select class="fav-unit-select" data-fav-result-unit="${p.id}" aria-label="เลือกหน่วย ${escapeHtml(p.name)}">${favoriteUnitOptionsHtml(p,exactUnit)}</select><button type="button" class="btn primary small fav-unit-add" data-fav-add="${p.id}">เพิ่ม</button></div>`;
     }).join('');
     resultsEl.hidden=false;
@@ -185,19 +183,15 @@ function openPriceCheckModal(){
   const doSearch=()=>{
     const q=input.value.trim();
     if(!q){ result.innerHTML=''; return; }
-    const ql=q.toLowerCase();
-    const matches=activeProducts().filter(p=>p.name.toLowerCase().includes(ql)||matchesBarcode(p,q)||(p.sku||'').toLowerCase().includes(ql)).slice(0,10);
+    const matches=productScanMatches(q,10);
     if(matches.length===0){ result.innerHTML=`<div class="fav-empty" style="padding:16px;">ไม่พบสินค้า "${escapeHtml(q)}"</div>`; return; }
-    result.innerHTML=matches.map(p=>{
+    result.innerHTML=matches.map(({product:p,unitName})=>{
       const conversionRows=productUnitConversionRows(p);
       const conversionHtml=conversionRows.length?`<div class="unit-conversion-list pc-unit-conversions" aria-label="อัตราแปลงหน่วย">${conversionRows.map(row=>`<div class="unit-conversion-row"><b>1 ${escapeHtml(row.largerUnit)}</b><span>=</span><b>${escapeHtml(productUnitConversionAmount(row.quantity))} ${escapeHtml(row.smallerUnit)}</b></div>`).join('')}</div>`:'';
       const unitOpts=[{sub:p.unit, factor:1, price:p.price, cost:p.cost||0, barcode:p.barcode||''}, ...((p.units||[]).map(u=>({sub:u.sub, factor:Number(u.factor), price:u.price||0, cost:u.cost||0, barcode:u.barcode||''})))];
       const unitLabels=new Map(conversionRows.map(row=>[row.largerUnit,`${row.largerUnit} = ${productUnitConversionAmount(row.quantity)} ${row.smallerUnit}`]));
       const sortedUnitOpts=unitOpts.slice().sort((a,b)=>(Number.isFinite(a.factor)&&a.factor>0?a.factor:Infinity)-(Number.isFinite(b.factor)&&b.factor>0?b.factor:Infinity));
-      // ถ้าคำค้นตรงกับบาร์โค้ดของหน่วยเสริม (เช่น กล่อง/ลัง) ให้เลือกหน่วยนั้นเป็นค่าเริ่มต้น เว้นแต่ผู้ใช้เคยเลือกหน่วยเองไว้แล้วในการ์ดนี้
-      const subUnit=(p.units||[]).find(u=>(u.barcode||'').includes(q));
-      const defaultUnit=subUnit?subUnit.sub:(extraBarcodeUnitForCode(p,q)||p.unit);
-      const selUnit=pcUnitSel[p.id]||defaultUnit;
+      const selUnit=pcUnitSel[p.id]||unitName;
       const unitInfo=unitOpts.find(u=>u.sub===selUnit)||unitOpts[0];
       const unitFieldHtml=unitOpts.length>1
         ? `<select class="pc-unit-select" data-pid="${p.id}">${sortedUnitOpts.map(u=>`<option value="${escapeHtml(u.sub)}" ${u.sub===unitInfo.sub?'selected':''}>${escapeHtml(unitLabels.get(u.sub)||u.sub)}</option>`).join('')}</select>`
@@ -222,9 +216,13 @@ function openPriceCheckModal(){
       });
     });
   };
-  input.addEventListener('input', doSearch);
+  input.addEventListener('input',()=>{
+    for(const key of Object.keys(pcUnitSel)) delete pcUnitSel[key];
+    doSearch();
+  });
   input.addEventListener('keydown', e=>{
     if(e.key!=='Enter') return;
+    for(const key of Object.keys(pcUnitSel)) delete pcUnitSel[key];
     doSearch();
     // เลือกข้อความทั้งหมดในช่องทันทีหลังค้นหา เพื่อให้ยิงบาร์โค้ด/พิมพ์ครั้งถัดไปเขียนทับอัตโนมัติ
     // (เครื่องสแกนบาร์โค้ดส่วนใหญ่ส่ง Enter ต่อท้ายเสมอเป็นมาตรฐาน จึงใช้จังหวะนี้เตรียมช่องให้พร้อมรับค่าใหม่)

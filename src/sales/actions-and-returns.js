@@ -328,10 +328,10 @@ async function openCustomerReturn(saleId,kind='return'){
   if(search){
     search.onkeydown=event=>{if(event.key==='Enter'){event.preventDefault();const first=results.querySelector('button');if(first)first.click();}};
     search.oninput=()=>{
-      const query=search.value.trim().toLowerCase();
-      const matches=query?products.filter(p=>p.active!==false&&(String(p.name).toLowerCase().includes(query)||String(p.sku||'').toLowerCase().includes(query)||matchesBarcode(p,query))).slice(0,20):[];
-      results.innerHTML=matches.map(p=>`<button type="button" data-exchange-product="${p.id}">${escapeHtml(p.name)} <small>${escapeHtml(p.sku||'')}</small></button>`).join('');
-      results.querySelectorAll('[data-exchange-product]').forEach(button=>button.onclick=()=>{const product=products.find(p=>Number(p.id)===Number(button.dataset.exchangeProduct));const exact=findProductByExactCode(search.value.trim());const unit=exact?.product?.id===product.id&&exact.unitName?exact.unitName:product.unit;const found=lines.find(line=>line.productId===product.id&&line.unit===unit);if(found)found.qty=Number(found.qty)+1;else lines.push({productId:product.id,qty:1,unit});search.value='';results.innerHTML='';renderLines();search.focus();});
+      const query=search.value.trim();
+      const matches=productScanMatches(query,20);
+      results.innerHTML=matches.map(({product:p,unitName})=>`<button type="button" data-exchange-product="${p.id}" data-unit="${escapeHtml(unitName)}">${escapeHtml(p.name)} <small>${escapeHtml(p.sku||'')}</small></button>`).join('');
+      results.querySelectorAll('[data-exchange-product]').forEach(button=>button.onclick=()=>{const product=products.find(p=>Number(p.id)===Number(button.dataset.exchangeProduct));const unit=button.dataset.unit;const found=lines.find(line=>line.productId===product.id&&line.unit===unit);if(found)found.qty=Number(found.qty)+1;else lines.push({productId:product.id,qty:1,unit});search.value='';results.innerHTML='';renderLines();search.focus();});
     };
   }
   overlay.querySelectorAll('[data-customer-return-qty]').forEach(input=>input.addEventListener('input',refresh));methodNode.onchange=refresh;

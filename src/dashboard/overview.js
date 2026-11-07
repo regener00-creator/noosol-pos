@@ -179,10 +179,12 @@ function renderDashboard(){
 
 function matchesBarcode(p, q){
   if(!q) return false;
-  if((p.barcode||'').includes(q)) return true;
-  if((p.extraBarcodes||[]).some(bc=>bc.includes(q))) return true;
-  if((p.vendorBarcodes||[]).some(vb=>(vb.code||'').includes(q))) return true;
-  if((p.units||[]).some(u=>(u.barcode||'').includes(q))) return true;
+  const needle=String(q).toUpperCase();
+  const includes=code=>String(code||'').toUpperCase().includes(needle);
+  if(includes(p.barcode)) return true;
+  if((p.extraBarcodes||[]).some(entry=>includes(typeof entry==='object'?entry?.code:entry))) return true;
+  if((p.vendorBarcodes||[]).some(entry=>includes(entry?.code))) return true;
+  if((p.units||[]).some(unit=>includes(unit?.barcode))) return true;
   return false;
 }
 // Exact-code lookup for barcode-scan flows (scanner + Enter key). Unlike
@@ -192,7 +194,7 @@ function matchesBarcode(p, q){
 function findProductByExactCode(q){
   const code=String(q||'').trim();
   if(!code) return null;
-  if(typeof exactProductCodeMap!=='undefined') return exactProductCodeMap.get(code)||null;
+  if(typeof exactProductCodeMap!=='undefined') return exactProductCodeMap.get(code.toUpperCase())||null;
   for(const product of products.filter(item=>item.active!==false)){
     if(product.barcode===code||product.sku===code||(product.vendorBarcodes||[]).some(entry=>entry.code===code)) return {product,unitName:product.unit};
     const extraUnit=extraBarcodeUnitForCode(product,code);

@@ -211,24 +211,27 @@ async function openShortageManagedProductsModal(){
   const list=overlay.querySelector('#shortageManagedProductsList');
   let managedProducts=[];
   const renderProducts=()=>{
-    const query=String(search.value||'').trim().toLowerCase();
-    const visible=managedProducts.filter(product=>!query||[product.name,product.sku,product.barcode,...extraBarcodeEntries(product).map(item=>item.code)]
-      .some(value=>String(value||'').toLowerCase().includes(query)));
+    const query=search.value.trim();
+    const managed=new Set(managedProducts.map(p=>p.id));
+    const visible=query?productScanMatches(query,managed.size,p=>managed.has(p.id)):managedProducts.map(product=>({product,unitName:product.unit,barcode:product.barcode}));
     status.textContent=query?`พบ ${visible.length} จาก ${managedProducts.length} รายการ`:`${managedProducts.length} รายการ · กดที่สินค้าเพื่อเพิ่มลงรายการสั่ง`;
-    list.innerHTML=visible.length?visible.map(product=>`<button type="button" class="shortage-managed-product-card" data-shortage-managed-product="${escapeHtml(product.id)}">
-      <span class="shortage-managed-product-info"><b>${escapeHtml(product.name)}</b><small>รหัส ${escapeHtml(product.sku||'-')} · บาร์โค้ด ${escapeHtml(product.barcode||'-')}</small></span>
+    list.innerHTML=visible.length?visible.map(({product,unitName,barcode})=>`<button type="button" class="shortage-managed-product-card" data-shortage-managed-product="${escapeHtml(product.id)}" data-unit="${escapeHtml(unitName)}">
+      <span class="shortage-managed-product-info"><b>${escapeHtml(product.name)}</b><small>รหัส ${escapeHtml(product.sku||'-')} · บาร์โค้ด ${escapeHtml(barcode||'-')} · ${escapeHtml(unitName)}</small></span>
       <span class="shortage-managed-product-add">${escapeHtml(shortageManagedProductStatus(product))}</span>
     </button>`).join(''):`<div class="shortage-managed-products-empty">${managedProducts.length?'ไม่พบสินค้าที่ค้นหา':'ผู้แทนคนนี้ยังไม่มีสินค้าที่ดูแล'}</div>`;
     list.querySelectorAll('[data-shortage-managed-product]').forEach(button=>button.addEventListener('click',()=>{
       const product=products.find(item=>Number(item.id)===Number(button.dataset.shortageManagedProduct));
       if(!product) return;
-      addDocumentScannedProduct(product.id,product.unit);
+      addDocumentScannedProduct(product.id,button.dataset.unit);
       button.classList.add('added');
       button.querySelector('.shortage-managed-product-add').textContent=shortageManagedProductStatus(product);
       showToast(`เพิ่ม “${product.name}” ลงรายการแล้ว`);
     }));
   };
   search.addEventListener('input',renderProducts);
+  search.addEventListener('keydown',event=>{
+    if(event.key==='Enter'&&search.value.trim()){event.preventDefault();list.querySelector('[data-shortage-managed-product]')?.click();}
+  });
   const cached=shortageManagedProductsForRepresentative(representative.id);
   try{
     const {data,error}=await fetchAllRows(()=>sb.from('sales_representative_products')
@@ -351,7 +354,7 @@ function productReturnItemRowHtml(it,i,warehouseId,locked=false){
   const savedMissing=it.lotId&&!selectedLot?`<option value="${escapeHtml(it.lotId)}" data-lot-number="${escapeHtml(it.lotNumber||'')}" data-expiry="${escapeHtml(it.expiry||'')}" selected>${escapeHtml(it.lotNumber||'Lot เดิม')} · ${escapeHtml(it.expiry?fmtDateShort(it.expiry):'ไม่ระบุวันหมดอายุ')}</option>`:'';
   const lotOptions=lots.map(lot=>`<option value="${escapeHtml(lot.id)}" data-lot-number="${escapeHtml(lot.manufacturer_lot||lot.internal_code||'')}" data-expiry="${escapeHtml(lot.expiry_date||'')}" ${Number(lot.id)===Number(it.lotId)?'selected':''}>${escapeHtml(lot.manufacturer_lot||lot.internal_code||'-')} · ${escapeHtml(lot.expiry_date?fmtDateShort(lot.expiry_date):'ไม่ระบุวันหมดอายุ')} · ${escapeHtml(lotQuantityText(product,lot))}</option>`).join('');
   const expiry=selectedLot?.expiry_date||it.expiry||'';
-  return `<tr class="po-item-row" data-i="${escapeHtml(i)}" data-product-id="${escapeHtml(product?.id||it.productId||'')}"><td class="mono">${i+1}</td><td><input class="poi_name" value="${escapeHtml(it.name||'')}" placeholder="สแกนหรือค้นหาสินค้า" autocomplete="off" ${locked?'disabled':''}></td><td><input class="poi_qty mono" type="number" min="0.01" step="any" value="${escapeHtml(it.qty||0)}" style="width:90px;text-align:right;" ${locked?'disabled':''}></td><td><select class="poi_unit" style="min-width:100px;" ${product&&!locked?'':'disabled'}>${product?options.map(u=>`<option value="${escapeHtml(u.name)}" ${it.unit===u.name?'selected':''}>${escapeHtml(u.name)}</option>`).join(''):'<option value="">เลือกสินค้า</option>'}</select></td><td><select class="poi_return_lot" ${product&&!locked?'':'disabled'}><option value="">เลือก Lot</option>${savedMissing}${lotOptions}</select></td><td class="poi_return_expiry">${escapeHtml(expiry?fmtDateShort(expiry):'-')}</td><td class="num"><button class="poi_del" title="ลบ" ${locked?'disabled':''}>×</button></td></tr>`;
+  return `<tr class="po-item-row" data-i="${escapeHtml(i)}" data-product-id="${escapeHtml(product?.id||it.productId||'')}"><td class="mono">${i+1}</td><td class="return-row-search"><input class="poi_name" value="${escapeHtml(it.name||'')}" placeholder="สแกนหรือค้นหาสินค้า" autocomplete="off" ${locked?'disabled':''}><div class="return-row-results doc-scan-results" hidden></div></td><td><input class="poi_qty mono" type="number" min="0.01" step="any" value="${escapeHtml(it.qty||0)}" style="width:90px;text-align:right;" ${locked?'disabled':''}></td><td><select class="poi_unit" style="min-width:100px;" ${product&&!locked?'':'disabled'}>${product?options.map(u=>`<option value="${escapeHtml(u.name)}" ${it.unit===u.name?'selected':''}>${escapeHtml(u.name)}</option>`).join(''):'<option value="">เลือกสินค้า</option>'}</select></td><td><select class="poi_return_lot" ${product&&!locked?'':'disabled'}><option value="">เลือก Lot</option>${savedMissing}${lotOptions}</select></td><td class="poi_return_expiry">${escapeHtml(expiry?fmtDateShort(expiry):'-')}</td><td class="num"><button class="poi_del" title="ลบ" ${locked?'disabled':''}>×</button></td></tr>`;
 }
 
 function poPurchaseUnitOptions(p){

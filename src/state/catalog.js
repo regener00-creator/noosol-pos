@@ -34,7 +34,7 @@ function rebuildProductLookupMaps(){
   productByIdMap=new Map();
   exactProductCodeMap=new Map();
   const addCode=(code,product,unitName)=>{
-    const key=String(code||'').trim();
+    const key=String(code||'').trim().toUpperCase();
     if(key&&!exactProductCodeMap.has(key)) exactProductCodeMap.set(key,{product,unitName});
   };
   products.forEach(product=>{

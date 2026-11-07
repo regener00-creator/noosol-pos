@@ -393,8 +393,7 @@ const browserExecutable = [
       products=[{id:9500+store,wh:store,name:'Legacy label',category:'ยา',unit:'แผง',barcode:'',price:20,active:true,
         units:[{sub:'กล่อง',base:'แผง',per:5,factor:5,price:100,barcode:''}],extraBarcodes:[code],extraBarcodeUnits:['กล่อง']}];
       rebuildProductLookupMaps();
-      const scan=findProductByExactCode(code);
-      if(scan?.product.id!==9500+store||scan.unitName!=='กล่อง') throw Error('Legacy scan lost its store or unit');
+      if(findStoreLabelMatch(code)) throw Error('Retired label was selectable');
       if(createBarcodePrintItem(products[0]).barcode!=='') throw Error('New-label field must be empty before printing');
       products[0].units[0].barcode=newCode;rebuildProductLookupMaps();
       window.issuedFixture=[{pid:9500+store,barcode:code},{pid:9500+store,barcode:newCode}];
@@ -407,15 +406,12 @@ const browserExecutable = [
       barcodePrintItems=[];barcodePrintAddProduct(products[0]);render();
       return {code,newCode};
     },{store,letter});
-    const picker=page.locator('[data-barcode-print-unit="0"]');
-    await picker.selectOption(codes.code);
-    assert.equal(await page.locator('[data-barcode-print-code="0"]').inputValue(),codes.code);
-    const [legacy]=await Promise.all([page.waitForEvent('popup'),page.locator('#savePrintBarcodeBtn').click()]);
-    await legacy.locator('.label').first().waitFor();
-    assert.equal(await legacy.locator('.barcode-label-svg').first().getAttribute('aria-label'),'บาร์โค้ด '+codes.code);
-    await legacy.close();
-    await picker.selectOption(codes.newCode);
+    assert.equal(await page.locator('[data-barcode-print-unit="0"]').count(),0,'only the current shop label is eligible');
     assert.equal(await page.locator('[data-barcode-print-code="0"]').inputValue(),codes.newCode);
+    const [printedLabel]=await Promise.all([page.waitForEvent('popup'),page.locator('#savePrintBarcodeBtn').click()]);
+    await printedLabel.locator('.label').first().waitFor();
+    assert.equal(await printedLabel.locator('.barcode-label-svg').first().getAttribute('aria-label'),'บาร์โค้ด '+codes.newCode);
+    await printedLabel.close();
     await page.evaluate(()=>{setBarcodePrintMode('new');});
   }
   await page.reload();
