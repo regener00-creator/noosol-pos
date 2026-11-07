@@ -180,6 +180,7 @@ let browser;
   assert.equal(await stock.getAttribute('class'),'');
   assert.equal(await stock.locator('select').inputValue(),'กล่อง','Stock uses the unit chosen in PRODUCT even when searching the base barcode');
   assert.deepEqual((await stock.locator('td').allTextContents()).slice(3),['0','1.7']);
+  assert.deepEqual(await stock.locator('td').evaluateAll(cells=>cells.slice(3).map(cell=>getComputedStyle(cell).textAlign)),['center','center']);
   assert.ok(Math.abs((await stock.boundingBox()).height-regularRowHeight)<=1);
   await page.locator('[data-combined-search]').fill('0044');
   const boxes=page.locator('[data-combined-results] tbody tr');

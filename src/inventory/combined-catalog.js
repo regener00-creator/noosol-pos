@@ -191,7 +191,7 @@ function attachCombinedCatalog(page){
         `<select class="prod-unit-select" data-combined-unit="${id}" aria-label="หน่วยของ ${escapeHtml(row.name)}">${row.options.map(item=>`<option value="${escapeHtml(item.name)}" ${item===option?'selected':''}>${escapeHtml(describeValues(item,entry=>entry.label))}</option>`).join('')}</select>`;
       const cells=shops.map(shop=>{
         const entry=option.shops.get(Number(shop.id));
-        if(stockOnly)return `<td>${entry?inspectionListAmount(warehouseStock(entry.product.id,shop.id)/entry.unit.factor):'—'}</td>`;
+        if(stockOnly)return `<td class="combined-amount">${entry?inspectionListAmount(warehouseStock(entry.product.id,shop.id)/entry.unit.factor):'—'}</td>`;
         return `<td class="combined-amount">${entry?fmtMoney(entry.unit.price):'—'}</td><td class="combined-amount">${entry?fmtMoney(entry.unit.cost):'—'}</td>`;
       }).join('');
       const only=exclusiveShop(row);
