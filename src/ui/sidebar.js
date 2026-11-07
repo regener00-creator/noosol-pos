@@ -65,6 +65,7 @@ function renderSidebar(){
     if(!visibleItems.length) return;
     if(g.section) html += `<div class="navsection">${g.section}</div>`;
     visibleItems.forEach(([tab,label,svg])=>{
+      if(tab==='products'&&isAllWarehousesMode())label='ราคาสินค้า';
       html += `<button class="navbtn ${currentTab===tab?'active':''}" data-tab="${tab}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${svg}</svg>${label}</button>`;
     });
   });
