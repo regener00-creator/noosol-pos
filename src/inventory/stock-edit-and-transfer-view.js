@@ -58,7 +58,7 @@ function stockEditRowsHtml(rows=stockEditCurrentProducts()){
     const reconcileOnly=Math.abs(differenceBase)<=0.000001&&stockEditRequiresReconciliation(p);
     const differenceHtml=Math.abs(differenceBase)>0.000001?`<span class="stock-control-difference ${differenceBase>0?'in':'out'}">${differenceAmount>0?'+':''}${inspectionListAmount(differenceAmount)}</span>`:reconcileOnly?'<span class="stock-control-difference out">ปรับ LOT</span>':'-';
     const unitHtml=unitOptions.length>1
-      ? `<select class="stock-edit-unit-select" data-stock-edit-unit="${p.id}">${unitOptions.map(u=>`<option value="${escapeHtml(u.name)}" ${u.name===selectedOption.name?'selected':''}>${escapeHtml(u.name)}</option>`).join('')}</select>`
+      ? `<select class="stock-edit-unit-select" tabindex="-1" data-stock-edit-unit="${p.id}">${unitOptions.map(u=>`<option value="${escapeHtml(u.name)}" ${u.name===selectedOption.name?'selected':''}>${escapeHtml(u.name)}</option>`).join('')}</select>`
       : `<span class="stock-edit-unit-fixed">${escapeHtml(p.unit||'-')}</span>`;
     return `<tr data-stock-edit-row="${p.id}">
       <td class="mono" style="text-align:center;">${escapeHtml(selectedOption.barcode||'-')}</td>
@@ -68,7 +68,7 @@ function stockEditRowsHtml(rows=stockEditCurrentProducts()){
       <td style="text-align:center;"><input type="number" min="0" step="any" class="stock-edit-stock-input ${Number(selectedBaseStock)<0?'stock-negative':''} ${hasDraft?'stock-edit-pending':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="จำนวนที่นับได้ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="กรอกจำนวนที่นับได้จริง แล้วกดยืนยันเพื่อบันทึก"></td>
       <td style="text-align:center;">${differenceHtml}</td>
       <td class="stock-control-lot-cell">${stockEditLotControlHtml(p,differenceBase)}</td>
-      <td style="text-align:center;"><button class="stock-edit-remove-btn" data-stock-edit-remove="${p.id}" title="ลบ ${escapeHtml(p.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(p.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td>
+      <td style="text-align:center;"><button class="stock-edit-remove-btn" tabindex="-1" data-stock-edit-remove="${p.id}" title="ลบ ${escapeHtml(p.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(p.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td>
     </tr>`;
   }).join('');
 }

@@ -1078,6 +1078,17 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   document.querySelectorAll('[data-stock-edit-amount]').forEach(input=>{
     input.addEventListener('focus',()=>input.select());
     input.addEventListener('keydown',event=>{
+      if(event.key==='Tab' && !event.ctrlKey && !event.altKey && !event.metaKey){
+        // Commit first: changing the count can redraw the table with different LOT fields.
+        const productId=input.dataset.stockEditAmount;
+        input.blur();
+        const fields=[...document.querySelectorAll('#stockEditTbody :is(input,select):enabled:not([tabindex="-1"])')];
+        const index=fields.findIndex(field=>field.dataset.stockEditAmount===productId);
+        if(index===-1)return;
+        const next=fields[index+(event.shiftKey?-1:1)];
+        if(next)event.preventDefault();
+        (next||fields[index]).focus();
+      }
       if(event.key==='Escape'){
         event.preventDefault();
         delete stockEditDraftStocks[Number(input.dataset.stockEditAmount)];
@@ -1108,7 +1119,13 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     input.addEventListener('change',()=>render());
   });
   if(confirmStockEditBtn) confirmStockEditBtn.addEventListener('click',confirmStockEditChanges);
-  document.querySelectorAll('[data-stock-edit-lot]').forEach(select=>select.addEventListener('change',()=>{ stockEditLotSelections[Number(select.dataset.stockEditLot)]=select.value; render(); }));
+  document.querySelectorAll('[data-stock-edit-lot]').forEach(select=>select.addEventListener('change',()=>{
+    const productId=select.dataset.stockEditLot;
+    const hadFocus=document.activeElement===select;
+    stockEditLotSelections[Number(productId)]=select.value;
+    render();
+    if(hadFocus) document.querySelector(`[data-stock-edit-lot="${productId}"]`)?.focus();
+  }));
   document.querySelectorAll('[data-stock-edit-new-lot]').forEach(input=>input.addEventListener('input',()=>{ stockEditNewLotNumbers[Number(input.dataset.stockEditNewLot)]=input.value; }));
   document.querySelectorAll('[data-stock-edit-new-expiry]').forEach(input=>input.addEventListener('input',()=>{
     const expiryText=input.value.trim(),iso=dmyToISO(expiryText);

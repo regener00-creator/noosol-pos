@@ -117,7 +117,7 @@ function stockControlOpenAdjustmentsForProducts(ids){
   stockControlMode='adjust';
   stockControlAnomalySelectedIds.clear();
   render();
-  setTimeout(()=>document.querySelector(`[data-stock-edit-amount="${selectedProducts[0].id}"]`)?.focus(),30);
+  document.querySelector(`[data-stock-edit-amount="${selectedProducts[0].id}"]`)?.focus();
   return true;
 }
 

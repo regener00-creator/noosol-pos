@@ -94,7 +94,7 @@ const openContext={
   stockEditItems:[3,1],stockEditDraftStocks:{1:0,3:8},
   stockEditPage:4,stockControlMode:'anomalies',stockControlAnomalySelectedIds:new Set([1,2]),
   stockEditRequiresReconciliation:()=>true,
-  render:()=>{},setTimeout:()=>{},
+  render:()=>{},document:{querySelector:()=>null},
 };
 vm.createContext(openContext);
 vm.runInContext(html.slice(openStart,openEnd),openContext);
