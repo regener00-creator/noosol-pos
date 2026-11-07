@@ -2715,6 +2715,11 @@
 .product-barcode-history-body label{display:grid;gap:8px;margin:16px 0;}
 .product-barcode-history-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid var(--border);flex-wrap:wrap;}
 .product-import-body{padding:0 24px 16px;overflow:auto;min-height:0;}
+.product-import-warehouses{display:flex;flex-wrap:wrap;gap:12px 28px;padding:12px 16px;margin:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;}
+.product-import-warehouses div{flex:1 1 180px;min-width:0;}
+.product-import-warehouses dt{font-size:.9em;color:var(--text-muted);}
+.product-import-warehouses dd{margin:2px 0 0;font-weight:700;overflow-wrap:anywhere;}
+.product-import-cross-store{font-weight:600;color:#904600;}
 .product-import-stock-option{display:flex;align-items:center;gap:10px;font-weight:700;}
 .product-import-table-wrap{overflow:auto;}
 .product-import-table-wrap table{width:100%;min-width:620px;}

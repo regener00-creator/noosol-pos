@@ -123,6 +123,8 @@ async function scenario(name,work){if(process.argv[2]&&!new RegExp(process.argv[
   });
   await scenario('Unedited real XLSX round trip preserves complete catalog fields',async()=>{
     await fixture();const out=await imported(await exported());
+    assert.match(out.preview,/คลังของไฟล์ Excel\s+คลังทดสอบ\s+คลังปลายทาง\s+คลังทดสอบ/);
+    assert.doesNotMatch(out.preview,/นำเข้าข้ามคลัง/);
     assert.equal(out.saves.length,1);
     for(const key of ['id','sku','name','unit','price','cost','barcode','vat','category','brand','desc','units','extraBarcodes','extraBarcodeUnits','vendorBarcodes','dataReviewStatus'])assert.deepEqual(out.products[0][key],baseProduct[key],key);
     assert.equal(out.stocks.length,0);assert.match(out.report,/สำเร็จ 1 รายการ/);
@@ -147,6 +149,8 @@ async function scenario(name,work){if(process.argv[2]&&!new RegExp(process.argv[
     await fixture([source]);const book=await exported();
     await page.evaluate(()=>{activeWarehouseId=2;setWarehouseProductCatalog(completeProductCatalog());render();});
     const out=await imported(book,{stock:true});
+    assert.match(out.preview,/คลังของไฟล์ Excel\s+คลังทดสอบ\s+คลังปลายทาง\s+อีกคลัง/);
+    assert.match(out.preview,/นำเข้าข้ามคลัง/);
     assert.match(out.preview,/เพิ่มใหม่ 1 · อัปเดต 0 · ข้าม 0/);assert.match(out.preview,/เพิ่มสินค้าใหม่ใน อีกคลัง/);
     assert.match(out.preview,/เว้นบาร์โค้ดที่ระบบออกให้ร้านต้นทาง/);assert.match(out.report,/สำเร็จ 1 รายการ/);
     const copy=out.products[0];assert.notEqual(copy.id,source.id);assert.equal(copy.wh,2);
@@ -166,6 +170,20 @@ async function scenario(name,work){if(process.argv[2]&&!new RegExp(process.argv[
     await fixture(rows);const book=await exported();
     await page.evaluate(()=>{activeWarehouseId=2;setWarehouseProductCatalog(completeProductCatalog());render();});
     const out=await imported(book,{cancel:true});assert.match(out.preview,/เพิ่มใหม่ 2934 · อัปเดต 0 · ข้าม 0/);assert.equal(out.saves.length,0);
+  });
+  await scenario('Review lists source warehouses for mixed rows and identifies missing warehouse data',async()=>{
+    await fixture();const book=await exported(),sheet=book.worksheets[0];
+    for(const [i,warehouse] of ['2','', '1'].entries()){
+      sheet.addRow(sheet.getRow(2).values);
+      cell(book,i+3,'คลังสินค้า').value=warehouse;
+    }
+    await imported(book,{cancel:true,inspect:async()=>{
+      assert.deepEqual(await page.locator('.product-import-warehouses dd').allTextContents(),['คลังทดสอบ · อีกคลัง · ไม่ระบุในไฟล์','คลังทดสอบ']);
+    }});
+    cell(book,1,'คลังสินค้า').value='legacy';
+    await imported(book,{cancel:true,inspect:async()=>{
+      assert.deepEqual(await page.locator('.product-import-warehouses dd').allTextContents(),['ไม่ระบุในไฟล์','คลังทดสอบ']);
+    }});
   });
   await scenario('Invalid warehouse is reported with source row and no fallback',async()=>{
     await fixture();const book=await exported();cell(book,2,'คลังสินค้า').value='สะกดผิด';

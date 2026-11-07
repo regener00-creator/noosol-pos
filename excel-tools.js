@@ -625,13 +625,18 @@ function productImportChanges(existing,data){
   return Object.keys(after).filter(key=>!ignored.has(key)&&String(before[key])!==String(after[key]))
     .map(key=>`${key} · ${before[key]===''?'ว่าง':before[key]} → ${after[key]===''?'ว่าง':after[key]}`).join('\n')||'ข้อมูลสินค้าตรงกับเดิม';
 }
-function showProductImportDialog(entries,skipped,{result=false}={}){
+function showProductImportDialog(entries,skipped,{result=false,sourceNames,destinationName,crossStore}){
   return new Promise(resolve=>{
     const overlay=document.createElement('div');
     overlay.className='modal-overlay product-import-overlay';
     overlay.innerHTML=`<div class="modal product-import-modal" role="dialog" aria-modal="true" aria-labelledby="productImportTitle">
       <div class="modal-head"><h3 id="productImportTitle">${result?'ผลการนำเข้าสินค้า':'ตรวจสอบก่อนนำเข้าสินค้า'}</h3><button class="modal-close" type="button" aria-label="ปิด">×</button></div>
       <div class="product-import-body">
+        <dl class="product-import-warehouses">
+          <div><dt>คลังของไฟล์ Excel</dt><dd>${escapeHtml(sourceNames)}</dd></div>
+          <div><dt>คลังปลายทาง</dt><dd>${escapeHtml(destinationName)}</dd></div>
+        </dl>
+        ${!result&&crossStore?'<p class="product-import-cross-store">นำเข้าข้ามคลัง กรุณาตรวจชื่อคลังปลายทางก่อนยืนยัน</p>':''}
         <p id="productImportSummary"></p>
         ${result?'':'<label class="product-import-stock-option"><input id="productImportStock" type="checkbox"> ปรับจำนวนคงเหลือด้วย</label><p>ช่องจำนวนว่างจะคงสต๊อกเดิม เลข 0 หมายถึงปรับเป็นศูนย์ ตรวจยอดปัจจุบันและยอดใหม่ก่อนยืนยัน</p>'}
         <p>วันหมดอายุใน Excel เป็นข้อมูลสำหรับดูเท่านั้น ค่าที่แก้ในไฟล์จะไม่ถูกบันทึก กรุณาแก้วันหมดอายุที่ LOT ของสินค้า</p>
@@ -744,9 +749,17 @@ async function performProductExcelImport(file){
   const fullCatalog=completeProductCatalog();
   const reservedProductIds=new Set(fullCatalog.map(product=>String(product.id)));
   const outsideStoreIds=new Set(fullCatalog.filter(p=>Number(p.wh||1)!==Number(activeWarehouseId)).map(p=>Number(p.id)));
+  const sourceNames=new Set();
+  let hasCrossStoreRows=false;
   let stagedNextProductSkuNumber=nextProductSkuNumber;
   sourceRows.forEach((row,index)=>{
     const line=(row.__rowNum__??index+1)+1;
+    const systemId=productImportNumber(productImportValue(row,['รหัสอ้างอิงระบบ (ห้ามแก้)','รหัสอ้างอิงระบบ','systemid']),NaN);
+    const warehouseValue=String(productImportValue(row,['คลังสินค้า','คลัง','warehouse'])).trim();
+    const sourceWarehouse=warehouseValue?warehouses.find(item=>[item.id,item.name,item.code].some(value=>String(value??'').trim().toLowerCase()===warehouseValue.toLowerCase())):null;
+    sourceNames.add(sourceWarehouse?.name||warehouseValue||'ไม่ระบุในไฟล์');
+    const crossStore=outsideStoreIds.has(systemId)||(sourceWarehouse&&Number(sourceWarehouse.id)!==Number(importWarehouseId));
+    if(crossStore)hasCrossStoreRows=true;
     let reviewStatus;
     try{ reviewStatus=parseProductImportReviewStatus(productImportValue(row,['สถานะสินค้า','dataReviewStatus'])); }
     catch(error){ skipped.push(`แถว ${line}: ${error.message}`); return; }
@@ -755,11 +768,7 @@ async function performProductExcelImport(file){
     const priceRaw=productImportValue(row,['ราคาขาย (หน่วยหลัก)','ราคาขาย','ขาย','price']);
     const price=productImportNumber(priceRaw,NaN);
     const sku=String(productImportValue(row,['รหัสสินค้า','sku','code'])).trim();
-    const systemId=productImportNumber(productImportValue(row,['รหัสอ้างอิงระบบ (ห้ามแก้)','รหัสอ้างอิงระบบ','systemid']),NaN);
-    const warehouseValue=String(productImportValue(row,['คลังสินค้า','คลัง','warehouse'])).trim().toLowerCase();
-    const sourceWarehouse=warehouseValue?warehouses.find(item=>[item.id,item.name,item.code].some(value=>String(value??'').trim().toLowerCase()===warehouseValue)):null;
     if(warehouseValue&&!sourceWarehouse){ skipped.push(`แถว ${line} · ${name}: ไม่พบคลัง “${warehouseValue}”`); return; }
-    const crossStore=outsideStoreIds.has(systemId)||(sourceWarehouse&&Number(sourceWarehouse.id)!==Number(importWarehouseId));
     // P + 11 digits is permanently assigned to its original product by the print service.
     let omittedPrintCode=false;
     const importBarcode=value=>{
@@ -915,7 +924,8 @@ async function performProductExcelImport(file){
     const line=Number(detail.match(/^แถว (\d+)/)?.[1])||'';
     return {line,name:String(productImportValue(sourceByLine.get(line)||{},['ชื่อสินค้า','สินค้า','name']))||'รายการที่ข้าม',detail,status:'ไม่สำเร็จ'};
   }));
-  const choice=await showProductImportDialog(entries,rejected);
+  const warehouseInfo={sourceNames:[...sourceNames].join(' · '),destinationName:warehouse.name||`คลัง-${warehouse.id}`,crossStore:hasCrossStoreRows};
+  const choice=await showProductImportDialog(entries,rejected,warehouseInfo);
   if(!choice) return;
   if(activeWarehouseId!==importWarehouseId||!isWorkspaceReadCurrent(context)||catalogAtPreview!==JSON.stringify(products.map(productMetadataToRow))){
     showToast('ข้อมูลสินค้าเปลี่ยนระหว่างตรวจรายการ กรุณานำเข้าไฟล์ใหม่เพื่อตรวจข้อมูลล่าสุด','danger-top'); return;
@@ -1002,7 +1012,7 @@ async function performProductExcelImport(file){
     if(entry.expiryNotice) entry.detail+='\n'+entry.expiryNotice;
   }
   render();
-  await showProductImportDialog(entries,rejected,{result:true});
+  await showProductImportDialog(entries,rejected,{...warehouseInfo,result:true});
 }
 
 async function exportProductsToExcel(){
