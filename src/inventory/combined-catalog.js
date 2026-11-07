@@ -146,6 +146,7 @@ async function refreshCombinedUnits(page,rows,draw){
   }catch{if(isCurrent())showToast('โหลดหน่วยที่บันทึกกับบัญชีไม่ได้ กำลังใช้หน่วยที่จำไว้บนเครื่อง');}
 }
 const combinedShopFilters=new Map();
+const combinedSortPreferences=new Map();
 function attachCombinedCatalog(page){
   const shops=accessibleWarehouses().slice().sort((a,b)=>a.id-b.id);
   const rows=combinedCatalogRows(products);
@@ -181,7 +182,8 @@ function attachCombinedCatalog(page){
     categories.innerHTML=buttons(categoryNames,'category',category,catCounts);
     brands.innerHTML=category?buttons([...tree[category]].sort((a,b)=>a.localeCompare(b,'th')),'brand',brand,brandCounts):'<div class="product-group-empty">เลือกกลุ่มสินค้าหลักเพื่อแสดงหมวดสินค้าย่อย</div>';
   }
-  let pageNo=1,sortField='',sortDirection=1;
+  let pageNo=1;
+  const sort=combinedSortPreferences.get(actor)||{field:'',direction:1};
   const compare=new Intl.Collator('th',{numeric:true}).compare;
   const pager=page.querySelector('[data-combined-pager]');
   const results=page.querySelector('[data-combined-results]');
@@ -197,10 +199,8 @@ function attachCombinedCatalog(page){
     return row.options.find(item=>item.name===preferred)||(term&&row.options.find(item=>barcodeMatches(item,term)))||row.options[0];
   }
   function sortHeader(field,label){
-    const active=field===sortField;
-    const order=sortDirection===1?'ascending':'descending';
-    const arrow=active?(sortDirection===1?'▲':'▼'):'↕';
-    return `<th class="${field==='barcode'?'combined-barcode':''}"${active?` aria-sort="${order}"`:''}><button type="button" class="doc-sort-btn" data-combined-sort="${field}">${label}<span aria-hidden="true">${arrow}</span></button></th>`;
+    const order=sort.direction===1?'ascending':'descending';
+    return `<th class="${field==='barcode'?'combined-barcode':''}"${field===sort.field?` aria-sort="${order}"`:''}><button type="button" class="doc-sort-btn" data-combined-sort="${field}">${label}</button></th>`;
   }
   function describeValues(option,getValue){
     const values=shops.filter(shop=>option.shops.has(Number(shop.id))).map(shop=>({shop,value:getValue(option.shops.get(Number(shop.id)))}));
@@ -214,8 +214,8 @@ function attachCombinedCatalog(page){
     const matches=rows.filter(row=>(!shopFilter||exclusiveShop(row)===shopFilter)&&row.members.some(({product})=>(!category||category===mainCategory(product))&&(!brand||brand===subCategory(product)))&&
       matchesSearch(row,term));
     const unitByRow=new Map();
-    if(sortField==='name')matches.sort((a,b)=>sortDirection*compare(a.name,b.name));
-    if(sortField==='barcode'){
+    if(sort.field==='name')matches.sort((a,b)=>sort.direction*compare(a.name,b.name));
+    if(sort.field==='barcode'){
       const codes=new Map();
       for(const row of matches){
         const option=displayedUnit(row,term);
@@ -227,9 +227,9 @@ function attachCombinedCatalog(page){
         if(!left.length||!right.length)return Number(!left.length)-Number(!right.length);
         for(let i=0;i<Math.min(left.length,right.length);i++){
           const difference=compare(left[i],right[i]);
-          if(difference)return sortDirection*difference;
+          if(difference)return sort.direction*difference;
         }
-        return sortDirection*(left.length-right.length);
+        return sort.direction*(left.length-right.length);
       });
     }
     const pages=Math.max(1,Math.ceil(matches.length/pageSize));
@@ -270,8 +270,8 @@ function attachCombinedCatalog(page){
     const button=event.target.closest('[data-combined-sort]');
     if(!button)return;
     const field=button.dataset.combinedSort;
-    sortDirection=sortField===field?-sortDirection:1;
-    sortField=field;pageNo=1;draw();
+    sort.direction=sort.field===field?-sort.direction:1;
+    sort.field=field;combinedSortPreferences.set(actor,sort);pageNo=1;draw();
     results.querySelector(`[data-combined-sort="${field}"]`).focus({preventScroll:true});
   };
   storeButtons.forEach(button=>button.onclick=()=>{

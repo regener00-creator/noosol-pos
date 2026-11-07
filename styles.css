@@ -2924,8 +2924,9 @@
 .combined-catalog .pager{margin-top:10px}
 .combined-catalog .combined-amount,.combined-catalog .combined-barcode{text-align:center}
 .combined-unit-cell{min-height:32px;display:flex;align-items:center;justify-content:center}
-.combined-catalog .only-phonchai td{background:#fff0da}
-.combined-catalog .only-phraya td{background:#f2e8fa}
+.combined-catalog .only-phonchai{color:#ad510b}
+.combined-catalog .only-phraya{color:#7946a4}
+.combined-catalog :is(.only-phonchai,.only-phraya) :is(.prod-unit-select,.prod-unit-fixed){color:inherit}
 .combined-legend{margin-left:auto}
 .combined-legend [data-exclusive-shop="พระยาสุเรนทร์"] .product-review-filter-dot{background:#9559bd}
 .combined-legend [data-exclusive-shop="พรชัย"] .product-review-filter-dot{background:#e58a27}

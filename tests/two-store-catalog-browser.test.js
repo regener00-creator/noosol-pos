@@ -176,6 +176,18 @@ let browser;
   async function checkPagination(){
     await page.locator('[data-combined-search]').fill('Pagination');
     const pager=page.locator('[data-combined-pager]'),rows=page.locator('[data-combined-results] tbody tr');
+    const currentTab=await page.locator('.navbtn.active').getAttribute('data-tab');
+    async function checkSharedSort(field,direction,value){
+      const otherTab=currentTab==='products'?'rinventory':'products';
+      for(const tab of [otherTab,currentTab]){
+        await page.locator(`.navbtn[data-tab="${tab}"]`).click();
+        await page.locator('[data-combined-search]').fill('Pagination');
+        const header=page.locator(`th[aria-sort="${direction}"] [data-combined-sort="${field}"]`);
+        assert.equal(await header.innerText(),field==='barcode'?'บาร์โค้ด':'สินค้า');
+        assert.equal(await rows.first().locator('td').nth(field==='barcode'?0:1).innerText(),value);
+      }
+    }
+    if(await page.locator('th[aria-sort="descending"] [data-combined-sort="name"]').count())await page.locator('[data-combined-sort="name"]').click();
     assert.equal(await rows.count(),10);
     assert.deepEqual(await pager.locator('button').allTextContents(),['«','‹','1','2','3','4','5','›','»']);
     assert.ok(await pager.getByTitle('ก่อนหน้า').isDisabled());
@@ -201,12 +213,16 @@ let browser;
     await barcode.click();
     assert.ok(await pager.getByTitle('หน้าแรก').isDisabled());
     assert.deepEqual(await rows.locator('td:first-child').allTextContents(),Array.from({length:10},(_,i)=>String(i+1)));
+    await checkSharedSort('barcode','ascending','1');
     await barcode.click();
     assert.equal(await rows.first().locator('td:first-child').innerText(),'51');
+    await checkSharedSort('barcode','descending','51');
     await name.click();
     assert.equal(await rows.first().locator('td:nth-child(2)').innerText(),'Pagination 00');
+    await checkSharedSort('name','ascending','Pagination 00');
     await name.click();
     assert.equal(await rows.first().locator('td:nth-child(2)').innerText(),'Pagination 50');
+    await checkSharedSort('name','descending','Pagination 50');
     await page.locator('[data-combined-search]').fill('Pagination 50');
     assert.equal(await pager.locator('button').count(),0);
     assert.equal(await rows.count(),1);
@@ -233,10 +249,12 @@ let browser;
   await assertUsesPageWidth();
   await page.locator('[data-combined-search]').fill('0022');
   assert.deepEqual(await page.locator('[data-combined-results] tr').filter({hasText:'0022'}).locator('td').allTextContents(),['0022','พรชัยเท่านั้น','ซอง','—','0']);
-  assert.equal(await page.locator('.only-phonchai td').first().evaluate(cell=>getComputedStyle(cell).backgroundColor),'rgb(255, 240, 218)');
+  const storeColors=cell=>[getComputedStyle(cell).color,getComputedStyle(cell).backgroundColor];
+  assert.deepEqual(await page.locator('.only-phonchai td').first().evaluate(storeColors),['rgb(173, 81, 11)','rgba(0, 0, 0, 0)']);
   await page.locator('[data-combined-search]').fill('0033');
-  assert.equal(await page.locator('.only-phraya td').first().evaluate(cell=>getComputedStyle(cell).backgroundColor),'rgb(242, 232, 250)');
+  assert.deepEqual(await page.locator('.only-phraya td').first().evaluate(storeColors),['rgb(121, 70, 164)','rgba(0, 0, 0, 0)']);
   await page.locator('.navbtn[data-tab="products"]').click();
+  await page.locator('[data-combined-search]').fill('Decolgen');
   assert.equal(await dec.locator('select').inputValue(),'ลัง','PRODUCT uses the last unit chosen in stock');
   assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['—','—','700.00','540.00']);
   await page.evaluate(()=>{selectActiveWarehouse(2);currentTab='transfer';render();});
@@ -252,6 +270,7 @@ let browser;
   await second.waitForFunction(async()=>(await window.requestUnits({actor:currentProfile.id})).data.some(row=>row.product_id===11&&row.unit_name==='กล่อง'));
   await second.waitForFunction(()=>combinedUnitWrites.size===0);
   await page.evaluate(()=>{selectActiveWarehouse('all');currentTab='products';render();});
+  await page.locator('[data-combined-search]').fill('Decolgen');
   await page.waitForFunction(()=>document.querySelector('[data-combined-unit="11"]')?.value==='กล่อง');
   await second.close();
   await page.evaluate(()=>{selectActiveWarehouse(2);currentTab='transfer';render();});
