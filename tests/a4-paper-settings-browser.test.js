@@ -11,7 +11,7 @@ let browser;
  await installIsolatedBrowser(page);await context.addInitScript(()=>{window.print=()=>{window.printCalls=(window.printCalls||0)+1;};});
  page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:'+server.address().port);await waitForIsolatedBootstrap(page);
  const setup=async()=>{await page.evaluate(async()=>{currentProfile={id:'test',owner:true,level:1};warehouses=[{id:1,name:'test',active:true}];activeWarehouseId=1;document.querySelectorAll('.login-screen').forEach(el=>el.style.display='none');renderLoginState=()=>true;canAccessTab=()=>true;ensureOnDemandDataForTab=()=>({status:'ready'});recordPrintEvent=()=>{window.saleWrites=(window.saleWrites||0)+1;};currentTab='settingsprinter';await ensurePageCodeLoaded(currentTab);render();});await page.locator('#a4PaperForm').waitFor();};
- await setup();assert.equal(await page.locator('[data-tab="settingsprinter"]').innerText(),'ตั้งค่าหน้ากระดาษ');
+ await setup();assert.equal(await page.locator('[data-tab="settingsprinter"]').innerText(),'ตั้งค่าการพิมพ์');
  await page.locator('#a4_orientation').selectOption('landscape');
  for(const [key,value] of Object.entries({marginTop:10,marginBottom:12,marginLeft:8,marginRight:9})) await page.locator('#a4_'+key).fill(String(value));
  await page.locator('#a4PaperForm button[type=submit]').click();assert.match(await page.locator('#a4PaperStatus').innerText(),/บันทึกแล้ว/);

@@ -33,7 +33,7 @@ assert.match(html, /value="\$\{escapeHtml\(b\.name\)\}"/, 'ชื่อธุร
 assert.match(html, /id="set_business_line"[^>]*placeholder="เช่น @NOOSOL"/, 'หน้าตั้งค่าธุรกิจต้องมีช่อง LINE');
 assert.match(html, /line:get\('set_business_line'\)/, 'ต้องบันทึก LINE ไปกับข้อมูลธุรกิจ');
 assert.match(html, /branch=vat===VAT_REGISTERED_LABEL\?selectedBranch:'none'/, 'ร้านที่ไม่จด VAT ต้องบันทึกสาขาเป็นไม่ระบุ');
-assert.match(html, /const synced=await syncBusinessSettingsToSupabase\(\)/, 'ต้องรอผลซิงก์ก่อนแจ้งผู้ใช้');
+assert.match(html, /await sb\.rpc\('owner_set_setting',\{p_key:`business-warehouse:/);
 assert.doesNotMatch(html, /receiptBusiness\.branch==='branch'/, 'ใบเสร็จต้องใช้กติกาสาขากลาง');
 assert.doesNotMatch(html, /business\.branch==='branch'\?'สาขา':'สำนักงานใหญ่'/, 'เอกสารต้องไม่บังคับสำนักงานใหญ่เอง');
 assert.ok((html.match(/businessDocumentName\(/g)||[]).length >= 6, 'เอกสารหลักต้องใช้กติกาชื่อและสาขากลาง');

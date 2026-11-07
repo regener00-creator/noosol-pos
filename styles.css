@@ -2912,3 +2912,11 @@
 
 @font-face{font-family:'Google Sans';src:url('/fonts/google-sans-variable-v2.woff2') format('woff2');font-style:normal;font-weight:400 700;font-display:swap;}
 @font-face{font-family:'Google Sans';src:url('/fonts/google-sans-italic-variable-v2.woff2') format('woff2');font-style:italic;font-weight:400 700;font-display:swap;}
+
+.combined-catalog .rpt-filters{gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.combined-catalog [data-combined-search]{flex:1 1 240px}
+.combined-catalog [data-combined-results]{overflow:auto}
+.combined-catalog .only-phonchai td,.combined-legend span:first-child{background:#fff0da}
+.combined-catalog .only-phraya td,.combined-legend span:last-child{background:#f2e8fa}
+.combined-legend,.combined-pager{display:flex;align-items:center;gap:12px;margin:12px 0}
+.combined-legend span{padding:5px 10px;border-radius:6px}.combined-pager{justify-content:center}

@@ -326,7 +326,7 @@ function savePromotion(){
     if(data.bundlePrice<=0){ showToast('กรุณากรอกราคาพิเศษให้ถูกต้อง'); return; }
   }
   if(editingPromotionId==='new'){
-    promotions.push({id:generateClientRecordId(promotions),...data});
+    promotions.push({id:generateClientRecordId(promotions),...data,warehouseId:activeWarehouseId});
     showToast(`สร้างโปรโมชั่น "${name}" แล้ว`);
   } else {
     Object.assign(promotions.find(x=>x.id===editingPromotionId),data);

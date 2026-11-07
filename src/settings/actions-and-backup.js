@@ -1,5 +1,8 @@
 async function saveBusinessSettings(){
   const get=id=>(document.getElementById(id)?.value||'').trim();
+  const form=document.getElementById('businessSettingsForm');
+  const warehouseId=Number(form?.dataset.warehouseId);
+  if(!warehouseId||isAllWarehousesMode()||warehouseId!==activeWarehouseId)return;
   const vat=get('set_business_vat'),taxId=get('set_business_tax').replace(/\D/g,''),selectedBranch=document.querySelector('input[name="set_branch"]:checked')?.value||'none',branch=vat===VAT_REGISTERED_LABEL?selectedBranch:'none';
   const vatDateText=get('set_business_vat_date'),vatRegistrationDate=vatDateText?dmyToISO(vatDateText):'';
   if(taxId&&!/^\d{13}$/.test(taxId)){ showToast('เลขประจำตัวผู้เสียภาษีต้องมี 13 หลัก','danger'); document.getElementById('set_business_tax')?.focus(); return; }
@@ -12,14 +15,33 @@ async function saveBusinessSettings(){
     if(branch==='branch'&&!get('set_business_branch_name')){ showToast('กรุณากรอกชื่อสาขา','danger'); document.getElementById('set_business_branch_name')?.focus(); return; }
   }
   const documentPhone=document.querySelector('input[name="set_business_document_phone"]:checked')?.value||'mobile';
-  applyBusinessSettings({type:get('set_business_type'),vat,vatRegistrationDate,name:get('set_business_name'),address:get('set_business_address'),taxId,branch,branchCode:get('set_business_branch_code'),branchName:get('set_business_branch_name'),officePhone:get('set_business_office'),mobile:get('set_business_mobile'),line:get('set_business_line'),website:get('set_business_website'),documentPhone,english:businessSettings.english||false});
-  persistWorkspaceData(); // localStorage now, Supabase after the usual debounce
-  businessSettingsDirty=false;
-  businessSettingsSyncState='syncing';
-  render();
-  const synced=await syncBusinessSettingsToSupabase();
-  showToast(synced?'บันทึกและซิงก์ข้อมูลธุรกิจแล้ว':'บันทึกในเครื่องแล้ว แต่ซิงก์ Supabase ไม่สำเร็จ',synced?'':'danger');
-  render();
+  const profile=businessDocumentSnapshot({
+    ...warehouseBusinessSettings(warehouseId),type:get('set_business_type'),vat,vatRegistrationDate,
+    name:get('set_business_name'),address:get('set_business_address'),taxId,branch,
+    branchCode:get('set_business_branch_code'),branchName:get('set_business_branch_name'),
+    officePhone:get('set_business_office'),mobile:get('set_business_mobile'),line:get('set_business_line'),
+    website:get('set_business_website'),documentPhone,
+  });
+  const button=document.getElementById('saveBusinessSettingsBtn');
+  if(button?.disabled)return;
+  if(button)button.disabled=true;
+  const context=captureWorkspaceRead();
+  try{
+    const {error}=await sb.rpc('owner_set_setting',{p_key:`business-warehouse:${warehouseId}`,p_value:profile});
+    if(error)throw error;
+    if(!isWorkspaceReadCurrent(context))return;
+    warehouseBusinessProfiles={...warehouseBusinessProfiles,[warehouseId]:profile};
+    persistWorkspaceData();
+    if(form.isConnected && activeWarehouseId===warehouseId){
+      businessSettingsDirty=false;
+      businessSettingsSyncState='synced';
+      businessSettingsLastSyncedAt=new Date().toISOString();
+      render();
+    }
+    showToast(`บันทึกข้อมูลธุรกิจของคลัง ${whName(warehouseId)} แล้ว`);
+  }catch(error){
+    showToast(error?.message||'บันทึกข้อมูลธุรกิจไม่สำเร็จ กรุณาลองอีกครั้ง','danger');
+  }finally{if(button)button.disabled=false;}
 }
 
 function saveDocumentPrefixes(){
@@ -72,7 +94,7 @@ async function downloadStoreBackup(){
     const payload=await storeBackupDataSnapshot();
     const createdAt=payload.createdAt;
     // Unsent work is preserved separately and is never applied by restore.
-    payload.pendingDeviceWork={workspace:cloneSyncRecords(currentWorkspacePendingChanges()),products:products.filter(p=>productDirtyOperations.has(String(p.id))),productOperations:[...productDirtyOperations]};
+    payload.pendingDeviceWork={workspace:cloneSyncRecords(currentWorkspacePendingChanges()),products:completeProductCatalog().filter(p=>productDirtyOperations.has(String(p.id))),productOperations:[...productDirtyOperations]};
     const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});
     const url=URL.createObjectURL(blob);
     const link=document.createElement('a');

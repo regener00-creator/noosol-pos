@@ -10,6 +10,7 @@ const context={
   products:[product,{id:2,name:'Beta',unit:'ขวด',price:50,cost:30},{id:3,name:'Gamma',unit:'เม็ด',price:10,cost:3}],
   categories:[],brands:[],
   isLevel2User:()=>false,isAllWarehousesMode:()=>false,
+  reportingWarehouses:()=>[{id:1,name:'สาขา A'},{id:2,name:'สาขา B'}],
   accessibleWarehouses:()=>[{id:1,name:'สาขา A'},{id:2,name:'สาขา B'}],
   warehouseStock:(pid,wid)=>wid===1?balances[pid]:3,
   reportStock:(pid,wh)=>balances[pid]+(wh==='all'?3:0),

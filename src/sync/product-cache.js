@@ -125,10 +125,10 @@ async function loadProductCacheFromIndexedDB(){
     if(workspaceRow?.value) applyWorkspaceData(workspaceRow.value);
     productDirtyOperations=normalizeProductDirtyOperations(dirtyOperationsRow?.value);
     if(Array.isArray(productRows)&&productRows.length){
-      products=productRows;
+      setWarehouseProductCatalog(productRows);
       productCacheFingerprints=new Map(productRows.map(product=>[String(product.id),JSON.stringify(product)]));
     }else if(Array.isArray(legacyWorkspaceProducts)&&legacyWorkspaceProducts.length){
-      products=legacyWorkspaceProducts;
+      setWarehouseProductCatalog(legacyWorkspaceProducts);
     }
     cachedProductManifest=manifestRow?.value||null;
     indexedProductCacheReady=Array.isArray(productRows)&&productRows.length>0;
@@ -172,7 +172,7 @@ async function saveProductManifestCache(){
     return true;
   }catch(error){ console.warn('ไม่สามารถบันทึกสารบัญแคชสินค้าใน IndexedDB ได้',error); return false; }
 }
-function persistProductsToIndexedDB(productRows=products,removeMissing=true,dirtyOperations=productDirtyOperations){
+function persistProductsToIndexedDB(productRows=completeProductCatalog(),removeMissing=true,dirtyOperations=productDirtyOperations){
   const context=captureWorkspaceRead();
   const offlineActor=typeof currentProfile!=='undefined'?String(currentProfile?.id||''):'';
   const rows=JSON.parse(JSON.stringify(Array.isArray(productRows)?productRows:[]));
@@ -213,7 +213,7 @@ function persistProductChangesToIndexedDB(changes={},dirtyOperations=productDirt
   const offlineActor=typeof currentProfile!=='undefined'?String(currentProfile?.id||''):'';
   const changedIds=new Set([...(changes.insertedIds||[]),...(changes.updatedIds||[])].map(String));
   const deletedIds=[...(changes.deletedIds||[])].map(String);
-  const rows=JSON.parse(JSON.stringify((products||[]).filter(product=>changedIds.has(String(product.id)))));
+  const rows=JSON.parse(JSON.stringify(completeProductCatalog().filter(product=>changedIds.has(String(product.id)))));
   const dirtyValue=productDirtyOperationsValue(dirtyOperations);
   const rowFingerprints=new Map(rows.map(product=>[String(product.id),JSON.stringify(product)]));
   const dirtyFingerprint=JSON.stringify(dirtyValue);
@@ -313,7 +313,7 @@ async function fetchProductRowsByIds(ids){
   }
   return {data:allRows,error:null};
 }
-function mergeRemoteProductsWithDirtyLocal(remoteProducts,localProducts=products,dirtyOperations=productDirtyOperations){
+function mergeRemoteProductsWithDirtyLocal(remoteProducts,localProducts=completeProductCatalog(),dirtyOperations=productDirtyOperations){
   const dirty=normalizeProductDirtyOperations(dirtyOperations);
   const localById=new Map((localProducts||[]).map(product=>[String(product.id),product]));
   const merged=(remoteProducts||[]).filter(product=>dirty.get(String(product.id))!=='delete');
@@ -356,7 +356,7 @@ async function loadProductRowsFromSupabase({checkSignature=false,force=false}={}
     const cached=productReadSignature;
     if(!force&&signature&&indexedProductCacheReady&&readProductManifestCache()&&productDirtyOperations.size===0&&
       cached?.signature===signature&&cached.products===products&&isWorkspaceReadCurrent(cached.context)&&Date.now()-cached.at<300000){
-      return {data:products,error:null,unchanged:true};
+      return {data:completeProductCatalog(),error:null,unchanged:true};
     }
   }
   // Identity sequence values are not commit order. Reconcile authoritative
@@ -368,30 +368,31 @@ async function loadProductRowsFromSupabase({checkSignature=false,force=false}={}
   const remoteIds=new Set(manifest.data.map(row=>String(row.id)));
   reconcileProductDirtyOperationsWithRemoteIds([...remoteIds]);
   const fullReload=!indexedProductCacheReady||!readProductManifestCache();
-  const localById=new Map(products.map(product=>[String(product.id),product]));
+  const fullCatalog=completeProductCatalog();
+  const localById=new Map(fullCatalog.map(product=>[String(product.id),product]));
   const changedIds=manifest.data.filter(row=>{
     if(productDirtyOperations.has(String(row.id))) return false;
     const local=localById.get(String(row.id));
     return fullReload||!local||Number(local._revision)!==Number(row.revision);
   }).map(row=>row.id);
-  const deletedIds=products.filter(product=>!remoteIds.has(String(product.id))&&!productDirtyOperations.has(String(product.id))).map(product=>product.id);
+  const deletedIds=fullCatalog.filter(product=>!remoteIds.has(String(product.id))&&!productDirtyOperations.has(String(product.id))).map(product=>product.id);
   const {data:changedRows,error}=await fetchProductRowsByIds(changedIds);
   if(!isWorkspaceReadCurrent(context)) return {data:null,error:null,stale:true};
   if(error) return {data:null,error};
   const fetchedIds=new Set((changedRows||[]).map(row=>String(row.id)));
   changedIds.filter(id=>!fetchedIds.has(String(id))).forEach(id=>deletedIds.push(id));
   const changedSet=new Set(changedIds.map(String)),deletedSet=new Set(deletedIds.map(String));
-  let loadedProducts=(products||[]).filter(product=>!changedSet.has(String(product.id))&&!deletedSet.has(String(product.id)));
+  let loadedProducts=fullCatalog.filter(product=>!changedSet.has(String(product.id))&&!deletedSet.has(String(product.id)));
   loadedProducts.push(...(changedRows||[]).map(rowToProduct));
   loadedProducts=mergeRemoteProductsWithDirtyLocal(loadedProducts);
-  products=loadedProducts;
+  setWarehouseProductCatalog(loadedProducts);
   const productRowsPersisted=await persistProductChangesToIndexedDB({updatedIds:changedIds,deletedIds});
   if(!isWorkspaceReadCurrent(context)) return {data:null,error:null,stale:true};
   if(productRowsPersisted) await saveProductManifestCache();
   if(!isWorkspaceReadCurrent(context)) return {data:null,error:null,stale:true};
   // Capture the signature from BEFORE the read, so concurrent commits are
   // detected on the next refresh. Never certify a failed local-cache write.
-  productReadSignature=productRowsPersisted&&signature?{signature,products:loadedProducts,context,at:Date.now()}:null;
+  productReadSignature=productRowsPersisted&&signature?{signature,products,context,at:Date.now()}:null;
   return {data:loadedProducts,error:null};
 }
 

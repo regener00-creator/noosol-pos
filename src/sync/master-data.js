@@ -9,7 +9,7 @@ function tableSnapshot(localArray,toRow){
   return snapshot;
 }
 function seedTableSnapshot(table,localArray,toRow){ syncedTableRows[table]=tableSnapshot(localArray,toRow); }
-function seedProductSyncSnapshot(localProducts=products,dirtyOperations=productDirtyOperations){
+function seedProductSyncSnapshot(localProducts=completeProductCatalog(),dirtyOperations=productDirtyOperations){
   const snapshot=tableSnapshot(localProducts,productMetadataToRow);
   for(const [id,operation] of normalizeProductDirtyOperations(dirtyOperations)){
     if(operation==='delete') snapshot.set(id,'__dirty_remote_product__');
@@ -23,11 +23,11 @@ async function clearAcknowledgedProductDirtyOperations(ids,expectedOperations){
   if(!removable.length) return true;
   const next=new Map(productDirtyOperations);
   const removableSet=new Set(removable);
-  const expectedRows=tableSnapshot(products.filter(product=>removableSet.has(String(product.id))),productMetadataToRow);
+  const expectedRows=tableSnapshot(completeProductCatalog().filter(product=>removableSet.has(String(product.id))),productMetadataToRow);
   removable.forEach(id=>next.delete(id));
   const persisted=await persistProductChangesToIndexedDB({updatedIds:removable,deletedIds:removable.filter(id=>!expectedRows.has(id))},next);
   if(!persisted) return false;
-  const latestRows=tableSnapshot(products.filter(product=>removableSet.has(String(product.id))),productMetadataToRow);
+  const latestRows=tableSnapshot(completeProductCatalog().filter(product=>removableSet.has(String(product.id))),productMetadataToRow);
   removable.forEach(id=>{ if(productDirtyOperations.get(id)===expected.get(id)&&latestRows.get(id)===expectedRows.get(id)) productDirtyOperations.delete(id); });
   return true;
 }
@@ -476,6 +476,7 @@ async function syncWarehousesIncrementally(){
   return true;
 }
 async function prepareProductInsertCandidatesForSync(previous){
+  const products=completeProductCatalog();
   // Older caches can contain a product that predates dirty-operation tracking.
   // Give every row that this sync will classify as a new insert the same durable
   // identity marker as an explicitly dirty insert before any network request.
@@ -502,6 +503,7 @@ async function prepareProductInsertCandidatesForSync(previous){
   return true;
 }
 async function syncProductsIncrementally({dirtyOnly=false}={}){
+  const products=completeProductCatalog();
   const table='products';
   const previous=syncedTableRows[table]||new Map();
   const actor=typeof currentProfile==='undefined'?'':String(currentProfile?.id||'');
@@ -541,16 +543,17 @@ async function syncProductsIncrementally({dirtyOnly=false}={}){
     deleted.forEach(id=>syncedTableRows[table].delete(id));
   }
   const acknowledgedDirtyIds=[];
+  const liveProducts=new Map(completeProductCatalog().map(product=>[String(product.id),product]));
   for(const [id,operation] of dirtyAtStart){
     const unchangedOperation=productDirtyOperations.get(id)===operation;
-    const live=products.find(product=>String(product.id)===id);
+    const live=liveProducts.get(id);
     const unchangedProduct=operation==='delete'?!live:syncedTableRows[table].get(id)===JSON.stringify(productMetadataToRow(live||{}));
     if(operation==='insert'&&!unchangedProduct&&syncedTableRows[table].has(id)) productDirtyOperations.set(id,live?'update':'delete');
     if(unchangedOperation&&unchangedProduct) acknowledgedDirtyIds.push(id);
   }
   if(acknowledgedDirtyIds.length){
     const dirtyStatePersisted=await clearAcknowledgedProductDirtyOperations(acknowledgedDirtyIds,dirtyAtStart);
-    if(!dirtyStatePersisted){ seedProductSyncSnapshot(products,productDirtyOperations); return noteCoreSyncFailure(new Error('บันทึกสถานะสินค้าที่ซิงก์แล้วลงเครื่องไม่สำเร็จ'),{operation:'persist_product_sync_state',tableName:table}); }
+    if(!dirtyStatePersisted){ seedProductSyncSnapshot(completeProductCatalog(),productDirtyOperations); return noteCoreSyncFailure(new Error('บันทึกสถานะสินค้าที่ซิงก์แล้วลงเครื่องไม่สำเร็จ'),{operation:'persist_product_sync_state',tableName:table}); }
   }
   if(changed.length) await persistProductChangesToIndexedDB({updatedIds:changed.map(product=>product.id)});
   if(productUpdateError) return noteCoreSyncFailure(productUpdateError,{operation:'update_products',tableName:table,recordId:productUpdateError.productId||'',fallbackMessage:'มีสินค้ารอตรวจสอบข้อมูลที่ขัดแย้ง'});

@@ -62,16 +62,28 @@ let customerLoyaltyExpiryTimer=null;
 let saleMember = null; // ชื่อสมาชิก
 const VAT_RATE = 0.07;
 const VAT_REGISTERED_LABEL = 'จดภาษีมูลค่าเพิ่มแล้ว';
-function isBusinessVatRegistered(settings=businessSettings){
+function warehouseBusinessSettings(warehouseId=isAllWarehousesMode()?0:activeWarehouseId){
+  const id=Number(warehouseId);
+  if(warehouseBusinessProfiles[id])return warehouseBusinessProfiles[id];
+  if(id===2)return {name:whName(id),vat:'ยังไม่จดภาษีมูลค่าเพิ่ม',branch:'none',documentPhone:'mobile'};
+  return businessSettings;
+}
+function documentBusinessSettings(document){
+  const snapshot=document?.businessSnapshot;
+  if(snapshot && Object.hasOwn(snapshot,'line')) return snapshot;
+  const issuer=warehouseBusinessSettings(document?.warehouseId||0);
+  return snapshot?{...snapshot,line:issuer.line||''}:issuer;
+}
+function isBusinessVatRegistered(settings=warehouseBusinessSettings()){
   const effectiveDate=String(settings?.vatRegistrationDate||'').slice(0,10);
   return settings?.vat===VAT_REGISTERED_LABEL&&(!effectiveDate||effectiveDate<=currentDateStr());
 }
-function businessPrimaryPhone(settings=businessSettings){
+function businessPrimaryPhone(settings=warehouseBusinessSettings()){
   const preferred=settings?.documentPhone==='office'?'officePhone':'mobile';
   const fallback=preferred==='officePhone'?'mobile':'officePhone';
   return String(settings?.[preferred]||settings?.[fallback]||settings?.phone||'').trim();
 }
-function businessTaxBranchLabel(settings=businessSettings,options={}){
+function businessTaxBranchLabel(settings=warehouseBusinessSettings(),options={}){
   const registered=options.registered===undefined?isBusinessVatRegistered(settings):options.registered===true;
   if(!registered) return '';
   const branch=String(settings?.branch||'none');
@@ -81,13 +93,13 @@ function businessTaxBranchLabel(settings=businessSettings,options={}){
   const name=String(settings?.branchName||'').trim();
   return ['สาขา',code,name].filter(Boolean).join(' ');
 }
-function businessDocumentName(settings=businessSettings,fallbackName='',options={}){
+function businessDocumentName(settings=warehouseBusinessSettings(),fallbackName='',options={}){
   const name=String(settings?.name||fallbackName||'').trim();
   const branch=businessTaxBranchLabel(settings,options);
   return `${name}${branch?` (${branch})`:''}`;
 }
 const BUSINESS_DOCUMENT_SNAPSHOT_KEYS=['type','vat','vatRegistrationDate','name','address','taxId','branch','branchCode','branchName','officePhone','mobile','phone','fax','line','website','documentPhone','english'];
-function businessDocumentSnapshot(settings=businessSettings){
+function businessDocumentSnapshot(settings=warehouseBusinessSettings()){
   const source=settings&&typeof settings==='object'?settings:{};
   return BUSINESS_DOCUMENT_SNAPSHOT_KEYS.reduce((snapshot,key)=>{
     if(source[key]!==undefined) snapshot[key]=source[key];
@@ -113,7 +125,7 @@ function parseProductVatMode(value,fallback='incl'){
   if(normalized==='incl'||normalized.includes('รวม vat')) return 'incl';
   return normalizeProductVatMode(fallback);
 }
-function effectiveProductVatMode(product,settings=businessSettings){
+function effectiveProductVatMode(product,settings=warehouseBusinessSettings()){
   return isBusinessVatRegistered(settings)?normalizeProductVatMode(product?.vat):'none';
 }
 function grossAmountForVatMode(amount,vatMode,registered=true){
@@ -141,13 +153,13 @@ function calculateSaleTaxSummary(lines,requestedDiscount=0,registered=true){
 function documentProductForTax(item){
   return products.find(product=>Number(product.id)===Number(item?.productId||item?.pid))||products.find(product=>product.name===item?.name)||null;
 }
-function documentItemVatMode(item,registered,settings=businessSettings,fallbackMode='incl'){
+function documentItemVatMode(item,registered,settings=warehouseBusinessSettings(),fallbackMode='incl'){
   if(!registered) return 'none';
   if(['incl','excl','none'].includes(item?.vatMode)) return item.vatMode;
   const product=documentProductForTax(item);
   return product?effectiveProductVatMode(product,settings):normalizeProductVatMode(fallbackMode);
 }
-function calculateDocumentTaxSummary(items,requestedDiscount=0,registered=isBusinessVatRegistered(),settings=businessSettings,fallbackMode='incl'){
+function calculateDocumentTaxSummary(items,requestedDiscount=0,registered=isBusinessVatRegistered(),settings=warehouseBusinessSettings(),fallbackMode='incl'){
   return calculateSaleTaxSummary((items||[]).map(item=>({
     amount:(Number(item?.qty)||0)*(Number(item?.price)||0),
     vatMode:documentItemVatMode(item,registered,settings,fallbackMode),
@@ -174,7 +186,7 @@ function taxSummaryRowsHtml(tax,{purchase=false}={}){
   if(!tax.registered) return `<div class="sumrow"><span>${purchase?'ไม่มี VAT':'ไม่คิด VAT (กิจการยังไม่จด VAT)'}</span><span class="mono">0.00</span></div><div class="sumrow"><span>มูลค่าสินค้า</span><span class="mono">${fmtMoney(tax.beforeVat)}</span></div>`;
   return `<div class="sumrow"><span>ภาษีมูลค่าเพิ่ม 7%</span><span class="mono">${fmtMoney(tax.vat)}</span></div><div class="sumrow"><span>มูลค่าก่อนภาษีมูลค่าเพิ่ม</span><span class="mono">${fmtMoney(tax.beforeVat)}</span></div>`;
 }
-function cartTaxSummary(promoResult=applyPromotions(cart),discount=saleDiscount,settings=businessSettings){
+function cartTaxSummary(promoResult=applyPromotions(cart),discount=saleDiscount,settings=warehouseBusinessSettings()){
   const registered=isBusinessVatRegistered(settings);
   const lines=promoResult.lines.map(line=>({amount:Number(line.promoLineTotal)||0,vatMode:line.custom?(registered?'incl':'none'):effectiveProductVatMode(products.find(product=>product.id===line.pid),settings)}));
   const points=arguments.length<2&&typeof effectiveLoyaltyRedemption==='function'?effectiveLoyaltyRedemption(promoResult):0;
@@ -193,7 +205,7 @@ function saleTaxSummary(sale){
   return {registered,subtotal:total+(Number(sale?.discount)||0),discount:Number(sale?.discount)||0,beforeVat:registered?Math.max(0,total-vat):total,vat,total};
 }
 function canIssueTaxInvoiceForSale(sale){
-  return !!sale&&sale.status==='done'&&!sale.customerReturn&&!(sale.customerReturnLog||[]).length&&isBusinessVatRegistered()&&sale.vatRegistered===true;
+  return !!sale&&sale.status==='done'&&!sale.customerReturn&&!(sale.customerReturnLog||[]).length&&isBusinessVatRegistered(warehouseBusinessSettings(sale.warehouseId||0))&&sale.vatRegistered===true;
 }
 let favorites = []; // {pid,unit} — สินค้าโปรดหนึ่งหน่วยต่อหนึ่งสินค้า
 let showFavorites = true;  // แสดงแถบสินค้าโปรดใต้บิลหรือไม่

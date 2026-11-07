@@ -1,11 +1,12 @@
 function loggedInUser(){ return currentProfile; }
 function isLevel2User(user=loggedInUser()){ return Number(user?.level)===2; }
 const LEVEL2_HIDDEN_TABS=new Set(['settingssystem','settingsbusiness','rprofit','rtax','warehouse','transfer','stockcontrol','barcodeprint','promotions','purchaseorder','productexchange','contacts','salesreps','representativehistory','taxinvoice','quotation','productreturn']);
-const ALL_WAREHOUSES_TABS=new Set(['dashboard','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','rvoid','rprofit','rtax','auditlog','representativehistory','settingsprinter']);
+const ALL_WAREHOUSES_TABS=new Set(['representativehistory','products','rinventory']);
 function canAccessTab(tab,user=loggedInUser()){
   if(!user) return false;
-  if(tab==='knowledge') return true;
   if(isAllWarehousesMode()&&!ALL_WAREHOUSES_TABS.has(tab)) return false;
+  if(tab==='transfer')return false;
+  if(tab==='knowledge')return true;
   if((tab==='settingsusers'||tab==='auditlog')&&user.owner!==true) return false;
   if(tab==='settingscategories'&&user.owner!==true) return false;
   // Device-only receipt layout: staff who can open POS may configure their own printer.
@@ -41,7 +42,7 @@ function renderLoginState(){
   if(!warehouseReady){
     const select=document.getElementById('warehouseChoiceSelect');
     if(select){
-      const allOption=canUseAllWarehousesMode()?'<option value="all">ทุกคลัง — ดูรายงานภาพรวม</option>':'';
+      const allOption=canUseAllWarehousesMode()?'<option value="all">คลังรวม — เปรียบเทียบสองร้าน</option>':'';
       select.innerHTML=allowed.length?allOption+allowed.map(warehouse=>`<option value="${warehouse.id}">${escapeHtml(warehouse.name)}</option>`).join(''):'<option value="">ยังไม่มีคลังที่ได้รับสิทธิ์</option>';
       select.disabled=!allowed.length;
     }
@@ -50,7 +51,9 @@ function renderLoginState(){
   return true;
 }
 function requestWarehouseChange(){
+  if(typeof saveProduct==='function'&&saveProduct.saving){showToast('กำลังบันทึกสินค้า กรุณารอให้เสร็จก่อนเปลี่ยนคลัง');return;}
   if(readPendingCheckoutRequest()){ showToast('มีรายการชำระที่ยังรอยืนยัน กรุณากดชำระซ้ำให้เสร็จก่อนเปลี่ยนคลัง','danger-top'); return; }
+  if(currentTab==='settingsbusiness'&&businessSettingsDirty&&!confirm('มีข้อมูลธุรกิจที่ยังไม่ได้บันทึก ต้องการเปลี่ยนคลังหรือไม่?'))return;
   if(cart.length&&!confirm('มีสินค้าอยู่ในบิล การเปลี่ยนคลังจะล้างบิลปัจจุบัน ยืนยันเปลี่ยนคลังหรือไม่?')) return;
   activeWarehouseId=0; allWarehousesMode=false; cashShifts=[]; currentCashShift=null;
   clearActiveWarehouseSelection();

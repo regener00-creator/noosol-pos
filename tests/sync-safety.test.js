@@ -37,8 +37,8 @@ const coreLoadEnd = html.indexOf('// ----- Sales history sync', coreLoadStart);
 const coreLoad = html.slice(coreLoadStart, coreLoadEnd);
 assert.match(coreLoad, /loadProductRowsFromSupabase\(\)/);
 assert.doesNotMatch(coreLoad, /from\('products'\)\.select\('\*'\)/, 'normal core load must use the product manifest cache');
-assert.match(coreLoad, /products=prodRows\|\|\[\]/, 'normalized product objects must be assigned without a second mapping pass');
-assert.match(coreLoad, /seedProductSyncSnapshot\(products,productDirtyOperations\)/, 'dirty products must not be seeded as synchronized');
+assert.match(coreLoad, /setWarehouseProductCatalog\(prodRows\|\|\[\]\)/, 'normalized product objects must be assigned without a second mapping pass');
+assert.match(coreLoad, /seedProductSyncSnapshot\(completeProductCatalog\(\),productDirtyOperations\)/, 'dirty products must not be seeded as synchronized');
 assert.match(coreLoad, /if\(productDirtyOperations\.size\|\|currentWorkspacePendingChanges\(\)\.length\) scheduleSupabaseCoreSync\(\)/, 'dirty products and documents recovered on boot must retry upload');
 assert.doesNotMatch(coreLoad, /products=\(prodRows\|\|\[\]\)\.map\(rowToProduct\)/, 'double mapping strips JSON-only barcode metadata');
 

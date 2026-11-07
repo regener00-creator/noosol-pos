@@ -2,7 +2,7 @@ const assert=require('node:assert/strict');
 const {test}=require('node:test');
 const fs=require('node:fs');
 const path=require('node:path');
-const vm=require('node:vm');
+const vm=require('./catalog-test-context.cjs');
 const source=require('../scripts/app-source.cjs').readApplicationSource();
 function section(start,end){
   const from=source.indexOf(start),to=source.indexOf(end,from+start.length);

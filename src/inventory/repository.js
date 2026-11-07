@@ -40,7 +40,7 @@ const PAGE_PERMISSION_OPTIONS=[
   ['purchaseorder','จดสั่งสินค้า'],['productreturn','ใบคืนสินค้า'],
   ['productexchange','เปลี่ยนสินค้า'],['contacts','ผู้จำหน่าย / ลูกค้า'],['salesreps','ผู้แทน'],
   ['taxinvoice','ใบกำกับภาษีเต็มรูปแบบ'],['quotation','ใบเสนอราคา'],['barcodeprint','พิมพ์ป้ายราคา'],
-  ['promotions','โปรโมชั่น'],['warehouse','คลังสินค้า / สาขา'],['transfer','โอนย้ายสต๊อก'],
+  ['promotions','โปรโมชั่น'],['warehouse','คลังสินค้า / สาขา'],
   ['rprofit','รายงานกำไร'],['rtax','รายงานภาษี']
 ];
 function permissionsForPage(pageKey,warehouseId=activeWarehouseId,rows=pagePermissionRows){
@@ -49,6 +49,7 @@ function permissionsForPage(pageKey,warehouseId=activeWarehouseId,rows=pagePermi
   return warehouseRows.length?warehouseRows:pageRows.filter(row=>row.warehouse_id==null&&row.warehouseId==null);
 }
 function canPerformPageAction(action='view',pageKey=currentTab,user=loggedInUser(),rows=pagePermissionRows){
+  if(isAllWarehousesMode()&&action!=='view')return false;
   // Both contact views retain the existing database permission key.
   if(pageKey==='customers') pageKey='contacts';
   if(pageKey==='rvoid') pageKey='rbill';
@@ -69,7 +70,10 @@ function canPerformPageAction(action='view',pageKey=currentTab,user=loggedInUser
 }
 function canUseAllWarehousesMode(){ return currentProfile?.owner===true&&accessibleWarehouses().length>1&&!isMobileDeviceMode(); }
 function isAllWarehousesMode(){ return allWarehousesMode===true; }
-function reportWarehouseIds(){ return accessibleWarehouses().map(warehouse=>Number(warehouse.id)).filter(Boolean); }
+function reportingWarehouses(){
+  return accessibleWarehouses().filter(warehouse=>!activeWarehouseId||isAllWarehousesMode()||Number(warehouse.id)===Number(activeWarehouseId));
+}
+function reportWarehouseIds(){ return reportingWarehouses().map(warehouse=>Number(warehouse.id)).filter(Boolean); }
 function activeWarehouse(){ return (warehouses||[]).find(warehouse=>Number(warehouse.id)===Number(activeWarehouseId))||null; }
 function warehouseStock(productId,warehouseId=activeWarehouseId){
   return (Number(inventoryBalanceMap.get(inventoryBalanceKey(productId,warehouseId))?.stock)||0)
@@ -245,7 +249,7 @@ function restoreActiveWarehouseSelection(){
   allWarehousesMode=stored==='all'&&canUseAllWarehousesMode();
   const storedId=Number(stored)||0;
   activeWarehouseId=allWarehousesMode?(Number(allowed[0]?.id)||0):(allowed.some(warehouse=>Number(warehouse.id)===storedId)?storedId:0);
-  if(activeWarehouseId) applyActiveWarehouseInventory();
+  if(activeWarehouseId){setWarehouseProductCatalog(completeProductCatalog());applyActiveWarehouseInventory();}
 }
 function selectActiveWarehouse(warehouseId){
   const allowed=accessibleWarehouses();
@@ -254,6 +258,7 @@ function selectActiveWarehouse(warehouseId){
     allWarehousesMode=true;
     activeWarehouseId=Number(allowed[0]?.id)||0;
     try{ localStorage.setItem(activeWarehouseStorageKey(),'all'); }catch(error){}
+    setWarehouseProductCatalog(completeProductCatalog());
     applyActiveWarehouseInventory();
     resetWarehouseScopedUiState('all');
     loadWarehouseInventoryFromSupabase(reportWarehouseIds()).then(()=>render()).catch(error=>console.warn('load all warehouse inventory',error));
@@ -264,6 +269,7 @@ function selectActiveWarehouse(warehouseId){
   allWarehousesMode=false;
   activeWarehouseId=Number(selected.id);
   try{ localStorage.setItem(activeWarehouseStorageKey(),String(activeWarehouseId)); }catch(error){}
+  setWarehouseProductCatalog(completeProductCatalog());
   applyActiveWarehouseInventory();
   resetWarehouseScopedUiState(String(activeWarehouseId));
   if(offlinePosMode()){
@@ -276,6 +282,12 @@ function selectActiveWarehouse(warehouseId){
 function resetWarehouseScopedUiState(reportWarehouseValue){
   cart=[]; saleDiscount=0; saleMember=null; saleSourceQuotationId=null; pendingQty=1;
   cashShifts=[]; currentCashShift=null; cashShiftCloseDraft={countedCash:'',reason:''};
+  editingProductId=null;mobileProductEditor=null;barcodePrintShowMenu=true;barcodePrintItems=[];barcodePrintOtherQueue=null;barcodePrintRequest=null;barcodePrintSearchQuery='';
+  editingPOId=null;poDraft=null;editingGRId=null;grDraft=null;editingReturnId=null;returnDraft=null;
+  editingProductExchangeId=null;productExchangeDraft=null;editingQuotationId=null;editingTaxInvoiceSaleId=null;taxInvoiceDraft=null;
+  editingPromotionId=null;currentPromoDraftItems=null;promoDraftItemsSyncedFor=undefined;
+  editingCustomerPriceContactId=null;cashBillOrderNumberDraft='';taxInvoiceOrderNumberDraft='';
+  businessSettingsDirty=false;
   stockReportItems=[];
   stockReportCatFilter={wh:reportWarehouseValue,category:'',brand:''};
   stockEditItems=[]; stockEditRowUnitSel={}; stockEditDraftStocks={}; stockEditSourceInspectionListId=null; stockEditSourcePending=false; stockEditPage=1;

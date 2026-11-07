@@ -68,7 +68,7 @@ assert.match(html,/class="modal fav-manage-modal"/);
 assert.match(html,/addEventListener\('dragstart'/);
 assert.match(html,/addEventListener\('dragover'/);
 assert.match(html,/addEventListener\('dragend'/);
-assert.match(html,/favorites=reordered;\s*saveFavorites\(\)/);
+assert.match(html,/favorites=nextFavorites;\s*saveFavorites\(\)/);
 assert.doesNotMatch(html,/data-fav-move=/);
 assert.match(migration,/add column if not exists unit text not null default ''/);
 assert.match(migration,/add column if not exists position integer not null default 0/);

@@ -36,9 +36,16 @@ function applyBusinessSettings(value){
 async function loadBusinessSettingsFromSupabase(){
   const context=captureWorkspaceRead();
   try{
-    const {data,error}=await sb.from('settings').select('value').eq('key','business').maybeSingle();
+    const cachedProfiles=warehouseBusinessProfiles;
+    const {data:rows,error}=await sb.from('settings').select('key,value').or('key.eq.business,key.like.business-warehouse:%');
     if(!isWorkspaceReadCurrent(context)) return;
     if(error){ console.warn('load business settings',error); return; }
+    const data=rows?.find(row=>row.key==='business');
+    if(cachedProfiles===warehouseBusinessProfiles){
+      warehouseBusinessProfiles=Object.fromEntries((rows||[])
+        .filter(row=>/^business-warehouse:\d+$/.test(row.key)&&row.value)
+        .map(row=>[row.key.split(':')[1],row.value]));
+    }
     if(data&&data.value&&typeof data.value==='object'){
       applyBusinessSettings(data.value);
       lastSyncedSnapshot.business_settings=JSON.stringify(businessSettings);
@@ -209,14 +216,14 @@ async function loadCoreDataFromSupabase(){
     if(allEmpty){
       // Import only a real saved workspace. Never push the built-in demo rows
       // into an intentionally empty production database.
-      if(indexedProductCacheReady&&products.length){ await syncCoreDataToSupabase(); return; }
-      warehouses=[]; products=[]; contacts=[]; salesRepresentatives=[];
+      if(indexedProductCacheReady&&completeProductCatalog().length){ await syncCoreDataToSupabase(); return; }
+      warehouses=[]; setWarehouseProductCatalog([]); contacts=[]; salesRepresentatives=[];
     }
     warehouses=(whRows||[]).map(rowToWarehouse);
     // loadProductRowsFromSupabase() already returns normalized product objects.
     // Mapping them as database rows a second time strips JSON-only fields such
     // as barcode, extraBarcodes, vendorBarcodes, units and expiry.
-    products=prodRows||[];
+    setWarehouseProductCatalog(prodRows||[]);
     rebuildProductLookupMaps();
     warehouseAccessRows=accessRows||[];
     pagePermissionRows=permissionTablePending?[]:(permissionRows||[]);
@@ -238,7 +245,7 @@ async function loadCoreDataFromSupabase(){
     // next debounced sync doesn't immediately re-upload everything again
     // merely because it hasn't "seen" this exact snapshot before.
     seedTableSnapshot('warehouses',warehouses,warehouseToRow);
-    seedProductSyncSnapshot(products,productDirtyOperations);
+    seedProductSyncSnapshot(completeProductCatalog(),productDirtyOperations);
     nextWarehouseId=maxArrayValue(warehouses,w=>(Number(w.id)||0)+1,1);
     refreshDataCounters();
     if(productDirtyOperations.size||currentWorkspacePendingChanges().length) scheduleSupabaseCoreSync();

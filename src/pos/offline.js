@@ -55,7 +55,7 @@ async function saveOfflinePosSnapshot({refreshProducts=false}={}){
       const snapshot=structuredClone({
         format:2,actorId:actor,profile:currentProfile,warehouses,contacts,promotions,favorites,
         warehouseAccessRows,pagePermissionRows,inventoryBalanceRows,inventoryLotRows,
-        businessSettings,documentPrefixes,productCategorySettings,currentCashShift,cashShifts,activeWarehouseId,
+        businessSettings,warehouseBusinessProfiles,documentPrefixes,productCategorySettings,currentCashShift,cashShifts,activeWarehouseId,
         settledCheckoutIds:[...offlineInventorySettledIds],savedAt:new Date().toISOString()
       });
       const tx=db.transaction([PRODUCT_CACHE_META_STORE,OFFLINE_PRODUCTS_STORE],'readwrite'),done=idbTransactionDone(tx);
@@ -63,7 +63,7 @@ async function saveOfflinePosSnapshot({refreshProducts=false}={}){
       try{
         tx.objectStore(PRODUCT_CACHE_META_STORE).put({key:`${OFFLINE_POS_KEY}:snapshot:${actor}`,value:snapshot});
         if(replaceProducts){
-          const rows=structuredClone(products),store=tx.objectStore(OFFLINE_PRODUCTS_STORE);
+          const rows=structuredClone(completeProductCatalog()),store=tx.objectStore(OFFLINE_PRODUCTS_STORE);
           const keys=store.index('actorId').getAllKeys(actor);
           keys.onsuccess=()=>{
             try{
@@ -113,14 +113,15 @@ async function enterOfflinePos({username='',password='',restore=false}={}){
   offlineSnapshotSavedAt=snapshot.savedAt||'';
   offlinePosAccount=account;offlinePosActive=true;systemHasOwner=true;
   currentProfile=snapshot.profile;
-  warehouses=snapshot.warehouses;products=offlineProducts;contacts=snapshot.contacts;
+  warehouses=snapshot.warehouses;contacts=snapshot.contacts;
   promotions=snapshot.promotions;favorites=snapshot.favorites;
   warehouseAccessRows=snapshot.warehouseAccessRows;pagePermissionRows=snapshot.pagePermissionRows;
   inventoryBalanceRows=snapshot.inventoryBalanceRows;inventoryLotRows=snapshot.inventoryLotRows;
   offlineInventorySettledIds=new Set(snapshot.settledCheckoutIds||[]);
   productCategorySettings=normalizeProductCategorySettings(snapshot.productCategorySettings);
   documentPrefixes=snapshot.documentPrefixes;applyBusinessSettings(snapshot.businessSettings);
-  activeWarehouseId=Number(snapshot.activeWarehouseId)||Number(accessibleWarehouses()[0]?.id)||0;allWarehousesMode=false;
+  warehouseBusinessProfiles=snapshot.warehouseBusinessProfiles||{};
+  activeWarehouseId=Number(snapshot.activeWarehouseId)||Number(accessibleWarehouses()[0]?.id)||0;allWarehousesMode=false;setWarehouseProductCatalog(offlineProducts);
   currentCashShift=snapshot.currentCashShift;cashShifts=snapshot.cashShifts||[];
   const localShift=await offlineStoreRead(`${OFFLINE_POS_KEY}:shift:${account.actorId}:${activeWarehouseId}`);
   if(localShift){currentCashShift=localShift;cashShifts=[localShift,...cashShifts.filter(s=>s.id!==localShift.id)];}

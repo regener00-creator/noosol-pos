@@ -493,9 +493,9 @@ function openProductBaseUnitChangeModal(){
       const dirtyOperation=productDirtyOperations.get(String(product.id));
       const productCacheSaved=dirtyOperation
         ?await clearAcknowledgedProductDirtyOperations([product.id],new Map([[String(product.id),dirtyOperation]]))
-        :await persistProductsToIndexedDB(products,true);
-      if(productCacheSaved) seedTableSnapshot('products',products,productMetadataToRow);
-      else seedProductSyncSnapshot(products,productDirtyOperations);
+        :await persistProductsToIndexedDB(completeProductCatalog(),true);
+      if(productCacheSaved) seedTableSnapshot('products',completeProductCatalog(),productMetadataToRow);
+      else seedProductSyncSnapshot(completeProductCatalog(),productDirtyOperations);
       persistWorkspaceData();
       close();
       if(mobileProductEditor){

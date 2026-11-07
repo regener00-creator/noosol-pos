@@ -193,6 +193,15 @@ function bindPasswordVisibilityToggles(root=document){
 }
 
 function attachEvents(){
+  const combinedCatalog=document.querySelector('.combined-catalog');
+  if(combinedCatalog)attachCombinedCatalog(combinedCatalog);
+  const reloadBalances=document.getElementById('combinedReloadBalances');
+  if(reloadBalances)reloadBalances.onclick=async()=>{
+    reloadBalances.disabled=true;
+    const ok=await loadWarehouseInventoryFromSupabase(reportWarehouseIds(),{force:true});
+    if(!ok)showToast('โหลดยอดคงเหลือไม่สำเร็จ กรุณาลองใหม่','danger');
+    if(reloadBalances.isConnected)render();
+  };
   attachDashboardCalendarEvents();
   attachKnowledgeEvents();
   attachVoidReportEvents();

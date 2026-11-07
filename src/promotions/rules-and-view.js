@@ -42,7 +42,7 @@ function promotionValueLabel(promo){
 
 // เช็คว่าโปรโมชั่นนี้ใช้งานได้ ณ วันนี้หรือไม่ (เปิดอยู่ + อยู่ในช่วงเวลาที่กำหนด)
 function isPromotionLiveToday(promo){
-  if(!promo.active) return false;
+  if(!promo.active||!documentInActiveStore(promo)) return false;
   if(promo.startDate && TODAY_STR<promo.startDate) return false;
   if(promo.endDate && TODAY_STR>promo.endDate) return false;
   return true;
@@ -54,7 +54,7 @@ function isPromotionLiveToday(promo){
 function getUsedPromotionSlots(excludePromotionId){
   const slots=new Set(); // key: `${productId}::${unit}`
   promotions.forEach(promo=>{
-    if(!promo.active) return;
+    if(!promo.active||!documentInActiveStore(promo)) return;
     if(promo.id===excludePromotionId) return;
     if(promo.scope==='product'){
       if(promo.productId && promo.unit) slots.add(`${promo.productId}::${promo.unit}`);
@@ -234,7 +234,7 @@ function getPromotionUpsellHints(lines){
 function renderPromotions(){
   if(editingPromotionId!==null) return renderPromotionForm();
   const q=searchQuery.trim().toLowerCase();
-  const list=promotions.filter(promo=>!q || (promo.name||'').toLowerCase().includes(q));
+  const list=promotions.filter(documentInActiveStore).filter(promo=>!q || (promo.name||'').toLowerCase().includes(q));
   return `<div class="rpt promotion-list-page"><div class="pagehead promotion-list-topbar-source"><div></div><button class="btn primary" id="newPromotionBtn">+ สร้างโปรโมชั่น</button></div>
     <div class="toolbar"><div></div><div class="searchbar"><input id="search" placeholder="ค้นหาจากชื่อโปรโมชั่น" value="${searchQuery}"></div></div>
     <div class="doc-list-wrap seamless-table-wrap">

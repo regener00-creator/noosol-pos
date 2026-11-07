@@ -18,7 +18,7 @@ assert.match(html,/const row=\{key:'current',value:\{\.\.\.snapshot,_outboxVersi
 assert.match(html,/key:`user:\$\{snapshot\._recoveryActorId\}`/);
 assert.doesNotMatch(html,/function workspacePersistencePayload\(\)/,'workspace cache must not stringify the whole snapshot on the main thread');
 assert.doesNotMatch(html,/safeLocalStorageSet\(PRODUCT_MANIFEST_STORAGE_KEY/,'product manifest must not be written back to localStorage');
-assert.match(html,/function workspaceSnapshot\(\)[\s\S]*?return \{warehouses,products,/,'downloadable backups must still include products');
+assert.match(html,/function workspaceSnapshot\(\)[\s\S]*?return \{warehouses,products:completeProductCatalog\(\),/,'downloadable backups must still include products');
 assert.match(html,/localStorage\.removeItem\(PRODUCT_MANIFEST_STORAGE_KEY\)/,'legacy manifest should be removed after IndexedDB migration');
 assert.match(html,/clearProductIndexedCache\(\)/,'controlled reset must clear the IndexedDB product cache');
 

@@ -43,9 +43,9 @@ let browser;
   assert.equal(await page.evaluate(()=>window.refreshOriginal.isConnected),true,'expired cache must not clear the screen');
   await finish(100);
   assert.equal(await page.evaluate(()=>window.refreshOriginal===document.querySelector('.dashboard-calendar')),true,'same visible data preserves DOM identity');
-  await page.evaluate(()=>{document.querySelector('.dashboard-calendar-scroll').scrollLeft=120;});
+  const savedScroll=await page.evaluate(()=>{const scroller=document.querySelector('.dashboard-calendar-scroll');scroller.scrollLeft=120;return scroller.scrollLeft;});
   await tick();await finish(350);await page.waitForFunction(()=>document.querySelector('[data-summary-sales]')?.textContent==='350.00');
-  assert.equal(await page.locator('.dashboard-calendar-scroll').evaluate(el=>el.scrollLeft),120,'changed data keeps calendar scroll');
+  assert.equal(await page.locator('.dashboard-calendar-scroll').evaluate(el=>el.scrollLeft),savedScroll,'changed data keeps calendar scroll');
   assert.equal(await page.evaluate(()=>window.refreshLoadingSeen),false);
   // Typing or opening a dialog while the request is in flight must defer completion rendering.
   await tick();

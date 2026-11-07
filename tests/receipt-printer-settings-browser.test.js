@@ -90,7 +90,7 @@ let browser;
     pagePermissionRows=[];allWarehousesMode=true;
     const all=canAccessTab('settingsprinter');allWarehousesMode=false;
     return [allowed,denied,all];
-  }),[true,false,true]);
+  }),[true,false,false]);
   await page.evaluate(()=>{window.__setItem=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='pepos_receipt_printer_v1') throw new Error('storage full');return window.__setItem.call(this,key,value);};});
   await page.locator('#receiptPrinterForm button[type="submit"]').click();
   assert.match(await page.locator('#receiptPrinterStatus').textContent(),/บันทึกไม่สำเร็จ/);

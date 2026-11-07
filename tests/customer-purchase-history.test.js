@@ -1,7 +1,7 @@
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const vm=require('node:vm');
+const vm=require('./catalog-test-context.cjs');
 const root=path.join(__dirname,'..');
 const app=require('../scripts/app-source.cjs').readApplicationSource();
 const file=fs.readdirSync(path.join(root,'supabase/migrations')).find(name=>name.endsWith('_customer_membership_tier_cycles.sql'));

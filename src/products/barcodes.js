@@ -168,7 +168,7 @@ async function loadServerBarcodeOwners(codes){
   if(!navigator.onLine) throw new Error('กรุณาเชื่อมต่ออินเทอร์เน็ตเพื่อตรวจบาร์โค้ดซ้ำก่อนบันทึกสินค้า');
   const owners=[];
   for(let offset=0;offset<unique.length;offset+=1000){
-    const {data,error}=await sb.rpc('find_product_barcode_owners',{p_codes:unique.slice(offset,offset+1000)});
+    const {data,error}=await sb.rpc('find_product_barcode_owners',{p_codes:unique.slice(offset,offset+1000),p_warehouse_id:Number(activeWarehouseId)});
     if(error) throw new Error('ตรวจบาร์โค้ดกับเซิร์ฟเวอร์ไม่สำเร็จ ยังไม่ได้บันทึกสินค้า กรุณาลองใหม่');
     owners.push(...(data||[]));
   }

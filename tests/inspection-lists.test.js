@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
+const vm = require('./catalog-test-context.cjs');
 
 const html = require("./load-app-source")();
 const normalizeStart = html.indexOf('function normalizeInspectionLists(');
@@ -57,7 +57,7 @@ const context = {
   ],
   stockUnitAmountFromBase: (stock, factor) => Math.round((Number(stock) / Number(factor || 1)) * 100) / 100,
   warehouseStock: productId => products.find(product => product.id === Number(productId))?.stock || 0,
-  activeWarehouseId: 1,
+  activeWarehouseId: 1, reportingWarehouses:()=>[{id:1,name:'คลังหลัก'}],
   stockInLargestUnit: product => `${product.stock} ${product.unit}`,
   whName: () => 'คลังหลัก',
   loggedInUser: () => ({owner:true}),

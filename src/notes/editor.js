@@ -60,10 +60,10 @@ function noteUpdatedText(value){
   return Number.isNaN(date.getTime())?'-':date.toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'});
 }
 function canEditNote(note){
-  return !!note&&(loggedInUser()?.owner===true||(String(note.createdBy)===String(currentProfile?.id)&&canPerformPageAction('edit','notes')));
+  return !!note&&canPerformPageAction('edit','notes')&&(loggedInUser()?.owner===true||String(note.createdBy)===String(currentProfile?.id));
 }
 function canDeleteNote(note){
-  return !!note&&(loggedInUser()?.owner===true||(String(note.createdBy)===String(currentProfile?.id)&&canPerformPageAction('delete','notes')));
+  return !!note&&canPerformPageAction('delete','notes')&&(loggedInUser()?.owner===true||String(note.createdBy)===String(currentProfile?.id));
 }
 function isStandaloneNote(note){ return !!note&&!note.activityType&&!note.representativeId; }
 async function loadNotes({append=false,reset=false}={}){

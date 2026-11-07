@@ -25,7 +25,8 @@ export async function run({client,connect}){
   await assert.rejects(save(p),e=>e.hint==='REVISION_CONFLICT');
   const stock=await create(92002);
   await q('insert into public.warehouses(id,name) values(92002,$1)',['Other warehouse']);
-  await q('insert into public.inventory_balances(warehouse_id,product_id,stock) values(92002,92002,-0.000001)');
+  await assert.rejects(q('insert into public.inventory_balances(warehouse_id,product_id,stock) values(92002,92002,-0.000001)'),/คลัง/);
+  await q('insert into public.inventory_balances(warehouse_id,product_id,stock) values(1,92002,-0.000001) on conflict(warehouse_id,product_id) do update set stock=excluded.stock');
   assert.equal((await status(stock.id)).canEdit,false); await assert.rejects(save(stock),blocked);
   const lot=await create(92003);
   await q("insert into public.inventory_lots(product_id,warehouse_id,internal_code,quantity_base,status) values(92003,1,'UNUSED-EMPTY-LOT',0,'exhausted')");

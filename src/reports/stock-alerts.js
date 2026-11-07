@@ -177,7 +177,7 @@ function renderLowStock(){
   if(lowStockPageFilter.stockPage<1) lowStockPageFilter.stockPage=1;
   const stockStart=(lowStockPageFilter.stockPage-1)*LOWSTOCK_PAGE_SIZE;
   const lowPageRows=lowSorted.slice(stockStart, stockStart+LOWSTOCK_PAGE_SIZE);
-  const warehouseOptions=accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(lowStockPageFilter.stockWarehouse)===String(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('');
+  const warehouseOptions=reportingWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(lowStockPageFilter.stockWarehouse)===String(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('');
 
   return `<div class="lowstock-section low-stock-report-page">
     <div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="printLowStockBtn">พิมพ์รายงาน</button></div>
@@ -209,7 +209,7 @@ function renderExpiry(){
   if(lowStockPageFilter.expiryPage<1) lowStockPageFilter.expiryPage=1;
   const expStart=(lowStockPageFilter.expiryPage-1)*LOWSTOCK_PAGE_SIZE;
   const expPageRows=expSorted.slice(expStart, expStart+LOWSTOCK_PAGE_SIZE);
-  const warehouseOptions=accessibleWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(lowStockPageFilter.expiryWarehouse)===String(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('');
+  const warehouseOptions=reportingWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(lowStockPageFilter.expiryWarehouse)===String(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('');
 
   return `<div class="lowstock-section expiry-report-page">
     <div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="printExpiryBtn">พิมพ์รายงาน</button></div>

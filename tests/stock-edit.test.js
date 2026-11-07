@@ -35,7 +35,7 @@ const rendererSource=html.slice(html.indexOf('const RENDERERS = {'),html.indexOf
 assert.doesNotMatch(rendererSource, /purchaseorder2|renderPurchaseOrder2/, 'หน้าที่ถอดออกต้องไม่มีเส้นทางเปิดใช้งาน');
 assert.doesNotMatch(html, /function renderPurchaseOrder2\(/, 'ต้องลบตัวสร้างหน้าใบสั่งซื้อสินค้าเดิม');
 assert.ok(salesDocumentsSectionIndex >= 0 && cashBillNavIndex > salesDocumentsSectionIndex, 'บิลเงินสดต้องอยู่ในหมวดเอกสารขาย');
-assert.ok(productsNavIndex >= 0 && stockControlNavIndex > productsNavIndex && transferNavIndex > stockControlNavIndex && barcodePrintNavIndex > transferNavIndex, 'เมนูตรวจนับต้องรวมอยู่ระหว่างรายการสินค้าและการโอนสินค้า');
+assert.ok(productsNavIndex >= 0 && stockControlNavIndex > productsNavIndex && transferNavIndex === -1 && barcodePrintNavIndex > stockControlNavIndex, 'เมนูตรวจนับต้องรวมอยู่ระหว่างรายการสินค้าและการโอนสินค้า');
 assert.ok(settingsBusinessNavIndex >= 0 && warehouseNavIndex > settingsBusinessNavIndex && settingsUsersNavIndex > warehouseNavIndex, 'เมนูตั้งค่าคลังสินค้าต้องอยู่ใต้ตั้งค่าธุรกิจ');
 assert.ok(auditLogNavIndex > systemSettingsNavIndex, 'AUDIT LOG ต้องอยู่ล่างสุดของกลุ่มตั้งค่า');
 assert.doesNotMatch(html, /\['stockadjust','ปรับเป็นศูนย์'/);

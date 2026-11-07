@@ -13,7 +13,8 @@ if(process.platform==='win32'&&!process.env.PEPOS_BROWSER_EXECUTABLE){
   if(executable) process.env.PEPOS_BROWSER_EXECUTABLE=executable;
 }
 for (const test of tests) {
-  const result = spawnSync(process.execPath, [path.join(__dirname, test)], { stdio: 'inherit' });
+  const args=test==='tax-report-pagination-browser.test.js'?['--built']:[];
+  const result = spawnSync(process.execPath, [path.join(__dirname, test),...args], { stdio: 'inherit' });
   if ((result.status ?? 1) !== 0) failed = true;
 }
 if (failed) process.exit(1);

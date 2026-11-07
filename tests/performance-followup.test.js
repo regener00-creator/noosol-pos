@@ -1,4 +1,4 @@
-const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
+const test=require('node:test'),assert=require('node:assert/strict'),vm=require('./catalog-test-context.cjs'),fs=require('node:fs'),path=require('node:path');
 const read=file=>fs.readFileSync(path.join(__dirname,'../src',file),'utf8');
 function section(s,start,end){const a=s.indexOf(start),b=end?s.indexOf(end,a+start.length):s.length;assert.ok(a>=0&&b>a);return s.slice(a,b);}
 function productFixture(){

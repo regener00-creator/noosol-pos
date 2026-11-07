@@ -3,7 +3,7 @@ function renderHistory(){
   const canDeleteHeld=!isLevel2User();
   const canVoidCompleted=currentProfile?.owner===true;
   const range=historyDateRange();
-  const filtered=filterSalesHistory(salesHistory,f,range);
+  const filtered=filterSalesHistory(salesHistory.filter(documentInActiveStore),f,range);
   const statusBadge = st => st==='done' ? '<span class="st-badge done">DONE</span>' : st==='hold' ? '<span class="st-badge hold">HOLD</span>' : '<span class="st-badge cancel">CANCELED</span>';
   const totalPages=Math.max(1, Math.ceil(filtered.length/HISTORY_PAGE_SIZE));
   if(f.page>totalPages) f.page=totalPages;

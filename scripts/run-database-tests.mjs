@@ -81,6 +81,8 @@ try{
   const signatureSuite=await import('../tests/read-signature-database.mjs');
   await signatureSuite.run({client});
   await returnsSuite.run({client});
+  const storeSuite=await import('../tests/two-warehouse-database.mjs');
+  await storeSuite.run({client});
   const voidRefundSuite=await import('../tests/void-refund-database.mjs');
   await voidRefundSuite.run({client});
   const suite=await import('../tests/database-integrity.mjs');

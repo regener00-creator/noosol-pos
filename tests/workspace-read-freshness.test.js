@@ -1,4 +1,4 @@
-const test=require('node:test'),assert=require('node:assert/strict'),vm=require('node:vm'),fs=require('node:fs'),path=require('node:path');
+const test=require('node:test'),assert=require('node:assert/strict'),vm=require('./catalog-test-context.cjs'),fs=require('node:fs'),path=require('node:path');
 const read=file=>fs.readFileSync(path.join(__dirname,'../src',file),'utf8');
 function fixture(){
   let now=1000,calls=0,rows=[];

@@ -588,6 +588,7 @@ async function saveRepresentativeActivity(event){
   syncRepresentativeActivityDraftFromForm();
   const draft=representativeActivityDraft;
   if(draft?.id==='new'&&!canPerformPageAction('create','notes')){ showToast('บัญชีนี้ไม่มีสิทธิ์เพิ่มประวัติ','danger-top'); return; }
+  if(draft?.id&&draft.id!=='new'&&!canEditNote(representativeActivityNotes.find(note=>String(note.id)===String(draft.id))))return;
   if(!draft?.representativeId){ showToast('ไม่พบข้อมูลผู้แทน','danger-top'); return; }
   if(!draft.eventDate){ showToast('กรุณาเลือกวันที่','danger-top'); return; }
   if(!String(draft.title||'').trim()){ showToast('กรุณากรอกหัวข้อ NOTE','danger-top'); document.getElementById('repActivityTitle')?.focus(); return; }
@@ -623,7 +624,7 @@ async function saveRepresentativeActivity(event){
 }
 async function deleteRepresentativeActivity(id){
   const note=representativeActivityNotes.find(item=>item.id===id);
-  if(!note) return;
+  if(!canDeleteNote(note)) return;
   const warning=representativeActivityDraftDirty
     ?`ลบโน้ต “${note.title}” หรือไม่? การแก้ไขที่ยังไม่ได้บันทึกจะถูกลบด้วย`
     :`ลบโน้ต “${note.title}” หรือไม่?`;

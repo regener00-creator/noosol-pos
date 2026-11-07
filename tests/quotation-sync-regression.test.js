@@ -1,6 +1,6 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
-const vm=require('node:vm');
+const vm=require('./catalog-test-context.cjs');
 const source=require('./load-app-source')();
 function section(start,end){
   const a=source.indexOf(start),b=source.indexOf(end,a+start.length);

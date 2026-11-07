@@ -22,8 +22,10 @@ function openManageFavModal(){
     bindListButtons();
   };
   const moveFavorite=(index,direction,focusProductId=null)=>{
-    const nextIndex=index+direction;
-    if(index<0||index>=favorites.length||nextIndex<0||nextIndex>=favorites.length) return false;
+    const visible=[...listEl.querySelectorAll('[data-fav-drag-index]')].map(row=>Number(row.dataset.favDragIndex));
+    const position=visible.indexOf(index);
+    const nextIndex=visible[position+direction];
+    if(position<0||nextIndex==null) return false;
     [favorites[index],favorites[nextIndex]]=[favorites[nextIndex],favorites[index]];
     saveFavorites();
     refreshList();
@@ -56,10 +58,13 @@ function openManageFavModal(){
         const reordered=[...listEl.querySelectorAll('[data-fav-product-id]')]
           .map(item=>byProductId.get(Number(item.dataset.favProductId)))
           .filter(Boolean);
-        const changed=reordered.some((entry,index)=>favoriteProductId(entry)!==favoriteProductId(favorites[index]));
+        const visibleIds=new Set(reordered.map(favoriteProductId));
+        let index=0;
+        const nextFavorites=favorites.map(entry=>visibleIds.has(favoriteProductId(entry))?reordered[index++]:entry);
+        const changed=nextFavorites.some((entry,i)=>entry!==favorites[i]);
         draggedRow=null;
         if(changed){
-          favorites=reordered;
+          favorites=nextFavorites;
           saveFavorites();
           showToast('บันทึกลำดับสินค้าโปรดแล้ว');
         }

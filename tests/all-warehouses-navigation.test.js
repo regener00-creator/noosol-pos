@@ -16,17 +16,19 @@ const context = {
 vm.createContext(context);
 vm.runInContext(html.slice(start, end), context);
 
-assert.equal(context.canAccessTab('dashboard'), true);
-assert.equal(context.canAccessTab('inventorymovement'), true);
+assert.equal(context.canAccessTab('dashboard'), false);
+assert.equal(context.canAccessTab('inventorymovement'), false);
 assert.equal(context.canAccessTab('rinventory'), true);
-assert.equal(context.canAccessTab('rprofit'), true);
+assert.equal(context.canAccessTab('rprofit'), false);
+assert.equal(context.canAccessTab('products'), true);
+assert.equal(context.canAccessTab('representativehistory'), true);
 assert.equal(context.canAccessTab('checkout'), false, 'ทุกคลังต้องเข้า POS ไม่ได้');
 assert.equal(context.canAccessTab('goodsreceipt'), false, 'ทุกคลังต้องรับสินค้าไม่ได้');
 assert.equal(context.canAccessTab('stockedit'), false, 'ทุกคลังต้องแก้สต๊อกไม่ได้');
 assert.equal(context.canAccessTab('transfer'), false, 'ทุกคลังต้องโอนสินค้าไม่ได้');
 
-assert.match(html, /ทุกคลัง — ดูรายงานภาพรวม/);
+assert.match(html, /คลังรวม — เปรียบเทียบสองร้าน/);
 assert.match(html, /select\.innerHTML=allowed\.length\?allOption\+allowed\.map/, 'ตัวเลือกทุกคลังต้องอยู่เป็นลำดับแรก');
-assert.match(html, /คลัง: \$\{isAllWarehousesMode\(\)\?'ทุกคลัง'/);
+assert.match(html, /คลัง: \$\{isAllWarehousesMode\(\)\?'คลังรวม'/);
 
 console.log('all warehouses navigation tests passed');

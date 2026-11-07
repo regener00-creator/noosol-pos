@@ -2,7 +2,7 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
-const vm=require('node:vm');
+const vm=require('./catalog-test-context.cjs');
 const source=require('../scripts/app-source.cjs').readApplicationSource();
 function section(start,end){const from=source.indexOf(start),to=source.indexOf(end,from+start.length);assert.ok(from>=0&&to>from);return source.slice(from,to);}
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
@@ -41,10 +41,10 @@ function refreshContext(){
     openDocMenu:null,activeWarehouseId:1,captureWorkspaceRead:()=>({}),isWorkspaceReadCurrent:()=>true,
     renderProducts:()=>'',refreshProductListFromBackground:()=>{},
     document:{visibilityState:'visible',activeElement:null,querySelector:()=>null},navigator:{onLine:true},
-    productDirtyOperations:new Map(),products:[{id:1,name:'old',_revision:1,stock:5,expiry:''}],syncedTableRows:{products:new Map([['1','old']])},
+    productDirtyOperations:new Map(),products:[{id:1,wh:1,name:'old',_revision:1,stock:5,expiry:''}],syncedTableRows:{products:new Map([['1','old']])},
     fetchProductRevisionManifest:async()=>({data:[{id:2,revision:1}],error:null}),
     fetchProductRowsByIds:async()=>({data:[{id:2,name:'new',revision:1}],error:null}),
-    rowToProduct:row=>({...row,_revision:row.revision}),productMetadataToRow:row=>row,warehouseStock:()=>3,warehouseExpiry:()=>'',
+    rowToProduct:row=>({...row,wh:1,_revision:row.revision}),productMetadataToRow:row=>row,warehouseStock:()=>3,warehouseExpiry:()=>'',
     rebuildProductLookupMaps:()=>{},render:()=>{},persistProductChangesToIndexedDB:async changes=>{ctx.persisted=changes;},
     restoreSearchInputFocus:()=>{},clearTimeout:()=>{},setTimeout:()=>1
   });

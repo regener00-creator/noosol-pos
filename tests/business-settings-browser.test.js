@@ -83,13 +83,13 @@ const browserExecutable = [
   assert.equal(await officePhone.inputValue(),officeValue);
   assert.equal(await page.getByRole('radio',{name:'เบอร์มือถือ',exact:true}).isChecked(),false);
   await page.evaluate(async()=>{
-    const persist=persistWorkspaceData,sync=syncBusinessSettingsToSupabase,draw=render;
+    const persist=persistWorkspaceData,rpc=sb.rpc,draw=render;
     try{
-      persistWorkspaceData=()=>{};syncBusinessSettingsToSupabase=async()=>true;render=()=>{};
+      persistWorkspaceData=()=>{};sb.rpc=async(name,args)=>{if(name!=='owner_set_setting'||args.p_key!=='business-warehouse:1')throw Error('Wrong settings scope');return {error:null};};render=()=>{};
       await saveBusinessSettings();
-    }finally{persistWorkspaceData=persist;syncBusinessSettingsToSupabase=sync;render=draw;}
+    }finally{persistWorkspaceData=persist;sb.rpc=rpc;render=draw;}
   });
-  assert.equal(await page.evaluate(()=>businessSettings.documentPhone),'office');
+  assert.equal(await page.evaluate(()=>warehouseBusinessSettings().documentPhone),'office');
   assert.equal(await page.evaluate(()=>businessPrimaryPhone()),officeValue);
 
 

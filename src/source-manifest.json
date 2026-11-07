@@ -2,6 +2,7 @@
   "src/platform/client.js",
   "src/sync/status-and-operations.js",
   "src/inventory/repository.js",
+  "src/inventory/combined-catalog.js",
   "src/data/record-mappers.js",
   "src/data/pagination.js",
   "src/sync/product-cache.js",

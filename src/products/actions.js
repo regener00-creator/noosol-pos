@@ -286,8 +286,7 @@ async function deleteUnusedProduct(){
       if(button){ button.disabled=false; button.textContent='ลบสินค้า'; }
       return false;
     }
-    products=products.filter(item=>Number(item.id)!==Number(product.id));
-    rebuildProductLookupMaps();
+    setWarehouseProductCatalog(completeProductCatalog().filter(item=>Number(item.id)!==Number(product.id)));
     favorites=normalizeFavorites(favorites.filter(entry=>favoriteProductId(entry)!==Number(product.id)),products);
     inventoryBalanceRows=inventoryBalanceRows.filter(row=>Number(row.product_id)!==Number(product.id));
     inventoryLotRows=inventoryLotRows.filter(row=>Number(row.product_id)!==Number(product.id));
@@ -296,9 +295,8 @@ async function deleteUnusedProduct(){
     const dirtyOperation=productDirtyOperations.get(String(product.id));
     const productCacheSaved=dirtyOperation
       ?await clearAcknowledgedProductDirtyOperations([product.id],new Map([[String(product.id),dirtyOperation]]))
-      :await persistProductsToIndexedDB(products,true);
-    if(productCacheSaved) seedTableSnapshot('products',products,productMetadataToRow);
-    else seedProductSyncSnapshot(products,productDirtyOperations);
+      :await persistProductsToIndexedDB(completeProductCatalog(),true);
+    seedProductSyncSnapshot(completeProductCatalog(),productDirtyOperations);
     lastSyncedSnapshot.favorites=JSON.stringify(favorites);
     editingProductId=null;
     refreshDataCounters();

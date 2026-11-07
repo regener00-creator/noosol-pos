@@ -1,8 +1,8 @@
 const assert=require('node:assert/strict');
 const vm=require('node:vm');
 const source=require('./load-app-source')();
-const context={};vm.createContext(context);
-for(const name of ['customerReturnAvailable','customerReturnRefund','cashShiftSummary','saleTaxSummary','rprofitCollect']){
+const context={activeWarehouseId:1};vm.createContext(context);
+for(const name of ['customerReturnAvailable','customerReturnRefund','cashShiftSummary','saleTaxSummary','rprofitCollect','documentInActiveStore']){
   const fn=source.match(new RegExp('^function '+name+'\\([^\\n]*\\)\\{[\\s\\S]*?^\\}','m'));
   assert.ok(fn,name);vm.runInContext(fn[0],context);
 }

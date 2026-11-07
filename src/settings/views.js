@@ -1,10 +1,15 @@
 function renderBusinessSettings(){
-  const b=businessSettings;
+  if(isAllWarehousesMode()||!activeWarehouseId){
+    return '<div class="settings-page"><p>เลือกคลังสินค้าบนแถบด้านบนเพื่อตั้งค่ารายละเอียดธุรกิจของคลังนั้น</p></div>';
+  }
+  const b=warehouseBusinessSettings();
   const vatSelected=b.vat===VAT_REGISTERED_LABEL;
   const branch=['none','head','branch'].includes(b.branch)?b.branch:'none';
   const statusState=businessSettingsDirty?'dirty':businessSettingsSyncState;
   const statusText=businessSettingsDirty?'มีการแก้ไขที่ยังไม่ได้บันทึก':businessSettingsSyncState==='synced'?(businessSettingsLastSyncedAt?`ซิงก์ข้อมูลล่าสุด ${auditLogDateTime(businessSettingsLastSyncedAt)}`:'ซิงก์ข้อมูลกับ Supabase แล้ว'):businessSettingsSyncState==='syncing'?'กำลังซิงก์ข้อมูลกับ Supabase...':businessSettingsSyncState==='error'?`บันทึกในเครื่องแล้ว แต่ซิงก์ไม่สำเร็จ: ${businessSettingsSyncError||'กรุณาลองบันทึกอีกครั้ง'}`:'ข้อมูลยังอยู่ในเครื่องนี้';
-  return `<div class="settings-page business-settings-page" id="businessSettingsForm">
+  return `<div class="settings-page business-settings-page" id="businessSettingsForm" data-warehouse-id="${Number(activeWarehouseId)}">
+    <h2>รายละเอียดธุรกิจ · ${escapeHtml(whName(activeWarehouseId))}</h2>
+    ${warehouseBusinessProfiles[activeWarehouseId]?'':'<p class="hint">บันทึกรายละเอียดธุรกิจที่จะใช้บนเอกสารของคลังนี้</p>'}
     <div class="pagehead topbar-action-source"><div></div><div class="form-final-actions"><button class="btn primary" id="saveBusinessSettingsBtn">บันทึกข้อมูลธุรกิจ</button></div></div>
     <div class="settings-section">
       <div class="business-form-row three-fields">
@@ -21,7 +26,7 @@ function renderBusinessSettings(){
         <div class="settings-row" id="businessTaxBranchRow" ${vatSelected?'':'hidden'}><label id="businessOfficeLabel">สำนักงาน/สาขาตาม ภ.พ.20:</label><div class="settings-radio settings-radio-inline" role="group" aria-labelledby="businessOfficeLabel"><label><input type="radio" name="set_branch" value="none" ${branch==='none'?'checked':''}> ยังไม่ระบุ</label><label><input type="radio" name="set_branch" value="head" ${branch==='head'?'checked':''}> สำนักงานใหญ่</label><label><input type="radio" name="set_branch" value="branch" ${branch==='branch'?'checked':''}> สาขา</label></div></div>
       </div>
       <div class="settings-row"><label for="set_business_address">ที่อยู่:</label><textarea id="set_business_address" rows="4" autocomplete="street-address">${escapeHtml(b.address)}</textarea></div>
-      <div class="business-tax-note" id="businessTaxBranchNote" ${vatSelected?'':'hidden'}>ข้อมูลนี้เป็นสาขาทางภาษีตาม ภ.พ.20 และแยกจากคลังสินค้าที่เลือกใช้งานใน TOPBAR</div>
+      <div class="business-tax-note" id="businessTaxBranchNote" ${vatSelected?'':'hidden'}>เอกสารของคลังนี้จะแสดงสำนักงานใหญ่หรือสาขาตามที่ตั้งค่าไว้</div>
       <div class="business-form-row" id="businessBranchFields" ${vatSelected&&branch==='branch'?'':'hidden'}>
         <div class="settings-row"><label for="set_business_branch_code">รหัสสาขา:</label><div><input id="set_business_branch_code" value="${escapeHtml(b.branchCode||'')}" placeholder="เช่น 00001" inputmode="numeric" maxlength="5" autocomplete="off"><small class="business-field-hint">รหัสสาขา 5 หลักตามเอกสาร ภ.พ.20</small></div></div>
         <div class="settings-row"><label for="set_business_branch_name">ชื่อสาขา:</label><input id="set_business_branch_name" value="${escapeHtml(b.branchName||'')}" placeholder="กรอกชื่อสาขา" maxlength="120"></div>

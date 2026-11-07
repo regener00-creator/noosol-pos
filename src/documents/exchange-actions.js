@@ -124,8 +124,8 @@ async function refreshProductExchangeProducts(doc){
   await loadInventoryBalancesFromSupabase();
   await loadInventoryLotsFromSupabase();
   applyActiveWarehouseInventory();
-  seedProductSyncSnapshot(products,productDirtyOperations);
-  await persistProductsToIndexedDB(products,true);
+  seedProductSyncSnapshot(completeProductCatalog(),productDirtyOperations);
+  await persistProductsToIndexedDB(completeProductCatalog(),true);
 }
 let productExchangeStatusInFlight=false;
 async function changeProductExchangeStatus(status){

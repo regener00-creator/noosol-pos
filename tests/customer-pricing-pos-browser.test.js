@@ -46,6 +46,7 @@ const browserExecutable = [
   });
   assert.equal(await page.locator('[data-act="customerprice"]').count(),1);
   assert.equal(await page.locator('[data-act="customerprice"] + [data-act="editcontact"]').count(),1);
+  await page.evaluate(()=>contacts[0].customerPrices.push({id:'other-shop',productId:202,unit:'กล่อง',price:215}));
   await page.locator('[data-act="customerprice"]').click();
   assert.equal(await page.locator('#saveCustomerPricingBtn').count(),1);
   assert.equal(await page.locator('#c_default_document').count(),0);
@@ -136,7 +137,8 @@ const browserExecutable = [
   await page.locator('#c_phone').fill('0899999999');
   assert.equal(await page.locator('#c_phone').inputValue(),'089-999-9999','ช่องลูกค้าต้องจัดรูปแบบขณะกรอก');
   await page.locator('#saveContactBtn').click();
-  assert.equal(await page.evaluate(()=>contacts[0].customerPrices.length),2);
+  assert.equal(await page.evaluate(()=>contacts[0].customerPrices.length),3);
+  assert.deepEqual(await page.evaluate(()=>contacts[0].customerPrices.find(rule=>rule.id==='other-shop')),{id:'other-shop',productId:202,unit:'กล่อง',price:215});
   assert.equal(await page.evaluate(()=>contacts[0].phone),'089-999-9999');
   assert.equal(await page.evaluate(()=>contacts[0].line),'new.line');
   assert.deepEqual(await page.evaluate(()=>({postcode:contacts[0].postcode,contactName:contacts[0].contactName,bank:contacts[0].bank,bankName:contacts[0].bankName,bankAcc:contacts[0].bankAcc,accType:contacts[0].accType})),{postcode:'10110',contactName:'ข้อมูลเดิม',bank:'ธนาคารเดิม',bankName:'ชื่อเดิม',bankAcc:'123',accType:'saving'});

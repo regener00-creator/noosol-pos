@@ -128,7 +128,7 @@ let browser;
   const giftBarcodeStyle=await giftRow.locator('td').nth(1).evaluate(cell=>{const style=getComputedStyle(cell);return {weight:style.fontWeight,align:style.textAlign,padding:style.padding};});
   const mainBarcodeStyle=await page.locator('[data-pos-cart-line="2"] td').nth(1).evaluate(cell=>{const style=getComputedStyle(cell);return {weight:style.fontWeight,align:style.textAlign,padding:style.padding};});
   assert.deepEqual(giftBarcodeStyle,mainBarcodeStyle,'free gift barcode uses the same weight, alignment and padding as ordinary rows');
-  const deleteInset=await page.locator('[data-pos-cart-line="2"] .pos-del').evaluate(button=>button.closest('td').getBoundingClientRect().right-button.getBoundingClientRect().right);
+  const deleteInset=await page.locator('[data-pos-cart-line="2"] .pos-del:not(:disabled)').evaluate(button=>button.closest('td').getBoundingClientRect().right-button.getBoundingClientRect().right);
   assert.ok(deleteInset>=12,'delete button has breathing room from the right edge');
   await page.evaluate(async()=>{
     readPendingCheckoutRequest=()=>null;offlinePosMode=()=>false;

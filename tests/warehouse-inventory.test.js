@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
+const vm = require('./catalog-test-context.cjs');
 
 const html = require("./load-app-source")();
 const start = html.indexOf("const ACTIVE_WAREHOUSE_STORAGE_KEY=");
@@ -10,7 +10,7 @@ assert.ok(start >= 0 && end > start, 'ไม่พบ logic แยกสต๊�
 
 const session = new Map();
 const persistent = new Map();
-const products = [{id:10,name:'ยา A',stock:99,expiry:'2028-01-01'}];
+const products = [{id:10,wh:2,name:'ยา A',stock:99,expiry:'2028-01-01'}];
 const sandbox = {
   currentProfile: {id:'owner-1',owner:true},
   warehouses: [{id:1,name:'สำนักงานใหญ่'},{id:2,name:'สาขา'}],
@@ -83,7 +83,7 @@ assert.equal(sandbox.selectActiveWarehouse(2),false,'ผู้ใช้ต้อ
 assert.doesNotMatch(html,/sb\.rpc\('(adjust_inventory_stock|set_inventory_stock|set_inventory_expiry)'/);
 assert.match(html,/runStockOperation\('post_inventory_count_adjustment_with_shortages'/);
 assert.match(html,/warehouseId:Number\(activeWarehouseId\)\|\|null/,'บิลขายต้องบันทึกคลังที่ใช้งาน');
-assert.match(html,/คลัง: \$\{isAllWarehousesMode\(\)\?'ทุกคลัง'/);
-assert.match(html,/const ALL_WAREHOUSES_TABS=new Set\(\['dashboard','inventorymovement','rinventory','lowstock','expiry','rproduct','rbill','rvoid','rprofit','rtax','auditlog','representativehistory','settingsprinter'\]\)/);
+assert.match(html,/คลัง: \$\{isAllWarehousesMode\(\)\?'คลังรวม'/);
+assert.match(html,/const ALL_WAREHOUSES_TABS=new Set\(\['representativehistory','products','rinventory'\]\)/);
 
 console.log('warehouse inventory tests passed');

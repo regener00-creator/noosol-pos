@@ -56,9 +56,10 @@ async function refreshProductReviewColors(){
     if(error) throw error;
     if(!stillCurrent()) return false;
     const revisions=new Map((data||[]).map(row=>[String(row.id),Number(row.revision)]));
-    const localById=new Map(products.map(p=>[String(p.id),p]));
+    let catalog=completeProductCatalog().slice();
+    const localById=new Map(catalog.map(p=>[String(p.id),p]));
     const changedIds=(data||[]).filter(row=>!productDirtyOperations.has(String(row.id))&&(!localById.has(String(row.id))||Number(localById.get(String(row.id))._revision)!==Number(row.revision))).map(row=>row.id);
-    const deletedIds=products.filter(p=>!revisions.has(String(p.id))&&!productDirtyOperations.has(String(p.id))).map(p=>p.id);
+    const deletedIds=catalog.filter(p=>!revisions.has(String(p.id))&&!productDirtyOperations.has(String(p.id))).map(p=>p.id);
     const rememberSignature=()=>{
       if(productDirtyOperations.size===0){ productReviewSignature=signature; productReviewSignatureProfile=profileId; productReviewManifestCheckedAt=Date.now(); }
     };
@@ -66,36 +67,37 @@ async function refreshProductReviewColors(){
     const result=await fetchProductRowsByIds(changedIds);
     if(result.error) throw result.error;
     if(!stillCurrent()) return false;
-    const previousHtml=renderProducts();
-    const byId=new Map(products.map((p,index)=>[String(p.id),index]));
+    const combined=isAllWarehousesMode();
+    const previousHtml=combined?'':renderProducts();
+    const byId=new Map(catalog.map((p,index)=>[String(p.id),index]));
     const updatedIds=[];
     for(const row of result.data||[]){
       const id=String(row.id),index=byId.get(id);
       if(productDirtyOperations.has(id)) continue;
       if(index===undefined){
-        byId.set(id,products.length);
-        products.push({...rowToProduct(row),stock:warehouseStock(row.id),expiry:warehouseExpiry(row.id)});
-        syncedTableRows.products?.set(id,JSON.stringify(productMetadataToRow(products[products.length-1])));
+        byId.set(id,catalog.length);
+        catalog.push({...rowToProduct(row),stock:warehouseStock(row.id),expiry:warehouseExpiry(row.id)});
+        syncedTableRows.products?.set(id,JSON.stringify(productMetadataToRow(catalog[catalog.length-1])));
         updatedIds.push(row.id);
         continue;
       }
-      const previous=products[index];
+      const previous=catalog[index];
       if(Number(row.revision)<Number(previous._revision)) continue;
-      products[index]={...rowToProduct(row),stock:previous.stock,expiry:previous.expiry};
-      syncedTableRows.products?.set(id,JSON.stringify(productMetadataToRow(products[index])));
+      catalog[index]={...rowToProduct(row),stock:previous.stock,expiry:previous.expiry};
+      syncedTableRows.products?.set(id,JSON.stringify(productMetadataToRow(catalog[index])));
       updatedIds.push(row.id);
     }
     // A local edit may start during either request. Never discard its draft.
     const removedIds=deletedIds.filter(id=>!productDirtyOperations.has(String(id)));
     if(removedIds.length){
       const removed=new Set(removedIds.map(String));
-      products=products.filter(p=>!removed.has(String(p.id)));
+      catalog=catalog.filter(p=>!removed.has(String(p.id)));
       removedIds.forEach(id=>syncedTableRows.products?.delete(String(id)));
     }
     if(!updatedIds.length&&!removedIds.length) return true;
     productReviewRefreshDelay=15000;
-    rebuildProductLookupMaps();
-    refreshProductListFromBackground(previousHtml);
+    setWarehouseProductCatalog(catalog);
+    if(combined)render();else refreshProductListFromBackground(previousHtml);
     await persistProductChangesToIndexedDB({updatedIds,deletedIds:removedIds});
     rememberSignature();
     return true;

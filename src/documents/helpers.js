@@ -223,7 +223,12 @@ function documentSortHeader(kind,key,label){
   const arrow=active?(sort.dir===1?'▲':'▼'):'↕';
   return `<button class="doc-sort-btn" data-doc-sort="${kind}:${key}">${label}<span class="doc-sort-arrow">${arrow}</span></button>`;
 }
+function documentInActiveStore(doc){
+  // Documents predating separate stores were issued by the original warehouse.
+  return Number(doc.warehouseId||1)===(Number(activeWarehouseId)||1);
+}
 function sortedDocuments(list,kind){
+  list=list.filter(documentInActiveStore);
   const sort=documentSort[kind];
   const value=(doc,key)=>key==='due'?documentDueDate(doc):key==='total'?Number(doc.total)||0:key==='elapsed'?elapsedDaysSince(doc.date):String(doc[key]||'').toLowerCase();
   return list.slice().sort((a,b)=>{ const av=value(a,sort.key),bv=value(b,sort.key); if(typeof av==='number') return (av-bv)*sort.dir; return av.localeCompare(bv,'th')*sort.dir; });

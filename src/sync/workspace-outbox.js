@@ -142,6 +142,7 @@ function clearRemoteResetSensitiveMemory(){
   productCategorySettings={categories:[],subcategories:[]};
   productCategorySettingsLoaded=false; productCategorySettingsLoading=false; productCategorySettingsError='';
   businessSettings={...DEFAULT_BUSINESS_SETTINGS};
+  warehouseBusinessProfiles={};
   businessSettingsDirty=false;
   businessSettingsSyncState='local';
 }
@@ -189,7 +190,7 @@ function normalizeInspectionLists(value){
   });
 }
 function workspaceSnapshot(){
-  return {warehouses,products,contacts,salesRepresentatives,salesHistory,quotations,invoicesAR,creditNotes,purchaseOrders,goodsReceipts,productExchanges,productReturns,transfers,standaloneTaxInvoices,promotions,favorites,inspectionLists,currentUserProfile,documentPrefixes,businessSettings,productCategorySettings};
+  return {warehouses,products:completeProductCatalog(),contacts,salesRepresentatives,salesHistory,quotations,invoicesAR,creditNotes,purchaseOrders,goodsReceipts,productExchanges,productReturns,transfers,standaloneTaxInvoices,promotions,favorites,inspectionLists,currentUserProfile,documentPrefixes,businessSettings,warehouseBusinessProfiles,productCategorySettings};
 }
 function localWorkspaceSnapshot(){
   const snapshot=workspaceSnapshot();
@@ -415,7 +416,7 @@ async function writeWorkspaceOutbox(transaction,store,snapshot){
 }
 function refreshDataCounters(){
   nextWarehouseId=maxArrayValue(warehouses,w=>(Number(w.id)||0)+1,1);
-  nextProductSkuNumber=maxArrayValue(products,p=>productSkuSequenceNumber(p.sku)+1,1);
+  nextProductSkuNumber=maxArrayValue(completeProductCatalog(),p=>productSkuSequenceNumber(p.sku)+1,1);
   invoiceCounter=maxArrayValue(salesHistory,s=>(Number(String(s.id||'').replace(/\D/g,''))||0)+1,1);
   quotationCounter=maxArrayValue(quotations,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
   poCounter=maxArrayValue(purchaseOrders,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
@@ -433,7 +434,7 @@ function applyWorkspaceData(saved){
     .filter(entry=>entry&&validTables.has(entry.table)&&entry.id&&(entry.record===null||typeof entry.record==='object'))
     .map(entry=>[`${entry.table}:${entry.id}`,{...entry,id:String(entry.id)}]));
   if(Array.isArray(saved.warehouses)) warehouses=saved.warehouses;
-  if(Array.isArray(saved.products)) products=saved.products;
+  if(Array.isArray(saved.products)) setWarehouseProductCatalog(saved.products);
   if(Array.isArray(saved.contacts)) contacts=saved.contacts;
   if(Array.isArray(saved.salesRepresentatives)) salesRepresentatives=saved.salesRepresentatives;
   if(Array.isArray(saved.quotations)) quotations=saved.quotations;
@@ -455,6 +456,7 @@ function applyWorkspaceData(saved){
   if(Array.isArray(saved.inspectionLists)) inspectionLists=normalizeInspectionLists(saved.inspectionLists);
   if(saved.currentUserProfile&&typeof saved.currentUserProfile==='object') currentUserProfile={...currentUserProfile,...saved.currentUserProfile};
   if(saved.productCategorySettings) productCategorySettings=normalizeProductCategorySettings(saved.productCategorySettings);
+  warehouseBusinessProfiles=saved.warehouseBusinessProfiles||{};
   if(saved.businessSettings&&typeof saved.businessSettings==='object'){
     applyBusinessSettings(saved.businessSettings);
   }

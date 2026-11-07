@@ -1,11 +1,12 @@
 function renderQuotation(){
   if(editingQuotationId!==null) return renderQuotationForm();
-  const totalPages=Math.max(1, Math.ceil(quotations.length/DOC_LIST_PAGE_SIZE));
+  const storeDocs=quotations.filter(documentInActiveStore);
+  const totalPages=Math.max(1, Math.ceil(storeDocs.length/DOC_LIST_PAGE_SIZE));
   if(docListPage.quotation>totalPages) docListPage.quotation=totalPages;
   if(docListPage.quotation<1) docListPage.quotation=1;
   const start=(docListPage.quotation-1)*DOC_LIST_PAGE_SIZE;
-  const pageDocs=quotations.slice(start,start+DOC_LIST_PAGE_SIZE);
-  return `<div class="pagehead"><div><h1>ใบเสนอราคา <span class="page-title-meta">เสนอราคา ก่อนสั่งซื้อจริง · ${quotations.length} รายการ</span></h1></div><button class="btn primary" id="newQuoteBtn">+ สร้างใบเสนอราคา</button></div>
+  const pageDocs=storeDocs.slice(start,start+DOC_LIST_PAGE_SIZE);
+  return `<div class="pagehead"><div><h1>ใบเสนอราคา <span class="page-title-meta">เสนอราคา ก่อนสั่งซื้อจริง · ${storeDocs.length} รายการ</span></h1></div><button class="btn primary" id="newQuoteBtn">+ สร้างใบเสนอราคา</button></div>
   ${documentBulkToolbar('quotation')}
   <div class="doc-list-wrap">
   <table class="grid-table doc-list doc-head-blue doc-summary-table customer-items-summary-table quotation-summary-table"><colgroup><col class="quotation-col-check"><col style="width:16%"><col style="width:11%"><col style="width:18%"><col><col style="width:11%"><col class="quotation-col-actions"></colgroup><thead><tr><th><input class="doc-check" type="checkbox" aria-label="เลือกทั้งหมด"></th><th>เลขที่</th><th>วันที่</th><th>ลูกค้า</th><th>รายการ</th><th class="mono">ยอดรวม</th><th></th></tr></thead>
@@ -38,8 +39,10 @@ function renderQuotationForm(){
   const draft=taxInvoiceDraft||{};
   const isJuristic=draft.entity==='juristic';
   const items=draft.items||[];
-  const registered=isBusinessVatRegistered(),discount=Number(draft.discount)||0;
-  const tax=calculateDocumentTaxSummary(items,discount,registered,businessSettings);
+  const existing=quotations.find(doc=>doc.id===editingQuotationId);
+  const business=existing?documentBusinessSettings(existing):warehouseBusinessSettings();
+  const registered=isBusinessVatRegistered(business),discount=Number(draft.discount)||0;
+  const tax=calculateDocumentTaxSummary(items,discount,registered,business);
   const subtotal=tax.subtotal,total=tax.total;
   return `<div class="pagehead"><div><div class="breadcrumb">ใบเสนอราคา › สร้างใบเสนอราคา</div><h1>${escapeHtml(draft.number||'ใบเสนอราคา')}</h1></div></div>
     <div class="po-head supplier-document-head quotation-document-head"><div class="po-head-left">
@@ -72,14 +75,15 @@ function saveQuotation(){
   if(!d.name){ showToast('กรุณากรอกชื่อลูกค้า'); return; }
   if(!items.length){ showToast('กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ'); return; }
   if(items.some(item=>!products.some(product=>product.name===item.name))){ showToast('กรุณาเลือกสินค้าจากผลการค้นหา'); return; }
-  const discount=Number(d.discount)||0,vatRegistered=isBusinessVatRegistered();
-  const itemsWithVat=items.map(item=>({...item,productId:item.productId||item.pid||documentProductForTax(item)?.id||null,vatMode:documentItemVatMode(item,vatRegistered,businessSettings)}));
-  const taxSummary=calculateDocumentTaxSummary(itemsWithVat,discount,vatRegistered,businessSettings);
-  const total=taxSummary.total;
   const old=editingQuotationId!=='new'?quotations.find(doc=>doc.id===editingQuotationId):null;
+  const business=old?documentBusinessSettings(old):warehouseBusinessSettings();
+  const discount=Number(d.discount)||0,vatRegistered=isBusinessVatRegistered(business);
+  const itemsWithVat=items.map(item=>({...item,productId:item.productId||item.pid||documentProductForTax(item)?.id||null,vatMode:documentItemVatMode(item,vatRegistered,business)}));
+  const taxSummary=calculateDocumentTaxSummary(itemsWithVat,discount,vatRegistered,business);
+  const total=taxSummary.total;
   // Keep the revision and immutable provenance when rebuilding an edited document.
   // Losing _revision turns an update into a duplicate create (expected revision 0).
-  const record={...old,id:d.number,date:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),customer:d.name,customerInfo:{id:d.customerId||'',name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items:itemsWithVat,discount,total,vatRegistered,taxSummary,businessSnapshot:old?.businessSnapshot||businessDocumentSnapshot(),note:d.note||'',status:old?.status||'รอตอบรับ'};
+  const record={...old,id:d.number,date:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),customer:d.name,customerInfo:{id:d.customerId||'',name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items:itemsWithVat,discount,total,vatRegistered,taxSummary,warehouseId:old?.warehouseId||activeWarehouseId,businessSnapshot:old?.businessSnapshot||businessDocumentSnapshot(business),note:d.note||'',status:old?.status||'รอตอบรับ'};
   Object.assign(record.customerInfo,{entity:d.entity||'individual',line:d.line||'',types:d.contactTypes||['customer']});
   if(editingQuotationId==='new'){ quotations.unshift(record); }else{ const index=quotations.findIndex(doc=>doc.id===editingQuotationId); if(index>-1) quotations[index]=record; }
   persistQuotations(); editingQuotationId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false; showToast(`กำลังเก็บและซิงก์ใบเสนอราคา ${record.id} กรุณาตรวจสถานะซิงก์`); render();

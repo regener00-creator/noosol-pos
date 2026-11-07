@@ -10,7 +10,25 @@ const WAREHOUSE_STORAGE_KEY='pharmacy_pos_warehouses_v1';
 try{ const savedWarehouses=JSON.parse(localStorage.getItem(WAREHOUSE_STORAGE_KEY)||'null'); if(Array.isArray(savedWarehouses)&&savedWarehouses.length) warehouses=savedWarehouses; }catch(error){ console.warn('ไม่สามารถโหลดรายชื่อคลังสินค้าได้',error); }
 function persistWarehouses(){ persistWorkspaceData(); }
 let nextWarehouseId=maxArrayValue(warehouses,w=>(Number(w.id)||0)+1,1);
+// UI and scanner see only the current store. Sync and cache always use the complete catalog.
 let products=[];
+let otherWarehouseProducts=[];
+function completeProductCatalog(){
+  return otherWarehouseProducts.length?products.concat(otherWarehouseProducts):products;
+}
+function setWarehouseProductCatalog(rows){
+  const visible=[],other=[];
+  const combined=isAllWarehousesMode();
+  const allowed=combined?new Set(accessibleWarehouses().map(w=>Number(w.id))):null;
+  for(const p of rows){
+    const warehouseId=Number(p.wh)||1; // Old cached rows belong to the original store.
+    const visibleHere=combined?allowed.has(warehouseId):!activeWarehouseId||warehouseId===Number(activeWarehouseId);
+    (visibleHere?visible:other).push(p);
+  }
+  products=visible;
+  otherWarehouseProducts=other;
+  rebuildProductLookupMaps();
+}
 let productByIdMap=new Map(),exactProductCodeMap=new Map();
 function rebuildProductLookupMaps(){
   productByIdMap=new Map();

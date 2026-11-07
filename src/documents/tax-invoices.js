@@ -7,7 +7,7 @@ function renderCashBillLookup(){
 
 function renderCashBills(){
   if(cashBillLookupOpen) return renderCashBillLookup();
-  const docs=salesHistory.filter(s=>s.status==='done'&&s.cashReceiptA4Meta).sort((a,b)=>String(b.cashReceiptA4Meta?.issuedAt||b.date||'').localeCompare(String(a.cashReceiptA4Meta?.issuedAt||a.date||'')));
+  const docs=salesHistory.filter(documentInActiveStore).filter(s=>s.status==='done'&&s.cashReceiptA4Meta).sort((a,b)=>String(b.cashReceiptA4Meta?.issuedAt||b.date||'').localeCompare(String(a.cashReceiptA4Meta?.issuedAt||a.date||'')));
   const totalPages=Math.max(1,Math.ceil(docs.length/DOC_LIST_PAGE_SIZE));
   if(docListPage.cashbill>totalPages) docListPage.cashbill=totalPages;
   if(docListPage.cashbill<1) docListPage.cashbill=1;
@@ -48,10 +48,10 @@ async function deleteCashBill(saleId){
 function renderTaxInvoices(){
   if(editingTaxInvoiceSaleId!==null) return renderTaxInvoiceForm();
   const vatRegistered=isBusinessVatRegistered();
-  const sales=salesHistory.filter(s=>s.status==='done'&&s.fullTaxInvoice);
+  const sales=salesHistory.filter(documentInActiveStore).filter(s=>s.status==='done'&&s.fullTaxInvoice);
   const allItems=[
     ...sales.map(s=>({date:s.date,number:s.fullTaxInvoice.number,buyer:s.fullTaxInvoice.customer?.name||'-',items:s.items,total:s.total,typeLabel:'ออกย้อนหลัง',delAct:`data-delete-tax-sale="${escapeHtml(s.id)}"`,openAct:`data-tax-sale="${escapeHtml(s.id)}"`,printAct:`data-print-tax="${escapeHtml(s.id)}"`,ariaNum:s.fullTaxInvoice.number})),
-    ...standaloneTaxInvoices.map(doc=>({date:doc.saleDate||doc.date,number:doc.number,buyer:doc.customer?.name||'-',items:doc.items,total:doc.total,typeLabel:'สร้างใหม่',delAct:`data-delete-tax-doc="${escapeHtml(doc.number)}"`,openAct:`data-tax-doc="${escapeHtml(doc.number)}"`,printAct:`data-print-tax="${escapeHtml(doc.number)}"`,ariaNum:doc.number})),
+    ...standaloneTaxInvoices.filter(documentInActiveStore).map(doc=>({date:doc.saleDate||doc.date,number:doc.number,buyer:doc.customer?.name||'-',items:doc.items,total:doc.total,typeLabel:'สร้างใหม่',delAct:`data-delete-tax-doc="${escapeHtml(doc.number)}"`,openAct:`data-tax-doc="${escapeHtml(doc.number)}"`,printAct:`data-print-tax="${escapeHtml(doc.number)}"`,ariaNum:doc.number})),
   ].sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   const totalPages=Math.max(1, Math.ceil(allItems.length/DOC_LIST_PAGE_SIZE));
   if(docListPage.taxinvoice>totalPages) docListPage.taxinvoice=totalPages;
@@ -153,7 +153,7 @@ function renderStandaloneTaxInvoiceForm(){
   const draft=taxInvoiceDraft;
   const items=draft.items||[];
   const discount=Number(draft.discount)||0;
-  const tax=locked&&doc?.taxSummary?doc.taxSummary:calculateDocumentTaxSummary(items,discount,true,doc?.businessSnapshot||businessSettings);
+  const tax=locked&&doc?.taxSummary?doc.taxSummary:calculateDocumentTaxSummary(items,discount,true,doc?documentBusinessSettings(doc):warehouseBusinessSettings());
   const subtotal=tax.subtotal,total=tax.total;
   const lockAttr=locked?'readonly':'';
   return `<div class="pagehead"><div><div class="breadcrumb">ใบกำกับภาษีเต็มรูปแบบ › ${locked?'ดูเอกสาร':'สร้างใบกำกับภาษี'}</div><h1>${draft.number}</h1></div>${locked?`<div class="form-final-actions" style="display:flex;gap:8px;flex-wrap:wrap;"><button class="btn ghost" id="cancelTaxInvoiceFormBtn">ปิดหน้าต่าง</button><button class="btn primary" id="printStandaloneTaxInvoiceBtn">🖨 พิมพ์</button></div>`:''}</div>
@@ -180,9 +180,9 @@ function saveStandaloneTaxInvoice(){
   if(!d.address){ showToast('กรุณากรอกที่อยู่ลูกค้า'); return; }
   if(!items.length){ showToast('กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ'); return; }
   const discount=Number(d.discount)||0;
-  const itemsWithVat=items.map(item=>({...item,productId:item.productId||item.pid||documentProductForTax(item)?.id||null,vatMode:documentItemVatMode(item,true,businessSettings)}));
-  const taxSummary=calculateDocumentTaxSummary(itemsWithVat,discount,true,businessSettings);
-  const doc={id:d.number,number:d.number,date:d.date,saleDate:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),issuedAt:auditNow(),customer:{name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items:itemsWithVat,discount,total:taxSummary.total,vatRegistered:true,taxSummary,businessSnapshot:businessDocumentSnapshot(),note:d.note||'',printLog:[]};
+  const itemsWithVat=items.map(item=>({...item,productId:item.productId||item.pid||documentProductForTax(item)?.id||null,vatMode:documentItemVatMode(item,true,warehouseBusinessSettings())}));
+  const taxSummary=calculateDocumentTaxSummary(itemsWithVat,discount,true,warehouseBusinessSettings());
+  const doc={id:d.number,number:d.number,date:d.date,saleDate:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),issuedAt:auditNow(),customer:{name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items:itemsWithVat,discount,total:taxSummary.total,vatRegistered:true,taxSummary,warehouseId:activeWarehouseId,businessSnapshot:businessDocumentSnapshot(),note:d.note||'',printLog:[]};
   standaloneTaxInvoices.unshift(doc); persistStandaloneTaxInvoices();
   editingTaxInvoiceSaleId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false;
   showToast(`บันทึกใบกำกับภาษี ${doc.number} แล้ว`);

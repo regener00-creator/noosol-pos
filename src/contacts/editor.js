@@ -200,7 +200,8 @@ function renderContactForm(){
 function renderCustomerPricingForm(customerId=editingCustomerPriceContactId,allowAddToSale=false){
   const customer=contacts.find(contact=>Number(contact.id)===Number(customerId));
   if(!customer) return '<div class="empty">ไม่พบข้อมูลลูกค้า</div>';
-  const customerPrices=normalizedCustomerPriceRules(customer);
+  const visibleProductIds=new Set(products.map(product=>Number(product.id)));
+  const customerPrices=normalizedCustomerPriceRules(customer).filter(rule=>visibleProductIds.has(rule.productId));
   return `<div class="rpt customer-pricing-page">
     <div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › ราคาพิเศษ</div><h1>ราคาพิเศษสำหรับลูกค้ารายนี้ <span class="page-title-meta">· ${escapeHtml(customer.name)}</span></h1></div>
       <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelCustomerPricingBtn">ย้อนกลับ</button><button class="btn primary" id="saveCustomerPricingBtn">บันทึกราคาพิเศษ</button></div>

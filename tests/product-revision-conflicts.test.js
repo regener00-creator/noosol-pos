@@ -1,7 +1,7 @@
 const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const vm=require('node:vm');
+const vm=require('./catalog-test-context.cjs');
 const path=require('node:path');
 const source=require('../scripts/app-source.cjs').readApplicationSource();
 const start=source.indexOf('async function updateProductMetadataInChunks(');

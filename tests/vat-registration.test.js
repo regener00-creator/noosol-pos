@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
+const vm = require('./catalog-test-context.cjs');
 
 const html = require("./load-app-source")();
 const context = { businessSettings:{vat:'ยังไม่จดภาษีมูลค่าเพิ่ม',vatRegistrationDate:''}, currentDateStr:()=> '2026-08-25', products:[] };

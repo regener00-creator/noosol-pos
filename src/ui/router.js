@@ -269,9 +269,9 @@ const RENDERERS = {
   mobiletools: renderMobileTools,
   dashboard: renderDashboard, checkout: renderCheckout, notes: renderNotes, cashshift: renderCashShift, cashbill: ()=>renderCashBills(), taxinvoice: ()=>renderTaxInvoices(), quotation: ()=>renderQuotation(), invoice: renderInvoice,
   creditnote: renderCreditNote, history: renderHistory, purchaseorder: ()=>renderPurchaseOrder(), productreturn: ()=>renderProductReturn(), goodsreceipt: ()=>renderGoodsReceipt(), productexchange: ()=>renderProductExchange(),
-  products: ()=>renderProducts(), stockcontrol: ()=>renderStockControl(), barcodeprint: ()=>renderBarcodePrint(), warehouse: ()=>renderWarehouse(), transfer: ()=>renderTransfer(), lowstock: ()=>renderLowStock(), expiry: ()=>renderExpiry(), promotions: ()=>renderPromotions(),
+  products: ()=>isAllWarehousesMode()?renderCombinedCatalog(false):renderProducts(), stockcontrol: ()=>renderStockControl(), barcodeprint: ()=>renderBarcodePrint(), warehouse: ()=>renderWarehouse(), transfer: ()=>renderTransfer(), lowstock: ()=>renderLowStock(), expiry: ()=>renderExpiry(), promotions: ()=>renderPromotions(),
   contacts: ()=>renderContacts(), customers: ()=>renderContacts(), salesreps: renderSalesRepresentatives, representativehistory: ()=>renderRepresentativeHistoryOverview(), rproduct: ()=>renderRProduct(), rbill: ()=>renderRBill(), rprofit: ()=>renderRProfit(), rtax: ()=>renderRTax(),
-  inventorymovement: ()=>renderInventoryMovement(), rinventory: ()=>renderRInventory(), settingscategories: ()=>renderProductCategorySettings(), settingsbusiness: ()=>renderBusinessSettings(), settingsuser: ()=>renderUserSettings(), settingsusers: ()=>renderSystemUsers(), settingsprinter: ()=>renderReceiptPrinterSettings(), auditlog: ()=>renderAuditLog(), settingssystem: ()=>renderSystemSettings(),
+  inventorymovement: ()=>renderInventoryMovement(), rinventory: ()=>isAllWarehousesMode()?renderCombinedCatalog(true):renderRInventory(), settingscategories: ()=>renderProductCategorySettings(), settingsbusiness: ()=>renderBusinessSettings(), settingsuser: ()=>renderUserSettings(), settingsusers: ()=>renderSystemUsers(), settingsprinter: ()=>renderReceiptPrinterSettings(), auditlog: ()=>renderAuditLog(), settingssystem: ()=>renderSystemSettings(),
 };
 
 let salesViewRefreshTimer=null;
@@ -331,7 +331,7 @@ function render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){
   else if(currentTab==='mobiletools') currentTab='dashboard';
   if(currentTab!=='checkout'&&!(currentTab==='cashbill'&&cashBillLookupOpen)&&!(currentTab==='taxinvoice'&&editingTaxInvoiceSaleId==='lookup')) posSalesHistoryModalOpen=false;
   if(!canAccessTab(currentTab)){
-    currentTab='dashboard';
+    currentTab=isAllWarehousesMode()?'products':'dashboard';
     addingSystemUser=false; editingSystemUserId=null;
     addingWarehouse=false; editingWarehouseId=null;
     editingTransferId=null; transferDraft=null;
@@ -347,7 +347,7 @@ function render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){
   if(topbarFormActionsSlot) topbarFormActionsSlot.innerHTML='';
   const topbarDate=document.getElementById('topbarDate');
   if(topbarDate){
-    topbarDate.textContent=`คลัง: ${isAllWarehousesMode()?'ทุกคลัง':(activeWarehouse()?.name||'-')} / ${fmtTopbarDate(TODAY_STR)}`;
+    topbarDate.textContent=`คลัง: ${isAllWarehousesMode()?'คลังรวม':(activeWarehouse()?.name||'-')} / ${fmtTopbarDate(TODAY_STR)}`;
     topbarDate.classList.add('warehouse-active');
     topbarDate.title='กดเพื่อเปลี่ยนคลังสินค้า';
     topbarDate.onclick=requestWarehouseChange;

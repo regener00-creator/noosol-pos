@@ -139,6 +139,7 @@ function captureMobileProductDraft(){
 async function openMobileProductEditor(productId='new',barcode=''){
   if(!canEditMobilePrice()||mobileProductOpening||mobileProductEditor) return;
   if(!mobileRequireOnline('เพิ่มหรือแก้ไขสินค้า')) return;
+  const warehouseId=activeWarehouseId,context=captureWorkspaceRead();
   mobileProductOpening=true;
   closeMobileCameraScanner();
   try{
@@ -151,6 +152,8 @@ async function openMobileProductEditor(productId='new',barcode=''){
       if(error) throw error;
       if(!data) throw new Error('ไม่พบสินค้านี้บนเซิร์ฟเวอร์ กรุณารีเฟรชข้อมูล');
       if(productDirtyOperations.has(String(productId))) throw new Error('สินค้านี้มีข้อมูลรอซิงก์ กรุณาซิงก์ให้สำเร็จก่อนแก้ไขต่อ');
+      if(!isWorkspaceReadCurrent(context)||activeWarehouseId!==warehouseId)return;
+      if(Number(data.warehouse_id||1)!==Number(warehouseId))throw new Error('สินค้านี้เป็นของคลังอื่น');
       const local=products.find(item=>Number(item.id)===Number(productId));
       product={...rowToProduct(data),stock:Number(local?.stock)||0,expiry:local?.expiry||''};
       // This is a clean record (dirty entries are refused above). Replace it
@@ -386,11 +389,11 @@ async function saveMobilePriceChanges(){
     const dirtyOperation=productDirtyOperations.get(String(product.id));
     const productCacheSaved=dirtyOperation
       ?await clearAcknowledgedProductDirtyOperations([product.id],new Map([[String(product.id),dirtyOperation]]))
-      :await persistProductsToIndexedDB(products,true);
+      :await persistProductsToIndexedDB(completeProductCatalog(),true);
     if(productCacheSaved){
       const productSnapshot=syncedTableRows.products;
       if(productSnapshot) productSnapshot.set(String(product.id),JSON.stringify(productMetadataToRow(product)));
-    }else seedProductSyncSnapshot(products,productDirtyOperations);
+    }else seedProductSyncSnapshot(completeProductCatalog(),productDirtyOperations);
     persistWorkspaceData();
     const status=document.getElementById('mobilePriceEditStatus');
     if(status) status.textContent=`บันทึกแล้ว · ${activeWarehouse()?.name||''}`;
@@ -1069,7 +1072,7 @@ async function refreshMobileToolsData(button,options={}){
       products=latestProducts||products;
       if(!unchanged){
         rebuildProductLookupMaps();
-        seedProductSyncSnapshot(products,productDirtyOperations);
+        seedProductSyncSnapshot(completeProductCatalog(),productDirtyOperations);
       }
       const scope={warehouseIds:[warehouseId],productIds:priceProductId?[Number(priceProductId)]:[]};
       const reads=mode==='price'

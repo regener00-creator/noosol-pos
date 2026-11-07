@@ -49,7 +49,7 @@ function renderProductExchangeForm(){
       <label>วันที่เอกสาร<input id="productExchangeDate" class="dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(draft.date||TODAY_STR))}" ${received?'disabled':''}></label>
       <label>เลขที่เอกสาร<input value="${escapeHtml(draft.id)}" readonly></label>
       <label>ผู้จำหน่าย${documentPartyFieldHtml('productExchangeSupplier',draft.supplier,'supplier',received)}</label>
-      <label>คลัง / สาขา<select id="productExchangeWarehouse" ${outgoingLocked?'disabled':''}>${accessibleWarehouses().map(item=>`<option value="${item.id}" ${Number(item.id)===Number(draft.warehouseId)?'selected':''}>${escapeHtml(item.name)}</option>`).join('')}</select></label>
+      <label>คลัง / สาขา<select id="productExchangeWarehouse" ${outgoingLocked?'disabled':''}>${accessibleWarehouses().filter(w=>Number(w.id)===activeWarehouseId).map(item=>`<option value="${item.id}" ${Number(item.id)===Number(draft.warehouseId)?'selected':''}>${escapeHtml(item.name)}</option>`).join('')}</select></label>
       <label class="product-exchange-note">หมายเหตุ<textarea id="productExchangeNote" rows="2" ${received?'disabled':''} placeholder="รายละเอียดเพิ่มเติม">${escapeHtml(draft.note||'')}</textarea></label>
     </div>
     ${productExchangeSectionHtml('outgoing','สินค้าที่ส่งเปลี่ยน',draft.outgoingItems,outgoingLocked,!received)}

@@ -2,7 +2,6 @@ function favoriteUnitOptionsHtml(product,selectedUnit){
   return productUnitOptions(product).map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selectedUnit?'selected':''}>${escapeHtml(option.name)} · ${fmtMoney(option.price)}</option>`).join('');
 }
 function favManageListHtml(){
-  if(!favorites.length) return `<div class="fav-manage-empty">ยังไม่มีสินค้าโปรด — ค้นหาด้านบนเพื่อเพิ่ม</div>`;
   return favorites.map((entry,i)=>{
     const id=favoriteProductId(entry);
     const p=products.find(x=>Number(x.id)===id);
@@ -15,7 +14,7 @@ function favManageListHtml(){
         <button class="icon-btn danger" data-fav-remove="${i}" title="ลบออกจากสินค้าโปรด">×</button>
       </div>
     </div>`;
-  }).join('');
+  }).join('')||'<div class="fav-manage-empty">ยังไม่มีสินค้าโปรด — ค้นหาด้านบนเพื่อเพิ่ม</div>';
 }
 
 function openInspectionListCategoryPicker(filter){

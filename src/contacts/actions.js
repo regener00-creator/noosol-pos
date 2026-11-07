@@ -140,7 +140,9 @@ async function saveCustomerPricing({root=document,customerId=editingCustomerPric
     return rule.price<cost?[`${product.name} (${rule.unit}) — ราคาพิเศษ ${fmtMoney(rule.price)} บาท / ทุน ${fmtMoney(cost)} บาท`]:[];
   });
   if(belowCost.length&&!confirm(`ราคาพิเศษต่ำกว่าทุน ${belowCost.length} รายการ อาจทำให้ขายขาดทุน\n\n${belowCost.join('\n')}\n\nยืนยันบันทึกราคาพิเศษนี้หรือไม่?`)) return;
-  customer.customerPrices=customerPrices;
+  const visibleProductIds=new Set(products.map(product=>Number(product.id)));
+  const otherPrices=(customer.customerPrices||[]).filter(rule=>!visibleProductIds.has(Number(rule.productId)));
+  customer.customerPrices=[...customerPrices,...otherPrices];
   persistContacts();
   if(saveButton){ saveButton.disabled=true; saveButton.textContent='กำลังบันทึก...'; }
   try{

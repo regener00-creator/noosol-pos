@@ -263,7 +263,7 @@ function addToCart(pid, unitName, qty,{requireCustomerPrice=false}={}){
   let unit=p.unit, price=p.price, factor=1, cost=productUnitCost(p,p.unit,1);
   if(unitName && unitName!==p.unit){
     const u=(p.units||[]).find(x=>x.sub===unitName);
-    if(u){ unit=u.sub; price=u.price||p.price*(u.factor||1); factor=u.factor||1; cost=productUnitCost(p,u.sub,factor); }
+    if(u){ unit=u.sub; price=u.price??p.price*(u.factor||1); factor=u.factor||1; cost=productUnitCost(p,u.sub,factor); }
   }
   // ถ้ามีบรรทัดสินค้า+หน่วยเดียวกันอยู่แล้ว บวกจำนวนเข้าไป
   const specialRule=requireCustomerPrice?customerPriceRule(activeSaleCustomer(),pid,unit):null;

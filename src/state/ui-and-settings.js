@@ -193,6 +193,7 @@ const STORE_INFO = {
 };
 const DEFAULT_BUSINESS_SETTINGS={type:'บุคคลธรรมดา',vat:'ยังไม่จดภาษีมูลค่าเพิ่ม',vatRegistrationDate:'',name:'',address:'',taxId:'',branch:'none',branchCode:'',branchName:'',officePhone:'',mobile:'',fax:'',line:'',website:'',documentPhone:'mobile',english:false,medicineLabelDoseUnits:[...MEDICINE_LABEL_DOSE_UNITS],medicineLabelWarningPresets:[...MEDICINE_LABEL_WARNING_PRESETS],priceLabelTemplates:{},priceLabelTemplateLibraries:{}};
 let businessSettings={...DEFAULT_BUSINESS_SETTINGS};
+let warehouseBusinessProfiles={};
 let businessSettingsDirty=false;
 let businessSettingsSyncState='local';
 let businessSettingsSyncError='';
