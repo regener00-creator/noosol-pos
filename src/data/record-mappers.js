@@ -48,11 +48,11 @@ function rowToWarehouse(row){ return { ...(row.data||{}), id:row.id, name:row.na
 function contactToRow(c){
   const types=Array.isArray(c.types)?c.types:[];
   const type=types.includes('customer')&&types.includes('supplier')?'both':(types.includes('supplier')?'supplier':'customer');
-  return { id:c.id, type, name:c.name||'', phone:c.phone||null, data:additionalData(c,['id','type','types','name','phone','_revision']), revision:Number(c._revision)||0 };
+  return { id:c.id, warehouse_id:Number(c.warehouseId)||1, type, name:c.name||'', phone:c.phone||null, data:additionalData(c,['id','warehouseId','type','types','name','phone','_revision']), revision:Number(c._revision)||0 };
 }
 function rowToContact(row){
   const types=row.type==='both'?['customer','supplier']:[row.type==='supplier'?'supplier':'customer'];
-  return { ...(row.data||{}), id:row.id, name:row.name, phone:row.phone||'', types, ...(types.includes('customer')?{loyaltyJoinedAt:row.data?.loyaltyJoinedAt||row.created_at||''}:{}), _revision:Number(row.revision)||1 };
+  return { ...(row.data||{}), id:row.id, warehouseId:Number(row.warehouse_id)||1, name:row.name, phone:row.phone||'', types, ...(types.includes('customer')?{loyaltyJoinedAt:row.data?.loyaltyJoinedAt||row.created_at||''}:{}), _revision:Number(row.revision)||1 };
 }
 function salesRepToRow(r){ return { id:r.id, name:r.name||'', data:additionalData(r,['id','name','_revision']), revision:Number(r._revision)||0 }; }
 function rowToSalesRep(row){ return { ...(row.data||{}), id:row.id, name:row.name, _revision:Number(row.revision)||1 }; }

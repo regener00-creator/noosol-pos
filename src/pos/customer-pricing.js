@@ -55,7 +55,7 @@ function customerSaleSnapshot(customer){
 }
 function activeSaleCustomer(){
   if(typeof saleMember==='undefined'||!saleMember) return null;
-  if(typeof saleMember==='object') return customersList().find(customer=>String(customer.id)===String(saleMember.id))||saleMember;
+  if(typeof saleMember==='object') return customersList().find(customer=>String(customer.id)===String(saleMember.id))||null;
   return customersList().find(customer=>customer.name===String(saleMember))||null;
 }
 function normalizedCustomerPriceRules(customer){
@@ -93,7 +93,7 @@ function refreshCartCustomerPrices(){
 }
 async function openPOSCustomerPricing(customerId){
   if(currentTab!=='checkout'||!canAccessTab('customers')||String(activeSaleCustomer()?.id)!==String(customerId)) return;
-  const customer=contacts.find(item=>String(item.id)===String(customerId));if(!customer) return;
+  const customer=customersList().find(item=>String(item.id)===String(customerId));if(!customer) return;
   document.querySelector('.pos-customer-pricing-overlay')?.remove();
   const context=captureWorkspaceRead(),overlay=document.createElement('div');
   overlay.className='modal-overlay pos-customer-pricing-overlay';

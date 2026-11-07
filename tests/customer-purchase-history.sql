@@ -2,11 +2,12 @@
 -- Copy the actual deployed query into pg_temp and use isolated fixture tables.
 begin;
 select set_config('request.jwt.claim.sub',(select id::text from public.profiles where owner=true limit 1),true);
-create temporary table customer_test_contacts(id bigint,type text,name text,data jsonb,created_at timestamptz);
+create temporary table customer_test_contacts(id bigint,type text,name text,data jsonb,created_at timestamptz,warehouse_id bigint);
 create temporary table customer_test_sales(id text,ref text,sale_date date,status text,total numeric,data jsonb);
 insert into customer_test_contacts values
-  (1,'customer','Same name','{}',current_timestamp),
-  (2,'customer','Same name','{}',current_timestamp);
+  (1,'customer','Same name','{}',current_timestamp,1),
+  (2,'customer','Same name','{}',current_timestamp,1),
+  (3,'customer','Same name','{}',current_timestamp,2);
 insert into customer_test_sales
 select 'B'||n,'B'||n,(current_timestamp at time zone 'Asia/Bangkok')::date,'done',7500,
   jsonb_build_object('customerId','1','items',jsonb_build_array(jsonb_build_object('name','Decolgen','qty',1,'unit','box','price',7500)))
@@ -15,6 +16,7 @@ insert into customer_test_sales values
 ('VOID','VOID',(current_timestamp at time zone 'Asia/Bangkok')::date,'void',100000,'{"customerId":"1"}'),
 ('HOLD','HOLD',(current_timestamp at time zone 'Asia/Bangkok')::date,'hold',100000,'{"customerId":"1"}'),
 ('OTHER','OTHER',(current_timestamp at time zone 'Asia/Bangkok')::date,'done',450000,'{"customerId":"2"}'),
+('OTHER-STORE','OTHER-STORE',(current_timestamp at time zone 'Asia/Bangkok')::date,'done',10000,'{"customerId":"1","warehouseId":2}'),
 ('OLD','OLD',make_date(extract(year from current_timestamp at time zone 'Asia/Bangkok')::int-1,2,1),'done',5000,'{"member":{"id":"1"},"items":[]}');
 do $$
 declare source text;
@@ -45,6 +47,8 @@ begin
   assert jsonb_array_length(result->'summaries')=2,'Batch summaries';
   assert (result->'summaries'->1->>'membershipCycleTotal')::numeric=450000,'Same-name customers stay separate';
   assert jsonb_array_length(result->'bills')=0,'List summary does not load bills';
+  result:=pg_temp.customer_purchase_query_test(array['3'],y,null,1,true,1);
+  assert jsonb_array_length(result->'summaries')=0 and (result->>'totalBills')::int=0,'Other shop member is hidden';
   result:=pg_temp.customer_purchase_query_test(array['1'],y-2,null,999,true,1);
   assert (result->>'totalBills')::int=0 and (result->>'page')::int=1,'Empty period and page bounds';
   perform set_config('request.jwt.claim.sub','',true);

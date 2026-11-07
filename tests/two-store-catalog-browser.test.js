@@ -30,6 +30,8 @@ let browser;
     const rows=[item(11,1,'Decolgen','0001',40,22),item(12,2,'Decolgen','0001',45,28),item(13,2,'พรชัยเท่านั้น','0022',33,11),item(14,1,'พระยาสุเรนทร์เท่านั้น','0033',17,9)];
     rows[1].units=[{sub:'กล่อง',factor:10,price:399,cost:270,barcode:'0044'}];
     currentTab='products';activeWarehouseId=1;allWarehousesMode=false;setWarehouseProductCatalog(rows);
+    contacts=[{id:901,name:'ชื่อเหมือนกัน',phone:'0801111111',types:['customer','supplier']},
+      {id:902,warehouseId:2,name:'ชื่อเหมือนกัน',phone:'0801111111',types:['customer','supplier']}];
     loadedInventoryBalanceWarehouseIds=new Set([1,2]);inventoryBalanceRows=[{product_id:11,warehouse_id:1,stock:0},{product_id:12,warehouse_id:2,stock:17}];rebuildInventoryBalanceMap();
     selectActiveWarehouse(1);render();
   });
@@ -38,6 +40,7 @@ let browser;
       selectActiveWarehouse(wh);const found=findProductByExactCode('0001');addToCart(found.product.id,found.unitName,1);
       return {id:found.product.id,price:cart[0].price,cost:cart[0].cost,wrong:products.some(product=>product.wh!==wh),all:completeProductCatalog().length};
     },{wh});assert.deepEqual(result,{id,price,cost,wrong:false,all:4});
+    assert.deepEqual(await page.evaluate(()=>[customersList().map(c=>c.id),suppliersList().map(c=>c.id),duplicateCustomerPhone('080-111-1111')?.id]),[[900+wh],[900+wh],900+wh]);
   }
   await page.evaluate(()=>{selectActiveWarehouse('all');render();});
   const nav=await page.locator('.navbtn').evaluateAll(buttons=>buttons.map(b=>b.dataset.tab).sort());
@@ -50,9 +53,25 @@ let browser;
   const collision=await page.evaluate(()=>combinedCatalogRows([{...products.find(p=>p.id===11),name:'Drug one'},{...products.find(p=>p.id===12),name:'Drug two',units:[]}]).length);
   assert.equal(collision,2,'Unrelated products that reuse a barcode do not merge');
   await page.locator('[data-combined-search]').fill('0022');assert.equal(await page.locator('[data-combined-results] tbody tr').count(),1);
+  await page.setViewportSize({width:2300,height:1100});
+  async function assertUsesPageWidth(){
+    const width=await page.locator('.combined-catalog').evaluate(el=>({width:el.clientWidth,available:el.parentElement.clientWidth-parseFloat(getComputedStyle(el.parentElement).paddingLeft)-parseFloat(getComputedStyle(el.parentElement).paddingRight)}));
+    assert.ok(width.available>1400&&Math.abs(width.available-width.width)<=2,JSON.stringify(width));
+  }
+  await assertUsesPageWidth();
+  await page.evaluate(()=>{
+    const more=Array.from({length:11},(_,i)=>({...products.find(p=>p.id===11),id:301+i,name:'Pagination '+String(i).padStart(2,'0'),barcode:'page'+i}));
+    setWarehouseProductCatalog([...completeProductCatalog(),...more]);render();
+  });
+  await page.locator('[data-combined-search]').fill('Pagination');
+  assert.equal(await page.locator('[data-combined-results] tbody tr').count(),10);
+  await page.locator('[data-combined-next]').click();
+  assert.equal(await page.locator('[data-combined-results] tbody tr').count(),1);
+  assert.match(await page.locator('[data-combined-results] tbody').innerText(),/Pagination 10/);
   await page.locator('.navbtn[data-tab="rinventory"]').click();
   const stock=page.locator('[data-combined-results] tr').filter({hasText:'0001'});
   assert.deepEqual(await stock.locator('td').allTextContents(),['0001','Decolgen','ซอง','0','17']);
+  await assertUsesPageWidth();
   assert.deepEqual(await page.locator('[data-combined-results] tr').filter({hasText:'0022'}).locator('td').allTextContents(),['0022','พรชัยเท่านั้น','ซอง','—','0']);
   await page.evaluate(()=>{selectActiveWarehouse(2);currentTab='transfer';render();});
   assert.equal(await page.locator('.navbtn[data-tab="transfer"]').count(),0);assert.notEqual(await page.evaluate(()=>currentTab),'transfer');

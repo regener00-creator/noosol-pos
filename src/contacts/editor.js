@@ -4,7 +4,7 @@ function renderContacts({resultsOnly=false}={}){
   const isCustomers=currentTab==='customers';
   if(isCustomers&&customerHistoryView) return renderCustomerPurchaseHistory();
   const q = searchQuery.trim();
-  let list = contacts.filter(c=>{
+  let list = storeContacts().filter(c=>{
     if(!c.types.includes(isCustomers?'customer':'supplier')) return false;
     if(q){ const ql=q.toLowerCase(); return c.name.toLowerCase().includes(ql) || (c.contactName||'').toLowerCase().includes(ql) || (c.phone||'').includes(q) || (c.code||'').toLowerCase().includes(ql); }
     return true;
@@ -188,7 +188,8 @@ function bindContactTaxIdLabel(root=document){
 function renderContactForm(){
   const isNew = editingContactId==='new';
   const fixedType=currentTab==='customers'?'customer':'supplier';
-  const c = isNew ? emptyCustomerContactDraft(fixedType) : contacts.find(x=>x.id===editingContactId);
+  const c = isNew ? emptyCustomerContactDraft(fixedType) : storeContacts().find(x=>x.id===editingContactId);
+  if(!c)return '<div class="empty">ไม่พบรายชื่อในคลังนี้</div>';
   const saveLabel=isNew&&fixedType==='supplier'?'บันทึกแล้วปิด':'บันทึก';
   return `
     <div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › ${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</div><h1>${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</h1></div>
@@ -198,7 +199,7 @@ function renderContactForm(){
 }
 
 function renderCustomerPricingForm(customerId=editingCustomerPriceContactId,allowAddToSale=false){
-  const customer=contacts.find(contact=>Number(contact.id)===Number(customerId));
+  const customer=storeContacts().find(contact=>Number(contact.id)===Number(customerId));
   if(!customer) return '<div class="empty">ไม่พบข้อมูลลูกค้า</div>';
   const visibleProductIds=new Set(products.map(product=>Number(product.id)));
   const customerPrices=normalizedCustomerPriceRules(customer).filter(rule=>visibleProductIds.has(rule.productId));

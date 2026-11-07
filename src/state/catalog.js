@@ -117,8 +117,12 @@ function persistPromotions(){
 let editingPromotionId = null; // null=list, 'new', หรือ id
 let currentPromoDraftItems = null; // รายการสินค้าที่เจาะจงเลือกในฟอร์มโปรโมชั่น (โหมด scope=category, categoryMode=select) — sync จาก promo.items ทุกครั้งที่เปิดฟอร์ม
 let promoDraftItemsSyncedFor = undefined; // ติดตามว่า currentPromoDraftItems sync จาก editingPromotionId ตัวไหนไปแล้ว กัน overwrite ระหว่างแก้ไขที่ยังไม่ได้บันทึก
-function customersList(){ return contacts.filter(c=>c.types.includes('customer')); }
-function suppliersList(){ return contacts.filter(c=>c.types.includes('supplier')); }
+function storeContacts(){
+  const warehouseId=Number(activeWarehouseId)||1;
+  return contacts.filter(contact=>(Number(contact.warehouseId)||1)===warehouseId);
+}
+function customersList(){ return storeContacts().filter(c=>c.types.includes('customer')); }
+function suppliersList(){ return storeContacts().filter(c=>c.types.includes('supplier')); }
 let employees = [ 'เภสัชกรหญิงมานี', 'พนักงานขายสมชาย' ];
 let categories = [ 'ไม่ทราบหมวดหมู่' ]; // 'ไม่ทราบหมวดหมู่' is a real fallback the app relies on (products with no category); the rest fill in from actual product data via refreshCategoryBrandUnitLists()
 let units = [ 'แผง', 'ซอง', 'ขวด', 'กระปุก', 'กล่อง', 'ห่อ', 'ชิ้น', 'โหล', 'แพ็ค', 'ลัง', 'หลอด', 'ม้วน', 'กระป๋อง', 'ถุง' ];

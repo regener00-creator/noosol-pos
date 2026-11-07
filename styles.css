@@ -2913,6 +2913,7 @@
 @font-face{font-family:'Google Sans';src:url('/fonts/google-sans-variable-v2.woff2') format('woff2');font-style:normal;font-weight:400 700;font-display:swap;}
 @font-face{font-family:'Google Sans';src:url('/fonts/google-sans-italic-variable-v2.woff2') format('woff2');font-style:italic;font-weight:400 700;font-display:swap;}
 
+.rpt.combined-catalog,.rpt.store-inventory-report{width:100%;max-width:none;box-sizing:border-box}
 .combined-catalog .rpt-filters{gap:12px;flex-wrap:wrap;margin-bottom:16px}
 .combined-catalog [data-combined-search]{flex:1 1 240px}
 .combined-catalog [data-combined-results]{overflow:auto}

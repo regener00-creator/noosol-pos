@@ -22,7 +22,8 @@ function saveContactEditorData(contactId=editingContactId){
   const g = id => document.getElementById(id);
   const name = g('c_name').value.trim();
   if(!name){ showToast('กรุณากรอกชื่อ-นามสกุล'); g('c_name').focus(); return null; }
-  const existing=contactId==='new'?null:contacts.find(x=>x.id===contactId);
+  const existing=contactId==='new'?null:storeContacts().find(x=>x.id===contactId);
+  if(contactId!=='new'&&!existing)return null;
   const fixedType=g('c_fixed_type')?.value||'';
   const validTypes=['customer','supplier'];
   const types = validTypes.includes(fixedType)
@@ -45,7 +46,7 @@ function saveContactEditorData(contactId=editingContactId){
   const enteredCode=codeInput?.value.trim()||'';
   const code=enteredCode||existing?.code||'';
   if(code){
-    const dup = contacts.find(x=>x.id!==contactId && String(x.code||'').trim().toLowerCase()===code.toLowerCase());
+    const dup = storeContacts().find(x=>x.id!==contactId && String(x.code||'').trim().toLowerCase()===code.toLowerCase());
     if(dup){ showToast(`รหัสผู้ติดต่อ "${code}" ถูกใช้แล้วโดย "${dup.name}"`); codeInput?.focus(); return null; }
   }
   const entityEl = document.querySelector('input[name="c_entity"]:checked');
@@ -70,7 +71,7 @@ function saveContactEditorData(contactId=editingContactId){
   }
   let savedContact=existing;
   if(contactId==='new'){
-    savedContact={id:recordId, ...data, customerPrices:[],loyaltyJoinedAt:new Date().toISOString()};
+    savedContact={id:recordId, warehouseId:activeWarehouseId, ...data, customerPrices:[],loyaltyJoinedAt:new Date().toISOString()};
     contacts.push(savedContact);
     showToast(`กำลังบันทึก "${name}" ระบบจะสร้างรหัสเมื่อซิงก์สำเร็จ`);
   } else {
@@ -130,7 +131,7 @@ async function saveCustomerPricing({root=document,customerId=editingCustomerPric
   if(!canPerformPageAction('edit','customers')){showToast('ไม่มีสิทธิ์แก้ไขราคาพิเศษ','danger-top');return;}
   const saveButton=root.querySelector('#saveCustomerPricingBtn');
   if(saveButton?.disabled) return;
-  const customer=contacts.find(contact=>Number(contact.id)===Number(customerId));
+  const customer=storeContacts().find(contact=>Number(contact.id)===Number(customerId));
   if(!customer){ showToast('ไม่พบข้อมูลลูกค้า','danger-top'); return; }
   const customerPrices=collectCustomerPriceRules(root);
   if(customerPrices===null) return;
@@ -159,7 +160,7 @@ async function saveCustomerPricing({root=document,customerId=editingCustomerPric
 }
 
 function deleteContact(id){
-  const contact=contacts.find(x=>x.id===id); if(!contact) return;
+  const contact=storeContacts().find(x=>x.id===id); if(!contact) return;
   if(!confirm(`ยืนยันลบรายชื่อ "${contact.name}" ?`)) return;
   contacts=contacts.filter(x=>x.id!==id);
   persistContacts();

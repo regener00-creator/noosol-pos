@@ -241,7 +241,7 @@ function saveTaxInvoiceCustomer(){
   if(!name){ showToast('กรุณากรอกชื่อลูกค้า'); document.getElementById('tax_form_customer_name')?.focus(); return; }
   const duplicate=customersList().find(customer=>customer.name.trim().toLowerCase()===name.toLowerCase());
   if(duplicate){ d.customerId=duplicate.id; taxInvoiceAddingCustomer=false; showToast('มีชื่อลูกค้านี้อยู่แล้ว ระบบเลือกรายชื่อเดิมให้แล้ว'); render(); return; }
-  const customer={id:generateClientRecordId(contacts),name,entity:d.taxId?'juristic':'individual',types:['customer'],contactName:'',phone:d.phone||'',email:d.email||'',taxId:d.taxId||'',creditDays:d.credit||'',address:d.address||'',bank:'',bankAcc:'',note:''};
+  const customer={id:generateClientRecordId(contacts),warehouseId:activeWarehouseId,name,entity:d.taxId?'juristic':'individual',types:['customer'],contactName:'',phone:d.phone||'',email:d.email||'',taxId:d.taxId||'',creditDays:d.credit||'',address:d.address||'',bank:'',bankAcc:'',note:''};
   contacts.push(customer);
   persistContacts();
   d.customerId=customer.id;

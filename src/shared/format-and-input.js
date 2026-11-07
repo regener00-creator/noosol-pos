@@ -214,7 +214,7 @@ function contactIncludesCustomer(contact){ return Array.isArray(contact?.types)&
 function duplicateCustomerPhone(phone,excludedId=null){
   const digits=normalizedPhoneDigits(phone);
   if(!digits) return null;
-  return contacts.find(contact=>contactIncludesCustomer(contact)&&String(contact.id)!==String(excludedId)&&normalizedPhoneDigits(contact.phone)===digits)||null;
+  return storeContacts().find(contact=>contactIncludesCustomer(contact)&&String(contact.id)!==String(excludedId)&&normalizedPhoneDigits(contact.phone)===digits)||null;
 }
 function isDuplicateCustomerPhoneError(error){
   const detail=[error?.message,error?.details,error?.hint,error?.constraint].filter(Boolean).join(' ');

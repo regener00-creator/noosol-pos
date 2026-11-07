@@ -88,6 +88,8 @@ function contactImportAccType(value){
   return '';
 }
 async function importContactsFromExcel(file){
+  const warehouseId=Number(activeWarehouseId);
+  if(!warehouseId||isAllWarehousesMode())return;
   try{ await ensureXlsxLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบอ่าน Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
   let workbook;
   try{ workbook=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:false}); }
@@ -101,6 +103,9 @@ async function importContactsFromExcel(file){
   const skipped=[];
   const seenInFile=new Set(); // guard against two rows in the same file matching the same existing contact
   const stagedCustomerPhones=new Set();
+  if(warehouseId!==Number(activeWarehouseId)||isAllWarehousesMode())return;
+  const localContacts=storeContacts();
+  const outsideStoreIds=new Set(contacts.filter(c=>(Number(c.warehouseId)||1)!==warehouseId).map(c=>Number(c.id)));
 
   sourceRows.forEach((row,index)=>{
     const line=index+2;
@@ -127,10 +132,10 @@ async function importContactsFromExcel(file){
     };
     let existing=null;
     const systemId=productImportNumber(productImportValue(row,['รหัสอ้างอิงระบบ','systemid']),NaN);
-    if(outsideStoreIds.has(systemId)){skipped.push(`แถว ${line} · ${name}: รหัสอ้างอิงเป็นสินค้าของคลังอื่น`);return;}
-    if(Number.isFinite(systemId)) existing=contacts.find(c=>c.id===systemId);
-    if(!existing&&code) existing=contacts.find(c=>String(c.code||'').trim().toLowerCase()===code.toLowerCase());
-    if(!existing) existing=contacts.find(c=>String(c.name||'').trim().toLowerCase()===name.toLowerCase());
+    if(outsideStoreIds.has(systemId)){skipped.push(`แถว ${line} · ${name}: รหัสอ้างอิงเป็นรายชื่อของคลังอื่น`);return;}
+    if(Number.isFinite(systemId)) existing=localContacts.find(c=>c.id===systemId);
+    if(!existing&&code) existing=localContacts.find(c=>String(c.code||'').trim().toLowerCase()===code.toLowerCase());
+    if(!existing) existing=localContacts.find(c=>String(c.name||'').trim().toLowerCase()===name.toLowerCase());
     if(existing){
       if(seenInFile.has(existing.id)){ skipped.push(`แถว ${line}: ซ้ำกับแถวก่อนหน้าในไฟล์เดียวกัน (${name})`); return; }
       seenInFile.add(existing.id);
@@ -159,7 +164,7 @@ async function importContactsFromExcel(file){
   if(!confirm(confirmation)) return;
 
   toUpdate.forEach(({existing,data})=>Object.assign(existing,data));
-  toCreate.forEach(data=>contacts.push({id:generateClientRecordId(contacts),...data}));
+  toCreate.forEach(data=>contacts.push({id:generateClientRecordId(contacts),warehouseId,...data}));
   persistContacts();
   showToast(`นำเข้าสมุดรายชื่อสำเร็จ · เพิ่มใหม่ ${toCreate.length} · อัปเดต ${toUpdate.length}${skipped.length?` · ข้าม ${skipped.length}`:''}`);
   render();
@@ -167,7 +172,7 @@ async function importContactsFromExcel(file){
 
 async function exportContactsToExcel(){
   try{ await ensureXlsxLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบส่งออก Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
-  const selectedContacts=contacts.filter(c=>c.types?.includes(currentTab==='customers'?'customer':'supplier'));
+  const selectedContacts=storeContacts().filter(c=>c.types?.includes(currentTab==='customers'?'customer':'supplier'));
   if(!selectedContacts.length){ showToast('ยังไม่มีข้อมูลให้ส่งออก'); return; }
   const typeLabel=c=>{ const isCust=c.types?.includes('customer'),isSupp=c.types?.includes('supplier'); if(isCust&&isSupp) return 'ทั้งคู่'; if(isSupp) return 'ผู้จำหน่าย'; return 'ลูกค้า'; };
   const rows=selectedContacts.map(c=>({
@@ -336,7 +341,6 @@ async function importSalesRepresentativesFromExcel(file){
     };
     let existing=null;
     const systemId=productImportNumber(productImportValue(row,['รหัสอ้างอิงระบบ','systemid']),NaN);
-    if(outsideStoreIds.has(systemId)){skipped.push(`แถว ${line} · ${name}: รหัสอ้างอิงเป็นสินค้าของคลังอื่น`);return;}
     if(Number.isFinite(systemId)) existing=salesRepresentatives.find(representative=>representative.id===systemId)||null;
     if(!existing&&legacyCode) existing=salesRepresentatives.find(representative=>String(representative.code||'').trim().toLowerCase()===legacyCode.toLowerCase())||null;
     if(!existing) existing=salesRepresentatives.find(representative=>String(representative.name||'').trim().toLowerCase()===normalizedName)||null;
@@ -905,7 +909,7 @@ async function performProductExcelImport(file){
     (product.vendorBarcodes||[]).forEach(item=>{
       const vendorName=String(item.vendor||'').trim();
       if(!vendorName||vendorName==='ไม่ระบุ') return;
-      const existingContact=contacts.find(contact=>String(contact.name||'').trim().toLowerCase()===vendorName.toLowerCase());
+      const existingContact=storeContacts().find(contact=>String(contact.name||'').trim().toLowerCase()===vendorName.toLowerCase());
       if(existingContact){
         if(!Array.isArray(existingContact.types)) existingContact.types=[];
         if(!existingContact.types.includes('supplier')){
@@ -915,7 +919,7 @@ async function performProductExcelImport(file){
         return;
       }
       contacts.push({
-        id:generateClientRecordId(contacts),name:vendorName,entity:'juristic',types:['supplier'],contactName:'',phone:'',email:'',taxId:'',creditDays:'',address:'',bank:'',bankAcc:'',note:'เพิ่มจากการนำเข้าสินค้า Excel'
+        id:generateClientRecordId(contacts),warehouseId:activeWarehouseId,name:vendorName,entity:'juristic',types:['supplier'],contactName:'',phone:'',email:'',taxId:'',creditDays:'',address:'',bank:'',bankAcc:'',note:'เพิ่มจากการนำเข้าสินค้า Excel'
       });
       contactsChanged=true;
     });

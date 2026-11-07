@@ -287,6 +287,8 @@ function resetWarehouseScopedUiState(reportWarehouseValue){
   editingProductExchangeId=null;productExchangeDraft=null;editingQuotationId=null;editingTaxInvoiceSaleId=null;taxInvoiceDraft=null;
   editingPromotionId=null;currentPromoDraftItems=null;promoDraftItemsSyncedFor=undefined;
   editingCustomerPriceContactId=null;cashBillOrderNumberDraft='';taxInvoiceOrderNumberDraft='';
+  editingContactId=null;contactPage=1;customerHistoryView=null;customerPurchaseState=null;
+  saleLoyaltySelection=null;customerLoyaltyState=null;clearTimeout(customerLoyaltyExpiryTimer);
   businessSettingsDirty=false;
   stockReportItems=[];
   stockReportCatFilter={wh:reportWarehouseValue,category:'',brand:''};

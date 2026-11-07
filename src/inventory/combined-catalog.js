@@ -28,6 +28,7 @@ function attachCombinedCatalog(page){
   const cat=page.querySelector('[data-combined-category]'),brand=page.querySelector('[data-combined-brand]');
   const search=page.querySelector('[data-combined-search]');
   const stockOnly=page.dataset.combinedStock==='true';
+  const pageSize=stockOnly?50:10;
   const options=(values,title)=>`<option value="">${title}: ทั้งหมด</option>`+[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'th')).map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
   const configured=effectiveProductCategorySettings();
   cat.innerHTML=options(configured.categories,'หมวดหลัก');
@@ -41,10 +42,10 @@ function attachCombinedCatalog(page){
   function draw(){
     const term=search.value.trim().toLowerCase();
     const matches=rows.filter(row=>[...row.shops.values()].some(({product})=>(!cat.value||cat.value===product.category)&&(!brand.value||brand.value===product.brand)&&(!term||product.name.toLowerCase().includes(term)||row.code.toLowerCase().includes(term))));
-    const pages=Math.max(1,Math.ceil(matches.length/50));
+    const pages=Math.max(1,Math.ceil(matches.length/pageSize));
     pageNo=Math.min(pageNo,pages);
     const headers=shops.map(shop=>stockOnly?`<th>คงเหลือ · ${escapeHtml(shop.name)}</th>`:`<th>ราคาขาย · ${escapeHtml(shop.name)}</th><th>ทุน · ${escapeHtml(shop.name)}</th>`).join('');
-    const body=matches.slice((pageNo-1)*50,pageNo*50).map(row=>{
+    const body=matches.slice((pageNo-1)*pageSize,pageNo*pageSize).map(row=>{
       const cells=shops.map(shop=>{
         const entry=row.shops.get(Number(shop.id));
         if(stockOnly)return `<td>${entry?inspectionListAmount(warehouseStock(entry.product.id,shop.id)/entry.unit.factor):'—'}</td>`;

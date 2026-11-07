@@ -748,7 +748,7 @@ function renderRInventory(){
   // หมวดย่อยจะแสดงเฉพาะที่มีสินค้าจริงอยู่ในหมวดหลักที่เลือกไว้ (ถ้ายังไม่เลือกหมวดหลัก จะโชว์หมวดย่อยทั้งหมด)
   const brandOptions = brands.filter(brand=>products.some(product=>(!catf.category||product.category===catf.category)&&product.brand===brand));
   const matchCount = products.filter(product=>stockReportProductMatchesFilter(product,catf)&&(catf.wh||catf.category||catf.brand)).length;
-  return `<div class="rpt">
+  return `<div class="rpt store-inventory-report">
   <div class="pagehead topbar-action-source"><div></div><div style="display:flex;gap:8px;"><button class="btn ghost" id="resetStockReportBtn">รีเซ็ตข้อมูล</button><button class="btn primary" id="printStockReportBtn">พิมพ์รายงาน</button></div></div>
   <div class="inventory-report-section">
     <div class="rpt-filters stock-report-filters" style="margin-bottom:14px;">
