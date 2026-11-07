@@ -47,6 +47,23 @@ function renderCombinedCatalog(stockOnly){
     ${stockOnly?'':'<div class="combined-legend"><span>สีส้ม · เฉพาะพรชัย</span><span>สีม่วง · เฉพาะพระยาสุเรนทร์</span></div>'}</div></div>
     <div class="seamless-table-wrap" data-combined-results></div><div data-combined-pager></div></section>`;
 }
+// A manual unit choice belongs to this user's combined view, across both pages.
+const combinedUnitFallback=new Map();
+function combinedUnitPreferenceKey(id){
+  return `pepos_combined_unit_v1:${currentProfile.id}:${id}`;
+}
+function readCombinedUnit(id){
+  const key=combinedUnitPreferenceKey(id);
+  if(combinedUnitFallback.has(key))return combinedUnitFallback.get(key);
+  try{return localStorage.getItem(key);}catch{return null;}
+}
+function rememberCombinedUnit(id,name){
+  const key=combinedUnitPreferenceKey(id);
+  try{
+    localStorage.setItem(key,name);
+    combinedUnitFallback.delete(key);
+  }catch{combinedUnitFallback.set(key,name);}
+}
 function attachCombinedCatalog(page){
   const shops=accessibleWarehouses().slice().sort((a,b)=>a.id-b.id);
   const rows=combinedCatalogRows(products);
@@ -65,7 +82,6 @@ function attachCombinedCatalog(page){
   let pageNo=1;
   const pager=page.querySelector('[data-combined-pager]');
   const results=page.querySelector('[data-combined-results]');
-  const selectedUnits=new Map();
   const barcodeMatches=(option,term)=>[...option.shops.values()].some(({unit})=>String(unit.barcode||'').toLowerCase().includes(term));
   function describeValues(option,getValue){
     const values=shops.filter(shop=>option.shops.has(Number(shop.id))).map(shop=>({shop,value:getValue(option.shops.get(Number(shop.id)))}));
@@ -81,10 +97,11 @@ function attachCombinedCatalog(page){
     const headers=shops.map(shop=>stockOnly?`<th>คงเหลือ · ${escapeHtml(shop.name)}</th>`:`<th>ราคาขาย · ${escapeHtml(shop.name)}</th><th>ทุน · ${escapeHtml(shop.name)}</th>`).join('');
     const body=matches.slice((pageNo-1)*pageSize,pageNo*pageSize).map(row=>{
       const id=row.members[0].product.id;
-      const selected=selectedUnits.get(id)??(term?row.options.findIndex(option=>barcodeMatches(option,term)):-1);
-      const option=row.options[selected]||row.options[0];
+      const preferred=readCombinedUnit(id);
+      const option=row.options.find(item=>item.name===preferred)||
+        (term&&row.options.find(item=>barcodeMatches(item,term)))||row.options[0];
       const control=row.options.length===1?`<span class="prod-unit-fixed">${escapeHtml(option.name)}</span>`:
-        `<select class="prod-unit-select" data-combined-unit="${id}" aria-label="หน่วยของ ${escapeHtml(row.name)}">${row.options.map((item,i)=>`<option value="${i}" ${item===option?'selected':''}>${escapeHtml(describeValues(item,entry=>entry.label))}</option>`).join('')}</select>`;
+        `<select class="prod-unit-select" data-combined-unit="${id}" aria-label="หน่วยของ ${escapeHtml(row.name)}">${row.options.map(item=>`<option value="${escapeHtml(item.name)}" ${item===option?'selected':''}>${escapeHtml(describeValues(item,entry=>entry.label))}</option>`).join('')}</select>`;
       const cells=shops.map(shop=>{
         const entry=option.shops.get(Number(shop.id));
         if(stockOnly)return `<td>${entry?inspectionListAmount(warehouseStock(entry.product.id,shop.id)/entry.unit.factor):'—'}</td>`;
@@ -106,7 +123,7 @@ function attachCombinedCatalog(page){
     const select=event.target.closest('[data-combined-unit]');
     if(!select)return;
     const id=Number(select.dataset.combinedUnit);
-    selectedUnits.set(id,Number(select.value));draw();
+    rememberCombinedUnit(id,select.value);draw();
     results.querySelector(`[data-combined-unit="${id}"]`)?.focus({preventScroll:true});
   };
   pager.onclick=event=>{
