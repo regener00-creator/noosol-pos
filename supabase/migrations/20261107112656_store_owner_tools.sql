@@ -198,7 +198,7 @@ begin
   end if;
  end loop;
 end $$;
-create function public.restore_store_backup_atomic(p_warehouse_id bigint,p_backup jsonb) returns jsonb
+create function public."restore_store_backup_atomic"(p_warehouse_id bigint,p_backup jsonb) returns jsonb
 language plpgsql security definer set search_path='' set lock_timeout='5s' set statement_timeout='150s' as $$
 declare t text; r jsonb; expected jsonb:='{}'; manifest jsonb; raw jsonb:=p_backup#>'{data,tables}';
  tabs text[]:=private.shop_backup_tables(); history text[]:=private.shop_backup_history(); n integer; v int;
@@ -213,7 +213,7 @@ begin
  if v=4 and exists(select 1 from jsonb_object_keys(raw) k where not k=any(tabs||history)) then raise exception 'ไฟล์มีตารางที่รุ่นนี้ไม่รองรับ';end if;
  if v=3 and not exists(select 1 from jsonb_array_elements(raw->'public.warehouses') w where w->>'id'='1') then raise exception 'ไม่พบคลังเดิมในไฟล์สำรอง';end if;
  -- Validate even the legacy file before projecting its shop-1 rows. Database-wide identities/access
- -- are never imported. Temporary tables give archived child rows their archived parent's scope.
+ -- are never imported. Temporary tables resolve the shop of each child from its archived parent.
  foreach t in array tabs||history loop
    r:=raw->t;
    if v=3 and r is null and t in ('private.internal_barcode_history','private.note_positions','public.combined_catalog_unit_preferences','private.price_label_requests') then r:='[]';
@@ -287,10 +287,10 @@ begin
  return jsonb_build_object('ok',true,'verified',true,'warehouseId',p_warehouse_id,'counts',counts,'epoch',epoch);
 end $$;
 revoke all on function private.shop_other_fingerprints(bigint),private.lock_shop_backup_tables(),private.shop_insert_rows(text,jsonb,boolean) from public,anon,authenticated;
-revoke all on function public.restore_store_backup_atomic(bigint,jsonb) from public,anon;
-grant execute on function public.restore_store_backup_atomic(bigint,jsonb) to authenticated;
+revoke all on function public."restore_store_backup_atomic"(bigint,jsonb) from public,anon;
+grant execute on function public."restore_store_backup_atomic"(bigint,jsonb) to authenticated;
 -- Direct calls from a stale browser must never fall back to an all-store restore.
-revoke execute on function public.export_store_backup(),public.restore_store_backup_atomic(jsonb),public.export_store_inventory_backup(),public.restore_store_inventory_backup(jsonb,jsonb) from public,anon,authenticated;
+revoke execute on function public.export_store_backup(),public."restore_store_backup_atomic"(jsonb),public.export_store_inventory_backup(),public.restore_store_inventory_backup(jsonb,jsonb) from public,anon,authenticated;
 create function public.admin_reset_shop_documents(p_actor_id uuid,p_warehouse_id bigint,p_confirmation text)
 returns jsonb language plpgsql security definer set search_path='' set lock_timeout='5s' set statement_timeout='120s' as $$
 declare tabs text[]:=private.shop_backup_tables(); t text; n integer; others jsonb; counts jsonb:='{}'; affected bigint;
