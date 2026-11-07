@@ -29,8 +29,11 @@ function renderBusinessSettings(){
     </div>
     <div class="settings-section"><h2>ข้อมูลติดต่อ</h2>
       <div class="business-form-row three-fields">
-        <div class="settings-row"><label for="set_business_document_phone">เบอร์หลักบนเอกสาร:</label>
-          <select id="set_business_document_phone"><option value="mobile" ${b.documentPhone!=='office'?'selected':''}>เบอร์มือถือ</option><option value="office" ${b.documentPhone==='office'?'selected':''}>เบอร์สำนักงาน</option></select>
+        <div class="settings-row"><label id="businessDocumentPhoneLabel">เบอร์หลักบนเอกสาร:</label>
+          <div class="settings-radio settings-radio-inline" id="set_business_document_phone" role="radiogroup" aria-labelledby="businessDocumentPhoneLabel">
+            <label><input type="radio" name="set_business_document_phone" value="mobile" ${b.documentPhone!=='office'?'checked':''}> เบอร์มือถือ</label>
+            <label><input type="radio" name="set_business_document_phone" value="office" ${b.documentPhone==='office'?'checked':''}> เบอร์สำนักงาน</label>
+          </div>
         </div>
         <div class="settings-row"><label for="set_business_mobile">เบอร์มือถือ:</label><input id="set_business_mobile" class="phone-input" value="${escapeHtml(b.mobile)}" inputmode="tel" autocomplete="tel"></div>
         <div class="settings-row"><label for="set_business_office">เบอร์สำนักงาน:</label><input id="set_business_office" class="phone-input" value="${escapeHtml(b.officePhone||'')}" inputmode="tel" autocomplete="tel"></div>

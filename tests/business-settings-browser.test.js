@@ -69,18 +69,29 @@ const browserExecutable = [
   assert.equal(await page.locator('#topbarFormActions #saveBusinessSettingsBtn').count(), 1);
   assert.equal(await page.locator('#main #saveBusinessSettingsBtn').count(), 0);
   const officePhone=page.locator('#set_business_office');
-  await page.getByLabel('เบอร์หลักบนเอกสาร:').selectOption({label:'เบอร์สำนักงาน'});
+  await page.getByRole('radio',{name:'เบอร์สำนักงาน',exact:true}).check();
   await officePhone.fill('021234567');
   const officeValue=await officePhone.inputValue();
-  await page.getByLabel('เบอร์หลักบนเอกสาร:').selectOption({label:'เบอร์มือถือ'});
+  await page.getByRole('radio',{name:'เบอร์มือถือ',exact:true}).check();
   assert.equal(await officePhone.isVisible(),true);
   const phoneFields=await page.locator('#set_business_document_phone,#set_business_mobile,#set_business_office').evaluateAll(fields=>
     fields.map(el=>({id:el.id,top:el.getBoundingClientRect().top,left:el.getBoundingClientRect().left})));
   assert.deepEqual(phoneFields.map(field=>field.id),['set_business_document_phone','set_business_mobile','set_business_office']);
   assert.equal(new Set(phoneFields.map(field=>field.top)).size,1);
   assert.ok(phoneFields[0].left<phoneFields[1].left && phoneFields[1].left<phoneFields[2].left);
-  await page.getByLabel('เบอร์หลักบนเอกสาร:').selectOption({label:'เบอร์สำนักงาน'});
+  await page.getByRole('radio',{name:'เบอร์สำนักงาน',exact:true}).check();
   assert.equal(await officePhone.inputValue(),officeValue);
+  assert.equal(await page.getByRole('radio',{name:'เบอร์มือถือ',exact:true}).isChecked(),false);
+  await page.evaluate(async()=>{
+    const persist=persistWorkspaceData,sync=syncBusinessSettingsToSupabase,draw=render;
+    try{
+      persistWorkspaceData=()=>{};syncBusinessSettingsToSupabase=async()=>true;render=()=>{};
+      await saveBusinessSettings();
+    }finally{persistWorkspaceData=persist;syncBusinessSettingsToSupabase=sync;render=draw;}
+  });
+  assert.equal(await page.evaluate(()=>businessSettings.documentPhone),'office');
+  assert.equal(await page.evaluate(()=>businessPrimaryPhone()),officeValue);
+
 
   await page.locator('#set_business_vat').selectOption('จดภาษีมูลค่าเพิ่มแล้ว');
   assert.equal(await page.locator('#businessVatDateRow').isVisible(), true);

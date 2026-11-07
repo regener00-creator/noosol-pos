@@ -11,7 +11,8 @@ async function saveBusinessSettings(){
     if(branch==='branch'&&!/^\d{5}$/.test(get('set_business_branch_code'))){ showToast('รหัสสาขาต้องมี 5 หลัก','danger'); document.getElementById('set_business_branch_code')?.focus(); return; }
     if(branch==='branch'&&!get('set_business_branch_name')){ showToast('กรุณากรอกชื่อสาขา','danger'); document.getElementById('set_business_branch_name')?.focus(); return; }
   }
-  applyBusinessSettings({type:get('set_business_type'),vat,vatRegistrationDate,name:get('set_business_name'),address:get('set_business_address'),taxId,branch,branchCode:get('set_business_branch_code'),branchName:get('set_business_branch_name'),officePhone:get('set_business_office'),mobile:get('set_business_mobile'),line:get('set_business_line'),website:get('set_business_website'),documentPhone:get('set_business_document_phone')==='office'?'office':'mobile',english:businessSettings.english||false});
+  const documentPhone=document.querySelector('input[name="set_business_document_phone"]:checked')?.value||'mobile';
+  applyBusinessSettings({type:get('set_business_type'),vat,vatRegistrationDate,name:get('set_business_name'),address:get('set_business_address'),taxId,branch,branchCode:get('set_business_branch_code'),branchName:get('set_business_branch_name'),officePhone:get('set_business_office'),mobile:get('set_business_mobile'),line:get('set_business_line'),website:get('set_business_website'),documentPhone,english:businessSettings.english||false});
   persistWorkspaceData(); // localStorage now, Supabase after the usual debounce
   businessSettingsDirty=false;
   businessSettingsSyncState='syncing';
