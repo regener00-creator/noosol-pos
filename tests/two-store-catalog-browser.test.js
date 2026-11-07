@@ -73,8 +73,8 @@ let browser;
   const nav=await page.locator('.navbtn').evaluateAll(buttons=>buttons.map(b=>b.dataset.tab).sort());
   assert.deepEqual(nav,['products','rinventory']);
   assert.equal((await page.locator('.navbtn[data-tab="products"]').innerText()).trim(),'ราคาสินค้า');
-  assert.equal(await page.locator('.combined-catalog h1').innerText(),'ราคาสินค้า · คลังรวม');
   async function checkStoreFilter(){
+    assert.equal(await page.locator('.combined-catalog > :first-child').getAttribute('class'),'tree-pane');
     const all=page.getByRole('button',{name:'ทั้งหมด',exact:true});
     assert.equal(await all.getAttribute('aria-pressed'),'true');
     const orange=page.getByRole('button',{name:'พรชัย',exact:true});

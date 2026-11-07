@@ -2915,7 +2915,7 @@
 
 .rpt.combined-catalog,.rpt.store-inventory-report{width:100%;max-width:none;box-sizing:border-box}
 .combined-catalog{display:flex;flex-direction:column;height:100%;min-height:0}
-.combined-catalog>.pagehead,.combined-catalog>.tree-pane,.combined-search-group,.combined-catalog>[data-combined-pager]{flex:none}
+.combined-catalog>.tree-pane,.combined-search-group,.combined-catalog>[data-combined-pager]{flex:none}
 .combined-catalog>.tree-pane{border:0}
 .combined-catalog .product-group-brands{max-height:20vh;overflow-y:auto}
 .combined-search-group{margin:12px 0}

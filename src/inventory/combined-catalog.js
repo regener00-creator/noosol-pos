@@ -41,8 +41,7 @@ function renderCombinedCatalog(stockOnly){
   if(stockOnly&&reportWarehouseIds().some(id=>!loadedInventoryBalanceWarehouseIds.has(id))){
     return '<section class="rpt"><p role="status">กำลังตรวจยอดคงเหลือของแต่ละคลัง</p><button type="button" class="btn ghost" id="combinedReloadBalances">โหลดสินค้าคงเหลือ</button></section>';
   }
-  const heading=stockOnly?'สินค้าคงเหลือ':'ราคาสินค้า';
-  return `<section class="rpt combined-catalog" data-combined-stock="${stockOnly}"><div class="pagehead"><h1>${heading} · คลังรวม</h1><span data-combined-count aria-live="polite"></span></div>
+  return `<section class="rpt combined-catalog" aria-label="${stockOnly?'สินค้าคงเหลือ':'ราคาสินค้า'}" data-combined-stock="${stockOnly}">
     <div class="tree-pane"><div class="product-group-header"><span class="product-group-title">กลุ่มสินค้า</span><span class="product-group-separator">:</span><div class="product-group-categories" data-combined-categories role="group" aria-label="หมวดหลัก"></div></div>
     <div class="product-group-brands" data-combined-brands role="group" aria-label="หมวดย่อย"></div></div>
     <div class="product-list-search combined-search-group"><input data-combined-search placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" aria-label="ค้นหาสินค้า">
@@ -218,7 +217,6 @@ function attachCombinedCatalog(page){
     }).join('');
     const columns=3+shops.length*(stockOnly?1:2);
     results.innerHTML=`<table class="grid-table doc-head-blue"><thead><tr><th class="combined-barcode">บาร์โค้ด</th><th>สินค้า</th><th>หน่วย</th>${headers}</tr></thead><tbody>${body||`<tr><td colspan="${columns}">ไม่พบสินค้า</td></tr>`}</tbody></table>`;
-    page.querySelector('[data-combined-count]').textContent=`${matches.length} รายการ · หน้า ${pageNo} / ${pages}`;
     pager.innerHTML=pagerHtml(pageNo,pages,'combined-page');
   }
   for(const [host,kind] of [[categories,'category'],[brands,'brand']]){
