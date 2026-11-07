@@ -1075,20 +1075,30 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   }
   document.querySelectorAll('[data-stock-edit-unit]').forEach(select=>select.addEventListener('change',()=>{ stockEditRowUnitSel[Number(select.dataset.stockEditUnit)]=select.value; render(); }));
   const refreshStockEditConfirmButton=()=>{ if(confirmStockEditBtn) confirmStockEditBtn.disabled=(stockEditPendingChanges().length===0&&!stockEditSourcePending)||Boolean(document.querySelector('[data-stock-edit-new-expiry].stock-edit-invalid'))||stockEditPosting; };
+  const stockEditFields='[data-stock-edit-amount],[data-stock-edit-lot],[data-stock-edit-new-lot],[data-stock-edit-new-expiry]';
+  document.getElementById('stockEditTbody')?.addEventListener('keydown',event=>{
+    const source=event.target;
+    if(!source.matches(stockEditFields)||event.defaultPrevented||event.isComposing||
+      event.keyCode===229||event.ctrlKey||event.altKey||event.metaKey)return;
+    const productId=source.dataset.stockEditAmount;
+    if(productId && (event.key==='ArrowUp'||event.key==='ArrowDown')){
+      event.preventDefault();
+      return;
+    }
+    if(event.key!=='Tab'&&event.key!=='Enter')return;
+    event.preventDefault();
+    // Committing a count can rebuild the row and change which LOT controls are available.
+    if(productId)source.blur();
+    const fields=[...(document.getElementById('stockEditTbody')?.querySelectorAll(stockEditFields)||[])]
+      .filter(field=>!field.disabled && field.getClientRects().length);
+    const index=productId?fields.findIndex(field=>field.dataset.stockEditAmount===productId):fields.indexOf(source);
+    if(index<0)return;
+    const nextIndex=(index+(event.shiftKey?-1:1)+fields.length)%fields.length;
+    fields[nextIndex].focus();
+  });
   document.querySelectorAll('[data-stock-edit-amount]').forEach(input=>{
     input.addEventListener('focus',()=>input.select());
     input.addEventListener('keydown',event=>{
-      if(event.key==='Tab' && !event.ctrlKey && !event.altKey && !event.metaKey){
-        // Commit first: changing the count can redraw the table with different LOT fields.
-        const productId=input.dataset.stockEditAmount;
-        input.blur();
-        const fields=[...document.querySelectorAll('#stockEditTbody :is(input,select):enabled:not([tabindex="-1"])')];
-        const index=fields.findIndex(field=>field.dataset.stockEditAmount===productId);
-        if(index===-1)return;
-        const next=fields[index+(event.shiftKey?-1:1)];
-        if(next)event.preventDefault();
-        (next||fields[index]).focus();
-      }
       if(event.key==='Escape'){
         event.preventDefault();
         delete stockEditDraftStocks[Number(input.dataset.stockEditAmount)];

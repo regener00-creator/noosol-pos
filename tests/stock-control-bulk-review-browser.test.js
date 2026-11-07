@@ -78,9 +78,29 @@ let browser;
   await page.keyboard.press('Shift+Tab');
   assert.ok(await focused('[data-stock-edit-new-expiry="2"]'));
   assert.equal(await page.evaluate(()=>stockEditDraftStocks[2]),3);
+  for(const key of ['Tab','Enter']){
+    await page.locator('[data-stock-edit-lot="99"]').press(key);
+    assert.ok(await focused('[data-stock-edit-amount="1"]'),key+' wraps to the first count');
+    await page.keyboard.press('Shift+'+key);
+    assert.ok(await focused('[data-stock-edit-lot="99"]'),'Reverse navigation wraps to the last LOT');
+  }
+  const lastCount=page.locator('[data-stock-edit-amount="99"]');
+  await lastCount.fill('5');
+  await lastCount.press('Enter');
+  assert.ok(await focused('[data-stock-edit-amount="1"]'),'Enter wraps after editing away the last LOT');
+  await lastCount.fill('7');
+  await lastCount.press('Enter');
+  assert.ok(await focused('[data-stock-edit-lot="99"]'),'Enter reaches the newly displayed LOT');
   await page.locator('[data-stock-control-mode="anomalies"]').click();
   await page.locator('[data-stock-control-review="3"]').click();
   assert.deepEqual(await page.evaluate(()=>stockEditItems),[3,1,2,99],'single review still works');
+  const negativeCount=page.locator('[data-stock-edit-amount="3"]');
+  assert.equal(await negativeCount.inputValue(),'-2');
+  for(const key of ['ArrowUp','ArrowDown']){
+    await negativeCount.press(key);
+    assert.equal(await negativeCount.inputValue(),'-2','An arrow must not change a negative count to zero');
+    assert.ok(await focused('[data-stock-edit-amount="3"]'));
+  }
   await page.locator('[data-stock-control-mode="anomalies"]').click();
   await page.locator('#stockControlReviewAll').click();
   assert.deepEqual(await page.evaluate(()=>stockEditItems),[1,2,3,4,5,6,7,8,9,10,11,12,99]);
