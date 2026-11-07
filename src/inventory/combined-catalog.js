@@ -44,7 +44,7 @@ function renderCombinedCatalog(stockOnly){
   const heading=stockOnly?'สินค้าคงเหลือ':'PRODUCT';
   return `<section class="rpt combined-catalog" data-combined-stock="${stockOnly}"><div class="pagehead"><h1>${heading} · คลังรวม</h1><span data-combined-count aria-live="polite"></span></div>
     <div class="rpt-filters"><select class="rpt-select" data-combined-category aria-label="หมวดหลัก"></select><select class="rpt-select" data-combined-brand aria-label="หมวดย่อย"></select><div class="combined-search-group"><input data-combined-search class="barcode-print-search" placeholder="ค้นหาชื่อสินค้า หรือบาร์โค้ด" aria-label="ค้นหาสินค้า">
-    ${stockOnly?'':'<div class="combined-legend"><span class="legend-phonchai" title="สีส้ม · เฉพาะพรชัย">พรชัย</span><span class="legend-phraya" title="สีม่วง · เฉพาะพระยาสุเรนทร์">พระยาสุเรนทร์</span></div>'}</div></div>
+    <div class="combined-legend"><span class="legend-phonchai" title="สีส้ม · เฉพาะพรชัย">พรชัย</span><span class="legend-phraya" title="สีม่วง · เฉพาะพระยาสุเรนทร์">พระยาสุเรนทร์</span></div></div></div>
     <div class="seamless-table-wrap" data-combined-results></div><div data-combined-pager></div></section>`;
 }
 // A manual unit choice belongs to this user's combined view, across both pages.
@@ -187,7 +187,7 @@ function attachCombinedCatalog(page){
         if(stockOnly)return `<td>${entry?inspectionListAmount(warehouseStock(entry.product.id,shop.id)/entry.unit.factor):'—'}</td>`;
         return `<td class="combined-amount">${entry?fmtMoney(entry.unit.price):'—'}</td><td class="combined-amount">${entry?fmtMoney(entry.unit.cost):'—'}</td>`;
       }).join('');
-      const only=!stockOnly&&row.members.length===1?shops.find(shop=>Number(shop.id)===row.members[0].warehouse)?.name:'';
+      const only=row.members.length===1?shops.find(shop=>Number(shop.id)===row.members[0].warehouse)?.name:'';
       const color=only==='พรชัย'?'only-phonchai':only==='พระยาสุเรนทร์'?'only-phraya':'';
       return `<tr class="${color}">${stockOnly?`<td>${escapeHtml(describeValues(option,entry=>String(entry.unit.barcode||'—')))}</td>`:''}<td>${escapeHtml(row.name)}</td><td><div class="combined-unit-cell">${control}</div></td>${cells}</tr>`;
     }).join('');
