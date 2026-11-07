@@ -12,11 +12,13 @@ const server=http.createServer((req,res)=>{
   res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.css':'text/css','.woff2':'font/woff2'}[path.extname(file)]||'application/octet-stream'));fs.createReadStream(file).pipe(res);
 });
 let browser;
-async function verifyReceiptAndStockLabels(page){
+async function verifyPurchaseAndStockLabels(page){
   await page.setViewportSize({width:1400,height:1000});
   await page.evaluate(async()=>{
     isMobileDeviceMode=()=>false;
     await ensurePageCodeLoaded('goodsreceipt');
+    await ensurePageCodeLoaded('purchaseorder');
+    await ensurePageCodeLoaded('productreturn');
     await ensurePageCodeLoaded('stockcontrol');
     const rows=completeProductCatalog();
     for(const [id,otherPrefix] of [[11,'BP'],[12,'AP']]){
@@ -28,26 +30,29 @@ async function verifyReceiptAndStockLabels(page){
   });
   for(const [store,id,own,foreign,factor] of [[1,11,'AP','BP',5],[2,12,'BP','AP',10]]){
     await page.evaluate(store=>selectActiveWarehouse(store),store);
-    for(const screen of ['receipt','adjust']){
-      const receipt=screen==='receipt';
+    for(const screen of ['purchaseorder','goodsreceipt','productreturn','stockcontrol']){
+      const purchase=screen!=='stockcontrol';
       for(const [prefix,tap] of [[foreign,false],['P',false],[own,false],[own,true]]){
-        await page.evaluate(({receipt,store})=>{
-          currentTab=receipt?'goodsreceipt':'stockcontrol';
-          editingGRId='new';
-          grDraft={id:'TEST',supplier:'',date:TODAY_STR,warehouseId:store,credit:0,taxMode:'incl',discount:0,note:'',items:[]};
+        await page.evaluate(screen=>{
+          currentTab=screen;
+          editingPOId=editingGRId=editingReturnId='new';
+          poDraft=grDraft=returnDraft=null;
           stockControlMode='adjust';stockEditItems=[];stockEditRowUnitSel={};stockEditDraftStocks={};stockEditSearchQuery='';
           render();
-        },{receipt,store});
-        const input=page.locator(receipt?'#docProductScanner':'#stockEditInput');
-        const choices=page.locator(receipt?'#docScanResults .doc-scan-result':'#stockEditResults [data-stock-edit-result]');
+        },screen);
+        const input=page.locator(purchase?'#docProductScanner':'#stockEditInput');
+        const choices=page.locator(purchase?'#docScanResults .doc-scan-result':'#stockEditResults [data-stock-edit-result]');
         await input.fill(prefix+'00000000001');
         assert.equal(await choices.count(),prefix===own?1:0,`${screen}/${store}: ${prefix} candidates`);
         if(tap) await choices.click();else await input.press('Enter');
-        const lines=await page.evaluate(receipt=>receipt
-          ?grDraft.items.filter(row=>row.name).map(row=>[row.productId,row.unit])
-          :stockEditItems.map(id=>[id,document.querySelector(`[data-stock-edit-unit="${id}"]`).value]),receipt);
+        const lines=await page.evaluate(purchase=>purchase
+          ?activePurchaseDraft().items.filter(row=>row.name).map(row=>[row.productId,row.unit])
+          :stockEditItems.map(id=>[id,document.querySelector(`[data-stock-edit-unit="${id}"]`).value]),purchase);
         assert.deepEqual(lines,prefix===own?[[id,'กล่อง']]:[],`${screen}/${store}: ${prefix}, tap=${tap}`);
-        if(!receipt&&prefix===own) assert.equal(Number(await page.locator('[data-stock-edit-amount]').getAttribute('data-factor')),factor);
+        if(prefix===own){
+          if(purchase) assert.equal(await page.locator('#poItemRows tr[data-product-id]:not([data-product-id=""]) .poi_unit').first().inputValue(),'กล่อง');
+          else assert.equal(Number(await page.locator('[data-stock-edit-amount]').getAttribute('data-factor')),factor);
+        }
       }
     }
   }
@@ -177,7 +182,7 @@ async function verifyInspectionAndPriceLabels(page){
     assert.deepEqual(await scanPage.evaluate(()=>cart.map(l=>[l.pid,l.unit,l.factor])),[[id,'กล่อง',factor]]);
   }
   await verifyInspectionAndPriceLabels(scanPage);
-  await verifyReceiptAndStockLabels(scanPage);
+  await verifyPurchaseAndStockLabels(scanPage);
   await scanPage.close();
   await page.evaluate(()=>{searchQuery='Decolgen';render();});
   const regularRowHeight=await page.locator('.prodtable tbody tr').first().evaluate(el=>el.getBoundingClientRect().height);

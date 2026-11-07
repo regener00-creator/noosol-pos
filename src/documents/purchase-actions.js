@@ -211,20 +211,24 @@ function addDocumentScannedProduct(productId,unitName){
   setTimeout(()=>document.getElementById('docProductScanner')?.focus(),0);
 }
 
+function isPurchaseDocumentLabel(query){
+  return ['purchaseorder','goodsreceipt','productreturn'].includes(currentTab)&&systemLabelCode(query.toUpperCase());
+}
+
 function renderDocumentScanResults(query){
   const box=document.getElementById('docScanResults');
   if(!box) return;
   const q=String(query||'').trim();
   if(!q){ box.innerHTML=''; box.hidden=true; return; }
-  const isReceiptLabel=currentTab==='goodsreceipt'&&systemLabelCode(q.toUpperCase());
-  const matches=isReceiptLabel?inventoryLabelMatches(q):documentProductMatches(q).slice(0,8).map(p=>{
+  const isShopLabel=isPurchaseDocumentLabel(q);
+  const matches=isShopLabel?inventoryLabelMatches(q):documentProductMatches(q).slice(0,8).map(p=>{
     const exactUnit=(p.units||[]).find(u=>(u.barcode||'').toLowerCase()===q.toLowerCase());
     const extraUnit=extraBarcodeEntries(p).find(item=>String(item.code).toLowerCase()===q.toLowerCase())?.unit;
     const unitName=exactUnit?.sub||(extraBarcodeAvailableUnits(p).includes(extraUnit)?extraUnit:p.unit);
     return {product:p,unitName,barcode:p.barcode};
   });
   box.innerHTML=matches.length?matches.map(({product:p,unitName,barcode})=>{
-    const unitNames=isReceiptLabel?unitName:[p.unit,...(p.units||[]).map(u=>u.sub).filter(Boolean)].join(', ');
+    const unitNames=isShopLabel?unitName:[p.unit,...(p.units||[]).map(u=>u.sub).filter(Boolean)].join(', ');
     return `<button type="button" class="doc-scan-result" data-pid="${escapeHtml(Number(p.id))}" data-unit="${escapeHtml(unitName)}"><span><b>${escapeHtml(p.name)}</b><small>${escapeHtml(p.sku||'-')} · บาร์โค้ด ${escapeHtml(barcode||'-')} · หน่วย ${escapeHtml(unitNames)}</small></span><span class="stock">คงเหลือ ${escapeHtml(stockInLargestUnit(p))}</span></button>`;
   }).join(''):`<div class="doc-scan-empty">ไม่พบสินค้า “${escapeHtml(q)}”</div>`;
   box.hidden=false;
@@ -245,7 +249,7 @@ function bindDocumentProductScanner(){
     if(e.key!=='Enter') return;
     e.preventDefault();
     const query=input.value.trim(); if(!query) return;
-    if(currentTab==='goodsreceipt'&&systemLabelCode(query.toUpperCase())){
+    if(isPurchaseDocumentLabel(query)){
       const [match]=inventoryLabelMatches(query);
       if(match) addDocumentScannedProduct(match.product.id,match.unitName);
       else { showToast('ไม่พบป้ายบาร์โค้ดนี้ในร้านที่เลือก','danger-top');input.select(); }
