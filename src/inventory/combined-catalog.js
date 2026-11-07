@@ -43,8 +43,10 @@ function renderCombinedCatalog(stockOnly){
   }
   const heading=stockOnly?'สินค้าคงเหลือ':'ราคาสินค้า';
   return `<section class="rpt combined-catalog" data-combined-stock="${stockOnly}"><div class="pagehead"><h1>${heading} · คลังรวม</h1><span data-combined-count aria-live="polite"></span></div>
-    <div class="rpt-filters"><select class="rpt-select" data-combined-category aria-label="หมวดหลัก"></select><select class="rpt-select" data-combined-brand aria-label="หมวดย่อย"></select><div class="combined-search-group"><input data-combined-search class="barcode-print-search" placeholder="ค้นหาชื่อสินค้า หรือบาร์โค้ด" aria-label="ค้นหาสินค้า">
-    <div class="combined-legend"><button type="button" class="legend-phonchai" data-exclusive-shop="พรชัย" aria-pressed="false" title="แสดงเฉพาะสินค้าที่มีแค่ร้านพรชัย">พรชัย</button><button type="button" class="legend-phraya" data-exclusive-shop="พระยาสุเรนทร์" aria-pressed="false" title="แสดงเฉพาะสินค้าที่มีแค่ร้านพระยาสุเรนทร์">พระยาสุเรนทร์</button></div></div></div>
+    <div class="tree-pane"><div class="product-group-header"><span class="product-group-title">กลุ่มสินค้า</span><span class="product-group-separator">:</span><div class="product-group-categories" data-combined-categories role="group" aria-label="หมวดหลัก"></div></div>
+    <div class="product-group-brands" data-combined-brands role="group" aria-label="หมวดย่อย"></div></div>
+    <div class="product-list-search combined-search-group"><input data-combined-search placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" aria-label="ค้นหาสินค้า">
+    <div class="product-review-filters combined-legend" role="group" aria-label="กรองสินค้าตามร้าน">${['','พระยาสุเรนทร์','พรชัย'].map(shop=>`<button type="button" class="product-review-filter" data-exclusive-shop="${shop}" aria-pressed="false"><span class="product-review-filter-dot" aria-hidden="true"></span>${shop||'ทั้งหมด'}</button>`).join('')}</div></div>
     <div class="seamless-table-wrap" data-combined-results></div><div data-combined-pager></div></section>`;
 }
 // A manual unit choice belongs to this user's combined view, across both pages.
@@ -148,7 +150,7 @@ const combinedShopFilters=new Map();
 function attachCombinedCatalog(page){
   const shops=accessibleWarehouses().slice().sort((a,b)=>a.id-b.id);
   const rows=combinedCatalogRows(products);
-  const cat=page.querySelector('[data-combined-category]'),brand=page.querySelector('[data-combined-brand]');
+  const categories=page.querySelector('[data-combined-categories]'),brands=page.querySelector('[data-combined-brands]');
   const search=page.querySelector('[data-combined-search]');
   const stockOnly=page.dataset.combinedStock==='true';
   const storeButtons=page.querySelectorAll('[data-exclusive-shop]');
@@ -156,14 +158,30 @@ function attachCombinedCatalog(page){
   const exclusiveShop=row=>row.members.length===1?shopNames.get(row.members[0].warehouse):'';
   const actor=currentProfile.id;
   const pageSize=10;
-  const options=(values,title)=>`<option value="">${title}: ทั้งหมด</option>`+[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'th')).map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
-  const configured=effectiveProductCategorySettings();
-  cat.innerHTML=options(configured.categories,'หมวดหลัก');
-  const updateBrands=()=>{
-    const names=configured.subcategories.filter(sub=>!cat.value||sub.categories.includes(cat.value)).map(sub=>sub.name);
-    brand.innerHTML=options(names,'หมวดย่อย');
-  };
-  updateBrands();
+  const {tree}=buildGroupTree();
+  const categoryNames=productGroupCategoryNames(tree);
+  let category='',brand='';
+  const mainCategory=p=>String(p.category||'').trim()||'ไม่ทราบหมวดหมู่';
+  const subCategory=p=>p.brand||'ทั่วไป';
+  function drawGroups(){
+    const catCounts=new Map(),brandCounts=new Map(),shop=combinedShopFilters.get(actor);
+    for(const row of rows){
+      if(shop&&exclusiveShop(row)!==shop)continue;
+      const cats=new Set(),subs=new Set();
+      for(const {product} of row.members){
+        const name=mainCategory(product);
+        cats.add(name);
+        if(name===category)subs.add(subCategory(product));
+      }
+      for(const name of cats)catCounts.set(name,(catCounts.get(name)||0)+1);
+      for(const name of subs)brandCounts.set(name,(brandCounts.get(name)||0)+1);
+    }
+    function buttons(names,kind,selected,counts){
+      return names.map(name=>`<button type="button" class="product-group-${kind}${name===selected?' active':''}" data-combined-${kind}="${escapeHtml(name)}" aria-pressed="${name===selected}"><span>${escapeHtml(name)}</span><span class="product-group-${kind}-count">${counts.get(name)||0}</span></button>`).join('');
+    }
+    categories.innerHTML=buttons(categoryNames,'category',category,catCounts);
+    brands.innerHTML=category?buttons([...tree[category]].sort((a,b)=>a.localeCompare(b,'th')),'brand',brand,brandCounts):'<div class="product-group-empty">เลือกกลุ่มสินค้าหลักเพื่อแสดงหมวดสินค้าย่อย</div>';
+  }
   let pageNo=1;
   const pager=page.querySelector('[data-combined-pager]');
   const results=page.querySelector('[data-combined-results]');
@@ -177,8 +195,8 @@ function attachCombinedCatalog(page){
     const shopFilter=combinedShopFilters.get(actor)||'';
     storeButtons.forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.exclusiveShop===shopFilter)));
     const term=search.value.trim().toLowerCase();
-    const matches=rows.filter(row=>(!shopFilter||exclusiveShop(row)===shopFilter)&&row.members.some(({product})=>(!cat.value||cat.value===product.category)&&(!brand.value||brand.value===product.brand))&&
-      (!term||row.name.toLowerCase().includes(term)||row.options.some(option=>barcodeMatches(option,term))));
+    const matches=rows.filter(row=>(!shopFilter||exclusiveShop(row)===shopFilter)&&row.members.some(({product})=>(!category||category===mainCategory(product))&&(!brand||brand===subCategory(product)))&&
+      (!term||row.name.toLowerCase().includes(term)||row.members.some(({product})=>String(product.sku||'').toLowerCase().includes(term))||row.options.some(option=>barcodeMatches(option,term))));
     const pages=Math.max(1,Math.ceil(matches.length/pageSize));
     pageNo=Math.min(pageNo,pages);
     const headers=shops.map(shop=>stockOnly?`<th>คงเหลือ · ${escapeHtml(shop.name)}</th>`:`<th>ราคาขาย · ${escapeHtml(shop.name)}</th><th>ทุน · ${escapeHtml(shop.name)}</th>`).join('');
@@ -203,14 +221,24 @@ function attachCombinedCatalog(page){
     page.querySelector('[data-combined-count]').textContent=`${matches.length} รายการ · หน้า ${pageNo} / ${pages}`;
     pager.innerHTML=pagerHtml(pageNo,pages,'combined-page');
   }
-  cat.onchange=()=>{updateBrands();pageNo=1;draw();};
-  brand.onchange=()=>{pageNo=1;draw();};
+  for(const [host,kind] of [[categories,'category'],[brands,'brand']]){
+    const attr='data-combined-'+kind;
+    host.onclick=event=>{
+      const button=event.target.closest(`[${attr}]`);
+      if(!button)return;
+      const name=button.getAttribute(attr);
+      if(kind==='category'){category=category===name?'':name;brand='';}
+      else brand=brand===name?'':name;
+      pageNo=1;drawGroups();draw();
+      host.querySelector(`[${attr}="${CSS.escape(name)}"]`)?.focus({preventScroll:true});
+    };
+  }
   search.oninput=()=>{pageNo=1;draw();};
   storeButtons.forEach(button=>button.onclick=()=>{
     const shop=button.dataset.exclusiveShop;
-    if(combinedShopFilters.get(actor)===shop)combinedShopFilters.delete(actor);
+    if(!shop||combinedShopFilters.get(actor)===shop)combinedShopFilters.delete(actor);
     else combinedShopFilters.set(actor,shop);
-    pageNo=1;draw();
+    pageNo=1;drawGroups();draw();
   });
   results.onchange=event=>{
     const select=event.target.closest('[data-combined-unit]');
@@ -227,7 +255,7 @@ function attachCombinedCatalog(page){
     draw();
     (pager.querySelector(`[data-combined-page="${value}"]:not(:disabled)`)||pager.querySelector('.active'))?.focus({preventScroll:true});
   };
-  draw();
+  drawGroups();draw();
   let refreshing=false;
   page.refreshCombinedUnits=async()=>{
     if(refreshing)return;

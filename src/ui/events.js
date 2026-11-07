@@ -25,14 +25,14 @@ function attachContactListEvents(root=document){
   }));
 }
 function attachProductGroupEvents(root=document){
-  root.querySelectorAll('.product-group-category').forEach(el=>{
+  root.querySelectorAll('.product-group-category[data-product-category]').forEach(el=>{
     el.addEventListener('click',()=>{
       selectedGroup={cat:el.dataset.productCategory};
       productPage=1;
       render();
     });
   });
-  root.querySelectorAll('.product-group-brand').forEach(el=>{
+  root.querySelectorAll('.product-group-brand[data-product-brand]').forEach(el=>{
     el.addEventListener('click',()=>{
       selectedGroup={cat:el.dataset.productCategory,brand:el.dataset.productBrand};
       productPage=1;

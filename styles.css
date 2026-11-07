@@ -2915,20 +2915,17 @@
 
 .rpt.combined-catalog,.rpt.store-inventory-report{width:100%;max-width:none;box-sizing:border-box}
 .combined-catalog{display:flex;flex-direction:column;height:100%;min-height:0}
-.combined-catalog>.pagehead,.combined-catalog>.rpt-filters,.combined-catalog>[data-combined-pager]{flex:none}
-.combined-catalog .rpt-filters{gap:12px;flex-wrap:wrap;margin-bottom:16px}
-.combined-search-group{flex:1 1 500px;min-width:0;display:flex;align-items:center;gap:12px}
-.combined-catalog [data-combined-search]{flex:1;min-width:0}
+.combined-catalog>.pagehead,.combined-catalog>.tree-pane,.combined-search-group,.combined-catalog>[data-combined-pager]{flex:none}
+.combined-catalog>.tree-pane{border:0}
+.combined-catalog .product-group-brands{max-height:20vh;overflow-y:auto}
+.combined-search-group{margin:12px 0}
+.combined-catalog [data-combined-search]{flex:1 1 240px;min-width:0}
 .combined-catalog [data-combined-results]{flex:1;min-height:64px;max-height:none;overflow:auto}
 .combined-catalog .pager{margin-top:10px}
 .combined-catalog .combined-amount,.combined-catalog .combined-barcode{text-align:center}
 .combined-unit-cell{min-height:32px;display:flex;align-items:center;justify-content:center}
 .combined-catalog .only-phonchai td{background:#fff0da}
 .combined-catalog .only-phraya td{background:#f2e8fa}
-.combined-legend{display:flex;align-items:center;gap:12px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
-.combined-legend button{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;padding:6px 9px;border:1px solid transparent;border-radius:7px;background:transparent;color:inherit;font:inherit;cursor:pointer}
-.combined-legend button:hover,.combined-legend button[aria-pressed="true"]{background:var(--surface);border-color:var(--legend-dot)}
-.combined-legend button[aria-pressed="true"]{box-shadow:inset 0 0 0 1px var(--legend-dot)}
-.combined-legend button::before{content:"";width:12px;height:12px;border-radius:50%;background:var(--legend-dot)}
-.combined-legend .legend-phonchai{--legend-dot:#e58a27}
-.combined-legend .legend-phraya{--legend-dot:#9559bd}
+.combined-legend{margin-left:auto}
+.combined-legend [data-exclusive-shop="พระยาสุเรนทร์"] .product-review-filter-dot{background:#9559bd}
+.combined-legend [data-exclusive-shop="พรชัย"] .product-review-filter-dot{background:#e58a27}

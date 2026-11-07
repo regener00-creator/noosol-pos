@@ -243,6 +243,18 @@ function buildGroupTree(){
   return {tree, catCounts, brCounts};
 }
 
+function productGroupCategoryNames(tree){
+  const requestedCategoryOrder=['ยา','อาหารเสริม','อื่นๆ','ไม่ทราบหมวดหมู่'];
+  return Object.keys(tree).sort((a,b)=>{
+    const ai=requestedCategoryOrder.indexOf(a),bi=requestedCategoryOrder.indexOf(b);
+    if(ai>=0||bi>=0){
+      if(ai<0)return b==='ไม่ทราบหมวดหมู่'?-1:1;
+      if(bi<0)return a==='ไม่ทราบหมวดหมู่'?1:-1;
+      return ai-bi;
+    }
+    return a.localeCompare(b,'th');
+  });
+}
 function lotQuantityText(product,lot){
   if(!product) return `${inventoryMovementRound(lot?.quantity_base)} หน่วย`;
   return stockInLargestUnit({...product,stock:Number(lot?.quantity_base)||0});

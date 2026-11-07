@@ -23,16 +23,7 @@ function renderProducts({resultsOnly=false}={}){
   }) : [];
 
   // หมวดหลักอยู่ในแถบสีฟ้า ส่วนหมวดย่อยของหมวดที่เลือกอยู่ในพื้นที่สีขาวด้านล่าง
-  const requestedCategoryOrder=['ยา','อาหารเสริม','อื่นๆ','ไม่ทราบหมวดหมู่'];
-  const categoryNames=Object.keys(tree).sort((a,b)=>{
-    const ai=requestedCategoryOrder.indexOf(a),bi=requestedCategoryOrder.indexOf(b);
-    if(ai>=0||bi>=0){
-      if(ai<0) return b==='ไม่ทราบหมวดหมู่'?-1:1;
-      if(bi<0) return a==='ไม่ทราบหมวดหมู่'?1:-1;
-      return ai-bi;
-    }
-    return a.localeCompare(b,'th');
-  });
+  const categoryNames=productGroupCategoryNames(tree);
   const activeCategory=selectedGroup?.cat&&tree[selectedGroup.cat]?selectedGroup.cat:'';
   const categoryHtml=categoryNames.map(cat=>{
     const active=activeCategory===cat;
