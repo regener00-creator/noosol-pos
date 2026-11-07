@@ -263,7 +263,7 @@ function documentItemsPreview(items){
   return `<div class="doc-item-preview">${shown||'-'} ${more}</div>`;
 }
 function shortageRepresentativeContact(name){
-  const rep=salesRepresentatives.find(item=>item.name===name);
+  const rep=storeRepresentatives().find(item=>item.name===name);
   if(!rep) return '<div class="shortage-contact">-</div>';
   return `<div class="shortage-contact"><div><small>โทร</small><span class="mono">${escapeHtml(rep.phone||'-')}</span></div><div><small>ไลน์</small><span>${escapeHtml(rep.line||'-')}</span></div></div>`;
 }

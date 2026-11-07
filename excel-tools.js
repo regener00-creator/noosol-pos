@@ -301,10 +301,10 @@ function salesRepresentativeExcelSheet(rows,headers,widths,dateFormats={}){
   });
   return sheet;
 }
-async function loadSalesRepresentativeExcelDetails(){
+async function loadSalesRepresentativeExcelDetails(warehouseId){
   const [assignmentResult,noteResult]=await Promise.all([
-    fetchAllRows(()=>sb.from('sales_representative_products').select('representative_id,product_id,created_at,updated_at').order('representative_id').order('product_id')),
-    fetchAllRows(()=>sb.from('notes').select(NOTE_ROW_SELECT).not('activity_type','is',null).order('event_date',{ascending:false}).order('updated_at',{ascending:false}))
+    fetchAllRows(()=>sb.from('sales_representative_products').select('representative_id,product_id,created_at,updated_at,sales_representatives!inner(warehouse_id)').eq('sales_representatives.warehouse_id',warehouseId).order('representative_id').order('product_id')),
+    fetchAllRows(()=>sb.from('notes').select(NOTE_ROW_SELECT).eq('representative_warehouse_id',warehouseId).not('activity_type','is',null).order('event_date',{ascending:false}).order('updated_at',{ascending:false}).order('id'))
   ]);
   if(assignmentResult.error) throw assignmentResult.error;
   if(noteResult.error) throw noteResult.error;
@@ -314,6 +314,7 @@ async function loadSalesRepresentativeExcelDetails(){
   };
 }
 async function importSalesRepresentativesFromExcel(file){
+  const warehouseId=Number(activeWarehouseId);
   try{ await ensureXlsxLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบอ่าน Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
   let workbook;
   try{ workbook=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:false}); }
@@ -321,6 +322,9 @@ async function importSalesRepresentativesFromExcel(file){
   const firstSheet=workbook.Sheets[workbook.SheetNames[0]];
   const sourceRows=XLSX.utils.sheet_to_json(firstSheet,{defval:'',raw:true});
   if(!sourceRows.length){ showToast('ไม่พบรายชื่อผู้แทนในไฟล์'); return; }
+  if(!warehouseId||warehouseId!==Number(activeWarehouseId)||isAllWarehousesMode())return;
+  const localReps=storeRepresentatives();
+  const outsideIds=new Set(salesRepresentatives.filter(r=>!documentInActiveStore(r)).map(r=>Number(r.id)));
 
   const toCreate=[];
   const toUpdate=[];
@@ -341,9 +345,10 @@ async function importSalesRepresentativesFromExcel(file){
     };
     let existing=null;
     const systemId=productImportNumber(productImportValue(row,['รหัสอ้างอิงระบบ','systemid']),NaN);
-    if(Number.isFinite(systemId)) existing=salesRepresentatives.find(representative=>representative.id===systemId)||null;
-    if(!existing&&legacyCode) existing=salesRepresentatives.find(representative=>String(representative.code||'').trim().toLowerCase()===legacyCode.toLowerCase())||null;
-    if(!existing) existing=salesRepresentatives.find(representative=>String(representative.name||'').trim().toLowerCase()===normalizedName)||null;
+    if(outsideIds.has(systemId)){skipped.push(`แถว ${line}: ผู้แทนเป็นของร้านอื่น`);return;}
+    if(Number.isFinite(systemId)) existing=localReps.find(representative=>representative.id===systemId)||null;
+    if(!existing&&legacyCode) existing=localReps.find(representative=>String(representative.code||'').trim().toLowerCase()===legacyCode.toLowerCase())||null;
+    if(!existing) existing=localReps.find(representative=>String(representative.name||'').trim().toLowerCase()===normalizedName)||null;
     const fileKey=existing?`id:${existing.id}`:(legacyCode?`code:${legacyCode.toLowerCase()}`:`name:${normalizedName}`);
     if(seenInFile.has(fileKey)){ skipped.push(`แถว ${line}: ซ้ำกับแถวก่อนหน้าในไฟล์เดียวกัน (${name})`); return; }
     seenInFile.add(fileKey);
@@ -359,24 +364,28 @@ async function importSalesRepresentativesFromExcel(file){
     const oldName=existing.name;
     Object.assign(existing,data);
     if(oldName!==data.name){
-      purchaseOrders.forEach(document=>{ if(document.supplier===oldName) document.supplier=data.name; });
+      purchaseOrders.forEach(document=>{ if(documentInActiveStore(document)&&document.supplier===oldName) document.supplier=data.name; });
       if(poDraft?.supplier===oldName) poDraft.supplier=data.name;
     }
   });
-  toCreate.forEach(data=>salesRepresentatives.push({id:generateClientRecordId(salesRepresentatives),...data}));
+  toCreate.forEach(data=>salesRepresentatives.push({id:generateClientRecordId(salesRepresentatives),warehouseId,...data}));
   persistWorkspaceData();
   showToast(`นำเข้ารายชื่อผู้แทนสำเร็จ · เพิ่มใหม่ ${toCreate.length} · อัปเดต ${toUpdate.length}${skipped.length?` · ข้าม ${skipped.length}`:''}`);
   render();
 }
 async function exportSalesRepresentativesToExcel(){
+  const warehouseId=activeWarehouseId;
   const button=document.getElementById('exportSalesRepsBtn');
   const originalLabel=button?.textContent||'ส่งออก Excel';
   if(button){ button.disabled=true; button.textContent='กำลังเตรียม Excel…'; }
   try{
     await ensureXlsxLoaded();
-    if(!salesRepresentatives.length){ showToast('ยังไม่มีรายชื่อผู้แทนให้ส่งออก'); return; }
-    const details=await loadSalesRepresentativeExcelDetails();
-    const {representativeRows,noteRows,productRows}=salesRepresentativeExportRows(salesRepresentatives,details.assignments,details.notes,products);
+    if(warehouseId!==activeWarehouseId||isAllWarehousesMode())return;
+    const representatives=storeRepresentatives();
+    if(!representatives.length){ showToast('ยังไม่มีรายชื่อผู้แทนให้ส่งออก'); return; }
+    const details=await loadSalesRepresentativeExcelDetails(warehouseId);
+    if(warehouseId!==activeWarehouseId||isAllWarehousesMode())return;
+    const {representativeRows,noteRows,productRows}=salesRepresentativeExportRows(representatives,details.assignments,details.notes,products);
     const workbook=XLSX.utils.book_new();
     const representativeSheet=salesRepresentativeExcelSheet(representativeRows,SALES_REP_EXPORT_HEADERS,[18,28,18,22,32,42,20,16]);
     XLSX.utils.book_append_sheet(workbook,representativeSheet,'รายชื่อผู้แทน');

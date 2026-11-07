@@ -19,11 +19,30 @@ let browser;
   browser=await chromium.launch({headless:true,executablePath});
   const page=await browser.newPage({viewport:{width:1400,height:1000}}),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
-  await installIsolatedBrowser(page);await page.goto(`http://127.0.0.1:${server.address().port}/`);await waitForIsolatedBootstrap(page);
-  await page.evaluate(async()=>{
+  const sharedPreferences=new Map();
+  async function setupDevice(page){
+    await installIsolatedBrowser(page);await page.goto(`http://127.0.0.1:${server.address().port}/`);await waitForIsolatedBootstrap(page);
+    await page.exposeFunction('requestUnits',({rows,ignore,actor})=>{
+      if(rows){
+        for(const row of [].concat(rows)){
+          const key=row.user_id+':'+row.product_id;
+          if(!ignore||!sharedPreferences.has(key))sharedPreferences.set(key,row);
+        }
+        return {error:null};
+      }
+      return {data:[...sharedPreferences.values()].filter(row=>row.user_id===actor),error:null};
+    });
+    await page.evaluate(async()=>{
     await ensurePageCodeLoaded('barcodeprint');await ensurePageCodeLoaded('products');await ensurePageCodeLoaded('rinventory');
     document.querySelectorAll('.login-screen,.warehouse-choice-screen').forEach(el=>el.remove());document.getElementById('appRoot').hidden=false;
     currentProfile={id:'test-owner',owner:true,level:1};renderLoginState=()=>true;ensureOnDemandDataForTab=()=>({status:'ready'});
+    const originalFrom=sb.from.bind(sb);
+    sb.from=table=>{
+      if(table!=='combined_catalog_unit_preferences')return originalFrom(table);
+      const query={select(){return this;},eq(_field,actor){this.actor=actor;return this;},order(){return this;},range(){return window.requestUnits({actor:this.actor});},
+        upsert(rows,options){return window.requestUnits({rows,ignore:options.ignoreDuplicates});}};
+      return query;
+    };
     loadWarehouseInventoryFromSupabase=async()=>true;loadCashShiftsFromSupabase=async()=>{};saveOfflinePosSnapshot=async()=>{};
     warehouses=[{id:1,name:'พระยาสุเรนทร์'},{id:2,name:'พรชัย'}];
     const item=(id,wh,name,barcode,price,cost)=>({id,wh,name,barcode,sku:'SKU'+id,price,cost,category:'ยา',brand:'ทั่วไป',unit:'ซอง',units:[],active:true});
@@ -33,9 +52,12 @@ let browser;
     currentTab='products';activeWarehouseId=1;allWarehousesMode=false;setWarehouseProductCatalog(rows);
     contacts=[{id:901,name:'ชื่อเหมือนกัน',phone:'0801111111',types:['customer','supplier']},
       {id:902,warehouseId:2,name:'ชื่อเหมือนกัน',phone:'0801111111',types:['customer','supplier']}];
+    salesRepresentatives=[{id:21,name:'ผู้แทนเดิม'},{id:22,name:'ผู้แทนพรชัย',warehouseId:2}];
     loadedInventoryBalanceWarehouseIds=new Set([1,2]);inventoryBalanceRows=[{product_id:11,warehouse_id:1,stock:0},{product_id:12,warehouse_id:2,stock:17}];rebuildInventoryBalanceMap();
     selectActiveWarehouse(1);render();
-  });
+    });
+  }
+  await setupDevice(page);
   await page.evaluate(()=>{searchQuery='Decolgen';render();});
   const regularRowHeight=await page.locator('.prodtable tbody tr').first().evaluate(el=>el.getBoundingClientRect().height);
   for(const [wh,id,price,cost] of [[1,11,40,22],[2,12,45,28]]){
@@ -44,16 +66,19 @@ let browser;
       return {id:found.product.id,price:cart[0].price,cost:cart[0].cost,wrong:products.some(product=>product.wh!==wh),all:completeProductCatalog().length};
     },{wh});assert.deepEqual(result,{id,price,cost,wrong:false,all:4});
     assert.deepEqual(await page.evaluate(()=>[customersList().map(c=>c.id),suppliersList().map(c=>c.id),duplicateCustomerPhone('080-111-1111')?.id]),[[900+wh],[900+wh],900+wh]);
+    assert.deepEqual(await page.evaluate(()=>storeRepresentatives().map(r=>r.id)),[20+wh]);
   }
-  await page.evaluate(()=>{selectActiveWarehouse('all');render();});
+  await page.evaluate(()=>{localStorage.setItem(combinedUnitPreferenceKey(11),'ซอง');selectActiveWarehouse('all');render();});
+  await page.waitForFunction(async()=>(await window.requestUnits({actor:currentProfile.id})).data.some(row=>row.product_id===11&&row.unit_name==='ซอง'));
   const nav=await page.locator('.navbtn').evaluateAll(buttons=>buttons.map(b=>b.dataset.tab).sort());
-  assert.deepEqual(nav,['products','representativehistory','rinventory']);
+  assert.deepEqual(nav,['products','rinventory']);
   await page.evaluate(()=>ensurePageCodeLoaded('representativehistory'));
   assert.deepEqual(await page.evaluate(()=>[canEditNote({createdBy:currentProfile.id}),canDeleteNote({createdBy:currentProfile.id})]),[false,false]);
   const dec=page.locator('[data-combined-results] tr').filter({hasText:'Decolgen'}).filter({hasText:'ซอง'});
   assert.equal(await dec.count(),1);
   assert.equal(await dec.locator('select option:checked').innerText(),'ซอง');
   assert.deepEqual((await dec.locator('td').allTextContents()).slice(2),['40.00','22.00','45.00','28.00']);
+  assert.deepEqual(await dec.locator('.combined-amount').evaluateAll(cells=>cells.map(cell=>getComputedStyle(cell).textAlign)),Array(4).fill('center'));
   await dec.locator('select').selectOption('กล่อง');
   assert.deepEqual((await dec.locator('td').allTextContents()).slice(2),['180.00','110.00','399.00','270.00']);
   await dec.locator('select').selectOption('ลัง');
@@ -123,6 +148,21 @@ let browser;
   await page.locator('.navbtn[data-tab="products"]').click();
   assert.equal(await dec.locator('select').inputValue(),'ลัง','PRODUCT uses the last unit chosen in stock');
   assert.deepEqual((await dec.locator('td').allTextContents()).slice(2),['—','—','700.00','540.00']);
+  await page.evaluate(()=>{selectActiveWarehouse(2);currentTab='transfer';render();});
+  await page.waitForFunction(()=>combinedUnitWrites.size===0);
+  const second=await browser.newPage();
+  await setupDevice(second);
+  await second.evaluate(()=>{selectActiveWarehouse('all');currentTab='rinventory';render();});
+  await second.waitForFunction(()=>document.querySelector('[data-combined-unit="11"]')?.value==='ลัง');
+  await second.context().setOffline(true);
+  await second.locator('[data-combined-unit="11"]').selectOption('กล่อง');
+  assert.equal(sharedPreferences.get('test-owner:11').unit_name,'ลัง');
+  await second.context().setOffline(false);
+  await second.waitForFunction(async()=>(await window.requestUnits({actor:currentProfile.id})).data.some(row=>row.product_id===11&&row.unit_name==='กล่อง'));
+  await second.waitForFunction(()=>combinedUnitWrites.size===0);
+  await page.evaluate(()=>{selectActiveWarehouse('all');currentTab='products';render();});
+  await page.waitForFunction(()=>document.querySelector('[data-combined-unit="11"]')?.value==='กล่อง');
+  await second.close();
   await page.evaluate(()=>{selectActiveWarehouse(2);currentTab='transfer';render();});
   assert.equal(await page.locator('.navbtn[data-tab="transfer"]').count(),0);assert.notEqual(await page.evaluate(()=>currentTab),'transfer');
   assert.deepEqual(errors,[]);

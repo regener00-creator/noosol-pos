@@ -70,7 +70,7 @@ assert.match(events,/exportSalesRepresentativesToExcel/);
 const exportStart=html.indexOf('async function exportSalesRepresentativesToExcel()');
 const exportEnd=html.indexOf('function collectCustomerPriceRules()',exportStart);
 const exportCode=html.slice(exportStart,exportEnd);
-assert.match(exportCode,/loadSalesRepresentativeExcelDetails\(\)/);
+assert.match(exportCode,/loadSalesRepresentativeExcelDetails\(warehouseId\)/);
 assert.match(exportCode,/book_append_sheet\(workbook,noteSheet,'NOTE ผู้แทน'\)/);
 assert.match(exportCode,/book_append_sheet\(workbook,productSheet,'สินค้าที่ดูแล'\)/);
 assert.match(exportCode,/NOTE \$\{noteRows\.length\} รายการ/);

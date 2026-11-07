@@ -37,9 +37,11 @@ async function fetchRepresentativeNoteMetadata(representativeIds,noteIds){
   }
   return result;
 }
-function representativeForActivityId(id){ return salesRepresentatives.find(rep=>Number(rep.id)===Number(id))||null; }
+function representativeForActivityId(id){ return storeRepresentatives().find(rep=>Number(rep.id)===Number(id))||null; }
 function productForActivityId(id){ return products.find(product=>Number(product.id)===Number(id))||null; }
+let representativeLoadVersion=0;
 function resetRepresentativeActivityLoad(){
+  representativeLoadVersion++;
   representativeActivityNotes=[];
   representativeProductAssignments=[];
   representativeHistoryRepresentativeIds=[];
@@ -57,6 +59,7 @@ function resetRepresentativeActivityLoad(){
 }
 function openRepresentativeHistory({representativeId=null,productId=null,originTab=currentTab}={}){
   if(!representativeId&&!productId) return;
+  if(isAllWarehousesMode()||(representativeId&&!representativeForActivityId(representativeId))||(productId&&!productForActivityId(productId)))return;
   representativeHistoryContext={
     representativeId:representativeId?Number(representativeId):null,
     productId:productId?Number(productId):null,
@@ -98,6 +101,7 @@ function renderRepresentativeHistoryOverview(){
 async function loadRepresentativeActivityHistory({force=false,append=false}={}){
   const context=representativeHistoryContext,key=representativeHistoryKey(context);
   if(!context||representativeActivityLoading||(!force&&!append&&representativeActivityLoadedKey===key)) return;
+  const version=++representativeLoadVersion;
   if(force&&!append){
     representativeActivityNotes=[];
     representativeProductAssignments=[];
@@ -135,7 +139,7 @@ async function loadRepresentativeActivityHistory({force=false,append=false}={}){
       const metadataResult=await fetchRepresentativeNoteMetadata([representativeId],page.map(note=>note.id));
       if(metadataResult.error) throw metadataResult.error;
       const mappedAssignments=(assignmentResult.data||[]).map(row=>({representativeId:Number(row.representative_id),productId:Number(row.product_id),createdAt:row.created_at||'',updatedAt:row.updated_at||''}));
-      if(representativeHistoryKey()!==key) return;
+      if(version!==representativeLoadVersion||representativeHistoryKey()!==key) return;
       representativeHistoryRepresentativeIds=[representativeId];
       representativeProductAssignments=mappedAssignments;
       if(append){
@@ -150,6 +154,7 @@ async function loadRepresentativeActivityHistory({force=false,append=false}={}){
     }else{
       const cursor=append?representativeHistoryCursor:null;
       const pageResult=await sb.rpc('get_representative_page',{
+        p_warehouse_id:Number(activeWarehouseId)||1,
         p_representative_id:context.representativeId?Number(context.representativeId):null,
         p_product_id:context.productId?Number(context.productId):null,
         p_representative_search:String(representativeHistoryFilter.representativeSearch||'').trim()||null,
@@ -171,7 +176,7 @@ async function loadRepresentativeActivityHistory({force=false,append=false}={}){
       if(noteResult.error) throw noteResult.error;
       const noteMetadataResult=await fetchRepresentativeNoteMetadata(pageIds,(noteResult.data||[]).map(row=>row.id));
       if(noteMetadataResult.error) throw noteMetadataResult.error;
-      if(representativeHistoryKey()!==key) return;
+      if(version!==representativeLoadVersion||representativeHistoryKey()!==key) return;
       const assignments=(assignmentResult.data||[]).map(row=>({representativeId:Number(row.representative_id),productId:Number(row.product_id),createdAt:row.created_at||'',updatedAt:row.updated_at||''}));
       const activityNotes=(noteResult.data||[]).map(mapNoteRow);
       if(append){
@@ -190,10 +195,12 @@ async function loadRepresentativeActivityHistory({force=false,append=false}={}){
     }
     representativeActivityLoadedKey=key;
   }catch(error){
-    representativeActivityLoadError=error?.message||'โหลดประวัติผู้แทนและสินค้าไม่สำเร็จ';
+    if(version===representativeLoadVersion&&representativeHistoryKey()===key)representativeActivityLoadError=error?.message||'โหลดประวัติผู้แทนและสินค้าไม่สำเร็จ';
   }finally{
-    representativeActivityLoading=false;
-    if(isRepresentativeHistoryScreen()&&representativeHistoryKey()===key) render();
+    if(version===representativeLoadVersion){
+      representativeActivityLoading=false;
+      if(isRepresentativeHistoryScreen())render();
+    }
   }
 }
 function normalizedActivityName(value){ return String(value||'').trim().toLocaleLowerCase('th-TH'); }
@@ -202,10 +209,10 @@ function documentRepresentative(doc){
   if(explicit) return explicit;
   const supplier=normalizedActivityName(doc?.supplier||doc?.representative||doc?.salesRepresentative);
   if(!supplier) return null;
-  const nameMatches=salesRepresentatives.filter(rep=>normalizedActivityName(rep.name)===supplier);
+  const nameMatches=storeRepresentatives().filter(rep=>normalizedActivityName(rep.name)===supplier);
   if(nameMatches.length===1) return nameMatches[0];
   if(nameMatches.length>1) return null;
-  const companyMatches=salesRepresentatives.filter(rep=>normalizedActivityName(rep.company)===supplier);
+  const companyMatches=storeRepresentatives().filter(rep=>normalizedActivityName(rep.company)===supplier);
   return companyMatches.length===1?companyMatches[0]:null;
 }
 function documentActivityItems(doc){
@@ -230,6 +237,7 @@ function representativeDocumentActivities(context=representativeHistoryContext){
   ];
   const events=[];
   sources.forEach(source=>(source.rows||[]).forEach(doc=>{
+    if(!documentInActiveStore(doc))return;
     const representative=documentRepresentative(doc);
     if(context.representativeId&&Number(representative?.id)!==Number(context.representativeId)) return;
     if(context.central&&!representative) return;
@@ -316,7 +324,7 @@ async function loadRepresentativeManagedProductIndex({force=false}={}){
   const requestToken=++representativeManagedProductIndexToken;
   const request=(async()=>{
     try{
-      const {data,error}=await fetchAllRows(()=>sb.from('sales_representative_products').select('representative_id,product_id').order('product_id'));
+      const {data,error}=await fetchAllRows(()=>sb.from('sales_representative_products').select('representative_id,product_id,sales_representatives!inner(warehouse_id)').eq('sales_representatives.warehouse_id',activeWarehouseId).order('product_id').order('representative_id'));
       if(error) throw error;
       if(requestToken!==representativeManagedProductIndexToken||String(currentProfile?.id||'')!==profileId) return false;
       const previousProductHtml=currentTab==='products'&&editingProductId===null?renderProducts():null;
@@ -415,7 +423,7 @@ function representativeProductsEditorModalHtml(){
 function representativeEditorModalHtml(){
   if(editingSalesRepresentativeId===null) return '';
   const isNew=editingSalesRepresentativeId==='new';
-  const representative=isNew?{name:'',phone:'',line:'',company:'',note:''}:salesRepresentatives.find(item=>Number(item.id)===Number(editingSalesRepresentativeId));
+  const representative=isNew?{name:'',phone:'',line:'',company:'',note:''}:storeRepresentatives().find(item=>Number(item.id)===Number(editingSalesRepresentativeId));
   if(!representative) return '';
   return `<div class="modal-overlay representative-editor-overlay"><section class="modal representative-editor-modal" role="dialog" aria-modal="true" aria-labelledby="representativeEditorTitle">
     <div class="modal-head"><div><h3 id="representativeEditorTitle">${isNew?'เพิ่มข้อมูลผู้แทน':'แก้ไขข้อมูลผู้แทน'}</h3></div><button class="modal-close" id="cancelSalesRepBtn" type="button" aria-label="ปิด">×</button></div>
@@ -589,7 +597,7 @@ async function saveRepresentativeActivity(event){
   const draft=representativeActivityDraft;
   if(draft?.id==='new'&&!canPerformPageAction('create','notes')){ showToast('บัญชีนี้ไม่มีสิทธิ์เพิ่มประวัติ','danger-top'); return; }
   if(draft?.id&&draft.id!=='new'&&!canEditNote(representativeActivityNotes.find(note=>String(note.id)===String(draft.id))))return;
-  if(!draft?.representativeId){ showToast('ไม่พบข้อมูลผู้แทน','danger-top'); return; }
+  if(!draft?.representativeId||!representativeForActivityId(draft.representativeId)){ showToast('ไม่พบข้อมูลผู้แทน','danger-top'); return; }
   if(!draft.eventDate){ showToast('กรุณาเลือกวันที่','danger-top'); return; }
   if(!String(draft.title||'').trim()){ showToast('กรุณากรอกหัวข้อ NOTE','danger-top'); document.getElementById('repActivityTitle')?.focus(); return; }
   const title=String(draft.title||'').trim();
@@ -608,6 +616,7 @@ async function saveRepresentativeActivity(event){
     if(!savedId) throw new Error('ฐานข้อมูลไม่ได้ส่งรหัสประวัติกลับมา');
     const savedResult=await sb.from('notes').select(NOTE_ROW_SELECT).eq('id',savedId).single();
     if(savedResult.error) throw savedResult.error;
+    if(representativeActivityDraft!==draft)return;
     const saved=mapNoteRow(savedResult.data);
     const savedIndex=representativeActivityNotes.findIndex(note=>String(note.id)===savedId);
     if(savedIndex>=0) representativeActivityNotes[savedIndex]=saved; else representativeActivityNotes.push(saved);
@@ -687,7 +696,7 @@ async function deleteSelectedRepresentativeNotes(){
 async function deleteSelectedSalesRepresentatives(){
   if(!canPerformPageAction('delete','salesreps')){ showToast('บัญชีนี้ไม่มีสิทธิ์ลบผู้แทน','danger-top'); return; }
   const selectedIds=new Set([...selectedSalesRepresentativeIdsToDelete].map(Number).filter(Boolean));
-  const representatives=salesRepresentatives.filter(representative=>selectedIds.has(Number(representative.id)));
+  const representatives=storeRepresentatives().filter(representative=>selectedIds.has(Number(representative.id)));
   if(!representatives.length){ showToast('กรุณาติ๊กเลือกผู้แทนที่ต้องการลบ','danger-top'); return; }
   if(!confirm(`ยืนยันลบผู้แทนที่เลือก ${representatives.length} คนหรือไม่?\nสินค้าที่ดูแลจะถูกนำออก แต่ NOTE และเอกสารเดิมจะยังคงอยู่เป็นประวัติ`)) return;
   const button=document.getElementById('deleteSelectedSalesRepresentativesBtn');
@@ -746,6 +755,7 @@ async function saveRepresentativeManagedProducts(){
     const productIds=[...editor.productIds].map(Number).filter(Boolean);
     const {error}=await sb.rpc('save_representative_products',{p_representative_id:Number(editor.representativeId),p_product_ids:productIds});
     if(error) throw error;
+    if(representativeProductsEditor!==editor)return;
     representativeProductAssignments=[
       ...representativeProductAssignments.filter(row=>Number(row.representativeId)!==Number(editor.representativeId)),
       ...productIds.map(productId=>({representativeId:Number(editor.representativeId),productId,createdAt:'',updatedAt:''}))

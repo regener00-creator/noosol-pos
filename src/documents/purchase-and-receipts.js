@@ -46,7 +46,7 @@ function openDocumentPartyPicker(trigger){
   const isRepresentative=trigger.dataset.documentParty==='representative';
   const isCustomer=trigger.dataset.documentParty==='customer';
   const title=isRepresentative?'เลือกผู้แทน':isCustomer?'เลือกลูกค้า':'เลือกผู้จำหน่าย';
-  const records=isRepresentative?salesRepresentatives:isCustomer?customersList():suppliersList();
+  const records=isRepresentative?storeRepresentatives():isCustomer?customersList():suppliersList();
   const recordValue=record=>String(isCustomer?record.id:record.name);
   const overlay=document.createElement('div');
   overlay.className='modal-overlay document-party-overlay';
@@ -165,7 +165,7 @@ function documentProductScannerHtml(hideHint=['purchaseorder','goodsreceipt','pr
 
 function shortageRepresentativeEditorHtml(){
   const isNew=poRepresentativeEditorId==='new';
-  const rep=isNew?{name:'',phone:'',line:'',note:''}:salesRepresentatives.find(x=>x.id===poRepresentativeEditorId);
+  const rep=isNew?{name:'',phone:'',line:'',note:''}:storeRepresentatives().find(x=>x.id===poRepresentativeEditorId);
   if(!rep) return '';
   return `<div class="po-supplier-edit wide"><div class="po-supplier-edit-title"><span>${isNew?'เพิ่มรายชื่อผู้แทน':'แก้ไขรายชื่อผู้แทน'}</span><span style="font-size:11px;color:var(--text-muted);font-weight:400;">ข้อมูลจะอัปเดตในสมุดรายชื่อด้วย</span></div>
     <div class="po-supplier-edit-grid"><div><label>ชื่อผู้แทน *</label><input id="po_rep_name" value="${escapeHtml(rep.name||'')}"></div><div><label>เบอร์โทร</label><input id="po_rep_phone" class="phone-input" value="${escapeHtml(rep.phone||'')}"></div><div><label>ไลน์</label><input id="po_rep_line" value="${escapeHtml(rep.line||'')}"></div><div class="wide"><label>ข้อมูลเพิ่มเติม</label><textarea id="po_rep_note" rows="2">${escapeHtml(rep.note||'')}</textarea></div></div>
@@ -190,7 +190,7 @@ function shortageManagedProductStatus(product){
 async function openShortageManagedProductsModal(){
   syncPOFromDOM();
   const draft=activePurchaseDraft();
-  const representative=salesRepresentatives.find(rep=>rep.name===draft?.supplier);
+  const representative=storeRepresentatives().find(rep=>rep.name===draft?.supplier);
   if(!representative){ showToast('กรุณาเลือกผู้แทนก่อนดูสินค้าที่ดูแล'); return; }
   const overlay=document.createElement('div');
   overlay.className='modal-overlay shortage-managed-products-overlay';
@@ -259,7 +259,7 @@ async function openShortageManagedProductsModal(){
 
 function renderShortageOrderForm(po,isNew){
   const canViewCost=loggedInUser()?.owner===true;
-  const representative=salesRepresentatives.find(rep=>rep.name===po.supplier);
+  const representative=storeRepresentatives().find(rep=>rep.name===po.supplier);
   return `<div class="pagehead"><div><div class="breadcrumb">จดสั่งสินค้า › ${isNew?'สร้างรายการจดสั่งสินค้า':'แก้ไขรายการ'}</div><h1>${escapeHtml(po.id)}</h1></div></div>
     <div class="panel"><div class="shortage-form-grid">
       <div class="shortage-form-main">

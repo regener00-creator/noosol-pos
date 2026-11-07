@@ -2018,7 +2018,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const newPORepBtn=document.getElementById('newPORepBtn');
   if(newPORepBtn) newPORepBtn.addEventListener('click',()=>{ syncPOFromDOM(); poRepresentativeEditorId='new'; render(); });
   const editPORepBtn=document.getElementById('editPORepBtn');
-  if(editPORepBtn) editPORepBtn.addEventListener('click',()=>{ syncPOFromDOM(); const draft=activePurchaseDraft(); const rep=salesRepresentatives.find(x=>x.name===draft?.supplier); if(rep){ poRepresentativeEditorId=rep.id; render(); } });
+  if(editPORepBtn) editPORepBtn.addEventListener('click',()=>{ syncPOFromDOM(); const draft=activePurchaseDraft(); const rep=storeRepresentatives().find(x=>x.name===draft?.supplier); if(rep){ poRepresentativeEditorId=rep.id; render(); } });
   const shortageManagedProductsBtn=document.getElementById('shortageManagedProductsBtn');
   if(shortageManagedProductsBtn) shortageManagedProductsBtn.addEventListener('click',openShortageManagedProductsModal);
   const cancelPORepEditBtn=document.getElementById('cancelPORepEditBtn');

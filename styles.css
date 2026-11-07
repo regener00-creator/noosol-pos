@@ -2921,6 +2921,7 @@
 .combined-catalog [data-combined-search]{flex:1;min-width:0}
 .combined-catalog [data-combined-results]{flex:1;min-height:64px;max-height:none;overflow:auto}
 .combined-catalog .pager{margin-top:10px}
+.combined-catalog .combined-amount{text-align:center}
 .combined-unit-cell{min-height:32px;display:flex;align-items:center;justify-content:center}
 .combined-catalog .only-phonchai td,.combined-legend span:first-child{background:#fff0da}
 .combined-catalog .only-phraya td,.combined-legend span:last-child{background:#f2e8fa}

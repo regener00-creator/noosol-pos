@@ -4,14 +4,14 @@ function saveSalesRepresentative(){
   if(!name){ showToast('กรุณากรอกชื่อผู้แทน'); document.getElementById('sr_name').focus(); return; }
   const data={name,phone:get('sr_phone'),line:get('sr_line'),company:get('sr_company'),note:get('sr_note')};
   if(editingSalesRepresentativeId==='new'){
-    salesRepresentatives.push({id:generateClientRecordId(salesRepresentatives),...data});
+    salesRepresentatives.push({id:generateClientRecordId(salesRepresentatives),warehouseId:activeWarehouseId,...data});
     showToast(`เพิ่มรายชื่อผู้แทน “${name}” แล้ว`);
   }else{
-    const rep=salesRepresentatives.find(x=>x.id===editingSalesRepresentativeId);
+    const rep=storeRepresentatives().find(x=>x.id===editingSalesRepresentativeId);
     if(rep){
       const oldName=rep.name;
       Object.assign(rep,data);
-      purchaseOrders.forEach(doc=>{ if(doc.supplier===oldName) doc.supplier=name; });
+      purchaseOrders.forEach(doc=>{ if(documentInActiveStore(doc)&&doc.supplier===oldName) doc.supplier=name; });
       if(poDraft?.supplier===oldName) poDraft.supplier=name;
     }
     showToast(`บันทึกรายชื่อผู้แทน “${name}” แล้ว`);
@@ -22,7 +22,7 @@ function saveSalesRepresentative(){
 }
 
 function deleteSalesRepresentative(id){
-  const rep=salesRepresentatives.find(x=>x.id===id); if(!rep) return;
+  const rep=storeRepresentatives().find(x=>x.id===id); if(!rep) return;
   if(!confirm(`ยืนยันลบรายชื่อผู้แทน "${rep.name}" ?`)) return;
   salesRepresentatives=salesRepresentatives.filter(x=>x.id!==id);
   removeRepresentativesFromManagedProductIndex([id]);

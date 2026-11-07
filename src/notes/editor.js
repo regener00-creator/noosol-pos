@@ -314,5 +314,5 @@ function attachNoteFormatting(root,editor,markDirty=()=>{}){
 
 function representativeHistoryKey(context=representativeHistoryContext){
   if(!context) return '';
-  return `${context.central?'central':'detail'}:rep:${Number(context.representativeId)||0}:product:${Number(context.productId)||0}:filters:${JSON.stringify(representativeHistoryFilter)}`;
+  return `${activeWarehouseId}:${context.central?'central':'detail'}:rep:${Number(context.representativeId)||0}:product:${Number(context.productId)||0}:filters:${JSON.stringify(representativeHistoryFilter)}`;
 }

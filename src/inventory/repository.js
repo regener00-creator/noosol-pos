@@ -289,6 +289,10 @@ function resetWarehouseScopedUiState(reportWarehouseValue){
   editingCustomerPriceContactId=null;cashBillOrderNumberDraft='';taxInvoiceOrderNumberDraft='';
   editingContactId=null;contactPage=1;customerHistoryView=null;customerPurchaseState=null;
   saleLoyaltySelection=null;customerLoyaltyState=null;clearTimeout(customerLoyaltyExpiryTimer);
+  representativeHistoryContext=null;representativeActivityDraft=null;representativeActivityDraftDirty=false;
+  representativeProductsEditor=null;selectedRepresentativeNoteId=null;editingSalesRepresentativeId=null;poRepresentativeEditorId=null;
+  if(typeof resetRepresentativeActivityLoad==='function')resetRepresentativeActivityLoad();
+  if(typeof resetRepresentativeManagedProductIndex==='function')resetRepresentativeManagedProductIndex();
   businessSettingsDirty=false;
   stockReportItems=[];
   stockReportCatFilter={wh:reportWarehouseValue,category:'',brand:''};

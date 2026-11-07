@@ -49,20 +49,100 @@ function renderCombinedCatalog(stockOnly){
 }
 // A manual unit choice belongs to this user's combined view, across both pages.
 const combinedUnitFallback=new Map();
-function combinedUnitPreferenceKey(id){
-  return `pepos_combined_unit_v1:${currentProfile.id}:${id}`;
+const combinedUnitWrites=new Map(),combinedUnitEdits=new Map();
+let combinedUnitVersion=0;
+function combinedUnitPreferenceKey(id,actor=currentProfile.id){
+  return `pepos_combined_unit_v1:${actor}:${id}`;
 }
-function readCombinedUnit(id){
-  const key=combinedUnitPreferenceKey(id);
+function readCombinedValue(key){
   if(combinedUnitFallback.has(key))return combinedUnitFallback.get(key);
   try{return localStorage.getItem(key);}catch{return null;}
 }
-function rememberCombinedUnit(id,name){
-  const key=combinedUnitPreferenceKey(id);
+function cacheCombinedValue(key,name){
   try{
-    localStorage.setItem(key,name);
+    if(name===null)localStorage.removeItem(key);else localStorage.setItem(key,name);
     combinedUnitFallback.delete(key);
   }catch{combinedUnitFallback.set(key,name);}
+}
+function flushCombinedUnit(actor,id){
+  const key=combinedUnitPreferenceKey(id,actor);
+  if(combinedUnitWrites.has(key))return combinedUnitWrites.get(key);
+  const pending=key+':pending';
+  const task=Promise.resolve().then(async()=>{
+    while(currentProfile?.id===actor&&navigator.onLine){
+      const name=readCombinedValue(pending);
+      if(!name)break;
+      const {error}=await sb.from('combined_catalog_unit_preferences').upsert({user_id:actor,product_id:id,unit_name:name},{onConflict:'user_id,product_id'});
+      if(error)throw error;
+      if(readCombinedValue(pending)===name)cacheCombinedValue(pending,null);
+    }
+  }).catch(()=>{if(currentProfile?.id===actor)showToast('ยังซิงก์หน่วยไม่ได้ เก็บไว้บนเครื่องแล้ว ระบบจะลองใหม่เมื่อเปิดคลังรวมหรือต่ออินเทอร์เน็ต');})
+    .finally(()=>combinedUnitWrites.delete(key));
+  combinedUnitWrites.set(key,task);
+  return task;
+}
+function rememberCombinedUnit(id,name){
+  const actor=currentProfile.id,key=combinedUnitPreferenceKey(id,actor);
+  combinedUnitEdits.set(key,++combinedUnitVersion);
+  cacheCombinedValue(key,name);cacheCombinedValue(key+':pending',name);
+  if(navigator.onLine)void flushCombinedUnit(actor,id);
+  else showToast('จำหน่วยไว้บนเครื่องแล้ว จะซิงก์กับบัญชีเมื่อกลับมาออนไลน์');
+}
+function localCombinedUnitIds(actor){
+  const prefix=combinedUnitPreferenceKey('',actor),keys=new Set(combinedUnitFallback.keys());
+  try{for(let i=0;i<localStorage.length;i++)keys.add(localStorage.key(i));}catch{}
+  return new Set([...keys].filter(key=>key?.startsWith(prefix)).map(key=>Number(key.slice(prefix.length).split(':')[0])).filter(Number.isSafeInteger));
+}
+function retryCombinedUnitWrites(){
+  const actor=currentProfile?.id;
+  if(!actor)return;
+  for(const id of localCombinedUnitIds(actor)){
+    if(readCombinedValue(combinedUnitPreferenceKey(id,actor)+':pending'))void flushCombinedUnit(actor,id);
+  }
+}
+async function refreshCombinedUnits(page,rows,draw){
+  const actor=currentProfile?.id;
+  if(!actor||!navigator.onLine)return;
+  const version=combinedUnitVersion;
+  const pendingAtRead=new Set(combinedUnitWrites.keys());
+  const prefix=combinedUnitPreferenceKey('',actor);
+  const isCurrent=()=>page.isConnected&&currentProfile?.id===actor;
+  const table='combined_catalog_unit_preferences';
+  const fetchPreferences=()=>fetchAllRows(()=>sb.from(table).select('product_id,unit_name').eq('user_id',actor).order('product_id'));
+  try{
+    let result=await fetchPreferences();
+    if(result.error)throw result.error;
+    if(!isCurrent())return;
+    const remoteIds=new Set(result.data.map(row=>Number(row.product_id)));
+    const legacy=[];
+    const localIds=localCombinedUnitIds(actor);
+    for(const row of rows){
+      const id=Number(row.members[0].product.id);
+      if(!localIds.has(id))continue;
+      const key=prefix+id;
+      if(readCombinedValue(key+':pending')){pendingAtRead.add(key);void flushCombinedUnit(actor,id);continue;}
+      if(!remoteIds.has(id)){
+        const name=readCombinedValue(key);
+        if(name&&row.options.some(option=>option.name===name))legacy.push({user_id:actor,product_id:id,unit_name:name});
+      }
+    }
+    // Import old device-only choices once. A choice already saved by another device wins.
+    for(let i=0;i<legacy.length;i+=200){
+      if(!isCurrent())return;
+      const {error}=await sb.from(table).upsert(legacy.slice(i,i+200),{onConflict:'user_id,product_id',ignoreDuplicates:true});
+      if(error)throw error;
+    }
+    if(legacy.length)result=await fetchPreferences();
+    if(result.error)throw result.error;
+    if(!isCurrent())return;
+    let changed=false;
+    for(const {product_id,unit_name} of result.data){
+      const key=prefix+product_id;
+      if(pendingAtRead.has(key)||(combinedUnitEdits.get(key)||0)>version||readCombinedValue(key+':pending')||readCombinedValue(key)===unit_name)continue;
+      cacheCombinedValue(key,unit_name);changed=true;
+    }
+    if(changed)draw();
+  }catch{if(isCurrent())showToast('โหลดหน่วยที่บันทึกกับบัญชีไม่ได้ กำลังใช้หน่วยที่จำไว้บนเครื่อง');}
 }
 function attachCombinedCatalog(page){
   const shops=accessibleWarehouses().slice().sort((a,b)=>a.id-b.id);
@@ -97,7 +177,7 @@ function attachCombinedCatalog(page){
     const headers=shops.map(shop=>stockOnly?`<th>คงเหลือ · ${escapeHtml(shop.name)}</th>`:`<th>ราคาขาย · ${escapeHtml(shop.name)}</th><th>ทุน · ${escapeHtml(shop.name)}</th>`).join('');
     const body=matches.slice((pageNo-1)*pageSize,pageNo*pageSize).map(row=>{
       const id=row.members[0].product.id;
-      const preferred=readCombinedUnit(id);
+      const preferred=readCombinedValue(combinedUnitPreferenceKey(id));
       const option=row.options.find(item=>item.name===preferred)||
         (term&&row.options.find(item=>barcodeMatches(item,term)))||row.options[0];
       const control=row.options.length===1?`<span class="prod-unit-fixed">${escapeHtml(option.name)}</span>`:
@@ -105,7 +185,7 @@ function attachCombinedCatalog(page){
       const cells=shops.map(shop=>{
         const entry=option.shops.get(Number(shop.id));
         if(stockOnly)return `<td>${entry?inspectionListAmount(warehouseStock(entry.product.id,shop.id)/entry.unit.factor):'—'}</td>`;
-        return `<td>${entry?fmtMoney(entry.unit.price):'—'}</td><td>${entry?fmtMoney(entry.unit.cost):'—'}</td>`;
+        return `<td class="combined-amount">${entry?fmtMoney(entry.unit.price):'—'}</td><td class="combined-amount">${entry?fmtMoney(entry.unit.cost):'—'}</td>`;
       }).join('');
       const only=!stockOnly&&row.members.length===1?shops.find(shop=>Number(shop.id)===row.members[0].warehouse)?.name:'';
       const color=only==='พรชัย'?'only-phonchai':only==='พระยาสุเรนทร์'?'only-phraya':'';
@@ -135,4 +215,11 @@ function attachCombinedCatalog(page){
     (pager.querySelector(`[data-combined-page="${value}"]:not(:disabled)`)||pager.querySelector('.active'))?.focus({preventScroll:true});
   };
   draw();
+  let refreshing=false;
+  page.refreshCombinedUnits=async()=>{
+    if(refreshing)return;
+    refreshing=true;
+    try{await refreshCombinedUnits(page,rows,draw);}finally{refreshing=false;}
+  };
+  void page.refreshCombinedUnits();
 }

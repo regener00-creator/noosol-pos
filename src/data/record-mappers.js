@@ -54,5 +54,5 @@ function rowToContact(row){
   const types=row.type==='both'?['customer','supplier']:[row.type==='supplier'?'supplier':'customer'];
   return { ...(row.data||{}), id:row.id, warehouseId:Number(row.warehouse_id)||1, name:row.name, phone:row.phone||'', types, ...(types.includes('customer')?{loyaltyJoinedAt:row.data?.loyaltyJoinedAt||row.created_at||''}:{}), _revision:Number(row.revision)||1 };
 }
-function salesRepToRow(r){ return { id:r.id, name:r.name||'', data:additionalData(r,['id','name','_revision']), revision:Number(r._revision)||0 }; }
-function rowToSalesRep(row){ return { ...(row.data||{}), id:row.id, name:row.name, _revision:Number(row.revision)||1 }; }
+function salesRepToRow(r){ return { id:r.id, warehouse_id:Number(r.warehouseId)||1, name:r.name||'', data:additionalData(r,['id','warehouseId','name','_revision']), revision:Number(r._revision)||0 }; }
+function rowToSalesRep(row){ return { ...(row.data||{}), id:row.id, warehouseId:Number(row.warehouse_id)||1, name:row.name, _revision:Number(row.revision)||1 }; }

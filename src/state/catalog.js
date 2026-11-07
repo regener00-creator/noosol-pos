@@ -80,6 +80,9 @@ const CONTACTS_PER_PAGE = 10;
 let editingContactId = null; // null=list, 'new', หรือ id
 let editingCustomerPriceContactId = null;
 let salesRepresentatives=[];
+function storeRepresentatives(){
+  return salesRepresentatives.filter(documentInActiveStore);
+}
 let editingSalesRepresentativeId = null;
 // ===== ระบบโปรโมชั่น =====
 // scope: 'product' (ผูกสินค้าเดี่ยว) | 'category' (ผูกหมวด/แบรนด์)

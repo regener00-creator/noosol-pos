@@ -51,7 +51,7 @@ function printPO(poId,kind='po'){
     const receiptDiscount=tax.discountBeforeVat?tax.discount:(tax.registered?(Number(tax.discount??po.discount)||0)/(1+VAT_RATE):Number(tax.discount??po.discount)||0);
     const receiptTotalsHtml=kind==='gr'?`<section class="totals goods-receipt-print-totals"><div><span class="lbl">ยอดรวมสินค้า ก่อน VAT</span><b>${fmtMoney(receiptSubtotal)} บาท</b></div><div><span class="lbl">ส่วนลด</span><b>${fmtMoney(receiptDiscount)} บาท</b></div><div><span class="lbl">ยอดหลังหักส่วนลด ก่อน VAT</span><b>${fmtMoney(tax.beforeVat)} บาท</b></div><div class="last-sub"><span class="lbl">VAT${tax.registered?' 7%':''}</span><b>${fmtMoney(tax.vat)} บาท</b></div><div class="grand"><span>ยอดชำระสุทธิ</span><b>${fmtMoney(tax.total)} บาท</b></div></section>`:'';
     const business=documentBusinessSettings(po);
-    const supplier=styled?suppliersList().find(s=>s.name===po.supplier):salesRepresentatives.find(rep=>rep.name===po.supplier);
+    const supplier=styled?suppliersList().find(s=>s.name===po.supplier):storeRepresentatives().find(rep=>rep.name===po.supplier);
     const rows=po.items.map((it,i)=>{
       if(styled) return `<tr><td class="c">${i+1}</td><td>${escapeHtml(it.name)}</td><td class="r">${escapeHtml(it.qty)}</td><td>${escapeHtml(it.unit||'')}</td><td class="r">${fmtMoney(it.price)}</td><td class="r">${fmtMoney(it.qty*it.price)}</td></tr>`;
       const product=products.find(p=>Number(p.id)===Number(it.productId))||products.find(p=>p.name===it.name);

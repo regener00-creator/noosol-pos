@@ -131,6 +131,7 @@ window.addEventListener('resize',()=>{
 document.addEventListener('visibilitychange',()=>scheduleSalesViewRefresh());
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='hidden') void flushWorkspaceCacheToIndexedDB();
+  else document.querySelector('.combined-catalog')?.refreshCombinedUnits?.();
 });
 
 window.addEventListener('beforeinstallprompt',event=>{
@@ -157,6 +158,8 @@ function refreshMobileToolsOnResume(){
   return true;
 }
 window.addEventListener('online',()=>{
+  retryCombinedUnitWrites();
+  document.querySelector('.combined-catalog')?.refreshCombinedUnits?.();
   setSyncUiState('syncing');
   void syncOfflineSales();
   if(loggedInUser()){ flushPendingClientEvents(); syncCoreDataToSupabase(); }
