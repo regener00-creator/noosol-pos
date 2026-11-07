@@ -35,7 +35,7 @@ function inspectionListAddProduct(product,unitName){
   inspectionListPage=Math.max(1,Math.ceil(inspectionListDraft.items.length/INSPECTION_LIST_PAGE_SIZE));
   return true;
 }
-function saveInspectionListDraft(options={}){
+async function saveInspectionListDraft(options={}){
   if(!inspectionListDraft) return false;
   const name=(document.getElementById('inspectionListName')?.value||inspectionListDraft.name||'').trim();
   if(!name){ showToast('กรุณากรอกชื่อรายการตรวจสินค้า','danger'); document.getElementById('inspectionListName')?.focus(); return false; }
@@ -43,7 +43,9 @@ function saveInspectionListDraft(options={}){
   const now=new Date().toISOString();
   const saved={...inspectionListDraft,name,warehouseId:Number(inspectionListDraft.warehouseId)||Number(activeWarehouseId)||0,items:inspectionListDraft.items.map(item=>({pid:Number(item.pid),unit:String(item.unit||'')})),updatedAt:now,stockAdjustedAt:'',stockAdjustedBy:''};
   if(editingInspectionListId==='new'){
-    saved.id=generateInspectionListId();
+    const draft=inspectionListDraft;
+    saved.id=await reserveDraftNumber(draft,'inspection');
+    if(!saved.id||inspectionListDraft!==draft||editingInspectionListId!=='new') return false;
     saved.createdAt=saved.createdAt||now;
     inspectionLists.unshift(saved);
   }else{

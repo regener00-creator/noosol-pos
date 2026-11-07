@@ -17,8 +17,7 @@ function renderQuotation(){
 
 function openNewQuotationForm(){
   editingQuotationId='new'; taxInvoiceAddingCustomer=false;
-  const prefix=documentPrefixes.quotation;
-  const number=buildDocNumber(prefix, nextDailySeq(prefix, quotations.map(q=>q.id)));
+  const number='ออกเลขเมื่อบันทึก';
   taxInvoiceDraft={id:number,number,date:TODAY_STR,credit:0,dueDate:TODAY_STR,customerId:'',name:'',taxId:'',address:'',branch:'สำนักงานใหญ่',branchNo:'',phone:'',email:'',items:[{name:'',qty:1,unit:'',price:''}],discount:0,note:''};
   currentTab='quotation'; render();
 }
@@ -69,7 +68,7 @@ function renderQuotationForm(){
       <div class="po-foot-right"><div class="sumrow"><span>รวมเป็นเงิน</span><span class="mono">${fmtMoney(subtotal)}</span></div><div class="sumrow"><span>ส่วนลด</span><span class="sumdiscount"><input id="po_discount" type="number" value="${discount}" style="width:90px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;text-align:right;"></span></div><div class="sumrow"><span>ราคาหลังหักส่วนลด</span><span class="mono">${fmtMoney(total)}</span></div>${taxSummaryRowsHtml(tax)}<div class="sumrow grand"><span>จำนวนเงินรวมทั้งสิ้น</span><span class="mono">${fmtMoney(total)}</span></div></div></div><div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelTaxInvoiceFormBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveQuotationBtn">บันทึกเอกสาร</button></div>`;
 }
 
-function saveQuotation(){
+async function saveQuotation(){
   syncPOFromDOM(); syncTaxInvoiceDraftFromDOM();
   const d=taxInvoiceDraft,items=(d.items||[]).filter(item=>item.name&&Number(item.qty)>0);
   if(!d.name){ showToast('กรุณากรอกชื่อลูกค้า'); return; }
@@ -83,6 +82,11 @@ function saveQuotation(){
   const total=taxSummary.total;
   // Keep the revision and immutable provenance when rebuilding an edited document.
   // Losing _revision turns an update into a duplicate create (expected revision 0).
+  if(editingQuotationId==='new'){
+    const number=await reserveDraftNumber(d,'quotation');
+    if(!number||d!==taxInvoiceDraft||editingQuotationId!=='new') return;
+    d.number=number;
+  }
   const record={...old,id:d.number,date:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),customer:d.name,customerInfo:{id:d.customerId||'',name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items:itemsWithVat,discount,total,vatRegistered,taxSummary,warehouseId:old?.warehouseId||activeWarehouseId,businessSnapshot:old?.businessSnapshot||businessDocumentSnapshot(business),note:d.note||'',status:old?.status||'รอตอบรับ'};
   Object.assign(record.customerInfo,{entity:d.entity||'individual',line:d.line||'',types:d.contactTypes||['customer']});
   if(editingQuotationId==='new'){ quotations.unshift(record); }else{ const index=quotations.findIndex(doc=>doc.id===editingQuotationId); if(index>-1) quotations[index]=record; }

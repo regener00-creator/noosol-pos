@@ -8,6 +8,7 @@ function section(start,end){
 }
 function setup(old=null){
   const ctx=vm.createContext({
+    reserveDraftNumber:async draft=>draft.number,
     quotations:old?[structuredClone(old)]:[],editingQuotationId:old?old.id:'new',
     taxInvoiceDraft:{number:old?.id||'Q-NEW',date:'2026-09-12',name:'Customer',items:[{name:'Product',qty:2,price:120,pid:1}],note:'edited'},
     products:[{id:1,name:'Product'}],businessSettings:{},
@@ -17,12 +18,12 @@ function setup(old=null){
     addDaysToDate:date=>date,persistQuotations:()=>{},
     Map,Number,String,JSON,Object,structuredClone,
   });
-  vm.runInContext(section('function docToRow(','function rowToDoc(')+section('function saveQuotation(','function deleteQuotation('),ctx);
+  vm.runInContext(section('function docToRow(','function rowToDoc(')+section('async function saveQuotation(','function deleteQuotation('),ctx);
   return ctx;
 }
-test('editing a quotation retains its revision, provenance and document links',()=>{
+test('editing a quotation retains its revision, provenance and document links',async()=>{
   const ctx=setup({id:'Q1',_revision:7,createdByUserId:'owner',status:'ขายแล้ว',saleId:'S1',soldAt:'yesterday',businessSnapshot:{name:'Original shop'},items:[],total:120});
-  ctx.saveQuotation();const saved=ctx.quotations[0];
+  await ctx.saveQuotation();const saved=ctx.quotations[0];
   assert.equal(saved._revision,7);
   assert.equal(saved.createdByUserId,'owner');assert.equal(saved.saleId,'S1');assert.equal(saved.soldAt,'yesterday');
   assert.equal(saved.status,'ขายแล้ว');assert.equal(saved.businessSnapshot.name,'Original shop');
@@ -32,7 +33,7 @@ test('editing a quotation retains its revision, provenance and document links',(
   assert.equal(ctx.docToRow(saved).data.createdByUserId,undefined);
 });
 test('edited quotation sends the original expected revision, not a duplicate-create revision zero',async()=>{
-  const ctx=setup({id:'Q1',_revision:7,items:[],total:120});ctx.saveQuotation();let sent;
+  const ctx=setup({id:'Q1',_revision:7,items:[],total:120});await ctx.saveQuotation();let sent;
   Object.assign(ctx,{
     workspaceRecoveryTables:()=>[['quotations',()=>ctx.quotations]],
     syncedTableRows:{quotations:new Map()},workspaceRecoveryEntries:new Map(),
@@ -45,11 +46,11 @@ test('edited quotation sends the original expected revision, not a duplicate-cre
   assert.equal(sent.p_expected_revision,7);assert.equal(sent.p_data.total,240);
   assert.equal(ctx.quotations[0]._revision,8);assert.equal(ctx.workspaceRecoveryEntries.size,0);
 });
-test('new quotations still start at revision zero',()=>{
-  const ctx=setup();ctx.saveQuotation();assert.equal(ctx.docToRow(ctx.quotations[0]).revision,0);
+test('new quotations still start at revision zero',async()=>{
+  const ctx=setup();await ctx.saveQuotation();assert.equal(ctx.docToRow(ctx.quotations[0]).revision,0);
   assert.equal(ctx.quotations[0].status,'รอตอบรับ');
 });
-test('production document lists start empty without hard-coded sample documents',()=>{
+test('production document lists start empty without hard-coded sample documents',async()=>{
   for(const name of ['quotations','invoicesAR','creditNotes','purchaseOrders','goodsReceipts','transfers']){
     assert.match(source,new RegExp(`let ${name} = \\[\\];`));
   }

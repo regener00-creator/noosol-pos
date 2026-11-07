@@ -673,7 +673,7 @@ async function saveMobileInspectionDraft(){
   if(!mobileRequireOnline('บันทึกรายการตรวจสินค้า')) return false;
   setMobileDataStatus('saving');
   mobileInspectionCreating=false;
-  const saved=saveInspectionListDraft({sync:false});
+  const saved=await saveInspectionListDraft({sync:false});
   if(!saved){ mobileInspectionCreating=true; setMobileDataStatus('online'); render(); return false; }
   const synced=await syncInspectionListsToSupabase();
   if(!synced){ setMobileDataStatus('error','ซิงก์รายการไม่สำเร็จ'); showToast('บันทึกในเครื่องแล้ว แต่ซิงก์รายการไม่สำเร็จ กรุณากดรีเฟรช','danger-top'); }

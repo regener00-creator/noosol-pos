@@ -52,6 +52,7 @@
     "get_visible_data_signature(text)",
     "system_issued_label_codes()",
     "find_store_sale(bigint,text)",
+    "reserve_shop_document_number(bigint,text,uuid)",
     "update_store_label_settings(bigint,jsonb,text)",
     "resolve_store_sync_events(bigint,text,timestamptz)",
     "owner_resolve_store_sync_event(bigint,uuid)"

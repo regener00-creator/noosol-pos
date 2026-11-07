@@ -62,7 +62,7 @@ export async function run({client}){
       await q('update public.inventory_balances set stock=10 where warehouse_id=$1',[s.id]);
       await q("select public.owner_set_setting($1,$2)",['document_prefixes:'+s.id,{sale:s.name+'RE',cashShift:s.name+'CS'}]);
       await q('select public.open_cash_shift($1,500)',[s.id]);
-      assert.ok((await q('select shift_no from public.cash_shifts where warehouse_id=$1',[s.id])).rows[0].shift_no.startsWith(s.name+'CS'));
+      assert.ok((await q('select shift_no from public.cash_shifts where warehouse_id=$1',[s.id])).rows[0].shift_no.startsWith('W'+s.id+'-'+s.name+'CS'));
       assert.equal(Number((await q('select product_id from public.find_product_barcode_owners($1,$2)',[['001234'],s.id])).rows[0].product_id),s.id);
     }
     async function sell(s,pid,memberId=s.id){
@@ -78,7 +78,7 @@ export async function run({client}){
     assert.deepEqual(await balances(8520),[['8520',0]]);
     await q('savepoint wrong_member');await assert.rejects(sell(shops[1],8520,8510),/LOYALTY_CUSTOMER_NOT_FOUND/);await q('rollback to wrong_member');
     const second=await sell(shops[1],8520);
-    assert.ok(first.ref.startsWith('ARE'));assert.ok(second.ref.startsWith('BRE'));
+    assert.ok(first.ref.startsWith('W8510-ARE'));assert.ok(second.ref.startsWith('W8520-BRE'));
     assert.deepEqual(await balances(8520),[['8520',1]]);
     assert.deepEqual(await balances(8510),[['8510',1]]);
     await q('savepoint duplicate_member');await assert.rejects(q("insert into public.contacts(id,warehouse_id,type,name,phone,data) values(8599,8510,'customer','Duplicate','080-777-7777','{}')"),/contacts_customer_phone_unique/);await q('rollback to duplicate_member');

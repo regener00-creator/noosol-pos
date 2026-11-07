@@ -28,7 +28,6 @@ function renderWarehouseForm(){
 }
 
 function blankTransferItem(){ return {lineId:transferLineCounter++,productId:'',name:'',qty:1,unit:'',cost:0}; }
-function transferDocumentNumber(){ return documentPrefixes.transfer+TODAY_STR.replace(/-/g,'')+String(transferCounter).padStart(4,'0'); }
 function transferUnitOptions(product){
   if(!product) return [];
   return [{name:product.unit,cost:Number(product.cost)||0,factor:1},...(product.units||[]).filter(u=>u.sub).map(u=>({name:u.sub,cost:Number(u.cost)||((Number(product.cost)||0)*(Number(u.factor)||1)),factor:Number(u.factor)||1}))];
@@ -36,7 +35,7 @@ function transferUnitOptions(product){
 function activeTransferDraft(){
   if(transferDraft) return transferDraft;
   if(editingTransferId==='new'){
-    transferDraft={id:transferDocumentNumber(),date:TODAY_STR,transferor:`${currentUserProfile.firstName} ${currentUserProfile.lastName}`.trim(),fromId:Number(activeWarehouseId)||'',toId:'',items:[blankTransferItem()],note:'',internalNote:''};
+    transferDraft={id:'ออกเลขเมื่อบันทึก',date:TODAY_STR,transferor:`${currentUserProfile.firstName} ${currentUserProfile.lastName}`.trim(),fromId:Number(activeWarehouseId)||'',toId:'',items:[blankTransferItem()],note:'',internalNote:''};
   }else{
     const old=transfers.find(t=>t.id===editingTransferId);
     if(old){ transferDraft=JSON.parse(JSON.stringify(old)); transferDraft.fromId=transferDraft.fromId||warehouses.find(w=>w.name===old.from)?.id||''; transferDraft.toId=transferDraft.toId||warehouses.find(w=>w.name===old.to)?.id||''; transferDraft.transferor=transferDraft.transferor||`${currentUserProfile.firstName} ${currentUserProfile.lastName}`.trim(); transferDraft.items=(transferDraft.items||[]).map(item=>({...item,lineId:item.lineId||transferLineCounter++,productId:item.productId||products.find(p=>p.name===item.name)?.id||'',unit:item.unit||products.find(p=>p.name===item.name)?.unit||'',cost:Number(item.cost)||0})); }

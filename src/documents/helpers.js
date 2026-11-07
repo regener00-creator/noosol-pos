@@ -30,28 +30,6 @@ function setDocEditingId(kind,val){ if(kind==='gr') editingGRId=val; else if(kin
 function docDraft(kind){ return kind==='gr'?grDraft:kind==='ret'?returnDraft:poDraft; }
 function setDocDraft(kind,val){ if(kind==='gr') grDraft=val; else if(kind==='ret') returnDraft=val; else poDraft=val; }
 function docPrefix(kind){ return kind==='gr'?documentPrefixes.goodsReceipt:kind==='ret'?documentPrefixes.productReturn:documentPrefixes.shortage; }
-// ---------- ตัวช่วยออกเลขที่เอกสารแบบรีเซ็ตรายวัน/รายปี (ฝังวันที่ในเลขที่เอกสารเสมอ ปลอดภัยแม้รีเซ็ต) ----------
-function docNumberParts(prefix,value){
-  const re=new RegExp('^'+prefix+'(\\d{4})(\\d{2})(\\d{2})(\\d{4})$');
-  const m=String(value||'').match(re);
-  if(!m) return null;
-  return {year:m[1],month:m[2],day:m[3],seq:parseInt(m[4],10)};
-}
-function nextDailySeq(prefix, values){
-  const y=TODAY_STR.slice(0,4), mo=TODAY_STR.slice(5,7), d=TODAY_STR.slice(8,10);
-  let max=0;
-  (values||[]).forEach(v=>{ const p=docNumberParts(prefix,v); if(p&&p.year===y&&p.month===mo&&p.day===d&&p.seq>max) max=p.seq; });
-  return max+1;
-}
-function nextYearlySeq(prefix, values){
-  const y=TODAY_STR.slice(0,4);
-  let max=0;
-  (values||[]).forEach(v=>{ const p=docNumberParts(prefix,v); if(p&&p.year===y&&p.seq>max) max=p.seq; });
-  return max+1;
-}
-function buildDocNumber(prefix, seq){ return `${prefix}${TODAY_STR.replace(/-/g,'')}${String(seq).padStart(4,'0')}`; }
-function docCounter(kind){ const list=docList(kind); return nextDailySeq(docPrefix(kind), list.map(d=>d.id)); }
-function bumpDocCounter(kind){ /* ไม่ต้องทำอะไร: เลขคำนวณสดจากรายการเอกสารเสมอ (รีเซ็ตรายวันอัตโนมัติ) */ }
 function docLabelText(kind){ return kind==='gr'?'ใบรับสินค้า':kind==='ret'?'ใบคืนสินค้า':'จดสั่งสินค้า'; }
 function docDefaultStatus(kind){ return kind==='gr'?'รอรับสินค้า':kind==='ret'?'รอรับคืน':'รอสั่งของ'; }
 const GOODS_RECEIPT_STATUSES=['รอรับสินค้า','รับสินค้าแล้ว','ชำระเรียบร้อย'];

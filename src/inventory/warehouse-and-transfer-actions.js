@@ -153,9 +153,14 @@ async function saveTransfer(silent=false){
   }
   const fromWarehouse=warehouses.find(w=>w.id===Number(draft.fromId));
   const toWarehouse=warehouses.find(w=>w.id===Number(draft.toId));
+  if(editingTransferId==='new'){
+    const number=await reserveDraftNumber(draft,'transfer');
+    if(!number||transferDraft!==draft||editingTransferId!=='new') return false;
+    draft.id=number;
+  }
   const record={id:draft.id,date:draft.date,transferor:draft.transferor,fromId:Number(draft.fromId),toId:Number(draft.toId),from:fromWarehouse?.name||'-',to:toWarehouse?.name||'-',items:items.map(item=>({...item,qty:Number(item.qty),cost:Number(item.cost)||0})),note:draft.note||'',internalNote:draft.internalNote||'',totalQty:items.reduce((s,i)=>s+Number(i.qty),0),totalCost:items.reduce((s,i)=>s+Number(i.qty)*(Number(i.cost)||0),0),status:'บันทึกแล้ว',stockApplied:false};
   if(editingTransferId==='new'){
-    transfers.unshift(record); transferCounter++; editingTransferId=record.id;
+    transfers.unshift(record); editingTransferId=record.id;
   }else{
     const index=transfers.findIndex(t=>t.id===editingTransferId); if(index>-1) transfers[index]=record;
   }

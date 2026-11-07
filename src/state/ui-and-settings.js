@@ -153,7 +153,6 @@ let inventoryMovementSearchQuery = '';
 let inventoryMovementExpandedBills = new Set();
 let expandedDocumentItemLists = new Set();
 const INVENTORY_MOVEMENT_PAGE_SIZE = 10;
-let poCounter = 32, grCounter = 31, returnCounter = 1, productExchangeCounter = 1;
 let editingPOId = null; // null=list, 'new', หรือ id ของ PO
 const SHORTAGE_COLUMNS_STORAGE_KEY='pepos_shortage_price_columns';
 let shortagePriceColumns={sale:true,cost:true,secret:false};
@@ -178,7 +177,6 @@ let taxInvoiceOrderNumberDraft='';
 const TAX_INVOICE_STORAGE_KEY='pharmacy_pos_standalone_tax_invoices_v1';
 try{ const savedTaxDocs=JSON.parse(localStorage.getItem(TAX_INVOICE_STORAGE_KEY)||'null'); if(Array.isArray(savedTaxDocs)) standaloneTaxInvoices=savedTaxDocs; }catch(error){ console.warn('ไม่สามารถโหลดใบกำกับภาษีที่สร้างใหม่ได้',error); }
 function persistStandaloneTaxInvoices(){ persistWorkspaceData(); }
-let standaloneTaxInvoiceCounter=maxArrayValue(standaloneTaxInvoices,doc=>(Number(String(doc.number||'').slice(-4))||0)+1,1);
 let openDocMenu = null;
 let documentSort = {po:{key:'date',dir:-1},gr:{key:'date',dir:-1},ret:{key:'date',dir:-1},exchange:{key:'date',dir:-1}};
 // ข้อมูลร้าน (หัวเอกสาร)
@@ -290,5 +288,4 @@ let addingWarehouse=false;
 let editingWarehouseId=null;
 let editingTransferId=null; // null=หน้ารายการ, 'new'=สร้างใหม่, ค่าอื่น=แก้ไขเอกสารเดิม
 let transferDraft=null;
-let transferCounter=maxArrayValue(transfers,t=>(Number(String(t.id||'').slice(-4))||0)+1,1);
 let transferLineCounter=1;

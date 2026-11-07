@@ -445,13 +445,6 @@ function refreshDataCounters(){
   nextWarehouseId=maxArrayValue(warehouses,w=>(Number(w.id)||0)+1,1);
   nextProductSkuNumber=maxArrayValue(completeProductCatalog(),p=>productSkuSequenceNumber(p.sku)+1,1);
   invoiceCounter=maxArrayValue(salesHistory,s=>(Number(String(s.id||'').replace(/\D/g,''))||0)+1,1);
-  quotationCounter=maxArrayValue(quotations,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
-  poCounter=maxArrayValue(purchaseOrders,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
-  grCounter=maxArrayValue(goodsReceipts,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
-  productExchangeCounter=maxArrayValue(productExchanges,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
-  returnCounter=maxArrayValue(productReturns,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
-  standaloneTaxInvoiceCounter=maxArrayValue(standaloneTaxInvoices,doc=>(Number(String(doc.number||'').slice(-4))||0)+1,1);
-  transferCounter=maxArrayValue(transfers,t=>(Number(String(t.id||'').slice(-4))||0)+1,1);
 }
 function applyWorkspaceData(saved){
   if(!saved||typeof saved!=='object') return false;

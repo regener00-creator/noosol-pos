@@ -30,7 +30,7 @@ assert.match(migration, /revoke all on function public\.set_inventory_expiry[\s\
 
 // Shared mutable master data uses random identifiers and optimistic revisions.
 assert.match(app, /function generateClientRecordId\(/);
-assert.match(app, /function generateInspectionListId\(/);
+assert.match(app, /reserveDraftNumber\(draft,'inspection'\)/);
 assert.doesNotMatch(app, /nextContactId|nextSalesRepresentativeId|nextPromotionId|inspectionListCounter/);
 assert.match(app, /insertRevisionedRows\(table,inserts,toRow,acknowledge\)/);
 assert.match(app, /updateRevisionedRows\(table,updates,toRow,acknowledge\)/);

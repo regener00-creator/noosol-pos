@@ -73,10 +73,11 @@ let browser;
   await page.locator('#po_tax_mode').selectOption('excl');
   await page.evaluate(()=>{
     document.getElementById('po_supplier').value='ผู้จำหน่ายทดสอบ';
+    sb.rpc=async(name,args)=>name==='reserve_shop_document_number'&&args.p_kind==='goodsReceipt'&&args.p_warehouse_id===1?{data:'ARI-SUMMARY-TEST'}:{data:null};
     window.savedReceipt=null;saveRevisionedDocument=async(table,record)=>{if(table!=='goods_receipts') throw Error('unexpected table');window.savedReceipt=JSON.parse(JSON.stringify(record));};
     seedTableSnapshot=()=>{};persistWorkspaceData=()=>{};
   });
-  assert.equal(await page.evaluate(()=>savePO(true)),'RI-SUMMARY-TEST');
+  assert.equal(await page.evaluate(()=>savePO(true)),'ARI-SUMMARY-TEST');
   assert.deepEqual(await page.evaluate(()=>({discount:window.savedReceipt.discount,total:window.savedReceipt.total,tax:window.savedReceipt.taxSummary})),{discount:100,total:963,tax:{registered:true,subtotal:1000,discount:100,beforeVat:900,vat:63,total:963,discountBeforeVat:true}});
   await page.locator('.poi_price').fill('208366.5');
   await page.locator('#po_discount').fill('2083');
@@ -89,7 +90,7 @@ let browser;
   assert.equal(await page.locator('#po_discount').inputValue(),'2,083.67');
   await page.evaluate(()=>savePO(true));assert.equal(await page.evaluate(()=>window.savedReceipt.discount),2083.67);
   const checkPrint=async(values)=>{
-    const [preview]=await Promise.all([page.waitForEvent('popup'),page.evaluate(()=>printPO('RI-SUMMARY-TEST','gr'))]);
+    const [preview]=await Promise.all([page.waitForEvent('popup'),page.evaluate(()=>printPO('ARI-SUMMARY-TEST','gr'))]);
     await preview.locator('.goods-receipt-print-totals').waitFor();
     const labels=await preview.locator('.goods-receipt-print-totals > div > span').allTextContents();
     assert.deepEqual(labels,['ยอดรวมสินค้า ก่อน VAT','ส่วนลด','ยอดหลังหักส่วนลด ก่อน VAT',labels[3],'ยอดชำระสุทธิ']);

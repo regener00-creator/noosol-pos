@@ -91,7 +91,7 @@ function openNewTaxInvoiceForm(){
   if(!isBusinessVatRegistered()){ showToast('กิจการยังไม่จด VAT จึงสร้างใบกำกับภาษีไม่ได้','danger'); return; }
   editingTaxInvoiceSaleId='manual-new';
   taxInvoiceAddingCustomer=false;
-  const number=nextFullTaxInvoiceNumber();
+  const number='ออกเลขเมื่อบันทึก';
   taxInvoiceDraft={id:number,number,date:TODAY_STR,credit:0,dueDate:TODAY_STR,customerId:'',name:'',taxId:'',address:'',branch:'สำนักงานใหญ่',branchNo:'',phone:'',email:'',items:[{name:'',qty:1,unit:'',price:''}],discount:0,note:''};
   currentTab='taxinvoice';
   render();
@@ -168,7 +168,7 @@ function renderStandaloneTaxInvoiceForm(){
       <div class="po-foot-right"><div class="sumrow"><span>รวมเป็นเงิน</span><span class="mono">${fmtMoney(subtotal)}</span></div><div class="sumrow"><span>ส่วนลด</span><span class="sumdiscount">${locked?`<span class="mono">${fmtMoney(discount)}</span>`:`<input id="po_discount" type="number" value="${discount}" style="width:90px;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-family:inherit;text-align:right;">`}</span></div><div class="sumrow"><span>ราคาหลังหักส่วนลด</span><span class="mono">${fmtMoney(total)}</span></div>${taxSummaryRowsHtml(tax)}<div class="sumrow grand"><span>จำนวนเงินรวมทั้งสิ้น</span><span class="mono">${fmtMoney(total)}</span></div></div></div>${locked?'':`<div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelTaxInvoiceFormBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveStandaloneTaxInvoiceBtn">บันทึกเอกสาร</button></div>`}`;
 }
 
-function saveStandaloneTaxInvoice(){
+async function saveStandaloneTaxInvoice(){
   if(!isBusinessVatRegistered()){ showToast('กิจการยังไม่จด VAT จึงบันทึกใบกำกับภาษีไม่ได้','danger'); return; }
   if(editingTaxInvoiceSaleId!=='manual-new') return;
   syncPOFromDOM(); syncTaxInvoiceDraftFromDOM();
@@ -182,7 +182,9 @@ function saveStandaloneTaxInvoice(){
   const discount=Number(d.discount)||0;
   const itemsWithVat=items.map(item=>({...item,productId:item.productId||item.pid||documentProductForTax(item)?.id||null,vatMode:documentItemVatMode(item,true,warehouseBusinessSettings())}));
   const taxSummary=calculateDocumentTaxSummary(itemsWithVat,discount,true,warehouseBusinessSettings());
-  const doc={id:d.number,number:d.number,date:d.date,saleDate:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),issuedAt:auditNow(),customer:{name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items:itemsWithVat,discount,total:taxSummary.total,vatRegistered:true,taxSummary,warehouseId:activeWarehouseId,businessSnapshot:businessDocumentSnapshot(),note:d.note||'',printLog:[]};
+  const number=await reserveDraftNumber(d,'taxInvoice');
+  if(!number||taxInvoiceDraft!==d||editingTaxInvoiceSaleId!=='manual-new') return;
+  const doc={id:number,number,date:d.date,saleDate:d.date,credit:d.credit||0,dueDate:addDaysToDate(d.date,d.credit||0),issuedAt:auditNow(),customer:{name:d.name,taxId:d.taxId,address:d.address,branch:d.branch,branchNo:d.branchNo,phone:d.phone,email:d.email},items:itemsWithVat,discount,total:taxSummary.total,vatRegistered:true,taxSummary,warehouseId:activeWarehouseId,businessSnapshot:businessDocumentSnapshot(),note:d.note||'',printLog:[]};
   standaloneTaxInvoices.unshift(doc); persistStandaloneTaxInvoices();
   editingTaxInvoiceSaleId=null; taxInvoiceDraft=null; taxInvoiceAddingCustomer=false;
   showToast(`บันทึกใบกำกับภาษี ${doc.number} แล้ว`);

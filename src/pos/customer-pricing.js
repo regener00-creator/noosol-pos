@@ -224,11 +224,6 @@ function generateClientRecordId(records=[]){
   }
   throw new Error('ไม่สามารถสร้างรหัสอ้างอิงใหม่ได้ กรุณาลองอีกครั้ง');
 }
-function generateInspectionListId(){
-  const prefix=normalizeDocumentPrefix(documentPrefixes.inspection,'IC');
-  const token=globalThis.crypto?.randomUUID?.()||`${Date.now().toString(36)}-${randomProductIdCandidate().toString(36)}`;
-  return `${prefix}-${String(token).replaceAll('-','').slice(0,16).toUpperCase()}`;
-}
 function openPOSCustomerCreateModal(){
   const overlay=document.createElement('div');
   overlay.className='modal-overlay pos-customer-create-overlay';

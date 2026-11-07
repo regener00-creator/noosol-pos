@@ -96,7 +96,7 @@ function renderPOForm(kind='po'){
   if(!draft){
     const list=docList(kind);
     draft=isNew
-      ? {id:docPrefix(kind)+TODAY_STR.replace(/-/g,'')+String(docCounter(kind)).padStart(4,'0'), supplier:'', date:TODAY_STR, credit:0, dueDate:TODAY_STR, items:[{name:'',qty:1,unit:'',price:''}], note:'', discount:0, taxMode:'incl', supplierTaxInvoiceNo:'', supplierTaxInvoiceDate:'', ...((kind==='gr'||kind==='ret')?{warehouseId:Number(activeWarehouseId)||0}:{})}
+      ? {id:'ออกเลขเมื่อบันทึก', supplier:'', date:TODAY_STR, credit:0, dueDate:TODAY_STR, items:[{name:'',qty:1,unit:'',price:''}], note:'', discount:0, taxMode:'incl', supplierTaxInvoiceNo:'', supplierTaxInvoiceDate:'', ...((kind==='gr'||kind==='ret')?{warehouseId:Number(activeWarehouseId)||0}:{})}
       : JSON.parse(JSON.stringify(list.find(x=>x.id===editingId)));
     if(!draft.discount) draft.discount=0;
     if(draft.credit===undefined) draft.credit=0;
@@ -500,12 +500,8 @@ function renderGoodsReceipt(){
   ${pagerHtml(docListPage.gr, totalPages, 'docpage-gr')}`;
 }
 
-function productExchangeDocumentNumber(){
-  const prefix=documentPrefixes.productExchange||'EX';
-  return buildDocNumber(prefix,nextDailySeq(prefix,productExchanges.map(doc=>doc.id)));
-}
 function newProductExchangeDraft(){
-  return {id:productExchangeDocumentNumber(),date:TODAY_STR,supplier:'',warehouseId:Number(activeWarehouseId)||Number(accessibleWarehouses()[0]?.id)||0,note:'',status:'ร่าง',outgoingItems:[],incomingItems:[],outgoingApplied:false,incomingApplied:false,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+  return {id:'ออกเลขเมื่อบันทึก',date:TODAY_STR,supplier:'',warehouseId:Number(activeWarehouseId)||Number(accessibleWarehouses()[0]?.id)||0,note:'',status:'ร่าง',outgoingItems:[],incomingItems:[],outgoingApplied:false,incomingApplied:false,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
 }
 function activeProductExchangeDraft(){
   if(productExchangeDraft) return productExchangeDraft;

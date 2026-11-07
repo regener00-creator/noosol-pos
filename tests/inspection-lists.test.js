@@ -33,7 +33,7 @@ const context = {
   inspectionListOverviewSort: {key:'updatedAt',dir:-1},
   inspectionListOverviewSelectedIds: new Set(),
   expandedDocumentItemLists: new Set(),
-  generateInspectionListId: () => 'CHECK-NEW-SAFE-ID',
+  reserveDraftNumber: async () => 'CHECK-NEW-SAFE-ID',
   documentPrefixes: {inspection:'CHECK'},
   mobileInspectionListId: '',
   mobileInspectionOpenedListId: '',
@@ -134,7 +134,8 @@ context.inspectionListCatFilter = {wh:'',category:'',brand:''};
 
 context.inspectionListDraft = {id:null,name:'',items:[{pid:1,unit:'ลัง'}],createdAt:'2026-08-20T00:00:00.000Z',createdBy:'เจ้าของร้าน'};
 context.editingInspectionListId = 'new';
-assert.equal(context.saveInspectionListDraft(), true);
+(async()=>{
+assert.equal(await context.saveInspectionListDraft(), true);
 assert.equal(context.inspectionLists.length, 1);
 assert.equal(context.inspectionLists[0].id, 'CHECK-NEW-SAFE-ID');
 assert.equal(context.inspectionLists[0].name, 'รายการตรวจหน้าร้าน');
@@ -285,3 +286,5 @@ assert.equal(persistCount, 4);
 assert.equal(syncCount, 4);
 
 console.log('inspection list tests passed');
+
+})().catch(err=>{console.error(err);process.exitCode=1;});

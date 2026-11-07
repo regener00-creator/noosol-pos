@@ -21,7 +21,7 @@ function setup(){
     productExchanges:[copy(sent)],productExchangeDraft:{...copy(sent),incomingItems:[{pid:1,lineId:2,qty:2,factor:1,unit:'box',expiry:'2027-10-20'}]},
     syncedTableRows:{product_exchanges:new Map([['EX1',JSON.stringify({id:'EX1',data:sent,revision:0})]])},
     workspaceRecoveryEntries:new Map(),products:[{id:1,stock:10}],
-    workspaceRecoveryTables:()=>[['product_exchanges',()=>ctx.productExchanges]],
+    editingProductExchangeId:'EX1',workspaceRecoveryTables:()=>[['product_exchanges',()=>ctx.productExchanges]],
     ensureWorkspaceRecoveryDurable:async()=>{},sha256Hex:async()=> 'hash',
     beginDurableOperation:async()=>({requestId:'request'}),finishDurableOperation:async()=>{},
     reportClientEvent:()=>{},persistWorkspaceData:()=>{},refreshDataCounters:()=>{},
@@ -60,7 +60,7 @@ function setup(){
   // Keep the real normalization out of these sync fixtures.
   ctx.normalizeProductExchangeItem=copy;
   const actions=fs.readFileSync(path.join(__dirname,'../src/documents/exchange-actions.js'),'utf8');
-  vm.runInContext(actions.slice(actions.indexOf('function saveProductExchange(')),ctx);
+  vm.runInContext(actions.slice(actions.indexOf('async function saveProductExchange(')),ctx);
   ctx.refreshProductExchangeProducts=async()=>{if(inventoryFails)throw new Error('inventory offline');};
   return {ctx,calls,errors,messages,get remote(){return remote;},set remote(v){remote=v;},
     failRead(){readFails=true;},failInventory(){inventoryFails=true;},

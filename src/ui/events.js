@@ -1912,10 +1912,13 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     el.addEventListener('click', async ()=>{
       const po = purchaseOrders.find(p=>p.id===el.dataset.id);
       if(po){
+        if(!documentInActiveStore(po))return;
+        const number=await reserveDraftNumber(po,'goodsReceipt');
+        if(!number||goodsReceipts.some(row=>row.id===number))return;
         po.status='สั่งแล้ว';
         const receivedItems=normalizeGoodsReceiptItems(po.items);
-        const warehouseId=goodsReceiptWarehouseId({items:receivedItems});
-        const receipt={id:'GR-'+String(++grCounter).padStart(4,'0'),po:po.id,supplier:po.supplier,date:TODAY_STR,warehouseId,items:receivedItems,total:po.total,status:'รอรับสินค้า',stockApplied:false,stockAppliedAt:''};
+        const warehouseId=Number(po.warehouseId)||activeWarehouseId;
+        const receipt={id:number,po:po.id,supplier:po.supplier,date:TODAY_STR,warehouseId,items:receivedItems,total:po.total,status:'รอรับสินค้า',stockApplied:false,stockAppliedAt:''};
         goodsReceipts.unshift(receipt);
         persistWorkspaceData();
         await changeGoodsReceiptStatus(receipt.id,'รับสินค้าแล้ว');

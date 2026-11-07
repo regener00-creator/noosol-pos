@@ -96,13 +96,19 @@ function validateProductExchangeDraft(draft,forStatus='ร่าง'){
   }
   return true;
 }
-function saveProductExchange(closeAfter=true){
+async function saveProductExchange(closeAfter=true){
   syncProductExchangeFromDOM();
   const draft=activeProductExchangeDraft();
   if(!validateProductExchangeDraft(draft)) return false;
   draft.outgoingItems=draft.outgoingItems.map(normalizeProductExchangeItem).filter(Boolean);
   draft.incomingItems=draft.incomingItems.map(normalizeProductExchangeItem).filter(Boolean);
   draft.updatedAt=new Date().toISOString();
+  if(editingProductExchangeId==='new'){
+    const number=await reserveDraftNumber(draft,'productExchange');
+    if(!number||productExchangeDraft!==draft||editingProductExchangeId!=='new') return false;
+    draft.id=number;
+    editingProductExchangeId=number;
+  }
   const index=productExchanges.findIndex(doc=>doc.id===draft.id);
   if(index>=0) productExchanges[index]=JSON.parse(JSON.stringify(draft)); else productExchanges.unshift(JSON.parse(JSON.stringify(draft)));
   refreshDataCounters(); persistWorkspaceData();
@@ -145,11 +151,12 @@ async function changeProductExchangeStatus(status){
   const required=new Map();
   if(plan.applyOutgoing) (draft.outgoingItems||[]).forEach(item=>required.set(Number(item.pid),(required.get(Number(item.pid))||0)+productExchangeItemBaseQty(item)));
   for(const [pid,qty] of required){ const product=products.find(item=>Number(item.id)===pid); if(!product||warehouseStock(pid,draft.warehouseId)<qty){ showToast(`สต๊อกไม่พอสำหรับ ${product?.name||'สินค้าที่เลือก'}`,'danger'); return; } }
-  const savedId=saveProductExchange(false); if(!savedId) return;
   productExchangeStatusInFlight=true;
   const buttons=['confirmExchangeSentBtn','confirmExchangeReceivedBtn','saveProductExchangeBtn'].map(id=>document.getElementById(id)).filter(button=>button&&!button.disabled);
   buttons.forEach(button=>button.disabled=true);
   try{
+    const savedId=await saveProductExchange(false);
+    if(!savedId) return;
     const remoteDoc=await withRevisionedTableLock('product_exchanges',async()=>{
       const doc=productExchanges.find(item=>item.id===savedId);
       await saveRevisionedDocument('product_exchanges',doc);

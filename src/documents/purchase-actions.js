@@ -403,7 +403,15 @@ function syncPOFromDOM(){
     };
   });
 }
+const purchaseDraftSaves=new WeakSet();
 async function savePO(silent=false){
+  const draft=activePurchaseDraft();
+  if(!draft||purchaseDraftSaves.has(draft))return false;
+  purchaseDraftSaves.add(draft);
+  try{return await savePurchaseDraft(silent);}
+  finally{purchaseDraftSaves.delete(draft);}
+}
+async function savePurchaseDraft(silent=false){
   silent = silent===true;
   syncPOFromDOM();
   const kind=currentDocKind();
@@ -430,6 +438,11 @@ async function savePO(silent=false){
       return false;
     }
   }
+  if(editingId==='new'){
+    const number=await reserveDraftNumber(draft,kind==='gr'?'goodsReceipt':kind==='ret'?'productReturn':'shortage');
+    if(!number||docDraft(kind)!==draft||docEditingId(kind)!=='new') return false;
+    draft.id=number;
+  }
   const rec={ id:draft.id, _revision:Number(old?._revision)||0, supplier:draft.supplier, date:draft.date, credit:kind==='ret'?0:(styled?(draft.credit||0):0), dueDate:kind==='ret'?'':(styled?addDaysToDate(draft.date,draft.credit||0):''), items:savedItems, discount:kind==='ret'?0:(styled?(draft.discount||0):0), total:kind==='ret'?0:tax.total, taxMode:kind==='ret'?'none':(styled?(draft.taxMode||'incl'):'none'), taxSummary:kind==='ret'?calculatePurchaseTaxSummary([],0,'none'):(styled?tax:null), supplierTaxInvoiceNo:styled?(draft.supplierTaxInvoiceNo||''):'', supplierTaxInvoiceDate:styled?(draft.supplierTaxInvoiceDate||''):'', warehouseId:Number(draft.warehouseId||old?.warehouseId||activeWarehouseId)||null, businessSnapshot:old?.businessSnapshot||businessDocumentSnapshot(warehouseBusinessSettings(draft.warehouseId||old?.warehouseId||activeWarehouseId)), note:draft.note||'', status:old?.status||docDefaultStatus(kind), ...(kind==='gr'?{warehouseId:Number(draft.warehouseId),stockApplied:old?.stockApplied===true,stockAppliedAt:old?.stockAppliedAt||'',createdByUserId:old?.createdByUserId||String(currentProfile?.id||'')}:kind==='ret'?{warehouseId:Number(draft.warehouseId),stockApplied:old?.stockApplied===true,stockAppliedAt:old?.stockAppliedAt||''}:{}) };
   if(kind==='gr'){
     const saveButton=document.getElementById('savePOBtn');
@@ -447,9 +460,6 @@ async function savePO(silent=false){
   }
   if(editingId==='new'){
     list.unshift(rec);
-    if(kind==='gr'){ grCounter++; }
-    else if(kind==='ret'){ returnCounter++; }
-    else bumpDocCounter(kind);
   } else {
     const idx=list.findIndex(x=>x.id===editingId);
     if(idx>-1){
@@ -479,7 +489,9 @@ async function handleDocumentAction(kind,id,action){
   if(action==='print'){ printPO(id,kind); render(); return; }
   if(action==='duplicate'&&kind!=='gr'){
     const copy=JSON.parse(JSON.stringify(doc));
-    copy.id=docPrefix(kind)+TODAY_STR.replace(/-/g,'')+String(docCounter(kind)).padStart(4,'0'); copy.date=TODAY_STR; copy.dueDate=addDaysToDate(copy.date,copy.credit||0); copy.status=docDefaultStatus(kind);
+    const number=await reserveDraftNumber(copy,kind==='ret'?'productReturn':'shortage');
+    if(!number) return;
+    copy.id=number;copy._revision=0; copy.date=TODAY_STR; copy.dueDate=addDaysToDate(copy.date,copy.credit||0); copy.status=docDefaultStatus(kind);
     if(kind==='ret'){
       copy.items=normalizeGoodsReceiptItems(copy.items,copy.warehouseId).map((item,index)=>({...item,lineId:String(index+1),lotId:null,lotNumber:'',expiry:''}));
       copy.status='รอรับคืน';
@@ -487,7 +499,6 @@ async function handleDocumentAction(kind,id,action){
       copy.stockAppliedAt='';
       copy.lotAppliedAt='';
     }
-    bumpDocCounter(kind);
     list.unshift(copy);
     persistWorkspaceData(); showToast(`สร้างซ้ำเป็น ${copy.id} แล้ว`); render(); return;
   }

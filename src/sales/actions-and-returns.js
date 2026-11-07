@@ -26,11 +26,15 @@ async function holdOrder(){
   const heldSale={id:'',ref:saleRef,name:name||'(ไม่มีชื่อ)',date:TODAY_STR,time:TODAY_STR+' '+nowTimeStr(),warehouseId:Number(activeWarehouseId)||null,warehouseName:activeWarehouse()?.name||'',cashier:loggedInUser()?.firstName||employees[0],member:saleMember,sourceQuotationId:saleSourceQuotationId||null,status:'hold',items,discount:saleDiscount,vat:0,total:subtotal,cartSnapshot:JSON.parse(JSON.stringify(cart))};
   holdOrderInFlight=true;
   try{
-    const {data,error}=await sb.rpc('save_held_sale',{p_sale:heldSale});
+    const {id,ref,date,time,...contents}=heldSale;
+    const hash=await sha256Hex({actor:currentProfile.id,operation:'hold',contents});
+    const request=await beginDurableOperation('save_held_sale',hash);
+    const {data,error}=await sb.rpc('save_held_sale',{p_sale:{...heldSale,holdRequestId:request.requestId}});
     if(error) throw error;
     const saved={...heldSale,...(data?.sale||data||{})};
     if(!saved.id) throw new Error('ระบบไม่ได้ส่งรหัสบิลพักกลับมา');
-    salesHistory.unshift(saved);
+    await finishDurableOperation(request);
+    salesHistory=[saved,...salesHistory.filter(row=>row.id!==saved.id)];
     cart=[]; saleDiscount=0; saleMember=null; saleSourceQuotationId=null; pendingQty=1;
     saleRef=nextSaleRef();
     showToast(`พักออเดอร์ "${name||'ไม่มีชื่อ'}" แล้ว`);

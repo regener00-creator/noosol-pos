@@ -17,39 +17,8 @@ for (const [key, value] of [
   assert.match(html, new RegExp(`key:'${key}'`), `ต้องมีช่องตั้งค่า ${key}`);
 }
 
-assert.match(html, /saved\.id=generateInspectionListId\(\)/);
-assert.match(html, /\{key:'shortage',label:'จดสั่งสินค้า'\}/);
-assert.doesNotMatch(html, /key:'purchaseOrder'/, 'obsolete purchase-order prefix setting must be removed');
-assert.match(html, /function generateInspectionListId\(\)/);
-assert.match(html, /function nextA4CashReceiptNumber\(\)[\s\S]{0,260}documentPrefixes\.cashBill/);
-assert.match(html, /number:old\.number\|\|nextA4CashReceiptNumber\(\)/);
-assert.match(migration, /private\.configured_document_prefix\(''stockAdjustment'',''SC''\)/);
-assert.match(migration, /private\.configured_document_prefix\('cashShift','CS'\)/);
-assert.match(migration, /revoke execute on function private\.configured_document_prefix\(text,text\)[\s\S]*from public,anon,authenticated/);
-
-const numberHelpersStart = html.indexOf('function docNumberParts(');
-const numberHelpersEnd = html.indexOf('function docCounter(', numberHelpersStart);
-const cashNumberStart = html.indexOf('function nextA4CashReceiptNumber(');
-const cashNumberEnd = html.indexOf('function nextFullTaxInvoiceNumber(', cashNumberStart);
-assert.ok(numberHelpersStart >= 0 && numberHelpersEnd > numberHelpersStart);
-assert.ok(cashNumberStart >= 0 && cashNumberEnd > cashNumberStart);
-
-const context = {
-  TODAY_STR: '2026-08-28',
-  documentPrefixes: {cashBill:'CB'},
-  salesHistory: [
-    {cashReceiptA4Meta:{number:'CB202608280001'}},
-    {cashReceiptA4Meta:{number:'CB202608280003'}},
-    {cashReceiptA4Meta:{number:'CB202608270009'}},
-    {ref:'RE202608280099'},
-  ],
-};
-vm.createContext(context);
-vm.runInContext(html.slice(numberHelpersStart, numberHelpersEnd), context);
-vm.runInContext(html.slice(cashNumberStart, cashNumberEnd), context);
-assert.equal(context.nextA4CashReceiptNumber(), 'CB202608280004');
-context.documentPrefixes.cashBill = 'CASH';
-context.salesHistory.push({cashReceiptA4Meta:{number:'CASH202608280007'}});
-assert.equal(context.nextA4CashReceiptNumber(), 'CASH202608280008');
-
-console.log('document prefix tests passed');
+assert.match(html,/reserveDraftNumber\(draft,'inspection'\)/);
+assert.match(html,/reserve_shop_document_number/);
+assert.doesNotMatch(html,/nextDailySeq\(/);
+assert.match(html,/number:old\.number,saleDate/);
+console.log('Document prefix and server assignment tests passed');

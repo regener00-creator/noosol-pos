@@ -7,21 +7,10 @@ function auditDisplay(value){
   return Number.isNaN(d.getTime())?'-':d.toLocaleString('th-TH',{dateStyle:'short',timeStyle:'short'});
 }
 function shortReceiptNumber(sale){
-  const prefix=documentPrefixes.sale;
-  return sale.shortReceiptMeta?.number || sale.offlineRef || sale.ref || buildDocNumber(prefix, nextDailySeq(prefix, salesHistory.map(s=>s.ref).filter(Boolean)));
-}
-function nextA4CashReceiptNumber(){
-  const prefix=documentPrefixes.cashBill;
-  const numbers=salesHistory.map(sale=>sale.cashReceiptA4Meta?.number).filter(Boolean);
-  return buildDocNumber(prefix,nextDailySeq(prefix,numbers));
-}
-function nextFullTaxInvoiceNumber(){
-  const pool=[...salesHistory.map(s=>s.fullTaxInvoice?.number).filter(Boolean), ...standaloneTaxInvoices.map(d=>d.number).filter(Boolean)];
-  const prefix=documentPrefixes.taxInvoice;
-  return buildDocNumber(prefix, nextYearlySeq(prefix, pool));
+  return sale.shortReceiptMeta?.number || (sale.shopNumbering?sale.ref:sale.offlineRef||sale.ref) || sale.id;
 }
 function fullTaxInvoiceNumber(sale){
-  return sale.fullTaxInvoice?.number || nextFullTaxInvoiceNumber();
+  return sale.fullTaxInvoice?.number || 'ออกเลขเมื่อบันทึก';
 }
 
 function openHistoricalReceiptActions(saleId){
@@ -56,7 +45,7 @@ function a4CashReceiptCustomer(sale){
 function openA4CashReceiptModal(saleId){
   const sale=salesHistory.find(item=>item.id===saleId); if(!sale||!documentInActiveStore(sale)||sale.status!=='done') return;
   const customer=a4CashReceiptCustomer(sale),meta=sale.cashReceiptA4Meta||{};
-  const documentNumber=meta.number||nextA4CashReceiptNumber();
+  const documentNumber=meta.number||'ออกเลขเมื่อบันทึก';
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:650px;max-height:92vh;"><div class="modal-head"><div><h3>บิลเงินสด</h3><div class="sub">เลขที่ ${escapeHtml(documentNumber)} · วันที่ขาย ${fmtDateShort(sale.date)}</div></div><button class="modal-close" aria-label="ปิด">×</button></div>
     <div class="tax-lock-note" style="margin:0 20px 16px;">เอกสารนี้เป็นหลักฐานรับเงิน ไม่ใช่ใบกำกับภาษี และการพิมพ์จะไม่เพิ่มยอดขายหรือตัดสต๊อกซ้ำ</div>
@@ -104,7 +93,8 @@ function openA4CashReceiptModal(saleId){
 function printA4CashReceipt(saleId,previewWindow=null){
   const sale=salesHistory.find(item=>item.id===saleId); if(!sale||sale.status!=='done') return;
   const old=sale.cashReceiptA4Meta||{},customer=old.customer||a4CashReceiptCustomer(sale);
-  const meta={number:old.number||nextA4CashReceiptNumber(),saleDate:old.saleDate||sale.date,issuedAt:old.issuedAt||auditNow(),customer,printLog:Array.isArray(old.printLog)?old.printLog:[]};
+  if(!old.number){if(previewWindow&&!previewWindow.closed)previewWindow.close();openA4CashReceiptModal(sale.id);return;}
+  const meta={number:old.number,saleDate:old.saleDate||sale.date,issuedAt:old.issuedAt||auditNow(),customer,printLog:Array.isArray(old.printLog)?old.printLog:[]};
   const isCopy=meta.printLog.length>0,business=documentBusinessSettings(sale),tax=saleTaxSummary(sale),registered=tax.registered;
   const lineAmount=item=>item.lineTotalGross!==undefined?Number(item.lineTotalGross)||0:item.lineTotal!==undefined?Number(item.lineTotal)||0:(Number(item.qty)||0)*(Number(item.price)||0);
   const itemsTotal=(sale.items||[]).reduce((sum,item)=>sum+lineAmount(item),0);

@@ -5,6 +5,7 @@ async function updateSaleDocumentMetadata(saleId,metadata){
   if(!id) throw new Error('ไม่พบรหัสรายการขาย');
   const offline=offlineSales.find(row=>row.localSale.id===id&&!row.completedSale);
   if(offline){
+    if(metadata.cashReceiptA4Meta||metadata.fullTaxInvoice) throw new Error('กรุณาซิงก์บิลกับเซิร์ฟเวอร์ก่อนออกเอกสาร');
     await editOfflineSales(rows=>rows.map(row=>row.id===offline.id?{...row,localSale:{...row.localSale,...metadata}}:row));
     return salesHistory.find(row=>row.id===id);
   }
@@ -43,9 +44,7 @@ function normalizeDocumentPrefix(value,fallback=''){
 }
 let invoiceCounter=maxArrayValue(salesHistory,s=>(Number(String(s.id||'').replace(/\D/g,''))||0)+1,1043);
 function nextSaleRef(){
-  const values=salesHistory.map(s=>s.ref).filter(Boolean);
-  const prefix=documentPrefixes.sale;
-  return buildDocNumber(prefix, nextDailySeq(prefix, values));
+  return 'ออกเลขเมื่อบันทึก';
 }
 // เวลาปัจจุบันของเครื่อง แบบ HH:MM (ใช้บันทึกเวลาขายจริงตอนทำรายการ)
 function nowTimeStr(){
@@ -58,6 +57,27 @@ function formatSaleRefDisplay(ref){
   if(digits.length<8) return ref;
   const y=digits.slice(0,4), m=digits.slice(4,6), d=digits.slice(6,8), num=digits.slice(8);
   return `${y}-${m}-${d}${num?` / ${num}`:''}`;
+}
+// Reuse the request when a save response is lost; drafts never calculate a final number locally.
+const pendingNumberRequests=new WeakMap();
+async function reserveDraftNumber(draft,kind){
+  const view=captureStoreView();
+  if(!view.store||view.combined||!navigator.onLine){ showToast('กรุณาเลือกร้านและเชื่อมต่ออินเทอร์เน็ตเพื่อออกเลขเอกสาร','danger-top'); return null; }
+  if(Number(draft.warehouseId||draft.fromId||view.store)!==view.store){showToast('คลังเอกสารไม่ตรงกับร้านที่เลือก','danger-top');return null;}
+  let request=pendingNumberRequests.get(draft);
+  if(!request){
+    request={id:crypto.randomUUID(),store:view.store,kind,busy:false};
+    pendingNumberRequests.set(draft,request);
+  }
+  if(request.store!==view.store||request.kind!==kind||request.busy) return null;
+  request.busy=true;
+  try{
+    const {data,error}=await sb.rpc('reserve_shop_document_number',{p_warehouse_id:view.store,p_kind:kind,p_request_id:request.id});
+    if(error) throw error;
+    if(typeof data!=='string'||!data) throw new Error('เซิร์ฟเวอร์ไม่ได้ส่งเลขเอกสาร');
+    return isStoreViewCurrent(view)?data:null;
+  }catch(error){showToast('ออกเลขเอกสารไม่สำเร็จ กรุณาลองบันทึกอีกครั้ง: '+error.message,'danger-top');return null;}
+  finally{request.busy=false;}
 }
 let saleRef = nextSaleRef();
 let saleDiscount = 0; // บาท
@@ -221,7 +241,6 @@ let saleSourceQuotationId=null;
 const QUOTATION_STORAGE_KEY='pharmacy_pos_quotations_v1';
 try{ const savedQuotations=JSON.parse(localStorage.getItem(QUOTATION_STORAGE_KEY)||'null'); if(Array.isArray(savedQuotations)) quotations=savedQuotations; }catch(error){ console.warn('ไม่สามารถโหลดใบเสนอราคาได้',error); }
 function persistQuotations(){ persistWorkspaceData(); }
-let quotationCounter=maxArrayValue(quotations,doc=>(Number(String(doc.id||'').replace(/\D/g,'').slice(-4))||0)+1,1);
 let invoicesAR = []; // เอกสารขายเชื่อ (ลูกหนี้)
 let creditNotes = [];
 let purchaseOrders = [];
