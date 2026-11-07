@@ -139,6 +139,7 @@ function clearRemoteResetSensitiveMemory(){
   notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false; noteSearchQuery=''; notePageCursor=null;
   cashShifts=[]; currentCashShift=null; cashShiftCloseDraft={countedCash:'',reason:''};
   documentPrefixes={...DEFAULT_DOCUMENT_PREFIXES};
+  productCategoriesByStore={};
   productCategorySettings={categories:[],subcategories:[]};
   productCategorySettingsLoaded=false; productCategorySettingsLoading=false; productCategorySettingsError='';
   businessSettings={...DEFAULT_BUSINESS_SETTINGS};
@@ -190,7 +191,7 @@ function normalizeInspectionLists(value){
   });
 }
 function workspaceSnapshot(){
-  return {warehouses,products:completeProductCatalog(),contacts,salesRepresentatives,salesHistory,quotations,invoicesAR,creditNotes,purchaseOrders,goodsReceipts,productExchanges,productReturns,transfers,standaloneTaxInvoices,promotions,favorites,inspectionLists,currentUserProfile,documentPrefixes,businessSettings,warehouseBusinessProfiles,productCategorySettings};
+  return {warehouses,products:completeProductCatalog(),contacts,salesRepresentatives,salesHistory,quotations,invoicesAR,creditNotes,purchaseOrders,goodsReceipts,productExchanges,productReturns,transfers,standaloneTaxInvoices,promotions,favorites,inspectionLists,currentUserProfile,documentPrefixes,businessSettings,warehouseBusinessProfiles,productCategoriesByStore};
 }
 function localWorkspaceSnapshot(){
   const snapshot=workspaceSnapshot();
@@ -455,7 +456,8 @@ function applyWorkspaceData(saved){
   }
   if(Array.isArray(saved.inspectionLists)) inspectionLists=normalizeInspectionLists(saved.inspectionLists);
   if(saved.currentUserProfile&&typeof saved.currentUserProfile==='object') currentUserProfile={...currentUserProfile,...saved.currentUserProfile};
-  if(saved.productCategorySettings) productCategorySettings=normalizeProductCategorySettings(saved.productCategorySettings);
+  productCategoriesByStore=saved.productCategoriesByStore||(saved.productCategorySettings?{1:normalizeProductCategorySettings(saved.productCategorySettings)}:{});
+  applyStoreCategoryView();
   warehouseBusinessProfiles=saved.warehouseBusinessProfiles||{};
   if(saved.businessSettings&&typeof saved.businessSettings==='object'){
     applyBusinessSettings(saved.businessSettings);

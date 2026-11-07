@@ -9,10 +9,19 @@ export async function run({client}){
     await q('insert into auth.users(id) values($1),($2)',[owner,staff]);
     await q("insert into public.profiles(id,username,owner,level) values ($1,'ordering-owner',true,1),($2,'ordering-staff',false,2)",[owner,staff]);
     await q("insert into public.profile_page_permissions(user_id,page_key,can_view) values ($1,'notes',true)",[staff]);
+    await q("insert into public.warehouses(id,name) values(1,'Original'),(7212,'Second') on conflict(id) do nothing");
+    await q("insert into public.profile_warehouse_access(user_id,warehouse_id) values($1,1)",[staff]);
     await q("select set_config('request.jwt.claim.sub',$1,true)",[owner]);
     await q('set local role authenticated');
-    const {rows}=await q("insert into public.notes(title,hidden_from_level2) values ('order A',false),('order B',true),('order C',false) returning id");
+    const {rows}=await q("insert into public.notes(title,hidden_from_level2,standalone_warehouse_id) values ('order A',false,1),('order B',true,1),('order C',false,1) returning id");
     const [a,b,c]=rows.map(row=>row.id);
+    const second=(await q("insert into public.notes(title,standalone_warehouse_id) values('order A',7212) returning id")).rows[0].id;
+    assert.deepEqual((await q("select id from public.get_notes_page(7212,'order',null,null,10)")).rows,[{id:second}]);
+    await q('savepoint wrongshop');
+    await assert.rejects(q("select public.owner_move_note(7212,$1,$2,true)",[second,a]),/Invalid note selection/);
+    await q('rollback to wrongshop');
+    await q("select public.owner_set_setting('product_categories','{\"categories\":[\"Original\"]}')");
+    await q("select public.owner_set_setting('product-categories:7212','{\"categories\":[\"Second\"]}')");
     await q('select public.owner_move_note($1,$2,false)',[a,c]);
     const read=()=>q("select id from public.get_notes_page('order',null,null,10)");
     assert.deepEqual((await read()).rows.map(row=>row.id),[a,c,b]);
@@ -25,9 +34,27 @@ export async function run({client}){
     await assert.rejects(q(`select public.owner_save_knowledge_articles(null,'{"articles":[]}')`),/เครื่องอื่น/);
     await q('rollback to conflict');
     await q("select set_config('request.jwt.claim.sub',$1,true)",[staff]);
+    assert.equal((await q('select * from public.notes where id=$1',[second])).rowCount,0);
+    assert.equal((await q("select id from public.get_notes_page(7212,'order',null,null,10)")).rowCount,0);
+    assert.deepEqual((await q("select key from public.settings where key in ('product_categories','product-categories:7212')")).rows,[{key:'product_categories'}]);
     assert.deepEqual((await read()).rows.map(row=>row.id),[c,a]);
     assert.deepEqual((await q('select note_id from private.note_positions where note_id=$1',[b])).rows,[]);
+    await q('savepoint staff_reorder');
     await assert.rejects(q('select public.owner_move_note($1,$2,true)',[c,a]),/owner access/);
+    await q('rollback to staff_reorder');
+    await q('reset role');
+    await q('update public.profile_warehouse_access set warehouse_id=7212 where user_id=$1',[staff]);
+    await q("update public.profile_page_permissions set warehouse_id=7212,can_create=true,can_edit=true,can_delete=true where user_id=$1 and page_key='notes'",[staff]);
+    await q('set local role authenticated');
+    assert.equal((await read()).rowCount,0);
+    assert.deepEqual((await q("select id from public.get_notes_page(7212,'order',null,null,10)")).rows,[{id:second}]);
+    assert.deepEqual((await q("select key from public.settings where key in ('product_categories','product-categories:7212')")).rows,[{key:'product-categories:7212'}]);
+    const staffNote=(await q("insert into public.notes(title,standalone_warehouse_id) values('new',7212) returning id")).rows[0].id;
+    assert.equal((await q("update public.notes set title='edited' where id=$1",[staffNote])).rowCount,1);
+    assert.equal((await q('delete from public.notes where id=$1',[staffNote])).rowCount,1);
+    await q('savepoint forbidden_shop');
+    await assert.rejects(q("insert into public.notes(title,standalone_warehouse_id) values('wrong',1)"),/row-level security/);
+    await q('rollback to forbidden_shop');
     console.log('Topic order: persisted moves, pagination, hidden notes, staff permissions and concurrent article edits passed');
   }finally{await q('rollback');}
 }

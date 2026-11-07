@@ -6,7 +6,7 @@ const source=fs.readFileSync('src/products/category-settings.js','utf8');
 function fixture(){
   const calls=[];
   const context=vm.createContext({products:[],currentProfile:{id:'owner',owner:true},navigator:{onLine:true},
-    captureWorkspaceRead:()=>1,isWorkspaceReadCurrent:()=>true,
+    activeWarehouseId:1,isAllWarehousesMode:()=>false,captureStoreView:()=>({store:1}),isStoreViewCurrent:()=>true,
     refreshCategoryBrandUnitLists(){},persistWorkspaceData(){},
     sb:{rpc:async(name,args)=>{calls.push({name,args});return {error:null};}},
     escapeHtml:value=>String(value).replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;')});
@@ -55,14 +55,14 @@ test('settings save uses owner RPC and only changes local state after successful
 test('reload reads shared settings and rejects stale workspace responses',async()=>{
   const {context,run}=fixture();
   let resolve;
-  context.sb.from=table=>{assert.equal(table,'settings');return {select:()=>({eq:(key,value)=>{assert.equal(value,'product_categories');return {maybeSingle:()=>new Promise(done=>{resolve=done;})};}})};};
+  context.sb.from=table=>{assert.equal(table,'settings');return {select:()=>({in:(key,values)=>{assert.deepEqual([...values],['product_categories']);return new Promise(done=>{resolve=done;});}})};};
   const pending=run('loadProductCategorySettingsFromSupabase()');
-  resolve({data:{value:{categories:['ยา'],subcategories:[]}},error:null});
+  resolve({data:[{key:'product_categories',value:{categories:['ยา'],subcategories:[]}}],error:null});
   assert.equal(await pending,true);
   assert.equal(run('productCategorySettingsLoaded'),true);
   const stale=run('loadProductCategorySettingsFromSupabase()');
-  context.isWorkspaceReadCurrent=()=>false;
-  resolve({data:{value:{categories:['อื่น'],subcategories:[]}},error:null});
+  context.isStoreViewCurrent=()=>false;
+  resolve({data:[{key:'product_categories',value:{categories:['อื่น'],subcategories:[]}}],error:null});
   assert.equal(await stale,false);
   assert.equal(run('productCategorySettings.categories[0]'),'ยา');
 });

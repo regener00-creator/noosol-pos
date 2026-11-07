@@ -732,6 +732,7 @@ async function performProductExcelImport(file){
   // doesn't get flagged as conflicting with itself -- only a genuine clash
   // with a DIFFERENT product blocks the row.
   const skuOwner=new Map();
+  const productsAtPreview=new Map(products.map(product=>[Number(product.id),product]));
   products.forEach(p=>{ const s=String(p.sku||'').trim().toLowerCase(); if(s) skuOwner.set(s,p.id); });
   const barcodeOwner=new Map();
   products.forEach(p=>{
@@ -829,8 +830,8 @@ async function performProductExcelImport(file){
         existingCopies.push({line,name,detail,status:'ข้าม'});return;
       }
     }else{
-      if(Number.isFinite(systemId)) existing=productById(systemId);
-      if(!existing&&sku) existing=productById(skuOwner.get(sku.toLowerCase()));
+      if(Number.isFinite(systemId)) existing=productsAtPreview.get(systemId);
+      if(!existing&&sku) existing=productsAtPreview.get(skuOwner.get(sku.toLowerCase()));
     }
     if(existing&&seenInFile.has(existing.id)){ skipped.push(`แถว ${line}: ซ้ำกับแถวก่อนหน้าในไฟล์เดียวกัน (${name})`); return; }
 

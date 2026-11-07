@@ -86,7 +86,7 @@ function openProductCategoryDialog(kind,originalName=''){
   const settings=effectiveProductCategorySettings();
   const existing=settings.subcategories.find(row=>row.name===originalName);
   const inUse=!!originalName&&categorySettingsInUse(kind,originalName);
-  const overlay=document.createElement('div'); overlay.className='modal-overlay';
+  const overlay=document.createElement('div'); overlay.className='modal-overlay product-category-editor-overlay';
   overlay.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-labelledby="categoryDialogTitle">
     <div class="modal-head"><h3 id="categoryDialogTitle">${originalName?'แก้ไข':'เพิ่ม'}หมวด${kind==='main'?'หลัก':'ย่อย'}</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div>
     <form id="categorySettingsForm" style="padding:0 18px 18px;overflow:auto"><div class="field"><label for="categorySettingsName">ชื่อหมวด${kind==='main'?'หลัก':'ย่อย'}</label><input id="categorySettingsName" required maxlength="120" value="${escapeHtml(originalName)}" ${inUse?'readonly':''}></div>

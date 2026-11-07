@@ -75,7 +75,7 @@ let browser;
   await page.locator('#noteTitle').fill('draft');
   await require('./drag-topic.cjs')(page,page.locator('[data-note-id="note-2"]'),page.locator('[data-note-id="note-1"]'));
   await page.waitForFunction(()=>document.querySelector('[data-note-id]').dataset.noteId==='note-2');
-  assert.deepEqual(await page.evaluate(()=>window.lastNoteMove),{p_source:'note-2',p_target:'note-1',p_after:false});
+  assert.deepEqual(await page.evaluate(()=>window.lastNoteMove),{p_warehouse_id:1,p_source:'note-2',p_target:'note-1',p_after:false});
   assert.equal(await page.locator('#noteTitle').inputValue(),'draft');
   page.once('dialog',dialog=>dialog.accept());
 

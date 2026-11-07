@@ -12,6 +12,8 @@ const session = new Map();
 const persistent = new Map();
 const products = [{id:10,wh:2,name:'ยา A',stock:99,expiry:'2028-01-01'}];
 const sandbox = {
+  document:{querySelector:()=>null},resetStoreCategoryView:()=>{},normalizeProductCategorySettings:()=>({categories:[],subcategories:[]}),favorites:[],normalizeFavorites:items=>items,lastSyncedSnapshot:{},
+  loadProductCategorySettingsFromSupabase:async()=>true,loadFavoritesFromSupabase:async()=>{},
   clearTimeout,customerLoyaltyExpiryTimer:null,
   currentProfile: {id:'owner-1',owner:true},
   warehouses: [{id:1,name:'สำนักงานใหญ่'},{id:2,name:'สาขา'}],

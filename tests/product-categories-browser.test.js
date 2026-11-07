@@ -53,6 +53,7 @@ const browserExecutable = [
 
   await page.evaluate(()=>{
     currentProfile={id:'category-test',owner:true,level:1};
+    activeWarehouseId=1;allWarehousesMode=false;
     products=[{id:1,name:'เดิม',category:'ยา',brand:'ยาคุม',unit:'กล่อง',price:20,stock:0,units:[]}];
     productCategorySettings={categories:['ยา','อาหารเสริม'],subcategories:[]};
     productCategorySettingsLoaded=true;
@@ -65,7 +66,7 @@ const browserExecutable = [
       }
       return {error:null};
     };
-    sb.from=()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:{value:window.testCategoryStore},error:null})})})});
+    sb.from=()=>({select:()=>({in:async()=>({data:[{key:'product_categories',value:window.testCategoryStore}],error:null})})});
     persistWorkspaceData=()=>Promise.resolve(true);
     currentTab='settingscategories';
     render=()=>{document.getElementById('main').innerHTML=renderProductCategorySettings();attachEvents();};

@@ -155,26 +155,32 @@ async function loadInspectionListsFromSupabase(){
 // The table keeps user_id only as the last editor. product_id is the shared
 // primary key, so every account loads and edits the same ordered list.
 async function syncFavoritesToSupabase(){
-  if(!currentProfile) return;
-  favorites=normalizeFavorites(favorites);
+  if(!currentProfile||!activeWarehouseId||isAllWarehousesMode()) return;
+  const context=captureStoreView();
+  const storeIds=new Set(products.map(product=>Number(product.id)));
+  favorites=normalizeFavorites(favorites).filter(entry=>storeIds.has(entry.pid));
   const snapshot=JSON.stringify(favorites);
   if(lastSyncedSnapshot.favorites===snapshot) return;
   try{
+    const localIds=new Set(favorites.map(entry=>entry.pid));
+    const previous=JSON.parse(lastSyncedSnapshot.favorites||'[]');
+    const del=previous.map(entry=>entry.pid).filter(id=>storeIds.has(id)&&!localIds.has(id));
     const rows=favorites.map((entry,position)=>({user_id:currentProfile.id,product_id:entry.pid,unit:entry.unit||'',position}));
     if(rows.length){ const {error}=await sb.from('favorites').upsert(rows,{onConflict:'product_id'}); if(error){ console.warn('sync favorites',error); return; } }
-    const {data:existing}=await fetchAllRows(()=>sb.from('favorites').select('product_id'));
-    const localIds=new Set(favorites.map(entry=>entry.pid));
-    const del=(existing||[]).filter(r=>!localIds.has(r.product_id)).map(r=>r.product_id);
-    if(del.length) await sb.from('favorites').delete().in('product_id',del);
-    lastSyncedSnapshot.favorites=snapshot;
+    if(del.length){const {error}=await sb.from('favorites').delete().in('product_id',del);if(error)throw error;}
+    if(isStoreViewCurrent(context))lastSyncedSnapshot.favorites=snapshot;
   }catch(e){ console.warn('sync favorites failed',e); }
 }
 async function loadFavoritesFromSupabase(){
-  if(!currentProfile) return;
-  const context=captureWorkspaceRead();
+  if(!currentProfile||!activeWarehouseId||isAllWarehousesMode()) return;
+  const context=captureStoreView();
   try{
-    const {data,error}=await fetchAllRows(()=>sb.from('favorites').select('product_id,unit,position,created_at').order('position').order('created_at'));
-    if(!isWorkspaceReadCurrent(context)) return;
+    const {data,error}=await fetchAllRows(()=>{
+      const query=sb.from('favorites').select('product_id,unit,position,created_at,products!inner(warehouse_id)');
+      const scoped=Number(context.store)===1?query.or('warehouse_id.eq.1,warehouse_id.is.null',{referencedTable:'products'}):query.eq('products.warehouse_id',context.store);
+      return scoped.order('position').order('created_at');
+    });
+    if(!isStoreViewCurrent(context)) return;
     if(error){ console.warn('load favorites',error); return; }
     favorites=normalizeFavorites((data||[]).map(row=>({pid:row.product_id,unit:row.unit})));
     lastSyncedSnapshot.favorites=JSON.stringify(favorites);
@@ -233,6 +239,9 @@ async function loadCoreDataFromSupabase(){
     rebuildInventoryBalanceMap();
     rebuildInventoryLotMap();
     restoreActiveWarehouseSelection();
+    applyStoreCategoryView();
+    await Promise.all([loadProductCategorySettingsFromSupabase(),loadFavoritesFromSupabase()]);
+    if(!isWorkspaceReadCurrent(context)) return false;
     if(!await loadWarehouseInventoryFromSupabase(inventoryScopeWarehouseIds(),{force:true})){
       console.warn('load core inventory failed');
       return;

@@ -54,6 +54,7 @@ function requestWarehouseChange(){
   if(typeof saveProduct==='function'&&saveProduct.saving){showToast('กำลังบันทึกสินค้า กรุณารอให้เสร็จก่อนเปลี่ยนคลัง');return;}
   if(readPendingCheckoutRequest()){ showToast('มีรายการชำระที่ยังรอยืนยัน กรุณากดชำระซ้ำให้เสร็จก่อนเปลี่ยนคลัง','danger-top'); return; }
   if(currentTab==='settingsbusiness'&&businessSettingsDirty&&!confirm('มีข้อมูลธุรกิจที่ยังไม่ได้บันทึก ต้องการเปลี่ยนคลังหรือไม่?'))return;
+  if(currentTab==='notes'&&noteDraftDirty&&!confirm('โน้ตนี้ยังไม่ได้บันทึก ต้องการออกจากคลังและทิ้งข้อความที่แก้ไขหรือไม่?'))return;
   if(cart.length&&!confirm('มีสินค้าอยู่ในบิล การเปลี่ยนคลังจะล้างบิลปัจจุบัน ยืนยันเปลี่ยนคลังหรือไม่?')) return;
   activeWarehouseId=0; allWarehousesMode=false; cashShifts=[]; currentCashShift=null;
   clearActiveWarehouseSelection();
@@ -175,6 +176,7 @@ async function logoutSystem(){
   localStorage.removeItem(OFFLINE_SESSION_KEY);
   offlinePosActive=false;offlinePosAccount=null;offlineSales=[];
   await sb.auth.signOut();
+  productCategoriesByStore={};
   currentProfile=null;
   clearLoadedHistoryMemory();
   resetRepresentativeManagedProductIndex();

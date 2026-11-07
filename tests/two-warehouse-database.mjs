@@ -1,5 +1,42 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+// Run last on the disposable test cluster. Both checkout connections need committed fixtures.
+export async function runConcurrentSales({client,connect}){
+  const {id:owner}=(await client.query('select id from public.profiles where owner order by id limit 1')).rows[0];
+  const stores=[{id:92301,price:70,cost:30,qty:1},{id:92302,price:100,cost:40,qty:2}];
+  await client.query("select set_config('request.jwt.claim.sub',$1,false)",[owner]);
+  for(const s of stores){
+    await client.query('insert into public.warehouses(id,name) values($1,$2)',[s.id,'Store '+s.id]);
+    await client.query("insert into public.products(id,warehouse_id,name,unit,price,cost,data) values($1,$1,'Decolgen','box',$2,$3,$4)",[s.id,s.price,s.cost,{barcode:'CONCURRENT-001',active:true,vat:'none'}]);
+    await client.query("insert into public.inventory_lots(product_id,warehouse_id,internal_code,manufacturer_lot,quantity_base,unit_cost_base) values($1,$1,$3,'LOT-SAME',10,$2)",[s.id,s.cost,'PARALLEL-'+s.id]);
+    await client.query('update public.inventory_balances set stock=10 where product_id=$1',[s.id]);
+  }
+  const registers=await Promise.all(stores.map(()=>connect()));
+  try{
+    await Promise.all(registers.map(async(c,i)=>{
+      await c.query("select set_config('request.jwt.claim.sub',$1,false)",[owner]);
+      await c.query("set role authenticated");
+      await c.query('select public.open_cash_shift($1,500)',[stores[i].id]);
+    }));
+    const requests=stores.map(()=>randomUUID());
+    const checkout=async(c,i)=>{
+      const {id,qty,price,cost}=stores[i],total=qty*price;
+      const sale={total,costTotal:qty*cost,discount:0,fee:0,vat:0,cashReceived:total,cashChange:0,payMethod:'เงินสด'};
+      const lines=[{productId:id,lineKey:'1',qty,unit:'box',price,lineTotal:total,lineTotalGross:total}];
+      return (await c.query("select public.complete_sale($1,'POS',$2,$3,$4,null) result",[requests[i],id,sale,JSON.stringify(lines)])).rows[0].result.sale;
+    };
+    const receipts=await Promise.all(registers.map(checkout));
+    const repeats=await Promise.all(registers.map(checkout));
+    for(const [i,s] of stores.entries()){
+      assert.equal(receipts[i].id,repeats[i].id);
+      assert.equal(Number(receipts[i].total),s.price*s.qty);
+      const balance=await client.query('select stock from public.inventory_balances where warehouse_id=$1 and product_id=$1',[s.id]);
+      assert.equal(Number(balance.rows[0].stock),10-s.qty);
+    }
+    assert.notEqual(receipts[0].id,receipts[1].id);
+    console.log('Two simultaneous store checkouts: different prices and quantities, separate balances, retry without duplicate bills passed');
+  }finally{await Promise.all(registers.map(c=>c.end()));}
+}
 export async function run({client}){
   const q=(sql,params)=>client.query(sql,params);
   await q('begin');
@@ -16,6 +53,8 @@ export async function run({client}){
       await q("insert into public.products(id,warehouse_id,name,unit,price,cost,data) values($1,$1,'Decolgen','box',$2,$3,$4)",[s.id,s.price,s.cost,{barcode:'001234',extraBarcodes:['P00000123456'],vat:'incl',active:true}]);
       await q("insert into public.inventory_lots(product_id,warehouse_id,internal_code,quantity_base,unit_cost_base) values($1,$1,$2,10,$3)",[s.id,s.name,s.cost]);
       await q("insert into public.sales_representatives(id,warehouse_id,name) values($1,$1,'Same representative')",[s.id]);
+      await q("insert into public.favorites(user_id,product_id,position) values($1,$2,0)",[owner,s.id]);
+      await q("insert into public.promotions(id,data) values($1,$2)",[s.id,{warehouseId:s.id}]);
       await q("select public.save_representative_products($1,$2)",[s.id,JSON.stringify([s.id])]);
       await q("select public.save_representative_note(null,null,'Store note','', $1,current_date,'[]')",[s.id]);
       const reps=await q('select representative_id from public.get_representative_page(p_warehouse_id=>$1)',[s.id]);
@@ -71,6 +110,9 @@ export async function run({client}){
     await assert.rejects(q("select public.save_representative_note(null,null,'Blocked','',8520,current_date,'[]')"),/store access denied/);
     await q('rollback to unauthorized_note');
     assert.deepEqual((await q('select id from public.products where id in (8510,8520)')).rows.map(r=>Number(r.id)),[8510]);
+    assert.deepEqual((await q('select product_id from public.favorites where product_id in (8510,8520)')).rows.map(r=>Number(r.product_id)),[8510]);
+    assert.equal((await q('delete from public.favorites where product_id=8520')).rowCount,0);
+    assert.deepEqual((await q('select id from public.promotions where id in (8510,8520)')).rows.map(r=>Number(r.id)),[8510]);
     assert.deepEqual((await q('select id from public.contacts where id in (8510,8520)')).rows.map(r=>Number(r.id)),[8510]);
     assert.equal((await q("select key from public.settings where key='business-warehouse:8520' ")).rowCount,0);
     console.log('Two stores: independent barcodes, prices, costs, stock, receipt snapshots and staff visibility verified');

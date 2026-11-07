@@ -55,7 +55,7 @@ async function saveOfflinePosSnapshot({refreshProducts=false}={}){
       const snapshot=structuredClone({
         format:2,actorId:actor,profile:currentProfile,warehouses,contacts,promotions,favorites,
         warehouseAccessRows,pagePermissionRows,inventoryBalanceRows,inventoryLotRows,
-        businessSettings,warehouseBusinessProfiles,documentPrefixes,productCategorySettings,currentCashShift,cashShifts,activeWarehouseId,
+        businessSettings,warehouseBusinessProfiles,documentPrefixes,productCategoriesByStore,currentCashShift,cashShifts,activeWarehouseId,
         settledCheckoutIds:[...offlineInventorySettledIds],savedAt:new Date().toISOString()
       });
       const tx=db.transaction([PRODUCT_CACHE_META_STORE,OFFLINE_PRODUCTS_STORE],'readwrite'),done=idbTransactionDone(tx);
@@ -118,10 +118,11 @@ async function enterOfflinePos({username='',password='',restore=false}={}){
   warehouseAccessRows=snapshot.warehouseAccessRows;pagePermissionRows=snapshot.pagePermissionRows;
   inventoryBalanceRows=snapshot.inventoryBalanceRows;inventoryLotRows=snapshot.inventoryLotRows;
   offlineInventorySettledIds=new Set(snapshot.settledCheckoutIds||[]);
-  productCategorySettings=normalizeProductCategorySettings(snapshot.productCategorySettings);
+  productCategoriesByStore=snapshot.productCategoriesByStore||(snapshot.productCategorySettings?{1:normalizeProductCategorySettings(snapshot.productCategorySettings)}:{});
   documentPrefixes=snapshot.documentPrefixes;applyBusinessSettings(snapshot.businessSettings);
   warehouseBusinessProfiles=snapshot.warehouseBusinessProfiles||{};
   activeWarehouseId=Number(snapshot.activeWarehouseId)||Number(accessibleWarehouses()[0]?.id)||0;allWarehousesMode=false;setWarehouseProductCatalog(offlineProducts);
+  resetStoreCategoryView();
   currentCashShift=snapshot.currentCashShift;cashShifts=snapshot.cashShifts||[];
   const localShift=await offlineStoreRead(`${OFFLINE_POS_KEY}:shift:${account.actorId}:${activeWarehouseId}`);
   if(localShift){currentCashShift=localShift;cashShifts=[localShift,...cashShifts.filter(s=>s.id!==localShift.id)];}

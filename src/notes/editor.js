@@ -67,7 +67,8 @@ function canDeleteNote(note){
 }
 function isStandaloneNote(note){ return !!note&&!note.activityType&&!note.representativeId; }
 async function loadNotes({append=false,reset=false}={}){
-  if(notesLoading||!sb||!currentProfile) return;
+  if(notesLoading||!sb||!currentProfile||!activeWarehouseId||isAllWarehousesMode()) return;
+  const context=captureStoreView();
   if(reset){ notes=[]; notesLoaded=false; notesHasMore=false; notePageCursor=null; }
   notesLoading=true;
   noteLoadError='';
@@ -76,11 +77,13 @@ async function loadNotes({append=false,reset=false}={}){
     const standaloneNotes=notes.filter(isStandaloneNote);
     const cursor=append?notePageCursor:null;
     const {data,error}=await sb.rpc('get_notes_page',{
+      p_warehouse_id:context.store,
       p_search:String(noteSearchQuery||'').trim()||null,
       p_cursor_updated_at:cursor?.updatedAt||null,
       p_cursor_id:cursor?.id||null,
       p_limit:NOTE_PAGE_SIZE
     }).select(NOTE_ROW_SELECT);
+    if(!isStoreViewCurrent(context))return;
     if(error) throw error;
     const fetched=(data||[]).map(mapNoteRow).filter(isStandaloneNote);
     const rows=fetched.slice(0,NOTE_PAGE_SIZE);
@@ -98,10 +101,9 @@ async function loadNotes({append=false,reset=false}={}){
       if(selected&&!noteDraftDirty) noteDraft=noteDraftFromRow(selected);
     }
   }catch(error){
-    noteLoadError=error?.message||'โหลดโน้ตไม่สำเร็จ';
+    if(isStoreViewCurrent(context))noteLoadError=error?.message||'โหลดโน้ตไม่สำเร็จ';
   }finally{
-    notesLoading=false;
-    if(currentTab==='notes') render();
+    if(isStoreViewCurrent(context)){notesLoading=false;if(currentTab==='notes')render();}
   }
 }
 function selectNote(note){
@@ -193,7 +195,8 @@ function updateNoteDraftFromEditor(){
 }
 async function saveNote(event){
   event?.preventDefault();
-  if(!noteDraft) return;
+  if(!noteDraft||!activeWarehouseId||isAllWarehousesMode()) return;
+  const context=captureStoreView();
   updateNoteDraftFromEditor();
   const title=String(noteDraft.title||'').trim();
   const contentHtml=sanitizeNoteHtml(noteDraft.contentHtml||'');
@@ -203,8 +206,9 @@ async function saveNote(event){
   const payload={title,content_html:contentHtml,hidden_from_level2:loggedInUser()?.owner===true&&noteDraft.hiddenFromLevel2===true};
   try{
     let result;
-    if(editingNoteId==='new') result=await sb.from('notes').insert(payload).select(NOTE_ROW_SELECT).single();
-    else result=await sb.from('notes').update(payload).eq('id',editingNoteId).eq('updated_at',noteDraft.updatedAt).select(NOTE_ROW_SELECT).maybeSingle();
+    if(editingNoteId==='new') result=await sb.from('notes').insert({...payload,standalone_warehouse_id:context.store}).select(NOTE_ROW_SELECT).single();
+    else result=await standaloneNoteInStore(sb.from('notes').update(payload),context.store).eq('id',editingNoteId).eq('updated_at',noteDraft.updatedAt).select(NOTE_ROW_SELECT).maybeSingle();
+    if(!isStoreViewCurrent(context))return;
     if(result.error) throw result.error;
     if(!result.data) throw new Error('โน้ตนี้ถูกแก้ไขหรือลบจากอีกเครื่อง กรุณาโหลดหน้า NOTE ใหม่');
     const saved=mapNoteRow(result.data);
@@ -221,14 +225,20 @@ async function saveNote(event){
     if(button){ button.disabled=false; button.textContent='บันทึกโน้ต'; }
   }
 }
+function standaloneNoteInStore(query,store){
+  const standalone=query.is('representative_warehouse_id',null);
+  return Number(store)===1?standalone.or('standalone_warehouse_id.eq.1,standalone_warehouse_id.is.null'):standalone.eq('standalone_warehouse_id',store);
+}
 async function deleteSelectedNote(){
+  const context=captureStoreView();
   const note=notes.find(item=>item.id===editingNoteId);
   if(!note||!canDeleteNote(note)) return;
   if(!confirm(`ลบโน้ต “${note.title}” หรือไม่?`)) return;
   const button=document.getElementById('deleteNoteBtn');
   if(button){ button.disabled=true; button.textContent='กำลังลบ…'; }
   try{
-    const {data,error}=await sb.from('notes').delete().eq('id',note.id).eq('updated_at',note.updatedAt).select('id').maybeSingle();
+    const {data,error}=await standaloneNoteInStore(sb.from('notes').delete(),context.store).eq('id',note.id).eq('updated_at',note.updatedAt).select('id').maybeSingle();
+    if(!isStoreViewCurrent(context))return;
     if(error) throw error;
     if(!data) throw new Error('โน้ตนี้ถูกแก้ไขหรือลบจากอีกเครื่อง กรุณาโหลดหน้า NOTE ใหม่');
     notes=notes.filter(item=>item.id!==note.id);
@@ -249,11 +259,11 @@ function attachNoteEvents(){
       list.dataset.savingOrder='true';
       const sourceId=source.dataset.noteId,targetId=target.dataset.noteId;
       const after=Boolean(source.compareDocumentPosition(target)&Node.DOCUMENT_POSITION_FOLLOWING);
-      const context=captureWorkspaceRead();
+      const context=captureStoreView();
       try{
-        const {error}=await sb.rpc('owner_move_note',{p_source:sourceId,p_target:targetId,p_after:after});
+        const {error}=await sb.rpc('owner_move_note',{p_warehouse_id:context.store,p_source:sourceId,p_target:targetId,p_after:after});
         if(error)throw error;
-        if(!isWorkspaceReadCurrent(context))return;
+        if(!isStoreViewCurrent(context))return;
         const from=notes.findIndex(note=>note.id===sourceId),to=notes.findIndex(note=>note.id===targetId);
         if(from<0||to<0)return;
         const [moved]=notes.splice(from,1);

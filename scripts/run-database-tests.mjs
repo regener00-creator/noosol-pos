@@ -95,6 +95,7 @@ try{
   await catalogSuite.run({client});
   const internalBarcodeSuite=await import('../tests/internal-barcode-database.mjs');
   await internalBarcodeSuite.run({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
+  await storeSuite.runConcurrentSales({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
   }
   }
 }catch(error){

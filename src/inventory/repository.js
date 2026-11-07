@@ -4,6 +4,13 @@
 const ACTIVE_WAREHOUSE_STORAGE_KEY='pepos_active_warehouse_v1';
 let activeWarehouseId=0;
 let allWarehousesMode=false;
+let storeViewGeneration=0;
+function captureStoreView(){
+  return {...captureWorkspaceRead(),store:activeWarehouseId,combined:isAllWarehousesMode(),view:storeViewGeneration};
+}
+function isStoreViewCurrent(context){
+  return isWorkspaceReadCurrent(context)&&context.store===activeWarehouseId&&context.combined===isAllWarehousesMode()&&context.view===storeViewGeneration;
+}
 let warehouseAccessRows=[];
 let pagePermissionRows=[];
 let inventoryBalanceRows=[];
@@ -233,6 +240,9 @@ async function loadWarehouseInventoryFromSupabase(warehouseIds=inventoryScopeWar
 }
 function activeWarehouseStorageKey(profile=currentProfile){ return `${ACTIVE_WAREHOUSE_STORAGE_KEY}:${profile?.id||''}`; }
 function clearActiveWarehouseSelection(profile=currentProfile){
+  storeViewGeneration++;
+  productCategorySettings=normalizeProductCategorySettings(null);
+  productCategorySettingsLoaded=false;
   const key=activeWarehouseStorageKey(profile);
   try{ localStorage.removeItem(key); }catch(error){}
   try{ sessionStorage.removeItem(key); }catch(error){}
@@ -280,6 +290,15 @@ function selectActiveWarehouse(warehouseId){
   return true;
 }
 function resetWarehouseScopedUiState(reportWarehouseValue){
+  storeViewGeneration++;
+  notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false; noteSearchQuery=''; notePageCursor=null;
+  document.querySelector('.product-category-editor-overlay')?.remove();
+  resetStoreCategoryView();
+  favorites=normalizeFavorites(favorites.filter(entry=>productById(favoriteProductId(entry))));
+  lastSyncedSnapshot.favorites='';
+  if(currentProfile&&!offlinePosMode()){
+    Promise.all([loadProductCategorySettingsFromSupabase(),loadFavoritesFromSupabase()]).then(()=>render());
+  }
   cart=[]; saleDiscount=0; saleMember=null; saleSourceQuotationId=null; pendingQty=1;
   cashShifts=[]; currentCashShift=null; cashShiftCloseDraft={countedCash:'',reason:''};
   editingProductId=null;mobileProductEditor=null;barcodePrintShowMenu=true;barcodePrintItems=[];barcodePrintOtherQueue=null;barcodePrintRequest=null;barcodePrintSearchQuery='';

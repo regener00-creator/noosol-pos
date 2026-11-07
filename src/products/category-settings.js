@@ -5,6 +5,18 @@ let productCategorySettingsLoaded=false;
 let productCategorySettingsError='';
 let productCategorySettingsLoading=false;
 let productCategorySettingsSaving=false;
+let productCategoriesByStore={};
+function storeCategoryKey(id){ return Number(id)===1?'product_categories':'product-categories:'+id; }
+function applyStoreCategoryView(){
+  const ids=isAllWarehousesMode()?accessibleWarehouses().map(w=>w.id):[activeWarehouseId];
+  const values=ids.map(id=>productCategoriesByStore[id]).filter(Boolean);
+  productCategorySettings=normalizeProductCategorySettings({categories:values.flatMap(v=>v.categories),subcategories:values.flatMap(v=>v.subcategories)});
+  refreshCategoryBrandUnitLists();
+}
+function resetStoreCategoryView(){
+  productCategorySettingsLoading=false; productCategorySettingsLoaded=false; productCategorySettingsSaving=false; productCategorySettingsError='';
+  applyStoreCategoryView();
+}
 function categoryName(value){ return String(value||'').trim(); }
 function validMainCategory(value){ const name=categoryName(value); return !!name&&name!=='ไม่ทราบหมวดหมู่'&&!name.startsWith('__'); }
 function normalizeProductCategorySettings(value){
@@ -61,38 +73,42 @@ function attachProductCategorySelectEvents(){
   });
 }
 async function loadProductCategorySettingsFromSupabase(){
-  const context=captureWorkspaceRead();
+  if(!activeWarehouseId)return false;
+  const context=captureStoreView();
+  const ids=context.combined?accessibleWarehouses().map(w=>w.id):[context.store];
   productCategorySettingsLoading=true;
   try{
-    const {data,error}=await sb.from('settings').select('value').eq('key','product_categories').maybeSingle();
-    if(!isWorkspaceReadCurrent(context)) return false;
+    const {data,error}=await sb.from('settings').select('key,value').in('key',ids.map(storeCategoryKey));
+    if(!isStoreViewCurrent(context)) return false;
     if(error) throw error;
-    productCategorySettings=normalizeProductCategorySettings(data?.value);
-    refreshCategoryBrandUnitLists();
+    for(const id of ids) productCategoriesByStore[id]=normalizeProductCategorySettings(data?.find(row=>row.key===storeCategoryKey(id))?.value);
+    applyStoreCategoryView();
     productCategorySettingsLoaded=true;
     productCategorySettingsError='';
     return true;
   }catch(error){
-    if(isWorkspaceReadCurrent(context)) productCategorySettingsError='โหลดหมวดสินค้าไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่';
+    if(isStoreViewCurrent(context)) productCategorySettingsError='โหลดหมวดสินค้าไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วลองใหม่';
     return false;
   }finally{
-    if(isWorkspaceReadCurrent(context)) productCategorySettingsLoading=false;
+    if(isStoreViewCurrent(context)) productCategorySettingsLoading=false;
   }
 }
 async function saveProductCategorySettings(value){
+  if(!activeWarehouseId||isAllWarehousesMode()) throw new Error('กรุณาเลือกคลังที่จะตั้งค่าหมวดสินค้า');
   if(currentProfile?.owner!==true) throw new Error('เฉพาะเจ้าของร้านเท่านั้นที่ตั้งค่าหมวดสินค้าได้');
   if(!productCategorySettingsLoaded||productCategorySettingsError) throw new Error('กรุณาโหลดหมวดสินค้าให้สำเร็จก่อนบันทึก');
   if(navigator.onLine===false) throw new Error('กรุณาเชื่อมต่ออินเทอร์เน็ตก่อนบันทึกหมวดสินค้า');
   if(productCategorySettingsSaving) throw new Error('กำลังบันทึกหมวดสินค้า กรุณารอสักครู่');
-  const context=captureWorkspaceRead(),next=normalizeProductCategorySettings(value);
+  const context=captureStoreView(),next=normalizeProductCategorySettings(value);
   productCategorySettingsSaving=true;
   try{
-    const {error}=await sb.rpc('owner_set_setting',{p_key:'product_categories',p_value:next});
+    const {error}=await sb.rpc('owner_set_setting',{p_key:storeCategoryKey(context.store),p_value:next});
     if(error) throw error;
-    if(!isWorkspaceReadCurrent(context)) throw new Error('ผู้ใช้งานเปลี่ยนระหว่างบันทึก กรุณาเปิดหน้าตั้งค่าใหม่');
+    if(!isStoreViewCurrent(context)) throw new Error('คลังหรือผู้ใช้งานเปลี่ยนระหว่างบันทึก กรุณาเปิดหน้าตั้งค่าใหม่');
+    productCategoriesByStore[context.store]=next;
     productCategorySettings=next;
     productCategorySettingsError='';
     refreshCategoryBrandUnitLists();
     persistWorkspaceData();
-  }finally{ productCategorySettingsSaving=false; }
+  }finally{ if(isStoreViewCurrent(context)) productCategorySettingsSaving=false; }
 }

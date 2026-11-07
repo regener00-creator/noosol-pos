@@ -362,7 +362,7 @@ function stockEditInspectionSourceList(){
 }
 
 function inspectionListAvailableForStockEdit(list){
-  return Boolean(list)&&!String(list.stockAdjustedAt||'').trim()&&Number(list.warehouseId||activeWarehouseId)===Number(activeWarehouseId);
+  return Boolean(list)&&!String(list.stockAdjustedAt||'').trim()&&Number(list.warehouseId||1)===Number(activeWarehouseId);
 }
 
 function stockEditImportInspectionList(listId,askBeforeReplace=true){
