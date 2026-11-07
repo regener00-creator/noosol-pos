@@ -12,9 +12,9 @@ function renderBusinessSettings(){
         <div class="settings-row"><label for="set_business_vat">จดภาษีมูลค่าเพิ่ม:</label><select id="set_business_vat"><option ${b.vat==='จดภาษีมูลค่าเพิ่มแล้ว'?'selected':''}>จดภาษีมูลค่าเพิ่มแล้ว</option><option ${b.vat==='ยังไม่จดภาษีมูลค่าเพิ่ม'?'selected':''}>ยังไม่จดภาษีมูลค่าเพิ่ม</option></select></div>
         <div class="settings-row" id="businessVatDateRow" ${vatSelected?'':'hidden'}><label for="set_business_vat_date">วันที่เริ่มจด VAT ตาม ภ.พ.20:</label><div><input id="set_business_vat_date" class="dmy-input" value="${escapeHtml(isoToDMY(b.vatRegistrationDate))}" placeholder="วว/ดด/ปปปป" inputmode="numeric" maxlength="10" autocomplete="off"><small class="business-field-hint">ระบบจะเริ่มคิด VAT และอนุญาตให้ออกใบกำกับภาษีตั้งแต่วันที่นี้</small></div></div>
       </div>
-      <div class="hint">หากเลือก “ยังไม่จดภาษีมูลค่าเพิ่ม” ระบบจะไม่คิด VAT และไม่ออกใบกำกับภาษีสำหรับรายการขายใหม่ โดยจะเก็บค่าภาษีของสินค้าเดิมไว้ใช้เมื่อจด VAT ในอนาคต</div>
+      <div class="hint">หากเลือก “ยังไม่จดภาษีมูลค่าเพิ่ม” ระบบจะไม่คิด VAT และไม่ออกใบกำกับภาษี โดยจะเก็บค่าภาษีของสินค้าเดิมไว้ใช้เมื่อจด VAT ในอนาคต</div>
     </div>
-    <div class="settings-section"><h2>รายละเอียดธุรกิจ</h2><div class="hint">ข้อมูลใช้สำหรับการออกเอกสาร</div>
+    <div class="settings-section"><h2>รายละเอียดธุรกิจ</h2>
       <div class="business-form-row three-fields">
         <div class="settings-row"><label for="set_business_name">ชื่อธุรกิจ:</label><input id="set_business_name" value="${escapeHtml(b.name)}" autocomplete="organization"></div>
         <div class="settings-row"><label for="set_business_tax">เลขประจำตัวผู้เสียภาษี:</label><div><input id="set_business_tax" value="${escapeHtml(b.taxId)}" inputmode="numeric" maxlength="13" autocomplete="off"><small class="business-field-hint" id="businessTaxIdHint">${escapeHtml(businessTypeTaxIdHint(b.type))}</small></div></div>
@@ -27,13 +27,13 @@ function renderBusinessSettings(){
         <div class="settings-row"><label for="set_business_branch_name">ชื่อสาขา:</label><input id="set_business_branch_name" value="${escapeHtml(b.branchName||'')}" placeholder="กรอกชื่อสาขา" maxlength="120"></div>
       </div>
     </div>
-    <div class="settings-section"><h2>ข้อมูลติดต่อ</h2><div class="hint">ข้อมูลใช้สำหรับการออกเอกสาร</div>
-      <div class="business-form-row">
+    <div class="settings-section"><h2>ข้อมูลติดต่อ</h2>
+      <div class="business-form-row three-fields">
         <div class="settings-row"><label for="set_business_document_phone">เบอร์หลักบนเอกสาร:</label>
           <select id="set_business_document_phone"><option value="mobile" ${b.documentPhone!=='office'?'selected':''}>เบอร์มือถือ</option><option value="office" ${b.documentPhone==='office'?'selected':''}>เบอร์สำนักงาน</option></select>
-          <input id="set_business_office" class="phone-input" value="${escapeHtml(b.officePhone||'')}" inputmode="tel" autocomplete="tel" aria-label="เบอร์สำนักงาน" placeholder="กรอกเบอร์สำนักงาน" ${b.documentPhone==='office'?'':'hidden'}>
         </div>
         <div class="settings-row"><label for="set_business_mobile">เบอร์มือถือ:</label><input id="set_business_mobile" class="phone-input" value="${escapeHtml(b.mobile)}" inputmode="tel" autocomplete="tel"></div>
+        <div class="settings-row"><label for="set_business_office">เบอร์สำนักงาน:</label><input id="set_business_office" class="phone-input" value="${escapeHtml(b.officePhone||'')}" inputmode="tel" autocomplete="tel"></div>
       </div>
       <div class="business-form-row">
         <div class="settings-row"><label for="set_business_line">LINE:</label><input id="set_business_line" value="${escapeHtml(b.line||'')}" autocomplete="off" placeholder="เช่น @NOOSOL"></div>

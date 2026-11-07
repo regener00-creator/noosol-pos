@@ -1405,9 +1405,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     updateBusinessSettingsVisibility();
   }));
   document.getElementById('set_business_vat')?.addEventListener('change',updateBusinessSettingsVisibility);
-  document.getElementById('set_business_document_phone')?.addEventListener('change',event=>{
-    document.getElementById('set_business_office').hidden=event.target.value!=='office';
-  });
   document.getElementById('set_business_type')?.addEventListener('change',event=>{
     const hint=document.getElementById('businessTaxIdHint');
     if(hint) hint.textContent=businessTypeTaxIdHint(event.target.value);

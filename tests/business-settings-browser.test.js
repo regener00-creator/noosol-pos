@@ -73,7 +73,12 @@ const browserExecutable = [
   await officePhone.fill('021234567');
   const officeValue=await officePhone.inputValue();
   await page.getByLabel('เบอร์หลักบนเอกสาร:').selectOption({label:'เบอร์มือถือ'});
-  assert.equal(await officePhone.isHidden(),true);
+  assert.equal(await officePhone.isVisible(),true);
+  const phoneFields=await page.locator('#set_business_document_phone,#set_business_mobile,#set_business_office').evaluateAll(fields=>
+    fields.map(el=>({id:el.id,top:el.getBoundingClientRect().top,left:el.getBoundingClientRect().left})));
+  assert.deepEqual(phoneFields.map(field=>field.id),['set_business_document_phone','set_business_mobile','set_business_office']);
+  assert.equal(new Set(phoneFields.map(field=>field.top)).size,1);
+  assert.ok(phoneFields[0].left<phoneFields[1].left && phoneFields[1].left<phoneFields[2].left);
   await page.getByLabel('เบอร์หลักบนเอกสาร:').selectOption({label:'เบอร์สำนักงาน'});
   assert.equal(await officePhone.inputValue(),officeValue);
 
