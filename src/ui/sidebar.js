@@ -56,16 +56,18 @@ const NAV = [
 let sidebarRenderSignature='';
 function renderSidebar(){
   const user=loggedInUser();
-  const signature=JSON.stringify([user?.id,user?.level,user?.owner,currentTab,isAllWarehousesMode(),user?.pagePermissions||[],user?.warehouseIds||[]]);
+  const combined=isAllWarehousesMode();
+  const signature=JSON.stringify([user?.id,user?.level,user?.owner,currentTab,combined,user?.pagePermissions||[],user?.warehouseIds||[]]);
   if(signature===sidebarRenderSignature&&document.getElementById('sidebar')?.children.length) return;
   sidebarRenderSignature=signature;
+  document.getElementById('sidebar').classList.toggle('combined-sidebar',combined);
   let html = `<div class="brand sidebar-user"><div class="sidebar-user-text"><b>${escapeHtml(user?.firstName||user?.username||'')}</b><span>${escapeHtml(systemUserLevelLabel(user?.level))}</span></div></div>`;
   NAV.forEach(g=>{
     const visibleItems=g.items.filter(([tab])=>canAccessTab(tab));
     if(!visibleItems.length) return;
-    if(g.section) html += `<div class="navsection">${g.section}</div>`;
+    if(g.section&&!combined) html += `<div class="navsection">${g.section}</div>`;
     visibleItems.forEach(([tab,label,svg])=>{
-      if(tab==='products'&&isAllWarehousesMode())label='ราคาสินค้า';
+      if(tab==='products'&&combined)label='ราคาสินค้า';
       html += `<button class="navbtn ${currentTab===tab?'active':''}" data-tab="${tab}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${svg}</svg>${label}</button>`;
     });
   });

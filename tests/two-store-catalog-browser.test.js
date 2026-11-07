@@ -72,6 +72,9 @@ let browser;
   await page.waitForFunction(async()=>(await window.requestUnits({actor:currentProfile.id})).data.some(row=>row.product_id===11&&row.unit_name==='ซอง'));
   const nav=await page.locator('.navbtn').evaluateAll(buttons=>buttons.map(b=>b.dataset.tab).sort());
   assert.deepEqual(nav,['products','rinventory']);
+  assert.equal(await page.locator('#sidebar .navsection').count(),0);
+  const navColor=tab=>page.locator(`.navbtn[data-tab="${tab}"]`).evaluate(el=>getComputedStyle(el).backgroundColor);
+  const activeColor=await navColor('products'),idleColor=await navColor('rinventory');
   assert.equal((await page.locator('.navbtn[data-tab="products"]').innerText()).trim(),'ราคาสินค้า');
   async function checkStoreFilter(){
     assert.equal(await page.locator('.combined-catalog > :first-child').getAttribute('class'),'tree-pane');
@@ -115,6 +118,8 @@ let browser;
   const matchingRows=page.locator('[data-combined-results] tbody tr');
   await orangeFilter.click();
   await page.locator('.navbtn[data-tab="rinventory"]').click();
+  assert.equal(await navColor('products'),idleColor);
+  assert.equal(await navColor('rinventory'),activeColor);
   assert.equal(await orangeFilter.getAttribute('aria-pressed'),'true');
   assert.equal(await matchingRows.count(),1);
   assert.match(await matchingRows.innerText(),/พรชัยเท่านั้น/);
