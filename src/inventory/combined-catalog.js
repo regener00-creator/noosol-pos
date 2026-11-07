@@ -6,7 +6,7 @@ function combinedCatalogRows(catalog){
     const units=productUnitOptions(product);
     const keys=units.filter(unit=>name&&String(unit.barcode||'').trim()).map(unit=>
       JSON.stringify([name,String(unit.name||'').trim(),String(unit.barcode).trim().toLowerCase()]));
-    const record={product,units,keys,warehouse:Number(product.wh)||1};
+    const record={product,units,keys,barcodes:productBarcodeCodes(product),warehouse:Number(product.wh)||1};
     for(const key of keys){
       if(!index.has(key))index.set(key,[]);
       index.get(key).push(record);
@@ -44,7 +44,7 @@ function renderCombinedCatalog(stockOnly){
   return `<section class="rpt combined-catalog" aria-label="${stockOnly?'สินค้าคงเหลือ':'ราคาสินค้า'}" data-combined-stock="${stockOnly}">
     <div class="tree-pane"><div class="product-group-header"><span class="product-group-title">กลุ่มสินค้า</span><span class="product-group-separator">:</span><div class="product-group-categories" data-combined-categories role="group" aria-label="หมวดหลัก"></div></div>
     <div class="product-group-brands" data-combined-brands role="group" aria-label="หมวดย่อย"></div></div>
-    <div class="product-list-search combined-search-group"><input data-combined-search placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" aria-label="ค้นหาสินค้า">
+    <div class="product-list-search combined-search-group"><select class="rpt-select" data-combined-search-field aria-label="ค้นหาตาม"><option value="all">ค้นหาทุกช่อง</option><option value="barcode">บาร์โค้ด</option><option value="name">ชื่อสินค้า</option></select><input data-combined-search placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด" aria-label="ค้นหาสินค้า">
     <div class="product-review-filters combined-legend" role="group" aria-label="กรองสินค้าตามร้าน">${['','พระยาสุเรนทร์','พรชัย'].map(shop=>`<button type="button" class="product-review-filter" data-exclusive-shop="${shop}" aria-pressed="false"><span class="product-review-filter-dot" aria-hidden="true"></span>${shop||'ทั้งหมด'}</button>`).join('')}</div></div>
     <div class="seamless-table-wrap" data-combined-results></div><div data-combined-pager></div></section>`;
 }
@@ -151,6 +151,7 @@ function attachCombinedCatalog(page){
   const rows=combinedCatalogRows(products);
   const categories=page.querySelector('[data-combined-categories]'),brands=page.querySelector('[data-combined-brands]');
   const search=page.querySelector('[data-combined-search]');
+  const searchField=page.querySelector('[data-combined-search-field]');
   const stockOnly=page.dataset.combinedStock==='true';
   const storeButtons=page.querySelectorAll('[data-exclusive-shop]');
   const shopNames=new Map(shops.map(shop=>[Number(shop.id),shop.name]));
@@ -185,6 +186,14 @@ function attachCombinedCatalog(page){
   const pager=page.querySelector('[data-combined-pager]');
   const results=page.querySelector('[data-combined-results]');
   const barcodeMatches=(option,term)=>[...option.shops.values()].some(({unit})=>String(unit.barcode||'').toLowerCase().includes(term));
+  function matchesSearch(row,term){
+    if(!term)return true;
+    const field=searchField.value;
+    return row.members.some(({product,barcodes})=>
+      (field!=='barcode'&&String(product.name||'').toLowerCase().includes(term))||
+      (field!=='name'&&barcodes.some(code=>code.includes(term)))||
+      (field==='all'&&String(product.sku||'').toLowerCase().includes(term)));
+  }
   function describeValues(option,getValue){
     const values=shops.filter(shop=>option.shops.has(Number(shop.id))).map(shop=>({shop,value:getValue(option.shops.get(Number(shop.id)))}));
     if(new Set(values.map(entry=>entry.value)).size===1)return values[0].value;
@@ -195,7 +204,7 @@ function attachCombinedCatalog(page){
     storeButtons.forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.exclusiveShop===shopFilter)));
     const term=search.value.trim().toLowerCase();
     const matches=rows.filter(row=>(!shopFilter||exclusiveShop(row)===shopFilter)&&row.members.some(({product})=>(!category||category===mainCategory(product))&&(!brand||brand===subCategory(product)))&&
-      (!term||row.name.toLowerCase().includes(term)||row.members.some(({product})=>String(product.sku||'').toLowerCase().includes(term))||row.options.some(option=>barcodeMatches(option,term))));
+      matchesSearch(row,term));
     const pages=Math.max(1,Math.ceil(matches.length/pageSize));
     pageNo=Math.min(pageNo,pages);
     const headers=shops.map(shop=>stockOnly?`<th>คงเหลือ · ${escapeHtml(shop.name)}</th>`:`<th>ราคาขาย · ${escapeHtml(shop.name)}</th><th>ทุน · ${escapeHtml(shop.name)}</th>`).join('');
@@ -203,7 +212,7 @@ function attachCombinedCatalog(page){
       const id=row.members[0].product.id;
       const preferred=readCombinedValue(combinedUnitPreferenceKey(id));
       const option=row.options.find(item=>item.name===preferred)||
-        (term&&row.options.find(item=>barcodeMatches(item,term)))||row.options[0];
+        (term&&searchField.value!=='name'&&row.options.find(item=>barcodeMatches(item,term)))||row.options[0];
       const control=row.options.length===1?`<span class="prod-unit-fixed">${escapeHtml(option.name)}</span>`:
         `<select class="prod-unit-select" data-combined-unit="${id}" aria-label="หน่วยของ ${escapeHtml(row.name)}">${row.options.map(item=>`<option value="${escapeHtml(item.name)}" ${item===option?'selected':''}>${escapeHtml(describeValues(item,entry=>entry.label))}</option>`).join('')}</select>`;
       const cells=shops.map(shop=>{
@@ -232,6 +241,10 @@ function attachCombinedCatalog(page){
     };
   }
   search.oninput=()=>{pageNo=1;draw();};
+  searchField.onchange=()=>{
+    search.placeholder={all:'ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด',barcode:'พิมพ์หรือสแกนบาร์โค้ด',name:'ค้นหาชื่อสินค้า'}[searchField.value];
+    pageNo=1;draw();search.focus();
+  };
   storeButtons.forEach(button=>button.onclick=()=>{
     const shop=button.dataset.exclusiveShop;
     if(!shop||combinedShopFilters.get(actor)===shop)combinedShopFilters.delete(actor);

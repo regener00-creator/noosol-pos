@@ -48,6 +48,8 @@ let browser;
     const item=(id,wh,name,barcode,price,cost)=>({id,wh,name,barcode,sku:'SKU'+id,price,cost,category:'ยา',brand:'ทั่วไป',unit:'ซอง',units:[],active:true});
     const rows=[item(11,1,'Decolgen','0001',40,22),item(12,2,'Decolgen','0001',45,28),item(13,2,'พรชัยเท่านั้น','0022',33,11),item(14,1,'พระยาสุเรนทร์เท่านั้น','0033',17,9)];
     rows[0].units=[{sub:'กล่อง',factor:5,price:180,cost:110,barcode:'0055'}];
+    rows[0].extraBarcodes=['ALT-019'];
+    rows[1].vendorBarcodes=[{code:'VENDOR-007'}];
     rows[1].units=[{sub:'กล่อง',factor:10,price:399,cost:270,barcode:'0044'},{sub:'ลัง',factor:20,price:700,cost:540,barcode:'0066'}];
     currentTab='products';activeWarehouseId=1;allWarehousesMode=false;setWarehouseProductCatalog(rows);
     contacts=[{id:901,name:'ชื่อเหมือนกัน',phone:'0801111111',types:['customer','supplier']},
@@ -87,6 +89,20 @@ let browser;
     await medicine.click();
     const general=page.locator('[data-combined-brand="ทั่วไป"]');
     await general.click();
+    const field=page.getByRole('combobox',{name:'ค้นหาตาม'});
+    await field.selectOption('name');
+    await search.fill('decol');
+    assert.match(await rows.innerText(),/Decolgen/);
+    await field.selectOption('barcode');
+    assert.match(await rows.innerText(),/ไม่พบสินค้า/);
+    for(const code of ['0044','alt-019','vendor-007']){
+      await search.fill(code);
+      assert.equal(await rows.count(),1);
+      assert.match(await rows.innerText(),/Decolgen/);
+    }
+    await field.selectOption('name');
+    assert.match(await rows.innerText(),/ไม่พบสินค้า/);
+    await field.selectOption('all');
     await search.fill('SKU12');
     assert.match(await rows.innerText(),/Decolgen/);
     await search.fill('');
@@ -160,7 +176,7 @@ let browser;
   }
   await assertUsesPageWidth();
   await page.evaluate(()=>{
-    const more=Array.from({length:51},(_,i)=>({...products.find(p=>p.id===11),id:301+i,name:'Pagination '+String(i).padStart(2,'0'),barcode:'page'+i}));
+    const more=Array.from({length:51},(_,i)=>({...products.find(p=>p.id===11),id:301+i,name:'Pagination '+String(i).padStart(2,'0'),barcode:'page'+i,extraBarcodes:[],units:[]}));
     setWarehouseProductCatalog([...completeProductCatalog(),...more]);render();
   });
   async function checkPagination(){
