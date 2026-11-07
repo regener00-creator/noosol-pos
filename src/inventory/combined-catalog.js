@@ -144,6 +144,7 @@ async function refreshCombinedUnits(page,rows,draw){
     if(changed)draw();
   }catch{if(isCurrent())showToast('โหลดหน่วยที่บันทึกกับบัญชีไม่ได้ กำลังใช้หน่วยที่จำไว้บนเครื่อง');}
 }
+const combinedShopFilters=new Map();
 function attachCombinedCatalog(page){
   const shops=accessibleWarehouses().slice().sort((a,b)=>a.id-b.id);
   const rows=combinedCatalogRows(products);
@@ -153,7 +154,7 @@ function attachCombinedCatalog(page){
   const storeButtons=page.querySelectorAll('[data-exclusive-shop]');
   const shopNames=new Map(shops.map(shop=>[Number(shop.id),shop.name]));
   const exclusiveShop=row=>row.members.length===1?shopNames.get(row.members[0].warehouse):'';
-  let shopFilter='';
+  const actor=currentProfile.id;
   const pageSize=10;
   const options=(values,title)=>`<option value="">${title}: ทั้งหมด</option>`+[...new Set(values.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'th')).map(v=>`<option value="${escapeHtml(v)}">${escapeHtml(v)}</option>`).join('');
   const configured=effectiveProductCategorySettings();
@@ -173,6 +174,8 @@ function attachCombinedCatalog(page){
     return values.map(({shop,value})=>`${shop.name}: ${value}`).join(' / ');
   }
   function draw(){
+    const shopFilter=combinedShopFilters.get(actor)||'';
+    storeButtons.forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.exclusiveShop===shopFilter)));
     const term=search.value.trim().toLowerCase();
     const matches=rows.filter(row=>(!shopFilter||exclusiveShop(row)===shopFilter)&&row.members.some(({product})=>(!cat.value||cat.value===product.category)&&(!brand.value||brand.value===product.brand))&&
       (!term||row.name.toLowerCase().includes(term)||row.options.some(option=>barcodeMatches(option,term))));
@@ -204,8 +207,9 @@ function attachCombinedCatalog(page){
   brand.onchange=()=>{pageNo=1;draw();};
   search.oninput=()=>{pageNo=1;draw();};
   storeButtons.forEach(button=>button.onclick=()=>{
-    shopFilter=shopFilter===button.dataset.exclusiveShop?'':button.dataset.exclusiveShop;
-    storeButtons.forEach(item=>item.setAttribute('aria-pressed',String(item.dataset.exclusiveShop===shopFilter)));
+    const shop=button.dataset.exclusiveShop;
+    if(combinedShopFilters.get(actor)===shop)combinedShopFilters.delete(actor);
+    else combinedShopFilters.set(actor,shop);
     pageNo=1;draw();
   });
   results.onchange=event=>{
