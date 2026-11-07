@@ -641,13 +641,12 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       if(e.key==='Enter'){
         const productSearchStartingValue=searchEl.dataset.startingValue||'';
         const currentValue=String(searchEl.value||'').trim();
-        const knownSuffix=[...exactProductCodeMap.keys()]
-          .filter(code=>String(code).length>=4&&currentValue.endsWith(String(code)))
-          .sort((left,right)=>String(right).length-String(left).length)[0]||'';
-        const appendedValue=currentValue.startsWith(productSearchStartingValue)&&currentValue.length>productSearchStartingValue.length
-          ?currentValue.slice(productSearchStartingValue.length).trim()
-          :(currentValue!==productSearchStartingValue?currentValue:'');
-        const scannerValue=knownSuffix||(/^[A-Za-z0-9._/+:-]{4,}$/.test(appendedValue)?appendedValue:'');
+        let scannerValue=currentValue;
+        if(!exactProductCodeMap.has(currentValue)&&!systemLabelCode(currentValue.toUpperCase())&&productSearchStartingValue&&currentValue.startsWith(productSearchStartingValue)){
+          const appendedValue=currentValue.slice(productSearchStartingValue.length).trim();
+          if(exactProductCodeMap.has(appendedValue)||systemLabelCode(appendedValue.toUpperCase())) scannerValue=appendedValue;
+        }
+        if(!exactProductCodeMap.has(scannerValue)&&!/^[A-Za-z0-9._/+:-]{4,}$/.test(scannerValue)) return;
         if(!scannerValue) return;
         e.preventDefault();
         clearTimeout(listSearchRenderTimer);
@@ -674,6 +673,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
           const selectionStart=searchEl.selectionStart,selectionEnd=searchEl.selectionEnd;
           if(searchTab==='products') selectProductListUnitByExactCode(searchQuery);
           const refreshed=searchTab==='products'?refreshProductListResults():['contacts','customers'].includes(searchTab)?refreshContactListResults():false;
+          if(searchTab==='products'&&document.querySelector('.prodtable .prod-inline-name')) searchEl.dataset.startingValue=searchQuery.trim();
           if(!refreshed) render();
           restoreSearchInputFocus(selectionStart,selectionEnd);
         },120);
@@ -698,8 +698,15 @@ document.querySelectorAll('.line-qty').forEach(el=>{
         const qtyMatch = q.match(/^\*\s*(\d+)$/);
         if(qtyMatch){ pendingQty = Math.max(1, parseInt(qtyMatch[1])||1); searchQuery=''; render(); const s=document.getElementById('search'); if(s){ s.focus(); s.placeholder=`× ${pendingQty} — ยิงบาร์โค้ด/พิมพ์รหัสสินค้าถัดไป`; } showToast(`ล็อกจำนวน × ${pendingQty} ไว้แล้ว`); return; }
         // ค้นหาสินค้า: บาร์โค้ดตรงเป๊ะก่อน (รวมบาร์โค้ดของหน่วยย่อยเช่นกล่อง/ลัง) แล้วค่อยชื่อ/รหัส
-        const exactHit=findProductByExactCode(q);
+        const isLabel=systemLabelCode(q.toUpperCase());
+        const exactHit=isLabel?findStoreLabelMatch(q):findProductByExactCode(q);
         if(exactHit){ addToCart(exactHit.product.id, consumePosSaleUnit(exactHit.product,exactHit.unitName), pendingQty); checkNegativeStockToast(exactHit.product.id); pendingQty=1; searchQuery=''; render(); const s=document.getElementById('search'); if(s) s.focus(); return; }
+        if(isLabel){
+          e.preventDefault();
+          searchEl.select();
+          showToast('ไม่พบป้ายบาร์โค้ดนี้ในร้านที่เลือก','danger-top');
+          return;
+        }
         const list = activeProducts().filter(p=>p.name.toLowerCase().includes(q.toLowerCase())||matchesBarcode(p,q)||(p.sku||'').toLowerCase().includes(q.toLowerCase()));
         if(list.length>=1){ const p=list[0]; addToCart(p.id, consumePosSaleUnit(p,null), pendingQty); checkNegativeStockToast(p.id); pendingQty=1; searchQuery=''; render(); const s=document.getElementById('search'); if(s) s.focus(); }
       }

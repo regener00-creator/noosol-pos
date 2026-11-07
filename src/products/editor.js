@@ -3,6 +3,8 @@ function renderProducts({resultsOnly=false}={}){
   const {tree, catCounts, brCounts} = resultsOnly?{tree:{},catCounts:{},brCounts:{}}:buildGroupTree();
   const q = searchQuery.trim();
   const needle=q.toLowerCase();
+  const labelQuery=systemLabelCode(q.toUpperCase());
+  const labelProduct=labelQuery?findStoreLabelMatch(q)?.product:null;
   const compareNames=new Intl.Collator('th').compare;
   const level2=isLevel2User();
   const canViewCost=!level2;
@@ -15,6 +17,7 @@ function renderProducts({resultsOnly=false}={}){
   let filtered = (selectedGroup||q||productReviewFilterUsed) ? products.filter(p=>{
     if(productReviewFilter!=='all'&&productDataReviewStatus(p)!==productReviewFilter) return false;
     if(q){
+      if(labelQuery) return p===labelProduct;
       return String(p.name||'').toLowerCase().includes(needle)||matchesBarcode(p,q)||String(p.sku||'').toLowerCase().includes(needle);
     }
     if(selectedGroup?.cat && (String(p.category||'').trim()||'ไม่ทราบหมวดหมู่')!==selectedGroup.cat) return false;

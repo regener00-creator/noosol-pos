@@ -54,7 +54,6 @@ assert.match(html, /if\(e\.isComposing\) return;[^]*restoreSearchInputFocus\(sel
 assert.match(html, /listSearchRenderTimer=setTimeout\(\(\)=>\{[^]*\},120\);/, 'การกรองรายการต้องรอให้ผู้ใช้หยุดพิมพ์ช่วงสั้น ๆ เพื่อไม่ให้ตัวอักษรหาย');
 assert.match(html, /if\(currentTab!==['"]products['"]\|\|e\.isComposing\) return;/, 'การตรวจจับเครื่องยิงต้องทำงานเฉพาะหน้ารายการสินค้า');
 assert.match(html, /searchEl\.dataset\.startingValue=String\(searchEl\.value\|\|''\)\.trim\(\)/, 'ต้องจำข้อความเดิมก่อนรับค่าจากเครื่องยิงแม้คง DOM ช่องค้นหาไว้');
-assert.match(html, /const knownSuffix=\[\.\.\.exactProductCodeMap\.keys\(\)\][^]*currentValue\.endsWith/, 'ต้องตรวจบาร์โค้ดที่รู้จักจากท้ายข้อความโดยไม่ผูกกับความเร็วเครื่องยิง');
 assert.match(html, /currentValue\.slice\(productSearchStartingValue\.length\)\.trim\(\)/, 'ต้องแยกค่าที่เครื่องยิงต่อท้ายข้อความค้นหาเดิม');
 assert.match(html, /function selectProductListUnitByExactCode\(code\)[^]*prodRowUnitSel\[match\.product\.id\]=match\.unitName;/, 'ต้องจำหน่วยของบาร์โค้ดที่ค้นหาให้แถวสินค้า');
 assert.match(html, /searchQuery=scannerValue;[^]*selectProductListUnitByExactCode\(scannerValue\);[^]*searchEl\.value=scannerValue;/, 'การยิงบาร์โค้ดต้องเลือกหน่วยที่ผูกกับบาร์โค้ดนั้น');

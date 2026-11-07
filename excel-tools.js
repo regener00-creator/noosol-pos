@@ -774,7 +774,7 @@ async function performProductExcelImport(file){
     let omittedPrintCode=false;
     const importBarcode=value=>{
       const code=String(value??'').trim();
-      if(crossStore&&/^P\d{11}$/i.test(code)){omittedPrintCode=true;return '';}
+      if(crossStore&&systemLabelCode(code.toUpperCase())){omittedPrintCode=true;return '';}
       return code;
     };
     const barcode=importBarcode(productImportValue(row,['บาร์โค้ดหลัก','บาร์โค้ด','barcode']));

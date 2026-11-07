@@ -50,6 +50,11 @@ function systemLabelCode(code,warehouseId){
   const prefix=warehouseId===1?'AP':warehouseId===2?'BP':'W'+warehouseId+'-P';
   return code.startsWith(prefix);
 }
+function findStoreLabelMatch(code){
+  const normalized=code.toUpperCase();
+  if(!systemLabelCode(normalized,Number(activeWarehouseId))) return null;
+  return findProductByExactCode(code)||findProductByExactCode(normalized);
+}
 function barcodeReprintUnitOptions(product){
   if(!isProductActive(product)||!barcodeIssuedState?.ready||!isStoreViewCurrent(barcodeIssuedState.context)) return [];
   const units=barcodePrintUnitOptions(product);

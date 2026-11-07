@@ -125,6 +125,7 @@ test('maintenance response from a previous session cannot clear current data',as
 
 test('POS search stops at eight active results and cached names follow edits',()=>{
   const c=vm.createContext({products:Array.from({length:3000},(_,id)=>({id,name:'Item '+id,sku:'SKU'+id,active:id!==0})),searchQuery:'item',escapeHtml:String,fmtMoney:String,matchesBarcode:(p,q)=>p.barcode===q});
+  const barcodes=read('products/barcodes.js');vm.runInContext(barcodes.slice(barcodes.indexOf('function systemLabelCode('),barcodes.indexOf('function findStoreLabelMatch(')),c);
   const pricing=read('pos/customer-pricing.js');vm.runInContext(pricing.slice(0,pricing.indexOf('function productUnitCost(')),c);
   const view=read('pos/checkout-view.js');vm.runInContext(view.slice(view.indexOf('function renderSearchResults('),view.indexOf('function salesHistoryItemsPreview(')),c);
   let visited=0;const original=c.isProductActive;c.isProductActive=p=>{visited++;return original(p);};

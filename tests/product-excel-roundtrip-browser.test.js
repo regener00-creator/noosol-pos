@@ -165,6 +165,27 @@ async function scenario(name,work){if(process.argv[2]&&!new RegExp(process.argv[
     }
     assert.deepEqual(await page.evaluate(()=>otherWarehouseProducts),[source]);
   });
+  await scenario('Cross-store Excel strips shop labels in both directions and keeps ordinary barcodes',async()=>{
+    for(const [from,to,prefix] of [[1,2,'AP'],[2,1,'BP']]){
+      const code=n=>prefix+String(n).padStart(11,'0');
+      const source={...baseProduct,wh:from,barcode:code(1),extraBarcodes:[code(2),'EXTRA-KEEP'],extraBarcodeUnits:['ลัง','กล่อง'],
+        vendorBarcodes:[{vendor:'ผู้ขาย',code:code(3)},...baseProduct.vendorBarcodes],
+        units:baseProduct.units.map((unit,index)=>index===1?{...unit,barcode:code(4)}:unit)};
+      await fixture([source]);
+      const switchStore=id=>page.evaluate(id=>{activeWarehouseId=id;setWarehouseProductCatalog(completeProductCatalog());render();},id);
+      await switchStore(from);
+      const book=await exported();
+      await switchStore(to);
+      const out=await imported(book);
+      assert.match(out.report,/สำเร็จ 1 รายการ/);
+      const [copy]=out.products;
+      assert.equal(copy.wh,to);assert.equal(copy.barcode,'');assert.equal(copy.units[1].barcode,'');
+      assert.deepEqual(copy.extraBarcodes,['EXTRA-KEEP']);assert.deepEqual(copy.extraBarcodeUnits,['กล่อง']);
+      assert.ok(copy.vendorBarcodes.every(v=>!v.code.startsWith(prefix)));
+      assert.equal(copy.units[0].barcode,baseProduct.units[0].barcode);
+      assert.deepEqual(await page.evaluate(()=>otherWarehouseProducts),[source]);
+    }
+  });
   await scenario('Cross-store preview supports a 2934-row catalog',async()=>{
     const rows=Array.from({length:2934},(_,i)=>({...baseProduct,id:i+1,sku:'SKU'+i,barcode:'000'+i,units:[],multiunit:false,extraBarcodes:[],extraBarcodeUnits:[],vendorBarcodes:[]}));
     await fixture(rows);const book=await exported();

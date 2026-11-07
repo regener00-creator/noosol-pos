@@ -60,6 +60,34 @@ let browser;
     });
   }
   await setupDevice(page);
+  const scanPage=await browser.newPage();
+  await setupDevice(scanPage);
+  await scanPage.evaluate(()=>{
+    const rows=completeProductCatalog();
+    rows.find(p=>p.id===11).units[0].barcode='AP00000000001';
+    rows.find(p=>p.id===12).units[0].barcode='BP00000000001';
+    rows.find(p=>p.id===14).extraBarcodes=['P00000000001'];
+    setWarehouseProductCatalog(rows);
+  });
+  for(const [store,prefix,foreign,id,factor] of [[1,'A','B',11,5],[2,'B','A',12,10]]){
+    const legacy='P00000000001',ownCode=prefix+legacy,foreignCode=foreign+legacy;
+    await scanPage.evaluate(store=>{selectActiveWarehouse(store);currentTab='products';searchQuery='';render();},store);
+    const search=scanPage.locator('#main #search');
+    await search.fill(foreignCode);await search.press('Enter');
+    assert.equal(await search.inputValue(),foreignCode);
+    assert.equal(await scanPage.locator('.prodtable .prod-inline-name').count(),0);
+    await search.fill(ownCode);await search.press('Enter');
+    assert.equal(await scanPage.locator('.prodtable .prod-unit-select').inputValue(),'กล่อง');
+    await scanPage.evaluate(()=>{currentTab='checkout';searchQuery='';render();});
+    for(const code of store===2?[foreignCode,legacy]:[foreignCode]){
+      await search.fill(code);await search.press('Enter');
+      assert.equal(await scanPage.evaluate(()=>cart.length),0);
+      assert.equal(await scanPage.locator('.pos-results [data-act="add"]').count(),0);
+    }
+    await search.fill(ownCode);await search.press('Enter');
+    assert.deepEqual(await scanPage.evaluate(()=>cart.map(l=>[l.pid,l.unit,l.factor])),[[id,'กล่อง',factor]]);
+  }
+  await scanPage.close();
   await page.evaluate(()=>{searchQuery='Decolgen';render();});
   const regularRowHeight=await page.locator('.prodtable tbody tr').first().evaluate(el=>el.getBoundingClientRect().height);
   for(const [wh,id,price,cost] of [[1,11,40,22],[2,12,45,28]]){
