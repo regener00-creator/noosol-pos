@@ -7,7 +7,7 @@ function inspectionListDefaultName(now=new Date()){
   const todayKey=inspectionListLocalDateKey(now);
   let highest=0;
   inspectionLists.forEach(list=>{
-    if(inspectionListLocalDateKey(list.createdAt)!==todayKey) return;
+    if(!documentInActiveStore(list)||inspectionListLocalDateKey(list.createdAt)!==todayKey) return;
     const matched=String(list.name||'').trim().match(/^ตรวจสินค้า:\s*(\d+)$/);
     if(matched) highest=Math.max(highest,Number(matched[1])||0);
   });
@@ -20,7 +20,7 @@ function openInspectionListEditor(id='new',shouldRender=true){
     const now=new Date();
     inspectionListDraft={id:null,name:inspectionListDefaultName(now),warehouseId:Number(activeWarehouseId)||0,items:[],createdAt:now.toISOString(),updatedAt:now.toISOString(),createdBy:currentProfile?.firstName||currentProfile?.username||'',stockAdjustedAt:'',stockAdjustedBy:''};
   }else{
-    const list=inspectionLists.find(entry=>String(entry.id)===String(id));
+    const list=inspectionLists.find(entry=>documentInActiveStore(entry)&&String(entry.id)===String(id));
     inspectionListDraft=list?JSON.parse(JSON.stringify(list)):null;
     if(!inspectionListDraft){ editingInspectionListId=null; showToast('ไม่พบรายการตรวจสินค้า'); }
   }
@@ -36,7 +36,7 @@ function inspectionListAddProduct(product,unitName){
   return true;
 }
 async function saveInspectionListDraft(options={}){
-  if(!inspectionListDraft) return false;
+  if(!inspectionListDraft||!documentInActiveStore(inspectionListDraft)) return false;
   const name=(document.getElementById('inspectionListName')?.value||inspectionListDraft.name||'').trim();
   if(!name){ showToast('กรุณากรอกชื่อรายการตรวจสินค้า','danger'); document.getElementById('inspectionListName')?.focus(); return false; }
   if(!inspectionListDraft.items.length){ showToast('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ','danger'); document.getElementById('inspectionListSearch')?.focus(); return false; }
@@ -46,10 +46,11 @@ async function saveInspectionListDraft(options={}){
     const draft=inspectionListDraft;
     saved.id=await reserveDraftNumber(draft,'inspection');
     if(!saved.id||inspectionListDraft!==draft||editingInspectionListId!=='new') return false;
+    draft.id=saved.id;
     saved.createdAt=saved.createdAt||now;
     inspectionLists.unshift(saved);
   }else{
-    const index=inspectionLists.findIndex(list=>String(list.id)===String(editingInspectionListId));
+    const index=inspectionLists.findIndex(list=>documentInActiveStore(list)&&String(list.id)===String(editingInspectionListId));
     if(index<0){ showToast('ไม่พบรายการตรวจสินค้า','danger'); return false; }
     inspectionLists[index]=saved;
   }
@@ -71,7 +72,7 @@ function clearInspectionListRuntimeReferences(id){
   }
 }
 function deleteInspectionListById(id){
-  const list=inspectionLists.find(entry=>String(entry.id)===String(id));
+  const list=inspectionLists.find(entry=>documentInActiveStore(entry)&&String(entry.id)===String(id));
   if(!list) return false;
   if(!confirm(`ต้องการลบรายการ “${list.name}” ใช่หรือไม่?`)) return false;
   inspectionLists=inspectionLists.filter(entry=>String(entry.id)!==String(list.id));
@@ -83,7 +84,7 @@ function deleteInspectionListById(id){
   return true;
 }
 function deleteSelectedInspectionLists(){
-  const existingIds=new Set(inspectionLists.map(list=>String(list.id)));
+  const existingIds=new Set(inspectionLists.filter(documentInActiveStore).map(list=>String(list.id)));
   const selectedIds=new Set([...inspectionListOverviewSelectedIds].filter(id=>existingIds.has(String(id))).map(String));
   if(!selectedIds.size){ showToast('กรุณาติ๊กรายการที่ต้องการลบ','danger'); return false; }
   if(!confirm(`ต้องการลบรายการตรวจสินค้าที่เลือก ${selectedIds.size} รายการ ใช่หรือไม่?`)) return false;

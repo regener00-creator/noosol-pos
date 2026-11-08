@@ -328,6 +328,13 @@ function resetWarehouseScopedUiState(reportWarehouseValue){
   stockControlAnomalySelectedIds.clear();
   stockLotReallocationSearch=''; stockLotReallocationPage=1;
   inspectionListDraft=null; editingInspectionListId=null;
+  inspectionListOverviewSelectedIds.clear();
+  mobileInspectionListId=''; mobileInspectionOpenedListId=''; mobileInspectionCreating=false;
+  mobileInspectionAddingToSaved=false; mobileInspectionSavedAddQuery=''; mobileInspectionSavedAddItems=[];
+  mobileInspectionQuery=''; mobileInspectionLastProductId=null; mobileInspectionVisibleCount=25;
+  mobileStockSourceListId=''; mobileInventoryStep='inspection';
+  mobileDataStatusState='online'; mobileDataStatusMessage=''; mobileLastRefreshAt=0;
+  if(mobileCameraSession) closeMobileCameraScanner();
   if(typeof resetInventoryReportWarehouseFilters==='function') resetInventoryReportWarehouseFilters();
   inventoryMovementFilter.warehouse=reportWarehouseValue;
   inventoryMovementFilter.page=1;

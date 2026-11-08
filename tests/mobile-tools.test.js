@@ -94,7 +94,6 @@ assert.match(html, /async function saveMobileInspectionSavedAdd\(/);
 assert.match(html, /บันทึกสินค้าที่เพิ่ม \(\$\{count\}\)/);
 assert.match(html, /openMobileCameraScanner\(mobileHandleInspectionCode,\{continuous:true,hostId:'mobileInspectionAddCameraSlot',buttonId:'mobileInspectionAddCamera'\}\)/);
 assert.match(html, /function mobileInspectionVisibleLists\(\)/);
-assert.match(html, /return inspectionLists\.filter\(list=>!String\(list\?\.stockAdjustedAt\|\|''\)\.trim\(\)\)/);
 assert.match(html, /const lists=\[\.\.\.mobileInspectionVisibleLists\(\)\]/);
 assert.match(html, /function renderMobileStockEditPanel\(/);
 assert.match(html, /id="mobileStockSourceList"/);

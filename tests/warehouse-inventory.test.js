@@ -24,6 +24,7 @@ const sandbox = {
   stockEditSourceInspectionListId:'CHECK-1', stockEditSourcePending:true, stockEditPage:3,
   stockControlAnomalySelectedIds:new Set([10]),
   inspectionListDraft:{id:'CHECK-1'}, editingInspectionListId:'CHECK-1',
+  inspectionListOverviewSelectedIds:new Set(['CHECK-1']), mobileCameraSession:null,
   stockReportCatFilter:{wh:'',category:'',brand:''}, inventoryMovementFilter:{warehouse:'',page:1},
   rproductFilter:{wh:''}, rbillFilter:{wh:''}, rprofitFilter:{wh:''},
   isMobileDeviceMode:()=>false,

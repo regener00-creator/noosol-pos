@@ -425,7 +425,8 @@ async function saveMobilePriceChanges(){
   }
 }
 function mobileInspectionVisibleLists(){
-  return inspectionLists.filter(list=>!String(list?.stockAdjustedAt||'').trim());
+  if(!activeWarehouseId||isAllWarehousesMode()) return [];
+  return inspectionLists.filter(list=>documentInActiveStore(list)&&!String(list.stockAdjustedAt||'').trim());
 }
 function mobileInspectionCurrentList(){
   const visibleLists=mobileInspectionVisibleLists();
@@ -440,6 +441,9 @@ function mobileInspectionCurrentList(){
     mobileInspectionListId=list?.id||'';
   }
   return list||null;
+}
+function mobileOpenedInspectionList(){
+  return mobileInspectionVisibleLists().find(list=>String(list.id)===String(mobileInspectionOpenedListId))||null;
 }
 function mobileInspectionCheckedSet(listId){
   const key=String(listId||'');
@@ -487,8 +491,8 @@ function mobileInspectionContentHtml(){
 }
 function removeProductFromMobileInspection(listId,productId){
   if(!mobileRequireOnline('ลบสินค้าออกจากรายการ')) return false;
-  const list=inspectionLists.find(entry=>String(entry.id)===String(listId));
-  if(!list) return false;
+  const list=mobileOpenedInspectionList();
+  if(!list||String(list.id)!==String(listId)) return false;
   const itemIndex=(list.items||[]).findIndex(item=>Number(item.pid)===Number(productId));
   if(itemIndex<0) return false;
   const product=products.find(entry=>Number(entry.id)===Number(productId));
@@ -504,6 +508,7 @@ function removeProductFromMobileInspection(listId,productId){
   return true;
 }
 function startMobileInspectionDraft(){
+  if(!activeWarehouseId||isAllWarehousesMode()) return false;
   const defaultName=inspectionListDefaultName();
   const entered=window.prompt('ตั้งชื่อรายการตรวจสินค้า',defaultName);
   if(entered===null) return false;
@@ -618,8 +623,8 @@ function renderMobileInspectionPanel(lists){
   return `<section class="mobile-tool-panel"><button type="button" class="mobile-inspection-create-btn" id="mobileNewInspectionList">+ สร้างรายการตรวจสินค้า</button>${lists.length?`<div class="mobile-inspection-saved-label">รายการที่บันทึกไว้</div><select id="mobileInspectionList" class="mobile-inspection-select">${lists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(current?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})${list.stockAdjustedAt?' · แก้ไขจำนวนเรียบร้อย':''}</option>`).join('')}</select><div class="mobile-inspection-actions"><button type="button" class="mobile-inspection-action mobile-inspection-open" id="mobileOpenInspectionList">เปิดรายการ</button><button type="button" class="mobile-inspection-action mobile-inspection-delete" id="mobileDeleteInspectionList" ${mobileIsOnline()?'':'disabled'}>ลบบันทึก</button></div>${current?.stockAdjustedAt?'<div class="mobile-inspection-complete">✓ แก้ไขจำนวนเรียบร้อย</div>':''}${opened?`${mobileInspectionAddingToSaved?mobileInspectionSavedAddHtml(current):'<button type="button" class="mobile-inspection-add-toggle" id="mobileInspectionAddToggle">+ เพิ่มสินค้าในรายการ</button>'}<div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div><button type="button" class="mobile-inspection-next" id="mobileContinueToStock">สรุปและแก้ไขสต๊อก (${progress.total})</button>`:'<div class="mobile-empty">เลือกรายการแล้วกด “เปิดรายการ” เพื่อเริ่มตรวจสินค้า</div>'}`:'<div class="mobile-empty">ยังไม่มีรายการที่บันทึกไว้ กด “สร้างรายการตรวจสินค้า” เพื่อเริ่มยิงสินค้า</div>'}</section>`;
 }
 function addProductToMobileInspectionSavedDraft(product,unitName=''){
-  const list=mobileInspectionCurrentList();
-  if(!mobileInspectionAddingToSaved||!list||!product) return false;
+  const list=mobileOpenedInspectionList();
+  if(!mobileInspectionAddingToSaved||!list||!product||Number(product.wh||1)!==Number(activeWarehouseId)) return false;
   const selected=inspectionListUnitOptions(product).find(option=>option.name===unitName)||inspectionListUnitOptions(product)[0];
   if((list.items||[]).some(item=>Number(item.pid)===Number(product.id))){
     showToast('สินค้านี้อยู่ในรายการตรวจแล้ว','danger-top');
@@ -638,9 +643,13 @@ function addProductToMobileInspectionSavedDraft(product,unitName=''){
   return true;
 }
 async function saveMobileInspectionSavedAdd(){
-  const list=mobileInspectionCurrentList();
+  const list=mobileOpenedInspectionList();
   if(!list||!mobileInspectionSavedAddItems.length) return false;
+  if(!mobileInspectionSavedAddItems.every(item=>productById(item.pid))){
+    showToast('พบสินค้าที่ไม่มีในร้านนี้ กรุณาตรวจรายการก่อนบันทึก','danger-top'); return false;
+  }
   if(!mobileRequireOnline('เพิ่มสินค้าในรายการตรวจสินค้า')) return false;
+  const view=captureStoreView();
   const originalItems=(list.items||[]).map(item=>({...item}));
   const originalUpdatedAt=list.updatedAt;
   const additions=mobileInspectionSavedAddItems.map(item=>({pid:Number(item.pid),unit:String(item.unit||'')}));
@@ -655,11 +664,13 @@ async function saveMobileInspectionSavedAdd(){
     list.items=originalItems;
     list.updatedAt=originalUpdatedAt;
     persistWorkspaceData();
+    if(!isStoreViewCurrent(view)) return false;
     setMobileDataStatus(mobileIsOnline()?'error':'offline','เพิ่มสินค้าไม่สำเร็จ');
     showToast('เพิ่มสินค้าไม่สำเร็จ รายการเดิมยังไม่เปลี่ยน กรุณาลองใหม่','danger-top');
     render();
     return false;
   }
+  if(!isStoreViewCurrent(view)) return true;
   const addedCount=additions.length;
   resetMobileInspectionSavedAdd();
   mobileLastRefreshAt=Date.now();
@@ -669,7 +680,7 @@ async function saveMobileInspectionSavedAdd(){
   return true;
 }
 function addProductToMobileInspectionDraft(product,unitName=''){
-  if(!product||!inspectionListDraft) return false;
+  if(!product||!inspectionListDraft||!documentInActiveStore(inspectionListDraft)||Number(product.wh||1)!==Number(activeWarehouseId)) return false;
   const added=inspectionListAddProduct(product,unitName);
   mobileInspectionQuery='';
   mobileInspectionLastProductId=product.id;
@@ -678,16 +689,25 @@ function addProductToMobileInspectionDraft(product,unitName=''){
   return added;
 }
 async function saveMobileInspectionDraft(){
-  if(!inspectionListDraft) return false;
+  if(!inspectionListDraft||!documentInActiveStore(inspectionListDraft)) return false;
+  if(!inspectionListDraft.items.every(item=>productById(item.pid))){
+    showToast('พบสินค้าที่ไม่มีในร้านนี้ กรุณาตรวจรายการก่อนบันทึก','danger-top'); return false;
+  }
   if(!mobileRequireOnline('บันทึกรายการตรวจสินค้า')) return false;
+  const view=captureStoreView();
+  const draft=inspectionListDraft;
   setMobileDataStatus('saving');
   mobileInspectionCreating=false;
   const saved=await saveInspectionListDraft({sync:false});
-  if(!saved){ mobileInspectionCreating=true; setMobileDataStatus('online'); render(); return false; }
+  if(!saved){
+    if(isStoreViewCurrent(view)){ mobileInspectionCreating=true; setMobileDataStatus('online'); render(); }
+    return false;
+  }
   const synced=await syncInspectionListsToSupabase();
+  if(!isStoreViewCurrent(view)) return true;
   if(!synced){ setMobileDataStatus('error','ซิงก์รายการไม่สำเร็จ'); showToast('บันทึกในเครื่องแล้ว แต่ซิงก์รายการไม่สำเร็จ กรุณากดรีเฟรช','danger-top'); }
   else{ mobileLastRefreshAt=Date.now(); setMobileDataStatus('online','บันทึกแล้ว'); }
-  mobileInspectionListId=inspectionLists[0]?.id||'';
+  mobileInspectionListId=draft.id;
   mobileInspectionOpenedListId=mobileInspectionListId;
   mobileInspectionQuery='';
   mobileInspectionLastProductId=null;
@@ -1170,7 +1190,7 @@ function mobileHandleInspectionCode(code){
     else playMobileScanErrorSound();
     return accepted;
   }
-  const list=mobileInspectionCurrentList();
+  const list=mobileOpenedInspectionList();
   const exact=systemLabelCode(query.toUpperCase())?findStoreLabelMatch(query):findProductByExactCode(query);
   const entry=exact&&mobileInspectionEntries(list).find(item=>Number(item.product.id)===Number(exact.product.id));
   if(!entry){

@@ -106,6 +106,54 @@ async function verifyInspectionAndPriceLabels(page){
     }
   }
 }
+async function verifyMobileInspectionStoreIsolation(page){
+  await page.setViewportSize({width:390,height:844});
+  await page.evaluate(()=>{
+    isMobileDeviceMode=()=>true;
+    currentTab='mobiletools';mobileToolMode='inventory';mobileInventoryStep='inspection';
+    inspectionLists=[
+      {id:'B',name:'พรชัย',warehouseId:2,items:[],updatedAt:'2026-11-08'},
+      {id:'A',name:'พระยาสุเรนทร์',warehouseId:1,items:[],updatedAt:'2026-11-07'},
+      {id:'legacy',name:'รายการเก่า',items:[]},
+      {id:'closed',name:'ปิดแล้ว',warehouseId:2,items:[],stockAdjustedAt:'2026-11-07'}
+    ];
+  });
+  for(const [store,own,other,pid] of [[1,'A','B',11],[2,'B','A',12]]){
+    await page.evaluate(store=>{selectActiveWarehouse(store);render();},store);
+    const list=page.locator('#mobileInspectionList');
+    assert.deepEqual(await list.locator('option').evaluateAll(options=>options.map(o=>o.value)),store===1?['A','legacy']:['B']);
+    await list.selectOption(own);
+    await page.locator('#mobileOpenInspectionList').click();
+    await page.locator('#mobileInspectionAddToggle').click();
+    await page.locator('#mobileInspectionAddInput').fill(store===1?'AP00000000001':'BP00000000001');
+    await page.locator('[data-mobile-inspection-add-result]').click();
+    const result=await page.evaluate(async({pid,other})=>{
+      const pending=mobileInspectionSavedAddItems.map(item=>item.pid);
+      const foreignProduct=otherWarehouseProducts.find(p=>p.id===(pid===11?12:11));
+      const foreignAdd=addProductToMobileInspectionSavedDraft(foreignProduct);
+      const foreignDelete=deleteInspectionListById(other);
+      mobileInspectionOpenedListId=other;
+      const foreignSave=await saveMobileInspectionSavedAdd();
+      const foreignRemove=removeProductFromMobileInspection(other,pid);
+      return {pending,foreignAdd,foreignDelete,foreignSave,foreignRemove,items:inspectionLists.find(l=>l.id===other).items};
+    },{pid,other});
+    assert.deepEqual(result,{pending:[pid],foreignAdd:false,foreignDelete:false,foreignSave:false,foreignRemove:false,items:[]});
+  }
+  // Finish an in-flight B save after switching to A. Its acknowledgement must not open B in A.
+  await page.evaluate(()=>{
+    mobileInspectionOpenedListId='B';
+    const original=syncInspectionListsToSupabase;
+    syncInspectionListsToSupabase=()=>new Promise(resolve=>{window.finishInspectionSave=()=>{syncInspectionListsToSupabase=original;resolve(true);};});
+    window.savingInspection=saveMobileInspectionSavedAdd();
+    selectActiveWarehouse(1);
+    render();
+  });
+  assert.deepEqual(await page.evaluate(async()=>{
+    window.finishInspectionSave();await window.savingInspection;
+    return {open:mobileInspectionOpenedListId,draft:mobileInspectionSavedAddItems,
+      current:mobileInspectionCurrentList().id,items:inspectionLists.filter(l=>l.id==='A'||l.id==='B').map(l=>[l.id,l.items])};
+  }),{open:'',draft:[],current:'A',items:[['B',[{pid:12,unit:'กล่อง'}]],['A',[]]]});
+}
 (async()=>{
   execFileSync(process.execPath,[path.join(root,'scripts/build-static.mjs')],{cwd:root,stdio:'pipe'});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -182,6 +230,7 @@ async function verifyInspectionAndPriceLabels(page){
     assert.deepEqual(await scanPage.evaluate(()=>cart.map(l=>[l.pid,l.unit,l.factor])),[[id,'กล่อง',factor]]);
   }
   await verifyInspectionAndPriceLabels(scanPage);
+  await verifyMobileInspectionStoreIsolation(scanPage);
   await verifyPurchaseAndStockLabels(scanPage);
   await require('./shop-label-destinations.cjs')(scanPage);
   await scanPage.close();

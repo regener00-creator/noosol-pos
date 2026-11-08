@@ -390,7 +390,7 @@ function attachEvents(){
   });
   document.getElementById('mobileDeleteInspectionList')?.addEventListener('click',()=>{
     if(!mobileRequireOnline('ลบบันทึกรายการ')) return;
-    const list=mobileInspectionCurrentList();
+    const list=mobileInspectionVisibleLists().find(entry=>String(entry.id)===mobileInspectionList?.value);
     if(list) deleteInspectionListById(list.id);
   });
   document.getElementById('mobileInspectionAddToggle')?.addEventListener('click',()=>{
@@ -457,24 +457,24 @@ function attachEvents(){
   }));
   document.querySelectorAll('[data-mobile-inspection-remove]').forEach(button=>button.addEventListener('click',event=>{
     event.stopPropagation();
-    const list=mobileInspectionCurrentList();
+    const list=mobileOpenedInspectionList();
     if(list) removeProductFromMobileInspection(list.id,Number(button.dataset.mobileInspectionRemove));
   }));
   document.querySelectorAll('[data-mobile-inspection-item]').forEach(item=>item.addEventListener('click',()=>{
-    const list=mobileInspectionCurrentList(); if(!list) return;
+    const list=mobileOpenedInspectionList(); if(!list) return;
     const productId=Number(item.dataset.mobileInspectionItem),checked=mobileInspectionCheckedSet(list.id);
     if(checked.has(productId)) checked.delete(productId); else checked.add(productId);
     mobileInspectionLastProductId=productId;
     render();
   }));
   document.getElementById('mobileResetChecks')?.addEventListener('click',()=>{
-    const list=mobileInspectionCurrentList();
+    const list=mobileOpenedInspectionList();
     if(list) mobileInspectionCheckedSet(list.id).clear();
     mobileInspectionLastProductId=null; mobileInspectionQuery=''; render();
   });
   document.getElementById('mobileLoadMore')?.addEventListener('click',()=>{ mobileInspectionVisibleCount+=25; render(); });
   document.getElementById('mobileContinueToStock')?.addEventListener('click',()=>{
-    const list=mobileInspectionCurrentList();
+    const list=mobileOpenedInspectionList();
     if(!list) return;
     const progress=mobileInspectionProgress(list);
     if(progress.total&&progress.checked<progress.total&&!confirm(`ตรวจแล้ว ${progress.checked} จาก ${progress.total} รายการ ต้องการไปสรุปและแก้ไขสต๊อกตอนนี้หรือไม่?`)) return;
