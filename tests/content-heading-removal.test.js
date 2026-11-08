@@ -47,7 +47,7 @@ assert.match(html, /class="pagehead topbar-action-source"[^]*?id="resetStockRepo
 assert.match(html, /class="pagehead topbar-action-source"[^]*?id="saveBusinessSettingsBtn"/, 'ปุ่มบันทึกข้อมูลธุรกิจต้องยังอยู่บน TOPBAR');
 assert.doesNotMatch(html, /<h1[^>]*>รายชื่อผู้แทน/, 'ต้องถอดหน้ารายชื่อผู้แทนแบบเก่าออกจากระบบ');
 
-for (const buttonId of ['auditLogRefresh', 'newWarehouseBtn', 'addSystemUserBtn', 'printExpiryBtn', 'printLowStockBtn']) {
+for (const buttonId of ['auditLogRefresh', 'addSystemUserBtn', 'printExpiryBtn', 'printLowStockBtn']) {
   assert.match(html, new RegExp(`class="pagehead topbar-action-source"[^]*?id="${buttonId}"`), `ปุ่ม ${buttonId} ต้องยังส่งไป TOPBAR ได้`);
 }
 

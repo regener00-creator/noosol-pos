@@ -1,3 +1,38 @@
+function requestWarehouseCreateApproval(){
+  if(currentTab!=='warehouse'||!isAllWarehousesMode()||!loggedInUser()?.owner||document.querySelector('.warehouse-password-dialog'))return Promise.resolve(null);
+  const context=captureStoreView();
+  const dialog=document.createElement('dialog');
+  dialog.className='warehouse-password-dialog';
+  dialog.setAttribute('aria-labelledby','warehousePasswordHeading');
+  dialog.innerHTML=`<form data-enter-navigation="off"><h3 id="warehousePasswordHeading">เพิ่มคลังสินค้า</h3>
+    <label class="field">รหัสผ่านเจ้าของร้าน<input type="password" autocomplete="current-password" required autofocus></label>
+    <span role="alert" hidden></span>
+    <div class="modal-actions"><button type="button" class="btn ghost">ยกเลิก</button><button type="submit" class="btn primary">ยืนยันรหัสผ่าน</button></div></form>`;
+  document.body.appendChild(dialog);
+  return new Promise(resolve=>{
+    let approval=null;
+    dialog.addEventListener('close',()=>{dialog.remove();resolve(approval);},{once:true});
+    dialog.querySelector('[type="button"]').onclick=()=>dialog.close();
+    dialog.querySelector('form').onsubmit=async event=>{
+      event.preventDefault();
+      const submit=dialog.querySelector('[type="submit"]'),input=dialog.querySelector('input'),message=dialog.querySelector('[role="alert"]');
+      if(submit.disabled)return;
+      submit.disabled=true;message.hidden=true;
+      try{
+        const result=await callEdgeFunction('admin-users',{action:'approve-warehouse-create',password:input.value});
+        if(!dialog.open)return;
+        if(!result?.approval)throw new Error('ยืนยันการเพิ่มคลังไม่สำเร็จ');
+        if(isStoreViewCurrent(context)&&currentTab==='warehouse')approval=result.approval;
+        dialog.close();
+      }catch(error){
+        message.textContent=error.message||'ยืนยันรหัสผ่านไม่สำเร็จ';message.hidden=false;
+        input.value='';input.focus();submit.disabled=false;
+      }
+    };
+    dialog.showModal();
+  });
+}
+
 async function saveWarehouse(){
   if(!isAllWarehousesMode()||!loggedInUser()?.owner)return;
   const get=id=>(document.getElementById(id)?.value||'').trim();
@@ -8,20 +43,29 @@ async function saveWarehouse(){
   const data={name,code:get('wh_code'),address:get('wh_address'),postcode:get('wh_postcode'),purpose,contactName:get('wh_contact'),email:get('wh_email'),phone:get('wh_phone')};
   const existing=editingWarehouseId!==null?warehouses.find(w=>w.id===editingWarehouseId):null;
   if(editingWarehouseId!==null&&!existing) return;
-  const requestedId=existing?.id??null;
   const nextData={
     ...data,
     code:data.code||existing?.code||'',
   };
   const buttons=['saveWarehouseBtn','saveWarehouseBottomBtn'].map(id=>document.getElementById(id)).filter(Boolean);
+  if(buttons.some(button=>button.disabled))return;
   buttons.forEach(button=>{ button.disabled=true; });
+  const context=captureStoreView();
   try{
-    const {data:savedRow,error}=await sb.rpc('owner_upsert_warehouse',{
-      p_id:requestedId,
-      p_name:name,
-      p_data:nextData,
-    });
-    if(error) throw error;
+    if(!existing&&!warehouseCreateApproval){
+      warehouseCreateApproval=await requestWarehouseCreateApproval();
+      if(!warehouseCreateApproval)return;
+    }
+    const params={p_name:name,p_data:nextData};
+    const {data:savedRow,error}=existing
+      ?await sb.rpc('owner_upsert_warehouse',{...params,p_id:existing.id})
+      :await sb.rpc('create_approved_warehouse',{...params,p_approval:warehouseCreateApproval});
+    if(error){
+      if(error.code==='PWA01')warehouseCreateApproval=null;
+      throw error;
+    }
+    if(!isStoreViewCurrent(context))return;
+    warehouseCreateApproval=null;
     const saved=rowToWarehouse(savedRow||{});
     if(!Number(saved.id)) throw new Error('ระบบไม่ได้ส่งรหัสคลังสินค้ากลับมา');
     if(!saved.code) saved.code=`${documentPrefixes.warehouse}-${String(saved.id).padStart(3,'0')}`;
@@ -32,7 +76,8 @@ async function saveWarehouse(){
       persistTransfers();
       showToast(`บันทึกข้อมูลคลังสินค้า “${name}” แล้ว`);
     }else{
-      warehouses.push(saved);
+      const alreadyLoaded=warehouses.find(w=>w.id===saved.id);
+      if(alreadyLoaded)Object.assign(alreadyLoaded,saved);else warehouses.push(saved);
       showToast(`เพิ่มคลังสินค้า “${name}” แล้ว`);
     }
     nextWarehouseId=maxArrayValue(warehouses,w=>(Number(w.id)||0)+1,1);
@@ -41,6 +86,7 @@ async function saveWarehouse(){
   }catch(error){
     console.warn('save warehouse',error);
     showToast(error?.message||'บันทึกคลังสินค้าไม่สำเร็จ กรุณาลองใหม่','danger-top');
+  }finally{
     buttons.forEach(button=>{ button.disabled=false; });
   }
 }

@@ -418,12 +418,54 @@ async function verifyLastInspectionUnits(page){
       const list=document.querySelector('.warehouse-card-list');
       return [1000,650,380].map(width=>{
         list.style.width=width+'px';
-        const cards=[...list.querySelectorAll('.warehouse-card')];
+        const cards=[...list.querySelectorAll('.warehouse-card-grid > li')];
         return cards.map(card=>card.offsetTop-cards[0].offsetTop===0);
       });
     }finally{warehouses=original;render();}
   });
-  assert.deepEqual(layout,[[true,true,true,false],[true,true,false,false],[true,false,false,false]]);
+  assert.deepEqual(layout,[[true,true,true,false,false],[true,true,false,false,false],[true,false,false,false,false]]);
+  assert.equal(await page.locator('#newWarehouseBtn').evaluate(el=>el.closest('li').previousElementSibling.querySelector('[data-edit-warehouse]').dataset.editWarehouse),'2');
+  await page.evaluate(()=>{
+    window.savedWarehouseEdge=callEdgeFunction;
+    callEdgeFunction=async(_name,body)=>{
+      if(body.action!=='approve-warehouse-create'||body.password!=='correct')throw new Error('รหัสผ่านเจ้าของร้านไม่ถูกต้อง');
+      return {approval:'test-grant'};
+    };
+  });
+  await page.locator('#newWarehouseBtn').click();
+  const passwordDialog=page.locator('.warehouse-password-dialog');
+  await passwordDialog.locator('input').fill('wrong');
+  await passwordDialog.locator('[type="submit"]').click();
+  await passwordDialog.getByRole('alert').waitFor();
+  assert.equal(await page.locator('#wh_name').count(),0);
+  await passwordDialog.locator('input').fill('correct');
+  await passwordDialog.locator('[type="submit"]').click();
+  await page.locator('#wh_name').waitFor();
+  assert.equal(await page.evaluate(()=>warehouseCreateApproval),'test-grant');
+  await page.evaluate(()=>{
+    window.savedWarehouseRpc=sb.rpc;
+    window.savedWarehousePersist=persistWarehouses;
+    persistWarehouses=()=>{};
+    sb.rpc=(name,args)=>{
+      if(name!=='create_approved_warehouse')return window.savedWarehouseRpc.call(sb,name,args);
+      window.createWarehouseArgs=args;
+      return Promise.resolve({data:{id:449, name:args.p_name, data:args.p_data}});
+    };
+  });
+  await page.locator('#wh_name').fill('ลองเพิ่มคลัง');
+  await page.locator('#wh_purpose').selectOption('ขายสินค้า');
+  await page.locator('#saveWarehouseBottomBtn').click();
+  await page.locator('[data-edit-warehouse="449"]').waitFor();
+  assert.equal(await page.evaluate(()=>createWarehouseArgs.p_approval),'test-grant');
+  assert.equal(await page.evaluate(()=>warehouseCreateApproval),null);
+  await page.evaluate(()=>{
+    sb.rpc=window.savedWarehouseRpc;persistWarehouses=window.savedWarehousePersist;
+    warehouses=warehouses.filter(w=>w.id!==449);seedTableSnapshot('warehouses',warehouses,warehouseToRow);render();
+  });
+  await page.locator('#newWarehouseBtn').click();
+  await passwordDialog.getByRole('button',{name:'ยกเลิก'}).click();
+  assert.equal(await page.locator('#wh_name').count(),0);
+  await page.evaluate(()=>{callEdgeFunction=window.savedWarehouseEdge;});
   await page.locator('.warehouse-card [data-edit-warehouse="2"]').click();
   assert.match(await page.locator('#wh_name').inputValue(),/พรชัย/);
   await page.locator('#cancelWarehouseBottomBtn').click();

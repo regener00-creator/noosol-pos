@@ -37,6 +37,7 @@
     "owner_set_setting(text,jsonb)",
     "owner_update_mobile_product_details_revisioned(bigint,bigint,bigint,bigint,jsonb,numeric,numeric,date)",
     "owner_upsert_warehouse(bigint,text,jsonb)",
+    "create_approved_warehouse(uuid,text,jsonb)",
     "record_goods_receipt_payment(text,jsonb)",
     "record_print_event(text,text,text,integer,bigint,jsonb)",
     "report_client_event(text,text,text,text,text,text,text,text,jsonb)",

@@ -1959,6 +1959,13 @@
   .warehouse-card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0 0 24px;padding:0;list-style:none;}
   .warehouse-card{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:84px;padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--surface);}
   .warehouse-card strong{min-width:0;overflow-wrap:anywhere;}
+  .warehouse-add-card{width:100%;height:100%;min-height:84px;padding:16px;border:1px dashed var(--primary);border-radius:12px;background:var(--surface);color:var(--primary);font:inherit;font-weight:700;cursor:pointer;}
+  .warehouse-add-card:hover,.warehouse-add-card:focus-visible{background:var(--primary-soft);}
+  .warehouse-password-dialog{padding:20px;width:min(380px,90vw);border:1px solid var(--border);border-radius:14px;}
+  .warehouse-password-dialog::backdrop{background:#17212B99;}
+  .warehouse-password-dialog form{display:grid;gap:14px;}
+  .warehouse-password-dialog h3{margin:0;}
+  .warehouse-password-dialog .modal-actions{padding:0;}
   .warehouse-card-actions{display:flex;gap:8px;flex:none;}
   @container (max-width:700px){.warehouse-card-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
   @container (max-width:460px){.warehouse-card-grid{grid-template-columns:minmax(0,1fr);}}

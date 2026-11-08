@@ -293,6 +293,8 @@ function resetWarehouseScopedUiState(reportWarehouseValue){
   storeViewGeneration++;
   notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false; noteSearchQuery=''; notePageCursor=null;
   storeResetMode=null;
+  warehouseCreateApproval=null;
+  document.querySelector('.warehouse-password-dialog')?.close();
   document.querySelector('.product-category-editor-overlay')?.remove();
   resetStoreCategoryView();
   refreshCategoryBrandUnitLists();

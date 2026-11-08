@@ -286,6 +286,7 @@ let cashShiftBusy=false;
 let systemHasOwner=null; // null=unknown yet, true/false once checked via has_any_owner()
 let storeResetMode=null;
 let addingWarehouse=false;
+let warehouseCreateApproval=null;
 let editingWarehouseId=null;
 let editingTransferId=null; // null=หน้ารายการ, 'new'=สร้างใหม่, ค่าอื่น=แก้ไขเอกสารเดิม
 let transferDraft=null;

@@ -1,14 +1,15 @@
 function renderWarehouse(){
   if(addingWarehouse) return renderWarehouseForm();
-  return `<div class="rpt"><div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="newWarehouseBtn">+ เพิ่มคลังสินค้า</button></div>
-    ${warehouses.length?`<div class="warehouse-card-list"><ul class="warehouse-card-grid" aria-label="คลังสินค้า">${warehouses.map(w=>`
+  const cards=warehouses.map(w=>`
       <li class="warehouse-card"><strong>${escapeHtml(w.name)}</strong>
         <div class="warehouse-card-actions">
           <button class="warehouse-edit-btn" type="button" data-edit-warehouse="${w.id}" title="แก้ไขข้อมูลคลังสินค้า" aria-label="แก้ไขคลังสินค้า ${escapeHtml(w.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button>
           <button class="warehouse-delete-btn" type="button" data-delete-warehouse="${w.id}" title="ลบคลังสินค้า" aria-label="ลบคลังสินค้า ${escapeHtml(w.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>
         </div>
-      </li>`).join('')}</ul></div>`:'<p>ยังไม่มีคลังสินค้า</p>'}
-    </div>`;
+      </li>`);
+  const phonchai=warehouses.findIndex(w=>Number(w.id)===2);
+  cards.splice(phonchai<0?cards.length:phonchai+1,0,'<li><button type="button" id="newWarehouseBtn" class="warehouse-add-card">+ เพิ่มคลังสินค้า</button></li>');
+  return `<div class="rpt"><div class="warehouse-card-list"><ul class="warehouse-card-grid" aria-label="คลังสินค้า">${cards.join('')}</ul></div></div>`;
 }
 
 function renderWarehouseForm(){

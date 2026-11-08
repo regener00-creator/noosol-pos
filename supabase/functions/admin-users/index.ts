@@ -220,7 +220,7 @@ async function deleteAuthUserWithRetry(admin: AdminClient, userId: string) {
   return { ok: false, error: lastError || 'unknown Auth cleanup error' }
 }
 
-async function verifyCurrentPassword(url: string, email: string, password: string) {
+async function verifyCurrentPassword(url: string, email: string, password: string, expectedUserId?: string) {
   const publicKey = getPublicKey()
   if (!publicKey) return false
   const verifier = createClient(url, publicKey, {
@@ -228,7 +228,7 @@ async function verifyCurrentPassword(url: string, email: string, password: strin
   })
   const { data, error } = await verifier.auth.signInWithPassword({ email, password })
   if (!error) await verifier.auth.signOut({ scope: 'local' })
-  return !error && !!data.user
+  return !error && !!data.user && (!expectedUserId || data.user.id === expectedUserId)
 }
 
 async function listAllAuthUsers(admin: ReturnType<typeof createClient>) {
@@ -283,6 +283,14 @@ Deno.serve(async (req) => {
       .eq('id', caller.id)
       .single()
     if (!callerProfile?.owner || Number(callerProfile.level) !== 1) return json({ error: 'forbidden: owner only' }, 403)
+
+    if (action === 'approve-warehouse-create') {
+      const password = body.password
+      if (typeof password !== 'string' || !password || !caller.email || !(await verifyCurrentPassword(url, caller.email, password, caller.id)))
+        return json({error: 'รหัสผ่านเจ้าของร้านไม่ถูกต้อง'}, 403)
+      const {data, error} = await admin.rpc('issue_warehouse_create_approval', {p_actor_id: caller.id})
+      return error ? json({error: error.message}, 400) : json({approval: data})
+    }
 
     if (action === 'recovery-status') {
       const { data, error } = await admin

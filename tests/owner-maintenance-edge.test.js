@@ -15,7 +15,7 @@ test('admin reset endpoint routes by shop and requires an owner, scope and passw
     from:()=>({select:()=>({eq:()=>({single:async()=>({data:{owner,level:owner?1:2}})})})}),
     rpc:async(name,args)=>{requests.push([name,args]);return {data:{ok:true}};}
   };
-  const verifier={auth:{signInWithPassword:async({password})=>({data:{user:password==='correct'?{}:null},error:null}),signOut:async()=>{}}};
+  const verifier={auth:{signInWithPassword:async({password})=>({data:{user:password==='correct'?{id:'owner'}:password==='another-account'?{id:'other'}:null},error:null}),signOut:async()=>{}}};
   vm.runInNewContext(transformSync(source,{loader:'ts'}).code,{
     Request,Response,crypto:{randomUUID},console,
     Deno:{env:{get:k=>k==='SUPABASE_SERVICE_ROLE_KEY'?'service':'public'},serve:fn=>{handler=fn;}},
@@ -29,6 +29,14 @@ test('admin reset endpoint routes by shop and requires an owner, scope and passw
   owner=false;assert.equal((await call({warehouseId:2,allWarehouses:false})).status,403);owner=true;
   assert.equal((await call({mode:'factory',phrase:'คืนค่าโรงงาน',allWarehouses:false})).status,400);
   assert.deepEqual(requests,[]);
+  const approve={action:'approve-warehouse-create'};
+  owner=false;assert.equal((await call(approve)).status,403);owner=true;
+  assert.equal((await call({...approve,password:''})).status,403);
+  assert.equal((await call({...approve,password:'wrong'})).status,403);
+  assert.equal((await call({...approve,password:'another-account'})).status,403);
+  assert.deepEqual(requests,[]);
+  assert.equal((await call(approve)).status,200);
+  assert.deepEqual(JSON.parse(JSON.stringify(requests.pop())),['issue_warehouse_create_approval',{p_actor_id:'owner'}]);
   assert.equal((await call({warehouseId:2,allWarehouses:false})).status,200);
   assert.equal(requests[0][0],'admin_reset_shop_documents');assert.equal(requests[0][1].p_warehouse_id,2);
   assert.deepEqual(deletions,[]);

@@ -173,6 +173,28 @@ async function verifyOwnerTools(q,owner,[a,b]){
   await q('savepoint mixed_backup');
   await assert.rejects(q('select public.restore_store_backup_atomic($1,$2)',[a.id,mixed]),/ไม่ได้อยู่ในคลังนี้/);
   await q('rollback to mixed_backup');
+  await q('savepoint warehouse_creation');
+  const approval=(await q('select public.issue_warehouse_create_approval($1) token',[owner])).rows[0].token;
+  assert.equal((await q("select has_function_privilege('authenticated','public.issue_warehouse_create_approval(uuid)','execute') allowed")).rows[0].allowed,false);
+  assert.equal((await q("select has_function_privilege('authenticated','private.owner_upsert_warehouse(bigint,text,jsonb)','execute') allowed")).rows[0].allowed,false);
+  assert.equal((await q("select has_table_privilege('authenticated','public.warehouses','INSERT') allowed")).rows[0].allowed,false);
+  const create=(token,name)=>q('select public.create_approved_warehouse($1,$2,$3) saved',[token,name,{purpose:'ขายสินค้า'}]);
+  await q('savepoint invalid_creation');
+  for(const id of [null,65530]){
+    await assert.rejects(q("select public.owner_upsert_warehouse($1,'Bypass','{}')",[id]),/ยืนยันรหัสผ่าน/);
+    await q('rollback to invalid_creation');
+  }
+  await assert.rejects(create(randomUUID(),'No token'),/ยืนยันรหัสผ่าน/);await q('rollback to invalid_creation');
+  await q("update private.warehouse_create_approvals set expires_at=now() where token=$1",[approval]);
+  await assert.rejects(create(approval,'Expired'),/ยืนยันรหัสผ่าน/);await q('rollback to invalid_creation');
+  await q("update private.warehouse_create_approvals set actor_id=(select id from public.profiles where not owner limit 1) where token=$1",[approval]);
+  await assert.rejects(create(approval,'Wrong user'),/ยืนยันรหัสผ่าน/);await q('rollback to invalid_creation');
+  const created=(await create(approval,'Approved')).rows[0].saved;
+  assert.equal(created.id,(await create(approval,'Approved')).rows[0].saved.id);
+  await q('savepoint spent');
+  await assert.rejects(create(approval,'Second shop'),/ใช้การยืนยันนี้ไปแล้ว/);await q('rollback to spent');
+  assert.equal((await q("select public.owner_upsert_warehouse($1,'Renamed','{}') w",[created.id])).rows[0].w.name,'Renamed');
+  await q('rollback to warehouse_creation');
   await q('savepoint catalog_wipe');
   const clear=(id,shop,count=1)=>q('select public.admin_reset_shop_products($1,$2,$3,$4) result',[owner,id,'ล้างสินค้า '+shop,count]);
   assert.equal((await q("select has_function_privilege('authenticated','public.admin_reset_shop_products(uuid,bigint,text,integer)','execute') allowed")).rows[0].allowed,false);

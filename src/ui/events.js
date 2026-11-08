@@ -2152,7 +2152,11 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   bindPOItemEvents();
   bindDocumentProductScanner();
   const newWarehouseBtn=document.getElementById('newWarehouseBtn');
-  if(newWarehouseBtn) newWarehouseBtn.addEventListener('click',()=>{ addingWarehouse=true; editingWarehouseId=null; render(); });
+  if(newWarehouseBtn) newWarehouseBtn.addEventListener('click',async()=>{
+    const approval=await requestWarehouseCreateApproval();
+    if(!approval)return;
+    warehouseCreateApproval=approval;addingWarehouse=true;editingWarehouseId=null;render();
+  });
   document.querySelectorAll('[data-edit-warehouse]').forEach(btn=>{ btn.addEventListener('click',()=>{ editingWarehouseId=Number(btn.dataset.editWarehouse); addingWarehouse=true; render(); }); });
   document.querySelectorAll('[data-delete-warehouse]').forEach(btn=>{ btn.addEventListener('click',()=>deleteWarehouse(Number(btn.dataset.deleteWarehouse))); });
   ['cancelWarehouseBtn','cancelWarehouseBottomBtn'].forEach(id=>{ const btn=document.getElementById(id); if(btn) btn.addEventListener('click',()=>{ addingWarehouse=false; editingWarehouseId=null; render(); }); });
