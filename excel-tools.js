@@ -625,7 +625,128 @@ function productImportChanges(existing,data){
   return Object.keys(after).filter(key=>!ignored.has(key)&&String(before[key])!==String(after[key]))
     .map(key=>`${key} · ${before[key]===''?'ว่าง':before[key]} → ${after[key]===''?'ว่าง':after[key]}`).join('\n')||'ข้อมูลสินค้าตรงกับเดิม';
 }
-function showProductImportDialog(entries,skipped,{result=false,sourceNames,destinationName,crossStore}){
+const CROSS_PRODUCT_FIELDS=[
+  ['name','ชื่อสินค้า'],['category','หมวดหลักและหมวดย่อย'],['units','หน่วยเพิ่มเติมและจำนวนบรรจุ'],
+  ['price','ราคาขาย'],['cost','ราคาทุน']
+];
+function crossProductUnits(product){
+  const rows=[{name:product.unit,factor:1,barcode:product.barcode,price:product.price,cost:product.cost},
+    ...(product.units||[]).map(row=>({...row,name:row.sub}))];
+  const codes=new Map(rows.map(row=>[row.name,new Set()]));
+  const add=(name,value)=>{
+    const code=String(value||'').trim().toLowerCase();
+    if(code&&!systemLabelCode(code.toUpperCase()))codes.get(name)?.add(code);
+  };
+  rows.forEach(row=>add(row.name,row.barcode));
+  extraBarcodeEntries(product).forEach(alias=>add(alias.unit,alias.code));
+  return rows.map(row=>({...row,codes:codes.get(row.name)}));
+}
+function projectCrossProduct(candidate,fields){
+  const {source,existing,presentMoney}=candidate;
+  const changes=[],notes=[],patch={};
+  const change=(target,key,before,after,label)=>{
+    if(before===after)return;
+    target[key]=after;
+    changes.push(`${label} · ${before??'ว่าง'} → ${after??'ว่าง'}`);
+  };
+  if(fields.has('name'))change(patch,'name',existing.name,source.name,'ชื่อสินค้า');
+  if(fields.has('category')){
+    change(patch,'category',existing.category,source.category,'หมวดหลัก');
+    change(patch,'brand',existing.brand,source.brand,'หมวดย่อย');
+  }
+  if(source.unit!==existing.unit)notes.push(`คงหน่วยหลักปลายทาง “${existing.unit}” (ไฟล์ใช้ “${source.unit}”) · หากต้องการเปลี่ยนให้ใช้เมนูเปลี่ยนหน่วยหลัก`);
+  if(fields.has('units')||fields.has('price')||fields.has('cost')){
+    const incoming=crossProductUnits(source),local=crossProductUnits(existing);
+    const mapped=new Map(),taken=new Set();
+    for(const from of incoming){
+      const matches=local.filter(to=>to.name===from.name||[...from.codes].some(code=>to.codes.has(code)));
+      const targetName=matches[0]?.name||from.name;
+      if(matches.length>1||taken.has(targetName))throw new Error(`ชื่อหรือบาร์โค้ดของหน่วย “${from.name}” ชี้ไปคนละหน่วย กรุณาตรวจสอบการจับคู่`);
+      if(from.name!==targetName){
+        if(fields.has('units')&&targetName!==existing.unit)throw new Error(`บาร์โค้ดเดียวกันใช้หน่วย “${from.name}” ในไฟล์ และ “${targetName}” ที่ปลายทาง กรุณาตรวจชื่อหน่วยใน PRODUCT ก่อนอัปเดต`);
+        notes.push(`จับคู่หน่วย “${from.name}” ในไฟล์กับ “${targetName}” ที่ปลายทางตามบาร์โค้ด`);
+      }
+      mapped.set(from.name,targetName);taken.add(targetName);
+    }
+    // Factors are counts of each shop's own base unit. Anchor the conversion in a
+    // named base unit before comparing prices or changing any pack definitions.
+    const localAnchor=local.find(row=>row.name===source.unit);
+    const sourceAnchor=incoming.find(row=>row.name===existing.unit);
+    const scale=localAnchor?.factor??(sourceAnchor?1/sourceAnchor.factor:0);
+    if(!Number.isFinite(scale)||scale<=0)throw new Error('เทียบจำนวนบรรจุไม่ได้ เพราะหน่วยหลักทั้งสองร้านไม่มีหน่วยอ้างอิงร่วมกัน กรุณาตรวจหน่วยใน PRODUCT');
+    const units=(existing.units||[]).map(row=>({...row}));
+    const added=new Set();
+    if(fields.has('units')){
+      for(const from of incoming){
+        const name=mapped.get(from.name);
+        if(name===existing.unit)continue;
+        let row=units.find(unit=>unit.sub===name);
+        // The source base already exists locally: preserve its conversion to the destination base.
+        if(row&&from.name===source.unit)continue;
+        const base=from.name===source.unit?existing.unit:mapped.get(from.base||source.unit);
+        const per=from.name===source.unit?scale:from.per;
+        if(!row){
+          row={sub:name,base,per,barcode:''};units.push(row);added.add(name);
+          changes.push(`เพิ่มหน่วย ${name} = ${per} ${base}`);
+        }else if(row.base!==base||Number(row.per)!==Number(per)){
+          changes.push(`จำนวนบรรจุ (${name}) · ${row.per} ${row.base} → ${per} ${base}`);
+          Object.assign(row,{base,per});
+        }
+      }
+      for(const row of units){
+        const factor=resolveNetFactor(row.sub,units,existing.unit);
+        if(!factor)throw new Error(`หน่วย “${row.sub}” อ้างอิงวนกันหรือไม่มีหน่วยฐานในร้านปลายทาง`);
+        if(!added.has(row.sub)&&Number(row.factor)!==factor)changes.push(`จำนวนหน่วยหลักต่อ ${row.sub} · ${row.factor} → ${factor} ${existing.unit}`);
+        row.factor=factor;
+      }
+    }
+    const primary=incoming.find(from=>mapped.get(from.name)===existing.unit);
+    for(const from of incoming){
+      const name=mapped.get(from.name),main=name===existing.unit;
+      const row=main?existing:units.find(unit=>unit.sub===name);
+      if(!row){notes.push(`ข้ามหน่วย “${from.name}” ที่ปลายทางไม่มี · เลือกหน่วยเพิ่มเติมหากต้องการเพิ่ม`);continue;}
+      const factor=main?1:row.factor;
+      if(Math.abs(factor-from.factor*scale)>Math.max(1,factor)*1e-6){
+        throw new Error(`จำนวนบรรจุหน่วย “${from.name}” ต่างกัน (ไฟล์ ${from.factor*scale} / ปลายทาง ${factor} ${existing.unit}) กรุณาตรวจจำนวนบรรจุก่อนคัดลอกราคา`);
+      }
+      for(const key of ['price','cost']){
+        const label=key==='price'?'ราคาขาย':'ราคาทุน';
+        if(fields.has(key)&&presentMoney[key].has(from.name)){
+          change(main?patch:row,key,row[key],from[key],`${label} (${name})`);
+        }else if(added.has(name)){
+          const base=primary&&fields.has(key)&&presentMoney[key].has(primary.name)?primary[key]:existing[key]??0;
+          change(row,key,undefined,Number((base*factor).toFixed(2)),`${label} (${name} จากราคาต่อหน่วยหลักปลายทาง)`);
+        }
+      }
+    }
+    if(JSON.stringify(units)!==JSON.stringify(existing.units||[])){
+      patch.units=units;patch.multiunit=units.length>0;
+    }
+  }
+  const data={...existing,...patch};
+  const error=productStructureValidationError(data);
+  if(error)throw new Error(error);
+  return {patch,changes,notes};
+}
+function crossProductPlan(candidates,occupied,fields){
+  const updates=[],skipped=[];
+  const counts=new Map();
+  for(const {existing} of candidates)counts.set(existing.id,(counts.get(existing.id)||0)+1);
+  for(const candidate of candidates){
+    const {line,name,existing}=candidate;
+    const target=`ปลายทาง ${existing.sku||''} · ${existing.name}`;
+    if(!fields){skipped.push({line,name,status:'ข้าม',detail:target+' · คงข้อมูลเดิม'});continue;}
+    try{
+      if(counts.get(existing.id)>1||occupied.has(existing.id))throw new Error('หลายแถวในไฟล์ชี้ไปยังสินค้าปลายทางเดียวกัน');
+      const {patch,changes,notes}=projectCrossProduct(candidate,fields);
+      const detail=[target,...changes,...notes].join('\n');
+      if(!changes.length){skipped.push({line,name,status:'ข้าม',detail:detail+'\nไม่มีการเปลี่ยนแปลงที่นำเข้าได้'});continue;}
+      updates.push({line,name,existing,product:existing,patch,sourceCodes:productBarcodeCodes(candidate.source),targetStock:null,detail});
+    }catch(error){skipped.push({line,name,status:'รอตรวจสอบ',detail:target+'\n'+error.message});}
+  }
+  return {updates,skipped};
+}
+function showProductImportDialog(entries,skipped,{result=false,sourceNames,destinationName,crossStore,planCrossUpdates}){
   return new Promise(resolve=>{
     const overlay=document.createElement('div');
     overlay.className='modal-overlay product-import-overlay';
@@ -637,8 +758,10 @@ function showProductImportDialog(entries,skipped,{result=false,sourceNames,desti
           <div><dt>คลังปลายทาง</dt><dd>${escapeHtml(destinationName)}</dd></div>
         </dl>
         ${!result&&crossStore?'<p class="product-import-cross-store">นำเข้าข้ามคลัง กรุณาตรวจชื่อคลังปลายทางก่อนยืนยัน</p>':''}
+        ${!result&&planCrossUpdates&&loggedInUser()?.owner===true?`<label class="product-import-stock-option"><input id="productImportUpdateExisting" type="checkbox"> อัปเดตสินค้าเดิมของ${escapeHtml(destinationName)}ด้วย</label>
+        <fieldset id="productImportFields" hidden><legend>เลือกข้อมูลที่จะอัปเดต</legend>${CROSS_PRODUCT_FIELDS.map(([key,label])=>`<label><input type="checkbox" data-product-import-field="${key}"> ${label}</label>`).join('')}<p>สินค้าเดิมจะเก็บหน่วยหลักและบาร์โค้ดของคลังปลายทาง หน่วยที่เพิ่มใหม่จะเว้นบาร์โค้ดไว้</p></fieldset>`:''}
         <p id="productImportSummary"></p>
-        ${result?'':'<label class="product-import-stock-option"><input id="productImportStock" type="checkbox"> ปรับจำนวนคงเหลือด้วย</label><p>ช่องจำนวนว่างจะคงสต๊อกเดิม เลข 0 หมายถึงปรับเป็นศูนย์ ตรวจยอดปัจจุบันและยอดใหม่ก่อนยืนยัน</p>'}
+        ${result?'':`<label class="product-import-stock-option"><input id="productImportStock" type="checkbox"> ปรับจำนวนคงเหลือด้วย</label><p>${crossStore?'การปรับจำนวนใช้เฉพาะแถวของคลังปลายทาง แถวที่คัดลอกจากร้านอื่นจะคงสต๊อกเดิมของร้านนี้':'ช่องจำนวนว่างจะคงสต๊อกเดิม เลข 0 หมายถึงปรับเป็นศูนย์ ตรวจยอดปัจจุบันและยอดใหม่ก่อนยืนยัน'}</p>`}
         <p>วันหมดอายุใน Excel เป็นข้อมูลสำหรับดูเท่านั้น ค่าที่แก้ในไฟล์จะไม่ถูกบันทึก กรุณาแก้วันหมดอายุที่ LOT ของสินค้า</p>
         <div class="product-import-table-wrap"><table class="grid-table"><thead><tr><th>แถว</th><th>สินค้า</th><th>รายละเอียด</th><th>สถานะ</th></tr></thead><tbody id="productImportRows"></tbody></table></div>
         <div class="product-import-pages"><button type="button" class="btn ghost" id="productImportPrev">ก่อนหน้า</button><span id="productImportPage"></span><button type="button" class="btn ghost" id="productImportNext">ถัดไป</button></div>
@@ -646,13 +769,14 @@ function showProductImportDialog(entries,skipped,{result=false,sourceNames,desti
     document.body.appendChild(overlay);
     let page=0;
     const stock=overlay.querySelector('#productImportStock');
-    const rows=[...entries,...skipped];
+    const toggle=overlay.querySelector('#productImportUpdateExisting'),fields=overlay.querySelector('#productImportFields');
+    let plan={updates:[],skipped:[]},selected=new Set(),rows=[];
     const draw=()=>{
       const enabled=!!stock?.checked;
       const blocked=enabled&&entries.some(entry=>entry.stockError);
       overlay.querySelector('#productImportSummary').textContent=result
-        ?['สำเร็จ','รอซิงก์','ไม่สำเร็จ',...(skipped.some(row=>row.status==='ข้าม')?['ข้าม']:[])].map(status=>`${status} ${rows.filter(row=>row.status===status).length} รายการ`).join(' · ')
-        :`เพิ่มใหม่ ${entries.filter(entry=>!entry.existing).length} · อัปเดต ${entries.filter(entry=>entry.existing).length} · ข้าม ${skipped.length}${blocked?' · กรุณาแก้แถวที่ปรับสต๊อกไม่ได้ หรือเอาติ๊กปรับสต๊อกออก':''}`;
+        ?['สำเร็จ','รอซิงก์','ไม่สำเร็จ',...['ข้าม','รอตรวจสอบ'].filter(status=>rows.some(row=>row.status===status))].map(status=>`${status} ${rows.filter(row=>row.status===status).length} รายการ`).join(' · ')
+        :`เพิ่มใหม่ ${entries.filter(entry=>!entry.existing).length} · อัปเดต ${entries.filter(entry=>entry.existing).length+plan.updates.length} · ข้าม ${skipped.length+plan.skipped.length}${blocked?' · กรุณาแก้แถวที่ปรับสต๊อกไม่ได้ หรือเอาติ๊กปรับสต๊อกออก':''}`;
       overlay.querySelector('#productImportRows').innerHTML=rows.slice(page*50,(page+1)*50).map(entry=>{
         const stockDetail=enabled?(entry.stockError||entry.stockDetail||''):'';
         const detail=result?entry.detail:[entry.detail,stockDetail,entry.expiryNotice].filter(Boolean).join('\n');
@@ -662,17 +786,26 @@ function showProductImportDialog(entries,skipped,{result=false,sourceNames,desti
       overlay.querySelector('#productImportPrev').disabled=page===0;
       overlay.querySelector('#productImportNext').disabled=(page+1)*50>=rows.length;
       const submit=overlay.querySelector('#productImportConfirm');
-      if(submit) submit.disabled=blocked||!entries.length;
+      if(submit) submit.disabled=blocked||!(entries.length+plan.updates.length)||(toggle?.checked&&!selected.size);
     };
+    const refresh=()=>{
+      if(fields)fields.hidden=!toggle.checked;
+      selected=new Set(Array.from(fields?.querySelectorAll('input:checked')||[],input=>input.dataset.productImportField));
+      if(planCrossUpdates&&!result)plan=planCrossUpdates(toggle?.checked&&selected.size?selected:null);
+      rows=[...entries,...plan.updates,...skipped,...plan.skipped].sort((a,b)=>a.line-b.line);
+      page=0;draw();
+    };
+    toggle?.addEventListener('change',refresh);
+    fields?.addEventListener('change',refresh);
     const close=value=>{overlay.remove();resolve(value);};
     overlay.querySelector('.modal-close').onclick=()=>close(null);
     overlay.querySelector('#productImportCancel').onclick=()=>close(null);
-    overlay.querySelector('#productImportConfirm')?.addEventListener('click',()=>close({adjustStock:stock.checked}));
+    overlay.querySelector('#productImportConfirm')?.addEventListener('click',()=>close({adjustStock:stock.checked,crossPlan:plan}));
     overlay.querySelector('#productImportPrev').onclick=()=>{page--;draw();};
     overlay.querySelector('#productImportNext').onclick=()=>{page++;draw();};
     if(stock) stock.onchange=()=>{page=0;draw();};
     overlay.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();close(null);}});
-    draw();
+    refresh();
     overlay.querySelector('#productImportCancel').focus();
   });
 }
@@ -713,7 +846,7 @@ async function importProductsFromExcel(file){
   finally{ productExcelImportBusy=false; }
 }
 async function performProductExcelImport(file){
-  const context=captureWorkspaceRead(),importWarehouseId=activeWarehouseId;
+  const context=captureStoreView(),importWarehouseId=activeWarehouseId;
   try{ await ensureXlsxLoaded(); }catch(error){ showToast(error.message||'ไม่สามารถโหลดระบบอ่าน Excel ได้ กรุณาเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่'); return; }
   let workbook;
   try{ workbook=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:false}); }
@@ -722,10 +855,10 @@ async function performProductExcelImport(file){
   const sourceRows=XLSX.utils.sheet_to_json(firstSheet,{defval:'',raw:true});
   if(!sourceRows.length){ showToast('ไม่พบข้อมูลสินค้าในไฟล์'); return; }
   const warehouse=activeWarehouse();
-  if(!warehouse||isAllWarehousesMode()||!isWorkspaceReadCurrent(context))return;
+  if(!warehouse||isAllWarehousesMode()||!isStoreViewCurrent(context))return;
   const inventoryReady=await loadWarehouseInventoryFromSupabase([warehouse.id],{force:true});
   if(!inventoryReady){ showToast('โหลดสต๊อกล่าสุดก่อนนำเข้าไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่','danger-top'); return; }
-  if(!isWorkspaceReadCurrent(context)) return;
+  if(!isStoreViewCurrent(context)) return;
 
   // Track which product id currently "owns" each sku/barcode, so a row that
   // edits an EXISTING product (matched via รหัสอ้างอิงระบบ or a matching sku)
@@ -733,16 +866,25 @@ async function performProductExcelImport(file){
   // with a DIFFERENT product blocks the row.
   const skuOwner=new Map();
   const productsAtPreview=new Map(products.map(product=>[Number(product.id),product]));
-  products.forEach(p=>{ const s=String(p.sku||'').trim().toLowerCase(); if(s) skuOwner.set(s,p.id); });
   const barcodeOwner=new Map();
+  const duplicateSkus=new Set(),duplicateCodes=new Set(),saleCodeOwners=new Map();
+  const record=(index,duplicates,key,id)=>{
+    if(!key)return;
+    if(index.has(key)&&index.get(key)!==id)duplicates.add(key);
+    index.set(key,id);
+  };
   products.forEach(p=>{
-    productBarcodeCodes(p).forEach(c=>barcodeOwner.set(c,p.id));
+    record(skuOwner,duplicateSkus,String(p.sku||'').trim().toLowerCase(),p.id);
+    productBarcodeCodes(p).forEach(c=>record(barcodeOwner,duplicateCodes,c,p.id));
+    crossProductUnits(p).forEach(unit=>unit.codes.forEach(c=>saleCodeOwners.set(c,p.id)));
   });
+  const originalSkus=new Map(skuOwner),originalCodes=new Map(barcodeOwner);
 
   const toCreate=[];
   const toUpdate=[]; // {existing,data}
   const skipped=[];
   const existingCopies=[];
+  const crossCandidates=[];
   const entries=[];
   const repeatNumbers=productImportRepeatNumbers(sourceRows);
   const catalogAtPreview=JSON.stringify(products.map(productMetadataToRow));
@@ -767,6 +909,7 @@ async function performProductExcelImport(file){
     const name=String(productImportValue(row,['ชื่อสินค้า','สินค้า','name'])).trim();
     const unit=String(productImportValue(row,['หน่วยหลัก','หน่วย','unit'])).trim();
     const priceRaw=productImportValue(row,['ราคาขาย (หน่วยหลัก)','ราคาขาย','ขาย','price']);
+    const costRaw=productImportValue(row,['ราคาทุน (หน่วยหลัก)','ราคาทุน','ทุน','cost']);
     const price=productImportNumber(priceRaw,NaN);
     const sku=String(productImportValue(row,['รหัสสินค้า','sku','code'])).trim();
     if(warehouseValue&&!sourceWarehouse){ skipped.push(`แถว ${line} · ${name}: ไม่พบคลัง “${warehouseValue}”`); return; }
@@ -782,6 +925,9 @@ async function performProductExcelImport(file){
     const extraBarcodeUnits=[];
     const vendorBarcodes=[];
     const rawUnitRows=[];
+    const presentMoney={price:new Set(),cost:new Set()};
+    if(String(priceRaw??'').trim())presentMoney.price.add(unit);
+    if(String(costRaw??'').trim())presentMoney.cost.add(unit);
     let unitImportError='';
     for(const number of repeatNumbers){
       const extraAliases=[`บาร์โค้ดสำรอง ${number}`,`บาร์โค้ดสำรอง${number}`,`บาร์โค้ดเพิ่มเติม ${number}`,`บาร์โค้ดเพิ่มเติม${number}`,`extrabarcode${number}`];
@@ -808,8 +954,11 @@ async function performProductExcelImport(file){
         const unitValue=aliases=>{const value=productImportValue(row,aliases);hasUnitValues=hasUnitValues||String(value??'').trim()!=='';return value;};
         const per=productImportNumber(unitValue([`จำนวนบรรจุ ${number}`,`จำนวนบรรจุ${number}`,`จำนวนต่อหน่วย ${number}`,`จำนวนต่อหน่วย${number}`,`บรรจุ ${number}`,`per${number}`]),0);
         const base=String(productImportValue(row,[`เทียบกับหน่วย ${number}`,`เทียบกับหน่วย${number}`,`อ้างอิงหน่วย ${number}`,`อ้างอิงหน่วย${number}`,`หน่วยฐาน ${number}`,`baseunit${number}`])).trim()||unit;
-        const unitPrice=productImportMoney(unitValue([`ราคาขายหน่วยเพิ่มเติม ${number}`,`ราคาขายหน่วยเพิ่มเติม${number}`,`ราคาขายหน่วย ${number}`,`ราคาขายหน่วย${number}`,`unitprice${number}`]),0);
-        const unitCost=productImportMoney(unitValue([`ราคาทุนหน่วยเพิ่มเติม ${number}`,`ราคาทุนหน่วยเพิ่มเติม${number}`,`ราคาทุนหน่วย ${number}`,`ราคาทุนหน่วย${number}`,`unitcost${number}`]),0);
+        const unitPriceRaw=unitValue([`ราคาขายหน่วยเพิ่มเติม ${number}`,`ราคาขายหน่วยเพิ่มเติม${number}`,`ราคาขายหน่วย ${number}`,`ราคาขายหน่วย${number}`,`unitprice${number}`]);
+        const unitCostRaw=unitValue([`ราคาทุนหน่วยเพิ่มเติม ${number}`,`ราคาทุนหน่วยเพิ่มเติม${number}`,`ราคาทุนหน่วย ${number}`,`ราคาทุนหน่วย${number}`,`unitcost${number}`]);
+        const unitPrice=productImportMoney(unitPriceRaw,0),unitCost=productImportMoney(unitCostRaw,0);
+        if(String(unitPriceRaw??'').trim())presentMoney.price.add(sub);
+        if(String(unitCostRaw??'').trim())presentMoney.cost.add(sub);
         const unitBarcode=importBarcode(unitValue([`บาร์โค้ดหน่วยเพิ่มเติม ${number}`,`บาร์โค้ดหน่วยเพิ่มเติม${number}`,`บาร์โค้ดหน่วย ${number}`,`บาร์โค้ดหน่วย${number}`,`unitbarcode${number}`]));
         if(sub) rawUnitRows.push({sub,per,base,price:unitPrice,cost:unitCost,barcode:unitBarcode});
         else if(hasUnitValues||base!==unit) unitImportError=`กรุณาระบุหน่วยเพิ่มเติมลำดับที่ ${number}`;
@@ -827,17 +976,27 @@ async function performProductExcelImport(file){
     }
     if(crossStore){
       if(!sku&&!rowBarcodes.length){skipped.push(`แถว ${line} · ${name}: กรุณาระบุรหัสสินค้าหรือบาร์โค้ดสำหรับตรวจสินค้าซ้ำในคลังปลายทาง`);return;}
-      const matchedSku=sku&&skuOwner.has(sku.toLowerCase());
-      const matchedCode=normalizedRowBarcodes.find(code=>barcodeOwner.has(code));
-      if(matchedSku||matchedCode){
-        const detail=`${matchedSku?'รหัสสินค้า '+sku:'บาร์โค้ด '+matchedCode} มีอยู่แล้วใน ${warehouse.name} หรือแถวก่อนหน้า · คงข้อมูลเดิม`;
-        existingCopies.push({line,name,detail,status:'ข้าม'});return;
+      const skuId=skuOwner.get(sku.toLowerCase());
+      const matches=new Set([skuId,...normalizedRowBarcodes.map(code=>barcodeOwner.get(code))].filter(id=>id!==undefined));
+      if(duplicateSkus.has(sku.toLowerCase())||normalizedRowBarcodes.some(code=>duplicateCodes.has(code))||matches.size>1){
+        existingCopies.push({line,name,status:'รอตรวจสอบ',detail:'รหัสสินค้าหรือบาร์โค้ดตรงกับสินค้าปลายทางหลายรายการ'});return;
+      }
+      if(matches.size){
+        const [id]=matches;
+        existing=productsAtPreview.get(Number(id));
+        if(!existing){existingCopies.push({line,name,detail:'ซ้ำกับสินค้าใหม่ในแถวก่อนหน้า',status:'ข้าม'});return;}
+        const originalSkuId=originalSkus.get(sku.toLowerCase());
+        const standardCodes=[barcode,...extraBarcodes,...rawUnitRows.map(item=>item.barcode)].filter(Boolean);
+        if(originalSkuId!==id&&!standardCodes.some(code=>saleCodeOwners.get(code.toLowerCase())===id)){
+          const onlyVendor=normalizedRowBarcodes.some(code=>originalCodes.get(code)===id);
+          existingCopies.push({line,name,status:'รอตรวจสอบ',detail:onlyVendor?'ตรงเฉพาะบาร์โค้ดผู้จำหน่าย กรุณาตรวจรหัสสินค้าและบาร์โค้ดขาย':'ตรงกับข้อมูลที่เสนอโดยแถวอื่นในไฟล์ กรุณาตรวจรหัสสินค้าและบาร์โค้ด'});return;
+        }
       }
     }else{
       if(Number.isFinite(systemId)) existing=productsAtPreview.get(systemId);
       if(!existing&&sku) existing=productsAtPreview.get(skuOwner.get(sku.toLowerCase()));
     }
-    if(existing&&seenInFile.has(existing.id)){ skipped.push(`แถว ${line}: ซ้ำกับแถวก่อนหน้าในไฟล์เดียวกัน (${name})`); return; }
+    if(!crossStore&&existing&&seenInFile.has(existing.id)){ skipped.push(`แถว ${line}: ซ้ำกับแถวก่อนหน้าในไฟล์เดียวกัน (${name})`); return; }
 
     if(sku){
       const owner=skuOwner.get(sku.toLowerCase());
@@ -857,16 +1016,16 @@ async function performProductExcelImport(file){
     const expectedStock=existing&&warehouse?warehouseStock(existing.id,warehouse.id):0;
     const productUnits=rawUnitRows.map(item=>({...item,factor:resolveNetFactor(item.sub,rawUnitRows,unit)}));
     let finalSku=sku||existing?.sku||'';
-    if(!finalSku){
+    if(!finalSku&&!(crossStore&&existing)){
       const allocation=allocateReadableProductSku(skuOwner.keys(),stagedNextProductSkuNumber);
       finalSku=allocation.sku;
       stagedNextProductSkuNumber=allocation.nextSequence;
     }
-    stagedNextProductSkuNumber=Math.max(stagedNextProductSkuNumber,productSkuSequenceNumber(finalSku)+1);
+    if(!(crossStore&&existing))stagedNextProductSkuNumber=Math.max(stagedNextProductSkuNumber,productSkuSequenceNumber(finalSku)+1);
     const data={
       name,sku:finalSku,barcode,category,brand,unit,price,
       ...productImportReviewFields(reviewStatus,existing,new Date().toISOString(),currentPharmacistName()||String(loggedInUser()?.username||'').trim()),
-      cost:productImportMoney(productImportValue(row,['ราคาทุน (หน่วยหลัก)','ราคาทุน','ทุน','cost']),existing?.cost||0),
+      cost:productImportMoney(costRaw,existing?.cost||0),
       vat:parseProductVatMode(productImportValue(row,['ภาษีมูลค่าเพิ่ม','vat']),existing?.vat||'incl'),
       stock:existing?.stock||0,
       expiry:existing?.expiry||'',
@@ -877,6 +1036,7 @@ async function performProductExcelImport(file){
 
     const structureError=productStructureValidationError(data);
     if(structureError){ skipped.push(`แถว ${line}: ${structureError}`); return; }
+    if(crossStore&&existing){crossCandidates.push({line,name,existing,source:data,presentMoney});return;}
     const expiryRaw=productImportValue(row,['วันหมดอายุ (สำหรับดูข้อมูล)','วันหมดอายุ','expiry','expiredate']);
     const detail=crossStore?`เพิ่มสินค้าใหม่ใน ${warehouse.name} · สต๊อกเริ่มต้น 0 ${unit}${omittedPrintCode?' · เว้นบาร์โค้ดที่ระบบออกให้ร้านต้นทางไว้ เพื่อออกเลขใหม่เมื่อพิมพ์ป้าย':''}`:productImportChanges(existing,data);
     const entry={line,name,existing,detail,stockError,
@@ -923,26 +1083,52 @@ async function performProductExcelImport(file){
     }
   }catch(error){ showToast(error.message,'danger-top'); return; }
 
-  if(!isWorkspaceReadCurrent(context)) return;
+  if(!isStoreViewCurrent(context)) return;
   const sourceByLine=new Map(sourceRows.map((row,index)=>[(row.__rowNum__??index+1)+1,row]));
   const rejected=existingCopies.concat(skipped.map(detail=>{
     const line=Number(detail.match(/^แถว (\d+)/)?.[1])||'';
     return {line,name:String(productImportValue(sourceByLine.get(line)||{},['ชื่อสินค้า','สินค้า','name']))||'รายการที่ข้าม',detail,status:'ไม่สำเร็จ'};
   }));
   const warehouseInfo={sourceNames:[...sourceNames].join(' · '),destinationName:warehouse.name||`คลัง-${warehouse.id}`,crossStore:hasCrossStoreRows};
-  const choice=await showProductImportDialog(entries,rejected,warehouseInfo);
+  const occupied=new Set(toUpdate.map(row=>row.existing.id));
+  const planCrossUpdates=crossCandidates.length?fields=>crossProductPlan(crossCandidates,occupied,fields):null;
+  const choice=await showProductImportDialog(entries,rejected,{...warehouseInfo,planCrossUpdates});
   if(!choice) return;
-  if(activeWarehouseId!==importWarehouseId||!isWorkspaceReadCurrent(context)||catalogAtPreview!==JSON.stringify(products.map(productMetadataToRow))){
+  if(choice.crossPlan.updates.length){
+    if(!isStoreViewCurrent(context)||loggedInUser()?.owner!==true){showToast('คลังหรือสิทธิ์เจ้าของร้านเปลี่ยน กรุณาเลือกไฟล์อีกครั้ง','danger-top');return;}
+    try{
+      const remoteOwners=await loadServerBarcodeOwners(choice.crossPlan.updates.flatMap(row=>row.sourceCodes));
+      const owners=new Map();
+      for(const owner of remoteOwners){
+        const ids=owners.get(owner.barcode)||new Set();
+        ids.add(String(owner.product_id));owners.set(owner.barcode,ids);
+      }
+      for(const row of choice.crossPlan.updates){
+        const conflict=row.sourceCodes.find(code=>{const ids=owners.get(code);return ids&&(ids.size>1||!ids.has(String(row.existing.id)));});
+        if(conflict){showToast(`แถว ${row.line} · บาร์โค้ด ${conflict} ตรงกับสินค้าอื่นบนเซิร์ฟเวอร์ กรุณาโหลดข้อมูลล่าสุดแล้วตรวจใหม่`,'danger-top');return;}
+      }
+    }catch(error){showToast(error.message,'danger-top');return;}
+  }
+  if(!isStoreViewCurrent(context)||catalogAtPreview!==JSON.stringify(products.map(productMetadataToRow))){
     showToast('ข้อมูลสินค้าเปลี่ยนระหว่างตรวจรายการ กรุณานำเข้าไฟล์ใหม่เพื่อตรวจข้อมูลล่าสุด','danger-top'); return;
   }
+  if(choice.crossPlan.updates.length&&loggedInUser()?.owner!==true){showToast('เฉพาะเจ้าของร้านที่อัปเดตสินค้าเดิมข้ามคลังได้','danger-top');return;}
+  for(const entry of choice.crossPlan.updates){
+    entries.push(entry);
+    toUpdate.push({existing:entry.existing,data:entry.patch});
+  }
+  rejected.push(...choice.crossPlan.skipped);
+  const liveProducts=new Map(products.map(product=>[product.id,product]));
+  for(const row of toUpdate)row.existing=liveProducts.get(row.existing.id);
+  for(const entry of entries)if(entry.existing)entry.product=liveProducts.get(entry.existing.id);
   const importStockTargets=choice.adjustStock?entries.filter(entry=>entry.targetStock!==null&&entry.targetStock!==entry.expectedStock)
     .map(entry=>({productId:entry.product.id,warehouseId:entry.warehouseId,expectedStock:entry.expectedStock,targetStock:entry.targetStock,unitName:entry.unitName,expiry:''})):[];
   nextProductSkuNumber=stagedNextProductSkuNumber;
   let contactsChanged=false;
   [...toCreate,...toUpdate.map(u=>u.data)].forEach(product=>{
-    if(!categories.includes(product.category)) categories.push(product.category);
-    if(!brands.includes(product.brand)) brands.push(product.brand);
-    if(!units.includes(product.unit)) units.push(product.unit);
+    if(product.category&&!categories.includes(product.category)) categories.push(product.category);
+    if(product.brand&&!brands.includes(product.brand)) brands.push(product.brand);
+    if(product.unit&&!units.includes(product.unit)) units.push(product.unit);
     (product.units||[]).forEach(item=>{
       if(item.sub&&!units.includes(item.sub)) units.push(item.sub);
     });
@@ -989,7 +1175,7 @@ async function performProductExcelImport(file){
   }catch(error){
     saveError=error?.message||'บันทึกข้อมูลไม่สำเร็จ';
   }
-  if(!isWorkspaceReadCurrent(context)){progress.remove();return;}
+  if(!isStoreViewCurrent(context)){progress.remove();return;}
   const acknowledged=entry=>{
     const live=products.find(product=>product.id===entry.product.id);
     return live&&JSON.stringify(productToRow(live))===desiredRows.get(live.id)&&
@@ -1001,7 +1187,7 @@ async function performProductExcelImport(file){
   }catch(error){
     stockError=error?.message||'ตรวจสอบผลปรับสต๊อกไม่สำเร็จ';
   }finally{progress.remove();}
-  if(!isWorkspaceReadCurrent(context)) return;
+  if(!isStoreViewCurrent(context)) return;
   const requestedStockIds=new Set(importStockTargets.map(target=>target.productId));
   for(const entry of entries){
     const synced=syncedIds.has(entry.product.id);

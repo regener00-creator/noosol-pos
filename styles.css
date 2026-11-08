@@ -2721,6 +2721,8 @@
 .product-import-warehouses dd{margin:2px 0 0;font-weight:700;overflow-wrap:anywhere;}
 .product-import-cross-store{font-weight:600;color:#904600;}
 .product-import-stock-option{display:flex;align-items:center;gap:10px;font-weight:700;}
+#productImportFields{margin:10px 0;padding:10px 14px;border:1px solid var(--border);border-radius:12px;}
+#productImportFields label{display:inline-flex;gap:6px;align-items:center;margin:4px 16px 4px 0;}
 .product-import-table-wrap{overflow:auto;}
 .product-import-table-wrap table{width:100%;min-width:620px;}
 .product-import-table-wrap th,.product-import-table-wrap td{padding:12px;vertical-align:top;}

@@ -66,13 +66,17 @@ async function exported(expectedFilename){
   const book=new Excel.Workbook();await book.xlsx.load(Buffer.concat(parts));return book;
 }
 function cell(book,row,name){const sheet=book.worksheets[0];return sheet.getCell(row,sheet.getRow(1).values.indexOf(name));}
-async function imported(book,{stock=false,cancel=false,beforeConfirm=null,inspect=null}={}){
+async function imported(book,{stock=false,cancel=false,beforeConfirm=null,inspect=null,crossFields=null}={}){
   const buffer=await book.xlsx.writeBuffer();
   await page.evaluate(()=>{window.auditDone=false;const original=window.importProductsFromExcel;window.importProductsFromExcel=async file=>{try{return await original(file);}finally{auditDone=true;window.importProductsFromExcel=original;}};});
   await page.locator('#productImportFile').setInputFiles({name:'edited.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:Buffer.from(buffer)});
   await page.locator('#productImportConfirm').waitFor();
   assert.equal(await page.locator('#productImportStock').isChecked(),false);
   if(stock) await page.locator('#productImportStock').check();
+  if(crossFields){
+    await page.locator('#productImportUpdateExisting').check();
+    for(const field of crossFields)await page.locator(`[data-product-import-field="${field}"]`).check();
+  }
   const preview=await page.locator('.product-import-body').innerText();
   if(inspect) await inspect(preview);
   if(beforeConfirm) await beforeConfirm();
@@ -185,6 +189,74 @@ async function scenario(name,work){if(process.argv[2]&&!new RegExp(process.argv[
       assert.equal(copy.units[0].barcode,baseProduct.units[0].barcode);
       assert.deepEqual(await page.evaluate(()=>otherWarehouseProducts),[source]);
     }
+  });
+  await scenario('Cross-store owner can update only selected fields in either direction',async()=>{
+    for(const [from,to] of [[1,2],[2,1]]){
+      const label=(id,n)=>(id===1?'AP':'BP')+String(n).padStart(11,'0');
+      const source={...baseProduct,wh:from,name:'Decolgen',barcode:label(from,9)};
+      const dest={...baseProduct,id:2051,wh:to,sku:'DST-1',name:'ดีคอเจ่น',barcode:label(to,11),stock:35,price:25,cost:12,
+        category:'อื่น',brand:'อื่น',extraBarcodes:['ALT-DST'],extraBarcodeUnits:['กล่อง'],vendorBarcodes:[],
+        units:[{...baseProduct.units[0],per:25,factor:25,price:375,cost:225},
+          {sub:'แพ็ก',base:'ซอง',per:2,factor:2,price:48,cost:22,barcode:label(to,12)}]};
+      await fixture([source,dest]);
+      const switchStore=id=>page.evaluate(id=>{activeWarehouseId=id;setWarehouseProductCatalog(completeProductCatalog());render();},id);
+      await switchStore(from);const book=await exported();await switchStore(to);
+      const noFields=await imported(book,{crossFields:[]});
+      assert.equal(noFields.saves.length,0);assert.deepEqual(noFields.products,[dest]);
+      const conflict=await imported(book,{crossFields:['name'],beforeConfirm:()=>page.evaluate(()=>{
+        loadServerBarcodeOwners=async()=>[{barcode:'0001234500010',product_id:999}];
+      })});
+      assert.equal(conflict.saves.length,0);assert.match(conflict.messages.at(-1).message,/ตรงกับสินค้าอื่นบนเซิร์ฟเวอร์/);
+      await page.evaluate(()=>{loadServerBarcodeOwners=async()=>[];});
+      const nameOnly=await imported(book,{stock:true,crossFields:['name']});
+      assert.match(nameOnly.preview,/ดีคอเจ่น → Decolgen/);assert.match(nameOnly.report,/สำเร็จ 1 รายการ/);
+      assert.deepEqual(nameOnly.products[0],{...dest,name:'Decolgen'});
+      assert.equal(nameOnly.stocks.length,0);
+      const pricesOnly=await imported(book,{crossFields:['price']});
+      assert.match(pricesOnly.preview,/รอตรวจสอบ/);assert.equal(pricesOnly.saves.length,1);
+      const updated=await imported(book,{crossFields:['category','units','price','cost'],stock:true});
+      const p=updated.products[0];assert.match(updated.preview,/25 ซอง → 10 ซอง/);
+      assert.match(updated.report,/สำเร็จ 1 รายการ/);
+      for(const field of ['id','sku','wh','barcode','stock','unit','extraBarcodes','vendorBarcodes','expiry'])assert.deepEqual(p[field],dest[field],field);
+      for(const field of ['price','cost','category','brand'])assert.equal(p[field],source[field],field);
+      assert.deepEqual(p.units[0],baseProduct.units[0]);assert.deepEqual(p.units[1],dest.units[1]);
+      assert.deepEqual(p.units[2],{...baseProduct.units[1],barcode:''});
+      assert.equal(updated.stocks.length,0);assert.deepEqual(await page.evaluate(()=>otherWarehouseProducts),[source]);
+      const repeat=await imported(book,{crossFields:['name','category','units','price','cost']});
+      assert.equal(repeat.saves.length,2);assert.match(repeat.preview,/อัปเดต 0 · ข้าม 1/);
+    }
+  });
+  await scenario('Cross-store duplicate references and conflicting keys go to review',async()=>{
+    const source={...baseProduct,wh:1};
+    const dst={...baseProduct,id:501,wh:2,name:'ปลายทาง'};
+    const other={...dst,id:502,sku:'DIFF',barcode:'OTHER',units:[],extraBarcodes:[],extraBarcodeUnits:[],vendorBarcodes:[]};
+    await fixture([source,dst,other]);await page.evaluate(()=>{setWarehouseProductCatalog(completeProductCatalog());render();});
+    const book=await exported(),sheet=book.worksheets[0];
+    sheet.addRow(sheet.getRow(2).values);sheet.addRow(sheet.getRow(2).values);
+    cell(book,4,'รหัสสินค้า').value='DIFF';
+    await page.evaluate(()=>{activeWarehouseId=2;setWarehouseProductCatalog(completeProductCatalog());render();});
+    const out=await imported(book,{crossFields:['name']});
+    assert.equal((out.preview.match(/รอตรวจสอบ/g)||[]).length,3);
+    assert.equal(out.saves.length,0);assert.deepEqual(out.products,[dst,other]);
+  });
+  await scenario('Cross-store keeps the destination base, uses its pack conversion, and restricts opt-in to owners',async()=>{
+    const src={...baseProduct,wh:1};
+    const dest={...src,id:9052,wh:2,name:'ดีคอเจ่น',unit:'หลอด',stock:8,price:50,cost:25,barcode:'BP00000000001',
+      units:[{sub:'ซอง',per:2,base:'หลอด',factor:2,price:67,cost:30,barcode:baseProduct.barcode}],extraBarcodes:[],extraBarcodeUnits:[],vendorBarcodes:[]};
+    await fixture([src,dest]);await page.evaluate(()=>{setWarehouseProductCatalog(completeProductCatalog());render();});
+    const book=await exported();
+    await page.evaluate(()=>{activeWarehouseId=2;setWarehouseProductCatalog(completeProductCatalog());render();currentProfile.owner=false;});
+    const staff=await imported(book,{inspect:async()=>assert.equal(await page.locator('#productImportUpdateExisting').count(),0)});
+    assert.equal(staff.saves.length,0);
+    await page.evaluate(()=>{currentProfile.owner=true;});
+    const out=await imported(book,{crossFields:['units','price'],stock:true});
+    assert.match(out.preview,/คงหน่วยหลักปลายทาง “หลอด”/);
+    assert.match(out.report,/สำเร็จ 1 รายการ/);
+    const [p]=out.products;
+    assert.equal(p.unit,'หลอด');assert.equal(p.barcode,dest.barcode);assert.equal(p.price,50);assert.equal(p.stock,8);
+    assert.deepEqual(p.units.map(row=>row.factor),[2,20,240]);
+    assert.equal(p.units[0].price,src.price);assert.equal(p.units[0].cost,30);
+    assert.equal(p.units[1].price,140);assert.equal(p.units[1].cost,500);assert.equal(out.stocks.length,0);
   });
   await scenario('Same-store Excel rejects a foreign shop label before saving',async()=>{
     await fixture();const book=await exported();
