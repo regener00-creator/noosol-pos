@@ -95,6 +95,12 @@ export async function run({client,connect}){
   for(const [w,pid] of [[1,88911],[2,88912]]){
     const old={barcode:'SUP-'+pid,units:[{sub:'pack',base:'box',per:2,factor:2,barcode:legacyCode}],extraBarcodes:['M-'+pid],extraBarcodeUnits:['box']};
     await client.query("insert into public.products(id,warehouse_id,name,sku,unit,data) values($1,$2,'Legacy label',$3,'box',$4)",[pid,w,'LEGACY-'+pid,old]);
+    const wrong=(w===1?'bp':'ap')+'00000000777';
+    for(const patch of [{barcode:wrong},{units:[{...old.units[0],barcode:wrong}]},{extraBarcodes:[wrong]},{vendorBarcodes:[{code:wrong}]}]){
+      await assert.rejects(client.query('update public.products set data=data||$2::jsonb where id=$1',[pid,patch]),
+        error=>error.code==='23514'&&error.constraint==='product_barcode_shop_prefix');
+    }
+    assert.equal((await client.query("select data->>'barcode' code from public.products where id=$1",[pid])).rows[0].code,old.barcode);
     const requested=[{pid,unit:'pack',barcode:'',qty:1}],legacyRequest=randomUUID();
     await client.query("insert into private.price_label_requests(request_id,actor_id,payload,labels) values($1,$2,$3,$4)",[legacyRequest,owner,JSON.stringify(requested),JSON.stringify([{...requested[0],barcode:legacyCode}])]);
     const oldBackup=w===2?(await client.query('select public.export_store_backup($1) b',[w])).rows[0].b:null;

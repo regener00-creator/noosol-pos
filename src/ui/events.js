@@ -1949,7 +1949,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   }
   const saveProductBtn = document.getElementById('saveProductBtn');
   if(document.getElementById('productBarcodeHistoryMount'))void refreshProductBarcodeHistoryButton();
-  if(saveProductBtn) saveProductBtn.addEventListener('click', saveProduct);
+  if(saveProductBtn){
+    document.getElementById('main').addEventListener('input',validateProductBarcodeInput);
+    saveProductBtn.addEventListener('click', saveProduct);
+  }
   const deleteProductBtn = document.getElementById('deleteProductBtn');
   if(deleteProductBtn) deleteProductBtn.addEventListener('click', deleteUnusedProduct);
   document.querySelectorAll('[data-act="markpaid"]').forEach(el=>{

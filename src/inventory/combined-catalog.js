@@ -187,6 +187,7 @@ function attachCombinedCatalog(page){
   const compare=new Intl.Collator('th',{numeric:true}).compare;
   const pager=page.querySelector('[data-combined-pager]');
   const results=page.querySelector('[data-combined-results]');
+  const manualSearchUnits=new Map();
   const barcodeMatches=(option,term)=>[...option.shops.values()].some(({unit})=>String(unit.barcode||'').toLowerCase().includes(term));
   function labelUnit(row,term){
     const code=term.toUpperCase();
@@ -204,7 +205,20 @@ function attachCombinedCatalog(page){
       String(product.sku||'').toLowerCase().includes(term));
   }
   function displayedUnit(row,term){
+    const manual=manualSearchUnits.get(row);
+    if(manual)return manual;
     if(systemLabelCode(term.toUpperCase())) return row.options.find(option=>option.name===labelUnit(row,term));
+    if(term){
+      const exactNames=new Set();
+      for(const {product,units,barcodes} of row.members){
+        if(!barcodes.includes(term))continue;
+        const unit=exactBarcodeUnit(product,term.toUpperCase(),units);
+        if(!unit)return null;
+        exactNames.add(unit);
+      }
+      if(exactNames.size>1)return null;
+      if(exactNames.size)return row.options.find(option=>exactNames.has(option.name));
+    }
     const preferred=readCombinedValue(combinedUnitPreferenceKey(row.members[0].product.id));
     return row.options.find(item=>item.name===preferred)||(term&&row.options.find(item=>barcodeMatches(item,term)))||row.options[0];
   }
@@ -230,7 +244,7 @@ function attachCombinedCatalog(page){
       for(const row of matches){
         const option=displayedUnit(row,term);
         unitByRow.set(row,option);
-        codes.set(row,[...option.shops.values()].map(({unit})=>String(unit.barcode||'').trim()).filter(Boolean));
+        codes.set(row,option?[...option.shops.values()].map(({unit})=>String(unit.barcode||'').trim()).filter(Boolean):[term]);
       }
       matches.sort((a,b)=>{
         const left=codes.get(a),right=codes.get(b);
@@ -248,16 +262,16 @@ function attachCombinedCatalog(page){
     const body=matches.slice((pageNo-1)*pageSize,pageNo*pageSize).map(row=>{
       const id=row.members[0].product.id;
       const option=unitByRow.get(row)||displayedUnit(row,term);
-      const control=row.options.length===1?`<span class="prod-unit-fixed">${escapeHtml(option.name)}</span>`:
-        `<select class="prod-unit-select" data-combined-unit="${id}" aria-label="หน่วยของ ${escapeHtml(row.name)}">${row.options.map(item=>`<option value="${escapeHtml(item.name)}" ${item===option?'selected':''}>${escapeHtml(describeValues(item,entry=>entry.label))}</option>`).join('')}</select>`;
+      const control=row.options.length===1&&option?`<span class="prod-unit-fixed">${escapeHtml(option.name)}</span>`:
+        `<select class="prod-unit-select" data-combined-unit="${id}" aria-label="หน่วยของ ${escapeHtml(row.name)}">${option?'':'<option value="" selected disabled>กรุณาเลือกหน่วยสำหรับบาร์โค้ดนี้</option>'}${row.options.map(item=>`<option value="${escapeHtml(item.name)}" ${item===option?'selected':''}>${escapeHtml(describeValues(item,entry=>entry.label))}</option>`).join('')}</select>`;
       const cells=shops.map(shop=>{
-        const entry=option.shops.get(Number(shop.id));
+        const entry=option?.shops.get(Number(shop.id));
         if(stockOnly)return `<td class="combined-amount">${entry?inspectionListAmount(warehouseStock(entry.product.id,shop.id)/entry.unit.factor):'—'}</td>`;
         return `<td class="combined-amount">${entry?fmtMoney(entry.unit.price):'—'}</td><td class="combined-amount">${entry?fmtMoney(entry.unit.cost):'—'}</td>`;
       }).join('');
       const only=exclusiveShop(row);
       const color=only==='พรชัย'?'only-phonchai':only==='พระยาสุเรนทร์'?'only-phraya':'';
-      return `<tr class="${color}"><td class="combined-barcode">${escapeHtml(describeValues(option,entry=>String(entry.unit.barcode||'—')))}</td><td>${escapeHtml(row.name)}</td><td><div class="combined-unit-cell">${control}</div></td>${cells}</tr>`;
+      return `<tr class="${color}"><td class="combined-barcode">${escapeHtml(option?describeValues(option,entry=>String(entry.unit.barcode||'—')):term)}</td><td>${escapeHtml(row.name)}</td><td><div class="combined-unit-cell">${control}</div></td>${cells}</tr>`;
     }).join('');
     const columns=3+shops.length*(stockOnly?1:2);
     results.innerHTML=`<table class="grid-table doc-head-blue"><thead><tr>${sortHeader('barcode','บาร์โค้ด')}${sortHeader('name','สินค้า')}<th>หน่วย</th>${headers}</tr></thead><tbody>${body||`<tr><td colspan="${columns}">ไม่พบสินค้า</td></tr>`}</tbody></table>`;
@@ -275,7 +289,7 @@ function attachCombinedCatalog(page){
       host.querySelector(`[${attr}="${CSS.escape(name)}"]`)?.focus({preventScroll:true});
     };
   }
-  search.oninput=()=>{pageNo=1;draw();};
+  search.oninput=()=>{manualSearchUnits.clear();pageNo=1;draw();};
   results.onclick=event=>{
     const button=event.target.closest('[data-combined-sort]');
     if(!button)return;
@@ -294,6 +308,10 @@ function attachCombinedCatalog(page){
     const select=event.target.closest('[data-combined-unit]');
     if(!select)return;
     const id=Number(select.dataset.combinedUnit);
+    if(search.value.trim()){
+      const row=rows.find(row=>Number(row.members[0].product.id)===id);
+      if(row)manualSearchUnits.set(row,row.options.find(option=>option.name===select.value));
+    }
     rememberCombinedUnit(id,select.value);draw();
     results.querySelector(`[data-combined-unit="${id}"]`)?.focus({preventScroll:true});
   };

@@ -233,11 +233,39 @@ async function verifyMobileInspectionStoreIsolation(page){
   await verifyMobileInspectionStoreIsolation(scanPage);
   await verifyPurchaseAndStockLabels(scanPage);
   await require('./shop-label-destinations.cjs')(scanPage);
+  for(const [store,id] of [[1,11],[2,12]]){
+    await scanPage.evaluate(({store,id})=>{
+      selectActiveWarehouse(store);
+      const product=products.find(p=>p.id===id);
+      product.units[0].barcode='CASE-885';
+      product.extraBarcodes=['CASE-ALT'];product.extraBarcodeUnits=['กล่อง'];
+      currentTab='promotions';editingPromotionId='new';promoDraftItemsSyncedFor=null;render();
+      const category=document.getElementById('promo_category');
+      if(![...category.options].some(o=>o.value===product.category))category.add(new Option(product.category,product.category));
+    },{store,id});
+    await scanPage.locator('input[name="promo_scope"][value="category"]').check();
+    await scanPage.locator('#promo_category').selectOption('ยา');
+    await scanPage.locator('#openPromoItemPickerBtn').click();
+    const input=scanPage.locator('#promoPickerSearch');
+    await input.fill('CASE-885');await input.press('Enter');
+    await scanPage.evaluate(id=>{promotions=[{id:99,active:true,scope:'product',productId:id,unit:'กล่อง'}];},id);
+    await scanPage.locator('#promoPickerAddBtn').click();
+    assert.equal(await input.isVisible(),true);
+    assert.deepEqual(await scanPage.evaluate(()=>currentPromoDraftItems),[]);
+    await scanPage.evaluate(()=>{promotions=[];});
+    await input.fill('case-alt');await input.press('Enter');
+    await scanPage.locator('#promoPickerAddBtn').click();
+    assert.deepEqual(await scanPage.evaluate(()=>currentPromoDraftItems),[{productId:id,unit:'กล่อง'}]);
+  }
   await scanPage.close();
   const posPage=await browser.newPage();
   await setupDevice(posPage);
   posPage.on('pageerror',error=>errors.push(error.message));
-  await posPage.evaluate(()=>ensurePageCodeLoaded('checkout'));
+  await posPage.evaluate(async()=>{
+    await ensurePageCodeLoaded('checkout');
+    // The POS scan fixture supplies its own catalog and favorites for each store.
+    loadBusinessSettingsFromSupabase=loadProductCategorySettingsFromSupabase=loadFavoritesFromSupabase=loadDocumentPrefixesFromSupabase=async()=>{};
+  });
   for(const store of [1,2]){
     const medicineId=100*store+2;
     await posPage.evaluate(store=>{
@@ -378,6 +406,13 @@ async function verifyMobileInspectionStoreIsolation(page){
   assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['180.00','110.00','399.00','270.00']);
   await dec.locator('select').selectOption('ลัง');
   assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['—','—','700.00','540.00']);
+  await page.locator('[data-combined-search]').fill('0044');
+  assert.equal(await dec.locator('select').inputValue(),'กล่อง');
+  assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['180.00','110.00','399.00','270.00']);
+  await page.locator('[data-combined-search]').fill('alt-019');
+  assert.equal(await dec.locator('select').inputValue(),'ซอง');
+  await page.locator('[data-combined-search]').fill('');
+  assert.equal(await dec.locator('select').inputValue(),'ลัง');
   await dec.locator('select').selectOption('กล่อง');
   assert.ok(Math.abs((await dec.boundingBox()).height-regularRowHeight)<=1,`Single-store row ${regularRowHeight}, combined ${(await dec.boundingBox()).height}`);
   assert.equal(await page.locator('.only-phonchai').count(),1);assert.equal(await page.locator('.only-phraya').count(),1);
@@ -458,8 +493,8 @@ async function verifyMobileInspectionStoreIsolation(page){
   await page.locator('[data-combined-search]').fill('0001');
   const stock=page.locator('[data-combined-results] tbody tr').filter({hasText:'Decolgen'});
   assert.equal(await stock.getAttribute('class'),'');
-  assert.equal(await stock.locator('select').inputValue(),'กล่อง','Stock uses the unit chosen in PRODUCT even when searching the base barcode');
-  assert.deepEqual((await stock.locator('td').allTextContents()).slice(3),['0','1.7']);
+  assert.equal(await stock.locator('select').inputValue(),'ซอง','An exact barcode takes precedence over the saved box unit');
+  assert.deepEqual((await stock.locator('td').allTextContents()).slice(3),['0','17']);
   assert.deepEqual(await stock.locator('td').evaluateAll(cells=>cells.slice(3).map(cell=>getComputedStyle(cell).textAlign)),['center','center']);
   assert.ok(Math.abs((await stock.boundingBox()).height-regularRowHeight)<=1);
   await page.locator('[data-combined-search]').fill('0044');
@@ -470,6 +505,11 @@ async function verifyMobileInspectionStoreIsolation(page){
   assert.deepEqual((await boxes.locator('td').allTextContents()).slice(3),['0','17']);
   await boxes.locator('select').selectOption('ลัง');
   await assertUsesPageWidth();
+  await page.locator('[data-combined-search]').fill('0001');
+  assert.equal(await stock.locator('select').inputValue(),'ซอง');
+  await page.locator('[data-combined-search]').fill('');
+  await page.locator('[data-combined-search]').fill('Decolgen');
+  assert.equal(await stock.locator('select').inputValue(),'ลัง','Scanning must not overwrite a manual preference');
   await page.locator('[data-combined-search]').fill('0022');
   assert.deepEqual(await page.locator('[data-combined-results] tr').filter({hasText:'0022'}).locator('td').allTextContents(),['0022','พรชัยเท่านั้น','ซอง','—','0']);
   const storeColors=cell=>[getComputedStyle(cell).color,getComputedStyle(cell).backgroundColor];

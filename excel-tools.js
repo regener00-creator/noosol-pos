@@ -821,6 +821,10 @@ async function performProductExcelImport(file){
     let existing=null;
     const rowBarcodes=[barcode,...extraBarcodes,...vendorBarcodes.map(item=>item.code),...rawUnitRows.map(item=>item.barcode)].filter(Boolean);
     const normalizedRowBarcodes=rowBarcodes.map(code=>code.toLowerCase());
+    for(const code of rowBarcodes){
+      const message=wrongShopBarcodeMessage(code,warehouse.id);
+      if(message){skipped.push(`แถว ${line} · ${name}: ${message}`);return;}
+    }
     if(crossStore){
       if(!sku&&!rowBarcodes.length){skipped.push(`แถว ${line} · ${name}: กรุณาระบุรหัสสินค้าหรือบาร์โค้ดสำหรับตรวจสินค้าซ้ำในคลังปลายทาง`);return;}
       const matchedSku=sku&&skuOwner.has(sku.toLowerCase());

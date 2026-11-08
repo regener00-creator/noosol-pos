@@ -75,6 +75,7 @@ function syncEventCause(row={}){
   if(/(jwt|401|refresh token|not authenticated)/.test(text)) return 'การเข้าสู่ระบบหมดอายุ กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่';
   if(/(42501|permission denied|row-level security|rls)/.test(text)) return 'บัญชีนี้ไม่มีสิทธิ์อ่านหรือบันทึกข้อมูลส่วนนี้';
   if(/(revision_conflict|40001|ถูกแก้ไขจากอีกเครื่อง)/.test(text)) return 'ข้อมูลในเครื่องต่างจากเซิร์ฟเวอร์ การแก้ไขยังเก็บไว้ในเครื่อง กรุณาตรวจสอบก่อนโหลดข้อมูลล่าสุด';
+  if(text.includes('product_barcode_shop_prefix')) return 'พบป้ายราคาของร้านอื่น กรุณาแก้บาร์โค้ดให้ตรงกับร้านหรือเว้นช่องไว้แล้วบันทึกใหม่';
   if(/บาร์โค้ด.*มีอยู่ในสินค้าอื่น|duplicate_product_barcode|product_barcode_unique/.test(text)) return 'บาร์โค้ดซ้ำกับสินค้าอื่น กรุณาแก้หรือนำบาร์โค้ดที่ซ้ำออกก่อนบันทึกใหม่';
   if(/(23505|duplicate key|already exists)/.test(text)) return 'มีรหัสข้อมูลซ้ำกับรายการที่มีอยู่แล้ว';
   if(/(23503|foreign key)/.test(text)) return 'ไม่พบข้อมูลที่รายการนี้อ้างอิงอยู่';

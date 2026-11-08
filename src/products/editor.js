@@ -612,6 +612,18 @@ async function openProductBarcodeHistory(){
   retry.onclick=load;await load();
 }
 
+function validateProductBarcodeInput(event){
+  const input=event.target;
+  if(!input.matches('#f_barcode,.u_barcode,.eb_code,.vb_code')||!document.getElementById('saveProductBtn'))return;
+  const message=wrongShopBarcodeMessage(input.value,activeWarehouseId);
+  input.setCustomValidity(message);
+  if(message){
+    input.setAttribute('aria-invalid','true');
+    input.reportValidity();
+  }else{
+    input.removeAttribute('aria-invalid');
+  }
+}
 function renderProductForm(options={}){
   const mobile=options.mobile===true;
   const isNew = editingProductId==='new';

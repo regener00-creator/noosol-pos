@@ -186,6 +186,14 @@ async function scenario(name,work){if(process.argv[2]&&!new RegExp(process.argv[
       assert.deepEqual(await page.evaluate(()=>otherWarehouseProducts),[source]);
     }
   });
+  await scenario('Same-store Excel rejects a foreign shop label before saving',async()=>{
+    await fixture();const book=await exported();
+    cell(book,2,'บาร์โค้ดหน่วยเพิ่มเติม 1').value='bp00000000012';
+    const out=await imported(book);
+    assert.match(out.preview,/BP00000000012.*พรชัย.*AP/);
+    assert.equal(out.saves.length,0);assert.equal(out.stocks.length,0);
+    assert.deepEqual(out.products[0].units,baseProduct.units);
+  });
   await scenario('Cross-store preview supports a 2934-row catalog',async()=>{
     const rows=Array.from({length:2934},(_,i)=>({...baseProduct,id:i+1,sku:'SKU'+i,barcode:'000'+i,units:[],multiunit:false,extraBarcodes:[],extraBarcodeUnits:[],vendorBarcodes:[]}));
     await fixture(rows);const book=await exported();

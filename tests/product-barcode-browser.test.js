@@ -38,6 +38,20 @@ let browser;
     rebuildProductLookupMaps();refreshCategoryBrandUnitLists();editingProductId='new';render();
   });
   await page.locator('#f_name').fill('สินค้าใหม่');await page.locator('#f_category').selectOption('ยา');await page.locator('#f_unit').selectOption('กล่อง');await page.locator('#f_price').fill('120');
+  for(const [store,wrong,correct] of [[1,'BP','AP'],[2,'AP','BP']]){
+    await page.evaluate(store=>{activeWarehouseId=store;},store);
+    const input=page.locator('#f_barcode');
+    await input.fill(wrong+'00000000012');
+    assert.match(await input.evaluate(el=>el.validationMessage),new RegExp(correct));
+    await page.locator('#saveProductBtn').click();
+    assert.equal(await page.evaluate(()=>preflightCalls),0);
+    assert.equal(await page.evaluate(()=>products.length),1);
+    for(const value of [correct+'00000000012','AP123','8851234567890','']){
+      await input.fill(value);
+      assert.equal(await input.evaluate(el=>el.validationMessage),'');
+    }
+  }
+  await page.evaluate(()=>{activeWarehouseId=1;});
   for(const code of ['MAIN','CASE','EXTRA','VENDOR','REMOTE']){
     await page.locator('#f_barcode').fill(code);await page.locator('#saveProductBtn').click();
     await page.waitForFunction(()=>!saveProduct.saving);
@@ -62,6 +76,12 @@ let browser;
     await page.locator('#unitRows .u_sub').selectOption('ลัง');
     await page.waitForFunction(()=>document.querySelector('#unitRows .u_sub').value==='ลัง');
     await page.locator('#unitRows .u_per').fill('10');await page.locator('#unitRows .u_price').fill('1000');
+    const unitBarcode=page.locator('#unitRows .u_barcode');
+    await unitBarcode.fill('bp00000000019');
+    assert.match(await unitBarcode.evaluate(el=>el.validationMessage),/พรชัย.*AP/);
+    await page.locator('#saveProductBtn').click();
+    assert.match(await page.evaluate(()=>notices.at(-1)),/หน่วยเพิ่มเติม.*พรชัย.*AP/);
+    assert.equal(await page.evaluate(()=>persistCalls),0);
     await page.locator('#f_barcode').fill('8850239004056');
     await page.locator('#unitRows .u_barcode').fill('8850239004056');
     const calls=await page.evaluate(()=>window.preflightCalls);

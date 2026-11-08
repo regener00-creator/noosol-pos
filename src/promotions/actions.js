@@ -204,21 +204,31 @@ function openPromoItemPicker(){
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('#promoPickerCancelBtn').onclick=close;
   const rows=Array.from(overlay.querySelectorAll('.promo-picker-row'));
-  const searchTexts=pool.map(p=>[p.name,...productBarcodeCodes(p)].join(' ').toLowerCase());
+  const codes=pool.map(productBarcodeCodes);
+  const searchTexts=pool.map((p,index)=>[p.name,...codes[index]].join(' ').toLowerCase());
   const pickerSearch=overlay.querySelector('#promoPickerSearch');
   const pickedUnits=new Map();
   pickerSearch.addEventListener('input',event=>{
     const query=event.target.value.trim().toLowerCase();
     const isLabel=systemLabelCode(query.toUpperCase());
     const match=isLabel?findStoreLabelMatch(query):null;
+    const hasExact=!isLabel&&query&&codes.some(entries=>entries.includes(query));
     rows.forEach((row,index)=>{
-      row.hidden=isLabel?pool[index]!==match?.product:!searchTexts[index].includes(query);
-      row.dataset.scanUnit=match?.product===pool[index]?match.unitName:'';
+      const exact=hasExact&&codes[index].includes(query);
+      row.hidden=isLabel?pool[index]!==match?.product:hasExact?!exact:!searchTexts[index].includes(query);
+      row.dataset.scanUnit=match?.product===pool[index]?match.unitName:exact?(exactBarcodeUnit(pool[index],query.toUpperCase())||''):'';
+      row.dataset.unresolvedUnit=exact&&!row.dataset.scanUnit?'1':'';
     });
     overlay.querySelector('.promo-picker-empty').hidden=rows.some(row=>!row.hidden);
   });
   for(const row of rows) row.querySelector('input').addEventListener('change',event=>{
     const id=Number(event.target.dataset.pid);
+    if(event.target.checked&&row.dataset.unresolvedUnit){
+      event.target.checked=false;
+      pickedUnits.delete(id);
+      showToast('บาร์โค้ดนี้ไม่ได้ผูกกับหน่วยที่ใช้งานได้ กรุณาตรวจหน่วยใน PRODUCT','danger-top');
+      return;
+    }
     if(event.target.checked&&row.dataset.scanUnit) pickedUnits.set(id,row.dataset.scanUnit);
     else pickedUnits.delete(id);
   });
@@ -235,10 +245,17 @@ function openPromoItemPicker(){
   overlay.querySelector('#promoPickNoneBtn').onclick=()=>selectVisible(false);
   overlay.querySelector('#promoPickerAddBtn').onclick=()=>{
     const checked=Array.from(overlay.querySelectorAll('.promo-picker-row input[type="checkbox"]:checked')).map(cb=>Number(cb.dataset.pid));
+    for(const pid of checked){
+      const requested=pickedUnits.get(pid);
+      if(requested&&findPromotionUsingSlot(pid,requested,editingPromotionId)){
+        const product=pool.find(p=>p.id===pid);
+        showToast(`${product.name} หน่วย ${requested} ใช้ในโปรโมชั่นอื่นแล้ว กรุณายกเลิกการเลือกหรือเลือกหน่วยอื่น`,'danger-top');
+        return;
+      }
+    }
     if(!currentPromoDraftItems) currentPromoDraftItems=[];
     checked.forEach(pid=>{
       const requested=pickedUnits.get(pid);
-      if(requested&&findPromotionUsingSlot(pid,requested,editingPromotionId)){showToast('หน่วยนี้ใช้ในโปรโมชั่นอื่นแล้ว','danger-top');return;}
       const existing=currentPromoDraftItems.find(it=>it.productId===pid);
       if(existing){if(requested)existing.unit=requested;return;}
       const p=products.find(x=>x.id===pid); if(!p) return;

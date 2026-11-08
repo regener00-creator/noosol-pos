@@ -47,16 +47,30 @@ function barcodePrintNeedsBarcode(product){
 function systemLabelCode(code,warehouseId){
   if(typeof code!=='string'||!/^(?:[AB]|W[0-9]+-)?P[0-9]{11}$/.test(code)) return false;
   if(!warehouseId||code.startsWith('P')) return true;
-  const prefix=warehouseId===1?'AP':warehouseId===2?'BP':'W'+warehouseId+'-P';
-  return code.startsWith(prefix);
+  return code.startsWith(shopBarcodePrefix(warehouseId));
+}
+function shopBarcodePrefix(store){
+  return store===1?'AP':store===2?'BP':'W'+store+'-P';
+}
+function wrongShopBarcodeMessage(value,store){
+  const code=String(value||'').trim().toUpperCase();
+  if(!systemLabelCode(code)||systemLabelCode(code,Number(store)||1))return '';
+  const source=code.startsWith('AP')?'พระยาสุเรนทร์':code.startsWith('BP')?'พรชัยเภสัช':`คลัง ${code.slice(1,code.indexOf('-'))}`;
+  const prefix=shopBarcodePrefix(Number(store)||1);
+  return `ป้าย ${code} เป็นของ${source} กรุณาใช้ป้าย ${prefix} ของร้านที่เลือก หรือล้างช่องนี้`;
 }
 function shopLabelUnit(product,normalized){
   if(!product||product.active===false||normalized.startsWith('P')||!systemLabelCode(normalized,Number(product.wh)||1)) return null;
-  const units=productUnitOptions(product);
-  const unit=units.find(option=>String(option.barcode||'').toUpperCase()===normalized);
+  return exactBarcodeUnit(product,normalized);
+}
+function exactBarcodeUnit(product,normalized,units=productUnitOptions(product)){
+  if(!normalized) return null;
+  const unit=units.find(option=>String(option.barcode||'').trim().toUpperCase()===normalized);
   if(unit) return unit.name;
-  const alias=extraBarcodeEntries(product).find(entry=>entry.code.toUpperCase()===normalized);
-  return alias&&units.some(option=>option.name===alias.unit)?alias.unit:null;
+  const alias=extraBarcodeEntries(product).find(entry=>entry.code.trim().toUpperCase()===normalized);
+  if(alias&&units.some(option=>option.name===alias.unit)) return alias.unit;
+  if(!systemLabelCode(normalized)&&(product.vendorBarcodes||[]).some(entry=>String(entry?.code||'').trim().toUpperCase()===normalized)) return product.unit;
+  return null;
 }
 function findStoreLabelMatch(code){
   const normalized=code.toUpperCase(),store=Number(activeWarehouseId);
@@ -200,6 +214,8 @@ function productBarcodeValidationError(product,existingId=null){
   // Check the raw fields before deduplicating codes for the cross-product lookup.
   const seen=new Map();
   for(const field of productBarcodeFields(product)){
+    const shopError=wrongShopBarcodeMessage(field.code,product.wh);
+    if(shopError)return `${field.label}: ${shopError}`;
     const key=field.code.toLowerCase();
     if(seen.has(key)) return `บาร์โค้ด ${field.code} ซ้ำกันระหว่าง ${seen.get(key)} กับ ${field.label} กรุณาแก้ไขหรือลบเลขที่ซ้ำก่อนบันทึก`;
     seen.set(key,field.label);
@@ -274,6 +290,8 @@ function barcodePrintValidation(items=barcodePrintItems){
     if(!option){ errors.push({index,message:`แถว ${row}: ไม่พบหน่วยสินค้าที่เลือก`}); return; }
     if(option.barcode){ errors.push({index,message:`แถว ${row}: หน่วย ${item.unit} มีบาร์โค้ดแล้ว กรุณาเลือกเฉพาะหน่วยที่ยังไม่มีบาร์โค้ด`}); return; }
     if(code){
+      const shopError=wrongShopBarcodeMessage(code,product.wh);
+      if(shopError){ errors.push({index,message:`แถว ${row}: ${shopError}`}); return; }
       try{ code128BValues(code); }catch(error){ errors.push({index,message:`แถว ${row}: ${error.message}`}); return; }
       if(code.length>48){ errors.push({index,message:`แถว ${row}: บาร์โค้ดยาวเกิน 48 ตัว`}); return; }
     }
