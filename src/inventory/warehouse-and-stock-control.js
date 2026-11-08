@@ -1,6 +1,6 @@
 function renderWarehouse(){
   if(addingWarehouse) return renderWarehouseForm();
-  return `<div class="rpt"><div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="newWarehouseBtn">+ เพิ่มคลังสินค้า</button></div>
+  return `<div class="rpt warehouse-settings-page"><div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="newWarehouseBtn">+ เพิ่มคลังสินค้า</button></div>
     ${warehouses.length?`<div class="warehouse-card-list"><ul class="warehouse-card-grid" aria-label="คลังสินค้า">${warehouses.map(w=>`
       <li class="warehouse-card"><strong>${escapeHtml(w.name)}</strong>
         <div class="warehouse-card-actions">

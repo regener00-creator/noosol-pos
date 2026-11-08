@@ -427,6 +427,13 @@ async function verifyLastInspectionUnits(page){
   assert.match(await page.locator('#wh_name').inputValue(),/พรชัย/);
   await page.locator('#cancelWarehouseBottomBtn').click();
   await page.locator('#openFactoryResetBtn').waitFor();assert.equal(await page.locator('#openDocumentResetBtn').count(),0);
+  const resetPosition=await page.locator('#openFactoryResetBtn').evaluate(button=>{
+    const rect=button.getBoundingClientRect();
+    const area=document.querySelector('.warehouse-settings-page').getBoundingClientRect();
+    const main=button.closest('.main').getBoundingClientRect();
+    return {centerOffset:Math.abs(rect.left+rect.width/2-area.left-area.width/2),lowerHalf:rect.top>main.top+main.height/2};
+  });
+  assert.ok(resetPosition.centerOffset<2 && resetPosition.lowerHalf,JSON.stringify(resetPosition));
   assert.equal(await page.locator('#openProductResetBtn').count(),0);
   await page.locator('#openFactoryResetBtn').click();await page.locator('#cancelStoreResetBtn').click();
   await page.locator('.navbtn[data-tab="products"]').click();
