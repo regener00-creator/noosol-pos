@@ -264,6 +264,7 @@ function attachOnDemandStateEvents(state){
 }
 
 const RENDERERS = {
+  factoryreset: renderFactoryReset,
   knowledge: renderKnowledge,
   rvoid: ()=>renderVoidReport(),
   mobiletools: renderMobileTools,
@@ -336,6 +337,7 @@ function render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){
     addingWarehouse=false; editingWarehouseId=null;
     editingTransferId=null; transferDraft=null;
   }
+  if(storeResetMode&&currentTab!==(storeResetMode==='factory'?'factoryreset':'settingssystem'))storeResetMode=null;
   if(isLevel2User()&&currentTab==='products'&&editingProductId!==null&&editingProductId!=='new') editingProductId=null;
   if(currentTab==='checkout') reconcileAutoFreeLines();
   if(mobileMode){ document.getElementById('sidebar').innerHTML=''; sidebarRenderSignature=''; }

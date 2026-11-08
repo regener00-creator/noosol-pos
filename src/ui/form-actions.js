@@ -17,13 +17,14 @@ function storeResetConfig(mode=storeResetMode){
   };
 }
 
+function renderFactoryReset(){
+  return `<div class="factory-reset-page">
+    <button type="button" class="btn factory-reset-button" id="openFactoryResetBtn"><span aria-hidden="true">⚠︎</span> คืนค่าโรงงานทั้งระบบ</button>
+  </div>${renderStoreResetDialog()}`;
+}
+
 function renderStoreMaintenanceSection(){
-  if(!loggedInUser()?.owner)return '';
-  if(isAllWarehousesMode())return `<section class="factory-reset-panel" aria-labelledby="factoryResetHeading">
-    <h2 id="factoryResetHeading">คืนค่าโรงงานทั้งระบบ</h2>
-    <p id="factoryResetImpact">ลบข้อมูลทุกคลังและบัญชีผู้ใช้ทั้งหมด</p>
-    <button type="button" class="btn factory-reset-button" id="openFactoryResetBtn" aria-describedby="factoryResetImpact"><span aria-hidden="true">⚠︎</span> คืนค่าโรงงานทั้งระบบ</button>
-  </section>`;
+  if(!loggedInUser()?.owner||isAllWarehousesMode())return '';
   const name=escapeHtml(activeWarehouse()?.name||'');
   return `<div class="settings-section"><h2>ล้างเอกสารและสต๊อก · ${name}</h2><p>ล้างเฉพาะเอกสาร LOT และยอดคงเหลือของร้าน ${name} โดยเก็บสินค้าและรายชื่อผู้ติดต่อไว้</p><button class="btn reset-keep-products" id="openDocumentResetBtn">ล้างเอกสารและสต๊อก</button></div>
     <div class="settings-section"><h2>ล้างสินค้า · ${name}</h2><p>เริ่มรายการสินค้าใหม่ในร้าน ${name} แล้วนำเข้า Excel ได้ที่หน้า PRODUCT</p><button class="btn danger" id="openProductResetBtn" ${products.length?'':'disabled'}>ล้างสินค้าเฉพาะร้านนี้</button></div>`;

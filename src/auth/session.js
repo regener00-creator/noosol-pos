@@ -1,9 +1,10 @@
 function loggedInUser(){ return currentProfile; }
 function isLevel2User(user=loggedInUser()){ return Number(user?.level)===2; }
 const LEVEL2_HIDDEN_TABS=new Set(['settingssystem','settingsbusiness','rprofit','rtax','warehouse','transfer','stockcontrol','barcodeprint','promotions','purchaseorder','productexchange','contacts','salesreps','representativehistory','taxinvoice','quotation','productreturn']);
-const ALL_WAREHOUSES_TABS=new Set(['products','rinventory','warehouse','settingsusers']);
+const ALL_WAREHOUSES_TABS=new Set(['products','rinventory','warehouse','settingsusers','factoryreset']);
 function canAccessTab(tab,user=loggedInUser()){
   if(!user) return false;
+  if(tab==='factoryreset')return isAllWarehousesMode()&&user.owner===true&&Number(user.level)===1;
   if(tab==='warehouse'||tab==='settingsusers')return isAllWarehousesMode()&&user.owner===true;
   if(isAllWarehousesMode()&&!ALL_WAREHOUSES_TABS.has(tab)) return false;
   if(tab==='transfer')return false;

@@ -1,6 +1,6 @@
 function renderWarehouse(){
   if(addingWarehouse) return renderWarehouseForm();
-  return `<div class="rpt warehouse-settings-page"><div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="newWarehouseBtn">+ เพิ่มคลังสินค้า</button></div>
+  return `<div class="rpt"><div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="newWarehouseBtn">+ เพิ่มคลังสินค้า</button></div>
     ${warehouses.length?`<div class="warehouse-card-list"><ul class="warehouse-card-grid" aria-label="คลังสินค้า">${warehouses.map(w=>`
       <li class="warehouse-card"><strong>${escapeHtml(w.name)}</strong>
         <div class="warehouse-card-actions">
@@ -8,7 +8,7 @@ function renderWarehouse(){
           <button class="warehouse-delete-btn" type="button" data-delete-warehouse="${w.id}" title="ลบคลังสินค้า" aria-label="ลบคลังสินค้า ${escapeHtml(w.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>
         </div>
       </li>`).join('')}</ul></div>`:'<p>ยังไม่มีคลังสินค้า</p>'}
-    ${renderStoreMaintenanceSection()}${renderStoreResetDialog()}</div>`;
+    </div>`;
 }
 
 function renderWarehouseForm(){

@@ -384,6 +384,7 @@ async function verifyLastInspectionUnits(page){
     assert.deepEqual(await page.evaluate(()=>[customersList().map(c=>c.id),suppliersList().map(c=>c.id),duplicateCustomerPhone('080-111-1111')?.id]),[[900+wh],[900+wh],900+wh]);
     assert.deepEqual(await page.evaluate(()=>storeRepresentatives().map(r=>r.id)),[20+wh]);
     assert.equal(await page.locator('.navbtn[data-tab="warehouse"]').count(),0);
+    assert.equal(await page.locator('.navbtn[data-tab="factoryreset"]').count(),0);
     assert.equal(await page.locator('.navbtn[data-tab="settingsusers"]').count(),0);
     assert.equal(await page.evaluate(()=>{currentTab='settingsusers';render();return currentTab;}),'dashboard');
     await page.locator('.navbtn[data-tab="settingssystem"]').click();
@@ -401,7 +402,7 @@ async function verifyLastInspectionUnits(page){
   await page.evaluate(()=>{localStorage.setItem(combinedUnitPreferenceKey(11),'ซอง');selectActiveWarehouse('all');render();});
   await page.waitForFunction(async()=>(await window.requestUnits({actor:currentProfile.id})).data.some(row=>row.product_id===11&&row.unit_name==='ซอง'));
   const nav=await page.locator('.navbtn').evaluateAll(buttons=>buttons.map(b=>b.dataset.tab).sort());
-  assert.deepEqual(nav,['products','rinventory','settingsusers','warehouse']);
+  assert.deepEqual(nav,['factoryreset','products','rinventory','settingsusers','warehouse']);
   await page.evaluate(()=>{systemUsersLoaded=true;systemUsers=[];});
   await page.locator('.navbtn[data-tab="settingsusers"]').click();
   await page.locator('#addSystemUserBtn').click();
@@ -426,10 +427,14 @@ async function verifyLastInspectionUnits(page){
   await page.locator('.warehouse-card [data-edit-warehouse="2"]').click();
   assert.match(await page.locator('#wh_name').inputValue(),/พรชัย/);
   await page.locator('#cancelWarehouseBottomBtn').click();
+  assert.equal(await page.locator('#openFactoryResetBtn').count(),0);
+  assert.equal(await page.evaluate(()=>canAccessTab('factoryreset',{level:2,owner:false})),false);
+  await page.getByRole('button',{name:'คืนค่าโรงงานทั้งระบบ',exact:true}).click();
+  assert.equal(await page.locator('#main button').count(),1);
   await page.locator('#openFactoryResetBtn').waitFor();assert.equal(await page.locator('#openDocumentResetBtn').count(),0);
   const resetPosition=await page.locator('#openFactoryResetBtn').evaluate(button=>{
     const rect=button.getBoundingClientRect();
-    const area=document.querySelector('.warehouse-settings-page').getBoundingClientRect();
+    const area=document.querySelector('.factory-reset-page').getBoundingClientRect();
     const main=button.closest('.main').getBoundingClientRect();
     return {centerOffset:Math.abs(rect.left+rect.width/2-area.left-area.width/2),lowerHalf:rect.top>main.top+main.height/2};
   });
