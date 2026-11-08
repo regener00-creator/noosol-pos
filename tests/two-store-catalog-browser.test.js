@@ -558,17 +558,19 @@ async function verifyLastInspectionUnits(page){
   assert.deepEqual(await page.evaluate(()=>[canEditNote({createdBy:currentProfile.id}),canDeleteNote({createdBy:currentProfile.id})]),[false,false]);
   const dec=page.locator('[data-combined-results] tr').filter({hasText:'Decolgen'}).filter({hasText:'ซอง'});
   assert.equal(await dec.count(),1);
+  assert.deepEqual((await page.locator('[data-combined-results] thead tr:first-child th').allTextContents()).slice(-4),
+    ['ราคาขาย · พระยาสุเรนทร์','ราคาขาย · พรชัย','ทุน · พระยาสุเรนทร์','ทุน · พรชัย']);
   assert.equal(await dec.locator('select option:checked').innerText(),'ซอง');
-  assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['40.00','22.00','45.00','28.00']);
+  assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['40.00','45.00','22.00','28.00']);
   assert.deepEqual(await dec.locator('.combined-amount').evaluateAll(cells=>cells.map(cell=>getComputedStyle(cell).textAlign)),Array(4).fill('center'));
   await dec.locator('select').selectOption('กล่อง');
   assert.match(await dec.locator('td.combined-barcode').innerText(),/พระยาสุเรนทร์: 0055.*พรชัย: 0044/);
-  assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['180.00','110.00','399.00','270.00']);
+  assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['180.00','399.00','110.00','270.00']);
   await dec.locator('select').selectOption('ลัง');
-  assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['—','—','700.00','540.00']);
+  assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['—','700.00','—','540.00']);
   await page.locator('[data-combined-search]').fill('0044');
   assert.equal(await dec.locator('select').inputValue(),'กล่อง');
-  assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['180.00','110.00','399.00','270.00']);
+  assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['180.00','399.00','110.00','270.00']);
   await page.locator('[data-combined-search]').fill('alt-019');
   assert.equal(await dec.locator('select').inputValue(),'ซอง');
   await page.locator('[data-combined-search]').fill('');
@@ -695,7 +697,7 @@ async function verifyLastInspectionUnits(page){
   await page.locator('.navbtn[data-tab="products"]').click();
   await page.locator('[data-combined-search]').fill('Decolgen');
   assert.equal(await dec.locator('select').inputValue(),'ลัง','PRODUCT uses the last unit chosen in stock');
-  assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['—','—','700.00','540.00']);
+  assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['—','700.00','—','540.00']);
   await page.evaluate(()=>{selectActiveWarehouse(2);currentTab='transfer';render();});
   await page.waitForFunction(()=>combinedUnitWrites.size===0);
   const second=await browser.newPage();
@@ -729,10 +731,10 @@ async function verifyLastInspectionUnits(page){
       assert.deepEqual(await row.locator('[data-combined-product-name]').allTextContents(),['Decolgen prin (4 tablets)','ดีคอเจ่น (4 เม็ด)']);
     }
     assert.deepEqual(await row.locator('.combined-pack').allTextContents(),['ขวด = 30 ซอง','กล่อง = 25 ซอง']);
-    assert.deepEqual(await row.locator('.combined-amount').allTextContents(),tab==='products'?['200.00','160.00','180.00','135.00']:['5','6']);
+    assert.deepEqual(await row.locator('.combined-amount').allTextContents(),tab==='products'?['200.00','180.00','160.00','135.00']:['5','6']);
     await search.fill('8851824336378');
     assert.deepEqual(await row.locator('.combined-pack').allTextContents(),['ซอง','ซอง']);
-    assert.deepEqual(await row.locator('.combined-amount').allTextContents(),tab==='products'?['8.00','6.00','9.00','7.00']:['150','150']);
+    assert.deepEqual(await row.locator('.combined-amount').allTextContents(),tab==='products'?['8.00','9.00','6.00','7.00']:['150','150']);
   }
   await second.close();
   await page.evaluate(()=>{selectActiveWarehouse(2);currentTab='transfer';render();});

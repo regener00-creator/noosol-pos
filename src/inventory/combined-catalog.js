@@ -219,6 +219,9 @@ function attachCombinedCatalog(page){
   const categories=page.querySelector('[data-combined-categories]'),brands=page.querySelector('[data-combined-brands]');
   const search=page.querySelector('[data-combined-search]');
   const stockOnly=page.dataset.combinedStock==='true';
+  const metrics=stockOnly?[['stock','คงเหลือ']]:[['price','ราคาขาย'],['cost','ทุน']];
+  const amountColumns=metrics.flatMap(([field,label])=>shops.map(shop=>({field,label,shop})));
+  const headers=amountColumns.map(({label,shop})=>`<th rowspan="2">${label} · ${escapeHtml(shop.name)}</th>`).join('');
   const storeButtons=page.querySelectorAll('[data-exclusive-shop]');
   const shopNames=new Map(shops.map(shop=>[Number(shop.id),shop.name]));
   const exclusiveShop=row=>!row.partial&&row.members.length===1?shopNames.get(row.members[0].warehouse):'';
@@ -337,7 +340,6 @@ function attachCombinedCatalog(page){
     }
     const pages=Math.max(1,Math.ceil(matches.length/pageSize));
     pageNo=Math.min(pageNo,pages);
-    const headers=shops.map(shop=>stockOnly?`<th rowspan="2">คงเหลือ · ${escapeHtml(shop.name)}</th>`:`<th rowspan="2">ราคาขาย · ${escapeHtml(shop.name)}</th><th rowspan="2">ทุน · ${escapeHtml(shop.name)}</th>`).join('');
     const body=matches.slice((pageNo-1)*pageSize,pageNo*pageSize).map(row=>{
       const id=row.members[0].product.id;
       const option=unitByRow.get(row)||displayedUnit(row,term);
@@ -352,16 +354,17 @@ function attachCombinedCatalog(page){
         const entry=option?.shops.get(member.warehouse);
         return `<td><span data-combined-product-name>${escapeHtml(member.product.name)}</span> <span class="combined-pack">${escapeHtml(entry?.label||'—')}</span></td>`;
       }).join('');
-      const cells=shops.map(shop=>{
+      const cells=amountColumns.map(({field,shop})=>{
         const entry=option?.shops.get(Number(shop.id));
-        if(stockOnly)return `<td class="combined-amount">${entry?inspectionListAmount(warehouseStock(entry.product.id,shop.id)/entry.unit.factor):'—'}</td>`;
-        return `<td class="combined-amount">${entry?fmtMoney(entry.unit.price):'—'}</td><td class="combined-amount">${entry?fmtMoney(entry.unit.cost):'—'}</td>`;
+        let value='—';
+        if(entry)value=field==='stock'?inspectionListAmount(warehouseStock(entry.product.id,shop.id)/entry.unit.factor):fmtMoney(entry.unit[field]);
+        return `<td class="combined-amount">${value}</td>`;
       }).join('');
       const only=exclusiveShop(row);
       const color=only==='พรชัย'?'only-phonchai':only==='พระยาสุเรนทร์'?'only-phraya':'';
       return `<tr class="${color}"><td class="combined-barcode">${escapeHtml(barcode||'—')}</td>${descriptions}<td><div class="combined-unit-cell">${control}</div></td>${cells}</tr>`;
     }).join('');
-    const columns=2+shops.length*(stockOnly?2:3);
+    const columns=2+shops.length+amountColumns.length;
     results.innerHTML=`<table class="grid-table doc-head-blue"><thead><tr>${sortHeader('barcode','บาร์โค้ด','rowspan="2"')}${sortHeader('name','สินค้า',`colspan="${shops.length}"`)}<th rowspan="2">หน่วย</th>${headers}</tr><tr>${shops.map(shop=>`<th scope="col">${escapeHtml(shop.name)}</th>`).join('')}</tr></thead><tbody>${body||`<tr><td colspan="${columns}">ไม่พบสินค้า</td></tr>`}</tbody></table>`;
     pager.innerHTML=pagerHtml(pageNo,pages,'combined-page');
   }
