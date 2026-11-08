@@ -409,6 +409,23 @@ async function verifyLastInspectionUnits(page){
   assert.equal(await page.evaluate(()=>canAccessTab('settingsusers',{owner:false,level:2})),false);
   await page.locator('#cancelAddSystemUserBtn').click();
   await page.locator('.navbtn[data-tab="warehouse"]').click();
+  const layout=await page.evaluate(()=>{
+    const original=warehouses;
+    try{
+      warehouses=Array.from({length:4},(_,i)=>({id:i+1,name:'คลัง '+(i+1)}));
+      render();
+      const list=document.querySelector('.warehouse-card-list');
+      return [1000,650,380].map(width=>{
+        list.style.width=width+'px';
+        const cards=[...list.querySelectorAll('.warehouse-card')];
+        return cards.map(card=>card.offsetTop-cards[0].offsetTop===0);
+      });
+    }finally{warehouses=original;render();}
+  });
+  assert.deepEqual(layout,[[true,true,true,false],[true,true,false,false],[true,false,false,false]]);
+  await page.locator('.warehouse-card [data-edit-warehouse="2"]').click();
+  assert.match(await page.locator('#wh_name').inputValue(),/พรชัย/);
+  await page.locator('#cancelWarehouseBottomBtn').click();
   await page.locator('#openFactoryResetBtn').waitFor();assert.equal(await page.locator('#openDocumentResetBtn').count(),0);
   assert.equal(await page.locator('#openProductResetBtn').count(),0);
   await page.locator('#openFactoryResetBtn').click();await page.locator('#cancelStoreResetBtn').click();

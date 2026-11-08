@@ -1948,15 +1948,15 @@
   .cartempty{color:var(--text-muted);font-size:13px;padding:18px 0;text-align:center;}
   .carttotal{display:flex;justify-content:space-between;align-items:baseline;margin:12px 0;padding-top:10px;border-top:2px solid var(--text);}
   .carttotal .amt{font-family:inherit;font-size:20px;font-weight:700;color:var(--primary-dark);}
-  .warehouse-name-table{width:100%;max-width:none;min-height:calc(100vh - 190px);background:var(--surface);border:0;border-radius:9px;overflow:clip;box-shadow:none;}
-  .warehouse-name-table table{width:100%;margin:0;border:0;border-radius:0;background:transparent;}
-  .warehouse-name-table thead th{padding:10px 18px;background:#4F4038;color:#fff;border-color:#4F4038;font-size:13px;font-weight:600;text-align:center;}
-  .warehouse-name-table tbody tr{background:#fff;}
-  .warehouse-name-table tbody tr:hover{background:#F7FBFC;}
-  .warehouse-name-cell{height:64px;font-size:14px;font-weight:600;padding:17px 20px!important;border-color:#E5DCD8;text-align:center;}
-  .warehouse-action-cell{width:124px;text-align:center;padding:10px 14px!important;border-color:#E5DCD8;white-space:nowrap;}
+  .warehouse-card-list{container-type:inline-size;}
+  .warehouse-card-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:0 0 24px;padding:0;list-style:none;}
+  .warehouse-card{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:84px;padding:16px;border:1px solid var(--border);border-radius:12px;background:var(--surface);}
+  .warehouse-card strong{min-width:0;overflow-wrap:anywhere;}
+  .warehouse-card-actions{display:flex;gap:8px;flex:none;}
+  @container (max-width:700px){.warehouse-card-grid{grid-template-columns:repeat(2,minmax(0,1fr));}}
+  @container (max-width:460px){.warehouse-card-grid{grid-template-columns:minmax(0,1fr);}}
   .warehouse-edit-btn,.warehouse-delete-btn{width:34px;height:34px;border-radius:8px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
-  .warehouse-edit-btn{margin-right:10px;border:1px solid #D9C8C1;background:#F1E8E5;color:#4F4038;}
+  .warehouse-edit-btn{border:1px solid #D9C8C1;background:#F1E8E5;color:#4F4038;}
   .warehouse-edit-btn:hover{background:#EADFDA;border-color:#4F4038;}
   .warehouse-delete-btn{width:34px;height:34px;border:1px solid #F0C7C3;border-radius:8px;background:#FFF4F3;color:var(--danger);cursor:pointer;display:inline-flex;align-items:center;justify-content:center;}
   .warehouse-delete-btn:hover{background:var(--danger-soft);border-color:var(--danger);}

@@ -19,7 +19,6 @@ for (const selector of [
   '\\.doc-list-wrap',
   '\\.seamless-table-wrap',
   '\\.goods-receipt-items',
-  '\\.warehouse-name-table',
   '\\.transfer-items-wrap\\.seamless-table-wrap',
 ]) {
   assert.match(
