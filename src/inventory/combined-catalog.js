@@ -220,13 +220,12 @@ function attachCombinedCatalog(page){
   const search=page.querySelector('[data-combined-search]');
   const stockOnly=page.dataset.combinedStock==='true';
   const metrics=stockOnly?[['stock','คงเหลือ']]:[['price','ราคาขาย'],['cost','ทุน']];
-  const amountColumns=metrics.flatMap(([field])=>shops.map((shop,index)=>({field,shop,divider:field==='cost'&&index===0})));
+  const amountColumns=metrics.flatMap(([field])=>shops.map(shop=>({field,shop})));
   const shopHeaders=shops.map(shop=>`<th scope="col">${escapeHtml(shop.name)}</th>`).join('');
   const headers=stockOnly
     ?shops.map(shop=>`<th rowspan="2">คงเหลือ · ${escapeHtml(shop.name)}</th>`).join('')
-    :metrics.map(([field,label])=>`<th scope="colgroup" colspan="${shops.length}"${field==='cost'?' class="cost-divider"':''}>${label}</th>`).join('');
-  const secondHeaderRow=shopHeaders+(stockOnly?'':amountColumns.map(({shop,divider})=>
-    `<th scope="col"${divider?' class="cost-divider"':''}>${escapeHtml(shop.name)}</th>`).join(''));
+    :metrics.map(([,label])=>`<th scope="colgroup" colspan="${shops.length}">${label}</th>`).join('');
+  const secondHeaderRow=shopHeaders+(stockOnly?'':shopHeaders.repeat(metrics.length));
   const storeButtons=page.querySelectorAll('[data-exclusive-shop]');
   const shopNames=new Map(shops.map(shop=>[Number(shop.id),shop.name]));
   const exclusiveShop=row=>!row.partial&&row.members.length===1?shopNames.get(row.members[0].warehouse):'';
@@ -359,11 +358,11 @@ function attachCombinedCatalog(page){
         const entry=option?.shops.get(member.warehouse);
         return `<td><span data-combined-product-name>${escapeHtml(member.product.name)}</span> <span class="combined-pack">${escapeHtml(entry?.label||'—')}</span></td>`;
       }).join('');
-      const cells=amountColumns.map(({field,shop,divider})=>{
+      const cells=amountColumns.map(({field,shop})=>{
         const entry=option?.shops.get(Number(shop.id));
         let value='—';
         if(entry)value=field==='stock'?inspectionListAmount(warehouseStock(entry.product.id,shop.id)/entry.unit.factor):fmtMoney(entry.unit[field]);
-        return `<td class="combined-amount${divider?' cost-divider':''}">${value}</td>`;
+        return `<td class="combined-amount">${value}</td>`;
       }).join('');
       const only=exclusiveShop(row);
       const color=only==='พรชัย'?'only-phonchai':only==='พระยาสุเรนทร์'?'only-phraya':'';

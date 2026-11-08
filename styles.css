@@ -2945,7 +2945,6 @@
 .combined-catalog [data-combined-results]{flex:1;min-height:64px;max-height:none;overflow:auto}
 .combined-catalog .pager{margin-top:10px}
 .combined-catalog .combined-amount,.combined-catalog .combined-barcode{text-align:center}
-.combined-catalog .grid-table .cost-divider{border-left:2px solid #B5A299;}
 .combined-unit-cell{min-height:32px;display:flex;align-items:center;justify-content:center}
 .combined-pack{display:inline-block;margin-inline-start:.35em;font-size:.9em}
 .combined-catalog .only-phonchai{color:#ad510b}
