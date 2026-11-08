@@ -185,6 +185,44 @@ async function verifyInspectionAndPriceLabels(page){
   await verifyPurchaseAndStockLabels(scanPage);
   await require('./shop-label-destinations.cjs')(scanPage);
   await scanPage.close();
+  const posPage=await browser.newPage();
+  await setupDevice(posPage);
+  posPage.on('pageerror',error=>errors.push(error.message));
+  await posPage.evaluate(()=>ensurePageCodeLoaded('checkout'));
+  for(const store of [1,2]){
+    const medicineId=100*store+2;
+    await posPage.evaluate(store=>{
+      selectActiveWarehouse(store);
+      const item={wh:store,unit:'กล่อง',price:50,cost:10,stock:10,units:[],active:true};
+      setWarehouseProductCatalog([
+        {...item,id:100*store+1,name:'ยาสีฟันเทพไทย',sku:'51598',barcode:'MAIN-PASTE',vendorBarcodes:[{code:'10000'},{code:'SUP-ONLY'}]},
+        {...item,id:100*store+2,name:'Ranidine',sku:'10000',barcode:'MAIN-MED'}
+      ]);
+      cart=[];favorites=[];currentTab='checkout';searchQuery='';render();
+    },store);
+    const search=posPage.locator('#main #search');
+    for(const query of ['SUP-ONLY','SUP-ON']){
+      await search.fill(query);
+      await posPage.waitForFunction(q=>document.querySelector('.pos-noresult')?.textContent.includes('"'+q+'"'),query);
+      await search.press('Enter');
+      assert.equal(await posPage.evaluate(()=>cart.length),0);
+    }
+    await search.fill('10000');
+    await posPage.waitForSelector('.pos-result');
+    assert.deepEqual(await posPage.locator('.pos-result .pr-name').allTextContents(),['Ranidine']);
+    await search.press('Enter');
+    assert.deepEqual(await posPage.evaluate(()=>cart.map(l=>l.pid)),[medicineId]);
+    assert.equal(await posPage.evaluate(()=>findProductByExactCode('SUP-ONLY').product.name),'ยาสีฟันเทพไทย');
+    for(const [open,field,result] of [['openPriceCheckModal','#pcInput','.pc-name'],['openManageFavModal','#favAddSearch','.fav-unit-result-info b']]){
+      await posPage.evaluate(open=>window[open](),open);
+      await posPage.locator(field).fill('10000');
+      assert.deepEqual(await posPage.locator(result).allTextContents(),['Ranidine']);
+      await posPage.locator(field).fill('SUP-ON');
+      assert.equal(await posPage.locator(result).count(),0);
+      await posPage.locator('.modal-overlay .modal-close').click();
+    }
+  }
+  await posPage.close();
   await page.evaluate(()=>{searchQuery='Decolgen';render();});
   const regularRowHeight=await page.locator('.prodtable tbody tr').first().evaluate(el=>el.getBoundingClientRect().height);
   for(const [wh,id,price,cost] of [[1,11,40,22],[2,12,45,28]]){

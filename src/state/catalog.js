@@ -29,20 +29,24 @@ function setWarehouseProductCatalog(rows){
   otherWarehouseProducts=other;
   rebuildProductLookupMaps();
 }
-let productByIdMap=new Map(),exactProductCodeMap=new Map();
+let productByIdMap=new Map(),exactProductCodeMap=new Map(),posProductCodeMap=new Map();
 function rebuildProductLookupMaps(){
   productByIdMap=new Map();
   exactProductCodeMap=new Map();
-  const addCode=(code,product,unitName)=>{
+  posProductCodeMap=new Map();
+  const addCode=(code,product,unitName,vendorOnly=false)=>{
     const key=String(code||'').trim().toUpperCase();
-    if(key&&!exactProductCodeMap.has(key)) exactProductCodeMap.set(key,{product,unitName});
+    if(!key) return;
+    const match={product,unitName};
+    if(!exactProductCodeMap.has(key)) exactProductCodeMap.set(key,match);
+    if(!vendorOnly&&!posProductCodeMap.has(key)) posProductCodeMap.set(key,match);
   };
   products.forEach(product=>{
     productByIdMap.set(Number(product.id),product);
     if(product.active===false) return;
     addCode(product.barcode,product,product.unit);
     addCode(product.sku,product,product.unit);
-    (product.vendorBarcodes||[]).forEach(entry=>addCode(entry?.code,product,product.unit));
+    (product.vendorBarcodes||[]).forEach(entry=>addCode(entry?.code,product,product.unit,true));
     extraBarcodeEntries(product).forEach(entry=>addCode(entry.code,product,entry.unit));
     (product.units||[]).forEach(unit=>addCode(unit?.barcode,product,unit?.sub));
   });

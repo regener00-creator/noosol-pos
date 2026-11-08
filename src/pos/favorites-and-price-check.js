@@ -104,7 +104,7 @@ function openManageFavModal(){
   const renderResults=(q)=>{
     q=(q||'').trim();
     if(!q){ resultsEl.hidden=true; resultsEl.innerHTML=''; return; }
-    const matches=productScanMatches(q,20,p=>!favoriteHasProduct(p.id));
+    const matches=productScanMatches(q,20,p=>!favoriteHasProduct(p.id),posBarcodeSearchOptions);
     if(!matches.length){ resultsEl.innerHTML='<div class="fav-add-noresult">ไม่พบสินค้า หรือเพิ่มไว้ครบแล้ว</div>'; resultsEl.hidden=false; return; }
     resultsEl.innerHTML=matches.map(({product:p,unitName:exactUnit})=>{
       return `<div class="fav-unit-result" data-fav-result="${p.id}"><div class="fav-unit-result-info"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.sku||'-')}</span></div><select class="fav-unit-select" data-fav-result-unit="${p.id}" aria-label="เลือกหน่วย ${escapeHtml(p.name)}">${favoriteUnitOptionsHtml(p,exactUnit)}</select><button type="button" class="btn primary small fav-unit-add" data-fav-add="${p.id}">เพิ่ม</button></div>`;
@@ -183,7 +183,7 @@ function openPriceCheckModal(){
   const doSearch=()=>{
     const q=input.value.trim();
     if(!q){ result.innerHTML=''; return; }
-    const matches=productScanMatches(q,10);
+    const matches=productScanMatches(q,10,isProductActive,posBarcodeSearchOptions);
     if(matches.length===0){ result.innerHTML=`<div class="fav-empty" style="padding:16px;">ไม่พบสินค้า "${escapeHtml(q)}"</div>`; return; }
     result.innerHTML=matches.map(({product:p,unitName})=>{
       const conversionRows=productUnitConversionRows(p);

@@ -177,13 +177,13 @@ function renderDashboard(){
     <div class="dashboard-recent-sales">${recentTables}</div>`;
 }
 
-function matchesBarcode(p, q){
+function matchesBarcode(p, q,{includeVendorBarcodes=true}={}){
   if(!q) return false;
   const needle=String(q).toUpperCase();
   const includes=code=>String(code||'').toUpperCase().includes(needle);
   if(includes(p.barcode)) return true;
   if((p.extraBarcodes||[]).some(entry=>includes(typeof entry==='object'?entry?.code:entry))) return true;
-  if((p.vendorBarcodes||[]).some(entry=>includes(entry?.code))) return true;
+  if(includeVendorBarcodes&&(p.vendorBarcodes||[]).some(entry=>includes(entry?.code))) return true;
   if((p.units||[]).some(unit=>includes(unit?.barcode))) return true;
   return false;
 }
@@ -191,12 +191,15 @@ function matchesBarcode(p, q){
 // matchesBarcode() (substring match, for live search-as-you-type), this
 // requires an exact match and also reports WHICH unit the code belongs to
 // -- scanning a box's own barcode always adds one box (its own price/factor).
-function findProductByExactCode(q){
+function findProductByExactCode(q,{includeVendorBarcodes=true}={}){
   const code=String(q||'').trim();
   if(!code) return null;
-  if(typeof exactProductCodeMap!=='undefined') return exactProductCodeMap.get(code.toUpperCase())||null;
+  if(typeof exactProductCodeMap!=='undefined'){
+    const index=includeVendorBarcodes?exactProductCodeMap:posProductCodeMap;
+    return index.get(code.toUpperCase())||null;
+  }
   for(const product of products.filter(item=>item.active!==false)){
-    if(product.barcode===code||product.sku===code||(product.vendorBarcodes||[]).some(entry=>entry.code===code)) return {product,unitName:product.unit};
+    if(product.barcode===code||product.sku===code||(includeVendorBarcodes&&(product.vendorBarcodes||[]).some(entry=>entry.code===code))) return {product,unitName:product.unit};
     const extraUnit=extraBarcodeUnitForCode(product,code);
     if(extraUnit) return {product,unitName:extraUnit};
     const unit=(product.units||[]).find(item=>item.barcode===code);

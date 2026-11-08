@@ -52,25 +52,25 @@ async function requestMobilePwaInstall(){
   updateMobileInstallNotice();
   return choice?.outcome==='accepted';
 }
-function mobileProductMatches(product,query){
+function mobileProductMatches(product,query,options){
   if(product?.active===false) return false;
   const q=String(query||'').trim().toLowerCase();
   if(!q) return false;
-  return String(product?.name||'').toLowerCase().includes(q)||String(product?.sku||'').toLowerCase().includes(q)||matchesBarcode(product,String(query||'').trim());
+  return String(product?.name||'').toLowerCase().includes(q)||String(product?.sku||'').toLowerCase().includes(q)||matchesBarcode(product,String(query||'').trim(),options);
 }
 // Price lookup and inventory counts use the same product and unit for taps and scans.
-function productScanMatches(query,limit=8,eligible=()=>true){
+function productScanMatches(query,limit=8,eligible=()=>true,options){
   const code=String(query||'').trim();
   if(!code) return [];
   if(systemLabelCode(code.toUpperCase())){
     const label=findStoreLabelMatch(code);
     return label&&eligible(label.product)?[{...label,barcode:code}]:[];
   }
-  const exact=findProductByExactCode(code);
+  const exact=findProductByExactCode(code,options);
   const matches=exact&&eligible(exact.product)?[{...exact,barcode:code}]:[];
   for(const product of products){
     if(matches.length>=limit) break;
-    if(product!==exact?.product&&eligible(product)&&mobileProductMatches(product,code)){
+    if(product!==exact?.product&&eligible(product)&&mobileProductMatches(product,code,options)){
       matches.push({product,unitName:product.unit,barcode:product.barcode});
     }
   }

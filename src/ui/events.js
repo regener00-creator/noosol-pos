@@ -709,7 +709,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
         if(qtyMatch){ pendingQty = Math.max(1, parseInt(qtyMatch[1])||1); searchQuery=''; render(); const s=document.getElementById('search'); if(s){ s.focus(); s.placeholder=`× ${pendingQty} — ยิงบาร์โค้ด/พิมพ์รหัสสินค้าถัดไป`; } showToast(`ล็อกจำนวน × ${pendingQty} ไว้แล้ว`); return; }
         // ค้นหาสินค้า: บาร์โค้ดตรงเป๊ะก่อน (รวมบาร์โค้ดของหน่วยย่อยเช่นกล่อง/ลัง) แล้วค่อยชื่อ/รหัส
         const isLabel=systemLabelCode(q.toUpperCase());
-        const exactHit=isLabel?findStoreLabelMatch(q):findProductByExactCode(q);
+        const exactHit=isLabel?findStoreLabelMatch(q):findProductByExactCode(q,posBarcodeSearchOptions);
         if(exactHit){ addToCart(exactHit.product.id, consumePosSaleUnit(exactHit.product,exactHit.unitName), pendingQty); checkNegativeStockToast(exactHit.product.id); pendingQty=1; searchQuery=''; render(); const s=document.getElementById('search'); if(s) s.focus(); return; }
         if(isLabel){
           e.preventDefault();
@@ -717,8 +717,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
           showToast('ไม่พบป้ายบาร์โค้ดนี้ในร้านที่เลือก','danger-top');
           return;
         }
-        const list = activeProducts().filter(p=>p.name.toLowerCase().includes(q.toLowerCase())||matchesBarcode(p,q)||(p.sku||'').toLowerCase().includes(q.toLowerCase()));
-        if(list.length>=1){ const p=list[0]; addToCart(p.id, consumePosSaleUnit(p,null), pendingQty); checkNegativeStockToast(p.id); pendingQty=1; searchQuery=''; render(); const s=document.getElementById('search'); if(s) s.focus(); }
+        const needle=q.toLowerCase();
+        const p=products.find(item=>isProductActive(item)&&(productSearchText(item).includes(needle)||matchesBarcode(item,q,posBarcodeSearchOptions)));
+        if(p){ addToCart(p.id, consumePosSaleUnit(p,null), pendingQty); checkNegativeStockToast(p.id); pendingQty=1; searchQuery=''; render(); const s=document.getElementById('search'); if(s) s.focus(); }
       }
     });
     // แสดงจำนวนที่ล็อกไว้ใน placeholder ถ้ามี

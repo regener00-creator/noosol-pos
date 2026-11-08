@@ -161,7 +161,7 @@ function renderSearchResults(){
   }else{
     for(const p of products){
       if(!isProductActive(p)) continue;
-      if(productSearchText(p).includes(ql)||matchesBarcode(p,q)) matches.push(p);
+      if(productSearchText(p).includes(ql)||matchesBarcode(p,q,posBarcodeSearchOptions)) matches.push(p);
       if(matches.length===8) break;
     }
   }

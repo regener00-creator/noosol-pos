@@ -14,6 +14,7 @@ function activeProducts(productList=products){
   return (productList||[]).filter(isProductActive);
 }
 const productSearchTextCache=new WeakMap();
+const posBarcodeSearchOptions={includeVendorBarcodes:false};
 function productSearchText(product){
   const name=String(product.name||''),sku=String(product.sku||'');
   let cached=productSearchTextCache.get(product);
