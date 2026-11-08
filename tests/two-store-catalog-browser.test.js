@@ -558,8 +558,11 @@ async function verifyLastInspectionUnits(page){
   assert.deepEqual(await page.evaluate(()=>[canEditNote({createdBy:currentProfile.id}),canDeleteNote({createdBy:currentProfile.id})]),[false,false]);
   const dec=page.locator('[data-combined-results] tr').filter({hasText:'Decolgen'}).filter({hasText:'ซอง'});
   assert.equal(await dec.count(),1);
-  assert.deepEqual((await page.locator('[data-combined-results] thead tr:first-child th').allTextContents()).slice(-4),
-    ['ราคาขาย · พระยาสุเรนทร์','ราคาขาย · พรชัย','ทุน · พระยาสุเรนทร์','ทุน · พรชัย']);
+  const priceHead=page.locator('[data-combined-results] thead');
+  assert.deepEqual(await priceHead.locator('th[scope="colgroup"]').evaluateAll(cells=>cells.map(th=>[th.textContent,th.colSpan])),
+    [['ราคาขาย',2],['ทุน',2]]);
+  assert.deepEqual(await priceHead.locator('tr:nth-child(2) th').allTextContents(),
+    ['พระยาสุเรนทร์','พรชัย','พระยาสุเรนทร์','พรชัย','พระยาสุเรนทร์','พรชัย']);
   assert.equal(await dec.locator('select option:checked').innerText(),'ซอง');
   assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['40.00','45.00','22.00','28.00']);
   assert.deepEqual(await dec.locator('.combined-amount').evaluateAll(cells=>cells.map(cell=>getComputedStyle(cell).textAlign)),Array(4).fill('center'));
