@@ -53,7 +53,7 @@ assert.match(html,/data-audit-log-page="first"/);
 assert.match(html,/กลับไปหน้าแรก/);
 assert.match(html,/data-audit-log-page="last"/);
 assert.match(html,/ไปหน้าสุดท้าย/);
-assert.match(html,/\(tab==='settingsusers'\|\|tab==='auditlog'\)&&user\.owner!==true/);
+assert.match(html,/tab==='auditlog'&&user\.owner!==true/);
 assert.match(html,/class="audit-log-toolbar" role="search"/);
 assert.match(html,/class="audit-log-filter-label">ค้นหาประวัติ/);
 assert.match(html,/id="auditLogClearSearch"/);

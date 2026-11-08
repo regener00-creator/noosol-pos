@@ -217,7 +217,7 @@ async function saveUserSettings(){
 }
 
 async function saveSystemUser(){
-  if(loggedInUser()?.owner!==true){ showToast('เฉพาะเจ้าของร้านเท่านั้นที่สามารถจัดการผู้ใช้งานได้'); return; }
+  if(!canAccessTab('settingsusers')){ showToast('เจ้าของร้านจัดการผู้ใช้งานได้ในคลังรวม'); return; }
   const get=id=>(document.getElementById(id)?.value||'').trim();
   const username=get('new_user_id'),firstName=get('new_user_first'),password=get('new_user_password'),passwordConfirm=get('new_user_password_confirm');
   const editingUser=editingSystemUserId!==null?systemUsers.find(user=>String(user.id)===String(editingSystemUserId)):null;
@@ -265,7 +265,7 @@ async function saveSystemUser(){
 }
 
 async function deleteSystemUser(id){
-  if(loggedInUser()?.owner!==true){ showToast('เฉพาะเจ้าของร้านเท่านั้นที่สามารถลบผู้ใช้งานได้'); return; }
+  if(!canAccessTab('settingsusers')){ showToast('เจ้าของร้านจัดการผู้ใช้งานได้ในคลังรวม'); return; }
   const user=systemUsers.find(item=>String(item.id)===String(id));
   if(!user) return;
   if(user.owner){ showToast('ไม่สามารถลบผู้ใช้งานหลักของระบบได้'); return; }

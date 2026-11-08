@@ -1,14 +1,14 @@
 function loggedInUser(){ return currentProfile; }
 function isLevel2User(user=loggedInUser()){ return Number(user?.level)===2; }
 const LEVEL2_HIDDEN_TABS=new Set(['settingssystem','settingsbusiness','rprofit','rtax','warehouse','transfer','stockcontrol','barcodeprint','promotions','purchaseorder','productexchange','contacts','salesreps','representativehistory','taxinvoice','quotation','productreturn']);
-const ALL_WAREHOUSES_TABS=new Set(['products','rinventory','warehouse']);
+const ALL_WAREHOUSES_TABS=new Set(['products','rinventory','warehouse','settingsusers']);
 function canAccessTab(tab,user=loggedInUser()){
   if(!user) return false;
-  if(tab==='warehouse')return isAllWarehousesMode()&&user.owner===true;
+  if(tab==='warehouse'||tab==='settingsusers')return isAllWarehousesMode()&&user.owner===true;
   if(isAllWarehousesMode()&&!ALL_WAREHOUSES_TABS.has(tab)) return false;
   if(tab==='transfer')return false;
   if(tab==='knowledge')return true;
-  if((tab==='settingsusers'||tab==='auditlog')&&user.owner!==true) return false;
+  if(tab==='auditlog'&&user.owner!==true) return false;
   if(tab==='settingscategories'&&user.owner!==true) return false;
   // Device-only receipt layout: staff who can open POS may configure their own printer.
   if(tab==='settingsprinter') return canPerformPageAction('view','checkout',user);
@@ -190,7 +190,7 @@ async function logoutSystem(){
   return true;
 }
 async function loadSystemUsersFromServer(){
-  if(systemUsersLoading) return;
+  if(systemUsersLoading||!canAccessTab('settingsusers')) return;
   systemUsersLoading=true;
   try{
     const result=await callEdgeFunction('admin-users',{action:'list'});

@@ -267,7 +267,7 @@ function renderUserSettings(){
 }
 
 function renderSystemUsers(){
-  if(loggedInUser()?.owner!==true) return `<div class="empty"><h2>ไม่มีสิทธิ์เข้าถึง</h2><p>เฉพาะเจ้าของร้านเท่านั้นที่สามารถจัดการ ID และ Password ของผู้ใช้งานได้</p></div>`;
+  if(!canAccessTab('settingsusers')) return '<div class="empty">เจ้าของร้านจัดการผู้ใช้งานได้ในคลังรวม</div>';
   if(!systemUsersLoaded){ if(!systemUsersLoading) loadSystemUsersFromServer(); return `<div class="empty"><h2>กำลังโหลด...</h2></div>`; }
   if(addingSystemUser) return renderAddSystemUser();
   return `<div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="addSystemUserBtn">เพิ่มผู้ใช้งาน</button></div>
@@ -425,7 +425,7 @@ function systemUserPermissionMatrixHtml(user){
   return `<div class="system-user-permission-wrap"><table class="system-user-permission-table"><thead><tr><th>หน้าที่ใช้งาน</th><th>สร้าง</th><th>แก้ไข</th><th>ลบ</th><th>พิมพ์</th><th>Excel</th></tr></thead><tbody>${rows}</tbody></table></div><small class="system-user-warehouse-hint">สิทธิ์ของแต่ละหน้าจะใช้ร่วมกับคลังสินค้าที่เลือกด้านบน</small>`;
 }
 function renderAddSystemUser(){
-  if(loggedInUser()?.owner!==true) return `<div class="empty"><h2>ไม่มีสิทธิ์เข้าถึง</h2><p>เฉพาะเจ้าของร้านเท่านั้นที่สามารถสร้างหรือแก้ไขผู้ใช้งานได้</p></div>`;
+  if(!canAccessTab('settingsusers')) return '<div class="empty">เจ้าของร้านจัดการผู้ใช้งานได้ในคลังรวม</div>';
   const user=editingSystemUserId!==null?systemUsers.find(item=>String(item.id)===String(editingSystemUserId)):null;
   const editing=!!user,currentLevel=Number(user?.level)||(user?.owner?1:2);
   const defaultWarehouseId=Number(activeWarehouseId)||Number(warehouses[0]?.id)||0;

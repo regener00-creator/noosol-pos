@@ -310,6 +310,8 @@ async function verifyMobileInspectionStoreIsolation(page){
     assert.deepEqual(await page.evaluate(()=>[customersList().map(c=>c.id),suppliersList().map(c=>c.id),duplicateCustomerPhone('080-111-1111')?.id]),[[900+wh],[900+wh],900+wh]);
     assert.deepEqual(await page.evaluate(()=>storeRepresentatives().map(r=>r.id)),[20+wh]);
     assert.equal(await page.locator('.navbtn[data-tab="warehouse"]').count(),0);
+    assert.equal(await page.locator('.navbtn[data-tab="settingsusers"]').count(),0);
+    assert.equal(await page.evaluate(()=>{currentTab='settingsusers';render();return currentTab;}),'dashboard');
     await page.locator('.navbtn[data-tab="settingssystem"]').click();
     await page.locator('#openDocumentResetBtn').waitFor();assert.equal(await page.locator('#openFactoryResetBtn').count(),0);
     await page.locator('#openDocumentResetBtn').click();
@@ -320,7 +322,13 @@ async function verifyMobileInspectionStoreIsolation(page){
   await page.evaluate(()=>{localStorage.setItem(combinedUnitPreferenceKey(11),'ซอง');selectActiveWarehouse('all');render();});
   await page.waitForFunction(async()=>(await window.requestUnits({actor:currentProfile.id})).data.some(row=>row.product_id===11&&row.unit_name==='ซอง'));
   const nav=await page.locator('.navbtn').evaluateAll(buttons=>buttons.map(b=>b.dataset.tab).sort());
-  assert.deepEqual(nav,['products','rinventory','warehouse']);
+  assert.deepEqual(nav,['products','rinventory','settingsusers','warehouse']);
+  await page.evaluate(()=>{systemUsersLoaded=true;systemUsers=[];});
+  await page.locator('.navbtn[data-tab="settingsusers"]').click();
+  await page.locator('#addSystemUserBtn').click();
+  await page.locator('#new_user_id').waitFor();
+  assert.equal(await page.evaluate(()=>canAccessTab('settingsusers',{owner:false,level:2})),false);
+  await page.locator('#cancelAddSystemUserBtn').click();
   await page.locator('.navbtn[data-tab="warehouse"]').click();
   await page.locator('#openFactoryResetBtn').waitFor();assert.equal(await page.locator('#openDocumentResetBtn').count(),0);
   await page.locator('#openFactoryResetBtn').click();await page.locator('#cancelStoreResetBtn').click();
