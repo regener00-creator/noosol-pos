@@ -391,6 +391,11 @@ async function verifyLastInspectionUnits(page){
     await page.locator('#openDocumentResetBtn').click();
     assert.match(await page.locator('#storeResetTitle').innerText(),new RegExp(wh===1?'พระยาสุเรนทร์':'พรชัย'));
     await page.locator('#cancelStoreResetBtn').click();
+    await page.locator('#openProductResetBtn').click();
+    assert.match(await page.locator('#storeResetTitle').innerText(),new RegExp(wh===1?'พระยาสุเรนทร์':'พรชัย'));
+    assert.equal(await page.locator('#storeResetForm').getAttribute('data-store'),String(wh));
+    assert.equal(await page.locator('#storeResetForm').getAttribute('data-product-count'),String(await page.evaluate(()=>products.length)));
+    await page.locator('#cancelStoreResetBtn').click();
     await page.locator('.navbtn[data-tab="products"]').click();
   }
   await page.evaluate(()=>{localStorage.setItem(combinedUnitPreferenceKey(11),'ซอง');selectActiveWarehouse('all');render();});
@@ -405,6 +410,7 @@ async function verifyLastInspectionUnits(page){
   await page.locator('#cancelAddSystemUserBtn').click();
   await page.locator('.navbtn[data-tab="warehouse"]').click();
   await page.locator('#openFactoryResetBtn').waitFor();assert.equal(await page.locator('#openDocumentResetBtn').count(),0);
+  assert.equal(await page.locator('#openProductResetBtn').count(),0);
   await page.locator('#openFactoryResetBtn').click();await page.locator('#cancelStoreResetBtn').click();
   await page.locator('.navbtn[data-tab="products"]').click();
   assert.equal(await page.locator('#sidebar .navsection').count(),0);

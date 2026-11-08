@@ -305,17 +305,25 @@ Deno.serve(async (req) => {
       const password = String(body.password || '')
       const phrase = String(body.phrase || '').trim()
       const expectedPhrase = mode === 'factory' ? 'คืนค่าโรงงาน' : 'ล้างเอกสารและสต๊อก'
-      if (!['documents', 'factory'].includes(mode)) return json({ error: 'รูปแบบการรีเซ็ตไม่ถูกต้อง' }, 400)
+      if (!['products', 'documents', 'factory'].includes(mode)) return json({ error: 'รูปแบบการรีเซ็ตไม่ถูกต้อง' }, 400)
       const warehouseId = Number(body.warehouseId)
       if (mode === 'factory' ? body.allWarehouses !== true : body.allWarehouses !== false || !Number.isSafeInteger(warehouseId) || warehouseId <= 0) {
         return json({ error: 'เลือกร้านสำหรับล้างเอกสาร หรือเลือกคลังรวมสำหรับคืนค่าโรงงาน' }, 400)
       }
-      if (phrase !== expectedPhrase) return json({ error: `กรุณาพิมพ์ “${expectedPhrase}” ให้ถูกต้อง` }, 400)
+      if (mode === 'products') {
+        if (!phrase.startsWith('ล้างสินค้า ') || !Number.isSafeInteger(body.expectedCount) || body.expectedCount < 1)
+          return json({ error: 'กรุณาตรวจร้านและจำนวนสินค้าอีกครั้ง' }, 400)
+      } else if (phrase !== expectedPhrase) return json({ error: `กรุณาพิมพ์ “${expectedPhrase}” ให้ถูกต้อง` }, 400)
       if (!password || !caller.email || !(await verifyCurrentPassword(url, caller.email, password))) {
         return json({ error: 'รหัสผ่านเจ้าของร้านไม่ถูกต้อง' }, 403)
       }
 
       let bootstrapToken = ''
+      if (mode === 'products') {
+        const {data, error} = await admin.rpc('admin_reset_shop_products', {p_actor_id: caller.id, p_warehouse_id: warehouseId,
+          p_confirmation: phrase, p_expected_count: body.expectedCount})
+        return error ? json({error: error.message}, 400) : json({ok: true, reset: data})
+      }
       if (mode === 'factory') {
         bootstrapToken = `${crypto.randomUUID()}${crypto.randomUUID()}`
         const { error: bootstrapError } = await admin.rpc('admin_prepare_owner_bootstrap_token', {

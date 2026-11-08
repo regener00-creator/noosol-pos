@@ -1,4 +1,10 @@
 function storeResetConfig(mode=storeResetMode){
+  if(mode==='products'){
+    const shop=activeWarehouse()?.name||'';
+    return {title:'ล้างสินค้า · '+shop,phrase:'ล้างสินค้า '+shop,button:'ยืนยันล้างสินค้า',
+      description:`ลบสินค้า ${products.length.toLocaleString('th-TH')} รายการของร้าน ${shop} รวมถึงประวัติเปลี่ยนหน่วยหลัก สินค้าโปรด และรายการสินค้าที่ผู้แทนดูแล`,
+      impact:'สินค้าในใบตรวจที่ยังไม่ยืนยันจะถูกนำออกจากใบตรวจ ระบบจะหยุดหากสินค้ามีสต๊อก LOT หรือยังผูกกับบิล เอกสารที่บันทึกไว้ โปรโมชั่น หรือราคาพิเศษลูกค้า'};
+  }
   if(mode==='factory') return {
     title:'คืนค่าโรงงาน',phrase:'คืนค่าโรงงาน',button:'ยืนยันคืนค่าโรงงาน',
     description:'ล้างข้อมูลร้าน สินค้า เอกสาร สต๊อก LOT การตั้งค่า และบัญชีผู้ใช้งานทั้งหมด',
@@ -15,14 +21,15 @@ function renderStoreMaintenanceSection(){
   if(!loggedInUser()?.owner)return '';
   if(isAllWarehousesMode())return '<div class="settings-section"><h2>คืนค่าโรงงานทั้งระบบ</h2><p>ลบข้อมูลทุกคลังและบัญชีผู้ใช้ทั้งหมด</p><button class="btn danger" id="openFactoryResetBtn">คืนค่าโรงงานทั้งระบบ</button></div>';
   const name=escapeHtml(activeWarehouse()?.name||'');
-  return `<div class="settings-section"><h2>ล้างเอกสารและสต๊อก · ${name}</h2><p>ล้างเฉพาะเอกสาร LOT และยอดคงเหลือของร้าน ${name} โดยเก็บสินค้าและรายชื่อผู้ติดต่อไว้</p><button class="btn reset-keep-products" id="openDocumentResetBtn">ล้างเอกสารและสต๊อก</button></div>`;
+  return `<div class="settings-section"><h2>ล้างเอกสารและสต๊อก · ${name}</h2><p>ล้างเฉพาะเอกสาร LOT และยอดคงเหลือของร้าน ${name} โดยเก็บสินค้าและรายชื่อผู้ติดต่อไว้</p><button class="btn reset-keep-products" id="openDocumentResetBtn">ล้างเอกสารและสต๊อก</button></div>
+    <div class="settings-section"><h2>ล้างสินค้า · ${name}</h2><p>เริ่มรายการสินค้าใหม่ในร้าน ${name} แล้วนำเข้า Excel ได้ที่หน้า PRODUCT</p><button class="btn danger" id="openProductResetBtn" ${products.length?'':'disabled'}>ล้างสินค้าเฉพาะร้านนี้</button></div>`;
 }
 
 function renderStoreResetDialog(){
   if(!storeResetMode) return '';
   const config=storeResetConfig();
   return `<div class="store-reset-overlay" role="dialog" aria-modal="true" aria-labelledby="storeResetTitle">
-    <form class="store-reset-dialog" id="storeResetForm">
+    <form class="store-reset-dialog" id="storeResetForm" data-store="${Number(activeWarehouseId)}" data-product-count="${products.length}">
       <h2 id="storeResetTitle">${escapeHtml(config.title)}</h2>
       <p>${escapeHtml(config.description)}</p>
       <div class="store-reset-impact"><strong>ผลที่จะเกิดขึ้น:</strong><br>${escapeHtml(config.impact)}</div>

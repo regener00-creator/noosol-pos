@@ -133,6 +133,7 @@ async function submitStoreReset(event){
   event?.preventDefault();
   if(loggedInUser()?.owner!==true||!storeResetMode){ showToast('เฉพาะเจ้าของร้านเท่านั้นที่สามารถรีเซ็ตข้อมูลได้','danger'); return; }
   const mode=storeResetMode,config=storeResetConfig(mode);
+  const shopName=activeWarehouse()?.name||'';
   if(mode==='factory'?!isAllWarehousesMode():!activeWarehouseId||isAllWarehousesMode())return;
   const context=captureStoreView();
   const password=document.getElementById('storeResetPassword')?.value||'';
@@ -144,8 +145,14 @@ async function submitStoreReset(event){
   const button=document.getElementById('confirmStoreResetBtn');
   if(button){ button.disabled=true; button.textContent='กำลังรีเซ็ตข้อมูล...'; }
   try{
-    if(mode==='documents')requireSyncedShop(context.store);
-    const response=await callEdgeFunction('admin-users',{action:'reset-store',mode,password,phrase,warehouseId:mode==='documents'?context.store:null,allWarehouses:context.combined});
+    const form=document.getElementById('storeResetForm');
+    if(mode!=='factory'){
+      if(Number(form.dataset.store)!==context.store)throw new Error('ร้านที่เลือกเปลี่ยน กรุณาเปิดหน้าล้างข้อมูลใหม่');
+      requireSyncedShop(context.store);
+    }
+    const expectedCount=Number(form.dataset.productCount);
+    const response=await callEdgeFunction('admin-users',{action:'reset-store',mode,password,phrase,warehouseId:mode==='factory'?null:context.store,allWarehouses:context.combined,expectedCount});
+    if(mode==='products'&&(response?.reset?.deleted!==expectedCount||response?.reset?.warehouseId!==context.store))throw new Error('กรุณาโหลดรายการสินค้าเพื่อตรวจผลการล้างก่อนลองใหม่');
     const bootstrapToken=String(response?.reset?.bootstrapToken||'');
     if(mode==='factory'&&!bootstrapToken) throw new Error('ระบบไม่ได้รับกุญแจตั้งค่าเจ้าของร้าน กรุณาติดต่อผู้ดูแลระบบก่อนปิดหน้านี้');
     if(mode==='factory')await clearLocalStoreCachesForReset();
@@ -154,6 +161,8 @@ async function submitStoreReset(event){
     if(mode==='factory'){
       try{ await sb.auth.signOut({scope:'local'}); }catch(error){}
       alert('คืนค่าโรงงานเรียบร้อยแล้ว โปรแกรมจะเปิดหน้าสร้าง ID เจ้าของร้านคนแรก');
+    }else if(mode==='products'){
+      alert(`ล้างสินค้า ${expectedCount.toLocaleString('th-TH')} รายการของร้าน ${shopName} แล้ว สามารถนำเข้า Excel ใหม่ที่หน้า PRODUCT`);
     }else{
       alert('ล้างเอกสาร LOT และสต๊อกเรียบร้อยแล้ว รายการสินค้ายังคงอยู่และยอดคงเหลือเป็นศูนย์');
     }

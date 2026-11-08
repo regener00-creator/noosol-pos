@@ -1489,6 +1489,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     if(file) await restoreStoreBackup(file);
   });
   document.getElementById('openDocumentResetBtn')?.addEventListener('click',()=>{ storeResetMode='documents'; render(); setTimeout(()=>document.getElementById('storeResetPassword')?.focus(),0); });
+  document.getElementById('openProductResetBtn')?.addEventListener('click',()=>{ storeResetMode='products'; render(); setTimeout(()=>document.getElementById('storeResetPassword')?.focus(),0); });
   document.getElementById('openFactoryResetBtn')?.addEventListener('click',()=>{ storeResetMode='factory'; render(); setTimeout(()=>document.getElementById('storeResetPassword')?.focus(),0); });
   document.getElementById('cancelStoreResetBtn')?.addEventListener('click',()=>{ storeResetMode=null; render(); });
   document.getElementById('storeResetForm')?.addEventListener('submit',submitStoreReset);

@@ -32,7 +32,14 @@ test('admin reset endpoint routes by shop and requires an owner, scope and passw
   assert.equal((await call({warehouseId:2,allWarehouses:false})).status,200);
   assert.equal(requests[0][0],'admin_reset_shop_documents');assert.equal(requests[0][1].p_warehouse_id,2);
   assert.deepEqual(deletions,[]);
+  const products={mode:'products',warehouseId:2,allWarehouses:false,phrase:'ล้างสินค้า พรชัย',expectedCount:2930};
+  assert.equal((await call({...products,allWarehouses:true})).status,400);
+  assert.equal((await call({...products,expectedCount:null})).status,400);
+  assert.equal((await call({...products,password:'wrong'})).status,403);
+  assert.equal((await call(products)).status,200);
+  assert.deepEqual(JSON.parse(JSON.stringify(requests[1])),['admin_reset_shop_products',{p_actor_id:'owner',p_warehouse_id:2,p_confirmation:'ล้างสินค้า พรชัย',p_expected_count:2930}]);
+  assert.deepEqual(deletions,[]);
   assert.equal((await call({mode:'factory',phrase:'คืนค่าโรงงาน',allWarehouses:true})).status,200);
-  assert.deepEqual(requests.map(([name])=>name),['admin_reset_shop_documents','admin_prepare_owner_bootstrap_token','admin_reset_store_data']);
+  assert.deepEqual(requests.map(([name])=>name),['admin_reset_shop_documents','admin_reset_shop_products','admin_prepare_owner_bootstrap_token','admin_reset_store_data']);
   assert.deepEqual(deletions,['owner']);
 });
