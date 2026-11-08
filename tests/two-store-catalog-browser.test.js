@@ -565,6 +565,11 @@ async function verifyLastInspectionUnits(page){
     ['พระยาสุเรนทร์','พรชัย','พระยาสุเรนทร์','พรชัย','พระยาสุเรนทร์','พรชัย']);
   assert.equal(await dec.locator('select option:checked').innerText(),'ซอง');
   assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['40.00','45.00','22.00','28.00']);
+  const divider=page.locator('[data-combined-results] .cost-divider');
+  const segments=await divider.evaluateAll(cells=>cells.map(cell=>[cell.textContent,cell.getBoundingClientRect().left,getComputedStyle(cell).borderLeftWidth]));
+  assert.deepEqual(segments.slice(0,2).map(([text])=>text),['ทุน','พระยาสุเรนทร์']);
+  assert.equal(await dec.locator('.cost-divider').innerText(),'22.00');
+  assert.ok(segments.every(([,x,width])=>Math.abs(x-segments[0][1])<1&&width==='2px'));
   assert.deepEqual(await dec.locator('.combined-amount').evaluateAll(cells=>cells.map(cell=>getComputedStyle(cell).textAlign)),Array(4).fill('center'));
   await dec.locator('select').selectOption('กล่อง');
   assert.match(await dec.locator('td.combined-barcode').innerText(),/พระยาสุเรนทร์: 0055.*พรชัย: 0044/);
