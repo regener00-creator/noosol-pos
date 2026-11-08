@@ -154,6 +154,79 @@ async function verifyMobileInspectionStoreIsolation(page){
       current:mobileInspectionCurrentList().id,items:inspectionLists.filter(l=>l.id==='A'||l.id==='B').map(l=>[l.id,l.items])};
   }),{open:'',draft:[],current:'A',items:[['B',[{pid:12,unit:'กล่อง'}]],['A',[]]]});
 }
+async function verifyLastInspectionUnits(page){
+  await page.setViewportSize({width:390,height:844});
+  await page.evaluate(()=>{
+    isMobileDeviceMode=()=>true;
+    currentTab='mobiletools';mobileToolMode='inventory';
+    inspectionLists=[];
+    const catalog=[];
+    for(const wh of [1,2]){
+      const pid=wh*100;
+      for(const n of [1,0]){
+        catalog.push({id:pid+n,wh,sku:n?'BOX0':'SKU0',name:n?'Other':'Decolgen',unit:'แผง',price:10,cost:5,stock:30,
+          barcode:'BASE'+n,units:[{sub:'กล่อง',factor:10,barcode:'BOX'+n}],extraBarcodes:[(wh===1?'AP':'BP')+String(n+1).padStart(11,'0')],extraBarcodeUnits:['กล่อง']});
+      }
+      for(const prefix of ['check','other']) inspectionLists.push({id:prefix+wh,warehouseId:wh,name:prefix+wh,items:[{pid,unit:'แผง'},{pid:pid+1,unit:'กล่อง'}]});
+    }
+    setWarehouseProductCatalog(catalog);
+    window.postedCounts=[];
+    runStockOperation=async(name,args)=>{window.postedCounts.push(args);return {};};
+    loadInventoryLotsFromSupabase=async()=>true;
+    syncInspectionListsToSupabase=async()=>true;
+  });
+  for(const store of [1,2]){
+    const pid=store*100,own=store===1?'AP':'BP',foreign=store===1?'BP':'AP';
+    await page.evaluate(store=>{selectActiveWarehouse(store);render();},store);
+    const list=page.locator('#mobileInspectionList');
+    await list.selectOption('check'+store);
+    await page.locator('#mobileOpenInspectionList').click();
+    const input=page.locator('#mobileInspectionInput');
+    const scan=async code=>{ await input.fill(code);await input.press('Enter'); };
+    await scan('BOX0');
+    assert.deepEqual(await page.evaluate(()=>[...mobileInspectionChecks(mobileInspectionOpenedListId)]),[[pid,'กล่อง']]);
+    for(const code of ['BASE0','BASE1',own+'00000000001',foreign+'00000000001'])await scan(code);
+    assert.deepEqual(await page.evaluate(()=>[...mobileInspectionChecks(mobileInspectionOpenedListId)]),[[pid,'กล่อง'],[pid+1,'แผง']]);
+    await page.locator('#mobileContinueToStock').click();
+    const unit=page.locator(`[data-mobile-stock-unit="${pid}"]`);
+    assert.equal(await unit.inputValue(),'กล่อง');
+    assert.equal(await page.locator(`[data-mobile-stock-unit="${pid+1}"]`).inputValue(),'แผง');
+    await unit.selectOption('แผง');
+    await page.locator(`[data-mobile-stock-amount="${pid}"]`).fill('7');
+    assert.deepEqual(await page.evaluate(pid=>{
+      const line=stockEditAdjustmentLines().find(item=>item.productId===pid);
+      return [line.unitName,line.targetStock];
+    },pid),['แผง',7]);
+    await page.locator('#mobileStockSourceList').selectOption('other'+store);
+    page.once('dialog',dialog=>dialog.accept());
+    await page.locator('#mobileStockImport').click();
+    assert.equal(await unit.inputValue(),'แผง','Another list uses its own saved unit');
+    await page.locator('#mobileStockSourceList').selectOption('check'+store);
+    page.once('dialog',dialog=>dialog.accept());
+    await page.locator('#mobileStockImport').click();
+    assert.equal(await unit.inputValue(),'กล่อง','Reimport uses the scans from this list');
+    assert.equal(await page.evaluate(()=>mobileOpenedInspectionList().items[0].unit),'แผง','Scanning does not rewrite the saved list');
+    await page.locator('[data-mobile-inventory-step="inspection"]').click();
+    await page.locator('#mobileResetChecks').click();
+    assert.equal(await page.evaluate(()=>mobileInspectionChecks(mobileInspectionOpenedListId).size),0);
+    await scan('BOX0');await scan('BASE0');await scan('BOX1');
+    page.once('dialog',dialog=>dialog.accept());
+    await page.locator('#mobileContinueToStock').click();
+    assert.equal(await unit.inputValue(),'แผง','A later base scan replaces the earlier box scan');
+    assert.equal(await page.locator(`[data-mobile-stock-unit="${pid+1}"]`).inputValue(),'กล่อง');
+    await unit.selectOption('กล่อง');
+    await page.locator(`[data-mobile-stock-amount="${pid}"]`).fill('2');
+    await page.locator(`[data-mobile-stock-lot="${pid}"]`).selectOption('new');
+    page.once('dialog',dialog=>dialog.accept());
+    await page.locator('#mobileConfirmStockEdit').click();
+    await page.waitForFunction(()=>mobileInventoryStep==='inspection');
+    const posted=await page.evaluate(()=>window.postedCounts.at(-1));
+    assert.equal(posted.warehouseId,store);
+    assert.equal(posted.sourceInspectionId,'check'+store);
+    const line=posted.lines.find(line=>line.productId===pid);
+    assert.deepEqual([line.unitName,line.targetStock],['กล่อง',20]);
+  }
+}
 (async()=>{
   execFileSync(process.execPath,[path.join(root,'scripts/build-static.mjs')],{cwd:root,stdio:'pipe'});
   await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -257,6 +330,7 @@ async function verifyMobileInspectionStoreIsolation(page){
     await scanPage.locator('#promoPickerAddBtn').click();
     assert.deepEqual(await scanPage.evaluate(()=>currentPromoDraftItems),[{productId:id,unit:'กล่อง'}]);
   }
+  await verifyLastInspectionUnits(scanPage);
   await scanPage.close();
   const posPage=await browser.newPage();
   await setupDevice(posPage);

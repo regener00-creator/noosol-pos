@@ -65,7 +65,8 @@ let mobileInspectionOpenedListId = '';
 let mobileInspectionQuery = '';
 let mobileInspectionVisibleCount = 25;
 let mobileInspectionLastProductId = null;
-const mobileInspectionCheckedByList = {};
+// Each checked product carries its last scanned unit, or null for a manual check.
+const mobileInspectionCheckedByList = new Map();
 let mobileInspectionCreating = false;
 let mobileInspectionAddingToSaved = false;
 let mobileInspectionSavedAddQuery = '';

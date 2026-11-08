@@ -436,7 +436,14 @@ function attachEvents(){
       const input=document.getElementById('mobileInspectionInput');
       if(input){ input.focus(); input.selectionStart=input.selectionEnd=input.value.length; }
     });
-    mobileInspectionInput.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); mobileHandleInspectionCode(mobileInspectionInput.value); } });
+    mobileInspectionInput.addEventListener('keydown',event=>{
+      if(event.key!=='Enter') return;
+      event.preventDefault();
+      const accepted=mobileHandleInspectionCode(mobileInspectionInput.value);
+      const field=document.getElementById('mobileInspectionInput');
+      field?.focus({preventScroll:true});
+      if(!accepted) field?.select();
+    });
   }
   document.getElementById('mobileInspectionCamera')?.addEventListener('click',()=>{ unlockMobileScanSound(); openMobileCameraScanner(mobileHandleInspectionCode,{continuous:true,hostId:'mobileInspectionCameraSlot',buttonId:'mobileInspectionCamera'}); });
   document.getElementById('mobileNewInspectionList')?.addEventListener('click',startMobileInspectionDraft);
@@ -462,14 +469,14 @@ function attachEvents(){
   }));
   document.querySelectorAll('[data-mobile-inspection-item]').forEach(item=>item.addEventListener('click',()=>{
     const list=mobileOpenedInspectionList(); if(!list) return;
-    const productId=Number(item.dataset.mobileInspectionItem),checked=mobileInspectionCheckedSet(list.id);
-    if(checked.has(productId)) checked.delete(productId); else checked.add(productId);
+    const productId=Number(item.dataset.mobileInspectionItem),checked=mobileInspectionChecks(list.id);
+    if(checked.has(productId)) checked.delete(productId); else checked.set(productId,null);
     mobileInspectionLastProductId=productId;
     render();
   }));
   document.getElementById('mobileResetChecks')?.addEventListener('click',()=>{
     const list=mobileOpenedInspectionList();
-    if(list) mobileInspectionCheckedSet(list.id).clear();
+    if(list) mobileInspectionChecks(list.id).clear();
     mobileInspectionLastProductId=null; mobileInspectionQuery=''; render();
   });
   document.getElementById('mobileLoadMore')?.addEventListener('click',()=>{ mobileInspectionVisibleCount+=25; render(); });
@@ -480,7 +487,7 @@ function attachEvents(){
     if(progress.total&&progress.checked<progress.total&&!confirm(`ตรวจแล้ว ${progress.checked} จาก ${progress.total} รายการ ต้องการไปสรุปและแก้ไขสต๊อกตอนนี้หรือไม่?`)) return;
     mobileInventoryStep='stock';
     mobileStockSourceListId=list.id;
-    if(!stockEditImportInspectionList(list.id,true)){
+    if(!stockEditImportInspectionList(list.id,true,mobileInspectionChecks(list.id))){
       mobileInventoryStep='inspection';
       render();
     }
@@ -489,7 +496,7 @@ function attachEvents(){
   if(mobileStockSourceList) mobileStockSourceList.addEventListener('change',()=>{ mobileStockSourceListId=mobileStockSourceList.value; });
   document.getElementById('mobileStockImport')?.addEventListener('click',()=>{
     const listId=mobileStockSourceList?.value||mobileStockSourceListId;
-    if(listId){ mobileStockSourceListId=listId; stockEditImportInspectionList(listId,true); }
+    if(listId){ mobileStockSourceListId=listId; stockEditImportInspectionList(listId,true,mobileInspectionChecks(listId)); }
   });
   const mobileStockInput=document.getElementById('mobileStockInput');
   if(mobileStockInput){

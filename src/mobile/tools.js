@@ -445,10 +445,10 @@ function mobileInspectionCurrentList(){
 function mobileOpenedInspectionList(){
   return mobileInspectionVisibleLists().find(list=>String(list.id)===String(mobileInspectionOpenedListId))||null;
 }
-function mobileInspectionCheckedSet(listId){
+function mobileInspectionChecks(listId){
   const key=String(listId||'');
-  if(!mobileInspectionCheckedByList[key]) mobileInspectionCheckedByList[key]=new Set();
-  return mobileInspectionCheckedByList[key];
+  if(!mobileInspectionCheckedByList.has(key)) mobileInspectionCheckedByList.set(key,new Map());
+  return mobileInspectionCheckedByList.get(key);
 }
 function mobileInspectionEntries(list=mobileInspectionCurrentList()){
   if(!list) return [];
@@ -456,11 +456,12 @@ function mobileInspectionEntries(list=mobileInspectionCurrentList()){
 }
 function mobileInspectionProgress(list=mobileInspectionCurrentList()){
   const entries=mobileInspectionEntries(list);
-  const checked=mobileInspectionCheckedSet(list?.id);
+  const checked=mobileInspectionChecks(list?.id);
   return {checked:entries.filter(entry=>checked.has(Number(entry.product.id))).length,total:entries.length};
 }
-function mobileInspectionItemHtml(entry,checked,latest){
-  const selected=inspectionListSelectedOption(entry.item,entry.product);
+function mobileInspectionItemHtml(entry,checks,latest){
+  const pid=Number(entry.product.id),checked=checks.has(pid);
+  const selected=inspectionListSelectedOption(entry.item,entry.product,checks.get(pid));
   const stock=stockUnitAmountFromBase(entry.product.stock,selected.factor);
   return `<article class="mobile-inspection-item ${checked?'checked':''} ${latest?'latest':''}" data-mobile-inspection-item="${entry.product.id}">
     <div class="mobile-inspection-item-head"><span class="mobile-inspection-check">${checked?'✓':'·'}</span><div class="mobile-inspection-item-name">${escapeHtml(entry.product.name)}</div><button type="button" class="mobile-inspection-remove" data-mobile-inspection-remove="${entry.product.id}" aria-label="ลบ ${escapeHtml(entry.product.name)} ออกจากรายการ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button></div>
@@ -471,10 +472,13 @@ function mobileInspectionItemHtml(entry,checked,latest){
     </div>
   </article>`;
 }
+function mobileInspectionScannerHtml(){
+  return `<div class="mobile-scan-row"><input id="mobileInspectionInput" class="mobile-scan-input" value="${escapeHtml(mobileInspectionQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobileInspectionCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-camera-slot" id="mobileInspectionCameraSlot"></div>`;
+}
 function mobileInspectionContentHtml(){
   const list=mobileInspectionCurrentList();
   if(!list) return '<div class="mobile-empty">ยังไม่มีรายการตรวจสินค้า กรุณาสร้างรายการจากคอมพิวเตอร์ก่อน</div>';
-  const checked=mobileInspectionCheckedSet(list.id);
+  const checked=mobileInspectionChecks(list.id);
   const query=String(mobileInspectionQuery||'').trim();
   const allEntries=mobileInspectionEntries(list);
   const labelQuery=query&&systemLabelCode(query.toUpperCase());
@@ -486,8 +490,8 @@ function mobileInspectionContentHtml(){
   });
   const progress=mobileInspectionProgress(list);
   const visible=entries.slice(0,mobileInspectionVisibleCount);
-  return `<div class="mobile-inspection-progress"><span>ตรวจแล้ว ${progress.checked} / ${progress.total} รายการ</span>${progress.checked?'<button type="button" class="mobile-reset-checks" id="mobileResetChecks">เริ่มตรวจใหม่</button>':''}</div>
-    ${visible.length?`<div class="mobile-inspection-list">${visible.map(entry=>mobileInspectionItemHtml(entry,checked.has(Number(entry.product.id)),Number(entry.product.id)===Number(mobileInspectionLastProductId))).join('')}</div>${entries.length>visible.length?`<button type="button" class="mobile-load-more" id="mobileLoadMore">แสดงเพิ่ม (${entries.length-visible.length})</button>`:''}`:`<div class="mobile-empty">ไม่พบสินค้าในรายการนี้</div>`}`;
+  return `${mobileInspectionAddingToSaved?'':mobileInspectionScannerHtml()}<div class="mobile-inspection-progress"><span>ตรวจแล้ว ${progress.checked} / ${progress.total} รายการ</span>${progress.checked?'<button type="button" class="mobile-reset-checks" id="mobileResetChecks">เริ่มตรวจใหม่</button>':''}</div>
+    ${visible.length?`<div class="mobile-inspection-list">${visible.map(entry=>mobileInspectionItemHtml(entry,checked,Number(entry.product.id)===Number(mobileInspectionLastProductId))).join('')}</div>${entries.length>visible.length?`<button type="button" class="mobile-load-more" id="mobileLoadMore">แสดงเพิ่ม (${entries.length-visible.length})</button>`:''}`:`<div class="mobile-empty">ไม่พบสินค้าในรายการนี้</div>`}`;
 }
 function removeProductFromMobileInspection(listId,productId){
   if(!mobileRequireOnline('ลบสินค้าออกจากรายการ')) return false;
@@ -499,7 +503,7 @@ function removeProductFromMobileInspection(listId,productId){
   if(!confirm(`ลบ “${product?.name||'สินค้านี้'}” ออกจากรายการตรวจสินค้าใช่หรือไม่?`)) return false;
   list.items.splice(itemIndex,1);
   list.updatedAt=new Date().toISOString();
-  mobileInspectionCheckedSet(list.id).delete(Number(productId));
+  mobileInspectionChecks(list.id).delete(Number(productId));
   if(Number(mobileInspectionLastProductId)===Number(productId)) mobileInspectionLastProductId=null;
   persistWorkspaceData();
   syncInspectionListsToSupabase();
@@ -589,7 +593,7 @@ function mobileInspectionDraftHtml(){
   if(!inspectionListDraft) return '<div class="mobile-empty">ไม่พบร่างรายการ กรุณากดสร้างรายการใหม่</div>';
   const matches=String(mobileInspectionQuery||'').trim()?mobileInspectionDraftMatches(mobileInspectionQuery):[];
   const count=inspectionListDraft.items.length;
-  return `<section class="mobile-tool-panel"><div class="mobile-draft-head"><div><b>${escapeHtml(inspectionListDraft.name)}</b><span>ยิงสินค้าเพื่อเพิ่มเข้ารายการ</span></div><button type="button" class="mobile-draft-cancel" id="mobileCancelInspectionDraft">ยกเลิก</button></div><div class="mobile-scan-row"><input id="mobileInspectionInput" class="mobile-scan-input" value="${escapeHtml(mobileInspectionQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="mobileInspectionCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-camera-slot" id="mobileInspectionCameraSlot"></div>${matches.length?`<div class="mobile-draft-results">${matches.map(({product,unitName,barcode})=>`<button type="button" class="mobile-draft-result" data-mobile-draft-add="${product.id}" data-unit="${escapeHtml(unitName)}"><b>${escapeHtml(product.name)}</b><span>รหัส ${escapeHtml(product.sku||'-')} · บาร์โค้ด ${escapeHtml(barcode||'-')} · ${escapeHtml(unitName)}</span></button>`).join('')}</div>`:''}<div class="mobile-draft-count">เพิ่มแล้ว ${count} รายการ</div>${mobileInspectionDraftRowsHtml()}<div class="mobile-draft-save-wrap"><button type="button" class="mobile-draft-save" id="mobileSaveInspectionDraft" ${count&&mobileIsOnline()?'':'disabled'}>${mobileIsOnline()?`บันทึกรายการ (${count})`:'ออฟไลน์ — ยังบันทึกไม่ได้'}</button></div></section>`;
+  return `<section class="mobile-tool-panel"><div class="mobile-draft-head"><div><b>${escapeHtml(inspectionListDraft.name)}</b><span>ยิงสินค้าเพื่อเพิ่มเข้ารายการ</span></div><button type="button" class="mobile-draft-cancel" id="mobileCancelInspectionDraft">ยกเลิก</button></div>${mobileInspectionScannerHtml()}${matches.length?`<div class="mobile-draft-results">${matches.map(({product,unitName,barcode})=>`<button type="button" class="mobile-draft-result" data-mobile-draft-add="${product.id}" data-unit="${escapeHtml(unitName)}"><b>${escapeHtml(product.name)}</b><span>รหัส ${escapeHtml(product.sku||'-')} · บาร์โค้ด ${escapeHtml(barcode||'-')} · ${escapeHtml(unitName)}</span></button>`).join('')}</div>`:''}<div class="mobile-draft-count">เพิ่มแล้ว ${count} รายการ</div>${mobileInspectionDraftRowsHtml()}<div class="mobile-draft-save-wrap"><button type="button" class="mobile-draft-save" id="mobileSaveInspectionDraft" ${count&&mobileIsOnline()?'':'disabled'}>${mobileIsOnline()?`บันทึกรายการ (${count})`:'ออฟไลน์ — ยังบันทึกไม่ได้'}</button></div></section>`;
 }
 function resetMobileInspectionSavedAdd(){
   mobileInspectionAddingToSaved=false;
@@ -632,11 +636,9 @@ function addProductToMobileInspectionSavedDraft(product,unitName=''){
   }
   const pending=mobileInspectionSavedAddItems.find(item=>Number(item.pid)===Number(product.id));
   if(pending){
-    if(selected) pending.unit=selected.name;
-    showToast('สินค้านี้รอเพิ่มอยู่แล้ว','danger-top');
-    return false;
-  }
-  mobileInspectionSavedAddItems.push({pid:Number(product.id),unit:selected?.name||product.unit||''});
+    if(!selected||pending.unit===selected.name){ showToast('สินค้านี้รอเพิ่มอยู่แล้ว','danger-top'); return false; }
+    pending.unit=selected.name;
+  }else mobileInspectionSavedAddItems.push({pid:Number(product.id),unit:selected?.name||product.unit||''});
   mobileInspectionSavedAddQuery='';
   mobileInspectionLastProductId=product.id;
   render();
@@ -681,12 +683,14 @@ async function saveMobileInspectionSavedAdd(){
 }
 function addProductToMobileInspectionDraft(product,unitName=''){
   if(!product||!inspectionListDraft||!documentInActiveStore(inspectionListDraft)||Number(product.wh||1)!==Number(activeWarehouseId)) return false;
-  const added=inspectionListAddProduct(product,unitName);
+  const existing=inspectionListDraft.items.find(item=>Number(item.pid)===Number(product.id));
+  const previousUnit=existing?.unit;
+  const updated=inspectionListAddProduct(product,unitName)||existing?.unit!==previousUnit;
   mobileInspectionQuery='';
   mobileInspectionLastProductId=product.id;
-  if(!added) showToast('สินค้านี้อยู่ในรายการแล้ว');
+  if(!updated) showToast('สินค้านี้อยู่ในรายการแล้ว');
   render();
-  return added;
+  return updated;
 }
 async function saveMobileInspectionDraft(){
   if(!inspectionListDraft||!documentInActiveStore(inspectionListDraft)) return false;
@@ -995,6 +999,7 @@ async function confirmMobileStockEditChanges(){
   mobileLastRefreshAt=Date.now();
   setMobileDataStatus('online','บันทึกแล้ว');
   if(!completedSourceId) return true;
+  mobileInspectionCheckedByList.delete(String(completedSourceId));
   stockEditItems=[];
   stockEditRowUnitSel={};
   stockEditDraftStocks={};
@@ -1169,29 +1174,36 @@ function mobileHandlePriceCode(code){
   playMobileScanSound();
   return true;
 }
+function exactInspectionScan(query){
+  const normalized=query.toUpperCase();
+  if(systemLabelCode(normalized)) return findStoreLabelMatch(query);
+  const match=findProductByExactCode(query);
+  if(!match||String(match.product.sku||'').trim().toUpperCase()!==normalized) return match;
+  // A scanner supplies a barcode even when its digits also happen to be a SKU.
+  for(const product of products){
+    if(!isProductActive(product)||!matchesBarcode(product,normalized)) continue;
+    const unitName=exactBarcodeUnit(product,normalized);
+    if(unitName) return {product,unitName};
+  }
+  return match;
+}
 function mobileHandleInspectionCode(code){
   const query=String(code||'').trim();
   if(!query) return false;
-  if(mobileInspectionCreating){
-    const match=productScanMatches(query,1)[0];
+  const exact=exactInspectionScan(query);
+  if(mobileInspectionCreating||mobileInspectionAddingToSaved){
+    const match=exact||productScanMatches(query,1)[0];
     const product=match?.product;
-    if(!product){ mobileInspectionQuery=query; render(); showToast('ไม่พบสินค้าจากรหัสนี้','danger-top'); playMobileScanErrorSound(); return false; }
-    const accepted=addProductToMobileInspectionDraft(product,match.unitName);
-    if(accepted) playMobileScanSound();
-    else playMobileScanErrorSound();
-    return accepted;
-  }
-  if(mobileInspectionAddingToSaved){
-    const match=productScanMatches(query,1)[0];
-    const product=match?.product;
-    if(!product){ mobileInspectionSavedAddQuery=query; render(); showToast('ไม่พบสินค้าจากรหัสนี้','danger-top'); playMobileScanErrorSound(); return false; }
-    const accepted=addProductToMobileInspectionSavedDraft(product,match.unitName);
+    if(!product){
+      if(mobileInspectionCreating) mobileInspectionQuery=query; else mobileInspectionSavedAddQuery=query;
+      render(); showToast('ไม่พบสินค้าจากรหัสนี้','danger-top'); playMobileScanErrorSound(); return false;
+    }
+    const accepted=mobileInspectionCreating?addProductToMobileInspectionDraft(product,match.unitName):addProductToMobileInspectionSavedDraft(product,match.unitName);
     if(accepted) playMobileScanSound();
     else playMobileScanErrorSound();
     return accepted;
   }
   const list=mobileOpenedInspectionList();
-  const exact=systemLabelCode(query.toUpperCase())?findStoreLabelMatch(query):findProductByExactCode(query);
   const entry=exact&&mobileInspectionEntries(list).find(item=>Number(item.product.id)===Number(exact.product.id));
   if(!entry){
     mobileInspectionQuery=query;
@@ -1201,7 +1213,7 @@ function mobileHandleInspectionCode(code){
     playMobileScanErrorSound();
     return false;
   }
-  mobileInspectionCheckedSet(list.id).add(Number(entry.product.id));
+  mobileInspectionChecks(list.id).set(Number(entry.product.id),exact.unitName);
   mobileInspectionLastProductId=entry.product.id;
   mobileInspectionQuery='';
   render();

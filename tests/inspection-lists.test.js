@@ -42,7 +42,7 @@ const context = {
   mobileInspectionSavedAddItems: [],
   mobileInspectionLastProductId: null,
   mobileStockSourceListId: '',
-  mobileInspectionCheckedByList: {},
+  mobileInspectionCheckedByList: new Map(),
   stockEditSourceInspectionListId: null,
   stockEditSourcePending: false,
   INSPECTION_LIST_PAGE_SIZE: 10,
@@ -237,12 +237,14 @@ context.mobileInspectionListId = pendingList.id;
 context.mobileInspectionOpenedListId = pendingList.id;
 context.mobileInspectionQuery = '';
 context.mobileInspectionVisibleCount = 25;
-context.mobileInspectionCheckedSet(pendingList.id).add(1);
+context.mobileInspectionChecks(pendingList.id).set(1,'ลัง');
 context.mobileInspectionLastProductId = 1;
 assert.match(context.mobileInspectionContentHtml(), /data-mobile-inspection-remove="1"/);
+assert.match(context.mobileInspectionContentHtml(), /id="mobileInspectionInput"/);
+assert.match(context.mobileInspectionContentHtml(), /id="mobileInspectionCamera"/);
 assert.equal(context.removeProductFromMobileInspection(pendingList.id,1), true);
 assert.deepEqual(Array.from(context.inspectionLists[0].items,item=>item.pid),[2]);
-assert.equal(context.mobileInspectionCheckedSet(pendingList.id).has(1),false);
+assert.equal(context.mobileInspectionChecks(pendingList.id).has(1),false);
 assert.equal(context.mobileInspectionLastProductId,null);
 assert.match(context.inspectionLists[0].updatedAt,/^\d{4}-\d{2}-\d{2}T/);
 
@@ -250,7 +252,9 @@ context.mobileInspectionAddingToSaved = true;
 context.mobileInspectionSavedAddItems = [];
 assert.equal(context.addProductToMobileInspectionSavedDraft(products[0],'ลัง'),true);
 assert.deepEqual(Array.from(context.mobileInspectionSavedAddItems,item=>({pid:item.pid,unit:item.unit})),[{pid:1,unit:'ลัง'}]);
-assert.equal(context.addProductToMobileInspectionSavedDraft(products[0],'กล่อง'),false,'สินค้าที่รอเพิ่มแล้วต้องไม่ซ้ำ');
+assert.equal(context.addProductToMobileInspectionSavedDraft(products[0],'กล่อง'),true);
+assert.equal(context.addProductToMobileInspectionSavedDraft(products[0],'กล่อง'),false);
+assert.deepEqual(Array.from(context.mobileInspectionSavedAddItems,item=>({pid:item.pid,unit:item.unit})),[{pid:1,unit:'กล่อง'}]);
 assert.equal(context.addProductToMobileInspectionSavedDraft(products[1],'ขวด'),false,'สินค้าที่อยู่ในรายการเดิมต้องไม่ซ้ำ');
 
 assert.match(html, /\['stockcontrol','ตรวจนับ \/ ปรับสต๊อก'/);

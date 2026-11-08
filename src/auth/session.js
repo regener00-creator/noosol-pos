@@ -185,6 +185,7 @@ async function logoutSystem(){
   notes=[]; notesLoaded=false; notesLoading=false; notesHasMore=false; noteLoadError=''; editingNoteId=null; noteDraft=null; noteDraftDirty=false; noteSearchQuery=''; notePageCursor=null;
   activeWarehouseId=0; allWarehousesMode=false; warehouseAccessRows=[]; pagePermissionRows=[]; inventoryBalanceRows=[]; inventoryBalanceMap=new Map(); inventoryLotRows=[]; inventoryLotMap=new Map(); resetLoadedInventoryScopes(); cashShifts=[]; currentCashShift=null;
   systemUsers=[]; systemUsersLoaded=false;
+  mobileInspectionCheckedByList.clear();
   const password=document.getElementById('loginPassword'); if(password) password.value='';
   renderLoginState();
   return true;

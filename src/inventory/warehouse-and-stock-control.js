@@ -370,7 +370,7 @@ function inspectionListAvailableForStockEdit(list){
   return Boolean(list)&&!String(list.stockAdjustedAt||'').trim()&&Number(list.warehouseId||1)===Number(activeWarehouseId);
 }
 
-function stockEditImportInspectionList(listId,askBeforeReplace=true){
+function stockEditImportInspectionList(listId,askBeforeReplace=true,scannedUnits=null){
   const list=inspectionLists.find(entry=>String(entry.id)===String(listId));
   if(!list){ showToast('ไม่พบรายการตรวจสินค้า','danger'); return false; }
   if(Number(list.warehouseId||activeWarehouseId)!==Number(activeWarehouseId)){ showToast(`รายการนี้เป็นของคลัง ${whName(Number(list.warehouseId))} กรุณาเปลี่ยนคลังที่ TOPBAR ก่อน`,'danger'); return false; }
@@ -381,8 +381,7 @@ function stockEditImportInspectionList(listId,askBeforeReplace=true){
   stockEditItems=entries.map(entry=>entry.product.id);
   stockEditRowUnitSel={};
   entries.forEach(({item,product})=>{
-    const unitNames=[product.unit,...(product.units||[]).map(unit=>unit.sub).filter(Boolean)];
-    stockEditRowUnitSel[product.id]=unitNames.includes(item.unit)?item.unit:product.unit;
+    stockEditRowUnitSel[product.id]=inspectionListSelectedOption(item,product,scannedUnits?.get(Number(product.id))).name;
   });
   stockEditDraftStocks={};
   stockEditSearchQuery='';

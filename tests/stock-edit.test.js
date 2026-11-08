@@ -138,6 +138,9 @@ Object.assign(context, {
   confirm: () => true,
 });
 
+loadFunctionBlock('productUnitCost','saleLineCostSnapshot');
+loadFunctionBlock('productUnitOptions','productUnitConversionRows');
+loadFunctionBlock('inspectionListUnitOptions','inspectionListAmount');
 loadFunctionBlock('stockEditCurrentProducts', 'stockEditMatchesQuery');
 loadFunctionBlock('stockEditMatchesQuery', 'stockEditPendingChanges');
 loadFunctionBlock('pagerHtml', 'isSupplierStyleDoc');

@@ -62,7 +62,7 @@ async function saveInspectionListDraft(options={}){
 function clearInspectionListRuntimeReferences(id){
   const normalizedId=String(id);
   inspectionListOverviewSelectedIds.delete(normalizedId);
-  delete mobileInspectionCheckedByList[normalizedId];
+  mobileInspectionCheckedByList.delete(normalizedId);
   if(String(mobileInspectionListId)===normalizedId) mobileInspectionListId='';
   if(String(mobileInspectionOpenedListId)===normalizedId){ mobileInspectionOpenedListId=''; resetMobileInspectionSavedAdd(); }
   if(String(mobileStockSourceListId)===normalizedId) mobileStockSourceListId='';

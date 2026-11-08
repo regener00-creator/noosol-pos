@@ -6,9 +6,9 @@ function inspectionListUnitOptions(product){
     return {...option,barcode:option.name===product.unit?(product.barcode||''):(sub?.barcode||'')};
   });
 }
-function inspectionListSelectedOption(item,product){
+function inspectionListSelectedOption(item,product,scannedUnit){
   const options=inspectionListUnitOptions(product);
-  return options.find(option=>option.name===item?.unit)||options[0]||{name:'-',price:0,cost:0,factor:1,barcode:''};
+  return options.find(option=>option.name===scannedUnit)||options.find(option=>option.name===item?.unit)||options[0]||{name:'-',price:0,cost:0,factor:1,barcode:''};
 }
 function inspectionListAmount(value){
   const number=Number(value)||0;
