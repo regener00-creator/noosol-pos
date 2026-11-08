@@ -19,7 +19,11 @@ function storeResetConfig(mode=storeResetMode){
 
 function renderFactoryReset(){
   return `<div class="factory-reset-page">
-    <button type="button" class="btn factory-reset-button" id="openFactoryResetBtn"><span aria-hidden="true">⚠︎</span> คืนค่าโรงงานทั้งระบบ</button>
+    <section class="factory-reset-panel" aria-labelledby="factoryResetHeading">
+      <h2 id="factoryResetHeading">คืนค่าโรงงานทั้งระบบ</h2>
+      <p id="factoryResetImpact">ลบข้อมูลทุกคลังและบัญชีผู้ใช้ทั้งหมด</p>
+      <button type="button" class="btn factory-reset-button" id="openFactoryResetBtn" aria-describedby="factoryResetImpact"><span aria-hidden="true">⚠︎</span> คืนค่าโรงงานทั้งระบบ</button>
+    </section>
   </div>${renderStoreResetDialog()}`;
 }
 

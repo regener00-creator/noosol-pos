@@ -432,13 +432,14 @@ async function verifyLastInspectionUnits(page){
   await page.getByRole('button',{name:'คืนค่าโรงงานทั้งระบบ',exact:true}).click();
   assert.equal(await page.locator('#main button').count(),1);
   await page.locator('#openFactoryResetBtn').waitFor();assert.equal(await page.locator('#openDocumentResetBtn').count(),0);
-  const resetPosition=await page.locator('#openFactoryResetBtn').evaluate(button=>{
-    const rect=button.getBoundingClientRect();
-    const area=document.querySelector('.factory-reset-page').getBoundingClientRect();
-    const main=button.closest('.main').getBoundingClientRect();
-    return {centerOffset:Math.abs(rect.left+rect.width/2-area.left-area.width/2),lowerHalf:rect.top>main.top+main.height/2};
+  const panel=page.getByRole('region',{name:'คืนค่าโรงงานทั้งระบบ'});
+  assert.equal(await panel.locator('p').innerText(),'ลบข้อมูลทุกคลังและบัญชีผู้ใช้ทั้งหมด');
+  const resetPosition=await panel.evaluate(el=>{
+    const rect=el.getBoundingClientRect();
+    const area=el.closest('.main').getBoundingClientRect();
+    return {x:Math.abs(rect.left+rect.width/2-area.left-area.width/2),y:Math.abs(rect.top+rect.height/2-area.top-area.height/2)};
   });
-  assert.ok(resetPosition.centerOffset<2 && resetPosition.lowerHalf,JSON.stringify(resetPosition));
+  assert.ok(resetPosition.x<2 && resetPosition.y<2,JSON.stringify(resetPosition));
   assert.equal(await page.locator('#openProductResetBtn').count(),0);
   await page.locator('#openFactoryResetBtn').click();await page.locator('#cancelStoreResetBtn').click();
   await page.locator('.navbtn[data-tab="products"]').click();

@@ -1949,7 +1949,10 @@
   .carttotal{display:flex;justify-content:space-between;align-items:baseline;margin:12px 0;padding-top:10px;border-top:2px solid var(--text);}
   .carttotal .amt{font-family:inherit;font-size:20px;font-weight:700;color:var(--primary-dark);}
   .warehouse-card-list{container-type:inline-size;}
-  .factory-reset-page{min-height:100%;display:grid;place-items:end center;padding:24px 0;}
+  .factory-reset-page{min-height:100%;display:grid;place-items:center;padding:24px 0;}
+  .factory-reset-panel{width:min(100%,540px);padding:24px 18px;text-align:center;border:1px solid #DFA7A2;border-top:4px solid #A72B25;border-radius:14px;background:#FFF7F6;}
+  .factory-reset-panel h2{margin:0;font-size:21px;color:#87241F;}
+  .factory-reset-panel p{margin:6px 0 18px;color:#5D3734;}
   .factory-reset-page .factory-reset-button{min-height:48px;padding:10px 24px;border:1px solid #982A23;background:#AD3028;color:#FFF;font-size:17px;font-weight:700;}
   .factory-reset-page .factory-reset-button:hover{background:#90251F;}
   .factory-reset-page .factory-reset-button:focus-visible{outline:3px solid #90251F;outline-offset:3px;}
