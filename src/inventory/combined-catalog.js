@@ -1,40 +1,101 @@
-// Only pair two store records when their name and a unit barcode agree unambiguously.
+// Pair store records by unit barcodes. Shop-issued labels belong to one store only.
 function combinedCatalogRows(catalog){
-  const index=new Map();
+  const byBarcode=new Map();
   const records=catalog.map(product=>{
-    const name=String(product.name||'').normalize('NFC').trim().replace(/\s+/g,' ').toLowerCase();
-    const units=productUnitOptions(product);
-    const keys=units.filter(unit=>name&&String(unit.barcode||'').trim()).map(unit=>
-      JSON.stringify([name,String(unit.name||'').trim(),String(unit.barcode).trim().toLowerCase()]));
-    const record={product,units,keys,barcodes:productBarcodeCodes(product),warehouse:Number(product.wh)||1};
-    for(const key of keys){
-      if(!index.has(key))index.set(key,[]);
-      index.get(key).push(record);
+    const units=productUnitOptions(product),barcodes=productBarcodeCodes(product);
+    const warehouse=Number(product.wh)||1;
+    const labels=new Map(productUnitConversionRows(product).map(row=>[row.largerUnit,`${row.largerUnit} = ${productUnitConversionAmount(row.quantity)} ${row.smallerUnit}`]));
+    for(const sub of product.units||[]){
+      if(sub.base&&Number(sub.per)>0)labels.set(sub.sub,`${sub.sub} = ${productUnitConversionAmount(Number(sub.per))} ${sub.base}`);
+    }
+    const entries=units.map(unit=>({warehouse,product,unit,label:labels.get(unit.name)||unit.name,codes:[]}));
+    const byUnit=new Map(entries.map(entry=>[entry.unit.name,entry]));
+    const unitBarcodes=new Set([...units.map(unit=>unit.barcode),...extraBarcodeEntries(product).map(entry=>entry.code)]
+      .map(value=>String(value||'').trim().toLowerCase()).filter(Boolean));
+    const record={warehouse,product,units,barcodes,entries,partners:new Map()};
+    for(const code of barcodes){
+      const normalized=code.toUpperCase();
+      const name=systemLabelCode(normalized)?shopLabelUnit(product,normalized):exactBarcodeUnit(product,normalized,units);
+      const entry=byUnit.get(name);
+      if(!entry)continue;
+      entry.codes.push(code);
+      if(!unitBarcodes.has(code)||systemLabelCode(normalized))continue;
+      if(!byBarcode.has(code))byBarcode.set(code,[]);
+      byBarcode.get(code).push({record,entry});
     }
     return record;
   });
-  const partners=new Map();
-  for(const record of records){
-    const candidates=new Set(record.keys.flatMap(key=>index.get(key)).filter(other=>other.warehouse!==record.warehouse));
-    if(candidates.size===1)partners.set(record,[...candidates][0]);
+  const pairs=[];
+  for(const [code,hits] of byBarcode){
+    if(hits.length!==2||hits[0].record.warehouse===hits[1].record.warehouse)continue;
+    const [left,right]=hits.sort((a,b)=>a.record.warehouse-b.record.warehouse);
+    let pair=left.record.partners.get(right.record);
+    if(!pair){
+      pair={members:[left.record,right.record],links:[]};
+      left.record.partners.set(right.record,pair);
+      right.record.partners.set(left.record,pair);
+      pairs.push(pair);
+    }
+    let link=pair.links.find(link=>link.left===left.entry&&link.right===right.entry);
+    if(!link){link={left:left.entry,right:right.entry,codes:[]};pair.links.push(link);}
+    link.codes.push(code);
   }
-  const rows=[],seen=new Set();
-  for(const record of records){
-    if(seen.has(record))continue;
-    const partner=partners.get(record);
-    const members=partners.get(partner)===record?[record,partner]:[record];
-    members.sort((a,b)=>a.warehouse-b.warehouse);
-    const options=new Map();
-    for(const member of members){
-      seen.add(member);
-      const labels=new Map(productUnitConversionRows(member.product).map(row=>[row.largerUnit,`${row.largerUnit} = ${productUnitConversionAmount(row.quantity)} ${row.smallerUnit}`]));
-      for(const unit of member.units){
-        if(!options.has(unit.name))options.set(unit.name,{name:unit.name,shops:new Map()});
-        options.get(unit.name).shops.set(member.warehouse,{product:member.product,unit,label:labels.get(unit.name)||unit.name});
+  const rows=[],used=new Set();
+  function addRow(members,groups,partial=false){
+    const usedNames=new Set();
+    const options=groups.map(entries=>{
+      let name=entries[0].unit.name;
+      // The other shop can reuse this name for a different barcode pairing.
+      while(usedNames.has(name))name=entries[0].warehouse+':'+name;
+      usedNames.add(name);
+      const shared=entries.length>1?entries[0].codes.filter(code=>{
+        const hits=byBarcode.get(code);
+        return hits?.length===2&&hits.every(hit=>entries.includes(hit.entry));
+      }):[];
+      return {name,shared,shops:new Map(entries.map(entry=>[entry.warehouse,entry]))};
+    });
+    rows.push({name:members[0].product.name,members,options,partial});
+  }
+  for(const {members,links} of pairs){
+    const [left,right]=members;
+    const simple=left.partners.size===1&&right.partners.size===1&&
+      new Set(links.map(l=>l.left)).size===links.length&&new Set(links.map(l=>l.right)).size===links.length;
+    const groups=links.map(link=>[link.left,link.right]);
+    for(const group of groups)for(const entry of group)used.add(entry);
+    if(simple){
+      // Keep the previous same-name unit comparison for the remaining units.
+      for(const entry of left.entries){
+        if(used.has(entry))continue;
+        const match=right.entries.find(other=>!used.has(other)&&other.unit.name===entry.unit.name);
+        groups.push(match?[entry,match]:[entry]);
+        used.add(entry);if(match)used.add(match);
+      }
+      for(const entry of right.entries)if(!used.has(entry)){groups.push([entry]);used.add(entry);}
+      const order=new Map([...left.entries,...right.entries].map((entry,i)=>[entry,i]));
+      const matched=new Set(links.map(link=>link.left));
+      groups.sort((a,b)=>Number(matched.has(b[0]))-Number(matched.has(a[0]))||order.get(a[0])-order.get(b[0]));
+      addRow(members,groups);
+    }else{
+      // A product may match multiple records or units in the other shop. Show each
+      // proven pairing separately, without attaching unrelated units to that row.
+      for(const link of links){
+        const membersForCode=members.map((member,i)=>{
+          const entry=i?link.right:link.left;
+          const barcodes=entry.codes.filter(code=>link.codes.includes(code)||byBarcode.get(code)?.length!==2);
+          return {...member,barcodes};
+        });
+        addRow(membersForCode,[[link.left,link.right]],true);
       }
     }
-    rows.push({name:members[0].product.name,members,options:[...options.values()]});
   }
+  for(const record of records){
+    const remaining=record.entries.filter(entry=>!used.has(entry));
+    if(!remaining.length)continue;
+    const partial=record.partners.size>0;
+    const member=partial?{...record,barcodes:remaining.flatMap(entry=>entry.codes)}:record;
+    addRow([member],remaining.map(entry=>[entry]),partial);
+  }
+  for(const record of records)record.partners.clear();
   return rows.sort((a,b)=>a.name.localeCompare(b.name,'th')||a.members[0].product.id-b.members[0].product.id);
 }
 function renderCombinedCatalog(stockOnly){
@@ -118,13 +179,18 @@ async function refreshCombinedUnits(page,rows,draw){
     const legacy=[];
     const localIds=localCombinedUnitIds(actor);
     for(const row of rows){
-      const id=Number(row.members[0].product.id);
-      if(!localIds.has(id))continue;
-      const key=prefix+id;
-      if(readCombinedValue(key+':pending')){pendingAtRead.add(key);void flushCombinedUnit(actor,id);continue;}
-      if(!remoteIds.has(id)){
+      if(row.options.length<2)continue;
+      for(const [index,member] of row.members.entries()){
+        const id=Number(member.product.id);
+        if(!localIds.has(id))continue;
+        const key=prefix+id;
+        if(readCombinedValue(key+':pending')){pendingAtRead.add(key);void flushCombinedUnit(actor,id);continue;}
+        if(remoteIds.has(id))continue;
         const name=readCombinedValue(key);
-        if(name&&row.options.some(option=>option.name===name))legacy.push({user_id:actor,product_id:id,unit_name:name});
+        if(name&&row.options.some(option=>(index===0?option.name:option.shops.get(member.warehouse)?.unit.name)===name)){
+          legacy.push({user_id:actor,product_id:id,unit_name:name});
+          remoteIds.add(id);
+        }
       }
     }
     // Import old device-only choices once. A choice already saved by another device wins.
@@ -155,7 +221,7 @@ function attachCombinedCatalog(page){
   const stockOnly=page.dataset.combinedStock==='true';
   const storeButtons=page.querySelectorAll('[data-exclusive-shop]');
   const shopNames=new Map(shops.map(shop=>[Number(shop.id),shop.name]));
-  const exclusiveShop=row=>row.members.length===1?shopNames.get(row.members[0].warehouse):'';
+  const exclusiveShop=row=>!row.partial&&row.members.length===1?shopNames.get(row.members[0].warehouse):'';
   const actor=currentProfile.id;
   const pageSize=10;
   const {tree}=buildGroupTree();
@@ -189,17 +255,16 @@ function attachCombinedCatalog(page){
   const results=page.querySelector('[data-combined-results]');
   const manualSearchUnits=new Map();
   const barcodeMatches=(option,term)=>[...option.shops.values()].some(({unit})=>String(unit.barcode||'').toLowerCase().includes(term));
-  function labelUnit(row,term){
-    const code=term.toUpperCase();
-    for(const {product} of row.members){
-      const unit=shopLabelUnit(product,code);
-      if(unit) return unit;
-    }
-    return null;
+  const knownBarcodes=new Set(rows.flatMap(row=>row.members.flatMap(member=>member.barcodes)));
+  function scannedOption(row,member,term){
+    const normalized=term.toUpperCase();
+    const unit=systemLabelCode(normalized)?shopLabelUnit(member.product,normalized):exactBarcodeUnit(member.product,normalized,member.units);
+    return row.options.find(option=>option.shops.get(member.warehouse)?.unit.name===unit);
   }
   function matchesSearch(row,term){
     if(!term)return true;
-    if(systemLabelCode(term.toUpperCase()))return Boolean(labelUnit(row,term));
+    if(systemLabelCode(term.toUpperCase()))return row.members.some(member=>member.barcodes.includes(term)&&scannedOption(row,member,term));
+    if(knownBarcodes.has(term))return row.members.some(member=>member.barcodes.includes(term));
     return row.members.some(({product,barcodes})=>
       String(product.name||'').toLowerCase().includes(term)||barcodes.some(code=>code.includes(term))||
       String(product.sku||'').toLowerCase().includes(term));
@@ -207,24 +272,38 @@ function attachCombinedCatalog(page){
   function displayedUnit(row,term){
     const manual=manualSearchUnits.get(row);
     if(manual)return manual;
-    if(systemLabelCode(term.toUpperCase())) return row.options.find(option=>option.name===labelUnit(row,term));
-    if(term){
-      const exactNames=new Set();
-      for(const {product,units,barcodes} of row.members){
-        if(!barcodes.includes(term))continue;
-        const unit=exactBarcodeUnit(product,term.toUpperCase(),units);
-        if(!unit)return null;
-        exactNames.add(unit);
+    if(knownBarcodes.has(term)){
+      const exact=new Set();
+      for(const member of row.members){
+        if(!member.barcodes.includes(term))continue;
+        const option=scannedOption(row,member,term);
+        if(!option)return null;
+        exact.add(option);
       }
-      if(exactNames.size>1)return null;
-      if(exactNames.size)return row.options.find(option=>exactNames.has(option.name));
+      if(exact.size>1)return null;
+      if(exact.size)return [...exact][0];
     }
-    const preferred=readCombinedValue(combinedUnitPreferenceKey(row.members[0].product.id));
-    return row.options.find(item=>item.name===preferred)||(term&&row.options.find(item=>barcodeMatches(item,term)))||row.options[0];
+    for(const [index,member] of row.members.entries()){
+      const preferred=readCombinedValue(combinedUnitPreferenceKey(member.product.id));
+      if(!preferred)continue;
+      const option=row.options.find(item=>index===0?item.name===preferred:item.shops.get(member.warehouse)?.unit.name===preferred);
+      if(option)return option;
+    }
+    return (term&&row.options.find(item=>barcodeMatches(item,term)))||row.options[0];
   }
-  function sortHeader(field,label){
+  function barcodeValues(option,term){
+    if(!option)return [term];
+    const entries=[...option.shops.values()];
+    if(term&&entries.every(entry=>entry.codes.includes(term)))return [search.value.trim()];
+    if(option.shared.length){
+      const primary=String(entries[0].unit.barcode||'').trim();
+      return [option.shared.includes(primary.toLowerCase())?primary:option.shared[0]];
+    }
+    return entries.map(entry=>String(entry.unit.barcode||'').trim());
+  }
+  function sortHeader(field,label,span){
     const order=sort.direction===1?'ascending':'descending';
-    return `<th class="${field==='barcode'?'combined-barcode':''}"${field===sort.field?` aria-sort="${order}"`:''}><button type="button" class="doc-sort-btn" data-combined-sort="${field}">${label}</button></th>`;
+    return `<th ${span} class="${field==='barcode'?'combined-barcode':''}"${field===sort.field?` aria-sort="${order}"`:''}><button type="button" class="doc-sort-btn" data-combined-sort="${field}">${label}</button></th>`;
   }
   function describeValues(option,getValue){
     const values=shops.filter(shop=>option.shops.has(Number(shop.id))).map(shop=>({shop,value:getValue(option.shops.get(Number(shop.id)))}));
@@ -244,7 +323,7 @@ function attachCombinedCatalog(page){
       for(const row of matches){
         const option=displayedUnit(row,term);
         unitByRow.set(row,option);
-        codes.set(row,option?[...option.shops.values()].map(({unit})=>String(unit.barcode||'').trim()).filter(Boolean):[term]);
+        codes.set(row,barcodeValues(option,term).filter(Boolean));
       }
       matches.sort((a,b)=>{
         const left=codes.get(a),right=codes.get(b);
@@ -258,12 +337,21 @@ function attachCombinedCatalog(page){
     }
     const pages=Math.max(1,Math.ceil(matches.length/pageSize));
     pageNo=Math.min(pageNo,pages);
-    const headers=shops.map(shop=>stockOnly?`<th>คงเหลือ · ${escapeHtml(shop.name)}</th>`:`<th>ราคาขาย · ${escapeHtml(shop.name)}</th><th>ทุน · ${escapeHtml(shop.name)}</th>`).join('');
+    const headers=shops.map(shop=>stockOnly?`<th rowspan="2">คงเหลือ · ${escapeHtml(shop.name)}</th>`:`<th rowspan="2">ราคาขาย · ${escapeHtml(shop.name)}</th><th rowspan="2">ทุน · ${escapeHtml(shop.name)}</th>`).join('');
     const body=matches.slice((pageNo-1)*pageSize,pageNo*pageSize).map(row=>{
       const id=row.members[0].product.id;
       const option=unitByRow.get(row)||displayedUnit(row,term);
-      const control=row.options.length===1&&option?`<span class="prod-unit-fixed">${escapeHtml(option.name)}</span>`:
-        `<select class="prod-unit-select" data-combined-unit="${id}" aria-label="หน่วยของ ${escapeHtml(row.name)}">${option?'':'<option value="" selected disabled>กรุณาเลือกหน่วยสำหรับบาร์โค้ดนี้</option>'}${row.options.map(item=>`<option value="${escapeHtml(item.name)}" ${item===option?'selected':''}>${escapeHtml(describeValues(item,entry=>entry.label))}</option>`).join('')}</select>`;
+      const codes=barcodeValues(option,term);
+      const barcode=codes.length===1?codes[0]:describeValues(option,entry=>String(entry.unit.barcode||'—'));
+      const unitNames=item=>[...new Set([...item.shops.values()].map(entry=>entry.unit.name))].join(' / ');
+      const control=row.options.length===1&&option?`<span class="prod-unit-fixed">${escapeHtml(unitNames(option))}</span>`:
+        `<select class="prod-unit-select" data-combined-unit="${id}" aria-label="หน่วยของ ${escapeHtml(row.name)}">${option?'':'<option value="" selected disabled>กรุณาเลือกหน่วยสำหรับบาร์โค้ดนี้</option>'}${row.options.map(item=>`<option value="${escapeHtml(item.name)}" ${item===option?'selected':''}>${escapeHtml(unitNames(item))}</option>`).join('')}</select>`;
+      const descriptions=shops.map(shop=>{
+        const member=row.members.find(member=>member.warehouse===Number(shop.id));
+        if(!member)return '<td>—</td>';
+        const entry=option?.shops.get(member.warehouse);
+        return `<td><span data-combined-product-name>${escapeHtml(member.product.name)}</span> <span class="combined-pack">${escapeHtml(entry?.label||'—')}</span></td>`;
+      }).join('');
       const cells=shops.map(shop=>{
         const entry=option?.shops.get(Number(shop.id));
         if(stockOnly)return `<td class="combined-amount">${entry?inspectionListAmount(warehouseStock(entry.product.id,shop.id)/entry.unit.factor):'—'}</td>`;
@@ -271,10 +359,10 @@ function attachCombinedCatalog(page){
       }).join('');
       const only=exclusiveShop(row);
       const color=only==='พรชัย'?'only-phonchai':only==='พระยาสุเรนทร์'?'only-phraya':'';
-      return `<tr class="${color}"><td class="combined-barcode">${escapeHtml(option?describeValues(option,entry=>String(entry.unit.barcode||'—')):term)}</td><td>${escapeHtml(row.name)}</td><td><div class="combined-unit-cell">${control}</div></td>${cells}</tr>`;
+      return `<tr class="${color}"><td class="combined-barcode">${escapeHtml(barcode||'—')}</td>${descriptions}<td><div class="combined-unit-cell">${control}</div></td>${cells}</tr>`;
     }).join('');
-    const columns=3+shops.length*(stockOnly?1:2);
-    results.innerHTML=`<table class="grid-table doc-head-blue"><thead><tr>${sortHeader('barcode','บาร์โค้ด')}${sortHeader('name','สินค้า')}<th>หน่วย</th>${headers}</tr></thead><tbody>${body||`<tr><td colspan="${columns}">ไม่พบสินค้า</td></tr>`}</tbody></table>`;
+    const columns=2+shops.length*(stockOnly?2:3);
+    results.innerHTML=`<table class="grid-table doc-head-blue"><thead><tr>${sortHeader('barcode','บาร์โค้ด','rowspan="2"')}${sortHeader('name','สินค้า',`colspan="${shops.length}"`)}<th rowspan="2">หน่วย</th>${headers}</tr><tr>${shops.map(shop=>`<th scope="col">${escapeHtml(shop.name)}</th>`).join('')}</tr></thead><tbody>${body||`<tr><td colspan="${columns}">ไม่พบสินค้า</td></tr>`}</tbody></table>`;
     pager.innerHTML=pagerHtml(pageNo,pages,'combined-page');
   }
   for(const [host,kind] of [[categories,'category'],[brands,'brand']]){
@@ -309,7 +397,7 @@ function attachCombinedCatalog(page){
     if(!select)return;
     const id=Number(select.dataset.combinedUnit);
     if(search.value.trim()){
-      const row=rows.find(row=>Number(row.members[0].product.id)===id);
+      const row=rows.find(row=>row.options.length>1&&Number(row.members[0].product.id)===id);
       if(row)manualSearchUnits.set(row,row.options.find(option=>option.name===select.value));
     }
     rememberCombinedUnit(id,select.value);draw();

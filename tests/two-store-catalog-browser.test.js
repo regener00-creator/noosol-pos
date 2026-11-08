@@ -499,7 +499,23 @@ async function verifyLastInspectionUnits(page){
   assert.ok(Math.abs((await dec.boundingBox()).height-regularRowHeight)<=1,`Single-store row ${regularRowHeight}, combined ${(await dec.boundingBox()).height}`);
   assert.equal(await page.locator('.only-phonchai').count(),1);assert.equal(await page.locator('.only-phraya').count(),1);
   const collision=await page.evaluate(()=>combinedCatalogRows([{...products.find(p=>p.id===11),name:'Drug one'},{...products.find(p=>p.id===12),name:'Drug two',units:[]}]).length);
-  assert.equal(collision,2,'Unrelated products that reuse a barcode do not merge');
+  assert.equal(collision,1,'The same barcode pairs different product names across shops');
+  const split=await page.evaluate(()=>{
+    const a={id:1,wh:1,name:'A',unit:'ซอง',barcode:'001',units:[{sub:'ขวด',factor:30,barcode:'002'}]};
+    const b={id:2,wh:2,name:'B',unit:'แผง',barcode:'001'};
+    const c={id:3,wh:2,name:'C',unit:'กล่อง',barcode:'002'};
+    return combinedCatalogRows([a,b,c]).map(row=>[row.members.map(m=>m.product.id),row.options[0].shared]);
+  });
+  assert.deepEqual(split,[[[1,2],['001']],[[1,3],['002']]],'A product that matches two different records never joins the wrong units');
+  assert.deepEqual(await page.evaluate(()=>{
+    const a={id:1,wh:1,name:'A',unit:'ซอง',barcode:'A-BASE',units:[{sub:'ขวด',factor:30,barcode:'A-BOX'}],
+      extraBarcodes:['002'],extraBarcodeUnits:['ขวด'],vendorBarcodes:[{code:'SUP'}]};
+    const b={id:2,wh:2,name:'B',unit:'ซอง',barcode:'B-BASE',units:[{sub:'กล่อง',factor:25,barcode:'002'}],vendorBarcodes:[{code:'SUP'}]};
+    const [matched]=combinedCatalogRows([a,b]);
+    const pair=[...matched.options[0].shops.values()].map(entry=>entry.unit.name);
+    const unrelated=combinedCatalogRows([a,{...b,units:[]}]);
+    return [pair,unrelated.length];
+  }),[['ขวด','กล่อง'],2],'A unit alias matches the package first, while a supplier-only code cannot pair unrelated products');
   await page.locator('[data-combined-search]').fill('0022');assert.equal(await page.locator('[data-combined-results] tbody tr').count(),1);
   await page.setViewportSize({width:2300,height:1100});
   const searchBounds=await page.locator('[data-combined-search]').boundingBox(),legend=await page.locator('.combined-legend').boundingBox();
@@ -524,7 +540,7 @@ async function verifyLastInspectionUnits(page){
         await page.locator('[data-combined-search]').fill('Pagination');
         const header=page.locator(`th[aria-sort="${direction}"] [data-combined-sort="${field}"]`);
         assert.equal(await header.innerText(),field==='barcode'?'บาร์โค้ด':'สินค้า');
-        assert.equal(await rows.first().locator('td').nth(field==='barcode'?0:1).innerText(),value);
+        assert.equal(await rows.first().locator(field==='barcode'?'.combined-barcode':'[data-combined-product-name]').first().innerText(),value);
       }
     }
     if(await page.locator('th[aria-sort="descending"] [data-combined-sort="name"]').count())await page.locator('[data-combined-sort="name"]').click();
@@ -558,10 +574,10 @@ async function verifyLastInspectionUnits(page){
     assert.equal(await rows.first().locator('td:first-child').innerText(),'51');
     await checkSharedSort('barcode','descending','51');
     await name.click();
-    assert.equal(await rows.first().locator('td:nth-child(2)').innerText(),'Pagination 00');
+    assert.equal(await rows.first().locator('[data-combined-product-name]').innerText(),'Pagination 00');
     await checkSharedSort('name','ascending','Pagination 00');
     await name.click();
-    assert.equal(await rows.first().locator('td:nth-child(2)').innerText(),'Pagination 50');
+    assert.equal(await rows.first().locator('[data-combined-product-name]').innerText(),'Pagination 50');
     await checkSharedSort('name','descending','Pagination 50');
     await page.locator('[data-combined-search]').fill('Pagination 50');
     assert.equal(await pager.locator('button').count(),0);
@@ -576,15 +592,15 @@ async function verifyLastInspectionUnits(page){
   const stock=page.locator('[data-combined-results] tbody tr').filter({hasText:'Decolgen'});
   assert.equal(await stock.getAttribute('class'),'');
   assert.equal(await stock.locator('select').inputValue(),'ซอง','An exact barcode takes precedence over the saved box unit');
-  assert.deepEqual((await stock.locator('td').allTextContents()).slice(3),['0','17']);
-  assert.deepEqual(await stock.locator('td').evaluateAll(cells=>cells.slice(3).map(cell=>getComputedStyle(cell).textAlign)),['center','center']);
+  assert.deepEqual(await stock.locator('.combined-amount').allTextContents(),['0','17']);
+  assert.deepEqual(await stock.locator('.combined-amount').evaluateAll(cells=>cells.map(cell=>getComputedStyle(cell).textAlign)),['center','center']);
   assert.ok(Math.abs((await stock.boundingBox()).height-regularRowHeight)<=1);
   await page.locator('[data-combined-search]').fill('0044');
   const boxes=page.locator('[data-combined-results] tbody tr');
   assert.match(await boxes.locator('td').first().innerText(),/0055.*0044/);
-  assert.deepEqual((await boxes.locator('td').allTextContents()).slice(3),['0','1.7']);
+  assert.deepEqual(await boxes.locator('.combined-amount').allTextContents(),['0','1.7']);
   await boxes.locator('select').selectOption('ซอง');
-  assert.deepEqual((await boxes.locator('td').allTextContents()).slice(3),['0','17']);
+  assert.deepEqual(await boxes.locator('.combined-amount').allTextContents(),['0','17']);
   await boxes.locator('select').selectOption('ลัง');
   await assertUsesPageWidth();
   await page.locator('[data-combined-search]').fill('0001');
@@ -593,7 +609,7 @@ async function verifyLastInspectionUnits(page){
   await page.locator('[data-combined-search]').fill('Decolgen');
   assert.equal(await stock.locator('select').inputValue(),'ลัง','Scanning must not overwrite a manual preference');
   await page.locator('[data-combined-search]').fill('0022');
-  assert.deepEqual(await page.locator('[data-combined-results] tr').filter({hasText:'0022'}).locator('td').allTextContents(),['0022','พรชัยเท่านั้น','ซอง','—','0']);
+  assert.deepEqual(await page.locator('[data-combined-results] tr').filter({hasText:'0022'}).locator('td').allTextContents(),['0022','—','พรชัยเท่านั้น ซอง','ซอง','—','0']);
   const storeColors=cell=>[getComputedStyle(cell).color,getComputedStyle(cell).backgroundColor];
   assert.deepEqual(await page.locator('.only-phonchai td').first().evaluate(storeColors),['rgb(173, 81, 11)','rgba(0, 0, 0, 0)']);
   await page.locator('[data-combined-search]').fill('0033');
@@ -617,6 +633,29 @@ async function verifyLastInspectionUnits(page){
   await page.evaluate(()=>{selectActiveWarehouse('all');currentTab='products';render();});
   await page.locator('[data-combined-search]').fill('Decolgen');
   await page.waitForFunction(()=>document.querySelector('[data-combined-unit="11"]')?.value==='กล่อง');
+  await second.evaluate(()=>{
+    const catalog=[{id:511,wh:1,name:'Decolgen prin (4 tablets)',unit:'ซอง',category:'ยา',price:8,cost:6,
+      barcode:'8851824336378',units:[{sub:'ขวด',base:'ซอง',per:30,factor:30,price:200,cost:160,barcode:'8851824336354'}]},
+      {id:512,wh:2,name:'ดีคอเจ่น (4 เม็ด)',unit:'ซอง',category:'ยา',price:9,cost:7,
+      barcode:'8851824336378',units:[{sub:'กล่อง',base:'ซอง',per:25,factor:25,price:180,cost:135,barcode:'8851824336354'}]}];
+    setWarehouseProductCatalog(catalog);
+    inventoryBalanceRows=catalog.map(p=>({product_id:p.id,warehouse_id:p.wh,stock:150}));
+    rebuildInventoryBalanceMap();render();
+  });
+  for(const tab of ['products','rinventory']){
+    await second.locator(`.navbtn[data-tab="${tab}"]`).click();
+    const search=second.locator('[data-combined-search]'),row=second.locator('[data-combined-results] tbody tr');
+    for(const term of ['Decolgen prin','ดีคอเจ่น','8851824336354']){
+      await search.fill(term);
+      assert.equal(await row.count(),1);
+      assert.deepEqual(await row.locator('[data-combined-product-name]').allTextContents(),['Decolgen prin (4 tablets)','ดีคอเจ่น (4 เม็ด)']);
+    }
+    assert.deepEqual(await row.locator('.combined-pack').allTextContents(),['ขวด = 30 ซอง','กล่อง = 25 ซอง']);
+    assert.deepEqual(await row.locator('.combined-amount').allTextContents(),tab==='products'?['200.00','160.00','180.00','135.00']:['5','6']);
+    await search.fill('8851824336378');
+    assert.deepEqual(await row.locator('.combined-pack').allTextContents(),['ซอง','ซอง']);
+    assert.deepEqual(await row.locator('.combined-amount').allTextContents(),tab==='products'?['8.00','6.00','9.00','7.00']:['150','150']);
+  }
   await second.close();
   await page.evaluate(()=>{selectActiveWarehouse(2);currentTab='transfer';render();});
   assert.equal(await page.locator('.navbtn[data-tab="transfer"]').count(),0);assert.notEqual(await page.evaluate(()=>currentTab),'transfer');

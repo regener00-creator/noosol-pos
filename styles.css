@@ -2929,6 +2929,7 @@
 .combined-catalog .pager{margin-top:10px}
 .combined-catalog .combined-amount,.combined-catalog .combined-barcode{text-align:center}
 .combined-unit-cell{min-height:32px;display:flex;align-items:center;justify-content:center}
+.combined-pack{display:inline-block;margin-inline-start:.35em;font-size:.9em}
 .combined-catalog .only-phonchai{color:#ad510b}
 .combined-catalog .only-phraya{color:#7946a4}
 .combined-catalog :is(.only-phonchai,.only-phraya) :is(.prod-unit-select,.prod-unit-fixed){color:inherit}
