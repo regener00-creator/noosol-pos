@@ -2729,7 +2729,8 @@
 .product-import-detail{white-space:pre-wrap;overflow-wrap:anywhere;min-width:260px;}
 .product-import-pages,.product-import-footer{display:flex;align-items:center;justify-content:flex-end;gap:12px;}
 .product-import-pages{margin-top:12px;}
-.product-import-footer{padding:16px 24px;border-top:1px solid var(--border);}
+.product-import-footer{padding:16px 24px;border-top:1px solid var(--border);flex-wrap:wrap;}
+#productImportHint:not(:empty){flex:1 1 180px;color:var(--text-muted);}
 .knowledge-layout{display:grid;grid-template-columns:minmax(240px,1fr) minmax(0,3fr);gap:20px;align-items:start;}
 .knowledge-list,.knowledge-detail{border:1px solid var(--border);border-radius:16px;background:var(--surface);min-width:0;}
 .knowledge-list{padding:16px;display:grid;gap:16px;}

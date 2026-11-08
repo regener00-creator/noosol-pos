@@ -654,8 +654,8 @@ function projectCrossProduct(candidate,fields){
     change(patch,'category',existing.category,source.category,'หมวดหลัก');
     change(patch,'brand',existing.brand,source.brand,'หมวดย่อย');
   }
-  if(source.unit!==existing.unit)notes.push(`คงหน่วยหลักปลายทาง “${existing.unit}” (ไฟล์ใช้ “${source.unit}”) · หากต้องการเปลี่ยนให้ใช้เมนูเปลี่ยนหน่วยหลัก`);
   if(fields.has('units')||fields.has('price')||fields.has('cost')){
+    if(source.unit!==existing.unit)notes.push(`คงหน่วยหลักปลายทาง “${existing.unit}” (ไฟล์ใช้ “${source.unit}”) · หากต้องการเปลี่ยนให้ใช้เมนูเปลี่ยนหน่วยหลัก`);
     const incoming=crossProductUnits(source),local=crossProductUnits(existing);
     const mapped=new Map(),taken=new Set();
     for(const from of incoming){
@@ -677,6 +677,8 @@ function projectCrossProduct(candidate,fields){
     const units=(existing.units||[]).map(row=>({...row}));
     const added=new Set();
     if(fields.has('units')){
+      const retained=units.filter(row=>!taken.has(row.sub)).map(row=>row.sub);
+      if(retained.length)notes.push(`เก็บหน่วยที่มีเฉพาะในคลังปลายทาง: ${retained.join(', ')}`);
       for(const from of incoming){
         const name=mapped.get(from.name);
         if(name===existing.unit)continue;
@@ -716,6 +718,8 @@ function projectCrossProduct(candidate,fields){
         }else if(added.has(name)){
           const base=primary&&fields.has(key)&&presentMoney[key].has(primary.name)?primary[key]:existing[key]??0;
           change(row,key,undefined,Number((base*factor).toFixed(2)),`${label} (${name} จากราคาต่อหน่วยหลักปลายทาง)`);
+        }else if(fields.has(key)){
+          notes.push(`ช่อง${label} (${name}) ในไฟล์ว่าง · คงค่าเดิม ${row[key]??0}`);
         }
       }
     }
@@ -740,7 +744,10 @@ function crossProductPlan(candidates,occupied,fields){
       if(counts.get(existing.id)>1||occupied.has(existing.id))throw new Error('หลายแถวในไฟล์ชี้ไปยังสินค้าปลายทางเดียวกัน');
       const {patch,changes,notes}=projectCrossProduct(candidate,fields);
       const detail=[target,...changes,...notes].join('\n');
-      if(!changes.length){skipped.push({line,name,status:'ข้าม',detail:detail+'\nไม่มีการเปลี่ยนแปลงที่นำเข้าได้'});continue;}
+      if(!changes.length){
+        skipped.push({line,name,status:notes.length?'คงข้อมูลปลายทาง':'ตรงกัน',detail:notes.length?detail:target+'\nข้อมูลที่เลือกตรงกับไฟล์แล้ว'});
+        continue;
+      }
       updates.push({line,name,existing,product:existing,patch,sourceCodes:productBarcodeCodes(candidate.source),targetStock:null,detail});
     }catch(error){skipped.push({line,name,status:'รอตรวจสอบ',detail:target+'\n'+error.message});}
   }
@@ -760,23 +767,27 @@ function showProductImportDialog(entries,skipped,{result=false,sourceNames,desti
         ${!result&&crossStore?'<p class="product-import-cross-store">นำเข้าข้ามคลัง กรุณาตรวจชื่อคลังปลายทางก่อนยืนยัน</p>':''}
         ${!result&&planCrossUpdates&&loggedInUser()?.owner===true?`<label class="product-import-stock-option"><input id="productImportUpdateExisting" type="checkbox"> อัปเดตสินค้าเดิมของ${escapeHtml(destinationName)}ด้วย</label>
         <fieldset id="productImportFields" hidden><legend>เลือกข้อมูลที่จะอัปเดต</legend>${CROSS_PRODUCT_FIELDS.map(([key,label])=>`<label><input type="checkbox" data-product-import-field="${key}"> ${label}</label>`).join('')}<p>สินค้าเดิมจะเก็บหน่วยหลักและบาร์โค้ดของคลังปลายทาง หน่วยที่เพิ่มใหม่จะเว้นบาร์โค้ดไว้</p></fieldset>`:''}
-        <p id="productImportSummary"></p>
+        <p id="productImportSummary" aria-live="polite"></p>
         ${result?'':`<label class="product-import-stock-option"><input id="productImportStock" type="checkbox"> ปรับจำนวนคงเหลือด้วย</label><p>${crossStore?'การปรับจำนวนใช้เฉพาะแถวของคลังปลายทาง แถวที่คัดลอกจากร้านอื่นจะคงสต๊อกเดิมของร้านนี้':'ช่องจำนวนว่างจะคงสต๊อกเดิม เลข 0 หมายถึงปรับเป็นศูนย์ ตรวจยอดปัจจุบันและยอดใหม่ก่อนยืนยัน'}</p>`}
         <p>วันหมดอายุใน Excel เป็นข้อมูลสำหรับดูเท่านั้น ค่าที่แก้ในไฟล์จะไม่ถูกบันทึก กรุณาแก้วันหมดอายุที่ LOT ของสินค้า</p>
         <div class="product-import-table-wrap"><table class="grid-table"><thead><tr><th>แถว</th><th>สินค้า</th><th>รายละเอียด</th><th>สถานะ</th></tr></thead><tbody id="productImportRows"></tbody></table></div>
         <div class="product-import-pages"><button type="button" class="btn ghost" id="productImportPrev">ก่อนหน้า</button><span id="productImportPage"></span><button type="button" class="btn ghost" id="productImportNext">ถัดไป</button></div>
-      </div><div class="product-import-footer"><button type="button" class="btn ghost" id="productImportCancel">${result?'ปิด':'ยกเลิก'}</button>${result?'':'<button type="button" class="btn primary" id="productImportConfirm">ยืนยันนำเข้า</button>'}</div></div>`;
+      </div><div class="product-import-footer"><span id="productImportHint" role="status"></span><button type="button" class="btn ghost" id="productImportCancel">${result?'ปิด':'ยกเลิก'}</button>${result?'':'<button type="button" class="btn primary" id="productImportConfirm">ยืนยันนำเข้า</button>'}</div></div>`;
     document.body.appendChild(overlay);
     let page=0;
     const stock=overlay.querySelector('#productImportStock');
     const toggle=overlay.querySelector('#productImportUpdateExisting'),fields=overlay.querySelector('#productImportFields');
-    let plan={updates:[],skipped:[]},selected=new Set(),rows=[];
+    let plan={updates:[],skipped:[]},selected=new Set(),rows=[],finishReview=false;
+    const statusCounts=new Map();
+    const count=status=>statusCounts.get(status)||0;
     const draw=()=>{
       const enabled=!!stock?.checked;
       const blocked=enabled&&entries.some(entry=>entry.stockError);
-      overlay.querySelector('#productImportSummary').textContent=result
-        ?['สำเร็จ','รอซิงก์','ไม่สำเร็จ',...['ข้าม','รอตรวจสอบ'].filter(status=>rows.some(row=>row.status===status))].map(status=>`${status} ${rows.filter(row=>row.status===status).length} รายการ`).join(' · ')
-        :`เพิ่มใหม่ ${entries.filter(entry=>!entry.existing).length} · อัปเดต ${entries.filter(entry=>entry.existing).length+plan.updates.length} · ข้าม ${skipped.length+plan.skipped.length}${blocked?' · กรุณาแก้แถวที่ปรับสต๊อกไม่ได้ หรือเอาติ๊กปรับสต๊อกออก':''}`;
+      const reviewCounts=['คงข้อมูลปลายทาง','ตรงกัน','รอตรวจสอบ'].filter(status=>count(status)).map(status=>`${status} ${count(status)} รายการ`);
+      const totals=result
+        ?['สำเร็จ','รอซิงก์','ไม่สำเร็จ',...(count('ข้าม')?['ข้าม']:[])].map(status=>`${status} ${count(status)} รายการ`)
+        :[`เพิ่มใหม่ ${entries.filter(entry=>!entry.existing).length}`,`อัปเดต ${entries.filter(entry=>entry.existing).length+plan.updates.length}`,`ข้าม ${count('ข้าม')}`,...(count('ไม่สำเร็จ')?[`ไม่สำเร็จ ${count('ไม่สำเร็จ')}`]:[])];
+      overlay.querySelector('#productImportSummary').textContent=[...totals,...reviewCounts].join(' · ');
       overlay.querySelector('#productImportRows').innerHTML=rows.slice(page*50,(page+1)*50).map(entry=>{
         const stockDetail=enabled?(entry.stockError||entry.stockDetail||''):'';
         const detail=result?entry.detail:[entry.detail,stockDetail,entry.expiryNotice].filter(Boolean).join('\n');
@@ -786,13 +797,28 @@ function showProductImportDialog(entries,skipped,{result=false,sourceNames,desti
       overlay.querySelector('#productImportPrev').disabled=page===0;
       overlay.querySelector('#productImportNext').disabled=(page+1)*50>=rows.length;
       const submit=overlay.querySelector('#productImportConfirm');
-      if(submit) submit.disabled=blocked||!(entries.length+plan.updates.length)||(toggle?.checked&&!selected.size);
+      if(submit){
+        const missingFields=toggle?.checked&&!selected.size;
+        const noWrites=entries.length+plan.updates.length===0;
+        finishReview=noWrites&&!!toggle?.checked&&selected.size>0;
+        submit.textContent=finishReview?'เสร็จสิ้นการตรวจสอบ':'ยืนยันนำเข้า';
+        submit.disabled=blocked||missingFields||(noWrites&&!finishReview);
+        let hint='';
+        if(missingFields)hint='เลือกข้อมูลที่จะอัปเดตอย่างน้อย 1 ช่อง';
+        else if(blocked)hint='กรุณาแก้แถวที่ปรับสต๊อกไม่ได้ หรือเอาติ๊กปรับสต๊อกออก';
+        else if(finishReview)hint='ไม่มีรายการที่จะบันทึก กดเสร็จสิ้นเพื่อปิดผลตรวจสอบ';
+        else if(noWrites&&toggle)hint='หากต้องการเปรียบเทียบสินค้าเดิม ให้ติ๊กอัปเดตสินค้าเดิมของคลังปลายทาง';
+        else if(noWrites)hint='ไม่มีรายการพร้อมนำเข้า ตรวจรายละเอียดในตาราง';
+        overlay.querySelector('#productImportHint').textContent=hint;
+      }
     };
     const refresh=()=>{
       if(fields)fields.hidden=!toggle.checked;
       selected=new Set(Array.from(fields?.querySelectorAll('input:checked')||[],input=>input.dataset.productImportField));
       if(planCrossUpdates&&!result)plan=planCrossUpdates(toggle?.checked&&selected.size?selected:null);
-      rows=[...entries,...plan.updates,...skipped,...plan.skipped].sort((a,b)=>a.line-b.line);
+      rows=[...entries,...plan.updates,...skipped,...plan.skipped].sort((a,b)=>Number(a.status==='ตรงกัน')-Number(b.status==='ตรงกัน')||a.line-b.line);
+      statusCounts.clear();
+      for(const row of rows)if(row.status)statusCounts.set(row.status,count(row.status)+1);
       page=0;draw();
     };
     toggle?.addEventListener('change',refresh);
@@ -800,7 +826,7 @@ function showProductImportDialog(entries,skipped,{result=false,sourceNames,desti
     const close=value=>{overlay.remove();resolve(value);};
     overlay.querySelector('.modal-close').onclick=()=>close(null);
     overlay.querySelector('#productImportCancel').onclick=()=>close(null);
-    overlay.querySelector('#productImportConfirm')?.addEventListener('click',()=>close({adjustStock:stock.checked,crossPlan:plan}));
+    overlay.querySelector('#productImportConfirm')?.addEventListener('click',()=>close(finishReview?null:{adjustStock:stock.checked,crossPlan:plan}));
     overlay.querySelector('#productImportPrev').onclick=()=>{page--;draw();};
     overlay.querySelector('#productImportNext').onclick=()=>{page++;draw();};
     if(stock) stock.onchange=()=>{page=0;draw();};
