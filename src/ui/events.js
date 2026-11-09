@@ -1153,8 +1153,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       return;
     }
     const target=stockEditDraftStocks[product.id]??product.stock;
-    const displayUnit=productUnitOptions(product).find(unit=>unit.name===stockEditRowUnitSel[product.id]);
-    row.querySelector('[data-stock-count-difference]').innerHTML=stockCountDifferenceHtml(product,target,displayUnit?.factor||1);
+    row.querySelector('[data-stock-count-difference]').innerHTML=stockCountDifferenceHtml(product,target);
     const lotTotal=stockEditLotTotal(product.id);
     const lotDirection=amount=>Math.abs(amount-lotTotal)<0.000001?0:Math.sign(amount-lotTotal);
     if(lotDirection(previous)!==lotDirection(target)){

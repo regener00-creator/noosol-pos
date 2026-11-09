@@ -266,12 +266,12 @@ async function verifyLastInspectionUnits(page){
     rows[0].units=[{sub:'กล่อง',factor:5,price:180,cost:110,barcode:'0055'}];
     rows[0].extraBarcodes=['ALT-019'];
     rows[1].vendorBarcodes=[{code:'VENDOR-007'}];
-    rows[1].units=[{sub:'กล่อง',factor:10,price:399,cost:270,barcode:'0044'},{sub:'ลัง',factor:20,price:700,cost:540,barcode:'0066'}];
+    rows[1].units=[{sub:'กล่อง',factor:10,price:399,cost:270,barcode:'0044'},{sub:'ลัง',factor:40,price:700,cost:540,barcode:'0066'}];
     currentTab='products';activeWarehouseId=1;allWarehousesMode=false;setWarehouseProductCatalog(rows);
     contacts=[{id:901,name:'ชื่อเหมือนกัน',phone:'0801111111',types:['customer','supplier']},
       {id:902,warehouseId:2,name:'ชื่อเหมือนกัน',phone:'0801111111',types:['customer','supplier']}];
     salesRepresentatives=[{id:21,name:'ผู้แทนเดิม'},{id:22,name:'ผู้แทนพรชัย',warehouseId:2}];
-    loadedInventoryBalanceWarehouseIds=new Set([1,2]);inventoryBalanceRows=[{product_id:11,warehouse_id:1,stock:0},{product_id:12,warehouse_id:2,stock:17}];rebuildInventoryBalanceMap();
+    loadedInventoryBalanceWarehouseIds=new Set([1,2]);inventoryBalanceRows=[{product_id:11,warehouse_id:1,stock:0},{product_id:12,warehouse_id:2,stock:63}];rebuildInventoryBalanceMap();
     selectActiveWarehouse(1);render();
     });
   }
@@ -680,15 +680,15 @@ async function verifyLastInspectionUnits(page){
   const stock=page.locator('[data-combined-results] tbody tr').filter({hasText:'Decolgen'});
   assert.equal(await stock.getAttribute('class'),'');
   assert.equal(await stock.locator('select').inputValue(),'ซอง','An exact barcode takes precedence over the saved box unit');
-  assert.deepEqual(await stock.locator('.combined-amount').allTextContents(),['0','17']);
+  assert.deepEqual(await stock.locator('.combined-amount').allTextContents(),['0 ซอง','1 ลัง 2 กล่อง 3 ซอง']);
   assert.deepEqual(await stock.locator('.combined-amount').evaluateAll(cells=>cells.map(cell=>getComputedStyle(cell).textAlign)),['center','center']);
   assert.ok(Math.abs((await stock.boundingBox()).height-regularRowHeight)<=1);
   await page.locator('[data-combined-search]').fill('0044');
   const boxes=page.locator('[data-combined-results] tbody tr');
   assert.match(await boxes.locator('td').first().innerText(),/0055.*0044/);
-  assert.deepEqual(await boxes.locator('.combined-amount').allTextContents(),['0','1.7']);
+  assert.deepEqual(await boxes.locator('.combined-amount').allTextContents(),['0 ซอง','1 ลัง 2 กล่อง 3 ซอง']);
   await boxes.locator('select').selectOption('ซอง');
-  assert.deepEqual(await boxes.locator('.combined-amount').allTextContents(),['0','17']);
+  assert.deepEqual(await boxes.locator('.combined-amount').allTextContents(),['0 ซอง','1 ลัง 2 กล่อง 3 ซอง']);
   await boxes.locator('select').selectOption('ลัง');
   await assertUsesPageWidth();
   await page.locator('[data-combined-search]').fill('0001');
@@ -697,7 +697,7 @@ async function verifyLastInspectionUnits(page){
   await page.locator('[data-combined-search]').fill('Decolgen');
   assert.equal(await stock.locator('select').inputValue(),'ลัง','Scanning must not overwrite a manual preference');
   await page.locator('[data-combined-search]').fill('0022');
-  assert.deepEqual(await page.locator('[data-combined-results] tr').filter({hasText:'0022'}).locator('td').allTextContents(),['0022','—','พรชัยเท่านั้น ซอง','ซอง','—','0']);
+  assert.deepEqual(await page.locator('[data-combined-results] tr').filter({hasText:'0022'}).locator('td').allTextContents(),['0022','—','พรชัยเท่านั้น ซอง','ซอง','—','0 ซอง']);
   const storeColors=cell=>[getComputedStyle(cell).color,getComputedStyle(cell).backgroundColor];
   assert.deepEqual(await page.locator('.only-phonchai td').first().evaluate(storeColors),['rgb(173, 81, 11)','rgba(0, 0, 0, 0)']);
   await page.locator('[data-combined-search]').fill('0033');
@@ -739,10 +739,10 @@ async function verifyLastInspectionUnits(page){
       assert.deepEqual(await row.locator('[data-combined-product-name]').allTextContents(),['Decolgen prin (4 tablets)','ดีคอเจ่น (4 เม็ด)']);
     }
     assert.deepEqual(await row.locator('.combined-pack').allTextContents(),['ขวด = 30 ซอง','กล่อง = 25 ซอง']);
-    assert.deepEqual(await row.locator('.combined-amount').allTextContents(),tab==='products'?['200.00','180.00','160.00','135.00']:['5','6']);
+    assert.deepEqual(await row.locator('.combined-amount').allTextContents(),tab==='products'?['200.00','180.00','160.00','135.00']:['5 ขวด','6 กล่อง']);
     await search.fill('8851824336378');
     assert.deepEqual(await row.locator('.combined-pack').allTextContents(),['ซอง','ซอง']);
-    assert.deepEqual(await row.locator('.combined-amount').allTextContents(),tab==='products'?['8.00','9.00','6.00','7.00']:['150','150']);
+    assert.deepEqual(await row.locator('.combined-amount').allTextContents(),tab==='products'?['8.00','9.00','6.00','7.00']:['5 ขวด','6 กล่อง']);
   }
   await second.close();
   await page.evaluate(()=>{selectActiveWarehouse(2);currentTab='transfer';render();});

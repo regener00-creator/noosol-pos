@@ -99,10 +99,9 @@ function updateStockCountParts(product,host){
   if(stockEditSourceInspectionListId&&total!=null&&total!==Number(product.stock))stockEditSourcePending=true;
   host.querySelector('output').textContent=stockCountTotalText(product,total,parts.invalid);
 }
-function stockCountDifferenceHtml(product,baseStock,factor){
-  const difference=Number(baseStock)-Number(product.stock);
-  const amount=stockUnitAmountFromBase(difference,factor);
-  if(Math.abs(difference)>0.000001)return `<span class="stock-control-difference ${difference>0?'in':'out'}">${amount>0?'+':''}${inspectionListAmount(amount)}</span>`;
+function stockCountDifferenceHtml(product,baseStock){
+  const difference=Number((Number(baseStock)-Number(product.stock)).toFixed(6));
+  if(difference!==0)return `<span class="stock-control-difference ${difference>0?'in':'out'}">${difference>0?'+':''}${escapeHtml(stockInLargestUnit(product,difference))}</span>`;
   return stockEditRequiresReconciliation(product)?'<span class="stock-control-difference out">ปรับ LOT</span>':'-';
 }
 
@@ -116,7 +115,7 @@ function stockEditRowsHtml(rows=stockEditCurrentProducts()){
     const selectedBaseStock=hasDraft?stockEditDraftStocks[p.id]:p.stock;
     const selectedAmount=stockUnitAmountFromBase(selectedBaseStock,selectedOption.factor);
     const differenceBase=Number(selectedBaseStock)-Number(p.stock);
-    const differenceHtml=stockCountDifferenceHtml(p,selectedBaseStock,selectedOption.factor);
+    const differenceHtml=stockCountDifferenceHtml(p,selectedBaseStock);
     const unitHtml=unitOptions.length>1
       ? `<select class="stock-edit-unit-select" tabindex="-1" data-stock-edit-unit="${p.id}">${unitOptions.map(u=>`<option value="${escapeHtml(u.name)}" ${u.name===selectedOption.name?'selected':''}>${escapeHtml(u.name)}</option>`).join('')}</select>`
       : `<span class="stock-edit-unit-fixed">${escapeHtml(p.unit||'-')}</span>`;

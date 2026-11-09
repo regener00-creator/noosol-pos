@@ -89,13 +89,18 @@ function saveFavorites(){
   syncFavoritesToSupabase();
 }
 // แปลงสต็อก (นับเป็นหน่วยหลัก) ให้แสดงเป็นหน่วยใหญ่สุด เช่น 120 แผง -> "1 ลัง 2 กล่อง" (เศษ)
-function stockInLargestUnit(p){
-  const units = (p.units||[]).filter(u=>u.sub && u.factor>0).slice().sort((a,b)=>b.factor-a.factor);
-  let remain = p.stock;
+function stockInLargestUnit(p,amount=p.stock){
+  const stock=Number(Number(amount).toFixed(6));
+  if(!Number.isFinite(stock))return '—';
+  const units = (p.units||[]).filter(u=>u.sub && Number.isFinite(Number(u.factor)) && u.factor>0).slice().sort((a,b)=>b.factor-a.factor);
+  let remain = Math.abs(stock);
   const parts = [];
-  for(const u of units){ const n = Math.floor(remain/u.factor); if(n>0){ parts.push(`${n} ${u.sub}`); remain -= n*u.factor; } }
+  for(const u of units){
+    const n=Math.floor(remain/u.factor);
+    if(n>0){parts.push(`${n} ${u.sub}`);remain=Number((remain-n*u.factor).toFixed(6));}
+  }
   if(remain>0 || parts.length===0) parts.push(`${remain} ${p.unit}`);
-  return parts.join(' ');
+  return (stock<0?'-':'')+parts.join(' ');
 }
 // แตกสต็อกเป็นทุกหน่วย (เต็มจำนวนในแต่ละหน่วย) สำหรับ tooltip/ป๊อปอัป
 function stockAllUnits(p){

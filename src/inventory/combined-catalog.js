@@ -357,9 +357,13 @@ function attachCombinedCatalog(page){
         return `<td><span data-combined-product-name>${escapeHtml(member.product.name)}</span> <span class="combined-pack">${escapeHtml(entry?.label||'—')}</span></td>`;
       }).join('');
       const cells=amountColumns.map(({field,shop})=>{
+        if(field==='stock'){
+          const member=row.members.find(item=>item.warehouse===Number(shop.id));
+          const stock=member?stockInLargestUnit(member.product,warehouseStock(member.product.id,shop.id)):'—';
+          return `<td class="combined-amount">${escapeHtml(stock)}</td>`;
+        }
         const entry=option?.shops.get(Number(shop.id));
-        let value='—';
-        if(entry)value=field==='stock'?inspectionListAmount(warehouseStock(entry.product.id,shop.id)/entry.unit.factor):fmtMoney(entry.unit[field]);
+        const value=entry?fmtMoney(entry.unit[field]):'—';
         return `<td class="combined-amount">${value}</td>`;
       }).join('');
       const only=exclusiveShop(row);
