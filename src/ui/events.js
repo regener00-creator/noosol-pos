@@ -344,10 +344,8 @@ function attachEvents(){
     mobileStockQuery=''; mobileStockLastProductId=null;
     render();
   });
-  const mobileToolsRefresh=document.getElementById('mobileToolsRefresh');
   document.getElementById('mobileNewProduct')?.addEventListener('click',()=>openMobileProductEditor());
   document.getElementById('mobileProductSyncDetails')?.addEventListener('click',openSyncDetailsModal);
-  if(mobileToolsRefresh) mobileToolsRefresh.addEventListener('click',()=>refreshMobileToolsData(mobileToolsRefresh));
   document.getElementById('mobileInstallApp')?.addEventListener('click',requestMobilePwaInstall);
   document.querySelectorAll('[data-mobile-tool]').forEach(button=>button.addEventListener('click',async()=>{
     mobileToolMode=button.dataset.mobileTool;

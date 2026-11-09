@@ -113,8 +113,7 @@ assert.match(mobileStockPanel, /class="mobile-stock-source"><button[^>]+id="mobi
 assert.match(html, /\.mobile-stock-source\{display:grid;grid-template-columns:auto minmax\(0,1fr\);/);
 assert.match(mobileStockPanel, /\$\{mobileStockEditRowsHtml\(\)\}<div class="mobile-stock-confirm-wrap">/);
 assert.doesNotMatch(mobileStockPanel, /reasonHtml|mobile-stock-reason|stockEditReason|stockEditNote|เหตุผลการปรับสต๊อก/);
-assert.match(html, /id="mobileToolsRefresh"/);
-assert.match(html, /refreshMobileToolsData\(mobileToolsRefresh\)/);
+assert.doesNotMatch(html, /id="mobileToolsRefresh"/);
 assert.match(html, /id="mobileDataStatus"/);
 assert.match(html, /id="mobileWarehouseSelect" aria-label="เปลี่ยนสาขา"/);
 assert.match(html, /window\.addEventListener\('online'/);
@@ -137,11 +136,10 @@ assert.ok(mobileToolsRender.indexOf('mobile-tools-head') > mobileToolsRender.ind
 const mobileFooterStart = mobileToolsRender.indexOf('<header class="mobile-tools-head">');
 const mobileFooterEnd = mobileToolsRender.indexOf('</header>', mobileFooterStart);
 const mobileFooter = mobileToolsRender.slice(mobileFooterStart, mobileFooterEnd);
-const mobileLogoutIndex = mobileFooter.indexOf('id="mobileToolsLogout"');
-const mobileRefreshIndex = mobileFooter.indexOf('id="mobileToolsRefresh"');
+const mobileLogoutIndex = mobileFooter.indexOf('id="mobileToolsLogout">LOGOUT</button>');
 const mobileTitleIndex = mobileFooter.indexOf('<h1 class="mobile-warehouse-title">SAPURI • คลัง');
 const mobileLogoIndex = mobileFooter.indexOf('mobile-tools-logo"><img src="/sapuri-brand-screen.webp"');
-assert.ok(mobileLogoutIndex >= 0 && mobileRefreshIndex > mobileLogoutIndex && mobileTitleIndex > mobileRefreshIndex && mobileLogoIndex > mobileTitleIndex);
+assert.ok(mobileLogoutIndex >= 0 && mobileTitleIndex > mobileLogoutIndex && mobileLogoIndex > mobileTitleIndex);
 const mainRenderStart = html.indexOf('function render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){');
 const mainRenderEnd = html.indexOf('function syncTopbarFormActions()', mainRenderStart);
 const mainRender = html.slice(mainRenderStart, mainRenderEnd);

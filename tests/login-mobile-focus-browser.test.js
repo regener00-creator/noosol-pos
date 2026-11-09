@@ -61,6 +61,15 @@ const executable=['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','
   await page.locator('#warehouseChoiceForm [type="submit"]').click();
   await page.locator('.mobile-warehouse-title').waitFor();
   assert.match(await page.locator('.mobile-warehouse-title').innerText(),/^SAPURI • คลังพระยาสุเรนทร์/);
+  for(const width of [320,390]){
+    await page.setViewportSize({width,height:844});
+    const size=await page.locator('.mobile-warehouse-title').evaluate(title=>({
+      text:title.scrollWidth,width:title.clientWidth,height:title.clientHeight,line:parseFloat(getComputedStyle(title).lineHeight)
+    }));
+    assert.ok(size.text<=size.width && size.height<=Math.ceil(size.line),`Warehouse heading at ${width}px: ${JSON.stringify(size)}`);
+  }
+  assert.equal(await page.locator('#mobileToolsLogout').innerText(),'LOGOUT');
+  assert.equal(await page.locator('#mobileToolsRefresh').count(),0);
   assert.equal(await page.locator('.mobile-user-line').innerText(),'กรธวัช จันทรวารี');
   const dot=page.locator('#mobileDataStatus');
   assert.equal(await dot.innerText(),'');
