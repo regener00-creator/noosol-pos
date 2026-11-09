@@ -29,6 +29,10 @@ let browser;
     products=Array.from({length:12},(_,i)=>({id:i+1,sku:String(50000+i),name:`สินค้าผิดปกติ ${i+1}`,unit:'กล่อง',stock:-2,units:[],active:true}));
     products.push({id:99,sku:'EXISTING',name:'รายการที่กรอกไว้',unit:'กล่อง',stock:5,units:[],active:true});
     products[1].units=[{sub:'ลัง',factor:10}];
+    for(const product of products.filter(p=>p.id===11||p.id===12)){
+      product.unit='ซอง';product.units=[{sub:'กล่อง',factor:25},{sub:'ลัง',factor:500}];
+      product.stock=product.id===11?1105:-1105;
+    }
     warehouseStock=id=>products.find(product=>product.id===Number(id))?.stock||0;
     inventoryLotRows=[{id:101,product_id:1,warehouse_id:1,quantity_base:1,status:'active',expiry_date:'2020-01-01'},
       {id:199,product_id:99,warehouse_id:1,quantity_base:5,status:'active',expiry_date:'2035-01-01'}];
@@ -47,6 +51,10 @@ let browser;
   assert.ok(widths[0]>1400 && widths.every(width=>Math.abs(width-widths[0])<2),'Count controls and report use the full branch workspace');
   await page.setViewportSize({width:1440,height:960});
   assert.equal(await rows.count(),13);
+  for(const [id,expected] of [[11,'2 ลัง 4 กล่อง 5 ซอง'],[12,'-2 ลัง 4 กล่อง 5 ซอง']]){
+    const row=page.locator('tr').filter({has:page.locator(`[data-stock-control-review="${id}"]`)});
+    assert.equal(await row.locator('td').nth(5).innerText(),expected);
+  }
   assert.equal(await page.locator('#stockControlReviewAll').innerText(),'เปิดตรวจนับทั้งหมด (12)');
   assert.equal(await page.locator('#stockControlReviewSelected').isDisabled(),true);
   const firstProduct=page.locator('[data-stock-control-anomaly-select="1"]');
