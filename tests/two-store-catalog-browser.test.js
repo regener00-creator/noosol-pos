@@ -610,11 +610,13 @@ async function verifyLastInspectionUnits(page){
   assert.equal(await dec.count(),1);
   const priceHead=page.locator('[data-combined-results] thead');
   assert.deepEqual(await priceHead.locator('th[scope="colgroup"]').evaluateAll(cells=>cells.map(th=>[th.textContent,th.colSpan])),
-    [['ราคาขาย',2],['ทุน',2]]);
+    [['ขาย',2],['ทุน',2]]);
   assert.deepEqual(await priceHead.locator('tr:nth-child(2) th').allTextContents(),
     ['พระยาสุเรนทร์','พรชัย','พระยาสุเรนทร์','พรชัย','พระยาสุเรนทร์','พรชัย']);
   assert.equal(await dec.locator('select option:checked').innerText(),'ซอง');
   assert.deepEqual(await dec.locator('.combined-amount').allTextContents(),['40.00','45.00','22.00','28.00']);
+  assert.deepEqual(await dec.locator('.combined-amount').evaluateAll(cells=>cells.map(cell=>getComputedStyle(cell).color)),
+    ['rgb(121, 70, 164)','rgb(173, 81, 11)','rgb(121, 70, 164)','rgb(173, 81, 11)']);
   assert.deepEqual(await dec.locator('.combined-amount').evaluateAll(cells=>cells.map(cell=>getComputedStyle(cell).textAlign)),Array(4).fill('center'));
   await dec.locator('select').selectOption('กล่อง');
   assert.match(await dec.locator('td.combined-barcode').innerText(),/พระยาสุเรนทร์: 0055.*พรชัย: 0044/);

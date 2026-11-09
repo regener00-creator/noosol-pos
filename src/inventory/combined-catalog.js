@@ -219,7 +219,7 @@ function attachCombinedCatalog(page){
   const categories=page.querySelector('[data-combined-categories]'),brands=page.querySelector('[data-combined-brands]');
   const search=page.querySelector('[data-combined-search]');
   const stockOnly=page.dataset.combinedStock==='true';
-  const metrics=stockOnly?[['stock','คงเหลือ']]:[['price','ราคาขาย'],['cost','ทุน']];
+  const metrics=stockOnly?[['stock','คงเหลือ']]:[['price','ขาย'],['cost','ทุน']];
   const amountColumns=metrics.flatMap(([field])=>shops.map(shop=>({field,shop})));
   const shopHeaders=shops.map(shop=>`<th scope="col">${escapeHtml(shop.name)}</th>`).join('');
   const headers=metrics.map(([,label])=>`<th scope="colgroup" colspan="${shops.length}">${label}</th>`).join('');
@@ -364,7 +364,8 @@ function attachCombinedCatalog(page){
         }
         const entry=option?.shops.get(Number(shop.id));
         const value=entry?fmtMoney(entry.unit[field]):'—';
-        return `<td class="combined-amount">${value}</td>`;
+        const shopAttribute=entry&&!shopFilter?` data-amount-shop="${escapeHtml(shop.name)}"`:'';
+        return `<td class="combined-amount"${shopAttribute}>${value}</td>`;
       }).join('');
       const only=exclusiveShop(row);
       const color=only==='พรชัย'?'only-phonchai':only==='พระยาสุเรนทร์'?'only-phraya':'';
