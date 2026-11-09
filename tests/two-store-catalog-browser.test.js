@@ -183,6 +183,14 @@ async function verifyLastInspectionUnits(page){
     selectActiveWarehouse(2);render();
   });
   const picker=page.locator('#mobileWarehouseSelect');
+  for(const width of [320,390]){
+    await page.setViewportSize({width,height:844});
+    const warehouse=await picker.boundingBox();
+    const status=await page.locator('#mobileDataStatus').boundingBox();
+    assert.ok(warehouse.x>=0 && warehouse.x+warehouse.width<=status.x && status.width>0 && status.x+status.width<=width);
+    assert.ok(Math.abs(warehouse.y+warehouse.height/2-status.y-status.height/2)<1);
+    assert.ok((await page.locator('.mobile-tools-head').boundingBox()).height<=84);
+  }
   await page.evaluate(()=>{ stockEditDraftStocks[200]=7; });
   page.once('dialog',dialog=>dialog.dismiss());
   await picker.selectOption('1');
