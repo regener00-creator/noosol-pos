@@ -211,7 +211,7 @@ const mobilePriceEditable = mobilePriceResult.slice(mobilePriceEditableStart, mo
 const mobilePriceEditableSaleIndex = mobilePriceEditable.indexOf('mobilePriceEditSale');
 const mobilePriceEditableCostIndex = mobilePriceEditable.indexOf('mobilePriceEditCost');
 const mobilePriceEditableUnitIndex = mobilePriceEditable.indexOf('mobile-unit-select');
-const mobilePriceEditableLotIndex = mobilePriceEditable.indexOf('mobile-price-lot-field');
+const mobilePriceEditableLotIndex = mobilePriceEditable.indexOf('id="mobilePriceLot"');
 assert.ok(mobilePriceNameIndex >= 0 && mobilePriceStockIndex > mobilePriceNameIndex);
 assert.ok(mobilePriceEditableSaleIndex >= 0 && mobilePriceEditableCostIndex > mobilePriceEditableSaleIndex && mobilePriceEditableUnitIndex > mobilePriceEditableCostIndex && mobilePriceEditableLotIndex > mobilePriceEditableUnitIndex);
 const mobilePriceReadonlyStart = mobilePriceResult.indexOf('<div class="mobile-metrics">');
