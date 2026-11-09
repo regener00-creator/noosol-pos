@@ -479,6 +479,12 @@ async function verifyLastInspectionUnits(page){
   await page.locator('#newWarehouseBtn').click();
   const passwordDialog=page.locator('.warehouse-password-dialog');
   await passwordDialog.locator('input').fill('wrong');
+  for(const type of ['text','password']){
+    await passwordDialog.locator('.password-eye-btn').click();
+    assert.equal(await passwordDialog.locator('input').getAttribute('type'),type);
+    assert.equal(await passwordDialog.locator('input').inputValue(),'wrong');
+    assert.equal(await passwordDialog.isVisible(),true);
+  }
   await passwordDialog.locator('[type="submit"]').click();
   await passwordDialog.getByRole('alert').waitFor();
   assert.equal(await page.locator('#wh_name').count(),0);

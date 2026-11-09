@@ -173,25 +173,6 @@ function attachProductResultEvents(root=document){
   }));
 }
 
-function bindPasswordVisibilityToggles(root=document){
-  root.querySelectorAll('[data-toggle-password]').forEach(button=>{
-    if(button.dataset.passwordToggleBound==='1') return;
-    button.dataset.passwordToggleBound='1';
-    button.addEventListener('click',()=>{
-      const input=document.getElementById(button.dataset.togglePassword);
-      if(!input) return;
-      const showing=input.type==='password';
-      input.type=showing?'text':'password';
-      button.classList.toggle('showing-password',showing);
-      const subject=button.dataset.passwordLabel||'Password';
-      const label=`${showing?'ซ่อน':'แสดง'}${/^[A-Za-z]/.test(subject)?' ':''}${subject}`;
-      button.setAttribute('aria-label',label);
-      button.title=label;
-      input.focus();
-    });
-  });
-}
-
 function attachEvents(){
   const combinedCatalog=document.querySelector('.combined-catalog');
   if(combinedCatalog)attachCombinedCatalog(combinedCatalog);
@@ -612,7 +593,6 @@ function attachEvents(){
     });
   });
   document.getElementById('mobileConfirmStockEdit')?.addEventListener('click',confirmMobileStockEditChanges);
-  bindPasswordVisibilityToggles();
   bindPOSAddActions();
   const addCustomItemBtn=document.getElementById('addCustomItemBtn');
   if(addCustomItemBtn) addCustomItemBtn.addEventListener('click',addBlankCustomCartLine);

@@ -221,7 +221,7 @@ function reauthenticateOfflineSales(){
   const username=offlinePosAccount?.username||currentProfile?.username;
   if(!username) return;
   const overlay=document.createElement('div');overlay.className='modal-overlay';
-  overlay.innerHTML=`<section class="modal"><div class="modal-head"><h3>เข้าสู่ระบบเพื่อส่งบิลค้าง</h3><button class="modal-close">×</button></div><form style="padding:18px"><label>รหัสผ่านของ ${escapeHtml(username)} <span class="password-key-field"><input type="password" required autocomplete="current-password"></span></label><p role="alert"></p><button class="btn primary" type="submit">เข้าสู่ระบบและซิงก์</button></form></section>`;
+  overlay.innerHTML=`<section class="modal"><div class="modal-head"><h3>เข้าสู่ระบบเพื่อส่งบิลค้าง</h3><button class="modal-close">×</button></div><form style="padding:18px"><label>รหัสผ่านของ ${escapeHtml(username)} <span class="password-input-wrap"><input id="offlineSyncPassword" type="password" required autocomplete="current-password">${passwordEyeButton('offlineSyncPassword')}</span></label><p role="alert"></p><button class="btn primary" type="submit">เข้าสู่ระบบและซิงก์</button></form></section>`;
   document.body.appendChild(overlay);overlay.querySelector('.modal-close').onclick=()=>overlay.remove();
   overlay.querySelector('form').onsubmit=async event=>{
     event.preventDefault();const button=overlay.querySelector('[type=submit]');button.disabled=true;
