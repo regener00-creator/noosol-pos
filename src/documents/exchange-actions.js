@@ -3,7 +3,6 @@ function syncProductExchangeFromDOM(){
   const date=document.getElementById('productExchangeDate');
   if(date){ const raw=date.value.trim(); draft.date=raw?(dmyToISO(raw)||raw):''; }
   const supplier=document.getElementById('productExchangeSupplier'); if(supplier) draft.supplier=supplier.value;
-  const warehouse=document.getElementById('productExchangeWarehouse'); if(warehouse) draft.warehouseId=Number(warehouse.value)||0;
   const note=document.getElementById('productExchangeNote'); if(note) draft.note=note.value;
   ['outgoing','incoming'].forEach(side=>{
     const rows=[...document.querySelectorAll(`[data-product-exchange-row="${side}"]`)];

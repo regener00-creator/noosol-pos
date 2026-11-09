@@ -125,7 +125,7 @@ function renderPOForm(kind='po'){
         <div class="crow"><label>ที่อยู่</label><div class="po-addr">${supplierObj?escapeHtml(supplierObj.address||'-'):'(เลือกผู้จำหน่ายเพื่อแสดงที่อยู่)'}</div></div>
         <div class="crow"><label>เลขผู้เสียภาษี</label><div class="po-addr mono">${supplierObj?escapeHtml(supplierObj.taxId||'-'):'-'}</div></div>
         ${kind==='gr'?'<div class="goods-receipt-tax-row">':''}
-        ${kind==='gr'?`<div class="crow"><label>รับเข้าคลัง / สาขา <span class="req">*</span></label><select id="po_warehouse" ${po.stockApplied===true?'disabled':''}><option value="">เลือกคลัง / สาขา</option>${accessibleWarehouses().filter(w=>Number(w.id)===activeWarehouseId).map(warehouse=>`<option value="${warehouse.id}" ${Number(po.warehouseId)===Number(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>`:''}
+        ${kind==='gr'?`<div class="crow"><label>รับเข้าคลัง / สาขา <span class="req">*</span></label><span id="po_warehouse">${escapeHtml(whName(Number(po.warehouseId)||activeWarehouseId))}</span></div>`:''}
         <div class="crow"><label>ภาษีในเอกสาร</label><select id="po_tax_mode"><option value="incl" ${po.taxMode==='incl'?'selected':''}>ราคารวม VAT แล้ว</option><option value="excl" ${po.taxMode==='excl'?'selected':''}>ราคายังไม่รวม VAT</option><option value="none" ${po.taxMode==='none'?'selected':''}>ไม่มี VAT</option></select></div>
         <div class="crow"><label>เลขที่ใบกำกับภาษีผู้จำหน่าย</label><input id="po_supplier_tax_invoice_no" value="${escapeHtml(po.supplierTaxInvoiceNo||'')}" placeholder="กรอกเมื่อได้รับใบกำกับภาษี"></div>
         <div class="crow"><label>วันที่ใบกำกับภาษี</label><input id="po_supplier_tax_invoice_date" class="dmy-input" value="${escapeHtml(isoToDMY(po.supplierTaxInvoiceDate))}" placeholder="วว/ดด/ปปปป" inputmode="numeric" maxlength="10" autocomplete="off"></div>
@@ -296,7 +296,7 @@ function renderProductReturnForm(po,isNew){
         <div class="crow"><label>เลขผู้เสียภาษี</label><div class="po-addr mono">${supplierObj?escapeHtml(supplierObj.taxId||'-'):'-'}</div></div>
       </div>
       <div class="po-head-right">
-        <div class="crow"><label>คืนจากคลัง / สาขา <span class="req">*</span></label><select id="po_warehouse" ${locked?'disabled':''}><option value="">เลือกคลัง / สาขา</option>${accessibleWarehouses().filter(w=>Number(w.id)===activeWarehouseId).map(warehouse=>`<option value="${warehouse.id}" ${Number(po.warehouseId)===Number(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>
+        <div class="crow"><label>คืนจากคลัง / สาขา <span class="req">*</span></label><span id="po_warehouse">${escapeHtml(whName(Number(po.warehouseId)||activeWarehouseId))}</span></div>
         <div class="crow"><label>วันที่</label>${dmyDateFieldHtml('po_date',po.date||TODAY_STR)}</div>
       </div>
     </div>

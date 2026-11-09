@@ -783,11 +783,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(saveInspectionListBtn) saveInspectionListBtn.addEventListener('click',saveInspectionListDraft);
   const inspectionListName=document.getElementById('inspectionListName');
   if(inspectionListName) inspectionListName.addEventListener('input',()=>{ if(inspectionListDraft) inspectionListDraft.name=inspectionListName.value; });
-  const inspectionListWarehouse=document.getElementById('inspectionListWarehouse');
   const inspectionListCategory=document.getElementById('inspectionListCategory');
   const inspectionListBrand=document.getElementById('inspectionListBrand');
   const inspectionListAddCategoryBtn=document.getElementById('inspectionListAddCategoryBtn');
-  if(inspectionListWarehouse) inspectionListWarehouse.addEventListener('change',()=>{ inspectionListCatFilter.wh=inspectionListWarehouse.value; if(inspectionListDraft) inspectionListDraft.warehouseId=Number(inspectionListWarehouse.value)||Number(activeWarehouseId); inspectionListPage=1; render(); });
   if(inspectionListCategory) inspectionListCategory.addEventListener('change',()=>{ inspectionListCatFilter.category=inspectionListCategory.value; inspectionListCatFilter.brand=''; render(); });
   if(inspectionListBrand) inspectionListBrand.addEventListener('change',()=>{ inspectionListCatFilter.brand=inspectionListBrand.value; render(); });
   if(inspectionListAddCategoryBtn) inspectionListAddCategoryBtn.addEventListener('click',()=>openInspectionListCategoryPicker(inspectionListCatFilter));
@@ -2056,12 +2054,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   }));
   document.querySelectorAll('.product-exchange-unit').forEach(select=>select.addEventListener('change',()=>{ syncProductExchangeFromDOM(); render(); }));
   document.querySelectorAll('.product-exchange-qty').forEach(input=>input.addEventListener('change',()=>{ syncProductExchangeFromDOM(); render(); }));
-  const exchangeWarehouse=document.getElementById('productExchangeWarehouse');
-  if(exchangeWarehouse) exchangeWarehouse.addEventListener('change',()=>{
-    const draft=activeProductExchangeDraft(),next=Number(exchangeWarehouse.value)||0;
-    if((draft.outgoingItems.length||draft.incomingItems.length)&&!confirm('เปลี่ยนคลังแล้วรายการสินค้าที่เลือกไว้จะถูกล้าง ยืนยันหรือไม่?')){ exchangeWarehouse.value=String(draft.warehouseId||''); return; }
-    draft.warehouseId=next; draft.outgoingItems=[]; draft.incomingItems=[]; render();
-  });
   bindProductExchangeScanners();
   document.querySelectorAll('[data-act="editpo"]').forEach(el=>{ el.addEventListener('click', ()=>{ editingPOId=el.dataset.id; poDraft=null; poSupplierEditorOpen=false; poRepresentativeEditorId=null; render(); }); });
   document.querySelectorAll('[data-act="printpo"]').forEach(el=>{ el.addEventListener('click', ()=>printPO(el.dataset.id)); });
@@ -2097,19 +2089,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const poSupplier = document.getElementById('po_supplier');
   document.querySelectorAll('[data-document-party]').forEach(trigger=>trigger.addEventListener('click',()=>openDocumentPartyPicker(trigger)));
   if(poSupplier) poSupplier.addEventListener('change', ()=>{ syncPOFromDOM(); poSupplierEditorOpen=false; poRepresentativeEditorId=null; render(); });
-  const poWarehouse=document.getElementById('po_warehouse');
-  if(poWarehouse) poWarehouse.addEventListener('change',()=>{
-    const draft=activePurchaseDraft(),previous=Number(draft?.warehouseId)||0,next=Number(poWarehouse.value)||0;
-    if(next===previous) return;
-    if((draft?.items||[]).some(item=>item.name)&&!confirm('เปลี่ยนสาขาแล้วรายการสินค้าที่เลือกไว้จะถูกล้าง ยืนยันหรือไม่?')){
-      poWarehouse.value=previous?String(previous):'';
-      return;
-    }
-    syncPOFromDOM();
-    draft.warehouseId=next;
-    draft.items=[{name:'',qty:1,unit:'',price:''}];
-    render();
-  });
   const newPORepBtn=document.getElementById('newPORepBtn');
   if(newPORepBtn) newPORepBtn.addEventListener('click',()=>{ syncPOFromDOM(); poRepresentativeEditorId='new'; render(); });
   const editPORepBtn=document.getElementById('editPORepBtn');
@@ -2203,8 +2182,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   ['saveTransferBtn','saveTransferBottomBtn'].forEach(id=>{ const btn=document.getElementById(id); if(btn) btn.addEventListener('click',async()=>{ await saveTransfer(false); }); });
   const addTransferItemBtn=document.getElementById('addTransferItemBtn');
   if(addTransferItemBtn) addTransferItemBtn.addEventListener('click',()=>{ syncTransferFromDOM(); activeTransferDraft().items.push(blankTransferItem()); render(); });
-  const transferFrom=document.getElementById('transfer_from');
-  if(transferFrom) transferFrom.addEventListener('change',()=>{ syncTransferFromDOM(); render(); });
   const transferTo=document.getElementById('transfer_to');
   if(transferTo) transferTo.addEventListener('change',syncTransferFromDOM);
   bindTransferItemEvents();

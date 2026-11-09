@@ -41,7 +41,7 @@ let browser;
     coverage.push({label,fields:result.fields});findings.push(...result.found.map(row=>({label,...row})));
     if(process.env.PEPOS_CAPTURE_FOCUS&&['mac:POS:cart','mac:medicine-label','mac:inspection:1000'].includes(label)){
       fs.mkdirSync(path.resolve(__dirname,'../outputs'),{recursive:true});
-      const selector=label.endsWith('cart')?'#search':label.endsWith('medicine-label')?'.medicine-label-meal-row input':'#inspectionListWarehouse';
+      const selector=label.endsWith('cart')?'#search':label.endsWith('medicine-label')?'.medicine-label-meal-row input':'#inspectionListCategory';
       await page.locator(selector).first().focus();
       await page.screenshot({path:path.resolve(__dirname,'../outputs/focus-'+label.replaceAll(':','-')+'.png')});
     }

@@ -41,6 +41,10 @@ async function verifyPurchaseAndStockLabels(page){
           render();
         },screen);
         const input=page.locator(purchase?'#docProductScanner':'#stockEditInput');
+        if(screen==='goodsreceipt'||screen==='productreturn'){
+          assert.equal(await page.locator('select#po_warehouse').count(),0);
+          assert.equal(await page.evaluate(()=>activePurchaseDraft().warehouseId),store);
+        }
         const choices=page.locator(purchase?'#docScanResults .doc-scan-result':'#stockEditResults [data-stock-edit-result]');
         await input.fill(prefix+'00000000001');
         assert.equal(await choices.count(),prefix===own?1:0,`${screen}/${store}: ${prefix} candidates`);

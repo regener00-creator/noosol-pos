@@ -132,7 +132,6 @@ function renderInspectionListEditor(){
       <div class="inspection-list-editor-toolbar">
         <div class="inspection-list-name-field"><label for="inspectionListName">ชื่อรายการ *</label><input id="inspectionListName" class="inspection-list-name-input" value="${escapeHtml(draft.name||'')}" placeholder="เช่น รายการตรวจสินค้าหน้าร้าน"></div>
         <div class="rpt-filters inspection-list-editor-filters">
-          <div class="rpf-item"><select id="inspectionListWarehouse" class="rpt-select" aria-label="คลังสินค้า">${reportingWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(draft.warehouseId||filter.wh||activeWarehouseId)===String(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>
           <div class="rpf-item"><select id="inspectionListCategory" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(category=>`<option value="${escapeHtml(category)}" ${filter.category===category?'selected':''}>${escapeHtml(category)}</option>`).join('')}</select></div>
           <div class="rpf-item"><select id="inspectionListBrand" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(brand=>`<option value="${escapeHtml(brand)}" ${filter.brand===brand?'selected':''}>${escapeHtml(brand)}</option>`).join('')}</select></div>
           <button class="btn ghost" id="inspectionListAddCategoryBtn" ${(filter.category||filter.brand)?'':'disabled'}>เลือกสินค้าในหมวดนี้${(filter.category||filter.brand)?` (${matchCount})`:''}</button>

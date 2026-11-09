@@ -89,6 +89,27 @@ function saveFavorites(){
   syncFavoritesToSupabase();
 }
 // แปลงสต็อก (นับเป็นหน่วยหลัก) ให้แสดงเป็นหน่วยใหญ่สุด เช่น 120 แผง -> "1 ลัง 2 กล่อง" (เศษ)
+function stockReportQuantityText(product,stock){
+  const quantity=Number(stock);
+  if(!Number.isFinite(quantity)) return '-';
+  const units=[{name:product?.unit||'หน่วย',factor:1},...(product?.units||[]).map(unit=>({name:unit.sub,factor:Number(unit.factor)}))]
+    .filter(unit=>unit.name&&Number.isFinite(unit.factor)&&unit.factor>0)
+    .sort((a,b)=>b.factor-a.factor);
+  const round=value=>Math.round(value*1e6)/1e6;
+  const format=value=>value.toLocaleString('th-TH',{maximumFractionDigits:6});
+  let remaining=round(Math.abs(quantity));
+  if(!remaining) return `0 ${product?.unit||'หน่วย'}`;
+  const parts=[];
+  units.forEach((unit,index)=>{
+    const ratio=round(remaining/unit.factor);
+    const amount=index===units.length-1?ratio:Math.floor(ratio);
+    if(amount>0){
+      parts.push(`${format(amount)} ${unit.name}`);
+      remaining=round(Math.max(0,remaining-amount*unit.factor));
+    }
+  });
+  return (quantity<0?'-':'')+parts.join(' ');
+}
 function stockInLargestUnit(p,amount=p.stock){
   const stock=Number(Number(amount).toFixed(6));
   if(!Number.isFinite(stock))return '—';

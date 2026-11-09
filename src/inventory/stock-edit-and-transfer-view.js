@@ -177,7 +177,7 @@ function renderTransferForm(){
       <div class="transfer-meta">
         <div class="transfer-meta-fields">
           <label for="transfer_date">วันที่</label>${dmyDateFieldHtml('transfer_date',draft.date)}
-          <label for="transfer_from">คลังต้นทาง *</label><select id="transfer_from"><option value="">กรุณาระบุคลังต้นทาง</option>${warehouses.map(w=>`<option value="${w.id}" ${Number(draft.fromId)===Number(w.id)?'selected':''}>${escapeHtml(w.name)}</option>`).join('')}</select>
+          <span>คลังต้นทาง</span><span>${escapeHtml(whName(Number(draft.fromId)||activeWarehouseId))}</span>
           <label for="transfer_by">ผู้ขอโอน</label><input id="transfer_by" value="${escapeHtml(draft.transferor||'')}">
           <label for="transfer_to">คลังปลายทาง *</label><select id="transfer_to"><option value="">กรุณาระบุคลังปลายทาง</option>${warehouses.map(w=>`<option value="${w.id}" ${Number(draft.toId)===Number(w.id)?'selected':''}>${escapeHtml(w.name)}</option>`).join('')}</select>
         </div>

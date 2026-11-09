@@ -18,6 +18,7 @@ const context={
   escapeHtml:value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')
 };
 vm.createContext(context);
+vm.runInContext(source.slice(source.indexOf('function stockReportQuantityText('),source.indexOf('function stockInLargestUnit(')),context);
 vm.runInContext(source.match(/^function fmtFavoritePrice\([^\n]*\)\{[\s\S]*?^\}/m)[0],context);
 vm.runInContext(source.slice(source.indexOf('function stockReportProductMatchesFilter('),source.indexOf('function renderBusinessSettings(')),context);
 
@@ -27,7 +28,7 @@ assert.equal(context.stockReportProductMatchesFilter({category:'ยา',brand:'A
 assert.equal(context.stockReportQuantityText(product,237),'2 กล่อง 3 แผง 7 เม็ด');
 assert.equal(context.stockReportQuantityText(product,200),'2 กล่อง');
 assert.equal(context.stockReportQuantityText(product,0),'0 เม็ด');
-assert.equal(context.stockReportQuantityText(product,-237),'-2 กล่อง -3 แผง -7 เม็ด');
+assert.equal(context.stockReportQuantityText(product,-237),'-2 กล่อง 3 แผง 7 เม็ด');
 assert.equal(context.stockReportQuantityText(product,237.5),'2 กล่อง 3 แผง 7.5 เม็ด');
 assert.equal(context.stockReportQuantityText({unit:'กล่อง',units:[{sub:'เม็ด',factor:.01},{sub:'แผง',factor:.1}]},1.27),'1 กล่อง 2 แผง 7 เม็ด','base unit can be larger than subunits');
 assert.equal(context.stockReportQuantityText({unit:'ขวด'},3.25),'3.25 ขวด');

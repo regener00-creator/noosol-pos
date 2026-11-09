@@ -2333,6 +2333,7 @@
   .stock-control-tab.active{background:#fff;color:var(--primary);box-shadow:0 2px 8px #684A411A;}
   .stock-control-tab-count{min-width:24px;height:24px;padding:0 7px;border-radius:999px;background:#E9DEDA;color:#654A42;display:inline-flex;align-items:center;justify-content:center;font-size:12px;}
   .stock-control-tab.active .stock-control-tab-count{background:#F2EAE7;color:var(--primary);}
+  .stock-control-page .stock-control-tabs,.stock-control-content>.rpt{width:100%;max-width:none;box-sizing:border-box}
   .stock-control-content>.rpt{padding:0;}
   .stock-control-content>.rpt>.pagehead{margin-top:0;}
   .stock-control-page .inspection-list-status.pending{background:#FFF3D7;color:#966B13;}

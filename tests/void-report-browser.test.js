@@ -32,7 +32,7 @@ let browser;
   assert.equal(await page.locator('#topbarFormActions #voidReportPrint').count(),1);
   assert.equal(await page.locator('#topbarFormActions #voidReportExcel').count(),1);
   assert.equal(await page.locator('#voidReportFilters .rpf-range .dmy-field').count(),2);
-  for(const selector of ['#voidReportFrom','#voidReportTo','#voidReportWarehouse','#voidReportSearch']){
+  for(const selector of ['#voidReportFrom','#voidReportTo','#voidReportSearch']){
     await page.locator(selector).focus();
     const bounds=await page.locator(selector).evaluate(el=>{const field=el.getBoundingClientRect(),form=el.closest('form').getBoundingClientRect(),style=getComputedStyle(el);return {top:field.top-form.top,bottom:form.bottom-field.bottom,ring:Math.max(0,parseFloat(style.outlineWidth)+parseFloat(style.outlineOffset)),scrollTop:el.closest('form').scrollTop};});
     assert.ok(bounds.top>=Math.max(4,bounds.ring)&&bounds.bottom>=Math.max(4,bounds.ring),'focused control must leave room for its whole outline');
@@ -49,7 +49,7 @@ let browser;
   assert.equal(sheet.getCell('F7').value,'<img src=x onerror="window.xss=true">');
   if(process.env.PEPOS_CAPTURE_REPORT){await fs.promises.mkdir(path.resolve(__dirname,'../outputs'),{recursive:true});await page.screenshot({path:path.resolve(__dirname,'../outputs/void-report.png')});}
   await page.locator('#voidReportNext').click();assert.equal(await page.locator('[data-void-report-detail]').count(),1);
-  await page.locator('#voidReportWarehouse').selectOption('1');await page.locator('#voidReportFilters button[type=submit]').click();
+  assert.equal(await page.locator('#voidReportWarehouse').count(),0);await page.locator('#voidReportFilters button[type=submit]').click();
   assert.match(await page.locator('.void-report-summary').innerText(),/51 บิล/);
   await page.locator('#voidReportSearch').fill('RE-0');await page.locator('#voidReportFilters button[type=submit]').click();
   assert.equal(await page.locator('[data-void-report-detail]').count(),1);

@@ -132,7 +132,6 @@ function syncTransferFromDOM(){
   const get=id=>document.getElementById(id);
   if(get('transfer_date')){ const iso=dmyToISO(get('transfer_date').value); draft.date=iso||TODAY_STR; }
   if(get('transfer_by')) draft.transferor=get('transfer_by').value.trim();
-  if(get('transfer_from')) draft.fromId=Number(get('transfer_from').value)||'';
   if(get('transfer_to')) draft.toId=Number(get('transfer_to').value)||'';
   if(get('transfer_note')) draft.note=get('transfer_note').value;
   if(get('transfer_internal_note')) draft.internalNote=get('transfer_internal_note').value;

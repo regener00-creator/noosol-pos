@@ -164,7 +164,7 @@ function lowTh(table, key, label, alignRight){
 }
 const LOWSTOCK_PAGE_SIZE = 10;
 function renderLowStock(){
-  lowStockPageFilter.stockWarehouse=normalizeInventoryReportWarehouseValue(lowStockPageFilter.stockWarehouse);
+  lowStockPageFilter.stockWarehouse=isAllWarehousesMode()?normalizeInventoryReportWarehouseValue(lowStockPageFilter.stockWarehouse):String(activeWarehouseId);
   const allRows=lowStockReportRows();
   const filteredRows=allRows.filter(row=>lowStockReportRowMatches(row));
   const lowCount=allRows.filter(row=>lowStockReportRowMatches(row,'low')).length;
@@ -185,7 +185,7 @@ function renderLowStock(){
       <div class="low-stock-summary-card ${lowStockPageFilter.stockMode==='low'?'active':''}"><button type="button" class="low-stock-summary-card-select" data-lowstock-mode="low"><span>สินค้าต่ำกว่าเกณฑ์</span><b>${lowCount}</b></button><label class="low-stock-threshold-field"><span>ต่ำกว่า</span><input id="lowStockThresholdInput" class="no-spin" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(lowStockPageFilter.stockThreshold)}" aria-label="จำนวนคงเหลือที่ถือว่าใกล้หมด"><span>ชิ้น</span></label></div>
       <div class="low-stock-summary-card out ${lowStockPageFilter.stockMode==='out'?'active':''}"><button type="button" class="low-stock-summary-card-select" data-lowstock-mode="out"><span>สินค้าเป็นศูนย์</span><b>${outCount}</b></button></div>
       <div class="low-stock-summary-card negative ${lowStockPageFilter.stockMode==='negative'?'active':''}"><button type="button" class="low-stock-summary-card-select" data-lowstock-mode="negative"><span>สินค้าติดลบ</span><b>${negativeCount}</b></button></div>
-      <label class="low-stock-filter-field"><span class="low-stock-filter-label">คลังสินค้าที่แสดง</span><select id="lowStockWarehouseFilter" aria-label="เลือกคลังสินค้า"><option value="all" ${lowStockPageFilter.stockWarehouse==='all'?'selected':''}>ทุกคลัง</option>${warehouseOptions}</select></label>
+      ${isAllWarehousesMode()?`<label class="low-stock-filter-field"><span class="low-stock-filter-label">คลังสินค้าที่แสดง</span><select id="lowStockWarehouseFilter" aria-label="เลือกคลังสินค้า"><option value="all" ${lowStockPageFilter.stockWarehouse==='all'?'selected':''}>ทุกคลัง</option>${warehouseOptions}</select></label>`:''}
     </div>
     <div class="doc-list-wrap seamless-table-wrap lowstock-table-scroll">
     <table class="low-table doc-head-blue low-stock-report-table"><thead><tr>${lowTh('stock','sku','รหัสสินค้า')}${lowTh('stock','name','สินค้า')}${lowTh('stock','stock','คงเหลือ',true)}${lowTh('stock','unit','หน่วย')}${lowTh('stock','wh','คลัง')}<th>สถานะ</th></tr></thead>
@@ -197,7 +197,7 @@ function renderLowStock(){
 }
 
 function renderExpiry(){
-  lowStockPageFilter.expiryWarehouse=normalizeInventoryReportWarehouseValue(lowStockPageFilter.expiryWarehouse);
+  lowStockPageFilter.expiryWarehouse=isAllWarehousesMode()?normalizeInventoryReportWarehouseValue(lowStockPageFilter.expiryWarehouse):String(activeWarehouseId);
   const expDays=lowStockPageFilter.expiryDays;
   const allRows=expiryReportLotRows();
   const filteredRows=allRows.filter(row=>expiryReportRowMatches(row));
@@ -213,7 +213,7 @@ function renderExpiry(){
 
   return `<div class="lowstock-section expiry-report-page">
     <div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="printExpiryBtn">พิมพ์รายงาน</button></div>
-    <div class="expiry-report-summary"><div class="expiry-near-card ${lowStockPageFilter.expiryMode==='near'?'active':''}"><button type="button" class="expiry-summary-card urgent" data-expiry-summary-mode="near" aria-label="แสดงสินค้าใกล้วันหมดอายุ"><span>ใกล้วันหมดอายุ</span><b>${nearCount}</b></button><label class="expiry-days-field"><span>ภายใน</span><input id="expiryDaysInput" class="no-spin" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(expDays)}" aria-label="จำนวนวันก่อนหมดอายุ"><span>วัน</span></label></div><button type="button" class="expiry-summary-card expired ${lowStockPageFilter.expiryMode==='expired'?'active':''}" data-expiry-summary-mode="expired" aria-label="แสดงสินค้าที่หมดอายุแล้ว"><span>หมดอายุแล้ว</span><b>${expiredCount}</b></button><label class="expiry-warehouse-card"><span>คลังสินค้าที่แสดง</span><select id="expiryWarehouseFilter" aria-label="เลือกคลังสินค้า"><option value="all" ${lowStockPageFilter.expiryWarehouse==='all'?'selected':''}>ทุกคลัง</option>${warehouseOptions}</select></label></div>
+    <div class="expiry-report-summary"><div class="expiry-near-card ${lowStockPageFilter.expiryMode==='near'?'active':''}"><button type="button" class="expiry-summary-card urgent" data-expiry-summary-mode="near" aria-label="แสดงสินค้าใกล้วันหมดอายุ"><span>ใกล้วันหมดอายุ</span><b>${nearCount}</b></button><label class="expiry-days-field"><span>ภายใน</span><input id="expiryDaysInput" class="no-spin" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(expDays)}" aria-label="จำนวนวันก่อนหมดอายุ"><span>วัน</span></label></div><button type="button" class="expiry-summary-card expired ${lowStockPageFilter.expiryMode==='expired'?'active':''}" data-expiry-summary-mode="expired" aria-label="แสดงสินค้าที่หมดอายุแล้ว"><span>หมดอายุแล้ว</span><b>${expiredCount}</b></button>${isAllWarehousesMode()?`<label class="expiry-warehouse-card"><span>คลังสินค้าที่แสดง</span><select id="expiryWarehouseFilter" aria-label="เลือกคลังสินค้า"><option value="all" ${lowStockPageFilter.expiryWarehouse==='all'?'selected':''}>ทุกคลัง</option>${warehouseOptions}</select></label>`:''}</div>
     <div class="doc-list-wrap seamless-table-wrap lowstock-table-scroll">
     <table class="low-table doc-head-blue expiry-report-table"><thead><tr>${lowTh('expiry','name','สินค้า')}${lowTh('expiry','lot','เลข LOT')}${lowTh('expiry','quantity','คงเหลือ',true)}${lowTh('expiry','expiry','วันหมดอายุ')}${lowTh('expiry','status','สถานะ')}${lowTh('expiry','wh','คลัง')}<th>รายละเอียด</th></tr></thead>
     <tbody>${expPageRows.map(row=>{const remaining=daysUntil(row.expiry),badge=expiryBadge(row.expiry),rowClass=remaining<0?'expired':remaining<=30?'urgent':'';return `<tr class="${rowClass}"><td><span class="expiry-product-name">${escapeHtml(row.name)}</span><span class="expiry-product-sku">รหัส ${escapeHtml(row.sku||'-')}</span></td><td><span class="expiry-lot-code">${escapeHtml(row.lotNumber)}</span>${row.blocked?'<span class="badge danger" style="margin:5px auto 0;">ระงับแล้ว</span>':''}</td><td class="mono num">${escapeHtml(row.quantityText)}</td><td class="mono ${remaining<0?'expiry-past':''}">${escapeHtml(fmtDate(row.expiry))}</td><td><span class="badge ${badge.cls}">${escapeHtml(badge.label)}</span></td><td>${escapeHtml(row.warehouseName)}</td><td><button class="btn ghost small expiry-detail-btn" data-product-lots="${row.productId}" data-lot-warehouse="${row.warehouseId}">ดู LOT</button></td></tr>`;}).join('')||`<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:28px;">ไม่พบ${escapeHtml(expiryReportConditionLabel())}</td></tr>`}</tbody></table>

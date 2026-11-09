@@ -409,7 +409,6 @@ function syncPOFromDOM(){
     return;
   }
   const sup=document.getElementById('po_supplier'); if(sup) draft.supplier=sup.value;
-  const warehouse=document.getElementById('po_warehouse'); if(warehouse) draft.warehouseId=Number(warehouse.value)||0;
   const d=document.getElementById('po_date'); if(d){ const iso=dmyToISO(d.value); if(iso) draft.date=iso; }
   const c=document.getElementById('po_credit'); if(c) draft.credit=parseInt(c.value)||0;
   if(currentTab==='goodsreceipt') draft.dueDate=addDaysToDate(draft.date,draft.credit||0); else { draft.credit=0; draft.dueDate=''; draft.discount=0; }

@@ -39,6 +39,13 @@ let browser;
   });
   const rows=page.locator('[data-stock-control-anomaly-select]');
   await rows.first().waitFor();
+  await page.setViewportSize({width:2100,height:960});
+  const widths=await page.locator('.stock-control-page').evaluate(el=>[
+    el.clientWidth,el.querySelector('.stock-control-tabs').getBoundingClientRect().width,
+    el.querySelector('.stock-control-content > .rpt').getBoundingClientRect().width
+  ]);
+  assert.ok(widths[0]>1400 && widths.every(width=>Math.abs(width-widths[0])<2),'Count controls and report use the full branch workspace');
+  await page.setViewportSize({width:1440,height:960});
   assert.equal(await rows.count(),13);
   assert.equal(await page.locator('#stockControlReviewAll').innerText(),'เปิดตรวจนับทั้งหมด (12)');
   assert.equal(await page.locator('#stockControlReviewSelected').isDisabled(),true);

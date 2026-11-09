@@ -359,7 +359,7 @@ function attachCombinedCatalog(page){
       const cells=amountColumns.map(({field,shop})=>{
         if(field==='stock'){
           const member=row.members.find(item=>item.warehouse===Number(shop.id));
-          const stock=member?stockInLargestUnit(member.product,warehouseStock(member.product.id,shop.id)):'—';
+          const stock=member?stockReportQuantityText(member.product,warehouseStock(member.product.id,shop.id)):'—';
           return `<td class="combined-amount">${escapeHtml(stock)}</td>`;
         }
         const entry=option?.shops.get(Number(shop.id));

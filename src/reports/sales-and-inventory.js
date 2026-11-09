@@ -153,6 +153,7 @@ function printRProduct(){
 }
 
 function renderRProduct(){
+  if(!isAllWarehousesMode()) rproductFilter.wh=String(activeWarehouseId);
   const f=rproductFilter;
   const range=rproductPeriodRange();
   // ตัวเลือกช่วงเวลา
@@ -216,12 +217,12 @@ function renderRProduct(){
       </div>`:''}
       ${f.period==='selectmonth'?`<div class="rpf-item"><input type="month" id="rpf_month" value="${f.month||range.from.slice(0,7)}" class="rpt-select"></div>`:''}
       ${f.period==='selectyear'?`<div class="rpf-item"><select id="rpf_year" class="rpt-select">${(()=>{const cy=2026;let o='';for(let yy=cy;yy>=cy-6;yy--){o+=`<option value="${yy}" ${String(f.year||cy)===String(yy)?'selected':''}>${yy}</option>`;}return o;})()}</select></div>`:''}
-      <div class="rpf-item">
+      ${isAllWarehousesMode()?`<div class="rpf-item">
         <select id="rpf_wh" class="rpt-select">
           <option value="all" ${f.wh==='all'?'selected':''}>ทุกคลัง</option>
           ${reportingWarehouses().map(w=>`<option value="${escapeHtml(w.id)}" ${String(f.wh)===String(w.id)?'selected':''}>${escapeHtml(w.name)}</option>`).join('')}
         </select>
-      </div>
+      </div>`:''}
       <div class="rpf-item">
         <select id="rpf_scope" class="rpt-select">
           <option value="all" ${f.scope==='all'?'selected':''}>สินค้าทั้งหมด</option>
@@ -414,6 +415,7 @@ function printRBill(filter=rbillFilter,reportTitle='รายงานยอด�
 }
 
 function renderRBill(){
+  if(!isAllWarehousesMode()) rbillFilter.wh=String(activeWarehouseId);
   const f=rbillFilter;
   const range=rbillPeriodRange(f);
   const reportTitle='รายงานยอดขายตามบิล';
@@ -446,12 +448,12 @@ function renderRBill(){
       </div>`:''}
       ${f.period==='selectmonth'?`<div class="rpf-item"><input type="month" id="${fieldPrefix}_month" value="${f.month||range.from.slice(0,7)}" class="rpt-select"></div>`:''}
       ${f.period==='selectyear'?`<div class="rpf-item"><select id="${fieldPrefix}_year" class="rpt-select">${(()=>{const cy=2026;let o='';for(let yy=cy;yy>=cy-6;yy--){o+=`<option value="${yy}" ${String(f.year||cy)===String(yy)?'selected':''}>${yy}</option>`;}return o;})()}</select></div>`:''}
-      <div class="rpf-item">
+      ${isAllWarehousesMode()?`<div class="rpf-item">
         <select id="${fieldPrefix}_wh" class="rpt-select">
           <option value="all" ${f.wh==='all'?'selected':''}>ทุกคลัง</option>
           ${reportingWarehouses().map(w=>`<option value="${escapeHtml(w.id)}" ${String(f.wh)===String(w.id)?'selected':''}>${escapeHtml(w.name)}</option>`).join('')}
         </select>
-      </div>
+      </div>`:''}
       <div class="rpf-item">
         <select id="${fieldPrefix}_pay" class="rpt-select">
           <option value="all" ${(f.pay||'all')==='all'?'selected':''}>วิธีชำระทั้งหมด</option>
@@ -605,6 +607,7 @@ function printRProfit(){
 }
 
 function renderRProfit(){
+  if(!isAllWarehousesMode()) rprofitFilter.wh=String(activeWarehouseId);
   const {f,range,bills,byDate,dateKeys,revenue,cost,profit,missingCount}=rprofitCollect();
   const periodOpts=[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
   const thDate=d=>{const dt=new Date(d);return dt.getDate()+' '+['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][dt.getMonth()]+' '+dt.getFullYear();};
@@ -616,7 +619,7 @@ function renderRProfit(){
       ${f.period==='range'?`<div class="rpf-item rpf-range">${dmyDateFieldHtml('rprofit_from',range.from)}<span style="color:var(--text-muted);">ถึง</span>${dmyDateFieldHtml('rprofit_to',range.to)}</div>`:''}
       ${f.period==='selectmonth'?`<div class="rpf-item"><input type="month" id="rprofit_month" value="${f.month||range.from.slice(0,7)}" class="rpt-select"></div>`:''}
       ${f.period==='selectyear'?`<div class="rpf-item"><select id="rprofit_year" class="rpt-select">${(()=>{const cy=Number(TODAY_STR.slice(0,4));let o='';for(let yy=cy;yy>=cy-6;yy--)o+=`<option value="${yy}" ${String(f.year||cy)===String(yy)?'selected':''}>${yy}</option>`;return o;})()}</select></div>`:''}
-      <div class="rpf-item"><select id="rprofit_wh" class="rpt-select"><option value="all" ${f.wh==='all'?'selected':''}>ทุกคลัง</option>${reportingWarehouses().map(w=>`<option value="${w.id}" ${String(f.wh)===String(w.id)?'selected':''}>${escapeHtml(w.name)}</option>`).join('')}</select></div>
+      ${isAllWarehousesMode()?`<div class="rpf-item"><select id="rprofit_wh" class="rpt-select"><option value="all" ${f.wh==='all'?'selected':''}>ทุกคลัง</option>${reportingWarehouses().map(w=>`<option value="${w.id}" ${String(f.wh)===String(w.id)?'selected':''}>${escapeHtml(w.name)}</option>`).join('')}</select></div>`:''}
       <div class="rpf-item"><select id="rprofit_pay" class="rpt-select"><option value="all">วิธีชำระทั้งหมด</option><option value="เงินสด" ${f.pay==='เงินสด'?'selected':''}>เงินสด</option><option value="โอนธนาคาร" ${f.pay==='โอนธนาคาร'?'selected':''}>โอนธนาคาร</option><option value="บัตรเครดิต" ${f.pay==='บัตรเครดิต'?'selected':''}>บัตรเครดิต</option></select></div>
       <button class="btn ghost rpf-apply" id="rprofitApplyBtn">แสดงผล</button>
     </div>
@@ -708,27 +711,6 @@ function stockReportSelectedItemsHtml(){
 function stockReportVisibleColumns(){
   return {sku:stockReportColumns.sku!==false,barcode:stockReportColumns.barcode!==false,price:stockReportColumns.price,cost:stockReportColumns.cost&&!isLevel2User()};
 }
-function stockReportQuantityText(product,stock){
-  const quantity=Number(stock);
-  if(!Number.isFinite(quantity)) return '-';
-  const units=[{name:product?.unit||'หน่วย',factor:1},...(product?.units||[]).map(unit=>({name:unit.sub,factor:Number(unit.factor)}))]
-    .filter(unit=>unit.name&&Number.isFinite(unit.factor)&&unit.factor>0)
-    .sort((a,b)=>b.factor-a.factor);
-  const round=value=>Math.round(value*1e6)/1e6;
-  const format=value=>value.toLocaleString('th-TH',{maximumFractionDigits:6});
-  let remaining=round(Math.abs(quantity));
-  if(!remaining) return `0 ${product?.unit||'หน่วย'}`;
-  const parts=[];
-  units.forEach((unit,index)=>{
-    const ratio=round(remaining/unit.factor);
-    const amount=index===units.length-1?ratio:Math.floor(ratio);
-    if(amount>0){
-      parts.push(`${quantity<0?'-':''}${format(amount)} ${unit.name}`);
-      remaining=round(Math.max(0,remaining-amount*unit.factor));
-    }
-  });
-  return parts.join(' ');
-}
 function stockReportProductCellsHtml(row){
   const product=products.find(item=>item.id===row.pid),columns=stockReportVisibleColumns();
   const option=row.scanUnit&&product?productUnitOptions(product).find(unit=>unit.name===row.scanUnit):null;
@@ -744,7 +726,7 @@ function stockReportHeadersHtml(forPrint=false){
 }
 function renderRInventory(){
   const catf=stockReportCatFilter;
-  const selectedWarehouseValue=String(catf.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
+  const selectedWarehouseValue=String(isAllWarehousesMode()?(catf.wh||'all'):activeWarehouseId);
   catf.wh=selectedWarehouseValue;
   // หมวดย่อยจะแสดงเฉพาะที่มีสินค้าจริงอยู่ในหมวดหลักที่เลือกไว้ (ถ้ายังไม่เลือกหมวดหลัก จะโชว์หมวดย่อยทั้งหมด)
   const brandOptions = brands.filter(brand=>products.some(product=>(!catf.category||product.category===catf.category)&&product.brand===brand));
@@ -753,7 +735,7 @@ function renderRInventory(){
   <div class="pagehead topbar-action-source"><div></div><div style="display:flex;gap:8px;"><button class="btn ghost" id="resetStockReportBtn">รีเซ็ตข้อมูล</button><button class="btn primary" id="printStockReportBtn">พิมพ์รายงาน</button></div></div>
   <div class="inventory-report-section">
     <div class="rpt-filters stock-report-filters" style="margin-bottom:14px;">
-      <div class="rpf-item"><select id="srWarehouseSelect" class="rpt-select"><option value="all" ${selectedWarehouseValue==='all'?'selected':''}>ทุกคลัง</option>${reportingWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(warehouse.id)===selectedWarehouseValue?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>
+      ${isAllWarehousesMode()?`<div class="rpf-item"><select id="srWarehouseSelect" class="rpt-select"><option value="all" ${selectedWarehouseValue==='all'?'selected':''}>ทุกคลัง</option>${reportingWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(warehouse.id)===selectedWarehouseValue?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>`:''}
       <div class="rpf-item"><select id="srCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${catf.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></div>
       <div class="rpf-item"><select id="srBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(b=>`<option value="${escapeHtml(b)}" ${catf.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select></div>
       <button class="btn ghost" id="srAddByCategoryBtn" ${(catf.wh||catf.category||catf.brand)?'':'disabled'}>เลือกสินค้าในตัวกรองนี้${(catf.wh||catf.category||catf.brand)?` (${matchCount})`:''}</button>
@@ -808,8 +790,7 @@ function stockReportRowsHtml(forPrint=false){
   return sorted.length
     ? sorted.map(row=>{
         const p=products.find(x=>x.id===row.pid);
-        const option=row.scanUnit&&p?productUnitOptions(p).find(unit=>unit.name===row.scanUnit):null;
-        const stockCell=stockVal=>`<td class="stock-report-stock ${stockVal<0?'stock-negative':''}">${escapeHtml(option?inspectionListAmount(stockUnitAmountFromBase(stockVal,option.factor))+' '+option.name:stockReportQuantityText(p||{unit:row.unit},stockVal))}</td>`;
+        const stockCell=stockVal=>`<td class="stock-report-stock ${stockVal<0?'stock-negative':''}">${escapeHtml(stockReportQuantityText(p||{unit:row.unit},stockVal))}</td>`;
         const stockCells=selectedWarehouseValue==='all'?reportWarehouses.map(warehouse=>stockCell(warehouseStock(row.pid,warehouse.id))).join(''):stockCell(reportStock(row.pid,selectedWarehouseValue));
         return `<tr data-sr-row="${escapeHtml(row.pid)}">${stockReportProductCellsHtml(row)}${stockCells}${forPrint?'':`<td class="stock-report-action"><button class="history-icon-btn danger" data-sr-remove="${escapeHtml(row.pid)}" title="ลบ" aria-label="ลบ ${escapeHtml(p?.name||row.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td>`}</tr>`;
       }).join('')
