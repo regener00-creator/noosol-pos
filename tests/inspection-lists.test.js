@@ -71,6 +71,7 @@ const context = {
   document: {getElementById: id => id === 'inspectionListName' ? {value:'รายการตรวจหน้าร้าน'} : null},
 };
 vm.createContext(context);
+vm.runInContext(html.slice(html.indexOf('function stockReportQuantityText('),html.indexOf('function stockInLargestUnit(')),context);
 vm.runInContext(html.slice(normalizeStart, normalizeEnd), context);
 vm.runInContext(html.slice(expandableStart, expandableEnd), context);
 vm.runInContext(html.slice(featureStart, featureEnd), context);

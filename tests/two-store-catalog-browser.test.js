@@ -169,11 +169,13 @@ async function verifyLastInspectionUnits(page){
       const pid=wh*100;
       for(const n of [1,0]){
         catalog.push({id:pid+n,wh,sku:n?'BOX0':'SKU0',name:n?'Other':'Decolgen',unit:'แผง',price:10,cost:5,stock:30,
-          barcode:'BASE'+n,units:[{sub:'กล่อง',factor:10,barcode:'BOX'+n}],extraBarcodes:[(wh===1?'AP':'BP')+String(n+1).padStart(11,'0')],extraBarcodeUnits:['กล่อง']});
+          barcode:'BASE'+n,units:[{sub:'กล่อง',factor:10,barcode:'BOX'+n},{sub:'ลัง',factor:100}],extraBarcodes:[(wh===1?'AP':'BP')+String(n+1).padStart(11,'0')],extraBarcodeUnits:['กล่อง']});
       }
       for(const prefix of ['check','other']) inspectionLists.push({id:prefix+wh,warehouseId:wh,name:prefix+wh,items:[{pid,unit:'แผง'},{pid:pid+1,unit:'กล่อง'}]});
     }
     setWarehouseProductCatalog(catalog);
+    inventoryBalanceRows=[{product_id:100,warehouse_id:1,stock:123},{product_id:200,warehouse_id:2,stock:203}];
+    rebuildInventoryBalanceMap();
     window.postedCounts=[];
     runStockOperation=async(name,args)=>{window.postedCounts.push(args);return {};};
     loadInventoryLotsFromSupabase=async()=>true;
@@ -187,7 +189,11 @@ async function verifyLastInspectionUnits(page){
     await page.locator('#mobileOpenInspectionList').click();
     const input=page.locator('#mobileInspectionInput');
     const scan=async code=>{ await input.fill(code);await input.press('Enter'); };
+    const balance=page.locator(`[data-mobile-inspection-item="${pid}"] .mobile-inspection-stock b`);
+    const expectedBalance=store===1?'1 ลัง 2 กล่อง 3 แผง':'2 ลัง 3 แผง';
+    assert.equal(await balance.innerText(),expectedBalance);
     await scan('BOX0');
+    assert.equal(await balance.innerText(),expectedBalance,'Scanning a box keeps the full balance in packing units');
     assert.deepEqual(await page.evaluate(()=>[...mobileInspectionChecks(mobileInspectionOpenedListId)]),[[pid,'กล่อง']]);
     for(const code of ['BASE0','BASE1',own+'00000000001',foreign+'00000000001'])await scan(code);
     assert.deepEqual(await page.evaluate(()=>[...mobileInspectionChecks(mobileInspectionOpenedListId)]),[[pid,'กล่อง'],[pid+1,'แผง']]);
