@@ -357,15 +357,12 @@ function attachCombinedCatalog(page){
         return `<td><span data-combined-product-name>${escapeHtml(member.product.name)}</span> <span class="combined-pack">${escapeHtml(entry?.label||'—')}</span></td>`;
       }).join('');
       const cells=amountColumns.map(({field,shop})=>{
-        if(field==='stock'){
-          const member=row.members.find(item=>item.warehouse===Number(shop.id));
-          const stock=member?stockReportQuantityText(member.product,warehouseStock(member.product.id,shop.id)):'—';
-          return `<td class="combined-amount">${escapeHtml(stock)}</td>`;
-        }
-        const entry=option?.shops.get(Number(shop.id));
-        const value=entry?fmtMoney(entry.unit[field]):'—';
-        const shopAttribute=entry&&!shopFilter?` data-amount-shop="${escapeHtml(shop.name)}"`:'';
-        return `<td class="combined-amount"${shopAttribute}>${value}</td>`;
+        const warehouseId=Number(shop.id);
+        const entry=field==='stock'?row.members.find(item=>item.warehouse===warehouseId):option?.shops.get(warehouseId);
+        if(!entry)return '<td class="combined-amount">—</td>';
+        const value=field==='stock'?stockReportQuantityText(entry.product,warehouseStock(entry.product.id,shop.id)):fmtMoney(entry.unit[field]);
+        const shopAttribute=shopFilter?'':` data-amount-shop="${escapeHtml(shop.name)}"`;
+        return `<td class="combined-amount"${shopAttribute}>${escapeHtml(value)}</td>`;
       }).join('');
       const only=exclusiveShop(row);
       const color=only==='พรชัย'?'only-phonchai':only==='พระยาสุเรนทร์'?'only-phraya':'';

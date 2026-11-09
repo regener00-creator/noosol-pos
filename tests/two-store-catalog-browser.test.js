@@ -732,6 +732,8 @@ async function verifyLastInspectionUnits(page){
   assert.equal(await stock.getAttribute('class'),'');
   assert.equal(await stock.locator('select').inputValue(),'ซอง','An exact barcode takes precedence over the saved box unit');
   assert.deepEqual(await stock.locator('.combined-amount').allTextContents(),['0 ซอง','1 ลัง 2 กล่อง 3 ซอง']);
+  assert.deepEqual(await stock.locator('.combined-amount').evaluateAll(cells=>cells.map(cell=>getComputedStyle(cell).color)),
+    ['rgb(121, 70, 164)','rgb(173, 81, 11)']);
   assert.deepEqual(await stock.locator('.combined-amount').evaluateAll(cells=>cells.map(cell=>getComputedStyle(cell).textAlign)),['center','center']);
   assert.ok(Math.abs((await stock.boundingBox()).height-regularRowHeight)<=1);
   await page.locator('[data-combined-search]').fill('0044');
