@@ -310,17 +310,9 @@ function mobileShortLotNumber(lot){
   return lot.manufacturer_lot?suffix:suffix.replace(/[a-f]/g,char=>char.toUpperCase());
 }
 function mobilePriceLotOptions(lots,selectedLot){
-  const counts=new Map();
-  for(const lot of lots){
-    const code=mobileShortLotNumber(lot);
-    counts.set(code,(counts.get(code)||0)+1);
-  }
-  return lots.map((lot,index)=>{
-    const code=mobileShortLotNumber(lot);
-    const qualifier=counts.get(code)>1?` · รายการ ${index+1}`:'';
-    const expiry=lot.expiry_date?fmtDateShort(lot.expiry_date):'ไม่ระบุวันหมดอายุ';
-    return `<option value="${lot.id}" ${Number(lot.id)===Number(selectedLot?.id)?'selected':''}>Lot ${escapeHtml(code)}${qualifier} · ${escapeHtml(expiry)}</option>`;
-  }).join('');
+  return lots.map(lot=>
+    `<option value="${lot.id}" ${Number(lot.id)===Number(selectedLot?.id)?'selected':''}>${escapeHtml(mobileShortLotNumber(lot))}</option>`
+  ).join('');
 }
 function mobilePriceResultHtml(){
   const product=products.find(entry=>Number(entry.id)===Number(mobilePriceProductId));
