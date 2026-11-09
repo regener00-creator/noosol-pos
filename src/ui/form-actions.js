@@ -114,14 +114,10 @@ function attachMobilePriceResultEvents(){
     const product=products.find(entry=>Number(entry.id)===Number(mobilePriceProductId));
     const lot=mobileEditableLots(product?.id,activeWarehouseId).find(entry=>Number(entry.id)===Number(mobilePriceLotId));
     const expiryInput=document.getElementById('mobilePriceEditExpiry');
-    const hint=document.getElementById('mobilePriceLotHint');
     if(expiryInput){
       expiryInput.disabled=!lot;
       expiryInput.value=isoToDMY(lot?.expiry_date);
     }
-    if(hint) hint.textContent=lot
-      ? 'วันหมดอายุจะเปลี่ยนเฉพาะ Lot ที่เลือก และระบบจะเก็บประวัติการแก้ไข'
-      : 'สินค้านี้มีหลาย Lot กรุณาเลือก Lot ที่ต้องการแก้วันหมดอายุ';
   });
   document.getElementById('mobilePriceSaveChanges')?.addEventListener('click',saveMobilePriceChanges);
   ['mobilePriceEditSale','mobilePriceEditCost','mobilePriceEditExpiry'].forEach(id=>{

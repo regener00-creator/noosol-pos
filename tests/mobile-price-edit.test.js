@@ -29,7 +29,7 @@ assert.doesNotMatch(html, /unit-conversion-title/);
 const mobilePriceStart=html.indexOf('function mobilePriceResultHtml(');
 const mobilePriceEnd=html.indexOf('async function saveMobilePriceChanges(',mobilePriceStart);
 const mobilePriceResult=html.slice(mobilePriceStart,mobilePriceEnd);
-assert.ok(mobilePriceResult.indexOf('${conversionHtml}',mobilePriceResult.indexOf('id="mobilePriceLotHint"'))>mobilePriceResult.indexOf('id="mobilePriceLotHint"'),'อัตราแปลงหน่วยต้องอยู่ใต้วันหมดอายุของ Lot ที่เลือก');
+assert.match(mobilePriceResult,/id="mobilePriceEditExpiry"[\s\S]*?\$\{conversionHtml\}/,'อัตราแปลงหน่วยต้องอยู่ใต้วันหมดอายุของ Lot ที่เลือก');
 assert.doesNotMatch(html, /แก้ไขเฉพาะคลัง:/);
 assert.doesNotMatch(html, /ยิงบาร์โค้ด พิมพ์รหัส หรือใช้กล้องมือถือ โดยไม่เพิ่มสินค้าเข้าบิล/);
 assert.doesNotMatch(html, /เครื่องยิงบาร์โค้ดที่ส่ง Enter อัตโนมัติใช้งานได้ทันที/);

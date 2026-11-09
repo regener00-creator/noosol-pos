@@ -334,20 +334,14 @@ function mobilePriceResultHtml(){
   let selectedLot=editableLots.find(lot=>Number(lot.id)===Number(mobilePriceLotId))||null;
   if(!selectedLot&&editableLots.length===1){ selectedLot=editableLots[0]; mobilePriceLotId=selectedLot.id; }
   const selectedLotExpiry=selectedLot?.expiry_date||'';
-  const lotHint=!editableLots.length
-    ? 'ยังไม่มี Lot ที่มีสินค้า วันหมดอายุจะแก้ได้หลังรับเข้าหรือเพิ่มสต๊อกเป็น Lot แล้ว'
-    : editableLots.length>1&&!selectedLot
-      ? 'สินค้านี้มีหลาย Lot กรุณาเลือก Lot ที่ต้องการแก้วันหมดอายุ'
-      : 'วันหมดอายุจะเปลี่ยนเฉพาะ Lot ที่เลือก และระบบจะเก็บประวัติการแก้ไข';
   return `<article class="mobile-result-card" data-review-status="${productDataReviewStatus(product)||'normal'}">
     <div class="mobile-result-name">${escapeHtml(product.name)}</div>
     ${canEdit?`<div class="mobile-price-stock-readonly mobile-metric primary"><span>คงเหลือ</span><b id="mobilePriceStock">${escapeHtml(stockText)}</b></div><div class="mobile-price-edit-grid">
       <div class="mobile-price-edit-field"><label for="mobilePriceEditSale">ราคาขาย</label><input id="mobilePriceEditSale" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.price)||0}"></div>
       <div class="mobile-price-edit-field"><label for="mobilePriceEditCost">ทุน</label><input id="mobilePriceEditCost" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.cost)||0}"></div>
       ${options.length>1?`<select class="mobile-unit-select" id="mobilePriceUnit">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>หน่วย: ${escapeHtml(option.name)}</option>`).join('')}</select>`:`<div class="mobile-unit-select" style="display:flex;align-items:center;">หน่วย: ${escapeHtml(selected?.name||product.unit)}</div>`}
-      <div class="mobile-price-lot-field"><label for="mobilePriceLot">Lot ที่ต้องการแก้วันหมดอายุ</label><select id="mobilePriceLot" class="mobile-price-lot-select" ${editableLots.length?'':'disabled'}><option value="">${editableLots.length>1?'เลือก Lot ให้ชัดเจน':'ไม่มี Lot ที่มีสินค้า'}</option>${mobilePriceLotOptions(editableLots,selectedLot)}</select></div>
-      <div class="mobile-price-edit-field" style="grid-column:1/-1;"><label for="mobilePriceEditExpiry">วันหมดอายุของ Lot ที่เลือก</label><input id="mobilePriceEditExpiry" class="mobile-price-edit-input dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(selectedLotExpiry))}" ${selectedLot?'':'disabled'}></div>
-      <div class="mobile-price-lot-hint" id="mobilePriceLotHint">${escapeHtml(lotHint)}</div>
+      <div class="mobile-price-edit-field"><label for="mobilePriceLot">LOT แก้วันหมดอายุ</label><select id="mobilePriceLot" class="mobile-price-lot-select" ${editableLots.length?'':'disabled'}><option value="">${editableLots.length?'เลือก LOT':'ไม่มี LOT ที่มีสินค้า'}</option>${mobilePriceLotOptions(editableLots,selectedLot)}</select></div>
+      <div class="mobile-price-edit-field"><label for="mobilePriceEditExpiry">วันหมดอายุ</label><input id="mobilePriceEditExpiry" class="mobile-price-edit-input dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(selectedLotExpiry))}" ${selectedLot?'':'disabled'}></div>
     </div>
     ${conversionHtml}
     <button type="button" class="btn ghost mobile-edit-product" id="mobileEditProduct">แก้ไขสินค้า</button>
