@@ -98,13 +98,12 @@ function attachMobilePriceResultEvents(){
     if(!product) return;
     const selected=inspectionListUnitOptions(product).find(option=>option.name===mobilePriceUnitName);
     if(!selected) return;
-    const selectedStock=stockUnitAmountFromBase(warehouseStock(product.id,activeWarehouseId),selected.factor||1);
     const stockElement=document.getElementById('mobilePriceStock');
     const saleElement=document.getElementById('mobilePriceSale');
     const costElement=document.getElementById('mobilePriceCost');
     const editSale=document.getElementById('mobilePriceEditSale');
     const editCost=document.getElementById('mobilePriceEditCost');
-    if(stockElement) stockElement.textContent=`${inspectionListAmount(selectedStock)} ${selected.name||product.unit}`;
+    if(stockElement) stockElement.textContent=stockReportQuantityText(product,warehouseStock(product.id,activeWarehouseId));
     if(saleElement) saleElement.textContent=`${fmtMoney(selected.price||0)} บาท`;
     if(costElement) costElement.textContent=`${fmtMoney(selected.cost||0)} บาท`;
     if(editSale) editSale.value=Number(selected.price)||0;
@@ -114,6 +113,12 @@ function attachMobilePriceResultEvents(){
     mobilePriceLotId=Number(event.target.value)||null;
     const product=products.find(entry=>Number(entry.id)===Number(mobilePriceProductId));
     const lot=mobileEditableLots(product?.id,activeWarehouseId).find(entry=>Number(entry.id)===Number(mobilePriceLotId));
+    const details=document.getElementById('mobilePriceLotFull');
+    if(details){
+      details.open=false;
+      details.hidden=mobileLotNumber(lot)===mobileShortLotNumber(lot);
+      details.querySelector('span').textContent=mobileLotNumber(lot);
+    }
     const expiryInput=document.getElementById('mobilePriceEditExpiry');
     const hint=document.getElementById('mobilePriceLotHint');
     if(expiryInput){

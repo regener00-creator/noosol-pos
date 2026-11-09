@@ -94,6 +94,8 @@ try{
   const catalogSuite=await import('../tests/catalog-validation-database.mjs');
   await catalogSuite.run({client});
   const internalBarcodeSuite=await import('../tests/internal-barcode-database.mjs');
+  const shortLotSuite=await import('../tests/short-lot-codes-database.mjs');
+  await shortLotSuite.run({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
   await internalBarcodeSuite.run({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
   await storeSuite.runConcurrentSales({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
   const numbering=await import('../tests/shop-number-database.mjs');

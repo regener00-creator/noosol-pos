@@ -141,6 +141,24 @@ let browser;
   assert.equal(await page.evaluate(()=>products[0]._revision),13,'scheduled receive updates a desktop list left open');
   await page.evaluate(()=>{currentTab='checkout';productReviewRefreshAt=0;});
   assert.equal(await page.evaluate(()=>refreshProductReviewColors()),false,'no background work on other pages');
+  await page.evaluate(()=>{
+    const p=products.find(p=>p.id===9101);
+    p.unit='ซอง';p.units=[{sub:'กล่อง',factor:25,price:100},{sub:'ลัง',factor:500,price:2000}];
+    inventoryBalanceRows=[{product_id:p.id,warehouse_id:1,stock:553}];rebuildInventoryBalanceMap();
+    inventoryLotRows=['LOT-OLD-0d5f8cf4','LOT-OLDER-1d5f8cf4','00000A'].map((code,i)=>({id:i+1,product_id:p.id,warehouse_id:1,internal_code:code,quantity_base:4,status:'active',expiry_date:'2031-05-10'}));
+    rebuildInventoryLotMap();window.showMobileProduct(p.id);
+  });
+  assert.equal(await page.locator('#mobilePriceStock').innerText(),'1 ลัง 2 กล่อง 3 ซอง');
+  await page.locator('#mobilePriceUnit').selectOption('กล่อง');
+  assert.equal(await page.locator('#mobilePriceStock').innerText(),'1 ลัง 2 กล่อง 3 ซอง');
+  assert.match(await page.locator('#mobilePriceLot option[value="1"]').innerText(),/^Lot 5F8CF4 · รายการ 1/);
+  await page.locator('#mobilePriceLot').selectOption('2');
+  await page.locator('#mobilePriceLotFull summary').click();
+  assert.equal(await page.locator('#mobilePriceLotFull span').innerText(),'LOT-OLDER-1d5f8cf4');
+  assert.equal(await page.evaluate(()=>mobilePriceLotId),2);
+  await page.locator('#mobilePriceLot').selectOption('3');assert.equal(await page.locator('#mobilePriceLotFull').isHidden(),true);
+  await page.evaluate(()=>{currentProfile={...currentProfile,owner:false,level:2};window.showMobileProduct(9101);});
+  assert.equal(await page.locator('#mobilePriceStock').innerText(),'1 ลัง 2 กล่อง 3 ซอง');
   assert.deepEqual(errors,[]);
   console.log('mobile review colors browser tests passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{
