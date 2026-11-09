@@ -43,71 +43,67 @@ function stockEditLotControlHtml(product,difference){
   return `<select class="stock-control-lot-select" data-stock-edit-lot="${product.id}">${lotOptions}<option value="new" ${selection==='new'?'selected':''}>สร้าง LOT ใหม่</option></select>${newLotFields}<span class="stock-control-lot-hint">ของที่พบเกินต้องเข้า LOT เดิมหรือสร้าง LOT ใหม่</span>`;
 }
 
-function stockCountUnitsButton(product,options){
-  return options.length>1?`<button type="button" class="btn ghost small stock-count-units-button" data-stock-count-units="${Number(product.id)}">นับหลายหน่วย</button>`:'';
+// Each count session has its own draft object, including when the warehouse changes.
+const stockCountPartsByDraft=new WeakMap();
+function stockCountPartsMap(){
+  let rows=stockCountPartsByDraft.get(stockEditDraftStocks);
+  if(!rows){rows=new Map();stockCountPartsByDraft.set(stockEditDraftStocks,rows);}
+  return rows;
 }
-
-function openStockCountUnits(productId,opener){
-  const product=stockEditCurrentProducts().find(item=>Number(item.id)===productId);
-  if(!product||stockEditPosting) return;
-  const units=productUnitOptions(product).sort((a,b)=>b.factor-a.factor);
-  const draft=stockEditDraftStocks;
-  const warehouseId=activeWarehouseId;
-  const context=captureWorkspaceRead();
-  const dialog=document.createElement('dialog');
-  dialog.className='stock-count-units-dialog';
-  dialog.setAttribute('aria-label',`นับหลายหน่วย · ${product.name}`);
-  dialog.innerHTML=`<form><h3>นับหลายหน่วย</h3><p>${escapeHtml(product.name)}</p>
-    ${units.map((unit,index)=>`<label><span>${escapeHtml(unit.name)}</span><input data-count-part="${index}" type="number" min="0" step="any" inputmode="decimal" placeholder="0"></label>`).join('')}
-    <output aria-live="polite"></output><div class="stock-count-units-actions"><button type="button" class="btn ghost">ยกเลิก</button><button type="submit" class="btn primary">ใช้ยอดรวม</button></div></form>`;
-  document.body.appendChild(dialog);
-  const inputs=[...dialog.querySelectorAll('[data-count-part]')];
-  const apply=dialog.querySelector('[type=submit]');
-  const totalNode=dialog.querySelector('output');
-  function updateTotal(){
-    const entered=inputs.some(input=>input.value!=='');
-    const total=inputs.reduce((sum,input,index)=>sum+stockBaseFromUnitAmount(input.value,units[index].factor),0);
-    const valid=inputs.every(input=>input.validity.valid)&&Number.isFinite(total);
-    const rounded=Number(total.toFixed(6));
-    apply.disabled=!entered||!valid;
-    totalNode.textContent=valid?`รวม ${entered?rounded.toLocaleString('th-TH',{maximumFractionDigits:6}):'—'} ${product.unit}`:'กรุณากรอกจำนวนตั้งแต่ 0 ขึ้นไป';
-    return rounded;
-  }
-  // When reopening a draft, distribute the saved total into whole packs and the remainder.
-  if(Object.hasOwn(draft,product.id)&&draft[product.id]>=0){
-    let remaining=Number(draft[product.id]);
-    for(const [index,unit] of units.entries()){
-      if(unit.name===product.unit) continue;
-      const quantity=Math.floor(remaining/unit.factor);
-      if(quantity) inputs[index].value=String(quantity);
-      remaining=Number((remaining-quantity*unit.factor).toFixed(6));
+function stockCountPartsHtml(product,options){
+  const rows=stockCountPartsMap();
+  let parts=rows.get(product.id);
+  if(!parts){
+    parts={values:new Map(),invalid:false};
+    const hasDraft=Object.hasOwn(stockEditDraftStocks,product.id);
+    let remaining=Number(stockEditDraftStocks[product.id]);
+    if(hasDraft&&remaining>=0){
+      for(const unit of [...options].sort((a,b)=>b.factor-a.factor)){
+        if(unit.name===product.unit)continue;
+        const whole=Math.floor(remaining/unit.factor);
+        if(whole)parts.values.set(unit.name,String(whole));
+        remaining=Number((remaining-whole*unit.factor).toFixed(6));
+      }
+      if(remaining||!parts.values.size)parts.values.set(product.unit,String(remaining));
     }
-    const baseIndex=units.findIndex(unit=>unit.name===product.unit);
-    if(remaining||draft[product.id]===0) inputs[baseIndex].value=String(remaining);
+    rows.set(product.id,parts);
   }
-  updateTotal();
-  dialog.addEventListener('input',updateTotal);
-  dialog.querySelector('[type=button]').onclick=()=>dialog.close();
-  dialog.addEventListener('close',()=>{dialog.remove();if(opener.isConnected) opener.focus();},{once:true});
-  dialog.querySelector('form').onsubmit=event=>{
-    event.preventDefault();
-    const total=updateTotal();
-    if(apply.disabled) return;
-    const current=stockEditCurrentProducts().find(item=>Number(item.id)===productId);
-    const options=current&&productUnitOptions(current);
-    if(!isWorkspaceReadCurrent(context)||activeWarehouseId!==warehouseId||draft!==stockEditDraftStocks||stockEditPosting||!current||current.unit!==product.unit||
-      options.length!==units.length||!units.every(unit=>options.some(option=>option.name===unit.name&&option.factor===unit.factor))){
-      dialog.close();showToast('ข้อมูลสินค้าเปลี่ยนแล้ว กรุณาเปิดรายการเพื่อนับใหม่','danger');return;
-    }
-    stockEditRowUnitSel[productId]=current.unit;
-    if(total!==Number(current.stock)||stockEditRequiresReconciliation(current)) draft[productId]=total;
-    else delete draft[productId];
-    if(stockEditSourceInspectionListId&&total!==Number(current.stock)) stockEditSourcePending=true;
-    dialog.close();
-    render();
-  };
-  dialog.showModal();
-  inputs[0].focus();inputs[0].select();
+  const fields=[...options].sort((a,b)=>b.factor-a.factor).map(unit=>
+    `<label><span>${escapeHtml(unit.name)}</span><input class="stock-edit-stock-input" type="number" min="0" step="any" inputmode="decimal" placeholder="0" data-count-part="${product.id}" data-unit="${escapeHtml(unit.name)}" data-factor="${unit.factor}" value="${escapeHtml(parts.values.get(unit.name)||'')}" aria-label="จำนวนที่นับได้ ${escapeHtml(product.name)} หน่วย ${escapeHtml(unit.name)}"></label>`
+  ).join('');
+  const total=parts.values.size?(stockEditDraftStocks[product.id]??product.stock):null;
+  return `<div class="stock-count-parts">${fields}<output aria-live="polite">${escapeHtml(stockCountTotalText(product,total,parts.invalid))}</output></div>`;
+}
+function stockCountTotalText(product,total,invalid){
+  if(invalid)return 'กรุณากรอกจำนวนตั้งแต่ 0 ขึ้นไป';
+  return `รวม ${total==null?'—':Number(total).toLocaleString('th-TH',{maximumFractionDigits:6})} ${product.unit}`;
+}
+function stockCountHasInvalidParts(){
+  return [...stockCountPartsMap().values()].some(parts=>parts.invalid);
+}
+function updateStockCountParts(product,host){
+  const parts=stockCountPartsMap().get(product.id);
+  let sum=0;
+  parts.values.clear();
+  parts.invalid=false;
+  for(const input of host.querySelectorAll('[data-count-part]')){
+    if(input.value!=='')parts.values.set(input.dataset.unit,input.value);
+    parts.invalid ||= !input.validity.valid;
+    input.classList.toggle('stock-edit-invalid',!input.validity.valid);
+    sum+=stockBaseFromUnitAmount(input.value,input.dataset.factor);
+  }
+  parts.invalid ||= !Number.isFinite(sum);
+  const total=parts.values.size&&!parts.invalid?Number(sum.toFixed(6)):null;
+  if(total!=null&&(total!==Number(product.stock)||stockEditRequiresReconciliation(product)))stockEditDraftStocks[product.id]=total;
+  else delete stockEditDraftStocks[product.id];
+  if(stockEditSourceInspectionListId&&total!=null&&total!==Number(product.stock))stockEditSourcePending=true;
+  host.querySelector('output').textContent=stockCountTotalText(product,total,parts.invalid);
+}
+function stockCountDifferenceHtml(product,baseStock,factor){
+  const difference=Number(baseStock)-Number(product.stock);
+  const amount=stockUnitAmountFromBase(difference,factor);
+  if(Math.abs(difference)>0.000001)return `<span class="stock-control-difference ${difference>0?'in':'out'}">${amount>0?'+':''}${inspectionListAmount(amount)}</span>`;
+  return stockEditRequiresReconciliation(product)?'<span class="stock-control-difference out">ปรับ LOT</span>':'-';
 }
 
 function stockEditRowsHtml(rows=stockEditCurrentProducts()){
@@ -121,9 +117,7 @@ function stockEditRowsHtml(rows=stockEditCurrentProducts()){
     const selectedAmount=stockUnitAmountFromBase(selectedBaseStock,selectedOption.factor);
     const systemAmount=stockUnitAmountFromBase(p.stock,selectedOption.factor);
     const differenceBase=Number(selectedBaseStock)-Number(p.stock);
-    const differenceAmount=stockUnitAmountFromBase(differenceBase,selectedOption.factor);
-    const reconcileOnly=Math.abs(differenceBase)<=0.000001&&stockEditRequiresReconciliation(p);
-    const differenceHtml=Math.abs(differenceBase)>0.000001?`<span class="stock-control-difference ${differenceBase>0?'in':'out'}">${differenceAmount>0?'+':''}${inspectionListAmount(differenceAmount)}</span>`:reconcileOnly?'<span class="stock-control-difference out">ปรับ LOT</span>':'-';
+    const differenceHtml=stockCountDifferenceHtml(p,selectedBaseStock,selectedOption.factor);
     const unitHtml=unitOptions.length>1
       ? `<select class="stock-edit-unit-select" tabindex="-1" data-stock-edit-unit="${p.id}">${unitOptions.map(u=>`<option value="${escapeHtml(u.name)}" ${u.name===selectedOption.name?'selected':''}>${escapeHtml(u.name)}</option>`).join('')}</select>`
       : `<span class="stock-edit-unit-fixed">${escapeHtml(p.unit||'-')}</span>`;
@@ -132,8 +126,8 @@ function stockEditRowsHtml(rows=stockEditCurrentProducts()){
       <td>${escapeHtml(p.name)}</td>
       <td style="text-align:center;">${unitHtml}</td>
       <td class="mono" style="text-align:center;">${inspectionListAmount(systemAmount)}</td>
-      <td style="text-align:center;"><input type="number" min="0" step="any" class="stock-edit-stock-input ${Number(selectedBaseStock)<0?'stock-negative':''} ${hasDraft?'stock-edit-pending':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="จำนวนที่นับได้ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="กรอกจำนวนที่นับได้จริง แล้วกดยืนยันเพื่อบันทึก">${stockCountUnitsButton(p,unitOptions)}</td>
-      <td style="text-align:center;">${differenceHtml}</td>
+      <td style="text-align:center;">${unitOptions.length>1?stockCountPartsHtml(p,unitOptions):`<input type="number" min="0" step="any" class="stock-edit-stock-input ${Number(selectedBaseStock)<0?'stock-negative':''} ${hasDraft?'stock-edit-pending':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="จำนวนที่นับได้ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="กรอกจำนวนที่นับได้จริง แล้วกดยืนยันเพื่อบันทึก">`}</td>
+      <td style="text-align:center;" data-stock-count-difference>${differenceHtml}</td>
       <td class="stock-control-lot-cell">${stockEditLotControlHtml(p,differenceBase)}</td>
       <td style="text-align:center;"><button class="stock-edit-remove-btn" tabindex="-1" data-stock-edit-remove="${p.id}" title="ลบ ${escapeHtml(p.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(p.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td>
     </tr>`;
@@ -152,7 +146,7 @@ function renderStockEdit(){
   const pendingChanges=stockEditPendingChanges();
   const sourceList=stockEditInspectionSourceList();
   return `<div class="rpt stock-edit-page">
-    <div class="stock-edit-page-actions form-final-actions"><button class="btn primary" id="importInspectionListBtn">ดึงรายการตรวจนับ</button>${rows.length?`<button class="btn ghost" id="clearStockEditBtn">ล้างรายการ</button><button class="btn primary" id="confirmStockEditBtn" ${(pendingChanges.length||stockEditSourcePending)&&!stockEditPosting?'':'disabled'}>${stockEditPosting?'กำลังบันทึก...':'ยืนยันผลตรวจนับ'}</button>`:''}</div>
+    <div class="stock-edit-page-actions form-final-actions"><button class="btn primary" id="importInspectionListBtn">ดึงรายการตรวจนับ</button>${rows.length?`<button class="btn ghost" id="clearStockEditBtn">ล้างรายการ</button><button class="btn primary" id="confirmStockEditBtn" ${(pendingChanges.length||stockEditSourcePending)&&!stockEditPosting&&!stockCountHasInvalidParts()?'':'disabled'}>${stockEditPosting?'กำลังบันทึก...':'ยืนยันผลตรวจนับ'}</button>`:''}</div>
     <div class="stock-edit-section">
       <div class="rpt-filters" style="margin-bottom:14px;">
         <div class="rpf-item"><select id="stockEditCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${filter.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></div>

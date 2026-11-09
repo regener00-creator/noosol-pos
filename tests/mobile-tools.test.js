@@ -174,7 +174,7 @@ assert.doesNotMatch(mobileUnitHandler, /render\(\)/);
 assert.match(html, /<label>รหัสสินค้า<\/label>/);
 assert.match(html, /<label>สินค้า<\/label>/);
 assert.match(html, /<label>หน่วย<\/label>/);
-assert.match(html, /<label>คงเหลือ<\/label>/);
+assert.match(html, /<label>จำนวนที่นับได้<\/label>/);
 assert.match(html, /stockEditImportInspectionList\(listId,true,mobileInspectionChecks\(listId\)\)/);
 assert.match(html, /mobileInventoryStep='stock'/);
 assert.match(html, /mobileStockSourceListId=list\.id/);

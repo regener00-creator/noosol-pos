@@ -122,7 +122,7 @@ function stockControlOpenAdjustmentsForProducts(ids){
   stockControlMode='adjust';
   stockControlAnomalySelectedIds.clear();
   render();
-  document.querySelector(`[data-stock-edit-amount="${selectedProducts[0].id}"]`)?.focus();
+  document.querySelector(`[data-stock-edit-amount="${selectedProducts[0].id}"],[data-count-part="${selectedProducts[0].id}"]`)?.focus();
   return true;
 }
 
@@ -439,11 +439,14 @@ function stockEditAdjustmentLines(changes=stockEditPendingChanges()){
       ? (stockEditLotSelections[product.id]||stockEditDefaultLotSelection(product,lotDifference))
       : '';
     const selectedLotId=selection.startsWith('lot:')?Number(selection.slice(4)):null;
+    const countedUnits=stockCountPartsMap().get(product.id)?.values;
+    let unitName=stockEditRowUnitSel[product.id]||product.unit||'';
+    if(countedUnits?.size)unitName=countedUnits.size===1?countedUnits.keys().next().value:product.unit;
     return {
       productId:product.id,
       expectedStock:Number(product.stock),
       targetStock:Number(newStock),
-      unitName:stockEditRowUnitSel[product.id]||product.unit||'',
+      unitName,
       selectedLotId:Number.isFinite(selectedLotId)?selectedLotId:null,
       lotNumber:selection==='new'?String(stockEditNewLotNumbers[product.id]||'').toUpperCase():'',
       expiry:selection==='new'?(stockEditNewLotExpiries[product.id]||product.expiry||''):''
@@ -453,6 +456,7 @@ function stockEditAdjustmentLines(changes=stockEditPendingChanges()){
 
 async function confirmStockEditChanges(){
   if(stockEditPosting) return false;
+  if(stockCountHasInvalidParts()){showToast('กรุณาตรวจจำนวนที่นับได้ของแต่ละหน่วย','danger');return false;}
   const changes=stockEditPendingChanges();
   if(!changes.length&&!stockEditSourcePending) return false;
   if(changes.some(change=>Number(change.newStock)<0)){ showToast('จำนวนหลังตรวจนับต้องไม่ต่ำกว่า 0','danger'); return false; }

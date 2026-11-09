@@ -51,7 +51,7 @@ async function verifyPurchaseAndStockLabels(page){
         assert.deepEqual(lines,prefix===own?[[id,'กล่อง']]:[],`${screen}/${store}: ${prefix}, tap=${tap}`);
         if(prefix===own){
           if(purchase) assert.equal(await page.locator('#poItemRows tr[data-product-id]:not([data-product-id=""]) .poi_unit').first().inputValue(),'กล่อง');
-          else assert.equal(Number(await page.locator('[data-stock-edit-amount]').getAttribute('data-factor')),factor);
+          else assert.equal(Number(await page.locator('[data-count-part][data-unit="กล่อง"]').getAttribute('data-factor')),factor);
         }
       }
     }
@@ -192,7 +192,7 @@ async function verifyLastInspectionUnits(page){
     assert.equal(await unit.inputValue(),'กล่อง');
     assert.equal(await page.locator(`[data-mobile-stock-unit="${pid+1}"]`).inputValue(),'แผง');
     await unit.selectOption('แผง');
-    await page.locator(`[data-mobile-stock-amount="${pid}"]`).fill('7');
+    await page.locator(`[data-count-part="${pid}"][data-unit="แผง"]`).fill('7');
     assert.deepEqual(await page.evaluate(pid=>{
       const line=stockEditAdjustmentLines().find(item=>item.productId===pid);
       return [line.unitName,line.targetStock];
@@ -215,7 +215,8 @@ async function verifyLastInspectionUnits(page){
     assert.equal(await unit.inputValue(),'แผง','A later base scan replaces the earlier box scan');
     assert.equal(await page.locator(`[data-mobile-stock-unit="${pid+1}"]`).inputValue(),'กล่อง');
     await unit.selectOption('กล่อง');
-    await page.locator(`[data-mobile-stock-amount="${pid}"]`).fill('2');
+    await page.locator(`[data-count-part="${pid}"][data-unit="กล่อง"]`).fill('2');
+    if(store===2)await page.locator(`[data-count-part="${pid}"][data-unit="แผง"]`).fill('4');
     await page.locator(`[data-mobile-stock-lot="${pid}"]`).selectOption('new');
     page.once('dialog',dialog=>dialog.accept());
     await page.locator('#mobileConfirmStockEdit').click();
@@ -224,7 +225,7 @@ async function verifyLastInspectionUnits(page){
     assert.equal(posted.warehouseId,store);
     assert.equal(posted.sourceInspectionId,'check'+store);
     const line=posted.lines.find(line=>line.productId===pid);
-    assert.deepEqual([line.unitName,line.targetStock],['กล่อง',20]);
+    assert.deepEqual([line.unitName,line.targetStock],store===1?['กล่อง',20]:['แผง',24]);
   }
 }
 (async()=>{

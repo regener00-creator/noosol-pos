@@ -119,6 +119,7 @@ const payloadContext = {
   stockEditNewLotNumbers: {},
   stockEditNewLotExpiries: {},
   stockEditRowUnitSel: {10:'กล่อง'},
+  stockCountPartsMap:()=>new Map(),
   stockEditPendingChanges: () => [],
 };
 vm.createContext(payloadContext);

@@ -187,11 +187,11 @@ assert.doesNotMatch(rendered, /data-stock-edit-check=/);
 assert.doesNotMatch(rendered, /P-001/);
 assert.match(rendered, /BOX-001/);
 assert.match(rendered, /ยาทดสอบ/);
-assert.match(rendered, /data-stock-edit-amount="1"/);
+assert.match(rendered, /data-count-part="1"/);
 assert.match(rendered, /data-factor="10"/);
 assert.match(rendered, /data-unit="กล่อง"/);
 assert.match(rendered, /value="6"/);
-assert.match(rendered, /stock-edit-pending/);
+assert.match(rendered, /รวม 60 แผง/);
 assert.match(rendered, /data-stock-edit-remove="1"/);
 assert.doesNotMatch(rendered, /data-stock-edit-open=/);
 

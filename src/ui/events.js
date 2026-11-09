@@ -519,6 +519,7 @@ function attachEvents(){
     stockEditItems=stockEditItems.filter(itemId=>Number(itemId)!==productId);
     delete stockEditRowUnitSel[productId];
     delete stockEditDraftStocks[productId];
+    stockCountPartsMap().delete(productId);
     delete stockEditLotSelections[productId];
     delete stockEditNewLotNumbers[productId];
     delete stockEditNewLotExpiries[productId];
@@ -532,7 +533,10 @@ function attachEvents(){
     const selected=inspectionListUnitOptions(product).find(option=>option.name===select.value)||inspectionListUnitOptions(product)[0];
     stockEditRowUnitSel[productId]=selected?.name||product.unit;
     const amountInput=document.querySelector(`[data-mobile-stock-amount="${productId}"]`);
-    if(!amountInput) return;
+    if(!amountInput){
+      const field=document.querySelector(`[data-count-part="${productId}"][data-unit="${CSS.escape(stockEditRowUnitSel[productId])}"]`);
+      field?.focus();field?.select();return;
+    }
     const hasDraft=Object.prototype.hasOwnProperty.call(stockEditDraftStocks,productId);
     const baseStock=hasDraft?stockEditDraftStocks[productId]:product.stock;
     amountInput.dataset.factor=String(selected?.factor||1);
@@ -542,7 +546,7 @@ function attachEvents(){
   const refreshMobileStockConfirmButton=()=>{
     const button=document.getElementById('mobileConfirmStockEdit');
     const changes=stockEditPendingChanges();
-    if(button) button.disabled=(changes.length===0&&!stockEditSourcePending)||!stockEditMobileLotSelectionsReady(changes)||Boolean(document.querySelector('[data-mobile-stock-new-expiry].invalid'))||stockEditPosting||!mobileIsOnline();
+    if(button) button.disabled=stockCountHasInvalidParts()||(changes.length===0&&!stockEditSourcePending)||!stockEditMobileLotSelectionsReady(changes)||Boolean(document.querySelector('[data-mobile-stock-new-expiry].invalid'))||stockEditPosting||!mobileIsOnline();
   };
   const mobileStockList=document.querySelector('.mobile-stock-list');
   if(mobileStockList){
@@ -1135,16 +1139,37 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       else { showToast('ไม่พบสินค้าในร้านที่เลือก','danger-top');stockEditInput.select(); }
     });
   }
-  document.querySelectorAll('[data-stock-count-units]').forEach(button=>button.addEventListener('click',()=>openStockCountUnits(Number(button.dataset.stockCountUnits),button)));
   document.querySelectorAll('[data-stock-edit-unit]').forEach(select=>select.addEventListener('change',()=>{ stockEditRowUnitSel[Number(select.dataset.stockEditUnit)]=select.value; render(); }));
-  const refreshStockEditConfirmButton=()=>{ if(confirmStockEditBtn) confirmStockEditBtn.disabled=(stockEditPendingChanges().length===0&&!stockEditSourcePending)||Boolean(document.querySelector('[data-stock-edit-new-expiry].stock-edit-invalid'))||stockEditPosting; };
-  const stockEditFields='[data-stock-edit-amount],[data-stock-edit-lot],[data-stock-edit-new-lot],[data-stock-edit-new-expiry]';
+  const refreshStockEditConfirmButton=()=>{ if(confirmStockEditBtn) confirmStockEditBtn.disabled=stockCountHasInvalidParts()||(stockEditPendingChanges().length===0&&!stockEditSourcePending)||Boolean(document.querySelector('[data-stock-edit-new-expiry].stock-edit-invalid'))||stockEditPosting; };
+  document.querySelectorAll('.stock-count-parts').forEach(host=>host.addEventListener('input',event=>{
+    const product=products.find(item=>item.id===Number(event.target.dataset.countPart));
+    if(!product)return;
+    const previous=stockEditDraftStocks[product.id]??product.stock;
+    updateStockCountParts(product,host);
+    const row=host.closest('[data-stock-edit-row]');
+    if(!row){
+      refreshMobileStockLotControl(product.id);
+      refreshMobileStockConfirmButton();
+      return;
+    }
+    const target=stockEditDraftStocks[product.id]??product.stock;
+    const displayUnit=productUnitOptions(product).find(unit=>unit.name===stockEditRowUnitSel[product.id]);
+    row.querySelector('[data-stock-count-difference]').innerHTML=stockCountDifferenceHtml(product,target,displayUnit?.factor||1);
+    const lotTotal=stockEditLotTotal(product.id);
+    const lotDirection=amount=>Math.abs(amount-lotTotal)<0.000001?0:Math.sign(amount-lotTotal);
+    if(lotDirection(previous)!==lotDirection(target)){
+      row.querySelector('.stock-control-lot-cell').innerHTML=stockEditLotControlHtml(product,target-product.stock);
+      bindDmyDateFields();bindLotNumberInputs();
+    }
+    refreshStockEditConfirmButton();
+  }));
+  const stockEditFields='[data-stock-edit-amount],[data-count-part],[data-stock-edit-lot],[data-stock-edit-new-lot],[data-stock-edit-new-expiry]';
   document.getElementById('stockEditTbody')?.addEventListener('keydown',event=>{
     const source=event.target;
     if(!source.matches(stockEditFields)||event.defaultPrevented||event.isComposing||
       event.keyCode===229||event.ctrlKey||event.altKey||event.metaKey)return;
     const productId=source.dataset.stockEditAmount;
-    if(productId && (event.key==='ArrowUp'||event.key==='ArrowDown')){
+    if((productId||source.dataset.countPart) && (event.key==='ArrowUp'||event.key==='ArrowDown')){
       event.preventDefault();
       return;
     }
@@ -1192,25 +1217,30 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     input.addEventListener('change',()=>render());
   });
   if(confirmStockEditBtn) confirmStockEditBtn.addEventListener('click',confirmStockEditChanges);
-  document.querySelectorAll('[data-stock-edit-lot]').forEach(select=>select.addEventListener('change',()=>{
+  document.getElementById('stockEditTbody')?.addEventListener('change',event=>{
+    const select=event.target.closest('[data-stock-edit-lot]');
+    if(!select)return;
     const productId=select.dataset.stockEditLot;
     const hadFocus=document.activeElement===select;
     stockEditLotSelections[Number(productId)]=select.value;
     render();
     if(hadFocus) document.querySelector(`[data-stock-edit-lot="${productId}"]`)?.focus();
-  }));
-  document.querySelectorAll('[data-stock-edit-new-lot]').forEach(input=>input.addEventListener('input',()=>{ stockEditNewLotNumbers[Number(input.dataset.stockEditNewLot)]=input.value; }));
-  document.querySelectorAll('[data-stock-edit-new-expiry]').forEach(input=>input.addEventListener('input',()=>{
+  });
+  document.getElementById('stockEditTbody')?.addEventListener('input',event=>{
+    const input=event.target;
+    if(input.matches('[data-stock-edit-new-lot]'))stockEditNewLotNumbers[Number(input.dataset.stockEditNewLot)]=input.value;
+    if(!input.matches('[data-stock-edit-new-expiry]'))return;
     const expiryText=input.value.trim(),iso=dmyToISO(expiryText);
     stockEditNewLotExpiries[Number(input.dataset.stockEditNewExpiry)]=iso||'';
     input.classList.toggle('stock-edit-invalid',expiryText!==''&&!iso);
     refreshStockEditConfirmButton();
-  }));
+  });
   document.querySelectorAll('[data-stock-edit-remove]').forEach(button=>button.addEventListener('click',()=>{
     const id=Number(button.dataset.stockEditRemove);
     stockEditItems=stockEditItems.filter(itemId=>itemId!==id);
     delete stockEditRowUnitSel[id];
     delete stockEditDraftStocks[id];
+    stockCountPartsMap().delete(id);
     delete stockEditLotSelections[id];
     delete stockEditNewLotNumbers[id];
     delete stockEditNewLotExpiries[id];
