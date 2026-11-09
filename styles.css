@@ -1569,6 +1569,19 @@
   .system-user-warehouse-hint{display:block;margin-top:7px;color:var(--text-muted);font-size:12px;line-height:1.5;}
   .system-user-access-warehouses{display:block;margin-top:4px;color:var(--text-muted);font-size:12px;line-height:1.45;}
   .password-input-wrap{position:relative;}
+  .password-key-field{display:block;position:relative;min-width:0;}
+  .password-key-field>input{width:100%;box-sizing:border-box;}
+  .store-reset-field .password-key-field{margin-top:6px;}
+  .store-reset-field .password-key-field>input{margin-top:0;}
+  .password-key-state{position:absolute;right:9px;top:50%;transform:translateY(-50%);color:var(--text-muted);background:var(--surface);border-radius:4px;padding:2px 4px;white-space:nowrap;font:600 12px/1.3 'Sarabun',sans-serif;letter-spacing:0;}
+  .password-key-state.key-pressed{color:var(--primary-dark);background:var(--primary-soft);}
+  :is(.password-key-field,.password-input-wrap):has(>.password-key-state){--key-space:44px;}
+  :is(.password-key-field,.password-input-wrap):has(>.key-pressed){--key-space:88px;}
+  :is(.password-key-field,.password-input-wrap):has(>.both-keys){--key-space:126px;}
+  .password-key-field:has(>.password-key-state)>input{padding-inline-end:var(--key-space);}
+  .password-input-wrap>.password-key-state{right:46px;}
+  .password-input-wrap:has(>.password-key-state)>input{padding-inline-end:calc(var(--key-space) + 38px);}
+  .password-key-description{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap;}
   .password-input-wrap input{padding-right:48px;}
   .password-eye-btn{position:absolute;right:5px;top:50%;transform:translateY(-50%);width:38px;height:36px;border:0;border-radius:7px;background:transparent;color:#707A88;display:flex;align-items:center;justify-content:center;cursor:pointer;}
   .password-eye-btn:hover{background:#F4EEEB;color:var(--primary);}

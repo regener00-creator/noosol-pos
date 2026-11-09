@@ -30,6 +30,7 @@
   "src/ui/sidebar.js",
   "src/ui/theme.js",
   "src/ui/keyboard-navigation.js",
+  "src/ui/password-key-state.js",
   "src/notes/reorder.js",
   "src/notes/editor.js",
   "src/notes/knowledge.js",

@@ -5,7 +5,7 @@ function requestWarehouseCreateApproval(){
   dialog.className='warehouse-password-dialog';
   dialog.setAttribute('aria-labelledby','warehousePasswordHeading');
   dialog.innerHTML=`<form data-enter-navigation="off"><h3 id="warehousePasswordHeading">เพิ่มคลังสินค้า</h3>
-    <label class="field">รหัสผ่านเจ้าของร้าน<input type="password" autocomplete="current-password" required autofocus></label>
+    <label class="field">รหัสผ่านเจ้าของร้าน<span class="password-key-field"><input type="password" autocomplete="current-password" required autofocus></span></label>
     <span role="alert" hidden></span>
     <div class="modal-actions"><button type="button" class="btn ghost">ยกเลิก</button><button type="submit" class="btn primary">ยืนยันรหัสผ่าน</button></div></form>`;
   document.body.appendChild(dialog);

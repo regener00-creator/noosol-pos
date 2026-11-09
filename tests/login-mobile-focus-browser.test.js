@@ -27,6 +27,21 @@ const executable=['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','
   await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:'domcontentloaded'});
   await page.locator('#loginPassword').fill('secret123');
   await page.locator('#loginPassword').focus();
+  const keys=page.locator('#loginPassword + .password-key-state [aria-hidden="true"]');
+  await page.keyboard.down('Shift');
+  assert.equal(await keys.innerText(),'⇧ Shift ABC');
+  await page.keyboard.up('Shift');
+  assert.equal(await keys.innerText(),'abc');
+  // Playwright cannot set the physical lock key on the host keyboard.
+  for(const [shiftKey,expected] of [[false,'⇪ Caps ABC'],[true,'⇪ Caps ⇧ Shift abc']]){
+    await page.locator('#loginPassword').evaluate((input,shiftKey)=>{
+      input.dispatchEvent(new KeyboardEvent('keydown',{bubbles:true,modifierCapsLock:true,shiftKey}));
+    },shiftKey);
+    assert.equal(await keys.innerText(),expected);
+  }
+  await page.locator('#loginUserId').focus();
+  assert.equal(await keys.count(),0,'the key indicator belongs only to the focused password');
+  await page.locator('#loginPassword').focus();
 
   await page.evaluate(()=>renderLoginState());
   await page.waitForTimeout(30);

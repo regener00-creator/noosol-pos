@@ -1,4 +1,5 @@
 applyReceiptPrinterSetupLink();
+bindPasswordKeyState();
 
 // คลิกช่องตัวเลขครั้งเดียวแล้วเลือกค่าทั้งหมด เพื่อพิมพ์ค่าใหม่ทับได้ทันที
 document.addEventListener('focusin', e=>{

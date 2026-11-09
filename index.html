@@ -28,8 +28,8 @@
     <h1>สร้างบัญชีเจ้าของร้าน</h1>
     <div class="login-sub">กำหนดบัญชี Level 1 ก่อนเริ่มใช้งานระบบ</div>
     <div class="login-field"><label for="setupOwnerId">ID เจ้าของร้าน</label><input id="setupOwnerId" type="text" autocomplete="username" placeholder="เช่น owner" required></div>
-    <div class="login-field"><label for="setupOwnerPassword">Password</label><input id="setupOwnerPassword" type="password" autocomplete="new-password" minlength="10" placeholder="อย่างน้อย 10 ตัวอักษร มีตัวอักษรและตัวเลข" required></div>
-    <div class="login-field"><label for="setupOwnerPasswordConfirm">ยืนยัน Password</label><input id="setupOwnerPasswordConfirm" type="password" autocomplete="new-password" placeholder="พิมพ์ Password อีกครั้ง" required></div>
+    <div class="login-field"><label for="setupOwnerPassword">Password</label><span class="password-key-field"><input id="setupOwnerPassword" type="password" autocomplete="new-password" minlength="10" placeholder="อย่างน้อย 10 ตัวอักษร มีตัวอักษรและตัวเลข" required></span></div>
+    <div class="login-field"><label for="setupOwnerPasswordConfirm">ยืนยัน Password</label><span class="password-key-field"><input id="setupOwnerPasswordConfirm" type="password" autocomplete="new-password" placeholder="พิมพ์ Password อีกครั้ง" required></span></div>
     <div class="login-field"><label for="setupOwnerName">ชื่อเจ้าของร้าน</label><input id="setupOwnerName" type="text" autocomplete="name" placeholder="กรอกชื่อ" required></div>
     <div class="login-field"><label for="setupOwnerPhone">เบอร์โทร</label><input id="setupOwnerPhone" type="tel" autocomplete="tel" placeholder="กรอกเบอร์โทร"></div>
     <button class="btn primary login-submit" type="submit">สร้างบัญชีเจ้าของร้าน</button>
@@ -40,7 +40,7 @@
   <form class="login-card" id="loginForm">
     <div class="login-brand"><span class="brand-logo-frame" aria-hidden="true"><img src="/sapuri-brand-screen.webp" alt=""></span><span>SAPURI POS</span></div>
     <div class="login-field"><label for="loginUserId">ID ผู้ใช้งาน</label><input id="loginUserId" type="text" autocomplete="username" placeholder="กรอก ID ผู้ใช้งาน" required></div>
-    <div class="login-field"><label for="loginPassword">รหัสผ่าน</label><input id="loginPassword" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน" required></div>
+    <div class="login-field"><label for="loginPassword">รหัสผ่าน</label><span class="password-key-field"><input id="loginPassword" type="password" autocomplete="current-password" placeholder="กรอกรหัสผ่าน" required></span></div>
     <button class="btn primary login-submit" type="submit">เข้าสู่ระบบ</button>
     <button class="btn ghost login-recover" id="recoverOwnerPasswordBtn" type="button">ลืม Password เจ้าของร้าน</button>
     <div class="login-error" id="loginError"></div>

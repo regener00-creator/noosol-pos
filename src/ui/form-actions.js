@@ -42,7 +42,7 @@ function renderStoreResetDialog(){
       <h2 id="storeResetTitle">${escapeHtml(config.title)}</h2>
       <p>${escapeHtml(config.description)}</p>
       <div class="store-reset-impact"><strong>ผลที่จะเกิดขึ้น:</strong><br>${escapeHtml(config.impact)}</div>
-      <label class="store-reset-field">รหัสผ่านเจ้าของร้าน<input id="storeResetPassword" type="password" autocomplete="current-password" required></label>
+      <label class="store-reset-field">รหัสผ่านเจ้าของร้าน<span class="password-key-field"><input id="storeResetPassword" type="password" autocomplete="current-password" required></span></label>
       <label class="store-reset-field">พิมพ์คำว่า “${escapeHtml(config.phrase)}” เพื่อยืนยัน<input id="storeResetPhrase" type="text" autocomplete="off" required></label>
       <label class="store-reset-confirm"><input id="storeResetBackupConfirmed" type="checkbox" required><span>${storeResetMode==='factory'?'ฉันสำรองข้อมูลแยกครบทุกคลังแล้ว และเข้าใจว่าการคืนค่าโรงงานจะลบข้อมูลทุกคลังและบัญชีผู้ใช้ทั้งหมด':'ฉันสำรองข้อมูลของร้านที่เลือกแล้ว และเข้าใจว่าข้อมูลที่ล้างต้องใช้ไฟล์สำรองของร้านนี้เพื่อกู้คืน'}</span></label>
       <div class="store-reset-actions"><button class="btn ghost" id="cancelStoreResetBtn" type="button">ยกเลิก</button><button class="btn reset-danger" id="confirmStoreResetBtn" type="submit">${escapeHtml(config.button)}</button></div>

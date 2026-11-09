@@ -44,6 +44,14 @@ const executable=['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','
   await page.click('[data-toggle-password="recoveryAnswer"]');
   assert.equal(await page.locator('#recoveryAnswer').getAttribute('type'),'text','answer visibility button must reveal the answer');
   assert.match(await page.locator('[data-toggle-password="recoveryAnswer"]').getAttribute('aria-label'),/ซ่อนคำตอบ/);
+  await page.setViewportSize({width:320,height:720});
+  await page.locator('#recoveryAnswer').evaluate(input=>input.dispatchEvent(
+    new KeyboardEvent('keydown',{bubbles:true,modifierCapsLock:true,shiftKey:true})
+  ));
+  const badge=page.locator('#recoveryAnswer').locator('..').locator('.password-key-state');
+  assert.match(await badge.innerText(),/⇪ Caps ⇧ Shift abc/);
+  const badgeRect=await badge.boundingBox(),eyeRect=await page.locator('[data-toggle-password="recoveryAnswer"]').boundingBox();
+  assert.ok(badgeRect.x+badgeRect.width<=eyeRect.x,'the status fits beside the eye on a narrow screen');
   await page.click('.owner-password-recovery-overlay .recovery-cancel');
   await page.evaluate(()=>{
     window.recoveryWrites=[];
