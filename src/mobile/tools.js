@@ -309,7 +309,7 @@ function mobileShortLotNumber(lot){
   const suffix=chars.slice(-6).join('');
   return lot.manufacturer_lot?suffix:suffix.replace(/[a-f]/g,char=>char.toUpperCase());
 }
-function mobilePriceLotOptions(product,lots,selectedLot){
+function mobilePriceLotOptions(lots,selectedLot){
   const counts=new Map();
   for(const lot of lots){
     const code=mobileShortLotNumber(lot);
@@ -319,7 +319,7 @@ function mobilePriceLotOptions(product,lots,selectedLot){
     const code=mobileShortLotNumber(lot);
     const qualifier=counts.get(code)>1?` · รายการ ${index+1}`:'';
     const expiry=lot.expiry_date?fmtDateShort(lot.expiry_date):'ไม่ระบุวันหมดอายุ';
-    return `<option value="${lot.id}" title="${escapeHtml(mobileLotNumber(lot))}" ${Number(lot.id)===Number(selectedLot?.id)?'selected':''}>Lot ${escapeHtml(code)}${qualifier} · ${escapeHtml(lotQuantityText(product,lot))} · ${escapeHtml(expiry)}</option>`;
+    return `<option value="${lot.id}" ${Number(lot.id)===Number(selectedLot?.id)?'selected':''}>Lot ${escapeHtml(code)}${qualifier} · ${escapeHtml(expiry)}</option>`;
   }).join('');
 }
 function mobilePriceResultHtml(){
@@ -353,7 +353,7 @@ function mobilePriceResultHtml(){
       <div class="mobile-price-edit-field"><label for="mobilePriceEditSale">ราคาขาย</label><input id="mobilePriceEditSale" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.price)||0}"></div>
       <div class="mobile-price-edit-field"><label for="mobilePriceEditCost">ทุน</label><input id="mobilePriceEditCost" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.cost)||0}"></div>
       ${options.length>1?`<select class="mobile-unit-select" id="mobilePriceUnit">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>หน่วย: ${escapeHtml(option.name)}</option>`).join('')}</select>`:`<div class="mobile-unit-select" style="display:flex;align-items:center;">หน่วย: ${escapeHtml(selected?.name||product.unit)}</div>`}
-      <div class="mobile-price-lot-field"><label for="mobilePriceLot">Lot ที่ต้องการแก้วันหมดอายุ</label><select id="mobilePriceLot" class="mobile-price-lot-select" ${editableLots.length?'':'disabled'}><option value="">${editableLots.length>1?'เลือก Lot ให้ชัดเจน':'ไม่มี Lot ที่มีสินค้า'}</option>${mobilePriceLotOptions(product,editableLots,selectedLot)}</select><details id="mobilePriceLotFull" ${mobileLotNumber(selectedLot)===mobileShortLotNumber(selectedLot)?'hidden':''}><summary>ดูเลข LOT เต็ม</summary><span>${escapeHtml(mobileLotNumber(selectedLot))}</span></details></div>
+      <div class="mobile-price-lot-field"><label for="mobilePriceLot">Lot ที่ต้องการแก้วันหมดอายุ</label><select id="mobilePriceLot" class="mobile-price-lot-select" ${editableLots.length?'':'disabled'}><option value="">${editableLots.length>1?'เลือก Lot ให้ชัดเจน':'ไม่มี Lot ที่มีสินค้า'}</option>${mobilePriceLotOptions(editableLots,selectedLot)}</select></div>
       <div class="mobile-price-edit-field" style="grid-column:1/-1;"><label for="mobilePriceEditExpiry">วันหมดอายุของ Lot ที่เลือก</label><input id="mobilePriceEditExpiry" class="mobile-price-edit-input dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(selectedLotExpiry))}" ${selectedLot?'':'disabled'}></div>
       <div class="mobile-price-lot-hint" id="mobilePriceLotHint">${escapeHtml(lotHint)}</div>
     </div>

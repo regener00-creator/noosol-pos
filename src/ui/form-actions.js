@@ -113,12 +113,6 @@ function attachMobilePriceResultEvents(){
     mobilePriceLotId=Number(event.target.value)||null;
     const product=products.find(entry=>Number(entry.id)===Number(mobilePriceProductId));
     const lot=mobileEditableLots(product?.id,activeWarehouseId).find(entry=>Number(entry.id)===Number(mobilePriceLotId));
-    const details=document.getElementById('mobilePriceLotFull');
-    if(details){
-      details.open=false;
-      details.hidden=mobileLotNumber(lot)===mobileShortLotNumber(lot);
-      details.querySelector('span').textContent=mobileLotNumber(lot);
-    }
     const expiryInput=document.getElementById('mobilePriceEditExpiry');
     const hint=document.getElementById('mobilePriceLotHint');
     if(expiryInput){
