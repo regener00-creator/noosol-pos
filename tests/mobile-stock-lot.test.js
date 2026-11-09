@@ -27,6 +27,7 @@ const context = {
   stockEditNewLotExpiries: {},
   stockEditRowUnitSel: {10:'กล่อง'},
   stockEditDraftStocks: {10:12},
+  stockCountPartsMap: () => new Map(),
   stockEditPendingChanges: () => [],
   fmtDate: value => value.split('-').reverse().join('-'),
   stockInLargestUnit: value => `${value.stock} ${value.unit}`,
