@@ -35,7 +35,10 @@ let browser;
     }
     warehouseStock=id=>products.find(product=>product.id===Number(id))?.stock||0;
     inventoryLotRows=[{id:101,product_id:1,warehouse_id:1,quantity_base:1,status:'active',expiry_date:'2020-01-01'},
+      {id:111,product_id:12,warehouse_id:1,internal_code:'LOT-A',quantity_base:1000,status:'active'},
+      {id:112,product_id:12,warehouse_id:1,internal_code:'LOT-B',quantity_base:105,status:'active'},
       {id:199,product_id:99,warehouse_id:1,quantity_base:5,status:'active',expiry_date:'2035-01-01'}];
+    rebuildInventoryLotMap();
     stockEditItems=[99,1];stockEditDraftStocks={99:7,1:4,2:0};stockEditPage=3;
     window.bulkReviewRpcCalls=0;
     sb.rpc=()=>{window.bulkReviewRpcCalls++;throw new Error('Opening review must not change stock');};
@@ -43,6 +46,11 @@ let browser;
   });
   const rows=page.locator('[data-stock-control-anomaly-select]');
   await rows.first().waitFor();
+  await page.locator('[data-stock-control-mode="lots"]').click();
+  const lotRow=page.locator('tr').filter({has:page.locator('[data-stock-lot-reallocation="12"]')});
+  assert.equal(await lotRow.locator('td').nth(2).innerText(),'2 ลัง 4 กล่อง 5 ซอง');
+  assert.equal(await lotRow.locator('td').nth(3).innerText(),'2 LOT');
+  await page.locator('[data-stock-control-mode="anomalies"]').click();
   await page.setViewportSize({width:2100,height:960});
   const widths=await page.locator('.stock-control-page').evaluate(el=>[
     el.clientWidth,el.querySelector('.stock-control-tabs').getBoundingClientRect().width,
