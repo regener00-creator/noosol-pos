@@ -36,6 +36,36 @@ const executable=['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','
   await page.waitForTimeout(260);
   assert.equal(await page.evaluate(()=>document.activeElement?.id),'loginPassword','iPhone keyboard resize must not move focus back to the user ID field');
   assert.equal(await page.locator('#loginPassword').inputValue(),'secret123','password text must remain intact after the viewport resize');
+  await page.evaluate(()=>{
+    sb.auth.signInWithPassword=async()=>({error:null});
+    loadCurrentProfile=async()=>{currentProfile={id:'mobile-user',username:'staff',firstName:'กรธวัช',lastName:'จันทรวารี',level:2};};
+    loadWorkspaceFromSupabase=async()=>{
+      warehouses=[{id:1,name:'พระยาสุเรนทร์'},{id:2,name:'พรชัย'},{id:3,name:'คลังอื่น'}];
+      warehouseAccessRows=[{warehouse_id:1},{warehouse_id:2}];
+      localStorage.setItem(activeWarehouseStorageKey(),'2');
+      restoreActiveWarehouseSelection();
+    };
+    rememberOfflineLogin=saveOfflinePosSnapshot=loadOfflineSales=syncOfflineSales=async()=>{};
+    loadWarehouseInventoryFromSupabase=loadCashShiftsFromSupabase=loadBusinessSettingsFromSupabase=loadProductCategorySettingsFromSupabase=loadFavoritesFromSupabase=loadDocumentPrefixesFromSupabase=async()=>true;
+    enforceOwnerRecoverySetup=checkOwnerDatabaseHealth=async()=>{};
+    ensureOnDemandDataForTab=()=>({status:'ready'});
+  });
+  await page.locator('#loginUserId').fill('staff');
+  await page.getByRole('button',{name:'เข้าสู่ระบบ',exact:true}).click();
+  await page.locator('#warehouseChoiceScreen').waitFor({state:'visible'});
+  assert.equal(await page.locator('#appRoot').isHidden(),true);
+  const choice=page.locator('#warehouseChoiceSelect');
+  assert.equal(await choice.inputValue(),'');
+  assert.deepEqual(await choice.locator('option').evaluateAll(items=>items.map(o=>o.value)),['','1','2']);
+  await choice.selectOption('1');
+  await page.locator('#warehouseChoiceForm [type="submit"]').click();
+  await page.locator('.mobile-warehouse-title').waitFor();
+  assert.match(await page.locator('.mobile-warehouse-title').innerText(),/^SAPURI • คลังพระยาสุเรนทร์/);
+  assert.equal(await page.locator('.mobile-user-line').innerText(),'กรธวัช จันทรวารี');
+  const dot=page.locator('#mobileDataStatus');
+  assert.equal(await dot.innerText(),'');
+  assert.equal(await dot.getAttribute('aria-label'),'ออนไลน์');
+  assert.equal(await dot.evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(53, 168, 84)');
   assert.deepEqual(errors,[]);
   console.log('mobile login focus browser test passed');
 })().catch(error=>{ console.error(error); process.exitCode=1; }).finally(async()=>{ await browser?.close(); server.close(); });

@@ -106,6 +106,7 @@ document.getElementById('warehouseChoiceForm')?.addEventListener('submit',event=
     showToast('ไม่สามารถเลือกคลังสินค้านี้ได้','error');
     return;
   }
+  mobileWarehouseChoiceRequired=false;
   showToast(isAllWarehousesMode()?'กำลังดูข้อมูลทุกคลัง':`กำลังใช้งานคลัง ${activeWarehouse()?.name||''}`);
   render();
 });

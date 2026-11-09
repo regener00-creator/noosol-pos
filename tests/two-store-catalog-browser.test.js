@@ -186,9 +186,12 @@ async function verifyLastInspectionUnits(page){
   for(const width of [320,390]){
     await page.setViewportSize({width,height:844});
     const warehouse=await picker.boundingBox();
-    const status=await page.locator('#mobileDataStatus').boundingBox();
-    assert.ok(warehouse.x>=0 && warehouse.x+warehouse.width<=status.x && status.width>0 && status.x+status.width<=width);
-    assert.ok(Math.abs(warehouse.y+warehouse.height/2-status.y-status.height/2)<1);
+    const dot=page.locator('#mobileDataStatus');
+    const status=await dot.boundingBox();
+    const name=await page.locator('.mobile-user-line > span:first-child').boundingBox();
+    assert.ok(warehouse.x>=0 && warehouse.x+warehouse.width<=width && status.x>=name.x+name.width);
+    assert.ok(Math.abs(name.y+name.height/2-status.y-status.height/2)<1);
+    assert.equal(await dot.innerText(),'');
     assert.ok((await page.locator('.mobile-tools-head').boundingBox()).height<=84);
   }
   await page.evaluate(()=>{ stockEditDraftStocks[200]=7; });
@@ -200,6 +203,7 @@ async function verifyLastInspectionUnits(page){
   for(const store of [1,2]){
     const pid=store*100,own=store===1?'AP':'BP',foreign=store===1?'BP':'AP';
     await picker.selectOption(String(store));
+    assert.match(await page.locator('.mobile-warehouse-title').innerText(),new RegExp('^SAPURI • คลัง'+(store===1?'พระยาสุเรนทร์':'พรชัย')));
     assert.deepEqual(await page.evaluate(()=>[activeWarehouseId,loggedInUser().id]),[store,'test-owner']);
     const list=page.locator('#mobileInspectionList');
     await list.selectOption('check'+store);

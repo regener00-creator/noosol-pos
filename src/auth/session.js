@@ -26,6 +26,7 @@ function focusLoginFieldIfIdle(id){
     document.getElementById(id)?.focus();
   },0);
 }
+let mobileWarehouseChoiceRequired=false;
 function renderLoginState(){
   const user=loggedInUser();
   const hasUsers=systemHasOwner!==false; // default to "yes" until proven otherwise, avoids a flash of the setup screen
@@ -34,18 +35,24 @@ function renderLoginState(){
   const warehouseChoiceScreen=document.getElementById('warehouseChoiceScreen');
   const appRoot=document.getElementById('appRoot');
   const allowed=user?accessibleWarehouses():[];
-  const warehouseReady=!!user&&(isAllWarehousesMode()||allowed.some(warehouse=>Number(warehouse.id)===Number(activeWarehouseId)));
+  const warehouseReady=!!user&&!mobileWarehouseChoiceRequired&&(isAllWarehousesMode()||allowed.some(warehouse=>Number(warehouse.id)===Number(activeWarehouseId)));
   if(ownerSetupScreen) ownerSetupScreen.style.display=hasUsers?'none':'flex';
   if(loginScreen) loginScreen.style.display=hasUsers&&!user?'flex':'none';
   if(warehouseChoiceScreen) warehouseChoiceScreen.style.display=hasUsers&&!!user&&!warehouseReady?'flex':'none';
-  if(appRoot) appRoot.hidden=!warehouseReady;
+  if(appRoot){
+    appRoot.hidden=!warehouseReady;
+    appRoot.classList.toggle('awaiting-warehouse',!!user&&mobileWarehouseChoiceRequired);
+  }
   if(!hasUsers){ focusLoginFieldIfIdle('setupOwnerId'); return false; }
   if(!user){ focusLoginFieldIfIdle('loginUserId'); return false; }
   if(!warehouseReady){
     const select=document.getElementById('warehouseChoiceSelect');
     if(select){
       const allOption=canUseAllWarehousesMode()?'<option value="all">คลังรวม — เปรียบเทียบสองร้าน</option>':'';
-      select.innerHTML=allowed.length?allOption+allowed.map(warehouse=>`<option value="${warehouse.id}">${escapeHtml(warehouse.name)}</option>`).join(''):'<option value="">ยังไม่มีคลังที่ได้รับสิทธิ์</option>';
+      const placeholder=mobileWarehouseChoiceRequired?'<option value="" disabled selected>เลือกคลังสินค้า</option>':'';
+      const previous=select.value;
+      select.innerHTML=allowed.length?placeholder+allOption+allowed.map(warehouse=>`<option value="${warehouse.id}">${escapeHtml(warehouse.name)}</option>`).join(''):'<option value="">ยังไม่มีคลังที่ได้รับสิทธิ์</option>';
+      if(mobileWarehouseChoiceRequired&&previous&&allowed.some(warehouse=>String(warehouse.id)===previous))select.value=previous;
       select.disabled=!allowed.length;
     }
     return false;
@@ -123,6 +130,8 @@ async function loginSystem(event){
   const error=document.getElementById('loginError');
   const submitBtn=document.querySelector('.login-submit');
   if(!username||!password){ if(error) error.textContent='กรุณากรอก ID และ Password'; return; }
+  mobileWarehouseChoiceRequired=isMobileDeviceMode();
+  if(mobileWarehouseChoiceRequired)document.getElementById('warehouseChoiceSelect').value='';
   if(!navigator.onLine){
     if(submitBtn) submitBtn.disabled=true;
     try{await enterOfflinePos({username,password});if(error) error.textContent='';}

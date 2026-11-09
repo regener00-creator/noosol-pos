@@ -77,25 +77,19 @@ function productScanMatches(query,limit=8,eligible=()=>true,options){
   return matches;
 }
 function mobileIsOnline(){ return typeof navigator==='undefined'||navigator.onLine!==false; }
-function mobileStatusTime(value=Date.now()){
-  const date=new Date(value);
-  if(Number.isNaN(date.getTime())) return '';
-  return `${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`;
-}
 function mobileDataStatusDetails(){
   if(!mobileIsOnline()||mobileDataStatusState==='offline') return {state:'offline',text:'ออฟไลน์'};
   if(mobileDataStatusState==='syncing') return {state:'syncing',text:'กำลังรีเฟรช'};
   if(mobileDataStatusState==='saving') return {state:'saving',text:'กำลังบันทึก'};
   if(mobileDataStatusState==='error') return {state:'error',text:mobileDataStatusMessage||'บันทึกไม่สำเร็จ'};
-  const latest=mobileLastRefreshAt?` · ล่าสุด ${mobileStatusTime(mobileLastRefreshAt)}`:'';
-  return {state:'online',text:`${mobileDataStatusMessage||'ออนไลน์'}${latest}`};
+  return {state:'online',text:'ออนไลน์'};
 }
 function setMobileDataStatus(state,message=''){
   mobileDataStatusState=state;
   mobileDataStatusMessage=message;
   const details=mobileDataStatusDetails();
   const element=document.getElementById('mobileDataStatus');
-  if(element){ element.dataset.state=details.state; element.textContent=details.text; }
+  if(element){ element.dataset.state=details.state; element.setAttribute('aria-label',details.text); element.title=details.text; }
   return details;
 }
 function mobileRequireOnline(action='บันทึกข้อมูล'){
@@ -1153,6 +1147,7 @@ async function refreshMobileToolsData(button,options={}){
 function renderMobileTools(){
   const user=loggedInUser();
   const mobileStatus=mobileDataStatusDetails();
+  const fullName=[user?.firstName,user?.lastName].filter(Boolean).join(' ')||user?.username||'ผู้ใช้งาน';
   if(mobileProductEditor&&canEditMobilePrice()){
     return `<main class="mobile-tools-page mobile-product-page"><fieldset class="mobile-product-editor" id="mobileProductEditor" data-editor-token="${escapeHtml(mobileProductEditor.token)}" ${mobileProductEditor.saving?'disabled':''}>${renderProductForm({mobile:true})}</fieldset></main>`;
   }
@@ -1169,10 +1164,11 @@ function renderMobileTools(){
     <div class="mobile-tools-tab-brand">P R A N C - H I B E S</div>
     ${mobileToolMode==='price'&&canEditMobilePrice()&&productDirtyOperations.size?`<div class="mobile-product-toolbar"><button type="button" class="btn ghost" id="mobileProductSyncDetails">สินค้ารอซิงก์ ${productDirtyOperations.size} รายการ</button></div>`:''}
     ${mobileToolMode==='price'?`<section class="mobile-tool-panel"><div class="mobile-scan-row mobile-scan-row-camera-left"><button type="button" class="mobile-camera-btn" id="mobilePriceCamera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button><input id="mobilePriceInput" class="mobile-scan-input" value="${escapeHtml(mobilePriceQuery)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"></div><div class="mobile-camera-slot" id="mobilePriceCameraSlot"></div><div id="mobilePriceResult">${mobilePriceResultHtml()}</div></section>`:`<div class="mobile-inventory-workflow"><div class="mobile-inventory-steps" role="tablist" aria-label="ขั้นตอนตรวจและแก้ไขสต๊อก"><button type="button" class="mobile-inventory-step ${mobileInventoryStep==='inspection'?'active':''}" data-mobile-inventory-step="inspection" role="tab" aria-selected="${mobileInventoryStep==='inspection'}"><span class="mobile-inventory-step-number">1</span><span>ตรวจนับ</span></button><button type="button" class="mobile-inventory-step ${mobileInventoryStep==='stock'?'active':''}" data-mobile-inventory-step="stock" role="tab" aria-selected="${mobileInventoryStep==='stock'}"><span class="mobile-inventory-step-number">2</span><span>สรุปและยืนยัน</span></button></div>${mobileInventoryStep==='inspection'?renderMobileInspectionPanel(lists):renderMobileStockEditPanel(lists)}</div>`}
-    <header class="mobile-tools-head"><div class="mobile-tools-actions"><button type="button" class="mobile-tools-logout" id="mobileToolsLogout">ออกจากระบบ</button><button type="button" class="mobile-tools-refresh" id="mobileToolsRefresh" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล" ${mobileIsOnline()?'':'disabled'}><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg></button></div><div class="mobile-tools-brand"><div><h1>SAPURI</h1><span>${escapeHtml(user?.firstName||user?.username||'ผู้ใช้งาน')}</span></div><div class="mobile-tools-logo"><img src="/sapuri-brand-screen.webp" alt="SAPURI"></div></div>
-    <div class="mobile-tools-status-row">
-      <select class="mobile-warehouse-select" id="mobileWarehouseSelect" aria-label="เปลี่ยนสาขา">${accessibleWarehouses().map(warehouse=>`<option value="${Number(warehouse.id)}" ${Number(warehouse.id)===Number(activeWarehouseId)?'selected':''}>คลัง: ${escapeHtml(warehouse.name)}</option>`).join('')}</select>
-      <span class="mobile-tools-context" id="mobileDataStatus" data-state="${mobileStatus.state}" aria-live="polite">${escapeHtml(mobileStatus.text)}</span></div></header>
+    <header class="mobile-tools-head"><div class="mobile-tools-actions"><button type="button" class="mobile-tools-logout" id="mobileToolsLogout">ออกจากระบบ</button><button type="button" class="mobile-tools-refresh" id="mobileToolsRefresh" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล" ${mobileIsOnline()?'':'disabled'}><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.34 5.66"/><path d="M20 4v7h-7"/></svg></button></div><div class="mobile-tools-brand">
+      <div><h1 class="mobile-warehouse-title">SAPURI • คลัง${escapeHtml(activeWarehouse()?.name||'')}
+        <select class="mobile-warehouse-select" id="mobileWarehouseSelect" aria-label="เปลี่ยนสาขา">${accessibleWarehouses().map(warehouse=>`<option value="${Number(warehouse.id)}" ${Number(warehouse.id)===Number(activeWarehouseId)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select>
+      </h1><div class="mobile-user-line"><span>${escapeHtml(fullName)}</span><span class="mobile-tools-context" id="mobileDataStatus" role="img" data-state="${mobileStatus.state}" aria-label="${escapeHtml(mobileStatus.text)}" title="${escapeHtml(mobileStatus.text)}"></span></div></div>
+      <div class="mobile-tools-logo"><img src="/sapuri-brand-screen.webp" alt="SAPURI"></div></div></header>
   </main>`;
 }
 function mobileHandlePriceCode(code){
