@@ -669,6 +669,10 @@ async function verifyLastInspectionUnits(page){
   await checkPagination();
   await page.locator('.navbtn[data-tab="rinventory"]').click();
   await checkStoreFilter();
+  const stockHead=page.locator('[data-combined-results] thead');
+  const stockHeading=stockHead.getByRole('columnheader',{name:'คงเหลือ',exact:true});
+  assert.deepEqual(await stockHeading.evaluate(th=>[th.parentElement.rowIndex,th.colSpan,getComputedStyle(th).textAlign]),[0,2,'center']);
+  assert.deepEqual(await stockHead.locator('tr:nth-child(2) th').allTextContents(),['พระยาสุเรนทร์','พรชัย','พระยาสุเรนทร์','พรชัย']);
   assert.deepEqual(await page.locator('[data-combined-search] + .combined-legend button').allTextContents(),['ทั้งหมด','พระยาสุเรนทร์','พรชัย']);
   await checkPagination();
   await page.locator('[data-combined-search]').fill('0001');

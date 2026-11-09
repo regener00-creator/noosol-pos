@@ -222,10 +222,8 @@ function attachCombinedCatalog(page){
   const metrics=stockOnly?[['stock','คงเหลือ']]:[['price','ราคาขาย'],['cost','ทุน']];
   const amountColumns=metrics.flatMap(([field])=>shops.map(shop=>({field,shop})));
   const shopHeaders=shops.map(shop=>`<th scope="col">${escapeHtml(shop.name)}</th>`).join('');
-  const headers=stockOnly
-    ?shops.map(shop=>`<th rowspan="2">คงเหลือ · ${escapeHtml(shop.name)}</th>`).join('')
-    :metrics.map(([,label])=>`<th scope="colgroup" colspan="${shops.length}">${label}</th>`).join('');
-  const secondHeaderRow=shopHeaders+(stockOnly?'':shopHeaders.repeat(metrics.length));
+  const headers=metrics.map(([,label])=>`<th scope="colgroup" colspan="${shops.length}">${label}</th>`).join('');
+  const secondHeaderRow=shopHeaders.repeat(1+metrics.length);
   const storeButtons=page.querySelectorAll('[data-exclusive-shop]');
   const shopNames=new Map(shops.map(shop=>[Number(shop.id),shop.name]));
   const exclusiveShop=row=>!row.partial&&row.members.length===1?shopNames.get(row.members[0].warehouse):'';
