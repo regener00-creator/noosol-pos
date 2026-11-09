@@ -115,7 +115,6 @@ function stockEditRowsHtml(rows=stockEditCurrentProducts()){
     const hasDraft=Object.prototype.hasOwnProperty.call(stockEditDraftStocks,p.id);
     const selectedBaseStock=hasDraft?stockEditDraftStocks[p.id]:p.stock;
     const selectedAmount=stockUnitAmountFromBase(selectedBaseStock,selectedOption.factor);
-    const systemAmount=stockUnitAmountFromBase(p.stock,selectedOption.factor);
     const differenceBase=Number(selectedBaseStock)-Number(p.stock);
     const differenceHtml=stockCountDifferenceHtml(p,selectedBaseStock,selectedOption.factor);
     const unitHtml=unitOptions.length>1
@@ -125,7 +124,7 @@ function stockEditRowsHtml(rows=stockEditCurrentProducts()){
       <td class="mono" style="text-align:center;">${escapeHtml(selectedOption.barcode||'-')}</td>
       <td>${escapeHtml(p.name)}</td>
       <td style="text-align:center;">${unitHtml}</td>
-      <td class="mono" style="text-align:center;">${inspectionListAmount(systemAmount)}</td>
+      <td class="mono" style="text-align:center;">${escapeHtml(stockInLargestUnit(p))}</td>
       <td style="text-align:center;">${unitOptions.length>1?stockCountPartsHtml(p,unitOptions):`<input type="number" min="0" step="any" class="stock-edit-stock-input ${Number(selectedBaseStock)<0?'stock-negative':''} ${hasDraft?'stock-edit-pending':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="จำนวนที่นับได้ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="กรอกจำนวนที่นับได้จริง แล้วกดยืนยันเพื่อบันทึก">`}</td>
       <td style="text-align:center;" data-stock-count-difference>${differenceHtml}</td>
       <td class="stock-control-lot-cell">${stockEditLotControlHtml(p,differenceBase)}</td>
