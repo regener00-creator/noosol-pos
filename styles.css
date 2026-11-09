@@ -2157,7 +2157,6 @@
   .mobile-result-card[data-review-status="pending"]{background:#fff5d6;border-color:#e0bc57;}
   .mobile-result-card[data-review-status="complete"]{background:#e6f5eb;border-color:#83c69a;}
   .mobile-result-name{font-size:17px;font-weight:700;line-height:1.35;margin-bottom:12px;}
-  .mobile-unit-conversions{margin:8px 0 10px;background:#fff;}
   .mobile-result-codes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px;}
   .mobile-result-code{background:#fff;border:1px solid var(--border);border-radius:10px;padding:9px 10px;min-width:0;}
   .mobile-result-code span,.mobile-metric span{display:block;font-size:11px;color:var(--text-muted);margin-bottom:2px;}

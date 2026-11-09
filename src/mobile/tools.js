@@ -332,7 +332,6 @@ function mobilePriceResultHtml(){
   const unitField=options.length>1
     ? `<select class="mobile-unit-select" id="mobilePriceUnit">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>หน่วย: ${escapeHtml(unitLabels.get(option.name)||option.name)}</option>`).join('')}</select>`
     : `<div class="mobile-unit-select" style="display:flex;align-items:center;">หน่วย: ${escapeHtml(selected?.name||product.unit)}</div>`;
-  const conversionHtml=conversionRows.length?`<div class="unit-conversion-list mobile-unit-conversions" aria-label="อัตราแปลงหน่วย">${conversionRows.map(row=>`<div class="unit-conversion-row"><b>1 ${escapeHtml(row.largerUnit)}</b><span>=</span><b>${escapeHtml(productUnitConversionAmount(row.quantity))} ${escapeHtml(row.smallerUnit)}</b></div>`).join('')}</div>`:'';
   const expiry=warehouseExpiry(product.id,activeWarehouseId)||'';
   const editableLots=canEdit?mobileEditableLots(product.id,activeWarehouseId):[];
   let selectedLot=editableLots.find(lot=>Number(lot.id)===Number(mobilePriceLotId))||null;
@@ -347,7 +346,6 @@ function mobilePriceResultHtml(){
       <div class="mobile-price-edit-field"><label for="mobilePriceLot">LOT</label><select id="mobilePriceLot" class="mobile-price-lot-select" ${editableLots.length?'':'disabled'}><option value="">${editableLots.length?'เลือก LOT':'ไม่มี LOT ที่มีสินค้า'}</option>${mobilePriceLotOptions(editableLots,selectedLot)}</select></div>
       <div class="mobile-price-edit-field"><label for="mobilePriceEditExpiry">วันหมดอายุ</label><input id="mobilePriceEditExpiry" class="mobile-price-edit-input dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(selectedLotExpiry))}" ${selectedLot?'':'disabled'}></div>
     </div>
-    ${conversionHtml}
     <button type="button" class="btn ghost mobile-edit-product" id="mobileEditProduct">แก้ไขสินค้า</button>
     <div class="mobile-price-review-colors" role="group" aria-label="สีสถานะสินค้า">
       ${[['normal','สีปกติ'],['pending','สีเหลือง'],['complete','สีเขียว']].map(([value,label])=>`<button type="button" class="product-review-filter" data-mobile-review-status="${value}" aria-pressed="${(productDataReviewStatus(product)||'normal')===value}"><span class="product-review-filter-dot" aria-hidden="true"></span>${label}</button>`).join('')}
@@ -358,7 +356,7 @@ function mobilePriceResultHtml(){
       ${canViewCost?`<div class="mobile-metric"><span>ทุน</span><b id="mobilePriceCost">${fmtMoney(selected?.cost||0)} บาท</b></div>`:''}
       ${unitField}
       <div class="mobile-metric"><span>วันหมดอายุ</span><b>${escapeHtml(fmtDateShort(expiry))}</b></div>
-    </div>${conversionHtml}`}
+    </div>`}
   </article>`;
 }
 async function saveMobilePriceChanges(){
