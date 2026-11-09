@@ -154,6 +154,7 @@ let browser;
   assert.equal(await page.locator('#mobilePriceStock').innerText(),'1 ลัง 2 กล่อง 3 ซอง');
   assert.equal(await page.locator('#mobilePriceLot option[value="1"]').innerText(),'5F8CF4');
   const lotBox=await page.locator('#mobilePriceLot').boundingBox();
+  assert.equal(await page.locator('#mobilePriceLot').evaluate(el=>getComputedStyle(el).textAlignLast),'center');
   const labels=page.locator('.mobile-price-edit-field label');
   assert.deepEqual(await labels.allTextContents(),['ขาย','ทุน','LOT','วันหมดอายุ']);
   assert.ok(await labels.evaluateAll(items=>items.every(label=>getComputedStyle(label).textAlign==='center')));

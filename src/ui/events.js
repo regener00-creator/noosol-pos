@@ -326,6 +326,24 @@ function attachEvents(){
   document.getElementById('mobileToolsLogout')?.addEventListener('click',()=>{
     if(confirm('ยืนยันการออกจากระบบใช่หรือไม่?')){ closeMobileCameraScanner(); logoutSystem(); }
   });
+  document.getElementById('mobileWarehouseSelect')?.addEventListener('change',event=>{
+    const select=event.currentTarget;
+    const nextId=Number(select.value);
+    select.value=String(activeWarehouseId);
+    if(nextId===activeWarehouseId)return;
+    if(stockEditPosting||mobileProductOpening||mobileDataStatusState==='saving'){
+      showToast('กรุณารอให้การทำงานเสร็จก่อนเปลี่ยนสาขา');
+      return;
+    }
+    if(!canLeaveActiveWarehouse())return;
+    const quickSave=document.getElementById('mobilePriceSaveChanges');
+    const hasDraft=(quickSave&&!quickSave.hidden)||mobileInspectionCreating||mobileInspectionAddingToSaved||Object.keys(stockEditDraftStocks).length;
+    if(hasDraft&&!confirm('เปลี่ยนสาขาและทิ้งข้อมูลที่ยังไม่ได้บันทึกหรือไม่?'))return;
+    if(!selectActiveWarehouse(nextId))return;
+    mobilePriceQuery=''; mobilePriceProductId=null; mobilePriceUnitName=''; mobilePriceLotId=null;
+    mobileStockQuery=''; mobileStockLastProductId=null;
+    render();
+  });
   const mobileToolsRefresh=document.getElementById('mobileToolsRefresh');
   document.getElementById('mobileNewProduct')?.addEventListener('click',()=>openMobileProductEditor());
   document.getElementById('mobileProductSyncDetails')?.addEventListener('click',openSyncDetailsModal);

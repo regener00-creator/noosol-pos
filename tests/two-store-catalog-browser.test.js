@@ -180,10 +180,19 @@ async function verifyLastInspectionUnits(page){
     runStockOperation=async(name,args)=>{window.postedCounts.push(args);return {};};
     loadInventoryLotsFromSupabase=async()=>true;
     syncInspectionListsToSupabase=async()=>true;
+    selectActiveWarehouse(2);render();
   });
+  const picker=page.locator('#mobileWarehouseSelect');
+  await page.evaluate(()=>{ stockEditDraftStocks[200]=7; });
+  page.once('dialog',dialog=>dialog.dismiss());
+  await picker.selectOption('1');
+  assert.equal(await picker.inputValue(),'2');
+  assert.equal(await page.evaluate(()=>stockEditDraftStocks[200]),7);
+  page.once('dialog',dialog=>dialog.accept());
   for(const store of [1,2]){
     const pid=store*100,own=store===1?'AP':'BP',foreign=store===1?'BP':'AP';
-    await page.evaluate(store=>{selectActiveWarehouse(store);render();},store);
+    await picker.selectOption(String(store));
+    assert.deepEqual(await page.evaluate(()=>[activeWarehouseId,loggedInUser().id]),[store,'test-owner']);
     const list=page.locator('#mobileInspectionList');
     await list.selectOption('check'+store);
     await page.locator('#mobileOpenInspectionList').click();
@@ -237,6 +246,18 @@ async function verifyLastInspectionUnits(page){
     const line=posted.lines.find(line=>line.productId===pid);
     assert.deepEqual([line.unitName,line.targetStock],store===1?['กล่อง',20]:['แผง',24]);
   }
+  const allowedIds=await page.evaluate(()=>{
+    const profile=currentProfile,access=warehouseAccessRows;
+    try {
+      currentProfile={...profile,owner:false,level:2};
+      warehouseAccessRows=[{warehouse_id:2,can_sell:true}];
+      render();
+      return [...document.querySelectorAll('#mobileWarehouseSelect option')].map(option=>option.value);
+    } finally {
+      currentProfile=profile;warehouseAccessRows=access;render();
+    }
+  });
+  assert.deepEqual(allowedIds,['2']);
 }
 (async()=>{
   execFileSync(process.execPath,[path.join(root,'scripts/build-static.mjs')],{cwd:root,stdio:'pipe'});
