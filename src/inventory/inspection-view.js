@@ -61,12 +61,12 @@ function inspectionListRowsHtml(entries){
     if(!product) return `<tr><td class="mono" style="text-align:center;">-</td><td class="mono" style="text-align:center;">-</td><td>ไม่พบสินค้าในระบบ (รหัส ${escapeHtml(item.pid)})</td><td style="text-align:center;">-</td><td style="text-align:center;">${removeButton}</td></tr>`;
     const selected=inspectionListSelectedOption(item,product);
     const baseStock=warehouseStock(product.id,inspectionListDraft?.warehouseId||inspectionListCatFilter?.wh||activeWarehouseId);
-    const selectedStock=stockUnitAmountFromBase(baseStock,selected.factor);
+    const stockText=stockReportQuantityText(product,baseStock);
     return `<tr data-inspection-row="${index}">
       <td class="mono" style="text-align:center;">${escapeHtml(product.sku||'-')}</td>
       <td class="mono" style="text-align:center;">${escapeHtml(selected.barcode||'-')}</td>
       <td>${escapeHtml(product.name)}</td>
-      <td><span class="inspection-list-stock ${Number(baseStock)<0?'stock-negative':''}">${inspectionListAmount(selectedStock)} ${escapeHtml(selected.name)}</span></td>
+      <td><span class="inspection-list-stock ${Number(baseStock)<0?'stock-negative':''}">${escapeHtml(stockText)}</span></td>
       <td style="text-align:center;">${removeButton}</td>
     </tr>`;
   }).join('');

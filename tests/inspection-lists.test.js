@@ -197,7 +197,13 @@ assert.match(ownerEditorHtml, /data-inspection-sort="name"/);
 assert.match(ownerEditorHtml, /data-inspection-sort="stock"/);
 assert.doesNotMatch(ownerEditorHtml, /id="inspectionListWarehouse"/);
 assert.doesNotMatch(ownerEditorHtml, /inspection-list-stock-sub/);
-assert.match(ownerEditorHtml, /2\.5 ลัง/);
+assert.match(ownerEditorHtml, /2 ลัง 5 กล่อง/);
+products.push({id:5,name:'Decolgen',unit:'ซอง',stock:1105,units:[{sub:'กล่อง',factor:25},{sub:'ลัง',factor:500}]});
+for(const unit of ['ซอง','กล่อง','ลัง']){
+  const rows=context.inspectionListRowsHtml([{item:{pid:5,unit},index:0}]);
+  assert.match(rows,/2 ลัง 4 กล่อง 5 ซอง/);
+}
+products.pop();
 context.loggedInUser = () => ({owner:false});
 const staffEditorHtml = context.renderInspectionListEditor();
 assert.doesNotMatch(staffEditorHtml, />ทุน</);
