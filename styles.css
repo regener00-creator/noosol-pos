@@ -1570,6 +1570,7 @@
   .system-user-access-warehouses{display:block;margin-top:4px;color:var(--text-muted);font-size:12px;line-height:1.45;}
   .password-input-wrap{display:block;position:relative;min-width:0;}
   .password-input-wrap>input{width:100%;box-sizing:border-box;padding-inline-end:48px;}
+  #offlineSyncPassword{display:block;min-height:48px;padding-inline-start:12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:16px;}
   .password-input-wrap>input::-ms-reveal{display:none;}
   .store-reset-field .password-input-wrap{margin-top:6px;}
   .store-reset-field .password-input-wrap>input{margin-top:0;padding-inline-end:48px;}
