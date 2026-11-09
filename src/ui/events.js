@@ -1135,6 +1135,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       else { showToast('ไม่พบสินค้าในร้านที่เลือก','danger-top');stockEditInput.select(); }
     });
   }
+  document.querySelectorAll('[data-stock-count-units]').forEach(button=>button.addEventListener('click',()=>openStockCountUnits(Number(button.dataset.stockCountUnits),button)));
   document.querySelectorAll('[data-stock-edit-unit]').forEach(select=>select.addEventListener('change',()=>{ stockEditRowUnitSel[Number(select.dataset.stockEditUnit)]=select.value; render(); }));
   const refreshStockEditConfirmButton=()=>{ if(confirmStockEditBtn) confirmStockEditBtn.disabled=(stockEditPendingChanges().length===0&&!stockEditSourcePending)||Boolean(document.querySelector('[data-stock-edit-new-expiry].stock-edit-invalid'))||stockEditPosting; };
   const stockEditFields='[data-stock-edit-amount],[data-stock-edit-lot],[data-stock-edit-new-lot],[data-stock-edit-new-expiry]';

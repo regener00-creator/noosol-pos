@@ -43,10 +43,77 @@ function stockEditLotControlHtml(product,difference){
   return `<select class="stock-control-lot-select" data-stock-edit-lot="${product.id}">${lotOptions}<option value="new" ${selection==='new'?'selected':''}>สร้าง LOT ใหม่</option></select>${newLotFields}<span class="stock-control-lot-hint">ของที่พบเกินต้องเข้า LOT เดิมหรือสร้าง LOT ใหม่</span>`;
 }
 
+function stockCountUnitsButton(product,options){
+  return options.length>1?`<button type="button" class="btn ghost small stock-count-units-button" data-stock-count-units="${Number(product.id)}">นับหลายหน่วย</button>`:'';
+}
+
+function openStockCountUnits(productId,opener){
+  const product=stockEditCurrentProducts().find(item=>Number(item.id)===productId);
+  if(!product||stockEditPosting) return;
+  const units=productUnitOptions(product).sort((a,b)=>b.factor-a.factor);
+  const draft=stockEditDraftStocks;
+  const warehouseId=activeWarehouseId;
+  const context=captureWorkspaceRead();
+  const dialog=document.createElement('dialog');
+  dialog.className='stock-count-units-dialog';
+  dialog.setAttribute('aria-label',`นับหลายหน่วย · ${product.name}`);
+  dialog.innerHTML=`<form><h3>นับหลายหน่วย</h3><p>${escapeHtml(product.name)}</p>
+    ${units.map((unit,index)=>`<label><span>${escapeHtml(unit.name)}</span><input data-count-part="${index}" type="number" min="0" step="any" inputmode="decimal" placeholder="0"></label>`).join('')}
+    <output aria-live="polite"></output><div class="stock-count-units-actions"><button type="button" class="btn ghost">ยกเลิก</button><button type="submit" class="btn primary">ใช้ยอดรวม</button></div></form>`;
+  document.body.appendChild(dialog);
+  const inputs=[...dialog.querySelectorAll('[data-count-part]')];
+  const apply=dialog.querySelector('[type=submit]');
+  const totalNode=dialog.querySelector('output');
+  function updateTotal(){
+    const entered=inputs.some(input=>input.value!=='');
+    const total=inputs.reduce((sum,input,index)=>sum+stockBaseFromUnitAmount(input.value,units[index].factor),0);
+    const valid=inputs.every(input=>input.validity.valid)&&Number.isFinite(total);
+    const rounded=Number(total.toFixed(6));
+    apply.disabled=!entered||!valid;
+    totalNode.textContent=valid?`รวม ${entered?rounded.toLocaleString('th-TH',{maximumFractionDigits:6}):'—'} ${product.unit}`:'กรุณากรอกจำนวนตั้งแต่ 0 ขึ้นไป';
+    return rounded;
+  }
+  // When reopening a draft, distribute the saved total into whole packs and the remainder.
+  if(Object.hasOwn(draft,product.id)&&draft[product.id]>=0){
+    let remaining=Number(draft[product.id]);
+    for(const [index,unit] of units.entries()){
+      if(unit.name===product.unit) continue;
+      const quantity=Math.floor(remaining/unit.factor);
+      if(quantity) inputs[index].value=String(quantity);
+      remaining=Number((remaining-quantity*unit.factor).toFixed(6));
+    }
+    const baseIndex=units.findIndex(unit=>unit.name===product.unit);
+    if(remaining||draft[product.id]===0) inputs[baseIndex].value=String(remaining);
+  }
+  updateTotal();
+  dialog.addEventListener('input',updateTotal);
+  dialog.querySelector('[type=button]').onclick=()=>dialog.close();
+  dialog.addEventListener('close',()=>{dialog.remove();if(opener.isConnected) opener.focus();},{once:true});
+  dialog.querySelector('form').onsubmit=event=>{
+    event.preventDefault();
+    const total=updateTotal();
+    if(apply.disabled) return;
+    const current=stockEditCurrentProducts().find(item=>Number(item.id)===productId);
+    const options=current&&productUnitOptions(current);
+    if(!isWorkspaceReadCurrent(context)||activeWarehouseId!==warehouseId||draft!==stockEditDraftStocks||stockEditPosting||!current||current.unit!==product.unit||
+      options.length!==units.length||!units.every(unit=>options.some(option=>option.name===unit.name&&option.factor===unit.factor))){
+      dialog.close();showToast('ข้อมูลสินค้าเปลี่ยนแล้ว กรุณาเปิดรายการเพื่อนับใหม่','danger');return;
+    }
+    stockEditRowUnitSel[productId]=current.unit;
+    if(total!==Number(current.stock)||stockEditRequiresReconciliation(current)) draft[productId]=total;
+    else delete draft[productId];
+    if(stockEditSourceInspectionListId&&total!==Number(current.stock)) stockEditSourcePending=true;
+    dialog.close();
+    render();
+  };
+  dialog.showModal();
+  inputs[0].focus();inputs[0].select();
+}
+
 function stockEditRowsHtml(rows=stockEditCurrentProducts()){
   if(!rows.length) return '<tr><td colspan="8" class="stock-edit-empty">ยังไม่มีรายการ — ดึงรายการตรวจสินค้า ค้นหา/สแกนบาร์โค้ด หรือเลือกสินค้าในหมวดด้านบนเพื่อเพิ่ม</td></tr>';
   return rows.map(p=>{
-    const unitOptions=[{name:p.unit,barcode:p.barcode||'',factor:1},...(p.units||[]).filter(u=>u.sub&&Number(u.factor)>0).map(u=>({name:u.sub,barcode:u.barcode||'',factor:Number(u.factor)}))];
+    const unitOptions=productUnitOptions(p);
     const selectedUnit=stockEditRowUnitSel[p.id]||p.unit;
     const selectedOption=unitOptions.find(u=>u.name===selectedUnit)||unitOptions[0];
     const hasDraft=Object.prototype.hasOwnProperty.call(stockEditDraftStocks,p.id);
@@ -65,7 +132,7 @@ function stockEditRowsHtml(rows=stockEditCurrentProducts()){
       <td>${escapeHtml(p.name)}</td>
       <td style="text-align:center;">${unitHtml}</td>
       <td class="mono" style="text-align:center;">${inspectionListAmount(systemAmount)}</td>
-      <td style="text-align:center;"><input type="number" min="0" step="any" class="stock-edit-stock-input ${Number(selectedBaseStock)<0?'stock-negative':''} ${hasDraft?'stock-edit-pending':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="จำนวนที่นับได้ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="กรอกจำนวนที่นับได้จริง แล้วกดยืนยันเพื่อบันทึก"></td>
+      <td style="text-align:center;"><input type="number" min="0" step="any" class="stock-edit-stock-input ${Number(selectedBaseStock)<0?'stock-negative':''} ${hasDraft?'stock-edit-pending':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="จำนวนที่นับได้ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="กรอกจำนวนที่นับได้จริง แล้วกดยืนยันเพื่อบันทึก">${stockCountUnitsButton(p,unitOptions)}</td>
       <td style="text-align:center;">${differenceHtml}</td>
       <td class="stock-control-lot-cell">${stockEditLotControlHtml(p,differenceBase)}</td>
       <td style="text-align:center;"><button class="stock-edit-remove-btn" tabindex="-1" data-stock-edit-remove="${p.id}" title="ลบ ${escapeHtml(p.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(p.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td>

@@ -2954,3 +2954,12 @@
 .combined-legend [data-exclusive-shop="พระยาสุเรนทร์"] .product-review-filter-dot{background:#9559bd}
 .combined-legend [data-exclusive-shop="พรชัย"] .product-review-filter-dot{background:#e58a27}
   .return-row-search .return-row-results{position:static;max-height:180px;text-align:left;}
+.stock-count-units-button{display:block;margin:5px auto 0;white-space:nowrap}
+.stock-count-units-dialog{width:min(360px,92vw);max-height:85vh;padding:22px;border:1px solid var(--border);border-radius:16px;color:var(--text);font:inherit}
+.stock-count-units-dialog::backdrop{background:#0006}
+.stock-count-units-dialog form{display:grid;gap:12px}
+.stock-count-units-dialog h3,.stock-count-units-dialog p{margin:0}
+.stock-count-units-dialog label{display:grid;grid-template-columns:1fr 110px;align-items:center;gap:10px}
+.stock-count-units-dialog input{width:100%;padding:6px 10px;text-align:center;border:1px solid var(--border);border-radius:8px;font:inherit}
+.stock-count-units-dialog output{padding-top:10px;border-top:1px solid var(--border);font-weight:700}
+.stock-count-units-actions{display:flex;justify-content:flex-end;gap:8px}
