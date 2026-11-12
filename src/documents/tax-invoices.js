@@ -1,12 +1,21 @@
 function renderCashBillLookup(){
   return `<section class="cash-bill-lookup" aria-label="สร้างบิลเงินสด">
     <div class="cash-bill-lookup-actions">
-      <button class="btn ghost" id="searchCashBillOrderBtn" type="button">ค้นหาออเดอร์</button>
-      <div class="cash-bill-number-entry">
-        <button class="btn ghost" id="pasteCashBillNumberBtn" type="button">วางเลขที่บิล</button>
+      <button class="barcode-print-mode-card" id="searchCashBillOrderBtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="6.5"/><path d="m15 15 6 6"/></svg>
+        <strong>ค้นหาออเดอร์</strong><span>เลือกบิลจากประวัติการขาย</span>
+      </button>
+      <div class="barcode-print-mode-card cash-bill-number-entry">
+        <button id="pasteCashBillNumberBtn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 5H5v16h14V5h-3M8 3h8v4H8zM8 12h8M8 16h6"/></svg>
+          <strong>วางเลขที่บิล</strong>
+        </button>
         <input id="cash_bill_order_number" aria-label="เลขที่ออเดอร์" placeholder="กรอกเลขที่ออเดอร์" autocomplete="off" value="${escapeHtml(cashBillOrderNumberDraft)}">
       </div>
-      <button class="btn primary" id="continueCashBillOrderBtn" type="button">ดำเนินการต่อ</button>
+      <button class="barcode-print-mode-card" id="continueCashBillOrderBtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 3h10l5 5v13H4zM14 3v5h5M7 14l3 3 6-6"/></svg>
+        <strong>ดำเนินการต่อ</strong><span>เปิดบิลเงินสดของออเดอร์นี้</span>
+      </button>
     </div>
   </section>${posSalesHistoryModalOpen?renderPOSSalesHistoryModal():''}`;
 }

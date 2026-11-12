@@ -35,7 +35,7 @@ let browser;
     currentTab='cashbill';cashBillLookupOpen=false;render();
   });
   await page.locator('#newCashBillBtn').click();
-  assert.deepEqual(await page.locator('.cash-bill-lookup button').allTextContents(),['ค้นหาออเดอร์','วางเลขที่บิล','ดำเนินการต่อ']);
+  assert.deepEqual(await page.locator('.cash-bill-lookup button strong').allTextContents(),['ค้นหาออเดอร์','วางเลขที่บิล','ดำเนินการต่อ']);
   const tiles=await page.locator('.cash-bill-lookup-actions > *').evaluateAll(els=>els.map(el=>[el.offsetWidth,el.offsetHeight]));
   assert.deepEqual(tiles,[tiles[0],tiles[0],tiles[0]]);
   assert.equal(await page.locator('#searchCashBillOrderBtn').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
