@@ -358,11 +358,12 @@ function attachCombinedCatalog(page){
       }).join('');
       const cells=amountColumns.map(({field,shop})=>{
         const warehouseId=Number(shop.id);
+        const cellClass=field==='cost'&&shop===shops[0]?'combined-amount combined-cost-start':'combined-amount';
         const entry=field==='stock'?row.members.find(item=>item.warehouse===warehouseId):option?.shops.get(warehouseId);
-        if(!entry)return '<td class="combined-amount">—</td>';
+        if(!entry)return `<td class="${cellClass}">—</td>`;
         const value=field==='stock'?stockReportQuantityText(entry.product,warehouseStock(entry.product.id,shop.id)):fmtMoney(entry.unit[field]);
         const shopAttribute=shopFilter?'':` data-amount-shop="${escapeHtml(shop.name)}"`;
-        return `<td class="combined-amount"${shopAttribute}>${escapeHtml(value)}</td>`;
+        return `<td class="${cellClass}"${shopAttribute}>${escapeHtml(value)}</td>`;
       }).join('');
       const only=exclusiveShop(row);
       const color=only==='พรชัย'?'only-phonchai':only==='พระยาสุเรนทร์'?'only-phraya':'';

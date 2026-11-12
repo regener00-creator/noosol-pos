@@ -2944,6 +2944,7 @@
 .combined-catalog [data-combined-results]{flex:1;min-height:64px;max-height:none;overflow:auto}
 .combined-catalog .pager{margin-top:10px}
 .combined-catalog .combined-amount,.combined-catalog .combined-barcode{text-align:center}
+.combined-catalog td.combined-cost-start{border-left:1px solid var(--border)}
 .combined-unit-cell{min-height:32px;display:flex;align-items:center;justify-content:center}
 .combined-pack{display:inline-block;margin-inline-start:.35em;font-size:.9em}
 .combined-catalog :is(.only-phonchai,[data-amount-shop="พรชัย"]){color:#ad510b}
