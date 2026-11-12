@@ -23,10 +23,23 @@ function renderContacts({resultsOnly=false}={}){
   };
   // เรียงข้อมูลตามคอลัมน์ที่เลือก
   const csk = contactSort.key, csdir = contactSort.dir;
+  const sortPurchases=isCustomers&&csk==='monthlyAverage'?customerPurchaseLoad(list.map(c=>c.id)):null;
+  const averages=new Map((sortPurchases?.data?.summaries||[]).map(row=>[
+    String(row.customerId),customerTierFromPurchases(row.membershipCycleTotal,row.membershipElapsedMonths).average
+  ]));
   list = list.slice().sort((a,b)=>{
     let va, vb;
     if(csk==='code'){ va=a.code||''; vb=b.code||''; }
     else if(csk==='type'){ va=typeSortLabel(a); vb=typeSortLabel(b); }
+    else if(sortPurchases){
+      const left=averages.get(String(a.id)),right=averages.get(String(b.id));
+      if(left!==right){
+        if(left===undefined)return 1;
+        if(right===undefined)return -1;
+        return (left-right)*csdir;
+      }
+      return String(a.name||'').localeCompare(String(b.name||''),'th')||String(a.id).localeCompare(String(b.id));
+    }
     else if(csk==='loyaltyExpiry'){
       va=customerLoyaltyExpiryFromJoinedAt(a.loyaltyJoinedAt);vb=customerLoyaltyExpiryFromJoinedAt(b.loyaltyJoinedAt);
       if(!va&&!vb) return String(a.name||'').localeCompare(String(b.name||''),'th')||String(a.id).localeCompare(String(b.id));
@@ -40,12 +53,13 @@ function renderContacts({resultsOnly=false}={}){
   contactPage=Math.min(Math.max(1,contactPage),totalPages);
   const pageStart=(contactPage-1)*CONTACTS_PER_PAGE;
   const pageList=list.slice(pageStart,pageStart+CONTACTS_PER_PAGE);
-  const purchaseState=isCustomers?customerPurchaseLoad(pageList.map(c=>c.id)):null;
+  const purchaseState=isCustomers?(sortPurchases||customerPurchaseLoad(pageList.map(c=>c.id))):null;
   const loyaltyState=isCustomers?(pageList.length?loadCustomerLoyalty(pageList.map(c=>c.id)):{loading:false,data:[],error:''}):null;
   const sortArrow = key => contactSort.key===key ? (contactSort.dir===1?' ▲':' ▼') : '';
   const th = (key,label) => `<th class="sortable" data-sort="${key}">${label}<span class="sortarrow">${sortArrow(key)}</span></th>`;
+  const customerSortHeader=(key,label)=>`<th class="sortable" data-sort="${key}" aria-sort="${csk!==key?'none':csdir===1?'ascending':'descending'}"><button type="button" class="customer-sort-button">${label}<span aria-hidden="true">${sortArrow(key)||' ↕'}</span></button></th>`;
   const tableHead=isCustomers
-    ?`${th('name','ชื่อ')}<th>เบอร์โทร</th><th>ไลน์</th><th>แต้มคงเหลือ</th><th>ระดับลูกค้า</th><th>ยอดซื้อเฉลี่ยต่อเดือน</th>${th('loyaltyExpiry','วันหมดอายุแต้ม')}<th></th>`
+    ?`${th('name','ชื่อ')}<th>เบอร์โทร</th><th>ไลน์</th><th>แต้มคงเหลือ</th><th>ระดับลูกค้า</th>${customerSortHeader('monthlyAverage','ยอดซื้อเฉลี่ยต่อเดือน')}${customerSortHeader('loyaltyExpiry','วันหมดอายุแต้ม')}<th></th>`
     :`${th('code','รหัสผู้ติดต่อ')}${th('name','รายชื่อ')}<th>ชื่อผู้ติดต่อ</th><th>เบอร์ติดต่อ</th><th>อีเมล</th>${th('type','ประเภท')}<th></th>`;
   const resultsHtml=`<div id="contactListResults" data-count="${list.length}">
     ${isCustomers?customerPurchaseNotice(purchaseState):''}

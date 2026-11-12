@@ -453,6 +453,7 @@
   .sales-history-table-wrap .history-table thead th{position:sticky;top:0;z-index:2;}
   .doc-head-blue thead th{background:#4F4038;color:#fff;}
   .grid-table th.sortable{cursor:pointer;user-select:none;white-space:nowrap;}
+  .customer-sort-button{border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;padding:0;}
   .grid-table th.sortable:hover{background:var(--primary-soft);color:var(--primary);}
   .grid-table th.sr-sortable{cursor:pointer;user-select:none;white-space:nowrap;}
   .grid-table th.sr-sortable:hover{background:var(--primary-soft);color:var(--primary);}

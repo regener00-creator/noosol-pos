@@ -20,7 +20,7 @@ function attachContactListEvents(root=document){
   root.querySelectorAll('[data-customer-history]').forEach(button=>button.onclick=()=>openCustomerPurchaseHistory(button.dataset.customerHistory));
   root.querySelectorAll('.contact-summary-table th.sortable').forEach(el=>el.addEventListener('click',()=>{
     const key=el.dataset.sort;
-    if(contactSort.key===key)contactSort.dir*=-1;else {contactSort.key=key;contactSort.dir=1;}
+    if(contactSort.key===key)contactSort.dir*=-1;else {contactSort.key=key;contactSort.dir=key==='monthlyAverage'?-1:1;}
     contactPage=1;if(!refreshContactListResults())renderKeepScroll();
   }));
 }

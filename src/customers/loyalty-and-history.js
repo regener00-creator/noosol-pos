@@ -185,26 +185,32 @@ function customerPurchaseLoad(ids,view=null){
   const posTierOnly=currentTab==='checkout'&&!view&&ids.length===1;
   const params={p_customer_ids:ids.map(String),p_year:Number(view?.year||today.slice(0,4)),p_month:view?.mode==='month'?Number(view.month):null,p_page:view?.page||1,p_include_bills:!!view,p_warehouse_id:Number(activeWarehouseId)||null};
   const key=JSON.stringify([currentProfile?.id,activeWarehouseId,pagePermissionRows,today,posTierOnly,params]);
-  if(customerPurchaseState?.key===key&&Date.now()-customerPurchaseState.loadedAt<60000) return customerPurchaseState;
+  if(customerPurchaseState?.key===key&&(customerPurchaseState.loading||Date.now()-customerPurchaseState.loadedAt<60000)) return customerPurchaseState;
   const state={key,loading:ids.length>0,data:ids.length?null:{summaries:[]},error:'',loadedAt:Date.now()};
   customerPurchaseState=state;
   if(!ids.length) return state;
   Promise.resolve().then(async()=>{
-    const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),20000);
     try{
       if(!sb||(!posTierOnly&&!canPerformPageAction('view','contacts'))) throw new Error('ไม่สามารถอ่านประวัติการซื้อได้');
-      const request=posTierOnly
-        ?sb.rpc('get_pos_customer_tier_progress',{p_customer_id:String(ids[0]),p_warehouse_id:Number(activeWarehouseId)||null})
-        :sb.rpc('get_customer_purchase_history',params);
-      const {data,error}=await request.abortSignal(controller.signal);
-      if(error) throw error;
-      if(!data||!Array.isArray(data.summaries)) throw new Error('ข้อมูลประวัติการซื้อไม่ครบถ้วน');
-      state.data=data;
+      const summaries=[];
+      for(let offset=0;offset<ids.length;offset+=100){
+        if(customerPurchaseState!==state)return;
+        const controller=new AbortController(),timeout=setTimeout(()=>controller.abort(),20000);
+        try{
+          const request=posTierOnly
+            ?sb.rpc('get_pos_customer_tier_progress',{p_customer_id:String(ids[0]),p_warehouse_id:params.p_warehouse_id})
+            :sb.rpc('get_customer_purchase_history',{...params,p_customer_ids:params.p_customer_ids.slice(offset,offset+100)});
+          const {data,error}=await request.abortSignal(controller.signal);
+          if(error) throw error;
+          if(!Array.isArray(data?.summaries)) throw new Error('ข้อมูลประวัติการซื้อไม่ครบถ้วน');
+          summaries.push(...data.summaries);
+          if(offset+100>=ids.length)state.data={...data,summaries};
+        }finally{clearTimeout(timeout);}
+      }
     }catch(error){
       console.warn('Customer purchase history failed',error?.code||error?.message);
       state.error='โหลดประวัติการซื้อไม่สำเร็จ กรุณาตรวจสอบการเชื่อมต่อหรือสิทธิ์ แล้วกดรีเฟรชยอดซื้อ';
     }finally{
-      clearTimeout(timeout);
       state.loading=false; state.loadedAt=Date.now();
       // An earlier request must never replace another customer's/current user's view.
       if(customerPurchaseState===state&&view&&posCustomerHistoryModalOpen&&document.getElementById('posCustomerHistoryContent')){
