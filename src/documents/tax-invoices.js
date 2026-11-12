@@ -1,8 +1,14 @@
 function renderCashBillLookup(){
-  return `<div class="pagehead"><div><div class="breadcrumb">บิลเงินสด › สร้างบิลเงินสด</div><h1>สร้างบิลเงินสด</h1></div><div class="form-final-actions"><button class="btn ghost" id="closeCashBillLookupBtn">ปิดหน้าต่าง</button></div></div>
-    <div class="po-head"><div class="po-head-left"><div class="crow"><label>เลขออเดอร์ / เลขที่บิล <span class="req">*</span></label><div class="po-supplier-pick"><input id="cash_bill_order_number" value="${escapeHtml(cashBillOrderNumberDraft)}" placeholder="กรอกเลขออเดอร์ เลขที่บิล หรือเลขที่ใบเสร็จ" autocomplete="off"><button class="btn ghost" id="searchCashBillOrderBtn" type="button">ค้นหาออเดอร์</button><button class="btn primary" id="continueCashBillOrderBtn" type="button">ดำเนินการต่อ</button></div></div><div class="po-addr" style="margin-top:12px;">เลือกได้เฉพาะรายการที่ชำระเงินเรียบร้อยแล้ว ระบบจะใช้รายการและยอดขายเดิม</div></div>
-      <div class="po-head-right"><div class="po-total-label">ขั้นตอนการออกบิลเงินสด</div><div style="line-height:1.8;color:var(--text-muted);font-size:13px;margin-top:8px;">1. กรอกเลขออเดอร์<br>2. กรอกข้อมูลผู้ซื้อ (ถ้ามี)<br>3. พิมพ์เอกสาร A4</div></div></div>
-    <div class="panel" style="border-color:#DDCEC8;background:#FAF6F4;color:var(--primary-dark);">บิลเงินสดเป็นเอกสารรับเงิน ไม่ใช่ใบกำกับภาษี และการสร้างเอกสารจะไม่เพิ่มยอดขายหรือตัดสต๊อกซ้ำ</div>${posSalesHistoryModalOpen?renderPOSSalesHistoryModal():''}`;
+  return `<section class="cash-bill-lookup" aria-label="สร้างบิลเงินสด">
+    <div class="cash-bill-lookup-actions">
+      <button class="btn ghost" id="searchCashBillOrderBtn" type="button">ค้นหาออเดอร์</button>
+      <div class="cash-bill-number-entry">
+        <button class="btn ghost" id="pasteCashBillNumberBtn" type="button">วางเลขที่บิล</button>
+        <input id="cash_bill_order_number" aria-label="เลขที่ออเดอร์" placeholder="กรอกเลขที่ออเดอร์" autocomplete="off" value="${escapeHtml(cashBillOrderNumberDraft)}">
+      </div>
+      <button class="btn primary" id="continueCashBillOrderBtn" type="button">ดำเนินการต่อ</button>
+    </div>
+  </section>${posSalesHistoryModalOpen?renderPOSSalesHistoryModal():''}`;
 }
 
 function renderCashBills(){

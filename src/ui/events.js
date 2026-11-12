@@ -1277,8 +1277,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(newTaxInvoiceBtn) newTaxInvoiceBtn.addEventListener('click',openNewTaxInvoiceForm);
   const newCashBillBtn=document.getElementById('newCashBillBtn');
   if(newCashBillBtn) newCashBillBtn.addEventListener('click',()=>{ cashBillLookupOpen=true; cashBillOrderNumberDraft=''; render(); });
-  const closeCashBillLookupBtn=document.getElementById('closeCashBillLookupBtn');
-  if(closeCashBillLookupBtn) closeCashBillLookupBtn.addEventListener('click',()=>{ cashBillLookupOpen=false; render(); });
   const searchCashBillOrderBtn=document.getElementById('searchCashBillOrderBtn');
   if(searchCashBillOrderBtn) searchCashBillOrderBtn.addEventListener('click',()=>{ posSalesHistoryModalOpen=true; render(); document.getElementById('closePOSSalesHistoryBtn')?.focus(); });
   document.getElementById('continueCashBillOrderBtn')?.addEventListener('click',searchCashBillOrder);
@@ -1294,6 +1292,19 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     }catch(error){ showToast('คัดลอกไม่สำเร็จ กรุณาลากเลือกเลขบิลแล้วคัดลอกเอง','danger'); }
   }));
   const cashBillOrderNumber=document.getElementById('cash_bill_order_number');
+  document.getElementById('pasteCashBillNumberBtn')?.addEventListener('click',async()=>{
+    try{
+      const number=(await navigator.clipboard.readText()).trim();
+      if(!cashBillOrderNumber.isConnected) return;
+      if(number){
+        cashBillOrderNumber.value=number;
+        cashBillOrderNumberDraft=number;
+      }else showToast('ยังไม่มีเลขที่บิลในคลิปบอร์ด');
+    }catch{
+      showToast('กรุณาวางเลขที่บิลในช่องเลขที่ออเดอร์ด้วยตนเอง');
+    }
+    cashBillOrderNumber.focus();
+  });
   cashBillOrderNumber?.addEventListener('input',()=>{ cashBillOrderNumberDraft=cashBillOrderNumber.value; });
   if(cashBillOrderNumber) cashBillOrderNumber.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); searchCashBillOrder(); } });
   document.querySelectorAll('[data-cashbill-edit]').forEach(button=>button.addEventListener('click',()=>openA4CashReceiptModal(button.dataset.cashbillEdit)));

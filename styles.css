@@ -1651,6 +1651,12 @@
   .pos-action:hover{border-color:var(--primary);color:var(--primary);}
   .pos-action.on{background:var(--surface);border-color:var(--border);color:var(--primary);font-weight:600;}
   .pos-action .pa-ic{font-size:16px;}
+  .cash-bill-lookup{min-height:100%;display:grid;place-items:center;}
+  .cash-bill-lookup-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:start;gap:16px;width:min(100%,740px);}
+  .cash-bill-number-entry{display:grid;gap:8px;}
+  .cash-bill-lookup-actions .btn,.cash-bill-number-entry input{width:100%;min-height:44px;}
+  .cash-bill-number-entry input{box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:8px;text-align:center;font:inherit;}
+  @media(max-width:640px){.cash-bill-lookup-actions{grid-template-columns:1fr;max-width:320px;}}
   .pos-sales-history-modal{width:min(1480px,96vw);max-width:96vw;height:min(88vh,900px);max-height:88vh;}
   .pos-sales-history-modal>.modal-head{flex:0 0 auto;padding:18px 22px 14px;border-bottom:1px solid var(--border);}
   .pos-sales-history-modal>.modal-head h3{font-size:21px;}
