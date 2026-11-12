@@ -1280,13 +1280,17 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const searchCashBillOrderBtn=document.getElementById('searchCashBillOrderBtn');
   if(searchCashBillOrderBtn) searchCashBillOrderBtn.addEventListener('click',()=>{ posSalesHistoryModalOpen=true; render(); document.getElementById('closePOSSalesHistoryBtn')?.focus(); });
   document.getElementById('continueCashBillOrderBtn')?.addEventListener('click',searchCashBillOrder);
+  document.querySelectorAll('[data-pick-cash-bill]').forEach(row=>row.addEventListener('click',event=>{
+    if(event.target.closest('.history-actions')) return;
+    cashBillOrderNumberDraft=row.dataset.pickCashBill;
+    closePOSSalesHistory();
+  }));
   document.querySelectorAll('[data-copy-bill]').forEach(button=>button.addEventListener('click',async()=>{
     const number=button.dataset.copyBill;
     try{
       await navigator.clipboard.writeText(number);
-      if(currentTab==='taxinvoice') taxInvoiceOrderNumberDraft=number;
-      else cashBillOrderNumberDraft=number;
-      const input=document.getElementById(currentTab==='taxinvoice'?'tax_order_number':'cash_bill_order_number');
+      taxInvoiceOrderNumberDraft=number;
+      const input=document.getElementById('tax_order_number');
       if(input) input.value=number;
       showToast('คัดลอกเลขบิลแล้ว');
     }catch(error){ showToast('คัดลอกไม่สำเร็จ กรุณาลากเลือกเลขบิลแล้วคัดลอกเอง','danger'); }

@@ -1653,9 +1653,15 @@
   .pos-action .pa-ic{font-size:16px;}
   .cash-bill-lookup{min-height:100%;display:grid;place-items:center;}
   .cash-bill-lookup-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:start;gap:16px;width:min(100%,740px);}
-  .cash-bill-number-entry{display:grid;gap:8px;}
-  .cash-bill-lookup-actions .btn,.cash-bill-number-entry input{width:100%;min-height:44px;}
-  .cash-bill-number-entry input{box-sizing:border-box;padding:8px 10px;border:1px solid var(--border);border-radius:8px;text-align:center;font:inherit;}
+  .cash-bill-lookup-actions> *{box-sizing:border-box;width:100%;height:96px;min-width:0;}
+  .cash-bill-lookup-actions>#searchCashBillOrderBtn,.cash-bill-number-entry{background:#fff;}
+  .cash-bill-number-entry{display:grid;grid-template-rows:1fr 1fr;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
+  .cash-bill-number-entry .btn,.cash-bill-number-entry input{width:100%;min-width:0;box-sizing:border-box;border:0;border-radius:0;background:transparent;text-align:center;}
+  .cash-bill-number-entry input{padding:4px 10px;font:inherit;}
+  .cash-bill-number-entry :focus-visible{outline-offset:-3px;}
+  .history-table tr[data-pick-cash-bill]{cursor:pointer;}
+  .history-table tr[data-pick-cash-bill]:hover{background:var(--primary-soft);}
+  .cash-bill-history-number{border:0;background:transparent;font:inherit;color:inherit;cursor:pointer;padding:0;}
   @media(max-width:640px){.cash-bill-lookup-actions{grid-template-columns:1fr;max-width:320px;}}
   .pos-sales-history-modal{width:min(1480px,96vw);max-width:96vw;height:min(88vh,900px);max-height:88vh;}
   .pos-sales-history-modal>.modal-head{flex:0 0 auto;padding:18px 22px 14px;border-bottom:1px solid var(--border);}
