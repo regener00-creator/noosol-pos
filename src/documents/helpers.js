@@ -63,8 +63,8 @@ function goodsReceiptItemsMatchWarehouse(doc,warehouseList,productList){
 }
 function normalizeGoodsReceiptDocument(doc){
   if(!doc||typeof doc!=='object') return doc;
-  // ใบรับสินค้าเดิมถูกบวกสต๊อกตั้งแต่ตอนสร้างและไม่มี stockApplied=false
-  // จึงถือว่าเคยนับสต๊อกแล้ว เพื่อไม่ให้ข้อมูลเก่าถูกบวกซ้ำหลังอัปเกรด
+  // ใบรับสินค้าเดิมถูกบวกสต็อกตั้งแต่ตอนสร้างและไม่มี stockApplied=false
+  // จึงถือว่าเคยนับสต็อกแล้ว เพื่อไม่ให้ข้อมูลเก่าถูกบวกซ้ำหลังอัปเกรด
   const stockApplied=doc.stockApplied!==false;
   const status=stockApplied
     ? (doc.status==='ชำระเรียบร้อย'?'ชำระเรียบร้อย':'รับสินค้าแล้ว')
@@ -90,7 +90,7 @@ function goodsReceiptStatusChangePlan(doc,nextStatus){
   const stockDirection=status==='รับสินค้าแล้ว'&&!alreadyApplied?1:0;
   return {allowed:true,status,stockDirection,stockApplied:status!=='รอรับสินค้า'};
 }
-// ---------- ตรรกะเอกสารเปลี่ยนสินค้า (แยกจากใบรับ/ใบคืนเพื่อกันลงสต๊อกซ้ำ) ----------
+// ---------- ตรรกะเอกสารเปลี่ยนสินค้า (แยกจากใบรับ/ใบคืนเพื่อกันลงสต็อกซ้ำ) ----------
 const PRODUCT_EXCHANGE_STATUSES=['ร่าง','ส่งไปเปลี่ยนแล้ว','รับสินค้ากลับแล้ว'];
 function productExchangeItemBaseQty(item){
   const qty=Number(item?.qty)||0;

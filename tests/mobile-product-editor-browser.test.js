@@ -70,7 +70,7 @@ let browser;
   for(const width of [320,390,430]){
     await page.setViewportSize({width,height:844});
     const buttons=page.locator('.mobile-tools-tabs > button');
-    assert.deepEqual(await buttons.allTextContents(),['เช็คราคา','ตรวจแก้สต๊อก','+']);
+    assert.deepEqual(await buttons.allTextContents(),['เช็คราคา','ตรวจแก้สต็อก','+']);
     const boxes=await buttons.evaluateAll(nodes=>nodes.map(node=>{const r=node.getBoundingClientRect();return {x:r.x,y:r.y,width:r.width,height:r.height};}));
     assert.ok(boxes.every(b=>b.y===boxes[0].y&&b.height===boxes[0].height),'all three buttons share a row and height');
     assert.ok(boxes[2].x>boxes[1].x&&boxes[2].x+boxes[2].width<=width,'plus is last and fits narrow screens');

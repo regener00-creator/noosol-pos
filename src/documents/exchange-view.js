@@ -32,11 +32,11 @@ function productExchangeSectionHtml(side,title,items,locked,canConfirm,emphasize
 function productExchangeReconciliationHtml(doc){
   const reconciliation=productExchangeReconciliation(doc);
   if(reconciliation.fullyReturned){
-    return '<div class="product-exchange-reconciliation complete"><b>รับคืนครบตามสินค้าที่ส่งไป</b>เมื่อยืนยัน ระบบจะเพิ่มสต๊อกกลับเฉพาะจำนวนที่ระบุใน “สินค้าที่ได้รับกลับ”</div>';
+    return '<div class="product-exchange-reconciliation complete"><b>รับคืนครบตามสินค้าที่ส่งไป</b>เมื่อยืนยัน ระบบจะเพิ่มสต็อกกลับเฉพาะจำนวนที่ระบุใน “สินค้าที่ได้รับกลับ”</div>';
   }
   const unreturned=reconciliation.unreturnedItems.map(item=>`<li>${escapeHtml(item.name||products.find(product=>Number(product.id)===Number(item.pid))?.name||'-')} — ${item.qty} ${escapeHtml(item.unit||'หน่วย')}</li>`).join('');
-  const replacement=reconciliation.replacementItems.length?`<div class="replacement-note">รับเป็นสินค้าคนละตัว ${reconciliation.replacementItems.length} รายการ — สินค้าเหล่านี้จะถูกเพิ่มเข้าสต๊อกตามจำนวนที่ระบุ</div>`:'';
-  return `<div class="product-exchange-reconciliation"><b>ไม่ได้รับคืน ${reconciliation.unreturnedItems.length} รายการ</b><ul>${unreturned}</ul><div>รายการด้านบนถูกตัดสต๊อกตอนยืนยันส่งไปแล้ว และจะไม่ถูกบวกกลับ</div>${replacement}</div>`;
+  const replacement=reconciliation.replacementItems.length?`<div class="replacement-note">รับเป็นสินค้าคนละตัว ${reconciliation.replacementItems.length} รายการ — สินค้าเหล่านี้จะถูกเพิ่มเข้าสต็อกตามจำนวนที่ระบุ</div>`:'';
+  return `<div class="product-exchange-reconciliation"><b>ไม่ได้รับคืน ${reconciliation.unreturnedItems.length} รายการ</b><ul>${unreturned}</ul><div>รายการด้านบนถูกตัดสต็อกตอนยืนยันส่งไปแล้ว และจะไม่ถูกบวกกลับ</div>${replacement}</div>`;
 }
 function renderProductExchangeForm(){
   const draft=activeProductExchangeDraft();
@@ -44,7 +44,7 @@ function renderProductExchangeForm(){
   const incomingLocked=draft.incomingApplied===true;
   const received=incomingLocked||draft.status==='รับสินค้ากลับแล้ว';
   return `<div class="product-exchange-form"><div class="pagehead"><div><div class="breadcrumb">ซื้อ › เปลี่ยนสินค้า</div><h1>${escapeHtml(draft.id)}</h1></div><div class="form-final-actions product-exchange-form-actions"><button class="btn ghost" id="cancelProductExchangeBtn">ย้อนกลับ</button><button class="btn primary" id="saveProductExchangeBtn" ${received?'disabled':''}>บันทึกเอกสาร</button></div></div>
-    <div class="product-exchange-status-note">สถานะ: <b>${escapeHtml(draft.status||'ร่าง')}</b>${received?' · ปิดการรับกลับและลงสต๊อกแล้ว รายการถูกล็อกเพื่อป้องกันการบันทึกซ้ำ':''}</div>
+    <div class="product-exchange-status-note">สถานะ: <b>${escapeHtml(draft.status||'ร่าง')}</b>${received?' · ปิดการรับกลับและลงสต็อกแล้ว รายการถูกล็อกเพื่อป้องกันการบันทึกซ้ำ':''}</div>
     <div class="panel product-exchange-meta">
       <label>วันที่เอกสาร<input id="productExchangeDate" class="dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(draft.date||TODAY_STR))}" ${received?'disabled':''}></label>
       <label>เลขที่เอกสาร<input value="${escapeHtml(draft.id)}" readonly></label>

@@ -48,7 +48,7 @@ function openA4CashReceiptModal(saleId){
   const documentNumber=meta.number||'ออกเลขเมื่อบันทึก';
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:650px;max-height:92vh;"><div class="modal-head"><div><h3>บิลเงินสด</h3><div class="sub">เลขที่ ${escapeHtml(documentNumber)} · วันที่ขาย ${fmtDateShort(sale.date)}</div></div><button class="modal-close" aria-label="ปิด">×</button></div>
-    <div class="tax-lock-note" style="margin:0 20px 16px;">เอกสารนี้เป็นหลักฐานรับเงิน ไม่ใช่ใบกำกับภาษี และการพิมพ์จะไม่เพิ่มยอดขายหรือตัดสต๊อกซ้ำ</div>
+    <div class="tax-lock-note" style="margin:0 20px 16px;">เอกสารนี้เป็นหลักฐานรับเงิน ไม่ใช่ใบกำกับภาษี และการพิมพ์จะไม่เพิ่มยอดขายหรือตัดสต็อกซ้ำ</div>
     <form id="a4CashReceiptForm"><div class="tax-customer-form">
       <div class="wide"><label>ชื่อผู้ซื้อ / ลูกค้า</label><input id="a4_receipt_customer_name" value="${escapeHtml(customer.name)}" placeholder="ลูกค้าทั่วไป หรือชื่อกิจการ"></div>
       <div><label>เลขประจำตัวผู้เสียภาษี (ถ้ามี)</label><input id="a4_receipt_customer_tax_id" value="${escapeHtml(customer.taxId)}" inputmode="numeric" maxlength="13" placeholder="13 หลัก"></div>

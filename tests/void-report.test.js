@@ -27,7 +27,7 @@ test('report filters cancellation date, permission and search; obsolete refund f
 test('void movement keeps sale outflow and cancellation inflow on their own dates, including retired products',()=>{
   const c=context();const rows=c.collectInventoryMovements({sales:[{...cancelled,items:[...cancelled.items,{productId:2,name:'บริการ',qty:1,tracksStock:false},{productId:3,name:'กำหนดเอง',qty:1,custom:true}]},{...cancelled,id:'held',status:'hold'}],products:[],warehouses:[{id:1,name:'คลังเดิม'}]});
   assert.equal(rows.length,2);
-  assert.deepEqual(Array.from(rows,r=>[r.date,r.type,r.direction,r.qty,r.warehouseId]),[['2026-10-30','คืนสต๊อกจากยกเลิกบิล','เข้า',2,1],['2026-09-01','ขาย','ออก',2,1]]);
+  assert.deepEqual(Array.from(rows,r=>[r.date,r.type,r.direction,r.qty,r.warehouseId]),[['2026-10-30','คืนสต็อกจากยกเลิกบิล','เข้า',2,1],['2026-09-01','ขาย','ออก',2,1]]);
   assert.equal(c.filterInventoryMovements(rows,{type:'all'}, {from:'2026-10-30',to:'2026-10-30'}).length,1);
 });
 test('range loader includes older sales cancelled now, merges once, caches separately and blocks incomplete totals',async()=>{

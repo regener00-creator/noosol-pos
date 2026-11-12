@@ -98,8 +98,8 @@ context.productReturns=[{status:'รอรับคืน',stockApplied:false,it
 context.transfers=[{status:'บันทึกแล้ว',stockApplied:false,items:[{productId:101}]}];
 context.productExchanges=[{status:'ส่งไปเปลี่ยนแล้ว',incomingApplied:false,outgoingItems:[{pid:101}],incomingItems:[]}];
 assert.deepEqual(Array.from(context.productBaseUnitChangeBlockers(101)), [
-  'ใบคืนสินค้าที่ยังไม่ลงสต๊อก 1 รายการ',
-  'ใบโอนสินค้าที่ยังไม่ลงสต๊อก 1 รายการ',
+  'ใบคืนสินค้าที่ยังไม่ลงสต็อก 1 รายการ',
+  'ใบโอนสินค้าที่ยังไม่ลงสต็อก 1 รายการ',
   'ใบเปลี่ยนสินค้าที่ยังไม่เสร็จ 1 รายการ',
 ]);
 

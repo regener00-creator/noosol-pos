@@ -17,6 +17,6 @@ test('A4 numeric and direction normalization cannot inject CSS or leave negative
 });
 test('A4 sample is isolated from sales and rendering scripts',()=>{
  const sample=c.a4PaperTestHtml({orientation:'landscape'});
- assert.match(sample,/width:297mm/);assert.match(sample,/ไม่บันทึกยอดขายและไม่ตัดสต๊อก/);
+ assert.match(sample,/width:297mm/);assert.match(sample,/ไม่บันทึกยอดขายและไม่ตัดสต็อก/);
  assert.doesNotMatch(sample,/<script|https:\/\//);
 });

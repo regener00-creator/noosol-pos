@@ -222,7 +222,7 @@ function isDuplicateCustomerPhoneError(error){
 }
 function showToast(msg, variant){
   const t = document.getElementById('toast');
-  t.textContent = msg;
+  t.textContent = String(msg??'').replaceAll('สต๊อก','สต็อก');
   t.className = 'toast' + (variant?` ${variant}`:'') + ' show';
   clearTimeout(showToast._h);
   showToast._h = setTimeout(()=>{ t.classList.remove('show'); }, 1800);

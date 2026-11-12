@@ -36,7 +36,7 @@ assert.match(migration, /'sale_shortage_void',v_quantity,0/);
 assert.match(html, /runStockOperation\('post_inventory_count_adjustment_with_shortages'/);
 assert.match(html, /if\(allocation\?\.pendingLot\) return/);
 assert.match(html, /รอจัด LOT · \$\{escapeHtml\(inventoryMovementRound\(allocation\.baseQty\)\)\}/);
-assert.match(html, /สต๊อกอาจติดลบ/);
-assert.doesNotMatch(html, /สต๊อก Lot ที่ยังไม่หมดอายุมีไม่เพียงพอ กรุณาตรวจ Lot สินค้า/);
+assert.match(html, /สต็อกอาจติดลบ/);
+assert.doesNotMatch(html, /สต็อก Lot ที่ยังไม่หมดอายุมีไม่เพียงพอ กรุณาตรวจ Lot สินค้า/);
 
 console.log('sale Lot shortage tests passed');

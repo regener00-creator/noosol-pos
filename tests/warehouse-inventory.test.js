@@ -6,7 +6,7 @@ const vm = require('./catalog-test-context.cjs');
 const html = require("./load-app-source")();
 const start = html.indexOf("const ACTIVE_WAREHOUSE_STORAGE_KEY=");
 const end = html.indexOf('function productToRow(', start);
-assert.ok(start >= 0 && end > start, 'ไม่พบ logic แยกสต๊อกตามคลัง');
+assert.ok(start >= 0 && end > start, 'ไม่พบ logic แยกสต็อกตามคลัง');
 
 const session = new Map();
 const persistent = new Map();
@@ -71,7 +71,7 @@ assert.equal(persistent.has('pepos_active_warehouse_v1:owner-1'),false,'กา�
 assert.equal(products[0].stock,4);
 assert.equal(products[0].expiry,'2029-02-03');
 assert.equal(sandbox.cart.length,0,'เปลี่ยนคลังต้องล้างบิลค้าง');
-assert.equal(sandbox.stockEditItems.length,0,'เปลี่ยนคลังต้องล้างรายการแก้สต๊อกที่ค้าง');
+assert.equal(sandbox.stockEditItems.length,0,'เปลี่ยนคลังต้องล้างรายการแก้สต็อกที่ค้าง');
 assert.equal(sandbox.stockControlAnomalySelectedIds.size,0,'เปลี่ยนคลังต้องล้างรายการผิดปกติที่เลือก');
 assert.equal(sandbox.inspectionListDraft,null,'เปลี่ยนคลังต้องล้างร่างตรวจสินค้าที่ค้าง');
 

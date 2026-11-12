@@ -94,7 +94,7 @@ const checkoutErrorMessage=error?.code==='LOCAL_STORAGE_UNAVAILABLE'?message:mes
   const pendingLotQty=(completedSale.items||[]).flatMap(item=>item.lotAllocations||[]).filter(allocation=>allocation.pendingLot).reduce((sum,allocation)=>sum+(Number(allocation.baseQty)||0),0);
   const completedTotal=Number(completedSale.total)||grand;
   const completedPayMethod=completedSale.payMethod||checkoutPayload?.sale?.payMethod||payMethod||'เงินสด';
-  showToast(completedSale.offlinePending?'รับชำระและเก็บบิลในเครื่องแล้ว · รอซิงก์เมื่อมีอินเทอร์เน็ต':pendingLotQty>0?`ชำระเงินสำเร็จ · มี ${inventoryMovementRound(pendingLotQty)} หน่วยหลักรอจัด LOT และสต๊อกอาจติดลบ`:`ชำระเงินสำเร็จ (${completedPayMethod}) ${fmtMoney(completedTotal)} บาท`,pendingLotQty>0?'warning-top':undefined);
+  showToast(completedSale.offlinePending?'รับชำระและเก็บบิลในเครื่องแล้ว · รอซิงก์เมื่อมีอินเทอร์เน็ต':pendingLotQty>0?`ชำระเงินสำเร็จ · มี ${inventoryMovementRound(pendingLotQty)} หน่วยหลักรอจัด LOT และสต็อกอาจติดลบ`:`ชำระเงินสำเร็จ (${completedPayMethod}) ${fmtMoney(completedTotal)} บาท`,pendingLotQty>0?'warning-top':undefined);
   render();
   setTimeout(()=>openPostPaymentModal(completedSale.id),0);
   if(!completedSale.offlinePending) refreshDocumentInventory(completedSale);

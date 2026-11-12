@@ -262,7 +262,7 @@ function renderWorkspaceRecoveryPanel(panel){
   });
   panel.querySelectorAll('[data-discard-recovery]').forEach(button=>button.onclick=async()=>{
     const entry=entries[Number(button.dataset.discardRecovery)];
-    if(!confirm('ใช้ข้อมูลเซิร์ฟเวอร์แทนงานที่แก้ค้างในเครื่องรายการนี้หรือไม่? แนะนำให้ดาวน์โหลดสำเนางานก่อน ข้อมูลสต๊อกจะไม่เปลี่ยน')) return;
+    if(!confirm('ใช้ข้อมูลเซิร์ฟเวอร์แทนงานที่แก้ค้างในเครื่องรายการนี้หรือไม่? แนะนำให้ดาวน์โหลดสำเนางานก่อน ข้อมูลสต็อกจะไม่เปลี่ยน')) return;
     button.disabled=true;
     try{ await discardWorkspaceRecovery(entry); renderWorkspaceRecoveryPanel(panel); }
     catch(error){ showToast(error.message,'danger-top'); button.disabled=false; }
@@ -286,7 +286,7 @@ async function openWorkspaceRecoveryComparison(entry){
     const labels={name:'ชื่อ',phone:'เบอร์โทร',type:'ประเภท',revision:'เวอร์ชัน','data.code':'รหัส','data.address':'ที่อยู่','data.note':'หมายเหตุ','data.customerPrices':'ราคาพิเศษ','data.loyaltyJoinedAt':'วันที่เริ่มสมาชิก'};
     const display=value=>escapeHtml(value===undefined?'ไม่มีข้อมูล':value===null?'ไม่มีรายการ':typeof value==='object'?JSON.stringify(value):String(value));
     const overlay=document.createElement('div'); overlay.className='modal-overlay';
-    overlay.innerHTML=`<section class="modal" role="dialog" aria-modal="true" aria-label="ตรวจเทียบงานค้าง"><div class="modal-head"><h3>ตรวจเทียบ: ${escapeHtml(entry.record?.name||entry.id)}</h3><button class="modal-close" type="button" aria-label="ปิด">×</button></div><div style="padding:20px;max-height:65vh;overflow:auto"><p>แสดงความต่างเท่านั้น หน้านี้ไม่เปลี่ยนข้อมูลหรือจำนวนสต๊อก</p>${!local?'<p>เครื่องนี้มีคำสั่งรอลบรายการ</p>':''}${!server?'<p>ไม่พบรายการบนเซิร์ฟเวอร์ที่บัญชีนี้อ่านได้</p>':''}${keys.length?`<table class="table"><thead><tr><th>ข้อมูล</th><th>ในเครื่อง</th><th>เซิร์ฟเวอร์</th></tr></thead><tbody>${keys.map(key=>`<tr><td>${escapeHtml(labels[key]||key)}</td><td style="overflow-wrap:anywhere">${display(left[key])}</td><td style="overflow-wrap:anywhere">${display(right[key])}</td></tr>`).join('')}</tbody></table>`:'<p>ข้อมูลตรงกัน ไม่พบความแตกต่าง</p>'}</div></section>`;
+    overlay.innerHTML=`<section class="modal" role="dialog" aria-modal="true" aria-label="ตรวจเทียบงานค้าง"><div class="modal-head"><h3>ตรวจเทียบ: ${escapeHtml(entry.record?.name||entry.id)}</h3><button class="modal-close" type="button" aria-label="ปิด">×</button></div><div style="padding:20px;max-height:65vh;overflow:auto"><p>แสดงความต่างเท่านั้น หน้านี้ไม่เปลี่ยนข้อมูลหรือจำนวนสต็อก</p>${!local?'<p>เครื่องนี้มีคำสั่งรอลบรายการ</p>':''}${!server?'<p>ไม่พบรายการบนเซิร์ฟเวอร์ที่บัญชีนี้อ่านได้</p>':''}${keys.length?`<table class="table"><thead><tr><th>ข้อมูล</th><th>ในเครื่อง</th><th>เซิร์ฟเวอร์</th></tr></thead><tbody>${keys.map(key=>`<tr><td>${escapeHtml(labels[key]||key)}</td><td style="overflow-wrap:anywhere">${display(left[key])}</td><td style="overflow-wrap:anywhere">${display(right[key])}</td></tr>`).join('')}</tbody></table>`:'<p>ข้อมูลตรงกัน ไม่พบความแตกต่าง</p>'}</div></section>`;
     document.body.appendChild(overlay);
     overlay.querySelector('.modal-close').onclick=()=>overlay.remove();
     overlay.onclick=event=>{ if(event.target===overlay) overlay.remove(); };

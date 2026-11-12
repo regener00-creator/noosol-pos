@@ -3,15 +3,15 @@ function storeResetConfig(mode=storeResetMode){
     const shop=activeWarehouse()?.name||'';
     return {title:'ล้างสินค้า · '+shop,phrase:'ล้างสินค้า '+shop,button:'ยืนยันล้างสินค้า',
       description:`ลบสินค้า ${products.length.toLocaleString('th-TH')} รายการของร้าน ${shop} รวมถึงประวัติเปลี่ยนหน่วยหลัก สินค้าโปรด และรายการสินค้าที่ผู้แทนดูแล`,
-      impact:'สินค้าในใบตรวจที่ยังไม่ยืนยันจะถูกนำออกจากใบตรวจ ระบบจะหยุดหากสินค้ามีสต๊อก LOT หรือยังผูกกับบิล เอกสารที่บันทึกไว้ โปรโมชั่น หรือราคาพิเศษลูกค้า'};
+      impact:'สินค้าในใบตรวจที่ยังไม่ยืนยันจะถูกนำออกจากใบตรวจ ระบบจะหยุดหากสินค้ามีสต็อก LOT หรือยังผูกกับบิล เอกสารที่บันทึกไว้ โปรโมชั่น หรือราคาพิเศษลูกค้า'};
   }
   if(mode==='factory') return {
     title:'คืนค่าโรงงาน',phrase:'คืนค่าโรงงาน',button:'ยืนยันคืนค่าโรงงาน',
-    description:'ล้างข้อมูลร้าน สินค้า เอกสาร สต๊อก LOT การตั้งค่า และบัญชีผู้ใช้งานทั้งหมด',
+    description:'ล้างข้อมูลร้าน สินค้า เอกสาร สต็อก LOT การตั้งค่า และบัญชีผู้ใช้งานทั้งหมด',
     impact:'เมื่อเสร็จแล้วโปรแกรมจะออกจากระบบ และกลับไปหน้าสร้าง ID เจ้าของร้านคนแรกใหม่'
   };
   return {
-    title:'ล้างเอกสารและสต๊อก · '+(activeWarehouse()?.name||''),phrase:'ล้างเอกสารและสต๊อก',button:'ยืนยันล้างเอกสารและสต๊อก',
+    title:'ล้างเอกสารและสต็อก · '+(activeWarehouse()?.name||''),phrase:'ล้างเอกสารและสต็อก',button:'ยืนยันล้างเอกสารและสต็อก',
     description:'ล้างบิล เอกสาร ประวัติการเคลื่อนไหว LOT และยอดคงเหลือทั้งหมด',
     impact:'ยอดคงเหลือในร้านที่เลือกจะเป็นศูนย์ ข้อมูลของร้านอื่นจะคงเดิม'
   };
@@ -30,7 +30,7 @@ function renderFactoryReset(){
 function renderStoreMaintenanceSection(){
   if(!loggedInUser()?.owner||isAllWarehousesMode())return '';
   const name=escapeHtml(activeWarehouse()?.name||'');
-  return `<div class="settings-section"><h2>ล้างเอกสารและสต๊อก · ${name}</h2><p>ล้างเฉพาะเอกสาร LOT และยอดคงเหลือของร้าน ${name} โดยเก็บสินค้าและรายชื่อผู้ติดต่อไว้</p><button class="btn reset-keep-products" id="openDocumentResetBtn">ล้างเอกสารและสต๊อก</button></div>
+  return `<div class="settings-section"><h2>ล้างเอกสารและสต็อก · ${name}</h2><p>ล้างเฉพาะเอกสาร LOT และยอดคงเหลือของร้าน ${name} โดยเก็บสินค้าและรายชื่อผู้ติดต่อไว้</p><button class="btn reset-keep-products" id="openDocumentResetBtn">ล้างเอกสารและสต็อก</button></div>
     <div class="settings-section"><h2>ล้างสินค้า · ${name}</h2><p>เริ่มรายการสินค้าใหม่ในร้าน ${name} แล้วนำเข้า Excel ได้ที่หน้า PRODUCT</p><button class="btn danger" id="openProductResetBtn" ${products.length?'':'disabled'}>ล้างสินค้าเฉพาะร้านนี้</button></div>`;
 }
 

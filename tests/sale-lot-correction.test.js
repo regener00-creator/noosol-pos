@@ -47,7 +47,7 @@ assert.match(context.saleLotCorrectionValidation(item, 7, 1, 2, 1, [{ ...lots[1]
 assert.match(html, /id="correctSaleLotBtn">แก้ไข LOT ที่ขาย/);
 assert.match(html, /currentProfile\?\.owner&&canIssue/);
 assert.match(html, /runStockOperation\('correct_sale_lot_allocation'/);
-assert.match(html, /ยอดสต๊อกรวมและยอดขายจะไม่เปลี่ยน/);
+assert.match(html, /ยอดสต็อกรวมและยอดขายจะไม่เปลี่ยน/);
 assert.match(html, /lotCorrectionLog/);
 
 assert.match(migration, /create or replace function public\.correct_sale_lot_allocation/);

@@ -481,7 +481,7 @@ function attachEvents(){
     const list=mobileOpenedInspectionList();
     if(!list) return;
     const progress=mobileInspectionProgress(list);
-    if(progress.total&&progress.checked<progress.total&&!confirm(`ตรวจแล้ว ${progress.checked} จาก ${progress.total} รายการ ต้องการไปสรุปและแก้ไขสต๊อกตอนนี้หรือไม่?`)) return;
+    if(progress.total&&progress.checked<progress.total&&!confirm(`ตรวจแล้ว ${progress.checked} จาก ${progress.total} รายการ ต้องการไปสรุปและแก้ไขสต็อกตอนนี้หรือไม่?`)) return;
     mobileInventoryStep='stock';
     mobileStockSourceListId=list.id;
     if(!stockEditImportInspectionList(list.id,true,mobileInspectionChecks(list.id))){
@@ -1070,7 +1070,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     if(!printWindow){ showToast('เบราว์เซอร์บล็อกหน้าพิมพ์ กรุณาอนุญาต Pop-up แล้วลองใหม่'); return; }
     await saveBarcodePrintItems(printWindow);
   });
-  // --- หน้าแก้ไขสต๊อก: เลือก/ค้นหาสินค้า และแก้จำนวนตามหน่วยในตารางโดยตรง ---
+  // --- หน้าแก้ไขสต็อก: เลือก/ค้นหาสินค้า และแก้จำนวนตามหน่วยในตารางโดยตรง ---
   const stockEditCategorySelect=document.getElementById('stockEditCategorySelect');
   const stockEditBrandSelect=document.getElementById('stockEditBrandSelect');
   const stockEditAddByCategoryBtn=document.getElementById('stockEditAddByCategoryBtn');
@@ -1084,7 +1084,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(stockEditBrandSelect) stockEditBrandSelect.addEventListener('change',()=>{ stockEditCatFilter.brand=stockEditBrandSelect.value; render(); });
   if(stockEditAddByCategoryBtn) stockEditAddByCategoryBtn.addEventListener('click',()=>openStockEditCategoryPicker(stockEditCatFilter));
   if(clearStockEditBtn) clearStockEditBtn.addEventListener('click',()=>{
-    if(!confirm('ต้องการล้างรายการสินค้าในหน้าแก้ไขสต๊อกใช่หรือไม่?')) return;
+    if(!confirm('ต้องการล้างรายการสินค้าในหน้าแก้ไขสต็อกใช่หรือไม่?')) return;
     stockEditItems=[]; stockEditRowUnitSel={}; stockEditDraftStocks={}; stockEditSearchQuery=''; stockEditCatFilter={category:'',brand:''}; stockEditPage=1; stockEditSourceInspectionListId=null; stockEditSourcePending=false; stockEditLotSelections={}; stockEditNewLotNumbers={}; stockEditNewLotExpiries={}; render();
   });
   if(stockEditInput&&stockEditResults){

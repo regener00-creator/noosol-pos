@@ -153,12 +153,12 @@ function openBarcodePrintCategoryPicker(filter,missingOnly=false){
 
 function openStockEditInspectionListPicker(){
   const lists=inspectionLists.filter(inspectionListAvailableForStockEdit).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
-  if(!lists.length){ showToast('ไม่มีรายการตรวจสินค้าที่รอแก้ไขสต๊อก'); return; }
+  if(!lists.length){ showToast('ไม่มีรายการตรวจสินค้าที่รอแก้ไขสต็อก'); return; }
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal" style="width:620px;max-height:82vh;display:flex;flex-direction:column;">
     <div class="modal-head"><h3>ดึงข้อมูลจากรายการตรวจสินค้า</h3><button class="modal-close" aria-label="ปิด">×</button></div>
-    <div class="modal-sub">เลือกรายการที่บันทึกไว้เพื่อนำสินค้าและหน่วยเข้าหน้าแก้ไขสต๊อก</div>
+    <div class="modal-sub">เลือกรายการที่บันทึกไว้เพื่อนำสินค้าและหน่วยเข้าหน้าแก้ไขสต็อก</div>
     <div class="stock-edit-import-list">${lists.map(list=>`<div class="stock-edit-import-row">
       <div class="stock-edit-import-info"><div class="stock-edit-import-name">${escapeHtml(list.name)}</div><div class="stock-edit-import-meta">${(list.items||[]).length} สินค้า · แก้ไขล่าสุด ${escapeHtml(inspectionListDateTime(list.updatedAt))}</div></div>
       <button class="btn primary small" data-import-inspection-list="${escapeHtml(list.id)}">ดึงรายการนี้</button>

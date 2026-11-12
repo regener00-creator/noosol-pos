@@ -69,7 +69,7 @@ function lowStockReportRows(){
 }
 function lowStockReportConditionLabel(){
   if(lowStockPageFilter.stockMode==='out') return 'สินค้าที่คงเหลือเป็นศูนย์';
-  if(lowStockPageFilter.stockMode==='negative') return 'สินค้าที่มีสต๊อกติดลบ';
+  if(lowStockPageFilter.stockMode==='negative') return 'สินค้าที่มีสต็อกติดลบ';
   return `สินค้าที่คงเหลือมากกว่า 0 และต่ำกว่า ${lowStockPageFilter.stockThreshold} หน่วยหลัก`;
 }
 function lowStockReportRowMatches(row,mode=lowStockPageFilter.stockMode){

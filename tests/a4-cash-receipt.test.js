@@ -21,7 +21,7 @@ assert.match(receiptLogic, /เอกสารนี้ไม่ใช่ใบ�
 assert.match(receiptLogic, /business=documentBusinessSettings\(sale\)/);
 assert.match(receiptLogic, /businessPrimaryPhone\(business\)[\s\S]{0,180}business\.line\?`<br>LINE \$\{escapeHtml\(business\.line\)\}`/, 'บิลเงินสดต้องแสดง LINE ใต้เบอร์โทรเมื่อมีข้อมูล');
 assert.doesNotMatch(receiptLogic, /ภาษีมูลค่าเพิ่ม 7%|VAT INCLUDED/, 'บิลเงินสด A4 ต้องไม่แสดงยอด VAT');
-assert.doesNotMatch(receiptLogic, /complete_sale|adjust_inventory|inventory_count/, 'การพิมพ์เอกสารต้องไม่สร้างยอดขายหรือตัดสต๊อก');
+assert.doesNotMatch(receiptLogic, /complete_sale|adjust_inventory|inventory_count/, 'การพิมพ์เอกสารต้องไม่สร้างยอดขายหรือตัดสต็อก');
 assert.match(receiptLogic, /sale\.cashReceiptA4Meta=meta/, 'ต้องเก็บประวัติการพิมพ์ A4 ไว้กับบิลเดิม');
 
 console.log('a4 cash receipt tests passed');

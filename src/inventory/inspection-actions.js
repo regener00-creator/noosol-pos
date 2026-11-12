@@ -21,6 +21,12 @@ function openInspectionListEditor(id='new',shouldRender=true){
     inspectionListDraft={id:null,name:inspectionListDefaultName(now),warehouseId:Number(activeWarehouseId)||0,items:[],createdAt:now.toISOString(),updatedAt:now.toISOString(),createdBy:currentProfile?.firstName||currentProfile?.username||'',stockAdjustedAt:'',stockAdjustedBy:''};
   }else{
     const list=inspectionLists.find(entry=>documentInActiveStore(entry)&&String(entry.id)===String(id));
+    if(list?.stockAdjustedAt){
+      editingInspectionListId=null; inspectionListDraft=null;
+      showToast('รายการนี้บันทึกผลแล้ว');
+      if(shouldRender) render();
+      return;
+    }
     inspectionListDraft=list?JSON.parse(JSON.stringify(list)):null;
     if(!inspectionListDraft){ editingInspectionListId=null; showToast('ไม่พบรายการตรวจสินค้า'); }
   }
@@ -52,6 +58,7 @@ async function saveInspectionListDraft(options={}){
   }else{
     const index=inspectionLists.findIndex(list=>documentInActiveStore(list)&&String(list.id)===String(editingInspectionListId));
     if(index<0){ showToast('ไม่พบรายการตรวจสินค้า','danger'); return false; }
+    if(inspectionLists[index].stockAdjustedAt){ showToast('รายการนี้บันทึกผลแล้ว','danger'); return false; }
     inspectionLists[index]=saved;
   }
   persistWorkspaceData(); if(options.sync!==false) syncInspectionListsToSupabase();

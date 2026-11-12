@@ -154,7 +154,7 @@ test('successful stock response is retained when inventory refresh fails',async(
   assert.equal(s.ctx.productExchangeDraft.incomingApplied,true);
   await s.ctx.changeProductExchangeStatus('รับสินค้ากลับแล้ว');
   assert.equal(s.calls.filter(c=>c.name==='stock').length,1);
-  assert.ok(s.messages.some(([text])=>text.includes('โหลดสต๊อกล่าสุดไม่สำเร็จ')));
+  assert.ok(s.messages.some(([text])=>text.includes('โหลดสต็อกล่าสุดไม่สำเร็จ')));
 });
 test('missing row read after committed stock keeps posted state recoverable',async()=>{
   const s=setup();s.ctx.productExchanges[0]._revision=4;s.ctx.productExchangeDraft._revision=4;s.failRead();

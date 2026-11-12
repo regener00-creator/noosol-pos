@@ -27,7 +27,7 @@ function documentHasPostedStock(kind,doc){
 }
 function refusePostedDocumentDeletion(kind,doc){
   if(!documentHasPostedStock(kind,doc)) return false;
-  showToast(`ลบ ${doc.id||'เอกสารนี้'} ไม่ได้ เพราะเอกสารนี้เคยส่งผลต่อสต๊อกแล้ว กรุณาเก็บไว้เป็นประวัติ`,'danger');
+  showToast(`ลบ ${doc.id||'เอกสารนี้'} ไม่ได้ เพราะเอกสารนี้เคยส่งผลต่อสต็อกแล้ว กรุณาเก็บไว้เป็นประวัติ`,'danger');
   return true;
 }
 function deleteSelectedDocuments(kind,ids){
@@ -481,11 +481,11 @@ async function savePurchaseDraft(silent=false){
   const tax=kind==='gr'?calculateGoodsReceiptTaxSummary(items,draft.discount||0,draft.taxMode||'incl'):styled?calculatePurchaseTaxSummary(items,draft.discount||0,draft.taxMode||'incl'):calculatePurchaseTaxSummary([],0,'none');
   const old=editingId!=='new'?list.find(x=>x.id===editingId):null;
   const savedItems=(kind==='gr'||kind==='ret')?normalizeGoodsReceiptItems(items,draft.warehouseId):items;
-  if(kind==='gr'&&old?.stockApplied===true){ showToast('ใบรับสินค้านี้รับเข้าสต๊อกแล้ว จึงแก้ไขเอกสารไม่ได้ กรุณาพิมพ์หรือดูจากรายการเดิม','danger-top'); return false; }
+  if(kind==='gr'&&old?.stockApplied===true){ showToast('ใบรับสินค้านี้รับเข้าสต็อกแล้ว จึงแก้ไขเอกสารไม่ได้ กรุณาพิมพ์หรือดูจากรายการเดิม','danger-top'); return false; }
   if(kind==='ret'&&old?.stockApplied===true){
     const stockShape=value=>(value||[]).map(item=>({productId:Number(item.productId)||0,qty:Number(item.qty)||0,unit:item.unit||'',stockFactor:Number(item.stockFactor)||1,lotId:Number(item.lotId)||0}));
     if(Number(old.warehouseId)!==Number(draft.warehouseId)||JSON.stringify(stockShape(old.items))!==JSON.stringify(stockShape(savedItems))){
-      showToast('ใบคืนสินค้านี้ตัดสต๊อกแล้ว จึงแก้สินค้า จำนวน หน่วย หรือ Lot ไม่ได้');
+      showToast('ใบคืนสินค้านี้ตัดสต็อกแล้ว จึงแก้สินค้า จำนวน หน่วย หรือ Lot ไม่ได้');
       return false;
     }
   }
@@ -531,7 +531,7 @@ async function handleDocumentAction(kind,id,action){
   openDocMenu=null;
   if(action==='edit'){
     if(kind==='gr'&&!canManageGoodsReceipt(doc)){ showToast('แก้ไขไม่ได้ เพราะใบรับสินค้านี้สร้างโดยผู้ใช้งานอื่น','danger-top'); render(); return; }
-    if(kind==='gr'&&documentHasPostedStock(kind,doc)){ showToast('ใบรับสินค้านี้รับเข้าสต๊อกแล้ว จึงแก้ไขเอกสารไม่ได้','danger-top'); render(); return; }
+    if(kind==='gr'&&documentHasPostedStock(kind,doc)){ showToast('ใบรับสินค้านี้รับเข้าสต็อกแล้ว จึงแก้ไขเอกสารไม่ได้','danger-top'); render(); return; }
     setDocEditingId(kind,id); setDocDraft(kind,null);
     if(kind==='po') poRepresentativeEditorId=null;
     currentTab = kind==='gr'?'goodsreceipt':kind==='ret'?'productreturn':'purchaseorder';

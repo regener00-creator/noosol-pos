@@ -62,8 +62,8 @@ function noteCoreSyncFailure(error,{operation='sync_core_data',tableName='',reco
   coreSyncFailureDetail={error,operation,tableName,recordId:recordId||error?.recordId||error?.productId||'',fallbackMessage};
   return false;
 }
-const SYNC_TABLE_LABELS={warehouses:'คลังสินค้า',products:'สินค้า',contacts:'สมุดรายชื่อ',sales_representatives:'ผู้แทนจำหน่าย',inspection_lists:'รายการตรวจสินค้า',promotions:'โปรโมชั่น',inventory_balances:'ยอดสต๊อก',inventory_lots:'LOT สินค้า'};
-const SYNC_OPERATION_LABELS={sync_core_data:'ซิงก์ข้อมูลหลัก',save_revisioned_document:'บันทึกเอกสาร',run_stock_operation:'ปรับข้อมูลสต๊อก',owner_upsert_warehouse:'บันทึกคลังสินค้า',owner_delete_warehouse:'ลบคลังสินค้า'};
+const SYNC_TABLE_LABELS={warehouses:'คลังสินค้า',products:'สินค้า',contacts:'สมุดรายชื่อ',sales_representatives:'ผู้แทนจำหน่าย',inspection_lists:'รายการตรวจสินค้า',promotions:'โปรโมชั่น',inventory_balances:'ยอดสต็อก',inventory_lots:'LOT สินค้า'};
+const SYNC_OPERATION_LABELS={sync_core_data:'ซิงก์ข้อมูลหลัก',save_revisioned_document:'บันทึกเอกสาร',run_stock_operation:'ปรับข้อมูลสต็อก',owner_upsert_warehouse:'บันทึกคลังสินค้า',owner_delete_warehouse:'ลบคลังสินค้า'};
 function syncEventTitle(row={}){
   const table=SYNC_TABLE_LABELS[String(row.table_name||'')]||String(row.table_name||'');
   return table||SYNC_OPERATION_LABELS[String(row.operation||'')]||String(row.operation||'ซิงก์ข้อมูล');
@@ -120,7 +120,7 @@ async function loadLatestConflictedProduct(productId,eventId=''){
   const id=Number(productId)||0;
   const current=(products||[]).find(product=>Number(product.id)===id);
   if(!id||!current) throw new Error('ไม่พบสินค้าที่ต้องการโหลดในเครื่องนี้');
-  if(!confirm(`โหลดข้อมูลล่าสุดของ “${current.name||current.sku||id}” จากเซิร์ฟเวอร์หรือไม่?\n\nข้อมูลที่แก้ไขค้างอยู่ในเครื่องสำหรับสินค้านี้จะถูกแทนที่ แต่สต๊อกและ LOT จะไม่ถูกแก้ไข`)) return false;
+  if(!confirm(`โหลดข้อมูลล่าสุดของ “${current.name||current.sku||id}” จากเซิร์ฟเวอร์หรือไม่?\n\nข้อมูลที่แก้ไขค้างอยู่ในเครื่องสำหรับสินค้านี้จะถูกแทนที่ แต่สต็อกและ LOT จะไม่ถูกแก้ไข`)) return false;
   const {data,error}=await sb.from('products').select('*').eq('id',id).maybeSingle();
   if(!isStoreViewCurrent(context)) return false;
   if(error) throw error;
@@ -369,7 +369,7 @@ async function runStockOperation(operation,args={}){
   setSyncUiState('syncing');
   const {data,error}=await sb.rpc('run_stock_operation',{p_request_id:requestId,p_operation:operation,p_args:payload});
   if(error){
-    rememberSyncUiError(error,{operation,warehouseId:context.store,recordId:String(payload.receiptId||payload.returnId||payload.exchangeId||payload.saleId||payload.productId||''),fallbackMessage:'บันทึกการเปลี่ยนแปลงสต๊อกไม่สำเร็จ'});
+    rememberSyncUiError(error,{operation,warehouseId:context.store,recordId:String(payload.receiptId||payload.returnId||payload.exchangeId||payload.saleId||payload.productId||''),fallbackMessage:'บันทึกการเปลี่ยนแปลงสต็อกไม่สำเร็จ'});
     reportClientEvent({operation,recordId:String(payload.receiptId||payload.returnId||payload.exchangeId||payload.saleId||payload.productId||''),errorCode:error.code||'',message:error.message||'Stock operation failed',context:{payloadHash,warehouseId:context.store}});
     throw error;
   }

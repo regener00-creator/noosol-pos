@@ -397,13 +397,13 @@ function productBaseUnitChangeBlockers(productId){
   const held=salesHistory.filter(sale=>sale?.status==='hold'&&hasItem(sale.items));
   if(held.length) blockers.push(`บิลพักไว้ ${held.length} รายการ`);
   const receipts=goodsReceipts.filter(doc=>doc?.stockApplied!==true&&hasItem(doc.items));
-  if(receipts.length) blockers.push(`ใบรับสินค้าที่ยังไม่ลงสต๊อก ${receipts.length} รายการ`);
+  if(receipts.length) blockers.push(`ใบรับสินค้าที่ยังไม่ลงสต็อก ${receipts.length} รายการ`);
   const returns=productReturns.filter(doc=>doc?.stockApplied!==true&&doc?.status!=='คืนเรียบร้อย'&&hasItem(doc.items));
-  if(returns.length) blockers.push(`ใบคืนสินค้าที่ยังไม่ลงสต๊อก ${returns.length} รายการ`);
-  // เอกสารโอนรุ่นเก่าไม่มี stockApplied แต่สถานะ “บันทึกแล้ว” หมายถึงลงสต๊อกแล้ว
+  if(returns.length) blockers.push(`ใบคืนสินค้าที่ยังไม่ลงสต็อก ${returns.length} รายการ`);
+  // เอกสารโอนรุ่นเก่าไม่มี stockApplied แต่สถานะ “บันทึกแล้ว” หมายถึงลงสต็อกแล้ว
   // ส่วนเอกสารรุ่นใหม่ที่ RPC ล้มเหลวจะบันทึก stockApplied=false ไว้อย่างชัดเจน
   const pendingTransfers=transfers.filter(doc=>doc?.stockApplied===false&&hasItem(doc.items));
-  if(pendingTransfers.length) blockers.push(`ใบโอนสินค้าที่ยังไม่ลงสต๊อก ${pendingTransfers.length} รายการ`);
+  if(pendingTransfers.length) blockers.push(`ใบโอนสินค้าที่ยังไม่ลงสต็อก ${pendingTransfers.length} รายการ`);
   const exchanges=productExchanges.filter(doc=>doc?.incomingApplied!==true&&doc?.status!=='รับสินค้ากลับแล้ว'&&(hasItem(doc.outgoingItems)||hasItem(doc.incomingItems)));
   if(exchanges.length) blockers.push(`ใบเปลี่ยนสินค้าที่ยังไม่เสร็จ ${exchanges.length} รายการ`);
   return blockers;
@@ -424,7 +424,7 @@ function openProductBaseUnitChangeModal(){
   }
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   if(mobileProductEditor) overlay.classList.add('mobile-base-unit-overlay');
-  overlay.innerHTML=`<div class="modal" style="width:720px;max-height:92vh;"><div class="modal-head"><h3>เปลี่ยนหน่วยหลัก</h3><button class="modal-close" type="button">×</button></div><div class="modal-sub">${escapeHtml(product.name)} · หน่วยเดิม <b>${escapeHtml(product.unit||'-')}</b></div><form id="baseUnitChangeForm" style="overflow-y:auto;"><div style="padding:0 18px 18px;"><div style="padding:11px 13px;border:1px solid #F0D39D;border-radius:9px;background:#FFF8E8;color:#7B5716;font-size:12.5px;margin-bottom:14px;">บิลและเอกสารที่ลงสต๊อกแล้วจะคงข้อมูลเดิม ระบบจะแปลงเฉพาะสต๊อกปัจจุบันของทุกคลัง</div><div class="formgrid3"><div class="field"><label>หน่วยเล็กสุดใหม่ <span class="req">*</span></label><input id="baseUnitNewName" list="baseUnitNameList" autocomplete="off" placeholder="เช่น เม็ด"><datalist id="baseUnitNameList">${units.filter(unit=>unit!==product.unit).map(unit=>`<option value="${escapeHtml(unit)}">`).join('')}</datalist></div><div class="field"><label>1 ${escapeHtml(product.unit)} เท่ากับกี่หน่วยใหม่ <span class="req">*</span></label><input id="baseUnitConversion" type="number" min="0.000001" max="1000000" step="any" value="1"></div><div class="field"><label>บาร์โค้ดหน่วยใหม่</label><input id="baseUnitNewBarcode" autocomplete="off" placeholder="เว้นว่างได้"></div><div class="field"><label>ราคาขายต่อหน่วยใหม่ <span class="req">*</span></label><input id="baseUnitNewPrice" type="number" min="0" step="0.01" value="${Number(product.price)||0}"></div><div class="field"><label>ทุนต่อหน่วยใหม่ <span class="req">*</span></label><input id="baseUnitNewCost" type="number" min="0" step="0.01" value="${Number(product.cost)||0}"></div><div class="field"><label>บาร์โค้ดเดิม</label><input value="${escapeHtml(product.barcode||'-')}" disabled><small style="color:var(--text-muted);">จะย้ายไปผูกกับหน่วย ${escapeHtml(product.unit)}</small></div></div><div style="font-size:13px;font-weight:700;margin:18px 0 8px;">ตัวอย่างสต๊อกหลังเปลี่ยน</div><div id="baseUnitStockPreview"></div></div><div class="payment-actions" style="padding:14px 18px;border-top:1px solid var(--border);"><button class="btn ghost" type="button" id="cancelBaseUnitChange">ยกเลิก</button><button class="btn primary" type="submit" id="confirmBaseUnitChange">ยืนยันเปลี่ยนหน่วยหลัก</button></div></form></div>`;
+  overlay.innerHTML=`<div class="modal" style="width:720px;max-height:92vh;"><div class="modal-head"><h3>เปลี่ยนหน่วยหลัก</h3><button class="modal-close" type="button">×</button></div><div class="modal-sub">${escapeHtml(product.name)} · หน่วยเดิม <b>${escapeHtml(product.unit||'-')}</b></div><form id="baseUnitChangeForm" style="overflow-y:auto;"><div style="padding:0 18px 18px;"><div style="padding:11px 13px;border:1px solid #F0D39D;border-radius:9px;background:#FFF8E8;color:#7B5716;font-size:12.5px;margin-bottom:14px;">บิลและเอกสารที่ลงสต็อกแล้วจะคงข้อมูลเดิม ระบบจะแปลงเฉพาะสต็อกปัจจุบันของทุกคลัง</div><div class="formgrid3"><div class="field"><label>หน่วยเล็กสุดใหม่ <span class="req">*</span></label><input id="baseUnitNewName" list="baseUnitNameList" autocomplete="off" placeholder="เช่น เม็ด"><datalist id="baseUnitNameList">${units.filter(unit=>unit!==product.unit).map(unit=>`<option value="${escapeHtml(unit)}">`).join('')}</datalist></div><div class="field"><label>1 ${escapeHtml(product.unit)} เท่ากับกี่หน่วยใหม่ <span class="req">*</span></label><input id="baseUnitConversion" type="number" min="0.000001" max="1000000" step="any" value="1"></div><div class="field"><label>บาร์โค้ดหน่วยใหม่</label><input id="baseUnitNewBarcode" autocomplete="off" placeholder="เว้นว่างได้"></div><div class="field"><label>ราคาขายต่อหน่วยใหม่ <span class="req">*</span></label><input id="baseUnitNewPrice" type="number" min="0" step="0.01" value="${Number(product.price)||0}"></div><div class="field"><label>ทุนต่อหน่วยใหม่ <span class="req">*</span></label><input id="baseUnitNewCost" type="number" min="0" step="0.01" value="${Number(product.cost)||0}"></div><div class="field"><label>บาร์โค้ดเดิม</label><input value="${escapeHtml(product.barcode||'-')}" disabled><small style="color:var(--text-muted);">จะย้ายไปผูกกับหน่วย ${escapeHtml(product.unit)}</small></div></div><div style="font-size:13px;font-weight:700;margin:18px 0 8px;">ตัวอย่างสต็อกหลังเปลี่ยน</div><div id="baseUnitStockPreview"></div></div><div class="payment-actions" style="padding:14px 18px;border-top:1px solid var(--border);"><button class="btn ghost" type="button" id="cancelBaseUnitChange">ยกเลิก</button><button class="btn primary" type="submit" id="confirmBaseUnitChange">ยืนยันเปลี่ยนหน่วยหลัก</button></div></form></div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();
   overlay.querySelector('.modal-close').onclick=close;
@@ -466,7 +466,7 @@ function openProductBaseUnitChangeModal(){
       changedBy:[currentProfile?.firstName,currentProfile?.lastName].filter(Boolean).join(' ')||currentProfile?.username||'',
     });
     if(change.error){ showToast(change.error,'danger'); return; }
-    if(!confirm(`ยืนยันเปลี่ยนหน่วยหลักจาก ${change.oldUnit} เป็น ${change.newUnit}\n1 ${change.oldUnit} = ${change.conversion} ${change.newUnit}\nสต๊อกทุกคลังจะถูกแปลงพร้อมกันและย้อนกลับอัตโนมัติไม่ได้`)) return;
+    if(!confirm(`ยืนยันเปลี่ยนหน่วยหลักจาก ${change.oldUnit} เป็น ${change.newUnit}\n1 ${change.oldUnit} = ${change.conversion} ${change.newUnit}\nสต็อกทุกคลังจะถูกแปลงพร้อมกันและย้อนกลับอัตโนมัติไม่ได้`)) return;
     button.disabled=true; button.textContent='กำลังเปลี่ยนหน่วย...';
     try{
       const metadata=productMetadataToRow(change.product);
@@ -496,7 +496,7 @@ function openProductBaseUnitChangeModal(){
         mobileProductEditor=null; editingProductId=null;
         mobileSelectPriceProduct(product,change.newUnit);
       }
-      showToast(`เปลี่ยนหน่วยหลักเป็น ${change.newUnit} และแปลงสต๊อกทุกคลังแล้ว`);
+      showToast(`เปลี่ยนหน่วยหลักเป็น ${change.newUnit} และแปลงสต็อกทุกคลังแล้ว`);
       render();
     }catch(error){
       console.error('change product base unit',error);

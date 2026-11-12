@@ -290,7 +290,7 @@ const browserExecutable = [
   await page.locator('[data-stock-edit-new-expiry]').fill('09092030');
   assert.equal(await page.locator('[data-stock-edit-new-expiry]').inputValue(),'09/09/2030');
   assert.equal(await page.evaluate(()=>stockEditNewLotNumbers[99001]),'LOT-TEST-0909');
-  assert.equal(await page.evaluate(()=>products[0].stock),5,'กรอก LOT ต้องยังไม่เปลี่ยนสต๊อก');
+  assert.equal(await page.evaluate(()=>products[0].stock),5,'กรอก LOT ต้องยังไม่เปลี่ยนสต็อก');
   await page.setViewportSize({width:1440,height:1000});
   await page.locator('.stock-edit-table-wrap').screenshot({path:path.join(os.tmpdir(),'pepos-stock-lot-fields-browser.png')});
 

@@ -75,7 +75,7 @@ async function saveProduct(){
   const existing = (editingProductId!=='new') ? products.find(x=>x.id===editingProductId) : null;
   const directUnitChange=!!existing&&unit!==String(existing.unit||'').trim();
   if(directUnitChange&&(!canEditMobilePrice()||g('f_unit').dataset.directUnitEdit!==String(existing.id))){
-    showToast('กรุณาใช้ปุ่ม “เปลี่ยนหน่วยหลัก” เพื่อแปลงสต๊อกทุกคลังอย่างถูกต้อง','danger');
+    showToast('กรุณาใช้ปุ่ม “เปลี่ยนหน่วยหลัก” เพื่อแปลงสต็อกทุกคลังอย่างถูกต้อง','danger');
     return;
   }
   if(directUnitChange){

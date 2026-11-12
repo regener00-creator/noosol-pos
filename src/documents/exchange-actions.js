@@ -112,19 +112,19 @@ async function changeProductExchangeStatus(status){
   if(productExchangeStatusInFlight) return;
   syncProductExchangeFromDOM();
   const draft=activeProductExchangeDraft(),plan=productExchangeTransitionPlan(draft,status);
-  if(!plan.allowed){ showToast('ไม่สามารถย้อนสถานะเอกสารที่ลงสต๊อกแล้ว'); render(); return; }
+  if(!plan.allowed){ showToast('ไม่สามารถย้อนสถานะเอกสารที่ลงสต็อกแล้ว'); render(); return; }
   if(!validateProductExchangeDraft(draft,status)) return;
   if(status==='รับสินค้ากลับแล้ว'){
     const reconciliation=productExchangeReconciliation(draft);
     if(reconciliation.unreturnedItems.length){
       const names=reconciliation.unreturnedItems.map(item=>`${item.name||products.find(product=>Number(product.id)===Number(item.pid))?.name||'-'} ${item.qty} ${item.unit||'หน่วย'}`).join('\n• ');
-      if(!confirm(`ได้รับสินค้ากลับไม่ครบตามที่ส่งไป\n\nไม่ได้รับคืน:\n• ${names}\n\nรายการเหล่านี้จะถือว่าถูกตัดออกจากสต๊อกถาวร ยืนยันรับสินค้ากลับหรือไม่?`)) return;
+      if(!confirm(`ได้รับสินค้ากลับไม่ครบตามที่ส่งไป\n\nไม่ได้รับคืน:\n• ${names}\n\nรายการเหล่านี้จะถือว่าถูกตัดออกจากสต็อกถาวร ยืนยันรับสินค้ากลับหรือไม่?`)) return;
     }
     draft.unreturnedItems=reconciliation.unreturnedItems;
   }
   const required=new Map();
   if(plan.applyOutgoing) (draft.outgoingItems||[]).forEach(item=>required.set(Number(item.pid),(required.get(Number(item.pid))||0)+productExchangeItemBaseQty(item)));
-  for(const [pid,qty] of required){ const product=products.find(item=>Number(item.id)===pid); if(!product||warehouseStock(pid,draft.warehouseId)<qty){ showToast(`สต๊อกไม่พอสำหรับ ${product?.name||'สินค้าที่เลือก'}`,'danger'); return; } }
+  for(const [pid,qty] of required){ const product=products.find(item=>Number(item.id)===pid); if(!product||warehouseStock(pid,draft.warehouseId)<qty){ showToast(`สต็อกไม่พอสำหรับ ${product?.name||'สินค้าที่เลือก'}`,'danger'); return; } }
   productExchangeStatusInFlight=true;
   const buttons=['confirmExchangeSentBtn','confirmExchangeReceivedBtn','saveProductExchangeBtn'].map(id=>document.getElementById(id)).filter(button=>button&&!button.disabled);
   buttons.forEach(button=>button.disabled=true);
@@ -160,14 +160,14 @@ async function changeProductExchangeStatus(status){
     });
     try{ await refreshProductExchangeProducts(remoteDoc); }
     catch(error){
-      console.warn('โหลดสต๊อกหลังยืนยันเปลี่ยนสินค้าไม่สำเร็จ',error);
-      showToast('ยืนยันรายการแล้ว แต่โหลดสต๊อกล่าสุดไม่สำเร็จ กรุณารีเฟรชข้อมูล','warning-top');
+      console.warn('โหลดสต็อกหลังยืนยันเปลี่ยนสินค้าไม่สำเร็จ',error);
+      showToast('ยืนยันรายการแล้ว แต่โหลดสต็อกล่าสุดไม่สำเร็จ กรุณารีเฟรชข้อมูล','warning-top');
     }
-    showToast(status==='รับสินค้ากลับแล้ว'?'รับสินค้ากลับและเพิ่มสต๊อกเรียบร้อย':'ส่งสินค้าไปเปลี่ยนและตัดสต๊อกเรียบร้อย');
+    showToast(status==='รับสินค้ากลับแล้ว'?'รับสินค้ากลับและเพิ่มสต็อกเรียบร้อย':'ส่งสินค้าไปเปลี่ยนและตัดสต็อกเรียบร้อย');
     render();
   }catch(error){
     console.error('เปลี่ยนสถานะเอกสารเปลี่ยนสินค้าไม่สำเร็จ',error);
-    showToast(error?.message||'บันทึกสถานะและสต๊อกไม่สำเร็จ กรุณาลองอีกครั้ง','danger');
+    showToast(error?.message||'บันทึกสถานะและสต็อกไม่สำเร็จ กรุณาลองอีกครั้ง','danger');
     buttons.forEach(button=>button.disabled=false);
   }finally{
     productExchangeStatusInFlight=false;

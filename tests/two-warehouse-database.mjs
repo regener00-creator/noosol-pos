@@ -199,7 +199,7 @@ async function verifyOwnerTools(q,owner,[a,b]){
   const clear=(id,shop,count=1)=>q('select public.admin_reset_shop_products($1,$2,$3,$4) result',[owner,id,'ล้างสินค้า '+shop,count]);
   assert.equal((await q("select has_function_privilege('authenticated','public.admin_reset_shop_products(uuid,bigint,text,integer)','execute') allowed")).rows[0].allowed,false);
   await q('savepoint used_catalog');
-  await assert.rejects(clear(b.id,b.name),/LOT|สต๊อก|ขาย/);
+  await assert.rejects(clear(b.id,b.name),/LOT|สต็อก|ขาย/);
   await q('rollback to used_catalog');
   await q("insert into public.warehouses(id,name) values(8530,'New shop')");
   await q("insert into public.products(id,warehouse_id,sku,name,unit,price,cost,data) values(8530,8530,'S','Decolgen','หลอด',5,6,$1)",[{barcode:'001234'}]);

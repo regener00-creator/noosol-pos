@@ -147,7 +147,7 @@ function openStockCheckModal(pid){
     <div class="modal-head"><h3>คงเหลือ: ${escapeHtml(p.name)}</h3><button class="modal-close">×</button></div>
     <div class="modal-sub" id="stockCheckSub">คงเหลือทั้งหมด ${escapeHtml(p.stock)} ${escapeHtml(p.unit||'')} · แสดงผลตามหน่วยสินค้า</div>
     <div class="manage-list">${rows.map(r=>`<div class="manage-item"><span>${escapeHtml(r.name)}</span><b class="mono">${escapeHtml(Math.round(r.amount*100)/100)}</b></div>`).join('')}</div>
-    <div class="modal-actions" style="display:flex;justify-content:flex-end;gap:10px;padding:12px 16px 16px;"><button class="btn ghost stock-check-cancel">ปิด</button><button class="btn primary" id="stockCheckAdjustBtn" ${canPerformPageAction('edit','inspectionlists')?'':'disabled'}>ไปตรวจนับและปรับสต๊อก</button></div>
+    <div class="modal-actions" style="display:flex;justify-content:flex-end;gap:10px;padding:12px 16px 16px;"><button class="btn ghost stock-check-cancel">ปิด</button><button class="btn primary" id="stockCheckAdjustBtn" ${canPerformPageAction('edit','inspectionlists')?'':'disabled'}>ไปตรวจนับและปรับสต็อก</button></div>
   </div>`;
   document.body.appendChild(overlay);
   const close=()=>overlay.remove();

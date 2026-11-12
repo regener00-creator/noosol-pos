@@ -17,7 +17,7 @@ const productReturnNavIndex = navSource.indexOf("['productreturn','ใบคื�
 const salesDocumentsSectionIndex = navSource.indexOf("{section:'เอกสารขาย'");
 const cashBillNavIndex = navSource.indexOf("['cashbill','บิลเงินสด'");
 const productsNavIndex = navSource.indexOf("['products','PRODUCT'");
-const stockControlNavIndex = navSource.indexOf("['stockcontrol','ตรวจนับ / ปรับสต๊อก'");
+const stockControlNavIndex = navSource.indexOf("['stockcontrol','ตรวจนับ / ปรับสต็อก'");
 const barcodePrintNavIndex = navSource.indexOf("['barcodeprint','พิมพ์ป้ายราคา'");
 const warehouseNavIndex = navSource.indexOf("['warehouse','ตั้งค่าคลังสินค้า'");
 const transferNavIndex = navSource.indexOf("['transfer','โอนสินค้าระหว่างคลัง'");
@@ -116,7 +116,7 @@ Object.assign(context, {
   stockEditPage: 1,
   stockEditSourceInspectionListId: null,
   stockEditSourcePending: false,
-  AUTOMATIC_STOCK_ADJUSTMENT_REASON: 'ตรวจนับและปรับสต๊อกจากยอดตรวจนับ',
+  AUTOMATIC_STOCK_ADJUSTMENT_REASON: 'ตรวจนับและปรับสต็อกจากยอดตรวจนับ',
   stockEditLotSelections: {},
   stockEditNewLotNumbers: {},
   stockEditNewLotExpiries: {},
@@ -164,7 +164,7 @@ assert.deepEqual(Array.from(secondPage.rows, product => product.id), [11]);
 assert.equal(context.stockEditPagination(context.products, 99, 10).currentPage, 2);
 
 const rendered = context.renderStockEdit();
-assert.doesNotMatch(rendered, /<h1>รอยืนยันปรับสต๊อก<\/h1>/);
+assert.doesNotMatch(rendered, /<h1>รอยืนยันปรับสต็อก<\/h1>/);
 assert.match(rendered, /stock-edit-page-actions form-final-actions/);
 assert.match(rendered, /id="stockEditCategorySelect"/);
 assert.match(rendered, /id="stockEditBrandSelect"/);
@@ -236,7 +236,7 @@ Object.assign(context, {
 (async()=>{
   assert.equal(await context.confirmStockEditChanges(), true);
   assert.equal(context.products[0].stock, 250);
-  assert.equal(lastAdjustmentPayload.reason, 'ตรวจนับและปรับสต๊อกจากยอดตรวจนับ');
+  assert.equal(lastAdjustmentPayload.reason, 'ตรวจนับและปรับสต็อกจากยอดตรวจนับ');
   assert.equal(lastAdjustmentPayload.note, '');
   assert.equal(persisted, 1);
   assert.equal(inspectionSync, 0);

@@ -137,7 +137,7 @@ function receiptPrinterTestHtml(settings,{toolbar=false}={}){
     <div class="item"><div><b>สินค้าตัวอย่างชื่อยาว สำหรับตรวจสอบการตัดบรรทัด</b><small>2 กล่อง × 125.00</small></div><strong>250.00</strong></div>
     <div class="item"><div><b>สินค้าตัวอย่างรายการที่สอง</b><small>1 ชิ้น × 50.00</small></div><strong>50.00</strong></div>
     <div class="dash"></div><div class="summary"><div><span>จำนวนเงินหลังหักส่วนลด</span><b>300.00</b></div><div class="total"><span>รวมทั้งสิ้น</span><b>300.00</b></div></div>
-    <div class="dash"></div><div class="center footer">ทดลองพิมพ์เท่านั้น<br>ไม่บันทึกยอดขายและไม่ตัดสต๊อก<br>โทร 02-000-0000<br>LINE @example</div></div></body></html>`;
+    <div class="dash"></div><div class="center footer">ทดลองพิมพ์เท่านั้น<br>ไม่บันทึกยอดขายและไม่ตัดสต็อก<br>โทร 02-000-0000<br>LINE @example</div></div></body></html>`;
 }
 function printReceiptPrinterTest(settings){
   const win=window.open('','_blank');
@@ -239,7 +239,7 @@ function renderStoreBackupSection(){
   const lastRaw=localStorage.getItem(STORE_BACKUP_LAST_KEY+':'+shop.id)||(shop.id===1?localStorage.getItem(STORE_BACKUP_LAST_KEY):'')||'';
   const lastDate=lastRaw?new Date(lastRaw):null;
   const lastText=lastDate&&!Number.isNaN(lastDate.getTime())?lastDate.toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}):'ยังไม่เคยดาวน์โหลดไฟล์สำรองจากเครื่องนี้';
-  return `<div class="settings-section"><h2>สำรองข้อมูลร้าน ${escapeHtml(shop.name)}</h2><div class="hint">ไฟล์สำรองดึงข้อมูลที่บันทึกบนเซิร์ฟเวอร์ ณ เวลาเดียวกัน ครอบคลุมสินค้า สต๊อกและ LOT กะขาย เอกสาร ลูกค้า ผู้จำหน่าย ผู้แทน สินค้าที่ดูแล NOTE ประวัติ และการตั้งค่าร้าน</div>
+  return `<div class="settings-section"><h2>สำรองข้อมูลร้าน ${escapeHtml(shop.name)}</h2><div class="hint">ไฟล์สำรองดึงข้อมูลที่บันทึกบนเซิร์ฟเวอร์ ณ เวลาเดียวกัน ครอบคลุมสินค้า สต็อกและ LOT กะขาย เอกสาร ลูกค้า ผู้จำหน่าย ผู้แทน สินค้าที่ดูแล NOTE ประวัติ และการตั้งค่าร้าน</div>
 
       <div class="backup-note">สำรองล่าสุดจากอุปกรณ์นี้: <strong>${escapeHtml(lastText)}</strong><br>ไฟล์สำรองไม่รวมบัญชีผู้ใช้งานและรหัสผ่าน ซึ่งจัดเก็บแยกในระบบยืนยันตัวตน<br>ไฟล์นี้รวมข้อมูลที่บันทึกบนเซิร์ฟเวอร์ของร้านที่เลือก กรุณาซิงก์ทุกเครื่องให้สำเร็จก่อนสำรองหรือกู้คืน</div>
       <div class="backup-grid">
@@ -339,10 +339,10 @@ function auditLogDateTime(value){
   return `${pad(date.getDate())}-${pad(date.getMonth()+1)}-${date.getFullYear()} / ${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 function auditEntityLabel(type){
-  return ({products:'สินค้า',product:'สินค้า',warehouses:'คลังสินค้า',settings:'การตั้งค่า',contacts:'สมุดรายชื่อ',sales_representatives:'ผู้แทนขาย',notes:'NOTE / ผู้แทน',promotions:'โปรโมชั่น',sales:'บิลขาย',cash_shifts:'กะขาย',quotations:'ใบเสนอราคา',invoices_ar:'ใบแจ้งหนี้',credit_notes:'ใบลดหนี้',purchase_orders:'จดสั่งสินค้า',goods_receipts:'ใบรับสินค้า',product_exchanges:'เปลี่ยนสินค้า',purchase_orders_full:'เอกสารซื้อเดิม',product_returns:'ใบคืนสินค้า',transfers:'โอนสินค้าระหว่างคลัง',standalone_tax_invoices:'ใบกำกับภาษี',inspection_lists:'รายการตรวจสินค้า',profiles:'ผู้ใช้งาน',profile_warehouse_access:'สิทธิ์คลังสินค้า',inventory_count:'ปรับสต๊อก',inventory_lot:'Lot สินค้า',store_reset:'ล้างข้อมูลระบบ'})[type]||type||'-';
+  return ({products:'สินค้า',product:'สินค้า',warehouses:'คลังสินค้า',settings:'การตั้งค่า',contacts:'สมุดรายชื่อ',sales_representatives:'ผู้แทนขาย',notes:'NOTE / ผู้แทน',promotions:'โปรโมชั่น',sales:'บิลขาย',cash_shifts:'กะขาย',quotations:'ใบเสนอราคา',invoices_ar:'ใบแจ้งหนี้',credit_notes:'ใบลดหนี้',purchase_orders:'จดสั่งสินค้า',goods_receipts:'ใบรับสินค้า',product_exchanges:'เปลี่ยนสินค้า',purchase_orders_full:'เอกสารซื้อเดิม',product_returns:'ใบคืนสินค้า',transfers:'โอนสินค้าระหว่างคลัง',standalone_tax_invoices:'ใบกำกับภาษี',inspection_lists:'รายการตรวจสินค้า',profiles:'ผู้ใช้งาน',profile_warehouse_access:'สิทธิ์คลังสินค้า',inventory_count:'ปรับสต็อก',inventory_lot:'Lot สินค้า',store_reset:'ล้างข้อมูลระบบ'})[type]||type||'-';
 }
 function auditActionLabel(action){
-  return ({insert:'สร้าง',update:'แก้ไข',delete:'ลบ',stock_adjusted:'ปรับสต๊อก',unit_changed:'เปลี่ยนหน่วยหลัก',lot_expiry_changed:'แก้วันหมดอายุ Lot',lot_reallocated:'ปรับจำนวนแยก Lot',store_reset:'ล้างข้อมูล'})[action]||action||'-';
+  return ({insert:'สร้าง',update:'แก้ไข',delete:'ลบ',stock_adjusted:'ปรับสต็อก',unit_changed:'เปลี่ยนหน่วยหลัก',lot_expiry_changed:'แก้วันหมดอายุ Lot',lot_reallocated:'ปรับจำนวนแยก Lot',store_reset:'ล้างข้อมูล'})[action]||action||'-';
 }
 function auditFieldLabel(field){
   return ({record:'ข้อมูล',name:'ชื่อ',sku:'รหัสสินค้า',price:'ราคาขาย',cost:'ทุน',stock:'คงเหลือ',unit:'หน่วย',data:'รายละเอียด',status:'สถานะ',expiry:'วันหมดอายุ',lot_quantity:'จำนวน Lot',value:'ค่า',warehouse_id:'คลังสินค้า',owner:'เจ้าของร้าน',level:'ระดับสิทธิ์'})[field]||field;

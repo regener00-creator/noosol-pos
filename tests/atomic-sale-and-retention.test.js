@@ -45,7 +45,7 @@ assert.match(html, /runStockOperation\('void_sale'/);
 
 const helperStart = html.indexOf('function documentHasPostedStock(');
 const helperEnd = html.indexOf('function deleteSelectedDocuments(', helperStart);
-assert.ok(helperStart >= 0 && helperEnd > helperStart, 'ไม่พบตัวป้องกันการลบเอกสารสต๊อก');
+assert.ok(helperStart >= 0 && helperEnd > helperStart, 'ไม่พบตัวป้องกันการลบเอกสารสต็อก');
 const context = { showToast(){} };
 vm.createContext(context);
 vm.runInContext(html.slice(helperStart, helperEnd), context);

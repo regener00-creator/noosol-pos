@@ -55,7 +55,7 @@ async function searchCashBillOrder(){
 async function deleteCashBill(saleId){
   const sale=salesHistory.find(item=>item.id===saleId); if(!sale?.cashReceiptA4Meta) return;
   const number=sale.cashReceiptA4Meta.number||shortReceiptNumber(sale);
-  if(!confirm(`ยืนยันลบบิลเงินสด ${number} ?\nยอดขายและสต๊อกจะไม่เปลี่ยนแปลง`)) return;
+  if(!confirm(`ยืนยันลบบิลเงินสด ${number} ?\nยอดขายและสต็อกจะไม่เปลี่ยนแปลง`)) return;
   try{
     await updateSaleDocumentMetadata(sale.id,{cashReceiptA4Meta:null});
     showToast(`ลบบิลเงินสด ${number} แล้ว`);

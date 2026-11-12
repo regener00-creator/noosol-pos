@@ -151,7 +151,9 @@ async function submitStoreReset(event){
       requireSyncedShop(context.store);
     }
     const expectedCount=Number(form.dataset.productCount);
-    const response=await callEdgeFunction('admin-users',{action:'reset-store',mode,password,phrase,warehouseId:mode==='factory'?null:context.store,allWarehouses:context.combined,expectedCount});
+    // The deployed reset endpoint checks the original confirmation token after the UI validates the displayed phrase.
+    const serverPhrase=mode==='documents'?'ล้างเอกสารและสต๊อก':phrase;
+    const response=await callEdgeFunction('admin-users',{action:'reset-store',mode,password,phrase:serverPhrase,warehouseId:mode==='factory'?null:context.store,allWarehouses:context.combined,expectedCount});
     if(mode==='products'&&(response?.reset?.deleted!==expectedCount||response?.reset?.warehouseId!==context.store))throw new Error('กรุณาโหลดรายการสินค้าเพื่อตรวจผลการล้างก่อนลองใหม่');
     const bootstrapToken=String(response?.reset?.bootstrapToken||'');
     if(mode==='factory'&&!bootstrapToken) throw new Error('ระบบไม่ได้รับกุญแจตั้งค่าเจ้าของร้าน กรุณาติดต่อผู้ดูแลระบบก่อนปิดหน้านี้');
@@ -164,7 +166,7 @@ async function submitStoreReset(event){
     }else if(mode==='products'){
       alert(`ล้างสินค้า ${expectedCount.toLocaleString('th-TH')} รายการของร้าน ${shopName} แล้ว สามารถนำเข้า Excel ใหม่ที่หน้า PRODUCT`);
     }else{
-      alert('ล้างเอกสาร LOT และสต๊อกเรียบร้อยแล้ว รายการสินค้ายังคงอยู่และยอดคงเหลือเป็นศูนย์');
+      alert('ล้างเอกสาร LOT และสต็อกเรียบร้อยแล้ว รายการสินค้ายังคงอยู่และยอดคงเหลือเป็นศูนย์');
     }
     window.location.reload();
   }catch(error){

@@ -10,16 +10,16 @@ const indexMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations',
 const sequenceMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260826025849_reseed_inventory_sequences.sql'), 'utf8');
 const negativeStockMigration = fs.readFileSync(path.join(root, 'supabase', 'migrations', '20260826030155_allow_negative_recorded_count_stock.sql'), 'utf8');
 
-assert.match(html, /\['stockcontrol','ตรวจนับ \/ ปรับสต๊อก'/);
+assert.match(html, /\['stockcontrol','ตรวจนับ \/ ปรับสต็อก'/);
 assert.doesNotMatch(html, /\['inspectionlists','ตรวจสินค้า'/);
-assert.doesNotMatch(html, /\['stockedit','แก้ไขสต๊อก'/);
+assert.doesNotMatch(html, /\['stockedit','แก้ไขสต็อก'/);
 assert.doesNotMatch(html, /\['stockadjust','สินค้าติดลบ'/);
-assert.doesNotMatch(html, /<h1>ตรวจนับและปรับสต๊อก<\/h1>/);
+assert.doesNotMatch(html, /<h1>ตรวจนับและปรับสต็อก<\/h1>/);
 assert.doesNotMatch(html, /ตรวจสอบก่อนบันทึก ทุกการปรับจะมีเหตุผล ผู้ดำเนินการ และประวัติ LOT/);
 assert.match(html, /data-stock-control-mode="count"/);
 assert.match(html, /data-stock-control-mode="adjust"/);
 assert.match(html, /data-stock-control-mode="anomalies"/);
-assert.match(html, /รอยืนยันปรับสต๊อก/);
+assert.match(html, /รอยืนยันปรับสต็อก/);
 assert.match(html, /รายการผิดปกติ/);
 assert.doesNotMatch(html, /<h1>รายการผิดปกติ<\/h1>/);
 assert.doesNotMatch(html, /แจ้งเตือนเพื่อให้ตรวจนับก่อนปรับ ไม่แก้ยอดเป็นศูนย์ให้อัตโนมัติ/);

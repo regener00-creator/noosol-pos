@@ -701,17 +701,18 @@
   .lowstock-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
   .lowstock-section,.inventory-report-section{min-width:0;}
   .lowstock-section .doc-list-wrap{margin:0;}
-  /* หน้าแก้ไขสต๊อก: scoped ทั้งหมดเพื่อไม่กระทบตาราง/ตัวกรองหน้าอื่น */
+  /* หน้าแก้ไขสต็อก: scoped ทั้งหมดเพื่อไม่กระทบตาราง/ตัวกรองหน้าอื่น */
   .stock-edit-section{min-width:0;}
   .stock-edit-table-wrap{max-height:calc(100vh - 340px);min-height:300px;overflow:auto;border-radius:var(--radius);}
-  .stock-edit-table{table-layout:fixed;min-width:1100px;width:100%;}
+  .stock-edit-table{table-layout:auto;min-width:1100px;width:100%;}
   .stock-edit-table thead th{position:sticky;top:0;z-index:3;}
   .stock-edit-table .stock-edit-col-barcode{width:150px;}
-  .stock-edit-table .stock-edit-col-name{width:auto;}
+  .stock-edit-table .stock-edit-col-name{width:18%;}
+  .stock-edit-table td:nth-child(2){overflow-wrap:anywhere;}
   .stock-edit-table .stock-edit-col-unit{width:100px;}
   .stock-edit-table .stock-edit-col-stock{width:100px;}
   .stock-edit-table .stock-edit-col-count{width:110px;}
-  .stock-edit-table .stock-edit-col-difference{width:80px;}
+  .stock-edit-table .stock-edit-col-difference{width:155px;}
   .stock-edit-table .stock-edit-col-lot{width:240px;}
   .stock-edit-table .stock-edit-col-action{width:56px;}
   .stock-edit-table td{vertical-align:middle;}
@@ -2360,7 +2361,8 @@
   .stock-control-content>.rpt{padding:0;}
   .stock-control-content>.rpt>.pagehead{margin-top:0;}
   .stock-control-page .inspection-list-status.pending{background:#FFF3D7;color:#966B13;}
-  .stock-control-difference{display:inline-flex;min-width:58px;justify-content:center;padding:4px 8px;border-radius:999px;font-weight:700;}
+  .stock-control-difference{display:inline-flex;white-space:nowrap;min-width:58px;justify-content:center;padding:4px 8px;border-radius:999px;font-weight:700;}
+  [data-mobile-stock-difference]{overflow-x:auto;}
   .stock-control-difference.in{background:#E6F6EB;color:#238344;}
   .stock-control-difference.out{background:#FCEAE8;color:#B83B33;}
   .stock-control-lot-cell{min-width:220px;text-align:left;}

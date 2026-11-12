@@ -42,8 +42,8 @@ async function fixture(rows=[baseProduct]){
     };
     runStockOperation=async(name,args)=>{
       auditStocks.push({name,args});
-      if(auditStockFail||auditStocks.length>auditStockFailAfter)throw new Error('ทดสอบปรับสต๊อกไม่สำเร็จ');
-      if(args.lines.some(l=>warehouseStock(l.productId,args.warehouseId)!==l.expectedStock))throw new Error('สต๊อกเปลี่ยนระหว่างตรวจรายการ');
+      if(auditStockFail||auditStocks.length>auditStockFailAfter)throw new Error('ทดสอบปรับสต็อกไม่สำเร็จ');
+      if(args.lines.some(l=>warehouseStock(l.productId,args.warehouseId)!==l.expectedStock))throw new Error('สต็อกเปลี่ยนระหว่างตรวจรายการ');
       return {balances:args.lines.map(l=>({productId:l.productId,warehouseId:args.warehouseId,stock:l.targetStock}))};
     };
     currentPharmacistName=()=> 'ทดสอบ';
@@ -140,13 +140,13 @@ async function scenario(name,work){if(process.argv[2]&&!new RegExp(process.argv[
   });
   await scenario('Stock requires opt-in and shows current warehouse quantities',async()=>{
     await fixture();const book=await exported();cell(book,2,'จำนวนคงเหลือ (หน่วยหลัก)').value=25;
-    const out=await imported(book,{stock:true});assert.match(out.preview,/คลังทดสอบ · 20 → 25/);assert.equal(out.stocks[0].args.lines[0].targetStock,25);assert.match(out.report,/ปรับสต๊อกแล้ว/);
+    const out=await imported(book,{stock:true});assert.match(out.preview,/คลังทดสอบ · 20 → 25/);assert.equal(out.stocks[0].args.lines[0].targetStock,25);assert.match(out.report,/ปรับสต็อกแล้ว/);
     cell(book,2,'จำนวนคงเหลือ (หน่วยหลัก)').value=0;
     assert.equal((await imported(book,{stock:true})).stocks.at(-1).args.lines[0].targetStock,0);
   });
   await scenario('Blank stock preserves the selected warehouse balance',async()=>{
     await fixture();const book=await exported();cell(book,2,'จำนวนคงเหลือ (หน่วยหลัก)').value='';
-    const out=await imported(book,{stock:true});assert.equal(out.stocks.length,0);assert.match(out.preview,/คงสต๊อกเดิม/);
+    const out=await imported(book,{stock:true});assert.equal(out.stocks.length,0);assert.match(out.preview,/คงสต็อกเดิม/);
   });
   await scenario('Cross-store Excel copies catalog into destination and preserves both stores on repeat',async()=>{
     const source={...baseProduct,units:baseProduct.units.map((u,i)=>i===1?{...u,barcode:'P00000000010'}:u)};
@@ -359,12 +359,12 @@ async function scenario(name,work){if(process.argv[2]&&!new RegExp(process.argv[
   await scenario('Stock operation failure is not reported as total success',async()=>{
     await fixture();const book=await exported();cell(book,2,'จำนวนคงเหลือ (หน่วยหลัก)').value=21;
     await page.evaluate(()=>auditStockFail=true);const out=await imported(book,{stock:true});
-    assert.match(out.report,/ไม่สำเร็จ 1 รายการ/);assert.match(out.report,/บันทึกข้อมูลสินค้าบนเซิร์ฟเวอร์แล้ว/);assert.match(out.report,/ทดสอบปรับสต๊อกไม่สำเร็จ/);
+    assert.match(out.report,/ไม่สำเร็จ 1 รายการ/);assert.match(out.report,/บันทึกข้อมูลสินค้าบนเซิร์ฟเวอร์แล้ว/);assert.match(out.report,/ทดสอบปรับสต็อกไม่สำเร็จ/);
   });
   await scenario('Stock change while preview is open is rejected by expected balance check',async()=>{
     await fixture();const book=await exported();cell(book,2,'จำนวนคงเหลือ (หน่วยหลัก)').value=25;
     const out=await imported(book,{stock:true,beforeConfirm:()=>page.evaluate(()=>{inventoryBalanceRows[0].stock=19;rebuildInventoryBalanceMap();})});
-    assert.match(out.report,/สต๊อกเปลี่ยนระหว่างตรวจรายการ/);assert.equal(out.stocks[0].args.lines[0].expectedStock,20);
+    assert.match(out.report,/สต็อกเปลี่ยนระหว่างตรวจรายการ/);assert.equal(out.stocks[0].args.lines[0].expectedStock,20);
   });
   await scenario('Catalog change during preview requires a fresh review',async()=>{
     await fixture();const out=await imported(await exported(),{beforeConfirm:()=>page.evaluate(()=>{products[0].name='แก้จากอีกเครื่อง';})});

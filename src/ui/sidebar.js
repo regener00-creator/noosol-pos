@@ -19,7 +19,7 @@ const NAV = [
   ]},
   {section:'คลัง & สินค้า', items:[
     ['products','PRODUCT','<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/>'],
-    ['stockcontrol','ตรวจนับ / ปรับสต๊อก','<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h5M8 16h4"/><path d="M15 15l2 2 4-5"/>'],
+    ['stockcontrol','ตรวจนับ / ปรับสต็อก','<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h5M8 16h4"/><path d="M15 15l2 2 4-5"/>'],
     ['barcodeprint','พิมพ์ป้ายราคา','<path d="M3 5h2v14H3zM7 5h1v14H7zM10 5h3v14h-3zM15 5h1v14h-1zM18 5h3v14h-3z"/>'],
   ]},
   {section:'สมุดรายชื่อ', items:[

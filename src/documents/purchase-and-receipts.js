@@ -385,7 +385,7 @@ async function changeGoodsReceiptStatus(id,status){
   if(!canManageGoodsReceipt(doc)){ showToast('แก้ไขสถานะไม่ได้ เพราะใบรับสินค้านี้สร้างโดยผู้ใช้งานอื่น','danger-top'); render(); return; }
   const plan=goodsReceiptStatusChangePlan(doc,status);
   if(!plan.allowed){
-    showToast(plan.locked?'รับสินค้าเข้าสต๊อกแล้ว ไม่สามารถย้อนกลับเป็น “รอรับสินค้า” ได้':'กรุณาเปลี่ยนสถานะเป็น “รับสินค้าแล้ว” ก่อนชำระเงิน');
+    showToast(plan.locked?'รับสินค้าเข้าสต็อกแล้ว ไม่สามารถย้อนกลับเป็น “รอรับสินค้า” ได้':'กรุณาเปลี่ยนสถานะเป็น “รับสินค้าแล้ว” ก่อนชำระเงิน');
     render();
     return;
   }
@@ -393,7 +393,7 @@ async function changeGoodsReceiptStatus(id,status){
   doc.items=normalizeGoodsReceiptItems(doc.items,doc.warehouseId);
   if(plan.stockDirection>0){
     const missingExpiry=doc.items.filter(item=>!item.expiry);
-    if(missingExpiry.length&&!confirm(`มีสินค้า ${missingExpiry.length} รายการที่ไม่ได้ระบุวันหมดอายุ\nระบบจะสร้าง Lot โดยไม่มีวันหมดอายุ ต้องการรับสินค้าเข้าสต๊อกต่อหรือไม่?`)){ render(); return; }
+    if(missingExpiry.length&&!confirm(`มีสินค้า ${missingExpiry.length} รายการที่ไม่ได้ระบุวันหมดอายุ\nระบบจะสร้าง Lot โดยไม่มีวันหมดอายุ ต้องการรับสินค้าเข้าสต็อกต่อหรือไม่?`)){ render(); return; }
     try{
       await saveRevisionedDocument('goods_receipts',doc);
       const data=await runStockOperation('apply_goods_receipt_lots',{receiptId:doc.id});
@@ -402,7 +402,7 @@ async function changeGoodsReceiptStatus(id,status){
       await refreshDocumentInventory(doc);
     }catch(error){
       console.warn('apply goods receipt lots',error);
-      showToast('รับสินค้าเข้าสต๊อกไม่สำเร็จ กรุณาตรวจจำนวน Lot และลองใหม่','danger-top');
+      showToast('รับสินค้าเข้าสต็อกไม่สำเร็จ กรุณาตรวจจำนวน Lot และลองใหม่','danger-top');
       render(); return;
     }
   }
@@ -413,7 +413,7 @@ async function changeGoodsReceiptStatus(id,status){
   if(plan.status==='รอรับสินค้า'){
     showToast('เปลี่ยนสถานะเป็น “รอรับสินค้า” แล้ว');
   }else if(plan.status==='รับสินค้าแล้ว'){
-    showToast(plan.stockDirection>0?'รับสินค้าแล้วและเพิ่มสต๊อกเรียบร้อย':'สถานะเป็น “รับสินค้าแล้ว”');
+    showToast(plan.stockDirection>0?'รับสินค้าแล้วและเพิ่มสต็อกเรียบร้อย':'สถานะเป็น “รับสินค้าแล้ว”');
   }
   render();
 }
@@ -422,7 +422,7 @@ async function changeProductReturnStatus(id,status){
   const doc=productReturns.find(item=>item.id===id);
   if(!doc) return;
   if(status==='รอรับคืน'&&doc.stockApplied===true){
-    showToast('คืนสินค้าและตัดสต๊อกแล้ว ไม่สามารถย้อนกลับเป็น “รอรับคืน” ได้');
+    showToast('คืนสินค้าและตัดสต็อกแล้ว ไม่สามารถย้อนกลับเป็น “รอรับคืน” ได้');
     render(); return;
   }
   if(status==='คืนเรียบร้อย'&&doc.stockApplied!==true){
@@ -435,12 +435,12 @@ async function changeProductReturnStatus(id,status){
       Object.assign(doc,data?.return||{},data?.return?{id:doc.id}:{});
       seedTableSnapshot('product_returns',productReturns,docToRow);
       await refreshDocumentInventory(doc);
-    }catch(error){ console.warn('apply product return lots',error); showToast('ตัดสต๊อกตาม Lot ไม่สำเร็จ กรุณาตรวจจำนวนสินค้าใน Lot','danger-top'); render(); return; }
+    }catch(error){ console.warn('apply product return lots',error); showToast('ตัดสต็อกตาม Lot ไม่สำเร็จ กรุณาตรวจจำนวนสินค้าใน Lot','danger-top'); render(); return; }
   }
   doc.status=status==='คืนเรียบร้อย'?'คืนเรียบร้อย':'รอรับคืน';
   doc.stockApplied=doc.status==='คืนเรียบร้อย'||doc.stockApplied===true;
   persistWorkspaceData();
-  showToast(doc.status==='คืนเรียบร้อย'?'คืนสินค้าเรียบร้อยและตัดสต๊อกตาม Lot แล้ว':'สถานะเป็นรอรับคืน');
+  showToast(doc.status==='คืนเรียบร้อย'?'คืนสินค้าเรียบร้อยและตัดสต็อกตาม Lot แล้ว':'สถานะเป็นรอรับคืน');
   render();
 }
 
@@ -540,6 +540,6 @@ function productExchangeDisplayItems(doc){
 function productExchangePreview(doc){
   const displayItems=productExchangeDisplayItems(doc);
   const unreturned=productExchangeReconciliation(doc).unreturnedItems;
-  const unreturnedNote=doc.status==='รับสินค้ากลับแล้ว'&&unreturned.length?`<div style="margin-top:5px;color:var(--danger);"><b>ไม่ได้รับคืน</b> ${unreturned.length} รายการ (ตัดสต๊อกแล้ว)</div>`:'';
+  const unreturnedNote=doc.status==='รับสินค้ากลับแล้ว'&&unreturned.length?`<div style="margin-top:5px;color:var(--danger);"><b>ไม่ได้รับคืน</b> ${unreturned.length} รายการ (ตัดสต็อกแล้ว)</div>`:'';
   return `${expandableDocumentItemsPreview('product-exchange',doc.id,displayItems)}${unreturnedNote}`;
 }

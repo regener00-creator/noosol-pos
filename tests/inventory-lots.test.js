@@ -121,7 +121,7 @@ assert.doesNotMatch(html, /exhaustedRowsHtml=inventoryLotDetailGroupsHtml/);
 assert.match(html, /class="product-exchange-lot"/);
 assert.match(html, /class="poi_return_lot"/);
 assert.match(html, /runStockOperation\('apply_product_return_lots'/);
-assert.match(html, /ใบคืนสินค้านี้ตัดสต๊อกแล้ว จึงแก้สินค้า จำนวน หน่วย หรือ Lot ไม่ได้/);
+assert.match(html, /ใบคืนสินค้านี้ตัดสต็อกแล้ว จึงแก้สินค้า จำนวน หน่วย หรือ Lot ไม่ได้/);
 assert.doesNotMatch(html, /<th>ทุน\/หน่วยหลัก<\/th>/, 'หน้ารายละเอียด Lot ต้องไม่แสดงต้นทุน');
 
 console.log('inventory lot tests passed');

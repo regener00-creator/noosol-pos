@@ -56,14 +56,14 @@ assert.equal(rows.find(row=>row.key==='1:1').displayUnit,'กล่อง','ต�
 assert.equal(rows.find(row=>row.key==='1:1').displayStock,3,'ต้องคำนวณจำนวนใหม่ตามหน่วยที่เลือก');
 assert.equal(context.lowStockReportRowMatches(rows.find(row=>row.key==='1:1')) ,true,'สินค้าเลขบวกที่ต่ำกว่าเกณฑ์ต้องอยู่ในก้อนใกล้หมด');
 assert.equal(context.lowStockReportRowMatches(rows.find(row=>row.key==='2:1')) ,false,'สินค้าที่สูงกว่าเกณฑ์ต้องไม่อยู่ในก้อนใกล้หมด');
-assert.equal(context.lowStockReportRowMatches(rows.find(row=>row.key==='1:2'),'out'),true,'สต๊อกศูนย์ต้องอยู่เฉพาะก้อนสินค้าเป็นศูนย์');
-assert.equal(context.lowStockReportRowMatches({stock:-1},'negative'),true,'สต๊อกติดลบต้องอยู่เฉพาะก้อนสินค้าติดลบ');
-assert.equal(context.lowStockReportRowMatches({stock:0},'low'),false,'สต๊อกศูนย์ต้องไม่ซ้ำในก้อนใกล้หมด');
+assert.equal(context.lowStockReportRowMatches(rows.find(row=>row.key==='1:2'),'out'),true,'สต็อกศูนย์ต้องอยู่เฉพาะก้อนสินค้าเป็นศูนย์');
+assert.equal(context.lowStockReportRowMatches({stock:-1},'negative'),true,'สต็อกติดลบต้องอยู่เฉพาะก้อนสินค้าติดลบ');
+assert.equal(context.lowStockReportRowMatches({stock:0},'low'),false,'สต็อกศูนย์ต้องไม่ซ้ำในก้อนใกล้หมด');
 assert.equal(context.lowStockReportConditionLabel(),'สินค้าที่คงเหลือมากกว่า 0 และต่ำกว่า 50 หน่วยหลัก');
 context.lowStockPageFilter.stockMode='out';
 assert.equal(context.lowStockReportConditionLabel(),'สินค้าที่คงเหลือเป็นศูนย์');
 context.lowStockPageFilter.stockMode='negative';
-assert.equal(context.lowStockReportConditionLabel(),'สินค้าที่มีสต๊อกติดลบ');
+assert.equal(context.lowStockReportConditionLabel(),'สินค้าที่มีสต็อกติดลบ');
 
 assert.match(html,/id="lowStockWarehouseFilter"/,'หน้าสินค้าใกล้หมดต้องเลือกคลังได้');
 assert.doesNotMatch(html,/<option value="context"[^>]*>ตาม TOPBAR:/,'ต้องไม่มีตัวเลือกตาม TOPBAR ในหน้ารายงาน');

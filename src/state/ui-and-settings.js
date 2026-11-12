@@ -47,7 +47,7 @@ let inspectionListSort = { key:'sku', dir:1 };
 let inspectionListOverviewSort = { key:'updatedAt', dir:-1 };
 let inspectionListOverviewSelectedIds = new Set();
 const INSPECTION_LIST_PAGE_SIZE = 10;
-// โหมดมือถือ/เครื่องยิงบาร์โค้ดแบบมีจอ แสดงเช็คราคาและขั้นตอนตรวจ/แก้ไขสต๊อก
+// โหมดมือถือ/เครื่องยิงบาร์โค้ดแบบมีจอ แสดงเช็คราคาและขั้นตอนตรวจ/แก้ไขสต็อก
 let mobileToolMode = 'price';
 let mobileInventoryStep = 'inspection';
 let mobilePriceQuery = '';
@@ -94,7 +94,7 @@ function prepareMobileLandingPage(){
   mobileStockQuery=''; mobileStockLastProductId=null;
 }
 let deferredPwaInstallPrompt = null;
-// รายการและตัวกรองของหน้าแก้ไขสต๊อก (แยกจากรายงานสินค้าคงเหลือโดยเด็ดขาด)
+// รายการและตัวกรองของหน้าแก้ไขสต็อก (แยกจากรายงานสินค้าคงเหลือโดยเด็ดขาด)
 let stockEditItems = [];
 let stockEditCatFilter = { category:'', brand:'' };
 let stockEditSearchQuery = '';
@@ -103,7 +103,7 @@ let stockEditDraftStocks = {};
 let stockEditPage = 1;
 let stockEditSourceInspectionListId = null;
 let stockEditSourcePending = false;
-const AUTOMATIC_STOCK_ADJUSTMENT_REASON = 'ตรวจนับและปรับสต๊อกจากยอดตรวจนับ';
+const AUTOMATIC_STOCK_ADJUSTMENT_REASON = 'ตรวจนับและปรับสต็อกจากยอดตรวจนับ';
 const AUTOMATIC_LOT_REALLOCATION_REASON = 'ปรับจำนวน LOT จากรายการผิดปกติ';
 let stockEditLotSelections = {};
 let stockEditNewLotNumbers = {};
@@ -115,7 +115,7 @@ const STOCK_EDIT_PAGE_SIZE = 10;
 let stockLotReallocationSearch = '';
 let stockLotReallocationPage = 1;
 const STOCK_LOT_REALLOCATION_PAGE_SIZE = 10;
-// คิวหน้าพิมพ์ป้ายราคา แยกจากหน้ารายการสินค้าและหน้าแก้ไขสต๊อก
+// คิวหน้าพิมพ์ป้ายราคา แยกจากหน้ารายการสินค้าและหน้าแก้ไขสต็อก
 let barcodePrintItems = [];
 let barcodePrintCatFilter = { category:'', brand:'' };
 let barcodePrintSearchQuery = '';

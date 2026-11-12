@@ -24,7 +24,7 @@ assert.match(css,/grid-template-columns:minmax\(0,1fr\) 16mm/);
 assert.doesNotMatch(context.receiptPrinterLayoutCss({marginLeft:'1;display:none'}),/display:none(?!\!important)/,'storage values cannot inject CSS');
 const sample=context.receiptPrinterTestHtml({paperWidth:58});
 assert.match(sample,/TEST-0001/);
-assert.match(sample,/ไม่บันทึกยอดขายและไม่ตัดสต๊อก/);
+assert.match(sample,/ไม่บันทึกยอดขายและไม่ตัดสต็อก/);
 assert.doesNotMatch(sample,/<button|<script|https:\/\//,'embedded preview has no scripts, remote requests or print buttons');
 const testCode=source.slice(source.indexOf('function printReceiptPrinterTest('),source.indexOf('function renderReceiptPrinterSettings('));
 assert.match(testCode,/standardizePrintPreview\(win,\{trackPrint:false\}\)/,'test printing must not write a print event');

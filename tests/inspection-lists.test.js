@@ -130,7 +130,7 @@ context.inspectionListSort = {key:'stock',dir:-1};
 assert.deepEqual(Array.from(context.inspectionListSortedEntries(), entry => entry.item.pid), [2,1]);
 context.inspectionListCatFilter = {wh:'1',category:'',brand:''};
 const warehousePage = context.inspectionListPagination(context.inspectionListDraft.items, 1, 7);
-assert.deepEqual(Array.from(warehousePage.rows, entry => entry.item.pid), [2,1], 'เปลี่ยนคลังต้องยังเห็นสินค้าในแค็ตตาล็อกกลางครบและคงลำดับสต๊อกเดิม');
+assert.deepEqual(Array.from(warehousePage.rows, entry => entry.item.pid), [2,1], 'เปลี่ยนคลังต้องยังเห็นสินค้าในแค็ตตาล็อกกลางครบและคงลำดับสต็อกเดิม');
 context.inspectionListCatFilter = {wh:'',category:'',brand:''};
 
 context.inspectionListDraft = {id:null,name:'',items:[{pid:1,unit:'ลัง'}],createdAt:'2026-08-20T00:00:00.000Z',createdBy:'เจ้าของร้าน'};
@@ -154,7 +154,7 @@ assert.match(overviewHtml, /inspection-list-overview-head-actions form-final-act
 assert.match(html, /\.inspection-list-page\{min-width:0;\}/);
 assert.doesNotMatch(html, /\.inspection-list-page\{width:100%;max-width:none;/);
 assert.match(overviewHtml, /รายการตรวจหน้าร้าน/);
-assert.match(overviewHtml, /data-open-inspection-list="CHECK-NEW-SAFE-ID"/);
+assert.doesNotMatch(overviewHtml, /data-open-inspection-list="CHECK-NEW-SAFE-ID"/);
 assert.match(overviewHtml, /บันทึกผลแล้ว/);
 assert.match(overviewHtml, /inspection-list-overview-table/);
 assert.match(overviewHtml, /id="inspectionListSelectAll"/);
@@ -163,7 +163,6 @@ assert.match(overviewHtml, /data-inspection-overview-sort="updatedAt"/);
 assert.match(overviewHtml, /data-inspection-overview-sort="status"/);
 assert.match(overviewHtml, /class="inspection-list-overview-name"/);
 assert.match(overviewHtml, /class="inspection-list-overview-actions"/);
-assert.match(overviewHtml, /class="icon-btn"[^>]+data-open-inspection-list/);
 assert.match(overviewHtml, /class="icon-btn danger"[^>]+data-delete-inspection-list/);
 assert.ok(overviewHtml.indexOf('วันที่สร้าง') < overviewHtml.indexOf('แก้ไขล่าสุด'));
 assert.ok(overviewHtml.indexOf('แก้ไขล่าสุด') < overviewHtml.indexOf('ชื่อรายการ'));
@@ -209,8 +208,9 @@ const staffEditorHtml = context.renderInspectionListEditor();
 assert.doesNotMatch(staffEditorHtml, />ทุน</);
 
 const completedList = context.inspectionLists[0];
-const pendingList = {id:'CHECK-0002',name:'รายการที่ยังไม่แก้สต๊อก',items:[],createdAt:'2026-08-21T03:00:00.000Z',updatedAt:'2026-08-21T03:00:00.000Z',stockAdjustedAt:'',stockAdjustedBy:''};
+const pendingList = {id:'CHECK-0002',name:'รายการที่ยังไม่แก้สต็อก',items:[],createdAt:'2026-08-21T03:00:00.000Z',updatedAt:'2026-08-21T03:00:00.000Z',stockAdjustedAt:'',stockAdjustedBy:''};
 context.inspectionLists = [completedList,pendingList];
+assert.match(context.renderInspectionListOverview(),/data-open-inspection-list="CHECK-0002"/);
 context.mobileInspectionListId = completedList.id;
 assert.deepEqual(Array.from(context.mobileInspectionVisibleLists(), list => list.id), ['CHECK-0002']);
 assert.equal(context.mobileInspectionCurrentList().id, 'CHECK-0002', 'มือถือควรข้ามรายการที่แก้ไขจำนวนเรียบร้อยแล้ว');
@@ -262,7 +262,7 @@ assert.equal(context.addProductToMobileInspectionSavedDraft(products[0],'กล�
 assert.deepEqual(Array.from(context.mobileInspectionSavedAddItems,item=>({pid:item.pid,unit:item.unit})),[{pid:1,unit:'กล่อง'}]);
 assert.equal(context.addProductToMobileInspectionSavedDraft(products[1],'ขวด'),false,'สินค้าที่อยู่ในรายการเดิมต้องไม่ซ้ำ');
 
-assert.match(html, /\['stockcontrol','ตรวจนับ \/ ปรับสต๊อก'/);
+assert.match(html, /\['stockcontrol','ตรวจนับ \/ ปรับสต็อก'/);
 assert.doesNotMatch(html, /inspectionlists:\s*renderInspectionLists/);
 assert.match(html, /from\('inspection_lists'\)\.select\('\*'\)/);
 assert.match(html, /upsertAndPrune\('inspection_lists',inspectionLists,inspectionListToRow\)/);

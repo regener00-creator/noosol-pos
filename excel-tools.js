@@ -768,7 +768,7 @@ function showProductImportDialog(entries,skipped,{result=false,sourceNames,desti
         ${!result&&planCrossUpdates&&loggedInUser()?.owner===true?`<label class="product-import-stock-option"><input id="productImportUpdateExisting" type="checkbox"> อัปเดตสินค้าเดิมของ${escapeHtml(destinationName)}ด้วย</label>
         <fieldset id="productImportFields" hidden><legend>เลือกข้อมูลที่จะอัปเดต</legend>${CROSS_PRODUCT_FIELDS.map(([key,label])=>`<label><input type="checkbox" data-product-import-field="${key}"> ${label}</label>`).join('')}<p>สินค้าเดิมจะเก็บหน่วยหลักและบาร์โค้ดของคลังปลายทาง หน่วยที่เพิ่มใหม่จะเว้นบาร์โค้ดไว้</p></fieldset>`:''}
         <p id="productImportSummary" aria-live="polite"></p>
-        ${result?'':`<label class="product-import-stock-option"><input id="productImportStock" type="checkbox"> ปรับจำนวนคงเหลือด้วย</label><p>${crossStore?'การปรับจำนวนใช้เฉพาะแถวของคลังปลายทาง แถวที่คัดลอกจากร้านอื่นจะคงสต๊อกเดิมของร้านนี้':'ช่องจำนวนว่างจะคงสต๊อกเดิม เลข 0 หมายถึงปรับเป็นศูนย์ ตรวจยอดปัจจุบันและยอดใหม่ก่อนยืนยัน'}</p>`}
+        ${result?'':`<label class="product-import-stock-option"><input id="productImportStock" type="checkbox"> ปรับจำนวนคงเหลือด้วย</label><p>${crossStore?'การปรับจำนวนใช้เฉพาะแถวของคลังปลายทาง แถวที่คัดลอกจากร้านอื่นจะคงสต็อกเดิมของร้านนี้':'ช่องจำนวนว่างจะคงสต็อกเดิม เลข 0 หมายถึงปรับเป็นศูนย์ ตรวจยอดปัจจุบันและยอดใหม่ก่อนยืนยัน'}</p>`}
         <p>วันหมดอายุใน Excel เป็นข้อมูลสำหรับดูเท่านั้น ค่าที่แก้ในไฟล์จะไม่ถูกบันทึก กรุณาแก้วันหมดอายุที่ LOT ของสินค้า</p>
         <div class="product-import-table-wrap"><table class="grid-table"><thead><tr><th>แถว</th><th>สินค้า</th><th>รายละเอียด</th><th>สถานะ</th></tr></thead><tbody id="productImportRows"></tbody></table></div>
         <div class="product-import-pages"><button type="button" class="btn ghost" id="productImportPrev">ก่อนหน้า</button><span id="productImportPage"></span><button type="button" class="btn ghost" id="productImportNext">ถัดไป</button></div>
@@ -791,7 +791,7 @@ function showProductImportDialog(entries,skipped,{result=false,sourceNames,desti
       overlay.querySelector('#productImportRows').innerHTML=rows.slice(page*50,(page+1)*50).map(entry=>{
         const stockDetail=enabled?(entry.stockError||entry.stockDetail||''):'';
         const detail=result?entry.detail:[entry.detail,stockDetail,entry.expiryNotice].filter(Boolean).join('\n');
-        return `<tr><td>${escapeHtml(String(entry.line))}</td><td>${escapeHtml(entry.name)}</td><td class="product-import-detail">${escapeHtml(detail)}</td><td>${escapeHtml(entry.status||(enabled&&entry.stockError?'ปรับสต๊อกไม่ได้':'พร้อมนำเข้า'))}</td></tr>`;
+        return `<tr><td>${escapeHtml(String(entry.line))}</td><td>${escapeHtml(entry.name)}</td><td class="product-import-detail">${escapeHtml(detail)}</td><td>${escapeHtml(entry.status||(enabled&&entry.stockError?'ปรับสต็อกไม่ได้':'พร้อมนำเข้า'))}</td></tr>`;
       }).join('');
       overlay.querySelector('#productImportPage').textContent=`${page+1} / ${Math.max(1,Math.ceil(rows.length/50))}`;
       overlay.querySelector('#productImportPrev').disabled=page===0;
@@ -805,7 +805,7 @@ function showProductImportDialog(entries,skipped,{result=false,sourceNames,desti
         submit.disabled=blocked||missingFields||(noWrites&&!finishReview);
         let hint='';
         if(missingFields)hint='เลือกข้อมูลที่จะอัปเดตอย่างน้อย 1 ช่อง';
-        else if(blocked)hint='กรุณาแก้แถวที่ปรับสต๊อกไม่ได้ หรือเอาติ๊กปรับสต๊อกออก';
+        else if(blocked)hint='กรุณาแก้แถวที่ปรับสต็อกไม่ได้ หรือเอาติ๊กปรับสต็อกออก';
         else if(finishReview)hint='ไม่มีรายการที่จะบันทึก กดเสร็จสิ้นเพื่อปิดผลตรวจสอบ';
         else if(noWrites&&toggle)hint='หากต้องการเปรียบเทียบสินค้าเดิม ให้ติ๊กอัปเดตสินค้าเดิมของคลังปลายทาง';
         else if(noWrites)hint='ไม่มีรายการพร้อมนำเข้า ตรวจรายละเอียดในตาราง';
@@ -883,7 +883,7 @@ async function performProductExcelImport(file){
   const warehouse=activeWarehouse();
   if(!warehouse||isAllWarehousesMode()||!isStoreViewCurrent(context))return;
   const inventoryReady=await loadWarehouseInventoryFromSupabase([warehouse.id],{force:true});
-  if(!inventoryReady){ showToast('โหลดสต๊อกล่าสุดก่อนนำเข้าไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่','danger-top'); return; }
+  if(!inventoryReady){ showToast('โหลดสต็อกล่าสุดก่อนนำเข้าไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่','danger-top'); return; }
   if(!isStoreViewCurrent(context)) return;
 
   // Track which product id currently "owns" each sku/barcode, so a row that
@@ -1038,7 +1038,7 @@ async function performProductExcelImport(file){
     const stockRaw=productImportValue(row,['จำนวนคงเหลือ (หน่วยหลัก)','จำนวนคงเหลือ','คงเหลือ','stock']);
     const targetStock=crossStore||String(stockRaw??'').trim()===''?null:productImportNumber(stockRaw,NaN);
     const stockError=targetStock!==null&&(!Number.isFinite(targetStock)||targetStock<0)?'จำนวนคงเหลือต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป':
-      targetStock!==null&&existing&&existing.unit!==unit?'เปลี่ยนหน่วยหลักพร้อมปรับสต๊อกไม่ได้ กรุณาเปลี่ยนหน่วยหลักให้เรียบร้อยก่อน':'';
+      targetStock!==null&&existing&&existing.unit!==unit?'เปลี่ยนหน่วยหลักพร้อมปรับสต็อกไม่ได้ กรุณาเปลี่ยนหน่วยหลักให้เรียบร้อยก่อน':'';
     const expectedStock=existing&&warehouse?warehouseStock(existing.id,warehouse.id):0;
     const productUnits=rawUnitRows.map(item=>({...item,factor:resolveNetFactor(item.sub,rawUnitRows,unit)}));
     let finalSku=sku||existing?.sku||'';
@@ -1064,10 +1064,10 @@ async function performProductExcelImport(file){
     if(structureError){ skipped.push(`แถว ${line}: ${structureError}`); return; }
     if(crossStore&&existing){crossCandidates.push({line,name,existing,source:data,presentMoney});return;}
     const expiryRaw=productImportValue(row,['วันหมดอายุ (สำหรับดูข้อมูล)','วันหมดอายุ','expiry','expiredate']);
-    const detail=crossStore?`เพิ่มสินค้าใหม่ใน ${warehouse.name} · สต๊อกเริ่มต้น 0 ${unit}${omittedPrintCode?' · เว้นบาร์โค้ดที่ระบบออกให้ร้านต้นทางไว้ เพื่อออกเลขใหม่เมื่อพิมพ์ป้าย':''}`:productImportChanges(existing,data);
+    const detail=crossStore?`เพิ่มสินค้าใหม่ใน ${warehouse.name} · สต็อกเริ่มต้น 0 ${unit}${omittedPrintCode?' · เว้นบาร์โค้ดที่ระบบออกให้ร้านต้นทางไว้ เพื่อออกเลขใหม่เมื่อพิมพ์ป้าย':''}`:productImportChanges(existing,data);
     const entry={line,name,existing,detail,stockError,
       expiryNotice:String(expiryRaw??'').trim()&&productImportDate(expiryRaw)!==(existing&&warehouse?warehouseExpiry(existing.id,warehouse.id):'')?'วันหมดอายุในไฟล์ใช้สำหรับดูข้อมูล แก้ไขผ่าน LOT เท่านั้น':'',
-      stockDetail:crossStore?'ไม่นำยอดคงเหลือจากร้านต้นทางมาใช้':targetStock===null?'เว้นจำนวนว่าง · คงสต๊อกเดิม':`${warehouse.name} · ${expectedStock} → ${targetStock} ${unit}`,
+      stockDetail:crossStore?'ไม่นำยอดคงเหลือจากร้านต้นทางมาใช้':targetStock===null?'เว้นจำนวนว่าง · คงสต็อกเดิม':`${warehouse.name} · ${expectedStock} → ${targetStock} ${unit}`,
       targetStock,expectedStock,warehouseId:warehouse?.id,unitName:unit};
     if(existing){
       seenInFile.add(existing.id);
@@ -1211,7 +1211,7 @@ async function performProductExcelImport(file){
   try{
     if(cacheSaved) await applyImportedInventoryTargets(importStockTargets.filter(target=>syncedIds.has(target.productId)),ids=>ids.forEach(id=>appliedStockIds.add(id)));
   }catch(error){
-    stockError=error?.message||'ตรวจสอบผลปรับสต๊อกไม่สำเร็จ';
+    stockError=error?.message||'ตรวจสอบผลปรับสต็อกไม่สำเร็จ';
   }finally{progress.remove();}
   if(!isStoreViewCurrent(context)) return;
   const requestedStockIds=new Set(importStockTargets.map(target=>target.productId));
@@ -1220,10 +1220,10 @@ async function performProductExcelImport(file){
     entry.status=synced?'สำเร็จ':cacheSaved?'รอซิงก์':'ไม่สำเร็จ';
     entry.detail=synced?'บันทึกข้อมูลสินค้าบนเซิร์ฟเวอร์แล้ว':saveError||syncUiLastError?.message||'ข้อมูลสินค้ารอซิงก์ กรุณาตรวจรายละเอียดการซิงก์';
     if(requestedStockIds.has(entry.product.id)){
-      if(appliedStockIds.has(entry.product.id)) entry.detail+='\nปรับสต๊อกแล้ว · '+entry.stockDetail;
+      if(appliedStockIds.has(entry.product.id)) entry.detail+='\nปรับสต็อกแล้ว · '+entry.stockDetail;
       else{
         if(synced) entry.status='ไม่สำเร็จ';
-        entry.detail+='\n'+(synced?stockError||'ยังไม่ได้ปรับสต๊อก':'ยังไม่ได้ปรับสต๊อก กรุณาซิงก์สินค้าให้สำเร็จแล้วนำเข้าอีกครั้ง')+'\n'+entry.stockDetail;
+        entry.detail+='\n'+(synced?stockError||'ยังไม่ได้ปรับสต็อก':'ยังไม่ได้ปรับสต็อก กรุณาซิงก์สินค้าให้สำเร็จแล้วนำเข้าอีกครั้ง')+'\n'+entry.stockDetail;
       }
     }
     if(entry.expiryNotice) entry.detail+='\n'+entry.expiryNotice;

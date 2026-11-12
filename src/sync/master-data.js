@@ -46,7 +46,7 @@ async function refreshDocumentInventory(document){
   }catch(error){ console.warn('refresh document inventory',error); }
   // The stock transaction has already committed. A read failure must not tell
   // the cashier that the sale/return failed or invite a duplicate transaction.
-  showToast('บันทึกรายการแล้ว แต่โหลดสต๊อกล่าสุดไม่สำเร็จ กรุณารีเฟรชข้อมูล','warning-top');
+  showToast('บันทึกรายการแล้ว แต่โหลดสต็อกล่าสุดไม่สำเร็จ กรุณารีเฟรชข้อมูล','warning-top');
   return false;
 }
 function cloneSyncRecords(records){ return JSON.parse(JSON.stringify(records||[])); }

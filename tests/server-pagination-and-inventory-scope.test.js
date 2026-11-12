@@ -11,7 +11,7 @@ const migration=fs.readFileSync(path.join(root,'supabase','migrations',migration
 const coreStart=app.indexOf('async function loadCoreDataFromSupabase(){');
 const coreEnd=app.indexOf('// ----- Sales history sync -----',coreStart);
 const core=app.slice(coreStart,coreEnd);
-assert.doesNotMatch(core,/sb\.from\('inventory_balances'\)/,'หน้าแรกต้องไม่โหลดสต๊อกทุกคลังโดยตรง');
+assert.doesNotMatch(core,/sb\.from\('inventory_balances'\)/,'หน้าแรกต้องไม่โหลดสต็อกทุกคลังโดยตรง');
 assert.doesNotMatch(core,/sb\.from\('inventory_lots'\)/,'หน้าแรกต้องไม่โหลด LOT ทุกคลังโดยตรง');
 assert.match(core,/loadWarehouseInventoryFromSupabase\(inventoryScopeWarehouseIds\(\),\{force:true\}\)/);
 

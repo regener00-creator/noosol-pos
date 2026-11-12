@@ -24,7 +24,7 @@ assert.equal(context.canAccessTab('products'), true);
 assert.equal(context.canAccessTab('representativehistory'), false);
 assert.equal(context.canAccessTab('checkout'), false, 'ทุกคลังต้องเข้า POS ไม่ได้');
 assert.equal(context.canAccessTab('goodsreceipt'), false, 'ทุกคลังต้องรับสินค้าไม่ได้');
-assert.equal(context.canAccessTab('stockedit'), false, 'ทุกคลังต้องแก้สต๊อกไม่ได้');
+assert.equal(context.canAccessTab('stockedit'), false, 'ทุกคลังต้องแก้สต็อกไม่ได้');
 assert.equal(context.canAccessTab('transfer'), false, 'ทุกคลังต้องโอนสินค้าไม่ได้');
 
 assert.match(html, /คลังรวม — เปรียบเทียบสองร้าน/);

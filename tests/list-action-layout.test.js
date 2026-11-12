@@ -30,7 +30,7 @@ assert.doesNotMatch(html, /editproduct"\]\{color:#737D89/, 'ไอคอนป�
 assert.match(
   html,
   /\.icon-btn\[data-open-inspection-list\],\s*\.icon-btn\[data-act="editproduct"\]\{color:var\(--primary\)!important;/,
-  'ไอคอนปากกาในหน้าตรวจนับและปรับสต๊อกต้องใช้สีฟ้าหลัก'
+  'ไอคอนปากกาในหน้าตรวจนับและปรับสต็อกต้องใช้สีฟ้าหลัก'
 );
 assert.match(
   html,

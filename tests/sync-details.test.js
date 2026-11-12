@@ -15,7 +15,7 @@ assert.match(app, /function openSyncDetailsModal\(/);
 assert.match(app, /function syncConflictProductId\(/);
 assert.match(app, /function loadLatestConflictedProduct\(/);
 assert.match(app, /\.from\('products'\)\.select\('\*'\)\.eq\('id',id\)\.maybeSingle\(\)/);
-assert.match(app, /ข้อมูลที่แก้ไขค้างอยู่ในเครื่องสำหรับสินค้านี้จะถูกแทนที่ แต่สต๊อกและ LOT จะไม่ถูกแก้ไข/);
+assert.match(app, /ข้อมูลที่แก้ไขค้างอยู่ในเครื่องสำหรับสินค้านี้จะถูกแทนที่ แต่สต็อกและ LOT จะไม่ถูกแก้ไข/);
 assert.match(app, /nextDirtyOperations\.delete\(String\(id\)\)/);
 assert.match(app, /persistProductsToIndexedDB\(nextProducts,true,nextDirtyOperations\)/);
 assert.match(app, /class="btn primary sync-conflict-load-latest"/);

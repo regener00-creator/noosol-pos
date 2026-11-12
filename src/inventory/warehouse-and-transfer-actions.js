@@ -175,7 +175,7 @@ async function saveTransfer(silent=false){
   const previous=transfers.find(item=>item.id===editingTransferId);
   if(previous?.stockApplied){
     if(silent) return previous.id;
-    showToast('รายการโอนนี้ลงสต๊อกแล้ว จึงไม่สามารถแก้ไขซ้ำได้');
+    showToast('รายการโอนนี้ลงสต็อกแล้ว จึงไม่สามารถแก้ไขซ้ำได้');
     return false;
   }
   if(!draft.fromId){ showToast('กรุณาเลือกคลังต้นทาง'); return false; }
@@ -192,7 +192,7 @@ async function saveTransfer(silent=false){
   });
   for(const [productId,quantity] of required){
     if(warehouseStock(productId,draft.fromId)<quantity){
-      showToast(`สต๊อกคลังต้นทางไม่พอสำหรับ ${products.find(product=>product.id===productId)?.name||'สินค้าที่เลือก'}`,'danger');
+      showToast(`สต็อกคลังต้นทางไม่พอสำหรับ ${products.find(product=>product.id===productId)?.name||'สินค้าที่เลือก'}`,'danger');
       return false;
     }
   }
@@ -223,8 +223,8 @@ async function saveTransfer(silent=false){
     await loadInventoryBalancesFromSupabase();
     persistTransfers();
   }catch(error){
-    console.error('ลงสต๊อกรายการโอนไม่สำเร็จ',error);
-    showToast('บันทึกเอกสารแล้ว แต่ลงสต๊อกไม่สำเร็จ กรุณาเปิดรายการแล้วบันทึกอีกครั้ง','danger');
+    console.error('ลงสต็อกรายการโอนไม่สำเร็จ',error);
+    showToast('บันทึกเอกสารแล้ว แต่ลงสต็อกไม่สำเร็จ กรุณาเปิดรายการแล้วบันทึกอีกครั้ง','danger');
     return false;
   }
   if(!silent){ editingTransferId=null; transferDraft=null; showToast(`บันทึกใบโอนสินค้า ${record.id} แล้ว`); render(); }

@@ -35,7 +35,7 @@ const DOCUMENT_PREFIX_FIELDS=[
   {key:'productExchange',label:'เปลี่ยนสินค้า'},
   {key:'transfer',label:'โอนสินค้าระหว่างคลัง'},
   {key:'inspection',label:'ตรวจสินค้า'},
-  {key:'stockAdjustment',label:'ตรวจนับและปรับสต๊อก'},
+  {key:'stockAdjustment',label:'ตรวจนับและปรับสต็อก'},
   {key:'cashShift',label:'เปิด-ปิดระบบชำระ / เลขกะ'},
   {key:'warehouse',label:'รหัสคลังสินค้า / สาขา'}
 ];

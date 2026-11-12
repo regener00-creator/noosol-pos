@@ -157,7 +157,7 @@ function renderStockControlAnomalies(){
   const expiredCount=anomalies.filter(row=>row.type==='LOT หมดอายุยังมีสินค้า').length;
   return `<div class="rpt"><div class="stock-control-anomaly-summary"><div class="stock-control-anomaly-card"><span>ยอดติดลบ</span><b>${negativeCount}</b></div><div class="stock-control-anomaly-card"><span>ยอดไม่ตรงกับ LOT</span><b>${mismatchCount}</b></div><div class="stock-control-anomaly-card"><span>LOT หมดอายุยังมีสินค้า</span><b>${expiredCount}</b></div></div>
     ${productIds.length?`<div class="stock-control-anomaly-actions"><button type="button" class="btn ghost" id="stockControlReviewAll">เปิดตรวจนับทั้งหมด (${productIds.length})</button><button type="button" class="btn primary" id="stockControlReviewSelected" ${stockControlAnomalySelectedIds.size?'':'disabled'}>เปิดตรวจนับที่เลือก (${stockControlAnomalySelectedIds.size})</button></div>`:''}
-    <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue"><thead><tr><th class="stock-control-anomaly-check"><input type="checkbox" id="stockControlAnomalySelectAll" aria-label="เลือกสินค้าผิดปกติทั้งหมด" ${productIds.length?'':'disabled'} ${productIds.length&&stockControlAnomalySelectedIds.size===productIds.length?'checked':''}></th><th>รหัสสินค้า</th><th>สินค้า</th><th>ประเภท</th><th>รายละเอียด</th><th>คงเหลือ</th><th></th></tr></thead><tbody>${anomalies.map(row=>`<tr><td class="stock-control-anomaly-check"><input type="checkbox" data-stock-control-anomaly-select="${row.product.id}" aria-label="เลือก ${escapeHtml(row.product.name)} · ${escapeHtml(row.type)}" ${stockControlAnomalySelectedIds.has(Number(row.product.id))?'checked':''}></td><td class="mono" style="text-align:center;">${escapeHtml(row.product.sku||'-')}</td><td>${escapeHtml(row.product.name)}</td><td style="text-align:center;"><span class="stock-control-anomaly-type">${escapeHtml(row.type)}</span></td><td>${escapeHtml(row.detail)}</td><td class="mono" style="text-align:center;">${escapeHtml(stockReportQuantityText(row.product,row.balance))}</td><td style="text-align:center;"><button class="btn ghost small" data-stock-control-review="${row.product.id}">เปิดตรวจนับ</button></td></tr>`).join('')||'<tr><td colspan="7" style="padding:34px;text-align:center;color:var(--text-muted);">ไม่พบความผิดปกติของสต๊อกในคลังนี้</td></tr>'}</tbody></table></div>
+    <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue"><thead><tr><th class="stock-control-anomaly-check"><input type="checkbox" id="stockControlAnomalySelectAll" aria-label="เลือกสินค้าผิดปกติทั้งหมด" ${productIds.length?'':'disabled'} ${productIds.length&&stockControlAnomalySelectedIds.size===productIds.length?'checked':''}></th><th>รหัสสินค้า</th><th>สินค้า</th><th>ประเภท</th><th>รายละเอียด</th><th>คงเหลือ</th><th></th></tr></thead><tbody>${anomalies.map(row=>`<tr><td class="stock-control-anomaly-check"><input type="checkbox" data-stock-control-anomaly-select="${row.product.id}" aria-label="เลือก ${escapeHtml(row.product.name)} · ${escapeHtml(row.type)}" ${stockControlAnomalySelectedIds.has(Number(row.product.id))?'checked':''}></td><td class="mono" style="text-align:center;">${escapeHtml(row.product.sku||'-')}</td><td>${escapeHtml(row.product.name)}</td><td style="text-align:center;"><span class="stock-control-anomaly-type">${escapeHtml(row.type)}</span></td><td>${escapeHtml(row.detail)}</td><td class="mono" style="text-align:center;">${escapeHtml(stockReportQuantityText(row.product,row.balance))}</td><td style="text-align:center;"><button class="btn ghost small" data-stock-control-review="${row.product.id}">เปิดตรวจนับ</button></td></tr>`).join('')||'<tr><td colspan="7" style="padding:34px;text-align:center;color:var(--text-muted);">ไม่พบความผิดปกติของสต็อกในคลังนี้</td></tr>'}</tbody></table></div>
   </div>`;
 }
 
@@ -274,7 +274,7 @@ async function openStockLotReallocation(productId,requestedUnit){
   const groups=groupInventoryLotDetailRows(lots);
   if(groups.length<2){ showToast('สินค้านี้ต้องมีอย่างน้อย 2 LOT ที่มีสินค้า','danger-top'); return; }
   const oldTotal=inventoryMovementRound(lots.reduce((sum,lot)=>sum+Number(lot.quantity_base||0),0));
-  if(Math.abs(oldTotal-balance)>0.000001){ showToast('ยอดรวม LOT ไม่ตรงกับสต๊อก กรุณาแก้จากรายการผิดปกติก่อน','danger-top'); return; }
+  if(Math.abs(oldTotal-balance)>0.000001){ showToast('ยอดรวม LOT ไม่ตรงกับสต็อก กรุณาแก้จากรายการผิดปกติก่อน','danger-top'); return; }
   const overlay=document.createElement('div'); overlay.className='modal-overlay';
   const unitOptions=stockLotReallocationUnitOptions(product);
   let selectedUnit=unitOptions[0]||{name:product.unit||'หน่วย',factor:1};
@@ -356,9 +356,9 @@ function renderStockControl(){
   const pendingCount=inspectionLists.filter(inspectionListAvailableForStockEdit).length;
   const anomalyCount=stockControlAnomalyRows().length;
   const content=stockControlMode==='count'?renderInspectionLists():stockControlMode==='adjust'?renderStockEdit():stockControlMode==='lots'?renderStockLotReallocation():renderStockControlAnomalies();
-  return `<div class="stock-control-page"><div class="stock-control-tabs" role="tablist" aria-label="งานตรวจนับและปรับสต๊อก">
+  return `<div class="stock-control-page"><div class="stock-control-tabs" role="tablist" aria-label="งานตรวจนับและปรับสต็อก">
       <button type="button" class="stock-control-tab ${stockControlMode==='count'?'active':''}" data-stock-control-mode="count" role="tab" aria-selected="${stockControlMode==='count'}">ตรวจนับสินค้า</button>
-      <button type="button" class="stock-control-tab ${stockControlMode==='adjust'?'active':''}" data-stock-control-mode="adjust" role="tab" aria-selected="${stockControlMode==='adjust'}">รอยืนยันปรับสต๊อก <span class="stock-control-tab-count">${pendingCount}</span></button>
+      <button type="button" class="stock-control-tab ${stockControlMode==='adjust'?'active':''}" data-stock-control-mode="adjust" role="tab" aria-selected="${stockControlMode==='adjust'}">รอยืนยันปรับสต็อก <span class="stock-control-tab-count">${pendingCount}</span></button>
       <button type="button" class="stock-control-tab ${stockControlMode==='anomalies'?'active':''}" data-stock-control-mode="anomalies" role="tab" aria-selected="${stockControlMode==='anomalies'}">รายการผิดปกติ <span class="stock-control-tab-count">${anomalyCount}</span></button>
       ${currentProfile?.owner?`<button type="button" class="stock-control-tab ${stockControlMode==='lots'?'active':''}" data-stock-control-mode="lots" role="tab" aria-selected="${stockControlMode==='lots'}">ปรับจำนวนแยกตาม LOT</button>`:''}
     </div><div class="stock-control-content">${content}</div></div>`;
@@ -383,7 +383,7 @@ function stockEditImportInspectionList(listId,askBeforeReplace=true,scannedUnits
   if(!inspectionListAvailableForStockEdit(list)){ showToast('รายการนี้แก้ไขจำนวนเรียบร้อยแล้ว ไม่สามารถดึงซ้ำได้','danger'); return false; }
   const entries=(list.items||[]).map(item=>({item,product:products.find(product=>product.id===Number(item.pid))})).filter(entry=>entry.product);
   if(!entries.length){ showToast('รายการตรวจสินค้านี้ไม่มีสินค้าที่ใช้งานได้','danger'); return false; }
-  if(askBeforeReplace&&(stockEditItems.length||Object.keys(stockEditDraftStocks).length)&&!confirm('ข้อมูลในหน้าแก้ไขสต๊อกปัจจุบันจะถูกแทนที่ด้วยรายการตรวจสินค้าที่เลือก ต้องการดำเนินการต่อหรือไม่?')) return false;
+  if(askBeforeReplace&&(stockEditItems.length||Object.keys(stockEditDraftStocks).length)&&!confirm('ข้อมูลในหน้าแก้ไขสต็อกปัจจุบันจะถูกแทนที่ด้วยรายการตรวจสินค้าที่เลือก ต้องการดำเนินการต่อหรือไม่?')) return false;
   stockEditItems=entries.map(entry=>entry.product.id);
   stockEditRowUnitSel={};
   entries.forEach(({item,product})=>{
@@ -464,7 +464,7 @@ async function confirmStockEditChanges(){
   const linePayload=stockEditAdjustmentLines(changes);
   const sourceList=stockEditInspectionSourceList();
   const summary=changes.length?`${changes.length} รายการ`:'ไม่พบส่วนต่าง (ปิดงานตรวจนับ)';
-  if(!confirm(`ยืนยันบันทึกผลตรวจนับ ${summary}\nผู้ดำเนินการ: ${currentProfile?.firstName||currentProfile?.username||'-'}\n\nเมื่อยืนยันแล้ว ระบบจะบันทึกสต๊อกและ LOT พร้อมกัน`)) return false;
+  if(!confirm(`ยืนยันบันทึกผลตรวจนับ ${summary}\nผู้ดำเนินการ: ${currentProfile?.firstName||currentProfile?.username||'-'}\n\nเมื่อยืนยันแล้ว ระบบจะบันทึกสต็อกและ LOT พร้อมกัน`)) return false;
   stockEditPosting=true; render();
   try{
     const data=await runStockOperation('post_inventory_count_adjustment_with_shortages',{
@@ -485,7 +485,7 @@ async function confirmStockEditChanges(){
   }catch(error){
     console.warn('post inventory count adjustment failed',error);
     const message=String(error?.message||'');
-    if(message.includes('stock changed before confirmation')) showToast('สต๊อกมีการเปลี่ยนแปลงจากอุปกรณ์อื่น กรุณารีเฟรชและตรวจนับใหม่','danger');
+    if(message.includes('stock changed before confirmation')) showToast('สต็อกมีการเปลี่ยนแปลงจากอุปกรณ์อื่น กรุณารีเฟรชและตรวจนับใหม่','danger');
     else showToast(`บันทึกผลตรวจนับไม่สำเร็จ${message?`: ${message}`:''}`,'danger');
     return false;
   }finally{

@@ -43,7 +43,7 @@ const PAGE_PERMISSION_OPTIONS=[
   ['dashboard','ภาพรวม'],['checkout','ขายสินค้า'],['notes','NOTE'],['cashshift','เปิด-ปิดระบบชำระ'],['history','ประวัติการขาย'],
   ['goodsreceipt','ใบรับสินค้า'],['products','รายการสินค้า'],['inventorymovement','รายงานการเคลื่อนไหว'],
   ['rinventory','รายงานสินค้าคงเหลือ'],['lowstock','สินค้าใกล้หมด'],['expiry','สินค้าใกล้หมดอายุ'],
-  ['rproduct','รายงานสินค้า'],['rbill','รายงานบิล'],['cashbill','บิลเงินสด'],['inspectionlists','ตรวจนับและปรับสต๊อก'],
+  ['rproduct','รายงานสินค้า'],['rbill','รายงานบิล'],['cashbill','บิลเงินสด'],['inspectionlists','ตรวจนับและปรับสต็อก'],
   ['purchaseorder','จดสั่งสินค้า'],['productreturn','ใบคืนสินค้า'],
   ['productexchange','เปลี่ยนสินค้า'],['contacts','ผู้จำหน่าย / ลูกค้า'],['salesreps','ผู้แทน'],
   ['taxinvoice','ใบกำกับภาษีเต็มรูปแบบ'],['quotation','ใบเสนอราคา'],['barcodeprint','พิมพ์ป้ายราคา'],

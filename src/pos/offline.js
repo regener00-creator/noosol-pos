@@ -296,7 +296,7 @@ async function syncOfflineSales({retryBlockedId=null}={}){
       offlinePosActive=false;
       await loadWorkspaceFromSupabase();
       if(!isWorkspaceReadCurrent(context)) return;
-      if(!offlineSnapshotReady){offlineInventorySettledIds=previousSettled;offlinePosActive=true;throw new Error('ส่งบิลแล้ว กำลังรอโหลดข้อมูลสต๊อกล่าสุด');}
+      if(!offlineSnapshotReady){offlineInventorySettledIds=previousSettled;offlinePosActive=true;throw new Error('ส่งบิลแล้ว กำลังรอโหลดข้อมูลสต็อกล่าสุด');}
       const settledWarehouses=new Set([Number(activeWarehouseId),...offlineSales.map(row=>Number(row.payload.warehouseId))]);
       for(const warehouseId of settledWarehouses)
         await offlineStoreWrite(`${OFFLINE_POS_KEY}:shift:${actor}:${warehouseId}`,null);
