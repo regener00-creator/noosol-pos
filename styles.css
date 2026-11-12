@@ -1659,10 +1659,10 @@
   .cash-bill-number-entry::before{left:calc(0px - var(--step-gap)/2 - 1px);}
   .cash-bill-number-entry::after{left:calc(100% + var(--step-gap)/2 + 1px);}
   .cash-bill-number-entry button{display:flex;flex-direction:column;align-items:center;gap:inherit;width:100%;padding:0;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;}
-  .cash-bill-number-entry input{width:100%;min-width:0;box-sizing:border-box;padding:4px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);text-align:center;font:inherit;}
+  .cash-bill-number-entry input{width:100%;min-width:0;box-sizing:border-box;min-height:48px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:#fff;text-align:center;font:inherit;}
   .cash-bill-number-entry :focus-visible{outline-offset:-3px;}
-  .history-table tr[data-pick-cash-bill]{cursor:pointer;}
-  .history-table tr[data-pick-cash-bill]:hover{background:var(--primary-soft);}
+  .history-table tr[data-pick-order-number]{cursor:pointer;}
+  .history-table tr[data-pick-order-number]:hover{background:var(--primary-soft);}
   .cash-bill-history-number{border:0;background:transparent;font:inherit;color:inherit;cursor:pointer;padding:0;}
   @media(max-width:640px){
     .cash-bill-lookup-actions{--step-gap:52px;grid-template-columns:1fr;max-width:360px;}

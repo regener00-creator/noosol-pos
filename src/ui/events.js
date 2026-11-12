@@ -1280,34 +1280,27 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const searchCashBillOrderBtn=document.getElementById('searchCashBillOrderBtn');
   if(searchCashBillOrderBtn) searchCashBillOrderBtn.addEventListener('click',()=>{ posSalesHistoryModalOpen=true; render(); document.getElementById('closePOSSalesHistoryBtn')?.focus(); });
   document.getElementById('continueCashBillOrderBtn')?.addEventListener('click',searchCashBillOrder);
-  document.querySelectorAll('[data-pick-cash-bill]').forEach(row=>row.addEventListener('click',event=>{
+  const orderNumberInput=document.querySelector('.cash-bill-number-entry input');
+  document.querySelectorAll('[data-pick-order-number]').forEach(row=>row.addEventListener('click',event=>{
     if(event.target.closest('.history-actions')) return;
-    cashBillOrderNumberDraft=row.dataset.pickCashBill;
+    orderNumberInput.value=row.dataset.pickOrderNumber;
+    orderNumberInput.dispatchEvent(new Event('input'));
     closePOSSalesHistory();
   }));
-  document.querySelectorAll('[data-copy-bill]').forEach(button=>button.addEventListener('click',async()=>{
-    const number=button.dataset.copyBill;
-    try{
-      await navigator.clipboard.writeText(number);
-      taxInvoiceOrderNumberDraft=number;
-      const input=document.getElementById('tax_order_number');
-      if(input) input.value=number;
-      showToast('คัดลอกเลขบิลแล้ว');
-    }catch(error){ showToast('คัดลอกไม่สำเร็จ กรุณาลากเลือกเลขบิลแล้วคัดลอกเอง','danger'); }
-  }));
+
   const cashBillOrderNumber=document.getElementById('cash_bill_order_number');
-  document.getElementById('pasteCashBillNumberBtn')?.addEventListener('click',async()=>{
+  document.querySelector('[data-paste-order-number]')?.addEventListener('click',async()=>{
     try{
       const number=(await navigator.clipboard.readText()).trim();
-      if(!cashBillOrderNumber.isConnected) return;
+      if(!orderNumberInput.isConnected) return;
       if(number){
-        cashBillOrderNumber.value=number;
-        cashBillOrderNumberDraft=number;
+        orderNumberInput.value=number;
+        orderNumberInput.dispatchEvent(new Event('input'));
       }else showToast('ยังไม่มีเลขที่บิลในคลิปบอร์ด');
     }catch{
       showToast('กรุณาวางเลขที่บิลในช่องเลขที่ออเดอร์ด้วยตนเอง');
     }
-    cashBillOrderNumber.focus();
+    orderNumberInput.focus();
   });
   cashBillOrderNumber?.addEventListener('input',()=>{ cashBillOrderNumberDraft=cashBillOrderNumber.value; });
   if(cashBillOrderNumber) cashBillOrderNumber.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); searchCashBillOrder(); } });

@@ -1,20 +1,26 @@
 function renderCashBillLookup(){
-  return `<section class="cash-bill-lookup" aria-label="สร้างบิลเงินสด">
+  return renderDocumentOrderLookup(false);
+}
+
+function renderDocumentOrderLookup(isTaxInvoice){
+  const docType=isTaxInvoice?'TaxInvoice':'CashBill';
+  const documentName=isTaxInvoice?'ใบกำกับภาษี':'บิลเงินสด';
+  return `<section class="cash-bill-lookup" aria-label="สร้าง${documentName}">
     <div class="cash-bill-lookup-actions">
-      <button class="barcode-print-mode-card" id="searchCashBillOrderBtn" type="button">
+      <button class="barcode-print-mode-card" id="search${docType}OrderBtn" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="6.5"/><path d="m15 15 6 6"/></svg>
         <strong>ค้นหาออเดอร์</strong><span>เลือกบิลจากประวัติการขาย</span>
       </button>
       <div class="barcode-print-mode-card cash-bill-number-entry">
-        <button id="pasteCashBillNumberBtn" type="button">
+        <button id="paste${docType}NumberBtn" data-paste-order-number type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 5H5v16h14V5h-3M8 3h8v4H8zM8 12h8M8 16h6"/></svg>
           <strong>วางเลขที่บิล</strong>
         </button>
-        <input id="cash_bill_order_number" aria-label="เลขที่ออเดอร์" placeholder="กรอกเลขที่ออเดอร์" autocomplete="off" value="${escapeHtml(cashBillOrderNumberDraft)}">
+        <input id="${isTaxInvoice?'tax_order_number':'cash_bill_order_number'}" aria-label="เลขที่ออเดอร์" placeholder="กรอกเลขที่ออเดอร์" autocomplete="off" value="${escapeHtml(isTaxInvoice?taxInvoiceOrderNumberDraft:cashBillOrderNumberDraft)}">
       </div>
-      <button class="barcode-print-mode-card" id="continueCashBillOrderBtn" type="button">
+      <button class="barcode-print-mode-card" id="continue${docType}OrderBtn" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 3h10l5 5v13H4zM14 3v5h5M7 14l3 3 6-6"/></svg>
-        <strong>ดำเนินการต่อ</strong><span>เปิดบิลเงินสดของออเดอร์นี้</span>
+        <strong>ดำเนินการต่อ</strong><span>เปิด${documentName}ของออเดอร์นี้</span>
       </button>
     </div>
   </section>${posSalesHistoryModalOpen?renderPOSSalesHistoryModal():''}`;
@@ -118,11 +124,7 @@ function openHistoricalTaxInvoiceForm(){
 }
 
 function renderTaxInvoiceOrderLookup(){
-  return `<div class="pagehead"><div><div class="breadcrumb">ใบกำกับภาษีเต็มรูปแบบ › สร้างใบกำกับภาษี</div><h1>สร้างใบกำกับภาษีเต็มรูปแบบ</h1></div><div class="form-final-actions"><button class="btn ghost" id="cancelTaxInvoiceFormBtn">ปิดหน้าต่าง</button></div></div>
-    <div class="po-head"><div class="po-head-left"><div class="crow"><label>เลขออเดอร์ / เลขที่บิล <span class="req">*</span></label><div class="po-supplier-pick"><input id="tax_order_number" value="${escapeHtml(taxInvoiceOrderNumberDraft)}" placeholder="เช่น SR12345-1043, INV-1043 หรือเลขที่ใบเสร็จ" autocomplete="off"><button class="btn ghost" id="searchTaxInvoiceOrderBtn" type="button">ค้นหาออเดอร์</button><button class="btn primary" id="continueTaxInvoiceOrderBtn" type="button">ดำเนินการต่อ</button></div></div><div class="po-addr" style="margin-top:12px;">กรอกเลขออเดอร์จากประวัติการขาย ระบบจะดึงข้อมูลรายการเดิมมาให้อัตโนมัติ</div></div>
-      <div class="po-head-right"><div class="po-total-label">ขั้นตอนการออกเอกสารย้อนหลัง</div><div style="line-height:1.8;color:var(--text-muted);font-size:13px;margin-top:8px;">1. กรอกเลขออเดอร์<br>2. ตรวจสอบและกรอกข้อมูลลูกค้า<br>3. บันทึกแล้วพิมพ์เอกสาร</div></div></div>
-    <div class="doc-scanner-wrap"><div class="doc-scanner-hint" style="font-size:13px;color:var(--primary-dark);">🔎 ค้นหาได้จากเลขออเดอร์ เลขที่บิล หรือเลขที่ใบเสร็จอย่างย่อ</div></div>
-    <table class="grid-table po-items document-centered-items"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th class="mono">ราคาต่อหน่วย</th><th class="mono">ราคารวม</th></tr></thead><tbody><tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">กรอกเลขออเดอร์ด้านบนเพื่อแสดงรายการขายย้อนหลัง</td></tr></tbody></table>${posSalesHistoryModalOpen?renderPOSSalesHistoryModal():''}`;
+  return renderDocumentOrderLookup(true);
 }
 
 async function searchTaxInvoiceOrder(){

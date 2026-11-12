@@ -1,5 +1,5 @@
 function renderHistory(){
-  const pickCashBill=currentTab==='cashbill';
+  const pickingOrder=currentTab==='cashbill'||(currentTab==='taxinvoice'&&editingTaxInvoiceSaleId==='lookup');
   const f=historyFilter;
   const canDeleteHeld=!isLevel2User();
   const canVoidCompleted=currentProfile?.owner===true;
@@ -26,8 +26,8 @@ function renderHistory(){
     </div>
     <div class="sales-history-table-wrap">
     <table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-bill"><col class="ht-customer"><col class="ht-time"><col class="ht-items"><col class="ht-total"><col class="ht-pay"><col class="ht-status"><col class="ht-actions"></colgroup><thead><tr><th>วันที่</th><th>เลขที่บิล</th><th>ลูกค้า</th><th>เวลา</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th><th>สถานะ</th><th></th></tr></thead>
-    <tbody>${pageRows.length? pageRows.map(s=>`<tr${pickCashBill&&s.status==='done'?` data-pick-cash-bill="${escapeHtml(s.ref||s.id)}"`:''}>
-      <td>${fmtDate(s.date)}</td><td class="mono">${pickCashBill&&s.status==='done'?`<button type="button" class="cash-bill-history-number" aria-label="เลือกบิล ${escapeHtml(s.ref||s.id)}">${escapeHtml(s.ref||s.id)}</button>`:escapeHtml(s.ref||s.id)}${currentTab==='taxinvoice'&&editingTaxInvoiceSaleId==='lookup'?` <button class="history-icon-btn" type="button" data-copy-bill="${escapeHtml(s.ref||s.id)}" title="คัดลอกเลขบิล" aria-label="คัดลอกเลขบิล ${escapeHtml(s.ref||s.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V3H3v13h5"/></svg></button>`:''}</td>
+    <tbody>${pageRows.length? pageRows.map(s=>`<tr${pickingOrder&&s.status==='done'?` data-pick-order-number="${escapeHtml(s.ref||s.id)}"`:''}>
+      <td>${fmtDate(s.date)}</td><td class="mono">${pickingOrder&&s.status==='done'?`<button type="button" class="cash-bill-history-number" aria-label="เลือกบิล ${escapeHtml(s.ref||s.id)}">${escapeHtml(s.ref||s.id)}</button>`:escapeHtml(s.ref||s.id)}</td>
       <td>${escapeHtml(saleHistoryCustomerDisplay(s))}</td>
       <td>${saleHistoryTimeDisplay(s.time)}</td>
       <td class="history-items-cell">${salesHistoryItemsPreview(s.items)}</td>
@@ -41,9 +41,10 @@ function renderHistory(){
   </div>`;
 }
 function renderPOSSalesHistoryModal(){
+  const pickingOrder=currentTab==='cashbill'||currentTab==='taxinvoice';
   const state=ensureOnDemandDataForTab('history');
   posSalesHistoryOnDemandState=state;
   const unavailable=state.status==='loading'||state.status==='error'||(state.status==='truncated'&&state.blocking);
   const content=unavailable?onDemandStateHtml(state):`${state.status==='truncated'?onDemandStateHtml(state):''}${renderHistory()}`;
-  return `<div class="modal-overlay pos-sales-history-overlay"><section class="modal pos-sales-history-modal" role="dialog" aria-modal="true" aria-labelledby="posSalesHistoryTitle"><div class="modal-head"><div><h3 id="posSalesHistoryTitle">ประวัติการขาย</h3><div class="sub">${currentTab==='cashbill'?'คลิกบิลที่ชำระแล้วเพื่อเลือกออเดอร์':currentTab==='taxinvoice'?'คัดลอกเลขบิล แล้วปิดหน้าต่างเพื่อกลับไปสร้างใบกำกับภาษี':'ดูรายการขายโดยไม่ออกจากหน้า POS'}</div></div><button class="${currentTab==='cashbill'?'btn primary':'modal-close'}" id="closePOSSalesHistoryBtn" type="button" aria-label="ปิด">${currentTab==='cashbill'?'ปิด':'×'}</button></div><div class="pos-sales-history-body">${content}</div>${currentTab==='cashbill'?'':'<div class="pos-sales-history-actions"><button class="btn primary" id="closePOSSalesHistoryBottomBtn" type="button">ปิด</button></div>'}</section></div>`;
+  return `<div class="modal-overlay pos-sales-history-overlay"><section class="modal pos-sales-history-modal" role="dialog" aria-modal="true" aria-labelledby="posSalesHistoryTitle"><div class="modal-head"><div><h3 id="posSalesHistoryTitle">ประวัติการขาย</h3><div class="sub">${pickingOrder?'คลิกบิลที่ชำระแล้วเพื่อเลือกออเดอร์':'ดูรายการขายโดยไม่ออกจากหน้า POS'}</div></div><button class="${pickingOrder?'btn primary':'modal-close'}" id="closePOSSalesHistoryBtn" type="button" aria-label="ปิด">${pickingOrder?'ปิด':'×'}</button></div><div class="pos-sales-history-body">${content}</div>${pickingOrder?'':'<div class="pos-sales-history-actions"><button class="btn primary" id="closePOSSalesHistoryBottomBtn" type="button">ปิด</button></div>'}</section></div>`;
 }
