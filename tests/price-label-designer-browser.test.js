@@ -62,6 +62,15 @@ const browserExecutable = [
     await page.setViewportSize({width,height:900});
     const cards=await page.locator('.barcode-print-mode-card').evaluateAll(elements=>elements.map(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,viewport:innerWidth};}));
     assert.ok(cards.every(card=>card.left>=0&&card.right<=card.viewport));
+    const offset=await page.locator('.barcode-print-mode-grid').evaluate(grid=>{
+      const main=grid.closest('#main'),area=main.getBoundingClientRect(),style=getComputedStyle(main);
+      const group=grid.getBoundingClientRect();
+      return {
+        x:(group.left+group.right-area.left-area.right-parseFloat(style.paddingLeft)+parseFloat(style.paddingRight))/2,
+        y:(group.top+group.bottom-area.top-area.bottom-parseFloat(style.paddingTop)+parseFloat(style.paddingBottom))/2
+      };
+    });
+    assert.ok(Math.abs(offset.x)<2&&Math.abs(offset.y)<2,`Center offset at ${width}px: ${JSON.stringify(offset)}`);
     assert.equal(cards[0].top===cards[1].top,width===1280,'Two columns on desktop, stacked on mobile');
   }
   await page.setViewportSize({width:1280,height:900});

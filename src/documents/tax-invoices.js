@@ -9,7 +9,7 @@ function renderDocumentOrderLookup(isTaxInvoice){
     <div class="cash-bill-lookup-actions">
       <button class="barcode-print-mode-card" id="search${docType}OrderBtn" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="6.5"/><path d="m15 15 6 6"/></svg>
-        <strong>ค้นหาออเดอร์</strong><span>เลือกบิลจากประวัติการขาย</span>
+        <strong>ค้นหาออเดอร์</strong>
       </button>
       <div class="barcode-print-mode-card cash-bill-number-entry">
         <button id="paste${docType}NumberBtn" data-paste-order-number type="button">
@@ -20,7 +20,7 @@ function renderDocumentOrderLookup(isTaxInvoice){
       </div>
       <button class="barcode-print-mode-card" id="continue${docType}OrderBtn" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 3h10l5 5v13H4zM14 3v5h5M7 14l3 3 6-6"/></svg>
-        <strong>ดำเนินการต่อ</strong><span>เปิด${documentName}ของออเดอร์นี้</span>
+        <strong>ดำเนินการต่อ</strong>
       </button>
     </div>
   </section>${posSalesHistoryModalOpen?renderPOSSalesHistoryModal():''}`;
