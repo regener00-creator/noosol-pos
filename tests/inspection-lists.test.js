@@ -34,6 +34,8 @@ const context = {
   inspectionListOverviewSelectedIds: new Set(),
   expandedDocumentItemLists: new Set(),
   reserveDraftNumber: async () => 'CHECK-NEW-SAFE-ID',
+  generateProductCreateToken: () => 'inspection-test-token',
+  captureStoreView: () => ({store:1}),isStoreViewCurrent: () => true,
   documentPrefixes: {inspection:'CHECK'},
   mobileInspectionListId: '',
   mobileInspectionOpenedListId: '',
@@ -66,7 +68,14 @@ const context = {
   pagerHtml: () => '',
   showToast: () => {},
   persistWorkspaceData: () => { persistCount++; },
-  syncInspectionListsToSupabase: () => { syncCount++; },
+  commitInspectionList: async (list,operation) => {
+    syncCount++;persistCount++;
+    const index=context.inspectionLists.findIndex(row=>row.id===list.id);
+    if(operation==='delete'){context.inspectionLists.splice(index,1);context.clearInspectionListRuntimeReferences(list.id);}
+    else if(index<0)context.inspectionLists.unshift(list);
+    else context.inspectionLists[index]=list;
+    return true;
+  },
   render: () => { renderCount++; },
   document: {getElementById: id => id === 'inspectionListName' ? {value:'รายการตรวจหน้าร้าน'} : null},
 };
@@ -227,7 +236,7 @@ context.mobileInspectionOpenedListId = 'CHECK-NEW-SAFE-ID';
 context.mobileStockSourceListId = 'CHECK-0002';
 context.stockEditSourceInspectionListId = 'CHECK-0002';
 context.stockEditSourcePending = true;
-assert.equal(context.deleteSelectedInspectionLists(), true);
+assert.equal(await context.deleteSelectedInspectionLists(), true);
 assert.equal(context.inspectionLists.length, 0);
 assert.equal(context.inspectionListOverviewSelectedIds.size, 0);
 assert.equal(context.mobileInspectionListId, '');
@@ -247,7 +256,7 @@ context.mobileInspectionLastProductId = 1;
 assert.match(context.mobileInspectionContentHtml(), /data-mobile-inspection-remove="1"/);
 assert.match(context.mobileInspectionContentHtml(), /id="mobileInspectionInput"/);
 assert.match(context.mobileInspectionContentHtml(), /id="mobileInspectionCamera"/);
-assert.equal(context.removeProductFromMobileInspection(pendingList.id,1), true);
+assert.equal(await context.removeProductFromMobileInspection(pendingList.id,1), true);
 assert.deepEqual(Array.from(context.inspectionLists[0].items,item=>item.pid),[2]);
 assert.equal(context.mobileInspectionChecks(pendingList.id).has(1),false);
 assert.equal(context.mobileInspectionLastProductId,null);
@@ -284,15 +293,15 @@ context.mobileInspectionOpenedListId = 'CHECK-NEW-SAFE-ID';
 context.mobileStockSourceListId = 'CHECK-NEW-SAFE-ID';
 context.stockEditSourceInspectionListId = 'CHECK-NEW-SAFE-ID';
 context.stockEditSourcePending = true;
-assert.equal(context.deleteInspectionListById('CHECK-NEW-SAFE-ID'), true);
+assert.equal(await context.deleteInspectionListById('CHECK-NEW-SAFE-ID'), true);
 assert.equal(context.inspectionLists.length, 0);
 assert.equal(context.mobileInspectionListId, '');
 assert.equal(context.mobileInspectionOpenedListId, '');
 assert.equal(context.mobileStockSourceListId, '');
 assert.equal(context.stockEditSourceInspectionListId, null);
 assert.equal(context.stockEditSourcePending, false);
-assert.equal(persistCount, 4);
-assert.equal(syncCount, 4);
+assert.equal(persistCount, 5);
+assert.equal(syncCount, 5);
 
 console.log('inspection list tests passed');
 

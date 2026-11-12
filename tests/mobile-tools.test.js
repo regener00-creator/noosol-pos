@@ -82,7 +82,7 @@ assert.match(html, /data-mobile-inspection-remove=/);
 assert.match(html, /function removeProductFromMobileInspection\(/);
 assert.match(html, /event\.stopPropagation\(\)/);
 assert.match(html, /function saveMobileInspectionDraft\(/);
-assert.match(html, /saveInspectionListDraft\(\{sync:false\}\)/);
+assert.match(html, /const saved=await saveInspectionListDraft\(\)/);
 assert.match(html, /id="mobileInspectionAddToggle"/);
 assert.match(html, /id="mobileInspectionAddInput"/);
 assert.match(html, /id="mobileInspectionAddCamera"/);

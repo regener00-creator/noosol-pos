@@ -496,7 +496,7 @@ function mobileInspectionContentHtml(){
   return `${mobileInspectionAddingToSaved?'':mobileInspectionScannerHtml()}<div class="mobile-inspection-progress"><span>ตรวจแล้ว ${progress.checked} / ${progress.total} รายการ</span>${progress.checked?'<button type="button" class="mobile-reset-checks" id="mobileResetChecks">เริ่มตรวจใหม่</button>':''}</div>
     ${visible.length?`<div class="mobile-inspection-list">${visible.map(entry=>mobileInspectionItemHtml(entry,checked,Number(entry.product.id)===Number(mobileInspectionLastProductId))).join('')}</div>${entries.length>visible.length?`<button type="button" class="mobile-load-more" id="mobileLoadMore">แสดงเพิ่ม (${entries.length-visible.length})</button>`:''}`:`<div class="mobile-empty">ไม่พบสินค้าในรายการนี้</div>`}`;
 }
-function removeProductFromMobileInspection(listId,productId){
+async function removeProductFromMobileInspection(listId,productId){
   if(!mobileRequireOnline('ลบสินค้าออกจากรายการ')) return false;
   const list=mobileOpenedInspectionList();
   if(!list||String(list.id)!==String(listId)) return false;
@@ -504,12 +504,12 @@ function removeProductFromMobileInspection(listId,productId){
   if(itemIndex<0) return false;
   const product=products.find(entry=>Number(entry.id)===Number(productId));
   if(!confirm(`ลบ “${product?.name||'สินค้านี้'}” ออกจากรายการตรวจสินค้าใช่หรือไม่?`)) return false;
-  list.items.splice(itemIndex,1);
-  list.updatedAt=new Date().toISOString();
+  const view=captureStoreView();
+  const saved={...list,items:list.items.filter((_,i)=>i!==itemIndex),updatedAt:new Date().toISOString()};
+  if(!await commitInspectionList(saved,'update'))return false;
+  if(!isStoreViewCurrent(view))return true;
   mobileInspectionChecks(list.id).delete(Number(productId));
   if(Number(mobileInspectionLastProductId)===Number(productId)) mobileInspectionLastProductId=null;
-  persistWorkspaceData();
-  syncInspectionListsToSupabase();
   showToast('ลบสินค้าออกจากรายการตรวจสินค้าแล้ว');
   render();
   return true;
@@ -656,22 +656,15 @@ async function saveMobileInspectionSavedAdd(){
   if(!mobileRequireOnline('เพิ่มสินค้าในรายการตรวจสินค้า')) return false;
   const view=captureStoreView();
   const originalItems=(list.items||[]).map(item=>({...item}));
-  const originalUpdatedAt=list.updatedAt;
   const additions=mobileInspectionSavedAddItems.map(item=>({pid:Number(item.pid),unit:String(item.unit||'')}));
   const button=document.getElementById('mobileInspectionAddSave');
   if(button) button.disabled=true;
   setMobileDataStatus('saving');
-  list.items=[...originalItems,...additions];
-  list.updatedAt=new Date().toISOString();
-  persistWorkspaceData();
-  const synced=await syncInspectionListsToSupabase();
+  const saved={...list,items:[...originalItems,...additions],updatedAt:new Date().toISOString()};
+  const synced=await commitInspectionList(saved,'update');
   if(!synced){
-    list.items=originalItems;
-    list.updatedAt=originalUpdatedAt;
-    persistWorkspaceData();
     if(!isStoreViewCurrent(view)) return false;
     setMobileDataStatus(mobileIsOnline()?'error':'offline','เพิ่มสินค้าไม่สำเร็จ');
-    showToast('เพิ่มสินค้าไม่สำเร็จ รายการเดิมยังไม่เปลี่ยน กรุณาลองใหม่','danger-top');
     render();
     return false;
   }
@@ -705,15 +698,13 @@ async function saveMobileInspectionDraft(){
   const draft=inspectionListDraft;
   setMobileDataStatus('saving');
   mobileInspectionCreating=false;
-  const saved=await saveInspectionListDraft({sync:false});
+  const saved=await saveInspectionListDraft();
   if(!saved){
     if(isStoreViewCurrent(view)){ mobileInspectionCreating=true; setMobileDataStatus('online'); render(); }
     return false;
   }
-  const synced=await syncInspectionListsToSupabase();
   if(!isStoreViewCurrent(view)) return true;
-  if(!synced){ setMobileDataStatus('error','ซิงก์รายการไม่สำเร็จ'); showToast('บันทึกในเครื่องแล้ว แต่ซิงก์รายการไม่สำเร็จ กรุณากดรีเฟรช','danger-top'); }
-  else{ mobileLastRefreshAt=Date.now(); setMobileDataStatus('online','บันทึกแล้ว'); }
+  mobileLastRefreshAt=Date.now(); setMobileDataStatus('online','บันทึกแล้ว');
   mobileInspectionListId=draft.id;
   mobileInspectionOpenedListId=mobileInspectionListId;
   mobileInspectionQuery='';

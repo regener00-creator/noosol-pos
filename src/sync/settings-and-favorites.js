@@ -77,6 +77,63 @@ async function loadDocumentPrefixesFromSupabase(){
 // replacing the entire shared array in settings.
 function inspectionListToRow(list){ return {id:list.id,data:additionalData(list,['id','_revision']),revision:Number(list._revision)||0}; }
 function rowToInspectionList(row){ return normalizeInspectionLists([{...(row.data||{}),id:row.id,_revision:Number(row.revision)||1}])[0]; }
+// Keep the proposed change outside the live list and outbox until the server acknowledges it.
+async function commitInspectionList(list,operation){
+  const table='inspection_lists',id=String(list.id),view=captureStoreView();
+  if(!documentInActiveStore(list)||!currentProfile)return false;
+  const busy=commitInspectionList.busy||=new Set();
+  if(busy.has(id))return false;
+  busy.add(id);
+  showToast(operation==='delete'?'กำลังยืนยันการลบกับเซิร์ฟเวอร์…':'กำลังยืนยันการบันทึกกับเซิร์ฟเวอร์…');
+  try{
+    return await withRevisionedTableLock(table,async()=>{
+      if(!isStoreViewCurrent(view))return false;
+      let remote=null,conflict=false;
+      if(operation==='create'){
+        const error=await insertRevisionedRows(table,[list],inspectionListToRow);
+        if(error)throw error;
+        remote=list;
+      }else{
+        const revision=Number(list._revision);
+        let row=null;
+        if(revision>0){
+          const query=operation==='delete'?sb.from(table).delete():sb.from(table).update({data:inspectionListToRow(list).data});
+          const result=await query.eq('id',id).eq('revision',revision).select('*').maybeSingle();
+          if(result.error)throw result.error;
+          row=result.data;
+        }
+        if(!row){
+          const latest=await sb.from(table).select('*').eq('id',id).maybeSingle();
+          if(latest.error)throw latest.error;
+          remote=latest.data?rowToInspectionList(latest.data):null;
+          conflict=true;
+        }else if(operation!=='delete')remote=rowToInspectionList(row);
+      }
+      if(!isWorkspaceReadCurrent(view))return false;
+      const index=inspectionLists.findIndex(item=>String(item.id)===id);
+      if(remote){
+        if(index<0)inspectionLists.unshift(remote);else inspectionLists[index]=remote;
+        syncAcknowledgement(table,inspectionLists,inspectionListToRow)(remote);
+      }else{
+        if(index>=0)inspectionLists.splice(index,1);
+        syncedTableRows[table]?.delete(id);
+        workspaceRecoveryEntries.delete(table+':'+id);
+        clearInspectionListRuntimeReferences(id);
+      }
+      persistWorkspaceData();
+      if(conflict&&isStoreViewCurrent(view)){
+        if(String(editingInspectionListId)===id){editingInspectionListId=null;inspectionListDraft=null;}
+        if(String(mobileInspectionOpenedListId)===id)resetMobileInspectionSavedAdd();
+        render();
+        showToast(remote?'รายการนี้เปลี่ยนจากเครื่องอื่นแล้ว แสดงข้อมูลล่าสุดแล้ว':'ไม่พบรายการนี้บนเซิร์ฟเวอร์แล้ว อัปเดตรายการล่าสุดแล้ว','warning-top');
+      }
+      return !conflict;
+    });
+  }catch(error){
+    if(isStoreViewCurrent(view))showToast('เซิร์ฟเวอร์ยังไม่ยืนยัน กรุณาตรวจการเชื่อมต่อแล้วลองอีกครั้ง','danger-top');
+    return false;
+  }finally{busy.delete(id);}
+}
 function inspectionCompletionMatches(local,remote){
   // Only acknowledge the very same completed count; never overwrite an edit
   // to the name, products, units, owner or warehouse to silence a conflict.

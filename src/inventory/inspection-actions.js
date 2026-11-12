@@ -41,27 +41,26 @@ function inspectionListAddProduct(product,unitName){
   inspectionListPage=Math.max(1,Math.ceil(inspectionListDraft.items.length/INSPECTION_LIST_PAGE_SIZE));
   return true;
 }
-async function saveInspectionListDraft(options={}){
+async function saveInspectionListDraft(){
   if(!inspectionListDraft||!documentInActiveStore(inspectionListDraft)) return false;
   const name=(document.getElementById('inspectionListName')?.value||inspectionListDraft.name||'').trim();
   if(!name){ showToast('กรุณากรอกชื่อรายการตรวจสินค้า','danger'); document.getElementById('inspectionListName')?.focus(); return false; }
   if(!inspectionListDraft.items.length){ showToast('กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ','danger'); document.getElementById('inspectionListSearch')?.focus(); return false; }
   const now=new Date().toISOString();
   const saved={...inspectionListDraft,name,warehouseId:Number(inspectionListDraft.warehouseId)||Number(activeWarehouseId)||0,items:inspectionListDraft.items.map(item=>({pid:Number(item.pid),unit:String(item.unit||'')})),updatedAt:now,stockAdjustedAt:'',stockAdjustedBy:''};
-  if(editingInspectionListId==='new'){
-    const draft=inspectionListDraft;
+  const view=captureStoreView(),draft=inspectionListDraft,isNew=editingInspectionListId==='new';
+  if(isNew){
     saved.id=await reserveDraftNumber(draft,'inspection');
     if(!saved.id||inspectionListDraft!==draft||editingInspectionListId!=='new') return false;
     draft.id=saved.id;
-    saved.createdAt=saved.createdAt||now;
-    inspectionLists.unshift(saved);
-  }else{
-    const index=inspectionLists.findIndex(list=>documentInActiveStore(list)&&String(list.id)===String(editingInspectionListId));
-    if(index<0){ showToast('ไม่พบรายการตรวจสินค้า','danger'); return false; }
-    if(inspectionLists[index].stockAdjustedAt){ showToast('รายการนี้บันทึกผลแล้ว','danger'); return false; }
-    inspectionLists[index]=saved;
+    draft.createdAt||=now;
+    saved.createdAt=draft.createdAt;
+    saved.updatedAt=draft.createdAt;
+    draft._clientCreateToken||=generateProductCreateToken();
+    saved._clientCreateToken=draft._clientCreateToken;
   }
-  persistWorkspaceData(); if(options.sync!==false) syncInspectionListsToSupabase();
+  if(!await commitInspectionList(saved,isNew?'create':'update'))return false;
+  if(!isStoreViewCurrent(view)||inspectionListDraft!==draft)return true;
   editingInspectionListId=null; inspectionListDraft=null; inspectionListSearchQuery=''; inspectionListCatFilter={wh:'',category:'',brand:''}; inspectionListPage=1;
   showToast('บันทึกรายการตรวจสินค้าแล้ว'); render(); return true;
 }
@@ -78,28 +77,29 @@ function clearInspectionListRuntimeReferences(id){
     stockEditSourcePending=false;
   }
 }
-function deleteInspectionListById(id){
+async function deleteInspectionListById(id){
   const list=inspectionLists.find(entry=>documentInActiveStore(entry)&&String(entry.id)===String(id));
   if(!list) return false;
   if(!confirm(`ต้องการลบรายการ “${list.name}” ใช่หรือไม่?`)) return false;
-  inspectionLists=inspectionLists.filter(entry=>String(entry.id)!==String(list.id));
-  clearInspectionListRuntimeReferences(list.id);
-  persistWorkspaceData();
-  syncInspectionListsToSupabase();
+  const view=captureStoreView();
+  if(!await commitInspectionList(list,'delete'))return false;
+  if(!isStoreViewCurrent(view))return true;
   showToast('ลบรายการตรวจสินค้าแล้ว');
   render();
   return true;
 }
-function deleteSelectedInspectionLists(){
+async function deleteSelectedInspectionLists(){
   const existingIds=new Set(inspectionLists.filter(documentInActiveStore).map(list=>String(list.id)));
   const selectedIds=new Set([...inspectionListOverviewSelectedIds].filter(id=>existingIds.has(String(id))).map(String));
   if(!selectedIds.size){ showToast('กรุณาติ๊กรายการที่ต้องการลบ','danger'); return false; }
   if(!confirm(`ต้องการลบรายการตรวจสินค้าที่เลือก ${selectedIds.size} รายการ ใช่หรือไม่?`)) return false;
-  inspectionLists=inspectionLists.filter(list=>!selectedIds.has(String(list.id)));
-  selectedIds.forEach(clearInspectionListRuntimeReferences);
-  inspectionListOverviewSelectedIds.clear();
-  persistWorkspaceData();
-  syncInspectionListsToSupabase();
+  const view=captureStoreView();
+  const selected=inspectionLists.filter(list=>documentInActiveStore(list)&&selectedIds.has(String(list.id)));
+  for(const list of selected){
+    if(!isStoreViewCurrent(view))return false;
+    if(!await commitInspectionList(list,'delete')){if(isStoreViewCurrent(view))render();return false;}
+  }
+  if(!isStoreViewCurrent(view))return true;
   showToast(`ลบรายการตรวจสินค้าแล้ว ${selectedIds.size} รายการ`);
   render();
   return true;

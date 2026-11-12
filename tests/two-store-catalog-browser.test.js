@@ -135,10 +135,10 @@ async function verifyMobileInspectionStoreIsolation(page){
       const pending=mobileInspectionSavedAddItems.map(item=>item.pid);
       const foreignProduct=otherWarehouseProducts.find(p=>p.id===(pid===11?12:11));
       const foreignAdd=addProductToMobileInspectionSavedDraft(foreignProduct);
-      const foreignDelete=deleteInspectionListById(other);
+      const foreignDelete=await deleteInspectionListById(other);
       mobileInspectionOpenedListId=other;
       const foreignSave=await saveMobileInspectionSavedAdd();
-      const foreignRemove=removeProductFromMobileInspection(other,pid);
+      const foreignRemove=await removeProductFromMobileInspection(other,pid);
       return {pending,foreignAdd,foreignDelete,foreignSave,foreignRemove,items:inspectionLists.find(l=>l.id===other).items};
     },{pid,other});
     assert.deepEqual(result,{pending:[pid],foreignAdd:false,foreignDelete:false,foreignSave:false,foreignRemove:false,items:[]});
@@ -146,8 +146,8 @@ async function verifyMobileInspectionStoreIsolation(page){
   // Finish an in-flight B save after switching to A. Its acknowledgement must not open B in A.
   await page.evaluate(()=>{
     mobileInspectionOpenedListId='B';
-    const original=syncInspectionListsToSupabase;
-    syncInspectionListsToSupabase=()=>new Promise(resolve=>{window.finishInspectionSave=()=>{syncInspectionListsToSupabase=original;resolve(true);};});
+    const original=commitInspectionList;
+    commitInspectionList=list=>new Promise(resolve=>{window.finishInspectionSave=()=>{commitInspectionList=original;inspectionLists[inspectionLists.findIndex(row=>row.id===list.id)]=list;resolve(true);};});
     window.savingInspection=saveMobileInspectionSavedAdd();
     selectActiveWarehouse(1);
     render();
