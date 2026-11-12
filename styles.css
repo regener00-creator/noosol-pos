@@ -1652,17 +1652,25 @@
   .pos-action.on{background:var(--surface);border-color:var(--border);color:var(--primary);font-weight:600;}
   .pos-action .pa-ic{font-size:16px;}
   .cash-bill-lookup{min-height:100%;display:grid;place-items:center;}
-  .cash-bill-lookup-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:start;gap:16px;width:min(100%,740px);}
+  .cash-bill-lookup-actions{--step-gap:44px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:start;gap:var(--step-gap);width:min(100%,796px);}
   .cash-bill-lookup-actions> *{box-sizing:border-box;width:100%;height:96px;min-width:0;}
   .cash-bill-lookup-actions>#searchCashBillOrderBtn,.cash-bill-number-entry{background:#fff;}
-  .cash-bill-number-entry{display:grid;grid-template-rows:1fr 1fr;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
-  .cash-bill-number-entry .btn,.cash-bill-number-entry input{width:100%;min-width:0;box-sizing:border-box;border:0;border-radius:0;background:transparent;text-align:center;}
-  .cash-bill-number-entry input{padding:4px 10px;font:inherit;}
+  .cash-bill-number-entry{position:relative;display:grid;grid-template-rows:1fr 1fr;padding:4px 10px 8px;border:1px solid var(--border);border-radius:12px;}
+  .cash-bill-number-entry::before,.cash-bill-number-entry::after{content:"";position:absolute;top:50%;width:28px;height:12px;transform:translate(-50%,-50%);background:var(--primary);clip-path:polygon(0 42%,72% 42%,72% 0,100% 50%,72% 100%,72% 58%,0 58%);pointer-events:none;}
+  .cash-bill-number-entry::before{left:calc(0px - var(--step-gap)/2 - 1px);}
+  .cash-bill-number-entry::after{left:calc(100% + var(--step-gap)/2 + 1px);}
+  .cash-bill-number-entry .btn{border:0;background:transparent;}
+  .cash-bill-number-entry input{width:100%;min-width:0;box-sizing:border-box;padding:4px 10px;border:1px solid var(--border);border-radius:8px;background:var(--bg);text-align:center;font:inherit;}
   .cash-bill-number-entry :focus-visible{outline-offset:-3px;}
   .history-table tr[data-pick-cash-bill]{cursor:pointer;}
   .history-table tr[data-pick-cash-bill]:hover{background:var(--primary-soft);}
   .cash-bill-history-number{border:0;background:transparent;font:inherit;color:inherit;cursor:pointer;padding:0;}
-  @media(max-width:640px){.cash-bill-lookup-actions{grid-template-columns:1fr;max-width:320px;}}
+  @media(max-width:640px){
+    .cash-bill-lookup-actions{grid-template-columns:1fr;max-width:320px;}
+    .cash-bill-number-entry::before,.cash-bill-number-entry::after{left:50%;transform:translate(-50%,-50%) rotate(90deg);}
+    .cash-bill-number-entry::before{top:calc(0px - var(--step-gap)/2 - 1px);}
+    .cash-bill-number-entry::after{top:calc(100% + var(--step-gap)/2 + 1px);}
+  }
   .pos-sales-history-modal{width:min(1480px,96vw);max-width:96vw;height:min(88vh,900px);max-height:88vh;}
   .pos-sales-history-modal>.modal-head{flex:0 0 auto;padding:18px 22px 14px;border-bottom:1px solid var(--border);}
   .pos-sales-history-modal>.modal-head h3{font-size:21px;}
