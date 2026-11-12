@@ -739,13 +739,13 @@ function renderRInventory(){
       <div class="rpf-item"><select id="srCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${catf.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></div>
       <div class="rpf-item"><select id="srBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(b=>`<option value="${escapeHtml(b)}" ${catf.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select></div>
       <button class="btn ghost" id="srAddByCategoryBtn" ${(catf.wh||catf.category||catf.brand)?'':'disabled'}>เลือกสินค้าในตัวกรองนี้${(catf.wh||catf.category||catf.brand)?` (${matchCount})`:''}</button>
+      <div class="stock-report-search">
+        <input id="srInput" class="rpt-select" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." autocomplete="off">
+        <div id="srResults" class="fav-add-results" hidden></div>
+      </div>
       <div class="stock-report-column-controls"><span>แสดงคอลัมน์</span><label><input id="srShowSku" type="checkbox" ${stockReportColumns.sku!==false?'checked':''}> รหัสสินค้า</label><label><input id="srShowBarcode" type="checkbox" ${stockReportColumns.barcode!==false?'checked':''}> บาร์โค้ด</label><label><input id="srShowPrice" type="checkbox" ${stockReportColumns.price?'checked':''}> ขาย</label>${!isLevel2User()?`<label><input id="srShowCost" type="checkbox" ${stockReportColumns.cost?'checked':''}> ทุน</label>`:''}</div>
     </div>
     <div id="stockReportSelectedWrap">${stockReportSelectedItemsHtml()}</div>
-    <div style="position:relative;margin-bottom:14px;">
-      <input id="srInput" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." style="width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;" autocomplete="off">
-      <div id="srResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div>
-    </div>
     <div class="stock-report-table-scroll app-table-scroll-region"><table class="grid-table doc-head-blue stock-report-table"><thead>${stockReportHeadersHtml()}</thead>
     <tbody id="srTbody">${stockReportRowsHtml()}</tbody></table></div>
   </div>

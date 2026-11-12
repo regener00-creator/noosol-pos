@@ -49,6 +49,8 @@ let browser;
   assert.deepEqual(await headers(),['รหัสสินค้า','บาร์โค้ด','สินค้า','ขาย','ทุน','คงเหลือ','']);
   assert.deepEqual(await page.locator('.stock-report-filters > .stock-report-column-controls input').evaluateAll(inputs=>inputs.map(input=>input.id)),['srShowSku','srShowBarcode','srShowPrice','srShowCost']);
   const categoryBox=await page.locator('#srCategorySelect').boundingBox(),columnsBox=await page.locator('.stock-report-column-controls').boundingBox();
+  const pickBox=await page.locator('#srAddByCategoryBtn').boundingBox(),searchBox=await page.locator('#srInput').boundingBox();
+  assert.ok(searchBox.x>=pickBox.x+pickBox.width && Math.abs(searchBox.y+searchBox.height/2-pickBox.y-pickBox.height/2)<2,'search follows the filter picker on the same desktop row');
   assert.ok(Math.abs(categoryBox.y+categoryBox.height/2-columnsBox.y-columnsBox.height/2)<2,'column controls share the category row on desktop');
   assert.equal(await page.locator('[data-sr-row="101"] .stock-report-stock').innerText(),'2 กล่อง 3 แผง 7 เม็ด');
   assert.equal(await page.locator('[data-sr-row="103"] .stock-report-stock').innerText(),'-1 กล่อง 2 แผง 7 เม็ด');
