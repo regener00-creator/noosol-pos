@@ -112,20 +112,18 @@ function renderCheckout(){
   }
 
   return `${shiftBanner}
+    <div class="pos-searchrow">
+      <div class="pos-search"><span class="pos-bc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg></span><input id="search" aria-label="ค้นหาสินค้า" placeholder="กดปุ่ม CTRL เพื่อกลับมาช่องค้นหา" value="${escapeHtml(searchQuery)}" autocomplete="off"></div>
+      <button class="pos-smallest-unit-btn ${posSmallestUnitOnce?'active':''}" id="posSmallestUnitBtn" type="button" aria-pressed="${posSmallestUnitOnce?'true':'false'}"><kbd>Home</kbd><span>หน่วยเล็กสุด</span></button>
+    </div>
+    ${posSmallestUnitOnce?'<div class="pos-smallest-unit-status"><span class="pos-smallest-unit-status-dot"></span><strong>พร้อมขายหน่วยเล็กสุด</strong><span>ยิงหรือเลือกสินค้า 1 รายการ · กด Home หรือ Esc เพื่อยกเลิก</span></div>':''}
+    ${searchQuery ? renderSearchResults() : ''}
     <div class="pos-grid">
-      <div class="pos-cart-column">
-        <div class="pos-searchrow pos-search-controls">
-          <div class="pos-search"><span class="pos-bc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg></span><input id="search" aria-label="ค้นหาสินค้า" placeholder="กดปุ่ม CTRL เพื่อกลับมาช่องค้นหา" value="${escapeHtml(searchQuery)}" autocomplete="off"></div>
-          <button class="pos-smallest-unit-btn ${posSmallestUnitOnce?'active':''}" id="posSmallestUnitBtn" type="button" aria-pressed="${posSmallestUnitOnce?'true':'false'}"><kbd>Home</kbd><span>หน่วยเล็กสุด</span></button>
-        </div>
-        ${posSmallestUnitOnce?'<div class="pos-smallest-unit-status"><span class="pos-smallest-unit-status-dot"></span><strong>พร้อมขายหน่วยเล็กสุด</strong><span>ยิงหรือเลือกสินค้า 1 รายการ · กด Home หรือ Esc เพื่อยกเลิก</span></div>':''}
-        ${searchQuery ? renderSearchResults() : ''}
-        <div class="pos-left">
-          <div class="pos-title-row"><div class="pos-title">รายการที่ : ${posDailySaleNumber()}</div><button class="btn ghost" id="addCustomItemBtn">+ รายการกรอกเอง</button></div>
-          <datalist id="inlineCustomUnits">${units.map(unit=>`<option value="${escapeHtml(unit)}">`).join('')}</datalist><table class="grid-table pos-table"><colgroup><col class="pt-idx"><col class="pt-barcode"><col class="pt-name"><col class="pt-price"><col class="pt-unit"><col class="pt-qty"><col class="pt-total"><col class="pt-del"></colgroup><thead><tr><th>รายการที่</th><th>บาร์โค้ดสินค้า</th><th>ชื่อ</th><th>ราคา</th><th>หน่วย</th><th>จำนวน</th><th>รวม</th><th></th></tr></thead>
-          <tbody>${rowsHtml}</tbody></table>
-          ${favHtml}
-        </div>
+      <div class="pos-left">
+        <div class="pos-title-row"><div class="pos-title">รายการที่ : ${posDailySaleNumber()}</div><button class="btn ghost" id="addCustomItemBtn">+ รายการกรอกเอง</button></div>
+        <datalist id="inlineCustomUnits">${units.map(unit=>`<option value="${escapeHtml(unit)}">`).join('')}</datalist><table class="grid-table pos-table"><colgroup><col class="pt-idx"><col class="pt-barcode"><col class="pt-name"><col class="pt-price"><col class="pt-unit"><col class="pt-qty"><col class="pt-total"><col class="pt-del"></colgroup><thead><tr><th>รายการที่</th><th>บาร์โค้ดสินค้า</th><th>ชื่อ</th><th>ราคา</th><th>หน่วย</th><th>จำนวน</th><th>รวม</th><th></th></tr></thead>
+        <tbody>${rowsHtml}</tbody></table>
+        ${favHtml}
       </div>
       <div class="pos-right">
         <div class="pos-customer-slot">

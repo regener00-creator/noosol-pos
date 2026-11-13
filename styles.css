@@ -556,14 +556,11 @@
   .tabbtn.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600;}
   /* checkout page */
   .grid2{display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start;}
-  .pos-cart-column{min-width:0;}
   .pos-search{display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:9px;overflow:hidden;}
   .pos-search .pos-bc{padding:0 12px;color:var(--text-muted);display:flex;align-items:center;border-left:1px solid var(--border);}
   .pos-search input{flex:1;border:none;outline:none;padding:12px 14px;font-family:inherit;font-size:14.5px;background:transparent;}
-  .pos-searchrow{margin-bottom:10px;}
-  .pos-search-controls{display:flex;align-items:stretch;gap:10px;min-width:0;}
-  .pos-search-controls .pos-search{flex:1;min-width:0;}
-  .pos-search-controls .pos-search input{width:0;min-width:0;}
+  .pos-searchrow{display:grid;grid-template-columns:2.6fr 1fr;gap:18px;margin-bottom:10px;}
+  .pos-searchrow .pos-search input{min-width:0;}
   .pos-smallest-unit-btn{min-height:45px;padding:0 14px;border:1px solid var(--border);border-radius:9px;background:#fff;color:var(--primary);font-family:inherit;font-size:13.5px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;white-space:nowrap;transition:.15s ease;}
   .pos-smallest-unit-btn:hover{background:var(--primary-soft);}
   .pos-smallest-unit-btn.active{background:var(--primary);color:#fff;box-shadow:0 0 0 3px rgba(79,64,56,.14);}
@@ -1751,7 +1748,7 @@
   .sale-lot-correction-panel{margin:0 18px 16px;padding:13px 14px;border:1px solid #F0D39D;border-radius:10px;background:#FFF9EC;display:flex;align-items:center;justify-content:space-between;gap:14px;}.sale-lot-correction-panel h4{margin:0 0 3px;color:#7B5716;}.sale-lot-correction-panel p{margin:0;color:#806B45;font-size:12px;}.sale-lot-correction-log{margin:0 18px 16px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:#FAFBFC;}.sale-lot-correction-log h4{margin:0 0 8px;font-size:13px;}.sale-lot-correction-log-item{padding:7px 0;border-top:1px solid var(--border);font-size:12px;line-height:1.55;}.sale-lot-correction-log-item:first-of-type{border-top:0;}.sale-lot-correction-form{padding:0 18px 18px;overflow-y:auto;}.sale-lot-correction-warning{padding:11px 13px;border:1px solid #F0D39D;border-radius:9px;background:#FFF8E8;color:#7B5716;font-size:12.5px;margin-bottom:14px;}.sale-lot-correction-preview{padding:11px 13px;border-radius:9px;background:var(--primary-soft);color:var(--primary-dark);font-size:12.5px;line-height:1.6;margin-top:12px;}.sale-lot-correction-grid{display:grid;grid-template-columns:1fr 1fr;gap:13px;}.sale-lot-correction-grid .wide{grid-column:1/-1;}@media(max-width:700px){.sale-lot-correction-panel{align-items:stretch;flex-direction:column;}.sale-lot-correction-grid{grid-template-columns:1fr;}.sale-lot-correction-grid .wide{grid-column:auto;}}
   .tax-customer-form{display:grid;grid-template-columns:1fr 1fr;gap:12px 14px;padding:0 20px 18px;}.tax-customer-form .wide{grid-column:1/-1;}.tax-customer-form label{display:block;font-size:12px;font-weight:600;margin-bottom:5px;}.tax-customer-form input,.tax-customer-form select,.tax-customer-form textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-family:inherit;font-size:13px;}.tax-customer-form input[readonly]{background:var(--bg);color:var(--text-muted);}.tax-lock-note{grid-column:1/-1;padding:9px 11px;border-radius:8px;background:#FFF4D8;color:#76520A;font-size:12px;}.issued-doc-card{margin:0 20px 18px;padding:14px;border:1px solid var(--border);border-radius:10px;background:var(--bg);}.issued-doc-card strong{display:block;font-size:17px;color:var(--primary-dark);margin-bottom:6px;}.issued-doc-card div{font-size:12.5px;line-height:1.7;}
   @media(max-width:700px){.history-doc-buttons,.tax-customer-form{grid-template-columns:1fr}.tax-customer-form .wide{grid-column:auto}}
-  @media (max-width:960px){ .pos-grid{grid-template-columns:1fr;} .pos-right{position:static;} }
+  @media (max-width:960px){ .pos-searchrow,.pos-grid{grid-template-columns:1fr;} .pos-right{position:static;} }
 
   .customer-pricing-panel{margin-top:14px}
   .customer-pricing-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:14px}

@@ -20,10 +20,8 @@ let browser;
   const page=await browser.newPage({viewport:{width:1920,height:1080}});
   const errors=[];
   page.on('pageerror',error=>errors.push(error.message));
-  await page.route('https://**/*',route=>{
-    if(route.request().url().includes('/npm/@supabase/')) return route.fulfill({contentType:'text/javascript',body:`(()=>{const query=new Proxy({}, {get(t,p){if(p==='then')return resolve=>resolve({data:null,error:null});return ()=>query;}});window.supabase={createClient:()=>new Proxy({auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})}},{get(t,p){return p in t?t[p]:()=>query;}})};})();`});
-    return route.fulfill({contentType:'text/css',body:''});
-  });
+  await page.route('https://**/*',route=>route.fulfill({contentType:'text/css',body:''}));
+  await page.route(/\/npm\/@supabase\/|\/vendor\/supabase\.js/,route=>route.fulfill({contentType:'text/javascript',body:`(()=>{const query=new Proxy({}, {get(t,p){if(p==='then')return resolve=>resolve({data:null,error:null});return ()=>query;}});window.supabase={createClient:()=>new Proxy({auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})}},{get(t,p){return p in t?t[p]:()=>query;}})};})();`}));
   await page.goto(`http://127.0.0.1:${server.address().port}/`,{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>typeof renderCheckout==='function');
   await page.evaluate(()=>{
@@ -73,17 +71,19 @@ let browser;
     assert.ok(layout.pay.right<layout.hold.right&&layout.hold.right<layout.clear.right,'checkout, hold and delete are ordered from left to right');
     assert.deepEqual(layout.columns,[['center','center'],['center','center'],['center','center']]);
     assert.ok(layout.nameWidth>150,`name must have usable space at ${width}px: ${layout.nameWidth}`);
-    assert.ok(layout.home.right<=layout.left+1&&layout.home.right>layout.search.right,'Home follows search within the left column');
+    assert.ok(layout.home.right-layout.home.width>layout.left,'Home sits in the right column');
     const summaryLayout=await page.evaluate(()=>{
       const bounds=element=>element.getBoundingClientRect();
-      const topGap=bounds(document.querySelector('.pos-search')).top-bounds(document.getElementById('openCustomerPickerBtn')).top;
+      const home=bounds(document.getElementById('posSmallestUnitBtn')),customer=bounds(document.getElementById('openCustomerPickerBtn'));
+      const topGap=bounds(document.querySelector('.pos-search')).top-home.top;
+      const aboveCustomer=home.bottom<=customer.top && Math.abs(home.left-customer.left)<1 && Math.abs(home.right-customer.right)<1;
       const inline=[...document.querySelectorAll('.pos-subtotal-discount .sumrow')].every(row=>{
         const label=bounds(row.firstElementChild), amount=bounds(row.lastElementChild);
         return label.right<=amount.left && amount.right<=bounds(row).right && Math.abs(label.top+label.height/2-amount.top-amount.height/2)<2;
       });
-      return {topGap,inline};
+      return {topGap,inline,aboveCustomer};
     });
-    assert.ok(Math.abs(summaryLayout.topGap)<1 && summaryLayout.inline,`search and right panel align and each amount fits beside its label at ${width}px`);
+    assert.ok(Math.abs(summaryLayout.topGap)<1 && summaryLayout.aboveCustomer && summaryLayout.inline,`Home aligns with search above the customer panel and each amount fits beside its label at ${width}px`);
     assert.ok(Math.abs((layout.subtotal.top+layout.subtotal.height/2)-(layout.discount.top+layout.discount.height/2))<2,`subtotal and discount amounts share one row at ${width}px: ${JSON.stringify(layout)}`);
   }
   await page.setViewportSize({width:1920,height:1080});
