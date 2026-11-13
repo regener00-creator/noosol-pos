@@ -124,6 +124,7 @@ async function verifyInspectionAndPriceLabels(page){
         await input.fill(prefix+'00000000001');
         assert.equal(await choice.count(),prefix===own?1:0,`${screen}: matches for ${prefix} in store ${store}`);
         if(screen!=='desktop') assert.equal(await input.evaluate(el=>getComputedStyle(el).textAlign),'center',field);
+        if(screen!=='desktop'&&prefix===own) assert.equal(await choice.evaluate(el=>getComputedStyle(el).textAlign),'center',result);
         if(tap) await choice.click();else await input.press('Enter');
         const selected=await page.evaluate(screen=>{
           if(screen==='price') return mobilePriceProductId?{pid:mobilePriceProductId,unit:mobilePriceUnitName}:null;
@@ -131,6 +132,7 @@ async function verifyInspectionAndPriceLabels(page){
         },screen);
         assert.deepEqual(selected,prefix===own?{pid:id,unit:'กล่อง'}:null,`${screen}: ${prefix}, tap=${tap}, store ${store}`);
         if(screen==='draft'&&tap&&prefix===own){
+          assert.equal(await page.locator('.mobile-draft-item-name').innerText(),await page.evaluate(id=>productById(id).name,id));
           assert.equal(await page.getByRole('button',{name:'ทิ้งร่างรายการตรวจสินค้า'}).count(),1);
           assert.doesNotMatch(await page.locator('.mobile-tool-panel').innerText(),/ยิงสินค้าเพื่อเพิ่มเข้ารายการ|เพิ่มแล้ว \d+ รายการ/);
           await page.evaluate(()=>{
@@ -324,6 +326,7 @@ async function verifyLastInspectionUnits(page){
     const results=page.locator('#mobileStockResults');
     await stockScanner.fill('Decol');
     assert.equal(await results.getByRole('button').count(),1);
+    assert.equal(await results.getByRole('button').evaluate(el=>getComputedStyle(el).textAlign),'center');
     await results.getByRole('button',{name:/Decolgen/}).click();
     assert.ok(await strip.evaluate(el=>el===document.activeElement));
     await stockScanner.fill('หกอหก');

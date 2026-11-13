@@ -543,8 +543,7 @@ function mobileInspectionDraftRowsHtml(){
   return `<div class="mobile-draft-list">${items.map((item,index)=>{
     const product=products.find(entry=>Number(entry.id)===Number(item.pid));
     if(!product) return '';
-    const selected=inspectionListSelectedOption(item,product);
-    return `<article class="mobile-draft-item"><div class="mobile-draft-item-name">${mobileInspectionProductTitle(product,selected.barcode)}</div><button type="button" class="mobile-draft-remove" data-mobile-draft-remove="${index}" aria-label="ลบ ${escapeHtml(product.name)}">×</button></article>`;
+    return `<article class="mobile-draft-item"><div class="mobile-draft-item-name">${escapeHtml(product.name)}</div><button type="button" class="mobile-draft-remove" data-mobile-draft-remove="${index}" aria-label="ลบ ${escapeHtml(product.name)}">×</button></article>`;
   }).join('')}</div>`;
 }
 let posSearchRenderTimer=null;
