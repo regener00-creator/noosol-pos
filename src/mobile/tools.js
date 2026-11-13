@@ -625,7 +625,12 @@ function renderMobileInspectionPanel(lists){
   const current=mobileInspectionCurrentList();
   const opened=current&&String(mobileInspectionOpenedListId)===String(current.id);
   const progress=opened?mobileInspectionProgress(current):{checked:0,total:0};
-  return `<section class="mobile-tool-panel"><button type="button" class="mobile-inspection-create-btn" id="mobileNewInspectionList">+ สร้างรายการตรวจสินค้า</button>${lists.length?`<div class="mobile-inspection-actions"><label class="mobile-inspection-saved-label">รายการที่บันทึกไว้<select id="mobileInspectionList" class="mobile-inspection-select">${lists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(current?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})${list.stockAdjustedAt?' · แก้ไขจำนวนเรียบร้อย':''}</option>`).join('')}</select></label><button type="button" class="mobile-inspection-action mobile-inspection-open" id="mobileOpenInspectionList">เปิด</button><button type="button" class="mobile-inspection-action mobile-inspection-remove" id="mobileDeleteInspectionList" aria-label="ลบบันทึก" title="ลบบันทึก" ${mobileIsOnline()?'':'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button></div>${current?.stockAdjustedAt?'<div class="mobile-inspection-complete">✓ แก้ไขจำนวนเรียบร้อย</div>':''}${opened?`${mobileInspectionAddingToSaved?mobileInspectionSavedAddHtml(current):'<button type="button" class="mobile-inspection-add-toggle" id="mobileInspectionAddToggle">+ เพิ่มสินค้าในรายการ</button>'}<div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div><button type="button" class="mobile-inspection-next" id="mobileContinueToStock">สรุปและแก้ไขสต็อก (${progress.total})</button>`:'<div class="mobile-empty">เลือกรายการแล้วกด “เปิด” เพื่อเริ่มตรวจสินค้า</div>'}`:'<div class="mobile-empty">ยังไม่มีรายการที่บันทึกไว้ กด “สร้างรายการตรวจสินค้า” เพื่อเริ่มยิงสินค้า</div>'}</section>`;
+  return `<section class="mobile-tool-panel">
+    <div class="mobile-inspection-actions">
+      <button type="button" class="mobile-inspection-create-btn" id="mobileNewInspectionList">+ สร้างรายการตรวจสินค้า</button>
+      ${lists.length?`<label class="mobile-inspection-saved-label">รายการที่บันทึกไว้<select id="mobileInspectionList" class="mobile-inspection-select">${lists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(current?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})${list.stockAdjustedAt?' · แก้ไขจำนวนเรียบร้อย':''}</option>`).join('')}</select></label><button type="button" class="mobile-inspection-action mobile-inspection-open" id="mobileOpenInspectionList">เปิด</button><button type="button" class="mobile-inspection-action mobile-inspection-remove" id="mobileDeleteInspectionList" aria-label="ลบบันทึก" title="ลบบันทึก" ${mobileIsOnline()?'':'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button>`:''}
+    </div>
+    ${lists.length?`${current?.stockAdjustedAt?'<div class="mobile-inspection-complete">✓ แก้ไขจำนวนเรียบร้อย</div>':''}${opened?`${mobileInspectionAddingToSaved?mobileInspectionSavedAddHtml(current):'<button type="button" class="mobile-inspection-add-toggle" id="mobileInspectionAddToggle">+ เพิ่มสินค้าในรายการ</button>'}<div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div><button type="button" class="mobile-inspection-next" id="mobileContinueToStock">สรุปและแก้ไขสต็อก (${progress.total})</button>`:'<div class="mobile-empty">เลือกรายการแล้วกด “เปิด” เพื่อเริ่มตรวจสินค้า</div>'}`:'<div class="mobile-empty">ยังไม่มีรายการที่บันทึกไว้ กด “สร้างรายการตรวจสินค้า” เพื่อเริ่มยิงสินค้า</div>'}</section>`;
 }
 function addProductToMobileInspectionSavedDraft(product,unitName=''){
   const list=mobileOpenedInspectionList();
@@ -716,9 +721,6 @@ function addProductToMobileStockEdit(product,unitName=''){
   if(!alreadyListed)stockEditItems.unshift(product.id);
   const selected=inspectionListUnitOptions(product).find(option=>option.name===unitName)||inspectionListUnitOptions(product)[0];
   stockEditRowUnitSel[product.id]=selected?.name||product.unit;
-  if(!alreadyListed&&stockEditRequiresReconciliation(product)&&!Object.prototype.hasOwnProperty.call(stockEditDraftStocks,product.id)){
-    stockEditDraftStocks[product.id]=Number(product.stock)||0;
-  }
   mobileStockQuery='';
   mobileStockLastProductId=product.id;
   render();
@@ -914,12 +916,9 @@ function stockEditMobileLotSelectionsReady(changes=stockEditPendingChanges()){
   });
 }
 function mobileStockEditLotHtml(product){
-  const hasDraft=Object.prototype.hasOwnProperty.call(stockEditDraftStocks,product.id);
-  const targetStock=hasDraft?Number(stockEditDraftStocks[product.id]):Number(product.stock);
+  if(!Object.hasOwn(stockEditDraftStocks,product.id)) return '';
+  const targetStock=Number(stockEditDraftStocks[product.id]);
   const lotDifference=targetStock-stockEditLotTotal(product.id);
-  if(!hasDraft&&Math.abs(lotDifference)<0.000001){
-    return '<div class="mobile-stock-lot-neutral">แก้จำนวนคงเหลือ แล้วเลือกว่าให้ปรับ LOT ใด</div>';
-  }
   if(Math.abs(lotDifference)<0.000001){
     return '<div class="mobile-stock-lot-neutral">ยอดรวม LOT ตรงกับจำนวนที่กรอกแล้ว</div>';
   }

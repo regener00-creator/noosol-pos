@@ -93,7 +93,7 @@ const addContext = {
 vm.createContext(addContext);
 vm.runInContext(html.slice(addStart, addEnd), addContext);
 addContext.addProductToMobileStockEdit({id:10,stock:720,unit:'กล่อง'});
-assert.equal(addContext.stockEditDraftStocks[10], 720, 'สินค้าที่สต็อกกับ LOT ไม่ตรงกันต้องสร้างรายการรอยืนยัน');
+assert.equal(Object.hasOwn(addContext.stockEditDraftStocks,10),false,'สแกนโดยยังไม่กรอกจำนวนต้องไม่เริ่มปรับ LOT');
 addContext.stockEditDraftStocks[10]=719;
 addContext.addProductToMobileStockEdit({id:10,stock:720,unit:'กล่อง'});
 assert.equal(addContext.stockEditDraftStocks[10], 719, 'การยิงซ้ำต้องไม่เขียนทับจำนวนที่ผู้ใช้แก้ไว้แล้ว');

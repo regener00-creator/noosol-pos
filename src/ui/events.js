@@ -565,8 +565,8 @@ function attachEvents(){
         return;
       }
       const newStock=stockBaseFromUnitAmount(amount,input.dataset.factor);
-      if(newStock===Number(product.stock)) delete stockEditDraftStocks[product.id];
-      else stockEditDraftStocks[product.id]=newStock;
+      if(newStock!==Number(product.stock)||stockEditRequiresReconciliation(product)) stockEditDraftStocks[product.id]=newStock;
+      else delete stockEditDraftStocks[product.id];
       if(stockEditSourceInspectionListId&&newStock!==Number(product.stock)) stockEditSourcePending=true;
       input.classList.toggle('pending',newStock!==Number(product.stock));
       refreshMobileStockLotControl(product.id);

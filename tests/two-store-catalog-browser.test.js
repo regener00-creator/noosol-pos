@@ -140,9 +140,18 @@ async function verifyInspectionAndPriceLabels(page){
           await page.locator('#mobileSaveInspectionDraft').click();
           await page.waitForFunction(()=>document.querySelector('#mobileInspectionList')?.value==='saved-mobile-test');
           assert.equal(await page.locator('#mobileInspectionInput, #mobileInspectionCamera').count(),0);
-          const controls=await page.locator('#mobileInspectionList, #mobileOpenInspectionList, #mobileDeleteInspectionList').evaluateAll(elements=>elements.map(el=>el.getBoundingClientRect().top));
-          assert.equal(controls.length,3);
-          assert.ok(Math.max(...controls)-Math.min(...controls)<1);
+          for(const width of [320,390]){
+            await page.setViewportSize({width,height:844});
+            const controls=await page.locator('.mobile-inspection-actions button, #mobileInspectionList').evaluateAll(elements=>elements.map(el=>{
+              const {left,right,top}=el.getBoundingClientRect();
+              return {id:el.id,left,right,top};
+            }));
+            assert.deepEqual(controls.map(el=>el.id),['mobileNewInspectionList','mobileInspectionList','mobileOpenInspectionList','mobileDeleteInspectionList']);
+            for(const [index,control] of controls.entries()){
+              assert.ok(Math.abs(control.top-controls[0].top)<1 && control.right>control.left && control.right<=width);
+              if(index) assert.ok(control.left>=controls[index-1].right);
+            }
+          }
         }
       }
     }

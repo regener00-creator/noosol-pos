@@ -2243,12 +2243,13 @@
   .mobile-search-result span{font-size:11.5px;color:var(--text-muted);}
   .mobile-empty{padding:28px 12px;text-align:center;color:var(--text-muted);font-size:13px;border:1px dashed #CCD5DE;border-radius:12px;}
   .mobile-inspection-select{width:100%;min-width:0;height:46px;border:1px solid var(--border);border-radius:12px;padding:0 8px;background:#fff;font:15px 'Sarabun',sans-serif;}
-  .mobile-inspection-actions{display:grid;grid-template-columns:minmax(0,min(58%,14rem)) repeat(2,46px);align-items:end;gap:6px;margin-bottom:14px;}
+  .mobile-inspection-actions{display:grid;grid-template-columns:minmax(0,min(32%,10rem)) minmax(0,1fr) repeat(2,46px);align-items:end;gap:6px;margin-bottom:14px;}
   .mobile-inspection-action{height:46px;border-radius:11px;font:700 14px 'Sarabun',sans-serif;cursor:pointer;}
   .mobile-inspection-open{width:100%;padding:0;border:0;background:var(--primary);color:#fff;}
   .mobile-inspection-actions .mobile-inspection-remove{width:46px;height:46px;}
   .mobile-inspection-complete{display:flex;align-items:center;justify-content:center;gap:6px;border:1px solid #9FD6AE;background:#F1FBF4;color:#277A3D;border-radius:10px;padding:9px 11px;margin-bottom:12px;font-size:13px;font-weight:700;}
-  .mobile-inspection-create-btn{width:100%;height:50px;border:0;border-radius:12px;background:var(--primary);color:#fff;font:700 15px 'Sarabun',sans-serif;cursor:pointer;margin-bottom:14px;}
+  .mobile-inspection-create-btn{min-width:0;height:46px;padding:0 4px;border:0;border-radius:11px;background:var(--primary);color:#fff;font:700 14px/1.25 'Sarabun',sans-serif;cursor:pointer;}
+  .mobile-inspection-create-btn:only-child{grid-column:1/-1;}
   .mobile-inspection-saved-label{min-width:0;display:grid;gap:4px;font-size:12px;font-weight:600;color:var(--text-muted);}
   .mobile-inspection-add-toggle{width:100%;height:46px;margin:0 0 12px;border:1px solid var(--primary);border-radius:11px;background:#fff;color:var(--primary);font:700 14px 'Sarabun',sans-serif;cursor:pointer;}
   .mobile-inspection-add-box{border:1px solid #E0D3CD;border-radius:13px;background:#FCF9F7;padding:12px;margin-bottom:12px;}
@@ -2314,6 +2315,7 @@
   .mobile-stock-remove{width:42px;height:46px;border:1px solid #F0C7C3;border-radius:10px;background:#fff;color:var(--danger);display:flex;align-items:center;justify-content:center;cursor:pointer;}
   .mobile-stock-remove svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
   .mobile-stock-lot{margin-top:11px;padding:11px;border:1px solid #E0D3CD;border-radius:11px;background:#FAF7F5;}
+  .mobile-stock-lot:empty{display:none;}
   .mobile-stock-lot-title{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:7px;}
   .mobile-stock-lot-title label{font-size:12px;font-weight:700;color:var(--primary-dark);}
   .mobile-stock-lot-difference{font-size:11.5px;font-weight:700;color:var(--primary);}
