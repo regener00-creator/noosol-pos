@@ -107,8 +107,8 @@ assert.doesNotMatch(mobileStockPanel, /ดึงรายการตรวจ�
 assert.doesNotMatch(mobileStockPanel, /แก้ตัวเลขแล้วสต็อกจะยังไม่เปลี่ยน/);
 assert.match(mobileStockPanel, /mobileInspectionScannerHtml\('mobileStock',mobileStockQuery\)/);
 assert.match(mobileStockPanel, /id="mobileStockResults"/);
-assert.match(mobileStockPanel, /class="mobile-stock-source"><button[^>]+id="mobileStockImport"[\s\S]*?<select id="mobileStockSourceList"/);
-assert.match(html, /\.mobile-stock-source\{display:grid;grid-template-columns:auto minmax\(0,1fr\);/);
+assert.match(mobileStockPanel, /class="mobile-stock-source">\s*<select id="mobileStockSourceList"[\s\S]*?<button[^>]+id="mobileStockImport"/);
+assert.match(html, /\.mobile-stock-source\{display:grid;grid-template-columns:minmax\(0,1fr\) auto;/);
 assert.match(mobileStockPanel, /\$\{mobileStockEditRowsHtml\(\)\}<div class="mobile-stock-confirm-wrap">/);
 assert.doesNotMatch(mobileStockPanel, /reasonHtml|mobile-stock-reason|stockEditReason|stockEditNote|เหตุผลการปรับสต็อก/);
 assert.doesNotMatch(html, /id="mobileToolsRefresh"/);

@@ -299,9 +299,11 @@ async function verifyLastInspectionUnits(page){
     assert.deepEqual(await page.evaluate(()=>[...mobileInspectionChecks(mobileInspectionOpenedListId)]),[[pid,'กล่อง']]);
     for(const code of ['BASE0','BASE1',own+'00000000001',foreign+'00000000001'])await scan(code);
     assert.deepEqual(await page.evaluate(()=>[...mobileInspectionChecks(mobileInspectionOpenedListId)]),[[pid,'กล่อง'],[pid+1,'แผง']]);
-    const progressColor=await page.locator('.mobile-inspection-progress').evaluate(el=>getComputedStyle(el).backgroundColor);
     await page.locator('#mobileContinueToStock').click();
-    assert.equal(await page.locator('.mobile-stock-source-note').evaluate(el=>getComputedStyle(el).backgroundColor),progressColor);
+    assert.equal(await page.getByText('รอยืนยันการแก้ไข',{exact:true}).count(),0);
+    const sourceBox=await page.locator('#mobileStockSourceList').boundingBox();
+    const importBox=await page.locator('#mobileStockImport').boundingBox();
+    assert.ok(sourceBox.x+sourceBox.width<=importBox.x && Math.abs(sourceBox.y-importBox.y)<1);
     const selectedUnit=(id=pid)=>page.evaluate(id=>stockEditRowUnitSel[id],id);
     assert.equal(await selectedUnit(),'กล่อง');
     assert.equal(await selectedUnit(pid+1),'แผง');
