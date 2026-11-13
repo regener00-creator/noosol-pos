@@ -2311,6 +2311,7 @@
   .mobile-stock-field{min-width:0;}
   .mobile-stock-field label{display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;}
   .mobile-stock-field b{display:block;font-size:14px;line-height:1.35;}
+  .mobile-stock-info-row > .mobile-stock-field + .mobile-stock-field > b{text-align:right;}
   .mobile-stock-product-name{overflow-wrap:anywhere;}
   .mobile-stock-amount{width:100%;height:46px;border:1px solid var(--border);border-radius:10px;background:#fff;padding:0 11px;font:15px 'Sarabun',sans-serif;}
   .mobile-stock-amount{text-align:center;font-weight:700;}
