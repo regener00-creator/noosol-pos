@@ -356,11 +356,18 @@ function renderStockControl(){
   const pendingCount=inspectionLists.filter(inspectionListAvailableForStockEdit).length;
   const anomalyCount=stockControlAnomalyRows().length;
   const content=stockControlMode==='count'?renderInspectionLists():stockControlMode==='adjust'?renderStockEdit():stockControlMode==='lots'?renderStockLotReallocation():renderStockControlAnomalies();
-  return `<div class="stock-control-page"><div class="stock-control-tabs" role="tablist" aria-label="งานตรวจนับและปรับสต็อก">
+  return `<div class="stock-control-page"><div class="stock-control-tabs"><div class="stock-control-tab-list" role="tablist" aria-label="งานตรวจนับและปรับสต็อก">
       <button type="button" class="stock-control-tab ${stockControlMode==='count'?'active':''}" data-stock-control-mode="count" role="tab" aria-selected="${stockControlMode==='count'}">ตรวจนับสินค้า</button>
       <button type="button" class="stock-control-tab ${stockControlMode==='adjust'?'active':''}" data-stock-control-mode="adjust" role="tab" aria-selected="${stockControlMode==='adjust'}">รอยืนยันปรับสต็อก <span class="stock-control-tab-count">${pendingCount}</span></button>
       <button type="button" class="stock-control-tab ${stockControlMode==='anomalies'?'active':''}" data-stock-control-mode="anomalies" role="tab" aria-selected="${stockControlMode==='anomalies'}">รายการผิดปกติ <span class="stock-control-tab-count">${anomalyCount}</span></button>
       ${currentProfile?.owner?`<button type="button" class="stock-control-tab ${stockControlMode==='lots'?'active':''}" data-stock-control-mode="lots" role="tab" aria-selected="${stockControlMode==='lots'}">ปรับจำนวนแยกตาม LOT</button>`:''}
+    </div>
+    ${stockControlMode==='count'&&editingInspectionListId===null?`<label class="stock-control-status-filter">สถานะ
+      <select class="rpt-select" id="inspectionListStatusFilter">
+        <option value="all"${inspectionListStatusFilter==='all'?' selected':''}>ทั้งหมด</option>
+        <option value="pending"${inspectionListStatusFilter==='pending'?' selected':''}>รอยืนยันปรับสต็อก</option>
+        <option value="completed"${inspectionListStatusFilter==='completed'?' selected':''}>บันทึกผลแล้ว</option>
+      </select></label>`:''}
     </div><div class="stock-control-content">${content}</div></div>`;
 }
 
