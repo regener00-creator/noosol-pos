@@ -50,7 +50,7 @@ function stockCountPartsMap(){
   if(!rows){rows=new Map();stockCountPartsByDraft.set(stockEditDraftStocks,rows);}
   return rows;
 }
-function stockCountPartsHtml(product,options,showTotal=true){
+function stockCountPartsHtml(product,options){
   const rows=stockCountPartsMap();
   let parts=rows.get(product.id);
   if(!parts){
@@ -71,13 +71,10 @@ function stockCountPartsHtml(product,options,showTotal=true){
   const fields=[...options].sort((a,b)=>b.factor-a.factor).map(unit=>
     `<label><span>${escapeHtml(unit.name)}</span><input class="stock-edit-stock-input" type="number" min="0" step="any" inputmode="decimal" placeholder="0" data-count-part="${product.id}" data-unit="${escapeHtml(unit.name)}" data-factor="${unit.factor}" value="${escapeHtml(parts.values.get(unit.name)||'')}" aria-label="จำนวนที่นับได้ ${escapeHtml(product.name)} หน่วย ${escapeHtml(unit.name)}"></label>`
   ).join('');
-  const total=parts.values.size?(stockEditDraftStocks[product.id]??product.stock):null;
-  return `<div class="stock-count-parts">${fields}<output aria-live="polite" ${showTotal?'data-show-total':''}>${escapeHtml(stockCountTotalText(product,total,parts.invalid,showTotal))}</output></div>`;
+  return `<div class="stock-count-parts">${fields}<output aria-live="polite">${stockCountValidationMessage(parts.invalid)}</output></div>`;
 }
-function stockCountTotalText(product,total,invalid,showTotal){
-  if(invalid)return 'กรุณากรอกจำนวนตั้งแต่ 0 ขึ้นไป';
-  if(!showTotal)return '';
-  return `รวม ${total==null?'—':Number(total).toLocaleString('th-TH',{maximumFractionDigits:6})} ${product.unit}`;
+function stockCountValidationMessage(invalid){
+  return invalid?'กรุณากรอกจำนวนตั้งแต่ 0 ขึ้นไป':'';
 }
 function stockCountHasInvalidParts(){
   return [...stockCountPartsMap().values()].some(parts=>parts.invalid);
@@ -99,7 +96,7 @@ function updateStockCountParts(product,host){
   else delete stockEditDraftStocks[product.id];
   if(stockEditSourceInspectionListId&&total!=null&&total!==Number(product.stock))stockEditSourcePending=true;
   const output=host.querySelector('output');
-  output.textContent=stockCountTotalText(product,total,parts.invalid,output.hasAttribute('data-show-total'));
+  output.textContent=stockCountValidationMessage(parts.invalid);
 }
 function stockCountDifferenceHtml(product,baseStock){
   const difference=Number((Number(baseStock)-Number(product.stock)).toFixed(6));
@@ -126,7 +123,7 @@ function stockEditRowsHtml(rows=stockEditCurrentProducts()){
       <td>${escapeHtml(p.name)}</td>
       <td style="text-align:center;">${unitHtml}</td>
       <td class="mono" style="text-align:center;">${escapeHtml(stockInLargestUnit(p))}</td>
-      <td style="text-align:center;">${unitOptions.length>1?stockCountPartsHtml(p,unitOptions,false):`<input type="number" min="0" step="any" class="stock-edit-stock-input ${Number(selectedBaseStock)<0?'stock-negative':''} ${hasDraft?'stock-edit-pending':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="จำนวนที่นับได้ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="กรอกจำนวนที่นับได้จริง แล้วกดยืนยันเพื่อบันทึก">`}</td>
+      <td style="text-align:center;">${unitOptions.length>1?stockCountPartsHtml(p,unitOptions):`<input type="number" min="0" step="any" class="stock-edit-stock-input ${Number(selectedBaseStock)<0?'stock-negative':''} ${hasDraft?'stock-edit-pending':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="จำนวนที่นับได้ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="กรอกจำนวนที่นับได้จริง แล้วกดยืนยันเพื่อบันทึก">`}</td>
       <td style="text-align:center;" data-stock-count-difference>${differenceHtml}</td>
       <td class="stock-control-lot-cell">${stockEditLotControlHtml(p,differenceBase)}</td>
       <td style="text-align:center;"><button class="stock-edit-remove-btn" tabindex="-1" data-stock-edit-remove="${p.id}" title="ลบ ${escapeHtml(p.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(p.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td>
