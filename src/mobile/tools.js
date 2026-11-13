@@ -467,12 +467,11 @@ function mobileInspectionItemHtml(entry,checks,latest){
   const selected=inspectionListSelectedOption(entry.item,entry.product,checks.get(pid));
   const stockText=stockReportQuantityText(entry.product,warehouseStock(pid,activeWarehouseId));
   return `<article class="mobile-inspection-item ${checked?'checked':''} ${latest?'latest':''}" data-mobile-inspection-item="${entry.product.id}">
-    <div class="mobile-inspection-item-head"><span class="mobile-inspection-check">${checked?'✓':'·'}</span><div class="mobile-inspection-item-name">${escapeHtml(entry.product.name)}</div><button type="button" class="mobile-inspection-remove" data-mobile-inspection-remove="${entry.product.id}" aria-label="ลบ ${escapeHtml(entry.product.name)} ออกจากรายการ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button></div>
-    <div class="mobile-inspection-item-data">
-      <div><span>รหัสสินค้า</span><b>${escapeHtml(entry.product.sku||'-')}</b></div>
-      <div><span>บาร์โค้ด</span><b>${escapeHtml(selected.barcode||'-')}</b></div>
-      <div class="mobile-inspection-stock"><span>คงเหลือ</span><b>${escapeHtml(stockText)}</b></div>
+    <div class="mobile-inspection-item-head">
+      <strong class="mobile-inspection-item-name">${checked?'<span class="mobile-inspection-check" role="img" aria-label="ตรวจแล้ว">✓</span> ':''}${selected.barcode?escapeHtml(selected.barcode)+' : ':''}${escapeHtml(entry.product.name)}</strong>
+      <button type="button" class="mobile-inspection-remove" data-mobile-inspection-remove="${entry.product.id}" aria-label="ลบ ${escapeHtml(entry.product.name)} ออกจากรายการ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button>
     </div>
+    <div class="mobile-inspection-stock">คงเหลือ : <b>${escapeHtml(stockText)}</b></div>
   </article>`;
 }
 function mobileInspectionScannerHtml(prefix='mobileInspection',query=mobileInspectionQuery){

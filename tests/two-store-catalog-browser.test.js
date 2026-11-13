@@ -208,6 +208,7 @@ async function verifyLastInspectionUnits(page){
   const picker=page.locator('#mobileWarehouseSelect');
   for(const width of [320,390]){
     await page.setViewportSize({width,height:844});
+    await picker.waitFor({state:'visible'});
     const warehouse=await picker.boundingBox();
     const dot=page.locator('#mobileDataStatus');
     const status=await dot.boundingBox();
@@ -233,10 +234,16 @@ async function verifyLastInspectionUnits(page){
     await page.locator('#mobileOpenInspectionList').click();
     const input=page.locator('#mobileInspectionInput');
     const scan=async code=>{ await input.fill(code);await input.press('Enter'); };
-    const balance=page.locator(`[data-mobile-inspection-item="${pid}"] .mobile-inspection-stock b`);
+    const card=page.locator(`[data-mobile-inspection-item="${pid}"]`);
+    const balance=card.locator('.mobile-inspection-stock b');
     const expectedBalance=store===1?'1 ลัง 2 กล่อง 3 แผง':'2 ลัง 3 แผง';
     assert.equal(await balance.innerText(),expectedBalance);
+    assert.equal(await card.locator('.mobile-inspection-item-name').innerText(),'BASE0 : Decolgen');
+    assert.equal(await card.locator('.mobile-inspection-check').count(),0);
+    assert.doesNotMatch(await card.innerText(),/รหัสสินค้า|SKU0/);
     await scan('BOX0');
+    assert.equal(await card.locator('.mobile-inspection-item-name').innerText(),'✓ BOX0 : Decolgen');
+    assert.equal(await card.getByRole('img',{name:'ตรวจแล้ว'}).evaluate(el=>getComputedStyle(el).color),'rgb(35, 122, 59)');
     assert.equal(await balance.innerText(),expectedBalance,'Scanning a box keeps the full balance in packing units');
     assert.deepEqual(await page.evaluate(()=>[...mobileInspectionChecks(mobileInspectionOpenedListId)]),[[pid,'กล่อง']]);
     for(const code of ['BASE0','BASE1',own+'00000000001',foreign+'00000000001'])await scan(code);

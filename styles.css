@@ -2289,14 +2289,9 @@
   .mobile-inspection-item-head{display:flex;align-items:flex-start;gap:9px;}
   .mobile-inspection-remove{width:34px;height:34px;flex:0 0 34px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #F0C7C3;border-radius:9px;background:#fff;color:var(--danger);cursor:pointer;}
   .mobile-inspection-remove svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
-  .mobile-inspection-check{width:24px;height:24px;border-radius:50%;background:#EEE8E5;color:var(--text-muted);display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;margin-top:1px;}
-  .mobile-inspection-item.checked .mobile-inspection-check{background:#3A9B56;color:#fff;}
-  .mobile-inspection-item-name{font-size:14px;font-weight:600;line-height:1.35;flex:1;}
-  .mobile-inspection-item-data{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin:10px 0 0 33px;}
-  .mobile-inspection-item-data div{font-size:11.5px;color:var(--text-muted);min-width:0;}
-  .mobile-inspection-item-data b{display:block;color:var(--text);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px;}
-  .mobile-inspection-stock{grid-column:1/-1;background:#F6F1EF;border-radius:8px;padding:8px 10px!important;}
-  .mobile-inspection-stock b{color:var(--primary);font-size:16px!important;white-space:normal;overflow-wrap:anywhere;}
+  .mobile-inspection-check{color:#237A3B;font-weight:700;}
+  .mobile-inspection-item-name{font-size:14px;font-weight:700;line-height:1.35;flex:1;min-width:0;overflow-wrap:anywhere;}
+  .mobile-inspection-stock{margin-top:5px;font-size:14px;overflow-wrap:anywhere;}
   .mobile-load-more{width:100%;height:46px;margin-top:12px;border:1px solid var(--primary);border-radius:11px;background:#fff;color:var(--primary);font:600 14px 'Sarabun',sans-serif;cursor:pointer;}
   .mobile-stock-source{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;margin-bottom:14px;}
   .mobile-stock-source select{min-width:0;height:48px;border:1px solid var(--border);border-radius:11px;background:#fff;padding:0 10px;font:14px 'Sarabun',sans-serif;}
