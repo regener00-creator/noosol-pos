@@ -41,6 +41,7 @@ vm.runInContext(html.slice(mobileStart, mobileEnd), context);
 const increaseChange = [{product, newStock:12}];
 assert.equal(context.stockEditMobileLotSelectionsReady(increaseChange), false, 'เพิ่มสต็อกต้องยังยืนยันไม่ได้จนกว่าจะเลือก LOT');
 const chooseHtml = context.mobileStockEditLotHtml(product);
+assert.doesNotMatch(chooseHtml,/mobile-stock-lot-difference|เลือก LOT เดิมให้ตรงกับสินค้าที่พบ/);
 assert.match(chooseHtml, /เลือก LOT ที่จะเพิ่ม/);
 assert.match(chooseHtml, /LOT-A · หมดอายุ 01-05-2027 · เหลือ 6 กล่อง/);
 assert.doesNotMatch(chooseHtml, /OTHER-WH/);

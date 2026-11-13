@@ -269,7 +269,9 @@ async function verifyLastInspectionUnits(page){
     await list.selectOption('check'+store);
     await page.locator('#mobileOpenInspectionList').click();
     assert.equal(await page.locator('#mobileInspectionInput, #mobileInspectionCamera').count(),0);
-    assert.equal(await page.locator('#mobileOpenInspectionList').innerText(),'เปิด');
+    assert.equal(await page.locator('#mobileNewInspectionList').innerText(),'+ สร้างรายการ');
+    assert.equal(await page.locator('.mobile-inspection-separator').innerText(),'|');
+    assert.equal(await page.getByRole('button',{name:'เปิดรายการ',exact:true}).locator('svg').count(),1);
     assert.equal(await page.getByRole('button',{name:'ลบบันทึก',exact:true}).innerText(),'');
     const scan=async code=>{ await page.keyboard.type(code);await page.keyboard.press('Enter'); };
     const card=page.locator(`[data-mobile-inspection-item="${pid}"]`);
