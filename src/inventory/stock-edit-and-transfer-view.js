@@ -146,7 +146,7 @@ function updateStockCountParts(product,host){
 function stockCountDifferenceHtml(product,baseStock){
   const difference=Number((Number(baseStock)-Number(product.stock)).toFixed(6));
   if(difference!==0)return `<span class="stock-control-difference ${difference>0?'in':'out'}">${difference>0?'+':''}${escapeHtml(stockInLargestUnit(product,difference))}</span>`;
-  return stockEditRequiresReconciliation(product)?'<span class="stock-control-difference out">ปรับ LOT</span>':'-';
+  return stockEditRequiresReconciliation(product)?'<span class="stock-control-difference reconcile">ปรับ LOT</span>':'-';
 }
 
 function stockEditRowsHtml(rows=stockEditCurrentProducts()){
