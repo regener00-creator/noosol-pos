@@ -181,6 +181,9 @@ let browser;
   });
   const singleField=await page.locator('[data-stock-edit-amount="60"]').boundingBox();
   const multiField=await box.boundingBox();
+  const gaps=await page.locator('#stockEditTbody label:has(input[data-count-part]),#stockEditTbody label.stock-count-single').evaluateAll(labels=>
+    labels.map(label=>label.querySelector('input').getBoundingClientRect().left-label.querySelector('span').getBoundingClientRect().right));
+  assert.ok(gaps.length>3&&gaps.every(gap=>gap>=4&&gap<=6),'each desktop unit sits next to its quantity input');
   assert.ok(Math.abs(singleField.x-multiField.x)<1&&Math.abs(singleField.width-multiField.width)<1,'single and multi-unit quantity fields line up');
   const lotField=await page.locator('[data-stock-edit-new-lot="55"]').boundingBox();
   const expiryField=await page.locator('[data-stock-edit-new-expiry="55"]').boundingBox();
@@ -205,8 +208,8 @@ let browser;
       page.locator('[data-count-part="55"][data-unit="ลัง"]').boundingBox(),box.boundingBox(),sachet.boundingBox()
     ]);
     assert.equal(await page.locator('[data-mobile-stock-item="60"] .stock-count-single span').innerText(),'ชิ้น');
-    assert.ok(Math.abs(single.x-bag.x)<1&&Math.abs(single.width-bag.width)<1,'mobile single unit aligns with first unit at '+width+'px');
-    assert.ok(bag.x+bag.width<=multi.x&&multi.x+multi.width<=carton.x);
+    assert.ok(Math.abs(single.x-carton.x)<1&&Math.abs(single.width-carton.width)<1,'mobile single unit aligns with first unit at '+width+'px');
+    assert.ok(carton.x+carton.width<=multi.x&&multi.x+multi.width<=bag.x);
     assert.ok(Math.abs(carton.y-multi.y)<1&&Math.abs(multi.y-bag.y)<1,'all three units remain on one line at '+width+'px');
   }
   assert.equal(await total.isVisible(),false);

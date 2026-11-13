@@ -3009,6 +3009,7 @@
 .stock-count-parts{display:grid;gap:4px;min-width:96px}
 .stock-count-parts label,label.stock-count-single{display:grid;grid-template-columns:minmax(36px,1fr) minmax(44px,1fr);align-items:center;gap:5px;text-align:start}
 .stock-count-single{min-width:96px}
+#stockEditTbody :is(.stock-count-parts label,.stock-count-single)>span{justify-self:end;text-align:end}
 .stock-count-parts label input,.stock-count-single input{grid-column:2;width:100%;min-width:0;box-sizing:border-box;padding:4px 6px}
 .stock-count-parts output{font-size:13px;font-weight:600;text-align:center}
 .stock-count-parts output:empty{display:none;}

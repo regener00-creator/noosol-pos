@@ -95,7 +95,7 @@ function stockCountPartsMap(){
   if(!rows){rows=new Map();stockCountPartsByDraft.set(stockEditDraftStocks,rows);}
   return rows;
 }
-function stockCountPartsHtml(product,options,{smallestFirst=false}={}){
+function stockCountPartsHtml(product,options){
   const rows=stockCountPartsMap();
   let parts=rows.get(product.id);
   if(!parts){
@@ -113,7 +113,7 @@ function stockCountPartsHtml(product,options,{smallestFirst=false}={}){
     }
     rows.set(product.id,parts);
   }
-  const fields=[...options].sort((a,b)=>smallestFirst?a.factor-b.factor:b.factor-a.factor).map(unit=>
+  const fields=[...options].sort((a,b)=>b.factor-a.factor).map(unit=>
     `<label><span>${escapeHtml(unit.name)}</span><input class="stock-edit-stock-input" type="number" min="0" step="any" inputmode="decimal" placeholder="0" data-count-part="${product.id}" data-unit="${escapeHtml(unit.name)}" data-factor="${unit.factor}" value="${escapeHtml(parts.values.get(unit.name)||'')}" aria-label="จำนวนที่นับได้ ${escapeHtml(product.name)} หน่วย ${escapeHtml(unit.name)}"></label>`
   ).join('');
   return `<div class="stock-count-parts">${fields}<output aria-live="polite">${stockCountValidationMessage(parts.invalid)}</output></div>`;
