@@ -988,7 +988,7 @@ function renderMobileStockEditPanel(lists){
   const canConfirm=!stockCountHasInvalidParts()&&(pendingChanges.length>0||stockEditSourcePending)&&stockEditMobileLotSelectionsReady(pendingChanges)&&!stockEditPosting&&mobileIsOnline();
   return `<section class="mobile-tool-panel"><div class="mobile-stock-source">
       <select id="mobileStockSourceList" aria-label="เลือกรายการตรวจสินค้า" ${availableLists.length?'':'disabled'}>${availableLists.length?availableLists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(selectedSource?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})</option>`).join(''):'<option value="">ไม่มีรายการที่รอแก้ไขสต็อก</option>'}</select>
-      <button type="button" class="mobile-stock-import" id="mobileStockImport" ${availableLists.length?'':'disabled'}>ดึงข้อมูล</button>
+      <button type="button" class="mobile-stock-import" id="mobileStockImport" ${availableLists.length?'':'disabled'}>ดึง</button>
       <span class="mobile-inspection-separator" aria-hidden="true">|</span>
       ${mobileInspectionScannerHtml('mobileStock',mobileStockQuery)}
     </div><div id="mobileStockResults">${mobileStockSearchResultsHtml()}</div>${mobileStockEditRowsHtml()}<div class="mobile-stock-confirm-wrap"><button type="button" class="mobile-stock-confirm" id="mobileConfirmStockEdit" ${canConfirm?'':'disabled'}>${!mobileIsOnline()?'ออฟไลน์ — ยังบันทึกไม่ได้':stockEditPosting?'กำลังบันทึก...':'ยืนยันผลตรวจนับ'}</button></div></section>`;
