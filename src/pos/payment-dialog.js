@@ -24,7 +24,7 @@ function confirmPOSBelowCostPrices(){
     return Number.isFinite(price)&&price+1e-9<cost
       ?[`${line.name} (${line.unit}) — ราคาขายสุทธิ ${fmtMoney(price)} บาท / ทุน ${fmtMoney(cost)} บาท`]:[];
   });
-  const discountNote=taxSummary.discount>0?`\nส่วนลดท้ายบิลรวม ${fmtMoney(taxSummary.discount)} บาท (รวมส่วนลดจากแต้ม) กระจายตามยอดแต่ละรายการ`:'';
+  const discountNote=taxSummary.discount>0?`\nส่วนลดท้ายบิลรวม ${fmtMoney(taxSummary.discount)} บาท (รวมส่วนลดจากแต้ม) เฉลี่ยเพื่อประเมินความเสี่ยงขายต่ำกว่าทุน`:'';
   return !belowCost.length||confirm(`ราคาขายต่ำกว่าทุน ${belowCost.length} รายการ อาจทำให้ขายขาดทุน\nราคาสุทธิต่อหน่วยหลังโปรโมชั่นและส่วนลดท้ายบิล${discountNote}\n\n${belowCost.join('\n')}\n\nยืนยันดำเนินการเก็บเงินต่อหรือไม่?`);
 }
 

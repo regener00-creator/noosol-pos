@@ -217,6 +217,13 @@ function cartTaxSummary(promoResult=applyPromotions(cart),discount=saleDiscount,
   const points=arguments.length<2&&typeof effectiveLoyaltyRedemption==='function'?effectiveLoyaltyRedemption(promoResult):0;
   return calculateSaleTaxSummary(lines,Number(discount)+points,registered);
 }
+function billDiscountCostLine(amount){
+  return {name:'ลดท้ายบิล',qty:1,unit:'PCS',price:0,net:0,cost:amount,costTotal:amount,profit:-amount};
+}
+function billDiscountCostText(amount){
+  const line=billDiscountCostLine(amount);
+  return `${line.name} · ${line.qty} ${line.unit} · ขาย 0.00 · ทุน ${fmtMoney(line.cost)} บาท`;
+}
 function saleTaxSummary(sale){
   const registered=sale?.vatRegistered===true;
   if(sale?.customerReturn&&sale.taxSummary) return {...sale.taxSummary,registered};

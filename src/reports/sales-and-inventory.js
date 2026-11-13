@@ -545,11 +545,15 @@ function rprofitCollect(){
     });
     const subtotal=prepared.reduce((sum,item)=>sum+item.gross,0);
     const discount=Number(s.discount)||0;
+    const billDiscountCost=Number(s.billDiscountCost)||0;
     const ratio=s.customerReturn?1:subtotal>0?Math.max(0,subtotal-discount)/subtotal:0;
     const items=prepared.map(item=>{
-      const net=item.beforeVat*ratio;
+      // The tax and payment totals already include the discount. Reclassify
+      // its gross amount as a bill expense while retaining the actual VAT.
+      const net=item.beforeVat*ratio+(subtotal>0?billDiscountCost*item.gross/subtotal:0);
       return {name:item.source.name,qty:item.qty,unit:item.source.unit||'-',price:item.price,cost:item.cost,net,costTotal:item.costTotal,profit:net-item.costTotal};
     });
+    if(billDiscountCost>0) items.push(billDiscountCostLine(billDiscountCost));
     const fee=Number(s.fee)||0;
     if(fee>0){
       const feeNet=registered?fee/(1+VAT_RATE):fee;

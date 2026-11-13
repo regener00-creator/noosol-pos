@@ -2,7 +2,7 @@ const assert=require('node:assert/strict');
 const vm=require('node:vm');
 const source=require('./load-app-source')();
 const context={activeWarehouseId:1};vm.createContext(context);
-for(const name of ['customerReturnAvailable','customerReturnRefund','cashShiftSummary','saleTaxSummary','rprofitCollect','documentInActiveStore']){
+for(const name of ['customerReturnAvailable','customerReturnRefund','cashShiftSummary','saleTaxSummary','rprofitCollect','documentInActiveStore','billDiscountCostLine']){
   const fn=source.match(new RegExp('^function '+name+'\\([^\\n]*\\)\\{[\\s\\S]*?^\\}','m'));
   assert.ok(fn,name);vm.runInContext(fn[0],context);
 }
@@ -22,4 +22,16 @@ assert.equal(summary.grossSales,150);assert.equal(summary.refunds,90);assert.equ
 Object.assign(context,{products:[],salesHistory:[returned],rprofitFilter:{applied:true,pay:'all',wh:'all'},rprofitPeriodRange:()=>({from:'2026-09-23',to:'2026-09-23'}),normalizeProductVatMode:x=>x,VAT_RATE:.07});
 let report=context.rprofitCollect();assert.equal(report.revenue,-90);assert.equal(report.cost,-40);assert.equal(report.profit,-50);
 returned.items[0].costTotal=0;report=context.rprofitCollect();assert.equal(report.profit,-90,'damaged return does not reverse the original cost');
+const sale={date:returned.date,status:'done',warehouseId:1,total:150,discount:50,billDiscountCost:50,items:[{name:'สินค้า',price:200,lineTotalGross:200,qty:1,cost:120,costTotal:120}]};
+context.salesHistory=[sale];
+report=context.rprofitCollect();
+assert.equal(report.byDate[sale.date][0].items[0].profit,80);
+const expense=report.byDate[sale.date][0].items[1];
+assert.deepEqual([expense.name,expense.qty,expense.unit,expense.price,expense.cost],['ลดท้ายบิล',1,'PCS',0,50]);
+assert.equal(report.cost,170);assert.equal(report.profit,30);
+assert.equal(context.customerReturnRefund(sale,[{itemIndex:0,qty:1}]),150);
+sale.discount=60;sale.loyaltyRedeemed=10;
+report=context.rprofitCollect();assert.equal(report.cost,170);assert.equal(report.profit,20);
+delete sale.billDiscountCost;
+report=context.rprofitCollect();assert.equal(report.byDate[sale.date][0].items.length,1);assert.equal(report.cost,120);
 console.log('Customer return amounts, cent rounding, permissions, signed tax/profit and shift models passed');

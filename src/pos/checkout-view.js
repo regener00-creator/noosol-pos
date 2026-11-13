@@ -94,6 +94,7 @@ function renderCheckout(){
     });
   }
   const {subtotal,discount,total:grand,vat,beforeVat,registered}=taxSummary;
+  const billDiscountCost=Math.min(discount,Math.max(0,Number(saleDiscount)||0));
 
   // แถบสินค้าโปรด
   let favHtml = '';
@@ -141,6 +142,7 @@ function renderCheckout(){
         <div class="pos-summary">
           <div class="sumrow"><span>รวมสินค้า</span><span class="mono" id="posSubtotalValue">${fmtMoney(subtotal)}</span></div>
           <div class="sumrow"><span>ส่วนลด</span><span class="sumdiscount"><button class="btn ghost small" id="editDiscountBtn">✎ ส่วนลด</button> <span class="mono" id="posDiscountValue">${fmtMoney(discount)}</span></span></div>
+          <small id="posDiscountCostLine" ${billDiscountCost>0?'':'hidden'}>${billDiscountCostText(billDiscountCost)}</small>
           ${registered?`<div class="sumrow"><span id="posBeforeVatLabel">มูลค่าก่อน VAT</span><span class="mono" id="posBeforeVatValue">${fmtMoney(beforeVat)}</span></div>`:''}
           <div class="sumrow"><span id="posVatLabel">${registered?'ภาษีมูลค่าเพิ่ม 7%':'ไม่คิด VAT (กิจการยังไม่จด VAT)'}</span><span class="mono" id="posVatValue">${fmtMoney(vat)}</span></div>
           <div class="sumrow grand"><span>ยอดชำระ</span><span class="mono" id="posGrandValue">${fmtMoney(grand)}</span></div>
@@ -159,6 +161,12 @@ function recalcPOSCartDOM(){
   const {subtotal,discount,total:grand,vat,beforeVat,registered}=cartTaxSummary();
   const set=(id,value)=>{ const el=document.getElementById(id); if(el) el.textContent=fmtMoney(value); };
   set('posSubtotalValue',subtotal); set('posDiscountValue',discount); set('posBeforeVatValue',beforeVat); set('posVatValue',vat); set('posGrandValue',grand);
+  const expense=document.getElementById('posDiscountCostLine');
+  if(expense){
+    const amount=Math.min(discount,Math.max(0,Number(saleDiscount)||0));
+    expense.hidden=amount<=0;
+    expense.textContent=billDiscountCostText(amount);
+  }
   const beforeLabel=document.getElementById('posBeforeVatLabel'),vatLabel=document.getElementById('posVatLabel');
   if(beforeLabel) beforeLabel.closest('.sumrow').hidden=!registered;
   if(vatLabel) vatLabel.textContent=registered?'ภาษีมูลค่าเพิ่ม 7%':'ไม่คิด VAT (กิจการยังไม่จด VAT)';

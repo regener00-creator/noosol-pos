@@ -42,6 +42,17 @@ export async function run({client}){
     assert.equal(damaged.returnSale.costTotal,0);assert.equal(await stock(),99);
     await rejected(args(sale,1,90),/จำนวนคืนเกิน/);
     await rejected(args(exchange.returnSale,1,90),/ไม่พบบิล/);
+    const discountedItem={productId:8100,lineKey:'1',qty:2,unit:'box',price:100,lineTotal:200,lineTotalGross:200};
+    const discountedHeader={total:150,discount:50,billDiscountCost:50,fee:0,vat:0,costTotal:130,cashReceived:150,cashChange:0,payMethod:'เงินสด'};
+    const checkoutDiscount=id=>q("select public.complete_sale($1,'TEST',8100,$2,$3,null) result",[id,discountedHeader,JSON.stringify([discountedItem])]);
+    const discountedRequest=randomUUID();
+    const discounted=(await checkoutDiscount(discountedRequest)).rows[0].result.sale;
+    assert.equal(discounted.items.length,1);assert.equal(discounted.total,150);assert.equal(discounted.billDiscountCost,50);
+    assert.equal(discounted.costTotal,130);assert.equal(discounted.grossProfit,70);
+    const retried=(await checkoutDiscount(discountedRequest)).rows[0].result.sale;
+    assert.equal(retried.id,discounted.id);assert.equal(retried.costTotal,130);assert.equal(retried.billDiscountCost,50);
+    const refundDiscounted=await call(args(discounted,2,150));
+    assert.equal(refundDiscounted.returnSale.grossProfit,-70);
     const before=await stock();
     const badSale=await makeSale(1);const afterSale=await stock();
     await rejected(args(badSale,1,100,{kind:'exchange',replacement:{...replacement,sale:{...replacement.sale,total:1}}}),/totals changed/);

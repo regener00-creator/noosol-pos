@@ -29,10 +29,13 @@ async function doCheckout(payMethod,options={}){
   const roundMoney=value=>Math.round((Number(value)||0)*100)/100;
   const taxSummary={registered:vatRegistered,subtotal:roundMoney(itemTaxSummary.subtotal+feeTaxSummary.subtotal),discount:itemTaxSummary.discount,beforeVat:roundMoney(itemTaxSummary.beforeVat+feeTaxSummary.beforeVat),vat:roundMoney(itemTaxSummary.vat+feeTaxSummary.vat),total:roundMoney(itemTaxSummary.total+feeTaxSummary.total)};
   const discount=taxSummary.discount;
-  const costTotal=items.reduce((sum,item)=>sum+(Number(item.costTotal)||0),0);
+  const merchandiseCost=items.reduce((sum,item)=>sum+(Number(item.costTotal)||0),0);
+  const billDiscountCost=roundMoney(Math.max(0,discount-loyaltyRedeemed));
+  const costTotal=merchandiseCost+billDiscountCost;
   const grand=taxSummary.total;
   const selectedCustomer=activeSaleCustomer();
-  const saleDraft={warehouseId:Number(activeWarehouseId)||null,warehouseName:activeWarehouse()?.name||'',cashier:loggedInUser()?.firstName||employees[0],member:saleMember,customerId:selectedCustomer?.id||saleMember?.id||null,customerName:selectedCustomer?.name||saleMember?.name||'',defaultDocument:customerDefaultDocument(selectedCustomer||saleMember),sourceQuotationId:saleSourceQuotationId||null,status:'done',payMethod:payMethod||'เงินสด',items,medicineLabelSize,discount,vat:taxSummary.vat,vatRegistered,taxSummary,businessSnapshot:businessDocumentSnapshot(),fee,costTotal,grossProfit:roundMoney(taxSummary.beforeVat-costTotal),cashReceived:options.cashReceived||0,cashChange:options.cashChange||0,total:grand};
+  const saleDraft={warehouseId:Number(activeWarehouseId)||null,warehouseName:activeWarehouse()?.name||'',cashier:loggedInUser()?.firstName||employees[0],member:saleMember,customerId:selectedCustomer?.id||saleMember?.id||null,customerName:selectedCustomer?.name||saleMember?.name||'',defaultDocument:customerDefaultDocument(selectedCustomer||saleMember),sourceQuotationId:saleSourceQuotationId||null,status:'done',payMethod:payMethod||'เงินสด',items,medicineLabelSize,discount,vat:taxSummary.vat,vatRegistered,taxSummary,businessSnapshot:businessDocumentSnapshot(),fee,costTotal,grossProfit:roundMoney(taxSummary.beforeVat-merchandiseCost),cashReceived:options.cashReceived||0,cashChange:options.cashChange||0,total:grand};
+  if(billDiscountCost>0) saleDraft.billDiscountCost=billDiscountCost;
   checkoutInFlight=true;
   saleDraft.loyaltyRedeemed=loyaltyRedeemed;
   saleDraft.loyaltyPeriodStart=loyaltyRedeemed?saleLoyaltySelection?.periodStart:null;
