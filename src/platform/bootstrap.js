@@ -32,6 +32,30 @@ document.addEventListener('focusin',event=>{
   if(row&&currentTab==='checkout') posActiveLineId=row.dataset.posCartLine;
 });
 window.addEventListener('resize',closePosUnitCycleMenu);
+// A handheld scanner types the barcode and sends Enter without needing a text field.
+let inspectionScanBurst=null;
+document.addEventListener('keydown',event=>{
+  const panel=currentTab==='mobiletools'&&document.getElementById('mobileInspectionContent');
+  if(!panel||mobileInspectionAddingToSaved||event.defaultPrevented||event.ctrlKey||event.metaKey||event.altKey||event.isComposing||event.repeat||
+     event.target.closest?.('input,select,textarea,[contenteditable="true"],[role="dialog"],dialog')||document.querySelector('.modal-overlay')){
+    inspectionScanBurst=null;
+    return;
+  }
+  if(inspectionScanBurst&&(inspectionScanBurst.panel!==panel||event.timeStamp-inspectionScanBurst.last>150)) inspectionScanBurst=null;
+  if(event.key==='Shift') return;
+  if(event.key.length===1&&event.key!==' '){
+    inspectionScanBurst??={panel,code:'',last:0};
+    inspectionScanBurst.code+=event.key;
+    inspectionScanBurst.last=event.timeStamp;
+    return;
+  }
+  const code=inspectionScanBurst?.code;
+  inspectionScanBurst=null;
+  if(event.key==='Enter'&&code){
+    event.preventDefault();
+    mobileHandleInspectionCode(code);
+  }
+},true);
 let posCtrlTapSearch=null;
 function cancelPosCtrlTap(){ posCtrlTapSearch=null; }
 window.addEventListener('blur',cancelPosCtrlTap);

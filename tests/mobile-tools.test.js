@@ -24,7 +24,7 @@ assert.match(html, /class="mobile-scan-row mobile-scan-row-camera-left"><button[
 assert.match(html, /\.mobile-scan-row-camera-left\{grid-template-columns:52px minmax\(0,1fr\);\}/);
 assert.match(html, /id="mobileOpenInspectionList"/);
 assert.match(html, /id="mobileDeleteInspectionList"/);
-assert.match(html, /id="mobileDeleteInspectionList"[^>]*>ลบบันทึก<\/button>/);
+assert.match(html, /id="mobileDeleteInspectionList" aria-label="ลบบันทึก"[^>]*><svg/);
 assert.match(html, /deleteInspectionListById\(list\.id\)/);
 assert.match(html, /openMobileCameraScanner\(mobileHandlePriceCode,\{continuous:true,hostId:'mobilePriceCameraSlot',buttonId:'mobilePriceCamera'\}\)/);
 assert.match(html, /openMobileCameraScanner\(mobileHandleInspectionCode,\{continuous:true,hostId:'mobileInspectionCameraSlot',buttonId:'mobileInspectionCamera'\}\)/);
