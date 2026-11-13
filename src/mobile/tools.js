@@ -607,8 +607,7 @@ function mobileInspectionSavedAddPendingHtml(){
   return `<div class="mobile-inspection-add-pending">${mobileInspectionSavedAddItems.map((item,index)=>{
     const product=products.find(entry=>Number(entry.id)===Number(item.pid));
     if(!product) return '';
-    const selected=inspectionListSelectedOption(item,product);
-    return `<div class="mobile-inspection-add-pending-item"><div><b>${escapeHtml(product.name)}</b><span>รหัส ${escapeHtml(product.sku||'-')} · ${escapeHtml(selected.name)} · ${escapeHtml(selected.barcode||'-')}</span></div><button type="button" class="mobile-inspection-add-pending-remove" data-mobile-inspection-add-remove="${index}" aria-label="เอา ${escapeHtml(product.name)} ออกจากรายการรอบนี้">×</button></div>`;
+    return `<div class="mobile-draft-item"><div class="mobile-draft-item-name">${escapeHtml(product.name)}</div><button type="button" class="mobile-draft-remove" data-mobile-inspection-add-remove="${index}" aria-label="เอา ${escapeHtml(product.name)} ออกจากรายการรอบนี้">×</button></div>`;
   }).join('')}</div>`;
 }
 function mobileInspectionSavedAddHtml(list){

@@ -192,7 +192,9 @@ async function verifyMobileInspectionStoreIsolation(page){
     await page.locator('#mobileInspectionAddToggle').click();
     await page.locator('#mobileInspectionAddInput').fill(store===1?'AP00000000001':'BP00000000001');
     await page.locator('[data-mobile-inspection-add-result]').click();
-    assert.equal(await addBox.locator('.mobile-inspection-add-pending-item').count(),1);
+    const addedName=addBox.locator('.mobile-inspection-add-pending .mobile-draft-item-name');
+    assert.equal(await addedName.innerText(),await page.evaluate(pid=>productById(pid).name,pid));
+    assert.equal(await addedName.evaluate(el=>getComputedStyle(el).textAlign),'center');
     const result=await page.evaluate(async({pid,other})=>{
       const pending=mobileInspectionSavedAddItems.map(item=>item.pid);
       const foreignProduct=otherWarehouseProducts.find(p=>p.id===(pid===11?12:11));
@@ -282,6 +284,13 @@ async function verifyLastInspectionUnits(page){
     const expectedBalance=store===1?'1 ลัง 2 กล่อง 3 แผง':'2 ลัง 3 แผง';
     assert.equal(await balance.innerText(),expectedBalance);
     assert.equal(await card.locator('.mobile-inspection-item-name').innerText(),'BASE0 : Decolgen');
+    for(const selector of ['.mobile-inspection-progress>span','.mobile-inspection-item-name','.mobile-inspection-stock']){
+      const offset=await page.locator(selector).first().evaluate(el=>{
+        const inner=el.getBoundingClientRect(),outer=el.parentElement.getBoundingClientRect();
+        return (inner.left+inner.right-outer.left-outer.right)/2;
+      });
+      assert.ok(Math.abs(offset)<1,selector);
+    }
     assert.equal(await card.locator('.mobile-inspection-check').count(),0);
     assert.doesNotMatch(await card.innerText(),/รหัสสินค้า|SKU0/);
     const cards=page.locator('[data-mobile-inspection-item]');

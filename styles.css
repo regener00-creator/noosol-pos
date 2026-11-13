@@ -2260,10 +2260,6 @@
   .mobile-inspection-add-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px 0 8px;color:var(--primary-dark);font-size:13px;font-weight:700;}
   .mobile-inspection-add-close{display:grid;place-items:center;width:36px;height:36px;padding:0;border:1px solid #F0C7C3;border-radius:9px;background:#fff;color:var(--danger);font:600 22px/1 'Sarabun',sans-serif;cursor:pointer;}
   .mobile-inspection-add-pending{display:grid;gap:7px;margin-bottom:10px;}
-  .mobile-inspection-add-pending-item{display:grid;grid-template-columns:minmax(0,1fr) 34px;gap:8px;align-items:center;border:1px solid var(--border);border-radius:10px;background:#fff;padding:9px 10px;}
-  .mobile-inspection-add-pending-item b{display:block;font-size:12.5px;line-height:1.35;}
-  .mobile-inspection-add-pending-item span{display:block;color:var(--text-muted);font-size:11px;margin-top:2px;}
-  .mobile-inspection-add-pending-remove{width:34px;height:34px;border:1px solid #F0C7C3;border-radius:8px;background:#fff;color:var(--danger);font-size:18px;cursor:pointer;}
   .mobile-inspection-add-save{width:100%;height:46px;border:0;border-radius:10px;background:var(--primary);color:#fff;font:700 14px 'Sarabun',sans-serif;cursor:pointer;}
   .mobile-inspection-add-save:disabled{background:#CAD2DA;color:#7E8790;cursor:not-allowed;}
   .mobile-draft-head{display:grid;grid-template-columns:52px minmax(0,1fr) 52px;align-items:center;gap:8px;margin-bottom:12px;}
@@ -2282,18 +2278,20 @@
   .mobile-draft-save-wrap{position:sticky;bottom:0;z-index:6;padding-top:10px;background:linear-gradient(180deg,#FFFFFF00,#fff 24%);}
   .mobile-draft-save{width:100%;height:52px;border:0;border-radius:12px;background:var(--primary);color:#fff;font:700 16px 'Sarabun',sans-serif;cursor:pointer;box-shadow:0 5px 18px #32282133;}
   .mobile-draft-save:disabled{background:#CAD2DA;color:#7E8790;box-shadow:none;cursor:not-allowed;}
-  .mobile-inspection-progress{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--primary-soft);color:var(--primary-dark);border-radius:11px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;}
+  .mobile-inspection-progress{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:6px;text-align:center;background:var(--primary-soft);color:var(--primary-dark);border-radius:11px;padding:10px 12px;margin-bottom:12px;font-size:13px;font-weight:600;}
+  .mobile-inspection-progress>span{grid-column:2;}
+  .mobile-inspection-progress>button{justify-self:end;max-width:100%;}
   .mobile-reset-checks{border:0;background:transparent;color:var(--primary-dark);font:600 12px 'Sarabun',sans-serif;text-decoration:underline;cursor:pointer;}
   .mobile-inspection-list{display:grid;gap:9px;}
   .mobile-inspection-item{border:1px solid var(--border);border-radius:13px;padding:12px;background:#fff;transition:.15s;}
   .mobile-inspection-item.checked{border-color:#8CCDA0;background:#F2FBF4;}
   .mobile-inspection-item.latest{box-shadow:0 0 0 3px #4F403826;border-color:var(--primary);}
-  .mobile-inspection-item-head{display:flex;align-items:flex-start;gap:9px;}
+  .mobile-inspection-item-head{display:grid;grid-template-columns:34px minmax(0,1fr) 34px;align-items:start;gap:9px;}
   .mobile-inspection-remove{width:34px;height:34px;flex:0 0 34px;display:inline-flex;align-items:center;justify-content:center;border:1px solid #F0C7C3;border-radius:9px;background:#fff;color:var(--danger);cursor:pointer;}
   .mobile-inspection-remove svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
   .mobile-inspection-check{color:#237A3B;font-weight:700;}
-  .mobile-inspection-item-name{font-size:14px;font-weight:700;line-height:1.35;flex:1;min-width:0;overflow-wrap:anywhere;}
-  .mobile-inspection-stock{margin-top:5px;font-size:14px;overflow-wrap:anywhere;}
+  .mobile-inspection-item-name{grid-column:2;text-align:center;font-size:14px;font-weight:700;line-height:1.35;min-width:0;overflow-wrap:anywhere;}
+  .mobile-inspection-stock{text-align:center;margin-top:5px;font-size:14px;overflow-wrap:anywhere;}
   .mobile-load-more{width:100%;height:46px;margin-top:12px;border:1px solid var(--primary);border-radius:11px;background:#fff;color:var(--primary);font:600 14px 'Sarabun',sans-serif;cursor:pointer;}
   .mobile-stock-source{display:grid;grid-template-columns:minmax(0,1fr) auto auto minmax(0,1.65fr);align-items:center;gap:4px;margin-bottom:14px;}
   .mobile-stock-source .mobile-inspection-separator{margin-inline:4px;}
