@@ -65,6 +65,9 @@ let browser;
   assert.equal(await lotPanel.locator('#correctSaleLotBtn').evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(255, 255, 255)');
   const lotBox=await lotPanel.boundingBox(),docBox=await docPanel.boundingBox();
   assert.ok(Math.abs(lotBox.y-docBox.y)<1&&lotBox.x+lotBox.width<=docBox.x);
+  const actionBoxes=await Promise.all(['#correctSaleLotBtn','#historyShortReceiptBtn','#historyTaxInvoiceBtn'].map(id=>detail.locator(id).boundingBox()));
+  assert.ok(actionBoxes.every(box=>Math.abs(box.y-actionBoxes[0].y)<1&&Math.abs(box.height-actionBoxes[0].height)<1),'sale detail tool buttons align at the same height');
+  assert.equal(await detail.locator('#returnSaleDetailBtn').evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(230, 212, 197)');
   const checkToolAlignment=()=>detail.locator('.sale-detail-tools > div').evaluateAll(panels=>panels.every(panel=>{
     const box=panel.getBoundingClientRect();
     const centered=(left,right)=>Math.abs(left+right-box.left-box.right)<2;
