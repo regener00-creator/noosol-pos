@@ -32,6 +32,7 @@ const context = {
   inspectionListSort: {key:'sku',dir:1},
   inspectionListOverviewSort: {key:'updatedAt',dir:-1},
   inspectionListOverviewSelectedIds: new Set(),
+  inspectionListStatusFilter: 'all',
   expandedDocumentItemLists: new Set(),
   reserveDraftNumber: async () => 'CHECK-NEW-SAFE-ID',
   generateProductCreateToken: () => 'inspection-test-token',

@@ -46,6 +46,7 @@ let inspectionListPage = 1;
 let inspectionListSort = { key:'sku', dir:1 };
 let inspectionListOverviewSort = { key:'updatedAt', dir:-1 };
 let inspectionListOverviewSelectedIds = new Set();
+let inspectionListStatusFilter = 'all';
 const INSPECTION_LIST_PAGE_SIZE = 10;
 // โหมดมือถือ/เครื่องยิงบาร์โค้ดแบบมีจอ แสดงเช็คราคาและขั้นตอนตรวจ/แก้ไขสต็อก
 let mobileToolMode = 'price';

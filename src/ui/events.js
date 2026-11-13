@@ -736,6 +736,12 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     render();
   }));
   const inspectionListSelectAll=document.getElementById('inspectionListSelectAll');
+  document.getElementById('inspectionListStatusFilter')?.addEventListener('change',event=>{
+    inspectionListStatusFilter=event.target.value;
+    inspectionListOverviewSelectedIds.clear();
+    render();
+    document.getElementById('inspectionListStatusFilter')?.focus();
+  });
   if(inspectionListSelectAll) inspectionListSelectAll.addEventListener('change',()=>{
     inspectionListOverviewSortedLists().forEach(list=>{
       const id=String(list.id);

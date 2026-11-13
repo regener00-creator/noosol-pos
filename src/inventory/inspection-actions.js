@@ -89,7 +89,7 @@ async function deleteInspectionListById(id){
   return true;
 }
 async function deleteSelectedInspectionLists(){
-  const existingIds=new Set(inspectionLists.filter(documentInActiveStore).map(list=>String(list.id)));
+  const existingIds=new Set(inspectionListOverviewSortedLists().map(list=>String(list.id)));
   const selectedIds=new Set([...inspectionListOverviewSelectedIds].filter(id=>existingIds.has(String(id))).map(String));
   if(!selectedIds.size){ showToast('กรุณาติ๊กรายการที่ต้องการลบ','danger'); return false; }
   if(!confirm(`ต้องการลบรายการตรวจสินค้าที่เลือก ${selectedIds.size} รายการ ใช่หรือไม่?`)) return false;

@@ -46,6 +46,32 @@ let browser;
   });
   const rows=page.locator('[data-stock-control-anomaly-select]');
   await rows.first().waitFor();
+  await page.evaluate(()=>{
+    inspectionLists=[
+      {id:'pending-here',name:'ตรวจวันนี้',warehouseId:1,items:[]},
+      {id:'saved-here',name:'ตรวจเมื่อวาน',warehouseId:1,items:[],stockAdjustedAt:'2026-11-12'},
+      {id:'saved-elsewhere',name:'ตรวจคลังอื่น',warehouseId:2,items:[],stockAdjustedAt:'2026-11-12'}
+    ];
+  });
+  await page.locator('[data-stock-control-mode="count"]').click();
+  const statusFilter=page.locator('#inspectionListStatusFilter');
+  const visibleLists=()=>page.locator('[data-inspection-list-select]').evaluateAll(inputs=>inputs.map(input=>input.dataset.inspectionListSelect).sort());
+  assert.equal(await statusFilter.inputValue(),'all');
+  assert.deepEqual(await visibleLists(),['pending-here','saved-here']);
+  await statusFilter.selectOption('pending');
+  assert.deepEqual(await visibleLists(),['pending-here']);
+  await page.locator('#inspectionListSelectAll').check();
+  assert.deepEqual(await page.evaluate(()=>[...inspectionListOverviewSelectedIds]),['pending-here']);
+  await statusFilter.selectOption('completed');
+  assert.deepEqual(await visibleLists(),['saved-here']);
+  assert.equal(await page.locator('#deleteSelectedInspectionListsBtn').count(),0);
+  await page.locator('[data-inspection-overview-sort="status"]').click();
+  assert.equal(await statusFilter.inputValue(),'completed');
+  await page.evaluate(()=>{inspectionLists=inspectionLists.filter(list=>list.id!=='saved-here');render();});
+  assert.deepEqual(await visibleLists(),[]);
+  assert.match(await page.locator('.inspection-list-overview-table tbody').innerText(),/ไม่พบรายการตรวจสินค้าที่มีสถานะนี้/);
+  await statusFilter.selectOption('all');
+  assert.deepEqual(await visibleLists(),['pending-here']);
   await page.locator('[data-stock-control-mode="lots"]').click();
   const lotRow=page.locator('tr').filter({has:page.locator('[data-stock-lot-reallocation="12"]')});
   assert.equal(await lotRow.locator('td').nth(2).innerText(),'2 ลัง 4 กล่อง 5 ซอง');
