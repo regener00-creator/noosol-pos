@@ -299,7 +299,9 @@ async function verifyLastInspectionUnits(page){
     assert.deepEqual(await page.evaluate(()=>[...mobileInspectionChecks(mobileInspectionOpenedListId)]),[[pid,'กล่อง']]);
     for(const code of ['BASE0','BASE1',own+'00000000001',foreign+'00000000001'])await scan(code);
     assert.deepEqual(await page.evaluate(()=>[...mobileInspectionChecks(mobileInspectionOpenedListId)]),[[pid,'กล่อง'],[pid+1,'แผง']]);
+    const progressColor=await page.locator('.mobile-inspection-progress').evaluate(el=>getComputedStyle(el).backgroundColor);
     await page.locator('#mobileContinueToStock').click();
+    assert.equal(await page.locator('.mobile-stock-source-note').evaluate(el=>getComputedStyle(el).backgroundColor),progressColor);
     const selectedUnit=(id=pid)=>page.evaluate(id=>stockEditRowUnitSel[id],id);
     assert.equal(await selectedUnit(),'กล่อง');
     assert.equal(await selectedUnit(pid+1),'แผง');
@@ -337,6 +339,16 @@ async function verifyLastInspectionUnits(page){
       const line=stockEditAdjustmentLines().find(item=>item.productId===pid);
       return [line.unitName,line.targetStock];
     },pid),['แผง',7]);
+    const remove=page.locator(`[data-mobile-stock-remove="${pid}"]`);
+    let promptText='';
+    page.once('dialog',dialog=>{promptText=dialog.message();return dialog.dismiss();});
+    await remove.click();
+    assert.match(promptText,/Decolgen/);
+    assert.equal(await strip.inputValue(),'7');
+    page.once('dialog',dialog=>dialog.accept());
+    await remove.click();
+    assert.equal(await remove.count(),0);
+    assert.equal(await page.locator(`[data-mobile-stock-item="${pid+1}"]`).count(),1);
     await page.locator('#mobileStockSourceList').selectOption('other'+store);
     page.once('dialog',dialog=>dialog.accept());
     await page.locator('#mobileStockImport').click();

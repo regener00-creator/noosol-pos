@@ -514,6 +514,8 @@ function attachEvents(){
   });
   document.querySelectorAll('[data-mobile-stock-remove]').forEach(button=>button.addEventListener('click',()=>{
     const productId=Number(button.dataset.mobileStockRemove);
+    const product=productById(productId);
+    if(!confirm(`ลบ “${product?.name||'สินค้านี้'}” ออกจากรายการสรุปและยืนยันใช่หรือไม่?`)) return;
     stockEditItems=stockEditItems.filter(itemId=>Number(itemId)!==productId);
     delete stockEditRowUnitSel[productId];
     delete stockEditDraftStocks[productId];
