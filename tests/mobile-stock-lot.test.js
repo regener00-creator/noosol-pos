@@ -86,6 +86,7 @@ const addContext = {
   mobileStockQuery: '8850000000000',
   mobileStockLastProductId: null,
   inspectionListUnitOptions: item => [{name:item.unit}],
+  focusStockCountUnit: () => {},
   stockEditRequiresReconciliation: item => item.id===10,
   render: () => {},
 };

@@ -58,6 +58,14 @@ async function verifyPurchaseAndStockLabels(page){
           else {
             const barcode=page.locator('[data-stock-edit-row] td').first();
             assert.equal(await barcode.innerText(),own+'00000000001');
+            const box=page.locator('[data-count-part][data-unit="กล่อง"]');
+            assert.ok(await box.evaluate(el=>el===document.activeElement));
+            await box.fill('6');
+            await page.keyboard.type('0001');
+            await page.keyboard.press('Enter');
+            assert.equal(await barcode.innerText(),'0001');
+            assert.equal(await box.inputValue(),'6');
+            assert.ok(await page.evaluate(()=>document.activeElement.dataset.unit!== 'กล่อง' && document.activeElement.hasAttribute('data-count-part')));
             await input.fill('Decolgen');await input.press('Enter');
             assert.equal(await barcode.innerText(),'0001');
             await input.fill(own+'00000000001');await input.press('Enter');
@@ -227,9 +235,20 @@ async function verifyLastInspectionUnits(page){
     for(const code of ['BASE0','BASE1',own+'00000000001',foreign+'00000000001'])await scan(code);
     assert.deepEqual(await page.evaluate(()=>[...mobileInspectionChecks(mobileInspectionOpenedListId)]),[[pid,'กล่อง'],[pid+1,'แผง']]);
     await page.locator('#mobileContinueToStock').click();
-    const barcode=page.locator(`[data-mobile-stock-item="${pid}"] .mobile-stock-barcode`);
-    assert.equal(await barcode.innerText(),'BOX0');
-    assert.equal(await page.locator(`[data-mobile-stock-item="${pid+1}"] .mobile-stock-barcode`).innerText(),'BASE1');
+    const selectedUnit=(id=pid)=>page.evaluate(id=>stockEditRowUnitSel[id],id);
+    assert.equal(await selectedUnit(),'กล่อง');
+    assert.equal(await selectedUnit(pid+1),'แผง');
+    const stockScanner=page.locator('#mobileStockInput');
+    const pack=page.locator(`[data-count-part="${pid}"][data-unit="กล่อง"]`);
+    const strip=page.locator(`[data-count-part="${pid}"][data-unit="แผง"]`);
+    await stockScanner.fill('BOX0');await stockScanner.press('Enter');
+    assert.ok(await pack.evaluate(el=>el===document.activeElement));
+    await pack.fill('4');
+    await page.keyboard.type('BASE0');await page.keyboard.press('Enter');
+    assert.ok(await strip.evaluate(el=>el===document.activeElement));
+    assert.equal(await pack.inputValue(),'4');
+    assert.equal(await page.locator(`[data-mobile-stock-item="${pid}"]`).count(),1);
+    await pack.fill('');
     await page.locator(`[data-count-part="${pid}"][data-unit="แผง"]`).fill('7');
     assert.deepEqual(await page.evaluate(pid=>{
       const line=stockEditAdjustmentLines().find(item=>item.productId===pid);
@@ -238,11 +257,11 @@ async function verifyLastInspectionUnits(page){
     await page.locator('#mobileStockSourceList').selectOption('other'+store);
     page.once('dialog',dialog=>dialog.accept());
     await page.locator('#mobileStockImport').click();
-    assert.equal(await barcode.innerText(),'BASE0','Another list uses its own saved unit');
+    assert.equal(await selectedUnit(),'แผง','Another list uses its own saved unit');
     await page.locator('#mobileStockSourceList').selectOption('check'+store);
     page.once('dialog',dialog=>dialog.accept());
     await page.locator('#mobileStockImport').click();
-    assert.equal(await barcode.innerText(),'BOX0','Reimport uses the scans from this list');
+    assert.equal(await selectedUnit(),'กล่อง','Reimport uses the scans from this list');
     assert.equal(await page.evaluate(()=>mobileOpenedInspectionList().items[0].unit),'แผง','Scanning does not rewrite the saved list');
     await page.locator('[data-mobile-inventory-step="inspection"]').click();
     await page.locator('#mobileResetChecks').click();
@@ -250,8 +269,8 @@ async function verifyLastInspectionUnits(page){
     await scan('BOX0');await scan('BASE0');await scan('BOX1');
     page.once('dialog',dialog=>dialog.accept());
     await page.locator('#mobileContinueToStock').click();
-    assert.equal(await barcode.innerText(),'BASE0','A later base scan replaces the earlier box scan');
-    assert.equal(await page.locator(`[data-mobile-stock-item="${pid+1}"] .mobile-stock-barcode`).innerText(),'BOX1');
+    assert.equal(await selectedUnit(),'แผง','A later base scan replaces the earlier box scan');
+    assert.equal(await selectedUnit(pid+1),'กล่อง');
     await page.locator(`[data-count-part="${pid}"][data-unit="กล่อง"]`).fill('2');
     if(store===2)await page.locator(`[data-count-part="${pid}"][data-unit="แผง"]`).fill('4');
     await page.locator(`[data-mobile-stock-lot="${pid}"]`).selectOption('new');

@@ -22,6 +22,51 @@ function stockEditPagination(rowList=stockEditCurrentProducts(),page=stockEditPa
   return {rows:rowList.slice(start,start+pageSize),currentPage,totalPages};
 }
 
+function focusStockCountUnit(productId,unitName){
+  const input=document.querySelector(`[data-count-part="${productId}"][data-unit="${CSS.escape(unitName)}"],[data-stock-edit-amount="${productId}"],[data-mobile-stock-amount="${productId}"]`);
+  input?.focus();
+  input?.select();
+}
+
+// A keyboard scanner sends its barcode followed by Enter, even inside a quantity input.
+function bindStockCountScanner(container,onMatch){
+  let burst=null;
+  container.addEventListener('focusout',()=>{burst=null;});
+  container.addEventListener('keydown',event=>{
+    const input=event.target;
+    if(!input.matches('[data-count-part],[data-stock-edit-amount],[data-mobile-stock-amount]'))return;
+    const id=Number(input.dataset.countPart||input.dataset.stockEditAmount||input.dataset.mobileStockAmount);
+    if(event.ctrlKey||event.metaKey||event.altKey||event.isComposing||event.repeat){burst=null;return;}
+    if(event.key==='Shift')return;
+    if(burst&&event.timeStamp-burst.last>100)burst=null;
+    if(event.key.length===1){
+      if(!burst){
+        burst={code:'',value:input.value,draft:stockEditDraftStocks[id],lot:stockEditLotSelections[id],pending:stockEditSourcePending};
+      }
+      burst.code+=event.key;
+      burst.last=event.timeStamp;
+      return;
+    }
+    const scan=burst;
+    burst=null;
+    if(event.key!=='Enter'||!scan||scan.code.length<3)return;
+    const code=scan.code.toUpperCase();
+    const match=exactInspectionScan(code);
+    // A quantity can also be a SKU. Only a unit barcode should take focus here.
+    if(match&&!exactBarcodeUnit(match.product,code))return;
+    if(!match&&!systemLabelCode(code)&&!/^\d{8,}$/.test(code))return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    input.value=scan.value;
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+    if(scan.draft===undefined)delete stockEditDraftStocks[id];else stockEditDraftStocks[id]=scan.draft;
+    if(scan.lot===undefined)delete stockEditLotSelections[id];else stockEditLotSelections[id]=scan.lot;
+    stockEditSourcePending=scan.pending;
+    if(match)onMatch(match.product,match.unitName);
+    else {render();focusStockCountUnit(id,input.dataset.unit||'');showToast('ไม่พบสินค้าในร้านที่เลือก','danger-top');}
+  },true);
+}
+
 function stockEditLotControlHtml(product,difference){
   const targetStock=(Number(product.stock)||0)+(Number(difference)||0);
   const lotDifference=targetStock-stockEditLotTotal(product.id);

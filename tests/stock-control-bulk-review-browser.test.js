@@ -201,9 +201,13 @@ let browser;
   for(const width of [320,390]){
     await page.setViewportSize({width,height:844});
     const single=await page.locator('[data-mobile-stock-amount="60"]').boundingBox();
-    const multi=await box.boundingBox();
+    const [carton,multi,bag]=await Promise.all([
+      page.locator('[data-count-part="55"][data-unit="ลัง"]').boundingBox(),box.boundingBox(),sachet.boundingBox()
+    ]);
     assert.equal(await page.locator('[data-mobile-stock-item="60"] .stock-count-single span').innerText(),'ชิ้น');
-    assert.ok(Math.abs(single.x-multi.x)<1&&Math.abs(single.width-multi.width)<1,'mobile count inputs align at '+width+'px');
+    assert.ok(Math.abs(single.x-carton.x)<1&&Math.abs(single.width-carton.width)<1,'mobile single unit aligns with first unit at '+width+'px');
+    assert.ok(carton.x+carton.width<=multi.x&&multi.x+multi.width<=bag.x);
+    assert.ok(Math.abs(carton.y-multi.y)<1&&Math.abs(multi.y-bag.y)<1,'all three units remain on one line at '+width+'px');
   }
   assert.equal(await total.isVisible(),false);
   assert.equal(await box.inputValue(),'8');assert.equal(await sachet.inputValue(),'5');

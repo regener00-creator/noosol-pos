@@ -500,9 +500,6 @@ function attachEvents(){
     mobileStockInput.addEventListener('input',()=>{
       mobileStockQuery=mobileStockInput.value;
       mobileStockLastProductId=null;
-      render();
-      const input=document.getElementById('mobileStockInput');
-      if(input){ input.focus(); input.selectionStart=input.selectionEnd=input.value.length; }
     });
     mobileStockInput.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); mobileHandleStockCode(mobileStockInput.value); } });
   }
@@ -530,6 +527,7 @@ function attachEvents(){
   };
   const mobileStockList=document.querySelector('.mobile-stock-list');
   if(mobileStockList){
+    bindStockCountScanner(mobileStockList,addProductToMobileStockEdit);
     mobileStockList.addEventListener('change',event=>{
       const lotSelect=event.target.closest('[data-mobile-stock-lot]');
       if(!lotSelect) return;
@@ -1085,12 +1083,14 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     };
     const addProduct=(p,unitName)=>{
       stockEditRowUnitSel[p.id]=unitName;
-      if(stockEditItems.includes(p.id)){ showToast('สินค้านี้อยู่ในรายการแล้ว'); }
-      else { stockEditItems.unshift(p.id); stockEditPage=1; }
+      if(!stockEditItems.includes(p.id)){stockEditItems.unshift(p.id);stockEditPage=1;}
+      else stockEditPage=1+Math.floor(stockEditCurrentProducts().findIndex(row=>row.id===p.id)/STOCK_EDIT_PAGE_SIZE);
       stockEditSearchQuery='';
       render();
-      setTimeout(()=>document.getElementById('stockEditInput')?.focus(),0);
+      focusStockCountUnit(p.id,unitName);
     };
+    const tbody=document.getElementById('stockEditTbody');
+    if(tbody)bindStockCountScanner(tbody,addProduct);
     const showResults=query=>{
       stockEditSearchQuery=query;
       const q=String(query||'').trim();
