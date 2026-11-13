@@ -123,6 +123,7 @@ async function verifyInspectionAndPriceLabels(page){
         const input=page.locator(field),choice=page.locator(result);
         await input.fill(prefix+'00000000001');
         assert.equal(await choice.count(),prefix===own?1:0,`${screen}: matches for ${prefix} in store ${store}`);
+        if(screen!=='desktop') assert.equal(await input.evaluate(el=>getComputedStyle(el).textAlign),'center',field);
         if(tap) await choice.click();else await input.press('Enter');
         const selected=await page.evaluate(screen=>{
           if(screen==='price') return mobilePriceProductId?{pid:mobilePriceProductId,unit:mobilePriceUnitName}:null;
