@@ -74,6 +74,16 @@ let browser;
     assert.deepEqual(layout.columns,[['center','center'],['center','center'],['center','center']]);
     assert.ok(layout.nameWidth>150,`name must have usable space at ${width}px: ${layout.nameWidth}`);
     assert.ok(layout.home.right<=layout.left+1&&layout.home.right>layout.search.right,'Home follows search within the left column');
+    const summaryLayout=await page.evaluate(()=>{
+      const bounds=element=>element.getBoundingClientRect();
+      const topGap=bounds(document.querySelector('.pos-search')).top-bounds(document.getElementById('openCustomerPickerBtn')).top;
+      const inline=[...document.querySelectorAll('.pos-subtotal-discount .sumrow')].every(row=>{
+        const label=bounds(row.firstElementChild), amount=bounds(row.lastElementChild);
+        return label.right<=amount.left && amount.right<=bounds(row).right && Math.abs(label.top+label.height/2-amount.top-amount.height/2)<2;
+      });
+      return {topGap,inline};
+    });
+    assert.ok(Math.abs(summaryLayout.topGap)<1 && summaryLayout.inline,`search and right panel align and each amount fits beside its label at ${width}px`);
     assert.ok(Math.abs((layout.subtotal.top+layout.subtotal.height/2)-(layout.discount.top+layout.discount.height/2))<2,`subtotal and discount amounts share one row at ${width}px: ${JSON.stringify(layout)}`);
   }
   await page.setViewportSize({width:1920,height:1080});

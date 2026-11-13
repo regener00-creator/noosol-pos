@@ -556,11 +556,11 @@
   .tabbtn.active{color:var(--primary);border-bottom-color:var(--primary);font-weight:600;}
   /* checkout page */
   .grid2{display:grid;grid-template-columns:1fr 360px;gap:20px;align-items:start;}
-  .pos-searchrow{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:16px;}
+  .pos-cart-column{min-width:0;}
   .pos-search{display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:9px;overflow:hidden;}
   .pos-search .pos-bc{padding:0 12px;color:var(--text-muted);display:flex;align-items:center;border-left:1px solid var(--border);}
   .pos-search input{flex:1;border:none;outline:none;padding:12px 14px;font-family:inherit;font-size:14.5px;background:transparent;}
-  .pos-searchrow{grid-template-columns:2.6fr 1fr;gap:18px;margin-bottom:10px;}
+  .pos-searchrow{margin-bottom:10px;}
   .pos-search-controls{display:flex;align-items:stretch;gap:10px;min-width:0;}
   .pos-search-controls .pos-search{flex:1;min-width:0;}
   .pos-search-controls .pos-search input{width:0;min-width:0;}
@@ -1652,7 +1652,7 @@
   .pos-customer-price-tag{white-space:nowrap;}
   .pos-summary{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:0;}
   .pos-subtotal-discount{display:grid;grid-template-columns:1fr 1fr;}
-  .pos-subtotal-discount .sumrow{min-width:0;gap:8px;padding:13px 12px;flex-direction:column;justify-content:space-between;}
+  .pos-subtotal-discount .sumrow{gap:6px;padding:10px 8px;white-space:nowrap;}
   .pos-subtotal-discount .sumrow+ .sumrow{border-left:1px solid var(--border);}
   .sumrow{display:flex;justify-content:space-between;align-items:center;padding:13px 18px;border-bottom:1px solid var(--border);font-size:14px;}
   .sumrow span:first-child{color:var(--text-muted);}
@@ -1968,7 +1968,6 @@
   .pos-result .pr-meta{font-size:11.5px;color:var(--text-muted);}
   .pos-result .pr-price{font-size:14px;font-weight:600;color:var(--primary);}
   .pos-noresult{padding:14px 16px;color:var(--text-muted);font-size:13.5px;text-align:center;}
-  @media (max-width:960px){ .pos-searchrow{grid-template-columns:1fr;} .pos-grid{grid-template-columns:1fr;} }
   .productgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:11px;}
   .pcard{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px;cursor:pointer;display:flex;flex-direction:column;gap:5px;}
   .pcard:hover{border-color:var(--primary);}
