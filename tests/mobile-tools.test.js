@@ -106,7 +106,7 @@ assert.doesNotMatch(mobileStockPanel, /<h2 class="mobile-tool-title">แก้�
 assert.doesNotMatch(mobileStockPanel, /ดึงรายการตรวจสินค้า หรือยิงบาร์โค้ด แล้วกรอกจำนวนใหม่ก่อนยืนยันพร้อมกัน/);
 assert.doesNotMatch(mobileStockPanel, /แก้ตัวเลขแล้วสต็อกจะยังไม่เปลี่ยน/);
 assert.match(mobileStockPanel, /mobileInspectionScannerHtml\('mobileStock',mobileStockQuery\)/);
-assert.doesNotMatch(mobileStockPanel, /data-mobile-stock-result=/);
+assert.match(mobileStockPanel, /id="mobileStockResults"/);
 assert.match(mobileStockPanel, /class="mobile-stock-source"><button[^>]+id="mobileStockImport"[\s\S]*?<select id="mobileStockSourceList"/);
 assert.match(html, /\.mobile-stock-source\{display:grid;grid-template-columns:auto minmax\(0,1fr\);/);
 assert.match(mobileStockPanel, /\$\{mobileStockEditRowsHtml\(\)\}<div class="mobile-stock-confirm-wrap">/);
@@ -160,7 +160,7 @@ const mobileStockRemoveHandler = html.slice(mobileStockRemoveHandlerStart, mobil
 assert.match(mobileStockRemoveHandler, /stockEditItems=stockEditItems\.filter/);
 assert.match(mobileStockRemoveHandler, /delete stockEditRowUnitSel\[productId\]/);
 assert.match(mobileStockRemoveHandler, /delete stockEditDraftStocks\[productId\]/);
-const mobileStockRows=html.slice(html.indexOf('function mobileStockEditRowsHtml()'),mobileStockPanelStart);
+const mobileStockRows=html.slice(html.indexOf('function mobileStockEditRowsHtml()'),html.indexOf('function mobileStockSearchResultsHtml()'));
 assert.doesNotMatch(mobileStockRows, /รหัสสินค้า|product\.sku/);
 assert.match(html, /<label>สินค้า<\/label>/);
 assert.doesNotMatch(html, /class="mobile-stock-barcode"/);

@@ -306,6 +306,18 @@ async function verifyLastInspectionUnits(page){
     const stockScanner=page.locator('#mobileStockInput');
     const pack=page.locator(`[data-count-part="${pid}"][data-unit="กล่อง"]`);
     const strip=page.locator(`[data-count-part="${pid}"][data-unit="แผง"]`);
+    const results=page.locator('#mobileStockResults');
+    await stockScanner.fill('Decol');
+    assert.equal(await results.getByRole('button').count(),1);
+    await results.getByRole('button',{name:/Decolgen/}).click();
+    assert.ok(await strip.evaluate(el=>el===document.activeElement));
+    await stockScanner.fill('หกอหก');
+    assert.equal(await results.innerText(),'ไม่พบสินค้าที่ตรงกับคำค้น');
+    assert.ok(await stockScanner.evaluate(el=>el===document.activeElement));
+    await stockScanner.fill('BOX0');
+    await results.getByRole('button',{name:/Decolgen.*กล่อง/}).click();
+    assert.ok(await pack.evaluate(el=>el===document.activeElement));
+    assert.equal(await results.innerText(),'');
     await stockScanner.fill('BOX0');await stockScanner.press('Enter');
     assert.ok(await pack.evaluate(el=>el===document.activeElement));
     await pack.fill('4');

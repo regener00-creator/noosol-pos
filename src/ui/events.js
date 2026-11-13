@@ -496,18 +496,22 @@ function attachEvents(){
     if(listId){ mobileStockSourceListId=listId; stockEditImportInspectionList(listId,true,mobileInspectionChecks(listId)); }
   });
   const mobileStockInput=document.getElementById('mobileStockInput');
+  const mobileStockResults=document.getElementById('mobileStockResults');
   if(mobileStockInput){
     mobileStockInput.addEventListener('input',()=>{
       mobileStockQuery=mobileStockInput.value;
       mobileStockLastProductId=null;
+      mobileStockResults.innerHTML=mobileStockSearchResultsHtml();
     });
     mobileStockInput.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); mobileHandleStockCode(mobileStockInput.value); } });
   }
   document.getElementById('mobileStockCamera')?.addEventListener('click',()=>{ unlockMobileScanSound(); openMobileCameraScanner(mobileHandleStockCode,{continuous:true,hostId:'mobileStockCameraSlot',buttonId:'mobileStockCamera'}); });
-  document.querySelectorAll('[data-mobile-stock-result]').forEach(button=>button.addEventListener('click',()=>{
+  mobileStockResults?.addEventListener('click',event=>{
+    const button=event.target.closest('[data-mobile-stock-result]');
+    if(!button) return;
     const product=products.find(entry=>Number(entry.id)===Number(button.dataset.mobileStockResult));
-    if(product) addProductToMobileStockEdit(product);
-  }));
+    if(product) addProductToMobileStockEdit(product,button.dataset.unit);
+  });
   document.querySelectorAll('[data-mobile-stock-remove]').forEach(button=>button.addEventListener('click',()=>{
     const productId=Number(button.dataset.mobileStockRemove);
     stockEditItems=stockEditItems.filter(itemId=>Number(itemId)!==productId);

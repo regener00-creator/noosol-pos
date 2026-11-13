@@ -968,6 +968,17 @@ function mobileStockEditRowsHtml(){
     return `<article class="mobile-stock-item" data-mobile-stock-item="${product.id}"><div class="mobile-stock-info-row"><div class="mobile-stock-field"><label>สินค้า</label><b class="mobile-stock-product-name">${escapeHtml(product.name)}</b></div><div class="mobile-stock-field"><label>ในระบบ</label><b>${escapeHtml(stockInLargestUnit(product))}</b></div><div class="mobile-stock-field"><label>ต่าง</label><b data-mobile-stock-difference="${product.id}">${stockCountDifferenceHtml(product,baseStock)}</b></div></div><div class="mobile-stock-edit-row"><div class="mobile-stock-field">${options.length>1?stockCountPartsHtml(product,options):`<label class="stock-count-single"><span>${escapeHtml(product.unit)}</span><input type="number" min="0" step="any" class="mobile-stock-amount ${hasDraft?'pending':''}" data-mobile-stock-amount="${product.id}" data-factor="${selected?.factor||1}" value="${amount}" aria-label="จำนวนที่นับได้ ${escapeHtml(product.name)} หน่วย ${escapeHtml(product.unit)}"></label>`}</div><button type="button" class="mobile-stock-remove" data-mobile-stock-remove="${product.id}" title="ลบ ${escapeHtml(product.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(product.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div><div class="mobile-stock-lot" data-mobile-stock-lot-host="${product.id}">${mobileStockEditLotHtml(product)}</div></article>`;
   }).join('')}</div>`;
 }
+function mobileStockSearchResultsHtml(){
+  const query=mobileStockQuery.trim();
+  if(!query) return '';
+  const exact=exactInspectionScan(query);
+  const matches=exact?[{...exact,barcode:query}]:productScanMatches(query);
+  if(!matches.length) return '<div class="mobile-empty" role="status">ไม่พบสินค้าที่ตรงกับคำค้น</div>';
+  return `<div class="mobile-stock-results">${matches.map(({product,unitName,barcode})=>`
+    <button type="button" class="mobile-stock-result" data-mobile-stock-result="${Number(product.id)}" data-unit="${escapeHtml(unitName)}">
+      <b>${escapeHtml(product.name)}</b><span>${escapeHtml(barcode||product.sku||'')} · ${escapeHtml(unitName)}</span>
+    </button>`).join('')}</div>`;
+}
 function renderMobileStockEditPanel(lists){
   const availableLists=lists.filter(inspectionListAvailableForStockEdit);
   let selectedSource=availableLists.find(list=>String(list.id)===String(mobileStockSourceListId));
@@ -976,7 +987,7 @@ function renderMobileStockEditPanel(lists){
   const sourceList=stockEditInspectionSourceList();
   const pendingChanges=stockEditPendingChanges();
   const canConfirm=!stockCountHasInvalidParts()&&(pendingChanges.length>0||stockEditSourcePending)&&stockEditMobileLotSelectionsReady(pendingChanges)&&!stockEditPosting&&mobileIsOnline();
-  return `<section class="mobile-tool-panel"><div class="mobile-stock-source"><button type="button" class="mobile-stock-import" id="mobileStockImport" ${availableLists.length?'':'disabled'}>ดึงข้อมูล</button><select id="mobileStockSourceList" ${availableLists.length?'':'disabled'}>${availableLists.length?availableLists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(selectedSource?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})</option>`).join(''):'<option value="">ไม่มีรายการที่รอแก้ไขสต็อก</option>'}</select></div>${sourceList?`<div class="mobile-stock-source-note"><b>${escapeHtml(sourceList.name)}</b><span>${stockEditSourcePending?'รอยืนยันการแก้ไข':'แก้ไขจำนวนเรียบร้อย'}</span></div>`:''}${mobileInspectionScannerHtml('mobileStock',mobileStockQuery)}${mobileStockEditRowsHtml()}<div class="mobile-stock-confirm-wrap"><button type="button" class="mobile-stock-confirm" id="mobileConfirmStockEdit" ${canConfirm?'':'disabled'}>${!mobileIsOnline()?'ออฟไลน์ — ยังบันทึกไม่ได้':stockEditPosting?'กำลังบันทึก...':'ยืนยันผลตรวจนับ'}</button></div></section>`;
+  return `<section class="mobile-tool-panel"><div class="mobile-stock-source"><button type="button" class="mobile-stock-import" id="mobileStockImport" ${availableLists.length?'':'disabled'}>ดึงข้อมูล</button><select id="mobileStockSourceList" ${availableLists.length?'':'disabled'}>${availableLists.length?availableLists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(selectedSource?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})</option>`).join(''):'<option value="">ไม่มีรายการที่รอแก้ไขสต็อก</option>'}</select></div>${sourceList?`<div class="mobile-stock-source-note"><b>${escapeHtml(sourceList.name)}</b><span>${stockEditSourcePending?'รอยืนยันการแก้ไข':'แก้ไขจำนวนเรียบร้อย'}</span></div>`:''}${mobileInspectionScannerHtml('mobileStock',mobileStockQuery)}<div id="mobileStockResults">${mobileStockSearchResultsHtml()}</div>${mobileStockEditRowsHtml()}<div class="mobile-stock-confirm-wrap"><button type="button" class="mobile-stock-confirm" id="mobileConfirmStockEdit" ${canConfirm?'':'disabled'}>${!mobileIsOnline()?'ออฟไลน์ — ยังบันทึกไม่ได้':stockEditPosting?'กำลังบันทึก...':'ยืนยันผลตรวจนับ'}</button></div></section>`;
 }
 async function confirmMobileStockEditChanges(){
   if(!mobileRequireOnline('ยืนยันแก้ไขสต็อก')) return false;
