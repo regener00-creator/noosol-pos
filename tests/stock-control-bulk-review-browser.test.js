@@ -195,6 +195,9 @@ let browser;
   await sachet.fill('5');
   assert.equal(await systemStock.innerText(),'8 กล่อง 4 ซอง');
   assert.equal(await page.locator('[data-stock-count-difference]').innerText(),'+1 ซอง');
+  const positiveColors=el=>[getComputedStyle(el).color,getComputedStyle(el).backgroundColor];
+  const greenOnTransparent=['rgb(35, 131, 68)','rgba(0, 0, 0, 0)'];
+  assert.deepEqual(await page.locator('[data-stock-count-difference] .in').evaluate(positiveColors),greenOnTransparent);
   await box.fill('10');await sachet.fill('7');
   assert.equal(await page.locator('[data-stock-count-difference]').innerText(),'+2 กล่อง 3 ซอง');
   const fitsOnOneLine=badge=>{
@@ -250,6 +253,7 @@ let browser;
   assert.equal(await total.isVisible(),false);
   assert.equal(await box.inputValue(),'8');assert.equal(await sachet.inputValue(),'5');
   assert.equal(await page.locator('[data-mobile-stock-item="55"] .mobile-stock-field').filter({has:page.getByText('ในระบบ',{exact:true})}).locator('b').innerText(),'8 กล่อง 4 ซอง');
+  assert.deepEqual(await page.locator('[data-mobile-stock-difference="55"] .in').evaluate(positiveColors),greenOnTransparent);
   await box.fill('');await sachet.fill('');assert.equal(await page.evaluate(()=>Object.hasOwn(stockEditDraftStocks,55)),false);
   const lotPanel=page.locator('[data-mobile-stock-lot-host="55"]');
   assert.equal(await lotPanel.isVisible(),false);

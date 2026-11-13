@@ -301,9 +301,16 @@ async function verifyLastInspectionUnits(page){
     assert.deepEqual(await page.evaluate(()=>[...mobileInspectionChecks(mobileInspectionOpenedListId)]),[[pid,'กล่อง'],[pid+1,'แผง']]);
     await page.locator('#mobileContinueToStock').click();
     assert.equal(await page.getByText('รอยืนยันการแก้ไข',{exact:true}).count(),0);
-    const sourceBox=await page.locator('#mobileStockSourceList').boundingBox();
-    const importBox=await page.locator('#mobileStockImport').boundingBox();
-    assert.ok(sourceBox.x+sourceBox.width<=importBox.x && Math.abs(sourceBox.y-importBox.y)<1);
+    for(const width of [320,390]){
+      await page.setViewportSize({width,height:844});
+      const controls=page.locator('.mobile-stock-source').locator('select, #mobileStockImport, .mobile-inspection-separator, input, #mobileStockCamera');
+      const boxes=await controls.evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().toJSON()));
+      assert.equal(boxes.length,5);
+      boxes.forEach((box,i)=>{
+        assert.ok(box.width>0 && box.right<=width && Math.abs(box.y+box.height/2-boxes[0].y-boxes[0].height/2)<1);
+        if(i) assert.ok(box.left>=boxes[i-1].right);
+      });
+    }
     const selectedUnit=(id=pid)=>page.evaluate(id=>stockEditRowUnitSel[id],id);
     assert.equal(await selectedUnit(),'กล่อง');
     assert.equal(await selectedUnit(pid+1),'แผง');
