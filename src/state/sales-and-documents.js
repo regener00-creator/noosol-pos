@@ -217,6 +217,12 @@ function cartTaxSummary(promoResult=applyPromotions(cart),discount=saleDiscount,
   const points=arguments.length<2&&typeof effectiveLoyaltyRedemption==='function'?effectiveLoyaltyRedemption(promoResult):0;
   return calculateSaleTaxSummary(lines,Number(discount)+points,registered);
 }
+function saleBillDiscountCost(sale){
+  if(sale.customerReturn||!['done','void'].includes(sale.status)) return 0;
+  if(sale.billDiscountCost!=null) return Number(sale.billDiscountCost)||0;
+  const points=Number(sale.loyaltyRedeemed??sale.loyalty?.redeemed)||0;
+  return Math.max(0,Math.round(((Number(sale.discount)||0)-points)*100)/100);
+}
 function billDiscountCostLine(amount){
   return {name:'ลดท้ายบิล',qty:1,unit:'PCS',price:0,net:0,cost:amount,costTotal:amount,profit:-amount};
 }

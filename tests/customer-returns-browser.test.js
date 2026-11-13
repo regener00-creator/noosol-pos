@@ -90,6 +90,26 @@ let browser;
   assert.equal(await page.locator('[data-customer-return]').count(),0);
   await page.evaluate(()=>openSaleHistoryDetail('original'));
   assert.equal(await page.locator('#returnSaleDetailBtn, #exchangeSaleDetailBtn').count(),0);
+  // Earlier receipts stored the discount only in the header. The screen and
+  // printed report must both reclassify it without changing after-VAT profit.
+  await page.setViewportSize({width:1440,height:1000});
+  await page.evaluate(()=>{
+    currentProfile={...currentProfile,owner:true,level:1};
+    document.querySelectorAll('.modal-overlay').forEach(node=>node.remove());
+    salesHistory=[{id:'legacy-discount',ref:'TEST-DISCOUNT',status:'done',date:TODAY_STR,warehouseId:1,
+      total:2860,discount:40,loyaltyRedeemed:0,vatRegistered:true,
+      items:[{productId:1,name:'สินค้าทดสอบ',qty:1,unit:'กล่อง',price:2900,cost:1920,costTotal:1920,lineTotalGross:2900,vatMode:'incl'}]}];
+    currentTab='rprofit';rprofitFilter={applied:true,period:'today',wh:'1',pay:'all'};render();
+  });
+  const expenseRow=page.locator('.profit-item').filter({hasText:'ลดท้ายบิล'});
+  assert.deepEqual(await expenseRow.locator('span').allTextContents(),['ลดท้ายบิล','1','PCS','0.00','40.00','-40.00']);
+  assert.equal(await page.locator('.rpt-meta-total-v').innerText(),'752.90');
+  const previewPromise=page.waitForEvent('popup');
+  await page.locator('#rprofitPrintBtn').click();
+  const preview=await previewPromise;
+  const printedRow=preview.locator('tr').filter({hasText:'ลดท้ายบิล'});
+  assert.deepEqual(await printedRow.locator('td').allTextContents(),['ลดท้ายบิล','1','PCS','0.00','40.00','-40.00']);
+  await preview.close();
   assert.deepEqual(errors,[]);
   console.log('Customer return browser: detail-only actions, partial/damaged returns, all settlement cases, printing, tablet and permissions passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.close();});

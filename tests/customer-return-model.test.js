@@ -2,7 +2,7 @@ const assert=require('node:assert/strict');
 const vm=require('node:vm');
 const source=require('./load-app-source')();
 const context={activeWarehouseId:1};vm.createContext(context);
-for(const name of ['customerReturnAvailable','customerReturnRefund','cashShiftSummary','saleTaxSummary','rprofitCollect','documentInActiveStore','billDiscountCostLine']){
+for(const name of ['customerReturnAvailable','customerReturnRefund','cashShiftSummary','saleTaxSummary','rprofitCollect','documentInActiveStore','billDiscountCostLine','saleBillDiscountCost']){
   const fn=source.match(new RegExp('^function '+name+'\\([^\\n]*\\)\\{[\\s\\S]*?^\\}','m'));
   assert.ok(fn,name);vm.runInContext(fn[0],context);
 }
@@ -33,5 +33,9 @@ assert.equal(context.customerReturnRefund(sale,[{itemIndex:0,qty:1}]),150);
 sale.discount=60;sale.loyaltyRedeemed=10;
 report=context.rprofitCollect();assert.equal(report.cost,170);assert.equal(report.profit,20);
 delete sale.billDiscountCost;
+report=context.rprofitCollect();assert.equal(report.byDate[sale.date][0].items.length,2);assert.equal(report.cost,170);assert.equal(report.profit,20);
+delete sale.loyaltyRedeemed;
+sale.loyalty={redeemed:60};
 report=context.rprofitCollect();assert.equal(report.byDate[sale.date][0].items.length,1);assert.equal(report.cost,120);
+assert.equal(context.saleBillDiscountCost({...sale,customerReturn:true,discount:40,loyalty:null}),0);
 console.log('Customer return amounts, cent rounding, permissions, signed tax/profit and shift models passed');

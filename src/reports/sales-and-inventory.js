@@ -545,7 +545,7 @@ function rprofitCollect(){
     });
     const subtotal=prepared.reduce((sum,item)=>sum+item.gross,0);
     const discount=Number(s.discount)||0;
-    const billDiscountCost=Number(s.billDiscountCost)||0;
+    const billDiscountCost=saleBillDiscountCost(s);
     const ratio=s.customerReturn?1:subtotal>0?Math.max(0,subtotal-discount)/subtotal:0;
     const items=prepared.map(item=>{
       // The tax and payment totals already include the discount. Reclassify
