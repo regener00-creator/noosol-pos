@@ -71,6 +71,19 @@ async function run(){
   browser=await chromium.launch({headless:true,executablePath});
   const a=await browser.newPage(),b=await browser.newPage();
   await setup(a);await setup(b);
+  const actionCell=a.locator('.inspection-list-overview-action').filter({has:a.locator('[data-open-inspection-list]')}).first();
+  assert.ok(await actionCell.evaluate(cell=>{
+    const bounds=cell.getBoundingClientRect(),buttons=[...cell.querySelectorAll('button')];
+    return buttons.length===3&&buttons.every(button=>{
+      const box=button.getBoundingClientRect(),icon=button.querySelector('svg').getBoundingClientRect();
+      return box.width===36&&box.height===36&&icon.width===18&&icon.height===18&&box.left>=bounds.left&&box.right<=bounds.right;
+    });
+  }));
+  await a.evaluate(()=>openStockEditInspectionListPicker());
+  const picker=a.locator('.stock-edit-import-modal');
+  assert.ok(await picker.locator('.stock-edit-import-row').first().evaluate(card=>
+    [...card.children].every(line=>getComputedStyle(line).textAlign==='center')));
+  await picker.getByRole('button',{name:'ยกเลิก'}).click();
   for(const wh of [1,2]){
     for(const page of [a,b])await page.evaluate(wh=>{activeWarehouseId=wh;render();},wh);
     const id='edit'+wh;
