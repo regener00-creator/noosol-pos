@@ -92,6 +92,24 @@ let browser;
   await page.locator('#favSaveBtn').click();
   assert.equal(await page.locator('#favManageList').count(), 0);
   assert.deepEqual(await page.evaluate(()=>window.__favoriteRenderedOrder), [3,2,1]);
+  await page.evaluate(()=>{
+    favorites=[];
+    products[0].units=[{sub:'แผง',factor:0.1,price:10,cost:5,barcode:'TEST-STRIP'}];
+    openManageFavModal();
+  });
+  await page.locator('#favAddSearch').fill('สินค้า A');
+  assert.equal(await page.locator('#favAddResults button').count(),0,'results have no separate Add button');
+  await page.locator('[data-fav-result-unit="1"]').selectOption('แผง');
+  assert.deepEqual(await page.evaluate(()=>favorites),[],'choosing a unit must not add prematurely');
+  await page.locator('.fav-unit-result-info b').click();
+  assert.deepEqual(await page.evaluate(()=>favorites),[{pid:1,unit:'แผง'}],'clicking a result adds its selected unit exactly once');
+  await page.locator('#favAddSearch').fill('สินค้า B');
+  await page.locator('[data-fav-result="2"]').focus();
+  await page.locator('[data-fav-result="2"]').press('Enter');
+  assert.deepEqual(await page.evaluate(()=>favorites.map(entry=>entry.pid)),[1,2],'keyboard can activate a result');
+  await page.locator('#favAddSearch').fill('สินค้า C');
+  await page.locator('#favAddSearch').press('Enter');
+  assert.deepEqual(await page.evaluate(()=>favorites.map(entry=>entry.pid)),[1,2,3],'search Enter still adds the first match');
   assert.deepEqual(errors, [], `พบ JavaScript error: ${errors.join(' | ')}`);
   console.log('favorite reorder browser tests passed');
 })().catch(error=>{ console.error(error); process.exitCode=1; }).finally(async()=>{

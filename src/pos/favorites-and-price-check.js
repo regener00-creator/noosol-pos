@@ -107,13 +107,14 @@ function openManageFavModal(){
     const matches=productScanMatches(q,20,p=>!favoriteHasProduct(p.id),posBarcodeSearchOptions);
     if(!matches.length){ resultsEl.innerHTML='<div class="fav-add-noresult">ไม่พบสินค้า หรือเพิ่มไว้ครบแล้ว</div>'; resultsEl.hidden=false; return; }
     resultsEl.innerHTML=matches.map(({product:p,unitName:exactUnit})=>{
-      return `<div class="fav-unit-result" data-fav-result="${p.id}"><div class="fav-unit-result-info"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.sku||'-')}</span></div><select class="fav-unit-select" data-fav-result-unit="${p.id}" aria-label="เลือกหน่วย ${escapeHtml(p.name)}">${favoriteUnitOptionsHtml(p,exactUnit)}</select><button type="button" class="btn primary small fav-unit-add" data-fav-add="${p.id}">เพิ่ม</button></div>`;
+      return `<div class="fav-unit-result" data-fav-result="${p.id}" role="button" tabindex="0" aria-label="เพิ่ม ${escapeHtml(p.name)} เป็นสินค้าโปรด"><div class="fav-unit-result-info"><b>${escapeHtml(p.name)}</b><span>${escapeHtml(p.sku||'-')}</span></div><select class="fav-unit-select" data-fav-result-unit="${p.id}" aria-label="เลือกหน่วย ${escapeHtml(p.name)}">${favoriteUnitOptionsHtml(p,exactUnit)}</select></div>`;
     }).join('');
     resultsEl.hidden=false;
-    resultsEl.querySelectorAll('[data-fav-add]').forEach(btn=>{
-      btn.addEventListener('mousedown', e=>e.preventDefault());
-      btn.addEventListener('click', ()=>{
-        const pid=Number(btn.dataset.favAdd);
+    resultsEl.querySelectorAll('[data-fav-result]').forEach(row=>{
+      row.addEventListener('mousedown',event=>{ if(!event.target.closest('select')) event.preventDefault(); });
+      row.addEventListener('click',event=>{
+        if(event.target.closest('select')) return;
+        const pid=Number(row.dataset.favResult);
         const product=products.find(item=>Number(item.id)===pid);
         const unit=resultsEl.querySelector(`[data-fav-result-unit="${pid}"]`)?.value;
         if(product&&!favoriteHasProduct(pid)) favorites.push(favoriteEntryForProduct(product,unit));
@@ -121,6 +122,10 @@ function openManageFavModal(){
         searchEl.value=''; resultsEl.hidden=true; resultsEl.innerHTML='';
         refreshList();
         searchEl.focus();
+      });
+      row.addEventListener('keydown',event=>{
+        if(event.target!==row||!['Enter',' '].includes(event.key)) return;
+        event.preventDefault(); row.click();
       });
     });
   };
@@ -132,7 +137,7 @@ function openManageFavModal(){
   searchEl.addEventListener('keydown', e=>{
     if(e.key==='Enter'){
       e.preventDefault();
-      const first=resultsEl.querySelector('[data-fav-add]');
+      const first=resultsEl.querySelector('[data-fav-result]');
       if(first) first.click();
     }
   });

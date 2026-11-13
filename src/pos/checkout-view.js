@@ -1,3 +1,19 @@
+function posDailySaleNumber(){
+  const day=TODAY_STR.replace(/-/g,'');
+  const savedNumber=new RegExp(day+'(\\d{4,})$');
+  let latestNumber=0;
+  let savedCount=0;
+  let pendingCount=0;
+  for(const sale of salesHistory){
+    if(!documentInActiveStore(sale)||sale.date!==TODAY_STR||sale.customerReturn||!['done','void'].includes(sale.status)) continue;
+    if(sale.offlinePending){ pendingCount++; continue; }
+    savedCount++;
+    const match=String(sale.ref||'').match(savedNumber);
+    if(match) latestNumber=Math.max(latestNumber,Number(match[1]));
+  }
+  return Math.max(latestNumber,savedCount)+pendingCount+1;
+}
+
 function renderCheckout(){
   const selectedCustomer=activeSaleCustomer();
   if(!selectedCustomer||!cart.length) saleLoyaltySelection=null;
@@ -46,7 +62,7 @@ function renderCheckout(){
       const priceCell = line.custom
         ? `<input class="custom-line-input custom-line-price" data-custom-price data-line="${line.lineId}" type="number" min="0" step="0.01" value="${line.price}" placeholder="0.00">`
         : line.priceSource==='customer'
-        ? `<span>${fmtMoney(displayUnitPrice)}<br><small class="pos-customer-price-tag">ราคาพิเศษ ${escapeHtml(selectedCustomer?.name||'ลูกค้า')}</small></span>`
+        ? `<span>${fmtMoney(displayUnitPrice)}<br><small class="pos-customer-price-tag">ราคาเฉพาะลูกค้า</small></span>`
         : line.priceSource==='quotation'
         ? `<span>${fmtMoney(displayUnitPrice)}<br><small class="pos-quotation-price-tag">ราคาจากใบเสนอราคา</small></span>`
         : promoLine.promoId
@@ -97,14 +113,16 @@ function renderCheckout(){
 
   return `${shiftBanner}
     <div class="pos-searchrow">
+      <div class="pos-search-controls">
       <div class="pos-search"><span class="pos-bc"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg></span><input id="search" aria-label="ค้นหาสินค้า" placeholder="กดปุ่ม CTRL เพื่อกลับมาช่องค้นหา" value="${escapeHtml(searchQuery)}" autocomplete="off"></div>
       <button class="pos-smallest-unit-btn ${posSmallestUnitOnce?'active':''}" id="posSmallestUnitBtn" type="button" aria-pressed="${posSmallestUnitOnce?'true':'false'}"><kbd>Home</kbd><span>หน่วยเล็กสุด</span></button>
+      </div>
     </div>
     ${posSmallestUnitOnce?'<div class="pos-smallest-unit-status"><span class="pos-smallest-unit-status-dot"></span><strong>พร้อมขายหน่วยเล็กสุด</strong><span>ยิงหรือเลือกสินค้า 1 รายการ · กด Home หรือ Esc เพื่อยกเลิก</span></div>':''}
     ${searchQuery ? renderSearchResults() : ''}
     <div class="pos-grid">
       <div class="pos-left">
-        <div class="pos-title-row"><div class="pos-title">รายการ : ${formatSaleRefDisplay(saleRef)}</div><button class="btn ghost" id="addCustomItemBtn">+ รายการกรอกเอง</button></div>
+        <div class="pos-title-row"><div class="pos-title">รายการที่ : ${posDailySaleNumber()}</div><button class="btn ghost" id="addCustomItemBtn">+ รายการกรอกเอง</button></div>
         <datalist id="inlineCustomUnits">${units.map(unit=>`<option value="${escapeHtml(unit)}">`).join('')}</datalist><table class="grid-table pos-table"><colgroup><col class="pt-idx"><col class="pt-barcode"><col class="pt-name"><col class="pt-price"><col class="pt-unit"><col class="pt-qty"><col class="pt-total"><col class="pt-del"></colgroup><thead><tr><th>รายการที่</th><th>บาร์โค้ดสินค้า</th><th>ชื่อ</th><th>ราคา</th><th>หน่วย</th><th>จำนวน</th><th>รวม</th><th></th></tr></thead>
         <tbody>${rowsHtml}</tbody></table>
         ${favHtml}
@@ -123,8 +141,10 @@ function renderCheckout(){
           <button class="pos-action" id="histBtn"><span class="pa-ic">🧾</span> ประวัติการขาย</button>
         </div>
         <div class="pos-summary">
-          <div class="sumrow"><span>รวมสินค้า</span><span class="mono" id="posSubtotalValue">${fmtMoney(subtotal)}</span></div>
-          <div class="sumrow"><span>ส่วนลด</span><span class="sumdiscount"><button class="btn ghost small" id="editDiscountBtn">✎ ส่วนลด</button> <span class="mono" id="posDiscountValue">${fmtMoney(discount)}</span></span></div>
+          <div class="pos-subtotal-discount">
+            <div class="sumrow"><span>รวมสินค้า</span><span class="mono" id="posSubtotalValue">${fmtMoney(subtotal)}</span></div>
+            <div class="sumrow"><button class="btn ghost small" id="editDiscountBtn">✎ ส่วนลด</button><span class="mono" id="posDiscountValue">${fmtMoney(discount)}</span></div>
+          </div>
           ${registered?`<div class="sumrow"><span id="posBeforeVatLabel">มูลค่าก่อน VAT</span><span class="mono" id="posBeforeVatValue">${fmtMoney(beforeVat)}</span></div>`:''}
           <div class="sumrow"><span id="posVatLabel">${registered?'ภาษีมูลค่าเพิ่ม 7%':'ไม่คิด VAT (กิจการยังไม่จด VAT)'}</span><span class="mono" id="posVatValue">${fmtMoney(vat)}</span></div>
           <div class="sumrow grand"><span>ยอดชำระ</span><span class="mono" id="posGrandValue">${fmtMoney(grand)}</span></div>

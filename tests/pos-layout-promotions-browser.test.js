@@ -45,13 +45,27 @@ let browser;
   assert.equal(new Set(colors).size,1,'all product data including quantity and unit must share the warning color');
   assert.equal(colors[0],'rgb(22, 133, 192)','pending color must be blue in the active theme');
   assert.equal(await page.locator('#holdBtn').textContent(),'พัก');
+  await page.evaluate(()=>{
+    activeWarehouseId=1;
+    salesHistory=[
+      {id:'a',ref:'ARE'+TODAY_STR.replace(/-/g,'')+'0003',date:TODAY_STR,warehouseId:1,status:'done'},
+      {id:'b',ref:'BRE'+TODAY_STR.replace(/-/g,'')+'0099',date:TODAY_STR,warehouseId:2,status:'done'},
+      {id:'hold',date:TODAY_STR,warehouseId:1,status:'hold'},
+      {id:'old',ref:'ARE200001010100',date:'2000-01-01',warehouseId:1,status:'done'},
+    ];render();
+  });
+  assert.equal(await page.locator('.pos-title').textContent(),'รายการที่ : 4','next daily number uses only receipts from the selected shop');
+  assert.equal(await page.evaluate(()=>{activeWarehouseId=2;return posDailySaleNumber();}),100);
+  assert.equal(await page.evaluate(()=>{activeWarehouseId=3;return posDailySaleNumber();}),1,'a shop without receipts starts at one');
+  assert.equal(await page.evaluate(()=>{activeWarehouseId=1;salesHistory[0].status='void';return posDailySaleNumber();}),4,'voiding a receipt must not reuse its number');
+  assert.equal(await page.evaluate(()=>{salesHistory.push({id:'offline',date:TODAY_STR,warehouseId:1,status:'done',offlinePending:true});return posDailySaleNumber();}),5,'queued offline receipts advance the displayed number');
   assert.deepEqual(await page.locator('#holdBtn').evaluate(el=>{const style=getComputedStyle(el);return [style.borderTopWidth,style.borderRightWidth,style.borderBottomWidth,style.borderLeftWidth];}),['0px','0px','0px','0px'],'hold button has no border');
   for(const width of [1920,1440,1280]){
     await page.setViewportSize({width,height:1000});
     const layout=await page.evaluate(()=>{
       const table=document.querySelector('.pos-table');
       const rect=id=>{const r=document.getElementById(id).getBoundingClientRect();return {top:r.top,width:r.width,height:r.height,right:r.right};};
-      return {hold:rect('holdBtn'),clear:rect('clearBillBtn'),pay:rect('checkoutBtn'),columns:[3,4,6].map(index=>[getComputedStyle(table.tHead.rows[0].cells[index]).textAlign,getComputedStyle(table.tBodies[0].rows[0].cells[index]).textAlign]),nameWidth:table.tHead.rows[0].cells[2].getBoundingClientRect().width};
+      return {hold:rect('holdBtn'),clear:rect('clearBillBtn'),pay:rect('checkoutBtn'),search:rect('search'),home:rect('posSmallestUnitBtn'),left:document.querySelector('.pos-left').getBoundingClientRect().right,subtotal:rect('posSubtotalValue'),discount:rect('posDiscountValue'),columns:[3,4,6].map(index=>[getComputedStyle(table.tHead.rows[0].cells[index]).textAlign,getComputedStyle(table.tBodies[0].rows[0].cells[index]).textAlign]),nameWidth:table.tHead.rows[0].cells[2].getBoundingClientRect().width};
     });
     assert.ok(Math.abs(layout.hold.top-layout.pay.top)<1&&Math.abs(layout.clear.top-layout.pay.top)<1,`three footer actions share one row at ${width}px`);
     assert.ok(layout.pay.width>layout.hold.width&&layout.pay.width>layout.clear.width,'checkout is the largest button');
@@ -59,6 +73,8 @@ let browser;
     assert.ok(layout.pay.right<layout.hold.right&&layout.hold.right<layout.clear.right,'checkout, hold and delete are ordered from left to right');
     assert.deepEqual(layout.columns,[['center','center'],['center','center'],['center','center']]);
     assert.ok(layout.nameWidth>150,`name must have usable space at ${width}px: ${layout.nameWidth}`);
+    assert.ok(layout.home.right<=layout.left+1&&layout.home.right>layout.search.right,'Home follows search within the left column');
+    assert.ok(Math.abs((layout.subtotal.top+layout.subtotal.height/2)-(layout.discount.top+layout.discount.height/2))<2,`subtotal and discount amounts share one row at ${width}px: ${JSON.stringify(layout)}`);
   }
   await page.setViewportSize({width:1920,height:1080});
   if(process.env.PEPOS_TEST_SCREENSHOT) await page.screenshot({path:process.env.PEPOS_TEST_SCREENSHOT,fullPage:true});
@@ -86,6 +102,7 @@ let browser;
   for(const priceSource of ['customer','quotation']){
     await page.evaluate(source=>{cart=cart.filter(line=>!line.autoFreeFromPromo);cart[0].qty=1;cart[0].priceSource=source;render();},priceSource);
     assert.equal(await pending().count(),0,'special prices do not stack promotions');
+    if(priceSource==='customer') assert.equal(await page.locator('.pos-customer-price-tag').textContent(),'ราคาเฉพาะลูกค้า');
   }
   await page.evaluate(()=>{cart[0].priceSource='standard';promotions[0].active=false;render();});
   assert.equal(await pending().count(),0,'inactive promotions do not warn');
