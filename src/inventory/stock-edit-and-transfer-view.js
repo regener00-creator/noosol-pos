@@ -50,7 +50,7 @@ function stockCountPartsMap(){
   if(!rows){rows=new Map();stockCountPartsByDraft.set(stockEditDraftStocks,rows);}
   return rows;
 }
-function stockCountPartsHtml(product,options){
+function stockCountPartsHtml(product,options,showTotal=true){
   const rows=stockCountPartsMap();
   let parts=rows.get(product.id);
   if(!parts){
@@ -72,10 +72,11 @@ function stockCountPartsHtml(product,options){
     `<label><span>${escapeHtml(unit.name)}</span><input class="stock-edit-stock-input" type="number" min="0" step="any" inputmode="decimal" placeholder="0" data-count-part="${product.id}" data-unit="${escapeHtml(unit.name)}" data-factor="${unit.factor}" value="${escapeHtml(parts.values.get(unit.name)||'')}" aria-label="จำนวนที่นับได้ ${escapeHtml(product.name)} หน่วย ${escapeHtml(unit.name)}"></label>`
   ).join('');
   const total=parts.values.size?(stockEditDraftStocks[product.id]??product.stock):null;
-  return `<div class="stock-count-parts">${fields}<output aria-live="polite">${escapeHtml(stockCountTotalText(product,total,parts.invalid))}</output></div>`;
+  return `<div class="stock-count-parts">${fields}<output aria-live="polite" ${showTotal?'data-show-total':''}>${escapeHtml(stockCountTotalText(product,total,parts.invalid,showTotal))}</output></div>`;
 }
-function stockCountTotalText(product,total,invalid){
+function stockCountTotalText(product,total,invalid,showTotal){
   if(invalid)return 'กรุณากรอกจำนวนตั้งแต่ 0 ขึ้นไป';
+  if(!showTotal)return '';
   return `รวม ${total==null?'—':Number(total).toLocaleString('th-TH',{maximumFractionDigits:6})} ${product.unit}`;
 }
 function stockCountHasInvalidParts(){
@@ -97,7 +98,8 @@ function updateStockCountParts(product,host){
   if(total!=null&&(total!==Number(product.stock)||stockEditRequiresReconciliation(product)))stockEditDraftStocks[product.id]=total;
   else delete stockEditDraftStocks[product.id];
   if(stockEditSourceInspectionListId&&total!=null&&total!==Number(product.stock))stockEditSourcePending=true;
-  host.querySelector('output').textContent=stockCountTotalText(product,total,parts.invalid);
+  const output=host.querySelector('output');
+  output.textContent=stockCountTotalText(product,total,parts.invalid,output.hasAttribute('data-show-total'));
 }
 function stockCountDifferenceHtml(product,baseStock){
   const difference=Number((Number(baseStock)-Number(product.stock)).toFixed(6));
@@ -124,7 +126,7 @@ function stockEditRowsHtml(rows=stockEditCurrentProducts()){
       <td>${escapeHtml(p.name)}</td>
       <td style="text-align:center;">${unitHtml}</td>
       <td class="mono" style="text-align:center;">${escapeHtml(stockInLargestUnit(p))}</td>
-      <td style="text-align:center;">${unitOptions.length>1?stockCountPartsHtml(p,unitOptions):`<input type="number" min="0" step="any" class="stock-edit-stock-input ${Number(selectedBaseStock)<0?'stock-negative':''} ${hasDraft?'stock-edit-pending':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="จำนวนที่นับได้ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="กรอกจำนวนที่นับได้จริง แล้วกดยืนยันเพื่อบันทึก">`}</td>
+      <td style="text-align:center;">${unitOptions.length>1?stockCountPartsHtml(p,unitOptions,false):`<input type="number" min="0" step="any" class="stock-edit-stock-input ${Number(selectedBaseStock)<0?'stock-negative':''} ${hasDraft?'stock-edit-pending':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="จำนวนที่นับได้ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="กรอกจำนวนที่นับได้จริง แล้วกดยืนยันเพื่อบันทึก">`}</td>
       <td style="text-align:center;" data-stock-count-difference>${differenceHtml}</td>
       <td class="stock-control-lot-cell">${stockEditLotControlHtml(p,differenceBase)}</td>
       <td style="text-align:center;"><button class="stock-edit-remove-btn" tabindex="-1" data-stock-edit-remove="${p.id}" title="ลบ ${escapeHtml(p.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(p.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td>
@@ -150,12 +152,12 @@ function renderStockEdit(){
         <div class="rpf-item"><select id="stockEditCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(c=>`<option value="${escapeHtml(c)}" ${filter.category===c?'selected':''}>${escapeHtml(c)}</option>`).join('')}</select></div>
         <div class="rpf-item"><select id="stockEditBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(b=>`<option value="${escapeHtml(b)}" ${filter.brand===b?'selected':''}>${escapeHtml(b)}</option>`).join('')}</select></div>
         <button class="btn ghost" id="stockEditAddByCategoryBtn" ${(filter.category||filter.brand)?'':'disabled'}>เลือกสินค้าในหมวดนี้${(filter.category||filter.brand)?` (${matchCount})`:''}</button>
+        <div class="stock-edit-search">
+          <input id="stockEditInput" value="${escapeHtml(stockEditSearchQuery)}" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." aria-label="ค้นหาหรือสแกนบาร์โค้ด" autocomplete="off">
+          <div id="stockEditResults" class="fav-add-results" hidden></div>
+        </div>
       </div>
       ${sourceList?`<div class="stock-edit-source-note"><span>ดึงข้อมูลจาก <strong>${escapeHtml(sourceList.name)}</strong> · ${(sourceList.items||[]).length} สินค้า</span><span class="stock-edit-source-status ${stockEditSourcePending?'pending':'done'}">${stockEditSourcePending?'รอยืนยันการแก้ไข':'แก้จำนวนเรียบร้อย'}</span></div>`:''}
-      <div style="position:relative;margin-bottom:14px;">
-        <input id="stockEditInput" value="${escapeHtml(stockEditSearchQuery)}" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." style="width:100%;padding:11px 13px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:14px;" autocomplete="off">
-        <div id="stockEditResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div>
-      </div>
       <div class="stock-edit-table-wrap seamless-table-wrap">
         <table class="grid-table doc-head-blue stock-edit-table">
           <colgroup><col class="stock-edit-col-barcode"><col class="stock-edit-col-name"><col class="stock-edit-col-unit"><col class="stock-edit-col-stock"><col class="stock-edit-col-count"><col class="stock-edit-col-difference"><col class="stock-edit-col-lot"><col class="stock-edit-col-action"></colgroup>
