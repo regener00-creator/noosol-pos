@@ -201,14 +201,9 @@ function renderSearchResults(){
 
 function salesHistoryItemsPreview(items,saleId=null){
   const list=items||[];
-  const visible=saleId===null?list:list.slice(0,4);
-  const remaining=list.length-visible.length;
-  const lines=visible.map((item,index)=>{
-    const name=escapeHtml(item.name),qty=escapeHtml(item.qty);
-    if(!remaining||index!==visible.length-1)return `${name} ×${qty}`;
-    return `${name} <span class="history-preview-tail">×${qty} <button type="button" class="history-preview-more" data-sale-view="${escapeHtml(saleId)}" aria-haspopup="dialog" aria-label="ดูสินค้าทั้งหมด ${list.length} รายการ">+${remaining}</button></span>`;
-  });
-  return `<div class="history-preview">${lines.join('<br>')||'-'}</div>`;
+  if(saleId===null||list.length<=4)return salesHistoryItemsFull(list);
+  const lines=list.map(item=>`${escapeHtml(item.name)} ×${escapeHtml(item.qty)}`);
+  return `<details class="history-preview history-items-disclosure"><summary>${lines.slice(0,4).join('<br>')}<span class="history-preview-more">+${lines.length-4}</span></summary>${lines.slice(4).join('<br>')}</details>`;
 }
 function salesHistoryItemsFull(items){
   const list=items||[];

@@ -1269,8 +1269,16 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(searchCashBillOrderBtn) searchCashBillOrderBtn.addEventListener('click',()=>{ posSalesHistoryModalOpen=true; render(); document.getElementById('closePOSSalesHistoryBtn')?.focus(); });
   document.getElementById('continueCashBillOrderBtn')?.addEventListener('click',searchCashBillOrder);
   const orderNumberInput=document.querySelector('.cash-bill-number-entry input');
+  document.querySelectorAll('.history-items-disclosure').forEach(details=>{
+    const row=details.closest('tr');
+    row.addEventListener('click',event=>{
+      if(event.target.closest('summary,button,a,.history-actions'))return;
+      if(row.hasAttribute('data-pick-order-number')&&!event.target.closest('.history-items-cell'))return;
+      details.open=!details.open;
+    });
+  });
   document.querySelectorAll('[data-pick-order-number]').forEach(row=>row.addEventListener('click',event=>{
-    if(event.target.closest('.history-actions')) return;
+    if(event.target.closest('.history-actions,.history-items-cell:has(.history-items-disclosure)')) return;
     orderNumberInput.value=row.dataset.pickOrderNumber;
     orderNumberInput.dispatchEvent(new Event('input'));
     closePOSSalesHistory();
