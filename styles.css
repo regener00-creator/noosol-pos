@@ -1741,6 +1741,12 @@
   .history-table .history-actions{justify-content:center;}
   .sale-detail-modal{width:calc(100% - 32px);max-width:1560px;max-height:calc(100dvh - 24px);}
   .sale-detail-modal>.modal-head,.sale-detail-modal>.payment-actions{flex:none;}
+  .sale-detail-modal>.modal-head{display:grid;grid-template-columns:32px minmax(0,1fr) 32px;}
+  .sale-detail-modal .modal-head h3{grid-column:2;text-align:center;overflow-wrap:anywhere;}
+  .sale-detail-modal .modal-close{justify-self:end;}
+  .sale-detail-meta{text-align:center;overflow-wrap:anywhere;}
+  .sale-detail-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:14px;margin:0 18px 18px;}
+  .sale-detail-tools>.sale-lot-correction-panel,.sale-detail-tools>.history-doc-panel{margin:0;}
   .sale-detail-body{min-height:0;overflow-y:auto;}
   .sale-detail-expense-cost{display:block;color:var(--text-muted);margin-top:4px;}
   .sale-detail-table .grid-table :is(th,td):not(:nth-child(2)){text-align:center;}
