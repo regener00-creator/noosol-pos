@@ -306,6 +306,8 @@ async function verifyLastInspectionUnits(page){
       const controls=page.locator('.mobile-stock-source').locator('select, #mobileStockImport, .mobile-inspection-separator, input, #mobileStockCamera');
       const boxes=await controls.evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().toJSON()));
       assert.equal(boxes.length,5);
+      assert.equal(boxes[1].width,boxes[4].width,'import and camera buttons have equal width');
+      assert.equal(boxes[1].height,boxes[4].height,'import and camera buttons have equal height');
       boxes.forEach((box,i)=>{
         assert.ok(box.width>0 && box.right<=width && Math.abs(box.y+box.height/2-boxes[0].y-boxes[0].height/2)<1);
         if(i) assert.ok(box.left>=boxes[i-1].right);
