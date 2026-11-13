@@ -129,6 +129,21 @@ async function verifyInspectionAndPriceLabels(page){
           return (screen==='saved'?mobileInspectionSavedAddItems[0]:inspectionListDraft.items[0])||null;
         },screen);
         assert.deepEqual(selected,prefix===own?{pid:id,unit:'กล่อง'}:null,`${screen}: ${prefix}, tap=${tap}, store ${store}`);
+        if(screen==='draft'&&tap&&prefix===own){
+          assert.equal(await page.getByRole('button',{name:'ทิ้งร่างรายการตรวจสินค้า'}).count(),1);
+          assert.doesNotMatch(await page.locator('.mobile-tool-panel').innerText(),/ยิงสินค้าเพื่อเพิ่มเข้ารายการ|เพิ่มแล้ว \d+ รายการ/);
+          await page.evaluate(()=>{
+            const reserve=reserveDraftNumber,commit=commitInspectionList;
+            reserveDraftNumber=async()=>{reserveDraftNumber=reserve;return 'saved-mobile-test';};
+            commitInspectionList=async list=>{commitInspectionList=commit;inspectionLists.push(list);return true;};
+          });
+          await page.locator('#mobileSaveInspectionDraft').click();
+          await page.waitForFunction(()=>document.querySelector('#mobileInspectionList')?.value==='saved-mobile-test');
+          assert.equal(await page.locator('#mobileInspectionInput, #mobileInspectionCamera').count(),0);
+          const controls=await page.locator('#mobileInspectionList, #mobileOpenInspectionList, #mobileDeleteInspectionList').evaluateAll(elements=>elements.map(el=>el.getBoundingClientRect().top));
+          assert.equal(controls.length,3);
+          assert.ok(Math.max(...controls)-Math.min(...controls)<1);
+        }
       }
     }
   }
@@ -238,11 +253,18 @@ async function verifyLastInspectionUnits(page){
     const balance=card.locator('.mobile-inspection-stock b');
     const expectedBalance=store===1?'1 ลัง 2 กล่อง 3 แผง':'2 ลัง 3 แผง';
     assert.equal(await balance.innerText(),expectedBalance);
-    assert.equal(await card.locator('.mobile-inspection-item-name').innerText(),'BASE0 : Decolgen');
+    assert.equal(await card.locator('.mobile-inspection-item-name').innerText(),'บาร์โค้ด BASE0 : Decolgen');
     assert.equal(await card.locator('.mobile-inspection-check').count(),0);
     assert.doesNotMatch(await card.innerText(),/รหัสสินค้า|SKU0/);
+    const cards=page.locator('[data-mobile-inspection-item]');
+    const productOrder=()=>cards.evaluateAll(items=>items.map(item=>Number(item.dataset.mobileInspectionItem)));
+    assert.deepEqual(await productOrder(),[pid+1,pid]);
+    await scan('BOX1');
+    assert.deepEqual(await productOrder(),[pid,pid+1]);
+    await page.locator('#mobileResetChecks').click();
+    assert.deepEqual(await productOrder(),[pid+1,pid]);
     await scan('BOX0');
-    assert.equal(await card.locator('.mobile-inspection-item-name').innerText(),'✓ BOX0 : Decolgen');
+    assert.equal(await card.locator('.mobile-inspection-item-name').innerText(),'✓ บาร์โค้ด BOX0 : Decolgen');
     assert.equal(await card.getByRole('img',{name:'ตรวจแล้ว'}).evaluate(el=>getComputedStyle(el).color),'rgb(35, 122, 59)');
     assert.equal(await balance.innerText(),expectedBalance,'Scanning a box keeps the full balance in packing units');
     assert.deepEqual(await page.evaluate(()=>[...mobileInspectionChecks(mobileInspectionOpenedListId)]),[[pid,'กล่อง']]);
