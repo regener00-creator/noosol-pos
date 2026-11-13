@@ -308,6 +308,7 @@ async function verifyLastInspectionUnits(page){
       assert.equal(boxes.length,5);
       assert.equal(boxes[1].width,boxes[4].width,'import and camera buttons have equal width');
       assert.equal(boxes[1].height,boxes[4].height,'import and camera buttons have equal height');
+      assert.equal(boxes[1].left-boxes[0].right,boxes[4].left-boxes[3].right,'both control pairs have equal spacing');
       boxes.forEach((box,i)=>{
         assert.ok(box.width>0 && box.right<=width && Math.abs(box.y+box.height/2-boxes[0].y-boxes[0].height/2)<1);
         if(i) assert.ok(box.left>=boxes[i-1].right);
