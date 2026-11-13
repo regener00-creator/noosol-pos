@@ -63,6 +63,21 @@ let browser;
   const lotPanel=detail.locator('.sale-lot-correction-panel'),docPanel=detail.locator('.history-doc-panel');
   const lotBox=await lotPanel.boundingBox(),docBox=await docPanel.boundingBox();
   assert.ok(Math.abs(lotBox.y-docBox.y)<1&&lotBox.x+lotBox.width<=docBox.x);
+  const checkToolAlignment=()=>detail.locator('.sale-detail-tools > div').evaluateAll(panels=>panels.every(panel=>{
+    const box=panel.getBoundingClientRect();
+    const centered=(left,right)=>Math.abs(left+right-box.left-box.right)<2;
+    const copyCentered=[...panel.querySelectorAll('h4,p')].every(node=>{
+      const rect=node.getBoundingClientRect();
+      return getComputedStyle(node).textAlign==='center'&&centered(rect.left,rect.right);
+    });
+    const rows=new Map();
+    for(const button of panel.querySelectorAll('button')){
+      const {top,left,right}=button.getBoundingClientRect(),row=rows.get(top);
+      rows.set(top,row?[Math.min(row[0],left),Math.max(row[1],right)]:[left,right]);
+    }
+    return copyCentered&&rows.size>0&&[...rows.values()].every(([left,right])=>centered(left,right));
+  }));
+  assert.ok(await checkToolAlignment(),'tool text and button rows are centered on desktop');
   assert.ok(await detail.locator('#saleDetailTitle').evaluate(node=>{
     const title=node.getBoundingClientRect(),head=node.parentElement.getBoundingClientRect();
     return getComputedStyle(node).textAlign==='center'&&Math.abs(title.left+title.right-head.left-head.right)<2;
@@ -72,6 +87,7 @@ let browser;
   assert.ok(await meta.evaluateAll(nodes=>nodes.every(node=>getComputedStyle(node).textAlign==='center')));
   await page.setViewportSize({width:390,height:640});
   assert.ok((await lotPanel.boundingBox()).y<(await docPanel.boundingBox()).y);
+  assert.ok(await checkToolAlignment(),'wrapped tool controls remain centered on a narrow screen');
   const footer=await detail.locator('.payment-actions').boundingBox();
   assert.ok(footer.x>=0&&footer.y+footer.height<=640&&footer.x+footer.width<=390,'detail actions fit a narrow screen');
   const scrollBody=detail.locator('.sale-detail-body');
