@@ -156,13 +156,12 @@ function openStockEditInspectionListPicker(){
   if(!lists.length){ showToast('ไม่มีรายการตรวจสินค้าที่รอแก้ไขสต็อก'); return; }
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
-  overlay.innerHTML=`<div class="modal" style="width:620px;max-height:82vh;display:flex;flex-direction:column;">
-    <div class="modal-head"><h3>ดึงข้อมูลจากรายการตรวจสินค้า</h3><button class="modal-close" aria-label="ปิด">×</button></div>
-    <div class="modal-sub">เลือกรายการที่บันทึกไว้เพื่อนำสินค้าและหน่วยเข้าหน้าแก้ไขสต็อก</div>
-    <div class="stock-edit-import-list">${lists.map(list=>`<div class="stock-edit-import-row">
-      <div class="stock-edit-import-info"><div class="stock-edit-import-name">${escapeHtml(list.name)}</div><div class="stock-edit-import-meta">${(list.items||[]).length} สินค้า · แก้ไขล่าสุด ${escapeHtml(inspectionListDateTime(list.updatedAt))}</div></div>
-      <button class="btn primary small" data-import-inspection-list="${escapeHtml(list.id)}">ดึงรายการนี้</button>
-    </div>`).join('')}</div>
+  overlay.innerHTML=`<div class="modal stock-edit-import-modal" role="dialog" aria-modal="true" aria-labelledby="stockEditImportTitle" style="width:620px;max-height:82vh;display:flex;flex-direction:column;">
+    <div class="modal-head"><h3 id="stockEditImportTitle">ดึงข้อมูลจากรายการตรวจสินค้า</h3><button class="modal-close" aria-label="ปิด">×</button></div>
+    <div class="stock-edit-import-list">${lists.map(list=>`<button type="button" class="stock-edit-import-row" data-import-inspection-list="${escapeHtml(list.id)}">
+      <span class="stock-edit-import-name">${escapeHtml(list.name)}</span>
+      <span class="stock-edit-import-meta">${(list.items||[]).length} สินค้า · แก้ไขล่าสุด ${escapeHtml(inspectionListDateTime(list.updatedAt))}</span>
+    </button>`).join('')}</div>
     <div style="padding:12px 16px;border-top:1px solid var(--border);text-align:left;"><button class="btn ghost" id="stockEditImportCancelBtn">ยกเลิก</button></div>
   </div>`;
   document.body.appendChild(overlay);
