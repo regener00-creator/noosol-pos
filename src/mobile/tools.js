@@ -460,16 +460,12 @@ function mobileInspectionProgress(list=mobileInspectionCurrentList()){
   const checked=mobileInspectionChecks(list?.id);
   return {checked:entries.filter(entry=>checked.has(Number(entry.product.id))).length,total:entries.length};
 }
-function mobileInspectionProductTitle(product,barcode){
-  return (barcode?escapeHtml(barcode)+' : ':'')+escapeHtml(product.name);
-}
 function mobileInspectionItemHtml(entry,checks,latest){
   const pid=Number(entry.product.id),checked=checks.has(pid);
-  const selected=inspectionListSelectedOption(entry.item,entry.product,checks.get(pid));
   const stockText=stockReportQuantityText(entry.product,warehouseStock(pid,activeWarehouseId));
   return `<article class="mobile-inspection-item ${checked?'checked':''} ${latest?'latest':''}" data-mobile-inspection-item="${entry.product.id}">
     <div class="mobile-inspection-item-head">
-      <strong class="mobile-inspection-item-name">${checked?'<span class="mobile-inspection-check" role="img" aria-label="ตรวจแล้ว">✓</span> ':''}${mobileInspectionProductTitle(entry.product,selected.barcode)}</strong>
+      <strong class="mobile-inspection-item-name">${checked?'<span class="mobile-inspection-check" role="img" aria-label="ตรวจแล้ว">✓</span> ':''}${escapeHtml(entry.product.name)}</strong>
       <button type="button" class="mobile-inspection-remove" data-mobile-inspection-remove="${entry.product.id}" aria-label="ลบ ${escapeHtml(entry.product.name)} ออกจากรายการ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button>
     </div>
     <div class="mobile-inspection-stock">คงเหลือ : <b>${escapeHtml(stockText)}</b></div>
