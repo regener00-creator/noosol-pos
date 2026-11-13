@@ -61,6 +61,8 @@ let browser;
   const detail=page.getByRole('dialog',{name:/รายละเอียดการขาย/});
   assert.ok((await detail.boundingBox()).width>=1400,'receipt details expand on a wide desktop');
   const lotPanel=detail.locator('.sale-lot-correction-panel'),docPanel=detail.locator('.history-doc-panel');
+  assert.equal(await detail.locator('.sale-detail-tools p').count(),0,'paid sale tools show headings and actions only');
+  assert.equal(await lotPanel.locator('#correctSaleLotBtn').evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(255, 255, 255)');
   const lotBox=await lotPanel.boundingBox(),docBox=await docPanel.boundingBox();
   assert.ok(Math.abs(lotBox.y-docBox.y)<1&&lotBox.x+lotBox.width<=docBox.x);
   const checkToolAlignment=()=>detail.locator('.sale-detail-tools > div').evaluateAll(panels=>panels.every(panel=>{

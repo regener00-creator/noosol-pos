@@ -1750,6 +1750,7 @@
     margin:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
   }
   .sale-detail-tools .history-doc-buttons{display:flex;flex-wrap:wrap;justify-content:center;max-width:100%;}
+  .sale-detail-tools #correctSaleLotBtn{background-color:#fff;}
   .sale-detail-body{min-height:0;overflow-y:auto;}
   .sale-detail-expense-cost{display:block;color:var(--text-muted);margin-top:4px;}
   .sale-detail-table .grid-table :is(th,td):not(:nth-child(2)){text-align:center;}
