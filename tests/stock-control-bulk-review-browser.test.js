@@ -150,7 +150,7 @@ let browser;
   const box=page.locator('[data-count-part="55"][data-unit="กล่อง"]');
   const sachet=page.locator('[data-count-part="55"][data-unit="ซอง"]');
   const total=page.locator('.stock-count-parts output');
-  const systemStock=page.locator('[data-stock-edit-row="55"] td').nth(3);
+  const systemStock=page.locator('[data-stock-edit-row="55"] td').nth(2);
   const categoryBox=await page.locator('#stockEditCategorySelect').boundingBox();
   const searchBox=await page.locator('#stockEditInput').boundingBox();
   assert.ok(searchBox.x>categoryBox.x&&Math.abs(searchBox.y+searchBox.height/2-categoryBox.y-categoryBox.height/2)<1);
@@ -202,6 +202,7 @@ let browser;
     await page.setViewportSize({width,height:844});
     const single=await page.locator('[data-mobile-stock-amount="60"]').boundingBox();
     const multi=await box.boundingBox();
+    assert.equal(await page.locator('[data-mobile-stock-item="60"] .stock-count-single span').innerText(),'ชิ้น');
     assert.ok(Math.abs(single.x-multi.x)<1&&Math.abs(single.width-multi.width)<1,'mobile count inputs align at '+width+'px');
   }
   assert.equal(await total.isVisible(),false);

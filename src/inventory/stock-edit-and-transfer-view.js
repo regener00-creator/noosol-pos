@@ -105,7 +105,7 @@ function stockCountDifferenceHtml(product,baseStock){
 }
 
 function stockEditRowsHtml(rows=stockEditCurrentProducts()){
-  if(!rows.length) return '<tr><td colspan="8" class="stock-edit-empty">ยังไม่มีรายการ — ดึงรายการตรวจสินค้า ค้นหา/สแกนบาร์โค้ด หรือเลือกสินค้าในหมวดด้านบนเพื่อเพิ่ม</td></tr>';
+  if(!rows.length) return '<tr><td colspan="7" class="stock-edit-empty">ยังไม่มีรายการ — ดึงรายการตรวจสินค้า ค้นหา/สแกนบาร์โค้ด หรือเลือกสินค้าในหมวดด้านบนเพื่อเพิ่ม</td></tr>';
   return rows.map(p=>{
     const unitOptions=productUnitOptions(p);
     const selectedUnit=stockEditRowUnitSel[p.id]||p.unit;
@@ -115,15 +115,11 @@ function stockEditRowsHtml(rows=stockEditCurrentProducts()){
     const selectedAmount=stockUnitAmountFromBase(selectedBaseStock,selectedOption.factor);
     const differenceBase=Number(selectedBaseStock)-Number(p.stock);
     const differenceHtml=stockCountDifferenceHtml(p,selectedBaseStock);
-    const unitHtml=unitOptions.length>1
-      ? `<select class="stock-edit-unit-select" tabindex="-1" data-stock-edit-unit="${p.id}">${unitOptions.map(u=>`<option value="${escapeHtml(u.name)}" ${u.name===selectedOption.name?'selected':''}>${escapeHtml(u.name)}</option>`).join('')}</select>`
-      : `<span class="stock-edit-unit-fixed">${escapeHtml(p.unit||'-')}</span>`;
     return `<tr data-stock-edit-row="${p.id}">
       <td class="mono" style="text-align:center;">${escapeHtml(selectedOption.barcode||'-')}</td>
       <td>${escapeHtml(p.name)}</td>
-      <td style="text-align:center;">${unitHtml}</td>
       <td class="mono" style="text-align:center;">${escapeHtml(stockInLargestUnit(p))}</td>
-      <td style="text-align:center;">${unitOptions.length>1?stockCountPartsHtml(p,unitOptions):`<div class="stock-count-single"><input type="number" min="0" step="any" class="stock-edit-stock-input ${Number(selectedBaseStock)<0?'stock-negative':''} ${hasDraft?'stock-edit-pending':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="จำนวนที่นับได้ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="กรอกจำนวนที่นับได้จริง แล้วกดยืนยันเพื่อบันทึก"></div>`}</td>
+      <td style="text-align:center;">${unitOptions.length>1?stockCountPartsHtml(p,unitOptions):`<label class="stock-count-single"><span>${escapeHtml(p.unit)}</span><input type="number" min="0" step="any" class="stock-edit-stock-input ${Number(selectedBaseStock)<0?'stock-negative':''} ${hasDraft?'stock-edit-pending':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="จำนวนที่นับได้ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="กรอกจำนวนที่นับได้จริง แล้วกดยืนยันเพื่อบันทึก"></label>`}</td>
       <td style="text-align:center;" data-stock-count-difference>${differenceHtml}</td>
       <td class="stock-control-lot-cell">${stockEditLotControlHtml(p,differenceBase)}</td>
       <td style="text-align:center;"><button class="stock-edit-remove-btn" tabindex="-1" data-stock-edit-remove="${p.id}" title="ลบ ${escapeHtml(p.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(p.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td>
@@ -157,8 +153,8 @@ function renderStockEdit(){
       ${sourceList?`<div class="stock-edit-source-note"><span>ดึงข้อมูลจาก <strong>${escapeHtml(sourceList.name)}</strong> · ${(sourceList.items||[]).length} สินค้า</span><span class="stock-edit-source-status ${stockEditSourcePending?'pending':'done'}">${stockEditSourcePending?'รอยืนยันการแก้ไข':'แก้จำนวนเรียบร้อย'}</span></div>`:''}
       <div class="stock-edit-table-wrap seamless-table-wrap">
         <table class="grid-table doc-head-blue stock-edit-table">
-          <colgroup><col class="stock-edit-col-barcode"><col class="stock-edit-col-name"><col class="stock-edit-col-unit"><col class="stock-edit-col-stock"><col class="stock-edit-col-count"><col class="stock-edit-col-difference"><col class="stock-edit-col-lot"><col class="stock-edit-col-action"></colgroup>
-          <thead><tr><th>บาร์โค้ด</th><th>สินค้า</th><th>หน่วย</th><th>ในระบบ</th><th>นับได้</th><th>ต่าง</th><th>LOT ที่ปรับ</th><th aria-label="จัดการ"></th></tr></thead>
+          <colgroup><col class="stock-edit-col-barcode"><col class="stock-edit-col-name"><col class="stock-edit-col-stock"><col class="stock-edit-col-count"><col class="stock-edit-col-difference"><col class="stock-edit-col-lot"><col class="stock-edit-col-action"></colgroup>
+          <thead><tr><th>บาร์โค้ด</th><th>สินค้า</th><th>ในระบบ</th><th>นับได้</th><th>ต่าง</th><th>LOT ที่ปรับ</th><th aria-label="จัดการ"></th></tr></thead>
           <tbody id="stockEditTbody">${stockEditRowsHtml(pagination.rows)}</tbody>
         </table>
       </div>

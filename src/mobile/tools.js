@@ -887,7 +887,7 @@ function attachMobileScanSoundUnlock(){
 function mobileHandleStockCode(code){
   const query=String(code||'').trim();
   if(!query) return false;
-  const match=productScanMatches(query,1)[0];
+  const match=exactInspectionScan(query)||productScanMatches(query,1)[0];
   const product=match?.product;
   if(!product){
     mobileStockQuery=query;
@@ -965,7 +965,7 @@ function mobileStockEditRowsHtml(){
     const hasDraft=Object.prototype.hasOwnProperty.call(stockEditDraftStocks,product.id);
     const baseStock=hasDraft?stockEditDraftStocks[product.id]:product.stock;
     const amount=stockUnitAmountFromBase(baseStock,selected?.factor||1);
-    return `<article class="mobile-stock-item" data-mobile-stock-item="${product.id}"><div class="mobile-stock-info-row"><div class="mobile-stock-field"><label>รหัสสินค้า</label><b>${escapeHtml(product.sku||'-')}</b></div><div class="mobile-stock-field"><label>สินค้า</label><b class="mobile-stock-product-name">${escapeHtml(product.name)}</b></div></div><div class="mobile-stock-info-row"><div class="mobile-stock-field"><label>ในระบบ</label><b>${escapeHtml(stockInLargestUnit(product))}</b></div><div class="mobile-stock-field"><label>ต่าง</label><b data-mobile-stock-difference="${product.id}">${stockCountDifferenceHtml(product,baseStock)}</b></div></div><div class="mobile-stock-edit-row"><div class="mobile-stock-field"><label>หน่วย</label>${options.length>1?`<select class="mobile-stock-unit" data-mobile-stock-unit="${product.id}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selected?.name?'selected':''}>${escapeHtml(option.name)}</option>`).join('')}</select>`:`<b class="mobile-stock-unit-static">${escapeHtml(selected?.name||product.unit||'-')}</b>`}</div><div class="mobile-stock-field"><label>จำนวนที่นับได้</label>${options.length>1?stockCountPartsHtml(product,options):`<div class="stock-count-single"><input type="number" min="0" step="any" class="mobile-stock-amount ${hasDraft?'pending':''}" data-mobile-stock-amount="${product.id}" data-factor="${selected?.factor||1}" value="${amount}" aria-label="คงเหลือ ${escapeHtml(product.name)}"></div>`}</div><button type="button" class="mobile-stock-remove" data-mobile-stock-remove="${product.id}" title="ลบ ${escapeHtml(product.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(product.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div><div class="mobile-stock-lot" data-mobile-stock-lot-host="${product.id}">${mobileStockEditLotHtml(product)}</div></article>`;
+    return `<article class="mobile-stock-item" data-mobile-stock-item="${product.id}"><div class="mobile-stock-info-row"><div class="mobile-stock-field"><label>รหัสสินค้า</label><b>${escapeHtml(product.sku||'-')}</b></div><div class="mobile-stock-field"><label>สินค้า</label><b class="mobile-stock-product-name">${escapeHtml(product.name)}</b></div></div><div class="mobile-stock-info-row"><div class="mobile-stock-field"><label>ในระบบ</label><b>${escapeHtml(stockInLargestUnit(product))}</b></div><div class="mobile-stock-field"><label>ต่าง</label><b data-mobile-stock-difference="${product.id}">${stockCountDifferenceHtml(product,baseStock)}</b></div></div><div class="mobile-stock-edit-row"><div class="mobile-stock-field"><label>บาร์โค้ด</label><b class="mobile-stock-barcode">${escapeHtml(selected?.barcode||'-')}</b></div><div class="mobile-stock-field"><label>จำนวนที่นับได้</label>${options.length>1?stockCountPartsHtml(product,options):`<label class="stock-count-single"><span>${escapeHtml(product.unit)}</span><input type="number" min="0" step="any" class="mobile-stock-amount ${hasDraft?'pending':''}" data-mobile-stock-amount="${product.id}" data-factor="${selected?.factor||1}" value="${amount}" aria-label="จำนวนที่นับได้ ${escapeHtml(product.name)} หน่วย ${escapeHtml(product.unit)}"></label>`}</div><button type="button" class="mobile-stock-remove" data-mobile-stock-remove="${product.id}" title="ลบ ${escapeHtml(product.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(product.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div><div class="mobile-stock-lot" data-mobile-stock-lot-host="${product.id}">${mobileStockEditLotHtml(product)}</div></article>`;
   }).join('')}</div>`;
 }
 function renderMobileStockEditPanel(lists){
@@ -1174,19 +1174,6 @@ function mobileHandlePriceCode(code){
   if(!mobileCameraSession) setTimeout(()=>document.getElementById('mobilePriceInput')?.select(),0);
   playMobileScanSound();
   return true;
-}
-function exactInspectionScan(query){
-  const normalized=query.toUpperCase();
-  if(systemLabelCode(normalized)) return findStoreLabelMatch(query);
-  const match=findProductByExactCode(query);
-  if(!match||String(match.product.sku||'').trim().toUpperCase()!==normalized) return match;
-  // A scanner supplies a barcode even when its digits also happen to be a SKU.
-  for(const product of products){
-    if(!isProductActive(product)||!matchesBarcode(product,normalized)) continue;
-    const unitName=exactBarcodeUnit(product,normalized);
-    if(unitName) return {product,unitName};
-  }
-  return match;
 }
 function mobileHandleInspectionCode(code){
   const query=String(code||'').trim();

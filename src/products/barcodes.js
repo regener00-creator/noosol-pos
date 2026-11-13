@@ -86,6 +86,19 @@ function findStoreLabelMatch(code){
   }
   return null;
 }
+function exactInspectionScan(query){
+  const normalized=query.toUpperCase();
+  if(systemLabelCode(normalized)) return findStoreLabelMatch(query);
+  const match=findProductByExactCode(query);
+  if(!match||String(match.product.sku||'').trim().toUpperCase()!==normalized) return match;
+  // A scanner supplies a barcode even when its digits also happen to be a SKU.
+  for(const product of products){
+    if(!isProductActive(product)||!matchesBarcode(product,normalized)) continue;
+    const unitName=exactBarcodeUnit(product,normalized);
+    if(unitName) return {product,unitName};
+  }
+  return match;
+}
 function inventoryLabelMatches(code){
   // Inventory documents accept only current shop labels. The old P series is retired.
   if(code.toUpperCase().startsWith('P')) return [];

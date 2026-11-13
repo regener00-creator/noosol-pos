@@ -712,7 +712,6 @@
   .stock-edit-table .stock-edit-col-barcode{width:150px;}
   .stock-edit-table .stock-edit-col-name{width:18%;}
   .stock-edit-table td:nth-child(2){overflow-wrap:anywhere;}
-  .stock-edit-table .stock-edit-col-unit{width:100px;}
   .stock-edit-table .stock-edit-col-stock{width:100px;}
   .stock-edit-table .stock-edit-col-count{width:110px;}
   .stock-edit-table .stock-edit-col-difference{width:155px;}
@@ -720,10 +719,6 @@
   .stock-edit-table .stock-edit-col-action{width:56px;}
   .stock-edit-table td{vertical-align:middle;}
   .stock-edit-page-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
-  .stock-edit-unit-select{width:100%;max-width:120px;font-size:13px;color:var(--text-muted);border:1px solid transparent;background:transparent;text-align:center;padding:6px;cursor:pointer;border-radius:6px;}
-  .stock-edit-unit-select:hover{color:var(--primary);border-color:var(--border);background:var(--surface);}
-  .stock-edit-unit-select:focus{outline:none;border-color:var(--primary);background:var(--surface);}
-  .stock-edit-unit-fixed{font-size:13px;color:var(--text-muted);}
   .stock-edit-stock-input{width:120px;max-width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font-family:inherit;font-size:14px;text-align:center;}
   .stock-edit-stock-input:hover{border-color:#B7AAA5;}
   .stock-edit-stock-input:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,153,209,.12);}
@@ -2316,8 +2311,8 @@
   .mobile-stock-field label{display:block;font-size:11.5px;color:var(--text-muted);margin-bottom:3px;}
   .mobile-stock-field b{display:block;font-size:14px;line-height:1.35;}
   .mobile-stock-product-name{overflow-wrap:anywhere;}
-  .mobile-stock-unit,.mobile-stock-amount{width:100%;height:46px;border:1px solid var(--border);border-radius:10px;background:#fff;padding:0 11px;font:15px 'Sarabun',sans-serif;}
-  .mobile-stock-unit-static{height:46px!important;border:1px solid var(--border);border-radius:10px;background:#F8FAFC;padding:0 11px;display:flex!important;align-items:center;}
+  .mobile-stock-amount{width:100%;height:46px;border:1px solid var(--border);border-radius:10px;background:#fff;padding:0 11px;font:15px 'Sarabun',sans-serif;}
+  .mobile-stock-barcode{overflow-wrap:anywhere;}
   .mobile-stock-amount{text-align:center;font-weight:700;}
   .mobile-stock-amount.pending{border-color:var(--primary);background:#FAF6F4;}
   .mobile-stock-remove{width:42px;height:46px;border:1px solid #F0C7C3;border-radius:10px;background:#fff;color:var(--danger);display:flex;align-items:center;justify-content:center;cursor:pointer;}
@@ -3013,7 +3008,7 @@
   .return-row-search .return-row-results{position:static;max-height:180px;text-align:left;}
 .stock-edit-table .stock-edit-col-count{width:165px}
 .stock-count-parts{display:grid;gap:4px;min-width:96px}
-.stock-count-parts label,.stock-count-single{display:grid;grid-template-columns:minmax(36px,1fr) minmax(44px,1fr);align-items:center;gap:5px;text-align:start}
+.stock-count-parts label,label.stock-count-single{display:grid;grid-template-columns:minmax(36px,1fr) minmax(44px,1fr);align-items:center;gap:5px;text-align:start}
 .stock-count-single{min-width:96px}
 .stock-count-parts label input,.stock-count-single input{grid-column:2;width:100%;min-width:0;box-sizing:border-box;padding:4px 6px}
 .stock-count-parts output{font-size:13px;font-weight:600;text-align:center}

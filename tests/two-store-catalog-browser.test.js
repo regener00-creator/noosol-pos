@@ -51,11 +51,19 @@ async function verifyPurchaseAndStockLabels(page){
         if(tap) await choices.click();else await input.press('Enter');
         const lines=await page.evaluate(purchase=>purchase
           ?activePurchaseDraft().items.filter(row=>row.name).map(row=>[row.productId,row.unit])
-          :stockEditItems.map(id=>[id,document.querySelector(`[data-stock-edit-unit="${id}"]`).value]),purchase);
+          :stockEditItems.map(id=>[id,stockEditRowUnitSel[id]]),purchase);
         assert.deepEqual(lines,prefix===own?[[id,'กล่อง']]:[],`${screen}/${store}: ${prefix}, tap=${tap}`);
         if(prefix===own){
           if(purchase) assert.equal(await page.locator('#poItemRows tr[data-product-id]:not([data-product-id=""]) .poi_unit').first().inputValue(),'กล่อง');
-          else assert.equal(Number(await page.locator('[data-count-part][data-unit="กล่อง"]').getAttribute('data-factor')),factor);
+          else {
+            const barcode=page.locator('[data-stock-edit-row] td').first();
+            assert.equal(await barcode.innerText(),own+'00000000001');
+            await input.fill('Decolgen');await input.press('Enter');
+            assert.equal(await barcode.innerText(),'0001');
+            await input.fill(own+'00000000001');await input.press('Enter');
+            assert.equal(await barcode.innerText(),own+'00000000001');
+            assert.equal(Number(await page.locator('[data-count-part][data-unit="กล่อง"]').getAttribute('data-factor')),factor);
+          }
         }
       }
     }
@@ -219,10 +227,9 @@ async function verifyLastInspectionUnits(page){
     for(const code of ['BASE0','BASE1',own+'00000000001',foreign+'00000000001'])await scan(code);
     assert.deepEqual(await page.evaluate(()=>[...mobileInspectionChecks(mobileInspectionOpenedListId)]),[[pid,'กล่อง'],[pid+1,'แผง']]);
     await page.locator('#mobileContinueToStock').click();
-    const unit=page.locator(`[data-mobile-stock-unit="${pid}"]`);
-    assert.equal(await unit.inputValue(),'กล่อง');
-    assert.equal(await page.locator(`[data-mobile-stock-unit="${pid+1}"]`).inputValue(),'แผง');
-    await unit.selectOption('แผง');
+    const barcode=page.locator(`[data-mobile-stock-item="${pid}"] .mobile-stock-barcode`);
+    assert.equal(await barcode.innerText(),'BOX0');
+    assert.equal(await page.locator(`[data-mobile-stock-item="${pid+1}"] .mobile-stock-barcode`).innerText(),'BASE1');
     await page.locator(`[data-count-part="${pid}"][data-unit="แผง"]`).fill('7');
     assert.deepEqual(await page.evaluate(pid=>{
       const line=stockEditAdjustmentLines().find(item=>item.productId===pid);
@@ -231,11 +238,11 @@ async function verifyLastInspectionUnits(page){
     await page.locator('#mobileStockSourceList').selectOption('other'+store);
     page.once('dialog',dialog=>dialog.accept());
     await page.locator('#mobileStockImport').click();
-    assert.equal(await unit.inputValue(),'แผง','Another list uses its own saved unit');
+    assert.equal(await barcode.innerText(),'BASE0','Another list uses its own saved unit');
     await page.locator('#mobileStockSourceList').selectOption('check'+store);
     page.once('dialog',dialog=>dialog.accept());
     await page.locator('#mobileStockImport').click();
-    assert.equal(await unit.inputValue(),'กล่อง','Reimport uses the scans from this list');
+    assert.equal(await barcode.innerText(),'BOX0','Reimport uses the scans from this list');
     assert.equal(await page.evaluate(()=>mobileOpenedInspectionList().items[0].unit),'แผง','Scanning does not rewrite the saved list');
     await page.locator('[data-mobile-inventory-step="inspection"]').click();
     await page.locator('#mobileResetChecks').click();
@@ -243,9 +250,8 @@ async function verifyLastInspectionUnits(page){
     await scan('BOX0');await scan('BASE0');await scan('BOX1');
     page.once('dialog',dialog=>dialog.accept());
     await page.locator('#mobileContinueToStock').click();
-    assert.equal(await unit.inputValue(),'แผง','A later base scan replaces the earlier box scan');
-    assert.equal(await page.locator(`[data-mobile-stock-unit="${pid+1}"]`).inputValue(),'กล่อง');
-    await unit.selectOption('กล่อง');
+    assert.equal(await barcode.innerText(),'BASE0','A later base scan replaces the earlier box scan');
+    assert.equal(await page.locator(`[data-mobile-stock-item="${pid+1}"] .mobile-stock-barcode`).innerText(),'BOX1');
     await page.locator(`[data-count-part="${pid}"][data-unit="กล่อง"]`).fill('2');
     if(store===2)await page.locator(`[data-count-part="${pid}"][data-unit="แผง"]`).fill('4');
     await page.locator(`[data-mobile-stock-lot="${pid}"]`).selectOption('new');

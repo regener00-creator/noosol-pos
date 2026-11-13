@@ -523,23 +523,6 @@ function attachEvents(){
     if(Number(mobileStockLastProductId)===productId) mobileStockLastProductId=null;
     render();
   }));
-  document.querySelectorAll('[data-mobile-stock-unit]').forEach(select=>select.addEventListener('change',()=>{
-    const productId=Number(select.dataset.mobileStockUnit);
-    const product=products.find(entry=>Number(entry.id)===productId);
-    if(!product) return;
-    const selected=inspectionListUnitOptions(product).find(option=>option.name===select.value)||inspectionListUnitOptions(product)[0];
-    stockEditRowUnitSel[productId]=selected?.name||product.unit;
-    const amountInput=document.querySelector(`[data-mobile-stock-amount="${productId}"]`);
-    if(!amountInput){
-      const field=document.querySelector(`[data-count-part="${productId}"][data-unit="${CSS.escape(stockEditRowUnitSel[productId])}"]`);
-      field?.focus();field?.select();return;
-    }
-    const hasDraft=Object.prototype.hasOwnProperty.call(stockEditDraftStocks,productId);
-    const baseStock=hasDraft?stockEditDraftStocks[productId]:product.stock;
-    amountInput.dataset.factor=String(selected?.factor||1);
-    amountInput.value=stockUnitAmountFromBase(baseStock,selected?.factor||1);
-    amountInput.classList.toggle('pending',hasDraft);
-  }));
   const refreshMobileStockConfirmButton=()=>{
     const button=document.getElementById('mobileConfirmStockEdit');
     const changes=stockEditPendingChanges();
@@ -1090,12 +1073,12 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(stockEditInput&&stockEditResults){
     const searchMatches=(q,limit)=>{
       if(systemLabelCode(q.toUpperCase())) return inventoryLabelMatches(q);
-      const exact=findProductByExactCode(q);
+      const exact=exactInspectionScan(q);
       const matches=exact?[{...exact,barcode:q}]:[];
       for(const product of products){
         if(matches.length>=limit) break;
         if(product!==exact?.product&&stockEditMatchesQuery(product,q)){
-          matches.push({product,unitName:stockEditRowUnitSel[product.id]||product.unit,barcode:product.barcode});
+          matches.push({product,unitName:product.unit,barcode:product.barcode});
         }
       }
       return matches;
@@ -1133,7 +1116,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       else { showToast('ไม่พบสินค้าในร้านที่เลือก','danger-top');stockEditInput.select(); }
     });
   }
-  document.querySelectorAll('[data-stock-edit-unit]').forEach(select=>select.addEventListener('change',()=>{ stockEditRowUnitSel[Number(select.dataset.stockEditUnit)]=select.value; render(); }));
   const refreshStockEditConfirmButton=()=>{ if(confirmStockEditBtn) confirmStockEditBtn.disabled=stockCountHasInvalidParts()||(stockEditPendingChanges().length===0&&!stockEditSourcePending)||Boolean(document.querySelector('[data-stock-edit-new-expiry].stock-edit-invalid'))||stockEditPosting; };
   document.querySelectorAll('.stock-count-parts').forEach(host=>host.addEventListener('input',event=>{
     const product=products.find(item=>item.id===Number(event.target.dataset.countPart));
