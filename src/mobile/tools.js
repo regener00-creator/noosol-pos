@@ -317,7 +317,6 @@ function mobilePriceResultHtml(){
   }
   const options=inspectionListUnitOptions(product);
   const selected=options.find(option=>option.name===mobilePriceUnitName)||options[0];
-  const stockText=stockReportQuantityText(product,warehouseStock(product.id,activeWarehouseId));
   const canViewCost=loggedInUser()?.owner===true;
   const canEdit=canEditMobilePrice();
   const conversionRows=productUnitConversionRows(product);
@@ -332,7 +331,7 @@ function mobilePriceResultHtml(){
   const selectedLotExpiry=selectedLot?.expiry_date||'';
   return `<article class="mobile-result-card" data-review-status="${productDataReviewStatus(product)||'normal'}">
     <div class="mobile-result-name">${escapeHtml(product.name)}</div>
-    ${canEdit?`<div class="mobile-price-stock-readonly mobile-metric primary"><span>คงเหลือ</span><b id="mobilePriceStock">${escapeHtml(stockText)}</b></div><div class="mobile-price-edit-grid">
+    ${canEdit?`<div class="mobile-price-edit-grid">
       <div class="mobile-price-edit-field"><label for="mobilePriceEditSale">ขาย</label><input id="mobilePriceEditSale" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.price)||0}"></div>
       <div class="mobile-price-edit-field"><label for="mobilePriceEditCost">ทุน</label><input id="mobilePriceEditCost" class="mobile-price-edit-input" type="number" min="0" step="0.01" inputmode="decimal" value="${Number(selected?.cost)||0}"></div>
       ${unitField}
@@ -344,7 +343,6 @@ function mobilePriceResultHtml(){
       ${[['normal','สีปกติ'],['pending','สีเหลือง'],['complete','สีเขียว']].map(([value,label])=>`<button type="button" class="product-review-filter" data-mobile-review-status="${value}" aria-pressed="${(productDataReviewStatus(product)||'normal')===value}"><span class="product-review-filter-dot" aria-hidden="true"></span>${label}</button>`).join('')}
     </div>
     <button type="button" class="mobile-price-edit-save" id="mobilePriceSaveChanges" ${mobileIsOnline()?'':'disabled'} hidden>${mobileIsOnline()?'บันทึกการแก้ไข':'ออฟไลน์ — ยังบันทึกไม่ได้'}</button><div class="mobile-price-edit-status" id="mobilePriceEditStatus"></div>`:`<div class="mobile-metrics">
-      <div class="mobile-metric primary"><span>คงเหลือ</span><b id="mobilePriceStock">${escapeHtml(stockText)}</b></div>
       <div class="mobile-metric"><span>ขาย</span><b id="mobilePriceSale">${fmtMoney(selected?.price||0)} บาท</b></div>
       ${canViewCost?`<div class="mobile-metric"><span>ทุน</span><b id="mobilePriceCost">${fmtMoney(selected?.cost||0)} บาท</b></div>`:''}
       ${unitField}
@@ -546,7 +544,7 @@ function mobileInspectionDraftRowsHtml(){
     const product=products.find(entry=>Number(entry.id)===Number(item.pid));
     if(!product) return '';
     const selected=inspectionListSelectedOption(item,product);
-    return `<article class="mobile-draft-item"><div><div class="mobile-draft-item-name">${mobileInspectionProductTitle(product,selected.barcode)}</div><div class="mobile-draft-item-meta">${escapeHtml(selected.name)}</div></div><button type="button" class="mobile-draft-remove" data-mobile-draft-remove="${index}" aria-label="ลบ ${escapeHtml(product.name)}">×</button></article>`;
+    return `<article class="mobile-draft-item"><div class="mobile-draft-item-name">${mobileInspectionProductTitle(product,selected.barcode)}</div><button type="button" class="mobile-draft-remove" data-mobile-draft-remove="${index}" aria-label="ลบ ${escapeHtml(product.name)}">×</button></article>`;
   }).join('')}</div>`;
 }
 let posSearchRenderTimer=null;

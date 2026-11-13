@@ -8,7 +8,7 @@ const html = require("./load-app-source")();
 assert.match(html, /function canEditMobilePrice\(user=loggedInUser\(\)\)/);
 assert.match(html, /user\?\.owner===true&&Number\(user\?\.level\)===1/);
 assert.doesNotMatch(html, /id="mobilePriceEditStock"/);
-assert.match(html, /mobile-price-stock-readonly mobile-metric primary/);
+assert.doesNotMatch(html, /id="mobilePriceStock"/);
 assert.match(html, /id="mobilePriceEditSale"/);
 assert.match(html, /id="mobilePriceEditCost"/);
 assert.match(html, /id="mobilePriceLot"/);
@@ -34,7 +34,6 @@ assert.doesNotMatch(html, /ยิงบาร์โค้ด พิมพ์ร�
 assert.doesNotMatch(html, /เครื่องยิงบาร์โค้ดที่ส่ง Enter อัตโนมัติใช้งานได้ทันที/);
 assert.doesNotMatch(html, /<h2 class="mobile-tool-title">เช็คราคาสินค้า<\/h2>/);
 assert.doesNotMatch(html, /\.mobile-price-edit-field\.stock/);
-assert.match(html, /\.mobile-price-stock-readonly\{margin-bottom:8px;\}/);
 assert.match(html, /@media \(max-width:420px\)[\s\S]*\.mobile-price-edit-grid\{grid-template-columns:minmax\(0,1fr\) minmax\(0,1fr\);\}/);
 assert.match(html, /sb\.rpc\('owner_update_mobile_product_details_revisioned'/);
 const saveStart = html.indexOf('async function saveMobilePriceChanges(');

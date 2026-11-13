@@ -193,7 +193,6 @@ const mobilePriceResultEnd = html.indexOf('function mobileInspectionCurrentList(
 assert.ok(mobilePriceResultStart >= 0 && mobilePriceResultEnd > mobilePriceResultStart);
 const mobilePriceResult = html.slice(mobilePriceResultStart, mobilePriceResultEnd);
 const mobilePriceNameIndex = mobilePriceResult.indexOf('mobile-result-name');
-const mobilePriceStockIndex = mobilePriceResult.indexOf('<span>คงเหลือ</span>');
 const mobilePriceEditableStart = mobilePriceResult.indexOf('mobile-price-edit-grid');
 const mobilePriceEditableEnd = mobilePriceResult.indexOf('mobile-price-edit-save', mobilePriceEditableStart);
 const mobilePriceEditable = mobilePriceResult.slice(mobilePriceEditableStart, mobilePriceEditableEnd);
@@ -201,17 +200,16 @@ const mobilePriceEditableSaleIndex = mobilePriceEditable.indexOf('mobilePriceEdi
 const mobilePriceEditableCostIndex = mobilePriceEditable.indexOf('mobilePriceEditCost');
 const mobilePriceEditableUnitIndex = mobilePriceEditable.indexOf('${unitField}');
 const mobilePriceEditableLotIndex = mobilePriceEditable.indexOf('id="mobilePriceLot"');
-assert.ok(mobilePriceNameIndex >= 0 && mobilePriceStockIndex > mobilePriceNameIndex);
+assert.ok(mobilePriceNameIndex >= 0 && mobilePriceEditableStart > mobilePriceNameIndex);
 assert.ok(mobilePriceEditableSaleIndex >= 0 && mobilePriceEditableCostIndex > mobilePriceEditableSaleIndex && mobilePriceEditableUnitIndex > mobilePriceEditableCostIndex && mobilePriceEditableLotIndex > mobilePriceEditableUnitIndex);
 const mobilePriceReadonlyStart = mobilePriceResult.indexOf('<div class="mobile-metrics">');
 const mobilePriceReadonly = mobilePriceResult.slice(mobilePriceReadonlyStart);
-const mobilePriceReadonlyStockIndex = mobilePriceReadonly.indexOf('<span>คงเหลือ</span>');
 const mobilePriceReadonlySaleIndex = mobilePriceReadonly.indexOf('<span>ขาย</span>');
 const mobilePriceReadonlyCostIndex = mobilePriceReadonly.indexOf('<span>ทุน</span>');
 const mobilePriceReadonlyUnitIndex = mobilePriceReadonly.indexOf('${unitField}');
 const mobilePriceReadonlyExpiryIndex = mobilePriceReadonly.indexOf('<span>วันหมดอายุ</span>');
-assert.ok(mobilePriceReadonlyStockIndex >= 0 && mobilePriceReadonlySaleIndex > mobilePriceReadonlyStockIndex && mobilePriceReadonlyCostIndex > mobilePriceReadonlySaleIndex && mobilePriceReadonlyUnitIndex > mobilePriceReadonlyCostIndex && mobilePriceReadonlyExpiryIndex > mobilePriceReadonlyUnitIndex);
-assert.match(mobilePriceResult, /mobile-metric primary[^>]*><span>คงเหลือ<\/span>/);
+assert.ok(mobilePriceReadonlySaleIndex >= 0 && mobilePriceReadonlyCostIndex > mobilePriceReadonlySaleIndex && mobilePriceReadonlyUnitIndex > mobilePriceReadonlyCostIndex && mobilePriceReadonlyExpiryIndex > mobilePriceReadonlyUnitIndex);
+assert.doesNotMatch(mobilePriceResult, /<span>คงเหลือ<\/span>/);
 assert.doesNotMatch(mobilePriceResult, /mobile-result-codes/);
 assert.match(html, /\.mobile-result-card\{[^}]*text-align:center;/);
 assert.match(html, /\.mobile-unit-select\{[^}]*text-align:center;[^}]*text-align-last:center;/);
@@ -227,7 +225,6 @@ const mobilePriceUnitHandlerEnd = html.indexOf("\n  });", mobilePriceUnitHandler
 assert.ok(mobilePriceUnitHandlerStart >= 0 && mobilePriceUnitHandlerEnd > mobilePriceUnitHandlerStart);
 const mobilePriceUnitHandler = html.slice(mobilePriceUnitHandlerStart, mobilePriceUnitHandlerEnd);
 assert.doesNotMatch(mobilePriceUnitHandler, /render\(\)/);
-assert.match(mobilePriceUnitHandler, /mobilePriceStock/);
 assert.match(mobilePriceUnitHandler, /mobilePriceSale/);
 assert.match(mobilePriceUnitHandler, /mobilePriceCost/);
 const mobilePriceInputHandlerStart = html.indexOf("mobilePriceInput.addEventListener('input'");

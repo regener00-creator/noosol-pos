@@ -98,12 +98,10 @@ function attachMobilePriceResultEvents(){
     if(!product) return;
     const selected=inspectionListUnitOptions(product).find(option=>option.name===mobilePriceUnitName);
     if(!selected) return;
-    const stockElement=document.getElementById('mobilePriceStock');
     const saleElement=document.getElementById('mobilePriceSale');
     const costElement=document.getElementById('mobilePriceCost');
     const editSale=document.getElementById('mobilePriceEditSale');
     const editCost=document.getElementById('mobilePriceEditCost');
-    if(stockElement) stockElement.textContent=stockReportQuantityText(product,warehouseStock(product.id,activeWarehouseId));
     if(saleElement) saleElement.textContent=`${fmtMoney(selected.price||0)} บาท`;
     if(costElement) costElement.textContent=`${fmtMoney(selected.cost||0)} บาท`;
     if(editSale) editSale.value=Number(selected.price)||0;
