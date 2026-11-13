@@ -205,8 +205,8 @@ let browser;
       page.locator('[data-count-part="55"][data-unit="ลัง"]').boundingBox(),box.boundingBox(),sachet.boundingBox()
     ]);
     assert.equal(await page.locator('[data-mobile-stock-item="60"] .stock-count-single span').innerText(),'ชิ้น');
-    assert.ok(Math.abs(single.x-carton.x)<1&&Math.abs(single.width-carton.width)<1,'mobile single unit aligns with first unit at '+width+'px');
-    assert.ok(carton.x+carton.width<=multi.x&&multi.x+multi.width<=bag.x);
+    assert.ok(Math.abs(single.x-bag.x)<1&&Math.abs(single.width-bag.width)<1,'mobile single unit aligns with first unit at '+width+'px');
+    assert.ok(bag.x+bag.width<=multi.x&&multi.x+multi.width<=carton.x);
     assert.ok(Math.abs(carton.y-multi.y)<1&&Math.abs(multi.y-bag.y)<1,'all three units remain on one line at '+width+'px');
   }
   assert.equal(await total.isVisible(),false);

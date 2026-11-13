@@ -66,6 +66,13 @@ async function verifyPurchaseAndStockLabels(page){
             assert.equal(await barcode.innerText(),'0001');
             assert.equal(await box.inputValue(),'6');
             assert.ok(await page.evaluate(()=>document.activeElement.dataset.unit!== 'กล่อง' && document.activeElement.hasAttribute('data-count-part')));
+            const base=page.locator('[data-count-part][data-factor="1"]');
+            await base.fill('17');
+            await page.keyboard.type(own+'00000000001');await page.keyboard.press('Enter');
+            assert.equal(await box.inputValue(),'6');
+            await page.keyboard.type('23');
+            assert.equal(await box.inputValue(),'23','Typing replaces the previously scanned box count');
+            assert.equal(await base.inputValue(),'17');
             await input.fill('Decolgen');await input.press('Enter');
             assert.equal(await barcode.innerText(),'0001');
             await input.fill(own+'00000000001');await input.press('Enter');
@@ -247,6 +254,12 @@ async function verifyLastInspectionUnits(page){
     await page.keyboard.type('BASE0');await page.keyboard.press('Enter');
     assert.ok(await strip.evaluate(el=>el===document.activeElement));
     assert.equal(await pack.inputValue(),'4');
+    await strip.fill('17');
+    await page.keyboard.type('BOX0');await page.keyboard.press('Enter');
+    assert.equal(await pack.inputValue(),'4');
+    await page.keyboard.type('23');
+    assert.equal(await pack.inputValue(),'23','Typing replaces the previous mobile box count');
+    assert.equal(await strip.inputValue(),'17');
     assert.equal(await page.locator(`[data-mobile-stock-item="${pid}"]`).count(),1);
     await pack.fill('');
     await page.locator(`[data-count-part="${pid}"][data-unit="แผง"]`).fill('7');

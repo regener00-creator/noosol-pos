@@ -3,6 +3,11 @@ bindPasswordControls();
 
 // คลิกช่องตัวเลขครั้งเดียวแล้วเลือกค่าทั้งหมด เพื่อพิมพ์ค่าใหม่ทับได้ทันที
 document.addEventListener('focusin', e=>{
+  // A rescan can be followed by typing before a deferred selection runs.
+  if(e.target.matches?.('[data-count-part],[data-stock-edit-amount],[data-mobile-stock-amount]')){
+    e.target.select();
+    return;
+  }
   if(e.target.matches && e.target.matches('input[type="number"]')) setTimeout(()=>{
     if(document.activeElement===e.target&&e.target.isConnected) e.target.select();
   },0);
