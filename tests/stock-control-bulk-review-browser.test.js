@@ -234,6 +234,10 @@ let browser;
   await page.evaluate(()=>{isMobileDeviceMode=()=>true;currentTab='mobiletools';mobileToolMode='inventory';mobileInventoryStep='stock';render();});
   for(const width of [320,390]){
     await page.setViewportSize({width,height:844});
+    const headers=page.locator('[data-mobile-stock-item="55"] .mobile-stock-info-row label');
+    assert.deepEqual(await headers.allTextContents(),['สินค้า','ในระบบ','ต่าง']);
+    const tops=await headers.evaluateAll(labels=>labels.map(label=>label.getBoundingClientRect().top));
+    assert.ok(Math.max(...tops)-Math.min(...tops)<1);
     const single=await page.locator('[data-mobile-stock-amount="60"]').boundingBox();
     const [carton,multi,bag]=await Promise.all([
       page.locator('[data-count-part="55"][data-unit="ลัง"]').boundingBox(),box.boundingBox(),sachet.boundingBox()

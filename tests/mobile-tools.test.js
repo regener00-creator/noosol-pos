@@ -160,7 +160,8 @@ const mobileStockRemoveHandler = html.slice(mobileStockRemoveHandlerStart, mobil
 assert.match(mobileStockRemoveHandler, /stockEditItems=stockEditItems\.filter/);
 assert.match(mobileStockRemoveHandler, /delete stockEditRowUnitSel\[productId\]/);
 assert.match(mobileStockRemoveHandler, /delete stockEditDraftStocks\[productId\]/);
-assert.match(html, /<label>รหัสสินค้า<\/label>/);
+const mobileStockRows=html.slice(html.indexOf('function mobileStockEditRowsHtml()'),mobileStockPanelStart);
+assert.doesNotMatch(mobileStockRows, /รหัสสินค้า|product\.sku/);
 assert.match(html, /<label>สินค้า<\/label>/);
 assert.doesNotMatch(html, /class="mobile-stock-barcode"/);
 assert.doesNotMatch(html, /<label>จำนวนที่นับได้<\/label>/);

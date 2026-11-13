@@ -165,10 +165,22 @@ async function verifyMobileInspectionStoreIsolation(page){
     const list=page.locator('#mobileInspectionList');
     assert.deepEqual(await list.locator('option').evaluateAll(options=>options.map(o=>o.value)),store===1?['A','legacy']:['B']);
     await list.selectOption(own);
+    const openButton=await page.locator('#mobileOpenInspectionList').boundingBox();
+    const trashButton=await page.locator('#mobileDeleteInspectionList').boundingBox();
+    assert.equal(openButton.width,trashButton.width);
+    assert.equal(openButton.height,trashButton.height);
     await page.locator('#mobileOpenInspectionList').click();
+    await page.locator('#mobileInspectionAddToggle').click();
+    const addBox=page.locator('.mobile-inspection-add-box');
+    assert.equal(await addBox.locator('.mobile-empty, .mobile-inspection-add-pending').count(),0);
+    const close=addBox.getByRole('button',{name:'ปิดการเพิ่มสินค้า'});
+    assert.equal(await close.innerText(),'×');
+    await close.click();
+    assert.equal(await addBox.count(),0);
     await page.locator('#mobileInspectionAddToggle').click();
     await page.locator('#mobileInspectionAddInput').fill(store===1?'AP00000000001':'BP00000000001');
     await page.locator('[data-mobile-inspection-add-result]').click();
+    assert.equal(await addBox.locator('.mobile-inspection-add-pending-item').count(),1);
     const result=await page.evaluate(async({pid,other})=>{
       const pending=mobileInspectionSavedAddItems.map(item=>item.pid);
       const foreignProduct=otherWarehouseProducts.find(p=>p.id===(pid===11?12:11));
