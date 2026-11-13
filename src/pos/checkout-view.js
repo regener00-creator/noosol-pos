@@ -139,10 +139,8 @@ function renderCheckout(){
           <button class="pos-action" id="histBtn"><span class="pa-ic">🧾</span> ประวัติการขาย</button>
         </div>
         <div class="pos-summary">
-          <div class="pos-subtotal-discount">
-            <div class="sumrow"><span>รวมสินค้า</span><span class="mono" id="posSubtotalValue">${fmtMoney(subtotal)}</span></div>
-            <div class="sumrow"><button class="btn ghost small" id="editDiscountBtn">✎ ส่วนลด</button><span class="mono" id="posDiscountValue">${fmtMoney(discount)}</span></div>
-          </div>
+          <div class="sumrow"><span>รวมสินค้า</span><span class="mono" id="posSubtotalValue">${fmtMoney(subtotal)}</span></div>
+          <div class="sumrow"><span>ส่วนลด</span><span class="sumdiscount"><button class="btn ghost small" id="editDiscountBtn">✎ ส่วนลด</button> <span class="mono" id="posDiscountValue">${fmtMoney(discount)}</span></span></div>
           ${registered?`<div class="sumrow"><span id="posBeforeVatLabel">มูลค่าก่อน VAT</span><span class="mono" id="posBeforeVatValue">${fmtMoney(beforeVat)}</span></div>`:''}
           <div class="sumrow"><span id="posVatLabel">${registered?'ภาษีมูลค่าเพิ่ม 7%':'ไม่คิด VAT (กิจการยังไม่จด VAT)'}</span><span class="mono" id="posVatValue">${fmtMoney(vat)}</span></div>
           <div class="sumrow grand"><span>ยอดชำระ</span><span class="mono" id="posGrandValue">${fmtMoney(grand)}</span></div>

@@ -1648,9 +1648,6 @@
   .pos-customer-price-tag{background:#e8f7ed;color:#187a36}.pos-quotation-price-tag{background:#fff3d6;color:#8a5b00}
   .pos-customer-price-tag{white-space:nowrap;}
   .pos-summary{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:0;}
-  .pos-subtotal-discount{display:grid;grid-template-columns:1fr 1fr;}
-  .pos-subtotal-discount .sumrow{gap:6px;padding:10px 8px;white-space:nowrap;}
-  .pos-subtotal-discount .sumrow+ .sumrow{border-left:1px solid var(--border);}
   .sumrow{display:flex;justify-content:space-between;align-items:center;padding:13px 18px;border-bottom:1px solid var(--border);font-size:14px;}
   .sumrow span:first-child{color:var(--text-muted);}
   .sumrow.grand{border-bottom:none;padding:18px;}

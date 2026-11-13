@@ -77,14 +77,15 @@ let browser;
       const home=bounds(document.getElementById('posSmallestUnitBtn')),customer=bounds(document.getElementById('openCustomerPickerBtn'));
       const topGap=bounds(document.querySelector('.pos-search')).top-home.top;
       const aboveCustomer=home.bottom<=customer.top && Math.abs(home.left-customer.left)<1 && Math.abs(home.right-customer.right)<1;
-      const inline=[...document.querySelectorAll('.pos-subtotal-discount .sumrow')].every(row=>{
-        const label=bounds(row.firstElementChild), amount=bounds(row.lastElementChild);
+      const inline=['posSubtotalValue','posDiscountValue'].every(id=>{
+        const element=document.getElementById(id),row=element.closest('.sumrow');
+        const label=bounds(row.firstElementChild), amount=bounds(element);
         return label.right<=amount.left && amount.right<=bounds(row).right && Math.abs(label.top+label.height/2-amount.top-amount.height/2)<2;
       });
       return {topGap,inline,aboveCustomer};
     });
     assert.ok(Math.abs(summaryLayout.topGap)<1 && summaryLayout.aboveCustomer && summaryLayout.inline,`Home aligns with search above the customer panel and each amount fits beside its label at ${width}px`);
-    assert.ok(Math.abs((layout.subtotal.top+layout.subtotal.height/2)-(layout.discount.top+layout.discount.height/2))<2,`subtotal and discount amounts share one row at ${width}px: ${JSON.stringify(layout)}`);
+    assert.ok(layout.discount.top>=layout.subtotal.top+layout.subtotal.height,`discount appears below subtotal at ${width}px`);
   }
   await page.setViewportSize({width:1920,height:1080});
   if(process.env.PEPOS_TEST_SCREENSHOT) await page.screenshot({path:process.env.PEPOS_TEST_SCREENSHOT,fullPage:true});
