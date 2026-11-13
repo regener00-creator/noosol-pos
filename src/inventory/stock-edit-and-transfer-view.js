@@ -40,7 +40,7 @@ function stockEditLotControlHtml(product,difference){
     return `<select class="stock-control-lot-select" data-stock-edit-lot="${product.id}"><option value="auto" ${selection==='auto'?'selected':''}>อัตโนมัติตาม FEFO</option>${lotOptions}</select><span class="stock-control-lot-hint">เลือก LOT ที่พบส่วนต่าง หรือให้ระบบตัด LOT ใกล้หมดอายุก่อน</span>`;
   }
   const newLotFields=selection==='new'?`<div class="stock-control-new-lot-fields"><input class="stock-control-new-lot-input" data-stock-edit-new-lot="${product.id}" value="${escapeHtml(stockEditNewLotNumbers[product.id]||'')}" placeholder="เลข LOT ผู้ผลิต (ถ้ามี)"><input class="stock-control-new-lot-input dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" data-stock-edit-new-expiry="${product.id}" value="${escapeHtml(isoToDMY(stockEditNewLotExpiries[product.id]||product.expiry||''))}" placeholder="วว/ดด/ปปปป" aria-label="วันหมดอายุ LOT ใหม่"></div>`:'';
-  return `<select class="stock-control-lot-select" data-stock-edit-lot="${product.id}">${lotOptions}<option value="new" ${selection==='new'?'selected':''}>สร้าง LOT ใหม่</option></select>${newLotFields}<span class="stock-control-lot-hint">ของที่พบเกินต้องเข้า LOT เดิมหรือสร้าง LOT ใหม่</span>`;
+  return `<select class="stock-control-lot-select" data-stock-edit-lot="${product.id}">${lotOptions}<option value="new" ${selection==='new'?'selected':''}>สร้าง LOT ใหม่</option></select>${newLotFields}`;
 }
 
 // Each count session has its own draft object, including when the warehouse changes.
@@ -123,7 +123,7 @@ function stockEditRowsHtml(rows=stockEditCurrentProducts()){
       <td>${escapeHtml(p.name)}</td>
       <td style="text-align:center;">${unitHtml}</td>
       <td class="mono" style="text-align:center;">${escapeHtml(stockInLargestUnit(p))}</td>
-      <td style="text-align:center;">${unitOptions.length>1?stockCountPartsHtml(p,unitOptions):`<input type="number" min="0" step="any" class="stock-edit-stock-input ${Number(selectedBaseStock)<0?'stock-negative':''} ${hasDraft?'stock-edit-pending':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="จำนวนที่นับได้ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="กรอกจำนวนที่นับได้จริง แล้วกดยืนยันเพื่อบันทึก">`}</td>
+      <td style="text-align:center;">${unitOptions.length>1?stockCountPartsHtml(p,unitOptions):`<div class="stock-count-single"><input type="number" min="0" step="any" class="stock-edit-stock-input ${Number(selectedBaseStock)<0?'stock-negative':''} ${hasDraft?'stock-edit-pending':''}" data-stock-edit-amount="${p.id}" data-factor="${selectedOption.factor}" data-unit="${escapeHtml(selectedOption.name)}" value="${selectedAmount}" aria-label="จำนวนที่นับได้ ${escapeHtml(p.name)} หน่วย ${escapeHtml(selectedOption.name)}" title="กรอกจำนวนที่นับได้จริง แล้วกดยืนยันเพื่อบันทึก"></div>`}</td>
       <td style="text-align:center;" data-stock-count-difference>${differenceHtml}</td>
       <td class="stock-control-lot-cell">${stockEditLotControlHtml(p,differenceBase)}</td>
       <td style="text-align:center;"><button class="stock-edit-remove-btn" tabindex="-1" data-stock-edit-remove="${p.id}" title="ลบ ${escapeHtml(p.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(p.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td>

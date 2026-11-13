@@ -2397,7 +2397,7 @@
   .stock-control-difference.out{background:#FCEAE8;color:#B83B33;}
   .stock-control-lot-cell{min-width:220px;text-align:left;}
   .stock-control-lot-select,.stock-control-new-lot-input{width:100%;height:36px;border:1px solid #D8CDC8;border-radius:7px;background:#fff;padding:0 8px;font:12px 'Sarabun',sans-serif;}
-  .stock-control-new-lot-fields{display:grid;grid-template-columns:minmax(0,1fr);gap:5px;margin-top:5px;}
+  .stock-control-new-lot-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(88px,.8fr);gap:5px;margin-top:5px;}
   .stock-control-new-lot-input{min-width:0;box-sizing:border-box;}
   .stock-control-lot-hint{display:block;color:var(--text-muted);font-size:11px;line-height:1.35;margin-top:4px;}
   .stock-control-anomaly-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:16px;}
@@ -3013,7 +3013,8 @@
   .return-row-search .return-row-results{position:static;max-height:180px;text-align:left;}
 .stock-edit-table .stock-edit-col-count{width:165px}
 .stock-count-parts{display:grid;gap:4px;min-width:96px}
-.stock-count-parts label{display:grid;grid-template-columns:minmax(36px,1fr) minmax(44px,1fr);align-items:center;gap:5px;text-align:start}
-.stock-count-parts label input{width:100%;min-width:0;box-sizing:border-box;padding:4px 6px}
+.stock-count-parts label,.stock-count-single{display:grid;grid-template-columns:minmax(36px,1fr) minmax(44px,1fr);align-items:center;gap:5px;text-align:start}
+.stock-count-single{min-width:96px}
+.stock-count-parts label input,.stock-count-single input{grid-column:2;width:100%;min-width:0;box-sizing:border-box;padding:4px 6px}
 .stock-count-parts output{font-size:13px;font-weight:600;text-align:center}
 .stock-count-parts output:empty{display:none;}
