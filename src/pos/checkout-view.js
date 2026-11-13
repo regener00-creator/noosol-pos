@@ -199,9 +199,16 @@ function renderSearchResults(){
   }).join('')}</div>`;
 }
 
-function salesHistoryItemsPreview(items){
+function salesHistoryItemsPreview(items,saleId=null){
   const list=items||[];
-  return `<div class="history-preview">${list.length?list.map(item=>`${escapeHtml(item.name)} ×${escapeHtml(item.qty)}`).join('<br>'):'-'}</div>`;
+  const visible=saleId===null?list:list.slice(0,4);
+  const remaining=list.length-visible.length;
+  const lines=visible.map((item,index)=>{
+    const name=escapeHtml(item.name),qty=escapeHtml(item.qty);
+    if(!remaining||index!==visible.length-1)return `${name} ×${qty}`;
+    return `${name} <span class="history-preview-tail">×${qty} <button type="button" class="history-preview-more" data-sale-view="${escapeHtml(saleId)}" aria-haspopup="dialog" aria-label="ดูสินค้าทั้งหมด ${list.length} รายการ">+${remaining}</button></span>`;
+  });
+  return `<div class="history-preview">${lines.join('<br>')||'-'}</div>`;
 }
 function salesHistoryItemsFull(items){
   const list=items||[];
