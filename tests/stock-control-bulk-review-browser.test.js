@@ -198,6 +198,12 @@ let browser;
   });
   assert.ok(searchFits);
   await page.evaluate(()=>{isMobileDeviceMode=()=>true;currentTab='mobiletools';mobileToolMode='inventory';mobileInventoryStep='stock';render();});
+  for(const width of [320,390]){
+    await page.setViewportSize({width,height:844});
+    const single=await page.locator('[data-mobile-stock-amount="60"]').boundingBox();
+    const multi=await box.boundingBox();
+    assert.ok(Math.abs(single.x-multi.x)<1&&Math.abs(single.width-multi.width)<1,'mobile count inputs align at '+width+'px');
+  }
   assert.equal(await total.isVisible(),false);
   assert.equal(await box.inputValue(),'8');assert.equal(await sachet.inputValue(),'5');
   assert.equal(await page.locator('[data-mobile-stock-item="55"] .mobile-stock-field').filter({has:page.getByText('ในระบบ',{exact:true})}).locator('b').innerText(),'8 กล่อง 4 ซอง');
