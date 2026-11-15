@@ -489,12 +489,7 @@ function attachEvents(){
       render();
     }
   });
-  const mobileStockSourceList=document.getElementById('mobileStockSourceList');
-  if(mobileStockSourceList) mobileStockSourceList.addEventListener('change',()=>{ mobileStockSourceListId=mobileStockSourceList.value; });
-  document.getElementById('mobileStockImport')?.addEventListener('click',()=>{
-    const listId=mobileStockSourceList?.value||mobileStockSourceListId;
-    if(listId){ mobileStockSourceListId=listId; stockEditImportInspectionList(listId,true,mobileInspectionChecks(listId)); }
-  });
+  document.getElementById('mobileStockSourceList')?.addEventListener('click',()=>openStockEditInspectionListPicker(importMobileStockSourceList));
   const mobileStockInput=document.getElementById('mobileStockInput');
   const mobileStockResults=document.getElementById('mobileStockResults');
   if(mobileStockInput){
@@ -1072,7 +1067,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const confirmStockEditBtn=document.getElementById('confirmStockEditBtn');
   const clearStockEditBtn=document.getElementById('clearStockEditBtn');
   const importInspectionListBtn=document.getElementById('importInspectionListBtn');
-  if(importInspectionListBtn) importInspectionListBtn.addEventListener('click',openStockEditInspectionListPicker);
+  if(importInspectionListBtn) importInspectionListBtn.addEventListener('click',()=>openStockEditInspectionListPicker());
   if(stockEditCategorySelect) stockEditCategorySelect.addEventListener('change',()=>{ stockEditCatFilter.category=stockEditCategorySelect.value; stockEditCatFilter.brand=''; render(); });
   if(stockEditBrandSelect) stockEditBrandSelect.addEventListener('change',()=>{ stockEditCatFilter.brand=stockEditBrandSelect.value; render(); });
   if(stockEditAddByCategoryBtn) stockEditAddByCategoryBtn.addEventListener('click',()=>openStockEditCategoryPicker(stockEditCatFilter));

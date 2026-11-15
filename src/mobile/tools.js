@@ -472,7 +472,10 @@ function mobileInspectionItemHtml(entry,checks,latest){
   </article>`;
 }
 function mobileInspectionScannerHtml(prefix='mobileInspection',query=mobileInspectionQuery){
-  return `<div class="mobile-scan-row"><input id="${prefix}Input" class="mobile-scan-input" value="${escapeHtml(query)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search"><button type="button" class="mobile-camera-btn" id="${prefix}Camera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button></div><div class="mobile-camera-slot" id="${prefix}CameraSlot"></div>`;
+  const input=`<input id="${prefix}Input" class="mobile-scan-input" value="${escapeHtml(query)}" placeholder="ยิงบาร์โค้ดหรือค้นหาสินค้า..." autocomplete="off" enterkeyhint="search">`;
+  const camera=`<button type="button" class="mobile-camera-btn" id="${prefix}Camera" aria-label="เปิดกล้องสแกนบาร์โค้ด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg></button>`;
+  const controls=prefix==='mobileStock'?camera+input:input+camera;
+  return `<div class="mobile-scan-row">${controls}</div><div class="mobile-camera-slot" id="${prefix}CameraSlot"></div>`;
 }
 function mobileInspectionContentHtml(){
   const list=mobileInspectionCurrentList();
@@ -971,9 +974,20 @@ function mobileStockSearchResultsHtml(){
       <b>${escapeHtml(product.name)}</b><span>${escapeHtml(barcode||product.sku||'')} · ${escapeHtml(unitName)}</span>
     </button>`).join('')}</div>`;
 }
+function importMobileStockSourceList(listId){
+  const source=stockEditInspectionSourceList();
+  const sourceItems=(source?.items||[]).filter(item=>productById(item.pid));
+  const checked=source?mobileInspectionChecks(source.id):null;
+  const unchanged=source&&sourceItems.length===stockEditItems.length&&sourceItems.every((item,index)=>{
+    const id=Number(item.pid);
+    return stockEditItems[index]===id&&stockEditRowUnitSel[id]===inspectionListSelectedOption(item,productById(id),checked.get(id)).name;
+  });
+  const askBeforeReplace=!unchanged||Object.keys(stockEditDraftStocks).length>0||stockCountHasInvalidParts();
+  return stockEditImportInspectionList(listId,askBeforeReplace,mobileInspectionChecks(listId));
+}
 function renderMobileStockEditPanel(lists){
   const availableLists=lists.filter(inspectionListAvailableForStockEdit);
-  let selectedSource=availableLists.find(list=>String(list.id)===String(mobileStockSourceListId));
+  let selectedSource=availableLists.find(list=>String(list.id)===String(stockEditSourceInspectionListId||mobileStockSourceListId));
   if(!selectedSource&&availableLists.length){ selectedSource=availableLists[0]; mobileStockSourceListId=selectedSource.id; }
   if(!availableLists.length) mobileStockSourceListId='';
   const pendingChanges=stockEditPendingChanges();
@@ -981,8 +995,7 @@ function renderMobileStockEditPanel(lists){
   return `<section class="mobile-tool-panel"><div class="mobile-stock-source">
       ${mobileInspectionScannerHtml('mobileStock',mobileStockQuery)}
       <span class="mobile-inspection-separator" aria-hidden="true">|</span>
-      <select id="mobileStockSourceList" aria-label="เลือกรายการตรวจสินค้า" ${availableLists.length?'':'disabled'}>${availableLists.length?availableLists.map(list=>`<option value="${escapeHtml(list.id)}" ${String(list.id)===String(selectedSource?.id)?'selected':''}>${escapeHtml(list.name)} (${(list.items||[]).length})</option>`).join(''):'<option value="">ไม่มีรายการที่รอแก้ไขสต็อก</option>'}</select>
-      <button type="button" class="mobile-stock-import" id="mobileStockImport" aria-label="ดึงรายการตรวจสินค้า" ${availableLists.length?'':'disabled'}><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v16m-7-7 7 7 7-7"/></svg></button>
+      <button type="button" id="mobileStockSourceList" aria-haspopup="dialog" ${selectedSource?'':'disabled'}>${selectedSource?`${escapeHtml(selectedSource.name)} (${(selectedSource.items||[]).length})`:'ไม่มีรายการที่รอแก้ไขสต็อก'}</button>
     </div><div id="mobileStockResults">${mobileStockSearchResultsHtml()}</div>${mobileStockEditRowsHtml()}<div class="mobile-stock-confirm-wrap"><button type="button" class="mobile-stock-confirm" id="mobileConfirmStockEdit" ${canConfirm?'':'disabled'}>${!mobileIsOnline()?'ออฟไลน์ — ยังบันทึกไม่ได้':stockEditPosting?'กำลังบันทึก...':'ยืนยันผลตรวจนับ'}</button></div></section>`;
 }
 async function confirmMobileStockEditChanges(){

@@ -319,13 +319,9 @@ async function verifyLastInspectionUnits(page){
     assert.equal(await page.getByText('รอยืนยันการแก้ไข',{exact:true}).count(),0);
     for(const width of [320,390]){
       await page.setViewportSize({width,height:844});
-      const controls=page.locator('.mobile-stock-source').locator('select, #mobileStockImport, .mobile-inspection-separator, input, #mobileStockCamera');
-      assert.deepEqual(await controls.evaluateAll(nodes=>nodes.map(node=>node.id||node.className)),['mobileStockInput','mobileStockCamera','mobile-inspection-separator','mobileStockSourceList','mobileStockImport']);
+      const controls=page.locator('.mobile-stock-source').locator('button, .mobile-inspection-separator, input');
+      assert.deepEqual(await controls.evaluateAll(nodes=>nodes.map(node=>node.id||node.className)),['mobileStockCamera','mobileStockInput','mobile-inspection-separator','mobileStockSourceList']);
       const boxes=await controls.evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().toJSON()));
-      assert.equal(boxes.length,5);
-      assert.equal(boxes[1].width,boxes[4].width,'import and camera buttons have equal width');
-      assert.equal(boxes[1].height,boxes[4].height,'import and camera buttons have equal height');
-      assert.equal(boxes[1].left-boxes[0].right,boxes[4].left-boxes[3].right,'both control pairs have equal spacing');
       boxes.forEach((box,i)=>{
         assert.ok(box.width>0 && box.right<=width && Math.abs(box.y+box.height/2-boxes[0].y-boxes[0].height/2)<1);
         if(i) assert.ok(box.left>=boxes[i-1].right);
@@ -379,13 +375,17 @@ async function verifyLastInspectionUnits(page){
     await remove.click();
     assert.equal(await remove.count(),0);
     assert.equal(await page.locator(`[data-mobile-stock-item="${pid+1}"]`).count(),1);
-    await page.locator('#mobileStockSourceList').selectOption('other'+store);
+    const sourceButton=page.locator('#mobileStockSourceList');
+    const chooseSource=id=>page.locator(`[data-import-inspection-list="${id}"]`).click();
+    await sourceButton.click();
     page.once('dialog',dialog=>dialog.accept());
-    await page.locator('#mobileStockImport').click();
+    await chooseSource('other'+store);
     assert.equal(await selectedUnit(),'แผง','Another list uses its own saved unit');
-    await page.locator('#mobileStockSourceList').selectOption('check'+store);
-    page.once('dialog',dialog=>dialog.accept());
-    await page.locator('#mobileStockImport').click();
+    await sourceButton.click();
+    await chooseSource('other'+store);
+    assert.equal(await page.locator('.stock-edit-import-modal').count(),0,'Tapping the same list imports it again');
+    await sourceButton.click();
+    await chooseSource('check'+store);
     assert.equal(await selectedUnit(),'กล่อง','Reimport uses the scans from this list');
     assert.equal(await page.evaluate(()=>mobileOpenedInspectionList().items[0].unit),'แผง','Scanning does not rewrite the saved list');
     await page.locator('[data-mobile-inventory-step="inspection"]').click();

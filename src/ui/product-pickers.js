@@ -151,7 +151,7 @@ function openBarcodePrintCategoryPicker(filter,missingOnly=false){
   };
 }
 
-function openStockEditInspectionListPicker(){
+function openStockEditInspectionListPicker(importList=stockEditImportInspectionList){
   const lists=inspectionLists.filter(inspectionListAvailableForStockEdit).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
   if(!lists.length){ showToast('ไม่มีรายการตรวจสินค้าที่รอแก้ไขสต็อก'); return; }
   const overlay=document.createElement('div');
@@ -169,7 +169,7 @@ function openStockEditInspectionListPicker(){
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('#stockEditImportCancelBtn').onclick=close;
   overlay.querySelectorAll('[data-import-inspection-list]').forEach(button=>button.addEventListener('click',()=>{
-    if(stockEditImportInspectionList(button.dataset.importInspectionList)) close();
+    if(importList(button.dataset.importInspectionList)) close();
   }));
 }
 

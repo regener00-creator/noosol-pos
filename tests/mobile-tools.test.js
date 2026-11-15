@@ -97,7 +97,7 @@ assert.match(html, /function mobileInspectionVisibleLists\(\)/);
 assert.match(html, /const lists=\[\.\.\.mobileInspectionVisibleLists\(\)\]/);
 assert.match(html, /function renderMobileStockEditPanel\(/);
 assert.match(html, /id="mobileStockSourceList"/);
-assert.match(html, /id="mobileStockImport"/);
+assert.doesNotMatch(html, /id="mobileStockImport"/);
 assert.match(html, /id="mobileConfirmStockEdit"/);
 const mobileStockPanelStart = html.indexOf('function renderMobileStockEditPanel(');
 const mobileStockPanelEnd = html.indexOf('async function confirmMobileStockEditChanges(', mobileStockPanelStart);
@@ -107,7 +107,7 @@ assert.doesNotMatch(mobileStockPanel, /ดึงรายการตรวจ�
 assert.doesNotMatch(mobileStockPanel, /แก้ตัวเลขแล้วสต็อกจะยังไม่เปลี่ยน/);
 assert.match(mobileStockPanel, /mobileInspectionScannerHtml\('mobileStock',mobileStockQuery\)/);
 assert.match(mobileStockPanel, /id="mobileStockResults"/);
-assert.match(mobileStockPanel, /class="mobile-stock-source">\s*\$\{mobileInspectionScannerHtml\('mobileStock',mobileStockQuery\)\}[\s\S]*?mobile-inspection-separator[\s\S]*?<select id="mobileStockSourceList"[\s\S]*?<button[^>]+id="mobileStockImport"/);
+assert.match(mobileStockPanel, /class="mobile-stock-source">\s*\$\{mobileInspectionScannerHtml\('mobileStock',mobileStockQuery\)\}[\s\S]*?mobile-inspection-separator[\s\S]*?<button[^>]+id="mobileStockSourceList"/);
 assert.match(mobileStockPanel, /\$\{mobileStockEditRowsHtml\(\)\}<div class="mobile-stock-confirm-wrap">/);
 assert.doesNotMatch(mobileStockPanel, /reasonHtml|mobile-stock-reason|stockEditReason|stockEditNote|เหตุผลการปรับสต็อก/);
 assert.doesNotMatch(html, /id="mobileToolsRefresh"/);
@@ -164,7 +164,7 @@ assert.doesNotMatch(mobileStockRows, /รหัสสินค้า|product\.sk
 assert.match(html, /<label>สินค้า<\/label>/);
 assert.doesNotMatch(html, /class="mobile-stock-barcode"/);
 assert.doesNotMatch(html, /<label>จำนวนที่นับได้<\/label>/);
-assert.match(html, /stockEditImportInspectionList\(listId,true,mobileInspectionChecks\(listId\)\)/);
+assert.match(html, /stockEditImportInspectionList\(listId,askBeforeReplace,mobileInspectionChecks\(listId\)\)/);
 assert.match(html, /mobileInventoryStep='stock'/);
 assert.match(html, /mobileStockSourceListId=list\.id/);
 assert.match(html, /mobileConfirmStockEdit'\)\?\.addEventListener\('click',confirmMobileStockEditChanges\)/);
