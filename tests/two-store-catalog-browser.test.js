@@ -190,13 +190,13 @@ async function verifyMobileInspectionStoreIsolation(page){
     assert.equal(await page.evaluate(()=>mobileInspectionOpenedListId),own);
     const addButton=page.getByRole('button',{name:'+ เพิ่มสินค้าในรายการ',exact:true});
     const editButton=page.getByRole('button',{name:'แก้ไขสต็อก (0)',exact:true});
-    const colors=button=>{
+    const appearance=button=>{
       const style=getComputedStyle(button);
-      return [style.backgroundColor,style.color];
+      return [style.backgroundColor,style.color,button.getBoundingClientRect().height,style.fontSize];
     };
-    const editColors=await editButton.evaluate(colors);
-    assert.deepEqual(editColors,['rgb(79, 64, 56)','rgb(255, 255, 255)']);
-    assert.deepEqual(await addButton.evaluate(colors),editColors);
+    const editAppearance=await editButton.evaluate(appearance);
+    assert.deepEqual(editAppearance,['rgb(79, 64, 56)','rgb(255, 255, 255)',50,'15px']);
+    assert.deepEqual(await addButton.evaluate(appearance),editAppearance);
     await addButton.click();
     const addBox=page.locator('.mobile-inspection-add-box');
     assert.equal(await addBox.locator('.mobile-empty, .mobile-inspection-add-pending').count(),0);
