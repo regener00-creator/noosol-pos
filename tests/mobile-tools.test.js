@@ -22,7 +22,7 @@ assert.match(html, /data-mobile-tool="inventory">ตรวจแก้สต็�
 assert.match(html, /id="mobileContinueToStock"/);
 assert.match(html, /class="mobile-scan-row mobile-scan-row-camera-left"><button[^>]+id="mobilePriceCamera"[\s\S]*?<input id="mobilePriceInput"/);
 assert.match(html, /\.mobile-scan-row-camera-left\{grid-template-columns:52px minmax\(0,1fr\);\}/);
-assert.match(html, /id="mobileOpenInspectionList"/);
+assert.doesNotMatch(html, /id="mobileOpenInspectionList"/);
 assert.match(html, /id="mobileDeleteInspectionList"/);
 assert.match(html, /id="mobileDeleteInspectionList" aria-label="ลบบันทึก"[^>]*><svg/);
 assert.match(html, /deleteInspectionListById\(list\.id\)/);
@@ -84,8 +84,7 @@ assert.match(html, /event\.stopPropagation\(\)/);
 assert.match(html, /function saveMobileInspectionDraft\(/);
 assert.match(html, /const saved=await saveInspectionListDraft\(\)/);
 assert.match(html, /id="mobileInspectionAddToggle"/);
-assert.match(html, /id="mobileInspectionAddInput"/);
-assert.match(html, /id="mobileInspectionAddCamera"/);
+assert.match(html, /mobileInspectionScannerHtml\('mobileInspectionAdd',mobileInspectionSavedAddQuery\)/);
 assert.match(html, /id="mobileInspectionAddSave"/);
 assert.match(html, /data-mobile-inspection-add-result=/);
 assert.match(html, /data-mobile-inspection-add-remove=/);

@@ -121,6 +121,11 @@ async function verifyInspectionAndPriceLabels(page){
           openInspectionListEditor('new',false);render();
         },{screen,store});
         const input=page.locator(field),choice=page.locator(result);
+        if(screen==='draft'||screen==='saved'){
+          const camera=page.locator(field.replace('Input','Camera'));
+          const cameraBox=await camera.boundingBox(),inputBox=await input.boundingBox();
+          assert.ok(cameraBox.x+cameraBox.width<=inputBox.x&&cameraBox.y===inputBox.y);
+        }
         await input.fill(prefix+'00000000001');
         assert.equal(await choice.count(),prefix===own?1:0,`${screen}: matches for ${prefix} in store ${store}`);
         if(screen!=='desktop') assert.equal(await input.evaluate(el=>getComputedStyle(el).textAlign),'center',field);
@@ -149,7 +154,7 @@ async function verifyInspectionAndPriceLabels(page){
               const {left,right,top}=el.getBoundingClientRect();
               return {id:el.id,left,right,top};
             }));
-            assert.deepEqual(controls.map(el=>el.id),['mobileNewInspectionList','mobileInspectionList','mobileOpenInspectionList','mobileDeleteInspectionList']);
+            assert.deepEqual(controls.map(el=>el.id),['mobileNewInspectionList','mobileInspectionList','mobileDeleteInspectionList']);
             for(const [index,control] of controls.entries()){
               assert.ok(Math.abs(control.top-controls[0].top)<1 && control.right>control.left && control.right<=width);
               if(index) assert.ok(control.left>=controls[index-1].right);
@@ -175,17 +180,13 @@ async function verifyMobileInspectionStoreIsolation(page){
   for(const [store,own,other,pid] of [[1,'A','B',11],[2,'B','A',12]]){
     await page.evaluate(store=>{selectActiveWarehouse(store);render();},store);
     const list=page.locator('#mobileInspectionList');
-    assert.deepEqual(await list.locator('option').evaluateAll(options=>options.map(o=>o.value)),store===1?['A','legacy']:['B']);
     page.once('dialog',dialog=>dialog.accept('ทดสอบสร้างรายการ'));
     await page.getByRole('button',{name:'สร้างรายการตรวจสินค้า',exact:true}).click();
     assert.equal(await page.locator('.mobile-draft-head b').innerText(),'ทดสอบสร้างรายการ');
     await page.locator('#mobileCancelInspectionDraft').click();
-    await list.selectOption(own);
-    const openButton=await page.locator('#mobileOpenInspectionList').boundingBox();
-    const trashButton=await page.locator('#mobileDeleteInspectionList').boundingBox();
-    assert.equal(openButton.width,trashButton.width);
-    assert.equal(openButton.height,trashButton.height);
-    await page.locator('#mobileOpenInspectionList').click();
+    await list.click();
+    assert.deepEqual(await page.locator('[data-import-inspection-list]').evaluateAll(rows=>rows.map(row=>row.dataset.importInspectionList)),store===1?['A','legacy']:['B']);
+    await page.locator(`[data-import-inspection-list="${own}"]`).click();
     await page.locator('#mobileInspectionAddToggle').click();
     const addBox=page.locator('.mobile-inspection-add-box');
     assert.equal(await addBox.locator('.mobile-empty, .mobile-inspection-add-pending').count(),0);
@@ -275,12 +276,12 @@ async function verifyLastInspectionUnits(page){
     assert.match(await page.locator('.mobile-warehouse-title').innerText(),new RegExp('^SAPURI • คลัง'+(store===1?'พระยาสุเรนทร์':'พรชัย')));
     assert.deepEqual(await page.evaluate(()=>[activeWarehouseId,loggedInUser().id]),[store,'test-owner']);
     const list=page.locator('#mobileInspectionList');
-    await list.selectOption('check'+store);
-    await page.locator('#mobileOpenInspectionList').click();
+    await list.click();
+    await page.locator(`[data-import-inspection-list="check${store}"]`).click();
     assert.equal(await page.locator('#mobileInspectionInput, #mobileInspectionCamera').count(),0);
     assert.equal(await page.getByRole('button',{name:'สร้างรายการตรวจสินค้า',exact:true}).innerText(),'+');
     assert.equal(await page.locator('.mobile-inspection-separator').innerText(),'|');
-    assert.equal(await page.getByRole('button',{name:'เปิดรายการ',exact:true}).locator('svg').count(),1);
+    assert.equal(await page.locator('#mobileOpenInspectionList').count(),0);
     assert.equal(await page.getByRole('button',{name:'ลบบันทึก',exact:true}).innerText(),'');
     const scan=async code=>{ await page.keyboard.type(code);await page.keyboard.press('Enter'); };
     const card=page.locator(`[data-mobile-inspection-item="${pid}"]`);

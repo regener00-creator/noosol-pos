@@ -367,23 +367,20 @@ function attachEvents(){
   attachMobilePriceResultEvents();
   document.getElementById('mobilePriceCamera')?.addEventListener('click',()=>{ unlockMobileScanSound(); openMobileCameraScanner(mobileHandlePriceCode,{continuous:true,hostId:'mobilePriceCameraSlot',buttonId:'mobilePriceCamera'}); });
   const mobileInspectionList=document.getElementById('mobileInspectionList');
-  if(mobileInspectionList) mobileInspectionList.addEventListener('change',()=>{
-    if(mobileInspectionSavedAddItems.length&&!confirm('ยังไม่ได้บันทึกสินค้าที่เพิ่ม ต้องการเปลี่ยนรายการและทิ้งสินค้าชุดนี้หรือไม่?')){
-      mobileInspectionList.value=String(mobileInspectionListId||'');
-      return;
-    }
-    resetMobileInspectionSavedAdd();
-    mobileInspectionListId=mobileInspectionList.value;
-    mobileInspectionOpenedListId='';
-    mobileInspectionQuery=''; mobileInspectionLastProductId=null; mobileInspectionVisibleCount=25;
-    render();
-  });
-  document.getElementById('mobileOpenInspectionList')?.addEventListener('click',()=>{
-    const list=mobileInspectionCurrentList(); if(!list) return;
-    resetMobileInspectionSavedAdd();
-    mobileInspectionOpenedListId=list.id;
-    mobileInspectionQuery=''; mobileInspectionLastProductId=null; mobileInspectionVisibleCount=25;
-    render();
+  mobileInspectionList?.addEventListener('click',()=>{
+    const lists=mobileInspectionVisibleLists().sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+    openInspectionListPicker(lists,'รายการตรวจสินค้าที่บันทึกไว้',id=>{
+      const list=mobileInspectionVisibleLists().find(entry=>String(entry.id)===id);
+      if(!list) return false;
+      if(String(mobileInspectionOpenedListId)===id) return true;
+      if(mobileInspectionSavedAddItems.length&&!confirm('ยังไม่ได้บันทึกสินค้าที่เพิ่ม ต้องการเปลี่ยนรายการและทิ้งสินค้าชุดนี้หรือไม่?')) return false;
+      closeMobileCameraScanner();
+      resetMobileInspectionSavedAdd();
+      mobileInspectionListId=mobileInspectionOpenedListId=list.id;
+      mobileInspectionQuery=''; mobileInspectionLastProductId=null; mobileInspectionVisibleCount=25;
+      render();
+      return true;
+    });
   });
   document.getElementById('mobileDeleteInspectionList')?.addEventListener('click',()=>{
     if(!mobileRequireOnline('ลบบันทึกรายการ')) return;

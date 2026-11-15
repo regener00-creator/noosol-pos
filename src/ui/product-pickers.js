@@ -154,10 +154,13 @@ function openBarcodePrintCategoryPicker(filter,missingOnly=false){
 function openStockEditInspectionListPicker(importList=stockEditImportInspectionList){
   const lists=inspectionLists.filter(inspectionListAvailableForStockEdit).sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
   if(!lists.length){ showToast('ไม่มีรายการตรวจสินค้าที่รอแก้ไขสต็อก'); return; }
+  openInspectionListPicker(lists,'ดึงข้อมูลจากรายการตรวจสินค้า',importList);
+}
+function openInspectionListPicker(lists,title,onSelect){
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal stock-edit-import-modal" role="dialog" aria-modal="true" aria-labelledby="stockEditImportTitle" style="width:620px;max-height:82vh;display:flex;flex-direction:column;">
-    <div class="modal-head"><h3 id="stockEditImportTitle">ดึงข้อมูลจากรายการตรวจสินค้า</h3><button class="modal-close" aria-label="ปิด">×</button></div>
+    <div class="modal-head"><h3 id="stockEditImportTitle">${escapeHtml(title)}</h3><button class="modal-close" aria-label="ปิด">×</button></div>
     <div class="stock-edit-import-list">${lists.map(list=>`<button type="button" class="stock-edit-import-row" data-import-inspection-list="${escapeHtml(list.id)}">
       <span class="stock-edit-import-name">${escapeHtml(list.name)}</span>
       <span class="stock-edit-import-meta">${(list.items||[]).length} สินค้า · แก้ไขล่าสุด ${escapeHtml(inspectionListDateTime(list.updatedAt))}</span>
@@ -169,7 +172,7 @@ function openStockEditInspectionListPicker(importList=stockEditImportInspectionL
   overlay.querySelector('.modal-close').onclick=close;
   overlay.querySelector('#stockEditImportCancelBtn').onclick=close;
   overlay.querySelectorAll('[data-import-inspection-list]').forEach(button=>button.addEventListener('click',()=>{
-    if(importList(button.dataset.importInspectionList)) close();
+    if(onSelect(button.dataset.importInspectionList)) close();
   }));
 }
 
