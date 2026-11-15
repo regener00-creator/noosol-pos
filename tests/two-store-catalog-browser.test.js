@@ -185,8 +185,9 @@ async function verifyMobileInspectionStoreIsolation(page){
     assert.equal(await page.locator('.mobile-draft-head b').innerText(),'ทดสอบสร้างรายการ');
     await page.locator('#mobileCancelInspectionDraft').click();
     await list.click();
-    assert.deepEqual(await page.locator('[data-import-inspection-list]').evaluateAll(rows=>rows.map(row=>row.dataset.importInspectionList)),store===1?['A','legacy']:['B']);
-    await page.locator(`[data-import-inspection-list="${own}"]`).click();
+    assert.deepEqual(await page.locator('[data-import-inspection-list]').evaluateAll(rows=>rows.map(row=>row.dataset.importInspectionList)),store===1?['A','legacy']:[]);
+    if(store===1) await page.locator(`[data-import-inspection-list="${own}"]`).click();
+    assert.equal(await page.evaluate(()=>mobileInspectionOpenedListId),own);
     await page.locator('#mobileInspectionAddToggle').click();
     const addBox=page.locator('.mobile-inspection-add-box');
     assert.equal(await addBox.locator('.mobile-empty, .mobile-inspection-add-pending').count(),0);
@@ -388,6 +389,14 @@ async function verifyLastInspectionUnits(page){
     await sourceButton.click();
     await chooseSource('check'+store);
     assert.equal(await selectedUnit(),'กล่อง','Reimport uses the scans from this list');
+    await page.evaluate(store=>{
+      inspectionLists.find(list=>list.id==='other'+store).stockAdjustedAt='2026-11-13';
+      stockEditItems=[];
+      render();
+    },store);
+    await sourceButton.click();
+    assert.equal(await page.locator('.stock-edit-import-modal').count(),0);
+    assert.equal(await page.locator(`[data-mobile-stock-item="${pid}"]`).count(),1,'The sole pending list imports with one tap');
     assert.equal(await page.evaluate(()=>mobileOpenedInspectionList().items[0].unit),'แผง','Scanning does not rewrite the saved list');
     await page.locator('[data-mobile-inventory-step="inspection"]').click();
     await page.locator('#mobileResetChecks').click();

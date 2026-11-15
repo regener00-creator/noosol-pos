@@ -368,8 +368,7 @@ function attachEvents(){
   document.getElementById('mobilePriceCamera')?.addEventListener('click',()=>{ unlockMobileScanSound(); openMobileCameraScanner(mobileHandlePriceCode,{continuous:true,hostId:'mobilePriceCameraSlot',buttonId:'mobilePriceCamera'}); });
   const mobileInspectionList=document.getElementById('mobileInspectionList');
   mobileInspectionList?.addEventListener('click',()=>{
-    const lists=mobileInspectionVisibleLists().sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
-    openInspectionListPicker(lists,'รายการตรวจสินค้าที่บันทึกไว้',id=>{
+    selectMobileInspectionList(mobileInspectionVisibleLists(),'เลือกรายการตรวจสินค้า',id=>{
       const list=mobileInspectionVisibleLists().find(entry=>String(entry.id)===id);
       if(!list) return false;
       if(String(mobileInspectionOpenedListId)===id) return true;
@@ -486,7 +485,10 @@ function attachEvents(){
       render();
     }
   });
-  document.getElementById('mobileStockSourceList')?.addEventListener('click',()=>openStockEditInspectionListPicker(importMobileStockSourceList));
+  document.getElementById('mobileStockSourceList')?.addEventListener('click',()=>{
+    const lists=mobileInspectionVisibleLists().filter(inspectionListAvailableForStockEdit);
+    selectMobileInspectionList(lists,'ดึงข้อมูลจากรายการตรวจสินค้า',importMobileStockSourceList);
+  });
   const mobileStockInput=document.getElementById('mobileStockInput');
   const mobileStockResults=document.getElementById('mobileStockResults');
   if(mobileStockInput){

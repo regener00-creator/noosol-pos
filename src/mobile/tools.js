@@ -429,6 +429,16 @@ function mobileInspectionVisibleLists(){
   if(!activeWarehouseId||isAllWarehousesMode()) return [];
   return inspectionLists.filter(list=>documentInActiveStore(list)&&!String(list.stockAdjustedAt||'').trim());
 }
+function selectMobileInspectionList(lists,title,onSelect){
+  if(lists.length===1){
+    onSelect(String(lists[0].id));
+    return;
+  }
+  if(lists.length>1){
+    lists.sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+    openInspectionListPicker(lists,title,onSelect);
+  }
+}
 function mobileInspectionCurrentList(){
   const visibleLists=mobileInspectionVisibleLists();
   if(!visibleLists.length){
@@ -623,9 +633,9 @@ function renderMobileInspectionPanel(lists){
     <div class="mobile-inspection-actions">
       <button type="button" class="mobile-inspection-create-btn" id="mobileNewInspectionList" aria-label="สร้างรายการตรวจสินค้า" title="สร้างรายการตรวจสินค้า">+</button>
       ${lists.length?`<span class="mobile-inspection-separator" aria-hidden="true">|</span>
-      <label class="mobile-inspection-saved-label">รายการที่บันทึกไว้<button type="button" id="mobileInspectionList" class="mobile-inspection-select" value="${escapeHtml(current?.id||'')}" aria-haspopup="dialog">${escapeHtml(current?.name||'')} (${current?.items?.length||0})</button></label><button type="button" class="mobile-inspection-action mobile-inspection-remove" id="mobileDeleteInspectionList" aria-label="ลบบันทึก" title="ลบบันทึก" ${mobileIsOnline()?'':'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button>`:''}
+      <button type="button" id="mobileInspectionList" class="mobile-inspection-select" value="${escapeHtml(current?.id||'')}" ${lists.length>1?'aria-haspopup="dialog"':''}>${escapeHtml(current?.name||'')} (${current?.items?.length||0})</button><button type="button" class="mobile-inspection-action mobile-inspection-remove" id="mobileDeleteInspectionList" aria-label="ลบบันทึก" title="ลบบันทึก" ${mobileIsOnline()?'':'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button>`:''}
     </div>
-    ${lists.length?`${current?.stockAdjustedAt?'<div class="mobile-inspection-complete">✓ แก้ไขจำนวนเรียบร้อย</div>':''}${opened?`${mobileInspectionAddingToSaved?mobileInspectionSavedAddHtml(current):'<button type="button" class="mobile-inspection-add-toggle" id="mobileInspectionAddToggle">+ เพิ่มสินค้าในรายการ</button>'}<div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div><button type="button" class="mobile-inspection-next" id="mobileContinueToStock">สรุปและแก้ไขสต็อก (${progress.total})</button>`:'<div class="mobile-empty">แตะชื่อรายการที่บันทึกไว้เพื่อเริ่มตรวจสินค้า</div>'}`:'<div class="mobile-empty">ยังไม่มีรายการที่บันทึกไว้ กดปุ่ม + เพื่อเริ่มยิงสินค้า</div>'}</section>`;
+    ${lists.length?`${current?.stockAdjustedAt?'<div class="mobile-inspection-complete">✓ แก้ไขจำนวนเรียบร้อย</div>':''}${opened?`${mobileInspectionAddingToSaved?mobileInspectionSavedAddHtml(current):'<button type="button" class="mobile-inspection-add-toggle" id="mobileInspectionAddToggle">+ เพิ่มสินค้าในรายการ</button>'}<div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div><button type="button" class="mobile-inspection-next" id="mobileContinueToStock">สรุปและแก้ไขสต็อก (${progress.total})</button>`:'<div class="mobile-empty">แตะชื่อรายการเพื่อเริ่มตรวจสินค้า</div>'}`:'<div class="mobile-empty">ยังไม่มีรายการตรวจสินค้า กดปุ่ม + เพื่อเริ่มยิงสินค้า</div>'}</section>`;
 }
 function addProductToMobileInspectionSavedDraft(product,unitName=''){
   const list=mobileOpenedInspectionList();
@@ -994,7 +1004,7 @@ function renderMobileStockEditPanel(lists){
   return `<section class="mobile-tool-panel"><div class="mobile-stock-source">
       ${mobileInspectionScannerHtml('mobileStock',mobileStockQuery)}
       <span class="mobile-inspection-separator" aria-hidden="true">|</span>
-      <button type="button" id="mobileStockSourceList" aria-haspopup="dialog" ${selectedSource?'':'disabled'}>${selectedSource?`${escapeHtml(selectedSource.name)} (${(selectedSource.items||[]).length})`:'ไม่มีรายการที่รอแก้ไขสต็อก'}</button>
+      <button type="button" id="mobileStockSourceList" ${availableLists.length>1?'aria-haspopup="dialog"':''} ${selectedSource?'':'disabled'}>${selectedSource?`${escapeHtml(selectedSource.name)} (${(selectedSource.items||[]).length})`:'ไม่มีรายการที่รอแก้ไขสต็อก'}</button>
     </div><div id="mobileStockResults">${mobileStockSearchResultsHtml()}</div>${mobileStockEditRowsHtml()}<div class="mobile-stock-confirm-wrap"><button type="button" class="mobile-stock-confirm" id="mobileConfirmStockEdit" ${canConfirm?'':'disabled'}>${!mobileIsOnline()?'ออฟไลน์ — ยังบันทึกไม่ได้':stockEditPosting?'กำลังบันทึก...':'ยืนยันผลตรวจนับ'}</button></div></section>`;
 }
 async function confirmMobileStockEditChanges(){
