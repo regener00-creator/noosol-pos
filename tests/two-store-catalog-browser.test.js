@@ -320,6 +320,7 @@ async function verifyLastInspectionUnits(page){
     for(const width of [320,390]){
       await page.setViewportSize({width,height:844});
       const controls=page.locator('.mobile-stock-source').locator('select, #mobileStockImport, .mobile-inspection-separator, input, #mobileStockCamera');
+      assert.deepEqual(await controls.evaluateAll(nodes=>nodes.map(node=>node.id||node.className)),['mobileStockInput','mobileStockCamera','mobile-inspection-separator','mobileStockSourceList','mobileStockImport']);
       const boxes=await controls.evaluateAll(nodes=>nodes.map(node=>node.getBoundingClientRect().toJSON()));
       assert.equal(boxes.length,5);
       assert.equal(boxes[1].width,boxes[4].width,'import and camera buttons have equal width');
