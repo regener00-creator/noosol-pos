@@ -176,6 +176,10 @@ async function verifyMobileInspectionStoreIsolation(page){
     await page.evaluate(store=>{selectActiveWarehouse(store);render();},store);
     const list=page.locator('#mobileInspectionList');
     assert.deepEqual(await list.locator('option').evaluateAll(options=>options.map(o=>o.value)),store===1?['A','legacy']:['B']);
+    page.once('dialog',dialog=>dialog.accept('ทดสอบสร้างรายการ'));
+    await page.getByRole('button',{name:'สร้างรายการตรวจสินค้า',exact:true}).click();
+    assert.equal(await page.locator('.mobile-draft-head b').innerText(),'ทดสอบสร้างรายการ');
+    await page.locator('#mobileCancelInspectionDraft').click();
     await list.selectOption(own);
     const openButton=await page.locator('#mobileOpenInspectionList').boundingBox();
     const trashButton=await page.locator('#mobileDeleteInspectionList').boundingBox();
@@ -274,7 +278,7 @@ async function verifyLastInspectionUnits(page){
     await list.selectOption('check'+store);
     await page.locator('#mobileOpenInspectionList').click();
     assert.equal(await page.locator('#mobileInspectionInput, #mobileInspectionCamera').count(),0);
-    assert.equal(await page.locator('#mobileNewInspectionList').innerText(),'+ สร้างรายการ');
+    assert.equal(await page.getByRole('button',{name:'สร้างรายการตรวจสินค้า',exact:true}).innerText(),'+');
     assert.equal(await page.locator('.mobile-inspection-separator').innerText(),'|');
     assert.equal(await page.getByRole('button',{name:'เปิดรายการ',exact:true}).locator('svg').count(),1);
     assert.equal(await page.getByRole('button',{name:'ลบบันทึก',exact:true}).innerText(),'');
