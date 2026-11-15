@@ -188,7 +188,12 @@ async function verifyMobileInspectionStoreIsolation(page){
     assert.deepEqual(await page.locator('[data-import-inspection-list]').evaluateAll(rows=>rows.map(row=>row.dataset.importInspectionList)),store===1?['A','legacy']:[]);
     if(store===1) await page.locator(`[data-import-inspection-list="${own}"]`).click();
     assert.equal(await page.evaluate(()=>mobileInspectionOpenedListId),own);
-    await page.locator('#mobileInspectionAddToggle').click();
+    const addButton=page.getByRole('button',{name:'+ เพิ่มสินค้าในรายการ',exact:true});
+    assert.deepEqual(await addButton.evaluate(button=>{
+      const style=getComputedStyle(button);
+      return [style.backgroundColor,style.color];
+    }),['rgb(50, 40, 33)','rgb(255, 255, 255)']);
+    await addButton.click();
     const addBox=page.locator('.mobile-inspection-add-box');
     assert.equal(await addBox.locator('.mobile-empty, .mobile-inspection-add-pending').count(),0);
     const close=addBox.getByRole('button',{name:'ปิดการเพิ่มสินค้า'});
