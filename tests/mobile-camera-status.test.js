@@ -8,11 +8,11 @@ const source=app.slice(app.indexOf('function closeMobileCameraScanner('),app.ind
 function scanner(track,storage=new Map()){
   const message={textContent:''},frames=[],accepted=[],vibrations=[];
   const video={readyState:2,play:async()=>{}};
-  const select={hidden:true,addEventListener(type,listener){this[type]=listener;}};
+  const select={disabled:true,replaceChildren(...options){this.options=options;},addEventListener(type,listener){this[type]=listener;}};
   const camera={innerHTML:'',remove(){},scrollIntoView(){},querySelector(selector){return selector==='video'?video:selector==='.mobile-camera-message'?message:selector==='.mobile-camera-lens'?select:{addEventListener(){}};}};
   let time=0,code='';
   class BarcodeDetector{async detect(){return [{rawValue:code}];}}
-  const ctx=vm.createContext({console,window:{BarcodeDetector},BarcodeDetector,
+  const ctx=vm.createContext({console,window:{BarcodeDetector},BarcodeDetector,Option:class{constructor(text,value){Object.assign(this,{text,value});}},
     navigator:{mediaDevices:{getUserMedia:async()=>({getTracks:()=>[],getVideoTracks:()=>track?[track]:[]})},vibrate:value=>vibrations.push(value)},
     document:{createElement:()=>camera,getElementById:()=>({replaceChildren(){},setAttribute(){}})},
     localStorage:{getItem:key=>storage.get(key),setItem:(key,value)=>storage.set(key,value)},
@@ -28,7 +28,8 @@ test('price-camera status stays branded at startup, readiness, accepted and reje
   assert.equal(await vm.runInContext("openMobileCameraScanner(onCode,{continuous:true,hostId:'mobilePriceCameraSlot'})",s.ctx),true);
   assert.match(s.camera.innerHTML,/<div class="mobile-camera-message">P R A N C - H I B E S<\/div>/);
   assert.equal(s.message.textContent,'P R A N C - H I B E S');
-  assert.equal(s.select.hidden,true);
+  assert.equal(s.select.disabled,true);
+  assert.match(s.camera.innerHTML,/mobile-camera-lens"[^>]* disabled><option[^>]*>กล้องปัจจุบัน \(ยังไม่มีเลนส์อื่นให้เลือก\)/);
   await s.scan('found');assert.equal(s.message.textContent,'P R A N C - H I B E S');
   await s.scan('missing');assert.equal(s.message.textContent,'P R A N C - H I B E S');
   assert.deepEqual(s.accepted,['found','missing']);
@@ -67,7 +68,7 @@ test('price and inventory restore the locally selected lens, and ignore rejected
   for(const [host,initial,choice] of [['mobilePriceCameraSlot','wide','main'],['mobileInspectionCameraSlot','main','wide'],['mobileStockCameraSlot','wide','main']]){
     const s=scanner(track,storage);
     await s.ctx.openMobileCameraScanner(s.ctx.onCode,{hostId:host,continuous:true});
-    assert.equal(s.select.hidden,false);
+    assert.equal(s.select.disabled,false);
     assert.equal(s.select.value,initial);
     s.select.value=choice;
     ignore=true;
@@ -116,17 +117,32 @@ test('separate rear lenses switch by device ID, release the previous camera and 
   s.ctx.closeMobileCameraScanner();
   assert.equal(live,'');
 });
-test('unnamed rear cameras or a front ultra-wide lens do not advertise 0.5x',async()=>{
-  const s=scanner({getSettings:()=>({deviceId:'back',facingMode:'environment',zoom:1}),getCapabilities:()=>({zoom:{min:1,max:4}})});
+test('numbered rear cameras can be selected and restored across scanner pages without guessing 0.5x',async()=>{
+  const storage=new Map(),s=scanner(null,storage);
+  let active;
+  s.ctx.navigator.mediaDevices.getUserMedia=async({video})=>{
+    active=video.deviceId?.exact||'back';
+    const track={getSettings:()=>({deviceId:active,facingMode:'environment',zoom:1}),getCapabilities:()=>({zoom:{min:1,max:4}}),stop(){}};
+    return {getTracks:()=>[track],getVideoTracks:()=>[track]};
+  };
   s.ctx.navigator.mediaDevices.enumerateDevices=async()=>[
     {kind:'videoinput',deviceId:'back',label:'Camera 0 facing back'},
     {kind:'videoinput',deviceId:'back2',label:'Camera 2 facing back'},
     {kind:'videoinput',deviceId:'front',label:'Front Ultra Wide Camera'}
   ];
   await s.ctx.openMobileCameraScanner(s.ctx.onCode,{hostId:'mobileStockCameraSlot',continuous:true});
-  assert.equal(s.select.hidden,true);
+  assert.equal(s.select.disabled,false);
+  assert.deepEqual(s.select.options.map(option=>option.text),['กล้องหลัง 1','กล้องหลัง 2']);
+  assert.equal(s.select.value,'camera:back');
   await s.scan('found');
   assert.deepEqual(s.accepted,['found']);
+  s.select.value='camera:back2';
+  await s.select.change();
+  assert.equal(active,'back2');
+  assert.equal(storage.get('sapuri.mobile.scannerLens'),'camera:back2');
+  await s.ctx.openMobileCameraScanner(s.ctx.onCode,{hostId:'mobilePriceCameraSlot',continuous:true});
+  assert.equal(s.select.value,'camera:back2');
+  assert.equal(active,'back2');
 });
 test('declining zoom permission still opens the regular camera and decodes a barcode',async()=>{
   const s=scanner(),media=s.ctx.navigator.mediaDevices,requests=[];
@@ -138,7 +154,7 @@ test('declining zoom permission still opens the regular camera and decodes a bar
   };
   assert.ok(await s.ctx.openMobileCameraScanner(s.ctx.onCode,{hostId:'mobilePriceCameraSlot',continuous:true}));
   assert.deepEqual(requests,[0.5,undefined]);
-  assert.equal(s.select.hidden,true);
+  assert.equal(s.select.disabled,true);
   await s.scan('found');
   assert.deepEqual(s.accepted,['found']);
 });

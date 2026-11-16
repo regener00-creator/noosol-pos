@@ -1288,7 +1288,8 @@ async function mobileScannerLensChoices(track){
   if(!track) return null;
   const settings=track.getSettings?.()||{};
   if(settings.facingMode==='user') return null;
-  const zoom=track.getCapabilities?.()?.zoom;
+  let zoom;
+  try{ zoom=track.getCapabilities?.()?.zoom; }catch{}
   const supportsZoom=value=>{
     if(!zoom||zoom.min<=0||!(zoom.min<=value&&value<=zoom.max)) return false;
     if(!zoom.step) return true;
@@ -1298,17 +1299,25 @@ async function mobileScannerLensChoices(track){
   if(Number.isFinite(settings.zoom)&&supportsZoom(0.5)&&supportsZoom(1)){
     return {main:{id:settings.deviceId,zoom:1},wide:{id:settings.deviceId,zoom:0.5}};
   }
-  if(!settings.deviceId||!navigator.mediaDevices.enumerateDevices) return null;
+  if(!navigator.mediaDevices.enumerateDevices) return null;
   const devices=(await navigator.mediaDevices.enumerateDevices()).filter(device=>
     device.kind==='videoinput'&&device.deviceId&&!/front|user.facing|selfie|กล้องหน้า/i.test(device.label));
   const ultra=/ultra[\s_-]*wide|super[\s_-]*wide|0[.,]5\s*[x×]|อัลตราไวด์|超广角|超廣角/i;
   const wide=devices.find(device=>ultra.test(device.label));
-  if(!wide) return null;
-  const possibleMain=devices.filter(device=>device.deviceId!==wide.deviceId&&!ultra.test(device.label)&&!/telephoto|tele\b|macro|depth|กล้องมาโคร/i.test(device.label));
+  const possibleMain=devices.filter(device=>!ultra.test(device.label)&&!/telephoto|tele\b|macro|depth|กล้องมาโคร/i.test(device.label));
   const rear=possibleMain.filter(device=>/back|rear|environment|กล้องหลัง/i.test(device.label));
   const main=possibleMain.find(device=>device.deviceId===settings.deviceId)||
     rear.find(device=>/main|standard|wide|1\s*[x×]|หลัก/i.test(device.label))||(rear.length===1?rear[0]:null);
-  return main?{main:{id:main.deviceId},wide:{id:wide.deviceId}}:null;
+  if(main&&wide) return {main:{id:main.deviceId},wide:{id:wide.deviceId}};
+  if(devices.length<2) return null;
+  const choices={};
+  devices.forEach((device,index)=>{
+    const rear=/back|rear|environment|กล้องหลัง/i.test(device.label);
+    const label=device===wide?'Ultra Wide 0.5×':(rear?'กล้องหลัง ':'กล้อง ')+(index+1);
+    choices['camera:'+device.deviceId]={id:device.deviceId,label};
+  });
+  if(!devices.some(device=>device.deviceId===settings.deviceId)) choices.default={label:'กล้องปัจจุบัน'};
+  return choices;
 }
 async function connectMobileScannerCamera(session,deviceId,initialZoom){
   session.stream?.getTracks().forEach(track=>track.stop());
@@ -1331,7 +1340,7 @@ async function connectMobileScannerCamera(session,deviceId,initialZoom){
 }
 async function configureMobileScannerLens(session,change,onChange){
   let mode='wide';
-  try{ if(localStorage.getItem(mobileScannerLensKey)==='main') mode='main'; }catch{}
+  try{ mode=localStorage.getItem(mobileScannerLensKey)||mode; }catch{}
   if(change) mode=change.mode;
   let choices=change?.choices;
   const currentTrack=()=>session.stream?.getVideoTracks?.()[0];
@@ -1342,12 +1351,15 @@ async function configureMobileScannerLens(session,change,onChange){
   }
   if(session.closed) return;
   if(!choices){ await setMobileScannerWideView(currentTrack()); return; }
+  const currentMode=()=>Object.keys(choices).find(key=>choices[key].id&&choices[key].id===currentTrack()?.getSettings?.().deviceId);
+  if(!Object.hasOwn(choices,mode)) mode=choices.wide?'wide':currentMode()||'default';
   const apply=async lens=>{
     if(!session.stream||(lens.id&&currentTrack()?.getSettings?.().deviceId!==lens.id)){
       await connectMobileScannerCamera(session,lens.id,lens.zoom??1);
     }
     if(session.closed) return;
     const track=currentTrack();
+    if(lens.label){ await setMobileScannerWideView(track); return; }
     const current=track?.getSettings?.().zoom;
     const target=lens.zoom??1;
     if(current===target||(lens.zoom==null&&!Number.isFinite(current))) return;
@@ -1359,19 +1371,28 @@ async function configureMobileScannerLens(session,change,onChange){
   }catch(error){
     if(session.closed) return;
     if(change) showToast('เปิดเลนส์ที่เลือกไม่ได้ กลับไปใช้กล้องเดิม','danger-top');
-    mode=change?.previous||(mode==='wide'?'main':'wide');
-    try{ await apply(choices[mode]); }
-    catch{
-      if(!session.closed) await connectMobileScannerCamera(session,null,1);
+    mode=change?.previous||(choices.main&&choices.wide?(mode==='wide'?'main':'wide'):null);
+    if(!mode){
+      await connectMobileScannerCamera(session,null,1);
+      mode=currentMode()||'default';
+      if(mode==='default') choices.default={label:'กล้องปัจจุบัน'};
+    }else{
+      try{ await apply(choices[mode]); }
+      catch{
+        if(!session.closed) await connectMobileScannerCamera(session,null,1);
+        return;
+      }
     }
-    return;
+    change=null;
   }
   if(session.closed) return;
   const remember=()=>{ try{ localStorage.setItem(mobileScannerLensKey,mode); }catch{} };
   if(change) remember();
   const select=session.element.querySelector('.mobile-camera-lens');
+  select.replaceChildren(...Object.entries(choices).map(([key,lens])=>
+    new Option(lens.label||(key==='wide'?'Ultra Wide 0.5×':'กล้องหลัก 1×'),key)));
   select.value=mode;
-  select.hidden=false;
+  select.disabled=false;
   select.addEventListener('change',async()=>{
     const requested=select.value;
     if(!choices[requested]||requested===mode) return;
@@ -1401,7 +1422,7 @@ async function openMobileCameraScanner(onCode,options={}){
   closeMobileCameraScanner();
   const camera=document.createElement('div');
   camera.className='mobile-camera-inline';
-  camera.innerHTML=`<div class="mobile-camera-box"><div class="mobile-camera-head"><button type="button" class="mobile-camera-close" aria-label="ปิดกล้อง">×</button><span>P R A N C - H I B E S</span></div><select class="mobile-camera-lens" aria-label="เลือกเลนส์กล้องสแกน" hidden><option value="main">กล้องหลัก 1×</option><option value="wide">Ultra Wide 0.5×</option></select><div class="mobile-camera-video-wrap"><video class="mobile-camera-video" autoplay muted playsinline></video><div class="mobile-camera-guide"></div></div><div class="mobile-camera-message">${fixedMessage||'กำลังเปิดกล้อง...'}</div></div>`;
+  camera.innerHTML=`<div class="mobile-camera-box"><div class="mobile-camera-head"><button type="button" class="mobile-camera-close" aria-label="ปิดกล้อง">×</button><span>P R A N C - H I B E S</span></div><select class="mobile-camera-lens" aria-label="เลือกเลนส์กล้องสแกน" disabled><option value="default">กล้องปัจจุบัน (ยังไม่มีเลนส์อื่นให้เลือก)</option></select><div class="mobile-camera-video-wrap"><video class="mobile-camera-video" autoplay muted playsinline></video><div class="mobile-camera-guide"></div></div><div class="mobile-camera-message">${fixedMessage||'กำลังเปิดกล้อง...'}</div></div>`;
   host.replaceChildren(camera);
   const video=camera.querySelector('video');
   const message=camera.querySelector('.mobile-camera-message');
