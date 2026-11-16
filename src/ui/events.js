@@ -499,7 +499,7 @@ function attachEvents(){
     });
     mobileStockInput.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); mobileHandleStockCode(mobileStockInput.value); } });
   }
-  document.getElementById('mobileStockCamera')?.addEventListener('click',()=>{ unlockMobileScanSound(); openMobileCameraScanner(mobileHandleStockCode,{continuous:true,hostId:'mobileStockCameraSlot',buttonId:'mobileStockCamera'}); });
+  document.getElementById('mobileStockCamera')?.addEventListener('click',()=>{ unlockMobileScanSound(); openMobileCameraScanner(code=>mobileHandleStockCode(code,{focusCount:false}),{continuous:true,hostId:'mobileStockCameraSlot',buttonId:'mobileStockCamera'}); });
   mobileStockResults?.addEventListener('click',event=>{
     const button=event.target.closest('[data-mobile-stock-result]');
     if(!button) return;

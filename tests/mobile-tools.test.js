@@ -28,7 +28,7 @@ assert.match(html, /id="mobileDeleteInspectionList" aria-label="ลบบัน�
 assert.match(html, /deleteInspectionListById\(list\.id\)/);
 assert.match(html, /openMobileCameraScanner\(mobileHandlePriceCode,\{continuous:true,hostId:'mobilePriceCameraSlot',buttonId:'mobilePriceCamera'\}\)/);
 assert.match(html, /openMobileCameraScanner\(mobileHandleInspectionCode,\{continuous:true,hostId:'mobileInspectionCameraSlot',buttonId:'mobileInspectionCamera'\}\)/);
-assert.match(html, /openMobileCameraScanner\(mobileHandleStockCode,\{continuous:true,hostId:'mobileStockCameraSlot',buttonId:'mobileStockCamera'\}\)/);
+assert.match(html, /openMobileCameraScanner\(code=>mobileHandleStockCode\(code,\{focusCount:false\}\),\{continuous:true,hostId:'mobileStockCameraSlot',buttonId:'mobileStockCamera'\}\)/);
 assert.match(html, /const MOBILE_SCAN_SOUND_URL='data:audio\/mpeg;base64,/);
 assert.match(html, /const MOBILE_SCAN_ERROR_SOUND_URL='data:audio\/mpeg;base64,/);
 assert.doesNotMatch(html, /\/mobile-scan-success\.mp3/);

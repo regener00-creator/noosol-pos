@@ -720,7 +720,7 @@ async function saveMobileInspectionDraft(){
   render();
   return true;
 }
-function addProductToMobileStockEdit(product,unitName=''){
+function addProductToMobileStockEdit(product,unitName='',{focusCount=true}={}){
   if(!product) return false;
   const alreadyListed=stockEditItems.includes(product.id);
   if(!alreadyListed)stockEditItems.unshift(product.id);
@@ -729,7 +729,7 @@ function addProductToMobileStockEdit(product,unitName=''){
   mobileStockQuery='';
   mobileStockLastProductId=product.id;
   render();
-  focusStockCountUnit(product.id,stockEditRowUnitSel[product.id]);
+  if(focusCount) focusStockCountUnit(product.id,stockEditRowUnitSel[product.id]);
   return true;
 }
 function prepareMobileScanSound(){
@@ -891,7 +891,7 @@ function attachMobileScanSoundUnlock(){
   document.addEventListener('keydown',unlock,{capture:true});
   mobileScanSoundUnlockAttached=true;
 }
-function mobileHandleStockCode(code){
+function mobileHandleStockCode(code,options){
   const query=String(code||'').trim();
   if(!query) return false;
   const match=exactInspectionScan(query)||productScanMatches(query,1)[0];
@@ -904,7 +904,7 @@ function mobileHandleStockCode(code){
     playMobileScanErrorSound();
     return false;
   }
-  const accepted=addProductToMobileStockEdit(product,match.unitName);
+  const accepted=addProductToMobileStockEdit(product,match.unitName,options);
   if(accepted) playMobileScanSound();
   else playMobileScanErrorSound();
   return accepted;

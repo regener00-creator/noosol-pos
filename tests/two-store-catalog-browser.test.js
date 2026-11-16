@@ -341,6 +341,17 @@ async function verifyLastInspectionUnits(page){
     const selectedUnit=(id=pid)=>page.evaluate(id=>stockEditRowUnitSel[id],id);
     assert.equal(await selectedUnit(),'กล่อง');
     assert.equal(await selectedUnit(pid+1),'แผง');
+    const cameraScan=await page.evaluate(()=>{
+      const original=openMobileCameraScanner;
+      let accepted;
+      try{
+        openMobileCameraScanner=onCode=>{accepted=onCode('BASE0');};
+        document.getElementById('mobileStockCamera').click();
+        return {accepted,focusedCount:document.activeElement.matches('[data-count-part],[data-mobile-stock-amount]')};
+      }finally{openMobileCameraScanner=original;}
+    });
+    assert.deepEqual(cameraScan,{accepted:true,focusedCount:false});
+    assert.equal(await selectedUnit(),'แผง');
     const stockScanner=page.locator('#mobileStockInput');
     const pack=page.locator(`[data-count-part="${pid}"][data-unit="กล่อง"]`);
     const strip=page.locator(`[data-count-part="${pid}"][data-unit="แผง"]`);

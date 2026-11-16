@@ -87,18 +87,21 @@ const addContext = {
   mobileStockQuery: '8850000000000',
   mobileStockLastProductId: null,
   inspectionListUnitOptions: item => [{name:item.unit}],
-  focusStockCountUnit: () => {},
+  focusStockCountUnit: (id,unit) => focusedCounts.push([id,unit]),
   stockEditRequiresReconciliation: item => item.id===10,
   render: () => {},
 };
+const focusedCounts=[];
 vm.createContext(addContext);
 vm.runInContext(html.slice(addStart, addEnd), addContext);
 addContext.addProductToMobileStockEdit({id:10,stock:720,unit:'กล่อง'});
 assert.equal(Object.hasOwn(addContext.stockEditDraftStocks,10),false,'สแกนโดยยังไม่กรอกจำนวนต้องไม่เริ่มปรับ LOT');
 addContext.stockEditDraftStocks[10]=719;
-addContext.addProductToMobileStockEdit({id:10,stock:720,unit:'กล่อง'});
+addContext.addProductToMobileStockEdit({id:10,stock:720,unit:'กล่อง'},'กล่อง',{focusCount:false});
 assert.equal(addContext.stockEditDraftStocks[10], 719, 'การยิงซ้ำต้องไม่เขียนทับจำนวนที่ผู้ใช้แก้ไว้แล้ว');
-addContext.addProductToMobileStockEdit({id:11,stock:50,unit:'ขวด'});
+addContext.addProductToMobileStockEdit({id:11,stock:50,unit:'ขวด'},'ขวด',{focusCount:false});
+assert.deepEqual(focusedCounts,[[10,'กล่อง']]);
+assert.deepEqual(addContext.stockEditItems,[11,10]);
 assert.equal(Object.prototype.hasOwnProperty.call(addContext.stockEditDraftStocks,11), false, 'สินค้าที่สต็อกกับ LOT ตรงกันต้องไม่สร้างรายการแก้ไขเปล่า');
 
 assert.match(html, /stockEditNewLotExpiries\[Number\(expiryInput\.dataset\.mobileStockNewExpiry\)\]=iso\|\|''/);
