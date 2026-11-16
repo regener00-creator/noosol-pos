@@ -61,7 +61,7 @@ assert.match(html, /value===lastValue/);
 assert.match(html, /class="mobile-camera-slot" id="mobilePriceCameraSlot"/);
 assert.match(html, /class="mobile-camera-slot" id="\$\{prefix\}CameraSlot"/);
 assert.match(html, /camera\.className='mobile-camera-inline'/);
-assert.match(html, /class="mobile-camera-head"><button[^>]+class="mobile-camera-close"[^>]*>×<\/button><span>P R A N C - H I B E S<\/span>/);
+assert.match(html, /class="mobile-camera-head"><button[^>]+class="mobile-camera-close"[^>]*>×<\/button><label class="mobile-camera-lens-icon"[^>]*><svg[^`]*?<select class="mobile-camera-lens"[^`]*?<\/select><\/label><span>P R A N C - H I B E S<\/span>/);
 assert.match(html, /\.mobile-camera-head>span\{flex:1;text-align:right;\}/);
 assert.doesNotMatch(html, /mobile-camera-overlay/);
 assert.doesNotMatch(html, /\.mobile-camera-inline\{[^}]*position:fixed/);

@@ -1422,7 +1422,7 @@ async function openMobileCameraScanner(onCode,options={}){
   closeMobileCameraScanner();
   const camera=document.createElement('div');
   camera.className='mobile-camera-inline';
-  camera.innerHTML=`<div class="mobile-camera-box"><div class="mobile-camera-head"><button type="button" class="mobile-camera-close" aria-label="ปิดกล้อง">×</button><span>P R A N C - H I B E S</span></div><select class="mobile-camera-lens" aria-label="เลือกเลนส์กล้องสแกน" disabled><option value="default">กล้องปัจจุบัน (ยังไม่มีเลนส์อื่นให้เลือก)</option></select><div class="mobile-camera-video-wrap"><video class="mobile-camera-video" autoplay muted playsinline></video><div class="mobile-camera-guide"></div></div><div class="mobile-camera-message">${fixedMessage||'กำลังเปิดกล้อง...'}</div></div>`;
+  camera.innerHTML=`<div class="mobile-camera-box"><div class="mobile-camera-head"><button type="button" class="mobile-camera-close" aria-label="ปิดกล้อง">×</button><label class="mobile-camera-lens-icon" title="เลือกเลนส์กล้องสแกน"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h3l2-3h6l2 3h3v13H4z"/><circle cx="12" cy="13" r="4"/></svg><select class="mobile-camera-lens" aria-label="เลือกเลนส์กล้องสแกน" disabled><option value="default">กล้องปัจจุบัน (ยังไม่มีเลนส์อื่นให้เลือก)</option></select></label><span>P R A N C - H I B E S</span></div><div class="mobile-camera-video-wrap"><video class="mobile-camera-video" autoplay muted playsinline></video><div class="mobile-camera-guide"></div></div><div class="mobile-camera-message">${fixedMessage||'กำลังเปิดกล้อง...'}</div></div>`;
   host.replaceChildren(camera);
   const video=camera.querySelector('video');
   const message=camera.querySelector('.mobile-camera-message');
