@@ -1273,6 +1273,16 @@ function ensureMobileZxingLoaded(){
   }).catch(error=>{ mobileZxingLoadPromise=null; throw error; });
   return mobileZxingLoadPromise;
 }
+async function setMobileScannerWideView(track){
+  try{
+    const minimum=track?.getCapabilities?.().zoom?.min;
+    if(Number.isFinite(minimum)&&minimum>0&&track.getSettings?.().zoom>minimum){
+      await track.applyConstraints({advanced:[{zoom:minimum}]});
+    }
+  }catch(_error){
+    // Zoom is optional. Continue scanning with the camera's current settings.
+  }
+}
 async function openMobileCameraScanner(onCode,options={}){
   const continuous=options.continuous===true;
   const hostId=String(options.hostId||'');
@@ -1298,10 +1308,13 @@ async function openMobileCameraScanner(onCode,options={}){
   try{
     const nativeDetectorAvailable='BarcodeDetector' in window;
     const zxing=nativeDetectorAvailable?null:await ensureMobileZxingLoaded();
-    session.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});
+    session.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},resizeMode:{ideal:'none'},width:{ideal:1280},height:{ideal:720}},audio:false});
     if(session.closed||mobileCameraSession!==session){ session.stream.getTracks().forEach(track=>track.stop()); return false; }
     video.srcObject=session.stream;
     await video.play();
+    if(session.closed) return false;
+    await setMobileScannerWideView(session.stream.getVideoTracks?.()[0]);
+    if(session.closed) return false;
     message.textContent=fixedMessage||(continuous?'สแกนต่อเนื่อง — ยิงได้หลายสินค้า กด × เมื่อต้องการปิด':'พร้อมสแกน — ถือกล้องให้นิ่ง');
     const handleValue=(rawValue,controls=null)=>{
       const value=String(rawValue||'').trim();

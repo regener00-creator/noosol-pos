@@ -2339,7 +2339,7 @@
   .mobile-camera-head>span{flex:1;text-align:right;}
   .mobile-camera-close{width:36px;height:36px;border:1px solid #FFFFFF55;background:#FFFFFF14;color:#fff;border-radius:50%;font-size:23px;line-height:1;cursor:pointer;}
   .mobile-camera-video-wrap{position:relative;border-radius:14px;overflow:hidden;background:#000;aspect-ratio:16/9;}
-  .mobile-camera-video{width:100%;height:100%;object-fit:cover;display:block;}
+  .mobile-camera-video{width:100%;height:100%;object-fit:contain;display:block;}
   .mobile-camera-guide{position:absolute;left:8%;right:8%;top:32%;height:36%;border:3px solid #B58F82;border-radius:12px;box-shadow:0 0 0 999px #0005;pointer-events:none;}
   .mobile-camera-message{text-align:center;margin-top:9px;font-size:12.5px;color:#EADFDA;}
   .mobile-browser-help{position:fixed;inset:0;z-index:12500;background:#07131E99;display:flex;align-items:flex-end;justify-content:center;padding:14px;}

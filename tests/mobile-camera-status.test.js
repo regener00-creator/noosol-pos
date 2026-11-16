@@ -5,14 +5,14 @@ const path=require('node:path');
 const vm=require('node:vm');
 const app=require('../scripts/app-source.cjs').readApplicationSource();
 const source=app.slice(app.indexOf('function ensureMobileZxingLoaded('),app.indexOf('function inspectionListLocalDateKey('));
-function scanner(){
+function scanner(track){
   const message={textContent:''},frames=[],accepted=[],vibrations=[];
   const video={readyState:2,play:async()=>{}};
   const camera={innerHTML:'',scrollIntoView(){},querySelector(selector){return selector==='video'?video:selector==='.mobile-camera-message'?message:{addEventListener(){}};}};
   let time=0,code='';
   class BarcodeDetector{async detect(){return [{rawValue:code}];}}
   const ctx=vm.createContext({console,window:{BarcodeDetector},BarcodeDetector,
-    navigator:{mediaDevices:{getUserMedia:async()=>({getTracks:()=>[]})},vibrate:value=>vibrations.push(value)},
+    navigator:{mediaDevices:{getUserMedia:async()=>({getTracks:()=>[],getVideoTracks:()=>track?[track]:[]})},vibrate:value=>vibrations.push(value)},
     document:{createElement:()=>camera,getElementById:()=>({replaceChildren(){},setAttribute(){}})},
     Date:{now:()=>time+=1000},requestAnimationFrame:callback=>frames.push(callback),
     closeMobileCameraScanner(){},playMobileScanErrorSound(){},showToast(){},openMobileBrowserHelp(){},mobileCameraSession:null,mobileZxingLoadPromise:null,APP_ASSET_VERSION:'test',
@@ -36,6 +36,23 @@ test('inventory camera retains its scan feedback',async()=>{
   await vm.runInContext("openMobileCameraScanner(onCode,{continuous:true,hostId:'mobileInspectionCameraSlot'})",s.ctx);
   await s.scan('missing');assert.match(s.message.textContent,/ยังไม่เพิ่ม: missing/);
   await s.scan('found');assert.match(s.message.textContent,/สแกนแล้ว: found/);
+});
+test('scanner uses the widest exposed zoom and still scans if the camera declines',async()=>{
+  for(const mode of ['supported','declined','already-wide']){
+    const requested=[];
+    const s=scanner({
+      getCapabilities:()=>({zoom:{min:0.5,max:5}}),
+      getSettings:()=>({zoom:mode==='already-wide'?0.5:3}),
+      applyConstraints:async constraints=>{
+        requested.push(constraints.advanced[0].zoom);
+        if(mode==='declined') throw new Error('zoom unavailable');
+      }
+    });
+    assert.equal(await vm.runInContext("openMobileCameraScanner(onCode,{continuous:true,hostId:'mobilePriceCameraSlot'})",s.ctx),true);
+    assert.deepEqual(requested,mode==='already-wide'?[]:[0.5]);
+    await s.scan('found');
+    assert.deepEqual(s.accepted,['found']);
+  }
 });
 test('iPad path loads ZXing fallback, requests camera and scans without native BarcodeDetector',async()=>{
   const message={textContent:''},accepted=[],vibrations=[];
