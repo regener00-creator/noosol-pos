@@ -1283,6 +1283,113 @@ async function setMobileScannerWideView(track){
     // Zoom is optional. Continue scanning with the camera's current settings.
   }
 }
+const mobileScannerLensKey='sapuri.mobile.scannerLens';
+async function mobileScannerLensChoices(track){
+  if(!track) return null;
+  const settings=track.getSettings?.()||{};
+  if(settings.facingMode==='user') return null;
+  const zoom=track.getCapabilities?.()?.zoom;
+  const supportsZoom=value=>{
+    if(!zoom||zoom.min<=0||!(zoom.min<=value&&value<=zoom.max)) return false;
+    if(!zoom.step) return true;
+    const steps=(value-zoom.min)/zoom.step;
+    return Math.abs(steps-Math.round(steps))<1e-6;
+  };
+  if(Number.isFinite(settings.zoom)&&supportsZoom(0.5)&&supportsZoom(1)){
+    return {main:{id:settings.deviceId,zoom:1},wide:{id:settings.deviceId,zoom:0.5}};
+  }
+  if(!settings.deviceId||!navigator.mediaDevices.enumerateDevices) return null;
+  const devices=(await navigator.mediaDevices.enumerateDevices()).filter(device=>
+    device.kind==='videoinput'&&device.deviceId&&!/front|user.facing|selfie|กล้องหน้า/i.test(device.label));
+  const ultra=/ultra[\s_-]*wide|super[\s_-]*wide|0[.,]5\s*[x×]|อัลตราไวด์|超广角|超廣角/i;
+  const wide=devices.find(device=>ultra.test(device.label));
+  if(!wide) return null;
+  const possibleMain=devices.filter(device=>device.deviceId!==wide.deviceId&&!ultra.test(device.label)&&!/telephoto|tele\b|macro|depth|กล้องมาโคร/i.test(device.label));
+  const rear=possibleMain.filter(device=>/back|rear|environment|กล้องหลัง/i.test(device.label));
+  const main=possibleMain.find(device=>device.deviceId===settings.deviceId)||
+    rear.find(device=>/main|standard|wide|1\s*[x×]|หลัก/i.test(device.label))||(rear.length===1?rear[0]:null);
+  return main?{main:{id:main.deviceId},wide:{id:wide.deviceId}}:null;
+}
+async function connectMobileScannerCamera(session,deviceId,initialZoom){
+  session.stream?.getTracks().forEach(track=>track.stop());
+  session.stream=null;
+  const video={facingMode:{ideal:'environment'},resizeMode:{ideal:'none'},width:{ideal:1280},height:{ideal:720}};
+  if(deviceId) video.deviceId={exact:deviceId};
+  const media=navigator.mediaDevices;
+  let stream;
+  if(media.getSupportedConstraints?.().zoom){
+    try{ stream=await media.getUserMedia({video:{...video,zoom:{ideal:initialZoom}},audio:false}); }
+    catch(error){
+      if(session.closed||!['NotAllowedError','OverconstrainedError'].includes(error.name)) throw error;
+    }
+  }
+  if(!stream) stream=await media.getUserMedia({video,audio:false});
+  if(session.closed){ stream.getTracks().forEach(track=>track.stop()); return; }
+  session.stream=stream;
+  session.video.srcObject=stream;
+  await session.video.play();
+}
+async function configureMobileScannerLens(session,change,onChange){
+  let mode='wide';
+  try{ if(localStorage.getItem(mobileScannerLensKey)==='main') mode='main'; }catch{}
+  if(change) mode=change.mode;
+  let choices=change?.choices;
+  const currentTrack=()=>session.stream?.getVideoTracks?.()[0];
+  if(!choices){
+    await connectMobileScannerCamera(session,null,mode==='wide'?0.5:1);
+    if(session.closed) return;
+    try{ choices=await mobileScannerLensChoices(currentTrack()); }catch{}
+  }
+  if(session.closed) return;
+  if(!choices){ await setMobileScannerWideView(currentTrack()); return; }
+  const apply=async lens=>{
+    if(!session.stream||(lens.id&&currentTrack()?.getSettings?.().deviceId!==lens.id)){
+      await connectMobileScannerCamera(session,lens.id,lens.zoom??1);
+    }
+    if(session.closed) return;
+    const track=currentTrack();
+    const current=track?.getSettings?.().zoom;
+    const target=lens.zoom??1;
+    if(current===target||(lens.zoom==null&&!Number.isFinite(current))) return;
+    await track.applyConstraints({advanced:[{zoom:target}]});
+    if(track.getSettings().zoom!==target) throw new Error('Camera did not apply scanner zoom');
+  };
+  try{
+    await apply(choices[mode]);
+  }catch(error){
+    if(session.closed) return;
+    if(change) showToast('เปิดเลนส์ที่เลือกไม่ได้ กลับไปใช้กล้องเดิม','danger-top');
+    mode=change?.previous||(mode==='wide'?'main':'wide');
+    try{ await apply(choices[mode]); }
+    catch{
+      if(!session.closed) await connectMobileScannerCamera(session,null,1);
+    }
+    return;
+  }
+  if(session.closed) return;
+  const remember=()=>{ try{ localStorage.setItem(mobileScannerLensKey,mode); }catch{} };
+  if(change) remember();
+  const select=session.element.querySelector('.mobile-camera-lens');
+  select.value=mode;
+  select.hidden=false;
+  select.addEventListener('change',async()=>{
+    const requested=select.value;
+    if(!choices[requested]||requested===mode) return;
+    if(choices[requested].zoom==null) return onChange({choices,mode:requested,previous:mode});
+    select.disabled=true;
+    try{
+      await apply(choices[requested]);
+      if(session.closed) return;
+      mode=requested;
+      remember();
+    }catch{
+      if(!session.closed) showToast('กล้องไม่รองรับระยะซูมที่เลือก','danger-top');
+    }finally{
+      select.value=mode;
+      select.disabled=false;
+    }
+  });
+}
 async function openMobileCameraScanner(onCode,options={}){
   const continuous=options.continuous===true;
   const hostId=String(options.hostId||'');
@@ -1294,7 +1401,7 @@ async function openMobileCameraScanner(onCode,options={}){
   closeMobileCameraScanner();
   const camera=document.createElement('div');
   camera.className='mobile-camera-inline';
-  camera.innerHTML=`<div class="mobile-camera-box"><div class="mobile-camera-head"><button type="button" class="mobile-camera-close" aria-label="ปิดกล้อง">×</button><span>P R A N C - H I B E S</span></div><div class="mobile-camera-video-wrap"><video class="mobile-camera-video" autoplay muted playsinline></video><div class="mobile-camera-guide"></div></div><div class="mobile-camera-message">${fixedMessage||'กำลังเปิดกล้อง...'}</div></div>`;
+  camera.innerHTML=`<div class="mobile-camera-box"><div class="mobile-camera-head"><button type="button" class="mobile-camera-close" aria-label="ปิดกล้อง">×</button><span>P R A N C - H I B E S</span></div><select class="mobile-camera-lens" aria-label="เลือกเลนส์กล้องสแกน" hidden><option value="main">กล้องหลัก 1×</option><option value="wide">Ultra Wide 0.5×</option></select><div class="mobile-camera-video-wrap"><video class="mobile-camera-video" autoplay muted playsinline></video><div class="mobile-camera-guide"></div></div><div class="mobile-camera-message">${fixedMessage||'กำลังเปิดกล้อง...'}</div></div>`;
   host.replaceChildren(camera);
   const video=camera.querySelector('video');
   const message=camera.querySelector('.mobile-camera-message');
@@ -1304,16 +1411,13 @@ async function openMobileCameraScanner(onCode,options={}){
   if(button) button.setAttribute('aria-pressed','true');
   camera.querySelector('.mobile-camera-close').addEventListener('click',closeMobileCameraScanner);
   camera.scrollIntoView({behavior:'smooth',block:'nearest'});
-  let busy=false,lastValue='',lastValueSeenAt=0,nextDetectionAt=0;
+  let busy=false,lastValue=options.lensChange?.lastValue||'',lastValueSeenAt=options.lensChange?.lastValueSeenAt||0,nextDetectionAt=0;
   try{
     const nativeDetectorAvailable='BarcodeDetector' in window;
     const zxing=nativeDetectorAvailable?null:await ensureMobileZxingLoaded();
-    session.stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},resizeMode:{ideal:'none'},width:{ideal:1280},height:{ideal:720}},audio:false});
-    if(session.closed||mobileCameraSession!==session){ session.stream.getTracks().forEach(track=>track.stop()); return false; }
-    video.srcObject=session.stream;
-    await video.play();
     if(session.closed) return false;
-    await setMobileScannerWideView(session.stream.getVideoTracks?.()[0]);
+    await configureMobileScannerLens(session,options.lensChange,change=>
+      openMobileCameraScanner(onCode,{...options,lensChange:{...change,lastValue,lastValueSeenAt}}));
     if(session.closed) return false;
     message.textContent=fixedMessage||(continuous?'สแกนต่อเนื่อง — ยิงได้หลายสินค้า กด × เมื่อต้องการปิด':'พร้อมสแกน — ถือกล้องให้นิ่ง');
     const handleValue=(rawValue,controls=null)=>{
@@ -1341,6 +1445,7 @@ async function openMobileCameraScanner(onCode,options={}){
           console.warn('ตัวอ่านบาร์โค้ดสำรองมีปัญหา',error);
         }
       });
+      if(session.closed){ session.decoderControls?.stop?.(); return false; }
       return true;
     }
     const desiredFormats=['code_128','ean_13','ean_8','upc_a','upc_e','code_39','itf','codabar','qr_code'];
@@ -1353,6 +1458,7 @@ async function openMobileCameraScanner(onCode,options={}){
         busy=true;
         try{
           const codes=await detector.detect(video);
+          if(session.closed) return;
           if(handleValue(codes?.[0]?.rawValue)&&!continuous) return;
         }catch(error){
           console.warn('สแกนบาร์โค้ดจากกล้องไม่สำเร็จ',error);
@@ -1365,6 +1471,7 @@ async function openMobileCameraScanner(onCode,options={}){
     requestAnimationFrame(scan);
     return true;
   }catch(error){
+    if(session.closed) return false;
     if(mobileCameraSession===session) closeMobileCameraScanner();
     else if(session.stream) session.stream.getTracks().forEach(track=>track.stop());
     console.warn('เปิดกล้องมือถือไม่สำเร็จ',error?.name||error,error?.message||'');
