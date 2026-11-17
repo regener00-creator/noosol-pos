@@ -19,7 +19,7 @@ assert.doesNotMatch(html, /ตรวจสอบก่อนบันทึก �
 assert.match(html, /data-stock-control-mode="count"/);
 assert.match(html, /data-stock-control-mode="adjust"/);
 assert.match(html, /data-stock-control-mode="anomalies"/);
-assert.match(html, /รอยืนยันปรับสต็อก/);
+assert.match(html, /inspection-list-status pending">รอยืนยัน</);
 assert.match(html, /รายการผิดปกติ/);
 assert.doesNotMatch(html, /<h1>รายการผิดปกติ<\/h1>/);
 assert.doesNotMatch(html, /แจ้งเตือนเพื่อให้ตรวจนับก่อนปรับ ไม่แก้ยอดเป็นศูนย์ให้อัตโนมัติ/);

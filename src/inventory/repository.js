@@ -331,7 +331,7 @@ function resetWarehouseScopedUiState(reportWarehouseValue){
   stockLotReallocationSearch=''; stockLotReallocationPage=1;
   inspectionListDraft=null; editingInspectionListId=null;
   inspectionListOverviewSelectedIds.clear();
-  inspectionListStatusFilter='all';
+  inspectionListStatusFilter='pending';
   mobileInspectionListId=''; mobileInspectionOpenedListId=''; mobileInspectionCreating=false;
   mobileInspectionAddingToSaved=false; mobileInspectionSavedAddQuery=''; mobileInspectionSavedAddItems=[];
   mobileInspectionQuery=''; mobileInspectionLastProductId=null; mobileInspectionVisibleCount=25;
