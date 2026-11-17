@@ -366,7 +366,7 @@ function renderStockControl(){
       <select class="rpt-select" id="inspectionListStatusFilter">
         <option value="all"${inspectionListStatusFilter==='all'?' selected':''}>ทั้งหมด</option>
         <option value="pending"${inspectionListStatusFilter==='pending'?' selected':''}>รอยืนยัน</option>
-        <option value="completed"${inspectionListStatusFilter==='completed'?' selected':''}>บันทึกผลแล้ว</option>
+        <option value="completed"${inspectionListStatusFilter==='completed'?' selected':''}>บันทึกแล้ว</option>
       </select></label>`:''}
     </div><div class="stock-control-content">${content}</div></div>`;
 }

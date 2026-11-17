@@ -165,7 +165,7 @@ assert.match(html, /\.inspection-list-page\{min-width:0;\}/);
 assert.doesNotMatch(html, /\.inspection-list-page\{width:100%;max-width:none;/);
 assert.match(overviewHtml, /รายการตรวจหน้าร้าน/);
 assert.doesNotMatch(overviewHtml, /data-open-inspection-list="CHECK-NEW-SAFE-ID"/);
-assert.match(overviewHtml, /บันทึกผลแล้ว/);
+assert.match(overviewHtml, /บันทึกแล้ว/);
 assert.match(overviewHtml, /inspection-list-overview-table/);
 assert.match(overviewHtml, /id="inspectionListSelectAll"/);
 assert.match(overviewHtml, /data-inspection-overview-sort="createdAt"/);
