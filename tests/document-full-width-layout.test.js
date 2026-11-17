@@ -17,7 +17,7 @@ const quotations = functionSource('renderQuotation', 'openNewQuotationForm');
 
 for (const [label, source] of [['บิลเงินสด', cashBills], ['ใบกำกับภาษีเต็มรูปแบบ', taxInvoices], ['ใบเสนอราคา', quotations]]) {
   assert.doesNotMatch(source, /return `<div class="rpt">/, `${label} ต้องไม่ถูกจำกัดความกว้างด้วย rpt`);
-  assert.match(source, /return `<div class="pagehead">/, `${label} ต้องเริ่มด้วยหัวหน้าเอกสารแบบเต็มพื้นที่`);
+  assert.match(source, /return `<div class="pagehead document-list-heading">/, `${label} ต้องเริ่มด้วยหัวหน้าเอกสารแบบเต็มพื้นที่`);
   assert.match(source, /class="doc-list-wrap/, `${label} ต้องคงกรอบตารางรายการเอกสาร`);
 }
 

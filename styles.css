@@ -1737,6 +1737,19 @@
   .doc-summary-table tbody td:nth-child(1),.doc-summary-table tbody td:nth-child(2),.doc-summary-table tbody td:nth-child(3),.doc-summary-table tbody td:nth-child(5),.doc-summary-table tbody td:nth-child(6),.doc-summary-table tbody td:nth-child(7){text-align:center;}
   .doc-summary-table .history-actions{justify-content:center;}
   .document-issue-actions{display:flex;gap:8px;flex-wrap:wrap;}
+  .document-list-heading{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:8px 12px;}
+  .document-list-heading .page-title-meta{white-space:normal;}
+  .document-period-toolbar{display:contents;}
+  .document-period-toolbar>select{grid-column:3;grid-row:1;min-width:0;justify-self:end;}
+  .document-period-fields{grid-column:2;grid-row:1;display:flex;justify-content:flex-end;align-items:center;flex-wrap:wrap;gap:8px;}
+  .document-period-fields label{display:inline-flex;gap:5px;align-items:center;}
+  .document-period-fields input{min-width:0;}
+  @media(max-width:1100px){
+    .document-list-heading{grid-template-columns:minmax(0,1fr) auto;align-items:start;}
+    .document-list-heading .page-title-meta{display:block;margin-left:0;}
+    .document-period-toolbar>select{grid-column:2;}
+    .document-period-fields{grid-column:1/-1;grid-row:2;}
+  }
   .customer-items-summary-table{table-layout:fixed;}
   .customer-items-summary-table .doc-customer-cell{text-align:center!important;}
   .customer-items-summary-table .doc-items-cell{text-align:left!important;}

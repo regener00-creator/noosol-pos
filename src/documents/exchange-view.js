@@ -6,8 +6,8 @@ function renderProductExchange(){
   if(docListPage.exchange<1) docListPage.exchange=1;
   const start=(docListPage.exchange-1)*DOC_LIST_PAGE_SIZE;
   const pageDocs=allDocs.slice(start,start+DOC_LIST_PAGE_SIZE);
-  return `<div class="pagehead"><div><h1>เปลี่ยนสินค้า <span class="page-title-meta">ติดตามสินค้าที่ส่งไปเปลี่ยนและสินค้าที่ได้รับกลับ · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newProductExchangeBtn">+ สร้างรายการเปลี่ยนสินค้า</button></div>
-  ${documentPeriodToolbar('exchange')}
+  return `<div class="pagehead document-list-heading"><div><h1>เปลี่ยนสินค้า <span class="page-title-meta">ติดตามสินค้าที่ส่งไปเปลี่ยนและสินค้าที่ได้รับกลับ · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newProductExchangeBtn">+ สร้างรายการเปลี่ยนสินค้า</button>
+    ${documentPeriodToolbar('exchange')}</div>
   <div class="doc-list-wrap"><table class="grid-table doc-list"><colgroup><col style="width:125px"><col style="width:175px"><col style="width:210px"><col style="width:190px"><col><col style="width:160px"><col style="width:110px"></colgroup><thead><tr><th>${documentSortHeader('exchange','date','วันที่')}</th><th>${documentSortHeader('exchange','id','เลขที่เอกสาร')}</th><th>${documentSortHeader('exchange','supplier','ผู้จำหน่าย')}</th><th>คลัง / สาขา</th><th>รายการสินค้า</th><th>${documentSortHeader('exchange','status','สถานะ')}</th><th></th></tr></thead><tbody>
   ${pageDocs.map(doc=>{
     const deleteButton=documentHasPostedStock('exchange',doc)?'':`<button class="history-icon-btn danger" data-product-exchange-delete="${escapeHtml(doc.id)}" title="ลบ" aria-label="ลบ ${escapeHtml(doc.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>`;

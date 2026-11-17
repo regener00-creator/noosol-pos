@@ -391,6 +391,7 @@ let browser;
   assert.deepEqual(await page.evaluate(()=>window.receiptCalls),['sale-test']);
   assert.equal(await page.locator('#afterPayContent').count(),0);
   for(const store of [1,2]){
+    await page.setViewportSize({width:store===1?1440:1024,height:900});
     await page.evaluate(w=>{
       activeWarehouseId=w;storeViewGeneration++;cashBillPageCache=null;window.manualRows=[];
       const make=(suffix,date,warehouseId=w)=>({id:'D-'+suffix,number:'D-'+suffix,date,warehouseId,items:[{name:'Fixture-'+suffix,qty:1}],supplier:'QA',customer:'QA',total:10});
@@ -403,6 +404,17 @@ let browser;
     for(const tab of ['purchaseorder','goodsreceipt','productreturn','productexchange','quotation','taxinvoice','cashbill']){
       await page.evaluate(async t=>{await ensurePageCodeLoaded(t);currentTab=t;render();},tab);
       const period=page.locator('[data-document-period="period"]'),rows=page.locator('.doc-list-wrap tbody tr');
+      const checkHeading=async()=>{
+        const aligned=await period.evaluate(select=>{
+          const header=select.closest('.pagehead'),heading=header?.querySelector('h1');
+          if(!heading)return false;
+          const title=heading.getBoundingClientRect(),control=select.getBoundingClientRect();
+          return title.right<=control.left&&title.top<control.bottom&&title.bottom>control.top&&
+            Math.abs(control.right-header.getBoundingClientRect().right)<2&&control.right<=innerWidth;
+        });
+        assert.ok(aligned,tab+' title and right-aligned period at store '+store);
+      };
+      await checkHeading();
       assert.equal(await period.inputValue(),'today');
       assert.equal(await rows.count(),1);
       await period.selectOption('selectmonth');
@@ -420,6 +432,7 @@ let browser;
         }
       }
       await period.selectOption('range');
+      await checkHeading();
       await page.locator('[data-document-period="from"]').fill('2020-03-01');
       await page.locator('[data-document-period="to"]').fill('2020-03-02');
       assert.equal(await rows.count(),1,tab+' range');
