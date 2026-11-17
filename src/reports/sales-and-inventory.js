@@ -282,7 +282,7 @@ function renderRProduct(){
 }
 
 function rbillPeriodRange(filter=rbillFilter){
-  const today = new Date(TODAY_STR); // อ้างอิงวันปัจจุบันของระบบ
+  const today = new Date(TODAY_STR+'T00:00:00'); // อ้างอิงวันปัจจุบันของระบบ
   const y=today.getFullYear(), m=today.getMonth();
   const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
   const f=filter;

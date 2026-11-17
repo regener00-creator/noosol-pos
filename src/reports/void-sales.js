@@ -16,7 +16,10 @@ function saleVoidActor(sale){
   if(sale.voidedBy&&sale.voidedBy===currentProfile?.id) return [currentProfile.firstName,currentProfile.lastName].filter(Boolean).join(' ')||currentProfile.username||sale.voidedBy;
   return sale.voidedBy?`รหัสผู้ใช้ ${sale.voidedBy}`:'ไม่ระบุ';
 }
-function voidReportRange(){ return serverDateRange(voidReportFilter.from,voidReportFilter.to); }
+function voidReportRange(){
+  const {from,to}=documentPeriodRange('rvoid');
+  return serverDateRange(from,to);
+}
 function voidReportRows(){
   const f=voidReportFilter,range=voidReportRange(),allowed=new Set(reportWarehouseIds()),search=f.search.trim().toLowerCase();
   return salesHistory.filter(sale=>sale.status==='void'&&allowed.has(Number(sale.warehouseId))).map(sale=>({sale,at:saleVoidDateTime(sale)})).filter(({sale,at})=>{
@@ -30,9 +33,9 @@ function renderVoidReport(){
   if(!isAllWarehousesMode()) voidReportFilter.warehouse=String(activeWarehouseId);
   const f=voidReportFilter,rows=voidReportRows(),pages=Math.max(1,Math.ceil(rows.length/50));
   f.page=Math.min(pages,Math.max(1,f.page));
-  const visible=rows.slice((f.page-1)*50,f.page*50),range=voidReportRange();
-  return `<div class="rpt void-report-page"><div class="pagehead"><h1>รายงานบิลยกเลิก</h1></div><div class="rpt-head-actions">${canPerformPageAction('print','rvoid')?'<button class="btn ghost" id="voidReportPrint">พิมพ์รายงาน</button>':''}${canPerformPageAction('export','rvoid')?'<button class="btn primary" id="voidReportExcel">ส่งออก Excel</button>':''}</div>
-    <form id="voidReportFilters" class="rpt-filters"><div class="rpf-item rpf-range">${dmyDateFieldHtml('voidReportFrom',range.from)}<label for="voidReportTo" class="void-report-to">ถึง</label>${dmyDateFieldHtml('voidReportTo',range.to)}</div>
+  const visible=rows.slice((f.page-1)*50,f.page*50);
+  return `<div class="rpt void-report-page"><div class="pagehead document-list-heading"><h1>รายงานบิลยกเลิก</h1>${documentPeriodToolbar('rvoid')}</div><div class="rpt-head-actions">${canPerformPageAction('print','rvoid')?'<button class="btn ghost" id="voidReportPrint">พิมพ์รายงาน</button>':''}${canPerformPageAction('export','rvoid')?'<button class="btn primary" id="voidReportExcel">ส่งออก Excel</button>':''}</div>
+    <form id="voidReportFilters" class="rpt-filters">
     ${isAllWarehousesMode()?`<div class="rpf-item"><select id="voidReportWarehouse" class="rpt-select" aria-label="คลังสินค้า"><option value="all">ทุกคลังที่มีสิทธิ์</option>${reportingWarehouses().map(w=>`<option value="${w.id}" ${String(w.id)===f.warehouse?'selected':''}>${escapeHtml(w.name)}</option>`).join('')}</select></div>`:''}
     <div class="void-report-summary">บิลยกเลิก <b>${rows.length} บิล</b></div>
     <div class="rpf-item void-report-search"><input id="voidReportSearch" class="rpt-select" aria-label="ค้นหาบิลยกเลิก" value="${escapeHtml(f.search)}" placeholder="เลขบิล สินค้า ผู้ยกเลิก หรือเหตุผล"></div><button class="btn ghost rpf-apply" type="submit">แสดงผล</button></form>
@@ -48,9 +51,7 @@ function attachVoidReportEvents(){
   });
   document.getElementById('voidReportFilters')?.addEventListener('submit',event=>{
     event.preventDefault();
-    const from=dmyToISO(document.getElementById('voidReportFrom').value),to=dmyToISO(document.getElementById('voidReportTo').value);
-    if(!from||!to||from>to){showToast('กรุณาระบุช่วงวันที่ให้ถูกต้อง','danger-top');return;}
-    Object.assign(voidReportFilter,{from,to,warehouse:document.getElementById('voidReportWarehouse')?.value||String(activeWarehouseId),search:document.getElementById('voidReportSearch').value,page:1});render();
+    Object.assign(voidReportFilter,{warehouse:document.getElementById('voidReportWarehouse')?.value||String(activeWarehouseId),search:document.getElementById('voidReportSearch').value,page:1});render();
   });
   for(const [id,step] of [['voidReportPrev',-1],['voidReportNext',1]]) document.getElementById(id)?.addEventListener('click',()=>{voidReportFilter.page+=step;render();});
   document.querySelectorAll('[data-void-report-detail]').forEach(button=>button.addEventListener('click',()=>openSaleHistoryDetail(button.dataset.voidReportDetail)));
