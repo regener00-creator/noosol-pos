@@ -71,6 +71,20 @@ let browser;
     render();
   });
   await page.locator('.customer-tier').first().waitFor();
+  async function checkSearchRow(customer){
+    for(const width of [1440,390]){
+      await page.setViewportSize({width,height:900});
+      const title=await page.locator('.contact-search-row h1').boundingBox(),search=await page.locator('#search').boundingBox();
+      assert.ok(search.x>=title.x+title.width && Math.abs((search.y+search.height/2)-(title.y+title.height/2))<2);
+      if(customer){
+        const refresh=await page.getByRole('button',{name:'รีเฟรชยอดซื้อ'}).boundingBox();
+        assert.ok(refresh.x>=search.x+search.width && refresh.x+refresh.width<=width);
+      }
+    }
+    await page.setViewportSize({width:1440,height:1000});
+  }
+  assert.equal(await page.locator('#newContactBtn').innerText(),'+ เพิ่มลูกค้า');
+  await checkSearchRow(true);
   await page.locator('[data-customer-loyalty-balance="1"]').filter({hasText:'25 แต้ม'}).waitFor();
   await page.locator('[data-customer-loyalty-expiry="1"]').filter({hasText:'11-09-2027'}).waitFor();
   assert.equal(await page.locator('.contact-summary-table tbody tr').count(),10);
@@ -185,6 +199,7 @@ let browser;
   // A delayed customer response cannot overwrite the supplier screen.
   await page.locator('#refreshCustomerPurchases').click();
   await page.locator('.navbtn[data-tab="contacts"]').click();
+  await checkSearchRow(false);
   await page.waitForFunction(()=>customerPurchaseState===null);
   assert.equal(await page.locator('.contact-summary-table tbody tr').count(),2);
   assert.equal(await page.locator('.customer-tier').count(),0);

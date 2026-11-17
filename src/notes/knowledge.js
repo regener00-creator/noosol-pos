@@ -46,14 +46,13 @@ function renderKnowledge(){
   if(!state.loaded&&!state.loading&&!state.error)setTimeout(loadKnowledgeArticles,0);
   const selected=state.articles.find(article=>article.id===state.selectedId);
   const cards=state.articles.map((article,index)=>`<button type="button" class="note-list-item ${article.id===state.selectedId?'active':''}" data-knowledge-index="${index}"><span class="note-list-title">${escapeHtml(article.title)}</span></button>`).join('');
-  return `<div class="notes-page knowledge-page"><div class="pagehead">
-    <div class="knowledge-heading"><h1>สิ่งควรรู้</h1>${owner?`<button class="btn primary" id="addKnowledge" ${!state.loaded||state.loading||state.error?'disabled':''}>+ เพิ่มหัวข้อ</button>`:''}</div>
+  return `<div class="notes-page knowledge-page"><div class="form-final-actions">
     <button class="btn ghost" id="reloadKnowledge" ${state.loading?'disabled':''}>โหลดข้อมูลล่าสุด</button></div>
     ${state.error?`<div class="knowledge-error" role="alert">${escapeHtml(state.error)} · กดโหลดข้อมูลล่าสุดเพื่อลองอีกครั้ง</div>`:''}
     ${state.loading?'<p role="status">กำลังโหลดสิ่งควรรู้...</p>':''}
-    <div class="knowledge-layout"><aside class="knowledge-list"><input id="knowledgeSearch" placeholder="ค้นหาหัวข้อหรือข้อความ" aria-label="ค้นหาสิ่งควรรู้" value="${escapeHtml(state.search)}"><div class="knowledge-list-items">${cards}</div><p id="knowledgeEmptySearch" hidden>ไม่พบหัวข้อ</p></aside>
+    <div class="knowledge-layout"><aside class="knowledge-list"><div class="knowledge-search-row">${owner?`<button type="button" class="icon-btn" id="addKnowledge" title="เพิ่มหัวข้อ" aria-label="เพิ่มหัวข้อ" ${!state.loaded||state.loading||state.error?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></button>`:''}<input id="knowledgeSearch" placeholder="ค้นหาหัวข้อหรือข้อความ" aria-label="ค้นหาสิ่งควรรู้" value="${escapeHtml(state.search)}"></div><div class="knowledge-list-items">${cards}</div><p id="knowledgeEmptySearch" hidden>ไม่พบหัวข้อ</p></aside>
     <article class="knowledge-detail">${selected?`<header><h2>${escapeHtml(selected.title)}</h2>${owner?`<div class="knowledge-actions">
-      <button class="btn primary" id="editKnowledge" ${state.loading||state.error?'disabled':''}>แก้ไข</button>
+      <button type="button" class="icon-btn" id="editKnowledge" title="แก้ไข" aria-label="แก้ไข" ${state.loading||state.error?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>
       <button class="icon-btn danger" id="deleteKnowledge" title="ลบหัวข้อ" aria-label="ลบหัวข้อ" ${state.loading||state.error?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button>
     </div>`:''}</header><div class="knowledge-content">${knowledgeContentHtml(selected)}</div>`:`<div class="knowledge-empty">${state.loaded?'ยังไม่มีหัวข้อ':'เลือกหัวข้อที่ต้องการอ่าน'}</div>`}</article></div></div>`;
 }
