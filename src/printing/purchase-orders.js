@@ -1,4 +1,4 @@
-function setupA4DocumentPreview(win,{number,label,pageSelector}){
+function setupA4DocumentPreview(win,{number,label,pageSelector,showOriginalLabel=true}){
   const doc=win.document;
   if(!doc.querySelector(pageSelector)) return;
   const style=doc.createElement('style');
@@ -26,7 +26,7 @@ function setupA4DocumentPreview(win,{number,label,pageSelector}){
     if(!subtitle){ subtitle=doc.createElement('div'); subtitle.className='subtitle'; const title=titleBlock.querySelector('.title'); title?.insertAdjacentElement('afterend',subtitle); }
     subtitle.textContent=text;
   };
-  doc.querySelectorAll(pageSelector).forEach(page=>setPageLabel(page,'ต้นฉบับ'));
+  if(showOriginalLabel)doc.querySelectorAll(pageSelector).forEach(page=>setPageLabel(page,'ต้นฉบับ'));
   const toolbar=doc.querySelector('.toolbar,.screenbar');
   if(toolbar){
     toolbar.className='toolbar';

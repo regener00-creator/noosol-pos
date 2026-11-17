@@ -104,6 +104,26 @@ let browser;
   await page.getByRole('button',{name:'เปิดบิลเงินสด A4'}).click();
   assert.equal(await page.locator('#a4_receipt_customer_name').inputValue(),'ผู้ซื้อเดิม');
   assert.match(await page.locator('.modal-head:visible').last().innerText(),/CB-EXISTING/);
+  async function checkDocumentPreview(preview,number){
+    const meta=preview.locator('.docmeta span').nth(1);
+    await meta.waitFor();
+    for(const media of ['screen','print']){
+      await preview.emulateMedia({media});
+      assert.equal(await meta.innerText(),number);
+      assert.doesNotMatch(await preview.locator('body').innerText(),/ต้นฉบับ|สำเนา/);
+    }
+  }
+  async function checkTwoPrints(button,number){
+    for(let i=0;i<2;i++){
+      const popup=page.waitForEvent('popup');
+      await button.click();
+      const preview=await popup;
+      await checkDocumentPreview(preview,number);
+      await preview.close();
+    }
+  }
+  await page.evaluate(()=>{sb.rpc=async(name,args)=>({data:args.p_metadata});});
+  await checkTwoPrints(page.locator('#a4CashReceiptForm button[type=submit]'),'CB-EXISTING');
   await page.locator('#closeA4CashReceiptBtn').click();
   await page.evaluate(()=>{
     delete salesHistory[0].cashReceiptA4Meta;
@@ -120,6 +140,17 @@ let browser;
     assert.match(await cell.innerText(),/สินค้า 9/);
     await cell.locator('summary').press('Enter');
     assert.doesNotMatch(await cell.innerText(),/สินค้า 9/);
+    if(tab==='quotation'){
+      await checkTwoPrints(page.locator('[data-print-quotation="QT"]'),'QT');
+    }else{
+      await checkTwoPrints(page.locator('[data-print-tax="INV"]'),'INV');
+      await page.evaluate(()=>{
+        salesHistory[0].fullTaxInvoice={number:'INV-HISTORY',saleDate:TODAY_STR,customer:{name:'QA'}};
+        render();
+      });
+      await checkTwoPrints(page.locator('[data-print-tax="sale-test"]'),'INV-HISTORY');
+      await page.evaluate(()=>{delete salesHistory[0].fullTaxInvoice;sb.rpc=window.originalBillRpc;});
+    }
   }
   await page.evaluate(()=>{
     standaloneTaxInvoices=[];
@@ -166,14 +197,14 @@ let browser;
   const popup=page.waitForEvent('popup');
   await page.locator('#printStandaloneTaxInvoiceBtn').click();
   const preview=await popup;
-  await preview.getByText('ต้นฉบับ',{exact:false}).first().waitFor();
+  await checkDocumentPreview(preview,'ACB-TEST');
   assert.match(await preview.locator('.items').innerText(),/สินค้าทดสอบ/);
   assert.equal(await preview.locator('.customer-name').innerText(),'ผู้ซื้อ: ลูกค้าทั่วไป');
   await preview.close();
   const secondPopup=page.waitForEvent('popup');
   await page.locator('#printStandaloneTaxInvoiceBtn').click();
   const copy=await secondPopup;
-  await copy.locator('.subtitle').filter({hasText:'สำเนา'}).waitFor();
+  await checkDocumentPreview(copy,'ACB-TEST');
   await copy.close();
   await page.locator('#cancelTaxInvoiceFormBtn').click();
   await manualRow.locator('.doc-check').check();

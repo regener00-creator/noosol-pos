@@ -72,7 +72,6 @@ async function printManualCashBill(doc){
     if(saved.error)throw saved.error;
     if(!isStoreViewCurrent(view)){win.close();return;}
     const receipt=standaloneCashBillRow(saved.data);
-    receipt.cashReceiptA4Meta.printLog=first.data?[]:[{}];
     printA4CashReceipt(receipt.id,win,receipt);
     doc.cashReceiptA4Meta.printLog=[{}];
     if(cashBillPageCache)cashBillPageCache.at=0;
