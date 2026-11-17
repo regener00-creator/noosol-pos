@@ -175,7 +175,7 @@ function renderNotes(){
     ${noteLoadError?`<div class="notice danger note-load-error">${escapeHtml(noteLoadError)} <button class="btn ghost" id="retryNotesBtn" type="button">ลองใหม่</button></div>`:''}
     <div class="notes-layout">
       <aside class="note-list-panel" aria-label="รายการโน้ต">
-        <div class="note-list-search"><input id="noteServerSearch" value="${escapeHtml(noteSearchQuery)}" placeholder="ค้นหาชื่อหรือข้อความใน NOTE"><button class="btn ghost" id="searchNotesBtn" type="button">ค้นหา</button></div>
+        <div class="note-list-search"><input id="noteServerSearch" value="${escapeHtml(noteSearchQuery)}" placeholder="ค้นหาชื่อหรือข้อความใน NOTE">${searchButtonHtml('searchNotesBtn')}</div>
         ${!notesLoaded&&notesLoading?'<div class="note-list-status">กำลังโหลดโน้ต…</div>':list||'<div class="note-list-status">ยังไม่มีโน้ต</div>'}
         ${notesHasMore?`<button class="btn ghost note-load-more" id="loadMoreNotesBtn" type="button" ${notesLoading?'disabled':''}>${notesLoading?'กำลังโหลด…':'โหลดโน้ตเพิ่มเติม'}</button>`:''}
       </aside>

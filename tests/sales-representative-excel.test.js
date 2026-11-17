@@ -51,7 +51,7 @@ assert.doesNotMatch(historyCode,/downloadSalesRepTemplateBtn|ดาวน์โ�
 assert.match(historyCode,/id="importSalesRepsBtn"/);
 assert.match(historyCode,/id="salesRepImportFile"/);
 assert.match(historyCode,/id="newSalesRepBtn"/);
-assert.match(formCode,/id="saveSalesRepBtn"[^>]*>บันทึกข้อมูลผู้แทน<\/button>/);
+assert.match(formCode,/id="saveSalesRepBtn"[^>]*>บันทึก<\/button>/);
 assert.match(html,/class="form-final-actions representative-topbar-actions"/,'ชุดปุ่มหน้าผู้แทนต้องมีระยะห่างเฉพาะเมื่อย้ายขึ้น TOPBAR');
 assert.doesNotMatch(formCode,/id="sr_code"|รหัสผู้ติดต่อ|บันทึกข้อมูลติดต่อจากหน้าผู้แทนได้ทันที/);
 assert.doesNotMatch(formCode,/บันทึกแล้วปิด/);

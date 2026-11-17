@@ -203,10 +203,9 @@ function renderContactForm(){
   const fixedType=currentTab==='customers'?'customer':'supplier';
   const c = isNew ? emptyCustomerContactDraft(fixedType) : storeContacts().find(x=>x.id===editingContactId);
   if(!c)return '<div class="empty">ไม่พบรายชื่อในคลังนี้</div>';
-  const saveLabel=isNew&&fixedType==='supplier'?'บันทึกแล้วปิด':'บันทึก';
   return `
-    <div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › ${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</div><h1>${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</h1></div>
-      <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelContactBtn">ปิดหน้าต่าง</button><button class="btn primary" id="saveContactBtn">${saveLabel}</button></div>
+    <div class="pagehead contact-editor-heading"><div><div class="breadcrumb">สมุดรายชื่อ › ${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</div><h1>${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</h1></div>
+      <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelContactBtn">ปิด</button><button class="btn primary" id="saveContactBtn">บันทึก</button></div>
     </div>
     <div class="panel contact-editor-panel">${contactEditorFieldsHtml(c,fixedType)}</div>`;
 }

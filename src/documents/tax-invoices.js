@@ -7,10 +7,7 @@ function renderDocumentOrderLookup(isTaxInvoice){
   const documentName=isTaxInvoice?'ใบกำกับภาษี':'บิลเงินสด';
   return `<section class="cash-bill-lookup" aria-label="สร้าง${documentName}">
     <div class="cash-bill-lookup-actions">
-      <button class="barcode-print-mode-card" id="search${docType}OrderBtn" type="button">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="6.5"/><path d="m15 15 6 6"/></svg>
-        <strong>ค้นหาออเดอร์</strong>
-      </button>
+      ${searchButtonHtml('search'+docType+'OrderBtn','ค้นหาออเดอร์','barcode-print-mode-card')}
       <div class="barcode-print-mode-card cash-bill-number-entry">
         <button id="paste${docType}NumberBtn" data-paste-order-number type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 5H5v16h14V5h-3M8 3h8v4H8zM8 12h8M8 16h6"/></svg>

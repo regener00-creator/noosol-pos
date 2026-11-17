@@ -149,7 +149,7 @@ assert.match(historyGroupRender, /data-sales-representative-delete=/);
 assert.match(historyRender, /'deleteSelectedSalesRepresentativesBtn'/);
 assert.match(html, /async function deleteSelectedSalesRepresentatives\(\)[\s\S]*from\('sales_representatives'\)\.delete\(\)\.in\('id',ids\)\.select\('id'\)/);
 assert.match(html, /closest\('button,a,input,label,select,textarea'\)/);
-assert.match(html, /representative-note-search[\s\S]*id="newRepresentativeActivityBtn"[\s\S]*\+ เพิ่มโน้ต/);
+assert.match(html, /representative-note-search[\s\S]*id="newRepresentativeActivityBtn"[\s\S]*aria-label="เพิ่มโน้ต"/);
 assert.match(html, /representative-note-search[\s\S]*id="newRepresentativeActivityBtn"[\s\S]*'deleteSelectedRepresentativeNotesBtn'/);
 assert.match(historyRender, /class="btn primary" data-act="editsalesrep"/);
 assert.doesNotMatch(historyRender, /detailActions=`[^`]*newRepresentativeActivityBtn/);

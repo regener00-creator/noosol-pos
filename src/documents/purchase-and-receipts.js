@@ -169,7 +169,7 @@ function shortageRepresentativeEditorHtml(){
   if(!rep) return '';
   return `<div class="po-supplier-edit wide"><div class="po-supplier-edit-title"><span>${isNew?'เพิ่มรายชื่อผู้แทน':'แก้ไขรายชื่อผู้แทน'}</span><span style="font-size:11px;color:var(--text-muted);font-weight:400;">ข้อมูลจะอัปเดตในสมุดรายชื่อด้วย</span></div>
     <div class="po-supplier-edit-grid"><div><label>ชื่อผู้แทน *</label><input id="po_rep_name" value="${escapeHtml(rep.name||'')}"></div><div><label>เบอร์โทร</label><input id="po_rep_phone" class="phone-input" value="${escapeHtml(rep.phone||'')}"></div><div><label>ไลน์</label><input id="po_rep_line" value="${escapeHtml(rep.line||'')}"></div><div class="wide"><label>ข้อมูลเพิ่มเติม</label><textarea id="po_rep_note" rows="2">${escapeHtml(rep.note||'')}</textarea></div></div>
-    <div class="po-supplier-edit-actions"><button class="btn ghost small" id="cancelPORepEditBtn" type="button">ยกเลิก</button><button class="btn primary small" id="savePORepEditBtn" type="button">${isNew?'เพิ่มและเลือกผู้แทน':'บันทึกข้อมูลผู้แทน'}</button></div></div>`;
+    <div class="po-supplier-edit-actions"><button class="btn ghost small" id="cancelPORepEditBtn" type="button">ยกเลิก</button><button class="btn primary small" id="savePORepEditBtn" type="button">${isNew?'เพิ่มและเลือกผู้แทน':'บันทึก'}</button></div></div>`;
 }
 
 function shortageManagedProductsForRepresentative(representativeId){

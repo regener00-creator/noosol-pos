@@ -36,6 +36,9 @@ function fmtFavoritePrice(n){
   const amount=Number(n);
   return (Number.isFinite(amount)?amount:0).toLocaleString('th-TH',{minimumFractionDigits:0,maximumFractionDigits:2});
 }
+function searchButtonHtml(id,label='ค้นหา',baseClass='icon-btn'){
+  return `<button type="button" class="${baseClass} search-action" id="${id}" title="${label}" aria-label="${label}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button>`;
+}
 function escapeHtml(value){ return String(value??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
 function maxArrayValue(items,mapper,fallback=0){
   return (Array.isArray(items)?items:[]).reduce((maximum,item,index)=>{

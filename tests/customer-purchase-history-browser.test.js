@@ -75,11 +75,13 @@ let browser;
     for(const width of [1440,390]){
       await page.setViewportSize({width,height:900});
       const title=await page.locator('.contact-search-row h1').boundingBox(),search=await page.locator('#search').boundingBox();
+      const row=await page.locator('.contact-search-row').boundingBox();
       assert.ok(search.x>=title.x+title.width && Math.abs((search.y+search.height/2)-(title.y+title.height/2))<2);
       if(customer){
         const refresh=await page.getByRole('button',{name:'รีเฟรชยอดซื้อ'}).boundingBox();
         assert.ok(refresh.x>=search.x+search.width && refresh.x+refresh.width<=width);
-      }
+        assert.ok(Math.abs(refresh.x+refresh.width-row.x-row.width)<2);
+      }else assert.ok(Math.abs(search.x+search.width-row.x-row.width)<2);
     }
     await page.setViewportSize({width:1440,height:1000});
   }
@@ -209,6 +211,10 @@ let browser;
   await page.locator('#cancelContactBtn').click();
   await page.locator('#newContactBtn').click();
   assert.equal(await page.locator('#c_type_supplier').count(),0);
+  const heading=await page.locator('.contact-editor-heading').boundingBox(),panel=await page.locator('.contact-editor-panel').boundingBox();
+  assert.ok(Math.abs(heading.x-panel.x)<2&&heading.y+heading.height<=panel.y);
+  assert.equal(await page.locator('#saveContactBtn').innerText(),'บันทึก');
+  assert.equal(await page.locator('#cancelContactBtn').innerText(),'ปิด');
   assert.equal(await page.locator('#c_type_customer').count(),0);
   assert.equal(await page.locator('#c_fixed_type').inputValue(),'supplier');
   assert.equal(await page.locator('#c_taxid_label').textContent(),'เลขผู้เสียภาษี');

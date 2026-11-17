@@ -202,6 +202,8 @@ let browser;
   assert.ok(Math.abs((workspaceColumns.listWidth/workspaceColumns.detailWidth)-0.5)<0.04,'NOTE list must use one third and NOTE detail two thirds of the available width');
   assert.equal(await page.locator('.representative-note-search #newRepresentativeActivityBtn').count(),1,'add NOTE button must be next to NOTE search');
   assert.equal(await page.locator('.representative-note-search #newRepresentativeActivityBtn + #deleteSelectedRepresentativeNotesBtn').count(),1,'bulk delete must be immediately after add NOTE');
+  const controls=await page.locator('.representative-note-search button').evaluateAll(buttons=>buttons.map(b=>[b.offsetWidth,b.offsetHeight,!!b.querySelector('svg')]));
+  assert.deepEqual(controls,Array(3).fill([40,40,true]));
   const historyPageWidth=await page.locator('.representative-history-page').evaluate(element=>{
     const parent=element.parentElement;
     const parentStyle=getComputedStyle(parent);
@@ -308,6 +310,9 @@ let browser;
   await page.locator('[data-sales-representative-delete="10"]').uncheck();
   assert.equal(await page.locator('.topbar-form-actions .representative-topbar-actions').evaluate(element=>getComputedStyle(element).gap),'12px','representative TOPBAR actions must not touch each other');
   await page.locator('#newSalesRepBtn').click();
+  assert.equal(await page.locator('#saveSalesRepBtn').innerText(),'บันทึก');
+  const labelGap=await page.locator('#sr_name').evaluate(el=>el.getBoundingClientRect().top-el.previousElementSibling.getBoundingClientRect().bottom);
+  assert.ok(labelGap>=0&&labelGap<=5);
   assert.equal(await page.locator('.representative-editor-modal').count(),1);
   assert.equal(await page.locator('.representative-editor-actions').evaluate(element=>getComputedStyle(element).gap),'14px','representative editor actions must have comfortable spacing');
   assert.equal(await page.locator('#sr_name').inputValue(),'');
