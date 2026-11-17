@@ -510,7 +510,6 @@ async function verifyLastInspectionUnits(page){
     selectActiveWarehouse(1);render();
     });
   }
-  await setupDevice(page);
   const scanPage=await browser.newPage();
   await setupDevice(scanPage);
   await scanPage.evaluate(()=>{
@@ -610,6 +609,7 @@ async function verifyLastInspectionUnits(page){
     }
   }
   await posPage.close();
+  await setupDevice(page);
   await page.evaluate(()=>{searchQuery='Decolgen';render();});
   const regularRowHeight=await page.locator('.prodtable tbody tr').first().evaluate(el=>el.getBoundingClientRect().height);
   for(const [wh,id,price,cost] of [[1,11,40,22],[2,12,45,28]]){

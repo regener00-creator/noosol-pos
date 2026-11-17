@@ -28,7 +28,7 @@ function addProductExchangeItem(side,productId,unitName){
   if(existing) existing.qty=(Number(existing.qty)||0)+1;
   else target.push(normalizeProductExchangeItem({lineId:Date.now()+Math.floor(Math.random()*10000),pid:product.id,qty:1,unit:selected.name,expiry:side==='outgoing'?(product.expiry||''):''}));
   render();
-  setTimeout(()=>document.getElementById(`productExchangeScan_${side}`)?.focus(),0);
+  document.getElementById(`productExchangeScan_${side}`)?.focus();
 }
 function renderProductExchangeSearchResults(side,query){
   const box=document.getElementById(`productExchangeResults_${side}`); if(!box) return;
@@ -54,7 +54,11 @@ function bindProductExchangeScanners(){
       if(match) addProductExchangeItem(side,match.product.id,match.unitName);
       else showToast('ไม่พบสินค้าในคลังที่เลือก');
     });
-    input.addEventListener('blur',()=>setTimeout(()=>{ const box=document.getElementById(`productExchangeResults_${side}`); if(box) box.hidden=true; },140));
+    const scanner=input.closest('.product-exchange-scan-wrap');
+    const results=scanner.querySelector('.product-exchange-results');
+    scanner.addEventListener('focusout',event=>{
+      if(!scanner.contains(event.relatedTarget)) results.hidden=true;
+    });
   });
 }
 function validateProductExchangeDraft(draft,forStatus='ร่าง'){

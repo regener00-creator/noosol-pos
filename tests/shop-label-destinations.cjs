@@ -50,6 +50,14 @@ module.exports=async function verifyShopLabelDestinations(page){
         const input=page.locator(field).last(),choices=page.locator(result);
         await input.fill(part+'00000000001');
         assert.equal(await choices.count(),part===prefix?1:0,`${store} ${tab} candidates for ${part}`);
+        if(tap&&(tab==='outgoing'||tab==='incoming')){
+          const opposite=tab==='outgoing'?'incoming':'outgoing';
+          await page.locator('#productExchangeScan_'+opposite).focus();
+          assert.equal(await choices.isHidden(),true,'leaving the scanner closes its results');
+          await input.focus();
+          await choices.focus();
+          assert.equal(await choices.isVisible(),true,'moving onto a result keeps the list open');
+        }
         if(tap) await choices.click();else await input.press('Enter');
         if(part===prefix&&tab==='newLabel')await page.waitForFunction(()=>barcodePrintItems.length===1);
         const selected=await page.evaluate(tab=>{
