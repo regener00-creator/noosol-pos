@@ -29,6 +29,7 @@ let browser;
   await field('year').fill('2025');await field('year').press('Tab');
   assert.deepEqual(await page.evaluate(()=>voidReportRange()),{from:'2025-01-01',to:'2025-12-31'});
   assert.equal(await page.locator('[data-void-report-detail]').count(),0);
+  assert.doesNotMatch(await page.locator('#voidReportFilters').innerText(),/บิลยกเลิก\s*0\s*บิล/);
   await field('period').selectOption('selectmonth');await field('month').fill('2026-10');
   assert.deepEqual(await page.evaluate(()=>voidReportRange()),{from:'2026-10-01',to:'2026-10-31'});
   await page.locator('#voidReportNext').click();
@@ -37,14 +38,12 @@ let browser;
   assert.deepEqual(await page.evaluate(()=>voidReportRange()),{from:'2026-10-30',to:'2026-10-30'});
   async function checkPeriodPosition(){
     const form=await page.locator('#voidReportFilters').boundingBox();
-    const period=await field('period').boundingBox(),summary=await page.locator('.void-report-summary').boundingBox();
+    const period=await field('period').boundingBox();
     assert.ok(Math.abs(period.x-form.x)<=5,'period selector starts at the left of the filters');
-    assert.ok(summary.x>=period.x+period.width && summary.x+summary.width<=form.x+form.width);
-    assert.ok(Math.abs(period.y+period.height/2-summary.y-summary.height/2)<5,'count and period selector share a row');
   }
   await checkPeriodPosition();
   assert.equal(await page.locator('#voidReportPrev').isDisabled(),true);
-  assert.match(await page.locator('#voidReportFilters .void-report-summary').innerText(),/51 บิล/);
+  assert.doesNotMatch(await page.locator('#voidReportFilters').innerText(),/บิลยกเลิก\s*\d+\s*บิล/);
   assert.equal(await page.locator('#voidReportMethod').count(),0);
   assert.doesNotMatch(await page.locator('.void-report-page').innerText(),/ยอดคืนรวม/);
   assert.equal(await page.locator('[data-void-report-detail]').count(),50);
@@ -71,7 +70,7 @@ let browser;
   if(process.env.PEPOS_CAPTURE_REPORT){await fs.promises.mkdir(path.resolve(__dirname,'../outputs'),{recursive:true});await page.screenshot({path:path.resolve(__dirname,'../outputs/void-report.png')});}
   await page.locator('#voidReportNext').click();assert.equal(await page.locator('[data-void-report-detail]').count(),1);
   assert.equal(await page.locator('#voidReportWarehouse').count(),0);await page.locator('#voidReportFilters button[type=submit]').click();
-  assert.match(await page.locator('.void-report-summary').innerText(),/51 บิล/);
+  assert.equal(await page.locator('[data-void-report-detail]').count(),50);
   await page.locator('#voidReportSearch').fill('RE-0');await page.locator('#voidReportFilters button[type=submit]').click();
   assert.equal(await page.locator('[data-void-report-detail]').count(),1);
   assert.equal(await page.locator('.void-report-reason img').count(),0);
