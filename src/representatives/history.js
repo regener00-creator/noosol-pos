@@ -567,7 +567,6 @@ function renderRepresentativeHistory(){
   if(!central&&!representative&&!product) return '<div class="empty">ไม่พบผู้แทนหรือสินค้า</div>';
   if(!representativeActivityLoading&&representativeActivityLoadedKey!==representativeHistoryKey(context)&&!representativeActivityLoadError) setTimeout(()=>loadRepresentativeActivityHistory(),0);
   const groups=representativeHistoryGroups();
-  const title=central?'ผู้แทน':representative?`ข้อมูลผู้แทน ${representative.name}`:`ผู้แทนที่ดูแล ${product.name}`;
   const canCreate=canPerformPageAction('create','notes');
   const canCreateRepresentative=canPerformPageAction('create','salesreps');
   const canDeleteRepresentative=central&&canPerformPageAction('delete','salesreps');
@@ -583,9 +582,10 @@ function renderRepresentativeHistory(){
   const deleteRepresentativesButton=canDeleteRepresentative?representativeDeleteButton('deleteSelectedSalesRepresentativesBtn',selectedRepresentativeDeleteCount,'ลบผู้แทนที่เลือก'):'';
   const centralActions=`<button class="btn ghost" id="exportSalesRepsBtn" type="button">ส่งออก Excel</button><button class="btn ghost" id="importSalesRepsBtn" type="button">นำเข้า Excel</button><input id="salesRepImportFile" type="file" accept=".xlsx,.xls,.csv" hidden>${deleteRepresentativesButton}${canCreateRepresentative?'<button class="btn primary" id="newSalesRepBtn" type="button">+ เพิ่มผู้แทน</button>':''}`;
   const detailActions=`<button class="btn ghost" id="closeRepresentativeHistoryBtn" type="button">ย้อนกลับ</button>${canEditRepresentative?`<button class="btn primary" data-act="editsalesrep" data-id="${representative.id}" type="button">แก้ไขข้อมูล</button>`:''}`;
-  const pageHead=representativeDetail
-    ?`<div class="pagehead topbar-action-source representative-detail-pagehead"><div></div><div class="form-final-actions representative-topbar-actions">${detailActions}</div></div>`
-    :`<div class="pagehead"><div>${central?'':`<div class="breadcrumb">ผู้แทน › ผู้แทนและสินค้าที่ดูแล</div>`}<h1>${escapeHtml(title)}</h1>${product?`<p>รหัสสินค้า ${escapeHtml(product.sku||'-')}</p>`:''}</div><div class="form-final-actions representative-topbar-actions">${central?centralActions:detailActions}</div></div>`;
+  const actions=`<div class="form-final-actions representative-topbar-actions">${central?centralActions:detailActions}</div>`;
+  const pageHead=central||representativeDetail
+    ?`<div class="pagehead topbar-action-source representative-detail-pagehead">${actions}</div>`
+    :`<div class="pagehead"><div><div class="breadcrumb">ผู้แทน › ผู้แทนและสินค้าที่ดูแล</div><h1>${representative?'ข้อมูลผู้แทน '+escapeHtml(representative.name):'ผู้แทนที่ดูแล '+escapeHtml(product.name)}</h1><p>รหัสสินค้า ${escapeHtml(product.sku||'-')}</p></div>${actions}</div>`;
   return `<div class="rpt representative-history-page">${pageHead}${representativeActivityLoadError?`<div class="notice danger">${escapeHtml(representativeActivityLoadError)}</div>`:''}${pageBody}</div>${representativeProductsEditorModalHtml()}${representativeEditorModalHtml()}`;
 }
 function syncRepresentativeActivityDraftFromForm(){
