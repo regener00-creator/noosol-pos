@@ -409,8 +409,11 @@ let browser;
           const header=select.closest('.pagehead'),heading=header?.querySelector('h1');
           if(!heading)return false;
           const title=heading.getBoundingClientRect(),control=select.getBoundingClientRect();
+          const fields=[...select.parentElement.querySelectorAll('input')].map(input=>input.getBoundingClientRect());
+          const last=fields.at(-1)||control;
           return title.right<=control.left&&title.top<control.bottom&&title.bottom>control.top&&
-            Math.abs(control.right-header.getBoundingClientRect().right)<2&&control.right<=innerWidth;
+            fields.every((field,i)=>field.left>=(i?fields[i-1]:control).right&&field.top<control.bottom&&field.bottom>control.top)&&
+            Math.abs(last.right-header.getBoundingClientRect().right)<2&&last.right<=innerWidth;
         });
         assert.ok(aligned,tab+' title and right-aligned period at store '+store);
       };
@@ -418,9 +421,11 @@ let browser;
       assert.equal(await period.inputValue(),'today');
       assert.equal(await rows.count(),1);
       await period.selectOption('selectmonth');
+      await checkHeading();
       await page.locator('[data-document-period="month"]').fill('2020-03');
       assert.equal(await rows.count(),2,tab+' month and store');
       await period.selectOption('selectyear');
+      await checkHeading();
       await page.locator('[data-document-period="year"]').fill('2020');
       await page.locator('[data-document-period="year"]').press('Tab');
       assert.equal(await rows.count(),2,tab+' year');

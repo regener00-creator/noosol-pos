@@ -204,7 +204,7 @@ function documentPeriodToolbar(kind){
   const options=[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
   const input=(key,type,label,value,attrs='')=>`<label>${label} <input class="rpt-select" type="${type}" data-document-period="${key}" value="${escapeHtml(value)}" ${attrs}></label>`;
   const fields=f.period==='range'?input('from','date','ตั้งแต่',range.from)+input('to','date','ถึง',range.to)
-    :f.period==='selectmonth'?input('month','month','เดือน',range.from.slice(0,7))
+    :f.period==='selectmonth'?`<input class="rpt-select" type="month" data-document-period="month" aria-label="เดือน" value="${escapeHtml(range.from.slice(0,7))}">`
     :f.period==='selectyear'?input('year','number','ปี (ค.ศ.)',range.from.slice(0,4),'min="1900" max="9999"'):'';
   return `<div class="document-period-toolbar" data-document-kind="${kind}"><select class="rpt-select" data-document-period="period" aria-label="ช่วงเวลา">${options.map(([key,label])=>`<option value="${key}" ${f.period===key?'selected':''}>${label}</option>`).join('')}</select>
     ${fields?`<div class="document-period-fields">${fields}</div>`:''}</div>`;
