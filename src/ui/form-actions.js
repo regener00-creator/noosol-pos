@@ -30,8 +30,10 @@ function renderFactoryReset(){
 function renderStoreMaintenanceSection(){
   if(!loggedInUser()?.owner||isAllWarehousesMode())return '';
   const name=escapeHtml(activeWarehouse()?.name||'');
-  return `<div class="settings-section"><h2>ล้างเอกสารและสต็อก · ${name}</h2><p>ล้างเฉพาะเอกสาร LOT และยอดคงเหลือของร้าน ${name} โดยเก็บสินค้าและรายชื่อผู้ติดต่อไว้</p><button class="btn reset-keep-products" id="openDocumentResetBtn">ล้างเอกสารและสต็อก</button></div>
-    <div class="settings-section"><h2>ล้างสินค้า · ${name}</h2><p>เริ่มรายการสินค้าใหม่ในร้าน ${name} แล้วนำเข้า Excel ได้ที่หน้า PRODUCT</p><button class="btn danger" id="openProductResetBtn" ${products.length?'':'disabled'}>ล้างสินค้าเฉพาะร้านนี้</button></div>`;
+  return `<div class="settings-section store-maintenance-options">
+    <div><h2>ล้างเอกสารและสต็อก · ${name}</h2><button class="btn reset-keep-products" id="openDocumentResetBtn">ล้างเอกสารและสต็อก</button></div>
+    <div><h2>ล้างสินค้า · ${name}</h2><button class="btn danger" id="openProductResetBtn" ${products.length?'':'disabled'}>ล้างสินค้าเฉพาะร้านนี้</button></div>
+  </div>`;
 }
 
 function renderStoreResetDialog(){

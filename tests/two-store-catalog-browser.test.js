@@ -613,6 +613,8 @@ async function verifyLastInspectionUnits(page){
     assert.equal(await page.evaluate(()=>{currentTab='settingsusers';render();return currentTab;}),'dashboard');
     await page.locator('.navbtn[data-tab="settingssystem"]').click();
     await page.locator('#openDocumentResetBtn').waitFor();assert.equal(await page.locator('#openFactoryResetBtn').count(),0);
+    const [documents,items]=await page.locator('.store-maintenance-options h2').evaluateAll(headings=>headings.map(h=>({x:h.offsetLeft,y:h.offsetTop})));
+    assert.ok(documents.x<items.x && documents.y===items.y,'Both store maintenance headings share one row');
     await page.locator('#openDocumentResetBtn').click();
     assert.match(await page.locator('#storeResetTitle').innerText(),new RegExp(wh===1?'พระยาสุเรนทร์':'พรชัย'));
     await page.locator('#cancelStoreResetBtn').click();

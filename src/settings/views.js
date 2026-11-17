@@ -52,7 +52,7 @@ function renderBusinessSettings(){
 }
 
 function renderPosCommandBarcodeSection(){
-  return `<div class="settings-section"><h2>บาร์โค้ดคำสั่งหน้า POS</h2><div class="hint">ใช้แทนปุ่ม Home: ยิงบาร์โค้ดคำสั่งนี้ 1 ครั้ง แล้วสินค้ารายการถัดไปที่ยิงหรือเลือกจะขายเป็นหน่วยเล็กสุดทันที หลังเพิ่มสินค้าแล้วระบบจะกลับสู่โหมดปกติอัตโนมัติ</div>
+  return `<div class="settings-section"><h2>บาร์โค้ดคำสั่งหน้า POS</h2>
     <div class="pos-command-barcode-card">
       <div class="pos-command-barcode-preview"><strong>ขายหน่วยเล็กสุด 1 รายการ</strong>${code128BSvg(POS_SMALLEST_UNIT_COMMAND,52)}<span>${escapeHtml(POS_SMALLEST_UNIT_COMMAND)}</span></div>
       <div class="pos-command-barcode-steps"><b>วิธีใช้</b><ol><li>ยิงบาร์โค้ดคำสั่งนี้</li><li>ตรวจว่าหน้า POS แสดงคำว่า “พร้อมขายหน่วยเล็กสุด”</li><li>ยิงสินค้าที่ต้องการ ระบบจะเลือกหน่วยเล็กสุดให้เพียงรายการเดียว</li></ol><p>กด Home หรือ Esc เพื่อยกเลิกก่อนยิงสินค้าได้</p></div>
@@ -239,7 +239,7 @@ function renderStoreBackupSection(){
   const lastRaw=localStorage.getItem(STORE_BACKUP_LAST_KEY+':'+shop.id)||(shop.id===1?localStorage.getItem(STORE_BACKUP_LAST_KEY):'')||'';
   const lastDate=lastRaw?new Date(lastRaw):null;
   const lastText=lastDate&&!Number.isNaN(lastDate.getTime())?lastDate.toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'}):'ยังไม่เคยดาวน์โหลดไฟล์สำรองจากเครื่องนี้';
-  return `<div class="settings-section"><h2>สำรองข้อมูลร้าน ${escapeHtml(shop.name)}</h2><div class="hint">ไฟล์สำรองดึงข้อมูลที่บันทึกบนเซิร์ฟเวอร์ ณ เวลาเดียวกัน ครอบคลุมสินค้า สต็อกและ LOT กะขาย เอกสาร ลูกค้า ผู้จำหน่าย ผู้แทน สินค้าที่ดูแล NOTE ประวัติ และการตั้งค่าร้าน</div>
+  return `<div class="settings-section"><h2>สำรองข้อมูลร้าน ${escapeHtml(shop.name)}</h2>
 
       <div class="backup-note">สำรองล่าสุดจากอุปกรณ์นี้: <strong>${escapeHtml(lastText)}</strong><br>ไฟล์สำรองไม่รวมบัญชีผู้ใช้งานและรหัสผ่าน ซึ่งจัดเก็บแยกในระบบยืนยันตัวตน<br>ไฟล์นี้รวมข้อมูลที่บันทึกบนเซิร์ฟเวอร์ของร้านที่เลือก กรุณาซิงก์ทุกเครื่องให้สำเร็จก่อนสำรองหรือกู้คืน</div>
       <div class="backup-grid">
