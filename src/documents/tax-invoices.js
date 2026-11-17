@@ -7,7 +7,10 @@ function renderDocumentOrderLookup(isTaxInvoice){
   const documentName=isTaxInvoice?'ใบกำกับภาษี':'บิลเงินสด';
   return `<section class="cash-bill-lookup" aria-label="สร้าง${documentName}">
     <div class="cash-bill-lookup-actions">
-      ${searchButtonHtml('search'+docType+'OrderBtn','ค้นหาออเดอร์','barcode-print-mode-card')}
+      ${isTaxInvoice?searchButtonHtml('searchTaxInvoiceOrderBtn','ค้นหาออเดอร์','barcode-print-mode-card'):`<button class="barcode-print-mode-card" id="searchCashBillOrderBtn" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="6.5"/><path d="m15 15 6 6"/></svg>
+        <strong>ค้นหาออเดอร์</strong>
+      </button>`}
       <div class="barcode-print-mode-card cash-bill-number-entry">
         <button id="paste${docType}NumberBtn" data-paste-order-number type="button">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M8 5H5v16h14V5h-3M8 3h8v4H8zM8 12h8M8 16h6"/></svg>
@@ -30,9 +33,10 @@ function renderCashBills(){
   if(docListPage.cashbill>totalPages) docListPage.cashbill=totalPages;
   if(docListPage.cashbill<1) docListPage.cashbill=1;
   const start=(docListPage.cashbill-1)*DOC_LIST_PAGE_SIZE;
-  const rows=docs.slice(start,start+DOC_LIST_PAGE_SIZE).map(s=>{ const meta=s.cashReceiptA4Meta||{},number=meta.number||shortReceiptNumber(s),buyer=meta.customer?.name||(typeof s.member==='object'?s.member?.name:s.member)||s.name||'ลูกค้าทั่วไป'; return `<tr><td class="mono">${escapeHtml(number)}</td><td>${escapeHtml(fmtDate(meta.saleDate||s.date))}</td><td class="doc-customer-cell">${escapeHtml(buyer)}</td><td class="doc-items-cell">${salesHistoryItemsPreview(s.items)}</td><td class="mono num">${fmtMoney(s.total)}</td><td class="num"><div class="history-actions"><button class="history-icon-btn" data-cashbill-edit="${escapeHtml(s.id)}" title="เปิดบิลเงินสด" aria-label="เปิดบิลเงินสด ${escapeHtml(number)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn" data-cashbill-print="${escapeHtml(s.id)}" title="พิมพ์บิลเงินสด" aria-label="พิมพ์บิลเงินสด ${escapeHtml(number)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg></button><button class="history-icon-btn danger" data-cashbill-delete="${escapeHtml(s.id)}" title="ลบเอกสาร" aria-label="ลบบิลเงินสด ${escapeHtml(number)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td></tr>`; }).join('');
+  const rows=docs.slice(start,start+DOC_LIST_PAGE_SIZE).map(s=>{ const meta=s.cashReceiptA4Meta||{},number=meta.number||shortReceiptNumber(s),buyer=meta.customer?.name||(typeof s.member==='object'?s.member?.name:s.member)||s.name||'ลูกค้าทั่วไป'; return `<tr><td style="text-align:center;"><input class="doc-check" type="checkbox" value="${escapeHtml(s.id)}" aria-label="เลือกบิลเงินสด ${escapeHtml(number)}"></td><td class="mono">${escapeHtml(number)}</td><td>${escapeHtml(fmtDate(meta.saleDate||s.date))}</td><td class="doc-customer-cell">${escapeHtml(buyer)}</td><td class="doc-items-cell">${salesHistoryItemsPreview(s.items)}</td><td class="mono num">${fmtMoney(s.total)}</td><td class="num"><div class="history-actions"><button class="history-icon-btn" data-cashbill-edit="${escapeHtml(s.id)}" title="เปิดบิลเงินสด" aria-label="เปิดบิลเงินสด ${escapeHtml(number)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn" data-cashbill-print="${escapeHtml(s.id)}" title="พิมพ์บิลเงินสด" aria-label="พิมพ์บิลเงินสด ${escapeHtml(number)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg></button><button class="history-icon-btn danger" data-cashbill-delete="${escapeHtml(s.id)}" title="ลบเอกสาร" aria-label="ลบบิลเงินสด ${escapeHtml(number)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td></tr>`; }).join('');
   return `<div class="pagehead"><div><h1>บิลเงินสด <span class="page-title-meta">เอกสารรับเงินกระดาษ A4 · ${docs.length} รายการ</span></h1></div><button class="btn primary" id="newCashBillBtn">+ สร้างบิลเงินสด</button></div>
-    <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue doc-summary-table customer-items-summary-table"><colgroup><col style="width:180px"><col style="width:120px"><col style="width:220px"><col><col style="width:120px"><col style="width:124px"></colgroup><thead><tr><th>เลขที่เอกสาร</th><th>วันที่</th><th>ผู้ซื้อ</th><th>รายการ</th><th class="mono">ยอดรวม</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:28px;">ยังไม่มีบิลเงินสด</td></tr>`}</tbody></table></div>
+    ${documentBulkToolbar('cashbill')}
+    <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-list doc-head-blue doc-summary-table customer-items-summary-table"><colgroup><col style="width:44px"><col style="width:180px"><col style="width:120px"><col style="width:220px"><col><col style="width:120px"><col style="width:124px"></colgroup><thead><tr><th><input class="doc-check" type="checkbox" aria-label="เลือกบิลเงินสดทั้งหมดในหน้านี้" ${docs.length?'':'disabled'}></th><th>เลขที่เอกสาร</th><th>วันที่</th><th>ผู้ซื้อ</th><th>รายการ</th><th class="mono">ยอดรวม</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:28px;">ยังไม่มีบิลเงินสด</td></tr>`}</tbody></table></div>
     ${pagerHtml(docListPage.cashbill,totalPages,'docpage-cashbill')}`;
 }
 
@@ -49,18 +53,28 @@ async function searchCashBillOrder(){
   openA4CashReceiptModal(sale.id);
 }
 
-async function deleteCashBill(saleId){
-  const sale=salesHistory.find(item=>item.id===saleId); if(!sale?.cashReceiptA4Meta) return;
-  const number=sale.cashReceiptA4Meta.number||shortReceiptNumber(sale);
-  if(!confirm(`ยืนยันลบบิลเงินสด ${number} ?\nยอดขายและสต็อกจะไม่เปลี่ยนแปลง`)) return;
+async function deleteCashBills(ids){
+  if(deleteCashBills.busy)return;
+  const selected=new Set(ids);
+  const bills=salesHistory.filter(s=>selected.has(String(s.id))&&documentInActiveStore(s)&&s.status==='done'&&s.cashReceiptA4Meta);
+  if(!bills.length)return;
+  const label=bills.length===1?(bills[0].cashReceiptA4Meta.number||shortReceiptNumber(bills[0])):`ที่เลือก ${bills.length} รายการ`;
+  if(!confirm(`ยืนยันลบบิลเงินสด ${label} ?\nยอดขายและสต็อกจะไม่เปลี่ยนแปลง`))return;
+  const view=captureStoreView();
+  let deleted=0;
+  deleteCashBills.busy=true;
   try{
-    await updateSaleDocumentMetadata(sale.id,{cashReceiptA4Meta:null});
-    showToast(`ลบบิลเงินสด ${number} แล้ว`);
-    render();
-  }catch(error){
-    console.warn('delete cash bill',error);
-    showToast('ลบบิลเงินสดไม่สำเร็จ ข้อมูลเดิมยังอยู่','danger-top');
-  }
+    for(const sale of bills){
+      if(!isStoreViewCurrent(view))break;
+      try{
+        await updateSaleDocumentMetadata(sale.id,{cashReceiptA4Meta:null});
+        deleted++;
+      }catch(error){console.warn('delete cash bill',sale.id,error);}
+    }
+    if(!isStoreViewCurrent(view))return;
+    if(currentTab==='cashbill')render();
+    showToast(deleted===bills.length?`ลบบิลเงินสดแล้ว ${deleted} รายการ`:`ลบสำเร็จ ${deleted} จาก ${bills.length} รายการ กรุณาตรวจรายการที่เหลือ`,deleted===bills.length?'':'danger-top');
+  }finally{deleteCashBills.busy=false;}
 }
 
 function renderTaxInvoices(){

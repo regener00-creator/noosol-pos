@@ -33,6 +33,7 @@ function refusePostedDocumentDeletion(kind,doc){
 function deleteSelectedDocuments(kind,ids){
   ids=[...new Set(ids||[])].filter(Boolean);
   if(!ids.length) return;
+  if(kind==='cashbill')return deleteCashBills(ids);
   if(kind==='po'){ deleteShortageOrders(ids); return; }
 
   if(kind==='quotation'){

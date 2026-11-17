@@ -124,6 +124,12 @@ let browser;
   await page.locator('[data-party-clear]').click();
   assert.equal(await page.locator('#tax_customer_select').inputValue(),'');
   assert.equal(await page.locator('#tax_form_customer_name').inputValue(),'');
+  const boxedFields=page.locator('.quotation-document-head .quotation-detail-input');
+  assert.equal(await boxedFields.count(),6);
+  assert.ok(await boxedFields.evaluateAll(fields=>fields.every(field=>{
+    const css=getComputedStyle(field);
+    return ['Top','Right','Bottom','Left'].every(side=>css['border'+side+'Style']==='solid'&&parseFloat(css['border'+side+'Width'])>=1);
+  })));
   assert.equal(await page.locator('#po_note').inputValue(),'หมายเหตุใบเสนอราคา');
   // Save/reopen an individual without optional identity/address; keep the new snapshot fields.
   await page.evaluate(()=>{

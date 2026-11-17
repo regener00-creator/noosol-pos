@@ -34,11 +34,57 @@ let browser;
     Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async value=>{window.copiedBill=value;},readText:async()=>window.copiedBill}});
     currentTab='cashbill';cashBillLookupOpen=false;render();
   });
+  await page.evaluate(()=>{
+    window.originalBillRpc=sb.rpc;
+    window.billWrites=[];
+    window.failSecondBill=true;
+    for(let i=1;i<=12;i++){
+      salesHistory.push({...salesHistory[0],id:'bill-'+i,warehouseId:i===12?2:1,
+        cashReceiptA4Meta:{number:'CB-'+i},fullTaxInvoice:{number:'INV-'+i}});
+    }
+    sb.rpc=async(name,args)=>{
+      window.billWrites.push({name,...args});
+      if(args.p_sale_id==='bill-2'&&window.failSecondBill)return {error:new Error('test failure')};
+      return {data:{sale:args.p_metadata}};
+    };
+    render();
+  });
+  const allBills=page.getByRole('checkbox',{name:'เลือกบิลเงินสดทั้งหมดในหน้านี้'});
+  await allBills.check();
+  assert.equal(await page.locator('#docSelectedCount').innerText(),'10');
+  await page.locator('#docSelectedClear').click();
+  const selectBill=n=>page.getByRole('checkbox',{name:'เลือกบิลเงินสด CB-'+n,exact:true});
+  await selectBill(1).check();
+  await selectBill(2).check();
+  assert.ok(await allBills.evaluate(el=>el.indeterminate));
+  page.once('dialog',dialog=>dialog.dismiss());
+  await page.locator('#docBulkDelete').click();
+  assert.equal(await page.evaluate(()=>window.billWrites.length),0);
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('#docBulkDelete').click();
+  await page.getByText('ลบสำเร็จ 1 จาก 2 รายการ กรุณาตรวจรายการที่เหลือ',{exact:true}).waitFor();
+  assert.equal(await selectBill(1).count(),0);
+  await page.evaluate(()=>{window.failSecondBill=false;});
+  await selectBill(2).check();
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('#docBulkDelete').click();
+  await selectBill(2).waitFor({state:'detached'});
+  const result=await page.evaluate(()=>({
+    writes:window.billWrites,
+    documents:salesHistory.slice(1).map(s=>[s.id,s.cashReceiptA4Meta?.number||null,s.fullTaxInvoice.number,s.total,s.status])
+  }));
+  assert.deepEqual(result.writes,[1,2,2].map(n=>({name:'update_sale_document_metadata',p_sale_id:'bill-'+n,p_metadata:{cashReceiptA4Meta:null}})));
+  assert.deepEqual(result.documents,Array.from({length:12},(_,i)=>['bill-'+(i+1),i<2?null:'CB-'+(i+1),'INV-'+(i+1),100,'done']));
+  await page.evaluate(()=>{
+    salesHistory=salesHistory.filter(s=>s.id==='sale-test');
+    sb.rpc=window.originalBillRpc;
+    render();
+  });
   await page.locator('#newCashBillBtn').click();
-  assert.deepEqual(await page.locator('.cash-bill-lookup button strong').allTextContents(),['วางเลขที่บิล','ดำเนินการต่อ']);
+  assert.deepEqual(await page.locator('.cash-bill-lookup button strong').allTextContents(),['ค้นหาออเดอร์','วางเลขที่บิล','ดำเนินการต่อ']);
   const tiles=await page.locator('.cash-bill-lookup-actions > *').evaluateAll(els=>els.map(el=>[el.offsetWidth,el.offsetHeight]));
   assert.deepEqual(tiles,[tiles[0],tiles[0],tiles[0]]);
-  assert.equal(await page.getByRole('button',{name:'ค้นหาออเดอร์'}).evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(79, 64, 56)');
+  assert.equal(await page.getByRole('button',{name:'ค้นหาออเดอร์'}).evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
   await page.locator('#cash_bill_order_number').fill('keep-draft');
   await page.locator('#searchCashBillOrderBtn').click();
   assert.equal(await page.locator('.pos-sales-history-modal').count(),1);
@@ -92,6 +138,7 @@ let browser;
     currentTab='taxinvoice';editingTaxInvoiceSaleId=null;render();
   });
   await page.locator('#historicalTaxInvoiceBtn').click();
+  assert.equal(await page.getByRole('button',{name:'ค้นหาออเดอร์'}).evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(79, 64, 56)');
   assert.deepEqual(await page.locator('.cash-bill-lookup button strong').allTextContents(),['วางเลขที่บิล','ดำเนินการต่อ']);
   assert.ok(await page.locator('#tax_order_number').evaluate(el=>el.offsetHeight>=48&&getComputedStyle(el).backgroundColor==='rgb(255, 255, 255)'));
   await page.locator('#pasteTaxInvoiceNumberBtn').click();

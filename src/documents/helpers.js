@@ -255,8 +255,8 @@ function documentActionMenu(kind,id){
   </div>`;
 }
 function documentBulkToolbar(kind){
-  const canPrint=kind!=='ret'&&kind!=='po'&&kind!=='quotation';
-  const canDelete=['po','quotation','ret'].includes(kind);
+  const canPrint=!['ret','po','quotation','cashbill'].includes(kind);
+  const canDelete=['po','quotation','ret','cashbill'].includes(kind);
   return `<div class="doc-bulkbar" id="docBulkbar" data-kind="${kind}" hidden>
     <div class="doc-selected-pill"><span>เลือก <b id="docSelectedCount">0</b> รายการ</span><button class="doc-selected-clear" id="docSelectedClear" title="ยกเลิกการเลือก">×</button></div>
     <span class="doc-bulk-divider"></span>

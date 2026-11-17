@@ -1308,7 +1308,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(cashBillOrderNumber) cashBillOrderNumber.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); searchCashBillOrder(); } });
   document.querySelectorAll('[data-cashbill-edit]').forEach(button=>button.addEventListener('click',()=>openA4CashReceiptModal(button.dataset.cashbillEdit)));
   document.querySelectorAll('[data-cashbill-print]').forEach(button=>button.addEventListener('click',()=>printA4CashReceipt(button.dataset.cashbillPrint)));
-  document.querySelectorAll('[data-cashbill-delete]').forEach(button=>button.addEventListener('click',()=>deleteCashBill(button.dataset.cashbillDelete)));
+  document.querySelectorAll('[data-cashbill-delete]').forEach(button=>button.addEventListener('click',()=>deleteCashBills([button.dataset.cashbillDelete])));
   const historicalTaxInvoiceBtn=document.getElementById('historicalTaxInvoiceBtn');
   if(historicalTaxInvoiceBtn) historicalTaxInvoiceBtn.addEventListener('click',openHistoricalTaxInvoiceForm);
   const cancelTaxInvoiceFormBtn=document.getElementById('cancelTaxInvoiceFormBtn');
