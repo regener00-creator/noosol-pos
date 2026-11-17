@@ -92,9 +92,87 @@ let browser;
   await page.evaluate(()=>{
     salesHistory=salesHistory.filter(s=>s.id==='sale-test');
     sb.rpc=window.originalBillRpc;
+    currentTab='history';
+    render();
+  });
+  await page.locator('[data-sale-view="sale-test"]').click();
+  await page.getByRole('button',{name:'ออกบิลเงินสด A4'}).click();
+  assert.ok(await page.locator('#a4CashReceiptForm').isVisible());
+  await page.locator('#closeA4CashReceiptBtn').click();
+  await page.evaluate(()=>{salesHistory[0].cashReceiptA4Meta={number:'CB-EXISTING',customer:{name:'ผู้ซื้อเดิม'}};});
+  await page.locator('[data-sale-view="sale-test"]').click();
+  await page.getByRole('button',{name:'เปิดบิลเงินสด A4'}).click();
+  assert.equal(await page.locator('#a4_receipt_customer_name').inputValue(),'ผู้ซื้อเดิม');
+  assert.match(await page.locator('.modal-head:visible').last().innerText(),/CB-EXISTING/);
+  await page.locator('#closeA4CashReceiptBtn').click();
+  await page.evaluate(()=>{
+    delete salesHistory[0].cashReceiptA4Meta;
+    const items=Array.from({length:9},(_,i)=>({name:'สินค้า '+(i+1),qty:1,price:20}));
+    quotations=[{id:'QT',warehouseId:1,items,date:TODAY_STR}];
+    standaloneTaxInvoices=[{number:'INV',warehouseId:1,items,date:TODAY_STR}];
+    currentTab='quotation';render();
+  });
+  for(const tab of ['quotation','taxinvoice']){
+    await page.evaluate(tab=>{currentTab=tab;render();},tab);
+    const cell=page.locator('.doc-items-cell').first();
+    assert.doesNotMatch(await cell.innerText(),/สินค้า 5/);
+    await cell.getByText('+5',{exact:true}).click();
+    assert.match(await cell.innerText(),/สินค้า 9/);
+    await cell.locator('summary').press('Enter');
+    assert.doesNotMatch(await cell.innerText(),/สินค้า 9/);
+  }
+  await page.evaluate(()=>{
+    standaloneTaxInvoices=[];
+    currentTab='cashbill';
+    window.manualRows=[];
+    const orig=sb.from;
+    sb.from=table=>{
+      if(table!=='standalone_cash_bills')return orig(table);
+      let op='list',payload,filters=[];
+      const query={
+        insert(data){op='insert';payload=data;return this;},update(data){op='update';payload=data;return this;},delete(){op='delete';return this;},
+        select(){return this;},order(){return this;},eq(key,value){filters.push([key,value]);return this;},
+        range(a,b){const rows=window.manualRows.filter(row=>filters.every(([k,v])=>row[k]===v));return {data:rows.slice(a,b+1),count:rows.length};},
+        single(){
+          if(op==='insert'){const row={...payload,number:'ACB-TEST',printed:false,issued_at:new Date().toISOString()};window.manualRows.push(row);return {data:row};}
+          const row=window.manualRows.find(row=>filters.every(([k,v])=>row[k]===v));
+          if(op==='delete')window.manualRows=window.manualRows.filter(r=>r!==row);
+          if(op==='update'&&row)Object.assign(row,payload);
+          return {data:row};
+        },maybeSingle(){return this.single();}
+      };return query;
+    };
     render();
   });
   await page.locator('#newCashBillBtn').click();
+  await page.locator('#tax_form_customer_name').fill('ผู้ซื้อบิลกรอกเอง');
+  await page.locator('.poi_name').first().fill('สินค้าทดสอบ');
+  await page.locator('.poi_qty').first().fill('2');
+  await page.locator('.poi_price').first().fill('15');
+  await page.locator('#po_discount').fill('5');
+  await page.locator('#saveStandaloneTaxInvoiceBtn').click();
+  const manualRow=page.locator('tr').filter({hasText:'ACB-TEST'});
+  await manualRow.locator('[data-cashbill-edit]').click();
+  assert.equal(await page.locator('#tax_form_customer_name').inputValue(),'ผู้ซื้อบิลกรอกเอง');
+  assert.equal(await page.locator('.po-total-amt').innerText(),'25.00');
+  const popup=page.waitForEvent('popup');
+  await page.locator('#printStandaloneTaxInvoiceBtn').click();
+  const preview=await popup;
+  await preview.getByText('ต้นฉบับ',{exact:false}).first().waitFor();
+  assert.match(await preview.locator('.items').innerText(),/สินค้าทดสอบ/);
+  await preview.close();
+  const secondPopup=page.waitForEvent('popup');
+  await page.locator('#printStandaloneTaxInvoiceBtn').click();
+  const copy=await secondPopup;
+  await copy.locator('.subtitle').filter({hasText:'สำเนา'}).waitFor();
+  await copy.close();
+  await page.locator('#cancelTaxInvoiceFormBtn').click();
+  await manualRow.locator('.doc-check').check();
+  page.once('dialog',dialog=>dialog.accept());
+  await page.locator('#docBulkDelete').click();
+  await manualRow.waitFor({state:'detached'});
+  assert.deepEqual(await page.evaluate(()=>[window.manualRows.length,salesHistory.length,standaloneTaxInvoices.length]),[0,1,0]);
+  await page.locator('#historicalCashBillBtn').click();
   assert.deepEqual(await page.locator('.cash-bill-lookup button strong').allTextContents(),['ค้นหาออเดอร์','วางเลขที่บิล','ดำเนินการต่อ']);
   const tiles=await page.locator('.cash-bill-lookup-actions > *').evaluateAll(els=>els.map(el=>[el.offsetWidth,el.offsetHeight]));
   assert.deepEqual(tiles,[tiles[0],tiles[0],tiles[0]]);
@@ -152,8 +230,8 @@ let browser;
     currentTab='taxinvoice';editingTaxInvoiceSaleId=null;render();
   });
   await page.locator('#historicalTaxInvoiceBtn').click();
-  assert.equal(await page.getByRole('button',{name:'ค้นหาออเดอร์'}).evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(79, 64, 56)');
-  assert.deepEqual(await page.locator('.cash-bill-lookup button strong').allTextContents(),['วางเลขที่บิล','ดำเนินการต่อ']);
+  assert.equal(await page.getByRole('button',{name:'ค้นหาออเดอร์'}).evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(255, 255, 255)');
+  assert.deepEqual(await page.locator('.cash-bill-lookup button strong').allTextContents(),['ค้นหาออเดอร์','วางเลขที่บิล','ดำเนินการต่อ']);
   assert.ok(await page.locator('#tax_order_number').evaluate(el=>el.offsetHeight>=48&&getComputedStyle(el).backgroundColor==='rgb(255, 255, 255)'));
   await page.locator('#pasteTaxInvoiceNumberBtn').click();
   assert.equal(await page.locator('#tax_order_number').inputValue(),'RE-TEST-001');

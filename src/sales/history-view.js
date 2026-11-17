@@ -30,7 +30,7 @@ function renderHistory(){
       <td>${fmtDate(s.date)}</td><td class="mono">${pickingOrder&&s.status==='done'?`<button type="button" class="cash-bill-history-number" aria-label="เลือกบิล ${escapeHtml(s.ref||s.id)}">${escapeHtml(s.ref||s.id)}</button>`:escapeHtml(s.ref||s.id)}</td>
       <td>${escapeHtml(saleHistoryCustomerDisplay(s))}</td>
       <td>${saleHistoryTimeDisplay(s.time)}</td>
-      <td class="history-items-cell">${salesHistoryItemsPreview(s.items,s.id)}</td>
+      <td class="history-items-cell">${salesHistoryItemsPreview(s.items)}</td>
       <td class="mono num">${fmtMoney(s.total)}</td>
       <td>${escapeHtml(s.payMethod||'-')}</td>
       <td>${s.customerReturn?'<span class="st-badge cancel">คืนสินค้า</span>':statusBadge(s.status)}</td>

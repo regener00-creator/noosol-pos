@@ -1270,7 +1270,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const newTaxInvoiceBtn=document.getElementById('newTaxInvoiceBtn');
   if(newTaxInvoiceBtn) newTaxInvoiceBtn.addEventListener('click',openNewTaxInvoiceForm);
   const newCashBillBtn=document.getElementById('newCashBillBtn');
-  if(newCashBillBtn) newCashBillBtn.addEventListener('click',()=>{ cashBillLookupOpen=true; cashBillOrderNumberDraft=''; render(); });
+  if(newCashBillBtn)newCashBillBtn.addEventListener('click',openNewTaxInvoiceForm);
+  document.getElementById('retryManualCashBills')?.addEventListener('click',()=>{cashBillPageCache=null;render();});
+  document.getElementById('historicalCashBillBtn')?.addEventListener('click',()=>{ cashBillLookupOpen=true; cashBillOrderNumberDraft=''; render(); });
   const searchCashBillOrderBtn=document.getElementById('searchCashBillOrderBtn');
   if(searchCashBillOrderBtn) searchCashBillOrderBtn.addEventListener('click',()=>{ posSalesHistoryModalOpen=true; render(); document.getElementById('closePOSSalesHistoryBtn')?.focus(); });
   document.getElementById('continueCashBillOrderBtn')?.addEventListener('click',searchCashBillOrder);
@@ -1306,8 +1308,8 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   });
   cashBillOrderNumber?.addEventListener('input',()=>{ cashBillOrderNumberDraft=cashBillOrderNumber.value; });
   if(cashBillOrderNumber) cashBillOrderNumber.addEventListener('keydown',event=>{ if(event.key==='Enter'){ event.preventDefault(); searchCashBillOrder(); } });
-  document.querySelectorAll('[data-cashbill-edit]').forEach(button=>button.addEventListener('click',()=>openA4CashReceiptModal(button.dataset.cashbillEdit)));
-  document.querySelectorAll('[data-cashbill-print]').forEach(button=>button.addEventListener('click',()=>printA4CashReceipt(button.dataset.cashbillPrint)));
+  document.querySelectorAll('[data-cashbill-edit]').forEach(button=>button.addEventListener('click',()=>{const doc=cashBillPageCache?.rows.find(row=>row.id===button.dataset.cashbillEdit);if(doc)startStandaloneTaxInvoiceForm(doc.number,doc);else openA4CashReceiptModal(button.dataset.cashbillEdit);}));
+  document.querySelectorAll('[data-cashbill-print]').forEach(button=>button.addEventListener('click',()=>{const doc=cashBillPageCache?.rows.find(row=>row.id===button.dataset.cashbillPrint);if(doc)printManualCashBill(doc);else printA4CashReceipt(button.dataset.cashbillPrint);}));
   document.querySelectorAll('[data-cashbill-delete]').forEach(button=>button.addEventListener('click',()=>deleteCashBills([button.dataset.cashbillDelete])));
   const historicalTaxInvoiceBtn=document.getElementById('historicalTaxInvoiceBtn');
   if(historicalTaxInvoiceBtn) historicalTaxInvoiceBtn.addEventListener('click',openHistoricalTaxInvoiceForm);
@@ -1332,9 +1334,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const saveQuotationBtn=document.getElementById('saveQuotationBtn');
   if(saveQuotationBtn) saveQuotationBtn.addEventListener('click',saveQuotation);
   const addTaxInvoiceItemBtn=document.getElementById('addTaxInvoiceItemBtn');
-  if(addTaxInvoiceItemBtn) addTaxInvoiceItemBtn.addEventListener('click',()=>{ syncPOFromDOM(); if((currentTab==='taxinvoice'||currentTab==='quotation')&&typeof syncTaxInvoiceDraftFromDOM==='function') syncTaxInvoiceDraftFromDOM(); taxInvoiceDraft.items.push({name:'',qty:1,unit:'',price:''}); render(); });
+  if(addTaxInvoiceItemBtn) addTaxInvoiceItemBtn.addEventListener('click',()=>{ syncPOFromDOM(); if((['cashbill','taxinvoice','quotation'].includes(currentTab))&&typeof syncTaxInvoiceDraftFromDOM==='function') syncTaxInvoiceDraftFromDOM(); taxInvoiceDraft.items.push({name:'',qty:1,unit:'',price:''}); render(); });
   const printStandaloneTaxInvoiceBtn=document.getElementById('printStandaloneTaxInvoiceBtn');
-  if(printStandaloneTaxInvoiceBtn) printStandaloneTaxInvoiceBtn.addEventListener('click',()=>printFullTaxInvoice(String(editingTaxInvoiceSaleId).slice(7)));
+  if(printStandaloneTaxInvoiceBtn) printStandaloneTaxInvoiceBtn.addEventListener('click',()=>currentTab==='cashbill'?printManualCashBill(taxInvoiceDraft.cashDocument):printFullTaxInvoice(String(editingTaxInvoiceSaleId).slice(7)));
   const printTaxInvoiceFormBtn=document.getElementById('printTaxInvoiceFormBtn');
   if(printTaxInvoiceFormBtn) printTaxInvoiceFormBtn.addEventListener('click',()=>printFullTaxInvoice(editingTaxInvoiceSaleId));
   const taxCustomerSelect=document.getElementById('tax_customer_select');
@@ -2127,7 +2129,8 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       poDiscount.setSelectionRange(caret,caret);
       recalcPurchaseTotalsDOM();
     });
-    poDiscount.addEventListener('change',()=>{syncPOFromDOM();render();});
+    if(currentTab==='cashbill')poDiscount.addEventListener('input',recalcPurchaseTotalsDOM);
+    else poDiscount.addEventListener('change',()=>{syncPOFromDOM();render();});
   }
   const poTaxMode=document.getElementById('po_tax_mode');
   if(poTaxMode) poTaxMode.addEventListener('change',()=>{ syncPOFromDOM(); render(); });

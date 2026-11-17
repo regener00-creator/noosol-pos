@@ -38,6 +38,7 @@
   "src/dashboard/overview.js",
   "src/pos/checkout-view.js",
   "src/sales/history-view.js",
+  "src/documents/standalone-cash-bills.js",
   "src/documents/tax-invoices.js",
   "src/documents/quotations.js",
   "src/documents/purchase-and-receipts.js",

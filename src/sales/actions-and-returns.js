@@ -372,6 +372,7 @@ function openSaleHistoryDetail(id){
   const billDiscountCost=saleBillDiscountCost(sale);
   const expense=billDiscountCost>0?billDiscountCostLine(billDiscountCost):null;
   const canIssue=sale.status==='done'&&!sale.customerReturn;
+  const canOpenCashBill=canAccessTab('cashbill')&&documentInActiveStore(sale);
   const canIssueTax=canIssueTaxInvoiceForSale(sale)||!!sale.fullTaxInvoice;
   const canDeleteHeld=sale.status==='hold'&&!isLevel2User();
   const canVoidCompleted=sale.status==='done'&&currentProfile?.owner===true&&!sale.customerReturn&&!sale.customerExchange&&!(sale.customerReturnLog||[]).length;
@@ -390,7 +391,7 @@ function openSaleHistoryDetail(id){
     <div class="sale-detail-summary"><div><span>รวมสินค้า</span><b>${fmtMoney(subtotal)} บาท</b></div>${sale.discount?`<div><span>ส่วนลด</span><b>- ${fmtMoney(sale.discount)} บาท</b></div>`:''}${sale.fee?`<div><span>ค่าธรรมเนียม</span><b>${fmtMoney(sale.fee)} บาท</b></div>`:''}<div class="grand"><span>ยอดสุทธิ</span><b>${fmtMoney(sale.total)} บาท</b></div>${sale.cashReceived?`<div><span>รับเงิน</span><b>${fmtMoney(sale.cashReceived)} บาท</b></div><div><span>เงินทอน</span><b>${fmtMoney(sale.cashChange||0)} บาท</b></div>`:''}</div>
     <div class="sale-detail-tools">
       ${canCorrectLots?`<div class="sale-lot-correction-panel"><h4>LOT ที่ขายไม่ตรงกับระบบ?</h4><button class="btn ghost" id="correctSaleLotBtn">แก้ไข LOT ที่ขาย</button></div>`:''}
-      <div class="history-doc-panel"><h4>ออกเอกสารย้อนหลัง</h4>${canIssue?'':'<p>ออกเอกสารได้เฉพาะรายการที่ชำระเงินเรียบร้อยแล้ว</p>'}<div class="history-doc-buttons">${canPrintMedicineLabels?`<button id="historyMedicineLabelsBtn">Rx พิมพ์ฉลากยา (${medicineLabelsForSale(sale).length})</button>`:''}<button id="historyShortReceiptBtn" ${canIssue?'':'disabled'}>🧾 ใบเสร็จอย่างย่อ</button><button id="historyTaxInvoiceBtn" ${canIssueTax?'':'disabled'}>${sale.fullTaxInvoice?'📄 เปิดใบกำกับภาษี':'📄 ออกใบกำกับภาษีย้อนหลัง'}</button></div></div>
+      <div class="history-doc-panel"><h4>ออกเอกสารย้อนหลัง</h4>${canIssue?'':'<p>ออกเอกสารได้เฉพาะรายการที่ชำระเงินเรียบร้อยแล้ว</p>'}<div class="history-doc-buttons">${canPrintMedicineLabels?`<button id="historyMedicineLabelsBtn">Rx พิมพ์ฉลากยา (${medicineLabelsForSale(sale).length})</button>`:''}<button id="historyShortReceiptBtn" ${canIssue?'':'disabled'}>🧾 ใบเสร็จอย่างย่อ</button>${canOpenCashBill?`<button id="historyA4ReceiptBtn" ${canIssue?'':'disabled'}>${sale.cashReceiptA4Meta?'เปิดบิลเงินสด A4':'ออกบิลเงินสด A4'}</button>`:''}<button id="historyTaxInvoiceBtn" ${canIssueTax?'':'disabled'}>${sale.fullTaxInvoice?'📄 เปิดใบกำกับภาษี':'📄 ออกใบกำกับภาษีย้อนหลัง'}</button></div></div>
     </div>
     ${correctionLogHtml}
     ${(sale.customerReturnLog||[]).length?`<div class="customer-return-history"><h4>ประวัติคืน / เปลี่ยน</h4>${sale.customerReturnLog.map(log=>`<p>${escapeHtml(log.ref)} · ${log.kind==='exchange'?'เปลี่ยน':'คืน'} · ยอดรับคืน ${fmtMoney(log.refund)} · ${escapeHtml(log.reason||'')}</p>`).join('')}</div>`:''}</div>
@@ -405,6 +406,7 @@ function openSaleHistoryDetail(id){
   const correctLotBtn=overlay.querySelector('#correctSaleLotBtn'); if(correctLotBtn) correctLotBtn.onclick=()=>{ close(); openSaleLotCorrection(id); };
   const historyMedicineLabelsBtn=overlay.querySelector('#historyMedicineLabelsBtn'); if(historyMedicineLabelsBtn) historyMedicineLabelsBtn.onclick=()=>printMedicineLabels(id);
   overlay.querySelector('#historyShortReceiptBtn').onclick=()=>{ if(canIssue){ close(); openHistoricalReceiptActions(id); } };
+  overlay.querySelector('#historyA4ReceiptBtn')?.addEventListener('click',()=>{ if(canIssue){ close(); openA4CashReceiptModal(id); } });
   overlay.querySelector('#historyTaxInvoiceBtn').onclick=()=>{ if(!canIssueTax) return; close(); sale.fullTaxInvoice?openFullTaxInvoiceModal(id):startTaxInvoiceForm(id); };
 
 }

@@ -132,7 +132,7 @@ function openGoodsReceiptPayment(id){
 }
 
 function activePurchaseDraft(){
-  if(currentTab==='taxinvoice'&&editingTaxInvoiceSaleId==='manual-new') return taxInvoiceDraft;
+  if((currentTab==='cashbill'||currentTab==='taxinvoice')&&editingTaxInvoiceSaleId==='manual-new') return taxInvoiceDraft;
   if(currentTab==='quotation'&&editingQuotationId!==null) return taxInvoiceDraft;
   return docDraft(currentDocKind());
 }
@@ -194,7 +194,7 @@ function addDocumentScannedProduct(productId,unitName){
     return;
   }
   syncPOFromDOM();
-  if((currentTab==='taxinvoice'||currentTab==='quotation')&&typeof syncTaxInvoiceDraftFromDOM==='function') syncTaxInvoiceDraftFromDOM();
+  if((['cashbill','taxinvoice','quotation'].includes(currentTab))&&typeof syncTaxInvoiceDraftFromDOM==='function') syncTaxInvoiceDraftFromDOM();
   const draft=activePurchaseDraft();
   const product=products.find(p=>p.id===productId);
   if(!draft||!product) return;
@@ -204,7 +204,7 @@ function addDocumentScannedProduct(productId,unitName){
     existing.qty=(Number(existing.qty)||0)+1;
   }else{
     const saleUnit=productUnitOptions(product).find(option=>option.name===unit);
-    const item={productId:product.id,name:product.name,qty:1,unit,price:(currentTab==='goodsreceipt'||currentTab==='productreturn')?'':(currentTab==='taxinvoice'||currentTab==='quotation')?(saleUnit?.price??product.price):0,...(currentTab==='goodsreceipt'?{lineId:String(Date.now()),warehouseId:Number(draft.warehouseId)||0}:currentTab==='productreturn'?{lineId:String(Date.now()),warehouseId:Number(draft.warehouseId)||0,lotId:null,lotNumber:'',expiry:''}:{})};
+    const item={productId:product.id,name:product.name,qty:1,unit,price:(currentTab==='goodsreceipt'||currentTab==='productreturn')?'':(['cashbill','taxinvoice','quotation'].includes(currentTab))?(saleUnit?.price??product.price):0,...(currentTab==='goodsreceipt'?{lineId:String(Date.now()),warehouseId:Number(draft.warehouseId)||0}:currentTab==='productreturn'?{lineId:String(Date.now()),warehouseId:Number(draft.warehouseId)||0,lotId:null,lotNumber:'',expiry:''}:{})};
     const blank=draft.items.find(row=>!row.name);
     if(blank) Object.assign(blank,item); else draft.items.push(item);
   }
@@ -319,7 +319,7 @@ function bindPOItemEvents(){
     const unitSel=row.querySelector('.poi_unit'); if(unitSel) unitSel.addEventListener('change', ()=>{ recalcPORow(row); if(currentTab==='purchaseorder') updateShortageItemCodes(row); if(currentTab==='productreturn'){ syncPOFromDOM(); render(); } });
     ['.poi_qty','.poi_price'].forEach(sel=>{ const el=row.querySelector(sel); if(el) el.addEventListener('input', ()=>recalcPORow(row)); });
     const returnLot=row.querySelector('.poi_return_lot'); if(returnLot) returnLot.addEventListener('change',()=>{ syncPOFromDOM(); render(); });
-    row.querySelector('.poi_del').addEventListener('click', ()=>{ syncPOFromDOM(); if((currentTab==='taxinvoice'||currentTab==='quotation')&&typeof syncTaxInvoiceDraftFromDOM==='function') syncTaxInvoiceDraftFromDOM(); const draft=activePurchaseDraft(); draft.items.splice([...document.querySelectorAll('#poItemRows .po-item-row')].indexOf(row),1); if(draft.items.length===0) draft.items=[{name:'',qty:1,unit:'',price:''}]; render(); });
+    row.querySelector('.poi_del').addEventListener('click', ()=>{ syncPOFromDOM(); if((['cashbill','taxinvoice','quotation'].includes(currentTab))&&typeof syncTaxInvoiceDraftFromDOM==='function') syncTaxInvoiceDraftFromDOM(); const draft=activePurchaseDraft(); draft.items.splice([...document.querySelectorAll('#poItemRows .po-item-row')].indexOf(row),1); if(draft.items.length===0) draft.items=[{name:'',qty:1,unit:'',price:''}]; render(); });
   });
 }
 
@@ -387,15 +387,15 @@ function recalcPurchaseTotalsDOM(){
   // Update totals without replacing the inputs being edited.
   syncPOFromDOM();
   const draft=activePurchaseDraft(); if(!draft) return;
-  const tax=currentTab==='goodsreceipt'?calculateGoodsReceiptTaxSummary(draft.items,draft.discount||0,draft.taxMode||'incl'):calculatePurchaseTaxSummary(draft.items,draft.discount||0,draft.taxMode||'incl');
+  const tax=['cashbill','taxinvoice'].includes(currentTab)?calculateDocumentTaxSummary(draft.items,draft.discount||0):currentTab==='goodsreceipt'?calculateGoodsReceiptTaxSummary(draft.items,draft.discount||0,draft.taxMode||'incl'):calculatePurchaseTaxSummary(draft.items,draft.discount||0,draft.taxMode||'incl');
   const amtEl=document.querySelector('.po-total-amt'); if(amtEl) amtEl.textContent=fmtMoney(tax.total);
   const subtotal=document.querySelector('[data-po-summary="subtotal"]'); if(subtotal) subtotal.textContent=fmtMoney(tax.subtotal);
-  const total=document.querySelector('[data-po-summary="total"]'); if(total) total.textContent=fmtMoney(tax.total);
+  document.querySelectorAll('[data-po-summary="total"]').forEach(el=>el.textContent=fmtMoney(tax.total));
   const taxRows=document.querySelector('[data-po-tax-summary]'); if(taxRows) taxRows.innerHTML=currentTab==='goodsreceipt'?goodsReceiptTaxRowsHtml(tax):taxSummaryRowsHtml(tax,{purchase:true});
 }
 function syncPOFromDOM(){
   const draft=activePurchaseDraft(); if(!draft) return;
-  if((currentTab==='taxinvoice'&&editingTaxInvoiceSaleId==='manual-new')||(currentTab==='quotation'&&editingQuotationId!==null)){
+  if(((currentTab==='cashbill'||currentTab==='taxinvoice')&&editingTaxInvoiceSaleId==='manual-new')||(currentTab==='quotation'&&editingQuotationId!==null)){
     const date=document.getElementById('po_date'); if(date){ const iso=dmyToISO(date.value); if(iso) draft.date=iso; }
     const credit=document.getElementById('po_credit'); if(credit) draft.credit=parseInt(credit.value)||0;
     draft.dueDate=addDaysToDate(draft.date,draft.credit||0);

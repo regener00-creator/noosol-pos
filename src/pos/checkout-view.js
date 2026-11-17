@@ -199,9 +199,9 @@ function renderSearchResults(){
   }).join('')}</div>`;
 }
 
-function salesHistoryItemsPreview(items,saleId=null){
+function salesHistoryItemsPreview(items){
   const list=items||[];
-  if(saleId===null||list.length<=4)return salesHistoryItemsFull(list);
+  if(list.length<=4)return salesHistoryItemsFull(list);
   const lines=list.map(item=>`${escapeHtml(item.name)} ×${escapeHtml(item.qty)}`);
   return `<details class="history-preview history-items-disclosure"><summary>${lines.slice(0,4).join('<br>')}<span class="history-preview-more">+${lines.length-4}</span></summary>${lines.slice(4).join('<br>')}</details>`;
 }

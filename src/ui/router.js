@@ -173,7 +173,7 @@ function onDemandRequestKey(tab,requests){
 function editingDocumentForm(tab=currentTab){
   return ({quotation:editingQuotationId,purchaseorder:editingPOId,goodsreceipt:editingGRId,
     productreturn:editingReturnId,productexchange:editingProductExchangeId,transfer:editingTransferId,
-    taxinvoice:editingTaxInvoiceSaleId})[tab]!=null;
+    cashbill:editingTaxInvoiceSaleId,taxinvoice:editingTaxInvoiceSaleId})[tab]!=null;
 }
 function ensureOnDemandDataForTab(tab,{background=false}={}){
   if(offlinePosMode()) return {status:'ready'};

@@ -30,7 +30,7 @@ for (const inlineTitle of [
   'เปลี่ยนสินค้า <span class="page-title-meta">ติดตามสินค้าที่ส่งไปเปลี่ยนและสินค้าที่ได้รับกลับ · ${allDocs.length} รายการ',
   '${isCustomers?\'ลูกค้า\':\'ผู้จำหน่าย\'} <span class="page-title-meta">· <span id="contactListCount">${list.length}</span> รายชื่อ',
   'รายงานการเคลื่อนไหว <span class="page-title-meta">· ${groups.length} บิล · ${rows.length} รายการเคลื่อนไหว',
-  'บิลเงินสด <span class="page-title-meta">เอกสารรับเงินกระดาษ A4 · ${docs.length} รายการ',
+  'บิลเงินสด <span class="page-title-meta">เอกสารรับเงินกระดาษ A4 · ${total} รายการ',
   'ใบกำกับภาษีเต็มรูปแบบ <span class="page-title-meta">สร้างเอกสารใหม่ หรือ ออกเอกสารจากออเดอร์ย้อนหลัง · ${allItems.length} รายการ',
   'ใบเสนอราคา <span class="page-title-meta">เสนอราคา ก่อนสั่งซื้อจริง · ${storeDocs.length} รายการ',
   'ใบคืนสินค้า <span class="page-title-meta">บันทึกการคืนสินค้าให้ผู้จำหน่าย · ${allDocs.length} รายการ',
