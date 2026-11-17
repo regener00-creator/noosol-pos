@@ -425,9 +425,9 @@ async function saveMobilePriceChanges(){
     if(button?.isConnected){ button.disabled=!mobileIsOnline(); button.textContent=mobileIsOnline()?'บันทึกการแก้ไข':'ออฟไลน์ — ยังบันทึกไม่ได้'; }
   }
 }
-function mobileInspectionVisibleLists(){
+function mobileInspectionVisibleLists(status='pending'){
   if(!activeWarehouseId||isAllWarehousesMode()) return [];
-  return inspectionLists.filter(list=>documentInActiveStore(list)&&!String(list.stockAdjustedAt||'').trim());
+  return inspectionLists.filter(list=>documentInActiveStore(list)&&(status==='all'||status===(String(list.stockAdjustedAt||'').trim()?'completed':'pending')));
 }
 function selectMobileInspectionList(lists,title,onSelect){
   if(lists.length===1){
@@ -439,8 +439,7 @@ function selectMobileInspectionList(lists,title,onSelect){
     openInspectionListPicker(lists,title,onSelect);
   }
 }
-function mobileInspectionCurrentList(){
-  const visibleLists=mobileInspectionVisibleLists();
+function mobileInspectionCurrentList(visibleLists=mobileInspectionVisibleLists()){
   if(!visibleLists.length){
     mobileInspectionListId='';
     mobileInspectionOpenedListId='';
@@ -626,16 +625,28 @@ function mobileInspectionSavedAddHtml(list){
 }
 function renderMobileInspectionPanel(lists){
   if(mobileInspectionCreating) return mobileInspectionDraftHtml();
-  const current=mobileInspectionCurrentList();
+  const current=mobileInspectionCurrentList(lists);
+  const completed=Boolean(String(current?.stockAdjustedAt||'').trim());
   const opened=current&&String(mobileInspectionOpenedListId)===String(current.id);
-  const progress=opened?mobileInspectionProgress(current):{checked:0,total:0};
+  const progress=opened&&!completed?mobileInspectionProgress(current):{checked:0,total:0};
   return `<section class="mobile-tool-panel">
+    <label class="mobile-inspection-status-filter">สถานะ
+      <select class="rpt-select" id="mobileInspectionStatusFilter" ${mobileInspectionAddingToSaved?'disabled':''}>
+        <option value="all" ${mobileInspectionStatusFilter==='all'?'selected':''}>ทั้งหมด</option>
+        <option value="pending" ${mobileInspectionStatusFilter==='pending'?'selected':''}>รอยืนยัน</option>
+        <option value="completed" ${mobileInspectionStatusFilter==='completed'?'selected':''}>บันทึกแล้ว</option>
+      </select>
+    </label>
     <div class="mobile-inspection-actions">
       <button type="button" class="mobile-inspection-create-btn" id="mobileNewInspectionList" aria-label="สร้างรายการตรวจสินค้า" title="สร้างรายการตรวจสินค้า">+</button>
       ${lists.length?`<span class="mobile-inspection-separator" aria-hidden="true">|</span>
-      <button type="button" id="mobileInspectionList" class="mobile-inspection-select" value="${escapeHtml(current?.id||'')}" ${lists.length>1?'aria-haspopup="dialog"':''}>${escapeHtml(current?.name||'')} (${current?.items?.length||0})</button><button type="button" class="mobile-inspection-action mobile-inspection-remove" id="mobileDeleteInspectionList" aria-label="ลบบันทึก" title="ลบบันทึก" ${mobileIsOnline()?'':'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button>`:''}
+      <button type="button" id="mobileInspectionList" class="mobile-inspection-select" value="${escapeHtml(current?.id||'')}" ${lists.length>1?'aria-haspopup="dialog"':''}>${escapeHtml(current?.name||'')} (${current?.items?.length||0})</button>${completed?'':`<button type="button" class="mobile-inspection-action mobile-inspection-remove" id="mobileDeleteInspectionList" aria-label="ลบบันทึก" title="ลบบันทึก" ${mobileIsOnline()?'':'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button>`}`:''}
     </div>
-    ${lists.length?`${current?.stockAdjustedAt?'<div class="mobile-inspection-complete">✓ แก้ไขจำนวนเรียบร้อย</div>':''}${opened?`${mobileInspectionAddingToSaved?mobileInspectionSavedAddHtml(current):'<button type="button" class="mobile-inspection-add-toggle" id="mobileInspectionAddToggle">+ เพิ่มสินค้าในรายการ</button>'}<div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div><button type="button" class="mobile-inspection-next" id="mobileContinueToStock">แก้ไขสต็อก (${progress.total})</button>`:'<div class="mobile-empty">แตะชื่อรายการเพื่อเริ่มตรวจสินค้า</div>'}`:'<div class="mobile-empty">ยังไม่มีรายการตรวจสินค้า กดปุ่ม + เพื่อเริ่มยิงสินค้า</div>'}</section>`;
+    ${!current?'<div class="mobile-empty">ไม่พบรายการตรวจสินค้าที่มีสถานะนี้</div>':`
+      <div class="inspection-list-status ${completed?'mobile-inspection-complete':'pending'}">${completed?'บันทึกแล้ว':'รอยืนยัน'}</div>
+      ${!opened?'<div class="mobile-empty">แตะชื่อรายการเพื่อดูรายละเอียด</div>':completed
+        ? `<ul>${(current.items||[]).map(item=>`<li>${escapeHtml(productById(item.pid)?.name||String(item.pid))} · ${escapeHtml(item.unit||'')}</li>`).join('')}</ul>`
+        : `${mobileInspectionAddingToSaved?mobileInspectionSavedAddHtml(current):'<button type="button" class="mobile-inspection-add-toggle" id="mobileInspectionAddToggle">+ เพิ่มสินค้าในรายการ</button>'}<div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div><button type="button" class="mobile-inspection-next" id="mobileContinueToStock">แก้ไขสต็อก (${progress.total})</button>`}`}</section>`;
 }
 function addProductToMobileInspectionSavedDraft(product,unitName=''){
   const list=mobileOpenedInspectionList();
@@ -714,6 +725,7 @@ async function saveMobileInspectionDraft(){
   if(!isStoreViewCurrent(view)) return true;
   mobileLastRefreshAt=Date.now(); setMobileDataStatus('online','บันทึกแล้ว');
   mobileInspectionListId=draft.id;
+  mobileInspectionStatusFilter='pending';
   mobileInspectionOpenedListId='';
   mobileInspectionQuery='';
   mobileInspectionLastProductId=null;
@@ -1175,9 +1187,7 @@ function renderMobileTools(){
     mobileInventoryStep=mobileToolMode==='stock'?'stock':'inspection';
     mobileToolMode='inventory';
   }
-  // Mobile only shows lists still waiting for a stock adjustment. Completed
-  // records remain untouched in `inspectionLists`, so desktop history is kept.
-  const lists=[...mobileInspectionVisibleLists()].sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+  const lists=mobileInspectionVisibleLists(mobileInventoryStep==='inspection'?mobileInspectionStatusFilter:'pending').sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
   return `<main class="mobile-tools-page">
     ${mobileInstallNoticeHtml()}
     <nav class="mobile-tools-tabs ${canEditMobilePrice()?'has-product-action':''}" aria-label="เมนูมือถือ"><button type="button" class="mobile-tools-tab ${mobileToolMode==='price'?'active':''}" data-mobile-tool="price">เช็คราคา</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='inventory'?'active':''}" data-mobile-tool="inventory">ตรวจแก้สต็อก</button>${canEditMobilePrice()?'<button type="button" class="mobile-product-add" id="mobileNewProduct" title="เพิ่มสินค้า" aria-label="เพิ่มสินค้า">+</button>':''}</nav>

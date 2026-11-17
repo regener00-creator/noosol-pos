@@ -2250,6 +2250,7 @@
   .mobile-search-result span{font-size:11.5px;color:var(--text-muted);}
   .mobile-empty{padding:28px 12px;text-align:center;color:var(--text-muted);font-size:13px;border:1px dashed #CCD5DE;border-radius:12px;}
   .mobile-inspection-select{width:100%;min-width:0;height:46px;border:1px solid var(--border);border-radius:12px;padding:0 8px;background:#fff;font:15px 'Sarabun',sans-serif;}
+  .mobile-inspection-status-filter{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin-bottom:12px;}
   .mobile-inspection-actions{display:grid;grid-template-columns:46px auto minmax(0,1fr) 46px;align-items:end;gap:6px;margin-bottom:14px;}
   .mobile-inspection-separator{height:46px;display:grid;place-items:center;color:var(--text-muted);}
   .mobile-inspection-action{height:46px;border-radius:11px;font:700 14px 'Sarabun',sans-serif;cursor:pointer;}
