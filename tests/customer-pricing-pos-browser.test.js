@@ -224,7 +224,7 @@ const browserExecutable = [
   assert.equal(await page.locator('#openCustomerPickerBtn strong').textContent(),'ลูกค้าใหม่');
 
   await page.evaluate(() => {
-    quotations=[{id:'QT-TEST',date:'2026-09-04',customer:'ลูกค้า A',customerInfo:{id:7,name:'ลูกค้า A'},items:[{productId:101,name:'Decolgen',qty:2,unit:'กล่อง',price:150}],discount:0,total:300,status:'รอตอบรับ'}];
+    quotations=[{id:'QT-TEST',date:TODAY_STR,customer:'ลูกค้า A',customerInfo:{id:7,name:'ลูกค้า A'},items:[{productId:101,name:'Decolgen',qty:2,unit:'กล่อง',price:150}],discount:0,total:300,status:'รอตอบรับ'}];
     cart=[]; currentTab='quotation'; editingQuotationId=null; document.getElementById('main').innerHTML=renderQuotation(); attachEvents();
   });
   await page.locator('[data-sell-quotation="QT-TEST"]').click();

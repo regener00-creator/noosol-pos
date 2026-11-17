@@ -68,6 +68,35 @@ export async function run({client,connect}){
       assert.equal(await issue(client,w,'quotation',orderReq),order);
       assert.equal((await client.query('select ref from public.sales where id=$1',['legacy-'+w])).rows[0].ref,'OLD-BILL-'+w);
     }
+    for(const w of [1,2]){
+      const pid=7480300+w;
+      await client.query("insert into public.products(id,warehouse_id,name,unit,data) values($1,$2,'Doc stock test','piece',$3)",[pid,w,{active:true,units:[{sub:'box',base:'piece',per:5,factor:5}]}]);
+      await client.query("insert into public.inventory_lots(product_id,warehouse_id,internal_code,quantity_base,unit_cost_base) values($1,$2,$3,25,1)",[pid,w,'DOC-STOCK-'+w]);
+      const stock=async()=>Number((await client.query('select quantity_base from public.inventory_lots where internal_code=$1',['DOC-STOCK-'+w])).rows[0].quantity_base);
+      let remaining=25;
+      for(const kind of ['cashBill','taxInvoice']){
+        const request=randomUUID(),item={productId:pid,name:'Doc stock test',qty:2,unit:'box',factor:999};
+        const doc={warehouseId:w,date:'2026-11-17',items:[item,{name:'Service',qty:1}],customer:{name:'Test'},total:100};
+        const issueDoc=(c,shop,id,document)=>c.query('select public.issue_stock_sales_document($1,$2,$3,$4) d',[kind,shop,id,document]);
+        const attempts=await Promise.all(devices.map(c=>issueDoc(c,w,request,doc)));
+        assert.equal(attempts[0].rows[0].d.number,attempts[1].rows[0].d.number);
+        assert.equal(await stock(),remaining-=10);
+        const table=kind==='cashBill'?'standalone_cash_bills':'standalone_tax_invoices';
+        const storedId=attempts[0].rows[0].d.row.id;
+        await assert.rejects(client.query('delete from public.'+table+' where id=$1',[storedId]),/ตัดสต็อกแล้ว/);
+        const other=w===1?2:1;
+        await assert.rejects(issueDoc(client,other,randomUUID(),{...doc,warehouseId:other}),/ไม่พบสินค้า/);
+        await assert.rejects(issueDoc(client,w,randomUUID(),{...doc,items:[item,{...item,unit:'unknown'}]}),/หน่วยสินค้า/);
+        const key=kind==='cashBill'?'cashReceiptA4Meta':'fullTaxInvoice';
+        const previous=(await client.query('select data->$2 as meta from public.sales where id=$1',['legacy-'+w,key])).rows[0].meta;
+        await client.query('select public.update_sale_document_metadata($1,$2)', ['legacy-'+w,{[key]:{number:previous.number,printEvent:{id:randomUUID(),mode:'print',at:new Date().toISOString()}}}]);
+        assert.equal(await stock(),remaining);
+      }
+      const backup=(await client.query('select public.export_store_backup($1) b',[w])).rows[0].b;
+      await client.query('select public.restore_store_backup_atomic($1,$2)',[w,backup]);
+      assert.equal(await stock(),remaining,'restore must not post the documents again');
+    }
+    console.log('Standalone cash bills and tax invoices: both stores, concurrent retries, unit factors, invalid lines and POS reissues passed');
     console.log('A/B numbering: independent contacts, all draft types, concurrent reservations, retries, holds, shared invoice series and historic receipts passed');
   }finally{await Promise.all(devices.map(c=>c.end()));}
 }

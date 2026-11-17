@@ -151,8 +151,7 @@ let browser;
     quotations=[{id:'QT202609120001',date:TODAY_STR,customer:'ลูกค้าชื่อยาว'.repeat(12),items:[{name:'LongProductName'.repeat(12),qty:1}],total:123456.78}];
     render();
   });
-  await page.locator('.quotation-summary-table tbody .doc-check').check();
-  assert.equal(await page.locator('#docBulkbar').isVisible(),true);
+  assert.equal(await page.locator('.quotation-summary-table tbody .doc-check,#docBulkDelete').count(),0);
   assert.equal(await page.locator('#docBulkPrint').count(),0);
   assert.equal(await page.locator('[data-print-quotation]').count(),1,'per-document print stays available');
   for(const width of [1440,1280,1024]){

@@ -105,10 +105,11 @@ async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full
       if(!force&&reuseDataReadSignature(requestKey,signature,documentFreshRequests.get(table)||[])){promise.unchanged=true;return true;}
       const buildQuery=()=>{
         let query=sb.from(table).select('*').order('id',{ascending:false});
-        // These generic document tables keep their business date in data.date.
-        // Standalone tax invoices can use saleDate, so their normal list uses
-        // the bounded recent-page path rather than an incomplete date filter.
-        if(normalizedRange&&table!=='standalone_tax_invoices') query=query.gte('data->>date',normalizedRange.from).lte('data->>date',normalizedRange.to);
+        if(normalizedRange){
+          const {from,to}=normalizedRange;
+          if(table==='standalone_tax_invoices') query=query.or(`and(data->>saleDate.gte.${from},data->>saleDate.lte.${to}),and(data->>saleDate.is.null,data->>date.gte.${from},data->>date.lte.${to})`);
+          else query=query.gte('data->>date',from).lte('data->>date',to);
+        }
         return query;
       };
       const result=full
@@ -133,7 +134,7 @@ async function loadDocumentTableFromSupabase(table,{range=null,recent=false,full
       let next=mergeWorkspaceRemoteRows(table,current,incoming,docToRow,{replace:full||!state.loaded});
       if(!result.truncated){
         next=next.filter(row=>{
-          const id=String(row.id),date=String(row.date||row.saleDate||'');
+          const id=String(row.id),date=String((table==='standalone_tax_invoices'&&row.saleDate)||row.date||'');
           const inScope=full||!normalizedRange||(date>=normalizedRange.from&&date<=normalizedRange.to);
           if(!inScope||incomingById.has(id)||pendingIds.has(id)||protectedIds.has(id)) return true;
           syncedTableRows[table]?.delete(id);

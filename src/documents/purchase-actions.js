@@ -199,7 +199,7 @@ function addDocumentScannedProduct(productId,unitName){
   const product=products.find(p=>p.id===productId);
   if(!draft||!product) return;
   const unit=unitName||product.unit;
-  const existing=currentTab==='productreturn'?null:draft.items.find(item=>item.name===product.name && (item.unit||product.unit)===unit);
+  const existing=currentTab==='productreturn'?null:draft.items.find(item=>(item.productId||item.pid?Number(item.productId||item.pid)===Number(product.id):item.name===product.name) && (item.unit||product.unit)===unit);
   if(existing){
     existing.qty=(Number(existing.qty)||0)+1;
   }else{
@@ -404,8 +404,10 @@ function syncPOFromDOM(){
     const rows=document.querySelectorAll('#poItemRows .po-item-row');
     if(rows.length) draft.items=Array.from(rows).map(row=>{
       const name=row.querySelector('.poi_name').value;
-      const matched=products.find(p=>p.name===name);
-      return {name,qty:parseFloat(row.querySelector('.poi_qty').value)||0,unit:row.querySelector('.poi_unit').value.trim(),price:row.querySelector('.poi_price').value===''?'':(parseFloat(row.querySelector('.poi_price').value)||0),pid:matched?matched.id:null};
+      const selected=products.find(p=>String(p.id)===row.dataset.productId&&p.name===name);
+      const sameName=selected?[]:documentProductPool().filter(p=>p.name===name);
+      const matched=selected||(sameName.length===1?sameName[0]:null);
+      return {name,qty:parseFloat(row.querySelector('.poi_qty').value)||0,unit:row.querySelector('.poi_unit').value.trim()||matched?.unit||'',price:row.querySelector('.poi_price').value===''?'':(parseFloat(row.querySelector('.poi_price').value)||0),productId:matched?.id||null,pid:matched?.id||null};
     });
     return;
   }

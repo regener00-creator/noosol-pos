@@ -64,31 +64,12 @@ let browser;
   await billItems(1).locator('summary').press('Enter');
   assert.doesNotMatch(await billItems(1).innerText(),/รายการ 9/);
   assert.equal(await page.locator('.doc-check:checked').count(),0);
-  await allBills.check();
-  assert.equal(await page.locator('#docSelectedCount').innerText(),'10');
-  await page.locator('#docSelectedClear').click();
-  const selectBill=n=>page.getByRole('checkbox',{name:'เลือกบิลเงินสด CB-'+n,exact:true});
-  await selectBill(1).check();
-  await selectBill(2).check();
-  assert.ok(await allBills.evaluate(el=>el.indeterminate));
-  page.once('dialog',dialog=>dialog.dismiss());
-  await page.locator('#docBulkDelete').click();
-  assert.equal(await page.evaluate(()=>window.billWrites.length),0);
-  page.once('dialog',dialog=>dialog.accept());
-  await page.locator('#docBulkDelete').click();
-  await page.getByText('ลบสำเร็จ 1 จาก 2 รายการ กรุณาตรวจรายการที่เหลือ',{exact:true}).waitFor();
-  assert.equal(await selectBill(1).count(),0);
-  await page.evaluate(()=>{window.failSecondBill=false;});
-  await selectBill(2).check();
-  page.once('dialog',dialog=>dialog.accept());
-  await page.locator('#docBulkDelete').click();
-  await selectBill(2).waitFor({state:'detached'});
-  const result=await page.evaluate(()=>({
-    writes:window.billWrites,
-    documents:salesHistory.slice(1).map(s=>[s.id,s.cashReceiptA4Meta?.number||null,s.fullTaxInvoice.number,s.total,s.status])
-  }));
-  assert.deepEqual(result.writes,[1,2,2].map(n=>({name:'update_sale_document_metadata',p_sale_id:'bill-'+n,p_metadata:{cashReceiptA4Meta:null}})));
-  assert.deepEqual(result.documents,Array.from({length:12},(_,i)=>['bill-'+(i+1),i<2?null:'CB-'+(i+1),'INV-'+(i+1),100,'done']));
+  assert.equal(await allBills.count(),0);
+  assert.equal(await page.locator('#docBulkDelete,[data-cashbill-delete]').count(),0);
+  await page.locator('[data-doc-sort="cashbill:number"]').click();
+  assert.equal(await page.locator('.doc-list tbody tr td').first().innerText(),'CB-1');
+  await page.locator('[data-doc-sort="cashbill:number"]').click();
+  assert.equal(await page.locator('.doc-list tbody tr td').first().innerText(),'CB-9');
   await page.evaluate(()=>{
     salesHistory=salesHistory.filter(s=>s.id==='sale-test');
     sb.rpc=window.originalBillRpc;
@@ -222,13 +203,19 @@ let browser;
     standaloneTaxInvoices=[];
     currentTab='cashbill';
     window.manualRows=[];
+    sb.rpc=async(name,args)=>{
+      if(name!=='issue_stock_sales_document')return window.originalBillRpc(name,args);
+      const row={id:args.p_request_id,warehouse_id:args.p_warehouse_id,data:args.p_document,number:'ACB-TEST',printed:false,issued_at:new Date().toISOString()};
+      window.manualRows.push(row);
+      return {data:{number:row.number,row}};
+    };
     const orig=sb.from;
     sb.from=table=>{
       if(table!=='standalone_cash_bills')return orig(table);
       let op='list',payload,filters=[];
       const query={
         insert(data){op='insert';payload=data;return this;},update(data){op='update';payload=data;return this;},delete(){op='delete';return this;},
-        select(){return this;},order(){return this;},eq(key,value){filters.push([key,value]);return this;},
+        select(){return this;},order(){return this;},gte(){return this;},lte(){return this;},eq(key,value){filters.push([key,value]);return this;},
         range(a,b){const rows=window.manualRows.filter(row=>filters.every(([k,v])=>row[k]===v));return {data:rows.slice(a,b+1),count:rows.length};},
         single(){
           if(op==='insert'){const row={...payload,number:'ACB-TEST',printed:false,issued_at:new Date().toISOString()};window.manualRows.push(row);return {data:row};}
@@ -273,11 +260,8 @@ let browser;
   await checkDocumentPreview(copy,'ACB-TEST');
   await copy.close();
   await page.locator('#cancelTaxInvoiceFormBtn').click();
-  await manualRow.locator('.doc-check').check();
-  page.once('dialog',dialog=>dialog.accept());
-  await page.locator('#docBulkDelete').click();
-  await manualRow.waitFor({state:'detached'});
-  assert.deepEqual(await page.evaluate(()=>[window.manualRows.length,salesHistory.length,standaloneTaxInvoices.length]),[0,1,0]);
+  assert.equal(await manualRow.locator('.doc-check,[data-cashbill-delete]').count(),0);
+  assert.equal(await page.evaluate(()=>window.manualRows.length),1);
   const actionGap=async id=>page.locator('#'+id).evaluate(btn=>Math.round(btn.nextElementSibling.getBoundingClientRect().left-btn.getBoundingClientRect().right));
   const cashGap=await actionGap('historicalCashBillBtn');
   assert.equal(cashGap,8);
@@ -406,6 +390,42 @@ let browser;
   await page.locator('#finishAndPrintReceiptBtn').click();
   assert.deepEqual(await page.evaluate(()=>window.receiptCalls),['sale-test']);
   assert.equal(await page.locator('#afterPayContent').count(),0);
+  for(const store of [1,2]){
+    await page.evaluate(w=>{
+      activeWarehouseId=w;storeViewGeneration++;cashBillPageCache=null;window.manualRows=[];
+      const make=(suffix,date,warehouseId=w)=>({id:'D-'+suffix,number:'D-'+suffix,date,warehouseId,items:[{name:'Fixture-'+suffix,qty:1}],supplier:'QA',customer:'QA',total:10});
+      const docs=[make('TODAY',TODAY_STR),make('FIRST','2020-03-02'),make('LAST','2020-03-28'),make('OTHER','2020-03-10',w===1?2:1)];
+      purchaseOrders=docs;goodsReceipts=docs;productReturns=docs;productExchanges=docs.map(d=>({...d,outgoingItems:d.items}));
+      quotations=docs;standaloneTaxInvoices=docs;
+      salesHistory=docs.map(d=>({...d,status:'done',cashReceiptA4Meta:{number:d.number,saleDate:d.date}}));
+      for(const key of Object.keys(documentPeriods))delete documentPeriods[key];
+    },store);
+    for(const tab of ['purchaseorder','goodsreceipt','productreturn','productexchange','quotation','taxinvoice','cashbill']){
+      await page.evaluate(async t=>{await ensurePageCodeLoaded(t);currentTab=t;render();},tab);
+      const period=page.locator('[data-document-period="period"]'),rows=page.locator('.doc-list-wrap tbody tr');
+      assert.equal(await period.inputValue(),'today');
+      assert.equal(await rows.count(),1);
+      await period.selectOption('selectmonth');
+      await page.locator('[data-document-period="month"]').fill('2020-03');
+      assert.equal(await rows.count(),2,tab+' month and store');
+      await period.selectOption('selectyear');
+      await page.locator('[data-document-period="year"]').fill('2020');
+      await page.locator('[data-document-period="year"]').press('Tab');
+      assert.equal(await rows.count(),2,tab+' year');
+      if(['quotation','taxinvoice','cashbill'].includes(tab)){
+        for(const key of ['date','number']){
+          const sort=page.locator('[data-doc-sort="'+tab+':'+key+'"]');
+          await sort.click();const first=await rows.first().innerText();
+          await sort.click();assert.notEqual(await rows.first().innerText(),first,tab+' sort '+key);
+        }
+      }
+      await period.selectOption('range');
+      await page.locator('[data-document-period="from"]').fill('2020-03-01');
+      await page.locator('[data-document-period="to"]').fill('2020-03-02');
+      assert.equal(await rows.count(),1,tab+' range');
+      assert.doesNotMatch(await rows.innerText(),/D-LAST|Fixture-LAST|D-OTHER/);
+    }
+  }
   assert.deepEqual(errors,[]);
   console.log('Cash bill history and post-payment actions passed: close without printing, keyboard, search focus and optional receipt');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});

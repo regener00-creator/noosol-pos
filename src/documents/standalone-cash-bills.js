@@ -8,8 +8,10 @@ function standaloneCashBillRow(row){
 
 function standaloneCashBillPage(){
   const limit=docListPage.cashbill*DOC_LIST_PAGE_SIZE;
-  if(!cashBillPageCache||!isStoreViewCurrent(cashBillPageCache.view)){
-    cashBillPageCache={view:captureStoreView(),rows:[],count:0,loaded:0,at:0,busy:false,error:false};
+  const range=documentPeriodRange('cashbill'),sort=documentSort.cashbill;
+  const key=[range.from,range.to,sort.key,sort.dir].join('|');
+  if(!cashBillPageCache||cashBillPageCache.key!==key||!isStoreViewCurrent(cashBillPageCache.view)){
+    cashBillPageCache={key,view:captureStoreView(),rows:[],count:0,loaded:0,at:0,busy:false,error:false};
   }
   const cache=cashBillPageCache;
   if(!cache.busy&&!cache.error&&(Date.now()-cache.at>60000||cache.loaded<Math.min(limit,cache.count))){
@@ -20,8 +22,11 @@ function standaloneCashBillPage(){
         let count=0;
         do{
           const end=Math.min(limit,rows.length+100)-1;
-          const result=await sb.from('standalone_cash_bills').select('*',{count:'exact'}).eq('warehouse_id',cache.view.store)
-            .order('issued_at',{ascending:false}).order('id').range(rows.length,end);
+          let query=sb.from('standalone_cash_bills').select('*',{count:'exact'}).eq('warehouse_id',cache.view.store)
+            .gte('data->>date',range.from).lte('data->>date',range.to)
+            .order(sort.key==='date'?'data->>date':'number',{ascending:sort.dir===1});
+          if(sort.key==='date')query=query.order('number');
+          const result=await query.range(rows.length,end);
           if(result.error)throw result.error;
           count=result.count??result.data.length;
           rows.push(...result.data.map(standaloneCashBillRow));
@@ -36,22 +41,6 @@ function standaloneCashBillPage(){
     })();
   }
   return cache;
-}
-
-async function saveManualCashBill(d,doc){
-  if(d.saving)return null;
-  d.saving=true;
-  d.requestId||=crypto.randomUUID();
-  try{
-    const result=await sb.from('standalone_cash_bills').insert({id:d.requestId,warehouse_id:d.warehouseId,data:doc}).select('number').single();
-    if(!result.error)return result.data.number;
-    // A retry can follow a successful insert whose response was lost.
-    if(result.error.code!=='23505')throw result.error;
-    const prior=await sb.from('standalone_cash_bills').select('number').eq('id',d.requestId).eq('warehouse_id',d.warehouseId).single();
-    if(prior.error)throw prior.error;
-    return prior.data.number;
-  }catch(error){console.warn('save standalone cash bill',error);showToast('บันทึกบิลเงินสดไม่สำเร็จ กรุณาลองใหม่','danger-top');return null;}
-  finally{d.saving=false;}
 }
 
 async function deleteManualCashBill(doc){

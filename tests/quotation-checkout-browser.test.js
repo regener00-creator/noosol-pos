@@ -32,7 +32,7 @@ let browser;
     warehouses=[{id:1,name:'Test warehouse'}];activeWarehouseId=1;
     products=[{id:7,name:'Quoted product',unit:'เม็ด',price:180,cost:10,stock:100,active:true,vat:'none',type:'stock',units:[]}];
     contacts=[{id:8,name:'Quote customer',types:['customer']}];promotions=[];
-    quotations=[{id:'Q-BROWSER',date:'2026-09-12',customer:'Quote customer',customerInfo:{id:8,name:'Quote customer'},discount:0,
+    quotations=[{id:'Q-BROWSER',date:TODAY_STR,customer:'Quote customer',customerInfo:{id:8,name:'Quote customer'},discount:0,
       items:[{productId:7,name:'Quoted product',unit:'เม็ด',qty:2,price:160},{productId:7,name:'Quoted product',unit:'เม็ด',qty:1,price:150}]}];
     currentCashShift={id:'shift-test',status:'open'};cart=[];
     isBusinessVatRegistered=()=>false;

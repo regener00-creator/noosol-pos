@@ -196,6 +196,24 @@ function documentStatusControl(kind,doc){
   const canManage=canManageGoodsReceipt(doc);
   return `<select class="doc-status-select ${cls}" data-status-kind="gr" data-id="${escapeHtml(doc.id)}" ${canManage?'':'disabled title="ดูได้อย่างเดียว: ใบรับสินค้านี้สร้างโดยผู้ใช้งานอื่น"'}><option value="รอรับสินค้า" ${status==='รอรับสินค้า'?'selected':''}>รอรับสินค้า</option><option value="รับสินค้าแล้ว" ${status==='รับสินค้าแล้ว'?'selected':''}>รับสินค้าแล้ว</option><option value="ชำระเรียบร้อย" ${status==='ชำระเรียบร้อย'?'selected':''}>ชำระเรียบร้อย</option></select>`;
 }
+function documentPeriodRange(kind){
+  return rbillPeriodRange(documentPeriods[kind]||{period:'today'});
+}
+function documentPeriodToolbar(kind){
+  const f=documentPeriods[kind]||{period:'today'},range=documentPeriodRange(kind);
+  const options=[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
+  const input=(key,type,label,value,attrs='')=>`<label>${label} <input class="rpt-select" type="${type}" data-document-period="${key}" value="${escapeHtml(value)}" ${attrs}></label>`;
+  return `<div class="rpt-filters" data-document-kind="${kind}"><select class="rpt-select" data-document-period="period" aria-label="ช่วงเวลา">${options.map(([key,label])=>`<option value="${key}" ${f.period===key?'selected':''}>${label}</option>`).join('')}</select>
+    ${f.period==='range'?input('from','date','ตั้งแต่',range.from)+input('to','date','ถึง',range.to):''}
+    ${f.period==='selectmonth'?input('month','month','เดือน',range.from.slice(0,7)):''}
+    ${f.period==='selectyear'?input('year','number','ปี (ค.ศ.)',range.from.slice(0,4),'min="1900" max="9999"'):''}</div>`;
+}
+function salesDocumentList(rows,kind,dateOf,numberOf){
+  const range=documentPeriodRange(kind),sort=documentSort[kind];
+  const compare=(a,b)=>a<b?-1:a>b?1:0;
+  return rows.filter(row=>dateOf(row)>=range.from&&dateOf(row)<=range.to).sort((a,b)=>
+    sort.dir*compare(sort.key==='date'?dateOf(a):numberOf(a),sort.key==='date'?dateOf(b):numberOf(b))||compare(numberOf(a),numberOf(b)));
+}
 function documentSortHeader(kind,key,label){
   const sort=documentSort[kind], active=sort.key===key;
   const arrow=active?(sort.dir===1?'▲':'▼'):'↕';
@@ -206,7 +224,8 @@ function documentInActiveStore(doc){
   return Number(doc.warehouseId||1)===(Number(activeWarehouseId)||1);
 }
 function sortedDocuments(list,kind){
-  list=list.filter(documentInActiveStore);
+  const range=documentPeriodRange(kind);
+  list=list.filter(doc=>documentInActiveStore(doc)&&doc.date>=range.from&&doc.date<=range.to);
   const sort=documentSort[kind];
   const value=(doc,key)=>key==='due'?documentDueDate(doc):key==='total'?Number(doc.total)||0:key==='elapsed'?elapsedDaysSince(doc.date):String(doc[key]||'').toLowerCase();
   return list.slice().sort((a,b)=>{ const av=value(a,sort.key),bv=value(b,sort.key); if(typeof av==='number') return (av-bv)*sort.dir; return av.localeCompare(bv,'th')*sort.dir; });
@@ -256,7 +275,7 @@ function documentActionMenu(kind,id){
 }
 function documentBulkToolbar(kind){
   const canPrint=!['ret','po','quotation','cashbill'].includes(kind);
-  const canDelete=['po','quotation','ret','cashbill'].includes(kind);
+  const canDelete=kind==='ret';
   return `<div class="doc-bulkbar" id="docBulkbar" data-kind="${kind}" hidden>
     <div class="doc-selected-pill"><span>เลือก <b id="docSelectedCount">0</b> รายการ</span><button class="doc-selected-clear" id="docSelectedClear" title="ยกเลิกการเลือก">×</button></div>
     <span class="doc-bulk-divider"></span>

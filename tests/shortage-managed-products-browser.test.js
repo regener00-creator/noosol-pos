@@ -179,12 +179,12 @@ let browser;
   await page.evaluate(()=>{currentProfile={id:'shortage-test-owner',owner:true,level:1};});
   assert.equal(await page.locator('#createPurchaseOrderFromShortageBtn').count(), 0, 'หน้าสั่งซื้อสินค้าต้องไม่มีปุ่มสร้างเอกสารซ้ำ');
   await page.evaluate(()=>{
-    purchaseOrders=[{id:'SH202609060001',supplier:'PEPO',date:'2026-09-06',items:[{productId:101,name:'ยา A',qty:2,unit:'กล่อง'}],note:'',status:'รอสั่งของ'}];
+    purchaseOrders=[{id:'SH202609060001',supplier:'PEPO',date:TODAY_STR,items:[{productId:101,name:'ยา A',qty:2,unit:'กล่อง'}],note:'',status:'รอสั่งของ'}];
     editingPOId=null;
     poDraft=null;
     render();
   });
-  assert.deepEqual(await page.locator('.shortage-row-actions button').evaluateAll(buttons=>buttons.map(button=>button.dataset.act)), ['editpo','printpo','deletepo'], 'ไอคอนแก้ไข พิมพ์ และลบต้องเรียงตามลำดับ');
+  assert.deepEqual(await page.locator('.shortage-row-actions button').evaluateAll(buttons=>buttons.map(button=>button.dataset.act)), ['editpo','printpo'], 'แสดงเฉพาะแก้ไขและพิมพ์');
   assert.equal(await page.locator('#newPOBtn').innerText(),'+ สร้างรายการจดสั่งสินค้า');
   const openPrintPreview=async()=>{
     const [preview]=await Promise.all([page.waitForEvent('popup'),page.locator('[data-act="printpo"]').click()]);
@@ -212,21 +212,7 @@ let browser;
   assert.deepEqual(await preview.locator('.items th').allTextContents(),['ลำดับ','รหัสสินค้า','บาร์โค้ด','รายการ','ขาย','จำนวน','หน่วย']);
   await preview.close();
   await page.evaluate(()=>{currentProfile={id:'shortage-test-owner',owner:true,level:1};});
-  await page.locator('.po-doc-list tbody .doc-check').check();
-  assert.equal(await page.locator('#docBulkPrint').count(),0,'แถบจัดการรายการที่เลือกต้องไม่มีปุ่มพิมพ์');
-  assert.equal(await page.locator('#docBulkDelete').count(),1,'ยังต้องเลือกลบหลายรายการได้');
-  await page.evaluate(()=>{
-    purchaseOrders.push({...purchaseOrders[0],id:'SH-KEEP'});
-    window.deletePersistCalls=0;persistWorkspaceData=()=>{window.deletePersistCalls++;};render();
-  });
-  const trash=page.locator('[data-act="deletepo"][data-id="SH202609060001"]');
-  page.once('dialog',dialog=>dialog.dismiss());await trash.click();
-  assert.equal(await page.evaluate(()=>purchaseOrders.length),2,'Cancel retains both documents');
-  assert.equal(await page.evaluate(()=>window.deletePersistCalls),0,'Cancel does not persist any deletion');
-  await page.locator('.doc-check[value="SH-KEEP"]').check();
-  page.once('dialog',dialog=>dialog.accept());await trash.click();
-  assert.deepEqual(await page.evaluate(()=>purchaseOrders.map(doc=>doc.id)),['SH-KEEP'],'row trash deletes only its own document regardless of checked rows');
-  assert.equal(await page.evaluate(()=>window.deletePersistCalls),1);
+  assert.equal(await page.locator('#docBulkDelete,[data-act="deletepo"],.po-doc-list .doc-check').count(),0);
   assert.deepEqual(errors, [], `พบ JavaScript error: ${errors.join(' | ')}`);
   console.log('shortage managed products browser tests passed');
 })().catch(error=>{ console.error(error); process.exitCode=1; }).finally(async()=>{

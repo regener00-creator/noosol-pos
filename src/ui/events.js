@@ -2159,7 +2159,16 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     }
   }
   document.querySelectorAll('[data-doc-action]').forEach(btn=>{ btn.addEventListener('click', async e=>{ e.stopPropagation(); await handleDocumentAction(btn.dataset.kind,btn.dataset.id,btn.dataset.docAction); }); });
-  document.querySelectorAll('[data-doc-sort]').forEach(btn=>{ btn.addEventListener('click', ()=>{ const [kind,key]=btn.dataset.docSort.split(':'); const sort=documentSort[kind]; if(sort.key===key) sort.dir*=-1; else documentSort[kind]={key,dir:['date','due','total','elapsed'].includes(key)?-1:1}; render(); }); });
+  document.querySelectorAll('[data-document-period]').forEach(input=>input.addEventListener('change',()=>{
+    const kind=input.closest('[data-document-kind]').dataset.documentKind,key=input.dataset.documentPeriod;
+    if(!input.value||!input.checkValidity())return;
+    const filter=documentPeriods[kind]||={period:'today'};
+    filter[key]=input.value;
+    if(key==='from'&&input.value>documentPeriodRange(kind).to)filter.to=input.value;
+    if(key==='to'&&input.value<documentPeriodRange(kind).from)filter.from=input.value;
+    docListPage[kind]=1;render();
+  }));
+  document.querySelectorAll('[data-doc-sort]').forEach(btn=>{ btn.addEventListener('click', ()=>{ const [kind,key]=btn.dataset.docSort.split(':'); const sort=documentSort[kind]; if(sort.key===key) sort.dir*=-1; else documentSort[kind]={key,dir:['date','due','total','elapsed'].includes(key)?-1:1}; docListPage[kind]=1; render(); }); });
   document.querySelectorAll('.doc-status-select').forEach(sel=>{ sel.addEventListener('change', ()=>{ const k=sel.dataset.statusKind; if(k==='po'){ const doc=purchaseOrders.find(x=>x.id===sel.dataset.id); if(doc){ doc.status=sel.value; persistWorkspaceData(); showToast(`เปลี่ยนสถานะเป็น “${sel.value}” แล้ว`); render(); } }else if(k==='ret'){ changeProductReturnStatus(sel.dataset.id,sel.value); }else if(k==='gr'){ if(sel.value==='ชำระเรียบร้อย'){ const doc=goodsReceipts.find(x=>x.id===sel.dataset.id); if(doc?.stockApplied===true) openGoodsReceiptPayment(sel.dataset.id); else changeGoodsReceiptStatus(sel.dataset.id,sel.value); }else changeGoodsReceiptStatus(sel.dataset.id,sel.value); } }); });
   document.querySelectorAll('.doc-list thead .doc-check').forEach(box=>{ box.addEventListener('change', ()=>{ document.querySelectorAll('.doc-list tbody .doc-check').forEach(rowBox=>rowBox.checked=box.checked); updateDocumentSelectionUI(); }); });
   document.querySelectorAll('.doc-list tbody .doc-check').forEach(box=>{ box.addEventListener('change', updateDocumentSelectionUI); });

@@ -182,7 +182,9 @@ const TAX_INVOICE_STORAGE_KEY='pharmacy_pos_standalone_tax_invoices_v1';
 try{ const savedTaxDocs=JSON.parse(localStorage.getItem(TAX_INVOICE_STORAGE_KEY)||'null'); if(Array.isArray(savedTaxDocs)) standaloneTaxInvoices=savedTaxDocs; }catch(error){ console.warn('ไม่สามารถโหลดใบกำกับภาษีที่สร้างใหม่ได้',error); }
 function persistStandaloneTaxInvoices(){ persistWorkspaceData(); }
 let openDocMenu = null;
-let documentSort = {po:{key:'date',dir:-1},gr:{key:'date',dir:-1},ret:{key:'date',dir:-1},exchange:{key:'date',dir:-1}};
+const documentPageKinds={purchaseorder:'po',goodsreceipt:'gr',productreturn:'ret',productexchange:'exchange',quotation:'quotation',taxinvoice:'taxinvoice',cashbill:'cashbill'};
+const documentPeriods={};
+let documentSort = {quotation:{key:'date',dir:-1},taxinvoice:{key:'date',dir:-1},cashbill:{key:'date',dir:-1},po:{key:'date',dir:-1},gr:{key:'date',dir:-1},ret:{key:'date',dir:-1},exchange:{key:'date',dir:-1}};
 // ข้อมูลร้าน (หัวเอกสาร)
 const STORE_INFO = {
   name: '',

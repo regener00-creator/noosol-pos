@@ -151,7 +151,7 @@ function salesRangeForTab(tab){
   if(tab==='rtax') return monthServerRange(rtaxMonth);
   if(tab==='rvoid') return voidReportRange();
   if(tab==='inventorymovement') return serverDateRange(inventoryMovementDateRange().from,inventoryMovementDateRange().to);
-  if(tab==='cashbill'||tab==='taxinvoice') return serverDateRange(localIsoDaysAgo(365),TODAY_STR);
+  if(tab==='cashbill'||tab==='taxinvoice'){const range=documentPeriodRange(tab);return serverDateRange(range.from,range.to);}
   return null;
 }
 function dataRequestsForTab(tab){
@@ -160,7 +160,8 @@ function dataRequestsForTab(tab){
   if(salesRange) requests.sales={range:salesRange,includeHolds:tab==='checkout',includeRecent:tab==='dashboard'};
   if(requests.sales&&['rvoid','inventorymovement'].includes(tab)) requests.sales.includeVoids=true;
   if(tab==='rvoid') requests.sales.voidsOnly=true;
-  (TAB_DOCUMENT_TABLES[tab]||[]).forEach(table=>requests.documents.push({table,recent:true,range:null}));
+  const period=documentPageKinds[tab]?documentPeriodRange(documentPageKinds[tab]):null;
+  (TAB_DOCUMENT_TABLES[tab]||[]).forEach(table=>requests.documents.push({table,recent:!period,range:period?serverDateRange(period.from,period.to):null}));
   if(tab==='inventorymovement'){
     const range=serverDateRange(inventoryMovementDateRange().from,inventoryMovementDateRange().to);
     ['goods_receipts','product_exchanges','product_returns','transfers'].forEach(table=>requests.documents.push({table,range,recent:false}));

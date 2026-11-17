@@ -19,13 +19,13 @@ function renderPurchaseOrder(){
   const start=(docListPage.po-1)*DOC_LIST_PAGE_SIZE;
   const pageDocs=allDocs.slice(start,start+DOC_LIST_PAGE_SIZE);
   return `<div class="pagehead"><div><h1>จดสั่งสินค้า <span class="page-title-meta">บันทึกรายการสินค้าที่ต้องแจ้งสั่งกับผู้แทน · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newPOBtn">+ สร้างรายการจดสั่งสินค้า</button></div>
-  ${documentBulkToolbar('po')}
+  ${documentPeriodToolbar('po')}
   <div class="doc-list-wrap">
-  <table class="grid-table doc-list po-doc-list"><colgroup><col style="width:42px"><col style="width:100px"><col style="width:130px"><col style="width:170px"><col style="width:340px"><col style="width:130px"><col style="width:130px"><col style="width:90px"><col style="width:144px"></colgroup><thead><tr><th style="width:42px;"><input class="doc-check" type="checkbox" aria-label="เลือกทั้งหมด"></th><th>${documentSortHeader('po','date','วันที่สั่ง')}</th><th>${documentSortHeader('po','supplier','ชื่อผู้แทน')}</th><th>ข้อมูลติดต่อ</th><th>รายการสั่งของ</th><th>หมายเหตุ</th><th>${documentSortHeader('po','status','สถานะ')}</th><th>${documentSortHeader('po','elapsed','ผ่านมาแล้ว')}</th><th style="width:144px;"></th></tr></thead>
+  <table class="grid-table doc-list po-doc-list"><colgroup><col style="width:100px"><col style="width:130px"><col style="width:170px"><col style="width:340px"><col style="width:130px"><col style="width:130px"><col style="width:90px"><col style="width:144px"></colgroup><thead><tr><th>${documentSortHeader('po','date','วันที่สั่ง')}</th><th>${documentSortHeader('po','supplier','ชื่อผู้แทน')}</th><th>ข้อมูลติดต่อ</th><th>รายการสั่งของ</th><th>หมายเหตุ</th><th>${documentSortHeader('po','status','สถานะ')}</th><th>${documentSortHeader('po','elapsed','ผ่านมาแล้ว')}</th><th style="width:144px;"></th></tr></thead>
   <tbody>${pageDocs.map(po=>`<tr>
-    <td style="text-align:center;"><input class="doc-check" type="checkbox" value="${escapeHtml(po.id)}" aria-label="เลือก ${escapeHtml(po.id)}"></td><td style="text-align:center;">${escapeHtml(fmtDate(po.date))}</td><td style="text-align:center;">${escapeHtml(po.supplier)}</td><td style="text-align:center;">${shortageRepresentativeContact(po.supplier)}</td>
+    <td style="text-align:center;">${escapeHtml(fmtDate(po.date))}</td><td style="text-align:center;">${escapeHtml(po.supplier)}</td><td style="text-align:center;">${shortageRepresentativeContact(po.supplier)}</td>
     <td>${shortageAllItems(po.items,po.id)}</td><td>${escapeHtml(po.note||'-')}</td><td style="text-align:center;">${documentStatusControl('po',po)}</td><td style="text-align:center;"><span class="elapsed-days">${elapsedDaysSince(po.date)} วัน</span></td>
-    <td style="text-align:center;"><div class="history-actions shortage-row-actions"><button class="shortage-edit-btn" data-act="editpo" data-id="${escapeHtml(po.id)}" title="แก้ไขรายการ" aria-label="แก้ไข ${escapeHtml(po.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn" data-act="printpo" data-id="${escapeHtml(po.id)}" title="พิมพ์เอกสาร" aria-label="พิมพ์ ${escapeHtml(po.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg></button><button type="button" class="history-icon-btn danger" data-act="deletepo" data-id="${escapeHtml(po.id)}" title="ลบรายการ" aria-label="ลบ ${escapeHtml(po.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td></tr>${expandableDocumentItemsDetailRow('shortage',po.id,po.items,9)}`).join('')||'<tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px;">ยังไม่มีรายการจดสั่งสินค้า</td></tr>'}</tbody></table>
+    <td style="text-align:center;"><div class="history-actions shortage-row-actions"><button class="shortage-edit-btn" data-act="editpo" data-id="${escapeHtml(po.id)}" title="แก้ไขรายการ" aria-label="แก้ไข ${escapeHtml(po.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn" data-act="printpo" data-id="${escapeHtml(po.id)}" title="พิมพ์เอกสาร" aria-label="พิมพ์ ${escapeHtml(po.id)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v7H6z"/><path d="M18 12h.01"/></svg></button></div></td></tr>${expandableDocumentItemsDetailRow('shortage',po.id,po.items,8)}`).join('')||'<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:24px;">ยังไม่มีรายการจดสั่งสินค้า</td></tr>'}</tbody></table>
   </div>
   ${pagerHtml(docListPage.po, totalPages, 'docpage-po')}`;
 }
@@ -329,8 +329,9 @@ function shortageItemRowHtml(it,i){
 }
 
 function poItemRowHtml(it,i){
-  const product = products.find(p=>Number(p.id)===Number(it.productId))||products.find(p=>p.name===it.name);
-  const unitOptions = product ? poPurchaseUnitOptions(product) : [];
+  const saleDocument=['cashbill','taxinvoice','quotation'].includes(currentTab);
+  const product = products.find(p=>Number(p.id)===Number(it.productId||it.pid))||((!saleDocument||currentTab==='quotation')&&products.find(p=>p.name===it.name));
+  const unitOptions = product ? (saleDocument?productUnitOptions(product):poPurchaseUnitOptions(product)) : [];
   const lineTotal = (it.qty||0)*(it.price||0);
   const goodsReceipt=currentTab==='goodsreceipt';
   const locked=goodsReceipt&&activePurchaseDraft()?.stockApplied===true;
@@ -469,6 +470,7 @@ function renderProductReturn(){
   const start=(docListPage.ret-1)*DOC_LIST_PAGE_SIZE;
   const pageDocs=allDocs.slice(start,start+DOC_LIST_PAGE_SIZE);
   return `<div class="pagehead"><div><h1>ใบคืนสินค้า <span class="page-title-meta">บันทึกการคืนสินค้าให้ผู้จำหน่าย · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newReturnBtn">+ สร้างใบคืนสินค้า</button></div>
+  ${documentPeriodToolbar('ret')}
   ${documentBulkToolbar('ret')}
   <div class="doc-list-wrap">
   <table class="grid-table doc-list supplier-doc-list"><colgroup><col style="width:42px"><col style="width:130px"><col style="width:180px"><col style="width:220px"><col style="width:360px"><col style="width:150px"><col style="width:110px"></colgroup><thead><tr><th style="width:42px;"><input class="doc-check" type="checkbox" aria-label="เลือกทั้งหมด"></th><th>${documentSortHeader('ret','date','วันที่')}</th><th>${documentSortHeader('ret','id','เลขที่เอกสาร')}</th><th>${documentSortHeader('ret','supplier','ชื่อผู้จำหน่าย')}</th><th>รายการ</th><th>${documentSortHeader('ret','status','สถานะ')}</th><th></th></tr></thead>
@@ -489,6 +491,7 @@ function renderGoodsReceipt(){
   const start=(docListPage.gr-1)*DOC_LIST_PAGE_SIZE;
   const pageDocs=allDocs.slice(start,start+DOC_LIST_PAGE_SIZE);
   return `<div class="pagehead"><div><h1>ใบรับสินค้า <span class="page-title-meta">บันทึกและตรวจสอบการรับสินค้าเข้าคลัง · ${allDocs.length} รายการ</span></h1></div><button class="btn primary" id="newGRBtn">+ สร้างใบรับสินค้า</button></div>
+  ${documentPeriodToolbar('gr')}
   ${documentBulkToolbar('gr')}
   <div class="doc-list-wrap">
   <table class="grid-table doc-list supplier-doc-list"><colgroup><col style="width:42px"><col style="width:120px"><col style="width:160px"><col style="width:180px"><col style="width:240px"><col style="width:180px"><col style="width:120px"><col style="width:110px"><col style="width:130px"><col style="width:126px"></colgroup><thead><tr><th style="width:42px;"><input class="doc-check" type="checkbox" aria-label="เลือกทั้งหมด"></th><th>${documentSortHeader('gr','date','วันที่')}</th><th>${documentSortHeader('gr','id','เลขที่เอกสาร')}</th><th>${documentSortHeader('gr','supplier','ชื่อผู้จำหน่าย')}</th><th>รายการ</th><th>สาขา</th><th>${documentSortHeader('gr','due','วันครบกำหนด')}</th><th class="mono">${documentSortHeader('gr','total','ยอดรวม')}</th><th>${documentSortHeader('gr','status','สถานะ')}</th><th style="width:126px;"></th></tr></thead>
