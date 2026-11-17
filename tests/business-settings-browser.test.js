@@ -272,7 +272,7 @@ const browserExecutable = [
     document.getElementById('main').innerHTML=renderStockEdit();
     attachEvents();
   });
-  assert.equal(await page.locator('.stock-edit-table th').count(),8);
+  assert.deepEqual(await page.locator('.stock-edit-table th').allTextContents(),['บาร์โค้ด','สินค้า','ในระบบ','นับได้','ต่าง','LOT ที่ปรับ','']);
   assert.equal(await page.locator('.stock-edit-table').getByText('รหัสสินค้า',{exact:true}).count(),0);
   assert.equal(await page.locator('.stock-edit-table').getByText('HIDDEN-SKU',{exact:true}).count(),0);
   for(const width of [1100,1440,1920]){
@@ -280,11 +280,10 @@ const browserExecutable = [
     const fields=await page.evaluate(()=>{
       const lot=document.querySelector('[data-stock-edit-new-lot]').getBoundingClientRect();
       const expiry=document.querySelector('[data-stock-edit-new-expiry]').getBoundingClientRect();
-      return {width:lot.width,widthDifference:Math.abs(lot.width-expiry.width),gap:expiry.top-lot.bottom};
+      return {lotWidth:lot.width,expiryWidth:expiry.width,gap:expiry.left-lot.right,topDifference:Math.abs(expiry.top-lot.top)};
     });
-    assert.ok(fields.width>=180,'เลข LOT ต้องไม่ถูกบีบจนอ่านไม่ได้');
-    assert.ok(fields.widthDifference<1,'เลข LOT กับวันที่ต้องกว้างเท่ากัน');
-    assert.ok(fields.gap>=4,'เลข LOT กับวันที่ต้องแยกคนละบรรทัด');
+    assert.ok(fields.lotWidth>=100&&fields.expiryWidth>=88,'ช่องเลข LOT และวันที่ต้องกว้างพอให้อ่านได้');
+    assert.ok(fields.topDifference<1&&fields.gap>=4,'วันหมดอายุต้องอยู่ถัดจาก LOT ในแถวเดียวกัน');
   }
   await page.locator('[data-stock-edit-new-lot]').fill('LOT-TEST-0909');
   await page.locator('[data-stock-edit-new-expiry]').fill('09092030');

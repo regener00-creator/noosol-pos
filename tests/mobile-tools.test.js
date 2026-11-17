@@ -133,7 +133,8 @@ const mobileFooterStart = mobileToolsRender.indexOf('<header class="mobile-tools
 const mobileFooterEnd = mobileToolsRender.indexOf('</header>', mobileFooterStart);
 const mobileFooter = mobileToolsRender.slice(mobileFooterStart, mobileFooterEnd);
 const mobileLogoutIndex = mobileFooter.indexOf('id="mobileToolsLogout">LOGOUT</button>');
-const mobileTitleIndex = mobileFooter.indexOf('<h1 class="mobile-warehouse-title">SAPURI • คลัง');
+const mobileTitleIndex = mobileFooter.indexOf('<h1 class="mobile-warehouse-title">');
+assert.ok(mobileFooter.includes('SAPURI • คลัง'));
 const mobileLogoIndex = mobileFooter.indexOf('mobile-tools-logo"><img src="/sapuri-brand-screen.webp"');
 assert.ok(mobileLogoutIndex >= 0 && mobileTitleIndex > mobileLogoutIndex && mobileLogoIndex > mobileTitleIndex);
 const mainRenderStart = html.indexOf('function render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){');

@@ -1,13 +1,27 @@
 function rproductPeriodRange(){
-  const today = new Date(TODAY_STR); // อ้างอิงวันปัจจุบันของระบบ
-  const y=today.getFullYear(), m=today.getMonth();
-  const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  const f=rproductFilter;
-  if(f.period==='today'){ const t=iso(today); return {from:t, to:t, label:'วันนี้'}; }
-  if(f.period==='selectmonth'){ const mm=f.month||`${y}-${String(m+1).padStart(2,'0')}`; const [yy,mo]=mm.split('-').map(Number); return {from:iso(new Date(yy,mo-1,1)), to:iso(new Date(yy,mo,0)), label:'เลือกเดือน'}; }
-  if(f.period==='selectyear'){ const yy=f.year||y; return {from:iso(new Date(yy,0,1)), to:iso(new Date(yy,11,31)), label:'เลือกปี'}; }
-  // ค่าเริ่มต้น = เลือกช่วงวันที่ (ยังไม่เลือก = เดือนปัจจุบัน)
-  return {from:f.from||iso(new Date(y,m,1)), to:f.to||iso(new Date(y,m+1,0)), label:'เลือกช่วงวันที่'};
+  return rbillPeriodRange(rproductFilter);
+}
+
+function reportDateLabel(isoDate){
+  const [year,month,day]=isoDate.split('-').map(Number);
+  const months=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  return day+' '+months[month-1]+' '+year;
+}
+
+function reportYearOptions(selected){
+  const currentYear=Number(TODAY_STR.slice(0,4));
+  const options=[];
+  for(let year=currentYear;year>=currentYear-6;year--){
+    options.push(`<option value="${year}" ${year===Number(selected||currentYear)?'selected':''}>${year}</option>`);
+  }
+  return options.join('');
+}
+
+function completedSalesInReportRange(range){
+  return salesHistory.filter(sale=>{
+    const date=(sale.date||'').slice(0,10);
+    return sale.status==='done'&&documentInActiveStore(sale)&&date>=range.from&&date<=range.to;
+  });
 }
 
 function saleWarehouseForReport(sale,item,product){
@@ -20,28 +34,38 @@ function csvSpreadsheetText(value){
   return `"${text.replace(/"/g,'""')}"`;
 }
 
-function exportRProductExcel(){
-  const f=rproductFilter, range=rproductPeriodRange();
-  const inRange=s=>{ const d=(s.date||'').slice(0,10); return d>=range.from && d<=range.to; };
-  const prodByName={}; products.forEach(p=>{ prodByName[p.name]=p; });
+function collectProductSales(bills,filter){
+  const productsByName=new Map(products.map(product=>[product.name,product]));
   const byDate={};
-  salesHistory.filter(documentInActiveStore).filter(s=>s.status!=='void').filter(inRange).forEach(s=>{
-    const d=(s.date||'').slice(0,10);
-    s.items.forEach(it=>{
-      const p=prodByName[it.name]||{};
-      if(f.wh!=='all' && String(saleWarehouseForReport(s,it,p))!==String(f.wh)) return;
-      if(f.scope==='category' && f.category && (p.category||'')!==f.category) return;
-      if(f.scope==='category' && f.brand && (p.brand||'ทั่วไป')!==f.brand) return;
-      if(f.scope==='brand' && f.brand && (p.brand||'')!==f.brand) return;
-      if(f.scope!=='all' && f.products && f.products.length && !f.products.includes(it.name)) return;
-      if(!byDate[d]) byDate[d]={};
-      const itUnit=it.unit||p.unit||'';
-      const rowKey=it.name+'|'+itUnit;
-      if(!byDate[d][rowKey]) byDate[d][rowKey]={name:it.name, unit:itUnit, qty:0, val:0};
-      byDate[d][rowKey].qty+=it.qty; byDate[d][rowKey].val+=(it.reportLineTotal??(it.lineTotal!==undefined?it.lineTotal:it.qty*it.price));
-    });
-  });
-  const dateKeys=Object.keys(byDate).filter(d=>Object.keys(byDate[d]).length).sort();
+  let grandVal=0,docCount=0;
+  for(const sale of bills){
+    const date=sale.date.slice(0,10);
+    let matched=false;
+    for(const item of sale.items||[]){
+      const product=productsByName.get(item.name)||{};
+      if(filter.wh!=='all'&&String(saleWarehouseForReport(sale,item,product))!==String(filter.wh)) continue;
+      if(filter.scope==='category'&&filter.category&&product.category!==filter.category) continue;
+      if(filter.scope==='category'&&filter.brand&&(product.brand||'ทั่วไป')!==filter.brand) continue;
+      if(filter.scope==='brand'&&filter.brand&&product.brand!==filter.brand) continue;
+      if(filter.scope!=='all'&&filter.products?.length&&!filter.products.includes(item.name)) continue;
+
+      const unit=item.unit||product.unit||'';
+      const dayRows=byDate[date]||={};
+      const row=dayRows[item.name+'|'+unit]||={name:item.name,unit,qty:0,val:0};
+      const value=Number(item.reportLineTotal??item.lineTotal??(item.qty*item.price));
+      row.qty+=Number(item.qty);
+      row.val+=value;
+      grandVal+=value;
+      matched=true;
+    }
+    if(matched) docCount++;
+  }
+  return {byDate,dateKeys:Object.keys(byDate).sort(),grandVal,docCount};
+}
+
+function exportRProductExcel(){
+  const range=rproductPeriodRange();
+  const {byDate,dateKeys}=collectProductSales(completedSalesInReportRange(range),rproductFilter);
   let csv='\uFEFF'; // BOM ให้ Excel อ่านภาษาไทยถูก
   csv+='วันที่,ชื่อสินค้า,จำนวน,หน่วย,ราคา\n';
   dateKeys.forEach(d=>{
@@ -56,39 +80,14 @@ function exportRProductExcel(){
 }
 
 function printRProduct(){
-  const f=rproductFilter, range=rproductPeriodRange();
+  const range=rproductPeriodRange();
+  const {byDate,dateKeys,grandVal,docCount}=collectProductSales(completedSalesInReportRange(range),rproductFilter);
   const bizName=warehouseBusinessSettings().name||'';
-  const inRange=s=>{ const d=(s.date||'').slice(0,10); return d>=range.from && d<=range.to; };
-  const prodByName={}; products.forEach(p=>{ prodByName[p.name]=p; });
-  const bills=salesHistory.filter(documentInActiveStore).filter(s=>s.status!=='void').filter(inRange);
-  const byDate={};
-  bills.forEach(s=>{
-    const d=(s.date||'').slice(0,10);
-    s.items.forEach(it=>{
-      const p=prodByName[it.name]||{};
-      if(f.wh!=='all' && String(saleWarehouseForReport(s,it,p))!==String(f.wh)) return;
-      if(f.scope==='category' && f.category && (p.category||'')!==f.category) return;
-      if(f.scope==='category' && f.brand && (p.brand||'ทั่วไป')!==f.brand) return;
-      if(f.scope==='brand' && f.brand && (p.brand||'')!==f.brand) return;
-      if(f.scope!=='all' && f.products && f.products.length && !f.products.includes(it.name)) return;
-      if(!byDate[d]) byDate[d]={};
-      const itUnit=it.unit||p.unit||'';
-      const rowKey=it.name+'|'+itUnit;
-      if(!byDate[d][rowKey]) byDate[d][rowKey]={name:it.name, unit:itUnit, qty:0, val:0};
-      byDate[d][rowKey].qty+=it.qty; byDate[d][rowKey].val+=(it.reportLineTotal??(it.lineTotal!==undefined?it.lineTotal:it.qty*it.price));
-    });
-  });
-  const dateKeys=Object.keys(byDate).filter(d=>Object.keys(byDate[d]).length).sort((a,b)=>a.localeCompare(b));
-  const allRows=dateKeys.flatMap(d=>Object.values(byDate[d]));
-  const grandVal=allRows.reduce((a,r)=>a+r.val,0);
-  const docCount=bills.length;
-  const thDate=d=>{ const dt=new Date(d); return dt.getDate()+' '+['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][dt.getMonth()]+' '+dt.getFullYear(); };
-  const today=new Date(TODAY_STR);
   const dayBlocksHtml = dateKeys.length ? dateKeys.map(d=>{
     const dayRows=Object.values(byDate[d]).sort((a,b)=>a.name.localeCompare(b.name,'th'));
     const dayTotal=dayRows.reduce((a,r)=>a+r.val,0);
     return `<div class="day-block">
-      <div class="day-head"><span>${thDate(d)}</span><span>${fmtMoney(dayTotal)}</span></div>
+      <div class="day-head"><span>${reportDateLabel(d)}</span><span>${fmtMoney(dayTotal)}</span></div>
       <table>
         <colgroup><col style="width:44%"><col style="width:18%"><col style="width:18%"><col style="width:20%"></colgroup>
         <tbody>${dayRows.map(r=>`<tr><td class="pd-name">${escapeHtml(r.name)}</td><td class="r">${r.qty.toFixed(2)}</td><td>${escapeHtml(r.unit||'-')}</td><td class="r">${fmtMoney(r.val)}</td></tr>`).join('')}</tbody>
@@ -137,8 +136,8 @@ function printRProduct(){
     <div class="biz">${escapeHtml(bizName)}</div>
     <div class="meta">
       <div class="meta-left">
-        <div><span class="k">ณ วันที่</span><span>${thDate(today)}</span></div>
-        <div><span class="k">ช่วงเวลา</span><span>${thDate(range.from)} - ${thDate(range.to)}</span></div>
+        <div><span class="k">ณ วันที่</span><span>${reportDateLabel(TODAY_STR)}</span></div>
+        <div><span class="k">ช่วงเวลา</span><span>${reportDateLabel(range.from)} - ${reportDateLabel(range.to)}</span></div>
         <div><span class="k">จำนวนทั้งหมด</span><span>${docCount} เอกสาร</span></div>
       </div>
       <div class="meta-right">
@@ -158,35 +157,7 @@ function renderRProduct(){
   const range=rproductPeriodRange();
   // ตัวเลือกช่วงเวลา
   const periodOpts=[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
-  // กรองบิลตามช่วงเวลา + คลัง
-  const inRange=s=>{ const d=(s.date||'').slice(0,10); return d>=range.from && d<=range.to; };
-  // ยังไม่กด "แสดงผล" = เอกสารว่าง ไม่แสดงข้อมูลใด ๆ
-  let bills = f.applied ? salesHistory.filter(documentInActiveStore).filter(s=>s.status!=='void').filter(inRange) : [];
-  // จัดกลุ่มยอดขายตามวันที่ (join กับ products เพื่อดึงหมวด/หน่วย)
-  const prodByName={}; products.forEach(p=>{ prodByName[p.name]=p; });
-  const byDate={};
-  bills.forEach(s=>{
-    const d=(s.date||'').slice(0,10);
-    s.items.forEach(it=>{
-      const p=prodByName[it.name]||{};
-      if(f.wh!=='all' && String(saleWarehouseForReport(s,it,p))!==String(f.wh)) return;
-      if(f.scope==='category' && f.category && (p.category||'')!==f.category) return;
-      if(f.scope==='category' && f.brand && (p.brand||'ทั่วไป')!==f.brand) return;
-      if(f.scope==='brand' && f.brand && (p.brand||'')!==f.brand) return;
-      if(f.scope!=='all' && f.products && f.products.length && !f.products.includes(it.name)) return;
-      if(!byDate[d]) byDate[d]={};
-      const itUnit=it.unit||p.unit||'';
-      const rowKey=it.name+'|'+itUnit;
-      if(!byDate[d][rowKey]) byDate[d][rowKey]={name:it.name, unit:itUnit, qty:0, val:0};
-      byDate[d][rowKey].qty+=it.qty; byDate[d][rowKey].val+=(it.reportLineTotal??(it.lineTotal!==undefined?it.lineTotal:it.qty*it.price));
-    });
-  });
-  const dateKeys=Object.keys(byDate).filter(d=>Object.keys(byDate[d]).length).sort((a,b)=>a.localeCompare(b));
-  const allRows=dateKeys.flatMap(d=>Object.values(byDate[d]));
-  const grandVal=allRows.reduce((a,r)=>a+r.val,0);
-  const docCount=bills.length;
-  const thDate=d=>{ const dt=new Date(d); return dt.getDate()+' '+['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][dt.getMonth()]+' '+dt.getFullYear(); };
-  const today=new Date(TODAY_STR);
+  const {byDate,dateKeys,grandVal,docCount}=collectProductSales(f.applied?completedSalesInReportRange(range):[],f);
   // ตัวเลือกสินค้าตาม scope
   const catList=categories.slice();
   const brandList=brands.slice();
@@ -216,7 +187,7 @@ function renderRProduct(){
         ${dmyDateFieldHtml('rpf_to', range.to)}
       </div>`:''}
       ${f.period==='selectmonth'?`<div class="rpf-item"><input type="month" id="rpf_month" value="${f.month||range.from.slice(0,7)}" class="rpt-select"></div>`:''}
-      ${f.period==='selectyear'?`<div class="rpf-item"><select id="rpf_year" class="rpt-select">${(()=>{const cy=2026;let o='';for(let yy=cy;yy>=cy-6;yy--){o+=`<option value="${yy}" ${String(f.year||cy)===String(yy)?'selected':''}>${yy}</option>`;}return o;})()}</select></div>`:''}
+      ${f.period==='selectyear'?`<div class="rpf-item"><select id="rpf_year" class="rpt-select">${reportYearOptions(f.year)}</select></div>`:''}
       ${isAllWarehousesMode()?`<div class="rpf-item">
         <select id="rpf_wh" class="rpt-select">
           <option value="all" ${f.wh==='all'?'selected':''}>ทุกคลัง</option>
@@ -248,8 +219,8 @@ function renderRProduct(){
         <div class="rpt-biz">${escapeHtml(warehouseBusinessSettings().name||'')}</div>
         <div class="rpt-meta-grid">
           <div class="rpt-meta-left">
-            <div><span class="rpt-meta-k">ณ วันที่</span><span class="rpt-meta-v">${thDate(today)}</span></div>
-            <div><span class="rpt-meta-k">ช่วงเวลา</span><span class="rpt-meta-v">${thDate(range.from)} - ${thDate(range.to)}</span></div>
+            <div><span class="rpt-meta-k">ณ วันที่</span><span class="rpt-meta-v">${reportDateLabel(TODAY_STR)}</span></div>
+            <div><span class="rpt-meta-k">ช่วงเวลา</span><span class="rpt-meta-v">${reportDateLabel(range.from)} - ${reportDateLabel(range.to)}</span></div>
             <div><span class="rpt-meta-k">จำนวนทั้งหมด</span><span class="rpt-meta-v">${docCount} เอกสาร</span></div>
           </div>
           <div class="rpt-meta-right">
@@ -263,7 +234,7 @@ function renderRProduct(){
         const dayRows=Object.values(byDate[d]).sort((a,b)=>a.name.localeCompare(b.name,'th'));
         const dayTotal=dayRows.reduce((a,r)=>a+r.val,0);
         return `<div class="rpt-day-group">
-          <div class="rpt-day-head"><span class="rpt-day-date">${thDate(d)}</span><span class="rpt-day-total">${fmtMoney(dayTotal)}</span></div>
+          <div class="rpt-day-head"><span class="rpt-day-date">${reportDateLabel(d)}</span><span class="rpt-day-total">${fmtMoney(dayTotal)}</span></div>
           <table class="rpt-table">
             <colgroup><col class="col-name"><col class="col-qty"><col class="col-unit"><col class="col-price"></colgroup>
             <tbody>
@@ -295,9 +266,8 @@ function rbillPeriodRange(filter=rbillFilter){
 // รวมยอดขายเป็นรายบิล (ไม่แยกตามสินค้า) ตามตัวกรองที่ตั้งไว้
 function rbillCollect(filter=rbillFilter){
   const f=filter, range=rbillPeriodRange(filter);
-  const inRange=s=>{ const d=(s.date||'').slice(0,10); return d>=range.from && d<=range.to; };
   const prodByName={}; products.forEach(p=>{ prodByName[p.name]=p; });
-  let bills = f.applied ? salesHistory.filter(documentInActiveStore).filter(s=>s.status!=='void').filter(inRange) : [];
+  let bills = f.applied ? completedSalesInReportRange(range) : [];
   if(f.pay && f.pay!=='all') bills = bills.filter(s=>(s.payMethod||'เงินสด')===f.pay);
   // กรองบิลตามคลัง/หมวด/สินค้า: บิลจะรวมอยู่ในผลลัพธ์ถ้ามีอย่างน้อย 1 รายการที่ตรงเงื่อนไข
   bills = bills.filter(s=>s.items.some(it=>{
@@ -350,15 +320,13 @@ function exportRBillExcel(filter=rbillFilter,reportTitle='รายงานย�
 function printRBill(filter=rbillFilter,reportTitle='รายงานยอดขายตามบิล'){
   const {range, byDate, dateKeys, allRows, grandVal, docCount} = rbillCollect(filter);
   const bizName=warehouseBusinessSettings().name||'';
-  const thDate=d=>{ const dt=new Date(d); return dt.getDate()+' '+['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][dt.getMonth()]+' '+dt.getFullYear(); };
-  const today=new Date(TODAY_STR);
   const dayBlocksHtml = dateKeys.length ? dateKeys.map(d=>{
     const dayRows=byDate[d];
     const dayTotal=dayRows.reduce((a,r)=>a+r.val,0);
     return `<div class="day-block">
       <table>
         <colgroup><col style="width:20%"><col style="width:48%"><col style="width:15%"><col style="width:17%"></colgroup>
-        <tbody><tr class="day-head-row"><td>${thDate(d)}</td><td colspan="2"></td><td class="r">${fmtMoney(dayTotal)}</td></tr>
+        <tbody><tr class="day-head-row"><td>${reportDateLabel(d)}</td><td colspan="2"></td><td class="r">${fmtMoney(dayTotal)}</td></tr>
         ${dayRows.map(r=>`<tr><td class="pd-name">${escapeHtml(r.billId)}</td><td>${billItemsReportHtml(r.items)}</td><td>${escapeHtml(r.payMethod)}</td><td class="r">${fmtMoney(r.val)}</td></tr>`).join('')}</tbody>
       </table>
     </div>`;
@@ -399,8 +367,8 @@ function printRBill(filter=rbillFilter,reportTitle='รายงานยอด�
     <div class="biz">${escapeHtml(bizName)}</div>
     <div class="meta">
       <div class="meta-left">
-        <div><span class="k">ณ วันที่</span><span>${thDate(today)}</span></div>
-        <div><span class="k">ช่วงเวลา</span><span>${thDate(range.from)} - ${thDate(range.to)}</span></div>
+        <div><span class="k">ณ วันที่</span><span>${reportDateLabel(TODAY_STR)}</span></div>
+        <div><span class="k">ช่วงเวลา</span><span>${reportDateLabel(range.from)} - ${reportDateLabel(range.to)}</span></div>
         <div><span class="k">จำนวนทั้งหมด</span><span>${docCount} เอกสาร</span></div>
       </div>
       <div class="meta-right">
@@ -423,8 +391,6 @@ function renderRBill(){
   const fieldPrefix='rbf';
   const periodOpts=[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
   const {byDate, dateKeys, grandVal, docCount} = rbillCollect(f);
-  const thDate=d=>{ const dt=new Date(d); return dt.getDate()+' '+['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][dt.getMonth()]+' '+dt.getFullYear(); };
-  const today=new Date(TODAY_STR);
 
   return `<div class="rpt rpt-page-scroll">
     <div class="rpt-head">
@@ -447,7 +413,7 @@ function renderRBill(){
         ${dmyDateFieldHtml(fieldPrefix+'_to', range.to)}
       </div>`:''}
       ${f.period==='selectmonth'?`<div class="rpf-item"><input type="month" id="${fieldPrefix}_month" value="${f.month||range.from.slice(0,7)}" class="rpt-select"></div>`:''}
-      ${f.period==='selectyear'?`<div class="rpf-item"><select id="${fieldPrefix}_year" class="rpt-select">${(()=>{const cy=2026;let o='';for(let yy=cy;yy>=cy-6;yy--){o+=`<option value="${yy}" ${String(f.year||cy)===String(yy)?'selected':''}>${yy}</option>`;}return o;})()}</select></div>`:''}
+      ${f.period==='selectyear'?`<div class="rpf-item"><select id="${fieldPrefix}_year" class="rpt-select">${reportYearOptions(f.year)}</select></div>`:''}
       ${isAllWarehousesMode()?`<div class="rpf-item">
         <select id="${fieldPrefix}_wh" class="rpt-select">
           <option value="all" ${f.wh==='all'?'selected':''}>ทุกคลัง</option>
@@ -471,8 +437,8 @@ function renderRBill(){
         <div class="rpt-biz">${escapeHtml(warehouseBusinessSettings().name||'')}</div>
         <div class="rpt-meta-grid">
           <div class="rpt-meta-left">
-            <div><span class="rpt-meta-k">ณ วันที่</span><span class="rpt-meta-v">${thDate(today)}</span></div>
-            <div><span class="rpt-meta-k">ช่วงเวลา</span><span class="rpt-meta-v">${thDate(range.from)} - ${thDate(range.to)}</span></div>
+            <div><span class="rpt-meta-k">ณ วันที่</span><span class="rpt-meta-v">${reportDateLabel(TODAY_STR)}</span></div>
+            <div><span class="rpt-meta-k">ช่วงเวลา</span><span class="rpt-meta-v">${reportDateLabel(range.from)} - ${reportDateLabel(range.to)}</span></div>
             <div><span class="rpt-meta-k">จำนวนทั้งหมด</span><span class="rpt-meta-v">${docCount} เอกสาร</span></div>
           </div>
           <div class="rpt-meta-right">
@@ -489,7 +455,7 @@ function renderRBill(){
           <table class="rpt-table rpt-day-head-table">
             <colgroup><col style="width:20%"><col style="width:48%"><col style="width:15%"><col style="width:17%"></colgroup>
             <tbody><tr class="rpt-day-head-row">
-              <td class="rpt-day-date" style="text-align:center;">${thDate(d)}</td>
+              <td class="rpt-day-date" style="text-align:center;">${reportDateLabel(d)}</td>
               <td colspan="2"></td>
               <td class="rpt-day-total" style="text-align:center;">${fmtMoney(dayTotal)}</td>
             </tr></tbody>
@@ -512,13 +478,7 @@ function renderRBill(){
 }
 
 function rprofitPeriodRange(){
-  const today=new Date(TODAY_STR),y=today.getFullYear(),m=today.getMonth();
-  const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
-  const f=rprofitFilter;
-  if(f.period==='today'){const t=iso(today);return {from:t,to:t};}
-  if(f.period==='selectmonth'){const mm=f.month||`${y}-${String(m+1).padStart(2,'0')}`,[yy,mo]=mm.split('-').map(Number);return {from:iso(new Date(yy,mo-1,1)),to:iso(new Date(yy,mo,0))};}
-  if(f.period==='selectyear'){const yy=Number(f.year)||y;return {from:iso(new Date(yy,0,1)),to:iso(new Date(yy,11,31))};}
-  return {from:f.from||iso(new Date(y,m,1)),to:f.to||iso(new Date(y,m+1,0))};
+  return rbillPeriodRange(rprofitFilter);
 }
 
 function rprofitCollect(){
@@ -580,11 +540,10 @@ function printRProfit(){
   const {range,bills,byDate,dateKeys,revenue,cost,profit,missingCount}=rprofitCollect();
   const bizName=warehouseBusinessSettings().name||'';
   const margin=revenue?profit/revenue*100:0;
-  const thDate=d=>{const dt=new Date(d);return dt.getDate()+' '+['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][dt.getMonth()]+' '+dt.getFullYear();};
   const dayBlocksHtml=dateKeys.length?dateKeys.map(d=>{
     const rows=byDate[d],dayProfit=rows.reduce((sum,row)=>sum+row.profit,0);
     return `<section class="day-block">
-      <div class="day-head"><span>${thDate(d)}</span><span class="${dayProfit<0?'negative':'positive'}">${dayProfit>0?'+ ':dayProfit<0?'- ':''}${fmtMoney(Math.abs(dayProfit))}</span></div>
+      <div class="day-head"><span>${reportDateLabel(d)}</span><span class="${dayProfit<0?'negative':'positive'}">${dayProfit>0?'+ ':dayProfit<0?'- ':''}${fmtMoney(Math.abs(dayProfit))}</span></div>
       ${rows.map(bill=>`<div class="bill-block">
         <div class="bill-head"><b>${escapeHtml(bill.billId)}</b><span>${escapeHtml(bill.payMethod)}</span></div>
         <table><colgroup><col style="width:37%"><col style="width:9%"><col style="width:10%"><col style="width:14%"><col style="width:14%"><col style="width:16%"></colgroup><thead><tr><th>สินค้า</th><th class="r">จำนวน</th><th>หน่วย</th><th class="r">ยอดขาย</th><th class="r">ต้นทุน</th><th class="r">กำไร/ขาดทุน</th></tr></thead><tbody>
@@ -602,7 +561,7 @@ function printRProfit(){
     body{margin:0;background:#f0f0f0;color:#2b2b2b;font-family:'Sarabun',sans-serif;font-size:12px}.toolbar{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:#fff;box-shadow:0 2px 8px #0002}.toolbar button{border:0;border-radius:7px;background:#4F4038;color:#fff;padding:9px 18px;font:600 14px Sarabun;cursor:pointer}.page{width:210mm;min-height:297mm;margin:12px auto;padding:14mm 12mm;background:#fff;box-shadow:0 4px 20px #0002}h1{text-align:center;color:#4F4038;font-size:20px;margin:0 0 18px}.biz{color:#4F4038;font-size:17px;font-weight:600;margin-bottom:10px}.meta{display:grid;grid-template-columns:1fr 1fr;gap:4px 18px;padding-bottom:12px;border-bottom:1px solid #d9dee3}.meta span:nth-child(odd){font-weight:600}.summary{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:14px 0}.summary div{border:1px solid #dfe4e8;border-radius:8px;padding:9px}.summary span{display:block;color:#756B67;font-size:10.5px}.summary b{display:block;margin-top:3px;font-size:14px}.positive{color:#2D7D3D!important}.negative{color:#C2483E!important}.warning{margin:10px 0;padding:8px 10px;border-radius:6px;background:#fff4df;color:#8a5a10}.day-block{margin-top:16px;break-inside:avoid}.day-head{display:flex;justify-content:space-between;background:#F1E8E5;color:#4F4038;font-weight:600;padding:7px 8px;border-radius:6px}.bill-block{margin-top:8px;break-inside:avoid}.bill-head{display:flex;justify-content:space-between;padding:5px 7px;background:#f6f7f9}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:6px 7px;border-bottom:1px solid #e1e5e9;text-align:left}th{font-size:10.5px;color:#5d6670}.r{text-align:right}.bill-total td{font-weight:600;border-top:1px solid #aeb7bf}.empty{text-align:center;color:#888;padding:28px}@media print{body{background:#fff}.toolbar{display:none}.page{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}.day-head{background:#F1E8E5!important}}
   </style></head><body><div class="toolbar"><span>ตัวอย่างรายงาน A4</span><button onclick="window.print()">พิมพ์</button></div><main class="page">
     <h1>รายงานกำไร / ขาดทุน</h1><div class="biz">${escapeHtml(bizName)}</div>
-    <div class="meta"><span>ณ วันที่</span><span>${thDate(TODAY_STR)}</span><span>ช่วงเวลา</span><span>${thDate(range.from)} - ${thDate(range.to)}</span><span>จำนวนทั้งหมด</span><span>${bills.length} เอกสาร</span></div>
+    <div class="meta"><span>ณ วันที่</span><span>${reportDateLabel(TODAY_STR)}</span><span>ช่วงเวลา</span><span>${reportDateLabel(range.from)} - ${reportDateLabel(range.to)}</span><span>จำนวนทั้งหมด</span><span>${bills.length} เอกสาร</span></div>
     <div class="summary"><div><span>ยอดขาย</span><b>${fmtMoney(revenue)}</b></div><div><span>ต้นทุน</span><b>${fmtMoney(cost)}</b></div><div><span>กำไร / ขาดทุน</span><b class="${profit<0?'negative':'positive'}">${profit<0?'-':''}${fmtMoney(Math.abs(profit))}</b></div><div><span>อัตรากำไร</span><b class="${margin<0?'negative':'positive'}">${margin.toFixed(2)}%</b></div></div>
     ${missingCount?`<div class="warning">มี ${missingCount} บิลที่ไม่มีข้อมูลต้นทุนและไม่ถูกรวมในรายงาน</div>`:''}${dayBlocksHtml}
   </main></body></html>`);
@@ -614,7 +573,6 @@ function renderRProfit(){
   if(!isAllWarehousesMode()) rprofitFilter.wh=String(activeWarehouseId);
   const {f,range,bills,byDate,dateKeys,revenue,cost,profit,missingCount}=rprofitCollect();
   const periodOpts=[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
-  const thDate=d=>{const dt=new Date(d);return dt.getDate()+' '+['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][dt.getMonth()]+' '+dt.getFullYear();};
   const margin=revenue?profit/revenue*100:0;
   return `<div class="rpt">
     <div class="rpt-head"><h1>รายงานกำไร / ขาดทุน</h1><div class="rpt-head-actions"><button class="btn primary" id="rprofitPrintBtn">พิมพ์รายงาน</button></div></div>
@@ -622,14 +580,14 @@ function renderRProfit(){
       <div class="rpf-item"><select id="rprofit_period" class="rpt-select">${periodOpts.map(([v,l])=>`<option value="${v}" ${f.period===v?'selected':''}>${l}</option>`).join('')}</select></div>
       ${f.period==='range'?`<div class="rpf-item rpf-range">${dmyDateFieldHtml('rprofit_from',range.from)}<span style="color:var(--text-muted);">ถึง</span>${dmyDateFieldHtml('rprofit_to',range.to)}</div>`:''}
       ${f.period==='selectmonth'?`<div class="rpf-item"><input type="month" id="rprofit_month" value="${f.month||range.from.slice(0,7)}" class="rpt-select"></div>`:''}
-      ${f.period==='selectyear'?`<div class="rpf-item"><select id="rprofit_year" class="rpt-select">${(()=>{const cy=Number(TODAY_STR.slice(0,4));let o='';for(let yy=cy;yy>=cy-6;yy--)o+=`<option value="${yy}" ${String(f.year||cy)===String(yy)?'selected':''}>${yy}</option>`;return o;})()}</select></div>`:''}
+      ${f.period==='selectyear'?`<div class="rpf-item"><select id="rprofit_year" class="rpt-select">${reportYearOptions(f.year)}</select></div>`:''}
       ${isAllWarehousesMode()?`<div class="rpf-item"><select id="rprofit_wh" class="rpt-select"><option value="all" ${f.wh==='all'?'selected':''}>ทุกคลัง</option>${reportingWarehouses().map(w=>`<option value="${w.id}" ${String(f.wh)===String(w.id)?'selected':''}>${escapeHtml(w.name)}</option>`).join('')}</select></div>`:''}
       <div class="rpf-item"><select id="rprofit_pay" class="rpt-select"><option value="all">วิธีชำระทั้งหมด</option><option value="เงินสด" ${f.pay==='เงินสด'?'selected':''}>เงินสด</option><option value="โอนธนาคาร" ${f.pay==='โอนธนาคาร'?'selected':''}>โอนธนาคาร</option><option value="บัตรเครดิต" ${f.pay==='บัตรเครดิต'?'selected':''}>บัตรเครดิต</option></select></div>
       <button class="btn ghost rpf-apply" id="rprofitApplyBtn">แสดงผล</button>
     </div>
     <div class="rpt-body">
-      <div class="rpt-meta"><div class="rpt-biz">${escapeHtml(warehouseBusinessSettings().name||'')}</div><div class="rpt-meta-grid"><div class="rpt-meta-left"><div><span class="rpt-meta-k">ณ วันที่</span><span class="rpt-meta-v">${thDate(TODAY_STR)}</span></div><div><span class="rpt-meta-k">ช่วงเวลา</span><span class="rpt-meta-v">${thDate(range.from)} - ${thDate(range.to)}</span></div><div><span class="rpt-meta-k">จำนวนทั้งหมด</span><span class="rpt-meta-v">${bills.length} เอกสาร</span></div></div><div class="rpt-meta-right"><span class="rpt-meta-total-k">กำไร / ขาดทุนรวม</span><span class="rpt-meta-total-v" style="color:${profit>=0?'#2D7D3D':'var(--danger)'};">${profit<0?'-':''}${fmtMoney(Math.abs(profit))}</span></div></div></div>
-      ${dateKeys.length?dateKeys.map(d=>{const rows=byDate[d],dayProfit=rows.reduce((sum,r)=>sum+r.profit,0);return `<div class="rpt-day-group"><div class="profit-day-head"><span class="rpt-day-date">${thDate(d)}</span><span class="profit-day-total" style="color:${dayProfit>=0?'#2D7D3D':'var(--danger)'};">${dayProfit>0?'+ ':dayProfit<0?'- ':''}${fmtMoney(Math.abs(dayProfit))}</span></div>${rows.map(r=>`<div class="profit-bill">${profitItemsReportHtml(r.items,r)}</div>`).join('')}</div>`;}).join(''):`<div class="rpt-empty">${f.applied?'ไม่มีบิลที่มีข้อมูลต้นทุนในช่วงเวลาที่เลือก':'เลือกเงื่อนไขแล้วกด “แสดงผล” เพื่อดูรายงาน'}</div>`}
+      <div class="rpt-meta"><div class="rpt-biz">${escapeHtml(warehouseBusinessSettings().name||'')}</div><div class="rpt-meta-grid"><div class="rpt-meta-left"><div><span class="rpt-meta-k">ณ วันที่</span><span class="rpt-meta-v">${reportDateLabel(TODAY_STR)}</span></div><div><span class="rpt-meta-k">ช่วงเวลา</span><span class="rpt-meta-v">${reportDateLabel(range.from)} - ${reportDateLabel(range.to)}</span></div><div><span class="rpt-meta-k">จำนวนทั้งหมด</span><span class="rpt-meta-v">${bills.length} เอกสาร</span></div></div><div class="rpt-meta-right"><span class="rpt-meta-total-k">กำไร / ขาดทุนรวม</span><span class="rpt-meta-total-v" style="color:${profit>=0?'#2D7D3D':'var(--danger)'};">${profit<0?'-':''}${fmtMoney(Math.abs(profit))}</span></div></div></div>
+      ${dateKeys.length?dateKeys.map(d=>{const rows=byDate[d],dayProfit=rows.reduce((sum,r)=>sum+r.profit,0);return `<div class="rpt-day-group"><div class="profit-day-head"><span class="rpt-day-date">${reportDateLabel(d)}</span><span class="profit-day-total" style="color:${dayProfit>=0?'#2D7D3D':'var(--danger)'};">${dayProfit>0?'+ ':dayProfit<0?'- ':''}${fmtMoney(Math.abs(dayProfit))}</span></div>${rows.map(r=>`<div class="profit-bill">${profitItemsReportHtml(r.items,r)}</div>`).join('')}</div>`;}).join(''):`<div class="rpt-empty">${f.applied?'ไม่มีบิลที่มีข้อมูลต้นทุนในช่วงเวลาที่เลือก':'เลือกเงื่อนไขแล้วกด “แสดงผล” เพื่อดูรายงาน'}</div>`}
     </div>
   </div>`;
 }

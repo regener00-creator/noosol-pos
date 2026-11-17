@@ -27,7 +27,7 @@ const browserExecutable = [
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   assert.ok(browserExecutable, 'ไม่พบ Chrome หรือ Edge สำหรับทดสอบหน้าเว็บ');
   browser = await chromium.launch({headless:true,executablePath:browserExecutable});
-  const page = await browser.newPage({viewport:{width:1440,height:1000}});
+  const page = await browser.newPage({viewport:{width:1440,height:1000},timezoneId:'America/Los_Angeles'});
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.route('https://cdn.jsdelivr.net/npm/xlsx@*/**', route => route.fulfill({contentType:'text/javascript',body:'window.XLSX={};'}));
@@ -105,6 +105,56 @@ const browserExecutable = [
   assert.equal(await page.evaluate(()=>rproductFilter.products.length),4);
   await page.locator('#rpf_scope').selectOption('all');assert.deepEqual(await page.evaluate(()=>rproductFilter.products),[]);
   await page.screenshot({path:path.join(os.tmpdir(),'sapuri-product-sales-picker.png')});
+  await page.evaluate(()=>{
+    TODAY_STR='2027-01-01';
+    warehouses=[1,2].map(id=>({id,name:'ร้าน '+id,active:true}));
+    salesHistory=warehouses.flatMap(({id})=>{
+      const bill=(status,total,index)=>({id:status+'-'+index+'-'+total,warehouseId:id,status,total,date:TODAY_STR,
+        items:[{name:products[index].name,qty:1,price:total,unit:'กล่อง'}]});
+      const refund=bill('done',-20,0);
+      refund.customerReturn=true;
+      Object.assign(refund.items[0],{qty:-1,price:25,lineTotal:-20,reportLineTotal:-25});
+      return [bill('done',100*id,0),bill('done',30,1),bill('hold',50,0),bill('void',70,0),refund];
+    });
+  });
+  for(const store of [1,2]){
+    const result=await page.evaluate(store=>{
+      activeWarehouseId=store;
+      const filter={wh:String(store),applied:true,period:'today',scope:'all',products:[],pay:'all'};
+      Object.assign(rproductFilter,filter);
+      Object.assign(rbillFilter,filter);
+      rprofitFilter.period='today';
+      const bills=rbillCollect();
+      render();
+      const total=()=>document.querySelector('.rpt-meta-total-v').textContent;
+      const allProducts=total();
+      Object.assign(rproductFilter,{scope:'product',products:[products[0].name]});
+      render();
+      const selected=total(),meta=document.querySelector('.rpt-meta-left').innerText;
+      const doc=document.implementation.createHTMLDocument();
+      window.open=()=>({document:doc});printRProduct();
+      rproductFilter.period=rbillFilter.period='selectyear';
+      render();
+      const productYear=document.querySelector('#rpf_year').value;
+      const billView=document.createElement('div');
+      billView.innerHTML=renderRBill();
+      return {allProducts,selected,meta,printed:doc.querySelector('.meta').textContent,
+        bills:bills.grandVal,docCount:bills.docCount,profitDay:rprofitPeriodRange().from,productYear,billYear:billView.querySelector('#rbf_year').value};
+    },store);
+    assert.equal(result.allProducts,(100*store+30-25).toFixed(2));
+    assert.equal(result.selected,(100*store-25).toFixed(2));
+    assert.equal(result.bills,100*store+30-20);assert.equal(result.docCount,3);
+    assert.match(result.meta,/2 เอกสาร/);assert.match(result.meta,/1 ม.ค. 2027/);
+    assert.match(result.printed,/2 เอกสาร/);assert.ok(result.printed.includes(result.selected));
+    assert.equal(result.profitDay,'2027-01-01');
+    assert.equal(result.productYear,'2027');assert.equal(result.billYear,'2027');
+    const downloadStarted=page.waitForEvent('download');
+    await page.evaluate(()=>exportRProductExcel());
+    const download=await downloadStarted;
+    const lines=fs.readFileSync(await download.path(),'utf8').trim().split(/\r?\n/);
+    assert.equal(lines.length,2);
+    assert.equal(lines[1],`"2027-01-01","สินค้ารายงาน 1",0,"กล่อง",${result.selected}`);
+  }
   assert.deepEqual(errors,[]);
   console.log('Sales report picker: 3 columns, category/subcategory, selection, filters, clear, reopen and print passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});

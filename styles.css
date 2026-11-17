@@ -2190,7 +2190,8 @@
   .mobile-tools-head{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:2px 12px;margin-top:16px;}
   .mobile-tools-brand{display:flex;justify-self:end;max-width:100%;align-items:center;gap:10px;min-width:0;}
   .mobile-tools-brand>div:first-child{min-width:0;text-align:right;}
-  .mobile-warehouse-title{position:relative;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mobile-warehouse-title{position:relative;}
+  .mobile-warehouse-title>span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .mobile-warehouse-title:focus-within{outline:2px solid var(--primary);border-radius:4px;}
   .mobile-warehouse-select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;}
   .mobile-tools-logo{position:relative;width:42px;height:42px;border-radius:13px;background:#fff;overflow:hidden;flex-shrink:0;box-shadow:0 2px 8px #3228211F;}

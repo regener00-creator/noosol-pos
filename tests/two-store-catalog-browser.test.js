@@ -296,6 +296,11 @@ async function verifyLastInspectionUnits(page){
     const pid=store*100,own=store===1?'AP':'BP',foreign=store===1?'BP':'AP';
     await picker.selectOption(String(store));
     assert.match(await page.locator('.mobile-warehouse-title').innerText(),new RegExp('^SAPURI • คลัง'+(store===1?'พระยาสุเรนทร์':'พรชัย')));
+    await picker.focus();
+    assert.ok(await picker.evaluate(select=>{
+      const title=select.closest('.mobile-warehouse-title'),style=getComputedStyle(title);
+      return title.matches(':focus-within')&&style.overflow==='visible'&&parseFloat(style.outlineWidth)>=2;
+    }),'warehouse selection has a visible focus border in both stores');
     assert.deepEqual(await page.evaluate(()=>[activeWarehouseId,loggedInUser().id]),[store,'test-owner']);
     const list=page.locator('#mobileInspectionList');
     await list.click();

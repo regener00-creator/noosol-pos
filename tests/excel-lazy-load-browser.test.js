@@ -87,7 +87,7 @@ const executable=['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','
     showProductImportDialog=async(entries,skipped,{result=false}={})=>{
       if(result) return null;
       if(skipped.length) window.importAlerts.push(skipped.map(row=>row.detail).join('\n'));
-      return window.allowImport&&entries.length?{adjustStock:false}:null;
+      return window.allowImport&&entries.length?{adjustStock:false,crossPlan:{updates:[],skipped:[]}}:null;
     };
     window.runImport=()=>importProductsFromExcel({arrayBuffer:async()=>new ArrayBuffer(0)});
   },exportedRows);

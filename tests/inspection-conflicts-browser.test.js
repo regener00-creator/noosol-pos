@@ -105,12 +105,14 @@ async function run(){
     await edit(b,'remove'+wh);await remove(a,'remove'+wh);await toast(a,'ลบรายการตรวจสินค้าแล้ว');
     await save(b,'ลบแล้ว');await toast(b,'ไม่พบรายการนี้บนเซิร์ฟเวอร์');
     assert.equal(await b.locator('[data-open-inspection-list="remove'+wh+'"]').count(),0);
+    for(const page of [a,b]) await page.locator('#inspectionListStatusFilter').selectOption('completed');
     holdWrite=true;await remove(a,'done'+wh);
     assert.equal(await a.locator('[data-delete-inspection-list="done'+wh+'"]').count(),1);
     assert.ok(releaseWrite);holdWrite=false;releaseWrite();releaseWrite=null;
     await a.waitForFunction(id=>!inspectionLists.some(row=>row.id===id),'done'+wh);
     await remove(b,'done'+wh);await b.waitForFunction(id=>!inspectionLists.some(row=>row.id===id),'done'+wh);
     assert.match(await b.locator('#toast').innerText(),/ไม่พบรายการนี้บนเซิร์ฟเวอร์/);
+    for(const page of [a,b]) await page.locator('#inspectionListStatusFilter').selectOption('pending');
     for(const page of [a,b])assert.deepEqual(await page.evaluate(()=>[warehouseStock(1,1),warehouseStock(2,2),...inventoryLotRows.map(l=>l.quantity_base)]),[13,26,13,26]);
     console.log('Confirmed edit/edit, edit/delete, delete/edit and delete/delete in warehouse',wh);
   }
