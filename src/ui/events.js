@@ -1345,7 +1345,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     syncTaxInvoiceDraftFromDOM();
     const customer=customersList().find(c=>String(c.id)===String(taxCustomerSelect.value));
     if(customer) Object.assign(taxInvoiceDraft,{customerId:customer.id,name:customer.name||'',taxId:customer.taxId||'',address:customer.address||'',phone:customer.phone||'',email:customer.email||'',branch:'สำนักงานใหญ่',branchNo:''});
-    else Object.assign(taxInvoiceDraft,{customerId:'',name:'',taxId:'',address:'',phone:'',email:'',branch:'สำนักงานใหญ่',branchNo:''});
+    else if(currentTab==='cashbill'&&taxCustomerSelect.value==='walk-in'){
+      Object.assign(taxInvoiceDraft,{customerId:'walk-in',name:'ลูกค้าทั่วไป',taxId:'',address:'',phone:'',email:'',branch:'',branchNo:''});
+    }else Object.assign(taxInvoiceDraft,{customerId:'',name:'',taxId:'',address:'',phone:'',email:'',branch:'สำนักงานใหญ่',branchNo:''});
     if(currentTab==='quotation') Object.assign(taxInvoiceDraft,{entity:customer?.entity||'individual',line:customer?.line||'',contactTypes:customer?.types||['customer'],credit:Math.max(0,parseInt(customer?.creditDays)||0)});
     taxInvoiceAddingCustomer=false;
     render();

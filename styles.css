@@ -1736,6 +1736,7 @@
   .representative-history-name:hover{background:var(--primary-soft);text-decoration:underline;}
   .doc-summary-table tbody td:nth-child(1),.doc-summary-table tbody td:nth-child(2),.doc-summary-table tbody td:nth-child(3),.doc-summary-table tbody td:nth-child(5),.doc-summary-table tbody td:nth-child(6),.doc-summary-table tbody td:nth-child(7){text-align:center;}
   .doc-summary-table .history-actions{justify-content:center;}
+  .document-issue-actions{display:flex;gap:8px;flex-wrap:wrap;}
   .customer-items-summary-table{table-layout:fixed;}
   .customer-items-summary-table .doc-customer-cell{text-align:center!important;}
   .customer-items-summary-table .doc-items-cell{text-align:left!important;}
