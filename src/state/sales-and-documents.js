@@ -157,6 +157,9 @@ function grossAmountForVatMode(amount,vatMode,registered=true){
   const value=Math.max(0,Number(amount)||0);
   return registered&&normalizeProductVatMode(vatMode)==='excl'?value*(1+VAT_RATE):value;
 }
+function invoiceLineGross(item,vatMode,registered){
+  return item.lineTotalGross??grossAmountForVatMode(item.lineTotal??item.qty*item.price,vatMode,registered);
+}
 function calculateSaleTaxSummary(lines,requestedDiscount=0,registered=true){
   const prepared=(lines||[]).map(line=>{
     const amount=Math.max(0,Number(line?.amount)||0);

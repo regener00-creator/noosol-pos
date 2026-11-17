@@ -73,8 +73,10 @@ function openA4CashReceiptModal(saleId){
   };
   const issue=async()=>{
     const data=collect(); if(!data) return;
-    const old=sale.cashReceiptA4Meta||{};
-    const cashReceiptA4Meta={number:old.number||documentNumber,saleDate:sale.date,issuedAt:old.issuedAt||auditNow(),customer:data,printLog:Array.isArray(old.printLog)?old.printLog:[]};
+    const currentSale=salesHistory.find(row=>row.id===saleId&&documentInActiveStore(row));
+    if(!currentSale)return;
+    const old=currentSale.cashReceiptA4Meta||{};
+    const cashReceiptA4Meta={number:old.number||documentNumber,saleDate:sale.date,issuedAt:old.issuedAt||auditNow(),customer:data};
     const previewWindow=window.open('','_blank');
     if(!previewWindow){ showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร','danger-top'); return; }
     previewWindow.document.write('<!doctype html><html lang="th"><body style="font-family:sans-serif;padding:24px">กำลังเตรียมเอกสาร...</body></html>');
@@ -88,6 +90,11 @@ function openA4CashReceiptModal(saleId){
     }
   };
   overlay.querySelector('#a4CashReceiptForm').onsubmit=event=>{ event.preventDefault(); issue(); };
+}
+
+function recordIssuedDocumentPrint(saleId,key,number){
+  const printEvent={id:crypto.randomUUID(),at:auditNow(),mode:'print'};
+  return updateSaleDocumentMetadata(saleId,{[key]:{number,printEvent}});
 }
 
 function printA4CashReceipt(saleId,previewWindow=null,manualDoc=null){
@@ -105,15 +112,14 @@ function printA4CashReceipt(saleId,previewWindow=null,manualDoc=null){
   if(previewWindow) win.document.open();
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>พิมพ์ - ${escapeHtml(meta.number)}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;background:#f0f0f0;color:#151515;font-family:'Sarabun',sans-serif}.toolbar{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:#fff;box-shadow:0 2px 8px #0002}.toolbar button{border:0;border-radius:7px;background:#4F4038;color:#fff;padding:9px 18px;font:600 14px Sarabun}.page{position:relative;width:210mm;min-height:297mm;margin:12px auto;padding:16mm 18mm;background:#fff;box-shadow:0 4px 20px #0002;overflow:hidden}.header{display:grid;grid-template-columns:1.15fr 1fr;gap:14mm;margin-top:2mm}.business{font-size:11.5px;line-height:1.6}.business-name,.customer-name{color:#4F4038;font-weight:700}.business-name{font-size:13px}.title-block{text-align:right}.title{color:#4F4038;font-size:21px;font-weight:700;margin-bottom:2px}.not-tax{display:inline-block;margin-top:3px;padding:3px 8px;border:1px solid #efb5ae;border-radius:12px;color:#b42318;font-size:10.5px;font-weight:600}.docmeta{display:inline-grid;grid-template-columns:auto auto;gap:4px 14px;text-align:left;font-size:12px;margin-top:8px}.docmeta span:nth-child(odd){color:#4F4038;font-weight:600}.customer{margin:9mm 0 5mm;padding:4mm 5mm;border:1px solid #E8DEDA;border-radius:6px}.customer div{font-size:12px;line-height:1.5}.items{width:100%;border-collapse:collapse;font-size:12px;margin-top:2mm}.items th{background:#4F4038;color:#fff;padding:7px 8px;text-align:left;font-weight:600}.items th.num,.items td.num{text-align:right}.items td{padding:7px 8px;border-bottom:1px solid #e4e8ec}.promo{color:#4F4038;font-weight:600}.summary-row{display:grid;grid-template-columns:1fr 82mm;gap:10mm;margin-top:6mm}.words{align-self:end;padding:5px 8px;border-bottom:1px solid #E8DEDA;font-size:12px}.totals{font-size:12.5px}.totals div{display:flex;justify-content:space-between;padding:4px 0}.totals .grand{font-weight:700;border-top:1px solid #4F4038;margin-top:2px;padding-top:7px}.totals .grand span{color:#4F4038}.notice{margin-top:8mm;padding:7px 10px;background:#fff7ed;border:1px solid #fed7aa;border-radius:5px;color:#9a3412;font-size:11px;text-align:center}.signheads{position:absolute;left:18mm;right:18mm;bottom:30mm;display:flex;justify-content:space-between;font-size:12px}.signheads span{width:60mm;text-align:center}.signlines{position:absolute;left:18mm;right:18mm;bottom:14mm;display:flex;justify-content:space-between;text-align:center;font-size:11px}.signlines div{width:60mm;border-top:1px solid #888;padding-top:4px}@media print{body{background:#fff}.toolbar{display:none}.page{margin:0;box-shadow:none}}</style></head><body><div class="toolbar"><span>ตัวอย่างบิลเงินสด A4</span><button onclick="window.print()">พิมพ์</button></div><main class="page"><section class="header"><div class="business"><span class="business-name">${escapeHtml(businessName)}</span><br>${escapeHtml(business.address||'')}${(business.taxId||'')?`<br>เลขประจำตัวผู้เสียภาษี ${escapeHtml(business.taxId||'')}`:''}${businessPrimaryPhone(business)?`<br>เบอร์ติดต่อ ${escapeHtml(businessPrimaryPhone(business))}`:''}${business.line?`<br>LINE ${escapeHtml(business.line)}`:''}${(business.website||'')?`<br>${escapeHtml(business.website||'')}`:''}</div><div class="title-block"><div class="title">บิลเงินสด</div><div class="not-tax">เอกสารนี้ไม่ใช่ใบกำกับภาษี</div><div class="docmeta"><span>เลขที่</span><span>${escapeHtml(meta.number)}</span><span>วันที่</span><span>${fmtDateShort(meta.saleDate)}</span>${manualDoc?`<span>เครดิต (วัน)</span><span>${escapeHtml(sale.credit||0)}</span><span>ครบกำหนด</span><span>${fmtDateShort(sale.dueDate)}</span>`:`<span>เวลา</span><span>${escapeHtml((sale.time||'').slice(11)||'-')}</span><span>ผู้ขาย</span><span>${escapeHtml(sale.cashier||'-')}</span><span>ชำระโดย</span><span>${escapeHtml(sale.payMethod||'-')}</span>`}</div></div></section><section class="customer"><div class="customer-name">ผู้ซื้อ: ${escapeHtml(customer.name||'ลูกค้าทั่วไป')}${customerBranch?` (${customerBranch})`:''}</div><div>${escapeHtml(customer.address||'-')}</div><div>เลขประจำตัวผู้เสียภาษี ${escapeHtml(customer.taxId||'-')}${customer.phone?` · โทร ${escapeHtml(customer.phone)}`:''}</div></section><table class="items"><thead><tr><th>#</th><th>รายละเอียด</th><th class="num">จำนวน</th><th>หน่วย</th><th class="num">ราคาต่อหน่วย</th><th class="num">จำนวนเงิน</th></tr></thead><tbody>${rows}</tbody></table><section class="summary-row"><div class="words">(${bahtText(Number(sale.total)||0)})</div><div class="totals"><div><span>รวมรายการ</span><b>${fmtMoney(itemsTotal)} บาท</b></div>${sale.discount?`<div><span>ส่วนลด</span><b>- ${fmtMoney(sale.discount)} บาท</b></div>`:''}${sale.fee?`<div><span>ค่าธรรมเนียม</span><b>${fmtMoney(sale.fee)} บาท</b></div>`:''}<div class="grand"><span>จำนวนเงินรวมทั้งสิ้น</span><b>${fmtMoney(sale.total)} บาท</b></div></div></section>${manualDoc&&sale.note?`<p>หมายเหตุ ${escapeHtml(sale.note)}</p>`:''}<div class="notice">เอกสารนี้เป็นหลักฐานการรับชำระเงิน ไม่ใช่ใบกำกับภาษี และใช้เป็นหลักฐานภาษีซื้อไม่ได้</div><div class="signheads"><span>ในนาม ${escapeHtml(customer.name||'ลูกค้าทั่วไป')}</span><span>ในนาม ${escapeHtml(business.name||'')}</span></div><div class="signlines"><div>ผู้รับสินค้า / บริการ · วันที่</div><div>ผู้รับเงิน · วันที่</div></div></main></body></html>`);
   win.document.close();
-  standardizePrintPreview(win);
-  if(manualDoc){setTimeout(()=>win.print(),350);return;}
-  meta.printLog.push({at:auditNow(),mode:'print'});
-  sale.cashReceiptA4Meta=meta;
-  updateSaleDocumentMetadata(sale.id,{cashReceiptA4Meta:meta}).catch(error=>{
-    console.warn('log cash bill print',error);
-    showToast('พิมพ์เอกสารได้ แต่บันทึกประวัติการพิมพ์ไม่สำเร็จ','danger-top');
+  if(!manualDoc)attachDirectPrinter(win,()=>{
+    recordIssuedDocumentPrint(sale.id,'cashReceiptA4Meta',meta.number).catch(error=>{
+      console.warn('log cash bill print',error);
+      showToast('พิมพ์เอกสารได้ แต่บันทึกประวัติการพิมพ์ไม่สำเร็จ','danger-top');
+    });
   });
-  setTimeout(()=>win.print(),350);
+  standardizePrintPreview(win);
+  setTimeout(()=>{if(!win.closed)win.print();},350);
 }
 
 function openFullTaxInvoiceModal(saleId){
@@ -124,11 +130,11 @@ function openFullTaxInvoiceModal(saleId){
   const shell=document.createElement('div'); shell.className='modal'; shell.style.cssText='width:700px;max-height:92vh;'; overlay.appendChild(shell); document.body.appendChild(overlay);
   const close=()=>{ overlay.remove(); render(); };
   const paint=()=>{
-    const invoice=sale.fullTaxInvoice;
+    const invoice=salesHistory.find(row=>row.id===saleId)?.fullTaxInvoice;
     if(invoice){
       const customer=invoice.customer||{};
       shell.innerHTML=`<div class="modal-head"><h3>ใบกำกับภาษีเต็มรูปแบบ</h3><button class="modal-close">×</button></div>
-        <div class="issued-doc-card"><strong>${escapeHtml(invoice.number)}</strong><div>วันที่ขาย/วันที่เอกสาร: ${fmtDateShort(invoice.saleDate)}</div><div>ผู้ซื้อ: ${escapeHtml(customer.name||'-')}</div><div>เลขประจำตัวผู้เสียภาษี: ${escapeHtml(customer.taxId||'-')}</div><div>สถานประกอบการ: ${customer.branch==='branch'?`สาขา ${escapeHtml(customer.branchNo||'-')}`:'สำนักงานใหญ่'}</div><div>ออกเอกสารเมื่อ: ${auditDisplay(invoice.issuedAt)}</div><div>พิมพ์แล้ว: ${invoice.printLog?.length||0} ครั้ง</div></div>
+        <div class="issued-doc-card"><strong>${escapeHtml(invoice.number)}</strong><div>วันที่ขาย/วันที่เอกสาร: ${fmtDateShort(invoice.saleDate)}</div><div>ผู้ซื้อ: ${escapeHtml(customer.name||'-')}</div><div>เลขประจำตัวผู้เสียภาษี: ${escapeHtml(customer.taxId||'-')}</div><div>สถานประกอบการ: ${customer.branch==='branch'?`สาขา ${escapeHtml(customer.branchNo||'-')}`:'สำนักงานใหญ่'}</div><div>ออกเอกสารเมื่อ: ${auditDisplay(invoice.issuedAt)}</div><div>พิมพ์แล้ว: <span data-tax-print-count="${escapeHtml(invoice.number)}">${invoice.printLog?.length||0}</span> ครั้ง</div></div>
         <div class="modal-sub" style="padding-top:0;">ข้อมูลเอกสารถูกล็อกแล้ว การพิมพ์ครั้งถัดไปจะใช้เลขที่และวันที่เดิม</div>
         <div class="payment-actions"><button class="btn ghost" id="closeTaxInvoiceBtn">ปิด</button><button class="btn primary" id="printTaxInvoiceBtn">พิมพ์</button></div>`;
       shell.querySelector('.modal-close').onclick=close;
@@ -177,12 +183,12 @@ function printFullTaxInvoice(saleId){
   const standaloneDoc=standaloneTaxInvoices.find(item=>item.number===saleId);
   const sale=salesHistory.find(item=>item.id===saleId)||(standaloneDoc?{id:standaloneDoc.number,ref:'สร้างเอกสารใหม่',date:standaloneDoc.saleDate||standaloneDoc.date,time:(standaloneDoc.saleDate||standaloneDoc.date)+' 00:00',cashier:currentUserProfile.firstName+' '+currentUserProfile.lastName,payMethod:'-',items:standaloneDoc.items||[],discount:standaloneDoc.discount||0,total:standaloneDoc.total||0,warehouseId:standaloneDoc.warehouseId,businessSnapshot:standaloneDoc.businessSnapshot||null,fullTaxInvoice:standaloneDoc}:null);
   const invoice=sale?.fullTaxInvoice; if(!sale||!invoice) return;
-  invoice.printLog=invoice.printLog||[];
   const customer=invoice.customer||{};
   const tax=standaloneDoc?(standaloneDoc.taxSummary||calculateDocumentTaxSummary(sale.items||[],sale.discount||0,true,documentBusinessSettings(standaloneDoc))):saleTaxSummary(sale);
   const total=tax.total,beforeVat=tax.beforeVat,vat=tax.vat,business=documentBusinessSettings(sale);
-  const lineAmount=item=>item.lineTotalGross!==undefined?Number(item.lineTotalGross)||0:item.lineTotal!==undefined?Number(item.lineTotal)||0:(Number(item.qty)||0)*(Number(item.price)||0);
-  const rows=(sale.items||[]).map((item,index)=>`<tr><td>${index+1}</td><td>${escapeHtml(item.name)}${item.promoName?`<br><small class="tax-promo-tag">🏷 ${escapeHtml(item.promoName)}</small>`:''}${item.promoFreeQty?`<br><small class="tax-promo-tag">🎁 แถมฟรี ${item.promoFreeQty} ${escapeHtml(item.unit||'')}</small>`:''}</td><td class="num">${item.qty}</td><td>${escapeHtml(item.unit||'-')}</td><td class="num">${fmtMoney(grossAmountForVatMode(item.price,item.vatMode,true))}</td><td class="num">${fmtMoney(lineAmount(item))}</td></tr>`).join('')+(sale.fee?`<tr><td>${(sale.items||[]).length+1}</td><td>ค่าธรรมเนียมบัตร</td><td class="num">1</td><td>รายการ</td><td class="num">${fmtMoney(sale.fee)}</td><td class="num">${fmtMoney(sale.fee)}</td></tr>`:'');
+  const vatMode=item=>standaloneDoc?documentItemVatMode(item,true,business):item.vatMode;
+  const lineAmount=item=>invoiceLineGross(item,vatMode(item),true);
+  const rows=(sale.items||[]).map((item,index)=>`<tr><td>${index+1}</td><td>${escapeHtml(item.name)}${item.promoName?`<br><small class="tax-promo-tag">🏷 ${escapeHtml(item.promoName)}</small>`:''}${item.promoFreeQty?`<br><small class="tax-promo-tag">🎁 แถมฟรี ${item.promoFreeQty} ${escapeHtml(item.unit||'')}</small>`:''}</td><td class="num">${item.qty}</td><td>${escapeHtml(item.unit||'-')}</td><td class="num">${fmtMoney(grossAmountForVatMode(item.price,vatMode(item),true))}</td><td class="num">${fmtMoney(lineAmount(item))}</td></tr>`).join('')+(sale.fee?`<tr><td>${(sale.items||[]).length+1}</td><td>ค่าธรรมเนียมบัตร</td><td class="num">1</td><td>รายการ</td><td class="num">${fmtMoney(sale.fee)}</td><td class="num">${fmtMoney(sale.fee)}</td></tr>`:'');
   const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร'); return; }
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>พิมพ์ - ${escapeHtml(invoice.number)}</title><link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet"><style>@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;background:#F0F0F0;color:#151515;font-family:'Sarabun',sans-serif}.toolbar{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:10px 18px;background:#fff;box-shadow:0 2px 8px #0002}.toolbar button{border:0;border-radius:7px;background:#4F4038;color:#fff;padding:9px 18px;font:600 14px Sarabun}.page{position:relative;width:210mm;min-height:297mm;margin:12px auto;padding:16mm 18mm;background:#fff;box-shadow:0 4px 20px #0002;overflow:hidden}.header{display:grid;grid-template-columns:1.15fr 1fr;gap:14mm;margin-top:2mm}.business{font-size:11.5px;line-height:1.6}.business-name,.customer-name{color:#4F4038;font-weight:700}.business-name{font-size:13px}.title-block{text-align:right}.title{color:#4F4038;font-size:22px;font-weight:700;margin-bottom:2px}.docmeta{display:inline-grid;grid-template-columns:auto auto;gap:4px 14px;text-align:left;font-size:12px;margin-top:4px}.docmeta span:nth-child(odd){color:#4F4038;font-weight:600}.customer{margin:9mm 0 5mm}.customer div{font-size:12px;line-height:1.5}.items{width:100%;border-collapse:collapse;font-size:12px;margin-top:2mm}.items th{background:#4F4038;color:#fff;padding:7px 8px;text-align:left;font-weight:600}.items th.num,.items td.num{text-align:right}.items td{padding:7px 8px;border-bottom:1px solid #e4e8ec}.tax-promo-tag{color:#4F4038;font-weight:600;}.totals{width:82mm;margin:6mm 0 0 auto;font-size:12.5px}.totals div{display:flex;justify-content:space-between;padding:4px 0}.totals .lbl{color:#151515}.totals .grand{font-weight:700;border-top:1px solid #4F4038;margin-top:2px;padding-top:6px}.totals .grand span{color:#4F4038}.signheads{position:absolute;left:18mm;right:18mm;bottom:30mm;display:flex;justify-content:space-between;font-size:12px}.signheads span{width:60mm;text-align:center}.signheads span:last-child{text-align:center}.signlines{position:absolute;left:18mm;right:18mm;bottom:14mm;display:flex;justify-content:space-between;text-align:center;font-size:11px}.signlines div{width:60mm;border-top:1px solid #888;padding-top:4px}@media print{body{background:#fff}.toolbar{display:none}.page{margin:0;box-shadow:none}}</style></head><body><div class="toolbar"><span>ตัวอย่างเอกสาร A4</span><button onclick="window.print()">พิมพ์</button></div><main class="page"><section class="header"><div class="business"><span class="business-name">${escapeHtml(businessDocumentName(business,'',{registered:true}))}</span><br>${escapeHtml(business.address||'')}<br>เลขประจำตัวผู้เสียภาษี ${escapeHtml(business.taxId||'')}${businessPrimaryPhone(business)?`<br>เบอร์ติดต่อ ${escapeHtml(businessPrimaryPhone(business))}`:''}${(business.website||'')?`<br>${escapeHtml(business.website||'')}`:''}</div><div class="title-block"><div class="title">ใบกำกับภาษี</div><div class="docmeta"><span>เลขที่</span><span>${escapeHtml(invoice.number)}</span><span>วันที่</span><span>${fmtDateShort(invoice.saleDate)}</span><span>ครบกำหนด</span><span>${fmtDateShort(invoice.saleDate)}</span><span>ผู้ขาย</span><span>${escapeHtml((currentUserProfile.firstName+' '+currentUserProfile.lastName).trim()||sale.cashier||'-')}</span></div></div></section><section class="customer"><div class="customer-name">${escapeHtml(customer.name||'-')} (${customer.branch==='branch'?`สาขา ${escapeHtml(customer.branchNo||'-')}`:'สำนักงานใหญ่'})</div><div>${escapeHtml(customer.address||'-')}</div><div>เลขประจำตัวผู้เสียภาษี ${escapeHtml(customer.taxId||'-')}${customer.phone?` · โทร ${escapeHtml(customer.phone)}`:''}</div></section><table class="items"><thead><tr><th>#</th><th>รายละเอียด</th><th class="num">จำนวน</th><th>หน่วย</th><th class="num">ราคาต่อหน่วย</th><th class="num">ยอดรวม</th></tr></thead><tbody>${rows}</tbody></table><section class="totals"><div><span class="lbl">รวมเป็นเงิน</span><b>${fmtMoney(beforeVat+vat)} บาท</b></div><div><span class="lbl">ภาษีมูลค่าเพิ่ม 7%</span><b>${fmtMoney(vat)} บาท</b></div><div><span class="lbl">ราคาไม่รวมภาษีมูลค่าเพิ่ม</span><b>${fmtMoney(beforeVat)} บาท</b></div><div class="grand"><span>จำนวนเงินรวมทั้งสิ้น</span><b>${fmtMoney(total)} บาท</b></div></section><div class="signheads"><span>ในนาม ${escapeHtml(customer.name||'-')}</span><span>ในนาม ${escapeHtml(business.name||'')}</span></div><div class="signlines"><div>ผู้รับสินค้า / บริการ · วันที่</div><div>ผู้อนุมัติ · วันที่</div></div></main></body></html>`);
   win.document.close();
@@ -193,16 +199,28 @@ function printFullTaxInvoice(saleId){
   const toolbar=win.document.querySelector('.toolbar');
   toolbar.innerHTML='<div class="preview-actions"><button type="button" class="close-preview" id="closeTaxPreview">ย้อนกลับ</button><button type="button" id="confirmTaxPrint">พิมพ์</button></div>';
   win.document.getElementById('closeTaxPreview').onclick=()=>win.close();
-  attachDirectPrinter(win);
-  win.document.getElementById('confirmTaxPrint').onclick=()=>win.print();
-  invoice.printLog.push({at:auditNow(),mode:'print'});
-  if(standaloneDoc) persistStandaloneTaxInvoices();
-  else{
-    updateSaleDocumentMetadata(sale.id,{fullTaxInvoice:invoice}).catch(error=>{
+  attachDirectPrinter(win,async()=>{
+    try{
+      let count;
+      if(standaloneDoc){
+        const current=standaloneTaxInvoices.find(doc=>doc.number===invoice.number&&documentInActiveStore(doc));
+        if(!current)throw new Error('ไม่พบใบกำกับภาษีในร้านที่เลือก');
+        (current.printLog||=[]).push({at:auditNow(),mode:'print'});
+        persistStandaloneTaxInvoices();
+        count=current.printLog.length;
+      }else{
+        const updated=await recordIssuedDocumentPrint(sale.id,'fullTaxInvoice',invoice.number);
+        count=updated.fullTaxInvoice.printLog.length;
+      }
+      for(const el of document.querySelectorAll('[data-tax-print-count]')){
+        if(el.dataset.taxPrintCount===invoice.number)el.textContent=count;
+      }
+    }catch(error){
       console.warn('log tax invoice print',error);
       showToast('พิมพ์เอกสารได้ แต่บันทึกประวัติการพิมพ์ไม่สำเร็จ','danger-top');
-    });
-  }
+    }
+  });
+  win.document.getElementById('confirmTaxPrint').onclick=()=>win.print();
 }
 
 function printQuotation(quotationIds){

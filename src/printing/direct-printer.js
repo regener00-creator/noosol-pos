@@ -74,12 +74,16 @@ function directPrinterNotice(win,message,error=false){
   notice.textContent=message;
   notice.style.cssText='position:sticky;top:60px;z-index:100;padding:12px 18px;font:14px Tahoma,sans-serif;background:'+(error?'#fff0ee;color:#a12315':'#eaf7ee;color:#21643a');
 }
-function attachDirectPrinter(win){
+function attachDirectPrinter(win,onPrint){
   if(!win?.document||win.__sapuriDirectPrintAttached) return;
   win.__sapuriDirectPrintAttached=true;
   const browserPrint=win.print.bind(win);
   win.print=()=>{
-    if(!directPrinterEnabled()) return browserPrint();
+    if(!directPrinterEnabled()){
+      const result=browserPrint();
+      onPrint?.();
+      return result;
+    }
     if(win.__sapuriPrintBusy) return win.__sapuriPrintBusy;
     if(win.__sapuriPrintNeedsReview){
       if(!win.confirm('งานก่อนหน้ายังยืนยันไม่ได้ว่ากระดาษออกหรือไม่ กรุณาตรวจคิวเครื่องพิมพ์ก่อน ต้องการส่งเป็นงานใหม่หรือไม่?')) return;
@@ -106,6 +110,7 @@ function attachDirectPrinter(win){
           throw new Error(result.message||'ยังไม่ทราบผลส่งงาน กรุณาตรวจคิวก่อนสั่งใหม่');
         }
         directPrinterNotice(win,result.message);win.__sapuriPrintJob=null;
+        onPrint?.();
         // Existing receipt auto-close handlers only run after confirmed dispatch.
         win.dispatchEvent(new win.Event('afterprint'));
       }catch(error){if(!win.closed) directPrinterNotice(win,error.message,true);}

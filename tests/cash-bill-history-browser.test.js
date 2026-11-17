@@ -152,6 +152,72 @@ let browser;
       await page.evaluate(()=>{delete salesHistory[0].fullTaxInvoice;sb.rpc=window.originalBillRpc;});
     }
   }
+  const printState=await page.evaluate(()=>({sales:salesHistory,warehouses,tab:currentTab}));
+  await page.evaluate(()=>{
+    const open=window.open.bind(window);
+    window.nativePopupOpen=open;
+    window.open=(...args)=>{const win=open(...args);win.print=()=>{};return win;};
+    warehouses=[{id:1,name:'A'},{id:2,name:'B'}];
+    window.persistTaxDocs=persistStandaloneTaxInvoices;
+    persistStandaloneTaxInvoices=()=>{};
+    sb.rpc=async(name,args)=>{
+      if(name!=='update_sale_document_metadata')return {data:null};
+      const sale=salesHistory.find(s=>s.id===args.p_sale_id&&documentInActiveStore(s));
+      const [key,payload]=Object.entries(args.p_metadata)[0],saved=sale[key];
+      const log=[...(saved?.printLog||[])];
+      if(payload.printEvent)log.push(payload.printEvent);
+      return {data:{[key]:{...(payload.printEvent?saved:payload),printLog:log}}};
+    };
+  });
+  for(const store of [1,2]){
+    await page.evaluate(w=>{
+      activeWarehouseId=w;storeViewGeneration++;
+      const items=[{name:'สินค้า VAT',qty:2,unit:'ชิ้น',price:100,vatMode:'excl'}];
+      const invoice={number:'TAX-'+w,date:TODAY_STR,warehouseId:w,customer:{name:'QA'},items,total:214,printLog:[]};
+      standaloneTaxInvoices=[invoice];
+      salesHistory=[{id:'sale-'+w,warehouseId:w,date:TODAY_STR,status:'done',vatRegistered:true,total:214,items,
+        fullTaxInvoice:{...invoice,number:'TAX-POS-'+w,printLog:[]},
+        cashReceiptA4Meta:{number:'CB-'+w,customer:{name:'QA'},printLog:[]}}];
+      businessSettings={...businessSettings,vat:VAT_REGISTERED_LABEL,vatRegistrationDate:''};
+      currentTab='taxinvoice';editingTaxInvoiceSaleId=null;render();
+    },store);
+    for(const [i,id] of ['TAX-'+store,'sale-'+store].entries()){
+      const openPreview=async()=>{
+        const popup=page.waitForEvent('popup');
+        await page.locator('[data-print-tax="'+id+'"]').click();
+        return popup;
+      };
+      const getCount=()=>page.evaluate(index=>(index?salesHistory[0].fullTaxInvoice:standaloneTaxInvoices[0]).printLog.length,i);
+      const closed=await openPreview();
+      await closed.locator('#closeTaxPreview').click();
+      assert.equal(await getCount(),0);
+      const preview=await openPreview();
+      const cells=await preview.locator('.items tbody tr').first().locator('td').allTextContents();
+      assert.deepEqual(cells.slice(-2),['107.00','214.00']);
+      for(const count of [1,2]){
+        await preview.locator('#confirmTaxPrint').click();
+        assert.equal(await getCount(),count);
+      }
+      await preview.close();
+    }
+    await page.evaluate(()=>{currentTab='cashbill';render();});
+    await page.locator('[data-cashbill-edit="sale-'+store+'"]').click();
+    for(const count of [1,2]){
+      const popup=page.waitForEvent('popup');
+      await page.locator('#a4CashReceiptForm button[type=submit]').click();
+      const preview=await popup;
+      await checkDocumentPreview(preview,'CB-'+store);
+      await page.waitForFunction(n=>salesHistory[0].cashReceiptA4Meta.printLog.length===n,count);
+      await preview.close();
+    }
+    await page.locator('#closeA4CashReceiptBtn').click();
+  }
+  await page.evaluate(state=>{
+    window.open=window.nativePopupOpen;
+    sb.rpc=window.originalBillRpc;
+    persistStandaloneTaxInvoices=window.persistTaxDocs;
+    activeWarehouseId=1;storeViewGeneration++;warehouses=state.warehouses;salesHistory=state.sales;
+  },printState);
   await page.evaluate(()=>{
     standaloneTaxInvoices=[];
     currentTab='cashbill';
