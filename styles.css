@@ -1347,6 +1347,9 @@
   .rpt-meta-k{color:var(--text);min-width:96px;display:inline-block;}
   .rpt-meta-v{color:var(--text);}
   .rpt-meta-right{text-align:right;display:flex;flex-direction:column;gap:4px;}
+  .product-sales-summary{margin-left:auto;width:max-content;max-width:100%;font-variant-numeric:tabular-nums}
+  .product-sales-summary>div{display:flex;justify-content:space-between;align-items:baseline;gap:24px}
+  .product-sales-summary>div:last-child{font-weight:700;border-top:1px solid var(--border)}
   .profit-bill{border-bottom:1px solid var(--border);padding:13px 8px 16px;}
   .profit-bill-head{padding:0 8px 10px;font-size:13px;}
   .profit-bill-total{font-weight:700;text-align:right;}

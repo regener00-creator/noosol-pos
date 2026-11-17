@@ -80,7 +80,7 @@ const browserExecutable = [
   assert.equal(await page.locator('.rpt-table tbody tr').count(),0,'report waits for Apply');
   await page.locator('#rpApplyBtn').click();
   assert.equal(await page.locator('.rpt-table tbody tr').count(),2);
-  assert.equal(await page.locator('.rpt-meta-total-v').textContent(),'70.00');
+  assert.equal(await page.locator('.rpt-meta .rpt-meta-total-v').textContent(),'70.00');
   const printed=await page.evaluate(()=>{
     const doc=document.implementation.createHTMLDocument('print test');window.open=()=>({document:doc});standardizePrintPreview=()=>{};
     printRProduct();return Array.from(doc.querySelectorAll('.pd-name'),el=>el.textContent);
@@ -114,7 +114,14 @@ const browserExecutable = [
       const refund=bill('done',-20,0);
       refund.customerReturn=true;
       Object.assign(refund.items[0],{qty:-1,price:25,lineTotal:-20,reportLineTotal:-25});
-      return [bill('done',100*id,0),bill('done',30,1),bill('hold',50,0),bill('void',70,0),refund];
+      const withFee=bill('done',100*id+29.40,0);
+      withFee.fee=29.40;
+      withFee.items[0].price=60*id;
+      withFee.items.push({name:products[1].name,qty:1,price:40*id,unit:'กล่อง'});
+      const discounted=bill('done',60,1);
+      discounted.items[0].price=100;
+      discounted.discount=40;
+      return [withFee,discounted,bill('hold',50,0),bill('void',70,0),refund];
     });
   });
   for(const store of [1,2]){
@@ -128,6 +135,7 @@ const browserExecutable = [
       render();
       const total=()=>document.querySelector('.rpt-meta-total-v').textContent;
       const allProducts=total();
+      const amounts=Array.from(document.querySelectorAll('.rpt-meta .product-sales-summary>div'),row=>Array.from(row.children,span=>span.textContent));
       Object.assign(rproductFilter,{scope:'product',products:[products[0].name]});
       render();
       const selected=total(),meta=document.querySelector('.rpt-meta-left').innerText;
@@ -138,12 +146,14 @@ const browserExecutable = [
       const productYear=document.querySelector('#rpf_year').value;
       const billView=document.createElement('div');
       billView.innerHTML=renderRBill();
-      return {allProducts,selected,meta,printed:doc.querySelector('.meta').textContent,
+      return {allProducts,amounts,selected,meta,printed:doc.querySelector('.meta').textContent,
         bills:bills.grandVal,docCount:bills.docCount,profitDay:rprofitPeriodRange().from,productYear,billYear:billView.querySelector('#rbf_year').value};
     },store);
-    assert.equal(result.allProducts,(100*store+30-25).toFixed(2));
-    assert.equal(result.selected,(100*store-25).toFixed(2));
-    assert.equal(result.bills,100*store+30-20);assert.equal(result.docCount,3);
+    assert.equal(result.allProducts,result.bills.toFixed(2));
+    assert.equal(result.allProducts,(100*store+69.40).toFixed(2));
+    assert.deepEqual(result.amounts,[['ยอดสินค้า',(100*store+75).toFixed(2)],['ส่วนปรับตามยอดคืนจริง','5.00'],['ค่าธรรมเนียม','29.40'],['ส่วนลดท้ายบิล','-40.00'],['ยอดสุทธิ',result.allProducts]]);
+    assert.equal(result.selected,(60*store-20+17.64).toFixed(2));
+    assert.equal(result.docCount,3);
     assert.match(result.meta,/2 เอกสาร/);assert.match(result.meta,/1 ม.ค. 2027/);
     assert.match(result.printed,/2 เอกสาร/);assert.ok(result.printed.includes(result.selected));
     assert.equal(result.profitDay,'2027-01-01');
@@ -152,8 +162,17 @@ const browserExecutable = [
     await page.evaluate(()=>exportRProductExcel());
     const download=await downloadStarted;
     const lines=fs.readFileSync(await download.path(),'utf8').trim().split(/\r?\n/);
-    assert.equal(lines.length,2);
-    assert.equal(lines[1],`"2027-01-01","สินค้ารายงาน 1",0,"กล่อง",${result.selected}`);
+    assert.equal(lines[1],`"2027-01-01","สินค้ารายงาน 1",0,"กล่อง",${(60*store-25).toFixed(2)}`);
+    assert.ok(lines.includes('"2027-01-01","ค่าธรรมเนียม",17.64'));
+    assert.equal(lines.at(-1),`"รวมทั้งช่วง","ยอดสุทธิ",${result.selected}`);
+  }
+  const split=await page.evaluate(()=>{
+    const items=products.slice(0,3).map(product=>({name:product.name,qty:1,price:1,vatMode:'excl',lineTotalGross:1.07}));
+    const bill={date:TODAY_STR,warehouseId:2,items,fee:0.01,discount:0.02,loyaltyRedeemed:0.01,total:3.20};
+    return items.map(item=>collectProductSales([bill],{wh:'2',scope:'product',products:[item.name]}).totals);
+  });
+  for(const [key,expected] of Object.entries({items:300,vat:21,fee:1,discount:-1,points:-1,other:0,net:320})){
+    assert.equal(split.reduce((sum,part)=>sum+part[key],0),expected,'disjoint product selections reconcile '+key+' to the satang');
   }
   assert.deepEqual(errors,[]);
   console.log('Sales report picker: 3 columns, category/subcategory, selection, filters, clear, reopen and print passed');
