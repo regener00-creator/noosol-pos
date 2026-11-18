@@ -1,0 +1,84 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const http=require('node:http');
+const {chromium}=require('playwright');
+const {installIsolatedBrowser,waitForIsolatedBootstrap}=require('./isolated-browser');
+const root=path.join(__dirname,'..');
+const screenshots=path.join(root,'outputs','audit-date-filters');
+const server=http.createServer((req,res)=>{
+  const pathname=new URL(req.url,'http://localhost').pathname;
+  const file=path.resolve(root,'.'+(pathname==='/'?'/index.html':pathname));
+  if(!file.startsWith(root+path.sep)||!fs.existsSync(file)){res.writeHead(404).end();return;}
+  res.setHeader('Content-Type',({'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css; charset=utf-8'})[path.extname(file)]||'application/octet-stream');
+  fs.createReadStream(file).pipe(res);
+});
+let browser;
+(async()=>{
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+  const executablePath=[process.env.PEPOS_BROWSER_EXECUTABLE,'C:/Program Files/Google/Chrome/Application/chrome.exe','C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe'].find(p=>p&&fs.existsSync(p))||chromium.executablePath();
+  browser=await chromium.launch({headless:true,executablePath});
+  const page=await browser.newPage({viewport:{width:1440,height:1000}});
+  const errors=[];page.on('pageerror',error=>errors.push(error.message));
+  await installIsolatedBrowser(page);
+  await page.goto('http://127.0.0.1:'+server.address().port,{waitUntil:'domcontentloaded'});
+  await waitForIsolatedBootstrap(page);
+  await page.evaluate(async()=>{
+    await ensurePageCodeLoaded('auditlog');
+    renderLoginState=()=>true;renderSidebar=()=>{};
+    ensureOnDemandDataForTab=()=>({status:'ready'});
+    document.querySelectorAll('.login-screen').forEach(el=>el.style.display='none');
+    currentProfile={id:'test',owner:true,level:1};
+    warehouses=[{id:1,name:'คลังทดสอบ'}];activeWarehouseId=1;
+    window.auditCalls=[];
+    sb.rpc=async(name,args)=>{
+      if(name!=='get_central_audit_log_page') throw new Error('Unexpected RPC '+name);
+      auditCalls.push(structuredClone(args));
+      return {data:{rows:[{event_key:'audit:1',occurred_at:'2026-11-18T06:00:00Z',actor_name:'เจ้าของร้าน',action:'update',entity_type:'products',entity_id:'1',warehouse_id:1,changed_fields:['price']}],totalCount:45,hasNewer:args.p_direction!=='first',hasOlder:args.p_direction!=='last'}};
+    };
+    currentTab='auditlog';auditLogLoaded=false;render();
+  });
+  await page.waitForFunction(()=>auditLogLoaded&&!auditLogLoading);
+  const lastCall=()=>page.evaluate(()=>auditCalls.at(-1));
+  assert.equal((await lastCall()).p_date_from,null);
+  assert.deepEqual(await page.evaluate(()=>auditLogDateRange('today',new Date('2026-12-31T17:00:00Z'))),{dateFrom:'2027-01-01',dateTo:'2027-01-01'});
+  assert.deepEqual(await page.evaluate(()=>auditLogDateRange('yesterday',new Date('2028-03-01T01:00:00Z'))),{dateFrom:'2028-02-29',dateTo:'2028-02-29'});
+  for(const preset of ['today','yesterday','month']){
+    await page.locator('[data-audit-log-date="'+preset+'"]').click();
+    await page.waitForFunction(()=>!auditLogLoading);
+    const expected=await page.evaluate(p=>auditLogDateRange(p),preset);
+    assert.equal((await lastCall()).p_date_from,expected.dateFrom);
+    assert.equal((await lastCall()).p_date_to,expected.dateTo);
+    assert.equal(await page.locator('[data-audit-log-date="'+preset+'"]').getAttribute('aria-pressed'),'true');
+  }
+  await page.locator('[data-audit-log-date="custom"]').click();
+  await page.locator('#auditLogDateFrom').fill('01/10/2026');
+  await page.locator('#auditLogDateTo').fill('31/10/2026');
+  await page.locator('#auditLogDateForm button[type="submit"]').click();
+  await page.waitForFunction(()=>!auditLogLoading);
+  assert.equal((await lastCall()).p_date_from,'2026-10-01');
+  assert.equal((await lastCall()).p_date_to,'2026-10-31');
+  await page.locator('#auditLogAction').selectOption('update');
+  await page.locator('[data-audit-log-page="next"]').click();
+  assert.equal((await lastCall()).p_direction,'next');
+  assert.equal((await lastCall()).p_date_from,'2026-10-01');
+  assert.equal((await lastCall()).p_action,'update');
+  const callsBeforeInvalid=await page.evaluate(()=>auditCalls.length);
+  await page.locator('#auditLogDateFrom').fill('01/11/2026');
+  await page.locator('#auditLogDateForm button[type="submit"]').click();
+  assert.equal(await page.evaluate(()=>auditCalls.length),callsBeforeInvalid);
+  assert.match(await page.locator('#auditLogDateTo').evaluate(el=>el.validationMessage),/วันสิ้นสุด/);
+  await page.locator('#auditLogDateFrom').fill('01/10/2026');
+  fs.mkdirSync(screenshots,{recursive:true});
+  await page.screenshot({path:path.join(screenshots,'desktop.png'),fullPage:true});
+  await page.locator('#auditLogClearFilters').click();
+  assert.equal((await lastCall()).p_date_from,null);
+  assert.equal((await lastCall()).p_action,'all');
+  assert.equal(await page.locator('#auditLogDateForm').count(),0);
+  await page.locator('[data-audit-log-date="custom"]').click();
+  await page.setViewportSize({width:390,height:844});
+  assert.equal(await page.locator('.audit-log-date-toolbar').evaluate(el=>el.scrollWidth<=el.clientWidth),true);
+  await page.screenshot({path:path.join(screenshots,'mobile.png'),fullPage:true});
+  assert.deepEqual(errors,[]);
+  console.log('Audit browser: quick dates, custom range, invalid range, combined filters, pagination, reset and mobile layout passed');
+})().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();await new Promise(resolve=>server.close(resolve));});

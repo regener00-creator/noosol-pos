@@ -280,16 +280,36 @@ function systemUserLevelLabel(level){
 
 const AUDIT_LOG_ENTITY_TYPES=['products','product','warehouses','settings','contacts','sales_representatives','notes','promotions','sales','cash_shifts','quotations','invoices_ar','credit_notes','purchase_orders','goods_receipts','product_exchanges','purchase_orders_full','product_returns','transfers','standalone_tax_invoices','inspection_lists','profiles','profile_warehouse_access','inventory_count','inventory_lot','store_reset'];
 const AUDIT_LOG_ACTION_TYPES=['insert','update','delete','stock_adjusted','unit_changed','lot_expiry_changed','lot_reallocated','store_reset'];
+function auditLogDateRange(preset,now=new Date()){
+  const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now);
+  const part=type=>parts.find(item=>item.type===type).value;
+  const today=`${part('year')}-${part('month')}-${part('day')}`;
+  if(preset==='today') return {dateFrom:today,dateTo:today};
+  if(preset==='yesterday'){
+    const date=new Date(today+'T00:00:00Z');date.setUTCDate(date.getUTCDate()-1);
+    return {dateFrom:date.toISOString().slice(0,10),dateTo:date.toISOString().slice(0,10)};
+  }
+  if(preset==='month') return {dateFrom:today.slice(0,7)+'-01',dateTo:today};
+  return {dateFrom:'',dateTo:''};
+}
+function reloadAuditLogFilters(){
+  clearTimeout(auditLogSearchTimer);
+  auditLogLoaded=false; auditLogPage=1;
+  loadAuditLogsFromSupabase(true,'first'); render();
+}
 async function loadAuditLogsFromSupabase(force=false,direction='first'){
   if(loggedInUser()?.owner!==true||(!force&&(auditLogLoading||auditLogLoaded))) return;
   const pageDirection=['first','previous','next','last'].includes(direction)?direction:'first';
   const cursorRow=pageDirection==='next'?auditLogRows[auditLogRows.length-1]:pageDirection==='previous'?auditLogRows[0]:null;
   if((pageDirection==='next'||pageDirection==='previous')&&!cursorRow) return;
   const requestToken=++auditLogRequestToken;
+  if(auditLogFilter.datePreset!=='custom') Object.assign(auditLogFilter,auditLogDateRange(auditLogFilter.datePreset));
   const filterSnapshot={
     search:String(auditLogFilter.search||'').trim(),
     entity:auditLogFilter.entity||'all',
-    action:auditLogFilter.action||'all'
+    action:auditLogFilter.action||'all',
+    dateFrom:auditLogFilter.dateFrom||null,
+    dateTo:auditLogFilter.dateTo||null
   };
   const includeTotal=pageDirection==='first'||!auditLogLoaded;
   auditLogLoading=true;
@@ -297,6 +317,8 @@ async function loadAuditLogsFromSupabase(force=false,direction='first'){
   try{
     const {data,error}=await sb.rpc('get_central_audit_log_page',{
       p_warehouse_id:activeWarehouseId,
+      p_date_from:filterSnapshot.dateFrom,
+      p_date_to:filterSnapshot.dateTo,
       p_limit:AUDIT_LOG_PAGE_SIZE,
       p_cursor_time:cursorRow?.occurred_at||null,
       p_cursor_key:cursorRow?.event_key||null,
@@ -376,7 +398,7 @@ function renderAuditLog(){
   const actionTypes=[...new Set([...AUDIT_LOG_ACTION_TYPES,auditLogFilter.action==='all'?null:auditLogFilter.action].filter(Boolean))];
   const entityOptions=entityTypes.map(value=>`<option value="${escapeHtml(value)}" ${auditLogFilter.entity===value?'selected':''}>${escapeHtml(auditEntityLabel(value))}</option>`).join('');
   const actionOptions=actionTypes.map(value=>`<option value="${escapeHtml(value)}" ${auditLogFilter.action===value?'selected':''}>${escapeHtml(auditActionLabel(value))}</option>`).join('');
-  const hasActiveFilter=!!auditLogFilter.search||auditLogFilter.entity!=='all'||auditLogFilter.action!=='all';
+  const hasActiveFilter=!!auditLogFilter.search||auditLogFilter.entity!=='all'||auditLogFilter.action!=='all'||auditLogFilter.datePreset!=='all';
   const rows=pageRows.map(row=>{
     const key=String(row.event_key||'');
     const expanded=expandedAuditLogRows.has(key);
@@ -385,6 +407,13 @@ function renderAuditLog(){
     return `<tr><td>${escapeHtml(auditLogDateTime(row.occurred_at))}</td><td><div class="audit-log-actor"><strong>${escapeHtml(row.actor_name||'ระบบ')}</strong><small>${row.actor_level?`Level ${escapeHtml(row.actor_level)}`:'ระบบ'}</small></div></td><td><strong>${escapeHtml(auditEntityLabel(row.entity_type))}</strong><br><small>${escapeHtml(row.entity_id||'-')}</small></td><td><span class="audit-log-chip ${dangerous?'danger':row.action==='insert'?'':'neutral'}">${escapeHtml(auditActionLabel(row.action))}</span></td><td>${escapeHtml(warehouse)}</td><td>${escapeHtml(auditRowSummary(row))}</td><td><button class="history-icon-btn" data-audit-log-toggle="${escapeHtml(key)}" title="${expanded?'ซ่อน':'ดู'}รายละเอียด" aria-label="${expanded?'ซ่อน':'ดู'}รายละเอียด">${expanded?'−':'+'}</button></td></tr>${expanded?`<tr class="audit-log-detail-row"><td colspan="7"><div class="audit-log-details"><div class="audit-log-data"><b>ข้อมูลเดิม</b>${auditDataHtml(row.before_data)}</div><div class="audit-log-data"><b>ข้อมูลใหม่</b>${auditDataHtml(row.after_data)}</div></div></td></tr>`:''}`;
   }).join('');
   return `<div class="audit-log-page"><div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="auditLogRefresh">รีเฟรชข้อมูล</button></div>
+    <div class="audit-log-date-toolbar">
+      <div class="audit-log-date-presets" role="group" aria-label="ช่วงวันที่">
+        ${[['all','ทั้งหมด'],['today','วันนี้'],['yesterday','เมื่อวาน'],['month','เดือนนี้'],['custom','เลือกช่วงวันที่']].map(([key,label])=>`<button type="button" class="btn ${auditLogFilter.datePreset===key?'primary':'ghost'}" data-audit-log-date="${key}" aria-pressed="${auditLogFilter.datePreset===key}">${label}</button>`).join('')}
+      </div>
+      ${auditLogFilter.datePreset==='custom'?`<form id="auditLogDateForm" class="audit-log-date-range"><label for="auditLogDateFrom">จากวันที่${dmyDateFieldHtml('auditLogDateFrom',auditLogFilter.dateFrom)}</label><label for="auditLogDateTo">ถึงวันที่${dmyDateFieldHtml('auditLogDateTo',auditLogFilter.dateTo)}</label><button type="submit" class="btn primary">แสดงผล</button></form>`:''}
+      <small class="audit-log-retention-note">เก็บประวัติย้อนหลัง 1 ปี · ลบรายการเก่าอัตโนมัติทุกวัน</small>
+    </div>
     <div class="audit-log-toolbar" role="search" aria-label="ค้นหาและกรอง AUDIT LOG">
       <label class="audit-log-filter audit-log-search-filter"><span class="audit-log-filter-label">ค้นหาประวัติ</span><span class="audit-log-control audit-log-search-control"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input id="auditLogSearch" value="${escapeHtml(auditLogFilter.search)}" placeholder="ผู้ใช้งาน รายการ หรือเลขเอกสาร" autocomplete="off">${auditLogFilter.search?'<button type="button" class="audit-log-clear-search" id="auditLogClearSearch" title="ล้างคำค้นหา" aria-label="ล้างคำค้นหา">×</button>':''}</span></label>
       <label class="audit-log-filter"><span class="audit-log-filter-label">ประเภทรายการ</span><span class="audit-log-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"></path><path d="M8 9h8M8 13h5"></path></svg><select id="auditLogEntity"><option value="all">ทุกรายการ</option>${entityOptions}</select></span></label>

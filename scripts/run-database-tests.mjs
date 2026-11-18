@@ -69,6 +69,9 @@ try{
     }
   }
   console.log('All baseline and migration SQL applied to isolated PostgreSQL');
+  const auditSuite=await import('../tests/audit-retention-database.mjs');
+  await auditSuite.run({client});
+  if(!process.argv.includes('--audit-only')){
   const noteOrderSuite=await import('../tests/note-order-database.mjs');
   await noteOrderSuite.run({client});
   const offlineSuite=await import('../tests/offline-sales-database.mjs');
@@ -100,6 +103,7 @@ try{
   await storeSuite.runConcurrentSales({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
   const numbering=await import('../tests/shop-number-database.mjs');
   await numbering.run({client,connect:async()=>{const c=postgres.getPgClient('postgres','127.0.0.1');await c.connect();return c;}});
+  }
   }
   }
 }catch(error){
