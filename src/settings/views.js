@@ -314,8 +314,12 @@ function reloadAuditLogFilters(){
 }
 async function loadAuditLogsFromSupabase(force=false,direction='first'){
   if(loggedInUser()?.owner!==true||(!force&&(auditLogLoading||auditLogLoaded))) return;
-  const pageDirection=['first','previous','next','last'].includes(direction)?direction:'first';
-  const cursorRow=pageDirection==='next'?auditLogRows[auditLogRows.length-1]:pageDirection==='previous'?auditLogRows[0]:null;
+  const numberedPage=/^\d+$/.test(String(direction))?Math.min(auditLogPageCount,Math.max(1,Number(direction))):null;
+  if(numberedPage===auditLogPage) return;
+  const pageDirection=numberedPage!==null
+    ?numberedPage===1?'first':numberedPage===auditLogPageCount?'last':numberedPage>auditLogPage?'next':'previous'
+    :['first','previous','next','last'].includes(direction)?direction:'first';
+  let cursorRow=pageDirection==='next'?auditLogRows[auditLogRows.length-1]:pageDirection==='previous'?auditLogRows[0]:null;
   if((pageDirection==='next'||pageDirection==='previous')&&!cursorRow) return;
   const requestToken=++auditLogRequestToken;
   Object.assign(auditLogFilter,auditLogDateRange(auditLogFilter.datePreset));
@@ -330,8 +334,14 @@ async function loadAuditLogsFromSupabase(force=false,direction='first'){
   auditLogLoading=true;
   auditLogError='';
   try{
+    let loadedPage=auditLogPage;
+    let pageData;
+    const warehouseId=activeWarehouseId;
+    // Number buttons only span five nearby pages. Walk their keyset cursors
+    // without displaying intermediate pages or downloading the full history.
+    do{
     const {data,error}=await sb.rpc('get_central_audit_log_page',{
-      p_warehouse_id:activeWarehouseId,
+      p_warehouse_id:warehouseId,
       p_date_from:filterSnapshot.dateFrom,
       p_date_to:filterSnapshot.dateTo,
       p_limit:AUDIT_LOG_PAGE_SIZE,
@@ -345,15 +355,21 @@ async function loadAuditLogsFromSupabase(force=false,direction='first'){
     });
     if(error) throw error;
     if(requestToken!==auditLogRequestToken) return;
+    pageData=data;
+    if(pageDirection==='first') loadedPage=1;
+    else if(pageDirection==='last') loadedPage=Math.max(1,Math.ceil((Number(data?.totalCount)||auditLogTotal)/AUDIT_LOG_PAGE_SIZE));
+    else loadedPage+=pageDirection==='next'?1:-1;
+    const rows=Array.isArray(data?.rows)?data.rows:[];
+    cursorRow=pageDirection==='next'?rows[rows.length-1]:rows[0];
+    if(!cursorRow||(pageDirection==='next'&&!data?.hasOlder)||(pageDirection==='previous'&&!data?.hasNewer)) break;
+    }while(numberedPage!==null&&loadedPage!==numberedPage&&['next','previous'].includes(pageDirection));
+    const data=pageData;
     auditLogRows=Array.isArray(data?.rows)?data.rows:[];
     if(data?.totalCount!==null&&data?.totalCount!==undefined){
       auditLogTotal=Math.max(0,Number(data.totalCount)||0);
       auditLogPageCount=Math.max(1,Math.ceil(auditLogTotal/AUDIT_LOG_PAGE_SIZE));
     }
-    if(pageDirection==='first') auditLogPage=1;
-    else if(pageDirection==='last') auditLogPage=auditLogPageCount;
-    else if(pageDirection==='previous') auditLogPage=Math.max(1,auditLogPage-1);
-    else if(pageDirection==='next') auditLogPage=Math.min(auditLogPageCount,auditLogPage+1);
+    auditLogPage=Math.min(auditLogPageCount,Math.max(1,loadedPage));
     auditLogHasNewer=data?.hasNewer===true;
     auditLogHasOlder=data?.hasOlder===true;
     expandedAuditLogRows.clear();
@@ -403,6 +419,19 @@ function auditDataHtml(data){
   if(!data||typeof data!=='object'||!Object.keys(data).length) return '<span>-</span>';
   return Object.entries(data).slice(0,12).map(([key,value])=>`<div><b>${escapeHtml(auditFieldLabel(key))}</b> ${escapeHtml(auditValueText(value))}</div>`).join('');
 }
+function auditLogPaginationHtml(){
+  const total=Math.max(1,auditLogPageCount);
+  const start=Math.max(1,Math.min(auditLogPage-2,total-4));
+  const pages=Array.from({length:Math.min(5,total)},(_,index)=>start+index);
+  const button=(label,value,disabled,title,active=false)=>`<button type="button" class="pagebtn ${active?'active':''}" data-audit-log-page="${value}" ${disabled||auditLogLoading?'disabled':''} title="${title}" aria-label="${title}" ${active?'aria-current="page"':''}>${label}</button>`;
+  return `<nav class="pager audit-log-pagination" aria-label="เลือกหน้า AUDIT LOG">
+    ${button('«','first',!auditLogHasNewer,'กลับไปหน้าแรก')}
+    ${button('‹','previous',!auditLogHasNewer,'ก่อนหน้า')}
+    ${pages.map(page=>button(page,page,false,'หน้า '+page,page===auditLogPage)).join('')}
+    ${button('›','next',!auditLogHasOlder,'ถัดไป')}
+    ${button('»','last',!auditLogHasOlder,'ไปหน้าสุดท้าย')}
+  </nav>`;
+}
 function renderAuditLog(){
   if(loggedInUser()?.owner!==true) return `<div class="empty"><h2>ไม่มีสิทธิ์เข้าถึง</h2><p>เฉพาะเจ้าของร้านเท่านั้นที่ดู AUDIT LOG ได้</p></div>`;
   if(!auditLogLoaded&&!auditLogLoading) setTimeout(()=>loadAuditLogsFromSupabase(),0);
@@ -434,7 +463,7 @@ function renderAuditLog(){
     </div>
     ${auditLogError?`<div class="notice danger">${escapeHtml(auditLogError)}</div>`:''}
     ${auditLogLoading&&!auditLogLoaded?'<div class="audit-log-empty">กำลังโหลดประวัติการทำงาน...</div>':`<div class="audit-log-table-wrap"><table class="audit-log-table"><thead><tr><th>วันและเวลา</th><th>ผู้ใช้งาน</th><th>รายการ</th><th>การทำงาน</th><th>คลังสินค้า</th><th>รายละเอียด</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="7" class="audit-log-empty">ไม่พบประวัติการทำงาน</td></tr>'}</tbody></table></div>`}
-    <div class="audit-log-pagination"><button class="btn ghost" data-audit-log-page="first" ${!auditLogHasNewer||auditLogLoading?'disabled':''}>กลับไปหน้าแรก</button><button class="btn ghost" data-audit-log-page="previous" ${!auditLogHasNewer||auditLogLoading?'disabled':''}>ก่อนหน้า</button><span>หน้า ${auditLogPage} / ${pageCount}</span><button class="btn ghost" data-audit-log-page="next" ${!auditLogHasOlder||auditLogLoading?'disabled':''}>ถัดไป</button><button class="btn ghost" data-audit-log-page="last" ${!auditLogHasOlder||auditLogLoading?'disabled':''}>ไปหน้าสุดท้าย</button></div></div>`;
+    ${auditLogPaginationHtml()}</div>`;
 }
 
 function defaultLevel2PagePermissions(){

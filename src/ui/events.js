@@ -255,6 +255,7 @@ function attachEvents(){
     render();
   }));
   document.querySelectorAll('[data-audit-log-page]').forEach(button=>button.addEventListener('click',()=>{
+    if(auditLogLoading) return;
     loadAuditLogsFromSupabase(true,button.dataset.auditLogPage);
     render();
   }));
