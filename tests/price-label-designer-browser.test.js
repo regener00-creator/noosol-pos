@@ -278,9 +278,7 @@ const browserExecutable = [
     assert.equal(buttons.color,'rgb(255, 255, 255)');
   }
   await page.locator('#barcodePickCancelBtn').click();
-  await page.locator('#barcodePrintAddMissingBtn').click();
-  assert.equal(await page.locator('#barcodePickList input').count(),2);
-  await page.locator('#barcodePickCancelBtn').click();
+  assert.equal(await page.locator('#barcodePrintAddMissingBtn').count(),0);
   await page.setViewportSize({width:1280,height:900});
   await page.locator('#barcodePrintSearch').fill('MIXED');
   await page.locator('#barcodePrintSearch').press('Enter');

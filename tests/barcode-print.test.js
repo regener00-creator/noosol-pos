@@ -292,7 +292,7 @@ for(const qty of [1,36,37,72]){
 assert.match(html, /barcodeprint:\s*\(\)=>renderBarcodePrint\(\)/);
 assert.match(html, /LEVEL2_HIDDEN_TABS[^\n]+barcodeprint/);
 assert.match(html, /id="savePrintBarcodeBtn"/);
-assert.match(html, /id="barcodePrintAddMissingBtn"/);
+assert.doesNotMatch(html, /id="barcodePrintAddMissingBtn"/);
 assert.match(html, /พิมพ์ป้ายราคา/);
 context.pagerHtml=()=>'';
 assert.match(context.renderBarcodePrint(), /data-barcode-print-mode="new"/);

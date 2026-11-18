@@ -942,7 +942,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const barcodePrintCategorySelect=document.getElementById('barcodePrintCategorySelect');
   const barcodePrintBrandSelect=document.getElementById('barcodePrintBrandSelect');
   const barcodePrintAddCategoryBtn=document.getElementById('barcodePrintAddCategoryBtn');
-  const barcodePrintAddMissingBtn=document.getElementById('barcodePrintAddMissingBtn');
   const barcodePrintSearch=document.getElementById('barcodePrintSearch');
   const barcodePrintResults=document.getElementById('barcodePrintResults');
   const openPriceLabelDesignerBtn=document.getElementById('openPriceLabelDesignerBtn');
@@ -952,7 +951,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(barcodePrintCategorySelect) barcodePrintCategorySelect.addEventListener('change',()=>{ barcodePrintCatFilter.category=barcodePrintCategorySelect.value; barcodePrintCatFilter.brand=''; render(); });
   if(barcodePrintBrandSelect) barcodePrintBrandSelect.addEventListener('change',()=>{ barcodePrintCatFilter.brand=barcodePrintBrandSelect.value; render(); });
   if(barcodePrintAddCategoryBtn) barcodePrintAddCategoryBtn.addEventListener('click',()=>openBarcodePrintCategoryPicker(barcodePrintCatFilter,false));
-  if(barcodePrintAddMissingBtn) barcodePrintAddMissingBtn.addEventListener('click',()=>openBarcodePrintCategoryPicker({category:'',brand:''},true));
   document.getElementById('openPriceLabelSettingsBtn')?.addEventListener('click',openPriceLabelSettings);
   if(openPriceLabelDesignerBtn) openPriceLabelDesignerBtn.addEventListener('click',()=>openPriceLabelDesigner(barcodePrintLabelSize));
   if(openBarcodeReprintBtn) openBarcodeReprintBtn.addEventListener('click',openBarcodeReprintDialog);

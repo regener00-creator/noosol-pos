@@ -525,7 +525,6 @@ function renderBarcodePrint(){
   const available=barcodePrintAvailableProducts();
   const brandOptions=brands.filter(brand=>available.some(product=>(!filter.category||product.category===filter.category)&&product.brand===brand));
   const filteredCount=available.filter(product=>(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand)).length;
-  const missingCount=available.length;
   const reprint=barcodePrintMode==='reprint';
   const pagination=barcodePrintPagination();
   barcodePrintPage=pagination.currentPage;
@@ -540,7 +539,6 @@ function renderBarcodePrint(){
       <div id="barcodePrintResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div>
     </div>
       <button type="button" class="btn ghost barcode-print-settings" id="openPriceLabelSettingsBtn" title="ตั้งค่าขนาดป้ายเริ่มต้น" aria-label="ตั้งค่าขนาดป้ายเริ่มต้น"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 3-.6 2.4-1.5.9-2.4-.7-3 5.2L3.3 12l-.1 1.7-1.7 1.6 3 5.2 2.4-.7 1.5.9L9 23h6l.6-2.3 1.5-.9 2.4.7 3-5.2-1.7-1.6-.1-1.7 1.8-1.2-3-5.2-2.4.7-1.5-.9L15 3z" transform="translate(1 0) scale(.9)"/><circle cx="12" cy="12" r="3"/></svg></button>
-      ${reprint?'':`<button class="btn ghost" id="barcodePrintAddMissingBtn">สินค้าที่ต้องสร้างบาร์โค้ด (${missingCount})</button>`}
     </div>
     <div class="barcode-print-table-wrap seamless-table-wrap">
       <table class="grid-table doc-head-blue barcode-print-table"><colgroup><col class="barcode-print-col-sku"><col class="barcode-print-col-name"><col class="barcode-print-col-unit"><col class="barcode-print-col-code"><col class="barcode-print-col-price"><col class="barcode-print-col-qty"><col class="barcode-print-col-action"></colgroup>
