@@ -96,6 +96,25 @@ const browserExecutable = [
   assert.equal(await page.locator('.price-label-designer-modal').isVisible(), true);
   assert.equal(await page.locator('[data-price-label-tab]').count(), 5);
   assert.equal(await page.locator('.price-label-design-element').count(), 5);
+  assert.equal(await page.locator('#priceLabelDesignerCanvas .barcode-label-svg').getAttribute('aria-label'),'บาร์โค้ด 0123456789012','Empty queue still previews a barcode');
+  assert.equal(await page.locator('[data-price-label-example-note]').isVisible(),true);
+  assert.equal(await page.locator('#priceLabelDesignerCanvas [data-price-label-element="code"]').textContent(),'0123456789012','Barcode digits appear when enabled');
+  assert.equal(await page.evaluate(()=>barcodePrintItems.length),0,'Preview does not create a print item');
+  assert.equal(await page.evaluate(()=>products[0].barcode),'8851824336354','Preview does not change product barcodes');
+  const previewCases=await page.evaluate(()=>{
+    const original=barcodePrintItems;
+    try{
+      barcodePrintItems=[{pid:9001,unit:'กล่อง',barcode:'',qty:1}];
+      const blank=priceLabelDesignerSample();
+      barcodePrintItems[0].barcode='8851824336354';
+      const existing=priceLabelDesignerSample();
+      return {blank,existing};
+    }finally{barcodePrintItems=original;}
+  });
+  assert.equal(previewCases.blank.code,'0123456789012','A new label awaiting allocation also shows a preview');
+  assert.equal(previewCases.blank.exampleBarcode,true);
+  assert.equal(previewCases.existing.code,'8851824336354','Selected product keeps its real barcode in preview');
+  assert.equal(previewCases.existing.exampleBarcode,false);
   assert.match(await page.locator('#priceLabelDesignerCanvas').evaluate(element=>getComputedStyle(element).fontFamily),/^"?Google Sans/);
   assert.equal(await page.evaluate(async()=>{await Promise.race([document.fonts.load('16px "Google Sans"'),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Google Sans font load timeout')),10000))]);return document.fonts.check('16px "Google Sans"');}),true);
   for(const field of ['name','unit','price','barcode','code']){
