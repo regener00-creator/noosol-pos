@@ -31,8 +31,9 @@ function currentDeviceId(){
 }
 function renderSyncStatusChip(){
   const chip=document.getElementById('syncStatusChip'); if(!chip) return;
-  const state=navigator.onLine?syncUiState:'offline';
-  const labels={synced:'ซิงก์แล้ว',syncing:'กำลังซิงก์…',error:`ซิงก์ไม่สำเร็จ${syncUiErrorCount?` (${syncUiErrorCount})`:''}`,offline:'ออฟไลน์'};
+  const pendingProducts=completeProductCatalog().filter(product=>(isAllWarehousesMode()||Number(product.wh||1)===Number(activeWarehouseId))&&productDirtyOperations.has(String(product.id))).length;
+  const state=!navigator.onLine?'offline':syncUiState==='synced'&&pendingProducts?'pending':syncUiState;
+  const labels={synced:'ซิงก์แล้ว',pending:`สินค้ารอซิงก์ ${pendingProducts} รายการ`,syncing:'กำลังซิงก์…',error:`ซิงก์ไม่สำเร็จ${syncUiErrorCount?` (${syncUiErrorCount})`:''}`,offline:'ออฟไลน์'};
   chip.dataset.state=state; chip.textContent=labels[state]||labels.synced;
   const pendingCount=typeof offlinePendingSales==='function'&&!isAllWarehousesMode()?offlinePendingSales(activeWarehouseId).length:0;
   if(pendingCount) chip.textContent+=` · รอส่ง ${pendingCount} บิล`;

@@ -41,6 +41,22 @@ let browser;
   });
   const chip=page.locator('#syncStatusChip');
   const dialog=page.getByRole('dialog',{name:'รายละเอียดการซิงก์',exact:true});
+  for(const store of [1,2]){
+    await page.evaluate(store=>{
+      activeWarehouseId=store;allWarehousesMode=false;
+      products=[{id:901,wh:1},{id:902,wh:2}];
+      completeProductCatalog=()=>products;
+      productDirtyOperations=new Map([[String(900+store),'update']]);
+      setSyncUiState('synced',0);
+    },store);
+    assert.equal(await chip.getAttribute('data-state'),'pending');
+    assert.equal(await chip.textContent(),'สินค้ารอซิงก์ 1 รายการ');
+    await page.evaluate(()=>{activeWarehouseId=activeWarehouseId===1?2:1;renderSyncStatusChip();});
+    assert.equal(await chip.textContent(),'ซิงก์แล้ว','Other shop pending edits do not change this shop status');
+    await page.evaluate(()=>{productDirtyOperations.clear();renderSyncStatusChip();});
+    assert.equal(await chip.getAttribute('data-state'),'synced');
+  }
+  await page.evaluate(()=>{activeWarehouseId=1;});
   for(const state of ['synced','syncing','error','offline']){
     await page.evaluate(state=>{
       Object.defineProperty(navigator,'onLine',{configurable:true,value:state!=='offline'});

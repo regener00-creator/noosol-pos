@@ -683,15 +683,34 @@ async function saveBarcodePrintItems(printWindow){
   }
   const snapshot=barcodePrintRequestPayload();
   const context=captureStoreView();
-  const before=new Map(snapshot.map(item=>{
-    const product=products.find(product=>product.id===item.pid);
-    return [item.pid,product?JSON.stringify(productMetadataToRow(product)):''];
-  }));
   const labelSize=barcodePrintLabelSize;
   barcodePrintSavePending=true;
   try{
     if(!navigator.onLine) throw new Error('กรุณาเชื่อมต่ออินเทอร์เน็ตก่อนออกเลขบาร์โค้ดและพิมพ์');
-    if(snapshot.some(item=>productDirtyOperations.has(String(item.pid)))) throw new Error('สินค้ามีข้อมูลรอซิงก์ กรุณารอให้ซิงก์เสร็จก่อนพิมพ์');
+    const hasPendingProducts=()=>snapshot.some(item=>productDirtyOperations.has(String(item.pid)));
+    if(hasPendingProducts()){
+      showToast('กำลังซิงก์ข้อมูลสินค้าก่อนออกเลขบาร์โค้ด…');
+      // Joining the existing core sync directly returns early. Wait for it to
+      // finish before starting a retry, without running two writers together.
+      for(let attempt=0;coreSyncInFlight&&attempt<150;attempt++){
+        if(!isStoreViewCurrent(context)) throw new Error('ร้านหรือผู้ใช้งานเปลี่ยน กรุณาเปิดหน้าพิมพ์ใหม่');
+        await new Promise(resolve=>setTimeout(resolve,100));
+      }
+      if(!isStoreViewCurrent(context)) throw new Error('ร้านหรือผู้ใช้งานเปลี่ยน กรุณาเปิดหน้าพิมพ์ใหม่');
+      if(coreSyncInFlight) throw new Error('ระบบยังซิงก์ข้อมูลอยู่ กรุณารอสักครู่แล้วกดพิมพ์อีกครั้ง');
+      if(hasPendingProducts()) await syncCoreDataToSupabase();
+    }
+    if(!isStoreViewCurrent(context)) throw new Error('ร้านหรือผู้ใช้งานเปลี่ยน กรุณาเปิดหน้าพิมพ์ใหม่');
+    if(hasPendingProducts()) throw new Error('ยังซิงก์ข้อมูลสินค้าไม่สำเร็จ กรุณากดสถานะซิงก์ด้านบนเพื่อดูรายละเอียด ยังไม่ได้ออกเลขบาร์โค้ด');
+    if(JSON.stringify(snapshot)!==JSON.stringify(barcodePrintRequestPayload())) throw new Error('รายการพิมพ์มีการเปลี่ยนแปลง กรุณาตรวจรายการแล้วกดพิมพ์ใหม่');
+    if(!barcodePrintIsRetry()){
+      const latestErrors=barcodePrintValidation(snapshot);
+      if(latestErrors.length) throw new Error(latestErrors[0].message);
+    }
+    const before=new Map(snapshot.map(item=>{
+      const product=products.find(product=>product.id===item.pid);
+      return [item.pid,product?JSON.stringify(productMetadataToRow(product)):''];
+    }));
     if(!barcodePrintIsRetry()) barcodePrintRequest={actor:currentProfile.id,key:JSON.stringify(snapshot),id:crypto.randomUUID()};
     const {data,error}=await sb.rpc('assign_price_label_barcodes',{p_warehouse_id:context.store,p_request_id:barcodePrintRequest.id,p_items:snapshot});
     if(error) throw error;

@@ -47,6 +47,7 @@
   .sync-status-chip{display:inline-flex;align-items:center;gap:7px;min-height:34px;padding:7px 11px;border:1px solid #D5E3EA;border-radius:999px;background:#F4FAFD;color:#26708F;font:650 12px Sarabun,Arial,sans-serif;cursor:pointer;white-space:nowrap;}
   .sync-status-chip::before{content:'';width:8px;height:8px;border-radius:50%;background:#2FA66A;box-shadow:0 0 0 3px #DDF4E7;}
   .sync-status-chip[data-state="syncing"]::before{background:#2495D0;box-shadow:0 0 0 3px #DCEFF9;animation:syncPulse 1s infinite alternate;}
+  .sync-status-chip[data-state="pending"]::before{background:#D59524;box-shadow:0 0 0 3px #FFF0D2;}
   .sync-status-chip[data-state="error"]{border-color:#F1B7B0;background:#FFF4F2;color:#B74035;}
 .sync-status-chip[data-state="error"]::before,.sync-status-chip[data-state="offline"]::before{background:#D84A3A;box-shadow:0 0 0 3px #FBE0DC;}
 .sync-detail-row-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}

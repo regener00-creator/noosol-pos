@@ -24,6 +24,8 @@ const context = {
   navigator:{onLine:true},
   crypto:{randomUUID},
   productDirtyOperations:new Map(),
+  coreSyncInFlight:false,
+  syncCoreDataToSupabase:async()=>{},
   syncedTableRows:{},
   captureWorkspaceRead:()=>({actor:'owner-test'}),
   captureStoreView:()=>({actor:'owner-test',store:1}),isStoreViewCurrent:()=>true,
@@ -354,6 +356,65 @@ context.productDirtyOperations.clear();
 context.persistProductChangesToIndexedDB=async()=>false;
 assert.equal(await context.saveBarcodePrintItems(printWindow),true,'central commit remains valid when local cache fails');
 assert.equal(products.at(-1).barcode,'AP00000000002');
+
+// Pending metadata is synced first, never discarded to let printing proceed.
+for(const store of [1,2]){
+  const pending={id:70+store,wh:store,name:'Pending product',unit:'กล่อง',barcode:'',price:90,units:[]};
+  products.push(pending);
+  context.captureStoreView=()=>({actor:'owner-test',store});
+  context.barcodePrintItems=[{pid:pending.id,unit:'กล่อง',barcode:'',qty:1}];
+  context.productDirtyOperations.set(String(pending.id),'update');
+  let syncCalls=0,allocated=false;
+  context.syncCoreDataToSupabase=async()=>{
+    syncCalls++;
+    assert.equal(context.coreSyncInFlight,false,'Wait for the previous sync before retrying');
+    assert.equal(allocated,false,'No allocation before sync');
+    pending._revision=8;
+    context.productDirtyOperations.delete(String(pending.id));
+  };
+  context.sb.rpc=async(name,args)=>{
+    assert.equal(name,'assign_price_label_barcodes');
+    assert.equal(args.p_warehouse_id,store);
+    assert.equal(context.productDirtyOperations.has(String(pending.id)),false);
+    allocated=true;
+    const barcode=(store===1?'AP':'BP')+'00000000100';
+    return {data:{items:[{...args.p_items[0],barcode}],products:[context.productMetadataToRow({...pending,barcode,_revision:9})]},error:null};
+  };
+  context.coreSyncInFlight=true;
+  context.setTimeout=callback=>{context.coreSyncInFlight=false;callback();};
+  assert.equal(await context.saveBarcodePrintItems(null),true);
+  assert.equal(syncCalls,1);
+  assert.equal(pending.barcode,(store===1?'AP':'BP')+'00000000100');
+}
+const blocked={id:80,wh:1,unit:'กล่อง',barcode:'',units:[]};
+context.setTimeout=callback=>callback();
+products.push(blocked);
+context.captureStoreView=()=>({actor:'owner-test',store:1});
+context.barcodePrintItems=[{pid:80,unit:'กล่อง',barcode:'',qty:1}];
+context.productDirtyOperations.set('80','update');
+let unexpectedAllocations=0;
+context.sb.rpc=async()=>{unexpectedAllocations++;throw new Error('Must not allocate on failed preflight');};
+let blockedSyncCalls=0;
+context.syncCoreDataToSupabase=async()=>{blockedSyncCalls++;};
+assert.equal(await context.saveBarcodePrintItems(null),false,'Failed sync blocks printing');
+assert.equal(blockedSyncCalls,1);
+assert.equal(context.productDirtyOperations.get('80'),'update','Pending edits remain available for recovery');
+context.coreSyncInFlight=true;
+assert.equal(await context.saveBarcodePrintItems(null),false,'Busy sync times out without parallel writers');
+assert.equal(blockedSyncCalls,1);
+context.coreSyncInFlight=false;
+context.syncCoreDataToSupabase=async()=>{context.productDirtyOperations.delete('80');blocked.barcode='ALREADY-ASSIGNED';};
+assert.equal(await context.saveBarcodePrintItems(null),false,'Revalidate when barcode changed during sync');
+assert.equal(blocked.barcode,'ALREADY-ASSIGNED');
+blocked.barcode='';
+context.barcodePrintItems=[{pid:80,unit:'กล่อง',barcode:'',qty:1}];
+context.productDirtyOperations.set('80','update');
+let currentView=true;
+context.isStoreViewCurrent=()=>currentView;
+context.syncCoreDataToSupabase=async()=>{context.productDirtyOperations.delete('80');currentView=false;};
+assert.equal(await context.saveBarcodePrintItems(null),false,'Changing shop while syncing prevents allocation');
+assert.equal(blocked.barcode,'');
+assert.equal(unexpectedAllocations,0,'No allocation for timeout, failed sync, changed barcode or changed shop');
 
 console.log('barcode print tests passed');
 }
