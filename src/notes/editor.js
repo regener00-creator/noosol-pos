@@ -171,7 +171,7 @@ function renderNotes(){
     </div>
   </form>`:`<div class="note-empty-editor"><div class="note-empty-icon">NOTE</div><h2>เลือกโน้ตที่ต้องการเปิด</h2><p>หรือสร้างโน้ตใหม่เพื่อจดข้อความที่ต้องการ</p>${canCreate?'<button class="btn primary" id="emptyAddNoteBtn" type="button">+ เพิ่มโน้ต</button>':''}</div>`;
   return `<div class="notes-page">
-    <div class="notes-page-head"><div><h1>NOTE <span class="notes-page-subtitle">• พื้นที่จดบันทึกสำหรับร้าน</span></h1></div><div class="notes-head-actions"><button type="button" class="icon-btn" id="reloadNotesBtn" title="โหลดข้อมูลล่าสุด" aria-label="โหลดข้อมูลล่าสุด" ${notesLoading?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></button></div></div>
+    <div class="notes-page-head"><div><h1>NOTE</h1></div><div class="notes-head-actions"><button type="button" class="icon-btn" id="reloadNotesBtn" title="โหลดข้อมูลล่าสุด" aria-label="โหลดข้อมูลล่าสุด" ${notesLoading?'disabled':''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></button></div></div>
     ${noteLoadError?`<div class="notice danger note-load-error">${escapeHtml(noteLoadError)} <button class="btn ghost" id="retryNotesBtn" type="button">ลองใหม่</button></div>`:''}
     <div class="notes-layout">
       <aside class="note-list-panel" aria-label="รายการโน้ต">
