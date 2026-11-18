@@ -480,7 +480,7 @@ function renderBarcodePrint(){
   if(barcodePrintShowMenu) return `<section class="rpt barcode-print-menu">
     <div class="barcode-print-mode-grid">
       <button type="button" class="barcode-print-mode-card" data-barcode-print-mode="new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 3h10l6 6v12H4zM14 3v6h6M8 15h8M12 11v8"/></svg><strong>พิมพ์ป้ายราคาใหม่</strong></button>
-      <button type="button" class="barcode-print-mode-card" data-barcode-print-mode="reprint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M7 8V3h10v5M7 17H3V8h18v9h-4M7 14h10v7H7zM17 11h1"/></svg><strong>พิมพ์ป้ายราคาซ้ำ</strong></button>
+      <button type="button" class="barcode-print-mode-card" data-barcode-print-mode="reprint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M7 8V3h10v5M7 17H3V8h18v9h-4M7 14h10v7H7zM17 11h1"/></svg><strong>พิมพ์ป้ายราคาจากบาร์โค้ดเดิม</strong></button>
       <button type="button" class="barcode-print-mode-card" data-barcode-print-mode="promotion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 4h18v16H3zM7 8h10M7 12h10M7 16h6"/></svg><strong>ป้ายโปรโมชั่น</strong></button>
     </div></section>`;
   if(promotionPrintActive)return renderPromotionLabelPrint();
@@ -539,7 +539,7 @@ function openPriceLabelSettings(){
       savePriceLabelDefaultSize(size,mode);
       barcodePrintLabelSize=size;
       close();render();document.getElementById('openPriceLabelSettingsBtn')?.focus();
-      showToast(`ตั้งเป็นค่าเริ่มต้นสำหรับ${mode==='reprint'?'พิมพ์ป้ายราคาซ้ำ':'พิมพ์ป้ายราคาใหม่'}บนเครื่องนี้แล้ว`);
+      showToast(`ตั้งเป็นค่าเริ่มต้นสำหรับ${mode==='reprint'?'พิมพ์ป้ายราคาจากบาร์โค้ดเดิม':'พิมพ์ป้ายราคาใหม่'}บนเครื่องนี้แล้ว`);
     }catch{showToast('บันทึกค่าเริ่มต้นไม่สำเร็จ กรุณาตรวจพื้นที่เบราว์เซอร์','error');}
   });
   document.body.appendChild(overlay);
