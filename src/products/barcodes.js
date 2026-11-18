@@ -189,7 +189,18 @@ function setBarcodePrintMode(mode){
 function barcodePrintRequestPayload(items=barcodePrintItems){
   return items.map(item=>({pid:Number(item.pid),unit:item.unit,barcode:String(item.barcode||'').trim(),qty:Number(item.qty)}));
 }
-function barcodePrintIsRetry(items=barcodePrintItems){
+function barcodePrintUnreservedItems(){
+  return barcodePrintItems.filter(item=>!item.reservation);
+}
+function barcodePrintReservedOption(item,product=products.find(product=>product.id===item.pid)){
+  if(!item.reservation||!isStoreViewCurrent(item.reservation.context)||!isProductActive(product)) return null;
+  return barcodePrintUnitOptions(product).find(option=>option.name===item.unit&&option.barcode===item.reservation.code&&item.barcode===option.barcode)||null;
+}
+function barcodePrintRowOptions(item,product){
+  const reserved=barcodePrintReservedOption(item,product);
+  return item.reservation?(reserved?[reserved]:[]):barcodePrintSelectableUnitOptions(product);
+}
+function barcodePrintIsRetry(items=barcodePrintUnreservedItems()){
   if(barcodePrintMode==='reprint') return false;
   return barcodePrintRequest?.actor===currentProfile?.id&&barcodePrintRequest?.key===JSON.stringify(barcodePrintRequestPayload(items));
 }
@@ -198,7 +209,7 @@ function reconcileBarcodePrintItems(){
   const byId=new Map(products.map(product=>[product.id,product]));
   barcodePrintItems=barcodePrintItems.filter(item=>{
     const product=byId.get(item.pid);
-    return barcodePrintSelectableUnitOptions(product).some(option=>option.name===item.unit);
+    return barcodePrintRowOptions(item,product).some(option=>option.name===item.unit);
   });
 }
 
@@ -278,7 +289,7 @@ function createBarcodePrintItem(product,scan=null){
 }
 
 function barcodePrintAddProduct(product,scan=null){
-  if(!product) return false;
+  if(!product||barcodePrintSavePending) return false;
   const item=createBarcodePrintItem(product,scan);
   if(!item) return false;
   const existing=barcodePrintFindProductItem(product.id);

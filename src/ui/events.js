@@ -957,8 +957,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   document.querySelectorAll('[data-barcode-print-mode]').forEach(button=>button.addEventListener('click',()=>setBarcodePrintMode(button.dataset.barcodePrintMode)));
   document.getElementById('barcodeIssuedRetryBtn')?.addEventListener('click',loadSystemIssuedLabelCodes);
   document.getElementById('barcodePrintMenuBtn')?.addEventListener('click',()=>{if(!barcodePrintSavePending){barcodePrintShowMenu=true;render();}});
+  document.getElementById('reserveBarcodePrintBtn')?.addEventListener('click',()=>saveBarcodePrintItems(null,{reserveOnly:true}));
   if(clearBarcodePrintBtn) clearBarcodePrintBtn.addEventListener('click',()=>{
-    if(!confirm('ต้องการล้างรายการพิมพ์ป้ายราคาทั้งหมดใช่หรือไม่?')) return;
+    if(barcodePrintSavePending) return;
+    if(!confirm('ต้องการล้างรายการพิมพ์ป้ายราคาทั้งหมดใช่หรือไม่?'+(barcodePrintItems.some(item=>item.reservation)?' เลขที่จองแล้วจะยังอยู่กับสินค้า':''))) return;
     barcodePrintItems=[]; barcodePrintRequest=null; barcodePrintSearchQuery=''; barcodePrintCatFilter={category:'',brand:''}; barcodePrintPage=1; render();
   });
   if(barcodePrintSearch&&barcodePrintResults){
@@ -1020,6 +1022,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     });
   }
   document.querySelectorAll('[data-barcode-print-unit]').forEach(select=>select.addEventListener('change',()=>{
+    if(barcodePrintSavePending) return;
     const index=Number(select.dataset.barcodePrintUnit);
     const item=barcodePrintItems[index];
     const product=products.find(entry=>entry.id===item?.pid); if(!item||!product) return;
@@ -1031,13 +1034,13 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   }));
   document.querySelectorAll('[data-barcode-print-code]').forEach(input=>{
     input.addEventListener('focus',()=>input.select());
-    input.addEventListener('input',()=>{ const item=barcodePrintItems[Number(input.dataset.barcodePrintCode)]; if(item&&barcodePrintMode!=='reprint'){ item.barcode=input.value; input.classList.remove('invalid'); } });
+    input.addEventListener('input',()=>{ const item=barcodePrintItems[Number(input.dataset.barcodePrintCode)]; if(item&&!item.reservation&&!barcodePrintSavePending&&barcodePrintMode!=='reprint'){ item.barcode=input.value; input.classList.remove('invalid'); } });
   });
   document.querySelectorAll('[data-barcode-print-qty]').forEach(input=>{
     input.addEventListener('focus',()=>input.select());
-    input.addEventListener('input',()=>{ const item=barcodePrintItems[Number(input.dataset.barcodePrintQty)]; if(item) item.qty=input.value; });
+    input.addEventListener('input',()=>{ const item=barcodePrintItems[Number(input.dataset.barcodePrintQty)]; if(item&&!barcodePrintSavePending) item.qty=input.value; });
   });
-  document.querySelectorAll('[data-barcode-print-remove]').forEach(button=>button.addEventListener('click',()=>{ barcodePrintItems.splice(Number(button.dataset.barcodePrintRemove),1); render(); }));
+  document.querySelectorAll('[data-barcode-print-remove]').forEach(button=>button.addEventListener('click',()=>{ if(barcodePrintSavePending) return; barcodePrintItems.splice(Number(button.dataset.barcodePrintRemove),1); render(); }));
   document.querySelectorAll('[data-barcode-print-page]').forEach(button=>button.addEventListener('click',()=>{
     const value=button.dataset.barcodePrintPage;
     const totalPages=Math.max(1,Math.ceil(barcodePrintItems.length/BARCODE_PRINT_PAGE_SIZE));
@@ -1046,19 +1049,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     else barcodePrintPage=Math.min(totalPages,Math.max(1,Number(value)||1));
     render();
   }));
-  if(savePrintBarcodeBtn) savePrintBarcodeBtn.addEventListener('click',async ()=>{
+  if(savePrintBarcodeBtn) savePrintBarcodeBtn.addEventListener('click',()=>{
     if(barcodePrintSavePending) return;
-    if(barcodePrintMode==='reprint'){printBarcodeReprintItems();return;}
-    const errors=barcodePrintIsRetry()?[]:barcodePrintValidation(barcodePrintItems);
-    document.querySelectorAll('.barcode-print-code-input').forEach(input=>input.classList.remove('invalid'));
-    if(errors.length){
-      errors.forEach(error=>document.querySelector(`[data-barcode-print-code="${error.index}"]`)?.classList.add('invalid'));
-      alert(`ยังไม่สามารถบันทึกและพิมพ์ได้\n\n${errors.slice(0,8).map(error=>error.message).join('\n')}${errors.length>8?`\nและอีก ${errors.length-8} จุด`:''}`);
-      return;
-    }
-    const printWindow=window.open('','_blank');
-    if(!printWindow){ showToast('เบราว์เซอร์บล็อกหน้าพิมพ์ กรุณาอนุญาต Pop-up แล้วลองใหม่'); return; }
-    await saveBarcodePrintItems(printWindow);
+    if(barcodePrintMode==='reprint') printBarcodeReprintItems();
+    else printReservedBarcodeItems();
   });
   // --- หน้าแก้ไขสต็อก: เลือก/ค้นหาสินค้า และแก้จำนวนตามหน่วยในตารางโดยตรง ---
   const stockEditCategorySelect=document.getElementById('stockEditCategorySelect');

@@ -416,6 +416,72 @@ assert.equal(await context.saveBarcodePrintItems(null),false,'Changing shop whil
 assert.equal(blocked.barcode,'');
 assert.equal(unexpectedAllocations,0,'No allocation for timeout, failed sync, changed barcode or changed shop');
 
+// Explicit reservation: selecting/clearing does not allocate; printing never allocates.
+context.isStoreViewCurrent=()=>true;
+context.productDirtyOperations.clear();
+context.persistProductChangesToIndexedDB=async()=>true;
+context.syncCoreDataToSupabase=async()=>{};
+for(const store of [1,2]){
+  context.captureStoreView=()=>({actor:'owner-test',store});
+  const product={id:900+store,wh:store,name:'Reserve test',unit:'กล่อง',barcode:'',price:50,units:[]};
+  products.push(product);
+  context.barcodePrintItems=[];
+  assert.equal(context.barcodePrintAddProduct(product),true);
+  assert.equal(product.barcode,'','Selection leaves the product unchanged');
+  context.barcodePrintItems=[];
+  assert.equal(product.barcode,'','Clearing before reservation consumes no barcode');
+  context.barcodePrintAddProduct(product);
+  let allocations=0,lost=false;
+  let committed;
+  context.sb.rpc=async(name,args)=>{
+    assert.equal(args.p_warehouse_id,store);
+    if(!committed){
+      allocations++;
+      committed={id:args.p_request_id,data:{items:args.p_items.map(item=>({...item,barcode:(store===1?'AP':'BP')+'00000000900'})),products:[context.productMetadataToRow({...product,barcode:(store===1?'AP':'BP')+'00000000900',_revision:2})]}};
+    }else assert.equal(args.p_request_id,committed.id,'Lost response retries the same reservation');
+    if(!lost){lost=true;return {error:{message:'response lost'}};}
+    return {data:committed.data,error:null};
+  };
+  printHtml='';
+  assert.equal(await context.saveBarcodePrintItems(null,{reserveOnly:true}),false);
+  assert.equal(context.barcodePrintItems.length,1);
+  assert.equal(await context.saveBarcodePrintItems(null,{reserveOnly:true}),true);
+  assert.equal(printHtml,'','Reservation never opens or prints a label');
+  assert.equal(allocations,1);
+  assert.equal(context.barcodePrintItems.length,1,'Reserved row remains visible');
+  const code=product.barcode;
+  assert.equal(context.barcodePrintItems[0].barcode,code);
+  assert.match(context.barcodePrintRowsHtml(),new RegExp(code));
+  assert.equal(context.barcodePrintUnreservedItems().length,0);
+  assert.equal(await context.saveBarcodePrintItems(null,{reserveOnly:true}),false,'Nothing to allocate twice');
+  context.window={open:()=>null};
+  assert.equal(context.printReservedBarcodeItems(),false,'Blocked popup retains the barcode');
+  assert.equal(product.barcode,code);
+  context.window={open:()=>printWindow};
+  context.barcodePrintItems[0].qty=2;
+  assert.equal(context.printReservedBarcodeItems(),true);
+  assert.equal(context.printReservedBarcodeItems(),true,'Reprint uses the same number');
+  assert.equal(allocations,1);
+  assert.match(printHtml,new RegExp(code));
+  context.isStoreViewCurrent=()=>false;
+  assert.equal(context.printReservedBarcodeItems(),false,'Cannot print another store reservation');
+  context.isStoreViewCurrent=()=>true;
+  const extra={id:950+store,wh:store,unit:'ขวด',barcode:'',units:[]};
+  products.push(extra);
+  context.barcodePrintAddProduct(extra);
+  assert.equal(context.barcodePrintUnreservedItems().length,1);
+  context.sb.rpc=async(name,args)=>{
+    assert.equal(args.p_items.length,1,'Only newly added rows are allocated');
+    assert.equal(args.p_items[0].pid,extra.id);
+    return {data:{items:[{...args.p_items[0],barcode:(store===1?'AP':'BP')+'00000000901'}],products:[context.productMetadataToRow({...extra,barcode:(store===1?'AP':'BP')+'00000000901'})]},error:null};
+  };
+  assert.equal(await context.saveBarcodePrintItems(null,{reserveOnly:true}),true);
+  assert.equal(context.barcodePrintItems.length,2);
+  assert.equal(context.barcodePrintItems[0].barcode,code);
+  context.barcodePrintItems=[];
+  assert.equal(product.barcode,code,'Clearing after reservation never removes the assigned barcode');
+}
+
 console.log('barcode print tests passed');
 }
 

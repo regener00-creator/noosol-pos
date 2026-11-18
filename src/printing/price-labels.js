@@ -493,20 +493,20 @@ function barcodePrintRowsHtml(entries=barcodePrintPagination().rows){
   return entries.map(({item,index})=>{
     const product=products.find(entry=>entry.id===item.pid);
     if(!product) return '';
-    const options=barcodePrintSelectableUnitOptions(product);
+    const options=barcodePrintRowOptions(item,product);
     const selected=options.find(option=>option.name===item.unit&&option.barcode===item.barcode)||options.find(option=>option.name===item.unit);
     if(!selected) return '';
     const unitSelect=options.length===1
       ?`<span class="barcode-print-unit-label">${escapeHtml(selected.name)}</span>`
-      :`<select class="barcode-print-unit-select" data-barcode-print-unit="${index}">${options.map(option=>`<option value="${escapeHtml(barcodePrintMode==='reprint'?option.barcode:option.name)}" ${option===selected?'selected':''}>${escapeHtml(option.name)}${barcodePrintMode==='reprint'?' · '+escapeHtml(option.barcode):''}</option>`).join('')}</select>`;
+      :`<select class="barcode-print-unit-select" data-barcode-print-unit="${index}" ${barcodePrintSavePending?'disabled':''}>${options.map(option=>`<option value="${escapeHtml(barcodePrintMode==='reprint'?option.barcode:option.name)}" ${option===selected?'selected':''}>${escapeHtml(option.name)}${barcodePrintMode==='reprint'?' · '+escapeHtml(option.barcode):''}</option>`).join('')}</select>`;
     return `<tr data-barcode-print-row="${index}">
       <td class="mono" style="text-align:center;">${escapeHtml(product.sku||'-')}</td>
-      <td>${escapeHtml(product.name)}${selected.barcode?'':`<br><span class="barcode-print-missing">หน่วยนี้ยังไม่มีบาร์โค้ด</span>`}</td>
+      <td>${escapeHtml(product.name)}${item.reservation?'<br><span class="barcode-print-missing">จองเลขแล้ว</span>':selected.barcode?'':`<br><span class="barcode-print-missing">หน่วยนี้ยังไม่มีบาร์โค้ด</span>`}</td>
       <td style="text-align:center;">${unitSelect}</td>
-      <td><input class="barcode-print-code-input" data-barcode-print-code="${index}" ${barcodePrintMode==='reprint'?'readonly':''} value="${escapeHtml(item.barcode)}" placeholder="ออกเลขอัตโนมัติเมื่อพิมพ์" maxlength="48" autocomplete="off" aria-label="บาร์โค้ด ${escapeHtml(product.name)}"></td>
+      <td><input class="barcode-print-code-input" data-barcode-print-code="${index}" ${barcodePrintSavePending?'disabled':''} ${barcodePrintMode==='reprint'||item.reservation?'readonly':''} value="${escapeHtml(item.barcode)}" placeholder="กดจองเลขบาร์โค้ด" maxlength="48" autocomplete="off" aria-label="บาร์โค้ด ${escapeHtml(product.name)}"></td>
       <td class="mono" style="text-align:center;">${fmtMoney(selected.price)}</td>
-      <td style="text-align:center;"><input type="number" min="1" max="500" step="1" class="barcode-print-qty-input" data-barcode-print-qty="${index}" value="${Number(item.qty)||1}" aria-label="จำนวนฉลาก ${escapeHtml(product.name)}"></td>
-      <td style="text-align:center;"><button class="barcode-print-remove" data-barcode-print-remove="${index}" title="ลบ ${escapeHtml(product.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(product.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td>
+      <td style="text-align:center;"><input type="number" min="1" max="500" step="1" class="barcode-print-qty-input" data-barcode-print-qty="${index}" ${barcodePrintSavePending?'disabled':''} value="${Number(item.qty)||1}" aria-label="จำนวนฉลาก ${escapeHtml(product.name)}"></td>
+      <td style="text-align:center;"><button class="barcode-print-remove" data-barcode-print-remove="${index}" ${barcodePrintSavePending?'disabled':''} title="ลบ ${escapeHtml(product.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(product.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td>
     </tr>`;
   }).join('');
 }
@@ -529,7 +529,7 @@ function renderBarcodePrint(){
   const pagination=barcodePrintPagination();
   barcodePrintPage=pagination.currentPage;
   return `<div class="rpt barcode-print-page">
-    <div class="pagehead label-print-pagehead"><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="barcodePrintMenuBtn">ย้อนกลับ</button><button class="btn ghost" id="openPriceLabelDesignerBtn">ออกแบบป้ายราคา</button><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length?'':'disabled'}>ล้างรายการ</button><button class="btn primary" id="savePrintBarcodeBtn" ${barcodePrintItems.length?'':'disabled'}>${reprint?'พิมพ์ป้ายเดิมซ้ำ':'บันทึกและพิมพ์ป้ายราคา'} (${barcodePrintItems.length})</button></div></div>
+    <div class="pagehead label-print-pagehead"><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="barcodePrintMenuBtn">ย้อนกลับ</button><button class="btn ghost" id="openPriceLabelDesignerBtn">ออกแบบป้ายราคา</button><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length&&!barcodePrintSavePending?'':'disabled'}>ล้างรายการ</button>${reprint?'':`<button class="btn ghost" id="reserveBarcodePrintBtn" ${barcodePrintSavePending||!barcodePrintUnreservedItems().length?'disabled':''}>${barcodePrintSavePending?'กำลังจองเลข…':'จองเลขบาร์โค้ด'}</button>`}<button class="btn primary" id="savePrintBarcodeBtn" ${!barcodePrintSavePending&&barcodePrintItems.length&&(reprint||!barcodePrintUnreservedItems().length)?'':'disabled'}>${reprint?'พิมพ์ป้ายเดิมซ้ำ':'พิมพ์ป้ายราคา'} (${barcodePrintItems.length})</button></div></div>
     <div class="rpt-filters" style="margin-bottom:14px;">
       <div class="rpf-item"><select id="barcodePrintCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(category=>`<option value="${escapeHtml(category)}" ${filter.category===category?'selected':''}>${escapeHtml(category)}</option>`).join('')}</select></div>
       <div class="rpf-item"><select id="barcodePrintBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(brand=>`<option value="${escapeHtml(brand)}" ${filter.brand===brand?'selected':''}>${escapeHtml(brand)}</option>`).join('')}</select></div>
@@ -671,20 +671,23 @@ function writeBarcodePrintWindow(printWindow,items=barcodePrintItems,labelSize=b
   return true;
 }
 
-async function saveBarcodePrintItems(printWindow){
+async function saveBarcodePrintItems(printWindow,{reserveOnly=false}={}){
   if(barcodePrintSavePending){ if(printWindow&&!printWindow.closed) printWindow.close(); return false; }
-  const errors=barcodePrintIsRetry()?[]:barcodePrintValidation(barcodePrintItems);
+  const pendingItems=reserveOnly?barcodePrintUnreservedItems():barcodePrintItems;
+  if(!pendingItems.length) return false;
+  const errors=barcodePrintIsRetry(pendingItems)?[]:barcodePrintValidation(pendingItems);
   document.querySelectorAll('.barcode-print-code-input').forEach(input=>input.classList.remove('invalid'));
   if(errors.length){
-    errors.forEach(error=>document.querySelector(`[data-barcode-print-code="${error.index}"]`)?.classList.add('invalid'));
+    errors.forEach(error=>document.querySelector(`[data-barcode-print-code="${barcodePrintItems.indexOf(pendingItems[error.index])}"]`)?.classList.add('invalid'));
     if(printWindow&&!printWindow.closed) printWindow.close();
     alert(`ยังไม่สามารถบันทึกและพิมพ์ได้\n\n${errors.slice(0,8).map(error=>error.message).join('\n')}${errors.length>8?`\nและอีก ${errors.length-8} จุด`:''}`);
     return false;
   }
-  const snapshot=barcodePrintRequestPayload();
+  const snapshot=barcodePrintRequestPayload(pendingItems);
   const context=captureStoreView();
   const labelSize=barcodePrintLabelSize;
   barcodePrintSavePending=true;
+  if(reserveOnly) render();
   try{
     if(!navigator.onLine) throw new Error('กรุณาเชื่อมต่ออินเทอร์เน็ตก่อนออกเลขบาร์โค้ดและพิมพ์');
     const hasPendingProducts=()=>snapshot.some(item=>productDirtyOperations.has(String(item.pid)));
@@ -702,7 +705,7 @@ async function saveBarcodePrintItems(printWindow){
     }
     if(!isStoreViewCurrent(context)) throw new Error('ร้านหรือผู้ใช้งานเปลี่ยน กรุณาเปิดหน้าพิมพ์ใหม่');
     if(hasPendingProducts()) throw new Error('ยังซิงก์ข้อมูลสินค้าไม่สำเร็จ กรุณากดสถานะซิงก์ด้านบนเพื่อดูรายละเอียด ยังไม่ได้ออกเลขบาร์โค้ด');
-    if(JSON.stringify(snapshot)!==JSON.stringify(barcodePrintRequestPayload())) throw new Error('รายการพิมพ์มีการเปลี่ยนแปลง กรุณาตรวจรายการแล้วกดพิมพ์ใหม่');
+    if(JSON.stringify(snapshot)!==JSON.stringify(barcodePrintRequestPayload(reserveOnly?barcodePrintUnreservedItems():barcodePrintItems))) throw new Error('รายการพิมพ์มีการเปลี่ยนแปลง กรุณาตรวจรายการแล้วกดพิมพ์ใหม่');
     if(!barcodePrintIsRetry()){
       const latestErrors=barcodePrintValidation(snapshot);
       if(latestErrors.length) throw new Error(latestErrors[0].message);
@@ -742,13 +745,20 @@ async function saveBarcodePrintItems(printWindow){
     }
     if(typeof invalidateProductIssuedBarcodeHistory==='function')invalidateProductIssuedBarcodeHistory();
     rebuildProductLookupMaps();
+    if(reserveOnly){
+      for(const issued of data.items){
+        const item=barcodePrintItems.find(item=>item.pid===issued.pid&&item.unit===issued.unit&&!item.reservation);
+        if(item) Object.assign(item,{barcode:issued.barcode,reservation:{code:issued.barcode,context}});
+      }
+      barcodePrintRequest=null;
+    }
     const cached=await persistProductChangesToIndexedDB({updatedIds:data.products.map(row=>row.id)});
     if(!isStoreViewCurrent(context)) throw new Error('บัญชีผู้ใช้งานเปลี่ยน กรุณาโหลดข้อมูลล่าสุด');
     // Codes are already committed centrally. A local cache failure must never
     // undo them or return their numbers to the generator.
-    writeBarcodePrintWindow(printWindow,data.items,labelSize);
+    if(!reserveOnly) writeBarcodePrintWindow(printWindow,data.items,labelSize);
     barcodePrintRequest=null;
-    showToast(cached?`เตรียมพิมพ์ป้ายราคา ${data.items.reduce((sum,item)=>sum+Number(item.qty),0)} ดวงแล้ว`:'บันทึกบาร์โค้ดส่วนกลางแล้ว แต่เก็บสำเนาในเครื่องไม่สำเร็จ กรุณาโหลดข้อมูลล่าสุด');
+    showToast(cached?reserveOnly?'จองเลขบาร์โค้ดแล้ว เลขจะคงอยู่กับสินค้าแม้ยังไม่พิมพ์':`เตรียมพิมพ์ป้ายราคา ${data.items.reduce((sum,item)=>sum+Number(item.qty),0)} ดวงแล้ว`:'บันทึกบาร์โค้ดส่วนกลางแล้ว แต่เก็บสำเนาในเครื่องไม่สำเร็จ กรุณาโหลดข้อมูลล่าสุด');
     return true;
   }catch(error){
     if(printWindow&&!printWindow.closed) printWindow.close();
@@ -757,5 +767,29 @@ async function saveBarcodePrintItems(printWindow){
   }finally{
     barcodePrintSavePending=false;
     if(isStoreViewCurrent(context)){ reconcileBarcodePrintItems(); render(); }
+  }
+}
+
+// Printing an already reserved queue is read-only: cancellation or printer failure
+// must never allocate a replacement number.
+function printReservedBarcodeItems(){
+  let printWindow;
+  try{
+    if(barcodePrintSavePending) return false;
+    if(!barcodePrintItems.length||barcodePrintUnreservedItems().length) throw new Error('กรุณาจองเลขบาร์โค้ดก่อนพิมพ์');
+    const items=barcodePrintItems.map(item=>{
+      if(!barcodePrintReservedOption(item)) throw new Error('สินค้า หน่วย หรือบาร์โค้ดเปลี่ยน กรุณาโหลดรายการใหม่');
+      const qty=Number(item.qty);
+      if(!Number.isInteger(qty)||qty<1||qty>500) throw new Error('จำนวนฉลากต้องเป็น 1–500');
+      return {pid:item.pid,unit:item.unit,barcode:item.barcode,qty};
+    });
+    printWindow=window.open('','_blank');
+    if(!printWindow) throw new Error('เบราว์เซอร์บล็อกหน้าพิมพ์ กรุณาอนุญาต Pop-up แล้วลองใหม่');
+    writeBarcodePrintWindow(printWindow,items,barcodePrintLabelSize,{trackPrint:false});
+    return true;
+  }catch(error){
+    if(printWindow&&!printWindow.closed) printWindow.close();
+    showToast(error?.message||'เปิดหน้าพิมพ์ไม่สำเร็จ เลขบาร์โค้ดที่จองไว้ยังใช้ได้','danger-top');
+    return false;
   }
 }
