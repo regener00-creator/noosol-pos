@@ -280,17 +280,32 @@ function systemUserLevelLabel(level){
 
 const AUDIT_LOG_ENTITY_TYPES=['products','product','warehouses','settings','contacts','sales_representatives','notes','promotions','sales','cash_shifts','quotations','invoices_ar','credit_notes','purchase_orders','goods_receipts','product_exchanges','purchase_orders_full','product_returns','transfers','standalone_tax_invoices','inspection_lists','profiles','profile_warehouse_access','inventory_count','inventory_lot','store_reset'];
 const AUDIT_LOG_ACTION_TYPES=['insert','update','delete','stock_adjusted','unit_changed','lot_expiry_changed','lot_reallocated','store_reset'];
-function auditLogDateRange(preset,now=new Date()){
+function auditLogDateRange(preset,now=new Date(),filter=auditLogFilter){
   const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Bangkok',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(now);
   const part=type=>parts.find(item=>item.type===type).value;
   const today=`${part('year')}-${part('month')}-${part('day')}`;
   if(preset==='today') return {dateFrom:today,dateTo:today};
-  if(preset==='yesterday'){
-    const date=new Date(today+'T00:00:00Z');date.setUTCDate(date.getUTCDate()-1);
-    return {dateFrom:date.toISOString().slice(0,10),dateTo:date.toISOString().slice(0,10)};
+  if(preset==='selectyear'){
+    const year=String(filter.year||today.slice(0,4));
+    return {dateFrom:year+'-01-01',dateTo:year+'-12-31'};
   }
-  if(preset==='month') return {dateFrom:today.slice(0,7)+'-01',dateTo:today};
-  return {dateFrom:'',dateTo:''};
+  const month=preset==='selectmonth'?(filter.month||today.slice(0,7)):today.slice(0,7);
+  const monthEnd=new Date(month+'-01T00:00:00Z');
+  monthEnd.setUTCMonth(monthEnd.getUTCMonth()+1,0);
+  const dateFrom=month+'-01',dateTo=monthEnd.toISOString().slice(0,10);
+  return preset==='range'?{dateFrom:filter.dateFrom||dateFrom,dateTo:filter.dateTo||dateTo}:{dateFrom,dateTo};
+}
+function updateAuditLogPeriod(key,value){
+  if(key==='period'){
+    auditLogFilter.datePreset=value;
+    auditLogFilter.dateFrom='';auditLogFilter.dateTo='';
+  }else if(key==='from'||key==='to'){
+    auditLogFilter[key==='from'?'dateFrom':'dateTo']=value;
+    const range=auditLogDateRange(auditLogFilter.datePreset);
+    if(key==='from'&&value>range.dateTo) auditLogFilter.dateTo=value;
+    if(key==='to'&&value<range.dateFrom) auditLogFilter.dateFrom=value;
+  }else if(key==='month'||key==='year') auditLogFilter[key]=value;
+  reloadAuditLogFilters();
 }
 function reloadAuditLogFilters(){
   clearTimeout(auditLogSearchTimer);
@@ -303,7 +318,7 @@ async function loadAuditLogsFromSupabase(force=false,direction='first'){
   const cursorRow=pageDirection==='next'?auditLogRows[auditLogRows.length-1]:pageDirection==='previous'?auditLogRows[0]:null;
   if((pageDirection==='next'||pageDirection==='previous')&&!cursorRow) return;
   const requestToken=++auditLogRequestToken;
-  if(auditLogFilter.datePreset!=='custom') Object.assign(auditLogFilter,auditLogDateRange(auditLogFilter.datePreset));
+  Object.assign(auditLogFilter,auditLogDateRange(auditLogFilter.datePreset));
   const filterSnapshot={
     search:String(auditLogFilter.search||'').trim(),
     entity:auditLogFilter.entity||'all',
@@ -398,7 +413,8 @@ function renderAuditLog(){
   const actionTypes=[...new Set([...AUDIT_LOG_ACTION_TYPES,auditLogFilter.action==='all'?null:auditLogFilter.action].filter(Boolean))];
   const entityOptions=entityTypes.map(value=>`<option value="${escapeHtml(value)}" ${auditLogFilter.entity===value?'selected':''}>${escapeHtml(auditEntityLabel(value))}</option>`).join('');
   const actionOptions=actionTypes.map(value=>`<option value="${escapeHtml(value)}" ${auditLogFilter.action===value?'selected':''}>${escapeHtml(auditActionLabel(value))}</option>`).join('');
-  const hasActiveFilter=!!auditLogFilter.search||auditLogFilter.entity!=='all'||auditLogFilter.action!=='all'||auditLogFilter.datePreset!=='all';
+  const hasActiveFilter=!!auditLogFilter.search||auditLogFilter.entity!=='all'||auditLogFilter.action!=='all'||auditLogFilter.datePreset!=='today';
+  const dateRange=auditLogDateRange(auditLogFilter.datePreset);
   const rows=pageRows.map(row=>{
     const key=String(row.event_key||'');
     const expanded=expandedAuditLogRows.has(key);
@@ -408,10 +424,7 @@ function renderAuditLog(){
   }).join('');
   return `<div class="audit-log-page"><div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="auditLogRefresh">รีเฟรชข้อมูล</button></div>
     <div class="audit-log-date-toolbar">
-      <div class="audit-log-date-presets" role="group" aria-label="ช่วงวันที่">
-        ${[['all','ทั้งหมด'],['today','วันนี้'],['yesterday','เมื่อวาน'],['month','เดือนนี้'],['custom','เลือกช่วงวันที่']].map(([key,label])=>`<button type="button" class="btn ${auditLogFilter.datePreset===key?'primary':'ghost'}" data-audit-log-date="${key}" aria-pressed="${auditLogFilter.datePreset===key}">${label}</button>`).join('')}
-      </div>
-      ${auditLogFilter.datePreset==='custom'?`<form id="auditLogDateForm" class="audit-log-date-range"><label for="auditLogDateFrom">จากวันที่${dmyDateFieldHtml('auditLogDateFrom',auditLogFilter.dateFrom)}</label><label for="auditLogDateTo">ถึงวันที่${dmyDateFieldHtml('auditLogDateTo',auditLogFilter.dateTo)}</label><button type="submit" class="btn primary">แสดงผล</button></form>`:''}
+      ${documentPeriodToolbar('auditlog',{period:auditLogFilter.datePreset},{from:dateRange.dateFrom,to:dateRange.dateTo})}
       <small class="audit-log-retention-note">เก็บประวัติย้อนหลัง 1 ปี · ลบรายการเก่าอัตโนมัติทุกวัน</small>
     </div>
     <div class="audit-log-toolbar" role="search" aria-label="ค้นหาและกรอง AUDIT LOG">

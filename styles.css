@@ -2462,9 +2462,8 @@
   }
   .audit-log-page{display:flex;flex-direction:column;gap:14px}
   .audit-log-date-toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:16px}
-  .audit-log-date-presets,.audit-log-date-range{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end}
-  .audit-log-date-range label{display:flex;flex-direction:column;gap:4px;font-size:13px}
-  .audit-log-date-range .dmy-input{width:160px;min-height:42px;padding:8px 36px 8px 12px;border:1px solid #E2D7D2;border-radius:10px;background:#fff;color:var(--primary)}
+  .audit-log-date-toolbar .document-period-toolbar{margin-left:auto}
+  .audit-log-date-toolbar .document-period-toolbar,.audit-log-date-toolbar .document-period-fields{flex-wrap:wrap;min-width:0}
   .audit-log-retention-note{flex-basis:100%;color:#756760}
   .audit-log-toolbar{display:grid;grid-template-columns:minmax(300px,1fr) minmax(180px,220px) minmax(180px,220px) minmax(150px,auto);gap:12px;align-items:stretch;padding:16px;border:1px solid #E2D7D2;border-radius:16px;background:linear-gradient(135deg,#FBF8F6 0%,#F2EBE8 100%);box-shadow:0 7px 22px rgba(79,64,56,.08)}
   .audit-log-filter{display:flex;min-width:0;flex-direction:column;gap:6px}

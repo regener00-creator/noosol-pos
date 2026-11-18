@@ -199,8 +199,8 @@ function documentStatusControl(kind,doc){
 function documentPeriodRange(kind){
   return rbillPeriodRange(documentPeriods[kind]||{period:'today'});
 }
-function documentPeriodToolbar(kind){
-  const f=documentPeriods[kind]||{period:'today'},range=documentPeriodRange(kind);
+function documentPeriodToolbar(kind,filterOverride=null,rangeOverride=null){
+  const f=filterOverride||documentPeriods[kind]||{period:'today'},range=rangeOverride||documentPeriodRange(kind);
   const options=[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
   const input=(key,type,label,value,attrs='')=>`<label>${label} <input class="rpt-select" type="${type}" data-document-period="${key}" value="${escapeHtml(value)}" ${attrs}></label>`;
   const fields=f.period==='range'?input('from','date','ตั้งแต่',range.from)+input('to','date','ถึง',range.to)

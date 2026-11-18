@@ -216,28 +216,6 @@ function attachEvents(){
   const cashShiftCloseReason=document.getElementById('cashShiftCloseReason');
   if(cashShiftCloseReason) cashShiftCloseReason.addEventListener('input',()=>{ cashShiftCloseDraft.reason=cashShiftCloseReason.value; });
   document.querySelectorAll('[data-print-cash-shift]').forEach(button=>button.addEventListener('click',()=>printCashShiftSummary(button.dataset.printCashShift)));
-  document.querySelectorAll('[data-audit-log-date]').forEach(button=>button.addEventListener('click',()=>{
-    const preset=button.dataset.auditLogDate;
-    auditLogFilter.datePreset=preset;
-    Object.assign(auditLogFilter,auditLogDateRange(preset==='custom'?'today':preset));
-    reloadAuditLogFilters();
-  }));
-  const auditLogDateForm=document.getElementById('auditLogDateForm');
-  if(auditLogDateForm){
-    const from=document.getElementById('auditLogDateFrom');
-    const to=document.getElementById('auditLogDateTo');
-    const clearValidity=()=>{from.setCustomValidity('');to.setCustomValidity('');};
-    [from,to].forEach(input=>{input.addEventListener('input',clearValidity);input.addEventListener('change',clearValidity);});
-    auditLogDateForm.addEventListener('submit',event=>{
-      event.preventDefault();
-      const dateFrom=dmyToISO(from.value),dateTo=dmyToISO(to.value);
-      from.setCustomValidity(dateFrom?'':'กรอกวันเริ่มต้นให้ถูกต้อง');
-      to.setCustomValidity(!dateTo?'กรอกวันสิ้นสุดให้ถูกต้อง':dateFrom>dateTo?'วันสิ้นสุดต้องไม่ก่อนวันเริ่มต้น':'');
-      if(!auditLogDateForm.reportValidity()) return;
-      auditLogFilter.dateFrom=dateFrom;auditLogFilter.dateTo=dateTo;
-      reloadAuditLogFilters();
-    });
-  }
   const auditLogSearch=document.getElementById('auditLogSearch');
   if(auditLogSearch) auditLogSearch.addEventListener('input',()=>{
     auditLogFilter.search=auditLogSearch.value;
@@ -267,7 +245,7 @@ function attachEvents(){
   });
   document.getElementById('auditLogClearFilters')?.addEventListener('click',()=>{
     clearTimeout(auditLogSearchTimer);
-    auditLogFilter={search:'',entity:'all',action:'all',datePreset:'all',dateFrom:'',dateTo:''}; auditLogPage=1; auditLogLoaded=false;
+    auditLogFilter={search:'',entity:'all',action:'all',datePreset:'today',dateFrom:'',dateTo:''}; auditLogPage=1; auditLogLoaded=false;
     loadAuditLogsFromSupabase(true,'first'); render();
   });
   document.getElementById('auditLogRefresh')?.addEventListener('click',()=>{ auditLogLoaded=false; auditLogPage=1; loadAuditLogsFromSupabase(true,'first'); render(); });
@@ -2184,6 +2162,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   document.querySelectorAll('[data-document-period]').forEach(input=>input.addEventListener('change',()=>{
     const kind=input.closest('[data-document-kind]').dataset.documentKind,key=input.dataset.documentPeriod;
     if(!input.value||!input.checkValidity())return;
+    if(kind==='auditlog'){ updateAuditLogPeriod(key,input.value); return; }
     const filter=documentPeriods[kind]||={period:'today'};
     filter[key]=input.value;
     if(key==='from'&&input.value>documentPeriodRange(kind).to)filter.to=input.value;
