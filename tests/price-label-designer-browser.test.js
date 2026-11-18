@@ -315,7 +315,9 @@ const browserExecutable = [
   await page.locator('#barcodePickAllBtn').click();
   await page.locator('#barcodePickAddBtn').click();
   assert.equal(await page.locator('[data-barcode-print-row]').count(),2);
-  assert.equal(await page.locator('[data-barcode-print-unit="1"]').count(),0,'Manufacturer barcode unit is excluded');
+  assert.equal(await page.locator('[data-barcode-print-unit="1"] option').count(),2,'Both factory and existing subunit barcodes are available');
+  assert.equal(await page.locator('[data-barcode-print-code="1"]').inputValue(),'MAIN-003');
+  await page.locator('[data-barcode-print-unit="1"]').selectOption('CREATED-ELSEWHERE');
   assert.equal(await page.locator('[data-barcode-print-code="1"]').inputValue(),'CREATED-ELSEWHERE');
   await page.locator('[data-barcode-print-qty="0"]').fill('35');
   await page.locator('[data-barcode-print-qty="1"]').fill('2');
@@ -422,6 +424,51 @@ const browserExecutable = [
     assert.equal(await printedLabel.locator('.barcode-label-svg').first().getAttribute('aria-label'),'บาร์โค้ด '+codes.newCode);
     await printedLabel.close();
     await page.evaluate(()=>{setBarcodePrintMode('new');});
+  }
+  for(const store of [1,2]){
+    await page.evaluate(async store=>{
+      activeWarehouseId=store;allWarehousesMode=false;
+      products=[
+        {id:9600+store,wh:store,sku:'FACTORY',name:'Factory barcode test',category:'ยา',unit:'ซอง',barcode:'0012345678905',price:10,active:true,
+          units:[{sub:'กล่อง',base:'ซอง',per:25,factor:25,price:250,barcode:'8851824336354'},{sub:'ลัง',base:'ซอง',per:250,factor:250,price:2400,barcode:''}]},
+        {id:9700+store,wh:store,sku:'8851824336354',name:'SKU collision',unit:'ขวด',barcode:'OTHER-CODE',price:80,units:[]},
+        {id:9800+store,wh:store===1?2:1,name:'Other shop',unit:'ขวด',barcode:'OTHER-SHOP',price:90,units:[]}
+      ];
+      rebuildProductLookupMaps();
+      window.factoryWriteCalls=[];
+      sb.rpc=async(name,args)=>{
+        if(name==='system_issued_label_codes'&&args.p_warehouse_id===store) return {data:[],error:null};
+        window.factoryWriteCalls.push(name);throw Error('Factory print must not write or allocate');
+      };
+      setBarcodePrintMode('reprint');await loadSystemIssuedLabelCodes();
+      barcodePrintItems=[];render();
+    },store);
+    await page.locator('#barcodePrintSearch').fill('OTHER-SHOP');
+    assert.equal(await page.locator('[data-barcode-print-result]').count(),0,'Other store is excluded');
+    await page.locator('#barcodePrintSearch').fill('8851824336354');
+    assert.equal(await page.locator('[data-barcode-print-result]').count(),1,'Exact barcode takes priority over a different product SKU');
+    await page.locator('#barcodePrintSearch').press('Enter');
+    assert.equal(await page.locator('[data-barcode-print-code="0"]').inputValue(),'8851824336354');
+    assert.equal(await page.locator('[data-barcode-print-unit="0"]').inputValue(),'8851824336354','Scan chooses the box unit');
+    assert.equal(await page.locator('[data-barcode-print-unit="0"] option').count(),2,'Blank barcode unit is excluded');
+    await page.locator('[data-barcode-print-unit="0"]').selectOption('0012345678905');
+    assert.equal(await page.locator('[data-barcode-print-code="0"]').inputValue(),'0012345678905');
+    const [mainLabel]=await Promise.all([page.waitForEvent('popup'),page.locator('#savePrintBarcodeBtn').click()]);
+    await mainLabel.locator('.label').first().waitFor();
+    assert.equal(await mainLabel.locator('.barcode-label-svg').first().getAttribute('aria-label'),'บาร์โค้ด 0012345678905');
+    await mainLabel.close();
+    await page.locator('#barcodePrintSearch').fill('8851824336354');
+    await page.locator('#barcodePrintSearch').press('Enter');
+    assert.equal(await page.locator('[data-barcode-print-row]').count(),1,'Rescanning changes unit without duplicating the product');
+    const snapshot=await page.evaluate(()=>{products[0].units[0].price=275;return JSON.stringify(products);});
+    const [factoryLabel]=await Promise.all([page.waitForEvent('popup'),page.locator('#savePrintBarcodeBtn').click()]);
+    await factoryLabel.locator('.label').first().waitFor();
+    assert.equal(await factoryLabel.locator('.barcode-label-svg').first().getAttribute('aria-label'),'บาร์โค้ด 8851824336354');
+    assert.match(await factoryLabel.locator('[data-price-label-element="price"]').first().textContent(),/275/,'Printed price uses the current box price');
+    await factoryLabel.close();
+    assert.equal(await page.evaluate(()=>JSON.stringify(products)),snapshot,'Printing preserves all product data');
+    assert.deepEqual(await page.evaluate(()=>window.factoryWriteCalls),[],'No new barcode allocation or data write');
+    await page.evaluate(()=>setBarcodePrintMode('new'));
   }
   await page.reload();
   await page.waitForFunction(()=>typeof readPriceLabelDefaultSize==='function');

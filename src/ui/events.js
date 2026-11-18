@@ -976,8 +976,8 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       const value=String(query||'').trim();
       if(!value){ barcodePrintResults.hidden=true; barcodePrintResults.innerHTML=''; return; }
       const label=systemLabelCode(value.toUpperCase());
-      const scan=label?findStoreLabelMatch(value):null;
-      const matches=barcodePrintAvailableProducts(barcodePrintCatFilter).filter(product=>label
+      const scan=barcodePrintMode==='reprint'?barcodeReprintScanMatch(value):label?findStoreLabelMatch(value):null;
+      const matches=barcodePrintAvailableProducts(barcodePrintCatFilter).filter(product=>label||scan
         ?scan?.product===product&&barcodePrintMode==='reprint'&&barcodeReprintUnitOptions(product).some(option=>option.name===scan.unitName&&option.barcode.toUpperCase()===value.toUpperCase())
         :barcodePrintMatchesQuery(product,value)).slice(0,15);
       if(scan&&barcodePrintMode==='new'){
@@ -1004,7 +1004,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       barcodePrintResults.hidden=false;
       barcodePrintResults.querySelectorAll('[data-barcode-print-result]').forEach(row=>{
         row.addEventListener('mousedown',event=>event.preventDefault());
-        row.addEventListener('click',()=>addProduct(products.find(product=>product.id===Number(row.dataset.barcodePrintResult)),scan?{...scan,barcode:value}:null));
+        row.addEventListener('click',()=>{
+          const product=products.find(product=>product.id===Number(row.dataset.barcodePrintResult));
+          addProduct(product,scan?.product===product?scan:null);
+        });
       });
     };
     barcodePrintSearch.addEventListener('input',()=>showResults(barcodePrintSearch.value));

@@ -98,6 +98,23 @@ assert.equal(firstItem.unit, 'กล่อง');
 assert.equal(firstItem.barcode, '', 'ไม่คาดเดาเลขส่วนกลางก่อนบันทึกและพิมพ์');
 assert.equal(firstItem.qty, 1);
 assert.equal(context.barcodeReprintUnitOptions(products[0]).length,0,'No reprints without verified history');
+for(const store of [1,2]){
+  context.testStore=store;
+  vm.runInContext('barcodeIssuedState={ready:true,context:{actor:"owner-test",store:testStore},codes:new Set()}',context);
+  const factory={id:90,wh:store,unit:'ซอง',barcode:'0012345678905',price:10,units:[{sub:'กล่อง',barcode:'8851824336354',price:240},{sub:'ลัง',barcode:'',price:2400}],extraBarcodes:['ALIAS-90'],extraBarcodeUnits:['กล่อง'],vendorBarcodes:[{code:'VENDOR-90'}]};
+  products.push(factory);
+  assert.deepEqual(Array.from(context.barcodeReprintUnitOptions(factory),entry=>[entry.name,entry.barcode,entry.price]),[['ซอง','0012345678905',10],['กล่อง','8851824336354',240],['กล่อง','ALIAS-90',240]]);
+  assert.equal(context.barcodeReprintScanMatch('8851824336354').unitName,'กล่อง');
+  assert.equal(context.barcodeReprintScanMatch('0012345678905').barcode,'0012345678905','Leading zero is preserved');
+  assert.equal(context.barcodeReprintScanMatch('VENDOR-90'),null,'Vendor codes are not label barcodes');
+  assert.equal(context.barcodeReprintUnitOptions({...factory,wh:store===1?2:1}).length,0,'Other shop cannot enter the print queue');
+  for(const barcode of ['AP00000000001','BP00000000001','P00000000001']){
+    assert.equal(context.barcodeReprintUnitOptions({...factory,barcode,units:[],extraBarcodes:[]}).length,0,'Internal labels still require verified issuance');
+  }
+  factory.units[0].price=250;
+  assert.equal(context.barcodeReprintUnitOptions(factory).find(entry=>entry.barcode==='8851824336354').price,250,'Use current unit price');
+  products.pop();
+}
 vm.runInContext('barcodeIssuedState={ready:true,context:captureWorkspaceRead(),codes:new Set([JSON.stringify([1,"CASE-001"]),JSON.stringify([2,"OLD-002"])])}',context);
 assert.equal(context.barcodeReprintUnitOptions({id:99,unit:'box',barcode:'P00000000001'}).length,0,'An internal-looking code is not proof of issuance');
 assert.deepEqual(Array.from(context.barcodeReprintUnitOptions(products[0]),option=>option.name),['ลัง']);

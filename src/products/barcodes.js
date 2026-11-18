@@ -107,6 +107,7 @@ function inventoryLabelMatches(code){
 }
 function barcodeReprintUnitOptions(product){
   if(!isProductActive(product)||!barcodeIssuedState?.ready||!isStoreViewCurrent(barcodeIssuedState.context)) return [];
+  if(Number(product.wh||1)!==Number(barcodeIssuedState.context.store||1)) return [];
   const units=barcodePrintUnitOptions(product);
   const candidates=[...units];
   for(const alias of extraBarcodeEntries(product)){
@@ -115,9 +116,19 @@ function barcodeReprintUnitOptions(product){
   }
   return candidates.filter(option=>{
     const code=String(option.barcode||'').toUpperCase();
+    if(!code) return false;
     if(systemLabelCode(code)&&(code.startsWith('P')||!systemLabelCode(code,barcodeIssuedState.context.store))) return false;
-    return barcodeIssuedState.codes.has(JSON.stringify([Number(product.id),option.barcode]));
+    return !systemLabelCode(code)||barcodeIssuedState.codes.has(JSON.stringify([Number(product.id),option.barcode]));
   });
+}
+function barcodeReprintScanMatch(value){
+  const code=String(value||'').trim().toUpperCase();
+  if(!code) return null;
+  for(const product of products){
+    const option=barcodeReprintUnitOptions(product).find(entry=>entry.barcode.toUpperCase()===code);
+    if(option) return {product,unitName:option.name,barcode:option.barcode};
+  }
+  return null;
 }
 
 function barcodeReprintItem(productId,unitName,quantity,code){
