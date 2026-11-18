@@ -36,6 +36,7 @@ let browser;
     window.testPending=[{table:'contacts',id:'fixture-only',record:{name:'งานทดสอบที่ต้องเก็บไว้'}}];
     currentWorkspacePendingChanges=()=>window.testPending;
     loadSyncEventDetails=async()=>[{id:'fixture-history',device_id:'another-device',table_name:'products',status:'open',message:'ประวัติงานจากเครื่องอื่น',occurred_at:'2026-09-17T10:00:00Z'}];
+    window.realProductCoreSync=syncCoreDataToSupabase;
     syncCoreDataToSupabase=async()=>{window.testSyncCalls++;if(window.clearProductFixtureOnSync)productDirtyOperations.clear();setSyncUiState('synced',0);};
     syncTopbarFormActions();
   });
@@ -66,6 +67,26 @@ let browser;
     assert.doesNotMatch(await dialog.innerText(),/สินค้าของอีกร้าน|ไม่มีงานค้าง/);
     assert.equal(await page.evaluate(()=>JSON.stringify({products,dirty:[...productDirtyOperations]})),before,'Opening details does not discard pending product changes');
     assert.equal(await page.evaluate(()=>window.testSyncCalls),0);
+    await page.evaluate(()=>{
+      window.productCompareOriginalFrom=sb.from;
+      sb.from=table=>{
+        if(table!=='products')throw new Error('Unexpected comparison table');
+        let id;
+        const q={select:()=>q,eq:(key,value)=>{if(key==='id')id=value;return q;},maybeSingle:async()=>{
+          const local=products.find(product=>String(product.id)===String(id));
+          return {data:local?{...productToRow(local),price:250,revision:1}:null,error:null};
+        }};return q;
+      };
+    });
+    await dialog.locator('[data-compare-product="0"]').click();
+    const comparison=page.getByRole('dialog',{name:'ตรวจเทียบงานค้าง',exact:true});
+    await comparison.waitFor();
+    assert.match(await comparison.innerText(),/ราคาขาย/);
+    assert.match(await comparison.innerText(),/250/);
+    assert.equal(await comparison.getByRole('button').count(),1,'Comparison only offers close, never overwrite');
+    assert.equal(await page.evaluate(()=>JSON.stringify({products,dirty:[...productDirtyOperations]})),before,'Comparison does not modify drafts');
+    await comparison.getByRole('button',{name:'ปิด',exact:true}).click();
+    await page.evaluate(()=>{sb.from=window.productCompareOriginalFrom;});
     await dialog.getByRole('button',{name:'ลองซิงก์ใหม่',exact:true}).click();
     assert.equal(await dialog.locator('.sync-detail-summary').textContent(),'ยังมีสินค้ารอซิงก์ 8 รายการ','A retry that leaves pending products must not report success');
     assert.equal(await dialog.locator('[data-pending-product-id]').count(),8);
@@ -160,6 +181,58 @@ let browser;
   assert.match(await dialog.innerText(),/งานรอซิงก์ 0 รายการ/);
   assert.match(await dialog.innerText(),/โหลดประวัติจากเซิร์ฟเวอร์ไม่ได้/);
   assert.equal(await page.evaluate(()=>window.testSyncCalls),1);
+  await dialog.locator('.modal-close').click();
+  // Exercise the real Retry -> core -> per-shop product batches -> status flow.
+  for(const store of [1,2]){
+    await page.evaluate(store=>{
+      activeWarehouseId=store;syncStatusByStore.clear();syncUiLastError=null;
+      currentProfile={id:'sync-chip-owner',owner:true,level:1};loggedInUser=()=>currentProfile;
+      captureStoreView=()=>({store:activeWarehouseId,combined:false});isStoreViewCurrent=context=>context.store===activeWarehouseId;
+      offlinePosMode=()=>false;offlinePendingSales=()=>[];offlineSyncRunning=false;
+      adoptRemoteMaintenanceEpoch=async()=>false;syncWarehousesIncrementally=async()=>true;
+      syncInspectionListsToSupabase=async()=>true;upsertAndPrune=async()=>true;
+      window.testPending=[];loadSyncEventDetails=async()=>[];
+      reportClientEvent=()=>{};flushPendingClientEvents=()=>{};resolveOwnSyncEventsThrough=async()=>{};
+      persistProductChangesToIndexedDB=async()=>true;
+      syncCoreDataToSupabase=window.realProductCoreSync;coreSyncInFlight=false;coreSyncPending=false;
+      insertRowsInChunks.paused?.clear();updateProductMetadataInChunks.paused?.clear();
+      products=Array.from({length:8},(_,i)=>({id:901+i,wh:store,sku:'P'+i,name:'สินค้ารอส่ง '+i,unit:'ขวด',price:250,cost:230,_revision:1,_clientCreateToken:'token'+i}));
+      const old=products.map(p=>({...p,price:200}));
+      const conflict={id:999,wh:3-store,sku:'10546',name:'Thai-Bio พลูคาวสกัด (60 capsules)',unit:'ขวด',price:250,cost:230,_revision:1,_clientCreateToken:'conflict-token'};
+      products.push(conflict);
+      seedTableSnapshot('products',old,productMetadataToRow);
+      productDirtyOperations=new Map([...old.map(p=>[String(p.id),'update']),['999','insert']]);
+      window.syncTestRemote=new Map([...old.map(p=>productMetadataToRow(p)),productMetadataToRow({...conflict,price:0})].map(row=>[String(row.id),structuredClone(row)]));
+      window.syncTestWrites=[];
+      sb.from=table=>{
+        if(table!=='products')throw new Error('Unexpected table '+table);
+        let ids,id,revision,changes;
+        const q={select:()=>q,in:(_key,v)=>{ids=v.map(String);return q;},eq:(key,v)=>{if(key==='id')id=String(v);else revision=v;return q;},
+          update:v=>{changes=v;return q;},
+          insert:async rows=>{window.syncTestWrites.push({kind:'insert',ids:rows.map(r=>r.id)});return {error:{code:'23505',message:'duplicate key'}};},
+          maybeSingle:async()=>{const row=window.syncTestRemote.get(id);if(!changes)return {data:structuredClone(row||null)};
+            if(!row||row.revision!==revision)return {data:null};Object.assign(row,changes,{revision:revision+1});window.syncTestWrites.push({kind:'update',id});return {data:{id:row.id,revision:row.revision}};},
+          then:resolve=>Promise.resolve({data:[...window.syncTestRemote.values()].filter(row=>!ids||ids.includes(String(row.id))),error:null}).then(resolve)};return q;
+      };
+      setSyncUiState('synced',0);
+    },store);
+    assert.match(await chip.innerText(),/สินค้ารอซิงก์ 8 รายการ/);
+    await chip.click();await dialog.getByRole('button',{name:'ลองซิงก์ใหม่',exact:true}).click();
+    await page.waitForFunction(()=>!coreSyncInFlight&&document.querySelector('.sync-detail-summary')?.textContent==='ซิงก์ล่าสุดสำเร็จแล้ว');
+    assert.equal(await dialog.locator('[data-pending-product-id]').count(),0);
+    assert.equal(await chip.innerText(),'ซิงก์แล้ว');
+    assert.deepEqual(await page.evaluate(()=>[...productDirtyOperations.keys()]),['999']);
+    assert.equal(await page.evaluate(()=>window.syncTestRemote.get('999').price),0,'Conflicted remote price remains untouched');
+    assert.equal(await page.evaluate(()=>products.find(p=>p.id===999).price),250,'Conflicted local price remains untouched');
+    await dialog.locator('.modal-close').click();
+    await page.evaluate(()=>{activeWarehouseId=3-activeWarehouseId;selectStoreSyncStatus();});
+    assert.equal(await chip.getAttribute('data-state'),'error','Failure belongs only to the other shop');
+    await chip.click();assert.equal(await dialog.locator('[data-pending-product-id]').count(),1);
+    await dialog.locator('[data-compare-product="0"]').click();
+    const comparison=page.getByRole('dialog',{name:'ตรวจเทียบงานค้าง',exact:true});
+    await comparison.waitFor();assert.match(await comparison.innerText(),/ราคาขาย\s+250\s+0/);
+    await comparison.getByRole('button',{name:'ปิด',exact:true}).click();await dialog.locator('.modal-close').click();
+  }
   assert.deepEqual(errors,[]);
   console.log('sync status chip browser: all states, enlarged modal, persistent backdrop, both close buttons, mobile/tablet/landscape scrolling, keyboard/retry/history failure passed; no implicit sync or discarded work');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.close();});

@@ -249,9 +249,14 @@ function renderWorkspaceRecoveryPanel(panel){
   const entries=currentWorkspacePendingChanges().filter(entry=>!isAllWarehousesMode()&&pendingEntryStore(entry)===activeWarehouseId);
   const pendingProducts=pendingProductSyncEntries();
   const productActions={insert:'รอเพิ่มสินค้า',update:'รอส่งการแก้ไขสินค้า',delete:'รอลบสินค้า'};
-  const productMarkup=pendingProducts.length?`<div class="sync-detail-section-title">สินค้ารอซิงก์ ${pendingProducts.length} รายการ</div><div class="sync-recovery-list">${pendingProducts.map(({id,operation,product})=>`<div class="sync-recovery-row" data-pending-product-id="${escapeHtml(id)}"><div><strong>${escapeHtml(product.name||product.sku||id)}</strong><div>${escapeHtml([product.sku?`รหัส ${product.sku}`:'',product.unit||'',productActions[operation]||'รอซิงก์'].filter(Boolean).join(' · '))}</div></div></div>`).join('')}</div>`:'';
+  const productMarkup=pendingProducts.length?`<div class="sync-detail-section-title">สินค้ารอซิงก์ ${pendingProducts.length} รายการ</div><div class="sync-recovery-list">${pendingProducts.map(({id,operation,product},index)=>`<div class="sync-recovery-row" data-pending-product-id="${escapeHtml(id)}"><div><strong>${escapeHtml(product.name||product.sku||id)}</strong><div>${escapeHtml([product.sku?`รหัส ${product.sku}`:'',product.unit||'',productActions[operation]||'รอซิงก์'].filter(Boolean).join(' · '))}</div></div><button class="btn ghost" type="button" data-compare-product="${index}">ตรวจเทียบ</button></div>`).join('')}</div>`:'';
   const labels={contacts:'ลูกค้า / ผู้จำหน่าย',sales_representatives:'ผู้แทน',quotations:'ใบเสนอราคา',purchase_orders:'จดสั่งสินค้า',goods_receipts:'รับเข้าสินค้า',product_returns:'คืนสินค้า'};
   panel.innerHTML=`<div class="sync-detail-section-title">งานรอซิงก์ ${entries.length+pendingProducts.length} รายการ${workspaceCacheSaveFailed?' · ยังเก็บลงเครื่องไม่สำเร็จ':''}</div>${productMarkup}${entries.length?`<button class="btn ghost" type="button" data-export-recovery>ดาวน์โหลดสำเนางานรอซิงก์${pendingProducts.length?'ของสมุดรายชื่อและเอกสาร':''}</button><div class="sync-recovery-list">${entries.map((entry,index)=>`<div class="sync-recovery-row"><span>${escapeHtml(labels[entry.table]||entry.table)} · ${escapeHtml(entry.record?.name||entry.record?.id||entry.id)}${entry.record?'':' · รอลบ'}</span><button class="btn ghost" type="button" data-discard-recovery="${index}">ใช้ข้อมูลเซิร์ฟเวอร์</button></div>`).join('')}</div>`:pendingProducts.length?'':'<div class="sync-detail-note">ไม่มีงานค้างของสินค้า สมุดรายชื่อ หรือเอกสาร</div>'}`;
+  panel.querySelectorAll('[data-compare-product]').forEach(button=>button.onclick=()=>{
+    const entry=pendingProducts[Number(button.dataset.compareProduct)];
+    const live=completeProductCatalog().find(product=>String(product.id)===entry.id);
+    openWorkspaceRecoveryComparison({table:'products',id:entry.id,record:entry.operation==='delete'?null:live});
+  });
   panel.querySelector('[data-export-recovery]')?.addEventListener('click',()=>{
     const blob=new Blob([JSON.stringify({format:'SAPURI-pending-work',createdAt:new Date().toISOString(),changes:entries},null,2)],{type:'application/json;charset=utf-8'});
     const url=URL.createObjectURL(blob),link=document.createElement('a');
@@ -272,12 +277,13 @@ function renderWorkspaceRecoveryPanel(panel){
   });
 }
 async function openWorkspaceRecoveryComparison(entry){
-  const config=workspaceRecoveryTables().find(([table])=>table===entry.table);
+  const isProduct=entry.table==='products';
+  const config=isProduct?['products',null,null,productMetadataToRow]:workspaceRecoveryTables().find(([table])=>table===entry.table);
   if(!config) return;
   try{
     const {data,error}=await sb.from(entry.table).select('*').eq('id',entry.id).maybeSingle();
     if(error) throw error;
-    const remote=data?revisionedRecordFromRow(entry.table,data):null;
+    const remote=data?(isProduct?rowToProduct(data):revisionedRecordFromRow(entry.table,data)):null;
     const local=entry.record?config[3](entry.record):null,server=remote?config[3](remote):null;
     const flatten=(value,prefix='',out={})=>{
       if(value&&typeof value==='object'&&!Array.isArray(value)) for(const [key,item] of Object.entries(value)) flatten(item,prefix?`${prefix}.${key}`:key,out);
@@ -286,7 +292,7 @@ async function openWorkspaceRecoveryComparison(entry){
     };
     const left=flatten(local),right=flatten(server);
     const keys=[...new Set([...Object.keys(left),...Object.keys(right)])].filter(key=>JSON.stringify(canonicalProductInsertValue(left[key]))!==JSON.stringify(canonicalProductInsertValue(right[key])));
-    const labels={name:'ชื่อ',phone:'เบอร์โทร',type:'ประเภท',revision:'เวอร์ชัน','data.code':'รหัส','data.address':'ที่อยู่','data.note':'หมายเหตุ','data.customerPrices':'ราคาพิเศษ','data.loyaltyJoinedAt':'วันที่เริ่มสมาชิก'};
+    const labels={name:'ชื่อ',sku:'รหัสสินค้า',category:'หมวดหลัก',brand:'หมวดย่อย',price:'ราคาขาย',cost:'ราคาทุน',unit:'หน่วยหลัก',warehouse_id:'คลังสินค้า',product_type:'ประเภทสินค้า','data.barcode':'บาร์โค้ด','data.units':'หน่วยเพิ่มเติม','data.active':'เปิดใช้งาน','data.dataReviewStatus':'สถานะตรวจข้อมูล','data.desc':'รายละเอียด','data._clientCreateToken':'รหัสอ้างอิงการสร้างสินค้า',phone:'เบอร์โทร',type:'ประเภท',revision:'เวอร์ชัน','data.code':'รหัส','data.address':'ที่อยู่','data.note':'หมายเหตุ','data.customerPrices':'ราคาพิเศษ','data.loyaltyJoinedAt':'วันที่เริ่มสมาชิก'};
     const display=value=>escapeHtml(value===undefined?'ไม่มีข้อมูล':value===null?'ไม่มีรายการ':typeof value==='object'?JSON.stringify(value):String(value));
     const overlay=document.createElement('div'); overlay.className='modal-overlay';
     overlay.innerHTML=`<section class="modal" role="dialog" aria-modal="true" aria-label="ตรวจเทียบงานค้าง"><div class="modal-head"><h3>ตรวจเทียบ: ${escapeHtml(entry.record?.name||entry.id)}</h3><button class="modal-close" type="button" aria-label="ปิด">×</button></div><div style="padding:20px;max-height:65vh;overflow:auto"><p>แสดงความต่างเท่านั้น หน้านี้ไม่เปลี่ยนข้อมูลหรือจำนวนสต็อก</p>${!local?'<p>เครื่องนี้มีคำสั่งรอลบรายการ</p>':''}${!server?'<p>ไม่พบรายการบนเซิร์ฟเวอร์ที่บัญชีนี้อ่านได้</p>':''}${keys.length?`<table class="table"><thead><tr><th>ข้อมูล</th><th>ในเครื่อง</th><th>เซิร์ฟเวอร์</th></tr></thead><tbody>${keys.map(key=>`<tr><td>${escapeHtml(labels[key]||key)}</td><td style="overflow-wrap:anywhere">${display(left[key])}</td><td style="overflow-wrap:anywhere">${display(right[key])}</td></tr>`).join('')}</tbody></table>`:'<p>ข้อมูลตรงกัน ไม่พบความแตกต่าง</p>'}</div></section>`;

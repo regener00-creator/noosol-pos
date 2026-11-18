@@ -165,7 +165,8 @@ async function verifyProductInsertChunk(table,rows){
   const {data,error}=await sb.from(table).select('id,sku,name,category,brand,product_type,warehouse_id,cost,price,unit,data').in('id',ids);
   if(error) return {error,missing:[],metadataMismatches:[]};
   const remoteById=new Map((data||[]).map(row=>[String(row.id),row]));
-  const missing=[],metadataMismatches=[];
+  const missing=[],metadataMismatches=[],matched=[];
+  let firstError=null;
   for(const row of rows||[]){
     const remote=remoteById.get(String(row.id));
     if(!remote){ missing.push(row); continue; }
@@ -174,44 +175,60 @@ async function verifyProductInsertChunk(table,rows){
     // The token is immutable creation identity. Other fields may legitimately
     // change after the first insert (stock RPC, metadata edit) before retry.
     if(!localToken||!remoteToken||localToken!==remoteToken){
-      return {error:productInsertCollisionError(row.id),missing:[],metadataMismatches:[]};
+      firstError||=productInsertCollisionError(row.id);
+      continue;
     }
     if(canonicalProductInsertSignature(row)!==canonicalProductInsertSignature(remote)){
       // Creation identity proves only that INSERT succeeded, never that our
       // older metadata may overwrite a later edit from another device.
       const conflict=new Error(`สินค้า ${row.sku||row.id} ถูกสร้างแล้วแต่ข้อมูลต่างจากเซิร์ฟเวอร์ เก็บงานในเครื่องไว้เพื่อตรวจเทียบ`);
       conflict.code='REVISION_CONFLICT'; conflict.productId=row.id; conflict.recordId=row.id;
-      return {error:conflict,missing:[],metadataMismatches:[]};
+      firstError||=conflict;
+      continue;
     }
+    matched.push(row);
   }
-  return {error:null,missing,metadataMismatches};
+  return {error:firstError,missing,metadataMismatches,matched};
 }
-async function insertRowsInChunks(table,rows){
+async function insertRowsInChunks(table,rows,onAcknowledged=async()=>{}){
   const paused=typeof persistentSyncPauseMap==='function'?persistentSyncPauseMap(insertRowsInChunks,'product-inserts'):(insertRowsInChunks.paused||=new Map());
+  let firstError=null;
   for(let i=0;i<rows.length;i+=200){
     let pending=rows.slice(i,i+200),lastError=null;
-    for(const row of pending){
+    pending=pending.filter(row=>{
       const saved=paused.get(String(row.id));
-      if(saved?.fingerprint===canonicalProductInsertSignature(row)) return Object.assign(new Error(saved.message),{code:saved.code||'REVISION_CONFLICT',productId:row.id,recordId:row.id,syncPaused:true});
-    }
+      if(saved?.fingerprint!==canonicalProductInsertSignature(row)) return true;
+      firstError||=Object.assign(new Error(saved.message),{code:saved.code||'REVISION_CONFLICT',productId:row.id,recordId:row.id,syncPaused:true});
+      return false;
+    });
     for(let attempt=0;attempt<3&&pending.length;attempt++){
       const {error}=await sb.from(table).insert(pending);
-      if(!error){ pending.forEach(row=>paused.delete(String(row.id))); pending=[]; break; }
+      if(!error){ pending.forEach(row=>paused.delete(String(row.id))); await onAcknowledged(pending); pending=[]; break; }
       lastError=error;
       if(table!=='products') return error;
       const duplicate=productBarcodeConstraintError(error);
       if(duplicate){
         const row=pending.find(row=>String(row.id)===String(duplicate.productId));
         if(row) paused.set(String(row.id),{fingerprint:canonicalProductInsertSignature(row),code:duplicate.code,message:duplicate.message});
-        return duplicate;
+        firstError||=duplicate;
+        if(!row) return firstError;
+        pending=pending.filter(item=>item!==row); attempt--; continue;
       }
       const verification=await verifyProductInsertChunk(table,pending);
+      if(verification.matched?.length){
+        await onAcknowledged(verification.matched);
+        verification.matched.forEach(row=>paused.delete(String(row.id)));
+      }
       if(verification.error){
         if(verification.error.code==='REVISION_CONFLICT'){
           const row=pending.find(row=>String(row.id)===String(verification.error.productId));
           if(row) paused.set(String(row.id),{fingerprint:canonicalProductInsertSignature(row),message:verification.error.message});
         }
-        return verification.error;
+        firstError||=verification.error;
+        const failedId=String(verification.error.productId||'');
+        if(!pending.some(row=>String(row.id)===failedId)) return firstError;
+        pending=pending.filter(row=>String(row.id)!==failedId&&!verification.matched?.some(match=>String(match.id)===String(row.id)));
+        attempt--; continue;
       }
       pending.filter(row=>!verification.missing.some(missing=>String(missing.id)===String(row.id))).forEach(row=>paused.delete(String(row.id)));
       // A previous ambiguous request may have committed only the earlier rows
@@ -220,7 +237,7 @@ async function insertRowsInChunks(table,rows){
     }
     if(pending.length) return lastError||new Error('บันทึกสินค้าใหม่ไม่สำเร็จ');
   }
-  return null;
+  return firstError;
 }
 async function updateProductMetadataInChunks(productRows,onAcknowledged=()=>{}){
   // Pause unchanged conflicts in this session, without dropping the durable
@@ -475,8 +492,7 @@ async function syncWarehousesIncrementally(){
   syncedTableRows[table]=current;
   return true;
 }
-async function prepareProductInsertCandidatesForSync(previous){
-  const products=completeProductCatalog();
+async function prepareProductInsertCandidatesForSync(previous,products=completeProductCatalog()){
   // Older caches can contain a product that predates dirty-operation tracking.
   // Give every row that this sync will classify as a new insert the same durable
   // identity marker as an explicitly dirty insert before any network request.
@@ -506,20 +522,59 @@ async function syncProductsIncrementally({dirtyOnly=false}={}){
   const products=completeProductCatalog();
   const table='products';
   const previous=syncedTableRows[table]||new Map();
+  syncProductsIncrementally.failures=[];
   const actor=typeof currentProfile==='undefined'?'':String(currentProfile?.id||'');
   const lastCheck=syncProductsIncrementally.fullCheck;
   // All product editors record dirty ids. Retain a periodic full comparison
   // for legacy/import paths instead of serializing the catalog on every save.
   if(dirtyOnly&&syncedTableRows[table]&&productDirtyOperations.size===0&&lastCheck?.actor===actor&&lastCheck.baseline===previous&&Date.now()-lastCheck.at<300000) return true;
-  if(!await prepareProductInsertCandidatesForSync(previous)) return false;
+  // Each warehouse owns its own batch and acknowledgements. A failed insert
+  // in one shop must not strand successful updates in another shop.
+  const groups=new Map();
+  const groupFor=store=>{ if(!groups.has(store)) groups.set(store,{products:[],previous:new Map()}); return groups.get(store); };
+  const liveById=new Map(products.map(product=>[String(product.id),product]));
+  products.forEach(product=>groupFor(Number(product.wh)||1).products.push(product));
+  for(const [id,baseline] of previous){
+    let store=Number(liveById.get(id)?.wh)||0;
+    if(!store){ try{const row=JSON.parse(baseline);store=Number(row?.warehouse_id||row?.data?.wh)||0;}catch{} }
+    if(!store&&liveById.has(id)) store=1;
+    if(!store){
+      // A legacy delete tombstone has no owner. Never guess which shop owns it.
+      const error=Object.assign(new Error('ไม่พบคลังเจ้าของรายการสินค้าที่รอลบ กรุณาตรวจเทียบก่อนลบ'),{code:'PRODUCT_STORE_UNKNOWN',productId:id});
+      syncProductsIncrementally.failures.push({error,operation:'delete_products',tableName:table,recordId:id});
+      continue;
+    }
+    groupFor(store).previous.set(id,baseline);
+  }
+  for(const [warehouseId,group] of groups){
+    coreSyncFailureDetail=null;
+    try{
+      if(!await syncProductWarehouseIncrementally(group.products,group.previous)){
+        syncProductsIncrementally.failures.push({...coreSyncFailureDetail,warehouseId});
+      }
+    }catch(error){ syncProductsIncrementally.failures.push({error,tableName:table,operation:'update_products',recordId:error.productId||'',warehouseId}); }
+  }
+  if(syncProductsIncrementally.failures.length){
+    coreSyncFailureDetail=syncProductsIncrementally.failures[0];
+    return false;
+  }
+  syncProductsIncrementally.fullCheck={at:Date.now(),actor,baseline:previous};
+  return true;
+}
+async function syncProductWarehouseIncrementally(products,previous){
+  const table='products';
+  if(!await prepareProductInsertCandidatesForSync(previous,products)) return false;
   const current=tableSnapshot(products,productMetadataToRow);
-  const dirtyAtStart=new Map(productDirtyOperations);
+  const scopedIds=new Set([...current.keys(),...previous.keys()]);
+  const dirtyAtStart=new Map([...productDirtyOperations].filter(([id])=>scopedIds.has(id)));
   const changed=cloneSyncRecords(products.filter(product=>previous.get(String(product.id))!==current.get(String(product.id))));
   const acknowledge=syncAcknowledgement(table,products,productMetadataToRow);
   const inserted=changed.filter(product=>dirtyAtStart.get(String(product.id))==='insert'||(!dirtyAtStart.has(String(product.id))&&!previous.has(String(product.id))));
   const updated=changed.filter(product=>dirtyAtStart.get(String(product.id))==='update'||(!dirtyAtStart.has(String(product.id))&&previous.has(String(product.id))));
   const deleted=[...previous.keys()].filter(id=>!current.has(id));
   let productUpdateError=null;
+  let cleanupFailed=false;
+  try{
   if(updated.length){
     const error=await updateProductMetadataInChunks(updated,acknowledge);
     if(error){
@@ -530,33 +585,49 @@ async function syncProductsIncrementally({dirtyOnly=false}={}){
   if(inserted.length){
     // New client-generated ids must fail closed on a primary-key collision.
     // Upsert would silently replace the product created by another device.
-    const error=await insertRowsInChunks(table,inserted.map(productToRow));
+    const acknowledgeInserted=async rows=>{
+      const {data,error}=await sb.from('products').select('*').in('id',rows.map(row=>row.id));
+      if(error) throw error;
+      const remoteById=new Map((data||[]).map(row=>[String(row.id),row]));
+      let conflict=null;
+      for(const row of rows){
+        const remote=remoteById.get(String(row.id));
+        if(!remote||canonicalProductInsertSignature(row)!==canonicalProductInsertSignature(remote)){
+          conflict||=Object.assign(new Error(`สินค้า ${row.sku||row.id} เปลี่ยนระหว่างตรวจสอบผลการเพิ่ม เก็บงานไว้เพื่อตรวจเทียบ`),{code:'REVISION_CONFLICT',productId:row.id,recordId:row.id});
+          continue;
+        }
+        const product=inserted.find(product=>String(product.id)===String(row.id));
+        product._revision=Number(remote.revision)||1; acknowledge(product);
+      }
+      if(conflict) throw conflict;
+    };
+    const error=await insertRowsInChunks(table,inserted.map(productToRow),acknowledgeInserted);
     if(error){ console.warn('sync new products',error); return noteCoreSyncFailure(error,{operation:'insert_products',tableName:table,recordId:error.productId||'',fallbackMessage:'เพิ่มสินค้าใหม่บนเซิร์ฟเวอร์ไม่สำเร็จ'}); }
-    const {data:insertedRevisions,error:revisionError}=await sb.from('products').select('id,revision').in('id',inserted.map(product=>product.id));
-    if(revisionError){ console.warn('load new product revisions',revisionError); return noteCoreSyncFailure(revisionError,{operation:'load_product_revisions',tableName:table,fallbackMessage:'ตรวจสอบข้อมูลสินค้าใหม่ไม่สำเร็จ'}); }
-    const revisions=new Map((insertedRevisions||[]).map(row=>[String(row.id),Number(row.revision)||1]));
-    inserted.forEach(product=>{ product._revision=revisions.get(String(product.id))||1; acknowledge(product); });
   }
   if(deleted.length){
     const {error}=await sb.from(table).delete().in('id',deleted);
     if(error){ console.warn('sync delete products',error); return noteCoreSyncFailure(error,{operation:'delete_products',tableName:table,fallbackMessage:'ลบสินค้าจากเซิร์ฟเวอร์ไม่สำเร็จ'}); }
     deleted.forEach(id=>syncedTableRows[table].delete(id));
   }
+  }finally{
+  // Run even after an INSERT/DELETE error. Only unchanged server-acknowledged
+  // payloads may leave the durable queue; newer edits remain pending.
   const acknowledgedDirtyIds=[];
   const liveProducts=new Map(completeProductCatalog().map(product=>[String(product.id),product]));
   for(const [id,operation] of dirtyAtStart){
     const unchangedOperation=productDirtyOperations.get(id)===operation;
     const live=liveProducts.get(id);
-    const unchangedProduct=operation==='delete'?!live:syncedTableRows[table].get(id)===JSON.stringify(productMetadataToRow(live||{}));
+    const unchangedProduct=operation==='delete'?!live&&!syncedTableRows[table]?.has(id):syncedTableRows[table]?.get(id)===JSON.stringify(productMetadataToRow(live||{}));
     if(operation==='insert'&&!unchangedProduct&&syncedTableRows[table].has(id)) productDirtyOperations.set(id,live?'update':'delete');
     if(unchangedOperation&&unchangedProduct) acknowledgedDirtyIds.push(id);
   }
   if(acknowledgedDirtyIds.length){
     const dirtyStatePersisted=await clearAcknowledgedProductDirtyOperations(acknowledgedDirtyIds,dirtyAtStart);
-    if(!dirtyStatePersisted){ seedProductSyncSnapshot(completeProductCatalog(),productDirtyOperations); return noteCoreSyncFailure(new Error('บันทึกสถานะสินค้าที่ซิงก์แล้วลงเครื่องไม่สำเร็จ'),{operation:'persist_product_sync_state',tableName:table}); }
+    if(!dirtyStatePersisted){ cleanupFailed=true; }
   }
   if(changed.length) await persistProductChangesToIndexedDB({updatedIds:changed.map(product=>product.id)});
+  }
+  if(cleanupFailed) return noteCoreSyncFailure(new Error('บันทึกสถานะสินค้าที่ซิงก์แล้วลงเครื่องไม่สำเร็จ'),{operation:'persist_product_sync_state',tableName:table});
   if(productUpdateError) return noteCoreSyncFailure(productUpdateError,{operation:'update_products',tableName:table,recordId:productUpdateError.productId||'',fallbackMessage:'มีสินค้ารอตรวจสอบข้อมูลที่ขัดแย้ง'});
-  syncProductsIncrementally.fullCheck={at:Date.now(),actor,baseline:syncedTableRows[table]};
   return true;
 }

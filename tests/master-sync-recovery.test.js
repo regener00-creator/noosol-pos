@@ -205,7 +205,7 @@ test('clean core sync skips unchanged tables and shares the maintenance check',a
   const writes=[],c=vm.createContext({console,Date,Error,currentProfile:{id:'owner',owner:true},currentTab:'dashboard',
     offlinePosMode:()=>false,offlinePendingSales:()=>[],offlineSyncRunning:false,captureStoreView:()=>({store:1}),isStoreViewCurrent:()=>true,coreSyncInFlight:false,coreSyncPending:false,
     coreSyncFailureDetail:null,syncUiLastError:null,syncedTableRows:{contacts:new Map(),sales_representatives:new Map(),inspection_lists:new Map()},
-    currentWorkspacePendingChanges:()=>{scans++;return [];},
+    currentWorkspacePendingChanges:()=>{scans++;return [];},pendingProductSyncEntries:()=>[],
     adoptRemoteMaintenanceEpoch:()=>{epochReads++;return new Promise(resolve=>{release=()=>resolve(false);});},
     loggedInUser:()=>({owner:true}),setSyncUiState:()=>{},syncWarehousesIncrementally:async()=>true,syncProductsIncrementally:async()=>true,
     contacts:[],contactToRow:x=>x,salesRepresentatives:[],salesRepToRow:x=>x,

@@ -199,10 +199,10 @@ async function run() {
   assert.deepEqual(preparationSnapshots.map(snapshot=>snapshot.changes.updatedIds),[[legacyProduct.id],[legacyProduct.id]]);
 
   const productSync = section('async function syncProductsIncrementally({dirtyOnly=false}={}){', 'let coreSyncInFlight=');
-  assert.match(productSync, /insertRowsInChunks\(table,inserted\.map\(productToRow\)\)/);
+  assert.match(productSync, /insertRowsInChunks\(table,inserted\.map\(productToRow\),acknowledgeInserted\)/);
   assert.doesNotMatch(productSync, /upsertRowsInChunks\(table,inserted/);
   assert.match(insertPreparationSource, /implicitInsertCandidates[\s\S]*!productDirtyOperations\.has\(id\)&&!previous\.has\(id\)/, 'legacy rows classified as new must use the same insert predicate before network sync');
-  assert.match(productSync, /if\(!await prepareProductInsertCandidatesForSync\(previous\)\) return false;/, 'no insert request may start until the dirty operation and token are durable');
+  assert.match(productSync, /if\(!await prepareProductInsertCandidatesForSync\(previous,products\)\) return false;/, 'no insert request may start until the dirty operation and token are durable');
 
   const persistence = section('function persistWorkspaceData(options={}){', 'function schedulePersistWorkspaceData(){');
   assert.match(persistence, /productCachePromise\.then\(saved=>\{ if\(saved\) scheduleSupabaseCoreSync\(\); \}\)/, 'product network sync must wait for the durable token/cache write');

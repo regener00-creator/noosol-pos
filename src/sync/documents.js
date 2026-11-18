@@ -209,7 +209,10 @@ async function syncCoreDataToSupabase(){
       const run=async(task,tableName,operation='sync_core_data')=>{
         coreSyncFailureDetail=null;
         try{
-          if(await task()===false) failures.push(coreSyncFailureDetail||{error:new Error(`ซิงก์ ${SYNC_TABLE_LABELS[tableName]||tableName} ไม่สำเร็จ`),tableName,operation});
+          if(await task()===false){
+            if(tableName==='products'&&syncProductsIncrementally.failures?.length) failures.push(...syncProductsIncrementally.failures);
+            else failures.push(coreSyncFailureDetail||{error:new Error(`ซิงก์ ${SYNC_TABLE_LABELS[tableName]||tableName} ไม่สำเร็จ`),tableName,operation});
+          }
         }catch(error){ failures.push(coreSyncFailureDetail||{error,tableName,operation,recordId:error?.recordId||''}); }
       };
       if(loggedInUser()?.owner===true){
@@ -226,11 +229,11 @@ async function syncCoreDataToSupabase(){
       if(pendingTables.has('inspection_lists')||!syncedTableRows.inspection_lists) await run(()=>syncInspectionListsToSupabase(),'inspection_lists','upsert_rows');
       let storeFailed=false;
       for(const detail of failures){
-        const latest=rememberSyncUiError(detail.error,{...detail,warehouseId:syncStore.store});
+        const latest=rememberSyncUiError(detail.error,{...detail,warehouseId:detail.warehouseId||syncStore.store});
         if(latest.warehouse_id===syncStore.store) storeFailed=true;
         if(!detail.error?.syncPaused&&!detail.error?.syncEventReported) reportClientEvent({operation:latest.operation,tableName:latest.table_name,recordId:latest.record_id,errorCode:latest.error_code,message:latest.message,context:{tab:currentTab,warehouseId:latest.warehouse_id}});
       }
-      if(!storeFailed&&currentWorkspacePendingChanges().some(entry=>pendingEntryStore(entry)===syncStore.store)){
+      if(!storeFailed&&(currentWorkspacePendingChanges().some(entry=>pendingEntryStore(entry)===syncStore.store)||pendingProductSyncEntries().some(entry=>Number(entry.product.wh||1)===syncStore.store))){
         const error=Object.assign(new Error('ยังมีงานในเครื่องรอตรวจเทียบ กรุณาเปิดรายละเอียดการซิงก์'),{code:'PENDING_RECOVERY',syncPaused:true});
         rememberSyncUiError(error,{operation:'local_recovery',warehouseId:syncStore.store});
         storeFailed=true;
