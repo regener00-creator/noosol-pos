@@ -595,7 +595,7 @@
   .pos-table td,.pos-table th{overflow:hidden;text-overflow:ellipsis;}
   .pos-table td:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;}
   .pos-table td:nth-child(3){white-space:normal;overflow:visible;text-align:left;}
-  .pos-table th:nth-child(3){text-align:left;}
+  .pos-table th:nth-child(3){text-align:center;}
   .pos-table td:nth-child(4),.pos-table td:nth-child(5),.pos-table td:nth-child(7){text-align:center;}
   .pos-table th:nth-child(4),.pos-table th:nth-child(5),.pos-table th:nth-child(7){text-align:center;}
   .pos-table th:nth-child(6){text-align:center;}

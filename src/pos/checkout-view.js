@@ -122,7 +122,7 @@ function renderCheckout(){
     <div class="pos-grid">
       <div class="pos-left">
         <div class="pos-title-row"><div class="pos-title">รายการที่ : ${posDailySaleNumber()}</div><button class="btn ghost" id="addCustomItemBtn">+ รายการกรอกเอง</button></div>
-        <datalist id="inlineCustomUnits">${units.map(unit=>`<option value="${escapeHtml(unit)}">`).join('')}</datalist><table class="grid-table pos-table"><colgroup><col class="pt-idx"><col class="pt-barcode"><col class="pt-name"><col class="pt-price"><col class="pt-unit"><col class="pt-qty"><col class="pt-total"><col class="pt-del"></colgroup><thead><tr><th>รายการที่</th><th>บาร์โค้ดสินค้า</th><th>ชื่อ</th><th>ราคา</th><th>หน่วย</th><th>จำนวน</th><th>รวม</th><th></th></tr></thead>
+        <datalist id="inlineCustomUnits">${units.map(unit=>`<option value="${escapeHtml(unit)}">`).join('')}</datalist><table class="grid-table pos-table"><colgroup><col class="pt-idx"><col class="pt-barcode"><col class="pt-name"><col class="pt-price"><col class="pt-unit"><col class="pt-qty"><col class="pt-total"><col class="pt-del"></colgroup><thead><tr><th>รายการที่</th><th>บาร์โค้ดสินค้า</th><th>สินค้า</th><th>ราคา</th><th>หน่วย</th><th>จำนวน</th><th>รวม</th><th></th></tr></thead>
         <tbody>${rowsHtml}</tbody></table>
         ${favHtml}
       </div>
