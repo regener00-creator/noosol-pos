@@ -104,17 +104,23 @@ const browserExecutable = [
   const previewCases=await page.evaluate(()=>{
     const original=barcodePrintItems;
     try{
-      barcodePrintItems=[{pid:9001,unit:'กล่อง',barcode:'',qty:1}];
+      barcodePrintItems=[{pid:9001,unit:'หน่วยยังไม่มีบาร์โค้ด',barcode:'',qty:1}];
       const blank=priceLabelDesignerSample();
+      barcodePrintItems[0].unit='กล่อง';
+      const fromProduct=priceLabelDesignerSample();
       barcodePrintItems[0].barcode='8851824336354';
       const existing=priceLabelDesignerSample();
-      return {blank,existing};
+      return {blank,existing,fromProduct};
     }finally{barcodePrintItems=original;}
   });
   assert.equal(previewCases.blank.code,'0123456789012','A new label awaiting allocation also shows a preview');
   assert.equal(previewCases.blank.exampleBarcode,true);
   assert.equal(previewCases.existing.code,'8851824336354','Selected product keeps its real barcode in preview');
   assert.equal(previewCases.existing.exampleBarcode,false);
+  assert.equal(previewCases.existing.name,'Decolgen prin (4 tablets)');
+  assert.equal(previewCases.existing.price,'180');
+  assert.equal(previewCases.existing.unit,'/ กล่อง');
+  assert.equal(previewCases.fromProduct.code,'8851824336354','Use the selected unit barcode when the queued value is blank');
   assert.match(await page.locator('#priceLabelDesignerCanvas').evaluate(element=>getComputedStyle(element).fontFamily),/^"?Google Sans/);
   assert.equal(await page.evaluate(async()=>{await Promise.race([document.fonts.load('16px "Google Sans"'),new Promise((_,reject)=>setTimeout(()=>reject(new Error('Google Sans font load timeout')),10000))]);return document.fonts.check('16px "Google Sans"');}),true);
   for(const field of ['name','unit','price','barcode','code']){
@@ -480,10 +486,21 @@ const browserExecutable = [
     await page.locator('#barcodePrintSearch').press('Enter');
     assert.equal(await page.locator('[data-barcode-print-row]').count(),1,'Rescanning changes unit without duplicating the product');
     const snapshot=await page.evaluate(()=>{products[0].units[0].price=275;return JSON.stringify(products);});
+    await page.locator('#openPriceLabelDesignerBtn').click();
+    for(const field of ['name','unit','price','barcode','code']) await page.locator(`[data-price-label-toggle="${field}"]`).check();
+    const canvas=page.locator('#priceLabelDesignerCanvas');
+    assert.equal(await canvas.locator('[data-price-label-element="name"]').textContent(),'Factory barcode test');
+    assert.equal(await canvas.locator('[data-price-label-element="price"]').textContent(),'275');
+    assert.equal(await canvas.locator('[data-price-label-element="unit"]').textContent(),'/ กล่อง');
+    assert.equal(await canvas.locator('[data-price-label-element="code"]').textContent(),'8851824336354');
+    assert.equal(await canvas.locator('.barcode-label-svg').getAttribute('aria-label'),'บาร์โค้ด 8851824336354');
+    assert.equal(await page.locator('[data-price-label-example-note]').count(),0,'Real product preview needs no example barcode');
+    await page.locator('#cancelPriceLabelDesignerBtn').click();
     const [factoryLabel]=await Promise.all([page.waitForEvent('popup'),page.locator('#savePrintBarcodeBtn').click()]);
     await factoryLabel.locator('.label').first().waitFor();
     assert.equal(await factoryLabel.locator('.barcode-label-svg').first().getAttribute('aria-label'),'บาร์โค้ด 8851824336354');
     assert.match(await factoryLabel.locator('[data-price-label-element="price"]').first().textContent(),/275/,'Printed price uses the current box price');
+    assert.equal(await factoryLabel.locator('[data-price-label-element="unit"]').first().textContent(),'/ กล่อง','Printed unit matches preview');
     await factoryLabel.close();
     assert.equal(await page.evaluate(()=>JSON.stringify(products)),snapshot,'Printing preserves all product data');
     assert.deepEqual(await page.evaluate(()=>window.factoryWriteCalls),[],'No new barcode allocation or data write');
