@@ -442,7 +442,6 @@ function renderAuditLog(){
   const actionTypes=[...new Set([...AUDIT_LOG_ACTION_TYPES,auditLogFilter.action==='all'?null:auditLogFilter.action].filter(Boolean))];
   const entityOptions=entityTypes.map(value=>`<option value="${escapeHtml(value)}" ${auditLogFilter.entity===value?'selected':''}>${escapeHtml(auditEntityLabel(value))}</option>`).join('');
   const actionOptions=actionTypes.map(value=>`<option value="${escapeHtml(value)}" ${auditLogFilter.action===value?'selected':''}>${escapeHtml(auditActionLabel(value))}</option>`).join('');
-  const hasActiveFilter=!!auditLogFilter.search||auditLogFilter.entity!=='all'||auditLogFilter.action!=='all'||auditLogFilter.datePreset!=='today';
   const dateRange=auditLogDateRange(auditLogFilter.datePreset);
   const rows=pageRows.map(row=>{
     const key=String(row.event_key||'');
@@ -459,7 +458,6 @@ function renderAuditLog(){
       <label class="audit-log-filter audit-log-search-filter"><span class="audit-log-filter-label">ค้นหาประวัติ</span><span class="audit-log-control audit-log-search-control"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input id="auditLogSearch" value="${escapeHtml(auditLogFilter.search)}" placeholder="ผู้ใช้งาน รายการ หรือเลขเอกสาร" autocomplete="off">${auditLogFilter.search?'<button type="button" class="audit-log-clear-search" id="auditLogClearSearch" title="ล้างคำค้นหา" aria-label="ล้างคำค้นหา">×</button>':''}</span></label>
       <label class="audit-log-filter"><span class="audit-log-filter-label">ประเภทรายการ</span><span class="audit-log-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"></path><path d="M8 9h8M8 13h5"></path></svg><select id="auditLogEntity"><option value="all">ทุกรายการ</option>${entityOptions}</select></span></label>
       <label class="audit-log-filter"><span class="audit-log-filter-label">การทำงาน</span><span class="audit-log-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg><select id="auditLogAction"><option value="all">ทุกการทำงาน</option>${actionOptions}</select></span></label>
-      <div class="audit-log-toolbar-summary"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"></path></svg><span>ผลลัพธ์ที่พบ</span><strong>${auditLogTotal} รายการ</strong>${hasActiveFilter?'<button type="button" class="audit-log-clear-filters" id="auditLogClearFilters">ล้างตัวกรองทั้งหมด</button>':''}</div>
     </div>
     ${auditLogError?`<div class="notice danger">${escapeHtml(auditLogError)}</div>`:''}
     ${auditLogLoading&&!auditLogLoaded?'<div class="audit-log-empty">กำลังโหลดประวัติการทำงาน...</div>':`<div class="audit-log-table-wrap"><table class="audit-log-table"><thead><tr><th>วันและเวลา</th><th>ผู้ใช้งาน</th><th>รายการ</th><th>การทำงาน</th><th>คลังสินค้า</th><th>รายละเอียด</th><th></th></tr></thead><tbody>${rows||'<tr><td colspan="7" class="audit-log-empty">ไม่พบประวัติการทำงาน</td></tr>'}</tbody></table></div>`}

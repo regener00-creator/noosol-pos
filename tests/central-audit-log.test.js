@@ -57,7 +57,7 @@ assert.match(html,/tab==='auditlog'&&user\.owner!==true/);
 assert.match(html,/class="audit-log-toolbar" role="search"/);
 assert.match(html,/class="audit-log-filter-label">ค้นหาประวัติ/);
 assert.match(html,/id="auditLogClearSearch"/);
-assert.match(html,/id="auditLogClearFilters"/);
+assert.doesNotMatch(html,/id="auditLogClearFilters"/);
 assert.match(html,/\.audit-log-toolbar\{[^}]*linear-gradient/);
 
 console.log('central audit log tests passed');

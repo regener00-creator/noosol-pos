@@ -243,11 +243,6 @@ function attachEvents(){
     loadAuditLogsFromSupabase(true,'first'); render();
     setTimeout(()=>document.getElementById('auditLogSearch')?.focus(),0);
   });
-  document.getElementById('auditLogClearFilters')?.addEventListener('click',()=>{
-    clearTimeout(auditLogSearchTimer);
-    auditLogFilter={search:'',entity:'all',action:'all',datePreset:'today',dateFrom:'',dateTo:''}; auditLogPage=1; auditLogLoaded=false;
-    loadAuditLogsFromSupabase(true,'first'); render();
-  });
   document.getElementById('auditLogRefresh')?.addEventListener('click',()=>{ auditLogLoaded=false; auditLogPage=1; loadAuditLogsFromSupabase(true,'first'); render(); });
   document.querySelectorAll('[data-audit-log-toggle]').forEach(button=>button.addEventListener('click',()=>{
     const key=button.dataset.auditLogToggle;
