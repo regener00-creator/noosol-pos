@@ -23,7 +23,7 @@ assert.match(app, /error\.productId=batch\[conflictIndex\]\?\.id/);
 assert.match(app, /if\(syncChip\) syncChip\.onclick=\(\)=>openSyncDetailsModal\(\);/, 'ทุกสถานะต้องเปิดรายละเอียด ไม่สั่งซิงก์ซ้ำทันที');
 assert.match(app, /chip\.title='กดเพื่อดูรายละเอียดการซิงก์'/);
 assert.match(app, /ลองซิงก์ใหม่/);
-assert.match(app, /ตัวเลขบนปุ่มคือจำนวนรอบที่ซิงก์ล้มเหลว ไม่ใช่จำนวนรายการข้อมูล/);
+assert.match(app, /“สินค้ารอซิงก์” คือจำนวนสินค้าที่ยังรอส่งจากเครื่องนี้ ส่วน “ซิงก์ไม่สำเร็จ” คือจำนวนรอบที่ซิงก์ล้มเหลว/);
 assert.match(app, /permission denied\|row-level security\|rls/);
 assert.match(app, /revision_conflict\|40001/);
 assert.match(styles, /\.sync-detail-modal/);

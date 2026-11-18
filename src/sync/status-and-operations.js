@@ -29,9 +29,25 @@ function currentDeviceId(){
   if(!id){ id=globalThis.crypto?.randomUUID?.()||`device-${Date.now()}-${Math.random().toString(36).slice(2)}`; try{ localStorage.setItem(DEVICE_ID_STORAGE_KEY,id); }catch(_error){} }
   return id;
 }
+function pendingProductSyncEntries(){
+  const catalog=new Map(completeProductCatalog().map(product=>[String(product.id),product]));
+  const entries=[];
+  for(const [id,operation] of productDirtyOperations){
+    let product=catalog.get(String(id));
+    if(!product&&operation==='delete'){
+      try{
+        const row=JSON.parse(syncedTableRows.products?.get(String(id))||'null');
+        if(row&&typeof row==='object') product={id:row.id,name:row.name,sku:row.sku,unit:row.unit,wh:row.warehouse_id||row.data?.wh||1};
+      }catch{}
+    }
+    if(!product||(!isAllWarehousesMode()&&Number(product.wh||1)!==Number(activeWarehouseId)))continue;
+    entries.push({id:String(id),operation,product});
+  }
+  return entries;
+}
 function renderSyncStatusChip(){
   const chip=document.getElementById('syncStatusChip'); if(!chip) return;
-  const pendingProducts=completeProductCatalog().filter(product=>(isAllWarehousesMode()||Number(product.wh||1)===Number(activeWarehouseId))&&productDirtyOperations.has(String(product.id))).length;
+  const pendingProducts=pendingProductSyncEntries().length;
   const state=!navigator.onLine?'offline':syncUiState==='synced'&&pendingProducts?'pending':syncUiState;
   const labels={synced:'ซิงก์แล้ว',pending:`สินค้ารอซิงก์ ${pendingProducts} รายการ`,syncing:'กำลังซิงก์…',error:`ซิงก์ไม่สำเร็จ${syncUiErrorCount?` (${syncUiErrorCount})`:''}`,offline:'ออฟไลน์'};
   chip.dataset.state=state; chip.textContent=labels[state]||labels.synced;
@@ -177,7 +193,7 @@ function openSyncDetailsModal(){
     <div class="sync-recovery-panel"></div>
     <div class="sync-detail-section-title sync-detail-history-title">ประวัติล่าสุดจากเซิร์ฟเวอร์</div>
     <div class="sync-detail-list"><div class="sync-detail-loading">กำลังโหลดรายละเอียด…</div></div>
-    <div class="sync-detail-note">ตัวเลขบนปุ่มคือจำนวนรอบที่ซิงก์ล้มเหลว ไม่ใช่จำนวนรายการข้อมูล</div>
+    <div class="sync-detail-note">“สินค้ารอซิงก์” คือจำนวนสินค้าที่ยังรอส่งจากเครื่องนี้ ส่วน “ซิงก์ไม่สำเร็จ” คือจำนวนรอบที่ซิงก์ล้มเหลว</div>
     </div>
     <div class="sync-detail-actions"><button class="btn ghost sync-detail-close" type="button">ปิด</button><button class="btn primary sync-detail-retry" type="button">ลองซิงก์ใหม่</button></div>
   </section>`;
@@ -240,7 +256,8 @@ function openSyncDetailsModal(){
     await syncCoreDataToSupabase();
     if(!overlay.isConnected) return;
     const summary=overlay.querySelector('.sync-detail-summary');
-    summary.textContent=syncUiState==='synced'?'ซิงก์ล่าสุดสำเร็จแล้ว':`${navigator.onLine?'เชื่อมต่ออินเทอร์เน็ตแล้ว':'อุปกรณ์ออฟไลน์'}${syncUiErrorCount?` · ล้มเหลวสะสม ${syncUiErrorCount} รอบ`:''}`;
+    const pendingProducts=pendingProductSyncEntries().length;
+    summary.textContent=pendingProducts?`ยังมีสินค้ารอซิงก์ ${pendingProducts} รายการ`:syncUiState==='synced'?'ซิงก์ล่าสุดสำเร็จแล้ว':`${navigator.onLine?'เชื่อมต่ออินเทอร์เน็ตแล้ว':'อุปกรณ์ออฟไลน์'}${syncUiErrorCount?` · ล้มเหลวสะสม ${syncUiErrorCount} รอบ`:''}`;
     button.disabled=false; button.textContent='ลองซิงก์ใหม่';
     refresh();
   };
