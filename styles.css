@@ -1176,20 +1176,10 @@
   .doc-scanner-icon{padding:0 13px;color:var(--primary);display:flex;align-items:center;border-left:1px solid var(--border);}
   .doc-scanner input{flex:1;border:none;outline:none;padding:12px 14px;font-family:inherit;font-size:14px;background:transparent;}
   /* Keep focus rings inside the shared, clipped scanner/search shells. */
-  /* Search fields keep their normal border without a second focus frame in either theme. */
-  html body input:is(
-    [type="search"],
-    [id*="search" i],
-    [data-combined-search],
-    [data-product-exchange-scan],
-    .mobile-scan-input,
-    .return-row-search input,
-    #docProductScanner,
-    #stockEditInput,
-    #srInput,
-    #pcInput,
-    #hf_bill
-  ):focus{outline:none;box-shadow:none;}
+  /* Shared focus presentation: retain normal borders and selected states, without extra rings.
+     These overrides also cover the optional theme and page-specific focus rules. */
+  html body :focus{outline:none!important;outline-offset:0!important;}
+  html body :is(input,select,textarea,[contenteditable="true"]):focus{box-shadow:none!important;}
   .doc-scanner-hint{font-size:11.5px;color:var(--text-muted);margin-top:5px;}
   .doc-scan-results{position:absolute;z-index:45;top:48px;right:0;left:0;background:var(--surface);border:1px solid var(--primary);border-radius:9px;box-shadow:0 10px 24px rgba(0,0,0,.14);max-height:300px;overflow-y:auto;}
   .doc-scan-result{display:flex;justify-content:space-between;align-items:center;width:100%;padding:10px 13px;border:none;border-bottom:1px solid var(--border);background:var(--surface);font-family:inherit;text-align:right;cursor:pointer;color:var(--text);}
@@ -2210,7 +2200,6 @@
   .mobile-tools-brand>div:first-child{min-width:0;text-align:right;}
   .mobile-warehouse-title{position:relative;}
   .mobile-warehouse-title>span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .mobile-warehouse-title:focus-within{outline:2px solid var(--primary);border-radius:4px;}
   .mobile-warehouse-select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;}
   .mobile-tools-logo{position:relative;width:42px;height:42px;border-radius:13px;background:#fff;overflow:hidden;flex-shrink:0;box-shadow:0 2px 8px #3228211F;}
   .mobile-tools-logo img{position:absolute;left:50%;top:50%;width:63px;height:63px;max-width:none;object-fit:cover;transform:translate(-50%,-50%);}
@@ -2380,7 +2369,6 @@
   .mobile-camera-head>span{flex:1;text-align:right;}
   .mobile-camera-lens-icon{position:relative;display:grid;place-items:center;flex:0 0 36px;height:36px;border:1px solid #FFFFFF55;border-radius:50%;background:#FFFFFF14;color:#fff;}
   .mobile-camera-lens-icon svg{width:20px;height:20px;}
-  .mobile-camera-lens-icon:focus-within{outline:2px solid currentColor;outline-offset:2px;}
   .mobile-camera-lens-icon:has(select:disabled){opacity:.55;}
   .mobile-camera-lens{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;cursor:pointer;}
   .mobile-camera-close{width:36px;height:36px;border:1px solid #FFFFFF55;background:#FFFFFF14;color:#fff;border-radius:50%;font-size:23px;line-height:1;cursor:pointer;}
@@ -2483,7 +2471,6 @@
   .audit-log-filter{display:flex;min-width:0;flex-direction:column;gap:6px}
   .audit-log-filter-label{padding-left:2px;color:#536778;font-size:12px;font-weight:700}
   .audit-log-control{position:relative;display:flex;min-height:46px;align-items:center;border:1px solid #DDCEC8;border-radius:11px;background:#fff;box-shadow:0 2px 7px rgba(37,69,91,.04);transition:border-color .18s,box-shadow .18s,transform .18s}
-  html body .audit-log-control :is(input,select):focus{outline:none;box-shadow:none;}
   .audit-log-control svg{width:19px;height:19px;flex:0 0 auto;margin-left:14px;color:#6e8597;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
   .audit-log-control input,.audit-log-control select{width:100%;min-width:0;height:44px;padding:0 13px;border:0;outline:0;background:transparent;color:var(--text);font-family:inherit;font-size:13.5px}
   .audit-log-search-control input{padding-right:42px}
@@ -2811,6 +2798,7 @@
 .customer-purchase-empty{text-align:center;padding:30px!important;color:var(--text-muted);}
 .knowledge-search-row{display:flex;align-items:center;gap:8px;}
 .knowledge-search-row .icon-btn{flex:none;color:var(--primary);width:40px;height:40px;}
+.knowledge-page #addKnowledge{background:var(--primary);border-color:var(--primary);color:#fff;}
 .contact-search-row{display:flex;align-items:center;gap:12px;margin-bottom:14px;}
 .contact-search-row h1{font-size:20px;font-weight:600;white-space:nowrap;margin:0;}
 .contact-search-row .toolbar{margin:0 0 0 auto;flex:1;min-width:0;justify-content:flex-end;}
