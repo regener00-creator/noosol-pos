@@ -700,6 +700,7 @@
   @media(max-width:900px){.expiry-report-summary{grid-template-columns:1fr}.expiry-near-card{min-height:84px;}}
   .low-table th,.low-table td{text-align:center;}
   .low-table th:first-child,.low-table td:first-child{text-align:left;}
+  .low-stock-report-table th:first-child,.expiry-report-table th:first-child{text-align:center;}
   .low-table th.num,.low-table td.num{text-align:center;}
   .lowstock-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
   .lowstock-section,.inventory-report-section{min-width:0;}
@@ -1464,7 +1465,7 @@
   .movement-detail-row>td{padding:0!important;background:#F7FAFC;border-top:0!important;}
   .movement-detail-list{padding:12px 20px 15px 50px;}
   .movement-detail-head,.movement-detail-item{display:grid;grid-template-columns:minmax(0,1fr) 120px 110px 240px;gap:12px;align-items:center;text-align:left;}
-  .movement-detail-head{padding:0 12px 7px;color:var(--text-muted);font-size:11.5px;font-weight:600;}
+  .movement-detail-head{padding:0 12px 7px;color:var(--text-muted);font-size:11.5px;font-weight:600;text-align:center;}
   .movement-detail-item{padding:9px 12px;border-top:1px solid var(--border);background:#fff;}
   .movement-detail-item:first-of-type{border-radius:8px 8px 0 0;}
   .movement-detail-item:last-child{border-radius:0 0 8px 8px;}
@@ -1483,7 +1484,7 @@
   .doc-items-detail-row>td{padding:0!important;background:#F7FAFC;border-top:0!important;}
   .doc-items-detail-list{padding:12px 20px 15px 50px;}
   .doc-items-detail-head,.doc-items-detail-item{display:grid;grid-template-columns:minmax(0,1fr) 120px 140px 150px;gap:12px;align-items:center;text-align:left;}
-  .doc-items-detail-head{padding:0 12px 7px;color:var(--text-muted);font-size:11.5px;font-weight:600;}
+  .doc-items-detail-head{padding:0 12px 7px;color:var(--text-muted);font-size:11.5px;font-weight:600;text-align:center;}
   .doc-items-detail-item{padding:9px 12px;border-top:1px solid var(--border);background:#fff;}
   .doc-items-detail-item:first-of-type{border-radius:8px 8px 0 0;}
   .doc-items-detail-item:last-child{border-radius:0 0 8px 8px;}
@@ -1581,7 +1582,7 @@
   .system-user-permission-wrap{max-height:430px;overflow:auto;border:1px solid #D8CFCB;border-radius:12px;background:#fff;}
   .system-user-permission-table{width:100%;border-collapse:separate;border-spacing:0;min-width:680px;}
   .system-user-permission-table th{position:sticky;top:0;z-index:1;background:#4F4038;color:#fff;padding:11px 10px;text-align:center;font-weight:700;}
-  .system-user-permission-table th:first-child{text-align:left;}
+  .system-user-permission-table th:first-child{text-align:center;}
   .system-user-permission-table td{padding:10px;border-bottom:1px solid #ECE7E4;text-align:center;}
   .system-user-permission-table td:first-child{text-align:left;}
   .system-user-permission-table input{width:18px;height:18px;accent-color:#2495D0;}
@@ -2468,6 +2469,7 @@
   .audit-log-date-toolbar .document-period-toolbar{margin-left:auto}
   .audit-log-date-toolbar .document-period-toolbar,.audit-log-date-toolbar .document-period-fields{flex-wrap:wrap;min-width:0}
   .audit-log-toolbar{display:grid;grid-template-columns:minmax(300px,1fr) minmax(180px,220px) minmax(180px,220px);gap:12px;align-items:stretch;padding:16px;border:1px solid #E2D7D2;border-radius:16px;background:linear-gradient(135deg,#FBF8F6 0%,#F2EBE8 100%);box-shadow:0 7px 22px rgba(79,64,56,.08)}
+  .audit-log-table thead th{text-align:center;}
   .audit-log-filter{display:flex;min-width:0;flex-direction:column;gap:6px}
   .audit-log-filter-label{padding-left:2px;color:#536778;font-size:12px;font-weight:700}
   .audit-log-control{position:relative;display:flex;min-height:46px;align-items:center;border:1px solid #DDCEC8;border-radius:11px;background:#fff;box-shadow:0 2px 7px rgba(37,69,91,.04);transition:border-color .18s,box-shadow .18s,transform .18s}
@@ -2999,7 +3001,8 @@
 .shortage-document-items.shortage-show-sale.shortage-show-cost{min-width:1250px;}
 .shortage-document-items:not(.shortage-show-sale) .shortage-item-sale,.shortage-document-items:not(.shortage-show-cost) .shortage-item-cost{display:none;}
 .shortage-document-items th,.shortage-document-items td{text-align:center;vertical-align:middle;}
-.shortage-document-items th:nth-child(4),.shortage-document-items td:nth-child(4){text-align:left;}
+.shortage-document-items th:nth-child(4){text-align:center;}
+.shortage-document-items td:nth-child(4){text-align:left;}
 .shortage-section-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:20px 0 9px;}
 .shortage-section-head .shortage-section-title{margin:0;}
 .shortage-column-toggles{display:flex;gap:14px;align-items:center;font-size:13px;}
