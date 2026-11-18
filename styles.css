@@ -884,6 +884,8 @@
   .price-label-designer-body{display:grid;grid-template-columns:minmax(0,1fr) 330px;min-height:0;flex:1;overflow:hidden;}
   .price-label-canvas-pane{min-width:0;overflow:auto;padding:18px;background:#E9EDF0;}
   .price-label-canvas-help{margin:0 0 12px;color:#5F6E79;font-size:12.5px;}
+  .price-label-sample-picker{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px;font-size:13px;font-weight:700;}
+  .price-label-sample-picker select{flex:1 1 200px;min-width:0;max-width:100%;height:38px;border:1px solid var(--border);border-radius:8px;background:#fff;padding:0 10px;color:var(--text);font:13px 'Sarabun',sans-serif;}
   .price-label-canvas-shell{display:flex;min-height:460px;align-items:center;justify-content:center;padding:22px;border:1px dashed #C9BDB8;border-radius:14px;background:#F5F2F0;}
   .price-label-canvas{position:relative;width:min(100%,760px);overflow:hidden;background:#fff;box-shadow:0 8px 28px #28333C24;font-family:'Google Sans','Noto Sans Thai',Tahoma,sans-serif;touch-action:none;}
   .price-label-design-element{position:absolute;display:block;overflow:hidden;cursor:move;user-select:none;touch-action:none;line-height:1.08;}

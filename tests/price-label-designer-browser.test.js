@@ -96,6 +96,7 @@ const browserExecutable = [
   assert.equal(await page.locator('.price-label-designer-modal').isVisible(), true);
   assert.equal(await page.locator('[data-price-label-tab]').count(), 5);
   assert.equal(await page.locator('.price-label-design-element').count(), 5);
+  assert.equal(await page.locator('#priceLabelSampleSelect').count(),0,'No picker for an empty queue');
   assert.equal(await page.locator('#priceLabelDesignerCanvas .barcode-label-svg').getAttribute('aria-label'),'บาร์โค้ด 0123456789012','Empty queue still previews a barcode');
   assert.equal(await page.locator('[data-price-label-example-note]').isVisible(),true);
   assert.equal(await page.locator('#priceLabelDesignerCanvas [data-price-label-element="code"]').textContent(),'0123456789012','Barcode digits appear when enabled');
@@ -456,7 +457,7 @@ const browserExecutable = [
       products=[
         {id:9600+store,wh:store,sku:'FACTORY',name:'Factory barcode test',category:'ยา',unit:'ซอง',barcode:'0012345678905',price:10,active:true,
           units:[{sub:'กล่อง',base:'ซอง',per:25,factor:25,price:250,barcode:'8851824336354'},{sub:'ลัง',base:'ซอง',per:250,factor:250,price:2400,barcode:''}]},
-        {id:9700+store,wh:store,sku:'8851824336354',name:'SKU collision',unit:'ขวด',barcode:'OTHER-CODE',price:80,units:[]},
+        {id:9700+store,wh:store,sku:'8851824336354',name:'สินค้าตัวอย่างชื่อยาวสำหรับทดลองจัดวางข้อความก่อนพิมพ์ป้ายราคา (60 capsules)',unit:'ขวด',barcode:'OTHER-CODE',price:80,units:[]},
         {id:9800+store,wh:store===1?2:1,name:'Other shop',unit:'ขวด',barcode:'OTHER-SHOP',price:90,units:[]}
       ];
       rebuildProductLookupMaps();
@@ -487,6 +488,7 @@ const browserExecutable = [
     assert.equal(await page.locator('[data-barcode-print-row]').count(),1,'Rescanning changes unit without duplicating the product');
     const snapshot=await page.evaluate(()=>{products[0].units[0].price=275;return JSON.stringify(products);});
     await page.locator('#openPriceLabelDesignerBtn').click();
+    assert.equal(await page.locator('#priceLabelSampleSelect').count(),0,'No picker for a single selected product');
     for(const field of ['name','unit','price','barcode','code']) await page.locator(`[data-price-label-toggle="${field}"]`).check();
     const canvas=page.locator('#priceLabelDesignerCanvas');
     assert.equal(await canvas.locator('[data-price-label-element="name"]').textContent(),'Factory barcode test');
@@ -504,6 +506,33 @@ const browserExecutable = [
     await factoryLabel.close();
     assert.equal(await page.evaluate(()=>JSON.stringify(products)),snapshot,'Printing preserves all product data');
     assert.deepEqual(await page.evaluate(()=>window.factoryWriteCalls),[],'No new barcode allocation or data write');
+    await page.locator('#barcodePrintSearch').fill('OTHER-CODE');
+    await page.locator('#barcodePrintSearch').press('Enter');
+    const queueBeforePreview=await page.evaluate(()=>JSON.stringify(barcodePrintItems));
+    await page.locator('#openPriceLabelDesignerBtn').click();
+    assert.equal(await page.locator('#priceLabelSampleSelect option').count(),2,'Only queued products are offered');
+    for(const field of ['name','unit','price','barcode','code']) await page.locator(`[data-price-label-toggle="${field}"]`).check();
+    await page.locator('[data-price-label-tab="name"]').click();
+    await page.locator('[data-price-label-field="fontSize"]').fill('7');
+    await page.locator('[data-price-label-field="fontSize"]').dispatchEvent('change');
+    for(const width of [390,1280]){
+      await page.setViewportSize({width,height:900});
+      await page.locator('#priceLabelSampleSelect').selectOption('1');
+      assert.match(await canvas.locator('[data-price-label-element="name"]').textContent(),/สินค้าตัวอย่างชื่อยาว/);
+      assert.equal(await canvas.locator('[data-price-label-element="price"]').textContent(),'80');
+      assert.equal(await canvas.locator('[data-price-label-element="unit"]').textContent(),'/ ขวด');
+      assert.equal(await canvas.locator('[data-price-label-element="code"]').textContent(),'OTHER-CODE');
+      assert.equal(await canvas.locator('.barcode-label-svg').getAttribute('aria-label'),'บาร์โค้ด OTHER-CODE');
+      assert.equal(await page.locator('[data-price-label-field="fontSize"]').inputValue(),'7','Switching product preserves unsaved design edits');
+      const bounds=await page.locator('#priceLabelSampleSelect').evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:innerWidth};});
+      assert.ok(bounds.left>=0&&bounds.right<=bounds.width,'Product picker fits desktop and mobile');
+      await page.locator('#priceLabelSampleSelect').selectOption('0');
+      assert.equal(await canvas.locator('[data-price-label-element="name"]').textContent(),'Factory barcode test');
+      assert.equal(await canvas.locator('[data-price-label-element="price"]').textContent(),'275');
+    }
+    await page.locator('#cancelPriceLabelDesignerBtn').click();
+    assert.equal(await page.evaluate(()=>JSON.stringify(barcodePrintItems)),queueBeforePreview,'Preview does not reorder, remove or change print quantities');
+    assert.equal(await page.evaluate(()=>JSON.stringify(products)),snapshot,'Preview does not change products');
     await page.evaluate(()=>setBarcodePrintMode('new'));
   }
   await page.reload();

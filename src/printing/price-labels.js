@@ -234,8 +234,7 @@ function priceLabelRegularHtml(item,product,option,labelSize='80x50'){
   return `<section class="label" style="padding:0"><div class="regular-layout" style="position:relative;width:100%;height:100%;overflow:hidden">${elements}${customTexts}</div></section>`;
 }
 
-function priceLabelDesignerSample(){
-  const item=barcodePrintItems[0];
+function priceLabelDesignerSample(item=barcodePrintItems[0]){
   const product=item?products.find(entry=>entry.id===item.pid):null;
   const option=product?barcodePrintUnitOptions(product).find(entry=>entry.name===item.unit):null;
   const code=item?.barcode||option?.barcode||'';
@@ -259,7 +258,8 @@ function openPriceLabelDesigner(labelSize=barcodePrintLabelSize,options={}){
   const activeNamedTemplate=library.templates.find(entry=>entry.id===selectedTemplateId);
   let draft=normalizePriceLabelTemplate(activeNamedTemplate?.template||getPriceLabelTemplate(validSize,kind),validSize);
   let selected=promotion&&draft.customTexts.length?`custom:${draft.customTexts[0].id}`:'name';
-  const sample=priceLabelDesignerSample();
+  const previewItems=barcodePrintItems.filter(item=>products.some(product=>product.id===item.pid)).map(item=>({...item}));
+  let sample=priceLabelDesignerSample(previewItems[0]);
   document.querySelector('.price-label-designer-modal')?.closest('.modal-overlay')?.remove();
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
@@ -270,6 +270,25 @@ function openPriceLabelDesigner(labelSize=barcodePrintLabelSize,options={}){
     <div class="price-label-designer-actions"><button class="btn ghost" id="resetPriceLabelTemplateBtn" type="button">คืนค่าเริ่มต้น</button><div class="price-label-designer-actions-right"><button class="btn ghost" id="cancelPriceLabelDesignerBtn" type="button">ยกเลิก</button><button class="btn primary" id="savePriceLabelDesignerBtn" type="button">บันทึกและใช้แม่แบบนี้</button></div></div></div>`;
   document.body.appendChild(overlay);
   const canvas=overlay.querySelector('#priceLabelDesignerCanvas');
+  if(!promotion&&previewItems.length>1){
+    const picker=document.createElement('label');
+    picker.className='price-label-sample-picker';
+    picker.innerHTML=`<span>สินค้าตัวอย่าง</span><select id="priceLabelSampleSelect">${previewItems.map((item,index)=>{
+      const product=products.find(entry=>entry.id===item.pid);
+      return `<option value="${index}">${escapeHtml(product.name)} · ${escapeHtml(item.unit)}</option>`;
+    }).join('')}</select>`;
+    overlay.querySelector('.price-label-canvas-pane').prepend(picker);
+    picker.querySelector('select').addEventListener('change',event=>{
+      const item=previewItems[Number(event.target.value)];
+      if(!item)return;
+      sample=priceLabelDesignerSample(item);
+      const help=overlay.querySelector('.price-label-canvas-help');
+      help.querySelector('[data-price-label-example-note]')?.remove();
+      help.querySelector('br')?.remove();
+      if(sample.exampleBarcode)help.insertAdjacentHTML('beforeend','<br><span data-price-label-example-note>บาร์โค้ดตัวอย่างสำหรับจัดวางเท่านั้น · เมื่อพิมพ์จะใช้บาร์โค้ดของสินค้าที่เลือก</span>');
+      renderEditor();
+    });
+  }
   const panel=overlay.querySelector('#priceLabelDesignerPanel');
   const presetSelect=overlay.querySelector('#priceLabelPresetSelect');
   const savedTemplateSelect=overlay.querySelector('#savedPriceLabelTemplateSelect');
