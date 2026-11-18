@@ -517,7 +517,11 @@ const browserExecutable = [
     await page.locator('[data-price-label-field="fontSize"]').dispatchEvent('change');
     for(const width of [390,1280]){
       await page.setViewportSize({width,height:900});
-      await page.locator('#priceLabelSampleSelect').selectOption('1');
+      assert.equal(await page.locator('#priceLabelSamplePrev').isDisabled(),true);
+      assert.equal(await page.locator('#priceLabelSampleNext').isEnabled(),true);
+      await page.locator('#priceLabelSampleNext').click();
+      assert.equal(await page.locator('#priceLabelSampleSelect').inputValue(),'1');
+      assert.equal(await page.locator('#priceLabelSampleNext').isDisabled(),true);
       assert.match(await canvas.locator('[data-price-label-element="name"]').textContent(),/สินค้าตัวอย่างชื่อยาว/);
       assert.equal(await canvas.locator('[data-price-label-element="price"]').textContent(),'80');
       assert.equal(await canvas.locator('[data-price-label-element="unit"]').textContent(),'/ ขวด');
@@ -526,6 +530,12 @@ const browserExecutable = [
       assert.equal(await page.locator('[data-price-label-field="fontSize"]').inputValue(),'7','Switching product preserves unsaved design edits');
       const bounds=await page.locator('#priceLabelSampleSelect').evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:innerWidth};});
       assert.ok(bounds.left>=0&&bounds.right<=bounds.width,'Product picker fits desktop and mobile');
+      const controls=await page.locator('.price-label-sample-controls').evaluate(el=>{const r=el.getBoundingClientRect();return {left:r.left,right:r.right,width:innerWidth};});
+      assert.ok(controls.left>=0&&controls.right<=controls.width,'Arrows fit alongside the picker');
+      await page.locator('#priceLabelSamplePrev').click();
+      assert.equal(await page.locator('#priceLabelSampleSelect').inputValue(),'0');
+      await page.locator('#priceLabelSampleSelect').selectOption('1');
+      assert.equal(await page.locator('#priceLabelSampleNext').isDisabled(),true,'Dropdown and arrow states stay synchronized');
       await page.locator('#priceLabelSampleSelect').selectOption('0');
       assert.equal(await canvas.locator('[data-price-label-element="name"]').textContent(),'Factory barcode test');
       assert.equal(await canvas.locator('[data-price-label-element="price"]').textContent(),'275');

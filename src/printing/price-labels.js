@@ -271,23 +271,32 @@ function openPriceLabelDesigner(labelSize=barcodePrintLabelSize,options={}){
   document.body.appendChild(overlay);
   const canvas=overlay.querySelector('#priceLabelDesignerCanvas');
   if(!promotion&&previewItems.length>1){
-    const picker=document.createElement('label');
+    const picker=document.createElement('div');
     picker.className='price-label-sample-picker';
-    picker.innerHTML=`<span>สินค้าตัวอย่าง</span><select id="priceLabelSampleSelect">${previewItems.map((item,index)=>{
+    picker.innerHTML=`<label for="priceLabelSampleSelect">สินค้าตัวอย่าง</label><div class="price-label-sample-controls"><button type="button" class="btn ghost" id="priceLabelSamplePrev" aria-label="สินค้าตัวอย่างก่อนหน้า" title="สินค้าก่อนหน้า" disabled>‹</button><select id="priceLabelSampleSelect">${previewItems.map((item,index)=>{
       const product=products.find(entry=>entry.id===item.pid);
       return `<option value="${index}">${escapeHtml(product.name)} · ${escapeHtml(item.unit)}</option>`;
-    }).join('')}</select>`;
+    }).join('')}</select><button type="button" class="btn ghost" id="priceLabelSampleNext" aria-label="สินค้าตัวอย่างถัดไป" title="สินค้าถัดไป">›</button></div>`;
     overlay.querySelector('.price-label-canvas-pane').prepend(picker);
-    picker.querySelector('select').addEventListener('change',event=>{
-      const item=previewItems[Number(event.target.value)];
+    const sampleSelect=picker.querySelector('select');
+    const previousButton=picker.querySelector('#priceLabelSamplePrev');
+    const nextButton=picker.querySelector('#priceLabelSampleNext');
+    const selectSample=index=>{
+      const item=previewItems[index];
       if(!item)return;
+      sampleSelect.value=String(index);
+      previousButton.disabled=index===0;
+      nextButton.disabled=index===previewItems.length-1;
       sample=priceLabelDesignerSample(item);
       const help=overlay.querySelector('.price-label-canvas-help');
       help.querySelector('[data-price-label-example-note]')?.remove();
       help.querySelector('br')?.remove();
       if(sample.exampleBarcode)help.insertAdjacentHTML('beforeend','<br><span data-price-label-example-note>บาร์โค้ดตัวอย่างสำหรับจัดวางเท่านั้น · เมื่อพิมพ์จะใช้บาร์โค้ดของสินค้าที่เลือก</span>');
       renderEditor();
-    });
+    };
+    sampleSelect.addEventListener('change',()=>selectSample(Number(sampleSelect.value)));
+    previousButton.addEventListener('click',()=>selectSample(Number(sampleSelect.value)-1));
+    nextButton.addEventListener('click',()=>selectSample(Number(sampleSelect.value)+1));
   }
   const panel=overlay.querySelector('#priceLabelDesignerPanel');
   const presetSelect=overlay.querySelector('#priceLabelPresetSelect');
