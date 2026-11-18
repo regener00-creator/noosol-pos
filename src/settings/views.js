@@ -425,7 +425,6 @@ function renderAuditLog(){
   return `<div class="audit-log-page"><div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="auditLogRefresh">รีเฟรชข้อมูล</button></div>
     <div class="audit-log-date-toolbar">
       ${documentPeriodToolbar('auditlog',{period:auditLogFilter.datePreset},{from:dateRange.dateFrom,to:dateRange.dateTo})}
-      <small class="audit-log-retention-note">เก็บประวัติย้อนหลัง 1 ปี · ลบรายการเก่าอัตโนมัติทุกวัน</small>
     </div>
     <div class="audit-log-toolbar" role="search" aria-label="ค้นหาและกรอง AUDIT LOG">
       <label class="audit-log-filter audit-log-search-filter"><span class="audit-log-filter-label">ค้นหาประวัติ</span><span class="audit-log-control audit-log-search-control"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-4-4"></path></svg><input id="auditLogSearch" value="${escapeHtml(auditLogFilter.search)}" placeholder="ผู้ใช้งาน รายการ หรือเลขเอกสาร" autocomplete="off">${auditLogFilter.search?'<button type="button" class="audit-log-clear-search" id="auditLogClearSearch" title="ล้างคำค้นหา" aria-label="ล้างคำค้นหา">×</button>':''}</span></label>
