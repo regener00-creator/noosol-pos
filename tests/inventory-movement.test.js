@@ -86,7 +86,8 @@ assert.deepEqual(
 );
 
 assert.match(html, /\['inventorymovement','รายงานความเคลื่อนไหว'/);
-assert.match(html, /id="movementPeriod"/);
+assert.match(html, /documentPeriodToolbar\('inventorymovement',filter,range\)/);
+assert.doesNotMatch(html, /movementApplyBtn/);
 assert.match(html, /id="movementWarehouse"/);
 assert.match(html, /id="movementType"/);
 const movementRenderStart=html.indexOf('function renderInventoryMovement()');

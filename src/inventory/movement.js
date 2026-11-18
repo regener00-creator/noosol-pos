@@ -145,15 +145,24 @@ function inventoryMovementGroupWarehouseText(group){
   return [...new Set(rows.map(row=>row.warehouse||'-'))].join(' / ')||'-';
 }
 function inventoryMovementDateRange(filter=inventoryMovementFilter){
-  if(filter.period==='month'){
+  if(filter.period==='today') return {from:TODAY_STR,to:TODAY_STR};
+  if(filter.period==='selectmonth'||filter.period==='month'){
     const value=filter.month||TODAY_STR.slice(0,7),[year,month]=value.split('-').map(Number);
     return {from:`${year}-${String(month).padStart(2,'0')}-01`,to:`${year}-${String(month).padStart(2,'0')}-${String(new Date(year,month,0).getDate()).padStart(2,'0')}`};
   }
-  if(filter.period==='year'){
+  if(filter.period==='selectyear'||filter.period==='year'){
     const year=filter.year||TODAY_STR.slice(0,4);
     return {from:`${year}-01-01`,to:`${year}-12-31`};
   }
   return {from:filter.from||TODAY_STR,to:filter.to||TODAY_STR};
+}
+function updateInventoryMovementPeriod(key,value){
+  inventoryMovementFilter[key]=value;
+  const range=inventoryMovementDateRange();
+  if(key==='from'&&value>range.to) inventoryMovementFilter.to=value;
+  if(key==='to'&&value<range.from) inventoryMovementFilter.from=value;
+  inventoryMovementFilter.page=1;
+  render();
 }
 function inventoryMovementRows(){
   return collectInventoryMovements({sales:salesHistory,receipts:goodsReceipts,exchanges:productExchanges,returns:productReturns,transfers,products,warehouses});
@@ -199,18 +208,13 @@ function renderInventoryMovement(){
   const rows=inventoryMovementFilteredRows(),groups=groupInventoryMovements(rows),totalPages=Math.max(1,Math.ceil(groups.length/INVENTORY_MOVEMENT_PAGE_SIZE));
   filter.page=Math.min(totalPages,Math.max(1,Number(filter.page)||1));
   const start=(filter.page-1)*INVENTORY_MOVEMENT_PAGE_SIZE,pageGroups=groups.slice(start,start+INVENTORY_MOVEMENT_PAGE_SIZE);
-  const periodOptions=[['range','วันที่'],['month','เดือน'],['year','ปี']];
   const primaryFilter=filter.scope||(filter.direction!=='all'?`direction:${filter.direction}`:`type:${filter.type||'all'}`);
   return `<div class="rpt movement-report-page">
     <div class="pagehead"><div><h1>รายงานการเคลื่อนไหว <span class="page-title-meta">· ${groups.length} บิล · ${rows.length} รายการเคลื่อนไหว${totalPages>1?` · หน้า ${filter.page}/${totalPages}`:''}</span></h1></div></div>
     <div class="rpt-filters">
-      <div class="rpf-item"><select id="movementPeriod" class="rpt-select">${periodOptions.map(([value,label])=>`<option value="${value}" ${filter.period===value?'selected':''}>${label}</option>`).join('')}</select></div>
-      ${filter.period==='range'?`<div class="rpf-item rpf-range">${dmyDateFieldHtml('movementFrom',range.from)}<span style="color:var(--text-muted);">ถึง</span>${dmyDateFieldHtml('movementTo',range.to)}</div>`:''}
-      ${filter.period==='month'?`<div class="rpf-item"><input type="month" id="movementMonth" value="${filter.month||TODAY_STR.slice(0,7)}" class="rpt-select"></div>`:''}
-      ${filter.period==='year'?`<div class="rpf-item"><select id="movementYear" class="rpt-select">${(()=>{const currentYear=Number(TODAY_STR.slice(0,4));let options='';for(let year=currentYear;year>=currentYear-6;year--) options+=`<option value="${year}" ${String(filter.year||currentYear)===String(year)?'selected':''}>${year}</option>`;return options;})()}</select></div>`:''}
+      ${documentPeriodToolbar('inventorymovement',filter,range)}
       ${isAllWarehousesMode()?`<div class="rpf-item"><select id="movementWarehouse" class="rpt-select"><option value="all" ${selectedWarehouse==='all'?'selected':''}>ทุกคลัง</option>${reportingWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(warehouse.id)===selectedWarehouse?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>`:''}
       <div class="rpf-item"><select id="movementType" class="rpt-select"><option value="type:all" ${primaryFilter==='type:all'?'selected':''}>รายการทั้งหมด</option>${['ขาย','คืนสต็อกจากยกเลิกบิล','รับเข้าสินค้า','เปลี่ยนสินค้า','คืนสินค้า','รับคืนจากลูกค้า','โอนสินค้า'].map(type=>`<option value="type:${type}" ${primaryFilter===`type:${type}`?'selected':''}>${type}</option>`).join('')}<option class="movement-filter-divider" disabled>────────────</option><option value="direction:all" ${primaryFilter==='direction:all'?'selected':''}>เข้า-ออกทั้งหมด</option>${['เข้า','ออก','เปลี่ยน'].map(direction=>`<option value="direction:${direction}" ${primaryFilter===`direction:${direction}`?'selected':''}>${direction}</option>`).join('')}</select></div>
-      <button class="btn ghost rpf-apply" id="movementApplyBtn">แสดงผล</button>
     </div>
     <div class="rpt-filters">
       <div class="rpf-item"><select id="movementCategory" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(category=>`<option value="${escapeHtml(category)}" ${filter.category===category?'selected':''}>${escapeHtml(category)}</option>`).join('')}</select></div>

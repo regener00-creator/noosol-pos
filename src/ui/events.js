@@ -1793,16 +1793,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     });
   });
   // --- ตัวกรองหน้ารายการงานเคลื่อนไหว ---
-  const movementPeriod=document.getElementById('movementPeriod');
-  if(movementPeriod) movementPeriod.addEventListener('change',()=>{ inventoryMovementFilter.period=movementPeriod.value; inventoryMovementFilter.page=1; render(); });
-  const movementFrom=document.getElementById('movementFrom');
-  if(movementFrom) movementFrom.addEventListener('change',()=>{ const iso=dmyToISO(movementFrom.value); if(iso) inventoryMovementFilter.from=iso; });
-  const movementTo=document.getElementById('movementTo');
-  if(movementTo) movementTo.addEventListener('change',()=>{ const iso=dmyToISO(movementTo.value); if(iso) inventoryMovementFilter.to=iso; });
-  const movementMonth=document.getElementById('movementMonth');
-  if(movementMonth) movementMonth.addEventListener('change',()=>{ inventoryMovementFilter.month=movementMonth.value; inventoryMovementFilter.page=1; render(); });
-  const movementYear=document.getElementById('movementYear');
-  if(movementYear) movementYear.addEventListener('change',()=>{ inventoryMovementFilter.year=movementYear.value; inventoryMovementFilter.page=1; render(); });
   const movementWarehouse=document.getElementById('movementWarehouse');
   if(movementWarehouse) movementWarehouse.addEventListener('change',()=>{ inventoryMovementFilter.warehouse=movementWarehouse.value; inventoryMovementFilter.page=1; render(); });
   const movementType=document.getElementById('movementType');
@@ -1814,8 +1804,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     inventoryMovementFilter.page=1;
     render();
   });
-  const movementApplyBtn=document.getElementById('movementApplyBtn');
-  if(movementApplyBtn) movementApplyBtn.addEventListener('click',()=>{ inventoryMovementFilter.page=1; render(); });
   const movementCategory=document.getElementById('movementCategory');
   if(movementCategory) movementCategory.addEventListener('change',()=>{ inventoryMovementFilter.category=movementCategory.value; inventoryMovementFilter.brand=''; inventoryMovementFilter.page=1; render(); });
   const movementBrand=document.getElementById('movementBrand');
@@ -2159,6 +2147,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     const kind=input.closest('[data-document-kind]').dataset.documentKind,key=input.dataset.documentPeriod;
     if(!input.value||!input.checkValidity())return;
     if(kind==='auditlog'){ updateAuditLogPeriod(key,input.value); return; }
+    if(kind==='inventorymovement'){ updateInventoryMovementPeriod(key,input.value); return; }
     const filter=documentPeriods[kind]||={period:'today'};
     filter[key]=input.value;
     if(key==='from'&&input.value>documentPeriodRange(kind).to)filter.to=input.value;
