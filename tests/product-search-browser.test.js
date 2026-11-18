@@ -252,6 +252,21 @@ const browserExecutable = [
   assert.equal(await page.locator('.prodtable .prod-inline-name').inputValue(),'Paracetamol 500 mg');
   await page.locator('[data-cycle-product-review-status="9102"]').click();
   await page.waitForFunction(()=>products.find(p=>p.id===9102).dataReviewStatus==='complete'&&!document.querySelector('.prodtable .prod-inline-name'));
+  await page.evaluate(()=>{
+    products=products.slice(0,3);
+    productReviewFilter='all';productReviewFilterUsed=true;selectedGroup=null;searchQuery='';
+    products[0].barcode='10';products[1].barcode='2';products[2].barcode='';
+    prodRowUnitSel={};productSort={key:'sku',dir:1};productPage=1;
+    productListUnitPreference=()=>'';
+    render();
+  });
+  const barcodes=()=>page.locator('.prodtable [data-field="barcode"]').evaluateAll(els=>els.map(el=>el.value));
+  await page.locator('.prodtable th[data-sort="barcode"]').click();
+  assert.deepEqual(await barcodes(),['2','10','']);
+  await page.locator('.prodtable th[data-sort="barcode"]').click();
+  assert.deepEqual(await barcodes(),['10','2','']);
+  await page.evaluate(()=>{prodRowUnitSel[products[0].id]='ลัง';products[0].units[0].barcode='1';productSort.dir=1;render();});
+  assert.deepEqual(await barcodes(),['1','2',''],'Sorting follows the displayed unit barcode');
   assert.deepEqual(errors, [], `พบ JavaScript error: ${errors.join(' | ')}`);
   console.log('product search browser tests passed');
 })().catch(error => {

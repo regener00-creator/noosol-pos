@@ -34,7 +34,7 @@ assert.match(html, /\.product-group-category\.active\{[^}]*border-color:#C6AAA0;
 assert.doesNotMatch(source, /product-head-search/);
 assert.doesNotMatch(source, /pagehead product-pagehead/);
 assert.match(source, /<col class="col-sku"><col class="col-barcode"><col class="col-name">/, 'คอลัมน์บาร์โค้ดต้องอยู่ถัดจากรหัสสินค้า');
-assert.match(source, /\$\{th\('sku','รหัสสินค้า'\)\}<th>บาร์โค้ด<\/th>\$\{th\('name','สินค้า'\)\}/, 'หัวข้อบาร์โค้ดต้องอยู่ระหว่างรหัสสินค้าและชื่อสินค้า');
+assert.match(source, /\$\{th\('sku','รหัสสินค้า'\)\}\$\{th\('barcode','บาร์โค้ด'\)\}\$\{th\('name','สินค้า'\)\}/, 'หัวข้อบาร์โค้ดต้องอยู่ระหว่างรหัสสินค้าและชื่อสินค้า');
 assert.match(source, /barcode:p\.barcode\|\|''[^]*barcode:u\.barcode\|\|''/, 'รายการหน่วยต้องเก็บบาร์โค้ดของทั้งหน่วยหลักและหน่วยเพิ่มเติม');
 assert.match(source, /class="prod-inline-edit prod-inline-barcode prod-unit-barcode"[^]*data-field="barcode"[^]*data-unit="\$\{escapeHtml\(selOpt\.sub\)\}"[^]*value="\$\{escapeHtml\(selOpt\.barcode\|\|''\)\}"/, 'แถวสินค้าต้องแก้บาร์โค้ดของหน่วยที่เลือกได้');
 assert.match(html, /field==='barcode'[^]*barcodePrintBarcodeOwners\(\)\.find[^]*unitRow\.barcode=requested;[^]*p\.barcode=requested;/, 'การแก้บาร์โค้ดต้องตรวจเลขซ้ำและบันทึกลงหน่วยที่เลือก');

@@ -127,6 +127,23 @@ export async function run({client,connect}){
       assert.equal((await scopedIssue(w,pid,'pack')).items[0].barcode,'BP00000000002','Restore keeps the old label scannable and never reuses a BP number');
     }
   }
+  for(const store of [1,2]){
+    const before=(await client.query("select * from private.shop_number_counters where warehouse_id=$1 and series='internal-label-barcode'",[store])).rows;
+    const preview=async()=> (await client.query('select public.preview_price_label_barcodes($1,3) codes',[store])).rows[0].codes;
+    const codes=await preview();
+    assert.deepEqual(await preview(),codes,'Repeated previews do not consume numbers');
+    assert.deepEqual((await client.query("select * from private.shop_number_counters where warehouse_id=$1 and series='internal-label-barcode'",[store])).rows,before);
+    assert.ok(codes.every(code=>code.startsWith(store===1?'AP':'BP')));
+    const pid=88500+store;
+    await insert(pid);
+    await client.query('update public.products set warehouse_id=$1 where id=$2',[store,pid]);
+    assert.equal((await scopedIssue(store,pid,'box')).items[0].barcode,codes[0],'First allocation matches preview when uncontended');
+    assert.equal((await preview())[0],codes[1],'Preview advances after another allocation');
+  }
+  await client.query("select set_config('request.jwt.claim.sub',$1,false)",[staff]);
+  await assert.rejects(client.query('select public.preview_price_label_barcodes(1,1)'),/owner access/);
+  await client.query("select set_config('request.jwt.claim.sub',$1,false)",[owner]);
+  await assert.rejects(client.query('select public.preview_price_label_barcodes(1,2001)'),/invalid/);
   await insert(88400);await insert(88401);
   await client.query("update private.shop_number_counters set last_value=99999999998 where warehouse_id=1 and series='internal-label-barcode'");
   assert.equal((await issue(client,[item(88400)])).items[0].barcode,'AP99999999999');

@@ -144,6 +144,40 @@ function barcodeReprintItem(productId,unitName,quantity,code){
 
 let barcodePrintSavePending=false;
 let barcodePrintRequest=null;
+let barcodePrintPreview=null;
+function ensureBarcodePrintPreview(){
+  const items=barcodePrintUnreservedItems().filter(item=>!String(item.barcode||'').trim());
+  if(barcodePrintMode!=='new'||!items.length||barcodePrintSavePending) return;
+  const context=captureStoreView();
+  const key=JSON.stringify([context,items.map(item=>[item.pid,item.unit])]);
+  if(barcodePrintPreview?.key===key) return;
+  const state={key,context,items,codes:[],loading:true,error:false};
+  barcodePrintPreview=state;
+  void (async()=>{
+    try{
+      if(!navigator.onLine) throw new Error('offline');
+      const {data,error}=await sb.rpc('preview_price_label_barcodes',{p_warehouse_id:context.store,p_count:items.length});
+      if(error||!Array.isArray(data)||data.length!==items.length||data.some(code=>!systemLabelCode(code,context.store))) throw new Error('invalid preview');
+      state.codes=data;
+    }catch{state.error=true;}
+    finally{
+      state.loading=false;
+      if(barcodePrintPreview===state&&isStoreViewCurrent(context)&&currentTab==='barcodeprint') render();
+    }
+  })();
+}
+function barcodePrintPreviewCode(item){
+  const state=barcodePrintPreview;
+  if(!state||!isStoreViewCurrent(state.context)) return '';
+  return state.codes[state.items.findIndex(entry=>entry.pid===item.pid&&entry.unit===item.unit)]||'';
+}
+async function confirmBarcodeReservation(){
+  if(barcodePrintSavePending||!barcodePrintUnreservedItems().length) return false;
+  const store=captureStoreView().store;
+  const name=store===1?'พระยาสุเรนทร์':store===2?'พรชัย':`คลัง ${store}`;
+  if(!confirm(`ยืนยันจองและบันทึกเลขบาร์โค้ด ${barcodePrintUnreservedItems().length} รายการ ให้${name}?\n\nเลขตัวอย่างยังไม่ได้จอง และอาจเปลี่ยนหากเครื่องอื่นจองก่อน\nหลังจอง เลขจะอยู่กับสินค้าแม้ล้างรายการหรือยังไม่ได้พิมพ์`)) return false;
+  return saveBarcodePrintItems(null,{reserveOnly:true});
+}
 let barcodePrintMode='new';
 let barcodePrintShowMenu=true;
 let barcodePrintOtherQueue=null;

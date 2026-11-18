@@ -58,6 +58,7 @@ const browserExecutable = [
     window.open=()=>window.testPrintBlocked?null:{closed:false,close(){this.closed=true;}};
     writeBarcodePrintWindow=(_win,items)=>{window.testPrints.push(structuredClone(items));return true;};
     sb.rpc=async(name,args)=>{
+      if(name==='preview_price_label_barcodes') return {data:Array.from({length:args.p_count},(_,i)=>(args.p_warehouse_id===1?'AP':'BP')+String(window.testCalls.length*10+i+1).padStart(11,'0')),error:null};
       window.testCalls.push(structuredClone(args));
       const items=args.p_items.map((item,index)=>({...item,barcode:(args.p_warehouse_id===1?'AP':'BP')+String(window.testCalls.length*10+index).padStart(11,'0')}));
       return {data:{items,products:items.map(item=>{
@@ -68,7 +69,8 @@ const browserExecutable = [
       })},error:null};
     };
   });
-  page.on('dialog',dialog=>dialog.accept());
+  let cancelReservation=false;
+  page.on('dialog',dialog=>cancelReservation?dialog.dismiss():dialog.accept());
   for(const store of [1,2]){
     await page.evaluate(store=>{
       activeWarehouseId=store;
@@ -87,6 +89,13 @@ const browserExecutable = [
     await page.locator('#barcodePrintSearch').fill('Calcium');
     await page.locator('[data-barcode-print-result]').click();
     assert.equal(await page.evaluate(()=>window.testCalls.length),count);
+    await page.waitForFunction(()=>barcodePrintPreview?.codes.length>0);
+    assert.match(await page.locator('[data-barcode-print-code]').first().getAttribute('placeholder'),/^[AB]P[0-9]+$/);
+    if(store===1){fs.mkdirSync(path.join(root,'outputs'),{recursive:true});await page.screenshot({path:path.join(root,'outputs/barcode-preview.png')});}
+    cancelReservation=true;
+    await page.locator('#reserveBarcodePrintBtn').click();
+    assert.equal(await page.evaluate(()=>window.testCalls.length),count);
+    cancelReservation=false;
     await page.locator('#reserveBarcodePrintBtn').click();
     await page.waitForFunction(()=>!barcodePrintSavePending);
     assert.equal(await page.evaluate(()=>window.testCalls.length),count+1);

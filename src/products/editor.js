@@ -1,3 +1,7 @@
+function productListBarcode(product){
+  const unit=productListUnitPreference(product)||prodRowUnitSel[product.id]||product.unit;
+  return String(unit===product.unit?product.barcode||'':(product.units||[]).find(option=>option.sub===unit)?.barcode||'');
+}
 function renderProducts({resultsOnly=false}={}){
   if(editingProductId!==null) return renderProductForm();
   const {tree, catCounts, brCounts} = resultsOnly?{tree:{},catCounts:{},brCounts:{}}:buildGroupTree();
@@ -44,8 +48,14 @@ function renderProducts({resultsOnly=false}={}){
 
   // เรียงข้อมูลตามคอลัมน์ที่เลือก
   const sk = productSort.key, sdir = productSort.dir;
+  const compareBarcodes=new Intl.Collator('en',{numeric:true,sensitivity:'base'}).compare;
   filtered.sort((a,b)=>{
     let va, vb;
+    if(sk==='barcode'){
+      va=productListBarcode(a); vb=productListBarcode(b);
+      if(!va||!vb) return va?-1:vb?1:0;
+      return compareBarcodes(va,vb)*sdir;
+    }
     if(sk==='price'){ va=a.price; vb=b.price; }
     else if(sk==='cost'){ va=a.cost||a.openingCost||0; vb=b.cost||b.openingCost||0; }
     else if(sk==='stock'){ va=a.stock; vb=b.stock; }
@@ -68,7 +78,7 @@ function renderProducts({resultsOnly=false}={}){
 
   const resultsHtml=`      <div class="table-pane">
         <div class="table-scroll product-table-scroll">
-        <table class="grid-table doc-head-blue prodtable"><colgroup><col class="col-sku"><col class="col-barcode"><col class="col-name"><col class="col-price">${canViewCost?'<col class="col-cost">':''}<col class="col-unit"><col class="col-stock"><col class="col-lots">${canOpenProductEditor?'<col class="col-edit">':''}</colgroup><thead><tr>${th('sku','รหัสสินค้า')}<th>บาร์โค้ด</th>${th('name','สินค้า')}${th('price','ขาย','mono num')}${canViewCost?th('cost','ทุน','mono num'):''}<th>หน่วย</th>${th('stock','คงเหลือ','mono num')}<th>Lot</th>${canOpenProductEditor?'<th></th>':''}</tr></thead>
+        <table class="grid-table doc-head-blue prodtable"><colgroup><col class="col-sku"><col class="col-barcode"><col class="col-name"><col class="col-price">${canViewCost?'<col class="col-cost">':''}<col class="col-unit"><col class="col-stock"><col class="col-lots">${canOpenProductEditor?'<col class="col-edit">':''}</colgroup><thead><tr>${th('sku','รหัสสินค้า')}${th('barcode','บาร์โค้ด')}${th('name','สินค้า')}${th('price','ขาย','mono num')}${canViewCost?th('cost','ทุน','mono num'):''}<th>หน่วย</th>${th('stock','คงเหลือ','mono num')}<th>Lot</th>${canOpenProductEditor?'<th></th>':''}</tr></thead>
         <tbody>${pageRows.map(p=>{
           const unitOpts=[{sub:p.unit, factor:1, price:p.price, cost:p.cost||p.openingCost||0, barcode:p.barcode||''}, ...((p.units||[]).map(u=>({sub:u.sub, factor:Number(u.factor), price:u.price, cost:u.cost||0, barcode:u.barcode||''})))];
           const selUnit=productListUnitPreference(p)||prodRowUnitSel[p.id]||p.unit;

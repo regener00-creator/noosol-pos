@@ -503,7 +503,7 @@ function barcodePrintRowsHtml(entries=barcodePrintPagination().rows){
       <td class="mono" style="text-align:center;">${escapeHtml(product.sku||'-')}</td>
       <td>${escapeHtml(product.name)}${item.reservation?'<br><span class="barcode-print-missing">จองเลขแล้ว</span>':selected.barcode?'':`<br><span class="barcode-print-missing">หน่วยนี้ยังไม่มีบาร์โค้ด</span>`}</td>
       <td style="text-align:center;">${unitSelect}</td>
-      <td><input class="barcode-print-code-input" data-barcode-print-code="${index}" ${barcodePrintSavePending?'disabled':''} ${barcodePrintMode==='reprint'||item.reservation?'readonly':''} value="${escapeHtml(item.barcode)}" placeholder="กดจองเลขบาร์โค้ด" maxlength="48" autocomplete="off" aria-label="บาร์โค้ด ${escapeHtml(product.name)}"></td>
+      <td><input class="barcode-print-code-input" data-barcode-print-code="${index}" ${barcodePrintSavePending?'disabled':''} ${barcodePrintMode==='reprint'||item.reservation?'readonly':''} value="${escapeHtml(item.barcode)}" placeholder="${escapeHtml(barcodePrintPreviewCode(item)||'กดจองเลขบาร์โค้ด')}" maxlength="48" autocomplete="off" aria-label="บาร์โค้ด ${escapeHtml(product.name)}">${!item.reservation&&!item.barcode&&barcodePrintMode==='new'?`<small style="display:block;text-align:center;">${barcodePrintPreviewCode(item)?'เลขตัวอย่าง · ยังไม่ได้จอง':barcodePrintPreview?.loading?'กำลังโหลดเลขตัวอย่าง…':'ยังโหลดเลขตัวอย่างไม่ได้'}</small>`:''}</td>
       <td class="mono" style="text-align:center;">${fmtMoney(selected.price)}</td>
       <td style="text-align:center;"><input type="number" min="1" max="500" step="1" class="barcode-print-qty-input" data-barcode-print-qty="${index}" ${barcodePrintSavePending?'disabled':''} value="${Number(item.qty)||1}" aria-label="จำนวนฉลาก ${escapeHtml(product.name)}"></td>
       <td style="text-align:center;"><button class="barcode-print-remove" data-barcode-print-remove="${index}" ${barcodePrintSavePending?'disabled':''} title="ลบ ${escapeHtml(product.name)} ออกจากรายการ" aria-label="ลบ ${escapeHtml(product.name)} ออกจากรายการ"><svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></td>
@@ -521,6 +521,7 @@ function renderBarcodePrint(){
   if(promotionPrintActive)return renderPromotionLabelPrint();
   if(barcodePrintMode==='reprint'&&(!barcodeIssuedState?.ready||!isStoreViewCurrent(barcodeIssuedState.context))) return `<section class="rpt"><div class="pagehead label-print-pagehead"><button class="btn ghost" id="barcodePrintMenuBtn">ย้อนกลับ</button></div><p role="status">${barcodeIssuedState?.loading?'กำลังตรวจประวัติการจ่ายบาร์โค้ด…':escapeHtml(barcodeIssuedState?.error||'กรุณาโหลดประวัติการจ่ายบาร์โค้ด')}</p>${barcodeIssuedState?.loading?'':'<button class="btn primary" id="barcodeIssuedRetryBtn">ลองใหม่</button>'}</section>`;
   reconcileBarcodePrintItems();
+  ensureBarcodePrintPreview();
   const filter=barcodePrintCatFilter;
   const available=barcodePrintAvailableProducts();
   const brandOptions=brands.filter(brand=>available.some(product=>(!filter.category||product.category===filter.category)&&product.brand===brand));
@@ -766,6 +767,7 @@ async function saveBarcodePrintItems(printWindow,{reserveOnly=false}={}){
     return false;
   }finally{
     barcodePrintSavePending=false;
+    if(reserveOnly) barcodePrintPreview=null;
     if(isStoreViewCurrent(context)){ reconcileBarcodePrintItems(); render(); }
   }
 }

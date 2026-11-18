@@ -164,6 +164,7 @@ function attachProductResultEvents(root=document){
   root.querySelectorAll('.prodtable th.sortable').forEach(el=>el.addEventListener('click',()=>{
     const key=el.dataset.sort;
     if(productSort.key===key) productSort.dir*=-1;else{productSort.key=key;productSort.dir=1;}
+    productPage=1;
     if(!refreshProductListResults()) render();
   }));
   root.querySelectorAll('[data-page]').forEach(el=>el.addEventListener('click',()=>{
@@ -957,7 +958,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   document.querySelectorAll('[data-barcode-print-mode]').forEach(button=>button.addEventListener('click',()=>setBarcodePrintMode(button.dataset.barcodePrintMode)));
   document.getElementById('barcodeIssuedRetryBtn')?.addEventListener('click',loadSystemIssuedLabelCodes);
   document.getElementById('barcodePrintMenuBtn')?.addEventListener('click',()=>{if(!barcodePrintSavePending){barcodePrintShowMenu=true;render();}});
-  document.getElementById('reserveBarcodePrintBtn')?.addEventListener('click',()=>saveBarcodePrintItems(null,{reserveOnly:true}));
+  document.getElementById('reserveBarcodePrintBtn')?.addEventListener('click',confirmBarcodeReservation);
   if(clearBarcodePrintBtn) clearBarcodePrintBtn.addEventListener('click',()=>{
     if(barcodePrintSavePending) return;
     if(!confirm('ต้องการล้างรายการพิมพ์ป้ายราคาทั้งหมดใช่หรือไม่?'+(barcodePrintItems.some(item=>item.reservation)?' เลขที่จองแล้วจะยังอยู่กับสินค้า':''))) return;
