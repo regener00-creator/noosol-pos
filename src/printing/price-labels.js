@@ -593,7 +593,7 @@ function renderBarcodePrint(){
   const pagination=barcodePrintPagination();
   barcodePrintPage=pagination.currentPage;
   return `<div class="rpt barcode-print-page">
-    <div class="pagehead label-print-pagehead"><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="barcodePrintMenuBtn">ย้อนกลับ</button><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length&&!barcodePrintSavePending?'':'disabled'}>ล้างรายการ</button>${reprint?'':`<button class="btn ghost" id="reserveBarcodePrintBtn" ${barcodePrintSavePending||!barcodePrintUnreservedItems().length?'disabled':''}>${barcodePrintSavePending?'กำลังจองเลข…':'จองเลขบาร์โค้ด'}</button>`}<button class="btn primary" id="savePrintBarcodeBtn" ${!barcodePrintSavePending&&barcodePrintItems.length&&(reprint||!barcodePrintUnreservedItems().length)?'':'disabled'}>${reprint?'พิมพ์ป้ายเดิมซ้ำ':'พิมพ์ป้ายราคา'} (${barcodePrintItems.length})</button></div></div>
+    <div class="pagehead label-print-pagehead"><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="barcodePrintMenuBtn">ย้อนกลับ</button>${reprint?'':`<button class="btn ghost" id="reserveBarcodePrintBtn" ${barcodePrintSavePending||!barcodePrintUnreservedItems().length?'disabled':''}>${barcodePrintSavePending?'กำลังจองเลข…':'จองเลขบาร์โค้ด'}</button>`}<button class="btn primary" id="savePrintBarcodeBtn" ${!barcodePrintSavePending&&barcodePrintItems.length&&(reprint||!barcodePrintUnreservedItems().length)?'':'disabled'}>${reprint?'พิมพ์ป้ายเดิมซ้ำ':'พิมพ์ป้ายราคา'} (${barcodePrintItems.length})</button></div></div>
     <div class="rpt-filters" style="margin-bottom:14px;">
       <div class="rpf-item"><select id="barcodePrintCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(category=>`<option value="${escapeHtml(category)}" ${filter.category===category?'selected':''}>${escapeHtml(category)}</option>`).join('')}</select></div>
       <div class="rpf-item"><select id="barcodePrintBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(brand=>`<option value="${escapeHtml(brand)}" ${filter.brand===brand?'selected':''}>${escapeHtml(brand)}</option>`).join('')}</select></div>
@@ -602,6 +602,7 @@ function renderBarcodePrint(){
       <input id="barcodePrintSearch" class="barcode-print-search" value="${escapeHtml(barcodePrintSearchQuery)}" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด..." autocomplete="off">
       <div id="barcodePrintResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div>
     </div>
+      <button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length&&!barcodePrintSavePending?'':'disabled'}>ล้างรายการ</button>
     </div>
     <div class="barcode-print-table-wrap seamless-table-wrap">
       <table class="grid-table doc-head-blue barcode-print-table"><colgroup><col class="barcode-print-col-sku"><col class="barcode-print-col-name"><col class="barcode-print-col-unit"><col class="barcode-print-col-code"><col class="barcode-print-col-price"><col class="barcode-print-col-qty"><col class="barcode-print-col-action"></colgroup>
