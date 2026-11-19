@@ -341,6 +341,7 @@ function render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){
   if(storeResetMode&&currentTab!==(storeResetMode==='factory'?'factoryreset':'settingssystem'))storeResetMode=null;
   if(currentTab!=='warehouse'||!addingWarehouse||editingWarehouseId!==null)warehouseCreateApproval=null;
   if(isLevel2User()&&currentTab==='products'&&editingProductId!==null&&editingProductId!=='new') editingProductId=null;
+  if(currentTab!=='barcodeprint'&&typeof resetPriceLabelDesignerPage==='function')resetPriceLabelDesignerPage();
   if(currentTab==='checkout') reconcileAutoFreeLines();
   if(mobileMode){ document.getElementById('sidebar').innerHTML=''; sidebarRenderSignature=''; }
   else renderSidebar();

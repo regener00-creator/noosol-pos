@@ -83,10 +83,20 @@ const browserExecutable = [
   assert.ok(designBoxes.price.bottom<designBoxes.first.top);
   assert.equal(designBoxes.promotion.left,designBoxes.third.left);
   assert.ok(designBoxes.promotion.bottom<designBoxes.third.top);
-  await page.locator('#priceLabelDesignSize').selectOption('80x50');
+  assert.equal(await page.locator('.label-design-menu-card select').count(),0);
   await page.locator('#openPriceLabelDesignerBtn').click();
+  assert.equal(await page.locator('.modal-overlay .price-label-designer-content').count(),0,'Designer is an inline page');
+  assert.equal(await page.locator('#main #priceLabelDesignerHost').count(),1);
+  await page.locator('#priceLabelDesignerSize').selectOption('80x50');
   assert.match(await page.locator('.price-label-designer-size').innerText(),/80 × 50/);
   await page.locator('#priceLabelTemplateNameInput').fill('ยังไม่บันทึก');
+  await page.locator('#priceLabelDesignerSize').selectOption('50x30');
+  await page.locator('#priceLabelDesignerSize').selectOption('80x50');
+  assert.equal(await page.locator('#priceLabelTemplateNameInput').inputValue(),'ยังไม่บันทึก','Switching sizes preserves the draft');
+  await page.evaluate(()=>render());
+  assert.equal(await page.locator('#priceLabelTemplateNameInput').inputValue(),'ยังไม่บันทึก','Rerender preserves the page draft');
+  fs.mkdirSync(path.join(root,'outputs'),{recursive:true});
+  await page.screenshot({path:path.join(root,'outputs/label-designer-page.png')});
   await page.locator('#openPriceLabelSettingsBtn').click();
   await page.locator('#priceLabelDefaultMode').selectOption('new');
   await page.locator('input[name="priceLabelPaperSize"][value="a4-50x30"]').check();
@@ -100,13 +110,11 @@ const browserExecutable = [
   await page.evaluate(()=>{savePriceLabelDefaultSize('50x30','new');savePriceLabelDefaultSize('50x30','reprint');});
 
   await page.locator('#cancelPriceLabelDesignerBtn').click();
-  await page.locator('#priceLabelDesignSize').selectOption('50x30');
-  await page.locator('#promotionDesignSize').selectOption('a4-poster');
   await page.locator('#promotionLabelDesignBtn').click();
-  assert.match(await page.locator('.price-label-designer-modal h3').innerText(),/ออกแบบป้ายโปรโมชั่น/);
+  await page.locator('#priceLabelDesignerSize').selectOption('a4-poster');
+  assert.match(await page.locator('.price-label-designer-content h3').innerText(),/ออกแบบป้ายโปรโมชั่น/);
   assert.match(await page.locator('.price-label-designer-size').innerText(),/210 × 297/);
   await page.locator('#cancelPriceLabelDesignerBtn').click();
-  await page.locator('#promotionDesignSize').selectOption('50x30');
   fs.mkdirSync(path.join(root,'outputs'),{recursive:true});
   await page.screenshot({path:path.join(root,'outputs/label-design-menu.png')});
   await page.locator('[data-barcode-print-mode="new"]').click();
@@ -129,7 +137,7 @@ const browserExecutable = [
   assert.equal(await page.locator('.barcode-print-page h1').count(),0);
   assert.equal(await page.locator('#openPriceLabelDesignerBtn').count(), 0);
   await page.evaluate(()=>openPriceLabelDesigner(barcodePrintLabelSize));
-  assert.equal(await page.locator('.price-label-designer-modal').isVisible(), true);
+  assert.equal(await page.locator('.price-label-designer-content').isVisible(), true);
   assert.equal(await page.locator('[data-price-label-tab]').count(), 5);
   assert.equal(await page.locator('.price-label-design-element').count(), 5);
   assert.equal(await page.locator('#priceLabelSampleSelect').count(),0,'No picker for an empty queue');
@@ -231,7 +239,7 @@ const browserExecutable = [
   assert.equal(libraryBeforeUse.activeId,libraryBeforeUse.templates[0].id);
   await page.locator('#savedPriceLabelTemplateSelect').selectOption(libraryBeforeUse.templates[0].id);
   await page.locator('#savePriceLabelDesignerBtn').click();
-  await page.waitForSelector('.price-label-designer-modal',{state:'detached'});
+  await page.waitForSelector('.price-label-designer-content',{state:'detached'});
 
   const saved = await page.evaluate(() => businessSettings.priceLabelTemplates['50x30']);
   assert.equal(saved.preset,'custom');
@@ -266,7 +274,7 @@ const browserExecutable = [
   await page.locator('[data-price-label-tab]').filter({hasText:'ข้อความ 1'}).click();
   assert.equal(await page.locator('[data-price-label-custom-value]').inputValue(),'SALE -15%');
 
-  await page.locator('.price-label-designer-modal .modal-close').click();
+  await page.locator('#backPriceLabelDesignerBtn').click();
   await page.evaluate(() => {
     currentTab='barcodeprint';
     products=[

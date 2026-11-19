@@ -247,7 +247,22 @@ function priceLabelDesignerSample(item=barcodePrintItems[0]){
   };
 }
 
+let priceLabelDesignerPage=null;
+function resetPriceLabelDesignerPage(){
+  priceLabelDesignerPage?.dispose?.();
+  priceLabelDesignerPage=null;
+}
+function attachPriceLabelDesignerPage(){
+  const host=document.getElementById('priceLabelDesignerHost');
+  if(host&&priceLabelDesignerPage?.element)host.replaceChildren(priceLabelDesignerPage.element);
+}
 function openPriceLabelDesigner(labelSize=barcodePrintLabelSize,options={}){
+  resetPriceLabelDesignerPage();
+  priceLabelDesignerPage={context:captureWorkspaceRead(),options,drafts:new Map(),element:null,dispose:null};
+  render();
+  mountPriceLabelDesignerEditor(labelSize,options);
+}
+function mountPriceLabelDesignerEditor(labelSize,options={}){
   const promotion=options.kind==='promotion',kind=promotion?'promotion':'price';
   if(labelSize==='a4-50x30')labelSize='50x30';
   const validSize=BARCODE_PRINT_LABEL_DIMENSIONS[labelSize]?labelSize:'80x50';
@@ -257,18 +272,22 @@ function openPriceLabelDesigner(labelSize=barcodePrintLabelSize,options={}){
   let selectedTemplateId=library.activeId;
   const activeNamedTemplate=library.templates.find(entry=>entry.id===selectedTemplateId);
   let draft=normalizePriceLabelTemplate(activeNamedTemplate?.template||getPriceLabelTemplate(validSize,kind),validSize);
+  const session=priceLabelDesignerPage;
+  const retained=session?.drafts.get(validSize);
+  if(retained){draft=retained.draft;selectedTemplateId=retained.selectedTemplateId;}
   let selected=promotion&&draft.customTexts.length?`custom:${draft.customTexts[0].id}`:'name';
   const previewItems=barcodePrintItems.filter(item=>products.some(product=>product.id===item.pid)).map(item=>({...item}));
   let sample=priceLabelDesignerSample(previewItems[0]);
-  document.querySelector('.price-label-designer-modal')?.closest('.modal-overlay')?.remove();
+  session?.dispose?.();
   const overlay=document.createElement('div');
-  overlay.className='modal-overlay';
-  overlay.innerHTML=`<div class="modal price-label-designer-modal"><div class="modal-head"><div><h3>${promotion?'ออกแบบป้ายโปรโมชั่น':'ออกแบบป้ายราคา'}</h3><div class="price-label-designer-head-meta">${promotion?'เขียนข้อความและจัดวางได้เอง บันทึกแม่แบบแยกสำหรับป้ายโปรโมชั่น':'บันทึกแม่แบบแยกตามขนาดป้าย และใช้กับป้ายราคาปกติทุกครั้งที่พิมพ์'}</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div>
+  overlay.className='price-label-designer-editor';
+  overlay.innerHTML=`<div class="price-label-designer-content"><div class="modal-head"><div><h3>${promotion?'ออกแบบป้ายโปรโมชั่น':'ออกแบบป้ายราคา'}</h3><div class="price-label-designer-head-meta">${promotion?'เขียนข้อความและจัดวางได้เอง บันทึกแม่แบบแยกสำหรับป้ายโปรโมชั่น':'บันทึกแม่แบบแยกตามขนาดป้าย และใช้กับป้ายราคาปกติทุกครั้งที่พิมพ์'}</div></div><button class="btn ghost" id="backPriceLabelDesignerBtn" type="button">ย้อนกลับ</button></div>
     <div class="price-label-template-library"><label>แม่แบบที่บันทึก<select id="savedPriceLabelTemplateSelect" aria-label="แม่แบบป้ายราคาที่บันทึก"></select></label><label>ชื่อแม่แบบ<input id="priceLabelTemplateNameInput" maxlength="60" placeholder="เช่น ป้ายราคาหน้าชั้น"></label><button class="btn ghost" id="saveAsNewPriceLabelTemplateBtn" type="button">บันทึกเป็นแม่แบบใหม่</button><button class="btn ghost price-label-delete-text-btn" id="deleteSavedPriceLabelTemplateBtn" type="button">ลบแม่แบบ</button></div>
-    <div class="price-label-designer-toolbar"><label ${promotion?'hidden':''}>รูปแบบเริ่มต้น <select id="priceLabelPresetSelect">${Object.entries(PRICE_LABEL_PRESET_LABELS).map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></label><button class="btn ghost price-label-add-text-btn" id="addPriceLabelCustomTextBtn" type="button">+ เพิ่มข้อความ</button>${promotion?'':'<button class="btn ghost" type="button" id="openPriceLabelSettingsBtn">ตั้งค่าขนาดป้ายเริ่มต้น</button>'}<span class="price-label-designer-size">${widthMm} × ${heightMm} มม. ${validSize==='a4-poster'?'แนวตั้ง':'แนวนอน'}</span></div>
+    <div class="price-label-designer-toolbar"><label>ขนาดป้าย<select id="priceLabelDesignerSize">${Object.entries(PROMOTION_LABEL_SIZES).filter(([size])=>size!=='a4-50x30'&&(promotion||size!=='a4-poster')).map(([size,label])=>`<option value="${size}" ${size===validSize?'selected':''}>${label}</option>`).join('')}</select></label><label ${promotion?'hidden':''}>รูปแบบเริ่มต้น <select id="priceLabelPresetSelect">${Object.entries(PRICE_LABEL_PRESET_LABELS).map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></label><button class="btn ghost price-label-add-text-btn" id="addPriceLabelCustomTextBtn" type="button">+ เพิ่มข้อความ</button>${promotion?'':'<button class="btn ghost" type="button" id="openPriceLabelSettingsBtn">ตั้งค่าขนาดป้ายเริ่มต้น</button>'}<span class="price-label-designer-size">${widthMm} × ${heightMm} มม. ${validSize==='a4-poster'?'แนวตั้ง':'แนวนอน'}</span></div>
     <div class="price-label-designer-body"><div class="price-label-canvas-pane"><p class="price-label-canvas-help">ลากเพื่อย้ายตำแหน่ง · ลากมุมขวาล่างเพื่อปรับขนาด · คลิกหัวข้อด้านขวาเพื่อแก้รายละเอียด${!promotion&&sample.exampleBarcode?'<br><span data-price-label-example-note>บาร์โค้ดตัวอย่างสำหรับจัดวางเท่านั้น · เมื่อพิมพ์จะใช้บาร์โค้ดของสินค้าที่เลือก</span>':''}</p><div class="price-label-canvas-shell"><div id="priceLabelDesignerCanvas" class="price-label-canvas" style="aspect-ratio:${widthMm}/${heightMm}"></div></div><div class="price-label-safety-note" ${promotion?'hidden':''}><span>⚠</span><span>บาร์โค้ดย่อได้ต่ำสุด ${barcodeMinimum.widthMm} × ${barcodeMinimum.heightMm} มม. แต่ขนาดที่แนะนำคืออย่างน้อย ${barcodeMinimum.recommendedWidthMm} × ${barcodeMinimum.recommendedHeightMm} มม. หากย่อกว่านี้ควรทดลองพิมพ์และสแกนก่อนใช้งานจำนวนมาก</span></div></div><aside id="priceLabelDesignerPanel" class="price-label-designer-panel"></aside></div>
     <div class="price-label-designer-actions"><button class="btn ghost" id="resetPriceLabelTemplateBtn" type="button">คืนค่าเริ่มต้น</button><div class="price-label-designer-actions-right"><button class="btn ghost" id="cancelPriceLabelDesignerBtn" type="button">ยกเลิก</button><button class="btn primary" id="savePriceLabelDesignerBtn" type="button">บันทึกและใช้แม่แบบนี้</button></div></div></div>`;
-  document.body.appendChild(overlay);
+  session.element=overlay;
+  attachPriceLabelDesignerPage();
   overlay.querySelector('#openPriceLabelSettingsBtn')?.addEventListener('click',openPriceLabelSettings);
   const canvas=overlay.querySelector('#priceLabelDesignerCanvas');
   if(!promotion&&previewItems.length>1){
@@ -427,10 +446,16 @@ function openPriceLabelDesigner(labelSize=barcodePrintLabelSize,options={}){
     const selectedEntry=library.templates.find(entry=>entry.id===selectedTemplateId);
     templateNameInput.value=selectedEntry?.name||'';
   };
-  const close=()=>{ previewResizeObserver?.disconnect(); overlay.remove(); options.onClose?.(); };
-  overlay.querySelector('.modal-close').addEventListener('click',close);
+  const close=()=>{ resetPriceLabelDesignerPage(); render(); options.onClose?.(); };
+  overlay.querySelector('#backPriceLabelDesignerBtn').addEventListener('click',close);
   overlay.querySelector('#cancelPriceLabelDesignerBtn').addEventListener('click',close);
-  overlay.addEventListener('click',event=>{ if(event.target===overlay) close(); });
+  session.dispose=()=>{previewResizeObserver?.disconnect();overlay.remove();};
+  overlay.querySelector('#priceLabelDesignerSize').addEventListener('change',event=>{
+    session.drafts.set(validSize,{draft,selectedTemplateId,name:templateNameInput.value});
+    const size=event.target.value;
+    if(promotion)promotionPrintSize=size;
+    mountPriceLabelDesignerEditor(size,options);
+  });
   presetSelect.addEventListener('change',()=>{
     if(presetSelect.value==='custom') return;
     const customTexts=draft.customTexts;
@@ -486,6 +511,7 @@ function openPriceLabelDesigner(labelSize=barcodePrintLabelSize,options={}){
     previewResizeObserver.observe(canvas);
   }
   refreshLibraryControls();
+  if(retained)templateNameInput.value=retained.name;
   renderEditor();
 }
 
@@ -513,11 +539,11 @@ function barcodePrintRowsHtml(entries=barcodePrintPagination().rows){
 }
 
 function priceLabelDesignMenuHtml(promotion=false){
-  const selected=promotion?promotionTemplateSize():promotionTemplateSize(barcodePrintLabelSize);
-  const sizes=Object.entries(PROMOTION_LABEL_SIZES).filter(([size])=>size!=='a4-50x30'&&(promotion||size!=='a4-poster'));
-  return `<div class="label-design-menu-card ${promotion?'promotion':'price'}"><button type="button" id="${promotion?'promotionLabelDesignBtn':'openPriceLabelDesignerBtn'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14z"/></svg><strong>${promotion?'ออกแบบป้ายโปรโมชั่น':'ออกแบบป้ายราคา'}</strong></button><label>ขนาดป้าย<select id="${promotion?'promotionDesignSize':'priceLabelDesignSize'}">${sizes.map(([size,label])=>`<option value="${size}" ${size===selected?'selected':''}>${label}</option>`).join('')}</select></label></div>`;
+  return `<div class="label-design-menu-card ${promotion?'promotion':'price'}"><button type="button" id="${promotion?'promotionLabelDesignBtn':'openPriceLabelDesignerBtn'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14z"/></svg><strong>${promotion?'ออกแบบป้ายโปรโมชั่น':'ออกแบบป้ายราคา'}</strong></button></div>`;
 }
 function renderBarcodePrint(){
+  if(priceLabelDesignerPage&&!isWorkspaceReadCurrent(priceLabelDesignerPage.context))resetPriceLabelDesignerPage();
+  if(priceLabelDesignerPage)return '<section class="rpt price-label-designer-page" id="priceLabelDesignerHost"></section>';
   if(barcodePrintShowMenu) return `<section class="rpt barcode-print-menu">
     <div class="barcode-print-mode-grid">
       ${priceLabelDesignMenuHtml()}${priceLabelDesignMenuHtml(true)}

@@ -818,8 +818,6 @@
   .label-design-menu-card button:hover{color:var(--primary-dark);}
   .label-design-menu-card strong{font-size:22px;}
   .label-design-menu-card svg{width:28px;height:28px;flex-shrink:0;}
-  .label-design-menu-card label{display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;color:var(--text-muted);max-width:100%;}
-  .label-design-menu-card select{width:auto;min-width:0;max-width:100%;padding:8px 28px 8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--primary);font:inherit;}
   @media(max-width:640px){.label-design-menu-card.price{grid-column:auto;order:0}.barcode-print-mode-grid>[data-barcode-print-mode="new"]{order:1}.barcode-print-mode-grid>[data-barcode-print-mode="reprint"]{order:2}.label-design-menu-card.promotion{order:3}.barcode-print-mode-grid>[data-barcode-print-mode="promotion"]{order:4}}
   .barcode-print-mode-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;min-height:260px;padding:32px 24px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--primary);font:inherit;text-align:center;cursor:pointer;}
   .barcode-print-mode-card svg{width:48px;height:48px;}
@@ -882,7 +880,11 @@
   .barcode-print-remove svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
   .barcode-print-page .pager{flex:0 0 auto;margin-top:10px;}
   @media (max-width:960px){.main.barcode-print-main{overflow-y:auto}.barcode-print-page{height:auto}.barcode-print-table-wrap{max-height:none;min-height:260px;overflow:auto}.barcode-print-actions{width:100%}.barcode-print-actions .btn{flex:1}.barcode-print-page .rpt-filters{align-items:stretch}.barcode-print-page .rpf-item,.barcode-print-page .rpt-select{width:100%}}
-  .price-label-designer-modal{width:min(1180px,96vw);height:min(820px,94vh);max-height:94vh;}
+  .price-label-designer-page{width:100%;min-width:0;}
+  .price-label-designer-content{display:flex;flex-direction:column;width:100%;height:max(680px,calc(100dvh - 145px));overflow:hidden;border:1px solid var(--border);border-radius:16px;background:var(--surface);}
+  .price-label-designer-content>.modal-head{flex-shrink:0;}
+  .price-label-designer-content .price-label-designer-toolbar{flex-wrap:wrap;}
+  .price-label-designer-content .price-label-designer-toolbar select{min-width:160px;}
   .price-label-designer-head-meta{margin-top:3px;color:var(--text-muted);font-size:12px;font-weight:400;}
   .price-label-designer-toolbar{display:flex;align-items:center;gap:12px;padding:12px 18px;border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:#FAF7F5;}
   .price-label-designer-toolbar label{display:flex;align-items:center;gap:7px;color:var(--text-muted);font-size:12px;font-weight:700;}
@@ -942,7 +944,7 @@
   .price-label-barcode-limit.warning{border:1px solid #E3B75B;background:#FFF0C9;color:#684306;}
   .price-label-designer-actions{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:13px 18px;border-top:1px solid var(--border);background:#fff;}
   .price-label-designer-actions-right{display:flex;gap:8px;}
-  @media(max-width:900px){.price-label-designer-modal{height:94vh}.price-label-designer-body{grid-template-columns:1fr;overflow-y:auto}.price-label-canvas-pane{overflow:visible}.price-label-canvas-shell{min-height:320px;padding:12px}.price-label-designer-panel{overflow:visible;border-top:1px solid var(--border);border-left:0}.price-label-designer-toolbar{flex-wrap:wrap}.price-label-designer-size{margin-left:0}.price-label-template-library{grid-template-columns:1fr 1fr}.price-label-element-tabs{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:900px){.price-label-designer-content{height:auto;min-height:680px}.price-label-designer-content .price-label-template-library{grid-template-columns:minmax(0,1fr)}.price-label-designer-actions{flex-wrap:wrap}.price-label-designer-body{grid-template-columns:1fr;overflow-y:auto}.price-label-canvas-pane{overflow:visible}.price-label-canvas-shell{min-height:320px;padding:12px}.price-label-designer-panel{overflow:visible;border-top:1px solid var(--border);border-left:0}.price-label-designer-toolbar{flex-wrap:wrap}.price-label-designer-size{margin-left:0}.price-label-template-library{grid-template-columns:1fr 1fr}.price-label-element-tabs{grid-template-columns:repeat(3,1fr)}}
   .lowstock-section .lowstock-table-scroll{height:calc(100vh - 315px);min-height:320px;overflow-x:auto!important;overflow-y:scroll!important;border-radius:var(--radius);scrollbar-width:auto;scrollbar-color:#8B9298 #EEF1F4;scroll-behavior:auto;overscroll-behavior:contain;contain:layout paint;touch-action:pan-y;}
   .lowstock-table-scroll::-webkit-scrollbar{width:12px;height:12px;}
   .lowstock-table-scroll::-webkit-scrollbar-track{background:#EEF1F4;border-radius:8px;}
