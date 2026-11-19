@@ -89,9 +89,13 @@ const browserExecutable = [
   assert.equal(await page.locator('#main #priceLabelDesignerHost').count(),1);
   assert.equal(await page.locator('.price-label-canvas-help,.price-label-safety-note,#resetPriceLabelTemplateBtn,.price-label-designer-content h3,.price-label-designer-head-meta').count(),0);
   assert.equal(await page.locator('#savePriceLabelDesignerBtn').innerText(),'บันทึก');
+  assert.equal(await page.locator('.price-label-designer-size,.price-label-designer-toolbar').count(),0);
+  const fieldTops=await page.locator('#savedPriceLabelTemplateSelect,#priceLabelDesignerSize,#priceLabelPresetSelect').evaluateAll(fields=>fields.map(field=>Math.round(field.getBoundingClientRect().top)));
+  assert.equal(new Set(fieldTops).size,1,'Size, preset and template share a row');
+  assert.equal(await page.locator('#addPriceLabelCustomTextBtn').evaluate(button=>button.previousElementSibling.querySelector('[data-price-label-tab]').dataset.priceLabelTab),'code');
   assert.deepEqual(await page.locator('.price-label-designer-header-actions button').evaluateAll(buttons=>buttons.map(button=>button.id)),['backPriceLabelDesignerBtn','openPriceLabelSettingsBtn']);
   await page.locator('#priceLabelDesignerSize').selectOption('80x50');
-  assert.match(await page.locator('.price-label-designer-size').innerText(),/80 × 50/);
+  assert.equal(await page.locator('#priceLabelDesignerSize').inputValue(),'80x50');
   await page.locator('#priceLabelTemplateNameInput').fill('ยังไม่บันทึก');
   await page.locator('#priceLabelDesignerSize').selectOption('50x30');
   await page.locator('#priceLabelDesignerSize').selectOption('80x50');
@@ -116,7 +120,7 @@ const browserExecutable = [
   await page.locator('#promotionLabelDesignBtn').click();
   await page.locator('#priceLabelDesignerSize').selectOption('a4-poster');
   assert.equal(await page.locator('.price-label-designer-content h3,.price-label-designer-head-meta').count(),0);
-  assert.match(await page.locator('.price-label-designer-size').innerText(),/210 × 297/);
+  assert.equal(await page.locator('#priceLabelDesignerSize').inputValue(),'a4-poster');
   await page.locator('#cancelPriceLabelDesignerBtn').click();
   fs.mkdirSync(path.join(root,'outputs'),{recursive:true});
   await page.screenshot({path:path.join(root,'outputs/label-design-menu.png')});
