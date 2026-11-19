@@ -353,7 +353,7 @@ function mountPriceLabelDesignerEditor(labelSize,options={}){
     const value=kind==='barcode'?(sample.code?code128BSvg(sample.code,40):''):kind==='custom'?escapeHtml(element.text):escapeHtml(sample[kind]||'');
     return `<div class="price-label-design-element ${selected===target?'selected':''}" data-price-label-element="${escapeHtml(target)}" style="${priceLabelElementStyle(element,kind,currentPreviewScale())}">${value}<span class="price-label-resize-handle" aria-hidden="true"></span></div>`;
   };
-  const addTextButtonMarkup="<button class=\"btn ghost price-label-add-text-btn\" id=\"addPriceLabelCustomTextBtn\" type=\"button\">+ เพิ่มข้อความ</button>";
+  const addTextButtonMarkup="<button class=\"btn primary price-label-add-text-btn\" id=\"addPriceLabelCustomTextBtn\" type=\"button\">+ เพิ่มข้อความ</button>";
   const controlMarkup=()=>{
     let info=targetInfo(selected);
     if(!info){selected=promotion&&draft.customTexts.length?customTarget(draft.customTexts[0].id):'name';info=targetInfo(selected);}
