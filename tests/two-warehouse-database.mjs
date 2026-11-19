@@ -98,6 +98,7 @@ export async function run({client}){
       assert.equal((await q('select id from public.find_store_sale($1,$2)',[shop.id,foreign.ref])).rowCount,0);
       await q('select public.update_store_label_settings($1,$2,null)',[shop.id,{medicineLabelDoseUnits:[shop.name]}]);
       await q('select public.update_store_label_settings($1,$2,$3)',[shop.id,{promotionLabelTemplates:{title:shop.name}},'a4-poster']);
+      await q('select public.update_store_label_settings($1,$2,$3)',[shop.id,{promotionLabelTemplates:{title:shop.name+' landscape'}},'a4-poster-landscape']);
       await q('select public.owner_set_setting($1,$2)',['business-warehouse:'+shop.id,{name:shop.name}]);
     }
     await q("insert into public.warehouses(id,name) values(1,'Primary') on conflict do nothing");
@@ -160,6 +161,7 @@ async function verifyOwnerTools(q,owner,[a,b]){
     const labels=backup.data.tables['public.settings'].find(r=>r.key==='business-warehouse:'+shop.id).value;
     assert.deepEqual(labels.medicineLabelDoseUnits,[shop.name]);
     assert.equal(labels.promotionLabelTemplates['a4-poster'].title,shop.name);
+    assert.equal(labels.promotionLabelTemplates['a4-poster-landscape'].title,shop.name+' landscape');
     assert.ok(!backup.data.tables['public.settings'].some(r=>r.key==='business'));
   }
   assert.deepEqual(first.data.tables['public.products'].map(p=>Number(p.id)),[a.id]);

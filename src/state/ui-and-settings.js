@@ -127,6 +127,7 @@ let barcodePrintPage = 1;
 const BARCODE_PRINT_PAGE_SIZE = 10;
 const BARCODE_PRINT_LABEL_DIMENSIONS={
   'a4-poster':[210,297],
+  'a4-poster-landscape':[297,210],
   '80x50':[80,50],
   '60x40':[60,40],
   '50x30':[50,30],

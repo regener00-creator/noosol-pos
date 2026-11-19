@@ -1,7 +1,7 @@
 let promotionPrintActive=false;
 let promotionPrintSize='50x30';
 let promotionPrintQuantity=1;
-const PROMOTION_LABEL_SIZES={'50x30':'50 × 30 มม.','80x50':'80 × 50 มม.','60x40':'60 × 40 มม.','40x30':'40 × 30 มม.','a4-50x30':'A4 · ป้าย 50 × 30 มม. · 36 ป้าย/แผ่น','a4-poster':'A4 เต็มหน้า · แนวตั้ง'};
+const PROMOTION_LABEL_SIZES={'50x30':'50 × 30 มม.','80x50':'80 × 50 มม.','60x40':'60 × 40 มม.','40x30':'40 × 30 มม.','a4-50x30':'A4 · ป้าย 50 × 30 มม. · 36 ป้าย/แผ่น','a4-poster':'A4 เต็มหน้า · แนวตั้ง','a4-poster-landscape':'A4 เต็มหน้า · แนวนอน'};
 function promotionTemplateSize(size=promotionPrintSize){return size==='a4-50x30'?'50x30':size;}
 function promotionLabelPreset(size){
   const template=priceLabelPresetTemplate(size,'left');
