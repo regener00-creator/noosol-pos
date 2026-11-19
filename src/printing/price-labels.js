@@ -511,9 +511,15 @@ function barcodePrintRowsHtml(entries=barcodePrintPagination().rows){
   }).join('');
 }
 
+function priceLabelDesignMenuHtml(promotion=false){
+  const selected=promotion?promotionTemplateSize():promotionTemplateSize(barcodePrintLabelSize);
+  const sizes=Object.entries(PROMOTION_LABEL_SIZES).filter(([size])=>size!=='a4-50x30'&&(promotion||size!=='a4-poster'));
+  return `<div class="label-design-menu-card ${promotion?'promotion':'price'}"><button type="button" id="${promotion?'promotionLabelDesignBtn':'openPriceLabelDesignerBtn'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="m15 4 5 5M4 20l5-1L21 7a2 2 0 0 0-5-5L4 14z"/></svg><strong>${promotion?'ออกแบบป้ายโปรโมชั่น':'ออกแบบป้ายราคา'}</strong></button><label>ขนาดป้าย<select id="${promotion?'promotionDesignSize':'priceLabelDesignSize'}">${sizes.map(([size,label])=>`<option value="${size}" ${size===selected?'selected':''}>${label}</option>`).join('')}</select></label></div>`;
+}
 function renderBarcodePrint(){
   if(barcodePrintShowMenu) return `<section class="rpt barcode-print-menu">
     <div class="barcode-print-mode-grid">
+      ${priceLabelDesignMenuHtml()}${priceLabelDesignMenuHtml(true)}
       <button type="button" class="barcode-print-mode-card" data-barcode-print-mode="new"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 3h10l6 6v12H4zM14 3v6h6M8 15h8M12 11v8"/></svg><strong>พิมพ์ป้ายราคาใหม่</strong></button>
       <button type="button" class="barcode-print-mode-card" data-barcode-print-mode="reprint"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M7 8V3h10v5M7 17H3V8h18v9h-4M7 14h10v7H7zM17 11h1"/></svg><strong>พิมพ์ป้ายราคาจากบาร์โค้ดเดิม</strong></button>
       <button type="button" class="barcode-print-mode-card" data-barcode-print-mode="promotion"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M3 4h18v16H3zM7 8h10M7 12h10M7 16h6"/></svg><strong>ป้ายโปรโมชั่น</strong></button>

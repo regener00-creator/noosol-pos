@@ -812,6 +812,15 @@
   .main:has(>.barcode-print-menu){display:flex;flex-direction:column;overflow-y:auto;}
   .barcode-print-menu{flex:1 0 auto;display:grid;place-items:center;width:100%;}
   .barcode-print-mode-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;max-width:1100px;width:100%;}
+  .label-design-menu-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--primary);min-width:0;}
+  .label-design-menu-card.price{grid-column:span 2;}
+  .label-design-menu-card button{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;padding:8px 0;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer;}
+  .label-design-menu-card button:hover{color:var(--primary-dark);}
+  .label-design-menu-card strong{font-size:22px;}
+  .label-design-menu-card svg{width:28px;height:28px;flex-shrink:0;}
+  .label-design-menu-card label{display:flex;align-items:center;justify-content:center;gap:10px;font-size:14px;color:var(--text-muted);max-width:100%;}
+  .label-design-menu-card select{width:auto;min-width:0;max-width:100%;padding:8px 28px 8px 12px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--primary);font:inherit;}
+  @media(max-width:640px){.label-design-menu-card.price{grid-column:auto;order:0}.barcode-print-mode-grid>[data-barcode-print-mode="new"]{order:1}.barcode-print-mode-grid>[data-barcode-print-mode="reprint"]{order:2}.label-design-menu-card.promotion{order:3}.barcode-print-mode-grid>[data-barcode-print-mode="promotion"]{order:4}}
   .barcode-print-mode-card{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;min-height:260px;padding:32px 24px;border:1px solid var(--border);border-radius:20px;background:var(--surface);color:var(--primary);font:inherit;text-align:center;cursor:pointer;}
   .barcode-print-mode-card svg{width:48px;height:48px;}
   .barcode-print-mode-card strong{font-size:26px;}

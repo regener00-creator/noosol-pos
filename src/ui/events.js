@@ -953,7 +953,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(barcodePrintBrandSelect) barcodePrintBrandSelect.addEventListener('change',()=>{ barcodePrintCatFilter.brand=barcodePrintBrandSelect.value; render(); });
   if(barcodePrintAddCategoryBtn) barcodePrintAddCategoryBtn.addEventListener('click',()=>openBarcodePrintCategoryPicker(barcodePrintCatFilter,false));
   document.getElementById('openPriceLabelSettingsBtn')?.addEventListener('click',openPriceLabelSettings);
-  if(openPriceLabelDesignerBtn) openPriceLabelDesignerBtn.addEventListener('click',()=>openPriceLabelDesigner(barcodePrintLabelSize));
+  if(openPriceLabelDesignerBtn) openPriceLabelDesignerBtn.addEventListener('click',()=>openPriceLabelDesigner(document.getElementById('priceLabelDesignSize')?.value||barcodePrintLabelSize));
+  document.getElementById('priceLabelDesignSize')?.addEventListener('change',event=>{barcodePrintLabelSize=event.target.value;});
+  document.getElementById('promotionDesignSize')?.addEventListener('change',event=>{promotionPrintSize=event.target.value;});
+  if(barcodePrintShowMenu) document.getElementById('promotionLabelDesignBtn')?.addEventListener('click',()=>openPriceLabelDesigner(promotionTemplateSize(),{kind:'promotion'}));
   if(openBarcodeReprintBtn) openBarcodeReprintBtn.addEventListener('click',openBarcodeReprintDialog);
   document.querySelectorAll('[data-barcode-print-mode]').forEach(button=>button.addEventListener('click',()=>setBarcodePrintMode(button.dataset.barcodePrintMode)));
   document.getElementById('barcodeIssuedRetryBtn')?.addEventListener('click',loadSystemIssuedLabelCodes);

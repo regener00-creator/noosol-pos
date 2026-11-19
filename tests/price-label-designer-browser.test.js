@@ -74,6 +74,28 @@ const browserExecutable = [
     assert.equal(cards[0].top===cards[1].top,width===1280,'Two columns on desktop, stacked on mobile');
   }
   await page.setViewportSize({width:1280,height:900});
+  const designBoxes=await page.evaluate(()=>{
+    const box=selector=>{const r=document.querySelector(selector).getBoundingClientRect();return {left:r.left,right:r.right,top:r.top,bottom:r.bottom};};
+    return {price:box('.label-design-menu-card.price'),promotion:box('.label-design-menu-card.promotion'),first:box('[data-barcode-print-mode="new"]'),second:box('[data-barcode-print-mode="reprint"]'),third:box('[data-barcode-print-mode="promotion"]')};
+  });
+  assert.equal(designBoxes.price.left,designBoxes.first.left);
+  assert.equal(designBoxes.price.right,designBoxes.second.right);
+  assert.ok(designBoxes.price.bottom<designBoxes.first.top);
+  assert.equal(designBoxes.promotion.left,designBoxes.third.left);
+  assert.ok(designBoxes.promotion.bottom<designBoxes.third.top);
+  await page.locator('#priceLabelDesignSize').selectOption('80x50');
+  await page.locator('#openPriceLabelDesignerBtn').click();
+  assert.match(await page.locator('.price-label-designer-size').innerText(),/80 × 50/);
+  await page.locator('#cancelPriceLabelDesignerBtn').click();
+  await page.locator('#priceLabelDesignSize').selectOption('50x30');
+  await page.locator('#promotionDesignSize').selectOption('a4-poster');
+  await page.locator('#promotionLabelDesignBtn').click();
+  assert.match(await page.locator('.price-label-designer-modal h3').innerText(),/ออกแบบป้ายโปรโมชั่น/);
+  assert.match(await page.locator('.price-label-designer-size').innerText(),/210 × 297/);
+  await page.locator('#cancelPriceLabelDesignerBtn').click();
+  await page.locator('#promotionDesignSize').selectOption('50x30');
+  fs.mkdirSync(path.join(root,'outputs'),{recursive:true});
+  await page.screenshot({path:path.join(root,'outputs/label-design-menu.png')});
   await page.locator('[data-barcode-print-mode="new"]').click();
   assert.equal(await page.locator('.barcode-print-page h1').count(),0);
   assert.equal(await page.locator('#barcodePrintLabelType').count(),0);
