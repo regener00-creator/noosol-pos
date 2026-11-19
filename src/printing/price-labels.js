@@ -281,14 +281,13 @@ function mountPriceLabelDesignerEditor(labelSize,options={}){
   session?.dispose?.();
   const overlay=document.createElement('div');
   overlay.className='price-label-designer-editor';
-  overlay.innerHTML=`<div class="price-label-designer-content"><div class="modal-head"><div class="price-label-designer-header-actions"><button class="btn ghost" id="backPriceLabelDesignerBtn" type="button">ย้อนกลับ</button>${promotion?'':'<button class="btn ghost" type="button" id="openPriceLabelSettingsBtn">ตั้งค่าขนาดป้ายเริ่มต้น</button>'}</div></div>
-    <div class="price-label-template-library"><label>ขนาดป้าย<select id="priceLabelDesignerSize">${Object.entries(PROMOTION_LABEL_SIZES).filter(([size])=>size!=='a4-50x30'&&(promotion||size!=='a4-poster')).map(([size,label])=>`<option value="${size}" ${size===validSize?'selected':''}>${label}</option>`).join('')}</select></label><label>แบบป้าย<select id="savedPriceLabelTemplateSelect" aria-label="แบบป้าย"></select></label><details class="price-label-template-menu" id="priceLabelTemplateMenu"><summary class="btn ghost" aria-label="จัดการแบบป้าย">⋯</summary><div class="price-label-template-menu-items"><button type="button" id="saveAsNewPriceLabelTemplateBtn">บันทึกเป็นแบบใหม่</button><button type="button" id="renamePriceLabelTemplateBtn">เปลี่ยนชื่อ</button><button type="button" id="deleteSavedPriceLabelTemplateBtn" class="price-label-delete-text-btn">ลบแบบ</button></div></details></div>
+  overlay.innerHTML=`<div class="price-label-designer-content">
+    <div class="price-label-template-library"><label>ขนาดป้าย<select id="priceLabelDesignerSize">${Object.entries(PROMOTION_LABEL_SIZES).filter(([size])=>size!=='a4-50x30'&&(promotion||size!=='a4-poster')).map(([size,label])=>`<option value="${size}" ${size===validSize?'selected':''}>${label}</option>`).join('')}${promotion?'':'<option value="settings">ตั้งค่าขนาดป้ายเริ่มต้น</option>'}</select></label><label>แบบป้าย<select id="savedPriceLabelTemplateSelect" aria-label="แบบป้าย"></select></label><details class="price-label-template-menu" id="priceLabelTemplateMenu"><summary class="btn ghost" aria-label="จัดการแบบป้าย">⋯</summary><div class="price-label-template-menu-items"><button type="button" id="saveAsNewPriceLabelTemplateBtn">บันทึกเป็นแบบใหม่</button><button type="button" id="renamePriceLabelTemplateBtn">เปลี่ยนชื่อ</button><button type="button" id="deleteSavedPriceLabelTemplateBtn" class="price-label-delete-text-btn">ลบแบบ</button></div></details></div>
 
     <div class="price-label-designer-body"><div class="price-label-canvas-pane"><div class="price-label-canvas-shell"><div id="priceLabelDesignerCanvas" class="price-label-canvas" style="aspect-ratio:${widthMm}/${heightMm}"></div></div></div><aside id="priceLabelDesignerPanel" class="price-label-designer-panel"></aside></div>
     <div class="price-label-designer-actions"><div class="price-label-designer-actions-right"><button class="btn ghost" id="cancelPriceLabelDesignerBtn" type="button">ยกเลิก</button><button class="btn primary" id="savePriceLabelDesignerBtn" type="button">บันทึก</button></div></div></div>`;
   session.element=overlay;
   attachPriceLabelDesignerPage();
-  overlay.querySelector('#openPriceLabelSettingsBtn')?.addEventListener('click',openPriceLabelSettings);
   const canvas=overlay.querySelector('#priceLabelDesignerCanvas');
   if(!promotion&&previewItems.length>1){
     const picker=document.createElement('div');
@@ -365,7 +364,7 @@ function mountPriceLabelDesignerEditor(labelSize,options={}){
     const colors=PRICE_LABEL_TEXT_COLORS.map(color=>`<label class="price-label-color-choice"><input type="radio" name="priceLabelTextColor" data-price-label-color value="${color}" ${element.color===color?'checked':''}><span class="price-label-color-swatch" style="background:${color}"></span>${color==='#000000'?'ดำ':'แดง'}</label>`).join('');
     const barcodeBelowRecommended=kind==='barcode'&&(element.width<barcodeMinimum.recommendedWidth||element.height<barcodeMinimum.recommendedHeight);
     const typography=kind==='barcode'?`<div class="price-label-barcode-limit ${barcodeBelowRecommended?'warning':''}">ขนาดต่ำสุดสำหรับป้ายนี้: กว้าง ${barcodeMinimum.width.toFixed(1)}% · สูง ${barcodeMinimum.height.toFixed(1)}% (${barcodeMinimum.widthMm} × ${barcodeMinimum.heightMm} มม.)${barcodeBelowRecommended?`<br><strong>ขนาดปัจจุบันต่ำกว่าขนาดแนะนำ ${barcodeMinimum.recommendedWidthMm} × ${barcodeMinimum.recommendedHeightMm} มม. ควรทดลองสแกนก่อนใช้งาน</strong>`:''}</div>`:`${customTextField}<div class="price-label-control-section-title">ตัวอักษร</div><label class="price-label-control-field"><span>ขนาด (pt)</span><input type="number" min="4" max="120" step="0.5" data-price-label-field="fontSize" value="${element.fontSize}"></label><label class="price-label-control-field"><span>ความหนา</span><select data-price-label-field="fontWeight">${[[400,'ปกติ'],[500,'กลาง'],[600,'กึ่งหนา'],[700,'หนา'],[800,'หนามาก']].map(([value,label])=>`<option value="${value}" ${element.fontWeight===value?'selected':''}>${label}</option>`).join('')}</select></label><div class="price-label-control-field wide"><span>สี</span><div class="price-label-color-options">${colors}</div></div><label class="price-label-control-field wide price-label-reverse-toggle" title="พื้นหลังเป็นสีที่เลือก ตัวอักษรสีขาว"><input type="checkbox" data-price-label-reverse ${element.reverse?'checked':''}> REVERSE TYPE</label><label class="price-label-control-field wide"><span>จัดแนว</span><select data-price-label-field="align"><option value="left" ${element.align==='left'?'selected':''}>ชิดซ้าย</option><option value="center" ${element.align==='center'?'selected':''}>กึ่งกลาง</option><option value="right" ${element.align==='right'?'selected':''}>ชิดขวา</option></select></label>${kind==='custom'?'<div class="price-label-custom-text-actions"><button class="btn ghost price-label-delete-text-btn" id="deletePriceLabelCustomTextBtn" type="button">ลบข้อความนี้</button></div>':''}`;
-    return `<p class="price-label-element-help">ติ๊กเพื่อแสดงบนป้าย · คลิกชื่อเพื่อแก้รายละเอียด</p><div class="price-label-element-tabs">${editorTargets().map(entry=>`<div class="price-label-element-choice"><input type="checkbox" data-price-label-toggle="${escapeHtml(entry.target)}" aria-label="แสดง${escapeHtml(entry.label)}บนป้าย" ${entry.element.visible?'checked':''}><button type="button" class="price-label-element-tab ${selected===entry.target?'active':''} ${entry.element.visible?'':'off'}" data-price-label-tab="${escapeHtml(entry.target)}">${escapeHtml(entry.label)}</button></div>${entry.target==='code'?addTextButtonMarkup:''}`).join('')}${promotion?addTextButtonMarkup:''}</div><div class="price-label-control-card"><div class="price-label-control-head"><strong>${escapeHtml(info.label)}</strong><label class="price-label-visible-toggle"><input type="checkbox" data-price-label-visible ${element.visible?'checked':''}> แสดงบนป้าย</label></div><div class="price-label-control-grid"><div class="price-label-control-section-title" style="margin-top:0;padding-top:0;border-top:0">ตำแหน่งและขนาด</div>${positionFields}${typography}</div></div>`;
+    return `<div class="price-label-element-tabs">${editorTargets().map(entry=>`<div class="price-label-element-choice"><input type="checkbox" data-price-label-toggle="${escapeHtml(entry.target)}" aria-label="แสดง${escapeHtml(entry.label)}บนป้าย" ${entry.element.visible?'checked':''}><button type="button" class="price-label-element-tab ${selected===entry.target?'active':''} ${entry.element.visible?'':'off'}" data-price-label-tab="${escapeHtml(entry.target)}">${escapeHtml(entry.label)}</button></div>${entry.target==='code'?addTextButtonMarkup:''}`).join('')}${promotion?addTextButtonMarkup:''}</div><div class="price-label-control-card"><div class="price-label-control-head"><strong>${escapeHtml(info.label)}</strong></div><div class="price-label-control-grid">${positionFields}${typography}</div></div>`;
   };
   const updateNode=(node,element,key)=>{
     node.style.cssText=priceLabelElementStyle(element,key,currentPreviewScale());
@@ -415,12 +414,12 @@ function mountPriceLabelDesignerEditor(labelSize,options={}){
     panel.innerHTML=controlMarkup();
     savedTemplateSelect.value=selectedTemplateId||`preset:${promotion?(draft.preset==='custom'?'custom':'promotion'):draft.preset}`;
     panel.querySelectorAll('[data-price-label-tab]').forEach(button=>button.addEventListener('click',()=>{ selected=button.dataset.priceLabelTab; renderEditor(); }));
-    panel.querySelectorAll('[data-price-label-visible],[data-price-label-toggle]').forEach(input=>input.addEventListener('change',()=>{
-      const target=input.dataset.priceLabelToggle||selected;
+    panel.querySelectorAll('[data-price-label-toggle]').forEach(input=>input.addEventListener('change',()=>{
+      const target=input.dataset.priceLabelToggle;
       const info=targetInfo(target);if(!info)return;
       setTargetElement(target,{...info.element,visible:input.checked});
       draft.preset='custom';renderEditor();
-      const selector=input.hasAttribute('data-price-label-toggle')?`[data-price-label-toggle="${CSS.escape(target)}"]`:'[data-price-label-visible]';
+      const selector=`[data-price-label-toggle="${CSS.escape(target)}"]`;
       panel.querySelector(selector)?.focus({preventScroll:true});
     }));
     panel.querySelectorAll('[data-price-label-field]').forEach(input=>input.addEventListener('change',()=>{
@@ -474,10 +473,14 @@ function mountPriceLabelDesignerEditor(labelSize,options={}){
     showToast(`บันทึกแบบ “${entry.name}” แล้ว`);
   });
   const close=()=>{ resetPriceLabelDesignerPage(); render(); options.onClose?.(); };
-  overlay.querySelector('#backPriceLabelDesignerBtn').addEventListener('click',close);
   overlay.querySelector('#cancelPriceLabelDesignerBtn').addEventListener('click',close);
   session.dispose=()=>{previewResizeObserver?.disconnect();nameDialog?.remove();nameDialog=null;overlay.remove();};
   overlay.querySelector('#priceLabelDesignerSize').addEventListener('change',event=>{
+    if(event.target.value==='settings'){
+      event.target.value=validSize;
+      openPriceLabelSettings();
+      return;
+    }
     session.drafts.set(validSize,{draft,selectedTemplateId});
     const size=event.target.value;
     if(promotion)promotionPrintSize=size;
@@ -620,7 +623,7 @@ function openPriceLabelSettings(){
   const context=captureWorkspaceRead();
   const sizes=[['a4-50x30','A4 · 50 × 30 มม. · 36 ป้าย/แผ่น'],['50x30','ป้ายราคา 50 × 30 มม.'],['80x50','ป้ายราคา 80 × 50 มม.'],['60x40','ป้ายราคา 60 × 40 มม.'],['40x30','ป้ายราคา 40 × 30 มม.']];
   const defaultSize=readPriceLabelDefaultSize(mode);
-  const trigger=document.getElementById('openPriceLabelSettingsBtn');
+  const trigger=document.getElementById('priceLabelDesignerSize');
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal price-label-settings-modal" id="priceLabelSettingsDialog" role="dialog" aria-modal="true" aria-labelledby="priceLabelSettingsTitle"><div class="modal-head"><h3 id="priceLabelSettingsTitle">ตั้งค่าขนาดป้ายเริ่มต้น</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div><label class="price-label-default-mode">ใช้เป็นค่าเริ่มต้นสำหรับ<select id="priceLabelDefaultMode"><option value="new" ${mode==='new'?'selected':''}>พิมพ์ป้ายราคาใหม่</option><option value="reprint" ${mode==='reprint'?'selected':''}>พิมพ์ป้ายราคาจากบาร์โค้ดเดิม</option></select></label><div class="price-label-size-options">${sizes.map(([value,label])=>`<label><input type="radio" name="priceLabelPaperSize" value="${value}" ${defaultSize===value?'checked':''}><span>${label}</span></label>`).join('')}</div><div class="price-label-settings-actions"><button type="button" class="btn ghost" id="cancelPriceLabelSettingsBtn">ยกเลิก</button><button type="button" class="btn primary" id="savePriceLabelDefaultBtn">บันทึกค่าเริ่มต้น</button></div></div>`;

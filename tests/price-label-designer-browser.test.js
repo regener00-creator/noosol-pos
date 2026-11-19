@@ -95,7 +95,7 @@ const browserExecutable = [
   const fieldTops=await page.locator('#savedPriceLabelTemplateSelect,#priceLabelDesignerSize').evaluateAll(fields=>fields.map(field=>Math.round(field.getBoundingClientRect().top)));
   assert.equal(new Set(fieldTops).size,1,'Size, preset and template share a row');
   assert.equal(await page.locator('#addPriceLabelCustomTextBtn').evaluate(button=>button.previousElementSibling.querySelector('[data-price-label-tab]').dataset.priceLabelTab),'code');
-  assert.deepEqual(await page.locator('.price-label-designer-header-actions button').evaluateAll(buttons=>buttons.map(button=>button.id)),['backPriceLabelDesignerBtn','openPriceLabelSettingsBtn']);
+  assert.equal(await page.locator('#backPriceLabelDesignerBtn,[data-price-label-visible],.price-label-element-help').count(),0);
   await page.locator('#priceLabelDesignerSize').selectOption('80x50');
   assert.equal(await page.locator('#priceLabelDesignerSize').inputValue(),'80x50');
   assert.equal(await page.locator('#priceLabelTemplateNameInput,#priceLabelPresetSelect').count(),0);
@@ -114,12 +114,12 @@ const browserExecutable = [
   assert.equal(await page.locator('[data-price-label-field="x"]').inputValue(),'7','Rerender preserves the page draft');
   fs.mkdirSync(path.join(root,'outputs'),{recursive:true});
   await page.screenshot({path:path.join(root,'outputs/label-designer-page.png')});
-  await page.locator('#openPriceLabelSettingsBtn').click();
+  await page.locator('#priceLabelDesignerSize').selectOption('settings');
   await page.locator('#priceLabelDefaultMode').selectOption('new');
   await page.locator('input[name="priceLabelPaperSize"][value="a4-50x30"]').check();
   await page.locator('#savePriceLabelDefaultBtn').click();
   assert.equal(await page.locator('[data-price-label-field="x"]').inputValue(),'7','Settings preserve the design draft');
-  await page.locator('#openPriceLabelSettingsBtn').click();
+  await page.locator('#priceLabelDesignerSize').selectOption('settings');
   await page.locator('#priceLabelDefaultMode').selectOption('reprint');
   await page.locator('input[name="priceLabelPaperSize"][value="60x40"]').check();
   await page.locator('#savePriceLabelDefaultBtn').click();
@@ -236,13 +236,13 @@ const browserExecutable = [
   assert.ok(Number(await barcodeWidth.inputValue())>=48, 'ป้าย 50 มม. ต้องบังคับบาร์โค้ดกว้างอย่างน้อย 24 มม.');
   assert.ok((await page.locator('.price-label-barcode-limit').getAttribute('class')).includes('warning'));
   await page.locator('[data-price-label-tab="unit"]').click();
-  await page.locator('[data-price-label-visible]').uncheck();
+  await page.locator('[data-price-label-toggle="unit"]').uncheck();
   assert.equal(await page.locator('[data-price-label-toggle="unit"]').isChecked(),false);
   assert.equal(await page.locator('#priceLabelDesignerCanvas [data-price-label-element="unit"]').count(),0);
   await page.locator('[data-price-label-toggle="unit"]').check();
-  assert.equal(await page.locator('[data-price-label-visible]').isChecked(),true);
+  assert.equal(await page.locator('#priceLabelDesignerCanvas [data-price-label-element="unit"]').count(),1);
   await page.locator('[data-price-label-toggle="unit"]').uncheck();
-  assert.equal(await page.locator('[data-price-label-visible]').isChecked(),false);
+  assert.equal(await page.locator('#priceLabelDesignerCanvas [data-price-label-element="unit"]').count(),0);
   assert.ok((await page.locator('[data-price-label-tab="unit"]').getAttribute('class')).includes('off'));
   await templateAction('saveAsNewPriceLabelTemplateBtn');await submitTemplateName('แม่แบบแดง');
   await templateAction('saveAsNewPriceLabelTemplateBtn');await submitTemplateName('แม่แบบสำเนา');
@@ -292,7 +292,7 @@ const browserExecutable = [
   await page.locator('[data-price-label-tab]').filter({hasText:'ข้อความ 1'}).click();
   assert.equal(await page.locator('[data-price-label-custom-value]').inputValue(),'SALE -15%');
 
-  await page.locator('#backPriceLabelDesignerBtn').click();
+  await page.locator('#cancelPriceLabelDesignerBtn').click();
   await page.evaluate(() => {
     currentTab='barcodeprint';
     products=[
