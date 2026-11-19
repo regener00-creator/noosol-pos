@@ -56,14 +56,29 @@ function renderPromotionLabelPrint(){
   const template=getPriceLabelTemplate(size,'promotion');
   return `<section class="rpt promotion-print-page"><div class="pagehead label-print-pagehead"><div class="promotion-print-actions form-final-actions"><button type="button" class="btn ghost" id="barcodePrintMenuBtn">ย้อนกลับ</button><button type="button" class="btn primary" id="promotionLabelPrintBtn">พิมพ์ป้ายโปรโมชั่น</button></div></div>
     <div class="panel promotion-print-controls"><label>ขนาดกระดาษ<select id="promotionLabelSize">${Object.entries(PROMOTION_LABEL_SIZES).map(([value,label])=>`<option value="${value}" ${value===promotionPrintSize?'selected':''}>${label}</option>`).join('')}</select></label><label>จำนวนป้าย<input id="promotionLabelQuantity" type="number" min="1" max="500" step="1" value="${escapeHtml(String(promotionPrintQuantity))}"></label><label>แม่แบบ<select id="promotionLabelTemplate"><option value="" ${library.templates.length?'disabled':''}>${library.templates.length?'เลือกแม่แบบ':'แม่แบบเริ่มต้น'}</option>${library.templates.map(entry=>`<option value="${escapeHtml(entry.id)}" ${entry.id===library.activeId?'selected':''}>${escapeHtml(entry.name)}</option>`).join('')}</select></label></div>
-    <div class="promotion-print-preview"><div style="width:${width}mm;height:${height}mm;flex-shrink:0;">${promotionLabelHtml(template,size)}</div></div></section>`;
+    <div class="promotion-print-preview"><div class="promotion-preview-viewport" style="max-width:${width}mm;aspect-ratio:${width}/${height}"><div class="promotion-preview-page" style="width:${width}mm;height:${height}mm;">${promotionLabelHtml(template,size)}</div></div></div></section>`;
 }
+let promotionPreviewObserver=null;
 function attachPromotionLabelEvents(){
+  promotionPreviewObserver?.disconnect();promotionPreviewObserver=null;
   const sizeInput=document.getElementById('promotionLabelSize');
   if(!sizeInput)return;
   sizeInput.onchange=()=>{rememberPromotionPrintSize(sizeInput.value);render();};
-  fitPromotionLabelText(document);
-  document.fonts?.ready.then(()=>fitPromotionLabelText(document));
+  const viewport=document.querySelector('.promotion-preview-viewport');
+  const page=viewport?.querySelector('.promotion-preview-page');
+  const fitPreview=()=>{
+    if(!viewport?.isConnected||!page)return;
+    // Measure and fit at physical print size, then scale only the screen preview.
+    page.style.transform='none';
+    fitPromotionLabelText(page);
+    const scale=Math.min(1,viewport.clientWidth/page.offsetWidth);
+    page.style.transform=`scale(${scale})`;
+  };
+  fitPreview();
+  document.fonts?.ready.then(fitPreview);
+  if(viewport&&typeof ResizeObserver==='function'){
+    promotionPreviewObserver=new ResizeObserver(fitPreview);promotionPreviewObserver.observe(viewport);
+  }
   document.getElementById('promotionLabelQuantity').oninput=event=>{promotionPrintQuantity=event.target.value;};
   document.getElementById('promotionLabelTemplate').onchange=async event=>{
     const input=event.target;input.disabled=true;

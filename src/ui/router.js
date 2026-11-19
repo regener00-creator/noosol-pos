@@ -329,7 +329,7 @@ function render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){
   document.body.classList.toggle('mobile-device-mode',mobileMode);
   const standaloneAppWindow=(window.matchMedia&&window.matchMedia('(display-mode: standalone)').matches)||window.navigator?.standalone===true;
   document.title=standaloneAppWindow?'':'SAPURI';
-  if(mobileMode) currentTab='mobiletools';
+  if(mobileMode&&!(currentTab==='barcodeprint'&&canAccessTab('barcodeprint'))) currentTab='mobiletools';
   else if(currentTab==='mobiletools') currentTab='dashboard';
   if(currentTab!=='checkout'&&!(currentTab==='cashbill'&&cashBillLookupOpen)&&!(currentTab==='taxinvoice'&&editingTaxInvoiceSaleId==='lookup')) posSalesHistoryModalOpen=false;
   if(!canAccessTab(currentTab)){

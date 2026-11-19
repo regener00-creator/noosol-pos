@@ -192,6 +192,14 @@ function attachEvents(){
   attachProductCategorySettingsEvents();
   attachProductResultEvents();
   attachReceiptPrinterEvents();
+  document.getElementById('mobilePromotionLabels')?.addEventListener('click',()=>{
+    if(!canAccessTab('barcodeprint'))return;
+    closeMobileCameraScanner();
+    currentTab='barcodeprint';barcodePrintShowMenu=true;render();
+  });
+  document.getElementById('mobilePromotionBack')?.addEventListener('click',()=>{
+    resetPriceLabelDesignerPage();currentTab='mobiletools';render();
+  });
   if(currentTab==='mobiletools'){
     prepareMobileScanSound();
     prepareMobileScanErrorSound();
@@ -939,7 +947,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     srInput.addEventListener('blur', ()=>setTimeout(()=>{ srResults.hidden=true; },150));
   }
   // --- หน้าพิมพ์ป้ายราคา: เลือกสินค้า กำหนดรหัส/หน่วย/จำนวนป้าย แล้วบันทึกพร้อมพิมพ์ ---
-  if(document.getElementById('promotionLabelSize'))attachPromotionLabelEvents();
+  if(typeof attachPromotionLabelEvents==='function')attachPromotionLabelEvents();
   const barcodePrintCategorySelect=document.getElementById('barcodePrintCategorySelect');
   const barcodePrintBrandSelect=document.getElementById('barcodePrintBrandSelect');
   const barcodePrintAddCategoryBtn=document.getElementById('barcodePrintAddCategoryBtn');

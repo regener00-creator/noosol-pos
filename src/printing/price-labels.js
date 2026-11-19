@@ -596,6 +596,11 @@ function priceLabelDesignMenuHtml(promotion=false){
 function renderBarcodePrint(){
   if(priceLabelDesignerPage&&!isWorkspaceReadCurrent(priceLabelDesignerPage.context))resetPriceLabelDesignerPage();
   if(priceLabelDesignerPage)return '<section class="rpt price-label-designer-page" id="priceLabelDesignerHost"></section>';
+  if(barcodePrintShowMenu&&isMobileDeviceMode())return `<section class="rpt barcode-print-menu mobile-promotion-menu">
+    <div class="pagehead"><button type="button" class="btn ghost" id="mobilePromotionBack">กลับเมนูมือถือ</button></div>
+    <div class="barcode-print-mode-grid">${priceLabelDesignMenuHtml(true)}
+      <button type="button" class="barcode-print-mode-card" data-barcode-print-mode="promotion"><strong>พิมพ์ป้ายโปรโมชั่น</strong></button>
+    </div></section>`;
   if(barcodePrintShowMenu) return `<section class="rpt barcode-print-menu">
     <div class="barcode-print-mode-grid">
       ${priceLabelDesignMenuHtml()}${priceLabelDesignMenuHtml(true)}

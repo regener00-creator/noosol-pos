@@ -17,6 +17,7 @@ let persistCount = 0;
 let persistOptions = null;
 let renderCount = 0;
 const context = {
+  isMobileDeviceMode:()=>false,
   storeLabelSettings:()=>context.businessSettings,
   saveStoreLabelSettings:(patch,size)=>{for(const [key,value] of Object.entries(patch)) context.businessSettings[key]={...context.businessSettings[key],[size]:value};context.persistWorkspaceData();return true;},
   products,
