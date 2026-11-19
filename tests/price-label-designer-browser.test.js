@@ -87,6 +87,9 @@ const browserExecutable = [
   await page.locator('#openPriceLabelDesignerBtn').click();
   assert.equal(await page.locator('.modal-overlay .price-label-designer-content').count(),0,'Designer is an inline page');
   assert.equal(await page.locator('#main #priceLabelDesignerHost').count(),1);
+  assert.equal(await page.locator('.price-label-canvas-help,.price-label-safety-note,#resetPriceLabelTemplateBtn,.price-label-designer-content h3,.price-label-designer-head-meta').count(),0);
+  assert.equal(await page.locator('#savePriceLabelDesignerBtn').innerText(),'บันทึก');
+  assert.deepEqual(await page.locator('.price-label-designer-header-actions button').evaluateAll(buttons=>buttons.map(button=>button.id)),['backPriceLabelDesignerBtn','openPriceLabelSettingsBtn']);
   await page.locator('#priceLabelDesignerSize').selectOption('80x50');
   assert.match(await page.locator('.price-label-designer-size').innerText(),/80 × 50/);
   await page.locator('#priceLabelTemplateNameInput').fill('ยังไม่บันทึก');
@@ -142,7 +145,7 @@ const browserExecutable = [
   assert.equal(await page.locator('.price-label-design-element').count(), 5);
   assert.equal(await page.locator('#priceLabelSampleSelect').count(),0,'No picker for an empty queue');
   assert.equal(await page.locator('#priceLabelDesignerCanvas .barcode-label-svg').getAttribute('aria-label'),'บาร์โค้ด 0123456789012','Empty queue still previews a barcode');
-  assert.equal(await page.locator('[data-price-label-example-note]').isVisible(),true);
+  assert.equal(await page.locator('[data-price-label-example-note]').count(),0);
   assert.equal(await page.locator('#priceLabelDesignerCanvas [data-price-label-element="code"]').textContent(),'0123456789012','Barcode digits appear when enabled');
   assert.equal(await page.evaluate(()=>barcodePrintItems.length),0,'Preview does not create a print item');
   assert.equal(await page.evaluate(()=>products[0].barcode),'8851824336354','Preview does not change product barcodes');
@@ -177,8 +180,6 @@ const browserExecutable = [
     await page.locator(`[data-price-label-toggle="${field}"]`).check();
     assert.equal(await page.locator(`#priceLabelDesignerCanvas [data-price-label-element="${field}"]`).isVisible(),true);
   }
-  assert.match(await page.locator('.price-label-safety-note').textContent(), /24 × 6 มม\./);
-  assert.match(await page.locator('.price-label-safety-note').textContent(), /32 × 8 มม\./);
   const ratio = await page.locator('#priceLabelDesignerCanvas').evaluate(element => {
     const rect=element.getBoundingClientRect();
     return rect.width/rect.height;

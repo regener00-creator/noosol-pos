@@ -42,7 +42,7 @@ let browser;
   assert.equal(await page.locator('.promotion-print-preview svg').count(),0);
   await page.evaluate(()=>openPriceLabelDesigner(promotionTemplateSize(),{kind:'promotion',onClose:()=>render()}));
   assert.equal(await page.locator('[data-price-label-tab]').count(),2);
-  assert.equal(await page.locator('.price-label-safety-note').isVisible(),false);
+  assert.equal(await page.locator('.price-label-safety-note').count(),0);
   await page.locator('[data-price-label-custom-value]').fill('โปรโมชั่นพิเศษ');await page.locator('[data-price-label-custom-value]').press('Tab');
   await page.locator('[data-price-label-tab="custom:promotion-detail"]').click();
   await page.locator('[data-price-label-custom-value]').fill('ซื้อ 1 แถม 1\nพิเศษ 150 บาท');await page.locator('[data-price-label-custom-value]').press('Tab');

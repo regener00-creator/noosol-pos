@@ -281,11 +281,11 @@ function mountPriceLabelDesignerEditor(labelSize,options={}){
   session?.dispose?.();
   const overlay=document.createElement('div');
   overlay.className='price-label-designer-editor';
-  overlay.innerHTML=`<div class="price-label-designer-content"><div class="modal-head"><div><h3>${promotion?'ออกแบบป้ายโปรโมชั่น':'ออกแบบป้ายราคา'}</h3><div class="price-label-designer-head-meta">${promotion?'เขียนข้อความและจัดวางได้เอง บันทึกแม่แบบแยกสำหรับป้ายโปรโมชั่น':'บันทึกแม่แบบแยกตามขนาดป้าย และใช้กับป้ายราคาปกติทุกครั้งที่พิมพ์'}</div></div><button class="btn ghost" id="backPriceLabelDesignerBtn" type="button">ย้อนกลับ</button></div>
+  overlay.innerHTML=`<div class="price-label-designer-content"><div class="modal-head">${promotion?'<div><h3>ออกแบบป้ายโปรโมชั่น</h3><div class="price-label-designer-head-meta">เขียนข้อความและจัดวางได้เอง บันทึกแม่แบบแยกสำหรับป้ายโปรโมชั่น</div></div>':''}<div class="price-label-designer-header-actions"><button class="btn ghost" id="backPriceLabelDesignerBtn" type="button">ย้อนกลับ</button>${promotion?'':'<button class="btn ghost" type="button" id="openPriceLabelSettingsBtn">ตั้งค่าขนาดป้ายเริ่มต้น</button>'}</div></div>
     <div class="price-label-template-library"><label>แม่แบบที่บันทึก<select id="savedPriceLabelTemplateSelect" aria-label="แม่แบบป้ายราคาที่บันทึก"></select></label><label>ชื่อแม่แบบ<input id="priceLabelTemplateNameInput" maxlength="60" placeholder="เช่น ป้ายราคาหน้าชั้น"></label><button class="btn ghost" id="saveAsNewPriceLabelTemplateBtn" type="button">บันทึกเป็นแม่แบบใหม่</button><button class="btn ghost price-label-delete-text-btn" id="deleteSavedPriceLabelTemplateBtn" type="button">ลบแม่แบบ</button></div>
-    <div class="price-label-designer-toolbar"><label>ขนาดป้าย<select id="priceLabelDesignerSize">${Object.entries(PROMOTION_LABEL_SIZES).filter(([size])=>size!=='a4-50x30'&&(promotion||size!=='a4-poster')).map(([size,label])=>`<option value="${size}" ${size===validSize?'selected':''}>${label}</option>`).join('')}</select></label><label ${promotion?'hidden':''}>รูปแบบเริ่มต้น <select id="priceLabelPresetSelect">${Object.entries(PRICE_LABEL_PRESET_LABELS).map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></label><button class="btn ghost price-label-add-text-btn" id="addPriceLabelCustomTextBtn" type="button">+ เพิ่มข้อความ</button>${promotion?'':'<button class="btn ghost" type="button" id="openPriceLabelSettingsBtn">ตั้งค่าขนาดป้ายเริ่มต้น</button>'}<span class="price-label-designer-size">${widthMm} × ${heightMm} มม. ${validSize==='a4-poster'?'แนวตั้ง':'แนวนอน'}</span></div>
-    <div class="price-label-designer-body"><div class="price-label-canvas-pane"><p class="price-label-canvas-help">ลากเพื่อย้ายตำแหน่ง · ลากมุมขวาล่างเพื่อปรับขนาด · คลิกหัวข้อด้านขวาเพื่อแก้รายละเอียด${!promotion&&sample.exampleBarcode?'<br><span data-price-label-example-note>บาร์โค้ดตัวอย่างสำหรับจัดวางเท่านั้น · เมื่อพิมพ์จะใช้บาร์โค้ดของสินค้าที่เลือก</span>':''}</p><div class="price-label-canvas-shell"><div id="priceLabelDesignerCanvas" class="price-label-canvas" style="aspect-ratio:${widthMm}/${heightMm}"></div></div><div class="price-label-safety-note" ${promotion?'hidden':''}><span>⚠</span><span>บาร์โค้ดย่อได้ต่ำสุด ${barcodeMinimum.widthMm} × ${barcodeMinimum.heightMm} มม. แต่ขนาดที่แนะนำคืออย่างน้อย ${barcodeMinimum.recommendedWidthMm} × ${barcodeMinimum.recommendedHeightMm} มม. หากย่อกว่านี้ควรทดลองพิมพ์และสแกนก่อนใช้งานจำนวนมาก</span></div></div><aside id="priceLabelDesignerPanel" class="price-label-designer-panel"></aside></div>
-    <div class="price-label-designer-actions"><button class="btn ghost" id="resetPriceLabelTemplateBtn" type="button">คืนค่าเริ่มต้น</button><div class="price-label-designer-actions-right"><button class="btn ghost" id="cancelPriceLabelDesignerBtn" type="button">ยกเลิก</button><button class="btn primary" id="savePriceLabelDesignerBtn" type="button">บันทึกและใช้แม่แบบนี้</button></div></div></div>`;
+    <div class="price-label-designer-toolbar"><label>ขนาดป้าย<select id="priceLabelDesignerSize">${Object.entries(PROMOTION_LABEL_SIZES).filter(([size])=>size!=='a4-50x30'&&(promotion||size!=='a4-poster')).map(([size,label])=>`<option value="${size}" ${size===validSize?'selected':''}>${label}</option>`).join('')}</select></label><label ${promotion?'hidden':''}>รูปแบบเริ่มต้น <select id="priceLabelPresetSelect">${Object.entries(PRICE_LABEL_PRESET_LABELS).map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></label><button class="btn ghost price-label-add-text-btn" id="addPriceLabelCustomTextBtn" type="button">+ เพิ่มข้อความ</button><span class="price-label-designer-size">${widthMm} × ${heightMm} มม. ${validSize==='a4-poster'?'แนวตั้ง':'แนวนอน'}</span></div>
+    <div class="price-label-designer-body"><div class="price-label-canvas-pane"><div class="price-label-canvas-shell"><div id="priceLabelDesignerCanvas" class="price-label-canvas" style="aspect-ratio:${widthMm}/${heightMm}"></div></div></div><aside id="priceLabelDesignerPanel" class="price-label-designer-panel"></aside></div>
+    <div class="price-label-designer-actions"><div class="price-label-designer-actions-right"><button class="btn ghost" id="cancelPriceLabelDesignerBtn" type="button">ยกเลิก</button><button class="btn primary" id="savePriceLabelDesignerBtn" type="button">บันทึก</button></div></div></div>`;
   session.element=overlay;
   attachPriceLabelDesignerPage();
   overlay.querySelector('#openPriceLabelSettingsBtn')?.addEventListener('click',openPriceLabelSettings);
@@ -308,10 +308,6 @@ function mountPriceLabelDesignerEditor(labelSize,options={}){
       previousButton.disabled=index===0;
       nextButton.disabled=index===previewItems.length-1;
       sample=priceLabelDesignerSample(item);
-      const help=overlay.querySelector('.price-label-canvas-help');
-      help.querySelector('[data-price-label-example-note]')?.remove();
-      help.querySelector('br')?.remove();
-      if(sample.exampleBarcode)help.insertAdjacentHTML('beforeend','<br><span data-price-label-example-note>บาร์โค้ดตัวอย่างสำหรับจัดวางเท่านั้น · เมื่อพิมพ์จะใช้บาร์โค้ดของสินค้าที่เลือก</span>');
       renderEditor();
     };
     sampleSelect.addEventListener('change',()=>selectSample(Number(sampleSelect.value)));
@@ -487,10 +483,6 @@ function mountPriceLabelDesignerEditor(labelSize,options={}){
     const element=normalizePriceLabelCustomText({id,text:'พิมพ์ข้อความ',x:promotion?5:62,y:5+offset*16,width:promotion?90:35},validSize,draft.customTexts.length);
     draft.customTexts.push(element); selected=customTarget(id); draft.preset='custom'; renderEditor();
     setTimeout(()=>{ const input=panel.querySelector('[data-price-label-custom-value]'); input?.focus(); input?.select(); },0);
-  });
-  overlay.querySelector('#resetPriceLabelTemplateBtn').addEventListener('click',()=>{
-    if(!confirm(`คืนแม่แบบป้าย ${widthMm} × ${heightMm} มม. เป็นค่าเริ่มต้นใช่หรือไม่?`)) return;
-    draft=promotion?promotionLabelPreset(validSize):priceLabelPresetTemplate(validSize,'left'); selected=promotion?customTarget(draft.customTexts[0].id):'name'; renderEditor();
   });
   overlay.querySelector('#savePriceLabelDesignerBtn').addEventListener('click',()=>{
     const name=templateNameInput.value.trim();
