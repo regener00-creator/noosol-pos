@@ -2,6 +2,36 @@ let promotionPrintActive=false;
 let promotionPrintSize='50x30';
 let promotionPrintQuantity=1;
 const PROMOTION_LABEL_SIZES={'50x30':'50 × 30 มม.','80x50':'80 × 50 มม.','60x40':'60 × 40 มม.','40x30':'40 × 30 มม.','a4-50x30':'A4 · ป้าย 50 × 30 มม. · 36 ป้าย/แผ่น','a4-poster':'A4 เต็มหน้า · แนวตั้ง','a4-poster-landscape':'A4 เต็มหน้า · แนวนอน'};
+function promotionPaperKey(){return 'pepos-promotion-paper-v1:'+String(activeWarehouseId||1);}
+function readPromotionPrintSize(){
+  try{const size=localStorage.getItem(promotionPaperKey());return Object.hasOwn(PROMOTION_LABEL_SIZES,size)?size:'50x30';}catch{return '50x30';}
+}
+function rememberPromotionPrintSize(size){
+  if(!Object.hasOwn(PROMOTION_LABEL_SIZES,size))return;
+  promotionPrintSize=size;
+  try{localStorage.setItem(promotionPaperKey(),size);}catch{}
+}
+// Fit the same text and font in the designer, preview and print document.
+function fitPromotionTextElement(element){
+  const text=element.querySelector('[data-promotion-content]');if(!text)return;
+  const view=element.ownerDocument.defaultView,style=view.getComputedStyle(element);
+  const maximum=parseFloat(style.fontSize)||16;
+  const availableWidth=element.clientWidth-parseFloat(style.paddingLeft||0)-parseFloat(style.paddingRight||0);
+  const availableHeight=element.clientHeight;
+  if(availableWidth<=0||availableHeight<=0)return;
+  const fits=size=>{
+    text.style.fontSize=size+'px';
+    const range=element.ownerDocument.createRange();range.selectNodeContents(text);
+    const bounds=range.getBoundingClientRect();
+    return Math.max(text.scrollHeight,bounds.height)<=availableHeight-.5&&Math.max(text.scrollWidth,bounds.width)<=availableWidth+.5;
+  };
+  element.dataset.fitted='true';
+  if(fits(maximum))return;
+  let low=.1,high=maximum;
+  for(let i=0;i<16;i++){const middle=(low+high)/2;if(fits(middle))low=middle;else high=middle;}
+  fits(low);
+}
+function fitPromotionLabelText(root){root.querySelectorAll('[data-promotion-text]').forEach(fitPromotionTextElement);}
 function promotionTemplateSize(size=promotionPrintSize){return size==='a4-50x30'?'50x30':size;}
 function promotionLabelPreset(size){
   const template=priceLabelPresetTemplate(size,'left');
@@ -16,11 +46,11 @@ function promotionLabelPreset(size){
 }
 function promotionLabelHtml(template,size){
   const normalized=normalizePriceLabelTemplate(template,size);
-  const content=normalized.customTexts.filter(element=>element.visible).map(element=>`<div class="price-label-print-element custom-text" data-promotion-text="${escapeHtml(element.id)}" style="position:absolute;overflow:hidden;line-height:1.08;${priceLabelElementStyle(element,'custom')}">${escapeHtml(element.text)}</div>`).join('');
+  const content=normalized.customTexts.filter(element=>element.visible).map(element=>`<div class="price-label-print-element custom-text" data-promotion-text="${escapeHtml(element.id)}" style="position:absolute;overflow:hidden;line-height:1.08;${priceLabelElementStyle(element,'custom')}"><span data-promotion-content style="display:block;width:100%;flex-shrink:0;line-height:1.3">${escapeHtml(element.text)}</span></div>`).join('');
   return `<section class="label" style="padding:0"><div class="regular-layout" style="position:relative;width:100%;height:100%;overflow:hidden">${content}</div></section>`;
 }
 function renderPromotionLabelPrint(){
-  if(!Object.hasOwn(PROMOTION_LABEL_SIZES,promotionPrintSize))promotionPrintSize='50x30';
+  promotionPrintSize=readPromotionPrintSize();
   const size=promotionTemplateSize(),[width,height]=BARCODE_PRINT_LABEL_DIMENSIONS[size];
   const library=getPriceLabelTemplateLibrary(size,'promotion');
   const template=getPriceLabelTemplate(size,'promotion');
@@ -31,12 +61,16 @@ function renderPromotionLabelPrint(){
 function attachPromotionLabelEvents(){
   const sizeInput=document.getElementById('promotionLabelSize');
   if(!sizeInput)return;
-  sizeInput.onchange=()=>{promotionPrintSize=sizeInput.value;render();};
+  sizeInput.onchange=()=>{rememberPromotionPrintSize(sizeInput.value);render();};
+  fitPromotionLabelText(document);
+  document.fonts?.ready.then(()=>fitPromotionLabelText(document));
   document.getElementById('promotionLabelQuantity').oninput=event=>{promotionPrintQuantity=event.target.value;};
-  document.getElementById('promotionLabelTemplate').onchange=event=>{
+  document.getElementById('promotionLabelTemplate').onchange=async event=>{
+    const input=event.target;input.disabled=true;
+    const context=captureStoreView();
     const size=promotionTemplateSize(),library=getPriceLabelTemplateLibrary(size,'promotion');
-    const entry=library.templates.find(item=>item.id===event.target.value);if(!entry)return;
-    library.activeId=entry.id;persistPriceLabelTemplateState(size,entry.template,library,'promotion');render();
+    const entry=library.templates.find(item=>item.id===event.target.value);if(!entry){input.disabled=false;return;}
+    library.activeId=entry.id;try{await persistPriceLabelTemplateState(size,entry.template,library,'promotion');}catch(error){showToast(error.message,'danger-top');}finally{if(isStoreViewCurrent(context))render();}
   };
   document.getElementById('promotionLabelPrintBtn').onclick=()=>{
     const quantity=Number(promotionPrintQuantity),size=promotionTemplateSize(),template=getPriceLabelTemplate(size,'promotion');

@@ -46,7 +46,7 @@ const browserExecutable = [
   await page.waitForFunction(() => typeof openPriceLabelDesigner === 'function');
   await page.evaluate(() => {
     document.querySelectorAll('.login-screen').forEach(screen => { screen.style.display='none'; });
-    currentProfile={id:'owner-test',owner:true,firstName:'เจ้าของ',lastName:'ร้าน'};
+    activeWarehouseId=1;currentProfile={id:'owner-test',owner:true,firstName:'เจ้าของ',lastName:'ร้าน'};
     products=[{id:9001,sku:'P-9001',name:'Decolgen prin (4 tablets)',unit:'กล่อง',barcode:'8851824336354',price:180,units:[],extraBarcodes:[],vendorBarcodes:[]}];
     barcodePrintItems=[{pid:9001,unit:'กล่อง',barcode:'8851824336354',qty:1}];
     barcodePrintLabelSize='50x30';

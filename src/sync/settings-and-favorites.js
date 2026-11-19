@@ -4,29 +4,36 @@ function storeLabelSettings(){
   return activeWarehouseId>1?(warehouseBusinessProfiles[activeWarehouseId]||{}):businessSettings;
 }
 let labelSettingsSave=Promise.resolve();
-function saveStoreLabelSettings(patch,size=null){
-  if(isAllWarehousesMode()) return;
-  const store=Number(activeWarehouseId)||1;
-  const previous=storeLabelSettings();
-  const next={...previous};
-  for(const [key,value] of Object.entries(patch)){
-    next[key]=size?{...previous[key],[size]:value}:value;
-  }
-  if(store===1) businessSettings=next;
-  else warehouseBusinessProfiles={...warehouseBusinessProfiles,[store]:next};
-  persistWorkspaceData();
-  if(!activeWarehouseId||!currentProfile) return;
-  const context=captureWorkspaceRead();
+function saveStoreLabelSettings(patch,size=null,{confirmed=false}={}){
+  if(isAllWarehousesMode()||!activeWarehouseId||!currentProfile) return Promise.resolve(false);
+  const store=Number(activeWarehouseId),context=captureWorkspaceRead();
+  const payload=JSON.parse(JSON.stringify(patch));
+  const commit=()=>{
+    const previous=store===1?businessSettings:(warehouseBusinessProfiles[store]||{});
+    const next={...previous};
+    for(const [key,value] of Object.entries(payload)) next[key]=size?{...previous[key],[size]:value}:value;
+    if(store===1) businessSettings=next;
+    else warehouseBusinessProfiles={...warehouseBusinessProfiles,[store]:next};
+    persistWorkspaceData();
+  };
+  // Existing medicine-label preferences keep their immediate local behavior.
+  // Saved designs are committed only after the server acknowledges the write.
+  if(!confirmed)commit();
   const save=async()=>{
-    if(!isWorkspaceReadCurrent(context)) return;
+    if(!isWorkspaceReadCurrent(context)) return false;
     try{
-      const {error}=await sb.rpc('update_store_label_settings',{p_warehouse_id:store,p_patch:patch,p_size:size});
+      const {error}=await sb.rpc('update_store_label_settings',{p_warehouse_id:store,p_patch:payload,p_size:size});
       if(error) throw error;
+      if(!isWorkspaceReadCurrent(context)) return false;
+      if(confirmed)commit();
+      return true;
     }catch(error){
       if(isWorkspaceReadCurrent(context)) showToast('บันทึกการตั้งค่าฉลากของ '+whName(store)+' ไม่สำเร็จ: '+error.message,'danger-top');
+      return false;
     }
   };
   labelSettingsSave=labelSettingsSave.then(save,save);
+  return labelSettingsSave;
 }
 function applyBusinessSettings(value){
   businessSettings={...DEFAULT_BUSINESS_SETTINGS,...(value||{})};

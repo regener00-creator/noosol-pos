@@ -18,7 +18,7 @@ let persistOptions = null;
 let renderCount = 0;
 const context = {
   storeLabelSettings:()=>context.businessSettings,
-  saveStoreLabelSettings:(patch,size)=>{for(const [key,value] of Object.entries(patch)) context.businessSettings[key]={...context.businessSettings[key],[size]:value};context.persistWorkspaceData();},
+  saveStoreLabelSettings:(patch,size)=>{for(const [key,value] of Object.entries(patch)) context.businessSettings[key]={...context.businessSettings[key],[size]:value};context.persistWorkspaceData();return true;},
   products,
   currentProfile:{id:'owner-test'},
   navigator:{onLine:true},
@@ -245,7 +245,7 @@ assert.equal(context.normalizePriceLabelElement('name',{color:'#123456'},'80x50'
 assert.equal(context.normalizePriceLabelElement('name',{fontSize:96},'50x30',{fontSize:10}).fontSize,96);
 assert.equal(context.normalizePriceLabelElement('name',{fontSize:150},'50x30',{fontSize:10}).fontSize,120);
 const currentTemplate = context.getPriceLabelTemplate('80x50');
-const savedTemplate = context.savePriceLabelTemplate('80x50', {...currentTemplate,preset:'custom',elements:{...currentTemplate.elements,price:{...currentTemplate.elements.price,x:35,color:'#e60012',reverse:true}},customTexts:[{id:'sale-note',text:'สินค้าขายดี',x:63,y:5,width:32,height:12,fontSize:11,fontWeight:700,color:'#000000',align:'center',reverse:true,visible:true}]});
+const savedTemplate = await context.savePriceLabelTemplate('80x50', {...currentTemplate,preset:'custom',elements:{...currentTemplate.elements,price:{...currentTemplate.elements.price,x:35,color:'#e60012',reverse:true}},customTexts:[{id:'sale-note',text:'สินค้าขายดี',x:63,y:5,width:32,height:12,fontSize:11,fontWeight:700,color:'#000000',align:'center',reverse:true,visible:true}]});
 assert.equal(savedTemplate.preset, 'custom');
 assert.equal(savedTemplate.elements.price.x, 35);
 assert.equal(savedTemplate.elements.price.color, '#e60012');
@@ -259,19 +259,19 @@ assert.match(printHtml, /<section class="label" style="padding:0">/);
 assert.match(printHtml, /data-price-label-element="price"[^>]*left:35%;[^>]*background:#e60012;color:#ffffff;/);
 assert.match(printHtml, /data-price-label-custom-text="sale-note"[^>]*background:#000000;color:#ffffff;[^>]*>สินค้าขายดี<\/div>/);
 assert.match(printHtml, /\.price-label-print-element\{-webkit-print-color-adjust:exact;print-color-adjust:exact\}/);
-const namedOne = context.saveNamedPriceLabelTemplate('80x50','หน้าชั้นยา',savedTemplate);
+const namedOne = await context.saveNamedPriceLabelTemplate('80x50','หน้าชั้นยา',savedTemplate);
 const secondDraft = {...savedTemplate,elements:{...savedTemplate.elements,price:{...savedTemplate.elements.price,x:5,color:'#000000',reverse:false}}};
-const namedTwo = context.saveNamedPriceLabelTemplate('80x50','ป้ายราคาดำ',secondDraft,'',{activate:false});
+const namedTwo = await context.saveNamedPriceLabelTemplate('80x50','ป้ายราคาดำ',secondDraft,'',{activate:false});
 let templateLibrary = context.getPriceLabelTemplateLibrary('80x50');
 assert.equal(templateLibrary.templates.length,2);
 assert.equal(templateLibrary.activeId,namedOne.id);
 assert.equal(context.getPriceLabelTemplate('80x50').elements.price.x,35);
-assert.equal(context.saveNamedPriceLabelTemplate('80x50','หน้าชั้นยา',secondDraft),null,'ห้ามบันทึกชื่อแม่แบบซ้ำ');
-context.saveNamedPriceLabelTemplate('80x50','ป้ายราคาดำ',secondDraft,namedTwo.id);
+assert.equal(await context.saveNamedPriceLabelTemplate('80x50','หน้าชั้นยา',secondDraft),null,'ห้ามบันทึกชื่อแม่แบบซ้ำ');
+await context.saveNamedPriceLabelTemplate('80x50','ป้ายราคาดำ',secondDraft,namedTwo.id);
 templateLibrary = context.getPriceLabelTemplateLibrary('80x50');
 assert.equal(templateLibrary.activeId,namedTwo.id);
 assert.equal(context.getPriceLabelTemplate('80x50').elements.price.x,5);
-const deletedTemplate = context.deleteNamedPriceLabelTemplate('80x50',namedTwo.id);
+const deletedTemplate = await context.deleteNamedPriceLabelTemplate('80x50',namedTwo.id);
 assert.equal(deletedTemplate.library.templates.length,1);
 assert.equal(deletedTemplate.library.activeId,namedOne.id);
 assert.equal(context.getPriceLabelTemplate('80x50').elements.price.x,35);
