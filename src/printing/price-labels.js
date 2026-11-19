@@ -265,10 +265,11 @@ function openPriceLabelDesigner(labelSize=barcodePrintLabelSize,options={}){
   overlay.className='modal-overlay';
   overlay.innerHTML=`<div class="modal price-label-designer-modal"><div class="modal-head"><div><h3>${promotion?'ออกแบบป้ายโปรโมชั่น':'ออกแบบป้ายราคา'}</h3><div class="price-label-designer-head-meta">${promotion?'เขียนข้อความและจัดวางได้เอง บันทึกแม่แบบแยกสำหรับป้ายโปรโมชั่น':'บันทึกแม่แบบแยกตามขนาดป้าย และใช้กับป้ายราคาปกติทุกครั้งที่พิมพ์'}</div></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div>
     <div class="price-label-template-library"><label>แม่แบบที่บันทึก<select id="savedPriceLabelTemplateSelect" aria-label="แม่แบบป้ายราคาที่บันทึก"></select></label><label>ชื่อแม่แบบ<input id="priceLabelTemplateNameInput" maxlength="60" placeholder="เช่น ป้ายราคาหน้าชั้น"></label><button class="btn ghost" id="saveAsNewPriceLabelTemplateBtn" type="button">บันทึกเป็นแม่แบบใหม่</button><button class="btn ghost price-label-delete-text-btn" id="deleteSavedPriceLabelTemplateBtn" type="button">ลบแม่แบบ</button></div>
-    <div class="price-label-designer-toolbar"><label ${promotion?'hidden':''}>รูปแบบเริ่มต้น <select id="priceLabelPresetSelect">${Object.entries(PRICE_LABEL_PRESET_LABELS).map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></label><button class="btn ghost price-label-add-text-btn" id="addPriceLabelCustomTextBtn" type="button">+ เพิ่มข้อความ</button><span class="price-label-designer-size">${widthMm} × ${heightMm} มม. ${validSize==='a4-poster'?'แนวตั้ง':'แนวนอน'}</span></div>
+    <div class="price-label-designer-toolbar"><label ${promotion?'hidden':''}>รูปแบบเริ่มต้น <select id="priceLabelPresetSelect">${Object.entries(PRICE_LABEL_PRESET_LABELS).map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></label><button class="btn ghost price-label-add-text-btn" id="addPriceLabelCustomTextBtn" type="button">+ เพิ่มข้อความ</button>${promotion?'':'<button class="btn ghost" type="button" id="openPriceLabelSettingsBtn">ตั้งค่าขนาดป้ายเริ่มต้น</button>'}<span class="price-label-designer-size">${widthMm} × ${heightMm} มม. ${validSize==='a4-poster'?'แนวตั้ง':'แนวนอน'}</span></div>
     <div class="price-label-designer-body"><div class="price-label-canvas-pane"><p class="price-label-canvas-help">ลากเพื่อย้ายตำแหน่ง · ลากมุมขวาล่างเพื่อปรับขนาด · คลิกหัวข้อด้านขวาเพื่อแก้รายละเอียด${!promotion&&sample.exampleBarcode?'<br><span data-price-label-example-note>บาร์โค้ดตัวอย่างสำหรับจัดวางเท่านั้น · เมื่อพิมพ์จะใช้บาร์โค้ดของสินค้าที่เลือก</span>':''}</p><div class="price-label-canvas-shell"><div id="priceLabelDesignerCanvas" class="price-label-canvas" style="aspect-ratio:${widthMm}/${heightMm}"></div></div><div class="price-label-safety-note" ${promotion?'hidden':''}><span>⚠</span><span>บาร์โค้ดย่อได้ต่ำสุด ${barcodeMinimum.widthMm} × ${barcodeMinimum.heightMm} มม. แต่ขนาดที่แนะนำคืออย่างน้อย ${barcodeMinimum.recommendedWidthMm} × ${barcodeMinimum.recommendedHeightMm} มม. หากย่อกว่านี้ควรทดลองพิมพ์และสแกนก่อนใช้งานจำนวนมาก</span></div></div><aside id="priceLabelDesignerPanel" class="price-label-designer-panel"></aside></div>
     <div class="price-label-designer-actions"><button class="btn ghost" id="resetPriceLabelTemplateBtn" type="button">คืนค่าเริ่มต้น</button><div class="price-label-designer-actions-right"><button class="btn ghost" id="cancelPriceLabelDesignerBtn" type="button">ยกเลิก</button><button class="btn primary" id="savePriceLabelDesignerBtn" type="button">บันทึกและใช้แม่แบบนี้</button></div></div></div>`;
   document.body.appendChild(overlay);
+  overlay.querySelector('#openPriceLabelSettingsBtn')?.addEventListener('click',openPriceLabelSettings);
   const canvas=overlay.querySelector('#priceLabelDesignerCanvas');
   if(!promotion&&previewItems.length>1){
     const picker=document.createElement('div');
@@ -536,7 +537,7 @@ function renderBarcodePrint(){
   const pagination=barcodePrintPagination();
   barcodePrintPage=pagination.currentPage;
   return `<div class="rpt barcode-print-page">
-    <div class="pagehead label-print-pagehead"><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="barcodePrintMenuBtn">ย้อนกลับ</button><button class="btn ghost" id="openPriceLabelDesignerBtn">ออกแบบป้ายราคา</button><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length&&!barcodePrintSavePending?'':'disabled'}>ล้างรายการ</button>${reprint?'':`<button class="btn ghost" id="reserveBarcodePrintBtn" ${barcodePrintSavePending||!barcodePrintUnreservedItems().length?'disabled':''}>${barcodePrintSavePending?'กำลังจองเลข…':'จองเลขบาร์โค้ด'}</button>`}<button class="btn primary" id="savePrintBarcodeBtn" ${!barcodePrintSavePending&&barcodePrintItems.length&&(reprint||!barcodePrintUnreservedItems().length)?'':'disabled'}>${reprint?'พิมพ์ป้ายเดิมซ้ำ':'พิมพ์ป้ายราคา'} (${barcodePrintItems.length})</button></div></div>
+    <div class="pagehead label-print-pagehead"><div class="barcode-print-actions form-final-actions"><button class="btn ghost" id="barcodePrintMenuBtn">ย้อนกลับ</button><button class="btn ghost" id="clearBarcodePrintBtn" ${barcodePrintItems.length&&!barcodePrintSavePending?'':'disabled'}>ล้างรายการ</button>${reprint?'':`<button class="btn ghost" id="reserveBarcodePrintBtn" ${barcodePrintSavePending||!barcodePrintUnreservedItems().length?'disabled':''}>${barcodePrintSavePending?'กำลังจองเลข…':'จองเลขบาร์โค้ด'}</button>`}<button class="btn primary" id="savePrintBarcodeBtn" ${!barcodePrintSavePending&&barcodePrintItems.length&&(reprint||!barcodePrintUnreservedItems().length)?'':'disabled'}>${reprint?'พิมพ์ป้ายเดิมซ้ำ':'พิมพ์ป้ายราคา'} (${barcodePrintItems.length})</button></div></div>
     <div class="rpt-filters" style="margin-bottom:14px;">
       <div class="rpf-item"><select id="barcodePrintCategorySelect" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(category=>`<option value="${escapeHtml(category)}" ${filter.category===category?'selected':''}>${escapeHtml(category)}</option>`).join('')}</select></div>
       <div class="rpf-item"><select id="barcodePrintBrandSelect" class="rpt-select"><option value="">หมวดสินค้าย่อย: ทั้งหมด</option>${brandOptions.map(brand=>`<option value="${escapeHtml(brand)}" ${filter.brand===brand?'selected':''}>${escapeHtml(brand)}</option>`).join('')}</select></div>
@@ -545,7 +546,6 @@ function renderBarcodePrint(){
       <input id="barcodePrintSearch" class="barcode-print-search" value="${escapeHtml(barcodePrintSearchQuery)}" placeholder="ค้นหาจาก ชื่อ / รหัส / บาร์โค้ด..." autocomplete="off">
       <div id="barcodePrintResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div>
     </div>
-      <button type="button" class="btn ghost barcode-print-settings" id="openPriceLabelSettingsBtn" title="ตั้งค่าขนาดป้ายเริ่มต้น" aria-label="ตั้งค่าขนาดป้ายเริ่มต้น"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 3-.6 2.4-1.5.9-2.4-.7-3 5.2L3.3 12l-.1 1.7-1.7 1.6 3 5.2 2.4-.7 1.5.9L9 23h6l.6-2.3 1.5-.9 2.4.7 3-5.2-1.7-1.6-.1-1.7 1.8-1.2-3-5.2-2.4.7-1.5-.9L15 3z" transform="translate(1 0) scale(.9)"/><circle cx="12" cy="12" r="3"/></svg></button>
     </div>
     <div class="barcode-print-table-wrap seamless-table-wrap">
       <table class="grid-table doc-head-blue barcode-print-table"><colgroup><col class="barcode-print-col-sku"><col class="barcode-print-col-name"><col class="barcode-print-col-unit"><col class="barcode-print-col-code"><col class="barcode-print-col-price"><col class="barcode-print-col-qty"><col class="barcode-print-col-action"></colgroup>
@@ -559,26 +559,31 @@ function renderBarcodePrint(){
 
 function openPriceLabelSettings(){
   if(document.getElementById('priceLabelSettingsDialog'))return;
-  const mode=barcodePrintMode;
+  let mode=barcodePrintMode;
   const context=captureWorkspaceRead();
   const sizes=[['a4-50x30','A4 · 50 × 30 มม. · 36 ป้าย/แผ่น'],['50x30','ป้ายราคา 50 × 30 มม.'],['80x50','ป้ายราคา 80 × 50 มม.'],['60x40','ป้ายราคา 60 × 40 มม.'],['40x30','ป้ายราคา 40 × 30 มม.']];
   const defaultSize=readPriceLabelDefaultSize(mode);
   const trigger=document.getElementById('openPriceLabelSettingsBtn');
   const overlay=document.createElement('div');
   overlay.className='modal-overlay';
-  overlay.innerHTML=`<div class="modal price-label-settings-modal" id="priceLabelSettingsDialog" role="dialog" aria-modal="true" aria-labelledby="priceLabelSettingsTitle"><div class="modal-head"><h3 id="priceLabelSettingsTitle">ตั้งค่าขนาดป้ายเริ่มต้น</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div><div class="price-label-size-options">${sizes.map(([value,label])=>`<label><input type="radio" name="priceLabelPaperSize" value="${value}" ${barcodePrintLabelSize===value?'checked':''}><span>${label}${defaultSize===value?' (ค่าเริ่มต้น)':''}</span></label>`).join('')}</div><div class="price-label-settings-actions"><button type="button" class="btn ghost" id="cancelPriceLabelSettingsBtn">ยกเลิก</button><button type="button" class="btn primary" id="savePriceLabelDefaultBtn">บันทึกค่าเริ่มต้น</button></div></div>`;
+  overlay.innerHTML=`<div class="modal price-label-settings-modal" id="priceLabelSettingsDialog" role="dialog" aria-modal="true" aria-labelledby="priceLabelSettingsTitle"><div class="modal-head"><h3 id="priceLabelSettingsTitle">ตั้งค่าขนาดป้ายเริ่มต้น</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div><label class="price-label-default-mode">ใช้เป็นค่าเริ่มต้นสำหรับ<select id="priceLabelDefaultMode"><option value="new" ${mode==='new'?'selected':''}>พิมพ์ป้ายราคาใหม่</option><option value="reprint" ${mode==='reprint'?'selected':''}>พิมพ์ป้ายราคาจากบาร์โค้ดเดิม</option></select></label><div class="price-label-size-options">${sizes.map(([value,label])=>`<label><input type="radio" name="priceLabelPaperSize" value="${value}" ${defaultSize===value?'checked':''}><span>${label}</span></label>`).join('')}</div><div class="price-label-settings-actions"><button type="button" class="btn ghost" id="cancelPriceLabelSettingsBtn">ยกเลิก</button><button type="button" class="btn primary" id="savePriceLabelDefaultBtn">บันทึกค่าเริ่มต้น</button></div></div>`;
   const close=()=>{overlay.remove();trigger?.focus();};
+  overlay.querySelector('#priceLabelDefaultMode').addEventListener('change',event=>{
+    mode=event.target.value;
+    const saved=readPriceLabelDefaultSize(mode);
+    overlay.querySelectorAll('input[name="priceLabelPaperSize"]').forEach(input=>{input.checked=input.value===saved;});
+  });
   overlay.querySelector('.modal-close').addEventListener('click',close);
   overlay.querySelector('#cancelPriceLabelSettingsBtn').addEventListener('click',close);
   overlay.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();close();}});
   overlay.querySelector('#savePriceLabelDefaultBtn').addEventListener('click',()=>{
-    if(!isWorkspaceReadCurrent(context)||barcodePrintMode!==mode){close();return;}
+    if(!isWorkspaceReadCurrent(context)){close();return;}
     const size=overlay.querySelector('input[name="priceLabelPaperSize"]:checked')?.value;
     if(!sizes.some(([value])=>value===size))return;
     try{
       savePriceLabelDefaultSize(size,mode);
-      barcodePrintLabelSize=size;
-      close();render();document.getElementById('openPriceLabelSettingsBtn')?.focus();
+      if(barcodePrintMode===mode)barcodePrintLabelSize=size;
+      close();
       showToast(`ตั้งเป็นค่าเริ่มต้นสำหรับ${mode==='reprint'?'พิมพ์ป้ายราคาจากบาร์โค้ดเดิม':'พิมพ์ป้ายราคาใหม่'}บนเครื่องนี้แล้ว`);
     }catch{showToast('บันทึกค่าเริ่มต้นไม่สำเร็จ กรุณาตรวจพื้นที่เบราว์เซอร์','error');}
   });

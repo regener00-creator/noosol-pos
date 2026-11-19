@@ -86,6 +86,19 @@ const browserExecutable = [
   await page.locator('#priceLabelDesignSize').selectOption('80x50');
   await page.locator('#openPriceLabelDesignerBtn').click();
   assert.match(await page.locator('.price-label-designer-size').innerText(),/80 × 50/);
+  await page.locator('#priceLabelTemplateNameInput').fill('ยังไม่บันทึก');
+  await page.locator('#openPriceLabelSettingsBtn').click();
+  await page.locator('#priceLabelDefaultMode').selectOption('new');
+  await page.locator('input[name="priceLabelPaperSize"][value="a4-50x30"]').check();
+  await page.locator('#savePriceLabelDefaultBtn').click();
+  assert.equal(await page.locator('#priceLabelTemplateNameInput').inputValue(),'ยังไม่บันทึก','Settings preserve the design draft');
+  await page.locator('#openPriceLabelSettingsBtn').click();
+  await page.locator('#priceLabelDefaultMode').selectOption('reprint');
+  await page.locator('input[name="priceLabelPaperSize"][value="60x40"]').check();
+  await page.locator('#savePriceLabelDefaultBtn').click();
+  assert.deepEqual(await page.evaluate(()=>[readPriceLabelDefaultSize('new'),readPriceLabelDefaultSize('reprint')]),['a4-50x30','60x40']);
+  await page.evaluate(()=>{savePriceLabelDefaultSize('50x30','new');savePriceLabelDefaultSize('50x30','reprint');});
+
   await page.locator('#cancelPriceLabelDesignerBtn').click();
   await page.locator('#priceLabelDesignSize').selectOption('50x30');
   await page.locator('#promotionDesignSize').selectOption('a4-poster');
@@ -97,24 +110,25 @@ const browserExecutable = [
   fs.mkdirSync(path.join(root,'outputs'),{recursive:true});
   await page.screenshot({path:path.join(root,'outputs/label-design-menu.png')});
   await page.locator('[data-barcode-print-mode="new"]').click();
+  assert.equal(await page.locator('#openPriceLabelDesignerBtn,#openPriceLabelSettingsBtn').count(),0,'Design and default settings are no longer in the print queue');
   assert.equal(await page.locator('.barcode-print-page h1').count(),0);
   assert.equal(await page.locator('#barcodePrintLabelType').count(),0);
   assert.equal(await page.evaluate(()=>barcodePrintLabelSize),'50x30');
   assert.equal(await page.locator('#barcodePrintLabelSize').count(),0,'Paper sizes are hidden until settings opens');
-  await page.locator('#openPriceLabelSettingsBtn').click();
+  await page.evaluate(()=>openPriceLabelSettings());
   assert.equal(await page.locator('#priceLabelSettingsDialog input[type="radio"]').count(),5);
   await page.locator('input[name="priceLabelPaperSize"][value="80x50"]').check();
   await page.locator('#cancelPriceLabelSettingsBtn').click();
   assert.equal(await page.evaluate(()=>barcodePrintLabelSize),'50x30','Cancel leaves the active paper size unchanged');
 
-  await page.locator('#openPriceLabelSettingsBtn').click();
+  await page.evaluate(()=>openPriceLabelSettings());
   await page.locator('input[name="priceLabelPaperSize"][value="a4-50x30"]').check();
   await page.locator('#savePriceLabelDefaultBtn').click();
   assert.equal(await page.evaluate(()=>readPriceLabelDefaultSize()),'a4-50x30');
   assert.equal(await page.locator('.page-title-meta').count(),0);
   assert.equal(await page.locator('.barcode-print-page h1').count(),0);
-  assert.equal(await page.locator('#openPriceLabelDesignerBtn').isVisible(), true);
-  await page.locator('#openPriceLabelDesignerBtn').click();
+  assert.equal(await page.locator('#openPriceLabelDesignerBtn').count(), 0);
+  await page.evaluate(()=>openPriceLabelDesigner(barcodePrintLabelSize));
   assert.equal(await page.locator('.price-label-designer-modal').isVisible(), true);
   assert.equal(await page.locator('[data-price-label-tab]').count(), 5);
   assert.equal(await page.locator('.price-label-design-element').count(), 5);
@@ -241,7 +255,7 @@ const browserExecutable = [
   assert.equal(savedLibrary.templates.length,2);
   assert.equal(savedLibrary.activeId,savedLibrary.templates[0].id);
 
-  await page.locator('#openPriceLabelDesignerBtn').click();
+  await page.evaluate(()=>openPriceLabelDesigner(barcodePrintLabelSize));
   assert.equal(await page.locator('#savedPriceLabelTemplateSelect option').count(),2);
   assert.equal(await page.locator('[data-price-label-toggle="unit"]').isChecked(),false);
   assert.equal(await page.locator('#priceLabelDesignerCanvas [data-price-label-element="unit"]').count(),0);
@@ -341,7 +355,7 @@ const browserExecutable = [
   assert.equal(await page.locator('#barcodePrintMenuBtn').isVisible(),true);
   assert.equal(await page.locator('#savePrintBarcodeBtn').isDisabled(),true);
   assert.equal(await page.evaluate(()=>barcodePrintLabelSize),'50x30','New-label default does not overwrite repeat default');
-  await page.locator('#openPriceLabelSettingsBtn').click();
+  await page.evaluate(()=>openPriceLabelSettings());
   await page.locator('input[name="priceLabelPaperSize"][value="a4-50x30"]').check();
   await page.locator('#savePriceLabelDefaultBtn').click();
   await page.locator('#barcodePrintSearch').fill('EMPTY');
@@ -403,7 +417,7 @@ const browserExecutable = [
   await page.locator('#savePrintBarcodeBtn').click();
   assert.match(await page.locator('#toast').textContent(),/จำนวนป้าย/);
   await page.locator('[data-barcode-print-qty="0"]').fill('2');
-  await page.locator('#openPriceLabelSettingsBtn').click();
+  await page.evaluate(()=>openPriceLabelSettings());
   await page.locator('input[name="priceLabelPaperSize"][value="40x30"]').check();
   await page.locator('#savePriceLabelDefaultBtn').click();
   const [subunitPrint]=await Promise.all([page.waitForEvent('popup'),page.locator('#savePrintBarcodeBtn').click()]);
@@ -437,7 +451,7 @@ const browserExecutable = [
   assert.equal(await page.locator('#barcodePrintSearch').count(),0,'History errors never fall back to all barcodes');
   await page.locator('#barcodeIssuedRetryBtn').click();
   assert.equal(await page.locator('[data-barcode-print-code="0"]').inputValue(),'CHANGED','Retry preserves the queue');
-  await page.locator('#openPriceLabelSettingsBtn').click();
+  await page.evaluate(()=>openPriceLabelSettings());
   await page.locator('input[name="priceLabelPaperSize"][value="60x40"]').check();
   await page.locator('#savePriceLabelDefaultBtn').click();
   await page.locator('#barcodePrintMenuBtn').click();
@@ -507,7 +521,7 @@ const browserExecutable = [
     await page.locator('#barcodePrintSearch').press('Enter');
     assert.equal(await page.locator('[data-barcode-print-row]').count(),1,'Rescanning changes unit without duplicating the product');
     const snapshot=await page.evaluate(()=>{products[0].units[0].price=275;return JSON.stringify(products);});
-    await page.locator('#openPriceLabelDesignerBtn').click();
+    await page.evaluate(()=>openPriceLabelDesigner(barcodePrintLabelSize));
     assert.equal(await page.locator('#priceLabelSampleSelect').count(),0,'No picker for a single selected product');
     for(const field of ['name','unit','price','barcode','code']) await page.locator(`[data-price-label-toggle="${field}"]`).check();
     const canvas=page.locator('#priceLabelDesignerCanvas');
@@ -529,7 +543,7 @@ const browserExecutable = [
     await page.locator('#barcodePrintSearch').fill('OTHER-CODE');
     await page.locator('#barcodePrintSearch').press('Enter');
     const queueBeforePreview=await page.evaluate(()=>JSON.stringify(barcodePrintItems));
-    await page.locator('#openPriceLabelDesignerBtn').click();
+    await page.evaluate(()=>openPriceLabelDesigner(barcodePrintLabelSize));
     assert.equal(await page.locator('#priceLabelSampleSelect option').count(),2,'Only queued products are offered');
     for(const field of ['name','unit','price','barcode','code']) await page.locator(`[data-price-label-toggle="${field}"]`).check();
     await page.locator('[data-price-label-tab="name"]').click();

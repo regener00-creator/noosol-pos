@@ -952,7 +952,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(barcodePrintCategorySelect) barcodePrintCategorySelect.addEventListener('change',()=>{ barcodePrintCatFilter.category=barcodePrintCategorySelect.value; barcodePrintCatFilter.brand=''; render(); });
   if(barcodePrintBrandSelect) barcodePrintBrandSelect.addEventListener('change',()=>{ barcodePrintCatFilter.brand=barcodePrintBrandSelect.value; render(); });
   if(barcodePrintAddCategoryBtn) barcodePrintAddCategoryBtn.addEventListener('click',()=>openBarcodePrintCategoryPicker(barcodePrintCatFilter,false));
-  document.getElementById('openPriceLabelSettingsBtn')?.addEventListener('click',openPriceLabelSettings);
   if(openPriceLabelDesignerBtn) openPriceLabelDesignerBtn.addEventListener('click',()=>openPriceLabelDesigner(document.getElementById('priceLabelDesignSize')?.value||barcodePrintLabelSize));
   document.getElementById('priceLabelDesignSize')?.addEventListener('change',event=>{barcodePrintLabelSize=event.target.value;});
   document.getElementById('promotionDesignSize')?.addEventListener('change',event=>{promotionPrintSize=event.target.value;});
