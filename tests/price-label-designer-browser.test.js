@@ -113,17 +113,20 @@ const browserExecutable = [
   await page.evaluate(()=>render());
   assert.equal(await page.locator('[data-price-label-field="x"]').inputValue(),'7','Rerender preserves the page draft');
   fs.mkdirSync(path.join(root,'outputs'),{recursive:true});
-  await page.screenshot({path:path.join(root,'outputs/label-designer-page.png')});
+
   await page.locator('#priceLabelDesignerSize').selectOption('settings');
-  await page.locator('#priceLabelDefaultMode').selectOption('new');
   await page.locator('input[name="priceLabelPaperSize"][value="a4-50x30"]').check();
   await page.locator('#savePriceLabelDefaultBtn').click();
+  assert.equal(await page.locator('#priceLabelDefaultMode').count(),0);
+  assert.equal(await page.locator('#priceLabelDesignerSize').inputValue(),'a4-50x30');
+  assert.equal(await page.locator('#priceLabelDesignerSize option:checked').innerText(),'A4 · 50 × 30 มม. · 36 ป้าย/แผ่น');
+  await page.screenshot({path:path.join(root,'outputs/label-designer-page.png')});
+  await page.locator('#priceLabelDesignerSize').selectOption('80x50');
   assert.equal(await page.locator('[data-price-label-field="x"]').inputValue(),'7','Settings preserve the design draft');
   await page.locator('#priceLabelDesignerSize').selectOption('settings');
-  await page.locator('#priceLabelDefaultMode').selectOption('reprint');
   await page.locator('input[name="priceLabelPaperSize"][value="60x40"]').check();
   await page.locator('#savePriceLabelDefaultBtn').click();
-  assert.deepEqual(await page.evaluate(()=>[readPriceLabelDefaultSize('new'),readPriceLabelDefaultSize('reprint')]),['a4-50x30','60x40']);
+  assert.deepEqual(await page.evaluate(()=>[readPriceLabelDefaultSize('new'),readPriceLabelDefaultSize('reprint')]),['60x40','60x40']);
   await page.evaluate(()=>{savePriceLabelDefaultSize('50x30','new');savePriceLabelDefaultSize('50x30','reprint');});
 
   await page.locator('#cancelPriceLabelDesignerBtn').click();
@@ -380,7 +383,7 @@ const browserExecutable = [
   assert.equal(await page.locator('#openBarcodeReprintBtn').count(),0);
   assert.equal(await page.locator('#barcodePrintMenuBtn').isVisible(),true);
   assert.equal(await page.locator('#savePrintBarcodeBtn').isDisabled(),true);
-  assert.equal(await page.evaluate(()=>barcodePrintLabelSize),'50x30','New-label default does not overwrite repeat default');
+  assert.equal(await page.evaluate(()=>barcodePrintLabelSize),'a4-50x30','Reprints use the shared default');
   await page.evaluate(()=>openPriceLabelSettings());
   await page.locator('input[name="priceLabelPaperSize"][value="a4-50x30"]').check();
   await page.locator('#savePriceLabelDefaultBtn').click();
@@ -482,7 +485,7 @@ const browserExecutable = [
   await page.locator('#savePriceLabelDefaultBtn').click();
   await page.locator('#barcodePrintMenuBtn').click();
   await page.locator('[data-barcode-print-mode="new"]').click();
-  assert.equal(await page.evaluate(()=>barcodePrintLabelSize),'a4-50x30','Default saved from reprint leaves new-label default unchanged');
+  assert.equal(await page.evaluate(()=>barcodePrintLabelSize),'60x40','Default saved from reprint also applies to new labels');
   for(const [store,letter] of [[1,'A'],[2,'B']]){
     const codes=await page.evaluate(async({store,letter})=>{
       activeWarehouseId=store;allWarehousesMode=false;
@@ -607,8 +610,8 @@ const browserExecutable = [
   }
   await page.reload();
   await page.waitForFunction(()=>typeof readPriceLabelDefaultSize==='function');
-  assert.equal(await page.evaluate(()=>readPriceLabelDefaultSize('new')),'a4-50x30','New default persists after reload');
-  assert.equal(await page.evaluate(()=>readPriceLabelDefaultSize('reprint')),'60x40','Repeat default persists independently after reload');
+  assert.equal(await page.evaluate(()=>readPriceLabelDefaultSize('new')),'60x40','Shared default persists for new labels after reload');
+  assert.equal(await page.evaluate(()=>readPriceLabelDefaultSize('reprint')),'60x40','Shared default persists for reprints after reload');
   assert.deepEqual(errors, []);
   console.log('price label designer browser tests passed');
 })().catch(error => {

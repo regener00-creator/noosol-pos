@@ -954,7 +954,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(barcodePrintBrandSelect) barcodePrintBrandSelect.addEventListener('change',()=>{ barcodePrintCatFilter.brand=barcodePrintBrandSelect.value; render(); });
   if(barcodePrintAddCategoryBtn) barcodePrintAddCategoryBtn.addEventListener('click',()=>openBarcodePrintCategoryPicker(barcodePrintCatFilter,false));
   if(openPriceLabelDesignerBtn) openPriceLabelDesignerBtn.addEventListener('click',()=>openPriceLabelDesigner(barcodePrintLabelSize));
-  if(barcodePrintShowMenu) document.getElementById('promotionLabelDesignBtn')?.addEventListener('click',()=>openPriceLabelDesigner(promotionTemplateSize(),{kind:'promotion'}));
+  if(barcodePrintShowMenu) document.getElementById('promotionLabelDesignBtn')?.addEventListener('click',()=>openPriceLabelDesigner(promotionPrintSize,{kind:'promotion'}));
   if(openBarcodeReprintBtn) openBarcodeReprintBtn.addEventListener('click',openBarcodeReprintDialog);
   document.querySelectorAll('[data-barcode-print-mode]').forEach(button=>button.addEventListener('click',()=>setBarcodePrintMode(button.dataset.barcodePrintMode)));
   document.getElementById('barcodeIssuedRetryBtn')?.addEventListener('click',loadSystemIssuedLabelCodes);
