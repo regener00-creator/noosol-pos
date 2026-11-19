@@ -115,7 +115,7 @@ const browserExecutable = [
   await page.locator('#cancelPriceLabelDesignerBtn').click();
   await page.locator('#promotionLabelDesignBtn').click();
   await page.locator('#priceLabelDesignerSize').selectOption('a4-poster');
-  assert.match(await page.locator('.price-label-designer-content h3').innerText(),/ออกแบบป้ายโปรโมชั่น/);
+  assert.equal(await page.locator('.price-label-designer-content h3,.price-label-designer-head-meta').count(),0);
   assert.match(await page.locator('.price-label-designer-size').innerText(),/210 × 297/);
   await page.locator('#cancelPriceLabelDesignerBtn').click();
   fs.mkdirSync(path.join(root,'outputs'),{recursive:true});
