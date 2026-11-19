@@ -884,11 +884,11 @@
   .price-label-designer-content{display:flex;flex-direction:column;width:100%;height:max(680px,calc(100dvh - 145px));overflow:hidden;border:1px solid var(--border);border-radius:16px;background:var(--surface);}
   .price-label-designer-content>.modal-head{flex-shrink:0;gap:12px;flex-wrap:wrap;}
   .price-label-add-text-btn{height:38px;padding:0 13px!important;white-space:nowrap;}
-  .price-label-template-library{display:grid;grid-template-columns:minmax(0,1fr) 330px;align-items:end;border-top:1px solid var(--border);background:#fff;}
+  .price-label-template-library{flex:0 0 auto;background:#fff;}
   .price-label-template-selectors{display:flex;min-width:0;gap:10px;padding:12px 18px;}
   .price-label-template-selectors>label:first-child{flex:0 1 220px;}
-  .price-label-template-selectors>label:last-child{flex:1 1 200px;}
-  .price-label-template-menu{position:relative;align-self:end;justify-self:start;margin:0 16px 12px;}
+  .price-label-template-selectors>label:nth-of-type(2){flex:1 1 200px;}
+  .price-label-template-menu{position:relative;align-self:end;flex:0 0 42px;}
   .price-label-template-menu summary{display:flex;align-items:center;justify-content:center;width:42px;list-style:none;font-size:24px;}
   .price-label-template-menu summary::-webkit-details-marker{display:none;}
   .price-label-template-menu-items{position:absolute;right:0;top:calc(100% + 6px);z-index:30;display:grid;min-width:200px;padding:6px;border:1px solid var(--border);border-radius:10px;background:var(--surface);box-shadow:0 5px 18px #0002;}
@@ -903,7 +903,8 @@
   .price-label-template-library select,.price-label-template-library input{width:100%;height:38px;border:1px solid var(--border);border-radius:8px;background:#fff;padding:0 10px;color:var(--text);font:13px 'Sarabun',sans-serif;}
   .price-label-template-library .btn{height:38px;padding:0 13px;white-space:nowrap;}
   .price-label-designer-body{display:grid;grid-template-columns:minmax(0,1fr) 330px;min-height:0;flex:1;overflow:hidden;}
-  .price-label-canvas-pane{min-width:0;overflow:auto;padding:18px;background:#E9EDF0;}
+  .price-label-designer-main{display:flex;flex-direction:column;min-width:0;min-height:0;}
+  .price-label-canvas-pane{flex:1;min-width:0;min-height:0;overflow:auto;padding:18px;background:#E9EDF0;}
   .price-label-sample-picker{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:12px;font-size:13px;font-weight:700;}
   .price-label-sample-controls{display:grid;grid-template-columns:38px minmax(0,1fr) 38px;gap:8px;flex:1 1 260px;min-width:0;max-width:100%;}
   .price-label-sample-controls .btn{width:38px;height:38px;padding:0;font-size:24px;line-height:1;}
@@ -947,7 +948,7 @@
   .price-label-barcode-limit.warning{border:1px solid #E3B75B;background:#FFF0C9;color:#684306;}
   .price-label-designer-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:13px 18px;border-top:1px solid var(--border);background:#fff;}
   .price-label-designer-actions-right{display:flex;gap:8px;}
-  @media(max-width:900px){.price-label-designer-content{height:auto;min-height:680px}.price-label-designer-content .price-label-template-library{grid-template-columns:minmax(0,1fr)}.price-label-template-selectors{display:grid;grid-template-columns:minmax(0,1fr)}.price-label-template-menu{justify-self:stretch;margin:0 18px 12px}.price-label-designer-actions{flex-wrap:wrap}.price-label-designer-body{grid-template-columns:1fr;overflow-y:auto}.price-label-canvas-pane{overflow:visible}.price-label-canvas-shell{min-height:320px;padding:12px}.price-label-designer-panel{overflow:visible;border-top:1px solid var(--border);border-left:0}.price-label-template-library{grid-template-columns:1fr 1fr}.price-label-element-tabs{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:900px){.price-label-designer-content{height:auto;min-height:680px}.price-label-template-selectors{display:grid;grid-template-columns:minmax(0,1fr)}.price-label-template-menu{justify-self:end}.price-label-designer-actions{flex-wrap:wrap}.price-label-designer-body{grid-template-columns:1fr;overflow-y:auto}.price-label-canvas-pane{overflow:visible}.price-label-canvas-shell{min-height:320px;padding:12px}.price-label-designer-panel{overflow:visible;border-top:1px solid var(--border);border-left:0}.price-label-element-tabs{grid-template-columns:repeat(3,1fr)}}
   .lowstock-section .lowstock-table-scroll{height:calc(100vh - 315px);min-height:320px;overflow-x:auto!important;overflow-y:scroll!important;border-radius:var(--radius);scrollbar-width:auto;scrollbar-color:#8B9298 #EEF1F4;scroll-behavior:auto;overscroll-behavior:contain;contain:layout paint;touch-action:pan-y;}
   .lowstock-table-scroll::-webkit-scrollbar{width:12px;height:12px;}
   .lowstock-table-scroll::-webkit-scrollbar-track{background:#EEF1F4;border-radius:8px;}
