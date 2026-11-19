@@ -282,7 +282,7 @@ function mountPriceLabelDesignerEditor(labelSize,options={}){
   const overlay=document.createElement('div');
   overlay.className='price-label-designer-editor';
   overlay.innerHTML=`<div class="price-label-designer-content"><div class="modal-head"><div class="price-label-designer-header-actions"><button class="btn ghost" id="backPriceLabelDesignerBtn" type="button">ย้อนกลับ</button>${promotion?'':'<button class="btn ghost" type="button" id="openPriceLabelSettingsBtn">ตั้งค่าขนาดป้ายเริ่มต้น</button>'}</div></div>
-    <div class="price-label-template-library ${promotion?'promotion':''}"><label>แม่แบบที่บันทึก<select id="savedPriceLabelTemplateSelect" aria-label="แม่แบบป้ายราคาที่บันทึก"></select></label><label>ขนาดป้าย<select id="priceLabelDesignerSize">${Object.entries(PROMOTION_LABEL_SIZES).filter(([size])=>size!=='a4-50x30'&&(promotion||size!=='a4-poster')).map(([size,label])=>`<option value="${size}" ${size===validSize?'selected':''}>${label}</option>`).join('')}</select></label><label ${promotion?'hidden':''}>รูปแบบเริ่มต้น <select id="priceLabelPresetSelect">${Object.entries(PRICE_LABEL_PRESET_LABELS).map(([value,label])=>`<option value="${value}">${label}</option>`).join('')}</select></label><label>ชื่อแม่แบบ<input id="priceLabelTemplateNameInput" maxlength="60" placeholder="เช่น ป้ายราคาหน้าชั้น"></label><button class="btn ghost" id="saveAsNewPriceLabelTemplateBtn" type="button">บันทึกเป็นแม่แบบใหม่</button><button class="btn ghost price-label-delete-text-btn" id="deleteSavedPriceLabelTemplateBtn" type="button">ลบแม่แบบ</button></div>
+    <div class="price-label-template-library"><label>ขนาดป้าย<select id="priceLabelDesignerSize">${Object.entries(PROMOTION_LABEL_SIZES).filter(([size])=>size!=='a4-50x30'&&(promotion||size!=='a4-poster')).map(([size,label])=>`<option value="${size}" ${size===validSize?'selected':''}>${label}</option>`).join('')}</select></label><label>แบบป้าย<select id="savedPriceLabelTemplateSelect" aria-label="แบบป้าย"></select></label><details class="price-label-template-menu" id="priceLabelTemplateMenu"><summary class="btn ghost" aria-label="จัดการแบบป้าย">⋯</summary><div class="price-label-template-menu-items"><button type="button" id="saveAsNewPriceLabelTemplateBtn">บันทึกเป็นแบบใหม่</button><button type="button" id="renamePriceLabelTemplateBtn">เปลี่ยนชื่อ</button><button type="button" id="deleteSavedPriceLabelTemplateBtn" class="price-label-delete-text-btn">ลบแบบ</button></div></details></div>
 
     <div class="price-label-designer-body"><div class="price-label-canvas-pane"><div class="price-label-canvas-shell"><div id="priceLabelDesignerCanvas" class="price-label-canvas" style="aspect-ratio:${widthMm}/${heightMm}"></div></div></div><aside id="priceLabelDesignerPanel" class="price-label-designer-panel"></aside></div>
     <div class="price-label-designer-actions"><div class="price-label-designer-actions-right"><button class="btn ghost" id="cancelPriceLabelDesignerBtn" type="button">ยกเลิก</button><button class="btn primary" id="savePriceLabelDesignerBtn" type="button">บันทึก</button></div></div></div>`;
@@ -315,9 +315,10 @@ function mountPriceLabelDesignerEditor(labelSize,options={}){
     nextButton.addEventListener('click',()=>selectSample(Number(sampleSelect.value)+1));
   }
   const panel=overlay.querySelector('#priceLabelDesignerPanel');
-  const presetSelect=overlay.querySelector('#priceLabelPresetSelect');
   const savedTemplateSelect=overlay.querySelector('#savedPriceLabelTemplateSelect');
-  const templateNameInput=overlay.querySelector('#priceLabelTemplateNameInput');
+  const templateMenu=overlay.querySelector('#priceLabelTemplateMenu');
+  const renameTemplateButton=overlay.querySelector('#renamePriceLabelTemplateBtn');
+  let nameDialog=null;
   const deleteSavedTemplateButton=overlay.querySelector('#deleteSavedPriceLabelTemplateBtn');
   let previewResizeObserver=null;
   const currentPreviewScale=()=>priceLabelPreviewScale(canvas.getBoundingClientRect().width,widthMm);
@@ -387,7 +388,7 @@ function mountPriceLabelDesignerEditor(labelSize,options={}){
         const resizing=Boolean(event.target.closest('.price-label-resize-handle'));
         const rect=canvas.getBoundingClientRect();
         const startX=event.clientX,startY=event.clientY,start={...info.element};
-        draft.preset='custom'; presetSelect.value='custom';
+        draft.preset='custom'; if(!selectedTemplateId)savedTemplateSelect.value='preset:custom';
         node.setPointerCapture?.(event.pointerId);
         const move=moveEvent=>{
           const dx=(moveEvent.clientX-startX)/rect.width*100,dy=(moveEvent.clientY-startY)/rect.height*100;
@@ -412,7 +413,7 @@ function mountPriceLabelDesignerEditor(labelSize,options={}){
     canvas.innerHTML=editorTargets().map(entry=>elementMarkup(entry.target,entry.kind,entry.element)).join('');
     syncPreviewScale();
     panel.innerHTML=controlMarkup();
-    presetSelect.value=draft.preset;
+    savedTemplateSelect.value=selectedTemplateId||`preset:${promotion?(draft.preset==='custom'?'custom':'promotion'):draft.preset}`;
     panel.querySelectorAll('[data-price-label-tab]').forEach(button=>button.addEventListener('click',()=>{ selected=button.dataset.priceLabelTab; renderEditor(); }));
     panel.querySelectorAll('[data-price-label-visible],[data-price-label-toggle]').forEach(input=>input.addEventListener('change',()=>{
       const target=input.dataset.priceLabelToggle||selected;
@@ -436,41 +437,84 @@ function mountPriceLabelDesignerEditor(labelSize,options={}){
     attachCanvasInteractions();
   };
   const refreshLibraryControls=()=>{
-    if(!library.templates.some(entry=>entry.id===selectedTemplateId)) selectedTemplateId=library.activeId||library.templates[0]?.id||'';
-    savedTemplateSelect.innerHTML=library.templates.length?library.templates.map(entry=>`<option value="${escapeHtml(entry.id)}" ${entry.id===selectedTemplateId?'selected':''}>${escapeHtml(entry.name)}${entry.id===library.activeId?' · กำลังใช้งาน':''}</option>`).join(''):'<option value="">ยังไม่มีแม่แบบที่บันทึก</option>';
-    savedTemplateSelect.disabled=!library.templates.length;
+    if(!library.templates.some(entry=>entry.id===selectedTemplateId))selectedTemplateId='';
+    const presets=promotion?[['promotion','ป้ายโปรโมชั่นเริ่มต้น'],['custom','กำหนดเอง']]:Object.entries(PRICE_LABEL_PRESET_LABELS);
+    savedTemplateSelect.innerHTML=`<optgroup label="แบบสำเร็จรูป">${presets.map(([value,label])=>`<option value="preset:${value}">${escapeHtml(label)}</option>`).join('')}</optgroup>${library.templates.length?`<optgroup label="แบบที่บันทึก">${library.templates.map(entry=>`<option value="${escapeHtml(entry.id)}">${escapeHtml(entry.name)}${entry.id===library.activeId?' · กำลังใช้งาน':''}</option>`).join('')}</optgroup>`:''}`;
+    savedTemplateSelect.value=selectedTemplateId||`preset:${promotion?(draft.preset==='custom'?'custom':'promotion'):draft.preset}`;
     deleteSavedTemplateButton.disabled=!selectedTemplateId;
-    const selectedEntry=library.templates.find(entry=>entry.id===selectedTemplateId);
-    templateNameInput.value=selectedEntry?.name||'';
+    renameTemplateButton.disabled=!selectedTemplateId;
   };
+  const askTemplateName=(title,value,onSave)=>{
+    templateMenu.open=false;
+    if(nameDialog)return;
+    nameDialog=document.createElement('div');
+    nameDialog.className='modal-overlay';
+    nameDialog.innerHTML=`<form class="modal price-label-name-modal" id="priceLabelNameDialog" role="dialog" aria-modal="true" aria-labelledby="priceLabelNameTitle"><div class="modal-head"><h3 id="priceLabelNameTitle">${escapeHtml(title)}</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div><label class="price-label-name-field">ชื่อแบบป้าย<input id="priceLabelTemplateNameInput" maxlength="60" required autocomplete="off" value="${escapeHtml(value)}"><span id="priceLabelNameError" role="alert"></span></label><div class="price-label-settings-actions"><button type="button" class="btn ghost" id="cancelPriceLabelNameBtn">ยกเลิก</button><button type="submit" class="btn primary" id="savePriceLabelNameBtn">บันทึก</button></div></form>`;
+    const dismiss=()=>{nameDialog?.remove();nameDialog=null;};
+    nameDialog.querySelector('.modal-close').onclick=dismiss;
+    nameDialog.querySelector('#cancelPriceLabelNameBtn').onclick=dismiss;
+    nameDialog.addEventListener('keydown',event=>{if(event.key==='Escape'){event.preventDefault();event.stopPropagation();dismiss();}});
+    nameDialog.querySelector('form').onsubmit=event=>{
+      event.preventDefault();
+      if(priceLabelDesignerPage!==session||!isWorkspaceReadCurrent(session.context)){dismiss();return;}
+      const name=nameDialog.querySelector('input').value.trim().replace(/\s+/g,' ');
+      const error=!name?'กรุณากรอกชื่อแบบป้าย':onSave(name);
+      if(error){nameDialog.querySelector('#priceLabelNameError').textContent=error;return;}
+      dismiss();
+    };
+    document.body.appendChild(nameDialog);
+    nameDialog.querySelector('input').focus();nameDialog.querySelector('input').select();
+  };
+  const saveDraftAsNew=finish=>askTemplateName('บันทึกเป็นแบบใหม่','',name=>{
+    const entry=saveNamedPriceLabelTemplate(validSize,name,draft,'',{activate:finish,kind});
+    if(!entry)return 'ชื่อแบบป้ายนี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น';
+    library=getPriceLabelTemplateLibrary(validSize,kind);selectedTemplateId=entry.id;
+    refreshLibraryControls();
+    if(finish)close();
+    showToast(`บันทึกแบบ “${entry.name}” แล้ว`);
+  });
   const close=()=>{ resetPriceLabelDesignerPage(); render(); options.onClose?.(); };
   overlay.querySelector('#backPriceLabelDesignerBtn').addEventListener('click',close);
   overlay.querySelector('#cancelPriceLabelDesignerBtn').addEventListener('click',close);
-  session.dispose=()=>{previewResizeObserver?.disconnect();overlay.remove();};
+  session.dispose=()=>{previewResizeObserver?.disconnect();nameDialog?.remove();nameDialog=null;overlay.remove();};
   overlay.querySelector('#priceLabelDesignerSize').addEventListener('change',event=>{
-    session.drafts.set(validSize,{draft,selectedTemplateId,name:templateNameInput.value});
+    session.drafts.set(validSize,{draft,selectedTemplateId});
     const size=event.target.value;
     if(promotion)promotionPrintSize=size;
     mountPriceLabelDesignerEditor(size,options);
   });
-  presetSelect.addEventListener('change',()=>{
-    if(presetSelect.value==='custom') return;
-    const customTexts=draft.customTexts;
-    draft=priceLabelPresetTemplate(validSize,presetSelect.value); draft.customTexts=customTexts; selected='name'; renderEditor();
-  });
   savedTemplateSelect.addEventListener('change',()=>{
-    const entry=library.templates.find(item=>item.id===savedTemplateSelect.value);
-    if(!entry) return;
-    selectedTemplateId=entry.id; templateNameInput.value=entry.name; draft=normalizePriceLabelTemplate(entry.template,validSize); selected='name'; renderEditor();
+    const value=savedTemplateSelect.value;
+    if(value.startsWith('preset:')){
+      selectedTemplateId='';
+      const preset=value.slice(7);
+      if(preset!=='custom'){
+        const customTexts=draft.customTexts;
+        draft=promotion?promotionLabelPreset(validSize):priceLabelPresetTemplate(validSize,preset);
+        if(promotion)draft.preset='left';
+        else draft.customTexts=customTexts;
+      }else draft.preset='custom';
+    }else{
+      const entry=library.templates.find(item=>item.id===value);if(!entry)return;
+      selectedTemplateId=entry.id;draft=normalizePriceLabelTemplate(entry.template,validSize);
+    }
+    selected=promotion&&draft.customTexts.length?customTarget(draft.customTexts[0].id):'name';
+    refreshLibraryControls();renderEditor();
   });
-  overlay.querySelector('#saveAsNewPriceLabelTemplateBtn').addEventListener('click',()=>{
-    const name=templateNameInput.value.trim();
-    if(!name){ showToast('กรุณาตั้งชื่อแม่แบบก่อนบันทึก'); templateNameInput.focus(); return; }
-    const entry=saveNamedPriceLabelTemplate(validSize,name,draft,'',{activate:false,kind});
-    if(!entry){ showToast('ชื่อแม่แบบนี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น'); templateNameInput.focus(); return; }
-    library=getPriceLabelTemplateLibrary(validSize,kind); selectedTemplateId=entry.id; draft=normalizePriceLabelTemplate(entry.template,validSize); refreshLibraryControls(); showToast(`บันทึกแม่แบบ “${entry.name}” แล้ว`);
+  overlay.addEventListener('click',event=>{if(!templateMenu.contains(event.target))templateMenu.open=false;});
+  templateMenu.addEventListener('keydown',event=>{if(event.key==='Escape'){templateMenu.open=false;templateMenu.querySelector('summary').focus();}});
+  overlay.querySelector('#saveAsNewPriceLabelTemplateBtn').addEventListener('click',()=>saveDraftAsNew(false));
+  renameTemplateButton.addEventListener('click',()=>{
+    const entry=library.templates.find(item=>item.id===selectedTemplateId);if(!entry)return;
+    askTemplateName('เปลี่ยนชื่อแบบป้าย',entry.name,name=>{
+      const renamed=saveNamedPriceLabelTemplate(validSize,name,entry.template,entry.id,{activate:false,kind});
+      if(!renamed)return 'ชื่อแบบป้ายนี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น';
+      library=getPriceLabelTemplateLibrary(validSize,kind);refreshLibraryControls();
+      showToast('เปลี่ยนชื่อแบบป้ายแล้ว');
+    });
   });
   deleteSavedTemplateButton.addEventListener('click',()=>{
+    templateMenu.open=false;
     const entry=library.templates.find(item=>item.id===selectedTemplateId);
     if(!entry||!confirm(`ลบแม่แบบ “${entry.name}” ใช่หรือไม่?`)) return;
     const result=deleteNamedPriceLabelTemplate(validSize,entry.id,kind);
@@ -487,25 +531,17 @@ function mountPriceLabelDesignerEditor(labelSize,options={}){
     setTimeout(()=>{ const input=panel.querySelector('[data-price-label-custom-value]'); input?.focus(); input?.select(); },0);
   });
   overlay.querySelector('#savePriceLabelDesignerBtn').addEventListener('click',()=>{
-    const name=templateNameInput.value.trim();
-    let savedName='';
-    if(selectedTemplateId){
-      const entry=saveNamedPriceLabelTemplate(validSize,name,draft,selectedTemplateId,{kind});
-      if(!entry){ showToast(name?'ชื่อแม่แบบนี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น':'กรุณาตั้งชื่อแม่แบบก่อนบันทึก'); templateNameInput.focus(); return; }
-      savedName=entry.name;
-    }else if(name){
-      const entry=saveNamedPriceLabelTemplate(validSize,name,draft,'',{kind});
-      if(!entry){ showToast('ชื่อแม่แบบนี้มีอยู่แล้ว กรุณาใช้ชื่ออื่น'); templateNameInput.focus(); return; }
-      savedName=entry.name;
-    }else savePriceLabelTemplate(validSize,draft,kind);
-    close(); showToast(savedName?`บันทึกและใช้แม่แบบ “${savedName}” แล้ว`:`บันทึกแม่แบบป้ายราคา ${widthMm} × ${heightMm} มม. แล้ว`);
+    const existing=library.templates.find(entry=>entry.id===selectedTemplateId);
+    if(!existing){saveDraftAsNew(true);return;}
+    const entry=saveNamedPriceLabelTemplate(validSize,existing.name,draft,existing.id,{kind});
+    if(!entry){showToast('บันทึกแบบป้ายไม่สำเร็จ');return;}
+    close();showToast(`บันทึกแบบ “${entry.name}” แล้ว`);
   });
   if(typeof ResizeObserver==='function'){
     previewResizeObserver=new ResizeObserver(()=>syncPreviewScale());
     previewResizeObserver.observe(canvas);
   }
   refreshLibraryControls();
-  if(retained)templateNameInput.value=retained.name;
   renderEditor();
 }
 
