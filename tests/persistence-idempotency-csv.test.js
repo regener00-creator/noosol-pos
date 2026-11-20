@@ -113,8 +113,8 @@ async function run() {
 
   const productCsv = section('function exportRProductExcel(){', 'function printRProduct(){');
   const billCsv = section("function exportRBillExcel(filter=rbillFilter", "function printRBill(filter=rbillFilter");
-  assert.match(productCsv, /csvSpreadsheetText\(r\.name\)/);
-  assert.match(productCsv, /csvSpreadsheetText\(r\.unit\)/);
+  assert.match(productCsv, /csvSpreadsheetText\(row\.name\)/);
+  assert.match(productCsv, /csvSpreadsheetText\(row\.quantity\)/);
   assert.match(billCsv, /csvSpreadsheetText\(r\.billId\)/);
   assert.match(billCsv, /csvSpreadsheetText\(billItemsPlainText\(r\.items\)\)/);
 

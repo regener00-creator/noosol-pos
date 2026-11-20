@@ -1545,6 +1545,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const rpTo=document.getElementById('rpf_to'); if(rpTo) rpTo.addEventListener('change',()=>{ const iso=dmyToISO(rpTo.value); if(iso) rproductFilter.to=iso; });
   const rpMonth=document.getElementById('rpf_month'); if(rpMonth) rpMonth.addEventListener('change',()=>{ rproductFilter.month=rpMonth.value; render(); });
   const rpYear=document.getElementById('rpf_year'); if(rpYear) rpYear.addEventListener('change',()=>{ rproductFilter.year=rpYear.value; render(); });
+  document.getElementById('rpf_by_month')?.addEventListener('change',event=>{ rproductFilter.byMonth=event.target.checked; render(); });
   const rpWh=document.getElementById('rpf_wh'); if(rpWh) rpWh.addEventListener('change',()=>{ rproductFilter.wh=rpWh.value; });
   const rpScope=document.getElementById('rpf_scope'); if(rpScope) rpScope.addEventListener('change',()=>{ rproductFilter.scope=rpScope.value; rproductFilter.category=''; rproductFilter.brand=''; rproductFilter.products=[]; render(); });
   document.getElementById('rpPickCategoryBtn')?.addEventListener('click',openRProductCategoryPicker);

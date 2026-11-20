@@ -163,9 +163,9 @@ const browserExecutable = [
     await page.evaluate(()=>exportRProductExcel());
     const download=await downloadStarted;
     const lines=fs.readFileSync(await download.path(),'utf8').trim().split(/\r?\n/);
-    assert.equal(lines[1],`"2027-01-01","สินค้ารายงาน 1",0,"กล่อง",${(60*store-25).toFixed(2)}`);
+    assert.equal(lines[2],`"สินค้ารายงาน 1","0 กล่อง",${(60*store-25).toFixed(2)}`);
     assert.ok(lines.includes('"2027-01-01","ค่าธรรมเนียม",17.64'));
-    assert.equal(lines.at(-1),`"รวมทั้งช่วง","ยอดสุทธิ",${result.selected}`);
+    assert.equal(lines.at(-1),`"2027-01-01","ยอดสุทธิ",${result.selected}`);
   }
   const split=await page.evaluate(()=>{
     const items=products.slice(0,3).map(product=>({name:product.name,qty:1,price:1,vatMode:'excl',lineTotalGross:1.07}));
@@ -217,6 +217,38 @@ const browserExecutable = [
       assert.deepEqual(csv.slice(2),expected.map(qty=>'"Decolgen prin (4 tablets)","'+qty+'"'));
     }
   }
+  await page.getByLabel('แสดงยอดแยกรายเดือน').check();
+  for(const store of [1,2]){
+    await page.evaluate(store=>{activeWarehouseId=store;render();},store);
+    const blocks=page.locator('.rpt-table tbody');
+    assert.equal(await blocks.count(),store===1?2:1);
+    const block=blocks.first();
+    assert.equal(await block.locator('tr').count(),14);
+    const values=await block.locator('td:last-child').allTextContents();
+    assert.equal(values[0],store===1?'1 กล่อง':'0 ซอง');
+    assert.equal(values[1],'0 ซอง');
+    assert.equal(values[9],store===1?'50 กล่อง':'0 ซอง');
+    assert.equal(values[10],store===1?'17 กล่อง 3 ซอง':'2 กล่อง 3 ซอง');
+    assert.equal(values[11],store===1?'2 ซอง':'0 ซอง');
+    assert.equal(values[12],store===1?'68 กล่อง 5 ซอง':'2 กล่อง 3 ซอง');
+    const printed=await page.evaluate(()=>{
+      const doc=document.implementation.createHTMLDocument();window.open=()=>({document:doc});printRProduct();
+      return Array.from(doc.querySelectorAll('tbody:first-of-type td:last-child'),td=>td.textContent);
+    });
+    assert.deepEqual(printed,values);
+    const pending=page.waitForEvent('download');await page.evaluate(()=>exportRProductExcel());
+    const download=await pending;
+    const csv=fs.readFileSync(await download.path(),'utf8');
+    assert.ok(csv.includes(',"พฤศจิกายน","'+values[10]+'"'));
+    assert.ok(csv.includes(',รวมทั้งปี,"'+values[12]+'"'));
+  }
+  await page.evaluate(()=>{
+    activeWarehouseId=1;TODAY_STR='2026-11-01';
+    salesHistory.push({warehouseId:1,date:TODAY_STR,status:'done',items:[{productId:501,name:products[0].name,qty:26,unit:'ซอง',factor:1,price:10}]});
+  });
+  await page.locator('#rpf_period').selectOption('today');
+  assert.equal(await page.getByLabel('แสดงยอดแยกรายเดือน').count(),0);
+  assert.deepEqual(await page.locator('.rpt-table tr td:nth-child(2)').allTextContents(),['17 กล่อง 1 ซอง','2 ขวด']);
   assert.deepEqual(errors,[]);
   console.log('Sales report picker: 3 columns, category/subcategory, selection, filters, clear, reopen and print passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});
