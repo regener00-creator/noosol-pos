@@ -469,7 +469,7 @@ function billReportDetailHtml(row){
     return `<tr><td>${escapeHtml(item.name)}${promotion?`<small> · ${promotion}</small>`:''}</td><td>${escapeHtml(item.qty)} ${escapeHtml(item.unit)}</td><td>${fmtMoney(item.net)}</td><td>${fmtMoney(item.costTotal)}</td><td>${billProfitAmountHtml(item.profit)}</td></tr>`;
   }).join('');
   return `<p>VAT <b>${fmtMoney(row.vat)}</b> · ยอดรับก่อน VAT <b>${fmtMoney(row.val-row.vat)}</b> · ต้นทุนรวม <b>${fmtMoney(breakdown.cost)}</b></p>
-    <table class="bill-line-table"><thead><tr><th>สินค้า</th><th>จำนวน</th><th>ยอดก่อน VAT</th><th>ต้นทุน</th><th>ส่วนต่าง</th></tr></thead><tbody>${items}</tbody><tfoot><tr><th colspan="2">รวม</th><td>${fmtMoney(breakdown.revenue)}</td><td>${fmtMoney(breakdown.cost)}</td><td>${billProfitAmountHtml(breakdown.profit)}</td></tr></tfoot></table>`;
+    <table class="bill-line-table"><thead><tr><th>สินค้า</th><th>จำนวน</th><th>ยอดก่อน VAT</th><th>ต้นทุน</th><th>ส่วนต่าง</th></tr></thead><tbody>${items}</tbody><tfoot><tr><th colspan="2">รวม</th><td>${fmtMoney(breakdown.revenue)} <small>(VAT ${fmtMoney(row.vat)})</small></td><td>${fmtMoney(breakdown.cost)}</td><td>${billProfitAmountHtml(breakdown.profit)}</td></tr></tfoot></table>`;
 }
 
 function billReportHeadingHtml(label,rows,includeProfit,collapsible=false){

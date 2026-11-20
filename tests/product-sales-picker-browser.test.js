@@ -367,6 +367,7 @@ const browserExecutable = [
   assert.match(await bills.nth(1).innerText(),/รอต้นทุน/);
   await bills.first().locator('td').last().click();
   assert.match(await page.locator('.bill-report-detail:visible').innerText(),/VAT 7.00/);
+  assert.equal(await page.locator('.bill-report-detail:visible tfoot td').first().textContent(),'100.00 (VAT 7.00)');
   assert.match(await page.locator('.bill-report-detail:visible').innerText(),/ของแถม · โปร A/);
   const loss=page.locator('.bill-report-detail:visible .bill-line-table tbody tr').last().locator('td:last-child span');
   assert.equal(await loss.innerText(),'−2.00');
@@ -379,6 +380,7 @@ const browserExecutable = [
     window.open=()=>({document:doc});printRBill();return doc.body.textContent;
   });
   assert.match(await printedBill(),/ต้นทุนรวม 42.00/);
+  assert.match(await printedBill(),/100\.00 \(VAT 7\.00\)/);
   assert.match(await printedBill(),/−2\.00/);
   await page.evaluate(()=>{
     currentProfile={id:'sales-only',owner:false,level:2};
