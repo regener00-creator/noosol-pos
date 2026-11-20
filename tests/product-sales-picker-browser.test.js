@@ -361,11 +361,17 @@ const browserExecutable = [
   });
   const bills=page.locator('[data-bill-summary]');
   assert.equal(await bills.count(),2);
-  assert.deepEqual(await bills.first().locator('td').allTextContents(),['▸ B-01','-','107.00','58.00']);
+  assert.deepEqual(await bills.first().locator('td').allTextContents(),['▸ B-01','-','107.00','+58.00']);
+  assert.equal(await bills.first().locator('td:last-child span').evaluate(el=>getComputedStyle(el).color),'rgb(45, 125, 61)');
+  assert.match(await page.locator('.rpt-meta-right').innerText(),/\+58\.00 \(รอต้นทุน 1 บิล\)/);
   assert.match(await bills.nth(1).innerText(),/รอต้นทุน/);
   await bills.first().locator('td').last().click();
   assert.match(await page.locator('.bill-report-detail:visible').innerText(),/VAT 7.00/);
   assert.match(await page.locator('.bill-report-detail:visible').innerText(),/ของแถม · โปร A/);
+  const loss=page.locator('.bill-report-detail:visible .bill-line-table tbody tr').last().locator('td:last-child span');
+  assert.equal(await loss.innerText(),'−2.00');
+  assert.equal(await loss.evaluate(el=>getComputedStyle(el).color),'rgb(194, 72, 62)');
+  assert.equal(await page.evaluate(()=>billProfitAmountHtml(-0.001)),'0.00');
   await bills.first().getByRole('button').press('Enter');
   assert.equal(await page.locator('.bill-report-detail:visible').count(),0);
   const printedBill=()=>page.evaluate(()=>{
@@ -373,6 +379,7 @@ const browserExecutable = [
     window.open=()=>({document:doc});printRBill();return doc.body.textContent;
   });
   assert.match(await printedBill(),/ต้นทุนรวม 42.00/);
+  assert.match(await printedBill(),/−2\.00/);
   await page.evaluate(()=>{
     currentProfile={id:'sales-only',owner:false,level:2};
     pagePermissionRows=[{page_key:'rbill',can_view:true,can_print:true},{page_key:'rprofit',can_view:true,can_print:false}];

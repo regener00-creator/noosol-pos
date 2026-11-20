@@ -454,35 +454,42 @@ function billItemsReportHtml(items){
   return `<div style="display:flex;flex-direction:column;gap:3px;">${(items||[]).map(it=>`<div>${escapeHtml(it.name)} <span style="white-space:nowrap;">×${escapeHtml(it.qty)} ${escapeHtml(it.unit||'')}</span></div>`).join('')||'-'}</div>`;
 }
 
+function billProfitAmountHtml(value){
+  const amount=fmtMoney(Math.abs(value));
+  if(amount===fmtMoney(0)) return amount;
+  const positive=value>0;
+  return `<span style="color:${positive?'#2D7D3D':'#C2483E'}">${positive?'+':'−'}${amount}</span>`;
+}
+
 function billReportDetailHtml(row){
   const breakdown=row.breakdown;
   if(!breakdown) return billItemsReportHtml(row.items);
   const items=breakdown.items.map(item=>{
     const promotion=[item.giftLabel,item.promoName].filter(Boolean).map(escapeHtml).join(' · ');
-    return `<tr><td>${escapeHtml(item.name)}${promotion?`<small> · ${promotion}</small>`:''}</td><td>${escapeHtml(item.qty)} ${escapeHtml(item.unit)}</td><td>${fmtMoney(item.net)}</td><td>${fmtMoney(item.costTotal)}</td><td>${fmtMoney(item.profit)}</td></tr>`;
+    return `<tr><td>${escapeHtml(item.name)}${promotion?`<small> · ${promotion}</small>`:''}</td><td>${escapeHtml(item.qty)} ${escapeHtml(item.unit)}</td><td>${fmtMoney(item.net)}</td><td>${fmtMoney(item.costTotal)}</td><td>${billProfitAmountHtml(item.profit)}</td></tr>`;
   }).join('');
   return `<p>VAT <b>${fmtMoney(row.vat)}</b> · ยอดรับก่อน VAT <b>${fmtMoney(row.val-row.vat)}</b> · ต้นทุนรวม <b>${fmtMoney(breakdown.cost)}</b></p>
-    <table class="bill-line-table"><thead><tr><th>สินค้า</th><th>จำนวน</th><th>ยอดขายก่อน VAT</th><th>ต้นทุน</th><th>กำไร / ขาดทุน</th></tr></thead><tbody>${items}</tbody><tfoot><tr><th colspan="2">รวม</th><td>${fmtMoney(breakdown.revenue)}</td><td>${fmtMoney(breakdown.cost)}</td><td>${fmtMoney(breakdown.profit)}</td></tr></tfoot></table>`;
+    <table class="bill-line-table"><thead><tr><th>สินค้า</th><th>จำนวน</th><th>ยอดขายก่อน VAT</th><th>ต้นทุน</th><th aria-label="กำไรหรือขาดทุน">+/−</th></tr></thead><tbody>${items}</tbody><tfoot><tr><th colspan="2">รวม</th><td>${fmtMoney(breakdown.revenue)}</td><td>${fmtMoney(breakdown.cost)}</td><td>${billProfitAmountHtml(breakdown.profit)}</td></tr></tfoot></table>`;
 }
 
 function billReportDayHtml(date,rows,includeProfit,forPrint=false){
   const dayTotal=rows.reduce((sum,row)=>sum+row.val,0);
   const columns=includeProfit?4:3;
-  return `<section class="rpt-day-group bill-report-day"><div class="rpt-day-head"><b>${reportDateLabel(date)}</b><span>ลูกค้าจ่าย ${fmtMoney(dayTotal)} บาท${includeProfit?` · กำไร / ขาดทุน ${billProfitSummaryText(rows)}`:''}</span></div>
-    <table class="rpt-table bill-summary-table"><thead><tr><th>เลขบิล</th><th>วิธีชำระ</th><th>ลูกค้าจ่าย (รวม VAT)</th>${includeProfit?'<th>กำไร / ขาดทุน</th>':''}</tr></thead><tbody>
+  return `<section class="rpt-day-group bill-report-day"><div class="rpt-day-head"><b>${reportDateLabel(date)}</b><span>ลูกค้าจ่าย ${fmtMoney(dayTotal)} บาท${includeProfit?` · ${billProfitSummaryHtml(rows)}`:''}</span></div>
+    <table class="rpt-table bill-summary-table"><thead><tr><th>เลขบิล</th><th>วิธีชำระ</th><th>ลูกค้าจ่าย (รวม VAT)</th>${includeProfit?'<th aria-label="กำไรหรือขาดทุน">+/−</th>':''}</tr></thead><tbody>
     ${rows.map(row=>{
       const name=escapeHtml(row.billId);
       const toggle=forPrint?name:`<button type="button" class="bill-report-toggle" aria-expanded="false"><span aria-hidden="true">▸</span> ${name}</button>`;
-      const profit=row.breakdown?fmtMoney(row.breakdown.profit):'รอต้นทุน';
+      const profit=row.breakdown?billProfitAmountHtml(row.breakdown.profit):'รอต้นทุน';
       return `<tr${forPrint?'':' data-bill-summary'}><td>${toggle}</td><td>${escapeHtml(row.payMethod)}</td><td>${fmtMoney(row.val)}</td>${includeProfit?`<td>${profit}</td>`:''}</tr>
         <tr class="bill-report-detail"${forPrint?'':' hidden'}><td colspan="${columns}">${billReportDetailHtml(row)}</td></tr>`;
     }).join('')}</tbody></table></section>`;
 }
 
-function billProfitSummaryText(rows){
+function billProfitSummaryHtml(rows){
   const ready=rows.filter(row=>row.breakdown);
   if(!ready.length&&rows.length) return 'รอต้นทุน';
-  const profit=fmtMoney(ready.reduce((sum,row)=>sum+row.breakdown.profit,0));
+  const profit=billProfitAmountHtml(ready.reduce((sum,row)=>sum+row.breakdown.profit,0));
   const waiting=rows.length-ready.length;
   return waiting?`${profit} (รอต้นทุน ${waiting} บิล)`:profit;
 }
@@ -560,7 +567,7 @@ function printRBill(filter=rbillFilter,reportTitle='รายงานยอด�
       <div class="meta-right">
         <div class="tot"><span class="k">ลูกค้าจ่าย (รวม VAT)</span><span class="v">${fmtMoney(grandVal)}</span></div>
         ${includeProfit&&costedBills.length?`<div class="tot"><span>ต้นทุนรวม${costedBills.length<docCount?' (บิลที่มีต้นทุนครบ)':''}</span><b>${fmtMoney(cost)}</b></div><div class="tot"><span>อัตรากำไร${costedBills.length<docCount?' (บิลที่มีต้นทุนครบ)':''}</span><b>${revenue?((revenue-cost)/revenue*100).toFixed(2):'0.00'}%</b></div>`:''}
-        ${includeProfit?`<div class="tot"><span>กำไร / ขาดทุน</span><b>${billProfitSummaryText(allRows)}</b></div>`:''}
+        ${includeProfit?`<div class="tot"><b title="กำไรหรือขาดทุน">${billProfitSummaryHtml(allRows)}</b></div>`:''}
       </div>
     </div>
     ${dayBlocksHtml}
@@ -633,7 +640,7 @@ function renderRBill(){
           <div class="rpt-meta-right">
             <span class="rpt-meta-total-k">ยอดรวม</span>
             <span class="rpt-meta-total-v">${fmtMoney(grandVal)}</span>
-            ${includeProfit?`<div>กำไร / ขาดทุน <b>${billProfitSummaryText(allRows)}</b></div>`:''}
+            ${includeProfit?`<div><b title="กำไรหรือขาดทุน">${billProfitSummaryHtml(allRows)}</b></div>`:''}
           </div>
         </div>
       </div>
