@@ -1598,6 +1598,13 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const rbWh=document.getElementById('rbf_wh'); if(rbWh) rbWh.addEventListener('change',()=>{ rbillFilter.wh=rbWh.value; });
   const rbPay=document.getElementById('rbf_pay'); if(rbPay) rbPay.addEventListener('change',()=>{ rbillFilter.pay=rbPay.value; });
   const rbApply=document.getElementById('rbApplyBtn'); if(rbApply) rbApply.addEventListener('click',()=>{ rbillFilter.applied=true; render(); });
+  document.querySelectorAll('[data-bill-summary]').forEach(row=>row.addEventListener('click',()=>{
+    const detail=row.nextElementSibling;
+    const button=row.querySelector('.bill-report-toggle');
+    detail.hidden=!detail.hidden;
+    button.setAttribute('aria-expanded',String(!detail.hidden));
+    button.querySelector('span').textContent=detail.hidden?'▸':'▾';
+  }));
   const rbPrint=document.getElementById('rbPrintBtn'); if(rbPrint) rbPrint.addEventListener('click',()=>{ printRBill(); });
   // ===== ตัวกรองรายงานกำไร / ขาดทุน =====
   const rprofitPeriod=document.getElementById('rprofit_period'); if(rprofitPeriod) rprofitPeriod.addEventListener('change',()=>{rprofitFilter.period=rprofitPeriod.value;render();});
@@ -1608,7 +1615,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const rprofitWh=document.getElementById('rprofit_wh'); if(rprofitWh) rprofitWh.addEventListener('change',()=>{rprofitFilter.wh=rprofitWh.value;});
   const rprofitPay=document.getElementById('rprofit_pay'); if(rprofitPay) rprofitPay.addEventListener('change',()=>{rprofitFilter.pay=rprofitPay.value;});
   const rprofitApply=document.getElementById('rprofitApplyBtn'); if(rprofitApply) rprofitApply.addEventListener('click',()=>{rprofitFilter.applied=true;render();});
-  const rprofitPrint=document.getElementById('rprofitPrintBtn'); if(rprofitPrint) rprofitPrint.addEventListener('click',printRProfit);
+  const rprofitPrint=document.getElementById('rprofitPrintBtn'); if(rprofitPrint) rprofitPrint.addEventListener('click',()=>printRProfit());
   const rtaxMonthInput=document.getElementById('rtax_month'); if(rtaxMonthInput) rtaxMonthInput.addEventListener('change',()=>{rtaxMonth=rtaxMonthInput.value||TODAY_STR.slice(0,7);rtaxPages={sales:1,purchases:1};render();});
   document.getElementById('taxReportExcelBtn')?.addEventListener('click',async event=>{
     const type=document.getElementById('taxReportExcelType')?.value;
@@ -1700,6 +1707,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     el.addEventListener('click', ()=>{ if(typeof el.showPicker==='function'){ try{ el.showPicker(); }catch(error){} } });
   });
   // --- ตัวกรองหน้าสินค้าใกล้หมด/ใกล้หมดอายุ ---
+  document.querySelectorAll('[data-stock-report-tab]').forEach(button=>button.addEventListener('click',()=>{
+    const tab=button.dataset.stockReportTab;
+    if(tab!==currentTab&&canAccessTab(tab)){ currentTab=tab; render(); }
+  }));
   document.querySelectorAll('[data-lowstock-mode]').forEach(el=>{
     el.addEventListener('click',()=>{
       lowStockPageFilter.stockMode=el.dataset.lowstockMode||'low';

@@ -406,13 +406,15 @@ function rbillPeriodRange(filter=rbillFilter){
 }
 
 // รวมยอดขายเป็นรายบิล (ไม่แยกตามสินค้า) ตามตัวกรองที่ตั้งไว้
-function rbillCollect(filter=rbillFilter){
+function rbillCollect(filter=rbillFilter,includeProfit=false){
   const f=filter, range=rbillPeriodRange(filter);
   const prodByName={}; products.forEach(p=>{ prodByName[p.name]=p; });
   let bills = f.applied ? completedSalesInReportRange(range) : [];
   if(f.pay && f.pay!=='all') bills = bills.filter(s=>(s.payMethod||'เงินสด')===f.pay);
   // กรองบิลตามคลัง/หมวด/สินค้า: บิลจะรวมอยู่ในผลลัพธ์ถ้ามีอย่างน้อย 1 รายการที่ตรงเงื่อนไข
-  bills = bills.filter(s=>s.items.some(it=>{
+  bills = bills.filter(s=>!s.items?.length
+    ? f.scope==='all'&&(f.wh==='all'||String(saleWarehouseForReport(s))===String(f.wh))
+    : s.items.some(it=>{
     const p=prodByName[it.name]||{};
     if(f.wh!=='all' && String(saleWarehouseForReport(s,it,p))!==String(f.wh)) return false;
     if(f.scope==='category' && f.category && (p.category||'')!==f.category) return false;
@@ -429,11 +431,18 @@ function rbillCollect(filter=rbillFilter){
       const p=prodByName[it.name]||{};
       return {name:it.name,qty:it.qty,unit:it.unit||p.unit||'-'};
     });
-    byDate[d].push({billId:s.ref||s.id,payMethod:s.payMethod||'-',items,val:Number(s.total)||0});
+    const row={billId:s.ref||s.id,payMethod:s.payMethod||'-',items,val:Number(s.total)||0};
+    if(includeProfit){
+      row.breakdown=billHasCostData(s)?billProfitBreakdown(s):null;
+      row.vat=s.vatRegistered&&s.taxSummary?.vat==null&&s.vat==null
+        ? row.breakdown?.vat
+        : Number(saleTaxSummary(s).vat)||0;
+    }
+    byDate[d].push(row);
   });
   const dateKeys=Object.keys(byDate).filter(d=>byDate[d].length).sort((a,b)=>a.localeCompare(b));
   const allRows=dateKeys.flatMap(d=>byDate[d]);
-  const grandVal=bills.reduce((a,s)=>a+s.total,0);
+  const grandVal=allRows.reduce((sum,row)=>sum+row.val,0);
   return {f, range, byDate, dateKeys, allRows, grandVal, docCount:bills.length};
 }
 
@@ -443,6 +452,39 @@ function billItemsPlainText(items){
 
 function billItemsReportHtml(items){
   return `<div style="display:flex;flex-direction:column;gap:3px;">${(items||[]).map(it=>`<div>${escapeHtml(it.name)} <span style="white-space:nowrap;">×${escapeHtml(it.qty)} ${escapeHtml(it.unit||'')}</span></div>`).join('')||'-'}</div>`;
+}
+
+function billReportDetailHtml(row){
+  const breakdown=row.breakdown;
+  if(!breakdown) return billItemsReportHtml(row.items);
+  const items=breakdown.items.map(item=>{
+    const promotion=[item.giftLabel,item.promoName].filter(Boolean).map(escapeHtml).join(' · ');
+    return `<tr><td>${escapeHtml(item.name)}${promotion?`<small> · ${promotion}</small>`:''}</td><td>${escapeHtml(item.qty)} ${escapeHtml(item.unit)}</td><td>${fmtMoney(item.net)}</td><td>${fmtMoney(item.costTotal)}</td><td>${fmtMoney(item.profit)}</td></tr>`;
+  }).join('');
+  return `<p>VAT <b>${fmtMoney(row.vat)}</b> · ยอดรับก่อน VAT <b>${fmtMoney(row.val-row.vat)}</b> · ต้นทุนรวม <b>${fmtMoney(breakdown.cost)}</b></p>
+    <table class="bill-line-table"><thead><tr><th>สินค้า</th><th>จำนวน</th><th>ยอดขายก่อน VAT</th><th>ต้นทุน</th><th>กำไร / ขาดทุน</th></tr></thead><tbody>${items}</tbody><tfoot><tr><th colspan="2">รวม</th><td>${fmtMoney(breakdown.revenue)}</td><td>${fmtMoney(breakdown.cost)}</td><td>${fmtMoney(breakdown.profit)}</td></tr></tfoot></table>`;
+}
+
+function billReportDayHtml(date,rows,includeProfit,forPrint=false){
+  const dayTotal=rows.reduce((sum,row)=>sum+row.val,0);
+  const columns=includeProfit?4:3;
+  return `<section class="rpt-day-group"><div class="rpt-day-head"><b>${reportDateLabel(date)}</b><span>ลูกค้าจ่าย ${fmtMoney(dayTotal)} บาท${includeProfit?` · กำไร / ขาดทุน ${billProfitSummaryText(rows)}`:''}</span></div>
+    <table class="rpt-table bill-summary-table"><thead><tr><th>เลขบิล</th><th>วิธีชำระ</th><th>ลูกค้าจ่าย (รวม VAT)</th>${includeProfit?'<th>กำไร / ขาดทุน</th>':''}</tr></thead><tbody>
+    ${rows.map(row=>{
+      const name=escapeHtml(row.billId);
+      const toggle=forPrint?name:`<button type="button" class="bill-report-toggle" aria-expanded="false"><span aria-hidden="true">▸</span> ${name}</button>`;
+      const profit=row.breakdown?fmtMoney(row.breakdown.profit):'รอต้นทุน';
+      return `<tr${forPrint?'':' data-bill-summary'}><td>${toggle}</td><td>${escapeHtml(row.payMethod)}</td><td>${fmtMoney(row.val)}</td>${includeProfit?`<td>${profit}</td>`:''}</tr>
+        <tr class="bill-report-detail"${forPrint?'':' hidden'}><td colspan="${columns}">${billReportDetailHtml(row)}</td></tr>`;
+    }).join('')}</tbody></table></section>`;
+}
+
+function billProfitSummaryText(rows){
+  const ready=rows.filter(row=>row.breakdown);
+  if(!ready.length&&rows.length) return 'รอต้นทุน';
+  const profit=fmtMoney(ready.reduce((sum,row)=>sum+row.breakdown.profit,0));
+  const waiting=rows.length-ready.length;
+  return waiting?`${profit} (รอต้นทุน ${waiting} บิล)`:profit;
 }
 
 function exportRBillExcel(filter=rbillFilter,reportTitle='รายงานยอดขายตามบิล'){
@@ -460,19 +502,19 @@ function exportRBillExcel(filter=rbillFilter,reportTitle='รายงานย�
 }
 
 function printRBill(filter=rbillFilter,reportTitle='รายงานยอดขายตามบิล'){
-  const {range, byDate, dateKeys, allRows, grandVal, docCount} = rbillCollect(filter);
+  if(!canAccessTab('rbill')) return;
+  const includeProfit=canAccessTab('rprofit')&&canPerformPageAction('print','rprofit');
+  if(!canPerformPageAction('print','rbill')){
+    if(includeProfit) printRProfit(filter);
+    return;
+  }
+  if(includeProfit) reportTitle='ยอดขายและกำไรตามบิล';
+  const {range, byDate, dateKeys, allRows, grandVal, docCount} = rbillCollect(filter,includeProfit);
   const bizName=warehouseBusinessSettings().name||'';
-  const dayBlocksHtml = dateKeys.length ? dateKeys.map(d=>{
-    const dayRows=byDate[d];
-    const dayTotal=dayRows.reduce((a,r)=>a+r.val,0);
-    return `<div class="day-block">
-      <table>
-        <colgroup><col style="width:20%"><col style="width:48%"><col style="width:15%"><col style="width:17%"></colgroup>
-        <tbody><tr class="day-head-row"><td>${reportDateLabel(d)}</td><td colspan="2"></td><td class="r">${fmtMoney(dayTotal)}</td></tr>
-        ${dayRows.map(r=>`<tr><td class="pd-name">${escapeHtml(r.billId)}</td><td>${billItemsReportHtml(r.items)}</td><td>${escapeHtml(r.payMethod)}</td><td class="r">${fmtMoney(r.val)}</td></tr>`).join('')}</tbody>
-      </table>
-    </div>`;
-  }).join('') : `<div style="text-align:center;color:#888;padding:24px;">ไม่มีข้อมูล</div>`;
+  const costedBills=allRows.filter(row=>row.breakdown);
+  const revenue=costedBills.reduce((sum,row)=>sum+row.breakdown.revenue,0);
+  const cost=costedBills.reduce((sum,row)=>sum+row.breakdown.cost,0);
+  const dayBlocksHtml=dateKeys.map(date=>billReportDayHtml(date,byDate[date],includeProfit,true)).join('')||'<p>ไม่มีข้อมูล</p>';
 
   const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร'); return; }
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${escapeHtml(reportTitle)}</title>
@@ -493,8 +535,10 @@ function printRBill(filter=rbillFilter,reportTitle='รายงานยอด�
     .meta-right .tot{display:flex;justify-content:flex-end;gap:24px;align-items:baseline;}
     .meta-right .tot .k{color:#2b2b2b}
     .meta-right .tot .v{font-weight:700;font-size:18px;min-width:90px;color:#4F4038}
-    .day-block{margin-top:18px;}
-    .day-head-row td{background:#F1E8E5;font-weight:600;font-size:12.5px;color:#4F4038;padding:7px 8px;border-bottom:none;}
+    .rpt-day-group{margin-top:18px;}
+    .rpt-day-head{display:flex;justify-content:space-between;background:#F1E8E5;font-size:12.5px;color:#4F4038;padding:7px 8px;}
+    .bill-line-table{table-layout:auto}
+    .bill-summary-table :is(td,th):nth-child(n+3){text-align:right}
     table{width:100%;border-collapse:collapse;table-layout:fixed;}
     thead th{text-align:left;padding:9px 8px;font-size:12px;font-weight:600;color:#444;border-bottom:1px solid #333}
     tbody td{padding:9px 8px;border-bottom:1px solid #e2e6ea;font-size:12.5px}
@@ -514,7 +558,9 @@ function printRBill(filter=rbillFilter,reportTitle='รายงานยอด�
         <div><span class="k">จำนวนทั้งหมด</span><span>${docCount} เอกสาร</span></div>
       </div>
       <div class="meta-right">
-        <div class="tot"><span class="k">ยอดรวม</span><span class="v">${fmtMoney(grandVal)}</span></div>
+        <div class="tot"><span class="k">ลูกค้าจ่าย (รวม VAT)</span><span class="v">${fmtMoney(grandVal)}</span></div>
+        ${includeProfit&&costedBills.length?`<div class="tot"><span>ต้นทุนรวม${costedBills.length<docCount?' (บิลที่มีต้นทุนครบ)':''}</span><b>${fmtMoney(cost)}</b></div><div class="tot"><span>อัตรากำไร${costedBills.length<docCount?' (บิลที่มีต้นทุนครบ)':''}</span><b>${revenue?((revenue-cost)/revenue*100).toFixed(2):'0.00'}%</b></div>`:''}
+        ${includeProfit?`<div class="tot"><span>กำไร / ขาดทุน</span><b>${billProfitSummaryText(allRows)}</b></div>`:''}
       </div>
     </div>
     ${dayBlocksHtml}
@@ -528,17 +574,18 @@ function renderRBill(){
   if(!isAllWarehousesMode()) rbillFilter.wh=String(activeWarehouseId);
   const f=rbillFilter;
   const range=rbillPeriodRange(f);
-  const reportTitle='รายงานยอดขายตามบิล';
+  const includeProfit=canAccessTab('rprofit');
+  const reportTitle=includeProfit?'ยอดขายและกำไรตามบิล':'รายงานยอดขายตามบิล';
   const idPrefix='rb';
   const fieldPrefix='rbf';
   const periodOpts=[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
-  const {byDate, dateKeys, grandVal, docCount} = rbillCollect(f);
+  const {byDate, dateKeys, allRows, grandVal, docCount} = rbillCollect(f,includeProfit);
 
   return `<div class="rpt rpt-page-scroll">
     <div class="rpt-head">
       <h1>${reportTitle}</h1>
       <div class="rpt-head-actions">
-        <button class="btn primary" id="${idPrefix}PrintBtn">พิมพ์รายงาน</button>
+        ${canPerformPageAction('print','rbill')||includeProfit&&canPerformPageAction('print','rprofit')?`<button class="btn primary" id="${idPrefix}PrintBtn">พิมพ์รายงาน</button>`:''}
       </div>
     </div>
 
@@ -586,83 +633,71 @@ function renderRBill(){
           <div class="rpt-meta-right">
             <span class="rpt-meta-total-k">ยอดรวม</span>
             <span class="rpt-meta-total-v">${fmtMoney(grandVal)}</span>
+            ${includeProfit?`<div>กำไร / ขาดทุน <b>${billProfitSummaryText(allRows)}</b></div>`:''}
           </div>
         </div>
       </div>
 
-      ${dateKeys.length?dateKeys.map(d=>{
-        const dayRows=byDate[d];
-        const dayTotal=dayRows.reduce((a,r)=>a+r.val,0);
-        return `<div class="rpt-day-group">
-          <table class="rpt-table rpt-day-head-table">
-            <colgroup><col style="width:20%"><col style="width:48%"><col style="width:15%"><col style="width:17%"></colgroup>
-            <tbody><tr class="rpt-day-head-row">
-              <td class="rpt-day-date" style="text-align:center;">${reportDateLabel(d)}</td>
-              <td colspan="2"></td>
-              <td class="rpt-day-total" style="text-align:center;">${fmtMoney(dayTotal)}</td>
-            </tr></tbody>
-          </table>
-          <table class="rpt-table">
-            <colgroup><col style="width:20%"><col style="width:48%"><col style="width:15%"><col style="width:17%"></colgroup>
-            <tbody>
-              ${dayRows.map(r=>`<tr>
-                <td class="rpt-pname" style="text-align:center;">${escapeHtml(r.billId)}</td>
-                <td>${billItemsReportHtml(r.items)}</td>
-                <td style="text-align:center;">${escapeHtml(r.payMethod||'-')}</td>
-                <td class="mono" style="text-align:center;">${fmtMoney(r.val)}</td>
-              </tr>`).join('')}
-            </tbody>
-          </table>
-        </div>`;
-      }).join(''):`<div class="rpt-empty">${f.applied?'ไม่มีข้อมูลการขายในช่วงเวลาที่เลือก':'เลือกเงื่อนไขแล้วกด “แสดงผล” เพื่อดูรายงาน'}</div>`}
+      ${dateKeys.length?dateKeys.map(date=>billReportDayHtml(date,byDate[date],includeProfit)).join(''):`<div class="rpt-empty">${f.applied?'ไม่มีข้อมูลการขายในช่วงเวลาที่เลือก':'เลือกเงื่อนไขแล้วกด “แสดงผล” เพื่อดูรายงาน'}</div>`}
     </div>
   </div>`;
 }
 
-function rprofitPeriodRange(){
-  return rbillPeriodRange(rprofitFilter);
+function rprofitPeriodRange(filter=rprofitFilter){
+  return rbillPeriodRange(filter);
 }
 
-function rprofitCollect(){
-  const f=rprofitFilter,range=rprofitPeriodRange(),prodById={},prodByName={};
+function billHasCostData(sale){
+  const valid=value=>value!=null&&value!==''&&Number.isFinite(Number(value));
+  return !!sale.items?.length&&sale.items.every(item=>valid(item.costTotal)||valid(item.cost));
+}
+
+function billProfitBreakdown(s){
+  const registered=s.vatRegistered===true;
+  const prepared=(s.items||[]).map(it=>{
+    const qty=Number(it.qty)||0,price=Number(it.price)||0,cost=Number(it.cost)||0;
+    const amount=it.lineTotal!==undefined?Number(it.lineTotal)||0:price*qty;
+    const vatMode=registered?normalizeProductVatMode(it.vatMode):'none';
+    const gross=it.lineTotalGross!==undefined?Number(it.lineTotalGross)||0:grossAmountForVatMode(amount,vatMode,registered);
+    const beforeVat=registered&&vatMode!=='none'?gross/(1+VAT_RATE):gross;
+    const costTotal=it.costTotal!=null&&it.costTotal!==''&&Number.isFinite(Number(it.costTotal))?Number(it.costTotal):cost*qty;
+    return {source:it,qty,price,cost,gross,beforeVat,costTotal};
+  });
+  const subtotal=prepared.reduce((sum,item)=>sum+item.gross,0);
+  const discount=Number(s.discount)||0;
+  const billDiscountCost=saleBillDiscountCost(s);
+  const ratio=s.customerReturn?1:subtotal>0?Math.max(0,subtotal-discount)/subtotal:0;
+  const items=prepared.map(item=>{
+    // The tax and payment totals already include the discount. Reclassify
+    // its gross amount as a bill expense while retaining the actual VAT.
+    const net=item.beforeVat*ratio+(subtotal>0?billDiscountCost*item.gross/subtotal:0);
+    const freeQty=Number(item.source.promoFreeQty)||0;
+    const giftLabel=freeQty>0?`แถม ${freeQty} ${item.source.unit||''}`:(item.gross===0&&(item.source.promoId||item.source.promoName)?'ของแถม':'');
+    return {name:item.source.name,promoName:item.source.promoName||'',giftLabel,qty:item.qty,unit:item.source.unit||'-',price:item.price,cost:item.cost,net,costTotal:item.costTotal,profit:net-item.costTotal};
+  });
+  if(billDiscountCost>0) items.push(billDiscountCostLine(billDiscountCost));
+  const fee=Number(s.fee)||0;
+  if(fee>0){
+    const feeNet=registered?fee/(1+VAT_RATE):fee;
+    items.push({name:'ค่าธรรมเนียมบัตร',qty:1,unit:'รายการ',price:fee,cost:0,net:feeNet,costTotal:0,profit:feeNet});
+  }
+  const revenue=items.reduce((sum,item)=>sum+item.net,0),cost=items.reduce((sum,item)=>sum+item.costTotal,0);
+  const vat=prepared.reduce((sum,item)=>sum+(item.gross-item.beforeVat)*ratio,0)+(registered&&fee>0?fee-fee/(1+VAT_RATE):0);
+  return {saleId:s.id,billId:s.ref||s.id,payMethod:s.payMethod||'-',items,revenue,cost,vat,profit:revenue-cost};
+}
+
+function rprofitCollect(f=rprofitFilter){
+  const range=rprofitPeriodRange(f),prodById={},prodByName={};
   products.forEach(p=>{prodById[p.id]=p;prodByName[p.name]=p;});
   const inRange=s=>{const d=(s.date||'').slice(0,10);return d>=range.from&&d<=range.to;};
   const allInRange=salesHistory.filter(documentInActiveStore).filter(s=>s.status==='done').filter(inRange);
-  const hasCostData=s=>(s.items||[]).length>0&&(s.items||[]).every(item=>Object.prototype.hasOwnProperty.call(item,'costTotal')||Object.prototype.hasOwnProperty.call(item,'cost'));
-  let bills=f.applied?allInRange.filter(hasCostData):[];
+  let bills=f.applied?allInRange.filter(billHasCostData):[];
   if(f.pay!=='all') bills=bills.filter(s=>(s.payMethod||'เงินสด')===f.pay);
   if(f.wh!=='all') bills=bills.filter(s=>(s.items||[]).some(it=>{const p=prodById[it.productId]||prodByName[it.name];return String(saleWarehouseForReport(s,it,p))===String(f.wh);}));
   const byDate={};
   const rows=[];
   bills.forEach(s=>{
-    const registered=s.vatRegistered===true;
-    const prepared=(s.items||[]).map(it=>{
-      const qty=Number(it.qty)||0,price=Number(it.price)||0,cost=Number(it.cost)||0;
-      const amount=it.lineTotal!==undefined?Number(it.lineTotal)||0:price*qty;
-      const vatMode=registered?normalizeProductVatMode(it.vatMode):'none';
-      const gross=it.lineTotalGross!==undefined?Number(it.lineTotalGross)||0:grossAmountForVatMode(amount,vatMode,registered);
-      const beforeVat=registered&&vatMode!=='none'?gross/(1+VAT_RATE):gross;
-      const costTotal=it.costTotal!==undefined?Number(it.costTotal)||0:cost*qty;
-      return {source:it,qty,price,cost,gross,beforeVat,costTotal};
-    });
-    const subtotal=prepared.reduce((sum,item)=>sum+item.gross,0);
-    const discount=Number(s.discount)||0;
-    const billDiscountCost=saleBillDiscountCost(s);
-    const ratio=s.customerReturn?1:subtotal>0?Math.max(0,subtotal-discount)/subtotal:0;
-    const items=prepared.map(item=>{
-      // The tax and payment totals already include the discount. Reclassify
-      // its gross amount as a bill expense while retaining the actual VAT.
-      const net=item.beforeVat*ratio+(subtotal>0?billDiscountCost*item.gross/subtotal:0);
-      return {name:item.source.name,qty:item.qty,unit:item.source.unit||'-',price:item.price,cost:item.cost,net,costTotal:item.costTotal,profit:net-item.costTotal};
-    });
-    if(billDiscountCost>0) items.push(billDiscountCostLine(billDiscountCost));
-    const fee=Number(s.fee)||0;
-    if(fee>0){
-      const feeNet=registered?fee/(1+VAT_RATE):fee;
-      items.push({name:'ค่าธรรมเนียมบัตร',qty:1,unit:'รายการ',price:fee,cost:0,net:feeNet,costTotal:0,profit:feeNet});
-    }
-    const revenue=items.reduce((sum,item)=>sum+item.net,0),cost=items.reduce((sum,item)=>sum+item.costTotal,0);
-    const row={saleId:s.id,billId:s.ref||s.id,payMethod:s.payMethod||'-',items,revenue,cost,profit:revenue-cost};
+    const row=billProfitBreakdown(s);
     rows.push(row);
     const d=(s.date||'').slice(0,10);(byDate[d]||(byDate[d]=[])).push(row);
   });
@@ -670,7 +705,7 @@ function rprofitCollect(){
   const revenue=rows.reduce((sum,row)=>sum+row.revenue,0);
   const cost=rows.reduce((sum,row)=>sum+row.cost,0);
   const profit=revenue-cost;
-  const missingCount=f.applied?allInRange.filter(s=>!hasCostData(s)).length:0;
+  const missingCount=f.applied?allInRange.filter(s=>!billHasCostData(s)).length:0;
   return {f,range,bills,byDate,dateKeys,revenue,cost,profit,missingCount};
 }
 
@@ -678,8 +713,9 @@ function profitItemsReportHtml(items,bill){
   return `<div class="profit-items"><div class="profit-item profit-item-head"><span class="mono">${escapeHtml(bill.billId)}</span><span>จำนวน</span><span>หน่วย</span><span>ขาย</span><span>ทุน</span><span>กำไร</span></div>${items.map(it=>`<div class="profit-item"><span>${escapeHtml(it.name)}</span><span>${it.qty}</span><span>${escapeHtml(it.unit)}</span><span class="mono">${fmtMoney(it.price)}</span><span class="mono">${fmtMoney(it.cost)}</span><span class="mono" style="color:${it.profit<0?'var(--danger)':'#2D7D3D'};font-weight:400;">${it.profit<0?'-':''}${fmtMoney(Math.abs(it.profit))}</span></div>`).join('')}<div class="profit-item profit-item-total"><span class="total-label"></span><span><b class="mono">${fmtMoney(bill.revenue)}</b></span><span><b class="mono">${fmtMoney(bill.cost)}</b></span><span style="color:${bill.profit>=0?'#2D7D3D':'var(--danger)'};"><b class="mono">${bill.profit<0?'-':''}${fmtMoney(Math.abs(bill.profit))}</b></span></div></div>`;
 }
 
-function printRProfit(){
-  const {range,bills,byDate,dateKeys,revenue,cost,profit,missingCount}=rprofitCollect();
+function printRProfit(filter=rprofitFilter){
+  if(!canAccessTab('rprofit')||!canPerformPageAction('print','rprofit')) return;
+  const {range,bills,byDate,dateKeys,revenue,cost,profit,missingCount}=rprofitCollect(filter);
   const bizName=warehouseBusinessSettings().name||'';
   const margin=revenue?profit/revenue*100:0;
   const dayBlocksHtml=dateKeys.length?dateKeys.map(d=>{
@@ -717,7 +753,7 @@ function renderRProfit(){
   const periodOpts=[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
   const margin=revenue?profit/revenue*100:0;
   return `<div class="rpt">
-    <div class="rpt-head"><h1>รายงานกำไร / ขาดทุน</h1><div class="rpt-head-actions"><button class="btn primary" id="rprofitPrintBtn">พิมพ์รายงาน</button></div></div>
+    <div class="rpt-head"><h1>รายงานกำไร / ขาดทุน</h1><div class="rpt-head-actions">${canPerformPageAction('print','rprofit')?'<button class="btn primary" id="rprofitPrintBtn">พิมพ์รายงาน</button>':''}</div></div>
     <div class="rpt-filters">
       <div class="rpf-item"><select id="rprofit_period" class="rpt-select">${periodOpts.map(([v,l])=>`<option value="${v}" ${f.period===v?'selected':''}>${l}</option>`).join('')}</select></div>
       ${f.period==='range'?`<div class="rpf-item rpf-range">${dmyDateFieldHtml('rprofit_from',range.from)}<span style="color:var(--text-muted);">ถึง</span>${dmyDateFieldHtml('rprofit_to',range.to)}</div>`:''}
@@ -838,6 +874,7 @@ function renderRInventory(){
   const brandOptions = brands.filter(brand=>products.some(product=>(!catf.category||product.category===catf.category)&&product.brand===brand));
   const matchCount = products.filter(product=>stockReportProductMatchesFilter(product,catf)&&(catf.wh||catf.category||catf.brand)).length;
   return `<div class="rpt store-inventory-report">
+  ${stockReportTabsHtml()}
   <div class="pagehead topbar-action-source"><div></div><div style="display:flex;gap:8px;"><button class="btn ghost" id="resetStockReportBtn">รีเซ็ตข้อมูล</button><button class="btn primary" id="printStockReportBtn">พิมพ์รายงาน</button></div></div>
   <div class="inventory-report-section">
     <div class="rpt-filters stock-report-filters" style="margin-bottom:14px;">

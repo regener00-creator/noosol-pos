@@ -2,7 +2,7 @@ const assert=require('node:assert/strict');
 const vm=require('node:vm');
 const source=require('./load-app-source')();
 const context={activeWarehouseId:1};vm.createContext(context);
-for(const name of ['customerReturnAvailable','customerReturnRefund','cashShiftSummary','saleTaxSummary','rprofitCollect','documentInActiveStore','billDiscountCostLine','saleBillDiscountCost']){
+for(const name of ['customerReturnAvailable','customerReturnRefund','cashShiftSummary','saleTaxSummary','rprofitCollect','billHasCostData','billProfitBreakdown','documentInActiveStore','billDiscountCostLine','saleBillDiscountCost']){
   const fn=source.match(new RegExp('^function '+name+'\\([^\\n]*\\)\\{[\\s\\S]*?^\\}','m'));
   assert.ok(fn,name);vm.runInContext(fn[0],context);
 }

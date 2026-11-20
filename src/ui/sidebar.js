@@ -37,7 +37,7 @@ const NAV = [
     ['lowstock','สินค้าใกล้หมด','<path d="M12 9v4"/><circle cx="12" cy="16.5" r="0.5" fill="currentColor"/><path d="M10.3 3.9L2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>'],
     ['expiry','สินค้าใกล้หมดอายุ','<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M8 3.9 6.5 2.5M16 3.9l1.5-1.4"/>'],
     ['rproduct','ยอดขายตามสินค้า','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>'],
-    ['rbill','ยอดขายตามบิล','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>'],
+    ['rbill','ยอดขายและกำไรตามบิล','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>'],
     ['rvoid','รายงานบิลยกเลิก','<path d="M5 3h14v18H5zM9 8l6 6M15 8l-6 6M9 18h6"/>'],
     ['rprofit','กำไร / ขาดทุน','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/><path d="M7 8h12"/>'],
     ['rtax','รายงานภาษี','<path d="M5 3h14v18H5z"/><path d="M8 7h8M8 11h8M8 15h4"/>'],
@@ -58,18 +58,23 @@ let sidebarRenderSignature='';
 function renderSidebar(){
   const user=loggedInUser();
   const combined=isAllWarehousesMode();
-  const signature=JSON.stringify([user?.id,user?.level,user?.owner,currentTab,combined,user?.pagePermissions||[],user?.warehouseIds||[]]);
+  const signature=JSON.stringify([user?.id,user?.level,user?.owner,currentTab,activeWarehouseId,combined,user?.pagePermissions||[],user?.warehouseIds||[]]);
   if(signature===sidebarRenderSignature&&document.getElementById('sidebar')?.children.length) return;
   sidebarRenderSignature=signature;
   document.getElementById('sidebar').classList.toggle('combined-sidebar',combined);
   let html = `<div class="brand sidebar-user"><div class="sidebar-user-text"><b>${escapeHtml(user?.firstName||user?.username||'')}</b><span>${escapeHtml(systemUserLevelLabel(user?.level))}</span></div></div>`;
   NAV.forEach(g=>{
-    const visibleItems=g.items.filter(([tab])=>canAccessTab(tab));
+    const visibleItems=g.items.filter(([tab])=>canAccessTab(tab)
+      && !(tab==='lowstock'&&canAccessTab('rinventory'))
+      && !(tab==='rprofit'&&canAccessTab('rbill')));
     if(!visibleItems.length) return;
     if(g.section&&!combined) html += `<div class="navsection">${g.section}</div>`;
     visibleItems.forEach(([tab,label,svg])=>{
       if(tab==='products'&&combined)label='ราคาสินค้า';
-      html += `<button class="navbtn ${currentTab===tab?'active':''}" data-tab="${tab}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${svg}</svg>${label}</button>`;
+      if(tab==='rbill'&&!canAccessTab('rprofit'))label='ยอดขายตามบิล';
+      if(tab==='lowstock')label='สินค้าคงเหลือ';
+      const active=currentTab===tab||(tab==='rinventory'&&currentTab==='lowstock')||(tab==='rbill'&&currentTab==='rprofit');
+      html += `<button class="navbtn ${active?'active':''}" data-tab="${tab}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${svg}</svg>${label}</button>`;
     });
   });
   html += `<div class="sidebar-logout-wrap"><button class="logout-btn sidebar-logout-btn" id="logoutBtn">ออกจากระบบ</button></div>`;

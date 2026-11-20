@@ -10,6 +10,7 @@ const context={
   products:[product,{id:2,name:'Beta',unit:'ขวด',price:50,cost:30},{id:3,name:'Gamma',unit:'เม็ด',price:10,cost:3}],
   categories:[],brands:[],
   isLevel2User:()=>false,isAllWarehousesMode:()=>false,
+  currentTab:'rinventory',canAccessTab:tab=>tab==='rinventory',
   reportingWarehouses:()=>[{id:1,name:'สาขา A'},{id:2,name:'สาขา B'}],
   accessibleWarehouses:()=>[{id:1,name:'สาขา A'},{id:2,name:'สาขา B'}],
   warehouseStock:(pid,wid)=>wid===1?balances[pid]:3,
@@ -18,6 +19,7 @@ const context={
   escapeHtml:value=>String(value??'').replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('"','&quot;')
 };
 vm.createContext(context);
+vm.runInContext(source.match(/^function stockReportTabsHtml\([^\n]*\)\{[\s\S]*?^\}/m)[0],context);
 vm.runInContext(source.slice(source.indexOf('function stockReportQuantityText('),source.indexOf('function stockInLargestUnit(')),context);
 vm.runInContext(source.match(/^function fmtFavoritePrice\([^\n]*\)\{[\s\S]*?^\}/m)[0],context);
 vm.runInContext(source.slice(source.indexOf('function stockReportProductMatchesFilter('),source.indexOf('function renderBusinessSettings(')),context);

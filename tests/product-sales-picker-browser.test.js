@@ -350,6 +350,41 @@ const browserExecutable = [
     return doc.querySelector('.rpt-table tr').style.fontWeight;
   });
   assert.equal(printWeight,'700');
+  await page.evaluate(()=>{
+    currentTab='rbill';
+    rbillFilter={period:'today',wh:'1',scope:'all',pay:'all',applied:true};
+    const bill={id:'B-01',date:TODAY_STR,warehouseId:1,status:'done',total:107,vatRegistered:true,taxSummary:{vat:7},
+      items:[{name:'สินค้า',qty:1,unit:'กล่อง',price:107,vatMode:'incl',lineTotalGross:107,cost:40},
+        {name:'แชมพู',qty:1,price:20,lineTotalGross:0,cost:2,promoName:'โปร A'}]};
+    salesHistory=[bill,{...bill,id:'B-02',items:[{name:'รอข้อมูล',qty:1,price:107}]},{...bill,id:'OTHER',warehouseId:2}];
+    render=()=>{document.getElementById('main').innerHTML=renderRBill();attachEvents();};render();
+  });
+  const bills=page.locator('[data-bill-summary]');
+  assert.equal(await bills.count(),2);
+  assert.deepEqual(await bills.first().locator('td').allTextContents(),['▸ B-01','-','107.00','58.00']);
+  assert.match(await bills.nth(1).innerText(),/รอต้นทุน/);
+  await bills.first().locator('td').last().click();
+  assert.match(await page.locator('.bill-report-detail:visible').innerText(),/VAT 7.00/);
+  assert.match(await page.locator('.bill-report-detail:visible').innerText(),/ของแถม · โปร A/);
+  await bills.first().getByRole('button').press('Enter');
+  assert.equal(await page.locator('.bill-report-detail:visible').count(),0);
+  const printedBill=()=>page.evaluate(()=>{
+    const doc=document.implementation.createHTMLDocument();
+    window.open=()=>({document:doc});printRBill();return doc.body.textContent;
+  });
+  assert.match(await printedBill(),/ต้นทุนรวม 42.00/);
+  await page.evaluate(()=>{
+    currentProfile={id:'sales-only',owner:false,level:2};
+    pagePermissionRows=[{page_key:'rbill',can_view:true,can_print:true},{page_key:'rprofit',can_view:true,can_print:false}];
+    render();
+  });
+  assert.doesNotMatch(await printedBill(),/ต้นทุน|กำไร/);
+  await page.evaluate(()=>{pagePermissionRows[1].can_view=false;render();});
+  assert.doesNotMatch(await page.locator('#main').textContent(),/ต้นทุน|กำไร/);
+  assert.equal(await bills.first().locator('td').count(),3);
+  await page.evaluate(()=>{activeWarehouseId=2;render();});
+  assert.equal(await bills.count(),1);
+  assert.match(await bills.first().innerText(),/OTHER/);
   assert.deepEqual(errors,[]);
   console.log('Sales report picker: 3 columns, category/subcategory, selection, filters, clear, reopen and print passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});

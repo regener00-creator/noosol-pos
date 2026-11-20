@@ -46,16 +46,19 @@ function lowStockReportSelectedUnit(product){
   lowStockUnitSelection[product.id]=selected.name;
   return {options,selected};
 }
+function lowStockReportBalance(product,warehouseId){
+  const balance=inventoryBalanceMap.get(inventoryBalanceKey(product.id,warehouseId));
+  if(balance) return Number(balance.stock)||0;
+  return Number(warehouseId)===Number(activeWarehouseId)?Number(product.stock)||0:0;
+}
 function lowStockReportRows(){
   const warehouseIds=lowStockReportWarehouseIds();
   const warehouseById=new Map(warehouses.map(warehouse=>[Number(warehouse.id),warehouse]));
-  const activeId=Number(activeWarehouseId);
   const rows=[];
   products.filter(product=>product.type!=='service').forEach(product=>{
     const unitData=lowStockReportSelectedUnit(product);
     warehouseIds.forEach(warehouseId=>{
-      const balance=inventoryBalanceMap.get(inventoryBalanceKey(product.id,warehouseId));
-      const stock=balance?Number(balance.stock)||0:(Number(warehouseId)===activeId?Number(product.stock)||0:0);
+      const stock=lowStockReportBalance(product,warehouseId);
       rows.push({
         key:`${Number(warehouseId)}:${Number(product.id)}`,
         productId:Number(product.id),sku:product.sku||'',name:product.name,product,
@@ -66,6 +69,16 @@ function lowStockReportRows(){
     });
   });
   return rows;
+}
+
+function stockReportTabsHtml(restockCount){
+  if(isAllWarehousesMode()) return '';
+  const canRestock=canAccessTab('lowstock');
+  if(canRestock&&restockCount==null){
+    restockCount=products.filter(product=>product.type!=='service'&&lowStockReportBalance(product,activeWarehouseId)<Number(lowStockPageFilter.stockThreshold)).length;
+  }
+  const tab=(key,label)=>`<button type="button" class="btn ${currentTab===key?'primary':'ghost'}" data-stock-report-tab="${key}" aria-pressed="${currentTab===key}">${label}</button>`;
+  return `<nav class="stock-report-tabs" aria-label="รายงานสินค้าคงเหลือ">${canAccessTab('rinventory')?tab('rinventory','คงเหลือ'):''}${canRestock?tab('lowstock','ต้องเติมสินค้า ('+restockCount+')'):''}</nav>`;
 }
 function lowStockReportConditionLabel(){
   if(lowStockPageFilter.stockMode==='out') return 'สินค้าที่คงเหลือเป็นศูนย์';
@@ -181,6 +194,7 @@ function renderLowStock(){
   const warehouseOptions=reportingWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(lowStockPageFilter.stockWarehouse)===String(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('');
 
   return `<div class="lowstock-section low-stock-report-page">
+    ${stockReportTabsHtml(lowCount+outCount+negativeCount)}
     <div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="printLowStockBtn">พิมพ์รายงาน</button></div>
     <div class="low-stock-report-summary">
       <div class="low-stock-summary-card ${lowStockPageFilter.stockMode==='low'?'active':''}"><button type="button" class="low-stock-summary-card-select" data-lowstock-mode="low"><span>สินค้าต่ำกว่าเกณฑ์</span><b>${lowCount}</b></button><label class="low-stock-threshold-field"><span>ต่ำกว่า</span><input id="lowStockThresholdInput" class="no-spin" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(lowStockPageFilter.stockThreshold)}" aria-label="จำนวนคงเหลือที่ถือว่าใกล้หมด"><span>ชิ้น</span></label></div>
