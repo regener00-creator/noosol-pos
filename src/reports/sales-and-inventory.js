@@ -472,10 +472,14 @@ function billReportDetailHtml(row){
     <table class="bill-line-table"><thead><tr><th>สินค้า</th><th>จำนวน</th><th>ยอดก่อน VAT</th><th>ต้นทุน</th><th>ส่วนต่าง</th></tr></thead><tbody>${items}</tbody><tfoot><tr><th colspan="2">รวม</th><td>${fmtMoney(breakdown.revenue)}</td><td>${fmtMoney(breakdown.cost)}</td><td>${billProfitAmountHtml(breakdown.profit)}</td></tr></tfoot></table>`;
 }
 
+function billReportHeadingHtml(label,rows,includeProfit){
+  const total=rows.reduce((sum,row)=>sum+row.val,0);
+  return `<div class="rpt-day-head"><strong>${escapeHtml(label)} • ยอดรวม ${fmtMoney(total)}${includeProfit?` | ${billProfitSummaryHtml(rows,'-')}`:''}</strong></div>`;
+}
+
 function billReportDayHtml(date,rows,includeProfit,forPrint=false){
-  const dayTotal=rows.reduce((sum,row)=>sum+row.val,0);
   const columns=includeProfit?4:3;
-  return `<section class="rpt-day-group bill-report-day"><div class="rpt-day-head"><b>${reportDateLabel(date)}</b> <span>ยอดรวม ${fmtMoney(dayTotal)}${includeProfit?` | ${billProfitSummaryHtml(rows,'-')}`:''}</span></div>
+  return `<section class="rpt-day-group bill-report-day">${billReportHeadingHtml(reportDateLabel(date),rows,includeProfit)}
     <table class="rpt-table bill-summary-table"><tbody>
     ${rows.map(row=>{
       const name=escapeHtml(row.billId);
@@ -492,6 +496,25 @@ function billProfitSummaryHtml(rows,minusSign){
   const profit=billProfitAmountHtml(ready.reduce((sum,row)=>sum+row.breakdown.profit,0),minusSign);
   const waiting=rows.length-ready.length;
   return waiting?`${profit} (รอต้นทุน ${waiting} บิล)`:profit;
+}
+
+function billReportGroupsHtml(period,dateKeys,byDate,includeProfit,forPrint=false){
+  if(period!=='selectyear') return dateKeys.map(date=>billReportDayHtml(date,byDate[date],includeProfit,forPrint)).join('');
+  const months=new Map();
+  for(const date of dateKeys){
+    const month=date.slice(0,7);
+    if(!months.has(month)) months.set(month,[]);
+    months.get(month).push(date);
+  }
+  return Array.from(months,([month,dates])=>{
+    const label=new Date(month+'-01T00:00:00').toLocaleDateString('th-TH-u-ca-gregory',{month:'long',year:'numeric'});
+    const heading=billReportHeadingHtml(label,dates.flatMap(date=>byDate[date]),includeProfit);
+    const days=dates.map(date=>{
+      const rows=byDate[date];
+      return `<tr><td>${reportDateLabel(date)}</td>${includeProfit?`<td class="r">${billProfitSummaryHtml(rows,'-')}</td>`:''}<td class="r">${rows.length} บิล</td></tr>`;
+    }).join('');
+    return `<section class="rpt-day-group bill-report-day">${heading}<table class="rpt-table bill-year-days"><tbody>${days}</tbody></table></section>`;
+  }).join('');
 }
 
 function exportRBillExcel(filter=rbillFilter,reportTitle='รายงานยอดขายตามบิล'){
@@ -521,7 +544,7 @@ function printRBill(filter=rbillFilter,reportTitle='รายงานยอด�
   const costedBills=allRows.filter(row=>row.breakdown);
   const revenue=costedBills.reduce((sum,row)=>sum+row.breakdown.revenue,0);
   const cost=costedBills.reduce((sum,row)=>sum+row.breakdown.cost,0);
-  const dayBlocksHtml=dateKeys.map(date=>billReportDayHtml(date,byDate[date],includeProfit,true)).join('')||'<p>ไม่มีข้อมูล</p>';
+  const dayBlocksHtml=billReportGroupsHtml(filter.period,dateKeys,byDate,includeProfit,true)||'<p>ไม่มีข้อมูล</p>';
 
   const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร'); return; }
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${escapeHtml(reportTitle)}</title>
@@ -645,7 +668,7 @@ function renderRBill(){
         </div>
       </div>
 
-      ${dateKeys.length?dateKeys.map(date=>billReportDayHtml(date,byDate[date],includeProfit)).join(''):`<div class="rpt-empty">${f.applied?'ไม่มีข้อมูลการขายในช่วงเวลาที่เลือก':'เลือกเงื่อนไขแล้วกด “แสดงผล” เพื่อดูรายงาน'}</div>`}
+      ${dateKeys.length?billReportGroupsHtml(f.period,dateKeys,byDate,includeProfit):`<div class="rpt-empty">${f.applied?'ไม่มีข้อมูลการขายในช่วงเวลาที่เลือก':'เลือกเงื่อนไขแล้วกด “แสดงผล” เพื่อดูรายงาน'}</div>`}
     </div>
   </div>`;
 }

@@ -400,10 +400,28 @@ const browserExecutable = [
     render();
   });
   const heading=page.locator('.bill-report-day .rpt-day-head');
-  assert.equal(await heading.textContent(),'12 ต.ค. 2026 ยอดรวม 660.00 | -152.00');
-  const dateBox=await heading.locator('b').boundingBox(),sumBox=await heading.locator(':scope > span').boundingBox();
-  assert.ok(Math.abs(sumBox.x-dateBox.x-dateBox.width-8)<1,'daily total follows the date on the left');
-  assert.match(await printedBill(),/12 ต\.ค\. 2026 ยอดรวม 660\.00 \| -152\.00/);
+  assert.equal(await heading.locator('strong').textContent(),'12 ต.ค. 2026 • ยอดรวม 660.00 | -152.00');
+  assert.ok(await heading.locator('strong span').evaluate(el=>Number(getComputedStyle(el).fontWeight)>=700));
+  assert.match(await printedBill(),/12 ต\.ค\. 2026 • ยอดรวม 660\.00 \| -152\.00/);
+  await page.evaluate(()=>{
+    const november={...salesHistory[0],date:'2026-11-05',total:1000,items:[{name:'สินค้า',qty:1,price:1000,cost:900}]};
+    salesHistory.push(november,{...november,total:290,items:[{name:'สินค้า',qty:1,price:290,cost:247}]},
+      {...november,date:'2026-11-06',total:10,items:[{name:'รอข้อมูล',qty:1,price:10}]});
+    rbillFilter={...rbillFilter,period:'selectyear',year:'2026'};render();
+  });
+  assert.deepEqual(await heading.allTextContents(),[
+    'ตุลาคม 2026 • ยอดรวม 660.00 | -152.00','พฤศจิกายน 2026 • ยอดรวม 1,300.00 | +143.00 (รอต้นทุน 1 บิล)'
+  ]);
+  const dayCells=()=>page.locator('.bill-year-days tr').evaluateAll(rows=>rows.map(tr=>Array.from(tr.cells,td=>td.textContent)));
+  assert.deepEqual(await dayCells(),[['12 ต.ค. 2026','-152.00','1 บิล'],['5 พ.ย. 2026','+143.00','2 บิล'],['6 พ.ย. 2026','รอต้นทุน','1 บิล']]);
+  assert.equal(await page.locator('.bill-summary-table,.bill-report-detail').count(),0);
+  const annualPrint=await printedBill();
+  assert.match(annualPrint,/พฤศจิกายน 2026 • ยอดรวม 1,300\.00 \| \+143\.00/);
+  assert.match(annualPrint,/5 พ\.ย\. 2026\+143\.002 บิล/);
+  assert.doesNotMatch(annualPrint,/LOSS/);
+  await page.evaluate(()=>{currentProfile={id:'sales-only',owner:false,level:2};render();});
+  assert.deepEqual((await dayCells())[1],['5 พ.ย. 2026','2 บิล']);
+  assert.doesNotMatch(await printedBill(),/143\.00|รอต้นทุน/);
   assert.deepEqual(errors,[]);
   console.log('Sales report picker: 3 columns, category/subcategory, selection, filters, clear, reopen and print passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});
