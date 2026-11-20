@@ -290,7 +290,7 @@ function renderCustomerPurchaseHistory(){
       <label>แสดงประวัติ<select id="customerHistoryMode"><option value="month" ${view.mode==='month'?'selected':''}>รายเดือน</option><option value="year" ${view.mode==='year'?'selected':''}>รายปี</option></select></label>
       <label>ปี (ค.ศ.)<input id="customerHistoryYear" type="number" min="1900" max="9998" step="1" value="${view.year}"></label>
       ${view.mode==='month'?`<label>เดือน<select id="customerHistoryMonth">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${Number(view.month)===i+1?'selected':''}>${new Intl.DateTimeFormat('th-TH',{month:'long'}).format(new Date(2026,i,1))}</option>`).join('')}</select></label>`:''}
-      <button class="btn primary" id="applyCustomerHistory">แสดงผล</button><span>${data?data.totalBills+' บิล':''}</span>
+      <button class="btn ghost rpf-apply" id="applyCustomerHistory">แสดงผล</button><span>${data?data.totalBills+' บิล':''}</span>
     </div>
     ${customerPurchaseNotice(state)}
     <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue customer-purchase-table"><thead><tr><th class="customer-purchase-centered">วันที่</th><th class="customer-purchase-centered">เลขที่บิล</th><th>สินค้าที่ซื้อ</th><th class="customer-purchase-centered">ยอดบิล</th><th class="customer-purchase-centered">สถานะ</th></tr></thead><tbody>
