@@ -121,7 +121,8 @@ async function scenario(name,work){if(process.argv[2]&&!new RegExp(process.argv[
     for(const [i,name] of names.entries()){
       await page.evaluate(id=>{activeWarehouseId=id;setWarehouseProductCatalog(completeProductCatalog());render();},i+1);
       const book=await exported(`PEPOS-รายการสินค้า-${name}-${date}.xlsx`);
-      assert.equal(cell(book,2,'คลังสินค้า').value,name);
+      assert.ok(!book.worksheets[0].getRow(1).values.includes('คลังสินค้า'));
+      assert.equal(book.getWorksheet('ข้อมูลไฟล์').getCell('B1').value,name);
       assert.equal(cell(book,2,'ชื่อสินค้า').value,i===0?baseProduct.name:'สินค้าพรชัย');
     }
   });
@@ -299,6 +300,10 @@ async function scenario(name,work){if(process.argv[2]&&!new RegExp(process.argv[
   });
   await scenario('Review lists source warehouses for mixed rows and identifies missing warehouse data',async()=>{
     await fixture();const book=await exported(),sheet=book.worksheets[0];
+    book.removeWorksheet(book.getWorksheet('ข้อมูลไฟล์').id);
+    const warehouseColumn=sheet.columnCount+1;
+    sheet.getCell(1,warehouseColumn).value='คลังสินค้า';
+    sheet.getCell(2,warehouseColumn).value='คลังทดสอบ';
     for(const [i,warehouse] of ['2','', '1'].entries()){
       sheet.addRow(sheet.getRow(2).values);
       cell(book,i+3,'คลังสินค้า').value=warehouse;
@@ -312,7 +317,7 @@ async function scenario(name,work){if(process.argv[2]&&!new RegExp(process.argv[
     }});
   });
   await scenario('Invalid warehouse is reported with source row and no fallback',async()=>{
-    await fixture();const book=await exported();cell(book,2,'คลังสินค้า').value='สะกดผิด';
+    await fixture();const book=await exported();book.getWorksheet('ข้อมูลไฟล์').getCell('B1').value='สะกดผิด';
     const out=await imported(book,{stock:true});assert.equal(out.saves.length,0);assert.equal(out.stocks.length,0);assert.match(out.preview,/แถว 2.*ยาทดสอบ.*ไม่พบคลัง/);
   });
   await scenario('Server barcode conflict identifies the Excel row and product',async()=>{
@@ -336,7 +341,7 @@ async function scenario(name,work){if(process.argv[2]&&!new RegExp(process.argv[
     for(const key of ['units','extraBarcodes','extraBarcodeUnits','vendorBarcodes'])assert.deepEqual(out.products[0][key],p[key]);
   });
   await scenario('New product, exact large ID, leading zeros and reimport without duplication',async()=>{
-    await fixture();const book=await exported();book.worksheets[0].addRow(['','สินค้าใหม่','สีเหลือง','ยา','ทั่วไป','Pcs',20,10,'0000000000002','ราคารวม VAT แล้ว','คลังทดสอบ',0]);
+    await fixture();const book=await exported();book.worksheets[0].addRow(['','สินค้าใหม่','สีเหลือง','ยา','ทั่วไป','Pcs',20,10,'0000000000002','ราคารวม VAT แล้ว',0]);
     const out=await imported(book);assert.equal(out.products.length,2);assert.equal(out.products[0].id,baseProduct.id);assert.equal(out.products[0].barcode,baseProduct.barcode);assert.ok(out.products[1].sku);assert.equal(out.products[1].dataReviewStatus,'pending');
     assert.equal((await imported(await exported())).products.length,2);
   });

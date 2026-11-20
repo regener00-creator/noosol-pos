@@ -667,8 +667,9 @@ function taxReportOutputSnapshot(action='export'){
   if(!canAccessTab('rtax')||!canPerformPageAction(action,'rtax')){showToast('ไม่มีสิทธิ์ดำเนินการนี้','danger-top');return null;}
   if(ensureOnDemandDataForTab('rtax').status!=='ready'){showToast('กรุณาโหลดข้อมูลรายงานให้ครบก่อน','danger-top');return null;}
   const report=collectTaxReport();
-  return {context:captureWorkspaceRead(),month:rtaxMonth,business:warehouseBusinessSettings().name||'',registered:report.registered,effectiveDate:report.effectiveDate,
-    sales:report.saleRows.map(({doc,tax})=>[fmtDateShort(doc.date),String(doc.ref||doc.id),doc.warehouseName||warehouses.find(w=>Number(w.id)===Number(doc.warehouseId))?.name||'-',tax.beforeVat,tax.vat,tax.total]),
+  const showWarehouse=isAllWarehousesMode();
+  return {showWarehouse,context:captureWorkspaceRead(),month:rtaxMonth,business:warehouseBusinessSettings().name||'',registered:report.registered,effectiveDate:report.effectiveDate,
+    sales:report.saleRows.map(({doc,tax})=>[fmtDateShort(doc.date),String(doc.ref||doc.id),...(showWarehouse?[doc.warehouseName||warehouses.find(w=>Number(w.id)===Number(doc.warehouseId))?.name||'-']:[]),tax.beforeVat,tax.vat,tax.total]),
     purchases:report.purchaseRows.map(({doc,tax,claimable})=>[doc.supplierTaxInvoiceDate?fmtDateShort(doc.supplierTaxInvoiceDate):'-',String(doc.supplierTaxInvoiceNo||'-'),doc.supplier||'-',String(doc.id),claimable?'ข้อมูลครบ':'รอเลขที่/วันที่ใบกำกับ',tax.beforeVat,claimable?tax.vat:0,tax.total])};
 }
 
@@ -678,7 +679,7 @@ function printTaxReport(type){
   const win=window.open('','_blank');
   if(!win){showToast('เบราว์เซอร์บล็อกหน้าพิมพ์ กรุณาอนุญาต Pop-up แล้วลองใหม่');return;}
   const sections=[
-    {key:'sales',title:'ภาษีขาย',rows:report.sales,numeric:3,headers:['วันที่','เลขที่บิล','คลังสินค้า','มูลค่าก่อน VAT','VAT','ยอดรวม']},
+    {key:'sales',title:'ภาษีขาย',rows:report.sales,numeric:report.showWarehouse?3:2,headers:['วันที่','เลขที่บิล',...(report.showWarehouse?['คลังสินค้า']:[]),'มูลค่าก่อน VAT','VAT','ยอดรวม']},
     {key:'purchases',title:'ภาษีซื้อ',rows:report.purchases,numeric:5,headers:['วันที่ใบกำกับ','เลขที่ใบกำกับผู้จำหน่าย','ผู้จำหน่าย','เอกสารรับเข้า','สถานะ','มูลค่าก่อน VAT','VAT','ยอดรวม']}
   ];
   const sectionHtml=sections.filter(section=>section.key===type).map(section=>{

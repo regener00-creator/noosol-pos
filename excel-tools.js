@@ -2,8 +2,9 @@
 function createTaxReportWorkbook(report,writer){
   if(!['sales','purchases'].includes(report.type)) throw new Error('กรุณาเลือกรายงานที่ต้องการส่งออก');
   const book=new writer.Workbook();
+  const showWarehouse=report.showWarehouse;
   const definitions=[
-    {key:'sales',name:'ภาษีขาย',rows:report.sales,headers:['วันที่','เลขที่บิล','คลังสินค้า','มูลค่าก่อน VAT','VAT','ยอดรวม'],widths:[16,26,24,20,18,20],numeric:4},
+    {key:'sales',name:'ภาษีขาย',rows:report.sales,headers:['วันที่','เลขที่บิล',...(showWarehouse?['คลังสินค้า']:[]),'มูลค่าก่อน VAT','VAT','ยอดรวม'],widths:[16,26,...(showWarehouse?[24]:[]),20,18,20],numeric:showWarehouse?4:3},
     {key:'purchases',name:'ภาษีซื้อ',rows:report.purchases,headers:['วันที่ใบกำกับ','เลขที่ใบกำกับผู้จำหน่าย','ผู้จำหน่าย','เอกสารรับเข้า','สถานะ','มูลค่าก่อน VAT','VAT','ยอดรวม'],widths:[16,28,32,26,30,20,18,20],numeric:6}
   ];
   for(const def of definitions.filter(def=>def.key===report.type)){
@@ -45,17 +46,21 @@ async function exportTaxReportToExcel(report){
 
 function createVoidReportWorkbook(report,writer){
   const book=new writer.Workbook(),sheet=book.addWorksheet('บิลยกเลิก');
-  sheet.columns=[22,24,16,24,24,50,18,36].map(width=>({width}));
-  for(const text of [report.title,report.business,`วันที่ยกเลิก ${fmtDate(report.range.from)} ถึง ${fmtDate(report.range.to)}`,report.filters,`บิลยกเลิก ${report.rows.length} บิล · ยอดคืนรวม ${fmtMoney(report.rows.reduce((sum,row)=>sum+row[6],0))} บาท`]){
-    const row=sheet.addRow([String(text||'')]);sheet.mergeCells(row.number,1,row.number,8);row.height=28;
+  const columns=report.headers.length,amountColumn=columns-1;
+  const total=report.rows.reduce((sum,row)=>sum+row[amountColumn-1],0);
+  sheet.columns=[22,24,16,...(report.showWarehouse?[24]:[]),24,50,18,36].map(width=>({width}));
+  for(const text of [report.title,report.business,`วันที่ยกเลิก ${fmtDate(report.range.from)} ถึง ${fmtDate(report.range.to)}`,report.filters,`บิลยกเลิก ${report.rows.length} บิล · ยอดคืนรวม ${fmtMoney(total)} บาท`]){
+    const row=sheet.addRow([String(text||'')]);sheet.mergeCells(row.number,1,row.number,columns);row.height=28;
   }
   sheet.addRow(report.headers);
-  report.rows.forEach(values=>{const row=sheet.addRow(values.map((value,index)=>index===6?Number(value):String(value??'')));row.height=Math.max(44,Math.min(409,12+16*Math.max(...values.map((value,index)=>String(value??'').split('\n').reduce((lines,line)=>lines+Math.max(1,Math.ceil(line.length/Math.max(8,sheet.columns[index].width-4))),0)))));row.getCell(7).numFmt='#,##0.00';});
-  const totalRow=sheet.addRow(['ยอดคืนรวม','','','','','',report.rows.reduce((sum,row)=>sum+row[6],0),'']);totalRow.getCell(7).numFmt='#,##0.00';
+  report.rows.forEach(values=>{const row=sheet.addRow(values.map((value,index)=>index+1===amountColumn?Number(value):String(value??'')));row.height=Math.max(44,Math.min(409,12+16*Math.max(...values.map((value,index)=>String(value??'').split('\n').reduce((lines,line)=>lines+Math.max(1,Math.ceil(line.length/Math.max(8,sheet.columns[index].width-4))),0)))));row.getCell(amountColumn).numFmt='#,##0.00';});
+  const totalRow=sheet.addRow(['ยอดคืนรวม']);
+  totalRow.getCell(amountColumn).value=total;
+  totalRow.getCell(amountColumn).numFmt='#,##0.00';
   sheet.eachRow(row=>row.eachCell({includeEmpty:true},cell=>{cell.font={name:'Sarabun',size:11};cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};}));
   [1,6,totalRow.number].forEach(number=>sheet.getRow(number).eachCell({includeEmpty:true},cell=>{cell.font={name:'Sarabun',size:number===1?16:11,bold:true};}));
   sheet.getRow(6).eachCell(cell=>{cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF4F4038'}};cell.font={name:'Sarabun',bold:true,color:{argb:'FFFFFFFF'}};});
-  sheet.autoFilter='A6:H6';sheet.views=[{state:'frozen',ySplit:6}];
+  sheet.autoFilter={from:{row:6,column:1},to:{row:6,column:columns}};sheet.views=[{state:'frozen',ySplit:6}];
   sheet.pageSetup={paperSize:9,orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,printTitlesRow:'1:6'};
   return book;
 }
@@ -557,10 +562,14 @@ function productExcelReviewPresentation(product){
   if(status==='complete') return {label:'สีเขียว - ข้อมูลครบถ้วน',fill:'EFF9F1'};
   return {label:'สีปกติ - ยังไม่กำหนดสถานะ',fill:null};
 }
-function createProductExcelWorkbook(rows,writer){
+function createProductExcelWorkbook(rows,writer,sourceWarehouse=''){
   const workbook=new writer.Workbook();
   const sheet=workbook.addWorksheet('สินค้า',{views:[{state:'frozen',ySplit:1}]});
-  const headers=Object.keys(rows[0]);
+  const headers=Object.keys(rows[0]).filter(header=>!sourceWarehouse||header!=='คลังสินค้า');
+  if(sourceWarehouse){
+    const metadata=workbook.addWorksheet('ข้อมูลไฟล์',{state:'hidden'});
+    metadata.addRow(['คลังต้นทาง',sourceWarehouse]);
+  }
   if(headers.length>16384) throw new Error('ข้อมูลมีจำนวนคอลัมน์เกินขีดจำกัด Excel กรุณาส่งออกสินค้าทีละกลุ่ม');
   sheet.columns=headers.map(header=>({header,key:header,width:productExcelColumnWidth(header).wch}));
   sheet.addRows(rows);
@@ -879,6 +888,8 @@ async function performProductExcelImport(file){
   catch(error){ showToast('ไม่สามารถอ่านไฟล์ Excel นี้ได้'); return; }
   const firstSheet=workbook.Sheets[workbook.SheetNames[0]];
   const sourceRows=XLSX.utils.sheet_to_json(firstSheet,{defval:'',raw:true});
+  const metadata=workbook.Sheets['ข้อมูลไฟล์'];
+  const fileWarehouse=metadata?.A1?.v==='คลังต้นทาง'?metadata.B1?.v:'';
   if(!sourceRows.length){ showToast('ไม่พบข้อมูลสินค้าในไฟล์'); return; }
   const warehouse=activeWarehouse();
   if(!warehouse||isAllWarehousesMode()||!isStoreViewCurrent(context))return;
@@ -924,7 +935,7 @@ async function performProductExcelImport(file){
   sourceRows.forEach((row,index)=>{
     const line=(row.__rowNum__??index+1)+1;
     const systemId=productImportNumber(productImportValue(row,['รหัสอ้างอิงระบบ (ห้ามแก้)','รหัสอ้างอิงระบบ','systemid']),NaN);
-    const warehouseValue=String(productImportValue(row,['คลังสินค้า','คลัง','warehouse'])).trim();
+    const warehouseValue=String(productImportValue(row,['คลังสินค้า','คลัง','warehouse'])||fileWarehouse||'').trim();
     const sourceWarehouse=warehouseValue?warehouses.find(item=>[item.id,item.name,item.code].some(value=>String(value??'').trim().toLowerCase()===warehouseValue.toLowerCase())):null;
     sourceNames.add(sourceWarehouse?.name||warehouseValue||'ไม่ระบุในไฟล์');
     const crossStore=outsideStoreIds.has(systemId)||(sourceWarehouse&&Number(sourceWarehouse.id)!==Number(importWarehouseId));
@@ -1242,7 +1253,7 @@ async function exportProductsToExcel(){
   const filenameWarehouse=warehouseName.replace(/[<>:"/\\|?*\x00-\x1F]+/g,'-');
   const counts=productExcelColumnCounts(products);
   const rows=products.map(product=>productToExcelRow(product,counts));
-  const workbook=createProductExcelWorkbook(rows,writer);
+  const workbook=createProductExcelWorkbook(rows,writer,isAllWarehousesMode()?'':warehouseName);
   const buffer=await workbook.xlsx.writeBuffer();
   const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
   const link=document.createElement('a');

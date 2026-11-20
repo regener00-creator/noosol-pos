@@ -1,5 +1,6 @@
 function printStockAlertReport(kind){
   const isExpiry=kind==='expiry';
+  const showWarehouse=isAllWarehousesMode();
   const filtered=isExpiry?expiryReportLotRows().filter(row=>expiryReportRowMatches(row)):lowStockReportRows().filter(row=>lowStockReportRowMatches(row));
   const rows=isExpiry
     ?lowSortedList(filtered,lowStockSort.expiry,(row,key)=>key==='expiry'?(row.expiry||''):key==='status'?daysUntil(row.expiry):key==='lot'?(row.lotNumber||''):key==='quantity'?row.quantityBase:key==='wh'?(row.warehouseName||''):row.name)
@@ -10,17 +11,19 @@ function printStockAlertReport(kind){
   const condition=isExpiry?expiryReportConditionLabel():lowStockReportConditionLabel();
   const dateText=fmtDashboardDate(TODAY_STR);
   const rowsHtml=rows.map((product,index)=>{
+    const warehouseCell=showWarehouse?`<td>${escapeHtml(product.warehouseName||'-')}</td>`:'';
     if(isExpiry){
       const badge=expiryBadge(product.expiry);
       const statusClass=daysUntil(product.expiry)<0?'danger':daysUntil(product.expiry)<=30?'warn':'ok';
-      return `<tr><td class="c">${index+1}</td><td>${escapeHtml(product.name)}</td><td>${escapeHtml(product.lotNumber)}</td><td class="c">${escapeHtml(product.quantityText)}</td><td class="c">${fmtDateShort(product.expiry)}</td><td class="c ${statusClass}">${escapeHtml(badge.label)}</td><td>${escapeHtml(product.warehouseName||'-')}</td></tr>`;
+      return `<tr><td class="c">${index+1}</td><td>${escapeHtml(product.name)}</td><td>${escapeHtml(product.lotNumber)}</td><td class="c">${escapeHtml(product.quantityText)}</td><td class="c">${fmtDateShort(product.expiry)}</td><td class="c ${statusClass}">${escapeHtml(badge.label)}</td>${warehouseCell}</tr>`;
     }
     const status=lowStockRowStatus(product);
-    return `<tr><td class="c">${index+1}</td><td class="c">${escapeHtml(product.sku||'-')}</td><td>${escapeHtml(product.name)}</td><td class="c ${product.stock<0?'danger':''}">${escapeHtml(product.displayStock)}</td><td class="c">${escapeHtml(product.displayUnit)}</td><td>${escapeHtml(product.warehouseName||'-')}</td><td class="c ${status.cls==='danger'?'danger':status.cls==='warn'?'warn':'ok'}">${escapeHtml(status.label)}</td></tr>`;
+    return `<tr><td class="c">${index+1}</td><td class="c">${escapeHtml(product.sku||'-')}</td><td>${escapeHtml(product.name)}</td><td class="c ${product.stock<0?'danger':''}">${escapeHtml(product.displayStock)}</td><td class="c">${escapeHtml(product.displayUnit)}</td>${warehouseCell}<td class="c ${status.cls==='danger'?'danger':status.cls==='warn'?'warn':'ok'}">${escapeHtml(status.label)}</td></tr>`;
   }).join('');
+  const warehouseHeader=showWarehouse?'<th>คลัง</th>':'';
   const columns=isExpiry
-    ?'<th class="c" style="width:5%;">#</th><th>สินค้า</th><th>เลข LOT</th><th class="c">คงเหลือ</th><th class="c">วันหมดอายุ</th><th class="c">สถานะ</th><th>คลัง</th>'
-    :'<th class="c">#</th><th class="c">รหัส</th><th>สินค้า</th><th class="c">คงเหลือ</th><th class="c">หน่วย</th><th>คลัง</th><th class="c">สถานะ</th>';
+    ?`<th class="c" style="width:5%;">#</th><th>สินค้า</th><th>เลข LOT</th><th class="c">คงเหลือ</th><th class="c">วันหมดอายุ</th><th class="c">สถานะ</th>${warehouseHeader}`
+    :`<th class="c">#</th><th class="c">รหัส</th><th>สินค้า</th><th class="c">คงเหลือ</th><th class="c">หน่วย</th>${warehouseHeader}<th class="c">สถานะ</th>`;
   const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร'); return; }
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>${escapeHtml(title)}</title>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">

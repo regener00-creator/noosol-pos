@@ -6,7 +6,7 @@ test('tax Excel exports all monthly rows with numeric totals and claimable purch
   const purchases=Array.from({length:12},(_,i)=>['06/11/2026',i===0?'=1+1':'0000'+i,'ผู้จำหน่าย','GR-'+i,i===0?'รอเลขที่/วันที่ใบกำกับ':'ข้อมูลครบ',100,i===0?0:7,107]);
   const sheets=[];
   for(const [type,name] of [['sales','ภาษีขาย'],['purchases','ภาษีซื้อ']]){
-    const workbook=build({type,month:'2026-11',business:'SAPURI',sales,purchases},ExcelJS);
+    const workbook=build({type,showWarehouse:true,month:'2026-11',business:'SAPURI',sales,purchases},ExcelJS);
     const loaded=new ExcelJS.Workbook();await loaded.xlsx.load(await workbook.xlsx.writeBuffer());
     assert.deepEqual(loaded.worksheets.map(s=>s.name),[name],'only the selected report is exported');
     sheets.push(loaded.worksheets[0]);
@@ -23,7 +23,7 @@ test('tax Excel exports all monthly rows with numeric totals and claimable purch
 });
 test('empty monthly tax workbook keeps headers and zero totals without invalid formula ranges',()=>{
   for(const type of ['sales','purchases']){
-    const book=build({type,month:'2026-12',business:'SAPURI',sales:[],purchases:[]},ExcelJS);
+    const book=build({type,showWarehouse:true,month:'2026-12',business:'SAPURI',sales:[],purchases:[]},ExcelJS);
     assert.equal(book.worksheets.length,1);
     const sheet=book.worksheets[0];assert.equal(sheet.rowCount,5);assert.equal(sheet.getRow(5).getCell(sheet.columnCount).value,0);
   }
