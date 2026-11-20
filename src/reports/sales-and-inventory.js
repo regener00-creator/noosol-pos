@@ -173,7 +173,7 @@ function productSalesPeriodSummaryHtml(report,filter,forPrint=false){
       const details=row.quantities?productSalesDetailRowsHtml(row.quantities,filter.period):'';
       const title=forPrint?escapeHtml(row.name):`${remove}<button type="button" class="product-sales-period-toggle" aria-expanded="${!!row.quantities}"><span aria-hidden="true">${row.quantities?'▾':'▸'}</span> ${escapeHtml(row.name)}</button>`;
       const toggle=forPrint?'':` data-product-sales-key="${escapeHtml(row.expansionKey)}"`;
-      return `<tbody><tr${toggle}><td class="rpt-pname">${title}</td><td class="num">${escapeHtml(row.quantity)}</td></tr>${details}</tbody>`;
+      return `<tbody><tr${toggle} style="font-weight:700"><td class="rpt-pname">${title}</td><td class="num">${escapeHtml(row.quantity)}</td></tr>${details}</tbody>`;
     }
     return `<tr><td class="${forPrint?'pd-name':'rpt-pname'}">${name}</td>
       <td class="mono" style="text-align:right;">${escapeHtml(row.quantity)}</td>${filter.period==='today'?`<td class="num">${fmtMoney(row.value)}</td>`:''}</tr>`;

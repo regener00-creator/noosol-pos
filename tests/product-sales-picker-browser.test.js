@@ -203,6 +203,12 @@ const browserExecutable = [
       await page.evaluate(store=>{activeWarehouseId=store;render();},store);
       assert.equal(await page.locator('.rpt-body h2').textContent(),label);
       assert.deepEqual(await page.locator('.rpt-body tbody td:last-child').allTextContents(),expected);
+      if(period==='selectmonth'||period==='selectyear'){
+        const summary=page.locator('.rpt-body tr[data-product-sales-key]').first();
+        for(const selector of ['.product-sales-period-toggle','td.num']){
+          assert.equal(await summary.locator(selector).evaluate(el=>getComputedStyle(el).fontWeight),'700');
+        }
+      }
       const printed=await page.evaluate(()=>{
         const doc=document.implementation.createHTMLDocument();
         window.open=()=>({document:doc});printRProduct();
