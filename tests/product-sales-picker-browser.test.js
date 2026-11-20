@@ -80,7 +80,7 @@ const browserExecutable = [
   assert.equal(await page.locator('.rpt-table tbody tr').count(),0,'report waits for Apply');
   await page.locator('#rpApplyBtn').click();
   assert.equal(await page.locator('.rpt-table tbody tr').count(),2);
-  assert.deepEqual(await page.locator('.rpt-table td.num').allTextContents(),['20.00','50.00']);
+  assert.equal(await page.locator('.rpt-table tbody td').count(),4,'two columns per product today');
   assert.doesNotMatch(await page.locator('.rpt-meta').innerText(),/ยอดสินค้า|ค่าธรรมเนียม|ส่วนลดท้ายบิล|ยอดสุทธิ/);
   const printed=await page.evaluate(()=>{
     const doc=document.implementation.createHTMLDocument('print test');window.open=()=>({document:doc});standardizePrintPreview=()=>{};
@@ -134,10 +134,9 @@ const browserExecutable = [
       rprofitFilter.period='today';
       const bills=rbillCollect();
       render();
-      const amounts=Array.from(document.querySelectorAll('.rpt-table td.num'),cell=>cell.textContent);
       Object.assign(rproductFilter,{scope:'product',products:[products[0].name]});
       render();
-      const selected=document.querySelector('.rpt-table td.num').textContent,meta=document.querySelector('.rpt-meta').innerText;
+      const selected=Array.from(document.querySelector('.rpt-table tr').cells,cell=>cell.textContent),meta=document.querySelector('.rpt-meta').innerText;
       const doc=document.implementation.createHTMLDocument();
       window.open=()=>({document:doc});printRProduct();
       rproductFilter.period=rbillFilter.period='selectyear';
@@ -145,12 +144,13 @@ const browserExecutable = [
       const productYear=document.querySelector('#rpf_year').value;
       const billView=document.createElement('div');
       billView.innerHTML=renderRBill();
-      return {amounts,selected,meta,printed:doc.querySelector('.meta').textContent,
+      return {selected,meta,printed:doc.querySelector('.meta').textContent,printCells:Array.from(doc.querySelector('.rpt-table tr').cells,cell=>cell.textContent),
         bills:bills.grandVal,docCount:bills.docCount,profitDay:rprofitPeriodRange().from,productYear,billYear:billView.querySelector('#rbf_year').value};
     },store);
     assert.equal(result.bills.toFixed(2),(100*store+69.40).toFixed(2));
-    assert.deepEqual(result.amounts,[(60*store-25).toFixed(2),(40*store+100).toFixed(2)]);
-    assert.equal(result.selected,(60*store-25).toFixed(2));
+    assert.equal(result.selected.length,2);
+    assert.equal(result.selected[1],'0 กล่อง');
+    assert.deepEqual(result.printCells,['สินค้ารายงาน 1','0 กล่อง']);
     assert.equal(result.docCount,3);
     assert.match(result.meta,/2 เอกสาร/);assert.match(result.meta,/1 ม.ค. 2027/);
     assert.match(result.printed,/2 เอกสาร/);
@@ -343,7 +343,7 @@ const browserExecutable = [
   await page.locator('#rpf_period').selectOption('today');
   assert.equal(await page.getByLabel('แสดงยอดแยกรายเดือน').count(),0);
   assert.deepEqual(await page.locator('.rpt-table tr td:nth-child(2)').allTextContents(),['17 กล่อง 1 ซอง','2 ขวด']);
-  assert.deepEqual(await page.locator('.rpt-table tr').first().locator('td').evaluateAll(cells=>cells.map(td=>getComputedStyle(td).fontWeight)),['700','700','700']);
+  assert.deepEqual(await page.locator('.rpt-table tr').first().locator('td').evaluateAll(cells=>cells.map(td=>getComputedStyle(td).fontWeight)),['700','700']);
   const printWeight=await page.evaluate(()=>{
     const doc=document.implementation.createHTMLDocument();
     window.open=()=>({document:doc});printRProduct();

@@ -171,7 +171,7 @@ function productSalesPeriodSummaryHtml(report,filter,forPrint=false){
       return `<tbody><tr${toggle} style="font-weight:700"><td class="rpt-pname">${title}</td><td class="num">${escapeHtml(row.quantity)}</td></tr>${details}</tbody>`;
     }
     return `<tr style="font-weight:700"><td class="${forPrint?'pd-name':'rpt-pname'}">${name}</td>
-      <td class="mono" style="text-align:right">${escapeHtml(row.quantity)}</td>${filter.period==='today'?`<td class="num">${fmtMoney(row.value)}</td>`:''}</tr>`;
+      <td class="mono" style="text-align:right">${escapeHtml(row.quantity)}</td></tr>`;
   }).join('');
   return `<section class="rpt-day-group"><h2 class="rpt-day-head">${escapeHtml(report.label)}</h2>
     ${rows?`<table class="rpt-table" aria-label="จำนวนที่ขายได้">${report.detailLabels?rows:`<tbody>${rows}</tbody>`}</table>`:'<div class="rpt-empty">ไม่มีข้อมูลการขายในช่วงเวลาที่เลือก</div>'}</section>`;

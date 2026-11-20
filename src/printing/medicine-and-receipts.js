@@ -144,12 +144,20 @@ function openPostPaymentModal(saleId){
     stopKeyHandler();
     content.innerHTML=`<div style="padding:5px 18px 8px;"><div class="after-pay-icon">✓</div><div class="after-pay-heading">รับชำระ ${fmtMoney(sale.total)} บาทแล้ว</div><div class="after-pay-sub">${escapeHtml(sale.payMethod||'เงินสด')} · ${escapeHtml(sale.ref||sale.id)}</div></div><div class="after-pay-options">${medicineLabelCount?`<button class="after-pay-choice" id="printMedicineLabelsBtn"><span>Rx</span> พิมพ์ฉลากยา ${medicineLabelCount} ใบ</button>`:''}<div class="after-pay-actions"><button type="button" class="after-pay-choice" id="closePostPaymentBtn">ปิด</button><button type="button" class="after-pay-choice new-order" id="finishAndPrintReceiptBtn"><span>🖨</span> ${escapeHtml(documentLabel)}</button></div></div>`;
     const printMedicineButton=content.querySelector('#printMedicineLabelsBtn'); if(printMedicineButton) printMedicineButton.onclick=()=>printMedicineLabels(saleId);
-    content.querySelector('#closePostPaymentBtn').onclick=close;
+    const closeButton=content.querySelector('#closePostPaymentBtn');
+    closeButton.onclick=close;
     const finishAndPrintButton=content.querySelector('#finishAndPrintReceiptBtn');
     finishAndPrintButton.onclick=()=>{
       if(!printShortReceipt(saleId)) return;
       close();
     };
+    overlay.onkeydown=e=>{
+      if(e.altKey||e.ctrlKey||e.metaKey||!['ArrowLeft','ArrowRight'].includes(e.key)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      (e.key==='ArrowLeft'?closeButton:finishAndPrintButton).focus();
+    };
+    finishAndPrintButton.focus();
     activeKeyHandler=e=>{ if(e.key==='Escape'){ e.preventDefault(); close(); }else if(e.key==='Enter'&&!e.target?.closest?.('button')){ e.preventDefault(); finishAndPrintButton.click(); } };
     document.addEventListener('keydown',activeKeyHandler);
   };
