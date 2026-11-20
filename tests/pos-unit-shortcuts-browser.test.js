@@ -209,7 +209,8 @@ let browser;
     el.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowDown',bubbles:true,cancelable:true}));
   });
   assert.ok(await focusIs('.pos-result[data-id="201"]'));
-  assert.ok(await result(201).evaluate(el=>getComputedStyle(el).outlineStyle==='solid'));
+  assert.notEqual(await result(201).evaluate(el=>getComputedStyle(el).backgroundColor),
+    await result(202).evaluate(el=>getComputedStyle(el).backgroundColor),'keyboard selection visibly highlights the focused result');
   await page.keyboard.press('ArrowDown');assert.ok(await focusIs('.pos-result[data-id="202"]'));
   await page.keyboard.press('ArrowUp');assert.ok(await focusIs('.pos-result[data-id="201"]'));
   await page.keyboard.press('Tab');assert.ok(await focusIs('.pos-result[data-id="202"]'));

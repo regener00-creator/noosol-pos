@@ -41,12 +41,14 @@ const browserExecutable = [
     })();
   `}));
   await page.goto(`http://127.0.0.1:${server.address().port}/`, {waitUntil:'domcontentloaded',timeout:15000});
-  await page.waitForFunction(() => typeof openMedicineLabelEditor === 'function');
+  await page.waitForFunction(() => !!window.peposBootstrapReady);
+  await page.evaluate(() => window.peposBootstrapReady);
   await page.evaluate(() => {
     document.querySelectorAll('.login-screen').forEach(screen => {
       screen.style.display = 'none';
     });
     currentProfile={id:'pharmacist-test',firstName:'เภสัชกร',lastName:'ทดสอบ'};
+    warehouses=[{id:1,name:'ร้านทดสอบ'}];activeWarehouseId=1;allWarehousesMode=false;
     cart=[{lineId:501,pid:1,name:'Paracetamol 500 mg',unit:'กล่อง',qty:1,price:100,cost:50,factor:1}];
     openMedicineLabelEditor(501);
   });

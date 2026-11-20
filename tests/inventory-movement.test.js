@@ -55,6 +55,14 @@ assert.equal(rows.at(-1).time, '17:46');
 assert.ok(rows.every(row=>row.warehouseId===1),'รายการเคลื่อนไหวต้องเก็บรหัสคลังไว้สำหรับกรองทุกคลัง/รายคลัง');
 
 const groups = context.groupInventoryMovements(rows);
+const sameNameRows=context.collectInventoryMovements({
+  products:[{id:11,wh:1,name:'Shared',unit:'box'},{id:12,wh:2,name:'Shared',unit:'piece'}],
+  receipts:[1,2].map(store=>({id:'receipt-'+store,warehouseId:store,stockApplied:true,items:[{name:'Shared',qty:1}]})),
+  transfers:[{id:'transfer',fromId:2,toId:1,items:[{name:'Shared',qty:1}]}],
+});
+assert.equal(sameNameRows.find(row=>row.bill==='receipt-1').productId,11);
+assert.equal(sameNameRows.find(row=>row.bill==='receipt-2').productId,12);
+assert.deepEqual(Array.from(sameNameRows.filter(row=>row.bill==='transfer'),row=>row.productId),[12,12]);
 assert.equal(groups.length, 3, 'หนึ่งบิลต้องถูกรวมเป็นหนึ่งกลุ่ม');
 const exchangeGroup = groups.find(group=>group.bill==='EX202608220001');
 assert.equal(exchangeGroup.rows.length, 3);

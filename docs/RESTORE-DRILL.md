@@ -1,6 +1,6 @@
 # Restore drill
 
-The `Restore drill (test database only)` workflow restores a real PEPOS backup into a separate Supabase test project and compares product and LOT counts after the transaction.
+The `Restore drill (test database only)` workflow restores a shop backup into a separate Supabase test project. The test project must already contain the destination warehouse. Version 4 uses the warehouse ID in the file. Version 3 restores the original warehouse (ID 1). The server verifies all restored tables and checks that other shops remained intact. The drill then re-exports the destination shop and checks product, balance, LOT and sale counts. For current version 4 backups it also compares the checksums of those four tables.
 
 Configure the protected GitHub environment `restore-test` with these secrets:
 

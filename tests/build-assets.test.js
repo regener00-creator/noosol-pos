@@ -52,7 +52,10 @@ test('build minifies app assets and injects one matching content version', async
   assert.match(built.pageCodes['page-reports.js'],/function renderRProduct\(/);
   const changedPage=await buildModule.prepareTextAssets({...input,appSource:appSource.replace('function renderRProduct(){','function renderRProduct(){ window.__chunkBuildProbe=true;')});
   assert.notEqual(changedPage.assetVersion,built.assetVersion,'editing a lazy page rotates the shared asset version');
+  const staticCache=build=>build.workerCode.match(/const STATIC_CACHE_NAME='(pepos-static-[a-f0-9]{16})'/)[1];
+  assert.equal(staticCache(changedPage),staticCache(built),'code-only releases reuse fonts and images');
 
   const changed = await buildModule.prepareTextAssets({ ...input, versionInputs: [Buffer.from('static-assets-v2')] });
+  assert.notEqual(staticCache(changed),staticCache(built),'changed static content gets a new cache');
   assert.notEqual(changed.assetVersion, built.assetVersion, 'any versioned asset change must rotate the cache version');
 });

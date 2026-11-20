@@ -43,7 +43,7 @@ function renderVersionedTemplate(template, assetVersion, name) {
   return rendered
 }
 
-export async function prepareTextAssets({ appSource, excelToolsSource = '', stylesSource, indexTemplate, workerTemplate, versionInputs = [] }) {
+export async function prepareTextAssets({ appSource, excelToolsSource = '', stylesSource, indexTemplate, workerTemplate, versionInputs = [], staticAssetInputs = versionInputs }) {
   // One deployment request; separate source files without a second cache/version boundary.
   appSource = productDomainSource + '\n' + appSource
   indexTemplate = indexTemplate.replace(/<script src="\/product-domain\.js[^\"]*" defer><\/script>\s*/, '')
@@ -94,6 +94,8 @@ export async function prepareTextAssets({ appSource, excelToolsSource = '', styl
   ;[appResult.code, excelToolsResult.code, ...Object.entries(pageCodes).flat(), stylesResult.code, indexTemplate, workerTemplate, ...versionInputs]
     .forEach(input => addVersionInput(hash, input))
   const assetVersion = hash.digest('hex').slice(0, 16)
+  const staticHash = createHash('sha256')
+  staticAssetInputs.forEach(input => addVersionInput(staticHash, input))
   // A tab from an older deployment may request an uncached chunk after release.
   // Do not mix its shared state with newer page code; reload the app instead.
   const versionedPageCodes = Object.fromEntries(Object.entries(pageCodes).map(([name, code]) => {
@@ -107,7 +109,7 @@ export async function prepareTextAssets({ appSource, excelToolsSource = '', styl
     pageCodes: versionedPageCodes,
     stylesCode: stylesResult.code,
     indexHtml: renderVersionedTemplate(indexTemplate, assetVersion, 'index.html'),
-    workerCode: renderVersionedTemplate(workerTemplate, assetVersion, 'sw.js'),
+    workerCode: renderVersionedTemplate(workerTemplate, assetVersion, 'sw.js').replace('__PEPOS_STATIC_VERSION__', staticHash.digest('hex').slice(0, 16)),
     assetVersion,
   }
 }
@@ -142,6 +144,7 @@ export async function buildStatic() {
     stylesSource,
     indexTemplate,
     workerTemplate,
+    staticAssetInputs: staticContents,
     versionInputs: [...staticContents, productExcelWriter, await readFile(supabaseSourceFile)],
   })
 

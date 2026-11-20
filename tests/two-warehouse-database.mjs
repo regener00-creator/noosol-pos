@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {randomUUID} from 'node:crypto';
+import {verifyShopRestore} from '../scripts/verify-shop-restore.mjs';
 // Run last on the disposable test cluster. Both checkout connections need committed fixtures.
 export async function runConcurrentSales({client,connect}){
   const {id:owner}=(await client.query('select id from public.profiles where owner order by id limit 1')).rows[0];
@@ -231,12 +232,22 @@ async function verifyOwnerTools(q,owner,[a,b]){
   assert.equal(cleared.data.tables['public.sales'].length,0);assert.equal(cleared.data.tables['public.inventory_lots'].length,0);
   assert.equal(cleared.data.tables['public.products'].length,1);
   assert.deepEqual((await snapshot(b)).data,other.data);
-  await q('select public.restore_store_backup_atomic($1,$2)',[a.id,first]);
+  const drillClient = { async rpc(name, args) {
+    if (name === 'restore_store_backup_atomic') {
+      return {data: (await q('select public.restore_store_backup_atomic($1,$2) b',[args.p_warehouse_id,args.p_backup])).rows[0].b};
+    }
+    assert.equal(name,'export_store_backup');
+    return {data: await snapshot({id:args.p_warehouse_id})};
+  }};
+  assert.equal((await verifyShopRestore(drillClient,first)).warehouseId,a.id);
   const restored=await snapshot(a);
   for(const [t,rows] of Object.entries(first.data.tables)){
     if(t!=='public.audit_logs')assert.deepEqual(restored.data.tables[t],rows,t);
   }
   assert.deepEqual((await snapshot(b)).data,other.data);
+  const restoredA = (await snapshot(a)).data;
+  assert.equal((await verifyShopRestore(drillClient,other)).warehouseId,b.id);
+  assert.deepEqual((await snapshot(a)).data,restoredA);
   await q('rollback to document_wipe');
   await q('savepoint factory');
   await q("insert into public.notes(title,standalone_warehouse_id) values('Factory fixture',$1)",[a.id]);

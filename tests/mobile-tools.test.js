@@ -247,7 +247,7 @@ assert.ok(manifest.icons.some(icon => icon.src === '/sapuri-app-icon-192.png' &&
 assert.ok(manifest.icons.some(icon => icon.src === '/sapuri-app-icon-512.png' && icon.sizes === '512x512'));
 assert.match(serviceWorker, /request\.mode==='navigate'/);
 assert.match(serviceWorker, /fetch\(request\)/);
-assert.match(serviceWorker, /caches\.match\('\/index\.html'\)/);
+assert.match(serviceWorker, /caches\.match\('\/index\.html',\{cacheName:CACHE_NAME\}\)/);
 assert.match(serviceWorker, /CACHE_NAME=`pepos-mobile-\$\{ASSET_VERSION\}`/);
 assert.doesNotMatch(serviceWorker, /\/mobile-scan-success\.mp3/);
 assert.doesNotMatch(serviceWorker, /\/mobile-scan-error\.mp3/);

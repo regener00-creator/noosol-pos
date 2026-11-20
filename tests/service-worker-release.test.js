@@ -4,20 +4,20 @@ const fs=require('node:fs');
 const vm=require('node:vm');
 const source=fs.readFileSync(require('node:path').join(__dirname,'../sw.js'),'utf8');
 function setup(){
-  const origin='https://test.invalid',stores=new Map(),events={},requests=[];
+  const origin='https://test.invalid',stores=new Map(),events={},requests=[],precached=[];
   const key=request=>new URL(typeof request==='string'?request:request.url,origin).href;
   const cache=name=>{
     if(!stores.has(name)) stores.set(name,new Map());
     const rows=stores.get(name);
     return {put:async(req,res)=>rows.set(key(req),res),delete:async req=>rows.delete(key(req)),
-      keys:async()=>[...rows.keys()].map(url=>({url})),addAll:async urls=>{for(const url of urls) rows.set(key(url),{body:'old-release',ok:true});}};
+      keys:async()=>[...rows.keys()].map(url=>({url})),addAll:async urls=>{for(const url of urls){precached.push(url);rows.set(key(url),{body:'old-release',ok:true});}}};
   };
   const caches={open:async name=>cache(name),keys:async()=>[...stores.keys()],delete:async name=>stores.delete(name),
-    match:async request=>{for(const rows of stores.values()) if(rows.has(key(request))) return rows.get(key(request));}};
+    match:async(request,{cacheName}={})=>{if(cacheName)return stores.get(cacheName)?.get(key(request));for(const rows of stores.values()) if(rows.has(key(request))) return rows.get(key(request));}};
   const ctx=vm.createContext({URL,Set,Promise,caches,self:{location:{origin},skipWaiting:async()=>{},clients:{claim:async()=>{}},addEventListener:(name,fn)=>events[name]=fn},
     fetch:async req=>{requests.push(key(req));return {body:'new-release',ok:true,clone(){return this;}};}});
   vm.runInContext(source.replace('__PEPOS_ASSET_VERSION__','new-release'),ctx);
-  return {ctx,events,stores,requests,cache,key};
+  return {ctx,events,stores,requests,precached,cache,key};
 }
 async function dispatchFetch(c,url){
   const pending=[];let response;
@@ -30,6 +30,12 @@ test('install precaches every lazy page and activation retains two bounded previ
   c.events.install({waitUntil:p=>pending=p});await pending;
   const current=c.stores.get('pepos-mobile-new-release');
   for(const group of ['reports','documents','settings','catalog']) assert.ok(current.has(c.key('/page-'+group+'.js?v=new-release')));
+  const logo='/sapuri-pharmacy-logo.webp';
+  assert.equal(current.has(c.key(logo)),false);
+  c.precached.length=0;c.events.install({waitUntil:p=>pending=p});await pending;
+  assert.equal(c.precached.includes(logo),false);
+  assert.equal((await dispatchFetch(c,logo)).body,'old-release');
+  assert.equal(c.requests.length,0);
   c.events.activate({waitUntil:p=>pending=p});await pending;
   assert.equal(c.stores.has('other-app'),true);assert.equal(c.stores.has('pepos-mobile-ancient'),false);
   assert.equal(c.stores.has('pepos-mobile-old'),true);assert.equal(c.stores.has('pepos-mobile-older'),true);

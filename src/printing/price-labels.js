@@ -716,7 +716,9 @@ function writeBarcodePrintWindow(printWindow,items=barcodePrintItems,labelSize=b
     for(let count=0;count<Number(item.qty);count++) labels.push(regularLabel);
   });
   const fontBase=typeof location==='undefined'?'':location.origin;
-  const printFontStyle=`<style>@font-face{font-family:'Google Sans';src:url('${fontBase}/fonts/google-sans-variable-v2.woff2') format('woff2');font-style:normal;font-weight:400 700}@font-face{font-family:'Google Sans';src:url('${fontBase}/fonts/google-sans-italic-variable-v2.woff2') format('woff2');font-style:italic;font-weight:400 700}body,.toolbar button,.label{font-family:'Google Sans','Noto Sans Thai',Tahoma,sans-serif}</style>`;
+  const fontRules=`@font-face{font-family:'Google Sans';src:url('${fontBase}/fonts/google-sans-variable-v2.woff2') format('woff2');font-style:normal;font-weight:400 700;font-display:swap}@font-face{font-family:'Google Sans';src:url('${fontBase}/fonts/google-sans-italic-variable-v2.woff2') format('woff2');font-style:italic;font-weight:400 700;font-display:swap}`;
+  const shareFonts=typeof document!=='undefined'&&document.fonts?.load&&printWindow.document.fonts?.add;
+  const printFontStyle=`<style>${shareFonts?'':fontRules}body,.toolbar button,.label{font-family:'Google Sans','Noto Sans Thai',Tahoma,sans-serif}</style>`;
   let content=labels.join(''),sheetStyle='';
   if(a4){
     const sheets=[];
@@ -739,23 +741,13 @@ function writeBarcodePrintWindow(printWindow,items=barcodePrintItems,labelSize=b
   }
   const preparePreview=async()=>{
     if(printWindow.closed) return;
-    // Reuse the app's loaded font faces so document.write popups can render
-    // immediately even when Chromium stalls their separate font requests.
-    if(document.fonts?.load&&printWindow.document.fonts?.add){
+    // Load in the opener only. Removing a loading @font-face from a popup
+    // can leave its FontFaceSet.ready pending after switching to print media.
+    if(shareFonts){
       try{
-        await document.fonts.load('16px "Google Sans"');
+        const faces=await Promise.all([document.fonts.load('16px "Google Sans"'),document.fonts.load('italic 16px "Google Sans"')]);
         if(printWindow.closed)return;
-        const faces=[...document.fonts].filter(face=>face.family.replace(/["']/g,'')==='Google Sans'&&face.status==='loaded');
-        if(faces.length){
-          for(const sheet of printWindow.document.styleSheets){
-            for(let index=sheet.cssRules.length-1;index>=0;index--){
-              const rule=sheet.cssRules[index];
-              if(rule.type===5&&rule.style.fontFamily.replace(/["']/g,'')==='Google Sans')sheet.deleteRule(index);
-            }
-          }
-          [...printWindow.document.fonts].filter(face=>face.family.replace(/["']/g,'')==='Google Sans').forEach(face=>printWindow.document.fonts.delete(face));
-          faces.forEach(face=>printWindow.document.fonts.add(face));
-        }
+        new Set(faces.flat()).forEach(face=>printWindow.document.fonts.add(face));
       }catch(error){console.warn('price label font load',error);}
     }
     if(promotionTemplate)fitPromotionLabelText(printWindow.document);

@@ -237,11 +237,15 @@ window.peposBootstrapReady=(async function bootstrapAuth(){
     catch(error){const el=document.getElementById('loginError');if(el) el.textContent=error.message;}
     renderLoginState();return;
   }
-  try{
-    const { data:ownerCheck, error:ownerErr } = await sb.rpc('has_any_owner');
-    systemHasOwner = ownerErr ? true : !!ownerCheck; // default to "true" (login screen) if the check itself fails
-  }catch(e){ systemHasOwner = true; }
   try{ await loadCurrentProfile(); }catch(e){ currentProfile=null; }
+  if(currentProfile?.owner){
+    systemHasOwner=true;
+  }else{
+    try{
+      const {data,error}=await sb.rpc('has_any_owner');
+      systemHasOwner=error?true:!!data;
+    }catch{systemHasOwner=true;}
+  }
   if(currentProfile&&isMobileDeviceMode()) prepareMobileLandingPage();
   if(currentProfile){ try{ await loadWorkspaceFromSupabase(); }catch(e){ console.warn('load core data on boot failed',e); } }
   if(currentProfile){try{await loadOfflineSales();await saveOfflinePosSnapshot();}catch(e){console.warn('offline cache',e);}void syncOfflineSales();}

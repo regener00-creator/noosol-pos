@@ -65,8 +65,13 @@ let browser;
   const downloadPromise=page.waitForEvent('download');await page.locator('#voidReportExcel').click();const download=await downloadPromise;
   assert.match(download.suggestedFilename(),/\.xlsx$/);
   const ExcelJS=require('exceljs'),book=new ExcelJS.Workbook();await book.xlsx.load(await fs.promises.readFile(await download.path()));
-  const sheet=book.getWorksheet('บิลยกเลิก');assert.equal(sheet.rowCount,58);assert.equal(sheet.getCell('G58').value,5100);assert.equal(sheet.getCell('G7').type,ExcelJS.ValueType.Number);assert.equal(sheet.getCell('F7').alignment.horizontal,'center');
-  assert.equal(sheet.getCell('F7').value,'<img src=x onerror="window.xss=true">');
+  const sheet=book.getWorksheet('บิลยกเลิก'),headers=sheet.getRow(6).values;
+  const amount=headers.indexOf('ยอดคืน (บาท)'),reason=headers.indexOf('เหตุผล');
+  assert.ok(amount>0&&reason>0);assert.equal(sheet.rowCount,58);
+  assert.equal(sheet.getRow(58).getCell(amount).value,5100);
+  assert.equal(sheet.getRow(7).getCell(amount).type,ExcelJS.ValueType.Number);
+  assert.equal(sheet.getRow(7).getCell(reason).alignment.horizontal,'center');
+  assert.equal(sheet.getRow(7).getCell(reason).value,'<img src=x onerror="window.xss=true">');
   if(process.env.PEPOS_CAPTURE_REPORT){await fs.promises.mkdir(path.resolve(__dirname,'../outputs'),{recursive:true});await page.screenshot({path:path.resolve(__dirname,'../outputs/void-report.png')});}
   await page.locator('#voidReportNext').click();assert.equal(await page.locator('[data-void-report-detail]').count(),1);
   assert.equal(await page.locator('#voidReportWarehouse').count(),0);await page.locator('#voidReportFilters button[type=submit]').click();

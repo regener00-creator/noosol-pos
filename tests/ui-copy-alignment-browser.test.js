@@ -33,7 +33,7 @@ let browser;
     notesLoaded=true;notes=[];contacts=[{id:1,name:'ลูกค้าทดสอบ',phone:'0812345678',types:['customer']}];products=[];
     currentTab='notes';render();
   });
-  assert.equal(await page.locator('.notes-page-head h1').textContent(),'NOTE • พื้นที่จดบันทึกสำหรับร้าน');
+  assert.equal(await page.locator('.notes-page-head h1').textContent(),'NOTE');
   assert.equal(await page.locator('.notes-page-head p').count(),0);
   fs.mkdirSync(path.join(root,'outputs'),{recursive:true});
   await page.screenshot({path:path.join(root,'outputs/ui-copy-notes.png')});

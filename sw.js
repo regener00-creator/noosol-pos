@@ -1,9 +1,10 @@
 const ASSET_VERSION='__PEPOS_ASSET_VERSION__';
 const CACHE_NAME=`pepos-mobile-${ASSET_VERSION}`;
+const STATIC_CACHE_NAME='pepos-static-__PEPOS_STATIC_VERSION__';
 const PAGE_ASSETS=['reports','documents','settings','catalog','labels','inventory','representatives'].map(group=>`/page-${group}.js?v=${ASSET_VERSION}`);
-const APP_SHELL=['/','/index.html',`/styles.css?v=${ASSET_VERSION}`,`/app.js?v=${ASSET_VERSION}`,'/manifest.webmanifest','/sapuri-app-icon-192.png','/sapuri-app-icon-512.png','/sapuri-pharmacy-logo.webp','/sapuri-brand-screen.webp'];
+const APP_SHELL=['/index.html',`/styles.css?v=${ASSET_VERSION}`,`/app.js?v=${ASSET_VERSION}`,`/manifest.webmanifest?v=${ASSET_VERSION}`];
+const STATIC_ASSETS=['/sapuri-app-icon-192.png','/sapuri-app-icon-512.png','/sapuri-pharmacy-logo.webp','/sapuri-brand-screen.webp','/fonts/google-sans-variable-v2.woff2','/fonts/google-sans-italic-variable-v2.woff2'];
 APP_SHELL.push(...PAGE_ASSETS);
-APP_SHELL.push('/fonts/google-sans-variable-v2.woff2','/fonts/google-sans-italic-variable-v2.woff2');
 APP_SHELL.push(`/vendor/supabase.js?v=${ASSET_VERSION}`);
 const TRUSTED_CDN_HOSTS=new Set(['cdn.jsdelivr.net']);
 const MAX_RUNTIME_CACHE_ENTRIES=80;
@@ -18,23 +19,36 @@ async function trimRuntimeCache(cache){
   await Promise.all(keys.slice(0,Math.max(0,keys.length-MAX_RUNTIME_CACHE_ENTRIES)).map(request=>cache.delete(request)));
 }
 
-function fetchAndPrepareCacheUpdate(request,cacheKey=request){
+function fetchAndPrepareCacheUpdate(request){
   const version=new URL(typeof request==='string'?request:request.url,self.location.origin).searchParams.get('v');
-  return fetch(request).then(response=>({
-    response,
-    cacheUpdate:response.ok&&(!version||version===ASSET_VERSION)
-      ?caches.open(CACHE_NAME).then(async cache=>{ await cache.put(cacheKey,response.clone()); await trimRuntimeCache(cache); })
-      :Promise.resolve(),
-  }));
+  return fetch(request).then(response=>{
+    if(!response.ok||(version&&version!==ASSET_VERSION)) return {response,cacheUpdate:Promise.resolve()};
+    const copy=response.clone();
+    const cacheUpdate=caches.open(CACHE_NAME).then(async cache=>{
+      await cache.put(request,copy);
+      await trimRuntimeCache(cache);
+    });
+    return {response,cacheUpdate};
+  });
 }
 
+async function cacheSharedAssets(){
+  const cache=await caches.open(STATIC_CACHE_NAME);
+  const stored=new Set((await cache.keys()).map(request=>request.url));
+  const missing=STATIC_ASSETS.filter(path=>!stored.has(new URL(path,self.location.origin).href));
+  if(missing.length)await cache.addAll(missing);
+}
 self.addEventListener('install',event=>{
-  event.waitUntil(caches.open(CACHE_NAME).then(cache=>cache.addAll(APP_SHELL)).then(()=>self.skipWaiting()));
+  event.waitUntil(Promise.all([cacheSharedAssets(),caches.open(CACHE_NAME).then(cache=>cache.addAll(APP_SHELL))]).then(()=>self.skipWaiting()));
 });
 
 self.addEventListener('activate',event=>{
   // Keep two previous releases for tabs still running their matching app code.
-  event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(key=>key.startsWith('pepos-mobile-')&&key!==CACHE_NAME).slice(0,-2).map(key=>caches.delete(key)))).then(()=>self.clients.claim()));
+  event.waitUntil(caches.keys().then(keys=>{
+    const oldShells=keys.filter(key=>key.startsWith('pepos-mobile-')&&key!==CACHE_NAME).slice(0,-2);
+    const oldStatic=keys.filter(key=>key.startsWith('pepos-static-')&&key!==STATIC_CACHE_NAME);
+    return Promise.all([...oldShells,...oldStatic].map(key=>caches.delete(key)));
+  }).then(()=>self.clients.claim()));
 });
 
 self.addEventListener('fetch',event=>{
@@ -51,12 +65,16 @@ self.addEventListener('fetch',event=>{
     return;
   }
   if(request.mode==='navigate'){
-    const network=fetchAndPrepareCacheUpdate(request,'/index.html');
-    event.waitUntil(network.then(result=>result.cacheUpdate).catch(()=>undefined));
-    event.respondWith(network.then(result=>result.response).catch(()=>caches.match('/index.html')));
+    // The installed shell belongs to this release. Online navigation can already
+    // return the next release while this worker still controls an existing tab.
+    event.respondWith(fetch(request).catch(()=>caches.match('/index.html',{cacheName:CACHE_NAME})));
     return;
   }
   if(!isCacheableAsset(url)) return;
+  if(!url.search&&STATIC_ASSETS.includes(url.pathname)){
+    event.respondWith(caches.match(request,{cacheName:STATIC_CACHE_NAME}).then(cached=>cached||fetch(request)));
+    return;
+  }
   if(url.searchParams.has('v')){
     const cacheFirst=caches.match(request).then(cached=>cached
       ?{response:cached,cacheUpdate:Promise.resolve()}
@@ -67,5 +85,5 @@ self.addEventListener('fetch',event=>{
   }
   const network=fetchAndPrepareCacheUpdate(request);
   event.waitUntil(network.then(result=>result.cacheUpdate).catch(()=>undefined));
-  event.respondWith(network.then(result=>result.response).catch(()=>caches.match(request)));
+  event.respondWith(network.then(result=>result.response).catch(()=>caches.match(request,{cacheName:CACHE_NAME})));
 });

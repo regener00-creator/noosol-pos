@@ -1,13 +1,6 @@
 // ---------- รายงานรายการงานเคลื่อนไหว ----------
 function inventoryMovementRound(value){ return Math.round((Number(value)||0)*1000000)/1000000; }
-function inventoryMovementProduct(item,productList){
-  const list=productList||[];
-  const id=Number(item?.productId??item?.pid);
-  return (id?list.find(product=>Number(product.id)===id):null)||list.find(product=>String(product.name||'')===String(item?.name||''))||null;
-}
-function inventoryMovementWarehouseName(id,warehouseList,fallback){
-  return (warehouseList||[]).find(warehouse=>Number(warehouse.id)===Number(id))?.name||fallback||'-';
-}
+const movementBillCollator=new Intl.Collator('th',{numeric:true});
 function productExchangeMovementLines(doc){
   const outgoingApplied=doc?.outgoingApplied===true||['ส่งไปเปลี่ยนแล้ว','รับสินค้ากลับแล้ว'].includes(doc?.status);
   const incomingApplied=doc?.incomingApplied===true||doc?.status==='รับสินค้ากลับแล้ว';
@@ -42,11 +35,23 @@ function productExchangeMovementLines(doc){
 function collectInventoryMovements(source){
   const sales=source?.sales||[],receipts=source?.receipts||[],exchanges=source?.exchanges||[],returns=source?.returns||[],transfersList=source?.transfers||[];
   const productList=source?.products||[],warehouseList=source?.warehouses||[];
+  const byId=new Map(),byName=new Map(),byStoreAndName=new Map();
+  for(const product of productList){
+    byId.set(Number(product.id),product);
+    const name=String(product.name||''),store=Number(product.wh)||1;
+    if(!byName.has(name)) byName.set(name,product);
+    if(!byStoreAndName.has(store)) byStoreAndName.set(store,new Map());
+    const storeNames=byStoreAndName.get(store);
+    if(!storeNames.has(name)) storeNames.set(name,product);
+  }
+  const warehouseNames=new Map(warehouseList.map(w=>[Number(w.id),w.name]));
   const rows=[];
   let order=0;
   const add=(meta,item)=>{
     if(item?.custom||item?.tracksStock===false) return;
-    const product=inventoryMovementProduct(item,productList);
+    const id=Number(item?.productId??item?.pid);
+    const store=Number(meta.documentStore??meta.warehouseId??item?.warehouseId);
+    const product=byId.get(id)||(store?byStoreAndName.get(store):byName)?.get(String(item?.name||''));
     if(!product&&!Number(item?.productId??item?.pid)) return;
     const qty=inventoryMovementRound(item?.qty);
     if(qty<=0) return;
@@ -55,7 +60,7 @@ function collectInventoryMovements(source){
       documentId:String(meta.documentId??meta.bill??''), documentStore:Number(meta.documentStore??warehouseId)||0,
       date:String(meta.date||'').slice(0,10),type:meta.type||'-',bill:meta.bill||'-',time:meta.time||'-',
       productId:Number(item?.productId??item?.pid??product?.id),productName:String(item?.name||product?.name||'-'),qty,unit:String(item?.unit||product?.unit||''),
-      direction:meta.direction||'-',warehouseId:Number(warehouseId)||0,warehouse:inventoryMovementWarehouseName(warehouseId,warehouseList,meta.warehouseName),order:order++
+      direction:meta.direction||'-',warehouseId:Number(warehouseId)||0,warehouse:warehouseNames.get(Number(warehouseId))||meta.warehouseName||'-',order:order++
     });
   };
   sales.filter(sale=>sale?.status==='done'||sale?.status==='void').forEach(sale=>{
@@ -99,7 +104,7 @@ function collectInventoryMovements(source){
   return rows.sort((left,right)=>{
     const leftStamp=`${left.date} ${left.time==='-'?'00:00':left.time}`,rightStamp=`${right.date} ${right.time==='-'?'00:00':right.time}`;
     if(leftStamp!==rightStamp) return rightStamp.localeCompare(leftStamp);
-    const billOrder=String(right.bill).localeCompare(String(left.bill),'th',{numeric:true});
+    const billOrder=movementBillCollator.compare(String(right.bill),String(left.bill));
     return billOrder||left.order-right.order;
   });
 }
