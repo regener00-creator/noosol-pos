@@ -100,7 +100,7 @@ function productSalesPeriodSummary(range,filter,bills){
       label=reportDateLabel(range.from);
   }
   const resolveProduct=productSalesCatalogLookup();
-  const byMonth=filter.period==='selectyear'&&filter.byMonth===true;
+  const byMonth=filter.period==='selectyear';
   const months=byMonth?Array.from({length:12},(_,i)=>new Date(2000,i,1).toLocaleDateString('th-TH',{month:'long'})):null;
   const groups=new Map();
   for(const sale of bills){
@@ -112,7 +112,11 @@ function productSalesPeriodSummary(range,filter,bills){
       const unit=item.unit||product?.unit||'หน่วย';
       const qty=sale.customerReturn?-Math.abs(Number(item.qty)):Number(item.qty);
       if(!Number.isFinite(qty)) continue;
-      if(!groups.has(key)) groups.set(key,{name:product?.name||item.name||'-',product,total:productSalesQuantity(),months:byMonth?[]:null,value:0});
+      if(!groups.has(key)){
+        const expansionKey=JSON.stringify([activeWarehouseId,filter.wh,range.from,key]);
+        const expanded=byMonth&&filter.expandedProducts?.has(expansionKey);
+        groups.set(key,{name:product?.name||item.name||'-',product,total:productSalesQuantity(),expansionKey,months:expanded?[]:null,value:0});
+      }
       const row=groups.get(key);
       if(filter.period==='today'){
         const amount=Number(item.reportLineTotal??item.lineTotal??(item.qty*item.price))||0;
@@ -122,7 +126,7 @@ function productSalesPeriodSummary(range,filter,bills){
       // If the pack definition changed, retain the unit on the receipt.
       const canConvert=factor>0&&(!Number(item.factor)||Number(item.factor)===factor);
       addProductSalesQuantity(row.total,unit,qty,factor,canConvert);
-      if(byMonth){
+      if(row.months){
         const index=Number(sale.date.slice(5,7))-1;
         const bucket=row.months[index]??=productSalesQuantity();
         addProductSalesQuantity(bucket,unit,qty,factor,canConvert);
@@ -131,7 +135,7 @@ function productSalesPeriodSummary(range,filter,bills){
   }
   const rows=Array.from(groups.values(),row=>({
     name:row.name,quantity:formatProductSalesQuantity(row.total,row.product),value:row.value/100,
-    quantities:months?.map((_,i)=>formatProductSalesQuantity(row.months[i],row.product))
+    expansionKey:row.expansionKey,quantities:row.months?months.map((_,i)=>formatProductSalesQuantity(row.months[i],row.product)):null
   })).sort((a,b)=>a.name.localeCompare(b.name,'th'));
   return {label,rows,months};
 }
@@ -142,9 +146,10 @@ function productSalesPeriodSummaryHtml(report,filter,forPrint=false){
     const remove=canRemove&&filter.products.includes(row.name)?`<button class="rpt-row-x" data-name="${escapeHtml(row.name)}" title="เอาออก">×</button> `:'';
     const name=`${remove}${escapeHtml(row.name)}`;
     if(report.months){
-      return `<tbody><tr><th scope="rowgroup" colspan="2" style="text-align:left;">${name}</th></tr>
-        ${report.months.map((month,i)=>`<tr><td>${month}</td><td class="num">${escapeHtml(row.quantities[i])}</td></tr>`).join('')}
-        <tr><th scope="row">รวมทั้งปี</th><td class="num"><b>${escapeHtml(row.quantity)}</b></td></tr></tbody>`;
+      const details=row.quantities?report.months.map((month,i)=>`<tr class="product-sales-month"><td>${month}</td><td class="num">${escapeHtml(row.quantities[i])}</td></tr>`).join(''):'';
+      const title=forPrint?escapeHtml(row.name):`${remove}<button type="button" class="product-sales-year-toggle" aria-expanded="${!!row.quantities}"><span aria-hidden="true">${row.quantities?'▾':'▸'}</span> ${escapeHtml(row.name)}</button>`;
+      const toggle=forPrint?'':` data-product-sales-key="${escapeHtml(row.expansionKey)}"`;
+      return `<tbody><tr${toggle}><td class="rpt-pname">${title}</td><td class="num">${escapeHtml(row.quantity)}</td></tr>${details}</tbody>`;
     }
     return `<tr><td class="${forPrint?'pd-name':'rpt-pname'}">${name}</td>
       <td class="mono" style="text-align:right;">${escapeHtml(row.quantity)}</td>${filter.period==='today'?`<td class="num">${fmtMoney(row.value)}</td>`:''}</tr>`;
@@ -202,11 +207,11 @@ function exportRProductExcel(){
   let csv='\uFEFF';
   const report=productSalesPeriodSummary(range,rproductFilter,bills);
   csv+=csvSpreadsheetText(report.label)+'\n';
-  if(report.months){
+  if(report.rows.some(row=>row.quantities)){
     csv+='ชื่อสินค้า,เดือน,จำนวนที่ขายได้\n';
     for(const row of report.rows){
-      report.months.forEach((month,i)=>{csv+=`${csvSpreadsheetText(row.name)},${csvSpreadsheetText(month)},${csvSpreadsheetText(row.quantities[i])}\n`;});
       csv+=`${csvSpreadsheetText(row.name)},รวมทั้งปี,${csvSpreadsheetText(row.quantity)}\n`;
+      row.quantities?.forEach((quantity,i)=>{csv+=`${csvSpreadsheetText(row.name)},${csvSpreadsheetText(report.months[i])},${csvSpreadsheetText(quantity)}\n`;});
     }
   }else{
     const today=rproductFilter.period==='today';
@@ -329,7 +334,7 @@ function renderRProduct(){
         ${dmyDateFieldHtml('rpf_to', range.to)}
       </div>`:''}
       ${f.period==='selectmonth'?`<div class="rpf-item"><input type="month" id="rpf_month" value="${f.month||range.from.slice(0,7)}" class="rpt-select"></div>`:''}
-      ${f.period==='selectyear'?`<div class="rpf-item"><select id="rpf_year" class="rpt-select">${reportYearOptions(f.year)}</select></div><label><input type="checkbox" id="rpf_by_month" ${f.byMonth?'checked':''}> แสดงยอดแยกรายเดือน</label>`:''}
+      ${f.period==='selectyear'?`<div class="rpf-item"><select id="rpf_year" class="rpt-select">${reportYearOptions(f.year)}</select></div>`:''}
       ${isAllWarehousesMode()?`<div class="rpf-item">
         <select id="rpf_wh" class="rpt-select">
           <option value="all" ${f.wh==='all'?'selected':''}>ทุกคลัง</option>

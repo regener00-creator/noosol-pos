@@ -1425,6 +1425,10 @@
   .rpf-prodsearch .rpt-select{min-width:340px;}
   .rpf-clear{padding:9px 16px;}
   .rpt-row-x{background:none;border:1px solid var(--border);color:var(--text-muted);width:20px;height:20px;line-height:1;border-radius:50%;cursor:pointer;font-size:14px;vertical-align:middle;margin-right:2px;}
+  [data-product-sales-key]{cursor:pointer;}
+  .product-sales-year-toggle{background:none;border:0;padding:0;color:inherit;font:inherit;text-align:left;cursor:pointer;}
+  .rpt-table .product-sales-month td{padding-block:7px;background:var(--primary-soft);}
+  .rpt-table .product-sales-month td:first-child{padding-left:30px;}
   .rpt-row-x:hover{background:#fde8e8;color:#c0392b;border-color:#e8b4b4;}
   .rpf-results{position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.12);max-height:300px;overflow-y:auto;z-index:40;display:none;}
   .rpf-results.show{display:block;}

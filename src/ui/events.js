@@ -1540,12 +1540,22 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(saveUserSettingsBtn) saveUserSettingsBtn.addEventListener('click',saveUserSettings);
   // ===== ตัวกรองรายงานยอดขายตามสินค้า =====
   const rpPeriod=document.getElementById('rpf_period');
-  if(rpPeriod) rpPeriod.addEventListener('change',()=>{ rproductFilter.period=rpPeriod.value; render(); });
+  if(rpPeriod) rpPeriod.addEventListener('change',()=>{ rproductFilter.period=rpPeriod.value; rproductFilter.expandedProducts?.clear(); render(); });
   const rpFrom=document.getElementById('rpf_from'); if(rpFrom) rpFrom.addEventListener('change',()=>{ const iso=dmyToISO(rpFrom.value); if(iso) rproductFilter.from=iso; });
   const rpTo=document.getElementById('rpf_to'); if(rpTo) rpTo.addEventListener('change',()=>{ const iso=dmyToISO(rpTo.value); if(iso) rproductFilter.to=iso; });
   const rpMonth=document.getElementById('rpf_month'); if(rpMonth) rpMonth.addEventListener('change',()=>{ rproductFilter.month=rpMonth.value; render(); });
-  const rpYear=document.getElementById('rpf_year'); if(rpYear) rpYear.addEventListener('change',()=>{ rproductFilter.year=rpYear.value; render(); });
-  document.getElementById('rpf_by_month')?.addEventListener('change',event=>{ rproductFilter.byMonth=event.target.checked; render(); });
+  const rpYear=document.getElementById('rpf_year'); if(rpYear) rpYear.addEventListener('change',()=>{ rproductFilter.year=rpYear.value; rproductFilter.expandedProducts?.clear(); render(); });
+  document.querySelectorAll('[data-product-sales-key]').forEach(row=>row.addEventListener('click',event=>{
+    if(event.target.closest('.rpt-row-x')) return;
+    const key=row.dataset.productSalesKey;
+    const expanded=rproductFilter.expandedProducts??=new Set();
+    if(expanded.has(key)) expanded.delete(key); else expanded.add(key);
+    const main=document.getElementById('main');
+    const mainTop=main.scrollTop;
+    renderKeepScroll();
+    main.scrollTop=mainTop;
+    document.querySelector(`[data-product-sales-key="${CSS.escape(key)}"] .product-sales-year-toggle`)?.focus({preventScroll:true});
+  }));
   const rpWh=document.getElementById('rpf_wh'); if(rpWh) rpWh.addEventListener('change',()=>{ rproductFilter.wh=rpWh.value; });
   const rpScope=document.getElementById('rpf_scope'); if(rpScope) rpScope.addEventListener('change',()=>{ rproductFilter.scope=rpScope.value; rproductFilter.category=''; rproductFilter.brand=''; rproductFilter.products=[]; render(); });
   document.getElementById('rpPickCategoryBtn')?.addEventListener('click',openRProductCategoryPicker);

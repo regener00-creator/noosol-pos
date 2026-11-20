@@ -217,30 +217,48 @@ const browserExecutable = [
       assert.deepEqual(csv.slice(2),expected.map(qty=>'"Decolgen prin (4 tablets)","'+qty+'"'));
     }
   }
-  await page.getByLabel('แสดงยอดแยกรายเดือน').check();
+  assert.equal(await page.getByLabel('แสดงยอดแยกรายเดือน').count(),0);
   for(const store of [1,2]){
     await page.evaluate(store=>{activeWarehouseId=store;render();},store);
     const blocks=page.locator('.rpt-table tbody');
     assert.equal(await blocks.count(),store===1?2:1);
     const block=blocks.first();
-    assert.equal(await block.locator('tr').count(),14);
-    const values=await block.locator('td:last-child').allTextContents();
+    const toggle=block.locator('.product-sales-year-toggle');
+    assert.equal(await block.locator('tr').count(),1);
+    await block.locator('td.num').click();
+    assert.equal(await toggle.getAttribute('aria-expanded'),'true');
+    assert.equal(await block.locator('tr').count(),13);
+    if(store===1){
+      assert.equal(await blocks.nth(1).locator('tr').count(),1);
+      const other=blocks.nth(1).locator('.product-sales-year-toggle');
+      await other.press('Enter');
+      assert.equal(await blocks.nth(1).locator('tr').count(),13);
+      await other.press('Space');
+      assert.equal(await blocks.nth(1).locator('tr').count(),1);
+      assert.equal(await block.locator('tr').count(),13);
+    }
+    const values=await block.locator('.product-sales-month td:last-child').allTextContents();
+    const total=await block.locator('tr').first().locator('td.num').textContent();
     assert.equal(values[0],store===1?'1 กล่อง':'0 ซอง');
     assert.equal(values[1],'0 ซอง');
     assert.equal(values[9],store===1?'50 กล่อง':'0 ซอง');
     assert.equal(values[10],store===1?'17 กล่อง 3 ซอง':'2 กล่อง 3 ซอง');
     assert.equal(values[11],store===1?'2 ซอง':'0 ซอง');
-    assert.equal(values[12],store===1?'68 กล่อง 5 ซอง':'2 กล่อง 3 ซอง');
+    assert.equal(total,store===1?'68 กล่อง 5 ซอง':'2 กล่อง 3 ซอง');
     const printed=await page.evaluate(()=>{
       const doc=document.implementation.createHTMLDocument();window.open=()=>({document:doc});printRProduct();
       return Array.from(doc.querySelectorAll('tbody:first-of-type td:last-child'),td=>td.textContent);
     });
-    assert.deepEqual(printed,values);
+    assert.deepEqual(printed,[total,...values]);
     const pending=page.waitForEvent('download');await page.evaluate(()=>exportRProductExcel());
     const download=await pending;
     const csv=fs.readFileSync(await download.path(),'utf8');
     assert.ok(csv.includes(',"พฤศจิกายน","'+values[10]+'"'));
-    assert.ok(csv.includes(',รวมทั้งปี,"'+values[12]+'"'));
+    assert.ok(csv.includes(',รวมทั้งปี,"'+total+'"'));
+    assert.equal(csv.split(',"พฤศจิกายน",').length-1,1);
+    await toggle.click();
+    assert.equal(await block.locator('tr').count(),1);
+    assert.equal(await toggle.getAttribute('aria-expanded'),'false');
   }
   await page.evaluate(()=>{
     activeWarehouseId=1;TODAY_STR='2026-11-01';
