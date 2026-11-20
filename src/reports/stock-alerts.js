@@ -74,7 +74,7 @@ function lowStockReportRows(){
 function stockReportTabsHtml(){
   if(isAllWarehousesMode()) return '';
   const tab=(key,label)=>`<button type="button" class="btn ghost" data-stock-report-tab="${key}" aria-pressed="${currentTab===key}">${label}</button>`;
-  return `<nav class="stock-report-tabs" aria-label="รายงานสินค้าคงเหลือ">${canAccessTab('rinventory')?tab('rinventory','คงเหลือ'):''}${canAccessTab('lowstock')?tab('lowstock','ต้องเติมสินค้า'):''}</nav>`;
+  return `<nav class="stock-report-tabs" aria-label="รายงานสินค้า">${canAccessTab('rinventory')?tab('rinventory','คงเหลือ'):''}${canAccessTab('lowstock')?tab('lowstock','ต้องเติมสินค้า'):''}${canAccessTab('expiry')?tab('expiry','สินค้าใกล้หมดอายุ'):''}</nav>`;
 }
 function lowStockReportConditionLabel(){
   if(lowStockPageFilter.stockMode==='out') return 'สินค้าที่คงเหลือเป็นศูนย์';
@@ -224,6 +224,7 @@ function renderExpiry(){
   const warehouseOptions=reportingWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(lowStockPageFilter.expiryWarehouse)===String(warehouse.id)?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('');
 
   return `<div class="lowstock-section expiry-report-page">
+    ${stockReportTabsHtml()}
     <div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="printExpiryBtn">พิมพ์รายงาน</button></div>
     <div class="expiry-report-summary"><div class="expiry-near-card ${lowStockPageFilter.expiryMode==='near'?'active':''}"><button type="button" class="expiry-summary-card urgent" data-expiry-summary-mode="near" aria-label="แสดงสินค้าใกล้วันหมดอายุ"><span>ใกล้วันหมดอายุ</span><b>${nearCount}</b></button><label class="expiry-days-field"><span>ภายใน</span><input id="expiryDaysInput" class="no-spin" type="number" min="1" step="1" inputmode="numeric" value="${escapeHtml(expDays)}" aria-label="จำนวนวันก่อนหมดอายุ"><span>วัน</span></label></div><button type="button" class="expiry-summary-card expired ${lowStockPageFilter.expiryMode==='expired'?'active':''}" data-expiry-summary-mode="expired" aria-label="แสดงสินค้าที่หมดอายุแล้ว"><span>หมดอายุแล้ว</span><b>${expiredCount}</b></button>${showWarehouse?`<label class="expiry-warehouse-card"><span>คลังสินค้าที่แสดง</span><select id="expiryWarehouseFilter" aria-label="เลือกคลังสินค้า"><option value="all" ${lowStockPageFilter.expiryWarehouse==='all'?'selected':''}>ทุกคลัง</option>${warehouseOptions}</select></label>`:''}</div>
     <div class="doc-list-wrap seamless-table-wrap lowstock-table-scroll">

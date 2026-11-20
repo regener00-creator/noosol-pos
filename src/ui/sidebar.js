@@ -10,6 +10,9 @@ const NAV = [
     ['history','ประวัติการขาย / ใบเสร็จ','<path d="M3 3v6h6"/><path d="M3.5 13a9 9 0 1 0 2-6.6L3 9"/><path d="M12 7v5l3 3"/>'],
     ['promotions','โปรโมชั่น','<path d="M20.59 13.41 11 22H2v-9L11.41 3.59a2 2 0 0 1 2.83 0l6.35 6.35a2 2 0 0 1 0 2.83zM7 8h.01"/><circle cx="7.5" cy="7.5" r="1.5"/>'],
     ['cashshift','เปิด-ปิดระบบชำระ','<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2M7 3l-2 2M17 3l2 2"/>'],
+    ['rinventory','รายงานสินค้า','<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'],
+    ['lowstock','สินค้าใกล้หมด','<path d="M12 9v4"/><circle cx="12" cy="16.5" r="0.5" fill="currentColor"/><path d="M10.3 3.9L2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>'],
+    ['expiry','สินค้าใกล้หมดอายุ','<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M8 3.9 6.5 2.5M16 3.9l1.5-1.4"/>'],
   ]},
   {section:'ซื้อ & รับสินค้า', items:[
     ['purchaseorder','จดสั่งสินค้า','<path d="M3 3h3l2.4 12.2a2 2 0 0 0 2 1.6h8.4a2 2 0 0 0 2-1.6L21 7H6"/>'],
@@ -33,9 +36,6 @@ const NAV = [
     ['quotation','ใบเสนอราคา','<path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h5"/>'],
   ]},
   {section:'รายงาน', items:[
-    ['rinventory','สินค้าคงเหลือ','<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'],
-    ['lowstock','สินค้าใกล้หมด','<path d="M12 9v4"/><circle cx="12" cy="16.5" r="0.5" fill="currentColor"/><path d="M10.3 3.9L2.7 17a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/>'],
-    ['expiry','สินค้าใกล้หมดอายุ','<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M8 3.9 6.5 2.5M16 3.9l1.5-1.4"/>'],
     ['rproduct','ยอดขายตามสินค้า','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>'],
     ['rbill','ยอดขายและกำไรตามบิล','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>'],
     ['rvoid','รายงานบิลยกเลิก','<path d="M5 3h14v18H5zM9 8l6 6M15 8l-6 6M9 18h6"/>'],
@@ -63,17 +63,19 @@ function renderSidebar(){
   sidebarRenderSignature=signature;
   document.getElementById('sidebar').classList.toggle('combined-sidebar',combined);
   let html = `<div class="brand sidebar-user"><div class="sidebar-user-text"><b>${escapeHtml(user?.firstName||user?.username||'')}</b><span>${escapeHtml(systemUserLevelLabel(user?.level))}</span></div></div>`;
+  const reportTabs=['rinventory','lowstock','expiry'];
+  const reportEntry=reportTabs.find(tab=>canAccessTab(tab));
   NAV.forEach(g=>{
     const visibleItems=g.items.filter(([tab])=>canAccessTab(tab)
-      && !(tab==='lowstock'&&canAccessTab('rinventory'))
+      && (!reportTabs.includes(tab)||tab===reportEntry)
       && !(tab==='rprofit'&&canAccessTab('rbill')));
     if(!visibleItems.length) return;
     if(g.section&&!combined) html += `<div class="navsection">${g.section}</div>`;
     visibleItems.forEach(([tab,label,svg])=>{
       if(tab==='products'&&combined)label='ราคาสินค้า';
       if(tab==='rbill'&&!canAccessTab('rprofit'))label='ยอดขายตามบิล';
-      if(tab==='lowstock')label='สินค้าคงเหลือ';
-      const active=currentTab===tab||(tab==='rinventory'&&currentTab==='lowstock')||(tab==='rbill'&&currentTab==='rprofit');
+      if(tab===reportEntry)label='รายงานสินค้า';
+      const active=currentTab===tab||(tab===reportEntry&&reportTabs.includes(currentTab))||(tab==='rbill'&&currentTab==='rprofit');
       html += `<button class="navbtn ${active?'active':''}" data-tab="${tab}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">${svg}</svg>${label}</button>`;
     });
   });
