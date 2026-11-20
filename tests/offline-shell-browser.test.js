@@ -4,7 +4,9 @@ const path=require('node:path');
 const http=require('node:http');
 const {chromium}=require('playwright');
 const root=path.join(__dirname,'../public');
+let disconnected=false;
 const server=http.createServer((req,res)=>{
+  if(disconnected){req.socket.destroy();return;}
   const pathname=new URL(req.url,'http://localhost').pathname;
   const file=path.resolve(root,'.'+(pathname==='/'?'/index.html':pathname));
   if(!file.startsWith(root+path.sep)||!fs.existsSync(file)){res.writeHead(404).end();return;}
@@ -21,7 +23,6 @@ let browser;
   // external SDK is isolated so the test cannot contact the production DB.
   const sdk=`(()=>{const q=new Proxy({}, {get(_t,k){return k==='then'?(resolve=>resolve({data:[],error:null})):(()=>q);}});
     window.supabase={createClient:()=>new Proxy({auth:{getSession:async()=>({data:{session:null}}),onAuthStateChange:()=>({data:{subscription:{unsubscribe(){}}}})}},{get:(t,k)=>k in t?t[k]:(()=>q)})};})();`;
-  let disconnected=false;
   await context.route('https://**/*',route=>disconnected?route.abort():route.fulfill({contentType:'text/javascript',body:route.request().url().includes('/@supabase/')?sdk:''}));
   const page=await context.newPage(),url='http://127.0.0.1:'+server.address().port;
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
@@ -46,14 +47,14 @@ let browser;
     if(!await saveOfflinePosSnapshot())throw new Error('snapshot failed');
   });
   disconnected=true;await context.setOffline(true);
-  // Set the OS connectivity signal as well as cutting network transport. Chromium
-  // versions differ on whether transport emulation updates navigator.onLine on reload.
-  const network=await context.newCDPSession(page);
-  await network.send('Network.overrideNetworkState',{offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
+  // Chromium on Linux can report the host as online after a worker-served reload.
+  // Set the OS signal for new documents while the origin itself stays disconnected.
+  await context.addInitScript(()=>Object.defineProperty(navigator,'onLine',{get:()=>false}));
   const response=await page.reload({waitUntil:'domcontentloaded'});
   assert.equal(response.fromServiceWorker(),true);
   await page.evaluate(()=>window.peposBootstrapReady);
   assert.equal(await page.evaluate(()=>navigator.onLine),false);
+  assert.equal(await page.evaluate(()=>fetch('/network-probe',{cache:'no-store'}).then(()=>true,()=>false)),false);
   if(!await page.evaluate(()=>currentProfile)) console.log(await page.evaluate(async()=>({loginError:document.getElementById('loginError')?.textContent,sdk:!!window.supabase,errors:window.__peposDependencyError,cacheKeys:await caches.keys()})));
   assert.equal(await page.evaluate(()=>currentProfile?.username),'shell-test');
   assert.equal(await page.locator('#appRoot').isVisible(),true);
