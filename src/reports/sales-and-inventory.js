@@ -469,14 +469,14 @@ function billReportDetailHtml(row){
     return `<tr><td>${escapeHtml(item.name)}${promotion?`<small> · ${promotion}</small>`:''}</td><td>${escapeHtml(item.qty)} ${escapeHtml(item.unit)}</td><td>${fmtMoney(item.net)}</td><td>${fmtMoney(item.costTotal)}</td><td>${billProfitAmountHtml(item.profit)}</td></tr>`;
   }).join('');
   return `<p>VAT <b>${fmtMoney(row.vat)}</b> · ยอดรับก่อน VAT <b>${fmtMoney(row.val-row.vat)}</b> · ต้นทุนรวม <b>${fmtMoney(breakdown.cost)}</b></p>
-    <table class="bill-line-table"><thead><tr><th>สินค้า</th><th>จำนวน</th><th>ยอดขายก่อน VAT</th><th>ต้นทุน</th><th aria-label="กำไรหรือขาดทุน">+/−</th></tr></thead><tbody>${items}</tbody><tfoot><tr><th colspan="2">รวม</th><td>${fmtMoney(breakdown.revenue)}</td><td>${fmtMoney(breakdown.cost)}</td><td>${billProfitAmountHtml(breakdown.profit)}</td></tr></tfoot></table>`;
+    <table class="bill-line-table"><thead><tr><th>สินค้า</th><th>จำนวน</th><th>ยอดขายก่อน VAT</th><th>ต้นทุน</th><th>ส่วนต่าง</th></tr></thead><tbody>${items}</tbody><tfoot><tr><th colspan="2">รวม</th><td>${fmtMoney(breakdown.revenue)}</td><td>${fmtMoney(breakdown.cost)}</td><td>${billProfitAmountHtml(breakdown.profit)}</td></tr></tfoot></table>`;
 }
 
 function billReportDayHtml(date,rows,includeProfit,forPrint=false){
   const dayTotal=rows.reduce((sum,row)=>sum+row.val,0);
   const columns=includeProfit?4:3;
   return `<section class="rpt-day-group bill-report-day"><div class="rpt-day-head"><b>${reportDateLabel(date)}</b><span>ลูกค้าจ่าย ${fmtMoney(dayTotal)} บาท${includeProfit?` · ${billProfitSummaryHtml(rows)}`:''}</span></div>
-    <table class="rpt-table bill-summary-table"><thead><tr><th>เลขบิล</th><th>วิธีชำระ</th><th>ลูกค้าจ่าย (รวม VAT)</th>${includeProfit?'<th aria-label="กำไรหรือขาดทุน">+/−</th>':''}</tr></thead><tbody>
+    <table class="rpt-table bill-summary-table"><thead><tr><th>เลขบิล</th><th>วิธีชำระ</th><th>ลูกค้าจ่าย (รวม VAT)</th>${includeProfit?'<th>ส่วนต่าง</th>':''}</tr></thead><tbody>
     ${rows.map(row=>{
       const name=escapeHtml(row.billId);
       const toggle=forPrint?name:`<button type="button" class="bill-report-toggle" aria-expanded="false"><span aria-hidden="true">▸</span> ${name}</button>`;
