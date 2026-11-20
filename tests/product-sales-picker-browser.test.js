@@ -367,7 +367,7 @@ const browserExecutable = [
   assert.match(await bills.nth(1).innerText(),/รอต้นทุน/);
   await bills.first().locator('td').last().click();
   assert.doesNotMatch(await page.locator('.bill-report-detail:visible').innerText(),/ยอดรับก่อน VAT|ต้นทุนรวม/);
-  assert.deepEqual(await page.locator('.bill-report-detail:visible tfoot td').allTextContents(),['(VAT 7.00) 100.00','42.00','+58.00']);
+  assert.deepEqual(await page.locator('.bill-report-detail:visible tfoot td').allTextContents(),['(VAT 7.00)\u00a0 100.00','42.00','+58.00']);
   assert.match(await page.locator('.bill-report-detail:visible').innerText(),/ของแถม · โปร A/);
   const loss=page.locator('.bill-report-detail:visible .bill-line-table tbody tr').last().locator('td:last-child span');
   assert.equal(await loss.innerText(),'−2.00');
@@ -380,7 +380,7 @@ const browserExecutable = [
     window.open=()=>({document:doc});printRBill();return doc.body.textContent;
   });
   assert.doesNotMatch(await printedBill(),/ยอดรับก่อน VAT/);
-  assert.match(await printedBill(),/\(VAT 7\.00\) 100\.00/);
+  assert.match(await printedBill(),/\(VAT 7\.00\)\u00a0 100\.00/);
   assert.match(await printedBill(),/−2\.00/);
   await page.evaluate(()=>{
     currentProfile={id:'sales-only',owner:false,level:2};
@@ -402,9 +402,9 @@ const browserExecutable = [
     render();
   });
   const heading=page.locator('.bill-report-day .rpt-day-head');
-  assert.equal(await heading.locator('strong').textContent(),'12 ต.ค. 2026 • 1 บิล | ยอดรวม 660.00 | -152.00');
+  assert.equal(await heading.locator('strong').textContent(),'12 ต.ค. 2026 • 1 บิล | 660.00 | -152.00');
   assert.ok(await heading.locator('strong span').evaluate(el=>Number(getComputedStyle(el).fontWeight)>=700));
-  assert.match(await printedBill(),/12 ต\.ค\. 2026 • 1 บิล \| ยอดรวม 660\.00 \| -152\.00/);
+  assert.match(await printedBill(),/12 ต\.ค\. 2026 • 1 บิล \| 660\.00 \| -152\.00/);
   for(const period of ['selectmonth','range']){
     await page.evaluate(period=>{Object.assign(rbillFilter,{period,from:'2026-10-12',to:'2026-10-12'});render();},period);
     assert.equal(await bills.first().isVisible(),false);
@@ -427,7 +427,7 @@ const browserExecutable = [
       {...november,date:'2026-11-06',total:10,items:[{name:'รอข้อมูล',qty:1,price:10}]});
     rbillFilter={...rbillFilter,period:'selectmonth',month:'2026-11'};render();
   });
-  assert.equal(await heading.first().innerText(),'5 พ.ย. 2026 • 2 บิล | ยอดรวม 1,290.00 | +143.00');
+  assert.equal(await heading.first().innerText(),'5 พ.ย. 2026 • 2 บิล | 1,290.00 | +143.00');
   const visibleBills=page.locator('[data-bill-summary]:visible');
   assert.equal(await visibleBills.count(),0);
   await heading.first().click();
@@ -438,10 +438,10 @@ const browserExecutable = [
   assert.equal(await page.locator('.bill-report-detail:visible').count(),0);
   await heading.first().click();
   assert.equal(await visibleBills.count(),0);
-  assert.match(await printedBill(),/\(VAT 0\.00\) 1,000\.00900\.00\+100\.00/);
+  assert.match(await printedBill(),/\(VAT 0\.00\)\u00a0 1,000\.00900\.00\+100\.00/);
   await page.evaluate(()=>{rbillFilter={...rbillFilter,period:'selectyear',year:'2026'};render();});
   assert.deepEqual(await heading.allTextContents(),[
-    'ตุลาคม 2026 • 1 บิล | ยอดรวม 660.00 | -152.00','พฤศจิกายน 2026 • 3 บิล | ยอดรวม 1,300.00 | +143.00 (รอต้นทุน 1 บิล)'
+    'ตุลาคม 2026 • 1 บิล | 660.00 | -152.00','พฤศจิกายน 2026 • 3 บิล | 1,300.00 | +143.00 (รอต้นทุน 1 บิล)'
   ]);
   const dayCells=()=>page.locator('.bill-year-days tr').evaluateAll(rows=>rows.map(tr=>Array.from(tr.cells,td=>td.textContent)));
   const visibleDays=page.locator('.bill-year-days:visible tr');
@@ -455,7 +455,7 @@ const browserExecutable = [
   assert.deepEqual(await dayCells(),[['12 ต.ค. 2026','-152.00','1 บิล'],['5 พ.ย. 2026','+143.00','2 บิล'],['6 พ.ย. 2026','รอต้นทุน','1 บิล']]);
   assert.equal(await page.locator('.bill-summary-table,.bill-report-detail').count(),0);
   const annualPrint=await printedBill();
-  assert.match(annualPrint,/พฤศจิกายน 2026 • 3 บิล \| ยอดรวม 1,300\.00 \| \+143\.00/);
+  assert.match(annualPrint,/พฤศจิกายน 2026 • 3 บิล \| 1,300\.00 \| \+143\.00/);
   assert.match(annualPrint,/5 พ\.ย\. 2026\+143\.002 บิล/);
   assert.doesNotMatch(annualPrint,/LOSS/);
   await page.evaluate(()=>{currentProfile={id:'sales-only',owner:false,level:2};render();});

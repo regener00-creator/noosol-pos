@@ -468,13 +468,13 @@ function billReportDetailHtml(row){
     const promotion=[item.giftLabel,item.promoName].filter(Boolean).map(escapeHtml).join(' · ');
     return `<tr><td>${escapeHtml(item.name)}${promotion?`<small> · ${promotion}</small>`:''}</td><td>${escapeHtml(item.qty)} ${escapeHtml(item.unit)}</td><td>${fmtMoney(item.net)}</td><td>${fmtMoney(item.costTotal)}</td><td>${billProfitAmountHtml(item.profit)}</td></tr>`;
   }).join('');
-  return `<table class="bill-line-table"><thead><tr><th>สินค้า</th><th>จำนวน</th><th>ยอดก่อน VAT</th><th>ต้นทุน</th><th>ส่วนต่าง</th></tr></thead><tbody>${items}</tbody><tfoot><tr><th colspan="2">รวม</th><td><small style="font-weight:400;font-style:italic">(VAT ${fmtMoney(row.vat)})</small> ${fmtMoney(breakdown.revenue)}</td><td>${fmtMoney(breakdown.cost)}</td><td>${billProfitAmountHtml(breakdown.profit)}</td></tr></tfoot></table>`;
+  return `<table class="bill-line-table"><thead><tr><th>สินค้า</th><th>จำนวน</th><th>ยอดก่อน VAT</th><th>ต้นทุน</th><th>ส่วนต่าง</th></tr></thead><tbody>${items}</tbody><tfoot><tr><th colspan="2">รวม</th><td><small style="font-weight:400;font-style:italic">(VAT ${fmtMoney(row.vat)})</small>&nbsp; ${fmtMoney(breakdown.revenue)}</td><td>${fmtMoney(breakdown.cost)}</td><td>${billProfitAmountHtml(breakdown.profit)}</td></tr></tfoot></table>`;
 }
 
 function billReportHeadingHtml(label,rows,includeProfit,collapsible=false){
   const total=rows.reduce((sum,row)=>sum+row.val,0);
   const tag=collapsible?'summary':'div';
-  return `<${tag} class="rpt-day-head"><strong>${escapeHtml(label)} • ${rows.length} บิล | ยอดรวม ${fmtMoney(total)}${includeProfit?` | ${billProfitSummaryHtml(rows,'-')}`:''}</strong></${tag}>`;
+  return `<${tag} class="rpt-day-head"><strong>${escapeHtml(label)} • ${rows.length} บิล | ${fmtMoney(total)}${includeProfit?` | ${billProfitSummaryHtml(rows,'-')}`:''}</strong></${tag}>`;
 }
 
 function billReportDayHtml(date,rows,includeProfit,{forPrint,collapsible}){
@@ -667,7 +667,6 @@ function renderRBill(){
             <div><span class="rpt-meta-k">จำนวนทั้งหมด</span><span class="rpt-meta-v">${docCount} เอกสาร</span></div>
           </div>
           <div class="rpt-meta-right">
-            <span class="rpt-meta-total-k">ยอดรวม</span>
             <span class="rpt-meta-total-v">${fmtMoney(grandVal)}</span>
             ${includeProfit?`<div><b title="กำไรหรือขาดทุน">${billProfitSummaryHtml(allRows)}</b></div>`:''}
           </div>
