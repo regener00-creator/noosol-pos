@@ -475,12 +475,13 @@ function billReportDetailHtml(row){
 function billReportHeadingHtml(label,rows,includeProfit,collapsible=false){
   const total=rows.reduce((sum,row)=>sum+row.val,0);
   const tag=collapsible?'summary':'div';
-  return `<${tag} class="rpt-day-head"><strong>${escapeHtml(label)} • ยอดรวม ${fmtMoney(total)}${includeProfit?` | ${billProfitSummaryHtml(rows,'-')}`:''}</strong></${tag}>`;
+  return `<${tag} class="rpt-day-head"><strong>${escapeHtml(label)} ยอดรวม ${fmtMoney(total)}${includeProfit?` | ${billProfitSummaryHtml(rows,'-')}`:''}</strong></${tag}>`;
 }
 
 function billReportDayHtml(date,rows,includeProfit,forPrint=false){
   const columns=includeProfit?4:3;
-  return `<section class="rpt-day-group bill-report-day">${billReportHeadingHtml(reportDateLabel(date),rows,includeProfit)}
+  const label=`${reportDateLabel(date)} • ${rows.length} บิล |`;
+  return `<section class="rpt-day-group bill-report-day">${billReportHeadingHtml(label,rows,includeProfit)}
     <table class="rpt-table bill-summary-table"><tbody>
     ${rows.map(row=>{
       const name=escapeHtml(row.billId);
@@ -509,7 +510,7 @@ function billReportGroupsHtml(period,dateKeys,byDate,includeProfit,forPrint=fals
   }
   return Array.from(months,([month,dates])=>{
     const label=new Date(month+'-01T00:00:00').toLocaleDateString('th-TH-u-ca-gregory',{month:'long',year:'numeric'});
-    const heading=billReportHeadingHtml(label,dates.flatMap(date=>byDate[date]),includeProfit,!forPrint);
+    const heading=billReportHeadingHtml(label+' •',dates.flatMap(date=>byDate[date]),includeProfit,!forPrint);
     const days=dates.map(date=>{
       const rows=byDate[date];
       return `<tr><td>${reportDateLabel(date)}</td>${includeProfit?`<td class="r">${billProfitSummaryHtml(rows,'-')}</td>`:''}<td class="r">${rows.length} บิล</td></tr>`;

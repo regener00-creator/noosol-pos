@@ -400,9 +400,9 @@ const browserExecutable = [
     render();
   });
   const heading=page.locator('.bill-report-day .rpt-day-head');
-  assert.equal(await heading.locator('strong').textContent(),'12 ต.ค. 2026 • ยอดรวม 660.00 | -152.00');
+  assert.equal(await heading.locator('strong').textContent(),'12 ต.ค. 2026 • 1 บิล | ยอดรวม 660.00 | -152.00');
   assert.ok(await heading.locator('strong span').evaluate(el=>Number(getComputedStyle(el).fontWeight)>=700));
-  assert.match(await printedBill(),/12 ต\.ค\. 2026 • ยอดรวม 660\.00 \| -152\.00/);
+  assert.match(await printedBill(),/12 ต\.ค\. 2026 • 1 บิล \| ยอดรวม 660\.00 \| -152\.00/);
   for(const period of ['selectmonth','range']){
     await page.evaluate(period=>{Object.assign(rbillFilter,{period,from:'2026-10-12',to:'2026-10-12'});render();},period);
     const weights=await bills.first().evaluate(row=>Array.from(row.cells,cell=>getComputedStyle(cell.firstElementChild||cell).fontWeight));
@@ -412,8 +412,10 @@ const browserExecutable = [
     const november={...salesHistory[0],date:'2026-11-05',total:1000,items:[{name:'สินค้า',qty:1,price:1000,cost:900}]};
     salesHistory.push(november,{...november,total:290,items:[{name:'สินค้า',qty:1,price:290,cost:247}]},
       {...november,date:'2026-11-06',total:10,items:[{name:'รอข้อมูล',qty:1,price:10}]});
-    rbillFilter={...rbillFilter,period:'selectyear',year:'2026'};render();
+    rbillFilter={...rbillFilter,period:'selectmonth',month:'2026-11'};render();
   });
+  assert.equal(await heading.first().innerText(),'5 พ.ย. 2026 • 2 บิล | ยอดรวม 1,290.00 | +143.00');
+  await page.evaluate(()=>{rbillFilter={...rbillFilter,period:'selectyear',year:'2026'};render();});
   assert.deepEqual(await heading.allTextContents(),[
     'ตุลาคม 2026 • ยอดรวม 660.00 | -152.00','พฤศจิกายน 2026 • ยอดรวม 1,300.00 | +143.00 (รอต้นทุน 1 บิล)'
   ]);
