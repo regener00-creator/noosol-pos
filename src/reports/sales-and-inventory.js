@@ -475,8 +475,8 @@ function billReportDetailHtml(row){
 function billReportDayHtml(date,rows,includeProfit,forPrint=false){
   const dayTotal=rows.reduce((sum,row)=>sum+row.val,0);
   const columns=includeProfit?4:3;
-  return `<section class="rpt-day-group bill-report-day"><div class="rpt-day-head"><b>${reportDateLabel(date)}</b><span>ลูกค้าจ่าย ${fmtMoney(dayTotal)} บาท${includeProfit?` · ${billProfitSummaryHtml(rows)}`:''}</span></div>
-    <table class="rpt-table bill-summary-table"><thead><tr><th>เลขบิล</th><th>วิธีชำระ</th><th>ลูกค้าจ่าย (รวม VAT)</th>${includeProfit?'<th>ส่วนต่าง</th>':''}</tr></thead><tbody>
+  return `<section class="rpt-day-group bill-report-day"><div class="rpt-day-head"><b>${reportDateLabel(date)}</b><span>ยอดชำระ ${fmtMoney(dayTotal)} บาท${includeProfit?` · ${billProfitSummaryHtml(rows)}`:''}</span></div>
+    <table class="rpt-table bill-summary-table"><thead><tr><th>เลขบิล</th><th>วิธีชำระ</th><th>ยอดชำระ</th>${includeProfit?'<th>ส่วนต่าง</th>':''}</tr></thead><tbody>
     ${rows.map(row=>{
       const name=escapeHtml(row.billId);
       const toggle=forPrint?name:`<button type="button" class="bill-report-toggle" aria-expanded="false"><span aria-hidden="true">▸</span> ${name}</button>`;
@@ -565,7 +565,7 @@ function printRBill(filter=rbillFilter,reportTitle='รายงานยอด�
         <div><span class="k">จำนวนทั้งหมด</span><span>${docCount} เอกสาร</span></div>
       </div>
       <div class="meta-right">
-        <div class="tot"><span class="k">ลูกค้าจ่าย (รวม VAT)</span><span class="v">${fmtMoney(grandVal)}</span></div>
+        <div class="tot"><span class="k">ยอดชำระ</span><span class="v">${fmtMoney(grandVal)}</span></div>
         ${includeProfit&&costedBills.length?`<div class="tot"><span>ต้นทุนรวม${costedBills.length<docCount?' (บิลที่มีต้นทุนครบ)':''}</span><b>${fmtMoney(cost)}</b></div><div class="tot"><span>อัตรากำไร${costedBills.length<docCount?' (บิลที่มีต้นทุนครบ)':''}</span><b>${revenue?((revenue-cost)/revenue*100).toFixed(2):'0.00'}%</b></div>`:''}
         ${includeProfit?`<div class="tot"><b title="กำไรหรือขาดทุน">${billProfitSummaryHtml(allRows)}</b></div>`:''}
       </div>
