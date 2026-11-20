@@ -1366,7 +1366,7 @@
   .dmy-cal-icon{width:15px;height:15px;pointer-events:none;}
   .dmy-native{position:absolute;right:0;bottom:0;width:1px!important;height:1px!important;opacity:0;pointer-events:none;border:0;padding:0;}
   .rpf-apply{padding:9px 22px;}
-  #rbApplyBtn{background-color:#fff;}
+  #rbApplyBtn,#rpApplyBtn{background-color:#fff;}
   .rpt-body{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:28px 30px;}
   .rpt-biz{font-size:20px;font-weight:600;margin-bottom:16px;color:var(--primary);}
   .rpt-meta-grid{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;padding-bottom:20px;border-bottom:1px solid var(--border);}
