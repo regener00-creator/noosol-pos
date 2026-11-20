@@ -419,6 +419,7 @@ function productBaseUnitChangeBlockers(productId){
   return blockers;
 }
 function openProductBaseUnitChangeModal(){
+  const showWarehouse=isAllWarehousesMode();
   if(mobileProductEditor){
     if(!canEditMobilePrice()||mobileProductEditor.saving||!mobileRequireOnline('เปลี่ยนหน่วยหลัก')) return;
     if(mobileProductEditor.changed){ showToast('กรุณาบันทึกข้อมูลสินค้าที่แก้ไขก่อน แล้วเปิดมาเปลี่ยนหน่วยหลัก','danger-top'); return; }
@@ -450,8 +451,8 @@ function openProductBaseUnitChangeModal(){
     if(!priceEdited&&conversion>0) priceInput.value=String(baseUnitChangeRound((Number(product.price)||0)/conversion));
     if(!costEdited&&conversion>0) costInput.value=String(baseUnitChangeRound((Number(product.cost)||0)/conversion));
     const newUnit=overlay.querySelector('#baseUnitNewName').value.trim()||'หน่วยใหม่';
-    const rows=baseUnitChangeStockPreview(product.id,conversion);
-    overlay.querySelector('#baseUnitStockPreview').innerHTML=`<table class="grid-table"><thead><tr><th>คลังสินค้า</th><th>ก่อนเปลี่ยน</th><th>หลังเปลี่ยน</th></tr></thead><tbody>${rows.map(row=>`<tr><td>${escapeHtml(row.warehouseName)}</td><td class="mono num">${row.before} ${escapeHtml(product.unit)}</td><td class="mono num">${conversion>0?`${row.after} ${escapeHtml(newUnit)}`:'-'}</td></tr>`).join('')||'<tr><td colspan="3" style="text-align:center;color:var(--text-muted);">ยังไม่มีคลังสินค้า</td></tr>'}</tbody></table>`;
+    const rows=baseUnitChangeStockPreview(product.id,conversion,showWarehouse?warehouses:reportingWarehouses());
+    overlay.querySelector('#baseUnitStockPreview').innerHTML=`<table class="grid-table"><thead><tr>${showWarehouse?'<th>คลังสินค้า</th>':''}<th>ก่อนเปลี่ยน</th><th>หลังเปลี่ยน</th></tr></thead><tbody>${rows.map(row=>`<tr>${showWarehouse?`<td>${escapeHtml(row.warehouseName)}</td>`:''}<td class="mono num">${row.before} ${escapeHtml(product.unit)}</td><td class="mono num">${conversion>0?`${row.after} ${escapeHtml(newUnit)}`:'-'}</td></tr>`).join('')||`<tr><td colspan="${showWarehouse?3:2}" style="text-align:center;color:var(--text-muted);">ยังไม่มีคลังสินค้า</td></tr>`}</tbody></table>`;
   };
   conversionInput.addEventListener('input',updatePreview);
   overlay.querySelector('#baseUnitNewName').addEventListener('input',updatePreview);

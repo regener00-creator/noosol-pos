@@ -183,9 +183,10 @@ function inventoryMovementDirectionBadge(direction){
   return `<span class="movement-direction ${cls}">${escapeHtml(direction||'-')}</span>`;
 }
 function inventoryMovementGroupDetailHtml(group){
-  return `<tr class="movement-detail-row"><td colspan="7"><div class="movement-detail-list">
-    <div class="movement-detail-head"><span>สินค้า</span><span style="text-align:center;">จำนวน</span><span style="text-align:center;">เข้า-ออก</span><span style="text-align:center;">คลังสินค้า</span></div>
-    ${(group.rows||[]).map(row=>`<div class="movement-detail-item"><span class="movement-detail-product">${escapeHtml(row.productName||'-')}</span><span class="movement-detail-qty">${(Number(row.qty)||0).toLocaleString('th-TH',{maximumFractionDigits:6})} ${escapeHtml(row.unit||'')}</span><span class="movement-direction-list">${inventoryMovementDirectionBadge(row.direction)}</span><span class="movement-detail-warehouse">${escapeHtml(row.warehouse||'-')}</span></div>`).join('')}
+  const showWarehouse=isAllWarehousesMode();
+  return `<tr class="movement-detail-row"><td colspan="${showWarehouse?7:6}"><div class="movement-detail-list${showWarehouse?'':' single-warehouse'}">
+    <div class="movement-detail-head"><span>สินค้า</span><span style="text-align:center;">จำนวน</span><span style="text-align:center;">เข้า-ออก</span>${showWarehouse?'<span style="text-align:center;">คลังสินค้า</span>':''}</div>
+    ${(group.rows||[]).map(row=>`<div class="movement-detail-item"><span class="movement-detail-product">${escapeHtml(row.productName||'-')}</span><span class="movement-detail-qty">${(Number(row.qty)||0).toLocaleString('th-TH',{maximumFractionDigits:6})} ${escapeHtml(row.unit||'')}</span><span class="movement-direction-list">${inventoryMovementDirectionBadge(row.direction)}</span>${showWarehouse?`<span class="movement-detail-warehouse">${escapeHtml(row.warehouse||'-')}</span>`:''}</div>`).join('')}
   </div></td></tr>`;
 }
 function inventoryMovementGroupPreviewHtml(group,limit=2){
@@ -193,14 +194,16 @@ function inventoryMovementGroupPreviewHtml(group,limit=2){
   return `<div class="movement-product-preview">${preview.map(row=>`<span class="movement-product-preview-line">${inventoryMovementQtyText(row)}</span>`).join('')}${remaining?`<span class="movement-product-preview-more">+${remaining} รายการ</span>`:''}</div>`;
 }
 function inventoryMovementGroupRowHtml(group){
+  const showWarehouse=isAllWarehousesMode();
   const expanded=inventoryMovementExpandedBills.has(group.key);
   const directions=inventoryMovementGroupDirections(group);
   const encodedKey=encodeURIComponent(group.key);
-  return `<tr class="movement-summary-row ${expanded?'expanded':''}" data-movement-group="${escapeHtml(encodedKey)}" tabindex="0" aria-expanded="${expanded?'true':'false'}"><td>${fmtDate(group.date)}</td><td>${escapeHtml(group.type)}</td><td class="mono"><span class="movement-summary-bill"><span class="movement-summary-toggle" aria-hidden="true">▶</span>${escapeHtml(group.bill)}</span></td><td>${escapeHtml(group.time)}</td><td class="movement-product-cell">${inventoryMovementGroupPreviewHtml(group)}</td><td><div class="movement-direction-list">${directions.map(inventoryMovementDirectionBadge).join('')}</div></td><td>${escapeHtml(inventoryMovementGroupWarehouseText(group))}</td></tr>${expanded?inventoryMovementGroupDetailHtml(group):''}`;
+  return `<tr class="movement-summary-row ${expanded?'expanded':''}" data-movement-group="${escapeHtml(encodedKey)}" tabindex="0" aria-expanded="${expanded?'true':'false'}"><td>${fmtDate(group.date)}</td><td>${escapeHtml(group.type)}</td><td class="mono"><span class="movement-summary-bill"><span class="movement-summary-toggle" aria-hidden="true">▶</span>${escapeHtml(group.bill)}</span></td><td>${escapeHtml(group.time)}</td><td class="movement-product-cell">${inventoryMovementGroupPreviewHtml(group)}</td><td><div class="movement-direction-list">${directions.map(inventoryMovementDirectionBadge).join('')}</div></td>${showWarehouse?`<td>${escapeHtml(inventoryMovementGroupWarehouseText(group))}</td>`:''}</tr>${expanded?inventoryMovementGroupDetailHtml(group):''}`;
 }
 function renderInventoryMovement(){
+  const showWarehouse=isAllWarehousesMode();
   const filter=inventoryMovementFilter,range=inventoryMovementDateRange();
-  const selectedWarehouse=String(isAllWarehousesMode()?(filter.warehouse||'all'):activeWarehouseId);
+  const selectedWarehouse=String(showWarehouse?(filter.warehouse||'all'):activeWarehouseId);
   filter.warehouse=selectedWarehouse;
   const brandOptions=filter.category?brands.filter(brand=>products.some(product=>product.category===filter.category&&product.brand===brand)):brands.slice();
   const matchCount=products.filter(product=>(!filter.category||product.category===filter.category)&&(!filter.brand||product.brand===filter.brand)&&(filter.category||filter.brand)).length;
@@ -213,7 +216,7 @@ function renderInventoryMovement(){
     <div class="pagehead"><div><h1>รายงานการเคลื่อนไหว <span class="page-title-meta">· ${groups.length} บิล · ${rows.length} รายการเคลื่อนไหว${totalPages>1?` · หน้า ${filter.page}/${totalPages}`:''}</span></h1></div></div>
     <div class="rpt-filters">
       ${documentPeriodToolbar('inventorymovement',filter,range)}
-      ${isAllWarehousesMode()?`<div class="rpf-item"><select id="movementWarehouse" class="rpt-select"><option value="all" ${selectedWarehouse==='all'?'selected':''}>ทุกคลัง</option>${reportingWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(warehouse.id)===selectedWarehouse?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>`:''}
+      ${showWarehouse?`<div class="rpf-item"><select id="movementWarehouse" class="rpt-select"><option value="all" ${selectedWarehouse==='all'?'selected':''}>ทุกคลัง</option>${reportingWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(warehouse.id)===selectedWarehouse?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>`:''}
       <div class="rpf-item"><select id="movementType" class="rpt-select"><option value="type:all" ${primaryFilter==='type:all'?'selected':''}>รายการทั้งหมด</option>${['ขาย','คืนสต็อกจากยกเลิกบิล','รับเข้าสินค้า','เปลี่ยนสินค้า','คืนสินค้า','รับคืนจากลูกค้า','โอนสินค้า'].map(type=>`<option value="type:${type}" ${primaryFilter===`type:${type}`?'selected':''}>${type}</option>`).join('')}<option class="movement-filter-divider" disabled>────────────</option><option value="direction:all" ${primaryFilter==='direction:all'?'selected':''}>เข้า-ออกทั้งหมด</option>${['เข้า','ออก','เปลี่ยน'].map(direction=>`<option value="direction:${direction}" ${primaryFilter===`direction:${direction}`?'selected':''}>${direction}</option>`).join('')}</select></div>
     </div>
     <div class="rpt-filters">
@@ -223,7 +226,7 @@ function renderInventoryMovement(){
       <div class="movement-report-search"><input id="movementSearch" value="${escapeHtml(inventoryMovementSearchQuery)}" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." autocomplete="off"><div id="movementSearchResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div></div>
     </div>
     ${selectedProducts.length?`<div class="movement-selected-products"><span class="movement-selected-label">สินค้าที่เลือก ${selectedProducts.length} รายการ</span><div class="movement-selected-list">${selectedProducts.map(product=>`<span class="movement-product-chip">${escapeHtml(product.name)}<button type="button" data-movement-remove="${product.id}" aria-label="ลบ ${escapeHtml(product.name)}">×</button></span>`).join('')}</div><button type="button" class="movement-clear-products" id="movementClearProducts">ล้างทั้งหมด</button></div>`:'<div class="movement-selected-products"><span class="movement-selected-label">สินค้า: ทั้งหมด</span></div>'}
-    <div class="doc-list-wrap"><table class="grid-table doc-head-blue movement-report-table"><colgroup><col style="width:120px"><col style="width:135px"><col style="width:180px"><col style="width:85px"><col><col style="width:150px"><col style="width:250px"></colgroup><thead><tr><th>วันที่</th><th>รายการ</th><th>บิล</th><th>เวลา</th><th>สินค้า</th><th>เข้า-ออก</th><th>คลังสินค้า</th></tr></thead><tbody>${pageGroups.map(inventoryMovementGroupRowHtml).join('')||'<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายการเคลื่อนไหวในช่วงเวลาหรือสินค้าที่เลือก</td></tr>'}</tbody></table></div>
+    <div class="doc-list-wrap"><table class="grid-table doc-head-blue movement-report-table"><colgroup><col style="width:120px"><col style="width:135px"><col style="width:180px"><col style="width:85px"><col><col style="width:150px">${showWarehouse?'<col style="width:250px">':''}</colgroup><thead><tr><th>วันที่</th><th>รายการ</th><th>บิล</th><th>เวลา</th><th>สินค้า</th><th>เข้า-ออก</th>${showWarehouse?'<th>คลังสินค้า</th>':''}</tr></thead><tbody>${pageGroups.map(inventoryMovementGroupRowHtml).join('')||`<tr><td colspan="${showWarehouse?7:6}" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายการเคลื่อนไหวในช่วงเวลาหรือสินค้าที่เลือก</td></tr>`}</tbody></table></div>
     ${pagerHtml(filter.page,totalPages,'movement-page')}
   </div>`;
 }

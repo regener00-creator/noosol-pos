@@ -106,7 +106,22 @@ const reportsNav=html.slice(reportsNavStart,reportsNavEnd);
 assert.ok(reportsNav.indexOf("['inventorymovement','รายงานความเคลื่อนไหว'")>reportsNav.indexOf("['rtax','รายงานภาษี'"),'รายงานความเคลื่อนไหวต้องอยู่ใต้รายงานภาษี');
 assert.match(html, /id="movementSearch"/);
 assert.match(html, /id="movementAddCategoryBtn"[^]*?<div class="movement-report-search"><input id="movementSearch"/, 'ช่องค้นหาต้องอยู่ต่อจากปุ่มเลือกสินค้าในหมวดเดียวกัน');
-assert.match(html, /<th>วันที่<\/th><th>รายการ<\/th><th>บิล<\/th><th>เวลา<\/th><th>สินค้า<\/th><th>เข้า-ออก<\/th><th>คลังสินค้า<\/th>/);
+vm.runInContext(html.slice(html.indexOf('function inventoryMovementQtyText('),html.indexOf('\n}',movementRenderStart)+2),context);
+Object.assign(context,{
+  inventoryMovementFilter:{}, inventoryMovementDateRange:()=>({}), inventoryMovementFilteredRows:()=>rows,
+  inventoryMovementExpandedBills:new Set([exchangeGroup.key]), inventoryMovementSearchQuery:'',
+  INVENTORY_MOVEMENT_PAGE_SIZE:50, activeWarehouseId:1, categories:[], brands:[], products,
+  reportingWarehouses:()=>warehouses, escapeHtml:String, fmtDate:String, documentPeriodToolbar:()=>'', pagerHtml:()=>'',
+});
+for(const combined of [false,true]){
+  context.isAllWarehousesMode=()=>combined;
+  const table=context.renderInventoryMovement().split('<table')[1];
+  assert.match(table, /<th>วันที่<\/th><th>รายการ<\/th><th>บิล<\/th><th>เวลา<\/th><th>สินค้า<\/th><th>เข้า-ออก<\/th>/);
+  assert.equal(table.includes('<th>คลังสินค้า</th>'),combined);
+  assert.equal(table.includes('class="movement-detail-warehouse"'),combined);
+  assert.equal(table.includes(warehouses[0].name),combined);
+  assert.ok(table.includes('colspan="'+(combined?7:6)+'"'));
+}
 assert.match(html, /data-movement-group=/);
 assert.match(html, /movement-product-preview-more/);
 assert.match(html, /\+\$\{remaining\} รายการ/);
