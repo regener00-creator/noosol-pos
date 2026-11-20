@@ -208,6 +208,8 @@ const browserExecutable = [
         for(const selector of ['.product-sales-period-toggle','td.num']){
           assert.equal(await summary.locator(selector).evaluate(el=>getComputedStyle(el).fontWeight),'700');
         }
+      }else{
+        assert.deepEqual(await page.locator('.rpt-table tr').first().locator('td').evaluateAll(cells=>cells.map(td=>getComputedStyle(td).fontWeight)),['700','700']);
       }
       const printed=await page.evaluate(()=>{
         const doc=document.implementation.createHTMLDocument();
@@ -342,6 +344,13 @@ const browserExecutable = [
   await page.locator('#rpf_period').selectOption('today');
   assert.equal(await page.getByLabel('แสดงยอดแยกรายเดือน').count(),0);
   assert.deepEqual(await page.locator('.rpt-table tr td:nth-child(2)').allTextContents(),['17 กล่อง 1 ซอง','2 ขวด']);
+  assert.deepEqual(await page.locator('.rpt-table tr').first().locator('td').evaluateAll(cells=>cells.map(td=>getComputedStyle(td).fontWeight)),['700','700','400']);
+  const printWeights=await page.evaluate(()=>{
+    const doc=document.implementation.createHTMLDocument();
+    window.open=()=>({document:doc});printRProduct();
+    return Array.from(doc.querySelector('.rpt-table tr').cells,td=>td.style.fontWeight);
+  });
+  assert.deepEqual(printWeights,['700','700','']);
   assert.deepEqual(errors,[]);
   console.log('Sales report picker: 3 columns, category/subcategory, selection, filters, clear, reopen and print passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});

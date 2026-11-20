@@ -175,8 +175,8 @@ function productSalesPeriodSummaryHtml(report,filter,forPrint=false){
       const toggle=forPrint?'':` data-product-sales-key="${escapeHtml(row.expansionKey)}"`;
       return `<tbody><tr${toggle} style="font-weight:700"><td class="rpt-pname">${title}</td><td class="num">${escapeHtml(row.quantity)}</td></tr>${details}</tbody>`;
     }
-    return `<tr><td class="${forPrint?'pd-name':'rpt-pname'}">${name}</td>
-      <td class="mono" style="text-align:right;">${escapeHtml(row.quantity)}</td>${filter.period==='today'?`<td class="num">${fmtMoney(row.value)}</td>`:''}</tr>`;
+    return `<tr><td class="${forPrint?'pd-name':'rpt-pname'}" style="font-weight:700">${name}</td>
+      <td class="mono" style="text-align:right;font-weight:700">${escapeHtml(row.quantity)}</td>${filter.period==='today'?`<td class="num">${fmtMoney(row.value)}</td>`:''}</tr>`;
   }).join('');
   return `<section class="rpt-day-group"><h2 class="rpt-day-head">${escapeHtml(report.label)}</h2>
     ${rows?`<table class="rpt-table" aria-label="จำนวนที่ขายได้">${report.detailLabels?rows:`<tbody>${rows}</tbody>`}</table>`:'<div class="rpt-empty">ไม่มีข้อมูลการขายในช่วงเวลาที่เลือก</div>'}</section>`;
