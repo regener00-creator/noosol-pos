@@ -49,7 +49,7 @@ function setPosSmallestUnitOnce(enabled,{announce=true}={}){
   posSmallestUnitOnce=Boolean(enabled);
   searchQuery='';
   render();
-  setTimeout(()=>document.getElementById('search')?.focus(),0);
+  document.getElementById('search')?.focus();
   if(announce) showToast(posSmallestUnitOnce?'พร้อมแล้ว — สินค้ารายการถัดไปจะขายเป็นหน่วยเล็กสุด':'ยกเลิกการขายหน่วยเล็กสุดแล้ว');
 }
 function favoriteProductId(entry){

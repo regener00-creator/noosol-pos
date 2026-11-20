@@ -699,7 +699,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
         if(isPosSmallestUnitCommand(q)){
           e.preventDefault();
           posSmallestUnitOnce=true; searchQuery=''; render();
-          setTimeout(()=>document.getElementById('search')?.focus(),0);
+          document.getElementById('search')?.focus();
           showToast('พร้อมแล้ว — ยิงสินค้ารายการถัดไปเพื่อขายเป็นหน่วยเล็กสุด');
           return;
         }

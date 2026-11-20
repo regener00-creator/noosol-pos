@@ -46,6 +46,10 @@ let browser;
     if(!await saveOfflinePosSnapshot())throw new Error('snapshot failed');
   });
   disconnected=true;await context.setOffline(true);
+  // Set the OS connectivity signal as well as cutting network transport. Chromium
+  // versions differ on whether transport emulation updates navigator.onLine on reload.
+  const network=await context.newCDPSession(page);
+  await network.send('Network.overrideNetworkState',{offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
   const response=await page.reload({waitUntil:'domcontentloaded'});
   assert.equal(response.fromServiceWorker(),true);
   await page.evaluate(()=>window.peposBootstrapReady);
