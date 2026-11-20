@@ -366,8 +366,8 @@ const browserExecutable = [
   assert.match(await page.locator('.rpt-meta-right').innerText(),/\+58\.00 \(รอต้นทุน 1 บิล\)/);
   assert.match(await bills.nth(1).innerText(),/รอต้นทุน/);
   await bills.first().locator('td').last().click();
-  assert.match(await page.locator('.bill-report-detail:visible').innerText(),/VAT 7.00/);
-  assert.equal(await page.locator('.bill-report-detail:visible tfoot td').first().textContent(),'100.00 (VAT 7.00)');
+  assert.doesNotMatch(await page.locator('.bill-report-detail:visible').innerText(),/ยอดรับก่อน VAT|ต้นทุนรวม/);
+  assert.deepEqual(await page.locator('.bill-report-detail:visible tfoot td').allTextContents(),['(VAT 7.00) 100.00','42.00','+58.00']);
   assert.match(await page.locator('.bill-report-detail:visible').innerText(),/ของแถม · โปร A/);
   const loss=page.locator('.bill-report-detail:visible .bill-line-table tbody tr').last().locator('td:last-child span');
   assert.equal(await loss.innerText(),'−2.00');
@@ -379,8 +379,8 @@ const browserExecutable = [
     const doc=document.implementation.createHTMLDocument();
     window.open=()=>({document:doc});printRBill();return doc.body.textContent;
   });
-  assert.match(await printedBill(),/ต้นทุนรวม 42.00/);
-  assert.match(await printedBill(),/100\.00 \(VAT 7\.00\)/);
+  assert.doesNotMatch(await printedBill(),/ยอดรับก่อน VAT/);
+  assert.match(await printedBill(),/\(VAT 7\.00\) 100\.00/);
   assert.match(await printedBill(),/−2\.00/);
   await page.evaluate(()=>{
     currentProfile={id:'sales-only',owner:false,level:2};
@@ -429,7 +429,7 @@ const browserExecutable = [
   assert.equal(await page.locator('.bill-report-detail:visible').count(),0);
   await heading.first().click();
   assert.equal(await visibleBills.count(),0);
-  assert.match(await printedBill(),/ต้นทุนรวม 900\.00/);
+  assert.match(await printedBill(),/\(VAT 0\.00\) 1,000\.00900\.00\+100\.00/);
   await page.evaluate(()=>{rbillFilter={...rbillFilter,period:'selectyear',year:'2026'};render();});
   assert.deepEqual(await heading.allTextContents(),[
     'ตุลาคม 2026 • 1 บิล | ยอดรวม 660.00 | -152.00','พฤศจิกายน 2026 • 3 บิล | ยอดรวม 1,300.00 | +143.00 (รอต้นทุน 1 บิล)'

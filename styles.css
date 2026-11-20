@@ -1433,8 +1433,6 @@
   .bill-report-toggle{font:inherit;font-weight:var(--bill-row-weight,700);color:inherit;background:transparent;border:0;padding:0;text-align:left;cursor:pointer;overflow-wrap:anywhere;}
   .bill-report-toggle:focus-visible{box-shadow:0 0 0 2px var(--primary);border-radius:4px;}
   .bill-summary-table .bill-report-detail>td{background:var(--surface);padding:10px 12px 16px 24px;}
-  .bill-report-detail p{margin:0 0 8px;color:var(--text-muted);font-size:13px;}
-  .bill-report-detail p b{color:var(--text);}
   .bill-line-table{width:100%;border-collapse:collapse;}
   .bill-summary-table th:nth-child(n+3),.bill-summary-table td:nth-child(n+3){text-align:right;}
   .bill-summary-table .bill-line-table :is(th,td){position:static;padding:5px 6px;background:transparent;border:0;font-size:13px;overflow-wrap:anywhere;}
