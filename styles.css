@@ -1417,7 +1417,9 @@
   .rpt-table thead th{text-align:left;padding:14px 12px;font-size:13px;color:var(--text-muted);font-weight:500;border-bottom:1px solid var(--border);}
   .rpt-table tbody td{padding:16px 12px;border-bottom:1px solid var(--border);font-size:14px;}
   .rpt-pname{color:var(--text);}
-  .stock-report-tabs{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+  .stock-report-tabs{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:14px;}
+  .stock-report-tabs .btn{background-color:#fff;}
+  .stock-report-tabs .btn[aria-pressed="true"]{border-color:var(--primary);color:var(--primary);}
   .bill-report-day .rpt-day-head{justify-content:flex-start;flex-wrap:wrap;gap:4px 8px;background:transparent;padding:0 12px 8px;}
   .bill-report-day>summary.rpt-day-head{cursor:pointer;list-style:none;flex-wrap:nowrap;align-items:baseline;}
   .bill-report-day>summary::-webkit-details-marker{display:none;}
