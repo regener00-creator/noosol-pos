@@ -412,8 +412,12 @@ const browserExecutable = [
     assert.equal(await bills.first().isVisible(),true);
     await bills.first().click();
     assert.match(await page.locator('.bill-report-detail:visible').innerText(),/สินค้า/);
-    const weights=await bills.first().evaluate(row=>Array.from(row.cells,cell=>getComputedStyle(cell.firstElementChild||cell).fontWeight));
-    assert.deepEqual(weights,['400','400','400','400']);
+    const styles=await bills.first().evaluate(row=>Array.from(row.cells,cell=>{
+      const style=getComputedStyle(cell.firstElementChild||cell);
+      return [style.fontWeight,style.fontStyle];
+    }));
+    assert.deepEqual(styles,Array(4).fill(['700','italic']));
+    assert.equal(await page.locator('.bill-report-detail:visible tbody td').first().evaluate(cell=>getComputedStyle(cell).fontStyle),'normal');
     await heading.click();
     assert.equal(await bills.first().isVisible(),false);
   }

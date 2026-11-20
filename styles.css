@@ -1428,9 +1428,9 @@
   .bill-summary-table,.bill-line-table{border-radius:0;}
   .bill-summary-table thead th{background:var(--surface);}
   .bill-summary-table [data-bill-summary]{cursor:pointer;}
-  .bill-regular-rows{--bill-row-weight:400;}
-  .bill-summary-table [data-bill-summary] td:nth-child(n+3){font-weight:var(--bill-row-weight,700);font-variant-numeric:tabular-nums;}
-  .bill-report-toggle{font:inherit;font-weight:var(--bill-row-weight,700);color:inherit;background:transparent;border:0;padding:0;text-align:left;cursor:pointer;overflow-wrap:anywhere;}
+  .bill-summary-row>td{font-weight:700;font-style:italic;}
+  .bill-summary-row>td:nth-child(n+3){font-variant-numeric:tabular-nums;}
+  .bill-report-toggle{font:inherit;color:inherit;background:transparent;border:0;padding:0;text-align:left;cursor:pointer;overflow-wrap:anywhere;}
   .bill-report-toggle:focus-visible{box-shadow:0 0 0 2px var(--primary);border-radius:4px;}
   .bill-summary-table .bill-report-detail>td{background:var(--surface);padding:10px 12px 16px 24px;}
   .bill-line-table{width:100%;border-collapse:collapse;}

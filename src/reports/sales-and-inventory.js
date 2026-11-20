@@ -486,7 +486,7 @@ function billReportDayHtml(date,rows,includeProfit,{forPrint,collapsible}){
       const name=escapeHtml(row.billId);
       const toggle=forPrint?name:`<button type="button" class="bill-report-toggle" aria-expanded="false"><span aria-hidden="true">▸</span> ${name}</button>`;
       const profit=row.breakdown?billProfitAmountHtml(row.breakdown.profit):'รอต้นทุน';
-      return `<tr${forPrint?'':' data-bill-summary'}><td>${toggle}</td><td>${escapeHtml(row.payMethod)}</td><td>${fmtMoney(row.val)}</td>${includeProfit?`<td>${profit}</td>`:''}</tr>
+      return `<tr class="bill-summary-row"${forPrint?'':' data-bill-summary'}><td>${toggle}</td><td>${escapeHtml(row.payMethod)}</td><td>${fmtMoney(row.val)}</td>${includeProfit?`<td>${profit}</td>`:''}</tr>
         <tr class="bill-report-detail"${forPrint?'':' hidden'}><td colspan="${columns}">${billReportDetailHtml(row)}</td></tr>`;
     }).join('')}</tbody></table></${tag}>`;
 }
@@ -573,6 +573,7 @@ function printRBill(filter=rbillFilter,reportTitle='รายงานยอด�
     .rpt-day-group{margin-top:18px;}
     .rpt-day-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;background:#F1E8E5;font-size:12.5px;color:#4F4038;padding:7px 8px;}
     .bill-line-table{table-layout:auto}
+    .bill-summary-row>td{font-weight:700;font-style:italic}
     .bill-summary-table :is(td,th):nth-child(n+3){text-align:right}
     table{width:100%;border-collapse:collapse;table-layout:fixed;}
     thead th{text-align:left;padding:9px 8px;font-size:12px;font-weight:600;color:#444;border-bottom:1px solid #333}
@@ -656,7 +657,7 @@ function renderRBill(){
       <button class="btn ghost rpf-apply" id="${idPrefix}ApplyBtn">แสดงผล</button>
     </div>
 
-    <div class="rpt-body${f.period==='selectmonth'||f.period==='range'?' bill-regular-rows':''}">
+    <div class="rpt-body">
       <div class="rpt-meta">
         <div class="rpt-biz">${escapeHtml(warehouseBusinessSettings().name||'')}</div>
         <div class="rpt-meta-grid">
