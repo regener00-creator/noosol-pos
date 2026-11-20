@@ -809,6 +809,7 @@
   .pagehead.label-print-pagehead:empty{display:none;}
   .barcode-print-page .pagehead{flex:0 0 auto;margin-bottom:10px;}
   .barcode-print-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  #clearBarcodePrintBtn{background-color:#fff;}
   .main:has(>.barcode-print-menu){display:flex;flex-direction:column;overflow-y:auto;}
   .barcode-print-menu{flex:1 0 auto;display:grid;place-items:center;width:100%;}
   .barcode-print-mode-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;max-width:1100px;width:100%;}
