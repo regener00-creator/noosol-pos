@@ -15,6 +15,8 @@
     "find_product_barcode_owners(text[])",
     "get_central_audit_log_page(integer,timestamptz,text,text,text,text,text,boolean)",
     "get_central_audit_log_page(bigint,integer,timestamptz,text,text,text,text,text,boolean)",
+    "report_posted_adjustments(bigint,date,date,bigint)",
+    "movement_document_history(bigint,text,text,timestamptz,text)",
     "get_customer_purchase_history(text[],integer,integer,integer,boolean,bigint)",
     "get_pos_customer_tier_progress(text,bigint)",
     "get_customer_loyalty(text[],bigint)",

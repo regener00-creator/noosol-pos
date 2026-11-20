@@ -71,6 +71,8 @@ try{
   console.log('All baseline and migration SQL applied to isolated PostgreSQL');
   const auditSuite=await import('../tests/audit-retention-database.mjs');
   await auditSuite.run({client});
+  const movementHistory=await import('../tests/movement-history-database.mjs');
+  await movementHistory.run({client});
   if(!process.argv.includes('--audit-only')){
   const noteOrderSuite=await import('../tests/note-order-database.mjs');
   await noteOrderSuite.run({client});

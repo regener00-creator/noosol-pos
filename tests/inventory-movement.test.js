@@ -95,7 +95,7 @@ const movementRenderEnd=html.indexOf('function buildGroupTree()',movementRenderS
 const movementRender=html.slice(movementRenderStart,movementRenderEnd);
 assert.doesNotMatch(movementRender, /id="movementBill"|placeholder="ค้นหาเลขบิล"/);
 assert.doesNotMatch(movementRender, /id="movementDirection"/);
-assert.match(movementRender, /\['ขาย','คืนสต็อกจากยกเลิกบิล','รับเข้าสินค้า','เปลี่ยนสินค้า','คืนสินค้า','รับคืนจากลูกค้า','โอนสินค้า'\][\s\S]*movement-filter-divider[\s\S]*value="direction:all"[\s\S]*เข้า-ออกทั้งหมด[\s\S]*\['เข้า','ออก','เปลี่ยน'\]/);
+assert.match(movementRender, /\['ขาย','คืนสต็อกจากยกเลิกบิล','รับเข้าสินค้า','เปลี่ยนสินค้า','คืนสินค้า','รับคืนจากลูกค้า','ปรับสต็อก','โอนสินค้า'\][\s\S]*movement-filter-divider[\s\S]*value="direction:all"[\s\S]*เข้า-ออกทั้งหมด[\s\S]*\['เข้า','ออก','เปลี่ยน'\]/);
 assert.match(html, /inventoryMovementFilter\.type=kind==='type'\?value:'all'[\s\S]*inventoryMovementFilter\.direction=kind==='direction'\?value:'all'/);
 assert.match(html, /id="movementCategory"/);
 assert.match(html, /id="movementBrand"/);
@@ -108,7 +108,7 @@ assert.match(html, /id="movementSearch"/);
 assert.match(html, /id="movementAddCategoryBtn"[^]*?<div class="movement-report-search"><input id="movementSearch"/, 'ช่องค้นหาต้องอยู่ต่อจากปุ่มเลือกสินค้าในหมวดเดียวกัน');
 vm.runInContext(html.slice(html.indexOf('function inventoryMovementQtyText('),html.indexOf('\n}',movementRenderStart)+2),context);
 Object.assign(context,{
-  inventoryMovementFilter:{}, inventoryMovementDateRange:()=>({}), inventoryMovementFilteredRows:()=>rows,
+  currentProfile:{owner:false},reportWarehouseIds:()=>[1,2],inventoryMovementFilter:{}, inventoryMovementDateRange:()=>({}), inventoryMovementFilteredRows:()=>rows,
   inventoryMovementExpandedBills:new Set([exchangeGroup.key]), inventoryMovementSearchQuery:'',
   INVENTORY_MOVEMENT_PAGE_SIZE:50, activeWarehouseId:1, categories:[], brands:[], products,
   reportingWarehouses:()=>warehouses, escapeHtml:String, fmtDate:String, documentPeriodToolbar:()=>'', pagerHtml:()=>'',
@@ -126,4 +126,18 @@ assert.match(html, /data-movement-group=/);
 assert.match(html, /movement-product-preview-more/);
 assert.match(html, /\+\$\{remaining\} รายการ/);
 
+const line={line_id:11,document_id:'a',document_no:'COUNT',warehouse_id:1,movement_date:'2026-11-20',movement_time:'10:30',product_id:1,product_name:'หนึ่ง',unit_name:'กล่อง',difference:-2};
+const other={...line,line_id:12,document_id:'b',warehouse_id:2,difference:3};
+const movements=context.collectInventoryMovements({adjustments:[line,line,other,{...other,line_id:13,difference:0}]});
+assert.equal(movements.length,2);
+const scoped=context.groupInventoryMovements(movements);
+assert.equal(scoped.length,2);
+for(const [store,qty,direction] of [[1,2,'ออก'],[2,3,'เข้า']]){
+  const group=scoped.find(g=>g.rows[0].warehouseId===store);
+  assert.equal(group.rows[0].qty,qty);assert.equal(group.rows[0].direction,direction);
+  assert.equal(context.movementHistoryButton(group),'');
+  context.currentProfile.owner=true;
+  assert.match(context.movementHistoryButton(group),/ดูประวัติ/);
+  context.currentProfile.owner=false;
+}
 console.log('inventory movement tests passed');

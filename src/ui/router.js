@@ -164,12 +164,13 @@ function dataRequestsForTab(tab){
   (TAB_DOCUMENT_TABLES[tab]||[]).forEach(table=>requests.documents.push({table,recent:!period,range:period?serverDateRange(period.from,period.to):null}));
   if(tab==='inventorymovement'){
     const range=serverDateRange(inventoryMovementDateRange().from,inventoryMovementDateRange().to);
+    requests.adjustments=movementAdjustmentRequest(range);
     ['goods_receipts','product_exchanges','product_returns','transfers'].forEach(table=>requests.documents.push({table,range,recent:false}));
   }
   return requests;
 }
 function onDemandRequestKey(tab,requests){
-  return `${tab}:${JSON.stringify({sales:requests.sales?.range||null,holds:!!requests.sales?.includeHolds,recent:!!requests.sales?.includeRecent,documents:requests.documents.map(item=>[item.table,item.range?.from||'',item.range?.to||'',!!item.recent])})}`;
+  return `${tab}:${JSON.stringify({adjustments:requests.adjustments?.key,sales:requests.sales?.range||null,holds:!!requests.sales?.includeHolds,recent:!!requests.sales?.includeRecent,documents:requests.documents.map(item=>[item.table,item.range?.from||'',item.range?.to||'',!!item.recent])})}`;
 }
 function editingDocumentForm(tab=currentTab){
   return ({quotation:editingQuotationId,purchaseorder:editingPOId,goodsreceipt:editingGRId,
@@ -187,7 +188,7 @@ function ensureOnDemandDataForTab(tab,{background=false}={}){
   const key=onDemandRequestKey(tab,requests);
   const truncatedSales=!!requests.sales&&salesRequestTruncated(requests.sales);
   const truncatedDocuments=requests.documents.filter(item=>documentRequestTruncated(item.table,item)).map(item=>item.table);
-  if(!salesNeeded&&!documentsNeeded.length){
+  if(!salesNeeded&&!documentsNeeded.length&&!(requests.adjustments&&movementAdjustmentsNeeded(requests.adjustments))){
     if(truncatedSales||truncatedDocuments.length) return {status:'truncated',key,tab,requests,truncatedSales,truncatedDocuments,blocking:ON_DEMAND_AGGREGATE_TABS.has(tab)||tab==='checkout'};
     return {status:'ready',key,tab,requests};
   }
@@ -197,6 +198,9 @@ function ensureOnDemandDataForTab(tab,{background=false}={}){
     const scope=salesViewScope();
     const displayedView=document.getElementById('main')?.renderedDataView;
     const tasks=[],readStatuses=[];
+    if(requests.adjustments&&movementAdjustmentsNeeded(requests.adjustments)){
+      const status={};readStatuses.push(status);tasks.push(loadMovementAdjustments(requests.adjustments,status));
+    }
     if(salesNeeded){
       const readStatus={};readStatuses.push(readStatus);
       tasks.push(loadSalesHistoryFromSupabase({from:requests.sales.range.from,to:requests.sales.range.to,includeHolds:requests.sales.includeHolds,includeRecent:requests.sales.includeRecent,includeVoids:requests.sales.includeVoids,voidsOnly:requests.sales.voidsOnly,readStatus}));
@@ -314,7 +318,7 @@ function scheduleSalesViewRefresh(){
       if(currentTab==='dashboard') refreshDashboardCalendarIfStale();
       applyPendingSalesViewRefresh();
       const requests=dataRequestsForTab(currentTab);
-      if((requests.sales&&!salesRequestLoaded(requests.sales))||requests.documents.some(item=>!documentRequestLoaded(item.table,item))) ensureOnDemandDataForTab(currentTab,{background:true});
+      if((requests.adjustments&&movementAdjustmentsNeeded(requests.adjustments))||(requests.sales&&!salesRequestLoaded(requests.sales))||requests.documents.some(item=>!documentRequestLoaded(item.table,item))) ensureOnDemandDataForTab(currentTab,{background:true});
     }
     scheduleSalesViewRefresh();
   },SALES_CACHE_TTL_MS);

@@ -52,6 +52,7 @@ function collectInventoryMovements(source){
     if(qty<=0) return;
     const warehouseId=meta.warehouseId??item?.warehouseId??product?.wh;
     rows.push({
+      documentId:String(meta.documentId??meta.bill??''), documentStore:Number(meta.documentStore??warehouseId)||0,
       date:String(meta.date||'').slice(0,10),type:meta.type||'-',bill:meta.bill||'-',time:meta.time||'-',
       productId:Number(item?.productId??item?.pid??product?.id),productName:String(item?.name||product?.name||'-'),qty,unit:String(item?.unit||product?.unit||''),
       direction:meta.direction||'-',warehouseId:Number(warehouseId)||0,warehouse:inventoryMovementWarehouseName(warehouseId,warehouseList,meta.warehouseName),order:order++
@@ -60,12 +61,12 @@ function collectInventoryMovements(source){
   sales.filter(sale=>sale?.status==='done'||sale?.status==='void').forEach(sale=>{
     const rawTime=String(sale.time||''),time=(rawTime.includes(' ')?rawTime.slice(11,16):rawTime.slice(0,5))||'-';
     (sale.items||[]).forEach(item=>{
-      if(sale.customerReturn){if(item.restock&&item.tracksStock!==false)add({date:sale.date,type:'รับคืนจากลูกค้า',bill:sale.ref||sale.id,time,direction:'เข้า',warehouseId:sale.warehouseId},{...item,qty:Math.abs(Number(item.qty))});}
+      if(sale.customerReturn){if(item.restock&&item.tracksStock!==false)add({date:sale.date,documentId:sale.id,type:'รับคืนจากลูกค้า',bill:sale.ref||sale.id,time,direction:'เข้า',warehouseId:sale.warehouseId},{...item,qty:Math.abs(Number(item.qty))});}
       else{
-        add({date:sale.date,type:'ขาย',bill:sale.ref||sale.id,time,direction:'ออก',warehouseId:sale.warehouseId},item);
+        add({date:sale.date,documentId:sale.id,type:'ขาย',bill:sale.ref||sale.id,time,direction:'ออก',warehouseId:sale.warehouseId},item);
         if(sale.status==='void'){
           const cancelled=saleVoidDateTime(sale);
-          if(cancelled.date) add({date:cancelled.date,time:cancelled.time,type:'คืนสต็อกจากยกเลิกบิล',bill:sale.ref||sale.id,direction:'เข้า',warehouseId:sale.warehouseId},item);
+          if(cancelled.date) add({date:cancelled.date,time:cancelled.time,documentId:sale.id,type:'คืนสต็อกจากยกเลิกบิล',bill:sale.ref||sale.id,direction:'เข้า',warehouseId:sale.warehouseId},item);
         }
       }
     });
@@ -81,10 +82,20 @@ function collectInventoryMovements(source){
   });
   transfersList.filter(doc=>doc?.status!=='ยกเลิก').forEach(doc=>{
     (doc.items||[]).forEach(item=>{
-      add({date:doc.date,type:'โอนสินค้า',bill:doc.id,time:'-',direction:'ออก',warehouseId:doc.fromId,warehouseName:doc.from},item);
-      add({date:doc.date,type:'โอนสินค้า',bill:doc.id,time:'-',direction:'เข้า',warehouseId:doc.toId,warehouseName:doc.to},item);
+      add({date:doc.date,type:'โอนสินค้า',bill:doc.id,time:'-',documentStore:doc.fromId,direction:'ออก',warehouseId:doc.fromId,warehouseName:doc.from},item);
+      add({date:doc.date,type:'โอนสินค้า',bill:doc.id,time:'-',documentStore:doc.fromId,direction:'เข้า',warehouseId:doc.toId,warehouseName:doc.to},item);
     });
   });
+  const seenLines=new Set();
+  for(const line of source?.adjustments||[]){
+    if(seenLines.has(line.line_id)) continue;
+    seenLines.add(line.line_id);
+    const delta=Number(line.difference);
+    if(!delta) continue;
+    add({date:line.movement_date,time:line.movement_time,type:'ปรับสต็อก',bill:line.document_no,
+      documentId:line.document_id,warehouseId:line.warehouse_id,direction:delta>0?'เข้า':'ออก'},
+      {productId:line.product_id,name:line.product_name,unit:line.unit_name,qty:Math.abs(delta)});
+  }
   return rows.sort((left,right)=>{
     const leftStamp=`${left.date} ${left.time==='-'?'00:00':left.time}`,rightStamp=`${right.date} ${right.time==='-'?'00:00':right.time}`;
     if(leftStamp!==rightStamp) return rightStamp.localeCompare(leftStamp);
@@ -105,7 +116,7 @@ function filterInventoryMovements(rows,filter,range){
   );
 }
 function inventoryMovementGroupKey(row){
-  return [row?.date||'',row?.type||'',row?.bill||'',row?.time||''].join('|');
+  return JSON.stringify([row?.documentStore,row?.documentId,row?.date,row?.type,row?.bill,row?.time]);
 }
 function groupInventoryMovements(rows){
   const groups=[],byKey=new Map();
@@ -164,8 +175,40 @@ function updateInventoryMovementPeriod(key,value){
   inventoryMovementFilter.page=1;
   render();
 }
+let movementAdjustmentCache=null;
+function movementAdjustmentRequest(range){
+  const stores=reportWarehouseIds();
+  const key=JSON.stringify([captureStoreView(),stores,range.from,range.to]);
+  return {stores,range,key};
+}
+function currentMovementAdjustmentRows(){
+  const request=movementAdjustmentRequest(inventoryMovementDateRange());
+  return movementAdjustmentCache?.key===request.key?movementAdjustmentCache.rows:[];
+}
+function movementAdjustmentsNeeded(request){
+  return request&&(movementAdjustmentCache?.key!==request.key||Date.now()-movementAdjustmentCache.loaded>=SALES_CACHE_TTL_MS);
+}
+async function loadMovementAdjustments(request,readStatus){
+  const context=captureStoreView();
+  const byStore=await Promise.all(request.stores.map(async store=>{
+    const rows=[];
+    let after=0;
+    while(isStoreViewCurrent(context)){
+      const {data,error}=await sb.rpc('report_posted_adjustments',{p_store:store,p_from:request.range.from,p_to:request.range.to,p_after:after});
+      if(error) throw error;
+      rows.push(...data);
+      if(data.length<500) break;
+      after=data[data.length-1].line_id;
+    }
+    return rows;
+  }));
+  if(!isStoreViewCurrent(context)||movementAdjustmentRequest(inventoryMovementDateRange()).key!==request.key) return;
+  const rows=byStore.flat();
+  readStatus.unchanged=movementAdjustmentCache?.key===request.key&&JSON.stringify(movementAdjustmentCache.rows)===JSON.stringify(rows);
+  movementAdjustmentCache={key:request.key,loaded:Date.now(),rows};
+}
 function inventoryMovementRows(){
-  return collectInventoryMovements({sales:salesHistory,receipts:goodsReceipts,exchanges:productExchanges,returns:productReturns,transfers,products,warehouses});
+  return collectInventoryMovements({adjustments:currentMovementAdjustmentRows(),sales:salesHistory,receipts:goodsReceipts,exchanges:productExchanges,returns:productReturns,transfers,products,warehouses});
 }
 function inventoryMovementFilteredRows(){
   return filterInventoryMovements(inventoryMovementRows(),inventoryMovementFilter,inventoryMovementDateRange());
@@ -193,12 +236,51 @@ function inventoryMovementGroupPreviewHtml(group,limit=2){
   const items=inventoryMovementGroupUniqueItems(group),preview=items.slice(0,limit),remaining=Math.max(0,items.length-preview.length);
   return `<div class="movement-product-preview">${preview.map(row=>`<span class="movement-product-preview-line">${inventoryMovementQtyText(row)}</span>`).join('')}${remaining?`<span class="movement-product-preview-more">+${remaining} รายการ</span>`:''}</div>`;
 }
+function movementHistoryEntity(type){
+  return ({'ขาย':'sales','รับคืนจากลูกค้า':'sales','คืนสต็อกจากยกเลิกบิล':'sales','รับเข้าสินค้า':'goods_receipts',
+    'คืนสินค้า':'product_returns','เปลี่ยนสินค้า':'product_exchanges','โอนสินค้า':'transfers','ปรับสต็อก':'inventory_count'})[type];
+}
+function movementHistoryButton(group){
+  const row=group.rows[0];
+  if(!currentProfile?.owner||!row.documentId||!reportWarehouseIds().includes(row.documentStore)||!movementHistoryEntity(group.type)) return '';
+  return ` <button class="btn ghost" type="button" data-movement-history aria-label="ดูประวัติ ${escapeHtml(group.bill)}">ดูประวัติ</button>`;
+}
+function openMovementHistory(group,opener){
+  if(!group||!movementHistoryButton(group)) return;
+  const row=group.rows[0],context=captureStoreView(),overlay=document.createElement('div');
+  overlay.className='modal-overlay';
+  overlay.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-label="ประวัติเอกสาร"><div class="modal-head"><h3>ประวัติ ${escapeHtml(group.bill)}</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div><div class="movement-history-events" style="padding:16px;max-height:60vh;overflow:auto"></div><div style="padding:12px"><button type="button" class="btn ghost" data-history-more>โหลดเพิ่มเติม</button></div></div>`;
+  document.getElementById('main').appendChild(overlay);
+  const body=overlay.querySelector('.movement-history-events'),more=overlay.querySelector('[data-history-more]'),close=overlay.querySelector('.modal-close');
+  const dismiss=()=>{overlay.remove();opener?.focus();};
+  close.onclick=dismiss;close.focus();
+  overlay.onclick=event=>{if(event.target===overlay)dismiss();};
+  overlay.onkeydown=event=>{if(event.key==='Escape')dismiss();};
+  let cursor=null;
+  async function load(){
+    more.disabled=true;more.textContent='กำลังโหลด…';
+    try{
+      const {data,error}=await sb.rpc('movement_document_history',{p_store:row.documentStore,p_entity:movementHistoryEntity(group.type),
+        p_document:row.documentId,p_before:cursor?.occurred_at??null,p_key:cursor?.event_key??null});
+      if(!overlay.isConnected||!isStoreViewCurrent(context)||!currentProfile?.owner){overlay.remove();return;}
+      if(error) throw error;
+      if(!cursor&&!data.length) body.textContent='ไม่พบประวัติที่ระบุร้านตรงกับเอกสารนี้ภายใน 1 ปี';
+      for(const event of data){
+        body.insertAdjacentHTML('beforeend',`<details><summary>${escapeHtml(auditLogDateTime(event.occurred_at))} · ${escapeHtml(auditActionLabel(event.action))} · ${escapeHtml(event.actor_name||'-')}</summary><b>ก่อนเปลี่ยน</b>${auditDataHtml(event.before_data)}<b>หลังเปลี่ยน</b>${auditDataHtml(event.after_data)}</details>`);
+      }
+      cursor=data.at(-1)||cursor;
+      more.hidden=data.length<25;more.textContent='โหลดเพิ่มเติม';
+    }catch{more.textContent='โหลดประวัติไม่สำเร็จ · ลองใหม่';}
+    finally{more.disabled=false;}
+  }
+  more.onclick=load;load();
+}
 function inventoryMovementGroupRowHtml(group){
   const showWarehouse=isAllWarehousesMode();
   const expanded=inventoryMovementExpandedBills.has(group.key);
   const directions=inventoryMovementGroupDirections(group);
   const encodedKey=encodeURIComponent(group.key);
-  return `<tr class="movement-summary-row ${expanded?'expanded':''}" data-movement-group="${escapeHtml(encodedKey)}" tabindex="0" aria-expanded="${expanded?'true':'false'}"><td>${fmtDate(group.date)}</td><td>${escapeHtml(group.type)}</td><td class="mono"><span class="movement-summary-bill"><span class="movement-summary-toggle" aria-hidden="true">▶</span>${escapeHtml(group.bill)}</span></td><td>${escapeHtml(group.time)}</td><td class="movement-product-cell">${inventoryMovementGroupPreviewHtml(group)}</td><td><div class="movement-direction-list">${directions.map(inventoryMovementDirectionBadge).join('')}</div></td>${showWarehouse?`<td>${escapeHtml(inventoryMovementGroupWarehouseText(group))}</td>`:''}</tr>${expanded?inventoryMovementGroupDetailHtml(group):''}`;
+  return `<tr class="movement-summary-row ${expanded?'expanded':''}" data-movement-group="${escapeHtml(encodedKey)}" tabindex="0" aria-expanded="${expanded?'true':'false'}"><td>${fmtDate(group.date)}</td><td>${escapeHtml(group.type)}</td><td class="mono"><span class="movement-summary-bill"><span class="movement-summary-toggle" aria-hidden="true">▶</span>${escapeHtml(group.bill)}</span>${movementHistoryButton(group)}</td><td>${escapeHtml(group.time)}</td><td class="movement-product-cell">${inventoryMovementGroupPreviewHtml(group)}</td><td><div class="movement-direction-list">${directions.map(inventoryMovementDirectionBadge).join('')}</div></td>${showWarehouse?`<td>${escapeHtml(inventoryMovementGroupWarehouseText(group))}</td>`:''}</tr>${expanded?inventoryMovementGroupDetailHtml(group):''}`;
 }
 function renderInventoryMovement(){
   const showWarehouse=isAllWarehousesMode();
@@ -217,7 +299,7 @@ function renderInventoryMovement(){
     <div class="rpt-filters">
       ${documentPeriodToolbar('inventorymovement',filter,range)}
       ${showWarehouse?`<div class="rpf-item"><select id="movementWarehouse" class="rpt-select"><option value="all" ${selectedWarehouse==='all'?'selected':''}>ทุกคลัง</option>${reportingWarehouses().map(warehouse=>`<option value="${warehouse.id}" ${String(warehouse.id)===selectedWarehouse?'selected':''}>${escapeHtml(warehouse.name)}</option>`).join('')}</select></div>`:''}
-      <div class="rpf-item"><select id="movementType" class="rpt-select"><option value="type:all" ${primaryFilter==='type:all'?'selected':''}>รายการทั้งหมด</option>${['ขาย','คืนสต็อกจากยกเลิกบิล','รับเข้าสินค้า','เปลี่ยนสินค้า','คืนสินค้า','รับคืนจากลูกค้า','โอนสินค้า'].map(type=>`<option value="type:${type}" ${primaryFilter===`type:${type}`?'selected':''}>${type}</option>`).join('')}<option class="movement-filter-divider" disabled>────────────</option><option value="direction:all" ${primaryFilter==='direction:all'?'selected':''}>เข้า-ออกทั้งหมด</option>${['เข้า','ออก','เปลี่ยน'].map(direction=>`<option value="direction:${direction}" ${primaryFilter===`direction:${direction}`?'selected':''}>${direction}</option>`).join('')}</select></div>
+      <div class="rpf-item"><select id="movementType" class="rpt-select"><option value="type:all" ${primaryFilter==='type:all'?'selected':''}>รายการทั้งหมด</option>${['ขาย','คืนสต็อกจากยกเลิกบิล','รับเข้าสินค้า','เปลี่ยนสินค้า','คืนสินค้า','รับคืนจากลูกค้า','ปรับสต็อก','โอนสินค้า'].map(type=>`<option value="type:${type}" ${primaryFilter===`type:${type}`?'selected':''}>${type}</option>`).join('')}<option class="movement-filter-divider" disabled>────────────</option><option value="direction:all" ${primaryFilter==='direction:all'?'selected':''}>เข้า-ออกทั้งหมด</option>${['เข้า','ออก','เปลี่ยน'].map(direction=>`<option value="direction:${direction}" ${primaryFilter===`direction:${direction}`?'selected':''}>${direction}</option>`).join('')}</select></div>
     </div>
     <div class="rpt-filters">
       <div class="rpf-item"><select id="movementCategory" class="rpt-select"><option value="">หมวดสินค้าหลัก: ทั้งหมด</option>${categories.map(category=>`<option value="${escapeHtml(category)}" ${filter.category===category?'selected':''}>${escapeHtml(category)}</option>`).join('')}</select></div>

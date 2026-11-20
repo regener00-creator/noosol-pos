@@ -481,6 +481,7 @@ async function confirmStockEditChanges(){
       warehouseId:Number(activeWarehouseId),reason:AUTOMATIC_STOCK_ADJUSTMENT_REASON,note:'',
       sourceInspectionId:sourceList?.id||null,lines:linePayload
     });
+    movementAdjustmentCache=null;
     (data?.balances||[]).forEach(balance=>updateInventoryBalanceLocal(balance.productId,balance.warehouseId,balance.stock));
     await loadInventoryLotsFromSupabase();
     const completedInspectionList=stockEditMarkInspectionComplete(data||{});
