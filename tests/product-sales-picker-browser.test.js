@@ -403,6 +403,11 @@ const browserExecutable = [
   assert.equal(await heading.locator('strong').textContent(),'12 ต.ค. 2026 • ยอดรวม 660.00 | -152.00');
   assert.ok(await heading.locator('strong span').evaluate(el=>Number(getComputedStyle(el).fontWeight)>=700));
   assert.match(await printedBill(),/12 ต\.ค\. 2026 • ยอดรวม 660\.00 \| -152\.00/);
+  for(const period of ['selectmonth','range']){
+    await page.evaluate(period=>{Object.assign(rbillFilter,{period,from:'2026-10-12',to:'2026-10-12'});render();},period);
+    const weights=await bills.first().evaluate(row=>Array.from(row.cells,cell=>getComputedStyle(cell.firstElementChild||cell).fontWeight));
+    assert.deepEqual(weights,['400','400','400','400']);
+  }
   await page.evaluate(()=>{
     const november={...salesHistory[0],date:'2026-11-05',total:1000,items:[{name:'สินค้า',qty:1,price:1000,cost:900}]};
     salesHistory.push(november,{...november,total:290,items:[{name:'สินค้า',qty:1,price:290,cost:247}]},
@@ -413,6 +418,14 @@ const browserExecutable = [
     'ตุลาคม 2026 • ยอดรวม 660.00 | -152.00','พฤศจิกายน 2026 • ยอดรวม 1,300.00 | +143.00 (รอต้นทุน 1 บิล)'
   ]);
   const dayCells=()=>page.locator('.bill-year-days tr').evaluateAll(rows=>rows.map(tr=>Array.from(tr.cells,td=>td.textContent)));
+  const visibleDays=page.locator('.bill-year-days:visible tr');
+  assert.equal(await visibleDays.count(),0);
+  await heading.nth(1).click();
+  assert.equal(await visibleDays.count(),2);
+  await heading.first().press('Enter');
+  assert.equal(await visibleDays.count(),3);
+  await heading.nth(1).press('Space');
+  assert.equal(await visibleDays.count(),1);
   assert.deepEqual(await dayCells(),[['12 ต.ค. 2026','-152.00','1 บิล'],['5 พ.ย. 2026','+143.00','2 บิล'],['6 พ.ย. 2026','รอต้นทุน','1 บิล']]);
   assert.equal(await page.locator('.bill-summary-table,.bill-report-detail').count(),0);
   const annualPrint=await printedBill();

@@ -472,9 +472,10 @@ function billReportDetailHtml(row){
     <table class="bill-line-table"><thead><tr><th>สินค้า</th><th>จำนวน</th><th>ยอดก่อน VAT</th><th>ต้นทุน</th><th>ส่วนต่าง</th></tr></thead><tbody>${items}</tbody><tfoot><tr><th colspan="2">รวม</th><td>${fmtMoney(breakdown.revenue)}</td><td>${fmtMoney(breakdown.cost)}</td><td>${billProfitAmountHtml(breakdown.profit)}</td></tr></tfoot></table>`;
 }
 
-function billReportHeadingHtml(label,rows,includeProfit){
+function billReportHeadingHtml(label,rows,includeProfit,collapsible=false){
   const total=rows.reduce((sum,row)=>sum+row.val,0);
-  return `<div class="rpt-day-head"><strong>${escapeHtml(label)} • ยอดรวม ${fmtMoney(total)}${includeProfit?` | ${billProfitSummaryHtml(rows,'-')}`:''}</strong></div>`;
+  const tag=collapsible?'summary':'div';
+  return `<${tag} class="rpt-day-head"><strong>${escapeHtml(label)} • ยอดรวม ${fmtMoney(total)}${includeProfit?` | ${billProfitSummaryHtml(rows,'-')}`:''}</strong></${tag}>`;
 }
 
 function billReportDayHtml(date,rows,includeProfit,forPrint=false){
@@ -508,12 +509,13 @@ function billReportGroupsHtml(period,dateKeys,byDate,includeProfit,forPrint=fals
   }
   return Array.from(months,([month,dates])=>{
     const label=new Date(month+'-01T00:00:00').toLocaleDateString('th-TH-u-ca-gregory',{month:'long',year:'numeric'});
-    const heading=billReportHeadingHtml(label,dates.flatMap(date=>byDate[date]),includeProfit);
+    const heading=billReportHeadingHtml(label,dates.flatMap(date=>byDate[date]),includeProfit,!forPrint);
     const days=dates.map(date=>{
       const rows=byDate[date];
       return `<tr><td>${reportDateLabel(date)}</td>${includeProfit?`<td class="r">${billProfitSummaryHtml(rows,'-')}</td>`:''}<td class="r">${rows.length} บิล</td></tr>`;
     }).join('');
-    return `<section class="rpt-day-group bill-report-day">${heading}<table class="rpt-table bill-year-days"><tbody>${days}</tbody></table></section>`;
+    const tag=forPrint?'section':'details';
+    return `<${tag} class="rpt-day-group bill-report-day">${heading}<table class="rpt-table bill-year-days"><tbody>${days}</tbody></table></${tag}>`;
   }).join('');
 }
 
@@ -651,7 +653,7 @@ function renderRBill(){
       <button class="btn ghost rpf-apply" id="${idPrefix}ApplyBtn">แสดงผล</button>
     </div>
 
-    <div class="rpt-body">
+    <div class="rpt-body${f.period==='selectmonth'||f.period==='range'?' bill-regular-rows':''}">
       <div class="rpt-meta">
         <div class="rpt-biz">${escapeHtml(warehouseBusinessSettings().name||'')}</div>
         <div class="rpt-meta-grid">

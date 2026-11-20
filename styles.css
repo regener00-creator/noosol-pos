@@ -1419,12 +1419,18 @@
   .rpt-pname{color:var(--text);}
   .stock-report-tabs{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
   .bill-report-day .rpt-day-head{justify-content:flex-start;flex-wrap:wrap;gap:4px 8px;background:transparent;padding:0 12px 8px;}
+  .bill-report-day>summary.rpt-day-head{cursor:pointer;list-style:none;flex-wrap:nowrap;align-items:baseline;}
+  .bill-report-day>summary::-webkit-details-marker{display:none;}
+  .bill-report-day>summary::before{content:'';width:7px;height:7px;flex:none;border:solid currentColor;border-width:0 2px 2px 0;transform:rotate(45deg);}
+  .bill-report-day[open]>summary::before{transform:rotate(225deg);}
+  .bill-report-day>summary:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
   .bill-year-days .r{text-align:right;font-variant-numeric:tabular-nums;}
   .bill-summary-table,.bill-line-table{border-radius:0;}
   .bill-summary-table thead th{background:var(--surface);}
   .bill-summary-table [data-bill-summary]{cursor:pointer;}
-  .bill-summary-table [data-bill-summary] td:nth-child(n+3){font-weight:700;font-variant-numeric:tabular-nums;}
-  .bill-report-toggle{font:inherit;font-weight:700;color:inherit;background:transparent;border:0;padding:0;text-align:left;cursor:pointer;overflow-wrap:anywhere;}
+  .bill-regular-rows{--bill-row-weight:400;}
+  .bill-summary-table [data-bill-summary] td:nth-child(n+3){font-weight:var(--bill-row-weight,700);font-variant-numeric:tabular-nums;}
+  .bill-report-toggle{font:inherit;font-weight:var(--bill-row-weight,700);color:inherit;background:transparent;border:0;padding:0;text-align:left;cursor:pointer;overflow-wrap:anywhere;}
   .bill-report-toggle:focus-visible{box-shadow:0 0 0 2px var(--primary);border-radius:4px;}
   .bill-summary-table .bill-report-detail>td{background:var(--surface);padding:10px 12px 16px 24px;}
   .bill-report-detail p{margin:0 0 8px;color:var(--text-muted);font-size:13px;}
