@@ -454,11 +454,11 @@ function billItemsReportHtml(items){
   return `<div style="display:flex;flex-direction:column;gap:3px;">${(items||[]).map(it=>`<div>${escapeHtml(it.name)} <span style="white-space:nowrap;">×${escapeHtml(it.qty)} ${escapeHtml(it.unit||'')}</span></div>`).join('')||'-'}</div>`;
 }
 
-function billProfitAmountHtml(value){
+function billProfitAmountHtml(value,minusSign='−'){
   const amount=fmtMoney(Math.abs(value));
   if(amount===fmtMoney(0)) return amount;
   const positive=value>0;
-  return `<span style="color:${positive?'#2D7D3D':'#C2483E'}">${positive?'+':'−'}${amount}</span>`;
+  return `<span style="color:${positive?'#2D7D3D':'#C2483E'}">${positive?'+':minusSign}${amount}</span>`;
 }
 
 function billReportDetailHtml(row){
@@ -475,7 +475,7 @@ function billReportDetailHtml(row){
 function billReportDayHtml(date,rows,includeProfit,forPrint=false){
   const dayTotal=rows.reduce((sum,row)=>sum+row.val,0);
   const columns=includeProfit?4:3;
-  return `<section class="rpt-day-group bill-report-day"><div class="rpt-day-head"><b>${reportDateLabel(date)}</b><span>ยอดชำระ ${fmtMoney(dayTotal)} บาท${includeProfit?` · ${billProfitSummaryHtml(rows)}`:''}</span></div>
+  return `<section class="rpt-day-group bill-report-day"><div class="rpt-day-head"><b>${reportDateLabel(date)}</b> <span>ยอดรวม ${fmtMoney(dayTotal)}${includeProfit?` | ${billProfitSummaryHtml(rows,'-')}`:''}</span></div>
     <table class="rpt-table bill-summary-table"><tbody>
     ${rows.map(row=>{
       const name=escapeHtml(row.billId);
@@ -486,10 +486,10 @@ function billReportDayHtml(date,rows,includeProfit,forPrint=false){
     }).join('')}</tbody></table></section>`;
 }
 
-function billProfitSummaryHtml(rows){
+function billProfitSummaryHtml(rows,minusSign){
   const ready=rows.filter(row=>row.breakdown);
   if(!ready.length&&rows.length) return 'รอต้นทุน';
-  const profit=billProfitAmountHtml(ready.reduce((sum,row)=>sum+row.breakdown.profit,0));
+  const profit=billProfitAmountHtml(ready.reduce((sum,row)=>sum+row.breakdown.profit,0),minusSign);
   const waiting=rows.length-ready.length;
   return waiting?`${profit} (รอต้นทุน ${waiting} บิล)`:profit;
 }
@@ -543,7 +543,7 @@ function printRBill(filter=rbillFilter,reportTitle='รายงานยอด�
     .meta-right .tot .k{color:#2b2b2b}
     .meta-right .tot .v{font-weight:700;font-size:18px;min-width:90px;color:#4F4038}
     .rpt-day-group{margin-top:18px;}
-    .rpt-day-head{display:flex;justify-content:space-between;background:#F1E8E5;font-size:12.5px;color:#4F4038;padding:7px 8px;}
+    .rpt-day-head{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 8px;background:#F1E8E5;font-size:12.5px;color:#4F4038;padding:7px 8px;}
     .bill-line-table{table-layout:auto}
     .bill-summary-table :is(td,th):nth-child(n+3){text-align:right}
     table{width:100%;border-collapse:collapse;table-layout:fixed;}

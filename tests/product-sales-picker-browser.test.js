@@ -392,6 +392,18 @@ const browserExecutable = [
   await page.evaluate(()=>{activeWarehouseId=2;render();});
   assert.equal(await bills.count(),1);
   assert.match(await bills.first().innerText(),/OTHER/);
+  await page.evaluate(()=>{
+    currentProfile={...currentProfile,owner:true,level:1};
+    rbillFilter={...rbillFilter,period:'selectmonth',month:'2026-10'};
+    salesHistory=[{id:'LOSS',date:'2026-10-12',warehouseId:2,status:'done',total:660,
+      items:[{name:'สินค้า',qty:1,price:660,cost:812}]}];
+    render();
+  });
+  const heading=page.locator('.bill-report-day .rpt-day-head');
+  assert.equal(await heading.textContent(),'12 ต.ค. 2026 ยอดรวม 660.00 | -152.00');
+  const dateBox=await heading.locator('b').boundingBox(),sumBox=await heading.locator(':scope > span').boundingBox();
+  assert.ok(Math.abs(sumBox.x-dateBox.x-dateBox.width-8)<1,'daily total follows the date on the left');
+  assert.match(await printedBill(),/12 ต\.ค\. 2026 ยอดรวม 660\.00 \| -152\.00/);
   assert.deepEqual(errors,[]);
   console.log('Sales report picker: 3 columns, category/subcategory, selection, filters, clear, reopen and print passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});
