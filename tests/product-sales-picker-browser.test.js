@@ -174,6 +174,36 @@ const browserExecutable = [
   for(const [key,expected] of Object.entries({items:300,vat:21,fee:1,discount:-1,points:-1,other:0,net:320})){
     assert.equal(split.reduce((sum,part)=>sum+part[key],0),expected,'disjoint product selections reconcile '+key+' to the satang');
   }
+  await page.evaluate(()=>{
+    const name='Decolgen prin (4 tablets)';
+    products=[{id:501,name,wh:1,unit:'ซอง',units:[{sub:'กล่อง',factor:25}]},{id:502,name,wh:1,unit:'ขวด'},{id:601,name,wh:2,unit:'ซอง',units:[{sub:'กล่อง',factor:10}]}];
+    const sale=(warehouseId,date,productId,qty,unit,factor,extra={})=>({warehouseId,date,status:'done',items:[{productId,name,qty,unit,factor}],...extra});
+    salesHistory=[sale(1,'2026-11-01',501,16,'กล่อง',25),sale(1,'2026-11-20',501,29,'ซอง',1),sale(1,'2026-11-21',501,1,'ซอง',1,{customerReturn:true}),
+      sale(1,'2026-10-31',501,50,'กล่อง',25),sale(1,'2026-11-21',501,50,'กล่อง',25,{status:'void'}),sale(1,'2026-11-01',502,2,'ขวด',1),sale(2,'2026-11-02',601,23,'ซอง',1)];
+    activeWarehouseId=1;
+    rproductFilter={wh:'1',scope:'all',period:'today',products:[],applied:false};
+    render();
+  });
+  await page.locator('#rpf_period').selectOption('selectmonth');
+  await page.locator('#rpf_month').fill('2026-11');
+  await page.locator('#rpApplyBtn').click();
+  for(const [store,expected] of [[1,['17 กล่อง 3 ซอง','2 ขวด']],[2,['2 กล่อง 3 ซอง']]]){
+    await page.evaluate(store=>{activeWarehouseId=store;render();},store);
+    assert.equal(await page.locator('.rpt-body h2').textContent(),'เดือน พฤศจิกายน 2026');
+    assert.deepEqual(await page.locator('.rpt-body tbody td:last-child').allTextContents(),expected);
+    const printed=await page.evaluate(()=>{
+      const doc=document.implementation.createHTMLDocument();
+      window.open=()=>({document:doc});printRProduct();
+      return Array.from(doc.querySelectorAll('tbody td:last-child'),td=>td.textContent);
+    });
+    assert.deepEqual(printed,expected);
+    const downloadStarted=page.waitForEvent('download');
+    await page.evaluate(()=>exportRProductExcel());
+    const download=await downloadStarted;
+    const csv=fs.readFileSync(await download.path(),'utf8').trim().split(/\r?\n/);
+    assert.equal(csv[0],'"เดือน พฤศจิกายน 2026"');
+    assert.deepEqual(csv.slice(2),expected.map(qty=>'"Decolgen prin (4 tablets)","'+qty+'"'));
+  }
   assert.deepEqual(errors,[]);
   console.log('Sales report picker: 3 columns, category/subcategory, selection, filters, clear, reopen and print passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});

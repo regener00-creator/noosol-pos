@@ -51,6 +51,56 @@ function productSalesSummaryHtml(totals){
     `<div><span>${label}</span><span${label==='ยอดสุทธิ'?' class="rpt-meta-total-v"':''}>${fmtMoney(cents/100)}</span></div>`).join('');
 }
 
+function matchesProductSalesFilter(sale,item,product,filter){
+  if(filter.wh!=='all'&&String(saleWarehouseForReport(sale,item,product))!==String(filter.wh)) return false;
+  if(filter.scope==='category'&&filter.category&&product?.category!==filter.category) return false;
+  if(filter.scope==='category'&&filter.brand&&(product?.brand||'ทั่วไป')!==filter.brand) return false;
+  if(filter.scope==='brand'&&filter.brand&&product?.brand!==filter.brand) return false;
+  return filter.scope==='all'||!filter.products?.length||filter.products.includes(item.name)||filter.products.includes(product?.name);
+}
+
+function monthlyProductSales(range,filter,bills){
+  const month=new Date(range.from+'T00:00:00').toLocaleDateString('th-TH-u-ca-gregory',{month:'long',year:'numeric'});
+  const byId=new Map(products.map(product=>[String(product.id),product]));
+  const byName=new Map();
+  for(const product of products){
+    byName.set(product.name,byName.has(product.name)?null:product);
+  }
+  const groups=new Map();
+  for(const sale of bills){
+    for(const item of sale.items||[]){
+      const product=item.custom?null:item.productId!=null?byId.get(String(item.productId)):byName.get(item.name);
+      if(!matchesProductSalesFilter(sale,item,product,filter)) continue;
+      const id=item.productId??product?.id;
+      const key=id!=null?'id:'+id:(item.custom?'custom:':'name:')+item.name;
+      const unit=item.unit||product?.unit||'หน่วย';
+      const qty=sale.customerReturn?-Math.abs(Number(item.qty)):Number(item.qty);
+      if(!Number.isFinite(qty)) continue;
+      if(!groups.has(key)) groups.set(key,{name:product?.name||item.name||'-',product,base:0,convertible:true,soldUnits:new Map()});
+      const row=groups.get(key);
+      row.soldUnits.set(unit,(row.soldUnits.get(unit)||0)+qty);
+      const factor=product?.unit===unit?1:Number(product?.units?.find(option=>option.sub===unit)?.factor);
+      // If the pack definition changed, retain the unit on the receipt.
+      if(factor>0&&(!Number(item.factor)||Number(item.factor)===factor)) row.base+=qty*factor;
+      else row.convertible=false;
+    }
+  }
+  const rows=Array.from(groups.values(),row=>{
+    const quantity=row.convertible?stockInLargestUnit(row.product,row.base)
+      :Array.from(row.soldUnits,([unit,qty])=>stockInLargestUnit({unit},qty)).join(' ');
+    return {name:row.name,quantity};
+  }).sort((a,b)=>a.name.localeCompare(b.name,'th'));
+  return {label:'เดือน '+month,rows};
+}
+
+function monthlyProductSalesHtml(report,filter,forPrint=false){
+  const canRemove=!forPrint&&filter.scope!=='all'&&filter.products?.length;
+  return `<section class="rpt-day-group"><h2 class="rpt-day-head">${escapeHtml(report.label)}</h2>
+    ${report.rows.length?`<table class="rpt-table" aria-label="จำนวนที่ขายได้"><tbody>${report.rows.map(row=>`<tr>
+      <td class="${forPrint?'pd-name':'rpt-pname'}">${canRemove&&filter.products.includes(row.name)?`<button class="rpt-row-x" data-name="${escapeHtml(row.name)}" title="เอาออก">×</button> `:''}${escapeHtml(row.name)}</td>
+      <td class="mono" style="text-align:right;">${escapeHtml(row.quantity)}</td></tr>`).join('')}</tbody></table>`:'<div class="rpt-empty">ไม่มีข้อมูลการขายในเดือนนี้</div>'}</section>`;
+}
+
 function collectProductSales(bills,filter){
   const productsByName=new Map(products.map(product=>[product.name,product]));
   const byDate={},daily={},totals=emptyProductSalesTotals();
@@ -78,11 +128,7 @@ function collectProductSales(bills,filter){
       const divisor=weight||lines.length;
       const share=amount=>Math.round(amount*previous/divisor)-Math.round(amount*start/divisor);
       const product=productsByName.get(item.name)||{};
-      if(filter.wh!=='all'&&String(saleWarehouseForReport(sale,item,product))!==String(filter.wh)) continue;
-      if(filter.scope==='category'&&filter.category&&product.category!==filter.category) continue;
-      if(filter.scope==='category'&&filter.brand&&(product.brand||'ทั่วไป')!==filter.brand) continue;
-      if(filter.scope==='brand'&&filter.brand&&product.brand!==filter.brand) continue;
-      if(filter.scope!=='all'&&filter.products?.length&&!filter.products.includes(item.name)) continue;
+      if(!matchesProductSalesFilter(sale,item,product,filter)) continue;
 
       const unit=item.unit||product.unit||'';
       const dayRows=byDate[date]||={};
@@ -110,17 +156,24 @@ function collectProductSales(bills,filter){
 
 function exportRProductExcel(){
   const range=rproductPeriodRange();
-  const {byDate,dateKeys,daily,totals}=collectProductSales(completedSalesInReportRange(range),rproductFilter);
-  let csv='\uFEFF'; // BOM ให้ Excel อ่านภาษาไทยถูก
-  csv+='วันที่,ชื่อสินค้า,จำนวน,หน่วย,ราคา\n';
-  dateKeys.forEach(d=>{
-    const dayRows=Object.values(byDate[d]).sort((a,b)=>a.name.localeCompare(b.name,'th'));
-    dayRows.forEach(r=>{ csv+=`${csvSpreadsheetText(d)},${csvSpreadsheetText(r.name)},${Number(r.qty)||0},${csvSpreadsheetText(r.unit)},${r.val.toFixed(2)}\n`; });
-  });
-  csv+='\nช่วงเวลา,รายการสรุป,บาท\n';
-  for(const key of [...dateKeys,'รวมทั้งช่วง']){
-    for(const [label,value] of productSalesBreakdown(daily[key]||totals)){
-      csv+=`${csvSpreadsheetText(key)},${csvSpreadsheetText(label)},${(value/100).toFixed(2)}\n`;
+  const bills=completedSalesInReportRange(range);
+  let csv='\uFEFF';
+  if(rproductFilter.period==='selectmonth'){
+    const report=monthlyProductSales(range,rproductFilter,bills);
+    csv+=csvSpreadsheetText(report.label)+'\nชื่อสินค้า,จำนวนที่ขายได้\n';
+    for(const row of report.rows) csv+=`${csvSpreadsheetText(row.name)},${csvSpreadsheetText(row.quantity)}\n`;
+  }else{
+    const {byDate,dateKeys,daily,totals}=collectProductSales(bills,rproductFilter);
+    csv+='วันที่,ชื่อสินค้า,จำนวน,หน่วย,ราคา\n';
+    dateKeys.forEach(d=>{
+      const dayRows=Object.values(byDate[d]).sort((a,b)=>a.name.localeCompare(b.name,'th'));
+      dayRows.forEach(r=>{ csv+=`${csvSpreadsheetText(d)},${csvSpreadsheetText(r.name)},${Number(r.qty)||0},${csvSpreadsheetText(r.unit)},${r.val.toFixed(2)}\n`; });
+    });
+    csv+='\nช่วงเวลา,รายการสรุป,บาท\n';
+    for(const key of [...dateKeys,'รวมทั้งช่วง']){
+      for(const [label,value] of productSalesBreakdown(daily[key]||totals)){
+        csv+=`${csvSpreadsheetText(key)},${csvSpreadsheetText(label)},${(value/100).toFixed(2)}\n`;
+      }
     }
   }
   const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
@@ -132,9 +185,11 @@ function exportRProductExcel(){
 
 function printRProduct(){
   const range=rproductPeriodRange();
-  const {byDate,dateKeys,daily,totals,docCount}=collectProductSales(completedSalesInReportRange(range),rproductFilter);
+  const bills=completedSalesInReportRange(range);
+  const monthly=rproductFilter.period==='selectmonth'?monthlyProductSales(range,rproductFilter,bills):null;
+  const {byDate,dateKeys,daily,totals,docCount}=monthly?{}:collectProductSales(bills,rproductFilter);
   const bizName=warehouseBusinessSettings().name||'';
-  const dayBlocksHtml = dateKeys.length ? dateKeys.map(d=>{
+  const dayBlocksHtml = monthly?monthlyProductSalesHtml(monthly,rproductFilter,true):dateKeys.length ? dateKeys.map(d=>{
     const dayRows=Object.values(byDate[d]).sort((a,b)=>a.name.localeCompare(b.name,'th'));
     return `<div class="day-block">
       <div class="day-head"><span>${reportDateLabel(d)}</span><span>ยอดสุทธิ ${fmtMoney(daily[d].net/100)}</span></div>
@@ -187,7 +242,7 @@ function printRProduct(){
   <div class="toolbar"><span>ตัวอย่างรายงาน A4</span><button onclick="window.print()">พิมพ์</button></div>
   <div class="page">
     <h1>รายงานยอดขายตามสินค้า</h1>
-    <div class="biz">${escapeHtml(bizName)}</div>
+    ${monthly?'':`<div class="biz">${escapeHtml(bizName)}</div>
     <div class="meta">
       <div class="meta-left">
         <div><span class="k">ณ วันที่</span><span>${reportDateLabel(TODAY_STR)}</span></div>
@@ -196,6 +251,7 @@ function printRProduct(){
       </div>
       <div class="meta-right product-sales-summary">${productSalesSummaryHtml(totals)}</div>
     </div>
+    `}
     ${dayBlocksHtml}
   </div>
   </body></html>`);
@@ -209,7 +265,9 @@ function renderRProduct(){
   const range=rproductPeriodRange();
   // ตัวเลือกช่วงเวลา
   const periodOpts=[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
-  const {byDate,dateKeys,daily,totals,docCount}=collectProductSales(f.applied?completedSalesInReportRange(range):[],f);
+  const bills=f.applied?completedSalesInReportRange(range):[];
+  const monthly=f.period==='selectmonth';
+  const {byDate,dateKeys,daily,totals,docCount}=monthly?{}:collectProductSales(bills,f);
   // ตัวเลือกสินค้าตาม scope
   const catList=categories.slice();
   const brandList=brands.slice();
@@ -267,7 +325,7 @@ function renderRProduct(){
 
     ${categoryScope&&f.products?.length?`<div class="stock-report-selected-products"><span class="stock-report-selected-label">สินค้าที่เลือก ${f.products.length} รายการ</span><div class="stock-report-selected-list">${f.products.map(name=>`<span class="stock-report-product-chip">${escapeHtml(name)}<button type="button" class="rpt-row-x" data-name="${escapeHtml(name)}" aria-label="ลบ ${escapeHtml(name)} ออกจากตัวกรอง">×</button></span>`).join('')}</div><button type="button" class="stock-report-clear-products" id="rpClearProductsBtn">ล้างที่เลือก</button></div>`:''}
     <div class="rpt-body">
-      <div class="rpt-meta">
+      ${monthly?(f.applied?monthlyProductSalesHtml(monthlyProductSales(range,f,bills),f):'<div class="rpt-empty">เลือกเงื่อนไขแล้วกด “แสดงผล” เพื่อดูรายงาน</div>'):`<div class="rpt-meta">
         <div class="rpt-biz">${escapeHtml(warehouseBusinessSettings().name||'')}</div>
         <div class="rpt-meta-grid">
           <div class="rpt-meta-left">
@@ -297,6 +355,7 @@ function renderRProduct(){
           <div class="product-sales-summary">${productSalesSummaryHtml(daily[d])}</div>
         </div>`;
       }).join(''):`<div class="rpt-empty">${f.applied?'ไม่มีข้อมูลการขายในช่วงเวลาที่เลือก':'เลือกเงื่อนไขแล้วกด “แสดงผล” เพื่อดูรายงาน'}</div>`}
+      `}
     </div>
   </div>`;
 }
