@@ -85,6 +85,11 @@ function formatProductSalesQuantity(bucket,product){
   return Array.from(bucket.soldUnits,([unit,qty])=>stockInLargestUnit({unit},qty)).join(' ');
 }
 
+function productSalesPeriodQuantity(bucket,product){
+  const amounts=!bucket?[]:bucket.convertible?[bucket.base]:Array.from(bucket.soldUnits.values());
+  return {text:formatProductSalesQuantity(bucket,product),isZero:amounts.every(amount=>Number(amount.toFixed(6))===0)};
+}
+
 function productSalesPeriodSummary(range,filter,bills){
   let label,detailLabels=null;
   switch(filter.period){
@@ -137,7 +142,7 @@ function productSalesPeriodSummary(range,filter,bills){
   }
   const rows=Array.from(groups.values(),row=>({
     name:row.name,quantity:formatProductSalesQuantity(row.total,row.product),value:row.value/100,
-    expansionKey:row.expansionKey,quantities:row.buckets?detailLabels.map((_,i)=>formatProductSalesQuantity(row.buckets[i],row.product)):null
+    expansionKey:row.expansionKey,quantities:row.buckets?detailLabels.map((_,i)=>productSalesPeriodQuantity(row.buckets[i],row.product)):null
   })).sort((a,b)=>a.name.localeCompare(b.name,'th'));
   return {label,rows,detailLabels};
 }
@@ -149,7 +154,7 @@ function productSalesDetailRowsHtml(quantities,period){
   for(let start=0;start<quantities.length;start+=columns){
     const entries=quantities.slice(start,start+columns).map((quantity,index)=>{
       const label=yearly?reportShortMonths[start+index]:start+index+1;
-      return `<span>${label} : ${escapeHtml(quantity)}</span>`;
+      return `<span style="${quantity.isZero?'color:#888;font-weight:400':'font-weight:700'}">${label} : ${escapeHtml(quantity.text)}</span>`;
     });
     rows.push(`<tr class="product-sales-detail"><td colspan="2"><div class="product-sales-periods" style="display:grid;grid-template-columns:repeat(${columns},minmax(0,1fr));column-gap:.5em;overflow-wrap:anywhere">${entries.join(' ')}</div></td></tr>`);
   }
@@ -228,7 +233,7 @@ function exportRProductExcel(){
     csv+=`ชื่อสินค้า,${monthly?'วันที่':'เดือน'},จำนวนที่ขายได้\n`;
     for(const row of report.rows){
       csv+=`${csvSpreadsheetText(row.name)},${monthly?'รวมทั้งเดือน':'รวมทั้งปี'},${csvSpreadsheetText(row.quantity)}\n`;
-      row.quantities?.forEach((quantity,i)=>{csv+=`${csvSpreadsheetText(row.name)},${csvSpreadsheetText(report.detailLabels[i])},${csvSpreadsheetText(quantity)}\n`;});
+      row.quantities?.forEach((quantity,i)=>{csv+=`${csvSpreadsheetText(row.name)},${csvSpreadsheetText(report.detailLabels[i])},${csvSpreadsheetText(quantity.text)}\n`;});
     }
   }else{
     const today=rproductFilter.period==='today';
@@ -282,9 +287,9 @@ function printRProduct(){
     table{width:100%;border-collapse:collapse;table-layout:fixed;}
     thead th{text-align:left;padding:9px 8px;font-size:12px;font-weight:600;color:#444;border-bottom:1px solid #333}
     tbody td{padding:9px 8px;border-bottom:1px solid #e2e6ea;font-size:12.5px}
-    .product-sales-detail td{background:#fff;border-inline:1px solid #a6968b}
+    .product-sales-detail td{background:#fff}
     tr:not(.product-sales-detail)+.product-sales-detail td{border-top:1px solid #a6968b}
-    .product-sales-detail:last-child td{border-bottom:1px solid #a6968b}
+    .product-sales-detail:last-child td{border-bottom:0}
     .r{text-align:right}
     .pd-name{color:#2b2b2b}
     .foot{display:flex;justify-content:space-between;margin-top:14px;font-size:12px;color:#444}

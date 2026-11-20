@@ -225,9 +225,9 @@ const browserExecutable = [
         assert.equal(await detailCell.evaluate(td=>getComputedStyle(td).backgroundColor),'rgb(255, 255, 255)');
         assert.deepEqual(await detailCell.evaluate(td=>{
           const style=getComputedStyle(td);
-          return [style.borderTopColor,style.borderLeftColor,style.borderRightColor];
-        }),[frameColor,frameColor,frameColor]);
-        assert.equal(await days.last().locator('td').evaluate(td=>getComputedStyle(td).borderBottomColor),frameColor);
+          return [style.borderTopColor,style.borderLeftWidth,style.borderRightWidth];
+        }),[frameColor,'0px','0px']);
+        assert.equal(await days.last().locator('td').evaluate(td=>getComputedStyle(td).borderBottomWidth),'0px');
         for(let group=0;group<6;group++){
           const entries=days.nth(group).locator('.product-sales-periods > span');
           const expectedDays=Array.from({length:5},(_,index)=>{
@@ -236,7 +236,9 @@ const browserExecutable = [
             return day+' : '+(sales[day]||'0 ซอง');
           });
           assert.deepEqual(await entries.allTextContents(),expectedDays);
+          assert.deepEqual(await entries.evaluateAll(cells=>cells.map(cell=>getComputedStyle(cell).fontWeight)),expectedDays.map(day=>day.endsWith(': 0 ซอง')?'400':'700'));
         }
+        assert.equal(await days.first().locator('.product-sales-periods > span').nth(2).evaluate(cell=>getComputedStyle(cell).color),'rgb(136, 136, 136)');
         assert.equal(await page.locator('.rpt-table .product-sales-detail').count(),6);
         const printed=await page.evaluate(()=>{
           const doc=document.implementation.createHTMLDocument();
@@ -296,6 +298,7 @@ const browserExecutable = [
     }
     quantities[10]=store===1?'17 กล่อง 3 ซอง':'2 กล่อง 3 ซอง';
     const entries=months.map((month,i)=>month+' : '+quantities[i]);
+    assert.deepEqual(await block.locator('.product-sales-periods > span').evaluateAll(cells=>cells.map(cell=>getComputedStyle(cell).fontWeight)),quantities.map(qty=>qty==='0 ซอง'?'400':'700'));
     for(let row=0;row<3;row++){
       assert.deepEqual(await block.locator('.product-sales-periods').nth(row).locator('span').allTextContents(),entries.slice(row*4,row*4+4));
     }
