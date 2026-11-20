@@ -219,13 +219,17 @@ const browserExecutable = [
         const product=page.locator('.rpt-table tbody').first();
         await product.locator('td.num').click();
         const days=product.locator('tr.product-sales-detail');
-        assert.equal(await days.count(),30);
-        assert.deepEqual(await days.first().locator('td').allTextContents(),['1 พ.ย. 2026',store===1?'16 กล่อง':'0 ซอง']);
-        assert.deepEqual(await days.nth(1).locator('td').allTextContents(),['2 พ.ย. 2026',store===1?'0 ซอง':'2 กล่อง 3 ซอง']);
-        assert.deepEqual(await days.nth(19).locator('td').allTextContents(),['20 พ.ย. 2026',store===1?'1 กล่อง 4 ซอง':'0 ซอง']);
-        assert.deepEqual(await days.nth(20).locator('td').allTextContents(),['21 พ.ย. 2026',store===1?'-1 ซอง':'0 ซอง']);
-        assert.deepEqual(await days.last().locator('td').allTextContents(),['30 พ.ย. 2026','0 ซอง']);
-        assert.equal(await page.locator('.rpt-table .product-sales-detail').count(),30);
+        assert.equal(await days.count(),6);
+        for(let group=0;group<6;group++){
+          const entries=days.nth(group).locator('.product-sales-days > span');
+          const expectedDays=Array.from({length:5},(_,index)=>{
+            const day=group*5+index+1;
+            const sales=store===1?{1:'16 กล่อง',20:'1 กล่อง 4 ซอง',21:'-1 ซอง'}:{2:'2 กล่อง 3 ซอง'};
+            return (index?'| ':'')+day+' : '+(sales[day]||'0 ซอง');
+          });
+          assert.deepEqual(await entries.allTextContents(),expectedDays);
+        }
+        assert.equal(await page.locator('.rpt-table .product-sales-detail').count(),6);
         const printed=await page.evaluate(()=>{
           const doc=document.implementation.createHTMLDocument();
           window.open=()=>({document:doc});printRProduct();
@@ -243,6 +247,15 @@ const browserExecutable = [
         assert.equal(expandedCsv.split(',"30 พ.ย. 2026",').length-1,1);
         await product.locator('.product-sales-period-toggle').click();
         assert.equal(await days.count(),0);
+        if(store===1){
+          await page.locator('#rpf_month').fill('2026-10');
+          await page.locator('#rpApplyBtn').click();
+          await product.locator('.product-sales-period-toggle').click();
+          assert.equal(await days.count(),7);
+          assert.equal(await days.last().textContent(),'31 : 50 กล่อง');
+          await page.locator('#rpf_month').fill('2026-11');
+          await page.locator('#rpApplyBtn').click();
+        }
       }
     }
   }

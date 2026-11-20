@@ -141,13 +141,29 @@ function productSalesPeriodSummary(range,filter,bills){
   return {label,rows,detailLabels};
 }
 
+function productSalesDailyRowsHtml(quantities){
+  const rows=[];
+  for(let start=0;start<quantities.length;start+=5){
+    const days=quantities.slice(start,start+5).map((quantity,index)=>{
+      const separator=index?'<span aria-hidden="true">|</span> ':'';
+      return `<span>${separator}<span>${start+index+1} : ${escapeHtml(quantity)}</span></span>`;
+    });
+    rows.push(`<tr class="product-sales-detail"><td colspan="2"><div class="product-sales-days" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));overflow-wrap:anywhere">${days.join('')}</div></td></tr>`);
+  }
+  return rows.join('');
+}
+
 function productSalesPeriodSummaryHtml(report,filter,forPrint=false){
   const canRemove=!forPrint&&filter.scope!=='all'&&filter.products?.length;
   const rows=report.rows.map(row=>{
     const remove=canRemove&&filter.products.includes(row.name)?`<button class="rpt-row-x" data-name="${escapeHtml(row.name)}" title="เอาออก">×</button> `:'';
     const name=`${remove}${escapeHtml(row.name)}`;
     if(report.detailLabels){
-      const details=row.quantities?report.detailLabels.map((label,i)=>`<tr class="product-sales-detail"><td>${escapeHtml(label)}</td><td class="num">${escapeHtml(row.quantities[i])}</td></tr>`).join(''):'';
+      let details='';
+      if(row.quantities){
+        details=filter.period==='selectmonth'?productSalesDailyRowsHtml(row.quantities):
+          report.detailLabels.map((label,i)=>`<tr class="product-sales-detail"><td>${escapeHtml(label)}</td><td class="num">${escapeHtml(row.quantities[i])}</td></tr>`).join('');
+      }
       const title=forPrint?escapeHtml(row.name):`${remove}<button type="button" class="product-sales-period-toggle" aria-expanded="${!!row.quantities}"><span aria-hidden="true">${row.quantities?'▾':'▸'}</span> ${escapeHtml(row.name)}</button>`;
       const toggle=forPrint?'':` data-product-sales-key="${escapeHtml(row.expansionKey)}"`;
       return `<tbody><tr${toggle}><td class="rpt-pname">${title}</td><td class="num">${escapeHtml(row.quantity)}</td></tr>${details}</tbody>`;
