@@ -468,7 +468,7 @@ function billReportDetailHtml(row){
 function billReportDayHtml(date,rows,includeProfit,forPrint=false){
   const dayTotal=rows.reduce((sum,row)=>sum+row.val,0);
   const columns=includeProfit?4:3;
-  return `<section class="rpt-day-group"><div class="rpt-day-head"><b>${reportDateLabel(date)}</b><span>ลูกค้าจ่าย ${fmtMoney(dayTotal)} บาท${includeProfit?` · กำไร / ขาดทุน ${billProfitSummaryText(rows)}`:''}</span></div>
+  return `<section class="rpt-day-group bill-report-day"><div class="rpt-day-head"><b>${reportDateLabel(date)}</b><span>ลูกค้าจ่าย ${fmtMoney(dayTotal)} บาท${includeProfit?` · กำไร / ขาดทุน ${billProfitSummaryText(rows)}`:''}</span></div>
     <table class="rpt-table bill-summary-table"><thead><tr><th>เลขบิล</th><th>วิธีชำระ</th><th>ลูกค้าจ่าย (รวม VAT)</th>${includeProfit?'<th>กำไร / ขาดทุน</th>':''}</tr></thead><tbody>
     ${rows.map(row=>{
       const name=escapeHtml(row.billId);

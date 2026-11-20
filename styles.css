@@ -1418,14 +1418,23 @@
   .rpt-table tbody td{padding:16px 12px;border-bottom:1px solid var(--border);font-size:14px;}
   .rpt-pname{color:var(--text);}
   .stock-report-tabs{display:flex;align-items:center;gap:8px;margin-bottom:14px;}
+  .bill-report-day .rpt-day-head{flex-wrap:wrap;gap:4px 16px;background:transparent;padding:0 12px 8px;}
+  .bill-report-day .rpt-day-head span{color:var(--text-muted);font-size:13px;}
+  .bill-summary-table,.bill-line-table{border-radius:0;}
+  .bill-summary-table thead th{background:var(--surface);}
   .bill-summary-table [data-bill-summary]{cursor:pointer;}
-  .bill-report-toggle{font:inherit;font-weight:600;color:inherit;background:transparent;border:0;padding:4px;text-align:left;cursor:pointer;}
+  .bill-summary-table [data-bill-summary] td:nth-child(n+3){font-weight:700;font-variant-numeric:tabular-nums;}
+  .bill-report-toggle{font:inherit;font-weight:700;color:inherit;background:transparent;border:0;padding:0;text-align:left;cursor:pointer;overflow-wrap:anywhere;}
   .bill-report-toggle:focus-visible{box-shadow:0 0 0 2px var(--primary);border-radius:4px;}
-  .bill-report-detail>td{background:var(--primary-soft);}
-  .bill-line-table{width:100%;border-collapse:collapse;background:white;}
+  .bill-summary-table .bill-report-detail>td{background:var(--surface);padding:10px 12px 16px 24px;}
+  .bill-report-detail p{margin:0 0 8px;color:var(--text-muted);font-size:13px;}
+  .bill-report-detail p b{color:var(--text);}
+  .bill-line-table{width:100%;border-collapse:collapse;}
   .bill-summary-table th:nth-child(n+3),.bill-summary-table td:nth-child(n+3){text-align:right;}
-  .bill-summary-table .bill-line-table :is(th,td){padding:8px;overflow-wrap:anywhere;}
-  .bill-summary-table .bill-line-table th:first-child{width:38%;}
+  .bill-summary-table .bill-line-table :is(th,td){position:static;padding:5px 6px;background:transparent;border:0;font-size:13px;overflow-wrap:anywhere;}
+  .bill-line-table thead th:first-child{width:38%;}
+  .bill-line-table tfoot th{text-align:left;}
+  .bill-line-table tfoot td{text-align:right;font-weight:600;}
   .rpt-unit{color:var(--text-muted);font-size:13px;}
   .rpf-prodsearch{position:relative;}
   .rpf-prodsearch .rpt-select{min-width:340px;}
