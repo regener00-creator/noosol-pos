@@ -215,6 +215,35 @@ const browserExecutable = [
       const csv=fs.readFileSync(await download.path(),'utf8').trim().split(/\r?\n/);
       assert.equal(csv[0],'"'+label+'"');
       assert.deepEqual(csv.slice(2),expected.map(qty=>'"Decolgen prin (4 tablets)","'+qty+'"'));
+      if(period==='selectmonth'){
+        const product=page.locator('.rpt-table tbody').first();
+        await product.locator('td.num').click();
+        const days=product.locator('tr.product-sales-detail');
+        assert.equal(await days.count(),30);
+        assert.deepEqual(await days.first().locator('td').allTextContents(),['1 พ.ย. 2026',store===1?'16 กล่อง':'0 ซอง']);
+        assert.deepEqual(await days.nth(1).locator('td').allTextContents(),['2 พ.ย. 2026',store===1?'0 ซอง':'2 กล่อง 3 ซอง']);
+        assert.deepEqual(await days.nth(19).locator('td').allTextContents(),['20 พ.ย. 2026',store===1?'1 กล่อง 4 ซอง':'0 ซอง']);
+        assert.deepEqual(await days.nth(20).locator('td').allTextContents(),['21 พ.ย. 2026',store===1?'-1 ซอง':'0 ซอง']);
+        assert.deepEqual(await days.last().locator('td').allTextContents(),['30 พ.ย. 2026','0 ซอง']);
+        assert.equal(await page.locator('.rpt-table .product-sales-detail').count(),30);
+        const printed=await page.evaluate(()=>{
+          const doc=document.implementation.createHTMLDocument();
+          window.open=()=>({document:doc});printRProduct();
+          return Array.from(doc.querySelectorAll('.product-sales-detail'),row=>row.textContent);
+        });
+        assert.deepEqual(printed,await days.allTextContents());
+        const expandedCsv=await page.evaluate(async()=>{
+          const originalClick=HTMLAnchorElement.prototype.click;
+          let csv;
+          HTMLAnchorElement.prototype.click=function(){csv=fetch(this.href).then(response=>response.text());};
+          try{exportRProductExcel();return await csv;}
+          finally{HTMLAnchorElement.prototype.click=originalClick;}
+        });
+        assert.ok(expandedCsv.includes(',รวมทั้งเดือน,"'+expected[0]+'"'));
+        assert.equal(expandedCsv.split(',"30 พ.ย. 2026",').length-1,1);
+        await product.locator('.product-sales-period-toggle').click();
+        assert.equal(await days.count(),0);
+      }
     }
   }
   assert.equal(await page.getByLabel('แสดงยอดแยกรายเดือน').count(),0);
@@ -223,21 +252,21 @@ const browserExecutable = [
     const blocks=page.locator('.rpt-table tbody');
     assert.equal(await blocks.count(),store===1?2:1);
     const block=blocks.first();
-    const toggle=block.locator('.product-sales-year-toggle');
+    const toggle=block.locator('.product-sales-period-toggle');
     assert.equal(await block.locator('tr').count(),1);
     await block.locator('td.num').click();
     assert.equal(await toggle.getAttribute('aria-expanded'),'true');
     assert.equal(await block.locator('tr').count(),13);
     if(store===1){
       assert.equal(await blocks.nth(1).locator('tr').count(),1);
-      const other=blocks.nth(1).locator('.product-sales-year-toggle');
+      const other=blocks.nth(1).locator('.product-sales-period-toggle');
       await other.press('Enter');
       assert.equal(await blocks.nth(1).locator('tr').count(),13);
       await other.press('Space');
       assert.equal(await blocks.nth(1).locator('tr').count(),1);
       assert.equal(await block.locator('tr').count(),13);
     }
-    const values=await block.locator('.product-sales-month td:last-child').allTextContents();
+    const values=await block.locator('.product-sales-detail td:last-child').allTextContents();
     const total=await block.locator('tr').first().locator('td.num').textContent();
     assert.equal(values[0],store===1?'1 กล่อง':'0 ซอง');
     assert.equal(values[1],'0 ซอง');

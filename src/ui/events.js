@@ -1543,7 +1543,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(rpPeriod) rpPeriod.addEventListener('change',()=>{ rproductFilter.period=rpPeriod.value; rproductFilter.expandedProducts?.clear(); render(); });
   const rpFrom=document.getElementById('rpf_from'); if(rpFrom) rpFrom.addEventListener('change',()=>{ const iso=dmyToISO(rpFrom.value); if(iso) rproductFilter.from=iso; });
   const rpTo=document.getElementById('rpf_to'); if(rpTo) rpTo.addEventListener('change',()=>{ const iso=dmyToISO(rpTo.value); if(iso) rproductFilter.to=iso; });
-  const rpMonth=document.getElementById('rpf_month'); if(rpMonth) rpMonth.addEventListener('change',()=>{ rproductFilter.month=rpMonth.value; render(); });
+  const rpMonth=document.getElementById('rpf_month'); if(rpMonth) rpMonth.addEventListener('change',()=>{ rproductFilter.month=rpMonth.value; rproductFilter.expandedProducts?.clear(); render(); });
   const rpYear=document.getElementById('rpf_year'); if(rpYear) rpYear.addEventListener('change',()=>{ rproductFilter.year=rpYear.value; rproductFilter.expandedProducts?.clear(); render(); });
   document.querySelectorAll('[data-product-sales-key]').forEach(row=>row.addEventListener('click',event=>{
     if(event.target.closest('.rpt-row-x')) return;
@@ -1554,7 +1554,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     const mainTop=main.scrollTop;
     renderKeepScroll();
     main.scrollTop=mainTop;
-    document.querySelector(`[data-product-sales-key="${CSS.escape(key)}"] .product-sales-year-toggle`)?.focus({preventScroll:true});
+    document.querySelector(`[data-product-sales-key="${CSS.escape(key)}"] .product-sales-period-toggle`)?.focus({preventScroll:true});
   }));
   const rpWh=document.getElementById('rpf_wh'); if(rpWh) rpWh.addEventListener('change',()=>{ rproductFilter.wh=rpWh.value; });
   const rpScope=document.getElementById('rpf_scope'); if(rpScope) rpScope.addEventListener('change',()=>{ rproductFilter.scope=rpScope.value; rproductFilter.category=''; rproductFilter.brand=''; rproductFilter.products=[]; render(); });
