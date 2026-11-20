@@ -221,11 +221,11 @@ const browserExecutable = [
         const days=product.locator('tr.product-sales-detail');
         assert.equal(await days.count(),6);
         for(let group=0;group<6;group++){
-          const entries=days.nth(group).locator('.product-sales-days > span');
+          const entries=days.nth(group).locator('.product-sales-periods > span');
           const expectedDays=Array.from({length:5},(_,index)=>{
             const day=group*5+index+1;
             const sales=store===1?{1:'16 กล่อง',20:'1 กล่อง 4 ซอง',21:'-1 ซอง'}:{2:'2 กล่อง 3 ซอง'};
-            return (index?'| ':'')+day+' : '+(sales[day]||'0 ซอง');
+            return day+' : '+(sales[day]||'0 ซอง');
           });
           assert.deepEqual(await entries.allTextContents(),expectedDays);
         }
@@ -269,33 +269,39 @@ const browserExecutable = [
     assert.equal(await block.locator('tr').count(),1);
     await block.locator('td.num').click();
     assert.equal(await toggle.getAttribute('aria-expanded'),'true');
-    assert.equal(await block.locator('tr').count(),13);
+    assert.equal(await block.locator('tr').count(),4);
     if(store===1){
       assert.equal(await blocks.nth(1).locator('tr').count(),1);
       const other=blocks.nth(1).locator('.product-sales-period-toggle');
       await other.press('Enter');
-      assert.equal(await blocks.nth(1).locator('tr').count(),13);
+      assert.equal(await blocks.nth(1).locator('tr').count(),4);
       await other.press('Space');
       assert.equal(await blocks.nth(1).locator('tr').count(),1);
-      assert.equal(await block.locator('tr').count(),13);
+      assert.equal(await block.locator('tr').count(),4);
     }
-    const values=await block.locator('.product-sales-detail td:last-child').allTextContents();
+    const months=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    const quantities=months.map(()=> '0 ซอง');
+    if(store===1){
+      quantities[0]='1 กล่อง';
+      quantities[9]='50 กล่อง';
+      quantities[11]='2 ซอง';
+    }
+    quantities[10]=store===1?'17 กล่อง 3 ซอง':'2 กล่อง 3 ซอง';
+    const entries=months.map((month,i)=>month+' : '+quantities[i]);
+    for(let row=0;row<3;row++){
+      assert.deepEqual(await block.locator('.product-sales-periods').nth(row).locator('span').allTextContents(),entries.slice(row*4,row*4+4));
+    }
     const total=await block.locator('tr').first().locator('td.num').textContent();
-    assert.equal(values[0],store===1?'1 กล่อง':'0 ซอง');
-    assert.equal(values[1],'0 ซอง');
-    assert.equal(values[9],store===1?'50 กล่อง':'0 ซอง');
-    assert.equal(values[10],store===1?'17 กล่อง 3 ซอง':'2 กล่อง 3 ซอง');
-    assert.equal(values[11],store===1?'2 ซอง':'0 ซอง');
     assert.equal(total,store===1?'68 กล่อง 5 ซอง':'2 กล่อง 3 ซอง');
     const printed=await page.evaluate(()=>{
       const doc=document.implementation.createHTMLDocument();window.open=()=>({document:doc});printRProduct();
       return Array.from(doc.querySelectorAll('tbody:first-of-type td:last-child'),td=>td.textContent);
     });
-    assert.deepEqual(printed,[total,...values]);
+    assert.deepEqual(printed,[total,...[0,4,8].map(start=>entries.slice(start,start+4).join(' '))]);
     const pending=page.waitForEvent('download');await page.evaluate(()=>exportRProductExcel());
     const download=await pending;
     const csv=fs.readFileSync(await download.path(),'utf8');
-    assert.ok(csv.includes(',"พฤศจิกายน","'+values[10]+'"'));
+    assert.ok(csv.includes(',"พฤศจิกายน","'+quantities[10]+'"'));
     assert.ok(csv.includes(',รวมทั้งปี,"'+total+'"'));
     assert.equal(csv.split(',"พฤศจิกายน",').length-1,1);
     await toggle.click();

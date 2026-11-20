@@ -2,10 +2,11 @@ function rproductPeriodRange(){
   return rbillPeriodRange(rproductFilter);
 }
 
+const reportShortMonths=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+
 function reportDateLabel(isoDate){
   const [year,month,day]=isoDate.split('-').map(Number);
-  const months=['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  return day+' '+months[month-1]+' '+year;
+  return day+' '+reportShortMonths[month-1]+' '+year;
 }
 
 function reportYearOptions(selected){
@@ -141,14 +142,16 @@ function productSalesPeriodSummary(range,filter,bills){
   return {label,rows,detailLabels};
 }
 
-function productSalesDailyRowsHtml(quantities){
+function productSalesDetailRowsHtml(quantities,period){
+  const yearly=period==='selectyear';
+  const columns=yearly?4:5;
   const rows=[];
-  for(let start=0;start<quantities.length;start+=5){
-    const days=quantities.slice(start,start+5).map((quantity,index)=>{
-      const separator=index?'<span aria-hidden="true">|</span> ':'';
-      return `<span>${separator}<span>${start+index+1} : ${escapeHtml(quantity)}</span></span>`;
+  for(let start=0;start<quantities.length;start+=columns){
+    const entries=quantities.slice(start,start+columns).map((quantity,index)=>{
+      const label=yearly?reportShortMonths[start+index]:start+index+1;
+      return `<span>${label} : ${escapeHtml(quantity)}</span>`;
     });
-    rows.push(`<tr class="product-sales-detail"><td colspan="2"><div class="product-sales-days" style="display:grid;grid-template-columns:repeat(5,minmax(0,1fr));overflow-wrap:anywhere">${days.join('')}</div></td></tr>`);
+    rows.push(`<tr class="product-sales-detail"><td colspan="2"><div class="product-sales-periods" style="display:grid;grid-template-columns:repeat(${columns},minmax(0,1fr));column-gap:.5em;overflow-wrap:anywhere">${entries.join(' ')}</div></td></tr>`);
   }
   return rows.join('');
 }
@@ -159,11 +162,7 @@ function productSalesPeriodSummaryHtml(report,filter,forPrint=false){
     const remove=canRemove&&filter.products.includes(row.name)?`<button class="rpt-row-x" data-name="${escapeHtml(row.name)}" title="เอาออก">×</button> `:'';
     const name=`${remove}${escapeHtml(row.name)}`;
     if(report.detailLabels){
-      let details='';
-      if(row.quantities){
-        details=filter.period==='selectmonth'?productSalesDailyRowsHtml(row.quantities):
-          report.detailLabels.map((label,i)=>`<tr class="product-sales-detail"><td>${escapeHtml(label)}</td><td class="num">${escapeHtml(row.quantities[i])}</td></tr>`).join('');
-      }
+      const details=row.quantities?productSalesDetailRowsHtml(row.quantities,filter.period):'';
       const title=forPrint?escapeHtml(row.name):`${remove}<button type="button" class="product-sales-period-toggle" aria-expanded="${!!row.quantities}"><span aria-hidden="true">${row.quantities?'▾':'▸'}</span> ${escapeHtml(row.name)}</button>`;
       const toggle=forPrint?'':` data-product-sales-key="${escapeHtml(row.expansionKey)}"`;
       return `<tbody><tr${toggle}><td class="rpt-pname">${title}</td><td class="num">${escapeHtml(row.quantity)}</td></tr>${details}</tbody>`;
