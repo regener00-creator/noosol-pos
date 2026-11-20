@@ -59,8 +59,21 @@ function matchesProductSalesFilter(sale,item,product,filter){
   return filter.scope==='all'||!filter.products?.length||filter.products.includes(item.name)||filter.products.includes(product?.name);
 }
 
-function monthlyProductSales(range,filter,bills){
-  const month=new Date(range.from+'T00:00:00').toLocaleDateString('th-TH-u-ca-gregory',{month:'long',year:'numeric'});
+function productSalesPeriodSummary(range,filter,bills){
+  let label;
+  switch(filter.period){
+    case 'selectmonth':
+      label='เดือน '+new Date(range.from+'T00:00:00').toLocaleDateString('th-TH-u-ca-gregory',{month:'long',year:'numeric'});
+      break;
+    case 'selectyear':
+      label='ปี '+range.from.slice(0,4);
+      break;
+    case 'range':
+      label=reportDateLabel(range.from)+' – '+reportDateLabel(range.to);
+      break;
+    default:
+      return null;
+  }
   const byId=new Map(products.map(product=>[String(product.id),product]));
   const byName=new Map();
   for(const product of products){
@@ -90,15 +103,15 @@ function monthlyProductSales(range,filter,bills){
       :Array.from(row.soldUnits,([unit,qty])=>stockInLargestUnit({unit},qty)).join(' ');
     return {name:row.name,quantity};
   }).sort((a,b)=>a.name.localeCompare(b.name,'th'));
-  return {label:'เดือน '+month,rows};
+  return {label,rows};
 }
 
-function monthlyProductSalesHtml(report,filter,forPrint=false){
+function productSalesPeriodSummaryHtml(report,filter,forPrint=false){
   const canRemove=!forPrint&&filter.scope!=='all'&&filter.products?.length;
   return `<section class="rpt-day-group"><h2 class="rpt-day-head">${escapeHtml(report.label)}</h2>
     ${report.rows.length?`<table class="rpt-table" aria-label="จำนวนที่ขายได้"><tbody>${report.rows.map(row=>`<tr>
       <td class="${forPrint?'pd-name':'rpt-pname'}">${canRemove&&filter.products.includes(row.name)?`<button class="rpt-row-x" data-name="${escapeHtml(row.name)}" title="เอาออก">×</button> `:''}${escapeHtml(row.name)}</td>
-      <td class="mono" style="text-align:right;">${escapeHtml(row.quantity)}</td></tr>`).join('')}</tbody></table>`:'<div class="rpt-empty">ไม่มีข้อมูลการขายในเดือนนี้</div>'}</section>`;
+      <td class="mono" style="text-align:right;">${escapeHtml(row.quantity)}</td></tr>`).join('')}</tbody></table>`:'<div class="rpt-empty">ไม่มีข้อมูลการขายในช่วงเวลาที่เลือก</div>'}</section>`;
 }
 
 function collectProductSales(bills,filter){
@@ -158,8 +171,8 @@ function exportRProductExcel(){
   const range=rproductPeriodRange();
   const bills=completedSalesInReportRange(range);
   let csv='\uFEFF';
-  if(rproductFilter.period==='selectmonth'){
-    const report=monthlyProductSales(range,rproductFilter,bills);
+  const report=productSalesPeriodSummary(range,rproductFilter,bills);
+  if(report){
     csv+=csvSpreadsheetText(report.label)+'\nชื่อสินค้า,จำนวนที่ขายได้\n';
     for(const row of report.rows) csv+=`${csvSpreadsheetText(row.name)},${csvSpreadsheetText(row.quantity)}\n`;
   }else{
@@ -186,10 +199,10 @@ function exportRProductExcel(){
 function printRProduct(){
   const range=rproductPeriodRange();
   const bills=completedSalesInReportRange(range);
-  const monthly=rproductFilter.period==='selectmonth'?monthlyProductSales(range,rproductFilter,bills):null;
-  const {byDate,dateKeys,daily,totals,docCount}=monthly?{}:collectProductSales(bills,rproductFilter);
+  const summary=productSalesPeriodSummary(range,rproductFilter,bills);
+  const {byDate,dateKeys,daily,totals,docCount}=summary?{}:collectProductSales(bills,rproductFilter);
   const bizName=warehouseBusinessSettings().name||'';
-  const dayBlocksHtml = monthly?monthlyProductSalesHtml(monthly,rproductFilter,true):dateKeys.length ? dateKeys.map(d=>{
+  const dayBlocksHtml = summary?productSalesPeriodSummaryHtml(summary,rproductFilter,true):dateKeys.length ? dateKeys.map(d=>{
     const dayRows=Object.values(byDate[d]).sort((a,b)=>a.name.localeCompare(b.name,'th'));
     return `<div class="day-block">
       <div class="day-head"><span>${reportDateLabel(d)}</span><span>ยอดสุทธิ ${fmtMoney(daily[d].net/100)}</span></div>
@@ -242,7 +255,7 @@ function printRProduct(){
   <div class="toolbar"><span>ตัวอย่างรายงาน A4</span><button onclick="window.print()">พิมพ์</button></div>
   <div class="page">
     <h1>รายงานยอดขายตามสินค้า</h1>
-    ${monthly?'':`<div class="biz">${escapeHtml(bizName)}</div>
+    ${summary?'':`<div class="biz">${escapeHtml(bizName)}</div>
     <div class="meta">
       <div class="meta-left">
         <div><span class="k">ณ วันที่</span><span>${reportDateLabel(TODAY_STR)}</span></div>
@@ -266,8 +279,8 @@ function renderRProduct(){
   // ตัวเลือกช่วงเวลา
   const periodOpts=[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
   const bills=f.applied?completedSalesInReportRange(range):[];
-  const monthly=f.period==='selectmonth';
-  const {byDate,dateKeys,daily,totals,docCount}=monthly?{}:collectProductSales(bills,f);
+  const summary=productSalesPeriodSummary(range,f,bills);
+  const {byDate,dateKeys,daily,totals,docCount}=summary?{}:collectProductSales(bills,f);
   // ตัวเลือกสินค้าตาม scope
   const catList=categories.slice();
   const brandList=brands.slice();
@@ -325,7 +338,7 @@ function renderRProduct(){
 
     ${categoryScope&&f.products?.length?`<div class="stock-report-selected-products"><span class="stock-report-selected-label">สินค้าที่เลือก ${f.products.length} รายการ</span><div class="stock-report-selected-list">${f.products.map(name=>`<span class="stock-report-product-chip">${escapeHtml(name)}<button type="button" class="rpt-row-x" data-name="${escapeHtml(name)}" aria-label="ลบ ${escapeHtml(name)} ออกจากตัวกรอง">×</button></span>`).join('')}</div><button type="button" class="stock-report-clear-products" id="rpClearProductsBtn">ล้างที่เลือก</button></div>`:''}
     <div class="rpt-body">
-      ${monthly?(f.applied?monthlyProductSalesHtml(monthlyProductSales(range,f,bills),f):'<div class="rpt-empty">เลือกเงื่อนไขแล้วกด “แสดงผล” เพื่อดูรายงาน</div>'):`<div class="rpt-meta">
+      ${summary?(f.applied?productSalesPeriodSummaryHtml(summary,f):'<div class="rpt-empty">เลือกเงื่อนไขแล้วกด “แสดงผล” เพื่อดูรายงาน</div>'):`<div class="rpt-meta">
         <div class="rpt-biz">${escapeHtml(warehouseBusinessSettings().name||'')}</div>
         <div class="rpt-meta-grid">
           <div class="rpt-meta-left">
