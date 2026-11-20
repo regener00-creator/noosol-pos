@@ -282,6 +282,9 @@ function printRProduct(){
     table{width:100%;border-collapse:collapse;table-layout:fixed;}
     thead th{text-align:left;padding:9px 8px;font-size:12px;font-weight:600;color:#444;border-bottom:1px solid #333}
     tbody td{padding:9px 8px;border-bottom:1px solid #e2e6ea;font-size:12.5px}
+    .product-sales-detail td{background:#fff;border-inline:1px solid #a6968b}
+    tr:not(.product-sales-detail)+.product-sales-detail td{border-top:1px solid #a6968b}
+    .product-sales-detail:last-child td{border-bottom:1px solid #a6968b}
     .r{text-align:right}
     .pd-name{color:#2b2b2b}
     .foot{display:flex;justify-content:space-between;margin-top:14px;font-size:12px;color:#444}

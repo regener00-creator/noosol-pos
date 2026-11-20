@@ -220,6 +220,14 @@ const browserExecutable = [
         await product.locator('td.num').click();
         const days=product.locator('tr.product-sales-detail');
         assert.equal(await days.count(),6);
+        const frameColor='rgb(166, 150, 139)';
+        const detailCell=days.first().locator('td');
+        assert.equal(await detailCell.evaluate(td=>getComputedStyle(td).backgroundColor),'rgb(255, 255, 255)');
+        assert.deepEqual(await detailCell.evaluate(td=>{
+          const style=getComputedStyle(td);
+          return [style.borderTopColor,style.borderLeftColor,style.borderRightColor];
+        }),[frameColor,frameColor,frameColor]);
+        assert.equal(await days.last().locator('td').evaluate(td=>getComputedStyle(td).borderBottomColor),frameColor);
         for(let group=0;group<6;group++){
           const entries=days.nth(group).locator('.product-sales-periods > span');
           const expectedDays=Array.from({length:5},(_,index)=>{
