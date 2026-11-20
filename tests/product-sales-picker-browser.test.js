@@ -80,7 +80,8 @@ const browserExecutable = [
   assert.equal(await page.locator('.rpt-table tbody tr').count(),0,'report waits for Apply');
   await page.locator('#rpApplyBtn').click();
   assert.equal(await page.locator('.rpt-table tbody tr').count(),2);
-  assert.equal(await page.locator('.rpt-meta .rpt-meta-total-v').textContent(),'70.00');
+  assert.deepEqual(await page.locator('.rpt-table td.num').allTextContents(),['20.00','50.00']);
+  assert.doesNotMatch(await page.locator('.rpt-meta').innerText(),/ยอดสินค้า|ค่าธรรมเนียม|ส่วนลดท้ายบิล|ยอดสุทธิ/);
   const printed=await page.evaluate(()=>{
     const doc=document.implementation.createHTMLDocument('print test');window.open=()=>({document:doc});standardizePrintPreview=()=>{};
     printRProduct();return Array.from(doc.querySelectorAll('.pd-name'),el=>el.textContent);
@@ -133,12 +134,10 @@ const browserExecutable = [
       rprofitFilter.period='today';
       const bills=rbillCollect();
       render();
-      const total=()=>document.querySelector('.rpt-meta-total-v').textContent;
-      const allProducts=total();
-      const amounts=Array.from(document.querySelectorAll('.rpt-meta .product-sales-summary>div'),row=>Array.from(row.children,span=>span.textContent));
+      const amounts=Array.from(document.querySelectorAll('.rpt-table td.num'),cell=>cell.textContent);
       Object.assign(rproductFilter,{scope:'product',products:[products[0].name]});
       render();
-      const selected=total(),meta=document.querySelector('.rpt-meta-left').innerText;
+      const selected=document.querySelector('.rpt-table td.num').textContent,meta=document.querySelector('.rpt-meta').innerText;
       const doc=document.implementation.createHTMLDocument();
       window.open=()=>({document:doc});printRProduct();
       rproductFilter.period=rbillFilter.period='selectyear';
@@ -146,16 +145,16 @@ const browserExecutable = [
       const productYear=document.querySelector('#rpf_year').value;
       const billView=document.createElement('div');
       billView.innerHTML=renderRBill();
-      return {allProducts,amounts,selected,meta,printed:doc.querySelector('.meta').textContent,
+      return {amounts,selected,meta,printed:doc.querySelector('.meta').textContent,
         bills:bills.grandVal,docCount:bills.docCount,profitDay:rprofitPeriodRange().from,productYear,billYear:billView.querySelector('#rbf_year').value};
     },store);
-    assert.equal(result.allProducts,result.bills.toFixed(2));
-    assert.equal(result.allProducts,(100*store+69.40).toFixed(2));
-    assert.deepEqual(result.amounts,[['ยอดสินค้า',(100*store+75).toFixed(2)],['ส่วนปรับตามยอดคืนจริง','5.00'],['ค่าธรรมเนียม','29.40'],['ส่วนลดท้ายบิล','-40.00'],['ยอดสุทธิ',result.allProducts]]);
-    assert.equal(result.selected,(60*store-20+17.64).toFixed(2));
+    assert.equal(result.bills.toFixed(2),(100*store+69.40).toFixed(2));
+    assert.deepEqual(result.amounts,[(60*store-25).toFixed(2),(40*store+100).toFixed(2)]);
+    assert.equal(result.selected,(60*store-25).toFixed(2));
     assert.equal(result.docCount,3);
     assert.match(result.meta,/2 เอกสาร/);assert.match(result.meta,/1 ม.ค. 2027/);
-    assert.match(result.printed,/2 เอกสาร/);assert.ok(result.printed.includes(result.selected));
+    assert.match(result.printed,/2 เอกสาร/);
+    assert.doesNotMatch(result.meta+result.printed,/ยอดสินค้า|ค่าธรรมเนียม|ส่วนลดท้ายบิล|ยอดสุทธิ/);
     assert.equal(result.profitDay,'2027-01-01');
     assert.equal(result.productYear,'2027');assert.equal(result.billYear,'2027');
     const downloadStarted=page.waitForEvent('download');
@@ -165,7 +164,7 @@ const browserExecutable = [
     const lines=fs.readFileSync(await download.path(),'utf8').trim().split(/\r?\n/);
     assert.equal(lines[2],`"สินค้ารายงาน 1","0 กล่อง",${(60*store-25).toFixed(2)}`);
     assert.ok(lines.includes('"2027-01-01","ค่าธรรมเนียม",17.64'));
-    assert.equal(lines.at(-1),`"2027-01-01","ยอดสุทธิ",${result.selected}`);
+    assert.equal(lines.at(-1),`"2027-01-01","ยอดสุทธิ",${(60*store-20+17.64).toFixed(2)}`);
   }
   const split=await page.evaluate(()=>{
     const items=products.slice(0,3).map(product=>({name:product.name,qty:1,price:1,vatMode:'excl',lineTotalGross:1.07}));
@@ -344,13 +343,13 @@ const browserExecutable = [
   await page.locator('#rpf_period').selectOption('today');
   assert.equal(await page.getByLabel('แสดงยอดแยกรายเดือน').count(),0);
   assert.deepEqual(await page.locator('.rpt-table tr td:nth-child(2)').allTextContents(),['17 กล่อง 1 ซอง','2 ขวด']);
-  assert.deepEqual(await page.locator('.rpt-table tr').first().locator('td').evaluateAll(cells=>cells.map(td=>getComputedStyle(td).fontWeight)),['700','700','400']);
-  const printWeights=await page.evaluate(()=>{
+  assert.deepEqual(await page.locator('.rpt-table tr').first().locator('td').evaluateAll(cells=>cells.map(td=>getComputedStyle(td).fontWeight)),['700','700','700']);
+  const printWeight=await page.evaluate(()=>{
     const doc=document.implementation.createHTMLDocument();
     window.open=()=>({document:doc});printRProduct();
-    return Array.from(doc.querySelector('.rpt-table tr').cells,td=>td.style.fontWeight);
+    return doc.querySelector('.rpt-table tr').style.fontWeight;
   });
-  assert.deepEqual(printWeights,['700','700','']);
+  assert.equal(printWeight,'700');
   assert.deepEqual(errors,[]);
   console.log('Sales report picker: 3 columns, category/subcategory, selection, filters, clear, reopen and print passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});

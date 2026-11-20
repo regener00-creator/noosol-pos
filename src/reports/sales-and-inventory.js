@@ -47,11 +47,6 @@ function productSalesBreakdown(t){
   ].filter(([label,value])=>value||['ยอดสินค้า','ค่าธรรมเนียม','ส่วนลดท้ายบิล','ยอดสุทธิ'].includes(label));
 }
 
-function productSalesSummaryHtml(totals){
-  return productSalesBreakdown(totals).map(([label,cents])=>
-    `<div><span>${label}</span><span${label==='ยอดสุทธิ'?' class="rpt-meta-total-v"':''}>${fmtMoney(cents/100)}</span></div>`).join('');
-}
-
 function matchesProductSalesFilter(sale,item,product,filter){
   if(filter.wh!=='all'&&String(saleWarehouseForReport(sale,item,product))!==String(filter.wh)) return false;
   if(filter.scope==='category'&&filter.category&&product?.category!==filter.category) return false;
@@ -175,8 +170,8 @@ function productSalesPeriodSummaryHtml(report,filter,forPrint=false){
       const toggle=forPrint?'':` data-product-sales-key="${escapeHtml(row.expansionKey)}"`;
       return `<tbody><tr${toggle} style="font-weight:700"><td class="rpt-pname">${title}</td><td class="num">${escapeHtml(row.quantity)}</td></tr>${details}</tbody>`;
     }
-    return `<tr><td class="${forPrint?'pd-name':'rpt-pname'}" style="font-weight:700">${name}</td>
-      <td class="mono" style="text-align:right;font-weight:700">${escapeHtml(row.quantity)}</td>${filter.period==='today'?`<td class="num">${fmtMoney(row.value)}</td>`:''}</tr>`;
+    return `<tr style="font-weight:700"><td class="${forPrint?'pd-name':'rpt-pname'}">${name}</td>
+      <td class="mono" style="text-align:right">${escapeHtml(row.quantity)}</td>${filter.period==='today'?`<td class="num">${fmtMoney(row.value)}</td>`:''}</tr>`;
   }).join('');
   return `<section class="rpt-day-group"><h2 class="rpt-day-head">${escapeHtml(report.label)}</h2>
     ${rows?`<table class="rpt-table" aria-label="จำนวนที่ขายได้">${report.detailLabels?rows:`<tbody>${rows}</tbody>`}</table>`:'<div class="rpt-empty">ไม่มีข้อมูลการขายในช่วงเวลาที่เลือก</div>'}</section>`;
@@ -261,7 +256,7 @@ function printRProduct(){
   const bills=completedSalesInReportRange(range);
   const summary=productSalesPeriodSummary(range,rproductFilter,bills);
   const today=rproductFilter.period==='today';
-  const {totals,docCount}=today?collectProductSales(bills,rproductFilter):{};
+  const {docCount}=today?collectProductSales(bills,rproductFilter):{};
   const bizName=warehouseBusinessSettings().name||'';
   const win=window.open('','_blank'); if(!win){ showToast('เบราว์เซอร์บล็อกหน้าต่างเอกสาร'); return; }
   win.document.write(`<!DOCTYPE html><html lang="th"><head><meta charset="UTF-8"><title>รายงานยอดขายตามสินค้า</title>
@@ -278,13 +273,6 @@ function printRProduct(){
     .meta{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;margin-bottom:6px;padding-bottom:14px;border-bottom:1px solid #ddd;}
     .meta-left div{display:flex;gap:12px;margin-bottom:3px}
     .meta-left .k{min-width:92px}
-    .meta-right{text-align:right}
-    .product-sales-summary{margin-left:auto;width:max-content;max-width:100%;break-inside:avoid}
-    .product-sales-summary>div{display:flex;justify-content:space-between;gap:20px}
-    .product-sales-summary>div:last-child{font-weight:bold}
-    .meta-right .tot{display:flex;justify-content:flex-end;gap:24px;align-items:baseline;}
-    .meta-right .tot .k{color:#2b2b2b}
-    .meta-right .tot .v{font-weight:700;font-size:18px;min-width:90px;color:#4F4038}
     .day-block{margin-top:18px;}
     .day-head{display:flex;justify-content:space-between;padding:7px 8px;background:#F1E8E5;border-radius:6px 6px 0 0;font-weight:600;font-size:12.5px;color:#4F4038;}
     table{width:100%;border-collapse:collapse;table-layout:fixed;}
@@ -314,7 +302,6 @@ function printRProduct(){
         <div><span class="k">ช่วงเวลา</span><span>${reportDateLabel(range.from)} - ${reportDateLabel(range.to)}</span></div>
         <div><span class="k">จำนวนทั้งหมด</span><span>${docCount} เอกสาร</span></div>
       </div>
-      <div class="meta-right product-sales-summary">${productSalesSummaryHtml(totals)}</div>
     </div>
     `:''}
     ${productSalesPeriodSummaryHtml(summary,rproductFilter,true)}
@@ -332,7 +319,7 @@ function renderRProduct(){
   const periodOpts=[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
   const bills=f.applied?completedSalesInReportRange(range):[];
   const summary=productSalesPeriodSummary(range,f,bills);
-  const {totals,docCount}=f.period==='today'?collectProductSales(bills,f):{};
+  const {docCount}=f.period==='today'?collectProductSales(bills,f):{};
   // ตัวเลือกสินค้าตาม scope
   const catList=categories.slice();
   const brandList=brands.slice();
@@ -398,7 +385,6 @@ function renderRProduct(){
             <div><span class="rpt-meta-k">ช่วงเวลา</span><span class="rpt-meta-v">${reportDateLabel(range.from)} - ${reportDateLabel(range.to)}</span></div>
             <div><span class="rpt-meta-k">จำนวนทั้งหมด</span><span class="rpt-meta-v">${docCount} เอกสาร</span></div>
           </div>
-          <div class="product-sales-summary">${productSalesSummaryHtml(totals)}</div>
         </div>
       </div>
 
