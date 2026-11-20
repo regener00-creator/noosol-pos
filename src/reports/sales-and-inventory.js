@@ -501,7 +501,7 @@ function billProfitSummaryHtml(rows,minusSign){
 
 function billReportGroupsHtml(period,dateKeys,byDate,includeProfit,forPrint=false){
   if(period!=='selectyear'){
-    const options={forPrint,collapsible:period==='selectmonth'&&!forPrint};
+    const options={forPrint,collapsible:!forPrint&&(period==='selectmonth'||period==='range')};
     return dateKeys.map(date=>billReportDayHtml(date,byDate[date],includeProfit,options)).join('');
   }
   const months=new Map();

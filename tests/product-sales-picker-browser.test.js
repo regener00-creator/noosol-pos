@@ -407,10 +407,15 @@ const browserExecutable = [
   assert.match(await printedBill(),/12 ต\.ค\. 2026 • 1 บิล \| ยอดรวม 660\.00 \| -152\.00/);
   for(const period of ['selectmonth','range']){
     await page.evaluate(period=>{Object.assign(rbillFilter,{period,from:'2026-10-12',to:'2026-10-12'});render();},period);
-    assert.equal(await bills.first().isVisible(),period==='range');
-    if(period==='selectmonth') await heading.press('Enter');
+    assert.equal(await bills.first().isVisible(),false);
+    await heading.press('Enter');
+    assert.equal(await bills.first().isVisible(),true);
+    await bills.first().click();
+    assert.match(await page.locator('.bill-report-detail:visible').innerText(),/สินค้า/);
     const weights=await bills.first().evaluate(row=>Array.from(row.cells,cell=>getComputedStyle(cell.firstElementChild||cell).fontWeight));
     assert.deepEqual(weights,['400','400','400','400']);
+    await heading.click();
+    assert.equal(await bills.first().isVisible(),false);
   }
   await page.evaluate(()=>{
     const november={...salesHistory[0],date:'2026-11-05',total:1000,items:[{name:'สินค้า',qty:1,price:1000,cost:900}]};
