@@ -153,8 +153,10 @@ function productSalesDetailRowsHtml(quantities,period){
   const rows=[];
   for(let start=0;start<quantities.length;start+=columns){
     const entries=quantities.slice(start,start+columns).map((quantity,index)=>{
-      const label=yearly?reportShortMonths[start+index]:start+index+1;
-      return `<span style="${quantity.isZero?'color:#888;font-weight:400':'font-weight:700'}">${label} : ${escapeHtml(quantity.text)}</span>`;
+      const style=quantity.isZero?'color:#888;font-weight:400':'font-weight:700';
+      const text=escapeHtml(quantity.text);
+      if(yearly) return `<span style="${style}">${reportShortMonths[start+index]} : ${text}</span>`;
+      return `<span style="${style};display:grid;grid-template-columns:1.35em .35em minmax(0,1fr);column-gap:.15em"><span>${start+index+1}</span> <span>:</span> <span>${text}</span></span>`;
     });
     rows.push(`<tr class="product-sales-detail"><td colspan="2"><div class="product-sales-periods" style="display:grid;grid-template-columns:repeat(${columns},minmax(0,1fr));column-gap:.5em;overflow-wrap:anywhere">${entries.join(' ')}</div></td></tr>`);
   }

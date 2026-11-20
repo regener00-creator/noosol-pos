@@ -239,6 +239,11 @@ const browserExecutable = [
           assert.deepEqual(await entries.evaluateAll(cells=>cells.map(cell=>getComputedStyle(cell).fontWeight)),expectedDays.map(day=>day.endsWith(': 0 ซอง')?'400':'700'));
         }
         assert.equal(await days.first().locator('.product-sales-periods > span').nth(2).evaluate(cell=>getComputedStyle(cell).color),'rgb(136, 136, 136)');
+        const dailyPositions=await days.locator('.product-sales-periods > span').evaluateAll(cells=>cells.map(cell=>Array.from(cell.children,part=>part.getBoundingClientRect().left)));
+        for(let i=0;i<dailyPositions.length;i++){
+          assert.equal(dailyPositions[i].length,3);
+          assert.deepEqual(dailyPositions[i],dailyPositions[i%5],'Day, colon and quantity align down each column');
+        }
         assert.equal(await page.locator('.rpt-table .product-sales-detail').count(),6);
         const printed=await page.evaluate(()=>{
           const doc=document.implementation.createHTMLDocument();
