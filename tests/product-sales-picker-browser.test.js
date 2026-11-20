@@ -305,7 +305,12 @@ const browserExecutable = [
     const entries=months.map((month,i)=>month+' : '+quantities[i]);
     assert.deepEqual(await block.locator('.product-sales-periods > span').evaluateAll(cells=>cells.map(cell=>getComputedStyle(cell).fontWeight)),quantities.map(qty=>qty==='0 ซอง'?'400':'700'));
     for(let row=0;row<3;row++){
-      assert.deepEqual(await block.locator('.product-sales-periods').nth(row).locator('span').allTextContents(),entries.slice(row*4,row*4+4));
+      assert.deepEqual(await block.locator('.product-sales-periods').nth(row).locator(':scope > span').allTextContents(),entries.slice(row*4,row*4+4));
+    }
+    const monthlyPositions=await block.locator('.product-sales-periods > span').evaluateAll(cells=>cells.map(cell=>Array.from(cell.children,part=>part.getBoundingClientRect().left)));
+    for(let i=0;i<monthlyPositions.length;i++){
+      assert.equal(monthlyPositions[i].length,3);
+      assert.deepEqual(monthlyPositions[i],monthlyPositions[i%4],'Month, colon and quantity align down each column');
     }
     const total=await block.locator('tr').first().locator('td.num').textContent();
     assert.equal(total,store===1?'68 กล่อง 5 ซอง':'2 กล่อง 3 ซอง');
