@@ -475,13 +475,13 @@ function billReportDetailHtml(row){
 function billReportHeadingHtml(label,rows,includeProfit,collapsible=false){
   const total=rows.reduce((sum,row)=>sum+row.val,0);
   const tag=collapsible?'summary':'div';
-  return `<${tag} class="rpt-day-head"><strong>${escapeHtml(label)} ยอดรวม ${fmtMoney(total)}${includeProfit?` | ${billProfitSummaryHtml(rows,'-')}`:''}</strong></${tag}>`;
+  return `<${tag} class="rpt-day-head"><strong>${escapeHtml(label)} • ${rows.length} บิล | ยอดรวม ${fmtMoney(total)}${includeProfit?` | ${billProfitSummaryHtml(rows,'-')}`:''}</strong></${tag}>`;
 }
 
-function billReportDayHtml(date,rows,includeProfit,forPrint=false){
+function billReportDayHtml(date,rows,includeProfit,{forPrint,collapsible}){
   const columns=includeProfit?4:3;
-  const label=`${reportDateLabel(date)} • ${rows.length} บิล |`;
-  return `<section class="rpt-day-group bill-report-day">${billReportHeadingHtml(label,rows,includeProfit)}
+  const tag=collapsible?'details':'section';
+  return `<${tag} class="rpt-day-group bill-report-day">${billReportHeadingHtml(reportDateLabel(date),rows,includeProfit,collapsible)}
     <table class="rpt-table bill-summary-table"><tbody>
     ${rows.map(row=>{
       const name=escapeHtml(row.billId);
@@ -489,7 +489,7 @@ function billReportDayHtml(date,rows,includeProfit,forPrint=false){
       const profit=row.breakdown?billProfitAmountHtml(row.breakdown.profit):'รอต้นทุน';
       return `<tr${forPrint?'':' data-bill-summary'}><td>${toggle}</td><td>${escapeHtml(row.payMethod)}</td><td>${fmtMoney(row.val)}</td>${includeProfit?`<td>${profit}</td>`:''}</tr>
         <tr class="bill-report-detail"${forPrint?'':' hidden'}><td colspan="${columns}">${billReportDetailHtml(row)}</td></tr>`;
-    }).join('')}</tbody></table></section>`;
+    }).join('')}</tbody></table></${tag}>`;
 }
 
 function billProfitSummaryHtml(rows,minusSign){
@@ -501,7 +501,10 @@ function billProfitSummaryHtml(rows,minusSign){
 }
 
 function billReportGroupsHtml(period,dateKeys,byDate,includeProfit,forPrint=false){
-  if(period!=='selectyear') return dateKeys.map(date=>billReportDayHtml(date,byDate[date],includeProfit,forPrint)).join('');
+  if(period!=='selectyear'){
+    const options={forPrint,collapsible:period==='selectmonth'&&!forPrint};
+    return dateKeys.map(date=>billReportDayHtml(date,byDate[date],includeProfit,options)).join('');
+  }
   const months=new Map();
   for(const date of dateKeys){
     const month=date.slice(0,7);
@@ -510,7 +513,7 @@ function billReportGroupsHtml(period,dateKeys,byDate,includeProfit,forPrint=fals
   }
   return Array.from(months,([month,dates])=>{
     const label=new Date(month+'-01T00:00:00').toLocaleDateString('th-TH-u-ca-gregory',{month:'long',year:'numeric'});
-    const heading=billReportHeadingHtml(label+' •',dates.flatMap(date=>byDate[date]),includeProfit,!forPrint);
+    const heading=billReportHeadingHtml(label,dates.flatMap(date=>byDate[date]),includeProfit,!forPrint);
     const days=dates.map(date=>{
       const rows=byDate[date];
       return `<tr><td>${reportDateLabel(date)}</td>${includeProfit?`<td class="r">${billProfitSummaryHtml(rows,'-')}</td>`:''}<td class="r">${rows.length} บิล</td></tr>`;

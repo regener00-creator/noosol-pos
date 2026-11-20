@@ -405,6 +405,8 @@ const browserExecutable = [
   assert.match(await printedBill(),/12 ต\.ค\. 2026 • 1 บิล \| ยอดรวม 660\.00 \| -152\.00/);
   for(const period of ['selectmonth','range']){
     await page.evaluate(period=>{Object.assign(rbillFilter,{period,from:'2026-10-12',to:'2026-10-12'});render();},period);
+    assert.equal(await bills.first().isVisible(),period==='range');
+    if(period==='selectmonth') await heading.press('Enter');
     const weights=await bills.first().evaluate(row=>Array.from(row.cells,cell=>getComputedStyle(cell.firstElementChild||cell).fontWeight));
     assert.deepEqual(weights,['400','400','400','400']);
   }
@@ -415,9 +417,20 @@ const browserExecutable = [
     rbillFilter={...rbillFilter,period:'selectmonth',month:'2026-11'};render();
   });
   assert.equal(await heading.first().innerText(),'5 พ.ย. 2026 • 2 บิล | ยอดรวม 1,290.00 | +143.00');
+  const visibleBills=page.locator('[data-bill-summary]:visible');
+  assert.equal(await visibleBills.count(),0);
+  await heading.first().click();
+  assert.equal(await visibleBills.count(),2);
+  await visibleBills.first().click();
+  assert.match(await page.locator('.bill-report-detail:visible').innerText(),/สินค้า/);
+  await visibleBills.first().click();
+  assert.equal(await page.locator('.bill-report-detail:visible').count(),0);
+  await heading.first().click();
+  assert.equal(await visibleBills.count(),0);
+  assert.match(await printedBill(),/ต้นทุนรวม 900\.00/);
   await page.evaluate(()=>{rbillFilter={...rbillFilter,period:'selectyear',year:'2026'};render();});
   assert.deepEqual(await heading.allTextContents(),[
-    'ตุลาคม 2026 • ยอดรวม 660.00 | -152.00','พฤศจิกายน 2026 • ยอดรวม 1,300.00 | +143.00 (รอต้นทุน 1 บิล)'
+    'ตุลาคม 2026 • 1 บิล | ยอดรวม 660.00 | -152.00','พฤศจิกายน 2026 • 3 บิล | ยอดรวม 1,300.00 | +143.00 (รอต้นทุน 1 บิล)'
   ]);
   const dayCells=()=>page.locator('.bill-year-days tr').evaluateAll(rows=>rows.map(tr=>Array.from(tr.cells,td=>td.textContent)));
   const visibleDays=page.locator('.bill-year-days:visible tr');
@@ -431,7 +444,7 @@ const browserExecutable = [
   assert.deepEqual(await dayCells(),[['12 ต.ค. 2026','-152.00','1 บิล'],['5 พ.ย. 2026','+143.00','2 บิล'],['6 พ.ย. 2026','รอต้นทุน','1 บิล']]);
   assert.equal(await page.locator('.bill-summary-table,.bill-report-detail').count(),0);
   const annualPrint=await printedBill();
-  assert.match(annualPrint,/พฤศจิกายน 2026 • ยอดรวม 1,300\.00 \| \+143\.00/);
+  assert.match(annualPrint,/พฤศจิกายน 2026 • 3 บิล \| ยอดรวม 1,300\.00 \| \+143\.00/);
   assert.match(annualPrint,/5 พ\.ย\. 2026\+143\.002 บิล/);
   assert.doesNotMatch(annualPrint,/LOSS/);
   await page.evaluate(()=>{currentProfile={id:'sales-only',owner:false,level:2};render();});
