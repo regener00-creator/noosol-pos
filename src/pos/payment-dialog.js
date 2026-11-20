@@ -15,8 +15,9 @@ function confirmPOSBelowCostPrices(){
   // Use the payable subtotal so bill discounts (including redeemed points) are
   // shared proportionally across all lines, including custom items and VAT.
   const remainingRatio=taxSummary.subtotal>0?Math.max(0,Math.min(1,taxSummary.total/taxSummary.subtotal)):1;
+  const giftQualifyingLines=new Set(promoResult.lines.filter(line=>line.autoFreeBuyLineId!=null).map(line=>line.autoFreeBuyLineId));
   const belowCost=promoResult.lines.flatMap(line=>{
-    if(line.custom||Number(line.qty)<=0) return [];
+    if(line.custom||Number(line.qty)<=0||line.promoId!=null||giftQualifyingLines.has(line.lineId)) return [];
     const product=products.find(item=>Number(item.id)===Number(line.pid));
     if(!product) return [];
     const cost=productUnitCost(product,line.unit,line.factor);

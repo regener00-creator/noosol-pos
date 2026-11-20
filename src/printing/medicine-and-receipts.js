@@ -137,8 +137,8 @@ function openPostPaymentModal(saleId){
   document.body.appendChild(overlay);
   const content=overlay.querySelector('#afterPayContent');
   let activeKeyHandler=null;
-  const stopKeyHandler=()=>{ if(activeKeyHandler){ document.removeEventListener('keydown',activeKeyHandler); activeKeyHandler=null; } };
-  const close=()=>{ stopKeyHandler(); overlay.remove(); setTimeout(()=>document.getElementById('search')?.focus(),0); };
+  const stopKeyHandler=()=>{ if(activeKeyHandler){ document.removeEventListener('keydown',activeKeyHandler,true); activeKeyHandler=null; } };
+  const close=()=>{ stopKeyHandler(); overlay.remove(); if(!document.querySelector('.modal-overlay')) document.getElementById('search')?.focus(); };
   overlay.querySelector('.modal-close').onclick=close;
   const renderPaymentActions=()=>{
     stopKeyHandler();
@@ -151,15 +151,27 @@ function openPostPaymentModal(saleId){
       if(!printShortReceipt(saleId)) return;
       close();
     };
-    overlay.onkeydown=e=>{
-      if(e.altKey||e.ctrlKey||e.metaKey||!['ArrowLeft','ArrowRight'].includes(e.key)) return;
+    let selectedButton=finishAndPrintButton;
+    overlay.addEventListener('focusin',e=>{
+      closeButton.classList.toggle('is-selected',e.target===closeButton);
+      finishAndPrintButton.classList.toggle('is-selected',e.target===finishAndPrintButton);
+      if(e.target===closeButton||e.target===finishAndPrintButton) selectedButton=e.target;
+    });
+    activeKeyHandler=e=>{
+      if(e.altKey||e.ctrlKey||e.metaKey||e.isComposing) return;
+      if(!['ArrowLeft','ArrowRight','Enter','Escape'].includes(e.key)) return;
+      if(Array.from(document.querySelectorAll('.modal-overlay')).at(-1)!==overlay) return;
+      const button=e.target.closest?.('button');
+      if(e.key==='Enter'&&button&&overlay.contains(button)) return;
       e.preventDefault();
       e.stopPropagation();
-      (e.key==='ArrowLeft'?closeButton:finishAndPrintButton).focus();
+      if(e.key==='ArrowLeft') closeButton.focus();
+      else if(e.key==='ArrowRight') finishAndPrintButton.focus();
+      else if(e.key==='Escape') close();
+      else if(!e.repeat) selectedButton.click();
     };
     finishAndPrintButton.focus();
-    activeKeyHandler=e=>{ if(e.key==='Escape'){ e.preventDefault(); close(); }else if(e.key==='Enter'&&!e.target?.closest?.('button')){ e.preventDefault(); finishAndPrintButton.click(); } };
-    document.addEventListener('keydown',activeKeyHandler);
+    document.addEventListener('keydown',activeKeyHandler,true);
   };
   renderPaymentActions();
 }

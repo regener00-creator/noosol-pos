@@ -192,7 +192,7 @@ function reconcileAutoFreeLines(){
       cost=productUnitCost(p,unit,factor);
     }
     if(!giftsByBuyLine.has(buyLine)) giftsByBuyLine.set(buyLine,[]);
-    giftsByBuyLine.get(buyLine).push({lineId:lineCounter++,pid:promo.bgdGetProductId,name:p.name,unit,unitName:unit,price:0,cost,factor,qty:freeQty,autoFreeFromPromo:promo.id,autoFreePromoName:promo.name});
+    giftsByBuyLine.get(buyLine).push({lineId:lineCounter++,pid:promo.bgdGetProductId,name:p.name,unit,unitName:unit,price:0,cost,factor,qty:freeQty,autoFreeFromPromo:promo.id,autoFreePromoName:promo.name,autoFreeBuyLineId:buyLine.lineId});
   });
   cart = cart.flatMap(line=>[line,...(giftsByBuyLine.get(line)||[])]);
 }

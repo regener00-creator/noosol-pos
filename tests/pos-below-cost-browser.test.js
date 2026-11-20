@@ -48,12 +48,19 @@ let browser;
     await page.locator('#checkoutBtn').click();assert.equal(await modal.count(),1);
     await modal.locator('.modal-close').click();
   }
-  // A promotion that takes a standard price below cost is also checked.
+  // A promotion that takes a standard price below cost proceeds directly to payment.
   await page.evaluate(()=>{
     products[0].units[0].cost=100;cart[0].price=180;cart[0].priceSource='standard';cart[0].qty=1;
     promotions=[{id:1,name:'ลดราคา',active:true,type:'discount',scope:'product',productId:1,unit:'กล่อง',discountMode:'percent',discountValue:50}];render();
   });
-  dismiss();await page.locator('#checkoutBtn').click();assert.match(warning,/90.00.*100.00/);assert.equal(await modal.count(),0);
+  await page.locator('#checkoutBtn').click();assert.equal(await modal.count(),1);await modal.locator('.modal-close').click();
+  // Once a buy/get offer qualifies, skip both the paid line and its free item.
+  await page.evaluate(()=>{
+    promotions=[{id:2,name:'ซื้อกล่องแถมซอง',active:true,scope:'buygetdiff',bgdBuyProductId:1,bgdBuyUnit:'กล่อง',bgdBuyQty:1,bgdGetProductId:1,bgdGetUnit:'ซอง',bgdGetQty:1}];
+    cart[0].price=99;render();
+  });
+  assert.equal(await page.evaluate(()=>cart.filter(line=>line.autoFreeFromPromo).length),1);
+  await page.locator('#checkoutBtn').click();assert.equal(await modal.count(),1);await modal.locator('.modal-close').click();
   // Quote prices, base units and zero-price goods still warn; custom items have no product cost.
   await page.evaluate(()=>{promotions=[];cart=[];addToCart(1,'ซอง',1);cart[0].price=0;cart[0].priceSource='quotation';render();});
   dismiss();await page.locator('#checkoutBtn').click();assert.match(warning,/ซอง.*0.00.*4.00/);
@@ -78,12 +85,14 @@ let browser;
   await page.evaluate(()=>{saleDiscount=999;render();});
   dismiss();await page.locator('#checkoutBtn').click();
   assert.match(warning,/ส่วนลดท้ายบิลรวม 240.00/,'discount is capped at subtotal');assert.match(warning,/กล่อง.*0.00.*100.00/);
-  // Promotions are applied before spreading the bill discount.
+  // In a mixed basket only the ordinary below-cost line is listed.
   await page.evaluate(()=>{
     cart=[];addToCart(1,'กล่อง',2);addCustomCartLine('บริการ',30,'Pcs',1);saleDiscount=90;
     promotions=[{id:1,name:'ลดราคา',active:true,type:'discount',scope:'product',productId:1,unit:'กล่อง',discountMode:'percent',discountValue:25}];render();
+    addToCart(1,'ซอง',1);cart.find(line=>line.unit==='ซอง').price=2;render();
   });
-  dismiss();await page.locator('#checkoutBtn').click();assert.match(warning,/กล่อง.*94.50.*100.00/);
+  dismiss();await page.locator('#checkoutBtn').click();assert.match(warning,/ต่ำกว่าทุน 1 รายการ/);
+  assert.match(warning,/สินค้าทดสอบ \(ซอง\)/);assert.doesNotMatch(warning,/สินค้าทดสอบ \(กล่อง\)/);
   // VAT-exclusive prices use the same payable-bill ratio as the checkout total.
   await page.evaluate(()=>{
     promotions=[];businessSettings.vat=VAT_REGISTERED_LABEL;businessSettings.vatRegistrationDate='';products[0].vat='excl';
