@@ -7,6 +7,7 @@ let rbillFilter = { period:'today', from:'', to:'', month:'', year:'', wh:'all',
 // ตัวกรองหน้ารายงานกำไร / ขาดทุน
 let rprofitFilter = { period:'today', from:'', to:'', month:'', year:'', wh:'all', pay:'all', applied:false };
 let rtaxMonth=TODAY_STR.slice(0,7);
+let rtaxType='sales';
 let rtaxPages={sales:1,purchases:1};
 let voidReportFilter={warehouse:'all',search:'',page:1};
 // ตัวกรองหน้าสินค้าใกล้หมด/ใกล้หมดอายุ

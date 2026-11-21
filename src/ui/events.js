@@ -1603,15 +1603,18 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const rprofitApply=document.getElementById('rprofitApplyBtn'); if(rprofitApply) rprofitApply.addEventListener('click',()=>{rprofitFilter.applied=true;render();});
   const rprofitPrint=document.getElementById('rprofitPrintBtn'); if(rprofitPrint) rprofitPrint.addEventListener('click',()=>printRProfit());
   const rtaxMonthInput=document.getElementById('rtax_month'); if(rtaxMonthInput) rtaxMonthInput.addEventListener('change',()=>{rtaxMonth=rtaxMonthInput.value||TODAY_STR.slice(0,7);rtaxPages={sales:1,purchases:1};render();});
+  document.querySelectorAll('[data-tax-view]').forEach(button=>button.addEventListener('click',()=>{
+    rtaxType=button.dataset.taxView;
+    render();
+    document.querySelector('[data-tax-view][aria-pressed="true"]')?.focus();
+  }));
   document.getElementById('taxReportExcelBtn')?.addEventListener('click',async event=>{
-    const type=document.getElementById('taxReportExcelType')?.value;
-    if(!['sales','purchases'].includes(type)) return;
     const snapshot=taxReportOutputSnapshot('export');if(!snapshot) return;
-    snapshot.type=type;
+    snapshot.type=rtaxType;
     const button=event.currentTarget;button.disabled=true;
     try{await invokeExcelTool('exportTaxReportToExcel',snapshot);}finally{button.disabled=false;}
   });
-  document.getElementById('taxReportPrintBtn')?.addEventListener('click',()=>printTaxReport(document.getElementById('taxReportPrintType')?.value));
+  document.getElementById('taxReportPrintBtn')?.addEventListener('click',()=>printTaxReport(rtaxType));
   for(const key of ['sales','purchases']){
     document.querySelectorAll(`[data-rtax-${key}-page]`).forEach(button=>button.addEventListener('click',()=>{
       const value=button.getAttribute(`data-rtax-${key}-page`);

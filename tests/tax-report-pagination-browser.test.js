@@ -42,23 +42,33 @@ let browser;
   });
   const sales=page.locator('[data-tax-section="sales"]');
   const purchases=page.locator('[data-tax-section="purchases"]');
+  const openReport=async(type)=>{
+    const button=page.locator(`[data-tax-view="${type}"]`);
+    await button.click();
+    assert.equal(await button.getAttribute('aria-pressed'),'true');
+    assert.equal(await page.locator('[data-tax-section]').count(),1);
+    assert.equal(await page.locator('[data-tax-section]').getAttribute('data-tax-section'),type);
+  };
   assert.equal(await sales.locator('tbody tr').count(),10);
-  assert.equal(await purchases.locator('tbody tr').count(),10);
-  const totals=await page.locator('.tax-report tfoot').allTextContents();
-  assert.match(totals[0],/2,461\.00/,'sales total includes all 23 documents');
-  assert.match(totals[1],/1,284\.00/,'purchase total includes all 12 documents');
+  assert.equal(await purchases.count(),0);
+  const salesTotal=await sales.locator('tfoot').textContent();
+  assert.match(salesTotal,/2,461\.00/,'sales total includes all 23 documents');
   await page.locator('[data-rtax-sales-page="next"]').click();
   assert.match(await sales.locator('tbody tr').first().textContent(),/SALE-11/);
-  assert.match(await purchases.locator('tbody tr').first().textContent(),/GR-1\b/);
   await page.locator('[data-rtax-sales-page="3"]').first().click();
   assert.equal(await sales.locator('tbody tr').count(),3);
   assert.equal(await page.locator('[data-rtax-sales-page="next"]').isDisabled(),true);
+  assert.equal(await sales.locator('tfoot').textContent(),salesTotal);
+  await openReport('purchases');
+  assert.equal(await purchases.locator('tbody tr').count(),10);
+  assert.match(await purchases.locator('tbody tr').first().textContent(),/GR-1\b/);
+  const purchaseTotal=await purchases.locator('tfoot').textContent();
+  assert.match(purchaseTotal,/1,284\.00/,'purchase total includes all 12 documents');
   await page.locator('[data-rtax-purchases-page="next"]').click();
   assert.equal(await purchases.locator('tbody tr').count(),2);
-  assert.equal(await sales.locator('tbody tr').count(),3);
-  assert.deepEqual(await page.locator('.tax-report tfoot').allTextContents(),totals,'pagination must not change monthly tax totals');
+  assert.equal(await purchases.locator('tfoot').textContent(),purchaseTotal);
   for(const [type,name,count,total] of [['sales','ภาษีขาย',23,2461],['purchases','ภาษีซื้อ',12,1284]]){
-    await page.locator('#taxReportExcelType').selectOption(type);
+    await openReport(type);
     const [download]=await Promise.all([page.waitForEvent('download'),page.locator('#taxReportExcelBtn').click()]);
     assert.equal(download.suggestedFilename(),'SAPURI-รายงาน'+name+'-2026-11.xlsx');
     const book=new ExcelJS.Workbook();await book.xlsx.readFile(await download.path());
@@ -68,11 +78,10 @@ let browser;
     assert.equal(sheet.rowCount,count+5,'download includes every monthly row even from the last page');
     assert.equal(sheet.getRow(count+5).getCell(sheet.columnCount).result,total);
     assert.doesNotMatch(JSON.stringify(sheet.model),/OTHER-MONTH|OTHER-PURCHASE|OTHER-TAX/);
-    assert.equal(await sales.locator('tbody tr').count(),3,'export preserves the current sales page');
-    assert.equal(await purchases.locator('tbody tr').count(),2,'export preserves the current purchase page');
+    assert.equal(await page.locator('[data-tax-section] tbody tr').count(),type==='sales'?3:2,'export preserves the current page');
   }
   for(const [type,count,total,other] of [['sales',23,'2,461.00','purchases'],['purchases',12,'1,284.00','sales']]){
-    await page.locator('#taxReportPrintType').selectOption(type);
+    await openReport(type);
     const [preview]=await Promise.all([page.waitForEvent('popup'),page.locator('#taxReportPrintBtn').click()]);
     await preview.waitForLoadState('domcontentloaded');
     assert.equal(await preview.locator('[data-tax-print="'+type+'"] tbody tr').count(),count,'print includes the complete selected report, not the current page');
@@ -89,6 +98,7 @@ let browser;
     assert.equal(await preview.evaluate(()=>window.testPrintCount),1);
     await preview.close();
   }
+  await openReport('sales');
   assert.equal(await sales.locator('tbody tr').count(),3,'printing does not reset the current page');
   await page.evaluate(()=>{
     const originalOpen=window.open;let opened=0;window.open=()=>{opened++;return null;};
