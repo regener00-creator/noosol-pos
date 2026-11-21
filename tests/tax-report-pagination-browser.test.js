@@ -109,6 +109,15 @@ let browser;
   assert.equal(await page.evaluate(()=>window.incompletePrintOpened),0,'never print a partial month if server loading was truncated');
   for(const width of [1920,390]){
     await page.setViewportSize({width,height:1000});
+    const toolbar=await page.locator('.tax-report-toolbar').boundingBox();
+    const [salesTab,purchasesTab,month,print,excel]=await Promise.all(
+      ['[data-tax-view="sales"]','[data-tax-view="purchases"]','#rtax_month','#taxReportPrintBtn','#taxReportExcelBtn'].map(selector=>page.locator(selector).boundingBox())
+    );
+    const centerY=box=>box.y+box.height/2;
+    assert.ok(salesTab.x<purchasesTab.x&&purchasesTab.x<month.x);
+    assert.ok([salesTab,purchasesTab].every(box=>Math.abs(centerY(box)-centerY(month))<2));
+    assert.ok(print.x<excel.x&&Math.abs(excel.x+excel.width-toolbar.x-toolbar.width)<2);
+    if(width===1920) assert.ok([print,excel].every(box=>Math.abs(centerY(box)-centerY(month))<2));
     assert.ok(await page.locator('.tax-report th,.tax-report td,.tax-report-summary h2,.tax-report-summary small').evaluateAll(elements=>elements.every(el=>getComputedStyle(el).textAlign==='center')),'all headings, values and totals centered');
     const layout=await page.locator('.tax-report').evaluate(el=>{
       const main=el.parentElement,style=getComputedStyle(main);

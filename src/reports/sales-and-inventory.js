@@ -877,10 +877,15 @@ function renderRTax(){
   const report=collectTaxReport();
   const {registered,effectiveDate,outputVat,inputVat,netVat,purchaseRows}=report;
   return `<div class="rpt tax-report">
-    <nav class="tax-report-tabs" aria-label="ประเภทรายงานภาษี"><button type="button" class="btn ghost" data-tax-view="sales" aria-pressed="${rtaxType==='sales'}">ภาษีขาย</button><button type="button" class="btn ghost" data-tax-view="purchases" aria-pressed="${rtaxType==='purchases'}">ภาษีซื้อ</button></nav>
-    <div class="rpt-head-actions tax-report-export">${canPerformPageAction('print','rtax')?'<button class="btn ghost" id="taxReportPrintBtn">พิมพ์รายงานทั้งเดือน</button>':''}${canPerformPageAction('export','rtax')?'<button class="btn primary" id="taxReportExcelBtn">ส่งออก Excel ทั้งเดือน</button>':''}</div>
+    <div class="tax-report-toolbar">
+      <div class="tax-report-filters">
+        <nav class="tax-report-tabs" aria-label="ประเภทรายงานภาษี"><button type="button" class="btn ghost" data-tax-view="sales" aria-pressed="${rtaxType==='sales'}">ภาษีขาย</button><button type="button" class="btn ghost" data-tax-view="purchases" aria-pressed="${rtaxType==='purchases'}">ภาษีซื้อ</button></nav>
+        <input type="month" id="rtax_month" aria-label="เดือนของรายงานภาษี" value="${escapeHtml(rtaxMonth)}" class="rpt-select">
+      </div>
+      <div class="rpt-head-actions tax-report-export">${canPerformPageAction('print','rtax')?'<button class="btn ghost" id="taxReportPrintBtn">พิมพ์รายงานทั้งเดือน</button>':''}${canPerformPageAction('export','rtax')?'<button class="btn primary" id="taxReportExcelBtn">ส่งออก Excel ทั้งเดือน</button>':''}</div>
+    </div>
     ${registered?'':`<div class="panel" style="margin-bottom:14px;color:var(--danger);">กิจการยังไม่ได้ตั้งค่าเป็น “จดภาษีมูลค่าเพิ่มแล้ว” รายงานนี้จะแสดงเพื่อเตรียมข้อมูลเท่านั้น และจะไม่ถือว่ามีภาษีซื้อที่นำไปใช้ได้</div>`}
-    <div class="rpt-filters"><div class="rpf-item"><input type="month" id="rtax_month" value="${escapeHtml(rtaxMonth)}" class="rpt-select"></div>${effectiveDate?`<div class="rpf-item" style="color:var(--text-muted);">เริ่มจด VAT ${fmtDateShort(effectiveDate)}</div>`:''}</div>
+    ${effectiveDate?`<div class="tax-report-effective-date">เริ่มจด VAT ${fmtDateShort(effectiveDate)}</div>`:''}
     <div class="panel tax-report-summary">
       <div><small>${rtaxType==='sales'?'ภาษีขาย':'ภาษีซื้อที่ใช้ได้'}</small><h2 class="mono">${fmtMoney(rtaxType==='sales'?outputVat:inputVat)}</h2></div>
       ${rtaxType==='purchases'?`<div><small>เอกสารที่ข้อมูลภาษีซื้อไม่ครบ</small><h2 class="mono">${purchaseRows.filter(row=>!row.claimable).length}</h2></div>`:''}
