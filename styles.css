@@ -701,7 +701,7 @@
   @media(max-width:900px){.expiry-report-summary{grid-template-columns:1fr}.expiry-near-card{min-height:84px;}}
   .low-table th,.low-table td{text-align:center;}
   .low-table th:first-child,.low-table td:first-child{text-align:left;}
-  .low-stock-report-table th:first-child,.expiry-report-table th:first-child{text-align:center;}
+  .low-stock-report-table th:first-child,.low-stock-report-table td:first-child,.expiry-report-table th:first-child{text-align:center;}
   .low-table th.num,.low-table td.num{text-align:center;}
   .lowstock-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
   .lowstock-section,.inventory-report-section{min-width:0;}
