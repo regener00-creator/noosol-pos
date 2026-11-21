@@ -1470,7 +1470,7 @@
   .movement-product-chip{display:inline-flex;align-items:center;gap:6px;border:1px solid #D9CAC4;border-radius:18px;background:var(--primary-soft);color:var(--primary-dark);padding:4px 8px 4px 10px;font:500 12px 'Sarabun',sans-serif;}
   .movement-product-chip button{border:0;background:transparent;color:inherit;padding:0;cursor:pointer;font-size:16px;line-height:1;}
   .movement-clear-products{border:0;background:transparent;color:var(--danger);font:600 12px 'Sarabun',sans-serif;cursor:pointer;white-space:nowrap;padding:5px 2px;}
-  /* รายงานสินค้าคงเหลือ: รายการสินค้าที่เลือกในตัวกรอง */
+  /* รายงานยอดขายตามสินค้า: รายการสินค้าที่เลือกในตัวกรอง */
   .stock-report-selected-products{display:flex;align-items:flex-start;gap:10px;margin-bottom:14px;padding:10px 12px;border:1px solid var(--border);border-radius:9px;background:var(--surface);}
   .stock-report-selected-label{font-size:12.5px;font-weight:600;color:var(--text-muted);white-space:nowrap;padding-top:5px;}
   .stock-report-selected-list{display:flex;gap:6px;flex-wrap:wrap;align-content:flex-start;flex:1;max-height:92px;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:stable;}

@@ -881,10 +881,6 @@ function renderRTax(){
 function stockReportProductMatchesFilter(product,filter=stockReportCatFilter){
   return (!filter.category||product?.category===filter.category)&&(!filter.brand||product?.brand===filter.brand);
 }
-function stockReportSelectedItemsHtml(){
-  if(!stockReportItems.length) return '';
-  return `<div class="stock-report-selected-products"><span class="stock-report-selected-label">สินค้าที่เลือก ${stockReportItems.length} รายการ</span><div class="stock-report-selected-list">${stockReportItems.map(row=>`<span class="stock-report-product-chip">${escapeHtml(row.name)}<button type="button" data-sr-chip-remove="${row.pid}" aria-label="ลบ ${escapeHtml(row.name)}">×</button></span>`).join('')}</div><button type="button" class="stock-report-clear-products" id="srClearSelected">ล้างทั้งหมด</button></div>`;
-}
 function stockReportVisibleColumns(){
   return {sku:stockReportColumns.sku!==false,barcode:stockReportColumns.barcode!==false,price:stockReportColumns.price,cost:stockReportColumns.cost&&!isLevel2User()};
 }
@@ -923,7 +919,6 @@ function renderRInventory(){
       </div>
       <div class="stock-report-column-controls"><span>แสดงคอลัมน์</span><label><input id="srShowSku" type="checkbox" ${stockReportColumns.sku!==false?'checked':''}> รหัสสินค้า</label><label><input id="srShowBarcode" type="checkbox" ${stockReportColumns.barcode!==false?'checked':''}> บาร์โค้ด</label><label><input id="srShowPrice" type="checkbox" ${stockReportColumns.price?'checked':''}> ขาย</label>${!isLevel2User()?`<label><input id="srShowCost" type="checkbox" ${stockReportColumns.cost?'checked':''}> ทุน</label>`:''}</div>
     </div>
-    <div id="stockReportSelectedWrap">${stockReportSelectedItemsHtml()}</div>
     <div class="stock-report-table-scroll app-table-scroll-region"><table class="grid-table doc-head-blue stock-report-table"><thead>${stockReportHeadersHtml()}</thead>
     <tbody id="srTbody">${stockReportRowsHtml()}</tbody></table></div>
   </div>

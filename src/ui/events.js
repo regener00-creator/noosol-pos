@@ -857,11 +857,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const srInput=document.getElementById('srInput');
   const srResults=document.getElementById('srResults');
   const srTbody=document.getElementById('srTbody');
-  const srSelectedWrap=document.getElementById('stockReportSelectedWrap');
   if(srInput && srTbody){
     const refreshSrTable=()=>{
       srTbody.innerHTML=stockReportRowsHtml();
-      if(srSelectedWrap) srSelectedWrap.innerHTML=stockReportSelectedItemsHtml();
       srTbody.querySelectorAll('[data-sr-remove]').forEach(btn=>{
         btn.addEventListener('click', ()=>{
           const pid=Number(btn.dataset.srRemove);
@@ -877,18 +875,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
         try{ localStorage.setItem(STOCK_REPORT_COLUMNS_KEY,JSON.stringify(stockReportColumns)); }catch(error){}
         render();
       });
-    });
-    if(srSelectedWrap) srSelectedWrap.addEventListener('click', event=>{
-      const removeButton=event.target.closest('[data-sr-chip-remove]');
-      if(removeButton){
-        stockReportItems=stockReportItems.filter(row=>row.pid!==Number(removeButton.dataset.srChipRemove));
-        refreshSrTable();
-        return;
-      }
-      if(event.target.closest('#srClearSelected')){
-        stockReportItems=[];
-        refreshSrTable();
-      }
     });
     const addSrProduct=(p,query='')=>{
       const label=systemLabelCode(query.toUpperCase())?findStoreLabelMatch(query):null;
