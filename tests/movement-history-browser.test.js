@@ -32,8 +32,6 @@ const server=http.createServer((req,res)=>{
       sb.rpc=async(name,args)=>{
         if(name==='report_posted_adjustments')return {data:[{line_id:args.p_store,document_id:'count-'+args.p_store,document_no:'SAME',warehouse_id:args.p_store,
           movement_date:TODAY_STR,movement_time:'10:30',product_id:500,product_name:'Product '+args.p_store,unit_name:'box',difference:-3}]};
-        if(name==='movement_document_history'&&args.p_entity==='inventory_count'&&args.p_document==='count-'+args.p_store)
-          return {data:[{event_key:'test',actor_name:'Owner '+args.p_store,action:'stock_adjusted',occurred_at:new Date().toISOString()}]};
         throw Error('Incorrect document lookup');
       };
     });
@@ -46,17 +44,21 @@ const server=http.createServer((req,res)=>{
       const rows=page.locator('[data-movement-group]');
       assert.equal(await rows.count(),1);
       assert.match(await rows.textContent(),new RegExp('Product '+store));
-      await page.locator('[data-movement-history]').click();
-      await page.getByText('Owner '+store,{exact:false}).first().waitFor();
+      assert.equal(await page.getByRole('button',{name:/ดูประวัติ/}).count(),0);
+      assert.deepEqual(await page.locator('.movement-report-table th').allTextContents(),['วันที่','เวลา','รายการ','บิล','สินค้า','เข้า-ออก']);
+      assert.deepEqual((await rows.locator('td').allTextContents()).slice(1,4),['10:30','ปรับสต็อก','▶SAME']);
+      await rows.click();
+      assert.equal(await rows.getAttribute('aria-expanded'),'true');
+      assert.match(await page.locator('.movement-detail-product').textContent(),new RegExp('Product '+store));
+      await rows.press('Enter');
       assert.equal(await rows.getAttribute('aria-expanded'),'false');
-      await page.getByRole('button',{name:'ปิด',exact:true}).last().click();
       await page.evaluate(()=>{
         warehouseAccessRows=[{warehouse_id:activeWarehouseId,can_sell:true}];
         currentProfile.owner=false;render();
       });
       assert.equal(await rows.count(),1);
-      assert.equal(await page.locator('[data-movement-history]').count(),0);
+      assert.equal(await page.getByRole('button',{name:/ดูประวัติ/}).count(),0);
     }
-    console.log('Both stores passed movement report and history button checks');
+    console.log('Both stores passed movement report column and expansion checks');
   }finally{await browser?.close();server.close();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

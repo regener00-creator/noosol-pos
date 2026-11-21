@@ -1874,13 +1874,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       if(inventoryMovementExpandedBills.has(key)) inventoryMovementExpandedBills.delete(key); else inventoryMovementExpandedBills.add(key);
       renderKeepScroll();
     };
-    const history=row.querySelector('[data-movement-history]');
-    history?.addEventListener('click',event=>{
-      event.stopPropagation();
-      const key=decodeURIComponent(row.dataset.movementGroup);
-      openMovementHistory(inventoryMovementFilteredGroups().find(group=>group.key===key),history);
-    });
-    history?.addEventListener('keydown',event=>event.stopPropagation());
     row.addEventListener('click',toggle);
     row.addEventListener('keydown',event=>{ if(event.key==='Enter'||event.key===' '){ event.preventDefault(); toggle(); } });
   });

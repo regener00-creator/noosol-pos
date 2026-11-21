@@ -241,51 +241,12 @@ function inventoryMovementGroupPreviewHtml(group,limit=2){
   const items=inventoryMovementGroupUniqueItems(group),preview=items.slice(0,limit),remaining=Math.max(0,items.length-preview.length);
   return `<div class="movement-product-preview">${preview.map(row=>`<span class="movement-product-preview-line">${inventoryMovementQtyText(row)}</span>`).join('')}${remaining?`<span class="movement-product-preview-more">+${remaining} รายการ</span>`:''}</div>`;
 }
-function movementHistoryEntity(type){
-  return ({'ขาย':'sales','รับคืนจากลูกค้า':'sales','คืนสต็อกจากยกเลิกบิล':'sales','รับเข้าสินค้า':'goods_receipts',
-    'คืนสินค้า':'product_returns','เปลี่ยนสินค้า':'product_exchanges','โอนสินค้า':'transfers','ปรับสต็อก':'inventory_count'})[type];
-}
-function movementHistoryButton(group){
-  const row=group.rows[0];
-  if(!currentProfile?.owner||!row.documentId||!reportWarehouseIds().includes(row.documentStore)||!movementHistoryEntity(group.type)) return '';
-  return ` <button class="btn ghost" type="button" data-movement-history aria-label="ดูประวัติ ${escapeHtml(group.bill)}">ดูประวัติ</button>`;
-}
-function openMovementHistory(group,opener){
-  if(!group||!movementHistoryButton(group)) return;
-  const row=group.rows[0],context=captureStoreView(),overlay=document.createElement('div');
-  overlay.className='modal-overlay';
-  overlay.innerHTML=`<div class="modal" role="dialog" aria-modal="true" aria-label="ประวัติเอกสาร"><div class="modal-head"><h3>ประวัติ ${escapeHtml(group.bill)}</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div><div class="movement-history-events" style="padding:16px;max-height:60vh;overflow:auto"></div><div style="padding:12px"><button type="button" class="btn ghost" data-history-more>โหลดเพิ่มเติม</button></div></div>`;
-  document.getElementById('main').appendChild(overlay);
-  const body=overlay.querySelector('.movement-history-events'),more=overlay.querySelector('[data-history-more]'),close=overlay.querySelector('.modal-close');
-  const dismiss=()=>{overlay.remove();opener?.focus();};
-  close.onclick=dismiss;close.focus();
-  overlay.onclick=event=>{if(event.target===overlay)dismiss();};
-  overlay.onkeydown=event=>{if(event.key==='Escape')dismiss();};
-  let cursor=null;
-  async function load(){
-    more.disabled=true;more.textContent='กำลังโหลด…';
-    try{
-      const {data,error}=await sb.rpc('movement_document_history',{p_store:row.documentStore,p_entity:movementHistoryEntity(group.type),
-        p_document:row.documentId,p_before:cursor?.occurred_at??null,p_key:cursor?.event_key??null});
-      if(!overlay.isConnected||!isStoreViewCurrent(context)||!currentProfile?.owner){overlay.remove();return;}
-      if(error) throw error;
-      if(!cursor&&!data.length) body.textContent='ไม่พบประวัติที่ระบุร้านตรงกับเอกสารนี้ภายใน 1 ปี';
-      for(const event of data){
-        body.insertAdjacentHTML('beforeend',`<details><summary>${escapeHtml(auditLogDateTime(event.occurred_at))} · ${escapeHtml(auditActionLabel(event.action))} · ${escapeHtml(event.actor_name||'-')}</summary><b>ก่อนเปลี่ยน</b>${auditDataHtml(event.before_data)}<b>หลังเปลี่ยน</b>${auditDataHtml(event.after_data)}</details>`);
-      }
-      cursor=data.at(-1)||cursor;
-      more.hidden=data.length<25;more.textContent='โหลดเพิ่มเติม';
-    }catch{more.textContent='โหลดประวัติไม่สำเร็จ · ลองใหม่';}
-    finally{more.disabled=false;}
-  }
-  more.onclick=load;load();
-}
 function inventoryMovementGroupRowHtml(group){
   const showWarehouse=isAllWarehousesMode();
   const expanded=inventoryMovementExpandedBills.has(group.key);
   const directions=inventoryMovementGroupDirections(group);
   const encodedKey=encodeURIComponent(group.key);
-  return `<tr class="movement-summary-row ${expanded?'expanded':''}" data-movement-group="${escapeHtml(encodedKey)}" tabindex="0" aria-expanded="${expanded?'true':'false'}"><td>${fmtDate(group.date)}</td><td>${escapeHtml(group.type)}</td><td class="mono"><span class="movement-summary-bill"><span class="movement-summary-toggle" aria-hidden="true">▶</span>${escapeHtml(group.bill)}</span>${movementHistoryButton(group)}</td><td>${escapeHtml(group.time)}</td><td class="movement-product-cell">${inventoryMovementGroupPreviewHtml(group)}</td><td><div class="movement-direction-list">${directions.map(inventoryMovementDirectionBadge).join('')}</div></td>${showWarehouse?`<td>${escapeHtml(inventoryMovementGroupWarehouseText(group))}</td>`:''}</tr>${expanded?inventoryMovementGroupDetailHtml(group):''}`;
+  return `<tr class="movement-summary-row ${expanded?'expanded':''}" data-movement-group="${escapeHtml(encodedKey)}" tabindex="0" aria-expanded="${expanded?'true':'false'}"><td>${fmtDate(group.date)}</td><td>${escapeHtml(group.time)}</td><td>${escapeHtml(group.type)}</td><td class="mono"><span class="movement-summary-bill"><span class="movement-summary-toggle" aria-hidden="true">▶</span>${escapeHtml(group.bill)}</span></td><td class="movement-product-cell">${inventoryMovementGroupPreviewHtml(group)}</td><td><div class="movement-direction-list">${directions.map(inventoryMovementDirectionBadge).join('')}</div></td>${showWarehouse?`<td>${escapeHtml(inventoryMovementGroupWarehouseText(group))}</td>`:''}</tr>${expanded?inventoryMovementGroupDetailHtml(group):''}`;
 }
 function renderInventoryMovement(){
   const showWarehouse=isAllWarehousesMode();
@@ -313,7 +274,7 @@ function renderInventoryMovement(){
       <div class="movement-report-search"><input id="movementSearch" value="${escapeHtml(inventoryMovementSearchQuery)}" placeholder="ค้นหาหรือสแกนบาร์โค้ด..." autocomplete="off"><div id="movementSearchResults" class="fav-add-results" hidden style="left:0;right:0;top:calc(100% - 6px);"></div></div>
     </div>
     ${selectedProducts.length?`<div class="movement-selected-products"><span class="movement-selected-label">สินค้าที่เลือก ${selectedProducts.length} รายการ</span><div class="movement-selected-list">${selectedProducts.map(product=>`<span class="movement-product-chip">${escapeHtml(product.name)}<button type="button" data-movement-remove="${product.id}" aria-label="ลบ ${escapeHtml(product.name)}">×</button></span>`).join('')}</div><button type="button" class="movement-clear-products" id="movementClearProducts">ล้างทั้งหมด</button></div>`:'<div class="movement-selected-products"><span class="movement-selected-label">สินค้า: ทั้งหมด</span></div>'}
-    <div class="doc-list-wrap"><table class="grid-table doc-head-blue movement-report-table"><colgroup><col style="width:120px"><col style="width:135px"><col style="width:180px"><col style="width:85px"><col><col style="width:150px">${showWarehouse?'<col style="width:250px">':''}</colgroup><thead><tr><th>วันที่</th><th>รายการ</th><th>บิล</th><th>เวลา</th><th>สินค้า</th><th>เข้า-ออก</th>${showWarehouse?'<th>คลังสินค้า</th>':''}</tr></thead><tbody>${pageGroups.map(inventoryMovementGroupRowHtml).join('')||`<tr><td colspan="${showWarehouse?7:6}" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายการเคลื่อนไหวในช่วงเวลาหรือสินค้าที่เลือก</td></tr>`}</tbody></table></div>
+    <div class="doc-list-wrap"><table class="grid-table doc-head-blue movement-report-table"><colgroup><col style="width:120px"><col style="width:85px"><col style="width:135px"><col style="width:180px"><col><col style="width:150px">${showWarehouse?'<col style="width:250px">':''}</colgroup><thead><tr><th>วันที่</th><th>เวลา</th><th>รายการ</th><th>บิล</th><th>สินค้า</th><th>เข้า-ออก</th>${showWarehouse?'<th>คลังสินค้า</th>':''}</tr></thead><tbody>${pageGroups.map(inventoryMovementGroupRowHtml).join('')||`<tr><td colspan="${showWarehouse?7:6}" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายการเคลื่อนไหวในช่วงเวลาหรือสินค้าที่เลือก</td></tr>`}</tbody></table></div>
     ${pagerHtml(filter.page,totalPages,'movement-page')}
   </div>`;
 }

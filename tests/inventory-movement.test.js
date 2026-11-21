@@ -124,7 +124,7 @@ Object.assign(context,{
 for(const combined of [false,true]){
   context.isAllWarehousesMode=()=>combined;
   const table=context.renderInventoryMovement().split('<table')[1];
-  assert.match(table, /<th>วันที่<\/th><th>รายการ<\/th><th>บิล<\/th><th>เวลา<\/th><th>สินค้า<\/th><th>เข้า-ออก<\/th>/);
+  assert.match(table, /<th>วันที่<\/th><th>เวลา<\/th><th>รายการ<\/th><th>บิล<\/th><th>สินค้า<\/th><th>เข้า-ออก<\/th>/);
   assert.equal(table.includes('<th>คลังสินค้า</th>'),combined);
   assert.equal(table.includes('class="movement-detail-warehouse"'),combined);
   assert.equal(table.includes(warehouses[0].name),combined);
@@ -143,9 +143,5 @@ assert.equal(scoped.length,2);
 for(const [store,qty,direction] of [[1,2,'ออก'],[2,3,'เข้า']]){
   const group=scoped.find(g=>g.rows[0].warehouseId===store);
   assert.equal(group.rows[0].qty,qty);assert.equal(group.rows[0].direction,direction);
-  assert.equal(context.movementHistoryButton(group),'');
-  context.currentProfile.owner=true;
-  assert.match(context.movementHistoryButton(group),/ดูประวัติ/);
-  context.currentProfile.owner=false;
 }
 console.log('inventory movement tests passed');
