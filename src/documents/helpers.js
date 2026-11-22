@@ -216,11 +216,20 @@ function documentPeriodToolbar(kind,filterOverride=null,rangeOverride=null){
   return `<div class="document-period-toolbar" data-document-kind="${kind}"><select class="rpt-select" data-document-period="period" aria-label="ช่วงเวลา">${options.map(([key,label])=>`<option value="${key}" ${f.period===key?'selected':''}>${label}</option>`).join('')}</select>
     ${fields?`<div class="document-period-fields">${fields}</div>`:''}</div>`;
 }
+const salesDocumentNumberOrder=new Intl.Collator('en',{numeric:true});
+function newestSalesDocumentsFirst(kind){
+  const sort=documentSort[kind];
+  return (documentPeriods[kind]?.period||defaultDocumentPeriod(kind))==='all'&&sort.key==='date'&&sort.dir===-1;
+}
 function salesDocumentList(rows,kind,dateOf,numberOf){
   const range=documentPeriodRange(kind),sort=documentSort[kind];
+  const newestFirst=newestSalesDocumentsFirst(kind);
   const compare=(a,b)=>a<b?-1:a>b?1:0;
-  return rows.filter(row=>dateOf(row)>=range.from&&dateOf(row)<=range.to).sort((a,b)=>
-    sort.dir*compare(sort.key==='date'?dateOf(a):numberOf(a),sort.key==='date'?dateOf(b):numberOf(b))||compare(numberOf(a),numberOf(b)));
+  return rows.filter(row=>dateOf(row)>=range.from&&dateOf(row)<=range.to).sort((a,b)=>{
+    if(sort.key==='number')return sort.dir*compare(numberOf(a),numberOf(b));
+    return sort.dir*compare(dateOf(a),dateOf(b))||(newestFirst
+      ?salesDocumentNumberOrder.compare(numberOf(b),numberOf(a)):compare(numberOf(a),numberOf(b)));
+  });
 }
 function documentSortHeader(kind,key,label){
   const sort=documentSort[kind], active=sort.key===key;

@@ -9,7 +9,8 @@ function standaloneCashBillRow(row){
 function standaloneCashBillPage(){
   const limit=docListPage.cashbill*DOC_LIST_PAGE_SIZE;
   const range=documentPeriodRange('cashbill'),sort=documentSort.cashbill;
-  const key=[range.from,range.to,sort.key,sort.dir].join('|');
+  const newestFirst=newestSalesDocumentsFirst('cashbill');
+  const key=[range.from,range.to,sort.key,sort.dir,newestFirst].join('|');
   if(!cashBillPageCache||cashBillPageCache.key!==key||!isStoreViewCurrent(cashBillPageCache.view)){
     cashBillPageCache={key,view:captureStoreView(),rows:[],count:0,loaded:0,at:0,busy:false,error:false};
   }
@@ -21,17 +22,19 @@ function standaloneCashBillPage(){
         const rows=[];
         let count=0;
         do{
-          const end=Math.min(limit,rows.length+100)-1;
+          // Include the full boundary day so numeric ordering also works for unpadded numbers.
+          const batchSize=newestFirst&&rows.length>=limit?100:Math.min(100,limit-rows.length+Number(newestFirst));
           let query=sb.from('standalone_cash_bills').select('*',{count:'exact'}).eq('warehouse_id',cache.view.store)
             .gte('data->>date',range.from).lte('data->>date',range.to)
             .order(sort.key==='date'?'data->>date':'number',{ascending:sort.dir===1});
-          if(sort.key==='date')query=query.order('number');
-          const result=await query.range(rows.length,end);
+          if(sort.key==='date')query=query.order('number',{ascending:!newestFirst});
+          const result=await query.range(rows.length,rows.length+batchSize-1);
           if(result.error)throw result.error;
           count=result.count??result.data.length;
           rows.push(...result.data.map(standaloneCashBillRow));
           if(!result.data.length)break;
-        }while(rows.length<Math.min(count,limit));
+          if(rows.length>=limit&&(!newestFirst||rows.at(-1).date!==rows[limit-1].date))break;
+        }while(rows.length<count);
         Object.assign(cache,{rows,count,loaded:limit,at:Date.now()});
       }catch(error){cache.error=true;console.warn('load standalone cash bills',error);}
       finally{

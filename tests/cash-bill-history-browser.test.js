@@ -57,7 +57,9 @@ let browser;
     render();
   });
   const billItems=id=>page.locator('tr').filter({has:page.locator('[data-cashbill-edit="bill-'+id+'"]')}).locator('.doc-items-cell');
+  assert.equal(await page.locator('.doc-list tbody tr td').first().innerText(),'CB-11');
   assert.equal(await billItems(2).locator('summary').count(),0);
+  await page.locator('[data-docpage-cashbill="next"]').click();
   assert.doesNotMatch(await billItems(1).innerText(),/รายการ 5/);
   await billItems(1).getByText('+5',{exact:true}).click();
   assert.match(await billItems(1).innerText(),/รายการ 9 ×1/);
@@ -407,8 +409,9 @@ let browser;
       const make=(suffix,date,warehouseId=w)=>({id:'D-'+suffix,number:'D-'+suffix,date,warehouseId,items:[{name:'Fixture-'+suffix,qty:1}],supplier:'QA',customer:'QA',total:10});
       const docs=[make('TODAY',TODAY_STR),make('FIRST','2020-03-02'),make('LAST','2020-03-28'),make('OTHER','2020-03-10',w===1?2:1)];
       purchaseOrders=docs;goodsReceipts=docs;productReturns=docs;productExchanges=docs.map(d=>({...d,outgoingItems:d.items}));
-      quotations=docs;standaloneTaxInvoices=docs;
-      salesHistory=docs.map(d=>({...d,status:'done',cashReceiptA4Meta:{number:d.number,saleDate:d.date}}));
+      const salesDocs=docs.slice(1).concat(make('2',TODAY_STR),make('10',TODAY_STR));
+      quotations=salesDocs;standaloneTaxInvoices=salesDocs;
+      salesHistory=salesDocs.map(d=>({...d,status:'done',cashReceiptA4Meta:{number:d.number,saleDate:d.date}}));
       for(const key of Object.keys(documentPeriods))delete documentPeriods[key];
     },store);
     for(const tab of ['purchaseorder','goodsreceipt','productreturn','productexchange','quotation','taxinvoice','cashbill']){
@@ -431,7 +434,7 @@ let browser;
       const isSalesDocument=['quotation','taxinvoice','cashbill'].includes(tab);
       assert.equal(await period.inputValue(),isSalesDocument?'all':'today');
       assert.equal(await period.locator('option').first().innerText(),isSalesDocument?'ทั้งหมด':'วันนี้');
-      assert.equal(await rows.count(),isSalesDocument?3:1);
+      assert.equal(await rows.count(),isSalesDocument?4:1);
       await period.selectOption('selectmonth');
       await checkHeading();
       await page.locator('[data-document-period="month"]').fill('2020-03');
@@ -456,11 +459,23 @@ let browser;
       assert.doesNotMatch(await rows.innerText(),/D-LAST|Fixture-LAST|D-OTHER/);
       if(isSalesDocument){
         await period.selectOption('all');
-        assert.equal(await rows.count(),3);
+        assert.deepEqual(await rows.locator('td:first-child').allInnerTexts(),['D-10','D-2','D-LAST','D-FIRST'],tab+' newest first');
         assert.doesNotMatch((await rows.allInnerTexts()).join('\n'),/D-OTHER/);
       }
     }
   }
+  // A boundary day can contain more manual bills than one page, mixed with bills from sales.
+  await page.evaluate(()=>{
+    const make=i=>({id:'manual-'+i,warehouse_id:activeWarehouseId,number:'CB-'+i,data:{date:TODAY_STR,items:[],total:10}});
+    window.manualRows=Array.from({length:15},(_,i)=>make(i+1)).sort((a,b)=>b.number.localeCompare(a.number));
+    salesHistory=[{id:'issued-16',warehouseId:activeWarehouseId,date:TODAY_STR,status:'done',items:[],cashReceiptA4Meta:{number:'CB-16'}}];
+    cashBillPageCache=null;render();
+  });
+  await page.waitForFunction(()=>cashBillPageCache?.count===15);
+  const billNumbers=page.locator('.doc-list tbody td:first-child');
+  assert.deepEqual(await billNumbers.allInnerTexts(),Array.from({length:10},(_,i)=>'CB-'+(16-i)));
+  await page.locator('[data-docpage-cashbill="next"]').click();
+  assert.deepEqual(await billNumbers.allInnerTexts(),['CB-6','CB-5','CB-4','CB-3','CB-2','CB-1']);
   assert.deepEqual(errors,[]);
   console.log('Cash bill history and post-payment actions passed: close without printing, keyboard, search focus and optional receipt');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();await new Promise(resolve=>server.close(resolve));});
