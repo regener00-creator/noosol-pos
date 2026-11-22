@@ -692,8 +692,7 @@
   .expiry-warehouse-card select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px #4F40381A;background-color:#fff;}
   .expiry-report-table .expiry-product-name{font-weight:600;text-align:left;}
   .expiry-report-table .expiry-lot-code{font-weight:600;}
-  .expiry-report-table tr.expired td{background:#FFF8F7;}
-  .expiry-report-table tr.urgent td{background:#FFFCF4;}
+  .expiry-report-table .expiry-status{background:transparent;}
   .expiry-report-table .expiry-detail-btn{white-space:nowrap;}
   @media(max-width:900px){.expiry-report-summary{grid-template-columns:1fr}.expiry-near-card{min-height:84px;}}
   .low-table th,.low-table td{text-align:center;}

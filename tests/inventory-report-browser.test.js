@@ -55,7 +55,10 @@ let browser;
   assert.equal(await page.locator('#sidebar [data-tab="cashshift"] + [data-tab="rinventory"]').innerText(),'รายงานสินค้า');
   assert.equal(await page.locator('#sidebar [data-tab="expiry"]').count(),0);
   assert.deepEqual(await tabs.locator('button').allTextContents(),['คงเหลือ','ต้องเติมสินค้า','สินค้าใกล้หมดอายุ']);
-  await page.evaluate(()=>{inventoryBalanceRows.find(row=>row.product_id===101&&row.warehouse_id===1).expiry=currentDateStr();});
+  await page.evaluate(()=>{
+    inventoryBalanceRows.find(row=>row.product_id===101&&row.warehouse_id===1).expiry=currentDateStr();
+    inventoryBalanceRows.find(row=>row.product_id===104&&row.warehouse_id===1).expiry=addDaysToDate(currentDateStr(),-1);
+  });
   await tabs.getByText('สินค้าใกล้หมดอายุ',{exact:true}).click();
   const expiryTable=page.locator('.expiry-report-table');
   const checkTableLayout=async table=>{
@@ -76,6 +79,11 @@ let browser;
   assert.deepEqual(await expiryTable.locator('tbody tr').first().locator('td:nth-child(-n+3)').allTextContents(),['0001','0012345678901','Alpha ยาทดสอบ']);
   assert.ok(await expiryTable.locator('th:nth-child(-n+2),td:nth-child(-n+2)').evaluateAll(cells=>cells.every(cell=>getComputedStyle(cell).textAlign==='center')));
   assert.equal(await page.locator('.expiry-report-page [aria-pressed="true"]').innerText(),'สินค้าใกล้หมดอายุ');
+  for(const mode of ['near','expired']){
+    await page.locator(`[data-expiry-summary-mode="${mode}"]`).click();
+    assert.equal(await expiryTable.locator('.expiry-status').count(),1);
+    assert.ok(await expiryTable.locator('tbody td,.expiry-status').evaluateAll(cells=>cells.every(cell=>getComputedStyle(cell).backgroundColor==='rgba(0, 0, 0, 0)')));
+  }
   assert.equal(await page.locator('#sidebar .navbtn.active').innerText(),'รายงานสินค้า');
   await restock.click();
   assert.equal(await page.locator('#sidebar .navbtn.active').getAttribute('data-tab'),'rinventory');
@@ -89,6 +97,8 @@ let browser;
   assert.ok(await restockTable.locator('th:nth-child(-n+2),td:nth-child(-n+2)').evaluateAll(cells=>cells.every(cell=>getComputedStyle(cell).textAlign==='center')));
   await page.locator('[data-lowstock-mode="negative"]').click();
   assert.match(await page.locator('.low-stock-report-table tbody').innerText(),/Gamma ยอดติดลบ/);
+  assert.equal(await restockTable.locator('.stock-negative strong').innerText(),'- 1 กล่อง 2 แผง 7 เม็ด');
+  assert.equal(await restockTable.locator('[data-lowsort="stock:unit"],[data-lowstock-unit]').count(),0);
   await page.locator('[data-stock-report-tab="rinventory"]').click();
   const rowIds=()=>page.locator('#srTbody [data-sr-row]').evaluateAll(rows=>rows.map(row=>Number(row.dataset.srRow)));
   const headers=()=>page.locator('.stock-report-table thead tr').first().locator('th').evaluateAll(ths=>ths.map(th=>th.querySelector('button')?.childNodes[0]?.textContent||th.childNodes[0]?.textContent||''));
