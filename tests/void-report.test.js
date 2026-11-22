@@ -52,4 +52,7 @@ test('range loader includes older sales cancelled now, merges once, caches separ
   assert.equal(c.salesRequestLoaded({range,includeVoids:true,voidsOnly:true}),true);
   assert.equal(c.salesRequestLoaded({range}),false,'cancellation-only cache cannot stand in for ordinary sales');
   assert.equal(c.salesRequestLoaded({range,includeVoids:true}),false,'movement also needs the original sale outflows');
+  c.documentPeriods.rvoid={period:'all'};
+  await c.loadSalesHistoryFromSupabase({...options,...c.voidReportRange(),includeVoids:true,voidsOnly:true});
+  assert.deepEqual(queries.at(-1).filters,[['eq','sale_store_id',1],['eq','status','void']]);
 });

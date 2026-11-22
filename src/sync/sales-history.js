@@ -126,9 +126,12 @@ async function loadSalesHistoryFromSupabase(options={}){
         // cancelled today. A one-day margin covers stored timezone offsets;
         // each report then filters the exact Bangkok calendar date.
         const shiftDay=(value,days)=>{const date=new Date(value+'T00:00:00Z');date.setUTCDate(date.getUTCDate()+days);return date.toISOString().slice(0,10);};
-        const voidQuery=()=>storeSales().eq('status','void')
-          .gte('data->>voidedAt',shiftDay(range.from,-1)).lt('data->>voidedAt',shiftDay(range.to,2))
-          .order('id',{ascending:true});
+        const voidQuery=()=>{
+          const query=storeSales().eq('status','void');
+          if(range.from>'0001-01-01')query.gte('data->>voidedAt',shiftDay(range.from,-1));
+          if(range.to<'9999-12-30')query.lt('data->>voidedAt',shiftDay(range.to,2));
+          return query.order('id',{ascending:true});
+        };
         const voidResult=completeRange?await fetchAllRows(voidQuery):await fetchBoundedRows(voidQuery,{pageSize:SALES_QUERY_PAGE_SIZE,maxRows:SALES_QUERY_MAX_ROWS});
         if(!isStoreViewCurrent(context)) return false;
         if(voidResult.error) throw voidResult.error;

@@ -49,7 +49,7 @@ function createVoidReportWorkbook(report,writer){
   const columns=report.headers.length,amountColumn=columns-1;
   const total=report.rows.reduce((sum,row)=>sum+row[amountColumn-1],0);
   sheet.columns=[22,24,16,...(report.showWarehouse?[24]:[]),24,50,18,36].map(width=>({width}));
-  for(const text of [report.title,report.business,`วันที่ยกเลิก ${fmtDate(report.range.from)} ถึง ${fmtDate(report.range.to)}`,report.filters,`บิลยกเลิก ${report.rows.length} บิล · ยอดคืนรวม ${fmtMoney(total)} บาท`]){
+  for(const text of [report.title,report.business,report.dateLabel,report.filters,`บิลยกเลิก ${report.rows.length} บิล · ยอดคืนรวม ${fmtMoney(total)} บาท`]){
     const row=sheet.addRow([String(text||'')]);sheet.mergeCells(row.number,1,row.number,columns);row.height=28;
   }
   sheet.addRow(report.headers);
@@ -70,7 +70,8 @@ async function exportVoidReportToExcel(report){
   const buffer=await book.xlsx.writeBuffer();
   if(!isWorkspaceReadCurrent(report.context)) return;
   const url=URL.createObjectURL(new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})),link=document.createElement('a');
-  link.href=url;link.download=`SAPURI-บิลยกเลิก-${report.range.from}-${report.range.to}.xlsx`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
+  const period=report.allDates?'ทั้งหมด':`${report.range.from}-${report.range.to}`;
+  link.href=url;link.download=`SAPURI-บิลยกเลิก-${period}.xlsx`;document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);
   showToast(`ส่งออกบิลยกเลิก ${report.rows.length} รายการแล้ว`);
 }
 function contactImportTypes(value){
