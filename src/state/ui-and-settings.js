@@ -27,6 +27,7 @@ function resetInventoryReportWarehouseFilters(){
 }
 // รายการที่เพิ่มไว้ในหน้า "รายงานสินค้าคงเหลือ" (ค้นหา/สแกนแล้วสะสมเป็นรายการ)
 let stockReportItems = [];
+let stockReportPage = 1;
 // ตัวกรองหมวดสินค้าหลัก/ย่อย สำหรับหน้ารายงานสินค้าคงเหลือ (ไว้เพิ่มทั้งหมวดในคราวเดียว)
 let stockReportCatFilter = { wh:'', category:'', brand:'' };
 // การเรียงลำดับตารางในหน้ารายงานสินค้าคงเหลือ

@@ -914,6 +914,7 @@ function stockReportHeadersHtml(forPrint=false){
   const center=forPrint?' class="c"':'';
   return `<tr>${columns.sku?`<th${rowSpan}${center}>รหัสสินค้า</th>`:''}${columns.barcode?`<th${rowSpan}${center}>บาร์โค้ด</th>`:''}<th${rowSpan}>${forPrint?'สินค้า':stockReportTh('name','สินค้า')}</th>${columns.price?`<th${rowSpan}${center}>ขาย</th>`:''}${columns.cost?`<th${rowSpan}${center}>ทุน</th>`:''}<th${all?` colspan="${reportWarehouses.length}"`:''}${center}>${forPrint?'คงเหลือ':stockReportTh('stock','คงเหลือ')}</th>${forPrint?'':`<th${rowSpan} class="stock-report-action"></th>`}</tr>${all?`<tr>${reportWarehouses.map((warehouse,index)=>`<th class="stock-report-warehouse${forPrint?' c':''}" title="${escapeHtml(warehouse.name)}">คลังที่ ${index+1}<small>${escapeHtml(warehouse.name)}</small></th>`).join('')}</tr>`:''}`;
 }
+const STOCK_REPORT_PAGE_SIZE = 10;
 function renderRInventory(){
   const catf=stockReportCatFilter;
   const selectedWarehouseValue=String(isAllWarehousesMode()?(catf.wh||'all'):activeWarehouseId);
@@ -937,7 +938,8 @@ function renderRInventory(){
       <div class="stock-report-column-controls"><span>แสดงคอลัมน์</span><label><input id="srShowSku" type="checkbox" ${stockReportColumns.sku!==false?'checked':''}> รหัสสินค้า</label><label><input id="srShowBarcode" type="checkbox" ${stockReportColumns.barcode!==false?'checked':''}> บาร์โค้ด</label><label><input id="srShowPrice" type="checkbox" ${stockReportColumns.price?'checked':''}> ขาย</label>${!isLevel2User()?`<label><input id="srShowCost" type="checkbox" ${stockReportColumns.cost?'checked':''}> ทุน</label>`:''}</div>
     </div>
     <div class="stock-report-table-scroll app-table-scroll-region"><table class="grid-table doc-head-blue stock-report-table"><thead>${stockReportHeadersHtml()}</thead>
-    <tbody id="srTbody">${stockReportRowsHtml()}</tbody></table></div>
+    <tbody id="srTbody"></tbody></table></div>
+    <div id="srPager"></div>
   </div>
   </div>`;
 }
@@ -971,14 +973,13 @@ function stockReportExpiryBreakdownHtml(productId){
   return reportingWarehouses().map(warehouse=>{const expiry=warehouseExpiry(productId,warehouse.id);return `<div>${escapeHtml(warehouse.name)} · ${expiry?fmtDateShort(expiry):'-'}</div>`;}).join('');
 }
 
-function stockReportRowsHtml(forPrint=false){
-  const sorted=stockReportSortedItems();
+function stockReportRowsHtml(forPrint=false,rows=stockReportSortedItems()){
   const selectedWarehouseValue=String(stockReportCatFilter.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
   const reportWarehouses=selectedWarehouseValue==='all'?accessibleWarehouses():[];
   const columns=stockReportVisibleColumns();
   const columnCount=1+Number(columns.sku)+Number(columns.barcode)+Number(columns.price)+Number(columns.cost)+(selectedWarehouseValue==='all'?reportWarehouses.length:1)+(forPrint?0:1);
-  return sorted.length
-    ? sorted.map(row=>{
+  return rows.length
+    ? rows.map(row=>{
         const p=products.find(x=>x.id===row.pid);
         const stockCell=stockVal=>`<td class="stock-report-stock ${stockVal<0?'stock-negative':''}">${escapeHtml(stockReportQuantityText(p||{unit:row.unit},stockVal))}</td>`;
         const stockCells=selectedWarehouseValue==='all'?reportWarehouses.map(warehouse=>stockCell(warehouseStock(row.pid,warehouse.id))).join(''):stockCell(reportStock(row.pid,selectedWarehouseValue));

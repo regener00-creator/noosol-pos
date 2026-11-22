@@ -136,6 +136,22 @@ let browser;
   await page.locator('#srInput').fill('0012345678901');await page.locator('#srInput').press('Enter');
   assert.deepEqual(await page.locator('[data-sr-row="101"] .stock-report-stock').allTextContents(),['2 กล่อง 3 แผง 7 เม็ด']);
   assert.equal(await page.locator('.stock-report-warehouse').count(),0);
+  assert.equal(await page.locator('#srAddByCategoryBtn').evaluate(button=>getComputedStyle(button).backgroundColor),'rgb(255, 255, 255)');
+  await page.evaluate(()=>{
+    for(let id=201;id<=208;id++){
+      const product={...products[0],id,name:'Test '+id};
+      products.push(product);
+      stockReportItems.push({pid:id,name:product.name,unit:product.unit});
+    }
+    render();
+  });
+  assert.equal((await rowIds()).length,10);
+  await page.locator('[data-sr-page="next"]').click();
+  assert.deepEqual(await rowIds(),[208]);
+  assert.equal(await page.evaluate(()=>new DOMParser().parseFromString('<table>'+stockReportRowsHtml(true)+'</table>','text/html').querySelectorAll('[data-sr-row]').length),11);
+  await page.locator('[data-sr-remove="208"]').click();
+  assert.equal((await rowIds()).length,10);
+  assert.equal(await page.locator('[data-sr-page]').count(),0);
   await page.setViewportSize({width:820,height:1180});
   assert.equal(await page.locator('.stock-report-table-scroll').evaluate(el=>el.scrollWidth>el.clientWidth),true,'wide tables scroll inside the report');
   if(process.env.PEPOS_SCREENSHOT_DIR) await page.screenshot({path:path.join(process.env.PEPOS_SCREENSHOT_DIR,'inventory-tablet.png'),fullPage:true});

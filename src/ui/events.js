@@ -844,8 +844,19 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const srResults=document.getElementById('srResults');
   const srTbody=document.getElementById('srTbody');
   if(srInput && srTbody){
-    const refreshSrTable=()=>{
-      srTbody.innerHTML=stockReportRowsHtml();
+    const srPager=document.getElementById('srPager');
+    const refreshSrTable=(selectedPid)=>{
+      const sorted=stockReportSortedItems();
+      const pages=Math.max(1,Math.ceil(sorted.length/STOCK_REPORT_PAGE_SIZE));
+      if(selectedPid!==undefined){
+        const index=sorted.findIndex(row=>row.pid===selectedPid);
+        if(index>=0) stockReportPage=Math.floor(index/STOCK_REPORT_PAGE_SIZE)+1;
+      }
+      stockReportPage=Math.min(stockReportPage,pages);
+      const start=(stockReportPage-1)*STOCK_REPORT_PAGE_SIZE;
+      srTbody.innerHTML=stockReportRowsHtml(false,sorted.slice(start,start+STOCK_REPORT_PAGE_SIZE));
+      srPager.innerHTML=pagerHtml(stockReportPage,pages,'sr-page');
+      scheduleScrollableTableHeights();
       srTbody.querySelectorAll('[data-sr-remove]').forEach(btn=>{
         btn.addEventListener('click', ()=>{
           const pid=Number(btn.dataset.srRemove);
@@ -854,6 +865,16 @@ document.querySelectorAll('.line-qty').forEach(el=>{
         });
       });
     };
+    srPager.addEventListener('click',event=>{
+      const button=event.target.closest('[data-sr-page]');
+      if(!button||button.disabled) return;
+      const page=button.dataset.srPage;
+      if(page==='prev') stockReportPage--;
+      else if(page==='next') stockReportPage++;
+      else stockReportPage=Number(page);
+      refreshSrTable();
+      srTbody.closest('.stock-report-table-scroll').scrollTop=0;
+    });
     refreshSrTable();
     [['srShowSku','sku'],['srShowBarcode','barcode'],['srShowPrice','price'],['srShowCost','cost']].forEach(([id,key])=>{
       document.getElementById(id)?.addEventListener('change',event=>{
@@ -866,12 +887,13 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       const label=systemLabelCode(query.toUpperCase())?findStoreLabelMatch(query):null;
       const existing=stockReportItems.find(r=>r.pid===p.id);
       if(existing){
-        if(label?.product===p){existing.unit=label.unitName;existing.scanUnit=label.unitName;existing.scanBarcode=query;refreshSrTable();}
+        if(label?.product===p){existing.unit=label.unitName;existing.scanUnit=label.unitName;existing.scanBarcode=query;}
+        refreshSrTable(p.id);
         return;
       }
       const warehouseValue=String(stockReportCatFilter.wh||(isAllWarehousesMode()?'all':activeWarehouseId));
       stockReportItems.unshift({pid:p.id, name:p.name, stock:reportStock(p.id,warehouseValue), unit:label?.unitName||p.unit, scanUnit:label?.unitName,scanBarcode:label?query:null,expiry:reportExpiry(p.id,warehouseValue), wh:warehouseValue});
-      refreshSrTable();
+      refreshSrTable(p.id);
     };
     // เลือกหมวดสินค้าหลัก/ย่อย แล้วเพิ่มสินค้าทั้งหมวดในคราวเดียว
     const srWarehouseSelect=document.getElementById('srWarehouseSelect');
@@ -1761,6 +1783,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     el.addEventListener('click', ()=>{
       const key=el.dataset.srsort;
       if(stockReportSort.key===key) stockReportSort.dir*=-1; else { stockReportSort.key=key; stockReportSort.dir=1; }
+      stockReportPage=1;
       render();
     });
   });
