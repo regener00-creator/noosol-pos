@@ -364,15 +364,9 @@ function attachEvents(){
   attachMobilePriceResultEvents();
   document.getElementById('mobilePriceCamera')?.addEventListener('click',()=>{ unlockMobileScanSound(); openMobileCameraScanner(mobileHandlePriceCode,{continuous:true,hostId:'mobilePriceCameraSlot',buttonId:'mobilePriceCamera'}); });
   const mobileInspectionList=document.getElementById('mobileInspectionList');
-  document.getElementById('mobileInspectionStatusFilter')?.addEventListener('change',event=>{
-    closeMobileCameraScanner();
-    mobileInspectionStatusFilter=event.target.value;
-    mobileInspectionOpenedListId='';
-    render();
-  });
   mobileInspectionList?.addEventListener('click',()=>{
-    selectMobileInspectionList(mobileInspectionVisibleLists(mobileInspectionStatusFilter),'เลือกรายการตรวจสินค้า',id=>{
-      const list=mobileInspectionVisibleLists(mobileInspectionStatusFilter).find(entry=>String(entry.id)===id);
+    selectMobileInspectionList(mobileInspectionVisibleLists('all'),'เลือกรายการตรวจสินค้า',id=>{
+      const list=mobileInspectionVisibleLists('all').find(entry=>String(entry.id)===id);
       if(!list) return false;
       if(String(mobileInspectionOpenedListId)===id) return true;
       if(mobileInspectionSavedAddItems.length&&!confirm('ยังไม่ได้บันทึกสินค้าที่เพิ่ม ต้องการเปลี่ยนรายการและทิ้งสินค้าชุดนี้หรือไม่?')) return false;

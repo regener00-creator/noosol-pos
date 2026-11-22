@@ -630,20 +630,12 @@ function renderMobileInspectionPanel(lists){
   const opened=current&&String(mobileInspectionOpenedListId)===String(current.id);
   const progress=opened&&!completed?mobileInspectionProgress(current):{checked:0,total:0};
   return `<section class="mobile-tool-panel">
-    <label class="mobile-inspection-status-filter">สถานะ
-      <select class="rpt-select" id="mobileInspectionStatusFilter" ${mobileInspectionAddingToSaved?'disabled':''}>
-        <option value="all" ${mobileInspectionStatusFilter==='all'?'selected':''}>ทั้งหมด</option>
-        <option value="pending" ${mobileInspectionStatusFilter==='pending'?'selected':''}>รอยืนยัน</option>
-        <option value="completed" ${mobileInspectionStatusFilter==='completed'?'selected':''}>บันทึกแล้ว</option>
-      </select>
-    </label>
     <div class="mobile-inspection-actions">
       <button type="button" class="mobile-inspection-create-btn" id="mobileNewInspectionList" aria-label="สร้างรายการตรวจสินค้า" title="สร้างรายการตรวจสินค้า">+</button>
       ${lists.length?`<span class="mobile-inspection-separator" aria-hidden="true">|</span>
       <button type="button" id="mobileInspectionList" class="mobile-inspection-select" value="${escapeHtml(current?.id||'')}" ${lists.length>1?'aria-haspopup="dialog"':''}>${escapeHtml(current?.name||'')} (${current?.items?.length||0})</button>${completed?'':`<button type="button" class="mobile-inspection-action mobile-inspection-remove" id="mobileDeleteInspectionList" aria-label="ลบบันทึก" title="ลบบันทึก" ${mobileIsOnline()?'':'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button>`}`:''}
     </div>
-    ${!current?'<div class="mobile-empty">ไม่พบรายการตรวจสินค้าที่มีสถานะนี้</div>':`
-      <div class="inspection-list-status ${completed?'mobile-inspection-complete':'pending'}">${completed?'บันทึกแล้ว':'รอยืนยัน'}</div>
+    ${!current?'<div class="mobile-empty">ยังไม่มีรายการตรวจสินค้า</div>':`
       ${!opened?'<div class="mobile-empty">แตะชื่อรายการเพื่อดูรายละเอียด</div>':completed
         ? `<ul>${(current.items||[]).map(item=>`<li>${escapeHtml(productById(item.pid)?.name||String(item.pid))} · ${escapeHtml(item.unit||'')}</li>`).join('')}</ul>`
         : `${mobileInspectionAddingToSaved?mobileInspectionSavedAddHtml(current):'<button type="button" class="mobile-inspection-add-toggle" id="mobileInspectionAddToggle">+ เพิ่มสินค้าในรายการ</button>'}<div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div><button type="button" class="mobile-inspection-next" id="mobileContinueToStock">แก้ไขสต็อก (${progress.total})</button>`}`}</section>`;
@@ -725,7 +717,6 @@ async function saveMobileInspectionDraft(){
   if(!isStoreViewCurrent(view)) return true;
   mobileLastRefreshAt=Date.now(); setMobileDataStatus('online','บันทึกแล้ว');
   mobileInspectionListId=draft.id;
-  mobileInspectionStatusFilter='pending';
   mobileInspectionOpenedListId='';
   mobileInspectionQuery='';
   mobileInspectionLastProductId=null;
@@ -1187,7 +1178,7 @@ function renderMobileTools(){
     mobileInventoryStep=mobileToolMode==='stock'?'stock':'inspection';
     mobileToolMode='inventory';
   }
-  const lists=mobileInspectionVisibleLists(mobileInventoryStep==='inspection'?mobileInspectionStatusFilter:'pending').sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
+  const lists=mobileInspectionVisibleLists(mobileInventoryStep==='inspection'?'all':'pending').sort((a,b)=>String(b.updatedAt||'').localeCompare(String(a.updatedAt||'')));
   return `<main class="mobile-tools-page">
     ${mobileInstallNoticeHtml()}
     <nav class="mobile-tools-tabs ${canEditMobilePrice()?'has-product-action':''}" aria-label="เมนูมือถือ"><button type="button" class="mobile-tools-tab ${mobileToolMode==='price'?'active':''}" data-mobile-tool="price">เช็คราคา</button><button type="button" class="mobile-tools-tab ${mobileToolMode==='inventory'?'active':''}" data-mobile-tool="inventory">ตรวจแก้สต็อก</button>${canEditMobilePrice()?'<button type="button" class="mobile-product-add" id="mobileNewProduct" title="เพิ่มสินค้า" aria-label="เพิ่มสินค้า">+</button>':''}</nav>

@@ -93,7 +93,7 @@ assert.match(html, /async function saveMobileInspectionSavedAdd\(/);
 assert.match(html, /บันทึกสินค้าที่เพิ่ม \(\$\{count\}\)/);
 assert.match(html, /openMobileCameraScanner\(mobileHandleInspectionCode,\{continuous:true,hostId:'mobileInspectionAddCameraSlot',buttonId:'mobileInspectionAddCamera'\}\)/);
 assert.match(html, /function mobileInspectionVisibleLists\(status='pending'\)/);
-assert.match(html, /id="mobileInspectionStatusFilter"/);
+assert.doesNotMatch(html, /id="mobileInspectionStatusFilter"/);
 assert.match(html, /function renderMobileStockEditPanel\(/);
 assert.match(html, /id="mobileStockSourceList"/);
 assert.doesNotMatch(html, /id="mobileStockImport"/);

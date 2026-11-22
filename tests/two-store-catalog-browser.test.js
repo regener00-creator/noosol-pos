@@ -180,25 +180,21 @@ async function verifyMobileInspectionStoreIsolation(page){
   for(const [store,own,other,pid] of [[1,'A','B',11],[2,'B','A',12]]){
     await page.evaluate(store=>{selectActiveWarehouse(store);render();},store);
     const list=page.locator('#mobileInspectionList');
-    const filter=page.locator('#mobileInspectionStatusFilter');
-    assert.equal(await filter.inputValue(),'pending');
-    await filter.selectOption('completed');
+    assert.equal(await page.locator('#mobileInspectionStatusFilter').count(),0);
+    assert.equal(await page.getByText('รอยืนยัน',{exact:true}).count(),0);
     if(store===2){
       await list.click();
+      await page.locator('[data-import-inspection-list="closed"]').click();
       assert.equal(await list.getAttribute('value'),'closed');
-      assert.equal(await page.locator('.mobile-inspection-complete').innerText(),'บันทึกแล้ว');
       assert.equal(await page.locator('#mobileContinueToStock, #mobileDeleteInspectionList, #mobileInspectionAddToggle').count(),0);
-    }else assert.equal(await list.count(),0);
-    await filter.selectOption('all');
-    assert.equal(await list.count(),1);
-    await filter.selectOption('pending');
+    }
     page.once('dialog',dialog=>dialog.accept('ทดสอบสร้างรายการ'));
     await page.getByRole('button',{name:'สร้างรายการตรวจสินค้า',exact:true}).click();
     assert.equal(await page.locator('.mobile-draft-head b').innerText(),'ทดสอบสร้างรายการ');
     await page.locator('#mobileCancelInspectionDraft').click();
     await list.click();
-    assert.deepEqual(await page.locator('[data-import-inspection-list]').evaluateAll(rows=>rows.map(row=>row.dataset.importInspectionList)),store===1?['A','legacy']:[]);
-    if(store===1) await page.locator(`[data-import-inspection-list="${own}"]`).click();
+    assert.deepEqual(await page.locator('[data-import-inspection-list]').evaluateAll(rows=>rows.map(row=>row.dataset.importInspectionList)),store===1?['A','legacy']:['B','closed']);
+    await page.locator(`[data-import-inspection-list="${own}"]`).click();
     assert.equal(await page.evaluate(()=>mobileInspectionOpenedListId),own);
     const addButton=page.getByRole('button',{name:'+ เพิ่มสินค้าในรายการ',exact:true});
     const editButton=page.getByRole('button',{name:'แก้ไขสต็อก (0)',exact:true});

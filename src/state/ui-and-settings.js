@@ -63,7 +63,6 @@ let mobileDataStatusMessage = '';
 let mobileLastRefreshAt = 0;
 let mobileRefreshPromise = null;
 let mobileInspectionListId = '';
-let mobileInspectionStatusFilter = 'pending';
 let mobileInspectionOpenedListId = '';
 let mobileInspectionQuery = '';
 let mobileInspectionVisibleCount = 25;
@@ -88,7 +87,6 @@ let mobileScanSoundUnlockAttached=false;
 let mobileCameraSession=null;
 let mobileZxingLoadPromise=null;
 function prepareMobileLandingPage(){
-  mobileInspectionStatusFilter='pending';
   mobileProductEditor=null;
   editingProductId=null;
   mobileToolMode='price';

@@ -280,7 +280,7 @@ assert.match(html, /data-inspection-list-page/);
 assert.match(html, /INSPECTION_LIST_PAGE_SIZE = 10/);
 assert.doesNotMatch(html, /!filter\.wh\|\|String\(product\.wh\)===String\(filter\.wh\)/);
 assert.match(html, /warehouseStock\(product\.id,inspectionListDraft\?\.warehouseId/);
-assert.match(html, /mobile-inspection-complete/);
+assert.doesNotMatch(html, /mobile-inspection-complete/);
 assert.match(html, /แก้ไขจำนวนเรียบร้อย/);
 assert.match(html, /data-inspection-list-select/);
 assert.match(html, /inspectionListOverviewSelectedIds/);
