@@ -192,14 +192,6 @@ function attachEvents(){
   attachProductCategorySettingsEvents();
   attachProductResultEvents();
   attachReceiptPrinterEvents();
-  document.getElementById('mobilePromotionLabels')?.addEventListener('click',()=>{
-    if(!canAccessTab('barcodeprint'))return;
-    closeMobileCameraScanner();
-    currentTab='barcodeprint';barcodePrintShowMenu=true;render();
-  });
-  document.getElementById('mobilePromotionBack')?.addEventListener('click',()=>{
-    resetPriceLabelDesignerPage();currentTab='mobiletools';render();
-  });
   if(currentTab==='mobiletools'){
     prepareMobileScanSound();
     prepareMobileScanErrorSound();

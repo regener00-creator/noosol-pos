@@ -58,8 +58,6 @@ function syncTopbarFormActions(){
   if(!slot) return;
   const main=document.getElementById('main');
   if(!main) return;
-  // Mobile has no visible topbar: keep label actions in the page.
-  if(currentTab==='barcodeprint'&&isMobileDeviceMode())return;
   renderSyncStatusChip();
   const syncChip=document.getElementById('syncStatusChip');
   if(syncChip) syncChip.onclick=()=>openSyncDetailsModal();
