@@ -407,11 +407,10 @@ let browser;
     await page.evaluate(w=>{
       activeWarehouseId=w;storeViewGeneration++;cashBillPageCache=null;window.manualRows=[];
       const make=(suffix,date,warehouseId=w)=>({id:'D-'+suffix,number:'D-'+suffix,date,warehouseId,items:[{name:'Fixture-'+suffix,qty:1}],supplier:'QA',customer:'QA',total:10});
-      const docs=[make('TODAY',TODAY_STR),make('FIRST','2020-03-02'),make('LAST','2020-03-28'),make('OTHER','2020-03-10',w===1?2:1)];
+      const docs=[make('LAST','2020-03-28'),make('OTHER','2020-03-10',w===1?2:1),make('3','2020-03-02'),make('12','2020-03-02'),make('2',TODAY_STR),make('10',TODAY_STR)];
       purchaseOrders=docs;goodsReceipts=docs;productReturns=docs;productExchanges=docs.map(d=>({...d,outgoingItems:d.items}));
-      const salesDocs=docs.slice(2).concat(make('3','2020-03-02'),make('12','2020-03-02'),make('2',TODAY_STR),make('10',TODAY_STR));
-      quotations=salesDocs;standaloneTaxInvoices=salesDocs;
-      salesHistory=salesDocs.map(d=>({...d,status:'done',cashReceiptA4Meta:{number:d.number,saleDate:d.date}}));
+      quotations=docs;standaloneTaxInvoices=docs;
+      salesHistory=docs.map(d=>({...d,status:'done',cashReceiptA4Meta:{number:d.number,saleDate:d.date}}));
       for(const key of Object.keys(documentPeriods))delete documentPeriods[key];
     },store);
     for(const tab of ['purchaseorder','goodsreceipt','productreturn','productexchange','quotation','taxinvoice','cashbill']){
@@ -434,40 +433,43 @@ let browser;
       const isSalesDocument=['quotation','taxinvoice','cashbill'].includes(tab);
       assert.equal(await period.inputValue(),isSalesDocument?'all':'today');
       assert.equal(await period.locator('option').first().innerText(),isSalesDocument?'ทั้งหมด':'วันนี้');
-      const numbers=rows.locator('td:first-child'),marchOrder=['D-LAST','D-12','D-3'];
-      assert.equal(await rows.count(),isSalesDocument?5:1);
+      const documentNumbers=()=>{
+        if(tab==='purchaseorder')return rows.locator('[data-act="editpo"]').evaluateAll(buttons=>buttons.map(b=>b.dataset.id));
+        return rows.evaluateAll(list=>list.map(row=>row.querySelector('td.mono').textContent.trim()));
+      };
+      const marchOrder=['D-LAST','D-12','D-3'],todayOrder=['D-10','D-2'];
+      if(!isSalesDocument)assert.deepEqual(await documentNumbers(),todayOrder,tab+' today');
+      else assert.equal(await rows.count(),5,tab+' all');
       await period.selectOption('selectmonth');
       await checkHeading();
       await page.locator('[data-document-period="month"]').fill('2020-03');
-      if(isSalesDocument){
-        assert.deepEqual(await numbers.allInnerTexts(),marchOrder,tab+' month');
-        await page.locator('[data-doc-sort="'+tab+':number"]').click();
-      }else assert.equal(await rows.count(),2,tab+' month and store');
+      assert.deepEqual(await documentNumbers(),marchOrder,tab+' month');
+      const alternateSort=page.locator(isSalesDocument?'[data-doc-sort="'+tab+':number"]':'[data-doc-sort$=":supplier"]');
+      await alternateSort.click();
       await period.selectOption('selectyear');
       await checkHeading();
       await page.locator('[data-document-period="year"]').fill('2020');
       await page.locator('[data-document-period="year"]').press('Tab');
+      assert.deepEqual(await documentNumbers(),marchOrder,tab+' year');
       if(isSalesDocument){
-        assert.deepEqual(await numbers.allInnerTexts(),marchOrder,tab+' year');
         for(const key of ['date','number']){
           const sort=page.locator('[data-doc-sort="'+tab+':'+key+'"]');
           await sort.click();const first=await rows.first().innerText();
           await sort.click();assert.notEqual(await rows.first().innerText(),first,tab+' sort '+key);
         }
-      }else assert.equal(await rows.count(),2,tab+' year');
+      }
       await period.selectOption('range');
       await checkHeading();
       await page.locator('[data-document-period="from"]').fill('2020-03-01');
       await page.locator('[data-document-period="to"]').fill('2020-03-02');
-      assert.equal(await rows.count(),isSalesDocument?2:1,tab+' range');
+      assert.deepEqual(await documentNumbers(),['D-12','D-3'],tab+' range');
       assert.doesNotMatch((await rows.allInnerTexts()).join('\n'),/D-LAST|Fixture-LAST|D-OTHER/);
+      await alternateSort.click();
+      await page.locator('[data-document-period="to"]').fill('2020-03-28');
+      assert.deepEqual(await documentNumbers(),marchOrder,tab+' changed range');
       if(isSalesDocument){
-        assert.deepEqual(await numbers.allInnerTexts(),['D-12','D-3'],tab+' range');
-        await page.locator('[data-doc-sort="'+tab+':number"]').click();
-        await page.locator('[data-document-period="to"]').fill('2020-03-28');
-        assert.deepEqual(await numbers.allInnerTexts(),marchOrder,tab+' changed range');
         await period.selectOption('all');
-        assert.deepEqual(await numbers.allInnerTexts(),['D-10','D-2',...marchOrder],tab+' newest first');
+        assert.deepEqual(await documentNumbers(),[...todayOrder,...marchOrder],tab+' newest first');
         assert.doesNotMatch((await rows.allInnerTexts()).join('\n'),/D-OTHER/);
       }
     }

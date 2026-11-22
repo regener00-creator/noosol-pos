@@ -219,7 +219,7 @@ function documentPeriodToolbar(kind,filterOverride=null,rangeOverride=null){
   return `<div class="document-period-toolbar" data-document-kind="${kind}"><select class="rpt-select" data-document-period="period" aria-label="ช่วงเวลา">${options.map(([key,label])=>`<option value="${key}" ${f.period===key?'selected':''}>${label}</option>`).join('')}</select>
     ${fields?`<div class="document-period-fields">${fields}</div>`:''}</div>`;
 }
-const salesDocumentNumberOrder=new Intl.Collator('en',{numeric:true});
+const documentNumberOrder=new Intl.Collator('en',{numeric:true});
 function newestSalesDocumentsFirst(kind){
   const sort=documentSort[kind];
   return sort.key==='date'&&sort.dir===-1;
@@ -231,7 +231,7 @@ function salesDocumentList(rows,kind,dateOf,numberOf){
   return rows.filter(row=>dateOf(row)>=range.from&&dateOf(row)<=range.to).sort((a,b)=>{
     if(sort.key==='number')return sort.dir*compare(numberOf(a),numberOf(b));
     return sort.dir*compare(dateOf(a),dateOf(b))||(newestFirst
-      ?salesDocumentNumberOrder.compare(numberOf(b),numberOf(a)):compare(numberOf(a),numberOf(b)));
+      ?documentNumberOrder.compare(numberOf(b),numberOf(a)):compare(numberOf(a),numberOf(b)));
   });
 }
 function documentSortHeader(kind,key,label){
@@ -248,7 +248,11 @@ function sortedDocuments(list,kind){
   list=list.filter(doc=>documentInActiveStore(doc)&&doc.date>=range.from&&doc.date<=range.to);
   const sort=documentSort[kind];
   const value=(doc,key)=>key==='due'?documentDueDate(doc):key==='total'?Number(doc.total)||0:key==='elapsed'?elapsedDaysSince(doc.date):String(doc[key]||'').toLowerCase();
-  return list.slice().sort((a,b)=>{ const av=value(a,sort.key),bv=value(b,sort.key); if(typeof av==='number') return (av-bv)*sort.dir; return av.localeCompare(bv,'th')*sort.dir; });
+  return list.sort((a,b)=>{
+    const av=value(a,sort.key),bv=value(b,sort.key);
+    if(sort.key==='date'&&av===bv)return documentNumberOrder.compare(a.id,b.id)*sort.dir;
+    return (typeof av==='number'?av-bv:av.localeCompare(bv,'th'))*sort.dir;
+  });
 }
 function elapsedDaysSince(dateStr){ return Math.max(0,-daysFromToday(dateStr)); }
 function expandableDocumentItemRows(items){

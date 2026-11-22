@@ -2171,7 +2171,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     if(kind==='inventorymovement'){ updateInventoryMovementPeriod(key,input.value); return; }
     const filter=documentPeriods[kind]||={period:defaultDocumentPeriod(kind)};
     filter[key]=input.value;
-    if(isSalesDocumentKind(kind))documentSort[kind]={key:'date',dir:-1};
+    if(documentSort[kind])documentSort[kind]={key:'date',dir:-1};
     if(key==='from'&&input.value>documentPeriodRange(kind).to)filter.to=input.value;
     if(key==='to'&&input.value<documentPeriodRange(kind).from)filter.from=input.value;
     if(kind==='rvoid') voidReportFilter.page=1;
