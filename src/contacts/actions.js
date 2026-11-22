@@ -155,7 +155,7 @@ async function saveCustomerPricing({root=document,customerId=editingCustomerPric
     console.warn('save customer pricing',error);
     rememberSyncUiError(error,{operation:'save_customer_pricing',tableName:'contacts',recordId:customer.id,fallbackMessage:'บันทึกราคาพิเศษไม่สำเร็จ'});
     showToast('บันทึกราคาพิเศษขึ้นระบบไม่สำเร็จ กรุณาลองอีกครั้ง','danger-top');
-    if(saveButton){ saveButton.disabled=false; saveButton.textContent='บันทึกราคาพิเศษ'; }
+    if(saveButton){ saveButton.disabled=false; saveButton.textContent='บันทึก'; }
   }
 }
 

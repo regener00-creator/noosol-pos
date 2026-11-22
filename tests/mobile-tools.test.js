@@ -90,7 +90,7 @@ assert.match(html, /data-mobile-inspection-add-result=/);
 assert.match(html, /data-mobile-inspection-add-remove=/);
 assert.match(html, /function addProductToMobileInspectionSavedDraft\(/);
 assert.match(html, /async function saveMobileInspectionSavedAdd\(/);
-assert.match(html, /บันทึกสินค้าที่เพิ่ม \(\$\{count\}\)/);
+assert.match(html, /id="mobileInspectionAddSave"[^\n]+mobileIsOnline\(\)\?'บันทึก':'ออฟไลน์/);
 assert.match(html, /openMobileCameraScanner\(mobileHandleInspectionCode,\{continuous:true,hostId:'mobileInspectionAddCameraSlot',buttonId:'mobileInspectionAddCamera'\}\)/);
 assert.match(html, /function mobileInspectionVisibleLists\(\)/);
 assert.doesNotMatch(html, /id="mobileInspectionStatusFilter"/);

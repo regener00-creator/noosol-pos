@@ -50,7 +50,7 @@ function openMedicineLabelEditor(lineId){
         </fieldset>
       </div>
       <div class="medicine-label-safety">เภสัชกรต้องตรวจสอบชื่อยา ขนาดต่อครั้ง หน่วย ระยะเวลา ช่วงรับประทานหรือความถี่เป็นชั่วโมง/นาที และคำเตือนก่อนพิมพ์ ระบบจะไม่กำหนดวิธีใช้ยาให้เอง</div>
-      <div class="medicine-label-actions">${existing?'<button class="btn ghost" type="button" id="removeMedicineLabelBtn">นำฉลากออก</button>':''}<button class="btn ghost" type="button" id="cancelMedicineLabelBtn">ยกเลิก</button><button class="btn primary" type="submit">บันทึกฉลากยา</button></div>
+      <div class="medicine-label-actions">${existing?'<button class="btn ghost" type="button" id="removeMedicineLabelBtn">นำฉลากออก</button>':''}<button class="btn ghost" type="button" id="cancelMedicineLabelBtn">ยกเลิก</button><button class="btn primary" type="submit">บันทึก</button></div>
     </form></div>`;
   document.body.appendChild(overlay);
   let doseUnitPopup=null,warningPresetPopup=null;

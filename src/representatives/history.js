@@ -366,7 +366,7 @@ function representativeNoteEditorPanelHtml({draft,selected,noteNumber,canCreate}
     <div class="representative-note-inline-fields"><div class="note-editor-heading"><label for="repActivityTitle">NOTE ${noteNumber}</label><input id="repActivityTitle" maxlength="160" autocomplete="off" value="${escapeHtml(draft.title||'')}" ${canEdit?'':'readonly'} placeholder="ตั้งชื่อโน้ต"></div><div class="note-editor-heading"><label for="repActivityEventDate">วันที่</label>${dmyDateFieldHtml('repActivityEventDate',draft.eventDate||TODAY_STR,{readonly:!canEdit,extraClass:'representative-note-date-input'})}</div></div>
     <div class="note-toolbar representative-note-toolbar" role="toolbar" aria-label="จัดรูปแบบข้อมูลเพิ่มเติม"><button type="button" data-representative-note-command="bold" title="ตัวหนา" aria-label="ตัวหนา" ${canEdit?'':'disabled'}><b>B</b></button><button type="button" data-representative-note-command="underline" title="ขีดเส้นใต้" aria-label="ขีดเส้นใต้" ${canEdit?'':'disabled'}><u>U</u></button><button type="button" data-representative-note-command="strikeThrough" title="ขีดฆ่า" aria-label="ขีดฆ่า" ${canEdit?'':'disabled'}><s>S</s></button><span class="note-toolbar-divider"></span><span class="note-color-label">สีข้อความ</span><span class="note-color-list">${NOTE_COLORS.map(([color,label])=>`<button type="button" class="note-color-swatch" data-representative-note-color="${color}" style="--note-color:${color}" title="${escapeHtml(label)}" aria-label="สี${escapeHtml(label)}" ${canEdit?'':'disabled'}></button>`).join('')}</span></div>
     <div id="repActivityContentEditor" class="note-content-editor representative-note-content-editor ${canEdit?'':'readonly'}" contenteditable="${canEdit?'true':'false'}" role="textbox" aria-multiline="true" data-placeholder="เขียนข้อความที่นี่…">${sanitizeNoteHtml(draft.contentHtml||'')}</div>
-    <div class="note-editor-footer"><span>${isNew?'โน้ตใหม่':`แก้ไขล่าสุด ${escapeHtml(noteUpdatedText(selected?.updatedAt))}`}</span><div>${canDelete?'<button class="btn danger" id="deleteRepresentativeNoteBtn" type="button">ลบโน้ต</button>':''}${canEdit?'<button class="btn primary" id="saveRepresentativeActivityBtn" type="submit">บันทึกโน้ต</button>':''}</div></div>
+    <div class="note-editor-footer"><span>${isNew?'โน้ตใหม่':`แก้ไขล่าสุด ${escapeHtml(noteUpdatedText(selected?.updatedAt))}`}</span><div>${canDelete?'<button class="btn danger" id="deleteRepresentativeNoteBtn" type="button">ลบโน้ต</button>':''}${canEdit?'<button class="btn primary" id="saveRepresentativeActivityBtn" type="submit">บันทึก</button>':''}</div></div>
   </form>`;
 }
 function openRepresentativeProductsEditor(representativeId){
@@ -633,7 +633,7 @@ async function saveRepresentativeActivity(event){
     await loadRepresentativeActivityHistory({force:true});
   }catch(error){
     showToast(error?.message||'บันทึกประวัติไม่สำเร็จ','danger-top');
-    if(button){ button.disabled=false; button.textContent='บันทึก NOTE'; }
+    if(button){ button.disabled=false; button.textContent='บันทึก'; }
   }
 }
 async function deleteRepresentativeActivity(id){

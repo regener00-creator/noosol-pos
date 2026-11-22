@@ -156,7 +156,7 @@ function renderPOForm(kind='po'){
         <div class="sumrow grand"><span>${kind==='gr'?'ยอดชำระสุทธิ':'จำนวนเงินรวมทั้งสิ้น'}</span><span class="mono" data-po-summary="total">${fmtMoney(tax.total)}</span></div>
       </div>
     </div>
-    <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePOBtn">บันทึกเอกสาร</button></div>`;
+    <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ย้อนกลับ</button><button class="btn primary" id="savePOBtn">บันทึก</button></div>`;
 }
 
 function documentProductScannerHtml(hideHint=['purchaseorder','goodsreceipt','productreturn','quotation'].includes(currentTab)){
@@ -281,7 +281,7 @@ function renderShortageOrderForm(po,isNew){
     <div class="shortage-section-head"><div class="shortage-section-title">รายการที่สั่ง</div><div class="shortage-column-toggles" aria-label="แสดงคอลัมน์ราคา"><label><input type="checkbox" data-shortage-price-column="sale" ${shortagePriceColumns.sale?'checked':''}> แสดงขาย</label>${canViewCost?`<label><input type="checkbox" data-shortage-price-column="cost" ${shortagePriceColumns.cost?'checked':''}> แสดงทุน</label><label><input type="checkbox" data-shortage-price-column="secret" ${shortagePriceColumns.secret?'checked':''}> โค้ดลับ</label>`:''}</div></div>
     <table class="grid-table po-items shortage-document-items ${shortagePriceColumns.sale?'shortage-show-sale':''} ${canViewCost&&shortagePriceColumns.cost?'shortage-show-cost':''}"><colgroup><col style="width:60px"><col style="width:125px"><col style="width:175px"><col><col class="shortage-item-sale" style="width:100px">${canViewCost?'<col class="shortage-item-cost" style="width:100px">':''}<col style="width:110px"><col style="width:180px"><col style="width:48px"></colgroup><thead><tr><th>ลำดับ</th><th>รหัสสินค้า</th><th>บาร์โค้ด</th><th>รายการ</th><th class="shortage-item-sale">ขาย</th>${canViewCost?'<th class="shortage-item-cost">ทุน</th>':''}<th class="mono">จำนวน</th><th>หน่วย</th><th></th></tr></thead><tbody id="poItemRows">${po.items.map((it,i)=>shortageItemRowHtml(it,i)).join('')}</tbody></table>
     <button class="btn ghost small" id="addPOItemBtn" style="margin-top:8px;">+ เพิ่มแถวรายการ</button>
-    <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePOBtn">บันทึกเอกสาร</button></div>`;
+    <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ย้อนกลับ</button><button class="btn primary" id="savePOBtn">บันทึก</button></div>`;
 }
 
 function renderProductReturnForm(po,isNew){
@@ -304,7 +304,7 @@ function renderProductReturnForm(po,isNew){
     <table class="grid-table po-items product-return-items document-centered-items"><thead><tr><th>ลำดับ</th><th>ชื่อสินค้า</th><th class="mono">จำนวน</th><th>หน่วย</th><th>Lot ที่คืน</th><th>วันหมดอายุ</th><th style="width:48px;"></th></tr></thead><tbody id="poItemRows">${po.items.map((it,i)=>productReturnItemRowHtml(it,i,po.warehouseId,locked)).join('')}</tbody></table>
     <button class="btn ghost small" id="addPOItemBtn" style="margin-top:8px;" ${locked?'disabled':''}>+ เพิ่มแถวรายการ</button>
     <div class="po-foot" style="grid-template-columns:minmax(0,1fr);"><div class="po-foot-left"><div class="crow"><label>หมายเหตุ</label><textarea id="po_note" rows="3">${escapeHtml(po.note||'')}</textarea></div></div></div>
-    <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ปิดหน้าต่าง</button><button class="btn primary" id="savePOBtn">บันทึกเอกสาร</button></div>`;
+    <div class="form-bottom-actions form-final-actions"><button class="btn ghost" id="cancelPOBtn">ย้อนกลับ</button><button class="btn primary" id="savePOBtn">บันทึก</button></div>`;
 }
 
 function shortageCostText(value){
@@ -457,7 +457,7 @@ function poSupplierEditorHtml(s){
       <div><label>เครดิต (วัน)</label><input id="po_sup_credit" type="number" min="0" value="${escapeHtml(s.creditDays||'')}"></div>
       <div class="wide"><label>ที่อยู่</label><textarea id="po_sup_address" rows="2">${escapeHtml(s.address||'')}</textarea></div>
     </div>
-    <div class="po-supplier-edit-actions"><button class="btn ghost small" id="cancelPOSupplierEditBtn" type="button">ยกเลิก</button><button class="btn primary small" id="savePOSupplierEditBtn" type="button">บันทึกข้อมูลผู้จำหน่าย</button></div>
+    <div class="po-supplier-edit-actions"><button class="btn ghost small" id="cancelPOSupplierEditBtn" type="button">ยกเลิก</button><button class="btn primary small" id="savePOSupplierEditBtn" type="button">บันทึก</button></div>
   </div>`;
 }
 

@@ -217,7 +217,7 @@ function renderCustomerPricingForm(customerId=editingCustomerPriceContactId,allo
   const customerPrices=normalizedCustomerPriceRules(customer).filter(rule=>visibleProductIds.has(rule.productId));
   return `<div class="rpt customer-pricing-page">
     <div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › ราคาพิเศษ</div><h1>ราคาพิเศษสำหรับลูกค้ารายนี้ <span class="page-title-meta">· ${escapeHtml(customer.name)}</span></h1></div>
-      <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelCustomerPricingBtn">ย้อนกลับ</button><button class="btn primary" id="saveCustomerPricingBtn">บันทึกราคาพิเศษ</button></div>
+      <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelCustomerPricingBtn">ย้อนกลับ</button><button class="btn primary" id="saveCustomerPricingBtn">บันทึก</button></div>
     </div>
     <div class="panel customer-pricing-panel">
       <div class="customer-pricing-heading"><div><h3>รายการสินค้า</h3><p>ค้นหาหรือยิงบาร์โค้ดเพื่อเพิ่มสินค้า ราคานี้จะไม่ซ้อนโปรโมชั่นทั่วไป และไม่มีผลกับราคาหน้าร้านหรือตัวเลขในบิลเก่า</p></div></div>

@@ -507,7 +507,7 @@ async function savePurchaseDraft(silent=false){
     }catch(error){
       console.warn('save goods receipt',error);
       if(saveButton) saveButton.disabled=false;
-      const message=error?.code==='23505'?'เลขที่ใบรับสินค้านี้ถูกใช้งานแล้ว กรุณาปิดหน้าต่างและสร้างเอกสารใหม่':(error?.message||'กรุณาตรวจการเชื่อมต่อแล้วลองใหม่');
+      const message=error?.code==='23505'?'เลขที่ใบรับสินค้านี้ถูกใช้งานแล้ว กรุณาย้อนกลับแล้วสร้างเอกสารใหม่':(error?.message||'กรุณาตรวจการเชื่อมต่อแล้วลองใหม่');
       showToast(`บันทึกใบรับสินค้าไม่สำเร็จ: ${message}`,'danger-top');
       return false;
     }

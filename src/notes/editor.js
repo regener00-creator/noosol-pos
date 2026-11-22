@@ -167,7 +167,7 @@ function renderNotes(){
     ${loggedInUser()?.owner===true?`<label class="note-visibility-option"><input id="noteHiddenFromLevel2" type="checkbox" ${draft.hiddenFromLevel2?'checked':''} ${canEdit?'':'disabled'}><span><b>ซ่อนโน้ตนี้จาก LEVEL 2</b><small>ผู้ใช้งาน LEVEL 2 จะไม่สามารถเห็นโน้ตนี้ได้</small></span></label>`:''}
     <div class="note-editor-footer">
       <span>${selected?`แก้ไขล่าสุด ${escapeHtml(noteUpdatedText(selected.updatedAt))}`:'โน้ตใหม่'}</span>
-      <div>${canDelete?'<button class="btn danger" id="deleteNoteBtn" type="button">ลบโน้ต</button>':''}${canEdit?'<button class="btn primary" id="saveNoteBtn" type="submit">บันทึกโน้ต</button>':''}</div>
+      <div>${canDelete?'<button class="btn danger" id="deleteNoteBtn" type="button">ลบโน้ต</button>':''}${canEdit?'<button class="btn primary" id="saveNoteBtn" type="submit">บันทึก</button>':''}</div>
     </div>
   </form>`:`<div class="note-empty-editor"><div class="note-empty-icon">NOTE</div><h2>เลือกโน้ตที่ต้องการเปิด</h2><p>หรือสร้างโน้ตใหม่เพื่อจดข้อความที่ต้องการ</p>${canCreate?'<button class="btn primary" id="emptyAddNoteBtn" type="button">+ เพิ่มโน้ต</button>':''}</div>`;
   return `<div class="notes-page">
@@ -222,7 +222,7 @@ async function saveNote(event){
     render();
   }catch(error){
     showToast(error?.message||'บันทึกโน้ตไม่สำเร็จ','danger');
-    if(button){ button.disabled=false; button.textContent='บันทึกโน้ต'; }
+    if(button){ button.disabled=false; button.textContent='บันทึก'; }
   }
 }
 function standaloneNoteInStore(query,store){

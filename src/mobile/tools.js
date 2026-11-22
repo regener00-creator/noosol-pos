@@ -342,7 +342,7 @@ function mobilePriceResultHtml(){
     <div class="mobile-price-review-colors" role="group" aria-label="สีสถานะสินค้า">
       ${[['normal','สีปกติ'],['pending','สีเหลือง'],['complete','สีเขียว']].map(([value,label])=>`<button type="button" class="product-review-filter" data-mobile-review-status="${value}" aria-pressed="${(productDataReviewStatus(product)||'normal')===value}"><span class="product-review-filter-dot" aria-hidden="true"></span>${label}</button>`).join('')}
     </div>
-    <button type="button" class="mobile-price-edit-save" id="mobilePriceSaveChanges" ${mobileIsOnline()?'':'disabled'} hidden>${mobileIsOnline()?'บันทึกการแก้ไข':'ออฟไลน์ — ยังบันทึกไม่ได้'}</button><div class="mobile-price-edit-status" id="mobilePriceEditStatus"></div>`:`<div class="mobile-metrics">
+    <button type="button" class="mobile-price-edit-save" id="mobilePriceSaveChanges" ${mobileIsOnline()?'':'disabled'} hidden>${mobileIsOnline()?'บันทึก':'ออฟไลน์ — ยังบันทึกไม่ได้'}</button><div class="mobile-price-edit-status" id="mobilePriceEditStatus"></div>`:`<div class="mobile-metrics">
       <div class="mobile-metric"><span>ขาย</span><b id="mobilePriceSale">${fmtMoney(selected?.price||0)} บาท</b></div>
       ${canViewCost?`<div class="mobile-metric"><span>ทุน</span><b id="mobilePriceCost">${fmtMoney(selected?.cost||0)} บาท</b></div>`:''}
       ${unitField}
@@ -422,7 +422,7 @@ async function saveMobilePriceChanges(){
     return false;
   }finally{
     reviewButtons.forEach(btn=>{ if(btn.isConnected) btn.disabled=false; });
-    if(button?.isConnected){ button.disabled=!mobileIsOnline(); button.textContent=mobileIsOnline()?'บันทึกการแก้ไข':'ออฟไลน์ — ยังบันทึกไม่ได้'; }
+    if(button?.isConnected){ button.disabled=!mobileIsOnline(); button.textContent=mobileIsOnline()?'บันทึก':'ออฟไลน์ — ยังบันทึกไม่ได้'; }
   }
 }
 function mobileInspectionVisibleLists(){
@@ -598,7 +598,7 @@ function mobileInspectionDraftHtml(){
   if(!inspectionListDraft) return '<div class="mobile-empty">ไม่พบร่างรายการ กรุณากดสร้างรายการใหม่</div>';
   const matches=String(mobileInspectionQuery||'').trim()?mobileInspectionDraftMatches(mobileInspectionQuery):[];
   const count=inspectionListDraft.items.length;
-  return `<section class="mobile-tool-panel"><div class="mobile-draft-head"><div><b>${escapeHtml(inspectionListDraft.name)}</b></div><button type="button" class="mobile-inspection-remove" id="mobileCancelInspectionDraft" aria-label="ทิ้งร่างรายการตรวจสินค้า"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button></div>${mobileInspectionScannerHtml()}${matches.length?`<div class="mobile-draft-results">${matches.map(({product,unitName,barcode})=>`<button type="button" class="mobile-draft-result" data-mobile-draft-add="${product.id}" data-unit="${escapeHtml(unitName)}"><b>${escapeHtml(product.name)}</b><span>รหัส ${escapeHtml(product.sku||'-')} · บาร์โค้ด ${escapeHtml(barcode||'-')} · ${escapeHtml(unitName)}</span></button>`).join('')}</div>`:''}${mobileInspectionDraftRowsHtml()}<div class="mobile-draft-save-wrap"><button type="button" class="mobile-draft-save" id="mobileSaveInspectionDraft" ${count&&mobileIsOnline()?'':'disabled'}>${mobileIsOnline()?`บันทึกรายการ (${count})`:'ออฟไลน์ — ยังบันทึกไม่ได้'}</button></div></section>`;
+  return `<section class="mobile-tool-panel"><div class="mobile-draft-head"><div><b>${escapeHtml(inspectionListDraft.name)}</b></div><button type="button" class="mobile-inspection-remove" id="mobileCancelInspectionDraft" aria-label="ทิ้งร่างรายการตรวจสินค้า"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button></div>${mobileInspectionScannerHtml()}${matches.length?`<div class="mobile-draft-results">${matches.map(({product,unitName,barcode})=>`<button type="button" class="mobile-draft-result" data-mobile-draft-add="${product.id}" data-unit="${escapeHtml(unitName)}"><b>${escapeHtml(product.name)}</b><span>รหัส ${escapeHtml(product.sku||'-')} · บาร์โค้ด ${escapeHtml(barcode||'-')} · ${escapeHtml(unitName)}</span></button>`).join('')}</div>`:''}${mobileInspectionDraftRowsHtml()}<div class="mobile-draft-save-wrap"><button type="button" class="mobile-draft-save" id="mobileSaveInspectionDraft" ${count&&mobileIsOnline()?'':'disabled'}>${mobileIsOnline()?'บันทึก':'ออฟไลน์ — ยังบันทึกไม่ได้'}</button></div></section>`;
 }
 function resetMobileInspectionSavedAdd(){
   mobileInspectionAddingToSaved=false;
@@ -621,7 +621,7 @@ function mobileInspectionSavedAddHtml(list){
   const query=String(mobileInspectionSavedAddQuery||'').trim();
   const matches=query?mobileInspectionSavedAddMatches(list,query):[];
   const count=mobileInspectionSavedAddItems.length;
-  return `<div class="mobile-inspection-add-box"><div class="mobile-inspection-add-summary"><span>เพิ่มสินค้าใหม่ ${count} รายการ</span><button type="button" class="mobile-inspection-add-close" id="mobileInspectionAddClose" aria-label="ปิดการเพิ่มสินค้า" title="ปิดการเพิ่มสินค้า"><span aria-hidden="true">×</span></button></div>${mobileInspectionScannerHtml('mobileInspectionAdd',mobileInspectionSavedAddQuery)}${matches.length?`<div class="mobile-draft-results">${matches.map(({product,unitName,barcode})=>`<button type="button" class="mobile-draft-result" data-mobile-inspection-add-result="${product.id}" data-unit="${escapeHtml(unitName)}"><b>${escapeHtml(product.name)}</b><span>รหัส ${escapeHtml(product.sku||'-')} · บาร์โค้ด ${escapeHtml(barcode||'-')} · ${escapeHtml(unitName)}</span></button>`).join('')}</div>`:''}${mobileInspectionSavedAddPendingHtml()}<button type="button" class="mobile-inspection-add-save" id="mobileInspectionAddSave" ${count&&mobileIsOnline()?'':'disabled'}>${mobileIsOnline()?`บันทึกสินค้าที่เพิ่ม (${count})`:'ออฟไลน์ — ยังบันทึกไม่ได้'}</button></div>`;
+  return `<div class="mobile-inspection-add-box"><div class="mobile-inspection-add-summary"><span>เพิ่มสินค้าใหม่ ${count} รายการ</span><button type="button" class="mobile-inspection-add-close" id="mobileInspectionAddClose" aria-label="ปิดการเพิ่มสินค้า" title="ปิดการเพิ่มสินค้า"><span aria-hidden="true">×</span></button></div>${mobileInspectionScannerHtml('mobileInspectionAdd',mobileInspectionSavedAddQuery)}${matches.length?`<div class="mobile-draft-results">${matches.map(({product,unitName,barcode})=>`<button type="button" class="mobile-draft-result" data-mobile-inspection-add-result="${product.id}" data-unit="${escapeHtml(unitName)}"><b>${escapeHtml(product.name)}</b><span>รหัส ${escapeHtml(product.sku||'-')} · บาร์โค้ด ${escapeHtml(barcode||'-')} · ${escapeHtml(unitName)}</span></button>`).join('')}</div>`:''}${mobileInspectionSavedAddPendingHtml()}<button type="button" class="mobile-inspection-add-save" id="mobileInspectionAddSave" ${count&&mobileIsOnline()?'':'disabled'}>${mobileIsOnline()?'บันทึก':'ออฟไลน์ — ยังบันทึกไม่ได้'}</button></div>`;
 }
 function renderMobileInspectionPanel(lists){
   if(mobileInspectionCreating) return mobileInspectionDraftHtml();

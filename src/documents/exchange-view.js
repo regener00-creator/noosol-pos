@@ -45,7 +45,7 @@ function renderProductExchangeForm(){
   const outgoingLocked=draft.outgoingApplied===true;
   const incomingLocked=draft.incomingApplied===true;
   const received=incomingLocked||draft.status==='รับสินค้ากลับแล้ว';
-  return `<div class="product-exchange-form"><div class="pagehead"><div><div class="breadcrumb">ซื้อ › เปลี่ยนสินค้า</div><h1>${escapeHtml(draft.id)}</h1></div><div class="form-final-actions product-exchange-form-actions"><button class="btn ghost" id="cancelProductExchangeBtn">ย้อนกลับ</button><button class="btn primary" id="saveProductExchangeBtn" ${received?'disabled':''}>บันทึกเอกสาร</button></div></div>
+  return `<div class="product-exchange-form"><div class="pagehead"><div><div class="breadcrumb">ซื้อ › เปลี่ยนสินค้า</div><h1>${escapeHtml(draft.id)}</h1></div><div class="form-final-actions product-exchange-form-actions"><button class="btn ghost" id="cancelProductExchangeBtn">ย้อนกลับ</button><button class="btn primary" id="saveProductExchangeBtn" ${received?'disabled':''}>บันทึก</button></div></div>
     <div class="product-exchange-status-note">สถานะ: <b>${escapeHtml(draft.status||'ร่าง')}</b>${received?' · ปิดการรับกลับและลงสต็อกแล้ว รายการถูกล็อกเพื่อป้องกันการบันทึกซ้ำ':''}</div>
     <div class="panel product-exchange-meta">
       <label>วันที่เอกสาร<input id="productExchangeDate" class="dmy-input" type="text" inputmode="numeric" maxlength="10" autocomplete="off" placeholder="วว/ดด/ปปปป" value="${escapeHtml(isoToDMY(draft.date||TODAY_STR))}" ${received?'disabled':''}></label>

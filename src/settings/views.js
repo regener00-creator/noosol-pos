@@ -10,7 +10,7 @@ function renderBusinessSettings(){
   return `<div class="settings-page business-settings-page" id="businessSettingsForm" data-warehouse-id="${Number(activeWarehouseId)}">
     <h2>รายละเอียดธุรกิจ · ${escapeHtml(whName(activeWarehouseId))}</h2>
     ${warehouseBusinessProfiles[activeWarehouseId]?'':'<p class="hint">บันทึกรายละเอียดธุรกิจที่จะใช้บนเอกสารของคลังนี้</p>'}
-    <div class="pagehead topbar-action-source"><div></div><div class="form-final-actions"><button class="btn primary" id="saveBusinessSettingsBtn">บันทึกข้อมูลธุรกิจ</button></div></div>
+    <div class="pagehead topbar-action-source"><div></div><div class="form-final-actions"><button class="btn primary" id="saveBusinessSettingsBtn">บันทึก</button></div></div>
     <div class="settings-section">
       <div class="business-form-row three-fields">
         <div class="settings-row"><label for="set_business_type">ประเภทธุรกิจ:</label><select id="set_business_type"><option ${b.type==='บริษัท'?'selected':''}>บริษัท</option><option ${b.type==='บุคคลธรรมดา'?'selected':''}>บุคคลธรรมดา</option><option ${b.type==='ห้างหุ้นส่วน'?'selected':''}>ห้างหุ้นส่วน</option></select></div>
@@ -204,7 +204,7 @@ function renderSystemSettings(){
       <div class="document-prefix-grid">
         ${DOCUMENT_PREFIX_FIELDS.map(field=>`<div class="document-prefix-field"><label for="doc_prefix_${field.key}">${escapeHtml(field.label)}</label><input id="doc_prefix_${field.key}" maxlength="8" autocomplete="off" value="${escapeHtml(documentPrefixes[field.key])}" aria-label="รหัสนำหน้า ${escapeHtml(field.label)}"></div>`).join('')}
       </div>
-      <div class="settings-actions"><button class="btn primary" id="saveDocumentPrefixesBtn">บันทึกรหัสนำหน้าเอกสาร</button></div>
+      <div class="settings-actions"><button class="btn primary" id="saveDocumentPrefixesBtn">บันทึก</button></div>
     </div>
     ${renderPosCommandBarcodeSection()}
     ${renderStoreBackupSection()}
@@ -262,7 +262,7 @@ function renderUserSettings(){
     </div>
     <div class="settings-section"><h2>ลายเซ็นอิเล็กทรอนิกส์</h2>
       <div class="settings-row"><label>แนบไฟล์ลายเซ็น:</label><div><label class="signature-drop" for="set_signature_file"><span>ลากและวางไฟล์ที่นี่</span><span>หรือ</span><span class="btn ghost">📎 แนบไฟล์ภาพ</span><input id="set_signature_file" type="file" accept="image/*"></label><div id="signatureFileName" style="margin-top:8px;color:var(--text-muted);">${escapeHtml(u.signatureName||'*ขนาดภาพที่แนะนำ 400×140 px และขนาดไม่เกิน 3MB')}</div></div></div>
-      <div class="settings-actions"><button class="btn primary" id="saveUserSettingsBtn">บันทึกข้อมูลส่วนตัว</button></div>
+      <div class="settings-actions"><button class="btn primary" id="saveUserSettingsBtn">บันทึก</button></div>
     </div></div>`;
 }
 
@@ -502,7 +502,7 @@ function renderAddSystemUser(){
   const warehouseOptions=warehouses.map(warehouse=>`<label class="system-user-warehouse-option"><input type="checkbox" data-system-user-warehouse value="${escapeHtml(warehouse.id)}" ${selectedWarehouseIds.has(Number(warehouse.id))?'checked':''}><span>${escapeHtml(warehouse.name)}</span></label>`).join('');
   const recoveryFields=user?.owner?`<div class="system-user-form-field wide"><label>คำถาม *</label><input id="new_user_recovery_question" type="text" maxlength="200" autocomplete="off" placeholder="เช่น ชื่อเล่นของคุณแม่คืออะไร" value="${escapeHtml(user.recoveryQuestion||'')}"><small class="system-user-warehouse-hint">ใช้คำถามที่เจ้าของร้านจำคำตอบได้ แต่บุคคลอื่นเดาได้ยาก</small></div>
       <div class="system-user-form-field wide"><label>คำตอบ *</label><div class="password-input-wrap"><input id="new_user_recovery_answer" type="password" maxlength="200" autocomplete="new-password" placeholder="${user.hasRecoveryAnswer?'เว้นว่างเพื่อใช้คำตอบเดิม':'กรอกคำตอบสำหรับรีเซ็ต Password'}">${passwordEyeButton('new_user_recovery_answer','คำตอบ')}</div><small class="system-user-warehouse-hint">ระบบจะไม่แสดงคำตอบเดิม หากเปลี่ยนคำถามต้องกรอกคำตอบใหม่ด้วย</small></div>`:'';
-  return `<div class="settings-page"><div class="pagehead"><div><div class="breadcrumb">ตั้งค่า › ผู้ใช้งานในระบบ › ${editing?'แก้ไขผู้ใช้งาน':'เพิ่มผู้ใช้งาน'}</div><h1>${editing?'แก้ไขผู้ใช้งาน':'เพิ่มผู้ใช้งาน'}</h1></div><div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelAddSystemUserBtn">ยกเลิก</button><button class="btn primary" id="saveSystemUserBtn">บันทึกผู้ใช้งาน</button></div></div>
+  return `<div class="settings-page"><div class="pagehead"><div><div class="breadcrumb">ตั้งค่า › ผู้ใช้งานในระบบ › ${editing?'แก้ไขผู้ใช้งาน':'เพิ่มผู้ใช้งาน'}</div><h1>${editing?'แก้ไขผู้ใช้งาน':'เพิ่มผู้ใช้งาน'}</h1></div><div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelAddSystemUserBtn">ยกเลิก</button><button class="btn primary" id="saveSystemUserBtn">บันทึก</button></div></div>
     <div class="panel"><div class="system-user-form-grid">
       <div class="system-user-form-field wide"><label>ID *</label><input id="new_user_id" type="text" autocomplete="off" placeholder="กำหนด ID สำหรับเข้าสู่ระบบ" value="${escapeHtml(user?.username||'')}" ${editing?'readonly title="เปลี่ยน ID ไม่ได้หลังสร้างบัญชีแล้ว"':''}></div>
       <div class="system-user-form-field"><label>${editing?'Password ใหม่':'Password *'}</label><div class="password-input-wrap"><input id="new_user_password" type="password" minlength="10" placeholder="${editing?'เว้นว่างเพื่อใช้ Password เดิม':'อย่างน้อย 10 ตัวอักษร มีตัวอักษรและตัวเลข'}">${passwordEyeButton('new_user_password')}</div></div>
