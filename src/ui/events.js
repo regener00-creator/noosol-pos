@@ -2169,7 +2169,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     if(!input.value||!input.checkValidity())return;
     if(kind==='auditlog'){ updateAuditLogPeriod(key,input.value); return; }
     if(kind==='inventorymovement'){ updateInventoryMovementPeriod(key,input.value); return; }
-    const filter=documentPeriods[kind]||={period:'today'};
+    const filter=documentPeriods[kind]||={period:defaultDocumentPeriod(kind)};
     filter[key]=input.value;
     if(key==='from'&&input.value>documentPeriodRange(kind).to)filter.to=input.value;
     if(key==='to'&&input.value<documentPeriodRange(kind).from)filter.from=input.value;

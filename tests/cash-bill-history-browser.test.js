@@ -428,8 +428,10 @@ let browser;
         assert.ok(aligned,tab+' title and right-aligned period at store '+store);
       };
       await checkHeading();
-      assert.equal(await period.inputValue(),'today');
-      assert.equal(await rows.count(),1);
+      const isSalesDocument=['quotation','taxinvoice','cashbill'].includes(tab);
+      assert.equal(await period.inputValue(),isSalesDocument?'all':'today');
+      assert.equal(await period.locator('option').first().innerText(),isSalesDocument?'ทั้งหมด':'วันนี้');
+      assert.equal(await rows.count(),isSalesDocument?3:1);
       await period.selectOption('selectmonth');
       await checkHeading();
       await page.locator('[data-document-period="month"]').fill('2020-03');
@@ -452,6 +454,11 @@ let browser;
       await page.locator('[data-document-period="to"]').fill('2020-03-02');
       assert.equal(await rows.count(),1,tab+' range');
       assert.doesNotMatch(await rows.innerText(),/D-LAST|Fixture-LAST|D-OTHER/);
+      if(isSalesDocument){
+        await period.selectOption('all');
+        assert.equal(await rows.count(),3);
+        assert.doesNotMatch((await rows.allInnerTexts()).join('\n'),/D-OTHER/);
+      }
     }
   }
   assert.deepEqual(errors,[]);

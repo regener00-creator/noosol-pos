@@ -196,12 +196,19 @@ function documentStatusControl(kind,doc){
   const canManage=canManageGoodsReceipt(doc);
   return `<select class="doc-status-select ${cls}" data-status-kind="gr" data-id="${escapeHtml(doc.id)}" ${canManage?'':'disabled title="ดูได้อย่างเดียว: ใบรับสินค้านี้สร้างโดยผู้ใช้งานอื่น"'}><option value="รอรับสินค้า" ${status==='รอรับสินค้า'?'selected':''}>รอรับสินค้า</option><option value="รับสินค้าแล้ว" ${status==='รับสินค้าแล้ว'?'selected':''}>รับสินค้าแล้ว</option><option value="ชำระเรียบร้อย" ${status==='ชำระเรียบร้อย'?'selected':''}>ชำระเรียบร้อย</option></select>`;
 }
+function defaultDocumentPeriod(kind){
+  return ['cashbill','taxinvoice','quotation'].includes(kind)?'all':'today';
+}
 function documentPeriodRange(kind){
-  return rbillPeriodRange(documentPeriods[kind]||{period:'today'});
+  const filter=documentPeriods[kind]||{period:defaultDocumentPeriod(kind)};
+  // Local lists and server requests share inclusive YYYY-MM-DD bounds.
+  if(filter.period==='all') return {from:'0001-01-01',to:'9999-12-31',label:'ทั้งหมด'};
+  return rbillPeriodRange(filter);
 }
 function documentPeriodToolbar(kind,filterOverride=null,rangeOverride=null){
-  const f=filterOverride||documentPeriods[kind]||{period:'today'},range=rangeOverride||documentPeriodRange(kind);
-  const options=[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
+  const defaultPeriod=defaultDocumentPeriod(kind);
+  const f=filterOverride||documentPeriods[kind]||{period:defaultPeriod},range=rangeOverride||documentPeriodRange(kind);
+  const options=[[defaultPeriod,defaultPeriod==='all'?'ทั้งหมด':'วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
   const input=(key,type,label,value,attrs='')=>`<label>${label} <input class="rpt-select" type="${type}" data-document-period="${key}" value="${escapeHtml(value)}" ${attrs}></label>`;
   const fields=f.period==='range'?input('from','date','ตั้งแต่',range.from)+input('to','date','ถึง',range.to)
     :f.period==='selectmonth'?`<input class="rpt-select" type="month" data-document-period="month" aria-label="เดือน" value="${escapeHtml(range.from.slice(0,7))}">`
