@@ -31,9 +31,9 @@ let browser;
       categories=['ยา'];brands=['ทดสอบ'];
       products=[
         {id:101,sku:'0001',barcode:'0012345678901',name:'Alpha ยาทดสอบ',unit:'เม็ด',price:240,cost:120.5,stock:237,active:true,units:[{sub:'กล่อง',factor:100},{sub:'แผง',factor:10}]},
-        {id:102,sku:'0002',barcode:'0012345678902',name:'Beta สินค้าหมด',unit:'ขวด',price:50,cost:30,stock:0,active:true,units:[]},
+        {id:102,sku:'0002',barcode:'0012345678902',name:'Beta สินค้าหมด',unit:'ขวด',price:50,cost:30,stock:0,active:true,units:[{sub:'เม็ด',factor:.01}]},
         {id:103,sku:'0003',barcode:'0012345678903',name:'Gamma ยอดติดลบ',unit:'กล่อง',price:100,cost:60,stock:-1.27,active:true,units:[{sub:'เม็ด',factor:.01},{sub:'แผง',factor:.1}]},
-        {id:104,sku:'0004',barcode:'0012345678904',name:'Delta สแกนเพิ่ม',unit:'ขวด',price:70,cost:40,stock:3,active:true,units:[]}
+        {id:104,sku:'0004',barcode:'0012345678904',name:'Delta สแกนเพิ่ม',unit:'ขวด',price:70,cost:40,stock:3,active:true,units:[{sub:'ลัง',factor:24},{sub:'กล่อง',factor:6}]}
       ];
       inventoryBalanceRows=products.flatMap(p=>[{product_id:p.id,warehouse_id:1,stock:p.stock},{product_id:p.id,warehouse_id:2,stock:3}]);
       rebuildInventoryBalanceMap();
@@ -88,9 +88,13 @@ let browser;
   await restock.click();
   assert.equal(await page.locator('#sidebar .navbtn.active').getAttribute('data-tab'),'rinventory');
   assert.equal(await restock.getAttribute('aria-pressed'),'true');
+  const restockTable=page.locator('.low-stock-report-table');
+  assert.equal(await restockTable.locator('td.num strong').innerText(),'0 ลัง 0 กล่อง 3 ขวด');
+  assert.equal(await restockTable.locator('th[data-lowsort="stock:unit"],tbody select').count(),0);
   await page.locator('[data-lowstock-mode="out"]').click();
   assert.match(await page.locator('.low-stock-report-table tbody').innerText(),/Beta สินค้าหมด/);
-  const restockTable=page.locator('.low-stock-report-table');
+  assert.equal(await restockTable.locator('td.num strong').innerText(),'0 ขวด 0 เม็ด');
+  assert.equal(await restockTable.locator('th[data-lowsort="stock:unit"],tbody select').count(),0);
   await checkTableLayout(restockTable);
   assert.deepEqual(await restockTable.locator('th:nth-child(-n+2)').allTextContents(),['รหัสสินค้า','บาร์โค้ดสินค้า']);
   assert.deepEqual(await restockTable.locator('tbody tr').first().locator('td:nth-child(-n+2)').allTextContents(),['0002','0012345678902']);

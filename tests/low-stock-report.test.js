@@ -19,7 +19,6 @@ const inventoryBalanceMap = new Map([
 ]);
 const context = {
   lowStockPageFilter:{stockWarehouse:'all',stockMode:'low',stockThreshold:50},
-  lowStockUnitSelection:{},
   activeWarehouseId:1,
   products,
   warehouses:[{id:1,name:'สำนักงานใหญ่'},{id:2,name:'สาขา'}],
@@ -43,17 +42,12 @@ assert.equal(context.inventoryReportDefaultWarehouseValue({level:2}),'2','Level 
 assert.equal(context.normalizeInventoryReportWarehouseValue('context',{level:2}),'2','ค่าเดิมตาม TOPBAR ต้องถูกแปลงเป็นเลขคลังจริง');
 context.activeWarehouseId=1;
 
-let rows = context.lowStockReportRows();
+const rows = context.lowStockReportRows();
 assert.equal(rows.length,4,'ต้องสร้างแถวสินค้า 2 ตัวแยกตาม 2 คลัง และไม่รวมบริการ');
 const mainRow=rows.find(row=>row.key==='1:1');
 assert.equal(mainRow.displayUnit,'ลัง','หน่วยใหญ่ที่สุดต้องเป็นค่าเริ่มต้น');
-assert.deepEqual(Array.from(mainRow.unitOptions,option=>option.factor),[100,10,1],'ตัวเลือกหน่วยต้องเรียงจากใหญ่ที่สุดไปเล็กที่สุด');
 assert.equal(mainRow.displayStock,0.3,'ต้องแปลงจำนวนคงเหลือตามหน่วยที่เลือก');
 
-context.lowStockUnitSelection[1]='กล่อง';
-rows=context.lowStockReportRows();
-assert.equal(rows.find(row=>row.key==='1:1').displayUnit,'กล่อง','ต้องจำหน่วยที่ผู้ใช้เลือกแยกตามสินค้า');
-assert.equal(rows.find(row=>row.key==='1:1').displayStock,3,'ต้องคำนวณจำนวนใหม่ตามหน่วยที่เลือก');
 assert.equal(context.lowStockReportRowMatches(rows.find(row=>row.key==='1:1')) ,true,'สินค้าเลขบวกที่ต่ำกว่าเกณฑ์ต้องอยู่ในก้อนใกล้หมด');
 assert.equal(context.lowStockReportRowMatches(rows.find(row=>row.key==='2:1')) ,false,'สินค้าที่สูงกว่าเกณฑ์ต้องไม่อยู่ในก้อนใกล้หมด');
 assert.equal(context.lowStockReportRowMatches(rows.find(row=>row.key==='1:2'),'out'),true,'สต็อกศูนย์ต้องอยู่เฉพาะก้อนสินค้าเป็นศูนย์');
@@ -75,7 +69,7 @@ assert.match(html,/LOW_STOCK_FILTER_STORAGE_KEY/,'ต้องจำเกณฑ
 assert.match(html,/data-lowstock-mode="negative"[\s\S]*lowStockWarehouseFilter/,'ตัวเลือกคลังต้องอยู่ต่อจากก้อนสินค้าติดลบ');
 assert.doesNotMatch(html,/low-stock-summary-stack/,'ตัวเลือกคลังต้องไม่ซ้อนอยู่เหนือก้อนสินค้าติดลบ');
 assert.match(html,/\.low-stock-filter-field select\{[^}]*appearance:none/,'ตัวเลือกคลังต้องใช้รูปแบบเฉพาะของหน้ารายงาน ไม่ใช้ select แบบดั้งเดิม');
-assert.match(html,/data-lowstock-unit="\$\{row\.productId\}"/,'ต้องเลือกหน่วยแสดงผลรายสินค้าได้');
+assert.doesNotMatch(html,/data-lowstock-unit=/,'ยอดคงเหลือแสดงทุกหน่วยในช่องเดียว');
 assert.doesNotMatch(html,/data-lowstock-threshold=/,'หน้ารายงานต้องไม่มีช่องแก้จุดสั่งซื้อขั้นต่ำ');
 assert.doesNotMatch(html,/id="createLowStockOrderBtn"/,'หน้ารายงานต้องไม่สร้างรายการสั่งของขาด');
 assert.doesNotMatch(html,/id="f_threshold"/,'หน้าสินค้าต้องไม่มีช่องจุดสั่งซื้อขั้นต่ำ');

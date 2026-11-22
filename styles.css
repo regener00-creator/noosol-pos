@@ -658,9 +658,6 @@
   .low-stock-report-table{min-width:960px;table-layout:fixed;}
   .low-stock-report-table .low-stock-product{text-align:left;}
   .low-stock-report-table .low-stock-product b{display:block;font-weight:600;}
-  .low-stock-report-table .low-stock-unit-select{width:150px;min-width:0;height:42px;margin:auto;padding:0 34px 0 12px;border:1px solid #D5E1E9;border-radius:10px;background-color:#F9FBFD;color:#52606F;font-family:inherit;font-size:13px;font-weight:600;text-align:center;cursor:pointer;box-shadow:0 2px 6px rgba(18,38,63,.04);}
-  .low-stock-report-table .low-stock-unit-select:hover{border-color:#CFB8AE;background:#fff;}
-  .low-stock-report-table .low-stock-unit-select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px #4F40381A;background:#fff;color:var(--primary);}
   .low-stock-report-table :is(tr.out,tr.negative) .badge{background:transparent;}
   @media(max-width:1200px){.low-stock-report-summary{grid-template-columns:repeat(2,minmax(0,1fr));}}
   @media(max-width:900px){.low-stock-report-summary{grid-template-columns:1fr}.low-stock-filter-field{width:100%}.low-stock-report-controls select{width:100%;max-width:none}.low-stock-report-controls .low-stock-control-spacer{display:none;}}

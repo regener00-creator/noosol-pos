@@ -1739,10 +1739,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     lowStockPageFilter.stockPage=1;
     render();
   });
-  document.querySelectorAll('[data-lowstock-unit]').forEach(select=>select.addEventListener('change',()=>{
-    lowStockUnitSelection[Number(select.dataset.lowstockUnit)]=select.value;
-    render();
-  }));
   document.querySelectorAll('[data-expiry-summary-mode]').forEach(el=>{
     el.addEventListener('click',()=>{
       lowStockPageFilter.expiryMode=el.dataset.expirySummaryMode||'near';

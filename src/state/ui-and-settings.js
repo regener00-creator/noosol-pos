@@ -18,7 +18,6 @@ try{ const savedThreshold=Number(localStorage.getItem(LOW_STOCK_FILTER_STORAGE_K
 let savedExpiryDays=90;
 try{ const savedDays=Number(localStorage.getItem(EXPIRY_DAYS_FILTER_STORAGE_KEY)); if(Number.isFinite(savedDays)&&savedDays>=1) savedExpiryDays=Math.floor(savedDays); }catch(error){}
 let lowStockPageFilter = { stockMode:'low', stockThreshold:savedLowStockThreshold, stockWarehouse:'context', expiryDays:savedExpiryDays, expiryMode:'near', expiryWarehouse:'context', stockPage:1, expiryPage:1 };
-let lowStockUnitSelection = {};
 function resetInventoryReportWarehouseFilters(){
   lowStockPageFilter.stockWarehouse='context';
   lowStockPageFilter.expiryWarehouse='context';
