@@ -196,8 +196,11 @@ function documentStatusControl(kind,doc){
   const canManage=canManageGoodsReceipt(doc);
   return `<select class="doc-status-select ${cls}" data-status-kind="gr" data-id="${escapeHtml(doc.id)}" ${canManage?'':'disabled title="ดูได้อย่างเดียว: ใบรับสินค้านี้สร้างโดยผู้ใช้งานอื่น"'}><option value="รอรับสินค้า" ${status==='รอรับสินค้า'?'selected':''}>รอรับสินค้า</option><option value="รับสินค้าแล้ว" ${status==='รับสินค้าแล้ว'?'selected':''}>รับสินค้าแล้ว</option><option value="ชำระเรียบร้อย" ${status==='ชำระเรียบร้อย'?'selected':''}>ชำระเรียบร้อย</option></select>`;
 }
+function isSalesDocumentKind(kind){
+  return ['cashbill','taxinvoice','quotation'].includes(kind);
+}
 function defaultDocumentPeriod(kind){
-  return ['cashbill','taxinvoice','quotation'].includes(kind)?'all':'today';
+  return isSalesDocumentKind(kind)?'all':'today';
 }
 function documentPeriodRange(kind){
   const filter=documentPeriods[kind]||{period:defaultDocumentPeriod(kind)};
@@ -219,7 +222,7 @@ function documentPeriodToolbar(kind,filterOverride=null,rangeOverride=null){
 const salesDocumentNumberOrder=new Intl.Collator('en',{numeric:true});
 function newestSalesDocumentsFirst(kind){
   const sort=documentSort[kind];
-  return (documentPeriods[kind]?.period||defaultDocumentPeriod(kind))==='all'&&sort.key==='date'&&sort.dir===-1;
+  return sort.key==='date'&&sort.dir===-1;
 }
 function salesDocumentList(rows,kind,dateOf,numberOf){
   const range=documentPeriodRange(kind),sort=documentSort[kind];

@@ -409,7 +409,7 @@ let browser;
       const make=(suffix,date,warehouseId=w)=>({id:'D-'+suffix,number:'D-'+suffix,date,warehouseId,items:[{name:'Fixture-'+suffix,qty:1}],supplier:'QA',customer:'QA',total:10});
       const docs=[make('TODAY',TODAY_STR),make('FIRST','2020-03-02'),make('LAST','2020-03-28'),make('OTHER','2020-03-10',w===1?2:1)];
       purchaseOrders=docs;goodsReceipts=docs;productReturns=docs;productExchanges=docs.map(d=>({...d,outgoingItems:d.items}));
-      const salesDocs=docs.slice(1).concat(make('2',TODAY_STR),make('10',TODAY_STR));
+      const salesDocs=docs.slice(2).concat(make('3','2020-03-02'),make('12','2020-03-02'),make('2',TODAY_STR),make('10',TODAY_STR));
       quotations=salesDocs;standaloneTaxInvoices=salesDocs;
       salesHistory=salesDocs.map(d=>({...d,status:'done',cashReceiptA4Meta:{number:d.number,saleDate:d.date}}));
       for(const key of Object.keys(documentPeriods))delete documentPeriods[key];
@@ -434,32 +434,40 @@ let browser;
       const isSalesDocument=['quotation','taxinvoice','cashbill'].includes(tab);
       assert.equal(await period.inputValue(),isSalesDocument?'all':'today');
       assert.equal(await period.locator('option').first().innerText(),isSalesDocument?'ทั้งหมด':'วันนี้');
-      assert.equal(await rows.count(),isSalesDocument?4:1);
+      const numbers=rows.locator('td:first-child'),marchOrder=['D-LAST','D-12','D-3'];
+      assert.equal(await rows.count(),isSalesDocument?5:1);
       await period.selectOption('selectmonth');
       await checkHeading();
       await page.locator('[data-document-period="month"]').fill('2020-03');
-      assert.equal(await rows.count(),2,tab+' month and store');
+      if(isSalesDocument){
+        assert.deepEqual(await numbers.allInnerTexts(),marchOrder,tab+' month');
+        await page.locator('[data-doc-sort="'+tab+':number"]').click();
+      }else assert.equal(await rows.count(),2,tab+' month and store');
       await period.selectOption('selectyear');
       await checkHeading();
       await page.locator('[data-document-period="year"]').fill('2020');
       await page.locator('[data-document-period="year"]').press('Tab');
-      assert.equal(await rows.count(),2,tab+' year');
-      if(['quotation','taxinvoice','cashbill'].includes(tab)){
+      if(isSalesDocument){
+        assert.deepEqual(await numbers.allInnerTexts(),marchOrder,tab+' year');
         for(const key of ['date','number']){
           const sort=page.locator('[data-doc-sort="'+tab+':'+key+'"]');
           await sort.click();const first=await rows.first().innerText();
           await sort.click();assert.notEqual(await rows.first().innerText(),first,tab+' sort '+key);
         }
-      }
+      }else assert.equal(await rows.count(),2,tab+' year');
       await period.selectOption('range');
       await checkHeading();
       await page.locator('[data-document-period="from"]').fill('2020-03-01');
       await page.locator('[data-document-period="to"]').fill('2020-03-02');
-      assert.equal(await rows.count(),1,tab+' range');
-      assert.doesNotMatch(await rows.innerText(),/D-LAST|Fixture-LAST|D-OTHER/);
+      assert.equal(await rows.count(),isSalesDocument?2:1,tab+' range');
+      assert.doesNotMatch((await rows.allInnerTexts()).join('\n'),/D-LAST|Fixture-LAST|D-OTHER/);
       if(isSalesDocument){
+        assert.deepEqual(await numbers.allInnerTexts(),['D-12','D-3'],tab+' range');
+        await page.locator('[data-doc-sort="'+tab+':number"]').click();
+        await page.locator('[data-document-period="to"]').fill('2020-03-28');
+        assert.deepEqual(await numbers.allInnerTexts(),marchOrder,tab+' changed range');
         await period.selectOption('all');
-        assert.deepEqual(await rows.locator('td:first-child').allInnerTexts(),['D-10','D-2','D-LAST','D-FIRST'],tab+' newest first');
+        assert.deepEqual(await numbers.allInnerTexts(),['D-10','D-2',...marchOrder],tab+' newest first');
         assert.doesNotMatch((await rows.allInnerTexts()).join('\n'),/D-OTHER/);
       }
     }
