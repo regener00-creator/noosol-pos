@@ -25,6 +25,13 @@ let browser;
         el.scrollIntoView({block:'center',inline:'center'});el.focus({preventScroll:true});
         const s=getComputedStyle(el),r=el.getBoundingClientRect(),ring=s.outlineStyle==='none'?0:Math.max(0,(parseFloat(s.outlineWidth)||0)+(parseFloat(s.outlineOffset)||0));
         if(s.outlineStyle!=='none'||s.boxShadow!=='none')found.push({field:el.id||el.className||el.tagName,outline:s.outlineStyle,shadow:s.boxShadow});
+        const scanner=el.closest('.doc-scanner,.customer-price-search');
+        if(scanner){
+          const frame=getComputedStyle(scanner);
+          if(frame.borderTopColor!=='rgb(226, 219, 215)'||frame.boxShadow!=='none'){
+            found.push({field:el.id,border:frame.borderTopColor,shadow:frame.boxShadow});
+          }
+        }
         if(!ring)continue;
         for(let p=el.parentElement;p&&p!==document.body;p=p.parentElement){
           const ps=getComputedStyle(p),pr=p.getBoundingClientRect(),left=pr.left+p.clientLeft,top=pr.top+p.clientTop,right=left+p.clientWidth,bottom=top+p.clientHeight;
@@ -93,5 +100,5 @@ let browser;
   }
   fs.mkdirSync(path.resolve(__dirname,'../outputs'),{recursive:true});fs.writeFileSync(path.resolve(__dirname,'../outputs/focus-outline-audit.json'),JSON.stringify({coverage,findings,errors},null,2));
   console.log(JSON.stringify({screens:coverage.length,fields:coverage.reduce((sum,row)=>sum+row.fields,0),findings},null,2));
-  assert.deepEqual(errors,[]);assert.deepEqual(findings,[],'focused controls must not show extra outlines or shadow rings');
+  assert.deepEqual(errors,[]);assert.deepEqual(findings,[],'focused controls must keep the neutral scanner borders and avoid extra outlines or shadow rings');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});
