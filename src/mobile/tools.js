@@ -634,7 +634,7 @@ function renderMobileInspectionPanel(lists){
       ${lists.length?`<span class="mobile-inspection-separator" aria-hidden="true">|</span>
       <button type="button" id="mobileInspectionList" class="mobile-inspection-select" value="${escapeHtml(current?.id||'')}" ${lists.length>1?'aria-haspopup="dialog"':''}>${escapeHtml(current?.name||'')} (${current?.items?.length||0})</button><button type="button" class="mobile-inspection-action mobile-inspection-remove" id="mobileDeleteInspectionList" aria-label="ลบบันทึก" title="ลบบันทึก" ${mobileIsOnline()?'':'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4h6v3m-9 0 1 14h10l1-14M10 11v6m4-6v6"/></svg></button>`:''}
     </div>
-    ${!current?'<div class="mobile-empty">ไม่มีรายการที่ต้องตรวจ</div>':!opened?'<div class="mobile-empty">แตะชื่อรายการเพื่อดูรายละเอียด</div>':
+    ${!current?'':!opened?'<div class="mobile-empty">แตะชื่อรายการเพื่อดูรายละเอียด</div>':
       `${mobileInspectionAddingToSaved?mobileInspectionSavedAddHtml(current):'<button type="button" class="mobile-inspection-add-toggle" id="mobileInspectionAddToggle">+ เพิ่มสินค้าในรายการ</button>'}<div id="mobileInspectionContent">${mobileInspectionContentHtml()}</div><button type="button" class="mobile-inspection-next" id="mobileContinueToStock">แก้ไขสต็อก (${progress.total})</button>`}</section>`;
 }
 function addProductToMobileInspectionSavedDraft(product,unitName=''){

@@ -244,8 +244,12 @@ async function verifyMobileInspectionStoreIsolation(page){
     render();
   });
   assert.equal(await page.locator('#mobileInspectionList').count(),0);
-  assert.equal(await page.getByText('ไม่มีรายการที่ต้องตรวจ',{exact:true}).isVisible(),true);
-  assert.equal(await page.locator('#mobileNewInspectionList').isVisible(),true);
+  const emptyPanel=page.locator('.mobile-tool-panel').filter({has:page.locator('#mobileNewInspectionList')});
+  assert.equal((await emptyPanel.innerText()).trim(),'+');
+  page.once('dialog',dialog=>dialog.accept('ตรวจรอบใหม่'));
+  await emptyPanel.getByRole('button',{name:'สร้างรายการตรวจสินค้า'}).click();
+  assert.equal(await page.locator('.mobile-draft-head b').innerText(),'ตรวจรอบใหม่');
+  await page.locator('#mobileCancelInspectionDraft').click();
 }
 async function verifyLastInspectionUnits(page){
   await page.setViewportSize({width:390,height:844});
