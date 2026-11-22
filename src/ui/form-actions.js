@@ -64,7 +64,7 @@ function syncTopbarFormActions(){
   const moveToTopbar=node=>{ if(node&&node!==slot&&!slot.contains(node)) slot.appendChild(node); };
   [...main.querySelectorAll('.form-final-actions')].forEach(moveToTopbar);
   [...main.querySelectorAll('.pagehead')].forEach(pagehead=>{
-    [...pagehead.children].slice(1).filter(node=>node.matches?.('button')||node.querySelector?.('button')).forEach(moveToTopbar);
+    [...pagehead.children].slice(1).filter(node=>!node.matches('.document-period-toolbar')&&(node.matches('button')||node.querySelector('button'))).forEach(moveToTopbar);
   });
   [...main.querySelectorAll('.rpt-head-actions')].forEach(moveToTopbar);
   [...main.querySelectorAll('button.btn')].filter(button=>button.textContent.trim()==='พิมพ์รายงาน').forEach(moveToTopbar);

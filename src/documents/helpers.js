@@ -196,28 +196,30 @@ function documentStatusControl(kind,doc){
   const canManage=canManageGoodsReceipt(doc);
   return `<select class="doc-status-select ${cls}" data-status-kind="gr" data-id="${escapeHtml(doc.id)}" ${canManage?'':'disabled title="ดูได้อย่างเดียว: ใบรับสินค้านี้สร้างโดยผู้ใช้งานอื่น"'}><option value="รอรับสินค้า" ${status==='รอรับสินค้า'?'selected':''}>รอรับสินค้า</option><option value="รับสินค้าแล้ว" ${status==='รับสินค้าแล้ว'?'selected':''}>รับสินค้าแล้ว</option><option value="ชำระเรียบร้อย" ${status==='ชำระเรียบร้อย'?'selected':''}>ชำระเรียบร้อย</option></select>`;
 }
-function isSalesDocumentKind(kind){
-  return ['cashbill','taxinvoice','quotation'].includes(kind);
-}
 function defaultDocumentPeriod(kind){
-  return isSalesDocumentKind(kind)?'all':'today';
+  return Object.values(documentPageKinds).includes(kind)?'month':'today';
 }
 function documentPeriodRange(kind){
   const filter=documentPeriods[kind]||{period:defaultDocumentPeriod(kind)};
   // Local lists and server requests share inclusive YYYY-MM-DD bounds.
   if(filter.period==='all') return {from:'0001-01-01',to:'9999-12-31',label:'ทั้งหมด'};
+  if(filter.period==='month')return rbillPeriodRange({period:'selectmonth'});
   return rbillPeriodRange(filter);
 }
 function documentPeriodToolbar(kind,filterOverride=null,rangeOverride=null){
   const defaultPeriod=defaultDocumentPeriod(kind);
   const f=filterOverride||documentPeriods[kind]||{period:defaultPeriod},range=rangeOverride||documentPeriodRange(kind);
-  const options=[[defaultPeriod,defaultPeriod==='all'?'ทั้งหมด':'วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
+  const documentList=defaultPeriod==='month';
+  const options=documentList?[['month','เดือนนี้'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี'],['range','เลือกช่วงวันที่']]
+    :[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
   const input=(key,type,label,value,attrs='')=>`<label>${label} <input class="rpt-select" type="${type}" data-document-period="${key}" value="${escapeHtml(value)}" ${attrs}></label>`;
-  const fields=f.period==='range'?input('from','date','ตั้งแต่',range.from)+input('to','date','ถึง',range.to)
+  const fields=f.period==='month'?new Date(range.from+'T00:00:00').toLocaleDateString('th-TH',{month:'long'})
+    :f.period==='range'?input('from','date','ตั้งแต่',range.from)+input('to','date','ถึง',range.to)
     :f.period==='selectmonth'?`<input class="rpt-select" type="month" data-document-period="month" aria-label="เดือน" value="${escapeHtml(range.from.slice(0,7))}">`
     :f.period==='selectyear'?`<input class="rpt-select" type="number" data-document-period="year" aria-label="ปี" value="${escapeHtml(range.from.slice(0,4))}" min="1900" max="9999">`:'';
-  return `<div class="document-period-toolbar" data-document-kind="${kind}"><select class="rpt-select" data-document-period="period" aria-label="ช่วงเวลา">${options.map(([key,label])=>`<option value="${key}" ${f.period===key?'selected':''}>${label}</option>`).join('')}</select>
-    ${fields?`<div class="document-period-fields">${fields}</div>`:''}</div>`;
+  const allButton=documentList?`<button class="document-period-all" type="button" data-document-period="period" value="all" aria-pressed="${f.period==='all'}">ทั้งหมด</button>`:'';
+  return `<div class="document-period-toolbar" data-document-kind="${kind}"><select class="rpt-select" data-document-period="period" aria-label="ช่วงเวลา">${f.period==='all'?'<option value="all" selected hidden>ทั้งหมด</option>':''}${options.map(([key,label])=>`<option value="${key}" ${f.period===key?'selected':''}>${label}</option>`).join('')}</select>
+    ${fields?`<div class="document-period-fields">${fields}</div>`:''}${allButton}</div>`;
 }
 const documentNumberOrder=new Intl.Collator('en',{numeric:true});
 function newestSalesDocumentsFirst(kind){

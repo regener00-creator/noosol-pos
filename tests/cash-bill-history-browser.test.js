@@ -407,22 +407,24 @@ let browser;
     await page.evaluate(w=>{
       activeWarehouseId=w;storeViewGeneration++;cashBillPageCache=null;window.manualRows=[];
       const make=(suffix,date,warehouseId=w)=>({id:'D-'+suffix,number:'D-'+suffix,date,warehouseId,items:[{name:'Fixture-'+suffix,qty:1}],supplier:'QA',customer:'QA',total:10});
-      const docs=[make('LAST','2020-03-28'),make('OTHER','2020-03-10',w===1?2:1),make('3','2020-03-02'),make('12','2020-03-02'),make('2',TODAY_STR),make('10',TODAY_STR)];
+      const monthStart=TODAY_STR.slice(0,8)+'01';
+      const docs=[make('LAST','2020-03-28'),make('OTHER','2020-03-10',w===1?2:1),make('3','2020-03-02'),make('12','2020-03-02'),make('2',monthStart),make('10',monthStart)];
       purchaseOrders=docs;goodsReceipts=docs;productReturns=docs;productExchanges=docs.map(d=>({...d,outgoingItems:d.items}));
       quotations=docs;standaloneTaxInvoices=docs;
       salesHistory=docs.map(d=>({...d,status:'done',cashReceiptA4Meta:{number:d.number,saleDate:d.date}}));
       for(const key of Object.keys(documentPeriods))delete documentPeriods[key];
+      for(const kind of Object.values(documentPageKinds))documentSort[kind]={key:'date',dir:-1};
     },store);
     for(const tab of ['purchaseorder','goodsreceipt','productreturn','productexchange','quotation','taxinvoice','cashbill']){
       await page.evaluate(async t=>{await ensurePageCodeLoaded(t);currentTab=t;render();},tab);
-      const period=page.locator('[data-document-period="period"]'),rows=page.locator('.doc-list-wrap tbody tr');
+      const period=page.getByRole('combobox',{name:'ช่วงเวลา'}),allPeriods=page.getByRole('button',{name:'ทั้งหมด',exact:true}),rows=page.locator('.doc-list-wrap tbody tr');
       const checkHeading=async()=>{
         const aligned=await period.evaluate(select=>{
           const header=select.closest('.pagehead'),heading=header?.querySelector('h1');
           if(!heading)return false;
           const title=heading.getBoundingClientRect(),control=select.getBoundingClientRect();
           const fields=[...select.parentElement.querySelectorAll('input')].map(input=>input.getBoundingClientRect());
-          const last=fields.at(-1)||control;
+          const last=select.parentElement.querySelector('.document-period-all').getBoundingClientRect();
           return title.right<=control.left&&title.top<control.bottom&&title.bottom>control.top&&
             fields.every((field,i)=>field.left>=(i?fields[i-1]:control).right&&field.top<control.bottom&&field.bottom>control.top)&&
             Math.abs(last.right-header.getBoundingClientRect().right)<2&&last.right<=innerWidth;
@@ -431,15 +433,15 @@ let browser;
       };
       await checkHeading();
       const isSalesDocument=['quotation','taxinvoice','cashbill'].includes(tab);
-      assert.equal(await period.inputValue(),isSalesDocument?'all':'today');
-      assert.equal(await period.locator('option').first().innerText(),isSalesDocument?'ทั้งหมด':'วันนี้');
+      assert.equal(await period.inputValue(),'month');
+      assert.deepEqual(await period.locator('option').allTextContents(),['เดือนนี้','เลือกเดือน','เลือกปี','เลือกช่วงวันที่']);
+      assert.equal(await page.locator('.document-period-fields').innerText(),await page.evaluate(()=>new Date(TODAY_STR+'T00:00:00').toLocaleDateString('th-TH',{month:'long'})));
       const documentNumbers=()=>{
         if(tab==='purchaseorder')return rows.locator('[data-act="editpo"]').evaluateAll(buttons=>buttons.map(b=>b.dataset.id));
         return rows.evaluateAll(list=>list.map(row=>row.querySelector('td.mono').textContent.trim()));
       };
       const marchOrder=['D-LAST','D-12','D-3'],todayOrder=['D-10','D-2'];
-      if(!isSalesDocument)assert.deepEqual(await documentNumbers(),todayOrder,tab+' today');
-      else assert.equal(await rows.count(),5,tab+' all');
+      assert.deepEqual(await documentNumbers(),todayOrder,tab+' current month');
       await period.selectOption('selectmonth');
       await checkHeading();
       await page.locator('[data-document-period="month"]').fill('2020-03');
@@ -467,11 +469,11 @@ let browser;
       await alternateSort.click();
       await page.locator('[data-document-period="to"]').fill('2020-03-28');
       assert.deepEqual(await documentNumbers(),marchOrder,tab+' changed range');
-      if(isSalesDocument){
-        await period.selectOption('all');
-        assert.deepEqual(await documentNumbers(),[...todayOrder,...marchOrder],tab+' newest first');
-        assert.doesNotMatch((await rows.allInnerTexts()).join('\n'),/D-OTHER/);
-      }
+      await allPeriods.click();
+      assert.equal(await allPeriods.getAttribute('aria-pressed'),'true');
+      assert.deepEqual(await documentNumbers(),[...todayOrder,...marchOrder],tab+' all, newest first');
+      await period.selectOption('month');
+      assert.deepEqual(await documentNumbers(),todayOrder,tab+' current month after custom dates');
     }
   }
   // A boundary day can contain more manual bills than one page, mixed with bills from sales.

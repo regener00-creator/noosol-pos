@@ -2,7 +2,7 @@ const assert=require('node:assert/strict'),test=require('node:test'),vm=require(
 const read=file=>fs.readFileSync(path.join(__dirname,'..',file),'utf8');
 function context(){
   const c=vm.createContext({console,Date,Intl,Map,Set,Number,String,JSON,Promise,TODAY_STR:'2026-10-30',salesHistory:[],cart:[],currentProfile:{id:'owner'},
-    documentPeriods:{},voidReportFilter:{warehouse:'all',method:'all',search:'',page:1},reportWarehouseIds:()=>[1],
+    documentPageKinds:{},documentPeriods:{},voidReportFilter:{warehouse:'all',method:'all',search:'',page:1},reportWarehouseIds:()=>[1],
     maxArrayValue:()=>1000,DOC_TABLES:[],resetDocumentLoadStates:()=>{},onDemandTabErrors:new Map(),onDemandTabJobs:new Map()});
   c.captureStoreView=()=>({...c.captureWorkspaceRead(),store:1,combined:false,view:0});
   c.isStoreViewCurrent=context=>c.isWorkspaceReadCurrent(context);

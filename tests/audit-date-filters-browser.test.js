@@ -80,13 +80,7 @@ let browser;
   const change=async(key,value)=>{await field(key).fill(value);await field(key).press('Tab');await page.waitForFunction(()=>!auditLogLoading);};
   assert.equal(await period().inputValue(),'today');
   assert.deepEqual(await period().locator('option').allTextContents(),['วันนี้','เลือกช่วงวันที่','เลือกเดือน','เลือกปี']);
-  const identical=await page.evaluate(()=>{
-    const purchase=document.createElement('div');purchase.innerHTML=documentPeriodToolbar('po');
-    const audit=document.querySelector('[data-document-kind="auditlog"]');
-    return audit.className===purchase.firstElementChild.className &&
-      audit.querySelector('select').outerHTML===purchase.querySelector('select').outerHTML;
-  });
-  assert.equal(identical,true,'reuse the purchase document date control');
+  assert.equal(await page.locator('[data-document-kind="auditlog"] .document-period-all').count(),0);
   assert.deepEqual(await page.evaluate(()=>auditLogDateRange('today',new Date('2026-12-31T17:00:00Z'))),{dateFrom:'2027-01-01',dateTo:'2027-01-01'});
   await period().selectOption('selectmonth');
   await change('month','2028-02');
