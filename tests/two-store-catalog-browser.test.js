@@ -174,6 +174,7 @@ async function verifyMobileInspectionStoreIsolation(page){
       {id:'B',name:'พรชัย',warehouseId:2,items:[],updatedAt:'2026-11-08'},
       {id:'A',name:'พระยาสุเรนทร์',warehouseId:1,items:[],updatedAt:'2026-11-07'},
       {id:'legacy',name:'รายการเก่า',items:[]},
+      {id:'closed-a',name:'ตรวจเสร็จแล้ว',warehouseId:1,items:[],stockAdjustedAt:'2026-11-08'},
       {id:'closed',name:'ปิดแล้ว',warehouseId:2,items:[],stockAdjustedAt:'2026-11-07'}
     ];
   });
@@ -182,19 +183,13 @@ async function verifyMobileInspectionStoreIsolation(page){
     const list=page.locator('#mobileInspectionList');
     assert.equal(await page.locator('#mobileInspectionStatusFilter').count(),0);
     assert.equal(await page.getByText('รอยืนยัน',{exact:true}).count(),0);
-    if(store===2){
-      await list.click();
-      await page.locator('[data-import-inspection-list="closed"]').click();
-      assert.equal(await list.getAttribute('value'),'closed');
-      assert.equal(await page.locator('#mobileContinueToStock, #mobileDeleteInspectionList, #mobileInspectionAddToggle').count(),0);
-    }
     page.once('dialog',dialog=>dialog.accept('ทดสอบสร้างรายการ'));
     await page.getByRole('button',{name:'สร้างรายการตรวจสินค้า',exact:true}).click();
     assert.equal(await page.locator('.mobile-draft-head b').innerText(),'ทดสอบสร้างรายการ');
     await page.locator('#mobileCancelInspectionDraft').click();
     await list.click();
-    assert.deepEqual(await page.locator('[data-import-inspection-list]').evaluateAll(rows=>rows.map(row=>row.dataset.importInspectionList)),store===1?['A','legacy']:['B','closed']);
-    await page.locator(`[data-import-inspection-list="${own}"]`).click();
+    assert.deepEqual(await page.locator('[data-import-inspection-list]').evaluateAll(rows=>rows.map(row=>row.dataset.importInspectionList)),store===1?['A','legacy']:[]);
+    if(store===1) await page.locator(`[data-import-inspection-list="${own}"]`).click();
     assert.equal(await page.evaluate(()=>mobileInspectionOpenedListId),own);
     const addButton=page.getByRole('button',{name:'+ เพิ่มสินค้าในรายการ',exact:true});
     const editButton=page.getByRole('button',{name:'แก้ไขสต็อก (0)',exact:true});
@@ -244,6 +239,13 @@ async function verifyMobileInspectionStoreIsolation(page){
     return {open:mobileInspectionOpenedListId,draft:mobileInspectionSavedAddItems,
       current:mobileInspectionCurrentList().id,items:inspectionLists.filter(l=>l.id==='A'||l.id==='B').map(l=>[l.id,l.items])};
   }),{open:'',draft:[],current:'A',items:[['B',[{pid:12,unit:'กล่อง'}]],['A',[]]]});
+  await page.evaluate(()=>{
+    inspectionLists.forEach(list=>{if(documentInActiveStore(list)) list.stockAdjustedAt=new Date().toISOString();});
+    render();
+  });
+  assert.equal(await page.locator('#mobileInspectionList').count(),0);
+  assert.equal(await page.getByText('ไม่มีรายการที่ต้องตรวจ',{exact:true}).isVisible(),true);
+  assert.equal(await page.locator('#mobileNewInspectionList').isVisible(),true);
 }
 async function verifyLastInspectionUnits(page){
   await page.setViewportSize({width:390,height:844});
