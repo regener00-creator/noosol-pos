@@ -657,8 +657,7 @@
   .low-stock-report-controls .low-stock-control-spacer{flex:1;}
   .low-stock-report-table{min-width:960px;table-layout:fixed;}
   .low-stock-report-table .low-stock-product{text-align:left;}
-  .low-stock-report-table .low-stock-product b{display:block;font-weight:600;}
-  .low-stock-report-table :is(tr.out,tr.negative) .badge{background:transparent;}
+  .low-stock-report-table .badge{background:transparent;}
   @media(max-width:1200px){.low-stock-report-summary{grid-template-columns:repeat(2,minmax(0,1fr));}}
   @media(max-width:900px){.low-stock-report-summary{grid-template-columns:1fr}.low-stock-filter-field{width:100%}.low-stock-report-controls select{width:100%;max-width:none}.low-stock-report-controls .low-stock-control-spacer{display:none;}}
   .expiry-report-page{display:flex;flex-direction:column;gap:14px;min-width:0;}
@@ -687,12 +686,13 @@
   .expiry-warehouse-card span{color:var(--text-muted);font-size:12px;font-weight:600;}
   .expiry-warehouse-card select{width:100%;height:48px;padding:0 46px 0 15px;border:1px solid #E0D7D3;border-radius:11px;background-color:#F7FAFC;color:var(--text);font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;appearance:none;background-image:linear-gradient(45deg,transparent 50%,#667085 50%),linear-gradient(135deg,#667085 50%,transparent 50%);background-position:calc(100% - 20px) 21px,calc(100% - 14px) 21px;background-size:6px 6px,6px 6px;background-repeat:no-repeat;}
   .expiry-warehouse-card select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px #4F40381A;background-color:#fff;}
-  .expiry-report-table .expiry-product-name{font-weight:600;text-align:left;}
-  .expiry-report-table .expiry-lot-code{font-weight:600;}
+  .expiry-report-table .expiry-product-name{text-align:left;}
   .expiry-report-table .expiry-status{background:transparent;}
   .expiry-report-table .expiry-detail-btn{white-space:nowrap;}
   @media(max-width:900px){.expiry-report-summary{grid-template-columns:1fr}.expiry-near-card{min-height:84px;}}
   .low-table th,.low-table td{text-align:center;}
+  .low-table tbody td:not([colspan]){height:53px;font-weight:400;}
+  .low-table tbody :is(.badge,.btn){font-weight:inherit;}
   .low-table th:first-child,.low-table td:first-child{text-align:left;}
   .low-stock-report-table th:first-child,.low-stock-report-table td:first-child,.expiry-report-table th:first-child,.expiry-report-table td:first-child{text-align:center;}
   .low-table th.num,.low-table td.num{text-align:center;}

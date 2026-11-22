@@ -45,6 +45,18 @@ let browser;
   await page.goto('http://127.0.0.1:'+server.address().port,{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>typeof render==='function');await seed();
   await page.evaluate(()=>{lowStockPageFilter.stockThreshold=5;render();});
+  const balanceRowHeight=await page.locator('.stock-report-table tbody tr').first().evaluate(row=>row.getBoundingClientRect().height);
+  const checkDataRows=async table=>{
+    const rows=await table.locator('tbody tr').evaluateAll(items=>items.map(row=>({
+      height:row.getBoundingClientRect().height,
+      regular:[...row.querySelectorAll('td,td *')].every(el=>getComputedStyle(el).fontWeight==='400')
+    })));
+    assert.ok(rows.length>0);
+    rows.forEach(row=>{
+      assert.ok(row.regular,'report data uses regular text');
+      assert.ok(Math.abs(row.height-balanceRowHeight)<=1,`row height ${row.height} should match balance row ${balanceRowHeight}`);
+    });
+  };
   const restock=page.locator('[data-stock-report-tab="lowstock"]');
   assert.equal(await page.locator('#sidebar [data-tab="lowstock"],#sidebar [data-tab="rprofit"]').count(),0);
   assert.equal(await page.locator('#sidebar [data-tab="rbill"]').innerText(),'ยอดขายและกำไรตามบิล');
@@ -82,6 +94,7 @@ let browser;
   for(const mode of ['near','expired']){
     await page.locator(`[data-expiry-summary-mode="${mode}"]`).click();
     assert.equal(await expiryTable.locator('.expiry-status').count(),1);
+    await checkDataRows(expiryTable);
     assert.ok(await expiryTable.locator('tbody td,.expiry-status').evaluateAll(cells=>cells.every(cell=>getComputedStyle(cell).backgroundColor==='rgba(0, 0, 0, 0)')));
   }
   assert.equal(await page.locator('#sidebar .navbtn.active').innerText(),'รายงานสินค้า');
@@ -89,11 +102,14 @@ let browser;
   assert.equal(await page.locator('#sidebar .navbtn.active').getAttribute('data-tab'),'rinventory');
   assert.equal(await restock.getAttribute('aria-pressed'),'true');
   const restockTable=page.locator('.low-stock-report-table');
-  assert.equal(await restockTable.locator('td.num strong').innerText(),'0 ลัง 0 กล่อง 3 ขวด');
+  await checkDataRows(restockTable);
+  assert.equal(await restockTable.locator('td.num').innerText(),'0 ลัง 0 กล่อง 3 ขวด');
   assert.equal(await restockTable.locator('th[data-lowsort="stock:unit"],tbody select').count(),0);
+  assert.equal(await restockTable.locator('.badge').evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
   await page.locator('[data-lowstock-mode="out"]').click();
   assert.match(await page.locator('.low-stock-report-table tbody').innerText(),/Beta สินค้าหมด/);
-  assert.equal(await restockTable.locator('td.num strong').innerText(),'0 ขวด 0 เม็ด');
+  await checkDataRows(restockTable);
+  assert.equal(await restockTable.locator('td.num').innerText(),'0 ขวด 0 เม็ด');
   assert.equal(await restockTable.locator('th[data-lowsort="stock:unit"],tbody select').count(),0);
   await checkTableLayout(restockTable);
   assert.deepEqual(await restockTable.locator('th:nth-child(-n+2)').allTextContents(),['รหัสสินค้า','บาร์โค้ดสินค้า']);
@@ -101,7 +117,8 @@ let browser;
   assert.ok(await restockTable.locator('th:nth-child(-n+2),td:nth-child(-n+2)').evaluateAll(cells=>cells.every(cell=>getComputedStyle(cell).textAlign==='center')));
   await page.locator('[data-lowstock-mode="negative"]').click();
   assert.match(await page.locator('.low-stock-report-table tbody').innerText(),/Gamma ยอดติดลบ/);
-  assert.equal(await restockTable.locator('.stock-negative strong').innerText(),'- 1 กล่อง 2 แผง 7 เม็ด');
+  await checkDataRows(restockTable);
+  assert.equal(await restockTable.locator('.stock-negative').innerText(),'- 1 กล่อง 2 แผง 7 เม็ด');
   assert.equal(await restockTable.locator('[data-lowsort="stock:unit"],[data-lowstock-unit]').count(),0);
   await page.locator('[data-stock-report-tab="rinventory"]').click();
   const rowIds=()=>page.locator('#srTbody [data-sr-row]').evaluateAll(rows=>rows.map(row=>Number(row.dataset.srRow)));
