@@ -2,7 +2,7 @@ const APP_TABLE_SCROLL_HOST_SELECTOR=[
   '.app-table-scroll-region',
   '.sales-history-table-wrap','.product-table-scroll','.cash-shift-table-wrap',
   '.audit-log-table-wrap','.stock-edit-table-wrap','.inspection-list-table-wrap',
-  '.inspection-list-overview-wrap','.barcode-print-table-wrap','.lowstock-table-scroll',
+  '.inspection-list-overview-wrap','.barcode-print-table-wrap',
   '.product-exchange-table-wrap','.transfer-items-wrap',
   '.doc-list-wrap','.seamless-table-wrap','.table-scroll'
 ].join(',');

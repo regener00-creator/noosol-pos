@@ -58,6 +58,20 @@ let browser;
   await page.evaluate(()=>{inventoryBalanceRows.find(row=>row.product_id===101&&row.warehouse_id===1).expiry=currentDateStr();});
   await tabs.getByText('สินค้าใกล้หมดอายุ',{exact:true}).click();
   const expiryTable=page.locator('.expiry-report-table');
+  const checkTableLayout=async table=>{
+    const layout=await table.evaluate(el=>{
+      const host=el.parentElement;
+      return {
+        heightDifference:Math.abs(host.getBoundingClientRect().height-el.getBoundingClientRect().height),
+        overflow:getComputedStyle(host).overflowY,
+        scrollRegions:host.closest('#main').querySelectorAll('.app-table-scroll-region').length
+      };
+    });
+    assert.ok(layout.heightDifference<=1,'short report tables fit their data');
+    assert.equal(layout.overflow,'auto');
+    assert.equal(layout.scrollRegions,1);
+  };
+  await checkTableLayout(expiryTable);
   assert.deepEqual(await expiryTable.locator('th:nth-child(-n+3)').allTextContents(),['รหัสสินค้า','บาร์โค้ดสินค้า','สินค้า']);
   assert.deepEqual(await expiryTable.locator('tbody tr').first().locator('td:nth-child(-n+3)').allTextContents(),['0001','0012345678901','Alpha ยาทดสอบ']);
   assert.ok(await expiryTable.locator('th:nth-child(-n+2),td:nth-child(-n+2)').evaluateAll(cells=>cells.every(cell=>getComputedStyle(cell).textAlign==='center')));
@@ -69,6 +83,7 @@ let browser;
   await page.locator('[data-lowstock-mode="out"]').click();
   assert.match(await page.locator('.low-stock-report-table tbody').innerText(),/Beta สินค้าหมด/);
   const restockTable=page.locator('.low-stock-report-table');
+  await checkTableLayout(restockTable);
   assert.deepEqual(await restockTable.locator('th:nth-child(-n+2)').allTextContents(),['รหัสสินค้า','บาร์โค้ดสินค้า']);
   assert.deepEqual(await restockTable.locator('tbody tr').first().locator('td:nth-child(-n+2)').allTextContents(),['0002','0012345678902']);
   assert.ok(await restockTable.locator('th:nth-child(-n+2),td:nth-child(-n+2)').evaluateAll(cells=>cells.every(cell=>getComputedStyle(cell).textAlign==='center')));

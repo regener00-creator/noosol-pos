@@ -662,7 +662,6 @@
   .low-stock-report-table .low-stock-unit-select:hover{border-color:#CFB8AE;background:#fff;}
   .low-stock-report-table .low-stock-unit-select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px #4F40381A;background:#fff;color:var(--primary);}
   .low-stock-report-table :is(tr.out,tr.negative) .badge{background:transparent;}
-  .low-stock-report-page .lowstock-table-scroll{height:max(260px,calc(100vh - 390px));}
   @media(max-width:1200px){.low-stock-report-summary{grid-template-columns:repeat(2,minmax(0,1fr));}}
   @media(max-width:900px){.low-stock-report-summary{grid-template-columns:1fr}.low-stock-filter-field{width:100%}.low-stock-report-controls select{width:100%;max-width:none}.low-stock-report-controls .low-stock-control-spacer{display:none;}}
   .expiry-report-page{display:flex;flex-direction:column;gap:14px;min-width:0;}
@@ -701,9 +700,7 @@
   .low-table th:first-child,.low-table td:first-child{text-align:left;}
   .low-stock-report-table th:first-child,.low-stock-report-table td:first-child,.expiry-report-table th:first-child,.expiry-report-table td:first-child{text-align:center;}
   .low-table th.num,.low-table td.num{text-align:center;}
-  .lowstock-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;}
   .lowstock-section,.inventory-report-section{min-width:0;}
-  .lowstock-section .doc-list-wrap{margin:0;}
   /* หน้าแก้ไขสต็อก: scoped ทั้งหมดเพื่อไม่กระทบตาราง/ตัวกรองหน้าอื่น */
   .stock-edit-section{min-width:0;}
   .stock-edit-search{position:relative;flex:1 1 210px;min-width:0;}
@@ -946,14 +943,6 @@
   .price-label-designer-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;padding:13px 18px;border-top:1px solid var(--border);background:#fff;}
   .price-label-designer-actions-right{display:flex;gap:8px;}
   @media(max-width:900px){.price-label-designer-content{height:auto;min-height:680px}.price-label-template-selectors{display:grid;grid-template-columns:minmax(0,1fr)}.price-label-template-menu{justify-self:end}.price-label-designer-actions{flex-wrap:wrap}.price-label-designer-body{grid-template-columns:1fr;overflow-y:auto}.price-label-canvas-pane{overflow:visible}.price-label-canvas-shell{min-height:320px;padding:12px}.price-label-designer-panel{overflow:visible;border-top:1px solid var(--border);border-left:0}.price-label-element-tabs{grid-template-columns:repeat(3,1fr)}}
-  .lowstock-section .lowstock-table-scroll{height:calc(100vh - 315px);min-height:320px;overflow-x:auto!important;overflow-y:scroll!important;border-radius:var(--radius);scrollbar-width:auto;scrollbar-color:#8B9298 #EEF1F4;scroll-behavior:auto;overscroll-behavior:contain;contain:layout paint;touch-action:pan-y;}
-  .lowstock-table-scroll::-webkit-scrollbar{width:12px;height:12px;}
-  .lowstock-table-scroll::-webkit-scrollbar-track{background:#EEF1F4;border-radius:8px;}
-  .lowstock-table-scroll::-webkit-scrollbar-thumb{background:#8B9298;border:2px solid #EEF1F4;border-radius:8px;}
-  .lowstock-table-scroll::-webkit-scrollbar-thumb:hover{background:#6F777E;}
-  .lowstock-table-scroll .low-table{border-collapse:separate;border-spacing:0;}
-  .lowstock-table-scroll .low-table thead th{position:sticky;top:0;z-index:4;background:#4F4038;color:#fff;transform:translateZ(0);backface-visibility:hidden;}
-  @media (max-width:960px){ .lowstock-grid{grid-template-columns:1fr;} .lowstock-table-scroll{height:420px;min-height:280px;} }
   .stock-caret{font-size:9px;color:var(--text-muted);}
   .ct-tabs{display:flex;align-items:center;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
   .ct-tabs>.toolbar{margin:0 0 0 auto;flex:1;max-width:320px;}
@@ -1492,8 +1481,8 @@
   .stock-report-table th{vertical-align:top;}
   .stock-report-table .stock-report-sort{display:inline-flex;align-items:center;gap:7px;border:0;padding:0;background:transparent;color:inherit;font:inherit;font-weight:600;cursor:pointer;}
   .stock-report-table .stock-report-sort .sortarrow{color:inherit;}
-  .stock-report-table-scroll .stock-report-table thead{position:sticky;top:0;z-index:5;}
-  .stock-report-table-scroll .stock-report-table thead th{position:static;}
+  .stock-report-table-scroll > table thead{position:sticky;top:0;z-index:5;}
+  .stock-report-table-scroll > table thead th{position:static;}
   .stock-report-table .stock-report-name{min-width:180px;}
   .stock-report-table .stock-report-code{min-width:115px;overflow-wrap:anywhere;text-align:center;}
   .stock-report-table .stock-report-price{min-width:100px;text-align:center;white-space:nowrap;font-variant-numeric:tabular-nums;}
