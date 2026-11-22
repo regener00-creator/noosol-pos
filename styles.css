@@ -1791,8 +1791,7 @@
   .document-period-toolbar,.document-period-fields{display:flex;align-items:center;gap:8px;}
   .document-period-toolbar{justify-self:end;}
   .document-period-toolbar>select{min-width:0;}
-  .document-period-all{background:transparent;border:0;padding:4px;color:var(--text-muted);font:inherit;font-size:.85em;text-decoration:underline;text-underline-offset:3px;cursor:pointer;}
-  .document-period-all[aria-pressed="true"]{color:var(--primary);font-weight:700;}
+  .document-period-divider{color:var(--border);}
   .document-period-fields label{display:inline-flex;gap:5px;align-items:center;}
   .document-period-fields input{min-width:0;}
 .movement-report-page .document-period-toolbar{justify-self:start;flex-wrap:wrap;min-width:0;}

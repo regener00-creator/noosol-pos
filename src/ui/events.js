@@ -2164,7 +2164,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     }
   }
   document.querySelectorAll('[data-doc-action]').forEach(btn=>{ btn.addEventListener('click', async e=>{ e.stopPropagation(); await handleDocumentAction(btn.dataset.kind,btn.dataset.id,btn.dataset.docAction); }); });
-  document.querySelectorAll('[data-document-period]').forEach(input=>input.addEventListener(input.tagName==='BUTTON'?'click':'change',()=>{
+  document.querySelectorAll('[data-document-period]').forEach(input=>input.addEventListener('change',()=>{
     const kind=input.closest('[data-document-kind]').dataset.documentKind,key=input.dataset.documentPeriod;
     if(!input.value||!input.checkValidity())return;
     if(kind==='auditlog'){ updateAuditLogPeriod(key,input.value); return; }

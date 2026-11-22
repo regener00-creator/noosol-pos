@@ -210,16 +210,16 @@ function documentPeriodToolbar(kind,filterOverride=null,rangeOverride=null){
   const defaultPeriod=defaultDocumentPeriod(kind);
   const f=filterOverride||documentPeriods[kind]||{period:defaultPeriod},range=rangeOverride||documentPeriodRange(kind);
   const documentList=defaultPeriod==='month';
-  const options=documentList?[['month','เดือนนี้'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี'],['range','เลือกช่วงวันที่']]
+  const currentMonth=documentList?new Date(TODAY_STR+'T00:00:00').toLocaleDateString('th-TH',{month:'long'}):'';
+  const options=documentList?[['month',currentMonth],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี'],['range','เลือกช่วงวันที่']]
     :[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
   const input=(key,type,label,value,attrs='')=>`<label>${label} <input class="rpt-select" type="${type}" data-document-period="${key}" value="${escapeHtml(value)}" ${attrs}></label>`;
-  const fields=f.period==='month'?new Date(range.from+'T00:00:00').toLocaleDateString('th-TH',{month:'long'})
-    :f.period==='range'?input('from','date','ตั้งแต่',range.from)+input('to','date','ถึง',range.to)
+  const fields=f.period==='range'?input('from','date','ตั้งแต่',range.from)+input('to','date','ถึง',range.to)
     :f.period==='selectmonth'?`<input class="rpt-select" type="month" data-document-period="month" aria-label="เดือน" value="${escapeHtml(range.from.slice(0,7))}">`
     :f.period==='selectyear'?`<input class="rpt-select" type="number" data-document-period="year" aria-label="ปี" value="${escapeHtml(range.from.slice(0,4))}" min="1900" max="9999">`:'';
-  const allButton=documentList?`<button class="document-period-all" type="button" data-document-period="period" value="all" aria-pressed="${f.period==='all'}">ทั้งหมด</button>`:'';
-  return `<div class="document-period-toolbar" data-document-kind="${kind}"><select class="rpt-select" data-document-period="period" aria-label="ช่วงเวลา">${f.period==='all'?'<option value="all" selected hidden>ทั้งหมด</option>':''}${options.map(([key,label])=>`<option value="${key}" ${f.period===key?'selected':''}>${label}</option>`).join('')}</select>
-    ${fields?`<div class="document-period-fields">${fields}</div>`:''}${allButton}</div>`;
+  const allOption=documentList?`<option class="document-period-divider" value="" disabled aria-hidden="true">────────</option><option value="all" ${f.period==='all'?'selected':''}>ทั้งหมด</option>`:'';
+  return `<div class="document-period-toolbar" data-document-kind="${kind}"><select class="rpt-select" data-document-period="period" aria-label="ช่วงเวลา">${options.map(([key,label])=>`<option value="${key}" ${f.period===key?'selected':''}>${label}</option>`).join('')}${allOption}</select>
+    ${fields?`<div class="document-period-fields">${fields}</div>`:''}</div>`;
 }
 const documentNumberOrder=new Intl.Collator('en',{numeric:true});
 function newestSalesDocumentsFirst(kind){
