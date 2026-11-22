@@ -758,7 +758,8 @@
   .inspection-list-overview-status{text-align:center;color:var(--text-muted);}
   .inspection-list-overview-action{text-align:center;}
   .inspection-list-overview-actions{display:flex;align-items:center;justify-content:center;gap:8px;}
-  .inspection-list-page .inspection-list-bulk-delete,.inspection-list-overview-actions .icon-btn{flex:none;width:36px;height:36px;border-radius:9px;}
+  .icon-btn.inspection-list-bulk-delete,.inspection-list-overview-actions .icon-btn{flex:none;width:36px;height:36px;border-radius:9px;}
+  .icon-btn.danger.inspection-list-bulk-delete,.icon-btn.danger.inspection-list-bulk-delete:hover{background:var(--danger);border-color:var(--danger);color:#fff;}
   .inspection-list-overview-actions .icon-btn[data-stock-control-import-list]{background:var(--primary);border-color:var(--primary);color:#fff;}
   .inspection-list-overview-actions .icon-btn[data-stock-control-import-list]:hover{background:var(--primary-dark);border-color:var(--primary-dark);}
   .inspection-list-bulk-delete svg,.inspection-list-overview-actions .icon-btn svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
