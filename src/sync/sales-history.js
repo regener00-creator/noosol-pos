@@ -22,6 +22,7 @@ function rowToSale(row){
 
 const SALES_QUERY_PAGE_SIZE=500;
 const SALES_QUERY_MAX_ROWS=5000;
+const DASHBOARD_RECENT_SALES_PER_COLUMN=5;
 const salesLoadState={loaded:false,full:false,holds:false,recent:false,ranges:[],truncatedRanges:[],holdsTruncated:false};
 const salesLoadPromises=new Map();
 const SALES_CACHE_TTL_MS=60000;
@@ -150,7 +151,7 @@ async function loadSalesHistoryFromSupabase(options={}){
       }
       let holdsTruncated=false;
       if(includeRecent&&!full){
-        const {data:recentRows,error:recentError}=await storeSales().eq('status','done').order('sale_date',{ascending:false}).order('sale_time',{ascending:false}).limit(8);
+        const {data:recentRows,error:recentError}=await storeSales().eq('status','done').order('sale_date',{ascending:false}).order('sale_time',{ascending:false}).limit(DASHBOARD_RECENT_SALES_PER_COLUMN*2);
         if(!isStoreViewCurrent(context)) return false;
         if(recentError) throw recentError;
         rows=mergeRowsById(rows,recentRows||[]);

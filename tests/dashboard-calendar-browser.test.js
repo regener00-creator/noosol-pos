@@ -170,9 +170,9 @@ let browser;
   });
   const recent=page.locator('.dashboard-recent-panel');
   assert.equal(await recent.count(),2);
-  assert.equal(await recent.nth(0).locator('tbody tr').count(),8);
-  assert.equal(await recent.nth(1).locator('tbody tr').count(),8);
-  assert.deepEqual(await page.locator('.dashboard-recent-sales tbody td:nth-child(2)').allTextContents(),Array.from({length:16},(_,i)=>`RE-${i+1}`),'latest sixteen stay in order, with no duplicates or out-of-scope sales');
+  assert.equal(await recent.nth(0).locator('tbody tr').count(),5);
+  assert.equal(await recent.nth(1).locator('tbody tr').count(),5);
+  assert.deepEqual(await page.locator('.dashboard-recent-sales tbody td:nth-child(2)').allTextContents(),Array.from({length:10},(_,i)=>`RE-${i+1}`),'latest ten stay in order, with no duplicates or out-of-scope sales');
   const left=await recent.nth(0).boundingBox(),right=await recent.nth(1).boundingBox();
   assert.equal(left.y,right.y);assert.ok(right.x>left.x,'recent lists share a desktop row');
   await page.evaluate(()=>{

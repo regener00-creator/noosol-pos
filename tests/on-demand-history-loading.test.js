@@ -24,7 +24,7 @@ assert.match(salesLoader, /fetchBoundedRows\(buildRangeQuery/,
   'normal sales reads must use bounded server-side pages');
 assert.match(salesLoader, /\.eq\('status','hold'\)/,
   'POS must load every held order independently from the normal date window');
-assert.match(salesLoader, /\.eq\('status','done'\)[\s\S]*\.limit\(8\)/,
+assert.match(salesLoader, /\.eq\('status','done'\)[\s\S]*\.limit\(DASHBOARD_RECENT_SALES_PER_COLUMN\*2\)/,
   'dashboard must retain a small latest-completed-sales query outside the month window');
 
 const documentLoader = section('async function loadDocumentTableFromSupabase(', 'async function syncCoreDataToSupabase');
