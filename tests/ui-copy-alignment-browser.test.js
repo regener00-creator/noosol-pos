@@ -48,7 +48,7 @@ let browser;
     cashShiftCloseDraft={countedCash:'',reason:''};salesHistory=[];render();
   });
   for(const labels of ['.cash-shift-meta span','.cash-shift-stat span']){
-    assert.deepEqual(await page.locator(labels).evaluateAll(elements=>elements.map(el=>getComputedStyle(el).fontWeight)),Array(4).fill('700'));
+    assert.deepEqual(await page.locator(labels).evaluateAll(elements=>elements.map(el=>[getComputedStyle(el).fontWeight,getComputedStyle(el).color])),Array(4).fill(['700','rgb(0, 0, 0)']));
   }
   for(const values of ['.cash-shift-meta b','.cash-shift-stat b']){
     assert.deepEqual(await page.locator(values).evaluateAll(elements=>elements.map(el=>getComputedStyle(el).fontWeight)),Array(4).fill('400'));
