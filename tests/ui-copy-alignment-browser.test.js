@@ -43,7 +43,18 @@ let browser;
   assert.equal(await page.locator('#cashShiftOpeningCash').inputValue(),'1234.50');
   for(const selector of ['.cash-shift-money-field','#cashShiftOpeningCash']) assert.equal(await page.locator(selector).evaluate(el=>getComputedStyle(el).textAlign),'center');
   await page.screenshot({path:path.join(root,'outputs/ui-copy-cashshift.png')});
-  await page.evaluate(()=>{currentTab='history';salesHistory=[];document.getElementById('main').innerHTML=renderHistory();});
+  await page.evaluate(()=>{
+    currentDateStr=()=> '2026-11-23';
+    currentTab='history';
+    const sale={id:'recent',ref:'RE-001',date:'2026-11-01',time:'16:29',member:'ลูกค้าทดสอบ',warehouseId:1,status:'done',total:100,items:[]};
+    salesHistory=[sale,{...sale,id:'previous',ref:'RE-OLD',date:'2026-10-31'}];
+    render();
+  });
+  assert.equal(await page.locator('#hf_period').inputValue(),'month');
+  assert.equal(await page.locator('#hf_month').inputValue(),'2026-11');
+  const historyRows=page.locator('.history-table tbody tr');
+  assert.equal(await historyRows.count(),1);
+  assert.deepEqual((await historyRows.first().locator('td').allTextContents()).slice(1,4),['16:29','ลูกค้าทดสอบ','RE-001']);
   const alignments=await page.locator('.history-table thead th').evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).textAlign));
   assert.ok(alignments.length>0&&alignments.every(value=>value==='center'));
   for(const tab of ['purchaseorder','goodsreceipt','productreturn','quotation']){

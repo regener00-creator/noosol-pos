@@ -25,11 +25,12 @@ function renderHistory(){
       <button class="btn ghost rpf-apply" id="hfApplyBtn">แสดงผล</button><span class="sales-history-result-count">${filtered.length} รายการ</span>
     </div>
     <div class="sales-history-table-wrap">
-    <table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-bill"><col class="ht-customer"><col class="ht-time"><col class="ht-items"><col class="ht-total"><col class="ht-pay"><col class="ht-status"><col class="ht-actions"></colgroup><thead><tr><th>วันที่</th><th>เลขที่บิล</th><th>ลูกค้า</th><th>เวลา</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th><th>สถานะ</th><th></th></tr></thead>
+    <table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-time"><col class="ht-customer"><col class="ht-bill"><col class="ht-items"><col class="ht-total"><col class="ht-pay"><col class="ht-status"><col class="ht-actions"></colgroup><thead><tr><th>วันที่</th><th>เวลา</th><th>ลูกค้า</th><th>เลขที่บิล</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th><th>สถานะ</th><th></th></tr></thead>
     <tbody>${pageRows.length? pageRows.map(s=>`<tr${pickingOrder&&s.status==='done'?` data-pick-order-number="${escapeHtml(s.ref||s.id)}"`:''}>
-      <td>${fmtDate(s.date)}</td><td class="mono">${pickingOrder&&s.status==='done'?`<button type="button" class="cash-bill-history-number" aria-label="เลือกบิล ${escapeHtml(s.ref||s.id)}">${escapeHtml(s.ref||s.id)}</button>`:escapeHtml(s.ref||s.id)}</td>
-      <td>${escapeHtml(saleHistoryCustomerDisplay(s))}</td>
+      <td>${fmtDate(s.date)}</td>
       <td>${saleHistoryTimeDisplay(s.time)}</td>
+      <td>${escapeHtml(saleHistoryCustomerDisplay(s))}</td>
+      <td class="mono">${pickingOrder&&s.status==='done'?`<button type="button" class="cash-bill-history-number" aria-label="เลือกบิล ${escapeHtml(s.ref||s.id)}">${escapeHtml(s.ref||s.id)}</button>`:escapeHtml(s.ref||s.id)}</td>
       <td class="history-items-cell">${salesHistoryItemsPreview(s.items)}</td>
       <td class="mono num">${fmtMoney(s.total)}</td>
       <td>${escapeHtml(s.payMethod||'-')}</td>

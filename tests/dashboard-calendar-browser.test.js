@@ -172,7 +172,11 @@ let browser;
   assert.equal(await recent.count(),2);
   assert.equal(await recent.nth(0).locator('tbody tr').count(),5);
   assert.equal(await recent.nth(1).locator('tbody tr').count(),5);
-  assert.deepEqual(await page.locator('.dashboard-recent-sales tbody td:nth-child(2)').allTextContents(),Array.from({length:10},(_,i)=>`RE-${i+1}`),'latest ten stay in order, with no duplicates or out-of-scope sales');
+  for(const panel of await recent.all()){
+    assert.deepEqual((await panel.locator('thead th').allTextContents()).slice(0,3),['วันที่','เวลา','เลขที่บิล']);
+    assert.equal(await panel.locator('tbody td:nth-child(2)').first().innerText(),'12:00');
+  }
+  assert.deepEqual(await page.locator('.dashboard-recent-sales tbody td:nth-child(3)').allTextContents(),Array.from({length:10},(_,i)=>`RE-${i+1}`),'latest ten stay in order, with no duplicates or out-of-scope sales');
   const left=await recent.nth(0).boundingBox(),right=await recent.nth(1).boundingBox();
   assert.equal(left.y,right.y);assert.ok(right.x>left.x,'recent lists share a desktop row');
   await page.evaluate(()=>{

@@ -171,8 +171,8 @@ function renderDashboard(){
     const rows=completedSales.slice(start,end);
     return `
     <section class="panel dashboard-recent-panel" aria-label="รายการขายล่าสุด ${start+1}–${end}">
-      <div class="dashboard-recent-scroll"><table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-bill"><col class="ht-time"><col class="ht-items"><col class="ht-total"><col class="ht-pay"></colgroup><thead><tr><th>วันที่</th><th>เลขที่บิล</th><th>เวลา</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th></tr></thead>
-      <tbody>${rows.length?rows.map(s=>`<tr><td>${escapeHtml(fmtDate(s.date))}</td><td class="mono">${escapeHtml(s.ref||s.id)}</td><td>${escapeHtml(saleHistoryTimeDisplay(s.time))}</td><td class="history-items-cell">${recentItems(s.items)}</td><td class="mono num">${fmtMoney(s.total)}</td><td>${escapeHtml(s.payMethod||'-')}</td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">${index===0?'ยังไม่มีรายการขาย':'ยังไม่มีรายการเพิ่มเติม'}</td></tr>`}</tbody></table></div>
+      <div class="dashboard-recent-scroll"><table class="grid-table history-table"><colgroup><col class="ht-date"><col class="ht-time"><col class="ht-bill"><col class="ht-items"><col class="ht-total"><col class="ht-pay"></colgroup><thead><tr><th>วันที่</th><th>เวลา</th><th>เลขที่บิล</th><th>รายการ</th><th class="mono">ยอด</th><th>ชำระ</th></tr></thead>
+      <tbody>${rows.length?rows.map(s=>`<tr><td>${escapeHtml(fmtDate(s.date))}</td><td>${escapeHtml(saleHistoryTimeDisplay(s.time))}</td><td class="mono">${escapeHtml(s.ref||s.id)}</td><td class="history-items-cell">${recentItems(s.items)}</td><td class="mono num">${fmtMoney(s.total)}</td><td>${escapeHtml(s.payMethod||'-')}</td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:30px;">${index===0?'ยังไม่มีรายการขาย':'ยังไม่มีรายการเพิ่มเติม'}</td></tr>`}</tbody></table></div>
     </section>`;
   }).join('');
   return `
