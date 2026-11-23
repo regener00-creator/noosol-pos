@@ -227,8 +227,10 @@ const browserExecutable = [
       if(period==='selectmonth'){
         assert.deepEqual(await page.locator('.rpt-body h2').evaluate(heading=>{
           const style=getComputedStyle(heading);
-          return [style.justifyContent,style.backgroundColor];
-        }),['center','rgba(0, 0, 0, 0)']);
+          return [style.justifyContent,style.backgroundColor,style.marginTop,style.marginBottom,getComputedStyle(heading.parentElement).marginTop];
+        }),['center','rgba(0, 0, 0, 0)','0px','0px','0px']);
+        assert.equal(await page.locator('.product-sales-summary tbody td.rpt-pname').first()
+          .evaluate(cell=>getComputedStyle(cell).textAlign),'left');
       }
       assert.deepEqual(await page.locator('.rpt-body tbody td.num').allTextContents(),expected);
       if(period==='selectmonth'||period==='selectyear'){

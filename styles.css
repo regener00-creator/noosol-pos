@@ -1349,9 +1349,9 @@
     .product-sales-toolbar{grid-template-columns:minmax(0,1fr);}
     .product-sales-toolbar .product-sales-filters{grid-column:1;}
   }
-  .rpt-day-head.product-sales-period-heading{justify-content:center;text-align:center;background:transparent;}
-  .rpt-table.product-sales-summary thead th,.product-sales-summary tbody tr:not(.product-sales-detail) td{text-align:center;}
+  .rpt-table.product-sales-summary thead th,.product-sales-summary tbody tr:not(.product-sales-detail) td:not(.rpt-pname){text-align:center;}
   .rpt-table.product-sales-summary thead th{background:var(--primary);color:#fff;font-weight:600;}
+  .product-sales-summary .rpt-pname{text-align:left;}
   .product-sales-summary .doc-sort-btn{font-size:inherit;}
   .rpt-head-actions{display:flex;gap:10px;}
   .rpt-filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
@@ -1405,6 +1405,8 @@
   .rpt-day-group{margin-top:22px;}
   .rpt-day-group:first-of-type{margin-top:20px;}
   .rpt-day-head{display:flex;justify-content:space-between;align-items:baseline;padding:8px 12px;background:var(--primary-soft);border-radius:8px 8px 0 0;}
+  .rpt-day-group.product-sales-period-group{margin-top:0;}
+  .rpt-day-head.product-sales-period-heading{justify-content:center;text-align:center;background:transparent;margin:0;padding:0 12px 10px;}
   .rpt-day-head-table{margin-top:0;}
   .rpt-day-head-row td{background:var(--primary-soft);border:none;padding:8px 12px;}
   .rpt-day-head-table:first-child .rpt-day-head-row td{border-radius:0;}

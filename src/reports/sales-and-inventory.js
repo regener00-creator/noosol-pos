@@ -179,7 +179,7 @@ function productSalesPeriodSummaryHtml(report,filter,forPrint=false){
     const toggle=expandable?` data-product-sales-key="${escapeHtml(row.expansionKey)}"`:'';
     return `<tbody><tr${toggle} style="font-weight:700"><td>${index+1}</td><td class="rpt-pname">${title}</td><td class="num">${escapeHtml(row.quantity)}</td><td class="mono">${fmtMoney(row.value)}</td></tr>${details}</tbody>`;
   }).join('');
-  return `<section class="rpt-day-group"><h2 class="rpt-day-head product-sales-period-heading">${escapeHtml(report.label)}</h2>
+  return `<section class="rpt-day-group product-sales-period-group"><h2 class="rpt-day-head product-sales-period-heading">${escapeHtml(report.label)}</h2>
     ${rows?`<table class="rpt-table product-sales-summary" aria-label="รายงานยอดขายตามสินค้า"><colgroup><col style="width:9%"><col><col style="width:23%"><col style="width:19%"></colgroup><thead><tr><th>อันดับ</th><th>รายการ</th>${sortableHeader('quantity','จำนวน')}${sortableHeader('value','ยอดขาย')}</tr></thead>${rows}</table>`:'<div class="rpt-empty">ไม่มีข้อมูลการขายในช่วงเวลาที่เลือก</div>'}</section>`;
 }
 
