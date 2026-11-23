@@ -50,6 +50,7 @@ let browser;
   await page.goto('https://pepo-pharmacy.vercel.app/');await open();
   assert.match(await page.locator('.receipt-printer-heading').innerText(),/ตั้งค่าการพิมพ์/);
   assert.equal(await page.locator('[data-direct-printer]').count(),3);
+  assert.deepEqual(await page.locator('.direct-printer-settings > .receipt-printer-actions button').allTextContents(),['โหลดเครื่องพิมพ์ใหม่','เชื่อมต่อตัวช่วยพิมพ์']);
   assert.doesNotMatch(await page.locator('.direct-printer-settings').innerText(),/เครื่องพิมพ์ประจำเครื่องนี้|เลือกเครื่องแยกตามประเภท/);
   assert.equal(await page.locator('.direct-printer-card label').count(),0);
   assert.ok(await page.locator('.direct-printer-settings .receipt-printer-actions').evaluateAll(rows=>rows.every(row=>getComputedStyle(row).justifyContent==='center')));

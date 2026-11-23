@@ -158,7 +158,7 @@ function renderReceiptPrinterSettings(){
       <div class="receipt-printer-actions"><button type="button" class="btn" id="resetReceiptPrinterBtn">คืนค่าเริ่มต้น</button><button type="button" class="btn" id="testReceiptPrinterBtn">ลองพิมพ์ด้วยค่านี้</button><button type="submit" class="btn primary">บันทึก</button></div>
       <p id="receiptPrinterStatus" class="receipt-printer-status" role="status">ค่าที่ใช้กับใบเสร็จบนเครื่องนี้</p>
       <div class="receipt-printer-help"><p>เมื่อเชื่อมต่อตัวช่วย จะพิมพ์ไปเครื่องใบเสร็จที่บันทึกไว้ด้านบนโดยอัตโนมัติ</p><p>ทดลองพิมพ์ใช้ค่ากระดาษที่กรอกอยู่ กดบันทึกเพื่อนำไปใช้กับใบเสร็จจริง</p></div>
-    </form><section class="settings-section receipt-printer-preview"><h2>ตัวอย่างใบเสร็จ</h2><iframe id="receiptPrinterPreview" title="ตัวอย่างขนาดใบเสร็จ ไม่ใช่รายการขาย" sandbox=""></iframe></section></div>${renderA4PaperSettings()}</div>`;
+    </form><section class="settings-section receipt-printer-preview"><iframe id="receiptPrinterPreview" title="ตัวอย่างขนาดใบเสร็จ ไม่ใช่รายการขาย" sandbox=""></iframe></section></div>${renderA4PaperSettings()}</div>`;
 }
 function attachReceiptPrinterEvents(){
   attachA4PaperEvents();

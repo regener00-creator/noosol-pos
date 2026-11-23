@@ -19,6 +19,9 @@ let browser;
  const saved=await page.evaluate(()=>localStorage.getItem('pepos_a4_paper_v1'));
  await page.reload();await waitForIsolatedBootstrap(page);await setup();assert.equal(await page.locator('#a4_marginTop').inputValue(),'10');assert.equal(await page.locator('#a4_orientation').inputValue(),'landscape');
  assert.equal(await page.locator('#a4PaperStatus').textContent(),'');
+ const distances=await page.locator('#receiptPrinterForm,#a4PaperForm').evaluateAll(forms=>forms.map(form=>
+   form.querySelector('.receipt-printer-help').getBoundingClientRect().top-form.querySelector('.receipt-printer-actions').getBoundingClientRect().bottom));
+ assert.ok(distances[1]>16&&Math.abs(distances[1]-distances[0])<2,'paper help keeps the same spacing below both button rows');
  await page.locator('#a4_marginLeft').fill('99');await page.locator('#a4PaperForm button[type=submit]').click();assert.equal(await page.evaluate(()=>localStorage.getItem('pepos_a4_paper_v1')),saved);
  await page.locator('#a4_marginLeft').fill('8');
  // Unsaved test settings, rather than saved landscape settings, drive the sample.
