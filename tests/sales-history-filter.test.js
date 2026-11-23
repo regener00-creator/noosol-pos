@@ -56,7 +56,7 @@ assert.doesNotMatch(html, /<h1>ประวัติการขาย<\/h1>/);
 assert.match(html, /id="hfApplyBtn">แสดงผล<\/button><span class="sales-history-result-count">\$\{filtered\.length\} รายการ<\/span>/);
 assert.match(html, /\.sales-history-result-count\{[^}]*background:var\(--primary-soft\);[^}]*color:var\(--primary\);/);
 assert.match(html, /sales-history-table-wrap/);
-assert.match(html, /<th>เวลา<\/th><th>ลูกค้า<\/th><th>เลขที่บิล<\/th>/);
+assert.match(html, /<th>เวลา<\/th><th>เลขที่บิล<\/th><th>ลูกค้า<\/th>/);
 assert.match(html, /saleHistoryCustomerDisplay\(s\)/);
 assert.doesNotMatch(html, /history-date-divider|isSalesHistoryDateBreak/);
 assert.match(html, /\.main\.sales-history-main\{overflow-y:hidden;\}/);

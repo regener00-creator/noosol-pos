@@ -44,7 +44,21 @@ let browser;
   for(const selector of ['.cash-shift-money-field','#cashShiftOpeningCash']) assert.equal(await page.locator(selector).evaluate(el=>getComputedStyle(el).textAlign),'center');
   await page.screenshot({path:path.join(root,'outputs/ui-copy-cashshift.png')});
   await page.evaluate(()=>{
+    currentCashShift={id:'ui-test-shift',shiftNo:'CS-001',status:'open',openedAt:'2026-11-23T09:00:00+07:00',openedByName:'พนักงานทดสอบ',openingCash:100};
+    cashShiftCloseDraft={countedCash:'',reason:''};salesHistory=[];render();
+  });
+  for(const labels of ['.cash-shift-meta span','.cash-shift-stat span']){
+    assert.deepEqual(await page.locator(labels).evaluateAll(elements=>elements.map(el=>getComputedStyle(el).fontWeight)),Array(4).fill('700'));
+  }
+  for(const values of ['.cash-shift-meta b','.cash-shift-stat b']){
+    assert.deepEqual(await page.locator(values).evaluateAll(elements=>elements.map(el=>getComputedStyle(el).fontWeight)),Array(4).fill('400'));
+  }
+  assert.doesNotMatch(await page.locator('.cash-shift-page').innerText(),/บาท/);
+  await page.locator('#cashShiftCountedCash').fill('150');
+  assert.equal(await page.locator('#cashShiftVariance b').innerText(),'+50.00');
+  await page.evaluate(()=>{
     currentDateStr=()=> '2026-11-23';
+    currentCashShift=null;
     currentTab='history';
     const sale={id:'recent',ref:'RE-001',date:'2026-11-01',time:'16:29',member:'ลูกค้าทดสอบ',warehouseId:1,status:'done',total:100,items:[]};
     salesHistory=[sale,{...sale,id:'previous',ref:'RE-OLD',date:'2026-10-31'}];
@@ -54,7 +68,8 @@ let browser;
   assert.equal(await page.locator('#hf_month').inputValue(),'2026-11');
   const historyRows=page.locator('.history-table tbody tr');
   assert.equal(await historyRows.count(),1);
-  assert.deepEqual((await historyRows.first().locator('td').allTextContents()).slice(1,4),['16:29','ลูกค้าทดสอบ','RE-001']);
+  assert.deepEqual((await historyRows.first().locator('td').allTextContents()).slice(1,4),['16:29','RE-001','ลูกค้าทดสอบ']);
+  assert.deepEqual((await page.locator('.history-table thead th').allTextContents()).slice(1,4),['เวลา','เลขที่บิล','ลูกค้า']);
   const alignments=await page.locator('.history-table thead th').evaluateAll(nodes=>nodes.map(el=>getComputedStyle(el).textAlign));
   assert.ok(alignments.length>0&&alignments.every(value=>value==='center'));
   for(const tab of ['purchaseorder','goodsreceipt','productreturn','quotation']){

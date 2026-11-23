@@ -212,7 +212,7 @@ function attachEvents(){
     if(value===''){ output.className='cash-shift-variance'; output.querySelector('b').textContent='กรอกเงินที่นับจริง'; return; }
     const variance=Math.round((Number(value)-cashShiftSummary(currentCashShift).expectedCash)*100)/100;
     output.className=`cash-shift-variance ${Math.abs(variance)<.01?'ok':'danger'}`;
-    output.querySelector('b').textContent=`${variance>0?'+':''}${fmtMoney(variance)} บาท`;
+    output.querySelector('b').textContent=`${variance>0?'+':''}${fmtMoney(variance)}`;
   });
   const cashShiftCloseReason=document.getElementById('cashShiftCloseReason');
   if(cashShiftCloseReason) cashShiftCloseReason.addEventListener('input',()=>{ cashShiftCloseDraft.reason=cashShiftCloseReason.value; });
