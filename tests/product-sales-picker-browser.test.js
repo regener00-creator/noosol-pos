@@ -83,6 +83,10 @@ const browserExecutable = [
   assert.equal(await page.locator('.rpt-table tbody td').count(),8,'four columns per product today');
   const salesHeader=page.locator('[data-product-sales-sort="value"]');
   const quantityHeader=page.locator('[data-product-sales-sort="quantity"]');
+  assert.deepEqual(await page.locator('.product-sales-summary thead th').evaluateAll(headers=>headers.map(header=>[
+    getComputedStyle(header).backgroundColor,
+    getComputedStyle(header.querySelector('button')||header).color
+  ])),Array.from({length:4},()=>['rgb(79, 64, 56)','rgb(255, 255, 255)']));
   const salesValues=()=>page.locator('.product-sales-summary tbody td:last-child').allTextContents();
   assert.deepEqual(await salesValues(),['50.00','20.00']);
   await salesHeader.click();
@@ -257,6 +261,15 @@ const browserExecutable = [
           assert.deepEqual(await entries.evaluateAll(cells=>cells.map(cell=>getComputedStyle(cell).fontWeight)),expectedDays.map(day=>day.endsWith(': 0 ซอง')?'400':'700'));
         }
         assert.equal(await days.first().locator('.product-sales-periods > span').nth(2).evaluate(cell=>getComputedStyle(cell).color),'rgb(136, 136, 136)');
+        const dailyRowInsets=await days.first().locator('.product-sales-periods').evaluate(row=>{
+          const rowBounds=row.getBoundingClientRect();
+          return [
+            row.firstElementChild.getBoundingClientRect().left-rowBounds.left,
+            rowBounds.right-row.lastElementChild.getBoundingClientRect().right
+          ];
+        });
+        assert.ok(dailyRowInsets[0]>0,'Daily entries are inset within their columns');
+        assert.ok(Math.abs(dailyRowInsets[0]-dailyRowInsets[1])<1,'Daily entries are centered across the report');
         const dailyPositions=await days.locator('.product-sales-periods > span').evaluateAll(cells=>cells.map(cell=>Array.from(cell.children,part=>part.getBoundingClientRect().left)));
         for(let i=0;i<dailyPositions.length;i++){
           assert.equal(dailyPositions[i].length,3);

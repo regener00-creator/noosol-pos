@@ -1344,7 +1344,8 @@
   .product-sales-filters h1{font-size:22px;font-weight:600;color:var(--primary);margin:0;}
   .product-sales-filters #rpPrintBtn{margin-left:auto;}
   .rpt-table.product-sales-summary thead th,.product-sales-summary tbody tr:not(.product-sales-detail) td{text-align:center;}
-  .product-sales-summary .doc-sort-btn{color:var(--primary);font-size:inherit;}
+  .rpt-table.product-sales-summary thead th{background:var(--primary);color:#fff;font-weight:600;}
+  .product-sales-summary .doc-sort-btn{font-size:inherit;}
   .rpt-head-actions{display:flex;gap:10px;}
   .rpt-filters{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:18px;}
   .rpt-select{padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-family:inherit;font-size:13.5px;background:var(--surface);color:var(--text);min-width:150px;cursor:pointer;}
@@ -1442,6 +1443,8 @@
   [data-product-sales-key]{cursor:pointer;}
   .product-sales-period-toggle{background:none;border:0;padding:0;color:inherit;font:inherit;text-align:left;cursor:pointer;}
   .rpt-table .product-sales-detail td{padding:7px 16px;background:#fff;}
+  .product-sales-summary .product-sales-periods{justify-items:center;}
+  .product-sales-summary .product-sales-periods > span{width:min(100%,9em);}
   .rpt-table tr:not(.product-sales-detail)+.product-sales-detail td{border-top:1px solid #a6968b;}
   .rpt-table .product-sales-detail:last-child td{border-bottom:0;}
   .rpt-row-x:hover{background:#fde8e8;color:#c0392b;border-color:#e8b4b4;}
