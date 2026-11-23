@@ -80,13 +80,24 @@ const browserExecutable = [
   assert.equal(await page.locator('.rpt-table tbody tr').count(),0,'report waits for Apply');
   await page.locator('#rpApplyBtn').click();
   assert.equal(await page.locator('.rpt-table tbody tr').count(),2);
-  assert.equal(await page.locator('.rpt-table tbody td').count(),4,'two columns per product today');
+  assert.equal(await page.locator('.rpt-table tbody td').count(),8,'four columns per product today');
+  const salesHeader=page.locator('[data-product-sales-sort="value"]');
+  const quantityHeader=page.locator('[data-product-sales-sort="quantity"]');
+  const salesValues=()=>page.locator('.product-sales-summary tbody td:last-child').allTextContents();
+  assert.deepEqual(await salesValues(),['50.00','20.00']);
+  await salesHeader.click();
+  assert.deepEqual(await salesValues(),['20.00','50.00']);
+  await quantityHeader.click();
+  assert.equal(await quantityHeader.locator('..').getAttribute('aria-sort'),'descending');
+  await quantityHeader.click();
+  assert.equal(await quantityHeader.locator('..').getAttribute('aria-sort'),'ascending');
+  await salesHeader.click();
   assert.doesNotMatch(await page.locator('.rpt-meta').innerText(),/ยอดสินค้า|ค่าธรรมเนียม|ส่วนลดท้ายบิล|ยอดสุทธิ/);
   const printed=await page.evaluate(()=>{
     const doc=document.implementation.createHTMLDocument('print test');window.open=()=>({document:doc});standardizePrintPreview=()=>{};
-    printRProduct();return Array.from(doc.querySelectorAll('.pd-name'),el=>el.textContent);
+    printRProduct();return Array.from(doc.querySelectorAll('.product-sales-summary .rpt-pname'),el=>el.textContent);
   });
-  assert.deepEqual(printed,['สินค้ารายงาน 2','สินค้ารายงาน 5'],'print uses the same chosen subset');
+  assert.deepEqual(printed,['สินค้ารายงาน 5','สินค้ารายงาน 2'],'print uses the same chosen subset');
   await page.locator('#rpPickCategoryBtn').click();
   assert.equal(await page.locator('#rproductPickList input:disabled').count(),2,'reopening retains prior selections');
   await page.locator('#rproductPickCancelBtn').click();
@@ -136,7 +147,7 @@ const browserExecutable = [
       render();
       Object.assign(rproductFilter,{scope:'product',products:[products[0].name]});
       render();
-      const selected=Array.from(document.querySelector('.rpt-table tr').cells,cell=>cell.textContent),meta=document.querySelector('.rpt-meta').innerText;
+      const selected=Array.from(document.querySelector('.rpt-table tbody tr').cells,cell=>cell.textContent),meta=document.querySelector('.rpt-meta').innerText;
       const doc=document.implementation.createHTMLDocument();
       window.open=()=>({document:doc});printRProduct();
       rproductFilter.period=rbillFilter.period='selectyear';
@@ -144,13 +155,13 @@ const browserExecutable = [
       const productYear=document.querySelector('#rpf_year').value;
       const billView=document.createElement('div');
       billView.innerHTML=renderRBill();
-      return {selected,meta,printed:doc.querySelector('.meta').textContent,printCells:Array.from(doc.querySelector('.rpt-table tr').cells,cell=>cell.textContent),
+      return {selected,meta,printed:doc.querySelector('.meta').textContent,printCells:Array.from(doc.querySelector('.rpt-table tbody tr').cells,cell=>cell.textContent),
         bills:bills.grandVal,docCount:bills.docCount,profitDay:rprofitPeriodRange().from,productYear,billYear:billView.querySelector('#rbf_year').value};
     },store);
     assert.equal(result.bills.toFixed(2),(100*store+69.40).toFixed(2));
-    assert.equal(result.selected.length,2);
-    assert.equal(result.selected[1],'0 กล่อง');
-    assert.deepEqual(result.printCells,['สินค้ารายงาน 1','0 กล่อง']);
+    assert.equal(result.selected.length,4);
+    assert.equal(result.selected[2],'0 กล่อง');
+    assert.deepEqual(result.printCells,['1','สินค้ารายงาน 1','0 กล่อง',(60*store-25).toFixed(2)]);
     assert.equal(result.docCount,3);
     assert.match(result.meta,/2 เอกสาร/);assert.match(result.meta,/1 ม.ค. 2027/);
     assert.match(result.printed,/2 เอกสาร/);
@@ -201,19 +212,19 @@ const browserExecutable = [
     for(const [store,expected] of [[1,firstStore],[2,['2 กล่อง 3 ซอง']]]){
       await page.evaluate(store=>{activeWarehouseId=store;render();},store);
       assert.equal(await page.locator('.rpt-body h2').textContent(),label);
-      assert.deepEqual(await page.locator('.rpt-body tbody td:last-child').allTextContents(),expected);
+      assert.deepEqual(await page.locator('.rpt-body tbody td.num').allTextContents(),expected);
       if(period==='selectmonth'||period==='selectyear'){
         const summary=page.locator('.rpt-body tr[data-product-sales-key]').first();
         for(const selector of ['.product-sales-period-toggle','td.num']){
           assert.equal(await summary.locator(selector).evaluate(el=>getComputedStyle(el).fontWeight),'700');
         }
       }else{
-        assert.deepEqual(await page.locator('.rpt-table tr').first().locator('td').evaluateAll(cells=>cells.map(td=>getComputedStyle(td).fontWeight)),['700','700']);
+        assert.deepEqual(await page.locator('.rpt-table tbody tr').first().locator('td').evaluateAll(cells=>cells.map(td=>getComputedStyle(td).fontWeight)),['700','700','700','700']);
       }
       const printed=await page.evaluate(()=>{
         const doc=document.implementation.createHTMLDocument();
         window.open=()=>({document:doc});printRProduct();
-        return Array.from(doc.querySelectorAll('tbody td:last-child'),td=>td.textContent);
+        return Array.from(doc.querySelectorAll('tbody td.num'),td=>td.textContent);
       });
       assert.deepEqual(printed,expected);
       const downloadStarted=page.waitForEvent('download');
@@ -323,7 +334,7 @@ const browserExecutable = [
     assert.equal(total,store===1?'68 กล่อง 5 ซอง':'2 กล่อง 3 ซอง');
     const printed=await page.evaluate(()=>{
       const doc=document.implementation.createHTMLDocument();window.open=()=>({document:doc});printRProduct();
-      return Array.from(doc.querySelectorAll('tbody:first-of-type td:last-child'),td=>td.textContent);
+      return Array.from(doc.querySelectorAll('tbody:first-of-type td.num, tbody:first-of-type .product-sales-detail td'),td=>td.textContent);
     });
     assert.deepEqual(printed,[total,...[0,4,8].map(start=>entries.slice(start,start+4).join(' '))]);
     const pending=page.waitForEvent('download');await page.evaluate(()=>exportRProductExcel());
@@ -342,12 +353,12 @@ const browserExecutable = [
   });
   await page.locator('#rpf_period').selectOption('today');
   assert.equal(await page.getByLabel('แสดงยอดแยกรายเดือน').count(),0);
-  assert.deepEqual(await page.locator('.rpt-table tr td:nth-child(2)').allTextContents(),['17 กล่อง 1 ซอง','2 ขวด']);
-  assert.deepEqual(await page.locator('.rpt-table tr').first().locator('td').evaluateAll(cells=>cells.map(td=>getComputedStyle(td).fontWeight)),['700','700']);
+  assert.deepEqual(await page.locator('.rpt-table tbody td.num').allTextContents(),['17 กล่อง 1 ซอง','2 ขวด']);
+  assert.deepEqual(await page.locator('.rpt-table tbody tr').first().locator('td').evaluateAll(cells=>cells.map(td=>getComputedStyle(td).fontWeight)),['700','700','700','700']);
   const printWeight=await page.evaluate(()=>{
     const doc=document.implementation.createHTMLDocument();
     window.open=()=>({document:doc});printRProduct();
-    return doc.querySelector('.rpt-table tr').style.fontWeight;
+    return doc.querySelector('.rpt-table tbody tr').style.fontWeight;
   });
   assert.equal(printWeight,'700');
   await page.evaluate(()=>{

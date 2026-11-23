@@ -197,7 +197,7 @@ function documentStatusControl(kind,doc){
   return `<select class="doc-status-select ${cls}" data-status-kind="gr" data-id="${escapeHtml(doc.id)}" ${canManage?'':'disabled title="ดูได้อย่างเดียว: ใบรับสินค้านี้สร้างโดยผู้ใช้งานอื่น"'}><option value="รอรับสินค้า" ${status==='รอรับสินค้า'?'selected':''}>รอรับสินค้า</option><option value="รับสินค้าแล้ว" ${status==='รับสินค้าแล้ว'?'selected':''}>รับสินค้าแล้ว</option><option value="ชำระเรียบร้อย" ${status==='ชำระเรียบร้อย'?'selected':''}>ชำระเรียบร้อย</option></select>`;
 }
 function defaultDocumentPeriod(kind){
-  return kind==='rvoid'||kind==='rbestsellers'||Object.values(documentPageKinds).includes(kind)?'month':'today';
+  return kind==='rvoid'||Object.values(documentPageKinds).includes(kind)?'month':'today';
 }
 function documentPeriodRange(kind){
   const filter=documentPeriods[kind]||{period:defaultDocumentPeriod(kind)};

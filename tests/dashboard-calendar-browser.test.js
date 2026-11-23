@@ -192,26 +192,5 @@ let browser;
   assert.equal(await previewRows.nth(1).locator('.dashboard-recent-more').count(),0);
   assert.equal(await previewRows.nth(2).locator('.dashboard-recent-more').innerText(),'+1');
   fs.mkdirSync(path.resolve(__dirname,'../outputs'),{recursive:true});await page.screenshot({path:path.resolve(__dirname,'../outputs/dashboard-calendar.png'),fullPage:true});
-  await page.evaluate(()=>{
-    const product={id:1,name:'Decolgen',unit:'ซอง',units:[{sub:'กล่อง',factor:25},{sub:'ลัง',factor:500}]};
-    products=[product,{id:2,name:'B',unit:'ขวด'}];
-    const pack={productId:1,name:'Decolgen',unit:'ลัง',qty:1,factor:500,lineTotal:12000};
-    const box={...pack,unit:'กล่อง',qty:2,factor:25,lineTotal:690};
-    const bottle={productId:2,name:'B',unit:'ขวด',qty:1,price:20000};
-    const sale={date:'2026-10-01',status:'done',warehouseId:1};
-    salesHistory=[{...sale,items:[pack,box,bottle]},{...sale,customerReturn:true,items:[{...box,qty:-1,lineTotal:-345}]},
-      {...sale,status:'void',items:[pack]},{...sale,warehouseId:2,items:[pack]},
-      {...sale,date:'2026-09-01',items:[bottle]}];
-    document.getElementById('appRoot').hidden=false;
-  });
-  await page.locator('[data-tab="rbestsellers"]').click();
-  const rankedRows=page.locator('.best-seller-table tbody tr');
-  await rankedRows.first().waitFor();
-  assert.deepEqual(await rankedRows.first().locator('td').allTextContents(),['1','Decolgen','1 ลัง 1 กล่อง','12,345.00']);
-  assert.equal(await rankedRows.count(),2);
-  await page.locator('#bestSellerSort').selectOption('sales');
-  assert.equal(await rankedRows.first().locator('td').nth(1).innerText(),'B');
-  await page.locator('[data-document-period="period"]').selectOption('all');
-  assert.equal(await rankedRows.first().locator('td').last().innerText(),'40,000.00');
   assert.deepEqual(errors,[]);console.log('Dashboard calendar: totals, permissions, 12-month bounds, Today navigation, paging, stale requests, retry, year boundary, leap years and one-row responsive layout passed');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});

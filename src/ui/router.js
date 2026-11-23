@@ -128,7 +128,7 @@ const TAB_DOCUMENT_TABLES={
   productreturn:['product_returns'],transfer:['transfers'],taxinvoice:['standalone_tax_invoices'],
   rtax:['goods_receipts'],
 };
-const ON_DEMAND_AGGREGATE_TABS=new Set(['dashboard','history','rproduct','rbestsellers','rbill','rvoid','rprofit','rtax','inventorymovement']);
+const ON_DEMAND_AGGREGATE_TABS=new Set(['dashboard','history','rproduct','rbill','rvoid','rprofit','rtax','inventorymovement']);
 const onDemandTabJobs=new Map();
 const onDemandTabErrors=new Map();
 function localIsoDaysAgo(days){
@@ -151,7 +151,7 @@ function salesRangeForTab(tab){
   if(tab==='rtax') return monthServerRange(rtaxMonth);
   if(tab==='rvoid') return voidReportRange();
   if(tab==='inventorymovement') return serverDateRange(inventoryMovementDateRange().from,inventoryMovementDateRange().to);
-  if(tab==='cashbill'||tab==='taxinvoice'||tab==='rbestsellers'){const range=documentPeriodRange(tab);return serverDateRange(range.from,range.to);}
+  if(tab==='cashbill'||tab==='taxinvoice'){const range=documentPeriodRange(tab);return serverDateRange(range.from,range.to);}
   return null;
 }
 function dataRequestsForTab(tab){
@@ -271,7 +271,6 @@ function attachOnDemandStateEvents(state){
 const RENDERERS = {
   factoryreset: renderFactoryReset,
   knowledge: renderKnowledge,
-  rbestsellers: ()=>renderBestSellersReport(),
   rvoid: ()=>renderVoidReport(),
   mobiletools: renderMobileTools,
   dashboard: renderDashboard, checkout: renderCheckout, notes: renderNotes, cashshift: renderCashShift, cashbill: ()=>renderCashBills(), taxinvoice: ()=>renderTaxInvoices(), quotation: ()=>renderQuotation(), invoice: renderInvoice,
