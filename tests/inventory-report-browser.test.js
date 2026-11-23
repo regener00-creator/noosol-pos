@@ -59,7 +59,7 @@ let browser;
   };
   const restock=page.locator('[data-stock-report-tab="lowstock"]');
   assert.equal(await page.locator('#sidebar [data-tab="lowstock"],#sidebar [data-tab="rprofit"]').count(),0);
-  assert.equal(await page.locator('#sidebar [data-tab="rbill"]').innerText(),'ยอดขายและกำไรตามบิล');
+  assert.equal(await page.locator('#sidebar [data-tab="rbill"]').innerText(),'กำไรตามบิล');
   assert.equal(await restock.innerText(),'ต้องเติมสินค้า');
   const tabs=page.locator('.stock-report-tabs');
   assert.equal(await tabs.evaluate(nav=>getComputedStyle(nav).justifyContent),'center');

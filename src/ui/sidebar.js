@@ -37,7 +37,7 @@ const NAV = [
   ]},
   {section:'รายงาน', items:[
     ['rproduct','ยอดขายตามสินค้า','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>'],
-    ['rbill','ยอดขายและกำไรตามบิล','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>'],
+    ['rbill','กำไรตามบิล','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>'],
     ['rvoid','รายงานบิลยกเลิก','<path d="M5 3h14v18H5zM9 8l6 6M15 8l-6 6M9 18h6"/>'],
     ['rprofit','กำไร / ขาดทุน','<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/><path d="M7 8h12"/>'],
     ['rtax','รายงานภาษี','<path d="M5 3h14v18H5z"/><path d="M8 7h8M8 11h8M8 15h4"/>'],

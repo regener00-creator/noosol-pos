@@ -86,6 +86,11 @@ const browserExecutable = [
   assert.deepEqual(await page.evaluate(()=>rproductFilter.products),['สินค้ารายงาน 2','สินค้ารายงาน 5']);
   assert.equal(await page.locator('.stock-report-product-chip').count(),2);
   assert.equal(await page.locator('.rpt-table tbody tr').count(),0,'report waits for Apply');
+  const applyButtonColors=selector=>page.locator(selector).evaluate(button=>{
+    const style=getComputedStyle(button);
+    return [style.backgroundColor,style.color];
+  });
+  assert.deepEqual(await applyButtonColors('#rpApplyBtn'),['rgb(79, 64, 56)','rgb(255, 255, 255)']);
   await page.locator('#rpApplyBtn').click();
   assert.equal(await page.locator('.rpt-table tbody tr').count(),2);
   assert.equal(await page.locator('.rpt-table tbody td').count(),8,'four columns per product today');
@@ -227,8 +232,8 @@ const browserExecutable = [
       if(period==='selectmonth'){
         assert.deepEqual(await page.locator('.rpt-body h2').evaluate(heading=>{
           const style=getComputedStyle(heading);
-          return [style.justifyContent,style.backgroundColor,style.marginTop,style.marginBottom,getComputedStyle(heading.parentElement).marginTop];
-        }),['center','rgba(0, 0, 0, 0)','0px','0px','0px']);
+          return [style.justifyContent,style.backgroundColor,style.marginTop,style.marginBottom,style.paddingBottom,getComputedStyle(heading.parentElement).marginTop];
+        }),['center','rgba(0, 0, 0, 0)','0px','0px','16px','0px']);
         assert.equal(await page.locator('.product-sales-summary tbody td.rpt-pname').first()
           .evaluate(cell=>getComputedStyle(cell).textAlign),'left');
       }
@@ -399,6 +404,8 @@ const browserExecutable = [
     salesHistory=[bill,{...bill,id:'B-02',items:[{name:'รอข้อมูล',qty:1,price:107}]},{...bill,id:'OTHER',warehouseId:2}];
     render=()=>{document.getElementById('main').innerHTML=renderRBill();attachEvents();};render();
   });
+  assert.equal(await page.locator('.rpt-head h1').innerText(),'กำไรตามบิล');
+  assert.deepEqual(await applyButtonColors('#rbApplyBtn'),['rgb(79, 64, 56)','rgb(255, 255, 255)']);
   const bills=page.locator('[data-bill-summary]');
   assert.equal(await bills.count(),2);
   assert.deepEqual(await bills.first().locator('td').allTextContents(),['▸ B-01','-','107.00','+58.00']);
@@ -420,6 +427,7 @@ const browserExecutable = [
     window.open=()=>({document:doc});printRBill();return doc.body.textContent;
   });
   assert.doesNotMatch(await printedBill(),/ยอดรับก่อน VAT/);
+  assert.match(await printedBill(),/กำไรตามบิล/);
   assert.match(await printedBill(),/\(VAT 7\.00\)\u00a0 100\.00/);
   assert.match(await printedBill(),/−2\.00/);
   await page.evaluate(()=>{

@@ -373,7 +373,7 @@ function renderRProduct(){
         <input type="text" id="rpf_product_search" class="rpt-select" placeholder="พิมพ์ชื่อ / สแกนบาร์โค้ด / รหัสสินค้า (เลือกได้หลายตัว)" autocomplete="off">
         <div id="rpf_product_results" class="rpf-results"></div>
       </div>${(f.products&&f.products.length)?`<button class="btn ghost rpf-clear" id="rpClearProductsBtn">ล้างที่เลือก (${f.products.length})</button>`:''}`:''}
-      <button class="btn ghost rpf-apply" id="rpApplyBtn">แสดงผล</button>
+      <button class="btn primary rpf-apply" id="rpApplyBtn">แสดงผล</button>
     </div>
       <button class="btn primary" id="rpPrintBtn">พิมพ์รายงาน</button>
     </div>
@@ -546,7 +546,7 @@ function printRBill(filter=rbillFilter,reportTitle='รายงานยอด�
     if(includeProfit) printRProfit(filter);
     return;
   }
-  if(includeProfit) reportTitle='ยอดขายและกำไรตามบิล';
+  if(includeProfit) reportTitle='กำไรตามบิล';
   const {range, byDate, dateKeys, allRows, grandVal, docCount} = rbillCollect(filter,includeProfit);
   const bizName=warehouseBusinessSettings().name||'';
   const costedBills=allRows.filter(row=>row.breakdown);
@@ -614,7 +614,7 @@ function renderRBill(){
   const f=rbillFilter;
   const range=rbillPeriodRange(f);
   const includeProfit=canAccessTab('rprofit');
-  const reportTitle=includeProfit?'ยอดขายและกำไรตามบิล':'รายงานยอดขายตามบิล';
+  const reportTitle=includeProfit?'กำไรตามบิล':'รายงานยอดขายตามบิล';
   const idPrefix='rb';
   const fieldPrefix='rbf';
   const periodOpts=[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
@@ -657,7 +657,7 @@ function renderRBill(){
           <option value="ออนไลน์" ${f.pay==='ออนไลน์'?'selected':''}>ออนไลน์</option>
         </select>
       </div>
-      <button class="btn ghost rpf-apply" id="${idPrefix}ApplyBtn">แสดงผล</button>
+      <button class="btn primary rpf-apply" id="${idPrefix}ApplyBtn">แสดงผล</button>
     </div>
 
     <div class="rpt-body">
