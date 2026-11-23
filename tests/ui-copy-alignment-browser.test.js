@@ -45,16 +45,22 @@ let browser;
   await page.screenshot({path:path.join(root,'outputs/ui-copy-cashshift.png')});
   await page.evaluate(()=>{
     currentCashShift={id:'ui-test-shift',shiftNo:'CS-001',status:'open',openedAt:'2026-11-23T09:00:00+07:00',openedByName:'พนักงานทดสอบ',openingCash:100};
-    cashShiftCloseDraft={countedCash:'',reason:''};salesHistory=[];render();
+    cashShiftCloseDraft={countedCash:'',reason:''};
+    salesHistory=Array.from({length:17},(_,index)=>({id:`ui-shift-sale-${index}`,cashShiftId:currentCashShift.id,payMethod:'เงินสด',total:10}));
+    salesHistory.push({id:'ui-shift-refund',voidShiftId:currentCashShift.id,voidRefundMethod:'เงินสด',total:20});
+    render();
   });
   for(const labels of ['.cash-shift-meta span','.cash-shift-stat span']){
-    assert.deepEqual(await page.locator(labels).evaluateAll(elements=>elements.map(el=>[getComputedStyle(el).fontWeight,getComputedStyle(el).color])),Array(4).fill(['700','rgb(0, 0, 0)']));
+    assert.deepEqual(await page.locator(labels).evaluateAll(elements=>elements.map(el=>[getComputedStyle(el).fontWeight,getComputedStyle(el).color,getComputedStyle(el).textAlign])),Array(4).fill(['700','rgb(0, 0, 0)','center']));
   }
   for(const values of ['.cash-shift-meta b','.cash-shift-stat b']){
-    assert.deepEqual(await page.locator(values).evaluateAll(elements=>elements.map(el=>getComputedStyle(el).fontWeight)),Array(4).fill('400'));
+    assert.deepEqual(await page.locator(values).evaluateAll(elements=>elements.map(el=>[getComputedStyle(el).fontWeight,getComputedStyle(el).textAlign])),Array(4).fill(['400','center']));
   }
+  assert.deepEqual(await page.locator('.cash-shift-panel h3').evaluateAll(elements=>elements.map(el=>[el.textContent,getComputedStyle(el).textAlign])),[['สรุปตามวิธีชำระเงิน','center'],['ปิดระบบ','center']]);
+  assert.equal(await page.locator('#cashShiftCloseReason').getAttribute('placeholder'),null);
+  assert.equal(await page.locator('.cash-shift-payment-row > span').innerText(),'เงินสด | ขาย 17 บิล · คืน 1 บิล');
   assert.doesNotMatch(await page.locator('.cash-shift-page').innerText(),/บาท/);
-  await page.locator('#cashShiftCountedCash').fill('150');
+  await page.locator('#cashShiftCountedCash').fill('300');
   assert.equal(await page.locator('#cashShiftVariance b').innerText(),'+50.00');
   await page.evaluate(()=>{
     currentDateStr=()=> '2026-11-23';
