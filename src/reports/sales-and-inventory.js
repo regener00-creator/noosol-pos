@@ -325,7 +325,6 @@ function renderRProduct(){
   const periodOpts=[['today','วันนี้'],['range','เลือกช่วงวันที่'],['selectmonth','เลือกเดือน'],['selectyear','เลือกปี']];
   const bills=f.applied?completedSalesInReportRange(range):[];
   const summary=productSalesPeriodSummary(range,f,bills);
-  const {docCount}=f.period==='today'?collectProductSales(bills,f):{};
   // ตัวเลือกสินค้าตาม scope
   const catList=categories.slice();
   const brandList=brands.slice();
@@ -380,18 +379,6 @@ function renderRProduct(){
 
     ${categoryScope&&f.products?.length?`<div class="stock-report-selected-products"><span class="stock-report-selected-label">สินค้าที่เลือก ${f.products.length} รายการ</span><div class="stock-report-selected-list">${f.products.map(name=>`<span class="stock-report-product-chip">${escapeHtml(name)}<button type="button" class="rpt-row-x" data-name="${escapeHtml(name)}" aria-label="ลบ ${escapeHtml(name)} ออกจากตัวกรอง">×</button></span>`).join('')}</div><button type="button" class="stock-report-clear-products" id="rpClearProductsBtn">ล้างที่เลือก</button></div>`:''}
     <div class="rpt-body">
-      ${f.period==='today'?`<div class="rpt-meta">
-        <div class="rpt-biz">${escapeHtml(warehouseBusinessSettings().name||'')}</div>
-        <div class="rpt-meta-grid">
-          <div class="rpt-meta-left">
-            <div><span class="rpt-meta-k">ณ วันที่</span><span class="rpt-meta-v">${reportDateLabel(TODAY_STR)}</span></div>
-            <div><span class="rpt-meta-k">ช่วงเวลา</span><span class="rpt-meta-v">${reportDateLabel(range.from)} - ${reportDateLabel(range.to)}</span></div>
-            <div><span class="rpt-meta-k">จำนวนทั้งหมด</span><span class="rpt-meta-v">${docCount} เอกสาร</span></div>
-          </div>
-        </div>
-      </div>
-
-      `:''}
       ${f.applied?productSalesPeriodSummaryHtml(summary,f):'<div class="rpt-empty">เลือกเงื่อนไขแล้วกด “แสดงผล” เพื่อดูรายงาน</div>'}
     </div>
   </div>`;
@@ -885,7 +872,7 @@ function renderRTax(){
         <nav class="tax-report-tabs" aria-label="ประเภทรายงานภาษี"><button type="button" class="btn ghost" data-tax-view="sales" aria-pressed="${rtaxType==='sales'}">ภาษีขาย</button><button type="button" class="btn ghost" data-tax-view="purchases" aria-pressed="${rtaxType==='purchases'}">ภาษีซื้อ</button></nav>
         <input type="month" id="rtax_month" aria-label="เดือนของรายงานภาษี" value="${escapeHtml(rtaxMonth)}" class="rpt-select">
       </div>
-      <div class="rpt-head-actions tax-report-export">${canPerformPageAction('print','rtax')?'<button class="btn ghost" id="taxReportPrintBtn">พิมพ์รายงานทั้งเดือน</button>':''}${canPerformPageAction('export','rtax')?'<button class="btn primary" id="taxReportExcelBtn">ส่งออก Excel ทั้งเดือน</button>':''}</div>
+      <div class="tax-report-export">${canPerformPageAction('export','rtax')?'<button class="btn primary" id="taxReportExcelBtn">ส่งออก EXCEL</button>':''}${canPerformPageAction('print','rtax')?'<button class="btn primary" id="taxReportPrintBtn">พิมพ์รายงาน</button>':''}</div>
     </div>
     ${registered?'':`<div class="panel" style="margin-bottom:14px;color:var(--danger);">กิจการยังไม่ได้ตั้งค่าเป็น “จดภาษีมูลค่าเพิ่มแล้ว” รายงานนี้จะแสดงเพื่อเตรียมข้อมูลเท่านั้น และจะไม่ถือว่ามีภาษีซื้อที่นำไปใช้ได้</div>`}
     ${effectiveDate?`<div class="tax-report-effective-date">เริ่มจด VAT ${fmtDateShort(effectiveDate)}</div>`:''}

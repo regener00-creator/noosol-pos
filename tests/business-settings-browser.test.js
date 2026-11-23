@@ -68,20 +68,22 @@ const browserExecutable = [
   assert.equal(await page.locator('#businessTaxBranchRow').isHidden(), true);
   assert.equal(await page.locator('#topbarFormActions #saveBusinessSettingsBtn').count(), 1);
   assert.equal(await page.locator('#main #saveBusinessSettingsBtn').count(), 0);
+  assert.doesNotMatch(await page.locator('.business-settings-page').innerText(),/รายละเอียดธุรกิจ/);
   const officePhone=page.locator('#set_business_office');
-  await page.getByRole('radio',{name:'เบอร์สำนักงาน',exact:true}).check();
+  const documentPhone=page.locator('select#set_business_document_phone');
+  await documentPhone.selectOption('office');
   await officePhone.fill('021234567');
   const officeValue=await officePhone.inputValue();
-  await page.getByRole('radio',{name:'เบอร์มือถือ',exact:true}).check();
+  await documentPhone.selectOption('mobile');
   assert.equal(await officePhone.isVisible(),true);
   const phoneFields=await page.locator('#set_business_document_phone,#set_business_mobile,#set_business_office').evaluateAll(fields=>
     fields.map(el=>({id:el.id,top:el.getBoundingClientRect().top,left:el.getBoundingClientRect().left})));
   assert.deepEqual(phoneFields.map(field=>field.id),['set_business_document_phone','set_business_mobile','set_business_office']);
   assert.equal(new Set(phoneFields.map(field=>field.top)).size,1);
   assert.ok(phoneFields[0].left<phoneFields[1].left && phoneFields[1].left<phoneFields[2].left);
-  await page.getByRole('radio',{name:'เบอร์สำนักงาน',exact:true}).check();
+  await documentPhone.selectOption('office');
   assert.equal(await officePhone.inputValue(),officeValue);
-  assert.equal(await page.getByRole('radio',{name:'เบอร์มือถือ',exact:true}).isChecked(),false);
+  assert.equal(await documentPhone.inputValue(),'office');
   await page.evaluate(async()=>{
     const persist=persistWorkspaceData,rpc=sb.rpc,draw=render;
     try{
@@ -100,7 +102,10 @@ const browserExecutable = [
   assert.equal(await page.locator('#businessTaxBranchRow').isVisible(), true);
   await page.locator('#set_business_vat_date').fill('06092026');
   assert.equal(await page.locator('#set_business_vat_date').inputValue(), '06/09/2026', 'ช่องวันที่ต้องเติมเครื่องหมาย / ระหว่างพิมพ์ตัวเลขให้อัตโนมัติ');
-  await page.locator('input[name="set_branch"][value="branch"]').check({force:true});
+  const branchPicker=page.locator('select#set_business_branch');
+  await branchPicker.selectOption('head');
+  assert.equal(await page.locator('#businessBranchFields').isHidden(),true);
+  await branchPicker.selectOption('branch');
   assert.equal(await page.locator('#businessBranchFields').isVisible(), true);
 
   await page.screenshot({path:path.join(os.tmpdir(),'pepos-business-settings-browser.png'),fullPage:true});

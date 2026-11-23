@@ -43,6 +43,8 @@ let browser;
     currentTab='auditlog';auditLogLoaded=false;render();
   });
   await page.waitForFunction(()=>auditLogLoaded&&!auditLogLoading);
+  assert.equal(await page.locator('.audit-log-table thead th').first().innerText(),'วันที่');
+  assert.deepEqual(await page.locator('.audit-log-table tbody tr').first().locator('td').evaluateAll(cells=>[0,1,3].map(index=>getComputedStyle(cells[index]).textAlign)),['center','center','center']);
   const searchControl=page.locator('#auditLogSearch');
   const beforeFocus=await searchControl.evaluate(el=>{const s=getComputedStyle(el.parentElement);return {border:s.borderColor,shadow:s.boxShadow,transform:s.transform};});
   await searchControl.click();

@@ -103,7 +103,7 @@ let browser;
     const row=page.locator('tr').filter({has:page.locator(`[data-stock-control-review="${id}"]`)});
     assert.equal(await row.locator('td').nth(5).innerText(),expected);
   }
-  assert.equal(await page.locator('#stockControlReviewAll').innerText(),'เปิดตรวจนับทั้งหมด (12)');
+  assert.equal(await page.locator('#stockControlReviewAll').count(),0);
   assert.equal(await page.locator('#stockControlReviewSelected').isDisabled(),true);
   const firstProduct=page.locator('[data-stock-control-anomaly-select="1"]');
   await firstProduct.first().check();
@@ -167,7 +167,8 @@ let browser;
     assert.ok(await focused('[data-stock-edit-amount="3"]'));
   }
   await page.locator('[data-stock-control-mode="anomalies"]').click();
-  await page.locator('#stockControlReviewAll').click();
+  await page.locator('#stockControlAnomalySelectAll').check();
+  await page.locator('#stockControlReviewSelected').click();
   assert.deepEqual(await page.evaluate(()=>stockEditItems),[1,2,3,4,5,6,7,8,9,10,11,12,99]);
   assert.equal(await page.locator('[data-stock-edit-row]').count(),10);
   await page.locator('[data-stock-edit-page="next"]').click();
@@ -181,7 +182,7 @@ let browser;
   await page.evaluate(()=>{resetWarehouseScopedUiState('2');activeWarehouseId=2;stockControlMode='anomalies';render();});
   assert.equal(await page.evaluate(()=>stockControlAnomalySelectedIds.size),0,'selection is cleared when changing warehouse');
   await page.evaluate(()=>{products=[];inventoryLotRows=[];render();});
-  assert.equal(await page.locator('#stockControlReviewAll').count(),0);
+  assert.equal(await page.locator('#stockControlReviewSelected').count(),0);
   assert.equal(await page.locator('#stockControlAnomalySelectAll').isDisabled(),true);
   await page.evaluate(()=>{
     products=[{id:55,name:'Decolgen',unit:'ซอง',stock:204,units:[{sub:'กล่อง',factor:25},{sub:'ลัง',factor:500}]}];

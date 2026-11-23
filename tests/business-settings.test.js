@@ -27,12 +27,12 @@ assert.equal(context.businessDocumentName({vat:'not-registered',branch:'head',na
 assert.equal(context.businessDocumentName({vat:'registered',branch:'branch',branchCode:'00001',branchName:'พรชัย',name:'ร้านยา'}), 'ร้านยา (สาขา 00001 พรชัย)');
 
 assert.match(html, /branch:'none'/, 'ค่าเริ่มต้นต้องไม่บังคับสำนักงานใหญ่');
-assert.match(html, /name="set_branch" value="none"/, 'หน้าตั้งค่าต้องมีตัวเลือกยังไม่ระบุ');
+assert.match(html, /<select id="set_business_branch"><option value="none"/, 'หน้าตั้งค่าต้องมีตัวเลือกยังไม่ระบุ');
 assert.match(html, /class="form-final-actions"><button class="btn primary" id="saveBusinessSettingsBtn"/, 'ปุ่มบันทึกต้องย้ายขึ้น TOPBAR');
 assert.match(html, /value="\$\{escapeHtml\(b\.name\)\}"/, 'ชื่อธุรกิจในฟอร์มต้อง escape');
 assert.match(html, /id="set_business_line"[^>]*placeholder="เช่น @NOOSOL"/, 'หน้าตั้งค่าธุรกิจต้องมีช่อง LINE');
 assert.match(html, /line:get\('set_business_line'\)/, 'ต้องบันทึก LINE ไปกับข้อมูลธุรกิจ');
-assert.match(html, /branch=vat===VAT_REGISTERED_LABEL\?selectedBranch:'none'/, 'ร้านที่ไม่จด VAT ต้องบันทึกสาขาเป็นไม่ระบุ');
+assert.match(html, /branch=vat===VAT_REGISTERED_LABEL\?\(get\('set_business_branch'\)\|\|'none'\):'none'/, 'ร้านที่ไม่จด VAT ต้องบันทึกสาขาเป็นไม่ระบุ');
 assert.match(html, /await sb\.rpc\('owner_set_setting',\{p_key:`business-warehouse:/);
 assert.doesNotMatch(html, /receiptBusiness\.branch==='branch'/, 'ใบเสร็จต้องใช้กติกาสาขากลาง');
 assert.doesNotMatch(html, /business\.branch==='branch'\?'สาขา':'สำนักงานใหญ่'/, 'เอกสารต้องไม่บังคับสำนักงานใหญ่เอง');

@@ -37,7 +37,7 @@ let browser;
     goodsReceipts=Array.from({length:12},(_,i)=>({id:'GR-'+(i+1),supplier:'บริษัททดสอบ',date:'2026-11-01',supplierTaxInvoiceDate:'2026-11-01',supplierTaxInvoiceNo:'TAX-'+(i+1),status:'รับแล้ว',taxSummary}));
     salesHistory.push({id:'OTHER-MONTH',ref:'OTHER-MONTH',date:'2026-10-01',status:'done',vatRegistered:true,warehouseId:1,taxSummary});
     goodsReceipts.push({id:'OTHER-PURCHASE',supplier:'เดือนอื่น',date:'2026-10-01',supplierTaxInvoiceDate:'2026-10-01',supplierTaxInvoiceNo:'OTHER-TAX',status:'รับแล้ว',taxSummary});
-    render=()=>{main.innerHTML=renderRTax();attachEvents();};
+    render=()=>{main.innerHTML=renderRTax();attachEvents();syncTopbarFormActions();};
     render();
   });
   const sales=page.locator('[data-tax-section="sales"]');
@@ -107,6 +107,9 @@ let browser;
     ensureOnDemandDataForTab=()=>({status:'ready'});window.open=originalOpen;
   });
   assert.equal(await page.evaluate(()=>window.incompletePrintOpened),0,'never print a partial month if server loading was truncated');
+  assert.deepEqual(await page.locator('.tax-report-export button').allTextContents(),['ส่งออก EXCEL','พิมพ์รายงาน']);
+  assert.equal(await page.locator('#taxReportPrintBtn').evaluate(el=>getComputedStyle(el).color),'rgb(255, 255, 255)');
+  assert.equal(await page.locator('#taxReportPrintBtn').evaluate(el=>getComputedStyle(el).backgroundColor),'rgb(79, 64, 56)');
   for(const width of [1920,390]){
     await page.setViewportSize({width,height:1000});
     const toolbar=await page.locator('.tax-report-toolbar').boundingBox();
@@ -116,7 +119,8 @@ let browser;
     const centerY=box=>box.y+box.height/2;
     assert.ok(salesTab.x<purchasesTab.x&&purchasesTab.x<month.x);
     assert.ok([salesTab,purchasesTab].every(box=>Math.abs(centerY(box)-centerY(month))<2));
-    assert.ok(print.x<excel.x&&Math.abs(excel.x+excel.width-toolbar.x-toolbar.width)<2);
+    assert.ok(Math.abs((salesTab.x+month.x+month.width)/2-(toolbar.x+toolbar.width/2))<2);
+    assert.ok(excel.x<print.x&&Math.abs(print.x+print.width-toolbar.x-toolbar.width)<2);
     if(width===1920) assert.ok([print,excel].every(box=>Math.abs(centerY(box)-centerY(month))<2));
     assert.ok(await page.locator('.tax-report th,.tax-report td,.tax-report-summary h2,.tax-report-summary small').evaluateAll(elements=>elements.every(el=>getComputedStyle(el).textAlign==='center')),'all headings, values and totals centered');
     const layout=await page.locator('.tax-report').evaluate(el=>{

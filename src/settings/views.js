@@ -8,8 +8,6 @@ function renderBusinessSettings(){
   const statusState=businessSettingsDirty?'dirty':businessSettingsSyncState;
   const statusText=businessSettingsDirty?'มีการแก้ไขที่ยังไม่ได้บันทึก':businessSettingsSyncState==='synced'?(businessSettingsLastSyncedAt?`ซิงก์ข้อมูลล่าสุด ${auditLogDateTime(businessSettingsLastSyncedAt)}`:'ซิงก์ข้อมูลกับ Supabase แล้ว'):businessSettingsSyncState==='syncing'?'กำลังซิงก์ข้อมูลกับ Supabase...':businessSettingsSyncState==='error'?`บันทึกในเครื่องแล้ว แต่ซิงก์ไม่สำเร็จ: ${businessSettingsSyncError||'กรุณาลองบันทึกอีกครั้ง'}`:'ข้อมูลยังอยู่ในเครื่องนี้';
   return `<div class="settings-page business-settings-page" id="businessSettingsForm" data-warehouse-id="${Number(activeWarehouseId)}">
-    <h2>รายละเอียดธุรกิจ · ${escapeHtml(whName(activeWarehouseId))}</h2>
-    ${warehouseBusinessProfiles[activeWarehouseId]?'':'<p class="hint">บันทึกรายละเอียดธุรกิจที่จะใช้บนเอกสารของคลังนี้</p>'}
     <div class="pagehead topbar-action-source"><div></div><div class="form-final-actions"><button class="btn primary" id="saveBusinessSettingsBtn">บันทึก</button></div></div>
     <div class="settings-section">
       <div class="business-form-row three-fields">
@@ -19,11 +17,11 @@ function renderBusinessSettings(){
       </div>
       <div class="hint">หากเลือก “ยังไม่จดภาษีมูลค่าเพิ่ม” ระบบจะไม่คิด VAT และไม่ออกใบกำกับภาษี โดยจะเก็บค่าภาษีของสินค้าเดิมไว้ใช้เมื่อจด VAT ในอนาคต</div>
     </div>
-    <div class="settings-section"><h2>รายละเอียดธุรกิจ</h2>
+    <div class="settings-section">
       <div class="business-form-row three-fields">
         <div class="settings-row"><label for="set_business_name">ชื่อธุรกิจ:</label><input id="set_business_name" value="${escapeHtml(b.name)}" autocomplete="organization"></div>
         <div class="settings-row"><label for="set_business_tax">เลขประจำตัวผู้เสียภาษี:</label><div><input id="set_business_tax" value="${escapeHtml(b.taxId)}" inputmode="numeric" maxlength="13" autocomplete="off"><small class="business-field-hint" id="businessTaxIdHint">${escapeHtml(businessTypeTaxIdHint(b.type))}</small></div></div>
-        <div class="settings-row" id="businessTaxBranchRow" ${vatSelected?'':'hidden'}><label id="businessOfficeLabel">สำนักงาน/สาขาตาม ภ.พ.20:</label><div class="settings-radio settings-radio-inline" role="group" aria-labelledby="businessOfficeLabel"><label><input type="radio" name="set_branch" value="none" ${branch==='none'?'checked':''}> ยังไม่ระบุ</label><label><input type="radio" name="set_branch" value="head" ${branch==='head'?'checked':''}> สำนักงานใหญ่</label><label><input type="radio" name="set_branch" value="branch" ${branch==='branch'?'checked':''}> สาขา</label></div></div>
+        <div class="settings-row" id="businessTaxBranchRow" ${vatSelected?'':'hidden'}><label for="set_business_branch">สำนักงาน/สาขาตาม ภ.พ.20:</label><select id="set_business_branch"><option value="none" ${branch==='none'?'selected':''}>ยังไม่ระบุ</option><option value="head" ${branch==='head'?'selected':''}>สำนักงานใหญ่</option><option value="branch" ${branch==='branch'?'selected':''}>สาขา</option></select></div>
       </div>
       <div class="settings-row"><label for="set_business_address">ที่อยู่:</label><textarea id="set_business_address" rows="4" autocomplete="street-address">${escapeHtml(b.address)}</textarea></div>
       <div class="business-tax-note" id="businessTaxBranchNote" ${vatSelected?'':'hidden'}>เอกสารของคลังนี้จะแสดงสำนักงานใหญ่หรือสาขาตามที่ตั้งค่าไว้</div>
@@ -34,11 +32,11 @@ function renderBusinessSettings(){
     </div>
     <div class="settings-section"><h2>ข้อมูลติดต่อ</h2>
       <div class="business-form-row three-fields">
-        <div class="settings-row"><label id="businessDocumentPhoneLabel">เบอร์หลักบนเอกสาร:</label>
-          <div class="settings-radio settings-radio-inline" id="set_business_document_phone" role="radiogroup" aria-labelledby="businessDocumentPhoneLabel">
-            <label><input type="radio" name="set_business_document_phone" value="mobile" ${b.documentPhone!=='office'?'checked':''}> เบอร์มือถือ</label>
-            <label><input type="radio" name="set_business_document_phone" value="office" ${b.documentPhone==='office'?'checked':''}> เบอร์สำนักงาน</label>
-          </div>
+        <div class="settings-row"><label for="set_business_document_phone">เบอร์หลักบนเอกสาร:</label>
+          <select id="set_business_document_phone">
+            <option value="mobile" ${b.documentPhone!=='office'?'selected':''}>เบอร์มือถือ</option>
+            <option value="office" ${b.documentPhone==='office'?'selected':''}>เบอร์สำนักงาน</option>
+          </select>
         </div>
         <div class="settings-row"><label for="set_business_mobile">เบอร์มือถือ:</label><input id="set_business_mobile" class="phone-input" value="${escapeHtml(b.mobile)}" inputmode="tel" autocomplete="tel"></div>
         <div class="settings-row"><label for="set_business_office">เบอร์สำนักงาน:</label><input id="set_business_office" class="phone-input" value="${escapeHtml(b.officePhone||'')}" inputmode="tel" autocomplete="tel"></div>
@@ -449,7 +447,7 @@ function renderAuditLog(){
     const expanded=expandedAuditLogRows.has(key);
     const warehouse=row.warehouse_id?whName(Number(row.warehouse_id)):'ทุกคลัง';
     const dangerous=row.action==='delete'||row.action==='store_reset';
-    return `<tr><td>${escapeHtml(auditLogDateTime(row.occurred_at))}</td><td><div class="audit-log-actor"><strong>${escapeHtml(row.actor_name||'ระบบ')}</strong><small>${row.actor_level?`Level ${escapeHtml(row.actor_level)}`:'ระบบ'}</small></div></td><td><strong>${escapeHtml(auditEntityLabel(row.entity_type))}</strong><br><small>${escapeHtml(row.entity_id||'-')}</small></td><td><span class="audit-log-chip ${dangerous?'danger':row.action==='insert'?'':'neutral'}">${escapeHtml(auditActionLabel(row.action))}</span></td>${showWarehouse?`<td>${escapeHtml(warehouse)}</td>`:''}<td>${escapeHtml(auditRowSummary(row))}</td><td><button class="history-icon-btn" data-audit-log-toggle="${escapeHtml(key)}" title="${expanded?'ซ่อน':'ดู'}รายละเอียด" aria-label="${expanded?'ซ่อน':'ดู'}รายละเอียด">${expanded?'−':'+'}</button></td></tr>${expanded?`<tr class="audit-log-detail-row"><td colspan="${showWarehouse?7:6}"><div class="audit-log-details"><div class="audit-log-data"><b>ข้อมูลเดิม</b>${auditDataHtml(row.before_data)}</div><div class="audit-log-data"><b>ข้อมูลใหม่</b>${auditDataHtml(row.after_data)}</div></div></td></tr>`:''}`;
+    return `<tr><td class="audit-log-centered">${escapeHtml(auditLogDateTime(row.occurred_at))}</td><td class="audit-log-centered"><div class="audit-log-actor"><strong>${escapeHtml(row.actor_name||'ระบบ')}</strong><small>${row.actor_level?`Level ${escapeHtml(row.actor_level)}`:'ระบบ'}</small></div></td><td><strong>${escapeHtml(auditEntityLabel(row.entity_type))}</strong><br><small>${escapeHtml(row.entity_id||'-')}</small></td><td class="audit-log-centered"><span class="audit-log-chip ${dangerous?'danger':row.action==='insert'?'':'neutral'}">${escapeHtml(auditActionLabel(row.action))}</span></td>${showWarehouse?`<td>${escapeHtml(warehouse)}</td>`:''}<td>${escapeHtml(auditRowSummary(row))}</td><td><button class="history-icon-btn" data-audit-log-toggle="${escapeHtml(key)}" title="${expanded?'ซ่อน':'ดู'}รายละเอียด" aria-label="${expanded?'ซ่อน':'ดู'}รายละเอียด">${expanded?'−':'+'}</button></td></tr>${expanded?`<tr class="audit-log-detail-row"><td colspan="${showWarehouse?7:6}"><div class="audit-log-details"><div class="audit-log-data"><b>ข้อมูลเดิม</b>${auditDataHtml(row.before_data)}</div><div class="audit-log-data"><b>ข้อมูลใหม่</b>${auditDataHtml(row.after_data)}</div></div></td></tr>`:''}`;
   }).join('');
   return `<div class="audit-log-page"><div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="auditLogRefresh">รีเฟรชข้อมูล</button></div>
     <div class="audit-log-date-toolbar">
@@ -461,7 +459,7 @@ function renderAuditLog(){
       <label class="audit-log-filter"><span class="audit-log-filter-label">การทำงาน</span><span class="audit-log-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg><select id="auditLogAction"><option value="all">ทุกการทำงาน</option>${actionOptions}</select></span></label>
     </div>
     ${auditLogError?`<div class="notice danger">${escapeHtml(auditLogError)}</div>`:''}
-    ${auditLogLoading&&!auditLogLoaded?'<div class="audit-log-empty">กำลังโหลดประวัติการทำงาน...</div>':`<div class="audit-log-table-wrap"><table class="audit-log-table"><thead><tr><th>วันและเวลา</th><th>ผู้ใช้งาน</th><th>รายการ</th><th>การทำงาน</th>${showWarehouse?'<th>คลังสินค้า</th>':''}<th>รายละเอียด</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="${showWarehouse?7:6}" class="audit-log-empty">ไม่พบประวัติการทำงาน</td></tr>`}</tbody></table></div>`}
+    ${auditLogLoading&&!auditLogLoaded?'<div class="audit-log-empty">กำลังโหลดประวัติการทำงาน...</div>':`<div class="audit-log-table-wrap"><table class="audit-log-table"><thead><tr><th>วันที่</th><th>ผู้ใช้งาน</th><th>รายการ</th><th>การทำงาน</th>${showWarehouse?'<th>คลังสินค้า</th>':''}<th>รายละเอียด</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="${showWarehouse?7:6}" class="audit-log-empty">ไม่พบประวัติการทำงาน</td></tr>`}</tbody></table></div>`}
     ${auditLogPaginationHtml()}</div>`;
 }
 

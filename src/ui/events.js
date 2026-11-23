@@ -297,7 +297,6 @@ function attachEvents(){
       if(input.checked) stockControlAnomalySelectedIds.add(id); else stockControlAnomalySelectedIds.delete(id);
       syncStockControlAnomalySelectionControls();
     }));
-    document.getElementById('stockControlReviewAll')?.addEventListener('click',()=>stockControlOpenAdjustmentsForProducts(stockControlAnomalyProductIds()));
     document.getElementById('stockControlReviewSelected')?.addEventListener('click',()=>stockControlOpenAdjustmentsForProducts(stockControlAnomalyProductIds().filter(id=>stockControlAnomalySelectedIds.has(id))));
   }
   document.querySelectorAll('[data-stock-control-import-list]').forEach(button=>button.addEventListener('click',()=>stockEditImportInspectionList(button.dataset.stockControlImportList,true)));
@@ -1494,11 +1493,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     if(businessVatDateRow) businessVatDateRow.hidden=!vatSelected;
     if(businessTaxBranchRow) businessTaxBranchRow.hidden=!vatSelected;
     if(businessTaxBranchNote) businessTaxBranchNote.hidden=!vatSelected;
-    if(businessBranchFields) businessBranchFields.hidden=!vatSelected||document.querySelector('input[name="set_branch"]:checked')?.value!=='branch';
+    if(businessBranchFields) businessBranchFields.hidden=!vatSelected||document.getElementById('set_business_branch')?.value!=='branch';
   };
-  document.querySelectorAll('input[name="set_branch"]').forEach(radio=>radio.addEventListener('change',()=>{
-    updateBusinessSettingsVisibility();
-  }));
+  document.getElementById('set_business_branch')?.addEventListener('change',updateBusinessSettingsVisibility);
   document.getElementById('set_business_vat')?.addEventListener('change',updateBusinessSettingsVisibility);
   document.getElementById('set_business_type')?.addEventListener('change',event=>{
     const hint=document.getElementById('businessTaxIdHint');

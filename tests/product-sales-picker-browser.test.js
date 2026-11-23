@@ -109,7 +109,7 @@ const browserExecutable = [
   await quantityHeader.click();
   assert.equal(await quantityHeader.locator('..').getAttribute('aria-sort'),'ascending');
   await salesHeader.click();
-  assert.doesNotMatch(await page.locator('.rpt-meta').innerText(),/ยอดสินค้า|ค่าธรรมเนียม|ส่วนลดท้ายบิล|ยอดสุทธิ/);
+  assert.equal(await page.locator('.rpt-meta').count(),0);
   const printed=await page.evaluate(()=>{
     const doc=document.implementation.createHTMLDocument('print test');window.open=()=>({document:doc});standardizePrintPreview=()=>{};
     printRProduct();return Array.from(doc.querySelectorAll('.product-sales-summary .rpt-pname'),el=>el.textContent);
@@ -164,7 +164,7 @@ const browserExecutable = [
       render();
       Object.assign(rproductFilter,{scope:'product',products:[products[0].name]});
       render();
-      const selected=Array.from(document.querySelector('.rpt-table tbody tr').cells,cell=>cell.textContent),meta=document.querySelector('.rpt-meta').innerText;
+      const selected=Array.from(document.querySelector('.rpt-table tbody tr').cells,cell=>cell.textContent),hasMeta=Boolean(document.querySelector('.rpt-meta'));
       const doc=document.implementation.createHTMLDocument();
       window.open=()=>({document:doc});printRProduct();
       rproductFilter.period=rbillFilter.period='selectyear';
@@ -172,7 +172,7 @@ const browserExecutable = [
       const productYear=document.querySelector('#rpf_year').value;
       const billView=document.createElement('div');
       billView.innerHTML=renderRBill();
-      return {selected,meta,printed:doc.querySelector('.meta').textContent,printCells:Array.from(doc.querySelector('.rpt-table tbody tr').cells,cell=>cell.textContent),
+      return {selected,hasMeta,printed:doc.querySelector('.meta').textContent,printCells:Array.from(doc.querySelector('.rpt-table tbody tr').cells,cell=>cell.textContent),
         bills:bills.grandVal,docCount:bills.docCount,profitDay:rprofitPeriodRange().from,productYear,billYear:billView.querySelector('#rbf_year').value};
     },store);
     assert.equal(result.bills.toFixed(2),(100*store+69.40).toFixed(2));
@@ -180,9 +180,9 @@ const browserExecutable = [
     assert.equal(result.selected[2],'0 กล่อง');
     assert.deepEqual(result.printCells,['1','สินค้ารายงาน 1','0 กล่อง',(60*store-25).toFixed(2)]);
     assert.equal(result.docCount,3);
-    assert.match(result.meta,/2 เอกสาร/);assert.match(result.meta,/1 ม.ค. 2027/);
+    assert.equal(result.hasMeta,false);
     assert.match(result.printed,/2 เอกสาร/);
-    assert.doesNotMatch(result.meta+result.printed,/ยอดสินค้า|ค่าธรรมเนียม|ส่วนลดท้ายบิล|ยอดสุทธิ/);
+    assert.doesNotMatch(result.printed,/ยอดสินค้า|ค่าธรรมเนียม|ส่วนลดท้ายบิล|ยอดสุทธิ/);
     assert.equal(result.profitDay,'2027-01-01');
     assert.equal(result.productYear,'2027');assert.equal(result.billYear,'2027');
     const downloadStarted=page.waitForEvent('download');

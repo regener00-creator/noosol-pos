@@ -3,7 +3,7 @@ async function saveBusinessSettings(){
   const form=document.getElementById('businessSettingsForm');
   const warehouseId=Number(form?.dataset.warehouseId);
   if(!warehouseId||isAllWarehousesMode()||warehouseId!==activeWarehouseId)return;
-  const vat=get('set_business_vat'),taxId=get('set_business_tax').replace(/\D/g,''),selectedBranch=document.querySelector('input[name="set_branch"]:checked')?.value||'none',branch=vat===VAT_REGISTERED_LABEL?selectedBranch:'none';
+  const vat=get('set_business_vat'),taxId=get('set_business_tax').replace(/\D/g,''),branch=vat===VAT_REGISTERED_LABEL?(get('set_business_branch')||'none'):'none';
   const vatDateText=get('set_business_vat_date'),vatRegistrationDate=vatDateText?dmyToISO(vatDateText):'';
   if(taxId&&!/^\d{13}$/.test(taxId)){ showToast('เลขประจำตัวผู้เสียภาษีต้องมี 13 หลัก','danger'); document.getElementById('set_business_tax')?.focus(); return; }
   if(vat===VAT_REGISTERED_LABEL){
@@ -14,7 +14,7 @@ async function saveBusinessSettings(){
     if(branch==='branch'&&!/^\d{5}$/.test(get('set_business_branch_code'))){ showToast('รหัสสาขาต้องมี 5 หลัก','danger'); document.getElementById('set_business_branch_code')?.focus(); return; }
     if(branch==='branch'&&!get('set_business_branch_name')){ showToast('กรุณากรอกชื่อสาขา','danger'); document.getElementById('set_business_branch_name')?.focus(); return; }
   }
-  const documentPhone=document.querySelector('input[name="set_business_document_phone"]:checked')?.value||'mobile';
+  const documentPhone=get('set_business_document_phone')||'mobile';
   const profile=businessDocumentSnapshot({
     ...warehouseBusinessSettings(warehouseId),type:get('set_business_type'),vat,vatRegistrationDate,
     name:get('set_business_name'),address:get('set_business_address'),taxId,branch,
