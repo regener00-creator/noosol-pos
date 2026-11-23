@@ -12,11 +12,13 @@ let browser;
  page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:'+server.address().port);await waitForIsolatedBootstrap(page);
  const setup=async()=>{await page.evaluate(async()=>{currentProfile={id:'test',owner:true,level:1};warehouses=[{id:1,name:'test',active:true}];activeWarehouseId=1;document.querySelectorAll('.login-screen').forEach(el=>el.style.display='none');renderLoginState=()=>true;canAccessTab=()=>true;ensureOnDemandDataForTab=()=>({status:'ready'});recordPrintEvent=()=>{window.saleWrites=(window.saleWrites||0)+1;};currentTab='settingsprinter';await ensurePageCodeLoaded(currentTab);render();});await page.locator('#a4PaperForm').waitFor();};
  await setup();assert.equal(await page.locator('[data-tab="settingsprinter"]').innerText(),'ตั้งค่าการพิมพ์');
+ assert.doesNotMatch(await page.locator('#a4PaperForm').innerText(),/ขนาด 210 × 297 มม. สำหรับเอกสารและรายงาน A4/);
  await page.locator('#a4_orientation').selectOption('landscape');
  for(const [key,value] of Object.entries({marginTop:10,marginBottom:12,marginLeft:8,marginRight:9})) await page.locator('#a4_'+key).fill(String(value));
  await page.locator('#a4PaperForm button[type=submit]').click();assert.match(await page.locator('#a4PaperStatus').innerText(),/บันทึกแล้ว/);
  const saved=await page.evaluate(()=>localStorage.getItem('pepos_a4_paper_v1'));
  await page.reload();await waitForIsolatedBootstrap(page);await setup();assert.equal(await page.locator('#a4_marginTop').inputValue(),'10');assert.equal(await page.locator('#a4_orientation').inputValue(),'landscape');
+ assert.equal(await page.locator('#a4PaperStatus').textContent(),'');
  await page.locator('#a4_marginLeft').fill('99');await page.locator('#a4PaperForm button[type=submit]').click();assert.equal(await page.evaluate(()=>localStorage.getItem('pepos_a4_paper_v1')),saved);
  await page.locator('#a4_marginLeft').fill('8');
  // Unsaved test settings, rather than saved landscape settings, drive the sample.

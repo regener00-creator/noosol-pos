@@ -50,8 +50,14 @@ let browser;
   await page.goto('https://pepo-pharmacy.vercel.app/');await open();
   assert.match(await page.locator('.receipt-printer-heading').innerText(),/ตั้งค่าการพิมพ์/);
   assert.equal(await page.locator('[data-direct-printer]').count(),3);
+  assert.doesNotMatch(await page.locator('.direct-printer-settings').innerText(),/เครื่องพิมพ์ประจำเครื่องนี้|เลือกเครื่องแยกตามประเภท/);
+  assert.equal(await page.locator('.direct-printer-card label').count(),0);
+  assert.ok(await page.locator('.direct-printer-settings .receipt-printer-actions').evaluateAll(rows=>rows.every(row=>getComputedStyle(row).justifyContent==='center')));
   assert.equal(await page.locator('#directPrinter_a4 option[value="Microsoft Print to PDF"]').isDisabled(),true);
   for(const [kind,printer] of Object.entries({receipt:'Thermal',a4:'Office',barcode:'Labels'})){
+    const card=page.locator(`[data-direct-printer="${kind}"]`);
+    assert.deepEqual(await card.locator('button').allTextContents(),[kind==='barcode'?'ทดลองพิมพ์':'ทดสอบเครื่องพิมพ์','บันทึก']);
+    assert.equal(await card.locator('select').evaluate(select=>getComputedStyle(select).textAlignLast),'center');
     await page.locator('#directPrinter_'+kind).selectOption(printer);
     await page.locator(`[data-direct-printer="${kind}"] button[type="submit"]`).click();
     await page.waitForFunction(({kind,printer})=>document.querySelector(`[data-direct-printer="${kind}"] [data-printer-status]`).textContent==='บันทึกแล้ว: '+printer,{kind,printer});

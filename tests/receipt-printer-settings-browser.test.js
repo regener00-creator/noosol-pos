@@ -41,6 +41,14 @@ let browser;
   await page.goto(url,{waitUntil:'domcontentloaded'});await openSettings();
   assert.equal(await page.locator('[data-tab="settingsusers"]').count(),0);
   assert.equal(await page.locator('[data-tab="settingsprinter"]').count(),1);
+  for(const id of ['receiptPrinterForm','a4PaperForm']){
+    const form=page.locator('#'+id);
+    assert.deepEqual(await form.locator('button').allTextContents(),['คืนค่าเริ่มต้น','ลองพิมพ์ด้วยค่านี้','บันทึก']);
+    assert.ok(await form.locator('h2,.receipt-printer-field span,input,select,.receipt-printer-help').evaluateAll(elements=>elements.every(el=>getComputedStyle(el).textAlign==='center')));
+    assert.equal(await form.locator('.receipt-printer-actions').evaluate(el=>getComputedStyle(el).justifyContent),'center');
+  }
+  assert.deepEqual(await page.locator('.receipt-printer-preview h2').allTextContents(),['ตัวอย่างใบเสร็จ','ตัวอย่าง A4']);
+  assert.ok(await page.locator('.receipt-printer-preview h2').evaluateAll(headings=>headings.every(heading=>getComputedStyle(heading).textAlign==='center')));
   assert.equal(await page.locator('#printer_paperWidth').inputValue(),'80');
   await page.locator('#printer_paperWidth').selectOption('58');
   for(const [key,value] of Object.entries({marginTop:'3',marginBottom:'4',marginLeft:'2',marginRight:'2'})) await page.locator('#printer_'+key).fill(value);
