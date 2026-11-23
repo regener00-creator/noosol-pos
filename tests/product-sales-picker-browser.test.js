@@ -62,6 +62,14 @@ const browserExecutable = [
     currentTab='rproduct';
     render=()=>{document.getElementById('main').innerHTML=renderRProduct();attachEvents();};render();
   });
+  const filterOffset=await page.locator('.product-sales-filters').evaluate(filters=>{
+    const midpoint=element=>{
+      const {left,right}=element.getBoundingClientRect();
+      return (left+right)/2;
+    };
+    return midpoint(filters)-midpoint(filters.parentElement);
+  });
+  assert.ok(Math.abs(filterOffset)<1,'The product sales filters are centered in the report');
   await page.locator('#rpf_scope').selectOption('category');
   assert.equal(await page.locator('#rpPickCategoryBtn').isDisabled(),true);
   await page.locator('#rpf_category').selectOption('ยา');
@@ -216,6 +224,12 @@ const browserExecutable = [
     for(const [store,expected] of [[1,firstStore],[2,['2 กล่อง 3 ซอง']]]){
       await page.evaluate(store=>{activeWarehouseId=store;render();},store);
       assert.equal(await page.locator('.rpt-body h2').textContent(),label);
+      if(period==='selectmonth'){
+        assert.deepEqual(await page.locator('.rpt-body h2').evaluate(heading=>{
+          const style=getComputedStyle(heading);
+          return [style.justifyContent,style.backgroundColor];
+        }),['center','rgba(0, 0, 0, 0)']);
+      }
       assert.deepEqual(await page.locator('.rpt-body tbody td.num').allTextContents(),expected);
       if(period==='selectmonth'||period==='selectyear'){
         const summary=page.locator('.rpt-body tr[data-product-sales-key]').first();

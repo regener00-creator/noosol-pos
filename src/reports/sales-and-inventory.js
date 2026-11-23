@@ -179,7 +179,7 @@ function productSalesPeriodSummaryHtml(report,filter,forPrint=false){
     const toggle=expandable?` data-product-sales-key="${escapeHtml(row.expansionKey)}"`:'';
     return `<tbody><tr${toggle} style="font-weight:700"><td>${index+1}</td><td class="rpt-pname">${title}</td><td class="num">${escapeHtml(row.quantity)}</td><td class="mono">${fmtMoney(row.value)}</td></tr>${details}</tbody>`;
   }).join('');
-  return `<section class="rpt-day-group"><h2 class="rpt-day-head">${escapeHtml(report.label)}</h2>
+  return `<section class="rpt-day-group"><h2 class="rpt-day-head product-sales-period-heading">${escapeHtml(report.label)}</h2>
     ${rows?`<table class="rpt-table product-sales-summary" aria-label="รายงานยอดขายตามสินค้า"><colgroup><col style="width:9%"><col><col style="width:23%"><col style="width:19%"></colgroup><thead><tr><th>อันดับ</th><th>รายการ</th>${sortableHeader('quantity','จำนวน')}${sortableHeader('value','ยอดขาย')}</tr></thead>${rows}</table>`:'<div class="rpt-empty">ไม่มีข้อมูลการขายในช่วงเวลาที่เลือก</div>'}</section>`;
 }
 
@@ -335,6 +335,7 @@ function renderRProduct(){
   const categoryProductCount=categoryScope?rproductCategoryProducts(f).length:0;
 
   return `<div class="rpt rpt-page-scroll">
+    <div class="product-sales-toolbar">
     <div class="rpt-filters product-sales-filters">
       <h1>รายงานยอดขายตามสินค้า</h1>
       <div class="rpf-item">
@@ -373,6 +374,7 @@ function renderRProduct(){
         <div id="rpf_product_results" class="rpf-results"></div>
       </div>${(f.products&&f.products.length)?`<button class="btn ghost rpf-clear" id="rpClearProductsBtn">ล้างที่เลือก (${f.products.length})</button>`:''}`:''}
       <button class="btn ghost rpf-apply" id="rpApplyBtn">แสดงผล</button>
+    </div>
       <button class="btn primary" id="rpPrintBtn">พิมพ์รายงาน</button>
     </div>
 

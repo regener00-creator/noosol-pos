@@ -1341,8 +1341,15 @@
   @media(max-width:700px){.tax-report-summary{grid-template-columns:repeat(2,minmax(0,1fr));}.tax-report-section{padding:12px 8px;}}
   .rpt-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px;flex-wrap:wrap;}
   .rpt-head h1{font-size:22px;font-weight:600;color:var(--primary);margin:0;}
-  .product-sales-filters h1{font-size:22px;font-weight:600;color:var(--primary);margin:0;}
-  .product-sales-filters #rpPrintBtn{margin-left:auto;}
+  .product-sales-toolbar{display:grid;grid-template-columns:minmax(8rem,1fr) minmax(0,max-content) minmax(8rem,1fr);align-items:center;gap:10px;margin-bottom:18px;}
+  .product-sales-toolbar .product-sales-filters{grid-column:2;justify-content:center;margin-bottom:0;}
+  .product-sales-filters h1{font-size:22px;font-weight:600;color:var(--primary);margin:0;text-align:center;}
+  .product-sales-toolbar #rpPrintBtn{justify-self:end;}
+  @media(max-width:900px){
+    .product-sales-toolbar{grid-template-columns:minmax(0,1fr);}
+    .product-sales-toolbar .product-sales-filters{grid-column:1;}
+  }
+  .rpt-day-head.product-sales-period-heading{justify-content:center;text-align:center;background:transparent;}
   .rpt-table.product-sales-summary thead th,.product-sales-summary tbody tr:not(.product-sales-detail) td{text-align:center;}
   .rpt-table.product-sales-summary thead th{background:var(--primary);color:#fff;font-weight:600;}
   .product-sales-summary .doc-sort-btn{font-size:inherit;}
