@@ -57,6 +57,7 @@ let browser;
     assert.deepEqual(await page.locator(values).evaluateAll(elements=>elements.map(el=>[getComputedStyle(el).fontWeight,getComputedStyle(el).textAlign])),Array(4).fill(['400','center']));
   }
   assert.deepEqual(await page.locator('.cash-shift-panel h3').evaluateAll(elements=>elements.map(el=>[el.textContent,getComputedStyle(el).textAlign])),[['สรุปตามวิธีชำระเงิน','center'],['ปิดระบบ','center']]);
+  assert.deepEqual(await page.locator('.cash-shift-close-form label > span').evaluateAll(elements=>elements.map(el=>[el.textContent,getComputedStyle(el).textAlign])),[['เงินสดที่นับจริง','center'],['เหตุผลกรณีเงินขาด/เกิน','center']]);
   assert.equal(await page.locator('#cashShiftCloseReason').getAttribute('placeholder'),null);
   assert.equal(await page.locator('.cash-shift-payment-row > span').innerText(),'เงินสด | ขาย 17 บิล · คืน 1 บิล');
   assert.doesNotMatch(await page.locator('.cash-shift-page').innerText(),/บาท/);
