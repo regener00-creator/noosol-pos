@@ -1,3 +1,47 @@
+function rankedBestSellingProducts(bills,sortBy){
+  const resolveProduct=productSalesCatalogLookup();
+  const totals=new Map();
+  for(const sale of bills){
+    for(const item of sale.items||[]){
+      if(item.custom) continue;
+      const product=resolveProduct(item);
+      const id=item.productId??product?.id;
+      if(id==null) continue;
+      const key=String(id);
+      const catalogFactor=product?.units?.find(unit=>unit.sub===item.unit)?.factor;
+      const factor=Number(item.factor)||Number(catalogFactor)||1;
+      const quantity=Number(item.baseQty??Number(item.qty)*factor);
+      if(!Number.isFinite(quantity)) continue;
+      const amount=Math.round(100*Number(item.reportLineTotal??item.lineTotal??item.qty*item.price))||0;
+      const row=totals.get(key)||{name:product?.name||item.name||'-',product:product||{unit:factor===1?item.unit:'หน่วยย่อย'},quantity:0,sales:0};
+      row.quantity+=sale.customerReturn?-Math.abs(quantity):quantity;
+      row.sales+=sale.customerReturn?-Math.abs(amount):amount;
+      totals.set(key,row);
+    }
+  }
+  const key=sortBy==='sales'?'sales':'quantity';
+  return [...totals.values()].filter(row=>row.quantity>0||row.sales>0)
+    .sort((a,b)=>b[key]-a[key]||a.name.localeCompare(b.name,'th'));
+}
+
+function renderBestSellersReport(){
+  const bills=completedSalesInReportRange(documentPeriodRange('rbestsellers'));
+  const ranked=rankedBestSellingProducts(bills,bestSellerSort);
+  const pages=Math.max(1,Math.ceil(ranked.length/DOC_LIST_PAGE_SIZE));
+  const page=docListPage.rbestsellers=Math.min(docListPage.rbestsellers,pages);
+  const start=(page-1)*DOC_LIST_PAGE_SIZE;
+  const rows=ranked.slice(start,start+DOC_LIST_PAGE_SIZE).map((row,i)=>`<tr>
+    <td>${start+i+1}</td><td>${escapeHtml(row.name)}</td>
+    <td>${escapeHtml(stockReportQuantityText(row.product,row.quantity))}</td><td class="mono">${fmtMoney(row.sales/100)}</td>
+  </tr>`).join('');
+  return `<div class="pagehead document-list-heading"><h1>สินค้าขายดี <span class="page-title-meta">${ranked.length} รายการ</span></h1>
+    <label>เรียงตาม <select class="rpt-select" id="bestSellerSort"><option value="quantity" ${bestSellerSort==='quantity'?'selected':''}>จำนวน</option><option value="sales" ${bestSellerSort==='sales'?'selected':''}>ยอดขาย</option></select></label>
+    ${documentPeriodToolbar('rbestsellers')}</div>
+    <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-list doc-head-blue best-seller-table"><thead><tr><th>อันดับ</th><th>รายการ</th><th>จำนวน</th><th>ยอดขาย</th></tr></thead>
+    <tbody>${rows||'<tr><td colspan="4">ไม่มีสินค้าที่ขายในช่วงเวลาที่เลือก</td></tr>'}</tbody></table></div>
+    ${pagerHtml(page,pages,'docpage-rbestsellers')}`;
+}
+
 function rproductPeriodRange(){
   return rbillPeriodRange(rproductFilter);
 }

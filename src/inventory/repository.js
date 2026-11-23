@@ -59,6 +59,7 @@ function canPerformPageAction(action='view',pageKey=currentTab,user=loggedInUser
   if(isAllWarehousesMode()&&action!=='view')return false;
   // Both contact views retain the existing database permission key.
   if(pageKey==='customers') pageKey='contacts';
+  if(pageKey==='rbestsellers') pageKey='rproduct';
   if(pageKey==='rvoid') pageKey='rbill';
   if(user?.owner===true||Number(user?.level)===1) return true;
   // Unknown/future staff levels must fail closed.  Previously Level 3/4

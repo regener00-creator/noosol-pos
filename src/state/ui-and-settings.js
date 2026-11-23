@@ -144,7 +144,8 @@ const PRICE_LABEL_PRESET_LABELS={left:'ชิดซ้าย / เว้นด�
 let priceLabelCustomTextCounter=0;
 let priceLabelNamedTemplateCounter=0;
 // เลขหน้าสำหรับตารางเอกสารต่างๆ (แสดงหน้าละ 10 รายการ)
-let docListPage = { po:1, ret:1, gr:1, exchange:1, cashbill:1, taxinvoice:1, quotation:1 };
+let bestSellerSort='quantity';
+let docListPage = { rbestsellers:1, po:1, ret:1, gr:1, exchange:1, cashbill:1, taxinvoice:1, quotation:1 };
 const DOC_LIST_PAGE_SIZE = 10;
 let lowStockSort = { stock:{key:'name',dir:1}, expiry:{key:'expiry',dir:1} };
 // สถานะตัวกรองหน้าประวัติการขาย (ค่าเริ่มต้น = เดือนปัจจุบัน)

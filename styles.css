@@ -1787,6 +1787,7 @@
   .representative-history-name:hover{background:var(--primary-soft);text-decoration:underline;}
   .doc-summary-table tbody td:nth-child(1),.doc-summary-table tbody td:nth-child(2),.doc-summary-table tbody td:nth-child(3),.doc-summary-table tbody td:nth-child(5),.doc-summary-table tbody td:nth-child(6),.doc-summary-table tbody td:nth-child(7){text-align:center;}
   .doc-summary-table .history-actions{justify-content:center;}
+  .best-seller-table th,.best-seller-table td{text-align:center;}
   .document-issue-actions{display:flex;gap:8px;flex-wrap:wrap;}
   .document-list-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px 12px;}
   .document-list-heading .page-title-meta{white-space:normal;}

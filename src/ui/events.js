@@ -1533,6 +1533,11 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const saveUserSettingsBtn=document.getElementById('saveUserSettingsBtn');
   if(saveUserSettingsBtn) saveUserSettingsBtn.addEventListener('click',saveUserSettings);
   // ===== ตัวกรองรายงานยอดขายตามสินค้า =====
+  document.getElementById('bestSellerSort')?.addEventListener('change',event=>{
+    bestSellerSort=event.target.value;
+    docListPage.rbestsellers=1;
+    render();
+  });
   const rpPeriod=document.getElementById('rpf_period');
   if(rpPeriod) rpPeriod.addEventListener('change',()=>{ rproductFilter.period=rpPeriod.value; rproductFilter.expandedProducts?.clear(); render(); });
   const rpFrom=document.getElementById('rpf_from'); if(rpFrom) rpFrom.addEventListener('change',()=>{ const iso=dmyToISO(rpFrom.value); if(iso) rproductFilter.from=iso; });
@@ -1802,7 +1807,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     });
   });
   // --- เปลี่ยนหน้าสำหรับตารางเอกสาร (สั่งของขาด/สั่งซื้อสินค้า/รับเข้าสินค้า/ใบกำกับภาษี/ใบเสนอราคา) ---
-  [['docpage-po','po'],['docpage-ret','ret'],['docpage-gr','gr'],['docpage-exchange','exchange'],['docpage-cashbill','cashbill'],['docpage-taxinvoice','taxinvoice'],['docpage-quotation','quotation']].forEach(([attr,key])=>{
+  [['docpage-rbestsellers','rbestsellers'],['docpage-po','po'],['docpage-ret','ret'],['docpage-gr','gr'],['docpage-exchange','exchange'],['docpage-cashbill','cashbill'],['docpage-taxinvoice','taxinvoice'],['docpage-quotation','quotation']].forEach(([attr,key])=>{
     document.querySelectorAll(`[data-${attr}]`).forEach(el=>{
       el.addEventListener('click', ()=>{
         const v=el.dataset[attr.replace(/-([a-z])/g,(m,c)=>c.toUpperCase())];
