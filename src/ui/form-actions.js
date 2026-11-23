@@ -32,7 +32,7 @@ function renderStoreMaintenanceSection(){
   const name=escapeHtml(activeWarehouse()?.name||'');
   return `<div class="settings-section store-maintenance-options">
     <div><h2>ล้างเอกสารและสต็อก · ${name}</h2><button class="btn reset-keep-products" id="openDocumentResetBtn">ล้างเอกสารและสต็อก</button></div>
-    <div><h2>ล้างสินค้า · ${name}</h2><button class="btn danger" id="openProductResetBtn" ${products.length?'':'disabled'}>ล้างสินค้าเฉพาะร้านนี้</button></div>
+    <div><h2>ล้างสินค้า · ${name}</h2><button class="btn primary" id="openProductResetBtn" ${products.length?'':'disabled'}>ล้างสินค้าเฉพาะร้านนี้</button></div>
   </div>`;
 }
 

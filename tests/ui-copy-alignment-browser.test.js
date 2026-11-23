@@ -37,6 +37,18 @@ let browser;
   assert.equal(await page.locator('.notes-page-head p').count(),0);
   fs.mkdirSync(path.join(root,'outputs'),{recursive:true});
   await page.screenshot({path:path.join(root,'outputs/ui-copy-notes.png')});
+  await page.evaluate(async()=>{
+    currentTab='settingssystem';await ensurePageCodeLoaded(currentTab);
+    products=[{id:1,name:'สินค้าทดสอบ'}];render();
+  });
+  const settings=page.locator('.system-settings-page');
+  assert.deepEqual(await settings.locator('.sapuri-theme-picker button').allTextContents(),['GOOGLE SANS','SARABUN']);
+  assert.ok(await settings.locator(':scope > .settings-section h2, :scope > .settings-section .hint, .backup-note, .backup-card h3, .backup-card p').evaluateAll(elements=>elements.length>0&&elements.every(el=>getComputedStyle(el).textAlign==='center')));
+  assert.ok(await settings.locator('.sapuri-theme-picker,.backup-icon,.backup-card .btn,#openProductResetBtn').evaluateAll(elements=>elements.length===6&&elements.every(el=>{
+    const {left,width}=el.getBoundingClientRect(),parent=el.parentElement.getBoundingClientRect();
+    return Math.abs(left+width/2-parent.left-parent.width/2)<2;
+  })));
+  assert.deepEqual(await settings.locator('#openProductResetBtn').evaluate(el=>[getComputedStyle(el).backgroundColor,getComputedStyle(el).color]),['rgb(79, 64, 56)','rgb(255, 255, 255)']);
   await page.evaluate(()=>{currentTab='cashshift';currentCashShift=null;cashShifts=[];render();});
   assert.equal(await page.locator('.cash-shift-money-field span').textContent(),'เงินทอนตั้งต้น');
   await page.locator('#cashShiftOpeningCash').fill('1234.50');

@@ -135,7 +135,7 @@ let browser;
   }
   await page.screenshot({path:path.join(output,'sapuri-mac-pos.png'),fullPage:true});
   await page.locator('.navbtn[data-tab="settingssystem"]').click();
-  const macButton=page.getByRole('button',{name:'GOOGLE SAN',exact:true});
+  const macButton=page.getByRole('button',{name:'GOOGLE SANS',exact:true});
   const defaultButton=page.getByRole('button',{name:'SARABUN',exact:true});
   await macButton.waitFor();
   await assertSameFontSizes('Settings');

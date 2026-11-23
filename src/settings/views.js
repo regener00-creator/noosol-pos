@@ -190,10 +190,10 @@ function attachReceiptPrinterEvents(){
 }
 
 function renderSystemSettings(){
-  return `<div class="settings-page">
+  return `<div class="settings-page system-settings-page">
     <div class="settings-section"><h2>รูปแบบหน้าตา</h2>
       <div class="sapuri-theme-picker" role="group" aria-label="รูปแบบหน้าตา">
-        <button type="button" data-sapuri-theme-choice="mac" aria-pressed="${document.documentElement.dataset.sapuriTheme==='mac'}">GOOGLE SAN</button>
+        <button type="button" data-sapuri-theme-choice="mac" aria-pressed="${document.documentElement.dataset.sapuriTheme==='mac'}">GOOGLE SANS</button>
         <button type="button" data-sapuri-theme-choice="classic" aria-pressed="${document.documentElement.dataset.sapuriTheme!=='mac'}">SARABUN</button>
       </div>
       <div class="hint">เปลี่ยนทันทีและจำรูปแบบไว้เฉพาะเบราว์เซอร์นี้</div>
