@@ -1179,7 +1179,7 @@
   .shortage-section-title{font-size:15px;font-weight:600;margin:20px 0 9px;}
   .doc-scanner-wrap{position:relative;margin:16px 0 12px;}
   .doc-scanner{display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;overflow:hidden;}
-  .doc-scanner:focus-within,.customer-price-search:focus-within{background:var(--accent-soft);}
+  .doc-scanner:focus-within:not(:has(> #docProductScanner)),.customer-price-search:focus-within{background:var(--accent-soft);}
   .doc-scanner-icon{padding:0 13px;color:var(--primary);display:flex;align-items:center;border-left:1px solid var(--border);}
   .doc-scanner input{flex:1;border:none;outline:none;padding:12px 14px;font-family:inherit;font-size:14px;background:transparent;}
   /* Keep focus rings inside the shared, clipped scanner/search shells. */

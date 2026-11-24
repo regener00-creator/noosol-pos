@@ -96,7 +96,29 @@ let browser;
     assert.ok(!html.includes('สแกนซ้ำเพื่อเพิ่มจำนวนในรายการเดิม'),tab);
     assert.ok(html.includes('docProductScanner')&&html.includes('docScanResults'));
   }
+  await page.evaluate(async()=>{
+    await ensurePageCodeLoaded('quotation');
+    openNewQuotationForm();
+  });
+  const checkScannerFocus=async(input,container)=>{
+    await input.blur();
+    const background=()=>input.evaluate((el,container)=>[
+      getComputedStyle(el).backgroundColor,getComputedStyle(el.closest(container)).backgroundColor
+    ],container);
+    const initial=await background();
+    await input.click();
+    assert.deepEqual(await background(),initial);
+    assert.ok(await input.evaluate(el=>el===document.activeElement&&getComputedStyle(el).caretColor===getComputedStyle(el).color));
+    await input.press('X');
+    assert.equal(await input.inputValue(),'X');
+    await input.fill('');
+    await input.blur();
+  };
+  await checkScannerFocus(page.locator('#docProductScanner'),'.doc-scanner');
   await page.evaluate(()=>{currentTab='productexchange';editingProductExchangeId='new';productExchangeDraft=null;render();});
+  for(const side of ['outgoing','incoming']){
+    await checkScannerFocus(page.locator('#productExchangeScan_'+side),'.product-exchange-scan-row');
+  }
   const titles=await page.locator('.product-exchange-section-head h2').allTextContents();
   assert.deepEqual(titles,['สินค้าที่ส่งเปลี่ยน','สินค้าที่ได้รับกลับ']);
   assert.deepEqual(await page.locator('.product-exchange-section-head').evaluateAll(heads=>heads.map(head=>[
