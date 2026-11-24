@@ -101,7 +101,15 @@ let browser;
   assert.deepEqual(titles,['สินค้าที่ส่งเปลี่ยน','สินค้าที่ได้รับกลับ']);
   assert.deepEqual(await page.locator('.product-exchange-section-head').evaluateAll(heads=>heads.map(head=>[
     getComputedStyle(head).backgroundColor,getComputedStyle(head.querySelector('h2')).color
-  ])),Array(2).fill(['rgb(79, 64, 56)','rgb(255, 255, 255)']));
+  ])),Array(2).fill(['rgba(0, 0, 0, 0)','rgb(43, 36, 34)']));
+  for(const table of await page.locator('.product-exchange-table').all()){
+    const headers=table.locator('thead th');
+    assert.deepEqual((await headers.allTextContents()).slice(0,-1),
+      ['รหัสสินค้า','บาร์โค้ด','สินค้า','จำนวน','หน่วย','เลข Lot','วันหมดอายุ','เทียบหน่วยหลัก']);
+    assert.deepEqual(await headers.evaluateAll(cells=>cells.map(cell=>[
+      getComputedStyle(cell).backgroundColor,getComputedStyle(cell).color
+    ])),Array(9).fill(['rgb(79, 64, 56)','rgb(255, 255, 255)']));
+  }
   await page.screenshot({path:path.join(root,'outputs/ui-copy-exchange.png')});
   await page.evaluate(()=>{currentTab='checkout';openPOSCustomerPicker();});
   assert.equal(await page.locator('#posCustomerPickerTitle').textContent(),'เลือกสมาชิก');
