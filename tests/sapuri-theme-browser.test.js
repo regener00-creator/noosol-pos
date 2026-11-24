@@ -111,6 +111,7 @@ let browser;
       <div class="low-stock-report-controls"><select><option>All</option></select></div>
       <select class="line-unit"><option>Box</option><option>Pack</option></select>
       <select class="mobile-unit-select"><option>Box</option></select>
+      <div class="low-stock-filter-field"><select><option>All warehouses</option></select></div>
       <select multiple><option>Box</option></select>
     </div>`);
   });
@@ -119,7 +120,7 @@ let browser;
     const style=getComputedStyle(el);
     return [style.appearance,style.backgroundImage,style.backgroundPositionX,style.paddingRight];
   });
-  for(const [index,inset,padding] of [[0,18,38],[1,18,38],[2,10,30],[3,18,38]]){
+  for(const [index,inset,padding] of [[0,18,38],[1,18,38],[2,10,30],[3,18,38],[4,18,38]]){
     const dropdown=dropdowns.nth(index);
     const expected=await dropdownStyle(dropdown);
     assert.equal(expected[0],'none');
