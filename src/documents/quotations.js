@@ -50,7 +50,7 @@ function renderQuotationForm(){
         <div class="contact-editor-field"><label for="tax_form_customer_name">ชื่อ-นามสกุล <span class="req">*</span></label><input class="quotation-detail-input" id="tax_form_customer_name" value="${escapeHtml(draft.name||'')}"></div>
         <div class="contact-editor-field"><label id="quotation_customer_taxid_label" for="tax_form_customer_taxid">${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'}</label><input class="quotation-detail-input" id="tax_form_customer_taxid" value="${escapeHtml(draft.taxId||'')}" maxlength="13" inputmode="numeric" placeholder="${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'} 13 หลัก (ไม่บังคับ)"></div>
       </div>
-      <div class="crow quotation-address-row"><label for="tax_form_customer_address">ที่อยู่</label><textarea class="quotation-detail-input" id="tax_form_customer_address" rows="2">${escapeHtml(draft.address||'')}</textarea></div>
+      <div class="contact-editor-field quotation-address-row"><label for="tax_form_customer_address">ที่อยู่</label><textarea class="quotation-detail-input" id="tax_form_customer_address" rows="2">${escapeHtml(draft.address||'')}</textarea></div>
       <div class="quotation-contact-row">
         <div class="contact-editor-field"><label for="tax_form_customer_email">อีเมล์</label><input class="quotation-detail-input" id="tax_form_customer_email" type="email" value="${escapeHtml(draft.email||'')}"></div>
         <div class="contact-editor-field"><label for="tax_form_customer_line">ไลน์</label><input class="quotation-detail-input" id="tax_form_customer_line" value="${escapeHtml(draft.line||'')}"></div>
@@ -58,8 +58,10 @@ function renderQuotationForm(){
       </div>
     </div><div class="po-head-right">
       <div class="crow quotation-entity-row"><label>ประเภทผู้ติดต่อ</label><div class="cradio"><label><input type="radio" name="quotation_customer_entity" value="juristic" ${isJuristic?'checked':''}> นิติบุคคล</label><label><input type="radio" name="quotation_customer_entity" value="individual" ${!isJuristic?'checked':''}> บุคคลธรรมดา</label></div></div>
-      <div class="crow"><label>วันที่</label>${dmyDateFieldHtml('po_date',draft.date||TODAY_STR)}</div>
-      <div class="crow"><label for="po_credit">เครดิต (วัน)</label><input id="po_credit" type="number" min="0" value="${escapeHtml(draft.credit||'')}" placeholder="0 วัน"></div>
+      <div class="quotation-date-row">
+        <div class="crow"><label for="po_date">วันที่</label>${dmyDateFieldHtml('po_date',draft.date||TODAY_STR)}</div>
+        <div class="crow"><label for="po_credit">เครดิต (วัน)</label><input id="po_credit" type="number" min="0" value="${escapeHtml(draft.credit||'')}" placeholder="0 วัน"></div>
+      </div>
       <div class="po-total-label">จำนวนเงินรวมทั้งสิ้น</div><div class="po-total-amt mono">${fmtMoney(total)}</div>
     </div></div>
     ${documentProductScannerHtml()}

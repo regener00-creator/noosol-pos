@@ -1054,8 +1054,8 @@
   .tax-invoice-customer-grid>div{min-width:0;grid-column:span 2;}
   .tax-invoice-customer-grid>.tax-customer-name,.tax-invoice-customer-grid>.tax-customer-taxid{grid-column:span 3;}
   .tax-invoice-customer-grid>.tax-customer-address{grid-column:1/-1;}
-  .tax-invoice-dates{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
-  .tax-invoice-dates>.crow{display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:0;}
+  .tax-invoice-dates,.quotation-date-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;}
+  .tax-invoice-dates>.crow,.quotation-date-row>.crow{display:flex;flex-direction:column;align-items:stretch;gap:6px;min-width:0;}
   .tax-invoice-dates>.crow:last-child{grid-column:1/-1;}
   @media(max-width:600px){.po-supplier-edit-grid.tax-invoice-customer-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.tax-invoice-customer-grid>div,.tax-invoice-customer-grid>.tax-customer-name,.tax-invoice-customer-grid>.tax-customer-taxid{grid-column:span 1;}.tax-invoice-customer-grid>.tax-customer-address{grid-column:1/-1;}}
   #tax_customer_select{-webkit-appearance:none;appearance:none;padding-right:44px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%231D2129' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 18px center;background-size:14px 14px;}
@@ -3087,6 +3087,7 @@
 .quotation-document-head .po-head-left,.quotation-document-head .po-head-right{min-width:0;}
 .quotation-document-head .quotation-identity-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:12px;margin-bottom:10px;}
 .quotation-document-head .quotation-contact-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
+.quotation-document-head .quotation-address-row{margin-bottom:10px;}
 .quotation-document-head .contact-editor-field{gap:5px;}
 .quotation-document-head .contact-editor-field>label{color:var(--text);font-weight:700;}
 .quotation-document-head .quotation-detail-input{border:1px solid var(--border);border-radius:7px;background:var(--surface);padding:8px 11px;color:var(--text);font:inherit;}

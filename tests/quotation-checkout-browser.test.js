@@ -50,6 +50,19 @@ let browser;
     document.getElementById('main').innerHTML=renderQuotation();attachEvents();
   });
   await page.locator('[data-edit-quotation="Q-BROWSER"]').click();
+  const headerPositions=await page.evaluate(()=>{
+    const box=selector=>document.querySelector(selector).getBoundingClientRect();
+    return {
+      addressLabel:box('label[for="tax_form_customer_address"]'),
+      addressInput:box('#tax_form_customer_address'),
+      date:box('#po_date'),
+      credit:box('#po_credit')
+    };
+  });
+  assert.ok(headerPositions.addressLabel.bottom<=headerPositions.addressInput.top);
+  assert.equal(headerPositions.addressLabel.left,headerPositions.addressInput.left);
+  assert.equal(headerPositions.date.top,headerPositions.credit.top);
+  assert.ok(headerPositions.date.right<headerPositions.credit.left);
   const rows=page.locator('#poItemRows .po-item-row');
   const firstPrice=rows.nth(0).locator('.poi_price');
   const secondPrice=rows.nth(1).locator('.poi_price');

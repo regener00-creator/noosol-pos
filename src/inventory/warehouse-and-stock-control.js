@@ -57,7 +57,7 @@ function transferItemRowHtml(item,index){
     <td><input class="transfer-product" value="${escapeHtml(item.name||'')}" placeholder="พิมพ์แก้ไขชื่อสินค้า" autocomplete="off"></td>
     <td><input class="transfer-number transfer-qty" type="number" min="0.01" step="any" value="${Number(item.qty)||1}" style="width:90px;"></td>
     <td><select class="transfer-unit"><option value="">เลือกหน่วย</option>${unitOptions.map(u=>`<option value="${escapeHtml(u.name)}" ${unit===u.name?'selected':''}>${escapeHtml(u.name)}</option>`).join('')}${!unitOptions.length&&unit?`<option selected>${escapeHtml(unit)}</option>`:''}</select></td>
-    <td style="text-align:center;"><button class="transfer-remove" type="button" title="ลบรายการ">×</button></td>
+    <td style="text-align:center;"><button class="transfer-remove" type="button" title="ลบรายการ" data-enter-navigation="skip">×</button></td>
   </tr>`;
 }
 

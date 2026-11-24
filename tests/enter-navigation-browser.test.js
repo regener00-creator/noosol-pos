@@ -94,6 +94,37 @@ let browser;
   await page.locator('#dateTest').fill('24/10/2026');await page.keyboard.press('Enter');
   assert.equal(await page.evaluate(()=>document.activeElement.className),'dmy-cal-trigger');
   assert.equal(await page.locator('#dateTest').inputValue(),'24/10/2026');
+  const documentRows=await page.evaluate(async()=>{
+    for(const tab of ['cashbill','taxinvoice','goodsreceipt','productreturn','productexchange','transfer']){
+      await ensurePageCodeLoaded(tab);
+    }
+    products=[{id:1,name:'Keyboard test product',unit:'กล่อง',price:50,cost:25,units:[]}];
+    const item={productId:1,pid:1,lineId:1,name:products[0].name,unit:'กล่อง',qty:1,price:50};
+    const table=row=>'<table><tbody>'+row+'</tbody></table>';
+    const samples=[];
+    for(const tab of ['cashbill','taxinvoice','goodsreceipt']){
+      currentTab=tab;
+      samples.push([table(poItemRowHtml(item,0)),tab==='goodsreceipt'?'.poi_expiry':'.poi_price']);
+    }
+    samples.push(
+      [table(productReturnItemRowHtml({...item,productId:'',name:'สินค้าที่ยังไม่เลือก'},0,1)),'.poi_qty'],
+      [productExchangeSectionHtml('outgoing','ส่งไปเปลี่ยน',[item],false,false),'.product-exchange-expiry'],
+      [productExchangeSectionHtml('incoming','รับกลับ',[item],false,false),'.product-exchange-expiry'],
+      [table(transferItemRowHtml(item,0)),'.transfer-qty']
+    );
+    return samples;
+  });
+  for(const [html,field] of documentRows){
+    await fixture('<form>'+html+'<input id="afterRow"></form>');
+    await page.locator('#keyboardFixture '+field).press('Enter');
+    if(field==='.transfer-qty'){
+      assert.equal(await page.locator('.transfer-unit:focus').count(),1);
+      assert.equal(await page.locator('.transfer-remove').evaluate(button=>enterNavigationControls(button.form).includes(button)),false);
+    }else{
+      assert.equal(await focused(),'afterRow');
+    }
+    assert.equal(await page.locator('#keyboardFixture button[data-enter-navigation="skip"]').count(),1);
+  }
   assert.deepEqual(errors,[]);
   console.log('Enter navigation browser tests passed (login, Tab order, forms, modal, dates, rerender, IME, search/payment, multiline)');
 })().catch(error=>{console.error(error);process.exitCode=1;}).finally(async()=>{if(browser)await browser.close();server.close();});
