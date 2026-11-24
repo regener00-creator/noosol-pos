@@ -245,11 +245,20 @@ function attachEvents(){
     setTimeout(()=>document.getElementById('auditLogSearch')?.focus(),0);
   });
   document.getElementById('auditLogRefresh')?.addEventListener('click',()=>{ auditLogLoaded=false; auditLogPage=1; loadAuditLogsFromSupabase(true,'first'); render(); });
-  document.querySelectorAll('[data-audit-log-toggle]').forEach(button=>button.addEventListener('click',()=>{
-    const key=button.dataset.auditLogToggle;
-    if(expandedAuditLogRows.has(key)) expandedAuditLogRows.delete(key); else expandedAuditLogRows.add(key);
-    render();
-  }));
+  document.querySelectorAll('[data-audit-log-toggle]').forEach(row=>{
+    row.addEventListener('click',()=>{
+      const key=row.dataset.auditLogToggle;
+      const restoreFocus=document.activeElement===row;
+      if(expandedAuditLogRows.has(key)) expandedAuditLogRows.delete(key); else expandedAuditLogRows.add(key);
+      render();
+      if(restoreFocus) document.querySelector(`[data-audit-log-toggle="${CSS.escape(key)}"]`)?.focus({preventScroll:true});
+    });
+    row.addEventListener('keydown',event=>{
+      if(event.key!=='Enter'&&event.key!==' ') return;
+      event.preventDefault();
+      if(!event.repeat) row.click();
+    });
+  });
   document.querySelectorAll('[data-audit-log-page]').forEach(button=>button.addEventListener('click',()=>{
     if(auditLogLoading) return;
     loadAuditLogsFromSupabase(true,button.dataset.auditLogPage);

@@ -432,6 +432,7 @@ function auditLogPaginationHtml(){
 }
 function renderAuditLog(){
   const showWarehouse=isAllWarehousesMode();
+  const columnCount=showWarehouse?6:5;
   if(loggedInUser()?.owner!==true) return `<div class="empty"><h2>ไม่มีสิทธิ์เข้าถึง</h2><p>เฉพาะเจ้าของร้านเท่านั้นที่ดู AUDIT LOG ได้</p></div>`;
   if(!auditLogLoaded&&!auditLogLoading) setTimeout(()=>loadAuditLogsFromSupabase(),0);
   const pageRows=auditLogRows;
@@ -447,7 +448,13 @@ function renderAuditLog(){
     const expanded=expandedAuditLogRows.has(key);
     const warehouse=row.warehouse_id?whName(Number(row.warehouse_id)):'ทุกคลัง';
     const dangerous=row.action==='delete'||row.action==='store_reset';
-    return `<tr><td class="audit-log-centered">${escapeHtml(auditLogDateTime(row.occurred_at))}</td><td class="audit-log-centered"><div class="audit-log-actor"><strong>${escapeHtml(row.actor_name||'ระบบ')}</strong><small>${row.actor_level?`Level ${escapeHtml(row.actor_level)}`:'ระบบ'}</small></div></td><td><strong>${escapeHtml(auditEntityLabel(row.entity_type))}</strong><br><small>${escapeHtml(row.entity_id||'-')}</small></td><td class="audit-log-centered"><span class="audit-log-chip ${dangerous?'danger':row.action==='insert'?'':'neutral'}">${escapeHtml(auditActionLabel(row.action))}</span></td>${showWarehouse?`<td>${escapeHtml(warehouse)}</td>`:''}<td>${escapeHtml(auditRowSummary(row))}</td><td><button class="history-icon-btn" data-audit-log-toggle="${escapeHtml(key)}" title="${expanded?'ซ่อน':'ดู'}รายละเอียด" aria-label="${expanded?'ซ่อน':'ดู'}รายละเอียด">${expanded?'−':'+'}</button></td></tr>${expanded?`<tr class="audit-log-detail-row"><td colspan="${showWarehouse?7:6}"><div class="audit-log-details"><div class="audit-log-data"><b>ข้อมูลเดิม</b>${auditDataHtml(row.before_data)}</div><div class="audit-log-data"><b>ข้อมูลใหม่</b>${auditDataHtml(row.after_data)}</div></div></td></tr>`:''}`;
+    return `<tr data-audit-log-toggle="${escapeHtml(key)}" tabindex="0" aria-expanded="${expanded}">
+      <td class="audit-log-centered">${escapeHtml(auditLogDateTime(row.occurred_at))}</td>
+      <td class="audit-log-centered"><div class="audit-log-actor"><strong>${escapeHtml(row.actor_name||'ระบบ')}</strong><small>${row.actor_level?`Level ${escapeHtml(row.actor_level)}`:'ระบบ'}</small></div></td>
+      <td><strong>${escapeHtml(auditEntityLabel(row.entity_type))}</strong><br><small>${escapeHtml(row.entity_id||'-')}</small></td>
+      <td class="audit-log-centered"><span class="audit-log-chip ${dangerous?'danger':row.action==='insert'?'':'neutral'}">${escapeHtml(auditActionLabel(row.action))}</span></td>
+      ${showWarehouse?`<td>${escapeHtml(warehouse)}</td>`:''}<td>${escapeHtml(auditRowSummary(row))}</td>
+    </tr>${expanded?`<tr class="audit-log-detail-row"><td colspan="${columnCount}"><div class="audit-log-details"><div class="audit-log-data"><b>ข้อมูลเดิม</b>${auditDataHtml(row.before_data)}</div><div class="audit-log-data"><b>ข้อมูลใหม่</b>${auditDataHtml(row.after_data)}</div></div></td></tr>`:''}`;
   }).join('');
   return `<div class="audit-log-page"><div class="pagehead topbar-action-source"><div></div><button class="btn primary" id="auditLogRefresh">รีเฟรชข้อมูล</button></div>
     <div class="audit-log-date-toolbar">
@@ -459,7 +466,7 @@ function renderAuditLog(){
       <label class="audit-log-filter"><span class="audit-log-filter-label">การทำงาน</span><span class="audit-log-control"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path></svg><select id="auditLogAction"><option value="all">ทุกการทำงาน</option>${actionOptions}</select></span></label>
     </div>
     ${auditLogError?`<div class="notice danger">${escapeHtml(auditLogError)}</div>`:''}
-    ${auditLogLoading&&!auditLogLoaded?'<div class="audit-log-empty">กำลังโหลดประวัติการทำงาน...</div>':`<div class="audit-log-table-wrap"><table class="audit-log-table"><thead><tr><th>วันที่</th><th>ผู้ใช้งาน</th><th>รายการ</th><th>การทำงาน</th>${showWarehouse?'<th>คลังสินค้า</th>':''}<th>รายละเอียด</th><th></th></tr></thead><tbody>${rows||`<tr><td colspan="${showWarehouse?7:6}" class="audit-log-empty">ไม่พบประวัติการทำงาน</td></tr>`}</tbody></table></div>`}
+    ${auditLogLoading&&!auditLogLoaded?'<div class="audit-log-empty">กำลังโหลดประวัติการทำงาน...</div>':`<div class="audit-log-table-wrap"><table class="audit-log-table"><thead><tr><th>วันที่</th><th>ผู้ใช้งาน</th><th>รายการ</th><th>การทำงาน</th>${showWarehouse?'<th>คลังสินค้า</th>':''}<th>รายละเอียด</th></tr></thead><tbody>${rows||`<tr><td colspan="${columnCount}" class="audit-log-empty">ไม่พบประวัติการทำงาน</td></tr>`}</tbody></table></div>`}
     ${auditLogPaginationHtml()}</div>`;
 }
 
