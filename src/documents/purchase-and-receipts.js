@@ -51,10 +51,16 @@ function openDocumentPartyPicker(trigger){
   let selectedValue=field.value;
   const overlay=document.createElement('div');
   overlay.className='modal-overlay document-party-overlay';
+  const addButton=isRepresentative?'<button class="btn primary" type="button" data-party-add>+ เพิ่มผู้แทน</button>':'';
   const footerButtons=isRepresentative
-    ?'<button class="btn ghost" type="button" data-party-add>+ เพิ่มผู้แทน</button><button class="btn ghost" type="button" data-party-back>ย้อนกลับ</button><button class="btn primary" type="button" data-party-confirm>เลือก</button>'
+    ?'<button class="btn ghost" type="button" data-party-back>ย้อนกลับ</button><button class="btn primary" type="button" data-party-confirm>เลือก</button>'
     :'<button class="btn ghost" type="button" data-party-clear>ล้างการเลือก</button><button class="btn primary" type="button" data-party-close>ปิด</button>';
-  overlay.innerHTML=`<div class="modal document-party-modal" role="dialog" aria-modal="true" aria-labelledby="documentPartyTitle"><div class="modal-head"><h3 id="documentPartyTitle">${title}</h3><button class="modal-close" type="button" aria-label="ปิด">×</button></div><div class="document-party-search"><input type="search" aria-label="ค้นหารายชื่อ" placeholder="ค้นหาชื่อ รหัส เบอร์โทร ไลน์ หรือบริษัท" autocomplete="off"></div><div class="document-party-list"></div><div class="document-party-footer"><span role="status" aria-live="polite"></span>${footerButtons}</div></div>`;
+  overlay.innerHTML=`<div class="modal document-party-modal" role="dialog" aria-modal="true" aria-labelledby="documentPartyTitle">
+    <div class="modal-head"><div class="document-party-heading"><h3 id="documentPartyTitle">${title}</h3></div><button class="modal-close" type="button" aria-label="ปิด">×</button></div>
+    <div class="document-party-search"><input type="search" aria-label="ค้นหารายชื่อ" placeholder="ค้นหาชื่อ รหัส เบอร์โทร ไลน์ หรือบริษัท" autocomplete="off">${addButton}</div>
+    <div class="document-party-list"></div>
+    <div class="document-party-footer"><span role="status" aria-live="polite"></span>${footerButtons}</div>
+  </div>`;
   document.body.appendChild(overlay);
   const search=overlay.querySelector('input'),list=overlay.querySelector('.document-party-list'),status=overlay.querySelector('[role="status"]');
   const confirmButton=overlay.querySelector('[data-party-confirm]');
@@ -103,12 +109,15 @@ function openDocumentPartyPicker(trigger){
       modalTitle.textContent='เพิ่มผู้แทน';
       modal.insertAdjacentHTML('beforeend',shortageRepresentativeEditorHtml('new'));
       const editor=modal.querySelector('.shortage-rep-editor');
+      const editorNote=editor.querySelector('.shortage-rep-editor-note');
+      modalTitle.after(editorNote);
       editor.querySelector('#po_rep_name').focus();
       editor.querySelector('#po_rep_phone').addEventListener('input',event=>{
         event.target.value=formatPhoneValue(event.target.value);
       });
       editor.querySelector('#cancelPORepEditBtn').onclick=()=>{
         editor.remove();
+        editorNote.remove();
         modalTitle.textContent=title;
         pickerPanels.forEach(panel=>{panel.hidden=false;});
         overlay.querySelector('[data-party-add]').focus();
@@ -213,7 +222,7 @@ function shortageRepresentativeEditorHtml(representativeId=poRepresentativeEdito
   const isNew=representativeId==='new';
   const rep=isNew?{name:'',phone:'',line:'',note:''}:storeRepresentatives().find(x=>x.id===representativeId);
   if(!rep) return '';
-  return `<div class="po-supplier-edit shortage-rep-editor wide"><div class="po-supplier-edit-title"><span>${isNew?'เพิ่มรายชื่อผู้แทน':'แก้ไขรายชื่อผู้แทน'}</span><span style="font-size:11px;color:var(--text-muted);font-weight:400;">ข้อมูลจะอัปเดตในสมุดรายชื่อด้วย</span></div>
+  return `<div class="po-supplier-edit shortage-rep-editor wide"><div class="po-supplier-edit-title"><span>${isNew?'เพิ่มรายชื่อผู้แทน':'แก้ไขรายชื่อผู้แทน'}</span><span class="shortage-rep-editor-note">ข้อมูลจะอัปเดตในสมุดรายชื่อด้วย</span></div>
     <div class="po-supplier-edit-grid shortage-rep-editor-grid"><div><label for="po_rep_name">ชื่อผู้แทน *</label><input id="po_rep_name" value="${escapeHtml(rep.name||'')}"></div><div><label for="po_rep_phone">เบอร์โทร</label><input id="po_rep_phone" class="phone-input" inputmode="tel" value="${escapeHtml(rep.phone||'')}"></div><div><label for="po_rep_line">ไลน์</label><input id="po_rep_line" value="${escapeHtml(rep.line||'')}"></div><div class="wide"><label for="po_rep_note">ข้อมูลเพิ่มเติม</label><textarea id="po_rep_note" rows="2">${escapeHtml(rep.note||'')}</textarea></div></div>
     <div class="po-supplier-edit-actions"><button class="btn ghost small" id="cancelPORepEditBtn" type="button">ยกเลิก</button><button class="btn primary small" id="savePORepEditBtn" type="button">${isNew?'เพิ่มและเลือกผู้แทน':'บันทึก'}</button></div></div>`;
 }

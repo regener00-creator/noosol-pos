@@ -31,7 +31,7 @@ let browser;
     sb.rpc=async(name,args)=>name==='reserve_shop_document_number'&&args.p_kind==='quotation'&&args.p_warehouse_id===1?{data:'AQT-TEST'}:{data:null};
     currentProfile={id:'test',owner:true,level:1};
     warehouses=[{id:1,name:'คลังทดสอบ'}];activeWarehouseId=1;products=[];
-    contacts=[{id:1,name:'บริษัท ยาทดสอบ',code:'S001',types:['supplier'],phone:'0812345678',address:'ที่อยู่ทดสอบ'},{id:2,name:'ลูกค้าเท่านั้น',types:['customer']}];
+    contacts=[{id:1,name:'บริษัท ยาทดสอบ',code:'S001',types:['supplier'],phone:'0812345678',address:'ที่อยู่ทดสอบ',taxId:'1234567890123'},{id:2,name:'ลูกค้าเท่านั้น',types:['customer']}];
     salesRepresentatives=[{id:3,name:'ผู้แทน PEPO',company:'บริษัท ทดสอบ',line:'pepo.line',phone:'0899999999'}];
   });
   for(const tab of ['purchaseorder','goodsreceipt','productreturn','productexchange']){
@@ -74,6 +74,12 @@ let browser;
       assert.match(await page.locator('.po-head-left').innerText(),/ที่อยู่ทดสอบ/);
       assert.doesNotMatch(await page.locator('.po-head-left').innerText(),/ชื่อผู้จำหน่าย/);
     }
+    if(tab==='goodsreceipt'){
+      const readouts=page.locator('.po-head-left .po-addr,.goods-receipt-tax-row #po_warehouse');
+      assert.deepEqual(await readouts.allTextContents(),['ที่อยู่ทดสอบ','1234567890123','คลังทดสอบ']);
+      assert.ok(await readouts.evaluateAll(nodes=>nodes.every(node=>getComputedStyle(node).borderTopStyle==='solid')));
+      assert.equal(await page.locator('select#po_warehouse').count(),0);
+    }
     await page.evaluate(()=>{if(currentTab==='productexchange')syncProductExchangeFromDOM();else syncPOFromDOM();});
     assert.equal(await page.evaluate(()=>currentTab==='productexchange'?productExchangeDraft.supplier:activePurchaseDraft().supplier),name);
     if(tab==='purchaseorder'){
@@ -89,7 +95,19 @@ let browser;
       assert.equal(await page.locator('.document-party-overlay').count(),0);
       assert.equal(await page.locator('#'+field).inputValue(),name);
       await trigger.click();
-      await dialog.getByRole('button',{name:'+ เพิ่มผู้แทน',exact:true}).click();
+      const add=dialog.getByRole('button',{name:'+ เพิ่มผู้แทน',exact:true});
+      assert.deepEqual(await add.evaluate(button=>{
+        const style=getComputedStyle(button);
+        const input=button.previousElementSibling.getBoundingClientRect(),bounds=button.getBoundingClientRect();
+        return [style.backgroundColor,style.color,input.top===bounds.top,input.right<bounds.left];
+      }),['rgb(79, 64, 56)','rgb(255, 255, 255)',true,true]);
+      await add.click();
+      const editorHeading=dialog.locator('.document-party-heading');
+      assert.equal(await editorHeading.locator('.shortage-rep-editor-note').innerText(),'ข้อมูลจะอัปเดตในสมุดรายชื่อด้วย');
+      assert.ok(await editorHeading.evaluate(el=>{
+        const [title,note]=Array.from(el.children,child=>child.getBoundingClientRect());
+        return title.right<note.left&&note.top<title.bottom;
+      }));
       const positions=await dialog.locator('#po_rep_name,#po_rep_phone,#po_rep_line').evaluateAll(inputs=>inputs.map(input=>input.getBoundingClientRect().top));
       assert.equal(positions.length,3);
       assert.ok(positions.every(top=>top===positions[0]));
