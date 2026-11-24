@@ -140,7 +140,12 @@ let browser;
   await page.locator('.customer-purchase-cards strong').first().filter({hasText:'95,000.00'}).waitFor();
   assert.equal(await page.locator('.customer-purchase-cards > section').count(),3);
   assert.match(await page.locator('.customer-purchase-cards > section').nth(0).innerText(),/ยอดซื้อทั้งหมด[\s\S]*ยอดซื้อเดือนนี้[\s\S]*ยอดเฉลี่ย/);
-  assert.deepEqual(await page.locator('.customer-purchase-summary-row strong').allTextContents(),['95,000.00','90,000.00','0.00']);
+  assert.deepEqual(await page.locator('.customer-purchase-summary-row strong').allTextContents(),['95,000.00','90,000.00 | 12 บิล','0.00']);
+  assert.equal(await page.locator('.customer-purchase-summary-row').last().locator('span').innerText(),'ยอดเฉลี่ยต่อเดือน');
+  assert.equal(await page.locator('.customer-purchase-summary-row').last().locator('small').count(),0);
+  assert.ok(await page.locator('.customer-purchase-filters :is(label,input,select)').evaluateAll(elements=>
+    elements.length===6&&elements.every(el=>getComputedStyle(el).textAlign==='center')
+  ));
   assert.doesNotMatch(await page.locator('.customer-purchase-filters').innerText(),/\d+ บิล/);
   assert.deepEqual(await page.locator('#applyCustomerHistory').evaluate(button=>{
     const style=getComputedStyle(button);
@@ -178,7 +183,7 @@ let browser;
   await page.locator('#applyCustomerHistory').click();
   await page.getByText('OLD',{exact:true}).waitFor();
   assert.equal(await page.locator('.customer-tier-choice.is-current').textContent(),'ลูกค้าทั่วไป');
-  assert.match(await page.locator('.customer-purchase-cards').innerText(),/5,000.00/);
+  assert.match(await page.locator('.customer-purchase-cards').innerText(),/5,000\.00 \| 1 บิล/);
   await page.locator('#customerHistoryYear').fill('2024');
   await page.locator('#applyCustomerHistory').click();
   await page.getByText('ไม่มีบิลในช่วงที่เลือก',{exact:true}).waitFor();

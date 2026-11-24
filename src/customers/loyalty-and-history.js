@@ -278,12 +278,18 @@ function renderCustomerPurchaseHistory(){
   const bills=data?.bills||[];
   const money=value=>summary?fmtMoney(value):'—';
   const monthlyAverage=summary?fmtMoney(customerTierFromPurchases(summary.membershipCycleTotal,summary.membershipElapsedMonths).average):'—';
+  const periodAmount=summary?`${money(summary.periodTotal)} | ${(Number(summary.periodBills)||0).toLocaleString('th-TH')} บิล`:'—';
+  const periodLabel=view.mode==='month'?`${String(view.month).padStart(2,'0')}/${view.year}`:String(view.year);
   const page=data?.page||view.page;
   const totalPages=Math.max(1,Math.ceil(Number(data?.totalBills||0)/10));
   return `<div class="rpt customer-purchases-page">
     <div class="pagehead"><h1>${escapeHtml(customer.name)} <span class="page-title-meta">· ประวัติการซื้อ</span></h1><div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="closeCustomerHistory">ย้อนกลับ</button><button class="btn primary" id="refreshCustomerPurchases">รีเฟรชยอดซื้อ</button></div></div>
     <div class="customer-purchase-cards">
-      <section class="customer-purchase-summary-card"><div class="customer-purchase-summary-row"><span>ยอดซื้อทั้งหมด</span><strong>${money(summary?.lifetimeTotal)}</strong></div><div class="customer-purchase-summary-row"><span>${view.mode==='month'?'ยอดซื้อเดือนนี้':'ยอดซื้อต่อปี'}</span><strong>${money(summary?.periodTotal)}</strong><small>${summary?`${view.mode==='month'?String(view.month).padStart(2,'0')+'/':''}${view.year} · ${summary.periodBills} บิลสำเร็จ`:''}</small></div><div class="customer-purchase-summary-row"><span>ยอดเฉลี่ย</span><strong>${monthlyAverage}</strong><small>${summary?'ต่อเดือน':''}</small></div></section>
+      <section class="customer-purchase-summary-card">
+        <div class="customer-purchase-summary-row"><span>ยอดซื้อทั้งหมด</span><strong>${money(summary?.lifetimeTotal)}</strong></div>
+        <div class="customer-purchase-summary-row"><span>${view.mode==='month'?'ยอดซื้อเดือนนี้':'ยอดซื้อต่อปี'}</span><strong>${periodAmount}</strong>${summary?`<small>${escapeHtml(periodLabel)}</small>`:''}</div>
+        <div class="customer-purchase-summary-row"><span>ยอดเฉลี่ยต่อเดือน</span><strong>${monthlyAverage}</strong></div>
+      </section>
       <section class="customer-purchase-loyalty-card"><div id="${posCustomerHistoryModalOpen?'posCustomerHistoryLoyaltyPanel':'customerLoyaltyPanel'}" data-customer-loyalty-host data-readonly="true">${customerLoyaltyPanelHtml(customer,true)}</div></section>
       <section class="customer-purchase-tier-card"><span>ระดับปัจจุบัน</span><div>${customerTierOverviewHtml(state,customer.id)}</div></section>
     </div>
