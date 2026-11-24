@@ -215,12 +215,13 @@ function renderCustomerPricingForm(customerId=editingCustomerPriceContactId,allo
   if(!customer) return '<div class="empty">ไม่พบข้อมูลลูกค้า</div>';
   const visibleProductIds=new Set(products.map(product=>Number(product.id)));
   const customerPrices=normalizedCustomerPriceRules(customer).filter(rule=>visibleProductIds.has(rule.productId));
+  const priceHelp='ค้นหาหรือยิงบาร์โค้ดเพื่อเพิ่มสินค้า ราคานี้จะไม่ซ้อนโปรโมชั่นทั่วไป และไม่มีผลกับราคาหน้าร้านหรือตัวเลขในบิลเก่า';
   return `<div class="rpt customer-pricing-page">
     <div class="pagehead"><div><div class="breadcrumb">สมุดรายชื่อ › ราคาพิเศษ</div><h1>ราคาพิเศษสำหรับลูกค้ารายนี้ <span class="page-title-meta">· ${escapeHtml(customer.name)}</span></h1></div>
       <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelCustomerPricingBtn">ย้อนกลับ</button><button class="btn primary" id="saveCustomerPricingBtn">บันทึก</button></div>
     </div>
     <div class="panel customer-pricing-panel">
-      <div class="customer-pricing-heading"><div><h3>รายการสินค้า</h3><p>ค้นหาหรือยิงบาร์โค้ดเพื่อเพิ่มสินค้า ราคานี้จะไม่ซ้อนโปรโมชั่นทั่วไป และไม่มีผลกับราคาหน้าร้านหรือตัวเลขในบิลเก่า</p></div></div>
+      ${allowAddToSale?`<div class="customer-pricing-heading"><div><h3>รายการสินค้า</h3><p>${priceHelp}</p></div></div>`:`<p class="customer-pricing-help">${priceHelp}</p>`}
       <div class="customer-price-search-wrap"><div class="customer-price-search"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg></span><input id="customerPriceSearch" placeholder="ค้นหาสินค้า / รหัส / สแกนบาร์โค้ด" autocomplete="off"></div><div class="customer-price-search-results" id="customerPriceSearchResults" hidden></div></div>
       <div class="customer-price-table-wrap"><table class="grid-table customer-price-table"><colgroup><col class="customer-price-col-barcode"><col class="customer-price-col-name"><col class="customer-price-col-unit"><col class="customer-price-col-price"><col class="customer-price-col-regular"><col class="customer-price-col-cost"><col class="customer-price-col-action"></colgroup><thead><tr><th>บาร์โค้ดสินค้า</th><th>ชื่อ</th><th>หน่วย</th><th>ราคาพิเศษ</th><th>ราคาปกติ</th><th>ทุน</th><th></th></tr></thead><tbody id="customerPriceRows">${customerPrices.map((rule,index)=>customerPriceRowHtml(rule,index,allowAddToSale)).join('')||'<tr class="customer-price-empty"><td colspan="7">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>'}</tbody></table></div>
     </div>

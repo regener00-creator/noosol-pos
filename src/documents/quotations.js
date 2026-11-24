@@ -45,8 +45,8 @@ function renderQuotationForm(){
   const subtotal=tax.subtotal,total=tax.total;
   return `<div class="pagehead"><div><div class="breadcrumb">ใบเสนอราคา › สร้างใบเสนอราคา</div><h1>${escapeHtml(draft.number||'ใบเสนอราคา')}</h1></div></div>
     <div class="po-head supplier-document-head quotation-document-head"><div class="po-head-left">
-      <div class="crow quotation-customer-picker"><label>ลูกค้า</label><div class="po-supplier-pick">${documentPartyFieldHtml('tax_customer_select',draft.customerId,'customer')}</div></div>
       <div class="quotation-identity-row">
+        <div class="contact-editor-field quotation-customer-picker"><label>ลูกค้า</label><div class="po-supplier-pick">${documentPartyFieldHtml('tax_customer_select',draft.customerId,'customer')}</div></div>
         <div class="contact-editor-field"><label for="tax_form_customer_name">ชื่อ-นามสกุล <span class="req">*</span></label><input class="quotation-detail-input" id="tax_form_customer_name" value="${escapeHtml(draft.name||'')}"></div>
         <div class="contact-editor-field"><label id="quotation_customer_taxid_label" for="tax_form_customer_taxid">${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'}</label><input class="quotation-detail-input" id="tax_form_customer_taxid" value="${escapeHtml(draft.taxId||'')}" maxlength="13" inputmode="numeric" placeholder="${isJuristic?'เลขผู้เสียภาษี':'เลขบัตรประชาชน'} 13 หลัก (ไม่บังคับ)"></div>
       </div>

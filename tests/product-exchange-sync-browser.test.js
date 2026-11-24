@@ -83,22 +83,21 @@ let browser;
     };
   });
   for(const legacy of [true,'missing-baseline',false]){
+    await page.mouse.move(0,0);
     await page.evaluate(legacy=>configureExchangeTest(legacy),legacy);
+    const buttonColors=selector=>page.locator(selector).evaluate(button=>{
+      const style=getComputedStyle(button);
+      return [style.backgroundColor,style.color];
+    });
+    const primaryColors=['rgb(79, 64, 56)','rgb(255, 255, 255)'];
+    assert.deepEqual(await buttonColors('#confirmExchangeReceivedBtn'),primaryColors);
+    assert.deepEqual(await buttonColors('#copyExchangeOutgoingBtn'),primaryColors);
     if(!legacy){
-      const colors=await page.evaluate(()=>({
-        sent:getComputedStyle(document.getElementById('confirmExchangeSentBtn')).backgroundColor,
-        received:getComputedStyle(document.getElementById('confirmExchangeReceivedBtn')).backgroundColor
-      }));
-      assert.notEqual(colors.sent,colors.received);
       await page.locator('#confirmExchangeSentBtn').click();
+      await page.mouse.move(0,0);
       await page.waitForFunction(()=>productExchangeDraft.outgoingApplied&&!productExchangeStatusInFlight);
       assert.equal(await page.evaluate(()=>productExchangeDraft._revision),6);
-      const after=await page.evaluate(()=>({
-        sent:getComputedStyle(document.getElementById('confirmExchangeSentBtn')).backgroundColor,
-        received:getComputedStyle(document.getElementById('confirmExchangeReceivedBtn')).backgroundColor
-      }));
-      assert.equal(after.sent,colors.received);
-      assert.equal(after.received,colors.sent);
+      assert.deepEqual(await buttonColors('#confirmExchangeReceivedBtn'),primaryColors);
     }
     assert.equal(await page.locator('#confirmExchangeSentBtn').isDisabled(),true);
     if(legacy==='missing-baseline'){

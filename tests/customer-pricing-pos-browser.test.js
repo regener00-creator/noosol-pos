@@ -50,6 +50,9 @@ const browserExecutable = [
   await page.locator('[data-act="customerprice"]').click();
   assert.equal(await page.locator('#saveCustomerPricingBtn').count(),1);
   assert.equal(await page.locator('#c_default_document').count(),0);
+  assert.equal(await page.getByRole('heading',{name:'รายการสินค้า',exact:true}).count(),0);
+  const pricingHelp=page.getByText('ค้นหาหรือยิงบาร์โค้ดเพื่อเพิ่มสินค้า ราคานี้จะไม่ซ้อนโปรโมชั่นทั่วไป และไม่มีผลกับราคาหน้าร้านหรือตัวเลขในบิลเก่า',{exact:true});
+  assert.equal(await pricingHelp.evaluate(el=>getComputedStyle(el).textAlign),'center');
   assert.deepEqual(await page.locator('.customer-price-table thead th').allTextContents(),['บาร์โค้ดสินค้า','ชื่อ','หน่วย','ราคาพิเศษ','ราคาปกติ','ทุน','']);
   assert.equal(await page.locator('.customer-price-product-name b').textContent(),'Decolgen');
   assert.equal(await page.locator('.customer-price-barcode').textContent(),'BOX-101');

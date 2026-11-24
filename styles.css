@@ -1883,6 +1883,7 @@
   .customer-pricing-panel{margin-top:14px}
   .customer-pricing-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;margin-bottom:14px}
   .customer-pricing-heading h3{margin:0 0 4px}.customer-pricing-heading p{margin:0;color:var(--text-muted);font-size:12px}
+  .customer-pricing-help{margin:0 0 14px;text-align:center;color:var(--text-muted);font-size:12px;}
   .customer-price-search-wrap{position:relative;margin-bottom:12px}
   .customer-price-search{display:flex;align-items:center;border:1px solid var(--border);border-radius:10px;background:var(--surface);overflow:hidden}
   .customer-price-search>span{display:flex;align-items:center;padding:0 13px;color:var(--primary);border-left:1px solid var(--border)}
@@ -3094,7 +3095,8 @@
 .shortage-document-items .shortage-item-sku,.shortage-document-items .shortage-item-barcode{overflow-wrap:anywhere;}
 
 .quotation-document-head .po-head-left,.quotation-document-head .po-head-right{min-width:0;}
-.quotation-document-head .quotation-identity-row{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:12px;margin-bottom:10px;}
+.quotation-document-head .quotation-identity-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) minmax(0,1fr);gap:12px;margin-bottom:10px;}
+.quotation-customer-picker .document-party-trigger{height:37px;min-height:37px;padding:7px 11px;border-radius:7px;}
 .quotation-document-head .quotation-contact-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;}
 .quotation-document-head .quotation-address-row{margin-bottom:10px;}
 .quotation-document-head .contact-editor-field{gap:5px;}

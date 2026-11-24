@@ -143,6 +143,12 @@ let browser;
     render();
   });
   const customerTrigger=page.locator('[data-party-field="tax_customer_select"]');
+  assert.ok(await customerTrigger.evaluate(trigger=>{
+    const label=trigger.closest('.quotation-customer-picker').querySelector('label');
+    const nameInput=document.getElementById('tax_form_customer_name').getBoundingClientRect();
+    const picker=trigger.getBoundingClientRect();
+    return label.textContent==='ลูกค้า'&&label.getBoundingClientRect().bottom<picker.top&&picker.top===nameInput.top&&picker.right<nameInput.left;
+  }));
   assert.equal(await page.locator('select#tax_customer_select').count(),0);
   assert.equal(await page.locator('#po_due').count(),0,'quotation form has no due-date field');
   assert.ok(!(await page.locator('.po-head-right').innerText()).includes('ครบกำหนด'));
