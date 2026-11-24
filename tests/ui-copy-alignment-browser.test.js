@@ -99,6 +99,9 @@ let browser;
   await page.evaluate(()=>{currentTab='productexchange';editingProductExchangeId='new';productExchangeDraft=null;render();});
   const titles=await page.locator('.product-exchange-section-head h2').allTextContents();
   assert.deepEqual(titles,['สินค้าที่ส่งเปลี่ยน','สินค้าที่ได้รับกลับ']);
+  assert.deepEqual(await page.locator('.product-exchange-section-head').evaluateAll(heads=>heads.map(head=>[
+    getComputedStyle(head).backgroundColor,getComputedStyle(head.querySelector('h2')).color
+  ])),Array(2).fill(['rgb(79, 64, 56)','rgb(255, 255, 255)']));
   await page.screenshot({path:path.join(root,'outputs/ui-copy-exchange.png')});
   await page.evaluate(()=>{currentTab='checkout';openPOSCustomerPicker();});
   assert.equal(await page.locator('#posCustomerPickerTitle').textContent(),'เลือกสมาชิก');

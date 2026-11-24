@@ -1100,9 +1100,11 @@
   .product-exchange-meta .product-exchange-note{grid-column:3;grid-row:1/span 2;}
   .product-exchange-meta .product-exchange-note textarea{flex:1;min-height:100px;resize:vertical;}
   .product-exchange-section{border:1px solid var(--border);border-radius:14px;background:var(--surface);overflow:visible;}
-  .product-exchange-section-head{display:flex;align-items:center;flex-wrap:wrap;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border);}
+  .product-exchange-section-head{display:flex;align-items:center;flex-wrap:wrap;gap:14px;padding:14px 16px;border-bottom:1px solid var(--border);border-radius:13px 13px 0 0;background:var(--primary);color:#fff;}
   .product-exchange-section-head h2{margin:0;font-size:18px;flex-shrink:0;white-space:nowrap;}
   .product-exchange-section-head>.btn{flex-shrink:0;}
+  .product-exchange-section-head>.btn.ghost{background:var(--surface);}
+  .product-exchange-section-head>.btn.primary:not(:disabled){box-shadow:inset 0 0 0 1px var(--border);}
   .product-exchange-section-head>#copyExchangeOutgoingBtn{margin-left:auto;}
   .product-exchange-scan-wrap{position:relative;flex:1;min-width:180px;max-width:480px;}
   .product-exchange-scan-row{display:flex;gap:10px;}
