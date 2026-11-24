@@ -259,7 +259,8 @@ function customerTierProgressHtml(state,id,context='history'){
   const summary=state?.data?.summaries?.find(row=>String(row.customerId)===String(id));
   if(!summary) return `<div class="customer-tier-progress-status ${state?.error?'is-error':''}">${state?.loading?'กำลังคำนวณความคืบหน้า…':state?.error?'คำนวณความคืบหน้าไม่ได้':'—'}</div>`;
   const progress=customerTierProgress(summary.membershipCycleTotal,summary.membershipElapsedMonths);
-  const message=progress.nextLabel?`ซื้ออีก ${fmtMoney(progress.remaining)} บาท ถึง${progress.nextLabel}`:'ถึงระดับสูงสุดแล้ว';
+  const currency=context==='pos'?' บาท':'';
+  const message=progress.nextLabel?`ซื้ออีก ${fmtMoney(progress.remaining)}${currency} ถึง${progress.nextLabel}`:'ถึงระดับสูงสุดแล้ว';
   const label=context==='pos'?progress.tier.label:'ความคืบหน้าสู่ระดับถัดไป';
   return `<div class="customer-tier-progress customer-tier-progress-${context}"><div class="customer-tier-progress-head"><span>${label}</span><strong>${message}</strong></div><div class="customer-tier-progress-track" role="progressbar" aria-label="${escapeHtml(label)}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(progress.percent)}"><span style="width:${progress.percent.toFixed(2)}%"></span></div></div>`;
 }
@@ -275,8 +276,8 @@ function renderCustomerPurchaseHistory(){
   const state=customerPurchaseLoad([customer.id],view),data=state.data;
   const summary=data?.summaries?.[0];
   const bills=data?.bills||[];
-  const money=value=>summary?`${fmtMoney(value)} บาท`:'—';
-  const monthlyAverage=summary?`${fmtMoney(customerTierFromPurchases(summary.membershipCycleTotal,summary.membershipElapsedMonths).average)} บาท`:'—';
+  const money=value=>summary?fmtMoney(value):'—';
+  const monthlyAverage=summary?fmtMoney(customerTierFromPurchases(summary.membershipCycleTotal,summary.membershipElapsedMonths).average):'—';
   const page=data?.page||view.page;
   const totalPages=Math.max(1,Math.ceil(Number(data?.totalBills||0)/10));
   return `<div class="rpt customer-purchases-page">
@@ -290,11 +291,11 @@ function renderCustomerPurchaseHistory(){
       <label>แสดงประวัติ<select id="customerHistoryMode"><option value="month" ${view.mode==='month'?'selected':''}>รายเดือน</option><option value="year" ${view.mode==='year'?'selected':''}>รายปี</option></select></label>
       <label>ปี (ค.ศ.)<input id="customerHistoryYear" type="number" min="1900" max="9998" step="1" value="${view.year}"></label>
       ${view.mode==='month'?`<label>เดือน<select id="customerHistoryMonth">${Array.from({length:12},(_,i)=>`<option value="${i+1}" ${Number(view.month)===i+1?'selected':''}>${new Intl.DateTimeFormat('th-TH',{month:'long'}).format(new Date(2026,i,1))}</option>`).join('')}</select></label>`:''}
-      <button class="btn ghost rpf-apply" id="applyCustomerHistory">แสดงผล</button><span>${data?data.totalBills+' บิล':''}</span>
+      <button class="btn primary rpf-apply" id="applyCustomerHistory">แสดงผล</button>
     </div>
     ${customerPurchaseNotice(state)}
     <div class="doc-list-wrap seamless-table-wrap"><table class="grid-table doc-head-blue customer-purchase-table"><thead><tr><th class="customer-purchase-centered">วันที่</th><th class="customer-purchase-centered">เลขที่บิล</th><th>สินค้าที่ซื้อ</th><th class="customer-purchase-centered">ยอดบิล</th><th class="customer-purchase-centered">สถานะ</th></tr></thead><tbody>
-      ${bills.map(bill=>`<tr><td class="customer-purchase-centered">${escapeHtml(fmtDateShort(bill.date))}</td><td class="mono customer-purchase-centered">${escapeHtml(bill.ref||bill.id)}</td><td class="customer-purchase-items"><details><summary>ดูสินค้า ${Array.isArray(bill.items)?bill.items.length:0} รายการ</summary>${(Array.isArray(bill.items)?bill.items:[]).map(item=>`<div><b>${escapeHtml(item.name||'-')}</b><span>${escapeHtml(item.qty)} ${escapeHtml(item.unit||'')} × ${fmtMoney(item.price||0)} บาท</span></div>`).join('')}</details></td><td class="mono customer-purchase-centered">${fmtMoney(bill.total)}</td><td class="customer-purchase-centered">${bill.status==='void'?'<span class="customer-void">ยกเลิก · ไม่นับยอดซื้อ</span>':'สำเร็จ'}</td></tr>`).join('')||`<tr><td colspan="5" class="customer-purchase-empty">${state.loading?'กำลังโหลดประวัติการซื้อ…':state.error?'ยังไม่สามารถแสดงข้อมูลได้':'ไม่มีบิลในช่วงที่เลือก'}</td></tr>`}
+      ${bills.map(bill=>`<tr><td class="customer-purchase-centered">${escapeHtml(fmtDateShort(bill.date))}</td><td class="mono customer-purchase-centered">${escapeHtml(bill.ref||bill.id)}</td><td class="customer-purchase-items"><details><summary>ดูสินค้า ${Array.isArray(bill.items)?bill.items.length:0} รายการ</summary>${(Array.isArray(bill.items)?bill.items:[]).map(item=>`<div><b>${escapeHtml(item.name||'-')}</b><span>${escapeHtml(item.qty)} ${escapeHtml(item.unit||'')} × ${fmtMoney(item.price||0)}</span></div>`).join('')}</details></td><td class="mono customer-purchase-centered">${fmtMoney(bill.total)}</td><td class="customer-purchase-centered">${bill.status==='void'?'<span class="customer-void">ยกเลิก · ไม่นับยอดซื้อ</span>':'สำเร็จ'}</td></tr>`).join('')||`<tr><td colspan="5" class="customer-purchase-empty">${state.loading?'กำลังโหลดประวัติการซื้อ…':state.error?'ยังไม่สามารถแสดงข้อมูลได้':'ไม่มีบิลในช่วงที่เลือก'}</td></tr>`}
     </tbody></table></div>${data?pagerHtml(page,totalPages,'customerhistorypage'):''}
   </div>`;
 }
