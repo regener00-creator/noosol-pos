@@ -86,7 +86,7 @@ let browser;
   assert.ok(Math.abs(mainBox.y - summaryBox.y) < 2, 'both shortage form columns must begin on the same row');
   assert.ok(Math.abs(mainBox.width - summaryBox.width) < 2, 'representative information must use half of the available header width');
   const controlOrder = await page.locator('.shortage-form-controls').evaluate(element=>[...element.children].map(child=>child.id||child.className));
-  assert.deepEqual(controlOrder, ['shortage-date-field','shortage-rep-field','newPORepBtn','shortageManagedProductsBtn']);
+  assert.deepEqual(controlOrder, ['shortage-date-field','shortage-rep-field','shortageManagedProductsBtn']);
   const dateFieldBox = await page.locator('.shortage-date-field').boundingBox();
   const representativeFieldBox = await page.locator('.shortage-rep-field').boundingBox();
   assert.ok(dateFieldBox && representativeFieldBox && representativeFieldBox.x-dateFieldBox.x-dateFieldBox.width <= 12, 'representative field must begin immediately after the order date without unused space');

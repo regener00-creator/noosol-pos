@@ -55,6 +55,11 @@ let browser;
     await search.fill(tab==='purchaseorder'?'pepo.line':'081234');
     assert.equal(await page.locator('.document-party-item').count(),1);
     await page.locator('.document-party-item').click();
+    if(tab==='purchaseorder'){
+      assert.equal(await page.locator('#'+field).inputValue(),'');
+      assert.equal(await page.locator('.document-party-item.selected').count(),1);
+      await page.getByRole('button',{name:'เลือก',exact:true}).click();
+    }
     const name=tab==='purchaseorder'?'ผู้แทน PEPO':'บริษัท ยาทดสอบ';
     assert.equal(await page.locator('#'+field).inputValue(),name);
     assert.equal(await note.inputValue(),'เก็บหมายเหตุนี้');
@@ -71,6 +76,33 @@ let browser;
     }
     await page.evaluate(()=>{if(currentTab==='productexchange')syncProductExchangeFromDOM();else syncPOFromDOM();});
     assert.equal(await page.evaluate(()=>currentTab==='productexchange'?productExchangeDraft.supplier:activePurchaseDraft().supplier),name);
+    if(tab==='purchaseorder'){
+      await page.evaluate(()=>{
+        salesRepresentatives.push({id:4,name:'ผู้แทนอีกราย',warehouseId:1});
+        window.representativeSaves=0;
+        persistWorkspaceData=()=>{window.representativeSaves++;};
+      });
+      const dialog=page.locator('.document-party-modal');
+      await trigger.click();
+      await page.locator('.document-party-item').filter({hasText:'ผู้แทนอีกราย'}).click();
+      await dialog.getByRole('button',{name:'ย้อนกลับ',exact:true}).click();
+      assert.equal(await page.locator('.document-party-overlay').count(),0);
+      assert.equal(await page.locator('#'+field).inputValue(),name);
+      await trigger.click();
+      await dialog.getByRole('button',{name:'+ เพิ่มผู้แทน',exact:true}).click();
+      const positions=await dialog.locator('#po_rep_name,#po_rep_phone,#po_rep_line').evaluateAll(inputs=>inputs.map(input=>input.getBoundingClientRect().top));
+      assert.equal(positions.length,3);
+      assert.ok(positions.every(top=>top===positions[0]));
+      await dialog.locator('#po_rep_name').fill('ผู้แทนใหม่');
+      await dialog.locator('#po_rep_phone').fill('0812345678');
+      await dialog.locator('#po_rep_line').fill('new.rep');
+      await dialog.getByRole('button',{name:'เพิ่มและเลือกผู้แทน',exact:true}).click();
+      assert.equal(await dialog.count(),0);
+      assert.equal(await page.locator('#'+field).inputValue(),'ผู้แทนใหม่');
+      assert.equal(await note.inputValue(),'เก็บหมายเหตุนี้');
+      assert.equal(await page.evaluate(()=>representativeSaves),1);
+      assert.deepEqual(await page.evaluate(()=>storeRepresentatives().filter(rep=>rep.name==='ผู้แทนใหม่').map(rep=>[rep.phone,rep.line])),[['081-234-5678','new.rep']]);
+    }
   }
   await page.evaluate(()=>{productExchangeDraft.incomingApplied=true;render();});
   assert.equal(await page.locator('[data-party-field="productExchangeSupplier"]').isDisabled(),true);

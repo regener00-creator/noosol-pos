@@ -16,10 +16,11 @@ const printEnd=source.indexOf('// แปลงตัวเลขเป็นข�
 const printSource=source.slice(printStart,printEnd);
 assert.match(form, /shortage-form-grid[\s\S]*shortage-form-main[\s\S]*shortage-rep-summary/);
 assert.match(source, /\.shortage-form-grid\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/, 'ข้อมูลผู้แทนต้องกว้างครึ่งหนึ่งของพื้นที่ส่วนบน');
-assert.match(source, /\.shortage-form-controls\{[^}]*grid-template-columns:240px minmax\(0,1fr\) auto auto/, 'คอลัมน์วันที่ต้องพอดีกับช่องเพื่อให้ชื่อผู้แทนใช้พื้นที่ว่าง');
+assert.match(source, /\.shortage-form-controls\{[^}]*grid-template-columns:240px minmax\(0,1fr\) auto;/, 'คอลัมน์วันที่ต้องพอดีกับช่องเพื่อให้ชื่อผู้แทนใช้พื้นที่ว่าง');
 assert.match(source, /\.shortage-form-grid \.shortage-date-field \.dmy-input\{[^}]*width:100%/, 'ช่องพิมพ์วันที่ต้องยาวถึงไอคอนปฏิทิน');
 assert.match(source, /\.shortage-form-grid \.shortage-date-field \.dmy-native\{[^}]*width:30px/, 'ปุ่มปฏิทินต้องไม่ซ้อนทับพื้นที่พิมพ์วันที่');
-assert.match(form, /วันที่สั่ง[\s\S]*ชื่อผู้แทน[\s\S]*id="newPORepBtn"[\s\S]*id="shortageManagedProductsBtn"/);
+assert.match(form, /วันที่สั่ง[\s\S]*ชื่อผู้แทน[\s\S]*id="shortageManagedProductsBtn"/);
+assert.doesNotMatch(form, /id="newPORepBtn"/);
 assert.match(form, /class="btn primary" id="shortageManagedProductsBtn"/, 'ปุ่มสินค้าที่ดูแลต้องใช้สีเดียวกับปุ่มบันทึกเอกสาร');
 assert.doesNotMatch(form, /createPurchaseOrderFromShortageBtn|สร้างใบสั่งซื้อจากรายการนี้/, 'หน้าจดสั่งสินค้าต้องเป็นระบบเดียวและไม่มีขั้นตอนแปลงเอกสารซ้ำ');
 assert.match(form, /จดสั่งสินค้า ›/);

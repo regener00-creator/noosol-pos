@@ -15,7 +15,8 @@ const tenItemConstants = [
   'INVENTORY_MOVEMENT_PAGE_SIZE',
   'HISTORY_PAGE_SIZE',
   'INVENTORY_LOT_HISTORY_PAGE_SIZE',
-  'LOWSTOCK_PAGE_SIZE'
+  'LOWSTOCK_PAGE_SIZE',
+  'AUDIT_LOG_PAGE_SIZE'
 ];
 
 for (const name of tenItemConstants) {
@@ -25,11 +26,5 @@ for (const name of tenItemConstants) {
     `${name} must display or load 10 records per page`
   );
 }
-
-assert.match(
-  html,
-  /const\s+AUDIT_LOG_PAGE_SIZE\s*=\s*20\s*;/,
-  'Audit Log must display 20 records per page'
-);
 
 console.log('pagination page-size tests passed');

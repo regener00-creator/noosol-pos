@@ -48,18 +48,24 @@ function openDocumentPartyPicker(trigger){
   const title=isRepresentative?'เลือกผู้แทน':isCustomer?'เลือกลูกค้า':'เลือกผู้จำหน่าย';
   const records=isRepresentative?storeRepresentatives():isCustomer?customersList():suppliersList();
   const recordValue=record=>String(isCustomer?record.id:record.name);
+  let selectedValue=field.value;
   const overlay=document.createElement('div');
   overlay.className='modal-overlay document-party-overlay';
-  overlay.innerHTML=`<div class="modal document-party-modal" role="dialog" aria-modal="true" aria-labelledby="documentPartyTitle"><div class="modal-head"><h3 id="documentPartyTitle">${title}</h3><button class="modal-close" type="button" aria-label="ปิด">×</button></div><div class="document-party-search"><input type="search" aria-label="ค้นหารายชื่อ" placeholder="ค้นหาชื่อ รหัส เบอร์โทร ไลน์ หรือบริษัท" autocomplete="off"></div><div class="document-party-list"></div><div class="document-party-footer"><span role="status" aria-live="polite"></span><button class="btn ghost" type="button" data-party-clear>ล้างการเลือก</button><button class="btn primary" type="button" data-party-close>ปิด</button></div></div>`;
+  const footerButtons=isRepresentative
+    ?'<button class="btn ghost" type="button" data-party-add>+ เพิ่มผู้แทน</button><button class="btn ghost" type="button" data-party-back>ย้อนกลับ</button><button class="btn primary" type="button" data-party-confirm>เลือก</button>'
+    :'<button class="btn ghost" type="button" data-party-clear>ล้างการเลือก</button><button class="btn primary" type="button" data-party-close>ปิด</button>';
+  overlay.innerHTML=`<div class="modal document-party-modal" role="dialog" aria-modal="true" aria-labelledby="documentPartyTitle"><div class="modal-head"><h3 id="documentPartyTitle">${title}</h3><button class="modal-close" type="button" aria-label="ปิด">×</button></div><div class="document-party-search"><input type="search" aria-label="ค้นหารายชื่อ" placeholder="ค้นหาชื่อ รหัส เบอร์โทร ไลน์ หรือบริษัท" autocomplete="off"></div><div class="document-party-list"></div><div class="document-party-footer"><span role="status" aria-live="polite"></span>${footerButtons}</div></div>`;
   document.body.appendChild(overlay);
   const search=overlay.querySelector('input'),list=overlay.querySelector('.document-party-list'),status=overlay.querySelector('[role="status"]');
-  const close=()=>{overlay.remove();if(trigger.isConnected) trigger.focus();};
+  const confirmButton=overlay.querySelector('[data-party-confirm]');
+  const liveTrigger=()=>document.querySelector(`[data-party-field="${field.id}"]`);
+  const close=()=>{overlay.remove();liveTrigger()?.focus();};
   const choose=value=>{
     field.value=value;
     trigger.querySelector('span').textContent=records.find(record=>recordValue(record)===value)?.name||title;
     close();
     field.dispatchEvent(new Event('change',{bubbles:true}));
-    document.querySelector(`[data-party-field="${field.id}"]`)?.focus();
+    liveTrigger()?.focus();
   };
   const renderRows=()=>{
     const words=search.value.trim().toLocaleLowerCase('th').split(/\s+/).filter(Boolean);
@@ -68,18 +74,58 @@ function openDocumentPartyPicker(trigger){
       return words.every(word=>text.includes(word));
     });
     status.textContent=`${matches.length} รายการ`;
-    list.innerHTML=matches.map(({record,index})=>`<button type="button" class="document-party-item ${recordValue(record)===field.value?'selected':''}" data-party-index="${index}" aria-pressed="${recordValue(record)===field.value}"><span><strong>${escapeHtml(record.name||'-')}</strong><small>${escapeHtml([record.code,record.company,record.phone,record.line].filter(Boolean).join(' · '))}</small></span><span aria-hidden="true">${recordValue(record)===field.value?'✓':''}</span></button>`).join('')||`<div class="document-party-empty">${records.length?'ไม่พบรายชื่อที่ค้นหา':'ยังไม่มีรายชื่อ'}</div>`;
+    list.innerHTML=matches.map(({record,index})=>{
+      const selected=recordValue(record)===selectedValue;
+      return `<button type="button" class="document-party-item ${selected?'selected':''}" data-party-index="${index}" aria-pressed="${selected}"><span><strong>${escapeHtml(record.name||'-')}</strong><small>${escapeHtml([record.code,record.company,record.phone,record.line].filter(Boolean).join(' · '))}</small></span><span aria-hidden="true">${selected?'✓':''}</span></button>`;
+    }).join('')||`<div class="document-party-empty">${records.length?'ไม่พบรายชื่อที่ค้นหา':'ยังไม่มีรายชื่อ'}</div>`;
+    if(confirmButton) confirmButton.disabled=!records.some(record=>recordValue(record)===selectedValue);
   };
   search.addEventListener('input',renderRows);
-  list.addEventListener('click',event=>{const row=event.target.closest('[data-party-index]');if(row) choose(recordValue(records[Number(row.dataset.partyIndex)]));});
+  list.addEventListener('click',event=>{
+    const row=event.target.closest('[data-party-index]');
+    if(!row) return;
+    const index=Number(row.dataset.partyIndex);
+    const value=recordValue(records[index]);
+    if(!isRepresentative){choose(value);return;}
+    selectedValue=value;
+    renderRows();
+    list.querySelector(`[data-party-index="${index}"]`)?.focus({preventScroll:true});
+  });
   overlay.querySelector('.modal-close').onclick=close;
-  overlay.querySelector('[data-party-close]').onclick=close;
-  overlay.querySelector('[data-party-clear]').onclick=()=>choose('');
+  if(isRepresentative){
+    const modal=overlay.querySelector('.document-party-modal');
+    const modalTitle=overlay.querySelector('#documentPartyTitle');
+    const pickerPanels=[search.parentElement,list,status.parentElement];
+    confirmButton.onclick=()=>choose(selectedValue);
+    overlay.querySelector('[data-party-back]').onclick=close;
+    overlay.querySelector('[data-party-add]').onclick=()=>{
+      pickerPanels.forEach(panel=>{panel.hidden=true;});
+      modalTitle.textContent='เพิ่มผู้แทน';
+      modal.insertAdjacentHTML('beforeend',shortageRepresentativeEditorHtml('new'));
+      const editor=modal.querySelector('.shortage-rep-editor');
+      editor.querySelector('#po_rep_name').focus();
+      editor.querySelector('#po_rep_phone').addEventListener('input',event=>{
+        event.target.value=formatPhoneValue(event.target.value);
+      });
+      editor.querySelector('#cancelPORepEditBtn').onclick=()=>{
+        editor.remove();
+        modalTitle.textContent=title;
+        pickerPanels.forEach(panel=>{panel.hidden=false;});
+        overlay.querySelector('[data-party-add]').focus();
+      };
+      editor.querySelector('#savePORepEditBtn').onclick=()=>{
+        if(savePORepresentativeFromPO('new')) close();
+      };
+    };
+  }else{
+    overlay.querySelector('[data-party-close]').onclick=close;
+    overlay.querySelector('[data-party-clear]').onclick=()=>choose('');
+  }
   overlay.addEventListener('mousedown',event=>{if(event.target===overlay) close();});
   overlay.addEventListener('keydown',event=>{
     if(event.key==='Escape'){event.preventDefault();event.stopPropagation();close();}
     if(event.key==='Tab'){
-      const focusable=[...overlay.querySelectorAll('button,input')].filter(el=>!el.disabled&&el.getClientRects().length);
+      const focusable=[...overlay.querySelectorAll('button,input,textarea')].filter(el=>!el.disabled&&el.getClientRects().length);
       const first=focusable[0],last=focusable.at(-1);
       if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
       else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
@@ -163,12 +209,12 @@ function documentProductScannerHtml(hideHint=['purchaseorder','goodsreceipt','pr
   return `<div class="doc-scanner-wrap"><div class="doc-scanner"><span class="doc-scanner-icon"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg></span><input id="docProductScanner" placeholder="สแกนบาร์โค้ด หรือค้นหาชื่อ / รหัสสินค้า" autocomplete="off"></div>${hideHint?'':'<div class="doc-scanner-hint">สแกนซ้ำเพื่อเพิ่มจำนวนในรายการเดิม</div>'}<div class="doc-scan-results" id="docScanResults" hidden></div></div>`;
 }
 
-function shortageRepresentativeEditorHtml(){
-  const isNew=poRepresentativeEditorId==='new';
-  const rep=isNew?{name:'',phone:'',line:'',note:''}:storeRepresentatives().find(x=>x.id===poRepresentativeEditorId);
+function shortageRepresentativeEditorHtml(representativeId=poRepresentativeEditorId){
+  const isNew=representativeId==='new';
+  const rep=isNew?{name:'',phone:'',line:'',note:''}:storeRepresentatives().find(x=>x.id===representativeId);
   if(!rep) return '';
-  return `<div class="po-supplier-edit wide"><div class="po-supplier-edit-title"><span>${isNew?'เพิ่มรายชื่อผู้แทน':'แก้ไขรายชื่อผู้แทน'}</span><span style="font-size:11px;color:var(--text-muted);font-weight:400;">ข้อมูลจะอัปเดตในสมุดรายชื่อด้วย</span></div>
-    <div class="po-supplier-edit-grid"><div><label>ชื่อผู้แทน *</label><input id="po_rep_name" value="${escapeHtml(rep.name||'')}"></div><div><label>เบอร์โทร</label><input id="po_rep_phone" class="phone-input" value="${escapeHtml(rep.phone||'')}"></div><div><label>ไลน์</label><input id="po_rep_line" value="${escapeHtml(rep.line||'')}"></div><div class="wide"><label>ข้อมูลเพิ่มเติม</label><textarea id="po_rep_note" rows="2">${escapeHtml(rep.note||'')}</textarea></div></div>
+  return `<div class="po-supplier-edit shortage-rep-editor wide"><div class="po-supplier-edit-title"><span>${isNew?'เพิ่มรายชื่อผู้แทน':'แก้ไขรายชื่อผู้แทน'}</span><span style="font-size:11px;color:var(--text-muted);font-weight:400;">ข้อมูลจะอัปเดตในสมุดรายชื่อด้วย</span></div>
+    <div class="po-supplier-edit-grid shortage-rep-editor-grid"><div><label for="po_rep_name">ชื่อผู้แทน *</label><input id="po_rep_name" value="${escapeHtml(rep.name||'')}"></div><div><label for="po_rep_phone">เบอร์โทร</label><input id="po_rep_phone" class="phone-input" inputmode="tel" value="${escapeHtml(rep.phone||'')}"></div><div><label for="po_rep_line">ไลน์</label><input id="po_rep_line" value="${escapeHtml(rep.line||'')}"></div><div class="wide"><label for="po_rep_note">ข้อมูลเพิ่มเติม</label><textarea id="po_rep_note" rows="2">${escapeHtml(rep.note||'')}</textarea></div></div>
     <div class="po-supplier-edit-actions"><button class="btn ghost small" id="cancelPORepEditBtn" type="button">ยกเลิก</button><button class="btn primary small" id="savePORepEditBtn" type="button">${isNew?'เพิ่มและเลือกผู้แทน':'บันทึก'}</button></div></div>`;
 }
 
@@ -269,7 +315,6 @@ function renderShortageOrderForm(po,isNew){
         <div class="shortage-form-controls">
           <div class="shortage-date-field"><label>วันที่สั่ง <span class="req">*</span></label>${dmyDateFieldHtml('po_date',po.date||TODAY_STR)}</div>
           <div class="shortage-rep-field"><label>ชื่อผู้แทน <span class="req">*</span></label>${documentPartyFieldHtml('po_supplier',po.supplier,'representative')}</div>
-          <button class="btn ghost small" id="newPORepBtn" type="button">+ เพิ่ม</button>
           <button class="btn primary" id="shortageManagedProductsBtn" type="button" ${representative?'':'disabled'}>สินค้าที่ดูแล</button>
         </div>
         <div class="shortage-note-field"><label>หมายเหตุ</label><textarea id="po_note" rows="2" placeholder="ระบุหมายเหตุเพิ่มเติม">${escapeHtml(po.note||'')}</textarea></div>

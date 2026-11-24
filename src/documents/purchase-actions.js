@@ -323,20 +323,20 @@ function bindPOItemEvents(){
   });
 }
 
-function savePORepresentativeFromPO(){
+function savePORepresentativeFromPO(representativeId=poRepresentativeEditorId){
   syncPOFromDOM();
   const draft=activePurchaseDraft();
   const get=id=>(document.getElementById(id)?.value||'').trim();
   const name=get('po_rep_name');
   if(!name){ showToast('กรุณากรอกชื่อผู้แทน'); document.getElementById('po_rep_name').focus(); return; }
-  const duplicate=storeRepresentatives().find(rep=>rep.name===name && rep.id!==poRepresentativeEditorId);
+  const duplicate=storeRepresentatives().find(rep=>rep.name===name && rep.id!==representativeId);
   if(duplicate){ showToast('มีชื่อผู้แทนนี้อยู่แล้ว'); document.getElementById('po_rep_name').focus(); return; }
   const data={name,phone:get('po_rep_phone'),line:get('po_rep_line'),note:get('po_rep_note')};
-  if(poRepresentativeEditorId==='new'){
+  if(representativeId==='new'){
     salesRepresentatives.push({id:generateClientRecordId(salesRepresentatives),warehouseId:activeWarehouseId,...data});
     showToast(`เพิ่มผู้แทน “${name}” แล้ว`);
   }else{
-    const rep=storeRepresentatives().find(x=>x.id===poRepresentativeEditorId);
+    const rep=storeRepresentatives().find(x=>x.id===representativeId);
     if(rep){
       const oldName=rep.name;
       Object.assign(rep,data);
@@ -348,6 +348,7 @@ function savePORepresentativeFromPO(){
   poRepresentativeEditorId=null;
   persistWorkspaceData();
   render();
+  return true;
 }
 
 function savePOSupplierFromPO(){

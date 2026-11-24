@@ -22,7 +22,7 @@ assert.match(markPaid, /inv\.paid=true; persistWorkspaceData\(\)/);
 const statusHandlers = section("document.querySelectorAll('.doc-status-select')", "document.querySelectorAll('.doc-list thead .doc-check')");
 assert.match(statusHandlers, /doc\.status=sel\.value; persistWorkspaceData\(\)/);
 
-const poRepresentativeSave = section('function savePORepresentativeFromPO(){', 'function savePOSupplierFromPO(){');
+const poRepresentativeSave = section('function savePORepresentativeFromPO(', 'function savePOSupplierFromPO(){');
 assert.match(poRepresentativeSave, /persistWorkspaceData\(\);\s*render\(\)/);
 const poSupplierSave = section('function savePOSupplierFromPO(){', 'function recalcPORow(');
 assert.match(poSupplierSave, /persistWorkspaceData\(\)/);

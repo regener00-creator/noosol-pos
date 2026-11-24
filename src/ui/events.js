@@ -2116,8 +2116,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const poSupplier = document.getElementById('po_supplier');
   document.querySelectorAll('[data-document-party]').forEach(trigger=>trigger.addEventListener('click',()=>openDocumentPartyPicker(trigger)));
   if(poSupplier) poSupplier.addEventListener('change', ()=>{ syncPOFromDOM(); poSupplierEditorOpen=false; poRepresentativeEditorId=null; render(); });
-  const newPORepBtn=document.getElementById('newPORepBtn');
-  if(newPORepBtn) newPORepBtn.addEventListener('click',()=>{ syncPOFromDOM(); poRepresentativeEditorId='new'; render(); });
   const editPORepBtn=document.getElementById('editPORepBtn');
   if(editPORepBtn) editPORepBtn.addEventListener('click',()=>{ syncPOFromDOM(); const draft=activePurchaseDraft(); const rep=storeRepresentatives().find(x=>x.name===draft?.supplier); if(rep){ poRepresentativeEditorId=rep.id; render(); } });
   const shortageManagedProductsBtn=document.getElementById('shortageManagedProductsBtn');
@@ -2125,7 +2123,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   const cancelPORepEditBtn=document.getElementById('cancelPORepEditBtn');
   if(cancelPORepEditBtn) cancelPORepEditBtn.addEventListener('click',()=>{ syncPOFromDOM(); poRepresentativeEditorId=null; render(); });
   const savePORepEditBtn=document.getElementById('savePORepEditBtn');
-  if(savePORepEditBtn) savePORepEditBtn.addEventListener('click',savePORepresentativeFromPO);
+  if(savePORepEditBtn) savePORepEditBtn.addEventListener('click',()=>savePORepresentativeFromPO());
   const poDate = document.getElementById('po_date');
   const poCredit = document.getElementById('po_credit');
   const updateDueDate=()=>{ syncPOFromDOM(); const draft=activePurchaseDraft(); const due=document.getElementById('po_due'); if(due&&draft) due.value=isoToDMY(addDaysToDate(draft.date,draft.credit)); };
