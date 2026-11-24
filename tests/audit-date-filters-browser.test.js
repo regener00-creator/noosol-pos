@@ -32,7 +32,7 @@ let browser;
     currentProfile={id:'test',owner:true,level:1};
     warehouses=[{id:1,name:'คลังทดสอบ'}];activeWarehouseId=1;
     window.auditCalls=[];
-    const auditRows=Array.from({length:105},(_,index)=>({event_key:'audit:'+(index+1),occurred_at:new Date(Date.UTC(2026,10,18,6)-index*1000).toISOString(),actor_name:'เจ้าของร้าน',action:'update',entity_type:'products',entity_id:String(index+1),warehouse_id:1,changed_fields:['price'],before_data:{price:220},after_data:{price:230}}));
+    const auditRows=Array.from({length:105},(_,index)=>({event_key:'audit:'+(index+1),occurred_at:new Date(Date.UTC(2026,10,18,6)-index*1000).toISOString(),actor_name:'เจ้าของร้าน',action:'update',entity_type:'products',entity_id:String(index+1),warehouse_id:1,changed_fields:['price'],before_data:{price:220,cost:180,stock:10},after_data:{price:230,cost:190,stock:12}}));
     sb.rpc=async(name,args)=>{
       if(name!=='get_central_audit_log_page') throw new Error('Unexpected RPC '+name);
       auditCalls.push(structuredClone(args));
@@ -52,6 +52,16 @@ let browser;
   assert.equal(await auditRow.getAttribute('aria-expanded'),'true');
   assert.match(await auditDetails.locator('.audit-log-data').first().innerText(),/220/);
   assert.match(await auditDetails.locator('.audit-log-data').last().innerText(),/230/);
+  for(const panel of await auditDetails.locator('.audit-log-data').all()){
+    const [first,second,third]=await panel.locator(':scope > div').evaluateAll(fields=>fields.map(field=>{
+      const {left,top}=field.getBoundingClientRect();
+      return {left,top};
+    }));
+    assert.equal(first.top,second.top);
+    assert.ok(second.left>first.left);
+    assert.equal(third.left,first.left);
+    assert.ok(third.top>first.top);
+  }
   assert.equal(Number(await auditDetails.locator('td').getAttribute('colspan')),await auditRow.locator('td').count());
   await auditRow.locator('td').last().click();
   assert.equal(await auditDetails.count(),0);
