@@ -343,7 +343,7 @@ function poItemRowHtml(it,i){
     <td><input class="poi_price mono" type="number" min="0" value="${escapeHtml(it.price??'')}" placeholder="กรอกราคา" style="width:90px;text-align:right;" ${locked?'disabled':''}></td>
     ${goodsReceipt?`<td><input class="poi_lot" value="${escapeHtml(it.lotNumber||'')}" placeholder="ไม่บังคับ" ${locked?'disabled':''}></td><td><input class="poi_expiry dmy-input" inputmode="numeric" maxlength="10" autocomplete="off" value="${escapeHtml(isoToDMY(it.expiry))}" placeholder="วว/ดด/ปปปป" ${locked?'disabled':''}></td>`:''}
     <td class="mono num poi_total">${fmtMoney(lineTotal)}</td>
-    <td class="num"><button class="poi_del" title="ลบ" ${locked?'disabled':''}>×</button></td>
+    <td class="num"><button class="poi_del" title="ลบ"${currentTab==='quotation'?' data-enter-navigation="skip"':''} ${locked?'disabled':''}>×</button></td>
   </tr>`;
 }
 

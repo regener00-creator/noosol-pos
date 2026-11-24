@@ -3,7 +3,7 @@
 // that preventDefault() keep their existing behaviour, including lazy-loaded pages.
 function enterNavigationControls(root){
   const controls=[...root.querySelectorAll('input,select,textarea,button,a[href],[tabindex],[contenteditable="true"]')]
-    .filter(el=>el.tabIndex>=0&&!el.matches(':disabled')&&!el.closest('[inert]')&&
+    .filter(el=>el.tabIndex>=0&&!el.matches(':disabled,[data-enter-navigation="skip"]')&&!el.closest('[inert]')&&
       el.getClientRects().length&&getComputedStyle(el).visibility==='visible');
   // Match native Tab order, including explicitly positive tabindex values.
   const ordered=controls.sort((a,b)=>(a.tabIndex||Infinity)-(b.tabIndex||Infinity));
