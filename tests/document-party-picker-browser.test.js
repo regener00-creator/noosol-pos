@@ -73,12 +73,24 @@ let browser;
     if(tab==='goodsreceipt'||tab==='productreturn'){
       assert.match(await page.locator('.po-head-left').innerText(),/ที่อยู่ทดสอบ/);
       assert.doesNotMatch(await page.locator('.po-head-left').innerText(),/ชื่อผู้จำหน่าย/);
-    }
-    if(tab==='goodsreceipt'){
-      const readouts=page.locator('.po-head-left .po-addr,.goods-receipt-tax-row #po_warehouse');
+      const readouts=page.locator('.po-head .po-addr,.po-head #po_warehouse');
       assert.deepEqual(await readouts.allTextContents(),['ที่อยู่ทดสอบ','1234567890123','คลังทดสอบ']);
       assert.ok(await readouts.evaluateAll(nodes=>nodes.every(node=>getComputedStyle(node).borderTopStyle==='solid')));
       assert.equal(await page.locator('select#po_warehouse').count(),0);
+    }
+    if(tab==='goodsreceipt'){
+      const warehouse=await page.locator('#po_warehouse').boundingBox();
+      const taxMode=await page.locator('#po_tax_mode').boundingBox();
+      assert.ok(warehouse.width>taxMode.width);
+    }
+    if(tab==='productexchange'){
+      const warehouse=page.getByLabel('คลัง / สาขา',{exact:true});
+      const documentNumber=page.getByLabel('เลขที่เอกสาร',{exact:true});
+      assert.equal(await warehouse.inputValue(),'คลังทดสอบ');
+      assert.equal(await warehouse.getAttribute('readonly'),'');
+      const [warehouseBox,numberBox]=await Promise.all([warehouse.boundingBox(),documentNumber.boundingBox()]);
+      assert.equal(warehouseBox.width,numberBox.width);
+      assert.equal(warehouseBox.height,numberBox.height);
     }
     await page.evaluate(()=>{if(currentTab==='productexchange')syncProductExchangeFromDOM();else syncPOFromDOM();});
     assert.equal(await page.evaluate(()=>currentTab==='productexchange'?productExchangeDraft.supplier:activePurchaseDraft().supplier),name);
