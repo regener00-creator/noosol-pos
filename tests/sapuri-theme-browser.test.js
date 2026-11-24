@@ -105,6 +105,33 @@ let browser;
     return {classic,mac};
   });
   assert.deepEqual(colorRoles.mac,colorRoles.classic,'Mac must preserve Classic color placement across shared components');
+  await page.evaluate(()=>{
+    document.getElementById('main').insertAdjacentHTML('beforeend',`<div id="dropdownStyleProbe">
+      <div class="po-head"><select id="tax_customer_select"><option>Customer</option></select></div>
+      <div class="low-stock-report-controls"><select><option>All</option></select></div>
+      <select class="line-unit"><option>Box</option><option>Pack</option></select>
+      <select class="mobile-unit-select"><option>Box</option></select>
+      <select multiple><option>Box</option></select>
+    </div>`);
+  });
+  const dropdowns=page.locator('#dropdownStyleProbe select');
+  const dropdownStyle=select=>select.evaluate(el=>{
+    const style=getComputedStyle(el);
+    return [style.appearance,style.backgroundImage,style.backgroundPositionX,style.paddingRight];
+  });
+  for(const [index,inset,padding] of [[0,18,38],[1,18,38],[2,10,30],[3,18,38]]){
+    const dropdown=dropdowns.nth(index);
+    const expected=await dropdownStyle(dropdown);
+    assert.equal(expected[0],'none');
+    assert.match(expected[1],/^url\(/);
+    assert.deepEqual(expected.slice(2),[`calc(100% - ${inset}px)`,`${padding}px`]);
+    await dropdown.focus();
+    assert.deepEqual(await dropdownStyle(dropdown),expected);
+  }
+  assert.equal((await dropdownStyle(dropdowns.last()))[1],'none','list boxes do not show a dropdown arrow');
+  await dropdowns.nth(2).press('ArrowDown');
+  assert.equal(await dropdowns.nth(2).inputValue(),'Pack');
+  await page.locator('#dropdownStyleProbe').evaluate(el=>el.remove());
   const output=path.resolve(__dirname,'../outputs');fs.mkdirSync(output,{recursive:true});
   await page.screenshot({path:path.join(output,'sapuri-mac-dashboard.png'),fullPage:true});
   await page.evaluate(()=>{
