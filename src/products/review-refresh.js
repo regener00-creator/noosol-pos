@@ -1,6 +1,11 @@
 let editingProductId = null; // null = ยังไม่ได้เปิดฟอร์ม, 'new' = เพิ่มใหม่, ตัวเลข = แก้ไข
 let nextProductSkuNumber = 113;
 let selectedGroup = null; // {cat} หรือ {cat, brand}; null = ยังไม่เลือกกลุ่มสินค้า
+function matchesSelectedProductGroup(product){
+  if(!selectedGroup) return true;
+  const category=String(product.category||'').trim()||'ไม่ทราบหมวดหมู่';
+  return category===selectedGroup.cat && (!selectedGroup.brand || (product.brand||'ทั่วไป')===selectedGroup.brand);
+}
 let productSort = {key:'sku', dir:1}; // dir: 1 = น้อยไปมาก, -1 = มากไปน้อย
 let contactSort = {key:'code', dir:1}; // เรียงลำดับตารางสมุดรายชื่อ
 let productPage = 1;

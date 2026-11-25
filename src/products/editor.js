@@ -20,13 +20,10 @@ function renderProducts({resultsOnly=false}={}){
   // ตารางขวา: กรองตามกลุ่มที่เลือก + คำค้น
   let filtered = (selectedGroup||q||productReviewFilterUsed) ? products.filter(p=>{
     if(productReviewFilter!=='all'&&productDataReviewStatus(p)!==productReviewFilter) return false;
-    if(q){
-      if(labelQuery) return p===labelProduct;
-      return String(p.name||'').toLowerCase().includes(needle)||matchesBarcode(p,q)||String(p.sku||'').toLowerCase().includes(needle);
-    }
-    if(selectedGroup?.cat && (String(p.category||'').trim()||'ไม่ทราบหมวดหมู่')!==selectedGroup.cat) return false;
-    if(selectedGroup?.brand && (p.brand||'ทั่วไป')!==selectedGroup.brand) return false;
-    return true;
+    if(!matchesSelectedProductGroup(p)) return false;
+    if(!q) return true;
+    if(labelQuery) return p===labelProduct;
+    return String(p.name||'').toLowerCase().includes(needle)||matchesBarcode(p,q)||String(p.sku||'').toLowerCase().includes(needle);
   }) : [];
 
   // หมวดหลักอยู่ในแถบสีฟ้า ส่วนหมวดย่อยของหมวดที่เลือกอยู่ในพื้นที่สีขาวด้านล่าง

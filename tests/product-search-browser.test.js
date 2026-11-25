@@ -267,6 +267,34 @@ const browserExecutable = [
   assert.deepEqual(await barcodes(),['10','2','']);
   await page.evaluate(()=>{prodRowUnitSel[products[0].id]='ลัง';products[0].units[0].barcode='1';productSort.dir=1;render();});
   assert.deepEqual(await barcodes(),['1','2',''],'Sorting follows the displayed unit barcode');
+  await page.evaluate(()=>{
+    products=[
+      {...products[0],name:'Vitamin A',category:'อาหารเสริม',brand:'Vistra'},
+      {...products[1],name:'Vitamin B',category:'อาหารเสริม',brand:'อื่น ๆ'},
+      {...products[2],name:'Vitamin C',category:'ยา',brand:'Vistra'}
+    ];
+    render();
+  });
+  const supplements=page.locator('.product-group-category[data-product-category="อาหารเสริม"]');
+  const resultNames=()=>page.locator('.prodtable .prod-inline-name').evaluateAll(inputs=>inputs.map(input=>input.value).sort());
+  await supplements.click();
+  await search.fill('Vitamin');
+  await page.waitForFunction(()=>searchQuery==='Vitamin');
+  assert.deepEqual(await resultNames(),['Vitamin A','Vitamin B']);
+  await page.locator('[data-product-brand="Vistra"]').click();
+  assert.deepEqual(await resultNames(),['Vitamin A']);
+  await search.fill('P-001');
+  await search.press('Enter');
+  assert.deepEqual(await resultNames(),[],'SKU in a sibling subcategory must be excluded');
+  await search.fill('BOX-A-001');
+  await search.press('Enter');
+  assert.deepEqual(await resultNames(),[],'barcode in a different parent category must be excluded');
+  await search.fill('Vitamin');
+  await search.press('Enter');
+  await supplements.click();
+  assert.deepEqual(await resultNames(),['Vitamin A','Vitamin B']);
+  await supplements.click();
+  assert.deepEqual(await resultNames(),['Vitamin A','Vitamin B','Vitamin C']);
   assert.deepEqual(errors, [], `พบ JavaScript error: ${errors.join(' | ')}`);
   console.log('product search browser tests passed');
 })().catch(error => {

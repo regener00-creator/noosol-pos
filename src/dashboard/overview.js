@@ -214,7 +214,7 @@ function findProductByExactCode(q,{includeVendorBarcodes=true}={}){
 
 function selectProductListUnitByExactCode(code){
   const match=systemLabelCode(code.toUpperCase())?findStoreLabelMatch(code):findProductByExactCode(code);
-  if(!match?.product||!match.unitName) return null;
+  if(!match?.product||!match.unitName||!matchesSelectedProductGroup(match.product)) return null;
   const validUnit=productUnitOptions(match.product).some(option=>option.name===match.unitName);
   if(validUnit) prodRowUnitSel[match.product.id]=match.unitName;
   return match;

@@ -27,7 +27,8 @@ function attachContactListEvents(root=document){
 function attachProductGroupEvents(root=document){
   root.querySelectorAll('.product-group-category[data-product-category]').forEach(el=>{
     el.addEventListener('click',()=>{
-      selectedGroup={cat:el.dataset.productCategory};
+      const cat=el.dataset.productCategory;
+      selectedGroup=selectedGroup?.cat===cat&&!selectedGroup.brand ? null : {cat};
       productPage=1;
       render();
     });
