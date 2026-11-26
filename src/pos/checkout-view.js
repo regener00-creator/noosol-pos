@@ -63,7 +63,10 @@ function renderCheckout(){
         :fmtMoney(displayUnitPrice);
       let priceNote='';
       if(!line.custom){
-        const customerPriceLabel={group:'ราคากลุ่ม',tier:'ราคาขั้นบันได',customer:'ราคาเฉพาะลูกค้า'}[line.priceSource];
+        const tierName={general:'ทั่วไป',group:'กลุ่ม',customer:'เฉพาะลูกค้า'}[line.tierScope];
+        const customerPriceLabel=line.priceSource==='tier'&&tierName
+          ?`ราคาขั้นบันได${tierName} · ${line.tierMinQty} ${line.unit}ขึ้นไป`
+          :{group:'ราคากลุ่ม',tier:'ราคาขั้นบันได',customer:'ราคาเฉพาะลูกค้า'}[line.priceSource];
         if(customerPriceLabel){
           priceNote=`<small class="pos-customer-price-tag">${escapeHtml(customerPriceLabel)}</small>`;
         }else if(line.priceSource==='quotation'){

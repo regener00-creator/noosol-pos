@@ -39,6 +39,32 @@ begin
     raise exception 'below-cost tier accepted';
   exception when others then if sqlerrm not like 'ราคาขั้นบันไดต่ำกว่าทุน%' then raise; end if; end;
   update public.products set cost=10 where id=pid;
+  grp:=jsonb_set(grp,'{customerPrices,0,tiers}','[{"minQty":12,"price":209},{"minQty":24,"price":205}]');
+  perform public.save_store_price_group(1,grp #- '{customerPrices,0,tiers}',grp);
+  update public.contacts set data=data||jsonb_build_object('customerPrices',jsonb_build_array(
+    jsonb_build_object('id','step','productId',pid,'unit','box','price',null,'tiers','[{"minQty":12,"price":208}]'::jsonb))) where id=cid;
+  sale:=sale||jsonb_build_object('customerId',cid,'total',2496,'cashReceived',2496,'costTotal',120);
+  item:=item||'{"qty":12,"price":208,"lineTotal":2496,"lineTotalGross":2496,"tierScope":"customer","tierMinQty":12}';
+  result:=public.complete_sale(gen_random_uuid(),'TEST',1,sale,jsonb_build_array(item),null);
+  assert result#>>'{sale,items,0,tierScope}'='customer';
+  begin
+    perform public.complete_sale(gen_random_uuid(),'TEST',1,sale,jsonb_build_array(item||'{"tierScope":"group"}'),null);
+    raise exception 'wrong scope accepted';
+  exception when others then if sqlerrm not like 'ราคากลุ่มหรือราคาขั้นบันได%' then raise; end if; end;
+  item:=item||'{"qty":24,"price":200,"lineTotal":4800,"lineTotalGross":4800,"tierScope":"general","tierMinQty":24}';
+  sale:=sale||'{"total":4800,"cashReceived":4800,"costTotal":240}';
+  result:=public.complete_sale(gen_random_uuid(),'TEST',1,sale,jsonb_build_array(item),null);
+  assert result#>>'{sale,items,0,tierScope}'='general';
+  update public.products set data=data-'priceTiers' where id=pid;
+  item:=item||'{"price":205,"lineTotal":4920,"lineTotalGross":4920,"tierScope":"group"}';
+  sale:=sale||'{"total":4920,"cashReceived":4920}';
+  result:=public.complete_sale(gen_random_uuid(),'TEST',1,sale,jsonb_build_array(item),null);
+  assert result#>>'{sale,items,0,tierScope}'='group';
+  begin
+    update public.contacts set data=jsonb_set(data,'{customerPrices,0,tiers,0,price}','5') where id=cid;
+    raise exception 'below cost personal step accepted';
+  exception when others then if sqlerrm not like 'ตรวจจำนวนซื้อขั้นต่ำ%' then raise; end if; end;
+  perform public.save_store_price_group(1,grp,grp #- '{customerPrices,0,price}');
   update public.contacts set data=data||jsonb_build_object('customerPrices',jsonb_build_array(
     jsonb_build_object('id','agreed','productId',pid,'unit','box','price',0))) where id=cid;
   item:=item||'{"qty":1,"price":0,"priceSource":"customer","customerPriceRuleId":"agreed","lineTotal":0,"lineTotalGross":0}';

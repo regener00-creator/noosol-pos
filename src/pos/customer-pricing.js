@@ -64,8 +64,9 @@ function normalizedCustomerPriceRules(customer){
     id:String(rule.id||`${customer?.id||'customer'}-${index+1}`),
     productId:Number(rule.productId)||0,
     unit:String(rule.unit||'').trim(),
-    price:Number(rule.price),
-  })).filter(rule=>rule.productId&&rule.unit&&Number.isFinite(rule.price)&&rule.price>=0);
+    price:rule.price==null||rule.price===''?null:Number(rule.price),
+    tiers:Array.isArray(rule.tiers)?rule.tiers:[],
+  })).filter(rule=>rule.productId&&rule.unit&&((Number.isFinite(rule.price)&&rule.price>=0)||rule.tiers.length));
 }
 function customerPriceRule(customer,productId,unitName){
   return normalizedCustomerPriceRules(customer).find(rule=>Number(rule.productId)===Number(productId)&&rule.unit===String(unitName||''))||null;
@@ -80,18 +81,32 @@ function regularProductUnitPrice(product,unitName){
   const option=productUnitOptions(product).find(item=>item.name===unitName)||productUnitOptions(product)[0];
   return Number(option?.price)||0;
 }
+function customerGroupForPricing(customer){
+  return customer?.priceGroupId?storePriceGroups().find(group=>group.id===customer.priceGroupId):null;
+}
+function contractTierSteps(groupRule,personalRule){
+  const steps=new Map();
+  for(const [source,rule] of [['group',groupRule],['customer',personalRule]]){
+    for(const tier of rule?.tiers||[]){
+      steps.set(Number(tier.minQty),{minQty:Number(tier.minQty),price:Number(tier.price),source});
+    }
+  }
+  return [...steps.values()].sort((a,b)=>a.minQty-b.minQty);
+}
 function applySalePriceToLine(line,product,unitName,{preserveQuotation=true}={}){
   if(!line||!product) return line;
   if(preserveQuotation&&line.priceSource==='quotation') return line;
   const regularPrice=regularProductUnitPrice(product,unitName);
   const customer=activeSaleCustomer();
   const personal=customerPriceRule(customer,product.id,unitName);
-  const group=customer?.priceGroupId && storePriceGroups().find(entry=>entry.id===customer.priceGroupId);
-  const rule=personal||customerPriceRule(group,product.id,unitName);
+  const groupRule=customerPriceRule(customerGroupForPricing(customer),product.id,unitName);
+  const rule=personal?.price!=null?personal:groupRule?.price!=null?groupRule:null;
   line.regularPrice=regularPrice;
   line.price=rule?rule.price:regularPrice;
-  line.priceSource=personal?'customer':rule?'group':'standard';
-  line.customerPriceRuleId=personal?.id||null;
+  line.priceSource=rule?(rule===personal?'customer':'group'):'standard';
+  line.customerPriceRuleId=line.priceSource==='customer'?personal.id:null;
+  delete line.tierScope;
+  delete line.tierMinQty;
   return line;
 }
 function refreshCartCustomerPrices(){
@@ -107,14 +122,24 @@ function refreshCartCustomerPrices(){
     if(!product||line.priceSource==='quotation') return;
     applySalePriceToLine(line,product,line.unit);
     const qty=quantities.get(line.pid+'::'+line.unit);
-    const tiers=productTierRows(product,line.unit);
-    const tier=tiers.filter(row=>row.minQty<=qty).sort((a,b)=>b.minQty-a.minQty)[0];
-    if(!tier||tier.price>=line.price||tier.price<productUnitCost(product,line.unit,line.factor)) return;
+    const customer=activeSaleCustomer();
+    const personal=customerPriceRule(customer,product.id,line.unit);
+    const group=customerPriceRule(customerGroupForPricing(customer),product.id,line.unit);
+    const steps=contractTierSteps(group,personal);
+    const general=productTierRows(product,line.unit).filter(row=>row.minQty<=qty)
+      .sort((a,b)=>b.minQty-a.minQty).slice(0,1).map(row=>({...row,source:'general'}));
+    if(!general.length&&!steps.length) return;
+    const cost=productUnitCost(product,line.unit,line.factor);
+    const tier=[...steps,...general].filter(row=>row.minQty<=qty&&row.price>=cost&&row.price<line.price)
+      .sort((a,b)=>a.price-b.price||b.minQty-a.minQty)[0];
+    if(!tier) return;
     // Compare the existing promotion on its original base price before selecting a tier.
     const promotion=calcPromotionForLine(line);
     if(promotion.promoId && promotion.lineTotal<=tier.price*line.qty) return;
     line.price=tier.price;
     line.priceSource='tier';
+    line.tierScope=tier.source;
+    line.tierMinQty=tier.minQty;
     line.customerPriceRuleId=null;
   });
 }
@@ -144,7 +169,13 @@ async function openPOSCustomerPricing(customerId){
       if(!canPerformPageAction('create','checkout')){showSelectionStatus('ไม่มีสิทธิ์เพิ่มรายการขาย',true);return;}
       const row=button.closest('[data-customer-price-row]'),productId=Number(row.dataset.productId),unit=row.querySelector('.customer-price-unit').value;
       const priceText=row.querySelector('.customer-price-value').value.trim(),rule=customerPriceRule(activeSaleCustomer(),productId,unit);
-      if(!priceText||!rule||Number(priceText)!==rule.price){showSelectionStatus('กรุณาบันทึกราคาพิเศษที่แก้ไขก่อนเพิ่มลงรายการขาย',true);return;}
+      const tierRows=[...row.nextElementSibling.querySelectorAll('[data-contract-step]')];
+      const savedSteps=rule?.tiers||[];
+      const sameSteps=tierRows.length===savedSteps.length&&tierRows.every((entry,index)=>{
+        const qty=entry.querySelector('.contract-min').value,price=entry.querySelector('.contract-price').value;
+        return qty!==''&&price!==''&&Number(qty)===savedSteps[index].minQty&&Number(price)===savedSteps[index].price;
+      });
+      if(!rule||(priceText===''?null:Number(priceText))!==rule.price||!sameSteps){showSelectionStatus('กรุณาบันทึกราคาพิเศษที่แก้ไขก่อนเพิ่มลงรายการขาย',true);return;}
       const product=products.find(item=>Number(item.id)===productId);
       if(!isProductActive(product)||!productUnitOptions(product).some(option=>option.name===unit)){showSelectionStatus('สินค้าไม่พร้อมขายหรือหน่วยนี้ไม่พร้อมใช้งาน',true);return;}
       addToCart(product.id,unit,1,{requireCustomerPrice:true});
@@ -163,7 +194,7 @@ async function openPOSCustomerPricing(customerId){
       }});
     }else{
       host.querySelectorAll('input,select').forEach(input=>input.disabled=true);
-      host.querySelectorAll('.customer-price-remove,.customer-price-search-wrap').forEach(node=>node.remove());
+      host.querySelectorAll('.customer-price-remove,.customer-price-search-wrap,[data-contract-add],[data-contract-remove]').forEach(node=>node.remove());
       overlay.querySelector('#saveCustomerPricingBtn').remove();
       overlay.querySelector('#cancelCustomerPricingBtn').onclick=close;
     }
