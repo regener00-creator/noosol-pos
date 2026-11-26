@@ -586,7 +586,6 @@ function attachEvents(){
   bindPOSAddActions();
   const addCustomItemBtn=document.getElementById('addCustomItemBtn');
   if(addCustomItemBtn) addCustomItemBtn.addEventListener('click',addBlankCustomCartLine);
-  document.querySelectorAll('[data-medicine-label-line]').forEach(button=>button.addEventListener('click',()=>openMedicineLabelEditor(button.dataset.medicineLabelLine)));
   document.querySelectorAll('[data-custom-name]').forEach(input=>{ input.addEventListener('input',()=>{ const line=cart.find(item=>item.lineId==input.dataset.line); if(line) line.name=input.value; }); });
   document.querySelectorAll('[data-custom-unit]').forEach(input=>{ input.addEventListener('input',()=>{ const line=cart.find(item=>item.lineId==input.dataset.line); if(line){ line.unit=input.value; line.unitName=input.value; } }); });
   document.querySelectorAll('[data-custom-price]').forEach(input=>{ input.addEventListener('input',()=>{ const line=cart.find(item=>item.lineId==input.dataset.line); if(!line) return; line.price=input.value===''?'':Math.max(0,parseFloat(input.value)||0); line.cost=line.price; const total=document.querySelector(`[data-line-total="${line.lineId}"]`); if(total) total.textContent=fmtMoney((Number(line.price)||0)*(Number(line.qty)||0)); recalcPOSCartDOM(); }); });

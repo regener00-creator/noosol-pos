@@ -57,25 +57,27 @@ function renderCheckout(){
         : escapeHtml(line.unit);
       const linkedPromo=(!line.custom && line.pid)?findMatchingPromotion(line):null;
       const displayUnitPrice=grossAmountForVatMode(line.price,lineVatMode,taxSummary.registered);
-      const dispensingLabel=normalizeDispensingLabel(line.dispensingLabel);
       const itemNameHtml=line.custom?`<div class="custom-line-wrap"><input class="custom-line-input custom-line-name" data-custom-name data-line="${line.lineId}" value="${escapeHtml(line.name)}" placeholder="กรอกชื่อรายการ"></div>`:escapeHtml(line.name);
-      const priceCell = line.custom
-        ? `<input class="custom-line-input custom-line-price" data-custom-price data-line="${line.lineId}" type="number" min="0" step="0.01" value="${line.price}" placeholder="0.00">`
-        : ['group','tier'].includes(line.priceSource)
-        ? `<span>${fmtMoney(displayUnitPrice)}<br><small class="pos-customer-price-tag">${line.priceSource==='group'?'ราคากลุ่ม':'ราคาขั้นบันได'}</small></span>`
-        : line.priceSource==='customer'
-        ? `<span>${fmtMoney(displayUnitPrice)}<br><small class="pos-customer-price-tag">ราคาเฉพาะลูกค้า</small></span>`
-        : line.priceSource==='quotation'
-        ? `<span>${fmtMoney(displayUnitPrice)}<br><small class="pos-quotation-price-tag">ราคาจากใบเสนอราคา</small></span>`
-        : promoLine.promoId
-        ? `<span title="${escapeHtml(promoLine.promoNote)}">${fmtMoney(displayUnitPrice)}<br><small class="pos-promo-tag promo-active">🏷 ${escapeHtml(promoLine.promoName)}</small></span>`
-        : linkedPromo
-        ? `<span title="${escapeHtml(promotionValueLabel(linkedPromo))}">${fmtMoney(displayUnitPrice)}<br><small class="pos-promo-tag promo-pending">🏷 ${escapeHtml(linkedPromo.name)}</small></span>`
-        : fmtMoney(displayUnitPrice);
+      const priceCell=line.custom
+        ?`<input class="custom-line-input custom-line-price" data-custom-price data-line="${line.lineId}" type="number" min="0" step="0.01" value="${escapeHtml(line.price)}" placeholder="0.00">`
+        :fmtMoney(displayUnitPrice);
+      let priceNote='';
+      if(!line.custom){
+        const customerPriceLabel={group:'ราคากลุ่ม',tier:'ราคาขั้นบันได',customer:'ราคาเฉพาะลูกค้า'}[line.priceSource];
+        if(customerPriceLabel){
+          priceNote=`<small class="pos-customer-price-tag">${escapeHtml(customerPriceLabel)}</small>`;
+        }else if(line.priceSource==='quotation'){
+          priceNote='<small class="pos-quotation-price-tag">ราคาจากใบเสนอราคา</small>';
+        }else if(promoLine.promoId){
+          priceNote=`<small class="pos-promo-tag promo-active" title="${escapeHtml(promoLine.promoNote)}">🏷 ${escapeHtml(promoLine.promoName)}</small>`;
+        }else if(linkedPromo){
+          priceNote=`<small class="pos-promo-tag promo-pending" title="${escapeHtml(promotionValueLabel(linkedPromo))}">🏷 ${escapeHtml(linkedPromo.name)}</small>`;
+        }
+      }
       rowsHtml += `<tr data-pos-cart-line="${line.lineId}"${pendingPromoLineIds.has(line.lineId)?' class="pos-promo-pending-row"':''}>
         <td class="mono">${String(idx+1).padStart(3,'0')}</td>
         <td class="mono">${escapeHtml(productBarcodeForUnit(p,line.unit)||'-')}</td>
-        <td><div class="pos-item-name-line"><div class="pos-item-name-content">${itemNameHtml}</div><button class="pos-med-label-btn ${dispensingLabel?'active':''}" type="button" data-medicine-label-line="${line.lineId}" title="${dispensingLabel?'แก้ไขฉลากยา':'จัดทำฉลากยา'}">ฉลากยา</button></div>${dispensingLabel?`<small class="pos-med-label-summary">${escapeHtml(medicineLabelSummary(dispensingLabel))}</small>`:''}</td>
+        <td><div class="pos-item-name-line"><div class="pos-item-name-content">${itemNameHtml}</div>${priceNote?`<div class="pos-item-price-note">${priceNote}</div>`:''}</div></td>
         <td class="mono num">${priceCell}</td>
         <td class="line-unit-cell">${unitCell}</td>
         <td class="pos-qty"><input class="line-qty" type="number" min="1" step="1" value="${line.qty}" data-line="${line.lineId}"></td>

@@ -250,9 +250,13 @@ const browserExecutable = [
   });
   const selectedPrice=()=>page.evaluate(()=>[cart[0].priceSource,cart[0].price]);
   assert.deepEqual(await selectedPrice(),['group',215]);
+  const pricingNote=page.locator('.pos-table tbody tr').first().locator('td').nth(2).locator('.pos-item-price-note');
+  assert.equal(await pricingNote.textContent(),'ราคากลุ่ม');
   const qty=page.locator('.line-qty').first();
   await qty.fill('13');await qty.press('Tab');
   assert.deepEqual(await selectedPrice(),['tier',210]);
+  assert.equal(await pricingNote.textContent(),'ราคาขั้นบันได');
+  assert.equal(await page.locator('.pos-table tbody tr').first().locator('td').nth(3).textContent(),'210.00');
   await page.evaluate(()=>{contacts[0].customerPrices=[{id:'personal',productId:101,unit:'กล่อง',price:205}];render();});
   assert.deepEqual(await selectedPrice(),['customer',205]);
   await qty.fill('24');await qty.press('Tab');

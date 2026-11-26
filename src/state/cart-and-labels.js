@@ -228,10 +228,6 @@ function normalizeDispensingLabel(value){
   };
   return label.drugName&&label.patientName&&label.indication&&label.directions&&label.pharmacistName?label:null;
 }
-function medicineLabelSummary(value){
-  const label=normalizeDispensingLabel(value);
-  return label?`${label.patientName} · ${label.directions}`:'';
-}
 function medicineLabelsForSale(sale){
   return (sale?.items||[]).filter(item=>normalizeDispensingLabel(item?.dispensingLabel));
 }

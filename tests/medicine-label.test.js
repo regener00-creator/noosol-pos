@@ -243,9 +243,7 @@ assert.doesNotMatch(html, /เภสัชกรผู้จ่ายยา/, '�
 assert.doesNotMatch(html, /คำแนะนำหรือคำเตือน/, 'ต้องนำหัวข้อคำเตือนแบบเดิมออก');
 assert.doesNotMatch(html, /id="medicineLabelDirections"/, 'ต้องนำช่องวิธีใช้ยาแบบข้อความออก');
 assert.doesNotMatch(html, /data-medicine-direction=/, 'ต้องนำปุ่มวิธีใช้แบบข้อความออก');
-assert.match(html, /data-medicine-label-line=/, 'หน้า POS ต้องมีปุ่มจัดทำฉลากยารายการต่อรายการ');
-assert.match(html, /data-medicine-label-line="\$\{line\.lineId\}"[^>]*>ฉลากยา<\/button>/, 'ปุ่มฉลากยาในหน้า POS ต้องแสดงคำว่า ฉลากยา');
-assert.doesNotMatch(html, /data-medicine-label-line="\$\{line\.lineId\}"[^>]*>Rx ฉลากยา<\/button>/, 'ปุ่มฉลากยาในหน้า POS ต้องไม่มีคำว่า Rx');
+assert.doesNotMatch(html, /data-medicine-label-line=/, 'หน้า POS ไม่มีปุ่มจัดทำฉลากยาในแถวสินค้า');
 assert.match(html, /id="printMedicineLabelsBtn"/, 'หลังชำระต้องมีปุ่มพิมพ์ฉลากยา');
 assert.match(html, /id="historyMedicineLabelsBtn"/, 'ประวัติการขายต้องพิมพ์ฉลากย้อนหลังได้');
 assert.match(html, /dispensingLabel:normalizeDispensingLabel\(l\.dispensingLabel\)/, 'ข้อมูลฉลากต้องถูกบันทึกไปกับรายการขาย');

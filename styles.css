@@ -631,7 +631,7 @@
   .pos-promo-tag{font-size:10.5px;font-weight:600;}
   .pos-promo-tag.promo-active{color:#2E8B3D;}
   .pos-promo-tag.promo-pending{color:#1685C0;}
-  .pos-table .pos-promo-pending-row td,.pos-table .pos-promo-pending-row .line-unit,.pos-table .pos-promo-pending-row .line-qty,.pos-table .pos-promo-pending-row .pos-med-label-summary{color:#1685C0;}
+  .pos-table .pos-promo-pending-row td,.pos-table .pos-promo-pending-row .line-unit,.pos-table .pos-promo-pending-row .line-qty{color:#1685C0;}
   .pos-free-row td{background:#F0F9EE;color:#2E8B3D;font-size:12.5px;padding:6px 8px;border-bottom:1px solid var(--border);vertical-align:middle;}
   .pos-free-row td:nth-child(2){text-align:left;font-weight:600;}
   .pos-autofree-row td{background:#F0F9EE;border-bottom:1px solid var(--border);vertical-align:middle;}
@@ -1972,10 +1972,8 @@
   .after-pay-actions .after-pay-choice.is-selected{box-shadow:0 0 0 2px #fff,0 0 0 5px var(--primary);}
   .pos-item-name-line{display:flex;align-items:center;gap:8px;min-width:0;}
   .pos-item-name-content{min-width:0;flex:1;overflow-wrap:anywhere;}
-  .pos-med-label-btn{flex-shrink:0;border:1px solid var(--border);border-radius:999px;background:#fff;color:var(--text-muted);padding:3px 8px;font:600 10.5px 'Sarabun',sans-serif;cursor:pointer;}
-  .pos-med-label-btn:hover{border-color:var(--primary);color:var(--primary);background:var(--primary-soft);}
-  .pos-med-label-btn.active{border-color:var(--primary);background:var(--primary);color:#fff;}
-  .pos-med-label-summary{display:block;margin-top:4px;color:var(--primary);font-size:10.5px;line-height:1.35;}
+  .pos-item-price-note{max-width:50%;text-align:right;overflow-wrap:anywhere;line-height:1.35;}
+  .pos-item-price-note small{margin:0;white-space:normal;}
   .medicine-label-modal{width:min(720px,calc(100vw - 28px));max-height:92vh;overflow-y:auto;}
   .medicine-label-product{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 18px 14px;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--primary-soft);}
   .medicine-label-product b{min-width:0;font-size:15px;overflow-wrap:anywhere;}
