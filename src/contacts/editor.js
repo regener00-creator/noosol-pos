@@ -239,6 +239,7 @@ function renderPriceGroups(){
   return `<div class="rpt customer-pricing-page" id="priceGroupPage">
     <div class="pagehead"><h1>กลุ่มราคา</h1>
       <div class="form-final-actions"><button class="btn ghost" type="button" data-back-group>ย้อนกลับ</button>
+        ${group?'<button class="btn reset-danger" type="button" data-delete-group>ลบกลุ่มราคา</button>':''}
         <button class="btn primary" type="button" data-save-group>บันทึก</button></div>
     </div>
     <div class="panel customer-pricing-panel">

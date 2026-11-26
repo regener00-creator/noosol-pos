@@ -209,12 +209,15 @@ function attachPriceGroupEvents(page){
   const select=page.querySelector('[data-group-select]');
   const save=page.querySelector('[data-save-group]');
   const back=page.querySelector('[data-back-group]');
-  select.disabled=save.disabled=back.disabled=view.saving;
+  const remove=page.querySelector('[data-delete-group]');
+  const controls=[select,save,back,...(remove?[remove]:[])];
+  controls.forEach(control=>control.disabled=view.saving);
   back.onclick=()=>{priceGroupPage=null;render();};
   select.onchange=()=>{view.groupId=select.value;render();};
   attachCustomerPricingEvents(page,{customerId:null});
-  save.onclick=async()=>{
-    if(view.saving||!isStoreViewCurrent(context)||!loggedInUser()?.owner) return;
+  const canChangeGroup=()=>!view.saving&&isStoreViewCurrent(context)&&loggedInUser()?.owner;
+  save.onclick=()=>{
+    if(!canChangeGroup()) return;
     const name=page.querySelector('[data-group-name]').value.trim();
     if(!name||groups.some(entry=>entry.id!==view.groupId&&entry.name===name)){
       showToast('กรุณาใช้ชื่อกลุ่มที่ไม่ว่างและไม่ซ้ำ');
@@ -222,8 +225,16 @@ function attachPriceGroupEvents(page){
     }
     const customerPrices=collectCustomerPriceRules(page);
     if(!customerPrices) return;
-    const updated={id:group?.id||crypto.randomUUID(),name,customerPrices};
-    view.saving=select.disabled=save.disabled=back.disabled=true;
+    return submit({id:group?.id||crypto.randomUUID(),name,customerPrices});
+  };
+  if(remove) remove.onclick=()=>{
+    if(!canChangeGroup()||!confirm(`ลบกลุ่มราคา “${group.name}” ใช่ไหม? ลูกค้าที่อยู่ในกลุ่มนี้จะใช้ราคาปกติหรือราคาพิเศษรายบุคคลที่ตั้งไว้`)) return;
+    return submit({id:group.id,remove:true});
+  };
+  async function submit(updated){
+    const action=updated.remove?'ลบ':'บันทึก';
+    view.saving=true;
+    controls.forEach(control=>control.disabled=true);
     let saved=false;
     try{
       const {data,error}=await sb.rpc('save_store_price_group',{p_warehouse_id:context.store,p_expected:group||null,p_group:updated});
@@ -231,18 +242,18 @@ function attachPriceGroupEvents(page){
       if(isStoreViewCurrent(context)){
         warehouseBusinessProfiles[context.store]={...warehouseBusinessSettings(),priceGroups:data};
         persistWorkspaceData();
-        showToast('บันทึกกลุ่มราคาแล้ว');
-        view.groupId=updated.id;
+        showToast(action+'กลุ่มราคาแล้ว');
+        view.groupId=updated.remove?(data[0]?.id||''):updated.id;
         saved=true;
       }
     }catch(error){
-      showToast('บันทึกกลุ่มราคาไม่สำเร็จ · '+error.message,'danger-top');
+      showToast(action+'กลุ่มราคาไม่สำเร็จ · '+error.message,'danger-top');
     }finally{
       view.saving=false;
-      select.disabled=save.disabled=back.disabled=false;
+      controls.forEach(control=>control.disabled=false);
       if(priceGroupPage===view&&currentTab==='customers'&&isStoreViewCurrent(context)&&(saved||!page.isConnected)) render();
     }
-  };
+  }
 }
 function setContractTierExpanded(row,expanded){
   row.nextElementSibling.hidden=!expanded;

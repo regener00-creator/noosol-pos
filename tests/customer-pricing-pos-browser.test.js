@@ -273,7 +273,7 @@ const browserExecutable = [
   assert.deepEqual(await selectedPrice(),['standard',220],'a stored below-cost tier must not be applied');
   await page.evaluate(()=>{
     currentTab='customers';editingContactId=null;editingCustomerPriceContactId=null;
-    sb.rpc=async(name,args)=>name==='save_store_price_group'?{data:[args.p_group],error:null}:{data:null,error:null};
+    sb.rpc=async(name,args)=>name==='save_store_price_group'?{data:args.p_group.remove?[]:[args.p_group],error:null}:{data:null,error:null};
     render();
   });
   await page.locator('#managePriceGroups').click();
@@ -284,6 +284,7 @@ const browserExecutable = [
   const groupName=await page.locator('[data-group-name]').boundingBox();
   assert.ok(Math.abs(groupSelect.y-groupName.y)<2&&groupSelect.x<groupName.x);
   await page.locator('[data-group-select]').selectOption('');
+  assert.equal(await page.locator('[data-delete-group]').count(),0);
   await page.locator('[data-group-name]').fill('คู่ค้า');
   await page.locator('#customerPriceSearch').fill('BOX-101');
   await page.locator('#customerPriceSearch').press('Enter');
@@ -296,6 +297,12 @@ const browserExecutable = [
   await toggle.click();
   assert.equal(await toggle.getAttribute('aria-expanded'),'true');
   assert.deepEqual(await general.locator('.tier-price').evaluateAll(inputs=>inputs.map(input=>[input.value,input.readOnly])),[['210',true],['200',true]]);
+  assert.notEqual(await general.locator('h4').evaluate(h=>getComputedStyle(h).backgroundColor),
+    await editable.locator('h4').evaluate(h=>getComputedStyle(h).backgroundColor));
+  const fieldStyles=await general.locator('input').evaluateAll(inputs=>inputs.slice(0,3).map(input=>{
+    const style=getComputedStyle(input);return [style.backgroundColor,style.color];
+  }));
+  assert.deepEqual(fieldStyles,[fieldStyles[2],fieldStyles[2],fieldStyles[2]]);
   await page.locator('.customer-price-unit').selectOption('ซอง');
   assert.equal(await general.locator('.tier-price').count(),0);
   await page.locator('.customer-price-unit').selectOption('กล่อง');
@@ -335,6 +342,20 @@ const browserExecutable = [
   await qty.fill('24');await qty.press('Tab');
   assert.deepEqual(await selectedPrice(),['tier',205]);
   assert.equal(await pricingNote.textContent(),'ราคาขั้นบันไดกลุ่ม · 24 กล่องขึ้นไป');
+  await page.evaluate(()=>{currentTab='customers';render();});
+  await page.locator('#managePriceGroups').click();
+  const removeGroup=page.locator('[data-delete-group]');
+  page.once('dialog',dialog=>dialog.dismiss());
+  await removeGroup.click();
+  assert.equal(await page.evaluate(()=>storePriceGroups().length),1);
+  page.once('dialog',dialog=>dialog.accept());
+  await removeGroup.click();
+  await page.waitForFunction(()=>storePriceGroups().length===0);
+  assert.equal(await page.locator('[data-group-select]').inputValue(),'');
+  await page.evaluate(()=>{currentTab='checkout';render();});
+  assert.deepEqual(await selectedPrice(),['tier',208],'personal tier remains after removing its group');
+  await qty.fill('1');await qty.press('Tab');
+  assert.deepEqual(await selectedPrice(),['standard',220]);
   assert.deepEqual(errors,[],`พบ JavaScript error: ${errors.join(' | ')}`);
   console.log('customer pricing POS browser tests passed');
 })().catch(error=>{ console.error(error); process.exitCode=1; }).finally(async()=>{

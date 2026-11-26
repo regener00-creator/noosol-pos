@@ -65,6 +65,18 @@ begin
     raise exception 'below cost personal step accepted';
   exception when others then if sqlerrm not like 'ตรวจจำนวนซื้อขั้นต่ำ%' then raise; end if; end;
   perform public.save_store_price_group(1,grp,grp #- '{customerPrices,0,price}');
+  begin
+    perform public.save_store_price_group(1,grp,jsonb_build_object('id',gid,'remove',true));
+    raise exception 'stale delete accepted';
+  exception when others then if sqlerrm not like 'กลุ่มราคานี้ถูกแก้ไขแล้ว%' then raise; end if; end;
+  grp:=grp #- '{customerPrices,0,price}';
+  result:=public.save_store_price_group(1,grp,jsonb_build_object('id',gid,'remove',true));
+  assert not exists(select from jsonb_array_elements(result) g where g->>'id'=gid);
+  assert result=public.save_store_price_group(1,grp,jsonb_build_object('id',gid,'remove',true));
+  begin
+    perform public.complete_sale(gen_random_uuid(),'TEST',1,sale,jsonb_build_array(item),null);
+    raise exception 'deleted group still applied';
+  exception when others then if sqlerrm not like 'ราคากลุ่มหรือราคาขั้นบันได%' then raise; end if; end;
   update public.contacts set data=data||jsonb_build_object('customerPrices',jsonb_build_array(
     jsonb_build_object('id','agreed','productId',pid,'unit','box','price',0))) where id=cid;
   item:=item||'{"qty":1,"price":0,"priceSource":"customer","customerPriceRuleId":"agreed","lineTotal":0,"lineTotalGross":0}';
