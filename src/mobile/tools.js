@@ -134,7 +134,7 @@ function captureMobileProductDraft(){
   editor.draft.active=!!form.querySelector('#f_active')?.checked;
   editor.draft.multiunit=!!form.querySelector('#f_multiunit')?.checked;
   // Keep incomplete unit rows too, so a reconnect/re-render cannot discard typing.
-  editor.draft.mainTierDraft=readTierRows(document.querySelector('.product-pricing-panel > .unit-tier-editor'));
+  editor.draft.priceTierDraft=readProductTierDraft(form.querySelector('#productTierUnits'));
   editor.draft.units=collectUnitRowsFromDOM({preserveInput:true});
 }
 async function openMobileProductEditor(productId='new',barcode=''){
@@ -223,8 +223,8 @@ function attachMobileProductEditorEvents(){
   const markChanged=()=>{ if(mobileProductEditor){ captureMobileProductDraft(); mobileProductEditor.changed=true; } };
   form.addEventListener('input',markChanged);
   form.addEventListener('change',()=>setTimeout(markChanged,0));
-  form.addEventListener('click',event=>{ if(event.target.closest('#addUnitBtn,.u_del')) markChanged(); });
-  form.querySelectorAll('input[type="number"]').forEach(input=>{ input.inputMode='decimal'; input.min='0'; input.step='any'; });
+  form.addEventListener('click',event=>{ if(event.target.closest('#addUnitBtn,.u_del,[data-add-tier],[data-remove-tier]')) markChanged(); });
+  form.querySelectorAll('input[type="number"]:not(.tier-min,.tier-price)').forEach(input=>{ input.inputMode='decimal'; input.min='0'; input.step='any'; });
   form.querySelectorAll('input:not([type="checkbox"]),textarea').forEach(input=>input.autocomplete='off');
   decorateMobileProductUnitRows();
 }

@@ -64,17 +64,19 @@ async function saveProduct(){
     cost: r.cost,
     barcode: r.barcode,
   }));
+  refreshProductTierUnits();
   const priceTiers=[];
-  const tierEditor=document.querySelector('.product-pricing-panel > .unit-tier-editor');
-  for(const row of [{sub:unit,tiers:tierEditor?readTierRows(tierEditor):[]},...rawRows]){
+  const tierDraft=readProductTierDraft(document.getElementById('productTierUnits'));
+  for(const unitName of new Set([unit,...units.map(row=>row.sub)])){
     const seen=new Set();
-    for(const entry of row.tiers||[]){
+    for(const entry of tierDraft.get(unitName)||[]){
+      if(entry.minQty===''&&entry.price==='') continue;
       const minQty=Number(entry.minQty),tierPrice=Number(entry.price);
       if(!Number.isSafeInteger(minQty)||minQty<1||seen.has(minQty)||entry.price===''||!Number.isFinite(tierPrice)||tierPrice<0||Math.abs(tierPrice*100-Math.round(tierPrice*100))>0.000001){
-        showToast('ตรวจจำนวนขั้นต่ำและราคาในขั้นบันไดของหน่วย '+row.sub,'danger-top'); return;
+        showToast('ตรวจจำนวนขั้นต่ำและราคาในขั้นบันไดของหน่วย '+unitName,'danger-top'); return;
       }
       seen.add(minQty);
-      priceTiers.push({unit:row.sub,minQty,price:tierPrice});
+      priceTiers.push({unit:unitName,minQty,price:tierPrice});
     }
   }
   priceTiers.sort((a,b)=>a.minQty-b.minQty);

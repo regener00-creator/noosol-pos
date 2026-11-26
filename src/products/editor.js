@@ -205,9 +205,10 @@ function extraBarcodeRowHtml(value,unitNames,mainUnit){
   const options=names.length?names.map(unit=>`<option value="${escapeHtml(unit)}" ${unit===selected?'selected':''}>${escapeHtml(unit)}</option>`).join(''):'<option value="">เลือกหน่วย</option>';
   return `<div class="bcrow extra"><select class="eb_unit" aria-label="หน่วยของบาร์โค้ดเพิ่มเติม">${options}</select><input class="eb_code" value="${escapeHtml(entry.code||'')}" placeholder="เลขบาร์โค้ดเพิ่มเติม"><button class="bc_del" title="ลบ">×</button></div>`;
 }
-function currentProductFormUnitNames(){
+function currentProductFormUnitNames({activeOnly=false}={}){
   const main=String(document.getElementById('f_unit')?.value||'').trim();
-  const secondary=Array.from(document.querySelectorAll('#unitRows .u_sub')).map(select=>String(select.value||'').trim()).filter(Boolean);
+  const useSecondary=!activeOnly||document.getElementById('f_multiunit')?.checked;
+  const secondary=useSecondary?Array.from(document.querySelectorAll('#unitRows .u_sub'),select=>select.value.trim()):[];
   return [...new Set([main,...secondary].filter(Boolean))];
 }
 function refreshExtraBarcodeUnitOptions(){
@@ -233,13 +234,45 @@ function comboSelect(id, list, selected, placeholder){
 }
 
 function priceTierRowHtml(row={}){
-  return `<div class="tier-edit-row"><label>ซื้อขั้นต่ำ <input type="number" class="tier-min" min="1" step="1" value="${escapeHtml(row.minQty??'')}"></label><label>ราคาต่อหน่วย <input type="number" class="tier-price" min="0" step="0.01" value="${escapeHtml(row.price??'')}"></label><button type="button" class="btn ghost small" data-remove-tier>ลบ</button></div>`;
+  return `<div class="tier-edit-row">
+    <label>ซื้อขั้นต่ำ<input type="number" class="tier-min" inputmode="numeric" min="1" step="1" value="${escapeHtml(row.minQty??'')}"></label>
+    <label>ราคาต่อหน่วย<input type="number" class="tier-price" inputmode="decimal" min="0" step="0.01" value="${escapeHtml(row.price??'')}"></label>
+    <button type="button" class="btn ghost small" data-remove-tier>ลบ</button>
+  </div>`;
 }
-function priceTierEditorHtml(rows=[]){
-  return `<details class="unit-tier-editor"><summary>ราคาขั้นบันได</summary><div>${rows.map(priceTierRowHtml).join('')}</div><button type="button" data-add-tier class="btn small">+ เพิ่มขั้นราคา</button></details>`;
+function productTierColumnsHtml(names, draft){
+  const columns=names.map(unit=>{
+    const rows=draft.get(unit);
+    return `<section class="unit-tier-editor" data-tier-unit="${escapeHtml(unit)}">
+      <h4>${escapeHtml(unit)}</h4>
+      <div class="tier-edit-rows">${(rows?.length?rows:[{}]).map(priceTierRowHtml).join('')}</div>
+      <button type="button" data-add-tier class="btn ghost small">+ เพิ่มขั้นราคา</button>
+    </section>`;
+  });
+  while(columns.length<6) columns.push('<div class="unit-tier-placeholder" aria-hidden="true">–</div>');
+  return columns.join('');
 }
 function readTierRows(root){
   return [...root.querySelectorAll('.tier-edit-row')].map(row=>({minQty:row.querySelector('.tier-min').value,price:row.querySelector('.tier-price').value}));
+}
+function readProductTierDraft(grid){
+  const draft=new Map(grid?.tierDraft);
+  grid?.querySelectorAll('[data-tier-unit]').forEach(column=>draft.set(column.dataset.tierUnit,readTierRows(column)));
+  return draft;
+}
+function refreshProductTierUnits(renamedFrom='',renamedTo=''){
+  const grid=document.getElementById('productTierUnits');
+  if(!grid) return;
+  const currentUnits=[...grid.querySelectorAll('[data-tier-unit]')].map(column=>column.dataset.tierUnit);
+  const names=currentProductFormUnitNames({activeOnly:true}).filter(unit=>!unit.startsWith('__'));
+  if(names.length===currentUnits.length&&names.every((unit,i)=>unit===currentUnits[i])) return;
+  const draft=readProductTierDraft(grid);
+  if(renamedFrom&&draft.has(renamedFrom)){
+    draft.set(renamedTo,draft.get(renamedFrom));
+    draft.delete(renamedFrom);
+  }
+  grid.tierDraft=draft;
+  grid.innerHTML=productTierColumnsHtml(names,draft);
 }
 function unitRowHtml(u, mainUnit, siblingNames){
   mainUnit = mainUnit || 'หน่วยหลัก';
@@ -258,7 +291,6 @@ function unitRowHtml(u, mainUnit, siblingNames){
     <input class="u_stock" type="hidden" value="${escapeHtml(u.stock===''||u.stock===undefined||u.stock===null?'':(Math.round(u.stock*100)/100))}" readonly>
     <input class="u_barcode" value="${escapeHtml(u.barcode||'')}" placeholder="เลขบาร์โค้ด">
     <button class="u_del" title="ลบ">×</button>
-    ${priceTierEditorHtml(u.tiers)}
   </div>`;
 }
 
@@ -273,7 +305,6 @@ function collectUnitRowsFromDOM({preserveInput=false}={}){
     cost: number(r.querySelector('.u_cost')),
     stock: parseFloat(r.querySelector('.u_stock')?.value)||0,
     barcode: r.querySelector('.u_barcode').value.trim(),
-    tiers:readTierRows(r),
   }));
 }
 
@@ -288,6 +319,7 @@ function refreshUnitRows(){
   rowsEl.innerHTML = data.map(u=>unitRowHtml(u, mainUnit, names)).join('');
   bindUnitRowEvents();
   refreshExtraBarcodeUnitOptions();
+  refreshProductTierUnits();
 }
 
 // คำนวณ factor สุทธิเทียบหน่วยหลัก จากโซ่ base (เช่น ลัง→กล่อง→แผง)
@@ -368,6 +400,7 @@ function remapUnusedProductUnitInputs(select){
   if(mobileProductEditor){
     mobileProductEditor.draft.extraBarcodeUnits=(mobileProductEditor.draft.extraBarcodeUnits||[]).map(unit=>unit===previous?newUnit:unit);
   }
+  refreshProductTierUnits(previous,newUnit);
   select.dataset.previousUnit=newUnit;
 }
 function baseUnitChangeRound(value){ return Math.round((Number(value)||0)*1000000)/1000000; }
@@ -658,6 +691,9 @@ function renderProductForm(options={}){
   const p = mobile?mobileProductEditor.draft:(isNew ? {name:'',sku:'',category:'',unit:'',barcode:'',price:'',cost:'',stock:'',threshold:5,expiry:'',wh:1,type:'stock',desc:'',active:true} : products.find(x=>x.id===editingProductId));
   const mainUnitSelect=comboSelect('f_unit', units, p.unit, 'ระบุหน่วยสินค้า');
   const categorySelects=productCategorySelects(p);
+  const useExtraUnits=(isNew&&!mobile)||p.multiunit;
+  const tierUnits=[...new Set([p.unit,...(useExtraUnits?(p.units||[]).map(row=>row.sub):[])].filter(Boolean))];
+  const tierDraft=p.priceTierDraft||new Map(tierUnits.map(unit=>[unit,productTierRows(p,unit)]));
   const renderedMainUnitSelect=isNew?mainUnitSelect:mainUnitSelect.replace('<select ','<select disabled ');
   return `
     ${mobile?`<div class="mobile-product-heading"><h1>${isNew?'เพิ่มสินค้า':'แก้ไขสินค้า'}</h1><span>ข้อมูลสินค้าใช้ร่วมกับหน้าคอม</span></div>`:`<div class="pagehead"><div><div class="breadcrumb">รายการสินค้า › ${isNew?'เพิ่มสินค้า':'แก้ไขสินค้า'}</div></div></div>`}
@@ -693,13 +729,12 @@ function renderProductForm(options={}){
         <div class="field"><label>เลขบาร์โค้ด</label><input id="f_barcode" value="${escapeHtml(p.barcode)}"></div>
         ${isNew?'':'<button class="btn primary small product-base-unit-action" type="button" id="changeBaseUnitBtn" title="เปลี่ยนหน่วยหลัก" aria-label="เปลี่ยนหน่วยหลัก"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16m-4-4 4 4-4 4M20 17H4m4-4-4 4 4 4"/></svg></button>'}
       </div>
-      ${priceTierEditorHtml(p.mainTierDraft||productTierRows(p,p.unit))}
       ${isNew?'':'<small id="directUnitEditHint" style="display:block;margin-top:8px;color:var(--text-muted)"></small>'}
       ${!isNew&&loggedInUser()?.owner?'<div id="productBarcodeHistoryMount"></div>':''}
       <div class="paneltoggle product-extra-unit-toggle"><div><h3 style="font-size:14px;">หน่วยสินค้าเพิ่มเติม <span class="psub" style="font-weight:400;">• ตัวอย่าง: 1 กล่อง = 10 แผง, 1 ลัง = 10 กล่อง</span></h3></div>
       <label class="switch"><input type="checkbox" id="f_multiunit" ${(isNew&&!mobile?true:p.multiunit)?'checked':''}><span class="slider"></span></label></div>
       <div id="multiunitBody" style="${(isNew&&!mobile?true:p.multiunit)?'':'display:none;'}margin-top:14px;">
-        <div id="unitRows">${(()=>{ const rawRows=(p.units&&p.units.length?p.units:[{sub:'',per:'',base:'',price:'',cost:'',barcode:''}]); const rows=computeUnitRowsWithStock(rawRows, p.unit, Number(p.stock)||0); const names=rows.map(r=>r.sub); return rows.map(u=>unitRowHtml({...u,tiers:u.tiers||productTierRows(p,u.sub)}, p.unit, names)).join(''); })()}</div>
+        <div id="unitRows">${(()=>{ const rawRows=(p.units&&p.units.length?p.units:[{sub:'',per:'',base:'',price:'',cost:'',barcode:''}]); const rows=computeUnitRowsWithStock(rawRows, p.unit, Number(p.stock)||0); const names=rows.map(r=>r.sub); return rows.map(u=>unitRowHtml(u, p.unit, names)).join(''); })()}</div>
         <button class="btn ghost small" id="addUnitBtn" style="margin-top:8px;">+ เพิ่มหน่วยสินค้า</button>
       </div>
     </div>
@@ -721,6 +756,11 @@ function renderProductForm(options={}){
       </div>
     </div>
     </div>`}
+
+    <section class="panel product-tier-panel" aria-labelledby="productTierTitle">
+      <h3 id="productTierTitle" class="prodform-gap">ราคาขั้นบันได</h3>
+      <div class="product-tier-grid" id="productTierUnits">${productTierColumnsHtml(tierUnits,tierDraft)}</div>
+    </section>
 
     <div class="product-form-actions ${mobile?'mobile-product-form-actions':'form-final-actions'}">
       ${!mobile&&!isNew&&loggedInUser()?.owner===true&&Number(loggedInUser()?.level)===1?'<button class="btn product-delete-btn" id="deleteProductBtn" type="button">ลบสินค้า</button>':''}

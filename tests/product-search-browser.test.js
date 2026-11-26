@@ -297,6 +297,7 @@ const browserExecutable = [
   assert.deepEqual(await resultNames(),['Vitamin A','Vitamin B','Vitamin C']);
   await page.evaluate(()=>{
     const p=products[0];
+    p.multiunit=true;
     p.priceTiers=[{unit:p.unit,minQty:12,price:165}];
     productReviewFilter='all';render();
   });
@@ -305,15 +306,32 @@ const browserExecutable = [
   await page.locator('.product-tier-summary summary').click();
   assert.match(await page.locator('.product-tier-summary').innerText(),/12.*165/);
   await page.locator('[data-act="editproduct"]').click();
-  const mainTiers=page.locator('.product-pricing-panel > .unit-tier-editor');
-  await mainTiers.locator('summary').click();
+  const tierPanel=page.locator('.product-tier-panel');
+  const productInfo=page.locator('.panel').filter({has:page.getByRole('heading',{name:'ข้อมูลสินค้า',exact:true})});
+  assert.equal(await tierPanel.evaluate(el=>el.previousElementSibling.classList.contains('barcode-cols')),true);
+  assert.equal((await tierPanel.boundingBox()).width,(await productInfo.boundingBox()).width);
+  assert.equal(await tierPanel.locator('#productTierUnits > *').count(),6);
+  const mainTiers=tierPanel.locator('.unit-tier-editor').first();
+  const secondUnit=tierPanel.locator('.unit-tier-editor').nth(1);
+  const secondaryName=await secondUnit.locator('h4').textContent();
+  await secondUnit.locator('.tier-min').fill('8');
+  await secondUnit.locator('.tier-price').fill('160');
+  await page.locator('.switch:has(#f_multiunit)').click();
+  assert.equal(await tierPanel.locator('.unit-tier-editor').count(),1);
+  await page.locator('.switch:has(#f_multiunit)').click();
+  assert.equal(await secondUnit.locator('.tier-price').inputValue(),'160');
   assert.equal(await mainTiers.locator('.tier-min').inputValue(),'12');
   await mainTiers.locator('[data-add-tier]').click();
   await mainTiers.locator('.tier-min').last().fill('24');
   await mainTiers.locator('.tier-price').last().fill('155');
+  await mainTiers.locator('[data-add-tier]').click();
+  await mainTiers.locator('.tier-min').last().fill('48');
+  await mainTiers.locator('[data-remove-tier]').last().click();
+  assert.equal(await mainTiers.locator('.tier-min').count(),2);
   await page.evaluate(()=>{persistWorkspaceData=async()=>true;assertProductBarcodesAvailable=async()=>{};});
   await page.locator('#saveProductBtn').click();
   await page.waitForFunction(()=>products[0].priceTiers.some(row=>row.minQty===24&&row.price===155));
+  assert.ok(await page.evaluate(unit=>products[0].priceTiers.some(row=>row.unit===unit&&row.minQty===8&&row.price===160),secondaryName));
   assert.deepEqual(errors, [], `พบ JavaScript error: ${errors.join(' | ')}`);
   console.log('product search browser tests passed');
 })().catch(error => {

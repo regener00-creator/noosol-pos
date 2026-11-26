@@ -1948,7 +1948,11 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   // toggle sections
   [['f_multiunit','multiunitBody'],['f_extrabc_toggle','extraBcBody'],['f_vendorbc_toggle','vendorBcBody']].forEach(([tog,body])=>{
     const t=document.getElementById(tog);
-    if(t) t.addEventListener('change', ()=>{ const b=document.getElementById(body); if(b) b.style.display = t.checked?'':'none'; });
+    if(t) t.addEventListener('change', ()=>{
+      const section=document.getElementById(body);
+      if(section) section.style.display=t.checked?'':'none';
+      if(tog==='f_multiunit') refreshProductTierUnits();
+    });
   });
   // add/remove unit rows
   const addUnitBtn = document.getElementById('addUnitBtn');
@@ -2022,14 +2026,19 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(saveProductBtn){
     document.getElementById('main').addEventListener('input',validateProductBarcodeInput);
     saveProductBtn.addEventListener('click', saveProduct);
-    document.querySelector('.product-pricing-panel')?.addEventListener('click',event=>{
-      if(event.target.closest('[data-remove-tier]')) event.target.closest('.tier-edit-row').remove();
-      const add=event.target.closest('[data-add-tier]');
-      if(add){
-        add.previousElementSibling.insertAdjacentHTML('beforeend',priceTierRowHtml());
-        add.previousElementSibling.lastElementChild.querySelector('input').focus();
-      }
-    });
+    const tierGrid=document.getElementById('productTierUnits');
+    if(tierGrid){
+      tierGrid.tierDraft=mobileProductEditor?.draft.priceTierDraft;
+      tierGrid.addEventListener('click',event=>{
+        if(event.target.closest('[data-remove-tier]')) event.target.closest('.tier-edit-row').remove();
+        const add=event.target.closest('[data-add-tier]');
+        if(add){
+          const rows=add.closest('[data-tier-unit]').querySelector('.tier-edit-rows');
+          rows.insertAdjacentHTML('beforeend',priceTierRowHtml());
+          rows.lastElementChild.querySelector('.tier-min').focus();
+        }
+      });
+    }
   }
   const deleteProductBtn = document.getElementById('deleteProductBtn');
   if(deleteProductBtn) deleteProductBtn.addEventListener('click', deleteUnusedProduct);

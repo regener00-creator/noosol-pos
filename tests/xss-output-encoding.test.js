@@ -92,7 +92,7 @@ test('product and sales-representative edit forms encode input and textarea valu
     normalizeProductVatMode: () => 'none',
     computeUnitRowsWithStock: rows => rows,
     unitRowHtml: () => '',
-    priceTierEditorHtml: () => '',
+    productTierColumnsHtml: () => '',
     productTierRows: () => [],
     extraBarcodeEntries: () => [],
     extraBarcodeAvailableUnits: () => [],
