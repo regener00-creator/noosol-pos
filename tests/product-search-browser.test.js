@@ -338,16 +338,24 @@ const browserExecutable = [
   assert.equal(await mainTiers.locator('.tier-cost').inputValue(),'121.50');
   await costInput.fill('120');
   await secondUnit.locator('.tier-min').fill('8');
-  await secondUnit.locator('.tier-price').fill('160');
+  await secondUnit.locator('.tier-price').fill('3499');
+  await secondUnit.locator('[data-add-tier]').click();
+  assert.equal(await secondUnit.locator('.tier-min').count(),1);
+  assert.ok(await page.getByText(/ต้องไม่ต่ำกว่าทุน 3,500\.00/).isVisible());
+  await secondUnit.locator('.tier-price').fill('3500');
   await page.locator('.switch:has(#f_multiunit)').click();
   assert.equal(await tierPanel.locator('.unit-tier-editor').count(),1);
   await page.locator('.switch:has(#f_multiunit)').click();
-  assert.equal(await secondUnit.locator('.tier-price').inputValue(),'160');
+  assert.equal(await secondUnit.locator('.tier-price').inputValue(),'3500');
   assert.equal(await mainTiers.locator('.tier-min').inputValue(),'12');
   await mainTiers.locator('[data-add-tier]').click();
   await mainTiers.locator('.tier-min').last().fill('24');
   assert.equal(await mainTiers.locator('.tier-cost').last().inputValue(),'120.00');
   const lastPrice=mainTiers.locator('.tier-price').last();
+  await lastPrice.fill('119');
+  await page.locator('#saveProductBtn').click();
+  assert.ok(await page.getByText(/ต้องไม่ต่ำกว่าทุน 120\.00/).isVisible());
+  assert.equal(await page.evaluate(()=>products[0].priceTiers.length),1);
   await lastPrice.fill('190');
   await mainTiers.locator('[data-add-tier]').click();
   assert.ok(await page.getByText(/ต้องไม่สูงกว่าราคาปกติ/).isVisible());
@@ -372,7 +380,7 @@ const browserExecutable = [
   await page.evaluate(()=>{persistWorkspaceData=async()=>true;assertProductBarcodesAvailable=async()=>{};});
   await page.locator('#saveProductBtn').click();
   await page.waitForFunction(()=>products[0].priceTiers.some(row=>row.minQty===24&&row.price===155));
-  assert.ok(await page.evaluate(unit=>products[0].priceTiers.some(row=>row.unit===unit&&row.minQty===8&&row.price===160),secondaryName));
+  assert.ok(await page.evaluate(unit=>products[0].priceTiers.some(row=>row.unit===unit&&row.minQty===8&&row.price===3500),secondaryName));
   assert.deepEqual(errors, [], `พบ JavaScript error: ${errors.join(' | ')}`);
   console.log('product search browser tests passed');
 })().catch(error => {

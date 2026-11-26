@@ -33,6 +33,12 @@ begin
   assert result#>>'{sale,items,1,priceSource}'='tier';
   assert (result#>>'{sale,total}')::numeric=2730;
   assert (result#>>'{sale,items,0,price}')::numeric=210;
+  update public.products set cost=211 where id=pid;
+  begin
+    perform public.complete_sale(gen_random_uuid(),'TEST',1,sale,jsonb_build_array(item,item||'{"lineKey":"2","qty":7,"lineTotal":1470,"lineTotalGross":1470}'),null);
+    raise exception 'below-cost tier accepted';
+  exception when others then if sqlerrm not like 'ราคาขั้นบันไดต่ำกว่าทุน%' then raise; end if; end;
+  update public.products set cost=10 where id=pid;
   update public.contacts set data=data||jsonb_build_object('customerPrices',jsonb_build_array(
     jsonb_build_object('id','agreed','productId',pid,'unit','box','price',0))) where id=cid;
   item:=item||'{"qty":1,"price":0,"priceSource":"customer","customerPriceRuleId":"agreed","lineTotal":0,"lineTotalGross":0}';

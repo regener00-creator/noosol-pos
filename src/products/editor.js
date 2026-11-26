@@ -289,10 +289,12 @@ function readTierRows(root){
 function validateProductTierColumn(column){
   const unit=column.dataset.tierUnit;
   const mainUnit=document.getElementById('f_unit');
-  const regularInput=unit===mainUnit?.value
-    ?document.getElementById('f_price')
-    :[...document.querySelectorAll('#unitRows .unitrow')].find(row=>row.querySelector('.u_sub').value===unit)?.querySelector('.u_price');
+  const isMainUnit=unit===mainUnit?.value;
+  const unitRow=isMainUnit?null:[...document.querySelectorAll('#unitRows .unitrow')].find(row=>row.querySelector('.u_sub').value===unit);
+  const regularInput=isMainUnit?document.getElementById('f_price'):unitRow?.querySelector('.u_price');
+  const costInput=isMainUnit?document.getElementById('f_cost'):unitRow?.querySelector('.u_cost');
   const regularPrice=Number(regularInput?.value);
+  const unitCost=Number(costInput?.value)||0;
   const checkedTiers=[];
   const warn=(message,input)=>{
     showToast(`${unit} · ${message}`,'danger-top');
@@ -308,6 +310,7 @@ function validateProductTierColumn(column){
     if(priceInput.value===''||!priceInput.validity.valid) return warn('กรอกราคาต่อหน่วยตั้งแต่ 0 ขึ้นไป ทศนิยมไม่เกิน 2 ตำแหน่ง',priceInput);
     if(!regularInput?.value||!Number.isFinite(regularPrice)||regularPrice<0) return warn('กรอกราคาขายปกติก่อนตั้งราคาขั้นบันได',regularInput);
     if(price>regularPrice) return warn(`ราคาขั้นบันไดต้องไม่สูงกว่าราคาปกติ ${fmtMoney(regularPrice)} บาท`,priceInput);
+    if(price<unitCost) return warn(`ราคาขั้นบันไดต้องไม่ต่ำกว่าทุน ${fmtMoney(unitCost)} บาท`,priceInput);
     checkedTiers.push({tier:{unit,minQty,price},minimum,priceInput});
   }
   checkedTiers.sort((a,b)=>a.tier.minQty-b.tier.minQty);

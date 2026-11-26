@@ -109,7 +109,7 @@ function refreshCartCustomerPrices(){
     const qty=quantities.get(line.pid+'::'+line.unit);
     const tiers=productTierRows(product,line.unit);
     const tier=tiers.filter(row=>row.minQty<=qty).sort((a,b)=>b.minQty-a.minQty)[0];
-    if(!tier||tier.price>=line.price) return;
+    if(!tier||tier.price>=line.price||tier.price<productUnitCost(product,line.unit,line.factor)) return;
     // Compare the existing promotion on its original base price before selecting a tier.
     const promotion=calcPromotionForLine(line);
     if(promotion.promoId && promotion.lineTotal<=tier.price*line.qty) return;

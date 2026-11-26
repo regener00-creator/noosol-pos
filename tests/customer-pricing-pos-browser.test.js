@@ -266,6 +266,12 @@ const browserExecutable = [
   await page.evaluate(()=>{promotions[0].discountValue=5;render();});
   assert.deepEqual(await selectedPrice(),['tier',200]);
   await page.evaluate(()=>{
+    promotions=[];
+    products.find(p=>p.id===101).units.find(unit=>unit.sub==='กล่อง').cost=201;
+    render();
+  });
+  assert.deepEqual(await selectedPrice(),['standard',220],'a stored below-cost tier must not be applied');
+  await page.evaluate(()=>{
     currentTab='customers';editingContactId=null;editingCustomerPriceContactId=null;
     sb.rpc=async(name,args)=>name==='save_store_price_group'?{data:[args.p_group],error:null}:{data:null,error:null};
     render();
