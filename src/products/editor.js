@@ -268,7 +268,7 @@ function toggleProductTierDetails(button){
     const names=[...new Set([product.unit,...(product.units||[]).map(unit=>unit.sub),...product.priceTiers.map(tier=>tier.unit)].filter(Boolean))]
       .filter(unit=>productTierRows(product,unit).length);
     const tiers=new Map(names.map(unit=>[unit,productTierRows(product,unit).slice().sort((a,b)=>a.minQty-b.minQty)]));
-    const costs=isLevel2User()?undefined:new Map(productUnitOptions(product).map(option=>[option.name,fmtFavoritePrice(option.cost)]));
+    const costs=isLevel2User()?undefined:new Map(productUnitOptions(product).map(option=>[option.name,fmtMoney(option.cost)]));
     const panelId='productTierDetail-'+button.dataset.productTiers;
     const detail=document.createElement('tr');
     detail.className='product-tier-detail';
@@ -332,7 +332,7 @@ function productTierEditorCosts(){
     const unit=row.querySelector('.u_sub').value;
     if(unit&&unit!==mainUnit) costs.set(unit,row.querySelector('.u_cost').value);
   });
-  return new Map([...costs].map(([unit,value])=>[unit,value?fmtFavoritePrice(value):'–']));
+  return new Map([...costs].map(([unit,value])=>[unit,value?fmtMoney(value):'–']));
 }
 function refreshProductTierCosts(grid){
   const costs=productTierEditorCosts();
