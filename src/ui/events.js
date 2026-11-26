@@ -2031,6 +2031,10 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     const tierGrid=document.getElementById('productTierUnits');
     if(tierGrid){
       tierGrid.tierDraft=mobileProductEditor?.draft.priceTierDraft;
+      refreshProductTierCosts(tierGrid);
+      document.querySelector('.product-pricing-panel')?.addEventListener('input',event=>{
+        if(event.target.matches('#f_cost,.u_cost')) refreshProductTierCosts(tierGrid);
+      });
       tierGrid.addEventListener('click',event=>{
         const button=event.target.closest('[data-add-tier],[data-remove-tier]');
         if(!button) return;
@@ -2047,7 +2051,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
           lastMinimum.focus();
           return;
         }
-        rows.insertAdjacentHTML('beforeend',priceTierRowHtml());
+        const costs=productTierEditorCosts();
+        const cost=costs?(costs.get(column.dataset.tierUnit)??'–'):undefined;
+        rows.insertAdjacentHTML('beforeend',priceTierRowHtml({},{cost}));
         rows.lastElementChild.querySelector('.tier-min').focus();
       });
     }

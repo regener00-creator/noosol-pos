@@ -313,6 +313,9 @@ const browserExecutable = [
   assert.equal(await tierDetails.locator('.product-tier-grid > *').count(),6);
   assert.equal(await tierDetails.locator('.tier-min').inputValue(),'12');
   assert.equal(await tierDetails.locator('.tier-price').inputValue(),'165');
+  assert.equal(await tierDetails.locator('.tier-cost').inputValue(),'120');
+  assert.equal(await tierDetails.locator('.tier-cost').getAttribute('readonly'),'');
+  assert.equal(await tierDetails.locator('.tier-cost').evaluate(input=>input.closest('label').previousElementSibling.textContent.trim()),'ราคาต่อหน่วย');
   assert.equal(await tierDetails.locator('.tier-price').getAttribute('readonly'),'');
   assert.equal(await tierDetails.locator('[data-add-tier]').count(),0);
   await tierButton.click();
@@ -326,6 +329,12 @@ const browserExecutable = [
   const mainTiers=tierPanel.locator('.unit-tier-editor').first();
   const secondUnit=tierPanel.locator('.unit-tier-editor').nth(1);
   const secondaryName=await secondUnit.locator('h4').textContent();
+  assert.equal(await mainTiers.locator('.tier-cost').inputValue(),'120');
+  assert.equal(await secondUnit.locator('.tier-cost').inputValue(),'3,500');
+  const costInput=page.locator('#f_cost');
+  await costInput.fill('121.50');
+  assert.equal(await mainTiers.locator('.tier-cost').inputValue(),'121.5');
+  await costInput.fill('120');
   await secondUnit.locator('.tier-min').fill('8');
   await secondUnit.locator('.tier-price').fill('160');
   await page.locator('.switch:has(#f_multiunit)').click();
@@ -335,6 +344,7 @@ const browserExecutable = [
   assert.equal(await mainTiers.locator('.tier-min').inputValue(),'12');
   await mainTiers.locator('[data-add-tier]').click();
   await mainTiers.locator('.tier-min').last().fill('24');
+  assert.equal(await mainTiers.locator('.tier-cost').last().inputValue(),'120');
   const lastPrice=mainTiers.locator('.tier-price').last();
   await lastPrice.fill('190');
   await mainTiers.locator('[data-add-tier]').click();

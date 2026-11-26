@@ -230,18 +230,20 @@ function comboSelect(id, list, selected, placeholder){
   </select>`;
 }
 
-function priceTierRowHtml(row={},readOnly=false){
-  return `<div class="tier-edit-row">
+function priceTierRowHtml(row={}, {readOnly=false,cost}={}){
+  return `<div class="tier-edit-row${cost===undefined?'':' has-cost'}">
     <label>ซื้อขั้นต่ำ<input type="number" class="tier-min" inputmode="numeric" min="1" step="1" value="${escapeHtml(row.minQty??'')}" ${readOnly?'readonly tabindex="-1"':''}></label>
     <label>ราคาต่อหน่วย<input type="number" class="tier-price" inputmode="decimal" min="0" step="0.01" value="${escapeHtml(row.price??'')}" ${readOnly?'readonly tabindex="-1"':''}></label>
+    ${cost===undefined?'':`<label>ทุน<input class="tier-cost" value="${escapeHtml(cost)}" readonly tabindex="-1"></label>`}
   </div>`;
 }
-function productTierColumnsHtml(names,draft,{readOnly=false}={}){
+function productTierColumnsHtml(names,draft,{readOnly=false,costs}={}){
   const columns=names.map(unit=>{
     const rows=draft.get(unit);
+    const cost=costs?(costs.get(unit)??'–'):undefined;
     return `<section class="unit-tier-editor" data-tier-unit="${escapeHtml(unit)}">
       <h4>${escapeHtml(unit)}</h4>
-      <div class="tier-edit-rows">${(rows?.length?rows:[{}]).map(row=>priceTierRowHtml(row,readOnly)).join('')}</div>
+      <div class="tier-edit-rows">${(rows?.length?rows:[{}]).map(row=>priceTierRowHtml(row,{readOnly,cost})).join('')}</div>
       ${readOnly?'':`<div class="tier-edit-actions">
         <button type="button" class="btn primary small" data-add-tier>+ เพิ่มขั้นราคา</button>
         <button type="button" class="btn small" data-remove-tier title="ลบขั้นราคาล่างสุด" aria-label="ลบขั้นราคาล่างสุด">
@@ -266,13 +268,14 @@ function toggleProductTierDetails(button){
     const names=[...new Set([product.unit,...(product.units||[]).map(unit=>unit.sub),...product.priceTiers.map(tier=>tier.unit)].filter(Boolean))]
       .filter(unit=>productTierRows(product,unit).length);
     const tiers=new Map(names.map(unit=>[unit,productTierRows(product,unit).slice().sort((a,b)=>a.minQty-b.minQty)]));
+    const costs=isLevel2User()?undefined:new Map(productUnitOptions(product).map(option=>[option.name,fmtFavoritePrice(option.cost)]));
     const panelId='productTierDetail-'+button.dataset.productTiers;
     const detail=document.createElement('tr');
     detail.className='product-tier-detail';
     detail.id=panelId;
     detail.insertCell().colSpan=row.cells.length;
     detail.cells[0].innerHTML=`<section class="panel product-tier-panel" aria-label="ราคาขั้นบันได ${escapeHtml(product.name)}">
-      <div class="product-tier-grid">${productTierColumnsHtml(names,tiers,{readOnly:true})}</div>
+      <div class="product-tier-grid">${productTierColumnsHtml(names,tiers,{readOnly:true,costs})}</div>
     </section>`;
     row.after(detail);
     button.setAttribute('aria-controls',panelId);
@@ -320,6 +323,24 @@ function readProductTierDraft(grid){
   grid?.querySelectorAll('[data-tier-unit]').forEach(column=>draft.set(column.dataset.tierUnit,readTierRows(column)));
   return draft;
 }
+function productTierEditorCosts(){
+  if(isLevel2User()) return undefined;
+  const mainUnit=document.getElementById('f_unit')?.value;
+  const mainCost=document.getElementById('f_cost')?.value;
+  const costs=new Map([[mainUnit,mainCost]]);
+  document.querySelectorAll('#unitRows .unitrow').forEach(row=>{
+    const unit=row.querySelector('.u_sub').value;
+    if(unit&&unit!==mainUnit) costs.set(unit,row.querySelector('.u_cost').value);
+  });
+  return new Map([...costs].map(([unit,value])=>[unit,value?fmtFavoritePrice(value):'–']));
+}
+function refreshProductTierCosts(grid){
+  const costs=productTierEditorCosts();
+  if(!costs) return;
+  grid.querySelectorAll('[data-tier-unit]').forEach(column=>{
+    column.querySelectorAll('.tier-cost').forEach(input=>{input.value=costs.get(column.dataset.tierUnit)??'–';});
+  });
+}
 function refreshProductTierUnits(renamedFrom='',renamedTo=''){
   const grid=document.getElementById('productTierUnits');
   if(!grid) return;
@@ -332,7 +353,7 @@ function refreshProductTierUnits(renamedFrom='',renamedTo=''){
     draft.delete(renamedFrom);
   }
   grid.tierDraft=draft;
-  grid.innerHTML=productTierColumnsHtml(names,draft);
+  grid.innerHTML=productTierColumnsHtml(names,draft,{costs:productTierEditorCosts()});
 }
 function unitRowHtml(u, mainUnit, siblingNames){
   mainUnit = mainUnit || 'หน่วยหลัก';
@@ -819,7 +840,7 @@ function renderProductForm(options={}){
 
     <section class="panel product-tier-panel" aria-labelledby="productTierTitle">
       <h3 id="productTierTitle" class="prodform-gap">ราคาขั้นบันได</h3>
-      <div class="product-tier-grid" id="productTierUnits">${productTierColumnsHtml(tierUnits,tierDraft)}</div>
+      <div class="product-tier-grid" id="productTierUnits">${productTierColumnsHtml(tierUnits,tierDraft,{costs:canViewCost?new Map():undefined})}</div>
     </section>
 
     <div class="product-form-actions ${mobile?'mobile-product-form-actions':'form-final-actions'}">
