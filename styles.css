@@ -1916,13 +1916,27 @@
   .customer-price-search-empty{padding:18px;text-align:center;color:var(--text-muted)}
   .price-group-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:12px}
   .price-group-fields .field{min-width:0;text-align:center}
-  .price-group-name{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px}
+  .price-group-name{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:end;gap:8px}
   .price-group-name [data-delete-group]{height:40px;width:40px;background:var(--danger);border-color:var(--danger);color:#fff}
   .price-group-name [data-delete-group]:hover{background:var(--danger);border-color:var(--danger);color:#fff;filter:brightness(.9)}
   .price-group-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%}
   .price-group-heading h1{flex-shrink:0}
   .price-group-save-status{display:flex;align-items:center;justify-content:flex-end;gap:8px;color:var(--text-muted);font-size:13px;text-align:right;overflow-wrap:anywhere}
   #priceGroupPage [hidden]{display:none}
+  .price-group-name [data-pick-group-customers]{min-height:40px;white-space:nowrap}
+  .price-group-customer-dialog{width:min(820px,94vw);max-width:none;max-height:90vh;padding:0;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text)}
+  .price-group-customer-dialog::backdrop{background:rgba(28,21,17,.48)}
+  .price-group-customer-body{padding:0 18px 16px}
+  .price-group-customer-search{box-sizing:border-box;width:100%;margin:4px 0 12px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}
+  .price-group-customer-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+  .price-group-customer-columns section{min-width:0;border:1px solid var(--border);border-radius:10px;overflow:hidden}
+  .price-group-customer-columns h4{margin:0;padding:9px 12px;background:var(--primary);color:#fff}
+  .price-group-customer-columns ul{height:min(48vh,360px);overflow:auto;margin:0;padding:0;list-style:none}
+  .price-group-customer-row{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:0;border-bottom:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;text-align:left;overflow-wrap:anywhere;cursor:pointer}
+  .price-group-customer-row:hover,.price-group-customer-row:focus-visible{background:var(--primary-soft)}
+  .price-group-customer-row small,.price-group-customer-empty,.price-group-customer-status{color:var(--text-muted)}
+  .price-group-customer-empty{padding:12px}
+  .price-group-customer-status{min-height:1.5em;margin-top:8px}
   .customer-price-row-actions{display:flex;justify-content:center;align-items:center;gap:6px}
   .customer-price-table .contract-tier-detail > td{background:var(--bg);padding:12px}
   .contract-tier-grid{display:flex;justify-content:center;align-items:flex-start;flex-wrap:wrap;gap:12px}

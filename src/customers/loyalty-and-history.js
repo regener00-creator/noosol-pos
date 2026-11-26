@@ -29,24 +29,36 @@ function effectiveLoyaltyRedemption(promoResult=applyPromotions(cart)){
 function loadCustomerLoyalty(ids,force=false){
   const key=JSON.stringify([currentProfile?.id,activeWarehouseId,ids.map(String)]);
   const now=Date.now(),previous=customerLoyaltyState;
-  const expired=previous?.data?.some(row=>new Date(row.expiresAt).getTime()<=now);
+  const expired=previous?.data?.some(row=>{
+    const expiry=Date.parse(row.expiresAt);
+    return expiry>previous.loadedAt&&expiry<=now;
+  });
   if(!force&&previous?.key===key&&!expired&&(previous.loading||now-previous.loadedAt<30000)) return previous;
   const state={key,loading:true,data:null,error:'',loadedAt:now};customerLoyaltyState=state;
   state.promise=Promise.resolve().then(async()=>{
-    const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+    const store=Number(activeWarehouseId)||null;
     try{
-      const {data,error}=await sb.rpc('get_customer_loyalty',{p_customer_ids:ids.map(String),p_warehouse_id:Number(activeWarehouseId)||null}).abortSignal(controller.signal);
-      if(error) throw error;
-      if(!Array.isArray(data)||data.length!==ids.length) throw new Error('Incomplete loyalty response');
-      state.data=data;
+      const balances=[];
+      for(let offset=0;offset<ids.length;offset+=100){
+        if(customerLoyaltyState!==state) return;
+        const batch=ids.slice(offset,offset+100).map(String);
+        const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+        try{
+          const {data,error}=await sb.rpc('get_customer_loyalty',{p_customer_ids:batch,p_warehouse_id:store}).abortSignal(controller.signal);
+          if(error) throw error;
+          if(!Array.isArray(data)||data.length!==batch.length) throw new Error('Incomplete loyalty response');
+          balances.push(...data);
+        }finally{clearTimeout(timer);}
+      }
+      state.data=balances;
     }catch(error){state.error='อ่านแต้มไม่สำเร็จ กรุณากดรีเฟรชแต้ม';console.warn('loyalty read',error?.code||error?.message);}
     finally{
-      clearTimeout(timer);state.loading=false;state.loadedAt=Date.now();
+      state.loading=false;state.loadedAt=Date.now();
       if(customerLoyaltyState===state){
         refreshCustomerLoyaltyPanel();
-        refreshCustomerLoyaltyTable();
+        if(currentTab!=='customers'||contactSort.key!=='loyaltyBalance'||!refreshContactListResults()) refreshCustomerLoyaltyTable();
         clearTimeout(customerLoyaltyExpiryTimer);
-        const expiry=Math.min(...(state.data||[]).map(row=>new Date(row.expiresAt).getTime()));
+        const expiry=Math.min(...(state.data||[]).map(row=>Date.parse(row.expiresAt)).filter(time=>time>Date.now()));
         if(Number.isFinite(expiry)) customerLoyaltyExpiryTimer=setTimeout(()=>{customerLoyaltyState=null;refreshCustomerLoyaltyPanel();},Math.max(100,Math.min(3600000,expiry-Date.now()+100)));
       }
     }
@@ -215,7 +227,7 @@ function customerPurchaseLoad(ids,view=null){
       // An earlier request must never replace another customer's/current user's view.
       if(customerPurchaseState===state&&view&&posCustomerHistoryModalOpen&&document.getElementById('posCustomerHistoryContent')){
         refreshCustomerHistoryDisplay();
-      }else if(customerPurchaseState===state&&currentTab==='customers'&&!editingContactId&&!editingCustomerPriceContactId){
+      }else if(customerPurchaseState===state&&currentTab==='customers'&&!editingContactId&&!editingCustomerPriceContactId&&!priceGroupPage){
         const focused=document.activeElement,focusId=focused?.id;
         const start=focused?.selectionStart,end=focused?.selectionEnd;
         const fields=[...document.querySelectorAll('#search,#customerHistoryYear,#customerHistoryMonth')].map(input=>[input.id,input.value]);

@@ -58,17 +58,25 @@ let contacts=[];
 const CONTACTS_STORAGE_KEY='pharmacy_pos_contacts_v1';
 try{ const savedContacts=JSON.parse(localStorage.getItem(CONTACTS_STORAGE_KEY)||'null'); if(Array.isArray(savedContacts)) contacts=savedContacts; }catch(error){ console.warn('ไม่สามารถโหลดสมุดรายชื่อได้',error); }
 function persistContacts(){ persistWorkspaceData(); }
-async function persistContactImmediately(contact){
+async function persistContactImmediately(contact,{changes,isCurrent}={}){
   if(!currentProfile||!contact) return true;
   return withRevisionedTableLock('contacts',async()=>{
   // A queued background save may already have acknowledged this exact draft.
+  if(isCurrent&&!isCurrent()) throw new Error('หน้ากลุ่มราคาเปลี่ยนแล้ว');
   const live=contacts.find(row=>String(row.id)===String(contact.id));
   if(!live) throw new Error('รายชื่อนี้ถูกนำออกจากเครื่องระหว่างบันทึก');
-  if(syncedTableRows.contacts?.get(String(live.id))===JSON.stringify(contactToRow(live))&&!workspaceRecoveryEntries.has(`contacts:${live.id}`)) return true;
+  if(!changes&&syncedTableRows.contacts?.get(String(live.id))===JSON.stringify(contactToRow(live))&&!workspaceRecoveryEntries.has(`contacts:${live.id}`)) return true;
   if(!Number(live._revision)&&!live._clientCreateToken) live._clientCreateToken=generateProductCreateToken();
-  const sent=cloneSyncRecords([live]);
+  const sent=cloneSyncRecords([changes?{...live,...changes}:live]);
   await ensureWorkspaceRecoveryDurable();
-  const acknowledge=syncAcknowledgement('contacts',contacts,contactToRow);
+  const acknowledgeContact=syncAcknowledgement('contacts',contacts,contactToRow);
+  const acknowledge=item=>{
+    if(changes){
+      const updated=contacts.find(row=>String(row.id)===String(item.id));
+      if(updated) Object.assign(updated,changes);
+    }
+    acknowledgeContact(item);
+  };
   const error=(Number(sent[0]._revision)||0)>0
     ?await updateRevisionedRows('contacts',sent,contactToRow,acknowledge)
     :await insertRevisionedRows('contacts',sent,contactToRow,acknowledge);

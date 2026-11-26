@@ -224,6 +224,7 @@ function attachPriceGroupEvents(page){
   const select=page.querySelector('[data-group-select]');
   const nameInput=page.querySelector('[data-group-name]');
   const remove=page.querySelector('[data-delete-group]');
+  const pickCustomers=page.querySelector('[data-pick-group-customers]');
   const back=page.querySelector('[data-back-group]');
   const status=page.querySelector('[data-price-group-status]');
   const retry=page.querySelector('[data-retry-group]');
@@ -231,7 +232,7 @@ function attachPriceGroupEvents(page){
   let queued=false;
   let unsaved=false;
   const isCurrent=()=>priceGroupPage===view&&page.isConnected&&currentTab==='customers'&&isStoreViewCurrent(context)&&loggedInUser()?.owner;
-  const setBusy=busy=>{view.saving=busy;controls.forEach(control=>control.disabled=busy);};
+  const setBusy=busy=>{view.saving=busy;controls.forEach(control=>control.disabled=busy);pickCustomers.disabled=busy||!savedGroup;};
   const canLeave=()=>!unsaved||confirm('มีการแก้ไขกลุ่มราคาที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?');
   setBusy(view.saving);
   back.onclick=()=>{
@@ -254,6 +255,9 @@ function attachPriceGroupEvents(page){
     event.target.blur();
   });
   retry.onclick=saveChanges;
+  pickCustomers.onclick=()=>{
+    if(isCurrent()&&!view.saving&&savedGroup) openPriceGroupCustomerPicker(page,savedGroup.id,isCurrent);
+  };
   remove.onclick=()=>{
     if(!isCurrent()||view.saving||!savedGroup) return;
     if(confirm(`ลบกลุ่มราคา “${savedGroup.name}” ใช่ไหม? ลูกค้าในกลุ่มจะกลับไปใช้ราคาสินค้าหรือราคาพิเศษรายบุคคลที่เข้าเงื่อนไข`)){
@@ -325,6 +329,85 @@ function attachPriceGroupEvents(page){
       }
     }
   }
+}
+function openPriceGroupCustomerPicker(page,groupId,isCurrent){
+  const group=storePriceGroups().find(entry=>entry.id===groupId);
+  if(!group||!canPerformPageAction('edit','customers')) return;
+  const dialog=document.createElement('dialog');
+  dialog.className='price-group-customer-dialog';
+  dialog.setAttribute('aria-labelledby','priceGroupCustomersTitle');
+  dialog.innerHTML=`<div class="modal-head">
+      <h3 id="priceGroupCustomersTitle">เลือกลูกค้า · ${escapeHtml(group.name)}</h3>
+      <button type="button" class="modal-close" aria-label="ปิด">×</button>
+    </div>
+    <div class="price-group-customer-body">
+      <input class="price-group-customer-search" type="search" aria-label="ค้นหาลูกค้า" placeholder="ค้นหาชื่อ เบอร์โทร หรือกลุ่มราคา">
+      <div class="price-group-customer-columns">
+        <section><h4>รายชื่อลูกค้า</h4><ul data-customers-available></ul></section>
+        <section><h4>${escapeHtml(group.name)}</h4><ul data-customers-assigned></ul></section>
+      </div>
+      <div role="status" class="price-group-customer-status"></div>
+    </div>`;
+  page.appendChild(dialog);
+  const close=dialog.querySelector('.modal-close');
+  const search=dialog.querySelector('input');
+  const status=dialog.querySelector('[role="status"]');
+  let busy=false;
+  const available=dialog.querySelector('[data-customers-available]');
+  const assigned=dialog.querySelector('[data-customers-assigned]');
+  const compareNames=new Intl.Collator('th',{numeric:true});
+  function draw(){
+    const groups=new Map(storePriceGroups().map(entry=>[entry.id,entry.name]));
+    const query=search.value.trim().toLocaleLowerCase('th');
+    const rows=customersList().slice().sort((a,b)=>compareNames.compare(a.name,b.name));
+    available.innerHTML=listHtml(rows.filter(customer=>customer.priceGroupId!==groupId),false);
+    assigned.innerHTML=listHtml(rows.filter(customer=>customer.priceGroupId===groupId),true);
+    function listHtml(customers,inGroup){
+      return customers.filter(customer=>[customer.name,customer.phone,groups.get(customer.priceGroupId)].join(' ').toLocaleLowerCase('th').includes(query))
+        .map(customer=>{
+          const groupName=groups.get(customer.priceGroupId);
+          const action=inGroup?'นำออกจากกลุ่ม':'เข้ากลุ่ม';
+          return `<li><button type="button" class="price-group-customer-row" data-group-customer="${escapeHtml(customer.id)}"
+            aria-label="${escapeHtml(action+' '+customer.name)}" ${busy?'disabled':''}>
+            <span>${escapeHtml(customer.name)}${groupName?` <small> : ${escapeHtml(groupName)}</small>`:''}</span>
+            <span aria-hidden="true">${inGroup?'−':'+'}</span></button></li>`;
+        }).join('')||'<li class="price-group-customer-empty">ไม่มีรายชื่อ</li>';
+    }
+  }
+  search.oninput=draw;
+  close.onclick=()=>dialog.close();
+  dialog.addEventListener('cancel',event=>{if(busy) event.preventDefault();});
+  dialog.addEventListener('close',()=>{
+    dialog.remove();
+    page.querySelector('[data-pick-group-customers]')?.focus();
+  });
+  dialog.addEventListener('click',async event=>{
+    const button=event.target.closest('[data-group-customer]');
+    if(!button||busy||!isCurrent()) return;
+    const customer=customersList().find(entry=>String(entry.id)===button.dataset.groupCustomer);
+    if(!customer) return;
+    const nextGroup=customer.priceGroupId===groupId?null:groupId;
+    busy=close.disabled=true;
+    status.textContent='กำลังบันทึก…';
+    draw();
+    try{
+      await persistContactImmediately(customer,{
+        changes:{priceGroupId:nextGroup},
+        isCurrent:()=>isCurrent()&&storePriceGroups().some(entry=>entry.id===groupId)
+      });
+      persistContacts();
+      status.textContent=nextGroup?`เพิ่ม ${customer.name} เข้ากลุ่มแล้ว`:`นำ ${customer.name} ออกจากกลุ่มแล้ว`;
+    }catch(error){
+      status.textContent='ย้ายลูกค้าไม่สำเร็จ · '+error.message;
+    }finally{
+      busy=close.disabled=false;
+      draw();
+      search.focus();
+    }
+  });
+  draw();
+  dialog.showModal();
+  search.focus();
 }
 function setContractTierExpanded(row,expanded){
   row.nextElementSibling.hidden=!expanded;

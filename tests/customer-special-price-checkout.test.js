@@ -1,6 +1,8 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+const vm = require('node:vm');
+const test = require('node:test');
 
 const root = path.join(__dirname, '..');
 const app = require('./load-app-source')();
@@ -11,10 +13,10 @@ const migration = fs.readFileSync(
   'utf8',
 );
 
-assert.match(app, /async function persistContactImmediately\(contact\)/);
+assert.match(app, /async function persistContactImmediately\(contact,\{changes,isCurrent\}=\{\}\)/);
 assert.match(app, /updateRevisionedRows\('contacts',sent,contactToRow,acknowledge\)/);
 assert.match(app, /insertRevisionedRows\('contacts',sent,contactToRow,acknowledge\)/);
-assert.match(app, /const sent=cloneSyncRecords\(\[live\]\);\s*await ensureWorkspaceRecoveryDurable\(\)/);
+assert.match(app, /const sent=cloneSyncRecords\(\[changes\?\{\.\.\.live,\.\.\.changes\}:live\]\);\s*await ensureWorkspaceRecoveryDurable\(\)/);
 assert.doesNotMatch(app, /sb\.from\('contacts'\)\.upsert\(row,\{onConflict:'id'\}\)/);
 assert.match(app, /await persistContactImmediately\(customer\)/);
 assert.match(app, /save_customer_pricing/);
@@ -32,4 +34,39 @@ assert.match(migration, /v_expected_price := private\.resolve_customer_special_p
 assert.match(migration, /complete_sale price guard does not match the expected version/);
 assert.match(migration, /revoke all on function private\.resolve_customer_special_price/);
 
-console.log('customer special price checkout tests passed');
+test('a group move updates the cached contact only after a revisioned save succeeds',async()=>{
+  const contact={id:7,name:'PEPO',priceGroupId:'level1',_revision:5};
+  let serverError=new Error('test conflict');
+  let writes=0;
+  const scope=vm.createContext({
+    currentProfile:{id:'owner'},contacts:[contact],
+    withRevisionedTableLock:async (_table,work)=>work(),
+    syncedTableRows:{contacts:new Map()},workspaceRecoveryEntries:new Map(),
+    contactToRow:row=>({...row}),
+    cloneSyncRecords:structuredClone,
+    ensureWorkspaceRecoveryDurable:async()=>{},
+    syncAcknowledgement:()=>item=>{contact._revision=item._revision;},
+    updateRevisionedRows:async(table,items,_toRow,acknowledge)=>{
+      writes++;
+      assert.equal(table,'contacts');
+      assert.equal(items[0].name,'PEPO');
+      assert.equal(items[0]._revision,5);
+      assert.equal(items[0].priceGroupId,'level2');
+      assert.equal(contact.priceGroupId,'level1');
+      if(serverError)return serverError;
+      acknowledge({...items[0],_revision:6});
+      return null;
+    },
+    upsertAndPrune:{paused:new Map()}
+  });
+  vm.runInContext(app.slice(app.indexOf('async function persistContactImmediately('),app.indexOf('let contactFilter')),scope);
+  const move=()=>scope.persistContactImmediately(contact,{changes:{priceGroupId:'level2'}});
+  await assert.rejects(move,/test conflict/);
+  assert.equal(contact.priceGroupId,'level1');
+  await assert.rejects(()=>scope.persistContactImmediately(contact,{changes:{priceGroupId:'level2'},isCurrent:()=>false}));
+  assert.equal(writes,1);
+  serverError=null;
+  await move();
+  assert.equal(contact.priceGroupId,'level2');
+  assert.equal(contact._revision,6);
+});

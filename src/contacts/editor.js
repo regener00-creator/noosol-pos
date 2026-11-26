@@ -24,16 +24,28 @@ function renderContacts({resultsOnly=false}={}){
   };
   // เรียงข้อมูลตามคอลัมน์ที่เลือก
   const csk = contactSort.key, csdir = contactSort.dir;
-  const sortPurchases=isCustomers&&csk==='monthlyAverage'?customerPurchaseLoad(list.map(c=>c.id)):null;
-  const averages=new Map((sortPurchases?.data?.summaries||[]).map(row=>[
-    String(row.customerId),customerTierFromPurchases(row.membershipCycleTotal,row.membershipElapsedMonths).average
-  ]));
+  const ids=list.map(c=>c.id);
+  const sortPurchases=isCustomers&&['monthlyAverage','customerTier'].includes(csk)?customerPurchaseLoad(ids):null;
+  const sortLoyalty=isCustomers&&csk==='loyaltyBalance'&&ids.length?loadCustomerLoyalty(ids):null;
+  const groupNames=new Map((isCustomers?storePriceGroups():[]).map(group=>[group.id,group.name]));
+  const tierRank={general:0,regular:1,special:2};
+  const sortValues=new Map((sortPurchases?.data?.summaries||[]).map(row=>{
+    const tier=customerTierFromPurchases(row.membershipCycleTotal,row.membershipElapsedMonths);
+    return [String(row.customerId),csk==='customerTier'?tierRank[tier.key]:tier.average];
+  }));
+  if(sortLoyalty) for(const row of sortLoyalty.data||[]) sortValues.set(String(row.customerId),Number(row.balance)||0);
   list = list.slice().sort((a,b)=>{
     let va, vb;
     if(csk==='code'){ va=a.code||''; vb=b.code||''; }
     else if(csk==='type'){ va=typeSortLabel(a); vb=typeSortLabel(b); }
-    else if(sortPurchases){
-      const left=averages.get(String(a.id)),right=averages.get(String(b.id));
+    else if(isCustomers&&csk==='priceGroup'){
+      const left=groupNames.get(a.priceGroupId),right=groupNames.get(b.priceGroupId);
+      if(left&&!right)return -1;
+      if(right&&!left)return 1;
+      return ((left||'').localeCompare(right||'','th',{numeric:true})*csdir)||String(a.name||'').localeCompare(String(b.name||''),'th');
+    }
+    else if(sortPurchases||sortLoyalty){
+      const left=sortValues.get(String(a.id)),right=sortValues.get(String(b.id));
       if(left!==right){
         if(left===undefined)return 1;
         if(right===undefined)return -1;
@@ -55,23 +67,23 @@ function renderContacts({resultsOnly=false}={}){
   const pageStart=(contactPage-1)*CONTACTS_PER_PAGE;
   const pageList=list.slice(pageStart,pageStart+CONTACTS_PER_PAGE);
   const purchaseState=isCustomers?(sortPurchases||customerPurchaseLoad(pageList.map(c=>c.id))):null;
-  const loyaltyState=isCustomers?(pageList.length?loadCustomerLoyalty(pageList.map(c=>c.id)):{loading:false,data:[],error:''}):null;
+  const loyaltyState=isCustomers?(sortLoyalty||(pageList.length?loadCustomerLoyalty(pageList.map(c=>c.id)):{loading:false,data:[],error:''})):null;
   const sortArrow = key => contactSort.key===key ? (contactSort.dir===1?' ▲':' ▼') : '';
   const th = (key,label) => `<th class="sortable" data-sort="${key}">${label}<span class="sortarrow">${sortArrow(key)}</span></th>`;
   const customerSortHeader=(key,label)=>`<th class="sortable" data-sort="${key}" aria-sort="${csk!==key?'none':csdir===1?'ascending':'descending'}"><button type="button" class="customer-sort-button">${label}<span aria-hidden="true">${sortArrow(key)||' ↕'}</span></button></th>`;
   const tableHead=isCustomers
-    ?`${th('name','ชื่อ')}<th>เบอร์โทร</th><th>ไลน์</th><th>แต้มคงเหลือ</th><th>ระดับลูกค้า</th>${customerSortHeader('monthlyAverage','ยอดซื้อเฉลี่ยต่อเดือน')}${customerSortHeader('loyaltyExpiry','วันหมดอายุแต้ม')}<th></th>`
+    ?`${customerSortHeader('priceGroup','กลุ่มราคา')}${th('name','ชื่อ')}<th>เบอร์โทร</th><th>ไลน์</th>${customerSortHeader('loyaltyBalance','แต้มคงเหลือ')}${customerSortHeader('customerTier','ระดับลูกค้า')}${customerSortHeader('monthlyAverage','ยอดซื้อเฉลี่ยต่อเดือน')}${customerSortHeader('loyaltyExpiry','วันหมดอายุแต้ม')}<th></th>`
     :`${th('code','รหัสผู้ติดต่อ')}${th('name','รายชื่อ')}<th>ชื่อผู้ติดต่อ</th><th>เบอร์ติดต่อ</th><th>อีเมล</th>${th('type','ประเภท')}<th></th>`;
   const resultsHtml=`<div id="contactListResults" data-count="${list.length}">
     ${isCustomers?customerPurchaseNotice(purchaseState):''}
     <div class="doc-list-wrap seamless-table-wrap">
     <table class="grid-table doc-head-blue contact-summary-table"><thead><tr>${tableHead}</tr></thead>
     <tbody>${pageList.map(c=>`<tr>
-      ${isCustomers?'':`<td class="mono">${escapeHtml(c.code||'-')}</td>`}
+      ${isCustomers?`<td>${escapeHtml(groupNames.get(c.priceGroupId)||'—')}</td>`:`<td class="mono">${escapeHtml(c.code||'-')}</td>`}
       <td style="text-align:${isCustomers?'center':'left'};">${escapeHtml(c.name)}</td>
       ${isCustomers?`<td class="mono">${escapeHtml(c.phone||'-')}</td><td>${escapeHtml(c.line||'-')}</td><td>${customerLoyaltyBalanceHtml(loyaltyState,c.id)}</td><td style="white-space:nowrap;">${customerTierOnlyHtml(purchaseState,c.id)}</td><td class="mono">${customerMonthlyAverageHtml(purchaseState,c.id)}</td><td class="mono">${customerLoyaltyExpiryHtml(loyaltyState,c.id)}</td>`:`<td>${escapeHtml(c.contactName||'-')}</td><td class="mono">${escapeHtml(c.phone||'-')}</td><td>${escapeHtml(c.email||'-')}</td><td style="white-space:nowrap;">${typeBadge(c)}</td>`}
       <td style="text-align:center;"><div class="history-actions contact-action-icons">${isCustomers?`<button class="history-icon-btn customer-purchase-history-action" data-customer-history="${c.id}" title="ประวัติการซื้อ" aria-label="ดูประวัติการซื้อ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11v8"/><path d="M5 3v18l2-1.5L9 21l2-1.5L13 21l2-1.5"/><path d="M8 8h5M8 12h3"/><circle cx="17" cy="16" r="4"/><path d="M17 14v2l1.4 1"/></svg></button>`:''}${c.types.includes('customer')?`<button class="history-icon-btn customer-price-action" data-act="customerprice" data-id="${c.id}" title="ราคาพิเศษ" aria-label="ราคาพิเศษ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M20 13 11 22l-9-9V4h9l9 9z"/><circle cx="7.5" cy="9.5" r="1.5"/></svg></button>`:''}<button class="history-icon-btn" data-act="editcontact" data-id="${c.id}" title="แก้ไข" aria-label="แก้ไข ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></svg></button><button class="history-icon-btn danger" data-act="deletecontact" data-id="${c.id}" title="ลบ" aria-label="ลบ ${escapeHtml(c.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 6h18M8 6V3h8v3M6 6l1 15h10l1-15M10 10v7M14 10v7"/></svg></button></div></td>
-    </tr>`).join('')||`<tr><td colspan="${isCustomers?8:7}" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายชื่อในกลุ่มนี้</td></tr>`}</tbody></table>
+    </tr>`).join('')||`<tr><td colspan="${isCustomers?9:7}" style="text-align:center;color:var(--text-muted);padding:30px;">ไม่มีรายชื่อในกลุ่มนี้</td></tr>`}</tbody></table>
     </div>${pagerHtml(contactPage,totalPages,'contactpage')}</div>`;
   if(resultsOnly) return resultsHtml;
   return `<div class="rpt">
@@ -255,6 +267,7 @@ function renderPriceGroups(){
         </select></label>
         <div class="price-group-name">
           <label class="field">ชื่อกลุ่ม<input data-group-name value="${escapeHtml(group?.name||'')}"></label>
+          <button class="btn ghost" type="button" data-pick-group-customers ${group?'':'disabled'}>เลือกลูกค้า</button>
           <button class="icon-btn danger" type="button" data-delete-group aria-label="ลบกลุ่มราคา" title="ลบกลุ่มราคา" ${group?'':'hidden'}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6m4-6v6"/></svg>
           </button>
