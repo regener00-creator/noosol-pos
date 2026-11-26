@@ -326,8 +326,12 @@ const browserExecutable = [
   await mainTiers.locator('.tier-price').last().fill('155');
   await mainTiers.locator('[data-add-tier]').click();
   await mainTiers.locator('.tier-min').last().fill('48');
-  await mainTiers.locator('[data-remove-tier]').last().click();
-  assert.equal(await mainTiers.locator('.tier-min').count(),2);
+  const removeTier=mainTiers.locator('[data-remove-tier]');
+  assert.equal(await removeTier.count(),1);
+  assert.equal(await removeTier.evaluate(button=>button.parentElement.lastElementChild===button
+    && button.parentElement.firstElementChild.matches('[data-add-tier]')),true);
+  await removeTier.click();
+  assert.deepEqual(await mainTiers.locator('.tier-min').evaluateAll(inputs=>inputs.map(input=>input.value)),['12','24']);
   await page.evaluate(()=>{persistWorkspaceData=async()=>true;assertProductBarcodesAvailable=async()=>{};});
   await page.locator('#saveProductBtn').click();
   await page.waitForFunction(()=>products[0].priceTiers.some(row=>row.minQty===24&&row.price===155));

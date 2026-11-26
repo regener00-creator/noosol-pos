@@ -237,7 +237,6 @@ function priceTierRowHtml(row={}){
   return `<div class="tier-edit-row">
     <label>ซื้อขั้นต่ำ<input type="number" class="tier-min" inputmode="numeric" min="1" step="1" value="${escapeHtml(row.minQty??'')}"></label>
     <label>ราคาต่อหน่วย<input type="number" class="tier-price" inputmode="decimal" min="0" step="0.01" value="${escapeHtml(row.price??'')}"></label>
-    <button type="button" class="btn ghost small" data-remove-tier>ลบ</button>
   </div>`;
 }
 function productTierColumnsHtml(names, draft){
@@ -246,7 +245,12 @@ function productTierColumnsHtml(names, draft){
     return `<section class="unit-tier-editor" data-tier-unit="${escapeHtml(unit)}">
       <h4>${escapeHtml(unit)}</h4>
       <div class="tier-edit-rows">${(rows?.length?rows:[{}]).map(priceTierRowHtml).join('')}</div>
-      <button type="button" data-add-tier class="btn ghost small">+ เพิ่มขั้นราคา</button>
+      <div class="tier-edit-actions">
+        <button type="button" class="btn primary small" data-add-tier>+ เพิ่มขั้นราคา</button>
+        <button type="button" class="btn small" data-remove-tier title="ลบขั้นราคาล่างสุด" aria-label="ลบขั้นราคาล่างสุด">
+          <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6m4-6v6"/></svg>
+        </button>
+      </div>
     </section>`;
   });
   while(columns.length<6) columns.push('<div class="unit-tier-placeholder" aria-hidden="true">–</div>');

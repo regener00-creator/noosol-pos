@@ -2030,13 +2030,17 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     if(tierGrid){
       tierGrid.tierDraft=mobileProductEditor?.draft.priceTierDraft;
       tierGrid.addEventListener('click',event=>{
-        if(event.target.closest('[data-remove-tier]')) event.target.closest('.tier-edit-row').remove();
-        const add=event.target.closest('[data-add-tier]');
-        if(add){
-          const rows=add.closest('[data-tier-unit]').querySelector('.tier-edit-rows');
-          rows.insertAdjacentHTML('beforeend',priceTierRowHtml());
-          rows.lastElementChild.querySelector('.tier-min').focus();
+        const button=event.target.closest('[data-add-tier],[data-remove-tier]');
+        if(!button) return;
+        const column=button.closest('[data-tier-unit]');
+        const rows=column.querySelector('.tier-edit-rows');
+        if(button.hasAttribute('data-remove-tier')){
+          rows.lastElementChild?.remove();
+          if(!rows.lastElementChild) column.querySelector('[data-add-tier]').focus();
+          return;
         }
+        rows.insertAdjacentHTML('beforeend',priceTierRowHtml());
+        rows.lastElementChild.querySelector('.tier-min').focus();
       });
     }
   }

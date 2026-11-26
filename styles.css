@@ -281,13 +281,16 @@
   .unit-tier-editor,.unit-tier-placeholder{min-width:0;border:1px solid var(--border);border-radius:12px;overflow:hidden;}
   .unit-tier-editor{padding:0 10px 10px;}
   .unit-tier-editor h4,.unit-tier-placeholder{margin:0;padding:8px 10px;text-align:center;font-size:14px;}
-  .unit-tier-editor h4{margin:0 -10px;background:var(--primary-soft);border-bottom:1px solid var(--border);overflow-wrap:anywhere;}
+  .unit-tier-editor h4{margin:0 -10px;background:var(--primary);color:#fff;border-bottom:1px solid var(--border);overflow-wrap:anywhere;}
   .unit-tier-placeholder{color:var(--text-muted);background:var(--bg);}
   .tier-edit-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:10px 0;align-items:end;}
-  .tier-edit-row label{display:grid;gap:4px;font-size:12px;overflow-wrap:anywhere;}
-  .tier-edit-row input{min-width:0;width:100%;padding:8px 6px;border:1px solid var(--border);border-radius:7px;}
-  .tier-edit-row [data-remove-tier]{grid-column:1/-1;justify-self:center;}
-  .unit-tier-editor [data-add-tier]{display:block;margin:10px auto 0;max-width:100%;white-space:normal;}
+  .tier-edit-row label{display:grid;gap:4px;font-size:12px;text-align:center;overflow-wrap:anywhere;}
+  .tier-edit-row input{min-width:0;width:100%;padding:8px 6px;border:1px solid var(--border);border-radius:7px;text-align:center;}
+  .tier-edit-actions{display:flex;justify-content:center;align-items:stretch;gap:6px;margin-top:10px;}
+  .tier-edit-actions [data-add-tier]{min-width:0;padding-inline:6px;white-space:normal;}
+  .tier-edit-actions [data-remove-tier]{display:inline-grid;place-items:center;flex:0 0 32px;padding:0;background:var(--danger);border-color:transparent;color:#fff;}
+  .tier-edit-actions [data-remove-tier]:hover{filter:brightness(.9);}
+  .tier-edit-rows:empty + .tier-edit-actions [data-remove-tier]{display:none;}
   @container (max-width:960px){.product-tier-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
   @container (max-width:560px){.product-tier-grid{grid-template-columns:repeat(2,minmax(0,1fr));}.unit-tier-placeholder{display:none;}}
   @container (max-width:360px){.product-tier-grid{grid-template-columns:minmax(0,1fr);}}
