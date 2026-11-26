@@ -1925,12 +1925,14 @@
   #priceGroupPage [hidden]{display:none}
   .price-group-name [data-pick-group-customers]{min-height:40px;white-space:nowrap}
   .price-group-customer-dialog{width:min(820px,94vw);max-width:none;max-height:90vh;padding:0;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text)}
+  .price-group-customer-dialog .modal-head{position:relative;justify-content:center;padding-inline:42px;text-align:center}
+  .price-group-customer-dialog .modal-close{position:absolute;inset-inline-end:16px}
   .price-group-customer-dialog::backdrop{background:rgba(28,21,17,.48)}
   .price-group-customer-body{padding:0 18px 16px}
   .price-group-customer-search{box-sizing:border-box;width:100%;margin:4px 0 12px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}
   .price-group-customer-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
   .price-group-customer-columns section{min-width:0;border:1px solid var(--border);border-radius:10px;overflow:hidden}
-  .price-group-customer-columns h4{margin:0;padding:9px 12px;background:var(--primary);color:#fff}
+  .price-group-customer-columns h4{margin:0;padding:9px 12px;background:var(--primary);color:#fff;text-align:center}
   .price-group-customer-columns ul{height:min(48vh,360px);overflow:auto;margin:0;padding:0;list-style:none}
   .price-group-customer-row{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 12px;border:0;border-bottom:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;text-align:left;overflow-wrap:anywhere;cursor:pointer}
   .price-group-customer-row:hover,.price-group-customer-row:focus-visible{background:var(--primary-soft)}

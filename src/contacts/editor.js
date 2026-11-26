@@ -89,7 +89,7 @@ function renderContacts({resultsOnly=false}={}){
   return `<div class="rpt">
     <div class="form-final-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">${isCustomers?'+ เพิ่มลูกค้า':'+ เพิ่มผู้จำหน่าย'}</button></div>
     <div class="contact-search-row"><h1>${isCustomers?'ลูกค้า':'ผู้จำหน่าย'} <span class="page-title-meta">· <span id="contactListCount">${list.length}</span> รายชื่อ</span></h1>
-      <div class="toolbar">${isCustomers&&loggedInUser()?.owner?'<button class="btn ghost" id="managePriceGroups">กลุ่มราคา</button>':''}<div class="searchbar"><input id="search" placeholder="${isCustomers?'ค้นหาจากชื่อ / เบอร์โทร / ไลน์':'ค้นหาจากรหัสผู้ติดต่อ / ชื่อ / ผู้ติดต่อ / เบอร์'}" value="${escapeHtml(searchQuery)}"></div>${isCustomers?'<button type="button" class="icon-btn" id="refreshCustomerPurchases" title="รีเฟรชยอดซื้อ" aria-label="รีเฟรชยอดซื้อ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></button>':''}</div>
+      <div class="toolbar">${isCustomers&&loggedInUser()?.owner?'<button class="btn primary" id="managePriceGroups">กลุ่มราคา</button>':''}<div class="searchbar"><input id="search" placeholder="${isCustomers?'ค้นหาจากชื่อ / เบอร์โทร / ไลน์':'ค้นหาจากรหัสผู้ติดต่อ / ชื่อ / ผู้ติดต่อ / เบอร์'}" value="${escapeHtml(searchQuery)}"></div>${isCustomers?'<button type="button" class="icon-btn" id="refreshCustomerPurchases" title="รีเฟรชยอดซื้อ" aria-label="รีเฟรชยอดซื้อ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></button>':''}</div>
     </div>
     ${resultsHtml}</div>`;
 }
@@ -242,7 +242,7 @@ function renderContactForm(){
     <div class="pagehead contact-editor-heading"><div><div class="breadcrumb">สมุดรายชื่อ › ${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</div><h1>${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</h1></div>
       <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelContactBtn">ปิด</button><button class="btn primary" id="saveContactBtn">บันทึก</button></div>
     </div>
-    <div class="panel contact-editor-panel">${contactEditorFieldsHtml(c,fixedType)}${fixedType==='customer'?`<label class="field">กลุ่มราคา<select id="contactPriceGroup"><option value="">ราคาปกติ</option>${storePriceGroups().map(group=>`<option value="${escapeHtml(group.id)}" ${c.priceGroupId===group.id?'selected':''}>${escapeHtml(group.name)}</option>`).join('')}</select></label>`:''}</div>`;
+    <div class="panel contact-editor-panel">${contactEditorFieldsHtml(c,fixedType)}</div>`;
 }
 
 function renderPriceGroups(){
@@ -267,7 +267,7 @@ function renderPriceGroups(){
         </select></label>
         <div class="price-group-name">
           <label class="field">ชื่อกลุ่ม<input data-group-name value="${escapeHtml(group?.name||'')}"></label>
-          <button class="btn ghost" type="button" data-pick-group-customers ${group?'':'disabled'}>เลือกลูกค้า</button>
+          <button class="btn primary" type="button" data-pick-group-customers ${group?'':'disabled'}>เลือกลูกค้า</button>
           <button class="icon-btn danger" type="button" data-delete-group aria-label="ลบกลุ่มราคา" title="ลบกลุ่มราคา" ${group?'':'hidden'}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6m4-6v6"/></svg>
           </button>

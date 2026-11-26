@@ -95,7 +95,6 @@ function saveContactEditorData(contactId=editingContactId){
   const entityEl = document.querySelector('input[name="c_entity"]:checked');
   const data = {
     name, types,
-    ...(g('contactPriceGroup')?{priceGroupId:g('contactPriceGroup').value||null}:{}),
     entity: entityEl?entityEl.value:'juristic',
     code,
     ...(!code?{_autoCode:true}:{}),
