@@ -6,10 +6,11 @@ function readContractSteps(row){
   const regular=regularProductUnitPrice(product,unit),cost=productUnitCost(product,unit);
   const inherited=row.inheritedPriceRule;
   const ceiling=Math.min(regular,base===''?(inherited?.price??regular):Number(base));
-  function warn(message,input){showToast(unit+' · '+message,'danger-top');row.nextElementSibling.querySelector('details').open=true;input?.focus();return null;}
-  for(const entry of row.nextElementSibling.querySelectorAll('[data-contract-step]')){
-    const minimum=entry.querySelector('.contract-min'),amount=entry.querySelector('.contract-price');
+  function warn(message,input){showToast(unit+' · '+message,'danger-top');setContractTierExpanded(row,true);input?.focus();return null;}
+  for(const entry of row.nextElementSibling.querySelectorAll('.contract-editable-tier .tier-edit-row')){
+    const minimum=entry.querySelector('.tier-min'),amount=entry.querySelector('.tier-price');
     const minQty=Number(minimum.value),price=Number(amount.value);
+    if(minimum.value===''&&amount.value===''&&!minimum.validity.badInput&&!amount.validity.badInput) continue;
     if(!Number.isSafeInteger(minQty)||minQty<1) return warn('ซื้อขั้นต่ำต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป',minimum);
     if(amount.value===''||!amount.validity.valid) return warn('กรอกราคาต่อหน่วยให้ถูกต้อง',amount);
     if(price<cost) return warn('ราคาขั้นบันไดต้องไม่ต่ำกว่าทุน '+fmtMoney(cost),amount);
@@ -197,43 +198,56 @@ function deleteContact(id){
 
 function openPriceGroups(){
   if(!loggedInUser()?.owner||currentTab!=='customers') return;
+  priceGroupPage={groupId:storePriceGroups()[0]?.id||'',saving:false};
+  render();
+}
+function attachPriceGroupEvents(page){
+  const view=priceGroupPage;
   const context=captureStoreView();
-  const groups=structuredClone(storePriceGroups());
-  const overlay=document.createElement('div');
-  overlay.className='modal-overlay';
-  document.body.appendChild(overlay);
-  function draw(id){
-    const group=groups.find(entry=>entry.id===id);
-    overlay.innerHTML=`<div class="modal pos-customer-pricing-modal" role="dialog" aria-label="กลุ่มราคา"><div class="modal-head"><h3>กลุ่มราคา</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div><div class="pos-customer-pricing-body"><div class="field"><label>เลือกกลุ่มราคา</label><select data-group-select><option value="">+ สร้างกลุ่มราคา</option>${groups.map(entry=>`<option value="${escapeHtml(entry.id)}" ${entry.id===id?'selected':''}>${escapeHtml(entry.name)}</option>`).join('')}</select></div><label class="field">ชื่อกลุ่ม<input data-group-name value="${escapeHtml(group?.name||'')}"></label>${customerPricingTableHtml(group?.customerPrices||[])}</div><div class="pos-customer-pricing-actions"><button class="btn primary" data-save-group>บันทึก</button></div></div>`;
-    overlay.querySelector('.modal-close').onclick=()=>overlay.remove();
-    overlay.querySelector('[data-group-select]').onchange=event=>draw(event.target.value);
-    attachCustomerPricingEvents(overlay,{customerId:null});
-    const save=overlay.querySelector('[data-save-group]');
-    save.onclick=async()=>{
-      const name=overlay.querySelector('[data-group-name]').value.trim();
-      if(!name||groups.some(entry=>entry.id!==id&&entry.name===name)){showToast('กรุณาใช้ชื่อกลุ่มที่ไม่ว่างและไม่ซ้ำ');return;}
-      const customerPrices=collectCustomerPriceRules(overlay);
-      if(!customerPrices||!isStoreViewCurrent(context))return;
-      const updated={id:group?.id||crypto.randomUUID(),name,customerPrices};
-      save.disabled=true;
-      overlay.querySelector('[data-group-select]').disabled=true;
-      try{
-        const {data,error}=await sb.rpc('save_store_price_group',{p_warehouse_id:context.store,p_expected:group||null,p_group:updated});
-        if(error)throw error;
-        if(isStoreViewCurrent(context)){
-          warehouseBusinessProfiles[context.store]={...warehouseBusinessSettings(),priceGroups:data};
-          persistWorkspaceData();
-          showToast('บันทึกกลุ่มราคาแล้ว');
-        }
-        overlay.remove();
-      }catch(error){
-        showToast('บันทึกกลุ่มราคาไม่สำเร็จ · '+error.message,'danger-top');
-        save.disabled=false;
-        overlay.querySelector('[data-group-select]').disabled=false;
+  const groups=storePriceGroups();
+  const group=groups.find(entry=>entry.id===view.groupId);
+  const select=page.querySelector('[data-group-select]');
+  const save=page.querySelector('[data-save-group]');
+  const back=page.querySelector('[data-back-group]');
+  select.disabled=save.disabled=back.disabled=view.saving;
+  back.onclick=()=>{priceGroupPage=null;render();};
+  select.onchange=()=>{view.groupId=select.value;render();};
+  attachCustomerPricingEvents(page,{customerId:null});
+  save.onclick=async()=>{
+    if(view.saving||!isStoreViewCurrent(context)||!loggedInUser()?.owner) return;
+    const name=page.querySelector('[data-group-name]').value.trim();
+    if(!name||groups.some(entry=>entry.id!==view.groupId&&entry.name===name)){
+      showToast('กรุณาใช้ชื่อกลุ่มที่ไม่ว่างและไม่ซ้ำ');
+      return;
+    }
+    const customerPrices=collectCustomerPriceRules(page);
+    if(!customerPrices) return;
+    const updated={id:group?.id||crypto.randomUUID(),name,customerPrices};
+    view.saving=select.disabled=save.disabled=back.disabled=true;
+    let saved=false;
+    try{
+      const {data,error}=await sb.rpc('save_store_price_group',{p_warehouse_id:context.store,p_expected:group||null,p_group:updated});
+      if(error) throw error;
+      if(isStoreViewCurrent(context)){
+        warehouseBusinessProfiles[context.store]={...warehouseBusinessSettings(),priceGroups:data};
+        persistWorkspaceData();
+        showToast('บันทึกกลุ่มราคาแล้ว');
+        view.groupId=updated.id;
+        saved=true;
       }
-    };
-  }
-  draw(groups[0]?.id||'');
+    }catch(error){
+      showToast('บันทึกกลุ่มราคาไม่สำเร็จ · '+error.message,'danger-top');
+    }finally{
+      view.saving=false;
+      select.disabled=save.disabled=back.disabled=false;
+      if(priceGroupPage===view&&currentTab==='customers'&&isStoreViewCurrent(context)&&(saved||!page.isConnected)) render();
+    }
+  };
+}
+function setContractTierExpanded(row,expanded){
+  row.nextElementSibling.hidden=!expanded;
+  row.querySelector('[data-contract-toggle]').setAttribute('aria-expanded',String(expanded));
+  refreshScrollableTableHeights();
 }
 function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPriceContactId,onClose=()=>{editingCustomerPriceContactId=null;render();},onSaved}={}){
   const cancelCustomerPricingBtn=root.querySelector('#cancelCustomerPricingBtn');
@@ -247,20 +261,32 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
     const priceInput=row.querySelector('.customer-price-value');
     const detail=row.nextElementSibling;
     const refreshContractUnit=()=>{
-      row.inheritedPriceRule=customerPriceRule(group,row.dataset.productId,unitSelect.value);
-      detail.querySelector('.contract-inherited').textContent=inheritedContractText(row.inheritedPriceRule,unitSelect.value);
+      const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
+      const unit=unitSelect.value;
+      row.inheritedPriceRule=customerPriceRule(group,product.id,unit);
+      detail.querySelector('.contract-inherited').textContent=inheritedContractText(row.inheritedPriceRule,unit);
+      detail.querySelector('.contract-editable-tier h4').textContent='ราคาขั้นบันได · '+unit;
+      detail.querySelector('.contract-general-tier').innerHTML=contractGeneralTierHtml(product,unit);
       const cost=row.querySelector('.customer-price-cost').value;
-      detail.querySelectorAll('.contract-cost').forEach(input=>input.value=cost);
+      detail.querySelectorAll('.contract-editable-tier .tier-cost').forEach(input=>input.value=cost);
       priceInput.placeholder=row.inheritedPriceRule?.price!=null?fmtMoney(row.inheritedPriceRule.price):'ราคาปกติ';
     };
     refreshContractUnit();
+    row.querySelector('[data-contract-toggle]').onclick=()=>setContractTierExpanded(row,detail.hidden);
     detail.onclick=event=>{
-      const add=event.target.closest('[data-contract-add]'),remove=event.target.closest('[data-contract-remove]');
-      if(remove){remove.closest('[data-contract-step]').remove();return;}
-      if(!add||readContractSteps(row)===null) return;
-      const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
-      detail.querySelector('[data-contract-steps]').insertAdjacentHTML('beforeend',contractStepHtml({},productUnitCost(product,unitSelect.value)));
-      detail.querySelector('[data-contract-step]:last-child input').focus();
+      const button=event.target.closest('[data-add-tier],[data-remove-tier]');
+      if(!button) return;
+      const rows=detail.querySelector('.contract-editable-tier .tier-edit-rows');
+      if(button.hasAttribute('data-remove-tier')){
+        rows.lastElementChild?.remove();
+        if(!rows.lastElementChild) detail.querySelector('[data-add-tier]')?.focus();
+        return;
+      }
+      if(readContractSteps(row)===null) return;
+      const lastMinimum=rows.lastElementChild?.querySelector('.tier-min');
+      if(lastMinimum?.value===''){lastMinimum.focus();return;}
+      rows.insertAdjacentHTML('beforeend',priceTierRowHtml({},{cost:row.querySelector('.customer-price-cost').value}));
+      rows.lastElementChild.querySelector('.tier-min').focus();
     };
     const updatePriceComparison=()=>{
       const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));

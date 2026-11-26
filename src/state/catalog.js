@@ -83,6 +83,7 @@ let contactPage = 1;
 const CONTACTS_PER_PAGE = 10;
 let editingContactId = null; // null=list, 'new', หรือ id
 let editingCustomerPriceContactId = null;
+let priceGroupPage=null;
 let salesRepresentatives=[];
 function storeRepresentatives(){
   return salesRepresentatives.filter(documentInActiveStore);

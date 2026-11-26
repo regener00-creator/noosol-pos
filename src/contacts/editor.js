@@ -1,4 +1,5 @@
 function renderContacts({resultsOnly=false}={}){
+  if(currentTab==='customers'&&priceGroupPage&&loggedInUser()?.owner) return renderPriceGroups();
   if(editingCustomerPriceContactId!==null) return renderCustomerPricingForm();
   if(editingContactId!==null) return renderContactForm();
   const isCustomers=currentTab==='customers';
@@ -86,12 +87,11 @@ function customerPriceComparison(price,regularPrice,cost){
   if(Number(price)<Number(cost)) return 'below-cost';
   return Number(price)<Number(regularPrice)?'below-regular':Number(price)>Number(regularPrice)?'above-regular':'';
 }
-function contractStepHtml(step={},cost=0){
-  return `<div data-contract-step>
-    <label>ซื้อขั้นต่ำ<input class="contract-min" type="number" min="1" step="1" value="${escapeHtml(step.minQty??'')}"></label>
-    <label>ราคาต่อหน่วย<input class="contract-price" type="number" min="0" step="0.01" value="${escapeHtml(step.price??'')}"></label>
-    <label>ทุน<input class="contract-cost customer-price-cost" readonly tabindex="-1" value="${fmtMoney(cost)}"></label>
-    <button class="history-icon-btn danger" type="button" data-contract-remove aria-label="ลบขั้นราคา">×</button></div>`;
+function contractGeneralTierHtml(product,unit){
+  const tiers=productTierRows(product,unit).slice().sort((a,b)=>a.minQty-b.minQty);
+  return tiers.length?priceTierColumnHtml(unit,tiers,{
+    readOnly:true,cost:fmtMoney(productUnitCost(product,unit)),title:'ราคาขั้นบันไดทั่วไป · '+unit
+  }):'';
 }
 function inheritedContractText(groupRule,unit){
   if(!groupRule) return '';
@@ -114,13 +114,18 @@ function customerPriceRowHtml(rule={},index=0,allowAddToSale=false,group=null){
     <td><input class="customer-price-value mono ${customerPriceComparison(rule.price,selectedOption?.price||0,selectedOption?.cost||0)}" type="number" min="0" step="0.01" value="${rule.price!=null?escapeHtml(rule.price):''}" placeholder="0.00" aria-label="ราคาพิเศษ ${escapeHtml(product.name)}"></td>
     <td><input class="customer-price-regular mono" value="${escapeHtml(fmtMoney(selectedOption?.price||0))}" readonly tabindex="-1" aria-label="ราคาปกติ ${escapeHtml(product.name)}"></td>
     <td><input class="customer-price-cost mono" value="${escapeHtml(fmtMoney(selectedOption?.cost||0))}" readonly tabindex="-1" aria-label="ทุน ${escapeHtml(product.name)}"></td>
-    <td><button class="history-icon-btn danger customer-price-remove" type="button" title="ลบราคาพิเศษ" aria-label="ลบราคาพิเศษ ${escapeHtml(product.name)}">×</button></td>
-  </tr><tr class="contract-tier-detail"><td colspan="7"><details ${rule.tiers?.length?'open':''}>
-    <summary>ราคาขั้นบันได · ${escapeHtml(product.name)}</summary>
-    <div class="contract-inherited">${escapeHtml(inheritedContractText(customerPriceRule(group,product.id,selectedUnit),selectedUnit))}</div>
-    <div data-contract-steps>${(rule.tiers||[]).map(step=>contractStepHtml(step,selectedOption?.cost)).join('')}</div>
-    <button class="btn primary" type="button" data-contract-add>+ เพิ่มขั้นราคา</button>
-  </details></td></tr>`;
+    <td><div class="customer-price-row-actions"><button class="history-icon-btn danger customer-price-remove" type="button" title="ลบราคาพิเศษ" aria-label="ลบราคาพิเศษ ${escapeHtml(product.name)}">×</button>${priceTierToggleHtml(product.name,'data-contract-toggle')}</div></td>
+  </tr><tr class="product-tier-detail contract-tier-detail" hidden><td colspan="7">
+    <section class="panel product-tier-panel" aria-label="ราคาขั้นบันได ${escapeHtml(product.name)}">
+      <div class="contract-tier-grid">
+        <div class="contract-editable-tier">${priceTierColumnHtml(selectedUnit,rule.tiers,{
+          cost:fmtMoney(selectedOption?.cost||0),title:'ราคาขั้นบันได · '+selectedUnit,showBlank:false
+        })}</div>
+        <div class="contract-general-tier">${contractGeneralTierHtml(product,selectedUnit)}</div>
+      </div>
+      <div class="contract-inherited">${escapeHtml(inheritedContractText(customerPriceRule(group,product.id,selectedUnit),selectedUnit))}</div>
+    </section>
+  </td></tr>`;
 }
 
 function sellQuotationAtPos(id){
@@ -228,6 +233,26 @@ function renderContactForm(){
     <div class="panel contact-editor-panel">${contactEditorFieldsHtml(c,fixedType)}${fixedType==='customer'?`<label class="field">กลุ่มราคา<select id="contactPriceGroup"><option value="">ราคาปกติ</option>${storePriceGroups().map(group=>`<option value="${escapeHtml(group.id)}" ${c.priceGroupId===group.id?'selected':''}>${escapeHtml(group.name)}</option>`).join('')}</select></label>`:''}</div>`;
 }
 
+function renderPriceGroups(){
+  const groups=storePriceGroups();
+  const group=groups.find(entry=>entry.id===priceGroupPage.groupId);
+  return `<div class="rpt customer-pricing-page" id="priceGroupPage">
+    <div class="pagehead"><h1>กลุ่มราคา</h1>
+      <div class="form-final-actions"><button class="btn ghost" type="button" data-back-group>ย้อนกลับ</button>
+        <button class="btn primary" type="button" data-save-group>บันทึก</button></div>
+    </div>
+    <div class="panel customer-pricing-panel">
+      <div class="price-group-fields">
+        <label class="field">เลือกกลุ่มราคา<select data-group-select>
+          <option value="">+ สร้างกลุ่มราคา</option>
+          ${groups.map(entry=>`<option value="${escapeHtml(entry.id)}" ${entry.id===group?.id?'selected':''}>${escapeHtml(entry.name)}</option>`).join('')}
+        </select></label>
+        <label class="field">ชื่อกลุ่ม<input data-group-name value="${escapeHtml(group?.name||'')}"></label>
+      </div>
+      ${customerPricingTableHtml(group?.customerPrices||[])}
+    </div>
+  </div>`;
+}
 function renderCustomerPricingForm(customerId=editingCustomerPriceContactId,allowAddToSale=false){
   const customer=storeContacts().find(contact=>Number(contact.id)===Number(customerId));
   if(!customer) return '<div class="empty">ไม่พบข้อมูลลูกค้า</div>';

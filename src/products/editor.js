@@ -99,7 +99,7 @@ function renderProducts({resultsOnly=false}={}){
             : `<span class="prod-unit-fixed">${escapeHtml(p.unit)}</span>`;
           const lotCount=inventoryLotCount(p.id,activeWarehouseId);
           const representativeHistoryButton=productHasManagedRepresentative(p.id)?`<button class="icon-btn representative-history-action" data-product-representative-history="${p.id}" title="ผู้แทนที่ดูแลสินค้าและ NOTE" aria-label="เปิดผู้แทนที่ดูแล ${escapeHtml(p.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v6h6"/><path d="M12 7v5l3 2"/></svg></button>`:'';
-          const tierButton=p.priceTiers?.length?`<button type="button" class="icon-btn product-tier-action" data-product-tiers="${p.id}" aria-expanded="false" title="ดูราคาขั้นบันได" aria-label="ดูราคาขั้นบันได ${escapeHtml(p.name)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h5v-5h5v-5h5V5h3"/></svg></button>`:'';
+          const tierButton=p.priceTiers?.length?priceTierToggleHtml(p.name,`data-product-tiers="${p.id}"`):'';
           return `<tr class="${isProductActive(p)?'':'product-inactive-row'} ${dataPending?'product-review-pending-row':''} ${dataReviewed?'product-reviewed-row':''}"><td class="mono" style="text-align:center;"><input class="prod-inline-edit" data-pid="${p.id}" data-field="sku" value="${escapeHtml(p.sku||'')}" placeholder="-"></td><td class="mono" style="text-align:center;"><input class="prod-inline-edit prod-inline-barcode prod-unit-barcode" data-pid="${p.id}" data-field="barcode" data-unit="${escapeHtml(selOpt.sub)}" value="${escapeHtml(selOpt.barcode||'')}" placeholder="-" autocomplete="off" aria-label="บาร์โค้ดหน่วย ${escapeHtml(selOpt.sub)}"></td><td><input class="prod-inline-edit prod-inline-name" data-pid="${p.id}" data-field="name" value="${escapeHtml(p.name)}">${isProductActive(p)?'':'<span class="product-status-badge">ปิดใช้งาน</span>'}</td><td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="price" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.price}"></td>${canViewCost?`<td class="mono num" style="text-align:center;"><input class="prod-inline-edit prod-inline-num" data-pid="${p.id}" data-field="cost" data-unit="${escapeHtml(selOpt.sub)}" type="number" value="${selOpt.cost}"></td>`:''}<td style="text-align:center;">${unitSelectHtml}</td><td class="num stock-cell ${p.stock<0?'stock-negative':''}" style="text-align:center;" data-act="stockcheck" data-id="${p.id}" title="กดเพื่อดูทุกหน่วย">${escapeHtml(stockInLargestUnit(p))} <span class="stock-caret">▾</span></td><td style="text-align:center;"><button class="product-lot-link ${lotCount?'':'empty'}" data-product-lots="${p.id}">${lotCount} Lot ▾</button></td>${hasActionColumn?`<td class="num"><div class="product-row-actions">${canOpenProductEditor?`${representativeHistoryButton}<button class="icon-btn" data-act="editproduct" data-id="${p.id}" title="แก้ไข" aria-label="แก้ไข"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button><button class="icon-btn product-review-cycle-toggle" data-cycle-product-review-status="${p.id}" data-review-status="${reviewStatusValue}" title="สถานะ: ${reviewStatusLabel} · คลิกเพื่อเปลี่ยนเป็น ${reviewNextLabel}" aria-label="สถานะตรวจข้อมูล ${reviewStatusLabel}; คลิกเพื่อเปลี่ยนเป็น ${reviewNextLabel}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">${reviewStatusIcon}</svg></button>`:''}${tierButton}</div></td>`:''}</tr>`;
         }).join('')||`<tr><td colspan="${productColumnCount}" style="text-align:center;color:var(--text-muted);padding:30px;">${(productReviewFilterUsed||productTierFilter)?'ไม่พบสินค้าตามตัวกรองที่เลือก':q?'ไม่พบสินค้าที่ค้นหา':selectedGroup?'ไม่มีสินค้าในกลุ่มนี้':'กรุณาเลือกกลุ่มสินค้า เลือกสี หรือค้นหาสินค้าได้ทันที'}</td></tr>`}</tbody></table>
         </div>
@@ -230,6 +230,9 @@ function comboSelect(id, list, selected, placeholder){
   </select>`;
 }
 
+function priceTierToggleHtml(productName,attribute){
+  return `<button type="button" class="icon-btn product-tier-action" ${attribute} aria-expanded="false" title="ดูราคาขั้นบันได" aria-label="ดูราคาขั้นบันได ${escapeHtml(productName)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20h5v-5h5v-5h5V5h3"/></svg></button>`;
+}
 function priceTierRowHtml(row={}, {readOnly=false,cost}={}){
   return `<div class="tier-edit-row${cost===undefined?'':' has-cost'}">
     <label>ซื้อขั้นต่ำ<input type="number" class="tier-min" inputmode="numeric" min="1" step="1" value="${escapeHtml(row.minQty??'')}" ${readOnly?'readonly tabindex="-1"':''}></label>
@@ -237,13 +240,10 @@ function priceTierRowHtml(row={}, {readOnly=false,cost}={}){
     ${cost===undefined?'':`<label>ทุน<input class="tier-cost" value="${escapeHtml(cost)}" readonly tabindex="-1"></label>`}
   </div>`;
 }
-function productTierColumnsHtml(names,draft,{readOnly=false,costs}={}){
-  const columns=names.map(unit=>{
-    const rows=draft.get(unit);
-    const cost=costs?(costs.get(unit)??'–'):undefined;
-    return `<section class="unit-tier-editor" data-tier-unit="${escapeHtml(unit)}">
-      <h4>${escapeHtml(unit)}</h4>
-      <div class="tier-edit-rows">${(rows?.length?rows:[{}]).map(row=>priceTierRowHtml(row,{readOnly,cost})).join('')}</div>
+function priceTierColumnHtml(unit,rows,{readOnly=false,cost,title=unit,showBlank=true}={}){
+  return `<section class="unit-tier-editor" data-tier-unit="${escapeHtml(unit)}">
+      <h4>${escapeHtml(title)}</h4>
+      <div class="tier-edit-rows">${(rows?.length?rows:showBlank?[{}]:[]).map(row=>priceTierRowHtml(row,{readOnly,cost})).join('')}</div>
       ${readOnly?'':`<div class="tier-edit-actions">
         <button type="button" class="btn primary small" data-add-tier>+ เพิ่มขั้นราคา</button>
         <button type="button" class="btn small" data-remove-tier title="ลบขั้นราคาล่างสุด" aria-label="ลบขั้นราคาล่างสุด">
@@ -251,7 +251,9 @@ function productTierColumnsHtml(names,draft,{readOnly=false,costs}={}){
         </button>
       </div>`}
     </section>`;
-  });
+}
+function productTierColumnsHtml(names,draft,{readOnly=false,costs}={}){
+  const columns=names.map(unit=>priceTierColumnHtml(unit,draft.get(unit),{readOnly,cost:costs?(costs.get(unit)??'–'):undefined}));
   while(columns.length<6) columns.push('<div class="unit-tier-placeholder" aria-hidden="true">–</div>');
   return columns.join('');
 }

@@ -169,10 +169,10 @@ async function openPOSCustomerPricing(customerId){
       if(!canPerformPageAction('create','checkout')){showSelectionStatus('ไม่มีสิทธิ์เพิ่มรายการขาย',true);return;}
       const row=button.closest('[data-customer-price-row]'),productId=Number(row.dataset.productId),unit=row.querySelector('.customer-price-unit').value;
       const priceText=row.querySelector('.customer-price-value').value.trim(),rule=customerPriceRule(activeSaleCustomer(),productId,unit);
-      const tierRows=[...row.nextElementSibling.querySelectorAll('[data-contract-step]')];
+      const tierRows=[...row.nextElementSibling.querySelectorAll('.contract-editable-tier .tier-edit-row')];
       const savedSteps=rule?.tiers||[];
       const sameSteps=tierRows.length===savedSteps.length&&tierRows.every((entry,index)=>{
-        const qty=entry.querySelector('.contract-min').value,price=entry.querySelector('.contract-price').value;
+        const qty=entry.querySelector('.tier-min').value,price=entry.querySelector('.tier-price').value;
         return qty!==''&&price!==''&&Number(qty)===savedSteps[index].minQty&&Number(price)===savedSteps[index].price;
       });
       if(!rule||(priceText===''?null:Number(priceText))!==rule.price||!sameSteps){showSelectionStatus('กรุณาบันทึกราคาพิเศษที่แก้ไขก่อนเพิ่มลงรายการขาย',true);return;}
@@ -194,7 +194,11 @@ async function openPOSCustomerPricing(customerId){
       }});
     }else{
       host.querySelectorAll('input,select').forEach(input=>input.disabled=true);
-      host.querySelectorAll('.customer-price-remove,.customer-price-search-wrap,[data-contract-add],[data-contract-remove]').forEach(node=>node.remove());
+      host.querySelectorAll('.customer-price-remove,.customer-price-search-wrap,[data-add-tier],[data-remove-tier]').forEach(node=>node.remove());
+      host.querySelectorAll('[data-contract-toggle]').forEach(button=>button.onclick=()=>{
+        const row=button.closest('[data-customer-price-row]');
+        setContractTierExpanded(row,row.nextElementSibling.hidden);
+      });
       overlay.querySelector('#saveCustomerPricingBtn').remove();
       overlay.querySelector('#cancelCustomerPricingBtn').onclick=close;
     }

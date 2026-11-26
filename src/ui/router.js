@@ -108,7 +108,7 @@ function refreshProductListResults(replacement=null){
 }
 
 function refreshContactListResults(){
-  if(!['customers','contacts'].includes(currentTab)||editingContactId!==null||editingCustomerPriceContactId!==null||customerHistoryView) return false;
+  if(!['customers','contacts'].includes(currentTab)||editingContactId!==null||editingCustomerPriceContactId!==null||customerHistoryView||priceGroupPage) return false;
   const current=document.getElementById('contactListResults');
   if(!current) return false;
   const main=document.getElementById('main'),scroll=current.querySelector('.doc-list-wrap');
@@ -345,6 +345,7 @@ function render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){
   if(storeResetMode&&currentTab!==(storeResetMode==='factory'?'factoryreset':'settingssystem'))storeResetMode=null;
   if(currentTab!=='warehouse'||!addingWarehouse||editingWarehouseId!==null)warehouseCreateApproval=null;
   if(isLevel2User()&&currentTab==='products'&&editingProductId!==null&&editingProductId!=='new') editingProductId=null;
+  if(currentTab!=='customers') priceGroupPage=null;
   if(currentTab!=='barcodeprint'&&typeof resetPriceLabelDesignerPage==='function')resetPriceLabelDesignerPage();
   if(currentTab==='checkout'){ refreshCartCustomerPrices(); reconcileAutoFreeLines(); }
   if(mobileMode){ document.getElementById('sidebar').innerHTML=''; sidebarRenderSignature=''; }

@@ -1401,7 +1401,9 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(saveContactBtn) saveContactBtn.addEventListener('click', saveContact);
   bindContactTaxIdLabel(document);
   bindContactCustomerPhoneRequirement(document);
-  document.getElementById('managePriceGroups')?.addEventListener('click',()=>openPriceGroups());
+  document.getElementById('managePriceGroups')?.addEventListener('click',openPriceGroups);
+  const groupPage=document.getElementById('priceGroupPage');
+  if(groupPage) attachPriceGroupEvents(groupPage);
   if(['customers','contacts'].includes(currentTab)&&editingCustomerPriceContactId!==null) attachCustomerPricingEvents();
   const newSalesRepBtn = document.getElementById('newSalesRepBtn');
   if(newSalesRepBtn) newSalesRepBtn.addEventListener('click', ()=>{ editingSalesRepresentativeId='new'; searchQuery=''; render(); });
