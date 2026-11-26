@@ -1916,13 +1916,17 @@
   .customer-price-search-empty{padding:18px;text-align:center;color:var(--text-muted)}
   .price-group-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:12px}
   .price-group-fields .field{min-width:0}
+  .price-group-name{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px}
+  .price-group-name [data-delete-group]{height:40px;width:40px}
+  .price-group-save-status{color:var(--text-muted);font-size:13px;margin-top:6px;text-align:right}
+  #priceGroupPage [hidden]{display:none}
   .customer-price-row-actions{display:flex;justify-content:center;align-items:center;gap:6px}
   .customer-price-table .contract-tier-detail > td{background:var(--bg);padding:12px}
-  .contract-tier-grid{display:grid;grid-template-columns:repeat(2,minmax(0,320px));gap:12px}
+  .contract-tier-grid{display:flex;justify-content:center;align-items:flex-start;flex-wrap:wrap;gap:12px}
+  .contract-tier-grid > div{flex:0 1 320px;min-width:0}
   .contract-general-tier:empty{display:none}
   .contract-general-tier .unit-tier-editor h4{background:#e6d8cd;color:var(--primary-dark)}
   .contract-inherited:not(:empty){margin-top:8px;color:var(--text-muted)}
-  @container (max-width:540px){.contract-tier-grid{grid-template-columns:minmax(0,1fr)}}
   .customer-price-table-wrap{overflow-x:auto;border-radius:10px;background:#fff}
   .customer-price-table{min-width:1070px;table-layout:fixed;margin:0}
   .customer-price-table .customer-price-col-barcode{width:170px}.customer-price-table .customer-price-col-name{width:auto}.customer-price-table .customer-price-col-unit{width:220px}.customer-price-table .customer-price-col-price{width:150px}.customer-price-table .customer-price-col-regular{width:140px}.customer-price-table .customer-price-col-cost{width:140px}.customer-price-table .customer-price-col-action{width:104px}

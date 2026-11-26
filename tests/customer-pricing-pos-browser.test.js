@@ -273,7 +273,15 @@ const browserExecutable = [
   assert.deepEqual(await selectedPrice(),['standard',220],'a stored below-cost tier must not be applied');
   await page.evaluate(()=>{
     currentTab='customers';editingContactId=null;editingCustomerPriceContactId=null;
-    sb.rpc=async(name,args)=>name==='save_store_price_group'?{data:args.p_group.remove?[]:[args.p_group],error:null}:{data:null,error:null};
+    window.priceGroupSaves=[];
+    window.failGroupSave=false;
+    sb.rpc=async(name,args)=>{
+      if(name!=='save_store_price_group') return {data:null,error:null};
+      window.priceGroupSaves.push(args);
+      await new Promise(resolve=>setTimeout(resolve,100));
+      if(window.failGroupSave){window.failGroupSave=false;return {data:null,error:{message:'ทดสอบบันทึกไม่สำเร็จ'}};}
+      return {data:args.p_group.remove?[]:[args.p_group],error:null};
+    };
     render();
   });
   await page.locator('#managePriceGroups').click();
@@ -284,8 +292,14 @@ const browserExecutable = [
   const groupName=await page.locator('[data-group-name]').boundingBox();
   assert.ok(Math.abs(groupSelect.y-groupName.y)<2&&groupSelect.x<groupName.x);
   await page.locator('[data-group-select]').selectOption('');
-  assert.equal(await page.locator('[data-delete-group]').count(),0);
+  assert.equal(await page.locator('[data-delete-group]').isVisible(),false);
+  assert.equal(await groupPage.getByRole('button',{name:'บันทึก',exact:true}).count(),0);
   await page.locator('[data-group-name]').fill('คู่ค้า');
+  await page.locator('[data-group-name]').press('Enter');
+  await page.waitForFunction(()=>storePriceGroups()[0]?.name==='คู่ค้า');
+  const trash=await page.locator('[data-delete-group]').boundingBox();
+  const nameField=await page.locator('[data-group-name]').boundingBox();
+  assert.ok(trash.x>nameField.x+nameField.width&&Math.abs(trash.y-nameField.y)<8);
   await page.locator('#customerPriceSearch').fill('BOX-101');
   await page.locator('#customerPriceSearch').press('Enter');
   await page.locator('.customer-price-unit').selectOption('กล่อง');
@@ -296,6 +310,8 @@ const browserExecutable = [
   assert.equal(await page.locator('.contract-tier-detail').isVisible(),false);
   await toggle.click();
   assert.equal(await toggle.getAttribute('aria-expanded'),'true');
+  const [leftCard,rightCard,grid]=await Promise.all([editable.boundingBox(),general.boundingBox(),page.locator('.contract-tier-grid').boundingBox()]);
+  assert.ok(Math.abs((leftCard.x+rightCard.x+rightCard.width)/2-(grid.x+grid.width/2))<2);
   assert.deepEqual(await general.locator('.tier-price').evaluateAll(inputs=>inputs.map(input=>[input.value,input.readOnly])),[['210',true],['200',true]]);
   assert.notEqual(await general.locator('h4').evaluate(h=>getComputedStyle(h).backgroundColor),
     await editable.locator('h4').evaluate(h=>getComputedStyle(h).backgroundColor));
@@ -311,18 +327,28 @@ const browserExecutable = [
   await addStep.click();
   await editable.locator('.tier-min').fill('12');await editable.locator('.tier-price').fill('190');
   await addStep.click();assert.equal(await editable.locator('.tier-edit-row').count(),1);
-  await page.locator('[data-save-group]').click();assert.equal(await page.locator('[data-save-group]').count(),1);
+  assert.equal(await page.evaluate(()=>Boolean(storePriceGroups()[0].customerPrices[0]?.tiers?.length)),false);
   await editable.locator('.tier-price').fill('210');
   await addStep.click();
   await editable.locator('.tier-min').last().fill('24');await editable.locator('.tier-price').last().fill('205');
-  await page.locator('[data-save-group]').click();
-  assert.deepEqual(errors,[]);
-  await page.waitForFunction(()=>storePriceGroups()[0]?.name==='คู่ค้า');
-  await toggle.click();
+
+  await editable.locator('.tier-price').last().blur();
+  await page.waitForFunction(()=>storePriceGroups()[0]?.customerPrices[0]?.tiers?.length===2);
+  assert.equal(await toggle.getAttribute('aria-expanded'),'true');
   assert.deepEqual(await editable.locator('.tier-price').evaluateAll(inputs=>inputs.map(input=>input.value)),['210','205']);
+  await page.evaluate(()=>window.failGroupSave=true);
+  await page.locator('[data-group-name]').fill('คู่ค้าประจำ');await page.locator('[data-group-name]').press('Enter');
+  await page.locator('[data-retry-group]').waitFor();
+  assert.equal(await page.evaluate(()=>storePriceGroups()[0].name),'คู่ค้า');
+  await page.locator('[data-retry-group]').click();
+  await editable.locator('.tier-price').last().fill('204');await editable.locator('.tier-price').last().blur();
+  await page.waitForFunction(()=>storePriceGroups()[0]?.name==='คู่ค้าประจำ'&&storePriceGroups()[0]?.customerPrices[0]?.tiers[1]?.price===204);
+  assert.equal(await page.evaluate(()=>window.priceGroupSaves.at(-1).p_expected.name),'คู่ค้าประจำ');
+  await editable.locator('.tier-price').last().fill('205');await editable.locator('.tier-price').last().blur();
+  await page.waitForFunction(()=>storePriceGroups()[0]?.customerPrices[0]?.tiers[1]?.price===205);
   await page.locator('[data-back-group]').click();
   await page.locator('[data-act="editcontact"][data-id="7"]').click();
-  await page.locator('#contactPriceGroup').selectOption({label:'คู่ค้า'});
+  await page.locator('#contactPriceGroup').selectOption({label:'คู่ค้าประจำ'});
   await page.locator('#saveContactBtn').click();
   assert.equal(await page.evaluate(()=>contacts.find(contact=>contact.id===7).priceGroupId===storePriceGroups()[0].id),true);
   await page.evaluate(()=>{contacts[0].customerPrices=[];products[0].priceTiers=[];});

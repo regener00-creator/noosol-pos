@@ -238,9 +238,7 @@ function renderPriceGroups(){
   const group=groups.find(entry=>entry.id===priceGroupPage.groupId);
   return `<div class="rpt customer-pricing-page" id="priceGroupPage">
     <div class="pagehead"><h1>กลุ่มราคา</h1>
-      <div class="form-final-actions"><button class="btn ghost" type="button" data-back-group>ย้อนกลับ</button>
-        ${group?'<button class="btn reset-danger" type="button" data-delete-group>ลบกลุ่มราคา</button>':''}
-        <button class="btn primary" type="button" data-save-group>บันทึก</button></div>
+      <div class="form-final-actions"><button class="btn ghost" type="button" data-back-group>ย้อนกลับ</button></div>
     </div>
     <div class="panel customer-pricing-panel">
       <div class="price-group-fields">
@@ -248,9 +246,18 @@ function renderPriceGroups(){
           <option value="">+ สร้างกลุ่มราคา</option>
           ${groups.map(entry=>`<option value="${escapeHtml(entry.id)}" ${entry.id===group?.id?'selected':''}>${escapeHtml(entry.name)}</option>`).join('')}
         </select></label>
-        <label class="field">ชื่อกลุ่ม<input data-group-name value="${escapeHtml(group?.name||'')}"></label>
+        <div class="price-group-name">
+          <label class="field">ชื่อกลุ่ม<input data-group-name value="${escapeHtml(group?.name||'')}"></label>
+          <button class="icon-btn danger" type="button" data-delete-group aria-label="ลบกลุ่มราคา" title="ลบกลุ่มราคา" ${group?'':'hidden'}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6m4-6v6"/></svg>
+          </button>
+        </div>
       </div>
       ${customerPricingTableHtml(group?.customerPrices||[])}
+      <div class="price-group-save-status">
+        <span role="status" data-price-group-status></span>
+        <button type="button" class="btn ghost small" data-retry-group hidden>ลองอีกครั้ง</button>
+      </div>
     </div>
   </div>`;
 }
