@@ -126,7 +126,14 @@ async function downloadStoreBackup(){
     document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
     localStorage.setItem(STORE_BACKUP_LAST_KEY+':'+payload.warehouseId,payload.createdAt);
     showToast('ดาวน์โหลดไฟล์สำรองของ '+payload.warehouseName+' แล้ว');render();
-  }catch(error){showToast(error.message||'สร้างไฟล์สำรองไม่สำเร็จ','danger');if(button){button.disabled=false;button.textContent='ดาวน์โหลดไฟล์สำรอง';}}
+  }catch(error){
+    const message=error.code==='57014'
+      ?'เซิร์ฟเวอร์ใช้เวลาสร้างไฟล์สำรองนานเกินกำหนด กรุณาลองดาวน์โหลดอีกครั้ง'
+      :error.message||'สร้างไฟล์สำรองไม่สำเร็จ';
+    showToast(message,'danger');
+  }finally{
+    if(button){button.disabled=false;button.textContent='ดาวน์โหลดไฟล์สำรอง';}
+  }
 }
 
 async function submitStoreReset(event){

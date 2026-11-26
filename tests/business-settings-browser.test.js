@@ -69,6 +69,49 @@ const browserExecutable = [
   assert.equal(await page.locator('#topbarFormActions #saveBusinessSettingsBtn').count(), 1);
   assert.equal(await page.locator('#main #saveBusinessSettingsBtn').count(), 0);
   assert.doesNotMatch(await page.locator('.business-settings-page').innerText(),/รายละเอียดธุรกิจ/);
+  await page.evaluate(()=>{
+    currentTab='settingssystem';
+    document.getElementById('main').innerHTML=renderSystemSettings();
+    attachEvents();
+  });
+  const downloadBackup=page.locator('#downloadStoreBackupBtn');
+  const colors=selector=>page.locator(selector).evaluate(button=>{
+    const style=getComputedStyle(button);
+    return [style.backgroundColor,style.color];
+  });
+  assert.deepEqual(await colors('#restoreStoreBackupBtn'),await colors('#downloadStoreBackupBtn'));
+  await page.evaluate(()=>{
+    const rpc=sb.rpc;
+    sb.rpc=async(name,args)=>{
+      if(name!=='export_store_backup') return rpc.call(sb,name,args);
+      if(!window.backupRetry) return {error:{code:'57014',message:'statement timeout'}};
+      const names=['public.products','public.sales','public.contacts','public.notes','public.inventory_lots'];
+      return {data:{
+        format:STORE_BACKUP_FORMAT,version:STORE_BACKUP_VERSION,warehouseId:args.p_warehouse_id,
+        warehouseName:'คลังทดสอบ',createdAt:'2026-11-26T00:00:00Z',
+        data:{tables:Object.fromEntries(names.map(name=>[name,[]]))},
+        manifest:Object.fromEntries(names.map(name=>[name,{rows:0,md5:'d751713988987e9331980363e24189ce'}])),
+      }};
+    };
+    window.restoreBackupTestRpc=()=>{sb.rpc=rpc;};
+  });
+  await downloadBackup.click();
+  await page.getByText('เซิร์ฟเวอร์ใช้เวลาสร้างไฟล์สำรองนานเกินกำหนด กรุณาลองดาวน์โหลดอีกครั้ง',{exact:true}).waitFor();
+  assert.equal(await downloadBackup.isEnabled(),true);
+  await page.evaluate(()=>{window.backupRetry=true;});
+  const [backupDownload]=await Promise.all([page.waitForEvent('download'),downloadBackup.click()]);
+  assert.match(backupDownload.suggestedFilename(),/^PEPOS-backup-.*\.json$/);
+  assert.equal(await backupDownload.failure(),null);
+  const backupFile=JSON.parse(fs.readFileSync(await backupDownload.path(),'utf8'));
+  assert.equal(backupFile.warehouseId,1);
+  assert.deepEqual(backupFile.data.tables['public.products'],[]);
+  await page.evaluate(()=>{
+    window.restoreBackupTestRpc();
+    currentTab='settingsbusiness';
+    document.getElementById('main').innerHTML=renderBusinessSettings();
+    attachEvents();
+    syncTopbarFormActions();
+  });
   const officePhone=page.locator('#set_business_office');
   const documentPhone=page.locator('select#set_business_document_phone');
   await documentPhone.selectOption('office');

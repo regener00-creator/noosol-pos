@@ -242,7 +242,7 @@ function renderStoreBackupSection(){
       <div class="backup-note">สำรองล่าสุดจากอุปกรณ์นี้: <strong>${escapeHtml(lastText)}</strong><br>ไฟล์สำรองไม่รวมบัญชีผู้ใช้งานและรหัสผ่าน ซึ่งจัดเก็บแยกในระบบยืนยันตัวตน<br>ไฟล์นี้รวมข้อมูลที่บันทึกบนเซิร์ฟเวอร์ของร้านที่เลือก กรุณาซิงก์ทุกเครื่องให้สำเร็จก่อนสำรองหรือกู้คืน</div>
       <div class="backup-grid">
         <div class="backup-card"><div class="backup-icon">↓</div><h3>ดาวน์โหลดไฟล์สำรอง</h3><p>ระบบจะบันทึกข้อมูลล่าสุดจากร้านเป็นไฟล์ JSON ลงในอุปกรณ์ แนะนำให้สำรองอย่างน้อยสัปดาห์ละ 1 ครั้ง</p><button class="btn primary" id="downloadStoreBackupBtn">ดาวน์โหลดไฟล์สำรอง</button></div>
-        <div class="backup-card restore"><div class="backup-icon">↑</div><h3>กู้คืนจากไฟล์สำรอง</h3><p>เลือกไฟล์ที่ดาวน์โหลดจากระบบนี้ ข้อมูลในร้านจะถูกแทนที่ด้วยข้อมูลจากวันที่สำรอง</p><button class="btn ghost" id="restoreStoreBackupBtn">เลือกไฟล์เพื่อกู้คืน</button><input id="restoreStoreBackupFile" type="file" accept="application/json,.json" hidden></div>
+        <div class="backup-card restore"><div class="backup-icon">↑</div><h3>กู้คืนจากไฟล์สำรอง</h3><p>เลือกไฟล์ที่ดาวน์โหลดจากระบบนี้ ข้อมูลในร้านจะถูกแทนที่ด้วยข้อมูลจากวันที่สำรอง</p><button class="btn primary" id="restoreStoreBackupBtn">เลือกไฟล์เพื่อกู้คืน</button><input id="restoreStoreBackupFile" type="file" accept="application/json,.json" hidden></div>
       </div>
       <div class="backup-note backup-warning"><strong>ข้อควรระวัง:</strong> เก็บไฟล์สำรองไว้ในพื้นที่ส่วนตัว เพราะไฟล์มีข้อมูลสินค้า ลูกค้า และเอกสารของร้าน การกู้คืนจะทำได้เฉพาะเจ้าของร้านและต้องยืนยันอีกครั้งก่อนเริ่ม</div>
     </div>`;
