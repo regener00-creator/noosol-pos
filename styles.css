@@ -274,7 +274,10 @@
   .switch input:checked + .slider{background:var(--primary);}
   .switch input:checked + .slider:before{transform:translateX(19px);}
   .radio-row{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:13.5px;}
-  .product-tier-summary summary{color:var(--primary);cursor:pointer;font-weight:600;}
+  .prodtable .product-tier-detail > td{padding:12px;background:var(--bg);}
+  .product-tier-detail .product-tier-panel{margin:0;text-align:start;}
+  .product-tier-detail .tier-edit-row input{background:var(--surface);color:var(--text);}
+  .product-tier-action[aria-expanded="true"]{background:var(--primary-soft);border-color:var(--primary);}
   .product-tier-panel{container-type:inline-size;}
   .product-tier-panel h3{text-align:center;}
   .product-tier-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-items:stretch;gap:12px;}
@@ -497,6 +500,7 @@
   .prodtable .col-lots{width:105px;}
   .prodtable .col-expiry{width:130px;}
   .prodtable .col-edit{width:172px;}
+  .prodtable .col-tier-action{width:56px;}
   .prodtable th,.prodtable td{border-left:0;border-right:0;}
   .prodtable td{overflow:hidden;text-overflow:ellipsis;}
   .prodtable td:nth-child(3){white-space:normal;}

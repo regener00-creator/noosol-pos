@@ -42,6 +42,9 @@ function attachProductGroupEvents(root=document){
   });
 }
 function attachProductResultEvents(root=document){
+  root.querySelectorAll('[data-product-tiers]').forEach(button=>{
+    button.addEventListener('click',()=>toggleProductTierDetails(button));
+  });
   root.querySelectorAll('[data-act="editproduct"]').forEach(el=>{
     el.addEventListener('click', ()=>{ if(isLevel2User()) return; editingProductId=Number(el.dataset.id); render(); });
   });
@@ -2037,6 +2040,12 @@ document.querySelectorAll('.line-qty').forEach(el=>{
         if(button.hasAttribute('data-remove-tier')){
           rows.lastElementChild?.remove();
           if(!rows.lastElementChild) column.querySelector('[data-add-tier]').focus();
+          return;
+        }
+        if(!validateProductTierColumn(column)) return;
+        const lastMinimum=rows.lastElementChild?.querySelector('.tier-min');
+        if(lastMinimum?.value===''){
+          lastMinimum.focus();
           return;
         }
         rows.insertAdjacentHTML('beforeend',priceTierRowHtml());
