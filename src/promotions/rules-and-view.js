@@ -90,6 +90,7 @@ function findMatchingPromotion(line){
   // ราคาพิเศษรายลูกค้าและราคาที่ตกลงในใบเสนอราคาเป็นราคาสุทธิแล้ว
   // จึงไม่ซ้อนโปรโมชั่นทั่วไปโดยอัตโนมัติ
   if(line.priceSource==='customer'||line.priceSource==='quotation') return null;
+  if(line.priceSource==='group'||line.priceSource==='tier') return null;
   const product=products.find(p=>p.id===line.pid);
   if(!product) return null;
   const live=promotions.filter(isPromotionLiveToday);
@@ -173,7 +174,7 @@ function reconcileAutoFreeLines(){
   const giftsByBuyLine = new Map();
   const promos = promotions.filter(p=>p.scope==='buygetdiff' && isPromotionLiveToday(p));
   promos.forEach(promo=>{
-    const buyLine = cart.find(l=>l.pid===promo.bgdBuyProductId && l.unit===promo.bgdBuyUnit && !l.custom && l.priceSource!=='customer' && l.priceSource!=='quotation');
+    const buyLine = cart.find(l=>l.pid===promo.bgdBuyProductId && l.unit===promo.bgdBuyUnit && !l.custom && !['customer','quotation','group','tier'].includes(l.priceSource));
     if(!buyLine) return;
     const buyQty = Number(promo.bgdBuyQty)||0;
     if(buyQty<=0) return;
@@ -203,7 +204,7 @@ function getPromotionUpsellHints(lines){
   const hints=[];
   (lines||[]).forEach(line=>{
     if(!line.pid || Number(line.qty)<=0 || line.priceSource==='customer' || line.priceSource==='quotation') return;
-    if(line.autoFreeFromPromo) return; // บรรทัดของแถมเองไม่ต้องเตือนซ้ำ (ไม่ใช่ "ใกล้เข้าเงื่อนไข" แต่เป็นผลลัพธ์ที่ได้แล้ว)
+    if(line.autoFreeFromPromo||line.priceSource==='group'||line.priceSource==='tier') return; // บรรทัดของแถมเองไม่ต้องเตือนซ้ำ (ไม่ใช่ "ใกล้เข้าเงื่อนไข" แต่เป็นผลลัพธ์ที่ได้แล้ว)
     const qty=Number(line.qty)||0;
     const promo=findMatchingPromotion(line);
     if(promo && promo.type==='bundle'){
@@ -329,7 +330,7 @@ function renderPromotionForm(){
           <div class="cform">
             <div class="crow"><label class="promo-inline-label">ประเภท:</label><div class="cradio">
               <label><input type="radio" name="promo_type" value="discount" ${promo.type==='discount'?'checked':''}> ลดราคา</label>
-              <label><input type="radio" name="promo_type" value="bundle" ${promo.type==='bundle'?'checked':''}> ราคาพิเศษเมื่อซื้อครบจำนวน</label>
+              ${promo.type==='bundle'?'<label><input type="radio" name="promo_type" value="bundle" checked> ราคาพิเศษเมื่อซื้อครบจำนวน</label>':''}
               <label><input type="radio" name="promo_type" value="buygetdiff" ${promo.type==='buygetdiff'?'checked':''}> ซื้อและแถม</label>
             </div></div>
             <div id="promo_fields_discount" class="promo-fields-group" style="display:${promo.type==='discount'?'flex':'none'};">

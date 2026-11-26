@@ -1399,6 +1399,7 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(saveContactBtn) saveContactBtn.addEventListener('click', saveContact);
   bindContactTaxIdLabel(document);
   bindContactCustomerPhoneRequirement(document);
+  document.getElementById('managePriceGroups')?.addEventListener('click',()=>openPriceGroups());
   if(['customers','contacts'].includes(currentTab)&&editingCustomerPriceContactId!==null) attachCustomerPricingEvents();
   const newSalesRepBtn = document.getElementById('newSalesRepBtn');
   if(newSalesRepBtn) newSalesRepBtn.addEventListener('click', ()=>{ editingSalesRepresentativeId='new'; searchQuery=''; render(); });
@@ -1677,6 +1678,11 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       productPage=1;
       render();
     });
+  });
+  document.getElementById('productTierFilter')?.addEventListener('click',()=>{
+    productTierFilter=!productTierFilter;
+    productPage=1;
+    render();
   });
   attachProductGroupEvents();
   // --- sort headers ---
@@ -2016,6 +2022,14 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(saveProductBtn){
     document.getElementById('main').addEventListener('input',validateProductBarcodeInput);
     saveProductBtn.addEventListener('click', saveProduct);
+    document.querySelector('.product-pricing-panel')?.addEventListener('click',event=>{
+      if(event.target.closest('[data-remove-tier]')) event.target.closest('.tier-edit-row').remove();
+      const add=event.target.closest('[data-add-tier]');
+      if(add){
+        add.previousElementSibling.insertAdjacentHTML('beforeend',priceTierRowHtml());
+        add.previousElementSibling.lastElementChild.querySelector('input').focus();
+      }
+    });
   }
   const deleteProductBtn = document.getElementById('deleteProductBtn');
   if(deleteProductBtn) deleteProductBtn.addEventListener('click', deleteUnusedProduct);

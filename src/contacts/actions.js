@@ -9,7 +9,7 @@ function collectCustomerPriceRules(root=document){
     if(!product){ showToast('ไม่พบสินค้าที่กำหนดราคาพิเศษ กรุณาลบรายการแล้วเพิ่มใหม่','danger-top'); return null; }
     if(!productUnitOptions(product).some(option=>option.name===unit)){ showToast(`หน่วย “${unit||'-'}” ไม่ได้อยู่ในสินค้า “${product.name}”`,'danger-top'); row.querySelector('.customer-price-unit')?.focus(); return null; }
     const price=Number(priceText);
-    if(!Number.isFinite(price)||price<0){ showToast('กรุณากรอกราคาพิเศษให้ถูกต้อง','danger-top'); row.querySelector('.customer-price-value')?.focus(); return null; }
+    if(priceText===''||!Number.isFinite(price)||price<0){ showToast('กรุณากรอกราคาพิเศษให้ถูกต้อง','danger-top'); row.querySelector('.customer-price-value')?.focus(); return null; }
     const key=`${product.id}::${unit}`;
     if(duplicateKeys.has(key)){ showToast(`กำหนดราคา “${product.name}” หน่วย ${unit} ซ้ำกัน`,'danger-top'); return null; }
     duplicateKeys.add(key);
@@ -52,6 +52,7 @@ function saveContactEditorData(contactId=editingContactId){
   const entityEl = document.querySelector('input[name="c_entity"]:checked');
   const data = {
     name, types,
+    ...(g('contactPriceGroup')?{priceGroupId:g('contactPriceGroup').value||null}:{}),
     entity: entityEl?entityEl.value:'juristic',
     code,
     ...(!code?{_autoCode:true}:{}),
@@ -168,6 +169,46 @@ function deleteContact(id){
   render();
 }
 
+function openPriceGroups(){
+  if(!loggedInUser()?.owner||currentTab!=='customers') return;
+  const context=captureStoreView();
+  const groups=structuredClone(storePriceGroups());
+  const overlay=document.createElement('div');
+  overlay.className='modal-overlay';
+  document.body.appendChild(overlay);
+  function draw(id){
+    const group=groups.find(entry=>entry.id===id);
+    overlay.innerHTML=`<div class="modal pos-customer-pricing-modal" role="dialog" aria-label="กลุ่มราคา"><div class="modal-head"><h3>กลุ่มราคา</h3><button type="button" class="modal-close" aria-label="ปิด">×</button></div><div class="pos-customer-pricing-body"><div class="field"><label>เลือกกลุ่มราคา</label><select data-group-select><option value="">+ สร้างกลุ่มราคา</option>${groups.map(entry=>`<option value="${escapeHtml(entry.id)}" ${entry.id===id?'selected':''}>${escapeHtml(entry.name)}</option>`).join('')}</select></div><label class="field">ชื่อกลุ่ม<input data-group-name value="${escapeHtml(group?.name||'')}"></label>${customerPricingTableHtml(group?.customerPrices||[])}</div><div class="pos-customer-pricing-actions"><button class="btn primary" data-save-group>บันทึก</button></div></div>`;
+    overlay.querySelector('.modal-close').onclick=()=>overlay.remove();
+    overlay.querySelector('[data-group-select]').onchange=event=>draw(event.target.value);
+    attachCustomerPricingEvents(overlay);
+    const save=overlay.querySelector('[data-save-group]');
+    save.onclick=async()=>{
+      const name=overlay.querySelector('[data-group-name]').value.trim();
+      if(!name||groups.some(entry=>entry.id!==id&&entry.name===name)){showToast('กรุณาใช้ชื่อกลุ่มที่ไม่ว่างและไม่ซ้ำ');return;}
+      const customerPrices=collectCustomerPriceRules(overlay);
+      if(!customerPrices||!isStoreViewCurrent(context))return;
+      const updated={id:group?.id||crypto.randomUUID(),name,customerPrices};
+      save.disabled=true;
+      overlay.querySelector('[data-group-select]').disabled=true;
+      try{
+        const {data,error}=await sb.rpc('save_store_price_group',{p_warehouse_id:context.store,p_expected:group||null,p_group:updated});
+        if(error)throw error;
+        if(isStoreViewCurrent(context)){
+          warehouseBusinessProfiles[context.store]={...warehouseBusinessSettings(),priceGroups:data};
+          persistWorkspaceData();
+          showToast('บันทึกกลุ่มราคาแล้ว');
+        }
+        overlay.remove();
+      }catch(error){
+        showToast('บันทึกกลุ่มราคาไม่สำเร็จ · '+error.message,'danger-top');
+        save.disabled=false;
+        overlay.querySelector('[data-group-select]').disabled=false;
+      }
+    };
+  }
+  draw(groups[0]?.id||'');
+}
 function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPriceContactId,onClose=()=>{editingCustomerPriceContactId=null;render();},onSaved}={}){
   const cancelCustomerPricingBtn=root.querySelector('#cancelCustomerPricingBtn');
   if(cancelCustomerPricingBtn) cancelCustomerPricingBtn.addEventListener('click',onClose);

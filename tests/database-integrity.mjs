@@ -124,7 +124,7 @@ export async function run({client,connect}){
   }finally{await Promise.all(peers.map(p=>p.end()));}
   console.log('DB: ten concurrent writers, old RPC blocked, staff backup/restore access denied');
   // Existing transaction/idempotency coverage now runs reproducibly off Production.
-  for(const name of ['customer-loyalty-checkout.sql','customer-purchase-history.sql','quotation-checkout.sql']){
+  for(const name of ['customer-loyalty-checkout.sql','customer-purchase-history.sql','quotation-checkout.sql','quantity-group-checkout.sql']){
     await q(await fs.readFile(new URL(name,import.meta.url),'utf8'));
     console.log(`DB: ${name} passed`);
   }

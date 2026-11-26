@@ -70,6 +70,12 @@ function normalizedCustomerPriceRules(customer){
 function customerPriceRule(customer,productId,unitName){
   return normalizedCustomerPriceRules(customer).find(rule=>Number(rule.productId)===Number(productId)&&rule.unit===String(unitName||''))||null;
 }
+function storePriceGroups(){
+  return warehouseBusinessProfiles[activeWarehouseId]?.priceGroups||[];
+}
+function productTierRows(product,unit){
+  return (product?.priceTiers||[]).filter(row=>row.unit===unit);
+}
 function regularProductUnitPrice(product,unitName){
   const option=productUnitOptions(product).find(item=>item.name===unitName)||productUnitOptions(product)[0];
   return Number(option?.price)||0;
@@ -78,18 +84,38 @@ function applySalePriceToLine(line,product,unitName,{preserveQuotation=true}={})
   if(!line||!product) return line;
   if(preserveQuotation&&line.priceSource==='quotation') return line;
   const regularPrice=regularProductUnitPrice(product,unitName);
-  const rule=customerPriceRule(activeSaleCustomer(),product.id,unitName);
+  const customer=activeSaleCustomer();
+  const personal=customerPriceRule(customer,product.id,unitName);
+  const group=customer?.priceGroupId && storePriceGroups().find(entry=>entry.id===customer.priceGroupId);
+  const rule=personal||customerPriceRule(group,product.id,unitName);
   line.regularPrice=regularPrice;
   line.price=rule?rule.price:regularPrice;
-  line.priceSource=rule?'customer':'standard';
-  line.customerPriceRuleId=rule?.id||null;
+  line.priceSource=personal?'customer':rule?'group':'standard';
+  line.customerPriceRuleId=personal?.id||null;
   return line;
 }
 function refreshCartCustomerPrices(){
+  const quantities=new Map();
+  for(const line of cart){
+    if(line.custom||line.autoFreeFromPromo||line.priceSource==='quotation') continue;
+    const key=line.pid+'::'+line.unit;
+    quantities.set(key,(quantities.get(key)||0)+Number(line.qty));
+  }
   cart.forEach(line=>{
     if(line.custom||line.autoFreeFromPromo) return;
     const product=products.find(item=>Number(item.id)===Number(line.pid));
-    if(product) applySalePriceToLine(line,product,line.unit);
+    if(!product||line.priceSource==='quotation') return;
+    applySalePriceToLine(line,product,line.unit);
+    const qty=quantities.get(line.pid+'::'+line.unit);
+    const tiers=productTierRows(product,line.unit);
+    const tier=tiers.filter(row=>row.minQty<=qty).sort((a,b)=>b.minQty-a.minQty)[0];
+    if(!tier||tier.price>=line.price) return;
+    // Compare the existing promotion on its original base price before selecting a tier.
+    const promotion=calcPromotionForLine(line);
+    if(promotion.promoId && promotion.lineTotal<=tier.price*line.qty) return;
+    line.price=tier.price;
+    line.priceSource='tier';
+    line.customerPriceRuleId=null;
   });
 }
 async function openPOSCustomerPricing(customerId){
@@ -123,7 +149,8 @@ async function openPOSCustomerPricing(customerId){
       if(!isProductActive(product)||!productUnitOptions(product).some(option=>option.name===unit)){showSelectionStatus('สินค้าไม่พร้อมขายหรือหน่วยนี้ไม่พร้อมใช้งาน',true);return;}
       addToCart(product.id,unit,1,{requireCustomerPrice:true});
       render();
-      showSelectionStatus(`เพิ่ม ${product.name} · 1 ${unit} · ${fmtMoney(rule.price)} บาท ลงรายการขายแล้ว`);
+      const addedLine=cart.find(line=>line.lineId===posActiveLineId);
+      showSelectionStatus(`เพิ่ม ${product.name} · 1 ${unit} · ${fmtMoney(addedLine?.price??rule.price)} บาท ลงรายการขายแล้ว`);
     });
     const actions=host.querySelector('.form-final-actions');
     overlay.querySelector('.pos-customer-pricing-actions').append(actions);
@@ -264,7 +291,8 @@ function addToCart(pid, unitName, qty,{requireCustomerPrice=false}={}){
   // ถ้ามีบรรทัดสินค้า+หน่วยเดียวกันอยู่แล้ว บวกจำนวนเข้าไป
   const specialRule=requireCustomerPrice?customerPriceRule(activeSaleCustomer(),pid,unit):null;
   if(requireCustomerPrice&&!specialRule)return;
-  const existing = cart.find(l=>l.pid===pid && l.unit===unit&&(!requireCustomerPrice||(!l.custom&&!l.autoFreeFromPromo&&!l.sourceQuotationId&&l.priceSource==='customer'&&Number(l.price)===specialRule.price)));
+  const existing = cart.find(line=>line.pid===pid && line.unit===unit && !line.custom &&
+    !line.autoFreeFromPromo && !line.sourceQuotationId && line.priceSource!=='quotation');
   if(existing){ existing.qty += qty; }
   else {
     const line={lineId:lineCounter++, pid, name:p.name, unit, unitName:unit, price, regularPrice:price, cost, factor, qty,priceSource:'standard',customerPriceRuleId:null};

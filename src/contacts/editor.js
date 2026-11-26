@@ -76,7 +76,7 @@ function renderContacts({resultsOnly=false}={}){
   return `<div class="rpt">
     <div class="form-final-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">${isCustomers?'+ เพิ่มลูกค้า':'+ เพิ่มผู้จำหน่าย'}</button></div>
     <div class="contact-search-row"><h1>${isCustomers?'ลูกค้า':'ผู้จำหน่าย'} <span class="page-title-meta">· <span id="contactListCount">${list.length}</span> รายชื่อ</span></h1>
-      <div class="toolbar"><div class="searchbar"><input id="search" placeholder="${isCustomers?'ค้นหาจากชื่อ / เบอร์โทร / ไลน์':'ค้นหาจากรหัสผู้ติดต่อ / ชื่อ / ผู้ติดต่อ / เบอร์'}" value="${escapeHtml(searchQuery)}"></div>${isCustomers?'<button type="button" class="icon-btn" id="refreshCustomerPurchases" title="รีเฟรชยอดซื้อ" aria-label="รีเฟรชยอดซื้อ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></button>':''}</div>
+      <div class="toolbar">${isCustomers&&loggedInUser()?.owner?'<button class="btn ghost" id="managePriceGroups">กลุ่มราคา</button>':''}<div class="searchbar"><input id="search" placeholder="${isCustomers?'ค้นหาจากชื่อ / เบอร์โทร / ไลน์':'ค้นหาจากรหัสผู้ติดต่อ / ชื่อ / ผู้ติดต่อ / เบอร์'}" value="${escapeHtml(searchQuery)}"></div>${isCustomers?'<button type="button" class="icon-btn" id="refreshCustomerPurchases" title="รีเฟรชยอดซื้อ" aria-label="รีเฟรชยอดซื้อ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></button>':''}</div>
     </div>
     ${resultsHtml}</div>`;
 }
@@ -207,7 +207,7 @@ function renderContactForm(){
     <div class="pagehead contact-editor-heading"><div><div class="breadcrumb">สมุดรายชื่อ › ${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</div><h1>${isNew?'สร้างรายชื่อผู้ติดต่อ':'แก้ไขรายชื่อผู้ติดต่อ'}</h1></div>
       <div class="form-final-actions" style="display:flex;gap:8px;"><button class="btn ghost" id="cancelContactBtn">ปิด</button><button class="btn primary" id="saveContactBtn">บันทึก</button></div>
     </div>
-    <div class="panel contact-editor-panel">${contactEditorFieldsHtml(c,fixedType)}</div>`;
+    <div class="panel contact-editor-panel">${contactEditorFieldsHtml(c,fixedType)}${fixedType==='customer'?`<label class="field">กลุ่มราคา<select id="contactPriceGroup"><option value="">ราคาปกติ</option>${storePriceGroups().map(group=>`<option value="${escapeHtml(group.id)}" ${c.priceGroupId===group.id?'selected':''}>${escapeHtml(group.name)}</option>`).join('')}</select></label>`:''}</div>`;
 }
 
 function renderCustomerPricingForm(customerId=editingCustomerPriceContactId,allowAddToSale=false){
@@ -222,10 +222,13 @@ function renderCustomerPricingForm(customerId=editingCustomerPriceContactId,allo
     </div>
     <div class="panel customer-pricing-panel">
       ${allowAddToSale?`<div class="customer-pricing-heading"><div><h3>รายการสินค้า</h3><p>${priceHelp}</p></div></div>`:`<p class="customer-pricing-help">${priceHelp}</p>`}
-      <div class="customer-price-search-wrap"><div class="customer-price-search"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg></span><input id="customerPriceSearch" placeholder="ค้นหาสินค้า / รหัส / สแกนบาร์โค้ด" autocomplete="off"></div><div class="customer-price-search-results" id="customerPriceSearchResults" hidden></div></div>
-      <div class="customer-price-table-wrap"><table class="grid-table customer-price-table"><colgroup><col class="customer-price-col-barcode"><col class="customer-price-col-name"><col class="customer-price-col-unit"><col class="customer-price-col-price"><col class="customer-price-col-regular"><col class="customer-price-col-cost"><col class="customer-price-col-action"></colgroup><thead><tr><th>บาร์โค้ดสินค้า</th><th>ชื่อ</th><th>หน่วย</th><th>ราคาพิเศษ</th><th>ราคาปกติ</th><th>ทุน</th><th></th></tr></thead><tbody id="customerPriceRows">${customerPrices.map((rule,index)=>customerPriceRowHtml(rule,index,allowAddToSale)).join('')||'<tr class="customer-price-empty"><td colspan="7">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>'}</tbody></table></div>
+      ${customerPricingTableHtml(customerPrices,allowAddToSale)}
     </div>
   </div>`;
+}
+function customerPricingTableHtml(customerPrices,allowAddToSale=false){
+  return `<div class="customer-price-search-wrap"><div class="customer-price-search"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg></span><input id="customerPriceSearch" placeholder="ค้นหาสินค้า / รหัส / สแกนบาร์โค้ด" autocomplete="off"></div><div class="customer-price-search-results" id="customerPriceSearchResults" hidden></div></div>
+      <div class="customer-price-table-wrap"><table class="grid-table customer-price-table"><colgroup><col class="customer-price-col-barcode"><col class="customer-price-col-name"><col class="customer-price-col-unit"><col class="customer-price-col-price"><col class="customer-price-col-regular"><col class="customer-price-col-cost"><col class="customer-price-col-action"></colgroup><thead><tr><th>บาร์โค้ดสินค้า</th><th>ชื่อ</th><th>หน่วย</th><th>ราคาพิเศษ</th><th>ราคาปกติ</th><th>ทุน</th><th></th></tr></thead><tbody id="customerPriceRows">${customerPrices.map((rule,index)=>customerPriceRowHtml(rule,index,allowAddToSale)).join('')||'<tr class="customer-price-empty"><td colspan="7">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>'}</tbody></table></div>`;
 }
 
 function renderSalesRepresentatives(){

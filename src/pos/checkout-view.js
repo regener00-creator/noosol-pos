@@ -61,6 +61,8 @@ function renderCheckout(){
       const itemNameHtml=line.custom?`<div class="custom-line-wrap"><input class="custom-line-input custom-line-name" data-custom-name data-line="${line.lineId}" value="${escapeHtml(line.name)}" placeholder="กรอกชื่อรายการ"></div>`:escapeHtml(line.name);
       const priceCell = line.custom
         ? `<input class="custom-line-input custom-line-price" data-custom-price data-line="${line.lineId}" type="number" min="0" step="0.01" value="${line.price}" placeholder="0.00">`
+        : ['group','tier'].includes(line.priceSource)
+        ? `<span>${fmtMoney(displayUnitPrice)}<br><small class="pos-customer-price-tag">${line.priceSource==='group'?'ราคากลุ่ม':'ราคาขั้นบันได'}</small></span>`
         : line.priceSource==='customer'
         ? `<span>${fmtMoney(displayUnitPrice)}<br><small class="pos-customer-price-tag">ราคาเฉพาะลูกค้า</small></span>`
         : line.priceSource==='quotation'

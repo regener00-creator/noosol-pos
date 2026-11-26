@@ -295,6 +295,25 @@ const browserExecutable = [
   assert.deepEqual(await resultNames(),['Vitamin A','Vitamin B']);
   await supplements.click();
   assert.deepEqual(await resultNames(),['Vitamin A','Vitamin B','Vitamin C']);
+  await page.evaluate(()=>{
+    const p=products[0];
+    p.priceTiers=[{unit:p.unit,minQty:12,price:165}];
+    productReviewFilter='all';render();
+  });
+  await page.locator('#productTierFilter').click();
+  assert.deepEqual(await resultNames(),['Vitamin A']);
+  await page.locator('.product-tier-summary summary').click();
+  assert.match(await page.locator('.product-tier-summary').innerText(),/12.*165/);
+  await page.locator('[data-act="editproduct"]').click();
+  const mainTiers=page.locator('.product-pricing-panel > .unit-tier-editor');
+  await mainTiers.locator('summary').click();
+  assert.equal(await mainTiers.locator('.tier-min').inputValue(),'12');
+  await mainTiers.locator('[data-add-tier]').click();
+  await mainTiers.locator('.tier-min').last().fill('24');
+  await mainTiers.locator('.tier-price').last().fill('155');
+  await page.evaluate(()=>{persistWorkspaceData=async()=>true;assertProductBarcodesAvailable=async()=>{};});
+  await page.locator('#saveProductBtn').click();
+  await page.waitForFunction(()=>products[0].priceTiers.some(row=>row.minQty===24&&row.price===155));
   assert.deepEqual(errors, [], `พบ JavaScript error: ${errors.join(' | ')}`);
   console.log('product search browser tests passed');
 })().catch(error => {

@@ -64,6 +64,20 @@ async function saveProduct(){
     cost: r.cost,
     barcode: r.barcode,
   }));
+  const priceTiers=[];
+  const tierEditor=document.querySelector('.product-pricing-panel > .unit-tier-editor');
+  for(const row of [{sub:unit,tiers:tierEditor?readTierRows(tierEditor):[]},...rawRows]){
+    const seen=new Set();
+    for(const entry of row.tiers||[]){
+      const minQty=Number(entry.minQty),tierPrice=Number(entry.price);
+      if(!Number.isSafeInteger(minQty)||minQty<1||seen.has(minQty)||entry.price===''||!Number.isFinite(tierPrice)||tierPrice<0||Math.abs(tierPrice*100-Math.round(tierPrice*100))>0.000001){
+        showToast('ตรวจจำนวนขั้นต่ำและราคาในขั้นบันไดของหน่วย '+row.sub,'danger-top'); return;
+      }
+      seen.add(minQty);
+      priceTiers.push({unit:row.sub,minQty,price:tierPrice});
+    }
+  }
+  priceTiers.sort((a,b)=>a.minQty-b.minQty);
   const validBarcodeUnits=new Set([mainUnitName,...units.map(item=>item.sub)].filter(Boolean));
   const extraBarcodeRows=mobileEditor?extraBarcodeEntries(mobileEditor.draft):Array.from(document.querySelectorAll('#extraBarcodeRows .bcrow')).map(row=>{
     const requestedUnit=String(row.querySelector('.eb_unit')?.value||'').trim();
@@ -93,7 +107,7 @@ async function saveProduct(){
   const threshold = existing ? (existing.threshold??DEFAULT_LOW_STOCK_THRESHOLD) : DEFAULT_LOW_STOCK_THRESHOLD;
   const lowMode = existing ? (existing.lowMode||'default') : 'default';
   const data = {
-    name, unit, price,
+    name, unit, price, priceTiers,
     active: g('f_active') ? g('f_active').checked : existing?.active!==false,
     cost: parseFloat(gv('f_cost'))||0,
     sku: g('f_sku').value.trim(),

@@ -60,6 +60,7 @@
     "preview_price_label_barcodes(bigint,integer)",
     "find_store_sale(bigint,text)",
     "reserve_shop_document_number(bigint,text,uuid)",
+    "save_store_price_group(bigint,jsonb,jsonb)",
     "update_store_label_settings(bigint,jsonb,text)",
     "resolve_store_sync_events(bigint,text,timestamptz)",
     "owner_resolve_store_sync_event(bigint,uuid)"

@@ -134,6 +134,7 @@ function captureMobileProductDraft(){
   editor.draft.active=!!form.querySelector('#f_active')?.checked;
   editor.draft.multiunit=!!form.querySelector('#f_multiunit')?.checked;
   // Keep incomplete unit rows too, so a reconnect/re-render cannot discard typing.
+  editor.draft.mainTierDraft=readTierRows(document.querySelector('.product-pricing-panel > .unit-tier-editor'));
   editor.draft.units=collectUnitRowsFromDOM({preserveInput:true});
 }
 async function openMobileProductEditor(productId='new',barcode=''){

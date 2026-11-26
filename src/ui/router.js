@@ -346,7 +346,7 @@ function render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){
   if(currentTab!=='warehouse'||!addingWarehouse||editingWarehouseId!==null)warehouseCreateApproval=null;
   if(isLevel2User()&&currentTab==='products'&&editingProductId!==null&&editingProductId!=='new') editingProductId=null;
   if(currentTab!=='barcodeprint'&&typeof resetPriceLabelDesignerPage==='function')resetPriceLabelDesignerPage();
-  if(currentTab==='checkout') reconcileAutoFreeLines();
+  if(currentTab==='checkout'){ refreshCartCustomerPrices(); reconcileAutoFreeLines(); }
   if(mobileMode){ document.getElementById('sidebar').innerHTML=''; sidebarRenderSignature=''; }
   else renderSidebar();
   // เคลียร์ปุ่มเก่าที่ topbar ก่อนสร้าง HTML ใหม่และผูก event listener เสมอ
