@@ -109,7 +109,7 @@ function customerPriceRowHtml(rule={},index=0,allowAddToSale=false,group=null){
   const nameHtml=allowAddToSale?`<button class="customer-price-add-to-sale" data-add-special-price type="button" aria-label="เพิ่ม ${escapeHtml(product.name)} ลงรายการขาย">${escapeHtml(product.name)}</button>`:`<b>${escapeHtml(product.name)}</b>`;
   return `<tr class="customer-price-row" data-customer-price-row data-product-id="${escapeHtml(product.id)}">
     <td class="mono customer-price-barcode">${escapeHtml(productBarcodeForUnit(product,selectedUnit)||'-')}</td>
-    <td class="customer-price-product-name"><input type="hidden" class="customer-price-id" value="${escapeHtml(rule.id||'')}"><input type="hidden" class="customer-price-product-id" value="${escapeHtml(product.id)}">${nameHtml}<small>${escapeHtml(product.sku||'-')}</small></td>
+    <td class="customer-price-product-name"><input type="hidden" class="customer-price-id" value="${escapeHtml(rule.id||'')}"><input type="hidden" class="customer-price-product-id" value="${escapeHtml(product.id)}">${nameHtml}</td>
     <td><select class="customer-price-unit" aria-label="หน่วย ${escapeHtml(product.name)}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selectedUnit?'selected':''}>${escapeHtml(unitLabels.get(option.name)||option.name)}</option>`).join('')}</select></td>
     <td><input class="customer-price-value mono ${customerPriceComparison(rule.price,selectedOption?.price||0,selectedOption?.cost||0)}" type="number" min="0" step="0.01" value="${rule.price!=null?escapeHtml(rule.price):''}" placeholder="0.00" aria-label="ราคาพิเศษ ${escapeHtml(product.name)}"></td>
     <td><input class="customer-price-regular mono" value="${escapeHtml(fmtMoney(selectedOption?.price||0))}" readonly tabindex="-1" aria-label="ราคาปกติ ${escapeHtml(product.name)}"></td>
@@ -237,7 +237,14 @@ function renderPriceGroups(){
   const groups=storePriceGroups();
   const group=groups.find(entry=>entry.id===priceGroupPage.groupId);
   return `<div class="rpt customer-pricing-page" id="priceGroupPage">
-    <div class="pagehead"><h1>กลุ่มราคา</h1>
+    <div class="pagehead">
+      <div class="price-group-heading">
+        <h1>กลุ่มราคา</h1>
+        <div class="price-group-save-status">
+          <span role="status" data-price-group-status></span>
+          <button type="button" class="btn ghost small" data-retry-group hidden>ลองอีกครั้ง</button>
+        </div>
+      </div>
       <div class="form-final-actions"><button class="btn ghost" type="button" data-back-group>ย้อนกลับ</button></div>
     </div>
     <div class="panel customer-pricing-panel">
@@ -254,10 +261,6 @@ function renderPriceGroups(){
         </div>
       </div>
       ${customerPricingTableHtml(group?.customerPrices||[])}
-      <div class="price-group-save-status">
-        <span role="status" data-price-group-status></span>
-        <button type="button" class="btn ghost small" data-retry-group hidden>ลองอีกครั้ง</button>
-      </div>
     </div>
   </div>`;
 }

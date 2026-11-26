@@ -1915,10 +1915,13 @@
   .customer-price-search-result span{display:grid;gap:2px;min-width:0}.customer-price-search-result b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.customer-price-search-result small{font-size:11px;color:var(--text-muted)}.customer-price-search-result>strong{color:var(--primary);white-space:nowrap}
   .customer-price-search-empty{padding:18px;text-align:center;color:var(--text-muted)}
   .price-group-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:12px}
-  .price-group-fields .field{min-width:0}
+  .price-group-fields .field{min-width:0;text-align:center}
   .price-group-name{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px}
-  .price-group-name [data-delete-group]{height:40px;width:40px}
-  .price-group-save-status{color:var(--text-muted);font-size:13px;margin-top:6px;text-align:right}
+  .price-group-name [data-delete-group]{height:40px;width:40px;background:var(--danger);border-color:var(--danger);color:#fff}
+  .price-group-name [data-delete-group]:hover{background:var(--danger);border-color:var(--danger);color:#fff;filter:brightness(.9)}
+  .price-group-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%}
+  .price-group-heading h1{flex-shrink:0}
+  .price-group-save-status{display:flex;align-items:center;justify-content:flex-end;gap:8px;color:var(--text-muted);font-size:13px;text-align:right;overflow-wrap:anywhere}
   #priceGroupPage [hidden]{display:none}
   .customer-price-row-actions{display:flex;justify-content:center;align-items:center;gap:6px}
   .customer-price-table .contract-tier-detail > td{background:var(--bg);padding:12px}
@@ -1931,8 +1934,9 @@
   .customer-price-table{min-width:1070px;table-layout:fixed;margin:0}
   .customer-price-table .customer-price-col-barcode{width:170px}.customer-price-table .customer-price-col-name{width:auto}.customer-price-table .customer-price-col-unit{width:220px}.customer-price-table .customer-price-col-price{width:150px}.customer-price-table .customer-price-col-regular{width:140px}.customer-price-table .customer-price-col-cost{width:140px}.customer-price-table .customer-price-col-action{width:104px}
   .customer-price-table thead th{background:var(--primary);color:#fff;text-align:center}.customer-price-table td{text-align:center;vertical-align:middle}
-  .customer-price-product-name{text-align:left!important}.customer-price-product-name b{display:block;font-size:13.5px}.customer-price-product-name small{display:block;margin-top:3px;color:var(--text-muted);font-size:11px}
+  .customer-price-product-name{text-align:left!important}.customer-price-product-name b{display:block;font-size:13.5px}
   .customer-price-row select,.customer-price-row input{width:100%;min-height:40px;border:1px solid var(--border);border-radius:8px;padding:7px 9px;background:#fff;font:inherit}
+  .customer-price-row .customer-price-unit{text-align:center;text-align-last:center;padding-inline:var(--select-arrow-space,38px)}
   .customer-price-row .customer-price-regular,.customer-price-row .customer-price-cost,.tier-edit-row input.tier-cost,.contract-general-tier .tier-edit-row input[readonly]{background:var(--bg);color:var(--text-muted);cursor:default}
   .tier-edit-row input.tier-cost{border-radius:8px;}
   .customer-price-row .customer-price-value,.customer-price-row .customer-price-regular,.customer-price-row .customer-price-cost{text-align:center;}
@@ -1947,7 +1951,7 @@
   .pos-customer-pricing-status{margin-bottom:14px;padding:12px 16px;border:1px solid var(--border);border-radius:10px;background:var(--primary-soft);color:var(--primary);font-weight:600}
   .pos-customer-pricing-status.is-error{color:var(--danger);background:var(--danger-soft)}
   .pos-customer-pricing-body .customer-pricing-heading h3{font-size:18px}
-  .pos-customer-pricing-body .customer-pricing-heading p,.pos-customer-pricing-body .customer-price-product-name small{font-size:14px}
+  .pos-customer-pricing-body .customer-pricing-heading p{font-size:14px}
   .pos-customer-pricing-body .customer-price-table{min-width:1190px;font-size:16px}
   .pos-customer-pricing-body .customer-price-table th,.pos-customer-pricing-body .customer-price-table td{font-size:16px;padding:12px}
   .pos-customer-pricing-body .customer-price-col-unit{width:260px}
