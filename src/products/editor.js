@@ -272,7 +272,6 @@ function toggleProductTierDetails(button){
     detail.id=panelId;
     detail.insertCell().colSpan=row.cells.length;
     detail.cells[0].innerHTML=`<section class="panel product-tier-panel" aria-label="ราคาขั้นบันได ${escapeHtml(product.name)}">
-      <h3 class="prodform-gap">ราคาขั้นบันได</h3>
       <div class="product-tier-grid">${productTierColumnsHtml(names,tiers,{readOnly:true})}</div>
     </section>`;
     row.after(detail);

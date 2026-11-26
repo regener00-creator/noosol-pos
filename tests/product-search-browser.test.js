@@ -309,6 +309,7 @@ const browserExecutable = [
   await tierButton.click();
   assert.equal(await tierButton.getAttribute('aria-expanded'),'true');
   const tierDetails=page.locator('.product-tier-detail');
+  assert.equal(await tierDetails.getByRole('heading',{name:'ราคาขั้นบันได',exact:true}).count(),0);
   assert.equal(await tierDetails.locator('.product-tier-grid > *').count(),6);
   assert.equal(await tierDetails.locator('.tier-min').inputValue(),'12');
   assert.equal(await tierDetails.locator('.tier-price').inputValue(),'165');
