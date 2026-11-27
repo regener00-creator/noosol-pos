@@ -213,10 +213,7 @@ async function openPOSCustomerPricing(customerId){
     }else{
       host.querySelectorAll('input,select').forEach(input=>input.disabled=true);
       host.querySelectorAll('.customer-price-remove,.customer-price-search-wrap,[data-add-tier],[data-remove-tier]').forEach(node=>node.remove());
-      host.querySelectorAll('[data-contract-toggle]').forEach(button=>button.onclick=()=>{
-        const row=button.closest('[data-customer-price-row]');
-        setContractTierExpanded(row,row.nextElementSibling.hidden);
-      });
+      host.querySelectorAll('[data-customer-price-row]').forEach(row=>row.onclick=handleContractTierRowClick);
       overlay.querySelector('#saveCustomerPricingBtn').remove();
       overlay.querySelector('#cancelCustomerPricingBtn').onclick=close;
     }

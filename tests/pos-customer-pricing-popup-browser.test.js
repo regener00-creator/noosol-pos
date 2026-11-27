@@ -63,6 +63,7 @@ let browser;
   assert.equal(await page.evaluate(()=>cart[0].qty),2,'click adds one of the selected unit');
   assert.equal(await page.evaluate(()=>cart[0].price),150);assert.equal(await modal.count(),1,'popup stays open for selecting more products');
   assert.match(await modal.locator('.pos-customer-pricing-status').innerText(),/1 กล่อง · 150.00 บาท ลงรายการขายแล้ว/);
+  assert.equal(await modal.locator('[data-contract-toggle]').first().getAttribute('aria-expanded'),'false');
   await modal.locator('[data-add-special-price]').last().click();
   assert.deepEqual(await page.evaluate(()=>{const line=cart.find(row=>row.unit==='ซอง');return {unit:line.unit,qty:line.qty,price:line.price,factor:line.factor,cost:line.cost,source:line.priceSource};}),{unit:'ซอง',qty:1,price:7,factor:1,cost:4,source:'customer'});
   await openFirstTier();
@@ -109,7 +110,7 @@ let browser;
   // View-only access may inspect prices but cannot edit or save through the popup.
   await page.evaluate(()=>{window.failPriceSave=false;currentProfile={id:'viewer',level:2};pagePermissionRows=[{page_key:'contacts',warehouse_id:1,can_view:true,can_edit:false}];canAccessTab=()=>true;render();});
   await trigger.click();await modal.locator('.customer-price-unit').first().waitFor();
-  assert.equal(await modal.locator('#saveCustomerPricingBtn').count(),0);await openFirstTier();assert.equal(await price.first().isDisabled(),true);
+  assert.equal(await modal.locator('#saveCustomerPricingBtn').count(),0);await modal.locator('.customer-price-barcode').first().click();assert.equal(await price.first().isDisabled(),true);
   await modal.locator('#cancelCustomerPricingBtn').click();
   assert.deepEqual(errors,[]);console.log('POS special prices popup: lazy load, selected customer, cancel, save, cart repricing, error and view-only access passed');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(async()=>{await browser?.close();server.close();});

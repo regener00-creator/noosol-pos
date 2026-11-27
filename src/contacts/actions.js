@@ -244,7 +244,7 @@ function attachPriceGroupEvents(page){
     customerId:null,onChange:saveChanges,onRemove:removePriceRow,
     canOpenCustomer:()=>isCurrent()&&!view.saving&&canLeave()
   });
-  const editable='.customer-price-unit,.contract-editable-tier .tier-min,.contract-editable-tier .tier-price';
+  const editable='.contract-editable-tier .tier-min,.contract-editable-tier .tier-price';
   page.addEventListener('change',event=>{
     if(!event.target.matches(editable)) return;
     saveChanges();
@@ -469,6 +469,11 @@ function openPersonalPriceList(row,canOpenCustomer){
   row.closest('#priceGroupPage').append(dialog);
   dialog.showModal();
 }
+function handleContractTierRowClick(event){
+  if(event.target.closest('button:not([data-contract-toggle]), select, input:not([readonly])')) return;
+  const row=event.currentTarget;
+  setContractTierExpanded(row,row.nextElementSibling.hidden);
+}
 function setContractTierExpanded(row,expanded){
   if(expanded){
     renderContractComparisons(row);
@@ -496,20 +501,10 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
   if(saveCustomerPricingBtn) saveCustomerPricingBtn.addEventListener('click',()=>saveCustomerPricing({root,customerId,onSaved}));
   const customerPriceRows=root.querySelector('#customerPriceRows');
   const group=customerGroupForPricing(customerId==null?null:storeContacts().find(contact=>Number(contact.id)===Number(customerId)));
-  const bindCustomerPriceRows=()=>root.querySelectorAll('[data-customer-price-row]').forEach(row=>{
+  const bindCustomerPriceRow=row=>{
     const unitSelect=row.querySelector('.customer-price-unit');
     const detail=row.nextElementSibling;
-    const refreshContractUnit=()=>{
-      const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
-      const unit=unitSelect.value;
-      detail.querySelector('.contract-inherited').textContent=inheritedContractText(customerPriceRule(group,product.id,unit),unit);
-      if(!detail.hidden) renderContractComparisons(row);
-      const cost=row.querySelector('.customer-price-cost').value;
-      detail.querySelectorAll('.contract-editable-tier .tier-cost').forEach(input=>input.value=cost);
-      updateContractPriceColors(row);
-    };
-    refreshContractUnit();
-    row.querySelector('[data-contract-toggle]').onclick=()=>setContractTierExpanded(row,detail.hidden);
+    row.onclick=handleContractTierRowClick;
     detail.onclick=event=>{
       if(event.target.closest('[data-personal-list]')){
         openPersonalPriceList(row,canOpenCustomer);
@@ -542,21 +537,13 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
       const fields=[...root.querySelectorAll('.contract-tier-detail:not([hidden]) .contract-editable-tier input:not([readonly]):not(:disabled)')];
       (fields[fields.indexOf(event.target)+1]||root.querySelector('#customerPriceSearch'))?.focus();
     };
-    if(unitSelect){
-      unitSelect.dataset.previousUnit=unitSelect.value;
-      unitSelect.onchange=()=>{
-        const productId=Number(row.dataset.productId);
-        const duplicate=[...root.querySelectorAll('[data-customer-price-row]')].find(other=>other!==row&&Number(other.dataset.productId)===productId&&other.querySelector('.customer-price-unit')?.value===unitSelect.value);
-        if(duplicate){ showToast('สินค้านี้มีราคาพิเศษของหน่วยที่เลือกอยู่แล้ว','danger-top'); unitSelect.value=unitSelect.dataset.previousUnit; return; }
-        const product=products.find(item=>Number(item.id)===productId);
-        const option=productUnitOptions(product).find(item=>item.name===unitSelect.value);
-        row.querySelector('.customer-price-barcode').textContent=productBarcodeForUnit(product,unitSelect.value)||'-';
-        row.querySelector('.customer-price-regular').value=fmtMoney(option?.price||0);
-        row.querySelector('.customer-price-cost').value=fmtMoney(option?.cost||0);
-        unitSelect.dataset.previousUnit=unitSelect.value;
-        refreshContractUnit();
-      };
-    }
+    unitSelect.onchange=()=>{
+      const unit=unitSelect.value;
+      unitSelect.value=row.dataset.originalUnit;
+      if(unit===row.dataset.originalUnit) return;
+      const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
+      addCustomerPriceProduct(product,unit,row);
+    };
     const remove=row.querySelector('.customer-price-remove');
     if(remove) remove.onclick=()=>{
       const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
@@ -566,28 +553,42 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
       onRemove?.(row);
       if(customerPriceRows&&!customerPriceRows.querySelector('[data-customer-price-row]')) customerPriceRows.innerHTML='<tr class="customer-price-empty"><td colspan="6">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>';
     };
-  });
+  };
   const customerPriceSearch=root.querySelector('#customerPriceSearch');
   const customerPriceSearchResults=root.querySelector('#customerPriceSearchResults');
   const customerPriceMatches=query=>productScanMatches(query).map(({product,unitName})=>({product,unit:unitName}));
-  const addCustomerPriceProduct=(product,unit)=>{
+  const addCustomerPriceProduct=(product,unit,sourceRow=null)=>{
     if(!product||!customerPriceRows) return;
     const selectedUnit=productUnitOptions(product).some(option=>option.name===unit)?unit:product.unit;
-    const existing=[...customerPriceRows.querySelectorAll('[data-customer-price-row]')].find(row=>Number(row.dataset.productId)===Number(product.id)&&row.querySelector('.customer-price-unit')?.value===selectedUnit);
-    if(existing){
-      showToast(`มีราคาพิเศษ “${product.name}” หน่วย ${selectedUnit} อยู่แล้ว`);
-      setContractTierExpanded(existing,true);
-      existing.nextElementSibling.querySelector('.contract-editable-tier .tier-price,.contract-editable-tier [data-add-tier]')?.focus();
-      return;
+    let row=[...customerPriceRows.querySelectorAll('[data-customer-price-row]')].find(item=>
+      Number(item.dataset.productId)===Number(product.id)&&item.dataset.originalUnit===selectedUnit);
+    if(row){
+      if(!sourceRow) showToast(`มีราคาพิเศษ “${product.name}” หน่วย ${selectedUnit} อยู่แล้ว`);
+    }else{
+      customerPriceRows.querySelector('.customer-price-empty')?.remove();
+      const anchor=sourceRow?.nextElementSibling;
+      const html=customerPriceRowHtml({productId:product.id,unit:selectedUnit},root.matches?.('.pos-customer-pricing-overlay'),group);
+      if(anchor){
+        anchor.insertAdjacentHTML('afterend',html);
+        row=anchor.nextElementSibling;
+      }else{
+        customerPriceRows.insertAdjacentHTML('beforeend',html);
+        row=customerPriceRows.lastElementChild.previousElementSibling;
+      }
+      bindCustomerPriceRow(row);
     }
-    customerPriceRows.querySelector('.customer-price-empty')?.remove();
-    customerPriceRows.insertAdjacentHTML('beforeend',customerPriceRowHtml({productId:product.id,unit:selectedUnit},root.matches?.('.pos-customer-pricing-overlay'),group));
-    bindCustomerPriceRows();
-    const detail=customerPriceRows.lastElementChild;
-    setContractTierExpanded(detail.previousElementSibling,true);
-    detail.querySelector('[data-add-tier]')?.focus();
-    if(customerPriceSearch) customerPriceSearch.value='';
-    if(customerPriceSearchResults){ customerPriceSearchResults.hidden=true; customerPriceSearchResults.innerHTML=''; }
+    if(sourceRow) setContractTierExpanded(sourceRow,false);
+    setContractTierExpanded(row,true);
+    const fields=row.nextElementSibling.querySelector('.contract-editable-tier');
+    const firstPrice=fields.querySelector('.tier-price');
+    const addStep=fields.querySelector('[data-add-tier]');
+    if(sourceRow&&!firstPrice) addStep.click();
+    else (firstPrice||addStep).focus();
+
+    if(!sourceRow){
+      if(customerPriceSearch) customerPriceSearch.value='';
+      if(customerPriceSearchResults){customerPriceSearchResults.hidden=true;customerPriceSearchResults.innerHTML='';}
+    }
   };
   const renderCustomerPriceSearchResults=()=>{
     if(!customerPriceSearch||!customerPriceSearchResults) return [];
@@ -614,5 +615,5 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
     customerPriceSearch.addEventListener('blur',()=>setTimeout(()=>{ if(customerPriceSearchResults) customerPriceSearchResults.hidden=true; },120));
     customerPriceSearch.addEventListener('focus',renderCustomerPriceSearchResults);
   }
-  bindCustomerPriceRows();
+  customerPriceRows?.querySelectorAll('[data-customer-price-row]').forEach(bindCustomerPriceRow);
 }
