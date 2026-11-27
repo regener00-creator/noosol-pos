@@ -16,11 +16,11 @@ begin
   insert into public.products(id,name,unit,price,cost,warehouse_id,data) values(pid,'Decolgen test','box',220,10,1,
     '{"active":true,"vat":"none","priceTiers":[{"unit":"box","minQty":12,"price":210},{"unit":"box","minQty":24,"price":200}]}');
   perform public.set_inventory_stock(pid,1,100);
-  grp:=jsonb_build_object('id',gid,'name','Test group','customerPrices',jsonb_build_array(jsonb_build_object('productId',pid,'price',215,'unit','box')));
+  grp:=jsonb_build_object('id',gid,'name','LEVEL 1','customerPrices',jsonb_build_array(jsonb_build_object('productId',pid,'price',195,'unit','box')));
   perform public.save_store_price_group(1,null,grp);
   insert into public.contacts(id,name,type,phone,warehouse_id,data) values(cid,'Group buyer','customer','0887009901',1,jsonb_build_object('priceGroupId',gid));
-  sale:=jsonb_build_object('total',215,'discount',0,'fee',0,'vat',0,'costTotal',10,'cashReceived',215,'cashChange',0,'payMethod','เงินสด','customerId',cid);
-  item:=jsonb_build_object('lineKey','1','productId',pid,'name','Decolgen test','qty',1,'unit','box','price',215,'lineTotal',215,'lineTotalGross',215,'priceSource','group');
+  sale:=jsonb_build_object('total',195,'discount',0,'fee',0,'vat',0,'costTotal',10,'cashReceived',195,'cashChange',0,'payMethod','เงินสด','customerId',cid);
+  item:=jsonb_build_object('lineKey','1','productId',pid,'name','Decolgen test','qty',1,'unit','box','price',195,'lineTotal',195,'lineTotalGross',195,'priceSource','group');
   result:=public.complete_sale(gen_random_uuid(),'TEST',1,sale,jsonb_build_array(item),null);
   assert result#>>'{sale,items,0,priceSource}'='group';
   begin
@@ -39,8 +39,23 @@ begin
     raise exception 'below-cost tier accepted';
   exception when others then if sqlerrm not like 'ราคาขั้นบันไดต่ำกว่าทุน%' then raise; end if; end;
   update public.products set cost=10 where id=pid;
-  grp:=jsonb_set(grp,'{customerPrices,0,tiers}','[{"minQty":12,"price":209},{"minQty":24,"price":205}]');
-  perform public.save_store_price_group(1,grp #- '{customerPrices,0,tiers}',grp);
+  declare old_group jsonb:=grp; begin
+  grp:=jsonb_set(grp,'{customerPrices,0,price}','215');
+  grp:=jsonb_set(grp,'{customerPrices,0,tiers}','[{"minQty":12,"price":209},{"minQty":24,"price":195}]');
+  perform public.save_store_price_group(1,old_group,grp);
+  end;
+  declare second_group jsonb:=grp||jsonb_build_object('id',gen_random_uuid()::text,'name','LEVEL 2'); begin
+    begin
+      perform public.save_store_price_group(1,null,second_group);
+      raise exception 'equal level price accepted';
+    exception when others then if sqlerrm not like '%LV2 ต้องถูกกว่า LV1%' then raise; end if; end;
+    second_group:=jsonb_set(second_group,'{customerPrices,0,price}','180') #- '{customerPrices,0,tiers}';
+    perform public.save_store_price_group(1,null,second_group);
+    begin
+      update public.products set price=175 where id=pid;
+      raise exception 'normal price crossed a group';
+    exception when others then if sqlerrm not like '%LV1 ต้องถูกกว่า NORMAL%' then raise; end if; end;
+  end;
   update public.contacts set data=data||jsonb_build_object('customerPrices',jsonb_build_array(
     jsonb_build_object('id','step','productId',pid,'unit','box','price',null,'tiers','[{"minQty":12,"price":208}]'::jsonb))) where id=cid;
   sale:=sale||jsonb_build_object('customerId',cid,'total',2496,'cashReceived',2496,'costTotal',120);
@@ -53,11 +68,11 @@ begin
   exception when others then if sqlerrm not like 'ราคากลุ่มหรือราคาขั้นบันได%' then raise; end if; end;
   item:=item||'{"qty":24,"price":200,"lineTotal":4800,"lineTotalGross":4800,"tierScope":"general","tierMinQty":24}';
   sale:=sale||'{"total":4800,"cashReceived":4800,"costTotal":240}';
-  result:=public.complete_sale(gen_random_uuid(),'TEST',1,sale,jsonb_build_array(item),null);
+  result:=public.complete_sale(gen_random_uuid(),'TEST',1,sale-'customerId',jsonb_build_array(item),null);
   assert result#>>'{sale,items,0,tierScope}'='general';
   update public.products set data=data-'priceTiers' where id=pid;
-  item:=item||'{"price":205,"lineTotal":4920,"lineTotalGross":4920,"tierScope":"group"}';
-  sale:=sale||'{"total":4920,"cashReceived":4920}';
+  item:=item||'{"price":195,"lineTotal":4680,"lineTotalGross":4680,"tierScope":"group"}';
+  sale:=sale||'{"total":4680,"cashReceived":4680}';
   result:=public.complete_sale(gen_random_uuid(),'TEST',1,sale,jsonb_build_array(item),null);
   assert result#>>'{sale,items,0,tierScope}'='group';
   begin
@@ -70,13 +85,10 @@ begin
     raise exception 'stale delete accepted';
   exception when others then if sqlerrm not like 'กลุ่มราคานี้ถูกแก้ไขแล้ว%' then raise; end if; end;
   grp:=grp #- '{customerPrices,0,price}';
-  result:=public.save_store_price_group(1,grp,jsonb_build_object('id',gid,'remove',true));
-  assert not exists(select from jsonb_array_elements(result) g where g->>'id'=gid);
-  assert result=public.save_store_price_group(1,grp,jsonb_build_object('id',gid,'remove',true));
   begin
-    perform public.complete_sale(gen_random_uuid(),'TEST',1,sale,jsonb_build_array(item),null);
-    raise exception 'deleted group still applied';
-  exception when others then if sqlerrm not like 'ราคากลุ่มหรือราคาขั้นบันได%' then raise; end if; end;
+    perform public.save_store_price_group(1,grp,jsonb_build_object('id',gid,'remove',true));
+    raise exception 'fixed level deleted';
+  exception when others then if sqlerrm not like 'เลือกได้เฉพาะ%' then raise; end if; end;
   update public.contacts set data=data||jsonb_build_object('customerPrices',jsonb_build_array(
     jsonb_build_object('id','agreed','productId',pid,'unit','box','price',0))) where id=cid;
   item:=item||'{"qty":1,"price":0,"priceSource":"customer","customerPriceRuleId":"agreed","lineTotal":0,"lineTotalGross":0}';

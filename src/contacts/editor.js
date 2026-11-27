@@ -27,7 +27,7 @@ function renderContacts({resultsOnly=false}={}){
   const ids=list.map(c=>c.id);
   const sortPurchases=isCustomers&&['monthlyAverage','customerTier'].includes(csk)?customerPurchaseLoad(ids):null;
   const sortLoyalty=isCustomers&&csk==='loyaltyBalance'&&ids.length?loadCustomerLoyalty(ids):null;
-  const groupNames=new Map((isCustomers?storePriceGroups():[]).map(group=>[group.id,group.name]));
+  const groupNames=new Map((isCustomers?fixedPriceLevels():[]).map(group=>[group.id,group.name]));
   const tierRank={general:0,regular:1,special:2};
   const sortValues=new Map((sortPurchases?.data?.summaries||[]).map(row=>{
     const tier=customerTierFromPurchases(row.membershipCycleTotal,row.membershipElapsedMonths);
@@ -99,11 +99,48 @@ function customerPriceComparison(price,regularPrice,cost){
   if(Number(price)<Number(cost)) return 'below-cost';
   return Number(price)<Number(regularPrice)?'below-regular':Number(price)>Number(regularPrice)?'above-regular':'';
 }
-function contractGeneralTierHtml(product,unit){
-  const tiers=productTierRows(product,unit).slice().sort((a,b)=>a.minQty-b.minQty);
-  return tiers.length?priceTierColumnHtml(unit,tiers,{
-    readOnly:true,cost:fmtMoney(productUnitCost(product,unit)),title:'ราคาขั้นบันไดทั่วไป · '+unit
-  }):'';
+function personalPriceEntries(productId,unit){
+  return customersList().flatMap(customer=>{
+    const rule=customerPriceRule(customer,productId,unit);
+    if(!rule) return [];
+    return [{customer,rule,lowest:Math.min(...[rule.price,...rule.tiers.map(t=>Number(t.price))].filter(p=>p!=null))}];
+  });
+}
+function renderContractComparisons(row){
+  const detail=row.nextElementSibling;
+  const product=products.find(p=>Number(p.id)===Number(row.dataset.productId));
+  const unit=row.querySelector('.customer-price-unit').value;
+  const levels=fixedPriceLevels();
+  const groupId=row.closest('#priceGroupPage')?priceGroupPage.groupId:null;
+  const cost=fmtMoney(productUnitCost(product,unit));
+  const normal={price:regularProductUnitPrice(product,unit),tiers:productTierRows(product,unit)};
+  const rules=[normal,...levels.map(group=>customerPriceRule(group,product.id,unit))];
+  const grid=detail.querySelector('.contract-tier-grid');
+  const editor=grid.querySelector('.contract-editable-tier');
+  const cards=rules.map((rule,index)=>{
+    const title=index?'LV'+index:'NORMAL';
+    if(index&&levels[index-1].id===groupId){
+      editor.querySelector('h4').textContent=title;
+      return editor;
+    }
+    const card=document.createElement('div');
+    card.className='contract-general-tier';
+    const steps=[...(rule?.tiers||[])].sort((a,b)=>a.minQty-b.minQty);
+    if(rule?.price!=null&&!steps.some(step=>Number(step.minQty)===1)) steps.unshift({minQty:1,price:rule.price});
+    card.innerHTML=priceTierColumnHtml(unit,steps,{readOnly:true,cost,title,showBlank:false});
+    return card;
+  });
+  if(groupId){
+    const star=document.createElement('div');
+    star.className='contract-general-tier';
+    star.innerHTML='<section class="unit-tier-editor"><h4 aria-label="ราคาพิเศษรายบุคคล">⭐</h4>'+
+      (personalPriceEntries(product.id,unit).length?'<div class="tier-edit-actions"><button type="button" class="btn ghost small" data-personal-list>ดูรายชื่อลูกค้า</button></div>':'')+'</section>';
+    cards.push(star);
+  }else{
+    editor.querySelector('h4').textContent='⭐';
+    cards.push(editor);
+  }
+  grid.replaceChildren(...cards);
 }
 function inheritedContractText(groupRule,unit){
   if(!groupRule) return '';
@@ -131,9 +168,8 @@ function customerPriceRowHtml(rule={},index=0,allowAddToSale=false,group=null){
     <section class="panel product-tier-panel" aria-label="ราคาขั้นบันได ${escapeHtml(product.name)}">
       <div class="contract-tier-grid">
         <div class="contract-editable-tier">${priceTierColumnHtml(selectedUnit,rule.tiers,{
-          cost:fmtMoney(selectedOption?.cost||0),title:'ราคาขั้นบันได · '+selectedUnit,showBlank:false
+          cost:fmtMoney(selectedOption?.cost||0),title:'⭐',showBlank:false
         })}</div>
-        <div class="contract-general-tier">${contractGeneralTierHtml(product,selectedUnit)}</div>
       </div>
       <div class="contract-inherited">${escapeHtml(inheritedContractText(customerPriceRule(group,product.id,selectedUnit),selectedUnit))}</div>
     </section>
@@ -246,7 +282,7 @@ function renderContactForm(){
 }
 
 function renderPriceGroups(){
-  const groups=storePriceGroups();
+  const groups=fixedPriceLevels();
   const group=groups.find(entry=>entry.id===priceGroupPage.groupId);
   return `<div class="rpt customer-pricing-page" id="priceGroupPage">
     <div class="pagehead">
@@ -262,16 +298,9 @@ function renderPriceGroups(){
     <div class="panel customer-pricing-panel">
       <div class="price-group-fields">
         <label class="field">เลือกกลุ่มราคา<select data-group-select>
-          <option value="">+ สร้างกลุ่มราคา</option>
           ${groups.map(entry=>`<option value="${escapeHtml(entry.id)}" ${entry.id===group?.id?'selected':''}>${escapeHtml(entry.name)}</option>`).join('')}
         </select></label>
-        <div class="price-group-name">
-          <label class="field">ชื่อกลุ่ม<input data-group-name value="${escapeHtml(group?.name||'')}"></label>
-          <button class="btn primary" type="button" data-pick-group-customers ${group?'':'disabled'}>เลือกลูกค้า</button>
-          <button class="icon-btn danger" type="button" data-delete-group aria-label="ลบกลุ่มราคา" title="ลบกลุ่มราคา" ${group?'':'hidden'}>
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6M10 11v6m4-6v6"/></svg>
-          </button>
-        </div>
+        <button class="btn primary" type="button" data-pick-group-customers>เลือกลูกค้า</button>
       </div>
       ${customerPricingTableHtml(group?.customerPrices||[])}
     </div>

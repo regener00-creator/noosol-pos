@@ -74,6 +74,35 @@ function customerPriceRule(customer,productId,unitName){
 function storePriceGroups(){
   return warehouseBusinessProfiles[activeWarehouseId]?.priceGroups||[];
 }
+function fixedPriceLevels(){
+  const groups=storePriceGroups();
+  return [1,2,3,4].map(level=>{
+    const name='LEVEL '+level;
+    return groups.find(group=>group.name===name)||{
+      id:'00000000-0000-4000-8000-00000000000'+level,name,customerPrices:[]
+    };
+  });
+}
+// Check each quantity where any level changes its effective unit price.
+function priceLevelOrderError(product,unit,levels){
+  const normal={price:regularProductUnitPrice(product,unit),tiers:productTierRows(product,unit)};
+  const rules=[normal,...levels.map(group=>customerPriceRule(group,product.id,unit))];
+  const quantities=new Set([1,...rules.flatMap(rule=>(rule?.tiers||[]).map(t=>Number(t.minQty)))]);
+  for(const qty of [...quantities].sort((a,b)=>a-b)){
+    let previous=null;
+    for(const [level,rule] of rules.entries()){
+      if(!rule) continue;
+      const prices=(rule.tiers||[]).filter(t=>Number(t.minQty)<=qty).map(t=>Number(t.price));
+      if(rule.price!=null) prices.push(Number(rule.price));
+      if(!prices.length) continue;
+      const price=Math.min(...prices);
+      const label=level?'LV'+level:'NORMAL';
+      if(previous&&price>=previous.price) return product.name+' · '+qty+' '+unit+' ขึ้นไป '+label+' ต้องถูกกว่า '+previous.label+' ('+fmtMoney(previous.price)+')';
+      previous={label,price};
+    }
+  }
+  return '';
+}
 function productTierRows(product,unit){
   return (product?.priceTiers||[]).filter(row=>row.unit===unit);
 }
