@@ -53,7 +53,7 @@ const browserExecutable = [
   assert.equal(await page.getByRole('heading',{name:'รายการสินค้า',exact:true}).count(),0);
   const pricingHelp=page.getByText('ค้นหาหรือยิงบาร์โค้ดเพื่อเพิ่มสินค้า ราคานี้จะไม่ซ้อนโปรโมชั่นทั่วไป และไม่มีผลกับราคาหน้าร้านหรือตัวเลขในบิลเก่า',{exact:true});
   assert.equal(await pricingHelp.evaluate(el=>getComputedStyle(el).textAlign),'center');
-  assert.deepEqual(await page.locator('.customer-price-table thead th').allTextContents(),['บาร์โค้ดสินค้า','ชื่อ','หน่วย','ราคาพิเศษ','ราคาปกติ','ทุน','']);
+  assert.deepEqual(await page.locator('.customer-price-table thead th').allTextContents(),['บาร์โค้ดสินค้า','ชื่อ','หน่วย','ราคาปกติ','ทุน','']);
   assert.equal(await page.locator('.customer-price-product-name').innerText(),'Decolgen');
   assert.equal(await page.locator('.customer-price-unit').evaluate(select=>getComputedStyle(select).textAlignLast),'center');
   assert.equal(await page.locator('.customer-price-barcode').textContent(),'BOX-101');
@@ -63,13 +63,28 @@ const browserExecutable = [
   assert.equal(await page.locator('.customer-price-cost').getAttribute('readonly'),'');
   assert.equal(await page.locator('.customer-price-regular').inputValue(),'180.00');
   assert.equal(await page.locator('.customer-price-regular').getAttribute('readonly'),'');
-  const price=page.locator('.customer-price-value');
+  assert.equal(await page.locator('.customer-price-value').count(),0);
+  await page.locator('[data-contract-toggle]').click();
+  assert.equal(await page.locator('.contract-editable-tier .tier-min').inputValue(),'1');
+  const legacyPrices=await page.evaluate(()=>{
+    const tbody=document.createElement('tbody');
+    const rule={productId:101,unit:'กล่อง',tiers:[{minQty:1,price:145}]};
+    return [null,160].map(price=>{
+      tbody.innerHTML=customerPriceRowHtml({...rule,price});
+      return readContractPrice(tbody.firstElementChild);
+    });
+  });
+  assert.deepEqual(legacyPrices,[
+    {price:null,tiers:[{minQty:1,price:145}]},
+    {price:160,tiers:[{minQty:1,price:145}]}
+  ]);
+  const price=page.locator('.contract-editable-tier .tier-price');
   const priceColor=()=>price.evaluate(input=>getComputedStyle(input).color);
   assert.equal(await priceColor(),'rgb(21, 128, 61)','saved discounted price is green');
-  for(const selector of ['.customer-price-value','.customer-price-regular','.customer-price-cost']){
+  for(const selector of ['.contract-editable-tier .tier-price','.customer-price-regular','.customer-price-cost']){
     assert.equal(await page.locator(selector).evaluate(input=>getComputedStyle(input).textAlign),'center');
   }
-  assert.deepEqual(await page.locator('.customer-price-table th').evaluateAll(headers=>headers.slice(3,6).map(header=>getComputedStyle(header).textAlign)),['center','center','center']);
+  assert.deepEqual(await page.locator('.customer-price-table th').evaluateAll(headers=>headers.slice(3,5).map(header=>getComputedStyle(header).textAlign)),['center','center']);
   await price.fill('181');assert.equal(await priceColor(),'rgb(220, 38, 38)');
   await price.fill('180');const neutralColor=await priceColor();
   assert.notEqual(neutralColor,'rgb(21, 128, 61)');assert.notEqual(neutralColor,'rgb(220, 38, 38)');
@@ -85,35 +100,42 @@ const browserExecutable = [
   await page.locator('.customer-price-unit').selectOption('ซอง');
   assert.equal(await priceColor(),'rgb(220, 38, 38)','changing units recalculates comparison');
   assert.equal(await page.locator('.customer-price-regular').inputValue(),'8.00');
-  assert.equal(await page.locator('.customer-price-value').inputValue(),'160','changing unit does not overwrite the special price');
+  assert.equal(await price.inputValue(),'160','changing unit does not overwrite the special price');
   await page.locator('.customer-price-unit').selectOption('กล่อง');
   assert.equal(await priceColor(),'rgb(21, 128, 61)');
   assert.equal(await page.locator('.customer-price-regular').inputValue(),'180.00');
-  await page.locator('.customer-price-value').fill('155');
+  await price.fill('155');
   await page.locator('#customerPriceSearch').fill('SACHET-101');
   await page.locator('#customerPriceSearch').press('Enter');
   assert.equal(await page.locator('[data-customer-price-row]').count(),2);
   assert.equal(await page.locator('[data-customer-price-row]').last().locator('.customer-price-unit').inputValue(),'ซอง');
   assert.equal(await page.locator('[data-customer-price-row]').last().locator('.customer-price-unit option:checked').textContent(),'ซอง');
   assert.equal(await page.locator('[data-customer-price-row]').last().locator('.customer-price-cost').inputValue(),'5.00');
-  await page.locator('[data-customer-price-row]').last().locator('.customer-price-value').fill('7');
-  await page.locator('.customer-price-value').first().focus();
+  const startSachetPrice=async()=>{
+    await page.locator('.contract-editable-tier [data-add-tier]').last().click();
+    await page.locator('.contract-editable-tier .tier-min').last().fill('1');
+  };
+  await startSachetPrice();
+  await price.last().fill('7');
+  await page.locator('.contract-editable-tier .tier-price').first().focus();
   await page.keyboard.press('Enter');
-  assert.equal(await page.locator('.customer-price-value').last().evaluate(input=>input===document.activeElement),true);
+  assert.equal(await page.locator('.contract-editable-tier .tier-min').last().evaluate(input=>input===document.activeElement),true);
+  await page.keyboard.press('Enter');
+  assert.equal(await price.last().evaluate(input=>input===document.activeElement),true);
   await page.keyboard.press('Enter');
   assert.equal(await page.locator('#customerPriceSearch').evaluate(input=>input===document.activeElement),true);
   await page.keyboard.press('Enter');await page.keyboard.press('Enter');
   assert.equal(await page.locator('[data-customer-price-row]').count(),2,'repeated Enter must not delete rows');
   let warning='';
-  await page.locator('.customer-price-value').first().fill('100');
-  await page.locator('.customer-price-value').last().fill('4');
+  await page.locator('.contract-editable-tier .tier-price').first().fill('100');
+  await page.locator('.contract-editable-tier .tier-price').last().fill('4');
   page.once('dialog',async dialog=>{warning=dialog.message();await dialog.dismiss();});
   await page.locator('#saveCustomerPricingBtn').click();
   assert.match(warning,/ต่ำกว่าทุน 2 รายการ/);
   assert.match(warning,/Decolgen \(กล่อง\).*100.00.*110.00/);
   assert.match(warning,/Decolgen \(ซอง\).*4.00.*5.00/);
   assert.equal(await page.evaluate(()=>contacts[0].customerPrices[0].price),160,'cancel warning must not mutate saved prices');
-  assert.equal(await page.locator('.customer-price-value').first().inputValue(),'100','cancel keeps edits available');
+  assert.equal(await page.locator('.contract-editable-tier .tier-price').first().inputValue(),'100','cancel keeps edits available');
   page.once('dialog',async dialog=>{warning=dialog.message();await dialog.dismiss();});
   await page.locator('.customer-price-remove').last().click();
   assert.match(warning,/Decolgen.*ซอง.*รายการราคาพิเศษ/);
@@ -123,8 +145,9 @@ const browserExecutable = [
   assert.equal(await page.locator('[data-customer-price-row]').count(),1);
   await page.locator('#customerPriceSearch').fill('SACHET-101');
   await page.locator('#customerPriceSearch').press('Enter');
-  await page.locator('.customer-price-value').first().fill('155');
-  await page.locator('.customer-price-value').last().fill('7');
+  await startSachetPrice();
+  await price.first().fill('155');
+  await price.last().fill('7');
   await page.locator('#saveCustomerPricingBtn').click();
   assert.equal(await page.evaluate(()=>contacts[0].customerPrices[0].price),155);
   assert.equal(await page.evaluate(()=>contacts[0].customerPrices[1].price),7);
@@ -311,25 +334,31 @@ const browserExecutable = [
   const toggle=page.locator('[data-contract-toggle]');
   const editable=page.locator('.contract-editable-tier');
   const addStep=editable.locator('[data-add-tier]');
-  const setPrice=async value=>{await price.fill(String(value));await price.blur();};
+  const setPrice=async value=>{
+    if(!(await price.count())){
+      await addStep.click();
+      await editable.locator('.tier-min').fill('1');
+    }
+    await price.first().fill(String(value));
+    await price.first().blur();
+  };
   await setPrice(220);
   assert.match(await status.innerText(),/LV1 ต้องถูกกว่า NORMAL/);
   await setPrice(195);
   await page.waitForFunction(()=>storePriceGroups()[0].customerPrices[0]?.price===195);
-  await toggle.click();
   const titles=['NORMAL','LV1','LV2','LV3','LV4','⭐'];
   assert.deepEqual(await groupPage.locator('.contract-tier-grid h4').allTextContents(),titles);
   assert.equal(await editable.locator('h4').innerText(),'LV1');
   const normal=groupPage.locator('.contract-general-tier').first();
   assert.deepEqual(await normal.locator('.tier-price').evaluateAll(inputs=>inputs.map(i=>[i.value,i.readOnly])),[['220',true],['210',true],['200',true]]);
   await addStep.click();
-  await editable.locator('.tier-min').fill('12');
-  await editable.locator('.tier-price').fill('195');await editable.locator('.tier-price').blur();
-  assert.match(await status.innerText(),/ต้องต่ำกว่าราคาตั้งต้นของกลุ่ม 195\.00 บาท/);
+  await editable.locator('.tier-min').last().fill('12');
+  await price.last().fill('195');await price.last().blur();
+  assert.match(await status.innerText(),/ต้องต่ำกว่าขั้นก่อนหน้า 195\.00 บาท/);
   await addStep.click();
-  assert.equal(await editable.locator('.tier-edit-row').count(),1);
+  assert.equal(await editable.locator('.tier-edit-row').count(),2);
   assert.equal(await page.evaluate(()=>storePriceGroups()[0].customerPrices[0].tiers),undefined);
-  await editable.locator('.tier-price').fill('190');await editable.locator('.tier-price').blur();
+  await price.last().fill('190');await price.last().blur();
   await page.waitForFunction(()=>storePriceGroups()[0].customerPrices[0]?.tiers?.[0]?.price===190);
   await page.evaluate(()=>window.failGroupSave=true);
   await setPrice(194);
@@ -340,7 +369,6 @@ const browserExecutable = [
   assert.match(await status.innerText(),/LV3 ต้องถูกกว่า LV1/);
   await setPrice(180);
   await page.waitForFunction(()=>fixedPriceLevels()[2].customerPrices[0]?.price===180);
-  await toggle.click();
   assert.deepEqual(await groupPage.locator('.contract-tier-grid h4').allTextContents(),titles);
   assert.equal(await editable.locator('h4').innerText(),'LV3');
   assert.equal(await groupPage.locator('.contract-general-tier input:not([readonly])').count(),0);
@@ -383,7 +411,6 @@ const browserExecutable = [
   await page.locator('[data-act="customerprice"][data-id="7"]').click();
   await page.locator('#customerPriceSearch').fill('BOX-101');await page.locator('#customerPriceSearch').press('Enter');
   await page.locator('.customer-price-unit').selectOption('กล่อง');
-  await toggle.click();
   assert.match(await page.locator('.contract-inherited').innerText(),/12 กล่องขึ้นไป 190/);
   await addStep.click();await editable.locator('.tier-min').fill('24');await editable.locator('.tier-price').fill('185');
   await page.locator('#saveCustomerPricingBtn').click();

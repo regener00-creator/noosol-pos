@@ -113,6 +113,15 @@ function regularProductUnitPrice(product,unitName){
 function customerGroupForPricing(customer){
   return customer?.priceGroupId?storePriceGroups().find(group=>group.id===customer.priceGroupId):null;
 }
+function contractPriceRows(rule){
+  const steps=(rule?.tiers||[]).map(step=>({minQty:Number(step.minQty),price:Number(step.price)}));
+  if(rule?.price!=null){
+    const first=steps.find(step=>step.minQty===1);
+    if(first) first.price=Math.min(first.price,Number(rule.price));
+    else steps.push({minQty:1,price:Number(rule.price)});
+  }
+  return steps.sort((a,b)=>a.minQty-b.minQty);
+}
 function contractTierSteps(groupRule,personalRule){
   const steps=new Map();
   for(const [source,rule] of [['group',groupRule],['customer',personalRule]]){
@@ -197,14 +206,14 @@ async function openPOSCustomerPricing(customerId){
       if(!isWorkspaceReadCurrent(context)||currentTab!=='checkout'||String(activeSaleCustomer()?.id)!==String(customerId)){close();return;}
       if(!canPerformPageAction('create','checkout')){showSelectionStatus('ไม่มีสิทธิ์เพิ่มรายการขาย',true);return;}
       const row=button.closest('[data-customer-price-row]'),productId=Number(row.dataset.productId),unit=row.querySelector('.customer-price-unit').value;
-      const priceText=row.querySelector('.customer-price-value').value.trim(),rule=customerPriceRule(activeSaleCustomer(),productId,unit);
+      const rule=customerPriceRule(activeSaleCustomer(),productId,unit);
       const tierRows=[...row.nextElementSibling.querySelectorAll('.contract-editable-tier .tier-edit-row')];
-      const savedSteps=rule?.tiers||[];
+      const savedSteps=contractPriceRows(rule);
       const sameSteps=tierRows.length===savedSteps.length&&tierRows.every((entry,index)=>{
         const qty=entry.querySelector('.tier-min').value,price=entry.querySelector('.tier-price').value;
         return qty!==''&&price!==''&&Number(qty)===savedSteps[index].minQty&&Number(price)===savedSteps[index].price;
       });
-      if(!rule||(priceText===''?null:Number(priceText))!==rule.price||!sameSteps){showSelectionStatus('กรุณาบันทึกราคาพิเศษที่แก้ไขก่อนเพิ่มลงรายการขาย',true);return;}
+      if(!rule||!sameSteps){showSelectionStatus('กรุณาบันทึกราคาพิเศษที่แก้ไขก่อนเพิ่มลงรายการขาย',true);return;}
       const product=products.find(item=>Number(item.id)===productId);
       if(!isProductActive(product)||!productUnitOptions(product).some(option=>option.name===unit)){showSelectionStatus('สินค้าไม่พร้อมขายหรือหน่วยนี้ไม่พร้อมใช้งาน',true);return;}
       addToCart(product.id,unit,1,{requireCustomerPrice:true});
