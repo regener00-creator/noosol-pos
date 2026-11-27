@@ -321,6 +321,11 @@ const browserExecutable = [
   assert.deepEqual(await normal.locator('.tier-price').evaluateAll(inputs=>inputs.map(i=>[i.value,i.readOnly])),[['220',true],['210',true],['200',true]]);
   await addStep.click();
   await editable.locator('.tier-min').fill('12');
+  await editable.locator('.tier-price').fill('195');await editable.locator('.tier-price').blur();
+  assert.match(await status.innerText(),/ต้องต่ำกว่าราคาตั้งต้นของกลุ่ม 195\.00 บาท/);
+  await addStep.click();
+  assert.equal(await editable.locator('.tier-edit-row').count(),1);
+  assert.equal(await page.evaluate(()=>storePriceGroups()[0].customerPrices[0].tiers),undefined);
   await editable.locator('.tier-price').fill('190');await editable.locator('.tier-price').blur();
   await page.waitForFunction(()=>storePriceGroups()[0].customerPrices[0]?.tiers?.[0]?.price===190);
   await page.evaluate(()=>window.failGroupSave=true);

@@ -18,6 +18,12 @@ begin
   perform public.set_inventory_stock(pid,1,100);
   grp:=jsonb_build_object('id',gid,'name','LEVEL 1','customerPrices',jsonb_build_array(jsonb_build_object('productId',pid,'price',195,'unit','box')));
   perform public.save_store_price_group(1,null,grp);
+  begin
+    perform public.save_store_price_group(1,grp,jsonb_set(grp,'{customerPrices,0,tiers}','[{"minQty":12,"price":195}]'));
+    raise exception 'quantity step equal to starting group price accepted';
+  exception when others then
+    if sqlerrm not like 'ราคาขั้นบันไดต้องต่ำกว่าราคาตั้งต้นของกลุ่ม%' then raise; end if;
+  end;
   insert into public.contacts(id,name,type,phone,warehouse_id,data) values(cid,'Group buyer','customer','0887009901',1,jsonb_build_object('priceGroupId',gid));
   sale:=jsonb_build_object('total',195,'discount',0,'fee',0,'vat',0,'costTotal',10,'cashReceived',195,'cashChange',0,'payMethod','เงินสด','customerId',cid);
   item:=jsonb_build_object('lineKey','1','productId',pid,'name','Decolgen test','qty',1,'unit','box','price',195,'lineTotal',195,'lineTotalGross',195,'priceSource','group');

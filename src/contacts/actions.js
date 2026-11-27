@@ -5,6 +5,7 @@ function readContractSteps(row,onInvalid){
   const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
   const regular=regularProductUnitPrice(product,unit),cost=productUnitCost(product,unit);
   const inherited=row.inheritedPriceRule;
+  const groupBase=base!==''&&row.closest('#priceGroupPage')?Number(base):null;
   const ceiling=Math.min(regular,base===''?(inherited?.price??regular):Number(base));
   function warn(message,input){
     if(onInvalid) onInvalid(unit+' · '+message);
@@ -18,6 +19,7 @@ function readContractSteps(row,onInvalid){
     if(!Number.isSafeInteger(minQty)||minQty<1) return warn('ซื้อขั้นต่ำต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป',minimum);
     if(amount.value===''||!amount.validity.valid) return warn('กรอกราคาต่อหน่วยให้ถูกต้อง',amount);
     if(price<cost) return warn('ราคาขั้นบันไดต้องไม่ต่ำกว่าทุน '+fmtMoney(cost),amount);
+    if(groupBase!==null&&price>=groupBase) return warn(`ซื้อขั้นต่ำ ${minQty} ${unit} ต้องต่ำกว่าราคาตั้งต้นของกลุ่ม ${fmtMoney(groupBase)} บาท`,amount);
     if(price>ceiling) return warn('ราคาขั้นบันไดต้องไม่เกิน '+fmtMoney(ceiling),amount);
     if(steps.some(step=>step.minQty===minQty)) return warn('จำนวนซื้อขั้นต่ำซ้ำกัน',minimum);
     steps.push({minQty,price});
