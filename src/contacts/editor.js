@@ -158,7 +158,7 @@ function customerPriceRowHtml(rule,allowAddToSale=false,group=null){
   const keepQuantityOneTier=rule.price==null&&hasQuantityOneTier;
   const legacyStartingPrice=hasQuantityOneTier&&rule.price>steps[0].price?rule.price:null;
   const nameHtml=allowAddToSale?`<button class="customer-price-add-to-sale" data-add-special-price type="button" aria-label="เพิ่ม ${escapeHtml(product.name)} ลงรายการขาย">${escapeHtml(product.name)}</button>`:`<b>${escapeHtml(product.name)}</b>`;
-  return `<tr class="customer-price-row" data-customer-price-row data-product-id="${escapeHtml(product.id)}" ${keepQuantityOneTier?'data-quantity-one-tier':''} ${legacyStartingPrice==null?'':`data-legacy-starting-price="${escapeHtml(legacyStartingPrice)}" data-legacy-first-step="${escapeHtml(steps[0].price)}"`}>
+  return `<tr class="customer-price-row" data-customer-price-row data-product-id="${escapeHtml(product.id)}" data-original-unit="${escapeHtml(selectedUnit)}" ${keepQuantityOneTier?'data-quantity-one-tier':''} ${legacyStartingPrice==null?'':`data-legacy-starting-price="${escapeHtml(legacyStartingPrice)}" data-legacy-first-step="${escapeHtml(steps[0].price)}"`}>
     <td class="mono customer-price-barcode">${escapeHtml(productBarcodeForUnit(product,selectedUnit)||'-')}</td>
     <td class="customer-price-product-name"><input type="hidden" class="customer-price-id" value="${escapeHtml(rule.id||'')}">${nameHtml}</td>
     <td><select class="customer-price-unit" aria-label="หน่วย ${escapeHtml(product.name)}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selectedUnit?'selected':''}>${escapeHtml(unitLabels.get(option.name)||option.name)}</option>`).join('')}</select></td>
@@ -305,6 +305,12 @@ function renderPriceGroups(){
       </div>
       ${customerPricingTableHtml(group?.customerPrices||[])}
     </div>
+    <dialog class="price-group-customer-dialog price-group-warning" data-price-warning role="alertdialog"
+        aria-labelledby="priceGroupWarningTitle" aria-describedby="priceGroupWarningMessage">
+      <div class="modal-head"><h3 id="priceGroupWarningTitle">กรุณาแก้ไขราคา</h3></div>
+      <p id="priceGroupWarningMessage"></p>
+      <div class="price-group-warning-actions"><button class="btn primary" type="button" autofocus>แก้ไขราคา</button></div>
+    </dialog>
   </div>`;
 }
 function renderCustomerPricingForm(customerId=editingCustomerPriceContactId,allowAddToSale=false){

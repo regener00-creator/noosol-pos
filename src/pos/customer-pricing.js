@@ -84,7 +84,7 @@ function fixedPriceLevels(){
   });
 }
 // Check each quantity where any level changes its effective unit price.
-function priceLevelOrderError(product,unit,levels){
+function priceLevelOrderConflict(product,unit,levels){
   const normal={price:regularProductUnitPrice(product,unit),tiers:productTierRows(product,unit)};
   const rules=[normal,...levels.map(group=>customerPriceRule(group,product.id,unit))];
   const quantities=new Set([1,...rules.flatMap(rule=>(rule?.tiers||[]).map(t=>Number(t.minQty)))]);
@@ -97,11 +97,13 @@ function priceLevelOrderError(product,unit,levels){
       if(!prices.length) continue;
       const price=Math.min(...prices);
       const label=level?'LV'+level:'NORMAL';
-      if(previous&&price>=previous.price) return product.name+' · '+qty+' '+unit+' ขึ้นไป '+label+' ต้องถูกกว่า '+previous.label+' ('+fmtMoney(previous.price)+')';
+      if(previous&&price>=previous.price){
+        return {quantity:qty,message:product.name+' · '+qty+' '+unit+' ขึ้นไป '+label+' ต้องถูกกว่า '+previous.label+' ('+fmtMoney(previous.price)+')'};
+      }
       previous={label,price};
     }
   }
-  return '';
+  return null;
 }
 function productTierRows(product,unit){
   return (product?.priceTiers||[]).filter(row=>row.unit===unit);

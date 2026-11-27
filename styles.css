@@ -1926,6 +1926,10 @@
   .price-group-customer-dialog .modal-head{position:relative;justify-content:center;padding-inline:42px;text-align:center}
   .price-group-customer-dialog .modal-close{position:absolute;inset-inline-end:16px}
   .price-group-customer-dialog::backdrop{background:rgba(28,21,17,.48)}
+  .price-group-warning{width:min(520px,94vw)}
+  .price-group-warning p{margin:0;padding:0 20px 16px;text-align:center;overflow-wrap:anywhere}
+  .price-group-warning-actions{display:flex;justify-content:center;padding:0 20px 18px}
+  .contract-editable-tier .tier-price[aria-invalid="true"]{border-color:var(--danger)}
   .price-group-customer-body{padding:0 18px 16px}
   .price-group-customer-search{box-sizing:border-box;width:100%;margin:4px 0 12px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}
   .price-group-customer-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}

@@ -5,7 +5,7 @@ function readContractPrice(row,onInvalid){
   const regular=regularProductUnitPrice(product,unit),cost=productUnitCost(product,unit);
   const inherited=row.inheritedPriceRule;
   function warn(message,input){
-    if(onInvalid) onInvalid(unit+' · '+message);
+    if(onInvalid) onInvalid(unit+' · '+message,input);
     else{showToast(unit+' · '+message,'danger-top');setContractTierExpanded(row,true);input?.focus();}
     return null;
   }
@@ -39,7 +39,7 @@ function readContractPrice(row,onInvalid){
 }
 function collectCustomerPriceRules(root=document,{onInvalid}={}){
   function warn(message,input){
-    if(onInvalid) onInvalid(message);
+    if(onInvalid) onInvalid(message,input);
     else{showToast(message,'danger-top');input?.focus();}
     return null;
   }
@@ -225,12 +225,19 @@ function attachPriceGroupEvents(page){
   const back=page.querySelector('[data-back-group]');
   const status=page.querySelector('[data-price-group-status]');
   const retry=page.querySelector('[data-retry-group]');
-  const controls=[select,back,pickCustomers];
+  const warning=page.querySelector('[data-price-warning]');
+  const pendingRemovals=new Set();
+  let lastEditedPrice=null;
+  let warningField=null;
   let queued=false;
   let unsaved=false;
   const isCurrent=()=>priceGroupPage===view&&page.isConnected&&currentTab==='pricegroups'&&isStoreViewCurrent(context)&&loggedInUser()?.owner;
-  const setBusy=busy=>{view.saving=busy;controls.forEach(control=>control.disabled=busy);};
-  const canLeave=()=>!unsaved||confirm('มีการแก้ไขกลุ่มราคาที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?');
+  const setBusy=busy=>{view.saving=busy;[select,back,pickCustomers].forEach(control=>control.disabled=busy);};
+  const canLeave=()=>{
+    if(view.saving){showToast('กำลังบันทึกกลุ่มราคา กรุณารอสักครู่');return false;}
+    return !unsaved||confirm('มีการแก้ไขกลุ่มราคาที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?');
+  };
+  view.canLeave=canLeave;
   setBusy(view.saving);
   back.onclick=()=>{
     if(canLeave()){currentTab='products';render();}
@@ -240,10 +247,18 @@ function attachPriceGroupEvents(page){
     view.groupId=select.value;
     render();
   };
-  attachCustomerPricingEvents(page,{customerId:null,onChange:saveChanges,canOpenCustomer:()=>isCurrent()&&!view.saving&&canLeave()});
+  attachCustomerPricingEvents(page,{
+    customerId:null,onChange:saveChanges,onRemove:removePriceRow,
+    canOpenCustomer:()=>isCurrent()&&!view.saving&&canLeave()
+  });
   const editable='.customer-price-unit,.contract-editable-tier .tier-min,.contract-editable-tier .tier-price';
   page.addEventListener('change',event=>{
-    if(event.target.matches(editable)) saveChanges();
+    if(!event.target.matches(editable)) return;
+    lastEditedPrice=event.target.closest('.tier-edit-row')?.querySelector('.tier-price');
+    saveChanges();
+  });
+  page.addEventListener('input',event=>{
+    event.target.closest('.contract-editable-tier .tier-edit-row')?.querySelector('.tier-price')?.removeAttribute('aria-invalid');
   });
   page.addEventListener('keydown',event=>{
     if(event.key!=='Enter'||event.isComposing||!event.target.matches('.contract-editable-tier input:not([readonly])')) return;
@@ -254,33 +269,94 @@ function attachPriceGroupEvents(page){
   pickCustomers.onclick=()=>{
     if(isCurrent()&&!view.saving) openPriceGroupCustomerPicker(page,level.id,isCurrent);
   };
+  warning.querySelector('button').onclick=()=>warning.close();
+  warning.addEventListener('close',()=>{
+    if(!warningField?.isConnected) return;
+    warningField.focus();
+    warningField.select();
+  });
 
+  function warnPrice(message,input){
+    if(warning.open) return;
+    warningField=input?.isConnected?input:null;
+    if(warningField){
+      const row=warningField.closest('.contract-tier-detail').previousElementSibling;
+      setContractTierExpanded(row,true);
+      warningField.setAttribute('aria-invalid','true');
+    }
+    warning.querySelector('p').textContent=message;
+    warning.showModal();
+  }
+  function findPriceField(rule,quantity){
+    const row=[...page.querySelectorAll('[data-customer-price-row]')].find(item=>
+      Number(item.dataset.productId)===rule.productId&&item.querySelector('.customer-price-unit').value===rule.unit);
+    const entries=[...(row?.nextElementSibling.querySelectorAll('.contract-editable-tier .tier-edit-row')||[])];
+    const step=entries.map(entry=>({entry,qty:Number(entry.querySelector('.tier-min').value)}))
+      .filter(item=>item.qty>0&&item.qty<=quantity)
+      .sort((a,b)=>b.qty-a.qty)[0];
+    return step?.entry.querySelector('.tier-price')||entries[0]?.querySelector('.tier-price');
+  }
+  function removePriceRow(row){
+    pendingRemovals.add({
+      id:row.querySelector('.customer-price-id').value,
+      productId:Number(row.dataset.productId),
+      unit:row.dataset.originalUnit
+    });
+    saveChanges();
+  }
   function saveChanges(){
     if(!isCurrent()) return;
     unsaved=true;
     if(view.saving){queued=true;return;}
     retry.hidden=true;
+    const removals=[...pendingRemovals];
+    let issue=null;
     const customerPrices=collectCustomerPriceRules(page,{
-      onInvalid:message=>status.textContent=message
+      onInvalid:(message,input)=>issue={message,input,showPopup:input?.matches('.tier-price')&&input.value!==''}
     });
-    if(!customerPrices) return;
-    if(!savedGroup&&!customerPrices.length){unsaved=false;status.textContent='';return;}
     const updated={id:level.id,name:level.name,customerPrices};
-    const levels=fixedPriceLevels().map(group=>group.id===level.id?updated:group);
-    for(const rule of customerPrices){
-      const product=products.find(p=>Number(p.id)===Number(rule.productId));
-      const message=priceLevelOrderError(product,rule.unit,levels);
-      if(message){status.textContent=message;return;}
+    if(customerPrices){
+      const levels=fixedPriceLevels().map(group=>group.id===level.id?updated:group);
+      for(const rule of customerPrices){
+        const product=products.find(p=>Number(p.id)===Number(rule.productId));
+        const conflict=priceLevelOrderConflict(product,rule.unit,levels);
+        if(!conflict) continue;
+        issue={message:conflict.message,input:findPriceField(rule,conflict.quantity),showPopup:true};
+        break;
+      }
+    }
+    if(issue){
+      status.textContent=issue.message;
+      if(issue.showPopup) warnPrice(issue.message,issue.input);
+      // Persist confirmed deletions even if a different row has an invalid draft.
+      const savedPrices=savedGroup?.customerPrices||[];
+      const remaining=savedPrices.filter(rule=>!removals.some(removed=>
+        removed.id&&rule.id===removed.id||
+        !rule.id&&Number(rule.productId)===removed.productId&&rule.unit===removed.unit));
+      if(remaining.length<savedPrices.length){
+        submit({...savedGroup,customerPrices:remaining},removals,issue);
+      }else{
+        removals.forEach(removed=>pendingRemovals.delete(removed));
+      }
+      return;
+    }
+    if(!savedGroup&&!customerPrices.length){
+      removals.forEach(removed=>pendingRemovals.delete(removed));
+      unsaved=false;
+      status.textContent='';
+      return;
     }
     if(JSON.stringify(stableJsonValue(savedGroup))===JSON.stringify(stableJsonValue(updated))){
+      removals.forEach(removed=>pendingRemovals.delete(removed));
       unsaved=false;
       status.textContent='บันทึกแล้ว';
       return;
     }
-    submit(updated);
+    submit(updated,removals);
   }
 
-  async function submit(updated){
+  async function submit(updated,removals,issue){
+    const editedPrice=lastEditedPrice;
     setBusy(true);
     status.textContent='กำลังบันทึก…';
     try{
@@ -291,11 +367,14 @@ function attachPriceGroupEvents(page){
       persistWorkspaceData();
       if(!isCurrent()) return;
       savedGroup=data.find(entry=>entry.id===updated.id);
-      unsaved=queued;
-      status.textContent='บันทึกแล้ว';
+      removals.forEach(removed=>pendingRemovals.delete(removed));
+      unsaved=queued||!!issue;
+      status.textContent=issue?'ลบรายการแล้ว · '+issue.message:'บันทึกแล้ว';
     }catch(error){
+      if(!isCurrent()) return;
       status.textContent='บันทึกกลุ่มราคาไม่สำเร็จ · '+error.message;
       retry.hidden=false;
+      if(/ขึ้นไป LV[1-4] ต้องถูกกว่า (?:NORMAL|LV[1-4])/.test(error.message)) warnPrice(error.message,editedPrice);
     }finally{
       setBusy(false);
       if(queued){
@@ -439,7 +518,7 @@ function updateContractPriceColors(row){
     input.classList.toggle('below-cost',comparison==='below-cost');
   });
 }
-function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPriceContactId,onClose=()=>{editingCustomerPriceContactId=null;render();},onSaved,onChange,canOpenCustomer}={}){
+function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPriceContactId,onClose=()=>{editingCustomerPriceContactId=null;render();},onSaved,onChange,onRemove,canOpenCustomer}={}){
   const cancelCustomerPricingBtn=root.querySelector('#cancelCustomerPricingBtn');
   if(cancelCustomerPricingBtn) cancelCustomerPricingBtn.addEventListener('click',onClose);
   const saveCustomerPricingBtn=root.querySelector('#saveCustomerPricingBtn');
@@ -514,7 +593,7 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
       if(!confirm(`ยืนยันลบ “${product?.name||'สินค้า'}” หน่วย ${unitSelect.value} ออกจากรายการราคาพิเศษหรือไม่?`)) return;
       detail.remove();
       row.remove();
-      onChange?.();
+      onRemove?.(row);
       if(customerPriceRows&&!customerPriceRows.querySelector('[data-customer-price-row]')) customerPriceRows.innerHTML='<tr class="customer-price-empty"><td colspan="6">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>';
     };
   });

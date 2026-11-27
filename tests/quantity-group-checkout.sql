@@ -101,5 +101,8 @@ begin
   sale:=sale||jsonb_build_object('customerId',cid,'total',0,'cashReceived',0,'costTotal',10);
   result:=public.complete_sale(gen_random_uuid(),'TEST',1,sale,jsonb_build_array(item),null);
   assert (result#>>'{sale,items,0,price}')::numeric=0;
+  result:=public.save_store_price_group(1,grp,jsonb_set(grp,'{customerPrices}','[]'));
+  assert exists(select from jsonb_array_elements(result) g where g->>'id'=gid and g->'customerPrices'='[]'::jsonb);
+  assert (select data->>'priceGroupId' from public.contacts where id=cid)=gid;
 end $$;
 rollback;
