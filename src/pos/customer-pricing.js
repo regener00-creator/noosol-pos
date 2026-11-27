@@ -187,7 +187,7 @@ async function openPOSCustomerPricing(customerId){
       if(!canPerformPageAction('create','checkout')){showSelectionStatus('ไม่มีสิทธิ์เพิ่มรายการขาย',true);return;}
       const row=button.closest('[data-customer-price-row]'),productId=Number(row.dataset.productId),unit=row.querySelector('.customer-price-unit').value;
       const rule=customerPriceRule(activeSaleCustomer(),productId,unit);
-      const tierRows=[...row.nextElementSibling.querySelectorAll('.contract-editable-tier .tier-edit-row')];
+      const tierRows=[...row.nextElementSibling.querySelectorAll('.contract-tier-grid .contract-editable-tier .tier-edit-row')];
       const savedSteps=contractPriceRows(rule);
       const sameSteps=tierRows.length===savedSteps.length&&tierRows.every((entry,index)=>{
         const qty=entry.querySelector('.tier-min').value,price=entry.querySelector('.tier-price').value;
@@ -211,11 +211,10 @@ async function openPOSCustomerPricing(customerId){
         if(isWorkspaceReadCurrent(context)&&currentTab==='checkout'){refreshCartCustomerPrices();render();}
       }});
     }else{
-      host.querySelectorAll('input,select').forEach(input=>input.disabled=true);
-      host.querySelectorAll('.customer-price-remove,.customer-price-search-wrap,[data-add-tier],[data-remove-tier]').forEach(node=>node.remove());
-      host.querySelectorAll('[data-customer-price-row]').forEach(row=>row.onclick=handleContractTierRowClick);
+      host.querySelectorAll('input').forEach(input=>input.disabled=true);
+      host.querySelectorAll('.customer-price-remove,.customer-price-search-wrap,.tier-edit-actions').forEach(node=>node.remove());
       overlay.querySelector('#saveCustomerPricingBtn').remove();
-      overlay.querySelector('#cancelCustomerPricingBtn').onclick=close;
+      attachCustomerPricingEvents(overlay,{customerId,onClose:close,readOnly:true});
     }
     overlay.querySelector('#customerPriceSearch:not(:disabled)')?.focus();
   }catch(error){

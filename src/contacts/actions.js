@@ -1,14 +1,14 @@
-function readContractPrice(row,onInvalid){
+function readContractPrice(row,onInvalid,editor=row.nextElementSibling.querySelector('.contract-tier-grid [data-contract-unit]')){
   const entries=[];
-  const unit=row.querySelector('.customer-price-unit').value;
+  const unit=editor.dataset.contractUnit;
   const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
   const cost=productUnitCost(product,unit);
   function warn(message,input){
     if(onInvalid) onInvalid(unit+' · '+message,input);
-    else{showToast(unit+' · '+message,'danger-top');setContractTierExpanded(row,true);input?.focus();}
+    else{showToast(unit+' · '+message,'danger-top');selectContractPriceUnit(row,unit);input?.focus();}
     return null;
   }
-  for(const entry of row.nextElementSibling.querySelectorAll('.contract-editable-tier .tier-edit-row')){
+  for(const entry of editor.querySelectorAll('.tier-edit-row')){
     const minimum=entry.querySelector('.tier-min'),amount=entry.querySelector('.tier-price');
     const minQty=Number(minimum.value),price=Number(amount.value);
     if(minimum.value===''&&amount.value===''&&!minimum.validity.badInput&&!amount.validity.badInput) continue;
@@ -19,9 +19,9 @@ function readContractPrice(row,onInvalid){
   }
   entries.sort((a,b)=>a.minQty-b.minQty);
   // Keep a starting price in its existing storage format for checkout compatibility.
-  const keepLegacyStart=entries[0]?.minQty===1&&entries[0].price===Number(row.dataset.legacyFirstStep);
-  const oneUnit=entries[0]?.minQty===1&&!row.hasAttribute('data-quantity-one-tier')&&!keepLegacyStart?entries.shift():null;
-  const price=keepLegacyStart?Number(row.dataset.legacyStartingPrice):oneUnit?.price??null;
+  const keepLegacyStart=entries[0]?.minQty===1&&entries[0].price===Number(editor.dataset.legacyFirstStep);
+  const oneUnit=entries[0]?.minQty===1&&!editor.hasAttribute('data-quantity-one-tier')&&!keepLegacyStart?entries.shift():null;
+  const price=keepLegacyStart?Number(editor.dataset.legacyStartingPrice):oneUnit?.price??null;
   let previous=price;
   for(const step of entries){
     if(step.price<cost) return warn('ราคาขั้นบันไดต้องไม่ต่ำกว่าทุน '+fmtMoney(cost),step.input);
@@ -41,20 +41,21 @@ function collectCustomerPriceRules(root=document,{onInvalid}={}){
   const duplicateKeys=new Set();
   for(const row of root.querySelectorAll('[data-customer-price-row]')){
     const productId=Number(row.dataset.productId);
-    const unit=row.querySelector('.customer-price-unit').value;
     const product=products.find(item=>Number(item.id)===productId);
     if(!product) return warn('ไม่พบสินค้าที่กำหนดราคาพิเศษ กรุณาลบรายการแล้วเพิ่มใหม่');
-    if(!productUnitOptions(product).some(option=>option.name===unit)) return warn(`หน่วย “${unit||'-'}” ไม่ได้อยู่ในสินค้า “${product.name}”`,row.querySelector('.customer-price-unit'));
-    const rule=readContractPrice(row,onInvalid);
-    if(!rule) return null;
-    const {price,tiers}=rule;
-    if(price===null&&!tiers.length) continue;
-    const key=`${product.id}::${unit}`;
-    if(duplicateKeys.has(key)) return warn(`กำหนดราคา “${product.name}” หน่วย ${unit} ซ้ำกัน`);
-    duplicateKeys.add(key);
-    const idInput=row.querySelector('.customer-price-id');
-    if(!idInput.value) idInput.value=crypto.randomUUID();
-    rules.push({id:idInput.value,productId:product.id,unit,price,...(tiers.length?{tiers}:{})});
+    for(const editor of row.nextElementSibling.querySelectorAll('[data-contract-unit]')){
+      const unit=editor.dataset.contractUnit;
+      const rule=readContractPrice(row,onInvalid,editor);
+      if(!rule) return null;
+      const {price,tiers}=rule;
+      if(price===null&&!tiers.length) continue;
+      if(!productUnitOptions(product).some(option=>option.name===unit)) return warn(`หน่วย “${unit}” ไม่ได้อยู่ในสินค้า “${product.name}”`,row.querySelector('.customer-price-unit'));
+      const key=`${product.id}::${unit}`;
+      if(duplicateKeys.has(key)) return warn(`กำหนดราคา “${product.name}” หน่วย ${unit} ซ้ำกัน`);
+      duplicateKeys.add(key);
+      editor.dataset.ruleId||=crypto.randomUUID();
+      rules.push({id:editor.dataset.ruleId,productId:product.id,unit,price,...(tiers.length?{tiers}:{})});
+    }
   }
   return rules;
 }
@@ -273,18 +274,14 @@ function attachPriceGroupEvents(page){
     warningField=input?.isConnected?input:null;
     if(warningField){
       const row=warningField.closest('.contract-tier-detail').previousElementSibling;
-      setContractTierExpanded(row,true);
+      selectContractPriceUnit(row,warningField.closest('[data-contract-unit]').dataset.contractUnit);
       warningField.setAttribute('aria-invalid','true');
     }
     warning.querySelector('p').textContent=message;
     warning.showModal();
   }
-  function removePriceRow(row){
-    pendingRemovals.add({
-      id:row.querySelector('.customer-price-id').value,
-      productId:Number(row.dataset.productId),
-      unit:row.dataset.originalUnit
-    });
+  function removePriceRow(removed){
+    pendingRemovals.add(removed);
     saveChanges();
   }
   function saveChanges(){
@@ -474,6 +471,36 @@ function handleContractTierRowClick(event){
   const row=event.currentTarget;
   setContractTierExpanded(row,row.nextElementSibling.hidden);
 }
+function selectContractPriceUnit(row,unit){
+  const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
+  const option=product&&productUnitOptions(product).find(item=>item.name===unit);
+  if(!option) return null;
+  const detail=row.nextElementSibling;
+  const grid=detail.querySelector('.contract-tier-grid');
+  const bank=detail.querySelector('[data-contract-unit-editors]');
+  const current=grid.querySelector('[data-contract-unit]');
+  let editor=current;
+  if(current.dataset.contractUnit!==unit){
+    editor=[...bank.children].find(item=>item.dataset.contractUnit===unit);
+    if(!editor){
+      bank.insertAdjacentHTML('beforeend',contractPriceEditorHtml({unit},option.cost||0));
+      editor=bank.lastElementChild;
+      if(row.contractPriceReadOnly){
+        editor.querySelectorAll('input').forEach(input=>input.disabled=true);
+        editor.querySelector('.tier-edit-actions')?.remove();
+      }
+    }
+    bank.append(current);
+    grid.append(editor);
+  }
+  row.querySelector('.customer-price-unit').value=unit;
+  row.querySelector('.customer-price-barcode').textContent=productBarcodeForUnit(product,unit)||'-';
+  row.querySelector('.customer-price-regular').value=fmtMoney(option.price||0);
+  row.querySelector('.customer-price-cost').value=fmtMoney(option.cost||0);
+  detail.querySelector('.contract-inherited').textContent=inheritedContractText(customerPriceRule(row.contractPriceGroup,product.id,unit),unit);
+  setContractTierExpanded(row,true);
+  return editor;
+}
 function setContractTierExpanded(row,expanded){
   if(expanded){
     renderContractComparisons(row);
@@ -487,14 +514,14 @@ function updateContractPriceColors(row){
   const unit=row.querySelector('.customer-price-unit').value;
   const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
   const regular=regularProductUnitPrice(product,unit),cost=productUnitCost(product,unit);
-  row.nextElementSibling.querySelectorAll('.contract-editable-tier .tier-price').forEach(input=>{
+  row.nextElementSibling.querySelectorAll('.contract-tier-grid .contract-editable-tier .tier-price').forEach(input=>{
     const comparison=customerPriceComparison(input.value,regular,cost);
     input.classList.toggle('below-regular',comparison==='below-regular');
     input.classList.toggle('above-regular',comparison==='above-regular');
     input.classList.toggle('below-cost',comparison==='below-cost');
   });
 }
-function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPriceContactId,onClose=()=>{editingCustomerPriceContactId=null;render();},onSaved,onChange,onRemove,canOpenCustomer}={}){
+function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPriceContactId,onClose=()=>{editingCustomerPriceContactId=null;render();},onSaved,onChange,onRemove,canOpenCustomer,readOnly=false}={}){
   const cancelCustomerPricingBtn=root.querySelector('#cancelCustomerPricingBtn');
   if(cancelCustomerPricingBtn) cancelCustomerPricingBtn.addEventListener('click',onClose);
   const saveCustomerPricingBtn=root.querySelector('#saveCustomerPricingBtn');
@@ -504,6 +531,8 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
   const bindCustomerPriceRow=row=>{
     const unitSelect=row.querySelector('.customer-price-unit');
     const detail=row.nextElementSibling;
+    row.contractPriceGroup=group;
+    row.contractPriceReadOnly=readOnly;
     row.onclick=handleContractTierRowClick;
     detail.onclick=event=>{
       if(event.target.closest('[data-personal-list]')){
@@ -512,10 +541,10 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
       }
       const button=event.target.closest('[data-add-tier],[data-remove-tier]');
       if(!button) return;
-      const rows=detail.querySelector('.contract-editable-tier .tier-edit-rows');
+      const rows=detail.querySelector('.contract-tier-grid .contract-editable-tier .tier-edit-rows');
       if(button.hasAttribute('data-remove-tier')){
         rows.lastElementChild?.remove();
-        if(!rows.lastElementChild) detail.querySelector('[data-add-tier]')?.focus();
+        if(!rows.lastElementChild) detail.querySelector('.contract-tier-grid [data-add-tier]')?.focus();
         onChange?.();
         return;
       }
@@ -534,61 +563,52 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
         !event.target.matches('.contract-editable-tier input:not([readonly])')) return;
       event.preventDefault();
       if(event.repeat) return;
-      const fields=[...root.querySelectorAll('.contract-tier-detail:not([hidden]) .contract-editable-tier input:not([readonly]):not(:disabled)')];
+      const fields=[...root.querySelectorAll('.contract-tier-detail:not([hidden]) .contract-tier-grid .contract-editable-tier input:not([readonly]):not(:disabled)')];
       (fields[fields.indexOf(event.target)+1]||root.querySelector('#customerPriceSearch'))?.focus();
     };
     unitSelect.onchange=()=>{
-      const unit=unitSelect.value;
-      unitSelect.value=row.dataset.originalUnit;
-      if(unit===row.dataset.originalUnit) return;
-      const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
-      addCustomerPriceProduct(product,unit,row);
+      const current=detail.querySelector('.contract-tier-grid [data-contract-unit]');
+      if(current.dataset.contractUnit===unitSelect.value) return;
+      const editor=selectContractPriceUnit(row,unitSelect.value);
+      if(!readOnly&&!editor?.querySelector('.tier-price')) editor?.querySelector('[data-add-tier]')?.click();
     };
     const remove=row.querySelector('.customer-price-remove');
     if(remove) remove.onclick=()=>{
       const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
       if(!confirm(`ยืนยันลบ “${product?.name||'สินค้า'}” หน่วย ${unitSelect.value} ออกจากรายการราคาพิเศษหรือไม่?`)) return;
-      detail.remove();
-      row.remove();
-      onRemove?.(row);
+      const editor=detail.querySelector('.contract-tier-grid [data-contract-unit]');
+      const next=[...detail.querySelector('[data-contract-unit-editors]').children].find(other=>
+        [...other.querySelectorAll('.tier-min,.tier-price')].some(input=>input.value!==''||input.validity.badInput));
+      const removed={id:editor.dataset.ruleId,productId:Number(row.dataset.productId),unit:unitSelect.value};
+      if(next){
+        selectContractPriceUnit(row,next.dataset.contractUnit);
+        editor.remove();
+      }else{
+        detail.remove();
+        row.remove();
+      }
+      onRemove?.(removed);
       if(customerPriceRows&&!customerPriceRows.querySelector('[data-customer-price-row]')) customerPriceRows.innerHTML='<tr class="customer-price-empty"><td colspan="6">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>';
     };
   };
   const customerPriceSearch=root.querySelector('#customerPriceSearch');
   const customerPriceSearchResults=root.querySelector('#customerPriceSearchResults');
   const customerPriceMatches=query=>productScanMatches(query).map(({product,unitName})=>({product,unit:unitName}));
-  const addCustomerPriceProduct=(product,unit,sourceRow=null)=>{
+  const addCustomerPriceProduct=(product,unit)=>{
     if(!product||!customerPriceRows) return;
     const selectedUnit=productUnitOptions(product).some(option=>option.name===unit)?unit:product.unit;
-    let row=[...customerPriceRows.querySelectorAll('[data-customer-price-row]')].find(item=>
-      Number(item.dataset.productId)===Number(product.id)&&item.dataset.originalUnit===selectedUnit);
-    if(row){
-      if(!sourceRow) showToast(`มีราคาพิเศษ “${product.name}” หน่วย ${selectedUnit} อยู่แล้ว`);
-    }else{
+    let row=[...customerPriceRows.querySelectorAll('[data-customer-price-row]')].find(item=>Number(item.dataset.productId)===Number(product.id));
+    if(!row){
       customerPriceRows.querySelector('.customer-price-empty')?.remove();
-      const anchor=sourceRow?.nextElementSibling;
-      const html=customerPriceRowHtml({productId:product.id,unit:selectedUnit},root.matches?.('.pos-customer-pricing-overlay'),group);
-      if(anchor){
-        anchor.insertAdjacentHTML('afterend',html);
-        row=anchor.nextElementSibling;
-      }else{
-        customerPriceRows.insertAdjacentHTML('beforeend',html);
-        row=customerPriceRows.lastElementChild.previousElementSibling;
-      }
+      customerPriceRows.insertAdjacentHTML('beforeend',customerPriceRowHtml([{productId:product.id,unit:selectedUnit}],root.matches?.('.pos-customer-pricing-overlay'),group));
+      row=customerPriceRows.lastElementChild.previousElementSibling;
       bindCustomerPriceRow(row);
     }
-    if(sourceRow) setContractTierExpanded(sourceRow,false);
-    setContractTierExpanded(row,true);
-    const fields=row.nextElementSibling.querySelector('.contract-editable-tier');
-    const firstPrice=fields.querySelector('.tier-price');
-    const addStep=fields.querySelector('[data-add-tier]');
-    if(sourceRow&&!firstPrice) addStep.click();
-    else (firstPrice||addStep).focus();
-
-    if(!sourceRow){
-      if(customerPriceSearch) customerPriceSearch.value='';
-      if(customerPriceSearchResults){customerPriceSearchResults.hidden=true;customerPriceSearchResults.innerHTML='';}
-    }
+    const editor=selectContractPriceUnit(row,selectedUnit);
+    (editor.querySelector('.tier-price')||editor.querySelector('[data-add-tier]'))?.focus();
+    customerPriceSearch.value='';
+    customerPriceSearchResults.hidden=true;
+    customerPriceSearchResults.innerHTML='';
   };
   const renderCustomerPriceSearchResults=()=>{
     if(!customerPriceSearch||!customerPriceSearchResults) return [];
