@@ -51,16 +51,20 @@ begin
   perform public.save_store_price_group(1,old_group,grp);
   end;
   declare second_group jsonb:=grp||jsonb_build_object('id',gen_random_uuid()::text,'name','LEVEL 2'); begin
-    begin
-      perform public.save_store_price_group(1,null,second_group);
-      raise exception 'equal level price accepted';
-    exception when others then if sqlerrm not like '%LV2 ต้องถูกกว่า LV1%' then raise; end if; end;
-    second_group:=jsonb_set(second_group,'{customerPrices,0,price}','180') #- '{customerPrices,0,tiers}';
     perform public.save_store_price_group(1,null,second_group);
-    begin
-      update public.products set price=175 where id=pid;
-      raise exception 'normal price crossed a group';
-    exception when others then if sqlerrm not like '%LV1 ต้องถูกกว่า NORMAL%' then raise; end if; end;
+    perform public.save_store_price_group(1,second_group,
+      jsonb_set(jsonb_set(second_group,'{customerPrices,0,price}','230'),'{customerPrices,0,tiers}','[{"minQty":12,"price":225}]'));
+    update public.products set price=175 where id=pid;
+    update public.products set price=220 where id=pid;
+  end;
+  update public.contacts set data=data||jsonb_build_object('customerPrices',jsonb_build_array(
+    jsonb_build_object('id','step','productId',pid,'unit','box','price',null,'tiers','[{"minQty":24,"price":220}]'::jsonb))) where id=cid;
+  begin
+    update public.contacts set data=jsonb_set(data,'{customerPrices,0,tiers}',
+      '[{"minQty":12,"price":205},{"minQty":24,"price":207}]') where id=cid;
+    raise exception 'increasing steps within a personal price list accepted';
+  exception when others then
+    if sqlerrm not like 'จำนวนขั้นต่ำต้องไม่ซ้ำและราคาขั้นถัดไปต้องต่ำลง%' then raise; end if;
   end;
   update public.contacts set data=data||jsonb_build_object('customerPrices',jsonb_build_array(
     jsonb_build_object('id','step','productId',pid,'unit','box','price',null,'tiers','[{"minQty":12,"price":208}]'::jsonb))) where id=cid;

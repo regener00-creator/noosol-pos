@@ -2,8 +2,7 @@ function readContractPrice(row,onInvalid){
   const entries=[];
   const unit=row.querySelector('.customer-price-unit').value;
   const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
-  const regular=regularProductUnitPrice(product,unit),cost=productUnitCost(product,unit);
-  const inherited=row.inheritedPriceRule;
+  const cost=productUnitCost(product,unit);
   function warn(message,input){
     if(onInvalid) onInvalid(unit+' · '+message,input);
     else{showToast(unit+' · '+message,'danger-top');setContractTierExpanded(row,true);input?.focus();}
@@ -23,18 +22,13 @@ function readContractPrice(row,onInvalid){
   const keepLegacyStart=entries[0]?.minQty===1&&entries[0].price===Number(row.dataset.legacyFirstStep);
   const oneUnit=entries[0]?.minQty===1&&!row.hasAttribute('data-quantity-one-tier')&&!keepLegacyStart?entries.shift():null;
   const price=keepLegacyStart?Number(row.dataset.legacyStartingPrice):oneUnit?.price??null;
-  const ceiling=Math.min(regular,price??inherited?.price??regular);
-  let previous=oneUnit?.price;
+  let previous=price;
   for(const step of entries){
     if(step.price<cost) return warn('ราคาขั้นบันไดต้องไม่ต่ำกว่าทุน '+fmtMoney(cost),step.input);
     if(previous!=null&&step.price>=previous) return warn(`ซื้อขั้นต่ำ ${step.minQty} ${unit} ต้องต่ำกว่าขั้นก่อนหน้า ${fmtMoney(previous)} บาท`,step.input);
-    if(step.price>ceiling) return warn('ราคาขั้นบันไดต้องไม่เกิน '+fmtMoney(ceiling),step.input);
     previous=step.price;
   }
   const tiers=entries.map(({minQty,price})=>({minQty,price}));
-  const merged=contractTierSteps(inherited,{tiers});
-  if(tiers.length&&merged.some((step,i)=>i>0&&step.price>=merged[i-1].price))
-    return warn('ราคาขั้นถัดไปต้องต่ำกว่าขั้นก่อนหน้า รวมขั้นที่ใช้จากกลุ่ม');
   return {price,tiers};
 }
 function collectCustomerPriceRules(root=document,{onInvalid}={}){
@@ -227,7 +221,6 @@ function attachPriceGroupEvents(page){
   const retry=page.querySelector('[data-retry-group]');
   const warning=page.querySelector('[data-price-warning]');
   const pendingRemovals=new Set();
-  let lastEditedPrice=null;
   let warningField=null;
   let queued=false;
   let unsaved=false;
@@ -254,7 +247,6 @@ function attachPriceGroupEvents(page){
   const editable='.customer-price-unit,.contract-editable-tier .tier-min,.contract-editable-tier .tier-price';
   page.addEventListener('change',event=>{
     if(!event.target.matches(editable)) return;
-    lastEditedPrice=event.target.closest('.tier-edit-row')?.querySelector('.tier-price');
     saveChanges();
   });
   page.addEventListener('input',event=>{
@@ -287,15 +279,6 @@ function attachPriceGroupEvents(page){
     warning.querySelector('p').textContent=message;
     warning.showModal();
   }
-  function findPriceField(rule,quantity){
-    const row=[...page.querySelectorAll('[data-customer-price-row]')].find(item=>
-      Number(item.dataset.productId)===rule.productId&&item.querySelector('.customer-price-unit').value===rule.unit);
-    const entries=[...(row?.nextElementSibling.querySelectorAll('.contract-editable-tier .tier-edit-row')||[])];
-    const step=entries.map(entry=>({entry,qty:Number(entry.querySelector('.tier-min').value)}))
-      .filter(item=>item.qty>0&&item.qty<=quantity)
-      .sort((a,b)=>b.qty-a.qty)[0];
-    return step?.entry.querySelector('.tier-price')||entries[0]?.querySelector('.tier-price');
-  }
   function removePriceRow(row){
     pendingRemovals.add({
       id:row.querySelector('.customer-price-id').value,
@@ -315,16 +298,6 @@ function attachPriceGroupEvents(page){
       onInvalid:(message,input)=>issue={message,input,showPopup:input?.matches('.tier-price')&&input.value!==''}
     });
     const updated={id:level.id,name:level.name,customerPrices};
-    if(customerPrices){
-      const levels=fixedPriceLevels().map(group=>group.id===level.id?updated:group);
-      for(const rule of customerPrices){
-        const product=products.find(p=>Number(p.id)===Number(rule.productId));
-        const conflict=priceLevelOrderConflict(product,rule.unit,levels);
-        if(!conflict) continue;
-        issue={message:conflict.message,input:findPriceField(rule,conflict.quantity),showPopup:true};
-        break;
-      }
-    }
     if(issue){
       status.textContent=issue.message;
       if(issue.showPopup) warnPrice(issue.message,issue.input);
@@ -356,7 +329,6 @@ function attachPriceGroupEvents(page){
   }
 
   async function submit(updated,removals,issue){
-    const editedPrice=lastEditedPrice;
     setBusy(true);
     status.textContent='กำลังบันทึก…';
     try{
@@ -374,7 +346,6 @@ function attachPriceGroupEvents(page){
       if(!isCurrent()) return;
       status.textContent='บันทึกกลุ่มราคาไม่สำเร็จ · '+error.message;
       retry.hidden=false;
-      if(/ขึ้นไป LV[1-4] ต้องถูกกว่า (?:NORMAL|LV[1-4])/.test(error.message)) warnPrice(error.message,editedPrice);
     }finally{
       setBusy(false);
       if(queued){
@@ -531,8 +502,7 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
     const refreshContractUnit=()=>{
       const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
       const unit=unitSelect.value;
-      row.inheritedPriceRule=customerPriceRule(group,product.id,unit);
-      detail.querySelector('.contract-inherited').textContent=inheritedContractText(row.inheritedPriceRule,unit);
+      detail.querySelector('.contract-inherited').textContent=inheritedContractText(customerPriceRule(group,product.id,unit),unit);
       if(!detail.hidden) renderContractComparisons(row);
       const cost=row.querySelector('.customer-price-cost').value;
       detail.querySelectorAll('.contract-editable-tier .tier-cost').forEach(input=>input.value=cost);
