@@ -227,7 +227,7 @@ function customerPurchaseLoad(ids,view=null){
       // An earlier request must never replace another customer's/current user's view.
       if(customerPurchaseState===state&&view&&posCustomerHistoryModalOpen&&document.getElementById('posCustomerHistoryContent')){
         refreshCustomerHistoryDisplay();
-      }else if(customerPurchaseState===state&&currentTab==='customers'&&!editingContactId&&!editingCustomerPriceContactId&&!priceGroupPage){
+      }else if(customerPurchaseState===state&&currentTab==='customers'&&!editingContactId&&!editingCustomerPriceContactId){
         const focused=document.activeElement,focusId=focused?.id;
         const start=focused?.selectionStart,end=focused?.selectionEnd;
         const fields=[...document.querySelectorAll('#search,#customerHistoryYear,#customerHistoryMonth')].map(input=>[input.id,input.value]);

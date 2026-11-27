@@ -11,6 +11,7 @@ function canAccessTab(tab,user=loggedInUser()){
   if(tab==='knowledge')return true;
   if(tab==='auditlog'&&user.owner!==true) return false;
   if(tab==='settingscategories'&&user.owner!==true) return false;
+  if(tab==='pricegroups') return user.owner===true;
   // Device-only receipt layout: staff who can open POS may configure their own printer.
   if(tab==='settingsprinter') return canPerformPageAction('view','checkout',user);
   if(tab==='stockcontrol') return canPerformPageAction('view','inspectionlists',user);

@@ -213,11 +213,6 @@ function deleteContact(id){
   render();
 }
 
-function openPriceGroups(){
-  if(!loggedInUser()?.owner||currentTab!=='customers') return;
-  priceGroupPage={groupId:fixedPriceLevels()[0].id,saving:false};
-  render();
-}
 function attachPriceGroupEvents(page){
   const view=priceGroupPage;
   const context=captureStoreView();
@@ -231,12 +226,12 @@ function attachPriceGroupEvents(page){
   const controls=[select,back,pickCustomers];
   let queued=false;
   let unsaved=false;
-  const isCurrent=()=>priceGroupPage===view&&page.isConnected&&currentTab==='customers'&&isStoreViewCurrent(context)&&loggedInUser()?.owner;
+  const isCurrent=()=>priceGroupPage===view&&page.isConnected&&currentTab==='pricegroups'&&isStoreViewCurrent(context)&&loggedInUser()?.owner;
   const setBusy=busy=>{view.saving=busy;controls.forEach(control=>control.disabled=busy);};
   const canLeave=()=>!unsaved||confirm('มีการแก้ไขกลุ่มราคาที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?');
   setBusy(view.saving);
   back.onclick=()=>{
-    if(canLeave()){priceGroupPage=null;render();}
+    if(canLeave()){currentTab='products';render();}
   };
   select.onchange=()=>{
     if(!canLeave()){select.value=view.groupId;return;}
@@ -415,7 +410,6 @@ function openPersonalPriceList(row,canOpenCustomer){
     const customer=entries.find(entry=>String(entry.customer.id)===button.dataset.personalCustomer)?.customer;
     if(!customer) return;
     dialog.close();
-    priceGroupPage=null;
     editingCustomerPriceContactId=customer.id;
     render();
   });

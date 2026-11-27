@@ -108,7 +108,7 @@ function refreshProductListResults(replacement=null){
 }
 
 function refreshContactListResults(){
-  if(!['customers','contacts'].includes(currentTab)||editingContactId!==null||editingCustomerPriceContactId!==null||customerHistoryView||priceGroupPage) return false;
+  if(!['customers','contacts'].includes(currentTab)||editingContactId!==null||editingCustomerPriceContactId!==null||customerHistoryView) return false;
   const current=document.getElementById('contactListResults');
   if(!current) return false;
   const main=document.getElementById('main'),scroll=current.querySelector('.doc-list-wrap');
@@ -276,6 +276,7 @@ const RENDERERS = {
   dashboard: renderDashboard, checkout: renderCheckout, notes: renderNotes, cashshift: renderCashShift, cashbill: ()=>renderCashBills(), taxinvoice: ()=>renderTaxInvoices(), quotation: ()=>renderQuotation(), invoice: renderInvoice,
   creditnote: renderCreditNote, history: renderHistory, purchaseorder: ()=>renderPurchaseOrder(), productreturn: ()=>renderProductReturn(), goodsreceipt: ()=>renderGoodsReceipt(), productexchange: ()=>renderProductExchange(),
   products: ()=>isAllWarehousesMode()?renderCombinedCatalog(false):renderProducts(), stockcontrol: ()=>renderStockControl(), barcodeprint: ()=>renderBarcodePrint(), warehouse: ()=>renderWarehouse(), transfer: ()=>renderTransfer(), lowstock: ()=>renderLowStock(), expiry: ()=>renderExpiry(), promotions: ()=>renderPromotions(),
+  pricegroups: ()=>editingCustomerPriceContactId!==null?renderCustomerPricingForm():renderPriceGroups(),
   contacts: ()=>renderContacts(), customers: ()=>renderContacts(), salesreps: renderSalesRepresentatives, representativehistory: ()=>renderRepresentativeHistoryOverview(), rproduct: ()=>renderRProduct(), rbill: ()=>renderRBill(), rprofit: ()=>renderRProfit(), rtax: ()=>renderRTax(),
   inventorymovement: ()=>renderInventoryMovement(), rinventory: ()=>isAllWarehousesMode()?renderCombinedCatalog(true):renderRInventory(), settingscategories: ()=>renderProductCategorySettings(), settingsbusiness: ()=>renderBusinessSettings(), settingsuser: ()=>renderUserSettings(), settingsusers: ()=>renderSystemUsers(), settingsprinter: ()=>renderReceiptPrinterSettings(), auditlog: ()=>renderAuditLog(), settingssystem: ()=>renderSystemSettings(),
 };
@@ -345,7 +346,8 @@ function render({viewHtml:preparedViewHtml=null,immediateLayout=false}={}){
   if(storeResetMode&&currentTab!==(storeResetMode==='factory'?'factoryreset':'settingssystem'))storeResetMode=null;
   if(currentTab!=='warehouse'||!addingWarehouse||editingWarehouseId!==null)warehouseCreateApproval=null;
   if(isLevel2User()&&currentTab==='products'&&editingProductId!==null&&editingProductId!=='new') editingProductId=null;
-  if(currentTab!=='customers') priceGroupPage=null;
+  if(currentTab==='pricegroups') priceGroupPage??={groupId:fixedPriceLevels()[0].id,saving:false};
+  else priceGroupPage=null;
   if(currentTab!=='barcodeprint'&&typeof resetPriceLabelDesignerPage==='function')resetPriceLabelDesignerPage();
   if(currentTab==='checkout'){ refreshCartCustomerPrices(); reconcileAutoFreeLines(); }
   if(mobileMode){ document.getElementById('sidebar').innerHTML=''; sidebarRenderSignature=''; }

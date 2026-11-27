@@ -1,5 +1,4 @@
 function renderContacts({resultsOnly=false}={}){
-  if(currentTab==='customers'&&priceGroupPage&&loggedInUser()?.owner) return renderPriceGroups();
   if(editingCustomerPriceContactId!==null) return renderCustomerPricingForm();
   if(editingContactId!==null) return renderContactForm();
   const isCustomers=currentTab==='customers';
@@ -89,7 +88,7 @@ function renderContacts({resultsOnly=false}={}){
   return `<div class="rpt">
     <div class="form-final-actions" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><button class="btn ghost" id="exportContactsBtn">ส่งออก Excel</button><button class="btn ghost" id="importContactsBtn">นำเข้า Excel</button><input id="contactImportFile" type="file" accept=".xlsx,.xls,.csv" hidden><button class="btn primary" id="newContactBtn">${isCustomers?'+ เพิ่มลูกค้า':'+ เพิ่มผู้จำหน่าย'}</button></div>
     <div class="contact-search-row"><h1>${isCustomers?'ลูกค้า':'ผู้จำหน่าย'} <span class="page-title-meta">· <span id="contactListCount">${list.length}</span> รายชื่อ</span></h1>
-      <div class="toolbar">${isCustomers&&loggedInUser()?.owner?'<button class="btn primary" id="managePriceGroups">กลุ่มราคา</button>':''}<div class="searchbar"><input id="search" placeholder="${isCustomers?'ค้นหาจากชื่อ / เบอร์โทร / ไลน์':'ค้นหาจากรหัสผู้ติดต่อ / ชื่อ / ผู้ติดต่อ / เบอร์'}" value="${escapeHtml(searchQuery)}"></div>${isCustomers?'<button type="button" class="icon-btn" id="refreshCustomerPurchases" title="รีเฟรชยอดซื้อ" aria-label="รีเฟรชยอดซื้อ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></button>':''}</div>
+      <div class="toolbar"><div class="searchbar"><input id="search" placeholder="${isCustomers?'ค้นหาจากชื่อ / เบอร์โทร / ไลน์':'ค้นหาจากรหัสผู้ติดต่อ / ชื่อ / ผู้ติดต่อ / เบอร์'}" value="${escapeHtml(searchQuery)}"></div>${isCustomers?'<button type="button" class="icon-btn" id="refreshCustomerPurchases" title="รีเฟรชยอดซื้อ" aria-label="รีเฟรชยอดซื้อ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 7v5h-5M4 17v-5h5"/><path d="M6 7a7 7 0 0 1 12-1l2 3M4 15l2 3a7 7 0 0 0 12-1"/></svg></button>':''}</div>
     </div>
     ${resultsHtml}</div>`;
 }

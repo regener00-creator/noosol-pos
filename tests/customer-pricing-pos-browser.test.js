@@ -37,7 +37,7 @@ const browserExecutable = [
   await page.waitForFunction(() => typeof renderContactForm==='function'&&typeof renderCheckout==='function');
   await page.evaluate(() => {
     document.querySelectorAll('.login-screen').forEach(screen=>{screen.style.display='none';});
-    renderLoginState=()=>true; renderSidebar=()=>{}; persistContacts=()=>{}; persistContactImmediately=async(contact,{changes}={})=>{Object.assign(contact,changes);return true;}; persistQuotations=()=>{};
+    renderLoginState=()=>true; persistContacts=()=>{}; persistContactImmediately=async(contact,{changes}={})=>{Object.assign(contact,changes);return true;}; persistQuotations=()=>{};
     currentProfile={id:'owner-customer-price',owner:true,level:1,firstName:'เจ้าของ'};
     products=[{id:101,sku:'D-001',name:'Decolgen',category:'ยา',brand:'ทั่วไป',unit:'ซอง',barcode:'SACHET-101',price:8,cost:5,stock:100,units:[{sub:'กล่อง',factor:25,price:180,cost:110,barcode:'BOX-101'}],extraBarcodes:[],vendorBarcodes:[],active:true}];
     contacts=[{id:7,name:'ลูกค้า A',types:['customer'],entity:'individual',phone:'0812345678',line:'old.line',postcode:'10110',contactName:'ข้อมูลเดิม',bank:'ธนาคารเดิม',bankName:'ชื่อเดิม',bankAcc:'123',accType:'saving',defaultDocument:'cash_bill',customerPrices:[{id:'a-box',productId:101,unit:'กล่อง',price:160}]}];
@@ -287,8 +287,11 @@ const browserExecutable = [
     };
     render();
   });
-  const mainGroupButton=page.locator('#managePriceGroups');
-  assert.equal(await mainGroupButton.evaluate(button=>getComputedStyle(button).color),'rgb(255, 255, 255)');
+  const mainGroupButton=page.locator('#sidebar [data-tab="pricegroups"]');
+  assert.equal(await page.locator('#main #managePriceGroups').count(),0);
+  assert.equal(await page.locator('#sidebar [data-tab="products"] + [data-tab="pricegroups"]').count(),1);
+  assert.equal(await mainGroupButton.innerText(),'กลุ่มราคา');
+  assert.equal(await page.evaluate(()=>canAccessTab('pricegroups',{owner:false,level:1})),false);
   await mainGroupButton.click();
   const groupPage=page.locator('#main #priceGroupPage');
   assert.equal(await groupPage.getByRole('heading',{name:'กลุ่มราคา',exact:true}).count(),1);
@@ -357,7 +360,8 @@ const browserExecutable = [
   assert.deepEqual(await page.locator('.contract-tier-grid h4').allTextContents(),titles);
   assert.equal(await editable.locator('h4').innerText(),'⭐');
   await page.locator('#cancelCustomerPricingBtn').click();
-  await mainGroupButton.click();
+  assert.equal(await groupSelect.locator('option:checked').innerText(),'LEVEL 3');
+  await groupSelect.selectOption({label:'LEVEL 1'});
   const pickCustomers=page.locator('[data-pick-group-customers]');
   assert.equal(await pickCustomers.evaluate(button=>getComputedStyle(button).color),'rgb(255, 255, 255)');
   await pickCustomers.click();
@@ -368,6 +372,8 @@ const browserExecutable = [
   await picker.locator('[data-customers-assigned] [data-group-customer="7"]').waitFor();
   await picker.getByRole('button',{name:'ปิด',exact:true}).click();
   await page.locator('[data-back-group]').click();
+  assert.equal(await page.locator('#sidebar .active').getAttribute('data-tab'),'products');
+  await page.locator('#sidebar [data-tab="customers"]').click();
   await page.locator('[data-act="editcontact"][data-id="7"]').click();
   assert.equal(await page.locator('#contactPriceGroup').count(),0);
   await page.locator('#c_line').fill('updated-line');
