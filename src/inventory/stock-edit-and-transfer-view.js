@@ -199,7 +199,7 @@ function renderStockEdit(){
       <div class="stock-edit-table-wrap seamless-table-wrap">
         <table class="grid-table doc-head-blue stock-edit-table">
           <colgroup><col class="stock-edit-col-barcode"><col class="stock-edit-col-name"><col class="stock-edit-col-stock"><col class="stock-edit-col-count"><col class="stock-edit-col-difference"><col class="stock-edit-col-lot"><col class="stock-edit-col-action"></colgroup>
-          <thead><tr><th>บาร์โค้ด</th><th>สินค้า</th><th>ในระบบ</th><th>นับได้</th><th>ต่าง</th><th>LOT ที่ปรับ</th><th aria-label="จัดการ"></th></tr></thead>
+          <thead><tr><th>บาร์โค้ด</th><th>สินค้า</th><th>ในระบบ</th><th><div class="stock-count-heading"><span>นับได้</span></div></th><th>ต่าง</th><th>LOT ที่ปรับ</th><th aria-label="จัดการ"></th></tr></thead>
           <tbody id="stockEditTbody">${stockEditRowsHtml(pagination.rows)}</tbody>
         </table>
       </div>

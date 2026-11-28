@@ -227,6 +227,13 @@ let browser;
   });
   const singleField=await page.locator('[data-stock-edit-amount="60"]').boundingBox();
   const multiField=await box.boundingBox();
+  const countHeading=await page.locator('.stock-count-heading span').evaluate(label=>{
+    const range=document.createRange();
+    range.selectNodeContents(label);
+    const text=range.getBoundingClientRect();
+    return text.left+text.width/2;
+  });
+  assert.ok(Math.abs(countHeading-singleField.x-singleField.width/2)<1,'count heading is centered above the quantity inputs');
   const gaps=await page.locator('#stockEditTbody label:has(input[data-count-part])').evaluateAll(labels=>
     labels.map(label=>label.querySelector('input').getBoundingClientRect().left-label.querySelector('span').getBoundingClientRect().right));
   assert.ok(gaps.length===3&&gaps.every(gap=>gap>=4&&gap<=6),'multi-unit labels sit next to their quantity inputs');

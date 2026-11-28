@@ -3201,7 +3201,9 @@
   .return-row-search .return-row-results{position:static;max-height:180px;text-align:left;}
 .stock-edit-table .stock-edit-col-count{width:165px}
 .stock-count-parts{display:grid;gap:4px;min-width:96px}
-.stock-count-parts label,.stock-count-single{display:grid;grid-template-columns:minmax(36px,1fr) minmax(44px,1fr);align-items:center;gap:5px;text-align:start}
+.stock-count-parts label,.stock-count-single,.stock-count-heading{display:grid;grid-template-columns:minmax(36px,1fr) minmax(44px,1fr);align-items:center;gap:5px}
+.stock-count-parts label,.stock-count-single{text-align:start}
+.stock-count-heading span{grid-column:2;text-align:center}
 .stock-count-single{min-width:96px}
 #stockEditTbody .stock-count-parts label>span{justify-self:end;text-align:end}
 .stock-count-parts label input,.stock-count-single input{grid-column:2;width:100%;min-width:0;box-sizing:border-box;padding:4px 6px}
