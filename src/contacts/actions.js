@@ -1,6 +1,6 @@
 function readContractPrice(row,onInvalid,editor=row.nextElementSibling.querySelector('.contract-tier-grid [data-contract-unit]')){
   const entries=[];
-  const unit=editor.dataset.contractUnit;
+  const unit=editor.closest('[data-contract-unit]').dataset.contractUnit;
   const product=products.find(item=>Number(item.id)===Number(row.dataset.productId));
   const cost=productUnitCost(product,unit);
   function warn(message,input){
@@ -22,6 +22,7 @@ function readContractPrice(row,onInvalid,editor=row.nextElementSibling.querySele
   const keepLegacyStart=entries[0]?.minQty===1&&entries[0].price===Number(editor.dataset.legacyFirstStep);
   const oneUnit=entries[0]?.minQty===1&&!editor.hasAttribute('data-quantity-one-tier')&&!keepLegacyStart?entries.shift():null;
   const price=keepLegacyStart?Number(editor.dataset.legacyStartingPrice):oneUnit?.price??null;
+  if(editor.dataset.priceLevel==='normal'&&price===null) return warn('กรอกราคาปกติสำหรับ 1 หน่วย',editor.querySelector('.tier-price'));
   let previous=price;
   for(const step of entries){
     if(step.price<cost) return warn('ราคาขั้นบันไดต้องไม่ต่ำกว่าทุน '+fmtMoney(cost),step.input);
@@ -213,160 +214,160 @@ function deleteContact(id){
 function attachPriceGroupEvents(page){
   const view=priceGroupPage;
   const context=captureStoreView();
-  let savedGroup=storePriceGroups().find(entry=>entry.id===view.groupId)||null;
-  const select=page.querySelector('[data-group-select]');
-  const level=fixedPriceLevels().find(entry=>entry.id===view.groupId);
+  const savedGroups=new Map(storePriceGroups().map(group=>[group.id,group]));
+  const levels=new Map(fixedPriceLevels().map(level=>[level.id,level]));
   const pickCustomers=page.querySelector('[data-pick-group-customers]');
   const back=page.querySelector('[data-back-group]');
   const status=page.querySelector('[data-price-group-status]');
   const retry=page.querySelector('[data-retry-group]');
   const warning=page.querySelector('[data-price-warning]');
-  const pendingRemovals=new Set();
+  const dirty=new Set();
+  const pending=new Set();
+  const validationIssues=new Map();
   let warningField=null;
-  let queued=false;
-  let unsaved=false;
   const isCurrent=()=>priceGroupPage===view&&page.isConnected&&currentTab==='pricegroups'&&isStoreViewCurrent(context)&&loggedInUser()?.owner;
-  const setBusy=busy=>{view.saving=busy;[select,back,pickCustomers].forEach(control=>control.disabled=busy);};
-  const canLeave=()=>{
+  view.canLeave=()=>{
     if(view.saving){showToast('กำลังบันทึกกลุ่มราคา กรุณารอสักครู่');return false;}
-    return !unsaved||confirm('มีการแก้ไขกลุ่มราคาที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?');
+    return !dirty.size||confirm('มีการแก้ไขกลุ่มราคาที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?');
   };
-  view.canLeave=canLeave;
-  setBusy(view.saving);
-  back.onclick=()=>{
-    if(canLeave()){currentTab='products';render();}
-  };
-  select.onchange=()=>{
-    if(!canLeave()){select.value=view.groupId;return;}
-    view.groupId=select.value;
-    render();
-  };
-  attachCustomerPricingEvents(page,{
-    customerId:null,onChange:saveChanges,onRemove:removePriceRow,
-    canOpenCustomer:()=>isCurrent()&&!view.saving&&canLeave()
-  });
-  const editable='.contract-editable-tier .tier-min,.contract-editable-tier .tier-price';
+  back.onclick=()=>{if(view.canLeave()){currentTab='products';render();}};
+  pickCustomers.onclick=()=>{if(isCurrent()&&!view.saving)openPriceGroupCustomerPicker(page,isCurrent);};
+  attachCustomerPricingEvents(page,{customerId:null,onChange:queueSave,canOpenCustomer:()=>isCurrent()&&view.canLeave()});
+  page.addEventListener('input',event=>event.target.removeAttribute('aria-invalid'));
   page.addEventListener('change',event=>{
-    if(!event.target.matches(editable)) return;
-    saveChanges();
-  });
-  page.addEventListener('input',event=>{
-    event.target.closest('.contract-editable-tier .tier-edit-row')?.querySelector('.tier-price')?.removeAttribute('aria-invalid');
+    if(event.target.matches('.tier-min,.tier-price'))queueSave(event.target.closest('[data-price-level]'));
   });
   page.addEventListener('keydown',event=>{
-    if(event.key!=='Enter'||event.isComposing||!event.target.matches('.contract-editable-tier input:not([readonly])')) return;
+    if(event.key!=='Enter'||event.isComposing||!event.target.matches('[data-price-level] input:not([readonly])'))return;
     event.preventDefault();
     event.target.blur();
   });
-  retry.onclick=saveChanges;
-  pickCustomers.onclick=()=>{
-    if(isCurrent()&&!view.saving) openPriceGroupCustomerPicker(page,level.id,isCurrent);
-  };
+  retry.onclick=()=>{dirty.forEach(editor=>pending.add(editor));void saveChanges();};
   warning.querySelector('button').onclick=()=>warning.close();
   warning.addEventListener('close',()=>{
-    if(!warningField?.isConnected) return;
+    if(!warningField?.isConnected)return;
     warningField.focus();
     warningField.select();
   });
 
-  function warnPrice(message,input){
-    if(warning.open) return;
-    warningField=input?.isConnected?input:null;
-    if(warningField){
-      const row=warningField.closest('.contract-tier-detail').previousElementSibling;
-      selectContractPriceUnit(row,warningField.closest('[data-contract-unit]').dataset.contractUnit);
-      warningField.setAttribute('aria-invalid','true');
-    }
-    warning.querySelector('p').textContent=message;
-    warning.showModal();
-  }
-  function removePriceRow(removed){
-    pendingRemovals.add(removed);
-    saveChanges();
-  }
-  function saveChanges(){
-    if(!isCurrent()) return;
-    unsaved=true;
-    if(view.saving){queued=true;return;}
-    retry.hidden=true;
-    const removals=[...pendingRemovals];
-    let issue=null;
-    const customerPrices=collectCustomerPriceRules(page,{
-      onInvalid:(message,input)=>issue={message,input,showPopup:input?.matches('.tier-price')&&input.value!==''}
-    });
-    const updated={id:level.id,name:level.name,customerPrices};
-    if(issue){
-      status.textContent=issue.message;
-      if(issue.showPopup) warnPrice(issue.message,issue.input);
-      // Persist confirmed deletions even if a different row has an invalid draft.
-      const savedPrices=savedGroup?.customerPrices||[];
-      const remaining=savedPrices.filter(rule=>!removals.some(removed=>
-        removed.id&&rule.id===removed.id||
-        !rule.id&&Number(rule.productId)===removed.productId&&rule.unit===removed.unit));
-      if(remaining.length<savedPrices.length){
-        submit({...savedGroup,customerPrices:remaining},removals,issue);
-      }else{
-        removals.forEach(removed=>pendingRemovals.delete(removed));
-      }
-      return;
-    }
-    if(!savedGroup&&!customerPrices.length){
-      removals.forEach(removed=>pendingRemovals.delete(removed));
-      unsaved=false;
-      status.textContent='';
-      return;
-    }
-    if(JSON.stringify(stableJsonValue(savedGroup))===JSON.stringify(stableJsonValue(updated))){
-      removals.forEach(removed=>pendingRemovals.delete(removed));
-      unsaved=false;
-      status.textContent='บันทึกแล้ว';
-      return;
-    }
-    submit(updated,removals);
+  function queueSave(editor){
+    if(!editor)return;
+    dirty.add(editor);
+    pending.add(editor);
+    void saveChanges();
   }
 
-  async function submit(updated,removals,issue){
-    setBusy(true);
-    status.textContent='กำลังบันทึก…';
+  async function saveChanges(){
+    if(!isCurrent()||view.saving)return;
+    view.saving=true;
+    back.disabled=pickCustomers.disabled=true;
+    retry.hidden=true;
     try{
-      const {data,error}=await sb.rpc('save_store_price_group',{p_warehouse_id:context.store,p_expected:savedGroup,p_group:updated});
-      if(error) throw error;
-      if(!isStoreViewCurrent(context)) return;
-      warehouseBusinessProfiles[context.store]={...warehouseBusinessSettings(),priceGroups:data};
-      persistWorkspaceData();
-      if(!isCurrent()) return;
-      savedGroup=data.find(entry=>entry.id===updated.id);
-      removals.forEach(removed=>pendingRemovals.delete(removed));
-      unsaved=queued||!!issue;
-      status.textContent=issue?'ลบรายการแล้ว · '+issue.message:'บันทึกแล้ว';
+      while(pending.size){
+        const editor=pending.values().next().value;
+        pending.delete(editor);
+        if(!isCurrent())return;
+        const row=editor.closest('.contract-tier-detail').previousElementSibling;
+        const productId=Number(row.dataset.productId);
+        const unit=editor.closest('[data-contract-unit]').dataset.contractUnit;
+        const levelId=editor.dataset.priceLevel;
+        let issue=null;
+        const rule=readContractPrice(row,(message,input)=>{issue={message,input,row,unit};},editor);
+        if(!rule){validationIssues.set(editor,issue);continue;}
+        validationIssues.delete(editor);
+        dirty.delete(editor);
+        status.textContent='กำลังบันทึก…';
+        try{
+          if(levelId==='normal'){
+            const changed=await saveNormalGroupPrice(productId,unit,rule);
+            if(changed&&!rule.tiers.some(step=>step.minQty===1)){
+              delete editor.dataset.legacyStartingPrice;
+              delete editor.dataset.legacyFirstStep;
+            }
+            if(row.querySelector('.customer-price-unit').value===unit)row.querySelector('.customer-price-regular').value=fmtMoney(rule.price);
+            updateContractPriceColors(row);
+          }else{
+            const level=levels.get(levelId),saved=savedGroups.get(levelId)||null;
+            const previous=saved?.customerPrices||[];
+            const existing=previous.find(entry=>Number(entry.productId)===productId&&entry.unit===unit);
+            const customerPrices=previous.filter(entry=>entry!==existing);
+            if(rule.price!==null||rule.tiers.length){
+              const updated={id:existing?.id||`product-${productId}-${unit}`,productId,unit,price:rule.price,
+                ...(rule.tiers.length?{tiers:rule.tiers}:{})};
+              if(existing)customerPrices.splice(previous.indexOf(existing),0,updated);
+              else customerPrices.push(updated);
+            }
+            if(JSON.stringify(stableJsonValue(previous))===JSON.stringify(stableJsonValue(customerPrices)))continue;
+            const {data,error}=await sb.rpc('save_store_price_group',{p_warehouse_id:context.store,p_expected:saved,
+              p_group:{id:level.id,name:level.name,customerPrices}});
+            if(error)throw error;
+            if(!isStoreViewCurrent(context))return;
+            warehouseBusinessProfiles[context.store]={...warehouseBusinessSettings(),priceGroups:data};
+            savedGroups.set(levelId,data.find(group=>group.id===levelId));
+            persistWorkspaceData();
+          }
+        }catch(error){dirty.add(editor);throw error;}
+      }
+      const validation=[...validationIssues.values()].at(-1);
+      if(validation){
+        const {message,input,row,unit}=validation;
+        status.textContent=message;
+        if(input?.matches('.tier-price')&&input.value!==''&&!warning.open){
+          selectContractPriceUnit(row,unit);
+          warningField=input;
+          input.setAttribute('aria-invalid','true');
+          warning.querySelector('p').textContent=message;
+          warning.showModal();
+        }
+      }else status.textContent='บันทึกแล้ว';
     }catch(error){
-      if(!isCurrent()) return;
+      if(!isCurrent())return;
       status.textContent='บันทึกกลุ่มราคาไม่สำเร็จ · '+error.message;
       retry.hidden=false;
     }finally{
-      setBusy(false);
-      if(queued){
-        queued=false;
-        saveChanges();
-      }
+      view.saving=false;
+      back.disabled=pickCustomers.disabled=false;
     }
   }
 }
-function openPriceGroupCustomerPicker(page,groupId,isCurrent){
-  const group=fixedPriceLevels().find(entry=>entry.id===groupId);
-  if(!group||!canPerformPageAction('edit','customers')) return;
+
+async function saveNormalGroupPrice(productId,unit,rule){
+  const product=products.find(item=>Number(item.id)===productId);
+  if(!product||!productUnitOptions(product).some(option=>option.name===unit))throw new Error('ไม่พบหน่วยสินค้า');
+  const tiers=rule.tiers.map(step=>({unit,...step}));
+  const changed=rule.price!==regularProductUnitPrice(product,unit)||
+    JSON.stringify(stableJsonValue(tiers))!==JSON.stringify(stableJsonValue(productTierRows(product,unit)));
+  if(changed){
+    product.priceTiers=[...(product.priceTiers||[]).filter(step=>step.unit!==unit),...tiers];
+    if(unit===product.unit)product.price=rule.price;
+    else product.units=product.units.map(option=>option.sub===unit?{...option,price:rule.price}:option);
+  }
+  if(changed||productDirtyOperations.has(String(productId))){
+    if(!await persistWorkspaceData({productChanges:{updatedIds:[productId]}})){
+      throw new Error('เก็บข้อมูลในเครื่องไม่สำเร็จ กรุณาลองอีกครั้ง');
+    }
+    await syncCoreDataToSupabase();
+    if(productDirtyOperations.has(String(productId)))throw new Error('ราคา NORMAL ยังรอซิงก์');
+  }
+  return changed;
+}
+
+function openPriceGroupCustomerPicker(page,isCurrent){
+  if(!canPerformPageAction('edit','customers'))return;
+  const levels=[{id:'',name:'NORMAL'},...fixedPriceLevels().map((group,index)=>({id:group.id,name:'LV'+(index+1)}))];
+  const names=new Map(levels.map(level=>[level.id,level.name]));
   const dialog=document.createElement('dialog');
   dialog.className='price-group-customer-dialog';
   dialog.setAttribute('aria-labelledby','priceGroupCustomersTitle');
   dialog.innerHTML=`<div class="modal-head">
-      <h3 id="priceGroupCustomersTitle">เลือกลูกค้า · ${escapeHtml(group.name)}</h3>
+      <h3 id="priceGroupCustomersTitle">เลือกลูกค้าเข้ากลุ่ม</h3>
       <button type="button" class="modal-close" aria-label="ปิด">×</button>
     </div>
     <div class="price-group-customer-body">
       <input class="price-group-customer-search" type="search" aria-label="ค้นหาลูกค้า" placeholder="ค้นหาชื่อ เบอร์โทร หรือกลุ่มราคา">
+      <section class="price-group-customer-panel"><h4>ลูกค้าทั้งหมด</h4><ul data-all-group-customers></ul></section>
       <div class="price-group-customer-columns">
-        <section><h4>รายชื่อลูกค้า</h4><ul data-customers-available></ul></section>
-        <section><h4>${escapeHtml(group.name)}</h4><ul data-customers-assigned></ul></section>
+        ${levels.map(level=>`<section class="price-group-customer-panel" data-customer-level="${escapeHtml(level.id)}"><h4><button type="button" aria-label="ย้ายลูกค้าไป ${level.name}">${level.name}</button></h4><ul></ul></section>`).join('')}
       </div>
       <div role="status" class="price-group-customer-status"></div>
     </div>`;
@@ -374,58 +375,76 @@ function openPriceGroupCustomerPicker(page,groupId,isCurrent){
   const close=dialog.querySelector('.modal-close');
   const search=dialog.querySelector('input');
   const status=dialog.querySelector('[role="status"]');
-  let busy=false;
-  const available=dialog.querySelector('[data-customers-available]');
-  const assigned=dialog.querySelector('[data-customers-assigned]');
+  const columns=[...dialog.querySelectorAll('[data-customer-level]')];
+  const options=dialog.querySelector('[data-all-group-customers]');
   const compareNames=new Intl.Collator('th',{numeric:true});
+  let activeId='',draggedId='',busy=false;
+  const groupOf=customer=>names.has(customer.priceGroupId)?customer.priceGroupId:'';
+
   function draw(){
-    const groups=new Map(fixedPriceLevels().map(entry=>[entry.id,entry.name]));
     const query=search.value.trim().toLocaleLowerCase('th');
-    const rows=customersList().slice().sort((a,b)=>compareNames.compare(a.name,b.name));
-    available.innerHTML=listHtml(rows.filter(customer=>customer.priceGroupId!==groupId),false);
-    assigned.innerHTML=listHtml(rows.filter(customer=>customer.priceGroupId===groupId),true);
-    function listHtml(customers,inGroup){
-      return customers.filter(customer=>[customer.name,customer.phone,groups.get(customer.priceGroupId)].join(' ').toLocaleLowerCase('th').includes(query))
-        .map(customer=>{
-          const groupName=groups.get(customer.priceGroupId);
-          const action=inGroup?'นำออกจากกลุ่ม':'เข้ากลุ่ม';
-          return `<li><button type="button" class="price-group-customer-row" data-group-customer="${escapeHtml(customer.id)}"
-            aria-label="${escapeHtml(action+' '+customer.name)}" ${busy?'disabled':''}>
-            <span>${escapeHtml(customer.name)}${groupName?` <small> : ${escapeHtml(groupName)}</small>`:''}</span>
-            <span aria-hidden="true">${inGroup?'−':'+'}</span></button></li>`;
-        }).join('')||'<li class="price-group-customer-empty">ไม่มีรายชื่อ</li>';
-    }
+    const rows=customersList().filter(customer=>[customer.name,customer.phone,names.get(groupOf(customer))].join(' ').toLocaleLowerCase('th').includes(query))
+      .sort((a,b)=>compareNames.compare(a.name,b.name));
+    const listHtml=customers=>customers.map(customer=>{
+      const id=String(customer.id),name=escapeHtml(customer.name);
+      return `<li><button class="price-group-customer-row" type="button" draggable="${!busy}" data-group-customer="${escapeHtml(id)}" aria-pressed="${id===activeId}" ${busy?'disabled':''}>${name}</button></li>`;
+    }).join('');
+    options.innerHTML=listHtml(rows);
+    columns.forEach(column=>{column.querySelector('ul').innerHTML=listHtml(rows.filter(customer=>groupOf(customer)===column.dataset.customerLevel));});
   }
-  search.oninput=draw;
-  close.onclick=()=>dialog.close();
-  dialog.addEventListener('cancel',event=>{if(busy) event.preventDefault();});
-  dialog.addEventListener('close',()=>{
-    dialog.remove();
-    page.querySelector('[data-pick-group-customers]')?.focus();
-  });
-  dialog.addEventListener('click',async event=>{
-    const button=event.target.closest('[data-group-customer]');
-    if(!button||busy||!isCurrent()) return;
-    const customer=customersList().find(entry=>String(entry.id)===button.dataset.groupCustomer);
-    if(!customer) return;
-    const nextGroup=customer.priceGroupId===groupId?null:groupId;
+
+  async function moveCustomer(id,groupId){
+    if(busy||!id||!isCurrent()||!names.has(groupId))return;
+    const customer=customersList().find(entry=>String(entry.id)===id);
+    if(!customer||String(customer.priceGroupId||'')===groupId)return;
+    activeId=id;
     busy=close.disabled=true;
     status.textContent='กำลังบันทึก…';
     draw();
     try{
-      await persistContactImmediately(customer,{
-        changes:{priceGroupId:nextGroup},
-        isCurrent
-      });
+      await persistContactImmediately(customer,{changes:{priceGroupId:groupId||null},isCurrent});
       persistContacts();
-      status.textContent=nextGroup?`เพิ่ม ${customer.name} เข้ากลุ่มแล้ว`:`นำ ${customer.name} ออกจากกลุ่มแล้ว`;
-    }catch(error){
-      status.textContent='ย้ายลูกค้าไม่สำเร็จ · '+error.message;
-    }finally{
-      busy=close.disabled=false;
-      draw();
-      search.focus();
+      status.textContent=`ย้าย ${customer.name} ไป ${names.get(groupId)} แล้ว`;
+      activeId='';
+    }catch(error){status.textContent='ย้ายลูกค้าไม่สำเร็จ · '+error.message;}
+    finally{busy=close.disabled=false;draw();search.focus();}
+  }
+  close.onclick=()=>dialog.close();
+  dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault();});
+  dialog.addEventListener('close',()=>{dialog.remove();page.querySelector('[data-pick-group-customers]')?.focus();},{once:true});
+  search.addEventListener('input',draw);
+  dialog.addEventListener('click',event=>{
+    const customer=event.target.closest('[data-group-customer]');
+    if(customer&&!busy){
+      activeId=customer.dataset.groupCustomer;
+      dialog.querySelectorAll('[data-group-customer]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.groupCustomer===activeId)));
     }
+    const target=event.target.closest('[data-customer-level] h4 button');
+    if(target)void moveCustomer(activeId,target.closest('[data-customer-level]').dataset.customerLevel);
+  });
+  dialog.addEventListener('dragstart',event=>{
+    const customer=event.target.closest('[data-group-customer]');
+    if(!customer||busy){event.preventDefault();return;}
+    draggedId=customer.dataset.groupCustomer;
+    event.dataTransfer.setData('text/plain',draggedId);
+    event.dataTransfer.effectAllowed='move';
+  });
+  dialog.addEventListener('dragend',()=>{draggedId='';columns.forEach(column=>column.classList.remove('is-drop-target'));});
+  columns.forEach(column=>{
+    column.addEventListener('dragover',event=>{
+      if(!draggedId||busy)return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect='move';
+      columns.forEach(target=>target.classList.toggle('is-drop-target',target===column));
+    });
+    column.addEventListener('drop',event=>{
+      if(!draggedId)return;
+      event.preventDefault();
+      column.classList.remove('is-drop-target');
+      const id=draggedId;
+      draggedId='';
+      void moveCustomer(id,column.dataset.customerLevel);
+    });
   });
   draw();
   dialog.showModal();
@@ -483,7 +502,7 @@ function selectContractPriceUnit(row,unit){
   if(current.dataset.contractUnit!==unit){
     editor=[...bank.children].find(item=>item.dataset.contractUnit===unit);
     if(!editor){
-      bank.insertAdjacentHTML('beforeend',contractPriceEditorHtml({unit},option.cost||0));
+      bank.insertAdjacentHTML('beforeend',row.closest('#priceGroupPage')?priceGroupUnitHtml(product,unit):contractPriceEditorHtml({unit},option.cost||0));
       editor=bank.lastElementChild;
       if(row.contractPriceReadOnly){
         editor.querySelectorAll('input').forEach(input=>input.disabled=true);
@@ -498,12 +517,14 @@ function selectContractPriceUnit(row,unit){
   row.querySelector('.customer-price-regular').value=fmtMoney(option.price||0);
   row.querySelector('.customer-price-cost').value=fmtMoney(option.cost||0);
   detail.querySelector('.contract-inherited').textContent=inheritedContractText(customerPriceRule(row.contractPriceGroup,product.id,unit),unit);
+  const personal=detail.querySelector('[data-personal-list]');
+  if(personal)personal.hidden=!personalPriceEntries(product.id,unit).length;
   setContractTierExpanded(row,true);
   return editor;
 }
 function setContractTierExpanded(row,expanded){
   if(expanded){
-    renderContractComparisons(row);
+    if(!row.closest('#priceGroupPage'))renderContractComparisons(row);
     updateContractPriceColors(row);
   }
   row.nextElementSibling.hidden=!expanded;
@@ -521,7 +542,7 @@ function updateContractPriceColors(row){
     input.classList.toggle('below-cost',comparison==='below-cost');
   });
 }
-function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPriceContactId,onClose=()=>{editingCustomerPriceContactId=null;render();},onSaved,onChange,onRemove,canOpenCustomer,readOnly=false}={}){
+function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPriceContactId,onClose=()=>{editingCustomerPriceContactId=null;render();},onSaved,onChange,canOpenCustomer,readOnly=false}={}){
   const cancelCustomerPricingBtn=root.querySelector('#cancelCustomerPricingBtn');
   if(cancelCustomerPricingBtn) cancelCustomerPricingBtn.addEventListener('click',onClose);
   const saveCustomerPricingBtn=root.querySelector('#saveCustomerPricingBtn');
@@ -541,14 +562,16 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
       }
       const button=event.target.closest('[data-add-tier],[data-remove-tier]');
       if(!button) return;
-      const rows=detail.querySelector('.contract-tier-grid .contract-editable-tier .tier-edit-rows');
+      const editor=button.closest('.contract-editable-tier');
+      const rows=editor.querySelector('.tier-edit-rows');
       if(button.hasAttribute('data-remove-tier')){
+        if(editor.dataset.priceLevel==='normal'&&rows.children.length<=1) return;
         rows.lastElementChild?.remove();
-        if(!rows.lastElementChild) detail.querySelector('.contract-tier-grid [data-add-tier]')?.focus();
-        onChange?.();
+        if(!rows.lastElementChild) editor.querySelector('[data-add-tier]')?.focus();
+        onChange?.(editor);
         return;
       }
-      if(!readContractPrice(row)) return;
+      if(!readContractPrice(row,undefined,editor)) return;
       const lastMinimum=rows.lastElementChild?.querySelector('.tier-min');
       if(lastMinimum?.value===''){lastMinimum.focus();return;}
       rows.insertAdjacentHTML('beforeend',priceTierRowHtml({},{cost:row.querySelector('.customer-price-cost').value}));
@@ -570,7 +593,7 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
       const current=detail.querySelector('.contract-tier-grid [data-contract-unit]');
       if(current.dataset.contractUnit===unitSelect.value) return;
       const editor=selectContractPriceUnit(row,unitSelect.value);
-      if(!readOnly&&!editor?.querySelector('.tier-price')) editor?.querySelector('[data-add-tier]')?.click();
+      if(!readOnly&&!onChange&&!editor?.querySelector('.tier-price')) editor?.querySelector('[data-add-tier]')?.click();
     };
     const remove=row.querySelector('.customer-price-remove');
     if(remove) remove.onclick=()=>{
@@ -579,7 +602,6 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
       const editor=detail.querySelector('.contract-tier-grid [data-contract-unit]');
       const next=[...detail.querySelector('[data-contract-unit-editors]').children].find(other=>
         [...other.querySelectorAll('.tier-min,.tier-price')].some(input=>input.value!==''||input.validity.badInput));
-      const removed={id:editor.dataset.ruleId,productId:Number(row.dataset.productId),unit:unitSelect.value};
       if(next){
         selectContractPriceUnit(row,next.dataset.contractUnit);
         editor.remove();
@@ -587,7 +609,6 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
         detail.remove();
         row.remove();
       }
-      onRemove?.(removed);
       if(customerPriceRows&&!customerPriceRows.querySelector('[data-customer-price-row]')) customerPriceRows.innerHTML='<tr class="customer-price-empty"><td colspan="6">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>';
     };
   };
@@ -600,7 +621,7 @@ function attachCustomerPricingEvents(root=document,{customerId=editingCustomerPr
     let row=[...customerPriceRows.querySelectorAll('[data-customer-price-row]')].find(item=>Number(item.dataset.productId)===Number(product.id));
     if(!row){
       customerPriceRows.querySelector('.customer-price-empty')?.remove();
-      customerPriceRows.insertAdjacentHTML('beforeend',customerPriceRowHtml([{productId:product.id,unit:selectedUnit}],root.matches?.('.pos-customer-pricing-overlay'),group));
+      customerPriceRows.insertAdjacentHTML('beforeend',customerPriceRowHtml([{productId:product.id,unit:selectedUnit}],root.matches?.('.pos-customer-pricing-overlay'),group,root.id==='priceGroupPage'));
       row=customerPriceRows.lastElementChild.previousElementSibling;
       bindCustomerPriceRow(row);
     }

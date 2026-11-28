@@ -64,14 +64,6 @@ async function saveProduct(){
     cost: r.cost,
     barcode: r.barcode,
   }));
-  refreshProductTierUnits();
-  const priceTiers=[];
-  for(const column of document.querySelectorAll('#productTierUnits [data-tier-unit]')){
-    const tiers=validateProductTierColumn(column);
-    if(!tiers) return;
-    priceTiers.push(...tiers);
-  }
-  priceTiers.sort((a,b)=>a.minQty-b.minQty);
   const validBarcodeUnits=new Set([mainUnitName,...units.map(item=>item.sub)].filter(Boolean));
   const extraBarcodeRows=mobileEditor?extraBarcodeEntries(mobileEditor.draft):Array.from(document.querySelectorAll('#extraBarcodeRows .bcrow')).map(row=>{
     const requestedUnit=String(row.querySelector('.eb_unit')?.value||'').trim();
@@ -101,7 +93,7 @@ async function saveProduct(){
   const threshold = existing ? (existing.threshold??DEFAULT_LOW_STOCK_THRESHOLD) : DEFAULT_LOW_STOCK_THRESHOLD;
   const lowMode = existing ? (existing.lowMode||'default') : 'default';
   const data = {
-    name, unit, price, priceTiers,
+    name, unit, price,
     active: g('f_active') ? g('f_active').checked : existing?.active!==false,
     cost: parseFloat(gv('f_cost'))||0,
     sku: g('f_sku').value.trim(),

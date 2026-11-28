@@ -110,7 +110,6 @@ function renderContractComparisons(row){
   const product=products.find(p=>Number(p.id)===Number(row.dataset.productId));
   const unit=row.querySelector('.customer-price-unit').value;
   const levels=fixedPriceLevels();
-  const groupId=row.closest('#priceGroupPage')?priceGroupPage.groupId:null;
   const cost=fmtMoney(productUnitCost(product,unit));
   const normal={price:regularProductUnitPrice(product,unit),tiers:productTierRows(product,unit)};
   const rules=[normal,...levels.map(group=>customerPriceRule(group,product.id,unit))];
@@ -118,26 +117,14 @@ function renderContractComparisons(row){
   const editor=grid.querySelector('.contract-editable-tier');
   const cards=rules.map((rule,index)=>{
     const title=index?'LV'+index:'NORMAL';
-    if(index&&levels[index-1].id===groupId){
-      editor.querySelector('h4').textContent=title;
-      return editor;
-    }
     const card=document.createElement('div');
     card.className='contract-general-tier';
     const steps=contractPriceRows(rule);
     card.innerHTML=priceTierColumnHtml(unit,steps,{readOnly:true,cost,title,showBlank:false});
     return card;
   });
-  if(groupId){
-    const star=document.createElement('div');
-    star.className='contract-general-tier';
-    star.innerHTML='<section class="unit-tier-editor"><h4 aria-label="ราคาพิเศษรายบุคคล">⭐</h4>'+
-      (personalPriceEntries(product.id,unit).length?'<div class="tier-edit-actions"><button type="button" class="btn ghost small" data-personal-list>ดูรายชื่อลูกค้า</button></div>':'')+'</section>';
-    cards.push(star);
-  }else{
-    editor.querySelector('h4').textContent='⭐';
-    cards.push(editor);
-  }
+  editor.querySelector('h4').textContent='⭐';
+  cards.push(editor);
   grid.replaceChildren(...cards);
 }
 function inheritedContractText(groupRule,unit){
@@ -146,24 +133,33 @@ function inheritedContractText(groupRule,unit){
   for(const tier of groupRule.tiers||[]) parts.push(`${tier.minQty} ${unit}ขึ้นไป ${fmtMoney(tier.price)} บาท`);
   return parts.join(' · ');
 }
-function contractPriceEditorHtml(rule,cost){
+function contractPriceEditorHtml(rule,cost,{level,title='⭐'}={}){
   const steps=contractPriceRows(rule);
   const hasQuantityOneTier=rule.tiers?.some(step=>Number(step.minQty)===1);
   const keepQuantityOneTier=rule.price==null&&hasQuantityOneTier;
   const legacyStartingPrice=hasQuantityOneTier&&rule.price>steps[0].price?rule.price:null;
-  return `<div class="contract-editable-tier" data-contract-unit="${escapeHtml(rule.unit)}" data-rule-id="${escapeHtml(rule.id||'')}" ${keepQuantityOneTier?'data-quantity-one-tier':''} ${legacyStartingPrice==null?'':`data-legacy-starting-price="${escapeHtml(legacyStartingPrice)}" data-legacy-first-step="${escapeHtml(steps[0].price)}"`}>
-    ${priceTierColumnHtml(rule.unit,steps,{cost:fmtMoney(cost),title:'⭐',showBlank:false})}
+  return `<div class="contract-editable-tier" ${level===undefined?`data-contract-unit="${escapeHtml(rule.unit)}"`:`data-price-level="${escapeHtml(level)}"`} data-rule-id="${escapeHtml(rule.id||'')}" ${keepQuantityOneTier?'data-quantity-one-tier':''} ${legacyStartingPrice==null?'':`data-legacy-starting-price="${escapeHtml(legacyStartingPrice)}" data-legacy-first-step="${escapeHtml(steps[0].price)}"`}>
+    ${priceTierColumnHtml(rule.unit,steps,{cost:fmtMoney(cost),title,showBlank:false,oneHeading:level!==undefined})}
   </div>`;
 }
-function customerPriceRowHtml(rules,allowAddToSale=false,group=null){
+function priceGroupUnitHtml(product,unit){
+  const cost=productUnitCost(product,unit);
+  const normal={unit,price:regularProductUnitPrice(product,unit),tiers:productTierRows(product,unit)};
+  const levels=fixedPriceLevels().map((level,index)=>contractPriceEditorHtml(
+    customerPriceRule(level,product.id,unit)||{unit},cost,{level:level.id,title:'LV'+(index+1)}));
+  return `<div class="price-group-unit" data-contract-unit="${escapeHtml(unit)}">${contractPriceEditorHtml(normal,cost,{level:'normal',title:'NORMAL'})}${levels.join('')}</div>`;
+}
+function customerPriceRowHtml(rules,allowAddToSale=false,group=null,groupPricing=false){
   const product=products.find(item=>Number(item.id)===Number(rules[0].productId));
   if(!product) return '';
   const options=productUnitOptions(product);
   const unitLabels=new Map(productUnitConversionRows(product).map(row=>[row.largerUnit,`${row.largerUnit} = ${productUnitConversionAmount(row.quantity)} ${row.smallerUnit}`]));
   const selectedOption=options.find(option=>option.name===rules[0].unit)||options[0];
+  if(!selectedOption)return '';
   const selectedUnit=selectedOption.name;
   const activeRule=rules.find(rule=>rule.unit===selectedUnit)||{unit:selectedUnit};
-  const otherRules=rules.filter(rule=>rule!==activeRule);
+  const otherRules=rules.filter(rule=>rule!==activeRule&&options.some(option=>option.name===rule.unit));
+  const editorHtml=rule=>groupPricing?priceGroupUnitHtml(product,rule.unit):contractPriceEditorHtml(rule,productUnitCost(product,rule.unit));
   const nameHtml=allowAddToSale?`<button class="customer-price-add-to-sale" data-add-special-price type="button" aria-label="เพิ่ม ${escapeHtml(product.name)} ลงรายการขาย">${escapeHtml(product.name)}</button>`:`<b>${escapeHtml(product.name)}</b>`;
   return `<tr class="customer-price-row" data-customer-price-row data-product-id="${escapeHtml(product.id)}">
     <td class="mono customer-price-barcode">${escapeHtml(productBarcodeForUnit(product,selectedUnit)||'-')}</td>
@@ -171,12 +167,13 @@ function customerPriceRowHtml(rules,allowAddToSale=false,group=null){
     <td><select class="customer-price-unit" aria-label="หน่วย ${escapeHtml(product.name)}">${options.map(option=>`<option value="${escapeHtml(option.name)}" ${option.name===selectedUnit?'selected':''}>${escapeHtml(unitLabels.get(option.name)||option.name)}</option>`).join('')}</select></td>
     <td><input class="customer-price-regular mono" value="${escapeHtml(fmtMoney(selectedOption.price||0))}" readonly tabindex="-1" aria-label="ราคาปกติ ${escapeHtml(product.name)}"></td>
     <td><input class="customer-price-cost mono" value="${escapeHtml(fmtMoney(selectedOption.cost||0))}" readonly tabindex="-1" aria-label="ทุน ${escapeHtml(product.name)}"></td>
-    <td><div class="customer-price-row-actions"><button class="history-icon-btn danger customer-price-remove" type="button" title="ลบราคาพิเศษของหน่วยนี้" aria-label="ลบราคาพิเศษ ${escapeHtml(product.name)}">×</button>${priceTierToggleHtml(product.name,'data-contract-toggle')}</div></td>
+    <td><div class="customer-price-row-actions">${groupPricing?'':`<button class="history-icon-btn danger customer-price-remove" type="button" title="ลบราคาพิเศษของหน่วยนี้" aria-label="ลบราคาพิเศษ ${escapeHtml(product.name)}">×</button>`}${priceTierToggleHtml(product.name,'data-contract-toggle')}</div></td>
   </tr><tr class="product-tier-detail contract-tier-detail" hidden><td colspan="6">
     <section class="panel product-tier-panel" aria-label="ราคาขั้นบันได ${escapeHtml(product.name)}">
-      <div class="contract-tier-grid">${contractPriceEditorHtml(activeRule,selectedOption.cost||0)}</div>
-      <div data-contract-unit-editors hidden>${otherRules.map(rule=>contractPriceEditorHtml(rule,productUnitCost(product,rule.unit))).join('')}</div>
+      <div class="contract-tier-grid">${editorHtml(activeRule)}</div>
+      <div data-contract-unit-editors hidden>${otherRules.map(editorHtml).join('')}</div>
       <div class="contract-inherited">${escapeHtml(inheritedContractText(customerPriceRule(group,product.id,selectedUnit),selectedUnit))}</div>
+      ${groupPricing?`<button type="button" class="btn ghost small" data-personal-list ${personalPriceEntries(product.id,selectedUnit).length?'':'hidden'}>⭐ ดูรายชื่อลูกค้า</button>`:''}
     </section>
   </td></tr>`;
 }
@@ -287,8 +284,9 @@ function renderContactForm(){
 }
 
 function renderPriceGroups(){
-  const groups=fixedPriceLevels();
-  const group=groups.find(entry=>entry.id===priceGroupPage.groupId);
+  const configured=[...fixedPriceLevels().flatMap(group=>normalizedCustomerPriceRules(group)),
+    ...products.flatMap(product=>(product.priceTiers||[]).map(tier=>({productId:product.id,unit:tier.unit})))];
+  const uniqueUnits=new Map(configured.map(rule=>[JSON.stringify([Number(rule.productId),rule.unit]),rule]));
   return `<div class="rpt customer-pricing-page" id="priceGroupPage">
     <div class="pagehead">
       <div class="price-group-heading">
@@ -302,12 +300,9 @@ function renderPriceGroups(){
     </div>
     <div class="panel customer-pricing-panel">
       <div class="price-group-fields">
-        <label class="field">เลือกกลุ่มราคา<select data-group-select>
-          ${groups.map(entry=>`<option value="${escapeHtml(entry.id)}" ${entry.id===group?.id?'selected':''}>${escapeHtml(entry.name)}</option>`).join('')}
-        </select></label>
-        <button class="btn primary" type="button" data-pick-group-customers>เลือกลูกค้า</button>
+        <button class="btn primary" type="button" data-pick-group-customers>เลือกลูกค้าเข้ากลุ่ม</button>
       </div>
-      ${customerPricingTableHtml(group?.customerPrices||[])}
+      ${customerPricingTableHtml([...uniqueUnits.values()],false,null,true)}
     </div>
     <dialog class="price-group-customer-dialog price-group-warning" data-price-warning role="alertdialog"
         aria-labelledby="priceGroupWarningTitle" aria-describedby="priceGroupWarningMessage">
@@ -333,7 +328,7 @@ function renderCustomerPricingForm(customerId=editingCustomerPriceContactId,allo
     </div>
   </div>`;
 }
-function customerPricingTableHtml(customerPrices,allowAddToSale=false,group=null){
+function customerPricingTableHtml(customerPrices,allowAddToSale=false,group=null,groupPricing=false){
   const byProduct=new Map();
   for(const rule of customerPrices){
     const key=Number(rule.productId);
@@ -341,7 +336,7 @@ function customerPricingTableHtml(customerPrices,allowAddToSale=false,group=null
     byProduct.get(key).push(rule);
   }
   return `<div class="customer-price-search-wrap"><div class="customer-price-search"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg></span><input id="customerPriceSearch" placeholder="ค้นหาสินค้า / รหัส / สแกนบาร์โค้ด" autocomplete="off"></div><div class="customer-price-search-results" id="customerPriceSearchResults" hidden></div></div>
-      <div class="customer-price-table-wrap"><table class="grid-table customer-price-table"><colgroup><col class="customer-price-col-barcode"><col class="customer-price-col-name"><col class="customer-price-col-unit"><col class="customer-price-col-regular"><col class="customer-price-col-cost"><col class="customer-price-col-action"></colgroup><thead><tr><th>บาร์โค้ดสินค้า</th><th>ชื่อ</th><th>หน่วย</th><th>ราคาปกติ</th><th>ทุน</th><th></th></tr></thead><tbody id="customerPriceRows">${[...byProduct.values()].map(rules=>customerPriceRowHtml(rules,allowAddToSale,group)).join('')||'<tr class="customer-price-empty"><td colspan="6">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>'}</tbody></table></div>`;
+      <div class="customer-price-table-wrap"><table class="grid-table customer-price-table"><colgroup><col class="customer-price-col-barcode"><col class="customer-price-col-name"><col class="customer-price-col-unit"><col class="customer-price-col-regular"><col class="customer-price-col-cost"><col class="customer-price-col-action"></colgroup><thead><tr><th>บาร์โค้ดสินค้า</th><th>ชื่อ</th><th>หน่วย</th><th>ราคาปกติ</th><th>ทุน</th><th></th></tr></thead><tbody id="customerPriceRows">${[...byProduct.values()].map(rules=>customerPriceRowHtml(rules,allowAddToSale,group,groupPricing)).join('')||'<tr class="customer-price-empty"><td colspan="6">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>'}</tbody></table></div>`;
 }
 
 function renderSalesRepresentatives(){

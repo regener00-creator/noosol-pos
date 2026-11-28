@@ -14,7 +14,6 @@ function bindUnitRowEvents(){
       document.getElementById('unitRows').innerHTML=data.map(u=>unitRowHtml(u,mainUnit,names)).join('');
       bindUnitRowEvents();
       refreshExtraBarcodeUnitOptions();
-      refreshProductTierUnits();
     };
   });
   // เปลี่ยนชื่อหน่วย → รีเฟรช base dropdown ของแถวอื่น (แต่ปล่อยให้ combo-select "เพิ่มใหม่/จัดการ" ทำงานก่อน)

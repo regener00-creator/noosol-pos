@@ -42,9 +42,6 @@ function attachProductGroupEvents(root=document){
   });
 }
 function attachProductResultEvents(root=document){
-  root.querySelectorAll('[data-product-tiers]').forEach(button=>{
-    button.addEventListener('click',()=>toggleProductTierDetails(button));
-  });
   root.querySelectorAll('[data-act="editproduct"]').forEach(el=>{
     el.addEventListener('click', ()=>{ if(isLevel2User()) return; editingProductId=Number(el.dataset.id); render(); });
   });
@@ -1682,11 +1679,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
       render();
     });
   });
-  document.getElementById('productTierFilter')?.addEventListener('click',()=>{
-    productTierFilter=!productTierFilter;
-    productPage=1;
-    render();
-  });
   attachProductGroupEvents();
   // --- sort headers ---
   document.querySelectorAll('.grid-table:not(.prodtable):not(.contact-summary-table) th.sortable').forEach(el=>{
@@ -1954,7 +1946,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
     if(t) t.addEventListener('change', ()=>{
       const section=document.getElementById(body);
       if(section) section.style.display=t.checked?'':'none';
-      if(tog==='f_multiunit') refreshProductTierUnits();
     });
   });
   // add/remove unit rows
@@ -2029,35 +2020,6 @@ document.querySelectorAll('.line-qty').forEach(el=>{
   if(saveProductBtn){
     document.getElementById('main').addEventListener('input',validateProductBarcodeInput);
     saveProductBtn.addEventListener('click', saveProduct);
-    const tierGrid=document.getElementById('productTierUnits');
-    if(tierGrid){
-      tierGrid.tierDraft=mobileProductEditor?.draft.priceTierDraft;
-      refreshProductTierCosts(tierGrid);
-      document.querySelector('.product-pricing-panel')?.addEventListener('input',event=>{
-        if(event.target.matches('#f_cost,.u_cost')) refreshProductTierCosts(tierGrid);
-      });
-      tierGrid.addEventListener('click',event=>{
-        const button=event.target.closest('[data-add-tier],[data-remove-tier]');
-        if(!button) return;
-        const column=button.closest('[data-tier-unit]');
-        const rows=column.querySelector('.tier-edit-rows');
-        if(button.hasAttribute('data-remove-tier')){
-          rows.lastElementChild?.remove();
-          if(!rows.lastElementChild) column.querySelector('[data-add-tier]').focus();
-          return;
-        }
-        if(!validateProductTierColumn(column)) return;
-        const lastMinimum=rows.lastElementChild?.querySelector('.tier-min');
-        if(lastMinimum?.value===''){
-          lastMinimum.focus();
-          return;
-        }
-        const costs=productTierEditorCosts();
-        const cost=costs?(costs.get(column.dataset.tierUnit)??'–'):undefined;
-        rows.insertAdjacentHTML('beforeend',priceTierRowHtml({},{cost}));
-        rows.lastElementChild.querySelector('.tier-min').focus();
-      });
-    }
   }
   const deleteProductBtn = document.getElementById('deleteProductBtn');
   if(deleteProductBtn) deleteProductBtn.addEventListener('click', deleteUnusedProduct);
