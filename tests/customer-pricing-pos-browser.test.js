@@ -278,7 +278,18 @@ const browserExecutable = [
   assert.deepEqual(await selectedPrice(),['group',215]);
   await page.evaluate(()=>{contacts[0].customerPrices=[{id:'personal',productId:101,unit:'กล่อง',price:218}];refreshCartCustomerPrices();render();});
   assert.deepEqual(await selectedPrice(),['customer',218],'an individual base price takes precedence over a cheaper group base price');
-  await page.evaluate(()=>{contacts[0].customerPrices=[];refreshCartCustomerPrices();render();});
+  await page.locator('#openCustomerPickerBtn').click();
+  const walkInChoice=page.locator('[data-pos-customer-general]');
+  assert.match(await walkInChoice.innerText(),/ใช้ราคา NORMAL/);
+  await walkInChoice.click();
+  assert.deepEqual(await selectedPrice(),['standard',220]);
+  await page.evaluate(()=>openPOSCustomerPricing(contacts[0].id));
+  assert.equal(await page.locator('.pos-customer-pricing-overlay').count(),0);
+  await page.evaluate(()=>{
+    saleMember=customerSaleSnapshot(contacts[0]);
+    contacts[0].customerPrices=[];
+    refreshCartCustomerPrices();render();
+  });
   const pricingNote=page.locator('.pos-table tbody tr').first().locator('td').nth(2).locator('.pos-item-price-note');
   assert.equal(await pricingNote.textContent(),'ราคากลุ่ม');
   const qty=page.locator('.line-qty').first();
@@ -425,6 +436,10 @@ const browserExecutable = [
   await pickCustomers.click();
   const picker=page.getByRole('dialog',{name:'เลือกลูกค้าเข้ากลุ่ม'});
   const normalPanel=picker.locator('[data-customer-level=""]');
+  const walkInLabel=normalPanel.getByText('ลูกค้าทั่วไป',{exact:true});
+  assert.equal(await walkInLabel.count(),1);
+  assert.equal(await walkInLabel.getAttribute('draggable'),'false');
+  assert.equal(await walkInLabel.evaluate(label=>label.closest('button,[data-group-customer]')===null),true);
   assert.deepEqual(await picker.locator('h4').allTextContents(),titles);
   assert.deepEqual(await picker.locator('.price-group-customer-columns h4').allTextContents(),titles.slice(1));
   assert.equal(await normalPanel.locator('ul').evaluate(el=>getComputedStyle(el).display),'flex');
@@ -434,6 +449,8 @@ const browserExecutable = [
   await destination.locator('[data-group-customer="7"]').waitFor();
   assert.equal(await normalPanel.locator('[data-group-customer="7"]').count(),0);
   assert.equal(await picker.locator('[data-group-customer="7"]').count(),1);
+  assert.equal(await picker.locator('.price-group-customer-columns').getByText('ลูกค้าทั่วไป',{exact:true}).count(),0);
+  assert.equal(await walkInLabel.count(),1);
   assert.equal(await picker.getByRole('status').textContent(),'');
   await picker.getByRole('button',{name:'ปิด',exact:true}).click();
   await page.locator('[data-back-group]').click();

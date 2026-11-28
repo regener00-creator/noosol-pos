@@ -1928,7 +1928,9 @@
   .price-group-customer-panel ul{min-height:140px;max-height:min(42vh,340px);overflow:auto;margin:0;padding:8px;list-style:none}
   .price-group-customer-panel[data-customer-level=""] ul{display:flex;flex-wrap:wrap;align-content:start;gap:6px;min-height:64px;max-height:min(24vh,180px)}
   .price-group-customer-panel[data-customer-level=""] li{min-width:0;max-width:100%}
-  .price-group-customer-row{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font:inherit;text-align:left;overflow-wrap:anywhere;cursor:grab}
+  .price-group-customer-row,.price-group-walk-in{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font:inherit;text-align:left;overflow-wrap:anywhere}
+  .price-group-customer-row{cursor:grab}
+  .price-group-walk-in{display:block;background:var(--bg)}
   .price-group-customer-columns li+li{margin-top:5px}
   .price-group-customer-row:hover,.price-group-customer-row:focus-visible,.price-group-customer-row[aria-pressed="true"],.price-group-customer-panel.is-drop-target ul{background:var(--primary-soft)}
   .price-group-customer-status{color:var(--text-muted)}

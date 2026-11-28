@@ -162,8 +162,9 @@ function refreshCartCustomerPrices(){
   });
 }
 async function openPOSCustomerPricing(customerId){
-  if(currentTab!=='checkout'||!canAccessTab('customers')||String(activeSaleCustomer()?.id)!==String(customerId)) return;
-  const customer=customersList().find(item=>String(item.id)===String(customerId));if(!customer) return;
+  if(currentTab!=='checkout'||!canAccessTab('customers')) return;
+  const customer=activeSaleCustomer();
+  if(!customer||String(customer.id)!==String(customerId)) return;
   document.querySelector('.pos-customer-pricing-overlay')?.remove();
   const context=captureWorkspaceRead(),overlay=document.createElement('div');
   overlay.className='modal-overlay pos-customer-pricing-overlay';
@@ -278,7 +279,7 @@ function openPOSCustomerPicker(){
     const pages=Math.max(1,Math.ceil(matches.length/pageSize));
     page=Math.min(page,pages);
     overlay.querySelector('#posCustomerPickerRows').innerHTML=`<button class="pos-customer-picker-item ${selected?'':'active'}" type="button" data-pos-customer-general>
-      <span class="pos-customer-picker-main"><strong>ลูกค้าทั่วไป</strong><small>ไม่ใช้ราคาพิเศษของสมาชิก</small></span>
+      <span class="pos-customer-picker-main"><strong>ลูกค้าทั่วไป</strong><small>ใช้ราคา NORMAL</small></span>
       <span class="pos-customer-picker-meta"></span>
       <span class="pos-customer-picker-check">${selected?'':'✓'}</span>
     </button>`+matches.slice((page-1)*pageSize,page*pageSize).map(rowHtml).join('');

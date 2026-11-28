@@ -174,7 +174,7 @@ async function saveCustomerPricing({root=document,customerId=editingCustomerPric
   if(!canPerformPageAction('edit','customers')){showToast('ไม่มีสิทธิ์แก้ไขราคาพิเศษ','danger-top');return;}
   const saveButton=root.querySelector('#saveCustomerPricingBtn');
   if(saveButton?.disabled) return;
-  const customer=storeContacts().find(contact=>Number(contact.id)===Number(customerId));
+  const customer=customersList().find(contact=>String(contact.id)===String(customerId));
   if(!customer){ showToast('ไม่พบข้อมูลลูกค้า','danger-top'); return; }
   const customerPrices=collectCustomerPriceRules(root);
   if(customerPrices===null) return;
@@ -379,6 +379,7 @@ function openPriceGroupCustomerPicker(page,isCurrent){
   const compareNames=new Intl.Collator('th',{numeric:true});
   let activeId='',draggedId='',busy=false;
   const groupOf=customer=>names.has(customer.priceGroupId)?customer.priceGroupId:'';
+  const walkInName='ลูกค้าทั่วไป';
 
   function draw(){
     const query=search.value.trim().toLocaleLowerCase('th');
@@ -390,7 +391,9 @@ function openPriceGroupCustomerPicker(page,isCurrent){
     }).join('');
     panels.forEach(panel=>{
       const groupId=panel.dataset.customerLevel;
-      panel.querySelector('ul').innerHTML=listHtml(rows.filter(customer=>groupOf(customer)===groupId));
+      const walkIn=!groupId&&(walkInName+' normal').includes(query)
+        ?`<li><span class="price-group-walk-in" draggable="false">${walkInName}</span></li>`:'';
+      panel.querySelector('ul').innerHTML=walkIn+listHtml(rows.filter(customer=>groupOf(customer)===groupId));
     });
   }
 

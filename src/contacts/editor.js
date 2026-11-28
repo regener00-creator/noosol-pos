@@ -317,7 +317,7 @@ function renderPriceGroups(){
   </div>`;
 }
 function renderCustomerPricingForm(customerId=editingCustomerPriceContactId,allowAddToSale=false){
-  const customer=storeContacts().find(contact=>Number(contact.id)===Number(customerId));
+  const customer=customersList().find(contact=>String(contact.id)===String(customerId));
   if(!customer) return '<div class="empty">ไม่พบข้อมูลลูกค้า</div>';
   const visibleProductIds=new Set(products.map(product=>Number(product.id)));
   const customerPrices=normalizedCustomerPriceRules(customer).filter(rule=>visibleProductIds.has(rule.productId));
