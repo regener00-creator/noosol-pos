@@ -139,7 +139,7 @@ function contractPriceEditorHtml(rule,cost,{level,title='⭐'}={}){
   const keepQuantityOneTier=rule.price==null&&hasQuantityOneTier;
   const legacyStartingPrice=hasQuantityOneTier&&rule.price>steps[0].price?rule.price:null;
   return `<div class="contract-editable-tier" ${level===undefined?`data-contract-unit="${escapeHtml(rule.unit)}"`:`data-price-level="${escapeHtml(level)}"`} data-rule-id="${escapeHtml(rule.id||'')}" ${keepQuantityOneTier?'data-quantity-one-tier':''} ${legacyStartingPrice==null?'':`data-legacy-starting-price="${escapeHtml(legacyStartingPrice)}" data-legacy-first-step="${escapeHtml(steps[0].price)}"`}>
-    ${priceTierColumnHtml(rule.unit,steps,{cost:fmtMoney(cost),title,showBlank:false,oneHeading:level!==undefined})}
+    ${priceTierColumnHtml(rule.unit,steps,{cost:fmtMoney(cost),title,showBlank:false,fixedStartingQuantity:level==='normal'})}
   </div>`;
 }
 function priceGroupUnitHtml(product,unit){

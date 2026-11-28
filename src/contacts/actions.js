@@ -382,7 +382,7 @@ function openPriceGroupCustomerPicker(page,isCurrent){
 
   function draw(){
     const query=search.value.trim().toLocaleLowerCase('th');
-    const rows=customersList().filter(customer=>[customer.name,customer.phone,'NORMAL',names.get(groupOf(customer))].join(' ').toLocaleLowerCase('th').includes(query))
+    const rows=customersList().filter(customer=>[customer.name,customer.phone,names.get(groupOf(customer))].join(' ').toLocaleLowerCase('th').includes(query))
       .sort((a,b)=>compareNames.compare(a.name,b.name));
     const listHtml=customers=>customers.map(customer=>{
       const id=String(customer.id),name=escapeHtml(customer.name);
@@ -390,7 +390,7 @@ function openPriceGroupCustomerPicker(page,isCurrent){
     }).join('');
     panels.forEach(panel=>{
       const groupId=panel.dataset.customerLevel;
-      panel.querySelector('ul').innerHTML=listHtml(groupId?rows.filter(customer=>groupOf(customer)===groupId):rows);
+      panel.querySelector('ul').innerHTML=listHtml(rows.filter(customer=>groupOf(customer)===groupId));
     });
   }
 

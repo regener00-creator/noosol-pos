@@ -236,10 +236,10 @@ function priceTierRowHtml(row={}, {readOnly=false,cost,fixedMinimum=false}={}){
     ${cost===undefined?'':`<label><span>ทุน</span><input class="tier-cost" value="${escapeHtml(cost)}" readonly tabindex="-1"></label>`}
   </div>`;
 }
-function priceTierColumnHtml(unit,rows,{readOnly=false,cost,title=unit,showBlank=true,oneHeading=false}={}){
+function priceTierColumnHtml(unit,rows,{readOnly=false,cost,title=unit,showBlank=true,fixedStartingQuantity=false}={}){
   return `<section class="unit-tier-editor" data-tier-unit="${escapeHtml(unit)}">
       <h4>${escapeHtml(title)}</h4>
-      <div class="tier-edit-rows${oneHeading?' tier-edit-one-heading':''}">${(rows?.length?rows:showBlank?[{}]:[]).map((row,index)=>priceTierRowHtml(row,{readOnly,cost,fixedMinimum:oneHeading&&title==='NORMAL'&&index===0})).join('')}</div>
+      <div class="tier-edit-rows">${(rows?.length?rows:showBlank?[{}]:[]).map((row,index)=>priceTierRowHtml(row,{readOnly,cost,fixedMinimum:fixedStartingQuantity&&index===0})).join('')}</div>
       ${readOnly?'':`<div class="tier-edit-actions">
         <button type="button" class="btn primary small" data-add-tier>+ เพิ่มขั้นราคา</button>
         <button type="button" class="btn small" data-remove-tier title="ลบขั้นราคาล่างสุด" aria-label="ลบขั้นราคาล่างสุด">

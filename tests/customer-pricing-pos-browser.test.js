@@ -276,6 +276,9 @@ const browserExecutable = [
   });
   const selectedPrice=()=>page.evaluate(()=>[cart[0].priceSource,cart[0].price]);
   assert.deepEqual(await selectedPrice(),['group',215]);
+  await page.evaluate(()=>{contacts[0].customerPrices=[{id:'personal',productId:101,unit:'กล่อง',price:218}];refreshCartCustomerPrices();render();});
+  assert.deepEqual(await selectedPrice(),['customer',218],'an individual base price takes precedence over a cheaper group base price');
+  await page.evaluate(()=>{contacts[0].customerPrices=[];refreshCartCustomerPrices();render();});
   const pricingNote=page.locator('.pos-table tbody tr').first().locator('td').nth(2).locator('.pos-item-price-note');
   assert.equal(await pricingNote.textContent(),'ราคากลุ่ม');
   const qty=page.locator('.line-qty').first();
@@ -429,7 +432,8 @@ const browserExecutable = [
   const destination=picker.locator('[data-customer-level="existing-level"]');
   await normalPanel.locator('[data-group-customer="7"]').dragTo(destination);
   await destination.locator('[data-group-customer="7"]').waitFor();
-  assert.equal(await normalPanel.locator('[data-group-customer="7"]').count(),1);
+  assert.equal(await normalPanel.locator('[data-group-customer="7"]').count(),0);
+  assert.equal(await picker.locator('[data-group-customer="7"]').count(),1);
   assert.equal(await picker.getByRole('status').textContent(),'');
   await picker.getByRole('button',{name:'ปิด',exact:true}).click();
   await page.locator('[data-back-group]').click();
@@ -447,6 +451,10 @@ const browserExecutable = [
   assert.match(await page.locator('.contract-inherited').innerText(),/12 กล่องขึ้นไป 190/);
   const personal=page.locator('.contract-editable-tier');
   await personal.locator('[data-add-tier]').click();await personal.locator('.tier-min').fill('24');await personal.locator('.tier-price').fill('185');
+  await personal.locator('[data-add-tier]').click();
+  assert.deepEqual(await personal.locator('.tier-edit-row label span').evaluateAll(headings=>
+    headings.map(heading=>getComputedStyle(heading).clipPath)),['none','none','none','inset(50%)','inset(50%)','inset(50%)']);
+  await personal.locator('[data-remove-tier]').click();
   await page.locator('#saveCustomerPricingBtn').click();
   await page.waitForFunction(()=>contacts[0].customerPrices[0]?.tiers?.[0]?.price===185);
   await page.evaluate(()=>{currentTab='checkout';saleMember=customerSaleSnapshot(contacts[0]);cart=[];addToCart(101,'กล่อง',1);render();});

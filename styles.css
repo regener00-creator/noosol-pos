@@ -1939,7 +1939,7 @@
   #priceGroupPage .contract-tier-grid{display:block}
   .price-group-unit{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-items:start;gap:10px}
   .contract-personal-summary h4{background:#e6d8cd;color:var(--primary-dark)}
-  .tier-edit-one-heading .tier-edit-row+.tier-edit-row label span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+  .tier-edit-rows .tier-edit-row+.tier-edit-row label span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   .contract-editable-tier[data-price-level="normal"]:not(:has(.tier-edit-row:nth-child(2))) [data-remove-tier]{display:none}
   @container (max-width:1080px){.contract-tier-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
   @container (max-width:560px){.contract-tier-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
