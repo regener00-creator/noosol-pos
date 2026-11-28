@@ -218,6 +218,9 @@ function attachPriceGroupEvents(page){
   const levels=new Map(fixedPriceLevels().map(level=>[level.id,level]));
   const pickCustomers=page.querySelector('[data-pick-group-customers]');
   const back=page.querySelector('[data-back-group]');
+  const heading=page.querySelector('#priceGroupHeading');
+  const prices=page.querySelector('[data-price-group-prices]');
+  const assignment=page.querySelector('#priceGroupCustomerPage');
   const status=page.querySelector('[data-price-group-status]');
   const retry=page.querySelector('[data-retry-group]');
   const warning=page.querySelector('[data-price-warning]');
@@ -225,13 +228,33 @@ function attachPriceGroupEvents(page){
   const pending=new Set();
   const validationIssues=new Map();
   let warningField=null;
+  let priceScrollTop=0;
+  const main=page.closest('#main');
   const isCurrent=()=>priceGroupPage===view&&page.isConnected&&currentTab==='pricegroups'&&isStoreViewCurrent(context)&&loggedInUser()?.owner;
+  const startAssignment=attachPriceGroupCustomerEvents(assignment,view,back,()=>isCurrent()&&view.assigningCustomers);
   view.canLeave=()=>{
     if(view.saving){showToast('กำลังบันทึกกลุ่มราคา กรุณารอสักครู่');return false;}
     return !dirty.size||confirm('มีการแก้ไขกลุ่มราคาที่ยังไม่ได้บันทึก ต้องการออกจากหน้านี้หรือไม่?');
   };
-  back.onclick=()=>{if(view.canLeave()){currentTab='products';render();}};
-  pickCustomers.onclick=()=>{if(isCurrent()&&!view.saving)openPriceGroupCustomerPicker(page,isCurrent);};
+  back.onclick=()=>{
+    if(view.assigningCustomers){
+      if(!view.saving){showAssignment(false);pickCustomers.focus({preventScroll:true});}
+    }else if(view.canLeave()){currentTab='products';render();}
+  };
+  pickCustomers.onclick=()=>{
+    if(!isCurrent()||view.saving||!canPerformPageAction('edit','customers'))return;
+    priceScrollTop=main.scrollTop;
+    showAssignment(true);
+    startAssignment();
+  };
+  function showAssignment(visible){
+    view.assigningCustomers=visible;
+    heading.textContent=visible?'เลือกลูกค้าเข้ากลุ่ม':'กลุ่มราคา';
+    prices.hidden=status.parentElement.hidden=visible;
+    assignment.hidden=!visible;
+    main.scrollTop=visible?0:priceScrollTop;
+    refreshScrollableTableHeights(main);
+  }
   attachCustomerPricingEvents(page,{customerId:null,onChange:queueSave,canOpenCustomer:()=>isCurrent()&&view.canLeave()});
   page.addEventListener('input',event=>event.target.removeAttribute('aria-invalid'));
   page.addEventListener('change',event=>{
@@ -352,32 +375,13 @@ async function saveNormalGroupPrice(productId,unit,rule){
   return changed;
 }
 
-function openPriceGroupCustomerPicker(page,isCurrent){
-  if(!canPerformPageAction('edit','customers'))return;
-  const levels=[{id:'',name:'NORMAL'},...fixedPriceLevels().map((group,index)=>({id:group.id,name:'LV'+(index+1)}))];
-  const names=new Map(levels.map(level=>[level.id,level.name]));
-  const panel=({id,name})=>`<section class="price-group-customer-panel" data-customer-level="${escapeHtml(id)}">
-    <h4><button type="button" aria-label="ย้ายลูกค้าไป ${name}">${name}</button></h4><ul></ul></section>`;
-  const dialog=document.createElement('dialog');
-  dialog.className='price-group-customer-dialog price-group-assignment-dialog';
-  dialog.setAttribute('aria-labelledby','priceGroupCustomersTitle');
-  dialog.innerHTML=`<div class="modal-head">
-      <h3 id="priceGroupCustomersTitle">เลือกลูกค้าเข้ากลุ่ม</h3>
-      <button type="button" class="modal-close" aria-label="ปิด">×</button>
-    </div>
-    <div class="price-group-customer-body">
-      <input class="price-group-customer-search" type="search" aria-label="ค้นหาลูกค้า" placeholder="ค้นหาชื่อ เบอร์โทร หรือกลุ่มราคา">
-      ${panel(levels[0])}
-      <div class="price-group-customer-columns">${levels.slice(1).map(panel).join('')}</div>
-      <div role="status" class="price-group-customer-status"></div>
-    </div>`;
-  page.appendChild(dialog);
-  const close=dialog.querySelector('.modal-close');
-  const search=dialog.querySelector('input');
-  const status=dialog.querySelector('[role="status"]');
-  const panels=[...dialog.querySelectorAll('[data-customer-level]')];
+function attachPriceGroupCustomerEvents(page,view,back,isCurrent){
+  const search=page.querySelector('input');
+  const status=page.querySelector('[role="status"]');
+  const panels=[...page.querySelectorAll('[data-customer-level]')];
+  const names=new Map(panels.map(panel=>[panel.dataset.customerLevel,panel.querySelector('h4').textContent]));
   const compareNames=new Intl.Collator('th',{numeric:true});
-  let activeId='',draggedId='',busy=false;
+  let activeId='',draggedId='';
   const groupOf=customer=>names.has(customer.priceGroupId)?customer.priceGroupId:'';
   const walkInName='ลูกค้าทั่วไป';
 
@@ -387,7 +391,7 @@ function openPriceGroupCustomerPicker(page,isCurrent){
       .sort((a,b)=>compareNames.compare(a.name,b.name));
     const listHtml=customers=>customers.map(customer=>{
       const id=String(customer.id),name=escapeHtml(customer.name);
-      return `<li><button class="price-group-customer-row" type="button" draggable="${!busy}" data-group-customer="${escapeHtml(id)}" aria-pressed="${id===activeId}" ${busy?'disabled':''}>${name}</button></li>`;
+      return `<li><button class="price-group-customer-row" type="button" draggable="${!view.saving}" data-group-customer="${escapeHtml(id)}" aria-pressed="${id===activeId}" ${view.saving?'disabled':''}>${name}</button></li>`;
     }).join('');
     panels.forEach(panel=>{
       const groupId=panel.dataset.customerLevel;
@@ -398,11 +402,11 @@ function openPriceGroupCustomerPicker(page,isCurrent){
   }
 
   async function moveCustomer(id,groupId){
-    if(busy||!id||!isCurrent()||!names.has(groupId))return;
+    if(view.saving||!id||!isCurrent()||!names.has(groupId))return;
     const customer=customersList().find(entry=>String(entry.id)===id);
     if(!customer||String(customer.priceGroupId||'')===groupId)return;
     activeId=id;
-    busy=close.disabled=true;
+    view.saving=back.disabled=true;
     status.textContent='กำลังบันทึก…';
     draw();
     try{
@@ -411,32 +415,29 @@ function openPriceGroupCustomerPicker(page,isCurrent){
       status.textContent='';
       activeId='';
     }catch(error){status.textContent='ย้ายลูกค้าไม่สำเร็จ · '+error.message;}
-    finally{busy=close.disabled=false;draw();search.focus();}
+    finally{view.saving=back.disabled=false;draw();if(isCurrent())search.focus({preventScroll:true});}
   }
-  close.onclick=()=>dialog.close();
-  dialog.addEventListener('cancel',event=>{if(busy)event.preventDefault();});
-  dialog.addEventListener('close',()=>{dialog.remove();page.querySelector('[data-pick-group-customers]')?.focus();},{once:true});
   search.addEventListener('input',draw);
-  dialog.addEventListener('click',event=>{
+  page.addEventListener('click',event=>{
     const customer=event.target.closest('[data-group-customer]');
-    if(customer&&!busy){
+    if(customer&&!view.saving){
       activeId=customer.dataset.groupCustomer;
-      dialog.querySelectorAll('[data-group-customer]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.groupCustomer===activeId)));
+      page.querySelectorAll('[data-group-customer]').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.groupCustomer===activeId)));
     }
     const target=event.target.closest('[data-customer-level] h4 button');
     if(target)void moveCustomer(activeId,target.closest('[data-customer-level]').dataset.customerLevel);
   });
-  dialog.addEventListener('dragstart',event=>{
+  page.addEventListener('dragstart',event=>{
     const customer=event.target.closest('[data-group-customer]');
-    if(!customer||busy){event.preventDefault();return;}
+    if(!customer||view.saving){event.preventDefault();return;}
     draggedId=customer.dataset.groupCustomer;
     event.dataTransfer.setData('text/plain',draggedId);
     event.dataTransfer.effectAllowed='move';
   });
-  dialog.addEventListener('dragend',()=>{draggedId='';panels.forEach(panel=>panel.classList.remove('is-drop-target'));});
+  page.addEventListener('dragend',()=>{draggedId='';panels.forEach(panel=>panel.classList.remove('is-drop-target'));});
   panels.forEach(panel=>{
     panel.addEventListener('dragover',event=>{
-      if(!draggedId||busy)return;
+      if(!draggedId||view.saving)return;
       event.preventDefault();
       event.dataTransfer.dropEffect='move';
       panels.forEach(target=>target.classList.toggle('is-drop-target',target===panel));
@@ -450,9 +451,12 @@ function openPriceGroupCustomerPicker(page,isCurrent){
       void moveCustomer(id,panel.dataset.customerLevel);
     });
   });
-  draw();
-  dialog.showModal();
-  search.focus();
+  if(view.assigningCustomers)draw();
+  return ()=>{
+    search.value=status.textContent=activeId='';
+    draw();
+    search.focus({preventScroll:true});
+  };
 }
 function openPersonalPriceList(row,canOpenCustomer){
   const unit=row.querySelector('.customer-price-unit').value;

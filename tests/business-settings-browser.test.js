@@ -321,6 +321,9 @@ const browserExecutable = [
     attachEvents();
   });
   assert.deepEqual(await page.locator('.stock-edit-table th').allTextContents(),['บาร์โค้ด','สินค้า','ในระบบ','นับได้','ต่าง','LOT ที่ปรับ','']);
+  const counted=page.locator('[data-stock-edit-row="99001"] td').nth(3);
+  assert.equal(await counted.innerText(),'');
+  assert.equal(await counted.getByRole('spinbutton',{name:'จำนวนที่นับได้ สินค้าทดสอบ LOT ใหม่ หน่วย กล่อง'}).inputValue(),'8');
   assert.equal(await page.locator('.stock-edit-table').getByText('รหัสสินค้า',{exact:true}).count(),0);
   assert.equal(await page.locator('.stock-edit-table').getByText('HIDDEN-SKU',{exact:true}).count(),0);
   for(const width of [1100,1440,1920]){

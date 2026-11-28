@@ -291,20 +291,22 @@ function renderPriceGroups(){
   const configured=[...fixedPriceLevels().flatMap(group=>normalizedCustomerPriceRules(group)),
     ...products.flatMap(product=>(product.priceTiers||[]).map(tier=>({productId:product.id,unit:tier.unit})))];
   const uniqueUnits=new Map(configured.map(rule=>[JSON.stringify([Number(rule.productId),rule.unit]),rule]));
+  const assigningCustomers=priceGroupPage?.assigningCustomers;
   return `<div class="rpt customer-pricing-page" id="priceGroupPage">
     <div class="pagehead">
       <div class="price-group-heading">
-        <h1>กลุ่มราคา</h1>
-        <div class="price-group-save-status">
+        <h1 id="priceGroupHeading">${assigningCustomers?'เลือกลูกค้าเข้ากลุ่ม':'กลุ่มราคา'}</h1>
+        <div class="price-group-save-status" ${assigningCustomers?'hidden':''}>
           <span role="status" data-price-group-status></span>
           <button type="button" class="btn ghost small" data-retry-group hidden>ลองอีกครั้ง</button>
         </div>
       </div>
       <div class="form-final-actions"><button class="btn ghost" type="button" data-back-group>ย้อนกลับ</button></div>
     </div>
-    <div class="panel customer-pricing-panel">
+    <div class="panel customer-pricing-panel" data-price-group-prices ${assigningCustomers?'hidden':''}>
       ${customerPricingTableHtml([...uniqueUnits.values()],false,null,true)}
     </div>
+    ${renderPriceGroupCustomerPage(assigningCustomers)}
     <dialog class="price-group-customer-dialog price-group-warning" data-price-warning role="alertdialog"
         aria-labelledby="priceGroupWarningTitle" aria-describedby="priceGroupWarningMessage">
       <div class="modal-head"><h3 id="priceGroupWarningTitle">กรุณาแก้ไขราคา</h3></div>
@@ -312,6 +314,17 @@ function renderPriceGroups(){
       <div class="price-group-warning-actions"><button class="btn primary" type="button" autofocus>แก้ไขราคา</button></div>
     </dialog>
   </div>`;
+}
+function renderPriceGroupCustomerPage(visible){
+  const levels=fixedPriceLevels();
+  const panel=(id,name)=>`<section class="price-group-customer-panel" data-customer-level="${escapeHtml(id)}">
+    <h4><button type="button" aria-label="ย้ายลูกค้าไป ${name}">${name}</button></h4><ul></ul></section>`;
+  return `<section id="priceGroupCustomerPage" class="panel price-group-assignment-page" aria-labelledby="priceGroupHeading" ${visible?'':'hidden'}>
+    <input class="price-group-customer-search" type="search" aria-label="ค้นหาชื่อหรือเบอร์โทร" placeholder="ค้นหาชื่อ เบอร์โทร หรือกลุ่มราคา">
+    ${panel('','NORMAL')}
+    <div class="price-group-customer-columns">${levels.map((level,index)=>panel(level.id,'LV'+(index+1))).join('')}</div>
+    <div role="status" class="price-group-customer-status"></div>
+  </section>`;
 }
 function renderCustomerPricingForm(customerId=editingCustomerPriceContactId,allowAddToSale=false){
   const customer=customersList().find(contact=>String(contact.id)===String(customerId));

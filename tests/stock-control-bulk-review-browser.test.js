@@ -227,9 +227,9 @@ let browser;
   });
   const singleField=await page.locator('[data-stock-edit-amount="60"]').boundingBox();
   const multiField=await box.boundingBox();
-  const gaps=await page.locator('#stockEditTbody label:has(input[data-count-part]),#stockEditTbody label.stock-count-single').evaluateAll(labels=>
+  const gaps=await page.locator('#stockEditTbody label:has(input[data-count-part])').evaluateAll(labels=>
     labels.map(label=>label.querySelector('input').getBoundingClientRect().left-label.querySelector('span').getBoundingClientRect().right));
-  assert.ok(gaps.length>3&&gaps.every(gap=>gap>=4&&gap<=6),'each desktop unit sits next to its quantity input');
+  assert.ok(gaps.length===3&&gaps.every(gap=>gap>=4&&gap<=6),'multi-unit labels sit next to their quantity inputs');
   assert.ok(Math.abs(singleField.x-multiField.x)<1&&Math.abs(singleField.width-multiField.width)<1,'single and multi-unit quantity fields line up');
   const lotField=await page.locator('[data-stock-edit-new-lot="55"]').boundingBox();
   const expiryField=await page.locator('[data-stock-edit-new-expiry="55"]').boundingBox();
