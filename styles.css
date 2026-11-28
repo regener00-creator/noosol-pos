@@ -1904,12 +1904,13 @@
   .customer-price-search-result span{display:grid;gap:2px;min-width:0}.customer-price-search-result b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.customer-price-search-result small{font-size:11px;color:var(--text-muted)}.customer-price-search-result>strong{color:var(--primary);white-space:nowrap}
   .customer-price-search-empty{padding:18px;text-align:center;color:var(--text-muted)}
   .rpt.customer-pricing-page{width:100%;max-width:none;box-sizing:border-box}
-  .price-group-fields{display:flex;align-items:end;gap:12px;margin-bottom:12px}
+  .price-group-fields{display:flex;align-items:stretch;gap:12px;margin-bottom:12px}
+  .price-group-fields .customer-price-search-wrap{flex:1;min-width:0;margin:0}
   .price-group-heading{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%}
   .price-group-heading h1{flex-shrink:0}
   .price-group-save-status{display:flex;align-items:center;justify-content:flex-end;gap:8px;color:var(--text-muted);font-size:13px;text-align:right;overflow-wrap:anywhere}
   #priceGroupPage [hidden]{display:none}
-  .price-group-fields [data-pick-group-customers]{min-height:40px;white-space:nowrap}
+  .price-group-fields [data-pick-group-customers]{flex-shrink:0;min-height:40px;white-space:nowrap}
   .price-group-customer-dialog{width:min(820px,94vw);max-width:none;max-height:90vh;padding:0;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text)}
   .price-group-assignment-dialog{width:min(1120px,96vw)}
   .price-group-customer-dialog .modal-head{position:relative;justify-content:center;padding-inline:42px;text-align:center}

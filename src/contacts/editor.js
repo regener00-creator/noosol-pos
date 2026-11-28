@@ -303,9 +303,6 @@ function renderPriceGroups(){
       <div class="form-final-actions"><button class="btn ghost" type="button" data-back-group>ย้อนกลับ</button></div>
     </div>
     <div class="panel customer-pricing-panel">
-      <div class="price-group-fields">
-        <button class="btn primary" type="button" data-pick-group-customers>เลือกลูกค้าเข้ากลุ่ม</button>
-      </div>
       ${customerPricingTableHtml([...uniqueUnits.values()],false,null,true)}
     </div>
     <dialog class="price-group-customer-dialog price-group-warning" data-price-warning role="alertdialog"
@@ -339,7 +336,8 @@ function customerPricingTableHtml(customerPrices,allowAddToSale=false,group=null
     if(!byProduct.has(key)) byProduct.set(key,[]);
     byProduct.get(key).push(rule);
   }
-  return `<div class="customer-price-search-wrap"><div class="customer-price-search"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg></span><input id="customerPriceSearch" placeholder="ค้นหาสินค้า / รหัส / สแกนบาร์โค้ด" autocomplete="off"></div><div class="customer-price-search-results" id="customerPriceSearchResults" hidden></div></div>
+  const search=`<div class="customer-price-search-wrap"><div class="customer-price-search"><span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg></span><input id="customerPriceSearch" placeholder="ค้นหาสินค้า / รหัส / สแกนบาร์โค้ด" autocomplete="off"></div><div class="customer-price-search-results" id="customerPriceSearchResults" hidden></div></div>`;
+  return `${groupPricing?`<div class="price-group-fields">${search}<button class="btn primary" type="button" data-pick-group-customers>เลือกลูกค้าเข้ากลุ่ม</button></div>`:search}
       <div class="customer-price-table-wrap"><table class="grid-table customer-price-table"><colgroup><col class="customer-price-col-barcode"><col class="customer-price-col-name"><col class="customer-price-col-unit"><col class="customer-price-col-regular"><col class="customer-price-col-cost"><col class="customer-price-col-action"></colgroup><thead><tr><th>บาร์โค้ดสินค้า</th><th>ชื่อ</th><th>หน่วย</th><th>ราคาปกติ</th><th>ทุน</th><th></th></tr></thead><tbody id="customerPriceRows">${[...byProduct.values()].map(rules=>customerPriceRowHtml(rules,allowAddToSale,group,groupPricing)).join('')||'<tr class="customer-price-empty"><td colspan="6">ยังไม่ได้กำหนดราคาพิเศษ</td></tr>'}</tbody></table></div>`;
 }
 

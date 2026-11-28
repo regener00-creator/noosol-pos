@@ -333,6 +333,10 @@ const browserExecutable = [
   assert.equal(await page.evaluate(()=>canAccessTab('pricegroups',{owner:false,level:1})),false);
   await mainGroupButton.click();
   const groupPage=page.locator('#main #priceGroupPage');
+  const searchBox=await groupPage.locator('.customer-price-search').boundingBox();
+  const pickerButtonBox=await groupPage.locator('[data-pick-group-customers]').boundingBox();
+  assert.equal(searchBox.y,pickerButtonBox.y);
+  assert.ok(searchBox.x+searchBox.width<pickerButtonBox.x);
   assert.equal(await groupPage.getByRole('heading',{name:'กลุ่มราคา',exact:true}).count(),1);
   assert.equal(await page.locator('.modal-overlay [data-group-select]').count(),0);
   assert.equal(await groupPage.locator('[data-group-select]').count(),0);
