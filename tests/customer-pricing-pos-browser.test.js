@@ -363,7 +363,7 @@ const browserExecutable = [
   await setPrice(editable,195);
   await page.waitForFunction(()=>storePriceGroups()[0].customerPrices[0]?.price===195);
   const titles=['NORMAL','LV1','LV2','LV3','LV4'];
-  assert.deepEqual(await groupPage.locator('.contract-tier-grid h4').allTextContents(),titles);
+  assert.deepEqual(await groupPage.locator('.contract-tier-grid h4').allTextContents(),[...titles,'⭐']);
   assert.equal(await editable.locator('h4').innerText(),'LV1');
   const normal=level(0);
   assert.deepEqual(await normal.locator('.tier-price').evaluateAll(inputs=>inputs.map(i=>[i.value,i.readOnly])),[['220',false],['210',false],['200',false]]);
@@ -384,7 +384,7 @@ const browserExecutable = [
   await page.waitForFunction(()=>fixedPriceLevels()[2].customerPrices[0]?.price===192);
   await setPrice(level(3),180);
   await page.waitForFunction(()=>fixedPriceLevels()[2].customerPrices[0]?.price===180);
-  assert.deepEqual(await groupPage.locator('.contract-tier-grid h4').allTextContents(),titles);
+  assert.deepEqual(await groupPage.locator('.contract-tier-grid h4').allTextContents(),[...titles,'⭐']);
   assert.equal(await level(3).locator('h4').innerText(),'LV3');
   assert.equal(await normal.locator('.tier-min').first().getAttribute('readonly'),'');
   assert.equal(await normal.locator('.tier-edit-row').nth(1).locator('label span').first()
@@ -406,7 +406,7 @@ const browserExecutable = [
   assert.equal(await toggle.getAttribute('aria-expanded'),'false');
   await groupPage.locator('.customer-price-product-name').click();
   assert.equal(await toggle.getAttribute('aria-expanded'),'true');
-  await page.getByRole('button',{name:'ดูรายชื่อลูกค้า'}).click();
+  await groupPage.locator('.contract-personal-summary').getByRole('button',{name:'ดูรายชื่อลูกค้า'}).click();
   const starDialog=page.getByRole('dialog',{name:'ราคาพิเศษรายบุคคล'});
   await starDialog.getByRole('button',{name:'เรียงราคาน้อยไปมาก'}).click();
   assert.equal(await starDialog.locator('[data-personal-customer]').first().innerText(),'PEPO : 165.00');
@@ -421,11 +421,16 @@ const browserExecutable = [
   assert.equal(await pickCustomers.evaluate(button=>getComputedStyle(button).color),'rgb(255, 255, 255)');
   await pickCustomers.click();
   const picker=page.getByRole('dialog',{name:'เลือกลูกค้าเข้ากลุ่ม'});
-  assert.deepEqual(await picker.locator('h4').allTextContents(),['ลูกค้าทั้งหมด',...titles]);
-  assert.equal(await picker.locator('[data-all-group-customers]').evaluate(el=>getComputedStyle(el).display),'flex');
+  const normalPanel=picker.locator('[data-customer-level=""]');
+  assert.deepEqual(await picker.locator('h4').allTextContents(),titles);
+  assert.deepEqual(await picker.locator('.price-group-customer-columns h4').allTextContents(),titles.slice(1));
+  assert.equal(await normalPanel.locator('ul').evaluate(el=>getComputedStyle(el).display),'flex');
+  assert.ok((await picker.boundingBox()).width>820);
   const destination=picker.locator('[data-customer-level="existing-level"]');
-  await picker.locator('[data-all-group-customers] [data-group-customer="7"]').dragTo(destination);
+  await normalPanel.locator('[data-group-customer="7"]').dragTo(destination);
   await destination.locator('[data-group-customer="7"]').waitFor();
+  assert.equal(await normalPanel.locator('[data-group-customer="7"]').count(),1);
+  assert.equal(await picker.getByRole('status').textContent(),'');
   await picker.getByRole('button',{name:'ปิด',exact:true}).click();
   await page.locator('[data-back-group]').click();
   assert.equal(await page.locator('#sidebar .active').getAttribute('data-tab'),'products');

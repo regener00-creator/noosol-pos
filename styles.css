@@ -1911,6 +1911,7 @@
   #priceGroupPage [hidden]{display:none}
   .price-group-fields [data-pick-group-customers]{min-height:40px;white-space:nowrap}
   .price-group-customer-dialog{width:min(820px,94vw);max-width:none;max-height:90vh;padding:0;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--text)}
+  .price-group-assignment-dialog{width:min(1120px,96vw)}
   .price-group-customer-dialog .modal-head{position:relative;justify-content:center;padding-inline:42px;text-align:center}
   .price-group-customer-dialog .modal-close{position:absolute;inset-inline-end:16px}
   .price-group-customer-dialog::backdrop{background:rgba(28,21,17,.48)}
@@ -1920,24 +1921,24 @@
   .contract-editable-tier .tier-price[aria-invalid="true"]{border-color:var(--danger)}
   .price-group-customer-body{padding:0 18px 16px}
   .price-group-customer-search{box-sizing:border-box;width:100%;margin:4px 0 12px;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}
-  .price-group-customer-columns{display:grid;grid-template-columns:repeat(5,minmax(110px,1fr));gap:8px;margin-top:12px;overflow-x:auto}
+  .price-group-customer-columns{display:grid;grid-template-columns:repeat(4,minmax(110px,1fr));gap:8px;margin-top:12px;overflow-x:auto}
   .price-group-customer-panel{min-width:0;border:1px solid var(--border);border-radius:10px;overflow:hidden}
   .price-group-customer-panel h4{margin:0;background:var(--primary);color:#fff;text-align:center}
-  .price-group-customer-body > .price-group-customer-panel h4{padding:8px 12px}
   .price-group-customer-panel h4 button{display:block;width:100%;padding:8px 12px;border:0;background:transparent;color:inherit;font:inherit;cursor:pointer}
-  .price-group-customer-panel ul{min-height:100px;max-height:min(34vh,260px);overflow:auto;margin:0;padding:8px;list-style:none}
-  .price-group-customer-panel [data-all-group-customers]{display:flex;flex-wrap:wrap;align-content:start;gap:6px;min-height:48px;max-height:140px}
-  .price-group-customer-panel [data-all-group-customers] li{min-width:0;max-width:100%}
+  .price-group-customer-panel ul{min-height:140px;max-height:min(42vh,340px);overflow:auto;margin:0;padding:8px;list-style:none}
+  .price-group-customer-panel[data-customer-level=""] ul{display:flex;flex-wrap:wrap;align-content:start;gap:6px;min-height:64px;max-height:min(24vh,180px)}
+  .price-group-customer-panel[data-customer-level=""] li{min-width:0;max-width:100%}
   .price-group-customer-row{width:100%;padding:6px 8px;border:1px solid var(--border);border-radius:7px;background:var(--surface);color:var(--text);font:inherit;text-align:left;overflow-wrap:anywhere;cursor:grab}
   .price-group-customer-columns li+li{margin-top:5px}
   .price-group-customer-row:hover,.price-group-customer-row:focus-visible,.price-group-customer-row[aria-pressed="true"],.price-group-customer-panel.is-drop-target ul{background:var(--primary-soft)}
   .price-group-customer-status{color:var(--text-muted)}
-  .price-group-customer-status{min-height:1.5em;margin-top:8px}
+  .price-group-customer-status:not(:empty){margin-top:8px}
   .customer-price-row-actions{display:flex;justify-content:center;align-items:center;gap:6px}
   .customer-price-table .contract-tier-detail > td{background:var(--bg);padding:12px}
   .contract-tier-grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-items:start;gap:10px}
   #priceGroupPage .contract-tier-grid{display:block}
-  .price-group-unit{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));align-items:start;gap:10px}
+  .price-group-unit{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));align-items:start;gap:10px}
+  .contract-personal-summary h4{background:#e6d8cd;color:var(--primary-dark)}
   .tier-edit-one-heading .tier-edit-row+.tier-edit-row label span{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
   .contract-editable-tier[data-price-level="normal"]:not(:has(.tier-edit-row:nth-child(2))) [data-remove-tier]{display:none}
   @container (max-width:1080px){.contract-tier-grid{grid-template-columns:repeat(3,minmax(0,1fr))}}

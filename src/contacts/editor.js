@@ -147,7 +147,12 @@ function priceGroupUnitHtml(product,unit){
   const normal={unit,price:regularProductUnitPrice(product,unit),tiers:productTierRows(product,unit)};
   const levels=fixedPriceLevels().map((level,index)=>contractPriceEditorHtml(
     customerPriceRule(level,product.id,unit)||{unit},cost,{level:level.id,title:'LV'+(index+1)}));
-  return `<div class="price-group-unit" data-contract-unit="${escapeHtml(unit)}">${contractPriceEditorHtml(normal,cost,{level:'normal',title:'NORMAL'})}${levels.join('')}</div>`;
+  return `<div class="price-group-unit" data-contract-unit="${escapeHtml(unit)}">
+    ${contractPriceEditorHtml(normal,cost,{level:'normal',title:'NORMAL'})}${levels.join('')}
+    <section class="unit-tier-editor contract-personal-summary"><h4 aria-label="ราคาพิเศษรายบุคคล">⭐</h4>
+      ${personalPriceEntries(product.id,unit).length?'<div class="tier-edit-actions"><button type="button" class="btn ghost small" data-personal-list>ดูรายชื่อลูกค้า</button></div>':''}
+    </section>
+  </div>`;
 }
 function customerPriceRowHtml(rules,allowAddToSale=false,group=null,groupPricing=false){
   const product=products.find(item=>Number(item.id)===Number(rules[0].productId));
@@ -173,7 +178,6 @@ function customerPriceRowHtml(rules,allowAddToSale=false,group=null,groupPricing
       <div class="contract-tier-grid">${editorHtml(activeRule)}</div>
       <div data-contract-unit-editors hidden>${otherRules.map(editorHtml).join('')}</div>
       <div class="contract-inherited">${escapeHtml(inheritedContractText(customerPriceRule(group,product.id,selectedUnit),selectedUnit))}</div>
-      ${groupPricing?`<button type="button" class="btn ghost small" data-personal-list ${personalPriceEntries(product.id,selectedUnit).length?'':'hidden'}>⭐ ดูรายชื่อลูกค้า</button>`:''}
     </section>
   </td></tr>`;
 }

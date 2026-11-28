@@ -356,8 +356,10 @@ function openPriceGroupCustomerPicker(page,isCurrent){
   if(!canPerformPageAction('edit','customers'))return;
   const levels=[{id:'',name:'NORMAL'},...fixedPriceLevels().map((group,index)=>({id:group.id,name:'LV'+(index+1)}))];
   const names=new Map(levels.map(level=>[level.id,level.name]));
+  const panel=({id,name})=>`<section class="price-group-customer-panel" data-customer-level="${escapeHtml(id)}">
+    <h4><button type="button" aria-label="ย้ายลูกค้าไป ${name}">${name}</button></h4><ul></ul></section>`;
   const dialog=document.createElement('dialog');
-  dialog.className='price-group-customer-dialog';
+  dialog.className='price-group-customer-dialog price-group-assignment-dialog';
   dialog.setAttribute('aria-labelledby','priceGroupCustomersTitle');
   dialog.innerHTML=`<div class="modal-head">
       <h3 id="priceGroupCustomersTitle">เลือกลูกค้าเข้ากลุ่ม</h3>
@@ -365,32 +367,31 @@ function openPriceGroupCustomerPicker(page,isCurrent){
     </div>
     <div class="price-group-customer-body">
       <input class="price-group-customer-search" type="search" aria-label="ค้นหาลูกค้า" placeholder="ค้นหาชื่อ เบอร์โทร หรือกลุ่มราคา">
-      <section class="price-group-customer-panel"><h4>ลูกค้าทั้งหมด</h4><ul data-all-group-customers></ul></section>
-      <div class="price-group-customer-columns">
-        ${levels.map(level=>`<section class="price-group-customer-panel" data-customer-level="${escapeHtml(level.id)}"><h4><button type="button" aria-label="ย้ายลูกค้าไป ${level.name}">${level.name}</button></h4><ul></ul></section>`).join('')}
-      </div>
+      ${panel(levels[0])}
+      <div class="price-group-customer-columns">${levels.slice(1).map(panel).join('')}</div>
       <div role="status" class="price-group-customer-status"></div>
     </div>`;
   page.appendChild(dialog);
   const close=dialog.querySelector('.modal-close');
   const search=dialog.querySelector('input');
   const status=dialog.querySelector('[role="status"]');
-  const columns=[...dialog.querySelectorAll('[data-customer-level]')];
-  const options=dialog.querySelector('[data-all-group-customers]');
+  const panels=[...dialog.querySelectorAll('[data-customer-level]')];
   const compareNames=new Intl.Collator('th',{numeric:true});
   let activeId='',draggedId='',busy=false;
   const groupOf=customer=>names.has(customer.priceGroupId)?customer.priceGroupId:'';
 
   function draw(){
     const query=search.value.trim().toLocaleLowerCase('th');
-    const rows=customersList().filter(customer=>[customer.name,customer.phone,names.get(groupOf(customer))].join(' ').toLocaleLowerCase('th').includes(query))
+    const rows=customersList().filter(customer=>[customer.name,customer.phone,'NORMAL',names.get(groupOf(customer))].join(' ').toLocaleLowerCase('th').includes(query))
       .sort((a,b)=>compareNames.compare(a.name,b.name));
     const listHtml=customers=>customers.map(customer=>{
       const id=String(customer.id),name=escapeHtml(customer.name);
       return `<li><button class="price-group-customer-row" type="button" draggable="${!busy}" data-group-customer="${escapeHtml(id)}" aria-pressed="${id===activeId}" ${busy?'disabled':''}>${name}</button></li>`;
     }).join('');
-    options.innerHTML=listHtml(rows);
-    columns.forEach(column=>{column.querySelector('ul').innerHTML=listHtml(rows.filter(customer=>groupOf(customer)===column.dataset.customerLevel));});
+    panels.forEach(panel=>{
+      const groupId=panel.dataset.customerLevel;
+      panel.querySelector('ul').innerHTML=listHtml(groupId?rows.filter(customer=>groupOf(customer)===groupId):rows);
+    });
   }
 
   async function moveCustomer(id,groupId){
@@ -404,7 +405,7 @@ function openPriceGroupCustomerPicker(page,isCurrent){
     try{
       await persistContactImmediately(customer,{changes:{priceGroupId:groupId||null},isCurrent});
       persistContacts();
-      status.textContent=`ย้าย ${customer.name} ไป ${names.get(groupId)} แล้ว`;
+      status.textContent='';
       activeId='';
     }catch(error){status.textContent='ย้ายลูกค้าไม่สำเร็จ · '+error.message;}
     finally{busy=close.disabled=false;draw();search.focus();}
@@ -429,21 +430,21 @@ function openPriceGroupCustomerPicker(page,isCurrent){
     event.dataTransfer.setData('text/plain',draggedId);
     event.dataTransfer.effectAllowed='move';
   });
-  dialog.addEventListener('dragend',()=>{draggedId='';columns.forEach(column=>column.classList.remove('is-drop-target'));});
-  columns.forEach(column=>{
-    column.addEventListener('dragover',event=>{
+  dialog.addEventListener('dragend',()=>{draggedId='';panels.forEach(panel=>panel.classList.remove('is-drop-target'));});
+  panels.forEach(panel=>{
+    panel.addEventListener('dragover',event=>{
       if(!draggedId||busy)return;
       event.preventDefault();
       event.dataTransfer.dropEffect='move';
-      columns.forEach(target=>target.classList.toggle('is-drop-target',target===column));
+      panels.forEach(target=>target.classList.toggle('is-drop-target',target===panel));
     });
-    column.addEventListener('drop',event=>{
+    panel.addEventListener('drop',event=>{
       if(!draggedId)return;
       event.preventDefault();
-      column.classList.remove('is-drop-target');
+      panel.classList.remove('is-drop-target');
       const id=draggedId;
       draggedId='';
-      void moveCustomer(id,column.dataset.customerLevel);
+      void moveCustomer(id,panel.dataset.customerLevel);
     });
   });
   draw();
@@ -517,8 +518,6 @@ function selectContractPriceUnit(row,unit){
   row.querySelector('.customer-price-regular').value=fmtMoney(option.price||0);
   row.querySelector('.customer-price-cost').value=fmtMoney(option.cost||0);
   detail.querySelector('.contract-inherited').textContent=inheritedContractText(customerPriceRule(row.contractPriceGroup,product.id,unit),unit);
-  const personal=detail.querySelector('[data-personal-list]');
-  if(personal)personal.hidden=!personalPriceEntries(product.id,unit).length;
   setContractTierExpanded(row,true);
   return editor;
 }
